@@ -608,6 +608,9 @@ impl SnapshotCursor for crate::brain::Brain {
                 put_u32(out, state.deflects_seen);
                 put_bool(out, state.answer_in.is_some());
                 put_f32(out, state.answer_in.unwrap_or(0.0));
+                // Its first sight of its foe, and the beat it stands for.
+                put_bool(out, state.noticed);
+                put_f32(out, state.noticing);
             }
             Brain::StateMachine(StateMachineCfg::Skirmisher { state, .. }) => {
                 use crate::brain::state_machine::RangedVolleyPhase as P;

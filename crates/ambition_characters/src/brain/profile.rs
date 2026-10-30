@@ -257,6 +257,18 @@ pub struct MeleeTactics {
     /// `ambition_combat::fade`.
     #[serde(default)]
     pub fades: bool,
+    /// When it first sees its foe it stops and looks (s): the startle before
+    /// the chase, as Hollow Knight's enemies do (Jon, 2026-10-30: "notice,
+    /// space, telegraph, attack"). Its sheet's `notice` row is drawn over the
+    /// beat when it has one. It notices again after it has lost its foe.
+    /// `0.0` gives chase at once.
+    #[serde(default)]
+    pub notice_s: f32,
+    /// A flyer lined up over its foe hangs still this long before it dives
+    /// (s): the tell. Its sheet's `windup` row is drawn over it. `0.0` dives
+    /// at once.
+    #[serde(default)]
+    pub dive_tell_s: f32,
 }
 
 /// The answer to a deflected strike ([`MeleeTactics::counter`]).

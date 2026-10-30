@@ -85,7 +85,19 @@ pub const LANDING_LAG_NOMINAL_S: f32 = 0.15;
 /// reels, and for a body coming DOWN the time to the floor plus the lag it
 /// will owe there — the landing read, which is where a whiff punish and a
 /// kill smash come from. Zero for a body that can answer now.
+///
+/// ⛔ MEASURED FROM NOW, NOT FROM THE OBSERVATION. The view is
+/// [`Perceived::staleness_s`] old (300 ms at rung 5), and the foe's clock ran
+/// for that long after it was seen: a recovery seen with 0.25 s left is over
+/// by the time this body can act. `counter_value` already subtracted the age;
+/// this did not, so every punish priced against it saw a window that had
+/// closed.
 pub fn foe_commitment(view: &Perceived<'_>, foe: &PerceivedActor) -> f32 {
+    (seen_commitment(view, foe) - view.staleness_s()).max(0.0)
+}
+
+/// [`foe_commitment`] as of the observation.
+fn seen_commitment(view: &Perceived<'_>, foe: &PerceivedActor) -> f32 {
     let me = &view.self_view;
     if foe.phase.is_punishable() {
         return foe.phase_remaining;
@@ -2115,8 +2127,12 @@ fn movement_options(
     // floor is still there. Zero when there is nobody to approach, and a zero
     // direction reads as "no ledge question", which is correct: a brain with no
     // foe is not closing on anything.
-    let first_foe = view.actors.iter().find(|actor| actor.hostile_to_self && actor.alive);
-    let toward_foe = first_foe.map(|foe| view.side_sign_toward(foe.pos)).unwrap_or(0.0);
+    // The NEAREST hostile, the one body every other layer of this brain
+    // targets. This read the first hostile in the actor list, so with three
+    // or four fighters the ledge question was asked toward whoever happened
+    // to be enumerated first.
+    let target = view.nearest_hostile();
+    let toward_foe = target.map(|foe| view.side_sign_toward(foe.pos)).unwrap_or(0.0);
     // THE GENRE'S DEFENSIVE READ. A swing that reaches is answered on the
     // ground with a shield, or with a spot dodge as the mix-up — both outrank
     // walking into it. `incoming_attack` is the one rule; the decision's
@@ -2127,7 +2143,7 @@ fn movement_options(
     // away, which is the genre's neutral at a stand-off and comes out of the
     // body's own velocity rather than a stored phase.
     let gap = side_gap(view);
-    let spacing_band = my_reach > 0.0 && first_foe.is_some();
+    let spacing_band = my_reach > 0.0 && target.is_some();
     let beyond_reach = spacing_band && gap > my_reach * 1.15;
     let at_reach = spacing_band && !beyond_reach;
     let side = me.acceleration_frame().side;
@@ -2137,16 +2153,16 @@ fn movement_options(
     // 30 s): nothing was admitted in 94% of decisions, so a dance keyed to
     // "nothing admitted" alone backed off from a foe that was in the air or
     // reeling, and the ground contact the attacks need never came.
-    let foe_standing = first_foe.is_some_and(|foe| {
+    let foe_standing = target.is_some_and(|foe| {
         foe.on_ground && !super::situation::is_punishable(foe, me.gravity_down)
     });
     // ANTI-AIR: a foe in the air above this body is a short hop from an
     // aerial, and nothing on the ground reaches it.
-    let foe_above = first_foe.is_some_and(|foe| {
+    let foe_above = target.is_some_and(|foe| {
         !foe.on_ground && (me.pos - foe.pos).dot(me.gravity_down) > me.half_extent.y
     });
     let approach_walks_off = toward_foe != 0.0 && walks_off(view, toward_foe);
-    let approach_overshoots = first_foe.is_some_and(|foe| overshoots(view, foe, toward_foe));
+    let approach_overshoots = target.is_some_and(|foe| overshoots(view, foe, toward_foe));
     let retreat_walks_off = toward_foe != 0.0 && walks_off(view, -toward_foe);
     // A ground roll goes where `apply_movement` aims it: away from a swing,
     // toward the foe otherwise. It replaces the run's velocity with its own, so

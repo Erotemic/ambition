@@ -24,6 +24,7 @@
         ( type: "Switch", px: [600, 544], size: [24, 32], fields: ( id: "castle_godwin_trapdoor_lever", name: "the trapdoor lever", prompt: "Pull the lever", action: "ToggleFlag", target_encounter: "" ) ),
         ( type: "PlayerStart", px: [286, 530], size: [28, 46], fields: ( name: "castle_godwin_cells_spawn" ) ),
         ( type: "NpcSpawn", px: [404, 512], size: [32, 64], fields: ( character_id: "npc_castle_quill", prompt: "Talk", dialogue_id: "castle_quill", brain_override: "stand_still" ) ),
+        ( type: "EnemySpawn", px: [164, 548], size: [52, 28], fields: ( name: "castle_godwin_cells_legless_1", brain: "combatant", character_id: "npc_evil_zombie_crawler", respawn: "OnRoomReenter" ) ),
         ( type: "DebugLabel", px: [10, 150], size: [260, 24], fields: ( name: "cells_sign_chute", text: "SUGGESTIONS: received", category: "Custom" ) ),
         ( type: "DebugLabel", px: [410, 180], size: [220, 24], fields: ( name: "cells_sign_rules", text: "NO COMPLAINING", category: "Custom" ) ),
         ( type: "DebugLabel", px: [60, 70], size: [380, 24], fields: ( name: "cells_sign_trapdoor", text: "TRAPDOOR: to the barracks (lever by the desk)", category: "Custom" ) ),

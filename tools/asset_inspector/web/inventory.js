@@ -19,12 +19,26 @@
       chip(c.resolution.state), esc(c.resolution.row), esc((c.resolution.steps || []).join(' → ')), c.valid ? 'valid' : 'missing or invalid']));
     return table(['Body','Action','Tier','Source','Profile','Resolution','Row','Steps','Runtime product'], rows);
   }
+  // Strictly stale vs possibly stale: only shared code changed, so the pixels are probably the same.
+  function staleness(status) {
+    const reasons = status.reasons || [];
+    const own = reasons.filter(r => (r.scope || 'direct') === 'direct' && r.code !== 'unknown-inputs');
+    const shared = reasons.filter(r => r.scope === 'shared');
+    const files = shared.flatMap(r => r.path ? [[r.readers ?? '', r.path]] : (r.members || []).map(p => ['', p])).sort((a, b) => (a[0] || 1e9) - (b[0] || 1e9));
+    const other = shared.filter(r => !r.path && !r.members).map(r => r.code.replace(/-/g, ' '));
+    if (status.state === 'possibly-stale') return `<p class="stamp">Possibly stale: none of its own inputs changed. Strictly it is stale, because shared code changed${other.length ? ` (${esc(other.join(', '))})` : ''}.
+      ${files.length ? `<details><summary>${files.length} changed shared file(s), most specific first</summary>${files.slice(0, 40).map(([n, p]) => `<div><code>${esc(p)}</code>${n !== '' ? ` <small>read by ${esc(n)} bundles</small>` : ''}</div>`).join('')}</details>` : ''}
+      Rebuild only directly stale art with <code>./scripts/regen/sprites.sh --loose</code>; a plain run renders this too.</p>`;
+    if (status.state === 'stale' && own.length) return `<p class="stamp stale">Stale: its own inputs changed. ${own.slice(0, 8).map(r => `<code>${esc(r.path || (r.members || []).join(', ') || r.code)}</code>`).join(' ')}</p>`;
+    return '';
+  }
   function unitView(unit) {
     if (!unit) return '<p>Unit unavailable.</p>';
     const source = unit.generator.source;
     const studioSpec = source?.split('ambition_sprite2d_renderer/ambition_sprite2d_renderer/')[1]?.replace(/^data\//, '');
     const studio = studioSpec?.endsWith('.chargen.yaml') ? `<a href="http://localhost:8765/#open=${enc(studioSpec)}&pose=death">Source Studio: death</a> (start <code>./scripts/chargen_studio.sh --open</code>)` : '';
     return `<h1>${esc(unit.id)}</h1><p>${chip(unit.kind)} ${chip(unit.game_use)} ${chip(unit.registration)} ${chip(unit.status.state)}</p>
+      ${staleness(unit.status)}
       <p>Publish: <code>${esc(unit.repair)}</code></p><p>${source ? repoLink(source) : 'Source path unknown'} ${studio}</p>
       <p>${(unit.assets || []).map(a => `<a href="#asset/${enc(a)}">Published preview: ${esc(C.assets[a].name)}</a>`).join(' · ')}</p>
       <h2>Identities and relations</h2>${table(['Identity','Game label','Art manifest','Relations','Tags'], unit.identities.map(cid => { const a = I.identities[cid]; return [`<a href="#character/${enc(cid)}">${esc(cid)}</a>`,esc(a.display),esc(a.catalog.manifest),json(a.relations),esc((a.catalog.tags || []).join(' '))]; }))}

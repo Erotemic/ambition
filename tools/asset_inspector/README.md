@@ -1,36 +1,66 @@
-# Art inspector
+# Asset inspector
 
-Use the inspector to find required art, inspect animation coverage, and compare
-published art with its source and design history. The CLI and offline page use
-one derived report. The report does not publish art or start a Cargo build.
+The asset inspector is the one place to browse and review every asset of an
+engine game: characters and their sprite sheets, images, music, sound effects,
+fonts and worlds. It shows what exists, what is missing or stale, how to make
+it, where the game uses it, and how assets relate, including the design lineage
+of characters. Editing assets from the page is planned; the local server is the
+place it will write.
 
-Run `./scripts/art_inspector.py` with no arguments to see what exists. It opens
-the last index in a browser at once and refreshes it in the background. The page
-offers a reload when the refresh is done. The first run builds before it opens.
+Run `./scripts/asset_inspector.py` with no arguments. It opens the last index
+in a browser at once and refreshes it in the background. The page offers a
+reload when the refresh is done. The first run builds before it opens.
+`scripts/art_inspector.py` is the old name and runs the same tool.
 
-A problem never stops the index. If the game catalog cannot be read, the page
-still shows the art, generators and lineages. A notice names the problem and
-its fix, such as rebuilding a stale content check binary.
+A problem never stops the index. If one source cannot be read, the page still
+shows everything else. A notice names the problem and its fix, such as
+rebuilding a stale content check binary.
 
-Build the content inspection binary once:
+## What it reads
+
+Everything comes from the selected library manifest (`library.json`) and game
+pack, so another engine game is inspected the same way (`--profile`,
+`--library`).
+
+- **Overview** joins the library's producer families (`scripts/content_status.py`)
+  with a count of each kind and a list of what needs attention.
+- **Characters**, **Images** and **Inventory** read the sprite publication and
+  the game catalog, as described below.
+- **Music** reads the music registry, the music tool's active scores, its newest
+  renders and its review files. A registered track the game lacks is missing;
+  a score no registry names is unregistered. A music review made before the
+  score last changed is marked.
+- **Sound** reads the sound bank and the sound tool's sources. The page plays
+  each clip, extracted from the bank.
+- **Fonts** reads the font policy and the downloaded files, and draws a sample.
+- **Worlds** reads the pack's LDtk worlds: each room's music, parallax theme and
+  biome. A room's music links to its track.
+- **Uses** come from quoted ids and asset paths in game and engine text, and
+  from world rooms.
+
+Any item can take a review note (`serve`). A note records the version of the
+files it reviewed, so it stays attached after the asset changes.
+
+The Characters view needs the content check binary. The inspector uses the
+newer of its release and debug builds. When the binary is missing or older than
+an engine Rust source, a build or the served page's refresh rebuilds it in
+release mode, then reads the catalog again. `--no-cargo` turns that off. By hand:
 
 ```bash
-cargo build -p ambition_content_schemas --bin ambition_content_check
+cargo build --release -p ambition_content_schemas --bin ambition_content_check
 ```
 
-Reuse this binary after content or art edits. Rebuild it after changes to its
-Rust owners. This command builds the content and sheet readers. It needs no
-window, graphics device, or game host.
+It needs no window, graphics device, or game host.
 
 ## Common queries
 
 ```bash
-python3 scripts/art_inspector.py status --current-game --needs-generation --json
-python3 scripts/art_inspector.py inspect npc_tower_voss --animation death --json
-python3 scripts/art_inspector.py coverage --missing death --json
-python3 scripts/art_inspector.py list --kind actor,prop,background,terrain --lineage --json
-python3 scripts/art_inspector.py build --open
-python3 scripts/art_inspector.py serve --open
+python3 scripts/asset_inspector.py status --current-game --needs-generation --json
+python3 scripts/asset_inspector.py inspect npc_tower_voss --animation death --json
+python3 scripts/asset_inspector.py coverage --missing death --json
+python3 scripts/asset_inspector.py list --kind actor,prop,background,terrain --lineage --json
+python3 scripts/asset_inspector.py build --open
+python3 scripts/asset_inspector.py serve --open
 ```
 
 `--profile ambition` selects `game/ambition_content/assets`. To inspect another
@@ -45,7 +75,7 @@ queries. `inspect ID` also accepts a target, game label, tag, or source trait.
 `--animation NAME` limits its coverage table. JSON retains owner warnings and
 evidence gaps when a query has no results.
 
-The build writes `.agent/art_inspector/index.html`, its scripts, and previews.
+The build writes `.agent/asset_inspector/index.html`, its scripts, and previews.
 Open the page from disk. It needs no web server. `--no-previews` updates the
 index and names preview paths without drawing new strips. `--jobs N` sets the
 preview process count, to a maximum of six. `--prune` removes unused previews.
@@ -62,7 +92,7 @@ The game label and art label remain separate values. Explicit `form_of`,
 `part_of`, and `derived_from` relations keep their different meanings. A name
 suffix does not establish identity or a generation.
 
-The page opens at **Characters**. It groups declared forms and parts under their
+**Characters** groups declared forms and parts under their
 character. Expand a group to open each entry. **All catalog entries** shows the
 flat catalog. Independent characters remain separate when they share art or
 ancestry. Click a card to open its character page.
@@ -129,7 +159,7 @@ character page, write a note, select its priority and optional animation, then
 save it. Character cards show open-note counts. **Review notes** opens the
 backlog, sorted by priority, with an export for offline work.
 
-Notes are JSON files in `tools/art_inspector/reviews/notes/`. These are authored
+Notes are JSON files in `tools/asset_inspector/reviews/notes/`. These are authored
 review data. Commit them with other review changes. They are outside the
 generated page directory and browser storage. The service writes them at once.
 The page opened from disk can show the notes included at build time; use the
@@ -145,10 +175,10 @@ until someone reviews the fix and resolves it.
 Read and update the same files from the CLI:
 
 ```bash
-python3 scripts/art_inspector.py notes backlog --json
-python3 scripts/art_inspector.py notes add ambition:npc_general --animation death --priority high --text "The cap clips during the fall."
-python3 scripts/art_inspector.py notes resolve NOTE_UUID --resolution "Fixed the cap joint and reviewed the new fall."
-python3 scripts/art_inspector.py notes reopen NOTE_UUID
+python3 scripts/asset_inspector.py notes backlog --json
+python3 scripts/asset_inspector.py notes add ambition:npc_general --animation death --priority high --text "The cap clips during the fall."
+python3 scripts/asset_inspector.py notes resolve NOTE_UUID --resolution "Fixed the cap joint and reviewed the new fall."
+python3 scripts/asset_inspector.py notes reopen NOTE_UUID
 ```
 
 For an overnight task, read `notes backlog --json`, inspect each note's recorded
@@ -176,6 +206,13 @@ root, outside runtime asset roots.
 Legacy receipts with no complete input record stay unknown. A known changed
 input or changed output can still prove staleness. `--needs-generation` selects
 positive missing or stale evidence; unknown generation evidence needs review.
+
+Strictly stale is not always worth a rebuild. A unit stale only because shared
+renderer code, the toolchain or the set of renderer files changed is shown as
+**possibly stale**. Its page lists the changed shared files, the most specific
+first. `--needs-generation` leaves possibly stale units out; add `--strict` to
+count them. `./scripts/regen/sprites.sh --loose` rebuilds only directly stale
+art, and a plain run rebuilds everything that is not strictly current.
 See [sprite publication](../../docs/tools/sprite-publication.md) for planning,
 source snapshots, exact membership, and unmanaged files. A focused publish
 records evidence for that bundle:
@@ -200,7 +237,7 @@ An opt-in capture writes a read-only art snapshot beside the image:
 
 ```bash
 target/debug/capture_scene military_tower player /tmp/art.png --art-snapshot
-python3 scripts/art_inspector.py build --runtime-snapshot /tmp/art.0000.art.json --open
+python3 scripts/asset_inspector.py build --runtime-snapshot /tmp/art.0000.art.json --open
 ```
 
 Use an existing room ID and the snapshot file the capture produced. The snapshot
@@ -212,7 +249,7 @@ pixel bytes are already uploaded to the live graphics device.
 
 ## Validation
 
-Run the inspector tests with `python3 -m pytest tools/art_inspector/tests -q`.
+Run the inspector tests with `python3 -m pytest tools/asset_inspector/tests -q`.
 Renderer tests cover accepted bundles, source changes, missing pages, and failed
 conversion acceptance. Sprite staging tests exercise receipt and pixel
 publication together. Rust sheet tests cover the original `Death -> Hit -> Idle`

@@ -93,6 +93,27 @@ pub struct NavigationRequest {
 }
 
 impl Brain {
+    /// It stands and looks at a foe it has just seen (a brute's
+    /// [`MeleeTactics::notice_s`]): its sheet's `notice` row is drawn.
+    pub fn is_noticing(&self) -> bool {
+        matches!(self, Brain::StateMachine(StateMachineCfg::MeleeBrute { state, .. }) if state.is_noticing())
+    }
+
+    /// It winds up an attack its brain times, not its move: a skirmisher's
+    /// volley ([`RangedVolley::windup_s`]), a flyer's tell before its dive
+    /// ([`MeleeTactics::dive_tell_s`]). Its sheet's `windup` row is drawn.
+    pub fn is_winding_up(&self) -> bool {
+        match self {
+            Brain::StateMachine(StateMachineCfg::Skirmisher { state, .. }) => {
+                matches!(state.volley_phase, state_machine::RangedVolleyPhase::Windup { .. })
+            }
+            Brain::StateMachine(StateMachineCfg::Aerial { state, .. }) => {
+                state.phase == state_machine::AerialPhase::Dive && state.mode == crate::actor::ai::CharacterAiMode::Telegraph
+            }
+            _ => false,
+        }
+    }
+
     /// Construct a `Brain::StateMachine(StandStill)`. Used by spawn
     /// sites that want a no-op AI brain (sandbags, dialogue-only
     /// NPCs).

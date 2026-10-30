@@ -1,26 +1,33 @@
 ---
 status: current
-last_verified: 2026-10-27
+last_verified: 2026-10-30
 related_docs:
   - docs/tools/generated-visual-tools.md
   - docs/concepts/asset-management.md
 ---
 
-# Art inspector
+# Asset inspector
 
-The inspector joins owner reports for registered bundles, prepared game
-identities, local products, concepts, and design history. It includes missing
-art. Game use, registration, generation state, and lineage are separate facts.
-See the [tool guide](../../tools/art_inspector/README.md) for the full interface.
+The asset inspector is the central place to browse and review every asset of
+an engine game: characters, images, music, sound effects, fonts and worlds.
+Run `./scripts/asset_inspector.py` with no arguments to open it. It shows what
+exists, what is missing or stale and how to make it, where the game uses each
+asset, and how assets relate, including character lineage. Any asset can take a
+review note. A failure in one source becomes a notice, never a refusal.
+
+For sprites it joins owner reports for registered bundles, prepared game
+identities, local products, concepts, and design history. Game use,
+registration, generation state, and lineage are separate facts.
+See the [tool guide](../../tools/asset_inspector/README.md) for the full interface.
 
 Build the content and runtime sheet reader once, then reuse it after data edits:
 
 ```bash
-cargo build -p ambition_content_schemas --bin ambition_content_check
-python3 scripts/art_inspector.py status --current-game --needs-generation --json
-python3 scripts/art_inspector.py inspect npc_tower_voss --animation death --json
-python3 scripts/art_inspector.py coverage --missing death --json
-python3 scripts/art_inspector.py build --open
+cargo build --release -p ambition_content_schemas --bin ambition_content_check
+python3 scripts/asset_inspector.py status --current-game --needs-generation --json
+python3 scripts/asset_inspector.py inspect npc_tower_voss --animation death --json
+python3 scripts/asset_inspector.py coverage --missing death --json
+python3 scripts/asset_inspector.py build --open
 ```
 
 The offline page opens at Characters. This page groups declared forms and parts
@@ -38,7 +45,7 @@ physical foot anchor can use the visible bottom as its preview baseline.
 The framing evidence retains the physical anchor. Playback and
 comparison can switch to the full animation frame. Runtime RON supplies the
 geometry; the preview reports its measured framing basis.
-Use `python3 scripts/art_inspector.py serve --open` to save review notes on a
+Use `python3 scripts/asset_inspector.py serve --open` to save review notes on a
 character page. The Review notes page and `notes backlog --json` expose the
 same durable task queue. Each note keeps its exact art generation and source
 context. See the tool guide for storage, generation changes, and resolution.

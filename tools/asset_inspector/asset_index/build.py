@@ -1,8 +1,8 @@
 """Build the art index and the offline inspector page.
 
-    python -m art_index build [--out DIR] [--jobs N] [--no-previews] [--open]
+    python -m asset_index build [--out DIR] [--jobs N] [--no-previews] [--open]
 
-Writes `DIR` (default `.agent/art_inspector/`, git-ignored): `index.html`,
+Writes `DIR` (default `.agent/asset_inspector/`, git-ignored): `index.html`,
 `app.js`, `app.css`, `catalog.js` (the index, as a script so that the page
 works from `file://`) and the previews. The page links to the art and the
 source files by relative paths, so it opens in place, with no server.
@@ -23,7 +23,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-from . import SCHEMA, assets as assets_mod, diagnostics, generators, lineage, related, thumbs, usage, inventory, reviews, sheets, sources
+from . import SCHEMA, assets as assets_mod, diagnostics, generators, kinds, lineage, related, thumbs, usage, inventory, reviews, sheets, sources
 from .paths import forget_roots, repo_root, roots
 from .scan import HashCache, scan
 
@@ -49,6 +49,7 @@ def build(
     binary: Path | None = None,
     deep: bool = False,
     runtime_path: Path | None = None,
+    cargo: bool = False,
     log=print,
 ) -> dict[str, Any]:
     """Index the art of `repo` into `out`. `targets` stands in for the
@@ -62,12 +63,11 @@ def build(
     forget_roots()
     hashes = HashCache(out / "hash_cache.json", deep=deep)
     # The renderer's product report is a separate process; let it run while the scan does.
-    early = None
-    if targets is None:
-        from concurrent.futures import ThreadPoolExecutor
-        pool = ThreadPoolExecutor(max_workers=1)
-        early = pool.submit(sources.products, repo, python, deep=deep)
-        pool.shutdown(wait=False)
+    from concurrent.futures import ThreadPoolExecutor
+    pool = ThreadPoolExecutor(max_workers=2)
+    early = pool.submit(sources.products, repo, python, deep=deep) if targets is None else None
+    family_report = pool.submit(kinds.family_status, repo)
+    pool.shutdown(wait=False)
     step("scanning the art roots")
     products = scan(roots(repo), hashes)
     # Keep the digests now: a later failure must not make the next build rehash every file.
@@ -77,7 +77,7 @@ def build(
     inspection = None
     if targets is None:
         inspection = inventory.collect(repo, out, profile=profile, python=python, binary=binary, deep=deep, runtime_path=runtime_path,
-                                       product_report=early.result())
+                                       product_report=early.result(), cargo=cargo, log=log)
         if inspection["profile"]["state"] != "available":
             # The art, generators and lineages still index; the page names the problem and its fix.
             problem = inspection["profile"].get("warnings") or ["The content inspection tool is unavailable."]
@@ -156,6 +156,13 @@ def build(
                     identity["preview"] = {"asset": asset["id"], "row": row,
                         "cover": asset.get("layout", {}).get("covers", {}).get(row, asset.get("cover"))}
             unit.setdefault("assets", []).append(asset["id"])
+    step("music, sound, fonts and worlds")
+    try:
+        families = family_report.result()
+    except Exception as error:  # noqa: BLE001 - the overview names it; the items still index
+        families = {"libraries": [], "notice": f"{type(error).__name__}: {error}"}
+    catalog["families"] = families
+    catalog.update(kinds.collect(repo, out, hashes, pack=sources.pack_dir(repo, profile), families=families, log=log))
     catalog["reviews"] = reviews.snapshot(repo, catalog)
     hashes.save()
     catalog["build_seconds"] = round(time.perf_counter() - started, 1)
@@ -164,7 +171,7 @@ def build(
     partial = out / "catalog.js.partial"
     partial.write_text(f"window.ART_CATALOG = {text};\n")
     partial.replace(out / "catalog.js")
-    for name in ("index.html", "app.js", "app.css", "inventory.js", "characters.js", "reviews.js"):
+    for name in ("index.html", "app.js", "app.css", "inventory.js", "characters.js", "reviews.js", "items.js"):
         shutil.copyfile(WEB / name, out / name)
     step(f"wrote {out / 'index.html'} ({len(assets)} assets, {len(products)} files, {len(found)} findings)")
     return catalog
@@ -285,19 +292,20 @@ def _catalog(repo: Path, out: Path, products, assets, ev, uses, placements, foun
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="art_index", description=__doc__.split("\n", 1)[0])
+    parser = argparse.ArgumentParser(prog="asset_index", description=__doc__.split("\n", 1)[0])
     sub = parser.add_subparsers(dest="command", required=True)
     b = sub.add_parser("build", help="index the art and write the inspector page")
     s = sub.add_parser("serve", help="build the inspector and serve it with durable review notes")
     s.add_argument("--port", type=int, default=8767)
     for page in (b, s):
-        page.add_argument("--out", type=Path, default=None, help="default: <repo>/.agent/art_inspector")
+        page.add_argument("--out", type=Path, default=None, help="default: <repo>/.agent/asset_inspector")
         page.add_argument("--jobs", type=int, default=4, help=f"preview processes (at most {thumbs.MAX_JOBS})")
         page.add_argument("--no-previews", action="store_true", help="name previews but draw none (a fast rebuild of the index)")
         page.add_argument("--prune", action="store_true", help="delete previews the index no longer names")
         page.add_argument("--renderer-python", default=None, help="the interpreter for `ambition_sprite2d_renderer list --json`")
         page.add_argument("--authorship", action="store_true", help="read Git authorship and history previews")
         page.add_argument("--open", action="store_true", help="open the page in a browser when built")
+        page.add_argument("--no-cargo", action="store_true", help="do not rebuild a content check binary older than the engine's Rust sources")
     n = sub.add_parser("notes", help="read the review backlog or save a review note")
     n.add_argument("action", choices=("backlog", "list", "add", "resolve", "reopen"))
     n.add_argument("id", nargs="?", help="full character identity for add; note UUID for resolve or reopen")
@@ -316,6 +324,7 @@ def main(argv: list[str] | None = None) -> int:
         query.add_argument("--kind", default="")
         query.add_argument("--lineage", nargs="?", const="", default="")
         query.add_argument("--needs-generation", action="store_true")
+        query.add_argument("--strict", action="store_true", help="count possibly stale units (only shared code changed) as needing generation")
         query.add_argument("--current-game", action="store_true")
         query.add_argument("--animation", default="")
         query.add_argument("--missing", default="")
@@ -337,7 +346,11 @@ def main(argv: list[str] | None = None) -> int:
     if getattr(args, "library", None):
         import os
         os.environ["AMBITION_CONTENT_LIBRARY"] = str((repo / args.library).resolve())
-    out = (args.out or repo / ".agent" / "art_inspector").resolve()
+    out = (args.out or repo / ".agent" / "asset_inspector").resolve()
+    legacy = repo / ".agent" / "art_inspector"
+    if args.out is None and not out.exists() and legacy.is_dir():
+        # The art inspector's output: keep its previews and caches under the new name.
+        legacy.rename(out)
     if args.command == "serve" and not out.is_relative_to(repo):
         parser.error("serve --out must be inside the repository")
     if args.command == "notes":
@@ -346,7 +359,7 @@ def main(argv: list[str] | None = None) -> int:
         report = inventory.collect(repo, out, profile=args.profile, python=args.renderer_python, binary=args.content_binary,
                                    deep=args.deep, runtime_path=args.runtime_snapshot)
         rows = inventory.select(report, query=args.query, kind=args.kind, needs=args.needs_generation,
-                                game_only=args.current_game, lineage=args.lineage, missing=args.missing)
+                                game_only=args.current_game, lineage=args.lineage, missing=args.missing, strict=args.strict)
         selected = {cid: report["identities"][cid] for unit in rows for cid in unit["identities"]}
         if args.animation:
             selected = {cid: dict(row, coverage=[c for c in row["coverage"] if c["action"] == args.animation]) for cid, row in selected.items()}
@@ -368,7 +381,7 @@ def main(argv: list[str] | None = None) -> int:
     def run(log=print):
         return build(repo, out, jobs=args.jobs, previews=not args.no_previews, prune=args.prune, python=args.renderer_python,
                      lineages=args.authorship, profile=args.profile, binary=args.content_binary, deep=args.deep,
-                     runtime_path=args.runtime_snapshot, log=log)
+                     runtime_path=args.runtime_snapshot, cargo=not args.no_cargo, log=log)
     if args.command == "serve":
         from .server import serve
         serve(repo, out, port=args.port, open_browser=args.open, build=run)

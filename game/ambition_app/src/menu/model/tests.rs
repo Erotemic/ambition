@@ -11,9 +11,11 @@ fn items_face_wires_all_24_slots_from_our_catalog() {
         "the cube's items face has one cell per inventory slot (24)"
     );
     // Slots are in grid order; labels are wrapped from our catalog.
+    // Nothing is owned here, so each cell says it is locked.
     for (idx, cell) in spec.cells.iter().enumerate() {
         assert_eq!(cell.slot.0, idx);
-        assert_eq!(cell.label, cell_label(ambition_platformer2d::items::test_item_catalog().display_name(Item::ALL[idx]).unwrap()));
+        let name = ambition_platformer2d::items::test_item_catalog().display_name(Item::ALL[idx]).unwrap();
+        assert_eq!(cell.label, cell_label(&format!("{name} ???")));
     }
 }
 
@@ -26,9 +28,64 @@ fn owned_and_equipped_flags_reflect_inventory_state() {
     assert!(blink.owned, "granted item reads owned");
     assert!(blink.equipped, "equipped item reads equipped");
     assert!(blink.action.is_some(), "owned item has an action");
-    // An un-granted item is unowned + actionless.
-    let unowned = spec.cells.iter().find(|c| !c.owned).expect("some unowned");
-    assert!(unowned.action.is_none());
+    assert!(!blink.label.contains("???"), "an owned cell is not locked: {:?}", blink.label);
+    // ⭐ A LOCKED CELL STILL CARRIES THE CURSOR. Every renderer finds and
+    // draws the cursor through a control's action, so a locked cell has one;
+    // `effects::decide` answers it `NotOwned` and nothing changes. It says it
+    // is locked: `???`, no verb, no picture.
+    let locked = &spec.cells[Item::Axe.index()];
+    assert_eq!(locked.action, Some(MenuPageAction::Use(Item::Axe)), "the cursor can land on a locked cell");
+    assert!(locked.label.contains("???"), "{:?}", locked.label);
+    assert!(locked.action_label.is_none() && locked.icon.is_none());
+}
+
+/// The cursor is drawn on a locked cell: the lowered page has a control with
+/// an action at every one of the 24 slots, so the focus lookup that walks the
+/// actions (`grid_backend::cursor_focus_key`, the cube's focus sync) finds
+/// each slot.
+#[test]
+fn every_slot_of_the_grid_can_carry_the_cursor() {
+    let catalog = ambition_platformer2d::items::test_item_catalog();
+    let page = build_items_page(&OwnedItems::default(), catalog, EquippedItems::default());
+    let slots: Vec<Item> = page
+        .nodes
+        .iter()
+        .filter_map(|node| match node {
+            MenuNode::Control {
+                kind: MenuControlKind::Item,
+                action: Some(MenuPageAction::Equip(item) | MenuPageAction::Use(item)),
+                ..
+            } => Some(*item),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(slots, Item::ALL.to_vec(), "a locked slot dropped out of the cursor's reach");
+}
+
+/// A cell states each fact once: "equipped" once, a verb once.
+#[test]
+fn a_cell_states_each_fact_once() {
+    let catalog = ambition_platformer2d::items::test_item_catalog();
+    let owned = OwnedItems::starter(catalog);
+    let page = build_items_page(&owned, catalog, EquippedItems::of(catalog, Some(Item::Axe), None));
+    let details: Vec<String> = page
+        .nodes
+        .iter()
+        .filter_map(|node| match node {
+            MenuNode::Control { kind: MenuControlKind::Item, detail, .. } => Some(detail.clone().unwrap_or_default()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(details[Item::Axe.index()], "equipped");
+    assert_eq!(details[Item::Javelin.index()], "equip");
+    assert_eq!(details[Item::HealthCell.index()], "use | x3");
+    for detail in &details {
+        let words: Vec<String> = detail.split(" | ").map(str::to_lowercase).collect();
+        let mut unique = words.clone();
+        unique.sort();
+        unique.dedup();
+        assert_eq!(unique.len(), words.len(), "a cell repeats itself: {detail:?}");
+    }
 }
 
 /// A stack shows how many the bag holds; a unique item shows no count.
@@ -65,7 +122,8 @@ fn cell_labels_wrap_and_stay_short() {
 fn item_cells_carry_a_sprite_icon_when_one_exists_else_fall_back_to_text() {
     // Items with authored art emit an `icon` on their grid control; items
     // without art carry `None` (the lib then renders the text label).
-    let owned = OwnedItems::default();
+    // The demo's bag: every real item is owned, and a placeholder is locked.
+    let owned = OwnedItems::starter(ambition_platformer2d::items::test_item_catalog());
     let page = build_items_page(&owned, ambition_platformer2d::items::test_item_catalog(), EquippedItems::default());
     // Item-grid controls are emitted in catalog slot order, so the icon list
     // lines up 1:1 with `Item::ALL`.
@@ -83,7 +141,8 @@ fn item_cells_carry_a_sprite_icon_when_one_exists_else_fall_back_to_text() {
         .collect();
     assert_eq!(icons.len(), Item::ALL.len(), "one control per catalog item");
     for (item, icon) in Item::ALL.into_iter().zip(icons.iter()) {
-        match ambition_platformer2d::items::test_item_catalog().icon(item) {
+        // A locked cell shows no picture.
+        match ambition_platformer2d::items::test_item_catalog().icon(item).filter(|_| owned.has(item)) {
             Some(path) => assert_eq!(
                 icon.as_deref(),
                 Some(path),

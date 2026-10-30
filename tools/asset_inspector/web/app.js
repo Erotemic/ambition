@@ -1,11 +1,11 @@
-// The Ambition art inspector: an offline page over catalog.js (built by
-// `python -m art_index build`). Every image and source file is linked by a
+// The Ambition asset inspector: an offline page over catalog.js (built by
+// `python -m asset_index build`). Every image and source file is linked by a
 // relative path from this page, so it works from file:// with no server.
 (function () {
   "use strict";
   const C = window.ART_CATALOG;
   const app = document.getElementById("app");
-  if (!C) { app.innerHTML = '<p class="empty">catalog.js is missing: run <code>python3 scripts/art_inspector.py build</code>.</p>'; return; }
+  if (!C) { app.innerHTML = '<p class="empty">catalog.js is missing: run <code>python3 scripts/asset_inspector.py build</code>.</p>'; return; }
 
   const CONF = ["verified", "declared", "derived", "inferred", "reference", "unknown"];
   const CONF_TEXT = {
@@ -356,7 +356,7 @@
   }
 
   // ---- related assets and the way through them ---------------------------------------
-  // `related` comes from the index (`art_index/related.py`): the other forms of
+  // `related` comes from the index (`asset_index/related.py`): the other forms of
   // the character, its lineage, the art made the same way. The type is the family.
   function relGroup(key) {
     if (!key) return null;
@@ -582,8 +582,15 @@
     const h = decodeURIComponent(location.hash.slice(1));
     const [view, ...rest] = h.split("/");
     const id = rest.join("/");
-    document.querySelectorAll(".top .tabs a").forEach((a) => a.classList.toggle("on", a.dataset.view === (view === "asset" ? "gallery" : view === "gen" ? "generators" : view === "character" ? "characters" : view || "characters")));
-    if (view === "characters" || view === "character" || !view) window.renderArtCharacters(view === "character" ? id : "", {assetPanels, wireAnimation, lineageBox});
+    const itemKind = view === "item" ? (C.items?.[id]?.kind || "") : "";
+    const tab = view === "asset" ? "gallery" : view === "gen" ? "generators" : view === "character" ? "characters"
+      : view === "item" ? (window.AssetItems.VIEW[itemKind] || "overview") : view || "overview";
+    document.querySelectorAll(".top .tabs a").forEach((a) => a.classList.toggle("on", a.dataset.view === tab));
+    const KIND_OF_VIEW = { music: "music", sound: "sfx", fonts: "font", worlds: "world" };
+    if (!view || view === "overview") window.AssetItems.overview();
+    else if (KIND_OF_VIEW[view]) window.AssetItems.list(KIND_OF_VIEW[view]);
+    else if (view === "item") window.AssetItems.detail(id);
+    else if (view === "characters" || view === "character") window.renderArtCharacters(view === "character" ? id : "", {assetPanels, wireAnimation, lineageBox});
     else if (view === "inventory") window.renderArtInventory(id || "current");
     else if (view === "reviews") window.ArtReviews.backlog();
     else if (view === "asset") detail(id);
@@ -601,6 +608,7 @@
       state.q = q.value; state.page = 0;
       const v = location.hash.slice(1).split("/")[0];
       if (v === "character") location.hash = "#characters";
+      else if (v === "item") location.hash = "#overview";
       else if (v === "asset" || v === "gen") location.hash = "#gallery"; else route();
     }, 120);
   });
@@ -614,14 +622,14 @@
     if (e.key === "Escape" && document.activeElement === q) { q.value = ""; state.q = ""; route(); }
   });
   const themeBtn = document.getElementById("theme");
-  try { const t = localStorage.getItem("art-inspector-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) { /* no storage: system theme */ }
+  try { const t = localStorage.getItem("asset-inspector-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) { /* no storage: system theme */ }
   themeBtn.addEventListener("click", () => {
     const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
     document.documentElement.dataset.theme = dark ? "light" : "dark";
-    try { localStorage.setItem("art-inspector-theme", document.documentElement.dataset.theme); } catch (e) { /* ignore */ }
+    try { localStorage.setItem("asset-inspector-theme", document.documentElement.dataset.theme); } catch (e) { /* ignore */ }
   });
   const stamp = document.getElementById("stamp");
-  stamp.textContent = `Built ${C.built_at} at ${String(C.repo_commit).slice(0, 10)} (renderer ${String(C.renderer_commit).slice(0, 10)}) in ${C.build_seconds}s · ${fmt(assetList.length)} assets · ${fmt(Object.keys(products).length)} files · ${fmt(C.findings.length)} findings. Refresh: ./scripts/art_inspector.py`;
+  stamp.textContent = `Built ${C.built_at} at ${String(C.repo_commit).slice(0, 10)} (renderer ${String(C.renderer_commit).slice(0, 10)}) in ${C.build_seconds}s · ${fmt(assetList.length)} assets · ${fmt(Object.keys(products).length)} files · ${fmt(C.findings.length)} findings. Refresh: ./scripts/asset_inspector.py`;
   // What the index could not read, with its fix. The rest of the page still works.
   const profile = C.inventory?.profile;
   if (profile && profile.state !== "available") {

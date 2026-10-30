@@ -214,6 +214,42 @@ fn save_the_inventory(sim: &mut Platformer2dSimHarness) {
 
 /// THE LOAD. Clear the "already applied" latch and step, which is precisely
 /// what a fresh boot does with the latch starting `false`.
+/// The room fixture, settled, with a session that BEGAN without the two items
+/// these fixtures acquire. The demo's starting bag unlocks every real item
+/// (2026-10-30), so the live bag, the bag the session began with (which a load
+/// keeps the unlocks of), the checkpoint and the save (whose mirror already
+/// wrote the starter set) all lose them here: each reading below is then about
+/// the acquisition, not about the starter set.
+fn room_sim() -> Platformer2dSimHarness {
+    use ambition_platformer2d::item_runtime::pickup::minted_horizon::OwnedItemsBaseline;
+    use ambition_platformer2d::item_runtime::starting_bag::StartingBag;
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 8);
+    let without = |bag: &OwnedItems| {
+        let mut bag = bag.clone();
+        bag.take(AUTHORED_REWARD_ITEM, u32::MAX);
+        bag.take(COUNTED_ITEM, u32::MAX);
+        bag
+    };
+    let world = sim.world_mut();
+    let starting = without(world.resource::<StartingBag>().bag());
+    world.insert_resource(StartingBag::of(starting));
+    let live = without(&world.resource::<OwnedItems>());
+    *world.resource_mut::<OwnedItems>() = live.clone();
+    ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<OwnedItemsBaseline>(world)
+        .expect("the live session root carries the bag's checkpoint")
+        .adopt(live);
+    let catalog = ambition_platformer2d::items::test_item_catalog();
+    let gone = [AUTHORED_REWARD_ITEM, COUNTED_ITEM].map(|item| catalog.dialog_id(item).expect("a named item"));
+    let mut save = world.resource_mut::<AmbitionGameSave>();
+    if save.data().inventory_saved() {
+        let wallet = save.data().wallet();
+        let items = save.data().items().iter().filter(|row| !gone.contains(&row.id.as_str())).cloned().collect();
+        save.data_mut().set_inventory(items, wallet);
+    }
+    sim
+}
+
 fn load_the_save(sim: &mut Platformer2dSimHarness) {
     sim.world_mut().resource_mut::<SaveRestored>().0 = false;
     sim.step(base());
@@ -264,8 +300,7 @@ fn equip_the_counted_item(
 /// ```
 #[test]
 fn a_saved_count_becomes_an_instance_and_the_two_authorities_are_compared() {
-    let mut sim = fixed_60hz_room_sim(ROOM);
-    sim.step_n(base(), 8);
+    let mut sim = room_sim();
 
     // ── the boot load, over a fresh save: keeps the live starter and unlatches
     //    the mirror, which is gated on the restore having happened ────────────
@@ -436,8 +471,7 @@ fn a_saved_count_becomes_an_instance_and_the_two_authorities_are_compared() {
 /// its authored placement.
 #[test]
 fn a_death_that_returns_the_object_leaves_nothing_in_the_catalog_claiming_it() {
-    let mut sim = fixed_60hz_room_sim(ROOM);
-    sim.step_n(base(), 8);
+    let mut sim = room_sim();
 
     let reward = SimId::placement(AUTHORED_REWARD);
     // The boot load, which is also what unlatches the mirror.
@@ -533,8 +567,7 @@ fn a_death_that_returns_the_object_leaves_nothing_in_the_catalog_claiming_it() {
 /// it to be wrong about.
 #[test]
 fn a_granted_quantity_survives_the_death_that_retracts_the_instance_minted_from_it() {
-    let mut sim = fixed_60hz_room_sim(ROOM);
-    sim.step_n(base(), 8);
+    let mut sim = room_sim();
     load_the_save(&mut sim);
 
     // ── the entitlement, conferred with NO object behind it ──────────────────
@@ -619,8 +652,7 @@ fn a_granted_quantity_survives_the_death_that_retracts_the_instance_minted_from_
 /// starts from a deliberately different bag; only post-load adoption can pass.
 #[test]
 fn a_load_then_a_death_keeps_what_the_file_remembered() {
-    let mut sim = fixed_60hz_room_sim(ROOM);
-    sim.step_n(base(), 8);
+    let mut sim = room_sim();
     load_the_save(&mut sim);
 
     // Something the file remembers, through the channel the game uses.
@@ -636,8 +668,7 @@ fn a_load_then_a_death_keeps_what_the_file_remembered() {
 
     // Copy only the file into a second harness.
     let persisted = sim.world().resource::<AmbitionGameSave>().clone();
-    let mut reloaded = fixed_60hz_room_sim(ROOM);
-    reloaded.step_n(base(), 8);
+    let mut reloaded = room_sim();
     assert_eq!(
         catalog_count(&mut reloaded, COUNTED_ITEM),
         0,

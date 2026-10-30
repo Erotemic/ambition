@@ -3414,6 +3414,28 @@ fn a_smash_wins_the_punish_window_only_once_the_victim_is_ready_to_die() {
     assert_eq!(best_at(80), "fsmash", "at 80% the finisher is the window's answer");
 }
 
+/// A commitment is what is LEFT when this body can act: the view's age is
+/// spent. A recovery seen with 0.25 s left, 0.3 s ago, is over.
+#[test]
+fn a_commitment_is_measured_from_now_not_from_the_observation() {
+    use crate::perception::DelayedPerception;
+    let commitment = |remaining: f32, staleness_s: f32| {
+        let mut view = view_with(300.0, 340.0);
+        view.actors[0].phase = crate::perception::BodyPhase::AttackRecovery;
+        view.actors[0].phase_remaining = remaining;
+        let mut perception = DelayedPerception::new(1);
+        let mut live = view.clone();
+        live.sim_time = view.sim_time + staleness_s;
+        perception.observe(view);
+        perception.observe(live);
+        let perceived = perception.perceive().unwrap();
+        foe_commitment(&perceived, &perceived.actors[0])
+    };
+    assert!((commitment(0.5, 0.3) - 0.2).abs() < 1e-4, "0.5 s seen 0.3 s ago leaves 0.2");
+    assert_eq!(commitment(0.25, 0.3), 0.0, "a window that closed before this body can act");
+    assert!((commitment(0.5, 0.0) - 0.5).abs() < 1e-4);
+}
+
 /// A body coming down is committed for the time to the floor plus the lag it
 /// will owe there — the landing read. A body standing, or rising, is not.
 #[test]

@@ -435,15 +435,18 @@ pub enum MenuPageAction {
 /// A short, cell-sized verb hint for an item, mirroring the demo's
 /// `item_slot_detail` (e.g. "equip" / "use" / "key item"). Deliberately NOT the
 /// full description — the description lives in the detail panel.
-fn cell_hint(owned: &OwnedItems, items: &ItemCatalog, equipped: EquippedItems, item: Item) -> &'static str {
+///
+/// One statement for each fact: an equipped cell has no hint, because the
+/// library writes "equipped" for it (`InventoryItemNode::equipped`).
+fn cell_hint(owned: &OwnedItems, items: &ItemCatalog, equipped: EquippedItems, item: Item) -> Option<&'static str> {
     if !owned.has(item) {
-        "--"
+        Some("--")
     } else if equipped.contains(item) {
-        "equipped"
+        None
     } else if items.equips(item) {
-        "equip"
+        Some("equip")
     } else {
-        "use"
+        Some("use")
     }
 }
 
@@ -477,20 +480,30 @@ pub fn items_spec(
         .into_iter()
         .map(|item| {
             let owns = owned.has(item);
+            let name = items.display_name(item).unwrap_or(crate::menu::effects::UNNAMED_SLOT);
+            // ⛔ A LOCKED CELL IS STILL A PLACE FOR THE CURSOR (Jon, 2026-10-30:
+            // "even if something isn't unlocked, we need to visibly see where
+            // the cursor is"). Every renderer finds and draws the cursor through
+            // a control's action, and the library's `unowned` cell has none, so
+            // the cursor went invisible on it. A locked cell is built as a
+            // plain cell that SAYS it is locked (`???`, no picture), and its
+            // action is answered by `effects::decide` as `NotOwned`: an error
+            // sound and a status line, and nothing changes.
             let mut node = if owns {
-                InventoryItemNode::new(item.index(), cell_label(items.display_name(item).unwrap_or(crate::menu::effects::UNNAMED_SLOT)))
+                InventoryItemNode::new(item.index(), cell_label(name))
             } else {
-                InventoryItemNode::unowned(item.index(), cell_label(items.display_name(item).unwrap_or(crate::menu::effects::UNNAMED_SLOT)))
+                InventoryItemNode::new(item.index(), cell_label(&format!("{name} ???")))
             };
             // The description is rendered once, in the detail panel.
-            node = node
-                .detail(cell_hint(owned, items, equipped, item))
-                .equipped(equipped.contains(item));
+            if let Some(hint) = cell_hint(owned, items, equipped, item) {
+                node = node.detail(hint);
+            }
+            node = node.equipped(equipped.contains(item));
             // Render the item's sprite in the cell when it has one; the catalog
             // returns `None` for items with no authored art, which keeps the text
             // label (the lib falls back to text when `icon` is `None`). The item's
             // name still shows in the detail panel either way.
-            if let Some(icon) = items.icon(item) {
+            if let Some(icon) = items.icon(item).filter(|_| owns) {
                 node = node.icon(icon);
             }
             // A stack shows how many the bag holds (a stock of bombs, the
@@ -499,13 +512,14 @@ pub fn items_spec(
                 node = node.count(owned.count(item));
             }
             if owns {
-                // Held items and abilities equip; everything else "uses".
-                let (action, label) = if items.equips(item) {
-                    (MenuPageAction::Equip(item), line("menu.items.equip"))
-                } else {
-                    (MenuPageAction::Use(item), line("menu.items.use"))
-                };
-                node = node.action(action).action_label(label);
+                // Held items and abilities equip; everything else "uses". The
+                // verb is in the cell's hint, so the cell has no action label:
+                // the two said the same word ("equip | Equip").
+                let action = if items.equips(item) { MenuPageAction::Equip(item) } else { MenuPageAction::Use(item) };
+                node = node.action(action);
+            } else {
+                // No verb: the cell only carries the cursor.
+                node = node.action(MenuPageAction::Use(item));
             }
             node
         })

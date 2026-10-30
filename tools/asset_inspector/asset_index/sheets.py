@@ -92,6 +92,7 @@ class SidecarCache:
     def save(self) -> None:
         if not self.path:
             return
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         partial = self.path.with_suffix(f".{os.getpid()}.partial")
         partial.write_text(json.dumps({"version": self.VERSION, "entries": self.used}))
         partial.replace(self.path)

@@ -152,10 +152,14 @@ ZOMBIE, WARDEN, CRAWLER = "npc_evil_zombie", "npc_shock_warden", "npc_searchligh
 #: The Spectral Wolf: a dog of the regime, dead and risen, that fades between
 #: its attacks.
 WOLF = "npc_evil_spectral_wolf"
+#: Soldiers with their weapons drawn: the sabre (a long, quick thrust) and the
+#: club (a slow overhead); and the Crawling Conscript, a Risen Conscript with
+#: no legs, low on the floor.
+SWORDSMAN, CLUBMAN, LEGLESS = "npc_fascist_swordsman", "npc_fascist_clubman", "npc_evil_zombie_crawler"
 BOX = {SOLDIER: SOLDIER_BOX, HEAVY: (36, 80), PROTOTYPE: (32, 40), HOUND: (52, 50), ZOMBIE: (30, 67), WARDEN: (40, 64),
-       CRAWLER: (48, 34), WOLF: (56, 56)}
+       CRAWLER: (48, 34), WOLF: (56, 56), SWORDSMAN: SOLDIER_BOX, CLUBMAN: SOLDIER_BOX, LEGLESS: (52, 28)}
 KIND = {SOLDIER: "soldier", HEAVY: "heavy", PROTOTYPE: "prototype", HOUND: "hound", ZOMBIE: "zombie", WARDEN: "warden",
-        CRAWLER: "crawler", WOLF: "wolf"}
+        CRAWLER: "crawler", WOLF: "wolf", SWORDSMAN: "swordsman", CLUBMAN: "clubman", LEGLESS: "legless"}
 
 #: Pixels of a castle prop's frame to one world unit (`castle_godwin.PX`).
 PROP_PX = 2
@@ -441,6 +445,8 @@ def barracks():
         soldier(rid, 1, 520, floor),
         soldier(rid, 2, 1100, floor - 224),
         soldier(rid, 1, 700, floor, HOUND),
+        # A clubman between the first bunk and the second.
+        soldier(rid, 1, 900, floor, CLUBMAN),
         # Crawlers on the bunks; a heart under the mess table for the room's
         # middle.
         soldier(rid, 1, 1060, floor - 112, CRAWLER),
@@ -448,7 +454,8 @@ def barracks():
         heal("barracks_heart", 1330, floor),
         # A Shock Warden holds the middle of the hall behind its shield.
         soldier(rid, 1, 1500, floor, WARDEN),
-        soldier(rid, 3, 1760, floor - 112),
+        # A swordsman on the low bunk, the point down at you.
+        soldier(rid, 1, 1760, floor - 112, SWORDSMAN),
         # The far end of the barracks: the lab's door is near, and a pack got
         # out; an Iron Trooper holds the way to the tower.
         *pack(rid, 1840, floor),

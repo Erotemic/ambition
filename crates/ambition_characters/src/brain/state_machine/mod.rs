@@ -486,6 +486,8 @@ impl MeleeBruteCfg {
             flinch_back_s: 0.0,
             counter: None,
             fades: false,
+            notice_s: 0.0,
+            dive_tell_s: 0.0,
         },
     };
     pub const BRUTE_DEFAULT: Self = Self {
@@ -502,6 +504,8 @@ impl MeleeBruteCfg {
             flinch_back_s: 0.0,
             counter: None,
             fades: false,
+            notice_s: 0.0,
+            dive_tell_s: 0.0,
         },
     };
 }
@@ -529,6 +533,17 @@ pub struct MeleeBruteState {
     pub deflects_seen: u32,
     /// Seconds until it answers a deflect ([`super::MeleeTactics::counter`]).
     pub answer_in: Option<f32>,
+    /// It has seen its foe since it last lost it ([`super::MeleeTactics::notice_s`]).
+    pub noticed: bool,
+    /// Seconds it still stands and looks at the foe it has just seen.
+    pub noticing: f32,
+}
+
+impl MeleeBruteState {
+    /// It stands and looks at a foe it has just seen ([`super::MeleeTactics::notice_s`]).
+    pub fn is_noticing(&self) -> bool {
+        self.noticing > 0.0
+    }
 }
 
 /// A target's place that moved less than this is the same goal (px).
@@ -577,6 +592,25 @@ fn tick_melee_brute(
     state.mode = ai.mode;
     *out = crate::actor::control::ActorControlFrame::neutral();
     let tactics = cfg.tactics;
+    // NOTICE: the first sight of a foe stops it a beat, facing the foe, before
+    // it chases; out of its sight again, it will notice again.
+    let sees = matches!(
+        ai.intent,
+        crate::actor::ai::CharacterAiIntent::Chase { .. } | crate::actor::ai::CharacterAiIntent::Attack { .. }
+    );
+    if !sees {
+        state.noticed = false;
+        state.noticing = 0.0;
+    } else if !state.noticed {
+        state.noticed = true;
+        state.noticing = tactics.notice_s;
+    }
+    if state.noticing > 0.0 && snapshot.alive {
+        state.noticing = (state.noticing - snapshot.dt).max(0.0);
+        out.facing = snapshot.face_toward(local_target_side(snapshot));
+        state.last_health = snapshot.health_fraction;
+        return;
+    }
     // COUNTER: its guard turned a strike aside, and the body that swung is
     // locked out; it answers after its tell, standing its ground and facing
     // its foe until then.
@@ -682,7 +716,8 @@ fn tick_melee_brute(
                 snapshot.locomotion_for(ae::LocalAxes::new(direction_side * cfg.chase_speed * lunge, 0.0));
         }
         crate::actor::ai::CharacterAiIntent::Attack { .. } => {
-            out.facing = snapshot.face_toward(local_target_side(snapshot));
+            let toward = local_target_side(snapshot);
+            out.facing = snapshot.face_toward(toward);
             // Brain wants to start an attack windup if the cooldown
             // is clear. The ActionSet's attack spec timing then
             // determines the concrete windup → active → recover
@@ -691,6 +726,12 @@ fn tick_melee_brute(
                 && snapshot.attack_windup_remaining <= 0.0
                 && snapshot.attack_active_remaining <= 0.0
                 && snapshot.attack_recover_remaining <= 0.0;
+            // In a run, its reach was its running attack's (a pounce from
+            // far out): it keeps its stride into the press, so the press is
+            // that attack, and not the standing one of a body that pulled up.
+            if out.melee_pressed && snapshot.running {
+                out.locomotion = snapshot.locomotion_for(ae::LocalAxes::new(toward.signum() * cfg.chase_speed, 0.0));
+            }
         }
     }
 }
@@ -1276,6 +1317,9 @@ pub struct AerialCfg {
     pub attack_range: f32,
     /// How far the bird ranges from its anchor (px); also the dive altitude.
     pub roam_radius: f32,
+    /// Seconds it hangs still, lined up over its foe, before it dives: the
+    /// tell ([`super::MeleeTactics::dive_tell_s`]).
+    pub dive_tell_s: f32,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -1517,7 +1561,18 @@ fn tick_aerial_hostile(
             if lined_up && snapshot.attack_cooldown_remaining <= 0.0 {
                 state.phase = AerialPhase::Dive;
                 state.mode = CharacterAiMode::Telegraph;
+                // The tell: it hangs still before the dive, from this tick.
+                state.phase_until = now + cfg.dive_tell_s;
+                if cfg.dive_tell_s > 0.0 {
+                    out.velocity_target = frame_to_world(snapshot, ae::LocalAxes::new(0.0, -20.0));
+                }
             }
+        }
+        AerialPhase::Dive if now < state.phase_until => {
+            // THE TELL: it hangs where it lined up, rising a little, before
+            // it commits.
+            state.mode = CharacterAiMode::Telegraph;
+            out.velocity_target = frame_to_world(snapshot, ae::LocalAxes::new(0.0, -20.0));
         }
         AerialPhase::Dive => {
             state.mode = CharacterAiMode::Attack;

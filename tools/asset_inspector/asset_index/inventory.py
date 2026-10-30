@@ -13,6 +13,17 @@ from .lineage import matching_lineages
 from .paths import asset_root, real, roots
 
 NEEDS = {"missing", "partial", "stale"}
+#: A unit whose own inputs are unchanged, where only shared renderer code, the
+#: toolchain or the set of source files changed. Strictly stale; probably the same pixels.
+POSSIBLY = "possibly-stale"
+
+
+def loosen(status: dict) -> dict:
+    """Show a stale status of shared scope as possibly stale. `strict` keeps the strict state."""
+    if status.get("state") != "stale" or status.get("scope") != "shared":
+        return status
+    tiers = {name: dict(tier, state=POSSIBLY) if tier.get("state") == "stale" else tier for name, tier in status.get("tiers", {}).items()}
+    return dict(status, state=POSSIBLY, strict="stale", tiers=tiers)
 TRAITS = ("concept", "identity_kind", "visual_family", "species", "body_base", "lineage")
 
 
@@ -35,7 +46,8 @@ def supports(source: dict, field: str, action: str, semantics: dict):
 
 
 def assemble(repo: Path, product_report: dict, prepared: dict, *, local_files=None, lineages=None, runtime=None) -> dict:
-    units = {uid: dict(row) for uid, row in product_report.get("units", {}).items()}
+    units = {uid: dict(row, status=loosen(row.get("status") or {})) if "status" in row else dict(row)
+             for uid, row in product_report.get("units", {}).items()}
     lineages = history(repo) if lineages is None else lineages
     known_history = defaultdict(list)
     for name, row in lineages.items():
@@ -256,11 +268,11 @@ def character_groups(identities: dict) -> list[dict]:
 
 
 def collect(repo: Path, out: Path, *, profile="ambition", python=None, binary=None, deep=False, runtime_path=None,
-            product_report=None) -> dict:
+            product_report=None, cargo=False, log=print) -> dict:
     """`product_report`: the renderer's report, when the caller started it early."""
     if product_report is None:
         product_report = sources.products(repo, python, deep=deep)
-    prepared = sources.content(repo, profile, out, binary)
+    prepared = sources.content(repo, profile, out, binary, cargo=cargo, log=log)
     prepared["previews"] = sources.previews(prepared, out)
     files = [p for root in roots(repo) if root.tier == "full" for p in root.path.rglob("*") if p.is_file()]
     runtime = json.loads(runtime_path.read_text()) if runtime_path else None
@@ -275,7 +287,9 @@ def collect(repo: Path, out: Path, *, profile="ambition", python=None, binary=No
     return report
 
 
-def select(report: dict, *, query="", kind="", needs=False, game_only=False, lineage="", missing="") -> list[dict]:
+def select(report: dict, *, query="", kind="", needs=False, game_only=False, lineage="", missing="", strict=False) -> list[dict]:
+    """With `strict`, a possibly stale unit needs generation too."""
+    wanted = NEEDS | {POSSIBLY} if strict else NEEDS
     kinds = set(kind.split(",")) if kind else set()
     result = []
     for uid, unit in report["units"].items():
@@ -287,7 +301,7 @@ def select(report: dict, *, query="", kind="", needs=False, game_only=False, lin
         if game_only and unit["game_use"] not in ("referenced", "available-look"):
             continue
         status = unit.get("status", {})
-        if needs and not unit.get("runtime_defects") and status.get("state") not in NEEDS and not any(t.get("state") in NEEDS for t in status.get("tiers", {}).values()):
+        if needs and not unit.get("runtime_defects") and status.get("state") not in wanted and not any(t.get("state") in wanted for t in status.get("tiers", {}).values()):
             continue
         if lineage and lineage not in unit["lineages"]:
             continue

@@ -2163,7 +2163,26 @@ pub(super) fn melee_reach_of(
         grounded,
         running,
     )?;
-    let reach = spec.frame_data().reach;
+    let frames = spec.frame_data();
+    // A charge carries its strike forward: the run it makes over the strike
+    // (a set speed held from the end of its startup) is reach too, so it
+    // starts its charge from as far as it will run.
+    let rush: f32 = spec
+        .events
+        .iter()
+        .filter(|event| event.at_s >= frames.startup_s - 1e-4)
+        .filter_map(|event| match event.kind {
+            ambition_entity_catalog::MoveEventKind::Impulse { local: (speed, _), mode: ambition_entity_catalog::ImpulseMode::Set } => {
+                let held = spec.events.iter().find_map(|hold| match hold.kind {
+                    ambition_entity_catalog::MoveEventKind::HoldVelocity { seconds } if (hold.at_s - event.at_s).abs() < 1e-4 => Some(seconds),
+                    _ => None,
+                })?;
+                Some(speed.max(0.0) * held)
+            }
+            _ => None,
+        })
+        .sum();
+    let reach = frames.reach + rush;
     (reach > 0.0).then_some(reach)
 }
 
@@ -2523,6 +2542,7 @@ fn build_enemy_brain_snapshot(
         // The reach of the attack press, from the same moveset and the same
         // posture as the kit above. See `melee_reach_of`.
         melee_reach: melee_reach_of(moveset, body.ground.on_ground, motion_facts.running),
+        running: motion_facts.running,
         // WHICH BODY THIS IS, so a published decision fact can name its
         // subject. The brain cannot know — a snapshot is body state and identity
         // is the host's to assign — so it arrives through the world-in port like

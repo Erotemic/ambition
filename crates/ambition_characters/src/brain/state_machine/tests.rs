@@ -972,6 +972,7 @@ fn aerial_cfg(aggressiveness: f32) -> AerialCfg {
         aggro_radius: 90.0,
         attack_range: 40.0,
         roam_radius: 120.0,
+        dive_tell_s: 0.0,
     }
 }
 
@@ -1099,6 +1100,45 @@ fn aerial_hostile_stalks_dives_pecks_then_recovers() {
         "it must peck (melee) when the dive reaches the target"
     );
     assert!(saw_recover, "it must peel off and Recover after the dive");
+}
+
+/// A flyer with a dive tell hangs over its foe, telegraphing, for its tell
+/// before it dives (Jon, 2026-10-30: "notice, space, telegraph, attack");
+/// then it dives and pecks as before.
+#[test]
+fn aerial_hangs_still_for_its_tell_before_it_dives() {
+    let mut sm = StateMachineCfg::Aerial {
+        cfg: AerialCfg { dive_tell_s: 0.5, ..aerial_cfg(1.0) },
+        state: AerialState::default(),
+    };
+    let mut pos = ae::Vec2::new(500.0, 100.0);
+    let target = ae::Vec2::new(520.0, 400.0);
+    let mut out = crate::actor::control::ActorControlFrame::default();
+    let dt = 1.0 / 60.0;
+    let (mut tell_ticks, mut fastest_tell, mut pecked) = (0, 0.0f32, false);
+    for i in 0..900 {
+        let mut s = BrainSnapshot::idle();
+        s.actor_pos = pos;
+        s.target_pos = target;
+        s.target_alive = true;
+        s.sim_time = i as f32 * dt;
+        s.dt = dt;
+        s.attack_cooldown_remaining = 0.0;
+        tick_simple_state_machine(&mut sm, &s, &mut out);
+        let brain = crate::brain::Brain::StateMachine(sm.clone());
+        if brain.is_winding_up() {
+            tell_ticks += 1;
+            fastest_tell = fastest_tell.max(out.velocity_target.vec().length());
+        }
+        pecked |= out.melee_pressed;
+        pos += out.velocity_target.vec() * dt;
+        if pecked {
+            break;
+        }
+    }
+    assert!((28..=32).contains(&tell_ticks), "it told for about 0.5 s (30 ticks): {tell_ticks}");
+    assert!(fastest_tell < 30.0, "it hangs nearly still while it tells: {fastest_tell}");
+    assert!(pecked, "then it dives and pecks");
 }
 
 // ── ADR 0034 increment 1: what each brain needs supplied ─────────────────────
@@ -1532,6 +1572,33 @@ mod melee_tactics {
             }
         }
         assert!(committed, "it never committed in after its hold");
+    }
+
+    /// Its first sight of its foe stops it a beat, facing the foe; then it
+    /// closes. Out of its sight and back, it stops and looks again. A brute
+    /// that does not notice closes at once.
+    #[test]
+    fn a_brute_that_notices_stops_and_looks_before_it_closes() {
+        let notices = MeleeTactics { notice_s: 0.4, ..Default::default() };
+        let mut sm = brute(notices);
+        let seen = snap(0.0, ae::Vec2::new(150.0, 0.0));
+        let first = tick(&mut sm, &seen);
+        assert_eq!(first.locomotion.x, 0.0, "first sight: it stands");
+        assert_eq!(first.facing, 1.0, "facing its foe");
+        assert!(matches!(&sm, StateMachineCfg::MeleeBrute { state, .. } if state.is_noticing()), "and it is noticing");
+        let mut closed_after = None;
+        for i in 1..60 {
+            if tick(&mut sm, &seen).locomotion.x > 0.0 {
+                closed_after = Some(i);
+                break;
+            }
+        }
+        let ticks = closed_after.expect("it never closed after its beat");
+        assert!((20..=30).contains(&ticks), "it stood about 0.4 s (24 ticks): {ticks}");
+        // Out of its sight, and back: it looks again.
+        tick(&mut sm, &snap(0.0, ae::Vec2::new(5000.0, 0.0)));
+        assert_eq!(tick(&mut sm, &seen).locomotion.x, 0.0, "seen again: it stops and looks again");
+        assert!(tick(&mut brute(MeleeTactics::default()), &seen).locomotion.x > 0.0, "control: no notice, it closes at once");
     }
 
     /// Hit, a brute that flinches backs away from its foe.

@@ -25,19 +25,21 @@
   }
   function section(key) {
     const subject = pageSubjects[key], notes = report.notes.filter(note => note.subject.character === key);
-    const actor = C.inventory.identities[key];
-    const rows = [...new Set([...actor.coverage.map(row => row.action), ...actor.units.flatMap(uid =>
-      (C.inventory.units[uid].assets || []).flatMap(id => C.assets[id].identities?.includes(key) ? (C.assets[id].layout?.rows || []).map(row => row.name) : []))])].sort();
+    // A character offers its animations; another item its sections (music), if any.
+    const actor = C.inventory?.identities?.[key], item = C.items?.[key];
+    const rows = actor ? [...new Set([...actor.coverage.map(row => row.action), ...actor.units.flatMap(uid =>
+      (C.inventory.units[uid].assets || []).flatMap(id => C.assets[id].identities?.includes(key) ? (C.assets[id].layout?.rows || []).map(row => row.name) : []))])].sort()
+      : (item?.details?.sections || []);
     const draft = drafts.get(key) || {text: '', priority: 'normal', animation: ''};
     return `<section class="box" id="character-notes"><h2>Review notes (${notes.filter(note => note.status === 'open').length} open)</h2>
-      <p>Generation <code>${esc(subject?.generation_id.slice(0, 12) || 'unavailable')}</code>. Notes keep the reviewed product hashes after art changes.</p>
-      ${!writable ? `<p class="empty">To save notes, run <code>python3 scripts/art_inspector.py serve --open</code>. ${esc(failure)}</p>` : ''}
+      <p>Version <code>${esc(subject?.generation_id.slice(0, 12) || 'unavailable')}</code>. A note keeps the version it reviewed after the asset changes.</p>
+      ${!writable ? `<p class="empty">To save notes, open the page with <code>./scripts/asset_inspector.py</code>. ${esc(failure)}</p>` : ''}
       <form id="character-note-form" data-character="${esc(key)}"><label for="review-text">What needs to change?</label>
         <textarea id="review-text" name="text" rows="4" maxlength="20000" required placeholder="Describe the problem and the result you want.">${esc(draft.text)}</textarea>
         <div class="controls"><label>Priority <select name="priority">${['high', 'normal', 'low'].map(priority => `<option${draft.priority === priority ? ' selected' : ''}>${priority}</option>`).join('')}</select></label>
-          <label>Animation <select name="animation"><option value="">Whole character</option>${rows.map(row => `<option${draft.animation === row ? ' selected' : ''}>${esc(row)}</option>`).join('')}</select></label>
+          <label>${actor ? 'Animation' : 'Part'} <select name="animation"><option value="">${actor ? 'Whole character' : 'Whole item'}</option>${rows.map(row => `<option${draft.animation === row ? ' selected' : ''}>${esc(row)}</option>`).join('')}</select></label>
           <button type="submit"${!writable || !subject ? ' disabled' : ''}>Save note</button></div><p id="review-save-state" role="status"></p></form>
-      ${notes.length ? notes.sort((a, b) => (a.status === b.status ? b.created_at.localeCompare(a.created_at) : a.status === 'open' ? -1 : 1)).map(noteHtml).join('') : '<p class="empty">No review notes for this character.</p>'}</section>`;
+      ${notes.length ? notes.sort((a, b) => (a.status === b.status ? b.created_at.localeCompare(a.created_at) : a.status === 'open' ? -1 : 1)).map(noteHtml).join('') : '<p class="empty">No review notes yet.</p>'}</section>`;
   }
   function wire(root = document.getElementById('app')) {
     const form = root.querySelector('#character-note-form');
@@ -70,11 +72,11 @@
   function backlog() {
     const query = document.getElementById('q').value.trim().toLowerCase();
     const groups = report.backlog.characters.filter(group => JSON.stringify(group).toLowerCase().includes(query));
-    document.getElementById('app').innerHTML = `<h1>Character review backlog</h1><p>${report.backlog.open_count} open notes across ${report.backlog.characters.length} characters.</p>
+    document.getElementById('app').innerHTML = `<h1>Review backlog</h1><p>${report.backlog.open_count} open notes across ${report.backlog.characters.length} assets.</p>
       <p>Open notes stay in this queue after regeneration. Review the result, then resolve the note with a fix summary.</p>
-      <p class="controls"><button id="export-art-backlog" type="button">Export backlog JSON</button>${writable ? '<button id="refresh-art-notes" type="button">Refresh notes</button>' : ''} <code>python3 scripts/art_inspector.py notes backlog --json</code></p>
+      <p class="controls"><button id="export-art-backlog" type="button">Export backlog JSON</button>${writable ? '<button id="refresh-art-notes" type="button">Refresh notes</button>' : ''} <code>python3 scripts/asset_inspector.py notes backlog --json</code></p>
       ${!writable ? '<p class="empty">This page shows the notes saved at build time. Use <code>serve --open</code> to save notes and read live changes.</p>' : ''}
-      ${groups.length ? groups.map(group => `<section class="box"><h2><a href="#character/${encodeURIComponent(group.character)}">${esc(group.display)}</a></h2><code>${esc(group.character)}</code>${group.notes.map(noteHtml).join('')}</section>`).join('') : '<p class="empty">No open notes match.</p>'}`;
+      ${groups.length ? groups.map(group => `<section class="box"><h2><a href="#${C.items?.[group.character] ? 'item' : 'character'}/${encodeURIComponent(group.character)}">${esc(group.display)}</a></h2><code>${esc(group.character)}</code>${group.notes.map(noteHtml).join('')}</section>`).join('') : '<p class="empty">No open notes match.</p>'}`;
     document.getElementById('export-art-backlog').onclick = () => {
       const url = URL.createObjectURL(new Blob([JSON.stringify(report.backlog, null, 2)], {type: 'application/json'}));
       const link = document.createElement('a'); link.href = url; link.download = 'art-review-backlog.json'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -86,7 +88,7 @@
     };
     wire();
   }
-  window.ArtReviews = {section, wire, backlog, openCount};
+  window.ArtReviews = {section, wire, backlog, openCount, openFor: key => openCount(key)};
   setTimeout(async () => {
     if (['http:', 'https:'].includes(location.protocol)) {
       try { await request('GET', ''); }

@@ -7,10 +7,10 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from art_index import thumbs, sheets
-from art_index.assets import Asset
-from art_index.paths import Root
-from art_index.scan import Product
+from asset_index import thumbs, sheets
+from asset_index.assets import Asset
+from asset_index.paths import Root
+from asset_index.scan import Product
 
 
 def figure(size, box):

@@ -160,6 +160,7 @@ npc_castle_osgood
 npc_castle_dunmore
 npc_evil_gudrun
 npc_evil_tobias
+npc_evil_mudge
 
 [The primeval trail's people]
 npc_primeval_brandvold

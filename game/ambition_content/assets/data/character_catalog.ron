@@ -6297,6 +6297,23 @@
                 hall: ["I trap what the castle loses. The castle loses a lot.", "The searchlights have habits. So do I. Mine are older."],
             ),
         ),
+        "npc_evil_mudge": (
+            display_name: "Agnes Mudge",
+            // Ticket 4,117 in the castle's Complaints Department. Now serving 3.
+            manifest: "sprites/evil_mudge_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(61.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "castle_godwin", "peaceful"],
+            barks: (
+                idle: ["Four thousand one hundred and seventeen. Don't let me forget.", "Now serving three. Still."],
+                hall: ["I complained about the searchlight. They sent a form. I complained about the form.", "I have outlived two dark lords in this queue. I will outlive the third."],
+            ),
+        ),
         // ===== The primeval trail's people (the jungle dimension), made by chargen.
         "npc_primeval_brandvold": (
             display_name: "Ranger Brandvold",

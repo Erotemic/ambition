@@ -43,6 +43,10 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Evil: the Complaints Department** behind Castle Godwin's kitchens, by a
+  door at their east end: two windows both CLOSED, NOW SERVING 3, a ticket
+  machine, a padlocked suggestions box, and Agnes Mudge (chargen) holding
+  ticket 4,117; Hall wing. Verified: the_castle_kitchens (2).
 - **PvN flat map: the village's high road** (09ccc3977) meets the forest's
   first branch: the branches step down from y 448 (six now), art and
   generator. check_flat_map pvn: only the Mockingbird arena's ceiling exit

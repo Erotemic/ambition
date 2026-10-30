@@ -18,6 +18,7 @@
         ( type: "Solid", px: [0, 48], size: [16, 464], fields: ( name: "west_wall" ) ),
         ( type: "Solid", px: [1264, 48], size: [16, 464], fields: ( name: "east_wall" ) ),
         ( type: "LoadingZone", px: [40, 416], size: [48, 96], fields: ( id: "kitchens_door", name: "up to the gatehouse", activation: "Door", target_room: "castle_godwin_gatehouse", target_zone: "castle_godwin_gatehouse_kitchens", bidirectional: true ) ),
+        ( type: "LoadingZone", px: [1130, 416], size: [48, 96], fields: ( id: "kitchens_complaints_door", name: "the Complaints Department", activation: "Door", target_room: "castle_godwin_complaints", target_zone: "complaints_door", bidirectional: true ) ),
         ( type: "PlayerStart", px: [126, 466], size: [28, 46], fields: ( name: "castle_godwin_kitchens_spawn" ) ),
         ( type: "NpcSpawn", px: [264, 448], size: [32, 64], fields: ( character_id: "npc_castle_osgood", prompt: "Talk", dialogue_id: "castle_osgood", brain_override: "stand_still" ) ),
         ( type: "NpcSpawn", px: [824, 448], size: [32, 64], fields: ( character_id: "npc_castle_hargreave", prompt: "Talk", dialogue_id: "castle_hargreave", brain_override: "stand_still" ) ),

@@ -257,6 +257,7 @@
     "tar_pits_bones": (),
     // The castle kitchens (Evil).
     "castle_kitchens_room": (),
+    "complaints_room": (),
     // The Bamboo Pass (PvN, out of the Ninja Village).
     "pass_bamboo": (),
     "pass_bridge": (),

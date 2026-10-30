@@ -53,6 +53,12 @@ def make_handler(repo: Path, catalog, status=None):
                 path = urlsplit(self.path).path
                 with lock:
                     current = current_catalog()
+                    if self.command == "POST" and path == "/api/music-reviews":
+                        from . import music_review
+                        try:
+                            return self.reply(200, music_review.save(repo, current, data))
+                        except LookupError as error:
+                            raise reviews.ConflictError(str(error)) from error
                     if self.command == "POST" and path == "/api/art-reviews":
                         subject = reviews.all_subjects(current).get(data.get("character"))
                         if not subject or data.get("generation_id") != subject["generation_id"]:

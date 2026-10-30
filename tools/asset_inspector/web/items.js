@@ -22,31 +22,41 @@
   document.body.append(bar);
   const player = bar.querySelector("audio"), label = bar.querySelector(".np-label");
   const title = document.title;
-  let current = null;
+  // `current` is the item id and the exact file: one track can offer several renders.
+  let current = null, currentItem = null;
+  const played = {};  // furthest second heard, by file, for music reviews
+  const keyOf = (id, href) => id + "|" + (href || items[id]?.media?.href || "");
   function sync() {
     const playing = current && !player.paused;
-    document.title = current ? `${playing ? "▶" : "⏸"} ${items[current]?.display || current} · ${title}` : title;
+    document.title = current ? `${playing ? "▶" : "⏸"} ${items[currentItem]?.display || currentItem} · ${title}` : title;
     document.querySelectorAll("[data-play]").forEach(b => {
-      const on = b.dataset.play === current;
+      const on = keyOf(b.dataset.play, b.dataset.href) === current;
       b.textContent = on && playing ? "⏸" : "▶";
       b.closest("tr")?.classList.toggle("playing", on);
     });
   }
-  function play(id) {
+  function play(id, href, note) {
     const item = items[id];
     if (!item?.media || item.media.type !== "audio") return;
-    if (current === id) { player.paused ? player.play() : player.pause(); return; }
-    current = id;
-    player.src = item.media.href;
-    label.innerHTML = `<b>Now playing</b> ${itemLink(id)} <small>${esc(KINDS[item.kind] || item.kind)}${item.media.unpublished ? " · the music tool's unpublished render" : ""}</small>`;
+    const key = keyOf(id, href);
+    if (current === key) { player.paused ? player.play() : player.pause(); return; }
+    current = key; currentItem = id;
+    player.src = href || item.media.href; player.dataset.href = href || item.media.href;
+    const what = note || (item.media.unpublished ? "the music tool's unpublished render" : "");
+    label.innerHTML = `<b>Now playing</b> ${itemLink(id)} <small>${esc(KINDS[item.kind] || item.kind)}${what ? " · " + esc(what) : ""}</small>`;
     bar.hidden = false; document.body.classList.add("has-player");
     player.play();
   }
   ["play", "pause", "ended"].forEach(type => player.addEventListener(type, sync));
+  player.addEventListener("timeupdate", () => {
+    const href = player.dataset.href, row = played[href] || (played[href] = {seconds: 0, fraction: 0});
+    row.seconds = Math.max(row.seconds, player.currentTime);
+    if (player.duration) row.fraction = Math.max(row.fraction, player.currentTime / player.duration);
+  });
   bar.querySelector(".np-close").onclick = () => { player.pause(); player.removeAttribute("src"); current = null; bar.hidden = true; document.body.classList.remove("has-player"); sync(); };
   document.addEventListener("click", event => {
     const button = event.target.closest("[data-play]");
-    if (button) { event.preventDefault(); play(button.dataset.play); }
+    if (button) { event.preventDefault(); play(button.dataset.play, button.dataset.href, button.dataset.note); }
   });
   window.addEventListener("hashchange", () => setTimeout(sync, 0));
 
@@ -160,16 +170,56 @@
     return rows.length ? `<h2>Details</h2><table class="tbl">${rows.map(([k, v]) => `<tr><th>${esc(k.replace(/_/g, " "))}</th><td>${esc(Array.isArray(v) ? v.join(", ") : typeof v === "object" ? JSON.stringify(v) : v)}</td></tr>`).join("")}</table>` : "";
   }
 
+  const served = location.protocol.startsWith("http");
+  function reviewForm(item, target) {
+    const k = C.kinds.music || {}, tags = k.issue_tags || [], [low, high] = k.score_range || [1, 10];
+    const old = (item.reviews?.history || []).find(h => h.version === target.version_id);
+    return `<form class="music-review" data-item="${esc(item.id)}" data-version="${esc(target.version_id)}">
+      <p><button type="button" class="ghost" data-play="${esc(item.id)}" data-href="${esc(target.href)}" data-note="${esc(target.roles.join(", "))}">▶</button>
+        <b>${esc(target.roles.join(" · "))}</b> <code>${esc(target.version_id)}</code>
+        ${old ? ` · reviewed <b>${esc(old.score)}</b> ${esc(old.label || "")}` : " · not reviewed"}</p>
+      ${served ? `<div class="controls"><label>Score <input name="score" type="number" min="${low}" max="${high}" step="0.1" required value="${esc(old?.score ?? "")}"></label>
+        <span class="n">1–3 replace · 3–5 major polish · 5–7 acceptable · 7–9 strong · 9–10 standout</span></div>
+        <textarea name="notes" rows="3" placeholder="What works, what to change">${esc(old?.notes || "")}</textarea>
+        <div class="controls">${tags.map(t => `<label><input type="checkbox" name="issues" value="${esc(t)}"${old?.issues?.includes(t) ? " checked" : ""}> ${esc(t)}</label>`).join(" ")}</div>
+        <p class="controls"><button type="submit">${old ? "Update review" : "Save review"}</button> <span class="save-state" role="status"></span></p>`
+        : '<p class="empty">Open the page with <code>./scripts/asset_inspector.py</code> to save a review.</p>'}</form>`;
+  }
+
   function musicReviews(item) {
     const r = item.reviews;
     if (item.kind !== "music") return "";
-    if (!r) return `<section class="box"><h2>Music reviews</h2><p class="empty">Never reviewed. Score it with <code>${esc(item.details.folder ? "./tools/ambition_music_renderer/review_music.sh" : "")}</code>.</p></section>`;
-    return `<section class="box"><h2>Music reviews (${r.count})</h2>
-      <p><b>${esc(r.score)}</b> ${esc(r.label || "")} · ${esc(r.reviewed_at || "")}</p>
+    const targets = item.review_targets || [];
+    const history = r ? `<p>Latest: <b>${esc(r.score)}</b> ${esc(r.label || "")} · ${esc(r.reviewed_at || "")}</p>
       ${r.score_changed ? '<p class="stamp stale">The score changed after this review: the review is of an older version.</p>' : ""}
       ${r.notes ? `<p class="review-text">${esc(r.notes)}</p>` : ""}
-      ${r.history.length > 1 ? `<details><summary>All ${r.history.length} reviews</summary>${r.history.map(h => `<p><b>${esc(h.score)}</b> ${esc(h.label || "")} · ${esc(h.reviewed_at || "")} · <code>${esc(h.version || "")}</code><br>${esc(h.notes)}</p>`).join("")}</details>` : ""}
-      <p>Score a render with <code>${esc(r.command)}</code>.</p></section>`;
+      ${r.history.length > 1 ? `<details><summary>All ${r.history.length} reviews</summary>${r.history.map(h => `<p><b>${esc(h.score)}</b> ${esc(h.label || "")} · ${esc(h.reviewed_at || "")} · <code>${esc(h.version || "")}</code><br>${esc(h.notes)}</p>`).join("")}</details>` : ""}` : '<p class="empty">Never reviewed.</p>';
+    return `<section class="box"><h2>Music reviews (${r ? r.count : 0})</h2>${history}
+      ${targets.length ? `<h3>Rate a render</h3><p class="n">A review rates one exact render. Listen to it here; how far you listened is saved with the review.</p>${targets.map(t => reviewForm(item, t)).join("")}`
+        : '<p class="empty">The music tool has no render of this score to review.</p>'}</section>`;
+  }
+
+  function wireMusicReviews() {
+    document.querySelectorAll("form.music-review").forEach(form => form.onsubmit = async event => {
+      event.preventDefault();
+      const item = items[form.dataset.item], target = item.review_targets.find(t => t.version_id === form.dataset.version);
+      const state = form.querySelector(".save-state"), button = form.querySelector("[type=submit]");
+      const data = new FormData(form), heard = played[target.href] || {seconds: 0, fraction: 0};
+      button.disabled = true; state.textContent = "Saving…";
+      try {
+        const response = await fetch("/api/music-reviews", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({
+          item: item.id, version_id: target.version_id, score: Number(data.get("score")), notes: data.get("notes") || "",
+          issues: data.getAll("issues"), furthest_played_seconds: heard.seconds, furthest_played_fraction: heard.fraction})});
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Could not save the review.");
+        // Show it now; the next index reads it from the music tool's review file.
+        const rows = (item.reviews ||= {count: 0, history: [], tool: "music"}).history.filter(h => h.version !== result.version_id);
+        rows.push(result.review);
+        Object.assign(item.reviews, result.review, {count: rows.length, history: rows, score_changed: false});
+        detail(item.id);
+        document.querySelector(`form[data-version="${CSS.escape(target.version_id)}"] .save-state`).textContent = `Saved to ${result.path}`;
+      } catch (error) { state.textContent = error.message; button.disabled = false; }
+    });
   }
 
   function detail(id) {
@@ -191,6 +241,7 @@
       ${musicReviews(item)}
       ${window.ArtReviews ? window.ArtReviews.section(item.id) : ""}`;
     if (window.ArtReviews) window.ArtReviews.wire();
+    wireMusicReviews();
     sync();
   }
 

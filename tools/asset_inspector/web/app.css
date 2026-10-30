@@ -193,3 +193,7 @@ body.has-player main { padding-bottom: 90px; }
 tr.playing td { background: var(--decl-bg); }
 .play-big { font-size: 18px; padding: 4px 14px; }
 .tbl th { white-space: nowrap; }
+form.music-review { border-top: 1px solid var(--rule); padding: 8px 0; }
+form.music-review textarea { width: 100%; margin: 6px 0; }
+form.music-review .n { color: var(--muted); font-size: 12px; }
+.now-playing[hidden] { display: none; }

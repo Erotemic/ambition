@@ -75,10 +75,34 @@ _TRACK = re.compile(r'id:\s*"([^"]+)",\s*display_name:\s*"((?:[^"\\]|\\.)*)"(?:,
 _TRACK_PATH = "audio/music/generated/{id}/full.ogg"
 
 
+def music_reviews_module(tool: Path):
+    """The music tool's review owner (`ambition_music_renderer.music_reviews`), which
+    names render versions and writes review files. It needs only PyYAML."""
+    import importlib
+    if str(tool) not in sys.path:
+        sys.path.insert(0, str(tool))
+    return importlib.import_module("ambition_music_renderer.music_reviews")
+
+
+def _render_versions(tool: Path, notices: list) -> dict[str, list]:
+    if not (tool / "ambition_music_renderer" / "music_reviews.py").is_file():
+        return {}  # this game's music tool has no review owner: the page only shows reviews
+    try:
+        module = music_reviews_module(tool)
+        rows = module.discover_render_versions(tool, include_agent_bundles=False)
+    except Exception as error:  # noqa: BLE001 - reviews from the page are optional
+        notices.append(f"Music reviews from the page are unavailable: {type(error).__name__}: {error}")
+        return {}
+    by_cue: dict[str, list] = defaultdict(list)
+    for version in rows:
+        by_cue[version.cue_id].append(version)
+    return by_cue
+
+
 def _music_review(path: Path) -> dict:
     data = yaml.load(path.read_text(), Loader=_Loader) or {}
     current, subject = data.get("current") or {}, data.get("subject") or {}
-    return {"score": current.get("score"), "label": current.get("label"), "notes": current.get("notes") or "",
+    return {"score": current.get("score"), "label": current.get("label"), "notes": current.get("notes") or "", "issues": current.get("issues") or [],
             "reviewed_at": current.get("reviewed_at") or current.get("updated_at"),
             "score_sha256": subject.get("score_sha256_at_review"), "version": subject.get("version_id")}
 
@@ -102,6 +126,10 @@ def music(ctx: dict) -> list[dict]:
             tracks[tid] = (display.replace('\\"', '"'), path or _TRACK_PATH.format(id=tid))
     else:
         ctx["notices"].append(f"The music registry {registry} is missing; tracks are listed from their scores only.")
+    ctx["versions"] = _render_versions(tool, ctx["notices"])
+    if ctx["versions"]:
+        module = music_reviews_module(tool)
+        ctx["extra"] = {"issue_tags": list(module.ISSUE_TAGS), "score_range": [module.MIN_SCORE, module.MAX_SCORE]}
     items = []
     seen_dirs = set()
     for tid, (display, logical) in sorted(tracks.items()):
@@ -166,7 +194,25 @@ def _track(ctx, tid, display, audio: Path, folder, scores: Path, tool: Path, *, 
                            "score_changed": bool(current_sha and latest["score_sha256"] and latest["score_sha256"] != current_sha),
                            "tool": "music", "command": f"./{_rel(repo, tool)}/review_music.sh"}
     item["details"]["folder"] = folder
+    item["details"]["music_tool"] = _rel(repo, tool)
+    item["review_targets"] = _review_targets(ctx, folder, audio)
     return item
+
+
+def _review_targets(ctx, cue: str, audio: Path) -> list[dict]:
+    """The render versions a review on the page can rate: the one the game plays
+    (its preview bytes equal the published file) and the newest render."""
+    versions = ctx.get("versions", {}).get(cue, [])
+    if not versions:
+        return []
+    published = ctx["hashes"].digest(audio) if audio.is_file() else None
+    targets = {}
+    for version in versions:
+        roles = (["what the game plays"] if published and version.preview_sha256 == published else []) + (["newest render"] if version.is_latest else [])
+        if roles:
+            targets[version.version_id] = {"version_id": version.version_id, "render_hash": version.render_hash,
+                "preview_sha256": version.preview_sha256, "roles": roles, "href": os.path.relpath(version.preview_path, ctx["out"])}
+    return sorted(targets.values(), key=lambda t: "what the game plays" not in t["roles"])
 
 
 # --- sound effects ------------------------------------------------------------
@@ -416,7 +462,7 @@ def collect(repo: Path, out: Path, hashes, *, pack: Path, families: dict | None 
             log(f"NOTICE: the {kind} items are unavailable: {error}")
         items += found
         kinds[kind] = {"family": family, "count": len(found), "states": dict(Counter(i["state"] for i in found)),
-                       "notices": notices, "fix": ctx["fix"]}
+                       "notices": notices, "fix": ctx["fix"], **ctx.get("extra", {})}
     try:
         text_uses(repo, items, uses)
     except OSError as error:

@@ -38,6 +38,13 @@ pack, so another engine game is inspected the same way (`--profile`,
 - **Uses** come from quoted ids and asset paths in game and engine text, and
   from world rooms.
 
+A music page can rate a render, as the music tool's review GUI does. It offers
+the render the game plays (its preview bytes equal the published file) and the
+newest render when that differs. The page saves through the music tool's own
+review owner (`ambition_music_renderer.music_reviews`), so the review file, its
+score scale and its issue tags are the same, and how far you listened is kept.
+A review is refused if the render changed since the page was built.
+
 Any item can take a review note (`serve`). A note records the version of the
 files it reviewed, so it stays attached after the asset changes.
 

@@ -148,3 +148,30 @@ def test_the_newer_of_the_release_and_debug_binaries_is_used(tmp_path, monkeypat
     assert sources.default_binary(tmp_path).parent.name == "debug"
     os.utime(tmp_path / "target/release/ambition_content_check", (300, 300))
     assert sources.default_binary(tmp_path).parent.name == "release"
+
+
+def test_a_music_review_from_the_page_rates_only_an_offered_unchanged_render(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    import pytest
+    from asset_index import music_review
+    saved = []
+    version = SimpleNamespace(cue_id="theme", render_hash="abc", preview_sha256="p1", version_id="abc:p1")
+    class Store:
+        def __init__(self, tool): pass
+        def save(self, v, **fields):
+            saved.append((v, fields))
+            return SimpleNamespace(path=tmp_path / "tools/music/reviews/music/theme/abc--p1.review.yaml",
+                                   data={"current": {"score": fields["score"], "label": "Strong", "notes": fields["notes"], "issues": fields["issues"], "reviewed_at": "now"},
+                                         "subject": {"score_sha256_at_review": "s"}})
+    module = SimpleNamespace(discover_render_versions=lambda *a, **k: [version], ReviewStore=Store)
+    monkeypatch.setattr(music_review, "music_reviews_module", lambda tool: module)
+    item = {"id": "music:theme", "kind": "music", "details": {"music_tool": "tools/music", "folder": "theme"},
+            "review_targets": [{"version_id": "abc:p1", "render_hash": "abc", "preview_sha256": "p1", "roles": ["what the game plays"]}]}
+    catalog = {"items": {"music:theme": item}}
+    result = music_review.save(tmp_path, catalog, {"item": "music:theme", "version_id": "abc:p1", "score": 7.5, "notes": "Good", "issues": ["mix-master"]})
+    assert result["review"]["score"] == 7.5 and saved[0][1]["issues"] == ["mix-master"]
+    with pytest.raises(ValueError):
+        music_review.save(tmp_path, catalog, {"item": "music:theme", "version_id": "other", "score": 5})
+    version.preview_sha256 = "rerendered"
+    with pytest.raises(LookupError):
+        music_review.save(tmp_path, catalog, {"item": "music:theme", "version_id": "abc:p1", "score": 5})

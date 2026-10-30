@@ -126,7 +126,7 @@ def allotments():
         entity("ChestSpawn", 620, ALLOT_ROOF[2] - 58, 76, 58, name="the prize-money tin", reward="currency:60"),
         resident("npc_evil_crabbe", "evil_crabbe", 230, FLOOR),
         sign("allot_sign_plot", 340, FLOOR - 110, "PLOT 13: H. CRABBE. KEEP OUT. YES, YOU.", 380),
-        sign("allot_sign_mandrake", 1620, FLOOR - 120, "DO NOT PULL THE MANDRAKES", 300),
+        sign("allot_sign_mandrake", 1640, FLOOR - 150, "DO NOT PULL THE MANDRAKES", 300),
         sign("allot_sign_show", 1480, FLOOR - 200, "BEST IN SHOW: the Malevolent Marrow", 360),
         sign("allot_sign_cabbage", 1340, FLOOR - 100, "CABBAGES: feed from the side", 300),
         enemy(20, "npc_evil_zombie", 1200, FLOOR, 30, 67),

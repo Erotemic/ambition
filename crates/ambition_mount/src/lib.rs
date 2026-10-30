@@ -349,9 +349,10 @@ pub const SLOPE_LINE: &str = "mount_slope";
 /// The name of a mount's drawn ledge in its room's collision overlay.
 pub const DRAWN_LEDGE_LINE: &str = "mount_drawn_ledge";
 
-/// Each ridden mount's ledges are one-way ground in the mount's own live
-/// room, moving with the mount, and its slope and its drawn ledges walkable
-/// lines. A drawn ledge also moves and turns as the drawing moves it on the
+/// Each body's ledges ([`BackLedge`]) are one-way ground in the body's own
+/// live room, moving with the body, and its slope and its drawn ledges
+/// walkable lines. They are a fact of the body: ridden or not, and a mount or
+/// not (the Hall's giant has no rider and is not a mount). A drawn ledge also moves and turns as the drawing moves it on the
 /// mount: a body that stands on it is carried by the two together. A collision-overlay
 /// contribution: the composition runs it after the overlay rebuild and before
 /// the bodies that collide.
@@ -365,17 +366,13 @@ pub fn mount_backs_are_ground(
     mounts: Query<(
         &ae::BodyKinematics,
         &BackLedge,
-        &MountSlot,
         bevy::prelude::Has<ae::Unmirrored>,
         Option<&ae::SweepSample>,
         Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     )>,
     mut overlays: ambition_platformer2d_shared_tangle::feature_overlay::RoomOverlays,
 ) {
-    for (mount, back, slot, unmirrored, step, room) in &mounts {
-        if slot.rider.is_none() {
-            continue;
-        }
+    for (mount, back, unmirrored, step, room) in &mounts {
         // A body in another live room must not stand on it.
         let Some(mut overlay) = overlays.for_room(room) else {
             continue;
@@ -2111,7 +2108,13 @@ pub fn install_mount_simulation_systems(
         schedule.clone(),
         apply_dismount_requests.in_set(DismountRequestsApplied),
     );
-    app.add_systems(schedule.clone(), mount_backs_are_ground.in_set(MountBacksContributed));
+    // A body's ledges are ground whether or not a mount is in play.
+    app.add_systems(
+        schedule.clone(),
+        mount_backs_are_ground
+            .in_set(MountBacksContributed)
+            .run_if(bevy::prelude::any_with_component::<BackLedge>),
+    );
     // Where the room's game has no mounts, none of this has a body to act on;
     // where it has them but none is in the world, neither.
     app.configure_sets(
@@ -2121,7 +2124,6 @@ pub fn install_mount_simulation_systems(
             MountsBoarded,
             RideLeasesTicked,
             DismountRequestsApplied,
-            MountBacksContributed,
         )
             .in_set(MOUNTS)
             .run_if(mounts_are_in_play),
@@ -2517,12 +2519,13 @@ mod back_tests {
         assert_eq!(BackLedge::new(GNU).aabb(&kin, true), right);
     }
 
-    /// ⭐ A ridden mount's ledges are one-way blocks in its own live room's
-    /// overlay, and nowhere else; the span of its back is not ground, and an
-    /// unridden mount's ledges are not ground. They move by the step the
-    /// mount made (its `SweepSample`), not by its `vel`, which is per second.
+    /// ⭐ A body's ledges are one-way blocks in its own live room's overlay,
+    /// and nowhere else, ridden or not, and on a body that is not a mount (the
+    /// Hall's giant); the span of its back is not ground. They move by the
+    /// step the body made (its `SweepSample`), not by its `vel`, which is per
+    /// second.
     #[test]
-    fn a_ridden_mount_s_ledges_are_ground_in_its_own_live_room_only() {
+    fn a_body_s_ledges_are_ground_in_its_own_live_room_only() {
         let mut world = bevy::prelude::World::new();
         insert_live_room_component(&mut world, FeatureEcsWorldOverlay::default());
         let other = LiveRoomInstance::ACTIVATION.next();
@@ -2535,7 +2538,9 @@ mod back_tests {
         let step = ae::SweepSample { prev: kin.pos - ae::Vec2::new(0.5, -0.25), curr: kin.pos, ..Default::default() };
         let back = BackLedge { ledges: vec![SHOULDER], ..BackLedge::new(GNU) };
         let ridden = world.spawn((kin, step, back.clone(), MountSlot { rider: Some(rider) }, InRoomInstance(other))).id();
-        world.spawn((kin, back, MountSlot { rider: None }, InRoomInstance(other)));
+        let mut apart = kin;
+        apart.pos.x += 1000.0;
+        let unridden = world.spawn((apart, back, InRoomInstance(other))).id();
         let mut system = bevy::ecs::system::IntoSystem::into_system(mount_backs_are_ground);
         bevy::ecs::system::System::initialize(&mut system, &mut world);
         let _ = bevy::ecs::system::System::run(&mut system, (), &mut world);
@@ -2546,7 +2551,13 @@ mod back_tests {
                 overlay.blocks.iter().filter(|b| b.name == BACK_BLOCK).map(move |b| (*live, b.aabb, b.velocity, b.kind))
             })
             .collect();
-        let expected = BackLedge::ledge_aabb(&SHOULDER, world.get::<ae::BodyKinematics>(ridden).unwrap(), false);
-        assert_eq!(backs, vec![(other, expected, ae::Vec2::new(0.5, -0.25), ae::BlockKind::OneWay)]);
+        let at = |body| BackLedge::ledge_aabb(&SHOULDER, world.get::<ae::BodyKinematics>(body).unwrap(), false);
+        assert_eq!(
+            backs,
+            vec![
+                (other, at(ridden), ae::Vec2::new(0.5, -0.25), ae::BlockKind::OneWay),
+                (other, at(unridden), ae::Vec2::ZERO, ae::BlockKind::OneWay),
+            ]
+        );
     }
 }

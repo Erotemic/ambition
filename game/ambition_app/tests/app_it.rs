@@ -168,6 +168,7 @@ mod gameplay_presentation_profiles;
 mod gravity_room_reachability;
 mod gravity_symmetry;
 mod gravity_symmetry_room;
+mod a_body_stands_on_the_halls_giant;
 mod hall_barks;
 mod hall_redecode_census;
 mod hall_scale_spread;

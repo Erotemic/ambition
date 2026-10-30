@@ -1880,8 +1880,11 @@
                 // conductor reads as "on its back": from the outer end of one
                 // epaulet to the outer end of the other (405..655 px of the
                 // frame, their top at 303 px, at 1.3 wu/px). It is not ground.
+                // The back and the ground in it are the giant's, ridden or
+                // not; the Hall's giant (`npc_giant_gnu_whole`) has the same.
                 back: Some((left: -14.0, right: 311.0, top: -232.05, thickness: 14.0)),
-                // Where the art has moss, a body can stand (one-way ground):
+                // Where the art has its gold-and-crimson trim
+                // (`giant_art.stand_trim`), a body can stand (one-way ground):
                 // the level part of each horn (from `gnu_horns`, about the
                 // body-box centre), and the top of each epaulet.
                 ledges: [
@@ -1982,7 +1985,8 @@
         // full version with arms and we remove the hands as standalone
         // characters from the hall ... It should have one stand per 'semantic
         // identity' of a character." It is not a mount and has no fists of
-        // its own: the fight uses the two parts above.
+        // its own: the fight uses the two parts above. A body stands on it
+        // where it stands on the giant of the fight.
         "npc_giant_gnu_whole": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Giant GNU",
@@ -1995,6 +1999,23 @@
             unmirrored: true,
             rest_row: Some("armed_rest"),
             locomotion: Some((run_speed: 0.0, move_style: WalkHeavy)),
+            // Not a mount (no class), but the same body: where its trim is, a
+            // body stands on it as on the giant of the fight. The numbers are
+            // `npc_giant_gnu`'s (the same sheet, at the same scale): change
+            // the two together.
+            mount: Some((
+                back: Some((left: -14.0, right: 311.0, top: -232.05, thickness: 14.0)),
+                ledges: [
+                    (left: 28.3, right: 76.3, top: -417.4, thickness: 12.0),
+                    (left: 221.4, right: 269.4, top: -417.4, thickness: 12.0),
+                ],
+                drawn_ledges: ["shoulder_left", "shoulder_right"],
+                slope: [
+                    (-294.4, -25.7), (-263.8, -50.6), (-233.1, -74.4), (-202.4, -95.8),
+                    (-171.7, -113.9), (-141.1, -127.8), (-110.4, -136.8), (-79.7, -140.5),
+                    (-49.0, -140.4), (-18.3, -139.3), (12.3, -137.4),
+                ],
+            )),
             autonomous_profile: Some((template: StandStill, aggro_radius: 0.0, attack_range: 0.0)),
             max_health: Some(42),
             mass: Some(8.0),

@@ -1880,12 +1880,6 @@ fn giant_hand_feature_id(giant_id: &str, side: &str) -> String {
     format!("giant_gnu_hand_{side}_{giant_id}")
 }
 
-/// The mount role, from values.
-///
-///  it had a sibling that took an `ArchetypeSpec` and unpacked the same seven values off it;
-/// AC6 deleted the sibling with the rows, so a CHARACTER that states it is rideable is the only
-/// thing that produces a `Mountable` ( group A: the shark family).
-#[allow(clippy::too_many_arguments)]
 /// The standing surfaces `definition`'s sheet publishes, at the scale its
 /// body is drawn at (`ambition_sprite_sheet::surfaces`), or `None` for a body
 /// that is not drawn from its sheet at an authored scale.
@@ -1900,6 +1894,11 @@ fn published_surfaces_of(sprite_content: &ambition_sprite_sheet::SpriteContent,
     ambition_sprite_sheet::surfaces::published_surfaces(&sprite_content, sheet, world_per_pixel).map(std::sync::Arc::new)
 }
 
+/// The mount role, from values: a CHARACTER that states it is rideable is the
+/// only thing that produces a `Mountable`. A body that authors a `back` gets
+/// its [`ambition_mount::BackLedge`] whether or not it is a mount: where a
+/// body can stand on it is a fact of the body.
+#[allow(clippy::too_many_arguments)]
 fn attach_mount_role_from(
     scope: &mut EntityScope,
     mount_class: Option<&str>,
@@ -1938,17 +1937,17 @@ fn attach_mount_role_from(
             // the lighter rider orbits it under a gravity flip (sync reads Mass).
             ambition_platformer2d_shared_tangle::body::Mass(mass),
         ));
-        if let Some(back) = back {
-            scope.insert(ambition_mount::BackLedge {
-                back,
-                ledges: ledges.to_vec(),
-                drawn: drawn_ledges.iter().map(ambition_mount::DrawnLedge::new).collect(),
-                // A drawn ledge with no published surface is not ground.
-                surfaces: surfaces.filter(|_| !drawn_ledges.is_empty()),
-                saddle_on: saddle_on.map(str::to_string),
-                slope: slope.iter().map(|&(x, y)| ae::Vec2::new(x, y)).collect(),
-            });
-        }
+    }
+    if let Some(back) = back {
+        scope.insert(ambition_mount::BackLedge {
+            back,
+            ledges: ledges.to_vec(),
+            drawn: drawn_ledges.iter().map(ambition_mount::DrawnLedge::new).collect(),
+            // A drawn ledge with no published surface is not ground.
+            surfaces: surfaces.filter(|_| !drawn_ledges.is_empty()),
+            saddle_on: saddle_on.map(str::to_string),
+            slope: slope.iter().map(|&(x, y)| ae::Vec2::new(x, y)).collect(),
+        });
     }
     if !pilotable.is_empty() {
         scope.insert((

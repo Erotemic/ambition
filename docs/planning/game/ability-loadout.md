@@ -24,7 +24,12 @@ demo, every ability is unlocked.
 - A variant that replaces a slot puts a technique on it
   (`EquipmentGrant::Technique`). A module binds the technique through the
   `ambition.body.technique` trigger (`TechniqueUsePort`).
-- The demo bag (`OwnedItems::starter`) grants every ability that has a row.
+- The demo bag (`OwnedItems::starter`) grants every real item
+  (`ItemCatalog::is_real`: not a placeholder). A load keeps the unique
+  equipment of the session's starting bag that the save lacks
+  (`OwnedItems::keep_unlocks`), so an old save does not lock it again.
+- A locked cell still carries the cursor: it has an action that
+  `effects::decide` answers `NotOwned`, and it says `???` with no picture.
 
 ## The grid (`game/ambition_content/assets/data/items.ron`)
 
@@ -125,3 +130,28 @@ Open for bombs:
    variant replaces the Attack slot's moveset; that needs a row grant that
    swaps a moveset, which `EquipmentGrant` does not have.
 7. A laser sound of its own (it uses `boss.wolfenstein.zap` now).
+
+## Where this stands (2026-10-30, before a reboot)
+
+Branch `inventory-unlocks-cursor` (commit c0c091931) is NOT on main yet.
+
+- Done on it: every real item unlocked in the demo bag; a load keeps the
+  unlocks (`OwnedItems::keep_unlocks`); the cursor shows on a locked cell;
+  each cell states each fact once. Unit, menu and bag app tests pass.
+- To land it: merge `origin/main` (27 commits ahead). The merge stopped on a
+  submodule conflict in `game/ambition_map_assets`: take main's pin (the
+  branch does not change that submodule), then run `cargo check -p
+  ambition_app --tests --features rl_sim` and `cargo test -p
+  ambition_workspace_policy`. The policy test `engine_policies` failed
+  on the half-merged tree; check it again on the clean merge, and on
+  `origin/main` alone, before deciding whose it is.
+- Reds on main that are NOT from this work (they fail the same on
+  d91b5c2b6): 5 tests in `death_restores_the_checkpoint` and 2 in
+  `two_persistence_authorities_for_one_item`, all "pressed Attack ... never
+  picked it up" / "the throw mints exactly one instance".
+- Next task (Jon, 2026-10-30): REMOVE the unused items Javelin, Axe, Map
+  Fragment and Sealed Note from the inventory (enum, `items.ron`, held-item
+  specs, placements, tests; the Javelin is the minted item of several
+  checkpoint fixtures and needs a replacement there). Jon also said he does
+  not know what most items are: list each remaining item and what uses it,
+  so he can choose more to remove.

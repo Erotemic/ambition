@@ -138,3 +138,14 @@ fn the_gate_courts_busker_plays_the_air() {
     let mut app = a_session_in("eureka_gate_court");
     crate::the_pirate_port::talk(&mut app, "npc_eureka_hum", "How do you play it without touching it?");
 }
+
+/// The Eureka Collider: down the stair in the lecture hall's arch on the
+/// quad; Dr. Ilse Quark talks by the stair (`eureka.yarn` `eureka_quark`),
+/// and back up.
+#[test]
+fn the_collider_is_under_the_lecture_hall() {
+    let mut app = a_session_in("eureka_quad");
+    crate::the_pirate_port::go(&mut app, "eureka_collider", Some("quad_collider_door"));
+    crate::the_pirate_port::talk(&mut app, "npc_eureka_quark", "What does the collider do?");
+    crate::the_pirate_port::go(&mut app, "eureka_quad", Some("collider_door"));
+}

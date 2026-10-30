@@ -6276,6 +6276,23 @@
                 hall: ["Everybody on this campus runs on my coffee. Nobody tips.", "The station orders pastries by elevator. They arrive cold and complaining."],
             ),
         ),
+        "npc_eureka_quark": (
+            display_name: "Dr. Ilse Quark",
+            // Runs the Eureka Collider under the lecture hall.
+            manifest: "sprites/eureka_quark_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 164 cm.
+            standing_height: Some(63.5),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "eureka", "peaceful"],
+            barks: (
+                idle: ["Helmet's optional. Curiosity isn't.", "Do not lick the pipe."],
+                hall: ["The most expensive way anyone has ever found to break something to see what's in it.", "The beam goes round eleven thousand times a second. I go round once before lunch."],
+            ),
+        ),
         "npc_eureka_hum": (
             display_name: "Ottoline Hum",
             // Busks on a theremin under the gate court's arcade.

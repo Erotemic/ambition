@@ -55,6 +55,11 @@ WORLD_LDTK = WORLDS / "science.ldtk"
 GENERATOR = "specs/eureka/make_specs.py"
 
 COURT = "eureka_gate_court"
+#: Under the lecture hall, down the stair in one of its arches.
+COLLIDER = "eureka_collider"
+COLLIDER_DOOR_X = 1828
+#: The detector's gallery (x0, x1, y), up a ladder (`eureka_collider_props.py`).
+COLLIDER_GALLERY = (1500, 1760, 384)
 QUAD = "eureka_quad"
 PATENT = "eureka_patent_office"
 LAB = "eureka_coil_lab"
@@ -102,6 +107,7 @@ ROOMS_AT = {
     QUAD: ((1856, 6816), (2816, 896)),
     PATENT: ((1856, 8064), (1024, 640)),
     LAB: ((3072, 8064), (1280, 576)),
+    COLLIDER: ((4416, 8064), (2000, 640)),
     DOME: ((2560, 5792), (1280, 1024)),
     STATION: ((4672, 6240), (1600, 1408)),
     CLIMB: ((5056, 3040), (1280, 3200)),
@@ -216,6 +222,7 @@ def quad():
         door("quad_dome_door", "up to the observatory", 2180, terrace, DOME, "dome_door"),
         sign("dome_sign", 2204, terrace - 140, "OBSERVATORY: visiting hours after dark", 340),
         sign("hall_sign", 1960, terrace - 260, "THE LECTURE HALL OF THE EUREKA INSTITUTE", 460),
+        door("quad_collider_door", "down to the Collider", COLLIDER_DOOR_X, street, COLLIDER, "collider_door"),
         door("quad_lab_door", "into Tesseract Laboratories", 2440, street, LAB, "lab_door"),
         sign("lab_sign", 2464, street - 150, "TESSERACT LABORATORIES: mind the coils", 360),
         resident("npc_eureka_wilbur", "eureka_wilbur", 2620, street),
@@ -443,7 +450,36 @@ def test_range():
 
 # Made from the top of the tether down and then west: a room is placed only
 # where no room stands, so a move of the chain places the far end first.
-ROOMS = (terminus, elevator_climb, elevator_station, quad, court, test_range, patent_office, coil_lab, observatory)
+def collider():
+    """Under the lecture hall, down its stair: the Eureka Collider. Floor 576.
+    The ring's tunnel, its beam pipe and magnets, the staff's bicycles; the
+    detector at the east end and its gallery (y 384, up a ladder; a chest
+    there). Dr. Ilse Quark by the stair; what has got loose in the tunnel
+    (crawlers, a shock warden)."""
+    rid = COLLIDER
+    _, (w, h) = ROOMS_AT[rid]
+    floor, vault = 576, 48
+    g0, g1, gy = COLLIDER_GALLERY
+    e = [
+        solid("floor", 0, floor, w, h - floor),
+        solid("vault", 0, 0, w, vault),
+        solid("west_wall", 0, vault, WALL, floor - vault),
+        solid("east_wall", w - WALL, vault, WALL, floor - vault),
+        door("collider_door", "up to the quad", 40, floor, QUAD, "quad_collider_door"),
+        start(rid, 140, floor),
+        ledge("detector_gallery", g0, gy, g1 - g0),
+        entity("ChestSpawn", g0 + 90, gy - 58, 76, 58, name="a spare quark (charm)", reward="currency:60"),
+        resident("npc_eureka_quark", "eureka_quark", 300, floor),
+        sign("collider_sign", 560, 200, "THE EUREKA COLLIDER: circumference 27 km. Staff bicycles only.", 520),
+        sign("collider_sign_beam", 900, 330, "BEAM ON: do not lick the pipe", 300),
+        range_enemy(10, "npc_searchlight_crawler", 760, floor, 48, 34),
+        range_enemy(11, "npc_searchlight_crawler", 1080, floor, 48, 34),
+        range_enemy(12, "npc_shock_warden", 1360, floor, 40, 64),
+    ]
+    return build(rid, e, "THE EUREKA COLLIDER")
+
+
+ROOMS = (terminus, elevator_climb, elevator_station, quad, court, test_range, patent_office, coil_lab, observatory, collider)
 
 #: The docking bay's door to the terminus, on its floor west of the cargo
 #: lift (the bay is the station generator's; it lists the same door).
@@ -497,6 +533,11 @@ def main(argv):
         code, _ = run("entity", "add", str(GATE_INTERFACE), "--ldtk", str(WORLD_LDTK), "--in-place")
         if code:
             return code
+    # The ladder up to the collider's detector gallery.
+    code, _ = run("intgrid", "paint", "--ldtk", str(WORLD_LDTK), "--level", COLLIDER, "--layer", "Climbable", "--value", "1",
+                  "--px", f"{COLLIDER_GALLERY[0] - 32},{COLLIDER_GALLERY[2] - 16}", "--size", f"32,{576 - COLLIDER_GALLERY[2] + 16}")
+    if code:
+        return code
     code, _ = run("validate", str(WORLD_LDTK))
     return code
 

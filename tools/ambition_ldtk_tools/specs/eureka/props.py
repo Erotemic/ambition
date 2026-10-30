@@ -52,6 +52,8 @@ SCENERY = {
         ("climb_satellite", 320, 1320),
         ("climb_navsat", 760, 576),
     ],
+    # Under the lecture hall (`eureka_collider_props.py`, room coordinates).
+    "eureka_collider": [("collider_tunnel", 16, 48)],
     # The station end (`orbital_terminus_props.py`, room coordinates).
     "orbital_station_tether_terminus": [
         ("terminus_hall", 16, 48),

@@ -43,6 +43,12 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Science: the Eureka Collider**, down a stair in one of the lecture
+  hall's arches on the quad: the ring's tunnel, its beam pipe and magnets
+  (BEAM ON: do not lick the pipe), the staff's bicycles, the detector end on
+  (rings in rings) with its gallery up a ladder (a chest: a spare quark,
+  charm); Dr. Ilse Quark (chargen, Hall wing); crawlers and a shock warden
+  loose in the tunnel. Verified: the_eureka_tether (7).
 - **PvN: the sail loft**, in at a door added to the net loft on the
   waterfront: nets on the rafters, bolts of canvas, a sail spread half sewn,
   and flags to order (skulls with an eyepatch, a monocle, a moustache, a

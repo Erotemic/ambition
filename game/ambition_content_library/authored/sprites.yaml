@@ -500,6 +500,7 @@ collections:
   - ranger_station_room
   - bakery_room
   - sail_loft_room
+  - collider_tunnel
   - spur_west
   - spur_east
   - jungle_ranger_hut

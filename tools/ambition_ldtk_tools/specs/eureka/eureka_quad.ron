@@ -42,6 +42,7 @@
         ( type: "LoadingZone", px: [2180, 480], size: [48, 96], fields: ( id: "quad_dome_door", name: "up to the observatory", activation: "Door", target_room: "eureka_observatory", target_zone: "dome_door", bidirectional: true ) ),
         ( type: "DebugLabel", px: [2034, 436], size: [340, 24], fields: ( name: "dome_sign", text: "OBSERVATORY: visiting hours after dark", category: "Custom" ) ),
         ( type: "DebugLabel", px: [1730, 316], size: [460, 24], fields: ( name: "hall_sign", text: "THE LECTURE HALL OF THE EUREKA INSTITUTE", category: "Custom" ) ),
+        ( type: "LoadingZone", px: [1828, 672], size: [48, 96], fields: ( id: "quad_collider_door", name: "down to the Collider", activation: "Door", target_room: "eureka_collider", target_zone: "collider_door", bidirectional: true ) ),
         ( type: "LoadingZone", px: [2440, 672], size: [48, 96], fields: ( id: "quad_lab_door", name: "into Tesseract Laboratories", activation: "Door", target_room: "eureka_coil_lab", target_zone: "lab_door", bidirectional: true ) ),
         ( type: "DebugLabel", px: [2284, 618], size: [360, 24], fields: ( name: "lab_sign", text: "TESSERACT LABORATORIES: mind the coils", category: "Custom" ) ),
         ( type: "NpcSpawn", px: [2604, 704], size: [32, 64], fields: ( character_id: "npc_eureka_wilbur", prompt: "Talk", dialogue_id: "eureka_wilbur", brain_override: "stand_still" ) ),

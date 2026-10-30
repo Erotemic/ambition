@@ -19,6 +19,7 @@ since: its west exit is ADDED to it (and its wall opened), not regenerated.
 - Barbed wire. Attack hounds, failed prototypes and zombies.
 - At its far west end, the Crooked Lantern: an inn (a door), Gudrun and
   Tobias inside.
+- Beside the founder's plinth, a gate down to his crypt.
 
 The art is the sprite tools' `targets/props/evil_moor_props.py`, drawn on
 these numbers.
@@ -40,6 +41,11 @@ MOOR = "evil_searchlight_moor"
 #: The inn at the moor's far west end, and where its room is in the world.
 INN = "evil_crooked_lantern"
 INN_AT, INN_W, INN_H, INN_FLOOR = (-2400, 1024), 1024, 512, 448
+#: The founder's crypt, down a gate beside his plinth, and where it is.
+CRYPT = "evil_founders_crypt"
+CRYPT_AT, CRYPT_W, CRYPT_H, CRYPT_FLOOR = (-2400, 1600), 1600, 576, 512
+#: The sarcophagus (x0, x1, its lid, walked on).
+SARCOPHAGUS = (1100, 1300, 440)
 FOREST = "evil_gate_forest"
 W, H, FLOOR = 2400, 784, 656
 BOG = (600, 1100, 640)
@@ -60,6 +66,8 @@ def moor():
         piece("moor_bog", 560, 580, name="moor_bog"),
         piece("moor_watchtower", 1180, 0, name="moor_watchtower"),
         piece("moor_statue", 1740, 500, name="moor_statue"),
+        piece("moor_crypt_gate", 2250, 500, name="moor_crypt_gate"),
+        door("moor_crypt_door", "down into the founder's crypt", 2290, FLOOR, CRYPT, "crypt_door"),
         solid("ground_west", 0, FLOOR, bx0, H - FLOOR),
         solid("bog_bed", bx0, 720, bx1 - bx0, H - 720),
         solid("ground_east", bx1, FLOOR, W - bx1, H - FLOOR),
@@ -109,6 +117,32 @@ def inn():
                      title="THE CROOKED LANTERN", generator=GENERATOR)
 
 
+def crypt():
+    """The founder's crypt: niches of bones, his busts (still pointing),
+    candles, the sarcophagus (its lid walked on, his medals on it), and
+    what guards him."""
+    w, h, g = CRYPT_W, CRYPT_H, CRYPT_FLOOR
+    s0, s1, lid = SARCOPHAGUS
+    e = [
+        piece("crypt_room", 16, 32, name="crypt_room"),
+        solid("floor", 0, g, w, h - g),
+        solid("ceiling", 0, 0, w, 32),
+        solid("west_wall", 0, 32, WALL, g - 32),
+        solid("east_wall", w - WALL, 32, WALL, g - 32),
+        door("crypt_door", "back up to the moor", 40, g, MOOR, "moor_crypt_door"),
+        start(CRYPT, 140, g),
+        ledge("sarcophagus_lid", s0, lid, s1 - s0),
+        entity("ChestSpawn", s0 + 60, lid - 58, 76, 58, name="the founder's medals", reward="currency:100"),
+        sign("crypt_sign", 800, 110, "HERE LIES OUR FOUNDER (mostly)", 380),
+        sign("crypt_sign_busts", 760, g - 160, "He pointed the way. West. At nothing.", 380),
+        enemy(10, "npc_evil_spectral_wolf", 620, g, 56, 56),
+        enemy(11, "npc_evil_zombie", 900, g, 30, 67),
+        enemy(12, "npc_evil_zombie", 1380, g, 30, 67),
+    ]
+    return CRYPT, room(CRYPT, e, at=CRYPT_AT, size=(w, h), biome="castle_godwin", music="vault_in_the_dark", bg="#141012",
+                       title="THE FOUNDER'S CRYPT", generator=GENERATOR)
+
+
 FOREST_EDGE_YAML = f"""# The gate forest's way west to the moor. Written by {GENERATOR}.
 level_id: {FOREST}
 entities:
@@ -127,7 +161,7 @@ entities:
 
 def main(argv):
     paths = []
-    for rid, text in (inn(), moor()):
+    for rid, text in (inn(), crypt(), moor()):
         path = HERE / f"{rid}.ron"
         path.write_text(text)
         print(path.relative_to(HERE.parents[1]))

@@ -296,6 +296,9 @@
     "obs_deck_window": (),
     // Eureka's gate court.
     "court_furniture": (),
+    // The founder's crypt, under the Searchlight Moor (Evil).
+    "moor_crypt_gate": (),
+    "crypt_room": (),
     // The hall of the Shadow Clan (PvN).
     "shadow_dojo_hall": (),
     // Along the primeval trail.

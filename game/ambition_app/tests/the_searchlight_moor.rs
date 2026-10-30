@@ -27,3 +27,11 @@ fn the_crooked_lantern_is_lit_at_the_end_of_the_moor() {
     go(&mut app, MOOR, Some("inn_door"));
     go(&mut app, "evil_crooked_lantern", Some("moor_inn_door"));
 }
+
+/// The founder's crypt: down the gate beside his plinth and back up.
+#[test]
+fn the_founder_lies_in_a_crypt_under_the_moor() {
+    let mut app = a_session_in("evil_founders_crypt");
+    go(&mut app, MOOR, Some("crypt_door"));
+    go(&mut app, "evil_founders_crypt", Some("moor_crypt_door"));
+}

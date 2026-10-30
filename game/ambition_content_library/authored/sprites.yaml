@@ -501,6 +501,7 @@ collections:
   - court_furniture
   - moor_crypt_gate
   - crypt_room
+  - svc_clutter
   - shadow_dojo_hall
   - jungle_fern_clump
   - jungle_fallen_log

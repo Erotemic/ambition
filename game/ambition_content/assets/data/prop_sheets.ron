@@ -299,6 +299,8 @@
     // The founder's crypt, under the Searchlight Moor (Evil).
     "moor_crypt_gate": (),
     "crypt_room": (),
+    // The orbital station's service deck.
+    "svc_clutter": (),
     // The hall of the Shadow Clan (PvN).
     "shadow_dojo_hall": (),
     // Along the primeval trail.

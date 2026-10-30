@@ -50,6 +50,7 @@ OVERLAYS = {
         # One drawing in two frames (`targets/props/orbital_spur_props.py`).
         "orbital_station_damaged_spur": [("spur_west", 16, 64), ("spur_east", 1272, 64)],
         "orbital_station_observation_deck": [("obs_deck_window", 16, 48)],
+        "orbital_station_service_deck": [("svc_clutter", 1290, 560)],
     },
 }
 
@@ -63,6 +64,13 @@ SIGNS = {
             ("sky_lookout_sign_nest", 1056, 300, "CROW'S NEST: no crows. Some parrots.", 380),
             ("sky_lookout_sign_perch", 210, 390, "THE CAPTAIN'S PERCH (the captain is out)", 400),
             ("sky_lookout_sign_cannon", 1100, 590, "ANTI-SHARK GUN: aim up, mostly", 340),
+        ],
+    },
+    "science.ldtk": {
+        "orbital_station_service_deck": [
+            ("service_sign_incident", 1885, 550, "DAYS WITHOUT INCIDENT:", 260),
+            ("service_sign_dock", 1800, 690, "ROBOTS: CHARGE HERE (do not charge the crew)", 420),
+            ("service_sign_snacks", 1562, 616, "SNACKS: weightless, not priceless", 320),
         ],
     },
 }

@@ -175,6 +175,7 @@ npc_evil_crabbe
 npc_castle_sprocket
 npc_evil_bellows
 npc_evil_crumb
+npc_evil_prentice
 
 [The primeval trail's people]
 npc_primeval_brandvold

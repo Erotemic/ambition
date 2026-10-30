@@ -22,6 +22,7 @@
         ( type: "OneWayPlatform", px: [1270, 592], size: [140, 16], fields: ( name: "crier_platform" ) ),
         ( type: "NpcSpawn", px: [1304, 528], size: [32, 64], fields: ( character_id: "npc_evil_bellows", prompt: "Talk", dialogue_id: "evil_bellows", brain_override: "stand_still" ) ),
         ( type: "NpcSpawn", px: [764, 592], size: [32, 64], fields: ( character_id: "npc_evil_crumb", prompt: "Talk", dialogue_id: "evil_crumb", brain_override: "stand_still" ) ),
+        ( type: "LoadingZone", px: [826, 560], size: [48, 96], fields: ( id: "hamlet_bakery_door", name: "into Crumb's bakery", activation: "Door", target_room: "evil_crumbs_bakery", target_zone: "bakery_door", bidirectional: true ) ),
         ( type: "DebugLabel", px: [370, 140], size: [460, 24], fields: ( name: "hamlet_sign", text: "LOWER GODWIN: twinned with nowhere, by order", category: "Custom" ) ),
         ( type: "DebugLabel", px: [1510, 556], size: [260, 24], fields: ( name: "hamlet_sign_stocks", text: "STOCKS: for complaining", category: "Custom" ) ),
         ( type: "DebugLabel", px: [1580, 466], size: [440, 24], fields: ( name: "hamlet_sign_decree", text: "DECREE 47: smiling is compulsory on Tuesdays", category: "Custom" ) ),

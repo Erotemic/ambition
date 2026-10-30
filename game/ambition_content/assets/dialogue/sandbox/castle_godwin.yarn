@@ -152,3 +152,17 @@ Prudence Crumb: Mind the flour. It gets everywhere. So does the castle.
 -> I'll take a loaf.
     Prudence Crumb: Tuesday or not, that's a smile I've earned. Here. Don't tell the crier.
 ===
+
+title: evil_prentice
+---
+Silas Prentice: (He steps out from behind the flour sacks, inky to the elbows.) Oh. You're not an inspector. Good. You're not a baker either. Hm.
+-> What are you printing?
+    Silas Prentice: The Lower Godwin Gazette. One sheet, both sides, every night. The castle's decrees on the front, word for word. What they mean on the back.
+    Silas Prentice: Mrs Hargreave takes a bundle up to the kitchens every morning, wrapped round the castle's bread. The guards read it at breakfast. They think it's the menu.
+-> Isn't that dangerous?
+    Silas Prentice: Less than you'd think. The castle's inspectors can't find a press in a bakery. They've looked. They found bread. Prudence gave them some. They left happy.
+-> What is in tonight's edition?
+    Silas Prentice: "DECREE 47 REPEALED (IN OUR HEARTS)". Also a recipe, and Mrs Mudge's complaint, in full. It takes up most of the back.
+-> I won't tell.
+    Silas Prentice: I know. Nobody here does. That's the only reason any of this works.
+===

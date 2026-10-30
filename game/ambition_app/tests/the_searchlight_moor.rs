@@ -57,3 +57,13 @@ fn lower_godwin_lies_west_of_the_allotments() {
     go(&mut app, "evil_castle_allotments", Some("hamlet_east"));
     go(&mut app, "evil_lower_godwin", Some("allot_west"));
 }
+
+/// Crumb's bakery: in at its door in Lower Godwin, a word with the Gazette's
+/// printer behind the flour, and out again.
+#[test]
+fn the_gazette_is_printed_behind_the_bakerys_flour() {
+    let mut app = a_session_in("evil_lower_godwin");
+    go(&mut app, "evil_crumbs_bakery", Some("hamlet_bakery_door"));
+    talk(&mut app, "npc_evil_prentice", "What are you printing?");
+    go(&mut app, "evil_lower_godwin", Some("bakery_door"));
+}

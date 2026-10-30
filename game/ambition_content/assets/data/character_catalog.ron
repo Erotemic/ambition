@@ -6501,6 +6501,23 @@
                 hall: ["Two breads: the castle's keeps for a year, ours is gone by noon.", "Nobody's ever thought to check what I bake second."],
             ),
         ),
+        "npc_evil_prentice": (
+            display_name: "Silas Prentice",
+            // Prints the Lower Godwin Gazette behind the bakery's flour.
+            manifest: "sprites/evil_prentice_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 175 cm.
+            standing_height: Some(67.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "castle_godwin", "peaceful"],
+            barks: (
+                idle: ["You're not an inspector. Good.", "One sheet, both sides, every night."],
+                hall: ["The castle's decrees on the front. What they mean on the back.", "The castle's inspectors can't find a press in a bakery. They've looked. They found bread."],
+            ),
+        ),
         "npc_castle_sprocket": (
             display_name: "Dr. Gideon Sprocket",
             // The castle's chief engineer, in the Prototype Workshop under the barracks.

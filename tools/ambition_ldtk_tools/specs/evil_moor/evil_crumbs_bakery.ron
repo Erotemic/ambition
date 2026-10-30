@@ -1,0 +1,27 @@
+// Written by specs/evil_moor/make_specs.py. Change the script, not this file.
+(
+    id: "evil_crumbs_bakery",
+    level_id: "evil_crumbs_bakery",
+    world_x: -6800,
+    world_y: 1024,
+    px_wid: 1024,
+    px_hei: 448,
+    fill_collision: "empty",
+    bg_color: "#2A1A14",
+    biome: "castle_godwin",
+    parallax_theme: "castle_godwin",
+    music_track: "argand_waltz",
+    entities: [
+        ( type: "Prop", px: [16, 32], size: [992, 352], fields: ( name: "bakery_room", kind: "bakery_room" ) ),
+        ( type: "Solid", px: [0, 384], size: [1024, 64], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [1024, 32], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 32], size: [16, 352], fields: ( name: "west_wall" ) ),
+        ( type: "Solid", px: [1008, 32], size: [16, 352], fields: ( name: "east_wall" ) ),
+        ( type: "LoadingZone", px: [40, 288], size: [48, 96], fields: ( id: "bakery_door", name: "out to Lower Godwin", activation: "Door", target_room: "evil_lower_godwin", target_zone: "hamlet_bakery_door", bidirectional: true ) ),
+        ( type: "PlayerStart", px: [126, 338], size: [28, 46], fields: ( name: "evil_crumbs_bakery_spawn" ) ),
+        ( type: "NpcSpawn", px: [814, 320], size: [32, 64], fields: ( character_id: "npc_evil_prentice", prompt: "Talk", dialogue_id: "evil_prentice", brain_override: "stand_still" ) ),
+        ( type: "CameraZone", px: [0, 0], size: [1024, 448], fields: ( id: "evil_crumbs_bakery_camera", name: "evil_crumbs_bakery_camera", mode: "Default" ) ),
+        ( type: "DebugLabel", px: [70, 40], size: [884, 24], fields: ( name: "evil_crumbs_bakery_title", text: "CRUMB'S BAKERY", category: "Custom" ) ),
+    ],
+    connect_to: [],
+)

@@ -27,7 +27,8 @@ since: its west exit is ADDED to it (and its wall opened), not regenerated.
   into the beds.
 - West of the allotments by a side exit, Lower Godwin: the hamlet under the
   castle, its cottages, bakery, well, stocks and decree board; Barnaby
-  Bellows the town crier on his platform, Prudence Crumb the baker.
+  Bellows the town crier on his platform, Prudence Crumb the baker; her
+  bakery inside (a door), and behind its flour, the Gazette's press.
 
 The art is the sprite tools' `targets/props/evil_moor_props.py`, drawn on
 these numbers.
@@ -161,6 +162,7 @@ def hamlet():
         ledge("crier_platform", p0, py, p1 - p0),
         resident("npc_evil_bellows", "evil_bellows", p0 + 50, py),
         resident("npc_evil_crumb", "evil_crumb", 780, FLOOR),
+        door("hamlet_bakery_door", "into Crumb's bakery", BAKERY_DOOR_X, FLOOR, BAKERY, "bakery_door"),
         sign("hamlet_sign", 600, 140, "LOWER GODWIN: twinned with nowhere, by order", 460),
         sign("hamlet_sign_stocks", 1640, FLOOR - 100, "STOCKS: for complaining", 260),
         sign("hamlet_sign_decree", 1800, FLOOR - 190, "DECREE 47: smiling is compulsory on Tuesdays", 440),
@@ -168,6 +170,32 @@ def hamlet():
     ]
     return HAMLET, room(HAMLET, e, at=(-W - ALLOT_W - w, 0), size=(w, H), biome="evil_forest", music="argand_waltz",
                         bg="#3A0E0E", title="LOWER GODWIN", generator=GENERATOR)
+
+
+#: Crumb's bakery inside, by its door in the hamlet (the art's doorway,
+#: x 836..862); a building, so anywhere in the world (west of the inn).
+BAKERY = "evil_crumbs_bakery"
+BAKERY_AT, BAKERY_W, BAKERY_H, BAKERY_FLOOR = (-6800, 1024), 1024, 448, 384
+BAKERY_DOOR_X = 826
+
+
+def bakery():
+    """Crumb's bakery inside: the castle's oven and the hamlet's, shelves of
+    both breads, the counter; behind the flour sacks, the press of the Lower
+    Godwin Gazette and Silas Prentice, who prints it."""
+    w, h, g = BAKERY_W, BAKERY_H, BAKERY_FLOOR
+    e = [
+        piece("bakery_room", 16, 32, name="bakery_room"),
+        solid("floor", 0, g, w, h - g),
+        solid("ceiling", 0, 0, w, 32),
+        solid("west_wall", 0, 32, WALL, g - 32),
+        solid("east_wall", w - WALL, 32, WALL, g - 32),
+        door("bakery_door", "out to Lower Godwin", 40, g, HAMLET, "hamlet_bakery_door"),
+        start(BAKERY, 140, g),
+        resident("npc_evil_prentice", "evil_prentice", 830, g),
+    ]
+    return BAKERY, room(BAKERY, e, at=BAKERY_AT, size=(w, h), biome="castle_godwin", music="argand_waltz", bg="#2A1A14",
+                        title="CRUMB'S BAKERY", generator=GENERATOR)
 
 
 def inn():
@@ -235,7 +263,7 @@ entities:
 
 def main(argv):
     paths = []
-    for rid, text in (inn(), crypt(), hamlet(), allotments(), moor()):
+    for rid, text in (inn(), crypt(), bakery(), hamlet(), allotments(), moor()):
         path = HERE / f"{rid}.ron"
         path.write_text(text)
         print(path.relative_to(HERE.parents[1]))

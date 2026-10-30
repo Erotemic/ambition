@@ -43,6 +43,12 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Evil: Crumb's bakery inside**, by its door in Lower Godwin: the
+  castle's black iron oven (the crest on its door) and the hamlet's glowing
+  brick one, shelves of both breads, the counter; behind the flour sacks,
+  the press of the Lower Godwin Gazette, its sheets drying on a line; Silas
+  Prentice the printer (chargen, Hall wing), whose Gazette goes up to the
+  castle wrapped round its bread. Verified: the_searchlight_moor (6).
 - **Jungle: the ranger station**, inside the trailhead's ranger hut (its
   deck now walked on, a door added): the trail's big map (you are here:
   please stay here), the radio, specimen jars (ferns, eggs, compys rescued

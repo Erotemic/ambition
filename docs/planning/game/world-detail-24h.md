@@ -60,6 +60,9 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Secrets in every region**: breakable walls hide the amber vault (jungle,
+  32c83ec37) and the conjectures (math: a cellar chalked with unsolved
+  problems, Collatz's 27 plotted). Verified: the_tar_pits, the_zeno_aqueduct (10).
 - **Math composed: the roots** under the Fractal Woods, west of the Mobius
   Mine, up through a knot of roots (lever below) into the woods: a loop.
   The test walker keeps over a hole's middle going down a ladder.

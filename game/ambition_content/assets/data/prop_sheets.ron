@@ -391,6 +391,9 @@
     // The fossil beds' cracked wall (a breakable's look) and the amber vault behind it (jungle).
     "fossil_cracked_wall": (),
     "amber_vault_room": (),
+    // The roots' cracked wall (a breakable's look) and the conjectures behind it (Math).
+    "roots_cracked_wall": (),
+    "conjectures_room": (),
     "sail_loft_room": (),
     // The Pirate Port's well, and the cellars under customs (PvN).
     "plaza_well": (),

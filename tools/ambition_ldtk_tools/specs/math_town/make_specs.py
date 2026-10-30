@@ -84,6 +84,9 @@ MINE = "math_mobius_mine"
 ROOTS = "math_fractal_roots"
 KNOT = (800, 864)
 KNOT_LEVER = "math_roots_knot_lever"
+#: West of the roots, behind the cracked wall over their way west (a
+#: breakable wall: hit it; broken for good in the save): the conjectures.
+CONJECTURES = "math_conjectures"
 #: East of the woods by a side exit, floors level: the Fibonacci Meadow.
 MEADOW = "math_fibonacci_meadow"
 #: West of the gate hall by a side exit, under the aqueduct's valley.
@@ -124,6 +127,8 @@ ROOMS_AT = {
     HANOI: (-1600, 1600, 768),
     # West of the mine, its floor the mine's.
     ROOTS: (1712 + 3200 + 2288 - 96 - 1600, 1600, 640),
+    # Between the street's east end and the roots.
+    CONJECTURES: (1712 + 3200, 592, 640),
     MEADOW: (1712 + 3200 + 2560, 2400, 768),
 }
 #: A room's world y when it is not 0. The rooms of the world touch where they
@@ -140,6 +145,7 @@ ROOMS_Y = {
     # Right under the woods (their floor's foot, y 768 there).
     MINE: 560 - 704 + 768,
     ROOTS: 560 - 704 + 768,
+    CONJECTURES: 560 - 704 + 768,
     # Level with the gate hall, west of it.
     HANOI: 1344,
     # Level with the woods, east of them.
@@ -1017,7 +1023,13 @@ def fractal_roots():
         solid("floor", 0, g, w, h - g),
         solid("ceiling_west", 0, 0, s0, top),
         solid("ceiling_east", s1, 0, w - s1, top),
-        solid("west_wall", 0, top, WALL, g - top),
+        solid("west_wall", 0, top, WALL, g - 112 - top),
+        # The way west, cracked over (`secret_`: the map shows the
+        # conjectures only once they are found).
+        (f'( type: "BreakablePlatform", px: [{WALL}, {g - 112}], size: [32, 112], fields: ( id: "math_roots_cracked_wall", '
+         f'name: "a cracked wall, chalk dust in the crack", max_hp: 3.0, respawn: "Persistent", collision: "Solid", trigger: "OnHit", '
+         f'look: "roots_cracked_wall" ) ),'),
+        edge(f"secret_{rid}_west", "through the cracked wall", 0, g - 96, 96, CONJECTURES, f"secret_{CONJECTURES}_east"),
         solid("east_wall", w - WALL, top, WALL, g - 112 - top),
         edge(f"{rid}_east", "east into the mine", w - WALL, g - 96, 96, MINE, f"{MINE}_west"),
         (f'( type: "LoadingZone", px: [{s0}, 0], size: [{s1 - s0}, 16], fields: ( id: "{rid}_knot", name: "up through the knot to the woods", '
@@ -1033,6 +1045,27 @@ def fractal_roots():
          f'brain: "combatant", character_id: "npc_puppy_slug", respawn: "OnRoomReenter" ) ),'),
     ]
     return rid, room(rid, e, "The Roots: it goes all the way down.")
+
+
+def conjectures():
+    """Behind the roots' cracked wall: a cellar chalked over with the problems
+    nobody has solved (the zeta zeros on their line, Collatz's 27, the twin
+    primes, Goldbach). PROOF LEFT AS AN EXERCISE."""
+    rid = CONJECTURES
+    _, w, h = ROOMS_AT[rid]
+    g, top = MINE_FLOOR, MINE_CEIL
+    e = [
+        framed("conjectures_room", "conjectures_room", 16, 16),
+        solid("floor", 0, g, w, h - g),
+        solid("ceiling", 0, 0, w, top),
+        solid("west_wall", 0, top, WALL, g - top),
+        solid("east_wall", w - WALL, top, WALL, g - 112 - top),
+        edge(f"secret_{rid}_east", "back through the cracked wall", w - WALL, g - 96, 96, ROOTS, f"secret_{ROOTS}_west"),
+        f'( type: "PlayerStart", px: [{w - 120}, {g - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        f'( type: "ChestSpawn", px: [240, {g - 58}], size: [76, 58], fields: ( name: "a proof (it is wrong)", reward: "currency:120" ) ),',
+        label("conjectures_sign", 70, 90, "THE CONJECTURES: solutions welcome, by post", 452),
+    ]
+    return rid, room(rid, e, "The Conjectures.")
 
 
 #: The Tower of Hanoi (`math_hanoi_props.py` draws on these): the needles,
@@ -1165,7 +1198,7 @@ def fibonacci_meadow():
 # The meadow before the woods: the woods grew east into where it was.
 ROOMS = (gate_hall, street, cafe, surveyors_office, observatory, zeno_aqueduct, hotel_lobby, hotel_corridor, hotel_lift,
          hotel_ballroom, *[hotel_closet(k) for k in range(3)], fibonacci_meadow, fractal_woods,
-         mobius_mine, fractal_roots, tower_of_hanoi)
+         mobius_mine, fractal_roots, conjectures, tower_of_hanoi)
 
 #: What is painted on an IntGrid layer of a room: (room, layer, value, px, size).
 PAINT = [(STREET, "Climbable", 1, (x, top), (32, bottom - top)) for _name, x, top, bottom in LADDERS] + [

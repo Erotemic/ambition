@@ -186,3 +186,13 @@ fn the_roots_loop_the_mine_back_up_into_the_woods() {
     crate::the_pirate_port::go(&mut app, "math_fractal_woods", Some("math_fractal_roots_knot"));
     crate::the_pirate_port::go(&mut app, "math_fractal_roots", Some("math_fractal_woods_roots"));
 }
+
+/// The roots' cracked wall at their west end (a breakable: hit it), chalk
+/// dust in the crack: the conjectures behind it, and back.
+#[test]
+fn a_cracked_wall_in_the_roots_hides_the_conjectures() {
+    let mut app = a_session_in("math_fractal_roots");
+    crate::the_pirate_port::break_the_wall(&mut app, "math_roots_cracked_wall", ae::Vec2::new(110.0, 560.0), -1.0);
+    go(&mut app, "math_conjectures", Some("secret_math_fractal_roots_west"));
+    go(&mut app, "math_fractal_roots", Some("secret_math_conjectures_east"));
+}

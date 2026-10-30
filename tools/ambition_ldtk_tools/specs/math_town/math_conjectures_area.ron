@@ -1,0 +1,28 @@
+// Written by specs/math_town/make_specs.py. Change the script, not this file.
+(
+    id: "math_conjectures",
+    level_id: "math_conjectures",
+    world_x: 4912,
+    world_y: 624,
+    px_wid: 592,
+    px_hei: 640,
+    fill_collision: "empty",
+    bg_color: "#BFD7EE",
+    biome: "math_town",
+    parallax_theme: "math_town",
+    music_track: "math_town_day",
+    entities: [
+        ( type: "Prop", px: [16, 16], size: [560, 560], fields: ( name: "conjectures_room", kind: "conjectures_room" ) ),
+        ( type: "Solid", px: [0, 576], size: [592, 64], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [592, 64], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 64], size: [16, 512], fields: ( name: "west_wall" ) ),
+        ( type: "Solid", px: [576, 64], size: [16, 400], fields: ( name: "east_wall" ) ),
+        ( type: "LoadingZone", px: [576, 480], size: [16, 96], fields: ( id: "secret_math_conjectures_east", name: "back through the cracked wall", activation: "EdgeExit", target_room: "math_fractal_roots", target_zone: "secret_math_fractal_roots_west", bidirectional: true ) ),
+        ( type: "PlayerStart", px: [472, 530], size: [28, 46], fields: ( name: "math_conjectures_spawn" ) ),
+        ( type: "ChestSpawn", px: [240, 518], size: [76, 58], fields: ( name: "a proof (it is wrong)", reward: "currency:120" ) ),
+        ( type: "DebugLabel", px: [70, 90], size: [452, 24], fields: ( name: "conjectures_sign", text: "THE CONJECTURES: solutions welcome, by post", category: "Custom" ) ),
+        ( type: "CameraZone", px: [0, 0], size: [592, 640], fields: ( id: "math_conjectures_camera", name: "math_conjectures_camera", mode: "Default" ) ),
+        ( type: "DebugLabel", px: [70, 40], size: [452, 24], fields: ( name: "math_conjectures_label", text: "The Conjectures.", category: "Custom" ) ),
+    ],
+    connect_to: [],
+)

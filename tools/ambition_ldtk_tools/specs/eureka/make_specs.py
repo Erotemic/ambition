@@ -79,7 +79,7 @@ BG = "#A9D3F0"
 TOWN_MUSIC = "a_possible_morning"
 PATENT_MUSIC = "graphite_and_rain"
 LAB_MUSIC = "scaling_laws"
-DOME_MUSIC = "physicists_guild_event_horizon_waltz"
+DOME_MUSIC = "billions_and_billions"
 TETHER_MUSIC = "salt_steel_and_starlight"
 STATION_MUSIC = "between_objectives"
 

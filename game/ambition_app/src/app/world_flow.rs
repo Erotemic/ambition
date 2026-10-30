@@ -24,8 +24,6 @@ pub(crate) use room_transition_presentation::install_room_transition_presentatio
 /// public because a SCHEDULE SEAM has to be nameable to be checkable.
 /// The set carries the one ordering edge the room-transition cover's
 /// correctness rests on, and Bevy compiles system NAMES out — so a test cannot
-/// find the system any other way, and `RoomTransitionCoverRoot`'s precedent
-/// (matched by debug `Name` from a test, because widening it would put a
-/// presentation marker in the public surface) does not apply to sets. A set is
-/// a name by design; every other ordering seam in this workspace is public too.
+/// find the system any other way. A set is a name by design; every other
+/// ordering seam in this workspace is public too.
 pub use room_transition_presentation::RoomTransitionCoverSet;

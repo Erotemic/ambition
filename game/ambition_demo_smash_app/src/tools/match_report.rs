@@ -126,6 +126,10 @@ pub struct MatchReportArgs {
     /// rows of Smash's pack (`data/fighter_brain_ladder.ron`).
     #[arg(long, value_name = "PATH")]
     pub ladder: Option<String>,
+    /// Also trace the match camera: the view's size and where the fighters
+    /// sit in it, every tick, reported as a block after the fighter table.
+    #[arg(long)]
+    pub camera: bool,
 }
 
 pub fn run(args: MatchReportArgs) {
@@ -170,9 +174,10 @@ pub fn run_with(args: MatchReportArgs, build: fn() -> App) {
             "the rows of Smash's pack (`data/fighter_brain_ladder.ron`)"
         }
     );
+    let mut cameras: Vec<CameraTally> = Vec::new();
     let all: Vec<Vec<Tally>> = (0..runs)
         .map(|i| {
-            run_one(
+            let (tallies, camera) = run_one(
                 build,
                 &character,
                 &opponent,
@@ -182,7 +187,10 @@ pub fn run_with(args: MatchReportArgs, build: fn() -> App) {
                 &mut decisions,
                 &mut carried,
                 authored_ladder.as_ref(),
-            )
+                args.camera,
+            );
+            cameras.push(camera);
+            tallies
         })
         .collect();
 
@@ -214,6 +222,11 @@ pub fn run_with(args: MatchReportArgs, build: fn() -> App) {
         report_one(&label, seconds, &all[0], &carried);
     } else {
         report_spread(&label, seconds, &all, &carried);
+    }
+    if args.camera {
+        for camera in &cameras {
+            report_camera(camera);
+        }
     }
     #[cfg(feature = "causal")]
     report_decisions(&decisions);
@@ -306,7 +319,8 @@ fn run_one(
     // a built app is in hand. Filled on every run.
     carried: &mut Vec<String>,
     authored_ladder: Option<&ambition_platformer2d::characters::brain::fighter::FighterBrainLadder>,
-) -> Vec<Tally> {
+    trace_camera: bool,
+) -> (Vec<Tally>, CameraTally) {
     let mut app = build();
     if let Some(ladder) = authored_ladder {
         super::declare_smash_ladder(&mut app, ladder.clone());
@@ -370,8 +384,15 @@ fn run_one(
     let mut hitstun_was: Vec<f32> = vec![0.0; 4];
     let mut last_damage: Vec<i32> = vec![0; 4];
     let mut steer_was: Vec<f32> = vec![0.0; 4];
+    let mut camera = CameraTally {
+        room: ambition_demo_smash::smash_stage().world.size,
+        ..CameraTally::default()
+    };
     for _ in 0..ticks {
         app.update();
+        if trace_camera {
+            sample_camera(&mut app, &mut camera);
+        }
         sample(
             &mut app,
             &mut totals,
@@ -385,7 +406,134 @@ fn run_one(
         collect_decisions(&app, decisions);
     }
 
-    totals
+    (totals, camera)
+}
+
+/// THE CAMERA TRACE: one row per tick of the view the match camera resolved
+/// and where the seated fighters sat in it. `report_camera` reduces it.
+#[derive(Default)]
+struct CameraTally {
+    /// Per tick: the visible view (w, h) and its centre, in world px.
+    frames: Vec<(ae::Vec2, ae::Vec2)>,
+    /// Per tick, per seat: the body's centre and size, in world px.
+    bodies: Vec<Vec<(ae::Vec2, ae::Vec2)>>,
+    /// The room's size, read once.
+    room: ae::Vec2,
+}
+
+fn sample_camera(app: &mut App, camera: &mut CameraTally) {
+    let world = app.world_mut();
+    let mut views = world.query_filtered::<
+        &ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot,
+        With<ambition_platformer2d::sim_view::LocalView>,
+    >();
+    let Some(frame) = views.iter(world).find_map(|view| view.frame().cloned()) else {
+        return;
+    };
+    camera
+        .frames
+        .push((frame.snapshot.visible_view, frame.snapshot.center_world));
+    let mut seats = world.query::<(&MatchSeat, &ae::BodyKinematics)>();
+    let mut bodies: Vec<(usize, ae::Vec2, ae::Vec2)> = seats
+        .iter(world)
+        .map(|(seat, kin)| (seat.0, kin.pos, kin.size))
+        .collect();
+    bodies.sort_by_key(|(seat, ..)| *seat);
+    camera
+        .bodies
+        .push(bodies.into_iter().map(|(_, pos, size)| (pos, size)).collect());
+}
+
+fn median(values: &mut [f32]) -> f32 {
+    if values.is_empty() {
+        return 0.0;
+    }
+    values.sort_by(|a, b| a.total_cmp(b));
+    values[values.len() / 2]
+}
+
+/// Reduce the trace to what a camera feel is judged by: how big the view is,
+/// how fast it zooms, how far past the room it goes, how tall a fighter is
+/// on screen, where the fighters sit vertically, and how often one is cut
+/// off by the view's edge.
+fn report_camera(camera: &CameraTally) {
+    let ticks = camera.frames.len();
+    if ticks == 0 {
+        println!("camera: no view was resolved (headless app without a local view?)");
+        return;
+    }
+    let mut widths: Vec<f32> = camera.frames.iter().map(|(view, _)| view.x).collect();
+    let (w_min, w_max) = widths
+        .iter()
+        .fold((f32::MAX, f32::MIN), |(lo, hi), w| (lo.min(*w), hi.max(*w)));
+    let w_med = median(&mut widths);
+    let mut open_rate = 0.0f32;
+    let mut close_rate = 0.0f32;
+    let mut moving_ticks = 0usize;
+    for pair in camera.frames.windows(2) {
+        let d = (pair[1].0.x - pair[0].0.x) * 60.0;
+        open_rate = open_rate.max(d);
+        close_rate = close_rate.min(d);
+        if d.abs() > 60.0 {
+            moving_ticks += 1;
+        }
+    }
+    let past_room = camera
+        .frames
+        .iter()
+        .filter(|(view, centre)| {
+            centre.x - view.x * 0.5 < -0.5
+                || centre.x + view.x * 0.5 > camera.room.x + 0.5
+                || centre.y - view.y * 0.5 < -0.5
+                || centre.y + view.y * 0.5 > camera.room.y + 0.5
+        })
+        .count();
+    let mut heights: Vec<f32> = Vec::new();
+    let mut seats_in_frame: Vec<f32> = Vec::new();
+    let mut cut_off = 0usize;
+    let mut body_ticks = 0usize;
+    for ((view, centre), bodies) in camera.frames.iter().zip(&camera.bodies) {
+        for (pos, size) in bodies {
+            body_ticks += 1;
+            heights.push(size.y / view.y);
+            seats_in_frame.push((pos.y - (centre.y - view.y * 0.5)) / view.y);
+            let half = *size * 0.5;
+            if pos.x - half.x < centre.x - view.x * 0.5
+                || pos.x + half.x > centre.x + view.x * 0.5
+                || pos.y - half.y < centre.y - view.y * 0.5
+                || pos.y + half.y > centre.y + view.y * 0.5
+            {
+                cut_off += 1;
+            }
+        }
+    }
+    let (h_min, h_max) = heights
+        .iter()
+        .fold((f32::MAX, f32::MIN), |(lo, hi), h| (lo.min(*h), hi.max(*h)));
+    let h_med = median(&mut heights);
+    let sit_med = median(&mut seats_in_frame);
+    println!(
+        "\ncamera: {ticks} ticks, room {:.0}x{:.0}",
+        camera.room.x, camera.room.y
+    );
+    println!("  view width px     min {w_min:.0}  median {w_med:.0}  max {w_max:.0}");
+    println!(
+        "  zoom rate px/s    open {open_rate:.0}  close {close_rate:.0}  ticks moving >60px/s {moving_ticks} ({:.0}%)",
+        moving_ticks as f32 * 100.0 / ticks.max(1) as f32
+    );
+    println!(
+        "  view past room    {past_room} ticks ({:.0}%)",
+        past_room as f32 * 100.0 / ticks as f32
+    );
+    println!(
+        "  fighter height    min {:.2}  median {:.2}  max {:.2} of the view",
+        h_min, h_med, h_max
+    );
+    println!("  fighter sits at   {sit_med:.2} of the view height (0 = top)");
+    println!(
+        "  fighter cut off   {cut_off} of {body_ticks} body-ticks ({:.1}%)",
+        cut_off as f32 * 100.0 / body_ticks.max(1) as f32
+    );
 }
 
 fn report_one(label: &str, seconds: usize, totals: &[Tally], carried: &[String]) {

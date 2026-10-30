@@ -502,6 +502,7 @@ collections:
   - fossil_beds
   - bakery_room
   - castle_cells_room
+  - castle_guild_room
   - sail_loft_room
   - plaza_well
   - cellars_vault

@@ -46,6 +46,9 @@ GENERATOR = "specs/castle_kitchens/make_specs.py"
 KITCHENS = "castle_godwin_kitchens"
 COMPLAINTS = "castle_godwin_complaints"
 CELLS = "castle_godwin_cells"
+#: Behind a false wall at the kitchens' west end: the Guild's secret room.
+GUILD = "castle_godwin_guild_room"
+GW = 960
 WORKSHOP = "castle_godwin_workshop"
 GATEHOUSE = "castle_godwin_gatehouse"
 TOWER = "castle_godwin_tower"
@@ -65,6 +68,8 @@ TRAPDOOR_LEVER = "castle_godwin_trapdoor_lever"
 #: its west edge on the tower's east.
 WHERE = {
     KITCHENS: (3200, 832),
+    # West of the kitchens, under the gatehouse's west end.
+    GUILD: (3200 - GW, 832),
     COMPLAINTS: (3200 + W, 1344 - CFLOOR),
     CELLS: (3200 + W + CW, 1344 - LFLOOR),
     WORKSHOP: (7184, 1728 - FLOOR),
@@ -80,7 +85,10 @@ def kitchens():
         solid("floor", 0, FLOOR, W, H - FLOOR),
         solid("ceiling_west", 0, 0, s0, CEILING),
         solid("ceiling_east", s1, 0, W - s1, CEILING),
-        solid("west_wall", 0, CEILING, WALL, FLOOR - CEILING),
+        # The west wall is false at the floor: a secret way (its zone id
+        # `secret_`: the map shows the room behind it only once it is found).
+        solid("west_wall", 0, CEILING, WALL, FLOOR - 112 - CEILING),
+        edge("secret_kitchens_west", "a draught from the wall", 0, FLOOR, GUILD, "secret_guild_east"),
         solid("east_wall", W - WALL, CEILING, WALL, FLOOR - 112 - CEILING),
         entity("LoadingZone", s0, 0, s1 - s0, 16, id="kitchens_stair", name="up the stair to the gatehouse",
                activation="EdgeExit", target_room=GATEHOUSE, target_zone="castle_godwin_gatehouse_stair", bidirectional=True),
@@ -166,9 +174,29 @@ def cells():
                 title="THE CELLS", generator=GENERATOR)
 
 
+def guild():
+    """The Henchpersons' Guild's secret room, behind the kitchens' false west
+    wall: chairs facing a lectern, the banner, the demands, the ballot box,
+    and the strike fund (a chest)."""
+    e = [
+        piece("castle_guild_room", 16, CEILING, name="guild_room"),
+        solid("floor", 0, FLOOR, GW, H - FLOOR),
+        solid("ceiling", 0, 0, GW, CEILING),
+        solid("west_wall", 0, CEILING, WALL, FLOOR - CEILING),
+        solid("east_wall", GW - WALL, CEILING, WALL, FLOOR - 112 - CEILING),
+        edge("secret_guild_east", "back through the false wall to the kitchens", GW - WALL, FLOOR, KITCHENS, "secret_kitchens_west"),
+        start(GUILD, GW - 140, FLOOR),
+        entity("ChestSpawn", 600, FLOOR - 58, 76, 58, name="the strike fund", reward="currency:66"),
+        sign("guild_sign", 520, 300, "HENCHPERSONS' GUILD, LOCAL 666: members only", 420),
+        sign("guild_sign_demands", 730, 420, "DEMANDS: dental, less shouting, helmets that fit", 420),
+    ]
+    return room(GUILD, e, at=WHERE[GUILD], size=(GW, H), biome="castle_godwin", music="doves_of_the_commons", bg="#1A1416",
+                title="THE GUILD ROOM", generator=GENERATOR)
+
+
 #: Each room's spec, the workshop first: a room may only stand where no other
 #: does, and the old places overlap the new.
-ROOMS = ((WORKSHOP, workshop), (COMPLAINTS, complaints), (KITCHENS, kitchens), (CELLS, cells))
+ROOMS = ((WORKSHOP, workshop), (COMPLAINTS, complaints), (KITCHENS, kitchens), (CELLS, cells), (GUILD, guild))
 
 
 def main(argv):

@@ -103,3 +103,30 @@ fn the_lever_in_the_cells_opens_the_trapdoor_up_to_the_barracks() {
     go(&mut app, "castle_godwin_barracks", Some("cells_trapdoor"));
     go(&mut app, CELLS, Some("castle_godwin_barracks_trapdoor"));
 }
+
+/// The secret: the kitchens' west wall is false at the floor. Walk into it
+/// and you are in the Henchpersons' Guild's room (the strike fund in its
+/// chest), and back. The map does not show the room behind it until it is
+/// found.
+#[test]
+fn a_false_wall_in_the_kitchens_hides_the_guild_room() {
+    use ambition_platformer2d::menu::map::view::map_view;
+
+    let mut app = a_session_in(KITCHENS);
+    let shown = |app: &bevy::prelude::App, visited: &[&str]| -> Vec<String> {
+        let project = app.world().resource::<ActiveLdtkProject>();
+        let map = MapMenuState {
+            rooms: project.0.levels.iter().map(map_room_node).collect(),
+            visited: visited.iter().map(|v| v.to_string()).collect(),
+            ..Default::default()
+        };
+        map_view(&map, KITCHENS, 1.7).expect("the kitchens are on the map").rooms.iter().map(|r| r.id.clone()).collect()
+    };
+    let before = shown(&app, &[KITCHENS]);
+    assert!(!before.contains(&"castle_godwin_guild_room".to_string()), "the secret room is not on the map: {before:?}");
+    assert!(before.contains(&COMPLAINTS.to_string()), "control: the open way east is: {before:?}");
+    go(&mut app, "castle_godwin_guild_room", Some("secret_kitchens_west"));
+    go(&mut app, KITCHENS, Some("secret_guild_east"));
+    let after = shown(&app, &[KITCHENS, "castle_godwin_guild_room"]);
+    assert!(after.contains(&"castle_godwin_guild_room".to_string()), "found, it is on the map: {after:?}");
+}

@@ -111,6 +111,7 @@ pub fn map_room_node(level: &ambition_platformer2d_ldtk::LdtkLevel) -> MapRoomNo
     let mut title = None;
     let mut label = None;
     let mut edge_exits = Vec::new();
+    let mut secret_exits = Vec::new();
     let mut doors = Vec::new();
     let mut pins = Vec::new();
     let middle = |entity: &ambition_platformer2d_ldtk::LdtkEntityInstance| {
@@ -132,7 +133,12 @@ pub fn map_room_node(level: &ambition_platformer2d_ldtk::LdtkLevel) -> MapRoomNo
             "LoadingZone" => {
                 let Some(target) = text(fields, "target_room") else { continue };
                 match text(fields, "activation") {
-                    Some("EdgeExit") => edge_exits.push(target.to_string()),
+                    Some("EdgeExit") => {
+                        edge_exits.push(target.to_string());
+                        if text(fields, "id").is_some_and(|id| id.starts_with("secret_")) {
+                            secret_exits.push(target.to_string());
+                        }
+                    }
                     Some("Door") => doors.push(super::view::MapDoor { at: middle(entity), target_room: target.to_string() }),
                     _ => {}
                 }
@@ -154,6 +160,7 @@ pub fn map_room_node(level: &ambition_platformer2d_ldtk::LdtkLevel) -> MapRoomNo
         world_min: Vec2::new(level.world_x as f32, level.world_y as f32),
         world_size: Vec2::new(level.px_wid as f32, level.px_hei as f32),
         edge_exits,
+        secret_exits,
         doors,
         pins,
     }

@@ -26,6 +26,10 @@ pub struct MapRoomNode {
     /// The rooms this room's edge exits (side and vertical) lead to: the
     /// joins of a region (`view::region`).
     pub edge_exits: Vec<String>,
+    /// The rooms of `edge_exits` that a SECRET exit leads to (its zone id
+    /// starts `secret_`): a false wall, a hidden passage. The room behind it
+    /// is not shown on the map until it is visited.
+    pub secret_exits: Vec<String>,
     /// This room's doors: into buildings, whose insides are regions of their
     /// own.
     pub doors: Vec<view::MapDoor>,

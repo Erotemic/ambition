@@ -126,8 +126,9 @@ pub fn region(rooms: &[MapRoomNode], start: usize) -> Vec<usize> {
 /// the map.
 ///
 /// Fog of war: a visited room is drawn; an unvisited room an edge exit leads
-/// to from a visited one is drawn as not yet visited; the rest of the region
-/// is not drawn. The current room counts as visited.
+/// to from a visited one is drawn as not yet visited, unless the only ways to
+/// it are secret (`MapRoomNode::secret_exits`); the rest of the region is not
+/// drawn. The current room counts as visited.
 pub fn map_view(state: &MapMenuState, current: &str, aspect: f32) -> Option<MapView> {
     let rooms = &state.rooms;
     let here = find(rooms, current)?;
@@ -151,8 +152,12 @@ pub fn map_view(state: &MapMenuState, current: &str, aspect: f32) -> Option<MapV
         }
     }
     let visited = |i: usize| i == here || i == anchor || state.visited.contains(&rooms[i].id) || state.visited.contains(&rooms[i].area);
-    // An edge exit joins both ways, whichever side names it.
-    let names = |from: usize, to: usize| rooms[from].edge_exits.iter().any(|t| *t == rooms[to].id || *t == rooms[to].area);
+    // An edge exit joins both ways, whichever side names it. An open way is
+    // one that is not secret.
+    let is = |t: &String, to: usize| *t == rooms[to].id || *t == rooms[to].area;
+    let names = |from: usize, to: usize| {
+        rooms[from].edge_exits.iter().any(|t| is(t, to)) && !rooms[from].secret_exits.iter().any(|t| is(t, to))
+    };
     let shown: Vec<usize> = region_rooms
         .iter()
         .copied()

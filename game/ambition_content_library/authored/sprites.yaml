@@ -538,6 +538,12 @@ collections:
   - point_cottage
   - spoke_west
   - spoke_east
+  - orchard_rising_tree
+  - orchard_hanging_tree
+  - orchard_swing_rail
+  - orchard_crates
+  - bad_apple
+  - gravity_apple
   - mine_tunnel
   - hamlet_west
   - hamlet_east

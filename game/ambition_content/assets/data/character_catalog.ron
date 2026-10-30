@@ -379,6 +379,17 @@
             move_style: WalkHeavy,
             melee: Some(Lunge(windup_s: 0.75, active_s: 0.4, recover_s: 1.0, damage: 4, reach_px: 64.0, step_px: 0.0, rush_px: 260.0)),
         ),
+        // The Bad Apple's chomp: it rears back with its maw wide (its windup
+        // row), then rolls at you jaws first, and sits a beat after.
+        "bad_apple_chomp": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.45, active_s: 0.25, recover_s: 0.6, damage: 1, reach_px: 30.0, step_px: 0.0, rush_px: 140.0)),
+        ),
+        // The Gravity Apple's charge: its orbits flare, then it drops on you.
+        "gravity_apple_charge": (
+            move_style: Float,
+            melee: Some(Bite(windup_s: 0.3, active_s: 0.12, recover_s: 0.4, damage: 1, reach_px: 40.0)),
+        ),
         "swallow_dart": (
             move_style: Float,
             melee: Some(Bite(windup_s: 0.12, active_s: 0.08, recover_s: 0.22, damage: 1, reach_px: 34.0)),
@@ -5254,6 +5265,67 @@
         // The dinosaurs of the primeval trail that are not birds yet.
         // The compsognathus is tiny and quick. One is a nuisance; a level places
         // them in threes.
+        // GNU-ton's apples gone wrong, the enemies of his gravity works (Jon,
+        // 2026-10-30: "add the bad / gravity apples as enemies in this region.
+        // It should be light on enemies, it's mostly a puzzle zone").
+        "bad_apple": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Bad Apple",
+            manifest: "sprites/bad_apple_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(36.0),
+            composition: None,
+            default_action_set: "bad_apple_chomp",
+            locomotion: Some((run_speed: 150.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 420.0,
+                attack_range: 30.0,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+                // It glares, rears back, rolls at you jaws first, and sits a beat after.
+                retreat_after_swing_s: 0.5,
+                attack_cooldown_s: 0.6,
+                tactics: (notice_s: 0.4),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "fruit"],
+        barks: (
+            on_hit: ["Bruised!", "Core damage!", "That's going to brown."],
+            provoked: ["One bad apple spoils the bunch!"],
+            idle: ["Grrrnch.", "Spoil. Spoil. Spoil."],
+            hall: ["One bad apple spoils the bunch. I am the bunch.", "An apple a day keeps the doctor away. I keep everyone away."],
+        ),
+        ),
+        "gravity_apple": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Gravity Apple",
+            manifest: "sprites/gravity_apple_spritesheet.ron",
+            tier: MainHall,
+            // Floating = no gravity, so the Aerial policy flies it.
+            body_kind: Floating,
+            standing_height: Some(36.0),
+            composition: None,
+            default_action_set: "gravity_apple_charge",
+            locomotion: Some((run_speed: 170.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 520.0,
+                attack_range: 40.0,
+                shares_sightings: false,
+                // It hangs over you with its orbits flaring, then drops.
+                tactics: (dive_tell_s: 0.45),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "fruit"],
+        barks: (
+            on_hit: ["Equal and opposite!", "Mind the orbit!"],
+            provoked: ["What goes up..."],
+            idle: ["Hmmmm.", "Nine point eight one."],
+            hall: ["I fell on a man once. He has not stopped talking about it.", "I do not fall. Everything else rises."],
+        ),
+        ),
         "compsognathus": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "CompSci-gnathus",

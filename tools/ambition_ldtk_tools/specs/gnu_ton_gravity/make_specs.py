@@ -172,9 +172,48 @@ def camera(rid, w, h, zoom=None):
     return entity("CameraZone", 0, 0, w, h, id=f"{rid}_camera", name=f"{rid}_camera", mode="Default", **extra)
 
 
+#: The art of the works (`targets/props/gnu_ton_orchard_props.py` in the
+#: sprite tools), drawn on these rooms' numbers: each prop's frame's top left
+#: in its room.
+PROPS = {
+    ORCHARD: (("orchard_rising_tree", 352, 80), ("orchard_hanging_tree", 956, 80),
+              ("orchard_swing_rail", 1808, 80), ("orchard_crates", 1594, 624)),
+}
+
+#: The works' enemies, few: it is a puzzle level (Jon, 2026-10-30: "add the
+#: bad / gravity apples as enemies in this region. It should be light on
+#: enemies, it's mostly a puzzle zone"). Each stands where no puzzle is
+#: solved: a Bad Apple on the orchard's middle bank, where the ceiling walk
+#: comes down; a Gravity Apple over its east bank and one in the approach's
+#: open air, off the column. (room, character, x, its feet's y, w, h)
+ENEMIES = (
+    (ORCHARD, "bad_apple", 1784, 704, 40, 40),
+    (ORCHARD, "gravity_apple", 2560, 520, 44, 44),
+    (APPROACH, "gravity_apple", 960, 760, 44, 44),
+)
+
+
+def dressing(rid):
+    """The props, a sign and the enemies of room `rid`."""
+    sys.path.insert(0, str(HERE.parent))
+    from district_scenery import body_box
+
+    out = []
+    for kind, fx, fy in PROPS.get(rid, ()):
+        bx, by, bw, bh = body_box(kind)
+        out.append(entity("Prop", round(fx + bx / 2), round(fy + by / 2), max(1, round(bw / 2)), max(1, round(bh / 2)), name=kind, kind=kind))
+    for n, (room_id, character, x, feet, w, h) in enumerate(ENEMIES, 1):
+        if room_id == rid:
+            out.append(entity("EnemySpawn", x, feet - h, w, h, name=f"{rid}_{character}_{n}", brain="combatant",
+                              character_id=character, respawn="OnRoomReenter"))
+    if rid == ORCHARD:
+        out.append(label("orchard_crates_sign", 1560, 560, "PICKED APPLES: store this way up", 300))
+    return out
+
+
 def room(rid, entities, title, title_y=96, biome=PUZZLE_BIOME, parallax=PUZZLE_PARALLAX, music=PUZZLE_MUSIC, bg=PUZZLE_BG, zoom=None, extra_fields=""):
     world_x, world_y, w, h = ROOMS_AT[rid]
-    body = "\n        ".join(entities + [camera(rid, w, h, zoom), label(f"{rid}_title", 64, title_y, title, 900)])
+    body = "\n        ".join(entities + dressing(rid) + [camera(rid, w, h, zoom), label(f"{rid}_title", 64, title_y, title, 900)])
     return f"""// Written by specs/gnu_ton_gravity/make_specs.py. Change the script, not this file.
 (
     id: "{rid}",

@@ -1972,7 +1972,7 @@ fn finalize_character(
     let kit = match action_set {
         // The definition authored capabilities. Nothing else gets a vote.
         Some(set) => PreparedKit::Authored {
-            moveset: derive_moveset(&id, &set, moveset, ranged_execution, catalog_row.map(|row| &row.cues)),
+            moveset: derive_moveset(&id, &set, moveset, ranged_execution, strike_cues(catalog_row).as_ref()),
             action_set: set,
         },
         //  the question is "does the catalog know this id" (AC6.3). It was
@@ -1997,7 +1997,7 @@ fn finalize_character(
                     ActionSet::peaceful()
                 });
             PreparedKit::Authored {
-                moveset: derive_moveset(&id, &set, moveset, ranged_execution, catalog_row.map(|row| &row.cues)),
+                moveset: derive_moveset(&id, &set, moveset, ranged_execution, strike_cues(catalog_row).as_ref()),
                 action_set: set,
             }
         }
@@ -2282,6 +2282,21 @@ fn revoke_charge_owned_ranged(moveset: &mut MovesetContract) -> Vec<String> {
         moveset.verbs.remove(verb);
     }
     revoked
+}
+
+/// The sounds a character's strikes make ([`CharacterCues`](crate::actor::character_catalog::CharacterCues)).
+/// A flyer that hangs before its dive (`dive_tell_s`) is heard telling then,
+/// from its brain's beat, so its strike does not tell again as the bite
+/// winds up: one warning per attack.
+fn strike_cues(
+    row: Option<&crate::actor::character_catalog::CharacterCatalogEntry>,
+) -> Option<crate::actor::character_catalog::CharacterCues> {
+    let row = row?;
+    let mut cues = row.cues.clone();
+    if row.autonomous_profile.as_ref().is_some_and(|profile| profile.tactics.dive_tell_s > 0.0) {
+        cues.tell = None;
+    }
+    Some(cues)
 }
 
 /// An authored moveset if there is one, otherwise the moves the action set implies.

@@ -279,6 +279,11 @@
     "point_cottage": (),
     "spoke_west": (),
     "spoke_east": (),
+    // GNU-ton's orchard: its trees show what its up fields do (Science).
+    "orchard_rising_tree": (),
+    "orchard_hanging_tree": (),
+    "orchard_swing_rail": (),
+    "orchard_crates": (),
     "mine_tunnel": (),
     "hamlet_west": (),
     "hamlet_east": (),

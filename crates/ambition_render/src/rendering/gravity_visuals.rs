@@ -24,6 +24,25 @@ pub struct ZoneDraw {
     band: (Color, Vec2, Vec3),
 }
 
+/// The hue of a zone that pulls along `dir`, by the axis it pulls along most:
+/// up violet, down teal, left amber, right green. Each way its own, so two
+/// side fields that pull against each other are told apart at a glance (Jon,
+/// 2026-10-30: "left and right gravity don't have a different color, and
+/// that would help"). (pure)
+pub fn zone_hue(dir: ae::Vec2) -> Color {
+    if dir.x.abs() > dir.y.abs() {
+        if dir.x < 0.0 {
+            Color::srgb(0.98, 0.66, 0.24) // left = amber
+        } else {
+            Color::srgb(0.46, 0.88, 0.36) // right = green
+        }
+    } else if dir.y < 0.0 {
+        Color::srgb(0.62, 0.40, 0.95) // up = violet
+    } else {
+        Color::srgb(0.30, 0.80, 0.80) // down = teal
+    }
+}
+
 /// Run condition of [`sync_gravity_zone_visual`]: a gravity zone stands, or
 /// a visual of one remains to retire.
 pub fn a_zone_or_its_visual_stands(
@@ -34,7 +53,7 @@ pub fn a_zone_or_its_visual_stands(
 }
 
 /// Draw each gravity zone as a translucent tinted region so the player can see
-/// where gravity changes (violet = up, teal = down/other).
+/// where gravity changes, in the hue of the way it pulls ([`zone_hue`]).
 ///
 /// The visuals are spawned again only when what the zones draw changed, or a
 /// visual is gone (a room or session teardown took it). Spawning them every
@@ -63,21 +82,14 @@ pub fn sync_gravity_zone_visual(
         let Some((room, world)) = rooms.room_of(entity).and_then(|room| Some((room, rooms.in_room(room)?))) else {
             continue;
         };
-        let color = if zone.dir.y < 0.0 {
-            Color::srgba(0.62, 0.40, 0.95, 0.16) // up = violet
-        } else {
-            Color::srgba(0.30, 0.80, 0.80, 0.16) // else teal
-        };
+        let hue = zone_hue(zone.dir);
+        let color = hue.with_alpha(0.16);
         let center = (zone.aabb.min + zone.aabb.max) * 0.5;
         let size = zone.aabb.max - zone.aabb.min;
         let translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, center, 7.5);
         // A brighter band on the edge gravity pulls toward, so the zone shows a
         // direction: you can see which way you will fall before stepping in.
-        let band_color = if zone.dir.y < 0.0 {
-            Color::srgba(0.62, 0.40, 0.95, 0.55) // up = violet
-        } else {
-            Color::srgba(0.30, 0.80, 0.80, 0.55) // else teal
-        };
+        let band_color = hue.with_alpha(0.55);
         let half_along = (size.x * zone.dir.x.abs() + size.y * zone.dir.y.abs()) * 0.5;
         let thickness = 10.0_f32.min(half_along * 0.8);
         let band_center = center + zone.dir * (half_along - thickness * 0.5);
@@ -170,6 +182,20 @@ mod tests {
             vec![(Some(LiveRoomInstance::ACTIVATION.ordinal()), flipped(big)), (Some(second.ordinal()), flipped(small))],
             "(room, position) of each zone visual: each must be placed by its zone's live room and stamped with it"
         );
+    }
+
+    /// Each of the four ways a zone pulls has its own hue.
+    #[test]
+    fn each_way_a_zone_pulls_has_its_own_hue() {
+        let hues: Vec<[f32; 4]> = [(0.0, -1.0), (0.0, 1.0), (-1.0, 0.0), (1.0, 0.0)]
+            .into_iter()
+            .map(|(x, y)| zone_hue(ae::Vec2::new(x, y)).to_srgba().to_f32_array())
+            .collect();
+        for (i, a) in hues.iter().enumerate() {
+            for b in &hues[i + 1..] {
+                assert_ne!(a, b, "two ways a zone pulls share a hue");
+            }
+        }
     }
 
     /// An unchanged zone keeps its visuals: a second frame spawns nothing new.

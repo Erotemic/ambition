@@ -16,8 +16,15 @@ dimension. Its rooms:
   World), with its name over the door. The door goes in. The forest is only
   big enough to hold the gate and the way in.
 - `castle_godwin_gatehouse`, `castle_godwin_barracks`, `castle_godwin_tower`,
-  `castle_godwin_great_hall`: rooms of combat (theme `castle_godwin`), one
-  after the other. The soldiers are `npc_fascist_enforcer`. The great hall
+  `castle_godwin_great_hall`: rooms of combat (theme `castle_godwin`). Inside
+  the castle the rooms touch and join by their edges, on a faithful flat map
+  (Jon, 2026-10-30: "a connected world, not a series of disconnected
+  doors"). Only the front door (from the forest) and the throne room's are
+  doors. The barracks join the tower partway up its climb; the tower's top
+  joins the great hall, its foot the workshop, and partway down the cells
+  of the lower floor (`specs/castle_kitchens/make_specs.py`: a stair from
+  the gatehouse down to the kitchens, the Complaints Department, the cells),
+  so the castle is a loop. The soldiers are `npc_fascist_enforcer`. The great hall
   is a fight that shuts the room (encounter `castle_godwin_muster`,
   `data/encounters/goblin_encounter.ron`).
 
@@ -28,6 +35,12 @@ gate dials it (`specs/gate_network/make_gates.py`).
 
 A room names doors in rooms that are made after it, so the worlds are whole
 only after the last room: run `--apply` to make them all, in order.
+
+Where a room is in the world is its LDtk editor's: `--apply` regenerates each
+room where it stands (`area create --keep-position`), and `ROOMS_AT` places
+only a room that is new. `--apply --relayout` puts every room back where
+`ROOMS_AT` says. After moving rooms, `specs/check_flat_map.py evil.ldtk`
+says which joins no longer meet.
 """
 from __future__ import annotations
 
@@ -79,9 +92,11 @@ MUSTER = "castle_godwin_muster"
 ROOMS_AT = {
     FOREST: (0, 1760, 720),
     GATEHOUSE: (2000, 1600, 832),
-    BARRACKS: (3792, 2560, 768),
-    TOWER: (6544, 1024, 1792),
-    GREAT_HALL: (7760, 1920, 896),
+    # The castle's upper floor: the gatehouse, the barracks and the tower
+    # touch; the great hall stands on the tower's top (`ROOMS_Y`).
+    BARRACKS: (3600, 2560, 768),
+    TOWER: (6160, 1024, 1792),
+    GREAT_HALL: (7184, 1920, 896),
     # The throne room under the great hall's east end, and the way the
     # Inugami chases you out of it: down a drop, then west under the whole
     # castle to the hall under the gatehouse, where you finish it (Jon,
@@ -91,7 +106,19 @@ ROOMS_AT = {
 }
 #: How far down the world a room is: 0 unless given. The throne room is
 #: under the tower's foot (1792), so it overlaps no room.
-ROOMS_Y = {THRONE: 1856}
+ROOMS_Y = {THRONE: 1856, GREAT_HALL: -576}
+
+#: The joins into the tower, in its own coordinates: its west wall at the
+#: barracks' floor (704) and at the cells' (1344, `castle_kitchens`); its east
+#: wall at its top floor (to the great hall) and at its foot (the workshop).
+TOWER_FROM_BARRACKS, TOWER_FROM_CELLS = 704, 1344
+TOWER_TOP_FLOOR = 256
+#: The stair down from the gatehouse to the kitchens: a hole in its floor
+#: (x0, x1), a ladder down it, its bottom the way down.
+GATEHOUSE_STAIR = (1240, 1304)
+KITCHENS = "castle_godwin_kitchens"
+CELLS = "castle_godwin_cells"
+WORKSHOP = "castle_godwin_workshop"
 
 #: The boss of the castle: Wolfenstein, the monster of the regime with the head
 #: of a mad wolf. Its pattern is `wolfenstein_boss` (`data/boss_profiles.ron`);
@@ -125,7 +152,6 @@ BOX = {SOLDIER: SOLDIER_BOX, HEAVY: (36, 80), PROTOTYPE: (32, 40), HOUND: (52, 5
 KIND = {SOLDIER: "soldier", HEAVY: "heavy", PROTOTYPE: "prototype", HOUND: "hound", ZOMBIE: "zombie", WARDEN: "warden",
         CRAWLER: "crawler", WOLF: "wolf"}
 
-SPRITES = TOOLS.parents[1] / "game/ambition_content_library/generated/runtime/sprites"
 #: Pixels of a castle prop's frame to one world unit (`castle_godwin.PX`).
 PROP_PX = 2
 #: The doorway of the castle's front, in the art's world units: its left edge
@@ -143,6 +169,26 @@ def ledge(name, x, y, w):
 
 def label(name, x, y, text, w=420):
     return f'( type: "DebugLabel", px: [{x}, {y}], size: [{w}, 24], fields: ( name: "{name}", text: "{text}", category: "Custom" ) ),'
+
+
+def edge(zone, name, x, floor, to_room, to_zone, h=96):
+    """A side exit 16 wide at `x`, from `floor` up `h`."""
+    return (f'( type: "LoadingZone", px: [{x}, {floor - h}], size: [16, {h}], fields: ( id: "{zone}", name: "{name}", '
+            f'activation: "EdgeExit", target_room: "{to_room}", target_zone: "{to_zone}", bidirectional: true ) ),')
+
+
+def wall_with_ways(name, x, top, bottom, floors):
+    """A wall from `top` to `bottom` at `x`, open 112 over each of `floors`
+    (a way through at that floor). Returns the wall's solids."""
+    out, y, i = [], top, 0
+    for floor in sorted(floors):
+        if floor - 112 > y:
+            out.append(solid(f"{name}_{i}", x, y, WALL, floor - 112 - y))
+            i += 1
+        y = floor
+    if bottom > y:
+        out.append(solid(f"{name}_{i}", x, y, WALL, bottom - y))
+    return out
 
 
 def door(zone, name, x, floor, to_room, to_zone):
@@ -175,12 +221,12 @@ def shrine(rid, x, floor, name):
 
 
 def body_box(kind):
-    """The body box of `kind`'s published sheet in frame pixels, (x, y, w, h)."""
-    text = (SPRITES / f"{kind}_spritesheet.ron").read_text()
-    m = re.search(r"body_pixel_bbox: Some\(\(x: (\d+), y: (\d+), w: (\d+), h: (\d+)\)\)", text)
-    if not m:
-        raise SystemExit(f"{kind}: no body_pixel_bbox in its published RON; publish the sprite first")
-    return tuple(int(v) for v in m.groups())
+    """The body box of `kind`'s published sheet in frame pixels, (x, y, w, h):
+    read from the accepted art publication (`district_scenery.body_box`)."""
+    sys.path.insert(0, str(HERE.parent))
+    from district_scenery import body_box as published_body_box
+
+    return published_body_box(kind)
 
 
 def throne_middle(x):
@@ -260,7 +306,11 @@ def forest():
     entrance_x = w - 352
     e = [
         solid("ground", 0, floor, w, 64),
-        solid("west_wall", 0, 0, WALL, floor),
+        # West, out of the forest to the Searchlight Moor (its room is
+        # `specs/evil_moor/make_specs.py`'s; the join is written here too, so
+        # a regenerate of the forest keeps it).
+        solid("west_wall", 0, 0, WALL, floor - 112),
+        edge("forest_west", "out to the moor", 0, floor, "evil_searchlight_moor", "moor_east"),
         solid("east_wall", w - WALL, 0, WALL, floor),
         f'( type: "PlayerStart", px: [360, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
         *gates.as_ron(gates.ring(EVIL_GATE, EVIL_ZONE, 64, floor, "the gate")),
@@ -296,15 +346,24 @@ def gatehouse():
     # Its floor is thick: the old drain's mouth is a pit in it.
     floor, e = shell(rid, ground=GATEHOUSE_GROUND)
     pit_x, pit_w, pit_d = PASSAGE_DOOR_X - 24, 96, 96
-    e = [x for x in e if '"floor"' not in x]
+    s0, s1 = GATEHOUSE_STAIR
+    e = [x for x in e if '"floor"' not in x and '"east_wall"' not in x]
     e += [
         solid("floor_west", 0, floor, pit_x, h - floor),
         solid("drain_pit_floor", pit_x, floor + pit_d, pit_w, h - floor - pit_d),
-        solid("floor_east", pit_x + pit_w, floor, w - pit_x - pit_w, h - floor),
+        solid("floor_middle", pit_x + pit_w, floor, s0 - pit_x - pit_w, h - floor),
+        solid("floor_east", s1, floor, w - s1, h - floor),
+        solid("east_wall", w - WALL, 48, WALL, floor - 112 - 48),
+        # The stair down to the kitchens: a hole in the floor, a ladder down
+        # it (`PAINT`), the way down at its bottom.
+        (f'( type: "LoadingZone", px: [{s0}, {h - 16}], size: [{s1 - s0}, 16], fields: ( id: "{rid}_stair", '
+         f'name: "down the stair to the kitchens", activation: "EdgeExit", target_room: "{KITCHENS}", '
+         f'target_zone: "kitchens_stair", bidirectional: true ) ),'),
+        label("gatehouse_sign_stair", s0 - 60, floor - 300, "KITCHENS: staff only. All staff.", 300),
     ]
     e += [
         door(f"{rid}_west", "out to the forest", 64, floor, FOREST, f"{FOREST}_castle_door"),
-        door(f"{rid}_east", "on to the barracks", w - 112, floor, BARRACKS, f"{BARRACKS}_west"),
+        edge(f"{rid}_east", "on to the barracks", w - WALL, floor, BARRACKS, f"{BARRACKS}_west"),
         # The guard post at the gate, the posters, a searchlight at the far door.
         standing("guard_post", "castle_guard_post", 200, floor),
         standing("wanted_robot", "castle_wanted_poster", 420, floor - 150),
@@ -321,7 +380,7 @@ def gatehouse():
         soldier(rid, 1, 640, floor - 64),
         soldier(rid, 2, 980, floor - 160),
         soldier(rid, 1, 1100, floor, HOUND),
-        soldier(rid, 1, 1300, floor, CRAWLER),
+        soldier(rid, 1, 1440, floor, CRAWLER),
         # The old drain down under the castle: its mouth is a pit in the
         # floor, shut by a block of cracked stone flush with the floor until
         # the lever in the hall where the Inugami dies breaks it (Jon,
@@ -342,9 +401,12 @@ def barracks():
     rid = BARRACKS
     _, w, h = ROOMS_AT[rid]
     floor, e = shell(rid)
+    e = [x for x in e if '"west_wall"' not in x and '"east_wall"' not in x]
     e += [
-        door(f"{rid}_west", "back to the gatehouse", 64, floor, GATEHOUSE, f"{GATEHOUSE}_east"),
-        door(f"{rid}_east", "up the tower", w - 112, floor, TOWER, f"{TOWER}_foot"),
+        solid("west_wall", 0, 48, WALL, floor - 112 - 48),
+        solid("east_wall", w - WALL, 48, WALL, floor - 112 - 48),
+        edge(f"{rid}_west", "back to the gatehouse", 0, floor, GATEHOUSE, f"{GATEHOUSE}_east"),
+        edge(f"{rid}_east", "into the lab tower", w - WALL, floor, TOWER, f"{TOWER}_barracks"),
     ]
     # The bunks: each bed's picture under its two one-way mattresses.
     for i, x in enumerate((360, 1000, 1640)):
@@ -386,11 +448,21 @@ def tower():
     rid = TOWER
     _, w, h = ROOMS_AT[rid]
     floor, e = shell(rid)
-    top_floor = 256
+    top_floor = TOWER_TOP_FLOOR
+    e = [x for x in e if '"west_wall"' not in x and '"east_wall"' not in x]
     e += [
-        door(f"{rid}_foot", "down to the barracks", 64, floor, BARRACKS, f"{BARRACKS}_east"),
+        # The tower is the castle's spine: the barracks come in partway up,
+        # the cells lower down, the great hall off its top, the workshop off
+        # its foot.
+        *wall_with_ways("west_wall", 0, 48, floor, (TOWER_FROM_BARRACKS, TOWER_FROM_CELLS)),
+        *wall_with_ways("east_wall", w - WALL, 48, floor, (top_floor, floor)),
+        ledge("landing_barracks", WALL, TOWER_FROM_BARRACKS, 160),
+        ledge("landing_cells", WALL, TOWER_FROM_CELLS, 160),
+        edge(f"{rid}_barracks", "back to the barracks", 0, TOWER_FROM_BARRACKS, BARRACKS, f"{BARRACKS}_east"),
+        edge(f"{rid}_cells", "into the cells", 0, TOWER_FROM_CELLS, CELLS, "cells_east"),
         solid("top_floor", w - 384, top_floor, 384 - WALL, 32),
-        door(f"{rid}_top", "into the great hall", w - 112, top_floor, GREAT_HALL, f"{GREAT_HALL}_west"),
+        edge(f"{rid}_top", "into the great hall", w - WALL, top_floor, GREAT_HALL, f"{GREAT_HALL}_west"),
+        edge(f"{rid}_foot", "into the workshop", w - WALL, floor, WORKSHOP, "workshop_west"),
     ]
     n = 0
     y = floor - 176
@@ -431,8 +503,10 @@ def great_hall():
     rid = GREAT_HALL
     _, w, h = ROOMS_AT[rid]
     floor, e = shell(rid)
+    e = [x for x in e if '"west_wall"' not in x]
     e += [
-        door(f"{rid}_west", "back down the tower", 64, floor, TOWER, f"{TOWER}_top"),
+        solid("west_wall", 0, 48, WALL, floor - 112 - 48),
+        edge(f"{rid}_west", "back down the tower", 0, floor, TOWER, f"{TOWER}_top"),
         door(f"{rid}_east", "to the throne room", w - 112, floor, THRONE, f"{THRONE}_west"),
         # The way on to the throne is shut until the muster is beaten.
         (f'( type: "LockWall", px: [{w - 176}, 48], size: [32, {floor - 48}], fields: ( id: "{rid}_throne_grille", '
@@ -688,6 +762,12 @@ def throne():
 
 ROOMS = (forest, gatehouse, barracks, tower, great_hall, throne)
 
+#: What is painted on an IntGrid layer: (room, layer, value, x, y, w, h). The
+#: gatehouse's stair: a ladder from over its floor down the hole.
+PAINT = [
+    (GATEHOUSE, "Climbable", 1, GATEHOUSE_STAIR[0] + 16, 704 - 64, 32, ROOMS_AT[GATEHOUSE][2] - 704 + 64),
+]
+
 #: The fight of the great hall: its waves are authored in
 #: `data/encounters/goblin_encounter.ron` (`castle_godwin_muster`), in room
 #: coordinates (box centres; the floor is at y = 832).
@@ -711,9 +791,16 @@ def main(argv):
         # Each room's doors name the other rooms, so the
         # worlds are not whole until all are made: until then it is enough
         # that each room was written. The last check is the one that must pass.
+        # A room stays where the editor has it unless `--relayout`.
+        keep = [] if "--relayout" in argv else ["--keep-position"]
         for path in made:
-            code, out = run("area", "create", str(path), "--ldtk", str(EVIL_LDTK), "--replace-existing")
+            code, out = run("area", "create", str(path), "--ldtk", str(EVIL_LDTK), "--replace-existing", *keep)
             if code != 0 and "wrote new level" not in out and "replaced level" not in out:
+                return code
+        for room_id, layer, value, x, y, w, h in PAINT:
+            code, _ = run("intgrid", "paint", "--ldtk", str(EVIL_LDTK), "--level", room_id, "--layer", layer,
+                          "--value", str(value), "--px", f"{x},{y}", "--size", f"{w},{h}")
+            if code != 0:
                 return code
         for world in (EVIL_LDTK, SANDBOX_LDTK):
             code, _ = run("validate", str(world))

@@ -289,6 +289,8 @@
     "ridge_sinkhole": (),
     "fossil_beds": (),
     "bakery_room": (),
+    // The cells under Castle Godwin (Evil).
+    "castle_cells_room": (),
     "sail_loft_room": (),
     // The Pirate Port's well, and the cellars under customs (PvN).
     "plaza_well": (),

@@ -6465,6 +6465,23 @@
                 hall: ["I have cooked for three tyrants. They all liked my gravy and none of them said thank you.", "A castle marches on its stomach. This one mostly lurches."],
             ),
         ),
+        "npc_castle_quill": (
+            display_name: "Ambrose Quill",
+            // The cells' trusty, under the castle's lower floor.
+            manifest: "sprites/castle_quill_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 174 cm.
+            standing_height: Some(67.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "castle_godwin", "peaceful"],
+            barks: (
+                idle: ["Strongly worded, it was.", "*sorts the suggestions*"],
+                hall: ["Thirty years for a strongly worded letter. I've a draft of the next one.", "Every suggestion comes down the chute. I read them all. Nobody else does."],
+            ),
+        ),
         "npc_castle_osgood": (
             display_name: "Osgood",
             // The night porter, forty years on the night shift of a castle where it is always night.

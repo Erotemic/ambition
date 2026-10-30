@@ -171,6 +171,7 @@ npc_math_lucas
 [Castle Godwin's staff]
 npc_castle_hargreave
 npc_castle_osgood
+npc_castle_quill
 npc_castle_dunmore
 npc_evil_gudrun
 npc_evil_tobias

@@ -672,6 +672,42 @@ the regression is noted for the next pass (a lift admitted as an attack
 when the foe is inside its region at the opening is the intended shape;
 the mirror's foe is rarely there).
 
+CPU whiffs, traced one by one (2026-10-30, MEASURED, seeds 0–2, 60 s, whiffs
+/ moves pooled over the three runs):
+
+| cell | r5 before → after | r9 before → after |
+|---|---|---|
+| pointed v pugnacious | 80% → 55% | 64% → 45% |
+| pointed mirror | 74% → 57% | 53% → 49% |
+| pugnacious mirror | 86% → 63% | 80% → 50% |
+| projectile v pointed | 73% → 55% | 65% → 50% (merged main) |
+
+Damage per live minute roughly doubled at r5 (64–123 → 207–227) and the
+mirror-r5 lift regression is gone (169–227 damage in each run). Causes and
+fixes, all in the brain:
+
+1. The brain saw its OWN body 300 ms late (r5): the perceived self was a
+   median 87 px from the live body at whiffed presses, which was the
+   100–220 px gap@w. Q167 shipped: the body is seen now, the foe late, and
+   the lead runs on two clocks. Self-KOs: 39 → 5 in 23 fighter-minutes.
+2. Captures pressed with a body in the air (12 of 15 grab whiffs): a capture
+   now needs both bodies grounded.
+3. The recovery special's no-lead rule read the perceived foe against the
+   live self, so a foe just launched still "touched": it now carries the foe
+   to now. Uppercut gap@w r5: 122 → 47 (pair), 173 → 59 (mirror).
+4. A charge is admitted on its uncharged timing and held while the foe
+   walks through it: the hold is now let go at the last tick the strike
+   still meets the foe.
+5. A landed pummel read as a whiff (to the brain's refusal and to
+   match-report).
+
+Left, REASONED from traces: at r5 the foe reverses inside the 300 ms window
+(dash-dance, a lunge started after the view), and the lead carries the old
+velocity up to ~175 px; the haymaker still whiffs "short" (a foe crossing
+through it). Feel flags: Carl Stargan leaves through the top at 0% (3 of the
+5 remaining self-KOs); CPUs now return from 2400 px/s side launches, so
+fixtures that waited for a KO stage it.
+
 ### Not in this roadmap
 
 Stages, items, modes, CPU ladder, presentation polish, and every `S0.*` packet

@@ -43,6 +43,11 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Jungle: rewards for the climb**: a chest on the highest ledge of the
+  trailhead, the run, the ridge and the canopy (a ranger's lost lunch, a nest
+  of something large, a fossil hunter's cache, an egg the size of a chest),
+  and a sign in each; `scenery_overlay.py` learns chests. Verified:
+  the_primeval_trail (5).
 - **Math: the Mobius Mine**, under the Fractal Woods: a ladder down a hole
   in their floor (a vertical exit). A mine with one side: at its far end
   the half twist (a FlipGravity switch) turns it over, the way back is the

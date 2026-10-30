@@ -64,6 +64,10 @@ OVERLAYS = {
 SIGNS = {
     "dinosaur.ldtk": {
         "primeval_rookery": [("rookery_sign_hide", 1550, 280, "HIDE: quiet, please. The penguins are shy.", 420)],
+        "primeval_trailhead": [("trailhead_sign_path", 1200, 260, "STAY ON THE PATH. The path is also not safe.", 420)],
+        "primeval_run": [("run_sign", 760, 300, "THE RUN: it is called this for a reason", 380)],
+        "primeval_ridge": [("ridge_sign", 1000, 300, "RIDGE ROAD: mind the edge. The edge does not mind you.", 460)],
+        "primeval_canopy": [("canopy_sign", 1000, 300, "THE CANOPY: you are in the trees now. So is everything else.", 480)],
     },
     "pvn.ldtk": {
         "pirate_sky_lookout": [
@@ -92,6 +96,29 @@ RESIDENTS = {
         "primeval_rookery": [("npc_primeval_twitchell", "primeval_twitchell", 1720, 480)],
     },
 }
+
+
+#: World file -> level -> [(name, x, the top of what it stands on, reward)]:
+#: chests, each added once (by its name). On the trail, each on the room's
+#: highest ledge: a reward for the climb.
+CHESTS = {
+    "dinosaur.ldtk": {
+        "primeval_trailhead": [("a ranger's lost lunch", 1110, 384, "health:2")],
+        "primeval_run": [("a nest of something large", 1460, 336, "currency:25")],
+        "primeval_ridge": [("a fossil hunter's cache", 2590, 336, "currency:30")],
+        "primeval_canopy": [("an egg the size of a chest", 1300, 416, "currency:40")],
+    },
+}
+
+
+def chest_yaml(level_id: str, chests: list) -> str:
+    rows = [f"""  - type: ChestSpawn
+    px: [{x}, {top - 58}]
+    size: [76, 58]
+    fields:
+      name: "{name}"
+      reward: '{reward}'""" for name, x, top, reward in chests]
+    return f"# Chests of {level_id}. Written by {GENERATOR}.\nlevel_id: {level_id}\nentities:\n" + "\n".join(rows) + "\n"
 
 
 def resident_yaml(level_id: str, residents: list) -> str:
@@ -168,6 +195,15 @@ def main(argv) -> int:
             if "--apply" not in argv:
                 print(f"{world} {level_id}: {'present' if first in ldtk.read_text() else 'would add'} {len(signs)} sign(s)")
             elif code := add_entities(sign_yaml(level_id, signs), ldtk, HERE / f".{level_id}_signs.yaml", unless=first):
+                return code
+    for world, levels in CHESTS.items():
+        ldtk = WORLDS / world
+        for level_id, chests in levels.items():
+            placed = ldtk.read_text()
+            missing = [c for c in chests if f'"{c[0]}"' not in placed]
+            if "--apply" not in argv:
+                print(f"{world} {level_id}: would add {len(missing)} chest(s)")
+            elif missing and (code := add_entities(chest_yaml(level_id, missing), ldtk, HERE / f".{level_id}_chests.yaml")):
                 return code
     return 0
 

@@ -137,6 +137,7 @@ fn the_raptor_pounces_off_the_ground_at_its_strike() {
     );
     let mut rise: f32 = 0.0;
     let mut struck = false;
+    let (mut leap_from, mut leap_to) = (None, 0.0f32);
     for _ in 0..900 {
         sim.step(AgentAction::default());
         let world = sim.world_mut();
@@ -148,12 +149,16 @@ fn the_raptor_pounces_off_the_ground_at_its_strike() {
         if let Some(ambition_platformer2d::combat::AttackPhase::Active) = swing.swing().and_then(|swing| swing.phase()) {
             struck = true;
             rise = rise.max(-kin.vel.y);
+            leap_from.get_or_insert(kin.pos.x);
+            leap_to = kin.pos.x;
         } else if struck {
             break;
         }
     }
     assert!(struck, "the raptor never struck");
     assert!(rise > 250.0, "it leaps up over its strike: {rise}");
+    let leap = (leap_to - leap_from.unwrap_or(leap_to)).abs();
+    assert!(leap > 120.0, "it leaps AT the player, covering ground: {leap} px");
 }
 
 /// The dilophosaurus telegraphs its spit: before each volley it holds its

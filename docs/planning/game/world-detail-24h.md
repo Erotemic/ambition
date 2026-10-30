@@ -43,6 +43,15 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Math: the Tower of Hanoi**, west of the gate hall by a side exit (the
+  hall's "<- Manifest Office" sign points that way): three diamond needles,
+  golden disks part moved, each disk a one-way platform so each stack is a
+  stair, a chest on the tallest; the monks' tally on the wall; Brother Lucas
+  keeps the count (chargen, Hall wing); "Moves left: 18,446,744,073,708,
+  503,040". Verified: the_zeno_aqueduct Hanoi test, the_gate_network (11),
+  check_flat_map math 0. Seen on the way, NOT this lane's: the_consignment_
+  errand fails since 697058efa (10-24) renamed Georg Canter's choice; its
+  test still asks for "Please count the lenses."
 - **Science: Ottoline Hum busks** in the middle arch of the gate court's
   arcade: a theremin on its stand, an open case of coins from forty
   dimensions (one technically a button) (chargen, Hall wing). Verified:

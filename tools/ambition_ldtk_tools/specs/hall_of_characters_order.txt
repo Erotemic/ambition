@@ -162,6 +162,7 @@ npc_math_ivo
 npc_math_monty
 npc_math_zeno
 npc_math_kleinbottle
+npc_math_lucas
 
 [Castle Godwin's staff]
 npc_castle_hargreave

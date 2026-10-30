@@ -6310,6 +6310,23 @@
                 hall: ["I trim the Koch hedge from spring to spring. Every cut makes more hedge.", "I raked the woods once. Every leaf had leaves. I stopped raking."],
             ),
         ),
+        "npc_math_lucas": (
+            display_name: "Brother Lucas",
+            // Keeps the count of the moves at the Tower of Hanoi.
+            manifest: "sprites/math_lucas_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "math_town", "peaceful"],
+            barks: (
+                idle: ["One move at a time.", "Never a larger on a smaller."],
+                hall: ["When the last disk is moved, the world ends. I wrote the legend. It sold a great many puzzles.", "Nobody who understands the puzzle is ever in a hurry."],
+            ),
+        ),
         "npc_math_kleinbottle": (
             display_name: "Felix Kleinbottle",
             // Mines the one-sided seam of the Mobius Mine under the woods.

@@ -299,6 +299,20 @@ Felix Kleinbottle: Mind your head. Or your feet. Down here it depends which way 
     Felix Kleinbottle: Lovely. Wave when you're upside down. I'll wave back. It'll look the same to both of us.
 ===
 
+title: hanoi_lucas
+---
+Brother Lucas: Welcome to the Tower. Mind the disks; they're gold and they're counted. One move at a time, never a larger on a smaller.
+-> What happens when the last disk is moved?
+    Brother Lucas: The world ends. That's the legend. I wrote it. It sold a great many puzzles.
+    Brother Lucas: Sixty-four disks takes eighteen quintillion moves. At a move a second, the sun goes out first. I find that very restful.
+-> How many moves so far?
+    Brother Lucas: One million, forty-eight thousand, five hundred and seventy-five. It's on the wall. Every stroke is a move. The wall is very full.
+-> Can I move one?
+    Brother Lucas: You can stand on them. Moving them is my job, and I'm in no hurry. Nobody who understands the puzzle is ever in a hurry.
+-> I'll leave you to it.
+    Brother Lucas: Thank you. I'll get back to it presently. Presently is a very long word here.
+===
+
 title: woods_ivo
 ---
 Ivo: Careful on the path. It's a lot longer than it looks, if you look closely.

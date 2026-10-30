@@ -51,3 +51,13 @@ fn the_mobius_mine_lies_under_the_fractal_woods() {
     go(&mut app, "math_fractal_woods", Some("math_mobius_mine_shaft"));
     go(&mut app, "math_mobius_mine", Some("math_fractal_woods_shaft"));
 }
+
+/// The Tower of Hanoi, west of the gate hall by a side exit: Brother Lucas
+/// keeps the count (`math.yarn` `hanoi_lucas`), and the hall is back east.
+#[test]
+fn the_tower_of_hanoi_lies_west_of_the_gate_hall() {
+    let mut app = a_session_in("math_tower_of_hanoi");
+    crate::the_pirate_port::talk(&mut app, "npc_math_lucas", "What happens when the last disk is moved?");
+    go(&mut app, "math_gate_hall", Some("math_tower_of_hanoi_east"));
+    go(&mut app, "math_tower_of_hanoi", Some("math_gate_hall_west"));
+}

@@ -78,6 +78,8 @@ CLOSETS = ("math_hotel_door_1", "math_hotel_door_2", "math_hotel_door_3")
 WOODS = "math_fractal_woods"
 #: Under the woods, down a hole in their floor (a ladder down it).
 MINE = "math_mobius_mine"
+#: West of the gate hall by a side exit, under the aqueduct's valley.
+HANOI = "math_tower_of_hanoi"
 CAFE, OFFICE, OBSERVATORY = "math_cafe", "math_surveyors_office", "math_observatory"
 
 #: Each room: where it is in the world, and its size.
@@ -108,6 +110,7 @@ ROOMS_AT = {
     WOODS: (1712 + 3200, 2400, 768),
     # Under the woods' east end: its shaft (x 96..160) under their hole.
     MINE: (1712 + 3200 + 2288 - 96, 1600, 640),
+    HANOI: (-1600, 1600, 768),
 }
 #: A room's world y when it is not 0. The rooms of the world touch where they
 #: join (`specs/check_flat_map.py`): Zeno's Aqueduct is west of the street at
@@ -122,6 +125,8 @@ ROOMS_Y = {
     WOODS: 560 - 704,
     # Right under the woods (their floor's foot, y 768 there).
     MINE: 560 - 704 + 768,
+    # Level with the gate hall, west of it.
+    HANOI: 1344,
 }
 
 #: Pixels of a town prop's frame to one world unit (`math_town_facades.PX`,
@@ -255,7 +260,9 @@ def gate_hall():
         framed("hall_east", "math_hall_east", 1150, 300),
         solid("floor", 0, floor, w, 64),
         solid("vault", 0, 0, w, 48),
-        solid("west_wall", 0, 48, WALL, floor - 48),
+        # The west wall, open on the floor to the Tower of Hanoi.
+        solid("west_wall", 0, 48, WALL, floor - 112 - 48),
+        edge(f"{rid}_west", "to the Tower of Hanoi", 0, floor - 96, 96, HANOI, f"{HANOI}_east"),
         solid("east_wall", w - WALL, 48, WALL, floor - 48),
         f'( type: "PlayerStart", px: [{cx - 330}, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
         *stand,
@@ -930,8 +937,48 @@ def mobius_mine():
     return rid, room(rid, e, "The Mobius Mine.")
 
 
+#: The Tower of Hanoi (`math_hanoi_props.py` draws on these): the needles,
+#: and the disks on each, bottom up, by size (each walked on).
+HANOI_NEEDLES = (360, 800, 1240)
+HANOI_STACKS = ((8, 7, 6, 5, 2), (4, 3), (1,))
+HANOI_DISK_H = 24
+
+
+def tower_of_hanoi():
+    """West of the gate hall: the Tower of Hanoi. Three diamond needles and
+    the golden disks on them, the puzzle part done; each disk is walked on,
+    so each stack is a stair; a chest on the tallest. Brother Lucas keeps
+    the count. When the last disk is moved, the world ends."""
+    rid = HANOI
+    _, w, h = ROOMS_AT[rid]
+    floor = h - 64
+    e = [
+        framed("hanoi_temple", "hanoi_temple", 16, 48),
+        solid("floor", 0, floor, w, 64),
+        solid("vault", 0, 0, w, 48),
+        solid("west_wall", 0, 48, WALL, floor - 48),
+        solid("east_wall", w - WALL, 48, WALL, floor - 112 - 48),
+        edge(f"{rid}_east", "back to the gate hall", w - WALL, floor - 96, 96, HALL, f"{HALL}_west"),
+        f'( type: "PlayerStart", px: [{w - 200}, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+    ]
+    for n, (nx, stack) in enumerate(zip(HANOI_NEEDLES, HANOI_STACKS)):
+        for i, size in enumerate(stack):
+            dw = 60 + 30 * size
+            e.append(ledge(f"disk_{n}_{size}", nx - dw // 2, floor - HANOI_DISK_H * (i + 1), dw))
+    top = floor - HANOI_DISK_H * len(HANOI_STACKS[0])
+    e += [
+        f'( type: "ChestSpawn", px: [{HANOI_NEEDLES[0] - 38}, {top - 58}], size: [76, 58], fields: ( name: "a golden offcut", reward: "currency:64" ) ),',
+        # Brother Lucas, by the middle needle (`math.yarn` `hanoi_lucas`).
+        f'( type: "NpcSpawn", px: [{1020 - 16}, {floor - 64}], size: [32, 64], fields: ( character_id: "npc_math_lucas", '
+        f'brain_override: "stand_still", prompt: "Talk", dialogue_id: "hanoi_lucas" ) ),',
+        label("hanoi_sign", 560, 110, "WHEN THE LAST DISK IS MOVED, THE WORLD ENDS", 480),
+        label("hanoi_sign_count", 560, 320, "Moves left: 18,446,744,073,708,503,040", 480),
+    ]
+    return rid, room(rid, e, "The Tower of Hanoi.", theme="math_undercroft")
+
+
 ROOMS = (gate_hall, street, cafe, surveyors_office, observatory, zeno_aqueduct, hotel_lobby, hotel_corridor, hotel_lift,
-         hotel_ballroom, *[hotel_closet(k) for k in range(3)], fractal_woods, mobius_mine)
+         hotel_ballroom, *[hotel_closet(k) for k in range(3)], fractal_woods, mobius_mine, tower_of_hanoi)
 
 #: What is painted on an IntGrid layer of a room: (room, layer, value, px, size).
 PAINT = [(STREET, "Climbable", 1, (x, top), (32, bottom - top)) for _name, x, top, bottom in LADDERS] + [

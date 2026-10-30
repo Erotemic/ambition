@@ -115,6 +115,10 @@ pub struct MatchReportArgs {
     /// Which fighter to report on.
     #[arg(default_value_t = ambition_demo_smash::SMASH_GEORGE_BOOUL.to_string())]
     pub character: String,
+    /// Seat 1's fighter. A mirror of `character` when omitted: the mirror is
+    /// the symmetry instrument, a pair is the matchup one.
+    #[arg(long, value_name = "ID")]
+    pub opponent: Option<String>,
     /// How many runs to average over. Zero is treated as one, as it always was.
     #[arg(long, default_value_t = 1)]
     pub runs: usize,
@@ -125,8 +129,17 @@ pub struct MatchReportArgs {
 }
 
 pub fn run(args: MatchReportArgs) {
+    run_with(args, build_demo_app)
+}
+
+/// [`run`] on an app `build` composes. The demo shell seats George and the two
+/// stand-ins; the SHIPPED composition (`ambition_app_tools`'s
+/// `smash_cpu_report`) seats the whole roster, the polygons among them.
+pub fn run_with(args: MatchReportArgs, build: fn() -> App) {
     let seconds: usize = args.seconds;
     let character = args.character;
+    let opponent = args.opponent.unwrap_or_else(|| character.clone());
+    let label = format!("{character} vs {opponent}");
     let runs = if args.runs > 0 { args.runs } else { 1 };
 
     #[cfg(feature = "causal")]
@@ -160,7 +173,9 @@ pub fn run(args: MatchReportArgs) {
     let all: Vec<Vec<Tally>> = (0..runs)
         .map(|i| {
             run_one(
+                build,
                 &character,
+                &opponent,
                 seconds,
                 0x5F37_7A11_u64.wrapping_mul(i as u64 + 1),
                 #[cfg(feature = "causal")]
@@ -196,9 +211,9 @@ pub fn run(args: MatchReportArgs) {
         std::process::exit(2);
     }
     if runs == 1 {
-        report_one(&character, seconds, &all[0], &carried);
+        report_one(&label, seconds, &all[0], &carried);
     } else {
-        report_spread(&character, seconds, &all, &carried);
+        report_spread(&label, seconds, &all, &carried);
     }
     #[cfg(feature = "causal")]
     report_decisions(&decisions);
@@ -281,7 +296,9 @@ fn report_decisions(decisions: &DecisionTally) {
 
 /// One match, under one execution-noise stream.
 fn run_one(
+    build: fn() -> App,
     character: &str,
+    opponent: &str,
     seconds: usize,
     noise_seed: u64,
     #[cfg(feature = "causal")] decisions: &mut DecisionTally,
@@ -290,7 +307,7 @@ fn run_one(
     carried: &mut Vec<String>,
     authored_ladder: Option<&ambition_platformer2d::characters::brain::fighter::FighterBrainLadder>,
 ) -> Vec<Tally> {
-    let mut app = build_demo_app();
+    let mut app = build();
     if let Some(ladder) = authored_ladder {
         super::declare_smash_ladder(&mut app, ladder.clone());
     }
@@ -316,7 +333,7 @@ fn run_one(
         .unwrap_or_default();
     // Both seats are CPUs. `SmashSelect::roster` makes every locked seat
     // human, and nobody presses anything here.
-    let characters = [character, character];
+    let characters = [character, opponent];
     let roster = ambition_demo_smash::smash_roster_at_levels(characters, &[5, 5]);
     app.world_mut().insert_resource(roster);
     app.world_mut()
@@ -371,8 +388,8 @@ fn run_one(
     totals
 }
 
-fn report_one(character: &str, seconds: usize, totals: &[Tally], carried: &[String]) {
-    println!("match_report: {character} vs {character}, {seconds}s of CPU-versus-CPU");
+fn report_one(label: &str, seconds: usize, totals: &[Tally], carried: &[String]) {
+    println!("match_report: {label}, {seconds}s of CPU-versus-CPU");
     println!("{}\n", composition_scope(carried));
     println!(
         "{:<6} {:>7} {:>7} {:>8} {:>8} {:>7} {:>8} {:>7} {:>7} {:>7} {:>7} {:>7} {:>8} {:>8}",
@@ -715,9 +732,9 @@ fn composition_scope(carried: &[String]) -> String {
 }
 
 /// `min–median–max` across runs: one run is a sample of a noisy process.
-fn report_spread(character: &str, seconds: usize, all: &[Vec<Tally>], carried: &[String]) {
+fn report_spread(label: &str, seconds: usize, all: &[Vec<Tally>], carried: &[String]) {
     println!(
-        "match_report: {character} vs {character}, {seconds}s × {} runs, per-run TOTALS across both seats\n{}\n",
+        "match_report: {label}, {seconds}s × {} runs, per-run TOTALS across both seats\n{}\n",
         all.len(),
         composition_scope(carried)
     );

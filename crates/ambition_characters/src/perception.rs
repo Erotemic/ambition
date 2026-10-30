@@ -139,12 +139,19 @@ impl Default for StageView {
 }
 
 impl StageView {
-    /// Is this point outside the stage envelope? The `Recovery` predicate.
+    /// Is this point OFF THE STAGE — beside the room or below it? The
+    /// `Recovery` predicate for self and the `EdgeGuard` one for a foe.
+    ///
+    /// ⛔ NOT ABOVE IT. The room's top is not an edge a body goes off: a fighter
+    /// launched high over the platform is being juggled, with its floor still
+    /// under it, and it comes down by falling. Measured 2026-10-29 (pointed vs
+    /// pugnacious polygon, 30 s, rung 5): 23% of the brawler's 166 `Recovery`
+    /// decisions and 11% of the pointed polygon's 119 were bodies above the
+    /// 480 px room with the platform below them, each spending its up special
+    /// to "recover" onto a stage it was already over. A body above the room
+    /// with nothing under it is still caught by the floor test beside this.
     pub fn offstage(&self, p: ae::Vec2) -> bool {
-        p.x < self.bounds.min.x
-            || p.x > self.bounds.max.x
-            || p.y < self.bounds.min.y
-            || p.y > self.bounds.max.y
+        p.x < self.bounds.min.x || p.x > self.bounds.max.x || p.y > self.bounds.max.y
     }
 
     /// Was a stage supplied at all? [`Self::default`] is the inverted box, for

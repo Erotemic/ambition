@@ -392,6 +392,54 @@ general shape; check new code against it.
   refused from a position the game had not lost. Guards: the lens test
   `a_body_past_the_room_but_short_of_the_blast_line_is_searched_alive` and
   `every_authored_route_gets_pressed` (`the_repertoire_gets_used.rs`).
+- **"Off the stage" is beside the room or below it, never above it.**
+  `StageView::offstage` ignores the room's top: a body launched high over
+  the platform is being juggled with its floor still under it. `classify`
+  still reads `Recovery` past the death line's rise side (Smash: 240 px
+  above the room; a fixture with no margins: the room top — the
+  `recovery_above` scenario's premise). Measured
+  2026-10-29 (pointed vs pugnacious polygon, 30 s, rung 5): 23% of the
+  brawler's 166 `Recovery` decisions and 11% of the pointed polygon's 119
+  were above the 480 px room with the platform below, each spending its up
+  special to recover onto a stage it was already over. Recovery was 45% and
+  32% of ALL decisions in that match; the trace instrument for this is
+  `AMBITION_FIGHTER_TRACE=1 smash_cpu_report match-report`.
+- **A swing that reaches is shielded; the spot dodge is its mix-up.**
+  `options::incoming_attack`: the foe is in a swing's startup or active
+  window, faces this body, and `attack_reach` plus 24 px covers the side
+  gap. On the ground that offers `Shield` at 0.9 and `Dodge` at 0.85 in
+  every situation but `Recovery`; `apply_movement` centres the stick for
+  that dodge (a spot dodge), and rolls away for any other swing. A swing
+  that cannot reach is nothing to answer — the old "shield when anybody is
+  attacking" rule produced two statues and stays only in `Disadvantage`.
+- **Neutral spaces to the kit's reach.** `generate_options` hands
+  `movement_options` the farthest reach of the ground kit (`Basic`/`Smash`
+  candidates). Beyond 1.15× that reach: approach. At it, moving in, with NO
+  attack admitted from here: retreat; moving out: approach — the dash-dance,
+  read off the body's own velocity rather than a stored phase. The attack
+  list is built first and movement asked again with it, because a first cut
+  that danced before the list existed stepped out of its own range on the
+  decision it could have swung (measured: moves 23/26 → 7/6, damage 51/24 →
+  9/0 in the 60 s pair). A kit that reaches nothing keeps the old bias.
+  `ShortHop` (a tapped jump; the squat-decided law cuts the rise) is offered
+  at 0.45 inside the band and at 0.85/0.7 as the anti-air when the foe is
+  airborne above this body; the aerials enter the kit only once airborne.
+- **The mix is drawn once per decision from the seat's own stream.**
+  `pick_movement_mixed` draws among the eligible options within a margin of
+  the best (`0.05 + 0.1 × execution_noise`: rung 9 0.055, rung 1 0.09) —
+  the spot dodge beside the shield, the short hop beside the walk-in, which
+  are authored 0.05 apart. The margin stays under 0.1 at every rung because
+  the scores that are NOT a mix step by 0.1 (Approach over Retreat, Approach
+  over the roll); a first cut at 0.14 drew Retreat or the roll half the time
+  and cut moves started 23/26 → 7/8. The draw is unconditional (one sample
+  every decision), like the jitter's second draw, so the stream is a
+  function of the tick count.
+- **A hold decides its throw.** `decision::throw_direction`: at kill percent
+  (≥ 0.6) toward the nearer blast line, forward or back as the captor faces;
+  at set-up percent (≥ 0.3) back when the edge is behind, up otherwise; low,
+  down when there is 240 px of floor both ways (a tech chase), up at an edge.
+  Forward was the only throw ever thrown before (census 2026-10-29); all four
+  are now reachable and the choice is mirrored by construction (Q49).
 - **Perception is delayed on purpose.** `DelayedPerception` implements the
   no-cheat reaction delay, and `Perceived::staleness_s()` reports how old a view
   is. Attack admission carries the foe forward over `staleness + time to

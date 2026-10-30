@@ -3266,3 +3266,123 @@ fn a_counter_reads_the_swing_in_the_foes_own_frame() {
     assert_eq!(value(foe(under, Some(ae::Vec2::X), -1.0)), 0.0, "sideways gravity: it swings down, away");
     assert_eq!(value(foe(left, None, 1.0)), 0.0, "a foe with no known frame is not answered");
 }
+
+// ── the genre's neutral: shield the swing that reaches, space to the reach ──
+
+fn top_movement(view: &WorldView, situation: Situation, kit: &[AttackCandidate]) -> MovementVerb {
+    let options = generate_options(
+        Perceived::cheating(view),
+        situation,
+        kit,
+        &UtilityWeights::default(),
+    );
+    options.movement[0].verb
+}
+
+/// A swing in startup that REACHES this body is shielded; the same swing from
+/// a foe facing away, or one whose reach falls short, is walked at as before.
+#[test]
+fn a_swing_that_reaches_is_shielded_and_one_that_cannot_is_not() {
+    let kit = [candidate("jab", 0.05, 60.0)];
+    let mut view = view_with(300.0, 350.0);
+    view.actors[0].phase = BodyPhase::AttackStartup;
+    view.actors[0].phase_remaining = 0.2;
+    view.actors[0].attack_reach = Some(40.0);
+    view.actors[0].facing = -1.0;
+    assert_eq!(
+        top_movement(&view, Situation::Neutral, &kit),
+        MovementVerb::Shield,
+        "a 40 px swing from 50 px away, facing me, reaches with the slack"
+    );
+    assert_eq!(
+        top_movement(&view, Situation::Advantage, &kit),
+        MovementVerb::Shield
+    );
+
+    let mut away = view.clone();
+    away.actors[0].facing = 1.0;
+    assert_ne!(
+        top_movement(&away, Situation::Neutral, &kit),
+        MovementVerb::Shield,
+        "the same swing facing away from me reaches nothing of mine"
+    );
+    let mut short = view.clone();
+    short.actors[0].attack_reach = Some(10.0);
+    assert_ne!(
+        top_movement(&short, Situation::Neutral, &kit),
+        MovementVerb::Shield,
+        "a 10 px swing from 50 px away cannot reach"
+    );
+}
+
+/// Beyond its own reach the body closes; at its reach and still moving in it
+/// backs off, and at its reach moving out it closes again — the dash-dance,
+/// read off the body's own velocity.
+#[test]
+fn neutral_spaces_to_the_kits_reach_and_dances_at_it() {
+    let kit = [candidate("jab", 0.05, 60.0)];
+    let far = view_with(300.0, 520.0);
+    assert_eq!(
+        top_movement(&far, Situation::Neutral, &kit),
+        MovementVerb::Approach
+    );
+
+    // At reach with the foe just above the jab's coverage (nothing admitted),
+    // and still moving in: step back out. The same foe inside the coverage is
+    // swung at, not danced around.
+    let mut closing = view_with(300.0, 350.0);
+    closing.self_view.vel = ae::Vec2::new(120.0, 0.0);
+    closing.actors[0].pos.y = 300.0 - 40.0;
+    assert_eq!(
+        top_movement(&closing, Situation::Neutral, &kit),
+        MovementVerb::Retreat,
+        "at reach, nothing admitted, and still moving in: step back out"
+    );
+    let mut swingable = view_with(300.0, 350.0);
+    swingable.self_view.vel = ae::Vec2::new(120.0, 0.0);
+    assert_eq!(
+        top_movement(&swingable, Situation::Neutral, &kit),
+        MovementVerb::Approach,
+        "a foe inside the jab's coverage is swung at, never danced away from"
+    );
+    let mut opening = view_with(300.0, 350.0);
+    opening.self_view.vel = ae::Vec2::new(-120.0, 0.0);
+    opening.actors[0].pos.y = 300.0 - 40.0;
+    assert_eq!(
+        top_movement(&opening, Situation::Neutral, &kit),
+        MovementVerb::Approach,
+        "at reach and moving out: step back in"
+    );
+    // NON-VACUITY: a kit that reaches nothing has no band and keeps the old
+    // approach bias whatever the body is doing.
+    assert_eq!(
+        top_movement(&closing, Situation::Neutral, &[]),
+        MovementVerb::Approach
+    );
+}
+
+/// A foe in the air above a grounded body is answered with a short hop — the
+/// aerials are only in the kit once airborne, and this is how a ground body
+/// gets there.
+#[test]
+fn a_foe_above_is_short_hopped_at() {
+    let kit = [candidate("jab", 0.05, 60.0)];
+    let mut view = view_with(300.0, 340.0);
+    view.actors[0].on_ground = false;
+    view.actors[0].pos.y = 200.0;
+    assert_eq!(
+        top_movement(&view, Situation::Advantage, &kit),
+        MovementVerb::ShortHop
+    );
+    assert_eq!(
+        top_movement(&view, Situation::Neutral, &kit),
+        MovementVerb::ShortHop
+    );
+    let mut level = view.clone();
+    level.actors[0].pos.y = 300.0;
+    assert_ne!(
+        top_movement(&level, Situation::Advantage, &kit),
+        MovementVerb::ShortHop,
+        "an airborne foe at my height is not above me"
+    );
+}

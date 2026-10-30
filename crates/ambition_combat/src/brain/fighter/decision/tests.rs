@@ -197,26 +197,32 @@ fn a_fighter_in_a_capture_struggles_or_spends_the_hold() {
         "it mashed on every tick, which no person can do"
     );
 
-    // 2. HOLDING, facing LEFT — the case the unmirrored stick got wrong.
-    for (pummels, expect_forward) in [(0u8, false), (1, true)] {
-        let (cfg, mut state) = rig(immediate_profile());
-        let mut snapshot = BrainSnapshot::idle();
-        snapshot.holding_captive = true;
-        snapshot.pummels_landed = pummels;
-        snapshot.actor_facing = -1.0;
-        tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
-        assert!(out.melee_pressed, "a captor did nothing with its captive");
-        let asked_forward = ambition_characters::actor::attack_gesture::attack_dir_from_axis(
-            out.attack_axis,
-            snapshot.actor_facing,
-            0.2,
-        ) == ambition_characters::actor::attack_gesture::AttackDir::Forward;
-        assert_eq!(
-            asked_forward, expect_forward,
-            "with {pummels} pummel(s) landed and the body facing LEFT, the press \
-             resolved to the wrong direction — a throw asked for as a bare `+x` \
-             becomes a BACK throw this fighter never authored"
-        );
+    // 2. HOLDING, facing LEFT and facing RIGHT — the case the unmirrored stick
+    // got wrong. The throw is the situational one (`throw_direction`), and the
+    // stick the frame carries must resolve to exactly that in the body's own
+    // frame whichever way it faces; before the first pummel it asks nothing.
+    use ambition_characters::actor::attack_gesture::{attack_dir_from_axis, AttackDir};
+    use ambition_characters::perception::Perceived;
+    for facing in [-1.0_f32, 1.0] {
+        let mut view = scene(300.0, 500.0);
+        view.self_view.facing = facing;
+        let decided = throw_direction(Perceived::cheating(&view));
+        assert_ne!(decided, AttackDir::Neutral, "a hold always decides a throw");
+        for (pummels, expect) in [(0u8, AttackDir::Neutral), (1, decided)] {
+            let (cfg, mut state) = rig(immediate_profile());
+            let mut snapshot = BrainSnapshot::idle();
+            snapshot.holding_captive = true;
+            snapshot.pummels_landed = pummels;
+            snapshot.actor_facing = facing;
+            tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+            assert!(out.melee_pressed, "a captor did nothing with its captive");
+            let asked = attack_dir_from_axis(out.attack_axis, snapshot.actor_facing, 0.2);
+            assert_eq!(
+                asked, expect,
+                "with {pummels} pummel(s) landed and the body facing {facing:+}, the \
+                 press resolved to {asked:?} where the hold decided {expect:?}"
+            );
+        }
     }
 }
 
@@ -2090,6 +2096,58 @@ fn the_move_playing_at_the_press_is_not_the_pressed_move() {
     assert_eq!(state.own_attack, None, "the move is over when the body plays none");
     assert_eq!(state.refused.map(|refused| refused.binding), Some(jab), "the fresh jab whiffed");
     let _ = cfg;
+}
+
+/// ALL FOUR THROWS, each from the situation that is its own, and mirrored.
+///
+/// The forward throw was the only one ever thrown (2026-10-29 census). The
+/// stage is `scene`'s 800 px room: a captor at `x = 700` facing right has the
+/// edge AHEAD; facing left it is BEHIND; the mirror at `x = 100` reflects both.
+#[test]
+fn a_hold_is_thrown_by_percent_and_by_where_the_edge_is() {
+    use ambition_characters::actor::attack_gesture::AttackDir;
+    use ambition_characters::perception::Perceived;
+    let throw = |me_x: f32, facing: f32, damage: i32| {
+        let mut view = scene(me_x, me_x + 20.0 * facing);
+        view.self_view.facing = facing;
+        view.actors[0].damage_taken = damage;
+        view.actors[0].health_max = 100;
+        throw_direction(Perceived::cheating(&view))
+    };
+    // Kill percent: toward the nearer blast line, whichever way I face.
+    assert_eq!(throw(700.0, 1.0, 70), AttackDir::Forward);
+    assert_eq!(throw(700.0, -1.0, 70), AttackDir::Back);
+    assert_eq!(throw(100.0, -1.0, 70), AttackDir::Forward, "the mirror");
+    assert_eq!(throw(100.0, 1.0, 70), AttackDir::Back, "the mirror");
+    // Set-up percent: off the stage behind me, or up into a juggle.
+    assert_eq!(throw(700.0, -1.0, 40), AttackDir::Back);
+    assert_eq!(throw(700.0, 1.0, 40), AttackDir::Up);
+    // Low percent: a tech chase needs room on both sides; at an edge, up.
+    assert_eq!(throw(400.0, 1.0, 10), AttackDir::Down);
+    assert_eq!(throw(700.0, 1.0, 10), AttackDir::Up);
+}
+
+/// THE MIX draws among the options within the margin of the best, and only
+/// those: a verb a tier below never comes out, and a zero margin is the old
+/// argmax.
+#[test]
+fn the_mix_picks_among_near_equals_and_never_below_the_margin() {
+    use ambition_characters::brain::fighter::options::MoveOption;
+    let options = [
+        MoveOption { verb: MovementVerb::Shield, score: 0.9 },
+        MoveOption { verb: MovementVerb::Dodge, score: 0.85 },
+        MoveOption { verb: MovementVerb::Approach, score: 0.5 },
+    ];
+    let pick = |mix: f32, margin: f32| pick_movement_mixed(&options, &[], &[], None, mix, margin);
+    assert_eq!(pick(0.1, 0.08), Some(MovementVerb::Shield));
+    assert_eq!(pick(0.9, 0.08), Some(MovementVerb::Dodge));
+    assert_eq!(pick(0.99, 0.08), Some(MovementVerb::Dodge), "approach is a tier below");
+    assert_eq!(pick(0.99, 0.0), Some(MovementVerb::Shield), "no margin: the argmax");
+    assert_eq!(
+        pick_movement_mixed(&options, &[MovementVerb::Shield], &[], None, 0.1, 0.08),
+        Some(MovementVerb::Dodge),
+        "a vetoed best is not in the draw"
+    );
 }
 
 /// ⛔⛔ A PRESS THAT MATURES IN HITSTUN IS BUFFERED, NOT SPENT.

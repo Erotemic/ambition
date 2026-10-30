@@ -35,6 +35,47 @@ pub enum MovementVerb {
     Blink,
     /// Toward the stage's center. The only verb `Recovery` cares about.
     Recover,
+    /// A jump TAPPED, not held: the kernel's squat-decided law cuts the rise
+    /// to `short_hop_speed_frac` when the button is up at takeoff. The genre's
+    /// way into an aerial — the next decision, airborne, has the aerials in its
+    /// kit and the ordinary ranking picks one.
+    ShortHop,
+}
+
+/// How far past a swing's authored reach an incoming attack is still read as
+/// reaching: the foe closes the last pixels during its own startup.
+pub const INCOMING_SLACK_PX: f32 = 24.0;
+
+/// The side-axis gap between the two bodies' boxes, `INFINITY` with nobody to
+/// measure to. Never negative: overlapping boxes are a gap of zero.
+pub fn side_gap(view: &Perceived<'_>) -> f32 {
+    let me = &view.self_view;
+    let Some(foe) = view.nearest_hostile() else {
+        return f32::INFINITY;
+    };
+    let side = me.acceleration_frame().side;
+    ((foe.pos - me.pos).dot(side).abs() - me.half_extent.x - foe.half_extent.x).max(0.0)
+}
+
+/// IS A SWING COMING THAT REACHES ME — the foe is in a swing's startup or active
+/// window, faces this body, and the move's reach (`attack_reach`, frame data a
+/// player who knows the character knows) covers the gap. The read behind the
+/// genre's "shield when the attack comes in range" and behind the spot dodge
+/// that is its mix-up; a swing that cannot reach is nothing to answer.
+pub fn incoming_attack(view: &Perceived<'_>) -> bool {
+    let me = &view.self_view;
+    let Some(foe) = view.nearest_hostile() else {
+        return false;
+    };
+    if !matches!(foe.phase, BodyPhase::AttackStartup | BodyPhase::AttackActive) {
+        return false;
+    }
+    let Some(reach) = foe.attack_reach else {
+        return false;
+    };
+    let side = me.acceleration_frame().side;
+    let foe_faces_me = (me.pos - foe.pos).dot(side) * foe.facing >= 0.0;
+    foe_faces_me && side_gap(view) <= reach + INCOMING_SLACK_PX
 }
 
 /// A scored movement option.
@@ -447,8 +488,22 @@ pub fn generate_options(
     // Nothing here knows whose body it is.
     let lifts = lifting_candidates(kit);
 
-    // Movement first: it is the only thing `Recovery` has.
-    let mut movement = movement_options(&view, situation, !lifts.is_empty());
+    // The reach this body spaces to: the farthest its ground kit swings. A kit
+    // with no reaching ground move spaces to nothing and approaches as before.
+    let my_reach = kit
+        .iter()
+        .filter(|c| {
+            matches!(
+                c.binding.verb,
+                crate::brain::attack_kit::AttackVerb::Basic | crate::brain::attack_kit::AttackVerb::Smash
+            )
+        })
+        .map(|c| c.frames.reach)
+        .fold(0.0_f32, f32::max);
+    // Movement first: it is the only thing `Recovery` has. Re-asked below once
+    // the attack list is known, because the dash-dance is a question about
+    // having nothing to throw from here.
+    let mut movement = movement_options(&view, situation, !lifts.is_empty(), my_reach, false);
     sort_by_score_then_name(&mut movement, |m| (m.score, verb_order(m.verb)));
 
     if situation == Situation::Recovery {
@@ -1138,6 +1193,15 @@ pub fn generate_options(
 
     let motions = motion_options(kit, foe_local, basis);
 
+    // ⛔ MEASURED 2026-10-29 (pointed vs pugnacious, 60 s, rung 5): with the
+    // dash-dance asked before the attack list existed, moves started fell
+    // from 23/26 to 7/6 and damage from 51/24 to 9/0 — the body stepped out
+    // of its own range on the decision it could have swung. The band backs
+    // off only when nothing is admitted from here.
+    let can_swing = !attacks.is_empty();
+    let mut movement = movement_options(&view, situation, !lifts.is_empty(), my_reach, can_swing);
+    sort_by_score_then_name(&mut movement, |m| (m.score, verb_order(m.verb)));
+
     OptionSet {
         movement,
         attacks,
@@ -1702,6 +1766,12 @@ fn movement_options(
     // re-derived, so movement scoring and the attack list cannot disagree about
     // it within one tick.
     kit_lifts: bool,
+    // The farthest this body's ground kit reaches: what it spaces to. `0` for a
+    // kit that reaches nothing, and then there is no spacing band.
+    my_reach: f32,
+    // Is an attack admitted from where the body stands? A body that can swing
+    // does not dance out of its own range.
+    can_swing: bool,
 ) -> Vec<MoveOption> {
     let me = &view.self_view;
     // Which way the foe is, so "approach" and "retreat" can be asked whether the
@@ -1710,6 +1780,26 @@ fn movement_options(
     // foe is not closing on anything.
     let first_foe = view.actors.iter().find(|actor| actor.hostile_to_self && actor.alive);
     let toward_foe = first_foe.map(|foe| view.side_sign_toward(foe.pos)).unwrap_or(0.0);
+    // THE GENRE'S DEFENSIVE READ. A swing that reaches is answered on the
+    // ground with a shield, or with a spot dodge as the mix-up — both outrank
+    // walking into it. `incoming_attack` is the one rule; the decision's
+    // `apply_movement` reads it again to make that dodge a SPOT dodge.
+    let incoming = me.on_ground && incoming_attack(view);
+    // SPACING: where this body stands relative to its own reach. Beyond it,
+    // close; at it, the dash-dance — away when moving in and in when moving
+    // away, which is the genre's neutral at a stand-off and comes out of the
+    // body's own velocity rather than a stored phase.
+    let gap = side_gap(view);
+    let spacing_band = my_reach > 0.0 && first_foe.is_some();
+    let beyond_reach = spacing_band && gap > my_reach * 1.15;
+    let at_reach = spacing_band && !beyond_reach;
+    let side = me.acceleration_frame().side;
+    let moving_in = toward_foe != 0.0 && me.vel.dot(side) * toward_foe > 0.0;
+    // ANTI-AIR: a foe in the air above this body is a short hop from an
+    // aerial, and nothing on the ground reaches it.
+    let foe_above = first_foe.is_some_and(|foe| {
+        !foe.on_ground && (me.pos - foe.pos).dot(me.gravity_down) > me.half_extent.y
+    });
     let approach_walks_off = toward_foe != 0.0 && walks_off(view, toward_foe);
     let approach_overshoots = first_foe.is_some_and(|foe| overshoots(view, foe, toward_foe));
     let retreat_walks_off = toward_foe != 0.0 && walks_off(view, -toward_foe);
@@ -1843,7 +1933,16 @@ fn movement_options(
                 .actors
                 .iter()
                 .any(|actor| actor.hostile_to_self && actor.alive && actor.phase.is_attacking());
-            if me.can_shield && threatened {
+            // A swing that REACHES is the sharper read: shield, or the spot
+            // dodge beside it in the mix.
+            if incoming {
+                if me.can_shield {
+                    push(MovementVerb::Shield, 0.9);
+                }
+                if evade == Some(MovementVerb::Dodge) {
+                    push(MovementVerb::Dodge, 0.85);
+                }
+            } else if me.can_shield && threatened {
                 push(MovementVerb::Shield, 0.8);
             }
             push(MovementVerb::Retreat, 0.7);
@@ -1866,6 +1965,17 @@ fn movement_options(
             }
         }
         Situation::EdgeGuard | Situation::Advantage => {
+            if incoming {
+                if me.can_shield {
+                    push(MovementVerb::Shield, 0.9);
+                }
+                if evade == Some(MovementVerb::Dodge) {
+                    push(MovementVerb::Dodge, 0.85);
+                }
+            }
+            if foe_above && me.on_ground {
+                push(MovementVerb::ShortHop, 0.85);
+            }
             push(MovementVerb::Approach, 0.8);
             // Rolling IN is an approach with i-frames — the genre's other use
             // for the button — so the offensive slot takes whichever maneuver
@@ -1885,8 +1995,32 @@ fn movement_options(
             }
         }
         Situation::Neutral => {
-            push(MovementVerb::Approach, 0.5);
-            push(MovementVerb::Retreat, 0.4);
+            if incoming {
+                if me.can_shield {
+                    push(MovementVerb::Shield, 0.9);
+                }
+                if evade == Some(MovementVerb::Dodge) {
+                    push(MovementVerb::Dodge, 0.85);
+                }
+            }
+            if foe_above && me.on_ground {
+                push(MovementVerb::ShortHop, 0.7);
+            }
+            if beyond_reach {
+                push(MovementVerb::Approach, 0.55);
+                push(MovementVerb::Retreat, 0.3);
+            } else if at_reach && moving_in && !can_swing {
+                push(MovementVerb::Retreat, 0.55);
+                push(MovementVerb::Approach, 0.45);
+            } else {
+                push(MovementVerb::Approach, 0.5);
+                push(MovementVerb::Retreat, 0.4);
+            }
+            if at_reach && me.on_ground {
+                // Inside the mix margin of the top ground option: now and then
+                // the neutral is entered from the air.
+                push(MovementVerb::ShortHop, 0.45);
+            }
             if can_jump {
                 push(MovementVerb::Jump, 0.3);
             }

@@ -1261,6 +1261,10 @@ fn movement_intent(
         MovementVerb::Dash => ShadowIntent::Dash { lateral: toward },
         MovementVerb::Retreat => ShadowIntent::Drive { lateral: -toward },
         MovementVerb::Jump => ShadowIntent::Jump,
+        // A short hop is a jump whose rise is cut at takeoff; the shadow has
+        // one jump and it is the taller one, which overstates the hop's height
+        // and nothing else.
+        MovementVerb::ShortHop => ShadowIntent::Jump,
         // `Recover` was in the unmodelled list, and it is the ONLY verb that
         // can save an airborne body — so the one verb the model could not judge
         // was the one the situation it could not represent depended on. Both

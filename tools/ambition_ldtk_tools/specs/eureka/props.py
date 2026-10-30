@@ -23,6 +23,9 @@ SCENERY = {
     "eureka_observatory": [
         ("eureka_observatory_room", 0, 0),
     ],
+    "eureka_coil_lab": [
+        ("eureka_lab_room", 16, 32),
+    ],
 }
 
 

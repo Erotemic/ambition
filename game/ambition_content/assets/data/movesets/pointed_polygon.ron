@@ -311,7 +311,10 @@
                                                 half_extents: (22.0, 23.0),
                                             ),
                                             damage: 5,
-                                            knockback: 169.6,
+                                            // 106, not 169.6: at 169.6 the up-tilt out-launched the
+                                            // up-smash below ~50% (`ko_envelope feel`, 2026-10-30) — a
+                                            // x1.6 baked into the base. An anti-air that kills late.
+                                            knockback: 106.0,
                                             knockback_growth: Some(4.13),
                                             launch_dir: Some((0.15, -1.0)),
                                             reaction: None,

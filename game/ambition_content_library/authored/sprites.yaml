@@ -440,6 +440,17 @@ collections:
   - eureka_observatory_front
   - eureka_patent_room
   - eureka_observatory_room
+  - eureka_lab_room
+  - cove_cave
+  - cove_ledges
+  - cove_doorways
+  - cove_dressing
+  - math_zeno_aqueduct
+  - math_zeno_reservoir
+  - primeval_tyrant_hall_room
+  - math_hotel_entrance
+  - math_hotel_lobby_room
+  - math_hotel_corridor_room
   - alice_v2
   - armsmith_odile
   - village_nagisa

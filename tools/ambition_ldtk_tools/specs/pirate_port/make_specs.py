@@ -288,6 +288,8 @@ def main(argv):
         return code
     if code := add_entities(COVE_DOOR_YAML, WORLD_LDTK, HERE / "cove_door.yaml", unless=f'"{COVE_DOOR}"'):
         return code
+    if code := add_entities(props.cove_scenery_yaml(GENERATOR), WORLD_LDTK, HERE / "cove_scenery.yaml", unless='"cove_cave_0"'):
+        return code
     if GATE_INTERFACE.exists():
         code, _ = run("entity", "add", str(GATE_INTERFACE), "--ldtk", str(WORLD_LDTK), "--in-place")
         if code:

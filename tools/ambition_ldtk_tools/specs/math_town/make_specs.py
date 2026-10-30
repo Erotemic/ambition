@@ -49,6 +49,7 @@ if str(TOOLS) not in sys.path:
 from ambition_ldtk_tools.ldtk.paths import default_worlds_dir  # noqa: E402
 
 sys.path.insert(0, str(HERE.parent / "gate_network"))
+sys.path.insert(0, str(HERE.parent))
 import gates  # noqa: E402
 
 MATH_LDTK = default_worlds_dir() / "math.ldtk"
@@ -66,6 +67,8 @@ MATH_ZONE = "math_gate_return_zone"
 HOME_RING, HOME_PORTAL = "Math Gate Ring (Home)", "Math Gate Portal (Home)"
 MATH_RING, MATH_PORTAL = "Math Gate Ring (Math)", "Math Gate Portal (Math)"
 HALL, STREET = "math_gate_hall", "math_town_street"
+ZENO = "math_zeno_aqueduct"
+LOBBY, CORRIDOR = "math_hotel_lobby", "math_hotel_corridor"
 CAFE, OFFICE, OBSERVATORY = "math_cafe", "math_surveyors_office", "math_observatory"
 
 #: Each room: where it is in the world, and its size.
@@ -76,11 +79,22 @@ ROOMS_AT = {
     CAFE: (5100, 960, 448),
     OFFICE: (6200, 1120, 448),
     OBSERVATORY: (7500, 800, 704),
+    # Out of town, west of the street along the aqueduct (Jon, 2026-10-30:
+    # "out of town zones with enemies").
+    ZENO: (1712 - 3200, 3200, 896),
+    # Hylbert's Hotel (Jon, 2026-10-30): its lobby, and the corridor east of
+    # it, its floor level with the lobby's.
+    LOBBY: (8500, 1280, 576),
+    CORRIDOR: (8500 + 1280, 1600, 448),
+}
+#: A room's world y when it is not 0. The rooms of the world touch where they
+#: join (`specs/check_flat_map.py`): Zeno's Aqueduct is west of the street at
+#: its deck, so the gate hall, which is UNDER the street, is placed there.
+ROOMS_Y = {
+    HALL: 1344,
+    CORRIDOR: (576 - 64) - (448 - 64),
 }
 
-#: The published sheets, whose body boxes say where each prop's art is in
-#: its frame.
-SPRITES = TOOLS.parents[1] / "game/ambition_content_library/generated/runtime/sprites"
 #: Pixels of a town prop's frame to one world unit (`math_town_facades.PX`,
 #: `math_town_terraces.PX`).
 PROP_PX = 2
@@ -118,6 +132,7 @@ def gate(ring, portal, zone, x, floor, to_room, to_zone, name):
 
 def room(rid, entities, label_text, theme=BIOME):
     world_x, w, h = ROOMS_AT[rid]
+    world_y = ROOMS_Y.get(rid, 0)
     body = "\n        ".join(entities + [
         f'( type: "CameraZone", px: [0, 0], size: [{w}, {h}], fields: ( id: "{rid}_camera", name: "{rid}_camera", mode: "Default" ) ),',
         label(f"{rid}_label", 70, 40, label_text, min(900, w - 140)),
@@ -127,7 +142,7 @@ def room(rid, entities, label_text, theme=BIOME):
     id: "{rid}",
     level_id: "{rid}",
     world_x: {world_x},
-    world_y: 0,
+    world_y: {world_y},
     px_wid: {w},
     px_hei: {h},
     fill_collision: "empty",
@@ -235,12 +250,10 @@ def door(zone, name, x, floor, to_room, to_zone):
 
 def body_box(kind):
     """The body box of `kind`'s published sheet in frame pixels, (x, y, w, h):
-    where its art is in its frame."""
-    text = (SPRITES / f"{kind}_spritesheet.ron").read_text()
-    m = re.search(r"body_pixel_bbox: Some\(\(x: (\d+), y: (\d+), w: (\d+), h: (\d+)\)\)", text)
-    if not m:
-        raise SystemExit(f"{kind}: no body_pixel_bbox in its published RON; publish the sprite first")
-    return tuple(int(v) for v in m.groups())
+    where its art is in its frame (the accepted publication's)."""
+    from district_scenery import body_box as published_body_box
+
+    return published_body_box(kind)
 
 
 def framed(name, kind, fx, fy):
@@ -346,7 +359,10 @@ def street():
         solid("terrace_1", CLIFF1, T1, w - CLIFF1, TUNNEL_TOP - T1),
         solid("terrace_2", CLIFF2, T2, w - CLIFF2, T1 - T2),
         solid("summit", CLIFF3, SUMMIT, w - CLIFF3, T2 - SUMMIT),
-        solid("west_wall", 0, 0, WALL, STREET_Y),
+        # The west wall, open where the aqueduct's deck leaves town.
+        solid("west_wall_high", 0, 0, WALL, DECK - 112),
+        solid("west_wall_low", 0, DECK + 16, WALL, STREET_Y - DECK - 16),
+        edge(f"{rid}_aqueduct_west", "along the aqueduct, out of town", 0, DECK - 96, 96, ZENO, f"{ZENO}_east"),
         solid("east_wall", w - WALL, 0, WALL, SUMMIT),
         solid("passage_end", w - WALL, TUNNEL_TOP, WALL, STREET_Y - TUNNEL_TOP),
         f'( type: "PlayerStart", px: [160, {STREET_Y - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
@@ -365,6 +381,11 @@ def street():
         e.append(framed(f"passage_bay_{i}", "math_tunnel_bay", CLIFF1 + i * 160, TUNNEL_TOP))
     e.append(framed("passage_mouth", "math_tunnel_mouth", CLIFF1 - 16, STREET_Y - 112))
     e.append(framed("passage_gate", "math_tunnel_gate", w - WALL - 48, TUNNEL_TOP))
+    # Hylbert's Hotel, in the passage's third bay: its front over the bay, and
+    # its door over the revolving door the front paints.
+    e.append(framed("hylbert_hotel_front", "math_hotel_entrance", HOTEL_BAY_X, TUNNEL_TOP))
+    e.append(painted_door(f"{LOBBY}_street", "into Hylbert's Hotel", HOTEL_BAY_X + 80, STREET_Y, 82, LOBBY, f"{LOBBY}_door"))
+    e.append(label("hotel_sign", HOTEL_BAY_X - 70, TUNNEL_TOP - 34, "HYLBERT'S HOTEL: no vacancy (vacancy)", 300))
     # Homes in the rock of each cliff.
     for name, kind, x, y in [
         ("rock_home_t1_a", "wide", 1960, T1 + 40),
@@ -416,13 +437,13 @@ def street():
         e.append(standing(name, kind, x, ground)[0])
     # Townsfolk: the Math dimension's own.
     e += [
-        wanderer("townsperson_peggy", "npc_peggy", 420, STREET_Y),
-        wanderer("townsperson_victor", "npc_victor", 900, STREET_Y),
-        wanderer("townsperson_lovelace", "npc_data_lovelace", 1300, STREET_Y),
-        wanderer("townsperson_olivia", "npc_olivia", CLIFF1 + 60, T1),
+        wanderer("townsperson_peggy", "npc_peggy", 420, STREET_Y, dialogue="peggy"),
+        wanderer("townsperson_victor", "npc_victor", 900, STREET_Y, dialogue="victor"),
+        wanderer("townsperson_lovelace", "npc_data_lovelace", 1300, STREET_Y, dialogue="data_lovelace"),
+        wanderer("townsperson_olivia", "npc_olivia", CLIFF1 + 60, T1, dialogue="olivia"),
         # Canter and Hylbert are at work inside, and Erdish is at the cafe.
-        wanderer("townsperson_leib", "npc_leib_knives", CLIFF2 + 120, T2),
-        wanderer("stargazer_hypatia", "npc_hypatia_prime", CLIFF3 + 60, SUMMIT),
+        wanderer("townsperson_leib", "npc_leib_knives", CLIFF2 + 120, T2, dialogue="leib_knives"),
+        wanderer("stargazer_hypatia", "npc_hypatia_prime", CLIFF3 + 60, SUMMIT, dialogue="hypatia_prime"),
         label("street_sign", 180, STREET_Y - 300, "Euclid Street (the long way round)", 380),
         label("passage_sign", w - 300, TUNNEL_TOP + 12, "The long way round: shut", 240),
         label("office_sign", CLIFF2 + 60, T2 - 300, "Surveyor's Office", 240),
@@ -485,8 +506,8 @@ def cafe():
         piece("cafe_table_c", "math_cafe_table", 470, floor),
         piece("cafe_counter", "math_cafe_counter", counter_x, floor),
         still("cafe_counter_top", counter_x, floor - COUNTER_H, 220, 4),
-        wanderer("cafe_erdish", "npc_erdish", 300, floor),
-        wanderer("cafe_noether", "npc_emmy_noether", counter_x + 240, floor),
+        wanderer("cafe_erdish", "npc_erdish", 300, floor, dialogue="erdish"),
+        wanderer("cafe_noether", "npc_emmy_noether", counter_x + 240, floor, dialogue="emmy_noether_cafe"),
     ]
     return rid, room(rid, e, "The Convergent Series: the cafe of the first terrace.", theme=INTERIOR)
 
@@ -508,7 +529,7 @@ def surveyors_office():
         piece("office_drafting", "math_office_drafting", 470, floor),
         piece("office_cabinet", "math_office_cabinet", 620, floor),
         piece("office_theodolite", "math_office_theodolite", 104, floor),
-        wanderer("office_canter", "npc_georg_canter", 420, floor),
+        wanderer("office_canter", "npc_georg_canter", 420, floor, dialogue="georg_canter"),
     ]
     return rid, room(rid, e, "The Surveyor's Office of the second terrace.", theme=INTERIOR)
 
@@ -541,17 +562,139 @@ def observatory():
     e += [
         piece("obs_platform", "math_obs_platform", px0, floor),
         line("obs_stair", [(px0 + 6, floor), (stair_top, top), (w - WALL, top)], "up"),
-        wanderer("obs_hylbert", "npc_davy_hylbert", 200, floor),
+        # Hylbert keeps his hotel's desk now (`hotel_lobby`).
     ]
     return rid, room(rid, e, "The Observatory on the summit.", theme=INTERIOR)
 
 
-ROOMS = (gate_hall, street, cafe, surveyors_office, observatory)
+# ---- Out of town ---------------------------------------------------------------
+
+#: Zeno's Aqueduct: the town's aqueduct goes on west to its reservoir. Its
+#: deck is the street's (y 560); the valley under it is at y 832. Its piers
+#: stand half as far apart each time (`ZENO_PIERS`), so the dam is always
+#: just a little further: the art is `targets/props/math_zeno_props.py`, drawn
+#: on these numbers.
+ZENO_FLOOR = 832
+ZENO_DAM_X = 1920
+ZENO_PIERS = [ZENO_DAM_X + (3200 - ZENO_DAM_X) / 2**k for k in range(9)]
+#: The reservoir behind the dam, and The Limit, the island at its far end.
+ZENO_WATER_TOP = 624
+ZENO_ISLAND = (176, 560, 600)
+#: The top lefts of the art's frames (`math_zeno_props.PIECES`).
+ZENO_AQUEDUCT_FRAME = (ZENO_DAM_X - 80, DECK - 200)
+ZENO_RESERVOIR_FRAME = (0, ZENO_ISLAND[2] - 200)
+
+
+def zeno_enemy(n, character, x, feet_y, w, h, brain, profile=None):
+    extra = f', brain_profile: "{profile}"' if profile else ""
+    return (f'( type: "EnemySpawn", px: [{x}, {feet_y - h}], size: [{w}, {h}], fields: ( name: "{ZENO}_{character}_{n}", '
+            f'brain: "{brain}", character_id: "{character}", respawn: "OnRoomReenter"{extra} ) ),')
+
+
+def zeno_aqueduct():
+    """Out of town: the aqueduct's deck goes on west from the street to the
+    dam of the town's reservoir, over a valley. The piers close up toward the
+    dam by halves, and their signs count it: half way, three quarters, seven
+    eighths. Mites and slugs live in the valley, an owl on a pier and a mite
+    on the deck. Behind the dam the reservoir, and at its far end The Limit,
+    an island with a gazebo. A ladder goes from the valley up to the deck."""
+    rid = ZENO
+    _, w, h = ROOMS_AT[rid]
+    g = ZENO_FLOOR
+    ix0, ix1, itop = ZENO_ISLAND
+    e = [
+        framed("zeno_reservoir", "math_zeno_reservoir", *ZENO_RESERVOIR_FRAME),
+        framed("zeno_aqueduct", "math_zeno_aqueduct", *ZENO_AQUEDUCT_FRAME),
+        solid("valley", ZENO_DAM_X, g, w - ZENO_DAM_X, h - g),
+        solid("reservoir_bed", 0, g, ZENO_DAM_X, h - g),
+        solid("west_wall", 0, 0, WALL, g),
+        solid("east_wall_high", w - WALL, 0, WALL, DECK - 112),
+        solid("east_wall_low", w - WALL, DECK + 16, WALL, g - DECK - 16),
+        edge(f"{rid}_east", "along the aqueduct, back to town", w - WALL, DECK - 96, 96, STREET, f"{STREET}_aqueduct_west"),
+        ledge("deck", ZENO_DAM_X, DECK, w - ZENO_DAM_X - WALL),
+        f'( type: "PlayerStart", px: [{w - 200}, {DECK - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        solid("dam", ZENO_DAM_X - 64, DECK, 64, g - DECK),
+        f'( type: "WaterVolume", px: [{WALL}, {ZENO_WATER_TOP}], size: [{ZENO_DAM_X - 64 - WALL}, {g - ZENO_WATER_TOP}], fields: ( id: "{rid}_reservoir", name: "the reservoir" ) ),',
+        solid("the_limit", ix0, itop, ix1 - ix0, g - itop),
+        label(f"{rid}_dam_sign", ZENO_DAM_X - 120, DECK - 120, "THE RESERVOIR (arrived, in the limit)", 380),
+        label(f"{rid}_limit_sign", (ix0 + ix1) // 2 - 150, itop - 170, "THE LIMIT", 300),
+        # The enemies of the valley and the deck.
+        zeno_enemy(1, "npc_dividing_mite", 2320, g, 40, 52, "dividing_mite"),
+        zeno_enemy(2, "npc_dividing_mite", 2760, g, 40, 52, "dividing_mite"),
+        zeno_enemy(3, "npc_puppy_slug", 2540, g, 28, 44, "combatant", "patroller"),
+        zeno_enemy(4, "npc_puppy_slug", 2980, g, 28, 44, "combatant", "patroller"),
+        zeno_enemy(5, "npc_exploding_mite", 2420, DECK, 38, 66, "exploding_mite"),
+        zeno_enemy(6, "owl", round(ZENO_PIERS[1]) - 18, DECK - 40, 36, 48, "combatant"),
+    ]
+    # The fraction over each pier, counted from the town.
+    for k, x in enumerate(ZENO_PIERS[1:6], start=1):
+        e.append(label(f"{rid}_pier_{k}", round(x) - 60, DECK - 70 - 26 * (k % 2), f"{2**k - 1}/{2**k} of the way", 120))
+    return rid, room(rid, e, "Zeno's Aqueduct: the reservoir is just a little further.")
+
+
+# ---- Hylbert's Hotel ------------------------------------------------------------
+
+#: Its front is in the passage's third bay (`math_hotel_props`).
+HOTEL_BAY_X = CLIFF1 + 2 * 160
+#: The corridor's doors, every 240 from x 160 (the art's), each with its
+#: number over it.
+CORRIDOR_DOORS = list(range(160, 1600 - 100, 240))
+
+
+def hotel_lobby():
+    """Hylbert's Hotel: the lobby. Hylbert at the front desk (its top walked
+    on), the key rack behind him that never ends, the lift, the stair. East,
+    the corridor."""
+    rid = LOBBY
+    _, w, h = ROOMS_AT[rid]
+    floor = h - INSIDE_FLOOR
+    e = [
+        f'( type: "Prop", px: [16, {INSIDE_CEILING}], size: [{w - 32}, {floor - INSIDE_CEILING}], fields: ( name: "hotel_lobby_room", kind: "math_hotel_lobby_room" ) ),',
+        solid("floor", 0, floor, w, INSIDE_FLOOR),
+        solid("ceiling", 0, 0, w, INSIDE_CEILING),
+        solid("west_wall", 0, INSIDE_CEILING, WALL, floor - INSIDE_CEILING),
+        solid("east_wall", w - WALL, INSIDE_CEILING, WALL, floor - 96 - INSIDE_CEILING - 16),
+        door(f"{rid}_door", "out to the street", 40, floor, STREET, f"{rid}_street"),
+        edge(f"{rid}_east", "to the rooms", w - WALL, floor - 96, 96, CORRIDOR, f"{CORRIDOR}_west"),
+        f'( type: "PlayerStart", px: [120, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        still("hotel_desk_top", 520, floor - 48, 240, 4),
+        wanderer("hotel_hylbert", "npc_davy_hylbert", 640, floor, dialogue="davy_hylbert"),
+        label("hotel_vacancy", 380, 64, "NO VACANCY  /  VACANCY", 520),
+    ]
+    return rid, room(rid, e, "Hylbert's Hotel: the lobby.", theme=INTERIOR)
+
+
+def hotel_corridor():
+    """The corridor of rooms, which goes on: its east end comes back in at
+    its west end, so walking east never runs out of rooms; walking west
+    always reaches the lobby. Its doors are numbered from n."""
+    rid = CORRIDOR
+    _, w, h = ROOMS_AT[rid]
+    floor = h - INSIDE_FLOOR
+    e = [
+        f'( type: "Prop", px: [0, {INSIDE_CEILING}], size: [{w}, {floor - INSIDE_CEILING}], fields: ( name: "hotel_corridor_room", kind: "math_hotel_corridor_room" ) ),',
+        solid("floor", 0, floor, w, INSIDE_FLOOR),
+        solid("ceiling", 0, 0, w, INSIDE_CEILING),
+        solid("west_wall", 0, INSIDE_CEILING, WALL, floor - 96 - INSIDE_CEILING - 16),
+        solid("east_wall", w - WALL, INSIDE_CEILING, WALL, floor - 96 - INSIDE_CEILING - 16),
+        edge(f"{rid}_west", "back to the lobby", 0, floor - 96, 96, LOBBY, f"{LOBBY}_east"),
+        (f'( type: "LoadingZone", px: [{w - WALL}, {floor - 96}], size: [16, 96], fields: ( id: "{rid}_east", name: "more rooms", '
+         f'activation: "EdgeExit", target_room: "{rid}", target_zone: "{rid}_west", bidirectional: false ) ),'),
+        f'( type: "PlayerStart", px: [120, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+    ]
+    for k, x in enumerate(CORRIDOR_DOORS):
+        e.append(label(f"{rid}_room_{k}", x - 40, floor - 176, "n" if k == 0 else f"n+{k}", 80))
+    return rid, room(rid, e, "Hylbert's Hotel: the rooms. There is always one more.", theme=INTERIOR)
+
+
+ROOMS = (gate_hall, street, cafe, surveyors_office, observatory, zeno_aqueduct, hotel_lobby, hotel_corridor)
 
 #: What is painted on an IntGrid layer of a room: (room, layer, value, px, size).
 PAINT = [(STREET, "Climbable", 1, (x, top), (32, bottom - top)) for _name, x, top, bottom in LADDERS] + [
     # The ladder up to the office's gallery, at its west end (the art's).
     (OFFICE, "Climbable", 1, (ROOMS_AT[OFFICE][1] - WALL - 380 - 8, ROOMS_AT[OFFICE][2] - INSIDE_FLOOR - 300 + GALLERY_FLOOR - 16), (32, 300 - GALLERY_FLOOR + 16)),
+    # Zeno's: up the first pier from the valley to the deck (the art's).
+    (ZENO, "Climbable", 1, (3200 - WALL - 96, DECK - 16), (32, ZENO_FLOOR - DECK + 16)),
 ]
 
 

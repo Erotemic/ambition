@@ -43,6 +43,35 @@ SCENERY = {
 }
 
 
+#: The pirate cove is not one of this generator's rooms (it predates it and is
+#: edited in place), so its scenery is ADDED to it (`make_specs.py`,
+#: `cove_scenery_yaml`), not listed in a room it writes.
+COVE = "pirate_cove"
+COVE_SCENERY = [
+    ("cove_cave", 0, 0),
+    ("cove_ledges", 300, 0),
+    ("cove_doorways", 40, 438),
+    ("cove_dressing", 120, 498),
+]
+
+
+def cove_scenery_yaml(generator: str) -> str:
+    """The `entity add` YAML of the cove's scenery: one Prop per piece, over
+    its art's body box."""
+    from district_scenery import body_box
+
+    rows = []
+    for i, (kind, fx, fy) in enumerate(COVE_SCENERY):
+        bx, by, bw, bh = body_box(kind)
+        rows.append(f"""  - type: Prop
+    px: [{round(fx + bx / 2)}, {round(fy + by / 2)}]
+    size: [{max(1, round(bw / 2))}, {max(1, round(bh / 2))}]
+    fields:
+      name: {kind}_{i}
+      kind: {kind}""")
+    return f"# The pirate cove's scenery. Written by {generator}.\nlevel_id: {COVE}\nentities:\n" + "\n".join(rows) + "\n"
+
+
 def scenery(room_id: str) -> list[str]:
     """The prop entity lines of `room_id`."""
     return [piece(kind, x, y, name=f"{kind}_{i}") for i, (kind, x, y) in enumerate(SCENERY.get(room_id, []))]

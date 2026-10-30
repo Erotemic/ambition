@@ -1438,7 +1438,18 @@ pub fn resolve_camera_observation(
     // clamp for one of those would just show the void beside the room.
     let mut must_frame_world: Option<ae::Aabb> = None;
     let mut view_box: Option<ae::Aabb> = None;
-    let home = player.single().ok().map(|(e, b, bs, bc)| (e, *b, *bs, *bc));
+    // A DECLARED CAST IS THE SUBJECT. Only a match fills `FramedCast` (its
+    // seats, `match_activation`), and a match frames every seat, whoever is
+    // sitting in one: the home avatar and the controlled subject are members
+    // of the cast, not the thing the camera follows. Before this, a human
+    // seat was the avatar, so human play got the single-body follow and the
+    // cast framing ran only CPU-versus-CPU (capture_scene films, 2026-10-30).
+    let cast_declared = !framed.0.is_empty();
+    let home = if cast_declared {
+        None
+    } else {
+        player.single().ok().map(|(e, b, bs, bc)| (e, *b, *bs, *bc))
+    };
     let (mut player_body, player_base_size, blink_cam, mut followed) = match home {
         Some((entity, body, base_size, blink)) => (body, base_size, blink, entity),
         None => {
@@ -1447,6 +1458,7 @@ pub fn resolve_camera_observation(
             // published the cast already knows.
             match controlled
                 .0
+                .filter(|_| !cast_declared)
                 .and_then(|subject| body_kinematics.get(subject).ok().map(|(_, kin, _)| (*kin, subject)))
             {
                 Some((kin, subject)) => (
@@ -3593,6 +3605,40 @@ mod resolved_snapshot_lifetime_tests {
         let view = views.next().expect("the plugin spawns one view");
         assert!(views.next().is_none(), "one view in this fixture");
         view.frame().cloned()
+    }
+
+    /// A match frames its cast whoever is seated in it. The home avatar is a
+    /// member, not the subject: with a primary player at one end of the room
+    /// and a CPU seat at the other, the frame holds both (human play got the
+    /// single-body follow before this).
+    #[test]
+    fn a_declared_cast_is_framed_even_when_a_primary_player_is_seated() {
+        let mut app = app_with_a_framed_cast();
+        let human = cast_member(&mut app, ae::Vec2::new(1_000.0, 2_000.0));
+        app.world_mut().entity_mut(human).insert((
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+            ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
+            ae::BodyBaseSize { base_size: ae::Vec2::new(24.0, 40.0) },
+            ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState::default(),
+        ));
+        let cpu = cast_member(&mut app, ae::Vec2::new(2_200.0, 2_000.0));
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d_shared_tangle::markers::FramedCast>()
+            .0 = vec![human, cpu];
+        for _ in 0..3 {
+            app.update();
+        }
+        let frame = frame_of(&app).expect("a cast resolves a frame");
+        let centre = frame.snapshot.center_world;
+        let half = frame.snapshot.visible_view * 0.5;
+        for (who, x) in [("the human", 1_000.0), ("the cpu", 2_200.0)] {
+            assert!(
+                (x - centre.x).abs() <= half.x,
+                "{who} at x {x} is outside a {:.0}-wide frame centred {:.0}: the avatar was followed alone",
+                half.x * 2.0,
+                centre.x
+            );
+        }
     }
 
     #[test]

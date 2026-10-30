@@ -14,13 +14,26 @@ from pathlib import Path
 
 from district_kit import prop
 
-#: The published sheets, whose body boxes say where each prop's art is in its frame.
-SPRITES = Path(__file__).resolve().parents[3] / "game/ambition_content_library/generated/runtime/sprites"
+#: The accepted art publication: `published.json` names the bundle file of
+#: each runtime file, and the sheets' body boxes say where each prop's art is
+#: in its frame.
+PUBLICATION = Path(__file__).resolve().parents[3] / "game/ambition_content_library/generated/art_publication"
+
+
+def _published_sheet(kind: str) -> Path:
+    """The accepted publication's sheet RON of `kind` (full tier)."""
+    import json
+
+    files = json.loads((PUBLICATION / "published.json").read_text())["files"]
+    entry = files.get(f"sprites/{kind}_spritesheet.ron")
+    if entry is None:
+        raise SystemExit(f"{kind}: not in the accepted art publication; publish the sprite first (scripts/regen/sprites.sh --target ...)")
+    return PUBLICATION / entry["path"]
 
 
 def body_box(kind: str) -> tuple[int, int, int, int]:
     """The body box of `kind`'s published sheet in frame pixels (x, y, w, h)."""
-    text = (SPRITES / f"{kind}_spritesheet.ron").read_text()
+    text = _published_sheet(kind).read_text()
     m = re.search(r"body_pixel_bbox: Some\(\(x: (\d+), y: (\d+), w: (\d+), h: (\d+)\)\)", text)
     if not m:
         raise SystemExit(f"{kind}: no body_pixel_bbox in its published RON; publish the sprite first")

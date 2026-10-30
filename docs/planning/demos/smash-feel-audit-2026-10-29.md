@@ -210,12 +210,45 @@ frames; without P1–P3 that is 19 frames of a white blink. Ship them together.
 | P6 authored puffs, dash/turn skid | ✔ (squash/stretch open) | 1005e9ad7 |
 | P2 tiered hit and swing sounds | ✔ 12 cues (reel in `untracked/sfx-candidates/smash-feel/`), tier pick in `resolve_strike_sfx` | 865e5e460 |
 | R3 frame data | ✔ per fighter, in the facet (`move_timing`), 16 fighters; sanic has no facet; George is Rust-authored | 223dc85e7 |
-| R6 buffer 10 f | ✔ `action_buffer_s` | this commit |
-| P4 posing keys, P5 slash arcs | in progress (art agent, robot v3 first) | — |
-| P7 fighter camera | open: `resolve_follow_camera_snapshot` floors the scale at 1.0 (never closer than the base view); a Smash framing rule needs a fit-the-subjects target under that floor | — |
-| R5 play with Jon; R6 tap jump, short-hop button, angled air-dodge lag; P6 squash | open | — |
+| R6 buffer 10 f, tap jump, short-hop button | ✔ `action_buffer_s`; `ControlSettings::tap_jump` (off by default, no menu toggle yet); the `ShortHop` action already existed and is bound in the presets | e523311c7, this commit |
+| P4 posing keys, P5 slash arcs | ✔ for the three polygons (Jon: the polygons are the Smash test players, not the robot): 12-frame rows with anticipation / smear / contact-overshoot / settle posed to each fighter's Smash windows, a shaking, glinting `smash_charge`, travelling arcs in the `*_strike_fx` rows (renderer c752183, generation 55069d31; review sheets `untracked/art-review/polygon-keys/`). Open: the beast's coil is subtle; the other fighters' rows are still one picture per phase | 96552c2c6 |
+| P7 fighter camera | ✔ `MatchRules::cast_framing` (Smash: close to 45% of the stage view, 40 px margin; the engine keeps 75% / 48) | cad1bfd1b |
+| P6 squash/stretch | ✔ `BodyPoseView::squash`: lands wide and low, relaxing over the landing beat (deeper when hard); the jump squat presses | this commit |
+| Tap-jump menu toggle | ✔ Controls page, "Tap Jump" | this commit |
+| R6 authored walk speed, angled air-dodge lag | ✔ `walk_speed` (Smash 208 px/s), `air_dodge_up` → 0.73×–1.27× landing lag; schema 388 | 38e725306 |
+| CPU fighters like an Ultimate CPU | in progress (sub-agent lane on its own branch; first job: the recovery press eaten by the hitstun lockout, `smash_it::every_authored_route_gets_pressed`) | — |
+| R5 play with Jon; posing keys beyond the polygons; Sanic's facet | open | — |
 
 Nothing above has been played by a human yet. Every number is a first cut.
+
+**The polygons' references (Jon, 2026-10-29):** pointed polygon ≈ Marth /
+Lucina (`sword` template, Lucina body), pugnacious polygon ≈ Captain Falcon
+(`falcon` template, Falcon body at 0.6), projectile polygon ≈ Yoshi's body with
+some of Samus's and Toon Link's moves (`zoner` template, Yoshi body at 0.6).
+Ultimate is a reference, not a copy. The CPU fighters are to feel like an
+Ultimate CPU (a sub-agent lane on its own branch; see the fighter-brain plan).
+The polygons' posing keys were fitted to the earlier fast/heavy clocks; the
+sword and falcon clocks are close enough that the smear and contact frames
+still fall in the active windows, but a re-fit is owed with the next art pass.
+
+**Measured after the pass** (`ko_envelope feel pointed_polygon pugnacious_polygon`,
+2026-10-29): hitlag is the genre's (jab 8 f, tilts 10, aerials 12, fsmash
+16); the facet clocks are live (nair 38 f, fair 40, fsmash 42); hitstun
+tracks Ultimate's 0.4 × KB at these launches (jab 10 f at 120 px/s, fsmash 29
+at 370). On-hit advantage (`adv_f`) is still negative for most moves below
+80% (jab −11 at 0%, ftilt −14, nair −31, fair −24; utilt +6, usmash +13 at
+40%, bair +5 at 80%). That was a per-move BASE KNOCKBACK question (the
+polygons' tilts and aerials launched 120–290 px/s at 0%, short stun against
+24–40 frame moves). Answered the same evening with
+`SmashFighterFacet::move_knockback` (a factor on each move's base launch on
+the Smash stage, growth untouched; written by `scripts/smash_retime.py`:
+forward/down tilt ×1.6, dash attack ×1.5, nair/fair ×1.5, bair/uair ×1.3,
+dair ×1.4, up tilt and smashes ×1.0). Re-measured: ftilt −6 at 0% and −1 at
+40%, dtilt −7 / −2, bair −7 / +2, utilt +6 / +21; aerials stay negative in
+the air as Ultimate's do unless landed (the tool does not model landing). A
+first cut for the play pass.
+Also measured: `smash_tool match-report 30 --runs 2` plays through (KOs,
+launches, techs; no panics) under the new rules.
 
 ## Roadmap
 

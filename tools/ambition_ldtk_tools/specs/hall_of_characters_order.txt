@@ -130,7 +130,13 @@ npc_station_rahimi
 npc_station_pell
 npc_station_wen
 
-[The Science dimension]
+[Eureka, the institute town]
+npc_eureka_teodora
+npc_eureka_priya
+npc_eureka_dmitri
+npc_eureka_wilbur
+npc_eureka_halvorsen
+npc_eureka_mina
 npc_science_nikobolt
 npc_science_coulomba
 

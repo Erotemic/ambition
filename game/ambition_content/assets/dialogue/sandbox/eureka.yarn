@@ -1,0 +1,119 @@
+title: eureka_context
+---
+// Eureka, the institute town of the Science dimension (gate address
+// SCIENCE), on the ground under the orbital station: one node per resident,
+// named `eureka_<resident>`, and the institute's own Patent Clerk and Carl
+// Stargan. The space elevator goes up from the town's ground station to the
+// station's tether hub.
+//
+// Everyday talk only (Jon, 2026-10-29: "we are world building not quest
+// building"): no flags, no errands.
+//
+// Never played. No placement names this node; it declares the zone.
+===
+
+title: eureka_teodora
+---
+Teodora: Car up at the hour, car down at the half. Step in, hold the rail, and do not lean on the door.
+-> How far up does it go?
+    Teodora: All the way to the station's tether hub. Thirty-six thousand kilometres of cable, and I have walked none of it.
+    Teodora: The car does the climbing. I do the timetable. Both of us are on time.
+-> What is up there?
+    Teodora: Customs, a docking bay, people who eat out of tubes. Further along the spoke, Gnu-ton's gravity works.
+    Teodora: The car comes back lighter some days. Nobody can tell me why. I log it anyway.
+-> Do people take the gate instead?
+    Teodora: The ring is quicker. It also leaves you sick on a bench for an hour. My car gives you a view.
+-> Have a good shift.
+===
+
+title: eureka_priya
+---
+Priya: Is it day or night? Do not tell me. The run cannot know either.
+-> How long have you been awake?
+    Priya: Since the experiment started. It has been running four days. So have I.
+    Priya: If I sleep, something drifts. If something drifts, I start again.
+-> What are you measuring?
+    Priya: Whether a clock at the top of the elevator runs fast. It does. The question is by how much, and whether my supervisor believes me.
+-> You should rest.
+    Priya: Mina said that. Then she sold me another coffee. I think she has a conflict of interest.
+-> Good luck with it.
+===
+
+title: eureka_dmitri
+---
+Dmitri: Do not touch that. And do not touch that. You can touch that, it is already broken.
+-> What do you fix?
+    Dmitri: Everything that has a plug. Some things that do not. Last week a professor brought me a chalkboard that was "giving wrong answers".
+-> What breaks most?
+    Dmitri: The coil lab. Third fuse this week. They say the coils are fine. The fuses disagree.
+-> Do you ever go up the elevator?
+    Dmitri: Once a month, to fix the car's brakes. Up there I fix the coffee machine too. They pay me in thanks and dried soup.
+-> I will leave you to it.
+===
+
+title: eureka_wilbur
+---
+Wilbur: Mind the grass. I keep it. It does not keep itself, whatever the physicists tell you.
+-> Have you worked here long?
+    Wilbur: Forty years on this quad. Three deans, two fires, one theory of everything. The grass outlasted all of them.
+-> Do the other pigeons bother you?
+    Wilbur: Do not start. They are not my relatives. They are not anyone's relatives. They eat crumbs off the lecture steps and look at me like I owe them.
+-> What do you think of the elevator?
+    Wilbur: A long rope to the sky. Lovely. Somebody has to sweep under it.
+-> I will mind the grass.
+===
+
+title: eureka_halvorsen
+---
+Professor Halvorsen: You there. You look impartial. Read this paragraph and tell me it is clear.
+-> What is it?
+    Professor Halvorsen: My paper. Reviewer two says it is "unclear in places". He does not say which places. He never says which places.
+-> Why are you in Eureka?
+    Professor Halvorsen: I came through the gate to give one lecture. That was three months ago. I have been revising ever since.
+    Professor Halvorsen: Math Town wanted me first. They said physics was "applied". I said they were "unemployed". We have not spoken.
+-> Is reviewer two right?
+    Professor Halvorsen: That is precisely the kind of question reviewer two would ask.
+-> Good luck with the revisions.
+===
+
+title: eureka_mina
+---
+Mina: Coffee, soup, or a chair. The chair is free if you buy something.
+-> Who comes here?
+    Mina: Everybody on campus. Students in the morning, professors at noon, the lab crew when something has caught fire.
+    Mina: Physics owes me eleven coffees. Chemistry pays in cash. Biology brings its own cups, which I respect.
+-> What is the soup?
+    Mina: Whatever came down on the elevator. Today it is lentils from the station. They sent it frozen and it arrived annoyed.
+-> Do people from the station come down?
+    Mina: On weekends. They sit by the window and stare at the sky like it might fall on them. It is lovely, honestly.
+-> Just looking.
+===
+
+title: eureka_patent_clerk
+---
+Patent Clerk: Application received. Please take a number. Numbers are issued in the order they are observed.
+-> What are you stamping?
+    Patent Clerk: Claims. A perpetual motion machine, a faster elevator, and a hat that thinks. Two rejections and one request for a better drawing.
+-> Is this where you work now?
+    Patent Clerk: An office is an office. This one has a window on the cable. When I watch the car go up, my clock and the operator's disagree. I file that too.
+-> What do you think of the elevator?
+    Patent Clerk: It is a fine machine with a terrible timetable. Car up at the hour. Whose hour? Measured from where?
+    Patent Clerk: Teodora says "the hour on the wall". I asked which wall. She has stopped answering my letters.
+-> Carry on.
+===
+
+title: eureka_stargan
+---
+<<portrait_clip "wonder">>
+Carl Stargan: Look up. No, further. That pale dot just above the cable is the station. Everyone you have met up there lives on that dot.
+-> What do you study here?
+    <<portrait_clip "explaining">>
+    Carl Stargan: The sky. Billions and billions of stars, and on a clear night the elevator's cable cuts right through the middle of them.
+-> Is the science dimension the only one with stars?
+    <<portrait_clip "skeptical">>
+    Carl Stargan: Math Town insists they are a separate dimension and their sky is "a set". I asked them to measure it. They proved it exists and went home.
+-> Can I use the telescope?
+    <<portrait_clip "explaining">>
+    Carl Stargan: Of course. Look at the station first, then past it. It is good for you to see how small a big thing is.
+-> Thank you.
+===

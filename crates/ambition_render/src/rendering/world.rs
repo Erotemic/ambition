@@ -153,8 +153,14 @@ pub fn spawn_room_visuals(
             theme,
         );
     }
+    // The authored matte of the theme: the water backdrop shows it until the
+    // generated art loads, and also when that art is not generated.
+    let matte = theme
+        .zip(assets)
+        .and_then(|(theme, assets)| assets.room_themes.water_matte(theme))
+        .map_or(Color::NONE, |[red, green, blue]| Color::srgb(red, green, blue));
     for region in &world.water_regions {
-        spawn_water_region(commands, session_scope, world, region, theme);
+        spawn_water_region(commands, session_scope, world, region, theme, matte);
     }
     for region in &world.climbable_regions {
         spawn_climbable_region(commands, session_scope, world, region, theme);
@@ -503,6 +509,8 @@ fn spawn_water_region(
     // The theme the room names, if its water takes the art of the theme
     // (`terrain_skin::dress_themed_fixtures`).
     theme: Option<ambition_sprite_sheet::game_assets::ParallaxTheme>,
+    // The colour of the backdrop before its art loads (`RoomThemes::water_matte`).
+    matte: Color,
 ) {
     use super::terrain_skin::{ThemedFixture, ThemedFixtureKind};
     let fixture = |kind: ThemedFixtureKind, min: ae::Vec2, size: BVec2| {
@@ -518,7 +526,7 @@ fn spawn_water_region(
         commands.spawn_session_scoped(
             session_scope,
             (
-                Sprite::from_color(Color::NONE, render),
+                Sprite::from_color(matte, render),
                 Transform::from_translation(world_to_bevy(
                     world,
                     region.aabb.center(),
@@ -586,11 +594,21 @@ mod water_backdrop_tests {
     use super::*;
     use super::super::terrain_skin::{ThemedFixture, ThemedFixtureKind};
 
+    /// The port's water matte is AUTHORED (`room_themes.json`), so the port
+    /// water has its colour also when the generated backdrop art is absent.
     #[test]
     fn port_water_owns_a_world_aligned_backdrop_between_parallax_and_play() {
+        let themes = ambition_sprite_sheet::baked_sheet_rons::SheetTexts::from_libraries(
+            &ambition_sprite_sheet::test_support::shared_libraries(),
+        )
+        .expect("the shared library reads, also without its generated content")
+        .room_themes;
+        let port = ambition_sprite_sheet::game_assets::ParallaxTheme::new("pirate_port");
+        let [red, green, blue] = themes.water_matte(port).expect("the port authors its water matte");
+        let matte = Color::srgb(red, green, blue);
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
-        app.add_systems(Update, |mut commands: Commands| {
+        app.add_systems(Update, move |mut commands: Commands| {
             let room = ae::World::new(
                 "port_docks",
                 ae::Vec2::new(2816.0, 960.0),
@@ -610,7 +628,8 @@ mod water_backdrop_tests {
                 SessionSpawnScope::UNSCOPED,
                 &room,
                 &water,
-                Some(ambition_sprite_sheet::game_assets::ParallaxTheme::new("pirate_port")),
+                Some(port),
+                matte,
             );
         });
         app.update();

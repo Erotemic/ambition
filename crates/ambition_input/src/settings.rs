@@ -346,6 +346,8 @@ pub struct ControlFilters {
     pub right_stick_mode: RightStickMode,
     /// Also a preference. Inverted aim is a habit, not a hardware property.
     pub invert_aim_y: bool,
+    /// See [`ControlSettings::tap_jump`].
+    pub tap_jump: bool,
 }
 
 impl ControlFilters {
@@ -360,6 +362,7 @@ impl ControlFilters {
             burst_input_mode: settings.burst_input_mode,
             right_stick_mode: settings.right_stick_mode,
             invert_aim_y: settings.invert_aim_y,
+            tap_jump: settings.tap_jump,
         }
     }
 
@@ -480,6 +483,13 @@ pub struct ControlSettings {
     pub dpad_menu_navigation: bool,
     /// Invert vertical aim (right stick / aim binding).
     pub invert_aim_y: bool,
+    /// TAP JUMP: a flick of the left stick up is a jump press, held while the
+    /// stick stays up (so a flick-and-release inside the squat is a short hop
+    /// and a held flick a full hop), as in every Smash. Off by default: at
+    /// home, up is the look-up and the interact direction. `#[serde(default)]`
+    /// because older settings files do not have it.
+    #[serde(default)]
+    pub tap_jump: bool,
     /// Which control fires the shared dodge/dash burst press.
     ///
     /// The serde name is pinned to `dash_input_mode`. This field has no
@@ -538,6 +548,7 @@ impl Default for ControlSettings {
             trigger_press_threshold: ProfileFilterDefaults::BASELINE.trigger_press_threshold,
             dpad_menu_navigation: true,
             invert_aim_y: false,
+            tap_jump: false,
             burst_input_mode: BurstInputMode::default(),
             right_stick_mode: RightStickMode::default(),
             menu_repeat_initial_delay: 0.32,
@@ -692,7 +703,14 @@ pub struct GameplayEdgeState {
     /// The aim stick's deflection when it is an attack stick. Idle in
     /// [`RightStickMode::Aim`], the default.
     pub aim_stick: TriggerEdgeState,
+    /// The left stick's up flick, for tap jump.
+    pub tap_jump: TriggerEdgeState,
 }
+
+/// Tap jump: the stick pushed up past this is a jump press; it rearms under
+/// [`TAP_JUMP_RELEASE_THRESHOLD`]. Ultimate's tap jump reads the same flick.
+pub const TAP_JUMP_PRESS_THRESHOLD: f32 = 0.8;
+pub const TAP_JUMP_RELEASE_THRESHOLD: f32 = 0.4;
 
 /// How far the aim stick must be pushed to throw a C-stick attack.
 ///

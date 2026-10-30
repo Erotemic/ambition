@@ -517,6 +517,7 @@ fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
             SettingsOptionId::TriggerRelease,
             SettingsOptionId::DpadMenuNav,
             SettingsOptionId::InvertAimY,
+            SettingsOptionId::TapJump,
             SettingsOptionId::BurstInputMode,
             SettingsOptionId::RightStickMode,
             SettingsOptionId::TouchControls,

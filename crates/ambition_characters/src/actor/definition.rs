@@ -130,6 +130,9 @@ pub struct CharacterDefinition {
     /// Each move's clock in each scale other than its moveset's own, folded
     /// in beside the damage and the verbs. See [`crate::move_damage::MoveTimings`].
     pub scaled_move_timing: crate::move_damage::ScaledMoveTimings,
+    /// Each move's base-knockback factor in each scale other than its
+    /// moveset's own. See [`crate::move_damage::MoveKnockback`].
+    pub scaled_move_knockback: crate::move_damage::ScaledMoveKnockback,
     /// The body this character plays on AS A FIGHTER, as a patch over its
     /// game's default fighter (`MatchRules::base_body`), folded in from its
     /// `smash_fighter` facet. Unlike [`Self::movement_tuning`], which is its
@@ -235,6 +238,7 @@ impl CharacterDefinition {
             scaled_move_damage: crate::move_damage::ScaledMoveDamage::new(),
             scaled_verbs: crate::move_damage::ScaledVerbMoves::new(),
             scaled_move_timing: crate::move_damage::ScaledMoveTimings::new(),
+            scaled_move_knockback: crate::move_damage::ScaledMoveKnockback::new(),
             fighter_body: None,
             action_set: None,
             motion_model: None,
@@ -454,6 +458,7 @@ mod authority_tests {
             scaled_move_damage: _,
             scaled_verbs: _,
             scaled_move_timing: _,
+            scaled_move_knockback: _,
             fighter_body: _,
             action_set: _,
             motion_model: _,

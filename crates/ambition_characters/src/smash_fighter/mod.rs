@@ -95,6 +95,12 @@ pub struct SmashFighterFacet {
     /// `crate::move_damage::move_timing_over`.
     #[serde(default)]
     pub move_timing: crate::move_damage::MoveTimings,
+    /// The factor each move's BASE knockback is scaled by on a platform-fighter
+    /// stage (`1.25`: a quarter harder at 0%), where its home launch leaves the
+    /// swing with no follow-up. Folded under [`FIGHTER_DAMAGE`] with the rest.
+    /// See `crate::move_damage::move_knockback_over`.
+    #[serde(default)]
+    pub move_knockback: crate::move_damage::MoveKnockback,
 }
 
 /// The damage scale this capability folds a facet's `move_damage` under. A
@@ -136,6 +142,10 @@ pub struct FighterBodyAuthoring {
     /// Speed of the first step out of standing (px/s), the burst a direction
     /// change during the initial dash also gets. `0.0` is the run speed.
     pub initial_dash_speed: Option<f32>,
+    /// See `MovementTuning::walk_speed`: the fighter's walk, a gait of its
+    /// own under the dash threshold. `None` keeps the match's.
+    #[serde(default)]
+    pub walk_speed: Option<f32>,
     /// Ground deceleration with the stick let go (px/s²): TRACTION, how far a
     /// stopped run slides.
     pub ground_friction: Option<f32>,
@@ -172,6 +182,7 @@ impl FighterBodyAuthoring {
             air_jumps: self.air_jumps.unwrap_or(base.air_jumps),
             jump_law: self.jump_law.unwrap_or(base.jump_law),
             initial_dash_speed: self.initial_dash_speed.unwrap_or(base.initial_dash_speed),
+            walk_speed: self.walk_speed.unwrap_or(base.walk_speed),
             ground_friction: self.ground_friction.unwrap_or(base.ground_friction),
             air_accel: self.air_accel.unwrap_or(base.air_accel),
             max_air_speed: self.max_air_speed.unwrap_or(base.max_air_speed),
@@ -223,6 +234,7 @@ impl FighterBodyAuthoring {
         // traction, the run speed again, no air friction.
         for (name, value) in [
             ("initial_dash_speed", self.initial_dash_speed),
+            ("walk_speed", self.walk_speed),
             ("ground_friction", self.ground_friction),
             ("max_air_speed", self.max_air_speed),
             ("air_stop_assist", self.air_stop_assist),
@@ -282,6 +294,11 @@ impl SmashFighterFacet {
         }
         for (move_id, timing) in &self.move_timing {
             timing.problems(move_id, &mut out);
+        }
+        for (move_id, scale) in &self.move_knockback {
+            if !(scale.is_finite() && *scale > 0.0) {
+                out.push(format!("`move_knockback.{move_id}` is {scale}; it is a positive factor"));
+            }
         }
         for (verb, move_id) in &self.verbs {
             if verb.trim().is_empty() || move_id.trim().is_empty() {

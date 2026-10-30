@@ -2,24 +2,25 @@
 // where that differs from Smash's default fighter.
 (
     character: "projectile_polygon",
-    knockback_weight: Some(1.09),
     // Moves like a beast biped: a fast dash, heavy.
-    // Shaped like Ultimate's Charizard at 0.60 strength: each number is Smash's
+    // Jon, 2026-10-29: the projectile polygon is Yoshi's body with some of Samus's and Toon Link's moves (was Charizard).
+    // Shaped like Ultimate's Yoshi at 0.60 strength: each number is Smash's
     // default fighter's, scaled by how that fighter differs from Ultimate's
-    // roster median (`scripts/smash_fighter_shape.py "Charizard" --strength 0.6`).
+    // roster median (`scripts/smash_fighter_shape.py "Yoshi" --strength 0.6`).
+    knockback_weight: Some(1.02),
     body: Some((
-        max_run_speed: Some(366.1),
-        initial_dash_speed: Some(384.7),
-        run_accel: Some(400.0),
-        ground_friction: Some(700.0),
-        max_air_speed: Some(221.4),
-        air_accel: Some(752.2),
-        gravity: Some(1288.6),
-        max_fall_speed: Some(300.6),
-        fast_fall_speed: Some(488.5),
-        jump_speed: Some(525.5),
-        double_jump_speed: Some(541.1),
-        dodge_roll_speed: Some(419.1),
+        max_run_speed: Some(350.5),
+        initial_dash_speed: Some(352.7),
+        run_accel: Some(366.3),
+        ground_friction: Some(641.1),
+        max_air_speed: Some(249.3),
+        air_accel: Some(1009.7),
+        gravity: Some(1064.5),
+        max_fall_speed: Some(272.4),
+        fast_fall_speed: Some(442.7),
+        jump_speed: Some(495.1),
+        double_jump_speed: Some(547.8),
+        dodge_roll_speed: Some(374.1),
     )),
 
     // SMASH-STAGE MOVE CLOCKS: first strike, last strike, total and landing
@@ -27,35 +28,48 @@
     // `scripts/smash_retime.py` from an archetype template; the moveset keeps
     // the home game's pace. Frames at 60 Hz are in the trailing comment.
     move_timing: {
-        // attack: 5/7/20
-        "polygon_projectile_jab": (hit_s: 0.0833, last_s: 0.1167, total_s: 0.3333, swing: Some("swing.light")),
-        // attack_forward: 9/12/36
-        "polygon_projectile_tilt_forward": (hit_s: 0.15, last_s: 0.2, total_s: 0.6, swing: Some("swing.light")),
-        // attack_up: 8/13/32
-        "polygon_projectile_tilt_up": (hit_s: 0.1333, last_s: 0.2167, total_s: 0.5333, swing: Some("swing.light")),
-        // attack_down: 7/10/30
-        "polygon_projectile_tilt_down": (hit_s: 0.1167, last_s: 0.1667, total_s: 0.5, swing: Some("swing.light")),
-        // attack_dash: 9/16/44
-        "projectile_polygon_dash_attack": (hit_s: 0.15, last_s: 0.2667, total_s: 0.7333, swing: Some("swing.light")),
-        // smash_forward: 18/21/54
-        "polygon_projectile_smash_forward": (hit_s: 0.3, last_s: 0.35, total_s: 0.9, swing: Some("swing.heavy")),
-        // smash_up: 12/17/48
-        "polygon_projectile_smash_up": (hit_s: 0.2, last_s: 0.2833, total_s: 0.8, swing: Some("swing.heavy")),
-        // smash_down: 8/14/50
-        "polygon_projectile_smash_down": (hit_s: 0.1333, last_s: 0.2333, total_s: 0.8333, swing: Some("swing.heavy")),
-        // attack_air: 6/26/48 L9
-        "polygon_projectile_air_neutral": (hit_s: 0.1, last_s: 0.4333, total_s: 0.8, landing_lag_s: Some(0.15), swing: Some("swing.aerial")),
-        // attack_air_forward: 14/17/54 L16
-        "polygon_projectile_air_forward": (hit_s: 0.2333, last_s: 0.2833, total_s: 0.9, landing_lag_s: Some(0.2667), swing: Some("swing.aerial")),
-        // attack_air_back: 9/13/40 L10
-        "polygon_projectile_air_back": (hit_s: 0.15, last_s: 0.2167, total_s: 0.6667, landing_lag_s: Some(0.1667), swing: Some("swing.aerial")),
-        // attack_air_up: 7/11/38 L8
-        "polygon_projectile_air_up": (hit_s: 0.1167, last_s: 0.1833, total_s: 0.6333, landing_lag_s: Some(0.1333), swing: Some("swing.aerial")),
-        // attack_air_down: 10/20/52 L18
-        "polygon_projectile_air_down": (hit_s: 0.1667, last_s: 0.3333, total_s: 0.8667, landing_lag_s: Some(0.3), swing: Some("swing.aerial")),
-        // grab: 7/8/38
-        "polygon_projectile_grab": (hit_s: 0.1167, last_s: 0.1333, total_s: 0.6333),
+        // attack: 3/5/18
+        "polygon_projectile_jab": (hit_s: 0.05, last_s: 0.0833, total_s: 0.3, swing: Some("swing.light")),
+        // attack_forward: 5/8/27
+        "polygon_projectile_tilt_forward": (hit_s: 0.0833, last_s: 0.1333, total_s: 0.45, swing: Some("swing.light")),
+        // attack_up: 7/10/26
+        "polygon_projectile_tilt_up": (hit_s: 0.1167, last_s: 0.1667, total_s: 0.4333, swing: Some("swing.light")),
+        // attack_down: 6/8/28
+        "polygon_projectile_tilt_down": (hit_s: 0.1, last_s: 0.1333, total_s: 0.4667, swing: Some("swing.light")),
+        // attack_dash: 8/14/40
+        "projectile_polygon_dash_attack": (hit_s: 0.1333, last_s: 0.2333, total_s: 0.6667, swing: Some("swing.light")),
+        // smash_forward: 14/17/47
+        "polygon_projectile_smash_forward": (hit_s: 0.2333, last_s: 0.2833, total_s: 0.7833, swing: Some("swing.heavy")),
+        // smash_up: 11/15/44
+        "polygon_projectile_smash_up": (hit_s: 0.1833, last_s: 0.25, total_s: 0.7333, swing: Some("swing.heavy")),
+        // smash_down: 7/13/46
+        "polygon_projectile_smash_down": (hit_s: 0.1167, last_s: 0.2167, total_s: 0.7667, swing: Some("swing.heavy")),
+        // attack_air: 3/20/41 L6
+        "polygon_projectile_air_neutral": (hit_s: 0.05, last_s: 0.3333, total_s: 0.6833, landing_lag_s: Some(0.1), swing: Some("swing.aerial")),
+        // attack_air_forward: 11/14/44 L12
+        "polygon_projectile_air_forward": (hit_s: 0.1833, last_s: 0.2333, total_s: 0.7333, landing_lag_s: Some(0.2), swing: Some("swing.aerial")),
+        // attack_air_back: 7/10/36 L8
+        "polygon_projectile_air_back": (hit_s: 0.1167, last_s: 0.1667, total_s: 0.6, landing_lag_s: Some(0.1333), swing: Some("swing.aerial")),
+        // attack_air_up: 5/9/34 L6
+        "polygon_projectile_air_up": (hit_s: 0.0833, last_s: 0.15, total_s: 0.5667, landing_lag_s: Some(0.1), swing: Some("swing.aerial")),
+        // attack_air_down: 8/16/48 L14
+        "polygon_projectile_air_down": (hit_s: 0.1333, last_s: 0.2667, total_s: 0.8, landing_lag_s: Some(0.2333), swing: Some("swing.aerial")),
+        // grab: 9/10/44
+        "polygon_projectile_grab": (hit_s: 0.15, last_s: 0.1667, total_s: 0.7333),
         // grab_dash: 11/12/48
         "polygon_projectile_grab_dash": (hit_s: 0.1833, last_s: 0.2, total_s: 0.8),
+    },
+    // SMASH-STAGE BASE KNOCKBACK: the factor each move's base launch is
+    // scaled by here, so a tilt or an aerial at 0% stuns past its own
+    // swing. Written by `scripts/smash_retime.py`.
+    move_knockback: {
+        "polygon_projectile_tilt_forward": 1.6,
+        "polygon_projectile_tilt_down": 1.6,
+        "projectile_polygon_dash_attack": 1.5,
+        "polygon_projectile_air_neutral": 1.5,
+        "polygon_projectile_air_forward": 1.5,
+        "polygon_projectile_air_back": 1.3,
+        "polygon_projectile_air_up": 1.3,
+        "polygon_projectile_air_down": 1.4,
     },
 )

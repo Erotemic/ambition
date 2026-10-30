@@ -173,6 +173,7 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
         }
         SettingsOptionId::DpadMenuNav => tog!(settings.controls.dpad_menu_navigation),
         SettingsOptionId::InvertAimY => tog!(settings.controls.invert_aim_y),
+        SettingsOptionId::TapJump => tog!(settings.controls.tap_jump),
         SettingsOptionId::BurstInputMode => {
             cyc!(settings.controls.burst_input_mode, BurstInputMode)
         }

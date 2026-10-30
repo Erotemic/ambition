@@ -1059,3 +1059,47 @@ fn a_schema_source_uses_its_explicit_library_and_records_the_package_path() {
     let next = ContentPackDraft::read_from_dir(&tree.root).unwrap();
     assert_eq!(next.sources[0].text, "edited_without_rust");
 }
+
+/// A library source that a producer makes and that is absent (the music
+/// registry before the music is rendered) is a LOUD warning on the prepared
+/// pack, and the pack compiles without it. An absent AUTHORED library source
+/// stays an error: it is an authoring bug.
+#[test]
+fn an_ungenerated_library_source_is_a_warning_and_an_absent_authored_one_is_an_error() {
+    let tree = Pack::empty("ungenerated_library_source");
+    // `publication` names a store with no `published.json`: nothing is generated.
+    tree.write("library/library.json", r#"{"schema":"ambition.content_library.v1","id":"shared","version":"1",
+        "asset_roots":{"authored":"authored","generated":"generated"},"publication":"publication",
+        "producers":{"music":{"roots":["audio/music"],"registry":"audio/registry.ron"}}}"#);
+    tree.write("library/authored/order.ron", "authored");
+    tree.write("pack.ron", r#"(id:"probe",version:"1",namespace:"probe",libraries:["library/library.json"],sources:[
+        (path:"order.ron",library:Some("shared"),schema:"order",version:1),
+        (path:"audio/registry.ron",library:Some("shared"),schema:"order",version:1)])"#);
+
+    let draft = ContentPackDraft::read_from_dir(&tree.root).expect("a pack without its generated source reads");
+    assert_eq!(draft.sources.len(), 1, "the absent generated source is not read");
+    let pack = compile(&draft, &registry(), &AssetsUnchecked).expect("a pack without its generated source compiles");
+    let warning = pack
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.code == DiagnosticCode::UngeneratedSource)
+        .expect("the absence is on the prepared pack, not silent");
+    assert_eq!(warning.severity, Severity::Warning);
+    assert_eq!(warning.source.as_deref(), Some("audio/registry.ron"));
+    assert!(warning.message.contains("`music` producer"), "{}", warning.message);
+    assert!(warning.fixes.iter().any(|fix| fix.contains("content_status.py")), "{:?}", warning.fixes);
+    // A build that must have every file (one that embeds them) is still refused.
+    let manifest = ContentPackManifest::from_ron(&std::fs::read_to_string(tree.root.join("pack.ron")).unwrap()).unwrap();
+    assert!(manifest.sources[1].resolve_path(&tree.root, &manifest).is_err());
+
+    // Control: the producer makes the file, and the same pack reads it.
+    tree.write("library/generated/audio/registry.ron", "generated");
+    let generated = ContentPackDraft::read_from_dir(&tree.root).expect("the generated pack reads");
+    assert_eq!(generated.sources.len(), 2);
+    assert!(generated.warnings.is_empty(), "{:?}", generated.warnings);
+
+    // An authored library source that is absent is still an error.
+    std::fs::remove_file(tree.root.join("library/authored/order.ron")).unwrap();
+    let failure = ContentPackDraft::read_from_dir(&tree.root).expect_err("an absent authored source refuses the pack");
+    assert!(failure.has(DiagnosticCode::MalformedSource), "{failure}");
+}

@@ -58,4 +58,17 @@
         // grab_dash: 9/10/42
         "bob_grab_dash": (hit_s: 0.15, last_s: 0.1667, total_s: 0.7),
     },
+    // SMASH-STAGE BASE KNOCKBACK: the factor each move's base launch is
+    // scaled by here, so a tilt or an aerial at 0% stuns past its own
+    // swing. Written by `scripts/smash_retime.py`.
+    move_knockback: {
+        "wrench_swing": 1.6,
+        "shim": 1.6,
+        "bob_dash_attack": 1.5,
+        "loose_bearing": 1.5,
+        "swing_arm": 1.5,
+        "counterweight": 1.3,
+        "jack_stand": 1.3,
+        "pile_driver": 1.4,
+    },
 )

@@ -76,7 +76,16 @@ fn embed_libraries(root: &str, manifest: &crate::ContentPackManifest, pack_root:
         let path = pack_root.join(path).canonicalize().expect("library manifest path");
         let library = ContentLibrary::read(&path).unwrap_or_else(|error| panic!("{error}"));
         println!("cargo:rerun-if-changed={}", path.display());
-        if let Some(store) = library.publication_root() { println!("cargo:rerun-if-changed={}", store.join("published.json").display()); }
+        if let Some(store) = library.publication_root() {
+            let selection = store.join("published.json");
+            println!("cargo:rerun-if-changed={}", selection.display());
+            // A runtime that reads its files continues without a publication.
+            // A build that embeds them stays strict: it would ship no art.
+            assert!(selection.is_file(),
+                "{} is absent, so this build cannot embed the generated content of library `{}`. \
+                 Run scripts/setup/generated_content.sh (query: python3 scripts/content_status.py)",
+                selection.display(), library.manifest.id);
+        }
         let catalog = serde_json::to_string(&library.catalog).expect("library catalog");
         code.push_str(&format!("ambition_platformer2d::asset_manager::content_library::EmbeddedLibrary {{ manifest: include_str!({:?}), catalog: {:?}, files: &[\n", path.to_str().unwrap(), catalog));
         if let Some(catalog) = &library.manifest.catalog { println!("cargo:rerun-if-changed={}", library.root.join(catalog).display()); }

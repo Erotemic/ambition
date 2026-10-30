@@ -3,7 +3,7 @@
     id: "ninja_village_gate_shrine",
     level_id: "ninja_village_gate_shrine",
     world_x: 0,
-    world_y: 0,
+    world_y: 10000,
     px_wid: 1600,
     px_hei: 832,
     fill_collision: "empty",

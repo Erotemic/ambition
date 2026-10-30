@@ -21,7 +21,8 @@ def _level(name: str, uid: int, entities: list[dict]) -> dict:
             "layerInstances": [{"__identifier": "Entities", "layerDefUid": 1, "levelId": uid, "entityInstances": entities}]}
 
 
-DEFS = {"layers": [{"uid": 1, "identifier": "Entities"}], "entities": [{"uid": 2, "identifier": "EnemySpawn", "fieldDefs": []}],
+DEFS = {"layers": [{"uid": 1, "identifier": "Entities"}],
+        "entities": [{"uid": 2, "identifier": "EnemySpawn", "fieldDefs": [{"uid": 9, "identifier": "mounted_on", "__type": "EntityRef"}]}],
         "tilesets": []}
 
 
@@ -56,11 +57,23 @@ def test_a_reference_across_the_two_files_refuses_the_move():
     assert plan(source, target, ["trail", "hub"]) == []
 
 
+def test_an_entity_field_is_matched_by_name_and_takes_the_targets_uid():
+    source, target = _worlds()
+    source["defs"]["entities"][0]["fieldDefs"] = [{"uid": 9, "identifier": "mounted_on", "__type": "EntityRef"}]
+    target["defs"]["entities"][0]["fieldDefs"] = [{"uid": 77, "identifier": "mounted_on", "__type": "EntityRef"}]
+    assert plan(source, target, ["trail"]) == []
+    move(source, target, ["trail"])
+    field = target["levels"][0]["layerInstances"][0]["entityInstances"][0]["fieldInstances"][0]
+    assert field["defUid"] == 77, "the placement's field is the target's"
+
+
 def test_a_def_that_means_something_else_in_the_target_refuses_the_move():
     source, target = _worlds()
-    target["defs"]["entities"][0]["fieldDefs"] = [{"uid": 7, "identifier": "respawn"}]
+    target["defs"]["entities"][0]["fieldDefs"] = [{"uid": 7, "identifier": "respawn", "__type": "Bool"}]
     problems = plan(source, target, ["trail"])
-    assert any("entity def 2 (EnemySpawn) is not the source's" in p for p in problems), problems
+    assert any("EnemySpawn has no field mounted_on (EntityRef)" in p for p in problems), problems
+    target["defs"]["layers"][0]["intGridValues"] = [{"value": 1}]
+    assert any("layer def 1 (Entities) is not the source's" in p for p in plan(source, target, ["trail"]))
     target["defs"]["entities"] = []
     assert any("no entity def 2" in p for p in plan(source, target, ["trail"]))
 

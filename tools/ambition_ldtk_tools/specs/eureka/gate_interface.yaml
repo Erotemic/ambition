@@ -1,0 +1,42 @@
+# Written by specs/gate_network/make_gates.py. Change that script, not this file.
+# The district's gate ring (its zone is the arrival) and its terminal; the district's
+# make_specs.py adds this file after it makes its rooms.
+level_id: eureka_gate_court
+entities:
+  - type: Prop
+    px: [112, 416]
+    size: [288, 288]
+    fields:
+      name: "Eureka Gate (Court) Ring"
+      kind: "gate_ring"
+  - type: Prop
+    px: [112, 416]
+    size: [288, 288]
+    fields:
+      name: "Eureka Gate (Court) Portal"
+      kind: "gate_portal"
+  - type: LoadingZone
+    px: [184, 416]
+    size: [144, 288]
+    fields:
+      id: "eureka_gate_arrival"
+      name: "the gate"
+      activation: "Door"
+      target_room: ""
+      target_zone: ""
+      bidirectional: false
+  - type: Prop
+    px: [412, 648]
+    size: [64, 56]
+    fields:
+      name: "Eureka Gate (Court) Dialer"
+      kind: "gate_dialer"
+  - type: Switch
+    px: [432, 660]
+    size: [24, 32]
+    fields:
+      id: "eureka_gate_terminal"
+      name: "Eureka Gate (Court) terminal"
+      prompt: "Dial the gate"
+      target_encounter: ""
+      action: "GateTerminal"

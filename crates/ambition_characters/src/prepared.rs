@@ -99,6 +99,8 @@ struct PreparedCharacterOverrides {
     scaled_verbs: crate::move_damage::ScaledVerbMoves,
     /// See [`CharacterDefinition::scaled_move_timing`].
     scaled_move_timing: crate::move_damage::ScaledMoveTimings,
+    /// See [`CharacterDefinition::scaled_move_knockback`].
+    scaled_move_knockback: crate::move_damage::ScaledMoveKnockback,
     /// See [`CharacterDefinition::fighter_body`].
     fighter_body: Option<crate::smash_fighter::FighterBodyAuthoring>,
     /// The authored action set, carried through preparation unchanged.
@@ -1288,6 +1290,9 @@ pub struct PreparedCharacterDefinition {
     /// See [`CharacterDefinition::scaled_move_timing`]. Preparation has
     /// checked each scale's map against the authored moves.
     pub scaled_move_timing: crate::move_damage::ScaledMoveTimings,
+    /// See [`CharacterDefinition::scaled_move_knockback`]. Preparation has
+    /// checked each scale's map against the authored moves.
+    pub scaled_move_knockback: crate::move_damage::ScaledMoveKnockback,
     /// See [`CharacterDefinition::fighter_body`]: the patch, not yet laid over
     /// any base, because the base is the match's.
     pub fighter_body: Option<crate::smash_fighter::FighterBodyAuthoring>,
@@ -1346,6 +1351,9 @@ impl PreparedCharacterDefinition {
         }
         if let Some(timing) = self.scaled_move_timing.get(&scale) {
             moveset = crate::move_damage::move_timing_over(timing, moveset.clone()).unwrap_or(moveset);
+        }
+        if let Some(knockback) = self.scaled_move_knockback.get(&scale) {
+            moveset = crate::move_damage::move_knockback_over(knockback, moveset.clone()).unwrap_or(moveset);
         }
         Some(moveset)
     }
@@ -1783,6 +1791,12 @@ fn prepare_character(
             unresolved.extend(problems.into_iter().map(|problem| format!("{}: {problem}", scale.0)));
         }
     }
+    for (scale, knockback) in &definition.scaled_move_knockback {
+        let moveset = definition.moveset.clone().unwrap_or_default();
+        if let Err(problems) = crate::move_damage::move_knockback_over(knockback, moveset) {
+            unresolved.extend(problems.into_iter().map(|problem| format!("{}: {problem}", scale.0)));
+        }
+    }
     let prepared = PreparedCharacterOverrides {
         id: definition.id.as_str().to_string(),
         display_name: definition.display_name,
@@ -1816,6 +1830,7 @@ fn prepare_character(
         scaled_move_damage: definition.scaled_move_damage,
         scaled_verbs: definition.scaled_verbs,
         scaled_move_timing: definition.scaled_move_timing,
+        scaled_move_knockback: definition.scaled_move_knockback,
         fighter_body: definition.fighter_body,
         action_set: definition.action_set,
         motion_model: definition.motion_model,
@@ -1900,6 +1915,7 @@ fn finalize_character(
         scaled_move_damage,
         scaled_verbs,
         scaled_move_timing,
+        scaled_move_knockback,
         fighter_body,
         action_set,
         motion_model,
@@ -2140,6 +2156,7 @@ fn finalize_character(
         scaled_move_damage,
         scaled_verbs,
         scaled_move_timing,
+        scaled_move_knockback,
         fighter_body,
         // Resolve canonical identity during preparation from the definition's provider. Spawn
         // consumes the prepared identity and does not reinterpret authored references.

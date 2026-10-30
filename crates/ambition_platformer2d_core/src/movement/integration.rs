@@ -517,7 +517,14 @@ pub(super) fn integrate_velocity_clusters(
             // The weightless window ends with the dodge.
             state.set_gravity_modifier(1.0, 0.0);
         }
-        state.air_dodge_endlag_timer = tuning.abilities.air_dodge_landing(state.air_dodge_directional);
+        // An aimed dodge's landing lag follows its angle: a dodge aimed down
+        // lands lighter, one aimed up heavier (Ultimate: 11 to 19 frames).
+        let angle = if state.air_dodge_directional {
+            1.0 + AIR_DODGE_ANGLE_LAG_SPAN * state.air_dodge_up
+        } else {
+            1.0
+        };
+        state.air_dodge_endlag_timer = tuning.abilities.air_dodge_landing(state.air_dodge_directional) * angle;
         state.air_dodge_timer = 0.0;
         state.air_dodge_push = crate::Vec2::ZERO;
     }
@@ -636,9 +643,17 @@ pub(super) fn integrate_velocity_clusters(
     } else {
         state.air_jump_rise_owned.min(rise).max(0.0)
     };
+    // A WALK IS NOT A RUN. Where a body declares a dash threshold above the
+    // steer deadzone, a stick under it walks at whatever speed the continuum
+    // gives, and that walk never reads as running: a walking attack is a tilt,
+    // never a dash attack. A body at the engine's threshold keeps the
+    // speed-only rule it always had.
+    let dash_threshold = tuning.locomotion.dash_deflection;
+    let stick_at_a_run = dash_threshold <= STEER_DEADZONE || steer.abs() >= dash_threshold;
     state.running = clusters.ground.on_ground
         && state.initial_dash_timer <= 0.0
         && steer * travel > 0.0
+        && stick_at_a_run
         && travel.abs() >= tuning.locomotion.run_commit_frac * tuning.locomotion.max_run_speed;
 }
 
@@ -687,6 +702,7 @@ pub(super) fn integrate_normal_clusters(
             can_glide: abilities.abilities.glide,
             crouching: body_mode.body_mode == crate::player_state::BodyMode::Crouching,
             initial_dash_dir,
+            running: state.running,
             // ⛔ A GROUNDED BODY HOLDING SHIELD DOES NOT WALK. Jon, 2026-08-23:
             // *"If the player is holding shield... they should not be let the
             // control move them left or right."* That is the genre's rule and it
@@ -760,6 +776,8 @@ pub struct NormalSpineCtx {
     /// running. Resolved by the caller for the same reason `crouching` is: this
     /// function takes neither the clusters nor the maneuver state.
     pub initial_dash_dir: f32,
+    /// Is the body in a committed run (`AxisManeuverState::running`)?
+    pub running: bool,
     /// This body is PLANTED: grounded, not steering, and nothing else is
     /// driving its ground speed — so it should shed that speed to friction.
     ///
@@ -883,6 +901,10 @@ fn resolve_initial_dash(
 /// How far the stick must leave centre before it names a direction for the
 /// initial dash. Shared with nothing: the phase is the only reader.
 pub(super) const STEER_DEADZONE: f32 = 0.5;
+/// The share of an aimed air dodge's landing lag its angle adds or removes:
+/// straight up lands at 1.27x, straight down at 0.73x (Ultimate's 19 and 11
+/// frames around a 15-frame middle).
+const AIR_DODGE_ANGLE_LAG_SPAN: f32 = 0.27;
 
 impl NormalSpineCtx {
     /// The gating a bare actor (enemy/NPC) with no player ability components
@@ -905,6 +927,7 @@ impl NormalSpineCtx {
             // and no dash phase: the caller that resolves one is the player
             // road, and a bare actor walks the continuum.
             initial_dash_dir: 0.0,
+            running: false,
             // A bare actor is never refused horizontal control, so it never
             // reaches the settling branch.
             settling: false,
@@ -1101,11 +1124,17 @@ pub fn integrate_normal_spine(
                             want
                         }
                     } else {
-                        approach(
-                            along,
-                            run * stance * tuning.locomotion.max_run_speed,
-                            accel * dt,
-                        )
+                        // THE WALK: a stick under the dash threshold on a body
+                        // that authors a walk speed walks, ramping across the
+                        // walk band to that speed; a committed run keeps the run.
+                        let walk_speed = tuning.locomotion.walk_speed;
+                        let threshold = tuning.locomotion.dash_deflection.max(STEER_DEADZONE);
+                        let target = if walk_speed > 0.0 && !ctx.running && run.abs() < threshold {
+                            run.signum() * (run.abs() / threshold).min(1.0) * walk_speed * stance
+                        } else {
+                            run * stance * tuning.locomotion.max_run_speed
+                        };
+                        approach(along, target, accel * dt)
                     };
                     if run.abs() <= 0.1 {
                         v = approach(v, 0.0, tuning.locomotion.ground_friction * dt);

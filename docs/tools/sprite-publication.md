@@ -104,6 +104,26 @@ Runtime readers, static embedding, packaging, and the inspector use this
 selection. Logical asset names remain independent of bundle storage paths.
 Consumers can still provide authored overrides through their own asset source.
 
+An absent `published.json` is an empty selection, not an error. A runtime
+that reads its files continues without the generated art: each missing sheet
+shows as a placeholder. The library prints one warning per process that names
+the missing families, the store, and the query command. A build that embeds
+its content (`static_content`) stays strict and refuses an absent store.
+
+To ask what is missing or stale without a build or a renderer toolchain:
+
+```bash
+python3 scripts/content_status.py            # all families, text
+python3 scripts/content_status.py --json     # the same, for a tool
+python3 scripts/content_status.py --require-complete   # status 1 when incomplete
+```
+
+It reads `library.json`, `published.json`, the manifest of each selected
+bundle, and the library sources that each game pack declares. It is fast and
+it always exits 0 unless `--require-complete` is given. The exact check of
+each producer is `python3 scripts/generate_library_content.py --check` (it
+needs the renderer toolchains).
+
 `--audit` reports old loose files as unmanaged. It compares their logical names
 and bytes with the selected publication when possible. It also lists historical
 bundles. It deletes nothing. No known game use is not a reason to delete art.

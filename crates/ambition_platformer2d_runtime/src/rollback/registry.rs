@@ -156,7 +156,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// requests follow the driven body instead of its home identity.
 /// 386 -> 387: the locomotion parameters carry `dash_deflection`, the stick
 /// push that dashes rather than walks (one f32 in the motion-model codec).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 387;
+/// 387 -> 388: the locomotion parameters carry `walk_speed`, and the maneuver
+/// state carries `air_dodge_up`, the aimed air dodge's angle (two f32s in the
+/// motion-model codec).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 388;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

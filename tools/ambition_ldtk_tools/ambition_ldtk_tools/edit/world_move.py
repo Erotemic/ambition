@@ -13,9 +13,14 @@ The move refuses, and writes nothing, when:
 - an `EntityRef` would cross the two files (from a moved level to an entity
   that stays, or from a level that stays to an entity that moves): a reference
   resolves only inside its own file;
-- a layer, entity or tileset def that a moved level uses is not the same in
-  the target's defs (its uid, and all of it: its fields, IntGrid values,
-  auto-layer rules): the level would mean something else there.
+- a layer or tileset def that a moved level uses is not the same in the
+  target's defs (its uid, and all of it: IntGrid values, auto-layer rules):
+  the level would mean something else there;
+- an entity def it uses is not in the target, or names a field there by
+  another type, or lacks a field one of its placements sets. Defs drift
+  between world files (a field removed and added again gets a new uid), so
+  an entity's fields are matched by NAME, and each moved placement's field
+  is given the target's uid for it.
 
 What it rewrites in each moved level: its `uid` (and its layers' `levelId`),
 minted from the target's counter, so the two files never spend one uid; and the
@@ -83,6 +88,11 @@ def _defs_index(project: dict) -> dict[tuple[str, int], dict]:
     return index
 
 
+def _entity_fields(entity_def: dict | None) -> dict[str, dict]:
+    """An entity def's fields by name."""
+    return {f["identifier"]: f for f in (entity_def or {}).get("fieldDefs", [])}
+
+
 def plan(source: dict, target: dict, names: list[str]) -> list[str]:
     """Why the move cannot be made (empty: it can)."""
     problems = []
@@ -108,16 +118,25 @@ def plan(source: dict, target: dict, names: list[str]) -> list[str]:
     for level in moving:
         for kind, uid, identifier in sorted(_def_uids(level)):
             have = target_defs.get((kind, uid))
-            if have is None:
+            if have is None or (identifier and have.get("identifier") != identifier):
                 problems.append(f"{level['identifier']}: the target has no {kind} def {uid} ({identifier or '?'})")
-            elif have != source_defs.get((kind, uid)):
+            elif kind != "entity" and have != source_defs.get((kind, uid)):
                 problems.append(f"{level['identifier']}: the target's {kind} def {uid} ({have.get('identifier')}) is not the source's")
+        for entity in (e for layer in level.get("layerInstances") or [] for e in layer.get("entityInstances", [])):
+            fields = _entity_fields(target_defs.get(("entity", entity["defUid"])))
+            for field in entity.get("fieldInstances", []):
+                there = fields.get(field["__identifier"])
+                if there is None or there["__type"] != field["__type"]:
+                    problems.append(f"{level['identifier']}: the target's {entity['__identifier']} has no field "
+                                    f"{field['__identifier']} ({field['__type']})")
     return problems
 
 
-def move(source: dict, target: dict, names: list[str]) -> list[str]:
+def move(source: dict, target: dict, names: list[str], offset: tuple[int, int] = (0, 0)) -> list[str]:
     """Move the levels `names` (all checked by `plan`) from `source` into
-    `target`. Returns a line for each."""
+    `target`, each `offset` (world px) from where it was: a file laid out
+    on its own may have rooms where the target has its own. They move as
+    one, so the rooms that touched still touch. Returns a line for each."""
     out = []
     moving = [level for level in _levels(source) if level["identifier"] in names]
     source["levels"] = [level for level in _levels(source) if level["identifier"] not in names]
@@ -134,8 +153,25 @@ def move(source: dict, target: dict, names: list[str]) -> list[str]:
             layer["levelId"] = uid
         for _entity, _field, ref in _refs(level):
             ref["worldIid"] = target["iid"]
+        # Each field of a placement by the target's uid for it (`plan`
+        # matched them by name).
+        target_defs = _defs_index(target)
+        for layer in level.get("layerInstances") or []:
+            for entity in layer.get("entityInstances", []):
+                fields = _entity_fields(target_defs.get(("entity", entity["defUid"])))
+                for field in entity.get("fieldInstances", []):
+                    field["defUid"] = fields[field["__identifier"]]["uid"]
         # The neighbours of a level are recomputed in its new file.
         level["__neighbours"] = []
+        dx, dy = offset
+        level["worldX"] += dx
+        level["worldY"] += dy
+        for layer in level.get("layerInstances") or []:
+            for entity in layer.get("entityInstances", []):
+                if "__worldX" in entity and entity["__worldX"] is not None:
+                    entity["__worldX"] += dx
+                if "__worldY" in entity and entity["__worldY"] is not None:
+                    entity["__worldY"] += dy
         _levels(target).append(level)
         out.append(f"  - moved '{level['identifier']}' (uid {old} -> {uid}, at {level['worldX']},{level['worldY']})")
     return out
@@ -150,6 +186,7 @@ def main(argv=None) -> int:
     parser.add_argument("--init", action="store_true", help="make the target first, from the source's defs")
     parser.add_argument("--identifier", default=None, help="with --init: the new world's iid")
     parser.add_argument("--uid-base", type=int, default=None, help="with --init: the new world's first uid")
+    parser.add_argument("--offset", default="0,0", help="move the rooms this far in the world (px), as one: DX,DY")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
 
@@ -189,7 +226,16 @@ def main(argv=None) -> int:
         for line in problems:
             print(f"  {line}", file=sys.stderr)
         return 1
-    for line in move(source, target, names):
+    dx, dy = (int(v) for v in args.offset.split(","))
+    taken = [(t["worldX"], t["worldY"], t["worldX"] + t["pxWid"], t["worldY"] + t["pxHei"]) for t in _levels(target)]
+    for level in _levels(source):
+        if level["identifier"] in names:
+            x0, y0 = level["worldX"] + dx, level["worldY"] + dy
+            box = (x0, y0, x0 + level["pxWid"], y0 + level["pxHei"])
+            if any(box[0] < t[2] and t[0] < box[2] and box[1] < t[3] and t[1] < box[3] for t in taken):
+                print(f"refused; nothing written: '{level['identifier']}' would overlap a room of the target (--offset)", file=sys.stderr)
+                return 1
+    for line in move(source, target, names, (dx, dy)):
         print(line)
     if args.dry_run:
         print(f"dry run: {len(names)} level(s) would move")

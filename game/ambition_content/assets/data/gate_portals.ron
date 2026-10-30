@@ -65,6 +65,12 @@
         portal_sprite_name: "Orbital Gate (Dock) Portal",
         ring_sprite_name: "Orbital Gate (Dock) Ring",
     ),
+    // Eureka's gate court (the science dimension's institute town).
+    "eureka_gate_arrival": (
+        command: Dialed,
+        portal_sprite_name: "Eureka Gate (Court) Portal",
+        ring_sprite_name: "Eureka Gate (Court) Ring",
+    ),
     // The pirate port's gate plaza.
     "pirate_port_gate_arrival": (
         command: Dialed,

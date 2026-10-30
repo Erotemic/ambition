@@ -15,7 +15,7 @@ LDtk is Ambition's spatial source of truth. Use the editor or
 The main provider worlds currently live under
 `game/ambition_content/assets/worlds/`. **One world file is one dimension**
 (`data/worlds.ron` lists them): `dinosaur.ldtk`, `noodle.ldtk`, `evil.ldtk`,
-`math.ldtk`, `science.ldtk`, `pirate_port.ldtk`, `ninja_village.ldtk`, and so
+`math.ldtk`, `science.ldtk`, `pvn.ldtk` (pirates and ninjas), and so
 on. `sandbox.ldtk` is the test bed (the hub, the test rooms, the halls): a new
 room of a dimension goes in that dimension's file. Rooms join one room set, so a
 `LoadingZone` leads to a room in any file by its id. A standalone demo has its

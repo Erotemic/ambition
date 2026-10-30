@@ -3,7 +3,7 @@
     id: "ninja_village_forest",
     level_id: "ninja_village_forest",
     world_x: 4928,
-    world_y: 0,
+    world_y: 10000,
     px_wid: 2816,
     px_hei: 960,
     fill_collision: "empty",

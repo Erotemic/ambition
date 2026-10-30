@@ -1,7 +1,7 @@
 # The Pirate Port (gate address `SAILING`)
 
 A seafaring town of the pirate dimension. The world file is
-`pirate_port.ldtk`. The gate arrives in the gate plaza, at the zone
+`pvn.ldtk` (the PvN dimension). The gate arrives in the gate plaza, at the zone
 `pirate_port_gate_arrival`.
 
 `make_specs.py` writes each room's `.ron` spec and, with `--apply`, makes the

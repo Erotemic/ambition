@@ -1,0 +1,28 @@
+// Written by specs/eureka/make_specs.py. Change the script, not this file.
+(
+    id: "orbital_station_tether_terminus",
+    level_id: "orbital_station_tether_terminus",
+    world_x: 5312,
+    world_y: 2144,
+    px_wid: 1280,
+    px_hei: 1024,
+    fill_collision: "empty",
+    bg_color: "#A9D3F0",
+    biome: "orbital",
+    parallax_theme: "orbital",
+    music_track: "between_objectives",
+    entities: [
+        ( type: "Solid", px: [0, 956], size: [1280, 68], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [1280, 48], fields: ( name: "vault" ) ),
+        ( type: "Solid", px: [0, 48], size: [16, 908], fields: ( name: "west_wall" ) ),
+        ( type: "Solid", px: [1264, 48], size: [16, 908], fields: ( name: "east_wall" ) ),
+        ( type: "LoadingZone", px: [576, 1008], size: [128, 16], fields: ( id: "terminus_from_climb", name: "down the tether", activation: "EdgeExit", target_room: "eureka_elevator_climb", target_zone: "climb_to_terminus", bidirectional: true ) ),
+        ( type: "PlayerStart", px: [626, 910], size: [28, 46], fields: ( name: "orbital_station_tether_terminus_spawn" ) ),
+        ( type: "LoadingZone", px: [200, 860], size: [48, 96], fields: ( id: "terminus_down_door", name: "the down car to the ground station", activation: "Door", target_room: "eureka_elevator_station", target_zone: "station_down_arrival", bidirectional: false ) ),
+        ( type: "LoadingZone", px: [1160, 860], size: [48, 96], fields: ( id: "terminus_bay_door", name: "to the docking bay", activation: "Door", target_room: "orbital_station_docking_bay", target_zone: "bay_tether_door", bidirectional: true ) ),
+        ( type: "DebugLabel", px: [380, 120], size: [520, 24], fields: ( name: "terminus_sign", text: "TETHER TERMINUS: the planet is 35,786 km down", category: "Custom" ) ),
+        ( type: "CameraZone", px: [0, 0], size: [1280, 1024], fields: ( id: "orbital_station_tether_terminus_camera", name: "orbital_station_tether_terminus_camera", mode: "Default" ) ),
+        ( type: "DebugLabel", px: [190, 40], size: [900, 24], fields: ( name: "orbital_station_tether_terminus_title", text: "THE TETHER TERMINUS", category: "Custom" ) ),
+    ],
+    connect_to: [],
+)

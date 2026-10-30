@@ -65,4 +65,17 @@
         // grab_dash: 9/10/42
         "cellular_grab_dash": (hit_s: 0.15, last_s: 0.1667, total_s: 0.7),
     },
+    // SMASH-STAGE BASE KNOCKBACK: the factor each move's base launch is
+    // scaled by here, so a tilt or an aerial at 0% stuns past its own
+    // swing. Written by `scripts/smash_retime.py`.
+    move_knockback: {
+        "rule_front": 1.6,
+        "phase_boundary": 1.6,
+        "cellular_automaton_dash_attack": 1.5,
+        "oscillator_pulse": 1.5,
+        "glider_cut": 1.5,
+        "cell_death": 1.3,
+        "fixed_point_acquire": 1.3,
+        "corruption_seed": 1.4,
+    },
 )

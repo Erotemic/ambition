@@ -15,6 +15,7 @@ fn facet() -> SmashFighterFacet {
         move_damage: MoveDamage::new(),
         verbs: Default::default(),
         move_timing: Default::default(),
+        move_knockback: Default::default(),
         character: "test_fighter".to_string(),
     }
 }
@@ -261,4 +262,31 @@ fn move_timing_maps_the_moves_own_clock_and_nothing_else() {
     // A move the moveset lacks, or one with no Active window, is refused whole.
     let missing = MoveTimings::from([("nope".to_string(), timing["jab"].clone())]);
     assert!(move_timing_over(&missing, two_moves()).is_err());
+}
+
+/// ⭐ A GAME'S KNOCKBACK FACTOR SCALES ONLY THE BASE OF THE MOVES IT NAMES: each
+/// striking volume's `knockback` is multiplied, a windbox (damage 0) and the
+/// growth are untouched, an unnamed move keeps its launch, and a factor that
+/// is not positive or a move the moveset lacks refuses the map whole.
+#[test]
+fn move_knockback_scales_the_named_moves_base_launch_and_nothing_else() {
+    use crate::move_damage::{move_knockback_over, MoveKnockback};
+    let before = two_moves();
+    let base = |m: &ambition_entity_catalog::MovesetContract, id: &str| -> Vec<(i32, f32, Option<f32>)> {
+        m.move_by_id(id)
+            .expect("move")
+            .windows
+            .iter()
+            .flat_map(|w| w.volumes.iter().map(|v| (v.damage, v.knockback, v.knockback_growth)))
+            .collect()
+    };
+    let scaled = move_knockback_over(&MoveKnockback::from([("combo".to_string(), 1.25)]), before.clone()).expect("fits");
+    for ((dmg, kb_before, growth_before), (_, kb_after, growth_after)) in base(&before, "combo").into_iter().zip(base(&scaled, "combo")) {
+        let expected = if dmg > 0 { kb_before * 1.25 } else { kb_before };
+        assert!((kb_after - expected).abs() < 1e-5, "damage {dmg}: {kb_before} -> {kb_after}");
+        assert_eq!(growth_before, growth_after, "growth is untouched");
+    }
+    assert_eq!(base(&before, "jab"), base(&scaled, "jab"), "an unnamed move keeps its launch");
+    assert!(move_knockback_over(&MoveKnockback::from([("nope".to_string(), 1.25)]), two_moves()).is_err());
+    assert!(move_knockback_over(&MoveKnockback::from([("jab".to_string(), 0.0)]), two_moves()).is_err());
 }

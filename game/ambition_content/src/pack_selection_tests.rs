@@ -446,8 +446,10 @@ fn expected_from(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteCon
             .expect("the dog row")
             .display_name
             .clone(),
-        default_music_track: crate::audio_registries::music_registry_of(pack).default_track,
-        first_sfx_frequency: crate::audio_registries::sfx_registry_of(pack).sfx[0].frequency,
+        default_music_track: crate::audio_registries::music_registry_of(pack)
+            .expect("the music registry is generated content: run scripts/regen/music.sh")
+            .default_track,
+        first_sfx_frequency: crate::audio_registries::sfx_registry_of(pack).expect("the SFX registry").sfx[0].frequency,
         quest_titles: {
             let mut titles: Vec<(String, String)> = crate::quest::quest_specs_of(pack)
                 .into_iter()
@@ -890,4 +892,58 @@ fn a_source_declared_in_the_roots_manifest_is_played_without_a_build() {
 
     let edited = crate::pack::compile_pack_from(root.path()).expect("the root with the new source compiles");
     assert!(has_new_script(&edited), "the root's manifest declares a new source and the pack did not play it");
+}
+
+/// Ambition's own pack compiles when its generated content is absent (a fresh
+/// checkout before `scripts/setup/generated_content.sh`). The music registry
+/// is a LOUD warning on the prepared pack, not a panic, and the pack has no
+/// music. The authored SFX registry stays.
+///
+/// The pack reads a copy of the shared library manifest with the real
+/// authored tree and an empty generated tree. Thus this arm is the same on a
+/// checkout that has its generated content.
+#[cfg(unix)]
+#[test]
+fn the_shipped_pack_compiles_without_its_generated_content() {
+    use std::os::unix::fs::symlink;
+    let temp = tempfile::tempdir().expect("a temporary tree");
+    let source = crate::pack::source_root();
+    let shared = source.join("../../ambition_content_library").canonicalize().expect("the shared library");
+    let library = temp.path().join("library");
+    std::fs::create_dir_all(&library).expect("the library directory");
+    std::fs::copy(shared.join("library.json"), library.join("library.json")).expect("the library manifest");
+    symlink(shared.join("authored"), library.join("authored")).expect("the authored tree");
+    let root = temp.path().join("pack");
+    std::fs::create_dir_all(&root).expect("the pack root");
+    for entry in std::fs::read_dir(&source).expect("the pack sources") {
+        let entry = entry.expect("a pack entry");
+        if entry.file_name() != "pack.ron" {
+            symlink(entry.path(), root.join(entry.file_name())).expect("a pack entry link");
+        }
+    }
+    let shipped = std::fs::read_to_string(source.join("pack.ron")).expect("the shipped manifest");
+    let manifest = shipped.replace("\"../../ambition_content_library/library.json\"", "\"../library/library.json\"");
+    assert_ne!(manifest, shipped, "the premise: the pack imports the shared library by this path");
+    std::fs::write(root.join("pack.ron"), manifest).expect("the manifest");
+
+    let pack = crate::pack::compile_pack_from(&root)
+        .unwrap_or_else(|failure| panic!("the pack must compile without generated content:\n{failure}"));
+    let ungenerated: Vec<&ambition_content_pack::Diagnostic> = pack
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code == ambition_content_pack::DiagnosticCode::UngeneratedSource)
+        .collect();
+    let sources: Vec<&str> = ungenerated.iter().filter_map(|diagnostic| diagnostic.source.as_deref()).collect();
+    assert_eq!(sources, ["audio/music_registry.ron"], "the absent music registry is not loud");
+    // The bosses and encounters still name their tracks. Those references
+    // are not checked, and one warning says so.
+    assert!(
+        ungenerated.iter().any(|diagnostic| diagnostic.message.contains("to `music_track` are not checked")),
+        "{ungenerated:#?}"
+    );
+    assert!(crate::audio_registries::music_registry_of(&pack).is_none(), "a pack without the registry has no music");
+    assert!(crate::audio_registries::sfx_registry_of(&pack).is_some(), "the authored SFX registry stays");
+    let fragments = crate::provider::ambition_authored_catalogs(&pack);
+    assert!(!fragments.expects_music, "without music, a session must not wait for music");
+    assert!(fragments.expects_procedural_sfx, "the authored SFX are still expected");
 }

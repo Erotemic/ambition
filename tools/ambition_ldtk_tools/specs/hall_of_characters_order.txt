@@ -162,6 +162,7 @@ npc_tower_ruiz
 
 [The Math town's people]
 npc_math_ivo
+npc_math_fibbs
 npc_math_monty
 npc_math_zeno
 npc_math_kleinbottle

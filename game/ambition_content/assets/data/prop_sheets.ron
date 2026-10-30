@@ -319,6 +319,10 @@
     "woods_far_west": (),
     "woods_far_east": (),
     "woods_great_tree": (),
+    // The Fibonacci Meadow, east of the woods (Math).
+    "meadow_farm": (),
+    "meadow_squares": (),
+    "meadow_field": (),
     "woods_curiosities": (),
     // The Smoking Mountain (jungle, past the tar pits).
     "volcano_west": (),

@@ -238,4 +238,10 @@
     "eureka_range_field": (),
     // The hall of the Shadow Clan (PvN).
     "shadow_dojo_hall": (),
+    // Along the primeval trail.
+    "jungle_fern_clump": (),
+    "jungle_fallen_log": (),
+    "jungle_nest": (),
+    "jungle_idol_head": (),
+    "jungle_ribcage": (),
 }

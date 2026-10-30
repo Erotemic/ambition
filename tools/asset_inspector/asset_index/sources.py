@@ -39,8 +39,13 @@ def _stamp(path: Path):
         return [str(path), None]
 
 
+def pack_dir(repo: Path, profile: str) -> Path:
+    """The game pack a profile selects: `ambition`, or a pack directory."""
+    return (repo / "game/ambition_content/assets") if profile == "ambition" else Path(profile).resolve()
+
+
 def content(repo: Path, profile: str, out: Path, binary: Path | None = None) -> dict:
-    pack = (repo / "game/ambition_content/assets") if profile == "ambition" else Path(profile).resolve()
+    pack = pack_dir(repo, profile)
     binary = binary or Path(os.environ.get("AMBITION_ART_CONTENT_BIN", repo / "target/debug/ambition_content_check"))
     cache = out / ("content-" + hashlib.sha256(str(pack).encode()).hexdigest()[:16] + ".json")
     try:

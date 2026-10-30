@@ -8,18 +8,23 @@
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="#characters">Asset Inspector</a>
+  <a class="brand" href="#overview">Asset Inspector</a>
   <nav class="tabs" aria-label="Views">
+    <a href="#overview" data-view="overview">Overview</a>
     <a href="#characters" data-view="characters">Characters</a>
+    <a href="#gallery" data-view="gallery">Images</a>
+    <a href="#music" data-view="music">Music</a>
+    <a href="#sound" data-view="sound">Sound</a>
+    <a href="#worlds" data-view="worlds">Worlds</a>
+    <a href="#fonts" data-view="fonts">Fonts</a>
     <a href="#reviews" data-view="reviews">Review notes</a>
     <a href="#inventory/current" data-view="inventory">Inventory</a>
-    <a href="#gallery" data-view="gallery">Raw gallery</a>
     <a href="#generators" data-view="generators">Generators</a>
     <a href="#findings" data-view="findings">Findings</a>
     <a href="#coverage" data-view="coverage">Coverage</a>
   </nav>
   <label class="search"><span class="sr">Search</span>
-    <input id="q" type="search" placeholder="Search assets, generators, files, uses  ( / )" autocomplete="off">
+    <input id="q" type="search" placeholder="Search every asset, generator, file and use  ( / )" autocomplete="off">
   </label>
   <button id="theme" class="ghost" type="button" title="Switch light and dark">◐</button>
 </header>
@@ -29,6 +34,7 @@
 <script src="inventory.js"></script>
 <script src="reviews.js"></script>
 <script src="characters.js"></script>
+<script src="items.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

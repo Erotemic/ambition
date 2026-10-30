@@ -1,4 +1,4 @@
-"""Durable review notes for an exact published character generation."""
+"""Durable review notes for an exact version of a character or any other asset."""
 
 from __future__ import annotations
 
@@ -36,7 +36,29 @@ def subjects(catalog: dict) -> dict:
     return result
 
 
+def item_subjects(catalog: dict) -> dict:
+    """Music, sound, fonts and worlds: an item's version is the size and mtime of its files."""
+    result = {}
+    for key, item in (catalog.get("items") or {}).items():
+        stamp = item.get("stamp") or []
+        identity = {"item": key, "stamp": stamp}
+        result[key] = {"key": key, "character": key, "kind": item["kind"], "display": item["display"], "stamp": stamp,
+                       "generation_id": hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest(),
+                       "products": [], "lineages": [], "bundles": []}
+    return result
+
+
+def all_subjects(catalog: dict) -> dict:
+    """Every reviewable subject: characters, then music, sound, fonts and worlds."""
+    return item_subjects(catalog) | subjects(catalog)
+
+
 def check_products(repo: Path, subject: dict) -> None:
+    if "stamp" in subject:
+        from .kinds import _stat
+        if any(_stat(repo / path) != [size, mtime] for path, size, mtime in subject["stamp"]):
+            raise ConflictError("The asset changed. Rebuild the inspector before adding this note.")
+        return
     sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
     from lib.art_publication import resolve, store
     from .paths import library_path, asset_root
@@ -103,7 +125,7 @@ class Store:
 
 
 def snapshot(repo: Path, catalog: dict) -> dict:
-    current = subjects(catalog)
+    current = all_subjects(catalog)
     notes = Store(repo).load()
     for note in notes:
         subject = current.get(note["subject"]["character"])
@@ -137,7 +159,7 @@ def cli(repo: Path, out: Path, args) -> int:
             if args.action == "add":
                 subject = report["subjects"].get(args.id)
                 if not subject:
-                    raise ValueError("Use a full catalog identity, such as ambition:npc_general.")
+                    raise ValueError("Use a full catalog identity, such as ambition:npc_general or music:ai_dente.")
                 check_products(repo, subject)
                 result = store.add(subject, args.text, priority=args.priority, animation=args.animation)
             elif args.action == "backlog":

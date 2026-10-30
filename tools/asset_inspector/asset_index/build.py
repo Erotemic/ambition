@@ -23,7 +23,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-from . import SCHEMA, assets as assets_mod, diagnostics, generators, lineage, related, thumbs, usage, inventory, reviews, sheets, sources
+from . import SCHEMA, assets as assets_mod, diagnostics, generators, kinds, lineage, related, thumbs, usage, inventory, reviews, sheets, sources
 from .paths import forget_roots, repo_root, roots
 from .scan import HashCache, scan
 
@@ -62,12 +62,11 @@ def build(
     forget_roots()
     hashes = HashCache(out / "hash_cache.json", deep=deep)
     # The renderer's product report is a separate process; let it run while the scan does.
-    early = None
-    if targets is None:
-        from concurrent.futures import ThreadPoolExecutor
-        pool = ThreadPoolExecutor(max_workers=1)
-        early = pool.submit(sources.products, repo, python, deep=deep)
-        pool.shutdown(wait=False)
+    from concurrent.futures import ThreadPoolExecutor
+    pool = ThreadPoolExecutor(max_workers=2)
+    early = pool.submit(sources.products, repo, python, deep=deep) if targets is None else None
+    family_report = pool.submit(kinds.family_status, repo)
+    pool.shutdown(wait=False)
     step("scanning the art roots")
     products = scan(roots(repo), hashes)
     # Keep the digests now: a later failure must not make the next build rehash every file.
@@ -156,6 +155,13 @@ def build(
                     identity["preview"] = {"asset": asset["id"], "row": row,
                         "cover": asset.get("layout", {}).get("covers", {}).get(row, asset.get("cover"))}
             unit.setdefault("assets", []).append(asset["id"])
+    step("music, sound, fonts and worlds")
+    try:
+        families = family_report.result()
+    except Exception as error:  # noqa: BLE001 - the overview names it; the items still index
+        families = {"libraries": [], "notice": f"{type(error).__name__}: {error}"}
+    catalog["families"] = families
+    catalog.update(kinds.collect(repo, out, hashes, pack=sources.pack_dir(repo, profile), families=families, log=log))
     catalog["reviews"] = reviews.snapshot(repo, catalog)
     hashes.save()
     catalog["build_seconds"] = round(time.perf_counter() - started, 1)
@@ -164,7 +170,7 @@ def build(
     partial = out / "catalog.js.partial"
     partial.write_text(f"window.ART_CATALOG = {text};\n")
     partial.replace(out / "catalog.js")
-    for name in ("index.html", "app.js", "app.css", "inventory.js", "characters.js", "reviews.js"):
+    for name in ("index.html", "app.js", "app.css", "inventory.js", "characters.js", "reviews.js", "items.js"):
         shutil.copyfile(WEB / name, out / name)
     step(f"wrote {out / 'index.html'} ({len(assets)} assets, {len(products)} files, {len(found)} findings)")
     return catalog

@@ -1,26 +1,54 @@
 # Asset inspector
 
-Use the inspector to find required art, inspect animation coverage, and compare
-published art with its source and design history. The CLI and offline page use
-one derived report. The report does not publish art or start a Cargo build.
+The asset inspector is the one place to browse and review every asset of an
+engine game: characters and their sprite sheets, images, music, sound effects,
+fonts and worlds. It shows what exists, what is missing or stale, how to make
+it, where the game uses it, and how assets relate, including the design lineage
+of characters. Editing assets from the page is planned; the local server is the
+place it will write.
 
-Run `./scripts/asset_inspector.py` with no arguments to see what exists. It opens
-the last index in a browser at once and refreshes it in the background. The page
-offers a reload when the refresh is done. The first run builds before it opens.
+Run `./scripts/asset_inspector.py` with no arguments. It opens the last index
+in a browser at once and refreshes it in the background. The page offers a
+reload when the refresh is done. The first run builds before it opens.
+`scripts/art_inspector.py` is the old name and runs the same tool.
 
-A problem never stops the index. If the game catalog cannot be read, the page
-still shows the art, generators and lineages. A notice names the problem and
-its fix, such as rebuilding a stale content check binary.
+A problem never stops the index. If one source cannot be read, the page still
+shows everything else. A notice names the problem and its fix, such as
+rebuilding a stale content check binary.
 
-Build the content inspection binary once:
+## What it reads
+
+Everything comes from the selected library manifest (`library.json`) and game
+pack, so another engine game is inspected the same way (`--profile`,
+`--library`).
+
+- **Overview** joins the library's producer families (`scripts/content_status.py`)
+  with a count of each kind and a list of what needs attention.
+- **Characters**, **Images** and **Inventory** read the sprite publication and
+  the game catalog, as described below.
+- **Music** reads the music registry, the music tool's active scores, its newest
+  renders and its review files. A registered track the game lacks is missing;
+  a score no registry names is unregistered. A music review made before the
+  score last changed is marked.
+- **Sound** reads the sound bank and the sound tool's sources. The page plays
+  each clip, extracted from the bank.
+- **Fonts** reads the font policy and the downloaded files, and draws a sample.
+- **Worlds** reads the pack's LDtk worlds: each room's music, parallax theme and
+  biome. A room's music links to its track.
+- **Uses** come from quoted ids and asset paths in game and engine text, and
+  from world rooms.
+
+Any item can take a review note (`serve`). A note records the version of the
+files it reviewed, so it stays attached after the asset changes.
+
+The build command needs the content inspection binary for the Characters view:
 
 ```bash
 cargo build -p ambition_content_schemas --bin ambition_content_check
 ```
 
-Reuse this binary after content or art edits. Rebuild it after changes to its
-Rust owners. This command builds the content and sheet readers. It needs no
-window, graphics device, or game host.
+Rebuild it after changes to its Rust owners. The page names it when it is
+stale. It needs no window, graphics device, or game host.
 
 ## Common queries
 
@@ -62,7 +90,7 @@ The game label and art label remain separate values. Explicit `form_of`,
 `part_of`, and `derived_from` relations keep their different meanings. A name
 suffix does not establish identity or a generation.
 
-The page opens at **Characters**. It groups declared forms and parts under their
+**Characters** groups declared forms and parts under their
 character. Expand a group to open each entry. **All catalog entries** shows the
 flat catalog. Independent characters remain separate when they share art or
 ancestry. Click a card to open its character page.

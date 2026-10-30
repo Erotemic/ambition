@@ -582,8 +582,15 @@
     const h = decodeURIComponent(location.hash.slice(1));
     const [view, ...rest] = h.split("/");
     const id = rest.join("/");
-    document.querySelectorAll(".top .tabs a").forEach((a) => a.classList.toggle("on", a.dataset.view === (view === "asset" ? "gallery" : view === "gen" ? "generators" : view === "character" ? "characters" : view || "characters")));
-    if (view === "characters" || view === "character" || !view) window.renderArtCharacters(view === "character" ? id : "", {assetPanels, wireAnimation, lineageBox});
+    const itemKind = view === "item" ? (C.items?.[id]?.kind || "") : "";
+    const tab = view === "asset" ? "gallery" : view === "gen" ? "generators" : view === "character" ? "characters"
+      : view === "item" ? (window.AssetItems.VIEW[itemKind] || "overview") : view || "overview";
+    document.querySelectorAll(".top .tabs a").forEach((a) => a.classList.toggle("on", a.dataset.view === tab));
+    const KIND_OF_VIEW = { music: "music", sound: "sfx", fonts: "font", worlds: "world" };
+    if (!view || view === "overview") window.AssetItems.overview();
+    else if (KIND_OF_VIEW[view]) window.AssetItems.list(KIND_OF_VIEW[view]);
+    else if (view === "item") window.AssetItems.detail(id);
+    else if (view === "characters" || view === "character") window.renderArtCharacters(view === "character" ? id : "", {assetPanels, wireAnimation, lineageBox});
     else if (view === "inventory") window.renderArtInventory(id || "current");
     else if (view === "reviews") window.ArtReviews.backlog();
     else if (view === "asset") detail(id);
@@ -601,6 +608,7 @@
       state.q = q.value; state.page = 0;
       const v = location.hash.slice(1).split("/")[0];
       if (v === "character") location.hash = "#characters";
+      else if (v === "item") location.hash = "#overview";
       else if (v === "asset" || v === "gen") location.hash = "#gallery"; else route();
     }, 120);
   });

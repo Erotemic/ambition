@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-10-27
+last_verified: 2026-10-30
 related_docs:
   - docs/tools/generated-visual-tools.md
   - docs/concepts/asset-management.md
@@ -8,9 +8,16 @@ related_docs:
 
 # Asset inspector
 
-The inspector joins owner reports for registered bundles, prepared game
-identities, local products, concepts, and design history. It includes missing
-art. Game use, registration, generation state, and lineage are separate facts.
+The asset inspector is the central place to browse and review every asset of
+an engine game: characters, images, music, sound effects, fonts and worlds.
+Run `./scripts/asset_inspector.py` with no arguments to open it. It shows what
+exists, what is missing or stale and how to make it, where the game uses each
+asset, and how assets relate, including character lineage. Any asset can take a
+review note. A failure in one source becomes a notice, never a refusal.
+
+For sprites it joins owner reports for registered bundles, prepared game
+identities, local products, concepts, and design history. Game use,
+registration, generation state, and lineage are separate facts.
 See the [tool guide](../../tools/asset_inspector/README.md) for the full interface.
 
 Build the content and runtime sheet reader once, then reuse it after data edits:

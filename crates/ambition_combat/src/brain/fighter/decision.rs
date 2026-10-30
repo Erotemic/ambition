@@ -461,6 +461,27 @@ fn decide(
         if let Some(intent) = state.intent.as_ref() {
             ambition_characters::brain::fighter::intent::constrain(intent, view, &mut options, cfg.tuning.ground_speed);
         }
+        // THE INTENT'S OWN TRACE (`AMBITION_INTENT_TRACE=1`): what it held,
+        // against what it saw, and what it left the ranking to choose from.
+        static INTENT_TRACE: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
+            std::env::var("AMBITION_INTENT_TRACE").is_ok_and(|value| value != "0")
+        });
+        if *INTENT_TRACE {
+            if let Some(foe) = view.nearest_hostile() {
+                eprintln!(
+                    "[intent] {:?} {:?} gap={:.0} foe={:?} left={:.2} commit={:.2} threat={:?} moves={:?} attacks={:?}",
+                    snapshot.subject,
+                    state.intent.as_ref().map(|i| i.kind),
+                    ambition_characters::brain::fighter::options::side_gap(&view),
+                    foe.phase,
+                    foe.phase_remaining,
+                    ambition_characters::brain::fighter::options::foe_commitment(&view, foe),
+                    foe.threat_reach,
+                    options.movement.iter().map(|m| m.verb).collect::<Vec<_>>(),
+                    options.attacks.iter().map(|a| a.move_id.as_str()).collect::<Vec<_>>(),
+                );
+            }
+        }
     }
     // THE RANKING'S OWN TRACE (`AMBITION_RANK_TRACE=1`): the top four admitted
     // attacks with the features behind their scores, one line each. The

@@ -287,8 +287,12 @@ pub fn body_phase(
             Some(ambition_combat::AttackPhase::Active) => {
                 return (BodyPhase::AttackActive, m.active_remaining());
             }
+            // ⛔ IT WAS `0.0`, so every foe in recovery read as a body that could
+            // answer now: `foe_commitment` was zero through every whiff, and no
+            // punish was ever priced (MEASURED 2026-10-30, `whiff_drill`
+            // `AMBITION_INTENT_TRACE`: `AttackRecovery left=0.00` on every tick).
             Some(ambition_combat::AttackPhase::Recovery) => {
-                return (BodyPhase::AttackRecovery, 0.0);
+                return (BodyPhase::AttackRecovery, m.recovery_remaining());
             }
             None => {}
         }

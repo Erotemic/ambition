@@ -98,6 +98,40 @@ pub struct RecoveryLens {
     routes: Vec<ambition_entity_catalog::RecoveryRoute>,
 }
 
+/// How far past `room` the `death` envelope reaches, as the kernel's three
+/// margins: along `down` (fall), across it (side) and against it (rise). An
+/// infinite reach is `None` — the kernel's "this direction is not a blast zone".
+///
+/// `down` is read on its dominant axis, the inverse of the builder that made
+/// `death` from the margins, so the two agree for every axis-aligned gravity.
+fn margins_beyond(
+    room: ae::Aabb,
+    death: ae::Aabb,
+    down: ae::Vec2,
+) -> (f32, Option<f32>, Option<f32>) {
+    let finite = |margin: f32| (margin.is_finite()).then_some(margin.max(0.0));
+    let beyond_max = death.max - room.max;
+    let beyond_min = room.min - death.min;
+    let (fall, rise, side) = if down.y.abs() >= down.x.abs() {
+        if down.y >= 0.0 {
+            (beyond_max.y, beyond_min.y, beyond_max.x.max(beyond_min.x))
+        } else {
+            (beyond_min.y, beyond_max.y, beyond_max.x.max(beyond_min.x))
+        }
+    } else if down.x >= 0.0 {
+        (beyond_max.x, beyond_min.x, beyond_max.y.max(beyond_min.y))
+    } else {
+        (beyond_min.x, beyond_max.x, beyond_max.y.max(beyond_min.y))
+    };
+    // The fall margin is never open in the kernel: a world always has a bottom.
+    let fall = if fall.is_finite() {
+        fall.max(0.0)
+    } else {
+        ae::World::DEFAULT_FALL_OUT_MARGIN
+    };
+    (fall, finite(side), finite(rise))
+}
+
 impl RecoveryLens {
     /// Lower a view, a kit and a set of routes into something
     /// [`ae::movement::recovery::probe_recovery`] can be run against.
@@ -148,13 +182,27 @@ impl RecoveryLens {
                 }
             })
             .collect();
+        // ⛔⛔ THE LENS DIES WHERE THE GAME DIES, and the game dies PAST the
+        // room, not at it. The kernel resets a body beyond the room plus the
+        // margins the stage authored, and Smash authors 400 px each side and
+        // 240 above and below. This lens killed at the room box: measured
+        // 2026-10-29 in the George mirror, 64 of one seat's 131 failed searches
+        // began from a body outside the room, alive, with the platform in view
+        // — every route refused from a position the game had not lost. The
+        // margins are the death line less the room, read off the same view, on
+        // the axis gravity names; an edge the stage never closed stays open
+        // here too.
+        let (fall, side, rise) = margins_beyond(stage.bounds, view.death_line(), down);
+        let mut world = ae::World::new("perceived stage", size, ae::Vec2::ZERO, blocks)
+            .with_fall_out_margin(fall);
+        if let Some(side) = side {
+            world = world.with_side_out_margin(side);
+        }
+        if let Some(rise) = rise {
+            world = world.with_rise_out_margin(rise);
+        }
         Some(Self {
-            world: ae::World::new("perceived stage", size, ae::Vec2::ZERO, blocks)
-                // the envelope IS the death line — see the module header. One
-                // model of dying, shared with `StageView::offstage`.
-                .with_fall_out_margin(0.0)
-                .with_side_out_margin(0.0)
-                .with_rise_out_margin(0.0),
+            world,
             origin,
             kit,
             frame,

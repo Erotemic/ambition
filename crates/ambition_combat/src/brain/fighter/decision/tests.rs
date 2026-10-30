@@ -2091,3 +2091,106 @@ fn the_move_playing_at_the_press_is_not_the_pressed_move() {
     assert_eq!(state.refused.map(|refused| refused.binding), Some(jab), "the fresh jab whiffed");
     let _ = cfg;
 }
+
+/// ⛔⛔ A PRESS THAT MATURES IN HITSTUN IS BUFFERED, NOT SPENT.
+///
+/// Under `hitstun_locks_actions` the gate eats every attack edge for the whole
+/// stun, and the emission is open-loop: it charged an APM token and armed the
+/// own-attack memory for a move that never started. Measured 2026-10-29 in the
+/// George mirror: a seat 364 ticks offstage pressed its authored recovery NEVER.
+///
+/// Three claims: nothing comes out while the body reels; the token and the
+/// memory are untouched; and the SAME press comes out on the first tick the body
+/// can act, which is also the non-vacuity arm.
+#[test]
+fn a_press_that_matures_in_hitstun_waits_for_the_first_actionable_tick() {
+    let (cfg, mut state) = rig(immediate_profile());
+    let snapshot = BrainSnapshot::idle();
+    let mut out = ActorControlFrame::neutral();
+
+    let mut reeling = scene(300.0, 340.0);
+    reeling.self_view.phase = ambition_characters::perception::BodyPhase::Hitstun;
+    reeling.self_view.phase_remaining = 0.5;
+
+    state.pending_press = Some(planted_press(0));
+    // No decision runs in this test: what is under test is the EMISSION.
+    state.ticks_until_decision = 1000;
+    for tick in 0..6 {
+        tick_fighter(&cfg, &mut state, &snapshot, Some(&reeling), &mut out);
+        assert!(
+            !out.melee_pressed,
+            "tick {tick}: a reeling body pressed into the gate"
+        );
+        assert_eq!(
+            state.pending_press,
+            Some(planted_press(0)),
+            "tick {tick}: the matured press was spent or dropped instead of held"
+        );
+    }
+    assert_eq!(
+        state.apm.presses, 0,
+        "a press the body could not act on spent a token"
+    );
+    assert!(
+        state.own_attack.is_none(),
+        "the brain remembers a move it never started"
+    );
+
+    let free = scene(300.0, 340.0);
+    tick_fighter(&cfg, &mut state, &snapshot, Some(&free), &mut out);
+    assert!(
+        out.melee_pressed,
+        "the buffered press never came out when the stun ended"
+    );
+    assert_eq!(state.pending_press, None);
+    assert_eq!(state.apm.presses, 1);
+}
+
+/// ⭐ THE BUFFER LEADS THE VIEW: the press lands on the first actionable tick,
+/// not `reaction` ticks after it.
+///
+/// A brain with a 3-tick reaction sees its own stun end three ticks late. The
+/// stun it SAW reported how much it had left, and the view says how old it is,
+/// so the end is known the tick it happens. Ten ticks of stun, a press buffered
+/// from tick 0: it must come out at tick 10 — before tick 13, when the view
+/// first shows `Neutral`.
+#[test]
+fn the_buffered_press_lands_the_tick_the_stun_runs_down_not_when_the_view_says_so() {
+    let (cfg, mut state) = rig(FighterBrainProfile {
+        reaction_ms: 50.0,
+        ..immediate_profile()
+    });
+    assert_eq!(
+        state.perception.delay_ticks(),
+        3,
+        "fixture: the delay this test is built on"
+    );
+    let snapshot = BrainSnapshot::idle();
+    let mut out = ActorControlFrame::neutral();
+    // A binary-exact clock, so the comparison at the boundary is the rule and
+    // not float noise.
+    const DT: f32 = 1.0 / 64.0;
+    const STUN_TICKS: usize = 10;
+
+    state.pending_press = Some(planted_press(0));
+    state.ticks_until_decision = 1000;
+    let mut first_press = None;
+    for tick in 0..(STUN_TICKS + 10) {
+        let mut view = scene(300.0, 340.0);
+        view.sim_time = tick as f32 * DT;
+        if tick < STUN_TICKS {
+            view.self_view.phase = ambition_characters::perception::BodyPhase::Hitstun;
+            view.self_view.phase_remaining = (STUN_TICKS - tick) as f32 * DT;
+        }
+        tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+        if out.melee_pressed && first_press.is_none() {
+            first_press = Some(tick);
+        }
+    }
+    assert_eq!(
+        first_press,
+        Some(STUN_TICKS),
+        "the press must land the tick the stun runs down (10), not when the delayed \
+         view first shows it over (13), and never inside the stun"
+    );
+}

@@ -131,6 +131,7 @@ npc_station_lindqvist
 npc_station_rahimi
 npc_station_pell
 npc_station_wen
+npc_station_dobbs
 
 [Eureka, the institute town]
 npc_eureka_teodora

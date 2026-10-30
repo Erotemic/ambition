@@ -122,3 +122,11 @@ fn the_range_officer_signs_it_off_as_probably_fine() {
     let mut app = a_session_in("eureka_test_range");
     crate::the_pirate_port::talk(&mut app, "npc_eureka_pryce", "What is tested here?");
 }
+
+/// The souvenir seller at the top of the ribbon talks (`orbital.yarn`
+/// `station_dobbs`).
+#[test]
+fn dobbs_sells_genuine_orbit_air_at_the_terminus() {
+    let mut app = a_session_in(TERMINUS);
+    crate::the_pirate_port::talk(&mut app, "npc_station_dobbs", "What is in the bottles?");
+}

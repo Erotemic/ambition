@@ -5924,6 +5924,23 @@
                 hall: ["I tuned this station's first stable ring. Now people commute through it.", "Cheap power made gates common. It did not make them cheap.", "Look down. That is why anyone comes up here."],
             ),
         ),
+        "npc_station_dobbs": (
+            display_name: "Dobbs",
+            // Keeps the souvenir kiosk at the tether terminus.
+            manifest: "sprites/station_dobbs_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(68.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["station", "townsfolk", "peaceful"],
+            barks: (
+                idle: ["Shirts! Globes! Genuine orbit air!", "You look like a first time up. Everyone does."],
+                hall: ["I sell bottled orbit air at the top of the ribbon. The vacuum kept escaping, so it is station air. Bottled up here, though.", "Everyone who comes up the tether wants something to hold. I sell them something to hold."],
+            ),
+        ),
         // A generated armsmith (renderer `data/townsfolk/armsmith_odile.chargen.yaml`):
         // the first character from the character generator published with the
         // whole clip union, so every held item sits in her fist on every row.

@@ -44,6 +44,10 @@ SCENERY = {
     "eureka_elevator_station": [
         ("eureka_tether_hall", 0, 0),
     ],
+    # The station end (`orbital_terminus_props.py`, room coordinates).
+    "orbital_station_tether_terminus": [
+        ("terminus_hall", 16, 48),
+    ],
 }
 
 

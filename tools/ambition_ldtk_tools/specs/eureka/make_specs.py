@@ -386,6 +386,10 @@ def terminus():
              bidirectional=False),
         door("terminus_bay_door", "to the docking bay", w - 120, floor, BAY, BAY_DOOR),
         sign("terminus_sign", w // 2, 120, "TETHER TERMINUS: the planet is 35,786 km down", 520),
+        # The arrivals board and the souvenir kiosk (`orbital_terminus_props.py`).
+        sign("terminus_sign_arrivals", 540, 300, "ARRIVALS: every car ON TIME. It is a ribbon.", 440),
+        sign("terminus_sign_kiosk", 375, floor - 150, "GENUINE ORBIT AIR, bottled at altitude", 380),
+        resident("npc_station_dobbs", "station_dobbs", 390, floor),
     ]
     return build(rid, e, "THE TETHER TERMINUS", music=STATION_MUSIC, biome=STATION_THEME)
 

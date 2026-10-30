@@ -43,6 +43,12 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Science: the tether terminus** (station end of the space elevator):
+  hull hall, the ribbon through collars in floor and vault, a window on the
+  planet's limb, the down car's lift doors and the bay's bulkhead, the
+  arrivals board (every car ON TIME: it is a ribbon), and Dobbs's souvenir
+  kiosk: shirts, snow globes with the planet in them, genuine orbit air
+  (chargen, Hall wing). Verified: the_eureka_tether (5).
 - **PvN: the charcoal burner's camp** in the cedar forest: an earth kiln
   smoking at its vents, seasoning billets, a bark lean-to against a cedar
   with a kettle on, charcoal bales; Moriyama (chargen) at his kiln, who

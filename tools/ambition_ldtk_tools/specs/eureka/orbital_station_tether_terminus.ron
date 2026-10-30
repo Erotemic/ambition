@@ -12,6 +12,7 @@
     parallax_theme: "orbital",
     music_track: "between_objectives",
     entities: [
+        ( type: "Prop", px: [16, 48], size: [1248, 908], fields: ( name: "terminus_hall_0", kind: "terminus_hall" ) ),
         ( type: "Solid", px: [0, 956], size: [1280, 68], fields: ( name: "floor" ) ),
         ( type: "Solid", px: [0, 0], size: [1280, 48], fields: ( name: "vault" ) ),
         ( type: "Solid", px: [0, 48], size: [16, 908], fields: ( name: "west_wall" ) ),
@@ -21,6 +22,9 @@
         ( type: "LoadingZone", px: [200, 860], size: [48, 96], fields: ( id: "terminus_down_door", name: "the down car to the ground station", activation: "Door", target_room: "eureka_elevator_station", target_zone: "station_down_arrival", bidirectional: false ) ),
         ( type: "LoadingZone", px: [1160, 860], size: [48, 96], fields: ( id: "terminus_bay_door", name: "to the docking bay", activation: "Door", target_room: "orbital_station_docking_bay", target_zone: "bay_tether_door", bidirectional: true ) ),
         ( type: "DebugLabel", px: [380, 120], size: [520, 24], fields: ( name: "terminus_sign", text: "TETHER TERMINUS: the planet is 35,786 km down", category: "Custom" ) ),
+        ( type: "DebugLabel", px: [320, 300], size: [440, 24], fields: ( name: "terminus_sign_arrivals", text: "ARRIVALS: every car ON TIME. It is a ribbon.", category: "Custom" ) ),
+        ( type: "DebugLabel", px: [185, 806], size: [380, 24], fields: ( name: "terminus_sign_kiosk", text: "GENUINE ORBIT AIR, bottled at altitude", category: "Custom" ) ),
+        ( type: "NpcSpawn", px: [374, 892], size: [32, 64], fields: ( character_id: "npc_station_dobbs", prompt: "Talk", dialogue_id: "station_dobbs", brain_override: "stand_still" ) ),
         ( type: "CameraZone", px: [0, 0], size: [1280, 1024], fields: ( id: "orbital_station_tether_terminus_camera", name: "orbital_station_tether_terminus_camera", mode: "Default" ) ),
         ( type: "DebugLabel", px: [190, 40], size: [900, 24], fields: ( name: "orbital_station_tether_terminus_title", text: "THE TETHER TERMINUS", category: "Custom" ) ),
     ],

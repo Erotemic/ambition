@@ -289,6 +289,10 @@
     "ridge_sinkhole": (),
     "fossil_beds": (),
     "bakery_room": (),
+    // The cells under Castle Godwin (Evil).
+    "castle_cells_room": (),
+    // The Guild's secret room behind the kitchens (Evil).
+    "castle_guild_room": (),
     "sail_loft_room": (),
     // The Pirate Port's well, and the cellars under customs (PvN).
     "plaza_well": (),
@@ -319,6 +323,10 @@
     "woods_far_west": (),
     "woods_far_east": (),
     "woods_great_tree": (),
+    // The Fibonacci Meadow, east of the woods (Math).
+    "meadow_farm": (),
+    "meadow_squares": (),
+    "meadow_field": (),
     "woods_curiosities": (),
     // The Smoking Mountain (jungle, past the tar pits).
     "volcano_west": (),

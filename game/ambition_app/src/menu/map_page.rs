@@ -12,7 +12,7 @@
 //! inserting a [`MapPagePresentation`] built on the same [`MapView`].
 
 use ambition_platformer2d::menu::{MenuColor, MenuPageModel, MenuRect, MenuTextAlign};
-use ambition_platformer2d::menu::map::view::{map_view, MapPinKind, MapView};
+use ambition_platformer2d::menu::map::view::{map_label, map_view, MapPinKind, MapView};
 use ambition_platformer2d::menu::map::MapMenuState;
 use std::sync::Arc;
 
@@ -35,15 +35,13 @@ const MAP_LABEL_SIZE: f32 = 2.0;
 /// The narrowest room, in percent of the page's width, that shows its name.
 const MAP_LABEL_MIN_WIDTH: f32 = 9.0;
 
-/// A room's title fitted to `width` percent of the page: what follows a colon
-/// (a subtitle, "THE GATE DECK: EVERYTHING THE RING BRINGS STOPS AT CUSTOMS")
-/// and a leading "THE " are dropped, and a title still too
-/// long is cut with an ellipsis. A character of the label (capitals, the
-/// widest) is at most about 0.72 of its height wide, and a percent of width is
-/// 1.5 percent of height on the 3:2 page.
+/// A room's title fitted to `width` percent of the page: its name
+/// (`map_label`), cut with an ellipsis when it is still too long. A character
+/// of the label (capitals, the widest) is at most about 0.72 of its height
+/// wide, and a percent of width is 1.5 percent of height on the 3:2 page.
 fn short_title(title: &str, width: f32) -> String {
-    let title = title.split(": ").next().unwrap_or(title);
-    let title = title.strip_prefix("THE ").or_else(|| title.strip_prefix("The ")).unwrap_or(title);
+    let title = map_label(title);
+    let title = title.as_str();
     let fits = (width * 1.5 / (MAP_LABEL_SIZE * 0.72)).floor().max(3.0) as usize;
     if title.chars().count() <= fits {
         return title.to_string();
@@ -226,6 +224,8 @@ mod tests {
     fn a_room_name_drops_its_article_and_fits_its_room() {
         assert_eq!(short_title("THE QUAD", 20.0), "QUAD");
         assert_eq!(short_title("THE GATE DECK: EVERYTHING THE RING BRINGS STOPS AT CUSTOMS", 20.0), "GATE DECK");
+        assert_eq!(short_title("Castle Godwin: the gatehouse.", 20.0), "Gatehouse");
+        assert_eq!(short_title("THE PIRATE PORT: THE GATE PLAZA", 20.0), "GATE PLAZA");
         let cut = short_title("THE WRECKERS' REEF AND ITS LONG SHOAL", 9.0);
         assert!(cut.ends_with('…'), "{cut}");
         assert!(cut.chars().count() <= 12, "{cut}");

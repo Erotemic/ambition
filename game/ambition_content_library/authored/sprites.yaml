@@ -501,6 +501,8 @@ collections:
   - ridge_sinkhole
   - fossil_beds
   - bakery_room
+  - castle_cells_room
+  - castle_guild_room
   - sail_loft_room
   - plaza_well
   - cellars_vault
@@ -523,6 +525,9 @@ collections:
   - woods_far_west
   - woods_far_east
   - woods_great_tree
+  - meadow_farm
+  - meadow_squares
+  - meadow_field
   - woods_curiosities
   - volcano_west
   - volcano_east

@@ -162,6 +162,7 @@ npc_tower_ruiz
 
 [The Math town's people]
 npc_math_ivo
+npc_math_fibbs
 npc_math_monty
 npc_math_zeno
 npc_math_kleinbottle
@@ -170,6 +171,7 @@ npc_math_lucas
 [Castle Godwin's staff]
 npc_castle_hargreave
 npc_castle_osgood
+npc_castle_quill
 npc_castle_dunmore
 npc_evil_gudrun
 npc_evil_tobias

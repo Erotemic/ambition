@@ -240,6 +240,10 @@ pub struct MatchReportArgs {
     /// the symmetry instrument, a pair is the matchup one.
     #[arg(long, value_name = "ID")]
     pub opponent: Option<String>,
+    /// Seat a third and fourth fighter (repeat the flag): a free-for-all.
+    /// The camera instrument reads 3- and 4-fighter framing through it.
+    #[arg(long = "also", value_name = "ID")]
+    pub also: Vec<String>,
     /// The ladder rung both seats play at (1..=9).
     #[arg(long, default_value_t = 5)]
     pub level: u8,
@@ -332,6 +336,7 @@ pub fn run_with(args: MatchReportArgs, build: fn() -> App) {
                 args.camera,
                 args.sim_writers,
                 args.recycle_ids,
+                &args.also,
             );
             cameras.push(camera);
             tallies
@@ -467,6 +472,7 @@ fn run_one(
     trace_camera: bool,
     sim_writers: bool,
     recycle_ids: usize,
+    also: &[String],
 ) -> (Vec<Tally>, CameraTally) {
     let mut app = build();
     // ⛔⛔ ONE `update()` IS ONE SIM TICK, WHATEVER COMPOSITION BUILT THE APP.
@@ -530,8 +536,10 @@ fn run_one(
         .unwrap_or_default();
     // Both seats are CPUs. `SmashSelect::roster` makes every locked seat
     // human, and nobody presses anything here.
-    let characters = [character, opponent];
-    let roster = ambition_demo_smash::smash_roster_at_levels(characters, &[level, level]);
+    let characters: Vec<&str> =
+        [character, opponent].into_iter().chain(also.iter().map(String::as_str)).take(4).collect();
+    let levels = vec![level; characters.len()];
+    let roster = ambition_demo_smash::smash_roster_at_levels(characters.clone(), &levels);
     app.world_mut().insert_resource(roster);
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(

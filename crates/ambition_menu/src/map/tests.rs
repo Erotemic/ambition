@@ -505,6 +505,7 @@ mod view_tests {
             world_min: Vec2::new(x, y),
             world_size: Vec2::new(w, h),
             edge_exits: edges.iter().map(|e| e.to_string()).collect(),
+            secret_exits: Vec::new(),
             doors: doors.iter().map(|(t, at)| MapDoor { at: Vec2::new(*at, 50.0), target_room: t.to_string() }).collect(),
             pins: vec![MapPin { at: Vec2::new(w * 0.5, h * 0.5), kind: MapPinKind::Resident }],
         }
@@ -545,6 +546,23 @@ mod view_tests {
         assert_eq!(view.doors.len(), 1, "the tavern's door on the street");
         assert_eq!(view.pins.len(), 1, "the street's resident; the field's waits for a visit");
         assert!(view.inside.is_none());
+    }
+
+    #[test]
+    fn a_room_behind_a_secret_exit_is_not_shown_until_it_is_visited() {
+        let mut map = town(&["street"]);
+        // The field is behind a false wall of the street: secret from both
+        // sides.
+        map.rooms[0].secret_exits.push("field".to_string());
+        map.rooms[1].secret_exits.push("street".to_string());
+        let shown = |map: &MapMenuState| -> Vec<String> {
+            map_view(map, "street", 1.5).unwrap().rooms.iter().map(|r| r.id.clone()).collect()
+        };
+        assert!(!shown(&map).contains(&"field".to_string()), "the secret room is hidden: {:?}", shown(&map));
+        assert!(shown(&map).contains(&"moor".to_string()), "control: an open way is shown");
+        map.visited.insert("field".to_string());
+        assert!(shown(&map).contains(&"field".to_string()), "found, it is on the map");
+        assert_eq!(super::super::view::region(&map.rooms, 0).len(), 4, "a secret exit still joins the region");
     }
 
     #[test]

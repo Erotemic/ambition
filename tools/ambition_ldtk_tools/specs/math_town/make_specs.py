@@ -78,6 +78,8 @@ CLOSETS = ("math_hotel_door_1", "math_hotel_door_2", "math_hotel_door_3")
 WOODS = "math_fractal_woods"
 #: Under the woods, down a hole in their floor (a ladder down it).
 MINE = "math_mobius_mine"
+#: East of the woods by a side exit, floors level: the Fibonacci Meadow.
+MEADOW = "math_fibonacci_meadow"
 #: West of the gate hall by a side exit, under the aqueduct's valley.
 HANOI = "math_tower_of_hanoi"
 CAFE, OFFICE, OBSERVATORY = "math_cafe", "math_surveyors_office", "math_observatory"
@@ -107,10 +109,14 @@ ROOMS_AT = {
     CLOSETS[0]: (13760, 480, 320),
     CLOSETS[1]: (14320, 480, 320),
     CLOSETS[2]: (14880, 480, 320),
-    WOODS: (1712 + 3200, 2400, 768),
+    # 160 wider than its art at the east end: ground past the mine's hole for
+    # whoever comes in from the meadow (the hole was 48 from the edge, and
+    # an arrival fell straight down it).
+    WOODS: (1712 + 3200, 2560, 768),
     # Under the woods' east end: its shaft (x 96..160) under their hole.
     MINE: (1712 + 3200 + 2288 - 96, 1600, 640),
     HANOI: (-1600, 1600, 768),
+    MEADOW: (1712 + 3200 + 2560, 2400, 768),
 }
 #: A room's world y when it is not 0. The rooms of the world touch where they
 #: join (`specs/check_flat_map.py`): Zeno's Aqueduct is west of the street at
@@ -127,6 +133,8 @@ ROOMS_Y = {
     MINE: 560 - 704 + 768,
     # Level with the gate hall, west of it.
     HANOI: 1344,
+    # Level with the woods, east of them.
+    MEADOW: 560 - 704,
 }
 
 #: Pixels of a town prop's frame to one world unit (`math_town_facades.PX`,
@@ -869,8 +877,9 @@ def fractal_woods():
          f'name: "down the mine shaft", activation: "EdgeExit", target_room: "{MINE}", target_zone: "{MINE}_shaft", bidirectional: true ) ),'),
         label("woods_sign_mine", WOODS_HOLE[0] - 180, g - 120, "THE MOBIUS MINE: one side only", 260),
         solid("west_wall", 0, 0, WALL, g - 112),
-        solid("east_wall", w - WALL, 0, WALL, g),
+        solid("east_wall", w - WALL, 0, WALL, g - 112),
         edge(f"{rid}_west", "back to the summit", 0, g - 96, 96, STREET, f"{STREET}_summit_east"),
+        edge(f"{rid}_east", "on to the Fibonacci Meadow", w - WALL, g - 96, 96, MEADOW, f"{MEADOW}_west"),
         f'( type: "PlayerStart", px: [100, {g - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
         *[ledge(f"limb_{i}", x0, y, x1 - x0) for i, (x0, x1, y) in enumerate(WOODS_LIMBS)],
         # Ivo, the groundskeeper, by the way in (`math.yarn` `woods_ivo`).
@@ -883,7 +892,8 @@ def fractal_woods():
         woods_enemy(1, "npc_puppy_slug", 1000, g, 28, 44, "combatant", "patroller"),
         woods_enemy(2, "npc_puppy_slug", 1760, g, 28, 44, "combatant", "patroller"),
         woods_enemy(3, "npc_dividing_mite", 1380, g, 40, 52, "dividing_mite"),
-        woods_enemy(4, "npc_dividing_mite", 2180, g, 40, 52, "dividing_mite"),
+        # Mid-woods, not by the way in from the meadow.
+        woods_enemy(4, "npc_dividing_mite", 1560, g, 40, 52, "dividing_mite"),
     ]
     return rid, room(rid, e, "The Fractal Woods: it goes all the way down.")
 
@@ -977,8 +987,64 @@ def tower_of_hanoi():
     return rid, room(rid, e, "The Tower of Hanoi.", theme="math_undercroft")
 
 
+#: The meadow (`math_meadow_props.py` draws on these): the ground, the
+#: squares (x0, side; their tops walked), the ledge up to the last.
+MEADOW_FLOOR = 704
+MEADOW_SQUARES = ((900, 32), (932, 32), (964, 64), (1028, 96), (1124, 160), (1284, 256))
+MEADOW_LEDGE = (1222, 1282, 496)
+
+
+def walk(name, x, y, w):
+    """A one-way walk the room's art draws: a still platform, no picture."""
+    return (f'( type: "MovingPlatform", px: [{x}, {y}], size: [{w}, 16], fields: ( id: "{name}", name: "{name}", '
+            f'speed: 0.0, visual: "none", one_way: true ) ),')
+
+
+def meadow_enemy(n, character, x, feet_y, w, h, brain, profile=None):
+    extra = f', brain_profile: "{profile}"' if profile else ""
+    return (f'( type: "EnemySpawn", px: [{x}, {feet_y - h}], size: [{w}, {h}], fields: ( name: "{MEADOW}_{character}_{n}", '
+            f'brain: "{brain}", character_id: "{character}", respawn: "OnRoomReenter"{extra} ) ),')
+
+
+def fibonacci_meadow():
+    """Out of town east of the woods: the Fibonacci Meadow. Farmer Fibbs's
+    cottage and his counting board; garden plots in squares of 1, 1, 2, 3,
+    5 and 8, a quarter of the golden spiral in each, their tops a stair (a
+    chest on the eight); sunflowers seeded at the golden angle, the rabbit
+    hutch bursting; dividing mites, which do not add up."""
+    rid = MEADOW
+    _, w, h = ROOMS_AT[rid]
+    g = MEADOW_FLOOR
+    x8, s8 = MEADOW_SQUARES[-1]
+    e = [
+        framed("meadow_farm", "meadow_farm", 90, 420),
+        framed("meadow_squares", "meadow_squares", 890, 440),
+        framed("meadow_field", "meadow_field", 1590, 380),
+        solid("ground", 0, g, w, h - g),
+        solid("west_wall", 0, 0, WALL, g - 112),
+        solid("east_wall", w - WALL, 0, WALL, g),
+        edge(f"{rid}_west", "back to the Fractal Woods", 0, g - 96, 96, WOODS, f"{WOODS}_east"),
+        f'( type: "PlayerStart", px: [260, {g - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        *[walk(f"square_{i}", x0, g - side, side) for i, (x0, side) in enumerate(MEADOW_SQUARES)],
+        walk("square_ledge", MEADOW_LEDGE[0], MEADOW_LEDGE[2], MEADOW_LEDGE[1] - MEADOW_LEDGE[0]),
+        # Farmer Fibbs by his counting board (`math.yarn` `meadow_fibbs`).
+        f'( type: "NpcSpawn", px: [{600 - 16}, {g - 64}], size: [32, 64], fields: ( character_id: "npc_math_fibbs", '
+        f'brain_override: "stand_still", prompt: "Talk", dialogue_id: "meadow_fibbs" ) ),',
+        f'( type: "ChestSpawn", px: [{x8 + 90}, {g - s8 - 58}], size: [76, 58], fields: ( name: "the golden ratio", reward: "currency:162" ) ),',
+        label("meadow_sign", 160, 300, "THE FIBONACCI MEADOW: each month, the last two months", 520),
+        label("meadow_sign_spiral", 900, 380, "GOLDEN SPIRAL (unrolled for your convenience)", 400),
+        label("meadow_sign_hutch", 1830, 470, "RABBITS: do not add", 240),
+        meadow_enemy(1, "npc_dividing_mite", 1700, g, 40, 52, "dividing_mite"),
+        meadow_enemy(2, "npc_dividing_mite", 2100, g, 40, 52, "dividing_mite"),
+        meadow_enemy(3, "npc_puppy_slug", 2240, g, 28, 44, "combatant", "patroller"),
+    ]
+    return rid, room(rid, e, "The Fibonacci Meadow: it adds up.")
+
+
+# The meadow before the woods: the woods grew east into where it was.
 ROOMS = (gate_hall, street, cafe, surveyors_office, observatory, zeno_aqueduct, hotel_lobby, hotel_corridor, hotel_lift,
-         hotel_ballroom, *[hotel_closet(k) for k in range(3)], fractal_woods, mobius_mine, tower_of_hanoi)
+         hotel_ballroom, *[hotel_closet(k) for k in range(3)], fibonacci_meadow, fractal_woods,
+         mobius_mine, tower_of_hanoi)
 
 #: What is painted on an IntGrid layer of a room: (room, layer, value, px, size).
 PAINT = [(STREET, "Climbable", 1, (x, top), (32, bottom - top)) for _name, x, top, bottom in LADDERS] + [

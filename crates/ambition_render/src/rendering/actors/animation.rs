@@ -6,12 +6,20 @@ use crate::rendering::primitives::{FeatureVisual, PlayerVisual, PropVisual};
 use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
 use ambition_sprite_sheet::character::CharacterAnimator;
 
-/// How a stance compaction (crouch, crawl, slide, morph) squashes the drawn
-/// art, for a sheet that has no row for the compact pose.
+/// How the drawn art's height stands in for a row the sheet does not have.
 ///
-/// The ratio is the collision-box ratio `current AABB height / base height`,
-/// clamped to (0, 1]. The pivot is the point of the quad that holds still.
-/// The two sprite-placement schemes use different pivots:
+/// Two factors multiply:
+///
+/// - `ratio_y`, the stance compaction (crouch, crawl, slide, morph) for a sheet
+///   with no row for the compact pose: the collision-box ratio
+///   `current AABB height / base height`, clamped to (0, 1].
+/// - `motion_y`, the body's motion squash and stretch (its air stretch times
+///   its landing squash, `BodyPoseView::air_stretch` and `squash.y`), for a
+///   sheet that has no air row and so draws an air pose or a landing from a
+///   ground row ([`draws_motion_from_ground_row`]). Above 1 in a fast fall.
+///
+/// The pivot is the point of the quad that holds still. The two
+/// sprite-placement schemes use different pivots:
 ///
 /// - A feet-anchored quad puts the feet at the transform, so scaling about
 ///   the anchor holds them.
@@ -20,22 +28,55 @@ use ambition_sprite_sheet::character::CharacterAnimator;
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct StanceSquash {
     pub(crate) ratio_y: f32,
+    pub(crate) motion_y: f32,
     /// Hold the quad's +gravity edge rather than its anchor.
     pub(crate) about_quad_foot: bool,
+}
+
+/// True when the sheet has neither a `jump` nor a `fall` row and no row of its
+/// own for `anim`, so it draws `anim` from a ground row. The body's motion
+/// squash and stretch then stands in for the air drawing it does not have. A
+/// sheet with an air row is drawn as authored.
+pub(crate) fn draws_motion_from_ground_row(
+    spec: &ambition_sprite_sheet::character::CharacterSheetSpec,
+    anim: ambition_sprite_sheet::character::CharacterAnim,
+) -> bool {
+    use ambition_sprite_sheet::character::CharacterAnim;
+    !spec.maps(CharacterAnim::Jump) && !spec.maps(CharacterAnim::Fall) && !spec.maps(anim)
 }
 
 impl StanceSquash {
     /// A body at full standing height — nothing to squash.
     pub(crate) const NONE: Self = Self {
         ratio_y: 1.0,
+        motion_y: 1.0,
         about_quad_foot: false,
     };
 
+    /// The squash `animator` draws `anim` with: each factor only where the
+    /// sheet lacks the row it stands in for, and no motion factor while an
+    /// authored clip shows. Call after the frame's request, so the clip that
+    /// shows is this frame's.
+    fn drawn_by(self, animator: &CharacterAnimator, anim: ambition_sprite_sheet::character::CharacterAnim) -> Self {
+        let compact = if animator.spec.maps(anim) { 1.0 } else { self.ratio_y };
+        let motion = if animator.showing_clip().is_none() && draws_motion_from_ground_row(&animator.spec, anim) {
+            self.motion_y
+        } else {
+            1.0
+        };
+        Self {
+            ratio_y: compact * motion,
+            motion_y: 1.0,
+            about_quad_foot: self.about_quad_foot,
+        }
+    }
+
     /// The squashed height and the anchor that keeps the pivot where it was, in
-    /// Bevy sprite-local units (`+y` up, anchor normalized to the quad).
+    /// Bevy sprite-local units (`+y` up, anchor normalized to the quad). The
+    /// motion factor is not applied here: [`Self::drawn_by`] folds it in.
     fn squash(self, height: f32, anchor_y: f32) -> (f32, f32) {
         let scaled = height * self.ratio_y;
-        if !self.about_quad_foot || self.ratio_y >= 1.0 || scaled <= f32::EPSILON {
+        if !self.about_quad_foot || self.ratio_y == 1.0 || scaled <= f32::EPSILON {
             return (scaled, anchor_y);
         }
         // Scale the quad's extents about its foot edge, then re-express the
@@ -68,13 +109,6 @@ pub(crate) fn apply_character_frame(
     color: Color,
     stance: StanceSquash,
 ) -> FrameWrites {
-    // The stance squash is a placeholder for sheets that lack a row for the
-    // compact pose.
-    let stance = if animator.spec.maps(anim) {
-        StanceSquash::NONE
-    } else {
-        stance
-    };
     animator.note_idle(anim == ambition_sprite_sheet::character::CharacterAnim::Idle && clip.is_none(), dt);
     animator.request_actor_pose(
         anim,
@@ -86,6 +120,8 @@ pub(crate) fn apply_character_frame(
     animator.slave_clip_to(clip.and_then(|request| request.phase));
     // A move whose row is the upper body only: the legs keep their own pose.
     animator.under_clip(clip.and_then(|request| request.legs));
+    // The squash is a placeholder for rows the sheet lacks.
+    let stance = stance.drawn_by(animator, anim);
     // Gravity-aware facing flip: a ~180° up-gravity roll already mirrors the
     // sprite, so the flip inverts (#33). The flip is XORed with the sheet's
     // authored facing (`authored_faces_left`), the same term `animate_bosses`
@@ -278,6 +314,7 @@ pub fn animate_player(
             Color::WHITE,
             StanceSquash {
                 ratio_y: pose.stance_ratio_y,
+                motion_y: pose.air_stretch * pose.squash.y,
                 // The authored placement uses the translation and a centre anchor, so
                 // the squash must pivot on the quad's own foot edge.
                 about_quad_foot: pose.authored_offset.is_some(),
@@ -358,6 +395,9 @@ pub fn animate_characters(
         // Per-character attack presentation belongs in a game-authored spec, not a
         // default here.
         let mut anchor = anchor;
+        // A centre basis anchor is an authored-offset quad
+        // (`character_render_basis`): its feet are the quad's foot edge.
+        let about_quad_foot = animator.render_basis.is_some_and(|basis| basis.feet_anchor == Vec2::ZERO);
         let writes = apply_character_frame(
             sprite.bypass_change_detection(),
             &mut animator,
@@ -372,8 +412,12 @@ pub fn animate_characters(
             // actor flips correctly.
             frame.gravity_dir,
             Color::WHITE,
-            // Enemies and NPCs do not use the stance squash.
-            StanceSquash::NONE,
+            // Enemies and NPCs do not use the stance compaction.
+            StanceSquash {
+                ratio_y: 1.0,
+                motion_y: frame.air_stretch * frame.squash.y,
+                about_quad_foot,
+            },
         );
         writes.mark(&mut sprite, anchor.as_mut());
     }
@@ -600,6 +644,7 @@ mod stance_squash_tests {
     fn squashing_about_the_anchor_leaves_the_anchor_where_it_was() {
         let squash = StanceSquash {
             ratio_y: 0.5,
+            motion_y: 1.0,
             about_quad_foot: false,
         };
         let (height, anchor) = squash.squash(100.0, -0.3);
@@ -612,9 +657,12 @@ mod stance_squash_tests {
     /// the floor.
     #[test]
     fn squashing_about_the_quad_foot_holds_the_foot_edge() {
-        for (anchor_in, ratio) in [(0.0_f32, 0.5_f32), (-0.3, 0.4), (0.2, 0.85)] {
+        // A ratio above 1 is the air stretch of a falling body: its foot edge
+        // must not go down into the floor.
+        for (anchor_in, ratio) in [(0.0_f32, 0.5_f32), (-0.3, 0.4), (0.2, 0.85), (0.0, 1.12), (-0.3, 1.05)] {
             let squash = StanceSquash {
                 ratio_y: ratio,
+                motion_y: 1.0,
                 about_quad_foot: true,
             };
             let (foot_before, top_before) = extents(100.0, anchor_in);
@@ -639,11 +687,105 @@ mod stance_squash_tests {
         for about_quad_foot in [false, true] {
             let squash = StanceSquash {
                 ratio_y: 1.0,
+                motion_y: 1.0,
                 about_quad_foot,
             };
             assert_eq!(squash.squash(120.0, -0.42), (120.0, -0.42));
         }
         assert_eq!(StanceSquash::NONE.squash(120.0, -0.42), (120.0, -0.42));
+    }
+}
+
+#[cfg(test)]
+mod motion_squash_tests {
+    use super::{apply_character_frame, StanceSquash};
+    use ambition_sprite_sheet::character::sheets::{available_sheet_keys, try_load_spec_for_character_id};
+    use ambition_sprite_sheet::character::{CharacterAnim, CharacterAnimator, CharacterSpriteAsset};
+    use bevy::prelude::*;
+    use bevy::sprite::Anchor;
+
+    /// The full stretch of a fast fall.
+    const STRETCH: f32 = 1.12;
+
+    /// An animator on the first baked trimmed sheet that has an air row
+    /// (`jump` or `fall`) or has none.
+    fn animator(has_air_row: bool) -> CharacterAnimator {
+        let content = ambition_sprite_sheet::test_support::shared_sprites();
+        let spec = available_sheet_keys(&content)
+            .into_iter()
+            .filter_map(|key| try_load_spec_for_character_id(&content, key))
+            .find(|spec| {
+                spec.is_trimmed()
+                    && (spec.maps(CharacterAnim::Jump) || spec.maps(CharacterAnim::Fall)) == has_air_row
+            })
+            .unwrap_or_else(|| panic!("the cast holds a trimmed sheet with has_air_row = {has_air_row}"));
+        let mut animator = CharacterAnimator::new(&CharacterSpriteAsset {
+            texture: Handle::default(),
+            layout: Handle::default(),
+            spec,
+            pages: Vec::new(),
+            requested_tier: ambition_persistence::settings::TextureResolutionScale::Full,
+            resolved_tier: ambition_persistence::settings::TextureResolutionScale::Full,
+            rigged: None,
+        });
+        animator.ensure_render_basis(Vec2::new(40.0, 80.0), Vec2::new(0.0, -0.45));
+        animator
+    }
+
+    /// The quad size and anchor `animator` draws `anim` with at `motion_y`.
+    fn drawn(animator: &mut CharacterAnimator, anim: CharacterAnim, motion_y: f32) -> (Vec2, Vec2) {
+        let mut sprite = Sprite::default();
+        let mut anchor = Anchor::default();
+        let _ = apply_character_frame(
+            &mut sprite,
+            animator,
+            Some(&mut anchor),
+            anim,
+            None,
+            false,
+            false,
+            0.0,
+            1.0,
+            ambition_platformer2d_core::DEFAULT_GRAVITY_DIR,
+            Color::WHITE,
+            StanceSquash {
+                ratio_y: 1.0,
+                motion_y,
+                about_quad_foot: false,
+            },
+        );
+        (sprite.custom_size.expect("a trimmed sheet sizes its quad"), anchor.0)
+    }
+
+    /// A sheet with no air row draws a fall from its idle row: the fast fall is
+    /// drawn taller about the feet, and only taller.
+    #[test]
+    fn a_sheet_with_no_air_row_draws_a_fast_fall_taller_about_its_feet() {
+        let mut animator = animator(false);
+        let (rest, rest_anchor) = drawn(&mut animator, CharacterAnim::Fall, 1.0);
+        let (fall, fall_anchor) = drawn(&mut animator, CharacterAnim::Fall, STRETCH);
+        assert!((fall.y - rest.y * STRETCH).abs() < 1e-3, "{fall:?} is not {STRETCH} times {rest:?}");
+        assert_eq!(fall.x, rest.x);
+        assert_eq!(fall_anchor, rest_anchor, "the feet anchor moved");
+    }
+
+    /// A sheet with an air row draws its fall as authored.
+    #[test]
+    fn a_sheet_with_an_air_row_draws_its_fall_as_authored() {
+        let mut animator = animator(true);
+        let anim = if animator.spec.maps(CharacterAnim::Fall) { CharacterAnim::Fall } else { CharacterAnim::Jump };
+        assert_eq!(drawn(&mut animator, anim, STRETCH), drawn(&mut animator, anim, 1.0));
+    }
+
+    /// A row the sheet has is never squashed by the motion: a body that stands
+    /// is drawn at its own height whatever its fall speed was.
+    #[test]
+    fn a_row_the_sheet_has_is_not_squashed() {
+        let mut animator = animator(false);
+        assert_eq!(
+            drawn(&mut animator, CharacterAnim::Idle, STRETCH),
+            drawn(&mut animator, CharacterAnim::Idle, 1.0)
+        );
     }
 }
 

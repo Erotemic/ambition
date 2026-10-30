@@ -149,6 +149,8 @@ mod tests {
             pos: ae::Vec2::ZERO,
             facing: 1.0,
             gravity_dir: ae::DEFAULT_GRAVITY_DIR,
+            squash: ae::Vec2::ONE,
+            air_stretch: 1.0,
             clip: None,
             move_charge: None,
             passage_look: None,

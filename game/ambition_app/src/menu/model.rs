@@ -199,6 +199,8 @@ pub struct MapLook {
     pub door: [f32; 4],
     pub door_marked: [f32; 4],
     pub label: [f32; 4],
+    /// The name of the room the player is in, on its gold.
+    pub label_here: [f32; 4],
 }
 
 /// The 3D cube's colours (`KaleidoscopeLook`), each red, green, blue and

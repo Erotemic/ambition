@@ -22,6 +22,26 @@ pub(crate) const MAP_FRAME: MenuRect = MenuRect::new(14.0, 20.0, 72.0, 62.0);
 /// of height.
 pub(crate) const MAP_FRAME_ASPECT: f32 = MAP_FRAME.w * 1.5 / MAP_FRAME.h;
 
+/// A room's name on the map, in percent of the page's height.
+const MAP_LABEL_SIZE: f32 = 2.0;
+
+/// The narrowest room, in percent of the page's width, that shows its name.
+const MAP_LABEL_MIN_WIDTH: f32 = 9.0;
+
+/// A room's title fitted to `width` percent of the page: a leading "THE " is
+/// dropped, and a title still too long is cut with an ellipsis. A character
+/// of the label is about 0.55 of its height wide, and a percent of width is
+/// 1.5 percent of height on the 3:2 page.
+fn short_title(title: &str, width: f32) -> String {
+    let title = title.strip_prefix("THE ").or_else(|| title.strip_prefix("The ")).unwrap_or(title);
+    let fits = (width * 1.5 / (MAP_LABEL_SIZE * 0.55)).floor().max(3.0) as usize;
+    if title.chars().count() <= fits {
+        return title.to_string();
+    }
+    let cut: String = title.chars().take(fits.saturating_sub(1)).collect();
+    format!("{}…", cut.trim_end())
+}
+
 /// What the Map page is built from: the map's rooms and visits, and the room
 /// the player is in.
 #[derive(SystemParam)]
@@ -86,6 +106,18 @@ pub(crate) fn build_map_page(view: Option<&MapView>) -> MenuPageModel<MenuPage, 
         };
         model.panel(rect, colour(fill), None);
     }
+    // The names of the visited rooms wide enough to hold one, under the
+    // doors' marks so neither hides the other.
+    for room in view.rooms.iter().filter(|room| room.visited) {
+        let w = room.size.x * f.w;
+        if w < MAP_LABEL_MIN_WIDTH {
+            continue;
+        }
+        let cx = f.x + (room.min.x + room.size.x * 0.5) * f.w;
+        let cy = f.y + (room.min.y + room.size.y * 0.5) * f.h - MAP_LABEL_SIZE * 0.5;
+        let colour_key = if room.here { map_look.label_here } else { map_look.label };
+        model.text(cx, cy, MAP_LABEL_SIZE, short_title(&room.title, w), MenuTextAlign::Center, colour(colour_key));
+    }
     for (i, at) in view.doors.iter().enumerate() {
         let marked = view.marked_door == Some(i);
         let (w, h) = if marked { (1.4, 2.1) } else { (0.7, 1.05) };
@@ -102,4 +134,17 @@ pub(crate) fn build_map_page(view: Option<&MapView>) -> MenuPageModel<MenuPage, 
     model.text(50.0, 88.0, 2.2, here, MenuTextAlign::Center, colour(map_look.label));
     add_edge_buttons(&mut model, MenuPage::Map);
     model
+}
+
+#[cfg(test)]
+mod tests {
+    use super::short_title;
+
+    #[test]
+    fn a_room_name_drops_its_article_and_fits_its_room() {
+        assert_eq!(short_title("THE QUAD", 20.0), "QUAD");
+        let cut = short_title("THE WRECKERS' REEF AND ITS LONG SHOAL", 9.0);
+        assert!(cut.ends_with('…'), "{cut}");
+        assert!(cut.chars().count() <= 12, "{cut}");
+    }
 }

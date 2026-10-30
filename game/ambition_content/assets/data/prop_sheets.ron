@@ -373,6 +373,10 @@
     // The catacombs' cracked wall (a breakable's look) and the ossuary behind it (Evil).
     "catacombs_cracked_wall": (),
     "ossuary_room": (),
+    // The great tree in the primeval run, and the treetops over the trail (jungle).
+    "run_great_tree": (),
+    "treetops_west": (),
+    "treetops_east": (),
     "sail_loft_room": (),
     // The Pirate Port's well, and the cellars under customs (PvN).
     "plaza_well": (),

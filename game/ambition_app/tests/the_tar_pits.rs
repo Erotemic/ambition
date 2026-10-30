@@ -74,3 +74,15 @@ fn the_fossil_beds_lie_under_the_ridge_road() {
     go(&mut app, "primeval_ridge", Some("fossils_shaft"));
     go(&mut app, "primeval_fossil_beds", Some("ridge_sinkhole"));
 }
+
+/// The treetops over the trail (`specs/primeval/treetops.py`): up the great
+/// tree's rope ladder out of the run, east along the canopy, and down
+/// through the gap in the leaves into the rookery; and back down the tree.
+#[test]
+fn the_treetops_run_over_the_trail_from_the_great_tree_to_the_rookery() {
+    let mut app = a_session_in("primeval_run");
+    go(&mut app, "primeval_treetops", Some("run_great_tree"));
+    go(&mut app, "primeval_run", Some("treetops_trunk"));
+    let mut app = a_session_in("primeval_treetops");
+    go(&mut app, "primeval_rookery", Some("treetops_drop"));
+}

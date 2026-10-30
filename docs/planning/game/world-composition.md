@@ -76,8 +76,23 @@ Jon, 2026-10-30:
 - **Under:** a loose board in the street (a one-way floor, dropped through; `secret_`) into the hidden way, west to a stone slab in the shrine's floor, shut until the lever under it is pulled.
 - **Tests:** `game/ambition_app/tests/the_ninja_village.rs`.
 
+## The primeval trail (the fifth)
+
+```
+                 [treetops]─────────────gap (drop)┐
+                   │great tree                    ▼
+ [trailhead]──[run]──────────────────[rookery]──[ridge]──[canopy]──[tar pits]──[smoking mountain]
+                                                   │sinkhole
+                                               [fossil beds]
+```
+
+- **Over:** the rangers' rope ladder up the great tree in the run, out of its top into the treetops (bridges, the abandoned canopy research station, a pterosaur's nest); a gap in the leaves at the east end drops into the rookery.
+- **Under:** the ridge road's sinkhole down to the fossil beds.
+- **Generator:** `specs/primeval/treetops.py` (the run and the rookery are edited in place).
+- **Tests:** `game/ambition_app/tests/the_tar_pits.rs`.
+
 ## Not yet
 
 - **A hit-breakable wall** (`district_kit.breakable_wall`, broken for good in the save) is the other kind of secret: the catacombs' cracked wall hides the ossuary of the other founders. A breakable draws UNDER the room's scenery (the block band), so the room's art leaves a window over it (the canvas's alpha cut away).
 - **Ladders** draw over the room's scenery and under the cast (`CLIMBABLE_Z`); the room's art does not draw them.
-- The other regions (Eureka, the math town, the primeval trail) are still strings of rooms. Each wants the same treatment.
+- The other regions (Eureka, the math town) are still strings of rooms. Each wants the same treatment.

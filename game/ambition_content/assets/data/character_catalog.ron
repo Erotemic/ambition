@@ -3254,6 +3254,9 @@
                 attack_range: 44.0,
                 patrol_effort: 0.6,
                 chase_effort: 1.0,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): It sizes you up just out of reach, then commits; the pack spaces itself.
+                retreat_after_swing_s: 0.35,
+                tactics: (lurk_px: 80.0, waits_its_turn: true, footsies: Some((hold_px: 120.0, wait_s: 0.8)), flinch_back_s: 0.2),
             )),
             max_health: Some(4),
             tags: ["enemy", "large"],
@@ -4723,6 +4726,8 @@
                 attack_range: 30.0,
                 patrol_effort: 0.5,
                 chase_effort: 1.0,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): They take turns.
+                tactics: (waits_its_turn: true),
             )),
             max_health: Some(2),
             tags: ["enemy", "bird", "minion"],
@@ -4752,6 +4757,8 @@
                 attack_range: 30.0,
                 patrol_effort: 0.5,
                 chase_effort: 1.0,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): They take turns.
+                tactics: (waits_its_turn: true),
             )),
             max_health: Some(2),
             tags: ["enemy", "bird", "minion"],
@@ -4815,6 +4822,8 @@
                 attack_range: 26.0,
                 patrol_effort: 0.5,
                 chase_effort: 1.0,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): Skittish: hit it and it bolts.
+                tactics: (flinch_back_s: 0.5),
             )),
             max_health: Some(1),
             tags: ["enemy", "bird", "minion"],
@@ -4844,6 +4853,9 @@
                 attack_range: 42.0,
                 patrol_effort: 0.5,
                 chase_effort: 1.0,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): Kick and run.
+                retreat_after_swing_s: 0.5,
+                tactics: (flinch_back_s: 0.3),
             )),
             max_health: Some(3),
             tags: ["enemy", "bird", "minion"],
@@ -4874,6 +4886,9 @@
                 attack_range: 48.0,
                 patrol_effort: 0.5,
                 chase_effort: 1.0,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): It struts just out of reach, then the kick; then away.
+                retreat_after_swing_s: 0.6,
+                tactics: (footsies: Some((hold_px: 120.0, wait_s: 1.0)), flinch_back_s: 0.3),
             )),
             max_health: Some(4),
             tags: ["enemy", "bird", "minion"],
@@ -4902,6 +4917,9 @@
                 attack_range: 48.0,
                 patrol_effort: 0.5,
                 chase_effort: 1.0,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): As the ostrich.
+                retreat_after_swing_s: 0.6,
+                tactics: (footsies: Some((hold_px: 120.0, wait_s: 1.1)), flinch_back_s: 0.3),
             )),
             max_health: Some(4),
             tags: ["enemy", "bird", "minion"],
@@ -4931,6 +4949,9 @@
                 attack_range: 42.0,
                 patrol_effort: 0.5,
                 chase_effort: 1.0,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): It waits, it waits, it kicks hard.
+                attack_cooldown_s: 0.8,
+                tactics: (footsies: Some((hold_px: 100.0, wait_s: 1.2))),
             )),
             max_health: Some(5),
             tags: ["enemy", "bird", "minion"],
@@ -4961,6 +4982,8 @@
                 attack_range: 50.0,
                 patrol_effort: 0.3,
                 chase_effort: 0.7,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): The stare: it holds a long way off, and then it does not.
+                tactics: (footsies: Some((hold_px: 140.0, wait_s: 1.8))),
             )),
             max_health: Some(5),
             tags: ["enemy", "bird", "minion"],
@@ -5088,6 +5111,8 @@
                 attack_range: 30.0,
                 patrol_effort: 0.4,
                 chase_effort: 1.0,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): A huddle takes turns.
+                tactics: (waits_its_turn: true, flinch_back_s: 0.2),
             )),
             max_health: Some(3),
             tags: ["enemy", "bird", "minion"],
@@ -5118,6 +5143,10 @@
                 attack_range: 22.0,
                 patrol_effort: 0.6,
                 chase_effort: 1.0,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): A pack that darts: each takes its turn, bites and skips back out.
+                retreat_after_swing_s: 0.4,
+                attack_cooldown_s: 0.3,
+                tactics: (waits_its_turn: true, footsies: Some((hold_px: 70.0, wait_s: 0.6)), flinch_back_s: 0.3),
             )),
             max_health: Some(1),
             tags: ["enemy", "dinosaur"],
@@ -5179,6 +5208,9 @@
                 attack_range: 44.0,
                 patrol_effort: 0.5,
                 chase_effort: 1.0,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): It holds its distance, lowers its head, and comes.
+                retreat_after_swing_s: 0.5,
+                tactics: (footsies: Some((hold_px: 160.0, wait_s: 1.0)), flinch_back_s: 0.2),
             )),
             max_health: Some(6),
             tags: ["enemy", "dinosaur"],
@@ -5209,6 +5241,8 @@
                 attack_range: 62.0,
                 patrol_effort: 0.3,
                 chase_effort: 1.0,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): Slow between gores: the gap is the opening.
+                attack_cooldown_s: 1.0,
             )),
             max_health: Some(12),
             mass: Some(8.0),

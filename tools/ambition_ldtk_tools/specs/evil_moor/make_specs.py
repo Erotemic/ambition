@@ -17,6 +17,8 @@ since: its west exit is ADDED to it (and its wall opened), not regenerated.
   searchlight on top.
 - The founder's statue, toppled on its face: its back is walked on (y 600).
 - Barbed wire. Attack hounds, failed prototypes and zombies.
+- At its far west end, the Crooked Lantern: an inn (a door), Gudrun and
+  Tobias inside.
 
 The art is the sprite tools' `targets/props/evil_moor_props.py`, drawn on
 these numbers.
@@ -29,12 +31,15 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
-from district_kit import WALL, WORLDS, add_entities, edge, entity, ledge, make_rooms, room, run, sign, solid, start  # noqa: E402
+from district_kit import WALL, WORLDS, add_entities, door, edge, entity, ledge, make_rooms, resident, room, run, sign, solid, start  # noqa: E402
 from district_scenery import piece  # noqa: E402
 
 WORLD = WORLDS / "evil.ldtk"
 GENERATOR = "specs/evil_moor/make_specs.py"
 MOOR = "evil_searchlight_moor"
+#: The inn at the moor's far west end, and where its room is in the world.
+INN = "evil_crooked_lantern"
+INN_AT, INN_W, INN_H, INN_FLOOR = (-2400, 1024), 1024, 512, 448
 FOREST = "evil_gate_forest"
 W, H, FLOOR = 2400, 784, 656
 BOG = (600, 1100, 640)
@@ -48,7 +53,10 @@ def enemy(n, character, x, feet, w, h):
 def moor():
     bx0, bx1, water = BOG
     e = [
+        piece("moor_inn_front", 0, 400, name="moor_inn_front"),
         piece("moor_wire", 200, 600, name="moor_wire"),
+        door("moor_inn_door", "into the Crooked Lantern", 120, FLOOR, INN, "inn_door"),
+        sign("inn_sign", 250, FLOOR - 260, "THE CROOKED LANTERN: open after curfew, which is always", 460),
         piece("moor_bog", 560, 580, name="moor_bog"),
         piece("moor_watchtower", 1180, 0, name="moor_watchtower"),
         piece("moor_statue", 1740, 500, name="moor_statue"),
@@ -73,11 +81,32 @@ def moor():
         enemy(2, "npc_evil_attack_hound", 1760, FLOOR, 52, 50),
         enemy(3, "npc_evil_failed_prototype", 1260, FLOOR, 32, 40),
         enemy(4, "npc_evil_failed_prototype", 1420, FLOOR, 32, 40),
-        enemy(5, "npc_evil_zombie", 220, FLOOR, 30, 67),
+        enemy(5, "npc_evil_zombie", 520, FLOOR, 30, 67),
         enemy(6, "npc_evil_zombie", 1960, 580, 30, 67),
     ]
     return MOOR, room(MOOR, e, at=(-W, 0), size=(W, H), biome="evil_forest", music="oppressive_crush",
                       bg="#3A0E0E", title="THE SEARCHLIGHT MOOR", generator=GENERATOR)
+
+
+def inn():
+    """The Crooked Lantern inside: the fire, the bar, the castle's WANTED
+    posters and the locals' map behind the picture. Gudrun behind the bar,
+    Tobias by the fire (`dialogue/sandbox/castle_godwin.yarn`)."""
+    w, h, g = INN_W, INN_H, INN_FLOOR
+    e = [
+        piece("inn_room", 16, 32, name="inn_room"),
+        solid("floor", 0, g, w, h - g),
+        solid("ceiling", 0, 0, w, 32),
+        solid("west_wall", 0, 32, WALL, g - 32),
+        solid("east_wall", w - WALL, 32, WALL, g - 32),
+        door("inn_door", "out onto the moor", 40, g, MOOR, "moor_inn_door"),
+        start(INN, 140, g),
+        resident("npc_evil_tobias", "evil_tobias", 430, g),
+        resident("npc_evil_gudrun", "evil_gudrun", 700, g),
+        sign("inn_sign_rules", 512, 110, "NO SINGING THE OLD ANTHEM. HUM IT.", 420),
+    ]
+    return INN, room(INN, e, at=INN_AT, size=(w, h), biome="castle_godwin", music="argand_waltz", bg="#2A1A14",
+                     title="THE CROOKED LANTERN", generator=GENERATOR)
 
 
 FOREST_EDGE_YAML = f"""# The gate forest's way west to the moor. Written by {GENERATOR}.
@@ -97,16 +126,18 @@ entities:
 
 
 def main(argv):
-    rid, text = moor()
-    path = HERE / f"{rid}.ron"
-    path.write_text(text)
-    print(path.relative_to(HERE.parents[1]))
+    paths = []
+    for rid, text in (inn(), moor()):
+        path = HERE / f"{rid}.ron"
+        path.write_text(text)
+        print(path.relative_to(HERE.parents[1]))
+        paths.append(path)
     if "--apply" not in argv:
         return 0
     # The moor's east edge and the forest's west edge name each other, so the
     # check after the first of the two writes refuses the half-joined world;
     # only the end state is checked (the last `validate`).
-    make_rooms(WORLD, [path])
+    make_rooms(WORLD, paths)
     if code := add_entities(FOREST_EDGE_YAML, WORLD, HERE / "forest_edge.yaml", unless='"out to the moor"'):
         return code
     code, _ = run("intgrid", "paint", "--ldtk", str(WORLD), "--level", FOREST, "--layer", "Collision", "--value", "0",

@@ -6210,6 +6210,42 @@
                 hall: ["We are not against evil. We are against evil without a pension.", "Every hero who comes through here gets a free hit on one of my members. We are negotiating that."],
             ),
         ),
+        // ===== The Crooked Lantern, the inn at the end of the Searchlight Moor
+        // (the Evil dimension), made by chargen.
+        "npc_evil_gudrun": (
+            display_name: "Gudrun",
+            // Keeps the inn and its lantern lit, whatever the castle says.
+            manifest: "sprites/evil_gudrun_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "castle_godwin", "peaceful"],
+            barks: (
+                idle: ["Stew's on. Lantern's lit. Castle can mind its own business.", "Wipe your feet. The moor follows people in."],
+                hall: ["The castle wants my lantern out. My lantern wants the castle out. We'll see who gives first.", "Every hero who stops at my inn leaves with soup in them. It is the least I can do, and the most."],
+            ),
+        ),
+        "npc_evil_tobias": (
+            display_name: "Tobias",
+            // A trapper who knows every blind spot of the castle's searchlights.
+            manifest: "sprites/evil_tobias_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 175 cm.
+            standing_height: Some(67.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "castle_godwin", "peaceful"],
+            barks: (
+                idle: ["Eleven seconds a sweep. Count with me.", "Never trust a light that looks for you."],
+                hall: ["I trap what the castle loses. The castle loses a lot.", "The searchlights have habits. So do I. Mine are older."],
+            ),
+        ),
         // ===== The primeval trail's people (the jungle dimension), made by chargen.
         "npc_primeval_brandvold": (
             display_name: "Ranger Brandvold",

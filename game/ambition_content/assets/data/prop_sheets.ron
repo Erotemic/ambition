@@ -272,6 +272,9 @@
     "math_ballroom_room": (),
     "math_goat": (),
     "math_car": (),
+    // The Crooked Lantern, the inn at the end of the Searchlight Moor (Evil).
+    "moor_inn_front": (),
+    "inn_room": (),
     // The hall of the Shadow Clan (PvN).
     "shadow_dojo_hall": (),
     // Along the primeval trail.

@@ -153,6 +153,8 @@ npc_tower_ruiz
 npc_castle_hargreave
 npc_castle_osgood
 npc_castle_dunmore
+npc_evil_gudrun
+npc_evil_tobias
 
 [The primeval trail's people]
 npc_primeval_brandvold

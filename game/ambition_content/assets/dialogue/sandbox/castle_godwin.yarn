@@ -52,3 +52,30 @@ Brigid Dunmore: Brigid Dunmore, shop steward, Henchpersons' Guild, Local Six-Six
 -> Solidarity.
     Brigid Dunmore: Ha. Mind the hounds on the way out. They are not in the Guild. They will not join. We have asked.
 ===
+
+title: evil_gudrun
+---
+Gudrun: Sit by the fire, dry your bolts. Nobody here works for the castle. Not after dark, and it is always dark.
+-> Why keep an inn out here?
+    Gudrun: Somebody has to keep a light on that is not looking for anybody.
+    Gudrun: The castle sends a man to tell me to put the lantern out. I give him soup. He forgets what he came for.
+-> Is that your face on the poster?
+    Gudrun: That is yours, love. Fourth from the left. Good likeness. They got the antenna right.
+-> What do you serve?
+    Gudrun: Stew, ale, and the news. The stew is the most reliable.
+-> Thank you, Gudrun.
+    Gudrun: Mind the bog on the way out. And the hounds. And the founder, he's lying about.
+===
+
+title: evil_tobias
+---
+Tobias: Searchlight sweeps every eleven seconds. It lingers on the bog, it skips the old cart. That is where you walk.
+-> How do you know?
+    Tobias: Thirty years trapping on this moor. The lights are newer than me. I know their habits better than the men who run them.
+-> What do you trap?
+    Tobias: Used to be rabbits. Now it's the castle's failed prototypes. They wander off. I bring them back for the bounty, and the castle pays me in coupons for the castle.
+-> What is behind the picture?
+    Tobias: A picture of the castle. Lovely frame. Nothing behind it at all. Nothing that would show the blind spots of every light on the moor.
+-> See you, Tobias.
+    Tobias: You won't. That's the point of the blind spots.
+===

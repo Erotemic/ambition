@@ -847,6 +847,9 @@ def fractal_woods():
         edge(f"{rid}_west", "back to the summit", 0, g - 96, 96, STREET, f"{STREET}_summit_east"),
         f'( type: "PlayerStart", px: [100, {g - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
         *[ledge(f"limb_{i}", x0, y, x1 - x0) for i, (x0, x1, y) in enumerate(WOODS_LIMBS)],
+        # Ivo, the groundskeeper, by the way in (`math.yarn` `woods_ivo`).
+        f'( type: "NpcSpawn", px: [{320 - 16}, {g - 64}], size: [32, 64], fields: ( character_id: "npc_math_ivo", '
+        f'brain_override: "stand_still", prompt: "Talk", dialogue_id: "woods_ivo" ) ),',
         f'( type: "ChestSpawn", px: [{WOODS_LIMBS[3][0] + 30}, {WOODS_LIMBS[3][2] - 58}], size: [76, 58], fields: ( name: "the self-similar acorn", reward: "currency:75" ) ),',
         label("woods_sign", 160, g - 220, "THE FRACTAL WOODS: every tree a forest, every branch a tree", 520),
         label("woods_sign_koch", 1010, g - 150, "KOCH HEDGE: infinitely long. Please do not trim.", 420),

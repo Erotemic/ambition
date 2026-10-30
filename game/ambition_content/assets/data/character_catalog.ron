@@ -6191,6 +6191,23 @@
                 hall: ["Thirty years on the range. I have signed off nine hundred tests as probably fine. Eight hundred and ninety were.", "The rocket is not leaning. The ground is."],
             ),
         ),
+        "npc_math_ivo": (
+            display_name: "Ivo",
+            // Groundskeeper of the Fractal Woods.
+            manifest: "sprites/math_ivo_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 176 cm.
+            standing_height: Some(68.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "math_town", "peaceful"],
+            barks: (
+                idle: ["Third iteration of the hedge. The fourth is longer.", "Mind the branches. They have branches."],
+                hall: ["I trim the Koch hedge from spring to spring. Every cut makes more hedge.", "I raked the woods once. Every leaf had leaves. I stopped raking."],
+            ),
+        ),
         // ===== Castle Godwin's staff (the Evil dimension), made by chargen: the
         // kitchens under the gatehouse.
         "npc_castle_hargreave": (

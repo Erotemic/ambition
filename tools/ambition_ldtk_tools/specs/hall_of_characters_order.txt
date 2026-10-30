@@ -151,6 +151,9 @@ npc_tower_bankole
 npc_tower_granger
 npc_tower_ruiz
 
+[The Math town's people]
+npc_math_ivo
+
 [Castle Godwin's staff]
 npc_castle_hargreave
 npc_castle_osgood

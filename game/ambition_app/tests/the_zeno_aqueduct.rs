@@ -25,3 +25,10 @@ fn the_fractal_woods_lie_east_of_the_summit() {
     go(&mut app, STREET, Some("math_fractal_woods_west"));
     go(&mut app, "math_fractal_woods", Some("math_town_street_summit_east"));
 }
+
+/// Ivo keeps the Fractal Woods (`math.yarn` `woods_ivo`).
+#[test]
+fn the_groundskeeper_of_the_fractal_woods_talks() {
+    let mut app = a_session_in("math_fractal_woods");
+    crate::the_pirate_port::talk(&mut app, "npc_math_ivo", "What do you do here?");
+}

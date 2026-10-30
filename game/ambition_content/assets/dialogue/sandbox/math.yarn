@@ -254,3 +254,18 @@ Python Goras: Room service sent beans. I sent them back. Room service moved me t
 -> Enjoy your stay.
     Python Goras: The stay enjoys itself. I merely remain in it, in a new room every so often.
 ===
+
+title: woods_ivo
+---
+Ivo: Careful on the path. It's a lot longer than it looks, if you look closely.
+-> What do you do here?
+    Ivo: Groundskeeper. I trim the hedge, I sweep the leaves, I count the trees. The counting is the hard part.
+    Ivo: Every tree is made of smaller trees. I counted to a thousand on one branch and it had only just started.
+-> Why is the hedge that shape?
+    Ivo: I started trimming it flat in the spring. Took a third off every edge and put a point on the middle. Then I did it again.
+    Ivo: Third iteration now. It's longer than the woods. It's still the same width. Nobody believes me.
+-> What's the bush at the far end?
+    Ivo: The Mandelbrot. Don't prune it. Every bit you cut off has a little copy of the whole thing on it, and they all want watering.
+-> I'll leave you to it.
+    Ivo: Mind the slugs. They see dogs in everything.
+===

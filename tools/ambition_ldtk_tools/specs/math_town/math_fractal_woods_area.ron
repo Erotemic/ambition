@@ -25,6 +25,7 @@
         ( type: "OneWayPlatform", px: [720, 480], size: [160, 16], fields: ( name: "limb_1" ) ),
         ( type: "OneWayPlatform", px: [560, 368], size: [160, 16], fields: ( name: "limb_2" ) ),
         ( type: "OneWayPlatform", px: [660, 256], size: [140, 16], fields: ( name: "limb_3" ) ),
+        ( type: "NpcSpawn", px: [304, 640], size: [32, 64], fields: ( character_id: "npc_math_ivo", brain_override: "stand_still", prompt: "Talk", dialogue_id: "woods_ivo" ) ),
         ( type: "ChestSpawn", px: [690, 198], size: [76, 58], fields: ( name: "the self-similar acorn", reward: "currency:75" ) ),
         ( type: "DebugLabel", px: [160, 484], size: [520, 24], fields: ( name: "woods_sign", text: "THE FRACTAL WOODS: every tree a forest, every branch a tree", category: "Custom" ) ),
         ( type: "DebugLabel", px: [1010, 554], size: [420, 24], fields: ( name: "woods_sign_koch", text: "KOCH HEDGE: infinitely long. Please do not trim.", category: "Custom" ) ),

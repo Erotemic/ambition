@@ -219,6 +219,16 @@ frames; without P1–P3 that is 19 frames of a white blink. Ship them together.
 
 Nothing above has been played by a human yet. Every number is a first cut.
 
+**The polygons' references (Jon, 2026-10-29):** pointed polygon ≈ Marth /
+Lucina (`sword` template, Lucina body), pugnacious polygon ≈ Captain Falcon
+(`falcon` template, Falcon body at 0.6), projectile polygon ≈ Yoshi's body with
+some of Samus's and Toon Link's moves (`zoner` template, Yoshi body at 0.6).
+Ultimate is a reference, not a copy. The CPU fighters are to feel like an
+Ultimate CPU (a sub-agent lane on its own branch; see the fighter-brain plan).
+The polygons' posing keys were fitted to the earlier fast/heavy clocks; the
+sword and falcon clocks are close enough that the smear and contact frames
+still fall in the active windows, but a re-fit is owed with the next art pass.
+
 **Measured after the pass** (`ko_envelope feel pointed_polygon pugnacious_polygon`,
 2026-10-29): hitlag is the genre's (jab 8 f, tilts 10, aerials 12, fsmash
 16); the facet clocks are live (nair 38 f, fair 40, fsmash 42); hitstun

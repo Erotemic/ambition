@@ -25,7 +25,9 @@ clip keep their phase of the swing.
 The archetype of each fighter is in ARCHETYPES below, from the Ultimate anchor
 its `smash_fighter` facet names (`scripts/smash_fighter_shape.py`). Templates
 are first cuts to play, not rulings: frames from Ultimate Frame Data's Mario
-(mid), Sheik/Fox (fast) and King Dedede/Bowser (heavy), rounded.
+(mid), Sheik/Fox (fast), King Dedede/Bowser (heavy), Marth (sword), Captain
+Falcon (falcon) and a Yoshi/Samus/Toon Link blend (zoner), rounded; Ultimate
+is a reference, not a copy (Jon, 2026-10-29).
 """
 from __future__ import annotations
 
@@ -91,6 +93,62 @@ TEMPLATES = {
         "grab": (7, 8, 38, None),
         "grab_dash": (11, 12, 48, None),
     },
+    "sword": {
+        # Marth / Lucina: a swordsman's disjoint, slower tilts, a long nair.
+        "attack": (5, 6, 22, None),
+        "attack_forward": (8, 10, 32, None),
+        "attack_up": (6, 12, 30, None),
+        "attack_down": (7, 8, 22, None),
+        "attack_dash": (12, 15, 42, None),
+        "smash_forward": (10, 13, 47, None),
+        "smash_up": (13, 16, 50, None),
+        "smash_down": (6, 20, 60, None),
+        "attack_air": (6, 18, 46, 7),
+        "attack_air_forward": (6, 9, 34, 9),
+        "attack_air_back": (7, 10, 44, 11),
+        "attack_air_up": (5, 8, 32, 8),
+        "attack_air_down": (9, 12, 50, 15),
+        "grab": (6, 7, 34, None),
+        "grab_dash": (9, 10, 40, None),
+    },
+    "falcon": {
+        # Captain Falcon: a quick jab, slow committed smashes, the knee.
+        "attack": (3, 4, 17, None),
+        "attack_forward": (9, 11, 30, None),
+        "attack_up": (17, 19, 37, None),
+        "attack_down": (10, 12, 27, None),
+        "attack_dash": (7, 15, 37, None),
+        "smash_forward": (19, 21, 54, None),
+        "smash_up": (22, 26, 57, None),
+        "smash_down": (19, 23, 57, None),
+        "attack_air": (7, 22, 42, 7),
+        "attack_air_forward": (14, 16, 39, 11),
+        "attack_air_back": (10, 13, 32, 7),
+        "attack_air_up": (7, 10, 33, 6),
+        "attack_air_down": (16, 18, 44, 12),
+        "grab": (6, 7, 34, None),
+        "grab_dash": (9, 10, 42, None),
+    },
+    "zoner": {
+        # Yoshi's body with Samus's and Toon Link's moves: middling frames,
+        # a lingering nair, slow grabs.
+        "attack": (3, 5, 18, None),
+        "attack_forward": (5, 8, 27, None),
+        "attack_up": (7, 10, 26, None),
+        "attack_down": (6, 8, 28, None),
+        "attack_dash": (8, 14, 40, None),
+        "smash_forward": (14, 17, 47, None),
+        "smash_up": (11, 15, 44, None),
+        "smash_down": (7, 13, 46, None),
+        "attack_air": (3, 20, 41, 6),
+        "attack_air_forward": (11, 14, 44, 12),
+        "attack_air_back": (7, 10, 36, 8),
+        "attack_air_up": (5, 9, 34, 6),
+        "attack_air_down": (8, 16, 48, 14),
+        "grab": (9, 10, 44, None),
+        "grab_dash": (11, 12, 48, None),
+    },
+
 }
 
 ARCHETYPES = {
@@ -108,9 +166,9 @@ ARCHETYPES = {
     "special_patent_clerk": "mid",  # Dr. Mario
     "npc_gnu_ton": "fast",  # Marth, a light fencer
     "npc_ramen_nujan": "mid",  # Robin
-    "pointed_polygon": "fast",  # Lucina
-    "projectile_polygon": "heavy",  # Charizard
-    "pugnacious_polygon": "fast",  # Little Mac
+    "pointed_polygon": "sword",  # Marth / Lucina (Jon, 2026-10-29)
+    "projectile_polygon": "zoner",  # Yoshi body, Samus / Toon Link moves (Jon, 2026-10-29)
+    "pugnacious_polygon": "falcon",  # Captain Falcon (Jon, 2026-10-29)
 }
 
 AERIALS = {"attack_air", "attack_air_forward", "attack_air_back", "attack_air_up", "attack_air_down"}

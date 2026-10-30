@@ -1217,7 +1217,7 @@ fn the_goblin_offers_its_raider_and_squat_skins() {
 }
 
 /// THE SMASH STAGE READS THE FIGHTER'S CLOCKS, AND HOME DOES NOT. The pointed
-/// polygon's facet states the Smash-stage nair at 38 frames with 5 of landing
+/// polygon's facet states the Smash-stage nair at 46 frames with 7 of landing
 /// lag and an aerial swing; its moveset (the home game) keeps the 19-frame
 /// nair. Every selectable fighter whose facet states clocks lands an aerial
 /// with lag on this stage. Poison: `move_timing_over` left out of
@@ -1236,8 +1236,9 @@ fn the_smash_stage_reads_each_fighters_move_clocks_and_home_keeps_its_own() {
     let stage = polygon.moveset_in(FIGHTER_DAMAGE).expect("it has moves");
     let nair_id = stage.verbs.get("attack_air").cloned().expect("its stage names a nair");
     let nair = stage.move_by_id(&nair_id).expect("its nair");
-    assert!((nair.duration_s - 38.0 / 60.0).abs() < 0.01, "Smash-stage nair lasts {} s, not 38 frames", nair.duration_s);
-    assert!((nair.landing_lag_s.expect("lag") - 5.0 / 60.0).abs() < 0.01);
+    // The sword template (Marth / Lucina, Jon 2026-10-29): 46 frames, 7 of lag.
+    assert!((nair.duration_s - 46.0 / 60.0).abs() < 0.01, "Smash-stage nair lasts {} s, not 46 frames", nair.duration_s);
+    assert!((nair.landing_lag_s.expect("lag") - 7.0 / 60.0).abs() < 0.01);
     assert!(
         nair.events.iter().any(|event| matches!(&event.kind, MoveEventKind::Sfx { cue } if cue == "swing.aerial")),
         "a silent nair gets the aerial swing: {:?}",

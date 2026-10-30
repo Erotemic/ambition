@@ -119,7 +119,7 @@ pub use movement::{
     switch_motion_model, ActionEdges, ActionKey, ActiveMovementTuning, AdhesiveCrawlerMotion,
     MechanicalDomain, MechanicalEditAdmission, MechanicalEditSet, PendingMechanicalEdits,
     ArrivalMomentum, AxisHorizontalLaw, AxisJumpLaw, AxisLocomotion, AxisManeuverState,
-    AxisSweptMotion, AxisSweptParams, BlinkEvent, BodyContactBlocker, BodyContactField,
+    AxisSweptMotion, AxisSweptParams, Balance, BlinkEvent, BodyContactBlocker, BodyContactField,
     BodyMotionFacts, BodySpawnShape, BurstManeuver, CrawlAttachment, CrawlerParams, CrawlerState,
     DepthOcclusions, Edge, FlightTuning, FootstoolTuning, FrameEvents, GroundContactTransition,
     InputState, LedgeFacts, LedgeMomentumTuning, MomentumHorizontalTuning, MomentumParams,

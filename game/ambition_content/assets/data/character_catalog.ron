@@ -663,7 +663,9 @@
             composition: None,
             default_brain: "companion_dog_roam",
             default_action_set: "peaceful",
-            locomotion: Some((run_speed: 120.0, move_style: Walk, baseline_free_flight: Some(false))),
+            // It stands by its centre of gravity (`balance`): a long body with
+            // its centre over a ledge's end or a hole goes off it.
+            locomotion: Some((run_speed: 120.0, move_style: Walk, baseline_free_flight: Some(false), balance: Some(()))),
             // It walks and hops.
             abilities: Some([Walk, Jump]),
             max_health: Some(4),
@@ -695,7 +697,7 @@
             composition: None,
             default_brain: "companion_dog_roam",
             default_action_set: "peaceful",
-            locomotion: Some((run_speed: 120.0, move_style: Walk, baseline_free_flight: Some(false))),
+            locomotion: Some((run_speed: 120.0, move_style: Walk, baseline_free_flight: Some(false), balance: Some(()))),
             abilities: Some([Walk, Jump]),
             max_health: Some(4),
             tags: ["animal", "dog", "quadruped", "companion", "peaceful"],
@@ -721,7 +723,7 @@
             composition: None,
             default_brain: "companion_dog_roam",
             default_action_set: "peaceful",
-            locomotion: Some((run_speed: 120.0, move_style: Walk, baseline_free_flight: Some(false))),
+            locomotion: Some((run_speed: 120.0, move_style: Walk, baseline_free_flight: Some(false), balance: Some(()))),
             abilities: Some([Walk, Jump]),
             max_health: Some(4),
             tags: ["animal", "dog", "quadruped", "companion", "peaceful"],
@@ -747,7 +749,7 @@
             composition: None,
             default_brain: "companion_dog_roam",
             default_action_set: "peaceful",
-            locomotion: Some((run_speed: 120.0, move_style: Walk, baseline_free_flight: Some(false))),
+            locomotion: Some((run_speed: 120.0, move_style: Walk, baseline_free_flight: Some(false), balance: Some(()))),
             abilities: Some([Walk, Jump]),
             max_health: Some(4),
             tags: ["animal", "dog", "quadruped", "companion", "peaceful"],
@@ -1864,8 +1866,9 @@
             // A heavy walk. GNU-ton's conductor walks it between his blows
             // (`ambition.boss.mount_walk`) at the speed its walk row is drawn
             // for: its hooves stand still on the floor at 135.4 a second
-            // (`giant_art.STRIDE_SPEED`).
-            locomotion: Some((run_speed: 135.4, move_style: WalkHeavy)),
+            // (`giant_art.STRIDE_SPEED`). It stands by its centre of gravity
+            // (`balance`): with its centre past a ledge it goes off it.
+            locomotion: Some((run_speed: 135.4, move_style: WalkHeavy, balance: Some(()))),
             mount: Some((
                 class: Some("giant"),
                 // The seat: where a rider's soles rest. The scholar stands on the
@@ -2004,7 +2007,7 @@
             posed_body: Some(SameAs("npc_giant_gnu")),
             unmirrored: true,
             rest_row: Some("armed_rest"),
-            locomotion: Some((run_speed: 0.0, move_style: WalkHeavy)),
+            locomotion: Some((run_speed: 0.0, move_style: WalkHeavy, balance: Some(()))),
             // Not a mount (no class), but the same body: where its trim is, a
             // body stands on it as on the giant of the fight. The numbers are
             // `npc_giant_gnu`'s (the same sheet, at the same scale): change

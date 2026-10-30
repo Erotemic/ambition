@@ -436,6 +436,11 @@ impl ActorClusterSeed {
             },
         );
         let tuning = ambition_combat::actor_tuning::ActorTuning {
+            // Whether it stands by its centre of gravity is its character's.
+            movement: ambition_combat::components::BodyMovementTuning {
+                balance: authored_body.as_ref().and_then(|body| body.locomotion.balance),
+                ..Default::default()
+            },
             weight: physical
                 .and_then(|physical| physical.knockback_weight())
                 .unwrap_or(ambition_combat::actor_tuning::ActorTuning::default().weight),
@@ -691,6 +696,11 @@ impl ActorClusterSeed {
             // computed where the driver is lowered so a provoked policy paces
             // by its own effort rather than the construction policy's.
             max_run_speed: run_speed,
+            // Whether it stands by its centre of gravity is its character's.
+            movement: ambition_combat::components::BodyMovementTuning {
+                balance: locomotion.balance,
+                ..Default::default()
+            },
             // Touching a body hurts only if its CHARACTER says so. A fighter
             // that authors none is safe to stand next to, which is what every
             // fighter has been.

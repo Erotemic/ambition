@@ -316,6 +316,88 @@ pub fn supporting_block<'a>(
     })
 }
 
+/// Where a body's centre of gravity is against its support
+/// ([`crate::Balance`]).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Footing {
+    /// The centre is over the support, or nothing is under the feet to judge.
+    Balanced,
+    /// The centre is past the end of the support, within the teeter band.
+    Teetering,
+    /// The centre is past the end of the support by more than the teeter
+    /// band. `push` is the velocity (px/s) that takes the body off the edge,
+    /// toward the side its centre is on.
+    Tipping { push: Vec2 },
+}
+
+/// The [`Footing`] of `body` under `gravity_dir`, by its `balance`.
+///
+/// The support is the stretch across the floor from the near end of the
+/// first surface under the feet to the far end of the last one: each block
+/// whose top the feet rest on, and each walkable line the body stands on
+/// (`walkable_lines::spans_underfoot`). A seam between two floor tiles is
+/// inside it, and so is a gap the body bridges. The ends are a minimum and a
+/// maximum, so the answer does not depend on the order of the surfaces
+/// (rollback).
+///
+/// ⛔ A BLOCK COUNTS ON ANY OVERLAP, not [`EDGE_OVERLAP_SLOP`] of it: the
+/// gravity sweep lands a body on any overlap, so a body on less than the slop
+/// is on the ground, and its support must be found to push it off.
+pub fn footing(
+    world: &World,
+    body: Aabb,
+    gravity_dir: Vec2,
+    drop_through: bool,
+    balance: crate::Balance,
+) -> Footing {
+    if gravity_dir == Vec2::ZERO {
+        return Footing::Balanced;
+    }
+    let side = Vec2::new(-gravity_dir.y, gravity_dir.x);
+    let across = |aabb: Aabb| {
+        let (a, b) = (aabb.min.dot(side), aabb.max.dot(side));
+        (a.min(b), a.max(b))
+    };
+    let (body_lo, body_hi) = across(body);
+    let blocks = world
+        .blocks
+        .iter()
+        .filter(|block| {
+            let (lo, hi) = across(block.aabb);
+            is_support_surface(block.kind)
+                && !(matches!(block.kind, BlockKind::OneWay) && drop_through)
+                && body_hi > lo
+                && body_lo < hi
+                && body_on_support_side(body, block.aabb, gravity_dir)
+                && support_face_separation(body, block.aabb, gravity_dir).abs() <= CONTACT_SLOP
+        })
+        .map(|block| across(block.aabb));
+    let lines = crate::walkable_lines::spans_underfoot(world, body, gravity_dir, side);
+    let Some((lo, hi)) = blocks
+        .chain(lines)
+        .reduce(|(lo, hi), (a, b)| (lo.min(a), hi.max(b)))
+    else {
+        return Footing::Balanced;
+    };
+    let half = body.half_size();
+    let half_span = half.x * side.x.abs() + half.y * side.y.abs();
+    let centre = body.center().dot(side);
+    let (past, toward) = if centre < lo {
+        (lo - centre, -side)
+    } else if centre > hi {
+        (centre - hi, side)
+    } else {
+        return Footing::Balanced;
+    };
+    if past <= balance.teeter_band * half_span {
+        Footing::Teetering
+    } else {
+        Footing::Tipping {
+            push: toward * (balance.tip_speed * half_span),
+        }
+    }
+}
+
 // The lingua franca between the world's geometry and a body's interpretation
 // of it: "the world exposes coherent contact information; bodies decide what
 // that contact means." The ONE sweep populates contacts into

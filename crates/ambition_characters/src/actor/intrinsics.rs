@@ -44,6 +44,13 @@ pub struct CharacterLocomotion {
     /// baseline. Preparation resolves silence before spawning the body.
     #[serde(default)]
     pub baseline_free_flight: Option<bool>,
+    /// Whether this body stands by its centre of gravity
+    /// ([`ambition_platformer2d_core::Balance`]): `None` (the default) stands
+    /// on the lip of a ledge; `Some(())` takes the long body's balance, and a
+    /// row may state its own numbers. A long or heavy body (a giant, a dog)
+    /// says `Some`, so it does not stand on a sliver of its box.
+    #[serde(default)]
+    pub balance: Option<ambition_platformer2d_core::Balance>,
 }
 
 impl Default for CharacterLocomotion {
@@ -60,6 +67,7 @@ impl Default for CharacterLocomotion {
             cling_breaks_on_hit: false,
             // SILENT, not grounded — see the field.
             baseline_free_flight: None,
+            balance: None,
         }
     }
 }

@@ -236,15 +236,17 @@ pub fn carve_hole_with_depth(ap: &PortalAperture, host_depth: f32) -> ae::Aabb {
 }
 
 /// The carve hole turned to the portal's face: the opening along the face,
-/// from [`SURFACE_GRACE`] outside it to the host depth (at most
-/// [`CARVE_DEPTH`]) inside it. A portal on a line cuts this out of the line.
+/// and [`crate::snag::SQUEEZE`] more at each end so a body that squeezes
+/// through meets no lip, from [`SURFACE_GRACE`] outside it to the host depth
+/// (at most [`CARVE_DEPTH`]) inside it. A portal on a line cuts this out of
+/// the line.
 pub fn carve_face_with_depth(ap: &PortalAperture, host_depth: f32) -> ae::frame::FaceRect {
     let depth = CARVE_DEPTH.min(host_depth.max(0.0));
     let n = ap.frame.normal;
     ae::frame::FaceRect {
         center: ap.frame.origin + n * (SURFACE_GRACE * 0.5) - n * (depth * 0.5),
         normal: n,
-        half_along: ap.half_length,
+        half_along: ap.half_length + crate::snag::SQUEEZE,
         half_out: (SURFACE_GRACE + depth) * 0.5,
     }
 }

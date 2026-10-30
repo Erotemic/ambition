@@ -211,6 +211,10 @@ pub struct BodyAnimView {
     /// speed. A run at or above [`SPRINT_FRAC`] is a sprint. `0.0` when the
     /// top speed is not known, which never sprints.
     pub top_speed_frac: f32,
+    /// Grounded: standing on the brink of a ledge
+    /// (`BodyMotionFacts::teetering`). A body that would stand still there
+    /// teeters.
+    pub teetering: bool,
     /// Aerial: `speed > fly_above`  Fly, else Idle (hover).
     pub fly_above: f32,
 }
@@ -565,7 +569,13 @@ pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
             false,
             v.idle_below,
         ) {
-            ambition_combat::hurtbox_resolution::Gait::Standing => Idle,
+            ambition_combat::hurtbox_resolution::Gait::Standing => {
+                if v.teetering {
+                    Teeter
+                } else {
+                    Idle
+                }
+            }
             ambition_combat::hurtbox_resolution::Gait::Walking => Walk,
             // The same gait, refined for the picture only: the hurt geometry
             // and the rig clip read it as `Running`.
@@ -699,6 +709,7 @@ pub fn body_view_from_body(
         // a full-speed lap read as Idle.
         speed: motion.ground_speed.unwrap_or(along_run.abs()),
         running: facts.running,
+        teetering: facts.teetering,
         // Speed along the ground, not the run-axis metric: on a slope or a
         // loop the run axis foreshortens it.
         top_speed_frac: if motion.top_speed > 0.0 {

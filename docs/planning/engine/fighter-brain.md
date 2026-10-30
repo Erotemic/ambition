@@ -534,6 +534,35 @@ general shape; check new code against it.
   time (20 s of pre-match ticking changed nothing), not wall time per se
   (clock pinned), not a run-to-run leak, not the std maps, not the ids,
   not a parity read in a brain or hit path (the census found none).
+  ⛔ AND NOT THE RAMP EITHER, measured next (2026-10-30, `[clock]` lines,
+  six fresh processes): `ClockState::time_scale` read 1.000 on every
+  frame from the route request through the release and after it, with
+  `sim_dt` 0.016666668 on every sampled tick of every process; the
+  fighters move one frame after they are seated (the tool's roster
+  counts an 18-tick countdown and holds nobody). What the sim-tick trace
+  shows instead: the host runs NO sim tick on one frame in every fifteen
+  (ticks 15, 30, 45 … sampled twice), the phase of that cadence against
+  the match is the transition's frame count, and the first match-relative
+  divergence of a bifurcated pair is a 0.245 px step in the recovering
+  body's height at the uppercut's 0.2 s `GravityModifier` event (match
+  tick 190, both clocks reading `@0.217`). Same ticks, same dt, same move
+  clock, one tick of gravity scaled differently — a per-frame system
+  reaches a per-tick timer across the skipped frame. The skip itself
+  (bevy_ggrs pacing against the pinned frame: 56 sim ticks per 60 frames)
+  is the next thing to measure, and it is not the brain's lane.
+- **The poke the foe closes through is refused, and a recovery special is
+  an attack only with the foe inside its region as it opens.** Admission
+  samples the led foe at the active window's middle and end as well; a
+  foe short of the near edge at every active sample is refused with no
+  slack on that side (`polygon_point`'s whiffs started at a 55 px gap, its
+  hits at 89, nearest approach −10 along: the foe was behind the thrust's
+  near edge by the time the box was live). A lift (`recovery_route`
+  offers a way home) is admitted only when the unled foe is inside its
+  region — no lead, no slack — and in Recovery a lift whose region reaches
+  the foe is not offered as a route (the ranking's to admit, or nobody's).
+  Tests: `a_poke_the_foe_closes_through_is_refused`,
+  `a_recovery_special_is_an_attack_only_with_the_foe_inside_its_region`,
+  `a_lift_with_the_foe_in_reach_is_not_a_route`.
 - **One authority for where a move hits.** `ambition_combat::authored_coverage`
   derives the kit's `coverage` and `reach` by the strike spawn's own
   per-volume rule — the sprite's authored hit polygon for a vfx-tagged

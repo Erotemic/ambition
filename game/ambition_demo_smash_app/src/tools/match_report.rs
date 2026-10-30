@@ -536,19 +536,44 @@ fn run_one(
         .rules
         .opening_countdown_ticks;
     let mut waited = 0usize;
+    // THE RAMP AGAINST THE RELEASE: the sim clock's scale on every frame
+    // from the route request to the first live tick and a little past it,
+    // so "did the 0 → 1 ramp overlap live play" is read, not inferred.
+    let mut scale_trace: Vec<(usize, f32, usize, bool)> = Vec::new();
+    let mut release_frame: Option<usize> = None;
+    let mut full_speed_frame: Option<usize> = None;
     loop {
         app.update();
         waited += 1;
         let world = app.world_mut();
+        let scale = world
+            .get_resource::<ambition_platformer2d::time::ClockState>()
+            .map_or(f32::NAN, |clock| clock.time_scale);
         let mut seats = world.query::<(&MatchSeat, &ae::BodyKinematics)>();
+        let seated = seats.iter(world).count();
         let moving = seats
             .iter(world)
             .any(|(_, kin)| kin.vel.length_squared() > 1e-6);
-        if moving || waited > countdown as usize + 3600 {
+        scale_trace.push((waited, scale, seated, moving));
+        if moving && release_frame.is_none() {
+            release_frame = Some(waited);
+        }
+        if (scale - 1.0).abs() < 1e-4 && seated > 0 && full_speed_frame.is_none() {
+            full_speed_frame = Some(waited);
+        }
+        let past_release = release_frame.is_some_and(|f| waited >= f + 12);
+        if past_release || waited > countdown as usize + 3600 {
             break;
         }
     }
-    eprintln!("[live-edge] the match went live {waited} frames after the route was asked for");
+    let waited = release_frame.unwrap_or(waited);
+    eprintln!(
+        "[live-edge] the match went live {waited} frames after the route was asked for (opening countdown {countdown} ticks); sim clock at full speed from frame {}",
+        full_speed_frame.map_or("never".to_string(), |f| f.to_string())
+    );
+    for (frame, scale, seated, moving) in scale_trace.iter().filter(|(f, ..)| *f + 8 >= waited) {
+        eprintln!("[clock] frame {frame} scale {scale:.9} ({:e}) seated {seated} moving {moving}", scale);
+    }
 
     // Force the stream: the point is the spread across streams (as
     // `ladder_probe` does).
@@ -1177,7 +1202,13 @@ fn sample(
             })
             .collect();
         cells.sort();
-        eprintln!("[tick] {}", cells.join(" | "));
+        let sim_tick = world
+            .get_resource::<ambition_platformer2d::time::SimTick>()
+            .map_or(0, |t| t.get());
+        let sim_dt = world
+            .get_resource::<ambition_platformer2d::time::WorldTime>()
+            .map_or(f32::NAN, |t| t.sim_dt());
+        eprintln!("[tick] t{sim_tick} dt{sim_dt:.9} {}", cells.join(" | "));
     }
     *last_world = world_now;
     // Who could not be struck this tick: the four terms `unhittable` counts

@@ -3502,3 +3502,88 @@ fn a_foe_above_is_short_hopped_at() {
         "an airborne foe at my height is not above me"
     );
 }
+
+/// ⛔ THE POKE THE FOE CLOSES THROUGH IS REFUSED. A thrust whose region
+/// begins 20 px out admits a foe who sits in it as the threat opens — and a
+/// foe closing at 300 px/s is behind its near edge by the time the box is
+/// live. The same foe standing still is admitted.
+#[test]
+fn a_poke_the_foe_closes_through_is_refused() {
+    let mut poke = candidate("poke", 0.14, 80.0);
+    poke.frames.active_spans = vec![(0.14, 0.22)];
+    poke.frames.coverage = Some(ambition_entity_catalog::MoveCoverage {
+        min: (20.0, -12.0),
+        max: (80.0, 12.0),
+    });
+    let kit = [poke];
+    let admitted = |view: &WorldView| {
+        generate_options(Perceived::cheating(view), Situation::Neutral, &kit, &UtilityWeights::default())
+            .attacks
+            .iter()
+            .any(|a| a.move_id == "poke")
+    };
+    let standing = view_with(300.0, 355.0);
+    assert!(admitted(&standing), "a foe standing in the region is a hit");
+    let mut closing = standing.clone();
+    closing.actors[0].vel = ae::Vec2::new(-300.0, 0.0);
+    assert!(
+        !admitted(&closing),
+        "a foe closing through the near edge before the box opens is a miss"
+    );
+}
+
+/// ⛔ A RECOVERY SPECIAL IS AN ATTACK ONLY WITH THE FOE INSIDE ITS REGION AS
+/// IT OPENS. The lead that admits an ordinary poke against an approaching
+/// foe does not admit the move whose job is the way home.
+#[test]
+fn a_recovery_special_is_an_attack_only_with_the_foe_inside_its_region() {
+    let mut lift = candidate("upb", 0.1, 60.0);
+    lift.frames.recovery_route = ambition_entity_catalog::RecoveryRoute::Burst {
+        speed: 900.0,
+        side: 0.0,
+        at_s: 0.1,
+    };
+    lift.frames.lift_speed = 900.0;
+    let poke = candidate("poke", 0.1, 60.0);
+    let kit = [lift, poke];
+    let admitted = |view: &WorldView, id: &str| {
+        generate_options(Perceived::cheating(view), Situation::Neutral, &kit, &UtilityWeights::default())
+            .attacks
+            .iter()
+            .any(|a| a.move_id == id)
+    };
+    let inside = view_with(300.0, 340.0);
+    assert!(admitted(&inside, "upb"), "inside the region as it opens: an attack");
+    let mut approaching = view_with(300.0, 390.0);
+    approaching.actors[0].vel = ae::Vec2::new(-400.0, 0.0);
+    assert!(admitted(&approaching, "poke"), "the lead admits the poke against the approach");
+    assert!(
+        !admitted(&approaching, "upb"),
+        "the lead does not admit the recovery special: no lead, no slack"
+    );
+}
+
+/// ⛔ NEVER A ROUTE-PRESS WHILE A FOE IS IN ITS REACH. In Recovery the lift is
+/// offered as a route only when no foe stands within its region's reach.
+#[test]
+fn a_lift_with_the_foe_in_reach_is_not_a_route() {
+    let mut lift = candidate("upb", 0.1, 60.0);
+    lift.frames.recovery_route = ambition_entity_catalog::RecoveryRoute::Burst {
+        speed: 900.0,
+        side: 0.0,
+        at_s: 0.1,
+    };
+    lift.frames.lift_speed = 900.0;
+    let kit = [lift];
+    let routes = |view: &WorldView| -> Vec<String> {
+        generate_options(Perceived::cheating(view), Situation::Recovery, &kit, &UtilityWeights::default())
+            .attacks
+            .iter()
+            .map(|a| a.move_id.clone())
+            .collect()
+    };
+    let foe_far = view_with(300.0, 520.0);
+    assert_eq!(routes(&foe_far), vec!["upb".to_string()], "nobody in reach: the way home is offered");
+    let foe_near = view_with(300.0, 350.0);
+    assert!(routes(&foe_near).is_empty(), "a foe in its reach: not a route, the ranking's to admit");
+}

@@ -599,8 +599,32 @@ pub fn generate_options(
         // Recovery attacks are candidates that lift the body, ordered only by lift.
         // The recovery lens decides whether any candidate actually reaches safety;
         // callers must not treat the first candidate as an endorsed route.
+        // ⛔ NEVER A ROUTE-PRESS WHILE A FOE IS IN ITS REACH. A lift whose
+        // region reaches the foe is a swing at that foe, and a swing is the
+        // attack ranking's to admit (inside the region as it opens, or not at
+        // all). Offered as a route, it was pressed at whoever stood between
+        // this body and home and whiffed by 90 px.
+        let foe_in_reach = |c: &AttackCandidate| {
+            foe.is_some_and(|foe| {
+                let to_foe = foe.pos - me.pos;
+                let basis = me.acceleration_frame();
+                let local = (
+                    to_foe.dot(basis.side) * if me.facing < 0.0 { -1.0 } else { 1.0 },
+                    to_foe.dot(basis.down),
+                );
+                let extent = (foe.half_extent.x, foe.half_extent.y);
+                c.frames
+                    .coverage
+                    .as_ref()
+                    .and_then(|coverage| coverage.span_toward(local, extent))
+                    .is_some_and(|(_, far)| {
+                        (local.0 * local.0 + local.1 * local.1).sqrt() <= far + ADMISSION_SLACK_PX
+                    })
+            })
+        };
         let mut attacks: Vec<AttackOption> = lifts
             .into_iter()
+            .filter(|c| !foe_in_reach(c))
             // ⛔ LEGAL NOW, like every other list. The route was re-pressed on
             // every decision through its own move and the helpless fall after
             // it; each eaten press still spent an APM token (measured
@@ -1209,17 +1233,60 @@ pub fn generate_options(
             // rows. ⇒ This is the code agreeing with its own specification
             // and nothing more; it did NOT fix the fighter that prompted it,
             // whose hitboxes find no body at all — see the BRAIN row.
+            // ⛔ A RECOVERY SPECIAL IS AN ATTACK ONLY WITH THE FOE INSIDE ITS
+            // REGION AS IT OPENS: no lead, no slack. Measured 2026-10-30
+            // (rung 9, three runs): the uppercut and the rising edge were a
+            // quarter to a third of every whiff, thrown 80-90 px from the foe
+            // — a move whose job is the way home, pressed as a poke by a lead
+            // that forgave both sides.
+            if attack.frames.recovery_route.offers_a_way_home() {
+                return coverage
+                    .span_toward(foe_local, foe_extent)
+                    .is_some_and(|(near, far)| {
+                        let gap = (foe_local.0 * foe_local.0 + foe_local.1 * foe_local.1).sqrt();
+                        gap >= near && gap <= far
+                    });
+            }
             // Admitted when the led foe is inside the region at ANY time the
             // move is live: when its threat opens, or during its active
             // window (the arc meeting the anti-air).
-            meeting_times(&attack.frames).into_iter().any(|t| {
+            let fits_when_live = meeting_times(&attack.frames).into_iter().any(|t| {
                 let aim = lead_of(t);
                 let Some((near, far)) = coverage.span_toward(aim, foe_extent) else {
                     return false;
                 };
                 let gap = (aim.0 * aim.0 + aim.1 * aim.1).sqrt();
                 gap >= near - ADMISSION_SLACK_PX && gap <= far + ADMISSION_SLACK_PX
-            })
+            });
+            if !fits_when_live {
+                return false;
+            }
+            // ⛔ THE POKE THE FOE CLOSES THROUGH. A thrust hangs out from the
+            // body (`polygon_point` spans 20..80 px), and a foe who is in it
+            // as the threat opens and still closing is BEHIND its near edge
+            // by the time the box is live. Measured 2026-10-30 (rung 5
+            // pair): the point's whiffs started at a 55 px centre gap, its
+            // hits at 89, nearest approach −10 along. The led foe at the
+            // active window may not sit short of the near edge — no slack on
+            // that side, because the body is there.
+            let short_at_active = attack
+                .frames
+                .active_spans
+                .iter()
+                .flat_map(|(start, end)| [0.5 * (start + end), *end])
+                .map(|t| {
+                    let aim = lead_of(t);
+                    coverage.span_toward(aim, foe_extent).map(|(near, _)| {
+                        (aim.0 * aim.0 + aim.1 * aim.1).sqrt() < near
+                    })
+                })
+                .fold(None, |all: Option<bool>, short| match (all, short) {
+                    (_, None) => all,
+                    (None, Some(s)) => Some(s),
+                    (Some(a), Some(s)) => Some(a && s),
+                })
+                .unwrap_or(false);
+            !short_at_active
         }
         // Only shoves: offered exactly where the shove lands.
         (None, Some(push)) => {

@@ -223,4 +223,6 @@
     // Zeno's Aqueduct (Math, out of town).
     "math_zeno_aqueduct": (),
     "math_zeno_reservoir": (),
+    // The jungle: the Tyrant King's hall.
+    "primeval_tyrant_hall_room": (),
 }

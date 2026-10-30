@@ -114,8 +114,9 @@ pub enum ShopTx {
     CantAfford,
     /// Nothing of that item to sell (wallet unchanged).
     NotOwned,
-    /// A unique item the player already owns — buying again would waste coins
-    /// (the grant caps at one), so the purchase is refused (wallet unchanged).
+    /// The bag holds a full stack of the item (a unique item the player owns is
+    /// a full stack of one), so buying again would waste coins: the purchase is
+    /// refused (wallet unchanged).
     AlreadyOwned,
     /// The catalog does not name the item, so there is nothing to sell
     /// (wallet unchanged).
@@ -140,12 +141,13 @@ pub fn buy(
     if price < 0 {
         return ShopTx::CantAfford;
     }
-    // A unique item (weapon / ability) the player already owns can't stack — the
-    // grant caps at one — so refuse the buy instead of pocketing the coins.
-    let Some(category) = catalog.category(item) else {
+    // A full stack (a unique item the player owns is a stack of one) takes no
+    // more — the grant caps at the row's stack — so refuse the buy instead of
+    // pocketing the coins.
+    if catalog.category(item).is_none() {
         return ShopTx::NotStocked;
-    };
-    if category.is_unique() && owned.has(item) {
+    }
+    if !owned.has_room_for(catalog, item) {
         return ShopTx::AlreadyOwned;
     }
     if wallet.try_spend(price) {

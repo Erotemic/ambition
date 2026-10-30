@@ -49,6 +49,58 @@ facing, stopped by the first wall; mana for each tick it burns; a new ray genera
 drawn in its `eye_laser` row (its `shoot` row on a sheet without one).
 Witness: `the_eye_laser_takes_the_projectile_slot` (`app_it`).
 
+## Stocked bombs (built, 2026-10-29)
+
+Jon, 2026-10-29: a bomb is an item in the inventory that you have a stock
+of. You equip it as a held item. Each throw takes one from the stock. At
+zero the hand is empty and the normal attack comes back. A thrown bomb must
+feel like a bomb: weight, a bounce, and a blast on a hard contact.
+
+- **Stacks are a row fact.** `ItemMeta::stack` (default 1) is the most of an
+  item that the bag holds; the category does not decide it. Bomb: 9. The
+  consumables: 99. `OwnedItems::grant` stops at the stack, and the shop
+  refuses a full stack. The `item_catalog` schema refuses `stack: 0`. The
+  menu shows the count of a stack (`InventoryItemNode::count`).
+- **The demo bag** (`OwnedItems::starter`) holds `STARTER_BOMBS` (5).
+- **A stock re-arms the hand.** A bomb equipped from the bag is a quantity
+  of the bag in the hand. `throw_held_item_system` mints the object, takes
+  one from the bag, and, when the bag holds more, puts the next one in the
+  hand. A drop empties the hand. A bomb picked up off the floor is an
+  object: its throw takes nothing and re-arms nothing.
+- **Weight and bounce.** `ItemBody` (gravity scale, bounce, slide, rest
+  speed) is how a loose item moves; an item without it stops dead, as
+  before. `weigh_bombs` gives each bomb `BOMB_BODY` (1.5× gravity, bounce
+  0.4, slide 0.7, rest at 60 px/s) before its first step. Each bounce
+  publishes `ItemStruckSurface` (the speed into the surface).
+- **Detonation.** On the first of: the fuse (1.2 s; the first bounce cuts
+  what is left to 0.5 s); a strike on a surface at 650 px/s or more; a
+  strike on a body at 300 px/s or more. A tilt throw lands under the surface
+  bar and bounces; a smash throw into a wall or the floor goes off there.
+  The blast is a large burst, smoke, a ring, `WORLD_EXPLOSION` and a 9 px
+  camera shake. A hard bounce makes a sound.
+- **Fuse flash.** `GroundItemFact::fuse_left_s` carries the fuse to the
+  view. The sprite flashes red and swells, from 3 to 14 flashes a second
+  as the fuse burns down (`fuse_flash`).
+- The Smash item bombs use the same `bomb` item, so they have the same
+  weight, bounce and detonation.
+
+Witnesses: `bombs_are_a_stock_in_the_bag` (`app_it`: the stock, the re-arm,
+the empty hand and the normal attack; a hard throw goes off on contact and a
+soft one on its fuse), the `ranged::bomb` and `ambition_held_items` unit
+tests (bounce, one-way landing, strike rules).
+
+Open for bombs:
+
+- **Pocket a bomb.** A bomb picked up off the floor cannot go into the
+  bag. To pocket it (+1 to the bag, the object ends) is the reverse of the
+  throw's mint: it needs a record of bag grants since the checkpoint, as
+  `BagSpendsSinceCheckpoint` records spends, or a checkpoint restore loses
+  the bomb. Not built.
+- **The menu equips a held item from the host.** Abilities equip through
+  `ItemEquipRequested` on a sim tick; a held item (the bomb too) is still
+  put in the hand by `menu::effects::apply_menu_action`, outside the tick.
+  Move held equips and stows onto the sim road.
+
 ## Open
 
 1. **The robot's `eye_laser` row** is authored (sprite renderer `eefd4b0`):

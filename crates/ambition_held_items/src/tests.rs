@@ -1276,6 +1276,122 @@ fn a_settled_item_wakes_when_its_support_goes_away() {
     );
 }
 
+/// An item with an `ItemBody` thrown at a wall bounces off it, falls, bounces
+/// on the floor, and settles ON the floor. Each strike is published with its
+/// speed into the surface. The control is an item with no body: it stops dead
+/// at the wall and publishes no surface strike.
+#[test]
+fn an_item_with_a_body_bounces_off_a_wall_and_the_floor_and_settles() {
+    #[derive(Default, Debug)]
+    struct Flight {
+        wall_strike: Option<f32>,
+        came_back: bool,
+        floor_bounces: usize,
+        settled_at: Option<(usize, Vec2)>,
+    }
+    let fly = |body: Option<ItemBody>| -> Flight {
+        let mut app = App::new();
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+            app.world_mut(),
+            ambition_platformer2d_core::RoomGeometry(ae::World::new(
+                "bounce",
+                Vec2::new(400.0, 400.0),
+                Vec2::new(200.0, 360.0),
+                vec![
+                    ae::Block::solid("floor", Vec2::new(0.0, 380.0), Vec2::new(400.0, 20.0)),
+                    ae::Block::solid("wall", Vec2::new(300.0, 0.0), Vec2::new(20.0, 380.0)),
+                ],
+            )),
+        );
+        app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
+        app.add_systems(Update, (carry_or_wake_settled_items, ground_item_physics).chain());
+        let mut spawned = app.world_mut().spawn(GroundItem::released(
+            axe_spec(),
+            Vec2::new(200.0, 300.0),
+            Vec2::new(600.0, -100.0),
+            Vec2::splat(PICKUP_HALF),
+        ));
+        if let Some(body) = body {
+            spawned.insert(body);
+        }
+        let item = spawned.id();
+        let mut flight = Flight::default();
+        let mut last_vy = 0.0;
+        for tick in 0..300 {
+            app.update();
+            let ground = app.world().get::<GroundItem>(item).unwrap();
+            if let Some(strike) = app.world().get::<ItemStruckSurface>(item) {
+                if ground.pos.y < 340.0 && flight.wall_strike.is_none() {
+                    flight.wall_strike = Some(strike.impact_speed);
+                }
+                if ground.vel.y < 0.0 && last_vy >= 0.0 && ground.pos.y > 340.0 {
+                    flight.floor_bounces += 1;
+                }
+            }
+            flight.came_back |= ground.vel.x < 0.0;
+            last_vy = ground.vel.y;
+            if flight.settled_at.is_none() && app.world().get::<SettledItem>(item).is_some() {
+                flight.settled_at = Some((tick, ground.pos));
+            }
+        }
+        flight
+    };
+    let bouncing = fly(Some(ItemBody { gravity_scale: 1.5, bounce: 0.5, slide: 0.8, rest_speed: 60.0 }));
+    let strike = bouncing.wall_strike.expect("the wall strike is published");
+    assert!((strike - 600.0).abs() < 1.0, "the wall strike is the speed into the wall: {strike}");
+    assert!(bouncing.came_back, "the item came back off the wall: {bouncing:?}");
+    assert!(bouncing.floor_bounces >= 1, "the item bounced on the floor: {bouncing:?}");
+    let (_, at) = bouncing.settled_at.expect("the bouncing item settles");
+    assert!(
+        (at.y + PICKUP_HALF - 380.0).abs() < 12.0 && at.x < 300.0 - PICKUP_HALF,
+        "it settles on the floor, before the wall: {at:?}"
+    );
+
+    let dead = fly(None);
+    assert_eq!(dead.wall_strike, None, "an item with no body publishes no surface strike");
+    assert!(!dead.came_back, "an item with no body stops dead: {dead:?}");
+    let (_, at) = dead.settled_at.expect("control: it settles where it stopped");
+    assert!(at.y < 340.0, "control: it stopped dead at the wall, in the air: {at:?}");
+}
+
+/// A bouncing item falls through a one-way platform from below and lands on
+/// it from above.
+#[test]
+fn a_bouncing_item_passes_up_through_a_one_way_platform_and_lands_on_it() {
+    let mut app = App::new();
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+        app.world_mut(),
+        ambition_platformer2d_core::RoomGeometry(ae::World::new(
+            "one_way",
+            Vec2::new(400.0, 400.0),
+            Vec2::new(200.0, 360.0),
+            vec![
+                ae::Block::solid("floor", Vec2::new(0.0, 380.0), Vec2::new(400.0, 20.0)),
+                ae::Block::one_way("ledge", Vec2::new(100.0, 250.0), Vec2::new(200.0, 8.0)),
+            ],
+        )),
+    );
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
+    app.add_systems(Update, (carry_or_wake_settled_items, ground_item_physics).chain());
+    let item = app
+        .world_mut()
+        .spawn((
+            GroundItem::released(axe_spec(), Vec2::new(200.0, 330.0), Vec2::new(0.0, -900.0), Vec2::splat(PICKUP_HALF)),
+            ItemBody { gravity_scale: 1.0, bounce: 0.3, slide: 0.8, rest_speed: 60.0 },
+        ))
+        .id();
+    for _ in 0..240 {
+        app.update();
+    }
+    let ground = app.world().get::<GroundItem>(item).unwrap();
+    assert!(app.world().get::<SettledItem>(item).is_some(), "it settled");
+    assert!(
+        (ground.pos.y + PICKUP_HALF - 250.0).abs() < 12.0,
+        "it rose through the one-way ledge and rests on top of it: {:?}",
+        ground.pos
+    );
+}
+
 /// ⭐⭐ AN ITEM ON A MOVING PLATFORM GOES WITH IT.
 ///
 /// Settling used to be world-fixed: an item that landed on a platform stayed

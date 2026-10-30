@@ -283,7 +283,7 @@ pub fn sync_ground_item_visuals(
     art: Option<Res<HeldItemArt>>,
     failed_art: Option<Res<FailedItemArt>>,
     active_session: Option<Res<ActiveSessionScope>>,
-    mut visuals: Query<(Entity, &GroundItemVisual, &GroundItemDrawn, &mut Transform)>,
+    mut visuals: Query<(Entity, &GroundItemVisual, &GroundItemDrawn, &mut Transform, &mut Sprite)>,
     grounds: Res<GroundItemsView>,
     // Report each missing id once.
     mut reported: Local<ReportedOnce>,
@@ -311,10 +311,14 @@ pub fn sync_ground_item_visuals(
         };
         let translation =
             ambition_platformer2d_core::config::world_to_bevy(&world.0, ground.pos, GROUND_ITEM_Z);
-        let transform = Transform::from_translation(translation).with_rotation(Quat::from_rotation_z(ground.roll));
+        // A lit fuse swells the item on each flash.
+        let flash = ground.fuse_left_s.map_or(0.0, fuse_flash);
+        let transform = Transform::from_translation(translation)
+            .with_rotation(Quat::from_rotation_z(ground.roll))
+            .with_scale(Vec3::splat(1.0 + FUSE_FLASH_SWELL * flash));
         wanted.push((ground, room, transform, false));
     }
-    for (entity, link, drawn, mut transform) in &mut visuals {
+    for (entity, link, drawn, mut transform, mut sprite) in &mut visuals {
         let kept = (!art_replaced)
             .then(|| {
                 wanted.iter_mut().find(|(ground, room, _, taken)| {
@@ -323,9 +327,13 @@ pub fn sync_ground_item_visuals(
             })
             .flatten();
         match kept {
-            Some((_, _, wanted_transform, taken)) => {
+            Some((ground, _, wanted_transform, taken)) => {
                 *taken = true;
                 transform.set_if_neq(*wanted_transform);
+                let color = fuse_color(drawn.base_color, ground.fuse_left_s);
+                if sprite.color != color {
+                    sprite.color = color;
+                }
             }
             None => commands.entity(entity).despawn(),
         }
@@ -343,7 +351,7 @@ pub fn sync_ground_item_visuals(
             "ground item visual",
         );
         // The placeholder still draws; the report makes the miss visible.
-        let sprite = bound
+        let mut sprite = bound
             .map(|(image, size)| Sprite {
                 image,
                 custom_size: Some(size),
@@ -352,6 +360,8 @@ pub fn sync_ground_item_visuals(
             .unwrap_or_else(|| {
                 Sprite::from_color(Color::srgb(0.72, 0.52, 0.30), ground.half_extent * 2.0)
             });
+        let base_color = sprite.color;
+        sprite.color = fuse_color(base_color, ground.fuse_left_s);
         commands.spawn_session_scoped(
             session_scope.in_room(Some(room)),
             (
@@ -359,6 +369,7 @@ pub fn sync_ground_item_visuals(
                 GroundItemDrawn {
                     room,
                     item_id: ground.item_id.clone(),
+                    base_color,
                 },
                 sprite,
                 transform,
@@ -374,6 +385,41 @@ pub fn sync_ground_item_visuals(
 pub struct GroundItemDrawn {
     room: LiveRoomInstance,
     item_id: String,
+    /// The sprite's own colour; a fuse flash tints it and lets it go again.
+    base_color: Color,
+}
+
+/// The fuse time a flash pattern is drawn over, s: the flashes start slow at
+/// this much left and are fastest at the end.
+const FUSE_FLASH_SPAN_S: f32 = 1.2;
+/// Flashes per second at the start and at the end of [`FUSE_FLASH_SPAN_S`].
+const FUSE_FLASH_HZ: (f32, f32) = (3.0, 14.0);
+/// How much bigger an item is drawn at the peak of a flash.
+const FUSE_FLASH_SWELL: f32 = 0.18;
+/// The tint of a flash.
+const FUSE_FLASH_TINT: Color = Color::srgb(1.0, 0.25, 0.15);
+
+/// How lit a fuse flash is (`0` dark to `1` lit) with `left_s` of the fuse
+/// left. The rate goes from the slow to the fast end of [`FUSE_FLASH_HZ`] as
+/// the fuse burns down, so a bomb about to go off flickers.
+///
+/// A function of the fuse alone (the phase is the integral of the rate over
+/// the burned time), so a rewind that restores the fuse restores the flash.
+pub fn fuse_flash(left_s: f32) -> f32 {
+    let burned = (FUSE_FLASH_SPAN_S - left_s).clamp(0.0, FUSE_FLASH_SPAN_S);
+    let (slow, fast) = FUSE_FLASH_HZ;
+    let cycles = slow * burned + (fast - slow) * burned * burned / (2.0 * FUSE_FLASH_SPAN_S);
+    // A short lit pulse at the start of each cycle.
+    if cycles.fract() < 0.4 { 1.0 } else { 0.0 }
+}
+
+/// The colour of a ground item's sprite: its own, tinted while a fuse flash
+/// is lit.
+fn fuse_color(base: Color, fuse_left_s: Option<f32>) -> Color {
+    match fuse_left_s.map(fuse_flash) {
+        Some(flash) if flash > 0.0 => base.mix(&FUSE_FLASH_TINT, 0.75 * flash),
+        _ => base,
+    }
 }
 
 /// Marks a sprite entity visualizing a `WorldItem` (`ambition_world_items`).
@@ -1048,6 +1094,24 @@ mod tests {
     /// takes its visual with it. Until 2026-10-23 every visual was spawned
     /// again each frame.
     #[test]
+    fn a_fuse_flashes_faster_as_it_burns_down() {
+        // Lit flashes that start in a window of fuse time, sampled at 240 Hz.
+        let flashes = |from_left: f32, to_left: f32| {
+            let steps = ((from_left - to_left) * 240.0) as usize;
+            (0..steps)
+                .map(|step| from_left - step as f32 / 240.0)
+                .collect::<Vec<_>>()
+                .windows(2)
+                .filter(|pair| fuse_flash(pair[0]) == 0.0 && fuse_flash(pair[1]) > 0.0)
+                .count()
+        };
+        let early = flashes(1.2, 0.9);
+        let late = flashes(0.3, 0.0);
+        assert!(early >= 1, "a lit fuse flashes from the start: {early}");
+        assert!(late >= 2 * early, "the flashes come faster near the end: {early} then {late}");
+    }
+
+    #[test]
     fn a_ground_item_visual_is_kept_while_its_row_stays() {
         use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
         let geometry = ambition_platformer2d_core::RoomGeometry(ambition_platformer2d_core::World::new(
@@ -1070,6 +1134,7 @@ mod tests {
             item_id: "key".to_string(),
             room: Some(LiveRoomInstance::ACTIVATION),
             roll: 0.0,
+            fuse_left_s: None,
         };
         app.insert_resource(GroundItemsView(vec![row(100.0)]));
         app.add_systems(Update, sync_ground_item_visuals);

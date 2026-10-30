@@ -15,7 +15,11 @@
 //   slot. An ability with no `wears` row is a placeholder. Nothing equips
 //   it, and the demo does not unlock it.
 //
-// The demo unlocks every ability that has a row (`OwnedItems::starter`).
+// `stack` is the most of an item that the bag holds. A row with no `stack`
+// is unique (1). A stack above 1 shows its count in the menu.
+//
+// The demo unlocks every ability that has a row, and gives a few consumables
+// and a stock of bombs (`OwnedItems::starter`).
 [
     // ---- Row 1: combat abilities. Projectile, then stance. ----
     (
@@ -171,11 +175,14 @@
     ),
     (
         display_name: "Bomb",
-        description: "A thrown explosive — it detonates on a short fuse, blasting nearby enemies.",
+        description: "A thrown explosive. A hard throw sets it off where it strikes; a soft one bounces and goes off on its fuse.",
         category: Held,
         held_item_id: Some("bomb"),
         dialog_id: "bomb",
         icon: Some("sprites/props/gauntlet_bomb.png"),
+        // Each throw of an equipped bomb takes one from the bag, and the hand
+        // takes the next one until the bag has none.
+        stack: 9,
     ),
     // ---- Row 4: consumables, then key items. ----
     (
@@ -184,6 +191,7 @@
         category: Consumable,
         held_item_id: None,
         dialog_id: "healthcell",
+        stack: 99,
     ),
     (
         display_name: "Mana Cell",
@@ -191,6 +199,7 @@
         category: Consumable,
         held_item_id: None,
         dialog_id: "manacell",
+        stack: 99,
     ),
     (
         display_name: "Spare Battery",
@@ -198,6 +207,7 @@
         category: Consumable,
         held_item_id: None,
         dialog_id: "sparebattery",
+        stack: 99,
     ),
     (
         display_name: "Map Fragment",

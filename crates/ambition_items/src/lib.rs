@@ -45,14 +45,6 @@ pub enum ItemCategory {
     Reserved,
 }
 
-impl ItemCategory {
-    /// True for items the player holds at most one of (the menu shows them as a
-    /// bright/dim icon rather than a count badge).
-    pub fn is_unique(self) -> bool {
-        !matches!(self, Self::Consumable)
-    }
-}
-
 /// The complete, finite set of grid items, in grid order (row-major:
 /// slot index = `row * 6 + col`). The discriminant order is the grid order;
 /// do not reorder without updating `items.ron`. Saves and scripts name an item
@@ -120,6 +112,17 @@ pub struct ItemMeta {
     /// The cell's picture, relative to the asset root. `None` shows the name.
     #[serde(default)]
     pub icon: Option<String>,
+    /// The most of this item that the bag holds. `1` (the default) is a unique
+    /// item: a second grant adds nothing. A number above 1 is a stack, and the
+    /// menu shows its count. The category does not decide this: a held bomb
+    /// stacks, and a held axe does not.
+    #[serde(default = "unique_stack")]
+    pub stack: u32,
+}
+
+/// The [`ItemMeta::stack`] of a row that does not author one.
+fn unique_stack() -> u32 {
+    1
 }
 
 /// The item CATALOG one `App` plays (C1): what each grid slot is called, what it
@@ -203,6 +206,18 @@ impl ItemCatalog {
     /// The cell's picture, if the catalog names one.
     pub fn icon(&self, item: Item) -> Option<&str> {
         self.meta(item)?.icon.as_deref()
+    }
+
+    /// The most of `item` the bag holds ([`ItemMeta::stack`]), or `None` when
+    /// the catalog does not name the slot.
+    pub fn stack(&self, item: Item) -> Option<u32> {
+        self.meta(item).map(|meta| meta.stack)
+    }
+
+    /// Does the bag hold more than one of `item`? The menu shows the count of
+    /// such an item.
+    pub fn stacks(&self, item: Item) -> bool {
+        self.stack(item).is_some_and(|stack| stack > 1)
     }
 
     /// Does confirming this item EQUIP it, to the hand or into an action slot?
@@ -487,6 +502,9 @@ pub struct ItemUseRequested {
     pub item: Item,
 }
 
+/// How many bombs the demo's starting bag holds.
+pub const STARTER_BOMBS: u32 = 5;
+
 impl OwnedItems {
     /// Entity-free value projection: each item's count, in catalog order.
     ///
@@ -520,20 +538,22 @@ impl OwnedItems {
         self.count(item) > 0
     }
 
-    /// Add `n` of an item. Unique items (per `catalog`) clamp at 1 so a second
-    /// pickup doesn't inflate a non-stackable slot. A slot the catalog does not
-    /// name is no item, and nothing is granted.
+    /// Add `n` of an item, up to its row's [`ItemMeta::stack`]. A unique item
+    /// (a stack of 1) stays at 1, so a second pickup does not inflate it. A
+    /// grant never lowers a count. A slot the catalog does not name is no
+    /// item, and nothing is granted.
     pub fn grant(&mut self, catalog: &ItemCatalog, item: Item, n: u32) {
-        let Some(category) = catalog.category(item) else {
+        let Some(stack) = catalog.stack(item) else {
             return;
         };
         let slot = &mut self.counts[item.index()];
-        let next = slot.saturating_add(n);
-        *slot = if category.is_unique() {
-            next.min(1)
-        } else {
-            next
-        };
+        *slot = (*slot).max(slot.saturating_add(n).min(stack));
+    }
+
+    /// Can the bag take one more of `item`? False for a full stack and for a
+    /// slot the catalog does not name.
+    pub fn has_room_for(&self, catalog: &ItemCatalog, item: Item) -> bool {
+        catalog.stack(item).is_some_and(|stack| self.stored(item) < stack)
     }
 
     /// Remove up to `n`; returns how many were actually removed.
@@ -544,14 +564,15 @@ impl OwnedItems {
         removed
     }
 
-    /// The demo's starting bag: a few consumables and EVERY ability that has a
-    /// row to wear. The demo unlocks all real abilities; a placeholder ability
-    /// (no row) stays locked.
+    /// The demo's starting bag: a few consumables, a stock of bombs and EVERY
+    /// ability that has a row to wear. The demo unlocks all real abilities; a
+    /// placeholder ability (no row) stays locked.
     pub fn starter(catalog: &ItemCatalog) -> Self {
         let mut owned = Self::default();
         owned.grant(catalog, Item::HealthCell, 3);
         owned.grant(catalog, Item::ManaCell, 2);
         owned.grant(catalog, Item::SpareBattery, 1);
+        owned.grant(catalog, Item::Bomb, STARTER_BOMBS);
         for item in Item::ALL {
             if catalog.category(item) == Some(ItemCategory::Ability) && catalog.wears(item).is_some() {
                 owned.grant(catalog, item, 1);

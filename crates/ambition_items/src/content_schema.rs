@@ -195,6 +195,21 @@ fn declare(facet: &FacetSource<'_>, rows: &[ItemMeta], out: &mut FacetOutcome) {
             );
         }
 
+        // A stack of 0 is a slot the bag can never hold: every grant of it
+        // adds nothing, and the item is unreachable.
+        if row.stack == 0 {
+            out.report(
+                facet
+                    .diagnostic(
+                        DiagnosticCode::MalformedProviderBinding,
+                        format!("item `{dialog_id}` has `stack: 0`, so the bag can hold none of it"),
+                    )
+                    .about(id.clone())
+                    .at_field("stack")
+                    .fix("use 1 for a unique item, or the most the bag holds for a stack"),
+            );
+        }
+
         declare_wears(facet, row, index, dialog_id, &id, &mut worn_owners, out);
 
         // `None` means "not equippable"; `Some("")` means somebody started

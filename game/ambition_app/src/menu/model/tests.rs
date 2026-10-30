@@ -31,6 +31,18 @@ fn owned_and_equipped_flags_reflect_inventory_state() {
     assert!(unowned.action.is_none());
 }
 
+/// A stack shows how many the bag holds; a unique item shows no count.
+#[test]
+fn a_stock_of_bombs_shows_its_count_and_a_unique_item_does_not() {
+    let catalog = ambition_platformer2d::items::test_item_catalog();
+    let mut owned = OwnedItems::default();
+    owned.grant(catalog, Item::Bomb, 4);
+    owned.grant(catalog, Item::Grapple, 1);
+    let spec = items_spec(&owned, catalog, EquippedItems::default());
+    assert_eq!(spec.cells[Item::Bomb.index()].count, Some(4));
+    assert_eq!(spec.cells[Item::Grapple.index()].count, None);
+}
+
 #[test]
 fn cell_labels_wrap_and_stay_short() {
     // Long names must wrap to <= LABEL_MAX_LINES lines, each <= LABEL_WRAP_COLS

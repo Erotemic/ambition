@@ -493,6 +493,11 @@ pub fn items_spec(
             if let Some(icon) = items.icon(item) {
                 node = node.icon(icon);
             }
+            // A stack shows how many the bag holds (a stock of bombs, the
+            // health cells); a unique item has no count to show.
+            if owns && items.stacks(item) {
+                node = node.count(owned.count(item));
+            }
             if owns {
                 // Held items and abilities equip; everything else "uses".
                 let (action, label) = if items.equips(item) {

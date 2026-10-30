@@ -162,6 +162,33 @@ fn a_half_wired_held_item_is_refused() {
     );
 }
 
+/// A stack of 0 is an item the bag can never hold; a stack above 1 is a
+/// stack, and compiles.
+#[test]
+fn a_stack_of_none_is_refused_and_a_stack_of_many_compiles() {
+    let with_stack = |stack: u32| {
+        let mut rows: Vec<String> = (0..ITEM_COUNT).map(row).collect();
+        rows[11] = format!(
+            r#"(
+            display_name: "Bombs",
+            description: "A stock of bombs.",
+            category: Held,
+            held_item_id: Some("bomb"),
+            dialog_id: "stacked",
+            stack: {stack},
+        )"#
+        );
+        format!("[{}]", rows.join(","))
+    };
+    let failure = refuse("empty_stack", &with_stack(0));
+    assert!(failure.has(DiagnosticCode::MalformedProviderBinding), "{:?}", failure.codes());
+    let pack = compile(&draft("nine_stack", &with_stack(9)), &registry(), &AssetsUnchecked)
+        .expect("a stack of nine compiles");
+    let catalog = lowered_item_catalog(&pack).expect("the catalog lowers");
+    assert_eq!(catalog.rows()[11].stack, 9);
+    assert_eq!(catalog.rows()[0].stack, 1, "a row with no stack is unique");
+}
+
 /// A row nothing can name is unreachable content.
 #[test]
 fn an_empty_dialog_id_is_refused() {

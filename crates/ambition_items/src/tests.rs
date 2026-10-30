@@ -143,6 +143,50 @@ fn grant_clamps_unique_but_stacks_consumables() {
     );
 }
 
+/// A held item stacks when its row says so, up to the row's stack: the bomb
+/// is a held item that the bag holds a stock of, and the axe is not.
+#[test]
+fn a_held_bomb_stacks_to_its_row_and_a_held_axe_stays_unique() {
+    let bombs = shipped().stack(Item::Bomb).expect("the bomb has a row");
+    assert!(bombs > 1, "the bomb is a stack: {bombs}");
+    assert!(shipped().stacks(Item::Bomb));
+    assert!(!shipped().stacks(Item::Axe), "a held axe is unique");
+
+    let mut owned = OwnedItems::default();
+    owned.grant(shipped(), Item::Bomb, 3);
+    owned.grant(shipped(), Item::Bomb, 2);
+    assert_eq!(owned.count(Item::Bomb), 5, "grants add up");
+    assert!(owned.has_room_for(shipped(), Item::Bomb));
+    owned.grant(shipped(), Item::Bomb, 100);
+    assert_eq!(owned.count(Item::Bomb), bombs, "a grant stops at the row's stack");
+    assert!(!owned.has_room_for(shipped(), Item::Bomb), "a full stack takes no more");
+    assert_eq!(owned.take(Item::Bomb, 1), 1);
+    assert_eq!(owned.count(Item::Bomb), bombs - 1, "a take removes one");
+
+    owned.grant(shipped(), Item::Axe, 2);
+    assert_eq!(owned.count(Item::Axe), 1, "the axe stays at one");
+    assert!(!owned.has_room_for(shipped(), Item::Axe));
+}
+
+/// A save written with more than a stack holds comes back at the stack.
+#[test]
+fn a_persisted_count_over_the_stack_loads_at_the_stack() {
+    let bombs = shipped().stack(Item::Bomb).unwrap();
+    let mut owned = OwnedItems::default();
+    owned.apply_persisted(
+        shipped(),
+        &[ambition_persistence::save_data::PersistedItem::new("bomb", bombs + 5)],
+    );
+    assert_eq!(owned.count(Item::Bomb), bombs);
+}
+
+/// The demo's starting bag holds a stock of bombs.
+#[test]
+fn the_starter_bag_holds_a_stock_of_bombs() {
+    assert_eq!(OwnedItems::starter(shipped()).count(Item::Bomb), crate::STARTER_BOMBS);
+    assert!(crate::STARTER_BOMBS <= shipped().stack(Item::Bomb).unwrap());
+}
+
 /// The hand is a PROJECTION over the bag, never a row in it: a wielded weapon
 /// with no stored copy still reads as owned, and putting it down leaves the
 /// bag exactly as it was.

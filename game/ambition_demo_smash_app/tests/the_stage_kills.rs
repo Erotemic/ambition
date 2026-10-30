@@ -1030,7 +1030,14 @@ fn every_live_fighter_stays_inside_the_frame() {
         ));
 
     let room = ambition_demo_smash::smash_stage().world.size;
+    // The match's camera box, read once the match has declared it. Without
+    // one, no body is ever past the box.
+    let mut camera_box: Option<(
+        ambition_platformer2d::engine_core::Vec2,
+        ambition_platformer2d::engine_core::Vec2,
+    )> = None;
     let mut left_the_room = 0usize;
+    let mut past_the_box = 0usize;
     let mut escaped: Vec<String> = Vec::new();
     let mut worst = 0.0f32;
     let mut observed = 0usize;
@@ -1070,10 +1077,29 @@ fn every_live_fighter_stays_inside_the_frame() {
             continue;
         }
         observed += 1;
+        if camera_box.is_none() {
+            camera_box = app
+                .world()
+                .get_resource::<ambition_platformer2d::platformer::markers::CastFramingTuning>()
+                .and_then(|tuning| tuning.bounds)
+                .map(|bounds| {
+                    (
+                        ambition_platformer2d::engine_core::Vec2::new(-bounds.side, -bounds.rise),
+                        room + ambition_platformer2d::engine_core::Vec2::new(bounds.side, bounds.fall),
+                    )
+                });
+        }
         let half = visible / 2.0;
         for (seat, pos) in bodies {
             if pos.x < 0.0 || pos.x > room.x || pos.y < 0.0 || pos.y > room.y {
                 left_the_room += 1;
+            }
+            // A body past the match's CAMERA BOX leaves the frame by design
+            // (`CastFramingTuning::bounds`): the camera stops at the box and
+            // the body goes on to the blast line outside it.
+            if camera_box.is_some_and(|(lo, hi)| pos.x < lo.x || pos.x > hi.x || pos.y < lo.y || pos.y > hi.y) {
+                past_the_box += 1;
+                continue;
             }
             // How far past the nearest screen edge this body is drawn.
             let over = ((pos.x - center.x).abs() - half.x).max((pos.y - center.y).abs() - half.y);
@@ -1102,7 +1128,8 @@ fn every_live_fighter_stays_inside_the_frame() {
     );
     assert!(
         escaped.is_empty(),
-        "a live fighter was drawn OUTSIDE the frame on {} body-frames, worst {worst:.0} units \
+        "a live fighter INSIDE the camera box was drawn OUTSIDE the frame on {} body-frames \
+         ({past_the_box} body-frames were past the box, by design), worst {worst:.0} units \
          past the edge — the knockout that decides the match happens off-screen:\n{}",
         escaped.len(),
         escaped.join("\n")

@@ -415,10 +415,17 @@ fn run_one(
 struct CameraTally {
     /// Per tick: the visible view (w, h) and its centre, in world px.
     frames: Vec<(ae::Vec2, ae::Vec2)>,
+    /// Per tick: the view the cast asked for (base) and the view requested
+    /// after zoom, so a cut-off can be told apart from a lagging zoom.
+    asked: Vec<(ae::Vec2, ae::Vec2)>,
     /// Per tick, per seat: the body's centre and size, in world px.
     bodies: Vec<Vec<(ae::Vec2, ae::Vec2)>>,
     /// The room's size, read once.
     room: ae::Vec2,
+    /// The match's camera box, in world px: the room grown by its
+    /// `cast_framing.bounds`, or the room itself. A body past it is framed
+    /// at the box and leaves the view by design.
+    camera_box: Option<(ae::Vec2, ae::Vec2)>,
 }
 
 fn sample_camera(app: &mut App, camera: &mut CameraTally) {
@@ -433,6 +440,20 @@ fn sample_camera(app: &mut App, camera: &mut CameraTally) {
     camera
         .frames
         .push((frame.snapshot.visible_view, frame.snapshot.center_world));
+    camera
+        .asked
+        .push((frame.snapshot.base_view, frame.snapshot.requested_view));
+    if camera.camera_box.is_none() {
+        camera.camera_box = world
+            .get_resource::<ambition_platformer2d::platformer::markers::CastFramingTuning>()
+            .and_then(|tuning| tuning.bounds)
+            .map(|bounds| {
+                (
+                    ae::Vec2::new(-bounds.side, -bounds.rise),
+                    camera.room + ae::Vec2::new(bounds.side, bounds.fall),
+                )
+            });
+    }
     let mut seats = world.query::<(&MatchSeat, &ae::BodyKinematics)>();
     let mut bodies: Vec<(usize, ae::Vec2, ae::Vec2)> = seats
         .iter(world)
@@ -470,8 +491,21 @@ fn report_camera(camera: &CameraTally) {
     let mut open_rate = 0.0f32;
     let mut close_rate = 0.0f32;
     let mut moving_ticks = 0usize;
-    for pair in camera.frames.windows(2) {
+    let mut open_event = String::new();
+    for (tick, pair) in camera.frames.windows(2).enumerate() {
         let d = (pair[1].0.x - pair[0].0.x) * 60.0;
+        if d > open_rate {
+            open_event = format!(
+                "    fastest open at t{}: {:.0} -> {:.0} px wide; bodies {:?}",
+                tick + 1,
+                pair[0].0.x,
+                pair[1].0.x,
+                camera.bodies.get(tick + 1).map(|bodies| bodies
+                    .iter()
+                    .map(|(p, _)| (p.x.round(), p.y.round()))
+                    .collect::<Vec<_>>())
+            );
+        }
         open_rate = open_rate.max(d);
         close_rate = close_rate.min(d);
         if d.abs() > 60.0 {
@@ -491,19 +525,40 @@ fn report_camera(camera: &CameraTally) {
     let mut heights: Vec<f32> = Vec::new();
     let mut seats_in_frame: Vec<f32> = Vec::new();
     let mut cut_off = 0usize;
+    let mut cut_off_past_box = 0usize;
+    let mut cut_off_events: Vec<String> = Vec::new();
     let mut body_ticks = 0usize;
-    for ((view, centre), bodies) in camera.frames.iter().zip(&camera.bodies) {
+    let (box_min, box_max) = camera
+        .camera_box
+        .unwrap_or((ae::Vec2::ZERO, camera.room));
+    for (tick, ((view, centre), bodies)) in camera.frames.iter().zip(&camera.bodies).enumerate() {
+        let (base, requested) = camera.asked.get(tick).copied().unwrap_or_default();
         for (pos, size) in bodies {
             body_ticks += 1;
+            let past_box = pos.x < box_min.x || pos.x > box_max.x || pos.y < box_min.y || pos.y > box_max.y;
             heights.push(size.y / view.y);
             seats_in_frame.push((pos.y - (centre.y - view.y * 0.5)) / view.y);
-            let half = *size * 0.5;
+            // A body ON the view's edge is in frame: a view floored at the
+            // cast's span puts a launched body exactly there, and half a
+            // pixel of float is not a cut-off anyone can see.
+            let half = *size * 0.5 - ae::Vec2::splat(1.0);
             if pos.x - half.x < centre.x - view.x * 0.5
                 || pos.x + half.x > centre.x + view.x * 0.5
                 || pos.y - half.y < centre.y - view.y * 0.5
                 || pos.y + half.y > centre.y + view.y * 0.5
             {
-                cut_off += 1;
+                if past_box {
+                    cut_off_past_box += 1;
+                } else {
+                    cut_off += 1;
+                    if cut_off_events.len() < 6 {
+                        cut_off_events.push(format!(
+                            "    t{tick} body at ({:.0},{:.0}) size {:.0}x{:.0} outside a {:.0}x{:.0} view centred ({:.0},{:.0}); base {:.0}x{:.0} requested {:.0}x{:.0}; bodies {:?}",
+                            pos.x, pos.y, size.x, size.y, view.x, view.y, centre.x, centre.y, base.x, base.y, requested.x, requested.y,
+                            bodies.iter().map(|(p, _)| (p.x.round(), p.y.round())).collect::<Vec<_>>()
+                        ));
+                    }
+                }
             }
         }
     }
@@ -521,6 +576,9 @@ fn report_camera(camera: &CameraTally) {
         "  zoom rate px/s    open {open_rate:.0}  close {close_rate:.0}  ticks moving >60px/s {moving_ticks} ({:.0}%)",
         moving_ticks as f32 * 100.0 / ticks.max(1) as f32
     );
+    if !open_event.is_empty() {
+        println!("{open_event}");
+    }
     println!(
         "  view past room    {past_room} ticks ({:.0}%)",
         past_room as f32 * 100.0 / ticks as f32
@@ -531,9 +589,12 @@ fn report_camera(camera: &CameraTally) {
     );
     println!("  fighter sits at   {sit_med:.2} of the view height (0 = top)");
     println!(
-        "  fighter cut off   {cut_off} of {body_ticks} body-ticks ({:.1}%)",
+        "  fighter cut off   {cut_off} of {body_ticks} body-ticks ({:.1}%) inside the camera box; {cut_off_past_box} past it (by design)",
         cut_off as f32 * 100.0 / body_ticks.max(1) as f32
     );
+    for event in &cut_off_events {
+        println!("{event}");
+    }
 }
 
 fn report_one(label: &str, seconds: usize, totals: &[Tally], carried: &[String]) {

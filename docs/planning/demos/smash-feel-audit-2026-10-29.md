@@ -406,6 +406,100 @@ Frame the two fighters tighter (Ultimate's camera: the pair fills the view
 with a margin, zooms in on a close exchange, out on a launch), with the finish
 zoom already built as the model. Mobile keeps the wide frame if it needs it.
 
+#### Camera diagnosis (2026-10-29, late; Jon: "diagnose potential issues with how the camera is working in smash")
+
+Instrument: `smash_tool match-report --camera` (a per-tick trace of the
+resolved view against the seated bodies, reduced to the numbers below).
+Baseline MEASURED on the duelist mirror, 2 × 30 s CPU-versus-CPU, room
+640 × 480, blast fall 240 / side 400 / rise 240:
+
+| | run 1 | run 2 |
+|---|---|---|
+| view width px (min / median / max) | 256 / 406 / 1256 | 256 / 497 / 1256 |
+| zoom rate px/s (open / close) | 10 211 / −4 348 | 13 794 / −4 077 |
+| ticks with the zoom moving > 60 px/s | 71% | 75% |
+| ticks the view shows past the room | 54% | 52% |
+| fighter height, fraction of the view (min / median / max) | 0.07 / 0.21 / 0.33 | 0.07 / 0.17 / 0.33 |
+| fighter sits at (0 = top) | 0.55 | 0.57 |
+| body-ticks cut off by the view's edge | 0.2% | 0.9% |
+
+What the code did (CODE-READ, `camera_snapshot.rs`): the cast box ADOPTED an
+outward edge at once and closed at 10 Hz; `base_view` was that eased box plus
+the margin with no easing of its own, so a launch opened the view as fast as
+the body flew; there was no camera box, so the view followed a launched body
+to the blast line (up to 1 256 px across, twice the room, showing the void);
+the cast was centred with no floor room; the only zoom event was the verdict's
+finish zoom.
+
+What the reference does. Nothing public gives Ultimate's camera code; the
+primary source is the Melee decompilation (`doldecomp/melee`,
+`src/melee/cm/camera.c`, read directly — Jon: "probably something we can
+learn a lot of good lessons from"), and Ultimate's STAGE camera boxes are in
+the LVD data (rubendal's SSBU-Calculator `ssbustagedata.json`). MEASURED from
+those:
+
+- Every stage has a CAMERA BOX inside its blast box: Battlefield camera
+  ±170 / 130 / −80 against blast ±240 / 192 / −140, Final Destination
+  ±180 / 130 / −60 against ±240 / 180 / −140 — the camera stops at ~70–75%
+  of the side and rise blast distance and ~45% of the fall. A body past the
+  box is framed AT the box (Melee clamps each subject's framing points to it),
+  so the fighter leaves the frame before the line, into the magnifier bubble.
+- Each fighter is framed by a box of its own (front / back / up / down
+  extents) scaled by the cast count — 1 → 1.5, 2 → 1.32, 3 → 1.16, 4 → 1.0
+  (`cm_803BCB9C`) — and by a per-stage ratio; the extents grow or shrink at
+  most 0.5 units per frame, which is the lag on the margin.
+- The bottom of the combined box is lowered by `10 + 390 · z` (z from camera
+  distance), and a framing point clamped at the bottom bound is kept above the
+  GROUND under it: the floor the fighters stand on stays in view.
+- Pan is a per-frame fraction of the remaining distance, blended by how far
+  apart the fighters are; the camera position (zoom) moves by one constant
+  fraction per frame, the SAME in and out; no look-ahead, no dead zone.
+- Ordinary hits never request a camera quake in Melee (KO / Star KO do, 22
+  frames). Ultimate's hit shake is UNSOURCED.
+- Ultimate's Finish Zoom fires on a hit the game predicts will win the match
+  (knockback and angle, ignoring DI; 1-on-1 in practice); Special Zoom on a
+  few authored moves. Durations UNSOURCED.
+
+Design, shipped as `MatchRules::cast_framing` fields (the engine's defaults
+keep the exploration camera byte-for-byte): `open_hz` / `close_hz` ease the
+framed box both ways (Smash 4 / 4; engine adopts outward at once / 10 Hz),
+with the view FLOORED at the cast's raw span and the clamp holding the eased
+box grown to the raw one, so a launched body leads the view to its edge and
+is never cut off; `floor_margin` (Smash 40 px) keeps the ground in view and
+sits the fighters above the centre; `bounds` (Smash side 280 / rise 170 /
+fall 100, ≈70% of the side and rise blast distance) is the camera box: the
+cast is clipped to it, the view is capped to it and clamps inside it instead
+of the room. Per-fighter front/back extents and the cast-count scale are NOT
+built: with two polygons one margin and one floor number are the whole
+difference, and the count scale is a four-player question.
+
+After, MEASURED with the same instrument, same matchup, same seeds:
+
+| | run 1 | run 2 |
+|---|---|---|
+| view width px (min / median / max) | 299 / 500 / 999 | 299 / 475 / 1 024 |
+| zoom rate px/s (open / close) | 1 077 / −885 | 21 457¹ / −888 |
+| ticks the view shows past the room | 63% | 84% |
+| fighter height, fraction of the view (min / median / max) | 0.09 / 0.17 / 0.29 | 0.08 / 0.18 / 0.29 |
+| fighter sits at (0 = top) | 0.47 | 0.50 |
+| body-ticks cut off INSIDE the camera box | 0.5% | 0.9% |
+| body-ticks past the camera box (leave the frame by design) | 269 | 316 |
+
+¹ One tick at a respawn placement; the baseline had the same spike (10–14k).
+The view now shows past the ROOM more often because the room is no longer
+the clamp — the camera box is; "past the box" is 0 ticks by construction.
+The remaining in-box cut-offs are bodies whose 48 px box straddles the fall
+bound by ≤ 4 px (their centre is inside the box, their feet past it).
+`every_live_fighter_stays_inside_the_frame` now skips a body past the camera
+box and holds for every body inside it. Two bugs found by the instrument on
+the way: the view was floored at the raw span but the clamp held the eased
+box GROWN to the raw one (a taller union than the view — 17 px cut-offs),
+and a view capped to the box could not fit a cast as tall as the box.
+
+Still open after this: a KO-predicting finish zoom (Ultimate's Finish Zoom)
+and the off-screen bubble for a body between the camera box and the blast
+line — the bubble is art + HUD and needs Jon's eye.
+
 ### Not in this roadmap
 
 Stages, items, modes, CPU ladder, presentation polish, and every `S0.*` packet

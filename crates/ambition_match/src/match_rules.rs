@@ -62,6 +62,30 @@ pub struct AuthoredMatchRules {
 pub struct AuthoredCastFraming {
     pub min_view_scale: f32,
     pub margin: f32,
+    /// Extra room below the cast (px). Absent: none.
+    #[serde(default)]
+    pub floor_margin: f32,
+    /// The rate the framed box opens at (Hz). Absent: an opening edge is
+    /// adopted at once.
+    #[serde(default)]
+    pub open_hz: Option<f32>,
+    /// The rate the framed box closes at (Hz). Absent: the engine's.
+    #[serde(default)]
+    pub close_hz: Option<f32>,
+    /// How far past the room the view may look. Absent: it stops at the room.
+    #[serde(default)]
+    pub bounds: Option<AuthoredCameraBounds>,
+}
+
+/// [`CastCameraBounds`], as a pack writes it: `(side: 280.0, rise: 170.0, fall: 100.0)`.
+///
+/// [`CastCameraBounds`]: ambition_platformer2d_shared_tangle::markers::CastCameraBounds
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthoredCameraBounds {
+    pub side: f32,
+    pub rise: f32,
+    pub fall: f32,
 }
 
 /// [`BodyContact`], as a pack writes it: `(resistance: 0.85)`.
@@ -89,6 +113,14 @@ impl Default for AuthoredMatchRules {
             cast_framing: rules.cast_framing.map(|framing| AuthoredCastFraming {
                 min_view_scale: framing.min_view_scale,
                 margin: framing.margin,
+                floor_margin: framing.floor_margin,
+                open_hz: framing.open_hz,
+                close_hz: Some(framing.close_hz),
+                bounds: framing.bounds.map(|bounds| AuthoredCameraBounds {
+                    side: bounds.side,
+                    rise: bounds.rise,
+                    fall: bounds.fall,
+                }),
             }),
         }
     }
@@ -111,9 +143,19 @@ impl AuthoredMatchRules {
             .map(|body| body.over(ambition_platformer2d_core::DEFAULT_TUNING));
         rules.fighter_contact = self.fighter_contact.map(|contact| BodyContact { resistance: contact.resistance });
         rules.cast_framing = self.cast_framing.map(|framing| {
-            ambition_platformer2d_shared_tangle::markers::CastFramingTuning {
+            use ambition_platformer2d_shared_tangle::markers::{CastCameraBounds, CastFramingTuning};
+            let engine = CastFramingTuning::default();
+            CastFramingTuning {
                 min_view_scale: framing.min_view_scale,
                 margin: framing.margin,
+                floor_margin: framing.floor_margin,
+                open_hz: framing.open_hz,
+                close_hz: framing.close_hz.unwrap_or(engine.close_hz),
+                bounds: framing.bounds.map(|bounds| CastCameraBounds {
+                    side: bounds.side,
+                    rise: bounds.rise,
+                    fall: bounds.fall,
+                }),
             }
         });
     }

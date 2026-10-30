@@ -71,6 +71,11 @@ pub fn kill_readiness(damage_frac: f32) -> f32 {
     KILL_READY_FLOOR + (1.0 - KILL_READY_FLOOR) * ramp
 }
 
+/// The gravity the lead assumes for the airborne body, px/s². The facet's own
+/// gravity is not perceived; Smash's base body resolves 1,358-1,450 and the
+/// error over a 0.3 s lead at either end is under 5 px.
+pub const NOMINAL_GRAVITY_PX_S2: f32 = 1450.0;
+
 /// The landing lag a body owes when it touches down out of an aerial, as a
 /// brain estimates it: the facet's number is not perceived, and the genre's
 /// aerials land in roughly this (Ultimate: 6-15 frames).
@@ -750,6 +755,34 @@ pub fn generate_options(
     let threat_at = |frames: &ambition_entity_catalog::MoveFrameData| {
         frames.threat_live_at_s.unwrap_or(frames.startup_s)
     };
+    // THE LEAD IS BALLISTIC FOR A FOE COMING DOWN ONTO A GROUNDED BODY. The
+    // relative position evolves with the relative velocity, and for an
+    // airborne foe seen from the ground, with gravity too: it comes DOWN into
+    // the up-tilt. Both airborne, the two fall together and the lead is the
+    // straight line it always was.
+    //
+    // Measured 2026-10-30 (pointed vs pugnacious, rung 5, 30 s): the straight
+    // lead missed by a median 174 px with the foe 160-190 px off vertically
+    // and one body airborne in two thirds of the refusals, and 14 of 17
+    // thrown moves whiffed. Gravity is the brain's estimate of the kernel's
+    // (`NOMINAL_GRAVITY_PX_S2`); the facet's own number is not perceived.
+    //
+    // ⛔ THE FOE'S FALL ONLY, not this body's. A body coming down onto a
+    // grounded foe would, by the same arithmetic, "land beside it" inside
+    // the lead and admit a ground poke it cannot throw from the air — the
+    // rig's `juggle_escape` (whose answer is a down-air) pressed a jab, and
+    // the rig's press rates stopped ordering by rung. That case stays on the
+    // straight lead until the airborne kit is asked the question.
+    let relative_fall = if !foe.on_ground && me.on_ground {
+        NOMINAL_GRAVITY_PX_S2
+    } else {
+        0.0
+    };
+    // THE ARC ENDS AT THE FLOOR. Where the two stand on one floor their
+    // centres differ by their half-heights; a foe coming down stops there
+    // (the landing). Without the stop, rung 1's 0.5 s staleness (½·g·t² =
+    // 180 px) led a falling foe through the floor and out of every region.
+    let standing_across = me.half_extent.y - foe.half_extent.y;
     let lead_of = |startup_s: f32| {
         let dt = view.staleness_s() + startup_s;
         if dt <= 0.0 {
@@ -758,10 +791,36 @@ pub fn generate_options(
         let rel = foe.vel - me.vel;
         let facing = if me.facing < 0.0 { -1.0 } else { 1.0 };
         let rel_local = (rel.dot(basis.side) * facing, rel.dot(basis.down));
-        (
-            foe_local.0 + rel_local.0 * dt,
-            foe_local.1 + rel_local.1 * dt,
-        )
+        let across = foe_local.1 + rel_local.1 * dt + 0.5 * relative_fall * dt * dt;
+        let across = if relative_fall > 0.0 {
+            across.min(standing_across.max(foe_local.1))
+        } else {
+            across
+        };
+        (foe_local.0 + rel_local.0 * dt, across)
+    };
+    // WHEN A SWING CAN MEET A MOVING FOE: at the moment its threat opens,
+    // and across its active window — a body on an arc that is outside the
+    // region when the hitbox opens can be inside it before the hitbox
+    // closes, which is what an anti-air IS. Each sample is a time the move
+    // is live; the aim at that time is the led position.
+    //
+    // ⛔ ONLY FOR THE ANTI-AIR — a foe coming down onto a grounded body. A
+    // body coming down onto a grounded foe passes level with it at the end
+    // of a jab's window and was admitted to the jab (`juggle_escape`, whose
+    // answer is a down-air this rig does not author), and sampling every
+    // airborne pair's windows moved the rig's press rates per rung. Those
+    // cases keep the one sample at the threat's opening.
+    let anti_air = relative_fall > 0.0;
+    let meeting_times = |frames: &ambition_entity_catalog::MoveFrameData| {
+        let mut times = vec![threat_at(frames)];
+        if anti_air {
+            for (start, end) in &frames.active_spans {
+                times.push(0.5 * (start + end));
+                times.push(*end);
+            }
+        }
+        times
     };
     // Lead a moving target through projectile travel as well as startup.
     // Use each hazard's travel law (including stationary and turning
@@ -1107,18 +1166,24 @@ pub fn generate_options(
         let Some(coverage) = &attack.frames.coverage else {
             continue;
         };
-        let aim = lead_of(threat_at(&attack.frames));
-        let Some((near, far)) = coverage.span_toward(aim, foe_extent) else {
+        let mut spanned = false;
+        for t in meeting_times(&attack.frames) {
+            let aim = lead_of(t);
+            let Some((near, far)) = coverage.span_toward(aim, foe_extent) else {
+                continue;
+            };
+            spanned = true;
+            let gap = (aim.0 * aim.0 + aim.1 * aim.1).sqrt();
+            let miss = (near - ADMISSION_SLACK_PX - gap)
+                .max(gap - far - ADMISSION_SLACK_PX)
+                .max(0.0);
+            if miss < nearest_miss_px {
+                nearest_miss_px = miss;
+                miss_aim = aim;
+            }
+        }
+        if !spanned {
             off_axis += 1;
-            continue;
-        };
-        let gap = (aim.0 * aim.0 + aim.1 * aim.1).sqrt();
-        let miss = (near - ADMISSION_SLACK_PX - gap)
-            .max(gap - far - ADMISSION_SLACK_PX)
-            .max(0.0);
-        if miss < nearest_miss_px {
-            nearest_miss_px = miss;
-            miss_aim = aim;
         }
     }
     attacks.retain(|attack| match (&attack.frames.coverage, &attack.frames.push_coverage) {
@@ -1144,12 +1209,17 @@ pub fn generate_options(
             // rows. ⇒ This is the code agreeing with its own specification
             // and nothing more; it did NOT fix the fighter that prompted it,
             // whose hitboxes find no body at all — see the BRAIN row.
-            let aim = lead_of(threat_at(&attack.frames));
-            let Some((near, far)) = coverage.span_toward(aim, foe_extent) else {
-                return false;
-            };
-            let gap = (aim.0 * aim.0 + aim.1 * aim.1).sqrt();
-            gap >= near - ADMISSION_SLACK_PX && gap <= far + ADMISSION_SLACK_PX
+            // Admitted when the led foe is inside the region at ANY time the
+            // move is live: when its threat opens, or during its active
+            // window (the arc meeting the anti-air).
+            meeting_times(&attack.frames).into_iter().any(|t| {
+                let aim = lead_of(t);
+                let Some((near, far)) = coverage.span_toward(aim, foe_extent) else {
+                    return false;
+                };
+                let gap = (aim.0 * aim.0 + aim.1 * aim.1).sqrt();
+                gap >= near - ADMISSION_SLACK_PX && gap <= far + ADMISSION_SLACK_PX
+            })
         }
         // Only shoves: offered exactly where the shove lands.
         (None, Some(push)) => {

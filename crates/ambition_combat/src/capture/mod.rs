@@ -115,6 +115,11 @@ pub struct CaptureAttemptRequested {
     pub half_extents: ae::Vec2,
     /// Where a caught body will be held, captor-body-local.
     pub hold_offset: ae::Vec2,
+    /// The move use whose effect asked for this grab
+    /// (`ActorActionMessage::move_instance`). A catch marks that use as
+    /// CONNECTED (`MovePlayback::landed_hit`), the way a throw and a strike
+    /// mark theirs; `None` (a seize no move authored) marks nothing.
+    pub move_instance: Option<u32>,
 }
 
 /// Two bodies grabbed each other on one tick, and neither grab holds.

@@ -12,6 +12,27 @@
 //! CPUs. Counting in a real match finds that; unit tests do not. Run this
 //! after any change that claims to affect how a fight goes.
 //!
+//! ⛔⛔ A BEFORE/AFTER IS `--runs 3` MEDIANS, NEVER ONE RUN. Measured
+//! 2026-10-30 (pointed vs pugnacious, 60 s): at rung 9 three seeds gave
+//! moves 22–49–71 and damage 9–105–120 — a 3× spread from the match's own
+//! chaos, wider than any change under test. The rule for a claim about the
+//! CPU: `--runs 3`, read the median line (both seats summed), at rungs 5
+//! AND 9, for the pair (`pointed_polygon --opponent pugnacious_polygon`) AND
+//! the mirror (`pugnacious_polygon`); the shipped roster needs the shipped
+//! composition (`ambition_app_tools`'s `smash_cpu_report`). A single run is
+//! a trace, good for reading a mechanism, never for a number.
+//!
+//! Read `live ticks` beside every count: a round that ends on a KO freezes
+//! the simulation for the rest of the window, so a 60 s run can hold 16 s of
+//! fighting. Read `whiffs` with its two splits: `⇒ evaded` (the foe was
+//! unhittable for a tick of the move) and the per-move table's `along` /
+//! `across` (the whiffs' nearest approach to a live hitbox, with the hits'
+//! as the control). A whiff reading `0 / 0` overlapped the foe and was
+//! refused a verdict; it is not an admission miss. The recovery specials
+//! (`polygon_brawler_uppercut`, `polygon_rising_edge`) are pressed as
+//! recovery routes and whiff by nature; they are a quarter to a third of
+//! all whiffs (pooled over three runs: 20 of 56, 29 of 93, 28 of 112).
+//!
 //! It is observational and has no pass/fail threshold. The asserting guard is
 //! in `tests/the_repertoire_gets_used.rs`.
 //!
@@ -65,12 +86,23 @@ struct Tally {
     charge_held: usize,
     /// The highest charge fraction this seat ever reached.
     best_charge: f32,
+    /// Ticks on which the world MOVED: a position, or a move's clock, changed
+    /// for some seat. A round that ends on a KO freezes the simulation for
+    /// the rest of the window (`match_over`), so two 60 s runs can hold very
+    /// different amounts of fighting; every count above is per live tick,
+    /// not per second asked for.
+    live_ticks: usize,
     /// Distinct move starts, so a match that throws one move reads as one.
     moves_started: usize,
     /// Moves that ENDED without their volume ever overlapping a hurtbox
     /// (`MoveContact::overlapped` false for the whole playback): the whiffs.
     /// A move still playing when the window closes is not counted either way.
     whiffs: usize,
+    /// The whiffs during which the nearest opponent was UNHITTABLE for at
+    /// least one tick (dodging, invulnerable, parrying, in i-frames): swings
+    /// the foe evaded, as against swings that found nothing. The remainder,
+    /// `whiffs - whiffs_evaded`, is the admission's share.
+    whiffs_evaded: usize,
     /// The fastest launch this body was handed, and the speed its own tuning
     /// says a launch must beat to become a tumble. Together they separate the
     /// two causes of "nobody tumbled".
@@ -90,6 +122,29 @@ struct Tally {
     /// pressed; this says what the body threw. They differ where the runtime
     /// takes a cancel window's nomination, which is where chains live.
     started: std::collections::BTreeMap<String, usize>,
+    /// Every whiff, by id — the moves of `started` that ended untouched. Beside
+    /// `started` it says WHICH move the brain throws into air; a whiff total
+    /// alone cannot tell an admission that leads wrong from a move with no
+    /// reach.
+    whiffed: std::collections::BTreeMap<String, usize>,
+    /// The side gap to the nearest opponent on the tick each move STARTED,
+    /// by id, split by how the move ended: `(hits, whiffs)`. A whiff that
+    /// started far and a hit that started close say the admission's lead is
+    /// what missed; both starting close say the move or the foe's reaction.
+    start_gaps: std::collections::BTreeMap<String, (Vec<f32>, Vec<f32>)>,
+    /// For each whiff, by id: the nearest the foe's hurtbox came to a live
+    /// hitbox over the move's active ticks, `(along, across)` in the move's
+    /// frame (+along beyond the box, −along short of it; −across above). The
+    /// axis that is not zero names what missed: reach, height, or facing.
+    whiff_miss: std::collections::BTreeMap<String, Vec<(f32, f32)>>,
+    /// The same nearest approach for the moves that TOUCHED: the control
+    /// for `whiff_miss`. A hit reads `(0, 0)` when the frame is right; a
+    /// whiff that also reads `(0, 0)` overlapped and was refused a verdict
+    /// (intangible foe, clank, a hit the road declined), not missed.
+    hit_miss: std::collections::BTreeMap<String, Vec<(f32, f32)>>,
+    /// Whiffs that showed no active tick with a foe present at all (the
+    /// move was cancelled or interrupted before its hitbox opened).
+    whiff_blind: std::collections::BTreeMap<String, usize>,
     /// Launches handed to this body: rising edges of hitstun, the same edge
     /// `top_speed` is sampled on. Separates one big hit from forty.
     launches: usize,
@@ -332,6 +387,23 @@ fn run_one(
     trace_camera: bool,
 ) -> (Vec<Tally>, CameraTally) {
     let mut app = build();
+    // ⛔⛔ ONE `update()` IS ONE SIM TICK, WHATEVER COMPOSITION BUILT THE APP.
+    // The demo builder pins this itself; the shipped composition
+    // (`smash_cpu_report`) arrived with `TimeUpdateStrategy::Automatic`, so
+    // the fixed clock ran off the WALL clock and a 60 s window held as many
+    // sim ticks as the machine's load allowed — three concurrent reports of
+    // one binary gave different medians (rung 5 pair: moves 24 vs 28, whiffs
+    // 17 vs 25). Pinned here, the window is 3,600 ticks whatever the load.
+    // ⚠ A SEED STILL DIVERGES ACROSS INVOCATIONS: a duplicate `--runs 3`
+    // of one binary at rung 5 reproduced run 0 exactly (579 live ticks, 8
+    // moves, 7 whiffs) and not runs 1-2 (medians moves 28 vs 30, whiffs 25
+    // vs 23). The simulation is not invocation-deterministic yet; that is
+    // a kernel question, and the medians rule stands until it is answered.
+    let timestep = app
+        .world()
+        .resource::<bevy::time::Time<bevy::time::Fixed>>()
+        .timestep();
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(timestep));
     if let Some(ladder) = authored_ladder {
         super::declare_smash_ladder(&mut app, ladder.clone());
     }
@@ -389,11 +461,13 @@ fn run_one(
     }
     let ticks = seconds * 60;
     let mut totals: Vec<Tally> = vec![Tally::default(); 4];
-    let mut live_move: Vec<Option<(String, f32, bool)>> = vec![None; 4];
+    let mut live_move: Vec<Option<(String, f32, bool, bool, f32, Option<(f32, f32)>)>> =
+        vec![None; 4];
     let mut parry_was: Vec<f32> = vec![0.0; 4];
     let mut hitstun_was: Vec<f32> = vec![0.0; 4];
     let mut last_damage: Vec<i32> = vec![0; 4];
     let mut steer_was: Vec<f32> = vec![0.0; 4];
+    let mut last_world: Vec<(usize, f32, f32, Option<f32>)> = Vec::new();
     let mut camera = CameraTally {
         room: ambition_demo_smash::smash_stage().world.size,
         ..CameraTally::default()
@@ -411,6 +485,7 @@ fn run_one(
             &mut hitstun_was,
             &mut last_damage,
             &mut steer_was,
+            &mut last_world,
         );
         #[cfg(feature = "causal")]
         collect_decisions(&app, decisions);
@@ -651,25 +726,7 @@ fn report_one(label: &str, seconds: usize, totals: &[Tally], carried: &[String])
             tally.tumble_speed,
         );
     }
-    let mut moves: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
-    for tally in totals {
-        for (id, count) in &tally.started {
-            *moves.entry(id.as_str()).or_default() += count;
-        }
-    }
-    if !moves.is_empty() {
-        let mut rows: Vec<_> = moves.into_iter().collect();
-        rows.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(b.0)));
-        // Print the total first and say when rows are withheld, so a new move
-        // is not dropped in silence.
-        println!("\nwhat the bodies actually threw: {} distinct", rows.len());
-        for (id, count) in rows.iter().take(12) {
-            println!("  {id:<28} {count:>5}");
-        }
-        if rows.len() > 12 {
-            println!("  … and {} more not shown", rows.len() - 12);
-        }
-    }
+    report_thrown(totals.iter());
     // How often a fighter changes its walking direction. See
     // `Tally::steer_flips`.
     println!("\nhow often each body changes its walking direction:");
@@ -689,6 +746,11 @@ fn report_one(label: &str, seconds: usize, totals: &[Tally], carried: &[String])
             tally.steer_held as f32 / tally.steer_flips.max(1) as f32
         );
     }
+    println!(
+        "\nlive ticks: {} of {} (a KO ends the round and freezes the rest of the window)",
+        totals.iter().map(|t| t.live_ticks).max().unwrap_or(0),
+        seconds * 60
+    );
     println!("\nwhy each body could not be struck, by the term that refused:");
     println!(
         "{:<6} {:>10} {:>10} {:>10} {:>14} {:>10}",
@@ -728,11 +790,12 @@ fn report_one(label: &str, seconds: usize, totals: &[Tally], carried: &[String])
 fn sample(
     app: &mut App,
     totals: &mut [Tally],
-    live_move: &mut [Option<(String, f32, bool)>],
+    live_move: &mut [Option<(String, f32, bool, bool, f32, Option<(f32, f32)>)>],
     parry_was: &mut [f32],
     hitstun_was: &mut [f32],
     last_damage: &mut [i32],
     steer_was: &mut [f32],
+    last_world: &mut Vec<(usize, f32, f32, Option<f32>)>,
 ) {
     // The steer lives on the control frame, not the body, so sample it in its
     // own pass. Count sign changes: the initial dash is paid per change.
@@ -797,7 +860,31 @@ fn sample(
                         _ => 0.0,
                     },
                     playback.map(|p| {
-                        (p.spec.id.clone(), p.t, p.smash_charge_fraction(), p.contact().overlapped)
+                        // The hit boxes live at this tick, body-local, facing +x.
+                        let boxes: Vec<((f32, f32), (f32, f32))> = p
+                            .spec
+                            .windows
+                            .iter()
+                            .filter(|w| {
+                                matches!(w.tag, ambition_platformer2d::entity_catalog::WindowTag::Active)
+                                    && w.start_s <= p.t
+                                    && p.t < w.end_s
+                            })
+                            .flat_map(|w| {
+                                w.volumes.iter().map(|v| {
+                                    let c = v.shape.coverage_box();
+                                    (c.min, c.max)
+                                })
+                            })
+                            .collect();
+                        (
+                            p.spec.id.clone(),
+                            p.t,
+                            p.smash_charge_fraction(),
+                            p.contact().overlapped,
+                            boxes,
+                            p.facing,
+                        )
                     }),
                     facts.copied(),
                     shield.copied(),
@@ -808,6 +895,8 @@ fn sample(
                     kin.pos.x,
                     captured.is_some(),
                     combat.recoil_lock_timer,
+                    kin.pos.y,
+                    kin.size * 0.5,
                 )
             },
         )
@@ -815,7 +904,22 @@ fn sample(
     // Was anybody in range? Only the distance between the bodies separates a
     // quiet match from a busy one.
     const IN_RANGE_PX: f32 = 120.0;
-    let positions: Vec<(usize, f32)> = rows.iter().map(|row| (row.0, row.10)).collect();
+    let positions: Vec<(usize, f32, f32, ae::Vec2)> =
+        rows.iter().map(|row| (row.0, row.10, row.13, row.14)).collect();
+    // A frozen simulation (the window outliving the match) changes nothing.
+    let world_now: Vec<(usize, f32, f32, Option<f32>)> = rows
+        .iter()
+        .map(|row| (row.0, row.10, row.13, row.6.as_ref().map(|p| p.1)))
+        .collect();
+    let live = *last_world != world_now;
+    *last_world = world_now;
+    // Who could not be struck this tick: the four terms `unhittable` counts
+    // and the ledge's intangibility, so a whiff can say whether its foe was
+    // there to be hit.
+    let unhittable_now: Vec<(usize, bool)> = rows
+        .iter()
+        .map(|row| (row.0, row.2 .0 || row.2 .1 || row.2 .2 || row.2 .3 || row.2 .4))
+        .collect();
     for (
         seat,
         damage,
@@ -830,11 +934,14 @@ fn sample(
         here,
         captured,
         recoil_lock,
+        pos_y,
+        _half,
     ) in rows
     {
         let Some(tally) = totals.get_mut(seat) else {
             continue;
         };
+        tally.live_ticks += usize::from(live);
         if damage == 0 && last_damage[seat] > 0 {
             tally.kos += 1;
         }
@@ -845,7 +952,7 @@ fn sample(
         }
         if positions
             .iter()
-            .any(|(other, x)| *other != seat && (x - here).abs() <= IN_RANGE_PX)
+            .any(|(other, x, _, _)| *other != seat && (x - here).abs() <= IN_RANGE_PX)
         {
             tally.in_range += 1;
         }
@@ -909,32 +1016,64 @@ fn sample(
         if tech_timer.is_some_and(|t| t > 0.0) {
             tally.tech_armed += 1;
         }
-        if let Some((id, t, charge, overlapped)) = playback {
+        let foe_unhittable = unhittable_now
+            .iter()
+            .any(|(other, unhittable)| *other != seat && *unhittable);
+        let nearest_foe = positions
+            .iter()
+            .filter(|(other, _, _, _)| *other != seat)
+            .min_by(|a, b| (a.1 - here).abs().total_cmp(&(b.1 - here).abs()));
+        let nearest_gap = nearest_foe.map_or(f32::INFINITY, |foe| (foe.1 - here).abs());
+        if let Some((id, t, charge, overlapped, boxes, move_facing)) = playback {
             let fresh = match &live_move[seat] {
-                Some((last_id, last_t, _)) => last_id != &id || t < *last_t,
+                Some((last_id, last_t, _, _, _, _)) => last_id != &id || t < *last_t,
                 None => true,
             };
             if fresh {
                 // The move before this one ended; a whiff if it never touched.
-                if let Some((_, _, touched)) = &live_move[seat] {
-                    if !touched {
-                        tally.whiffs += 1;
-                    }
+                if let Some((last_id, _, touched, evaded, gap, miss)) = &live_move[seat] {
+                    tally.end_move(last_id, *touched, *evaded, *gap, *miss);
                 }
                 tally.moves_started += 1;
                 *tally.started.entry(id.clone()).or_default() += 1;
             }
-            let touched = overlapped || (!fresh && live_move[seat].as_ref().is_some_and(|m| m.2));
-            live_move[seat] = Some((id, t, touched));
+            let carried = (!fresh).then(|| live_move[seat].as_ref()).flatten();
+            let touched = overlapped || carried.is_some_and(|m| m.2);
+            let evaded = foe_unhittable || carried.is_some_and(|m| m.3);
+            let gap = carried.map_or(nearest_gap, |m| m.4);
+            // THE NEAREST APPROACH of the foe's hurtbox to any live hitbox,
+            // over the move's active ticks, in the move's own frame: along
+            // (+ beyond the box, − short of it or behind) and across (+
+            // below, − above). The smallest total over the move is kept.
+            let mut miss = carried.and_then(|m| m.5);
+            if let Some((_, fx, fy, fhalf)) = nearest_foe {
+                let sign = if move_facing < 0.0 { -1.0 } else { 1.0 };
+                let rel = ((fx - here) * sign, fy - pos_y);
+                for ((lo_x, lo_y), (hi_x, hi_y)) in &boxes {
+                    let axis = |v: f32, lo: f32, hi: f32, h: f32| -> f32 {
+                        if v < lo - h {
+                            v - (lo - h)
+                        } else if v > hi + h {
+                            v - (hi + h)
+                        } else {
+                            0.0
+                        }
+                    };
+                    let m = (axis(rel.0, *lo_x, *hi_x, fhalf.x), axis(rel.1, *lo_y, *hi_y, fhalf.y));
+                    let total = m.0.abs() + m.1.abs();
+                    if miss.is_none_or(|best: (f32, f32)| total < best.0.abs() + best.1.abs()) {
+                        miss = Some(m);
+                    }
+                }
+            }
+            live_move[seat] = Some((id, t, touched, evaded, gap, miss));
             if let Some(fraction) = charge {
                 tally.charge_held += 1;
                 tally.best_charge = tally.best_charge.max(fraction);
             }
         } else {
-            if let Some((_, _, touched)) = &live_move[seat] {
-                if !touched {
-                    tally.whiffs += 1;
-                }
+            if let Some((last_id, _, touched, evaded, gap, miss)) = &live_move[seat] {
+                tally.end_move(last_id, *touched, *evaded, *gap, *miss);
             }
             live_move[seat] = None;
         }
@@ -964,6 +1103,133 @@ fn composition_scope(carried: &[String]) -> String {
          only - `app_it` is where the full roster lives.",
         carried.len(),
     )
+}
+
+impl Tally {
+    /// A move ended: file it as a hit or a whiff, with the gap it started at.
+    fn end_move(
+        &mut self,
+        id: &str,
+        touched: bool,
+        evaded: bool,
+        start_gap: f32,
+        miss: Option<(f32, f32)>,
+    ) {
+        let gaps = self.start_gaps.entry(id.to_string()).or_default();
+        if touched {
+            gaps.0.push(start_gap);
+            if let Some(m) = miss {
+                self.hit_miss.entry(id.to_string()).or_default().push(m);
+            }
+        } else {
+            self.whiffs += 1;
+            self.whiffs_evaded += usize::from(evaded);
+            *self.whiffed.entry(id.to_string()).or_default() += 1;
+            gaps.1.push(start_gap);
+            match miss {
+                Some(m) => self.whiff_miss.entry(id.to_string()).or_default().push(m),
+                None => *self.whiff_blind.entry(id.to_string()).or_default() += 1,
+            }
+        }
+    }
+}
+
+/// The per-move table: what the bodies threw and how much of it touched
+/// nothing. Pooled over whatever tallies are handed in (one run's seats, or
+/// every seat of every run), so a `--runs 3` report carries it too.
+fn report_thrown<'a>(tallies: impl Iterator<Item = &'a Tally>) {
+    #[derive(Default)]
+    struct Row {
+        thrown: usize,
+        whiffed: usize,
+        hit_gaps: Vec<f32>,
+        whiff_gaps: Vec<f32>,
+        along: Vec<f32>,
+        across: Vec<f32>,
+        blind: usize,
+        hit_along: Vec<f32>,
+        hit_across: Vec<f32>,
+    }
+    let mut moves: std::collections::BTreeMap<&str, Row> = std::collections::BTreeMap::new();
+    for tally in tallies {
+        for (id, count) in &tally.started {
+            moves.entry(id.as_str()).or_default().thrown += count;
+        }
+        for (id, count) in &tally.whiffed {
+            moves.entry(id.as_str()).or_default().whiffed += count;
+        }
+        for (id, (hits, whiffs)) in &tally.start_gaps {
+            let row = moves.entry(id.as_str()).or_default();
+            row.hit_gaps.extend_from_slice(hits);
+            row.whiff_gaps.extend_from_slice(whiffs);
+        }
+        for (id, misses) in &tally.whiff_miss {
+            let row = moves.entry(id.as_str()).or_default();
+            row.along.extend(misses.iter().map(|m| m.0));
+            row.across.extend(misses.iter().map(|m| m.1));
+        }
+        for (id, count) in &tally.whiff_blind {
+            moves.entry(id.as_str()).or_default().blind += count;
+        }
+        for (id, misses) in &tally.hit_miss {
+            let row = moves.entry(id.as_str()).or_default();
+            row.hit_along.extend(misses.iter().map(|m| m.0));
+            row.hit_across.extend(misses.iter().map(|m| m.1));
+        }
+    }
+    if moves.is_empty() {
+        return;
+    }
+    let mut rows: Vec<_> = moves.into_iter().collect();
+    rows.sort_by(|a, b| b.1.thrown.cmp(&a.1.thrown).then_with(|| a.0.cmp(b.0)));
+    let median = |xs: &[f32]| -> String {
+        if xs.is_empty() {
+            return "-".to_string();
+        }
+        let mut xs = xs.to_vec();
+        xs.sort_by(f32::total_cmp);
+        format!("{:.0}", xs[xs.len() / 2])
+    };
+    // Print the total first and say when rows are withheld, so a new move
+    // is not dropped in silence.
+    println!(
+        "\nwhat the bodies actually threw: {} distinct\n  {:<28} {:>5} {:>5}   {:>5} {:>5}   {:>6} {:>6} {:>5}   {:>6} {:>6}",
+        rows.len(),
+        "move",
+        "thrown",
+        "whiff",
+        "gap@h",
+        "gap@w",
+        "along",
+        "across",
+        "blind",
+        "h.alng",
+        "h.acrs",
+    );
+    for (id, row) in rows.iter().take(12) {
+        println!(
+            "  {id:<28} {:>5} {:>5}   {:>5} {:>5}   {:>6} {:>6} {:>5}   {:>6} {:>6}",
+            row.thrown,
+            row.whiffed,
+            median(&row.hit_gaps),
+            median(&row.whiff_gaps),
+            median(&row.along),
+            median(&row.across),
+            row.blind,
+            median(&row.hit_along),
+            median(&row.hit_across),
+        );
+    }
+    println!(
+        "  gap@h / gap@w: median centre gap when a hit / a whiff started. along / across: for the \
+         whiffs, the median nearest approach of the foe's hurtbox to a live hitbox in the move's \
+         frame (+along beyond, −along short or behind; −across above). blind: whiffs whose hitbox \
+         never opened with a foe present. h.alng / h.acrs: the same approach for the moves that \
+         touched — the control; a whiff reading 0 / 0 overlapped and was refused a verdict."
+    );
+    if rows.len() > 12 {
+        println!("  … and {} more not shown", rows.len() - 12);
+    }
 }
 
 /// `min–median–max` across runs: one run is a sample of a noisy process.
@@ -1000,9 +1266,58 @@ fn report_spread(label: &str, seconds: usize, all: &[Vec<Tally>], carried: &[Str
             values.last().copied().unwrap_or(0.0)
         )
     };
+    // Per run, not summed over seats: both seats share one clock.
+    let live = {
+        let mut values: Vec<f32> = all
+            .iter()
+            .map(|run| run.iter().map(|t| t.live_ticks as f32).fold(0.0, f32::max))
+            .collect();
+        values.sort_by(f32::total_cmp);
+        format!(
+            "{:.0}–{:.0}–{:.0}",
+            values.first().copied().unwrap_or(0.0),
+            values[values.len() / 2],
+            values.last().copied().unwrap_or(0.0)
+        )
+    };
+    println!("  live ticks  {live}   (a KO ends the round and freezes the rest of the window)");
+    // Per live minute, per run: the only form in which two runs of different
+    // length compare. Each run's rate, then the spread of the rates.
+    let per_minute = |pick: fn(&Tally) -> f32| -> String {
+        let mut values: Vec<f32> = all
+            .iter()
+            .map(|run| {
+                let live = run.iter().map(|t| t.live_ticks as f32).fold(0.0, f32::max);
+                run.iter().map(pick).sum::<f32>() * 3600.0 / live.max(1.0)
+            })
+            .collect();
+        values.sort_by(f32::total_cmp);
+        format!(
+            "{:.1}–{:.1}–{:.1}",
+            values.first().copied().unwrap_or(0.0),
+            values[values.len() / 2],
+            values.last().copied().unwrap_or(0.0)
+        )
+    };
+    println!("  per live minute: moves {}  whiffs {}  damage {}",
+        per_minute(|t| t.moves_started as f32),
+        per_minute(|t| t.whiffs as f32),
+        per_minute(|t| t.damage as f32),
+    );
+    for (i, run) in all.iter().enumerate() {
+        println!(
+            "  run {i}: live {}  moves {}  whiffs {}  damage {}  KOs {}",
+            run.iter().map(|t| t.live_ticks).max().unwrap_or(0),
+            run.iter().map(|t| t.moves_started).sum::<usize>(),
+            run.iter().map(|t| t.whiffs).sum::<usize>(),
+            run.iter().map(|t| t.damage).sum::<i32>(),
+            run.iter().map(|t| t.kos).sum::<usize>(),
+        );
+    }
     println!("  damage      {}", spread(|t| t.damage as f32));
     println!("  moves       {}", spread(|t| t.moves_started as f32));
     println!("  whiffs      {}", spread(|t| t.whiffs as f32));
+    println!("  ⇒ evaded    {}", spread(|t| t.whiffs_evaded as f32));
     println!("  hitstun     {}", spread(|t| t.hitstun as f32));
     println!("  tumbling    {}", spread(|t| t.tumbling as f32));
     println!("  downed      {}", spread(|t| t.knocked_down as f32));
@@ -1045,6 +1360,7 @@ fn report_spread(label: &str, seconds: usize, all: &[Vec<Tally>], carried: &[Str
             flight.len(),
         );
     }
+    report_thrown(all.iter().flat_map(|run| run.iter()));
     println!(
         "\nmin–median–max across runs. Counts are summed over both seats; charge and \
          launch are the best either seat reached. `flight speed` is pooled over every \

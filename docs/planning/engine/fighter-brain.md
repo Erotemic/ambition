@@ -788,6 +788,13 @@ becomes game content. Neither is an AI architecture question.
 
 ## Current work
 
+### Tactical intent experiment (2026-10-30, open)
+
+A persistent spacing objective plus an armed punish, tested against this
+reactive policy on identical fixtures: `fighter-tactical-intent.md`. The
+groundwork (nearest-hostile spacing, commitment measured from now) and the
+punish-window census (`scripts/smash_punish_windows.py`) are in.
+
 ### F1 — the brain on the new fighter body (2026-10-18, open)
 
 Every fighter now moves on Smash's default fighter or its own facet body

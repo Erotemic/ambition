@@ -28,7 +28,10 @@ _SHEET_TARGET = re.compile(r'\btarget:\s*"([a-z0-9_]+)"')
 
 def _tracked(top: Path, *patterns: str) -> list[Path]:
     """The tracked files of the git checkout at `top` (a submodule too) that
-    match `patterns` (a `*` matches across directories)."""
+    match `patterns` (a `*` matches across directories). Empty for a checkout
+    that is absent (a submodule not cloned): its uses are simply unknown."""
+    if not top.is_dir():
+        return []
     done = subprocess.run(["git", "ls-files", "-z", "--", *patterns], cwd=top, capture_output=True, text=True)
     return [top / p for p in done.stdout.split("\0") if p]
 

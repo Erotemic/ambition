@@ -109,7 +109,9 @@ class Digests:
         except OSError:
             self.seen[key] = None
             return None
-        signature = [st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns, st.st_ctime_ns]
+        # Size and mtime only: the tree is shared between machines (virtiofs), where
+        # device, inode and ctime differ for one file and would rehash every input.
+        signature = [st.st_size, st.st_mtime_ns]
         old = self.cache.get(key)
         if old and old[0] == signature:
             digest = old[1]

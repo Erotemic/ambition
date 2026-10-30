@@ -8,12 +8,16 @@ names `image`; an older generator sidecar names `images` (and the generator's
 
 from __future__ import annotations
 
+import json
+import os
 import re
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+from .paths import real
 
 try:
     _Loader = yaml.CSafeLoader
@@ -56,6 +60,43 @@ def page_files(layout: dict[str, Any], key: str) -> list[str]:
     return [first] + [f"{base}.{n}.png" for n in range(1, pages)]
 
 
+class SidecarCache:
+    """Readings of sidecar files, kept by (path, size, mtime) between builds:
+    parsing the large sheet YAML is most of a rebuild otherwise. A reader's
+    result must be plain JSON data. With no `path`, nothing is kept."""
+
+    VERSION = 1
+
+    def __init__(self, path: Path | None) -> None:
+        self.path = path
+        self.data: dict[str, list] = {}
+        self.used: dict[str, list] = {}
+        try:
+            saved = json.loads(path.read_text()) if path else {}
+            if saved.get("version") == self.VERSION:
+                self.data = saved["entries"]
+        except (OSError, ValueError, AttributeError, KeyError):
+            pass
+
+    def read(self, reader, path: Path):
+        st = path.stat()
+        key = f"{reader.__name__}:{path}"
+        stamp = [st.st_size, st.st_mtime_ns]
+        hit = self.data.get(key)
+        if hit is None or hit[0] != stamp:
+            hit = [stamp, json.dumps(reader(path))]
+        self.used[key] = hit
+        # A fresh copy each time: the build annotates what it is given.
+        return json.loads(hit[1])
+
+    def save(self) -> None:
+        if not self.path:
+            return
+        partial = self.path.with_suffix(f".{os.getpid()}.partial")
+        partial.write_text(json.dumps({"version": self.VERSION, "entries": self.used}))
+        partial.replace(self.path)
+
+
 def read_layout(path: Path) -> dict[str, Any]:
     """The frame layout of a sheet: frame size, pages and each animation
     with its frames (rect, page, trim offset)."""
@@ -95,11 +136,11 @@ def use_runtime_layouts(assets, products, inspection: dict) -> None:
         for sheet in unit.get("published", []):
             layout = sheet.pop("layout", None)
             if sheet["tier"] == "full" and layout is not None:
-                layouts.setdefault(Path(sheet["path"]).resolve(), {})[sheet["key"]] = layout
+                layouts.setdefault(real(sheet["path"]), {})[sheet["key"]] = layout
     for asset in assets.values():
         records = [products[key] for key in asset.products
                    if products[key].role == "sheet_record" and products[key].root.of is None]
-        matches = [layout for product in records for layout in layouts.get(product.file.resolve(), {}).values()]
+        matches = [layout for product in records for layout in layouts.get(real(product.file), {}).values()]
         if len(matches) == 1:
             authored = asset.data.get("layout") or {}
             asset.data["layout"] = {key: authored[key] for key in ("description", "generator_spec") if key in authored} | deepcopy(matches[0])

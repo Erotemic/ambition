@@ -34,8 +34,18 @@ def library_path(repo: Path) -> Path:
     return repo / os.environ.get("AMBITION_CONTENT_LIBRARY", "game/ambition_content_library/library.json")
 
 
+_LIBRARY: dict[str, tuple] = {}
+
+
 def library(repo: Path) -> dict:
-    return json.loads(library_path(repo).read_text())
+    """The library manifest, parsed once per file version (a build asks thousands of times)."""
+    path = library_path(repo)
+    st = path.stat()
+    stamp = (st.st_size, st.st_mtime_ns)
+    cached = _LIBRARY.get(str(path))
+    if cached is None or cached[0] != stamp:
+        cached = _LIBRARY[str(path)] = (stamp, path.read_text())
+    return json.loads(cached[1])
 
 
 def asset_root(repo: Path) -> Path:
@@ -50,7 +60,40 @@ def provenance_root(repo: Path) -> Path | None:
 TIERS = {"_0_5x": "half", "_0_25x": "quarter", "_potato": "potato"}
 
 
+_ROOTS: dict[tuple, list] = {}
+
+
+_DIRS: dict[str, str] = {}
+
+
+def forget_roots() -> None:
+    """Drop the roots and resolved directories read for an earlier build in this process."""
+    _ROOTS.clear()
+    _DIRS.clear()
+
+
+def real(path: Path) -> Path:
+    """`path.resolve()`, resolving each directory once per build: on a shared
+    filesystem every path component's lstat is a round trip, and a build
+    resolves tens of thousands of paths in a few hundred directories."""
+    path = os.path.abspath(path)
+    parent, name = os.path.split(path)
+    real_parent = _DIRS.get(parent)
+    if real_parent is None:
+        real_parent = _DIRS[parent] = os.path.realpath(parent)
+    candidate = os.path.join(real_parent, name)
+    return Path(os.path.realpath(candidate) if os.path.islink(candidate) else candidate)
+
+
 def roots(repo: Path) -> list[Root]:
+    """The scanned roots, read once per build (`forget_roots` starts a build)."""
+    key = (str(repo), str(library_path(repo)))
+    if key not in _ROOTS:
+        _ROOTS[key] = _read_roots(repo)
+    return list(_ROOTS[key])
+
+
+def _read_roots(repo: Path) -> list[Root]:
     a = asset_root(repo)
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))

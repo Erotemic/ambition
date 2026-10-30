@@ -138,8 +138,10 @@ def rate(asset: Asset, products: dict[str, Product]) -> None:
     asset.generator = main.provenance.get("generator") or next((p.provenance.get("generator") for p in ranked if p.provenance.get("generator")), None)
 
 
-def read_sidecars(assets: dict[str, Asset], products: dict[str, Product]) -> None:
-    """Read the layout, actor, portrait, part and rig sidecars of each sheet asset."""
+def read_sidecars(assets: dict[str, Asset], products: dict[str, Product], cache: "sheets.SidecarCache | None" = None) -> None:
+    """Read the layout, actor, portrait, part and rig sidecars of each sheet asset.
+    `cache` keeps each reading by file version between builds."""
+    cache = cache or sheets.SidecarCache(None)
     for asset in assets.values():
         if not asset.id.startswith("sheet:"):
             continue
@@ -147,14 +149,14 @@ def read_sidecars(assets: dict[str, Asset], products: dict[str, Product]) -> Non
         layout = by_role.get("sheet_layout")
         try:
             if layout:
-                asset.data["layout"] = sheets.read_layout(layout.file)
+                asset.data["layout"] = cache.read(sheets.read_layout, layout.file)
             if "actor" in by_role:
-                asset.data["actor"] = sheets.read_actor(by_role["actor"].file)
+                asset.data["actor"] = cache.read(sheets.read_actor, by_role["actor"].file)
             if "portrait_clips" in by_role:
-                asset.data["portraits"] = sheets.read_portraits(by_role["portrait_clips"].file)
+                asset.data["portraits"] = cache.read(sheets.read_portraits, by_role["portrait_clips"].file)
             if "parts_table" in by_role:
-                asset.data["parts"] = sheets.read_parts(by_role["parts_table"].file)
+                asset.data["parts"] = cache.read(sheets.read_parts, by_role["parts_table"].file)
             if "body_rig" in by_role:
-                asset.data["body_rig"] = sheets.read_body_rig(by_role["body_rig"].file)
+                asset.data["body_rig"] = cache.read(sheets.read_body_rig, by_role["body_rig"].file)
         except Exception as ex:  # noqa: BLE001 - one bad sidecar is a diagnostic, not a failed build
             asset.data.setdefault("errors", []).append(f"{type(ex).__name__}: {ex}")

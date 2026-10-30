@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 import struct
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -37,8 +38,11 @@ class Product:
 
 
 class HashCache:
-    """sha256 by (real path, mtime, size), kept between builds so a rebuild
-    reads only the files that changed."""
+    """sha256 and PNG size by (real path, size, mtime), kept between builds so
+    a rebuild reads only the files that changed. The key holds no device, inode
+    or ctime: the tree is shared between machines (virtiofs), where those differ
+    for the same file and would rehash every file on every build. `--deep`
+    rehashes."""
 
     def __init__(self, path: Path, *, deep: bool = False) -> None:
         self.path = path
@@ -49,24 +53,28 @@ class HashCache:
             self.data = {}
         self.used: dict[str, list] = {}
 
-    def digest(self, file: Path) -> str:
-        real = os.path.realpath(file)
-        st = os.stat(real)
-        key = [st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns, st.st_ctime_ns]
-        hit = self.data.get(real)
-        if not self.deep and hit and hit[:5] == key:
+    def _entry(self, real: str, st: os.stat_result) -> list:
+        """`[size, mtime_ns, sha256, png size or None]` for the file at `real`."""
+        key = [st.st_size, st.st_mtime_ns]
+        hit = self.used.get(real) or self.data.get(real)
+        if not self.deep and hit and len(hit) == 4 and hit[:2] == key:
             self.used[real] = hit
-            return hit[5]
+            return hit
         h = hashlib.sha256()
         with open(real, "rb") as f:
             for block in iter(lambda: f.read(1 << 20), b""):
                 h.update(block)
-        self.used[real] = [*key, h.hexdigest()]
-        return h.hexdigest()
+        dims = png_size(Path(real)) if real.lower().endswith(".png") else None
+        self.used[real] = entry = [*key, h.hexdigest(), list(dims) if dims else None]
+        return entry
+
+    def digest(self, file: Path) -> str:
+        real = os.path.realpath(file)
+        return self._entry(real, os.stat(real))[2]
 
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        partial = self.path.with_suffix(".partial")
+        partial = self.path.with_suffix(f".{os.getpid()}.partial")
         partial.write_text(json.dumps(self.used))
         partial.replace(self.path)
 
@@ -93,13 +101,25 @@ def scan(roots: list[Root], hashes: HashCache) -> dict[str, Product]:
             continue
         for dirpath, dirnames, filenames in os.walk(root.path, followlinks=True):
             here = Path(dirpath)
-            dirnames[:] = sorted(d for d in dirnames if not d.startswith(".") and (here / d).resolve() not in claimed)
+            # One realpath per directory: on a shared filesystem each path
+            # component's lstat is a round trip.
+            real_here = os.path.realpath(dirpath)
+            dirnames[:] = sorted(d for d in dirnames if not d.startswith(".") and Path(real_here, d).resolve() not in claimed)
             for name in sorted(filenames):
                 file = here / name
-                if name.startswith(".") or file.suffix.lower() not in LISTED or not file.is_file():
+                if name.startswith(".") or file.suffix.lower() not in LISTED:
                     continue
+                real = os.path.join(real_here, name)
+                if os.path.islink(real):
+                    real = os.path.realpath(real)
+                try:
+                    st = os.stat(real)
+                except OSError:
+                    continue
+                if not stat.S_ISREG(st.st_mode):
+                    continue
+                entry = hashes._entry(real, st)
                 rel = file.relative_to(root.path).as_posix()
-                st = file.stat()
                 product = Product(
                     path=f"{root.name}/{rel}",
                     root=root,
@@ -107,9 +127,8 @@ def scan(roots: list[Root], hashes: HashCache) -> dict[str, Product]:
                     file=file,
                     bytes=st.st_size,
                     mtime=st.st_mtime,
-                    sha256=hashes.digest(file),
+                    sha256=entry[2],
+                    size=tuple(entry[3]) if entry[3] else None,
                 )
-                if file.suffix.lower() == ".png":
-                    product.size = png_size(file)
                 out[product.path] = product
     return out

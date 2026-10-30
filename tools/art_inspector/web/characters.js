@@ -131,10 +131,8 @@
     const app = document.getElementById('app');
     if (!I) { app.innerHTML = '<p class="empty">Rebuild the inspector to read the current game catalog.</p>'; return; }
     if (I.profile.state !== 'available') {
-      const warnings = I.profile.warnings?.length ? I.profile.warnings : I.warnings;
-      app.innerHTML = `<h1>Characters unavailable</h1><p>The game catalog could not be read.</p>
-        ${(warnings || []).map(warning => `<p class="empty">${esc(warning)}</p>`).join('')}
-        <p>Restore the content inspection tool, then run <code>python3 scripts/art_inspector.py build --open</code>.</p>`;
+      app.innerHTML = `<h1>Characters unavailable</h1><p>The game catalog could not be read. The notice above names the problem and its fix; then run <code>./scripts/art_inspector.py</code> again.</p>
+        <p>The art itself is indexed: browse the <a href="#gallery">Raw gallery</a>, <a href="#inventory/all">Inventory</a> or <a href="#generators">Generators</a>.</p>`;
       return;
     }
     const actor = I.identities[key];

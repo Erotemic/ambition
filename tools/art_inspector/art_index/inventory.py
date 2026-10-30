@@ -10,7 +10,7 @@ import yaml
 
 from . import sources
 from .lineage import matching_lineages
-from .paths import asset_root, roots
+from .paths import asset_root, real, roots
 
 NEEDS = {"missing", "partial", "stale"}
 TRAITS = ("concept", "identity_kind", "visual_family", "species", "body_base", "lineage")
@@ -48,21 +48,29 @@ def assemble(repo: Path, product_report: dict, prepared: dict, *, local_files=No
     for receipt in product_report.get("receipts", []):
         generator = receipt.get("generator") or {}
         for item in receipt.get("outputs") or []:
-            archive[(asset_root(repo) / receipt["root"] / item["path"]).resolve()].append({
+            archive[real(asset_root(repo) / receipt["root"] / item["path"])].append({
                 "generator": generator, "sha256": item.get("sha256"), "basis": receipt.get("basis"),
                 "renderer": receipt.get("renderer"), "written_at": receipt.get("written_at"), "evidence": "declared",
                 "lineages": known_history.get(generator.get("id"), [])})
     root_list = roots(repo)
+    # The tier of the first listed root holding a path, by its ancestors: thousands of
+    # sheets against thousands of roots is too many `is_relative_to` calls.
+    first_root: dict[Path, int] = {}
+    for index, root in enumerate(root_list):
+        first_root.setdefault(root.path, index)
+    def tier_of(path: str) -> str:
+        found = [first_root[a] for a in (Path(path), *Path(path).parents) if a in first_root]
+        return root_list[min(found)].tier if found else "unknown"
     sheets = defaultdict(list)
     manifests = defaultdict(list)
     for path, records in prepared.get("sheets", {}).items():
         for record in records:
-            published = dict(record, path=path, tier=next((r.tier for r in root_list if Path(path).is_relative_to(r.path)), "unknown"))
+            published = dict(record, path=path, tier=tier_of(path))
             sheets[record["product"]].append(published)
             manifests[Path(path).name].append(published)
     publication = product_report.get("publication", {})
     publication_store = Path(product_report.get("store", repo / "game/ambition_content_library/generated/art_publication"))
-    physical = {logical: (publication_store / row["path"]).resolve() for logical, row in publication.get("files", {}).items()}
+    physical = {logical: real(publication_store / row["path"]) for logical, row in publication.get("files", {}).items()}
     claims = defaultdict(list)
     for uid, unit in units.items():
         unit["required_paths"] = {
@@ -96,7 +104,7 @@ def assemble(repo: Path, product_report: dict, prepared: dict, *, local_files=No
                 ron_only=sorted(runtime_rows.keys() - preview["rows"].keys()),
                 frame_count_mismatch=sorted(name for name in preview["rows"].keys() & runtime_rows.keys() if preview["rows"][name] != runtime_rows[name]))
         for rel in unit.get("required", []) + unit.get("optional", []):
-            claims[(asset_root(repo) / unit["root"] / rel).resolve()].append(uid)
+            claims[real(asset_root(repo) / unit["root"] / rel)].append(uid)
             logical = unit["root"] + "/" + rel
             if logical in physical:
                 claims[physical[logical]].append(uid)
@@ -108,7 +116,7 @@ def assemble(repo: Path, product_report: dict, prepared: dict, *, local_files=No
     pack_root = Path(prepared.get("pack_root", repo))
     for asset in prepared.get("assets", []):
         path = asset["path"]
-        candidates = [(pack_root / path).resolve(), (asset_root(repo) / path).resolve()]
+        candidates = [real(pack_root / path), real(asset_root(repo) / path)]
         if path in physical:
             candidates.append(physical[path])
         owners = {uid for candidate in candidates for uid in claims.get(candidate, [])}
@@ -117,7 +125,7 @@ def assemble(repo: Path, product_report: dict, prepared: dict, *, local_files=No
             uid = "requirement:asset:" + path
             domain = next(iter(asset.get("required_by", [])), "").split("/")[0].split(":")[-1]
             kind = {"character": "actor", "held_item_art": "held_item", "wielded_item_art": "held_item"}.get(domain, domain or "unknown")
-            known = archive.get((asset_root(repo) / path).resolve(), [])
+            known = archive.get(real(asset_root(repo) / path), [])
             members = [art.name]
             units[uid] = {"id": uid, "kind": kind, "root": art.parent.as_posix(), "generator": {"id": path, "family": "unknown"},
                 "required": members, "optional": [], "source": None, "metadata": {}, "facts": {name: fact(None, path) for name in TRAITS},
@@ -127,7 +135,7 @@ def assemble(repo: Path, product_report: dict, prepared: dict, *, local_files=No
                 "dependents": [], "repair": "Register a producer for " + path,
                 "status": {"state": "unknown" if any(candidate.is_file() for candidate in candidates) else "missing", "required": members,
                     "tiers": {}, "reasons": [{"code": "no-registered-producer"}]}}
-            claims[(asset_root(repo) / path).resolve()].append(uid)
+            claims[real(asset_root(repo) / path)].append(uid)
             owners.add(uid)
         for uid in owners:
             units[uid]["game_use"] = "referenced"
@@ -156,7 +164,7 @@ def assemble(repo: Path, product_report: dict, prepared: dict, *, local_files=No
         cid = f"{row['provider']}:{row['id']}"
         catalog = row["catalog"]
         target = row.get("sheet_target")
-        matched = sorted(set(claims.get((asset_root(repo) / catalog.get("manifest", "")).resolve(), [])))
+        matched = sorted(set(claims.get(real(asset_root(repo) / catalog.get("manifest", "")), [])))
         identity = dict(row, key=cid, units=matched, display=catalog.get("display_name") or catalog.get("name") or row["id"],
                         relations={name: catalog.get(name) for name in ("form_of", "part_of", "derived_from")}, coverage=[],
                         lineages=matching_lineages(lineages, targets=[target, *[units[uid].get("generator", {}).get("id") for uid in matched]],
@@ -206,10 +214,10 @@ def assemble(repo: Path, product_report: dict, prepared: dict, *, local_files=No
     for uid, unit in units.items():
         unit["dependents"] = list({json.dumps(value, sort_keys=True): value for value in unit["dependents"]}.values())
         for item in (unit.get("receipt") or {}).get("outputs", []):
-            claims[(asset_root(repo) / unit["root"] / item["path"]).resolve()].append(uid)
+            claims[real(asset_root(repo) / unit["root"] / item["path"])].append(uid)
     local = []
     for path in local_files or []:
-        path = Path(path).resolve()
+        path = real(path)
         owners = claims.get(path, [])
         local.append({"path": str(path), "units": owners, "registration": "reference" if path.is_relative_to(repo / "assets") else "registered" if any(units[uid]["registration"] == "registered" for uid in owners) else "unregistered" if product_report.get("complete") else "unknown",
             "provenance": archive.get(path, []), "lineages": sorted({name for receipt in archive.get(path, []) for name in receipt["lineages"]})})
@@ -247,8 +255,11 @@ def character_groups(identities: dict) -> list[dict]:
     return [{"root": key, "members": sorted(members)} for key, members in sorted(grouped.items())]
 
 
-def collect(repo: Path, out: Path, *, profile="ambition", python=None, binary=None, deep=False, runtime_path=None) -> dict:
-    product_report = sources.products(repo, python, deep=deep)
+def collect(repo: Path, out: Path, *, profile="ambition", python=None, binary=None, deep=False, runtime_path=None,
+            product_report=None) -> dict:
+    """`product_report`: the renderer's report, when the caller started it early."""
+    if product_report is None:
+        product_report = sources.products(repo, python, deep=deep)
     prepared = sources.content(repo, profile, out, binary)
     prepared["previews"] = sources.previews(prepared, out)
     files = [p for root in roots(repo) if root.tier == "full" for p in root.path.rglob("*") if p.is_file()]

@@ -21,22 +21,31 @@ ASSETS = "game/ambition_content_library/generated/runtime"
 PROV = "game/ambition_content_library/generated/asset_provenance"
 
 
-def test_missing_content_tool_keeps_the_previous_inspector_and_does_not_open_it(tmp_path, monkeypatch, capsys):
+def test_missing_content_tool_still_builds_and_opens_the_page_naming_the_fix(tmp_path, monkeypatch, capsys):
+    """A missing or failing content catalog must not hide the art: the page is
+    built and opened, and it carries the problem and its fix."""
     out = tmp_path / "inspector"
-    out.mkdir()
-    (out / "catalog.js").write_text("previous catalog")
-    (out / "index.html").write_text("previous page")
     warning = "Content inspection binary not found. Build ambition_content_check."
     monkeypatch.setattr(build, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(build.inventory, "collect", lambda *_args, **_kwargs: {
-        "profile": {"state": "unavailable", "warnings": [warning]}, "units": {}, "warnings": [warning]})
+        "profile": {"state": "unavailable", "warnings": [warning]}, "units": {}, "identities": {}, "warnings": [warning]})
     opened = []
     monkeypatch.setattr(build.webbrowser, "open", opened.append)
-    assert build.main(["build", "--out", str(out), "--open"]) == 1
-    assert (out / "catalog.js").read_text() == "previous catalog"
-    assert (out / "index.html").read_text() == "previous page"
-    assert not opened
-    assert warning in capsys.readouterr().err
+    assert build.main(["build", "--out", str(out), "--open", "--no-previews"]) == 0
+    assert (out / "index.html").is_file()
+    assert warning in (out / "catalog.js").read_text()
+    assert opened
+    assert warning in capsys.readouterr().out
+
+
+def test_no_command_serves_and_opens(monkeypatch, tmp_path):
+    served = {}
+    monkeypatch.setattr(build, "repo_root", lambda: tmp_path)
+    import art_index.server as server
+    monkeypatch.setattr(server, "serve", lambda repo, out, **kw: served.update(kw))
+    assert build.main([]) == 0
+    assert served["open_browser"] and callable(served["build"])
+
 
 LAYOUT = """target: foo
 image: foo_spritesheet.png

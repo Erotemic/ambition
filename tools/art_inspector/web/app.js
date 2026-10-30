@@ -621,7 +621,31 @@
     try { localStorage.setItem("art-inspector-theme", document.documentElement.dataset.theme); } catch (e) { /* ignore */ }
   });
   const stamp = document.getElementById("stamp");
-  stamp.textContent = `Built ${C.built_at} at ${String(C.repo_commit).slice(0, 10)} (renderer ${String(C.renderer_commit).slice(0, 10)}) in ${C.build_seconds}s · ${fmt(assetList.length)} assets · ${fmt(Object.keys(products).length)} files · ${fmt(C.findings.length)} findings. Rebuild: python3 scripts/art_inspector.py build`;
+  stamp.textContent = `Built ${C.built_at} at ${String(C.repo_commit).slice(0, 10)} (renderer ${String(C.renderer_commit).slice(0, 10)}) in ${C.build_seconds}s · ${fmt(assetList.length)} assets · ${fmt(Object.keys(products).length)} files · ${fmt(C.findings.length)} findings. Refresh: ./scripts/art_inspector.py`;
+  // What the index could not read, with its fix. The rest of the page still works.
+  const profile = C.inventory?.profile;
+  if (profile && profile.state !== "available") {
+    const notice = document.createElement("div");
+    notice.className = "stamp stale";
+    notice.innerHTML = `<b>The character catalog is unavailable</b>, so Characters is empty. The Raw gallery, Generators, Inventory and lineages still show the art on disk.`
+      + (profile.warnings || C.inventory.warnings || []).map((w) => `<pre>${esc(w)}</pre>`).join("");
+    stamp.after(notice);
+  }
+  // Served: the page may be the previous index while a refresh runs.
+  if (location.protocol.startsWith("http")) {
+    const live = document.createElement("div");
+    live.className = "stamp";
+    live.hidden = true;
+    stamp.after(live);
+    const poll = async () => {
+      let s;
+      try { s = await (await fetch("/api/build-status", { cache: "no-store" })).json(); } catch (e) { return; }
+      if (s.state === "building") { live.hidden = false; live.textContent = `Showing the previous index; refreshing: ${s.step}`; setTimeout(poll, 1500); }
+      else if (s.state === "failed") { live.hidden = false; live.className = "stamp stale"; live.textContent = `The refresh failed; this is the previous index. ${s.step}`; }
+      else if (!live.hidden) { live.innerHTML = `The refreshed index is ready. <button type="button">Reload</button>`; live.querySelector("button").onclick = () => location.reload(); }
+    };
+    poll();
+  }
   window.addEventListener("hashchange", route);
   window.addEventListener("art-reviews-changed", route);
   route();

@@ -23,15 +23,11 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-from . import SCHEMA, assets as assets_mod, diagnostics, generators, lineage, related, thumbs, usage, inventory, reviews, sheets
-from .paths import repo_root, roots
+from . import SCHEMA, assets as assets_mod, diagnostics, generators, lineage, related, thumbs, usage, inventory, reviews, sheets, sources
+from .paths import forget_roots, repo_root, roots
 from .scan import HashCache, scan
 
 WEB = Path(__file__).resolve().parents[1] / "web"
-
-
-class ContentUnavailable(RuntimeError):
-    """The selected game catalog cannot be read."""
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -63,16 +59,29 @@ def build(
     def step(message: str) -> None:
         log(f"[{time.perf_counter() - started:6.1f}s] {message}")
 
+    forget_roots()
     hashes = HashCache(out / "hash_cache.json", deep=deep)
+    # The renderer's product report is a separate process; let it run while the scan does.
+    early = None
+    if targets is None:
+        from concurrent.futures import ThreadPoolExecutor
+        pool = ThreadPoolExecutor(max_workers=1)
+        early = pool.submit(sources.products, repo, python, deep=deep)
+        pool.shutdown(wait=False)
     step("scanning the art roots")
     products = scan(roots(repo), hashes)
+    # Keep the digests now: a later failure must not make the next build rehash every file.
+    hashes.save()
     step(f"{len(products)} files; reading the generators")
     warnings: list[str] = []
     inspection = None
     if targets is None:
-        inspection = inventory.collect(repo, out, profile=profile, python=python, binary=binary, deep=deep, runtime_path=runtime_path)
+        inspection = inventory.collect(repo, out, profile=profile, python=python, binary=binary, deep=deep, runtime_path=runtime_path,
+                                       product_report=early.result())
         if inspection["profile"]["state"] != "available":
-            raise ContentUnavailable("Cannot build the character catalog.\n" + "\n".join(inspection["profile"].get("warnings") or ["The content inspection tool is unavailable."]))
+            # The art, generators and lineages still index; the page names the problem and its fix.
+            problem = inspection["profile"].get("warnings") or ["The content inspection tool is unavailable."]
+            log("NOTICE: the character catalog is unavailable; indexing the art without it.\n  " + "\n  ".join(problem))
         targets = {uid[7:]: dict(unit["generator"], root=unit["root"], outputs=unit["required"] + unit["optional"])
                    for uid, unit in inspection["units"].items() if uid.startswith("target:")}
         warnings = inspection["warnings"]
@@ -83,7 +92,9 @@ def build(
     # Sheet keys named by actor sidecars (`renderer_target`) inform resolution.
     generators.resolve(products, ev, actor_targets)
     assets = assets_mod.group(products, ev.generators)
-    assets_mod.read_sidecars(assets, products)
+    sidecars = sheets.SidecarCache(None if deep else out / "sidecar_cache.json")
+    assets_mod.read_sidecars(assets, products, sidecars)
+    sidecars.save()
     if inspection is not None:
         sheets.use_runtime_layouts(assets, products, inspection)
         sheets.use_catalog_poses(assets, inspection)
@@ -317,6 +328,10 @@ def main(argv: list[str] | None = None) -> int:
         command_parser.add_argument("--content-binary", type=Path, help="prebuilt check binary for this provider")
         command_parser.add_argument("--deep", action="store_true", help="rehash accepted inputs and outputs")
         command_parser.add_argument("--runtime-snapshot", type=Path)
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if not argv or argv[0].startswith("-") and argv[0] not in ("-h", "--help"):
+        # No command: show what exists now, refresh the index behind it.
+        argv = ["serve", "--open", *argv]
     args = parser.parse_args(argv)
     repo = repo_root()
     if getattr(args, "library", None):
@@ -350,16 +365,16 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(result["summary"], sort_keys=True))
             print(f"{len(gaps)} bundle(s) in this scope have unknown generation evidence.")
         return 0
-    try:
-        build(repo, out, jobs=args.jobs, previews=not args.no_previews, prune=args.prune, python=args.renderer_python,
-              lineages=args.authorship, profile=args.profile, binary=args.content_binary, deep=args.deep, runtime_path=args.runtime_snapshot)
-    except ContentUnavailable as error:
-        print(f"Art inspector: {error}\nThe previous inspector was kept.", file=sys.stderr)
-        return 1
+    def run(log=print):
+        return build(repo, out, jobs=args.jobs, previews=not args.no_previews, prune=args.prune, python=args.renderer_python,
+                     lineages=args.authorship, profile=args.profile, binary=args.content_binary, deep=args.deep,
+                     runtime_path=args.runtime_snapshot, log=log)
     if args.command == "serve":
         from .server import serve
-        serve(repo, out, port=args.port, open_browser=args.open)
-    elif args.open:
+        serve(repo, out, port=args.port, open_browser=args.open, build=run)
+        return 0
+    run()
+    if args.open:
         webbrowser.open((out / "index.html").as_uri())
     return 0
 

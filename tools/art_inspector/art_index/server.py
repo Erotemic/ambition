@@ -12,7 +12,7 @@ from urllib.parse import urlsplit
 from . import reviews
 
 
-def make_handler(repo: Path, catalog):
+def make_handler(repo: Path, catalog, status=None):
     store = reviews.Store(repo)
     lock = threading.Lock()
     def current_catalog():
@@ -32,6 +32,8 @@ def make_handler(repo: Path, catalog):
             self.wfile.write(body)
 
         def do_GET(self):
+            if urlsplit(self.path).path == "/api/build-status":
+                return self.reply(200, dict(status or {"state": "done"}))
             if urlsplit(self.path).path != "/api/art-reviews":
                 return super().do_GET()
             try:
@@ -73,7 +75,10 @@ def make_handler(repo: Path, catalog):
     return Handler
 
 
-def serve(repo: Path, out: Path, *, port=8767, open_browser=False):
+def serve(repo: Path, out: Path, *, port=8767, open_browser=False, build=None):
+    """Serve `out`. With `build`, a page built before opens at once and
+    `build(log)` refreshes it behind; the page polls `/api/build-status` and
+    offers a reload. With no page yet, the build runs first."""
     cached = None
     stamp = None
     def current_catalog():
@@ -84,12 +89,30 @@ def serve(repo: Path, out: Path, *, port=8767, open_browser=False):
             cached = reviews.read_catalog(out)
             stamp = current_stamp
         return cached
-    with ThreadingHTTPServer(("127.0.0.1", port), make_handler(repo, current_catalog)) as server:
+    status = {"state": "done", "step": ""}
+    def log(message: str) -> None:
+        print(message, flush=True)
+        status["step"] = message.split("\n", 1)[0]
+    if build is not None and not (out / "index.html").is_file():
+        build(log)
+        build = None
+    with ThreadingHTTPServer(("127.0.0.1", port), make_handler(repo, current_catalog, status)) as server:
         url = f"http://127.0.0.1:{server.server_port}/{(out / 'index.html').relative_to(repo).as_posix()}#characters"
         print(f"Art inspector: {url}", flush=True)
         print("Review notes: tools/art_inspector/reviews/notes/", flush=True)
         if open_browser:
             webbrowser.open(url)
+        if build is not None:
+            def refresh():
+                status["state"] = "building"
+                try:
+                    build(log)
+                    status["state"] = "done"
+                except Exception as error:  # the open page stays usable; say why it did not refresh
+                    status.update(state="failed", step=f"{type(error).__name__}: {error}")
+                    print(f"Art inspector: the refresh failed; the page shows the previous index.\n{error}", flush=True)
+            print("Showing the previous index while it refreshes.", flush=True)
+            threading.Thread(target=refresh, daemon=True).start()
         try:
             server.serve_forever()
         except KeyboardInterrupt:

@@ -4,6 +4,14 @@ Use the inspector to find required art, inspect animation coverage, and compare
 published art with its source and design history. The CLI and offline page use
 one derived report. The report does not publish art or start a Cargo build.
 
+Run `./scripts/art_inspector.py` with no arguments to see what exists. It opens
+the last index in a browser at once and refreshes it in the background. The page
+offers a reload when the refresh is done. The first run builds before it opens.
+
+A problem never stops the index. If the game catalog cannot be read, the page
+still shows the art, generators and lineages. A notice names the problem and
+its fix, such as rebuilding a stale content check binary.
+
 Build the content inspection binary once:
 
 ```bash

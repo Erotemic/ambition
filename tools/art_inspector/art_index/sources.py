@@ -22,12 +22,12 @@ def products(repo: Path, python: str | None = None, *, deep=False) -> dict:
     command = [renderer_python(repo, python), "-m", "ambition_sprite2d_renderer.products"]
     if deep:
         command.append("--deep")
-    result = subprocess.run(command, cwd=repo / "tools/ambition_sprite2d_renderer", capture_output=True, text=True)
     try:
+        result = subprocess.run(command, cwd=repo / "tools/ambition_sprite2d_renderer", capture_output=True, text=True)
         if result.returncode:
             raise ValueError(result.stderr[-1500:])
         return json.loads(result.stdout)
-    except ValueError as error:
+    except (ValueError, OSError) as error:
         return {"units": {}, "complete": False, "warnings": [f"Product owner unavailable: {error}"]}
 
 
@@ -69,7 +69,8 @@ def content(repo: Path, profile: str, out: Path, binary: Path | None = None) -> 
         if report.get("schema") != "ambition.art_content.v3":
             raise ValueError("The content inspection protocol changed. Rebuild the selected content check binary.")
     except ValueError as error:
-        return {"state": "unavailable", "characters": [], "sheets": {}, "assets": [], "warnings": [f"Content export failed: {error}"]}
+        return {"state": "unavailable", "characters": [], "sheets": {}, "assets": [],
+                "warnings": [f"Content export failed: {error}", *_stale_binary(repo, binary)]}
     report.update(state="available", profile=profile, pack_root=str(pack), cache="refreshed")
     files += [pack / row["path"] for row in report.get("sources", [])]
     out.mkdir(parents=True, exist_ok=True)
@@ -77,6 +78,25 @@ def content(repo: Path, profile: str, out: Path, binary: Path | None = None) -> 
     temp.write_text(json.dumps({"signature": [_stamp(p) for p in sorted(set(files))], "report": report}))
     temp.replace(cache)
     return report
+
+
+BUILD_BINARY = "cargo build -p ambition_content_schemas --bin ambition_content_check"
+#: The binary's own code. A commit here after the binary was built may change what it reads.
+BINARY_OWNERS = ("game/ambition_content_schemas", "crates/ambition_content_pack", "crates/ambition_content_cli")
+
+
+def _stale_binary(repo: Path, binary: Path) -> list[str]:
+    """Name a content check binary older than its owners' last commit, and the rebuild."""
+    try:
+        built = binary.stat().st_mtime
+    except OSError:
+        return []
+    done = subprocess.run(["git", "-C", str(repo), "log", "-1", "--format=%ct %h %s", "--", *BINARY_OWNERS],
+                          capture_output=True, text=True)
+    stamp, _, commit = done.stdout.strip().partition(" ")
+    if stamp.isdigit() and int(stamp) > built:
+        return [f"The content check binary {binary} is older than {commit}. Rebuild it: {BUILD_BINARY}"]
+    return [f"If the files it names exist, rebuild the content check binary {binary}: {BUILD_BINARY}"]
 
 
 def previews(prepared: dict, out: Path) -> dict:

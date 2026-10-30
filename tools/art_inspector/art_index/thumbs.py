@@ -16,6 +16,8 @@ from typing import Any
 
 from PIL import Image
 
+from .paths import real
+
 Image.MAX_IMAGE_PIXELS = None
 
 #: Bump to redraw every preview.
@@ -204,7 +206,7 @@ def plan_and_draw(out_dir: Path, products: dict[str, Any], assets: dict[str, Any
 
     planned: set[Path] = set()
     framing_outputs = []
-    full_files = {product.file.resolve(): product for product in products.values() if product.root.of is None}
+    full_files = {real(product.file): product for product in products.values() if product.root.of is None}
     for product in products.values():
         if product.root.of is None and product.file.suffix.lower() in (".png", ".webp", ".jpg", ".jpeg", ".gif"):
             dest = out_dir / "thumbs" / f"{product.sha256[:2]}" / f"{product.sha256}.webp"
@@ -219,7 +221,7 @@ def plan_and_draw(out_dir: Path, products: dict[str, Any], assets: dict[str, Any
         if layout and layout["rows"]:
             metadata = next(products[key] for key in asset.products
                             if products[key].root.of is None and products[key].role in ("sheet_record", "sheet_layout"))
-            pages = [full_files.get((metadata.file.parent / name).resolve()) for name in layout["pages"]]
+            pages = [full_files.get(real(metadata.file.parent / name)) for name in layout["pages"]]
             used = {rect[4] for row in layout["rows"] for rect in row["rects"]}
             if any(page >= len(pages) or pages[page] is None for page in used):
                 asset.data.setdefault("errors", []).append("a page the layout names is not published")

@@ -6315,6 +6315,23 @@
                 hall: ["I have a rule book. The dinosaurs have teeth. We compromise.", "Fourteen years on this trail. I have lost two hats and no visitors. Yet."],
             ),
         ),
+        "npc_primeval_tock": (
+            display_name: "Professor Tock",
+            // Keeps the meteor watch on the Smoking Mountain's rim.
+            manifest: "sprites/primeval_tock_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "primeval", "peaceful"],
+            barks: (
+                idle: ["Any day now.", "That one? A satellite. Not ours, not yet."],
+                hall: ["The big one comes once. I intend to be the one who saw it coming.", "My thermos is older than some of the dinosaurs here. The tea is newer."],
+            ),
+        ),
         "npc_primeval_feld": (
             display_name: "Dr Feld",
             // Paleontologist, digging at the tar pits.

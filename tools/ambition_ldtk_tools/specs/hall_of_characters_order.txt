@@ -164,6 +164,7 @@ npc_evil_tobias
 [The primeval trail's people]
 npc_primeval_brandvold
 npc_primeval_feld
+npc_primeval_tock
 npc_tower_brandt
 
 [Guests from history and the studio]

@@ -126,7 +126,9 @@ def smoking_mountain():
         solid("east_wall", w - WALL, 0, WALL, h),
         edge("mountain_west", "back down to the tar pits", 0, g, PITS, "tar_east"),
         start(MOUNTAIN, 120, g),
-        entity("ChestSpawn", 2060, SHELVES[-1][2] - 58, 76, 58, name="the meteor watch's thermos", reward="health:2"),
+        entity("ChestSpawn", 2030, SHELVES[-1][2] - 58, 76, 58, name="the meteor watch's thermos", reward="health:2"),
+        # Professor Tock, keeping the meteor watch (`primeval.yarn`).
+        resident("npc_primeval_tock", "primeval_tock", 2160, SHELVES[-1][2]),
         sign("mountain_sign", 300, g - 220, "THE SMOKING MOUNTAIN: not a volcano (a volcano would need a permit)", 560),
         sign("lava_sign", 590, g - 90, "HOT", 80),
         sign("meteor_sign", 2100, SHELVES[-1][2] - 140, "METEOR WATCH: any day now (66,000,000 years and counting)", 520),

@@ -35,3 +35,11 @@ fn the_smoking_mountain_rises_east_of_the_tar_pits() {
     go(&mut app, PITS, Some("mountain_west"));
     go(&mut app, "primeval_smoking_mountain", Some("tar_east"));
 }
+
+/// Professor Tock keeps the meteor watch on the Smoking Mountain's rim: the
+/// player climbs the shelves by keys to him (`primeval.yarn`).
+#[test]
+fn the_meteor_watch_is_kept_on_the_rim() {
+    let mut app = a_session_in("primeval_smoking_mountain");
+    talk(&mut app, "npc_primeval_tock", "Listening for what?");
+}

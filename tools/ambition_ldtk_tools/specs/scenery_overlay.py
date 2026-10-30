@@ -35,7 +35,9 @@ OVERLAYS = {
         # on the floor at the foot of its frame (y 480; the canopy's 672).
         "primeval_trailhead": [("jungle_fern_clump", 700, 360), ("jungle_fallen_log", 900, 420), ("jungle_ranger_hut", 470, 330)],
         "primeval_run": [("jungle_idol_head", 600, 370), ("jungle_fern_clump", 1500, 360), ("jungle_ribcage", 2350, 360)],
-        "primeval_rookery": [("jungle_nest", 980, 410), ("jungle_nest", 1320, 410), ("jungle_fern_clump", 2100, 360), ("jungle_fallen_log", 2300, 420)],
+        "primeval_rookery": [("jungle_nest", 980, 410), ("jungle_nest", 1320, 410), ("jungle_fern_clump", 2100, 360), ("jungle_fallen_log", 2300, 420),
+                             # The birdwatcher's hide (`primeval_rookery_props.py`, room coordinates).
+                             ("rookery_hide", 1470, 306)],
         "primeval_ridge": [("jungle_ribcage", 600, 360), ("jungle_idol_head", 2200, 370), ("jungle_fern_clump", 2650, 360)],
         "primeval_canopy": [("jungle_fallen_log", 700, 612), ("jungle_fern_clump", 450, 552), ("jungle_nest", 1500, 602)],
     },
@@ -58,6 +60,9 @@ OVERLAYS = {
 #: World file -> level -> [(name, x, y, text, width)]: lines of writing
 #: (`DebugLabel`) with their middle over x, each added once (by its name).
 SIGNS = {
+    "dinosaur.ldtk": {
+        "primeval_rookery": [("rookery_sign_hide", 1550, 280, "HIDE: quiet, please. The penguins are shy.", 420)],
+    },
     "pvn.ldtk": {
         "pirate_sky_lookout": [
             ("sky_lookout_sign_parking", 830, 640, "SHARK PARKING: extinguish before boarding", 420),
@@ -82,6 +87,7 @@ SIGNS = {
 RESIDENTS = {
     "dinosaur.ldtk": {
         "primeval_trailhead": [("npc_primeval_brandvold", "primeval_brandvold", 660, 480)],
+        "primeval_rookery": [("npc_primeval_twitchell", "primeval_twitchell", 1720, 480)],
     },
 }
 

@@ -485,6 +485,7 @@ collections:
   - climb_karman
   - climb_satellite
   - climb_navsat
+  - rookery_hide
   - spur_west
   - spur_east
   - jungle_ranger_hut

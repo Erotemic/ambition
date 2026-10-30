@@ -6434,6 +6434,23 @@
                 hall: ["I have a rule book. The dinosaurs have teeth. We compromise.", "Fourteen years on this trail. I have lost two hats and no visitors. Yet."],
             ),
         ),
+        "npc_primeval_twitchell": (
+            display_name: "Mildred Twitchell",
+            // Watches the birds of the rookery from her hide.
+            manifest: "sprites/primeval_twitchell_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 167 cm.
+            standing_height: Some(64.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "primeval", "peaceful"],
+            barks: (
+                idle: ["Shh!", "Far too many penguins."],
+                hall: ["Penguins. In a jungle, beside a volcano. I stopped asking why in the first week.", "The shoebill has been standing still since Tuesday. It is the most frightening bird I have ever seen."],
+            ),
+        ),
         "npc_primeval_tock": (
             display_name: "Professor Tock",
             // Keeps the meteor watch on the Smoking Mountain's rim.

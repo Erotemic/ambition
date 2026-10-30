@@ -172,6 +172,7 @@ npc_evil_crabbe
 npc_primeval_brandvold
 npc_primeval_feld
 npc_primeval_tock
+npc_primeval_twitchell
 npc_tower_brandt
 
 [Guests from history and the studio]

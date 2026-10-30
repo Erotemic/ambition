@@ -43,6 +43,11 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Jungle: the rookery's birdwatcher**: Mildred Twitchell's hide on the
+  raised ground (canvas and palm fronds, a long lens through the slit, her
+  stool, notebook and thermos), and Mildred, who has stopped asking why the
+  penguins are here (chargen, Hall wing; `scenery_overlay.py`). Verified:
+  the_tar_pits birdwatcher test, the_primeval_trail (5).
 - **Math: Zeno Halfway** on the aqueduct's deck, between the 7/8 and 3/4
   piers: set out for the reservoir at dawn, some years ago, always halfway;
   his arrow is still in the air (chargen, Hall wing). Verified:

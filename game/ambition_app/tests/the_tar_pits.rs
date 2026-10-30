@@ -43,3 +43,11 @@ fn the_meteor_watch_is_kept_on_the_rim() {
     let mut app = a_session_in("primeval_smoking_mountain");
     talk(&mut app, "npc_primeval_tock", "Listening for what?");
 }
+
+/// Mildred Twitchell watches the rookery's birds from her hide (`primeval.yarn`
+/// `primeval_twitchell`), past the penguins and the shoebill.
+#[test]
+fn the_birdwatcher_counts_the_rookerys_penguins() {
+    let mut app = a_session_in("primeval_rookery");
+    talk(&mut app, "npc_primeval_twitchell", "What are you watching?");
+}

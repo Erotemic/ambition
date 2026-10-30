@@ -272,6 +272,7 @@
     "climb_karman": (),
     "climb_satellite": (),
     "climb_navsat": (),
+    "rookery_hide": (),
     // The orbital station's damaged spur (Science).
     "spur_west": (),
     "spur_east": (),

@@ -40,6 +40,16 @@ to touch, and a little danger outside town. No quest chains.
   carry more flavor; the moor is the first zone out of town.
 
 ## Run progress
+- **PvN: the cellars under customs** (2f33b0b6d), down the gate plaza's
+  old well against its west wall (a vertical exit and a ladder; directly
+  under the plaza on the flat map): the freight customs never sees. The
+  forger's desk, a cursed idol under a sheet, undeclared chickens, the still;
+  Fennimore Slipp, import consultant; three tariff-averse colleagues; a
+  strongbox on the barrels. Verified: the_cellars_under_customs.
+- **Map (Jon's shift, 10-30)**: the LDtk Map page, labels, windowing, pins,
+  a game-owned presentation; the engine's panel and minimap on the same
+  model. Fixed on the way: null Bools made bevy_ecs_ldtk refuse pvn,
+  sandbox, noodle and dinosaur (no tiles painted).
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 

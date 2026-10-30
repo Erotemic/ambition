@@ -72,7 +72,7 @@ fn nearest_neighbor_is_same_kind_and_closest() {
 /// should fire. Crowding only counts same-faction allies now.
 fn same_faction(
     ids: &[&str],
-) -> std::collections::HashMap<String, ambition_characters::actor::ActorFaction> {
+) -> std::collections::BTreeMap<String, ambition_characters::actor::ActorFaction> {
     ids.iter()
         .map(|id| {
             (
@@ -85,8 +85,8 @@ fn same_faction(
 
 /// No active grudges/targets — the common case for the crowding tests below, which
 /// exercise plain same-faction anti-clump (no one is fighting anyone in particular).
-fn no_opponents() -> std::collections::HashMap<String, String> {
-    std::collections::HashMap::new()
+fn no_opponents() -> std::collections::BTreeMap<String, String> {
+    std::collections::BTreeMap::new()
 }
 
 #[test]
@@ -149,7 +149,7 @@ fn crowding_ignores_a_different_faction_opponent() {
             CrowdKind::Ground,
         ), // within 80px
     ];
-    let mut factions = std::collections::HashMap::new();
+    let mut factions = std::collections::BTreeMap::new();
     factions.insert(
         "pca".to_string(),
         ambition_characters::actor::ActorFaction::Enemy,
@@ -185,7 +185,7 @@ fn crowding_ignores_a_same_faction_grudge_opponent() {
             CrowdKind::Ground,
         ), // within 80px
     ];
-    let mut opponents = std::collections::HashMap::new();
+    let mut opponents = std::collections::BTreeMap::new();
     opponents.insert("pca".to_string(), "robot".to_string());
     opponents.insert("robot".to_string(), "pca".to_string());
     assert!(

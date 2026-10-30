@@ -51,6 +51,16 @@ pub struct ActorDecisionFrames {
         Entity,
         ambition_characters::actor::control::ActorControlFrame,
     )>,
+    /// The beats a brain began this tick ([`ambition_characters::brain::Brain::beat`]),
+    /// which its creature voices (`body::play_beat_cues`).
+    beats: Vec<(Entity, ambition_characters::brain::BrainBeat)>,
+}
+
+impl ActorDecisionFrames {
+    /// The beats brains began this tick.
+    pub fn beats(&self) -> &[(Entity, ambition_characters::brain::BrainBeat)] {
+        &self.beats
+    }
 }
 
 /// OBSERVE — build the cross-body facts this tick's autonomous decisions read.
@@ -396,6 +406,7 @@ pub fn tick_actor_brains(
     // ticks with no collision world. Publication may therefore never replay a
     // stale autonomous frame after a schedule gate or world transition.
     decisions.frames.clear();
+    decisions.beats.clear();
 
     let dt = world_time.sim_dt();
     // Accumulating sim-time for brain perception (reaction-latency lookback).
@@ -939,6 +950,7 @@ pub fn tick_actor_brains(
                     let mut bf = ambition_characters::actor::control::ActorControlFrame::neutral();
                     let peaceful = ambition_characters::brain::ActionSet::peaceful();
                     let actions = action_set.unwrap_or(&peaceful);
+                    let beat_before = brain_ref.beat();
                     with_causal_sink(&mut causal, || {
                         crate::brain_tick::tick_brain_with_actions(
                             brain_ref,
@@ -948,6 +960,9 @@ pub fn tick_actor_brains(
                             &mut bf,
                         )
                     });
+                    if let Some(beat) = brain_ref.beat().filter(|beat| Some(*beat) != beat_before) {
+                        decisions.beats.push((this_actor_entity, beat));
+                    }
                     bf
                 } else {
                     ambition_characters::actor::control::ActorControlFrame::neutral()

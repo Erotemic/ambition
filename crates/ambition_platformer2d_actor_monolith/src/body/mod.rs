@@ -75,6 +75,8 @@ pub mod navigation;
 pub mod perception;
 mod pet;
 mod rest_row;
+mod beat_cues;
+pub use beat_cues::play_beat_cues;
 mod reactions;
 pub use reactions::advance_body_reactions;
 mod summon;
@@ -349,6 +351,7 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
                 .chain()
                 .in_set(ActorDecisionSet::Publish),
         );
+        app.add_systems(sim, play_beat_cues.in_set(ActorDecisionSet::Publish));
 
         // Finished intent may now be gated/routed, then the common contact
         // snapshot is taken. These operations have real same-tick dependencies,

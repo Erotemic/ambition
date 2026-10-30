@@ -1972,7 +1972,7 @@ fn finalize_character(
     let kit = match action_set {
         // The definition authored capabilities. Nothing else gets a vote.
         Some(set) => PreparedKit::Authored {
-            moveset: derive_moveset(&id, &set, moveset, ranged_execution),
+            moveset: derive_moveset(&id, &set, moveset, ranged_execution, catalog_row.map(|row| &row.cues)),
             action_set: set,
         },
         //  the question is "does the catalog know this id" (AC6.3). It was
@@ -1997,7 +1997,7 @@ fn finalize_character(
                     ActionSet::peaceful()
                 });
             PreparedKit::Authored {
-                moveset: derive_moveset(&id, &set, moveset, ranged_execution),
+                moveset: derive_moveset(&id, &set, moveset, ranged_execution, catalog_row.map(|row| &row.cues)),
                 action_set: set,
             }
         }
@@ -2304,6 +2304,7 @@ fn derive_moveset(
     action_set: &crate::brain::ActionSet,
     authored: Option<MovesetContract>,
     execution: crate::brain::RangedExecution,
+    cues: Option<&crate::actor::character_catalog::CharacterCues>,
 ) -> MovesetContract {
     //  THE LOW CRATE'S, not this monolith's. This read
     // `crate::combat::moveset::build_actor_moveset`, and `ambition_combat`
@@ -2326,7 +2327,12 @@ fn derive_moveset(
         action_set.special.as_ref(),
     )
     .unwrap_or_default();
-    owned_by_execution(id, overlay_authored_moves(derived, authored), execution)
+    let mut moveset = owned_by_execution(id, overlay_authored_moves(derived, authored), execution);
+    // The character's own sounds on its strikes, its authored moves' too.
+    if let Some(cues) = cues {
+        crate::moveset_prefabs::voice_moveset(cues, &mut moveset);
+    }
+    moveset
 }
 
 /// Enforce who owns the ranged press on a finished moveset: under

@@ -654,7 +654,7 @@ mod actor_decision_phase_tests {
         ActorDecisionSet::Publish,
     ];
 
-    const DECISION_MEMBERSHIP: [(&str, ActorDecisionSet); 10] = [
+    const DECISION_MEMBERSHIP: [(&str, ActorDecisionSet); 11] = [
         ("dissolve_settled_grudges", ActorDecisionSet::Targeting),
         ("select_actor_targets", ActorDecisionSet::Targeting),
         ("assess_dormancy", ActorDecisionSet::Prepare),
@@ -665,6 +665,7 @@ mod actor_decision_phase_tests {
         ("advise_navigation", ActorDecisionSet::Observe),
         ("tick_actor_brains", ActorDecisionSet::Decide),
         ("publish_actor_decision_frames", ActorDecisionSet::Publish),
+        ("play_beat_cues", ActorDecisionSet::Publish),
     ];
 
     const MOVEMENT_MEMBERSHIP: [(

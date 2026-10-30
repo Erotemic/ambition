@@ -36,6 +36,17 @@ Two enemies differ in their pattern, not only in their numbers.
 | dive tell | `MeleeTactics::dive_tell_s` (flyer) | lined up over its foe, it hangs that long before it dives |
 | counter, fade | `MeleeTactics::counter`, `fades` | the shock warden's answer, the spectral wolf |
 
+## What the sound gives a character
+
+The catalog row's `cues` (`CharacterCues`, `sfx_registry` ids), so a telegraph is heard as well as seen:
+
+- **`notice`:** plays as its notice beat begins.
+- **`tell`:** plays as each strike's windup begins, and as a windup its brain times begins (a volley's, the hang before a dive).
+- **`swing`:** plays as each strike comes out, in place of the engine's whoosh (`player.slash`).
+- **`hit`:** plays when a strike lands, in place of the victim's hurt sound.
+
+The strike sounds are folded onto its moves when its kit is prepared (`moveset_prefabs::voice_moveset`), its moveset file's moves too. A move keeps a sound it authored. The beats are played by `body::play_beat_cues`, off the brain's beat edges (`Brain::beat`).
+
 ## What the art gives a character
 
 Row names are the contract. A sheet without a row draws as before (`PinnedRow`).
@@ -78,5 +89,4 @@ Tests: `game/ambition_app/tests/castle_godwin_variants.rs`.
 
 ## Not yet
 
-- **Barks** fire on provoke, not on notice. A creature has no voice cue for noticing yet.
 - **Footsies and a running attack don't mix.** Holding in a band slows a body out of its run, so a pouncer should hit and run instead.

@@ -92,6 +92,15 @@ pub struct NavigationRequest {
     pub choice: u64,
 }
 
+/// A beat a brain holds that is heard as well as seen ([`Brain::beat`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BrainBeat {
+    /// It stands and looks at a foe it has just seen.
+    Notice,
+    /// It winds up an attack its brain times.
+    Tell,
+}
+
 impl Brain {
     /// It stands and looks at a foe it has just seen (a brute's
     /// [`MeleeTactics::notice_s`]): its sheet's `notice` row is drawn.
@@ -111,6 +120,19 @@ impl Brain {
                 state.phase == state_machine::AerialPhase::Dive && state.mode == crate::actor::ai::CharacterAiMode::Telegraph
             }
             _ => false,
+        }
+    }
+
+    /// The beat it holds now that a creature voices: its notice, else a
+    /// windup its brain times ([`Self::is_winding_up`]). A beat that begins on
+    /// a tick plays the creature's cue for it (its catalog `cues`).
+    pub fn beat(&self) -> Option<BrainBeat> {
+        if self.is_noticing() {
+            Some(BrainBeat::Notice)
+        } else if self.is_winding_up() {
+            Some(BrainBeat::Tell)
+        } else {
+            None
         }
     }
 

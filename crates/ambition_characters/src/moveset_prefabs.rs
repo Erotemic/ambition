@@ -977,3 +977,113 @@ pub fn equip_equipment_row(
         actions.special.as_ref(),
     )
 }
+
+/// Give a character's strikes its own sounds ([`crate::actor::character_catalog::CharacterCues`]):
+/// its `tell` as each strike's windup starts, its `swing` as the strike comes
+/// out (in place of the engine's whoosh, [`SWING_SFX_CUE`]), and its `hit` on
+/// each volume that names no contact sound. A strike is a move with a hit
+/// volume in an `Active` window; the beat is its first such window's start.
+///
+/// A move keeps a sound it authored at a beat: no tell is added to a move with
+/// a sound before its strike, and a swing replaces only the engine's whoosh.
+/// The sounds are events of the move, so a resimulated tick hears what the
+/// first one did.
+pub fn voice_moveset(cues: &crate::actor::character_catalog::CharacterCues, moveset: &mut MovesetContract) {
+    for mv in &mut moveset.moves {
+        let Some(hit_s) = mv
+            .windows
+            .iter()
+            .find(|window| window.tag == WindowTag::Active && !window.volumes.is_empty())
+            .map(|window| window.start_s)
+        else {
+            continue;
+        };
+        let at_strike = |at_s: f32| (at_s - hit_s).abs() < 1e-4;
+        let sound_times: Vec<f32> = mv
+            .events
+            .iter()
+            .filter(|event| matches!(event.kind, MoveEventKind::Sfx { .. }))
+            .map(|event| event.at_s)
+            .collect();
+        if let Some(tell) = &cues.tell {
+            if !sound_times.iter().any(|&at_s| at_s < hit_s && !at_strike(at_s)) {
+                mv.events.push(MoveEvent { at_s: 0.0, kind: MoveEventKind::Sfx { cue: tell.clone() } });
+            }
+        }
+        if let Some(swing) = &cues.swing {
+            let whoosh = mv.events.iter_mut().find(|event| {
+                at_strike(event.at_s) && matches!(&event.kind, MoveEventKind::Sfx { cue } if cue == SWING_SFX_CUE)
+            });
+            match whoosh {
+                Some(event) => event.kind = MoveEventKind::Sfx { cue: swing.clone() },
+                None if !sound_times.iter().any(|&at_s| at_strike(at_s)) => {
+                    mv.events.push(MoveEvent { at_s: hit_s, kind: MoveEventKind::Sfx { cue: swing.clone() } });
+                }
+                None => {}
+            }
+        }
+        if let Some(hit) = &cues.hit {
+            for volume in mv.windows.iter_mut().flat_map(|window| window.volumes.iter_mut()) {
+                volume.hit_sfx.get_or_insert_with(|| hit.clone());
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod voice_tests {
+    use super::*;
+    use crate::actor::character_catalog::CharacterCues;
+
+    fn cues() -> CharacterCues {
+        CharacterCues {
+            notice: None,
+            tell: Some("enemy.raptor.tell".into()),
+            swing: Some("enemy.raptor.swing".into()),
+            hit: Some("enemy.raptor.hit".into()),
+        }
+    }
+
+    fn sounds(mv: &MoveSpec) -> Vec<(f32, String)> {
+        mv.events
+            .iter()
+            .filter_map(|event| match &event.kind {
+                MoveEventKind::Sfx { cue } => Some((event.at_s, cue.clone())),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// A plain swing: the tell at its start, its own swing for the engine's
+    /// whoosh, and its hit on the volume.
+    #[test]
+    fn a_plain_swing_takes_the_characters_sounds() {
+        let mut moveset = MovesetContract { verbs: Default::default(), moves: vec![simple_melee(&SimpleMeleeParams::default())] };
+        voice_moveset(&cues(), &mut moveset);
+        let mv = &moveset.moves[0];
+        let windup = SimpleMeleeParams::default().windup_s;
+        assert_eq!(sounds(mv), vec![(windup, "enemy.raptor.swing".to_string()), (0.0, "enemy.raptor.tell".to_string())]);
+        let hits: Vec<_> = mv.windows.iter().flat_map(|w| &w.volumes).map(|v| v.hit_sfx.clone()).collect();
+        assert_eq!(hits, vec![Some("enemy.raptor.hit".to_string())]);
+    }
+
+    /// A move that authored its sounds keeps them; a move with no strike is
+    /// left silent.
+    #[test]
+    fn an_authored_sound_is_kept_and_a_move_with_no_strike_is_left_alone() {
+        let mut authored = simple_melee(&SimpleMeleeParams { swing_sfx: Some("own.whoosh".into()), hit_sfx: Some("own.hit".into()), ..Default::default() });
+        authored.events.push(MoveEvent { at_s: 0.02, kind: MoveEventKind::Sfx { cue: "own.tell".into() } });
+        let mut plain = simple_melee(&SimpleMeleeParams::default());
+        plain.id = "no_strike".into();
+        for window in &mut plain.windows {
+            window.volumes.clear();
+        }
+        let before = plain.clone();
+        let mut moveset = MovesetContract { verbs: Default::default(), moves: vec![authored, plain] };
+        voice_moveset(&cues(), &mut moveset);
+        let cues_of = sounds(&moveset.moves[0]).into_iter().map(|(_, cue)| cue).collect::<Vec<_>>();
+        assert_eq!(cues_of, vec!["own.whoosh".to_string(), "own.tell".to_string()]);
+        assert!(moveset.moves[0].windows.iter().flat_map(|w| &w.volumes).all(|v| v.hit_sfx.as_deref() == Some("own.hit")));
+        assert_eq!(moveset.moves[1], before);
+    }
+}

@@ -43,6 +43,11 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Science: the spoke's tube** (one drawing in two frames, no noise
+  across the seam): hull ribs, portholes on the stars, conduits and lamps
+  overhead, the tram trench's rails and hazard edges, the lift's shaft at
+  the far end, its own door hatches, a bench, a plant, a mural of the
+  planet (`scenery_overlay.py`). Verified: capture.
 - **PvN: the Lighthouse Point**, out past the Wreckers' Reef by a side
   exit at its east rocks (floors level): the honest light against the
   wreckers' false one. The tower in red and white, cut away to its stair of

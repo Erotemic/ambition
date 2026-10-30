@@ -276,6 +276,8 @@
     "workshop_room": (),
     "point_lighthouse": (),
     "point_cottage": (),
+    "spoke_west": (),
+    "spoke_east": (),
     // The orbital station's damaged spur (Science).
     "spur_west": (),
     "spur_east": (),

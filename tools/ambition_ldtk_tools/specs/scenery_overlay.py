@@ -53,6 +53,8 @@ OVERLAYS = {
         "orbital_station_damaged_spur": [("spur_west", 16, 64), ("spur_east", 1272, 64)],
         "orbital_station_observation_deck": [("obs_deck_window", 16, 48)],
         "orbital_station_service_deck": [("svc_clutter", 1290, 560)],
+        # One drawing in two frames (`targets/props/orbital_spoke_props.py`).
+        "orbital_station_spoke": [("spoke_west", 16, 120), ("spoke_east", 1592, 120)],
     },
 }
 

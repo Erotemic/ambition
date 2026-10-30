@@ -489,6 +489,8 @@ collections:
   - workshop_room
   - point_lighthouse
   - point_cottage
+  - spoke_west
+  - spoke_east
   - spur_west
   - spur_east
   - jungle_ranger_hut

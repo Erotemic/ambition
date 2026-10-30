@@ -42,6 +42,7 @@ pub mod grid_backend;
 // The cube renderer itself is still gated, item by item, inside the module. A
 // headless or web build pays for no 3D UI toolkit; it just gets to have a menu.
 pub mod kaleidoscope_app;
+pub(crate) mod map_page;
 pub mod model;
 pub(crate) mod quality_confirm;
 #[cfg(test)]

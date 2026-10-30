@@ -752,6 +752,7 @@ pub(crate) fn grid_menu_republish_view(
     settings: Res<UserSettings>,
     quality_confirm: Res<VisualQualityConfirmState>,
     system: SystemMenuParams,
+    map_page: crate::menu::map_page::MapPageSource,
     mut tab_state: ResMut<GridMenuTabState>,
     roots: Query<Entity, (With<BevyUiMenuRoot>, With<GridMenuRoot>)>,
     assets: Option<Res<AssetServer>>,
@@ -816,7 +817,8 @@ pub(crate) fn grid_menu_republish_view(
     let state_changed = owned.is_changed()
         || hand.items_changed()
         || settings.is_changed()
-        || quality_confirm.is_changed();
+        || quality_confirm.is_changed()
+        || map_page.changed();
     if tab_state.last_key == Some(key) && !roots.is_empty() && !state_changed {
         return;
     }
@@ -833,6 +835,7 @@ pub(crate) fn grid_menu_republish_view(
         window_start,
         system_nav.open_entry,
         quality_confirm.pending(),
+        map_page.view().as_ref(),
     );
     let Some(page) = built
         .iter()

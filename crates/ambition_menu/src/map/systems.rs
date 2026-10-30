@@ -84,8 +84,10 @@ pub fn sync_map_from_save(
     }
 }
 
-/// Fill room geometry from the LDtk project levels. Behind `ldtk`: the map
-/// draws without a backend; only the room rectangles need one.
+/// Fill room geometry from the LDtk project levels, and each room's title,
+/// edge exits and doors (the joins the Map page draws regions by:
+/// `view::region`). Behind `ldtk`: the map draws without a backend; only the
+/// room rectangles need one.
 #[cfg(feature = "ldtk")]
 pub fn populate_map_rooms(
     project: Res<ambition_platformer2d_ldtk::ActiveLdtkProject>,
@@ -94,12 +96,50 @@ pub fn populate_map_rooms(
     if !map.rooms.is_empty() {
         return;
     }
-    for level in &project.0.levels {
-        map.rooms.push(MapRoomNode {
-            id: level.identifier.clone(),
-            world: level.world_source.clone(),
-            world_min: Vec2::new(level.world_x as f32, level.world_y as f32),
-            world_size: Vec2::new(level.px_wid as f32, level.px_hei as f32),
-        });
+    map.rooms = project.0.levels.iter().map(map_room_node).collect();
+}
+
+/// One level as the map knows it.
+#[cfg(feature = "ldtk")]
+pub fn map_room_node(level: &ambition_platformer2d_ldtk::LdtkLevel) -> MapRoomNode {
+    fn text<'a>(fields: &'a [ambition_platformer2d_ldtk::LdtkFieldInstance], name: &str) -> Option<&'a str> {
+        fields.iter().find(|f| f.identifier == name).and_then(|f| f.value.as_str()).filter(|s| !s.is_empty())
+    }
+    let title_label = format!("{}_title", level.identifier);
+    let mut title = None;
+    let mut edge_exits = Vec::new();
+    let mut doors = Vec::new();
+    for entity in level.all_entity_instances() {
+        let fields = &entity.field_instances;
+        match entity.identifier.as_str() {
+            "DebugLabel" if text(fields, "name") == Some(title_label.as_str()) => {
+                title = text(fields, "text").map(str::to_string);
+            }
+            "LoadingZone" => {
+                let Some(target) = text(fields, "target_room") else { continue };
+                match text(fields, "activation") {
+                    Some("EdgeExit") => edge_exits.push(target.to_string()),
+                    Some("Door") => doors.push(super::view::MapDoor {
+                        at: Vec2::new(
+                            entity.px[0] as f32 + entity.width as f32 * 0.5,
+                            entity.px[1] as f32 + entity.height as f32 * 0.5,
+                        ),
+                        target_room: target.to_string(),
+                    }),
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+    }
+    MapRoomNode {
+        id: level.identifier.clone(),
+        area: text(&level.field_instances, "activeArea").unwrap_or(&level.identifier).to_string(),
+        title: title.unwrap_or_else(|| super::view::title_from_id(&level.identifier)),
+        world: level.world_source.clone(),
+        world_min: Vec2::new(level.world_x as f32, level.world_y as f32),
+        world_size: Vec2::new(level.px_wid as f32, level.px_hei as f32),
+        edge_exits,
+        doors,
     }
 }

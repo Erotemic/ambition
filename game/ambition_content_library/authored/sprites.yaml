@@ -463,6 +463,7 @@ collections:
   - eureka_range_field
   - eureka_tether_hall
   - eureka_tether_car
+  - sky_lookout_deck
   - shadow_dojo_hall
   - jungle_fern_clump
   - jungle_fallen_log

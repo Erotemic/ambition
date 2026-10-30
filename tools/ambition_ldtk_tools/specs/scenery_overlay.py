@@ -10,8 +10,8 @@ Some rooms' generators are older than their levels: the level was edited in
 the LDtk after (gate terminals, water, enemies tuned), so regenerating the
 room would undo that (2026-10-30: `specs/primeval/make_specs.py --apply`
 moved and dropped enemies, a gate terminal and the water). Their scenery is
-ADDED instead: one `Prop` per piece of art, over the art's body box, each
-added once (by its name).
+ADDED instead: one `Prop` per piece of art, over the art's body box, and
+signs, each added once (by its name).
 """
 from __future__ import annotations
 
@@ -41,11 +41,37 @@ OVERLAYS = {
     },
     "pvn.ldtk": {
         "ninja_dojo": [("shadow_dojo_hall", 0, 0)],
+        "pirate_sky_lookout": [("sky_lookout_deck", 0, 190)],
     },
     "evil.ldtk": {
         "evil_gate_forest": [("evil_forest_roadside", 430, 260)],
     },
 }
+
+
+#: World file -> level -> [(name, x, y, text, width)]: lines of writing
+#: (`DebugLabel`) with their middle over x, each added once (by its name).
+SIGNS = {
+    "pvn.ldtk": {
+        "pirate_sky_lookout": [
+            ("sky_lookout_sign_parking", 830, 640, "SHARK PARKING: extinguish before boarding", 420),
+            ("sky_lookout_sign_nest", 1056, 300, "CROW'S NEST: no crows. Some parrots.", 380),
+            ("sky_lookout_sign_perch", 210, 390, "THE CAPTAIN'S PERCH (the captain is out)", 400),
+            ("sky_lookout_sign_cannon", 1100, 590, "ANTI-SHARK GUN: aim up, mostly", 340),
+        ],
+    },
+}
+
+
+def sign_yaml(level_id: str, signs: list) -> str:
+    rows = [f"""  - type: DebugLabel
+    px: [{x - w // 2}, {y}]
+    size: [{w}, 24]
+    fields:
+      name: {name}
+      text: "{text}"
+      category: Custom""" for name, x, y, text, w in signs]
+    return f"# Signs of {level_id}. Written by {GENERATOR}.\nlevel_id: {level_id}\nentities:\n" + "\n".join(rows) + "\n"
 
 
 def overlay_name(level_id: str, kind: str, i: int) -> str:
@@ -79,6 +105,14 @@ def main(argv) -> int:
                 print(f"{world} {level_id}: {'present' if first in ldtk.read_text() else 'would add'} {len(pieces)} piece(s)")
                 continue
             if code := add_entities(text, ldtk, HERE / f".{level_id}_scenery.yaml", unless=first):
+                return code
+    for world, levels in SIGNS.items():
+        ldtk = WORLDS / world
+        for level_id, signs in levels.items():
+            first = f'"{signs[0][0]}"'
+            if "--apply" not in argv:
+                print(f"{world} {level_id}: {'present' if first in ldtk.read_text() else 'would add'} {len(signs)} sign(s)")
+            elif code := add_entities(sign_yaml(level_id, signs), ldtk, HERE / f".{level_id}_signs.yaml", unless=first):
                 return code
     return 0
 

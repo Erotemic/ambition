@@ -21,7 +21,11 @@ SCENERY = {
         ("village_torii", 1180, 280),
         ("village_shrine_hall", 1330, 280),
         ("village_shrine_small_things", 530, 540),
+        # The shaft under the slab (`targets/props/ninja_way_props.py`).
+        ("ninja_shrine_shaft", 1320, 704),
     ],
+    # The hidden way under the street and the shrine.
+    "ninja_village_hidden_way": [("ninja_way_west", 16, 16), ("ninja_way_east", 960, 16)],
     "ninja_village_street": [
         ("village_house_baker", 0, 470),
         ("village_house_weaver", 520, 440),
@@ -30,6 +34,8 @@ SCENERY = {
         ("village_storehouse", 2000, 376),
         ("village_notice_board", 2186, 660),
         ("village_watch_house", 2440, 310),
+        # The loose board over the hidden way.
+        ("ninja_street_board", 996, 758),
     ],
     # The Bamboo Pass (`targets/props/ninja_pass_props.py`, drawn on the
     # room's numbers): each piece at its frame.

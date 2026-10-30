@@ -170,6 +170,50 @@ pub fn stood_on_line(world: &World, body: Aabb, down: Vec2) -> Option<LineSuppor
         .min_by(|a, b| a.feet_coord.total_cmp(&b.feet_coord))
 }
 
+/// The extent across the floor (coordinates along `side`) of each walkable
+/// segment `body` stands on: a segment under its foot span whose highest
+/// point there is at its feet, as [`standing_on_line`] finds them. The whole
+/// segment, not only the part under the box: the support of a body goes on
+/// past its box (`collision_semantics::footing`).
+pub fn spans_underfoot(world: &World, body: Aabb, down: Vec2, side: Vec2) -> Vec<(f32, f32)> {
+    let mut spans = Vec::new();
+    if world.chains.is_empty() || down == Vec2::ZERO {
+        return spans;
+    }
+    let up = -down;
+    let min_up = WALK_SLOPE_LIMIT_DEG.to_radians().cos();
+    let half = body.half_size();
+    let half_span = half.x * side.x.abs() + half.y * side.y.abs();
+    let centre = body.center().dot(side);
+    let (lo, hi) = (centre - half_span, centre + half_span);
+    let feet = body.feet_coord(down);
+    for chain in world.chains.iter() {
+        for si in 0..chain.segment_count() {
+            let (a, b) = chain.segment(si);
+            let t = b - a;
+            let len = t.length();
+            if len <= 1.0e-4 || Vec2::new(t.y, -t.x).dot(up) / len < min_up {
+                continue;
+            }
+            let (sa, sb) = (a.dot(side), b.dot(side));
+            let (u0, u1) = (sa.min(sb).max(lo), sa.max(sb).min(hi));
+            if u1 - u0 <= SPAN_OVERLAP_SLOP {
+                continue;
+            }
+            let at = |u: f32| {
+                let k = if (sb - sa).abs() > 1.0e-6 { (u - sa) / (sb - sa) } else { 0.0 };
+                a + t * k
+            };
+            let highest = at(u0).dot(down).min(at(u1).dot(down));
+            if highest < feet - ON_LINE_EPSILON || highest > feet + crate::collision_semantics::CONTACT_SLOP {
+                continue;
+            }
+            spans.push((sa.min(sb), sa.max(sb)));
+        }
+    }
+    spans
+}
+
 /// How far a line may be above the feet of a body that stands on it: the
 /// feet are put exactly on the line, so this is rounding.
 const ON_LINE_EPSILON: f32 = 0.05;

@@ -791,15 +791,39 @@ def hotel_lift():
     return rid, room(rid, e, "Hylbert's Hotel: the lift. It only goes up.", theme=INTERIOR)
 
 
-#: The ballroom's stage doors (x), one to each closet; what is behind each.
+#: The ballroom's stage doors (x), one to each closet.
 STAGE_DOORS = (360, 616, 872)
-BEHIND = (("math_goat", "A GOAT."), ("math_car", "A CAR! You did not switch. You did not need to. This time."), ("math_goat", "A GOAT. Statistically, you were going to meet me."))
+#: The game show's flags (`math.yarn` `hotel_monty_carlo` sets them; each
+#: round clears them first). Door k: its curtain is open, and what stands
+#: behind it (a goat or the car). The prize case is open for a winner.
+MONTY_OPEN, MONTY_GOAT, MONTY_CAR = "monty_open_{}", "monty_goat_{}", "monty_car_{}"
+MONTY_WON = "monty_won"
+#: The prize case east of the stage (x, w, h on the floor) and the chest in
+#: it (x, w, h), on the case's base (the art's), inside the case on each
+#: side so that a body outside does not touch it.
+PRIZE_CASE = (1000, 96, 88)
+PRIZE_CHEST = (1010, 76, 58)
+PRIZE_BASE = 10
+#: A closet: its curtain (x0 to the east wall, floor to ceiling), and where
+#: the goat and the car stand behind it (x, w, h; the art's frames).
+CLOSET_CURTAIN_X = 160
+CLOSET_GOAT = (250, 100, 80)
+CLOSET_CAR = (200, 210, 90)
+
+
+def lock_wall(wall_id, name, x, y, w, h, gated_by, look):
+    """A `LockWall` drawn with the sheet `look` that stands until `gated_by`
+    is true (or, when `gated_by` starts with `not`, while it is true)."""
+    return (f'( type: "LockWall", px: [{x}, {y}], size: [{w}, {h}], fields: ( id: "{wall_id}", name: "{name}", '
+            f'gated_by: "{gated_by}", look: "{look}" ) ),')
 
 
 def hotel_ballroom():
-    """The hotel's ballroom, made a game show: three doors on the stage,
-    behind one a car and behind the others goats. Out of the lobby by the
-    door west of the desk."""
+    """The hotel's ballroom, made a game show: three doors on the stage, a
+    closet behind each, and the host. Each round he hides the car behind one
+    door; the closets show what is behind them only when he opens them. A
+    winner takes the chest in the prize case. Out of the lobby by the door
+    west of the desk."""
     rid = BALLROOM
     _, w, h = ROOMS_AT[rid]
     floor = h - INSIDE_FLOOR
@@ -814,6 +838,13 @@ def hotel_ballroom():
         *[door(f"{rid}_door_{k + 1}", f"door number {k + 1}", x, floor, CLOSETS[k], f"{CLOSETS[k]}_door") for k, x in enumerate(STAGE_DOORS)],
         label("ballroom_sign", 360, 80, "TONIGHT: PICK A DOOR. THEN SWITCH. ALWAYS SWITCH.", 560),
         label("ballroom_sign_odds", 940, 270, "STAY 1/3   SWITCH 2/3", 300),
+        label("ballroom_sign_prize", PRIZE_CASE[0] - 20, floor - PRIZE_CASE[2] - 40, "TONIGHT'S PRIZE", 140),
+        # The prize case: it opens when a round is won, and the next round
+        # shuts it.
+        (f'( type: "ChestSpawn", px: [{PRIZE_CHEST[0]}, {floor - PRIZE_BASE - PRIZE_CHEST[2]}], size: [{PRIZE_CHEST[1]}, {PRIZE_CHEST[2]}], '
+         f'fields: ( name: "the prize money", reward: "currency:200" ) ),'),
+        lock_wall("math_hotel_prize_case", "the prize case", PRIZE_CASE[0], floor - PRIZE_CASE[2], PRIZE_CASE[1], PRIZE_CASE[2],
+                  f"world.flag_set {MONTY_WON}", "math_prize_case"),
         # The host, west of the stage (`math.yarn` `hotel_monty_carlo`).
         f'( type: "NpcSpawn", px: [{230 - 16}, {floor - 64}], size: [32, 64], fields: ( character_id: "npc_math_monty", '
         f'brain_override: "stand_still", prompt: "Talk", dialogue_id: "hotel_monty_carlo" ) ),',
@@ -822,12 +853,18 @@ def hotel_ballroom():
 
 
 def hotel_closet(k):
-    """Behind stage door k: a small room and what is in it."""
+    """Behind stage door k: a small room, its curtain, and behind the curtain
+    a goat or the car. Each is a `LockWall` drawn with its picture: the
+    curtain stands until the host opens door k, and the goat or the car
+    stands only while the round says it is behind door k. So the closet
+    shows nothing of the round before the door is opened."""
     def make():
         rid = CLOSETS[k]
         _, w, h = ROOMS_AT[rid]
         floor = h - INSIDE_FLOOR
-        kind, words = BEHIND[k]
+        n = k + 1
+        gx, gw, gh = CLOSET_GOAT
+        cx, cw, ch = CLOSET_CAR
         e = [
             solid("floor", 0, floor, w, INSIDE_FLOOR),
             solid("ceiling", 0, 0, w, INSIDE_CEILING),
@@ -835,12 +872,12 @@ def hotel_closet(k):
             solid("east_wall", w - WALL, INSIDE_CEILING, WALL, floor - INSIDE_CEILING),
             door(f"{rid}_door", "back to the stage", 40, floor, BALLROOM, f"{BALLROOM}_door_{k + 1}"),
             f'( type: "PlayerStart", px: [110, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
-            standing(f"{rid}_prize", kind, 220, floor)[0],
-            label(f"{rid}_words", 120, 70, words, 340),
+            lock_wall(f"{rid}_curtain", f"the curtain of door number {n}", CLOSET_CURTAIN_X, INSIDE_CEILING, w - WALL - CLOSET_CURTAIN_X,
+                      floor - INSIDE_CEILING, f"world.flag_set {MONTY_OPEN.format(n)}", "math_closet_curtain"),
+            lock_wall(f"{rid}_goat", "a goat", gx, floor - gh, gw, gh, f"not world.flag_set {MONTY_GOAT.format(n)}", "math_goat"),
+            lock_wall(f"{rid}_car", "the car", cx, floor - ch, cw, ch, f"not world.flag_set {MONTY_CAR.format(n)}", "math_car"),
         ]
-        if kind == "math_car":
-            e.append(f'( type: "PickupSpawn", px: [400, {floor - 24}], size: [24, 24], fields: ( name: "{rid}_prize_money", kind: "currency:100" ) ),')
-        return rid, room(rid, e, f"Behind door number {k + 1}.", theme=INTERIOR)
+        return rid, room(rid, e, f"Behind door number {n}.", theme=INTERIOR)
     return make
 
 
@@ -948,17 +985,40 @@ def mobius_mine():
 
 
 #: The Tower of Hanoi (`math_hanoi_props.py` draws on these): the needles,
-#: and the disks on each, bottom up, by size (each walked on).
+#: the disks, the height of a disk and the width of each, and the needle's
+#: frame about its foot (x0, y0, x1, y1). The numbers are the art's: change
+#: them with it.
 HANOI_NEEDLES = (360, 800, 1240)
-HANOI_STACKS = ((8, 7, 6, 5, 2), (4, 3), (1,))
-HANOI_DISK_H = 24
+HANOI_DISKS = 64
+HANOI_DISK_H = 8
+HANOI_NEEDLE_FRAME = (-14, -554, 14, 0)
+#: How many moves the monks have made (`math.yarn` `hanoi_lucas` says it).
+HANOI_MOVES = 555_039
+
+
+def hanoi_disk_width(size):
+    """The width of disk `size` (1 the smallest)."""
+    return 32 + 6 * size
+
+
+def hanoi_stacks(moves, disks=HANOI_DISKS):
+    """The disks on each needle after `moves` moves of the shortest solution
+    (all the disks from the first needle to the last), each needle's bottom
+    up, by size. Disk d has moved (moves + 2^(d-1)) // 2^d times, always the
+    same way round: one needle on when (disks - d) is odd, else two."""
+    stacks = ([], [], [])
+    for d in range(disks, 0, -1):
+        moved = (moves + (1 << (d - 1))) >> d
+        stacks[moved * (1 if (disks - d) % 2 else 2) % 3].append(d)
+    return stacks
 
 
 def tower_of_hanoi():
     """West of the gate hall: the Tower of Hanoi. Three diamond needles and
-    the golden disks on them, the puzzle part done; each disk is walked on,
-    so each stack is a stair; a chest on the tallest. Brother Lucas keeps
-    the count. When the last disk is moved, the world ends."""
+    the 64 golden disks on them, each needle and each disk a prop; the
+    puzzle part done. Each disk is walked on (a hidden line at its top), so
+    each stack is a climb; a chest on the tallest. Brother Lucas
+    keeps the count. When the last disk is moved, the world ends."""
     rid = HANOI
     _, w, h = ROOMS_AT[rid]
     floor = h - 64
@@ -971,18 +1031,28 @@ def tower_of_hanoi():
         edge(f"{rid}_east", "back to the gate hall", w - WALL, floor - 96, 96, HALL, f"{HALL}_west"),
         f'( type: "PlayerStart", px: [{w - 200}, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
     ]
-    for n, (nx, stack) in enumerate(zip(HANOI_NEEDLES, HANOI_STACKS)):
+    # The needles first: the room's scenery draws in its order, and a disk is
+    # in front of its needle.
+    fx0, fy0 = HANOI_NEEDLE_FRAME[:2]
+    e += [framed(f"hanoi_needle_{n}", "hanoi_needle", nx + fx0, floor + fy0) for n, nx in enumerate(HANOI_NEEDLES)]
+    stacks = hanoi_stacks(HANOI_MOVES)
+    for nx, stack in zip(HANOI_NEEDLES, stacks):
         for i, size in enumerate(stack):
-            dw = 60 + 30 * size
-            e.append(ledge(f"disk_{n}_{size}", nx - dw // 2, floor - HANOI_DISK_H * (i + 1), dw))
-    top = floor - HANOI_DISK_H * len(HANOI_STACKS[0])
+            dw, top = hanoi_disk_width(size), floor - HANOI_DISK_H * (i + 1)
+            kind = f"hanoi_disk_{size:02d}"
+            # A disk's top is a hidden walkable line, not a OneWayPlatform:
+            # that is painted on the 16-unit collision grid, and the disks
+            # are 8 high.
+            e += [framed(kind, kind, nx - dw // 2, top), line(f"{kind}_top", [(nx - dw // 2, top), (nx + dw // 2, top)])]
+    # The chest on the top disk of the tallest stack, beside its needle.
+    top = floor - HANOI_DISK_H * len(stacks[0])
     e += [
-        f'( type: "ChestSpawn", px: [{HANOI_NEEDLES[0] - 38}, {top - 58}], size: [76, 58], fields: ( name: "a golden offcut", reward: "currency:64" ) ),',
+        f'( type: "ChestSpawn", px: [{HANOI_NEEDLES[0] - 79}, {top - 58}], size: [76, 58], fields: ( name: "a golden offcut", reward: "currency:64" ) ),',
         # Brother Lucas, by the middle needle (`math.yarn` `hanoi_lucas`).
         f'( type: "NpcSpawn", px: [{1020 - 16}, {floor - 64}], size: [32, 64], fields: ( character_id: "npc_math_lucas", '
         f'brain_override: "stand_still", prompt: "Talk", dialogue_id: "hanoi_lucas" ) ),',
-        label("hanoi_sign", 560, 110, "WHEN THE LAST DISK IS MOVED, THE WORLD ENDS", 480),
-        label("hanoi_sign_count", 560, 320, "Moves left: 18,446,744,073,708,503,040", 480),
+        label("hanoi_sign", 560, 76, "WHEN THE LAST DISK IS MOVED, THE WORLD ENDS", 480),
+        label("hanoi_sign_count", 560, 108, f"Moves left: {2 ** HANOI_DISKS - 1 - HANOI_MOVES:,}", 480),
     ]
     return rid, room(rid, e, "The Tower of Hanoi.", theme="math_undercroft")
 

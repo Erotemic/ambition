@@ -336,6 +336,9 @@ pub(super) fn integrate_velocity_clusters(
         .kinematics
         .aabb_oriented(frame.down())
         .feet_coord(frame.down());
+    // The contacts from here on are the ones that put the body on the ground
+    // this step; a body its balance does not hold takes back their support.
+    let contacts_before_fall = events.contacts.len();
     sweep(
         clusters,
         gravity_axis,
@@ -450,6 +453,58 @@ pub(super) fn integrate_velocity_clusters(
             }
             if normal.dot(-g) >= crate::walkable_lines::WALK_SLOPE_LIMIT_DEG.to_radians().cos() {
                 clusters.ground.on_ground = true;
+            }
+        }
+    }
+
+    // ⛔ A BODY WITH A BALANCE STANDS BY ITS CENTRE (`crate::Balance`). After
+    // every pass that may put it on the ground (the sweeps and their repair,
+    // the receding snap, the lines, the solid outlines) and before the carry,
+    // so nothing later in the step grounds a body its support does not hold.
+    // A body tipped here is airborne at the start of the next step, so the
+    // passes that hold a grounded body down (the receding snap,
+    // `settle_on_line`'s hold, `off_the_line`) do not hold it: the gravity
+    // sweep puts it on the corner again, this pushes it again, and it falls
+    // when its box is clear of the edge.
+    let mut teeters_by_balance = false;
+    if let Some(balance) = tuning.locomotion.balance.filter(|_| clusters.ground.on_ground) {
+        let g = frame.down();
+        match crate::collision_semantics::footing(
+            world,
+            clusters.kinematics.aabb_oriented(g),
+            g,
+            drop_through,
+            balance,
+        ) {
+            crate::collision_semantics::Footing::Balanced => {}
+            crate::collision_semantics::Footing::Teetering => teeters_by_balance = true,
+            crate::collision_semantics::Footing::Tipping { push } => {
+                clusters.ground.on_ground = false;
+                let landed: Vec<_> = events.contacts.drain(contacts_before_fall..).collect();
+                events.contacts.extend(
+                    landed
+                        .into_iter()
+                        .filter(|contact| contact.kind != crate::collision_semantics::ContactKind::Support),
+                );
+                let push_along = match side_axis {
+                    crate::collision_semantics::Axis::X => push.x,
+                    crate::collision_semantics::Axis::Y => push.y,
+                } * dt;
+                let prev_feet = clusters.kinematics.aabb_oriented(g).feet_coord(g);
+                events.constraint_conflicts.extend(super::collision::sweep_player_axis_clusters(
+                    world,
+                    clusters.kinematics,
+                    clusters.ground,
+                    clusters.wall,
+                    clusters.body_mode,
+                    clusters.env_contact,
+                    side_axis,
+                    push_along,
+                    prev_feet,
+                    drop_through,
+                    g,
+                    &mut events.contacts,
+                ));
             }
         }
     }
@@ -611,14 +666,17 @@ pub(super) fn integrate_velocity_clusters(
     // POST-SWEEP facts about where the body actually ended up. Asking before
     // the sweep would describe the pose the body was leaving rather than the
     // one it is standing in.
+    // A body that stands by its balance with its centre past the edge
+    // teeters whichever way it faces.
     state.teetering = clusters.ground.on_ground
-        && super::collision::teetering_at_edge(
-            world,
-            clusters.kinematics.aabb_oriented(frame.down()),
-            frame,
-            clusters.kinematics.facing,
-            tuning.locomotion.teeter_margin,
-        );
+        && (teeters_by_balance
+            || super::collision::teetering_at_edge(
+                world,
+                clusters.kinematics.aabb_oriented(frame.down()),
+                frame,
+                clusters.kinematics.facing,
+                tuning.locomotion.teeter_margin,
+            ));
     // ⭐ WHAT IS LEFT OF THE RISE THE AIR JUMP PUT IN — the amount a
     // double-jump cancel may take back. Post-sweep beside the other two for the
     // same reason: it describes where the body ENDED UP, not the pose it was

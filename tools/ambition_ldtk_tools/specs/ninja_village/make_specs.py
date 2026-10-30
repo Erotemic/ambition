@@ -82,6 +82,17 @@ DOJO_MUSIC = "nine_rooftops"
 #: The village is 10000 px under the port in the PvN world file (`pvn.ldtk`):
 #: the two were laid out each in its own file, from the same corner.
 VILLAGE_Y = 10000
+#: Under the street and the shrine: the hidden way. Down a loose board in
+#: the street (a one-way floor, dropped through; a secret: the map shows the
+#: way only once it is found), west under the street, up through a stone
+#: slab in the shrine's floor, shut until the lever under it is pulled (a
+#: shortcut opened from below). The holes in room x (x0, x1); the way is
+#: right under them.
+WAY = "ninja_village_hidden_way"
+SLAB = (1320, 1384)
+BOARD = (1000, 1064)
+SLAB_LEVER = "ninja_village_slab_lever"
+WAY_FLOOR, WAY_CEIL = 512, 48
 #: The shrine, the street and the forest touch where their side exits join,
 #: with the low road and the high road level (`specs/check_flat_map.py`). The
 #: dojo is a building.
@@ -89,8 +100,10 @@ ROOMS_AT = {
     SHRINE: ((0, VILLAGE_Y), (1600, 832)),
     STREET: ((1600, VILLAGE_Y - 64), (2816, 896)),
     FOREST: ((4416, VILLAGE_Y - 128), (2816, 960)),
-    DOJO: ((1856, VILLAGE_Y + 1152), (1600, 576)),
-    TEA: ((768, VILLAGE_Y + 1152), (1024, 512)),
+    # Buildings: under the hidden way, out of its way.
+    DOJO: ((1856, VILLAGE_Y + 1600), (1600, 576)),
+    TEA: ((768, VILLAGE_Y + 1600), (1024, 512)),
+    WAY: ((1024, VILLAGE_Y + 832), (1920, 576)),
     PASS: ((4416 + 2816, VILLAGE_Y - 128), (2400, 960)),
 }
 
@@ -110,8 +123,16 @@ def shrine():
     rid = SHRINE
     _, (w, h) = ROOMS_AT[rid]
     floor, terrace = 704, 448
+    s0, s1 = SLAB
     e = [
-        solid("ground", 0, floor, w, h - floor),
+        solid("ground_west", 0, floor, s0, h - floor),
+        solid("ground_east", s1, floor, w - s1, h - floor),
+        # The slab over the hidden way: shut until the lever under it is
+        # pulled; a ladder (`LADDERS`) down the hole.
+        entity("LockWall", s0, floor, s1 - s0, h - floor, id="ninja_village_shrine_slab", name="the stone slab",
+               gated_by=f"world.switch_on {SLAB_LEVER}", look="ninja_shrine_slab"),
+        entity("LoadingZone", s0, h - 16, s1 - s0, 16, id="shrine_slab", name="down under the slab",
+               activation="EdgeExit", target_room=WAY, target_zone="way_shrine", bidirectional=True),
         solid("west_wall", 0, 0, WALL, floor),
         solid("east_wall_high", w - WALL, 0, WALL, terrace - 96),
         solid("east_wall_mid", w - WALL, terrace + 16, WALL, floor - 96 - terrace - 16),
@@ -156,8 +177,14 @@ def street():
     _, (w, h) = ROOMS_AT[rid]
     ground = 768
     west_roof, east_roof = ROOFS[0][3], ROOFS[-1][3]
+    b0, b1 = BOARD
     e = [
-        solid("street", 0, ground, w, h - ground),
+        solid("street_west", 0, ground, b0, h - ground),
+        solid("street_east", b1, ground, w - b1, h - ground),
+        # The loose board over the hidden way: walked on, dropped through.
+        ledge("loose_board", b0, ground, b1 - b0),
+        entity("LoadingZone", b0, h - 16, b1 - b0, 16, id="secret_street_board", name="under the loose board",
+               activation="EdgeExit", target_room=WAY, target_zone="secret_way_street", bidirectional=True),
         solid("west_wall_high", 0, 0, WALL, west_roof - 96),
         solid("west_wall_mid", 0, west_roof + 16, WALL, ground - 96 - west_roof - 16),
         solid("east_wall_high", w - WALL, 0, WALL, east_roof - 96),
@@ -298,8 +325,8 @@ def walk(name, x, y, w):
     return entity("MovingPlatform", x, y, w, 16, id=name, name=name, speed=0.0, visual="none", one_way=True)
 
 
-def pass_enemy(n, character, x, feet, w, h):
-    return entity("EnemySpawn", x, feet - h, w, h, name=f"{PASS}_{character}_{n}", brain="combatant",
+def pass_enemy(n, character, x, feet, w, h, rid=PASS):
+    return entity("EnemySpawn", x, feet - h, w, h, name=f"{rid}_{character}_{n}", brain="combatant",
                   character_id=character, respawn="OnRoomReenter")
 
 
@@ -344,10 +371,54 @@ def bamboo_pass():
     return build(rid, e, "THE BAMBOO PASS", music=FOREST_MUSIC)
 
 
-ROOMS = (shrine, street, forest, dojo, tea_room, bamboo_pass)
+def hidden_way():
+    """Under the street and the shrine: the village's hidden way, dug and
+    timbered, and lived in. A straw dummy, a shuriken target, the nightingale
+    floor (it sings), a sleeping mat and a cold bowl of rice; the weapons
+    rack, a cupboard of disguises. Up a shaft at the west end to the
+    shrine's slab (the lever by it opens it); up one at the east end to the
+    street's loose board."""
+    rid = WAY
+    _, (w, h) = ROOMS_AT[rid]
+    g, top = WAY_FLOOR, WAY_CEIL
+    x0 = ROOMS_AT[WAY][0][0]
+    s0, s1 = SLAB[0] - x0, SLAB[1] - x0
+    b0, b1 = BOARD[0] + ROOMS_AT[STREET][0][0] - x0, BOARD[1] + ROOMS_AT[STREET][0][0] - x0
+    e = [
+        solid("floor", 0, g, w, h - g),
+        solid("ceiling_west", 0, 0, s0, top),
+        solid("ceiling_middle", s1, 0, b0 - s1, top),
+        solid("ceiling_east", b1, 0, w - b1, top),
+        solid("west_wall", 0, top, WALL, g - top),
+        solid("east_wall", w - WALL, top, WALL, g - top),
+        entity("LoadingZone", s0, 0, s1 - s0, 16, id="way_shrine", name="up under the shrine's slab",
+               activation="EdgeExit", target_room=SHRINE, target_zone="shrine_slab", bidirectional=True),
+        entity("LoadingZone", b0, 0, b1 - b0, 16, id="secret_way_street", name="up through the loose board",
+               activation="EdgeExit", target_room=STREET, target_zone="secret_street_board", bidirectional=True),
+        entity("Switch", s1 + 40, g - 32, 24, 32, id=SLAB_LEVER, name="the slab's lever", prompt="Pull the lever",
+               action="ToggleFlag", target_encounter=""),
+        start(rid, b0 - 120, g),
+        sign("way_sign", 960, 90, "THIS PASSAGE DOES NOT EXIST", 300),
+        sign("way_sign_floor", 820, 380, "NIGHTINGALE FLOOR: it is rude to sneak", 340),
+        sign("way_sign_slab", s0 + 40, 110, "UP: the shrine (lever). Bow on the way.", 320),
+        entity("ChestSpawn", 1300, g - 58, 76, 58, name="a ninja's savings", reward="currency:60"),
+        pass_enemy(10, "npc_ninja_shadow_duelist_eye_band", 620, g, 32, 66, rid=WAY),
+        pass_enemy(11, "npc_ninja_shadow_duelist_eye_band", 1180, g, 32, 66, rid=WAY),
+    ]
+    return build(rid, e, "THE HIDDEN WAY", music=DOJO_MUSIC)
+
+
+# The buildings first (they move out of the hidden way's way).
+ROOMS = (dojo, tea_room, hidden_way, shrine, street, forest, bamboo_pass)
 
 #: The ladder up the baker's wall: (room, x, top, bottom).
-LADDERS = [(STREET, 400, ROOFS[0][3] - 16, 768), (PASS, PASS_LOOKOUT[1] + 4, PASS_LOOKOUT[2][1] - 16, FOREST_FLOOR)]
+LADDERS = [(STREET, 400, ROOFS[0][3] - 16, 768), (PASS, PASS_LOOKOUT[1] + 4, PASS_LOOKOUT[2][1] - 16, FOREST_FLOOR),
+           # Down the slab's hole and the loose board's (their tops over the
+           # floor, as the port's well), and up the hidden way's shafts.
+           (SHRINE, SLAB[0] + 16, 704 - 64, 832),
+           (STREET, BOARD[0] + 16, 768 - 80, 896),
+           (WAY, SLAB[0] - 1024 + 16, 0, WAY_FLOOR),
+           (WAY, BOARD[0] + 1600 - 1024 + 16, 0, WAY_FLOOR)]
 
 CLAN_DOOR_YAML = f"""# The Shadow Dojo's door to the Ninja Village's forest. Written by {GENERATOR}.
 level_id: {CLAN}

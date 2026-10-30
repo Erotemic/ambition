@@ -1,0 +1,28 @@
+// Written by specs/pirate_port/make_specs.py. Change the script, not this file.
+(
+    id: "pirate_smugglers_hoard",
+    level_id: "pirate_smugglers_hoard",
+    world_x: 3648,
+    world_y: 832,
+    px_wid: 512,
+    px_hei: 640,
+    fill_collision: "empty",
+    bg_color: "#9CC4D8",
+    biome: "pirate_port",
+    parallax_theme: "pirate_port",
+    music_track: "ten_fathoms_and_a_grudge",
+    entities: [
+        ( type: "Prop", px: [16, 16], size: [480, 560], fields: ( name: "hoard_room_0", kind: "hoard_room" ) ),
+        ( type: "Solid", px: [0, 576], size: [512, 64], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [512, 64], fields: ( name: "vault" ) ),
+        ( type: "Solid", px: [0, 64], size: [16, 400], fields: ( name: "west_wall" ) ),
+        ( type: "Solid", px: [496, 64], size: [16, 512], fields: ( name: "east_wall" ) ),
+        ( type: "LoadingZone", px: [0, 480], size: [16, 96], fields: ( id: "secret_hoard_west", name: "back through the planks to the tunnel", activation: "EdgeExit", target_room: "pirate_smugglers_tunnel", target_zone: "secret_tunnel_east", bidirectional: true ) ),
+        ( type: "PlayerStart", px: [86, 530], size: [28, 46], fields: ( name: "pirate_smugglers_hoard_spawn" ) ),
+        ( type: "ChestSpawn", px: [330, 518], size: [76, 58], fields: ( name: "the last smuggler's chest", reward: "currency:150" ) ),
+        ( type: "DebugLabel", px: [66, 110], size: [380, 24], fields: ( name: "hoard_sign", text: "FINDERS KEEPERS (signed, the finders)", category: "Custom" ) ),
+        ( type: "CameraZone", px: [0, 0], size: [512, 640], fields: ( id: "pirate_smugglers_hoard_camera", name: "pirate_smugglers_hoard_camera", mode: "Default" ) ),
+        ( type: "DebugLabel", px: [70, 40], size: [372, 24], fields: ( name: "pirate_smugglers_hoard_title", text: "THE SMUGGLERS' HOARD", category: "Custom" ) ),
+    ],
+    connect_to: [],
+)

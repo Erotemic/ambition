@@ -3,7 +3,7 @@
     id: "ninja_village_tea_room",
     level_id: "ninja_village_tea_room",
     world_x: 768,
-    world_y: 11152,
+    world_y: 11600,
     px_wid: 1024,
     px_hei: 512,
     fill_collision: "empty",

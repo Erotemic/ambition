@@ -145,6 +145,9 @@ impl LimbTwins {
 /// parts over the limbs in front of that: a body drawn directly spreads its
 /// parts over less than this (`SLOT_DEPTH_STEP` a part).
 const TWIN_DEPTH: f32 = 0.05;
+/// The least depth of a limb drawn apart: over the player
+/// (`WORLD_Z_PLAYER`), under the effects (`WORLD_Z_FX`).
+const LIMB_OVER_BODIES_Z: f32 = ambition_platformer2d_core::config::WORLD_Z_PLAYER + 0.5;
 
 impl LimbTwin {
     /// Is it the twin of the parts drawn over the limbs, not of a limb?
@@ -252,7 +255,11 @@ pub fn follow_limb_twins(
             *anchor = *root_anchor;
         }
         *transform = *root_transform;
-        transform.translation.z += if of.is_over() { 2.0 * TWIN_DEPTH } else { TWIN_DEPTH };
+        // A limb drawn apart is a blow: it is drawn over the bodies, a body
+        // on its host's back among them, and the parts of its host drawn over
+        // it go with it.
+        let over_bodies = transform.translation.z.max(LIMB_OVER_BODIES_Z);
+        transform.translation.z = over_bodies + if of.is_over() { 2.0 * TWIN_DEPTH } else { TWIN_DEPTH };
         // The facts that are the root's own: put on, changed or taken off
         // with it.
         let mut twin = commands.entity(twin);

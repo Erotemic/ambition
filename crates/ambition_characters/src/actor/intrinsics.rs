@@ -44,6 +44,13 @@ pub struct CharacterLocomotion {
     /// baseline. Preparation resolves silence before spawning the body.
     #[serde(default)]
     pub baseline_free_flight: Option<bool>,
+    /// Whether this body stands by its centre of gravity
+    /// ([`ambition_platformer2d_core::Balance`]): `None` (the default) stands
+    /// on the lip of a ledge; `Some(())` takes the long body's balance, and a
+    /// row may state its own numbers. A long or heavy body (a giant, a dog)
+    /// says `Some`, so it does not stand on a sliver of its box.
+    #[serde(default)]
+    pub balance: Option<ambition_platformer2d_core::Balance>,
 }
 
 impl Default for CharacterLocomotion {
@@ -60,11 +67,13 @@ impl Default for CharacterLocomotion {
             cling_breaks_on_hit: false,
             // SILENT, not grounded — see the field.
             baseline_free_flight: None,
+            balance: None,
         }
     }
 }
 
-/// What this body can be RIDDEN as, and what it can ride (ADR 0020).
+/// What this body can be RIDDEN as, and what it can ride (ADR 0020), and
+/// where another body can stand on it.
 ///
 /// A shark is rideable because of what a shark IS, and a pirate can board one for the same kind of
 /// reason; neither is a decision the placement or the driver makes.
@@ -100,19 +109,21 @@ pub struct CharacterMount {
     /// `false`: the hands are the mount's own, ridden or not.
     #[serde(default)]
     pub rider_conducts: bool,
-    /// The span of the mount's back: what a rider's conductor reads as "on
+    /// The span of the body's back: what a rider's conductor reads as "on
     /// its back" while it is ridden. It is NOT ground by itself: a body
-    /// stands on the `ledges` and the `slope` in it. `None` = the mount has
-    /// no back to climb, and its `ledges` and `slope` are not ground.
+    /// stands on the `ledges` and the `slope` in it. `None` = the body has
+    /// no back to climb, and its `ledges` and `slope` are not ground. The
+    /// back and its ground are facts of the body: a body that is no mount
+    /// (`class: None`) has them too, and they are ground ridden or not.
     #[serde(default)]
     pub back: Option<MountBack>,
-    /// The one-way ground of a mount that has a `back`, while it is ridden:
-    /// each place its art shows that a body can stand (a shoulder, the level
-    /// part of a horn). A gap between two ledges is not ground.
+    /// The one-way ground of a body that has a `back`: each place its art
+    /// shows that a body can stand (a shoulder, the level part of a horn). A
+    /// gap between two ledges is not ground.
     #[serde(default)]
     pub ledges: Vec<MountBack>,
-    /// More one-way ground of a mount that has a `back`, while it is ridden,
-    /// that FOLLOWS ITS ART: each is a standing surface its sheet publishes
+    /// More one-way ground of a body that has a `back`, that FOLLOWS ITS
+    /// ART: each is a standing surface its sheet publishes
     /// (`surface:<name>:a` / `:b` anchors of each frame), read in the row and
     /// frame the mount is drawn in, so it leans and lifts as the drawing does
     /// (the top of each of the giant gnu's shoulders).
@@ -123,12 +134,19 @@ pub struct CharacterMount {
     /// drawn. `None`: the seat is where `saddle` says.
     #[serde(default)]
     pub saddle_on: Option<String>,
-    /// A slope of the mount that a body walks while it is ridden (the rump up
-    /// to the shoulders): a line of points `(x, y)` about the mount's centre
+    /// A slope of the body that another body walks (the rump up to the
+    /// shoulders): a line of points `(x, y)` about the mount's centre
     /// (+y down), from left to right, for a mount facing right, mirrored with
     /// the side it is drawn facing. Empty = none. It moves with the mount.
     #[serde(default)]
     pub slope: Vec<(f32, f32)>,
+    /// The standing surface the sheet publishes for the `slope` (its
+    /// `surface:<name>:a` / `:b` anchors are the slope's two ends where the
+    /// art is drawn): the whole slope is carried by the move of its ends, so
+    /// it bobs and turns with the drawing. `None`: it moves with the mount
+    /// only.
+    #[serde(default)]
+    pub slope_follows: Option<String>,
 }
 
 /// A span of a mount (its back, or a ledge of one-way ground), in world units

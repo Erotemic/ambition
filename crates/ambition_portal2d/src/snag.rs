@@ -51,7 +51,7 @@ use crate::types::{find_portal, PlacedPortal};
 ///   the end goes no deeper into the side it was not on.
 pub fn snag_push(body: ae::Aabb, came_from: Option<ae::Aabb>, opening: &PortalAperture) -> Option<(Vec2, Vec2)> {
     let came_from = came_from?;
-    let h = opening.half_length;
+    let h = opening.half_length + SQUEEZE;
     let here = corners(body, opening);
     let before = corners(came_from, opening);
     let (t0, t1) = cut(&here)?;
@@ -106,9 +106,13 @@ pub fn snag_push(body: ae::Aabb, came_from: Option<ae::Aabb>, opening: &PortalAp
 /// held: float noise, not motion.
 const NO_WORSE: f32 = 1.0e-3;
 
-/// How far (px) where a body cuts a plane may run past an end and still go
-/// through: float noise, not a body part.
-const FITS_SLACK: f32 = 0.5;
+/// How far (px) a body may reach past each end of an opening and still go
+/// through it whole: a body a little wider than the opening (a dog of 93 at
+/// an opening of 92) squeezes through. The hole a body opens is this much
+/// longer at each end ([`crate::pieces::carve_face_with_depth`]), and
+/// [`crate::portal_fits`] admits a body this much wider at each end, so a
+/// body that opens a hole fits the hole, and the snag does not hold it.
+pub const SQUEEZE: f32 = 2.0;
 
 /// Does `body`, as it is, go through `opening` whole? True when it does not
 /// cut the opening's plane (it is on one side of it), or cuts it within the
@@ -116,7 +120,7 @@ const FITS_SLACK: f32 = 0.5;
 /// through and part around, and is not taken through (the transit asks
 /// this before every transfer).
 pub fn fits_through(body: ae::Aabb, opening: &PortalAperture) -> bool {
-    let h = opening.half_length + FITS_SLACK;
+    let h = opening.half_length + SQUEEZE;
     cut(&corners(body, opening)).is_none_or(|(t0, t1)| t0 >= -h && t1 <= h)
 }
 
@@ -126,7 +130,7 @@ pub fn fits_through(body: ae::Aabb, opening: &PortalAperture) -> bool {
 /// one standing on a ledge whose top is the opening's end, leaves the host
 /// whole under it.
 pub fn in_line_with(body: ae::Aabb, opening: &PortalAperture) -> bool {
-    let h = opening.half_length + FITS_SLACK;
+    let h = opening.half_length + SQUEEZE;
     corners(body, opening).iter().all(|p| p.x.abs() <= h)
 }
 

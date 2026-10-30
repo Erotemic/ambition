@@ -97,6 +97,13 @@ pub struct ActorAnimFrame {
     /// default down for a body with none). The facing flip reads it, so the
     /// render does not resolve gravity a second time.
     pub gravity_dir: ae::Vec2,
+    /// The body's landing squash and jump squat, `(x, y)` about its feet: the
+    /// same fact as `BodyPoseView::squash`. `(1, 1)` for a body with no
+    /// `BodyAnimFacts`.
+    pub squash: ae::Vec2,
+    /// The height factor that draws the body's speed along its own gravity in
+    /// an air pose: the same fact as `BodyPoseView::air_stretch`.
+    pub air_stretch: f32,
     /// The authored clip the body's ACTIVE MOVE asks to be drawn as, with
     /// its fallbacks, or `None` when no move is playing.
     ///
@@ -380,6 +387,7 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
         let charge = a
             .playback
             .and_then(ambition_combat::moveset::MovePlayback::smash_charge_fraction);
+        let gravity_dir = a.frame.map_or(ae::DEFAULT_GRAVITY_DIR, |f| f.down());
         index.insert(
             a.feature_id.as_str(),
             ActorAnimFrame {
@@ -389,7 +397,13 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                 }),
                 pos: a.kin.pos,
                 facing: ae::mirror_side(a.kin.facing, a.unmirrored),
-                gravity_dir: a.frame.map_or(ae::DEFAULT_GRAVITY_DIR, |f| f.down()),
+                gravity_dir,
+                squash: crate::pose_view::squash_and_stretch(
+                    a.anim.map_or(0.0, |f| f.land_anim_timer),
+                    a.anim.is_some_and(|f| f.land_anim_hard),
+                    a.motion_facts.jump_squatting,
+                ),
+                air_stretch: crate::pose_view::air_stretch(anim, a.kin.vel.dot(gravity_dir)),
                 // what the ACTIVE MOVE asks to be drawn as. The move's own
                 // timeline is authoritative for presentation as well as
                 // gameplay, so this is the move speaking, not a guess about it.

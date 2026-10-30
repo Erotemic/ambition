@@ -222,17 +222,158 @@ Davy Hylbert: Sorry, we're full tonight.
 
 title: hotel_monty_carlo
 ---
+// The game show of the ballroom (`make_specs.py` `hotel_ballroom`). A round
+// is one talk: the show's number hides the car, the player picks, Monty
+// opens a goat door that is not the pick, the player stays or switches, and
+// all three doors open. The flags are what the closets and the prize case
+// show; the round itself is in the `$monty_*` variables. The tally is
+// tonight's (it is not saved).
+<<declare $monty_show = 0>>
+<<declare $monty_car = 0>>
+<<declare $monty_pick = 0>>
+<<declare $monty_goat = 0>>
+<<declare $monty_other = 0>>
+<<declare $monty_final = 0>>
+<<declare $monty_switched = false>>
+<<declare $monty_rounds_switched = 0>>
+<<declare $monty_wins_switched = 0>>
+<<declare $monty_rounds_stayed = 0>>
+<<declare $monty_wins_stayed = 0>>
 Monty Carlo: Welcome, welcome, WELCOME to the ballroom! Three doors! One car! Two goats! And one lucky robot!
+-> Let's play!
+    <<jump hotel_monty_carlo__deal>>
 -> How does it work?
     Monty Carlo: You pick a door. I, who know everything, open another one and show you a goat. Then I ask: do you want to switch?
     Monty Carlo: And you say yes. Because switching wins two times in three. Everybody says yes. Eventually.
 -> Why does switching win?
     Monty Carlo: Your first pick is right one time in three. I never open the car. So the other door holds every case where you were wrong. Two in three!
     Monty Carlo: A mathematician wrote in to say I was lying. Hundreds of them. I sent each of them a goat.
+-> How do you hide the car?
+    Monty Carlo: Honestly! Every show has a number. I multiply it by the golden ratio and keep what comes after the point.
+    Monty Carlo: Bottom third, door one. Middle third, door two. Top third, door three. Weyl proved each third comes up as often as the others.
+    Monty Carlo: You could work out where the car is. Nobody does. They are too busy deciding whether to switch.
+-> What is in the glass case?
+    Monty Carlo: Tonight's prize! The car stays behind its door. Hylbert has infinitely many rooms and no garage.
+    Monty Carlo: So a winner takes the money in the case. The case opens when you win. It shuts when the next show starts.
+-> How am I doing? <<if $monty_rounds_switched + $monty_rounds_stayed > 0>>
+    Monty Carlo: Tonight, you switched {$monty_rounds_switched} times and won {$monty_wins_switched}. You stayed {$monty_rounds_stayed} times and won {$monty_wins_stayed}.
+    Monty Carlo: Keep playing. The fractions get closer to two thirds and one third. That is the law of large numbers. It is the only law in this ballroom.
 -> What happens to the goats?
     Monty Carlo: They live here. Hylbert gives each one a room. There are always rooms. The goats have never been happier.
 -> I'll stay where I am.
     Monty Carlo: Staying! Bold! Wrong, two times in three, but bold!
+===
+
+title: hotel_monty_carlo__deal
+---
+// The car: the fraction of (show number x the golden ratio), in thirds.
+<<set $monty_show to visit_count("hotel_monty_carlo")>>
+<<set $monty_car to ceil(3 * decimal($monty_show * 0.618034))>>
+<<if $monty_car < 1>>
+    <<set $monty_car to 1>>
+<<endif>>
+// A new show: the curtains shut, the stage is empty, the case is locked.
+<<command "world.set_flag" "monty_open_1" false>>
+<<command "world.set_flag" "monty_open_2" false>>
+<<command "world.set_flag" "monty_open_3" false>>
+<<command "world.set_flag" "monty_goat_1" false>>
+<<command "world.set_flag" "monty_goat_2" false>>
+<<command "world.set_flag" "monty_goat_3" false>>
+<<command "world.set_flag" "monty_car_1" false>>
+<<command "world.set_flag" "monty_car_2" false>>
+<<command "world.set_flag" "monty_car_3" false>>
+<<command "world.set_flag" "monty_won" false>>
+Monty Carlo: [shout]Show number {$monty_show}![/shout] The car is hidden. The goats are briefed. The curtains are shut.
+Monty Carlo: Pick a door!
+-> Door number 1.
+    <<set $monty_pick to 1>>
+-> Door number 2.
+    <<set $monty_pick to 2>>
+-> Door number 3.
+    <<set $monty_pick to 3>>
+// Monty opens a door that is neither the pick nor the car. When the pick is
+// the car, two doors are left, and the show number chooses between them
+// (the fraction of it x (the square root of 2, less 1)), so that the door he
+// opens tells nothing about the car.
+<<if $monty_pick != $monty_car>>
+    <<set $monty_goat to 6 - $monty_pick - $monty_car>>
+<<elseif decimal($monty_show * 0.414214) < 0.5>>
+    <<if $monty_pick == 1>>
+        <<set $monty_goat to 2>>
+    <<else>>
+        <<set $monty_goat to 1>>
+    <<endif>>
+<<else>>
+    <<if $monty_pick == 3>>
+        <<set $monty_goat to 2>>
+    <<else>>
+        <<set $monty_goat to 3>>
+    <<endif>>
+<<endif>>
+<<set $monty_other to 6 - $monty_pick - $monty_goat>>
+<<if $monty_goat == 1>>
+    <<command "world.set_flag" "monty_open_1" true>>
+    <<command "world.set_flag" "monty_goat_1" true>>
+<<elseif $monty_goat == 2>>
+    <<command "world.set_flag" "monty_open_2" true>>
+    <<command "world.set_flag" "monty_goat_2" true>>
+<<else>>
+    <<command "world.set_flag" "monty_open_3" true>>
+    <<command "world.set_flag" "monty_goat_3" true>>
+<<endif>>
+Monty Carlo: Door number {$monty_pick}! Now I, who know where the car is, open a door you did not pick. Door number {$monty_goat}...
+Monty Carlo: [shout]A GOAT![/shout] She is very pleased to meet you.
+Monty Carlo: Two doors left. Yours, number {$monty_pick}, and number {$monty_other}. Do you want to switch?
+-> Switch to door number {$monty_other}.
+    <<set $monty_final to $monty_other>>
+    <<set $monty_switched to true>>
+    <<set $monty_rounds_switched to $monty_rounds_switched + 1>>
+-> Stay with door number {$monty_pick}.
+    <<set $monty_final to $monty_pick>>
+    <<set $monty_switched to false>>
+    <<set $monty_rounds_stayed to $monty_rounds_stayed + 1>>
+<<jump hotel_monty_carlo__reveal>>
+===
+
+title: hotel_monty_carlo__reveal
+---
+// Every curtain opens: the car behind its door, a goat behind each other.
+<<command "world.set_flag" "monty_open_1" true>>
+<<command "world.set_flag" "monty_open_2" true>>
+<<command "world.set_flag" "monty_open_3" true>>
+<<if $monty_car == 1>>
+    <<command "world.set_flag" "monty_car_1" true>>
+    <<command "world.set_flag" "monty_goat_2" true>>
+    <<command "world.set_flag" "monty_goat_3" true>>
+<<elseif $monty_car == 2>>
+    <<command "world.set_flag" "monty_goat_1" true>>
+    <<command "world.set_flag" "monty_car_2" true>>
+    <<command "world.set_flag" "monty_goat_3" true>>
+<<else>>
+    <<command "world.set_flag" "monty_goat_1" true>>
+    <<command "world.set_flag" "monty_goat_2" true>>
+    <<command "world.set_flag" "monty_car_3" true>>
+<<endif>>
+Monty Carlo: Behind door number {$monty_final}...
+<<if $monty_final == $monty_car>>
+    <<command "world.set_flag" "monty_won" true>>
+    <<if $monty_switched>>
+        <<set $monty_wins_switched to $monty_wins_switched + 1>>
+        Monty Carlo: [shout]A CAR![/shout] You switched, and the mathematics thanks you!
+    <<else>>
+        <<set $monty_wins_stayed to $monty_wins_stayed + 1>>
+        Monty Carlo: [shout]A CAR![/shout] You stayed, and you won! It happens one time in three. Tonight it happened to you.
+    <<endif>>
+    Monty Carlo: The prize case is open! Take the money. The car stays where it is; it has a room.
+<<else>>
+    Monty Carlo: A goat. Lovely animal. And the car was behind door number {$monty_car}.
+    <<if $monty_switched>>
+        Monty Carlo: You switched and lost. That happens one time in three: when your first pick was the car. Switch again next time. The odds do not remember.
+    <<else>>
+        Monty Carlo: You stayed. Two times in three, staying finds a goat. The goat does not mind.
+    <<endif>>
+<<endif>>
+Monty Carlo: All three doors are open. Go and look! Then come back for the next show.
 ===
 
 title: hotel_paradox_barber
@@ -306,7 +447,7 @@ Brother Lucas: Welcome to the Tower. Mind the disks; they're gold and they're co
     Brother Lucas: The world ends. That's the legend. I wrote it. It sold a great many puzzles.
     Brother Lucas: Sixty-four disks takes eighteen quintillion moves. At a move a second, the sun goes out first. I find that very restful.
 -> How many moves so far?
-    Brother Lucas: One million, forty-eight thousand, five hundred and seventy-five. It's on the wall. Every stroke is a move. The wall is very full.
+    Brother Lucas: Five hundred and fifty-five thousand and thirty-nine. It's on the wall. Every stroke is a move. The wall is very full.
 -> Can I move one?
     Brother Lucas: You can stand on them. Moving them is my job, and I'm in no hurry. Nobody who understands the puzzle is ever in a hurry.
 -> I'll leave you to it.

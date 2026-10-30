@@ -852,6 +852,7 @@ fn a_crawler_seated_as_a_fighter_keeps_its_own_locomotion() {
                 surface_walker: true,
                 cling_breaks_on_hit: false,
                 baseline_free_flight: Some(false),
+                balance: None,
             })
             .with_contact_damage(ContactDamage {
                 strength: 0.4,

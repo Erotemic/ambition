@@ -3,12 +3,19 @@
 //! The map is the LDtk layout: the region of rooms joined by edge exits that
 //! the player is in (`ambition_menu::map::view`), each room its world
 //! rectangle, visited rooms drawn, the ways on from them dim, the doors
-//! marked, and the residents and shrines of the visited rooms pinned. Inside a building, the region outside it, its door marked. The
-//! page is panels and text, so both backends draw it as they draw any page.
+//! marked, the residents and shrines of the visited rooms pinned. Inside a
+//! building, the region outside it, its door marked. The page is panels and
+//! text, so both backends draw it as they draw any page.
+//!
+//! The map is the engine's; how it looks is the game's. [`build_map_page`]
+//! is the host's plain placeholder, and a game draws its own map by
+//! inserting a [`MapPagePresentation`] built on the same [`MapView`].
 
 use ambition_platformer2d::menu::{MenuColor, MenuPageModel, MenuRect, MenuTextAlign};
 use ambition_platformer2d::menu::map::view::{map_view, MapPinKind, MapView};
 use ambition_platformer2d::menu::map::MapMenuState;
+use std::sync::Arc;
+
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
@@ -44,11 +51,27 @@ fn short_title(title: &str, width: f32) -> String {
     format!("{}…", cut.trim_end())
 }
 
-/// What the Map page is built from: the map's rooms and visits, and the room
-/// the player is in.
+/// Builds the Map page from the map of the player's region (`None` off the
+/// map).
+pub type MapPageBuilder = Arc<dyn Fn(Option<&MapView>) -> MenuPageModel<MenuPage, MenuPageAction> + Send + Sync>;
+
+/// How a game draws its Map page. Without one, the host's placeholder
+/// ([`build_map_page`]).
+#[derive(Resource, Clone)]
+pub struct MapPagePresentation(pub MapPageBuilder);
+
+impl MapPagePresentation {
+    pub fn new(build: impl Fn(Option<&MapView>) -> MenuPageModel<MenuPage, MenuPageAction> + Send + Sync + 'static) -> Self {
+        Self(Arc::new(build))
+    }
+}
+
+/// What the Map page is built from: the map's rooms and visits, the room the
+/// player is in, and the game's presentation.
 #[derive(SystemParam)]
 pub(crate) struct MapPageSource<'w, 's> {
     map: Option<Res<'w, MapMenuState>>,
+    presentation: Option<Res<'w, MapPagePresentation>>,
     // Optional: a menu in an app with no rooms (a menu test, a shell with no
     // session) still draws its other pages; the Map page then shows no map.
     room: Option<ambition_platformer2d::world::rooms::PrimaryLiveRoomSpec<'w, 's>>,
@@ -62,9 +85,24 @@ impl MapPageSource<'_, '_> {
         map_view(map, &current, MAP_FRAME_ASPECT)
     }
 
-    /// Whether the map's rooms or visits changed this frame.
+    /// The Map page for `view`, as the game draws it.
+    pub(crate) fn page(&self, view: Option<&MapView>) -> MenuPageModel<MenuPage, MenuPageAction> {
+        match &self.presentation {
+            Some(presentation) => (presentation.0)(view),
+            None => build_map_page(view),
+        }
+    }
+
+    /// Whether the map's rooms or visits, or the game's presentation, changed
+    /// this frame.
     pub(crate) fn changed(&self) -> bool {
-        self.map.as_ref().is_some_and(|map| map.is_changed())
+        self.map.as_ref().is_some_and(|map| map.is_changed()) || self.presentation_changed()
+    }
+
+    /// Whether the game's presentation was inserted or replaced this frame:
+    /// the one change a by-value [`MapView`] key cannot see.
+    pub(crate) fn presentation_changed(&self) -> bool {
+        self.presentation.as_ref().is_some_and(|p| p.is_changed())
     }
 }
 
@@ -72,9 +110,9 @@ fn colour([r, g, b, a]: [f32; 4]) -> MenuColor {
     MenuColor::rgba(r, g, b, a)
 }
 
-/// The Map page: the region's rooms in the frame, the title of the room the
-/// player is in under it.
-pub(crate) fn build_map_page(view: Option<&MapView>) -> MenuPageModel<MenuPage, MenuPageAction> {
+/// The host's placeholder Map page: the region's rooms in the frame, the
+/// title of the room the player is in under it.
+pub fn build_map_page(view: Option<&MapView>) -> MenuPageModel<MenuPage, MenuPageAction> {
     let look = menu_look();
     let map_look = look.map;
     let mut model = MenuPageModel::new(MenuPage::Map, line("menu.map.title"), colour(look.page));
@@ -159,7 +197,29 @@ pub(crate) fn build_map_page(view: Option<&MapView>) -> MenuPageModel<MenuPage, 
 
 #[cfg(test)]
 mod tests {
-    use super::short_title;
+    use bevy::ecs::system::RunSystemOnce;
+    use bevy::prelude::*;
+
+    use super::{short_title, MapPagePresentation, MapPageSource};
+    use crate::menu::model::MenuPage;
+    use ambition_platformer2d::menu::{MenuColor, MenuPageModel};
+
+    /// The page the Map tab shows: the host's placeholder, until the game
+    /// inserts its own presentation.
+    fn page_title(app: &mut App) -> String {
+        app.world_mut().run_system_once(|source: MapPageSource| source.page(None).title).expect("the system runs")
+    }
+
+    #[test]
+    fn a_game_draws_its_own_map_page_and_the_host_draws_a_plain_one() {
+        let mut app = App::new();
+        let placeholder = page_title(&mut app);
+        app.insert_resource(MapPagePresentation::new(|_| {
+            MenuPageModel::new(MenuPage::Map, "THE GAME'S MAP", MenuColor::rgba(0.0, 0.0, 0.0, 1.0))
+        }));
+        assert_eq!(page_title(&mut app), "THE GAME'S MAP");
+        assert_ne!(placeholder, "THE GAME'S MAP");
+    }
 
     #[test]
     fn a_room_name_drops_its_article_and_fits_its_room() {

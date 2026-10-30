@@ -630,7 +630,7 @@ pub fn build_inventory_pages(
         system_window_start,
         open_entry,
         None,
-        None,
+        crate::menu::map_page::build_map_page(None),
     )
 }
 
@@ -648,12 +648,12 @@ pub fn build_inventory_pages_with_quality_prompt(
     system_window_start: usize,
     open_entry: Option<SystemMenuEntryId>,
     pending_quality: Option<VisualQualityProfile>,
-    // The map of the player's region (`map_page::MapPageSource::view`).
-    map: Option<&ambition_platformer2d::menu::map::view::MapView>,
+    // The Map page, as the game draws it (`map_page::MapPageSource::page`).
+    map_page: MenuPageModel<MenuPage, MenuPageAction>,
 ) -> Vec<MenuPageModel<MenuPage, MenuPageAction>> {
     vec![
         build_items_page(owned, items, equipped),
-        crate::menu::map_page::build_map_page(map),
+        map_page,
         placeholder_page(
             MenuPage::Quest,
             &line("menu.quest.title"),

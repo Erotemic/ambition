@@ -835,7 +835,7 @@ pub(crate) fn grid_menu_republish_view(
         window_start,
         system_nav.open_entry,
         quality_confirm.pending(),
-        map_page.view().as_ref(),
+        map_page.page(map_page.view().as_ref()),
     );
     let Some(page) = built
         .iter()

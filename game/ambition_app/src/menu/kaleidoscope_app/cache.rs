@@ -182,8 +182,9 @@ pub(crate) fn republish_kaleidoscope_pages(
     let pages_empty = pages.pages.is_empty();
     let key_changed = last.as_ref() != Some(&key);
     // A content reload that publishes a new item catalog changes the names
-    // and verbs on the faces; the value key cannot see that.
-    let dirty = pages_empty || just_opened || key_changed || hand.items_changed();
+    // and verbs on the faces; the value key cannot see that, nor a game's new
+    // Map page presentation (set at startup, so this does not tick per frame).
+    let dirty = pages_empty || just_opened || key_changed || hand.items_changed() || map_page.presentation_changed();
     if !dirty {
         return;
     }
@@ -217,7 +218,7 @@ pub(crate) fn republish_kaleidoscope_pages(
         window_start,
         system_nav.open_entry,
         key.quality,
-        key.map.as_ref(),
+        map_page.page(key.map.as_ref()),
     );
     pages.replace_pages(built, active);
     *last = Some(key);

@@ -42,3 +42,20 @@ to touch, and a little danger outside town. No quest chains.
 ## Run progress
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
+
+- **Math: Zeno's Aqueduct** (3ee5622bf), the first zone out of town: the
+  aqueduct's deck leaves Euclid Street west over a valley to the reservoir;
+  piers close up by halves, signs count 1/2, 3/4, 7/8 of the way; The Limit
+  island; dividing mites, puppy slugs, an exploding mite, an owl. Fixed on the
+  way: the math generator's stale sprite path, and townsfolk talk that every
+  regenerate dropped (now in the generator). Verified: the_zeno_aqueduct.
+- **PvN: the Pirate Cove** (873532b44): a sea cave open on the night sea,
+  lookout scaffolds, the ladder to the sky hatch, three doorways (the
+  arena's scorched, feathers blown out), longboat, treasure heap, Jolly
+  Roger, wanted board, parrot perch. Verified: LDtk validation, a semantic
+  diff of pvn.ldtk (only the cove's props and a harbour-house re-sync).
+- **Science: Tesseract Laboratories** (d5d039a27): coils with an arc between
+  their toroids, gantries, Van de Graaff, Jacob's ladder, wireless bulb,
+  pigeon coops, the AC/DC chalkboard.
+- **Science: Eureka's tether carries its rider** (58da8bcfc): the ground car
+  waits a hop over the floor; the_eureka_tether passes.

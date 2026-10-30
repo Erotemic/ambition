@@ -69,6 +69,16 @@ CELLARS = "pirate_customs_cellars"
 #: walking east falls in; no lip of floor beyond it.
 WELL = (16, 80)
 LOFT_DOOR_X = 2300
+#: East of the cellars, through the arch they knocked through, under the
+#: waterfront: the smugglers' tunnel, up a drain in the waterfront's street
+#: (x0, x1; the tunnel's x is the waterfront's: it is right under it). The
+#: drain's grate is shut until the lever in the tunnel is pulled: a shortcut
+#: opened from below.
+TUNNEL = "pirate_smugglers_tunnel"
+DRAIN = (1696, 1760)
+DRAIN_LEVER = "pirate_port_drain_lever"
+#: Behind the plank wall at the tunnel's east end (a secret): the hoard.
+HOARD = "pirate_smugglers_hoard"
 
 #: The contract with Agent GATE: the arrival point a dialled SAILING names.
 ARRIVAL = "pirate_port_gate_arrival"
@@ -95,10 +105,14 @@ ROOMS_AT = {
     REEF: ((4160 + 2816, -64), (2560, 960)),
     # Its floor (y 960) level with the reef's east rocks (y 640 there).
     POINT: ((4160 + 2816 + 2560, -64 - 320), (1600, 1280)),
-    TAVERN: ((1856, 1152), (1024, 448)),
-    LOFT: ((2944, 1152), (1024, 448)),
+    # Buildings: under the tunnel, out of its way.
+    TAVERN: ((1856, 1600), (1024, 448)),
+    LOFT: ((2944, 1600), (1024, 448)),
     # Under the plaza: its shaft under the well.
     CELLARS: ((0, 832), (1600, 640)),
+    # East of the cellars, under the waterfront; the hoard east of it.
+    TUNNEL: ((1600, 832), (2048, 640)),
+    HOARD: ((3648, 832), (512, 640)),
 }
 
 #: The flag of the page in the crow's nest.
@@ -161,8 +175,16 @@ def waterfront():
     rid = WATERFRONT
     _, (w, h) = ROOMS_AT[rid]
     street, gallery, roof_a, roof_b = 768, 512, 448, 384
+    d0, d1 = DRAIN
     e = [
-        solid("street", 0, street, w, h - street),
+        solid("street_west", 0, street, d0, h - street),
+        solid("street_east", d1, street, w - d1, h - street),
+        # The drain down to the smugglers' tunnel: its grate shut until the
+        # lever under it is pulled; a ladder (`LADDERS`) down the hole.
+        entity("LockWall", d0, street, d1 - d0, h - street, id="pirate_port_drain_grate", name="the drain's grate",
+               gated_by=f"world.switch_on {DRAIN_LEVER}", look="port_drain_grate"),
+        entity("LoadingZone", d0, h - 16, d1 - d0, 16, id="waterfront_drain", name="down the drain",
+               activation="EdgeExit", target_room=TUNNEL, target_zone="tunnel_drain", bidirectional=True),
         solid("west_wall_high", 0, 0, WALL, gallery - 96),
         solid("west_wall_mid", 0, gallery + 16, WALL, street - 96 - gallery - 16),
         solid("east_wall_high", w - WALL, 0, WALL, roof_b - 96),
@@ -404,8 +426,8 @@ CELLARS_FLOOR, CELLARS_CEIL = 576, 64
 CELLARS_BARRELS = (920, 1140, 480)
 
 
-def cellars_enemy(n, character, x, feet, w, h):
-    return entity("EnemySpawn", x, feet - h, w, h, name=f"{CELLARS}_{character}_{n}", brain="combatant",
+def cellars_enemy(n, character, x, feet, w, h, rid=CELLARS):
+    return entity("EnemySpawn", x, feet - h, w, h, name=f"{rid}_{character}_{n}", brain="combatant",
                   character_id=character, respawn="OnRoomReenter")
 
 
@@ -425,7 +447,8 @@ def cellars():
         solid("vault_west", 0, 0, s0, top),
         solid("vault_east", s1, 0, w - s1, top),
         solid("west_wall", 0, top, WALL, g - top),
-        solid("east_wall", w - WALL, top, WALL, g - top),
+        solid("east_wall", w - WALL, top, WALL, g - 112 - top),
+        edge("cellars_east", "through the arch to the tunnel", w - WALL, g, TUNNEL, "tunnel_west"),
         entity("LoadingZone", s0, 0, s1 - s0, 16, id="cellars_shaft", name="up the well to the plaza",
                activation="EdgeExit", target_room=PLAZA, target_zone="plaza_well", bidirectional=True),
         start(rid, 200, g),
@@ -442,9 +465,65 @@ def cellars():
     return build(rid, e, "THE CELLARS UNDER CUSTOMS", music=DOCK_MUSIC)
 
 
-# The cellars before the plaza: the plaza's well names them, and each room is
+def tunnel():
+    """East of the cellars through the arch, under the waterfront: the
+    smugglers' tunnel, rails along it, a handcart of undeclared goods (a
+    crate of parrots), the chute from the Drowned Compass's cellar; the
+    drain's shaft up to the street and the lever that opens its grate; at
+    the east end a plank wall with a draught through it (a secret)."""
+    rid = TUNNEL
+    _, (w, h) = ROOMS_AT[rid]
+    g, top = CELLARS_FLOOR, CELLARS_CEIL
+    d0, d1 = DRAIN
+    e = [
+        solid("floor", 0, g, w, h - g),
+        solid("vault_west", 0, 0, d0, top),
+        solid("vault_east", d1, 0, w - d1, top),
+        solid("west_wall", 0, top, WALL, g - 112 - top),
+        solid("east_wall", w - WALL, top, WALL, g - 112 - top),
+        edge("tunnel_west", "back through the arch to the cellars", 0, g, CELLARS, "cellars_east"),
+        # The plank wall: walked through (`secret_`: the map shows the hoard
+        # only once it is found).
+        edge("secret_tunnel_east", "a draught through the planks", w - WALL, g, HOARD, "secret_hoard_west"),
+        entity("LoadingZone", d0, 0, d1 - d0, 16, id="tunnel_drain", name="up the drain to the waterfront",
+               activation="EdgeExit", target_room=WATERFRONT, target_zone="waterfront_drain", bidirectional=True),
+        entity("Switch", d1 + 40, g - 32, 24, 32, id=DRAIN_LEVER, name="the drain's lever", prompt="Pull the lever",
+               action="ToggleFlag", target_encounter=""),
+        start(rid, 200, g),
+        sign("tunnel_sign", 900, 120, "NOTHING TO DECLARE", 300),
+        sign("tunnel_sign_chute", 820, 330, "THE COMPASS (rum down, money up)", 340),
+        sign("tunnel_sign_drain", d0 - 40, 140, "DRAIN: the fish market (lever)", 320),
+        cellars_enemy(10, "npc_pirate_cutlass_viper", 640, g, 32, 68, rid=TUNNEL),
+        cellars_enemy(11, "npc_pirate_quartermaster", 1240, g, 34, 71, rid=TUNNEL),
+        cellars_enemy(12, "npc_pirate_cutlass_viper", 1880, g, 32, 68, rid=TUNNEL),
+    ]
+    return build(rid, e, "THE SMUGGLERS' TUNNEL", music=DOCK_MUSIC)
+
+
+def hoard():
+    """Behind the tunnel's plank wall: the smugglers' hoard, coin heaped, a
+    figurehead, somebody's grandmother in oils, a crown on a skull; the last
+    smuggler, sat against the chest, who kept it."""
+    rid = HOARD
+    _, (w, h) = ROOMS_AT[rid]
+    g, top = CELLARS_FLOOR, CELLARS_CEIL
+    e = [
+        solid("floor", 0, g, w, h - g),
+        solid("vault", 0, 0, w, top),
+        solid("west_wall", 0, top, WALL, g - 112 - top),
+        solid("east_wall", w - WALL, top, WALL, g - top),
+        edge("secret_hoard_west", "back through the planks to the tunnel", 0, g, TUNNEL, "secret_tunnel_east"),
+        start(rid, 100, g),
+        entity("ChestSpawn", 330, g - 58, 76, 58, name="the last smuggler's chest", reward="currency:150"),
+        sign("hoard_sign", 256, 110, "FINDERS KEEPERS (signed, the finders)", 380),
+    ]
+    return build(rid, e, "THE SMUGGLERS' HOARD", music=DOCK_MUSIC)
+
+
+# The buildings first (they move out of the tunnel's way); the cellars before
+# the plaza: the plaza's well names them, and each room is
 # validated as it is made.
-ROOMS = (cellars, plaza, waterfront, tavern, sail_loft, docks, reef, point)
+ROOMS = (tavern, sail_loft, hoard, tunnel, cellars, plaza, waterfront, docks, reef, point)
 
 #: The ladders out of the two gaps of open water, and up the mainmast
 #: (painted on the `Climbable` layer): (room, x, top, bottom).
@@ -457,6 +536,10 @@ LADDERS = [
     # down to the Mobius Mine), and on down the cellars' shaft.
     (PLAZA, WELL[0] + 16, 704 - 64, ROOMS_AT[PLAZA][1][1]),
     (CELLARS, WELL[0] + 16, 0, CELLARS_FLOOR),
+    # Down the drain (its top over the street, as the well), and up the
+    # tunnel's shaft.
+    (WATERFRONT, DRAIN[0] + 16, 768 - 64, ROOMS_AT[WATERFRONT][1][1]),
+    (TUNNEL, DRAIN[0] + 16, 0, CELLARS_FLOOR),
 ]
 
 COVE_DOOR_YAML = f"""# The pirate cove's door to the Pirate Port's docks. Written by {GENERATOR}.

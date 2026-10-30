@@ -51,7 +51,20 @@ Jon, 2026-10-30:
 - **Over:** the moor's watchtower up onto the ridge; west along it, over the plank bridge, onto Gallows Hill and down the hamlet's bell tower. The bridge is dropped through onto the allotments' greenhouse (a shortcut down).
 - **Tests:** `game/ambition_app/tests/the_searchlight_moor.rs`.
 
+## The Pirate Port (the third)
+
+```
+ [plaza]═high/low═[waterfront]═high/low═[docks]──[reef]──[lighthouse point]
+   │well             │drain (grate: lever below)
+ [cellars]──arch──[smugglers' tunnel]┄planks┄[hoard]
+```
+
+- **Two roads over:** the low road (street, pier) and the high road (galleries, roofs, gantry) join the plaza, the waterfront and the docks.
+- **Under:** down the plaza's well into the cellars, east through the arch into the smugglers' tunnel, up the drain into the waterfront's street. The drain's grate is shut until the lever under it is pulled (a shortcut opened from below).
+- **Secret:** the plank wall at the tunnel's east end; the hoard behind it.
+- **Tests:** `game/ambition_app/tests/the_wreckers_reef.rs`.
+
 ## Not yet
 
 - A hit-breakable wall (Hollow Knight's secrets) is not an engine capability. The false wall is the only secret so far.
-- The other regions (the pirate port and ninja village, Eureka, the math town, the primeval trail) are still strings of rooms. Each wants the same treatment.
+- The other regions (the ninja village, Eureka, the math town, the primeval trail) are still strings of rooms. Each wants the same treatment.

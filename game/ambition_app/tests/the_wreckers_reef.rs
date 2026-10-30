@@ -56,3 +56,36 @@ fn the_cellars_under_customs_lie_down_the_plazas_well() {
     go(&mut app, "pirate_port_gate_plaza", Some("cellars_shaft"));
     go(&mut app, "pirate_customs_cellars", Some("plaza_well"));
 }
+
+/// East of the cellars through the knocked-through arch: the smugglers'
+/// tunnel under the waterfront. Its drain's grate is shut from the street
+/// until the lever under it is pulled; then up the drain to the waterfront
+/// and back down: the port's loop under it. The plank wall at the tunnel's
+/// east end is false (the hoard behind it).
+#[test]
+fn the_smugglers_tunnel_loops_the_cellars_to_the_waterfront() {
+    use crate::the_note_travels_from_alice_to_bob::tap;
+    use ambition_platformer2d::engine_core as ae;
+    use bevy::prelude::KeyCode;
+
+    let lever = |app: &bevy::prelude::App| {
+        app.world()
+            .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+            .data()
+            .switch("pirate_port_drain_lever")
+    };
+    let mut app = a_session_in("pirate_customs_cellars");
+    go(&mut app, "pirate_smugglers_tunnel", Some("cellars_east"));
+    go(&mut app, "pirate_smugglers_hoard", Some("secret_tunnel_east"));
+    go(&mut app, "pirate_smugglers_tunnel", Some("secret_hoard_west"));
+    assert!(!lever(&app), "control: the drain's lever is not pulled");
+    crate::the_pirate_port::go_to(&mut app, ae::Vec2::new(1812.0, 560.0), "the drain's lever");
+    tap(&mut app, KeyCode::KeyF);
+    for _ in 0..30 {
+        app.update();
+    }
+    assert!(lever(&app), "the drain's lever is pulled");
+    go(&mut app, "pirate_port_waterfront", Some("tunnel_drain"));
+    go(&mut app, "pirate_smugglers_tunnel", Some("waterfront_drain"));
+    go(&mut app, "pirate_customs_cellars", Some("tunnel_west"));
+}

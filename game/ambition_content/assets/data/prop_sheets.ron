@@ -374,6 +374,12 @@
     // The Pirate Port's well, and the cellars under customs (PvN).
     "plaza_well": (),
     "cellars_vault": (),
+    // The smugglers' tunnel east of the cellars, its drain up to the waterfront, the hoard (PvN).
+    "port_drain_shaft": (),
+    "port_drain_grate": (),
+    "tunnel_west": (),
+    "tunnel_east": (),
+    "hoard_room": (),
     "collider_tunnel": (),
     // The orbital station's damaged spur (Science).
     "spur_west": (),

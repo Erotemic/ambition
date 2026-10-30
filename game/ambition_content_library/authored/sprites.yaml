@@ -580,6 +580,11 @@ collections:
   - sail_loft_room
   - plaza_well
   - cellars_vault
+  - port_drain_shaft
+  - port_drain_grate
+  - tunnel_west
+  - tunnel_east
+  - hoard_room
   - collider_tunnel
   - spur_west
   - spur_east

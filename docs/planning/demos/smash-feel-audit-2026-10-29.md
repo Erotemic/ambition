@@ -215,7 +215,9 @@ frames; without P1–P3 that is 19 frames of a white blink. Ship them together.
 | P7 fighter camera | ✔ `MatchRules::cast_framing` (Smash: close to 45% of the stage view, 40 px margin; the engine keeps 75% / 48) | cad1bfd1b |
 | P6 squash/stretch | ✔ `BodyPoseView::squash`: lands wide and low, relaxing over the landing beat (deeper when hard); the jump squat presses | this commit |
 | Tap-jump menu toggle | ✔ Controls page, "Tap Jump" | this commit |
-| R5 play with Jon; R6 angled air-dodge lag (needs one f32 of rollback state), authored walk speed; posing keys beyond the polygons; Sanic's facet | open | — |
+| R6 authored walk speed, angled air-dodge lag | ✔ `walk_speed` (Smash 208 px/s), `air_dodge_up` → 0.73×–1.27× landing lag; schema 388 | 38e725306 |
+| CPU fighters like an Ultimate CPU | in progress (sub-agent lane on its own branch; first job: the recovery press eaten by the hitstun lockout, `smash_it::every_authored_route_gets_pressed`) | — |
+| R5 play with Jon; posing keys beyond the polygons; Sanic's facet | open | — |
 
 Nothing above has been played by a human yet. Every number is a first cut.
 

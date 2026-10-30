@@ -258,6 +258,11 @@
     "tar_pits_bones": (),
     // The castle kitchens (Evil).
     "castle_kitchens_room": (),
+    // The Bamboo Pass (PvN, out of the Ninja Village).
+    "pass_bamboo": (),
+    "pass_bridge": (),
+    "pass_lookout": (),
+    "pass_falls": (),
     // The hall of the Shadow Clan (PvN).
     "shadow_dojo_hall": (),
     // Along the primeval trail.

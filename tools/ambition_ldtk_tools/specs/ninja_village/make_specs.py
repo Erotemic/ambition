@@ -54,6 +54,9 @@ SHRINE = "ninja_village_gate_shrine"
 STREET = "ninja_village_street"
 DOJO = "ninja_village_dojo"
 FOREST = "ninja_village_forest"
+#: Out of the village (Jon, 2026-10-30: "out of town zones with enemies"):
+#: the Bamboo Pass, east of the forest by a side exit.
+PASS = "ninja_bamboo_pass"
 
 #: The contract with Agent GATE: the arrival point a dialled SILENT names.
 ARRIVAL = "ninja_village_gate_arrival"
@@ -85,6 +88,7 @@ ROOMS_AT = {
     STREET: ((1600, VILLAGE_Y - 64), (2816, 896)),
     FOREST: ((4416, VILLAGE_Y - 128), (2816, 960)),
     DOJO: ((1856, VILLAGE_Y + 1152), (1600, 576)),
+    PASS: ((4416 + 2816, VILLAGE_Y - 128), (2400, 960)),
 }
 
 
@@ -190,7 +194,8 @@ def forest():
         solid("forest_floor", 0, FOREST_FLOOR, w, h - FOREST_FLOOR),
         solid("west_wall_high", 0, 0, WALL, top - 96),
         solid("west_wall_mid", 0, top + 16, WALL, FOREST_FLOOR - 96 - top - 16),
-        solid("east_wall", w - WALL, 0, WALL, FOREST_FLOOR),
+        solid("east_wall", w - WALL, 0, WALL, FOREST_FLOOR - 112),
+        edge("forest_east", "on to the bamboo pass", w - WALL, FOREST_FLOOR, PASS, "pass_west"),
         edge("forest_west_low", "to the village", 0, FOREST_FLOOR, STREET, "street_east_low"),
         edge("forest_west_high", "onto the roofs", 0, top, STREET, "street_east_high"),
         start(rid, 120, FOREST_FLOOR),
@@ -235,10 +240,66 @@ def dojo():
     return build(rid, e, "THE VILLAGE DOJO", music=DOJO_MUSIC)
 
 
-ROOMS = (shrine, street, forest, dojo)
+#: The Bamboo Pass: its gorge (x), the stream in it and its bed (y), the
+#: stepping stone out (x0, x1, y), the lookout's platforms (x0, x1, (y...)).
+#: The art (`targets/props/ninja_pass_props.py`) is drawn on these numbers.
+PASS_GORGE = (900, 1400)
+PASS_STREAM, PASS_BED = 880, 944
+PASS_STEP = (1340, 1390, 880)
+PASS_LOOKOUT = (1540, 1700, (704, 576))
+
+
+def walk(name, x, y, w):
+    """A one-way walk the room's art draws (a bridge, a platform): a still
+    platform with no picture of its own."""
+    return entity("MovingPlatform", x, y, w, 16, id=name, name=name, speed=0.0, visual="none", one_way=True)
+
+
+def pass_enemy(n, character, x, feet, w, h):
+    return entity("EnemySpawn", x, feet - h, w, h, name=f"{PASS}_{character}_{n}", brain="combatant",
+                  character_id=character, respawn="OnRoomReenter")
+
+
+def bamboo_pass():
+    """Out of the village: the Bamboo Pass, the Shadow Clan's sparring
+    ground, where everyone who passes is an opponent. Floor 832, level with
+    the forest's. A gorge with a stream (a rope bridge over it, a stone to
+    climb out by), a bamboo lookout (its ladder), a waterfall and jizo by
+    the path at the east wall."""
+    rid = PASS
+    _, (w, h) = ROOMS_AT[rid]
+    g, (g0, g1) = FOREST_FLOOR, PASS_GORGE
+    s0, s1, sy = PASS_STEP
+    l0, l1, (low, high) = PASS_LOOKOUT
+    e = [
+        solid("ground_west", 0, g, g0, h - g),
+        solid("gorge_bed", g0, PASS_BED, g1 - g0, h - PASS_BED),
+        solid("ground_east", g1, g, w - g1, h - g),
+        solid("west_wall", 0, 0, WALL, g - 112),
+        solid("east_wall", w - WALL, 0, WALL, g),
+        edge("pass_west", "back to the cedar forest", 0, g, FOREST, "forest_east"),
+        start(rid, 120, g),
+        walk("rope_bridge", g0, g, g1 - g0),
+        walk("stepping_stone", s0, sy, s1 - s0),
+        walk("lookout_low", l0, low, l1 - l0),
+        walk("lookout_high", l0, high, l1 - l0),
+        sign("pass_sign", 420, g - 200, "SHADOW CLAN SPARRING GROUND: all who pass are opponents. Nothing personal.", 560),
+        sign("bridge_sign", 1150, g - 110, "ROPE BRIDGE: one at a time. Opponents count.", 380),
+        sign("falls_sign", 2120, g - 140, "Please do not fight the jizo.", 300),
+        # The ninjas who can fight where they are placed (locomotion
+        # authored): the swordsmen of the rank exam and their oni leader.
+        pass_enemy(1, "npc_ninja_shadow_duelist_eye_band", 640, g, 32, 66),
+        pass_enemy(2, "npc_ninja_shadow_duelist_eye_band", 1520, g, 32, 66),
+        pass_enemy(3, "npc_ninja_shadow_oni_leader", 1600, high, 34, 71),
+        pass_enemy(4, "npc_ninja_shadow_duelist_eye_band", 2060, g, 32, 66),
+    ]
+    return build(rid, e, "THE BAMBOO PASS", music=FOREST_MUSIC)
+
+
+ROOMS = (shrine, street, forest, dojo, bamboo_pass)
 
 #: The ladder up the baker's wall: (room, x, top, bottom).
-LADDERS = [(STREET, 400, ROOFS[0][3] - 16, 768)]
+LADDERS = [(STREET, 400, ROOFS[0][3] - 16, 768), (PASS, PASS_LOOKOUT[1] + 4, PASS_LOOKOUT[2][1] - 16, FOREST_FLOOR)]
 
 CLAN_DOOR_YAML = f"""# The Shadow Dojo's door to the Ninja Village's forest. Written by {GENERATOR}.
 level_id: {CLAN}
@@ -281,6 +342,9 @@ def main(argv):
     for rid, x, top, bottom in LADDERS:
         if code := paint(WORLD_LDTK, rid, "Climbable", 1, x, top, 32, bottom - top):
             return code
+    # The pass's stream: murky water (the art draws it).
+    if code := paint(WORLD_LDTK, PASS, "Water", 2, PASS_GORGE[0] + 16, PASS_STREAM, PASS_GORGE[1] - PASS_GORGE[0] - 16, PASS_BED - PASS_STREAM):
+        return code
     for checked in (WORLD_LDTK, SANDBOX_LDTK):
         code, _ = run("validate", str(checked))
         if code:

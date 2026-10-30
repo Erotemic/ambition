@@ -384,9 +384,13 @@ fn map_over_rooms(
             .iter()
             .map(|(id, world, x)| super::MapRoomNode {
                 id: id.to_string(),
+                area: id.to_string(),
                 world: world.to_string(),
                 world_min: Vec2::new(*x, 0.0),
                 world_size: Vec2::new(640.0, 480.0),
+                // The rooms of a world side by side, joined by side exits:
+                // one region.
+                edge_exits: nodes.iter().filter(|(other, w, _)| other != id && w == world).map(|(other, ..)| other.to_string()).collect(),
                 ..Default::default()
             })
             .collect(),

@@ -356,6 +356,20 @@ pub fn acquire_captures(
             playbacks.get_mut(victim).ok(),
             budgets.get_mut(victim).ok(),
         );
+        // ⭐ A GRAB THAT CATCHES IS A USE THAT CONNECTED, marked on the same
+        // flag the hitbox road and the throw mark theirs. Nothing else sets
+        // it for a grab: the capture box is a sustain effect, not a strike
+        // volume, so no `LandedBodyHit` is ever written for it. Measured
+        // before this (polygons, rung 5, 60 s): every collar that caught and
+        // went on to pummel and throw still read as a WHIFF to the match
+        // report, to the brain's own `landed` and to every on-hit cancel.
+        if let (Ok(mut pb), Some(instance)) =
+            (playbacks.get_mut(attempt.captor), attempt.move_instance)
+        {
+            if pb.instance == instance {
+                pb.landed_hit = true;
+            }
+        }
     }
 }
 
@@ -780,6 +794,47 @@ mod tests {
             offset: ae::Vec2::new(16.0, 0.0),
             half_extents: ae::Vec2::new(12.0, 14.0),
             hold_offset: ae::Vec2::new(18.0, 0.0),
+            move_instance: None,
+        }
+    }
+
+    /// ⭐ A GRAB THAT CATCHES HAS CONNECTED: the catch marks the grab's own
+    /// move use `landed_hit`, as a throw marks its. Before this nothing did
+    /// (the capture box writes no `LandedBodyHit`), so a grab that caught,
+    /// pummelled and threw still read as a whiff to the brain and the report.
+    /// Another use of the move (a stale instance) is left alone.
+    #[test]
+    fn a_grab_that_catches_marks_its_move_use_as_connected() {
+        for (claims, expect) in [(true, true), (false, false)] {
+            let mut app = capture_app();
+            let captor = grounded_body(&mut app, "captor", ae::Vec2::new(0.0, 0.0));
+            let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
+            app.world_mut()
+                .entity_mut(victim)
+                .insert(ambition_characters::actor::ActorFaction::Player);
+            let mut spec = ambition_characters::moveset_prefabs::simple_melee(&Default::default());
+            spec.id = "collar".to_string();
+            let mut playback = crate::moveset::MovePlayback::new(std::sync::Arc::new(spec), 1.0);
+            playback.instance = 7;
+            app.world_mut().entity_mut(captor).insert(playback);
+            let mut request = attempt(captor);
+            request.move_instance = Some(if claims { 7 } else { 8 });
+            app.world_mut().write_message(request);
+            app.update();
+
+            assert!(
+                app.world().get::<CapturedBy>(victim).is_some(),
+                "no capture was established, so this measured nothing"
+            );
+            let landed = app
+                .world()
+                .get::<crate::moveset::MovePlayback>(captor)
+                .expect("the captor's grab is still playing")
+                .landed_hit;
+            assert_eq!(
+                landed, expect,
+                "claims the playing use = {claims}: a catch marks exactly the use that asked for it"
+            );
         }
     }
 
@@ -3297,6 +3352,7 @@ pub fn translate_authored_capture_effects(
                         offset: ambition_platformer2d_core::Vec2::new(p.offset.0, p.offset.1),
                         half_extents: ambition_platformer2d_core::Vec2::new(p.half_extents.0, p.half_extents.1),
                         hold_offset: ambition_platformer2d_core::Vec2::new(p.hold_offset.0, p.hold_offset.1),
+                        move_instance: message.move_instance,
                     }),
                     Err(err) => {
                         warn!("smash capture attempt params did not hydrate: {err}");

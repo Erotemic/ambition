@@ -3438,6 +3438,45 @@ fn a_landing_foe_is_committed_until_it_lands_and_recovers() {
     );
 }
 
+/// THE ANTI-AIR: a foe falling from above is outside the up-tilt's region
+/// when the hitbox opens and inside it before the hitbox closes, and only the
+/// ballistic lead across the active window sees that. The same foe rising, or
+/// falling beside a body that is itself falling, is not admitted.
+#[test]
+fn a_falling_foe_is_admitted_to_the_up_tilt_whose_window_its_arc_meets() {
+    let mut up_tilt = candidate("utilt", 0.1, 0.0);
+    up_tilt.frames.active_spans = vec![(0.1, 0.3)];
+    up_tilt.frames.total_s = 0.5;
+    up_tilt.frames.coverage = Some(ambition_entity_catalog::MoveCoverage {
+        min: (-20.0, -90.0),
+        max: (20.0, -30.0),
+    });
+    let kit = [up_tilt];
+    let admitted = |view: &WorldView| {
+        generate_options(Perceived::cheating(view), Situation::Neutral, &kit, &UtilityWeights::default())
+            .attacks
+            .iter()
+            .any(|a| a.move_id == "utilt")
+    };
+    // 230 px above, falling at 300 px/s: at 0.1 s the lead is −193 (a miss),
+    // at 0.3 s it is −230 + 90 + 65 = −75, inside the band (−90..−30, 24 px
+    // of slack each side). A straight lead at 0.3 s would be −140, a miss
+    // even with the slack.
+    let mut falling = view_with(300.0, 300.0);
+    falling.actors[0].on_ground = false;
+    falling.actors[0].pos.y = 300.0 - 230.0;
+    falling.actors[0].vel = ae::Vec2::new(0.0, 300.0);
+    assert!(admitted(&falling), "the arc meets the window");
+
+    let mut rising = falling.clone();
+    rising.actors[0].vel = ae::Vec2::new(0.0, -300.0);
+    assert!(!admitted(&rising), "a foe going up leaves the region");
+
+    let mut both_airborne = falling.clone();
+    both_airborne.self_view.on_ground = false;
+    assert!(!admitted(&both_airborne), "two falling bodies fall together: the straight lead, a miss");
+}
+
 /// A foe in the air above a grounded body is answered with a short hop — the
 /// aerials are only in the kit once airborne, and this is how a ground body
 /// gets there.

@@ -474,6 +474,51 @@ general shape; check new code against it.
   standing, uncommitted foe, and the un-threatened cornered roll sits under
   the walk. `match-report` prints `whiffs` (moves that ended with no
   overlap): 14 of 17 and 14 of 15 in that pair before the change.
+- **The lead is ballistic for a foe coming down onto a grounded body, and
+  that swing is admitted at any time it is live.** `lead_of` adds `½·g·t²`
+  on the down axis for an airborne foe seen from the ground
+  (`NOMINAL_GRAVITY_PX_S2`, 1,450; the facet's gravity is not perceived),
+  stopped at the floor (the standing offset); admission then samples the
+  led foe when the threat opens and at the middle and end of each active
+  span — an anti-air is a foe whose arc enters the region before the hitbox
+  closes. Every other pairing keeps the straight lead and the one sample: a
+  body coming down onto a grounded foe would "land beside it" inside the
+  lead and admit a ground poke it cannot throw from the air (the rig's
+  `juggle_escape` pressed a jab, and the rig's press rates stopped ordering
+  by rung); that case waits for the airborne kit to be asked. Measured
+  before it: 70-90% of thrown moves whiffed and the refusals missed by a
+  median 174 px with the foe 160-190 px off vertically.
+- **Every before/after is `--runs 3` medians** (both seats summed), rungs 5
+  and 9, pair and mirror — see `match_report.rs`'s header: one rung-9 seed
+  gave moves 22–49–71 and damage 9–105–120 across three runs. The report
+  now pins one `update()` to one sim tick for every composition (the
+  shipped one ran off the wall clock: three concurrent reports of one binary
+  gave moves 24 vs 28 and whiffs 17 vs 25 at rung 5), and prints `live
+  ticks` and per-live-minute rates, because a KO ends the round and freezes
+  the rest of the window. Pinned, a seed still diverges across invocations
+  (a duplicate `--runs 3` reproduced run 0 exactly and not runs 1-2): the
+  simulation is not invocation-deterministic yet — a kernel question.
+- **A grab that catches has connected.** The capture box is a sustain
+  effect, not a strike volume, so no `LandedBodyHit` was ever written for
+  it and nothing set the grab's `landed_hit`: a collar that caught,
+  pummelled and threw read as a whiff to the report, to the brain's own
+  `landed` (which then REFUSED the grab for `refuse_ticks`) and to every
+  on-hit cancel. `acquire_captures` marks the use that asked
+  (`CaptureAttemptRequested::move_instance`), as the throw already did.
+- **A whiff names its cause before it is blamed on the admission.**
+  `match-report` splits `whiffs` into `⇒ evaded` (the foe was unhittable
+  for a tick of the move) and, per move, the whiffs' nearest approach to a
+  live hitbox (`along` / `across`, with the hits' approach as the control).
+  Measured 2026-10-30 (rung 9 mirror, three runs, 69 whiffs): the uppercut
+  (28) and the haymaker (20) whiffed with the foe's hurtbox INSIDE the live
+  hitbox — overlapped and refused a verdict, not missed; the collar (27)
+  has no strike volume to measure; the recovery specials
+  (`polygon_brawler_uppercut`, `polygon_rising_edge`) are pressed as
+  recovery routes and are a quarter to a third of all whiffs (20 of 56, 29
+  of 93, 28 of 112 pooled over three runs). The admission's own share
+  is the pokes thrown while the foe closes through them (`polygon_point`:
+  whiffs start at a 55 px centre gap, hits at 89; nearest approach −10
+  along, the foe already past the thrust's near edge).
 - **The recovery route is legal-now like every attack.** The Recovery list
   skipped `legality`; the route was re-pressed through its own move and the
   helpless fall after it.

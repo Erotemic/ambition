@@ -810,6 +810,7 @@ impl NpcActorSpawnPlan {
         );
         let motion_model = self.seed.config.tuning.motion_model(&self.seed.policy.0);
         let footprint = built_footprint(&self.seed);
+        let body_size = self.seed.kin.size;
         let cluster_bundle = self.seed.into_components();
         scope.insert_session_scoped((
                 Name::new(self.entity_name),
@@ -876,7 +877,8 @@ impl NpcActorSpawnPlan {
         if let Some(character) = worn {
             match prepared.get(&character) {
                 Some(definition) => {
-                    wear_prepared_character(&sprite_content, &mut scope.reborrow(), definition, prepared.generation())
+                    wear_prepared_character(&sprite_content, &mut scope.reborrow(), definition, prepared.generation());
+                    attach_character_mount_role(sprite_content, &mut scope.entity_scope(), definition, body_size);
                 }
                 None => {
                     scope.insert(ambition_characters::actor::WornCharacter::new(character));
@@ -1722,23 +1724,7 @@ pub fn spawn_enemy_with_faction_into(sprite_content: &ambition_sprite_sheet::Spr
         // key happened to name — which for every migrated character was the
         // reserved `combatant` row, stating no mount class, so it was already
         // answering "nothing" by the longest available route.
-        if let Some(mount) = definition.mount.as_ref() {
-            attach_mount_role_from(
-                &mut scope.entity_scope(),
-                mount.class.as_deref(),
-                Some(body_size),
-                mount.death_splash,
-                mount.saddle,
-                mount.back,
-                &mount.ledges,
-                &mount.drawn_ledges,
-                mount.saddle_on.as_deref(),
-                published_surfaces_of(&sprite_content, definition),
-                &mount.slope,
-                definition.vitals.mass.unwrap_or(1.0),
-                &mount.pilotable_classes,
-            );
-        }
+        attach_character_mount_role(sprite_content, &mut scope.entity_scope(), definition, body_size);
     }
     //  THE ARCHETYPE ROAD ENDED HERE. What stood below
     // was a SECOND constructor: resolve a row for the placement's brain key —
@@ -1892,6 +1878,36 @@ fn published_surfaces_of(sprite_content: &ambition_sprite_sheet::SpriteContent,
         return None;
     };
     ambition_sprite_sheet::surfaces::published_surfaces(&sprite_content, sheet, world_per_pixel).map(std::sync::Arc::new)
+}
+
+/// The mount role and the standing surfaces `definition` authors
+/// (`CharacterMount`), on a body of `body_size` built from it: the same for a
+/// placed body and a peaceful NPC (the Hall's giant). A body that states no
+/// mount gets nothing.
+fn attach_character_mount_role(
+    sprite_content: &ambition_sprite_sheet::SpriteContent,
+    scope: &mut EntityScope,
+    definition: &ambition_characters::prepared::PreparedCharacterDefinition,
+    body_size: ae::Vec2,
+) {
+    let Some(mount) = definition.mount.as_ref() else {
+        return;
+    };
+    attach_mount_role_from(
+        scope,
+        mount.class.as_deref(),
+        Some(body_size),
+        mount.death_splash,
+        mount.saddle,
+        mount.back,
+        &mount.ledges,
+        &mount.drawn_ledges,
+        mount.saddle_on.as_deref(),
+        published_surfaces_of(sprite_content, definition),
+        &mount.slope,
+        definition.vitals.mass.unwrap_or(1.0),
+        &mount.pilotable_classes,
+    );
 }
 
 /// The mount role, from values: a CHARACTER that states it is rideable is the

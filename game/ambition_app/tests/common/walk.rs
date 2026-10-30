@@ -383,11 +383,34 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
             walker.step(press);
             continue;
         }
-        if into_the_exit && on_ground {
+        if into_the_exit {
             if let Some(exit) = &exit {
-                press.axis = (exit.zone.center() - feet).dot(graph.frame.side).signum();
-                walker.step(press);
-                continue;
+                // An exit over the body's head (a shaft up, a ladder's top):
+                // hold up and climb, kept under it. One beside the body: walk
+                // on into it.
+                let head = graph.frame.below(feet) - 2.0 * graph.half.y;
+                let overhead = graph.frame.below(exit.zone.max) <= head;
+                let along = (exit.zone.center() - feet).dot(graph.frame.side);
+                if overhead {
+                    press.up = true;
+                    press.axis = if along.abs() > 6.0 { along.signum() * 0.5 } else { 0.0 };
+                    walker.step(press);
+                    continue;
+                }
+                // One under the body's feet (a hole under a hatch): hold down
+                // and jump, to drop through the one-way floor over it.
+                let underfoot = graph.frame.below(exit.zone.min) >= graph.frame.below(feet) - 1.0;
+                if on_ground && underfoot && along.abs() <= exit.zone.half_size().x {
+                    press.down = true;
+                    press.jump_pressed = step % 20 == 0;
+                    walker.step(press);
+                    continue;
+                }
+                if on_ground {
+                    press.axis = along.signum();
+                    walker.step(press);
+                    continue;
+                }
             }
         }
         if leg.is_none() && on_ground {

@@ -16,6 +16,7 @@
         ( type: "Prop", px: [960, 454], size: [977, 202], fields: ( name: "allotment_beds", kind: "allotment_beds" ) ),
         ( type: "Solid", px: [0, 656], size: [280, 128], fields: ( name: "ground_west" ) ),
         ( type: "Solid", px: [344, 656], size: [1656, 128], fields: ( name: "ground_east" ) ),
+        ( type: "LoadingZone", px: [470, 0], size: [380, 16], fields: ( id: "allot_ridge_drop", name: "under the ridge's gap", activation: "EdgeExit", target_room: "evil_searchlight_ridge", target_zone: "ridge_gap", bidirectional: true ) ),
         ( type: "LoadingZone", px: [280, 768], size: [64, 16], fields: ( id: "allot_plot_13", name: "down the hole in plot 13", activation: "EdgeExit", target_room: "evil_catacombs", target_zone: "catacombs_up", bidirectional: true ) ),
         ( type: "Solid", px: [0, 0], size: [16, 544], fields: ( name: "west_wall" ) ),
         ( type: "LoadingZone", px: [0, 560], size: [16, 96], fields: ( id: "allot_west", name: "to Lower Godwin", activation: "EdgeExit", target_room: "evil_lower_godwin", target_zone: "hamlet_east", bidirectional: true ) ),

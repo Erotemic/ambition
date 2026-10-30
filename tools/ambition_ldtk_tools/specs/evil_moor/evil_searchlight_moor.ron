@@ -34,6 +34,7 @@
         ( type: "OneWayPlatform", px: [1540, 464], size: [120, 16], fields: ( name: "tower_1" ) ),
         ( type: "OneWayPlatform", px: [1500, 368], size: [120, 16], fields: ( name: "tower_2" ) ),
         ( type: "OneWayPlatform", px: [1520, 272], size: [160, 16], fields: ( name: "tower_3" ) ),
+        ( type: "LoadingZone", px: [1500, 0], size: [120, 16], fields: ( id: "moor_ridge", name: "up onto the Searchlight Ridge", activation: "EdgeExit", target_room: "evil_searchlight_ridge", target_zone: "ridge_tower", bidirectional: true ) ),
         ( type: "MovingPlatform", px: [1890, 600], size: [300, 16], fields: ( id: "statue_back", name: "statue_back", speed: 0.0, visual: "none", one_way: true ) ),
         ( type: "ChestSpawn", px: [1600, 214], size: [76, 58], fields: ( name: "the watchman's strongbox", reward: "currency:50" ) ),
         ( type: "DebugLabel", px: [2020, 396], size: [360, 24], fields: ( name: "moor_sign", text: "THE MOOR: curfew is always", category: "Custom" ) ),

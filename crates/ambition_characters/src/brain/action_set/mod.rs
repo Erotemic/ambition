@@ -1320,6 +1320,15 @@ impl MeleeActionSpec {
         }
     }
 
+    /// The upward speed a rush leaves the ground with (a pounce), `0.0` for
+    /// none.
+    pub fn strike_leap_speed(self) -> f32 {
+        match self {
+            Self::Lunge(s) => s.leap_speed,
+            Self::Swipe(_) | Self::Slam(_) | Self::Bite(_) | Self::PunchWeak(_) | Self::Batter(_) => 0.0,
+        }
+    }
+
     /// How far forward the body steps during windup, when the swing authors a
     /// step (only a Lunge does).
     pub fn windup_step_px(self) -> Option<f32> {
@@ -1430,6 +1439,10 @@ pub struct LungeSpec {
     /// distance with its strike live, and is open through its recovery.
     #[serde(default)]
     pub rush_px: f32,
+    /// Upward speed (px/s) the rush leaves the ground with: a pounce, an arc
+    /// under the body's gravity. `0.0` charges along the ground.
+    #[serde(default)]
+    pub leap_speed: f32,
 }
 
 impl LungeSpec {
@@ -1441,6 +1454,7 @@ impl LungeSpec {
         reach_px: 40.0,
         step_px: 18.0,
         rush_px: 0.0,
+        leap_speed: 0.0,
     };
 }
 

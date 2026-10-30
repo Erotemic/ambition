@@ -57,6 +57,7 @@ fn melee_from_preset(p: MeleePreset) -> MeleeActionSpec {
             reach_px,
             step_px,
             rush_px,
+            leap_speed,
         } => MeleeActionSpec::Lunge(LungeSpec {
             windup_s,
             active_s,
@@ -65,6 +66,7 @@ fn melee_from_preset(p: MeleePreset) -> MeleeActionSpec {
             reach_px,
             step_px,
             rush_px,
+            leap_speed,
         }),
         MeleePreset::Slam {
             windup_s,

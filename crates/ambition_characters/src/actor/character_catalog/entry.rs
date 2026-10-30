@@ -1124,6 +1124,9 @@ pub enum MeleePreset {
         /// A charge: the forward rush over the strike (`LungeSpec::rush_px`).
         #[serde(default)]
         rush_px: f32,
+        /// A pounce: the rush leaves the ground this fast (`LungeSpec::leap_speed`).
+        #[serde(default)]
+        leap_speed: f32,
     },
     Slam {
         windup_s: f32,

@@ -118,3 +118,36 @@ fn the_pachycephalosaurus_stands_through_its_windup_then_charges() {
     assert!(still < 40.0, "it stands still through its windup: {still}");
     assert!(rush > 400.0, "it rushes over its strike: {rush}");
 }
+
+/// The raptor pounces: over its strike it leaves the ground at the player,
+/// claws first (its attack row is its pounce), and comes down after.
+#[test]
+fn the_raptor_pounces_off_the_ground_at_its_strike() {
+    const POUNCER: &str = "pouncing_raptor";
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let p = player_pos(sim.world_mut());
+    sim.spawn_enemy_character_at(
+        POUNCER,
+        "Raptor Stalker",
+        (p.x + 150.0, p.y),
+        (24.0, 40.0),
+        CharacterBrain::Custom("raptor".to_string()),
+        "npc_raptor_stalker",
+    );
+    let mut rise: f32 = 0.0;
+    let mut struck = false;
+    for _ in 0..900 {
+        sim.step(AgentAction::default());
+        let world = sim.world_mut();
+        let mut q = world.query::<(&FeatureId, &BodyKinematics, MeleeSwingQuery)>();
+        let Some((_, kin, swing)) = q.iter(world).find(|(id, ..)| id.as_str() == POUNCER) else { continue };
+        if let Some(ambition_platformer2d::combat::AttackPhase::Active) = swing.swing().and_then(|swing| swing.phase()) {
+            struck = true;
+            rise = rise.max(-kin.vel.y);
+        } else if struck {
+            break;
+        }
+    }
+    assert!(struck, "the raptor never struck");
+    assert!(rise > 250.0, "it leaps up over its strike: {rise}");
+}

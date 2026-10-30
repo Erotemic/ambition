@@ -148,7 +148,11 @@ pub fn attack_move_from_melee(spec: &MeleeActionSpec) -> MoveSpec {
         }
         attack.events.push(MoveEvent {
             at_s: windup,
-            kind: MoveEventKind::Impulse { local: (rush_px / active, 0.0), mode: ambition_entity_catalog::ImpulseMode::Set },
+            // Body-local `-y` is up: a pounce leaves the ground into an arc.
+            kind: MoveEventKind::Impulse {
+                local: (rush_px / active, -spec.strike_leap_speed()),
+                mode: ambition_entity_catalog::ImpulseMode::Set,
+            },
         });
         attack.events.push(MoveEvent { at_s: windup, kind: MoveEventKind::HoldVelocity { seconds: active } });
     }

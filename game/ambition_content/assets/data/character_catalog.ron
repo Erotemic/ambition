@@ -373,6 +373,12 @@
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.6, active_s: 0.35, recover_s: 0.8, damage: 3, reach_px: 46.0, step_px: 0.0, rush_px: 220.0)),
         ),
+        // The raptor's pounce: crouched with its claws drawn back (its windup
+        // row), then a leap at the foe, claws first; it lands and is open.
+        "raptor_pounce": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.45, active_s: 0.4, recover_s: 0.55, damage: 2, reach_px: 40.0, step_px: 0.0, rush_px: 180.0, leap_speed: 380.0)),
+        ),
         // The gore charge: horns lowered and a forefoot pawing (its windup
         // row), then the charge, then a long stop to turn its bulk round.
         "triceratops_gore": (
@@ -3244,7 +3250,7 @@
             // that changing it is now one number.
             standing_height: Some(75.8),
             composition: None,
-            default_action_set: "striker_swipe",
+            default_action_set: "raptor_pounce",
             // THE BODY, stated, so the row is a buildable character: the
             // T-rex's call SUMMONS raptors by this id, and a summon refuses a
             // character the cast cannot build (`preflight_planned_bodies`).

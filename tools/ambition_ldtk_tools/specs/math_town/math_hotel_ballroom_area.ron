@@ -3,7 +3,7 @@
     id: "math_hotel_ballroom",
     level_id: "math_hotel_ballroom",
     world_x: 12400,
-    world_y: 0,
+    world_y: 2400,
     px_wid: 1280,
     px_hei: 576,
     fill_collision: "empty",

@@ -284,6 +284,11 @@
     "quad_lecture_hall": (),
     "quad_fountain": (),
     "quad_lab_front": (),
+    // The Fractal Woods (Math, out of town).
+    "woods_far_west": (),
+    "woods_far_east": (),
+    "woods_great_tree": (),
+    "woods_curiosities": (),
     // The hall of the Shadow Clan (PvN).
     "shadow_dojo_hall": (),
     // Along the primeval trail.

@@ -73,9 +73,15 @@ LOBBY, CORRIDOR, LIFT = "math_hotel_lobby", "math_hotel_corridor", "math_hotel_l
 #: its doors: a goat, a car, a goat.
 BALLROOM = "math_hotel_ballroom"
 CLOSETS = ("math_hotel_door_1", "math_hotel_door_2", "math_hotel_door_3")
+#: Out of town east of the summit (Jon, 2026-10-30: "out of town zones with
+#: enemies"): the Fractal Woods.
+WOODS = "math_fractal_woods"
 CAFE, OFFICE, OBSERVATORY = "math_cafe", "math_surveyors_office", "math_observatory"
 
 #: Each room: where it is in the world, and its size.
+#: Where the buildings' insides are in the world (y).
+INSIDES_Y = 2400
+
 ROOMS_AT = {
     HALL: (0, 1600, 768),
     STREET: (1712, 3200, 1344),
@@ -97,13 +103,19 @@ ROOMS_AT = {
     CLOSETS[0]: (13760, 480, 320),
     CLOSETS[1]: (14320, 480, 320),
     CLOSETS[2]: (14880, 480, 320),
+    WOODS: (1712 + 3200, 2400, 768),
 }
 #: A room's world y when it is not 0. The rooms of the world touch where they
 #: join (`specs/check_flat_map.py`): Zeno's Aqueduct is west of the street at
 #: its deck, so the gate hall, which is UNDER the street, is placed there.
 ROOMS_Y = {
     HALL: 1344,
-    CORRIDOR: (576 - 64) - (448 - 64),
+    # The buildings' insides (doors: anywhere in the world) are under the
+    # town, out of the way of the woods east of the summit.
+    **{rid: INSIDES_Y for rid in (CAFE, OFFICE, OBSERVATORY, LOBBY, LIFT, BALLROOM, *CLOSETS)},
+    CORRIDOR: INSIDES_Y + (576 - 64) - (448 - 64),
+    # The woods' floor (y 704) level with the summit (the street's y 560).
+    WOODS: 560 - 704,
 }
 
 #: Pixels of a town prop's frame to one world unit (`math_town_facades.PX`,
@@ -381,7 +393,8 @@ def street():
         solid("west_wall_high", 0, 0, WALL, DECK - 112),
         solid("west_wall_low", 0, DECK + 16, WALL, STREET_Y - DECK - 16),
         edge(f"{rid}_aqueduct_west", "along the aqueduct, out of town", 0, DECK - 96, 96, ZENO, f"{ZENO}_east"),
-        solid("east_wall", w - WALL, 0, WALL, SUMMIT),
+        solid("east_wall", w - WALL, 0, WALL, SUMMIT - 112),
+        edge(f"{rid}_summit_east", "into the Fractal Woods", w - WALL, SUMMIT - 96, 96, WOODS, f"{WOODS}_west"),
         solid("passage_end", w - WALL, TUNNEL_TOP, WALL, STREET_Y - TUNNEL_TOP),
         f'( type: "PlayerStart", px: [160, {STREET_Y - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
         door(f"{rid}_down", "down to the gate hall", 96, STREET_Y, HALL, f"{HALL}_up"),
@@ -803,8 +816,51 @@ def hotel_closet(k):
     return make
 
 
+#: The woods (the art, `targets/props/math_woods_props.py`, is drawn on
+#: these): the ground, the great tree's limbs walked on (x0, x1, y).
+WOODS_FLOOR = 704
+WOODS_LIMBS = ((540, 700, 592), (720, 880, 480), (560, 720, 368), (660, 800, 256))
+
+
+def woods_enemy(n, character, x, feet_y, w, h, brain, profile=None):
+    extra = f', brain_profile: "{profile}"' if profile else ""
+    return (f'( type: "EnemySpawn", px: [{x}, {feet_y - h}], size: [{w}, {h}], fields: ( name: "{WOODS}_{character}_{n}", '
+            f'brain: "{brain}", character_id: "{character}", respawn: "OnRoomReenter"{extra} ) ),')
+
+
+def fractal_woods():
+    """Out of town east of the summit: the Fractal Woods. The great fractal
+    tree to climb by its limbs (a chest at the top), a hedge clipped to a
+    Koch curve, a Sierpinski rock, a topiary of the Mandelbrot set; puppy
+    slugs and dividing mites."""
+    rid = WOODS
+    _, w, h = ROOMS_AT[rid]
+    g = WOODS_FLOOR
+    e = [
+        framed("woods_far_west", "woods_far_west", 40, 300),
+        framed("woods_far_east", "woods_far_east", 1200, 300),
+        framed("woods_tree", "woods_great_tree", 420, 20),
+        framed("woods_things", "woods_curiosities", 1080, 400),
+        solid("ground", 0, g, w, h - g),
+        solid("west_wall", 0, 0, WALL, g - 112),
+        solid("east_wall", w - WALL, 0, WALL, g),
+        edge(f"{rid}_west", "back to the summit", 0, g - 96, 96, STREET, f"{STREET}_summit_east"),
+        f'( type: "PlayerStart", px: [100, {g - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        *[ledge(f"limb_{i}", x0, y, x1 - x0) for i, (x0, x1, y) in enumerate(WOODS_LIMBS)],
+        f'( type: "ChestSpawn", px: [{WOODS_LIMBS[3][0] + 30}, {WOODS_LIMBS[3][2] - 58}], size: [76, 58], fields: ( name: "the self-similar acorn", reward: "currency:75" ) ),',
+        label("woods_sign", 160, g - 220, "THE FRACTAL WOODS: every tree a forest, every branch a tree", 520),
+        label("woods_sign_koch", 1010, g - 150, "KOCH HEDGE: infinitely long. Please do not trim.", 420),
+        label("woods_sign_mandel", 1830, g - 320, "MANDELBROT BUSH: zoom in for more bush", 400),
+        woods_enemy(1, "npc_puppy_slug", 1000, g, 28, 44, "combatant", "patroller"),
+        woods_enemy(2, "npc_puppy_slug", 1760, g, 28, 44, "combatant", "patroller"),
+        woods_enemy(3, "npc_dividing_mite", 1380, g, 40, 52, "dividing_mite"),
+        woods_enemy(4, "npc_dividing_mite", 2280, g, 40, 52, "dividing_mite"),
+    ]
+    return rid, room(rid, e, "The Fractal Woods: it goes all the way down.")
+
+
 ROOMS = (gate_hall, street, cafe, surveyors_office, observatory, zeno_aqueduct, hotel_lobby, hotel_corridor, hotel_lift,
-         hotel_ballroom, *[hotel_closet(k) for k in range(3)])
+         hotel_ballroom, *[hotel_closet(k) for k in range(3)], fractal_woods)
 
 #: What is painted on an IntGrid layer of a room: (room, layer, value, px, size).
 PAINT = [(STREET, "Climbable", 1, (x, top), (32, bottom - top)) for _name, x, top, bottom in LADDERS] + [

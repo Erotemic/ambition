@@ -3,7 +3,7 @@
     id: "math_hotel_corridor",
     level_id: "math_hotel_corridor",
     world_x: 9780,
-    world_y: 128,
+    world_y: 2528,
     px_wid: 1600,
     px_hei: 448,
     fill_collision: "empty",

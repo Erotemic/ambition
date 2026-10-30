@@ -16,3 +16,12 @@ fn the_aqueduct_runs_from_town_out_to_zenos_reservoir_and_back() {
     go(&mut app, STREET, Some("math_zeno_aqueduct_east"));
     go(&mut app, ZENO, Some("math_town_street_aqueduct_west"));
 }
+
+/// The Fractal Woods: out of town east of the summit. The player starts at
+/// the woods' west end, walks by keys west onto the summit, and back east.
+#[test]
+fn the_fractal_woods_lie_east_of_the_summit() {
+    let mut app = a_session_in("math_fractal_woods");
+    go(&mut app, STREET, Some("math_fractal_woods_west"));
+    go(&mut app, "math_fractal_woods", Some("math_town_street_summit_east"));
+}

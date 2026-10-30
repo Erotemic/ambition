@@ -3,7 +3,7 @@
     id: "math_observatory",
     level_id: "math_observatory",
     world_x: 7500,
-    world_y: 0,
+    world_y: 2400,
     px_wid: 800,
     px_hei: 704,
     fill_collision: "empty",

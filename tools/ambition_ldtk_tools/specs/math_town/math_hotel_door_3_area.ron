@@ -3,7 +3,7 @@
     id: "math_hotel_door_3",
     level_id: "math_hotel_door_3",
     world_x: 14880,
-    world_y: 0,
+    world_y: 2400,
     px_wid: 480,
     px_hei: 320,
     fill_collision: "empty",

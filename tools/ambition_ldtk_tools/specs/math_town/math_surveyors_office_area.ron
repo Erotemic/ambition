@@ -3,7 +3,7 @@
     id: "math_surveyors_office",
     level_id: "math_surveyors_office",
     world_x: 6200,
-    world_y: 0,
+    world_y: 2400,
     px_wid: 1120,
     px_hei: 448,
     fill_collision: "empty",

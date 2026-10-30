@@ -3,7 +3,7 @@
     id: "math_hotel_lift",
     level_id: "math_hotel_lift",
     world_x: 11600,
-    world_y: 0,
+    world_y: 2400,
     px_wid: 640,
     px_hei: 1600,
     fill_collision: "empty",

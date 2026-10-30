@@ -491,6 +491,10 @@ collections:
   - quad_lecture_hall
   - quad_fountain
   - quad_lab_front
+  - woods_far_west
+  - woods_far_east
+  - woods_great_tree
+  - woods_curiosities
   - shadow_dojo_hall
   - jungle_fern_clump
   - jungle_fallen_log

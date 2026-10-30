@@ -3,7 +3,7 @@
     id: "math_cafe",
     level_id: "math_cafe",
     world_x: 5100,
-    world_y: 0,
+    world_y: 2400,
     px_wid: 960,
     px_hei: 448,
     fill_collision: "empty",

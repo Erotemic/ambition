@@ -617,6 +617,16 @@ MEASURED after: six fresh 60 s processes of the polygon pair give
 byte-identical reports. One seed is now one match; `--runs N` is a real
 sample.
 
+CPU self-destructs (MEASURED, now one match per seed): at rung 5 the
+pugnacious cells lost stocks at 0–20% — a brawler helpless after its up
+special, 500 px above the stage, read "ground below", chased its foe off
+the side and fell past the ledge. Two fixes: a helpless body is in
+Recovery wherever it is (9cd8ee638), and the brawler's up special no
+longer floats (it rose 430 px; Falcon Dive's shape is the impulse's 241).
+Median live ticks of 3600 (3 runs), first → helpless rule → no float:
+pointed vs pugnacious 1923 → 2697 → 3329; pugnacious mirror 1974 → 2633 →
+3366 (damage/min 32 → 10 → 85); projectile vs pointed 2450 → 3358.
+
 CPU pokes (44f1c5047, MEASURED `--runs 3` per live minute): attack whiffs
 pair r5 80→67%, pair r9 64→57%, mirror r5 →78%, mirror r9 →77%; goal
 (<50%) not reached. ⚠ mirror r5 damage fell to 0 in two of three runs —

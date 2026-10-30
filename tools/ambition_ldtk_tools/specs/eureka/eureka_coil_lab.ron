@@ -12,6 +12,7 @@
     parallax_theme: "eureka",
     music_track: "scaling_laws",
     entities: [
+        ( type: "Prop", px: [16, 32], size: [1248, 480], fields: ( name: "eureka_lab_room_0", kind: "eureka_lab_room" ) ),
         ( type: "Solid", px: [0, 512], size: [1280, 64], fields: ( name: "floor" ) ),
         ( type: "Solid", px: [0, 0], size: [1280, 32], fields: ( name: "ceiling" ) ),
         ( type: "Solid", px: [0, 32], size: [16, 480], fields: ( name: "west_wall" ) ),

@@ -440,6 +440,7 @@ collections:
   - eureka_observatory_front
   - eureka_patent_room
   - eureka_observatory_room
+  - eureka_lab_room
   - alice_v2
   - armsmith_odile
   - village_nagisa

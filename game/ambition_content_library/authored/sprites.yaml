@@ -445,6 +445,8 @@ collections:
   - cove_ledges
   - cove_doorways
   - cove_dressing
+  - math_zeno_aqueduct
+  - math_zeno_reservoir
   - alice_v2
   - armsmith_odile
   - village_nagisa

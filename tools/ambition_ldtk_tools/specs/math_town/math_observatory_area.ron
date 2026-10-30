@@ -23,7 +23,7 @@
         ( type: "Prop", px: [250, 440], size: [131, 200], fields: ( name: "obs_telescope", kind: "math_obs_telescope" ) ),
         ( type: "Prop", px: [364, 416], size: [416, 224], fields: ( name: "obs_platform", kind: "math_obs_platform" ) ),
         ( type: "SurfaceChain", px: [370, 624], size: [16, 16], fields: ( name: "obs_stair", points: "370,640; 595,440; 784,440", closed: false, visual: "none", boarding: "up" ) ),
-        ( type: "NpcSpawn", px: [200, 576], size: [32, 64], fields: ( character_id: "npc_davy_hylbert", brain_override: "townsfolk_roam" ) ),
+        ( type: "NpcSpawn", px: [200, 576], size: [32, 64], fields: ( character_id: "npc_davy_hylbert", brain_override: "townsfolk_roam", dialogue_id: "davy_hylbert" ) ),
         ( type: "CameraZone", px: [0, 0], size: [800, 704], fields: ( id: "math_observatory_camera", name: "math_observatory_camera", mode: "Default" ) ),
         ( type: "DebugLabel", px: [70, 40], size: [660, 24], fields: ( name: "math_observatory_label", text: "The Observatory on the summit.", category: "Custom" ) ),
     ],

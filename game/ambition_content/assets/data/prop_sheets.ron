@@ -220,4 +220,7 @@
     "cove_ledges": (),
     "cove_doorways": (),
     "cove_dressing": (),
+    // Zeno's Aqueduct (Math, out of town).
+    "math_zeno_aqueduct": (),
+    "math_zeno_reservoir": (),
 }

@@ -1,0 +1,18 @@
+//! Zeno's Aqueduct: out of the Math dimension's town, west along the
+//! aqueduct (`tools/ambition_ldtk_tools/specs/math_town/make_specs.py`).
+//!
+//! Jon (2026-10-30): "out of town zones with enemies". The player starts on
+//! the aqueduct's deck, walks by keys (`common::walk`) east along it into the
+//! town's street, and back out along it to the aqueduct.
+
+use crate::the_pirate_port::{a_session_in, go};
+
+const ZENO: &str = "math_zeno_aqueduct";
+const STREET: &str = "math_town_street";
+
+#[test]
+fn the_aqueduct_runs_from_town_out_to_zenos_reservoir_and_back() {
+    let mut app = a_session_in(ZENO);
+    go(&mut app, STREET, Some("math_zeno_aqueduct_east"));
+    go(&mut app, ZENO, Some("math_town_street_aqueduct_west"));
+}

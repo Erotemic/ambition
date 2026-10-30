@@ -10,6 +10,8 @@ pub mod affordances;
 mod anim_index;
 mod attack_vfx_view;
 pub mod camera_snapshot;
+#[cfg(test)]
+mod camera_scenarios;
 mod combat_geometry_view;
 mod control_prompt;
 mod defense_view;

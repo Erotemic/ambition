@@ -216,6 +216,7 @@ frames; without P1–P3 that is 19 frames of a white blink. Ship them together.
 | P7 camera box, eased margins, floor room | ✔ `cast_framing.{open_hz,close_hz,floor_margin,bounds}` (Smash 4/4 Hz, 40 px, side 280 / rise 170 / fall 100); measured by `match-report --camera`, see § Camera diagnosis | e121708cf |
 | P4 keys re-fit to the archetype clocks | ✔ the generator's clock tables now read the facets (sword / Falcon / zoner); the brawler's tilts and smashes were keyed 2–3 frames of 12 early (renderer 9559e08, generations 5dc7961e / 04dc07d8 / cd14f066) | — |
 | P4 open: slow wind-ups read as standing | the generator keys ONE anticipation frame before contact; on Falcon-paced moves (up-tilt hits at 0.46 of its row) frames 0–3 are idle, then a sudden swing. A gather spread over the wind-up is the next key pass (needs Jon's eye on the republished rows) | — |
+| CPU: brain admits by the strike's own geometry | ✔ `authored_coverage.rs` + witness `the_brain_admits_by_the_geometry_that_hits`; pair whiffs 93→72% (r5), 72→64% (r9); mirror ~80% unchanged — admission vs foe motion next | 510c098fe |
 | P7 finishing blow | ✔ `zoom_camera_on_a_finishing_blow` + `launch_leaves_the_world` (last stock, predicted KO → finish zoom + 0.5 s freeze) | 9eaf73d32 |
 | P6 squash/stretch | ✔ `BodyPoseView::squash`: lands wide and low, relaxing over the landing beat (deeper when hard); the jump squat presses | this commit |
 | Tap-jump menu toggle | ✔ Controls page, "Tap Jump" | this commit |
@@ -533,6 +534,21 @@ Still open after this: the off-screen bubble for a body between the camera
 box and the blast line (art + HUD, needs Jon's eye) and a human pass on the
 rates (4 Hz both ways is a first value; Melee's per-frame fractions are in a
 binary table nobody has read).
+
+### Found on the way: the sim's dt is not a sim fact (2026-10-30, CPU lane)
+
+MEASURED (8 fresh processes per step, one seed, clock pinned): the
+simulation is tick-identical across processes GIVEN its dt sequence, but
+`ambition_time::refresh_world_time` sets `sim_dt = frame_dt × time_scale`
+and `smooth_sim_clock_toward_target_system` eases that scale per FRAME by
+WALL dt; `match_live` asks for 1.0 at release, so a match's first ticks
+integrate a 0→1 ramp whose phase is the route transition's frame count
+(8, 9 or 10 frames → two outcome classes). Not the std maps (swapped to
+BTree anyway), not entity ids, not a leak between runs. Two rollback peers
+cannot agree on a wall-dt ramp. The fix is a design call: a fixed-dt sim
+step, with the eased time scale either presentation-only or per-tick sim
+state driven by sim causes. Until then every CPU measurement carries a
+start-tick lottery, and netplay would desync at the first match.
 
 ### Not in this roadmap
 

@@ -134,6 +134,7 @@ fn immediate_profile() -> FighterBrainProfile {
         rollout_depth: 0,
         rollout_k: 0,
         utility_weights: UtilityWeights::default(),
+        tactics: false,
     }
 }
 

@@ -193,6 +193,8 @@ pub struct PerceptionPeer {
     pub phase_remaining: f32,
     /// See [`ambition_characters::perception::PerceivedActor::attack_reach`].
     pub attack_reach: Option<f32>,
+    /// See [`ambition_characters::perception::PerceivedActor::threat_reach`].
+    pub threat_reach: Option<f32>,
     pub invulnerable: bool,
     /// Falling out of a launch, so the next landing is a knockdown unless it is
     /// teched. Visible from across the stage — a tumbling body is tumbling in
@@ -344,6 +346,20 @@ pub(crate) fn attack_reach_of(playback: Option<&ambition_combat::moveset::MovePl
     playback.map(|playback| playback.spec.frame_data().reach)
 }
 
+/// The longest reach among a body's grounded normals and smashes — every
+/// verb but the aerials, the specials and the grab.
+pub(crate) fn threat_reach_of(moveset: Option<&ambition_combat::moveset::ActorMoveset>) -> Option<f32> {
+    let contract = &moveset?.0;
+    contract
+        .verbs
+        .iter()
+        .filter(|(verb, _)| !verb.starts_with("air") && !verb.contains("special") && verb.as_str() != "grab")
+        .filter_map(|(_, id)| contract.moves.iter().find(|spec| &spec.id == id))
+        .map(|spec| spec.frame_data().reach)
+        .filter(|reach| reach.is_finite() && *reach > 0.0)
+        .reduce(f32::max)
+}
+
 /// True while the body is in post-hit i-frames — visible, because it flashes.
 fn body_invulnerable(combat: Option<&ambition_characters::actor::BodyCombat>) -> bool {
     combat.is_some_and(|c| c.damage_invuln_timer > 0.0)
@@ -376,6 +392,8 @@ pub fn collect_perception_peers(
         Option<&ambition_combat::components::CombatTuning>,
         // The body's own frame: its facing and its swing are along it.
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+        // Its repertoire: how far it threatens before it swings.
+        Option<&ambition_combat::moveset::ActorMoveset>,
     )>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
@@ -395,6 +413,7 @@ pub fn collect_perception_peers(
         facts,
         tuning,
         frame,
+        moveset,
     ) in &bodies
     {
         // Perception memory is rollback state. Its keys must be stable
@@ -442,6 +461,7 @@ pub fn collect_perception_peers(
             phase,
             phase_remaining,
             attack_reach: attack_reach_of(melee.playback),
+            threat_reach: threat_reach_of(moveset),
             tumbling: facts.is_some_and(|f| f.tumbling),
             // HANGING, not climbing: a body already pulling itself up has left
             // the edge, which is the same distinction `resolve_ledge_trumps`
@@ -876,6 +896,7 @@ pub fn build_world_view(
             phase: p.phase,
             phase_remaining: p.phase_remaining,
             attack_reach: p.attack_reach,
+            threat_reach: p.threat_reach,
             invulnerable: p.invulnerable,
             tumbling: p.tumbling,
             ledge_hanging: p.ledge_hanging,

@@ -582,6 +582,21 @@ impl SnapshotCursor for crate::brain::Brain {
                         put_u32(out, refused.ticks);
                     }
                 }
+                match &state.intent {
+                    None => put_bool(out, false),
+                    Some(intent) => {
+                        put_bool(out, true);
+                        put_u8(
+                            out,
+                            match intent.kind {
+                                crate::brain::fighter::intent::IntentKind::Space => 0,
+                                crate::brain::fighter::intent::IntentKind::Punish => 1,
+                            },
+                        );
+                        put_str(out, &intent.target);
+                        put_u32(out, intent.ticks_left);
+                    }
+                }
             }
             // Every field of `RoamState` decides what the body does next: the
             // place it goes to, the leg it is on, and when its rest ends.

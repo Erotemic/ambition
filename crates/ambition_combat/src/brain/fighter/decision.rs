@@ -438,12 +438,30 @@ fn decide(
     // reverse — so the actors-side snapshot builder fills `attack_kit` from the
     // body's real `ActorMoveset`, exactly like `actor_aerial`. Body-derived truth
     // arriving through the world-in port.
-    let options = generate_options(
+    let mut options = generate_options(
         view,
         situation,
         &snapshot.attack_kit,
         &cfg.profile.utility_weights,
     );
+    // THE TACTICAL INTENT (`tactics` profiles only): the objective held
+    // across decisions narrows the lists the ranking below chooses from. It
+    // never adds a move the scorer did not offer, save the plain approach a
+    // punish closes with.
+    if cfg.profile.tactics {
+        state.intent = ambition_characters::brain::fighter::intent::select(
+            state.intent.as_ref(),
+            view,
+            situation,
+            &snapshot.attack_kit,
+            cfg.tuning.ground_speed,
+            cfg.tick_hz,
+            cfg.interval(),
+        );
+        if let Some(intent) = state.intent.as_ref() {
+            ambition_characters::brain::fighter::intent::constrain(intent, view, &mut options, cfg.tuning.ground_speed);
+        }
+    }
     // THE RANKING'S OWN TRACE (`AMBITION_RANK_TRACE=1`): the top four admitted
     // attacks with the features behind their scores, one line each. The
     // decision trace says what was chosen; this says what it beat and by

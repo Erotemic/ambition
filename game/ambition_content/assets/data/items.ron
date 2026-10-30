@@ -142,14 +142,6 @@
         icon: Some("sprites/props/portal_gun_blue.png"),
     ),
     (
-        display_name: "Axe",
-        description: "A heavy pirate axe. Replaces your attack with a cleaving swing.",
-        category: Held,
-        held_item_id: Some("axe"),
-        dialog_id: "axe",
-        icon: Some("sprites/props/axe.png"),
-    ),
-    (
         display_name: "Javelin",
         description: "A throwing spear. Using it throws it.",
         category: Held,
@@ -184,6 +176,14 @@
         // takes the next one until the bag has none.
         stack: 9,
     ),
+    // An empty slot (the Axe was here; removed 2026-10-30).
+    (
+        display_name: "Empty",
+        description: "",
+        category: Reserved,
+        held_item_id: None,
+        dialog_id: "empty1",
+    ),
     // ---- Row 4: consumables, then key items. ----
     (
         display_name: "Health Cell",
@@ -210,13 +210,6 @@
         stack: 99,
     ),
     (
-        display_name: "Map Fragment",
-        description: "A piece of the world map, from Alice and Bob.",
-        category: KeyItem,
-        held_item_id: None,
-        dialog_id: "mapfragment",
-    ),
-    (
         display_name: "Sealed Note",
         description: "Alice\'s sealed note — carry it to Bob.",
         category: KeyItem,
@@ -229,5 +222,13 @@
         category: KeyItem,
         held_item_id: None,
         dialog_id: "fieldsurvey",
+    ),
+    // An empty slot (the Map Fragment was here; removed 2026-10-30).
+    (
+        display_name: "Empty",
+        description: "",
+        category: Reserved,
+        held_item_id: None,
+        dialog_id: "empty2",
     ),
 ]

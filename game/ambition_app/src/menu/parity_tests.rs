@@ -284,13 +284,13 @@ fn grid_and_cube_render_the_same_non_edge_controls_per_page() {
     // A representative fixed state: an item granted + equipped so Items has a live
     // Equip/Use action, on a stable System window.
     let mut owned = OwnedItems::default();
-    let axe = Item::Axe;
-    owned.grant(ambition_platformer2d::items::test_item_catalog(), axe, 1);
+    let gun_sword = Item::GunSword;
+    owned.grant(ambition_platformer2d::items::test_item_catalog(), gun_sword, 1);
     let pages = build_inventory_pages(
         &owned,
         ambition_platformer2d::items::test_item_catalog(),
-        ambition_platformer2d::items::EquippedItems::of(ambition_platformer2d::items::test_item_catalog(), Some(axe), None),
-        MenuFocus::Item(Item::Axe.index()),
+        ambition_platformer2d::items::EquippedItems::of(ambition_platformer2d::items::test_item_catalog(), Some(gun_sword), None),
+        MenuFocus::Item(Item::GunSword.index()),
         &UserSettings::default(),
         &RadioSnapshot::default(),
         &DevSnapshot::default(),
@@ -472,31 +472,31 @@ mod dispatch_parity {
     /// backend's real release path (both call the one dispatcher).
     #[test]
     fn equip_dispatches_identically_on_both_backends() {
-        let axe = Item::Axe;
+        let gun_sword = Item::GunSword;
         assert!(
-            ambition_platformer2d::items::test_item_catalog().held_item_id(axe).is_some(),
-            "the axe is an equippable item"
+            ambition_platformer2d::items::test_item_catalog().held_item_id(gun_sword).is_some(),
+            "the gun-sword is an equippable item"
         );
 
         let mut grid = menu_app(InventoryUiBackend::Grid);
-        grid.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::test_item_catalog(), axe, 1);
+        grid.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::test_item_catalog(), gun_sword, 1);
         activate(
             &mut grid,
             InventoryUiBackend::Grid,
-            MenuPageAction::Equip(axe),
+            MenuPageAction::Equip(gun_sword),
         );
         let grid_equipped = crate::menu::effects::hand_of_primary_player(grid.world_mut());
 
         let mut cube = menu_app(InventoryUiBackend::LunexKaleidoscope);
-        cube.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::test_item_catalog(), axe, 1);
+        cube.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::test_item_catalog(), gun_sword, 1);
         activate(
             &mut cube,
             InventoryUiBackend::LunexKaleidoscope,
-            MenuPageAction::Equip(axe),
+            MenuPageAction::Equip(gun_sword),
         );
         let cube_equipped = crate::menu::effects::hand_of_primary_player(cube.world_mut());
 
-        assert_eq!(grid_equipped, Some(axe), "grid release equipped the item");
+        assert_eq!(grid_equipped, Some(gun_sword), "grid release equipped the item");
         assert_eq!(
             grid_equipped, cube_equipped,
             "both backends equip the same item through dispatch_menu_action"

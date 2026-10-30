@@ -1334,3 +1334,63 @@ fn a_menu_reopened_under_a_resting_pointer_previews_its_row_again() {
         "the reopened menu's hovered row is a new hover",
     );
 }
+
+/// A page with one LOCKED item cell (greyed out, action kept) and one owned
+/// cell, spawned with the cursor on cell `focus` (or nowhere), with the
+/// restyle systems a host installs. Returns the app and the locked control.
+fn greyed_out_cell_app(focus: Option<usize>) -> (App, Entity) {
+    let page = crate::ItemsOnlyPageSpec::new(Page::Inventory, "Items")
+        .with_cell(crate::InventoryItemNode::unowned(0, "Locked").action(Action::Equip))
+        .with_cell(crate::InventoryItemNode::new(1, "Owned").action(Action::Setting))
+        .into_page_model();
+    let rects: Vec<MenuRect> = page
+        .nodes
+        .iter()
+        .filter_map(|node| match node {
+            MenuNode::Control { kind: MenuControlKind::Item, rect, .. } => Some(*rect),
+            _ => None,
+        })
+        .collect();
+    let focused = focus.map(|index| focus_key_for(rects[index]));
+    let mut app = build_app();
+    install_bevy_ui_menu_tabs(&mut app);
+    let tabs = tab_set();
+    app.world_mut().commands().queue(move |world: &mut World| {
+        let view = BevyUiMenuView { tabs: &tabs, active_tab: 0, page: &page, focused, focused_tab: None };
+        let mut commands = world.commands();
+        spawn_bevy_ui_menu(&mut commands, &view);
+    });
+    app.update();
+    let mut q = app.world_mut().query::<(Entity, &AmbitionMenuControl<Action>)>();
+    let locked = q
+        .iter(app.world())
+        .find_map(|(entity, control)| (control.action == Some(Action::Equip)).then_some(entity))
+        .expect("the locked cell keeps its action, so it is a control the cursor can reach");
+    (app, locked)
+}
+
+/// ⭐ THE CURSOR IS DRAWN ON A GREYED-OUT CELL (Jon, 2026-10-30: "make sure
+/// that there is a cursor ... even if you can't equip the item / it is grayed
+/// out"). A locked item is grey while the cursor is elsewhere, and draws the
+/// focus highlight when the cursor is on it: at the spawn, and when the
+/// cursor moves onto it and off it again.
+#[test]
+fn a_greyed_out_cell_draws_the_cursor_when_it_has_it() {
+    let grey = to_color(MenuColor::DISABLED);
+    let focus = control_bg(MenuControlKind::Item, true, false, false, false);
+
+    let (app, locked) = greyed_out_cell_app(Some(1));
+    assert_eq!(background(&app, locked), grey, "the cursor is elsewhere: the locked cell is grey");
+
+    let (mut app, locked) = greyed_out_cell_app(Some(0));
+    assert!(visual(&app, locked).focused);
+    assert_eq!(background(&app, locked), focus, "spawned with the cursor: the highlight is drawn");
+
+    // The cursor leaves and comes back, in place (the restyle, no respawn).
+    app.world_mut().get_mut::<MenuVisualState>(locked).unwrap().focused = false;
+    app.update();
+    assert_eq!(background(&app, locked), grey, "the cursor left: grey again");
+    app.world_mut().get_mut::<MenuVisualState>(locked).unwrap().focused = true;
+    app.update();
+    assert_eq!(background(&app, locked), focus, "the cursor came back: the highlight is drawn");
+}

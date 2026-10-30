@@ -147,6 +147,14 @@ pub enum MenuNode<Action> {
         selected: bool,
         important: bool,
         action: Option<Action>,
+        /// Drawn as not available (greyed out), but it STILL TAKES THE
+        /// CURSOR: a renderer draws the focus highlight and the selection
+        /// corners on it, and its action, if any, is the host's to answer.
+        /// Jon, 2026-10-30: "make sure that there is a cursor ... even if you
+        /// can't equip the item / it is grayed out, just so the player can
+        /// see where their cursor is." A control with NO action is the other
+        /// kind of grey: it is not focusable at all.
+        dimmed: bool,
         /// Scrollbar thumb geometry, as fractions `0..=1` of the track. Used
         /// only by a [`MenuControlKind::Scrollbar`] control; `None` draws no
         /// thumb. The host computes it; the renderer draws a dim track with a
@@ -356,6 +364,7 @@ impl<PageId, Action> MenuPageModel<PageId, Action> {
             selected,
             important,
             action,
+            dimmed: false,
             thumb: None,
         });
     }
@@ -374,6 +383,7 @@ impl<PageId, Action> MenuPageModel<PageId, Action> {
             selected: false,
             important: false,
             action: None,
+            dimmed: false,
             thumb: Some(ScrollThumb {
                 start: thumb_start,
                 size: thumb_size,
@@ -595,6 +605,9 @@ pub struct MenuVisualState {
     pub selected: bool,
     pub pressed: bool,
     pub disabled: bool,
+    /// Greyed out but focusable (`MenuNode::Control::dimmed`): drawn dim
+    /// while the cursor is elsewhere, and highlighted when it is here.
+    pub dimmed: bool,
     /// The control's authored emphasis. Not runtime state, but kept here so
     /// this component holds everything `control_bg` needs and a restyle does
     /// not read page data.
@@ -702,9 +715,11 @@ pub struct InventorySlotId(pub usize);
 
 /// Host-provided description of one inventory slot.
 ///
-/// The action is generic and optional. If `owned` is false or `disabled` is
-/// true, [`ItemsOnlyPageSpec::into_page_model`] removes the action before the
-/// renderer sees it, so no backend can activate an unowned item.
+/// The action is generic and optional. An unowned or `disabled` cell is drawn
+/// greyed out (`MenuNode::Control::dimmed`) and KEEPS its action, so the
+/// cursor can land on it and is drawn there: the player always sees where the
+/// cursor is. The host answers that action (for an unowned item: "not
+/// found", and nothing changes).
 #[derive(Clone, Debug, PartialEq)]
 pub struct InventoryItemNode<Action> {
     pub slot: InventorySlotId,
@@ -920,11 +935,8 @@ impl<PageId, Action> ItemsOnlyPageSpec<PageId, Action> {
 
             let selected = cell.selected || self.selected_slot == Some(cell.slot);
             let detail = item_detail(&cell);
-            let action = if cell.owned && !cell.disabled {
-                cell.action
-            } else {
-                None
-            };
+            let dimmed = !cell.owned || cell.disabled;
+            let action = cell.action;
             let important = cell.important || cell.equipped;
             let label = if cell.owned {
                 cell.label
@@ -932,16 +944,18 @@ impl<PageId, Action> ItemsOnlyPageSpec<PageId, Action> {
                 format!("{} - ???", cell.label)
             };
 
-            page.control_with_icon(
+            page.nodes.push(MenuNode::Control {
                 rect,
-                MenuControlKind::Item,
+                kind: MenuControlKind::Item,
                 label,
                 detail,
-                cell.icon,
+                icon: cell.icon,
                 selected,
                 important,
                 action,
-            );
+                dimmed,
+                thumb: None,
+            });
         }
 
         page
@@ -1061,13 +1075,25 @@ mod tests {
         assert_eq!(actions, vec![Action::UseHealth, Action::EquipAxe]);
     }
 
+    /// An unowned cell is drawn greyed out and KEEPS its action, so the
+    /// cursor can land on it and be drawn there; the host answers the action.
     #[test]
-    fn unowned_cells_are_displayed_but_not_actionable() {
+    fn unowned_cells_are_greyed_out_and_still_take_the_cursor() {
         let page = ItemsOnlyPageSpec::new(Page::Items, "Items")
             .with_cell(InventoryItemNode::unowned(0, "Bow").action(Action::UseHealth))
+            .with_cell(InventoryItemNode::new(1, "Cup").action(Action::UseHealth))
             .into_page_model();
 
-        assert_eq!(page.actionable_nodes().count(), 0);
+        assert_eq!(page.actionable_nodes().count(), 2, "the cursor reaches both cells");
+        let dimmed: Vec<bool> = page
+            .nodes
+            .iter()
+            .filter_map(|node| match node {
+                MenuNode::Control { dimmed, .. } => Some(*dimmed),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(dimmed, [true, false], "the unowned cell is greyed out, the owned one is not");
         match &page.nodes[2] {
             MenuNode::Control { detail, .. } => {
                 assert!(detail

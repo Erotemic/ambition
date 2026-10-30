@@ -1408,7 +1408,7 @@ fn bug2_item_equip_click_survives_a_hover_republish() {
     {
         let mut owned = app.world_mut().resource_mut::<OwnedItems>();
         owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::Grapple, 1);
-        owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::Axe, 1);
+        owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::GunSword, 1);
     }
     app.update();
     assert!(
@@ -1418,7 +1418,7 @@ fn bug2_item_equip_click_survives_a_hover_republish() {
     // Hover Axe (moves focus → old rebuild), then click Blink (was despawned).
     hover_then_click(
         &mut app,
-        MenuPageAction::Equip(Item::Axe),
+        MenuPageAction::Equip(Item::GunSword),
         MenuPageAction::Equip(Item::Grapple),
     );
     assert!(
@@ -2344,13 +2344,13 @@ fn lunex_sleeps_while_the_cube_rests() {
 /// None (the prompt then uses its generic verb).
 #[test]
 fn menu_confirm_label_resolves_the_focused_item_verb() {
-    let axe_idx = Item::ALL.iter().position(|&i| i == Item::Axe).unwrap();
+    let gun_sword_idx = Item::ALL.iter().position(|&i| i == Item::GunSword).unwrap();
     let cell_idx = Item::ALL
         .iter()
         .position(|&i| i == Item::HealthCell)
         .unwrap();
     assert!(
-        ambition_platformer2d::items::test_item_catalog().held_item_id(Item::Axe).is_some(),
+        ambition_platformer2d::items::test_item_catalog().held_item_id(Item::GunSword).is_some(),
         "Axe is a held item -> Equip"
     );
     assert!(
@@ -2359,11 +2359,11 @@ fn menu_confirm_label_resolves_the_focused_item_verb() {
     );
 
     let mut owned = OwnedItems::default();
-    owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::Axe, 1);
+    owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::GunSword, 1);
     owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::HealthCell, 1);
 
     assert_eq!(
-        menu_confirm_label(true, MenuFocus::Item(axe_idx), Some(&owned), ambition_platformer2d::items::test_item_catalog()).as_deref(),
+        menu_confirm_label(true, MenuFocus::Item(gun_sword_idx), Some(&owned), ambition_platformer2d::items::test_item_catalog()).as_deref(),
         Some("Equip")
     );
     assert_eq!(
@@ -2377,11 +2377,11 @@ fn menu_confirm_label_resolves_the_focused_item_verb() {
     );
     // Closed menu / absent roster / unowned slot -> None.
     assert_eq!(
-        menu_confirm_label(false, MenuFocus::Item(axe_idx), Some(&owned), ambition_platformer2d::items::test_item_catalog()),
+        menu_confirm_label(false, MenuFocus::Item(gun_sword_idx), Some(&owned), ambition_platformer2d::items::test_item_catalog()),
         None
     );
     assert_eq!(
-        menu_confirm_label(true, MenuFocus::Item(axe_idx), None, ambition_platformer2d::items::test_item_catalog()),
+        menu_confirm_label(true, MenuFocus::Item(gun_sword_idx), None, ambition_platformer2d::items::test_item_catalog()),
         None
     );
     assert_eq!(
@@ -2410,7 +2410,7 @@ fn the_provider_publishes_the_focused_item_verb_into_the_control_prompt() {
     use ambition_platformer2d::sim_view::{ControlContextKind, ControlPrompt};
     use bevy::prelude::IntoScheduleConfigs;
 
-    let axe_idx = Item::ALL.iter().position(|&i| i == Item::Axe).unwrap();
+    let gun_sword_idx = Item::ALL.iter().position(|&i| i == Item::GunSword).unwrap();
 
     let mut app = App::new();
     app.add_plugins(bevy::state::app::StatesPlugin);
@@ -2419,7 +2419,7 @@ fn the_provider_publishes_the_focused_item_verb_into_the_control_prompt() {
     app.init_resource::<ControlPrompt>();
     app.insert_resource(ambition_platformer2d::items::test_item_catalog().clone());
     let mut owned = OwnedItems::default();
-    owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::Axe, 1);
+    owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::GunSword, 1);
     app.insert_resource(owned);
     app.insert_resource(ambition_platformer2d::inventory_ui::InventoryUiState {
         visible: true,
@@ -2428,7 +2428,7 @@ fn the_provider_publishes_the_focused_item_verb_into_the_control_prompt() {
     // Focus the Axe and enter a menu (paused) mode.
     app.world_mut()
         .resource_mut::<KaleidoscopeCursor>()
-        .mark_keyboard(MenuFocus::Item(axe_idx));
+        .mark_keyboard(MenuFocus::Item(gun_sword_idx));
     app.world_mut()
         .resource_mut::<NextState<GameMode>>()
         .set(GameMode::Paused);

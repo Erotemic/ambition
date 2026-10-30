@@ -11,11 +11,20 @@ fn items_face_wires_all_24_slots_from_our_catalog() {
         "the cube's items face has one cell per inventory slot (24)"
     );
     // Slots are in grid order; labels are wrapped from our catalog.
-    // Nothing is owned here, so each cell says it is locked.
+    // Nothing is owned here, so each cell says it is locked, and an empty
+    // slot of the grid is a blank cell.
+    let catalog = ambition_platformer2d::items::test_item_catalog();
     for (idx, cell) in spec.cells.iter().enumerate() {
         assert_eq!(cell.slot.0, idx);
-        let name = ambition_platformer2d::items::test_item_catalog().display_name(Item::ALL[idx]).unwrap();
-        assert_eq!(cell.label, cell_label(&format!("{name} ???")));
+        let item = Item::ALL[idx];
+        let name = catalog.display_name(item).unwrap();
+        if catalog.category(item) == Some(ambition_platformer2d::items::ItemCategory::Reserved) {
+            assert_eq!((cell.label.as_str(), cell.detail.as_deref()), ("", None), "{item:?} is an empty slot");
+            assert!(cell.action.is_some(), "the cursor passes an empty slot too");
+        } else {
+            assert_eq!(cell.label, cell_label(name));
+            assert!(!cell.owned, "{item:?} is locked: the library greys it out");
+        }
     }
 }
 
@@ -28,15 +37,14 @@ fn owned_and_equipped_flags_reflect_inventory_state() {
     assert!(blink.owned, "granted item reads owned");
     assert!(blink.equipped, "equipped item reads equipped");
     assert!(blink.action.is_some(), "owned item has an action");
-    assert!(!blink.label.contains("???"), "an owned cell is not locked: {:?}", blink.label);
     // ⭐ A LOCKED CELL STILL CARRIES THE CURSOR. Every renderer finds and
     // draws the cursor through a control's action, so a locked cell has one;
-    // `effects::decide` answers it `NotOwned` and nothing changes. It says it
-    // is locked: `???`, no verb, no picture.
-    let locked = &spec.cells[Item::Axe.index()];
-    assert_eq!(locked.action, Some(MenuPageAction::Use(Item::Axe)), "the cursor can land on a locked cell");
-    assert!(locked.label.contains("???"), "{:?}", locked.label);
-    assert!(locked.action_label.is_none() && locked.icon.is_none());
+    // `effects::decide` answers it `NotOwned` and nothing changes. The
+    // library greys it out (`dimmed`) and keeps its picture.
+    let locked = &spec.cells[Item::GunSword.index()];
+    assert!(!locked.owned);
+    assert_eq!(locked.action, Some(MenuPageAction::Use(Item::GunSword)), "the cursor can land on a locked cell");
+    assert!(locked.action_label.is_none() && locked.icon.is_some());
 }
 
 /// The cursor is drawn on a locked cell: the lowered page has a control with
@@ -60,6 +68,18 @@ fn every_slot_of_the_grid_can_carry_the_cursor() {
         })
         .collect();
     assert_eq!(slots, Item::ALL.to_vec(), "a locked slot dropped out of the cursor's reach");
+    // And each locked cell is drawn greyed out (the renderers draw the cursor
+    // on a dimmed control; the renderer tests pin that).
+    let dimmed = page
+        .nodes
+        .iter()
+        .filter(|node| matches!(node, MenuNode::Control { kind: MenuControlKind::Item, dimmed: true, .. }))
+        .count();
+    let empty_slots = Item::ALL
+        .into_iter()
+        .filter(|item| catalog.category(*item) == Some(ambition_platformer2d::items::ItemCategory::Reserved))
+        .count();
+    assert_eq!(dimmed, Item::ALL.len() - empty_slots, "nothing is owned: every item cell is greyed out");
 }
 
 /// A cell states each fact once: "equipped" once, a verb once.
@@ -67,7 +87,7 @@ fn every_slot_of_the_grid_can_carry_the_cursor() {
 fn a_cell_states_each_fact_once() {
     let catalog = ambition_platformer2d::items::test_item_catalog();
     let owned = OwnedItems::starter(catalog);
-    let page = build_items_page(&owned, catalog, EquippedItems::of(catalog, Some(Item::Axe), None));
+    let page = build_items_page(&owned, catalog, EquippedItems::of(catalog, Some(Item::GunSword), None));
     let details: Vec<String> = page
         .nodes
         .iter()
@@ -76,7 +96,7 @@ fn a_cell_states_each_fact_once() {
             _ => None,
         })
         .collect();
-    assert_eq!(details[Item::Axe.index()], "equipped");
+    assert_eq!(details[Item::GunSword.index()], "equipped");
     assert_eq!(details[Item::Javelin.index()], "equip");
     assert_eq!(details[Item::HealthCell.index()], "use | x3");
     for detail in &details {

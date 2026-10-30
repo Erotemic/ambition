@@ -396,14 +396,14 @@ fn a_standing_wall_says_which_flag_is_unset_and_stops_saying_it_when_it_opens() 
 /// route could ask it, however well it was written. The fix is in the FIELD's
 /// data shape, not in a new condition.
 ///
-/// The wall is gated on carrying an axe, so this also pins the direction: an
+/// The wall is gated on carrying a gun-sword, so this also pins the direction: an
 /// empty bag leaves the wall UP, and acquiring the item takes it down. A test
 /// that only asserted the open half would pass against a wall that never stood.
 #[test]
 fn a_wall_may_be_gated_on_an_item_the_player_carries() {
     use ambition_platformer2d_shared_tangle::authored_logic::PublishCondition;
 
-    let mut app = world_with_one_wall_gated_by("inventory.holds axe");
+    let mut app = world_with_one_wall_gated_by("inventory.holds gunsword");
     app.insert_resource(ambition_items::test_item_catalog().clone());
     // An EMPTY bag, not the starter bag: the starter carries health cells and
     // this wall must be able to be up at all.
@@ -417,17 +417,17 @@ fn a_wall_may_be_gated_on_an_item_the_player_carries() {
     assert_eq!(
         standing(&app),
         1,
-        "the bag is empty, so the wall the author gated on carrying an axe stands"
+        "the bag is empty, so the wall the author gated on carrying a gun-sword stands"
     );
 
     app.world_mut()
         .resource_mut::<ambition_items::OwnedItems>()
-        .grant(ambition_items::test_item_catalog(), ambition_items::Item::Axe, 1);
+        .grant(ambition_items::test_item_catalog(), ambition_items::Item::GunSword, 1);
     app.update();
     assert_eq!(
         standing(&app),
         0,
-        "the player is carrying the axe the wall asked about; it opens"
+        "the player is carrying the gun-sword the wall asked about; it opens"
     );
 }
 
@@ -730,11 +730,11 @@ fn a_wall_gated_on_an_encounter_outcome_does_not_answer_to_its_switch() {
 /// ⛔ AND IT IS NOT DEMOTED TO A FLAG LOOKUP. `names_its_own_condition` is
 /// syntactic on purpose: a value shaped like a condition id IS a condition
 /// reference, so a misspelt one reaches the catalog's diagnostic instead of
-/// silently becoming `world.flag_set("inventry.holds axe")` — a question that
+/// silently becoming `world.flag_set("inventry.holds gunsword")` — a question that
 /// would also never be satisfied, with nothing said about why.
 #[test]
 fn a_condition_the_catalog_does_not_publish_leaves_the_wall_up() {
-    let mut app = world_with_one_wall_gated_by("inventry.holds axe");
+    let mut app = world_with_one_wall_gated_by("inventry.holds gunsword");
     app.update();
     assert_eq!(
         standing(&app),

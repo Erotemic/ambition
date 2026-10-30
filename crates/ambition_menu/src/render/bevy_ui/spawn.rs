@@ -89,6 +89,7 @@ pub(super) fn spawn_node<Action>(
             selected,
             important,
             action,
+            dimmed,
             thumb,
         } => {
             spawn_control(
@@ -101,6 +102,7 @@ pub(super) fn spawn_node<Action>(
                 *selected,
                 *important,
                 action,
+                *dimmed,
                 *thumb,
                 focused,
                 assets,
@@ -157,6 +159,8 @@ fn spawn_control<Action>(
     selected: bool,
     important: bool,
     action: &Option<Action>,
+    // Greyed out but focusable: dim unless the cursor is on it.
+    dimmed: bool,
     thumb: Option<ScrollThumb>,
     focused_key: Option<crate::MenuFocusKey>,
     assets: Option<&AssetServer>,
@@ -168,7 +172,7 @@ fn spawn_control<Action>(
     let focus = focus_key_for(rect);
     let focused = focused_key == Some(focus);
     let disabled = action.is_none() && !is_scrollbar;
-    let bg = if disabled {
+    let bg = if disabled || (dimmed && !focused) {
         to_color(MenuColor::DISABLED)
     } else {
         // A control spawns unhovered; `sync_bevy_ui_menu_hover` follows the
@@ -196,6 +200,7 @@ fn spawn_control<Action>(
             focused,
             selected,
             disabled,
+            dimmed,
             important,
             ..default()
         },
@@ -210,7 +215,7 @@ fn spawn_control<Action>(
         .zip(assets)
         .map(|(path, server)| server.load::<Image>(path.to_string()));
     if let Some(handle) = icon_handle {
-        let tint = if disabled {
+        let tint = if disabled || dimmed {
             Color::srgba(0.55, 0.58, 0.66, 0.55)
         } else if focused || selected {
             Color::srgb(1.0, 0.95, 0.78)

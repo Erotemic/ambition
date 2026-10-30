@@ -210,21 +210,21 @@ fn system_tab_left_right_never_turns_the_page() {
 fn selecting_an_item_dispatches_equip() {
     let mut app = grid_app();
     // Own an equippable item (the Axe has a held_item_id).
-    let axe = Item::Axe;
-    assert!(ambition_platformer2d::items::test_item_catalog().held_item_id(axe).is_some());
-    app.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::test_item_catalog(), axe, 1);
+    let gun_sword = Item::GunSword;
+    assert!(ambition_platformer2d::items::test_item_catalog().held_item_id(gun_sword).is_some());
+    app.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::test_item_catalog(), gun_sword, 1);
     // Open + focus item 1.
     set_frame(&mut app, |f| f.inventory = true);
     app.update();
     assert_eq!(active_tab(&app), MenuPage::Items);
     app.world_mut()
         .resource_mut::<KaleidoscopeCursor>()
-        .mark_keyboard(MenuFocus::Item(Item::Axe.index()));
+        .mark_keyboard(MenuFocus::Item(Item::GunSword.index()));
     set_frame(&mut app, |f| f.select = true);
     app.update();
     assert_eq!(
         equipped_in_hand(&mut app),
-        Some(axe),
+        Some(gun_sword),
         "selecting the item equipped it through dispatch_menu_action"
     );
 }
@@ -239,13 +239,13 @@ fn a_keyboard_select_publishes_the_same_activation_a_tap_does() {
     use ambition_platformer2d::menu::MenuActionActivated;
 
     let mut app = grid_app();
-    let axe = Item::Axe;
-    app.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::test_item_catalog(), axe, 1);
+    let gun_sword = Item::GunSword;
+    app.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::test_item_catalog(), gun_sword, 1);
     set_frame(&mut app, |f| f.inventory = true);
     app.update();
     app.world_mut()
         .resource_mut::<KaleidoscopeCursor>()
-        .mark_keyboard(MenuFocus::Item(Item::Axe.index()));
+        .mark_keyboard(MenuFocus::Item(Item::GunSword.index()));
     set_frame(&mut app, |f| f.select = true);
     app.update();
 
@@ -257,7 +257,7 @@ fn a_keyboard_select_publishes_the_same_activation_a_tap_does() {
         .collect();
     assert_eq!(
         published,
-        vec![MenuPageAction::Equip(axe)],
+        vec![MenuPageAction::Equip(gun_sword)],
         "the keyboard route announced the choice instead of acting on it privately"
     );
 }
@@ -413,14 +413,14 @@ fn back_closes_and_respects_opened_from_pause() {
 #[test]
 fn cursor_focus_key_matches_a_rendered_control() {
     let mut owned = OwnedItems::default();
-    let axe = Item::Axe;
-    owned.grant(ambition_platformer2d::items::test_item_catalog(), axe, 1);
+    let gun_sword = Item::GunSword;
+    owned.grant(ambition_platformer2d::items::test_item_catalog(), gun_sword, 1);
     let settings = UserSettings::default();
     let pages = build_inventory_pages(
         &owned,
         ambition_platformer2d::items::test_item_catalog(),
         ambition_platformer2d::items::EquippedItems::default(),
-        MenuFocus::Item(Item::Axe.index()),
+        MenuFocus::Item(Item::GunSword.index()),
         &settings,
         &Default::default(),
         &Default::default(),
@@ -432,18 +432,18 @@ fn cursor_focus_key_matches_a_rendered_control() {
     let key = cursor_focus_key(
         items,
         MenuPage::Items,
-        MenuFocus::Item(Item::Axe.index()),
+        MenuFocus::Item(Item::GunSword.index()),
         &model,
         None,
         None,
     )
     .expect("focused item resolves to a rendered control");
     // The key must equal the rect-derived key of SOME actionable control whose
-    // action maps back to the axe slot — i.e. it addresses a real tagged control.
+    // action maps back to the gun-sword slot — i.e. it addresses a real tagged control.
     let rows = system_rows_with_quality_prompt(&model, None, None);
     let matching = items.nodes.iter().any(|n| {
         matches!(n, MenuNode::Control { rect, action: Some(a), .. }
-            if focus_for_action(*a, MenuPage::Items, &rows) == MenuFocus::Item(Item::Axe.index())
+            if focus_for_action(*a, MenuPage::Items, &rows) == MenuFocus::Item(Item::GunSword.index())
                 && focus_key_for(*rect) == key)
     });
     assert!(
@@ -685,8 +685,8 @@ fn switch_to_tab(app: &mut App, page: MenuPage) {
 #[test]
 fn select_forces_republish_so_view_refreshes_immediately() {
     let mut app = render_app();
-    let axe = Item::Axe;
-    app.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::test_item_catalog(), axe, 1);
+    let gun_sword = Item::GunSword;
+    app.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::test_item_catalog(), gun_sword, 1);
     set_frame(&mut app, |f| f.inventory = true);
     app.update();
     set_frame(&mut app, |_| {});
@@ -705,12 +705,12 @@ fn select_forces_republish_so_view_refreshes_immediately() {
     // did not move.
     app.world_mut()
         .resource_mut::<KaleidoscopeCursor>()
-        .mark_keyboard(MenuFocus::Item(Item::Axe.index()));
+        .mark_keyboard(MenuFocus::Item(Item::GunSword.index()));
     set_frame(&mut app, |f| f.select = true);
     app.update();
     assert_eq!(
         equipped_in_hand(&mut app),
-        Some(axe),
+        Some(gun_sword),
         "select equipped the item"
     );
     // Directly exercise the dirty check: after a dispatch the nav system set
@@ -734,8 +734,8 @@ fn select_forces_republish_so_view_refreshes_immediately() {
 fn switching_tab_renders_that_pages_model() {
     let mut app = render_app();
     // Own an item so Items has an Equip action to distinguish from System.
-    let axe = Item::Axe;
-    app.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::test_item_catalog(), axe, 1);
+    let gun_sword = Item::GunSword;
+    app.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::test_item_catalog(), gun_sword, 1);
     set_frame(&mut app, |f| f.inventory = true);
     app.update();
     set_frame(&mut app, |_| {}); // release the key so it doesn't re-toggle
@@ -797,8 +797,8 @@ fn flat_renderer_skips_page_turn_edge_controls() {
 #[test]
 fn interaction_press_switches_tab_and_dispatches_item() {
     let mut app = render_app();
-    let axe = Item::Axe;
-    app.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::test_item_catalog(), axe, 1);
+    let gun_sword = Item::GunSword;
+    app.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::test_item_catalog(), gun_sword, 1);
     set_frame(&mut app, |f| f.inventory = true);
     app.update();
     set_frame(&mut app, |_| {});
@@ -828,7 +828,7 @@ fn interaction_press_switches_tab_and_dispatches_item() {
             .world_mut()
             .query::<(Entity, &AmbitionMenuControl<MenuPageAction>)>();
         q.iter(app.world())
-            .find(|(_, c)| matches!(c.action, Some(MenuPageAction::Equip(i)) if i == axe))
+            .find(|(_, c)| matches!(c.action, Some(MenuPageAction::Equip(i)) if i == gun_sword))
             .map(|(e, _)| e)
             .expect("Axe equip control spawned")
     };
@@ -836,7 +836,7 @@ fn interaction_press_switches_tab_and_dispatches_item() {
     app.update();
     assert_eq!(
         equipped_in_hand(&mut app),
-        Some(axe),
+        Some(gun_sword),
         "clicking the item equipped it through dispatch_menu_action"
     );
 }
@@ -931,8 +931,8 @@ fn a_hover_over_a_grid_row_leaves_the_cursor_and_a_press_still_activates_it() {
     use ambition_platformer2d::input::{ActiveDevice, SeatActiveDevices};
 
     let mut app = render_app();
-    let axe = Item::Axe;
-    app.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::test_item_catalog(), axe, 1);
+    let gun_sword = Item::GunSword;
+    app.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::test_item_catalog(), gun_sword, 1);
     set_frame(&mut app, |f| f.inventory = true);
     app.update();
     set_frame(&mut app, |_| {});
@@ -948,11 +948,11 @@ fn a_hover_over_a_grid_row_leaves_the_cursor_and_a_press_still_activates_it() {
             .world_mut()
             .query::<(Entity, &AmbitionMenuControl<MenuPageAction>)>();
         q.iter(app.world())
-            .find(|(_, c)| matches!(c.action, Some(MenuPageAction::Equip(i)) if i == axe))
+            .find(|(_, c)| matches!(c.action, Some(MenuPageAction::Equip(i)) if i == gun_sword))
             .map(|(e, _)| e)
             .expect("Axe equip control spawned")
     };
-    assert_ne!(parked, MenuFocus::Item(axe.index()), "premise: the hover is over another row");
+    assert_ne!(parked, MenuFocus::Item(gun_sword.index()), "premise: the hover is over another row");
 
     trigger_over(&mut app, axe_ctrl);
     app.world_mut().entity_mut(axe_ctrl).insert(Interaction::Hovered);
@@ -965,7 +965,7 @@ fn a_hover_over_a_grid_row_leaves_the_cursor_and_a_press_still_activates_it() {
 
     press_interaction(&mut app, axe_ctrl);
     app.update();
-    assert_eq!(equipped_in_hand(&mut app), Some(axe), "control: a press on the row still activates it");
+    assert_eq!(equipped_in_hand(&mut app), Some(gun_sword), "control: a press on the row still activates it");
 }
 
 // ---- Features C/D: Grid independent scroll (mouse wheel + scrollbar drag) ----

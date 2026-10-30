@@ -308,15 +308,15 @@ mod tests {
     #[test]
     fn unowned_item_is_a_noop_action() {
         let owned = OwnedItems::default();
-        assert_eq!(decide_for(Item::Axe, &owned, None, None), MenuAction::NotOwned(Item::Axe));
+        assert_eq!(decide_for(Item::GunSword, &owned, None, None), MenuAction::NotOwned(Item::GunSword));
     }
 
     #[test]
     fn weapon_toggles_between_equip_and_unequip() {
         let mut owned = OwnedItems::default();
-        owned.grant(catalog(), Item::Axe, 1);
-        assert_eq!(decide_for(Item::Axe, &owned, None, None), MenuAction::Equip(Item::Axe));
-        assert_eq!(decide_for(Item::Axe, &owned, Some(Item::Axe), None), MenuAction::Unequip(Item::Axe));
+        owned.grant(catalog(), Item::GunSword, 1);
+        assert_eq!(decide_for(Item::GunSword, &owned, None, None), MenuAction::Equip(Item::GunSword));
+        assert_eq!(decide_for(Item::GunSword, &owned, Some(Item::GunSword), None), MenuAction::Unequip(Item::GunSword));
     }
 
     /// THE DEFECT THE MIRROR HAD: a second seat picking up a gun-sword marked
@@ -385,9 +385,9 @@ mod tests {
         // A placeholder ability has no row, so even a granted one equips nothing.
         let mut owned = OwnedItems::default();
         owned.grant(catalog(), Item::AxeStance, 1);
-        owned.grant(catalog(), Item::MapFragment, 1);
+        owned.grant(catalog(), Item::FieldSurvey, 1);
         assert_eq!(decide_for(Item::AxeStance, &owned, None, None), MenuAction::Inspect(Item::AxeStance));
-        assert_eq!(decide_for(Item::MapFragment, &owned, None, None), MenuAction::Inspect(Item::MapFragment));
+        assert_eq!(decide_for(Item::FieldSurvey, &owned, None, None), MenuAction::Inspect(Item::FieldSurvey));
     }
 
     #[test]

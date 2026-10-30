@@ -370,3 +370,92 @@ fn the_cube_draws_the_look_its_config_states() {
     app.update();
     assert_eq!(colour_of(&mut app, bar), look.scrollbar_track, "a scroll bar after its state changed");
 }
+
+/// A greyed-out cell still shows the cursor. Unfocused, it has the grey of a
+/// control that cannot be used; with the cursor on it, it has the highlight
+/// colour and its selection corners show. Jon, 2026-10-30: "make sure that
+/// there is a cursor ... even if you can't equip the item / it is grayed out".
+#[test]
+fn a_greyed_out_cell_on_the_cube_draws_the_cursor_when_it_has_it() {
+    use ambition_menu::{MenuControlKind, MenuNode, MenuVisualState};
+    use super::{KaleidoscopeControlStyle, KaleidoscopeLook, SelectionCorner};
+
+    let tone = |n: f32| Color::srgba(0.05 * n, 0.5, 1.0 - 0.05 * n, 0.9);
+    let look = KaleidoscopeLook {
+        selected: tone(1.0),
+        important: tone(2.0),
+        item: tone(3.0),
+        action: tone(4.0),
+        control: tone(5.0),
+        disabled: tone(6.0),
+        scrollbar_track: tone(7.0),
+        scrollbar_thumb: tone(8.0),
+        edge_frame: tone(9.0),
+        icon_disabled: tone(10.0),
+        icon_selected: tone(11.0),
+    };
+    let mut page = MenuPageModel::new(Page::Items, "page", MenuColor::rgba(0.1, 0.1, 0.1, 1.0));
+    page.nodes.push(MenuNode::Control {
+        rect: MenuRect { x: 10.0, y: 10.0, w: 20.0, h: 8.0 },
+        kind: MenuControlKind::Item,
+        label: "locked".into(),
+        detail: None,
+        icon: None,
+        selected: false,
+        important: false,
+        action: Some(Action::Open(Page::Map)),
+        dimmed: true,
+        thumb: None,
+    });
+
+    let mut app = App::new();
+    app.add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
+    app.init_asset::<StandardMaterial>();
+    app.init_asset::<Mesh>();
+    app.init_asset::<Image>();
+    app.insert_resource(KaleidoscopeMenuConfig { look: look.clone(), ..Default::default() });
+    app.insert_resource(ActiveMenuPages::<Page, Action> {
+        pages: vec![page],
+        active: Some(Page::Items),
+        visible: true,
+        version: 1,
+    });
+    app.world_mut().spawn(MenuRing);
+    app.add_systems(
+        Update,
+        (rebuild_cube_faces::<Page, Action>, super::sync_control_focus_visuals, super::sync_selection_corner_visuals)
+            .chain(),
+    );
+    app.update();
+
+    let cell = {
+        let world = app.world_mut();
+        let mut query = world.query::<(Entity, &KaleidoscopeControlStyle)>();
+        let found: Vec<Entity> =
+            query.iter(world).filter(|(_, style)| style.kind == MenuControlKind::Item).map(|(e, _)| e).collect();
+        assert_eq!(found.len(), 1, "the page draws one item cell");
+        found[0]
+    };
+    let colour_of = |app: &App| {
+        let handle = app.world().get::<MeshMaterial3d<StandardMaterial>>(cell).unwrap().0.clone();
+        app.world().resource::<Assets<StandardMaterial>>().get(&handle).unwrap().base_color
+    };
+    let corners = |app: &mut App| -> Vec<Visibility> {
+        let children: Vec<Entity> =
+            app.world().get::<Children>(cell).map(|c| c.iter().collect()).unwrap_or_default();
+        let world = app.world_mut();
+        let mut query = world.query_filtered::<&Visibility, With<SelectionCorner>>();
+        children.iter().filter_map(|child| query.get(world, *child).ok().copied()).collect()
+    };
+
+    assert_eq!(colour_of(&app), look.disabled, "a greyed-out cell away from the cursor");
+    let away = corners(&mut app);
+    assert!(!away.is_empty(), "a greyed-out cell has no selection corners to show");
+    assert!(away.iter().all(|v| *v == Visibility::Hidden), "corners show away from the cursor: {away:?}");
+
+    app.world_mut().get_mut::<MenuVisualState>(cell).unwrap().focused = true;
+    app.update();
+    assert_eq!(colour_of(&app), look.selected, "a greyed-out cell under the cursor");
+    let under = corners(&mut app);
+    assert!(under.iter().all(|v| *v == Visibility::Visible), "corners hidden under the cursor: {under:?}");
+}

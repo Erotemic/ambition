@@ -873,7 +873,10 @@ pub fn restyle_bevy_ui_menu_controls(
                 }
             }
         }
-        let color = if state.disabled {
+        // A dimmed control is grey only while the cursor is elsewhere: the
+        // cursor is drawn on it like on any other control.
+        let dimmed_away = state.dimmed && !(state.focused || state.hovered);
+        let color = if state.disabled || dimmed_away {
             to_color(MenuColor::DISABLED)
         } else {
             control_bg(

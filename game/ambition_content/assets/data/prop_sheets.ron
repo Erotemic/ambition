@@ -380,6 +380,9 @@
     "math_ballroom_room": (),
     "math_goat": (),
     "math_car": (),
+    // The curtain of a closet, and the prize case (looks of lock walls).
+    "math_closet_curtain": (),
+    "math_prize_case": (),
     // The Crooked Lantern, the inn at the end of the Searchlight Moor (Evil).
     "moor_inn_front": (),
     "inn_room": (),

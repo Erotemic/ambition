@@ -584,6 +584,8 @@ collections:
   - math_ballroom_room
   - math_goat
   - math_car
+  - math_closet_curtain
+  - math_prize_case
   - moor_inn_front
   - inn_room
   - reef_shore

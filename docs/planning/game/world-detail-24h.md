@@ -43,6 +43,16 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **PvN: the Wreckers' Reef** (67823e0c6), out of the port east of the
+  docks: the GOOD SHIP PROBABLY broken in two on the reef, the wreckers'
+  false lighthouse, the captain's strongbox; Cutlass Vipers, the
+  Quartermaster, a Lookout. Verified: the_wreckers_reef, the_pirate_port.
+- **Evil: the Crooked Lantern** (c9de81e52), an inn at the moor's far west
+  end: Gudrun and Tobias the trapper (who knows the searchlights' blind
+  spots), WANTED posters with the robot's face. Verified:
+  the_searchlight_moor (2).
+- **Chests at the top of each out-of-town climb** (177b78090): moor
+  watchtower, bamboo lookout, tar pits scaffold, Test Range tower.
 - **Math: Hylbert's ballroom** (06fe2abc1): a game show of three lit doors
   (stay 1/3, switch 2/3); behind them three closets: a goat, a car with a
   bow and money, a goat. Verified: hylberts_hotel (4).

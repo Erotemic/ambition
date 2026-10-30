@@ -105,8 +105,11 @@ pub fn map_room_node(level: &ambition_platformer2d_ldtk::LdtkLevel) -> MapRoomNo
     fn text<'a>(fields: &'a [ambition_platformer2d_ldtk::LdtkFieldInstance], name: &str) -> Option<&'a str> {
         fields.iter().find(|f| f.identifier == name).and_then(|f| f.value.as_str()).filter(|s| !s.is_empty())
     }
+    // The room's title label, or (the castle's generator) its room label.
     let title_label = format!("{}_title", level.identifier);
+    let room_label = format!("{}_label", level.identifier);
     let mut title = None;
+    let mut label = None;
     let mut edge_exits = Vec::new();
     let mut doors = Vec::new();
     let mut pins = Vec::new();
@@ -122,6 +125,9 @@ pub fn map_room_node(level: &ambition_platformer2d_ldtk::LdtkLevel) -> MapRoomNo
         match entity.identifier.as_str() {
             "DebugLabel" if text(fields, "name") == Some(title_label.as_str()) => {
                 title = text(fields, "text").map(str::to_string);
+            }
+            "DebugLabel" if text(fields, "name") == Some(room_label.as_str()) => {
+                label = text(fields, "text").map(str::to_string);
             }
             "LoadingZone" => {
                 let Some(target) = text(fields, "target_room") else { continue };
@@ -143,7 +149,7 @@ pub fn map_room_node(level: &ambition_platformer2d_ldtk::LdtkLevel) -> MapRoomNo
     MapRoomNode {
         id: level.identifier.clone(),
         area: text(&level.field_instances, "activeArea").unwrap_or(&level.identifier).to_string(),
-        title: title.unwrap_or_else(|| super::view::title_from_id(&level.identifier)),
+        title: title.or(label).unwrap_or_else(|| super::view::title_from_id(&level.identifier)),
         world: level.world_source.clone(),
         world_min: Vec2::new(level.world_x as f32, level.world_y as f32),
         world_size: Vec2::new(level.px_wid as f32, level.px_hei as f32),

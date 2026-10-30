@@ -441,6 +441,10 @@ collections:
   - eureka_patent_room
   - eureka_observatory_room
   - eureka_lab_room
+  - cove_cave
+  - cove_ledges
+  - cove_doorways
+  - cove_dressing
   - alice_v2
   - armsmith_odile
   - village_nagisa

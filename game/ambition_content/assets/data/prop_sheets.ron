@@ -215,4 +215,9 @@
     "eureka_patent_room": (),
     "eureka_observatory_room": (),
     "eureka_lab_room": (),
+    // The Pirate Cove (PvN).
+    "cove_cave": (),
+    "cove_ledges": (),
+    "cove_doorways": (),
+    "cove_dressing": (),
 }

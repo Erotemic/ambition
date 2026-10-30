@@ -16,7 +16,7 @@
     // The Map page: its frame; a visited room, the room the player is in,
     // and a room not yet visited that a way leads to; a door, and the door
     // the player went in by; room names and the line naming where they are,
-    // and the name on the gold room.
+    // and the name on the gold room; pins for residents and shrines.
     map: (
         frame: (0.02, 0.025, 0.06, 0.98),
         room: (0.30, 0.42, 0.62, 0.95),
@@ -26,6 +26,8 @@
         door_marked: (1.0, 0.36, 0.30, 1.0),
         label: (0.88, 0.94, 1.0, 0.96),
         label_here: (0.10, 0.08, 0.04, 1.0),
+        pin_resident: (0.55, 0.95, 0.70, 1.0),
+        pin_shrine: (0.80, 0.60, 1.0, 1.0),
     ),
     // The 3D cube's own colours.
     cube: (

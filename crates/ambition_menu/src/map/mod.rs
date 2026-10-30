@@ -29,6 +29,9 @@ pub struct MapRoomNode {
     /// This room's doors: into buildings, whose insides are regions of their
     /// own.
     pub doors: Vec<view::MapDoor>,
+    /// What the map marks in this room once it is visited, in the room's own
+    /// coordinates.
+    pub pins: Vec<view::MapPin>,
 }
 
 #[derive(Resource)]

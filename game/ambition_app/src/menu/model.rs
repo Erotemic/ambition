@@ -201,6 +201,9 @@ pub struct MapLook {
     pub label: [f32; 4],
     /// The name of the room the player is in, on its gold.
     pub label_here: [f32; 4],
+    /// Pins: someone to talk to, a shrine.
+    pub pin_resident: [f32; 4],
+    pub pin_shrine: [f32; 4],
 }
 
 /// The 3D cube's colours (`KaleidoscopeLook`), each red, green, blue and

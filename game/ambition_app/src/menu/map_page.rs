@@ -3,11 +3,11 @@
 //! The map is the LDtk layout: the region of rooms joined by edge exits that
 //! the player is in (`ambition_menu::map::view`), each room its world
 //! rectangle, visited rooms drawn, the ways on from them dim, the doors
-//! marked. Inside a building, the region outside it, its door marked. The
+//! marked, and the residents and shrines of the visited rooms pinned. Inside a building, the region outside it, its door marked. The
 //! page is panels and text, so both backends draw it as they draw any page.
 
 use ambition_platformer2d::menu::{MenuColor, MenuPageModel, MenuRect, MenuTextAlign};
-use ambition_platformer2d::menu::map::view::{map_view, MapView};
+use ambition_platformer2d::menu::map::view::{map_view, MapPinKind, MapView};
 use ambition_platformer2d::menu::map::MapMenuState;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
@@ -28,13 +28,15 @@ const MAP_LABEL_SIZE: f32 = 2.0;
 /// The narrowest room, in percent of the page's width, that shows its name.
 const MAP_LABEL_MIN_WIDTH: f32 = 9.0;
 
-/// A room's title fitted to `width` percent of the page: a leading "THE " is
-/// dropped, and a title still too long is cut with an ellipsis. A character
-/// of the label is at most about 0.65 of its height wide, and a percent of width is
+/// A room's title fitted to `width` percent of the page: a district's name
+/// before a colon and a leading "THE " are dropped, and a title still too
+/// long is cut with an ellipsis. A character of the label (capitals, the
+/// widest) is at most about 0.72 of its height wide, and a percent of width is
 /// 1.5 percent of height on the 3:2 page.
 fn short_title(title: &str, width: f32) -> String {
+    let title = title.rsplit(": ").next().unwrap_or(title);
     let title = title.strip_prefix("THE ").or_else(|| title.strip_prefix("The ")).unwrap_or(title);
-    let fits = (width * 1.5 / (MAP_LABEL_SIZE * 0.65)).floor().max(3.0) as usize;
+    let fits = (width * 1.5 / (MAP_LABEL_SIZE * 0.72)).floor().max(3.0) as usize;
     if title.chars().count() <= fits {
         return title.to_string();
     }
@@ -118,6 +120,15 @@ pub(crate) fn build_map_page(view: Option<&MapView>) -> MenuPageModel<MenuPage, 
         let colour_key = if room.here { map_look.label_here } else { map_look.label };
         model.text(cx, cy, MAP_LABEL_SIZE, short_title(&room.title, w), MenuTextAlign::Center, colour(colour_key));
     }
+    // The pins, under the doors' marks.
+    for pin in &view.pins {
+        let (w, fill) = match pin.kind {
+            MapPinKind::Resident => (0.55, map_look.pin_resident),
+            MapPinKind::Shrine => (0.9, map_look.pin_shrine),
+        };
+        let h = w * 1.5;
+        model.panel(MenuRect::new(f.x + pin.at.x * f.w - w * 0.5, f.y + pin.at.y * f.h - h * 0.5, w, h), colour(fill), None);
+    }
     for (i, at) in view.doors.iter().enumerate() {
         let marked = view.marked_door == Some(i);
         let (w, h) = if marked { (1.4, 2.1) } else { (0.7, 1.05) };
@@ -153,6 +164,7 @@ mod tests {
     #[test]
     fn a_room_name_drops_its_article_and_fits_its_room() {
         assert_eq!(short_title("THE QUAD", 20.0), "QUAD");
+        assert_eq!(short_title("THE PIRATE PORT: THE GATE PLAZA", 20.0), "GATE PLAZA");
         let cut = short_title("THE WRECKERS' REEF AND ITS LONG SHOAL", 9.0);
         assert!(cut.ends_with('…'), "{cut}");
         assert!(cut.chars().count() <= 12, "{cut}");

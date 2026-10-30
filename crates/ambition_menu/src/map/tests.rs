@@ -489,7 +489,7 @@ fn the_map_shows_only_the_rooms_of_the_active_rooms_world() {
 mod view_tests {
     use bevy::math::Vec2;
 
-    use super::super::view::{map_view, region, MapBeyond, MapDoor};
+    use super::super::view::{map_view, region, MapBeyond, MapDoor, MapPin, MapPinKind};
     use super::super::{MapMenuState, MapRoomNode};
 
     fn node(id: &str, x: f32, y: f32, w: f32, h: f32, edges: &[&str], doors: &[(&str, f32)]) -> MapRoomNode {
@@ -502,6 +502,7 @@ mod view_tests {
             world_size: Vec2::new(w, h),
             edge_exits: edges.iter().map(|e| e.to_string()).collect(),
             doors: doors.iter().map(|(t, at)| MapDoor { at: Vec2::new(*at, 50.0), target_room: t.to_string() }).collect(),
+            pins: vec![MapPin { at: Vec2::new(w * 0.5, h * 0.5), kind: MapPinKind::Resident }],
         }
     }
 
@@ -538,6 +539,7 @@ mod view_tests {
         // The field and the moor are a step away; the far room is not shown.
         assert_eq!(shown, [("street", true, true), ("field", false, false), ("moor", false, false)]);
         assert_eq!(view.doors.len(), 1, "the tavern's door on the street");
+        assert_eq!(view.pins.len(), 1, "the street's resident; the field's waits for a visit");
         assert!(view.inside.is_none());
     }
 

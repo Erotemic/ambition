@@ -109,6 +109,14 @@ pub fn map_room_node(level: &ambition_platformer2d_ldtk::LdtkLevel) -> MapRoomNo
     let mut title = None;
     let mut edge_exits = Vec::new();
     let mut doors = Vec::new();
+    let mut pins = Vec::new();
+    let middle = |entity: &ambition_platformer2d_ldtk::LdtkEntityInstance| {
+        Vec2::new(
+            entity.px[0] as f32 + entity.width as f32 * 0.5,
+            entity.px[1] as f32 + entity.height as f32 * 0.5,
+        )
+    };
+    let pin = |entity, kind| super::view::MapPin { at: middle(entity), kind };
     for entity in level.all_entity_instances() {
         let fields = &entity.field_instances;
         match entity.identifier.as_str() {
@@ -119,16 +127,16 @@ pub fn map_room_node(level: &ambition_platformer2d_ldtk::LdtkLevel) -> MapRoomNo
                 let Some(target) = text(fields, "target_room") else { continue };
                 match text(fields, "activation") {
                     Some("EdgeExit") => edge_exits.push(target.to_string()),
-                    Some("Door") => doors.push(super::view::MapDoor {
-                        at: Vec2::new(
-                            entity.px[0] as f32 + entity.width as f32 * 0.5,
-                            entity.px[1] as f32 + entity.height as f32 * 0.5,
-                        ),
-                        target_room: target.to_string(),
-                    }),
+                    Some("Door") => doors.push(super::view::MapDoor { at: middle(entity), target_room: target.to_string() }),
                     _ => {}
                 }
             }
+            // Someone with something to say; a sign or a prop that talks has
+            // no character.
+            "NpcSpawn" if text(fields, "dialogue_id").is_some() && text(fields, "character_id").is_some() => {
+                pins.push(pin(entity, super::view::MapPinKind::Resident));
+            }
+            "ShrineSpawn" => pins.push(pin(entity, super::view::MapPinKind::Shrine)),
             _ => {}
         }
     }
@@ -141,5 +149,6 @@ pub fn map_room_node(level: &ambition_platformer2d_ldtk::LdtkLevel) -> MapRoomNo
         world_size: Vec2::new(level.px_wid as f32, level.px_hei as f32),
         edge_exits,
         doors,
+        pins,
     }
 }

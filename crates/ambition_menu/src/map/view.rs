@@ -27,6 +27,23 @@ pub struct MapDoor {
     pub target_room: String,
 }
 
+/// What a pin on the map marks.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MapPinKind {
+    /// Someone to talk to.
+    Resident,
+    /// A shrine.
+    Shrine,
+}
+
+/// A thing marked on the map: in a room's own coordinates on a
+/// [`MapRoomNode`], in frame fractions on a [`MapView`].
+#[derive(Clone, Debug, PartialEq)]
+pub struct MapPin {
+    pub at: Vec2,
+    pub kind: MapPinKind,
+}
+
 /// One room as the map draws it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MapViewRoom {
@@ -55,6 +72,8 @@ pub struct MapView {
     /// first and is marked [`MapView::marked_door`].
     pub doors: Vec<Vec2>,
     pub marked_door: Option<usize>,
+    /// The pins of the visited rooms in the frame.
+    pub pins: Vec<MapPin>,
     /// Width over height of the frame the fractions are of.
     pub aspect: f32,
     /// The sides past which the region goes on, out of the frame.
@@ -185,6 +204,13 @@ pub fn map_view(state: &MapMenuState, current: &str, aspect: f32) -> Option<MapV
             }
         }
     }
+    let pins = shown
+        .iter()
+        .filter(|&&i| visited(i))
+        .flat_map(|&i| rooms[i].pins.iter().map(move |pin| (rooms[i].world_min + pin.at, pin.kind)))
+        .filter(|&(at, _)| in_window(at, at))
+        .map(|(at, kind)| MapPin { at: to_frame(at), kind })
+        .collect();
     let view_rooms = shown
         .iter()
         .map(|&i| {
@@ -202,7 +228,7 @@ pub fn map_view(state: &MapMenuState, current: &str, aspect: f32) -> Option<MapV
             }
         })
         .collect();
-    Some(MapView { here_title, inside, rooms: view_rooms, doors, marked_door, aspect, beyond })
+    Some(MapView { here_title, inside, rooms: view_rooms, doors, marked_door, pins, aspect, beyond })
 }
 
 /// A readable name for a room with no title of its own: its id, words

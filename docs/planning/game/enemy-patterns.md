@@ -31,6 +31,7 @@ Two enemies differ in their pattern, not only in their numbers.
 | telegraph length | the action set's `windup_s` | how long the windup row is held |
 | charge | `Lunge(rush_px)` | stands through its windup, then runs `rush_px` over its strike, which is live the whole way; the rush counts as reach, so the charge starts from as far as it will run |
 | pounce | `Lunge(rush_px, leap_speed)` | the charge leaves the ground: an arc under its gravity |
+| attack by distance | a running attack (`attack_dash` in the character's moveset file) | a body in a run reads its running attack's reach and presses it (`BrainSnapshot::running`); standing, its standing attack |
 | ranged tell | `BrainProfile::ranged_volley` (skirmisher) | `windup_s` of warning before it fires |
 | dive tell | `MeleeTactics::dive_tell_s` (flyer) | lined up over its foe, it hangs that long before it dives |
 | counter, fade | `MeleeTactics::counter`, `fades` | the shock warden's answer, the spectral wolf |
@@ -50,7 +51,7 @@ The pin system is `body::pin_telegraph_rows` (`ambition_platformer2d_actor_monol
 | creature | pattern |
 |---|---|
 | compsognathus | a darting pack: notices, takes turns, bites, skips back out |
-| raptor | notices, holds just out of reach, then a crouched windup and a pounce (leap 180 px) |
+| raptor | notices; backs well off after each strike; comes in at a run and pounces from ~200 px (its running attack); caught up close, it bites |
 | emu | kick and run |
 | ostrich, ostrich hen | strut just out of reach, then the kick, then away |
 | cassowary | waits, waits, kicks hard |
@@ -78,4 +79,4 @@ Tests: `game/ambition_app/tests/castle_godwin_variants.rs`.
 
 - **Flyers' art:** the parrot, owl, swallows and vulture hang before a dive, but their sheets have no `windup` row yet.
 - **Barks** fire on provoke, not on notice. A creature has no voice cue for noticing yet.
-- **No pattern varies by distance yet.** For example, the raptor could bite when close and pounce when far; that needs a second move per body.
+- **Footsies and a running attack don't mix.** Holding in a band slows a body out of its run, so a pouncer should hit and run instead.

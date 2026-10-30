@@ -177,10 +177,6 @@ pub struct BodyPoseView {
     /// relaxing over the landing beat (deeper for a hard landing); low in the
     /// jump squat. Presentation only: the collision body never changes.
     pub squash: ambition_platformer2d_core::Vec2,
-    /// The height factor ([`air_stretch`]) that draws this body's speed along
-    /// its own gravity while it is in an air pose. `1.0` on the ground. A
-    /// sheet with no air row takes it; a sheet with one draws its own row.
-    pub air_stretch: f32,
     /// Gravity direction used for the facing flip (the global field read the
     /// player path has always used).
     pub gravity_dir: ambition_platformer2d_core::Vec2,
@@ -393,7 +389,6 @@ impl Default for BodyPoseView {
             roll_angle: 0.0,
             stance_ratio_y: 1.0,
             squash: ambition_platformer2d_core::Vec2::ONE,
-            air_stretch: 1.0,
             gravity_dir: ambition_platformer2d_core::Vec2::Y,
             anim: CharacterAnim::Idle,
             hit_flash_secs: 0.0,
@@ -813,7 +808,6 @@ pub fn rebuild_body_pose_views(
             roll_angle: roll.map_or(0.0, |r| r.angle),
             stance_ratio_y,
             squash,
-            air_stretch: air_stretch(anim, kinematics.vel.dot(gravity_dir)),
             gravity_dir,
             anim,
             //  a MOVE names its row; failing that, a fighter STATE does — the
@@ -1628,48 +1622,6 @@ mod pose_view_tests {
             "and a pinned one shows what the content pinned"
         );
     }
-
-    /// A body that falls in an air pose is drawn taller the faster it falls,
-    /// up to the full stretch, and no taller after it.
-    #[test]
-    fn the_air_stretch_grows_with_fall_speed_and_holds_at_full() {
-        assert_eq!(air_stretch(CharacterAnim::Fall, 0.0), 1.0);
-        let slow = air_stretch(CharacterAnim::Fall, AIR_STRETCH_FULL_SPEED * 0.25);
-        let fast = air_stretch(CharacterAnim::Fall, AIR_STRETCH_FULL_SPEED * 0.75);
-        assert!(1.0 < slow && slow < fast && fast < 1.0 + AIR_STRETCH_MAX);
-        assert_eq!(air_stretch(CharacterAnim::Fall, AIR_STRETCH_FULL_SPEED), 1.0 + AIR_STRETCH_MAX);
-        assert_eq!(air_stretch(CharacterAnim::Fall, AIR_STRETCH_FULL_SPEED * 3.0), 1.0 + AIR_STRETCH_MAX);
-        // A body that rises as fast is stretched as much.
-        assert_eq!(
-            air_stretch(CharacterAnim::Jump, -AIR_STRETCH_FULL_SPEED * 0.75),
-            fast,
-        );
-    }
-
-    /// Only an air pose is stretched: a body that runs, flies, climbs a ladder
-    /// or holds a wall at speed is drawn at its own height.
-    #[test]
-    fn only_an_air_pose_is_stretched() {
-        for anim in [
-            CharacterAnim::Jump,
-            CharacterAnim::Fall,
-            CharacterAnim::CrouchJump,
-            CharacterAnim::FloatGlide,
-            CharacterAnim::WallJump,
-        ] {
-            assert!(air_stretch(anim, AIR_STRETCH_FULL_SPEED) > 1.0, "{anim:?} is an air pose");
-        }
-        for anim in [
-            CharacterAnim::Idle,
-            CharacterAnim::Run,
-            CharacterAnim::Fly,
-            CharacterAnim::LadderClimb,
-            CharacterAnim::WallSlide,
-            CharacterAnim::AirNeutral,
-        ] {
-            assert_eq!(air_stretch(anim, AIR_STRETCH_FULL_SPEED), 1.0, "{anim:?} is not an air pose");
-        }
-    }
 }
 
 #[cfg(test)]
@@ -1741,38 +1693,4 @@ pub fn squash_and_stretch(land_timer_s: f32, hard: bool, jump_squatting: bool) -
     let press = if hard { SQUASH_HARD } else { SQUASH_SOFT } * landing * landing;
     let press = if jump_squatting { press.max(JUMP_SQUAT_PRESS) } else { press };
     ambition_platformer2d_core::Vec2::new(1.0 + press * SQUASH_WIDEN, 1.0 - press)
-}
-
-/// The speed along the body's own gravity at which the air stretch is full
-/// (world units per second).
-pub const AIR_STRETCH_FULL_SPEED: f32 = 600.0;
-/// How much taller than its standing height a body at full air stretch is
-/// drawn (fraction of height).
-pub const AIR_STRETCH_MAX: f32 = 0.12;
-
-/// True when `anim` is a pose of a body in the air: its pose ladder
-/// ([`CharacterAnim::base_pose`]) goes through `Fall`. Flight, a ladder and a
-/// wall are not air poses.
-pub fn is_air_pose(anim: CharacterAnim) -> bool {
-    let mut pose = Some(anim);
-    while let Some(current) = pose {
-        if current == CharacterAnim::Fall {
-            return true;
-        }
-        pose = current.base_pose();
-    }
-    false
-}
-
-/// The drawn body's height factor about its feet for a body in `anim` that
-/// moves at `speed_along_gravity` along its own gravity (either sign). `1.0`
-/// when `anim` is not an air pose; else it grows linearly with the speed to
-/// `1 + AIR_STRETCH_MAX` at [`AIR_STRETCH_FULL_SPEED`] and holds there.
-/// Presentation only: the collision body never changes.
-pub fn air_stretch(anim: CharacterAnim, speed_along_gravity: f32) -> f32 {
-    if !is_air_pose(anim) {
-        return 1.0;
-    }
-    let speed = (speed_along_gravity.abs() / AIR_STRETCH_FULL_SPEED).min(1.0);
-    1.0 + AIR_STRETCH_MAX * speed
 }

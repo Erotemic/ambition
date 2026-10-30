@@ -436,18 +436,9 @@ pub fn sync_visuals(
                 // PlayerSpriteBaseline doc.
                 let base_y = pose.base_size.y.max(1.0);
                 let stance_ratio_y = (pose.size.y / base_y).clamp(0.1, 1.0);
-                // A sheet with no air row stretches the ground row it draws
-                // in the air (`StanceSquash` for a trimmed sheet).
-                let air_stretch = if animator
-                    .is_some_and(|animator| animation::draws_motion_from_ground_row(&animator.spec, pose.anim))
-                {
-                    pose.air_stretch
-                } else {
-                    1.0
-                };
                 sprite.custom_size = Some(BVec2::new(
                     baseline.standing_render.x * scale_x * pose.squash.x,
-                    baseline.standing_render.y * scale_y * stance_ratio_y * pose.squash.y * air_stretch,
+                    baseline.standing_render.y * scale_y * stance_ratio_y * pose.squash.y,
                 ));
             }
         } else if !*warned_unsized_player {

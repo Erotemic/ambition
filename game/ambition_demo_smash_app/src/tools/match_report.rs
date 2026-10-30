@@ -663,6 +663,17 @@ fn run_one(
 /// and where the seated fighters sat in it. `report_camera` reduces it.
 #[derive(Default)]
 struct CameraTally {
+    /// Finish-zoom requests seen (the verdict's, and a finishing blow's), and
+    /// the ticks they landed on.
+    finish_zooms: Vec<usize>,
+    /// Stocks spent (KOs), and every LAST-STOCK launch with the finishing-blow
+    /// predictor's inputs and verdict, so a zoom that never fires is explained.
+    stocks_spent: usize,
+    last_stock_launches: Vec<String>,
+    /// Per seat, the stocks seen last tick, so a spend is a state change.
+    stocks_seen: Vec<u32>,
+    /// Whether the finish zoom was closing last tick: a rising edge is one zoom.
+    zoom_was_closing: bool,
     /// Per tick: the visible view (w, h) and its centre, in world px.
     frames: Vec<(ae::Vec2, ae::Vec2)>,
     /// Per tick: the view the cast asked for (base) and the view requested
@@ -680,6 +691,55 @@ struct CameraTally {
 
 fn sample_camera(app: &mut App, camera: &mut CameraTally) {
     let world = app.world_mut();
+    let tick = camera.frames.len();
+    {
+        let mut seats = world.query::<(&MatchSeat, &ambition_platformer2d::combat::FighterStocks)>();
+        let mut now: Vec<(usize, u32)> = seats.iter(world).map(|(seat, stocks)| (seat.0, stocks.remaining)).collect();
+        now.sort();
+        if camera.stocks_seen.len() == now.len() {
+            for ((_, remaining), seen) in now.iter().zip(&camera.stocks_seen) {
+                if remaining < seen {
+                    camera.stocks_spent += (seen - remaining) as usize;
+                }
+            }
+        }
+        camera.stocks_seen = now.into_iter().map(|(_, r)| r).collect();
+    }
+    if let Some(zoom) = world.get_resource::<ambition_platformer2d::platformer::camera_ease::FinishZoomState>() {
+        let closing = zoom.closeness > 0.0;
+        if closing && !camera.zoom_was_closing {
+            camera.finish_zooms.push(tick);
+        }
+        camera.zoom_was_closing = closing;
+    }
+    {
+        let mut launches = world.query::<(
+            Entity,
+            &ambition_platformer2d::combat::FighterStocks,
+            &ae::BodyKinematics,
+            &ae::BodyFlightState,
+            Option<&ambition_platformer2d::platformer::frame_env::ResolvedMotionFrame>,
+        )>();
+        let rows: Vec<String> = launches
+            .iter(world)
+            .filter(|(_, stocks, _, flight, _)| {
+                stocks.remaining == 1 && flight.pending_launch_state().velocity.length() > 500.0
+            })
+            .map(|(_, _, kin, flight, frame)| {
+                let staged = flight.pending_launch_state().velocity;
+                let gravity = frame.map(|f| f.get().acceleration());
+                let world_size = ambition_demo_smash::smash_stage().world;
+                let predicted = gravity.is_some_and(|g| ae::hit_response::launch_leaves_the_world(kin.pos, staged, g, &world_size));
+                format!(
+                    "    t{tick} last-stock launch at ({:.0},{:.0}) v ({:.0},{:.0}) gravity {:?} -> leaves {predicted}",
+                    kin.pos.x, kin.pos.y, staged.x, staged.y, gravity.map(|g| (g.x.round(), g.y.round()))
+                )
+            })
+            .collect();
+        if camera.last_stock_launches.len() < 12 {
+            camera.last_stock_launches.extend(rows);
+        }
+    }
     let mut views = world.query_filtered::<
         &ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot,
         With<ambition_platformer2d::sim_view::LocalView>,
@@ -838,6 +898,15 @@ fn report_camera(camera: &CameraTally) {
         h_min, h_med, h_max
     );
     println!("  fighter sits at   {sit_med:.2} of the view height (0 = top)");
+    println!(
+        "  finish zooms      {} at ticks {:?}; stocks spent {}",
+        camera.finish_zooms.len(),
+        camera.finish_zooms,
+        camera.stocks_spent
+    );
+    for row in &camera.last_stock_launches {
+        println!("{row}");
+    }
     println!(
         "  fighter cut off   {cut_off} of {body_ticks} body-ticks ({:.1}%) inside the camera box; {cut_off_past_box} past it (by design)",
         cut_off as f32 * 100.0 / body_ticks.max(1) as f32

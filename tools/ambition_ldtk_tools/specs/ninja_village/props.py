@@ -31,6 +31,9 @@ SCENERY = {
         ("village_notice_board", 2186, 660),
         ("village_watch_house", 2440, 310),
     ],
+    # The Bamboo Pass (`targets/props/ninja_pass_props.py`, drawn on the
+    # room's numbers): each piece at its frame.
+    "ninja_bamboo_pass": [("pass_bamboo", 0, 300), ("pass_bridge", 870, 770), ("pass_lookout", 1530, 500), ("pass_falls", 1880, 390)],
     "ninja_village_forest": [
         # Cedar i stands at the room's branch i (x i*384, +16 for the first;
         # y 384 + 64 i): its frame is 40 west of the branch and 300 over it.

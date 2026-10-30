@@ -530,6 +530,13 @@ Also from the CPU agent's `ko_envelope feel`: the pointed up-tilt (169.6
 base / 4.13 growth) out-launched the up-smash (146 / 5.82) below ~50% — a
 ×1.6 baked into the base; set to 106 (an anti-air that kills late).
 
+Witnessed in play (MEASURED, `match-report --camera --level 9 300 --runs 3`):
+run 1 staged a last-stock launch at tick 1815 (v 382, −1194 px/s, predicted
+to leave) and the finish zoom rose on that tick, before the stock was spent;
+runs 2 and 3 each zoomed once at their verdict. The trace counts zooms as
+rising edges of `FinishZoomState` and spends as drops of `FighterStocks`
+(message cursors missed the sim schedule's own update).
+
 Still open after this: the off-screen bubble for a body between the camera
 box and the blast line (art + HUD, needs Jon's eye) and a human pass on the
 rates (4 Hz both ways is a first value; Melee's per-frame fractions are in a
@@ -549,6 +556,22 @@ cannot agree on a wall-dt ramp. The fix is a design call: a fixed-dt sim
 step, with the eased time scale either presentation-only or per-tick sim
 state driven by sim causes. Until then every CPU measurement carries a
 start-tick lottery, and netplay would desync at the first match.
+
+Named one step further (same day, `[sim-clock]` log of a rung-9 match):
+every connect requests the GLOBAL sim clock to 0 (`impact_hitstop`, a
+match-level freeze held as an absolute expiry tick, capped at the feel's
+`hitlag_time`), and the clock ladder EASES toward it (down 5/s, up 14/s by
+wall dt): `live 1.000 -> 0.917 -> 0.667 -> 0.900` over four frames. So (a)
+the "freeze" is a slow-motion dip, not a freeze — Ultimate's hitlag is a
+hard hold of the two bodies, which the per-body hitlag (R2) already is; (b)
+every hit feeds the sim a frame-phased fractional-dt sequence — the lottery
+the CPU agent traced (the 0→1 ramp at release was MEASURED not to overlap
+live play; this does, on every hit); (c) two rollback peers integrate
+different dts after the same hit. The elegant fix is one rule, not a
+switch: a freeze request SNAPS the clock (0 for its ticks, 1 after) instead
+of riding the ease — tick-deterministic and a real beat. Alternatives: the
+match declares no global freeze (per-body hitlag carries it), or the
+fixed-dt sim step above. Jon's call; none applied.
 
 ### Not in this roadmap
 

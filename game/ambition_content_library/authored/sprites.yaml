@@ -472,6 +472,12 @@ collections:
   - tar_pits_dig_camp
   - tar_pits_bones
   - castle_kitchens_room
+  - pass_bamboo
+  - pass_bridge
+  - pass_lookout
+  - pass_falls
+  - spur_west
+  - spur_east
   - shadow_dojo_hall
   - jungle_fern_clump
   - jungle_fallen_log

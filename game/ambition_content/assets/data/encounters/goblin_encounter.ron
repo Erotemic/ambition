@@ -76,7 +76,7 @@
             label: "wave 2 — the galleries, a pack, and the crawlers",
             mobs: [
                 (kind: "combatant", character: Some("npc_fascist_enforcer"), spawn: (600.0, 604.0), size: (32.0, 72.0), delay: 0.0),
-                (kind: "combatant", character: Some("npc_fascist_enforcer"), spawn: (1320.0, 604.0), size: (32.0, 72.0), delay: 0.4),
+                (kind: "combatant", character: Some("npc_fascist_swordsman"), spawn: (1320.0, 604.0), size: (32.0, 72.0), delay: 0.4),
                 (kind: "combatant", character: Some("npc_searchlight_crawler"), spawn: (1500.0, 815.0), size: (48.0, 34.0), delay: 0.6),
                 (kind: "combatant", character: Some("npc_searchlight_crawler"), spawn: (700.0, 815.0), size: (48.0, 34.0), delay: 1.0),
                 (kind: "combatant", character: Some("npc_evil_failed_prototype"), spawn: (1000.0, 764.0), size: (32.0, 40.0), delay: 0.8),
@@ -85,11 +85,11 @@
             ],
         ),
         (
-            label: "wave 3 — the muster: a Shock Warden in front, the Iron Trooper behind",
+            label: "wave 3 — the muster: a Shock Warden in front, a clubman and a swordsman, the Iron Trooper behind",
             mobs: [
                 (kind: "combatant", character: Some("npc_shock_warden"), spawn: (880.0, 752.0), size: (40.0, 64.0), delay: 0.0),
-                (kind: "combatant", character: Some("npc_fascist_enforcer"), spawn: (700.0, 796.0), size: (32.0, 72.0), delay: 0.6),
-                (kind: "combatant", character: Some("npc_fascist_enforcer"), spawn: (960.0, 748.0), size: (32.0, 72.0), delay: 1.0),
+                (kind: "combatant", character: Some("npc_fascist_clubman"), spawn: (700.0, 796.0), size: (32.0, 72.0), delay: 0.6),
+                (kind: "combatant", character: Some("npc_fascist_swordsman"), spawn: (960.0, 748.0), size: (32.0, 72.0), delay: 1.0),
                 (kind: "combatant", character: Some("npc_fascist_enforcer"), spawn: (1320.0, 604.0), size: (32.0, 72.0), delay: 1.6),
                 (kind: "combatant", character: Some("npc_evil_zombie"), spawn: (1250.0, 798.5), size: (30.0, 67.0), delay: 2.0),
                 (kind: "combatant", character: Some("npc_evil_heavy"), spawn: (1600.0, 792.0), size: (36.0, 80.0), delay: 0.4),

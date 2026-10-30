@@ -25,6 +25,7 @@
         ( type: "NpcSpawn", px: [264, 448], size: [32, 64], fields: ( character_id: "npc_castle_osgood", prompt: "Talk", dialogue_id: "castle_osgood", brain_override: "stand_still" ) ),
         ( type: "NpcSpawn", px: [824, 448], size: [32, 64], fields: ( character_id: "npc_castle_hargreave", prompt: "Talk", dialogue_id: "castle_hargreave", brain_override: "stand_still" ) ),
         ( type: "NpcSpawn", px: [1024, 448], size: [32, 64], fields: ( character_id: "npc_castle_dunmore", prompt: "Talk", dialogue_id: "castle_dunmore", brain_override: "stand_still" ) ),
+        ( type: "EnemySpawn", px: [574, 484], size: [52, 28], fields: ( name: "castle_godwin_kitchens_legless_1", brain: "combatant", character_id: "npc_evil_zombie_crawler", respawn: "OnRoomReenter" ) ),
         ( type: "DebugLabel", px: [460, 250], size: [400, 24], fields: ( name: "kitchens_sign_menu", text: "TODAY: gruel. TOMORROW: gruel (evil)", category: "Custom" ) ),
         ( type: "DebugLabel", px: [780, 350], size: [460, 24], fields: ( name: "kitchens_sign_guild", text: "HENCHPERSONS' GUILD, LOCAL 666: meeting at the kettle", category: "Custom" ) ),
         ( type: "CameraZone", px: [0, 0], size: [1280, 576], fields: ( id: "castle_godwin_kitchens_camera", name: "castle_godwin_kitchens_camera", mode: "Default" ) ),

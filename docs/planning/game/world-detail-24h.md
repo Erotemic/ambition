@@ -43,6 +43,12 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **PvN: the sail loft**, in at a door added to the net loft on the
+  waterfront: nets on the rafters, bolts of canvas, a sail spread half sewn,
+  and flags to order (skulls with an eyepatch, a monocle, a moustache, a
+  party hat; a smiling one sent back: ships kept sailing up to say hello);
+  Tamsin Bolt the sailmaker (chargen, Hall wing). Verified: the_wreckers_reef
+  loft test, the_pirate_port.
 - **Evil: Crumb's bakery inside**, by its door in Lower Godwin: the
   castle's black iron oven (the crest on its door) and the hamlet's glowing
   brick one, shelves of both breads, the counter; behind the flour sacks,

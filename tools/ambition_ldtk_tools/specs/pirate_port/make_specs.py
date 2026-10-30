@@ -59,6 +59,9 @@ DOCKS = "pirate_port_docks"
 REEF = "pirate_wreckers_reef"
 #: Out past the reef, east by a side exit at the east rocks' height.
 POINT = "pirate_lighthouse_point"
+#: The sail loft inside the net loft, by its door on the waterfront.
+LOFT = "pirate_sail_loft"
+LOFT_DOOR_X = 2300
 
 #: The contract with Agent GATE: the arrival point a dialled SAILING names.
 ARRIVAL = "pirate_port_gate_arrival"
@@ -86,6 +89,7 @@ ROOMS_AT = {
     # Its floor (y 960) level with the reef's east rocks (y 640 there).
     POINT: ((4160 + 2816 + 2560, -64 - 320), (1600, 1280)),
     TAVERN: ((1856, 1152), (1024, 448)),
+    LOFT: ((2944, 1152), (1024, 448)),
 }
 
 #: The flag of the page in the crow's nest.
@@ -167,6 +171,8 @@ def waterfront():
         door("waterfront_tavern_door", "into The Drowned Compass", 1320, street, TAVERN, "tavern_door"),
         sign("tavern_sign", 1344, street - 150, "THE DROWNED COMPASS", 260),
         sign("market_sign", 1900, street - 120, "Fish from three seas. Ask which.", 300),
+        door("waterfront_loft_door", "into the sail loft", LOFT_DOOR_X, street, LOFT, "loft_door"),
+        sign("loft_sign", LOFT_DOOR_X + 24, street - 140, "BOLT: SAILS & FLAGS", 240),
         edge("waterfront_east_low", "to the docks", w - WALL, street, DOCKS, "docks_west_low"),
         edge("waterfront_east_high", "along the roofs to the gantry", w - WALL, roof_b, DOCKS, "docks_west_high"),
     ]
@@ -190,6 +196,27 @@ def tavern():
         resident("npc_port_wren", "pirate_port_wren", 680, floor),
         resident("npc_pirate_heavy_broadside_bess", "pirate_port_bess", 400, floor, w=64, h=96),
         sign("tavern_sign_rules", 520, ceiling + 40, "No duels. No gate talk before noon.", 360),
+    ]
+    return build(rid, e, None)
+
+
+def sail_loft():
+    """The sail loft inside the net loft: nets on the rafters, bolts of
+    canvas, a sail spread half sewn, flags to order pinned up (a skull with
+    an eyepatch, a monocle, a moustache, a party hat; a smiling one sent
+    back). Tamsin Bolt sews them (`pirate_port.yarn`)."""
+    rid = LOFT
+    _, (w, h) = ROOMS_AT[rid]
+    floor, ceiling = h - 64, 32
+    e = [
+        solid("floor", 0, floor, w, 64),
+        solid("ceiling", 0, 0, w, ceiling),
+        solid("west_wall", 0, ceiling, WALL, floor - ceiling),
+        solid("east_wall", w - WALL, ceiling, WALL, floor - ceiling),
+        door("loft_door", "out to the waterfront", 40, floor, WATERFRONT, "waterfront_loft_door"),
+        start(rid, 140, floor),
+        resident("npc_port_bolt", "pirate_port_bolt", 830, floor),
+        sign("loft_sign_flags", 560, ceiling + 260, "FLAGS TO ORDER: any face you like, on a skull", 420),
     ]
     return build(rid, e, None)
 
@@ -357,7 +384,7 @@ def point():
     return build(rid, e, "THE LIGHTHOUSE POINT", music=DOCK_MUSIC)
 
 
-ROOMS = (plaza, waterfront, tavern, docks, reef, point)
+ROOMS = (plaza, waterfront, tavern, sail_loft, docks, reef, point)
 
 #: The ladders out of the two gaps of open water, and up the mainmast
 #: (painted on the `Climbable` layer): (room, x, top, bottom).

@@ -33,3 +33,13 @@ fn the_lighthouse_point_lies_east_of_the_reef() {
     go(&mut app, "pirate_wreckers_reef", Some("point_west"));
     go(&mut app, "pirate_lighthouse_point", Some("reef_east"));
 }
+
+/// The sail loft, in at its door in the net loft on the waterfront: Tamsin
+/// Bolt sews flags to order (`pirate_port.yarn` `pirate_port_bolt`).
+#[test]
+fn the_sail_loft_sews_flags_to_order() {
+    let mut app = a_session_in("pirate_port_waterfront");
+    go(&mut app, "pirate_sail_loft", Some("waterfront_loft_door"));
+    talk(&mut app, "npc_port_bolt", "What are the flags on the wall?");
+    go(&mut app, "pirate_port_waterfront", Some("loft_door"));
+}

@@ -40,6 +40,8 @@
         ( type: "LoadingZone", px: [1320, 672], size: [48, 96], fields: ( id: "waterfront_tavern_door", name: "into The Drowned Compass", activation: "Door", target_room: "pirate_port_tavern", target_zone: "tavern_door", bidirectional: true ) ),
         ( type: "DebugLabel", px: [1214, 618], size: [260, 24], fields: ( name: "tavern_sign", text: "THE DROWNED COMPASS", category: "Custom" ) ),
         ( type: "DebugLabel", px: [1750, 648], size: [300, 24], fields: ( name: "market_sign", text: "Fish from three seas. Ask which.", category: "Custom" ) ),
+        ( type: "LoadingZone", px: [2300, 672], size: [48, 96], fields: ( id: "waterfront_loft_door", name: "into the sail loft", activation: "Door", target_room: "pirate_sail_loft", target_zone: "loft_door", bidirectional: true ) ),
+        ( type: "DebugLabel", px: [2204, 628], size: [240, 24], fields: ( name: "loft_sign", text: "BOLT: SAILS & FLAGS", category: "Custom" ) ),
         ( type: "LoadingZone", px: [2544, 672], size: [16, 96], fields: ( id: "waterfront_east_low", name: "to the docks", activation: "EdgeExit", target_room: "pirate_port_docks", target_zone: "docks_west_low", bidirectional: true ) ),
         ( type: "LoadingZone", px: [2544, 288], size: [16, 96], fields: ( id: "waterfront_east_high", name: "along the roofs to the gantry", activation: "EdgeExit", target_room: "pirate_port_docks", target_zone: "docks_west_high", bidirectional: true ) ),
         ( type: "CameraZone", px: [0, 0], size: [2560, 896], fields: ( id: "pirate_port_waterfront_camera", name: "pirate_port_waterfront_camera", mode: "Default" ) ),

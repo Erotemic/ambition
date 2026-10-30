@@ -286,6 +286,7 @@
     "hanoi_temple": (),
     "ranger_station_room": (),
     "bakery_room": (),
+    "sail_loft_room": (),
     // The orbital station's damaged spur (Science).
     "spur_west": (),
     "spur_east": (),

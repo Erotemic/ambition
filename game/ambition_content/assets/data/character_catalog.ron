@@ -5689,6 +5689,23 @@
                 hall: ["The Drowned Compass: we never tell you where you are, and that is why you come back.", "No gate talk before noon. It upsets the regulars."],
             ),
         ),
+        "npc_port_bolt": (
+            display_name: "Tamsin Bolt",
+            // Sews the port's sails, and its flags to order.
+            manifest: "sprites/port_bolt_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm.
+            standing_height: Some(64.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "pirate_port", "peaceful"],
+            barks: (
+                idle: ["Mind the sail.", "Any face you like, on a skull."],
+                hall: ["Every captain wants a skull and every captain wants it to be theirs.", "The smiling flag was sent back. Ships kept sailing up to say hello."],
+            ),
+        ),
         "npc_port_lamplugh": (
             display_name: "Ezra Lamplugh",
             // Keeps the honest light on the point past the Wreckers' Reef.

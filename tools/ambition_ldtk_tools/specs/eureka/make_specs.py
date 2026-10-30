@@ -427,6 +427,8 @@ def test_range():
         range_enemy(3, "npc_shock_warden", 1810, btop, 40, 64),
         range_enemy(4, "npc_exploding_mite", 480, floor, 38, 66, "exploding_mite"),
         range_enemy(5, "npc_exploding_mite", 1500, floor, 38, 66, "exploding_mite"),
+        # The range's officer, between the crawler and the dummies.
+        resident("npc_eureka_pryce", "eureka_pryce", 2500, floor),
         range_enemy(6, "sandbag", 2580, floor, 34, 58, "sandbag_finite"),
         range_enemy(7, "sandbag", 2660, floor, 34, 58, "sandbag_finite"),
     ]

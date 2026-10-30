@@ -115,3 +115,10 @@ fn the_coil_labs_prototype_turns_its_gravity_over_and_back() {
     assert!(y(&mut app) > 400.0, "the twin did not bring the player down (y {})", y(&mut app));
     assert_eq!(live_room(&mut app), LAB);
 }
+
+/// The Test Range's officer talks (`eureka.yarn` `eureka_pryce`).
+#[test]
+fn the_range_officer_signs_it_off_as_probably_fine() {
+    let mut app = a_session_in("eureka_test_range");
+    crate::the_pirate_port::talk(&mut app, "npc_eureka_pryce", "What is tested here?");
+}

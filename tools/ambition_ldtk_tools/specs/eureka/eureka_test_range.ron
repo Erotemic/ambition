@@ -38,6 +38,7 @@
         ( type: "EnemySpawn", px: [1810, 512], size: [40, 64], fields: ( name: "eureka_test_range_npc_shock_warden_3", brain: "combatant", character_id: "npc_shock_warden", respawn: "OnRoomReenter" ) ),
         ( type: "EnemySpawn", px: [480, 638], size: [38, 66], fields: ( name: "eureka_test_range_npc_exploding_mite_4", brain: "exploding_mite", character_id: "npc_exploding_mite", respawn: "OnRoomReenter" ) ),
         ( type: "EnemySpawn", px: [1500, 638], size: [38, 66], fields: ( name: "eureka_test_range_npc_exploding_mite_5", brain: "exploding_mite", character_id: "npc_exploding_mite", respawn: "OnRoomReenter" ) ),
+        ( type: "NpcSpawn", px: [2484, 640], size: [32, 64], fields: ( character_id: "npc_eureka_pryce", prompt: "Talk", dialogue_id: "eureka_pryce", brain_override: "stand_still" ) ),
         ( type: "EnemySpawn", px: [2580, 646], size: [34, 58], fields: ( name: "eureka_test_range_sandbag_6", brain: "sandbag_finite", character_id: "sandbag", respawn: "OnRoomReenter" ) ),
         ( type: "EnemySpawn", px: [2660, 646], size: [34, 58], fields: ( name: "eureka_test_range_sandbag_7", brain: "sandbag_finite", character_id: "sandbag", respawn: "OnRoomReenter" ) ),
         ( type: "CameraZone", px: [0, 0], size: [2816, 832], fields: ( id: "eureka_test_range_camera", name: "eureka_test_range_camera", mode: "Default" ) ),

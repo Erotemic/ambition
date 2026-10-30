@@ -6157,6 +6157,23 @@
                 hall: ["Everybody on this campus runs on my coffee. Nobody tips.", "The station orders pastries by elevator. They arrive cold and complaining."],
             ),
         ),
+        "npc_eureka_pryce": (
+            display_name: "Range Officer Pryce",
+            // The Test Range's officer, who has signed off every test as probably fine.
+            manifest: "sprites/eureka_pryce_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 180 cm.
+            standing_height: Some(69.7),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "eureka", "peaceful"],
+            barks: (
+                idle: ["Hard hats past this line. Hard heads optional.", "Probably fine. Sign here."],
+                hall: ["Thirty years on the range. I have signed off nine hundred tests as probably fine. Eight hundred and ninety were.", "The rocket is not leaning. The ground is."],
+            ),
+        ),
         // ===== Castle Godwin's staff (the Evil dimension), made by chargen: the
         // kitchens under the gatehouse.
         "npc_castle_hargreave": (

@@ -26,6 +26,12 @@ SCENERY = {
     "eureka_coil_lab": [
         ("eureka_lab_room", 16, 32),
     ],
+    "eureka_test_range": [
+        ("eureka_range_field", 200, 560),
+        ("eureka_range_tower", 1960, 270),
+        ("eureka_range_rocket", 660, 140),
+        ("eureka_range_bunker", 1670, 560),
+    ],
 }
 
 

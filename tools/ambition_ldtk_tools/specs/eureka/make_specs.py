@@ -63,6 +63,7 @@ STATION = "eureka_elevator_station"
 CLIMB = "eureka_elevator_climb"
 TERMINUS = "orbital_station_tether_terminus"
 BAY = "orbital_station_docking_bay"
+RANGE = "eureka_test_range"
 
 #: The contract with the gate network: the arrival point a dialled SCIENCE
 #: names (its ring is `gate_interface.yaml`, written by
@@ -96,6 +97,8 @@ STATION_MUSIC = "between_objectives"
 #: the dome) are entered by doors and sit near their doors.
 ROOMS_AT = {
     COURT: ((256, 6880), (1600, 832)),
+    # Out of town (Jon, 2026-10-30): the Test Range, west of the gate court.
+    RANGE: ((256 - 2816, 6880), (2816, 832)),
     QUAD: ((1856, 6816), (2816, 896)),
     PATENT: ((1856, 8064), (1024, 640)),
     LAB: ((3072, 8064), (1280, 576)),
@@ -146,7 +149,9 @@ def court():
     floor, walk = 704, 512
     e = [
         solid("ground", 0, floor, w, h - floor),
-        solid("west_wall", 0, 0, WALL, floor),
+        # The west wall, open on the floor to the Test Range.
+        solid("west_wall", 0, 0, WALL, floor - 112),
+        edge("court_west", "out to the Test Range", 0, floor, RANGE, "range_east"),
         solid("east_wall_high", w - WALL, 0, WALL, walk - 96),
         solid("east_wall_mid", w - WALL, walk + 16, WALL, floor - 96 - walk - 16),
         start(rid, 336, floor),
@@ -361,9 +366,50 @@ def terminus():
     return build(rid, e, "THE TETHER TERMINUS", music=STATION_MUSIC, biome=STATION_THEME)
 
 
+def range_enemy(n, character, x, feet, w, h, brain="combatant"):
+    return entity("EnemySpawn", x, feet - h, w, h, name=f"{RANGE}_{character}_{n}", brain=brain,
+                  character_id=character, respawn="OnRoomReenter")
+
+
+def test_range():
+    """Out of town: the Test Range, west of the gate court. Floor 704. A
+    rocket on its pad with a gantry to climb (its walks y 624..384), a blast
+    bunker whose roof is walked on (y 576), an observation tower (y 560, 416).
+    What the institute tests has got loose: searchlight crawlers, a shock
+    warden on the bunker, exploding mites; two crash-test dummies wait to be
+    hit."""
+    rid = RANGE
+    _, (w, h) = ROOMS_AT[rid]
+    floor = 704
+    bx0, bx1, btop = 1700, 1960, 576
+    e = [
+        solid("ground", 0, floor, w, h - floor),
+        solid("west_wall", 0, 0, WALL, floor),
+        solid("east_wall_high", w - WALL, 0, WALL, floor - 112),
+        edge("range_east", "back to the gate court", w - WALL, floor, COURT, "court_west"),
+        start(rid, w - 200, floor),
+        *[ledge(f"gantry_{i}", x0, y, x1 - x0) for i, (x0, x1, y) in enumerate(((680, 820, 624), (760, 900, 544), (680, 820, 464), (760, 900, 384)))],
+        solid("bunker", bx0, btop, bx1 - bx0, floor - btop),
+        ledge("tower_low", 2280, 560, 120),
+        ledge("tower_cab", 2320, 416, 120),
+        sign("range_sign", w - 420, floor - 200, "EUREKA TEST RANGE: if the siren sounds, it is already too late", 520),
+        sign("rocket_sign", 960, 110, "PROBABLY FINE III", 260),
+        sign("bunker_sign", (bx0 + bx1) // 2, btop - 60, "BLAST BUNKER: knock first, then duck", 360),
+        sign("tower_sign", 2380, 300, "OBSERVATION: the safe side of the glass", 360),
+        range_enemy(1, "npc_searchlight_crawler", 1240, floor, 48, 34),
+        range_enemy(2, "npc_searchlight_crawler", 2120, floor, 48, 34),
+        range_enemy(3, "npc_shock_warden", 1810, btop, 40, 64),
+        range_enemy(4, "npc_exploding_mite", 480, floor, 38, 66, "exploding_mite"),
+        range_enemy(5, "npc_exploding_mite", 1500, floor, 38, 66, "exploding_mite"),
+        range_enemy(6, "sandbag", 2580, floor, 34, 58, "sandbag_finite"),
+        range_enemy(7, "sandbag", 2660, floor, 34, 58, "sandbag_finite"),
+    ]
+    return build(rid, e, "THE TEST RANGE", music=TOWN_MUSIC)
+
+
 # Made from the top of the tether down and then west: a room is placed only
 # where no room stands, so a move of the chain places the far end first.
-ROOMS = (terminus, elevator_climb, elevator_station, quad, court, patent_office, coil_lab, observatory)
+ROOMS = (terminus, elevator_climb, elevator_station, quad, court, test_range, patent_office, coil_lab, observatory)
 
 #: The docking bay's door to the terminus, on its floor west of the cargo
 #: lift (the bay is the station generator's; it lists the same door).

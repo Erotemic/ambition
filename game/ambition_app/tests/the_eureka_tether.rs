@@ -82,3 +82,12 @@ fn the_tether_carries_a_rider_from_the_ground_to_the_station() {
     go(&mut app, TERMINUS, Some("bay_tether_door"));
     go(&mut app, STATION, Some("terminus_down_door"));
 }
+
+/// Out of town (Jon, 2026-10-30: "out of town zones with enemies"): the
+/// Test Range, west of the gate court, by its side exit and back.
+#[test]
+fn the_test_range_is_out_of_the_gate_court_and_back() {
+    let mut app = a_session_in(COURT);
+    go(&mut app, "eureka_test_range", Some("court_west"));
+    go(&mut app, COURT, Some("range_east"));
+}

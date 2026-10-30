@@ -13,7 +13,8 @@
     music_track: "a_possible_morning",
     entities: [
         ( type: "Solid", px: [0, 704], size: [1600, 128], fields: ( name: "ground" ) ),
-        ( type: "Solid", px: [0, 0], size: [16, 704], fields: ( name: "west_wall" ) ),
+        ( type: "Solid", px: [0, 0], size: [16, 592], fields: ( name: "west_wall" ) ),
+        ( type: "LoadingZone", px: [0, 608], size: [16, 96], fields: ( id: "court_west", name: "out to the Test Range", activation: "EdgeExit", target_room: "eureka_test_range", target_zone: "range_east", bidirectional: true ) ),
         ( type: "Solid", px: [1584, 0], size: [16, 416], fields: ( name: "east_wall_high" ) ),
         ( type: "Solid", px: [1584, 528], size: [16, 80], fields: ( name: "east_wall_mid" ) ),
         ( type: "PlayerStart", px: [322, 658], size: [28, 46], fields: ( name: "eureka_gate_court_spawn" ) ),

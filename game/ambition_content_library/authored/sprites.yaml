@@ -452,6 +452,10 @@ collections:
   - math_hotel_lobby_room
   - math_hotel_corridor_room
   - evil_forest_roadside
+  - eureka_range_rocket
+  - eureka_range_bunker
+  - eureka_range_tower
+  - eureka_range_field
   - alice_v2
   - armsmith_odile
   - village_nagisa

@@ -14,7 +14,9 @@
     entities: [
         ( type: "Prop", px: [48, 506], size: [852, 150], fields: ( name: "allotment_west", kind: "allotment_west" ) ),
         ( type: "Prop", px: [960, 454], size: [977, 202], fields: ( name: "allotment_beds", kind: "allotment_beds" ) ),
-        ( type: "Solid", px: [0, 656], size: [2000, 128], fields: ( name: "ground" ) ),
+        ( type: "Solid", px: [0, 656], size: [280, 128], fields: ( name: "ground_west" ) ),
+        ( type: "Solid", px: [344, 656], size: [1656, 128], fields: ( name: "ground_east" ) ),
+        ( type: "LoadingZone", px: [280, 768], size: [64, 16], fields: ( id: "allot_plot_13", name: "down the hole in plot 13", activation: "EdgeExit", target_room: "evil_catacombs", target_zone: "catacombs_up", bidirectional: true ) ),
         ( type: "Solid", px: [0, 0], size: [16, 544], fields: ( name: "west_wall" ) ),
         ( type: "LoadingZone", px: [0, 560], size: [16, 96], fields: ( id: "allot_west", name: "to Lower Godwin", activation: "EdgeExit", target_room: "evil_lower_godwin", target_zone: "hamlet_east", bidirectional: true ) ),
         ( type: "Solid", px: [1984, 0], size: [16, 544], fields: ( name: "east_wall" ) ),

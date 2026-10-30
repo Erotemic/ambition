@@ -3,7 +3,7 @@
     id: "evil_crooked_lantern",
     level_id: "evil_crooked_lantern",
     world_x: -2400,
-    world_y: 1024,
+    world_y: 2304,
     px_wid: 1024,
     px_hei: 512,
     fill_collision: "empty",

@@ -19,9 +19,9 @@ use ambition_extension_host::{ExtensionAppExt, ExtensionOutbox, InBossConduct, I
 use ambition_extension_sdk::phases::{BOSS_CONDUCT, TECHNIQUE_EXECUTION};
 use ambition_extension_sdk::Phase;
 use ambition_platformer2d_core as ae;
-use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRooms, SessionCommands, SpawnSessionScopedExt};
+use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, LiveRooms, SessionCommands, SpawnSessionScopedExt};
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
-use ambition_portal_port::{HeldPortalPairPort, LightLinePort};
+use ambition_portal_port::{HeldPortalPairPort, LightLinePort, PortalEnd};
 use bevy::prelude::*;
 
 use crate::{link_hash, PlacedPortal, PortalChannel, PortalChannelColor, PortalLink, PortalLook};
@@ -149,9 +149,10 @@ pub struct HeldPortalPairRecord {
     pub ends: [Entity; 2],
     /// It closes the first time a body comes out of it.
     pub closes_on_use: bool,
-    /// It was used and closed. Its ends are gone, so asking for its slot
-    /// finds nothing to move and keeps it closed; it is held, not spawned
-    /// again, until its module stops asking.
+    /// It was used and closed, or it fizzled (an end would overlap a
+    /// portal). Its ends are gone, so asking for its slot finds nothing to
+    /// move and keeps it closed; it is held, not spawned again, until its
+    /// module stops asking.
     pub spent: bool,
 }
 
@@ -203,6 +204,12 @@ fn module_of(entry: &str) -> &str {
 /// was used, make what is held what was asked, spawn what is asked for and
 /// not held, and despawn a portal whose holder is gone.
 ///
+/// ⛔ Two portals never share a place ([`PlacedPortal::opening_overlaps`]):
+/// a pair whose ends would overlap each other, or a portal of its room that
+/// is already open, fizzles. A new pair is not spawned; a held pair asked
+/// into such a place closes. Either is spent, and stays closed while its
+/// slot is asked for.
+///
 /// Each request is the whole of its pair this tick: its places, normals,
 /// openings and looks. A pair is held only while an entry of its module asks
 /// for it, so the pairs of a module that is no longer admitted (a reload that
@@ -215,6 +222,8 @@ fn lower_held_portal_pairs<L: LowersIn>(
     mut holders: Query<(Entity, &mut HeldPortalPairs)>,
     ids: Query<&SimId>,
     mut portals: Query<(Entity, &HeldPortalOf, &mut PlacedPortal, &mut PortalLook)>,
+    rooms: Query<&InRoomInstance>,
+    others: Query<(Entity, &PlacedPortal), Without<HeldPortalOf>>,
     mut transits: MessageReader<crate::PortalBodyTransited>,
 ) {
     let submitted = outbox.drain::<HeldPortalPairPort>(&L::PHASE);
@@ -274,6 +283,14 @@ fn lower_held_portal_pairs<L: LowersIn>(
     let Some(scope) = commands.spawn_scope() else {
         return;
     };
+    // Every portal open now, with its room: what an asked end must not
+    // overlap. Kept as pairs open and move this tick.
+    let mut open: Vec<(Entity, Option<LiveRoomInstance>, PlacedPortal)> = others
+        .iter()
+        .chain(portals.iter().map(|(entity, _, portal, _)| (entity, &*portal)))
+        .map(|(entity, portal)| (entity, rooms.get(entity).ok().map(|r| r.0), portal.clone()))
+        .collect();
+    let mut fizzled: Vec<(Entity, Arc<str>, u32)> = Vec::new();
     let mut new: Vec<(Entity, Vec<HeldPortalPairRecord>)> = Vec::new();
     for s in &submitted {
         let pair = &s.value;
@@ -282,6 +299,19 @@ fn lower_held_portal_pairs<L: LowersIn>(
             .ok()
             .and_then(|(_, h)| h.0.iter().find(|r| &*r.module == module_of(&s.entry) && r.slot == pair.slot).cloned());
         if let Some(record) = held {
+            if record.spent {
+                continue;
+            }
+            let room = live.of(s.scope);
+            if fizzles(&open, &pair.ends, &record.ends, room) {
+                for end in record.ends {
+                    if let Ok(mut e) = commands.get_entity(end) {
+                        e.try_despawn();
+                    }
+                }
+                fizzled.push((s.scope, record.module.clone(), record.slot));
+                continue;
+            }
             // Held: each end is what was asked this tick, in place, normal,
             // opening and look. Written only where it changed, so an
             // unchanged pair is not marked changed.
@@ -304,6 +334,9 @@ fn lower_held_portal_pairs<L: LowersIn>(
                     if *look != want {
                         *look = want;
                     }
+                    if let Some(seen) = open.iter_mut().find(|(entity, ..)| entity == end) {
+                        seen.2 = portal.clone();
+                    }
                 }
             }
             continue;
@@ -324,6 +357,21 @@ fn lower_held_portal_pairs<L: LowersIn>(
             continue;
         };
         let module = module_of(&s.entry);
+        if fizzles(&open, &pair.ends, &[], Some(room)) {
+            let record = HeldPortalPairRecord {
+                module: Arc::from(module),
+                slot: pair.slot,
+                phase: L::PHASE,
+                ends: [Entity::PLACEHOLDER; 2],
+                closes_on_use: pair.closes_on_use,
+                spent: true,
+            };
+            match new.iter_mut().find(|(o, _)| *o == s.scope) {
+                Some((_, records)) => records.push(record),
+                None => new.push((s.scope, vec![record])),
+            }
+            continue;
+        }
         let link = held_pair_link(owner_id, module, pair.slot);
         let ends = [0usize, 1].map(|index| {
             let end = &pair.ends[index];
@@ -354,6 +402,9 @@ fn lower_held_portal_pairs<L: LowersIn>(
                 .insert(InRoomInstance(room))
                 .id()
         });
+        for (entity, end) in ends.iter().zip(as_portals(&pair.ends)) {
+            open.push((*entity, Some(room), end));
+        }
         let record = HeldPortalPairRecord {
             module: Arc::from(module),
             slot: pair.slot,
@@ -367,6 +418,13 @@ fn lower_held_portal_pairs<L: LowersIn>(
             None => new.push((s.scope, vec![record])),
         }
     }
+    for (owner, module, slot) in fizzled {
+        if let Ok((_, mut held)) = holders.get_mut(owner) {
+            if let Some(record) = held.0.iter_mut().find(|r| r.module == module && r.slot == slot) {
+                record.spent = true;
+            }
+        }
+    }
     for (owner, records) in new {
         if let Ok((_, mut held)) = holders.get_mut(owner) {
             held.0.extend(records);
@@ -374,6 +432,36 @@ fn lower_held_portal_pairs<L: LowersIn>(
             commands.entity(owner).insert(HeldPortalPairs(records));
         }
     }
+}
+
+/// The two ends a module asks for, as the portals they would be.
+fn as_portals(ends: &[PortalEnd; 2]) -> [PlacedPortal; 2] {
+    ends.map(|end| {
+        let mut portal =
+            PlacedPortal::fixed(crate::UNRESOLVED_LINK_CHANNEL, ae::Vec2::from(end.at), ae::Vec2::from(end.normal), end.half_length);
+        if let Some(half_thickness) = end.half_thickness {
+            portal.half_thickness = half_thickness;
+        }
+        portal
+    })
+}
+
+/// Would the pair `ends` fizzle: do its ends overlap each other, or a portal
+/// open in its `room` that is not one of its own (`own`)? A portal in no
+/// room is in every room.
+fn fizzles(
+    open: &[(Entity, Option<LiveRoomInstance>, PlacedPortal)],
+    ends: &[PortalEnd; 2],
+    own: &[Entity],
+    room: Option<LiveRoomInstance>,
+) -> bool {
+    let asked = as_portals(ends);
+    asked[0].opening_overlaps(&asked[1])
+        || open.iter().any(|(entity, in_room, portal)| {
+            !own.contains(entity)
+                && (in_room.is_none() || *in_room == room)
+                && asked.iter().any(|end| end.opening_overlaps(portal))
+        })
 }
 
 #[cfg(test)]

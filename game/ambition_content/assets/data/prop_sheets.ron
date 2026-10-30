@@ -229,6 +229,7 @@
     "math_hotel_entrance": (),
     "math_hotel_lobby_room": (),
     "math_hotel_corridor_room": (),
+    "math_hotel_lift_shaft": (),
     // The Evil dimension's forest road.
     "evil_forest_roadside": (),
     // Eureka's Test Range (Science, out of town).

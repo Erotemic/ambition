@@ -15,6 +15,7 @@ use crate::the_pirate_port::{a_session_in, go, go_to, live_room};
 const STREET: &str = "math_town_street";
 const LOBBY: &str = "math_hotel_lobby";
 const CORRIDOR: &str = "math_hotel_corridor";
+const LIFT: &str = "math_hotel_lift";
 
 #[test]
 fn the_corridor_of_hylberts_hotel_always_has_one_more_room() {
@@ -46,4 +47,52 @@ fn the_corridor_of_hylberts_hotel_always_has_one_more_room() {
         assert_eq!(live_room(&mut app), CORRIDOR, "lap {lap}: the far end led out of the corridor");
     }
     go(&mut app, LOBBY, Some("math_hotel_corridor_west"));
+}
+
+/// The lift only goes up: its car carries the rider out of the top of the
+/// shaft, the top comes back in at the bottom, and the car is waiting there.
+#[test]
+fn hylberts_lift_only_goes_up() {
+    let mut app = a_session_in(LOBBY);
+    go(&mut app, LIFT, Some("math_hotel_lobby_lift"));
+    go(&mut app, LOBBY, Some("math_hotel_lift_door"));
+    go(&mut app, LIFT, Some("math_hotel_lobby_lift"));
+    // Onto the car (its top 68 over the bottom of the 1600-tall shaft).
+    {
+        use ambition_platformer2d::platformer::markers::PrimaryPlayer;
+        use bevy::prelude::With;
+        let half = {
+            let mut query = app.world_mut().query_filtered::<&ae::BodyKinematics, With<PrimaryPlayer>>();
+            query.iter(app.world()).next().expect("a primary player").size.y * 0.5
+        };
+        let mut query = app.world_mut().query_filtered::<(ae::BodyClusterQueryData, &mut ambition_platformer2d::actor::MotionModel), With<PrimaryPlayer>>();
+        let world = app.world_mut();
+        let (mut cluster_item, mut motion_model) = query.iter_mut(world).next().expect("a primary player");
+        let mut clusters = cluster_item.as_clusters_mut();
+        ae::movement::transit_body(&mut motion_model, &mut clusters, ae::Vec2::new(384.0, 1600.0 - 68.0 - half - 1.0), ae::movement::TransitVelocity::Zero);
+    }
+    // Rising, then low again (it came round), twice.
+    let mut laps = 0;
+    let mut was_high = false;
+    for _ in 0..60 * 40 {
+        app.update();
+        assert_eq!(live_room(&mut app), LIFT, "the lift let the rider out");
+        let world = app.world_mut();
+        let y = world
+            .query_filtered::<&ae::BodyKinematics, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+            .single(world)
+            .expect("one primary player")
+            .pos
+            .y;
+        if y < 400.0 {
+            was_high = true;
+        } else if was_high && y > 1300.0 {
+            laps += 1;
+            was_high = false;
+            if laps == 2 {
+                break;
+            }
+        }
+    }
+    assert_eq!(laps, 2, "the rider did not come round the shaft twice");
 }

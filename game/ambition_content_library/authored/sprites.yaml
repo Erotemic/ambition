@@ -451,6 +451,7 @@ collections:
   - math_hotel_entrance
   - math_hotel_lobby_room
   - math_hotel_corridor_room
+  - math_hotel_lift_shaft
   - evil_forest_roadside
   - eureka_range_rocket
   - eureka_range_bunker

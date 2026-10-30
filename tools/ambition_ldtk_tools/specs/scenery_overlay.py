@@ -92,7 +92,7 @@ SIGNS = {
 #: its dialogue node).
 RESIDENTS = {
     "dinosaur.ldtk": {
-        "primeval_trailhead": [("npc_primeval_brandvold", "primeval_brandvold", 660, 480)],
+        "primeval_trailhead": [("npc_primeval_brandvold", "primeval_brandvold", 760, 480)],
         "primeval_rookery": [("npc_primeval_twitchell", "primeval_twitchell", 1720, 480)],
     },
 }

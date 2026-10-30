@@ -102,10 +102,14 @@ pub enum BrainBeat {
 }
 
 impl Brain {
-    /// It stands and looks at a foe it has just seen (a brute's
+    /// It stands and looks at a foe it has just seen (a brute's or a flyer's
     /// [`MeleeTactics::notice_s`]): its sheet's `notice` row is drawn.
     pub fn is_noticing(&self) -> bool {
-        matches!(self, Brain::StateMachine(StateMachineCfg::MeleeBrute { state, .. }) if state.is_noticing())
+        match self {
+            Brain::StateMachine(StateMachineCfg::MeleeBrute { state, .. }) => state.is_noticing(),
+            Brain::StateMachine(StateMachineCfg::Aerial { state, .. }) => state.is_noticing(),
+            _ => false,
+        }
     }
 
     /// It winds up an attack its brain times, not its move: a skirmisher's

@@ -1320,6 +1320,9 @@ pub struct AerialCfg {
     /// Seconds it hangs still, lined up over its foe, before it dives: the
     /// tell ([`super::MeleeTactics::dive_tell_s`]).
     pub dive_tell_s: f32,
+    /// Seconds it hangs where it is, facing its foe, when it first sees it:
+    /// its notice ([`super::MeleeTactics::notice_s`]).
+    pub notice_s: f32,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -1354,6 +1357,17 @@ pub struct AerialState {
     pub mode: crate::actor::ai::CharacterAiMode,
     /// Lazily seeded on first tick (anchor/waypoint/phase need real values).
     pub initialized: bool,
+    /// It has seen its foe; cleared when it loses it, so it notices again.
+    pub noticed: bool,
+    /// Seconds left of its notice ([`AerialCfg::notice_s`]).
+    pub noticing: f32,
+}
+
+impl AerialState {
+    /// It hangs and looks at a foe it has just seen.
+    pub fn is_noticing(&self) -> bool {
+        self.noticing > 0.0
+    }
 }
 
 fn aerial_pick_waypoint(
@@ -1519,6 +1533,8 @@ fn tick_aerial_hostile(
     }
 
     if !snapshot.target_alive {
+        state.noticed = false;
+        state.noticing = 0.0;
         // No prey: circle the roost, waypoint to waypoint, instead of parking on
         // its anchor (MEASURED: a parrot at 0% moving for a whole fight).
         state.mode = CharacterAiMode::Patrol;
@@ -1532,6 +1548,18 @@ fn tick_aerial_hostile(
             cfg.cruise_speed,
             snapshot,
         );
+        return;
+    }
+
+    // NOTICE: on first sight of its foe it hangs where it is, facing it, a
+    // beat before it climbs to stalk.
+    if !state.noticed {
+        state.noticed = true;
+        state.noticing = cfg.notice_s;
+    }
+    if state.noticing > 0.0 {
+        state.noticing = (state.noticing - snapshot.dt).max(0.0);
+        state.mode = CharacterAiMode::Chase;
         return;
     }
 

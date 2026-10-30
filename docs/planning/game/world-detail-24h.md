@@ -60,6 +60,15 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Science: GNU-ton's orchard and its apples** (f95faa58a, d3cd43b08):
+  the orchard's trees show what its up fields do (apples falling up to the
+  ceiling; a tree hanging from the vault over the chasm; the swinging
+  field's rail; crates stencilled THIS WAY UP both ways). Jon: "add the bad
+  / gravity apples as enemies in this region ... light on enemies": one Bad
+  Apple (glares, rears back, rolls at you, sits dizzy) and two Gravity
+  Apples (hang with their orbits flaring, then drop), off every puzzle's
+  line. Gravity fields: left amber, right green (a2d7157be, Jon's ask).
+  Verified: the_gnu_ton_handle (14), the_gnu_ton_apples.
 - **Enemy patterns (Jon's shift, 10-30)**: the primeval trail's and Castle
   Godwin's enemies notice, keep their range, telegraph with held poses and
   charge, pounce or lunge; flyers hang before a dive; the crawling conscript,

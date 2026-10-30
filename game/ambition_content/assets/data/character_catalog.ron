@@ -1604,11 +1604,11 @@
                 attack_range: 60.0,
                 shares_sightings: true,
                 // The tell before its dive (Jon 2026-10-30: "telegraph, attack"): it hangs and squawks, then dives.
-                tactics: (dive_tell_s: 0.35),
+                tactics: (dive_tell_s: 0.35, notice_s: 0.3),
             )),
             max_health: Some(3),
             tags: ["pirate", "bird", "npc"],
-            cues: (tell: Some("enemy.parrot.tell"), swing: Some("enemy.flyer.attack_dive"), hit: Some("enemy.bird.hit")),
+            cues: (notice: Some("enemy.parrot.notice"), tell: Some("enemy.parrot.tell"), swing: Some("enemy.flyer.attack_dive"), hit: Some("enemy.bird.hit")),
             // SCAFFOLD exemplar. idle migrated from features::npcs (the
             // "parrot_cove" legacy pool, now keyed by catalog id).
             barks: (
@@ -4914,11 +4914,11 @@
                 attack_range: 60.0,
                 shares_sightings: false,
                 // The tell before its dive (Jon 2026-10-30: "telegraph, attack"): it hangs on silent wings, then drops.
-                tactics: (dive_tell_s: 0.5),
+                tactics: (dive_tell_s: 0.5, notice_s: 0.5),
             )),
             max_health: Some(4),
             tags: ["enemy", "bird", "minion"],
-            cues: (tell: Some("enemy.owl.tell"), swing: Some("enemy.owl.swing")),
+            cues: (notice: Some("enemy.owl.notice"), tell: Some("enemy.owl.tell"), swing: Some("enemy.owl.swing")),
         barks: (
             on_hit: ["Hoo!", "Noted: 'hostile'. Subclass of 'visitor'."],
             provoked: ["You are now an instance of 'prey'."],
@@ -5216,11 +5216,11 @@
                 attack_range: 60.0,
                 shares_sightings: false,
                 // The tell before its dive (Jon 2026-10-30: "telegraph, attack"): it circles, hangs, then comes down.
-                tactics: (dive_tell_s: 0.6),
+                tactics: (dive_tell_s: 0.6, notice_s: 0.5),
             )),
             max_health: Some(5),
             tags: ["enemy", "bird", "minion"],
-            cues: (tell: Some("enemy.vulture.tell"), swing: Some("enemy.vulture.swing"), hit: Some("enemy.vulture.hit")),
+            cues: (notice: Some("enemy.vulture.notice"), tell: Some("enemy.vulture.tell"), swing: Some("enemy.vulture.swing"), hit: Some("enemy.vulture.hit")),
         barks: (
             on_hit: ["Hsss.", "I can wait."],
             provoked: ["Your runway just ended."],
@@ -5853,11 +5853,11 @@
                 // It stabs and scuttles back out of reach.
                 retreat_after_swing_s: 0.7,
                 // It skitters in, strikes, skitters off; hit, it scurries away.
-                tactics: (lurk_px: 60.0, waits_its_turn: true, flinch_back_s: 0.5),
+                tactics: (lurk_px: 60.0, waits_its_turn: true, flinch_back_s: 0.5, notice_s: 0.4),
             )),
             max_health: Some(2),
             tags: ["enemy", "evil", "machine", "crawler"],
-            cues: (tell: Some("enemy.searchlight_crawler.tell"), swing: Some("enemy.searchlight_crawler.swing")),
+            cues: (notice: Some("enemy.searchlight_crawler.notice"), tell: Some("enemy.searchlight_crawler.tell"), swing: Some("enemy.searchlight_crawler.swing")),
         barks: (
             on_hit: ["*a sharp electronic squeal*"],
             idle: ["*servos tick*", "*the lamp hums*"],

@@ -13,6 +13,9 @@ from district_scenery import piece
 
 #: Room -> [(kind, frame x, frame y)], furthest back first.
 SCENERY = {
+    "eureka_gate_court": [
+        ("court_furniture", 520, 470),
+    ],
     "eureka_quad": [
         # The quad between them (`targets/props/eureka_quad_props.py`).
         ("quad_raised_walk", 16, 536),

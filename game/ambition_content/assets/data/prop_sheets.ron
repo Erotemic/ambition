@@ -294,6 +294,8 @@
     "volcano_east": (),
     // The orbital station's observation deck: its window.
     "obs_deck_window": (),
+    // Eureka's gate court.
+    "court_furniture": (),
     // The hall of the Shadow Clan (PvN).
     "shadow_dojo_hall": (),
     // Along the primeval trail.

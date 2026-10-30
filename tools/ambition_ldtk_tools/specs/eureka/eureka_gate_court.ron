@@ -12,6 +12,7 @@
     parallax_theme: "eureka",
     music_track: "a_possible_morning",
     entities: [
+        ( type: "Prop", px: [551, 482], size: [1049, 222], fields: ( name: "court_furniture_0", kind: "court_furniture" ) ),
         ( type: "Solid", px: [0, 704], size: [1600, 128], fields: ( name: "ground" ) ),
         ( type: "Solid", px: [0, 0], size: [16, 592], fields: ( name: "west_wall" ) ),
         ( type: "LoadingZone", px: [0, 608], size: [16, 96], fields: ( id: "court_west", name: "out to the Test Range", activation: "EdgeExit", target_room: "eureka_test_range", target_zone: "range_east", bidirectional: true ) ),

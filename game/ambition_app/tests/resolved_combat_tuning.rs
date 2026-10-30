@@ -156,6 +156,7 @@ fn a_declaration_wins_and_the_world_it_plays_over_is_untouched() {
         double_jump_cancel: None,
         hitlag: None,
         hitstun_locks_actions: None,
+        world_freezes_on_hit: None,
         hitstun_time: None,
         edge_cancel_recovery: None,
         special_turn: None,

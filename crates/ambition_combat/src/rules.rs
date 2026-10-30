@@ -420,6 +420,13 @@ pub struct CombatRules {
     /// is what makes a landed hit an advantage. See
     /// `crate::feel::Platformer2dFeelTuningMonolith::hitstun_locks_actions`.
     pub hitstun_locks_actions: Option<bool>,
+    /// Does a connect freeze the WORLD (`impact_hitstop`: the sim clock, for
+    /// every body in the match)? `None`/`true` is the engine's rule, the beat
+    /// of a hit in a game whose fights are one body against the room. `false`
+    /// is a platform fighter's: hitlag is per body (`hitlag`), the two bodies
+    /// in the exchange hold while the rest of the stage plays on — and the
+    /// clock ladder's ease never turns a freeze into a slow-motion dip.
+    pub world_freezes_on_hit: Option<bool>,
     /// Hitstun a reference-strength launch
     /// (`hit_response::STANDARD_LAUNCH_SPEED`) charges, in seconds; the stun
     /// scales with the launch from there. `None` keeps the world's
@@ -501,6 +508,8 @@ pub struct ResolvedCombatTuning {
     pub hitlag: ambition_platformer2d_core::hit_response::HitlagLaw,
     /// See [`CombatRules::hitstun_locks_actions`].
     pub hitstun_locks_actions: bool,
+    /// See [`CombatRules::world_freezes_on_hit`].
+    pub world_freezes_on_hit: bool,
     /// See [`CombatRules::hitstun_time`].
     pub hitstun_time: Option<f32>,
     /// See [`CombatRules::grab_hold_base_seconds`].
@@ -625,6 +634,7 @@ impl ResolvedCombatTuning {
         // law it becomes that law's ordinary freeze and a jab still reads weak.
         feel.hitlag_time = self.hitlag.reference_s(feel.hitlag_time);
         feel.hitstun_locks_actions = self.hitstun_locks_actions;
+        feel.world_freezes_on_hit = self.world_freezes_on_hit;
         if let Some(stun) = self.hitstun_time {
             feel.enemy_hitstun_time = stun;
             feel.boss_hitstun_time = stun;
@@ -758,6 +768,7 @@ impl ResolvedCombatTuning {
                 double_jump_cancel: rules.double_jump_cancel.unwrap_or(false),
                 hitlag: rules.hitlag.unwrap_or_default(),
                 hitstun_locks_actions: rules.hitstun_locks_actions.unwrap_or(false),
+                world_freezes_on_hit: rules.world_freezes_on_hit.unwrap_or(true),
                 hitstun_time: rules.hitstun_time.filter(|t| *t > 0.0),
                 strike_weight: None,
                 landing_lag: None,
@@ -820,6 +831,7 @@ impl ResolvedCombatTuning {
                 double_jump_cancel: false,
                 hitlag: ambition_platformer2d_core::hit_response::HitlagLaw::Scaled,
                 hitstun_locks_actions: false,
+                world_freezes_on_hit: true,
                 hitstun_time: None,
                 strike_weight: None,
                 landing_lag: None,
@@ -1067,6 +1079,7 @@ mod tests {
                 double_jump_cancel: None,
                 hitlag: None,
                 hitstun_locks_actions: None,
+                world_freezes_on_hit: None,
                 hitstun_time: None,
                 di_max_angle: 0.30,
                 knockback_growth: 0.0,
@@ -1119,6 +1132,7 @@ mod tests {
             double_jump_cancel: None,
             hitlag: None,
             hitstun_locks_actions: None,
+            world_freezes_on_hit: None,
             hitstun_time: None,
             di_max_angle: 0.30,
             knockback_growth: 0.0,
@@ -1170,6 +1184,7 @@ mod tests {
                 double_jump_cancel: false,
                 hitlag: ambition_platformer2d_core::hit_response::HitlagLaw::Scaled,
                 hitstun_locks_actions: false,
+                world_freezes_on_hit: true,
                 hitstun_time: None,
                 knockback_growth: 0.0,
                 downward_hit: DownwardHitStyle::Pogo,

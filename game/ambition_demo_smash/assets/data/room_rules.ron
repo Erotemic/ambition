@@ -174,6 +174,11 @@
         hitlag: Some(Affine(base_s: 0.1, per_damage_s: 0.010833334, max_s: 0.5)),
         // A struck fighter can DI and nothing else until the stun ends.
         hitstun_locks_actions: Some(true),
+        // Hitlag is per body here (the two bodies in the exchange hold); the
+        // world's clock does not stop for a connect. With the engine's world
+        // freeze on, the clock ladder eased every hit into a slow-motion dip
+        // (1.0 -> 0.67 over four frames) and fed the sim a frame-phased dt.
+        world_freezes_on_hit: Some(false),
         // Ultimate's 0.4 x knockback frames, at the reference launch on this
         // stage's scale (launch px/s / 810).
         hitstun_time: Some(0.185),

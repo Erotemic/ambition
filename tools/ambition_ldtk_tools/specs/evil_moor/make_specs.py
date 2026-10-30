@@ -21,6 +21,10 @@ since: its west exit is ADDED to it (and its wall opened), not regenerated.
   Tobias inside.
 - Beside the founder's plinth, a gate down to his crypt: a stair down a
   hole under the gate's porch (no door: the crypt is right under the moor).
+- Up the moor's watchtower and out of the top of the room, the Searchlight
+  Ridge over the moor and the allotments: its searchlights, a sentry hut,
+  and a gap at its west end to drop onto the allotments' greenhouse roof.
+  The allotments, the moor, the tower and the ridge are a loop.
 - Under the moor and the allotments, the catacombs: from the crypt's west
   end to a shaft up under Crabbe's plot (13) in the allotments. The moor,
   the crypt, the catacombs and the allotments are a loop (Jon, 2026-10-30:
@@ -73,6 +77,17 @@ CRYPT_SHAFT = (CRYPT_STAIR[0] - 800, CRYPT_STAIR[1] - 800)
 CATACOMBS = "evil_catacombs"
 CATACOMBS_AT, CATACOMBS_W = (-4160, 784), 2560
 PLOT_13 = (280, 344)
+#: Over the moor and the allotments, up the watchtower: the Searchlight
+#: Ridge. Its ground (G 480 to its foot, 560); the hole the watchtower comes
+#: up through (over the moor's x 1500..1620); the gap at its west end over
+#: the allotments' greenhouse (their x 470..850), a drop down onto its roof.
+RIDGE = "evil_searchlight_ridge"
+#: 64 of ground under its walk: a body that comes up from the moor arrives
+#: (92 over the room's foot) standing over the floor, on the hatch.
+RIDGE_AT, RIDGE_W, RIDGE_H, RIDGE_G = (-4000, -544), 3600, 544, 480
+RIDGE_TOWER = (3100, 3220)
+RIDGE_GAP = (70, 450)
+MOOR_TOWER_TOP = (1500, 1620)
 #: The sarcophagus (x0, x1, its lid, walked on).
 SARCOPHAGUS = (1100, 1300, 440)
 FOREST = "evil_gate_forest"
@@ -124,6 +139,10 @@ def moor():
         edge("moor_east", "back to the forest", W - WALL, FLOOR, FOREST, "forest_west"),
         start(MOOR, W - 200, FLOOR),
         *[ledge(f"tower_{i}", x0, y, x1 - x0) for i, (x0, x1, y) in enumerate(((1500, 1620, 560), (1540, 1660, 464), (1500, 1620, 368), (1520, 1680, 272)))],
+        # Over the top of the watchtower, out of the room: the ridge.
+        entity("LoadingZone", MOOR_TOWER_TOP[0], 0, MOOR_TOWER_TOP[1] - MOOR_TOWER_TOP[0], 16, id="moor_ridge",
+               name="up onto the Searchlight Ridge", activation="EdgeExit", target_room=RIDGE, target_zone="ridge_tower",
+               bidirectional=True),
         # His back, walked on: a still one-way platform with no picture (the
         # statue's art draws it), as the math town's cradle plinth.
         entity("MovingPlatform", 1890, 600, 300, 16, id="statue_back", name="statue_back", speed=0.0, visual="none", one_way=True),
@@ -153,6 +172,10 @@ def allotments():
         # down at its bottom.
         solid("ground_west", 0, FLOOR, PLOT_13[0], H - FLOOR),
         solid("ground_east", PLOT_13[1], FLOOR, w - PLOT_13[1], H - FLOOR),
+        # Over the greenhouse, the gap in the ridge: a drop down from it.
+        entity("LoadingZone", ALLOT_ROOF[0], 0, ALLOT_ROOF[1] - ALLOT_ROOF[0], 16, id="allot_ridge_drop",
+               name="under the ridge's gap", activation="EdgeExit", target_room=RIDGE, target_zone="ridge_gap",
+               bidirectional=True),
         entity("LoadingZone", PLOT_13[0], H - 16, PLOT_13[1] - PLOT_13[0], 16, id="allot_plot_13",
                name="down the hole in plot 13", activation="EdgeExit", target_room=CATACOMBS, target_zone="catacombs_up",
                bidirectional=True),
@@ -281,6 +304,42 @@ def crypt():
                        title="THE FOUNDER'S CRYPT", generator=GENERATOR)
 
 
+def ridge():
+    """High over the moor and the allotments: the Searchlight Ridge, up the
+    moor's watchtower. Its searchlights sweep the red sky; a sentry hut and
+    its sentries; a chest before the gap at the west end, where the ridge
+    has fallen away over the allotments' greenhouse: drop down onto its
+    roof (no way back up: a shortcut down)."""
+    w, h, g = RIDGE_W, RIDGE_H, RIDGE_G
+    t0, t1 = RIDGE_TOWER
+    g0, g1 = RIDGE_GAP
+    e = [
+        piece("ridge_west", 16, 0, name="ridge_west"),
+        piece("ridge_east", 1800, 0, name="ridge_east"),
+        solid("ground_west_end", 0, g + 40, g0, h - g - 40),
+        solid("ground", g1, g, t0 - g1, h - g),
+        solid("ground_east", t1, g, w - t1, h - g),
+        solid("west_wall", 0, 0, WALL, g + 40),
+        solid("east_wall", w - WALL, 0, WALL, g),
+        entity("LoadingZone", t0, h - 16, t1 - t0, 16, id="ridge_tower", name="down the watchtower to the moor",
+               activation="EdgeExit", target_room=MOOR, target_zone="moor_ridge", bidirectional=True),
+        entity("LoadingZone", g0, h - 16, g1 - g0, 16, id="ridge_gap", name="down through the gap to the allotments",
+               activation="EdgeExit", target_room=ALLOT, target_zone="allot_ridge_drop", bidirectional=True),
+        # The hatch at the watchtower's top: come up through it and stand on
+        # it; drop through it to go down.
+        ledge("tower_hatch", t0, g, t1 - t0),
+        start(RIDGE, t0 - 120, g),
+        entity("ChestSpawn", g1 + 160, g - 58, 76, 58, name="the sentry's thermos money", reward="currency:60"),
+        sign("ridge_sign", 2380, 240, "THE SEARCHLIGHT RIDGE: smile, you are always lit", 460),
+        sign("ridge_sign_gap", g1 + 40, 300, "MIND THE GAP (the gap minds you)", 320),
+        enemy(40, "npc_fascist_enforcer", 2500, g, 32, 72),
+        enemy(41, "npc_evil_attack_hound", 1900, g, 52, 50),
+        enemy(42, "npc_fascist_enforcer", 1300, g, 32, 72),
+    ]
+    return RIDGE, room(RIDGE, e, at=RIDGE_AT, size=(w, h), biome="evil_forest", music="oppressive_crush", bg="#3A0E0E",
+                       title="THE SEARCHLIGHT RIDGE", generator=GENERATOR)
+
+
 def catacombs():
     """Under the allotments and the moor: the old burial tunnels from the
     crypt's west end to a shaft up under Crabbe's plot, 13, in the
@@ -330,7 +389,7 @@ entities:
 def main(argv):
     paths = []
     # The inn first (it moves out of the catacombs' way), then the crypt.
-    for rid, text in (inn(), crypt(), catacombs(), bakery(), hamlet(), allotments(), moor()):
+    for rid, text in (inn(), crypt(), catacombs(), ridge(), bakery(), hamlet(), allotments(), moor()):
         path = HERE / f"{rid}.ron"
         path.write_text(text)
         print(path.relative_to(HERE.parents[1]))
@@ -347,7 +406,13 @@ def main(argv):
     for args in ((MOOR, "Climbable", 1, CRYPT_STAIR[0] + 16, FLOOR - 64, 32, H - FLOOR + 64),
                  (CRYPT, "Climbable", 1, CRYPT_SHAFT[0] + 16, 0, 32, CRYPT_FLOOR),
                  (CATACOMBS, "Climbable", 1, 56, 0, 32, CRYPT_FLOOR),
-                 (ALLOT, "Climbable", 1, PLOT_13[0] + 16, FLOOR - 64, 32, H - FLOOR + 64)):
+                 (ALLOT, "Climbable", 1, PLOT_13[0] + 16, FLOOR - 64, 32, H - FLOOR + 64),
+                 # The watchtower's top ladder, from its last landing (272) up
+                 # out of the moor: a climb, so the body comes up into the
+                 # ridge on its ladder, not falling back through the hole.
+                 (MOOR, "Climbable", 1, MOOR_TOWER_TOP[0] + 44, 0, 32, 272),
+                 # Up out of the hole the watchtower comes up through.
+                 (RIDGE, "Climbable", 1, RIDGE_TOWER[0] + 44, RIDGE_G - 80, 32, RIDGE_H - RIDGE_G + 80)):
         if code := paint(WORLD, *args):
             return code
     if code := add_entities(FOREST_EDGE_YAML, WORLD, HERE / "forest_edge.yaml", unless='"out to the moor"'):

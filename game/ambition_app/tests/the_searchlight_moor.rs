@@ -79,3 +79,15 @@ fn the_catacombs_join_the_crypt_to_the_allotments_under_plot_13() {
     go(&mut app, "evil_founders_crypt", Some("catacombs_east"));
     go(&mut app, "evil_catacombs", Some("crypt_west"));
 }
+
+/// The loop over the moor: the Searchlight Ridge, up the watchtower's top
+/// ladder and out of the moor; down again; and from its west end the drop
+/// through the gap onto the allotments' greenhouse roof.
+#[test]
+fn the_searchlight_ridge_runs_over_the_moor_and_drops_to_the_allotments() {
+    let mut app = a_session_in("evil_searchlight_ridge");
+    go(&mut app, MOOR, Some("ridge_tower"));
+    go(&mut app, "evil_searchlight_ridge", Some("moor_ridge"));
+    let mut app = a_session_in("evil_searchlight_ridge");
+    go(&mut app, "evil_castle_allotments", Some("ridge_gap"));
+}

@@ -306,6 +306,7 @@ mod the_pirate_port;
 mod the_ninja_village;
 mod the_eureka_tether;
 mod the_zeno_aqueduct;
+mod hylberts_hotel;
 mod the_gate_network;
 
 mod body_reaction_clocks;

@@ -225,4 +225,8 @@
     "math_zeno_reservoir": (),
     // The jungle: the Tyrant King's hall.
     "primeval_tyrant_hall_room": (),
+    // Hylbert's Hotel (Math).
+    "math_hotel_entrance": (),
+    "math_hotel_lobby_room": (),
+    "math_hotel_corridor_room": (),
 }

@@ -72,6 +72,10 @@ def check(path: Path) -> list[str]:
         seen.add((zid, z["target_zone"]))
         a, b = z["level"]["identifier"], other["level"]["identifier"]
         sa, sb = side(z), side(other)
+        # A room whose side leads into its own other side is a deliberate
+        # wrap (Hylbert's corridor), not a gap in the map.
+        if a == b and {sa, sb} in ({"left", "right"}, {"top", "bottom"}):
+            continue
         if {sa, sb} == {"left", "right"}:
             ok_edge = abs((z["x"] + (z["w"] if sa == "right" else 0)) - (other["x"] + (other["w"] if sb == "right" else 0))) <= 32
             dy = (z["y"] + z["h"]) - (other["y"] + other["h"])

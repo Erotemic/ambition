@@ -258,3 +258,39 @@ fn the_attack_hound_lunges_from_a_run() {
     let spring = (to - from.unwrap_or(to)).abs();
     assert!(spring > 120.0, "its lunge covers ground: {spring} px");
 }
+
+/// The failed prototype, coming in at a run, lurches (its running attack,
+/// `movesets/evil_failed_prototype.ron`): it rears back, then throws itself
+/// at the player across the floor.
+#[test]
+fn the_failed_prototype_lurches_from_a_run() {
+    const PROTO: &str = "lurching_prototype";
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let p = player_pos(sim.world_mut());
+    sim.spawn_enemy_character_at(
+        PROTO,
+        "Failed Prototype",
+        (p.x - 420.0, p.y),
+        (16.0, 20.0),
+        CharacterBrain::Custom("failed_prototype".to_string()),
+        "npc_evil_failed_prototype",
+    );
+    let (mut from, mut to, mut lurched) = (None, 0.0f32, false);
+    for _ in 0..900 {
+        sim.step(AgentAction::default());
+        let world = sim.world_mut();
+        let mut q = world.query::<(&FeatureId, &BodyKinematics, MeleeSwingQuery, Option<&ambition_platformer2d::combat::moveset::MovePlayback>)>();
+        let Some((_, kin, swing, playback)) = q.iter(world).find(|(id, ..)| id.as_str() == PROTO) else { continue };
+        let lurching = playback.is_some_and(|pb| pb.spec.id == "prototype_lurch");
+        if lurching && matches!(swing.swing().and_then(|swing| swing.phase()), Some(ambition_platformer2d::combat::AttackPhase::Active)) {
+            lurched = true;
+            from.get_or_insert(kin.pos.x);
+            to = kin.pos.x;
+        } else if lurched {
+            break;
+        }
+    }
+    assert!(lurched, "coming in at a run, the prototype lurched");
+    let leap = (to - from.unwrap_or(to)).abs();
+    assert!(leap > 110.0, "its lurch covers ground: {leap} px");
+}

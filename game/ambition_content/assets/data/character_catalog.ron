@@ -5497,7 +5497,7 @@
                 // A skittering pack: it hops after you onto a platform, bites and
                 // darts off, scatters when hit, and the pack takes turns.
                 navigates: true,
-                tactics: (lurk_px: 90.0, waits_its_turn: true, flinch_back_s: 0.3),
+                tactics: (notice_s: 0.5, lurk_px: 90.0, waits_its_turn: true, flinch_back_s: 0.3),
             )),
             max_health: Some(2),
             tags: ["enemy", "evil", "monster", "minion"],

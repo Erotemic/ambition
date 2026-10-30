@@ -7,7 +7,7 @@
 //! ## The file is POSITIONAL, and that is the interesting check
 //!
 //! `items.ron` is a `Vec<ItemMeta>` in grid order: slot index = `row * 6 + col`,
-//! index 0 is `PortalGun`, index 23 is `ReservedSlot`. The index IS the binding
+//! index 0 is `Fireball`, index 23 is `FieldSurvey`. The index IS the binding
 //! to the [`crate::Item`] discriminant — there is no key in the file tying a row
 //! to the item it re-authors.
 //!
@@ -104,6 +104,7 @@ fn declare(facet: &FacetSource<'_>, rows: &[ItemMeta], out: &mut FacetOutcome) {
     }
 
     let mut owners: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
+    let mut worn_owners: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
 
     for (index, row) in rows.iter().enumerate() {
         let dialog_id = row.dialog_id.trim();
@@ -194,6 +195,23 @@ fn declare(facet: &FacetSource<'_>, rows: &[ItemMeta], out: &mut FacetOutcome) {
             );
         }
 
+        // A stack of 0 is a slot the bag can never hold: every grant of it
+        // adds nothing, and the item is unreachable.
+        if row.stack == 0 {
+            out.report(
+                facet
+                    .diagnostic(
+                        DiagnosticCode::MalformedProviderBinding,
+                        format!("item `{dialog_id}` has `stack: 0`, so the bag can hold none of it"),
+                    )
+                    .about(id.clone())
+                    .at_field("stack")
+                    .fix("use 1 for a unique item, or the most the bag holds for a stack"),
+            );
+        }
+
+        declare_wears(facet, row, index, dialog_id, &id, &mut worn_owners, out);
+
         // `None` means "not equippable"; `Some("")` means somebody started
         // wiring one and stopped. The first is a decision, the second is a
         // half-edit that equips nothing and reports nothing.
@@ -213,6 +231,72 @@ fn declare(facet: &FacetSource<'_>, rows: &[ItemMeta], out: &mut FacetOutcome) {
                     .fix("name the HeldItem it grants, or use `None` to say it grants nothing"),
             );
         }
+    }
+}
+
+/// Check how a row is WORN. Only an ability is worn, and a worn ability is
+/// not also held: the two are different ways to equip, and one item is one of
+/// them. Two items that wear one row id would make one row equip two cells.
+fn declare_wears<'a>(
+    facet: &FacetSource<'_>,
+    row: &'a ItemMeta,
+    index: usize,
+    dialog_id: &str,
+    id: &ContentId,
+    worn_owners: &mut std::collections::BTreeMap<&'a str, usize>,
+    out: &mut FacetOutcome,
+) {
+    let is_ability = row.category == crate::ItemCategory::Ability;
+    if !is_ability && row.wears.is_some() {
+        out.report(
+            facet
+                .diagnostic(
+                    DiagnosticCode::MalformedProviderBinding,
+                    format!("item `{dialog_id}` is not an Ability, and it names a `wears` row"),
+                )
+                .about(id.clone())
+                .at_field("wears")
+                .fix("only an ability is worn: make it an Ability, or remove `wears`"),
+        );
+    }
+    if is_ability && row.held_item_id.is_some() {
+        out.report(
+            facet
+                .diagnostic(
+                    DiagnosticCode::MalformedProviderBinding,
+                    format!("ability `{dialog_id}` names a `held_item_id`"),
+                )
+                .about(id.clone())
+                .at_field("held_item_id")
+                .fix("an ability is worn, not held: name its row in `wears`, or make the item Held"),
+        );
+    }
+    let Some(worn) = row.wears.as_ref() else {
+        return;
+    };
+    if worn.id.trim().is_empty() {
+        out.report(
+            facet
+                .diagnostic(
+                    DiagnosticCode::MalformedProviderBinding,
+                    format!("ability `{dialog_id}` wears a row with an empty `id`"),
+                )
+                .about(id.clone())
+                .at_field("wears"),
+        );
+        return;
+    }
+    if let Some(first) = worn_owners.insert(worn.id.as_str(), index) {
+        out.report(
+            facet
+                .diagnostic(
+                    DiagnosticCode::ConflictingModuleContribution,
+                    format!("grid slots {first} and {index} both wear the row `{}`", worn.id),
+                )
+                .about(id.clone())
+                .at_field("wears")
+                .fix("give each ability its own row id: the worn id is how a body says which ability it has"),
+        );
     }
 }
 

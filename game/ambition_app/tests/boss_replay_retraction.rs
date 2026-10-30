@@ -289,7 +289,7 @@ fn a_replay_takes_back_the_ability_the_retracted_defeat_granted() {
             script_id: "clockwork_warden".to_string(),
         },
     );
-    let before = (owns(sim.world_mut(), Item::MarkRecall), owns(sim.world_mut(), Item::Blink),
+    let before = (owns(sim.world_mut(), Item::MarkRecall), owns(sim.world_mut(), Item::EyeLaser),
     );
     kill_boss_with_a_real_hit(&mut sim, "ability_giver", 600);
     until_cleared(&mut sim, "ability_giver");
@@ -314,9 +314,9 @@ fn a_replay_takes_back_the_ability_the_retracted_defeat_granted() {
     }
     replay(&mut sim);
     assert_eq!(
-        (before, granted, (owns(sim.world_mut(), Item::MarkRecall), owns(sim.world_mut(), Item::Blink))),
+        (before, granted, (owns(sim.world_mut(), Item::MarkRecall), owns(sim.world_mut(), Item::EyeLaser))),
         ((0, 1), 1, (0, 1)),
-        "((markrecall, blink) before, markrecall picked up, (markrecall, blink) after the replay)"
+        "((markrecall, eye laser) before, markrecall picked up, (markrecall, eye laser) after the replay)"
     );
 }
 

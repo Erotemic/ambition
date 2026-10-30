@@ -771,7 +771,7 @@
     // Phase 2 adds the noodlings; Enrage chains the dive into the pulse.
     "flying_spaghetti_monster_boss": (
         id: "flying_spaghetti_monster_boss",
-        reward_ability: Some("blink"),
+        reward_ability: Some("eyelaser"),
         // The BELL: the noodles hanging below it are not body (they sting).
         combat_size: Some((190.0, 88.0)),
         // The conductor owns its flight (`PoseOwnedExternally`), so it names

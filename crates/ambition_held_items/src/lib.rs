@@ -497,6 +497,47 @@ pub struct SettledItem {
     pub impact_speed: f32,
 }
 
+/// HOW A LOOSE ITEM MOVES: its weight, and how it meets a surface.
+///
+/// An item without this component falls at [`GROUND_ITEM_GRAVITY`] and stops
+/// dead where a surface stops it. An item with it falls at `gravity_scale` of
+/// that, and bounces off each surface: it keeps `bounce` of its speed into
+/// the surface (back out of it) and `slide` of its speed along the surface. It
+/// settles when it meets a floor and leaves it slower than `rest_speed`.
+///
+/// The domain that owns the item gives it this component before the item's
+/// first step, and gives it again each tick it is missing (the bomb:
+/// `ambition_abilities::ranged::bomb::weigh_bombs`). So it is a property
+/// of the item, derived before each step, and not rollback state.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct ItemBody {
+    /// Gravity on the item, as a multiple of [`GROUND_ITEM_GRAVITY`].
+    pub gravity_scale: f32,
+    /// The part of the speed into a surface that the item keeps, back out of
+    /// the surface. `0` stops it on the surface.
+    pub bounce: f32,
+    /// The part of the speed along a surface that the item keeps at each
+    /// contact with it.
+    pub slide: f32,
+    /// Below this speed, an item that meets a floor settles on it, px/s.
+    pub rest_speed: f32,
+}
+
+/// THIS ITEM MET THE COLLISION WORLD THIS TICK AND BOUNCED, and how fast it
+/// went into the surface.
+///
+/// The surface twin of [`ItemStruckBody`]. Only an item with an [`ItemBody`]
+/// bounces, so only such an item has it. It is the speed INTO the surface
+/// (the part of the velocity along the surface normal): a bomb that skids
+/// along a floor did not strike it.
+///
+/// ⛔ REPUBLISHED EVERY TICK by [`ground_item_physics`], as `ItemStruckBody`
+/// is, so a consumer reads this tick's contact and never a stale one.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct ItemStruckSurface {
+    pub impact_speed: f32,
+}
+
 /// Wake a settled item whose support has gone away.
 ///
 /// ⛔⛔ SETTLING WAS PERMANENT. `ground_item_physics` skips `Without<SettledItem>`
@@ -533,10 +574,15 @@ pub fn carry_or_wake_settled_items(
     mut commands: Commands,
     world: ambition_platformer2d_world::collision::CollisionWorld,
     live: LiveRooms,
-    mut settled: Query<(Entity, &mut GroundItem, &ItemCustody), With<SettledItem>>,
+    mut settled: Query<(Entity, &mut GroundItem, &ItemCustody, Has<ItemStruckSurface>), With<SettledItem>>,
 ) {
     let solids = SolidsByRoom::build(&world, settled.iter().map(|(entity, ..)| live.of(entity)));
-    for (entity, mut item, custody) in &mut settled {
+    for (entity, mut item, custody, struck_surface) in &mut settled {
+        // The strike of the tick it settled on is over: the physics step,
+        // which republishes it, does not step a settled item.
+        if struck_surface {
+            commands.entity(entity).remove::<ItemStruckSurface>();
+        }
         if !custody.in_world() {
             continue;
         }
@@ -594,7 +640,10 @@ pub fn ground_item_physics(
     live: LiveRooms,
     gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
     mut commands: Commands,
-    mut grounds: Query<(Entity, &mut GroundItem, &ItemCustody), Without<SettledItem>>,
+    mut grounds: Query<
+        (Entity, &mut GroundItem, &ItemCustody, Option<&ItemBody>, Has<ItemStruckSurface>),
+        Without<SettledItem>,
+    >,
     // ⭐⭐ THE OTHER CONTACT POPULATION. A thrown item's world is not only the
     // collision world: it is also full of BODIES, and Jon's rule for a live bomb
     // is *"4 seconds or if it hits something with enough velocity, whichever
@@ -633,7 +682,7 @@ pub fn ground_item_physics(
     // Thrown / dropped items are free bodies that integrate through the shared
     // world-forces seam. Gravity is resolved per item by position, so an item
     // thrown into a gravity column falls the column's way (localized).
-    for (entity, mut item, custody) in &mut grounds {
+    for (entity, mut item, custody, body, had_surface_strike) in &mut grounds {
         // A carried item has no independent motion — it is not in the world to
         // fall through. Checked on custody rather than inferred from `vel ==
         // ZERO`, because "resting" and "in a hand" are different states that
@@ -655,22 +704,29 @@ pub fn ground_item_physics(
         };
         ambition_platformer2d_shared_tangle::gravity::apply_world_forces(
             &mut item.vel,
-            GROUND_ITEM_GRAVITY,
+            GROUND_ITEM_GRAVITY * body.map_or(1.0, |body| body.gravity_scale),
             &local,
             dt,
         );
         let next = item.pos + item.vel * dt;
-        let next_aabb = ae::Aabb::new(next, item.half_extent);
-        let blocked = world.blocks.iter().any(|block| {
-            ae::collision_semantics::is_support_surface(block.kind)
-                && next_aabb.strict_intersects(block.aabb)
-        });
         // Out of the world rectangle on ANY side (not just world-down) — so an
         // item that flies off the side under a gravity flip parks too.
         let outside_world = next.y > world.size.y + 200.0
             || next.y < -200.0
             || next.x > world.size.x + 200.0
             || next.x < -200.0;
+        // An item with a body bounces off what it meets (`ItemBody`); any
+        // other item stops dead against it.
+        let bounced = body
+            .filter(|_| !outside_world)
+            .map(|body| bounce_step(&world, item.pos, item.vel, item.half_extent, local.dir, dt, *body));
+        let blocked = bounced.is_none() && {
+            let next_aabb = ae::Aabb::new(next, item.half_extent);
+            world.blocks.iter().any(|block| {
+                ae::collision_semantics::is_support_surface(block.kind)
+                    && next_aabb.strict_intersects(block.aabb)
+            })
+        };
         // ⛔⛔ A NEWLY ENTERED OVERLAP, NOT AN OVERLAP. A thrown item leaves a
         // HAND, so on its first free tick it is standing inside the thrower and
         // an "is it touching a body" test settles it before it has travelled a
@@ -694,7 +750,11 @@ pub fn ground_item_physics(
         // item stays where it is this tick, so it swept nothing; sweeping the
         // unblocked projection reached through the wall that stopped it.
         let parks = blocked || outside_world;
-        let end = if parks { item.pos } else { next };
+        let end = match &bounced {
+            Some(bounce) => bounce.end,
+            None if parks => item.pos,
+            None => next,
+        };
         let travelled = end - item.pos;
         let entered_now = |at: ae::Aabb, entity: Entity| {
             bodies
@@ -743,7 +803,24 @@ pub fn ground_item_physics(
                 commands.entity(entity).remove::<ItemStruckBody>();
             }
         }
-        if parks {
+        if let Some(bounce) = bounced {
+            // The surface it struck, republished every tick like the body.
+            if bounce.struck > 0.0 {
+                commands.entity(entity).try_insert(ItemStruckSurface {
+                    impact_speed: bounce.struck,
+                });
+            } else if had_surface_strike {
+                commands.entity(entity).remove::<ItemStruckSurface>();
+            }
+            item.step = (bounce.end != item.pos).then_some((item.pos, bounce.end));
+            item.pos = bounce.end;
+            item.vel = bounce.vel;
+            if bounce.settles {
+                commands.entity(entity).try_insert(SettledItem {
+                    impact_speed: bounce.struck,
+                });
+            }
+        } else if parks {
             // Settle in place (simple — no slide), and SAY SO: the marker is
             // what stops this item being stepped again, replacing the
             // `vel == ZERO` reading that could not tell rest from release.
@@ -759,6 +836,68 @@ pub fn ground_item_physics(
             item.step = Some((item.pos, next));
             item.pos = next;
         }
+    }
+}
+
+/// One step of an item with an [`ItemBody`]: where it ends, how fast it
+/// leaves, the speed it went into the surfaces it struck (`0` for none), and
+/// whether it settles.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Bounce {
+    end: Vec2,
+    vel: Vec2,
+    struck: f32,
+    settles: bool,
+}
+
+/// Move a bouncing item through one step, one world axis at a time.
+///
+/// A move along an axis that a surface blocks does not happen: the item keeps
+/// `bounce` of its speed into the surface, turned back out of it, and `slide`
+/// of its speed along the surface. A full collision surface blocks both axes.
+/// A one-way surface blocks only a fall onto it from outside it
+/// (`is_solid_for_axis` and the landing rule). The item settles when it met a
+/// floor (a surface it fell onto) and leaves slower than `rest_speed`.
+///
+/// Axis by axis, so a corner is two contacts, and a throw into a wall keeps
+/// its fall.
+fn bounce_step(world: &ae::World, from: Vec2, vel: Vec2, half: Vec2, down: Vec2, dt: f32, body: ItemBody) -> Bounce {
+    use ae::collision_semantics::{axis_role, is_full_collision_surface, Axis, AxisRole};
+    let mut pos = from;
+    let mut vel = vel;
+    let mut struck = 0.0f32;
+    let mut floored = false;
+    for (axis, along) in [(Axis::X, Vec2::X), (Axis::Y, Vec2::Y)] {
+        let delta = along * (vel.dot(along) * dt);
+        if delta == Vec2::ZERO {
+            continue;
+        }
+        let here = ae::Aabb::new(pos, half);
+        let there = ae::Aabb::new(pos + delta, half);
+        let onto_floor = axis_role(axis, down) == AxisRole::Gravity && delta.dot(down) > 0.0;
+        let blocked = world.blocks.iter().any(|block| {
+            there.strict_intersects(block.aabb)
+                && (is_full_collision_surface(block.kind)
+                    || (matches!(block.kind, ae::BlockKind::OneWay)
+                        && onto_floor
+                        && !here.strict_intersects(block.aabb)))
+        });
+        if !blocked {
+            pos += delta;
+            continue;
+        }
+        let into = vel.dot(along);
+        struck = struck.max(into.abs());
+        floored |= onto_floor;
+        let tangent = vel - along * into;
+        vel = tangent * body.slide - along * (into * body.bounce);
+    }
+    let settles = floored && vel.length() < body.rest_speed;
+    Bounce {
+        end: pos,
+        vel: if settles { Vec2::ZERO } else { vel },
+        struck,
+        settles,
     }
 }
 
@@ -1735,6 +1874,14 @@ pub fn throw_held_item_system(
         // resolved from the SPEC's id, the same way `unequip_held` finds the slot
         // it clears — a held spec that answers to no catalog Item was never a
         // quantity and has no row to spend.
+        //
+        // ⭐ AND A STOCK RE-ARMS THE HAND. A throw of one item from a stack in
+        // the bag (a bomb) leaves the hand with the next one while the bag
+        // holds more. The hand holds a quantity of the bag, not one more item,
+        // so the next throw spends the next one. A drop lets go of the stock:
+        // the hand empties. An object picked up off the floor is not the bag's
+        // (it returned above), so its throw spends nothing and re-arms nothing.
+        let mut rearm = false;
         if let (Some(owned), Some(item)) = (
             owned.as_deref_mut(),
             items.get().item_by_held_item_id(spec.id.as_str()),
@@ -1748,6 +1895,10 @@ pub fn throw_held_item_system(
                     object: object.clone(),
                 });
             }
+            rearm = release == Release::Throw && spent > 0 && owned.count(item) > 0;
+        }
+        if rearm {
+            equip_held_spec(&mut commands, player, &mut repertoire, spec.clone());
         }
         let mut thrown = commands.spawn_room_in_session(
             scope,

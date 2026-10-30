@@ -138,12 +138,14 @@ def ensure_world(world: Path, uid_offset: int) -> int:
     return code
 
 
-def make_rooms(world: Path, specs: list[Path]) -> int:
+def make_rooms(world: Path, specs: list[Path], keep_position: bool = False) -> int:
     """Make each room again from its spec. Each room's doors name the other
     rooms, so the world is whole only after the last one: until then it is
-    enough that each was written."""
+    enough that each was written. `keep_position`: a room that exists stays
+    where the LDtk editor has it (`area create --keep-position`)."""
+    keep = ["--keep-position"] if keep_position else []
     for path in specs:
-        code, out = run("area", "create", str(path), "--ldtk", str(world), "--replace-existing")
+        code, out = run("area", "create", str(path), "--ldtk", str(world), "--replace-existing", *keep)
         if code != 0 and "wrote new level" not in out and "replaced level" not in out:
             return code
     return 0

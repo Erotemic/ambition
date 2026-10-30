@@ -126,8 +126,9 @@ pub fn region(rooms: &[MapRoomNode], start: usize) -> Vec<usize> {
 /// the map.
 ///
 /// Fog of war: a visited room is drawn; an unvisited room an edge exit leads
-/// to from a visited one is drawn as not yet visited; the rest of the region
-/// is not drawn. The current room counts as visited.
+/// to from a visited one is drawn as not yet visited, unless the only ways to
+/// it are secret (`MapRoomNode::secret_exits`); the rest of the region is not
+/// drawn. The current room counts as visited.
 pub fn map_view(state: &MapMenuState, current: &str, aspect: f32) -> Option<MapView> {
     let rooms = &state.rooms;
     let here = find(rooms, current)?;
@@ -151,8 +152,12 @@ pub fn map_view(state: &MapMenuState, current: &str, aspect: f32) -> Option<MapV
         }
     }
     let visited = |i: usize| i == here || i == anchor || state.visited.contains(&rooms[i].id) || state.visited.contains(&rooms[i].area);
-    // An edge exit joins both ways, whichever side names it.
-    let names = |from: usize, to: usize| rooms[from].edge_exits.iter().any(|t| *t == rooms[to].id || *t == rooms[to].area);
+    // An edge exit joins both ways, whichever side names it. An open way is
+    // one that is not secret.
+    let is = |t: &String, to: usize| *t == rooms[to].id || *t == rooms[to].area;
+    let names = |from: usize, to: usize| {
+        rooms[from].edge_exits.iter().any(|t| is(t, to)) && !rooms[from].secret_exits.iter().any(|t| is(t, to))
+    };
     let shown: Vec<usize> = region_rooms
         .iter()
         .copied()
@@ -229,6 +234,30 @@ pub fn map_view(state: &MapMenuState, current: &str, aspect: f32) -> Option<MapV
         })
         .collect();
     Some(MapView { here_title, inside, rooms: view_rooms, doors, marked_door, pins, aspect, beyond })
+}
+
+/// The name a map writes in a room for its `title`. A title is a name and,
+/// after a colon, more: a subtitle ("THE ORCHARD: HERE AN APPLE FALLS UP"),
+/// or the room's own name under its place's ("Castle Godwin: the
+/// gatehouse.", "THE PIRATE PORT: THE GATE PLAZA"). A short part after the
+/// colon that starts with "the" is the room's name; otherwise the part before
+/// it is. A leading "the" and a closing full stop are dropped, and the name
+/// starts with a capital.
+pub fn map_label(title: &str) -> String {
+    let (before, after) = match title.split_once(": ") {
+        Some((before, after)) => (before, Some(after)),
+        None => (title, None),
+    };
+    let name = match after {
+        Some(after) if after.to_lowercase().starts_with("the ") && after.split_whitespace().count() <= 4 => after,
+        _ => before,
+    };
+    let name = name.trim().trim_end_matches('.');
+    let lower = name.to_lowercase();
+    let name = if lower.starts_with("the ") { &name[4..] } else { name };
+    // A name taken from mid-sentence ("the gatehouse") starts with a capital.
+    let mut chars = name.chars();
+    chars.next().map(|c| c.to_uppercase().chain(chars).collect()).unwrap_or_default()
 }
 
 /// A readable name for a room with no title of its own: its id, words

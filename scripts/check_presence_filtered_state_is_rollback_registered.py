@@ -104,6 +104,22 @@ MIN_INTERSECTION = 5
 #: says right before it is wrong about one member. A name here is a READING: it
 #: says this component's presence is not authoritative over rewinding state.
 WAIVERS = {
+    # Stocked bombs, 2026-10-30. Both are derived in the sim tick before any
+    # read, so a rewind cannot restore a wrong one.
+    "ItemBody": (
+        "a loose item's weight and bounce, a constant of the item (the bomb: "
+        "`BOMB_BODY`). `weigh_bombs` (`HeldItemStep::Settle`) gives it to each "
+        "bomb that has none, before `ground_item_physics` (`HeldItemStep::Physics`) "
+        "reads it as `Option<&ItemBody>`; so a recreated bomb is weighed again "
+        "before its first step"
+    ),
+    "ItemStruckSurface": (
+        "this tick's surface strike. `ground_item_physics` (`HeldItemStep::Physics`) "
+        "inserts or removes it for each item it steps, every tick; "
+        "`carry_or_wake_settled_items` (`HeldItemStep::Settle`, before it) only "
+        "REMOVES it from a settled item; `tick_bomb_fuses` reads it after the "
+        "physics step. No read sees a value from before a rewind"
+    ),
     "GateTerminalRoot": "gate panel layout, read by drive_gate_terminal and draw_gate_terminal in Update",
     "DialBackButton": "gate panel Interaction, read by drive_gate_terminal in Update",
     "RoomLookOverlay": "room-look Visibility, read by spread_room_states in Update",

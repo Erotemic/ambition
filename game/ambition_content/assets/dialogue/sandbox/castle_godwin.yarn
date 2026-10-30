@@ -24,6 +24,23 @@ Mrs Hargreave: Wipe your feet. I do not care whose side you are on, you are not 
 -> I will get out of your way.
 ===
 
+title: castle_quill
+---
+Ambrose Quill: Oh, a visitor who isn't a guard. Mind the heap; it's thirty years of suggestions and I'm halfway through filing them.
+-> What are you in for?
+    Ambrose Quill: A strongly worded letter. To the Castle, about the drains. Third paragraph, the word "frankly". They came that afternoon.
+    Ambrose Quill: That was thirty years ago. The drains are still bad. I was right, which I gather made it worse.
+-> Why is your cell open?
+    Ambrose Quill: Good behaviour. I'm the trusty. I'm trusted to stay. Where would I go? Up the tower? Through the kitchens? Everyone's very nice in the kitchens, mind.
+-> What comes down the chute?
+    Ambrose Quill: Every suggestion from the box in the Complaints Department. It goes straight down here. I read them all. Nobody else does.
+    Ambrose Quill: Most of them are about the drains.
+-> What's the lever by the desk?
+    Ambrose Quill: The trapdoor up to the barracks. The guards used to drop the complainers straight in. Pull it if you like. I never have. I'm trusted.
+-> I'll leave you to it.
+    Ambrose Quill: Do write. Not to the Castle. To me. I'll file it with the good ones.
+===
+
 title: castle_osgood
 ---
 Osgood: Name? Purpose of visit? Never mind, write "hero" like the others. The book needs a name, not a truth.

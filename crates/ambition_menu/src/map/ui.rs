@@ -501,9 +501,9 @@ fn compute_canvas_visuals(
                 font_size: 10.0,
             }),
             MapLabelStyle::Full => {
-                // The room's name, without a subtitle after a colon.
+                // The room's name (`view::map_label`).
                 let text = if size.x >= 80.0 {
-                    room.title.split(": ").next().unwrap_or(&room.title).to_string()
+                    super::view::map_label(&room.title)
                 } else {
                     short_room_label(&room.id)
                 };

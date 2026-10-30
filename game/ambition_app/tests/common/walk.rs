@@ -348,6 +348,11 @@ pub fn walk_to(walker: &mut impl Walker, at: ae::Vec2) -> Result<usize, String> 
 fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Vec2, exit: Option<Exit<'_>>) -> Result<usize, String> {
     let from = the_players_room_id(walker.world(), player);
     let mut leg: Option<(NavLeg, LegPhase)> = None;
+    // Arrived at an edge exit: the body walks on into it and does not turn
+    // back to the goal. Past the end of a floor into a hole below, the body
+    // that overhangs the edge is on no surface of the graph, and asking the
+    // graph again sent it back to the goal: it rocked at the edge for good.
+    let mut into_the_exit = false;
     for step in 0..FRAMES_FOR_A_ROOM {
         if exit.as_ref().is_some_and(|exit| the_players_room_id(walker.world(), player) == exit.target) {
             return Ok(step);
@@ -378,6 +383,13 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
             walker.step(press);
             continue;
         }
+        if into_the_exit && on_ground {
+            if let Some(exit) = &exit {
+                press.axis = (exit.zone.center() - feet).dot(graph.frame.side).signum();
+                walker.step(press);
+                continue;
+            }
+        }
         if leg.is_none() && on_ground {
             match graph.next(feet, goal) {
                 // At the exit. A door takes a fresh press of Interact. An edge
@@ -389,6 +401,7 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
                         press.interact = exit.door && step % 10 < 2;
                         if !exit.door {
                             press.axis = (exit.zone.center() - feet).dot(graph.frame.side).signum();
+                            into_the_exit = true;
                         }
                     }
                     None => return Ok(step),

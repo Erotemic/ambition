@@ -32,12 +32,14 @@ pub mod slow;
 pub mod special;
 pub mod status;
 pub mod targets;
+pub mod technique;
 pub mod think;
 pub mod wielded;
 pub use blast::{Blast, BlastPort, CreditPort};
 pub use force::{GravityWell, HeldForce, HeldForcePort};
 pub use reaction::{AnswerParry, AnswerParryPort, Parried, ParriedPort, Struck, StruckPort};
 pub use targets::{Foe, Foes, FoesPort};
+pub use technique::{TechniqueUse, TechniqueUsePort};
 pub use status::{
     HoldStatus, HoldStatusPort, InPlayPort, StatusClock, StatusClockPort, StatusTick, StatusTickPort, TimeScale,
     TimeScalePort,

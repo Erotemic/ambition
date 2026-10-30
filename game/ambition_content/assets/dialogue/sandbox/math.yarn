@@ -313,6 +313,20 @@ Brother Lucas: Welcome to the Tower. Mind the disks; they're gold and they're co
     Brother Lucas: Thank you. I'll get back to it presently. Presently is a very long word here.
 ===
 
+title: meadow_fibbs
+---
+Farmer Fibbs: Mind the plots. Each one is the last two put together, and they don't like being stepped on any more than they like being counted.
+-> How many rabbits do you have?
+    Farmer Fibbs: This month? Last month's, plus the month before's. Started with a pair. Never sold one. Never will catch up.
+    Farmer Fibbs: The sixth hutch burst at eight. I'm building a thirteen. Then a twenty-one. I've stopped building and started fencing.
+-> Why are the plots square?
+    Farmer Fibbs: One, one, two, three, five, eight. Lay them side by side and draw a quarter-circle in each and you get a spiral, if you squint, and unroll it. My grandmother did it in a ring. Took the whole valley.
+-> What about the sunflowers?
+    Farmer Fibbs: Seeds go in at the golden angle. Not my doing; they do it themselves. I asked one why once. It looked at me with about four hundred faces.
+-> And the mites?
+    Farmer Fibbs: They divide. Everything else here adds. They're the wrong kind of growth entirely. Mind your ankles past the hutch.
+===
+
 title: woods_ivo
 ---
 Ivo: Careful on the path. It's a lot longer than it looks, if you look closely.

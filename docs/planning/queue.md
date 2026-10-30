@@ -1396,7 +1396,7 @@ row starts with a failing production-path witness.
    (`ambition_extension_host::InvocationId`) and a `Settle` step before
    `Lower`. `ambition.resources.spend_mana` and
    `ambition.abilities.movement_cooldown` are costs
-   (`install_extension_cost`). `settle_wielded_costs` pays each invocation's
+   (`install_extension_cost`). `settle_costs` (named `settle_wielded_costs` then) pays each invocation's
    costs together, in invocation order, or refuses the whole invocation
    (`ExtensionOutbox::refuse_invocation`). A cooldown armed this tick by an
    earlier invocation runs for a later one. Witness:

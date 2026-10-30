@@ -21,7 +21,11 @@ handles, so an accepted bank change can update the runtime without a Rust build.
 Missing audio does not stop the game. Without the generated music registry,
 Ambition's pack compiles with an `ungenerated-source` warning, registers no
 music, and plays no music. Without the SFX bank, the bank load fails with a
-logged error and the bank cues are silent. The SFX registry is authored
+logged error and the bank cues are silent. A music registry that is older
+than the world (a room, encounter or boss names a track that was added after
+the last music render) is also not an error: startup writes one
+`content validation warning` that lists each such reference, and those rooms
+play no music. The SFX registry is authored
 (`authored/runtime/audio/sfx_registry.ron`), so it is always present. To see
 what is missing without a build:
 

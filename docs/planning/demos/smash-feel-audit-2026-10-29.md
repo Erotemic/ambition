@@ -545,6 +545,43 @@ this: Jon's eye on the bubble's size and look, and a human pass on the
 rates (4 Hz both ways is a first value; Melee's per-frame fractions are in a
 binary table nobody has read).
 
+#### Camera, Melee's model (2026-10-30; Jon: "focus on getting the camera to feel right")
+
+Correctness (VERIFIED, dc67aeb0f): the follow-the-controlled-subject
+override ran after the cast arm and centred a human's match frame on the
+human's fighter (2 fighters: (1251, 1980) against the pair's (1300,
+1930)). It now runs only without a declared cast; a witness frames 2, 3
+and 4 fighters identically with a human seat or none.
+
+Model (24fb3b14a, `cm/camera.c` lines 388–784 as the reference): each
+member asks for its body padded by `margin × margin_by_count[n]` (Smash
+1.14 / 1.0 / 0.88 / 0.76, Melee's 1.5 / 1.32 / 1.16 / 1.0 relative to the
+duel), each stopped at the camera box; `floor_share` of the view is kept
+below the cast (Melee lowers the bottom with distance); the centre
+follows at `pan_hz` and the size at `zoom_out_hz` / `zoom_in_hz`. Before,
+the box's four edges eased at 4 Hz and the follow camera eased the centre
+again at 8 Hz (two cascaded lags). The body-visibility floor and the
+discontinuity cap are kept.
+
+| `camera_scenarios` (synthetic, deterministic) | before | after |
+|---|---|---|
+| view width, clustered 2 / 3 / 4 | 336 / 336 / 336 | 312 / 292 / 271 |
+| view width, same outer pair 2 / 3 / 4 | 521 / 521 / 521 | 521 / 511 / 502 |
+| centre error: cluster / travel / knockout | 3.1% / 4.3% / 8.5% | 1.4% / 1.5% / 4.1% |
+| pan settle after the cast stops | 0.75 s | 0.35 s |
+| launch zoom reversals | 2 | 1 |
+| converge (4) settle | 0 s | 1.13 s (zoom-in deliberately slower) |
+| bodies cut off inside the camera box | 0 | 0 |
+
+Real matches (`smash_cpu_report match-report --camera --also ID`, polygons,
+rung 5, 2 seeds × 30 s): median view 536–550 / 562–619 / 766–831 px for
+2 / 3 / 4 fighters; fighter height 0.22–0.23 / 0.19–0.21 / 0.14–0.16 of the
+view; cut-offs inside the box 0.0–1.1% of body-ticks, every sampled one a
+body falling out through the box's bottom edge. SUBJECTIVE, for Jon's play
+pass: pan 6 Hz, open 6 Hz, close 2.5 Hz, floor share 0.15, the count
+factors. Not done: facing-dependent front/back extents (no evidence yet
+that they would read better).
+
 ### Found on the way: the sim's dt is not a sim fact (2026-10-30, CPU lane)
 
 MEASURED (8 fresh processes per step, one seed, clock pinned): the

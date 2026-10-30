@@ -62,3 +62,15 @@ fn the_ranger_station_is_inside_the_trailheads_hut() {
     talk(&mut app, "npc_primeval_dlamini", "What do you do here?");
     go(&mut app, "primeval_trailhead", Some("station_door"));
 }
+
+/// The fossil beds, under the ridge road down its sinkhole (a vertical
+/// exit, a ladder): Dr Stratton talks by her board of the layers
+/// (`primeval.yarn` `primeval_stratton`); the ladder goes up to the ridge
+/// road and back down. (Up first, as the Mobius Mine's test.)
+#[test]
+fn the_fossil_beds_lie_under_the_ridge_road() {
+    let mut app = a_session_in("primeval_fossil_beds");
+    talk(&mut app, "npc_primeval_stratton", "What is wrong with upstairs?");
+    go(&mut app, "primeval_ridge", Some("fossils_shaft"));
+    go(&mut app, "primeval_fossil_beds", Some("ridge_sinkhole"));
+}

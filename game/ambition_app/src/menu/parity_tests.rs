@@ -284,13 +284,13 @@ fn grid_and_cube_render_the_same_non_edge_controls_per_page() {
     // A representative fixed state: an item granted + equipped so Items has a live
     // Equip/Use action, on a stable System window.
     let mut owned = OwnedItems::default();
-    let axe = Item::from_index(1).expect("an item at index 1");
+    let axe = Item::Axe;
     owned.grant(ambition_platformer2d::items::test_item_catalog(), axe, 1);
     let pages = build_inventory_pages(
         &owned,
         ambition_platformer2d::items::test_item_catalog(),
-        Some(axe),
-        MenuFocus::Item(1),
+        ambition_platformer2d::items::EquippedItems::of(ambition_platformer2d::items::test_item_catalog(), Some(axe), None),
+        MenuFocus::Item(Item::Axe.index()),
         &UserSettings::default(),
         &RadioSnapshot::default(),
         &DevSnapshot::default(),
@@ -406,6 +406,7 @@ mod dispatch_parity {
         app.init_resource::<MenuControlFrame>();
         app.init_resource::<ambition_platformer2d::input::SeatActiveDevices>();
         app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::items::ItemUseRequested>>();
+        app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::items::ItemEquipRequested>>();
     app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::session::reset::NewGameRequested>>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.add_message::<bevy::app::AppExit>();
@@ -471,10 +472,10 @@ mod dispatch_parity {
     /// backend's real release path (both call the one dispatcher).
     #[test]
     fn equip_dispatches_identically_on_both_backends() {
-        let axe = Item::from_index(1).expect("equippable item at index 1");
+        let axe = Item::Axe;
         assert!(
             ambition_platformer2d::items::test_item_catalog().held_item_id(axe).is_some(),
-            "index 1 is an equippable item"
+            "the axe is an equippable item"
         );
 
         let mut grid = menu_app(InventoryUiBackend::Grid);

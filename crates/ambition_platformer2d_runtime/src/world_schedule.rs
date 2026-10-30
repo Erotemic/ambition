@@ -73,6 +73,8 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 ambition_platformer2d_items::narrative::apply_shop_transactions
                     .run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::shop::ShopTransactionRequested>),
                 ambition_platformer2d_items::narrative::apply_item_uses.run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::ItemUseRequested>),
+                ambition_platformer2d_items::narrative::apply_item_equips
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::ItemEquipRequested>),
                 // AFTER EVERY WRITER OF A HEAL: projectiles (Combat), pickups
                 // (FeatureCollection), chests (FeatureInteraction) and item
                 // uses (above). A heal written after its apply waits a tick,
@@ -201,6 +203,8 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             ambition_conversation::NarrativeInputPlugin::<ambition_items::shop::ShopTransactionRequested>::default(),
             // A menu uses a consumable through the host-intent ledger.
             ambition_platformer2d_shared_tangle::host_intents::HostIntentPlugin::<ambition_items::ItemUseRequested>::default(),
+            // A menu equips an ability through the same ledger.
+            ambition_platformer2d_shared_tangle::host_intents::HostIntentPlugin::<ambition_items::ItemEquipRequested>::default(),
             // A gate terminal's dial, hangup and close, through the same ledger.
             ambition_platformer2d_shared_tangle::host_intents::HostIntentPlugin::<ambition_platformer2d_world::rooms::GateTerminalIntent>::default(),
         ));

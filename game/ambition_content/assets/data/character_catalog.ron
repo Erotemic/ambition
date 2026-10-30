@@ -6344,6 +6344,23 @@
                 hall: ["Thirty years on the range. I have signed off nine hundred tests as probably fine. Eight hundred and ninety were.", "The rocket is not leaning. The ground is."],
             ),
         ),
+        "npc_math_fibbs": (
+            display_name: "Farmer Fibbs",
+            // Keeps the Fibonacci Meadow, east of the Fractal Woods.
+            manifest: "sprites/math_fibbs_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 176 cm.
+            standing_height: Some(68.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "math_town", "peaceful"],
+            barks: (
+                idle: ["Last month's and the month before's.", "*counts rabbits, gives up*"],
+                hall: ["Started with two rabbits. Now I have the sum of the last two, every month, forever.", "The mites in the field divide. Rabbits add. I know which I'd rather."],
+            ),
+        ),
         "npc_math_ivo": (
             display_name: "Ivo",
             // Groundskeeper of the Fractal Woods.
@@ -6446,6 +6463,23 @@
             barks: (
                 idle: ["The Baron wants his eggs evil. I do them scrambled and scowl at them.", "Gruel again. Morale is a soup you cannot thicken."],
                 hall: ["I have cooked for three tyrants. They all liked my gravy and none of them said thank you.", "A castle marches on its stomach. This one mostly lurches."],
+            ),
+        ),
+        "npc_castle_quill": (
+            display_name: "Ambrose Quill",
+            // The cells' trusty, under the castle's lower floor.
+            manifest: "sprites/castle_quill_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 174 cm.
+            standing_height: Some(67.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "castle_godwin", "peaceful"],
+            barks: (
+                idle: ["Strongly worded, it was.", "*sorts the suggestions*"],
+                hall: ["Thirty years for a strongly worded letter. I've a draft of the next one.", "Every suggestion comes down the chute. I read them all. Nobody else does."],
             ),
         ),
         "npc_castle_osgood": (
@@ -6636,6 +6670,23 @@
             barks: (
                 idle: ["Stay on the trail. The trail does not stay on you.", "Do not feed the compys. They are feeding themselves."],
                 hall: ["I have a rule book. The dinosaurs have teeth. We compromise.", "Fourteen years on this trail. I have lost two hats and no visitors. Yet."],
+            ),
+        ),
+        "npc_primeval_stratton": (
+            display_name: "Dr Petra Stratton",
+            // Maps the fossil beds under the ridge road; objects to the dinosaurs above them.
+            manifest: "sprites/primeval_stratton_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "primeval", "peaceful"],
+            barks: (
+                idle: ["Wrong layer.", "*taps the rock with a hammer*"],
+                hall: ["Sixty-six million years down. That is where they go. They will not go.", "Every morning I cross them out of the top layer, and every morning one walks over the hole."],
             ),
         ),
         "npc_primeval_dlamini": (

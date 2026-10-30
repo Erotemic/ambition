@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use ambition_platformer2d::menu::ActiveMenuPages;
 
 use crate::menu::effects::{
-    dispatch_item_confirm, MenuAction, MenuEffectPlayers, MenuItemUses, PrimaryHand,
+    dispatch_item_confirm, MenuAction, MenuEffectPlayers, MenuItemRequests, PrimaryHand,
 };
 use crate::menu::kaleidoscope_app::{
     back_edge_focus, close_system_entry, play_ui, rotate_sfx, KaleidoscopeCursor,
@@ -42,14 +42,14 @@ pub(crate) fn dispatch_menu_action(
     close_menu: &mut bool,
     commands: &mut Commands,
     players: &mut MenuEffectPlayers,
-    uses: &mut MenuItemUses,
+    requests: &mut MenuItemRequests,
     sfx: &mut SfxWriter,
     system: &mut SystemMenuParams,
 ) {
     match action {
         MenuPageAction::Equip(item) | MenuPageAction::Use(item) => {
             let decided =
-                dispatch_item_confirm(item, owned, hand, commands, players, uses);
+                dispatch_item_confirm(item, owned, hand, commands, players, requests);
             // Pick the confirm sound from the RESOLVED action so equip/unequip/use
             // are distinct, and a no-op (not owned / nothing to do) gives error feedback.
             let id = match decided {

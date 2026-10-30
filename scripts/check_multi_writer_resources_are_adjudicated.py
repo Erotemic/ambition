@@ -1101,7 +1101,7 @@ ADJUDICATED: dict[str, str] = {
         "`lower_projectile_spawns`, the combat domain's `lower_damage_boxes` and "
         "the boss domain's `lower_boss_summons`, and the held-item domain's "
         "`lower_body_sounds` (in ambition_abilities), and its cost settle "
-        "`settle_wielded_costs`, which drains the cost ports earlier, in "
+        "`settle_costs`, which drains the cost ports earlier, in "
         "`ExtensionSet::Settle`, and removes the rest of an invocation it "
         "refuses (`ExtensionOutbox::refuse_invocation`), and "
         "the module-entity domain's `lower_module_entity_spawns`, `lower_body_pulls` "

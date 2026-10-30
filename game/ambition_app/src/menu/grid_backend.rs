@@ -23,7 +23,7 @@ use ambition_platformer2d::menu::{
     MenuTabActivated,
 };
 
-use crate::menu::effects::{MenuEffectPlayers, MenuItemUses, PrimaryHand};
+use crate::menu::effects::{MenuEffectPlayers, MenuItemRequests, PrimaryHand};
 use crate::menu::kaleidoscope_app::{
     focus_for_action, owned_item_action, play_ui, system_focus_nav, KaleidoscopeCursor,
     KaleidoscopeSystemNav, SystemMenuParams,
@@ -52,7 +52,7 @@ pub(crate) struct MenuDispatchParams<'w, 's> {
     quality_confirm: ResMut<'w, VisualQualityConfirmState>,
     commands: Commands<'w, 's>,
     players: MenuEffectPlayers<'w, 's>,
-    uses: MenuItemUses<'w, 's>,
+    requests: MenuItemRequests<'w, 's>,
     sfx: SfxWriter<'w>,
     system: SystemMenuParams<'w, 's>,
 }
@@ -148,9 +148,10 @@ struct ViewKey {
     /// still does not (preserving the click-drop fix), mirroring the cube's republish.
     window_start: usize,
     pending_quality: Option<VisualQualityProfile>,
-    /// The primary hand (I1): an equip changes a body component, not the bag,
-    /// so the bag's change tick cannot stand in for it.
-    in_hand: Option<ambition_platformer2d::items::Item>,
+    /// What the primary body has equipped (its hand and worn abilities): an
+    /// equip changes a body component, not the bag, so the bag's change tick
+    /// cannot stand in for it.
+    equipped: ambition_platformer2d::items::EquippedItems,
 }
 
 /// Flat Grid backend SFX ids. The cube keeps kaleidoscope-specific `ui.menu.*`
@@ -810,7 +811,7 @@ pub(crate) fn grid_menu_republish_view(
         zone: tab_state.focus_zone,
         window_start,
         pending_quality: quality_confirm.pending(),
-        in_hand: hand.in_hand(),
+        equipped: hand.equipped(),
     };
     // The dispatch paths ALSO clear `last_key` directly (the belt-and-braces force-republish),
     // so even a state change this key can't see (e.g. a dev snapshot) still re-renders.
@@ -827,7 +828,7 @@ pub(crate) fn grid_menu_republish_view(
     let built = build_inventory_pages_with_quality_prompt(
         &owned,
         hand.items(),
-        key.in_hand,
+        key.equipped,
         cursor.focus(),
         &settings,
         &system.radio_snapshot(),
@@ -1066,7 +1067,7 @@ pub(crate) fn grid_menu_action_activated(
             &mut close_menu,
             &mut fx.commands,
             &mut fx.players,
-            &mut fx.uses,
+            &mut fx.requests,
             &mut fx.sfx,
             &mut fx.system,
         );

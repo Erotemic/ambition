@@ -62,16 +62,22 @@ pub struct AuthoredMatchRules {
 pub struct AuthoredCastFraming {
     pub min_view_scale: f32,
     pub margin: f32,
-    /// Extra room below the cast (px). Absent: none.
+    /// The factor on `margin` for 1, 2, 3 and 4+ members (a tuple of four).
+    /// Absent: 1 for every count.
     #[serde(default)]
-    pub floor_margin: f32,
-    /// The rate the framed box opens at (Hz). Absent: an opening edge is
-    /// adopted at once.
+    pub margin_by_count: Option<(f32, f32, f32, f32)>,
+    /// The share of the view kept below the cast. Absent: none.
     #[serde(default)]
-    pub open_hz: Option<f32>,
-    /// The rate the framed box closes at (Hz). Absent: the engine's.
+    pub floor_share: f32,
+    /// The pan rate (Hz). Absent: the engine's.
     #[serde(default)]
-    pub close_hz: Option<f32>,
+    pub pan_hz: Option<f32>,
+    /// The zoom-out rate (Hz). Absent: the view opens at once.
+    #[serde(default)]
+    pub zoom_out_hz: Option<f32>,
+    /// The zoom-in rate (Hz). Absent: the engine's.
+    #[serde(default)]
+    pub zoom_in_hz: Option<f32>,
     /// How far past the room the view may look. Absent: it stops at the room.
     #[serde(default)]
     pub bounds: Option<AuthoredCameraBounds>,
@@ -130,9 +136,14 @@ impl Default for AuthoredMatchRules {
             cast_framing: rules.cast_framing.map(|framing| AuthoredCastFraming {
                 min_view_scale: framing.min_view_scale,
                 margin: framing.margin,
-                floor_margin: framing.floor_margin,
-                open_hz: framing.open_hz,
-                close_hz: Some(framing.close_hz),
+                margin_by_count: Some({
+                    let [a, b, c, d] = framing.margin_by_count;
+                    (a, b, c, d)
+                }),
+                floor_share: framing.floor_share,
+                pan_hz: Some(framing.pan_hz),
+                zoom_out_hz: framing.zoom_out_hz,
+                zoom_in_hz: Some(framing.zoom_in_hz),
                 bounds: framing.bounds.map(|bounds| AuthoredCameraBounds {
                     side: bounds.side,
                     rise: bounds.rise,
@@ -174,9 +185,13 @@ impl AuthoredMatchRules {
             CastFramingTuning {
                 min_view_scale: framing.min_view_scale,
                 margin: framing.margin,
-                floor_margin: framing.floor_margin,
-                open_hz: framing.open_hz,
-                close_hz: framing.close_hz.unwrap_or(engine.close_hz),
+                margin_by_count: framing
+                    .margin_by_count
+                    .map_or(engine.margin_by_count, |(a, b, c, d)| [a, b, c, d]),
+                floor_share: framing.floor_share,
+                pan_hz: framing.pan_hz.unwrap_or(engine.pan_hz),
+                zoom_out_hz: framing.zoom_out_hz,
+                zoom_in_hz: framing.zoom_in_hz.unwrap_or(engine.zoom_in_hz),
                 bounds: framing.bounds.map(|bounds| CastCameraBounds {
                     side: bounds.side,
                     rise: bounds.rise,
@@ -246,6 +261,11 @@ impl AuthoredMatchRules {
         }
         if let Some(contact) = &self.fighter_contact {
             amount("fighter_contact.resistance", contact.resistance);
+        }
+        if let Some(share) = self.cast_framing.map(|framing| framing.floor_share) {
+            if !(share.is_finite() && (0.0..0.9).contains(&share)) {
+                problems.push(format!("`cast_framing.floor_share` is {share}; it is a share of the view, 0 to below 0.9"));
+            }
         }
         if let Some(bubble) = self.cast_framing.and_then(|framing| framing.bubble) {
             for (field, value) in [("diameter_px", bubble.diameter_px), ("span", bubble.span)] {

@@ -21,6 +21,8 @@ wall opened.
 - East, by a side exit: the Smoking Mountain, its shelves up to a crater.
 - At the trailhead, the ranger's hut gets a deck and a door, and an inside:
   the ranger station, Ranger Dlamini on the radio.
+- Under the ridge road, down a sinkhole in it (a vertical exit and a
+  ladder): the fossil beds, Dr Stratton the geologist and her strata.
 
 The art is the sprite tools' `targets/props/primeval_tar_props.py`, drawn on
 these numbers.
@@ -34,7 +36,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
 from district_kit import WALL, WORLDS, add_entities, edge, entity, make_rooms, paint, resident, room, run, sign, solid, start  # noqa: E402
-from district_scenery import piece  # noqa: E402
+from district_scenery import body_box, piece  # noqa: E402
 
 WORLD = WORLDS / "dinosaur.ldtk"
 GENERATOR = "specs/primeval/tar_pits.py"
@@ -195,6 +197,91 @@ def ranger_station():
                 title="THE RANGER STATION", generator=GENERATOR)
 
 
+#: The ridge road (edited in place) and its sinkhole (x0, x1), its road (y
+#: 480), where it is in the world; the fossil beds under it, their shaft
+#: under the sinkhole (`primeval_fossil_props.py` draws on these).
+RIDGE = "primeval_ridge"
+RIDGE_AT, RIDGE_ROAD, RIDGE_H = (27408, 0), 480, 512
+SINKHOLE = (1400, 1464)
+FOSSILS = "primeval_fossil_beds"
+FOSSILS_X0 = 1000
+FOSSILS_W, FOSSILS_H, FOSSILS_FLOOR, FOSSILS_ROOF = 1600, 640, 576, 64
+FOSSILS_SHAFT = (SINKHOLE[0] - FOSSILS_X0, SINKHOLE[1] - FOSSILS_X0)
+FOSSILS_SCAFFOLD = ((900, 1220, 432), (980, 1140, 320))
+
+
+def fossil_enemy(n, character, x, feet, w, h):
+    return entity("EnemySpawn", x, feet - h, w, h, name=f"{FOSSILS}_{character}_{n}", brain="combatant",
+                  character_id=character, respawn="OnRoomReenter")
+
+
+def fossil_beds():
+    """Under the ridge road, down its sinkhole: the rock the trail stands
+    on, cut open. Its strata, the fossils in them, a great skull under a
+    survey scaffold; Dr Stratton by her board of the layers
+    (`primeval.yarn`); compys at the east end, eating her core samples."""
+    w, h, g, top = FOSSILS_W, FOSSILS_H, FOSSILS_FLOOR, FOSSILS_ROOF
+    s0, s1 = FOSSILS_SHAFT
+    e = [
+        piece("fossil_beds", 16, 16, name="fossil_beds"),
+        solid("floor", 0, g, w, h - g),
+        solid("roof_west", 0, 0, s0, top),
+        solid("roof_east", s1, 0, w - s1, top),
+        solid("west_wall", 0, top, WALL, g - top),
+        solid("east_wall", w - WALL, top, WALL, g - top),
+        entity("LoadingZone", s0, 0, s1 - s0, 16, id="fossils_shaft", name="up the sinkhole to the ridge road",
+               activation="EdgeExit", target_room=RIDGE, target_zone="ridge_sinkhole", bidirectional=True),
+        start(FOSSILS, 300, g),
+        *[entity("OneWayPlatform", x0, y, x1 - x0, 16, name=f"survey_scaffold_{i}") for i, (x0, x1, y) in enumerate(FOSSILS_SCAFFOLD)],
+        resident("npc_primeval_stratton", "primeval_stratton", 680, g),
+        sign("fossils_sign", 1300, 110, "THE FOSSIL BEDS: everything in its layer", 380),
+        sign("fossils_sign_skull", 1000, 476, "DO NOT LICK THE SKULL (it is not salt)", 340),
+        entity("ChestSpawn", 1130, 432 - 58, 76, 58, name="the type specimen's tin", reward="currency:60"),
+        fossil_enemy(1, "compsognathus", 1300, g, 24, 26),
+        fossil_enemy(2, "compsognathus", 1360, g, 24, 26),
+        fossil_enemy(3, "compsognathus", 1420, g, 24, 26),
+        fossil_enemy(4, "npc_raptor_stalker", 1480, g, 48, 80),
+    ]
+    at = (RIDGE_AT[0] + FOSSILS_X0, RIDGE_AT[1] + RIDGE_H)
+    return room(FOSSILS, e, at=at, size=(w, h), biome="primeval", music="liberated_dinosaur_libertarians", bg="#2A2018",
+                title="THE FOSSIL BEDS", generator=GENERATOR)
+
+
+def sinkhole_yaml() -> str:
+    """The ridge road's sinkhole: its picture over the hole (the hole is cut
+    in the road's collision by `main`), the way down at its bottom, a sign."""
+    bx, by, bw, bh = body_box("ridge_sinkhole")
+    fx, fy = SINKHOLE[0] - 20, RIDGE_ROAD - 70
+    s0, s1 = SINKHOLE
+    return f"""# The ridge road's sinkhole down to the fossil beds. Written by {GENERATOR}.
+level_id: {RIDGE}
+entities:
+  - type: Prop
+    px: [{round(fx + bx / 2)}, {round(fy + by / 2)}]
+    size: [{max(1, round(bw / 2))}, {max(1, round(bh / 2))}]
+    fields:
+      name: ridge_sinkhole
+      kind: ridge_sinkhole
+  - type: LoadingZone
+    px: [{s0}, {RIDGE_H - 16}]
+    size: [{s1 - s0}, 16]
+    fields:
+      id: ridge_sinkhole
+      name: down the sinkhole to the fossil beds
+      activation: EdgeExit
+      target_room: {FOSSILS}
+      target_zone: fossils_shaft
+      bidirectional: true
+  - type: DebugLabel
+    px: [{s0 - 90}, {RIDGE_ROAD - 190}]
+    size: [240, 24]
+    fields:
+      name: ridge_sign_sinkhole
+      text: "SINKHOLE: fossils, do not feed"
+      category: Custom
+"""
+
+
 HUT_DOOR_YAML = f"""# The ranger hut's deck and its door, at the trailhead. Written by {GENERATOR}.
 level_id: {TRAILHEAD}
 entities:
@@ -218,7 +305,7 @@ entities:
 
 def main(argv):
     paths = []
-    for rid, text in ((PITS, pits()), (MOUNTAIN, smoking_mountain()), (STATION, ranger_station())):
+    for rid, text in ((PITS, pits()), (MOUNTAIN, smoking_mountain()), (STATION, ranger_station()), (FOSSILS, fossil_beds())):
         path = HERE / f"{rid}.ron"
         path.write_text(text)
         print(path.relative_to(HERE.parents[1]))
@@ -233,7 +320,16 @@ def main(argv):
         return code
     if code := add_entities(HUT_DOOR_YAML, WORLD, HERE / ".hut_door.yaml", unless='"into the ranger station"'):
         return code
+    if code := add_entities(sinkhole_yaml(), WORLD, HERE / ".sinkhole.yaml", unless='"down the sinkhole to the fossil beds"'):
+        return code
+    s0, s1 = SINKHOLE
     for args in ((CANOPY, "Collision", 0, CANOPY_EAST, CANOPY_FLOOR - 112, WALL, 112),
+                 # The sinkhole through the ridge road, its ladder from over
+                 # the road (as the woods' hole to the Mobius Mine), and the
+                 # beds' shaft.
+                 (RIDGE, "Collision", 0, s0, RIDGE_ROAD, s1 - s0, RIDGE_H - RIDGE_ROAD),
+                 (RIDGE, "Climbable", 1, s0 + 16, RIDGE_ROAD - 64, 32, RIDGE_H - RIDGE_ROAD + 64),
+                 (FOSSILS, "Climbable", 1, FOSSILS_SHAFT[0] + 16, 0, 32, FOSSILS_FLOOR),
                  # The tar: murky water (the IntGrid Water layer's kind 2).
                  *((PITS, "Water", 2, x0, FLOOR, x1 - x0, BED - FLOOR) for x0, x1 in POOLS)):
         if code := paint(WORLD, *args):

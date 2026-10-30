@@ -26,7 +26,6 @@ impl ContentValidationReport {
         self.errors.push(message.into());
     }
 
-    #[allow(dead_code)] // Used by content checks that haven't been wired into startup yet.
     pub fn push_warning(&mut self, message: impl Into<String>) {
         self.warnings.push(message.into());
     }
@@ -140,21 +139,48 @@ pub fn validate_content_graph(sprite_content: &ambition_platformer2d::sprite_she
         }
     };
 
+    // The music references that name a track the generated registry does not
+    // have. Each one is a room (or a boss, or an encounter) with no music, not
+    // a game that does not start: see `report_tracks_not_generated`.
+    let mut not_generated = Vec::new();
     validate_room_links(&rooms, &links, &mut report);
     if let Some(music) = music {
-        validate_room_music_tracks(project, music, &mut report);
+        validate_room_music_tracks(project, music, &mut not_generated);
     }
-    validate_room_phase_tracks(pack, &rooms, music, &mut report);
+    validate_room_phase_tracks(pack, &rooms, music, &mut report, &mut not_generated);
     validate_npc_dialogue_ids(project, &mut report);
     validate_npc_brain_overrides(project, character_catalog, &mut report);
-    validate_quest_conditions(&sprite_content, pack, &rooms, music, &mut report);
+    validate_quest_conditions(&sprite_content, pack, &rooms, music, &mut report, &mut not_generated);
     validate_cutscene_bindings(pack, project, &mut report);
     let boss_catalog = crate::bosses::boss_catalog_of(&sprite_content, pack);
     if let Some(music) = music {
-        validate_boss_music_tracks(music, &boss_catalog, &mut report);
+        validate_boss_music_tracks(music, &boss_catalog, &mut not_generated);
     }
+    report_tracks_not_generated(not_generated, &mut report);
 
     report
+}
+
+/// Tell, in ONE loud warning, each music reference whose track the generated
+/// registry does not have.
+///
+/// The music registry is generated content. When it is older than the world
+/// (a map names a track that was added after the last music render), a check
+/// against it cannot tell a typo from a stale registry. Missing generated
+/// content must not stop the game (Jon, 2026-10-29), so this is a warning: the
+/// room plays no music. `scripts/content_status.py` tells whether the music is
+/// stale, and `scripts/regen/music.sh` makes it again.
+fn report_tracks_not_generated(not_generated: Vec<String>, report: &mut ContentValidationReport) {
+    if not_generated.is_empty() {
+        return;
+    }
+    report.push_warning(format!(
+        "{} music reference(s) name a track that the generated music registry does not have; \
+         each plays no music. The registry can be stale or the name can be wrong \
+         (query: python3 scripts/content_status.py --family music; make it: scripts/regen/music.sh):\n{}",
+        not_generated.len(),
+        not_generated.iter().map(|line| format!("  - {line}")).collect::<Vec<_>>().join("\n"),
+    ));
 }
 
 /// Each link of the complete game names a room and a zone that exist.
@@ -182,13 +208,9 @@ fn validate_room_links(
     );
 }
 
-fn validate_room_music_tracks(
-    project: &LdtkProject,
-    music: &MusicRegistry,
-    report: &mut ContentValidationReport,
-) {
+fn validate_room_music_tracks(project: &LdtkProject, music: &MusicRegistry, not_generated: &mut Vec<String>) {
     let valid_tracks = music.tracks.iter().map(|track| track.id.as_str());
-    report.extend_errors(
+    not_generated.extend(
         project
             .music_track_warnings(valid_tracks)
             .into_iter()
@@ -204,6 +226,7 @@ fn validate_room_phase_tracks(
     rooms: &[ambition_platformer2d::world::rooms::RoomSpec],
     music: Option<&MusicRegistry>,
     report: &mut ContentValidationReport,
+    not_generated: &mut Vec<String>,
 ) {
     let Some(authored) = ambition_audio::content_schema::lowered_music_cues(pack) else {
         return;
@@ -213,10 +236,10 @@ fn validate_room_phase_tracks(
             report.extend_errors([format!("room music by the time of day: no room is called {:?}", row.room_id)]);
         }
         if music.is_some_and(|music| !music.tracks.iter().any(|track| track.id == row.track)) {
-            report.extend_errors([format!(
+            not_generated.push(format!(
                 "room music by the time of day: room {:?} plays unknown track {:?} in the {}",
                 row.room_id, row.track, row.phase
-            )]);
+            ));
         }
     }
 }
@@ -301,6 +324,7 @@ fn validate_quest_conditions(sprite_content: &ambition_platformer2d::sprite_shee
     rooms: &[ambition_platformer2d::world::rooms::RoomSpec],
     music: Option<&MusicRegistry>,
     report: &mut ContentValidationReport,
+    not_generated: &mut Vec<String>,
 ) {
     // Without the generated music there is no track list to check against.
     let valid_tracks = music.map(|music| music
@@ -329,7 +353,7 @@ fn validate_quest_conditions(sprite_content: &ambition_platformer2d::sprite_shee
         if !spec.music_track.is_empty()
             && valid_tracks.as_ref().is_some_and(|tracks| !tracks.contains(spec.music_track.as_str()))
         {
-            report.push_error(format!(
+            not_generated.push(format!(
                 "encounter '{}' references unknown music track '{}'",
                 id, spec.music_track
             ));
@@ -563,7 +587,7 @@ fn check_cutscene_bindings(
 fn validate_boss_music_tracks(
     music: &MusicRegistry,
     boss_catalog: &ambition_boss_encounter::BossCatalog,
-    report: &mut ContentValidationReport,
+    not_generated: &mut Vec<String>,
 ) {
     let tracks = music
         .tracks
@@ -582,7 +606,7 @@ fn validate_boss_music_tracks(
             // Exactly-empty, matching `phase_music`'s own gate: the runtime requests a
             // whitespace-only field, so it must not pass here.
             if !track.is_empty() && !tracks.contains(track) {
-                report.push_error(format!(
+                not_generated.push(format!(
                     "boss spec '{}' {field} references unknown music track '{}'",
                     spec.id, track
                 ));
@@ -936,13 +960,29 @@ mod tests {
         report.panic_if_errors();
     }
 
+    /// A music registry with only these tracks: a registry generated before
+    /// the world named the others.
+    fn registry_of(ids: &[&str]) -> MusicRegistry {
+        MusicRegistry {
+            default_track: ids[0].to_owned(),
+            tracks: ids
+                .iter()
+                .map(|id| ambition_audio::spec::MusicTrack {
+                    id: (*id).to_owned(),
+                    display_name: (*id).to_owned(),
+                    asset_path: None,
+                    one_shot: false,
+                })
+                .collect(),
+        }
+    }
+
     /// A room's `fight_music_track` is read into its metadata, and an id the
-    /// music registry does not have is refused with the field named, the same
-    /// as `music_track`.
+    /// music registry does not have is told with the field named, the same as
+    /// `music_track`.
     #[test]
     fn a_rooms_fight_music_track_is_read_and_checked() {
-        let music = crate::audio_registries::shipped_music_registry()
-            .expect("the music registry is generated content: run scripts/regen/music.sh");
+        let music = registry_of(&["crooked_ascent_boss"]);
         let mut project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
             .expect("embedded LDtk loads");
         let set_fight_track = |project: &mut LdtkProject, track: &str| {
@@ -962,21 +1002,45 @@ mod tests {
 
         let metadata = set_fight_track(&mut project, "crooked_ascent_boss");
         assert_eq!(metadata.fight_music_track.as_deref(), Some("crooked_ascent_boss"));
-        let mut report = ContentValidationReport::default();
-        validate_room_music_tracks(&project, &music, &mut report);
-        assert!(report.errors.is_empty(), "a known track was refused: {:?}", report.errors);
+        let mut told = Vec::new();
+        validate_room_music_tracks(&project, &music, &mut told);
+        assert!(
+            !told.iter().any(|line| line.contains("mode_collapse_arena") && line.contains("fight_music_track")),
+            "a known track was told: {told:?}"
+        );
 
         set_fight_track(&mut project, "no_such_track");
-        let mut report = ContentValidationReport::default();
-        validate_room_music_tracks(&project, &music, &mut report);
+        let mut told = Vec::new();
+        validate_room_music_tracks(&project, &music, &mut told);
         assert!(
-            report
-                .errors
-                .iter()
-                .any(|error| error.contains("unknown fight_music_track 'no_such_track'")),
-            "an unknown fight track must be refused with its field named: {:?}",
-            report.errors
+            told.iter().any(|line| line.contains("unknown fight_music_track 'no_such_track'")),
+            "an unknown fight track must be told with its field named: {told:?}"
         );
+    }
+
+    /// A music registry older than the world (the world names tracks that were
+    /// added after the last music render) does not stop the game: the graph
+    /// has no error for it, and one warning names each such reference and the
+    /// commands that query and make the music again.
+    #[test]
+    fn a_stale_music_registry_is_one_warning_not_an_error() {
+        let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
+        let project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
+            .expect("embedded LDtk loads");
+        let character_catalog = crate::character_catalog::shipped_catalog();
+        let music = registry_of(&["the_only_track"]);
+        let report = validate_content_graph(&sprite_content, crate::pack::shipped(), Some(&music), &project, &character_catalog);
+        let music_errors: Vec<_> = report.errors.iter().filter(|error| error.contains("music")).collect();
+        assert!(music_errors.is_empty(), "a track the registry lacks stopped the game: {music_errors:?}");
+        let told: Vec<_> = report
+            .warnings
+            .iter()
+            .filter(|warning| warning.contains("generated music registry does not have"))
+            .collect();
+        assert_eq!(told.len(), 1, "one warning, not one per reference: {:?}", report.warnings);
+        // The world names many tracks, so the warning names many references.
+        assert!(told[0].matches("\n  - ").count() > 3, "{}", told[0]);
+        assert!(told[0].contains("scripts/content_status.py") && told[0].contains("scripts/regen/music.sh"));
     }
 
     #[test]

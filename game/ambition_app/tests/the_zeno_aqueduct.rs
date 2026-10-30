@@ -61,3 +61,14 @@ fn the_tower_of_hanoi_lies_west_of_the_gate_hall() {
     go(&mut app, "math_gate_hall", Some("math_tower_of_hanoi_east"));
     go(&mut app, "math_tower_of_hanoi", Some("math_gate_hall_west"));
 }
+
+/// The Fibonacci Meadow, east of the Fractal Woods by a side exit, floors
+/// level: Farmer Fibbs talks by his counting board (`math.yarn`
+/// `meadow_fibbs`), and the woods are back west.
+#[test]
+fn the_fibonacci_meadow_lies_east_of_the_woods() {
+    let mut app = a_session_in("math_fibonacci_meadow");
+    crate::the_pirate_port::talk(&mut app, "npc_math_fibbs", "How many rabbits do you have?");
+    go(&mut app, "math_fractal_woods", Some("math_fibonacci_meadow_west"));
+    go(&mut app, "math_fibonacci_meadow", Some("math_fractal_woods_east"));
+}

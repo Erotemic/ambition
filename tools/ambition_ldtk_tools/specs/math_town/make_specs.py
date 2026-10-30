@@ -649,6 +649,10 @@ def zeno_aqueduct():
         solid("the_limit", ix0, itop, ix1 - ix0, g - itop),
         label(f"{rid}_dam_sign", ZENO_DAM_X - 120, DECK - 120, "THE RESERVOIR (arrived, in the limit)", 380),
         label(f"{rid}_limit_sign", (ix0 + ix1) // 2 - 150, itop - 170, "THE LIMIT", 300),
+        # Zeno, on the deck between the 7/8 and 3/4 piers: always halfway
+        # to the reservoir (`math.yarn` `zeno_halfway`).
+        f'( type: "NpcSpawn", px: [{2150 - 16}, {DECK - 64}], size: [32, 64], fields: ( character_id: "npc_math_zeno", '
+        f'brain_override: "stand_still", prompt: "Talk", dialogue_id: "zeno_halfway" ) ),',
         # The enemies of the valley and the deck.
         zeno_enemy(1, "npc_dividing_mite", 2320, g, 40, 52, "dividing_mite"),
         zeno_enemy(2, "npc_dividing_mite", 2760, g, 40, 52, "dividing_mite"),

@@ -270,6 +270,21 @@ Python Goras: Room service sent beans. I sent them back. Room service moved me t
     Python Goras: The stay enjoys itself. I merely remain in it, in a new room every so often.
 ===
 
+title: zeno_halfway
+---
+Zeno Halfway: Good morning! Or afternoon. I set out for the reservoir at dawn. Some years ago. I'm making excellent progress.
+-> How far have you got?
+    Zeno Halfway: Halfway. Before that I was halfway to here. Tomorrow I'll be halfway from here. Every day, half of what's left.
+    Zeno Halfway: You'd think I'd be there by now. You'd be thinking like a person who has never done the sum.
+-> Why not just walk the rest?
+    Zeno Halfway: To walk the rest I'd first have to walk half the rest. And before that, half of that. I've got a list. It is very long.
+-> Will you ever arrive?
+    Zeno Halfway: In the limit, yes! The sign at the dam says so. I've read it from here. Through a telescope.
+    Zeno Halfway: An arrow I fired at the reservoir in my youth is still in the air somewhere. We keep each other company.
+-> Good luck.
+    Zeno Halfway: Thank you. I'll be halfway to grateful by tomorrow.
+===
+
 title: woods_ivo
 ---
 Ivo: Careful on the path. It's a lot longer than it looks, if you look closely.

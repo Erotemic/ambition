@@ -32,3 +32,11 @@ fn the_groundskeeper_of_the_fractal_woods_talks() {
     let mut app = a_session_in("math_fractal_woods");
     crate::the_pirate_port::talk(&mut app, "npc_math_ivo", "What do you do here?");
 }
+
+/// Zeno, halfway along the aqueduct's deck, talks (`math.yarn`
+/// `zeno_halfway`): from the deck's town end, past the mite and the owl.
+#[test]
+fn zeno_is_halfway_to_the_reservoir() {
+    let mut app = a_session_in(ZENO);
+    crate::the_pirate_port::talk(&mut app, "npc_math_zeno", "How far have you got?");
+}

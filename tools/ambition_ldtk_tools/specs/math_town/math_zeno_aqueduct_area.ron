@@ -27,6 +27,7 @@
         ( type: "Solid", px: [176, 600], size: [384, 232], fields: ( name: "the_limit" ) ),
         ( type: "DebugLabel", px: [1800, 440], size: [380, 24], fields: ( name: "math_zeno_aqueduct_dam_sign", text: "THE RESERVOIR (arrived, in the limit)", category: "Custom" ) ),
         ( type: "DebugLabel", px: [218, 430], size: [300, 24], fields: ( name: "math_zeno_aqueduct_limit_sign", text: "THE LIMIT", category: "Custom" ) ),
+        ( type: "NpcSpawn", px: [2134, 496], size: [32, 64], fields: ( character_id: "npc_math_zeno", brain_override: "stand_still", prompt: "Talk", dialogue_id: "zeno_halfway" ) ),
         ( type: "EnemySpawn", px: [2320, 780], size: [40, 52], fields: ( name: "math_zeno_aqueduct_npc_dividing_mite_1", brain: "dividing_mite", character_id: "npc_dividing_mite", respawn: "OnRoomReenter" ) ),
         ( type: "EnemySpawn", px: [2760, 780], size: [40, 52], fields: ( name: "math_zeno_aqueduct_npc_dividing_mite_2", brain: "dividing_mite", character_id: "npc_dividing_mite", respawn: "OnRoomReenter" ) ),
         ( type: "EnemySpawn", px: [2540, 788], size: [28, 44], fields: ( name: "math_zeno_aqueduct_npc_puppy_slug_3", brain: "combatant", character_id: "npc_puppy_slug", respawn: "OnRoomReenter", brain_profile: "patroller" ) ),

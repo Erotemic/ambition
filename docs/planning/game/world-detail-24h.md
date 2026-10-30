@@ -43,6 +43,10 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Math: Zeno Halfway** on the aqueduct's deck, between the 7/8 and 3/4
+  piers: set out for the reservoir at dawn, some years ago, always halfway;
+  his arrow is still in the air (chargen, Hall wing). Verified:
+  the_zeno_aqueduct (4).
 - **Science: the tether's climb**: things passed, each at its sign's
   altitude: a weather balloon (12 km), a hoop round the ribbon and a dotted
   line across the room at the Karman line (space, technically), a

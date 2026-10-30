@@ -157,6 +157,7 @@ npc_tower_ruiz
 [The Math town's people]
 npc_math_ivo
 npc_math_monty
+npc_math_zeno
 
 [Castle Godwin's staff]
 npc_castle_hargreave

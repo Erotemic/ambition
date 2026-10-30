@@ -10,8 +10,9 @@
     bg_color: "#A9D3F0",
     biome: "eureka",
     parallax_theme: "eureka",
-    music_track: "eternal_cosmic",
+    music_track: "physicists_guild_event_horizon_waltz",
     entities: [
+        ( type: "Prop", px: [0, 0], size: [1280, 960], fields: ( name: "eureka_observatory_room_0", kind: "eureka_observatory_room" ) ),
         ( type: "Solid", px: [0, 960], size: [1280, 64], fields: ( name: "floor" ) ),
         ( type: "Solid", px: [0, 0], size: [1280, 32], fields: ( name: "dome" ) ),
         ( type: "Solid", px: [0, 32], size: [16, 928], fields: ( name: "west_wall" ) ),

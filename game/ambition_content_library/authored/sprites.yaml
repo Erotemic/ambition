@@ -436,6 +436,10 @@ collections:
   - village_clan_gatehouse
   - village_dojo_entry
   - village_dojo_exam
+  - eureka_patent_front
+  - eureka_observatory_front
+  - eureka_patent_room
+  - eureka_observatory_room
   - alice_v2
   - armsmith_odile
   - village_nagisa

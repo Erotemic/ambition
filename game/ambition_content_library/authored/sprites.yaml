@@ -503,6 +503,8 @@ collections:
   - bakery_room
   - castle_cells_room
   - castle_guild_room
+  - catacombs_west
+  - catacombs_east
   - sail_loft_room
   - plaza_well
   - cellars_vault

@@ -28,12 +28,13 @@ fn the_crooked_lantern_is_lit_at_the_end_of_the_moor() {
     go(&mut app, "evil_crooked_lantern", Some("moor_inn_door"));
 }
 
-/// The founder's crypt: down the gate beside his plinth and back up.
+/// The founder's crypt, right under the moor: up the steps to the gate
+/// beside his plinth, and back down.
 #[test]
 fn the_founder_lies_in_a_crypt_under_the_moor() {
     let mut app = a_session_in("evil_founders_crypt");
-    go(&mut app, MOOR, Some("crypt_door"));
-    go(&mut app, "evil_founders_crypt", Some("moor_crypt_door"));
+    go(&mut app, MOOR, Some("crypt_up"));
+    go(&mut app, "evil_founders_crypt", Some("moor_crypt_stair"));
 }
 
 /// The Castle Allotments, west of the moor by its side exit: Hester Crabbe
@@ -66,4 +67,15 @@ fn the_gazette_is_printed_behind_the_bakerys_flour() {
     go(&mut app, "evil_crumbs_bakery", Some("hamlet_bakery_door"));
     talk(&mut app, "npc_evil_prentice", "What are you printing?");
     go(&mut app, "evil_lower_godwin", Some("bakery_door"));
+}
+
+/// The loop under the moor: the catacombs run from the crypt's west end to a
+/// shaft up under Crabbe's plot (13) in the allotments, and back.
+#[test]
+fn the_catacombs_join_the_crypt_to_the_allotments_under_plot_13() {
+    let mut app = a_session_in("evil_catacombs");
+    go(&mut app, "evil_castle_allotments", Some("catacombs_up"));
+    go(&mut app, "evil_catacombs", Some("allot_plot_13"));
+    go(&mut app, "evil_founders_crypt", Some("catacombs_east"));
+    go(&mut app, "evil_catacombs", Some("crypt_west"));
 }

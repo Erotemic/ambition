@@ -293,6 +293,9 @@
     "castle_cells_room": (),
     // The Guild's secret room behind the kitchens (Evil).
     "castle_guild_room": (),
+    // The catacombs under the moor (Evil).
+    "catacombs_west": (),
+    "catacombs_east": (),
     "sail_loft_room": (),
     // The Pirate Port's well, and the cellars under customs (PvN).
     "plaza_well": (),

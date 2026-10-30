@@ -256,6 +256,8 @@
     "tar_pits_mammoth": (),
     "tar_pits_dig_camp": (),
     "tar_pits_bones": (),
+    // The castle kitchens (Evil).
+    "castle_kitchens_room": (),
     // The hall of the Shadow Clan (PvN).
     "shadow_dojo_hall": (),
     // Along the primeval trail.

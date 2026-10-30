@@ -1,0 +1,54 @@
+title: castle_godwin_context
+---
+// Castle Godwin's staff (the Evil dimension): the people who keep a tyrant's
+// castle running, in the kitchens under the gatehouse. One node per resident,
+// named `castle_<resident>`.
+//
+// Everyday talk only (Jon, 2026-10-29: "we are world building not quest
+// building"): no flags, no errands.
+//
+// Never played. No placement names this node; it declares the zone.
+===
+
+title: castle_hargreave
+---
+Mrs Hargreave: Wipe your feet. I do not care whose side you are on, you are not tracking moor into my kitchen.
+-> What are you cooking?
+    Mrs Hargreave: Gruel. Yesterday it was gruel with a sprig of parsley. The Baron said the parsley was "insubordinate".
+    Mrs Hargreave: So it is gruel again. Gruel never contradicted anybody.
+-> How long have you worked here?
+    Mrs Hargreave: I fed the old Count, and the Count's general, and now the Baron. Three regimes.
+    Mrs Hargreave: They come and go. The kitchen stays. Somebody has to do the potatoes after the revolution.
+-> Are you evil?
+    Mrs Hargreave: I put salt in the soldiers' porridge and none in the officers'. You decide.
+-> I will get out of your way.
+===
+
+title: castle_osgood
+---
+Osgood: Name? Purpose of visit? Never mind, write "hero" like the others. The book needs a name, not a truth.
+-> What do you do here?
+    Osgood: Night porter. I open the gate, I close the gate, I write down who went through it.
+    Osgood: Forty years. It has been night for all of them. The day porter, I am told, has an easier time of it.
+-> Who else has come through?
+    Osgood: A wolf that used to be a man, or the other way round. A ghost who signed twice. A salesman who wanted to sell the Baron a moat.
+    Osgood: The Baron already had a moat. He bought a second one. It is behind the first one.
+-> Do you ever sleep?
+    Osgood: In the day. I am told it is very bright. I keep the curtains shut out of loyalty.
+-> Goodnight, Osgood.
+    Osgood: It always is.
+===
+
+title: castle_dunmore
+---
+Brigid Dunmore: Brigid Dunmore, shop steward, Henchpersons' Guild, Local Six-Six-Six. You are not management, are you?
+-> What does the Guild want?
+    Brigid Dunmore: Helmets with eyeholes. A tea break that is longer than the sermon. A pension for anyone the hero throws off a battlement.
+    Brigid Dunmore: Management says the helmets are "intimidating". They are. Mostly to the people wearing them.
+-> Are you on strike?
+    Brigid Dunmore: Work to rule. We march at the speed of the slowest member, and the slowest member is a zombie.
+-> Why work for the Baron at all?
+    Brigid Dunmore: Rent, mostly. And the Baron's predecessor was worse. Ask Mrs Hargreave, she fed him.
+-> Solidarity.
+    Brigid Dunmore: Ha. Mind the hounds on the way out. They are not in the Guild. They will not join. We have asked.
+===

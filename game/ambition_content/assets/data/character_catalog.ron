@@ -6157,5 +6157,58 @@
                 hall: ["Everybody on this campus runs on my coffee. Nobody tips.", "The station orders pastries by elevator. They arrive cold and complaining."],
             ),
         ),
+        // ===== Castle Godwin's staff (the Evil dimension), made by chargen: the
+        // kitchens under the gatehouse.
+        "npc_castle_hargreave": (
+            display_name: "Mrs Hargreave",
+            // The castle's cook: three regimes fed, three regimes outlasted.
+            manifest: "sprites/castle_hargreave_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 164 cm.
+            standing_height: Some(63.5),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "castle_godwin", "peaceful"],
+            barks: (
+                idle: ["The Baron wants his eggs evil. I do them scrambled and scowl at them.", "Gruel again. Morale is a soup you cannot thicken."],
+                hall: ["I have cooked for three tyrants. They all liked my gravy and none of them said thank you.", "A castle marches on its stomach. This one mostly lurches."],
+            ),
+        ),
+        "npc_castle_osgood": (
+            display_name: "Osgood",
+            // The night porter, forty years on the night shift of a castle where it is always night.
+            manifest: "sprites/castle_osgood_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(68.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "castle_godwin", "peaceful"],
+            barks: (
+                idle: ["Curfew is always. I clock in anyway.", "Sign the book. Everybody signs the book. The ghosts sign it twice."],
+                hall: ["Forty years of night shift. I am told there is a day shift. I have never met them.", "The searchlights are for show. I am the one who actually looks."],
+            ),
+        ),
+        "npc_castle_dunmore": (
+            display_name: "Brigid Dunmore",
+            // Shop steward of the castle's henchpersons.
+            manifest: "sprites/castle_dunmore_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "castle_godwin", "peaceful"],
+            barks: (
+                idle: ["Helmets with eyeholes. It is not a lot to ask.", "Local Six-Six-Six of the Henchpersons' Guild is in session. That means the kettle is on."],
+                hall: ["We are not against evil. We are against evil without a pension.", "Every hero who comes through here gets a free hit on one of my members. We are negotiating that."],
+            ),
+        ),
     },
 )

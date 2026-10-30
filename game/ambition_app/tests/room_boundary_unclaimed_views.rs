@@ -354,21 +354,17 @@ fn published_view_ids(app: &mut App) -> BTreeSet<String> {
         .collect()
 }
 
-/// Is the opaque transition cover on screen right now?
-///
-/// ⚠ **matched on the debug `Name`, because `RoomTransitionCoverRoot` is
-/// private** and widening it for a test would put a presentation marker in the
-/// app's public surface. The name is authored one line below the marker
-/// (`"room transition cover {sequence}"`), so the two move together — but this
-/// IS a coupling to a string, and if it ever silently returns `false` the
-/// assertion below goes vacuous in the reassuring direction. The companion test
-/// is what stops that.
+/// Does the transition cover hide the whole frame right now? A cover coming
+/// in or going out (a fade, a wipe) shows the room through it, so only a
+/// whole one hides a placeholder. If this ever silently returns `false` the
+/// assertion below goes vacuous in the reassuring direction; the companion
+/// assertion is what stops that.
 fn cover_is_up(app: &mut App) -> bool {
-    let mut query = app.world_mut().query::<&Name>();
-    let world = app.world();
-    query
+    let world = app.world_mut();
+    world
+        .query::<&ambition_platformer2d::render::rendering::room_transition_cover::RoomTransitionCover>()
         .iter(world)
-        .any(|name| name.as_str().starts_with("room transition cover"))
+        .any(|cover| cover.is_opaque())
 }
 
 /// Sample frames after a room change and fail if an unclaimed placeholder is
@@ -386,8 +382,8 @@ fn no_magenta_placeholder_is_visible_while_the_cover_is_down() {
     let before = active_room(&mut app);
 
     // ⛔ **THE TWO FACTS THAT KEEP THIS FROM BEING VACUOUS.** A green here means
-    // nothing unless the cover was ACTUALLY OBSERVED UP (else `cover_is_up`'s
-    // name match is broken and the guard can never fire) and placeholders were
+    // nothing unless the cover was ACTUALLY OBSERVED UP (else `cover_is_up`
+    // is broken and the guard can never fire) and placeholders were
     // ACTUALLY DRAWN at some point (else there was never anything to expose).
     // Both are asserted below.
     let mut saw_cover_up = false;
@@ -424,9 +420,8 @@ fn no_magenta_placeholder_is_visible_while_the_cover_is_down() {
     assert!(
         saw_cover_up,
         "the transition cover was never observed during a real crossing, so the \
-         assertion below could not have failed. Either `cover_is_up`'s name match \
-         (`\"room transition cover\"`) has drifted from what \
-         `room_transition_presentation.rs` spawns, or this crossing gets no cover \
+         assertion below could not have failed. Either `cover_is_up` no longer \
+         sees the engine's `RoomTransitionCover`, or this crossing gets no cover \
          at all — the module doc says only a VISIBLE transition gets one. Fix the \
          handle before trusting a green here."
     );

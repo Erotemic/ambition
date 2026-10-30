@@ -289,6 +289,20 @@
     fighter_contact: Some((resistance: 0.85)),
     // The camera: two fighters trading blows fill the screen. The view may
     // close to 45% of the stage view (the engine's exploration framing stops
-    // at 75%), with 40 px around the pair. A launch opens it back out.
-    cast_framing: Some((min_view_scale: 0.45, margin: 40.0)),
+    // at 75%), with 40 px around the pair and 40 px more below them, so the
+    // ground stays in view and they sit above the centre. The margins ease
+    // both ways at 4 Hz (the engine opens at once, closes at 10 Hz): a launch
+    // leads the view out, the view settles back in behind the fight. The
+    // view stops 280 px past the sides, 170 px above and 100 px below the
+    // room — about 70% of the way to the side and rise blast lines (Ultimate's
+    // stages stop there too), so a KO'd fighter leaves the frame before the
+    // line, and the void past the stage is never framed.
+    cast_framing: Some((
+        min_view_scale: 0.45,
+        margin: 40.0,
+        floor_margin: 40.0,
+        open_hz: Some(4.0),
+        close_hz: Some(4.0),
+        bounds: Some((side: 280.0, rise: 170.0, fall: 100.0)),
+    )),
 )

@@ -272,11 +272,14 @@ triceratops
 
 [Castle Godwin]
 npc_fascist_enforcer
+npc_fascist_swordsman
+npc_fascist_clubman
 npc_evil_heavy
 npc_evil_failed_prototype
 npc_evil_attack_hound
 npc_evil_spectral_wolf
 npc_evil_zombie
+npc_evil_zombie_crawler
 npc_shock_warden
 npc_searchlight_crawler
 

@@ -31,6 +31,7 @@
         ( type: "EnemySpawn", px: [2500, 408], size: [32, 72], fields: ( name: "evil_searchlight_moor_npc_fascist_enforcer_40", brain: "combatant", character_id: "npc_fascist_enforcer", respawn: "OnRoomReenter" ) ),
         ( type: "EnemySpawn", px: [1900, 430], size: [52, 50], fields: ( name: "evil_searchlight_moor_npc_evil_attack_hound_41", brain: "combatant", character_id: "npc_evil_attack_hound", respawn: "OnRoomReenter" ) ),
         ( type: "EnemySpawn", px: [1300, 408], size: [32, 72], fields: ( name: "evil_searchlight_moor_npc_fascist_enforcer_42", brain: "combatant", character_id: "npc_fascist_enforcer", respawn: "OnRoomReenter" ) ),
+        ( type: "EnemySpawn", px: [2900, 408], size: [32, 72], fields: ( name: "evil_searchlight_moor_npc_fascist_clubman_43", brain: "combatant", character_id: "npc_fascist_clubman", respawn: "OnRoomReenter" ) ),
         ( type: "CameraZone", px: [0, 0], size: [3600, 544], fields: ( id: "evil_searchlight_ridge_camera", name: "evil_searchlight_ridge_camera", mode: "Default" ) ),
         ( type: "DebugLabel", px: [1350, 40], size: [900, 24], fields: ( name: "evil_searchlight_ridge_title", text: "THE SEARCHLIGHT RIDGE", category: "Custom" ) ),
     ],

@@ -359,6 +359,8 @@ collections:
   - yuclid
   - companion_dog
   - fascist_enforcer
+  - fascist_swordsman
+  - fascist_clubman
   - wolfenstein
   - wolfenstein_inugami
   - evil_heavy
@@ -366,6 +368,7 @@ collections:
   - evil_attack_hound
   - evil_spectral_wolf
   - evil_zombie
+  - evil_zombie_crawler
   - shock_warden
   - searchlight_crawler
   - absurd_general

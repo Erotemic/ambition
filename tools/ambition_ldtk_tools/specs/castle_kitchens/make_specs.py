@@ -76,6 +76,17 @@ WHERE = {
 }
 #: The stair up to the gatehouse: the shaft in the kitchens' ceiling (x0, x1).
 STAIR = (40, 104)
+#: A Risen Conscript with no legs (the Crawling Conscript), and its box: low
+#: and wide, its body on the floor.
+LEGLESS, LEGLESS_BOX = "npc_evil_zombie_crawler", (52, 28)
+
+
+def legless(rid, n, x, floor):
+    """A Crawling Conscript with its middle at `x` on `floor`. It is
+    hostile, in among the staff."""
+    w, h = LEGLESS_BOX
+    return entity("EnemySpawn", x - w // 2, floor - h, w, h, name=f"{rid}_legless_{n}", brain="combatant", character_id=LEGLESS,
+                  respawn="OnRoomReenter")
 
 
 def kitchens():
@@ -97,6 +108,8 @@ def kitchens():
         resident("npc_castle_osgood", "castle_osgood", 280, FLOOR),
         resident("npc_castle_hargreave", "castle_hargreave", 860 - 20, FLOOR),
         resident("npc_castle_dunmore", "castle_dunmore", 1040, FLOOR),
+        # Under the cook's table, after the scraps.
+        legless(KITCHENS, 1, 600, FLOOR),
         sign("kitchens_sign_menu", 660, 250, "TODAY: gruel. TOMORROW: gruel (evil)", 400),
         sign("kitchens_sign_guild", 1010, 350, "HENCHPERSONS' GUILD, LOCAL 666: meeting at the kettle", 460),
     ]
@@ -166,6 +179,9 @@ def cells():
                action="ToggleFlag", target_encounter=""),
         start(CELLS, 300, LFLOOR),
         resident("npc_castle_quill", "castle_quill", 420, LFLOOR),
+        # A prisoner the castle forgot, and raised anyway: it drags itself
+        # out from under the chute.
+        legless(CELLS, 1, 190, LFLOOR),
         sign("cells_sign_chute", 140, 150, "SUGGESTIONS: received", 260),
         sign("cells_sign_rules", 520, 180, "NO COMPLAINING", 220),
         sign("cells_sign_trapdoor", 250, 70, "TRAPDOOR: to the barracks (lever by the desk)", 380),

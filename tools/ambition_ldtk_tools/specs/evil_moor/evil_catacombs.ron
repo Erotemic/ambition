@@ -29,6 +29,7 @@
         ( type: "EnemySpawn", px: [760, 445], size: [30, 67], fields: ( name: "evil_searchlight_moor_npc_evil_zombie_30", brain: "combatant", character_id: "npc_evil_zombie", respawn: "OnRoomReenter" ) ),
         ( type: "EnemySpawn", px: [1180, 472], size: [32, 40], fields: ( name: "evil_searchlight_moor_npc_evil_failed_prototype_31", brain: "combatant", character_id: "npc_evil_failed_prototype", respawn: "OnRoomReenter" ) ),
         ( type: "EnemySpawn", px: [1700, 445], size: [30, 67], fields: ( name: "evil_searchlight_moor_npc_evil_zombie_32", brain: "combatant", character_id: "npc_evil_zombie", respawn: "OnRoomReenter" ) ),
+        ( type: "EnemySpawn", px: [1460, 484], size: [52, 28], fields: ( name: "evil_searchlight_moor_npc_evil_zombie_crawler_34", brain: "combatant", character_id: "npc_evil_zombie_crawler", respawn: "OnRoomReenter" ) ),
         ( type: "EnemySpawn", px: [2100, 456], size: [56, 56], fields: ( name: "evil_searchlight_moor_npc_evil_spectral_wolf_33", brain: "combatant", character_id: "npc_evil_spectral_wolf", respawn: "OnRoomReenter" ) ),
         ( type: "CameraZone", px: [0, 0], size: [2560, 576], fields: ( id: "evil_catacombs_camera", name: "evil_catacombs_camera", mode: "Default" ) ),
         ( type: "DebugLabel", px: [830, 40], size: [900, 24], fields: ( name: "evil_catacombs_title", text: "THE CATACOMBS", category: "Custom" ) ),

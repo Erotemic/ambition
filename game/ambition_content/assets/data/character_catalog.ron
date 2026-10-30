@@ -495,6 +495,25 @@
             move_style: WalkHeavy,
             melee: Some(Lunge(windup_s: 0.62, active_s: 0.12, recover_s: 0.75, damage: 1, reach_px: 34.0, step_px: 22.0)),
         ),
+        // The Crawling Conscript's lunge along the floor: a long tell (he rears
+        // back on one arm), a short grab, and a long time flat on his face after
+        // it, when he is open.
+        "evil_crawler_lunge": (
+            move_style: WalkHeavy,
+            melee: Some(Lunge(windup_s: 0.8, active_s: 0.14, recover_s: 1.1, damage: 1, reach_px: 40.0, step_px: 30.0)),
+        ),
+        // The Fascist Swordsman's sabre thrust: a short windup (the point drawn
+        // back to his hip), a long reach, and a quick return to guard.
+        "fascist_sabre_thrust": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.26, active_s: 0.10, recover_s: 0.32, damage: 1, reach_px: 60.0)),
+        ),
+        // The Fascist Clubman's overhead: the club up high for a long time, down
+        // hard for two hearts, and a long recovery bent over it.
+        "fascist_club_overhead": (
+            move_style: WalkHeavy,
+            melee: Some(Slam(windup_s: 0.72, active_s: 0.14, recover_s: 0.95, damage: 2, reach_px: 46.0)),
+        ),
         // The Shock Warden's baton: a raised swing it shows you, two hearts if
         // it lands, and a long recovery behind the shield (its `recovery` row).
         "shock_warden_baton": (
@@ -3742,7 +3761,7 @@
                 // swing, and steps out again; it climbs after you; hit, it gives ground.
                 navigates: true,
                 retreat_after_swing_s: 0.3,
-                tactics: (lurk_px: 80.0, waits_its_turn: true, footsies: Some((hold_px: 110.0, wait_s: 0.9)), flinch_back_s: 0.25),
+                tactics: (notice_s: 0.5, lurk_px: 80.0, waits_its_turn: true, footsies: Some((hold_px: 110.0, wait_s: 0.9)), flinch_back_s: 0.25),
             )),
             max_health: Some(4),
             tags: ["enemy", "evil", "minion"],
@@ -3750,6 +3769,76 @@
             hall: ["Papers.", "The order authorizes itself.", "If it is wrong, I will have obeyed correctly."],
         ),
         hall_dialogue_id: Some("hall_npc_fascist_enforcer"),
+        ),
+        // The Fascist Swordsman: an enforcer with a drawn sabre (Jon,
+        // 2026-10-30: "a few facists with swords or clubs"). He holds just out of
+        // his long reach, then lunges in with a quick thrust and steps out again.
+        "npc_fascist_swordsman": (
+            display_name: "Fascist Swordsman",
+            manifest: "sprites/fascist_swordsman_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 183 cm, as the enforcer.
+            standing_height: Some(70.8),
+            composition: None,
+            default_action_set: "fascist_sabre_thrust",
+            locomotion: Some((run_speed: 250.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.6, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 640.0,
+                attack_range: 62.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.9,
+                // The duellist: he holds at the end of his sabre's reach, lunges in,
+                // and steps back out; hit, he gives ground.
+                navigates: true,
+                retreat_after_swing_s: 0.35,
+                tactics: (notice_s: 0.6, lurk_px: 90.0, waits_its_turn: true, footsies: Some((hold_px: 120.0, wait_s: 0.7)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(4),
+            tags: ["enemy", "evil", "minion"],
+        barks: (
+            on_hit: ["A scratch! Regulation permits scratches.", "Ow. I mean: ha!"],
+            idle: ["En garde, citizen!", "The blade is regulation length."],
+            hall: ["I was trained by a correspondence course.", "A sabre is a pointed opinion. I have only the one.", "Touché. That means I win."],
+        ),
+        hall_dialogue_id: Some("hall_npc_fascist_swordsman"),
+        ),
+        // The Fascist Clubman: an enforcer with an oak club bound in iron. Slow,
+        // and very sure of himself: the club goes up high (a long tell), comes
+        // down for two hearts, and he is bent over it a while after.
+        "npc_fascist_clubman": (
+            display_name: "Fascist Clubman",
+            manifest: "sprites/fascist_clubman_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 183 cm, as the enforcer.
+            standing_height: Some(70.8),
+            composition: None,
+            default_action_set: "fascist_club_overhead",
+            locomotion: Some((run_speed: 190.0, move_style: WalkHeavy)),
+            contact_damage: Some((strength: 0.7, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 560.0,
+                attack_range: 48.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.65,
+                attack_cooldown_s: 0.8,
+                // The brute: he walks up, waits just out of reach for you to come to
+                // him, then brings the club down; he does not give ground.
+                navigates: true,
+                tactics: (notice_s: 0.7, lurk_px: 70.0, waits_its_turn: true, footsies: Some((hold_px: 95.0, wait_s: 1.4))),
+            )),
+            max_health: Some(5),
+            tags: ["enemy", "evil", "minion"],
+        barks: (
+            on_hit: ["Hey! That is assault!", "Oof. Noted. Filed."],
+            idle: ["Meet the persuader.", "Hold still. It is for order."],
+            hall: ["This is a dialogue. I am the club half.", "Every argument ends at the club. I start there to save time.", "Persuader. Not a club. A persuader."],
+        ),
+        hall_dialogue_id: Some("hall_npc_fascist_clubman"),
         ),
         "npc_puppy_slug_velvet": (
             display_name: "Velvet Puppy Slug",
@@ -5513,7 +5602,7 @@
                 shares_sightings: false,
                 // Relentless and slow: it never backs off, but a horde spreads out,
                 // and it waits under a ledge you stand on, groaning, to one side.
-                tactics: (lurk_px: 70.0, waits_its_turn: true),
+                tactics: (notice_s: 0.6, lurk_px: 70.0, waits_its_turn: true),
             )),
             max_health: Some(3),
             tags: ["enemy", "evil", "undead", "minion"],
@@ -5523,6 +5612,44 @@
             hall: ["*teeth click*", "Hhhh... papers... please..."],
         ),
         hall_dialogue_id: Some("hall_npc_evil_zombie"),
+        ),
+        // The Crawling Conscript: a Risen Conscript with no legs, who drags
+        // himself along the floor on his arms (Jon, 2026-10-30). He lies still
+        // until you are close, rears back on one arm (a long tell) and lunges
+        // along the floor to grab and bite; after it he lies flat, open.
+        "npc_evil_zombie_crawler": (
+            display_name: "Crawling Conscript",
+            manifest: "sprites/evil_zombie_crawler_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // Low and wide: his body as he lies (45 px of his sheet), at the
+            // conscript's scale (67 world units for 113 px).
+            standing_height: Some(26.7),
+            composition: None,
+            default_action_set: "evil_crawler_lunge",
+            locomotion: Some((run_speed: 70.0, move_style: WalkHeavy, baseline_free_flight: Some(false))),
+            abilities: Some([Walk, Attack]),
+            contact_damage: Some((strength: 0.3, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 360.0,
+                attack_range: 44.0,
+                patrol_effort: 0.0,
+                chase_effort: 0.7,
+                attack_cooldown_s: 1.2,
+                shares_sightings: false,
+                // The lurker: it lies still out of your reach and waits for you to
+                // come to it, then lunges along the floor; a pack takes turns.
+                tactics: (notice_s: 0.7, lurk_px: 40.0, waits_its_turn: true, footsies: Some((hold_px: 70.0, wait_s: 1.6))),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "evil", "undead", "minion"],
+        barks: (
+            on_hit: ["*a wet hiss*", "Hhhk."],
+            idle: ["*a scrape of nails on stone*", "Hhhh... re... port..."],
+            hall: ["*it drags itself one arm's length nearer*", "Hhhh... still... on... duty..."],
+        ),
+        hall_dialogue_id: Some("hall_npc_evil_zombie_crawler"),
         ),
         // The Shock Warden: a short, wide trooper behind an electrified riot
         // shield, with an electric baton. Slow and hard to put down; after
@@ -5552,6 +5679,7 @@
                 // aside it answers with a shove of the shield (`shock_warden.ron`)
                 // while you are thrown back and locked out.
                 tactics: (
+                    notice_s: 0.6,
                     lurk_px: 140.0,
                     footsies: Some((hold_px: 95.0, wait_s: 1.3)),
                     counter: Some((after_s: 0.08, with: Special)),

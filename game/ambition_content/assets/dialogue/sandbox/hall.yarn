@@ -1122,6 +1122,24 @@ Wolfenstein: AWOOOOOOO.
     Wolfenstein: It came with the coat. The coat came with the orders. I ate the orders.
 ===
 
+title: hall_npc_fascist_swordsman
+---
+Fascist Swordsman: En garde! ...This is the stance. I have a certificate.
+-> Where did you learn to fence?
+    Fascist Swordsman: The correspondence course. Lesson nine was the thrust. Lessons ten to forty were about the paperwork.
+-> Is that sword sharp?
+    Fascist Swordsman: It is regulation length. Sharpness is a separate requisition.
+===
+
+title: hall_npc_fascist_clubman
+---
+Fascist Clubman: *he slaps the club into his palm* Meet the persuader.
+-> That is a club.
+    Fascist Clubman: It is a persuader. A club has no forms. The persuader has three.
+-> What does it persuade people of?
+    Fascist Clubman: That they were wrong. It has a perfect record.
+===
+
 title: hall_npc_fascist_enforcer
 ---
 Fascist Enforcer: Papers.
@@ -1700,6 +1718,15 @@ Risen Conscript: Hhhhrrr...
     Risen Conscript: *it looks at you for a long time* ...Hungry.
 -> Who were you?
     Risen Conscript: Con... script. Number... I forget the number.
+===
+
+title: hall_npc_evil_zombie_crawler
+---
+Crawling Conscript: *it drags itself one arm's length nearer*
+-> Where are your legs?
+    Crawling Conscript: Hhhh... requisitioned.
+-> Should you be on duty?
+    Crawling Conscript: Hhhh... no one... relieved me.
 ===
 
 title: hall_npc_shock_warden

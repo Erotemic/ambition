@@ -358,6 +358,8 @@ def ridge():
         enemy(40, "npc_fascist_enforcer", 2500, g, 32, 72),
         enemy(41, "npc_evil_attack_hound", 1900, g, 52, 50),
         enemy(42, "npc_fascist_enforcer", 1300, g, 32, 72),
+        # A clubman by the sentry hut, waiting for someone to persuade.
+        enemy(43, "npc_fascist_clubman", 2900, g, 32, 72),
     ]
     return RIDGE, room(RIDGE, e, at=RIDGE_AT, size=(w, h), biome="evil_forest", music="oppressive_crush", bg="#3A0E0E",
                        title="THE SEARCHLIGHT RIDGE", generator=GENERATOR)
@@ -425,6 +427,8 @@ def catacombs():
         enemy(30, "npc_evil_zombie", 760, g, 30, 67),
         enemy(31, "npc_evil_failed_prototype", 1180, g, 32, 40),
         enemy(32, "npc_evil_zombie", 1700, g, 30, 67),
+        # One that lost its legs, low in the dark under the shrine.
+        enemy(34, "npc_evil_zombie_crawler", 1460, g, 52, 28),
         enemy(33, "npc_evil_spectral_wolf", 2100, g, 56, 56),
     ]
     return CATACOMBS, room(CATACOMBS, e, at=CATACOMBS_AT, size=(w, h), biome="castle_godwin", music="vault_in_the_dark",

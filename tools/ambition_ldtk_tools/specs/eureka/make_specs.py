@@ -46,7 +46,8 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
 from district_kit import (  # noqa: E402
-    WALL, WORLDS, add_entities, door, edge, entity, ledge, make_rooms, pad, resident, room, run, sign, solid, start,
+    WALL, WORLDS, add_entities, breakable_wall, door, edge, entity, ledge, make_rooms, pad, paint, resident, room, run, sign, solid,
+    start,
 )
 
 import props  # noqa: E402  (this directory's scenery)
@@ -69,6 +70,17 @@ CLIMB = "eureka_elevator_climb"
 TERMINUS = "orbital_station_tether_terminus"
 BAY = "orbital_station_docking_bay"
 RANGE = "eureka_test_range"
+#: Under the quad, down the manhole in its street (quad x, a hole in the
+#: street over the plant's shaft): the steam plant; east of it on its floor,
+#: the Collider. Behind a bricked door at its west end (a breakable wall),
+#: the institute's first lab.
+PLANT = "eureka_steam_plant"
+FIRST_LAB = "eureka_first_lab"
+MANHOLE = (880, 944)
+PLANT_FLOOR = 928
+#: The plant's walks (x0, x1, y): the upper catwalk, the step, the lower
+#: catwalk, the boilers' tops (`eureka_plant_props.py` draws on these).
+PLANT_WALKS = ((16, 1500, 400), (1540, 1700, 528), (900, 2240, 656), (1080, 1280, 800), (1760, 1960, 800))
 
 #: The contract with the gate network: the arrival point a dialled SCIENCE
 #: names (its ring is `gate_interface.yaml`, written by
@@ -105,8 +117,12 @@ ROOMS_AT = {
     # Out of town (Jon, 2026-10-30): the Test Range, west of the gate court.
     RANGE: ((256 - 2816, 6880), (2816, 832)),
     QUAD: ((1856, 6816), (2816, 896)),
-    PATENT: ((1856, 8064), (1024, 640)),
-    LAB: ((3072, 8064), (1280, 576)),
+    # Buildings: under the steam plant, out of its way.
+    PATENT: ((1856, 9024), (1024, 640)),
+    LAB: ((3072, 9024), (1280, 576)),
+    # Under the quad, its floor the Collider's (world y 8640).
+    PLANT: ((2016, 7712), (2400, 992)),
+    FIRST_LAB: ((2016 - 640, 8640 - 512), (640, 576)),
     COLLIDER: ((4416, 8064), (2000, 640)),
     DOME: ((2560, 5792), (1280, 1024)),
     STATION: ((4672, 6240), (1600, 1408)),
@@ -195,8 +211,15 @@ def quad():
     # The raised walk is as high over the street as the court's is over its
     # floor, so the two meet level.
     street, terrace, walk_y = 768, 576, 576
+    m0, m1 = MANHOLE
     e = [
-        solid("street", 0, street, w, h - street),
+        solid("street_west", 0, street, m0, h - street),
+        solid("street_east", m1, street, w - m1, h - street),
+        # The manhole down to the steam plant: an open hole with a one-way
+        # floor over it (dropped through) and a ladder (`main`).
+        ledge("manhole_hatch", m0, street, m1 - m0),
+        vertical_edge("quad_manhole", "down the manhole to the steam plant", m0, h - 16, m1 - m0, PLANT, "plant_manhole"),
+        sign("manhole_sign", m0 + 30, street - 120, "STEAM PLANT: authorised persons, and the curious", 380),
         solid("west_wall_high", 0, 0, WALL, walk_y - 96),
         solid("west_wall_mid", 0, walk_y + 16, WALL, street - 96 - walk_y - 16),
         solid("east_wall", w - WALL, 0, WALL, street - 96),
@@ -463,7 +486,8 @@ def collider():
     e = [
         solid("floor", 0, floor, w, h - floor),
         solid("vault", 0, 0, w, vault),
-        solid("west_wall", 0, vault, WALL, floor - vault),
+        solid("west_wall", 0, vault, WALL, floor - 112 - vault),
+        edge("collider_west", "west into the steam plant", 0, floor, PLANT, "plant_east"),
         solid("east_wall", w - WALL, vault, WALL, floor - vault),
         door("collider_door", "up to the quad", 40, floor, QUAD, "quad_collider_door"),
         start(rid, 140, floor),
@@ -479,7 +503,67 @@ def collider():
     return build(rid, e, "THE EUREKA COLLIDER")
 
 
-ROOMS = (terminus, elevator_climb, elevator_station, quad, court, test_range, patent_office, coil_lab, observatory, collider)
+def plant():
+    """Under the quad, down its manhole: the steam plant that heats the
+    institute. Brick and riveted iron, the great pipes, two boilers (one
+    gauge in the red, labelled FINE), catwalks up to the vault; east on its
+    floor into the Collider. A bricked door at the west end, LAB 0 over it."""
+    rid = PLANT
+    _, (w, h) = ROOMS_AT[rid]
+    g, vault = PLANT_FLOOR, 48
+    x0 = ROOMS_AT[PLANT][0][0] - ROOMS_AT[QUAD][0][0]
+    s0, s1 = MANHOLE[0] - x0, MANHOLE[1] - x0
+    e = [
+        solid("floor", 0, g, w, h - g),
+        solid("vault_west", 0, 0, s0, vault),
+        solid("vault_east", s1, 0, w - s1, vault),
+        solid("west_wall", 0, vault, WALL, g - 112 - vault),
+        solid("east_wall", w - WALL, vault, WALL, g - 112 - vault),
+        vertical_edge("plant_manhole", "up the manhole to the quad", s0, 0, s1 - s0, QUAD, "quad_manhole"),
+        edge("plant_east", "east into the Collider", w - WALL, g, COLLIDER, "collider_west"),
+        # The bricked door (a breakable: hit it; broken for good in the
+        # save) over the way west (`secret_`: the map shows the first lab
+        # only once it is found).
+        breakable_wall("eureka_plant_bricked_door", WALL, g - 112, 32, 112, look="plant_bricked_door", hp=3,
+                       name="a bricked door, LAB 0 over it"),
+        edge("secret_plant_west", "through the bricked door", 0, g, FIRST_LAB, "secret_first_lab_east"),
+        start(rid, s1 + 120, g),
+        *[walk(f"plant_walk_{i}", a, y, b - a) for i, (a, b, y) in enumerate(PLANT_WALKS)],
+        entity("ChestSpawn", 1300, 400 - 58, 76, 58, name="the stoker's tin", reward="currency:50"),
+        sign("plant_sign", 1200, 90, "EUREKA STEAM PLANT: est. before anyone asked", 420),
+        sign("plant_sign_gauge", 1860, 640, "GAUGE: FINE", 220),
+        sign("plant_sign_door", 140, 760, "LAB 0", 160),
+        range_enemy(20, "npc_searchlight_crawler", 1100, g, 48, 34),
+        range_enemy(21, "npc_shock_warden", 1640, g, 40, 64),
+        range_enemy(22, "npc_searchlight_crawler", 600, 400, 48, 34),
+    ]
+    return build(rid, e, "THE STEAM PLANT")
+
+
+def first_lab():
+    """Behind the steam plant's bricked door: where the institute began. A
+    kitchen table for a bench, a kettle, the first coil in a jam jar, a
+    blackboard of one equation crossed out and written again, a camp bed;
+    DO NOT THROW AWAY."""
+    rid = FIRST_LAB
+    _, (w, h) = ROOMS_AT[rid]
+    g, vault = 512, 48
+    e = [
+        solid("floor", 0, g, w, h - g),
+        solid("vault", 0, 0, w, vault),
+        solid("west_wall", 0, vault, WALL, g - vault),
+        solid("east_wall", w - WALL, vault, WALL, g - 112 - vault),
+        edge("secret_first_lab_east", "back through the bricked door", w - WALL, g, PLANT, "secret_plant_west"),
+        start(rid, w - 120, g),
+        entity("ChestSpawn", 250, g - 58, 76, 58, name="the first grant (unspent)", reward="currency:120"),
+        sign("first_lab_sign", 320, 90, "LAB 0: where it began (please do not tidy)", 420),
+    ]
+    return build(rid, e, "LAB 0")
+
+
+# The buildings first (they move out of the plant's way).
+ROOMS = (patent_office, coil_lab, terminus, elevator_climb, elevator_station, quad, court, test_range, observatory, plant, first_lab,
+         collider)
 
 #: The docking bay's door to the terminus, on its floor west of the cargo
 #: lift (the bay is the station generator's; it lists the same door).
@@ -532,6 +616,12 @@ def main(argv):
     if GATE_INTERFACE.exists():
         code, _ = run("entity", "add", str(GATE_INTERFACE), "--ldtk", str(WORLD_LDTK), "--in-place")
         if code:
+            return code
+    # The manhole's ladder, from over the quad's street down out of its foot,
+    # and the plant's from its vault to its floor.
+    for args in ((QUAD, "Climbable", 1, MANHOLE[0] + 16, 768 - 80, 32, 896 - 768 + 80),
+                 (PLANT, "Climbable", 1, MANHOLE[0] - (ROOMS_AT[PLANT][0][0] - ROOMS_AT[QUAD][0][0]) + 16, 0, 32, PLANT_FLOOR)):
+        if code := paint(WORLD_LDTK, *args):
             return code
     # The ladder up to the collider's detector gallery.
     code, _ = run("intgrid", "paint", "--ldtk", str(WORLD_LDTK), "--level", COLLIDER, "--layer", "Climbable", "--value", "1",

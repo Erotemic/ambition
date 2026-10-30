@@ -1,0 +1,28 @@
+// Written by specs/eureka/make_specs.py. Change the script, not this file.
+(
+    id: "eureka_first_lab",
+    level_id: "eureka_first_lab",
+    world_x: 1376,
+    world_y: 8128,
+    px_wid: 640,
+    px_hei: 576,
+    fill_collision: "empty",
+    bg_color: "#A9D3F0",
+    biome: "eureka",
+    parallax_theme: "eureka",
+    music_track: "a_possible_morning",
+    entities: [
+        ( type: "Prop", px: [16, 16], size: [608, 496], fields: ( name: "first_lab_room_0", kind: "first_lab_room" ) ),
+        ( type: "Solid", px: [0, 512], size: [640, 64], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [640, 48], fields: ( name: "vault" ) ),
+        ( type: "Solid", px: [0, 48], size: [16, 464], fields: ( name: "west_wall" ) ),
+        ( type: "Solid", px: [624, 48], size: [16, 352], fields: ( name: "east_wall" ) ),
+        ( type: "LoadingZone", px: [624, 416], size: [16, 96], fields: ( id: "secret_first_lab_east", name: "back through the bricked door", activation: "EdgeExit", target_room: "eureka_steam_plant", target_zone: "secret_plant_west", bidirectional: true ) ),
+        ( type: "PlayerStart", px: [506, 466], size: [28, 46], fields: ( name: "eureka_first_lab_spawn" ) ),
+        ( type: "ChestSpawn", px: [250, 454], size: [76, 58], fields: ( name: "the first grant (unspent)", reward: "currency:120" ) ),
+        ( type: "DebugLabel", px: [110, 90], size: [420, 24], fields: ( name: "first_lab_sign", text: "LAB 0: where it began (please do not tidy)", category: "Custom" ) ),
+        ( type: "CameraZone", px: [0, 0], size: [640, 576], fields: ( id: "eureka_first_lab_camera", name: "eureka_first_lab_camera", mode: "Default" ) ),
+        ( type: "DebugLabel", px: [70, 40], size: [500, 24], fields: ( name: "eureka_first_lab_title", text: "LAB 0", category: "Custom" ) ),
+    ],
+    connect_to: [],
+)

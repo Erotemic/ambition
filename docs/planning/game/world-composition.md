@@ -91,8 +91,20 @@ Jon, 2026-10-30:
 - **Generator:** `specs/primeval/treetops.py` (the run and the rookery are edited in place).
 - **Tests:** `game/ambition_app/tests/the_tar_pits.rs`.
 
+## Eureka (the sixth)
+
+```
+ [test range]──[gate court]═walk/street═[quad]──────────────[ground station]──tether up
+                                          │manhole   ↑stair
+                    [Lab 0]┄bricked┄[steam plant]──[collider]
+```
+
+- **Under:** down the manhole in the quad's street into the steam plant (catwalks, boilers), east on its floor into the Collider, up its stair to the quad: a loop.
+- **Secret:** a bricked door at the plant's west end (a breakable wall), Lab 0 behind it.
+- **Tests:** `game/ambition_app/tests/the_eureka_tether.rs`.
+
 ## Not yet
 
 - **A hit-breakable wall** (`district_kit.breakable_wall`, broken for good in the save) is the other kind of secret: the catacombs' cracked wall hides the ossuary of the other founders. A breakable draws UNDER the room's scenery (the block band), so the room's art leaves a window over it (the canvas's alpha cut away).
 - **Ladders** draw over the room's scenery and under the cast (`CLIMBABLE_Z`); the room's art does not draw them.
-- The other regions (Eureka, the math town) are still strings of rooms. Each wants the same treatment.
+- The other regions (the math town) are still strings of rooms. Each wants the same treatment.

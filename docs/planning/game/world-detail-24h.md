@@ -60,6 +60,23 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Science composed: the steam plant under the Eureka quad** (down a
+  manhole in the street; catwalks, boilers, one gauge in the red labelled
+  FINE; east into the Collider, up its stair: a loop) and **Lab 0** behind a
+  bricked door (a breakable wall). Verified: the_eureka_tether (8), capture.
+- **Jungle composed: the treetops** over the trail, up the great tree's
+  rope ladder in the run, down a gap in the leaves into the rookery
+  (6ba334330). Verified: the_tar_pits treetops test, captures.
+- **Ladders seen; secrets hidden (Jon 10-30: "ladders ... no ladder
+  props/sprites")**: climbables drew under the room's scenery; now over it,
+  under the cast. A secret_ zone draws no doorway. Evil: the catacombs'
+  cracked wall (the first breakable_wall) over the ossuary of the other
+  founders (6a6213768). Verified: captures, the_searchlight_moor.
+- **PvN composed**: the Pirate Port's smugglers' tunnel (cellars -> drain
+  in the waterfront's street, grate opened by a lever below; the hoard
+  behind a plank wall) (79f4130e3); the Ninja Village's hidden way (a loose
+  board in the street -> the shrine's slab, lever below) (b018ae4a1).
+  Verified: the_wreckers_reef (6), the_ninja_village (3).
 - **Evil outdoors composed (Jon 10-30: dense regions, not strings)**:
   the crypt and the catacombs under the moor and the allotments (in by the
   crypt stair, up under plot 13); the Searchlight Ridge over them, up the

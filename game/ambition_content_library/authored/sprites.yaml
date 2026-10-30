@@ -582,6 +582,11 @@ collections:
   - run_great_tree
   - treetops_west
   - treetops_east
+  - quad_manhole
+  - plant_west
+  - plant_east
+  - plant_bricked_door
+  - first_lab_room
   - sail_loft_room
   - plaza_well
   - cellars_vault

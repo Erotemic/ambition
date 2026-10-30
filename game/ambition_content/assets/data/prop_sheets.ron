@@ -377,6 +377,12 @@
     "run_great_tree": (),
     "treetops_west": (),
     "treetops_east": (),
+    // The steam plant under the Eureka quad, its manhole, the bricked door (a breakable's look) and Lab 0 (Science).
+    "quad_manhole": (),
+    "plant_west": (),
+    "plant_east": (),
+    "plant_bricked_door": (),
+    "first_lab_room": (),
     "sail_loft_room": (),
     // The Pirate Port's well, and the cellars under customs (PvN).
     "plaza_well": (),

@@ -5890,6 +5890,47 @@
                 hall: ["I tuned this station's first stable ring. Now people commute through it.", "Cheap power made gates common. It did not make them cheap.", "Look down. That is why anyone comes up here."],
             ),
         ),
+        // Nikobolt Tesseract, an inventor who lives in peace in the Science
+        // dimension: a sympathetic Tesla parody (renderer
+        // `data/townsfolk/science_nikobolt.chargen.yaml`, drawn with the
+        // hand-made overlay `data/overlays/nikobolt_tesseract.overlay.svg`).
+        // Others took his inventions; he is not a villain. His home is not
+        // built yet.
+        "npc_science_nikobolt": (
+            display_name: "Nikobolt Tesseract",
+            manifest: "sprites/science_nikobolt_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 188 cm.
+            standing_height: Some(72.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["science", "inventor", "peaceful"],
+            barks: (
+                idle: ["...twenty-six, twenty-seven. Good. Twenty-seven.", "Eighteen napkins. Then I can eat."],
+                hall: ["The lamp by my door has no wire. Please stop looking for one. You are standing in the tulips.", "My coil drawings went missing. Now there is lightning over the castle on the other side of the gate.", "My wife feeds the pigeons on the roof. She says they are family. I have not asked which side."],
+            ),
+        ),
+        // Coulomba Tesseract, Nikobolt's wife: a white pigeon (renderer
+        // `data/townsfolk/science_coulomba.chargen.yaml`, drawn with the
+        // hand-made overlay `data/overlays/coulomba_tesseract.overlay.svg`).
+        "npc_science_coulomba": (
+            display_name: "Coulomba Tesseract",
+            manifest: "sprites/science_coulomba_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 165 cm.
+            standing_height: Some(63.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["science", "pigeon", "peaceful"],
+            barks: (
+                idle: ["*coo* ...pardon me.", "He counted the stairs again. Three times."],
+                hall: ["Nikobolt lit our kitchen with no wire. I still keep candles in the drawer.", "The pigeons on our roof are not my relatives. Probably not.", "People from the other gate come asking about his lightning. I send them home with seed cake."],
+            ),
+        ),
         // A generated armsmith (renderer `data/townsfolk/armsmith_odile.chargen.yaml`):
         // the first character from the character generator published with the
         // whole clip union, so every held item sits in her fist on every row.

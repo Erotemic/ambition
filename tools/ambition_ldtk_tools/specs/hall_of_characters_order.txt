@@ -130,6 +130,10 @@ npc_station_rahimi
 npc_station_pell
 npc_station_wen
 
+[The Science dimension]
+npc_science_nikobolt
+npc_science_coulomba
+
 [Made by the character generator]
 npc_armsmith_odile
 

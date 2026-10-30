@@ -452,6 +452,16 @@ fn decide(
     });
     if *RANK_TRACE {
         let foe_pct = view.nearest_hostile().map_or(0.0, |f| f.damage_frac());
+        if let Some(foe) = view.nearest_hostile() {
+            let a = &options.admission;
+            eprintln!(
+                "[admit] {:?} {:?} gap={:.0} candidates={} admitted={} off_axis={} miss={:.0} along={:.0} across={:.0} me_ground={} foe_ground={} foe_phase={:?} stale={:.2}",
+                snapshot.subject, situation,
+                ambition_characters::brain::fighter::options::side_gap(&view),
+                a.candidates, a.admitted, a.off_axis, a.nearest_miss_px, a.miss_along, a.miss_across,
+                view.self_view.on_ground, foe.on_ground, foe.phase, view.staleness_s()
+            );
+        }
         for (rank, a) in options.attacks.iter().take(4).enumerate() {
             let f = &a.features;
             eprintln!(

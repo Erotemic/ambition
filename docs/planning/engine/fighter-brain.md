@@ -458,6 +458,22 @@ general shape; check new code against it.
   every other decision at spacing (35 hops in 30 s, the neutral spent
   airborne). The attack ranking takes a second, unconditional draw with the
   same rule — the grab or the dash attack beside the jab on an approach.
+- **Admission was measured before it was touched, and it was not the lever.**
+  `OptionSet::admission` (candidates, admitted, nearest miss and where the
+  led foe sat) prints as the rank trace's `[admit]` line. Measured
+  2026-10-29 (pointed vs pugnacious, rung 5, 30 s): an attack was admitted
+  in 6% of Neutral and 6% of Advantage decisions; the refusals missed by a
+  median 174 px (7 of 134 within the 24 px slack, 14 within 48), with the
+  led foe 160-190 px off vertically and one or both bodies airborne in two
+  thirds of them. The admission already leads the foe by relative velocity
+  over staleness + startup; no slack or lead fixes a 174 px miss. The lever
+  was ground contact: the dash-dance fired whenever nothing was admitted
+  (94% of decisions), the band short hop put the body in the air, and a
+  cornered body rolled (0.75 over Retreat 0.7) with nothing incoming — 500
+  of 3,600 ticks evading. Now the dance and the band hop only face a
+  standing, uncommitted foe, and the un-threatened cornered roll sits under
+  the walk. `match-report` prints `whiffs` (moves that ended with no
+  overlap): 14 of 17 and 14 of 15 in that pair before the change.
 - **The recovery route is legal-now like every attack.** The Recovery list
   skipped `legality`; the route was re-pressed through its own move and the
   helpless fall after it.

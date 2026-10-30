@@ -402,6 +402,39 @@ pub struct OptionSet {
     /// Scored pure-motion moves, best first. See [`MotionOption`]. Empty for
     /// the kits that author none, which is most of them.
     pub motions: Vec<MotionOption>,
+    /// What the admission did this tick — the instrument behind the rank
+    /// trace's `[admit]` line. Zero/`INFINITY` when no attack was priced.
+    pub admission: AdmissionStats,
+}
+
+/// How the attack admission went: how many legal candidates it saw, how many
+/// it kept, and for the one that came closest to admission, how far off it
+/// was and where the led foe sat (body-local: `+along` ahead, `across` down).
+///
+/// `off_axis` counts candidates whose region has no span at all toward the
+/// led foe — a ground poke against a foe straight above, say — which no slack
+/// in distance would admit.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AdmissionStats {
+    pub candidates: usize,
+    pub admitted: usize,
+    pub off_axis: usize,
+    pub nearest_miss_px: f32,
+    pub miss_along: f32,
+    pub miss_across: f32,
+}
+
+impl Default for AdmissionStats {
+    fn default() -> Self {
+        Self {
+            candidates: 0,
+            admitted: 0,
+            off_axis: 0,
+            nearest_miss_px: f32::INFINITY,
+            miss_along: 0.0,
+            miss_across: 0.0,
+        }
+    }
 }
 
 impl OptionSet {
@@ -592,6 +625,7 @@ pub fn generate_options(
             movement,
             attacks,
             motions: Vec::new(),
+            admission: AdmissionStats::default(),
         };
     }
     if foe.is_none() {
@@ -602,6 +636,7 @@ pub fn generate_options(
             movement,
             attacks: Vec::new(),
             motions: Vec::new(),
+            admission: AdmissionStats::default(),
         };
     }
     let foe = foe.expect("checked");
@@ -1062,6 +1097,30 @@ pub fn generate_options(
     // SCORING THAT ALSO SPENDS THEM — see `threat_at` / `lead_of` /
     // `arrival_of`. They were defined here, between the scoring and this
     // filter, while admission was their only consumer.
+    // THE ADMISSION'S OWN MEASUREMENT, taken on the same aim the gate below
+    // uses, before the gate runs: how close the nearest refused candidate came.
+    let candidates = attacks.len();
+    let mut off_axis = 0;
+    let mut nearest_miss_px = f32::INFINITY;
+    let mut miss_aim = (0.0_f32, 0.0_f32);
+    for attack in &attacks {
+        let Some(coverage) = &attack.frames.coverage else {
+            continue;
+        };
+        let aim = lead_of(threat_at(&attack.frames));
+        let Some((near, far)) = coverage.span_toward(aim, foe_extent) else {
+            off_axis += 1;
+            continue;
+        };
+        let gap = (aim.0 * aim.0 + aim.1 * aim.1).sqrt();
+        let miss = (near - ADMISSION_SLACK_PX - gap)
+            .max(gap - far - ADMISSION_SLACK_PX)
+            .max(0.0);
+        if miss < nearest_miss_px {
+            nearest_miss_px = miss;
+            miss_aim = aim;
+        }
+    }
     attacks.retain(|attack| match (&attack.frames.coverage, &attack.frames.push_coverage) {
         // Hits somewhere: the hit is the question, and the shove it may also
         // carry is not a reason to swing at nobody.
@@ -1256,6 +1315,14 @@ pub fn generate_options(
     sort_by_score_then_name(&mut movement, |m| (m.score, verb_order(m.verb)));
 
     OptionSet {
+        admission: AdmissionStats {
+            candidates,
+            admitted: attacks.len(),
+            off_axis,
+            nearest_miss_px,
+            miss_along: miss_aim.0,
+            miss_across: miss_aim.1,
+        },
         movement,
         attacks,
         motions,
@@ -1848,6 +1915,14 @@ fn movement_options(
     let at_reach = spacing_band && !beyond_reach;
     let side = me.acceleration_frame().side;
     let moving_in = toward_foe != 0.0 && me.vel.dot(side) * toward_foe > 0.0;
+    // A STAND-OFF is two bodies on the ground with nothing committed; that is
+    // the only neutral the dash-dance belongs to. Measured 2026-10-29 (rung 5,
+    // 30 s): nothing was admitted in 94% of decisions, so a dance keyed to
+    // "nothing admitted" alone backed off from a foe that was in the air or
+    // reeling, and the ground contact the attacks need never came.
+    let foe_standing = first_foe.is_some_and(|foe| {
+        foe.on_ground && !super::situation::is_punishable(foe, me.gravity_down)
+    });
     // ANTI-AIR: a foe in the air above this body is a short hop from an
     // aerial, and nothing on the ground reaches it.
     let foe_above = first_foe.is_some_and(|foe| {
@@ -2004,12 +2079,17 @@ fn movement_options(
             // is only travel, so a body whose button dashes keeps the lower one
             // it always had. Same slot, two bodies, two honest numbers.
             if let Some(evade) = evade {
+                // The roll outranks the walk only when something is swinging:
+                // a body cornered with nothing incoming walks out. Measured
+                // 2026-10-29 (rung 5, 60 s): 500 of 3,600 ticks evading, the
+                // corner share of this 480 px floor read as `Disadvantage` and
+                // the roll at 0.75 beat Retreat at 0.7 on every one of them.
                 push(
                     evade,
-                    if evade == MovementVerb::Dodge {
-                        0.75
-                    } else {
-                        0.6
+                    match evade {
+                        MovementVerb::Dodge if threatened => 0.75,
+                        MovementVerb::Dodge => 0.65,
+                        _ => 0.6,
                     },
                 );
             }
@@ -2062,16 +2142,17 @@ fn movement_options(
             if beyond_reach {
                 push(MovementVerb::Approach, 0.55);
                 push(MovementVerb::Retreat, 0.3);
-            } else if at_reach && moving_in && !can_swing {
+            } else if at_reach && moving_in && !can_swing && foe_standing {
                 push(MovementVerb::Retreat, 0.55);
                 push(MovementVerb::Approach, 0.45);
             } else {
                 push(MovementVerb::Approach, 0.5);
                 push(MovementVerb::Retreat, 0.4);
             }
-            if at_reach && me.on_ground {
+            if at_reach && me.on_ground && foe_standing {
                 // Inside the mix margin of the top ground option: now and then
-                // the neutral is entered from the air.
+                // the neutral is entered from the air — against a body on the
+                // ground, where the aerial lands on something.
                 push(MovementVerb::ShortHop, 0.45);
             }
             if can_jump {

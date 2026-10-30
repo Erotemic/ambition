@@ -67,6 +67,10 @@ struct Tally {
     best_charge: f32,
     /// Distinct move starts, so a match that throws one move reads as one.
     moves_started: usize,
+    /// Moves that ENDED without their volume ever overlapping a hurtbox
+    /// (`MoveContact::overlapped` false for the whole playback): the whiffs.
+    /// A move still playing when the window closes is not counted either way.
+    whiffs: usize,
     /// The fastest launch this body was handed, and the speed its own tuning
     /// says a launch must beat to become a tumble. Together they separate the
     /// two causes of "nobody tumbled".
@@ -385,7 +389,7 @@ fn run_one(
     }
     let ticks = seconds * 60;
     let mut totals: Vec<Tally> = vec![Tally::default(); 4];
-    let mut live_move: Vec<Option<(String, f32)>> = vec![None; 4];
+    let mut live_move: Vec<Option<(String, f32, bool)>> = vec![None; 4];
     let mut parry_was: Vec<f32> = vec![0.0; 4];
     let mut hitstun_was: Vec<f32> = vec![0.0; 4];
     let mut last_damage: Vec<i32> = vec![0; 4];
@@ -607,10 +611,11 @@ fn report_one(label: &str, seconds: usize, totals: &[Tally], carried: &[String])
     println!("match_report: {label}, {seconds}s of CPU-versus-CPU");
     println!("{}\n", composition_scope(carried));
     println!(
-        "{:<6} {:>7} {:>7} {:>8} {:>8} {:>7} {:>8} {:>7} {:>7} {:>7} {:>7} {:>7} {:>8} {:>8}",
+        "{:<6} {:>7} {:>7} {:>7} {:>8} {:>8} {:>7} {:>8} {:>7} {:>7} {:>7} {:>7} {:>7} {:>8} {:>8}",
         "seat",
         "damage",
         "moves",
+        "whiffs",
         "hitstun",
         "tumbling",
         "downed",
@@ -628,10 +633,11 @@ fn report_one(label: &str, seconds: usize, totals: &[Tally], carried: &[String])
             continue;
         }
         println!(
-            "{:<6} {:>7} {:>7} {:>8} {:>8} {:>7} {:>8} {:>7} {:>7} {:>7} {:>7} {:>6.2} {:>8.0} {:>8.0}",
+            "{:<6} {:>7} {:>7} {:>7} {:>8} {:>8} {:>7} {:>8} {:>7} {:>7} {:>7} {:>7} {:>6.2} {:>8.0} {:>8.0}",
             seat,
             tally.damage,
             tally.moves_started,
+            tally.whiffs,
             tally.hitstun,
             tally.tumbling,
             tally.knocked_down,
@@ -722,7 +728,7 @@ fn report_one(label: &str, seconds: usize, totals: &[Tally], carried: &[String])
 fn sample(
     app: &mut App,
     totals: &mut [Tally],
-    live_move: &mut [Option<(String, f32)>],
+    live_move: &mut [Option<(String, f32, bool)>],
     parry_was: &mut [f32],
     hitstun_was: &mut [f32],
     last_damage: &mut [i32],
@@ -790,7 +796,9 @@ fn sample(
                         }
                         _ => 0.0,
                     },
-                    playback.map(|p| (p.spec.id.clone(), p.t, p.smash_charge_fraction())),
+                    playback.map(|p| {
+                        (p.spec.id.clone(), p.t, p.smash_charge_fraction(), p.contact().overlapped)
+                    }),
                     facts.copied(),
                     shield.copied(),
                     match model {
@@ -901,21 +909,33 @@ fn sample(
         if tech_timer.is_some_and(|t| t > 0.0) {
             tally.tech_armed += 1;
         }
-        if let Some((id, t, charge)) = playback {
+        if let Some((id, t, charge, overlapped)) = playback {
             let fresh = match &live_move[seat] {
-                Some((last_id, last_t)) => last_id != &id || t < *last_t,
+                Some((last_id, last_t, _)) => last_id != &id || t < *last_t,
                 None => true,
             };
             if fresh {
+                // The move before this one ended; a whiff if it never touched.
+                if let Some((_, _, touched)) = &live_move[seat] {
+                    if !touched {
+                        tally.whiffs += 1;
+                    }
+                }
                 tally.moves_started += 1;
                 *tally.started.entry(id.clone()).or_default() += 1;
             }
-            live_move[seat] = Some((id, t));
+            let touched = overlapped || (!fresh && live_move[seat].as_ref().is_some_and(|m| m.2));
+            live_move[seat] = Some((id, t, touched));
             if let Some(fraction) = charge {
                 tally.charge_held += 1;
                 tally.best_charge = tally.best_charge.max(fraction);
             }
         } else {
+            if let Some((_, _, touched)) = &live_move[seat] {
+                if !touched {
+                    tally.whiffs += 1;
+                }
+            }
             live_move[seat] = None;
         }
     }
@@ -982,6 +1002,7 @@ fn report_spread(label: &str, seconds: usize, all: &[Vec<Tally>], carried: &[Str
     };
     println!("  damage      {}", spread(|t| t.damage as f32));
     println!("  moves       {}", spread(|t| t.moves_started as f32));
+    println!("  whiffs      {}", spread(|t| t.whiffs as f32));
     println!("  hitstun     {}", spread(|t| t.hitstun as f32));
     println!("  tumbling    {}", spread(|t| t.tumbling as f32));
     println!("  downed      {}", spread(|t| t.knocked_down as f32));

@@ -512,6 +512,23 @@ while STAGED, the one tick it is visible (the kernel consumes it next tick),
 so the trigger keeps no memory and is rollback-safe. Not built: Ultimate's
 red flash and slow-motion (presentation; the freeze stands in).
 
+2026-10-30, the film. `capture_scene --route smash_gameplay --frames 16`
+(a seated human avatar against a CPU) showed a FIXED frame and the CPU
+leaving it by the top — at any zoom preset. CODE-READ: the camera took the
+cast branch only when no primary avatar existed; nothing strips
+`PrimaryPlayer` from a human seat, so in human play the Smash camera had
+always followed the human alone, room-clamped, and every cast-framing
+result above (the P7 ✔, the box, the guard) was CPU-versus-CPU only. Fixed:
+a declared cast (`FramedCast` non-empty — only a match fills it) is the
+subject; the avatar and the controlled subject are members. Witness:
+`a_declared_cast_is_framed_even_when_a_primary_player_is_seated`. Lesson:
+the guard seats two CPUs; a camera claim about a match needs ONE frame with
+a human seated in it.
+
+Also from the CPU agent's `ko_envelope feel`: the pointed up-tilt (169.6
+base / 4.13 growth) out-launched the up-smash (146 / 5.82) below ~50% — a
+×1.6 baked into the base; set to 106 (an anti-air that kills late).
+
 Still open after this: the off-screen bubble for a body between the camera
 box and the blast line (art + HUD, needs Jon's eye) and a human pass on the
 rates (4 Hz both ways is a first value; Melee's per-frame fractions are in a

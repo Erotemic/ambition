@@ -309,7 +309,7 @@
         // seat's HUD colour (partners by parity, as the HUD colours them).
         bubble: Some((
             diameter_px: 96.0,
-            span: 150.0,
+            span: 100.0,
             // One per seat, four seats (a fixed four: a tuple in RON).
             rings: (
                 (0.55, 0.85, 1.0, 1.0),

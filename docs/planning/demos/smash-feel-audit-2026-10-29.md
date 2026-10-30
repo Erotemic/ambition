@@ -537,8 +537,11 @@ runs 2 and 3 each zoomed once at their verdict. The trace counts zooms as
 rising edges of `FinishZoomState` and spends as drops of `FighterStocks`
 (message cursors missed the sim schedule's own update).
 
-Still open after this: the off-screen bubble for a body between the camera
-box and the blast line (art + HUD, needs Jon's eye) and a human pass on the
+The off-screen bubble (c3584fe46): `cast_framing.bubble` — a fighter wholly
+past the frame is shown in a 96 px ring at the frame's edge, in its seat's
+HUD colour, holding a live view 100 world units across (a camera per bubble
+into a texture). Seen in `match-shots` frames (t375, t969). Still open after
+this: Jon's eye on the bubble's size and look, and a human pass on the
 rates (4 Hz both ways is a first value; Melee's per-frame fractions are in a
 binary table nobody has read).
 
@@ -604,6 +607,15 @@ there, by wall time); recycled entity ids leave the george mirror
 byte-identical; the fighters' `ActorRenderSize` is set once, at tick 15,
 equal in every process. Games that keep the world freeze still ride the ease; snapping it
 is still Jon's call.
+
+FOUND (78223ebf6): bevy_ggrs's clock is `frame × 10⁹ / 60` whole
+nanoseconds, so the step alternated 16 666 666 / 16 666 667 ns by the frame
+count mod 3, and `refresh_world_time` passed that to the sim. A per-tick
+trace showed one process's bodies a tick ahead of the others on the same dt
+pattern. The rollback host now declares `SimStepPeriod` (1/60 s exactly).
+MEASURED after: six fresh 60 s processes of the polygon pair give
+byte-identical reports. One seed is now one match; `--runs N` is a real
+sample.
 
 CPU pokes (44f1c5047, MEASURED `--runs 3` per live minute): attack whiffs
 pair r5 80→67%, pair r9 64→57%, mirror r5 →78%, mirror r9 →77%; goal

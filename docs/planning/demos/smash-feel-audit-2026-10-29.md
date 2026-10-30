@@ -530,6 +530,13 @@ Also from the CPU agent's `ko_envelope feel`: the pointed up-tilt (169.6
 base / 4.13 growth) out-launched the up-smash (146 / 5.82) below ~50% — a
 ×1.6 baked into the base; set to 106 (an anti-air that kills late).
 
+Witnessed in play (MEASURED, `match-report --camera --level 9 300 --runs 3`):
+run 1 staged a last-stock launch at tick 1815 (v 382, −1194 px/s, predicted
+to leave) and the finish zoom rose on that tick, before the stock was spent;
+runs 2 and 3 each zoomed once at their verdict. The trace counts zooms as
+rising edges of `FinishZoomState` and spends as drops of `FighterStocks`
+(message cursors missed the sim schedule's own update).
+
 Still open after this: the off-screen bubble for a body between the camera
 box and the blast line (art + HUD, needs Jon's eye) and a human pass on the
 rates (4 Hz both ways is a first value; Melee's per-frame fractions are in a

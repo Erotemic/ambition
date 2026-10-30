@@ -71,7 +71,8 @@ Tests: `game/ambition_app/tests/an_enemy_notices_then_telegraphs.rs`.
   - the fascist swordsman (a quick sabre thrust from range);
   - the fascist clubman (club high for a long time, then a slam he is winded after).
 - **Shock warden:** redrawn, with a planted guard.
-- **Notice and windup rows:** the base conscript, the enforcer and the warden have them too.
+- **Notice and windup rows:** the base conscript, the enforcer, the warden, the attack hound, the failed prototype and the searchlight crawler have them too.
+- **The attack hound** bites standing; coming in at a run it lunges (a crouch, then a low 180 px spring; `movesets/evil_attack_hound.ron`).
 
 Tests: `game/ambition_app/tests/castle_godwin_variants.rs`.
 

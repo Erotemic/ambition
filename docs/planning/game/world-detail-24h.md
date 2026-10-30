@@ -43,6 +43,13 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Evil: the founder's crypt** (a4cc9e181) under the moor, by a gate
+  beside his plinth: bones, pointing busts, his medals on the sarcophagus;
+  a spectral wolf and conscripts. Verified: the_searchlight_moor (3).
+- **Jungle: Professor Tock keeps the meteor watch** (68ed25bf4) on the
+  mountain's rim; the test walker climbs the mountain to talk to him.
+- **Math: Ivo keeps the Fractal Woods** (811f00ea7), a new Hall wing for
+  the Math town's people.
 - **Residents for the out-of-town zones**: Range Officer Pryce at the Test
   Range (739b79790), Nell Brine on the Wreckers' Reef's shore (5f9ce8bd5).
   Verified: their talk tests.

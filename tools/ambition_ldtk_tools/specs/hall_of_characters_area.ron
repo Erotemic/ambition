@@ -16,7 +16,7 @@
     world_x: 40000,
     world_y: 0,
     px_wid: 2048,
-    px_hei: 4736,
+    px_hei: 4928,
     fill_collision: "empty",
     bg_color: "#0F121A",
     biome: "hall",
@@ -43,7 +43,7 @@
             type: "Solid",
             px: [
                 0,
-                4720,
+                4912,
             ],
             size: [
                 2048,
@@ -61,7 +61,7 @@
             ],
             size: [
                 16,
-                4736,
+                4928,
             ],
             fields: (
                 name: "hall_left_wall",
@@ -75,7 +75,7 @@
             ],
             size: [
                 16,
-                4736,
+                4928,
             ],
             fields: (
                 name: "hall_right_wall",
@@ -390,10 +390,38 @@
             ),
         ),
         (
-            type: "Solid",
+            type: "OneWayPlatform",
             px: [
                 16,
                 2320,
+            ],
+            size: [
+                960,
+                16,
+            ],
+            fields: (
+                name: "floor_platform_12_left",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                1072,
+                2320,
+            ],
+            size: [
+                960,
+                16,
+            ],
+            fields: (
+                name: "floor_platform_12_right",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                16,
+                2512,
             ],
             size: [
                 960,
@@ -407,7 +435,7 @@
             type: "Solid",
             px: [
                 1072,
-                2320,
+                2512,
             ],
             size: [
                 960,
@@ -421,7 +449,7 @@
             type: "Solid",
             px: [
                 16,
-                2720,
+                2912,
             ],
             size: [
                 960,
@@ -435,7 +463,7 @@
             type: "Solid",
             px: [
                 1072,
-                2720,
+                2912,
             ],
             size: [
                 960,
@@ -449,7 +477,7 @@
             type: "Solid",
             px: [
                 16,
-                3104,
+                3296,
             ],
             size: [
                 960,
@@ -463,7 +491,7 @@
             type: "Solid",
             px: [
                 1072,
-                3104,
+                3296,
             ],
             size: [
                 960,
@@ -477,7 +505,7 @@
             type: "Solid",
             px: [
                 16,
-                3488,
+                3680,
             ],
             size: [
                 960,
@@ -491,7 +519,7 @@
             type: "Solid",
             px: [
                 1072,
-                3488,
+                3680,
             ],
             size: [
                 960,
@@ -505,7 +533,7 @@
             type: "Solid",
             px: [
                 16,
-                3872,
+                4064,
             ],
             size: [
                 960,
@@ -519,7 +547,7 @@
             type: "Solid",
             px: [
                 1072,
-                3872,
+                4064,
             ],
             size: [
                 960,
@@ -533,7 +561,7 @@
             type: "Solid",
             px: [
                 16,
-                4720,
+                4912,
             ],
             size: [
                 2016,
@@ -547,7 +575,7 @@
             type: "PlayerStart",
             px: [
                 96,
-                2272,
+                2464,
             ],
             size: [
                 28,
@@ -561,7 +589,7 @@
             type: "LoadingZone",
             px: [
                 24,
-                2224,
+                2416,
             ],
             size: [
                 48,
@@ -580,7 +608,7 @@
             type: "NpcSpawn",
             px: [
                 176,
-                2272,
+                2464,
             ],
             size: [
                 32,
@@ -598,7 +626,7 @@
             type: "NpcSpawn",
             px: [
                 304,
-                2272,
+                2464,
             ],
             size: [
                 32,
@@ -616,7 +644,7 @@
             type: "NpcSpawn",
             px: [
                 432,
-                2272,
+                2464,
             ],
             size: [
                 32,
@@ -634,7 +662,7 @@
             type: "NpcSpawn",
             px: [
                 560,
-                2272,
+                2464,
             ],
             size: [
                 32,
@@ -652,7 +680,7 @@
             type: "NpcSpawn",
             px: [
                 688,
-                2272,
+                2464,
             ],
             size: [
                 32,
@@ -670,7 +698,7 @@
             type: "NpcSpawn",
             px: [
                 816,
-                2272,
+                2464,
             ],
             size: [
                 32,
@@ -688,7 +716,7 @@
             type: "NpcSpawn",
             px: [
                 944,
-                2272,
+                2464,
             ],
             size: [
                 32,
@@ -706,7 +734,7 @@
             type: "NpcSpawn",
             px: [
                 1072,
-                2272,
+                2464,
             ],
             size: [
                 32,
@@ -724,7 +752,7 @@
             type: "NpcSpawn",
             px: [
                 1200,
-                2272,
+                2464,
             ],
             size: [
                 32,
@@ -742,7 +770,7 @@
             type: "NpcSpawn",
             px: [
                 1328,
-                2272,
+                2464,
             ],
             size: [
                 32,
@@ -760,7 +788,7 @@
             type: "NpcSpawn",
             px: [
                 1456,
-                2272,
+                2464,
             ],
             size: [
                 32,
@@ -778,7 +806,7 @@
             type: "NpcSpawn",
             px: [
                 1584,
-                2272,
+                2464,
             ],
             size: [
                 32,
@@ -796,7 +824,7 @@
             type: "NpcSpawn",
             px: [
                 1712,
-                2272,
+                2464,
             ],
             size: [
                 32,
@@ -814,7 +842,7 @@
             type: "NpcSpawn",
             px: [
                 1840,
-                2272,
+                2464,
             ],
             size: [
                 32,
@@ -832,7 +860,7 @@
             type: "NpcSpawn",
             px: [
                 1968,
-                2272,
+                2464,
             ],
             size: [
                 32,
@@ -850,7 +878,7 @@
             type: "NpcSpawn",
             px: [
                 48,
-                2080,
+                2272,
             ],
             size: [
                 32,
@@ -868,7 +896,7 @@
             type: "NpcSpawn",
             px: [
                 176,
-                2080,
+                2272,
             ],
             size: [
                 32,
@@ -886,7 +914,7 @@
             type: "NpcSpawn",
             px: [
                 304,
-                2080,
+                2272,
             ],
             size: [
                 32,
@@ -904,7 +932,7 @@
             type: "NpcSpawn",
             px: [
                 432,
-                2080,
+                2272,
             ],
             size: [
                 32,
@@ -922,7 +950,7 @@
             type: "NpcSpawn",
             px: [
                 560,
-                2080,
+                2272,
             ],
             size: [
                 32,
@@ -940,7 +968,7 @@
             type: "NpcSpawn",
             px: [
                 688,
-                2080,
+                2272,
             ],
             size: [
                 32,
@@ -958,7 +986,7 @@
             type: "NpcSpawn",
             px: [
                 816,
-                2080,
+                2272,
             ],
             size: [
                 32,
@@ -976,7 +1004,7 @@
             type: "NpcSpawn",
             px: [
                 944,
-                2080,
+                2272,
             ],
             size: [
                 32,
@@ -994,7 +1022,7 @@
             type: "NpcSpawn",
             px: [
                 1072,
-                2080,
+                2272,
             ],
             size: [
                 32,
@@ -1012,7 +1040,7 @@
             type: "NpcSpawn",
             px: [
                 1200,
-                2080,
+                2272,
             ],
             size: [
                 32,
@@ -1030,7 +1058,7 @@
             type: "NpcSpawn",
             px: [
                 1328,
-                2080,
+                2272,
             ],
             size: [
                 32,
@@ -1048,7 +1076,7 @@
             type: "NpcSpawn",
             px: [
                 1456,
-                2080,
+                2272,
             ],
             size: [
                 32,
@@ -1066,7 +1094,7 @@
             type: "NpcSpawn",
             px: [
                 1584,
-                2080,
+                2272,
             ],
             size: [
                 32,
@@ -1084,7 +1112,7 @@
             type: "NpcSpawn",
             px: [
                 1712,
-                2080,
+                2272,
             ],
             size: [
                 32,
@@ -1102,7 +1130,7 @@
             type: "NpcSpawn",
             px: [
                 1840,
-                2080,
+                2272,
             ],
             size: [
                 32,
@@ -1120,7 +1148,7 @@
             type: "NpcSpawn",
             px: [
                 1968,
-                2080,
+                2272,
             ],
             size: [
                 32,
@@ -1138,7 +1166,7 @@
             type: "NpcSpawn",
             px: [
                 48,
-                1888,
+                2080,
             ],
             size: [
                 32,
@@ -1156,7 +1184,7 @@
             type: "NpcSpawn",
             px: [
                 176,
-                1888,
+                2080,
             ],
             size: [
                 32,
@@ -1174,7 +1202,7 @@
             type: "NpcSpawn",
             px: [
                 304,
-                1888,
+                2080,
             ],
             size: [
                 32,
@@ -1192,7 +1220,7 @@
             type: "NpcSpawn",
             px: [
                 432,
-                1888,
+                2080,
             ],
             size: [
                 32,
@@ -1210,7 +1238,7 @@
             type: "NpcSpawn",
             px: [
                 560,
-                1888,
+                2080,
             ],
             size: [
                 32,
@@ -1228,7 +1256,7 @@
             type: "NpcSpawn",
             px: [
                 688,
-                1888,
+                2080,
             ],
             size: [
                 32,
@@ -1246,7 +1274,7 @@
             type: "NpcSpawn",
             px: [
                 816,
-                1888,
+                2080,
             ],
             size: [
                 32,
@@ -1264,7 +1292,7 @@
             type: "NpcSpawn",
             px: [
                 944,
-                1888,
+                2080,
             ],
             size: [
                 32,
@@ -1282,7 +1310,7 @@
             type: "NpcSpawn",
             px: [
                 1072,
-                1888,
+                2080,
             ],
             size: [
                 32,
@@ -1300,7 +1328,7 @@
             type: "NpcSpawn",
             px: [
                 1200,
-                1888,
+                2080,
             ],
             size: [
                 32,
@@ -1318,7 +1346,7 @@
             type: "NpcSpawn",
             px: [
                 1328,
-                1888,
+                2080,
             ],
             size: [
                 32,
@@ -1336,7 +1364,7 @@
             type: "NpcSpawn",
             px: [
                 1456,
-                1888,
+                2080,
             ],
             size: [
                 32,
@@ -1354,7 +1382,7 @@
             type: "NpcSpawn",
             px: [
                 1584,
-                1888,
+                2080,
             ],
             size: [
                 32,
@@ -1372,7 +1400,7 @@
             type: "NpcSpawn",
             px: [
                 1712,
-                1888,
+                2080,
             ],
             size: [
                 32,
@@ -1390,7 +1418,7 @@
             type: "NpcSpawn",
             px: [
                 1840,
-                1888,
+                2080,
             ],
             size: [
                 32,
@@ -1408,7 +1436,7 @@
             type: "NpcSpawn",
             px: [
                 1968,
-                1888,
+                2080,
             ],
             size: [
                 32,
@@ -1426,7 +1454,7 @@
             type: "NpcSpawn",
             px: [
                 48,
-                1696,
+                1888,
             ],
             size: [
                 32,
@@ -1444,7 +1472,7 @@
             type: "NpcSpawn",
             px: [
                 176,
-                1696,
+                1888,
             ],
             size: [
                 32,
@@ -1462,7 +1490,7 @@
             type: "NpcSpawn",
             px: [
                 304,
-                1696,
+                1888,
             ],
             size: [
                 32,
@@ -1480,7 +1508,7 @@
             type: "NpcSpawn",
             px: [
                 432,
-                1696,
+                1888,
             ],
             size: [
                 32,
@@ -1498,7 +1526,7 @@
             type: "NpcSpawn",
             px: [
                 560,
-                1696,
+                1888,
             ],
             size: [
                 32,
@@ -1516,7 +1544,7 @@
             type: "NpcSpawn",
             px: [
                 688,
-                1696,
+                1888,
             ],
             size: [
                 32,
@@ -1534,7 +1562,7 @@
             type: "NpcSpawn",
             px: [
                 816,
-                1696,
+                1888,
             ],
             size: [
                 32,
@@ -1552,7 +1580,7 @@
             type: "NpcSpawn",
             px: [
                 944,
-                1696,
+                1888,
             ],
             size: [
                 32,
@@ -1570,7 +1598,7 @@
             type: "NpcSpawn",
             px: [
                 1072,
-                1696,
+                1888,
             ],
             size: [
                 32,
@@ -1588,7 +1616,7 @@
             type: "NpcSpawn",
             px: [
                 1200,
-                1696,
+                1888,
             ],
             size: [
                 32,
@@ -1606,7 +1634,7 @@
             type: "NpcSpawn",
             px: [
                 1328,
-                1696,
+                1888,
             ],
             size: [
                 32,
@@ -1624,7 +1652,7 @@
             type: "NpcSpawn",
             px: [
                 1456,
-                1696,
+                1888,
             ],
             size: [
                 32,
@@ -1642,7 +1670,7 @@
             type: "NpcSpawn",
             px: [
                 1584,
-                1696,
+                1888,
             ],
             size: [
                 32,
@@ -1660,7 +1688,7 @@
             type: "NpcSpawn",
             px: [
                 1712,
-                1696,
+                1888,
             ],
             size: [
                 32,
@@ -1678,7 +1706,7 @@
             type: "NpcSpawn",
             px: [
                 1840,
-                1696,
+                1888,
             ],
             size: [
                 32,
@@ -1696,7 +1724,7 @@
             type: "NpcSpawn",
             px: [
                 1968,
-                1696,
+                1888,
             ],
             size: [
                 32,
@@ -1714,7 +1742,7 @@
             type: "NpcSpawn",
             px: [
                 48,
-                1504,
+                1696,
             ],
             size: [
                 32,
@@ -1732,7 +1760,7 @@
             type: "NpcSpawn",
             px: [
                 176,
-                1504,
+                1696,
             ],
             size: [
                 32,
@@ -1750,7 +1778,7 @@
             type: "NpcSpawn",
             px: [
                 304,
-                1504,
+                1696,
             ],
             size: [
                 32,
@@ -1768,7 +1796,7 @@
             type: "NpcSpawn",
             px: [
                 432,
-                1504,
+                1696,
             ],
             size: [
                 32,
@@ -1786,7 +1814,7 @@
             type: "NpcSpawn",
             px: [
                 560,
-                1504,
+                1696,
             ],
             size: [
                 32,
@@ -1804,7 +1832,7 @@
             type: "NpcSpawn",
             px: [
                 688,
-                1504,
+                1696,
             ],
             size: [
                 32,
@@ -1822,7 +1850,7 @@
             type: "NpcSpawn",
             px: [
                 816,
-                1504,
+                1696,
             ],
             size: [
                 32,
@@ -1840,7 +1868,7 @@
             type: "NpcSpawn",
             px: [
                 944,
-                1504,
+                1696,
             ],
             size: [
                 32,
@@ -1858,7 +1886,7 @@
             type: "NpcSpawn",
             px: [
                 1072,
-                1504,
+                1696,
             ],
             size: [
                 32,
@@ -1876,7 +1904,7 @@
             type: "NpcSpawn",
             px: [
                 1200,
-                1504,
+                1696,
             ],
             size: [
                 32,
@@ -1894,7 +1922,7 @@
             type: "NpcSpawn",
             px: [
                 1328,
-                1504,
+                1696,
             ],
             size: [
                 32,
@@ -1912,7 +1940,7 @@
             type: "NpcSpawn",
             px: [
                 1456,
-                1504,
+                1696,
             ],
             size: [
                 32,
@@ -1930,7 +1958,7 @@
             type: "NpcSpawn",
             px: [
                 1584,
-                1504,
+                1696,
             ],
             size: [
                 32,
@@ -1948,7 +1976,7 @@
             type: "NpcSpawn",
             px: [
                 1712,
-                1504,
+                1696,
             ],
             size: [
                 32,
@@ -1966,7 +1994,7 @@
             type: "NpcSpawn",
             px: [
                 1840,
-                1504,
+                1696,
             ],
             size: [
                 32,
@@ -1984,7 +2012,7 @@
             type: "NpcSpawn",
             px: [
                 1968,
-                1504,
+                1696,
             ],
             size: [
                 32,
@@ -2002,7 +2030,7 @@
             type: "NpcSpawn",
             px: [
                 48,
-                1312,
+                1504,
             ],
             size: [
                 32,
@@ -2020,7 +2048,7 @@
             type: "NpcSpawn",
             px: [
                 176,
-                1312,
+                1504,
             ],
             size: [
                 32,
@@ -2038,7 +2066,7 @@
             type: "NpcSpawn",
             px: [
                 304,
-                1312,
+                1504,
             ],
             size: [
                 32,
@@ -2056,7 +2084,7 @@
             type: "NpcSpawn",
             px: [
                 432,
-                1312,
+                1504,
             ],
             size: [
                 32,
@@ -2074,7 +2102,7 @@
             type: "NpcSpawn",
             px: [
                 560,
-                1312,
+                1504,
             ],
             size: [
                 32,
@@ -2092,7 +2120,7 @@
             type: "NpcSpawn",
             px: [
                 688,
-                1312,
+                1504,
             ],
             size: [
                 32,
@@ -2110,7 +2138,7 @@
             type: "NpcSpawn",
             px: [
                 816,
-                1312,
+                1504,
             ],
             size: [
                 32,
@@ -2128,7 +2156,7 @@
             type: "NpcSpawn",
             px: [
                 944,
-                1312,
+                1504,
             ],
             size: [
                 32,
@@ -2146,7 +2174,7 @@
             type: "NpcSpawn",
             px: [
                 1072,
-                1312,
+                1504,
             ],
             size: [
                 32,
@@ -2164,7 +2192,7 @@
             type: "NpcSpawn",
             px: [
                 1200,
-                1312,
+                1504,
             ],
             size: [
                 32,
@@ -2182,7 +2210,7 @@
             type: "NpcSpawn",
             px: [
                 1328,
-                1312,
+                1504,
             ],
             size: [
                 32,
@@ -2200,7 +2228,7 @@
             type: "NpcSpawn",
             px: [
                 1456,
-                1312,
+                1504,
             ],
             size: [
                 32,
@@ -2218,7 +2246,7 @@
             type: "NpcSpawn",
             px: [
                 1584,
-                1312,
+                1504,
             ],
             size: [
                 32,
@@ -2236,7 +2264,7 @@
             type: "NpcSpawn",
             px: [
                 1712,
-                1312,
+                1504,
             ],
             size: [
                 32,
@@ -2254,7 +2282,7 @@
             type: "NpcSpawn",
             px: [
                 1840,
-                1312,
+                1504,
             ],
             size: [
                 32,
@@ -2272,7 +2300,7 @@
             type: "NpcSpawn",
             px: [
                 1968,
-                1312,
+                1504,
             ],
             size: [
                 32,
@@ -2290,7 +2318,7 @@
             type: "NpcSpawn",
             px: [
                 48,
-                1120,
+                1312,
             ],
             size: [
                 32,
@@ -2308,7 +2336,7 @@
             type: "NpcSpawn",
             px: [
                 176,
-                1120,
+                1312,
             ],
             size: [
                 32,
@@ -2326,7 +2354,7 @@
             type: "NpcSpawn",
             px: [
                 304,
-                1120,
+                1312,
             ],
             size: [
                 32,
@@ -2344,7 +2372,7 @@
             type: "NpcSpawn",
             px: [
                 432,
-                1120,
+                1312,
             ],
             size: [
                 32,
@@ -2362,7 +2390,7 @@
             type: "NpcSpawn",
             px: [
                 560,
-                1120,
+                1312,
             ],
             size: [
                 32,
@@ -2380,7 +2408,7 @@
             type: "NpcSpawn",
             px: [
                 688,
-                1120,
+                1312,
             ],
             size: [
                 32,
@@ -2398,7 +2426,115 @@
             type: "NpcSpawn",
             px: [
                 816,
-                1120,
+                1312,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "npc_eureka_teodora",
+                prompt: "Inspect",
+                dialogue_id: "",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                944,
+                1312,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "npc_eureka_priya",
+                prompt: "Inspect",
+                dialogue_id: "",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                1072,
+                1312,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "npc_eureka_dmitri",
+                prompt: "Inspect",
+                dialogue_id: "",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                1200,
+                1312,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "npc_eureka_wilbur",
+                prompt: "Inspect",
+                dialogue_id: "",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                1328,
+                1312,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "npc_eureka_halvorsen",
+                prompt: "Inspect",
+                dialogue_id: "",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                1456,
+                1312,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "npc_eureka_mina",
+                prompt: "Inspect",
+                dialogue_id: "",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                1584,
+                1312,
             ],
             size: [
                 32,
@@ -2415,8 +2551,8 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
-                1120,
+                1712,
+                1312,
             ],
             size: [
                 32,
@@ -2433,8 +2569,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
-                1120,
+                1840,
+                1312,
             ],
             size: [
                 32,
@@ -2451,8 +2587,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
-                1120,
+                1968,
+                1312,
             ],
             size: [
                 32,
@@ -2469,7 +2605,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                48,
                 1120,
             ],
             size: [
@@ -2487,7 +2623,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                176,
                 1120,
             ],
             size: [
@@ -2505,7 +2641,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                304,
                 1120,
             ],
             size: [
@@ -2523,7 +2659,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                432,
                 1120,
             ],
             size: [
@@ -2541,7 +2677,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                560,
                 1120,
             ],
             size: [
@@ -2559,7 +2695,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
+                688,
                 1120,
             ],
             size: [
@@ -2577,8 +2713,8 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
-                928,
+                816,
+                1120,
             ],
             size: [
                 32,
@@ -2595,8 +2731,8 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
-                928,
+                944,
+                1120,
             ],
             size: [
                 32,
@@ -2613,8 +2749,8 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
-                928,
+                1072,
+                1120,
             ],
             size: [
                 32,
@@ -2631,8 +2767,8 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
-                928,
+                1200,
+                1120,
             ],
             size: [
                 32,
@@ -2649,8 +2785,8 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
-                928,
+                1328,
+                1120,
             ],
             size: [
                 32,
@@ -2667,8 +2803,8 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
-                928,
+                1456,
+                1120,
             ],
             size: [
                 32,
@@ -2685,8 +2821,8 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
-                928,
+                1584,
+                1120,
             ],
             size: [
                 32,
@@ -2703,8 +2839,8 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
-                928,
+                1712,
+                1120,
             ],
             size: [
                 32,
@@ -2721,8 +2857,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
-                928,
+                1840,
+                1120,
             ],
             size: [
                 32,
@@ -2739,8 +2875,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
-                928,
+                1968,
+                1120,
             ],
             size: [
                 32,
@@ -2757,7 +2893,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                48,
                 928,
             ],
             size: [
@@ -2775,7 +2911,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                176,
                 928,
             ],
             size: [
@@ -2793,7 +2929,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                304,
                 928,
             ],
             size: [
@@ -2811,7 +2947,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                432,
                 928,
             ],
             size: [
@@ -2829,7 +2965,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                560,
                 928,
             ],
             size: [
@@ -2847,7 +2983,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
+                688,
                 928,
             ],
             size: [
@@ -2865,8 +3001,8 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
-                736,
+                816,
+                928,
             ],
             size: [
                 32,
@@ -2883,8 +3019,8 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
-                736,
+                944,
+                928,
             ],
             size: [
                 32,
@@ -2901,8 +3037,8 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
-                736,
+                1072,
+                928,
             ],
             size: [
                 32,
@@ -2919,8 +3055,8 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
-                736,
+                1200,
+                928,
             ],
             size: [
                 32,
@@ -2937,8 +3073,8 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
-                736,
+                1328,
+                928,
             ],
             size: [
                 32,
@@ -2955,8 +3091,8 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
-                736,
+                1456,
+                928,
             ],
             size: [
                 32,
@@ -2973,8 +3109,8 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
-                736,
+                1584,
+                928,
             ],
             size: [
                 32,
@@ -2991,8 +3127,8 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
-                736,
+                1712,
+                928,
             ],
             size: [
                 32,
@@ -3009,8 +3145,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
-                736,
+                1840,
+                928,
             ],
             size: [
                 32,
@@ -3027,8 +3163,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
-                736,
+                1968,
+                928,
             ],
             size: [
                 32,
@@ -3045,7 +3181,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                48,
                 736,
             ],
             size: [
@@ -3063,7 +3199,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                176,
                 736,
             ],
             size: [
@@ -3081,7 +3217,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                304,
                 736,
             ],
             size: [
@@ -3099,7 +3235,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                432,
                 736,
             ],
             size: [
@@ -3117,7 +3253,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                560,
                 736,
             ],
             size: [
@@ -3135,7 +3271,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
+                688,
                 736,
             ],
             size: [
@@ -3153,8 +3289,8 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
-                544,
+                816,
+                736,
             ],
             size: [
                 32,
@@ -3171,8 +3307,8 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
-                544,
+                944,
+                736,
             ],
             size: [
                 32,
@@ -3189,8 +3325,8 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
-                544,
+                1072,
+                736,
             ],
             size: [
                 32,
@@ -3207,8 +3343,8 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
-                544,
+                1200,
+                736,
             ],
             size: [
                 32,
@@ -3225,8 +3361,8 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
-                544,
+                1328,
+                736,
             ],
             size: [
                 32,
@@ -3243,8 +3379,8 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
-                544,
+                1456,
+                736,
             ],
             size: [
                 32,
@@ -3261,8 +3397,8 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
-                544,
+                1584,
+                736,
             ],
             size: [
                 32,
@@ -3279,8 +3415,8 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
-                544,
+                1712,
+                736,
             ],
             size: [
                 32,
@@ -3297,8 +3433,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
-                544,
+                1840,
+                736,
             ],
             size: [
                 32,
@@ -3315,8 +3451,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
-                544,
+                1968,
+                736,
             ],
             size: [
                 32,
@@ -3333,7 +3469,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                48,
                 544,
             ],
             size: [
@@ -3351,7 +3487,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                176,
                 544,
             ],
             size: [
@@ -3369,7 +3505,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                304,
                 544,
             ],
             size: [
@@ -3387,7 +3523,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                432,
                 544,
             ],
             size: [
@@ -3405,7 +3541,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                560,
                 544,
             ],
             size: [
@@ -3423,7 +3559,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
+                688,
                 544,
             ],
             size: [
@@ -3441,8 +3577,8 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
-                352,
+                816,
+                544,
             ],
             size: [
                 32,
@@ -3459,8 +3595,8 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
-                352,
+                944,
+                544,
             ],
             size: [
                 32,
@@ -3477,8 +3613,8 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
-                352,
+                1072,
+                544,
             ],
             size: [
                 32,
@@ -3495,8 +3631,8 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
-                352,
+                1200,
+                544,
             ],
             size: [
                 32,
@@ -3513,8 +3649,8 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
-                352,
+                1328,
+                544,
             ],
             size: [
                 32,
@@ -3531,8 +3667,8 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
-                352,
+                1456,
+                544,
             ],
             size: [
                 32,
@@ -3549,8 +3685,8 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
-                352,
+                1584,
+                544,
             ],
             size: [
                 32,
@@ -3567,8 +3703,8 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
-                352,
+                1712,
+                544,
             ],
             size: [
                 32,
@@ -3585,8 +3721,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
-                352,
+                1840,
+                544,
             ],
             size: [
                 32,
@@ -3603,8 +3739,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
-                352,
+                1968,
+                544,
             ],
             size: [
                 32,
@@ -3621,7 +3757,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                48,
                 352,
             ],
             size: [
@@ -3639,7 +3775,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                176,
                 352,
             ],
             size: [
@@ -3657,7 +3793,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                304,
                 352,
             ],
             size: [
@@ -3675,7 +3811,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                432,
                 352,
             ],
             size: [
@@ -3693,7 +3829,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                560,
                 352,
             ],
             size: [
@@ -3711,7 +3847,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
+                688,
                 352,
             ],
             size: [
@@ -3729,8 +3865,8 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
-                160,
+                816,
+                352,
             ],
             size: [
                 32,
@@ -3747,8 +3883,8 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
-                160,
+                944,
+                352,
             ],
             size: [
                 32,
@@ -3765,8 +3901,8 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
-                160,
+                1072,
+                352,
             ],
             size: [
                 32,
@@ -3783,8 +3919,8 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
-                160,
+                1200,
+                352,
             ],
             size: [
                 32,
@@ -3801,8 +3937,8 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
-                160,
+                1328,
+                352,
             ],
             size: [
                 32,
@@ -3819,8 +3955,8 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
-                160,
+                1456,
+                352,
             ],
             size: [
                 32,
@@ -3837,8 +3973,8 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
-                160,
+                1584,
+                352,
             ],
             size: [
                 32,
@@ -3855,8 +3991,8 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
-                160,
+                1712,
+                352,
             ],
             size: [
                 32,
@@ -3873,8 +4009,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
-                160,
+                1840,
+                352,
             ],
             size: [
                 32,
@@ -3891,8 +4027,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
-                160,
+                1968,
+                352,
             ],
             size: [
                 32,
@@ -3909,7 +4045,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                48,
                 160,
             ],
             size: [
@@ -3927,7 +4063,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                176,
                 160,
             ],
             size: [
@@ -3945,7 +4081,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                304,
                 160,
             ],
             size: [
@@ -3963,7 +4099,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                432,
                 160,
             ],
             size: [
@@ -3982,7 +4118,7 @@
             type: "NpcSpawn",
             px: [
                 232,
-                2640,
+                2832,
             ],
             size: [
                 48,
@@ -4000,7 +4136,7 @@
             type: "NpcSpawn",
             px: [
                 744,
-                2640,
+                2832,
             ],
             size: [
                 48,
@@ -4018,7 +4154,7 @@
             type: "NpcSpawn",
             px: [
                 1256,
-                2640,
+                2832,
             ],
             size: [
                 48,
@@ -4036,7 +4172,7 @@
             type: "NpcSpawn",
             px: [
                 1768,
-                2640,
+                2832,
             ],
             size: [
                 48,
@@ -4054,7 +4190,7 @@
             type: "NpcSpawn",
             px: [
                 232,
-                3024,
+                3216,
             ],
             size: [
                 48,
@@ -4072,7 +4208,7 @@
             type: "NpcSpawn",
             px: [
                 744,
-                3024,
+                3216,
             ],
             size: [
                 48,
@@ -4090,7 +4226,7 @@
             type: "NpcSpawn",
             px: [
                 1256,
-                3024,
+                3216,
             ],
             size: [
                 48,
@@ -4108,7 +4244,7 @@
             type: "NpcSpawn",
             px: [
                 1768,
-                3024,
+                3216,
             ],
             size: [
                 48,
@@ -4126,7 +4262,7 @@
             type: "NpcSpawn",
             px: [
                 232,
-                3408,
+                3600,
             ],
             size: [
                 48,
@@ -4144,7 +4280,7 @@
             type: "NpcSpawn",
             px: [
                 744,
-                3408,
+                3600,
             ],
             size: [
                 48,
@@ -4162,7 +4298,7 @@
             type: "NpcSpawn",
             px: [
                 1256,
-                3408,
+                3600,
             ],
             size: [
                 48,
@@ -4180,7 +4316,7 @@
             type: "NpcSpawn",
             px: [
                 1768,
-                3408,
+                3600,
             ],
             size: [
                 48,
@@ -4198,7 +4334,7 @@
             type: "NpcSpawn",
             px: [
                 232,
-                3792,
+                3984,
             ],
             size: [
                 48,
@@ -4216,7 +4352,7 @@
             type: "NpcSpawn",
             px: [
                 744,
-                3792,
+                3984,
             ],
             size: [
                 48,
@@ -4234,7 +4370,7 @@
             type: "NpcSpawn",
             px: [
                 1256,
-                3792,
+                3984,
             ],
             size: [
                 48,
@@ -4252,7 +4388,7 @@
             type: "NpcSpawn",
             px: [
                 488,
-                4640,
+                4832,
             ],
             size: [
                 48,
@@ -4274,7 +4410,7 @@
             ],
             size: [
                 2048,
-                4736,
+                4928,
             ],
             fields: (
                 id: "hall_of_characters_camera",

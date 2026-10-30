@@ -394,6 +394,40 @@
       "twinkle_rate": 0.6,
       "front": 0.4
     },
+    "eureka": {
+      "count": 18,
+      "velocity": [
+        3.0,
+        1.5
+      ],
+      "wander": 10.0,
+      "wander_rate": 0.1,
+      "size": [
+        1.4,
+        2.8
+      ],
+      "alpha": 0.55,
+      "twinkle": 0.35,
+      "twinkle_rate": 0.5,
+      "front": 0.3
+    },
+    "eureka_heights": {
+      "count": 10,
+      "velocity": [
+        -2.0,
+        -6.0
+      ],
+      "wander": 3.0,
+      "wander_rate": 0.05,
+      "size": [
+        1.0,
+        2.2
+      ],
+      "alpha": 0.55,
+      "twinkle": 0.85,
+      "twinkle_rate": 0.9,
+      "front": 0.2
+    },
     "military_tower": {
       "count": 12,
       "velocity": [

@@ -321,6 +321,8 @@ def docking_bay():
         solid("east_landing", 2400, walk, w - 2400 - WALL, 32),
         door("bay_observation_door", "up to the observation deck", 2448, walk, VIEW, "view_bay_door"),
         door("bay_lift_door", "the cargo lift to the service deck", 2448, floor, SERVICE, "service_lift_door"),
+        # The space elevator's terminus, east of the bay (`specs/eureka`).
+        door("bay_tether_door", "to the tether terminus", 2300, floor, "orbital_station_tether_terminus", "terminus_bay_door"),
     ]
     return rid, room(rid, e, "THE DOCKING BAY: THE HAULER REMAINDER IN ITS BERTH", theme=OPEN_THEME)
 

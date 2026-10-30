@@ -6055,5 +6055,107 @@
                 hall: ["I keep the General's diary. It has one entry a day: 'Inspected the medals.'", "Adjutant means I am the one who knows where everything is."],
             ),
         ),
+        "npc_eureka_teodora": (
+            display_name: "Teodora",
+            // The space elevator's lift operator at the ground station.
+            manifest: "sprites/eureka_teodora_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "eureka", "peaceful"],
+            barks: (
+                idle: ["Car up at the hour. Car down at the half. Gravity permitting.", "Mind the gap. It is thirty-six thousand kilometres."],
+                hall: ["I run the elevator. Up to the station, down to dinner.", "The timetable is not a suggestion. Tell the Patent Clerk that."],
+            ),
+        ),
+        "npc_eureka_priya": (
+            display_name: "Priya",
+            // A graduate student who has not slept since her experiment started.
+            manifest: "sprites/eureka_priya_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(61.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "eureka", "peaceful"],
+            barks: (
+                idle: ["Day four. The data is beautiful. I am not.", "If the run fails I am moving to Math Town."],
+                hall: ["My experiment runs until it ends. So do I.", "Coffee is a reagent. Mina disagrees."],
+            ),
+        ),
+        "npc_eureka_dmitri": (
+            display_name: "Dmitri",
+            // The institute's lab technician: whatever broke, he has fixed it before.
+            manifest: "sprites/eureka_dmitri_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 184 cm.
+            standing_height: Some(71.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "eureka", "peaceful"],
+            barks: (
+                idle: ["Who touched the centrifuge.", "Duct tape is a structural material if you believe in it."],
+                hall: ["Professors break it. Students break it worse. I fix it.", "The coil lab blew a fuse again. Third time this week."],
+            ),
+        ),
+        "npc_eureka_wilbur": (
+            display_name: "Wilbur",
+            // The quad's porter and groundskeeper, a town pigeon who sweeps up after the other pigeons.
+            manifest: "sprites/eureka_wilbur_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "eureka", "pigeon", "peaceful"],
+            barks: (
+                idle: ["Shoo. Not you. Them.", "Forty years on this quad. Never once fed the birds."],
+                hall: ["I keep the quad. The quad does not keep itself, whatever the physicists say.", "Entropy, they call it. I call it Tuesday."],
+            ),
+        ),
+        "npc_eureka_halvorsen": (
+            display_name: "Professor Halvorsen",
+            // A visiting professor with a grievance about the reviewers of his paper.
+            manifest: "sprites/eureka_halvorsen_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(68.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "eureka", "professor", "peaceful"],
+            barks: (
+                idle: ["Reviewer two again. I know it is him.", "'Minor revisions.' Minor!"],
+                hall: ["I came up the gate to give one lecture. I am still here, revising.", "Peer review is a contact sport played by people who never touch anything."],
+            ),
+        ),
+        "npc_eureka_mina": (
+            display_name: "Mina",
+            // Keeps the cafe on the quad and knows which department owes her money.
+            manifest: "sprites/eureka_mina_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 164 cm.
+            standing_height: Some(63.5),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "eureka", "peaceful"],
+            barks: (
+                idle: ["Physics owes me eleven coffees. Chemistry pays in cash.", "Soup today. It is always soup when the elevator is late."],
+                hall: ["Everybody on this campus runs on my coffee. Nobody tips.", "The station orders pastries by elevator. They arrive cold and complaining."],
+            ),
+        ),
     },
 )

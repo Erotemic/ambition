@@ -130,6 +130,14 @@ npc_station_rahimi
 npc_station_pell
 npc_station_wen
 
+[Eureka, the institute town]
+npc_eureka_teodora
+npc_eureka_priya
+npc_eureka_dmitri
+npc_eureka_wilbur
+npc_eureka_halvorsen
+npc_eureka_mina
+
 [Made by the character generator]
 npc_armsmith_odile
 

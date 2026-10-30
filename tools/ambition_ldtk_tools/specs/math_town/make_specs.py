@@ -69,6 +69,10 @@ MATH_RING, MATH_PORTAL = "Math Gate Ring (Math)", "Math Gate Portal (Math)"
 HALL, STREET = "math_gate_hall", "math_town_street"
 ZENO = "math_zeno_aqueduct"
 LOBBY, CORRIDOR, LIFT = "math_hotel_lobby", "math_hotel_corridor", "math_hotel_lift"
+#: The hotel's ballroom (a game show of three doors) and the closets behind
+#: its doors: a goat, a car, a goat.
+BALLROOM = "math_hotel_ballroom"
+CLOSETS = ("math_hotel_door_1", "math_hotel_door_2", "math_hotel_door_3")
 CAFE, OFFICE, OBSERVATORY = "math_cafe", "math_surveyors_office", "math_observatory"
 
 #: Each room: where it is in the world, and its size.
@@ -88,6 +92,11 @@ ROOMS_AT = {
     CORRIDOR: (8500 + 1280, 1600, 448),
     # The lift's shaft, behind the lobby's lift gate (a door: it is inside).
     LIFT: (11600, 640, 1600),
+    # The ballroom, through a door west of the front desk, and its closets.
+    BALLROOM: (12400, 1280, 576),
+    CLOSETS[0]: (13760, 480, 320),
+    CLOSETS[1]: (14320, 480, 320),
+    CLOSETS[2]: (14880, 480, 320),
 }
 #: A room's world y when it is not 0. The rooms of the world touch where they
 #: join (`specs/check_flat_map.py`): Zeno's Aqueduct is west of the street at
@@ -666,6 +675,7 @@ def hotel_lobby():
         door(f"{rid}_door", "out to the street", 40, floor, STREET, f"{rid}_street"),
         edge(f"{rid}_east", "to the rooms", w - WALL, floor - 96, 96, CORRIDOR, f"{CORRIDOR}_west"),
         door(f"{rid}_lift", "into the lift", 956, floor, LIFT, f"{LIFT}_door"),
+        door(f"{rid}_ballroom", "to the ballroom", 300, floor, BALLROOM, f"{BALLROOM}_door"),
         f'( type: "PlayerStart", px: [120, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
         still("hotel_desk_top", 520, floor - 48, 240, 4),
         wanderer("hotel_hylbert", "npc_davy_hylbert", 640, floor, dialogue="davy_hylbert"),
@@ -743,7 +753,58 @@ def hotel_lift():
     return rid, room(rid, e, "Hylbert's Hotel: the lift. It only goes up.", theme=INTERIOR)
 
 
-ROOMS = (gate_hall, street, cafe, surveyors_office, observatory, zeno_aqueduct, hotel_lobby, hotel_corridor, hotel_lift)
+#: The ballroom's stage doors (x), one to each closet; what is behind each.
+STAGE_DOORS = (360, 616, 872)
+BEHIND = (("math_goat", "A GOAT."), ("math_car", "A CAR! You did not switch. You did not need to. This time."), ("math_goat", "A GOAT. Statistically, you were going to meet me."))
+
+
+def hotel_ballroom():
+    """The hotel's ballroom, made a game show: three doors on the stage,
+    behind one a car and behind the others goats. Out of the lobby by the
+    door west of the desk."""
+    rid = BALLROOM
+    _, w, h = ROOMS_AT[rid]
+    floor = h - INSIDE_FLOOR
+    e = [
+        f'( type: "Prop", px: [16, {INSIDE_CEILING}], size: [{w - 32}, {floor - INSIDE_CEILING}], fields: ( name: "ballroom_stage", kind: "math_ballroom_room" ) ),',
+        solid("floor", 0, floor, w, INSIDE_FLOOR),
+        solid("ceiling", 0, 0, w, INSIDE_CEILING),
+        solid("west_wall", 0, INSIDE_CEILING, WALL, floor - INSIDE_CEILING),
+        solid("east_wall", w - WALL, INSIDE_CEILING, WALL, floor - INSIDE_CEILING),
+        door(f"{rid}_door", "back to the lobby", 40, floor, LOBBY, f"{LOBBY}_ballroom"),
+        f'( type: "PlayerStart", px: [120, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        *[door(f"{rid}_door_{k + 1}", f"door number {k + 1}", x, floor, CLOSETS[k], f"{CLOSETS[k]}_door") for k, x in enumerate(STAGE_DOORS)],
+        label("ballroom_sign", 360, 80, "TONIGHT: PICK A DOOR. THEN SWITCH. ALWAYS SWITCH.", 560),
+        label("ballroom_sign_odds", 940, 270, "STAY 1/3   SWITCH 2/3", 300),
+    ]
+    return rid, room(rid, e, "Hylbert's Hotel: the ballroom. Tonight: three doors.", theme=INTERIOR)
+
+
+def hotel_closet(k):
+    """Behind stage door k: a small room and what is in it."""
+    def make():
+        rid = CLOSETS[k]
+        _, w, h = ROOMS_AT[rid]
+        floor = h - INSIDE_FLOOR
+        kind, words = BEHIND[k]
+        e = [
+            solid("floor", 0, floor, w, INSIDE_FLOOR),
+            solid("ceiling", 0, 0, w, INSIDE_CEILING),
+            solid("west_wall", 0, INSIDE_CEILING, WALL, floor - INSIDE_CEILING),
+            solid("east_wall", w - WALL, INSIDE_CEILING, WALL, floor - INSIDE_CEILING),
+            door(f"{rid}_door", "back to the stage", 40, floor, BALLROOM, f"{BALLROOM}_door_{k + 1}"),
+            f'( type: "PlayerStart", px: [110, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+            standing(f"{rid}_prize", kind, 220, floor)[0],
+            label(f"{rid}_words", 120, 70, words, 340),
+        ]
+        if kind == "math_car":
+            e.append(f'( type: "PickupSpawn", px: [400, {floor - 24}], size: [24, 24], fields: ( name: "{rid}_prize_money", kind: "currency:100" ) ),')
+        return rid, room(rid, e, f"Behind door number {k + 1}.", theme=INTERIOR)
+    return make
+
+
+ROOMS = (gate_hall, street, cafe, surveyors_office, observatory, zeno_aqueduct, hotel_lobby, hotel_corridor, hotel_lift,
+         hotel_ballroom, *[hotel_closet(k) for k in range(3)])
 
 #: What is painted on an IntGrid layer of a room: (room, layer, value, px, size).
 PAINT = [(STREET, "Climbable", 1, (x, top), (32, bottom - top)) for _name, x, top, bottom in LADDERS] + [

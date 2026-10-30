@@ -20,6 +20,7 @@
         ( type: "LoadingZone", px: [40, 416], size: [48, 96], fields: ( id: "math_hotel_lobby_door", name: "out to the street", activation: "Door", target_room: "math_town_street", target_zone: "math_hotel_lobby_street", bidirectional: true ) ),
         ( type: "LoadingZone", px: [1264, 416], size: [16, 96], fields: ( id: "math_hotel_lobby_east", name: "to the rooms", activation: "EdgeExit", target_room: "math_hotel_corridor", target_zone: "math_hotel_corridor_west", bidirectional: true ) ),
         ( type: "LoadingZone", px: [956, 416], size: [48, 96], fields: ( id: "math_hotel_lobby_lift", name: "into the lift", activation: "Door", target_room: "math_hotel_lift", target_zone: "math_hotel_lift_door", bidirectional: true ) ),
+        ( type: "LoadingZone", px: [300, 416], size: [48, 96], fields: ( id: "math_hotel_lobby_ballroom", name: "to the ballroom", activation: "Door", target_room: "math_hotel_ballroom", target_zone: "math_hotel_ballroom_door", bidirectional: true ) ),
         ( type: "PlayerStart", px: [120, 466], size: [28, 46], fields: ( name: "math_hotel_lobby_spawn" ) ),
         ( type: "MovingPlatform", px: [520, 464], size: [240, 4], fields: ( id: "hotel_desk_top", name: "hotel_desk_top", speed: 0.0, visual: "none", one_way: true ) ),
         ( type: "NpcSpawn", px: [640, 448], size: [32, 64], fields: ( character_id: "npc_davy_hylbert", brain_override: "townsfolk_roam", dialogue_id: "davy_hylbert" ) ),

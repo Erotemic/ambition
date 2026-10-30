@@ -127,7 +127,20 @@ pub fn tick_fighter(
 
     watch_the_own_attack(state, snapshot);
 
+    // THE INPUT BUFFER. A press that matures while the body is in hitstun is
+    // HELD, not spent: the gate would eat the edge, and the emission below is
+    // open-loop — it charges an APM token and arms `OwnAttack` on the
+    // assumption the press reached the body. See `reeling::still_reeling`.
+    let reeling = state
+        .perception
+        .perceive()
+        .is_some_and(super::reeling::still_reeling);
+
     match state.pending_press {
+        Some(PendingAttack { ticks: 0, .. }) if reeling => {
+            // Buffered. It comes out on the first tick the stun has run down,
+            // or the next decision replaces it with what THAT tick wants.
+        }
         Some(PendingAttack {
             ticks: 0,
             binding,
@@ -335,7 +348,14 @@ fn decide(
     //
     // It no longer does — refusing was right about attacking and wrong about the repertoire,
     // since a genre fighter's answer to being offstage IS a move.)
-    if situation == Situation::Recovery {
+    //
+    // ⭐ AND THE SAME DROP WHILE REELING, for the buffer's sake. `tick_fighter`
+    // holds a matured press through hitstun; a decision made inside the stun
+    // must be free to replace it, or the press that comes out on the first
+    // actionable tick is the one decided BEFORE the hit — a jab aimed at a foe
+    // who has since launched this body across the stage. The buffered press is
+    // always the latest decision's, which is what a person's buffer holds too.
+    if situation == Situation::Recovery || super::reeling::still_reeling(view) {
         state.pending_press = None;
     }
 
@@ -1075,12 +1095,13 @@ fn trace_decision(
         .supporting_floor()
         .map(|floor| format!("[{:.0}..{:.0}]", floor.min.x, floor.max.x));
     let line = format!(
-        "[fighter{}] situation={situation:?} x={:.0} vx={:.0} facing={:+.0} ground={} phase={:?} stage={} [{:.0}..{:.0}] floor_edge={:?} terrain={} supported={} support_x={} offered={:?} vetoed={:?} unmodelled={:?} chose={:?} least_bad={:?} attack={} routes={:?} recovery={} bounded_by={} emit_x={:.1}",
+        "[fighter{}] situation={situation:?} x={:.0} y={:.0} vx={:.0} facing={:+.0} ground={} phase={:?} stage={} [{:.0}..{:.0}]x[{:.0}..{:.0}] floor_edge={:?} terrain={} supported={} support_x={} offered={:?} vetoed={:?} unmodelled={:?} chose={:?} least_bad={:?} attack={} routes={:?} recovery={} bounded_by={} emit_x={:.1}",
         match subject {
             Some(id) => format!(" {id}"),
             None => String::new(),
         },
         me.pos.x,
+        me.pos.y,
         me.vel.x,
         // ⭐⭐ THE FIELD THAT DECIDES FORWARD FROM BACK, and it was the one the
         // line did not carry. `attack_dir_from_axis` folds the stick into the
@@ -1096,6 +1117,8 @@ fn trace_decision(
         view.stage.is_known(),
         view.stage.bounds.min.x,
         view.stage.bounds.max.x,
+        view.stage.bounds.min.y,
+        view.stage.bounds.max.y,
         view.floor_edge_distance().map(|d| d.round()),
         // ⭐ WHAT THE BODY CAN SEE UNDER ITSELF. `on_ground` is KERNEL truth and
         // `terrain` is viewport-limited PERCEPTION, so the two can contradict —

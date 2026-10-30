@@ -104,8 +104,18 @@ impl BodyPhase {
 /// `EdgeGuard` (opponent recovering) are undecidable without it.
 ///
 /// Not viewport-clipped, and that is not a cheat: a Smash player can see the
-/// blastzones. `bounds` is the room's world AABB — the envelope CC3's invariant 3
-/// polices, so "offstage" here means exactly what "out of bounds" means there.
+/// blastzones. `bounds` is the room's world AABB: "offstage" means outside the
+/// ROOM, which is where L1's `Recovery` and `EdgeGuard` and the cornering share
+/// were all measured.
+///
+/// ⛔⛔ IT IS NOT THE DEATH LINE. The kernel resets a body past the room PLUS
+/// the margins the stage authored (`World::edges`), and a platform fighter
+/// authors them large — Smash: 400 px each side, 240 above and below a 640×480
+/// room. A consumer whose question is *"does this body die"* — the recovery
+/// lens, survival DI, the shadow's KO — asks [`WorldView::death_line`], never
+/// this box. Measured 2026-10-29, George mirror: the lens killed at this box,
+/// so 64 of one seat's 131 failed recovery searches began from a body that was
+/// outside the room, alive, with the platform in view.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct StageView {
     /// The room's full extent in world px.
@@ -607,6 +617,12 @@ pub struct WorldView {
     pub viewport: Viewport,
     /// The whole stage, NOT viewport-clipped — a fighter can see the blastzones.
     pub stage: StageView,
+    /// THE DEATH LINE: the box the kernel resets a body past — the room plus
+    /// the margins the stage authored, infinite along an axis the stage never
+    /// closed. `None` when no builder supplied one (a fixture), and
+    /// [`Self::death_line`] then answers with the room box, which is what every
+    /// fixture meant before this field existed.
+    pub blast: Option<ae::Aabb>,
     /// Other actors inside the viewport (self excluded).
     pub actors: Vec<PerceivedActor>,
     /// Projectiles inside the viewport.
@@ -1040,6 +1056,16 @@ impl WorldView {
     /// Is self outside the stage envelope? L1's `Recovery` predicate.
     pub fn self_offstage(&self) -> bool {
         self.stage.offstage(self.self_view.pos)
+    }
+
+    /// The box a body is GONE past: the kernel's out-of-bounds envelope. See
+    /// [`WorldView::blast`] — the room box when none was supplied.
+    ///
+    /// This is the question for a consumer pricing DEATH (the recovery lens,
+    /// survival DI, the shadow's KO). "Off the stage" is a different question
+    /// and [`StageView::offstage`] answers it.
+    pub fn death_line(&self) -> ae::Aabb {
+        self.blast.unwrap_or(self.stage.bounds)
     }
 
     /// Is `actor` outside the stage envelope? L1's `EdgeGuard` predicate — the

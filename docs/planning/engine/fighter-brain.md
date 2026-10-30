@@ -368,6 +368,30 @@ general shape; check new code against it.
   seen in hitstun within the move's length plus the perception delay. Both
   fields are rollback state. Measured on the grid 2026-10-12: queue row BRAIN,
   road 1.
+- **A press the body cannot act on is buffered, never spent.** Under
+  `hitstun_locks_actions` the input gate eats every attack edge for the whole
+  stun, and the emission is open-loop: it charged an APM token and armed
+  `own_attack` for a move that never started. `tick_fighter` holds a matured
+  press while `reeling::still_reeling` (perceived hitstun, less the view's
+  staleness) and emits it on the first actionable tick — the genre's input
+  buffer. A decision made inside the stun replaces the buffered press, so what
+  comes out is the latest decision's. The start of a stun is still seen
+  `reaction` late, and a press maturing in that window is eaten as a person's
+  would be. Found 2026-10-29 while chasing the route regression below; measured
+  in that match it was latent (no press matured inside a stun), so the guards
+  are the two unit tests in `decision/tests.rs`, not the match.
+- **The brain dies where the game dies.** `StageView::bounds` is the ROOM box,
+  which is what `Recovery`, `EdgeGuard` and the cornering share were measured
+  on. The kernel resets a body past the room PLUS the stage's authored margins
+  (`World::edges`; Smash: 400 each side, 240 above and below), and that box is
+  `WorldView::death_line`. The recovery lens, survival DI and the shadow's KO
+  ask it; nothing else does. Measured 2026-10-29, George mirror, 3600 ticks,
+  with the lens killing at the room box: one seat spent 364 ticks offstage,
+  made 131 `Recovery` decisions that found no route, and 64 of them began from
+  a body outside the room, alive, with the platform in view — every route
+  refused from a position the game had not lost. Guards: the lens test
+  `a_body_past_the_room_but_short_of_the_blast_line_is_searched_alive` and
+  `every_authored_route_gets_pressed` (`the_repertoire_gets_used.rs`).
 - **Perception is delayed on purpose.** `DelayedPerception` implements the
   no-cheat reaction delay, and `Perceived::staleness_s()` reports how old a view
   is. Attack admission carries the foe forward over `staleness + time to

@@ -5689,6 +5689,23 @@
                 hall: ["The Drowned Compass: we never tell you where you are, and that is why you come back.", "No gate talk before noon. It upsets the regulars."],
             ),
         ),
+        "npc_port_brine": (
+            display_name: "Nell Brine",
+            // A beachcomber on the Wreckers' Reef's shore.
+            manifest: "sprites/port_brine_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 163 cm.
+            standing_height: Some(63.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "pirate_port", "peaceful"],
+            barks: (
+                idle: ["Authentic salvage. Certified by me, just now.", "The tide brings it in. I bring it to you. Small fee."],
+                hall: ["Forty years on that shore. The sea has given me two anchors, a harpsichord and a man who said he was a duke.", "Wreckers light false lights. I sell the bulbs back to them."],
+            ),
+        ),
         "npc_village_sato": (
             display_name: "Sato",
             // The keeper of the gate shrine.

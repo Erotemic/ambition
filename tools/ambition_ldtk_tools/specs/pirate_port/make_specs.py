@@ -296,6 +296,8 @@ def reef():
         solid("east_wall", w - WALL, 0, WALL, SEA_FLOOR),
         edge("reef_west", "back along the shore to the docks", 0, DECK, DOCKS, "docks_east"),
         start(rid, 120, DECK),
+        # Nell Brine, beachcombing the shore (`pirate_port.yarn`).
+        resident("npc_port_brine", "pirate_port_brine", 240, DECK),
         sign("reef_sign", 300, DECK - 300, "WRECKERS' REEF: the lighthouse is lying", 400),
         sign("reef_sign_wreck", 1150, sd - 170, "THE GOOD SHIP PROBABLY (late)", 320),
         entity("ChestSpawn", REEF_AFT[0] + 40, REEF_AFT[2] - 58, 76, 58, name="the captain's strongbox", reward="currency:100"),

@@ -131,3 +131,18 @@ Broadside Bess: Shore leave. A table, a chowder, and nobody to board. Do not rui
     Broadside Bess: Old recordings. Annet's mother singing, before she lost her voice. They're in that chest. Bring it back if you find it.
 -> Enjoy the chowder.
 ===
+
+title: pirate_port_brine
+---
+Nell Brine: Mind the glass. That is not litter, that is stock.
+-> What do you sell?
+    Nell Brine: Whatever the sea gives up. A ship's bell, a captain's hat, a painting of a captain wearing the hat.
+    Nell Brine: All of it authentic salvage. I certify it myself, which saves everyone the trouble.
+-> Who wrecked that ship?
+    Nell Brine: The lads with the false lighthouse. They hang a lantern and a mirror and call it a harbour.
+    Nell Brine: The Good Ship Probably believed them. Nobody else has, since. They are not good at business.
+-> Why stay out here?
+    Nell Brine: The port charges rent. The shore charges nothing, and every tide is a delivery.
+-> Good luck with the tides.
+    Nell Brine: Luck is for gamblers. I have a calendar of them.
+===

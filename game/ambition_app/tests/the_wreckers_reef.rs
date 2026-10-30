@@ -16,3 +16,10 @@ fn the_reef_lies_east_of_the_docks_along_the_shore() {
     go(&mut app, DOCKS, Some("reef_west"));
     go(&mut app, REEF, Some("docks_east"));
 }
+
+/// Nell Brine beachcombs the reef's shore (`pirate_port.yarn`).
+#[test]
+fn the_beachcomber_sells_authentic_salvage() {
+    let mut app = a_session_in(REEF);
+    crate::the_pirate_port::talk(&mut app, "npc_port_brine", "What do you sell?");
+}

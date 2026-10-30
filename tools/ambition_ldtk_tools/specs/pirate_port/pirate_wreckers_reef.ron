@@ -29,6 +29,7 @@
         ( type: "Solid", px: [2544, 0], size: [16, 928], fields: ( name: "east_wall" ) ),
         ( type: "LoadingZone", px: [0, 672], size: [16, 96], fields: ( id: "reef_west", name: "back along the shore to the docks", activation: "EdgeExit", target_room: "pirate_port_docks", target_zone: "docks_east", bidirectional: true ) ),
         ( type: "PlayerStart", px: [106, 722], size: [28, 46], fields: ( name: "pirate_wreckers_reef_spawn" ) ),
+        ( type: "NpcSpawn", px: [224, 704], size: [32, 64], fields: ( character_id: "npc_port_brine", prompt: "Talk", dialogue_id: "pirate_port_brine", brain_override: "stand_still" ) ),
         ( type: "DebugLabel", px: [100, 468], size: [400, 24], fields: ( name: "reef_sign", text: "WRECKERS' REEF: the lighthouse is lying", category: "Custom" ) ),
         ( type: "DebugLabel", px: [990, 446], size: [320, 24], fields: ( name: "reef_sign_wreck", text: "THE GOOD SHIP PROBABLY (late)", category: "Custom" ) ),
         ( type: "ChestSpawn", px: [1360, 462], size: [76, 58], fields: ( name: "the captain's strongbox", reward: "currency:100" ) ),

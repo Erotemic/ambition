@@ -404,6 +404,47 @@ collections:
   - village_daichi
   - village_hayashi
   - village_ren
+  - castle_dunmore
+  - castle_hargreave
+  - castle_osgood
+  - castle_quill
+  - castle_sprocket
+  - eureka_dmitri
+  - eureka_halvorsen
+  - eureka_hum
+  - eureka_mina
+  - eureka_priya
+  - eureka_pryce
+  - eureka_quark
+  - eureka_teodora
+  - eureka_wilbur
+  - evil_bellows
+  - evil_crabbe
+  - evil_crumb
+  - evil_gudrun
+  - evil_mudge
+  - evil_prentice
+  - evil_tobias
+  - math_fibbs
+  - math_ivo
+  - math_kleinbottle
+  - math_lucas
+  - math_monty
+  - math_zeno
+  - port_bolt
+  - port_brine
+  - port_lamplugh
+  - port_slipp
+  - primeval_brandvold
+  - primeval_dlamini
+  - primeval_feld
+  - primeval_stratton
+  - primeval_tock
+  - primeval_twitchell
+  - station_dobbs
+  - village_matsuda
+  - village_moriyama
+  - village_tsuru
   - port_harbour_house
   - port_freight_booth
   - port_lamp_post

@@ -263,6 +263,9 @@
     "pass_bridge": (),
     "pass_lookout": (),
     "pass_falls": (),
+    // The orbital station's damaged spur (Science).
+    "spur_west": (),
+    "spur_east": (),
     // The hall of the Shadow Clan (PvN).
     "shadow_dojo_hall": (),
     // Along the primeval trail.

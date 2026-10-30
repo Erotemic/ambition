@@ -476,6 +476,8 @@ collections:
   - pass_bridge
   - pass_lookout
   - pass_falls
+  - spur_west
+  - spur_east
   - shadow_dojo_hall
   - jungle_fern_clump
   - jungle_fallen_log

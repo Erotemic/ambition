@@ -44,6 +44,13 @@ SCENERY = {
     "eureka_elevator_station": [
         ("eureka_tether_hall", 0, 0),
     ],
+    # On the climb, each at its sign's altitude (`orbital_climb_props.py`).
+    "eureka_elevator_climb": [
+        ("climb_balloon", 390, 2630),
+        ("climb_karman", 36, 2220),
+        ("climb_satellite", 320, 1320),
+        ("climb_navsat", 760, 576),
+    ],
     # The station end (`orbital_terminus_props.py`, room coordinates).
     "orbital_station_tether_terminus": [
         ("terminus_hall", 16, 48),

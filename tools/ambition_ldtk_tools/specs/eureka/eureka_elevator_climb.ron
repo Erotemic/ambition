@@ -12,6 +12,10 @@
     parallax_theme: "eureka_heights",
     music_track: "salt_steel_and_starlight",
     entities: [
+        ( type: "Prop", px: [404, 2648], size: [92, 220], fields: ( name: "climb_balloon_0", kind: "climb_balloon" ) ),
+        ( type: "Prop", px: [40, 2220], size: [1190, 40], fields: ( name: "climb_karman_1", kind: "climb_karman" ) ),
+        ( type: "Prop", px: [346, 1350], size: [560, 186], fields: ( name: "climb_satellite_2", kind: "climb_satellite" ) ),
+        ( type: "Prop", px: [770, 584], size: [120, 48], fields: ( name: "climb_navsat_3", kind: "climb_navsat" ) ),
         ( type: "Solid", px: [0, 0], size: [16, 3200], fields: ( name: "west_wall" ) ),
         ( type: "Solid", px: [1264, 0], size: [16, 3200], fields: ( name: "east_wall" ) ),
         ( type: "LoadingZone", px: [576, 3184], size: [128, 16], fields: ( id: "climb_from_station", name: "down to the ground station", activation: "EdgeExit", target_room: "eureka_elevator_station", target_zone: "station_to_climb", bidirectional: true ) ),

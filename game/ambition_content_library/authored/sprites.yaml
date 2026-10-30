@@ -481,6 +481,10 @@ collections:
   - allotment_west
   - allotment_beds
   - tea_room
+  - climb_balloon
+  - climb_karman
+  - climb_satellite
+  - climb_navsat
   - spur_west
   - spur_east
   - jungle_ranger_hut

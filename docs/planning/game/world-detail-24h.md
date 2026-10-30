@@ -43,6 +43,11 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Science: the tether's climb**: things passed, each at its sign's
+  altitude: a weather balloon (12 km), a hoop round the ribbon and a dotted
+  line across the room at the Karman line (space, technically), a
+  satellite with a lost glove and a turning spanner (low orbit, and its
+  traffic), a navigation satellite (20,000 km). Verified: captures.
 - **PvN: Ume's tea house inside**, by a door under the noren in the village
   street (Ume steps aside to her bench): the tea room (tatami, the sunken
   hearth and its kettle, low tables, the alcove), the step chest up to the

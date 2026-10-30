@@ -10,7 +10,7 @@
 use ambition_platformer2d::engine_core as ae;
 
 use crate::common::walk::{Keys, Press, Walker};
-use crate::the_pirate_port::{a_session_in, go, go_to, live_room};
+use crate::the_pirate_port::{a_session_in, go, go_to, live_room, talk};
 
 const STREET: &str = "math_town_street";
 const LOBBY: &str = "math_hotel_lobby";
@@ -95,4 +95,14 @@ fn hylberts_lift_only_goes_up() {
         }
     }
     assert_eq!(laps, 2, "the rider did not come round the shaft twice");
+}
+
+/// The corridor's guests talk: the barber, Furrier and Python Goras, each at
+/// a door (`math.yarn`'s `hotel_*`).
+#[test]
+fn the_guests_of_hylberts_hotel_talk() {
+    let mut app = a_session_in(CORRIDOR);
+    talk(&mut app, "npc_paradox_barber", "Do you shave the guests?");
+    talk(&mut app, "npc_joseph_furrier", "Which room are you in?");
+    talk(&mut app, "npc_python_goras", "What's wrong with beans?");
 }

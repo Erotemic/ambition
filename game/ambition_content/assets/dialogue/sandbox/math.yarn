@@ -219,3 +219,38 @@ Davy Hylbert: Sorry, we're full tonight.
 -> I'll come another time.
     Davy Hylbert: Right. Sorry.
 ===
+
+title: hotel_paradox_barber
+---
+The Paradox Barber: Hylbert gave me a room for the shop. Room n plus two. Then a guest arrived and I was moved to n plus three.
+-> Do you shave the guests?
+    The Paradox Barber: Every guest who does not shave himself. There are infinitely many of them. I am behind.
+    The Paradox Barber: Hylbert says I can move each customer one chair down and the first chair is always free. The first chair is never free.
+-> Who shaves you?
+    The Paradox Barber: The hotel has a policy on that question. The policy is a set that does not contain itself.
+-> I will let you get on.
+    The Paradox Barber: Mind the foam. It is countable.
+===
+
+title: hotel_joseph_furrier
+---
+Furrier: The corridor goes on for ever and the heating does not. Shut the door behind you.
+-> Which room are you in?
+    Furrier: Every few minutes, the next one. Hylbert keeps making room. My luggage is a sum of infinitely many moves.
+    Furrier: I can tell you my room's frequency, or its number. Never both. Heisenberg is down the corridor; he is not sure where.
+-> Why are you staying here?
+    Furrier: A conference on heat. In a corridor with no end, it never reaches the far wall. Ideal conditions.
+-> Stay warm.
+    Furrier: I intend to. Converge, if you can.
+===
+
+title: hotel_python_goras
+---
+Python Goras: Room service sent beans. I sent them back. Room service moved me to the next room.
+-> What's wrong with beans?
+    Python Goras: Brotherhood rule. Older than the hotel. Older than infinity, which in this corridor is saying something.
+-> Do you like the hotel?
+    Python Goras: Every room is square. I measured the diagonal of mine. The number would not stop. I have asked them not to mention it to the others.
+-> Enjoy your stay.
+    Python Goras: The stay enjoys itself. I merely remain in it, in a new room every so often.
+===

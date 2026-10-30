@@ -694,6 +694,14 @@ def hotel_corridor():
     ]
     for k, x in enumerate(CORRIDOR_DOORS):
         e.append(label(f"{rid}_room_{k}", x - 40, floor - 176, "n" if k == 0 else f"n+{k}", 80))
+    # Guests, each at a door (Jon, 2026-10-30: "character"): the barber,
+    # Furrier and Python Goras (their talk is `math.yarn`'s `hotel_*`).
+    for character, dialogue, door_k in (("npc_paradox_barber", "hotel_paradox_barber", 2),
+                                        ("npc_joseph_furrier", "hotel_joseph_furrier", 3),
+                                        ("npc_python_goras", "hotel_python_goras", 5)):
+        x = CORRIDOR_DOORS[door_k] + 50
+        e.append(f'( type: "NpcSpawn", px: [{x}, {floor - 64}], size: [32, 64], fields: ( character_id: "{character}", '
+                 f'brain_override: "stand_still", prompt: "Talk", dialogue_id: "{dialogue}" ) ),')
     return rid, room(rid, e, "Hylbert's Hotel: the rooms. There is always one more.", theme=INTERIOR)
 
 

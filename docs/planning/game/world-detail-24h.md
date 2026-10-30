@@ -43,6 +43,22 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Math: Hylbert's guests**: the Paradox Barber, Joseph Furrier and
+  Python Goras at doors of the infinite corridor, with hotel talk
+  (`math.yarn` `hotel_*`). Verified: hylberts_hotel (3).
+- **Science: the damaged spur looks damaged** (21f654b00): a hull breach on
+  the stars, torn deck and severed cables arcing over the live pits, the
+  buckled bulkhead, red emergency lamps, the crew's mess.
+- **PvN: the Bamboo Pass** (22096138a), out of the village east of the
+  cedar forest: the Shadow Clan's sparring ground; grove, rope bridge over a
+  gorge, lookout, waterfall and jizo; Ninja Swordsmen and the Oni Leader
+  (the plain duelist and the heavy author no locomotion and cannot be
+  placed as enemies). Verified: the_bamboo_pass, the_ninja_village.
+- **Evil: the castle kitchens and the castle's staff** (f94f1f248): the
+  first residents of the Evil dimension (chargen, crew family): Mrs
+  Hargreave the cook, Osgood the night porter, Brigid Dunmore of the
+  Henchpersons' Guild; talk, catalog, Hall wing; music doves_of_the_commons.
+  Verified: the_castle_kitchens.
 - **Jungle: the Tar Pits** (16e495c39), past the end of the trail, east of
   the canopy by a side exit (`specs/primeval/tar_pits.py`): two tar pools
   (murky water drawn as tar), a mammoth half sunk (its spine a still walk),

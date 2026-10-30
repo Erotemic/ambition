@@ -51,3 +51,14 @@ fn the_birdwatcher_counts_the_rookerys_penguins() {
     let mut app = a_session_in("primeval_rookery");
     talk(&mut app, "npc_primeval_twitchell", "What are you watching?");
 }
+
+/// The ranger station: up onto the hut's deck at the trailhead and in at
+/// its door; Ranger Dlamini talks on the radio (`primeval.yarn`
+/// `primeval_dlamini`), and out again.
+#[test]
+fn the_ranger_station_is_inside_the_trailheads_hut() {
+    let mut app = a_session_in("primeval_trailhead");
+    go(&mut app, "primeval_ranger_station", Some("trailhead_ranger_door"));
+    talk(&mut app, "npc_primeval_dlamini", "What do you do here?");
+    go(&mut app, "primeval_trailhead", Some("station_door"));
+}

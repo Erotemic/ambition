@@ -19,6 +19,8 @@ wall opened.
 - Raptors, a triceratops, a dilophosaurus, compys, a vulture waiting; Dr
   Feld the paleontologist, who will not leave.
 - East, by a side exit: the Smoking Mountain, its shelves up to a crater.
+- At the trailhead, the ranger's hut gets a deck and a door, and an inside:
+  the ranger station, Ranger Dlamini on the radio.
 
 The art is the sprite tools' `targets/props/primeval_tar_props.py`, drawn on
 these numbers.
@@ -160,9 +162,63 @@ entities:
 """
 
 
+#: The ranger's hut at the trailhead (`jungle_props.py` `jungle_ranger_hut`,
+#: placed at (470, 330) by `scenery_overlay.py`): its deck (x 480..680, y
+#: 434) and its doorway (x 516..556); and the station inside, a building, so
+#: anywhere in the world (by the tyrant's hall, out of the way).
+TRAILHEAD = "primeval_trailhead"
+STATION = "primeval_ranger_station"
+STATION_AT, STATION_W, STATION_H, STATION_FLOOR = (44000, 800), 1024, 512, 448
+HUT_DECK = (480, 680, 434)
+HUT_DOOR_X = 516
+
+
+def ranger_station():
+    """The ranger station inside: the trail's big map, the radio, specimen
+    jars, a cot, the lost-property box. Ranger Dlamini on the radio
+    (`primeval.yarn`)."""
+    w, h, g = STATION_W, STATION_H, STATION_FLOOR
+    e = [
+        piece("ranger_station_room", 16, 32, name="ranger_station_room"),
+        solid("floor", 0, g, w, h - g),
+        solid("ceiling", 0, 0, w, 32),
+        solid("west_wall", 0, 32, WALL, g - 32),
+        solid("east_wall", w - WALL, 32, WALL, g - 32),
+        entity("LoadingZone", 40, g - 96, 48, 96, id="station_door", name="out to the trailhead", activation="Door",
+               target_room=TRAILHEAD, target_zone="trailhead_ranger_door", bidirectional=True),
+        start(STATION, 140, g),
+        resident("npc_primeval_dlamini", "primeval_dlamini", 660, g),
+        sign("station_sign_map", 520, 250, "THE TRAIL: you are here (please stay here)", 380),
+        sign("station_sign_lost", 930, g - 70, "LOST PROPERTY", 140),
+    ]
+    return room(STATION, e, at=STATION_AT, size=(w, h), biome="primeval", music="liberated_dinosaur_libertarians", bg="#2A2018",
+                title="THE RANGER STATION", generator=GENERATOR)
+
+
+HUT_DOOR_YAML = f"""# The ranger hut's deck and its door, at the trailhead. Written by {GENERATOR}.
+level_id: {TRAILHEAD}
+entities:
+  - type: OneWayPlatform
+    px: [{HUT_DECK[0]}, {HUT_DECK[2]}]
+    size: [{HUT_DECK[1] - HUT_DECK[0]}, 16]
+    fields:
+      name: ranger_hut_deck
+  - type: LoadingZone
+    px: [{HUT_DOOR_X}, {HUT_DECK[2] - 96}]
+    size: [48, 96]
+    fields:
+      id: trailhead_ranger_door
+      name: into the ranger station
+      activation: Door
+      target_room: {STATION}
+      target_zone: station_door
+      bidirectional: true
+"""
+
+
 def main(argv):
     paths = []
-    for rid, text in ((PITS, pits()), (MOUNTAIN, smoking_mountain())):
+    for rid, text in ((PITS, pits()), (MOUNTAIN, smoking_mountain()), (STATION, ranger_station())):
         path = HERE / f"{rid}.ron"
         path.write_text(text)
         print(path.relative_to(HERE.parents[1]))
@@ -174,6 +230,8 @@ def main(argv):
     # only the end state is checked (the last `validate`).
     make_rooms(WORLD, paths)
     if code := add_entities(CANOPY_EDGE_YAML, WORLD, HERE / ".canopy_edge.yaml", unless='"on to the tar pits"'):
+        return code
+    if code := add_entities(HUT_DOOR_YAML, WORLD, HERE / ".hut_door.yaml", unless='"into the ranger station"'):
         return code
     for args in ((CANOPY, "Collision", 0, CANOPY_EAST, CANOPY_FLOOR - 112, WALL, 112),
                  # The tar: murky water (the IntGrid Water layer's kind 2).

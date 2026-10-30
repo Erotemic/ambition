@@ -66,3 +66,17 @@ Mildred Twitchell: Shh. Shh! Get down. You'll put up the swallows.
 -> I'll leave you to it.
     Mildred Twitchell: Quietly, please. And if a penguin follows you, it isn't yours. Don't let it tell you it is.
 ===
+
+title: primeval_dlamini
+---
+Ranger Dlamini: (into the radio) Station to Ridge, the walker's left the station. Over. (to you) Sorry. Welcome to the ranger station. Don't touch the jars.
+-> What do you do here?
+    Ranger Dlamini: I keep the radio. Brandvold walks the trail, Feld digs, Tock watches the sky, Twitchell counts the penguins. Every one of them checks in. I know where every walker on the trail is.
+    Ranger Dlamini: And what is eating them. That's the useful part.
+-> What is in the jars?
+    Ranger Dlamini: Ferns, eggs, and compys we've rescued from tar. They are very small and very annoyed and they bite through the lids. I've stopped labelling them. They know who they are.
+-> What is in the lost-property box?
+    Ranger Dlamini: One boot, a monocle, an umbrella. All from the same walker. We never found the rest of him. He sent a postcard from the mountain, so I think he's fine.
+-> I'll be on my way.
+    Ranger Dlamini: Check in at the ridge. If you don't, I'll assume the worst, and send Brandvold, and he'll assume the worst louder.
+===

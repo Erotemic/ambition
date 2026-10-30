@@ -284,6 +284,7 @@
     "hamlet_east": (),
     "court_busker": (),
     "hanoi_temple": (),
+    "ranger_station_room": (),
     // The orbital station's damaged spur (Science).
     "spur_west": (),
     "spur_east": (),

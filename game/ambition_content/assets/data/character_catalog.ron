@@ -6570,6 +6570,23 @@
                 hall: ["I have a rule book. The dinosaurs have teeth. We compromise.", "Fourteen years on this trail. I have lost two hats and no visitors. Yet."],
             ),
         ),
+        "npc_primeval_dlamini": (
+            display_name: "Ranger Dlamini",
+            // Keeps the radio in the ranger station at the trailhead.
+            manifest: "sprites/primeval_dlamini_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "primeval", "peaceful"],
+            barks: (
+                idle: ["Station to Ridge. Over.", "Don't touch the jars."],
+                hall: ["I know where every walker on the trail is, and what is eating them.", "The compys in the jars bite through the lids. I've stopped labelling them."],
+            ),
+        ),
         "npc_primeval_twitchell": (
             display_name: "Mildred Twitchell",
             // Watches the birds of the rookery from her hide.

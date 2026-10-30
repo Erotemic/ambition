@@ -43,6 +43,14 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Jungle: the ranger station**, inside the trailhead's ranger hut (its
+  deck now walked on, a door added): the trail's big map (you are here:
+  please stay here), the radio, specimen jars (ferns, eggs, compys rescued
+  from tar, very annoyed), a cot, the lost-property box (a boot, a monocle,
+  an umbrella); Ranger Dlamini on the radio (chargen, Hall wing). The first
+  chargen seed failed the publish's own check (a walk frame's draws did not
+  reproduce its render: chargen's lane); the next seed published. Verified:
+  the_tar_pits station test, the_primeval_trail (5).
 - **Math: the Tower of Hanoi**, west of the gate hall by a side exit (the
   hall's "<- Manifest Office" sign points that way): three diamond needles,
   golden disks part moved, each disk a one-way platform so each stack is a

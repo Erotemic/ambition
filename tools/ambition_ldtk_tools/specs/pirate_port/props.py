@@ -33,6 +33,9 @@ SCENERY = {
     "pirate_port_tavern": [
         ("port_tavern_room", 16, 32),
     ],
+    # The Wreckers' Reef (`targets/props/pirate_reef_props.py`): each piece
+    # at its frame.
+    "pirate_wreckers_reef": [("reef_shore", 0, 520), ("reef_wreck", 860, 280)],
     "pirate_port_docks": [
         ("port_gantry", 0, 220),
         ("port_warehouse", 828, 440),

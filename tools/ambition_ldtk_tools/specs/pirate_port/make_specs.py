@@ -54,6 +54,9 @@ PLAZA = "pirate_port_gate_plaza"
 WATERFRONT = "pirate_port_waterfront"
 TAVERN = "pirate_port_tavern"
 DOCKS = "pirate_port_docks"
+#: Out of the port (Jon, 2026-10-30: "out of town zones with enemies"): the
+#: Wreckers' Reef, east of the docks by a side exit.
+REEF = "pirate_wreckers_reef"
 
 #: The contract with Agent GATE: the arrival point a dialled SAILING names.
 ARRIVAL = "pirate_port_gate_arrival"
@@ -77,6 +80,7 @@ ROOMS_AT = {
     PLAZA: ((0, 0), (1600, 832)),
     WATERFRONT: ((1600, -64), (2560, 896)),
     DOCKS: ((4160, -64), (2816, 960)),
+    REEF: ((4160 + 2816, -64), (2560, 960)),
     TAVERN: ((1856, 1152), (1024, 448)),
 }
 
@@ -216,7 +220,8 @@ def docks():
         water("harbour", 0, DECK + 16, w, SEA_FLOOR - DECK - 16),
         solid("west_wall_high", 0, 0, WALL, GANTRY - 96),
         solid("west_wall_mid", 0, GANTRY + 16, WALL, DECK - 96 - GANTRY - 16),
-        solid("east_wall", w - WALL, 0, WALL, DECK),
+        solid("east_wall", w - WALL, 0, WALL, DECK - 112),
+        edge("docks_east", "along the shore to the reef", w - WALL, DECK, REEF, "reef_west"),
         edge("docks_west_low", "to the waterfront", 0, DECK, WATERFRONT, "waterfront_east_low"),
         edge("docks_west_high", "along the roofs to the waterfront", 0, GANTRY, WATERFRONT, "waterfront_east_high"),
         start(rid, 120, DECK),
@@ -245,7 +250,64 @@ def docks():
     return build(rid, e, "THE DOCKS", music=DOCK_MUSIC)
 
 
-ROOMS = (plaza, waterfront, tavern, docks)
+#: The reef (the art, `targets/props/pirate_reef_props.py`, is drawn on
+#: these): the shore's end (x), the rocks (x0, x1, top), the boarding net,
+#: the stern (x0, x1, deck), its aft castle, the bow, the mast stump's top,
+#: the east rocks.
+REEF_SHORE = 420
+REEF_ROCKS = ((500, 580, 740), (700, 780, 720))
+REEF_NET = (800, 880, 680)
+REEF_STERN = (880, 1480, 616)
+REEF_AFT = (1320, 1480, 520)
+REEF_BOW = (1760, 2300, 672)
+REEF_STUMP = (1960, 2060, 440)
+REEF_EAST = (2380, 2544, 640)
+
+
+def reef_enemy(n, character, x, feet, w, h):
+    return entity("EnemySpawn", x, feet - h, w, h, name=f"{REEF}_{character}_{n}", brain="combatant",
+                  character_id=character, respawn="OnRoomReenter")
+
+
+def reef():
+    """Out of the port: the Wreckers' Reef. A galleon broken in two on the
+    reef, and the wreckers who lured her with a false light on the shore.
+    The shore (y 768) runs on from the docks; rocks and a boarding net up
+    to the stern (y 616) and its aft castle (y 520); the fallen mast over
+    the gap; the bow (y 672) and its mast stump (y 440, a ladder); rocks at
+    the east end. The sea from y 784."""
+    rid = REEF
+    _, (w, h) = ROOMS_AT[rid]
+    s0, s1, sd = REEF_STERN
+    b0, b1, bd = REEF_BOW
+    x0, x1, top = REEF_STUMP
+    e = [
+        solid("shore", 0, DECK, REEF_SHORE, h - DECK),
+        solid("sea_floor", REEF_SHORE, SEA_FLOOR, w - REEF_SHORE, h - SEA_FLOOR),
+        water("reef_sea", REEF_SHORE, DECK + 16, w - REEF_SHORE - WALL, SEA_FLOOR - DECK - 16),
+        *[solid(f"reef_rock_{i}", a, t, b - a, SEA_FLOOR - t) for i, (a, b, t) in enumerate(REEF_ROCKS)],
+        ledge("boarding_net", REEF_NET[0], REEF_NET[2], REEF_NET[1] - REEF_NET[0]),
+        solid("stern", s0, sd, s1 - s0, SEA_FLOOR - sd),
+        ledge("aft_castle", REEF_AFT[0], REEF_AFT[2], REEF_AFT[1] - REEF_AFT[0]),
+        solid("bow", b0, bd, b1 - b0, SEA_FLOOR - bd),
+        ledge("mast_stump", x0, top, x1 - x0),
+        solid("east_rocks", REEF_EAST[0], REEF_EAST[2], REEF_EAST[1] - REEF_EAST[0], SEA_FLOOR - REEF_EAST[2]),
+        solid("west_wall", 0, 0, WALL, DECK - 112),
+        solid("east_wall", w - WALL, 0, WALL, SEA_FLOOR),
+        edge("reef_west", "back along the shore to the docks", 0, DECK, DOCKS, "docks_east"),
+        start(rid, 120, DECK),
+        sign("reef_sign", 300, DECK - 300, "WRECKERS' REEF: the lighthouse is lying", 400),
+        sign("reef_sign_wreck", 1150, sd - 170, "THE GOOD SHIP PROBABLY (late)", 320),
+        entity("ChestSpawn", REEF_AFT[0] + 40, REEF_AFT[2] - 58, 76, 58, name="the captain's strongbox", reward="currency:100"),
+        reef_enemy(1, "npc_pirate_cutlass_viper", 1000, sd, 32, 68),
+        reef_enemy(2, "npc_pirate_quartermaster", 1200, sd, 34, 71),
+        reef_enemy(3, "npc_pirate_cutlass_viper", 1880, bd, 32, 68),
+        reef_enemy(4, "npc_pirate_lookout", 1990, top, 32, 65),
+    ]
+    return build(rid, e, "THE WRECKERS' REEF", music=DOCK_MUSIC)
+
+
+ROOMS = (plaza, waterfront, tavern, docks, reef)
 
 #: The ladders out of the two gaps of open water, and up the mainmast
 #: (painted on the `Climbable` layer): (room, x, top, bottom).
@@ -253,6 +315,7 @@ LADDERS = [
     (DOCKS, SPANS[0][1] + 2, DECK - 16, SEA_FLOOR),
     (DOCKS, SPANS[1][1] + 2, DECK - 16, SEA_FLOOR),
     (DOCKS, MAINMAST - 16, 304 - 16, SHIP_DECK),
+    (REEF, REEF_STUMP[1], REEF_STUMP[2] - 16, REEF_BOW[2]),
 ]
 
 COVE_DOOR_YAML = f"""# The pirate cove's door to the Pirate Port's docks. Written by {GENERATOR}.

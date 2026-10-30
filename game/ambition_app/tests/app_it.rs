@@ -311,6 +311,7 @@ mod the_searchlight_moor;
 mod the_tar_pits;
 mod the_castle_kitchens;
 mod the_bamboo_pass;
+mod the_wreckers_reef;
 mod the_gate_network;
 
 mod body_reaction_clocks;

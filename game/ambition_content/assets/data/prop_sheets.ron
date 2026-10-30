@@ -275,6 +275,9 @@
     // The Crooked Lantern, the inn at the end of the Searchlight Moor (Evil).
     "moor_inn_front": (),
     "inn_room": (),
+    // The Wreckers' Reef (PvN, out of the Pirate Port).
+    "reef_shore": (),
+    "reef_wreck": (),
     // The hall of the Shadow Clan (PvN).
     "shadow_dojo_hall": (),
     // Along the primeval trail.

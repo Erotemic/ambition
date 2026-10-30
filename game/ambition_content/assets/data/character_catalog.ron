@@ -380,7 +380,9 @@
             melee: Some(Lunge(windup_s: 0.75, active_s: 0.4, recover_s: 1.0, damage: 4, reach_px: 64.0, step_px: 0.0, rush_px: 260.0)),
         ),
         // The Bad Apple's chomp: it rears back with its maw wide (its windup
-        // row), then rolls at you jaws first, and sits a beat after.
+        // row), then rolls at you jaws first, and sits a beat after, dizzy. Its
+        // `attack_side` row is drawn to these times (`BAD_CHOMP_S` in the
+        // sprite tools' `_apple_enemy_family.py`): change them together.
         "bad_apple_chomp": (
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.45, active_s: 0.25, recover_s: 0.6, damage: 1, reach_px: 30.0, step_px: 0.0, rush_px: 140.0)),

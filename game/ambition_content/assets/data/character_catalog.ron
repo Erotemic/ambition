@@ -1595,6 +1595,7 @@
             )),
             max_health: Some(3),
             tags: ["pirate", "bird", "npc"],
+            cues: (tell: Some("enemy.parrot.tell"), swing: Some("enemy.flyer.attack_dive"), hit: Some("enemy.bird.hit")),
             // SCAFFOLD exemplar. idle migrated from features::npcs (the
             // "parrot_cove" legacy pool, now keyed by catalog id).
             barks: (
@@ -3291,6 +3292,7 @@
             )),
             max_health: Some(4),
             tags: ["enemy", "large"],
+            cues: (notice: Some("enemy.raptor.notice"), tell: Some("enemy.raptor.tell"), swing: Some("enemy.raptor.swing"), hit: Some("enemy.raptor.hit")),
         barks: (
             on_hit: ["SHREEE!", "BITE.", "Pack closing!"],
             provoked: ["The hunt is on."],
@@ -3765,6 +3767,7 @@
             )),
             max_health: Some(4),
             tags: ["enemy", "evil", "minion"],
+            cues: (notice: Some("enemy.fascist.notice"), tell: Some("enemy.fascist_enforcer.tell"), swing: Some("enemy.fascist_enforcer.swing")),
         barks: (
             hall: ["Papers.", "The order authorizes itself.", "If it is wrong, I will have obeyed correctly."],
         ),
@@ -3798,6 +3801,7 @@
             )),
             max_health: Some(4),
             tags: ["enemy", "evil", "minion"],
+            cues: (notice: Some("enemy.fascist.notice"), tell: Some("enemy.fascist_swordsman.tell"), swing: Some("enemy.fascist_swordsman.swing")),
         barks: (
             on_hit: ["A scratch! Regulation permits scratches.", "Ow. I mean: ha!"],
             idle: ["En garde, citizen!", "The blade is regulation length."],
@@ -3833,6 +3837,7 @@
             )),
             max_health: Some(5),
             tags: ["enemy", "evil", "minion"],
+            cues: (notice: Some("enemy.fascist.notice"), tell: Some("enemy.fascist_clubman.tell"), swing: Some("enemy.fascist_clubman.swing"), hit: Some("enemy.fascist_clubman.hit")),
         barks: (
             on_hit: ["Hey! That is assault!", "Oof. Noted. Filed."],
             idle: ["Meet the persuader.", "Hold still. It is for order."],
@@ -4832,6 +4837,7 @@
             )),
             max_health: Some(2),
             tags: ["enemy", "bird", "minion"],
+            cues: (notice: Some("enemy.chicken.notice"), tell: Some("enemy.chicken.tell"), swing: Some("enemy.chicken.swing"), hit: Some("enemy.bird.hit")),
         barks: (
             on_hit: ["BA-GAWK!", "Bawk. I do not swerve."],
             provoked: ["You go first. No. YOU go first."],
@@ -4863,6 +4869,7 @@
             )),
             max_health: Some(2),
             tags: ["enemy", "bird", "minion"],
+            cues: (notice: Some("enemy.chicken.notice"), tell: Some("enemy.chicken.tell"), swing: Some("enemy.chicken.swing"), hit: Some("enemy.bird.hit")),
         barks: (
             on_hit: ["BA-GAWK!", "Buk. Rude."],
             provoked: ["He will not swerve. I will not either. Do the sum."],
@@ -4898,6 +4905,7 @@
             )),
             max_health: Some(4),
             tags: ["enemy", "bird", "minion"],
+            cues: (tell: Some("enemy.owl.tell"), swing: Some("enemy.owl.swing")),
         barks: (
             on_hit: ["Hoo!", "Noted: 'hostile'. Subclass of 'visitor'."],
             provoked: ["You are now an instance of 'prey'."],
@@ -4930,6 +4938,7 @@
             )),
             max_health: Some(1),
             tags: ["enemy", "bird", "minion"],
+            cues: (notice: Some("enemy.kiwi.notice"), tell: Some("enemy.kiwi.tell"), swing: Some("enemy.kiwi.swing"), hit: Some("enemy.bird.hit")),
         barks: (
             on_hit: ["Kee-wee!", "Eep."],
             provoked: ["Same answer as the big one. Faster."],
@@ -4962,6 +4971,7 @@
             )),
             max_health: Some(3),
             tags: ["enemy", "bird", "minion"],
+            cues: (notice: Some("enemy.emu.notice"), tell: Some("enemy.ostrich.tell"), swing: Some("enemy.ostrich.swing")),
         barks: (
             on_hit: ["Boom!", "That was not in the original hardware."],
             provoked: ["Running you at full speed now."],
@@ -4995,6 +5005,7 @@
             )),
             max_health: Some(4),
             tags: ["enemy", "bird", "minion"],
+            cues: (notice: Some("enemy.ostrich.notice"), tell: Some("enemy.ostrich.tell"), swing: Some("enemy.ostrich.swing")),
         barks: (
             on_hit: ["HONK.", "I did not see that. So it did not happen."],
             provoked: ["This problem I will not ignore."],
@@ -5026,6 +5037,7 @@
             )),
             max_health: Some(4),
             tags: ["enemy", "bird", "minion"],
+            cues: (notice: Some("enemy.ostrich.notice"), tell: Some("enemy.ostrich.tell"), swing: Some("enemy.ostrich.swing")),
         barks: (
             on_hit: ["HONK.", "Not my problem."],
             provoked: ["Now it is my problem."],
@@ -5058,6 +5070,7 @@
             )),
             max_health: Some(5),
             tags: ["enemy", "bird", "minion"],
+            cues: (notice: Some("enemy.cassowary.notice"), tell: Some("enemy.cassowary.tell"), swing: Some("enemy.cassowary.swing"), hit: Some("enemy.cassowary.hit")),
         barks: (
             on_hit: ["BOOM.", "That constraint was required."],
             provoked: ["Your position is now over-constrained."],
@@ -5090,6 +5103,7 @@
             )),
             max_health: Some(5),
             tags: ["enemy", "bird", "minion"],
+            cues: (notice: Some("enemy.shoebill.notice"), tell: Some("enemy.shoebill.tell"), swing: Some("enemy.shoebill.swing"), hit: Some("enemy.shoebill.hit")),
         barks: (
             on_hit: ["...", "CLACK."],
             provoked: ["The value is needed now."],
@@ -5122,6 +5136,7 @@
             )),
             max_health: Some(1),
             tags: ["enemy", "bird", "minion"],
+            cues: (tell: Some("enemy.swallow.tell"), swing: Some("enemy.flyer.attack_dive")),
         barks: (
             on_hit: ["Tswit!", "Unladen, I said!"],
             provoked: ["Top speed. No cargo."],
@@ -5158,6 +5173,7 @@
             )),
             max_health: Some(2),
             tags: ["enemy", "bird", "minion"],
+            cues: (tell: Some("enemy.swallow.tell"), swing: Some("enemy.flyer.attack_dive")),
         barks: (
             on_hit: ["Tswit. Oof.", "I was going to carry something!"],
             provoked: ["I will find a coconut and put it down ON you."],
@@ -5191,6 +5207,7 @@
             )),
             max_health: Some(5),
             tags: ["enemy", "bird", "minion"],
+            cues: (tell: Some("enemy.vulture.tell"), swing: Some("enemy.vulture.swing"), hit: Some("enemy.vulture.hit")),
         barks: (
             on_hit: ["Hsss.", "I can wait."],
             provoked: ["Your runway just ended."],
@@ -5225,6 +5242,7 @@
             )),
             max_health: Some(3),
             tags: ["enemy", "bird", "minion"],
+            cues: (notice: Some("enemy.penguin.notice"), tell: Some("enemy.penguin.tell"), swing: Some("enemy.penguin.swing"), hit: Some("enemy.penguin.hit")),
         barks: (
             on_hit: ["NOOT!", "That was not in the licence."],
             provoked: ["Forking you."],
@@ -5259,6 +5277,7 @@
             )),
             max_health: Some(1),
             tags: ["enemy", "dinosaur"],
+            cues: (notice: Some("enemy.compsognathus.notice"), tell: Some("enemy.compsognathus.tell"), swing: Some("enemy.compsognathus.swing")),
         barks: (
             on_hit: ["Chrrp!", "Segfault!"],
             provoked: ["Chrrp chrrp chrrp!"],
@@ -5293,6 +5312,7 @@
             )),
             max_health: Some(4),
             tags: ["enemy", "dinosaur"],
+            cues: (tell: Some("enemy.dilophosaurus.tell"), swing: Some("enemy.dilophosaurus.swing")),
         barks: (
             on_hit: ["Kshhhh!", "NO CARRIER."],
             provoked: ["Connecting..."],
@@ -5326,6 +5346,7 @@
             )),
             max_health: Some(6),
             tags: ["enemy", "dinosaur"],
+            cues: (notice: Some("enemy.pachycephalosaurus.notice"), tell: Some("enemy.pachycephalosaurus.tell"), swing: Some("enemy.pachycephalosaurus.swing"), hit: Some("enemy.pachycephalosaurus.hit")),
         barks: (
             on_hit: ["THUD.", "Merge conflict!"],
             provoked: ["Applying patch."],
@@ -5360,6 +5381,7 @@
             max_health: Some(12),
             mass: Some(8.0),
             tags: ["enemy", "dinosaur"],
+            cues: (notice: Some("enemy.triceratops.notice"), tell: Some("enemy.triceratops.tell"), swing: Some("enemy.triceratops.swing"), hit: Some("enemy.triceratops.hit")),
         barks: (
             on_hit: ["Hrrrmph.", "Caught."],
             provoked: ["Try me."],
@@ -5501,6 +5523,7 @@
             )),
             max_health: Some(2),
             tags: ["enemy", "evil", "monster", "minion"],
+            cues: (notice: Some("enemy.failed_prototype.notice"), tell: Some("enemy.failed_prototype.tell"), swing: Some("enemy.failed_prototype.swing")),
         barks: (
             on_hit: ["Yip!", "*a wet whimper*"],
             idle: ["*it scratches the stitches*", "Seven. Seven. Number seven."],
@@ -5539,6 +5562,7 @@
             )),
             max_health: Some(3),
             tags: ["enemy", "evil", "animal", "dog", "quadruped"],
+            cues: (notice: Some("enemy.attack_hound.notice"), tell: Some("enemy.attack_hound.tell"), swing: Some("enemy.attack_hound.swing"), hit: Some("enemy.attack_hound.hit")),
         barks: (
             on_hit: ["*a yelp*", "Grrrk!"],
             idle: ["*a low growl*", "Rrrrr."],
@@ -5617,6 +5641,7 @@
             )),
             max_health: Some(3),
             tags: ["enemy", "evil", "undead", "minion"],
+            cues: (notice: Some("enemy.zombie.notice"), tell: Some("enemy.zombie.tell"), swing: Some("enemy.zombie.swing"), hit: Some("enemy.zombie.hit")),
         barks: (
             on_hit: ["*a wet grunt*", "Hhhrk."],
             idle: ["*a long, wet groan*", "Hhhrrr... or... ders..."],
@@ -5655,6 +5680,7 @@
             )),
             max_health: Some(2),
             tags: ["enemy", "evil", "undead", "minion"],
+            cues: (notice: Some("enemy.zombie.notice"), tell: Some("enemy.zombie_crawler.tell"), swing: Some("enemy.zombie_crawler.swing"), hit: Some("enemy.zombie.hit")),
         barks: (
             on_hit: ["*a wet hiss*", "Hhhk."],
             idle: ["*a scrape of nails on stone*", "Hhhh... re... port..."],
@@ -5713,6 +5739,7 @@
             max_health: Some(8),
             mass: Some(5.0),
             tags: ["enemy", "evil", "soldier", "armored"],
+            cues: (notice: Some("enemy.shock_warden.notice"), tell: Some("enemy.shock_warden.tell"), swing: Some("enemy.shock_warden.swing"), hit: Some("enemy.shock_warden.hit")),
         barks: (
             on_hit: ["Hold the line!", "*the shield crackles*"],
             idle: ["Move along.", "This corridor is closed."],
@@ -5754,6 +5781,7 @@
             )),
             max_health: Some(2),
             tags: ["enemy", "evil", "machine", "crawler"],
+            cues: (tell: Some("enemy.searchlight_crawler.tell"), swing: Some("enemy.searchlight_crawler.swing")),
         barks: (
             on_hit: ["*a sharp electronic squeal*"],
             idle: ["*servos tick*", "*the lamp hums*"],

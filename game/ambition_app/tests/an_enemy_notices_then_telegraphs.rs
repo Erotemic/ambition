@@ -294,3 +294,45 @@ fn the_failed_prototype_lurches_from_a_run() {
     let leap = (to - from.unwrap_or(to)).abs();
     assert!(leap > 110.0, "its lurch covers ground: {leap} px");
 }
+
+/// The raptor is heard as well as seen (its catalog `cues`): its notice cue
+/// plays as it first sees the player, and its swing cue as its strike comes
+/// out, in place of the engine's whoosh.
+#[test]
+fn the_raptor_is_heard_noticing_then_striking() {
+    use ambition_platformer2d::sfx::{OwnedSfxMessage, SfxId, SfxMessage};
+    use bevy::ecs::message::Messages;
+    const HEARD: &str = "heard_raptor";
+    let notice = SfxId::new("enemy.raptor.notice");
+    let swing = SfxId::new("enemy.raptor.swing");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let p = player_pos(sim.world_mut());
+    sim.spawn_enemy_character_at(
+        HEARD,
+        "Raptor Stalker",
+        (p.x + 150.0, p.y),
+        (24.0, 40.0),
+        CharacterBrain::Custom("raptor".to_string()),
+        "npc_raptor_stalker",
+    );
+    let mut cursor = sim.world().resource::<Messages<OwnedSfxMessage>>().get_cursor();
+    let (mut heard_notice, mut heard_swing) = (None, None);
+    for tick in 0..600 {
+        sim.step(AgentAction::default());
+        let messages = sim.world().resource::<Messages<OwnedSfxMessage>>();
+        for message in cursor.read(messages) {
+            let SfxMessage::Play { id, .. } = &message.request else { continue };
+            if *id == notice {
+                heard_notice.get_or_insert(tick);
+            } else if *id == swing {
+                heard_swing.get_or_insert(tick);
+            }
+        }
+        if heard_swing.is_some() {
+            break;
+        }
+    }
+    let notice = heard_notice.expect("the raptor's notice cue never played");
+    let swing = heard_swing.expect("the raptor's swing cue never played");
+    assert!(notice < swing, "it is heard noticing ({notice}) before it strikes ({swing})");
+}

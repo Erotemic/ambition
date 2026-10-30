@@ -47,6 +47,8 @@ The catalog row's `cues` (`CharacterCues`, `sfx_registry` ids), so a telegraph i
 
 The strike sounds are folded onto its moves when its kit is prepared (`moveset_prefabs::voice_moveset`), its moveset file's moves too. A move keeps a sound it authored. The beats are played by `body::play_beat_cues`, off the brain's beat edges (`Brain::beat`).
 
+The primeval trail and Castle Godwin rows state their cues (2026-10-30, the `enemy.<creature>.notice|tell|swing|hit` recipes). `scripts/enemy_cue_reels.py` plays each row's cues in their timing, to judge by ear. A notice beat is a brute's only (`notice_s`): the flyers, the dilophosaurus and the searchlight crawler have none, so their notice recipes are not stated on a row.
+
 ## What the art gives a character
 
 Row names are the contract. A sheet without a row draws as before (`PinnedRow`).

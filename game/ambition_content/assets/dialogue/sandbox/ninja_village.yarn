@@ -83,6 +83,19 @@ Daichi: Stand back! I am about to perform the Thousand Leaf Step! ...I am still 
     Daichi: I do not need luck! I need the exam to be on a Tuesday.
 ===
 
+title: ninja_village_matsuda
+---
+Matsuda: A visitor. Good. Step up to the line, bow to the pass, and try not to fall off the bridge. It counts as a loss.
+-> What is the board for?
+    Matsuda: The day's bouts. Fifteen so far, all to the clan. The visitors' column has a nought in it. I keep it very tidy.
+-> Are the fights fair?
+    Matsuda: Every opponent fights one at a time and stops when you're down. The Oni Leader sometimes forgets. I remind him with this whistle. He doesn't like the whistle.
+-> Has anyone ever won?
+    Matsuda: Daichi, once. The duelist slipped on a leaf. Daichi insists it was the Thousand Leaf Step. I wrote it down as a leaf.
+-> I'm ready.
+    Matsuda: Nobody is. Go anyway. I'll keep the chalk handy.
+===
+
 title: ninja_village_tsuru
 ---
 Tsuru: Sit, sit, the kettle's on. Ume lets me have the room upstairs every autumn. I bring her a new box of stomach powders and she pretends she doesn't need them.

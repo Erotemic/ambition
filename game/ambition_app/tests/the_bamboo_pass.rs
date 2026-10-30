@@ -23,3 +23,10 @@ fn moriyama_burns_charcoal_in_the_cedar_forest() {
     let mut app = a_session_in(FOREST);
     talk(&mut app, "npc_village_moriyama", "What are you burning?");
 }
+
+/// Matsuda referees the pass by his tally board, before the first bout.
+#[test]
+fn the_pass_referee_keeps_the_count() {
+    let mut app = a_session_in(PASS);
+    talk(&mut app, "npc_village_matsuda", "What is the board for?");
+}

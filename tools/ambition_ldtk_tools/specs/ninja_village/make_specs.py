@@ -329,6 +329,9 @@ def bamboo_pass():
         # A chest for whoever climbs to the top (Jon, 2026-10-30: "interactive elements").
         entity("ChestSpawn", l0 + 4, low - 58, 76, 58, name="the clan's prize", reward="health:2"),
         sign("pass_sign", 420, g - 200, "SHADOW CLAN SPARRING GROUND: all who pass are opponents. Nothing personal.", 560),
+        # Matsuda, the pass's referee, by his tally board before the first
+        # bout (`ninja_pass_props.py` `pass_scoreboard`).
+        resident("npc_village_matsuda", "ninja_village_matsuda", 330, g),
         sign("bridge_sign", 1150, g - 110, "ROPE BRIDGE: one at a time. Opponents count.", 380),
         sign("falls_sign", 2120, g - 140, "Please do not fight the jizo.", 300),
         # The ninjas who can fight where they are placed (locomotion

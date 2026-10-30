@@ -121,6 +121,7 @@ npc_village_nagisa
 npc_village_kenji
 npc_village_ume
 npc_village_tsuru
+npc_village_matsuda
 npc_village_daichi
 npc_village_hayashi
 npc_village_ren

@@ -55,6 +55,8 @@
             attack_range: 140.0,
             patrol_effort: 0.5,
             chase_effort: 1.0,
+            // The telegraph (Jon 2026-10-30: "notice, space, telegraph, attack"): it plants and aims (its windup row) before it fires.
+            ranged_volley: Some((windup_s: 0.45, firing_s: 0.2, recovery_s: 1.0)),
         ),
         // HOW AN AMBITION CHARACTER FIGHTS ONCE PROVOKED, when it names no
         // policy of its own: the provider's declared default
@@ -2126,6 +2128,16 @@
             standing_height: Some(70.8),
             composition: None,
             default_brain: "melee_brute_striker",
+            // His own mind, the striker's numbers with a notice: he stops, points
+            // his sword at you (his notice row), then comes.
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 220.0,
+                attack_range: 36.0,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+                tactics: (notice_s: 0.5),
+            )),
             default_action_set: "striker_swipe",
             // Its strikes draw its own sheet (`ninja_shadow_oni_leader_strike_fx`), not the stand-in wedge.
             attack_vfx: Some("ninja_shadow_oni_leader_strike_fx"),

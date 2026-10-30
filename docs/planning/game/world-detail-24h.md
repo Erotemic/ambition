@@ -43,6 +43,15 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Residents for the out-of-town zones**: Range Officer Pryce at the Test
+  Range (739b79790), Nell Brine on the Wreckers' Reef's shore (5f9ce8bd5).
+  Verified: their talk tests.
+- **Science: the gate court furnished** (998423f11) and **the observation
+  deck's window** (be6cf39c3).
+- **Jungle: the Smoking Mountain** (24d9f7cd4), past the tar pits: basalt
+  shelves under a volcano's cone, lava pits and crater (DamageVolumes), the
+  meteor watch on the rim. Split frames now overlap by 16 and carry no
+  noise across the seam (a frame's edge column is filtered soft).
 - **Math: the Fractal Woods** (0b661a7f3), out of town east of the summit:
   the great fractal tree climbed by its limbs to a chest, a Koch hedge, a
   Sierpinski rock, a computed Mandelbrot topiary; puppy slugs, dividing

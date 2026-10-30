@@ -35,3 +35,13 @@ fn the_founder_lies_in_a_crypt_under_the_moor() {
     go(&mut app, MOOR, Some("crypt_door"));
     go(&mut app, "evil_founders_crypt", Some("moor_crypt_door"));
 }
+
+/// The Castle Allotments, west of the moor by its side exit: Hester Crabbe
+/// talks behind her fence, and the moor is back east.
+#[test]
+fn the_castle_allotments_lie_west_of_the_moor() {
+    let mut app = a_session_in("evil_castle_allotments");
+    talk(&mut app, "npc_evil_crabbe", "What do you grow here?");
+    go(&mut app, MOOR, Some("allot_east"));
+    go(&mut app, "evil_castle_allotments", Some("moor_west"));
+}

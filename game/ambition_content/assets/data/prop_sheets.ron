@@ -265,6 +265,8 @@
     "pass_falls": (),
     "forest_kiln_camp": (),
     "terminus_hall": (),
+    "allotment_west": (),
+    "allotment_beds": (),
     // The orbital station's damaged spur (Science).
     "spur_west": (),
     "spur_east": (),

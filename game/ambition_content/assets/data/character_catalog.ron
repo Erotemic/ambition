@@ -6348,6 +6348,23 @@
                 hall: ["I trap what the castle loses. The castle loses a lot.", "The searchlights have habits. So do I. Mine are older."],
             ),
         ),
+        "npc_evil_crabbe": (
+            display_name: "Hester Crabbe",
+            // The castle's head gardener, in the allotments west of the moor.
+            manifest: "sprites/evil_crabbe_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 165 cm.
+            standing_height: Some(63.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "castle_godwin", "peaceful"],
+            barks: (
+                idle: ["Feed the cabbages from the side.", "Don't pull the mandrakes."],
+                hall: ["An army marches on its stomach. This army has three of them.", "The Malevolent Marrow: best in show three years running. The judge was very frightened."],
+            ),
+        ),
         "npc_evil_mudge": (
             display_name: "Agnes Mudge",
             // Ticket 4,117 in the castle's Complaints Department. Now serving 3.

@@ -43,6 +43,15 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Evil: the Castle Allotments**, out of town west of the Searchlight Moor
+  by a side exit (floor level, rooms touching): raised beds of the castle's
+  vegetables (pumpkins that come up scowling, cabbages with teeth,
+  mandrakes not to be pulled), a trellis of nightshade, a steaming compost
+  heap, the scarecrow in the castle's helmet, the Malevolent Marrow on the
+  show bench; the greenhouse's roof climbed by the water butt to a chest;
+  Hester Crabbe the head gardener behind her fence (chargen, Hall wing);
+  zombies, a hound and a failed prototype in the beds. Verified:
+  the_searchlight_moor (4), check_flat_map evil 0.
 - **Jungle: the mammoth's skull**: the block of a skull is redrawn as a
   mammoth's (a high domed crown, the eye's socket, the tusks' sheath, the
   tusks in a spiral, clipped at the ground); curved ribs, the spine's

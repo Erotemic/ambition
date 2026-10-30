@@ -20,6 +20,11 @@ since: its west exit is ADDED to it (and its wall opened), not regenerated.
 - At its far west end, the Crooked Lantern: an inn (a door), Gudrun and
   Tobias inside.
 - Beside the founder's plinth, a gate down to his crypt.
+- West of the moor by a side exit (floor y 656), the Castle Allotments:
+  where the castle grows its vegetables (pumpkins that scowl, cabbages that
+  bite, mandrakes not to be pulled), the greenhouse's roof to climb to a
+  chest, Hester Crabbe the head gardener behind her fence, and what has got
+  into the beds.
 
 The art is the sprite tools' `targets/props/evil_moor_props.py`, drawn on
 these numbers.
@@ -47,6 +52,14 @@ CRYPT_AT, CRYPT_W, CRYPT_H, CRYPT_FLOOR = (-2400, 1600), 1600, 576, 512
 #: The sarcophagus (x0, x1, its lid, walked on).
 SARCOPHAGUS = (1100, 1300, 440)
 FOREST = "evil_gate_forest"
+#: The allotments, west of the moor: the same floor, the rooms touching.
+ALLOT = "evil_castle_allotments"
+ALLOT_W = 2000
+#: The raised beds (x0, x1, top), the water butt and the greenhouse's roof,
+#: all walked on (`evil_allotment_props.py` draws on these).
+ALLOT_BEDS = ((960, 1160, 624), (1240, 1440, 624), (1520, 1720, 624))
+ALLOT_BUTT = (860, 900, 592)
+ALLOT_ROOF = (470, 850, 512)
 W, H, FLOOR = 2400, 784, 656
 BOG = (600, 1100, 640)
 
@@ -71,7 +84,8 @@ def moor():
         solid("ground_west", 0, FLOOR, bx0, H - FLOOR),
         solid("bog_bed", bx0, 720, bx1 - bx0, H - 720),
         solid("ground_east", bx1, FLOOR, W - bx1, H - FLOOR),
-        solid("west_wall", 0, 0, WALL, FLOOR),
+        solid("west_wall", 0, 0, WALL, FLOOR - 112),
+        edge("moor_west", "to the allotments", 0, FLOOR, ALLOT, "allot_east"),
         solid("east_wall", W - WALL, 0, WALL, FLOOR - 112),
         edge("moor_east", "back to the forest", W - WALL, FLOOR, FOREST, "forest_west"),
         start(MOOR, W - 200, FLOOR),
@@ -94,6 +108,34 @@ def moor():
     ]
     return MOOR, room(MOOR, e, at=(-W, 0), size=(W, H), biome="evil_forest", music="oppressive_crush",
                       bg="#3A0E0E", title="THE SEARCHLIGHT MOOR", generator=GENERATOR)
+
+
+def allotments():
+    w = ALLOT_W
+    e = [
+        piece("allotment_west", 40, 480, name="allotment_west"),
+        piece("allotment_beds", 940, 420, name="allotment_beds"),
+        solid("ground", 0, FLOOR, w, H - FLOOR),
+        solid("west_wall", 0, 0, WALL, FLOOR),
+        solid("east_wall", w - WALL, 0, WALL, FLOOR - 112),
+        edge("allot_east", "back to the moor", w - WALL, FLOOR, MOOR, "moor_west"),
+        start(ALLOT, w - 200, FLOOR),
+        *[ledge(f"bed_{i}", x0, top, x1 - x0) for i, (x0, x1, top) in enumerate(ALLOT_BEDS)],
+        ledge("water_butt", ALLOT_BUTT[0], ALLOT_BUTT[2], ALLOT_BUTT[1] - ALLOT_BUTT[0]),
+        ledge("greenhouse_roof", ALLOT_ROOF[0], ALLOT_ROOF[2], ALLOT_ROOF[1] - ALLOT_ROOF[0]),
+        entity("ChestSpawn", 620, ALLOT_ROOF[2] - 58, 76, 58, name="the prize-money tin", reward="currency:60"),
+        resident("npc_evil_crabbe", "evil_crabbe", 230, FLOOR),
+        sign("allot_sign_plot", 340, FLOOR - 110, "PLOT 13: H. CRABBE. KEEP OUT. YES, YOU.", 380),
+        sign("allot_sign_mandrake", 1620, FLOOR - 120, "DO NOT PULL THE MANDRAKES", 300),
+        sign("allot_sign_show", 1480, FLOOR - 200, "BEST IN SHOW: the Malevolent Marrow", 360),
+        sign("allot_sign_cabbage", 1340, FLOOR - 100, "CABBAGES: feed from the side", 300),
+        enemy(20, "npc_evil_zombie", 1200, FLOOR, 30, 67),
+        enemy(21, "npc_evil_attack_hound", 1880, FLOOR, 52, 50),
+        enemy(22, "npc_evil_failed_prototype", 1340, ALLOT_BEDS[1][2], 32, 40),
+        enemy(23, "npc_evil_zombie", 1060, ALLOT_BEDS[0][2], 30, 67),
+    ]
+    return ALLOT, room(ALLOT, e, at=(-W - w, 0), size=(w, H), biome="evil_forest", music="oppressive_crush",
+                       bg="#3A0E0E", title="THE CASTLE ALLOTMENTS", generator=GENERATOR)
 
 
 def inn():
@@ -161,7 +203,7 @@ entities:
 
 def main(argv):
     paths = []
-    for rid, text in (inn(), crypt(), moor()):
+    for rid, text in (inn(), crypt(), allotments(), moor()):
         path = HERE / f"{rid}.ron"
         path.write_text(text)
         print(path.relative_to(HERE.parents[1]))

@@ -396,7 +396,8 @@ pub fn item_state_of(world: &World, scope: Entity) -> Option<ItemState> {
     world.get::<ambition_held_items::GroundItem>(scope)?;
     let settled = world.get::<ambition_held_items::SettledItem>(scope).map_or(0.0, |settled| settled.impact_speed);
     let struck = world.get::<ambition_held_items::ItemStruckBody>(scope).map_or(0.0, |hit| hit.impact_speed);
-    Some(ItemState { in_world: custody.in_world(), impact_speed: settled.max(struck) })
+    let bounced = world.get::<ambition_held_items::ItemStruckSurface>(scope).map_or(0.0, |hit| hit.impact_speed);
+    Some(ItemState { in_world: custody.in_world(), impact_speed: settled.max(struck).max(bounced) })
 }
 
 /// The module entities `scope` spawned, in identity order.

@@ -219,3 +219,125 @@ Davy Hylbert: Sorry, we're full tonight.
 -> I'll come another time.
     Davy Hylbert: Right. Sorry.
 ===
+
+title: hotel_monty_carlo
+---
+Monty Carlo: Welcome, welcome, WELCOME to the ballroom! Three doors! One car! Two goats! And one lucky robot!
+-> How does it work?
+    Monty Carlo: You pick a door. I, who know everything, open another one and show you a goat. Then I ask: do you want to switch?
+    Monty Carlo: And you say yes. Because switching wins two times in three. Everybody says yes. Eventually.
+-> Why does switching win?
+    Monty Carlo: Your first pick is right one time in three. I never open the car. So the other door holds every case where you were wrong. Two in three!
+    Monty Carlo: A mathematician wrote in to say I was lying. Hundreds of them. I sent each of them a goat.
+-> What happens to the goats?
+    Monty Carlo: They live here. Hylbert gives each one a room. There are always rooms. The goats have never been happier.
+-> I'll stay where I am.
+    Monty Carlo: Staying! Bold! Wrong, two times in three, but bold!
+===
+
+title: hotel_paradox_barber
+---
+The Paradox Barber: Hylbert gave me a room for the shop. Room n plus two. Then a guest arrived and I was moved to n plus three.
+-> Do you shave the guests?
+    The Paradox Barber: Every guest who does not shave himself. There are infinitely many of them. I am behind.
+    The Paradox Barber: Hylbert says I can move each customer one chair down and the first chair is always free. The first chair is never free.
+-> Who shaves you?
+    The Paradox Barber: The hotel has a policy on that question. The policy is a set that does not contain itself.
+-> I will let you get on.
+    The Paradox Barber: Mind the foam. It is countable.
+===
+
+title: hotel_joseph_furrier
+---
+Furrier: The corridor goes on for ever and the heating does not. Shut the door behind you.
+-> Which room are you in?
+    Furrier: Every few minutes, the next one. Hylbert keeps making room. My luggage is a sum of infinitely many moves.
+    Furrier: I can tell you my room's frequency, or its number. Never both. Heisenberg is down the corridor; he is not sure where.
+-> Why are you staying here?
+    Furrier: A conference on heat. In a corridor with no end, it never reaches the far wall. Ideal conditions.
+-> Stay warm.
+    Furrier: I intend to. Converge, if you can.
+===
+
+title: hotel_python_goras
+---
+Python Goras: Room service sent beans. I sent them back. Room service moved me to the next room.
+-> What's wrong with beans?
+    Python Goras: Brotherhood rule. Older than the hotel. Older than infinity, which in this corridor is saying something.
+-> Do you like the hotel?
+    Python Goras: Every room is square. I measured the diagonal of mine. The number would not stop. I have asked them not to mention it to the others.
+-> Enjoy your stay.
+    Python Goras: The stay enjoys itself. I merely remain in it, in a new room every so often.
+===
+
+title: zeno_halfway
+---
+Zeno Halfway: Good morning! Or afternoon. I set out for the reservoir at dawn. Some years ago. I'm making excellent progress.
+-> How far have you got?
+    Zeno Halfway: Halfway. Before that I was halfway to here. Tomorrow I'll be halfway from here. Every day, half of what's left.
+    Zeno Halfway: You'd think I'd be there by now. You'd be thinking like a person who has never done the sum.
+-> Why not just walk the rest?
+    Zeno Halfway: To walk the rest I'd first have to walk half the rest. And before that, half of that. I've got a list. It is very long.
+-> Will you ever arrive?
+    Zeno Halfway: In the limit, yes! The sign at the dam says so. I've read it from here. Through a telescope.
+    Zeno Halfway: An arrow I fired at the reservoir in my youth is still in the air somewhere. We keep each other company.
+-> Good luck.
+    Zeno Halfway: Thank you. I'll be halfway to grateful by tomorrow.
+===
+
+title: mine_kleinbottle
+---
+Felix Kleinbottle: Mind your head. Or your feet. Down here it depends which way you're facing.
+-> What do you mine?
+    Felix Kleinbottle: The seam. It's got one side, which is a great saving. You dig along it, you come back along it, and you never once had to go round.
+-> What is the half twist?
+    Felix Kleinbottle: The far end. Press it and the mine turns over. The floor's the ceiling, the ceiling's the floor, and the coins on the ceiling are suddenly underfoot.
+    Felix Kleinbottle: Press the other one, on the other side, to come back. It's the same switch. Don't think about it too long.
+-> Why "Kleinbottle"?
+    Felix Kleinbottle: Family name. We used to make bottles with no inside. Hard to sell. You'd pour, and pour, and the bottle would agree with you.
+-> I'll go and twist.
+    Felix Kleinbottle: Lovely. Wave when you're upside down. I'll wave back. It'll look the same to both of us.
+===
+
+title: hanoi_lucas
+---
+Brother Lucas: Welcome to the Tower. Mind the disks; they're gold and they're counted. One move at a time, never a larger on a smaller.
+-> What happens when the last disk is moved?
+    Brother Lucas: The world ends. That's the legend. I wrote it. It sold a great many puzzles.
+    Brother Lucas: Sixty-four disks takes eighteen quintillion moves. At a move a second, the sun goes out first. I find that very restful.
+-> How many moves so far?
+    Brother Lucas: One million, forty-eight thousand, five hundred and seventy-five. It's on the wall. Every stroke is a move. The wall is very full.
+-> Can I move one?
+    Brother Lucas: You can stand on them. Moving them is my job, and I'm in no hurry. Nobody who understands the puzzle is ever in a hurry.
+-> I'll leave you to it.
+    Brother Lucas: Thank you. I'll get back to it presently. Presently is a very long word here.
+===
+
+title: meadow_fibbs
+---
+Farmer Fibbs: Mind the plots. Each one is the last two put together, and they don't like being stepped on any more than they like being counted.
+-> How many rabbits do you have?
+    Farmer Fibbs: This month? Last month's, plus the month before's. Started with a pair. Never sold one. Never will catch up.
+    Farmer Fibbs: The sixth hutch burst at eight. I'm building a thirteen. Then a twenty-one. I've stopped building and started fencing.
+-> Why are the plots square?
+    Farmer Fibbs: One, one, two, three, five, eight. Lay them side by side and draw a quarter-circle in each and you get a spiral, if you squint, and unroll it. My grandmother did it in a ring. Took the whole valley.
+-> What about the sunflowers?
+    Farmer Fibbs: Seeds go in at the golden angle. Not my doing; they do it themselves. I asked one why once. It looked at me with about four hundred faces.
+-> And the mites?
+    Farmer Fibbs: They divide. Everything else here adds. They're the wrong kind of growth entirely. Mind your ankles past the hutch.
+===
+
+title: woods_ivo
+---
+Ivo: Careful on the path. It's a lot longer than it looks, if you look closely.
+-> What do you do here?
+    Ivo: Groundskeeper. I trim the hedge, I sweep the leaves, I count the trees. The counting is the hard part.
+    Ivo: Every tree is made of smaller trees. I counted to a thousand on one branch and it had only just started.
+-> Why is the hedge that shape?
+    Ivo: I started trimming it flat in the spring. Took a third off every edge and put a point on the middle. Then I did it again.
+    Ivo: Third iteration now. It's longer than the woods. It's still the same width. Nobody believes me.
+-> What's the bush at the far end?
+    Ivo: The Mandelbrot. Don't prune it. Every bit you cut off has a little copy of the whole thing on it, and they all want watering.
+-> I'll leave you to it.
+    Ivo: Mind the slugs. They see dogs in everything.
+===

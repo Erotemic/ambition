@@ -110,6 +110,59 @@ pub fn apply_item_uses(
     }
 }
 
+/// Equip what a menu asked to equip. (sim)
+///
+/// The primary player wears the ability's row. A row that names an exclusive
+/// slot replaces the variant that held the slot ([`WornEquipment::equip`]),
+/// so one variant of a slot is worn at a time. The action scheme and the
+/// repertoire read the worn set, so the slot changes with no other write.
+///
+/// A request for an item that is not owned, or that is no ability with a
+/// row, is refused with a log and changes nothing.
+///
+/// [`WornEquipment::equip`]: ambition_characters::equipment::WornEquipment::equip
+pub fn apply_item_equips(
+    mut commands: Commands,
+    mut requests: MessageReader<ambition_items::ItemEquipRequested>,
+    owned: Res<OwnedItems>,
+    items: ambition_items::ItemCatalogRead,
+    mut bodies: Query<
+        (Entity, Option<&mut ambition_characters::equipment::WornEquipment>),
+        (
+            With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+            With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
+        ),
+    >,
+) {
+    let mut rows = Vec::new();
+    for request in requests.read() {
+        let Some(row) = items.get().wears(request.item) else {
+            warn!(
+                target: "crate::narrative",
+                "an equip of {:?} was asked for, and it is no ability with a row", request.item
+            );
+            continue;
+        };
+        if !owned.has(request.item) {
+            warn!(target: "crate::narrative", "an equip of {:?} was asked for, and it is not owned", request.item);
+            continue;
+        }
+        rows.push(row.clone());
+    }
+    let Ok((body, worn)) = bodies.single_mut() else {
+        return;
+    };
+    match worn {
+        Some(mut worn) => rows.into_iter().for_each(|row| worn.equip(row)),
+        None if !rows.is_empty() => {
+            let mut fresh = ambition_characters::equipment::WornEquipment::default();
+            rows.into_iter().for_each(|row| fresh.equip(row));
+            commands.entity(body).insert(fresh);
+        }
+        None => {}
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -183,5 +236,44 @@ mod tests {
             1,
             "an unaffordable purchase handed over the goods anyway"
         );
+    }
+
+    /// The menu's equip reaches the body through the simulation. Equipping the
+    /// laser takes the projectile slot from the fireball; equipping the
+    /// fireball takes it back; a variant the bag does not hold is refused.
+    #[test]
+    fn an_equipped_ability_takes_its_slot_on_the_primary_body() {
+        use ambition_characters::equipment::WornEquipment;
+        use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
+        let catalog = ambition_items::test_item_catalog();
+        let mut app = App::new();
+        app.insert_resource(catalog.clone());
+        let mut owned = OwnedItems::default();
+        owned.grant(catalog, Item::EyeLaser, 1);
+        owned.grant(catalog, Item::Fireball, 1);
+        app.insert_resource(owned);
+        app.add_message::<ambition_items::ItemEquipRequested>();
+        app.add_systems(Update, apply_item_equips);
+        let body = app.world_mut().spawn((PlayerEntity, PrimaryPlayer)).id();
+        // A second seat is not the menu's body.
+        let other = app.world_mut().spawn(PlayerEntity).id();
+        let worn_ids = |app: &App, entity| {
+            app.world()
+                .get::<WornEquipment>(entity)
+                .map(|worn| worn.rows.iter().map(|row| row.id.clone()).collect::<Vec<_>>())
+        };
+
+        app.world_mut().write_message(ambition_items::ItemEquipRequested { item: Item::EyeLaser });
+        app.update();
+        assert_eq!(worn_ids(&app, body), Some(vec!["eye_laser".to_string()]));
+        assert_eq!(worn_ids(&app, other), None, "another seat wears nothing");
+
+        app.world_mut().write_message(ambition_items::ItemEquipRequested { item: Item::Fireball });
+        app.update();
+        assert_eq!(worn_ids(&app, body), Some(vec!["fireball".to_string()]), "one variant per slot");
+
+        app.world_mut().write_message(ambition_items::ItemEquipRequested { item: Item::SwordStance });
+        app.update();
+        assert_eq!(worn_ids(&app, body), Some(vec!["fireball".to_string()]), "an unowned variant is refused");
     }
 }

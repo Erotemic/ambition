@@ -1,0 +1,27 @@
+// Written by specs/math_town/make_specs.py. Change the script, not this file.
+(
+    id: "math_hotel_door_1",
+    level_id: "math_hotel_door_1",
+    world_x: 13760,
+    world_y: 2400,
+    px_wid: 480,
+    px_hei: 320,
+    fill_collision: "empty",
+    bg_color: "#BFD7EE",
+    biome: "math_interior",
+    parallax_theme: "math_interior",
+    music_track: "math_town_day",
+    entities: [
+        ( type: "Solid", px: [0, 256], size: [480, 64], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [480, 32], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 32], size: [16, 224], fields: ( name: "west_wall" ) ),
+        ( type: "Solid", px: [464, 32], size: [16, 224], fields: ( name: "east_wall" ) ),
+        ( type: "LoadingZone", px: [40, 160], size: [48, 96], fields: ( id: "math_hotel_door_1_door", name: "back to the stage", activation: "Door", target_room: "math_hotel_ballroom", target_zone: "math_hotel_ballroom_door_1", bidirectional: true ) ),
+        ( type: "PlayerStart", px: [110, 210], size: [28, 46], fields: ( name: "math_hotel_door_1_spawn" ) ),
+        ( type: "Prop", px: [220, 178], size: [84, 78], fields: ( name: "math_hotel_door_1_prize", kind: "math_goat" ) ),
+        ( type: "DebugLabel", px: [120, 70], size: [340, 24], fields: ( name: "math_hotel_door_1_words", text: "A GOAT.", category: "Custom" ) ),
+        ( type: "CameraZone", px: [0, 0], size: [480, 320], fields: ( id: "math_hotel_door_1_camera", name: "math_hotel_door_1_camera", mode: "Default" ) ),
+        ( type: "DebugLabel", px: [70, 40], size: [340, 24], fields: ( name: "math_hotel_door_1_label", text: "Behind door number 1.", category: "Custom" ) ),
+    ],
+    connect_to: [],
+)

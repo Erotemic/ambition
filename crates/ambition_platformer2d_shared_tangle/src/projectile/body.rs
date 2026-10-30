@@ -121,7 +121,7 @@ impl Default for Rebound {
 /// the machine-gun the leg rule exists to prevent — one desync per overlap.
 #[derive(Clone, Debug, Default, PartialEq, bevy::prelude::Component)]
 pub struct ProjectileHits {
-    pub hit: std::collections::HashSet<bevy::prelude::Entity>,
+    pub hit: std::collections::BTreeSet<bevy::prelude::Entity>,
 }
 
 impl bevy::ecs::entity::MapEntities for ProjectileHits {

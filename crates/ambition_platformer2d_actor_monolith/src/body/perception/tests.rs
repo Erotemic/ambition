@@ -28,6 +28,7 @@ fn body(pos: ae::Vec2, faction: ActorFaction) -> PerceptionBody {
         // A fresh body with its air game intact; the fixture is about what a
         // viewer SEES, and a recovery budget of zero would be a different test.
         air_jumps_left: 1,
+        helpless: false,
         team: None,
         phase: BodyPhase::Neutral,
         phase_remaining: 0.0,
@@ -1874,4 +1875,39 @@ fn the_ground_distances_are_along_the_bodys_own_side_axis() {
             "a speed along gravity {down:?} itself was read as a run"
         );
     }
+}
+
+/// The death line a view publishes is the kernel's out-of-bounds gate as a box:
+/// the room plus the margins the world authored, open along an edge the world
+/// never closed. Smash's numbers, and then a platformer corridor.
+#[test]
+fn the_death_envelope_is_the_room_plus_its_authored_margins() {
+    let size = ae::Vec2::new(640.0, 480.0);
+    let down = ae::Vec2::new(0.0, 1.0);
+    let smash = ae::World::new("smash", size, ae::Vec2::ZERO, Vec::new())
+        .with_fall_out_margin(240.0)
+        .with_side_out_margin(400.0)
+        .with_rise_out_margin(240.0);
+    let line = death_envelope(&smash, down);
+    assert_eq!(line.min, ae::Vec2::new(-400.0, -240.0));
+    assert_eq!(line.max, ae::Vec2::new(1040.0, 720.0));
+
+    let corridor =
+        ae::World::new("corridor", size, ae::Vec2::ZERO, Vec::new()).with_fall_out_margin(240.0);
+    let line = death_envelope(&corridor, down);
+    assert_eq!(
+        line.max.y, 720.0,
+        "the pit floor is the one edge every world has"
+    );
+    assert_eq!(
+        line.min.x,
+        f32::NEG_INFINITY,
+        "a side the world never closed is open"
+    );
+    assert_eq!(line.max.x, f32::INFINITY);
+    assert_eq!(
+        line.min.y,
+        f32::NEG_INFINITY,
+        "no rise margin: a body can rise forever"
+    );
 }

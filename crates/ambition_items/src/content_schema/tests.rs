@@ -12,7 +12,7 @@ fn row(slot: usize) -> String {
         r#"(
             display_name: "Item {slot}",
             description: "The {slot}th thing.",
-            category: Weapon,
+            category: Held,
             held_item_id: Some("held_{slot}"),
             dialog_id: "item{slot}",
         )"#
@@ -114,7 +114,7 @@ fn an_unknown_authored_field_is_an_error_and_not_a_shrug() {
     rows[3] = r#"(
         display_name: "Typo",
         description: "Has a field nothing reads.",
-        category: Weapon,
+        category: Held,
         held_item_id: None,
         dialog_id: "typo",
         stack_limit: 99,
@@ -149,7 +149,7 @@ fn a_half_wired_held_item_is_refused() {
     rows[7] = r#"(
         display_name: "Half Wired",
         description: "Somebody started wiring this and stopped.",
-        category: Weapon,
+        category: Held,
         held_item_id: Some(""),
         dialog_id: "halfwired",
     )"#
@@ -162,6 +162,33 @@ fn a_half_wired_held_item_is_refused() {
     );
 }
 
+/// A stack of 0 is an item the bag can never hold; a stack above 1 is a
+/// stack, and compiles.
+#[test]
+fn a_stack_of_none_is_refused_and_a_stack_of_many_compiles() {
+    let with_stack = |stack: u32| {
+        let mut rows: Vec<String> = (0..ITEM_COUNT).map(row).collect();
+        rows[11] = format!(
+            r#"(
+            display_name: "Bombs",
+            description: "A stock of bombs.",
+            category: Held,
+            held_item_id: Some("bomb"),
+            dialog_id: "stacked",
+            stack: {stack},
+        )"#
+        );
+        format!("[{}]", rows.join(","))
+    };
+    let failure = refuse("empty_stack", &with_stack(0));
+    assert!(failure.has(DiagnosticCode::MalformedProviderBinding), "{:?}", failure.codes());
+    let pack = compile(&draft("nine_stack", &with_stack(9)), &registry(), &AssetsUnchecked)
+        .expect("a stack of nine compiles");
+    let catalog = lowered_item_catalog(&pack).expect("the catalog lowers");
+    assert_eq!(catalog.rows()[11].stack, 9);
+    assert_eq!(catalog.rows()[0].stack, 1, "a row with no stack is unique");
+}
+
 /// A row nothing can name is unreachable content.
 #[test]
 fn an_empty_dialog_id_is_refused() {
@@ -169,7 +196,7 @@ fn an_empty_dialog_id_is_refused() {
     rows[9] = r#"(
         display_name: "Nameless",
         description: "No script can ask for this.",
-        category: Weapon,
+        category: Held,
         held_item_id: None,
         dialog_id: "",
     )"#
@@ -266,7 +293,7 @@ fn a_dialog_id_the_runtime_lookup_can_never_resolve_is_refused() {
             r#"(
                 display_name: "Unreachable",
                 description: "No script can ask for this.",
-                category: Weapon,
+                category: Held,
                 held_item_id: None,
                 dialog_id: "{spelling}",
             )"#
@@ -288,7 +315,7 @@ fn an_already_normalized_dialog_id_is_accepted() {
     rows[2] = r#"(
         display_name: "Fine",
         description: "Canonical id.",
-        category: Weapon,
+        category: Held,
         held_item_id: None,
         dialog_id: "portalgun2",
     )"#
@@ -299,4 +326,82 @@ fn an_already_normalized_dialog_id_is_accepted() {
         &AssetsUnchecked,
     )
     .expect("a lowercase alphanumeric id is exactly what the lookup resolves");
+}
+
+/// An ability row with `id` and its worn row.
+fn ability(slot: usize, worn_id: &str) -> String {
+    format!(
+        r#"(
+            display_name: "Ability {slot}",
+            description: "A variant.",
+            category: Ability,
+            held_item_id: None,
+            dialog_id: "ability{slot}",
+            wears: Some((id: "{worn_id}", exclusive_slot: Some("projectile"))),
+        )"#
+    )
+}
+
+/// A worn ability compiles, and a placeholder ability with no row compiles.
+#[test]
+fn abilities_with_and_without_a_row_compile() {
+    let mut rows: Vec<String> = (0..ITEM_COUNT).map(row).collect();
+    rows[0] = ability(0, "first");
+    rows[1] = ability(1, "second");
+    rows[2] = r#"(
+        display_name: "Placeholder",
+        description: "Not yet found.",
+        category: Ability,
+        held_item_id: None,
+        dialog_id: "placeholder",
+    )"#
+    .to_string();
+    let pack = compile(&draft("abilities", &format!("[{}]", rows.join(","))), &registry(), &AssetsUnchecked)
+        .expect("worn abilities and a placeholder compile");
+    let catalog = lowered_item_catalog(&pack).expect("lowered");
+    assert_eq!(catalog.rows()[1].wears.as_ref().map(|row| row.id.as_str()), Some("second"));
+}
+
+/// Only an ability is worn: a held item that names a row is refused.
+#[test]
+fn a_held_item_that_wears_a_row_is_refused() {
+    let mut rows: Vec<String> = (0..ITEM_COUNT).map(row).collect();
+    rows[4] = r#"(
+        display_name: "Confused",
+        description: "Held and worn at once.",
+        category: Held,
+        held_item_id: Some("held_4"),
+        dialog_id: "confused",
+        wears: Some((id: "confused")),
+    )"#
+    .to_string();
+    let failure = refuse("held_wears", &format!("[{}]", rows.join(",")));
+    assert!(failure.has(DiagnosticCode::MalformedProviderBinding), "{:?}", failure.codes());
+}
+
+/// An ability is worn, not held.
+#[test]
+fn an_ability_that_names_a_held_item_is_refused() {
+    let mut rows: Vec<String> = (0..ITEM_COUNT).map(row).collect();
+    rows[4] = r#"(
+        display_name: "Confused",
+        description: "Worn and held at once.",
+        category: Ability,
+        held_item_id: Some("held_4"),
+        dialog_id: "confused",
+        wears: Some((id: "confused")),
+    )"#
+    .to_string();
+    let failure = refuse("ability_held", &format!("[{}]", rows.join(",")));
+    assert!(failure.has(DiagnosticCode::MalformedProviderBinding), "{:?}", failure.codes());
+}
+
+/// One worn row id is one ability: two cells that wear it are a conflict.
+#[test]
+fn two_abilities_wearing_one_row_are_a_conflict() {
+    let mut rows: Vec<String> = (0..ITEM_COUNT).map(row).collect();
+    rows[0] = ability(0, "same");
+    rows[1] = ability(1, "same");
+    let failure = refuse("shared_worn_row", &format!("[{}]", rows.join(",")));
+    assert!(failure.has(DiagnosticCode::ConflictingModuleContribution), "{:?}", failure.codes());
 }

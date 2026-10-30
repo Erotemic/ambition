@@ -18,6 +18,7 @@ use bevy::prelude::*;
 use ambition_platformer2d::platformer::lifecycle::SessionRoot;
 use ambition_platformer2d::provider::PreparedPlatformerSessions;
 use ambition_platformer2d::render::rendering::presentation_settling::{PresentationSettling, SettledLatch};
+use ambition_platformer2d::render::rendering::room_transition_cover::{spawn_lifting_cover, RoomTransitionStyles};
 use ambition_platformer2d::time::SimTick;
 
 /// How long the cover waits, after the route activated, for the room to be
@@ -54,6 +55,7 @@ pub(crate) fn cover_first_room(
     tick: Option<Res<SimTick>>,
     time: Res<Time<Real>>,
     roots: Query<Entity, With<FirstRoomCoverRoot>>,
+    styles: Option<Res<RoomTransitionStyles>>,
 ) {
     cover.update = cover.update.saturating_add(1);
     let preparing = sessions.as_deref().is_some_and(|sessions| sessions.published().next().is_some());
@@ -118,6 +120,10 @@ pub(crate) fn cover_first_room(
             }
             eprintln!("[first-room-cover] revealed {:.0} ms after the route activated", waited.as_secs_f64() * 1000.0);
             lift(&mut commands);
+            // The room comes in as a room change's does, in the game's look.
+            if !roots.is_empty() {
+                spawn_lifting_cover(&mut commands, styles.as_deref().map(|styles| styles.default).unwrap_or_default());
+            }
             cover.phase = Phase::Idle;
         }
     }

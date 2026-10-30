@@ -49,6 +49,7 @@ if str(TOOLS) not in sys.path:
 from ambition_ldtk_tools.ldtk.paths import default_worlds_dir  # noqa: E402
 
 sys.path.insert(0, str(HERE.parent / "gate_network"))
+sys.path.insert(0, str(HERE.parent))
 import gates  # noqa: E402
 
 MATH_LDTK = default_worlds_dir() / "math.ldtk"
@@ -66,9 +67,27 @@ MATH_ZONE = "math_gate_return_zone"
 HOME_RING, HOME_PORTAL = "Math Gate Ring (Home)", "Math Gate Portal (Home)"
 MATH_RING, MATH_PORTAL = "Math Gate Ring (Math)", "Math Gate Portal (Math)"
 HALL, STREET = "math_gate_hall", "math_town_street"
+ZENO = "math_zeno_aqueduct"
+LOBBY, CORRIDOR, LIFT = "math_hotel_lobby", "math_hotel_corridor", "math_hotel_lift"
+#: The hotel's ballroom (a game show of three doors) and the closets behind
+#: its doors: a goat, a car, a goat.
+BALLROOM = "math_hotel_ballroom"
+CLOSETS = ("math_hotel_door_1", "math_hotel_door_2", "math_hotel_door_3")
+#: Out of town east of the summit (Jon, 2026-10-30: "out of town zones with
+#: enemies"): the Fractal Woods.
+WOODS = "math_fractal_woods"
+#: Under the woods, down a hole in their floor (a ladder down it).
+MINE = "math_mobius_mine"
+#: East of the woods by a side exit, floors level: the Fibonacci Meadow.
+MEADOW = "math_fibonacci_meadow"
+#: West of the gate hall by a side exit, under the aqueduct's valley.
+HANOI = "math_tower_of_hanoi"
 CAFE, OFFICE, OBSERVATORY = "math_cafe", "math_surveyors_office", "math_observatory"
 
 #: Each room: where it is in the world, and its size.
+#: Where the buildings' insides are in the world (y).
+INSIDES_Y = 2400
+
 ROOMS_AT = {
     HALL: (0, 1600, 768),
     STREET: (1712, 3200, 1344),
@@ -76,11 +95,48 @@ ROOMS_AT = {
     CAFE: (5100, 960, 448),
     OFFICE: (6200, 1120, 448),
     OBSERVATORY: (7500, 800, 704),
+    # Out of town, west of the street along the aqueduct (Jon, 2026-10-30:
+    # "out of town zones with enemies").
+    ZENO: (1712 - 3200, 3200, 896),
+    # Hylbert's Hotel (Jon, 2026-10-30): its lobby, and the corridor east of
+    # it, its floor level with the lobby's.
+    LOBBY: (8500, 1280, 576),
+    CORRIDOR: (8500 + 1280, 1600, 448),
+    # The lift's shaft, behind the lobby's lift gate (a door: it is inside).
+    LIFT: (11600, 640, 1600),
+    # The ballroom, through a door west of the front desk, and its closets.
+    BALLROOM: (12400, 1280, 576),
+    CLOSETS[0]: (13760, 480, 320),
+    CLOSETS[1]: (14320, 480, 320),
+    CLOSETS[2]: (14880, 480, 320),
+    # 160 wider than its art at the east end: ground past the mine's hole for
+    # whoever comes in from the meadow (the hole was 48 from the edge, and
+    # an arrival fell straight down it).
+    WOODS: (1712 + 3200, 2560, 768),
+    # Under the woods' east end: its shaft (x 96..160) under their hole.
+    MINE: (1712 + 3200 + 2288 - 96, 1600, 640),
+    HANOI: (-1600, 1600, 768),
+    MEADOW: (1712 + 3200 + 2560, 2400, 768),
+}
+#: A room's world y when it is not 0. The rooms of the world touch where they
+#: join (`specs/check_flat_map.py`): Zeno's Aqueduct is west of the street at
+#: its deck, so the gate hall, which is UNDER the street, is placed there.
+ROOMS_Y = {
+    HALL: 1344,
+    # The buildings' insides (doors: anywhere in the world) are under the
+    # town, out of the way of the woods east of the summit.
+    **{rid: INSIDES_Y for rid in (CAFE, OFFICE, OBSERVATORY, LOBBY, LIFT, BALLROOM, *CLOSETS)},
+    CORRIDOR: INSIDES_Y + (576 - 64) - (448 - 64),
+    # The woods' floor (y 704) level with the summit (the street's y 560).
+    WOODS: 560 - 704,
+    # Right under the woods (their floor's foot, y 768 there).
+    MINE: 560 - 704 + 768,
+    # Level with the gate hall, west of it.
+    HANOI: 1344,
+    # Level with the woods, east of them.
+    MEADOW: 560 - 704,
 }
 
-#: The published sheets, whose body boxes say where each prop's art is in
-#: its frame.
-SPRITES = TOOLS.parents[1] / "game/ambition_content_library/generated/runtime/sprites"
 #: Pixels of a town prop's frame to one world unit (`math_town_facades.PX`,
 #: `math_town_terraces.PX`).
 PROP_PX = 2
@@ -118,6 +174,7 @@ def gate(ring, portal, zone, x, floor, to_room, to_zone, name):
 
 def room(rid, entities, label_text, theme=BIOME):
     world_x, w, h = ROOMS_AT[rid]
+    world_y = ROOMS_Y.get(rid, 0)
     body = "\n        ".join(entities + [
         f'( type: "CameraZone", px: [0, 0], size: [{w}, {h}], fields: ( id: "{rid}_camera", name: "{rid}_camera", mode: "Default" ) ),',
         label(f"{rid}_label", 70, 40, label_text, min(900, w - 140)),
@@ -127,7 +184,7 @@ def room(rid, entities, label_text, theme=BIOME):
     id: "{rid}",
     level_id: "{rid}",
     world_x: {world_x},
-    world_y: 0,
+    world_y: {world_y},
     px_wid: {w},
     px_hei: {h},
     fill_collision: "empty",
@@ -195,16 +252,25 @@ def cradle(prefix, cx, floor):
 def gate_hall():
     """The gate hall: a vaulted undercroft under the street. The gate stands
     in its cradle in the middle of the floor, with stairs up to its plinth;
-    galleries along the walls; the door up to the town at the east end."""
+    galleries along the walls; the door up to the town at the east end. The
+    Manifest Office's booth, the customs desk for axioms, the departures
+    board, a porter's cart, polyhedral lamps."""
     rid = HALL
     _, w, h = ROOMS_AT[rid]
     floor = h - 64
     cx = w // 2
     stand, plinth = cradle("math_gate", cx, floor)
     e = [
+        # The arrivals hall's furniture (`targets/props/math_hall_props.py`,
+        # drawn on this room's numbers): first, so it draws behind the gate.
+        framed("hall_lamps", "math_hall_lamps", 0, 48),
+        framed("hall_west", "math_hall_west", 16, 300),
+        framed("hall_east", "math_hall_east", 1150, 300),
         solid("floor", 0, floor, w, 64),
         solid("vault", 0, 0, w, 48),
-        solid("west_wall", 0, 48, WALL, floor - 48),
+        # The west wall, open on the floor to the Tower of Hanoi.
+        solid("west_wall", 0, 48, WALL, floor - 112 - 48),
+        edge(f"{rid}_west", "to the Tower of Hanoi", 0, floor - 96, 96, HANOI, f"{HANOI}_east"),
         solid("east_wall", w - WALL, 48, WALL, floor - 48),
         f'( type: "PlayerStart", px: [{cx - 330}, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
         *stand,
@@ -235,12 +301,10 @@ def door(zone, name, x, floor, to_room, to_zone):
 
 def body_box(kind):
     """The body box of `kind`'s published sheet in frame pixels, (x, y, w, h):
-    where its art is in its frame."""
-    text = (SPRITES / f"{kind}_spritesheet.ron").read_text()
-    m = re.search(r"body_pixel_bbox: Some\(\(x: (\d+), y: (\d+), w: (\d+), h: (\d+)\)\)", text)
-    if not m:
-        raise SystemExit(f"{kind}: no body_pixel_bbox in its published RON; publish the sprite first")
-    return tuple(int(v) for v in m.groups())
+    where its art is in its frame (the accepted publication's)."""
+    from district_scenery import body_box as published_body_box
+
+    return published_body_box(kind)
 
 
 def framed(name, kind, fx, fy):
@@ -346,8 +410,12 @@ def street():
         solid("terrace_1", CLIFF1, T1, w - CLIFF1, TUNNEL_TOP - T1),
         solid("terrace_2", CLIFF2, T2, w - CLIFF2, T1 - T2),
         solid("summit", CLIFF3, SUMMIT, w - CLIFF3, T2 - SUMMIT),
-        solid("west_wall", 0, 0, WALL, STREET_Y),
-        solid("east_wall", w - WALL, 0, WALL, SUMMIT),
+        # The west wall, open where the aqueduct's deck leaves town.
+        solid("west_wall_high", 0, 0, WALL, DECK - 112),
+        solid("west_wall_low", 0, DECK + 16, WALL, STREET_Y - DECK - 16),
+        edge(f"{rid}_aqueduct_west", "along the aqueduct, out of town", 0, DECK - 96, 96, ZENO, f"{ZENO}_east"),
+        solid("east_wall", w - WALL, 0, WALL, SUMMIT - 112),
+        edge(f"{rid}_summit_east", "into the Fractal Woods", w - WALL, SUMMIT - 96, 96, WOODS, f"{WOODS}_west"),
         solid("passage_end", w - WALL, TUNNEL_TOP, WALL, STREET_Y - TUNNEL_TOP),
         f'( type: "PlayerStart", px: [160, {STREET_Y - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
         door(f"{rid}_down", "down to the gate hall", 96, STREET_Y, HALL, f"{HALL}_up"),
@@ -365,6 +433,11 @@ def street():
         e.append(framed(f"passage_bay_{i}", "math_tunnel_bay", CLIFF1 + i * 160, TUNNEL_TOP))
     e.append(framed("passage_mouth", "math_tunnel_mouth", CLIFF1 - 16, STREET_Y - 112))
     e.append(framed("passage_gate", "math_tunnel_gate", w - WALL - 48, TUNNEL_TOP))
+    # Hylbert's Hotel, in the passage's third bay: its front over the bay, and
+    # its door over the revolving door the front paints.
+    e.append(framed("hylbert_hotel_front", "math_hotel_entrance", HOTEL_BAY_X, TUNNEL_TOP))
+    e.append(painted_door(f"{LOBBY}_street", "into Hylbert's Hotel", HOTEL_BAY_X + 80, STREET_Y, 82, LOBBY, f"{LOBBY}_door"))
+    e.append(label("hotel_sign", HOTEL_BAY_X - 70, TUNNEL_TOP - 34, "HYLBERT'S HOTEL: no vacancy (vacancy)", 300))
     # Homes in the rock of each cliff.
     for name, kind, x, y in [
         ("rock_home_t1_a", "wide", 1960, T1 + 40),
@@ -416,13 +489,13 @@ def street():
         e.append(standing(name, kind, x, ground)[0])
     # Townsfolk: the Math dimension's own.
     e += [
-        wanderer("townsperson_peggy", "npc_peggy", 420, STREET_Y),
-        wanderer("townsperson_victor", "npc_victor", 900, STREET_Y),
-        wanderer("townsperson_lovelace", "npc_data_lovelace", 1300, STREET_Y),
-        wanderer("townsperson_olivia", "npc_olivia", CLIFF1 + 60, T1),
+        wanderer("townsperson_peggy", "npc_peggy", 420, STREET_Y, dialogue="peggy"),
+        wanderer("townsperson_victor", "npc_victor", 900, STREET_Y, dialogue="victor"),
+        wanderer("townsperson_lovelace", "npc_data_lovelace", 1300, STREET_Y, dialogue="data_lovelace"),
+        wanderer("townsperson_olivia", "npc_olivia", CLIFF1 + 60, T1, dialogue="olivia"),
         # Canter and Hylbert are at work inside, and Erdish is at the cafe.
-        wanderer("townsperson_leib", "npc_leib_knives", CLIFF2 + 120, T2),
-        wanderer("stargazer_hypatia", "npc_hypatia_prime", CLIFF3 + 60, SUMMIT),
+        wanderer("townsperson_leib", "npc_leib_knives", CLIFF2 + 120, T2, dialogue="leib_knives"),
+        wanderer("stargazer_hypatia", "npc_hypatia_prime", CLIFF3 + 60, SUMMIT, dialogue="hypatia_prime"),
         label("street_sign", 180, STREET_Y - 300, "Euclid Street (the long way round)", 380),
         label("passage_sign", w - 300, TUNNEL_TOP + 12, "The long way round: shut", 240),
         label("office_sign", CLIFF2 + 60, T2 - 300, "Surveyor's Office", 240),
@@ -485,8 +558,8 @@ def cafe():
         piece("cafe_table_c", "math_cafe_table", 470, floor),
         piece("cafe_counter", "math_cafe_counter", counter_x, floor),
         still("cafe_counter_top", counter_x, floor - COUNTER_H, 220, 4),
-        wanderer("cafe_erdish", "npc_erdish", 300, floor),
-        wanderer("cafe_noether", "npc_emmy_noether", counter_x + 240, floor),
+        wanderer("cafe_erdish", "npc_erdish", 300, floor, dialogue="erdish"),
+        wanderer("cafe_noether", "npc_emmy_noether", counter_x + 240, floor, dialogue="emmy_noether_cafe"),
     ]
     return rid, room(rid, e, "The Convergent Series: the cafe of the first terrace.", theme=INTERIOR)
 
@@ -508,7 +581,7 @@ def surveyors_office():
         piece("office_drafting", "math_office_drafting", 470, floor),
         piece("office_cabinet", "math_office_cabinet", 620, floor),
         piece("office_theodolite", "math_office_theodolite", 104, floor),
-        wanderer("office_canter", "npc_georg_canter", 420, floor),
+        wanderer("office_canter", "npc_georg_canter", 420, floor, dialogue="georg_canter"),
     ]
     return rid, room(rid, e, "The Surveyor's Office of the second terrace.", theme=INTERIOR)
 
@@ -541,17 +614,447 @@ def observatory():
     e += [
         piece("obs_platform", "math_obs_platform", px0, floor),
         line("obs_stair", [(px0 + 6, floor), (stair_top, top), (w - WALL, top)], "up"),
-        wanderer("obs_hylbert", "npc_davy_hylbert", 200, floor),
+        # Hylbert keeps his hotel's desk now (`hotel_lobby`).
     ]
     return rid, room(rid, e, "The Observatory on the summit.", theme=INTERIOR)
 
 
-ROOMS = (gate_hall, street, cafe, surveyors_office, observatory)
+# ---- Out of town ---------------------------------------------------------------
+
+#: Zeno's Aqueduct: the town's aqueduct goes on west to its reservoir. Its
+#: deck is the street's (y 560); the valley under it is at y 832. Its piers
+#: stand half as far apart each time (`ZENO_PIERS`), so the dam is always
+#: just a little further: the art is `targets/props/math_zeno_props.py`, drawn
+#: on these numbers.
+ZENO_FLOOR = 832
+ZENO_DAM_X = 1920
+ZENO_PIERS = [ZENO_DAM_X + (3200 - ZENO_DAM_X) / 2**k for k in range(9)]
+#: The reservoir behind the dam, and The Limit, the island at its far end.
+ZENO_WATER_TOP = 624
+ZENO_ISLAND = (176, 560, 600)
+#: The top lefts of the art's frames (`math_zeno_props.PIECES`).
+ZENO_AQUEDUCT_FRAME = (ZENO_DAM_X - 80, DECK - 200)
+ZENO_RESERVOIR_FRAME = (0, ZENO_ISLAND[2] - 200)
+
+
+def zeno_enemy(n, character, x, feet_y, w, h, brain, profile=None):
+    extra = f', brain_profile: "{profile}"' if profile else ""
+    return (f'( type: "EnemySpawn", px: [{x}, {feet_y - h}], size: [{w}, {h}], fields: ( name: "{ZENO}_{character}_{n}", '
+            f'brain: "{brain}", character_id: "{character}", respawn: "OnRoomReenter"{extra} ) ),')
+
+
+def zeno_aqueduct():
+    """Out of town: the aqueduct's deck goes on west from the street to the
+    dam of the town's reservoir, over a valley. The piers close up toward the
+    dam by halves, and their signs count it: half way, three quarters, seven
+    eighths. Mites and slugs live in the valley, an owl on a pier and a mite
+    on the deck. Behind the dam the reservoir, and at its far end The Limit,
+    an island with a gazebo. A ladder goes from the valley up to the deck."""
+    rid = ZENO
+    _, w, h = ROOMS_AT[rid]
+    g = ZENO_FLOOR
+    ix0, ix1, itop = ZENO_ISLAND
+    e = [
+        framed("zeno_reservoir", "math_zeno_reservoir", *ZENO_RESERVOIR_FRAME),
+        framed("zeno_aqueduct", "math_zeno_aqueduct", *ZENO_AQUEDUCT_FRAME),
+        solid("valley", ZENO_DAM_X, g, w - ZENO_DAM_X, h - g),
+        solid("reservoir_bed", 0, g, ZENO_DAM_X, h - g),
+        solid("west_wall", 0, 0, WALL, g),
+        solid("east_wall_high", w - WALL, 0, WALL, DECK - 112),
+        solid("east_wall_low", w - WALL, DECK + 16, WALL, g - DECK - 16),
+        edge(f"{rid}_east", "along the aqueduct, back to town", w - WALL, DECK - 96, 96, STREET, f"{STREET}_aqueduct_west"),
+        ledge("deck", ZENO_DAM_X, DECK, w - ZENO_DAM_X - WALL),
+        f'( type: "PlayerStart", px: [{w - 200}, {DECK - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        solid("dam", ZENO_DAM_X - 64, DECK, 64, g - DECK),
+        f'( type: "WaterVolume", px: [{WALL}, {ZENO_WATER_TOP}], size: [{ZENO_DAM_X - 64 - WALL}, {g - ZENO_WATER_TOP}], fields: ( id: "{rid}_reservoir", name: "the reservoir" ) ),',
+        solid("the_limit", ix0, itop, ix1 - ix0, g - itop),
+        label(f"{rid}_dam_sign", ZENO_DAM_X - 120, DECK - 120, "THE RESERVOIR (arrived, in the limit)", 380),
+        label(f"{rid}_limit_sign", (ix0 + ix1) // 2 - 150, itop - 170, "THE LIMIT", 300),
+        # Zeno, on the deck between the 7/8 and 3/4 piers: always halfway
+        # to the reservoir (`math.yarn` `zeno_halfway`).
+        f'( type: "NpcSpawn", px: [{2150 - 16}, {DECK - 64}], size: [32, 64], fields: ( character_id: "npc_math_zeno", '
+        f'brain_override: "stand_still", prompt: "Talk", dialogue_id: "zeno_halfway" ) ),',
+        # The enemies of the valley and the deck.
+        zeno_enemy(1, "npc_dividing_mite", 2320, g, 40, 52, "dividing_mite"),
+        zeno_enemy(2, "npc_dividing_mite", 2760, g, 40, 52, "dividing_mite"),
+        zeno_enemy(3, "npc_puppy_slug", 2540, g, 28, 44, "combatant", "patroller"),
+        zeno_enemy(4, "npc_puppy_slug", 2980, g, 28, 44, "combatant", "patroller"),
+        zeno_enemy(5, "npc_exploding_mite", 2420, DECK, 38, 66, "exploding_mite"),
+        zeno_enemy(6, "owl", round(ZENO_PIERS[1]) - 18, DECK - 40, 36, 48, "combatant"),
+    ]
+    # The fraction over each pier, counted from the town.
+    for k, x in enumerate(ZENO_PIERS[1:6], start=1):
+        e.append(label(f"{rid}_pier_{k}", round(x) - 60, DECK - 70 - 26 * (k % 2), f"{2**k - 1}/{2**k} of the way", 120))
+    return rid, room(rid, e, "Zeno's Aqueduct: the reservoir is just a little further.")
+
+
+# ---- Hylbert's Hotel ------------------------------------------------------------
+
+#: Its front is in the passage's third bay (`math_hotel_props`).
+HOTEL_BAY_X = CLIFF1 + 2 * 160
+#: The corridor's doors, every 240 from x 160 (the art's), each with its
+#: number over it.
+CORRIDOR_DOORS = list(range(160, 1600 - 100, 240))
+
+
+def hotel_lobby():
+    """Hylbert's Hotel: the lobby. Hylbert at the front desk (its top walked
+    on), the key rack behind him that never ends, the lift, the stair. East,
+    the corridor."""
+    rid = LOBBY
+    _, w, h = ROOMS_AT[rid]
+    floor = h - INSIDE_FLOOR
+    e = [
+        f'( type: "Prop", px: [16, {INSIDE_CEILING}], size: [{w - 32}, {floor - INSIDE_CEILING}], fields: ( name: "hotel_lobby_room", kind: "math_hotel_lobby_room" ) ),',
+        solid("floor", 0, floor, w, INSIDE_FLOOR),
+        solid("ceiling", 0, 0, w, INSIDE_CEILING),
+        solid("west_wall", 0, INSIDE_CEILING, WALL, floor - INSIDE_CEILING),
+        solid("east_wall", w - WALL, INSIDE_CEILING, WALL, floor - 96 - INSIDE_CEILING - 16),
+        door(f"{rid}_door", "out to the street", 40, floor, STREET, f"{rid}_street"),
+        edge(f"{rid}_east", "to the rooms", w - WALL, floor - 96, 96, CORRIDOR, f"{CORRIDOR}_west"),
+        door(f"{rid}_lift", "into the lift", 956, floor, LIFT, f"{LIFT}_door"),
+        door(f"{rid}_ballroom", "to the ballroom", 300, floor, BALLROOM, f"{BALLROOM}_door"),
+        f'( type: "PlayerStart", px: [120, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        still("hotel_desk_top", 520, floor - 48, 240, 4),
+        wanderer("hotel_hylbert", "npc_davy_hylbert", 640, floor, dialogue="davy_hylbert"),
+        label("hotel_vacancy", 380, 64, "NO VACANCY  /  VACANCY", 520),
+    ]
+    return rid, room(rid, e, "Hylbert's Hotel: the lobby.", theme=INTERIOR)
+
+
+def hotel_corridor():
+    """The corridor of rooms, which goes on: its east end comes back in at
+    its west end, so walking east never runs out of rooms; walking west
+    always reaches the lobby. Its doors are numbered from n."""
+    rid = CORRIDOR
+    _, w, h = ROOMS_AT[rid]
+    floor = h - INSIDE_FLOOR
+    e = [
+        f'( type: "Prop", px: [0, {INSIDE_CEILING}], size: [{w}, {floor - INSIDE_CEILING}], fields: ( name: "hotel_corridor_room", kind: "math_hotel_corridor_room" ) ),',
+        solid("floor", 0, floor, w, INSIDE_FLOOR),
+        solid("ceiling", 0, 0, w, INSIDE_CEILING),
+        solid("west_wall", 0, INSIDE_CEILING, WALL, floor - 96 - INSIDE_CEILING - 16),
+        solid("east_wall", w - WALL, INSIDE_CEILING, WALL, floor - 96 - INSIDE_CEILING - 16),
+        edge(f"{rid}_west", "back to the lobby", 0, floor - 96, 96, LOBBY, f"{LOBBY}_east"),
+        (f'( type: "LoadingZone", px: [{w - WALL}, {floor - 96}], size: [16, 96], fields: ( id: "{rid}_east", name: "more rooms", '
+         f'activation: "EdgeExit", target_room: "{rid}", target_zone: "{rid}_west", bidirectional: false ) ),'),
+        f'( type: "PlayerStart", px: [120, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+    ]
+    for k, x in enumerate(CORRIDOR_DOORS):
+        e.append(label(f"{rid}_room_{k}", x - 40, floor - 176, "n" if k == 0 else f"n+{k}", 80))
+    # Guests, each at a door (Jon, 2026-10-30: "character"): the barber,
+    # Furrier and Python Goras (their talk is `math.yarn`'s `hotel_*`).
+    for character, dialogue, door_k in (("npc_paradox_barber", "hotel_paradox_barber", 2),
+                                        ("npc_joseph_furrier", "hotel_joseph_furrier", 3),
+                                        ("npc_python_goras", "hotel_python_goras", 5)):
+        x = CORRIDOR_DOORS[door_k] + 50
+        e.append(f'( type: "NpcSpawn", px: [{x}, {floor - 64}], size: [32, 64], fields: ( character_id: "{character}", '
+                 f'brain_override: "stand_still", prompt: "Talk", dialogue_id: "{dialogue}" ) ),')
+    return rid, room(rid, e, "Hylbert's Hotel: the rooms. There is always one more.", theme=INTERIOR)
+
+
+#: The lift: its car (as Eureka's tether's: `specs/eureka/make_specs.py`)
+#: waits a hop over the landing, under the shaft; a body that comes up
+#: through a floor edge stands 69 px over it (`rooms::spawn`), so the car's
+#: top is there and a body that comes round the shaft lands on it.
+LIFT_CAR_X, LIFT_CAR_W, LIFT_CAR_H = 320, 128, 22
+LIFT_EDGE_FEET = 68
+LIFT_HOP = 40
+
+
+def hotel_lift():
+    """The lift, which only goes up: its car carries a rider out of the top
+    of the shaft, and the top comes back in at the bottom, where the car is
+    waiting. Hop off at the landing for the door back to the lobby. The
+    floors are numbered from n."""
+    rid = LIFT
+    _, w, h = ROOMS_AT[rid]
+    car_top = h - LIFT_EDGE_FEET
+    landing = car_top + LIFT_HOP
+    e = [
+        f'( type: "Prop", px: [16, 0], size: [{w - 32}, {h}], fields: ( name: "hotel_lift_shaft", kind: "math_hotel_lift_shaft" ) ),',
+        solid("west_wall", 0, 0, WALL, h),
+        solid("east_wall", w - WALL, 0, WALL, h),
+        solid("landing", WALL, landing, LIFT_CAR_X - 32 - WALL, h - landing),
+        door(f"{rid}_door", "back to the lobby", 48, landing, LOBBY, f"{LOBBY}_lift"),
+        f'( type: "PlayerStart", px: [140, {landing - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        (f'( type: "MovingPlatform", px: [{LIFT_CAR_X}, {car_top}], size: [{LIFT_CAR_W}, {LIFT_CAR_H}], fields: ( id: "hotel_lift_car", '
+         f'name: "the lift", speed: 260.0, lift_dy: {-(car_top + 60)}.0, one_way: true ) ),'),
+        (f'( type: "LoadingZone", px: [{LIFT_CAR_X}, 0], size: [{LIFT_CAR_W}, 16], fields: ( id: "{rid}_top", name: "up", '
+         f'activation: "EdgeExit", target_room: "{rid}", target_zone: "{rid}_bottom", bidirectional: false ) ),'),
+        (f'( type: "LoadingZone", px: [{LIFT_CAR_X}, {h - 16}], size: [{LIFT_CAR_W}, 16], fields: ( id: "{rid}_bottom", name: "the bottom of the shaft", '
+         f'activation: "EdgeExit", target_room: "{rid}", target_zone: "{rid}_top", bidirectional: false ) ),'),
+        label(f"{rid}_dial", 60, landing - 200, "Floors: 1, 2, 3, ..., and up", 300),
+    ]
+    for k, y in enumerate(range(h - 360, 100, -320)):
+        e.append(label(f"{rid}_floor_{k}", LIFT_CAR_X + LIFT_CAR_W + 20, y, "FLOOR n" if k == 0 else f"FLOOR n+{k}", 160))
+    return rid, room(rid, e, "Hylbert's Hotel: the lift. It only goes up.", theme=INTERIOR)
+
+
+#: The ballroom's stage doors (x), one to each closet; what is behind each.
+STAGE_DOORS = (360, 616, 872)
+BEHIND = (("math_goat", "A GOAT."), ("math_car", "A CAR! You did not switch. You did not need to. This time."), ("math_goat", "A GOAT. Statistically, you were going to meet me."))
+
+
+def hotel_ballroom():
+    """The hotel's ballroom, made a game show: three doors on the stage,
+    behind one a car and behind the others goats. Out of the lobby by the
+    door west of the desk."""
+    rid = BALLROOM
+    _, w, h = ROOMS_AT[rid]
+    floor = h - INSIDE_FLOOR
+    e = [
+        f'( type: "Prop", px: [16, {INSIDE_CEILING}], size: [{w - 32}, {floor - INSIDE_CEILING}], fields: ( name: "ballroom_stage", kind: "math_ballroom_room" ) ),',
+        solid("floor", 0, floor, w, INSIDE_FLOOR),
+        solid("ceiling", 0, 0, w, INSIDE_CEILING),
+        solid("west_wall", 0, INSIDE_CEILING, WALL, floor - INSIDE_CEILING),
+        solid("east_wall", w - WALL, INSIDE_CEILING, WALL, floor - INSIDE_CEILING),
+        door(f"{rid}_door", "back to the lobby", 40, floor, LOBBY, f"{LOBBY}_ballroom"),
+        f'( type: "PlayerStart", px: [120, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        *[door(f"{rid}_door_{k + 1}", f"door number {k + 1}", x, floor, CLOSETS[k], f"{CLOSETS[k]}_door") for k, x in enumerate(STAGE_DOORS)],
+        label("ballroom_sign", 360, 80, "TONIGHT: PICK A DOOR. THEN SWITCH. ALWAYS SWITCH.", 560),
+        label("ballroom_sign_odds", 940, 270, "STAY 1/3   SWITCH 2/3", 300),
+        # The host, west of the stage (`math.yarn` `hotel_monty_carlo`).
+        f'( type: "NpcSpawn", px: [{230 - 16}, {floor - 64}], size: [32, 64], fields: ( character_id: "npc_math_monty", '
+        f'brain_override: "stand_still", prompt: "Talk", dialogue_id: "hotel_monty_carlo" ) ),',
+    ]
+    return rid, room(rid, e, "Hylbert's Hotel: the ballroom. Tonight: three doors.", theme=INTERIOR)
+
+
+def hotel_closet(k):
+    """Behind stage door k: a small room and what is in it."""
+    def make():
+        rid = CLOSETS[k]
+        _, w, h = ROOMS_AT[rid]
+        floor = h - INSIDE_FLOOR
+        kind, words = BEHIND[k]
+        e = [
+            solid("floor", 0, floor, w, INSIDE_FLOOR),
+            solid("ceiling", 0, 0, w, INSIDE_CEILING),
+            solid("west_wall", 0, INSIDE_CEILING, WALL, floor - INSIDE_CEILING),
+            solid("east_wall", w - WALL, INSIDE_CEILING, WALL, floor - INSIDE_CEILING),
+            door(f"{rid}_door", "back to the stage", 40, floor, BALLROOM, f"{BALLROOM}_door_{k + 1}"),
+            f'( type: "PlayerStart", px: [110, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+            standing(f"{rid}_prize", kind, 220, floor)[0],
+            label(f"{rid}_words", 120, 70, words, 340),
+        ]
+        if kind == "math_car":
+            e.append(f'( type: "PickupSpawn", px: [400, {floor - 24}], size: [24, 24], fields: ( name: "{rid}_prize_money", kind: "currency:100" ) ),')
+        return rid, room(rid, e, f"Behind door number {k + 1}.", theme=INTERIOR)
+    return make
+
+
+#: The woods (the art, `targets/props/math_woods_props.py`, is drawn on
+#: these): the ground, the great tree's limbs walked on (x0, x1, y).
+WOODS_FLOOR = 704
+WOODS_LIMBS = ((540, 700, 592), (720, 880, 480), (560, 720, 368), (660, 800, 256))
+
+
+def woods_enemy(n, character, x, feet_y, w, h, brain, profile=None):
+    extra = f', brain_profile: "{profile}"' if profile else ""
+    return (f'( type: "EnemySpawn", px: [{x}, {feet_y - h}], size: [{w}, {h}], fields: ( name: "{WOODS}_{character}_{n}", '
+            f'brain: "{brain}", character_id: "{character}", respawn: "OnRoomReenter"{extra} ) ),')
+
+
+def fractal_woods():
+    """Out of town east of the summit: the Fractal Woods. The great fractal
+    tree to climb by its limbs (a chest at the top), a hedge clipped to a
+    Koch curve, a Sierpinski rock, a topiary of the Mandelbrot set; puppy
+    slugs and dividing mites."""
+    rid = WOODS
+    _, w, h = ROOMS_AT[rid]
+    g = WOODS_FLOOR
+    e = [
+        framed("woods_far_west", "woods_far_west", 40, 300),
+        framed("woods_far_east", "woods_far_east", 1192, 300),
+        framed("woods_tree", "woods_great_tree", 420, 20),
+        framed("woods_things", "woods_curiosities", 1080, 400),
+        # The ground, and the hole down to the mine: a ladder down it
+        # (`PAINT`), its bottom the way down.
+        solid("ground_west", 0, g, WOODS_HOLE[0], h - g),
+        solid("ground_east", WOODS_HOLE[1], g, w - WOODS_HOLE[1], h - g),
+        (f'( type: "LoadingZone", px: [{WOODS_HOLE[0]}, {h - 16}], size: [{WOODS_HOLE[1] - WOODS_HOLE[0]}, 16], fields: ( id: "{rid}_shaft", '
+         f'name: "down the mine shaft", activation: "EdgeExit", target_room: "{MINE}", target_zone: "{MINE}_shaft", bidirectional: true ) ),'),
+        label("woods_sign_mine", WOODS_HOLE[0] - 180, g - 120, "THE MOBIUS MINE: one side only", 260),
+        solid("west_wall", 0, 0, WALL, g - 112),
+        solid("east_wall", w - WALL, 0, WALL, g - 112),
+        edge(f"{rid}_west", "back to the summit", 0, g - 96, 96, STREET, f"{STREET}_summit_east"),
+        edge(f"{rid}_east", "on to the Fibonacci Meadow", w - WALL, g - 96, 96, MEADOW, f"{MEADOW}_west"),
+        f'( type: "PlayerStart", px: [100, {g - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        *[ledge(f"limb_{i}", x0, y, x1 - x0) for i, (x0, x1, y) in enumerate(WOODS_LIMBS)],
+        # Ivo, the groundskeeper, by the way in (`math.yarn` `woods_ivo`).
+        f'( type: "NpcSpawn", px: [{320 - 16}, {g - 64}], size: [32, 64], fields: ( character_id: "npc_math_ivo", '
+        f'brain_override: "stand_still", prompt: "Talk", dialogue_id: "woods_ivo" ) ),',
+        f'( type: "ChestSpawn", px: [{WOODS_LIMBS[3][0] + 30}, {WOODS_LIMBS[3][2] - 58}], size: [76, 58], fields: ( name: "the self-similar acorn", reward: "currency:75" ) ),',
+        label("woods_sign", 160, g - 220, "THE FRACTAL WOODS: every tree a forest, every branch a tree", 520),
+        label("woods_sign_koch", 1010, g - 150, "KOCH HEDGE: infinitely long. Please do not trim.", 420),
+        label("woods_sign_mandel", 1830, g - 320, "MANDELBROT BUSH: zoom in for more bush", 400),
+        woods_enemy(1, "npc_puppy_slug", 1000, g, 28, 44, "combatant", "patroller"),
+        woods_enemy(2, "npc_puppy_slug", 1760, g, 28, 44, "combatant", "patroller"),
+        woods_enemy(3, "npc_dividing_mite", 1380, g, 40, 52, "dividing_mite"),
+        # Mid-woods, not by the way in from the meadow.
+        woods_enemy(4, "npc_dividing_mite", 1560, g, 40, 52, "dividing_mite"),
+    ]
+    return rid, room(rid, e, "The Fractal Woods: it goes all the way down.")
+
+
+#: The woods' hole down to the mine (x0, x1).
+WOODS_HOLE = (2288, 2352)
+#: The mine (`math_mine_props.py` draws on these): its floor and the
+#: ceiling's underside, both walked on; its shaft; the half twist.
+MINE_FLOOR, MINE_CEIL = 576, 64
+MINE_SHAFT = (96, 160)
+MINE_TWIST_X = 1480
+
+
+def mine_enemy(n, character, x, feet_y, w, h, brain):
+    return (f'( type: "EnemySpawn", px: [{x}, {feet_y - h}], size: [{w}, {h}], fields: ( name: "{MINE}_{character}_{n}", '
+            f'brain: "{brain}", character_id: "{character}", respawn: "OnRoomReenter" ) ),')
+
+
+def mobius_mine():
+    """Under the woods, down the shaft: a mine with one side. At its far end
+    the half twist (a switch) turns its gravity over, and the way back is
+    the ceiling, where the coins are; its twin on the ceiling turns it back.
+    Felix Kleinbottle mines it."""
+    rid = MINE
+    _, w, h = ROOMS_AT[rid]
+    g, top = MINE_FLOOR, MINE_CEIL
+    s0, s1 = MINE_SHAFT
+    e = [
+        framed("mine_tunnel", "mine_tunnel", 16, 0),
+        solid("floor", 0, g, w, h - g),
+        solid("ceiling_west", 0, 0, s0, top),
+        solid("ceiling_east", s1, 0, w - s1, top),
+        solid("west_wall", 0, top, WALL, g - top),
+        solid("east_wall", w - WALL, top, WALL, g - top),
+        (f'( type: "LoadingZone", px: [{s0}, 0], size: [{s1 - s0}, 16], fields: ( id: "{rid}_shaft", name: "up the shaft to the woods", '
+         f'activation: "EdgeExit", target_room: "{WOODS}", target_zone: "{WOODS}_shaft", bidirectional: true ) ),'),
+        f'( type: "PlayerStart", px: [220, {g - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        f'( type: "NpcSpawn", px: [{380 - 16}, {g - 64}], size: [32, 64], fields: ( character_id: "npc_math_kleinbottle", '
+        f'brain_override: "stand_still", prompt: "Talk", dialogue_id: "mine_kleinbottle" ) ),',
+        (f'( type: "Switch", px: [{MINE_TWIST_X}, {g - 32}], size: [24, 32], fields: ( id: "mine_half_twist", name: "the half twist", '
+         f'prompt: "Give it a half twist", action: "FlipGravity" ) ),'),
+        (f'( type: "Switch", px: [{MINE_TWIST_X}, {top}], size: [24, 32], fields: ( id: "mine_half_twist_back", name: "the half twist, the other side", '
+         f'prompt: "Twist it back", action: "FlipGravity" ) ),'),
+        *[f'( type: "PickupSpawn", px: [{x}, {top}], size: [24, 24], fields: ( name: "{rid}_ceiling_coin_{i}", kind: "currency:5" ) ),'
+          for i, x in enumerate(range(560, 1400, 120))],
+        label("mine_sign", 300, 120, "THE MOBIUS MINE: one side, no waiting", 380),
+        label("mine_sign_twist", MINE_TWIST_X - 100, g - 120, "THE HALF TWIST", 220),
+        mine_enemy(1, "npc_dividing_mite", 820, g, 40, 52, "dividing_mite"),
+        mine_enemy(2, "npc_dividing_mite", 1180, g, 40, 52, "dividing_mite"),
+    ]
+    return rid, room(rid, e, "The Mobius Mine.")
+
+
+#: The Tower of Hanoi (`math_hanoi_props.py` draws on these): the needles,
+#: and the disks on each, bottom up, by size (each walked on).
+HANOI_NEEDLES = (360, 800, 1240)
+HANOI_STACKS = ((8, 7, 6, 5, 2), (4, 3), (1,))
+HANOI_DISK_H = 24
+
+
+def tower_of_hanoi():
+    """West of the gate hall: the Tower of Hanoi. Three diamond needles and
+    the golden disks on them, the puzzle part done; each disk is walked on,
+    so each stack is a stair; a chest on the tallest. Brother Lucas keeps
+    the count. When the last disk is moved, the world ends."""
+    rid = HANOI
+    _, w, h = ROOMS_AT[rid]
+    floor = h - 64
+    e = [
+        framed("hanoi_temple", "hanoi_temple", 16, 48),
+        solid("floor", 0, floor, w, 64),
+        solid("vault", 0, 0, w, 48),
+        solid("west_wall", 0, 48, WALL, floor - 48),
+        solid("east_wall", w - WALL, 48, WALL, floor - 112 - 48),
+        edge(f"{rid}_east", "back to the gate hall", w - WALL, floor - 96, 96, HALL, f"{HALL}_west"),
+        f'( type: "PlayerStart", px: [{w - 200}, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+    ]
+    for n, (nx, stack) in enumerate(zip(HANOI_NEEDLES, HANOI_STACKS)):
+        for i, size in enumerate(stack):
+            dw = 60 + 30 * size
+            e.append(ledge(f"disk_{n}_{size}", nx - dw // 2, floor - HANOI_DISK_H * (i + 1), dw))
+    top = floor - HANOI_DISK_H * len(HANOI_STACKS[0])
+    e += [
+        f'( type: "ChestSpawn", px: [{HANOI_NEEDLES[0] - 38}, {top - 58}], size: [76, 58], fields: ( name: "a golden offcut", reward: "currency:64" ) ),',
+        # Brother Lucas, by the middle needle (`math.yarn` `hanoi_lucas`).
+        f'( type: "NpcSpawn", px: [{1020 - 16}, {floor - 64}], size: [32, 64], fields: ( character_id: "npc_math_lucas", '
+        f'brain_override: "stand_still", prompt: "Talk", dialogue_id: "hanoi_lucas" ) ),',
+        label("hanoi_sign", 560, 110, "WHEN THE LAST DISK IS MOVED, THE WORLD ENDS", 480),
+        label("hanoi_sign_count", 560, 320, "Moves left: 18,446,744,073,708,503,040", 480),
+    ]
+    return rid, room(rid, e, "The Tower of Hanoi.", theme="math_undercroft")
+
+
+#: The meadow (`math_meadow_props.py` draws on these): the ground, the
+#: squares (x0, side; their tops walked), the ledge up to the last.
+MEADOW_FLOOR = 704
+MEADOW_SQUARES = ((900, 32), (932, 32), (964, 64), (1028, 96), (1124, 160), (1284, 256))
+MEADOW_LEDGE = (1222, 1282, 496)
+
+
+def walk(name, x, y, w):
+    """A one-way walk the room's art draws: a still platform, no picture."""
+    return (f'( type: "MovingPlatform", px: [{x}, {y}], size: [{w}, 16], fields: ( id: "{name}", name: "{name}", '
+            f'speed: 0.0, visual: "none", one_way: true ) ),')
+
+
+def meadow_enemy(n, character, x, feet_y, w, h, brain, profile=None):
+    extra = f', brain_profile: "{profile}"' if profile else ""
+    return (f'( type: "EnemySpawn", px: [{x}, {feet_y - h}], size: [{w}, {h}], fields: ( name: "{MEADOW}_{character}_{n}", '
+            f'brain: "{brain}", character_id: "{character}", respawn: "OnRoomReenter"{extra} ) ),')
+
+
+def fibonacci_meadow():
+    """Out of town east of the woods: the Fibonacci Meadow. Farmer Fibbs's
+    cottage and his counting board; garden plots in squares of 1, 1, 2, 3,
+    5 and 8, a quarter of the golden spiral in each, their tops a stair (a
+    chest on the eight); sunflowers seeded at the golden angle, the rabbit
+    hutch bursting; dividing mites, which do not add up."""
+    rid = MEADOW
+    _, w, h = ROOMS_AT[rid]
+    g = MEADOW_FLOOR
+    x8, s8 = MEADOW_SQUARES[-1]
+    e = [
+        framed("meadow_farm", "meadow_farm", 90, 420),
+        framed("meadow_squares", "meadow_squares", 890, 440),
+        framed("meadow_field", "meadow_field", 1590, 380),
+        solid("ground", 0, g, w, h - g),
+        solid("west_wall", 0, 0, WALL, g - 112),
+        solid("east_wall", w - WALL, 0, WALL, g),
+        edge(f"{rid}_west", "back to the Fractal Woods", 0, g - 96, 96, WOODS, f"{WOODS}_east"),
+        f'( type: "PlayerStart", px: [260, {g - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        *[walk(f"square_{i}", x0, g - side, side) for i, (x0, side) in enumerate(MEADOW_SQUARES)],
+        walk("square_ledge", MEADOW_LEDGE[0], MEADOW_LEDGE[2], MEADOW_LEDGE[1] - MEADOW_LEDGE[0]),
+        # Farmer Fibbs by his counting board (`math.yarn` `meadow_fibbs`).
+        f'( type: "NpcSpawn", px: [{600 - 16}, {g - 64}], size: [32, 64], fields: ( character_id: "npc_math_fibbs", '
+        f'brain_override: "stand_still", prompt: "Talk", dialogue_id: "meadow_fibbs" ) ),',
+        f'( type: "ChestSpawn", px: [{x8 + 90}, {g - s8 - 58}], size: [76, 58], fields: ( name: "the golden ratio", reward: "currency:162" ) ),',
+        label("meadow_sign", 160, 300, "THE FIBONACCI MEADOW: each month, the last two months", 520),
+        label("meadow_sign_spiral", 900, 380, "GOLDEN SPIRAL (unrolled for your convenience)", 400),
+        label("meadow_sign_hutch", 1830, 470, "RABBITS: do not add", 240),
+        meadow_enemy(1, "npc_dividing_mite", 1700, g, 40, 52, "dividing_mite"),
+        meadow_enemy(2, "npc_dividing_mite", 2100, g, 40, 52, "dividing_mite"),
+        meadow_enemy(3, "npc_puppy_slug", 2240, g, 28, 44, "combatant", "patroller"),
+    ]
+    return rid, room(rid, e, "The Fibonacci Meadow: it adds up.")
+
+
+# The meadow before the woods: the woods grew east into where it was.
+ROOMS = (gate_hall, street, cafe, surveyors_office, observatory, zeno_aqueduct, hotel_lobby, hotel_corridor, hotel_lift,
+         hotel_ballroom, *[hotel_closet(k) for k in range(3)], fibonacci_meadow, fractal_woods,
+         mobius_mine, tower_of_hanoi)
 
 #: What is painted on an IntGrid layer of a room: (room, layer, value, px, size).
 PAINT = [(STREET, "Climbable", 1, (x, top), (32, bottom - top)) for _name, x, top, bottom in LADDERS] + [
     # The ladder up to the office's gallery, at its west end (the art's).
     (OFFICE, "Climbable", 1, (ROOMS_AT[OFFICE][1] - WALL - 380 - 8, ROOMS_AT[OFFICE][2] - INSIDE_FLOOR - 300 + GALLERY_FLOOR - 16), (32, 300 - GALLERY_FLOOR + 16)),
+    # Zeno's: up the first pier from the valley to the deck (the art's).
+    (ZENO, "Climbable", 1, (3200 - WALL - 96, DECK - 16), (32, ZENO_FLOOR - DECK + 16)),
+    # The mine's ladder up its shaft to the woods, and on up their hole.
+    (MINE, "Climbable", 1, (112, 0), (32, MINE_FLOOR)),
+    (WOODS, "Climbable", 1, (WOODS_HOLE[0] + 16, WOODS_FLOOR - 64), (32, 768 - WOODS_FLOOR + 64)),
 ]
 
 

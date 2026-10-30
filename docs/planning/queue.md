@@ -96,7 +96,7 @@ These rows come before the content campaign below. The rulings are in
 2. COOP-RECOVERY: moved to the order above (item 4).
 3. [DIALOGUE-CHECKPOINT](#dialogue-checkpoint--story-facts-and-their-objects-share-one-horizon)
    (Q164).
-4. [SELF-PERCEPTION](#self-perception--a-cpu-sees-its-own-body-now) (Q167).
+4. [SELF-PERCEPTION](#self-perception--done) (Q167).
 5. [BAKED-SHEET-IDENTITY](#baked-sheet-identity--done)
    (Q157) and other focused defects.
 6. [GROUNDED-ATTACK-MOMENTUM](#grounded-attack-momentum--measure-before-changing-the-slide)
@@ -551,25 +551,30 @@ authored checkpointing dialogue banks its consequences; a single co-op death
 does not roll shared facts behind the survivor; a seen marker grants no reward
 or quest step.
 
-### SELF-PERCEPTION — a CPU sees its own body now
+### SELF-PERCEPTION — DONE
 
-**Owner:** the fighter brain (`PerceptionBuffer`, `DelayedPerception`,
-`SelfView`), [`fighter-brain.md`](engine/fighter-brain.md) F0. Ruling: Q167
-(2026-10-19).
+**Owner:** the fighter brain (`DelayedPerception`, `SelfView`),
+[`fighter-brain.md`](engine/fighter-brain.md) F0. Ruling: Q167 (2026-10-19).
 
-**Current failure (measured 2026-10-18):** a CPU sees its own body
-`reaction_ms` late; against a passive seat the roster lost 46 stocks in 20.0
-fighter-minutes, each a self-KO. A probe with a live self view: 11 in 20.7.
+**Done (2026-10-30, CPU lane):** `DelayedPerception::observe` writes the
+newest whole `SelfView` into every held view, so the brain sees its own body
+on this tick and the foe and world `reaction_ms` late. Readers moved to two
+clocks: the aim lead carries the foe `staleness + t` and this body `t`
+(`options::led_foe`); `still_reeling` reads the live `phase_remaining`; the
+rollout carries the foe to the present. Witness:
+`perception::tests::the_body_is_seen_now_and_the_world_late`.
 
-**Next action:** the brain reads one live snapshot of its own body (position,
-velocity, ground and support contact, move state) and the delayed view for
-the foe and the world. Never a partial copy. Move
-`a_fighter_over_a_floor_open_for_it_plays_as_over_the_void`'s CPU out of reach
-of home (its premise is a CPU slow to see its own teleport). Then F0 item 5.
+The gate fixture needed no move. Its control failed because `classify`
+counted a floor open for this body as published terrain (fixed in
+`situation.rs`). The fixture now warms up 40 updates before it teleports the
+CPU. `the_stage_kills` launches its loser from 4 stage widths out, because a
+CPU that sees itself now flew home from the old launch.
 
-**Acceptance:** a witness that the self view is the live body's state on the
-same tick, consistent across its fields; a witness that the foe's view is
-still delayed by the rung's reaction time; the self-KO census re-measured.
+**Self-KO census (MEASURED, `ko_envelope selfko`, 23 fighters × 3600 ticks,
+one seed each, same build with only the self-view toggled):** 39 with the
+delayed self, 5 live (Sanic 10→1, Mary-O 4→0, Alice 3→0, Director 3→0; the
+other 19 → 4). Three of the five are Carl Stargan leaving through the TOP
+(y ≈ −236, 0%), a new path that is not the ledge.
 
 ### GROUNDED-ATTACK-MOMENTUM — measure before changing the slide
 
@@ -1117,8 +1122,8 @@ again on HEAD first; three were already fixed by REVIEW-1018.
 10. Efficiency: `cuts_in` and the per-tick stamp were REVIEW-1018 items 5
     and 6. ✅ Flight A* passes over a replaced open entry: 4.1 to 3.6 ms a
     route on a release bench, the same routes (ffa919b6d).
-11. The fighter's self-view without the reaction delay: ruled yes (Q167,
-    2026-10-19); the work is SELF-PERCEPTION.
+11. ✅ The fighter's self-view without the reaction delay: ruled yes (Q167,
+    2026-10-19); done 2026-10-30 (SELF-PERCEPTION).
 
 ### REVIEW-1014 - sprite cache dependencies and rest-row precedence from the 2026-10-14 review
 
@@ -1391,7 +1396,7 @@ row starts with a failing production-path witness.
    (`ambition_extension_host::InvocationId`) and a `Settle` step before
    `Lower`. `ambition.resources.spend_mana` and
    `ambition.abilities.movement_cooldown` are costs
-   (`install_extension_cost`). `settle_wielded_costs` pays each invocation's
+   (`install_extension_cost`). `settle_costs` (named `settle_wielded_costs` then) pays each invocation's
    costs together, in invocation order, or refuses the whole invocation
    (`ExtensionOutbox::refuse_invocation`). A cooldown armed this tick by an
    earlier invocation runs for a later one. Witness:

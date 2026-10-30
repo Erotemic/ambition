@@ -36,11 +36,11 @@ fn app_with(save: AmbitionGameSave, owned: OwnedItems, wallet: i32) -> (App, Ent
 #[test]
 fn a_loaded_save_restores_items_and_wallet_over_the_starter() {
     let mut save = AmbitionGameSave::default();
-    // HealthCell is a stacking consumable; Bomb is a unique weapon (cap 1).
+    // HealthCell is a stacking consumable; Axe is a unique weapon (cap 1).
     save.data_mut().set_inventory(
         vec![
             ambition_persistence::save_data::PersistedItem::new(ambition_items::test_item_catalog().dialog_id(Item::HealthCell).unwrap(), 4),
-            ambition_persistence::save_data::PersistedItem::new(ambition_items::test_item_catalog().dialog_id(Item::Bomb).unwrap(), 1),
+            ambition_persistence::save_data::PersistedItem::new(ambition_items::test_item_catalog().dialog_id(Item::Axe).unwrap(), 1),
         ],
         137,
     );
@@ -53,7 +53,7 @@ fn a_loaded_save_restores_items_and_wallet_over_the_starter() {
         4,
         "restored the saved consumable count"
     );
-    assert_eq!(owned.count(Item::Bomb), 1, "restored the unique weapon");
+    assert_eq!(owned.count(Item::Axe), 1, "restored the unique weapon");
     assert_eq!(
         owned.count(Item::Fireball),
         0,
@@ -126,15 +126,15 @@ fn a_fresh_process_adopts_the_post_load_bag_as_its_checkpoint_baseline() {
 #[test]
 fn round_trips_the_owned_counts_by_id() {
     // to_persisted / apply_persisted survive a round-trip (the storage half).
-    // Consumables stack; unique items (Bomb) cap at 1 via grant.
+    // Consumables stack; unique items (Axe) cap at 1 via grant.
     let mut owned = OwnedItems::default();
-    owned.grant(ambition_items::test_item_catalog(), Item::Bomb, 1);
+    owned.grant(ambition_items::test_item_catalog(), Item::Axe, 1);
     owned.grant(ambition_items::test_item_catalog(), Item::HealthCell, 5);
     owned.grant(ambition_items::test_item_catalog(), Item::ManaCell, 2);
     let persisted = owned.to_persisted(ambition_items::test_item_catalog());
     let mut restored = OwnedItems::starter(ambition_items::test_item_catalog());
     restored.apply_persisted(ambition_items::test_item_catalog(), &persisted);
-    assert_eq!(restored.count(Item::Bomb), 1);
+    assert_eq!(restored.count(Item::Axe), 1);
     assert_eq!(restored.count(Item::HealthCell), 5);
     assert_eq!(restored.count(Item::ManaCell), 2);
     assert_eq!(
@@ -167,25 +167,25 @@ fn a_new_game_does_not_write_the_old_runs_inventory_back_into_the_fresh_save() {
     let mut save = AmbitionGameSave::default();
     save.data_mut().set_inventory(
         vec![ambition_persistence::save_data::PersistedItem::new(
-            ambition_items::test_item_catalog().dialog_id(Item::Bomb).unwrap(),
+            ambition_items::test_item_catalog().dialog_id(Item::Axe).unwrap(),
             1,
         )],
         137,
     );
     let mut owned = OwnedItems::starter(ambition_items::test_item_catalog());
-    owned.grant(ambition_items::test_item_catalog(), Item::Bomb, 1);
+    owned.grant(ambition_items::test_item_catalog(), Item::Axe, 1);
     let (mut app, player) = app_with(save, owned, 137);
     app.update();
 
     // ⚠ THE PREMISE: an old run actually in the save, the bag and the checkpoint.
     assert_eq!(app.world().resource::<AmbitionGameSave>().data().wallet(), 137);
     assert_eq!(
-        app.world().resource::<OwnedItems>().count(Item::Bomb),
+        app.world().resource::<OwnedItems>().count(Item::Axe),
         1,
         "the fixture never acquired the old run's weapon"
     );
     assert_eq!(
-        ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<OwnedItemsBaseline>(app.world()).unwrap().remembered().count(Item::Bomb),
+        ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<OwnedItemsBaseline>(app.world()).unwrap().remembered().count(Item::Axe),
         1,
         "the fixture's checkpoint never held the old run's weapon"
     );
@@ -217,7 +217,7 @@ fn a_new_game_does_not_write_the_old_runs_inventory_back_into_the_fresh_save() {
     app.update();
 
     assert_eq!(
-        app.world().resource::<OwnedItems>().count(Item::Bomb),
+        app.world().resource::<OwnedItems>().count(Item::Axe),
         0,
         "the new run began holding the old run's weapon"
     );
@@ -236,7 +236,7 @@ fn a_new_game_does_not_write_the_old_runs_inventory_back_into_the_fresh_save() {
     assert!(
         data.items()
             .iter()
-            .all(|item| item.id != ambition_items::test_item_catalog().dialog_id(Item::Bomb).unwrap()),
+            .all(|item| item.id != ambition_items::test_item_catalog().dialog_id(Item::Axe).unwrap()),
         "the freshly wiped save was repopulated with the old run's weapon: {:?}",
         data.items()
     );

@@ -214,6 +214,7 @@ dependencies = [
  "ambition_platformer2d",
  "ambition_sim_harness",
  "bevy",
+ "clap",
  "image",
  "serde_json",
 ]

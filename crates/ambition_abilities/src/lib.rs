@@ -88,6 +88,16 @@ impl Plugin for AbilitySimulationPlugin {
                 .in_set(ItemPickupSet::ThrownItemEffects),
         );
 
+        // A bomb's body is given in the item step BEFORE the physics step, so
+        // a bomb thrown this tick moves as a bomb on its first step.
+        app.add_systems(
+            sim,
+            ranged::bomb::weigh_bombs
+                .run_if(any_with_component::<ambition_held_items::GroundItem>)
+                .in_set(GameplayGated)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Settle),
+        );
+
         // Wielded movement/combat items have their own group, to stay under
         // the chained tuple arity cap of the core held-item group.
         app.add_systems(

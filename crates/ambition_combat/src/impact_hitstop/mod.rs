@@ -102,6 +102,7 @@ fn is_a_connect(source: &crate::HitSource) -> bool {
 pub fn request_impact_hitstop_on_resolved_hits(
     mut hits: MessageReader<crate::hitbox::ResolvedBodyHit>,
     feel: Option<Res<crate::feel::Platformer2dFeelTuningMonolith>>,
+    room_rules: crate::rules::CombatTuningOf,
     tick: Option<Res<ambition_time::SimTick>>,
     mut hold: ResMut<ImpactHitstop>,
 ) {
@@ -114,6 +115,16 @@ pub fn request_impact_hitstop_on_resolved_hits(
     let mut wanted = 0.0f32;
     for hit in hits.read() {
         if !is_a_connect(&hit.source) {
+            continue;
+        }
+        // The victim's room states the game's rules; they fold into a copy
+        // of the feel, as every damage system folds them (the resource is
+        // the engine's). A game whose hitlag is per body (a platform
+        // fighter) asks for no world freeze: the two bodies hold, the stage
+        // plays on.
+        let mut feel = *feel;
+        room_rules.of(hit.victim).unwrap_or_default().fold_into_feel(&mut feel);
+        if !feel.world_freezes_on_hit {
             continue;
         }
         wanted = wanted.max(hit.hitlag_seconds.min(feel.hitlag_time));

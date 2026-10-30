@@ -21,14 +21,14 @@ use ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState;
 
 use crate::shell_host_rendered::{rendered_app, settle};
 
-/// Is the transition cover on screen? Matched on its debug name, as
-/// `room_boundary_unclaimed_views::cover_is_up` does: the marker is private.
+/// Is a transaction's transition cover on screen? One that is lifting
+/// belongs to no transaction (the engine fades it out and despawns it).
 fn cover_is_up(app: &mut App) -> bool {
     let world = app.world_mut();
     world
-        .query::<&Name>()
+        .query::<&ambition_platformer2d::render::rendering::room_transition_cover::RoomTransitionCover>()
         .iter(world)
-        .any(|name| name.as_str().starts_with("room transition cover"))
+        .any(|cover| !cover.is_lifting())
 }
 
 fn transaction(app: &App) -> Option<(u64, ambition_platformer2d::load::LoadId)> {

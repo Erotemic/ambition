@@ -23,6 +23,9 @@ use ambition_platformer2d::load_presentation::{
 };
 use ambition_platformer2d::platformer::schedule::GameMode;
 use ambition_platformer2d::render::rendering::presentation_settling::{PresentationSettling, PresentationSettlingSet};
+use ambition_platformer2d::render::rendering::room_transition_cover::{
+    spawn_room_transition_cover, CoverStroke, RoomTransitionCover, RoomTransitionCoverAnimationSet, RoomTransitionStyles,
+};
 use ambition_platformer2d::render::rendering::UnclaimedFeatureViews;
 use ambition_platformer2d::sim::Platformer2dSimulationPhase;
 
@@ -177,17 +180,14 @@ impl RoomTransitionTelemetry {
     }
 }
 
-#[derive(Component, Clone, Copy, Debug, Eq, PartialEq)]
-struct RoomTransitionCoverRoot {
-    sequence: u64,
-}
-
 #[derive(Resource, Default, Debug)]
 struct RoomTransitionPresentationState {
     sequence: Option<u64>,
     owner: Option<LoadPresentationOwnerId>,
     update_serial: u64,
-    cover_spawned_at: u64,
+    /// The update its cover was first seen whole: the room changes under a
+    /// cover that has been whole across a rendered frame.
+    cover_opaque_at: Option<u64>,
     commit_observed_at: Option<u64>,
     visible_before_commit: bool,
     foreground_finished: bool,
@@ -203,7 +203,7 @@ struct RoomTransitionPresentationState {
 fn a_cover_is_owed(
     transitions: Res<RoomTransitionLoadState>,
     runtime: Res<RoomTransitionPresentationState>,
-    covers: Query<(), With<RoomTransitionCoverRoot>>,
+    covers: Query<&RoomTransitionCover>,
 ) -> bool {
     transitions.active.is_some()
         || runtime.sequence.is_some()
@@ -213,7 +213,7 @@ fn a_cover_is_owed(
         || runtime.foreground_finished
         || runtime.visible_elapsed != Duration::ZERO
         || runtime.reveal_reported
-        || !covers.is_empty()
+        || covers.iter().any(|cover| !cover.is_lifting())
 }
 
 /// Why a transition's loading screen appeared: what the readiness gate was
@@ -288,6 +288,7 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
         .init_resource::<RoomTransitionPresentationConfig>()
         .init_resource::<RoomTransitionPresentationState>()
         .init_resource::<RoomTransitionTelemetry>()
+        .init_resource::<RoomTransitionStyles>()
         .init_resource::<RoomPreparationPrefetchState>()
         .add_systems(
             Update,
@@ -318,7 +319,9 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
             Update,
             RoomTransitionCoverSet
                 .after(Platformer2dSimulationPhase::PresentationVisualSync)
-                .after(PresentationSettlingSet),
+                .after(PresentationSettlingSet)
+                // It reads whether its cover is whole this frame.
+                .after(RoomTransitionCoverAnimationSet),
         )
         .add_systems(
             Update,
@@ -361,7 +364,10 @@ fn drive_room_transition_presentation(
     model: Res<LoadPresentationModel>,
     mut runtime: ResMut<RoomTransitionPresentationState>,
     mut transitions: ResMut<RoomTransitionLoadState>,
-    covers: Query<(Entity, &RoomTransitionCoverRoot)>,
+    // This adapter's covers. One that is lifting belongs to no transaction:
+    // the engine animates it out and despawns it.
+    mut covers: Query<(Entity, &mut RoomTransitionCover)>,
+    styles: Res<RoomTransitionStyles>,
     // Features the sim published that no render family has drawn yet. The cover
     // waits on these: see the retirement block below.
     //
@@ -396,8 +402,9 @@ fn drive_room_transition_presentation(
         if let Some(owner) = runtime.owner.take() {
             presentation.write(LoadPresentationCommand::Cancel { owner });
         }
-        for (entity, _) in &covers {
-            commands.entity(entity).despawn();
+        // Abandoned: the old room comes back as a new one would.
+        for (_, mut cover) in &mut covers {
+            cover.lift();
         }
         runtime.sequence = None;
         runtime.commit_observed_at = None;
@@ -412,7 +419,12 @@ fn drive_room_transition_presentation(
         if let Some(owner) = runtime.owner.take() {
             presentation.write(LoadPresentationCommand::Cancel { owner });
         }
-        for (entity, _) in &covers {
+        // A cover still on screen (the last room change's, going out) is
+        // replaced by this one from as much of the frame as it hides, so the
+        // screen does not pop.
+        let mut from_coverage = 0.0f32;
+        for (entity, cover) in &covers {
+            from_coverage = from_coverage.max(cover.coverage());
             commands.entity(entity).despawn();
         }
 
@@ -422,28 +434,14 @@ fn drive_room_transition_presentation(
             barrier: active_snapshot.barrier.clone(),
             spec: experience(&config),
         });
-        commands.spawn((
-            RoomTransitionCoverRoot {
-                sequence: active_snapshot.sequence,
-            },
-            ambition_platformer2d::render::rendering::presentation_settling::PresentationCover,
-            Node {
-                position_type: PositionType::Absolute,
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                ..default()
-            },
-            BackgroundColor(Color::BLACK),
-            GlobalZIndex(900),
-            Name::new(format!(
-                "room transition cover {}",
-                active_snapshot.sequence
-            )),
-        ));
+        let style = styles.resolve(&active_snapshot.source_room_id, active_snapshot.target_room_id());
+        spawn_room_transition_cover(&mut commands, active_snapshot.sequence, style, from_coverage);
+        let spawned_whole = style.cover == CoverStroke::Cut || from_coverage >= 1.0;
 
         runtime.sequence = Some(active_snapshot.sequence);
         runtime.owner = Some(owner);
-        runtime.cover_spawned_at = update_serial;
+        // A cover spawned whole is whole from this update's frame on.
+        runtime.cover_opaque_at = spawned_whole.then_some(update_serial);
         runtime.commit_observed_at = None;
         runtime.visible_before_commit = false;
         runtime.foreground_finished = false;
@@ -478,13 +476,17 @@ fn drive_room_transition_presentation(
         }
     }
 
-    let exact_cover_exists = covers
+    // The exact cover, whole: a fade or a wipe has finished coming in.
+    let exact_cover_opaque = covers
         .iter()
-        .any(|(_, root)| root.sequence == active_snapshot.sequence);
+        .any(|(_, cover)| cover.sequence == active_snapshot.sequence && cover.is_opaque());
+    if exact_cover_opaque && runtime.cover_opaque_at.is_none() {
+        runtime.cover_opaque_at = Some(update_serial);
+    }
     if active_snapshot.cover_required
         && !active_snapshot.cover_presented
-        && exact_cover_exists
-        && update_serial > runtime.cover_spawned_at
+        && exact_cover_opaque
+        && runtime.cover_opaque_at.is_some_and(|opaque_at| update_serial > opaque_at)
     {
         if let Some(active) = transitions
             .active
@@ -583,9 +585,10 @@ fn drive_room_transition_presentation(
     if !runtime.foreground_finished {
         presentation.write(LoadPresentationCommand::Finish { owner });
     }
-    for (entity, root) in &covers {
-        if root.sequence == active_snapshot.sequence {
-            commands.entity(entity).despawn();
+    // The cover goes out in the transition's look; gameplay resumes under it.
+    for (_, mut cover) in &mut covers {
+        if cover.sequence == active_snapshot.sequence {
+            cover.lift();
         }
     }
     let now = time.elapsed();

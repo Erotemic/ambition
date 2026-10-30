@@ -3101,6 +3101,7 @@ impl MoveSpec {
             coverage,
             push_coverage,
             push_dir,
+            captures: captures().next().is_some(),
             max_damage,
             max_knockback,
             launch,
@@ -3418,6 +3419,13 @@ pub struct MoveFrameData {
     /// A push's value is signed. Coverage says the push reaches the opponent,
     /// not whether it sends them toward the blast line or saves them from it.
     pub push_dir: Option<(f32, f32)>,
+    /// The move ATTEMPTS A CAPTURE (an Active window sustains
+    /// [`smash_capture::CAPTURE_ATTEMPT`]), whatever button it is bound to — a
+    /// command grab on a special is one. A capture holds only a grounded body
+    /// and is made only from the ground (`acquire_captures`), so whether it can
+    /// land is a question about both bodies' feet, which its region cannot
+    /// answer.
+    pub captures: bool,
     /// Highest `damage` any Active volume deals: the move's power, so an
     /// option scorer can price a smash above a jab. `0` for a move with no
     /// volume.

@@ -689,7 +689,7 @@ fn lower_body_holds(
                     ae::Vec2::from(reach_half),
                 );
                 let reach = ae::CenteredAabb::new(centre, half).aabb();
-                let already: std::collections::HashSet<Entity> = captives
+                let already: std::collections::BTreeSet<Entity> = captives
                     .iter()
                     .flat_map(|(victim, held)| [victim, held.captor])
                     .chain(seized.iter().copied())
@@ -762,7 +762,11 @@ fn lower_body_holds(
             }
             BodyHold::Pummel { damage } => {
                 if held.is_some() {
-                    pummels.write(crate::capture::CapturePummelRequested { captor, damage });
+                    pummels.write(crate::capture::CapturePummelRequested {
+                        captor,
+                        damage,
+                        move_instance: None,
+                    });
                 }
             }
             BodyHold::Throw { damage, knockback, growth, launch_dir } => {

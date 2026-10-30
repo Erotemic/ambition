@@ -94,6 +94,11 @@ pub struct CaptureProbeArgs {
 }
 
 pub fn run(args: CaptureProbeArgs) {
+    run_with(args, crate::build_demo_app)
+}
+
+/// [`run`] on an app `build` composes — see `match_report::run_with`.
+pub fn run_with(args: CaptureProbeArgs, build: fn() -> bevy::prelude::App) {
     use bevy::prelude::IntoScheduleConfigs as _;
     let seconds: f32 = args.seconds;
     // Resolved once and reported below, so a census names its subject.
@@ -134,7 +139,7 @@ pub fn run(args: CaptureProbeArgs) {
     // presser is not committed to a move: the moment a player picks.
     let force = args.force;
 
-    let mut app = crate::build_demo_app();
+    let mut app = build();
     // Insert before the warm-up: `project_authored_fighter_ladder` applies
     // rows on `Added<Brain>`, so a later ladder reaches nobody.
     if let Some(ladder) = authored_ladder {

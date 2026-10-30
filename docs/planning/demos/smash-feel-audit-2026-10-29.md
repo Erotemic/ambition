@@ -213,10 +213,15 @@ frames; without P1–P3 that is 19 frames of a white blink. Ship them together.
 | R6 buffer 10 f, tap jump, short-hop button | ✔ `action_buffer_s`; `ControlSettings::tap_jump` (off by default, no menu toggle yet); the `ShortHop` action already existed and is bound in the presets | e523311c7, this commit |
 | P4 posing keys, P5 slash arcs | ✔ for the three polygons (Jon: the polygons are the Smash test players, not the robot): 12-frame rows with anticipation / smear / contact-overshoot / settle posed to each fighter's Smash windows, a shaking, glinting `smash_charge`, travelling arcs in the `*_strike_fx` rows (renderer c752183, generation 55069d31; review sheets `untracked/art-review/polygon-keys/`). Open: the beast's coil is subtle; the other fighters' rows are still one picture per phase | 96552c2c6 |
 | P7 fighter camera | ✔ `MatchRules::cast_framing` (Smash: close to 45% of the stage view, 40 px margin; the engine keeps 75% / 48) | cad1bfd1b |
+| P7 camera box, eased margins, floor room | ✔ `cast_framing.{open_hz,close_hz,floor_margin,bounds}` (Smash 4/4 Hz, 40 px, side 280 / rise 170 / fall 100); measured by `match-report --camera`, see § Camera diagnosis | e121708cf |
+| P4 keys re-fit to the archetype clocks | ✔ the generator's clock tables now read the facets (sword / Falcon / zoner); the brawler's tilts and smashes were keyed 2–3 frames of 12 early (renderer 9559e08, generations 5dc7961e / 04dc07d8 / cd14f066) | — |
+| P4 open: slow wind-ups read as standing | the generator keys ONE anticipation frame before contact; on Falcon-paced moves (up-tilt hits at 0.46 of its row) frames 0–3 are idle, then a sudden swing. A gather spread over the wind-up is the next key pass (needs Jon's eye on the republished rows) | — |
+| CPU: brain admits by the strike's own geometry | ✔ `authored_coverage.rs` + witness `the_brain_admits_by_the_geometry_that_hits`; pair whiffs 93→72% (r5), 72→64% (r9); mirror ~80% unchanged — admission vs foe motion next | 510c098fe |
+| P7 finishing blow | ✔ `zoom_camera_on_a_finishing_blow` + `launch_leaves_the_world` (last stock, predicted KO → finish zoom + 0.5 s freeze) | 9eaf73d32 |
 | P6 squash/stretch | ✔ `BodyPoseView::squash`: lands wide and low, relaxing over the landing beat (deeper when hard); the jump squat presses | this commit |
 | Tap-jump menu toggle | ✔ Controls page, "Tap Jump" | this commit |
 | R6 authored walk speed, angled air-dodge lag | ✔ `walk_speed` (Smash 208 px/s), `air_dodge_up` → 0.73×–1.27× landing lag; schema 388 | 38e725306 |
-| CPU fighters like an Ultimate CPU | in progress (sub-agent lane on its own branch; first job: the recovery press eaten by the hitstun lockout, `smash_it::every_authored_route_gets_pressed`) | — |
+| CPU fighters like an Ultimate CPU | in progress (sub-agent lane on its own branch). First merge d9128c7e4: `smash_it::every_authored_route_gets_pressed` went red after the feel pass; the cause was NOT the hitstun lockout (my first reading, refuted by trace: zero presses matured inside stun) but the recovery lens probing with the room box while the game kills at the room plus the blast margins, so a fighter launched past the room edge saw no route. The brain now reads the death line (`WorldView::blast`), and holds a press made in hitstun for the first actionable tick | d9128c7e4 |
 | R5 play with Jon; posing keys beyond the polygons; Sanic's facet | open | — |
 
 Nothing above has been played by a human yet. Every number is a first cut.
@@ -405,6 +410,303 @@ landing and stretch on takeoff as a presented-pose scale over 3–4 frames.
 Frame the two fighters tighter (Ultimate's camera: the pair fills the view
 with a margin, zooms in on a close exchange, out on a launch), with the finish
 zoom already built as the model. Mobile keeps the wide frame if it needs it.
+
+#### Camera diagnosis (2026-10-29, late; Jon: "diagnose potential issues with how the camera is working in smash")
+
+Instrument: `smash_tool match-report --camera` (a per-tick trace of the
+resolved view against the seated bodies, reduced to the numbers below).
+Baseline MEASURED on the duelist mirror, 2 × 30 s CPU-versus-CPU, room
+640 × 480, blast fall 240 / side 400 / rise 240:
+
+| | run 1 | run 2 |
+|---|---|---|
+| view width px (min / median / max) | 256 / 406 / 1256 | 256 / 497 / 1256 |
+| zoom rate px/s (open / close) | 10 211 / −4 348 | 13 794 / −4 077 |
+| ticks with the zoom moving > 60 px/s | 71% | 75% |
+| ticks the view shows past the room | 54% | 52% |
+| fighter height, fraction of the view (min / median / max) | 0.07 / 0.21 / 0.33 | 0.07 / 0.17 / 0.33 |
+| fighter sits at (0 = top) | 0.55 | 0.57 |
+| body-ticks cut off by the view's edge | 0.2% | 0.9% |
+
+What the code did (CODE-READ, `camera_snapshot.rs`): the cast box ADOPTED an
+outward edge at once and closed at 10 Hz; `base_view` was that eased box plus
+the margin with no easing of its own, so a launch opened the view as fast as
+the body flew; there was no camera box, so the view followed a launched body
+to the blast line (up to 1 256 px across, twice the room, showing the void);
+the cast was centred with no floor room; the only zoom event was the verdict's
+finish zoom.
+
+What the reference does. Nothing public gives Ultimate's camera code; the
+primary source is the Melee decompilation (`doldecomp/melee`,
+`src/melee/cm/camera.c`, read directly — Jon: "probably something we can
+learn a lot of good lessons from"), and Ultimate's STAGE camera boxes are in
+the LVD data (rubendal's SSBU-Calculator `ssbustagedata.json`). MEASURED from
+those:
+
+- Every stage has a CAMERA BOX inside its blast box: Battlefield camera
+  ±170 / 130 / −80 against blast ±240 / 192 / −140, Final Destination
+  ±180 / 130 / −60 against ±240 / 180 / −140 — the camera stops at ~70–75%
+  of the side and rise blast distance and ~45% of the fall. A body past the
+  box is framed AT the box (Melee clamps each subject's framing points to it),
+  so the fighter leaves the frame before the line, into the magnifier bubble.
+- Each fighter is framed by a box of its own (front / back / up / down
+  extents) scaled by the cast count — 1 → 1.5, 2 → 1.32, 3 → 1.16, 4 → 1.0
+  (`cm_803BCB9C`) — and by a per-stage ratio; the extents grow or shrink at
+  most 0.5 units per frame, which is the lag on the margin.
+- The bottom of the combined box is lowered by `10 + 390 · z` (z from camera
+  distance), and a framing point clamped at the bottom bound is kept above the
+  GROUND under it: the floor the fighters stand on stays in view.
+- Pan is a per-frame fraction of the remaining distance, blended by how far
+  apart the fighters are; the camera position (zoom) moves by one constant
+  fraction per frame, the SAME in and out; no look-ahead, no dead zone.
+- Ordinary hits never request a camera quake in Melee (KO / Star KO do, 22
+  frames). Ultimate's hit shake is UNSOURCED.
+- Ultimate's Finish Zoom fires on a hit the game predicts will win the match
+  (knockback and angle, ignoring DI; 1-on-1 in practice); Special Zoom on a
+  few authored moves. Durations UNSOURCED.
+
+Design, shipped as `MatchRules::cast_framing` fields (the engine's defaults
+keep the exploration camera byte-for-byte): `open_hz` / `close_hz` ease the
+framed box both ways (Smash 4 / 4; engine adopts outward at once / 10 Hz),
+with the view FLOORED at the cast's raw span and the clamp holding the eased
+box grown to the raw one, so a launched body leads the view to its edge and
+is never cut off; `floor_margin` (Smash 40 px) keeps the ground in view and
+sits the fighters above the centre; `bounds` (Smash side 280 / rise 170 /
+fall 100, ≈70% of the side and rise blast distance) is the camera box: the
+cast is clipped to it, the view is capped to it and clamps inside it instead
+of the room. Per-fighter front/back extents and the cast-count scale are NOT
+built: with two polygons one margin and one floor number are the whole
+difference, and the count scale is a four-player question.
+
+After, MEASURED with the same instrument, same matchup, same seeds:
+
+| | run 1 | run 2 |
+|---|---|---|
+| view width px (min / median / max) | 299 / 500 / 999 | 299 / 475 / 1 024 |
+| zoom rate px/s (open / close) | 1 077 / −885 | 21 457¹ / −888 |
+| ticks the view shows past the room | 63% | 84% |
+| fighter height, fraction of the view (min / median / max) | 0.09 / 0.17 / 0.29 | 0.08 / 0.18 / 0.29 |
+| fighter sits at (0 = top) | 0.47 | 0.50 |
+| body-ticks cut off INSIDE the camera box | 0.5% | 0.9% |
+| body-ticks past the camera box (leave the frame by design) | 269 | 316 |
+
+¹ One tick at a respawn placement; the baseline had the same spike (10–14k).
+The view now shows past the ROOM more often because the room is no longer
+the clamp — the camera box is; "past the box" is 0 ticks by construction.
+The remaining in-box cut-offs are bodies whose 48 px box straddles the fall
+bound by ≤ 4 px (their centre is inside the box, their feet past it).
+`every_live_fighter_stays_inside_the_frame` now skips a body past the camera
+box and holds for every body inside it. Two bugs found by the instrument on
+the way: the view was floored at the raw span but the clamp held the eased
+box GROWN to the raw one (a taller union than the view — 17 px cut-offs),
+and a view capped to the box could not fit a cast as tall as the box.
+
+The finishing blow (same night): `zoom_camera_on_a_finishing_blow`
+(combat, beside the verdict zoom) fires on the hit tick when a fighter on its
+LAST stock is launched and `launch_leaves_the_world` (core, the ballistic
+arc under the body's resolved gravity, sampled 32×) crosses a side or the
+rise line before the body is back at floor level — Ultimate's Finish Zoom
+rule (knockback and angle, no DI). It requests the finish zoom and holds
+every fighter in `FINISHING_BLOW_FREEZE_S` 0.5 s of hitstop. A spike is not
+predicted (whether it falls out is the recovery game). The launch is read
+while STAGED, the one tick it is visible (the kernel consumes it next tick),
+so the trigger keeps no memory and is rollback-safe. Not built: Ultimate's
+red flash and slow-motion (presentation; the freeze stands in).
+
+2026-10-30, the film. `capture_scene --route smash_gameplay --frames 16`
+(a seated human avatar against a CPU) showed a FIXED frame and the CPU
+leaving it by the top — at any zoom preset. CODE-READ: the camera took the
+cast branch only when no primary avatar existed; nothing strips
+`PrimaryPlayer` from a human seat, so in human play the Smash camera had
+always followed the human alone, room-clamped, and every cast-framing
+result above (the P7 ✔, the box, the guard) was CPU-versus-CPU only. Fixed:
+a declared cast (`FramedCast` non-empty — only a match fills it) is the
+subject; the avatar and the controlled subject are members. Witness:
+`a_declared_cast_is_framed_even_when_a_primary_player_is_seated`. Lesson:
+the guard seats two CPUs; a camera claim about a match needs ONE frame with
+a human seated in it.
+
+Also from the CPU agent's `ko_envelope feel`: the pointed up-tilt (169.6
+base / 4.13 growth) out-launched the up-smash (146 / 5.82) below ~50% — a
+×1.6 baked into the base; set to 106 (an anti-air that kills late).
+
+Witnessed in play (MEASURED, `match-report --camera --level 9 300 --runs 3`):
+run 1 staged a last-stock launch at tick 1815 (v 382, −1194 px/s, predicted
+to leave) and the finish zoom rose on that tick, before the stock was spent;
+runs 2 and 3 each zoomed once at their verdict. The trace counts zooms as
+rising edges of `FinishZoomState` and spends as drops of `FighterStocks`
+(message cursors missed the sim schedule's own update).
+
+The off-screen bubble (c3584fe46): `cast_framing.bubble` — a fighter wholly
+past the frame is shown in a 96 px ring at the frame's edge, in its seat's
+HUD colour, holding a live view 100 world units across (a camera per bubble
+into a texture). Seen in `match-shots` frames (t375, t969). Still open after
+this: Jon's eye on the bubble's size and look, and a human pass on the
+rates (4 Hz both ways is a first value; Melee's per-frame fractions are in a
+binary table nobody has read).
+
+#### Camera, Melee's model (2026-10-30; Jon: "focus on getting the camera to feel right")
+
+Correctness (VERIFIED, dc67aeb0f): the follow-the-controlled-subject
+override ran after the cast arm and centred a human's match frame on the
+human's fighter (2 fighters: (1251, 1980) against the pair's (1300,
+1930)). It now runs only without a declared cast; a witness frames 2, 3
+and 4 fighters identically with a human seat or none.
+
+Model (24fb3b14a, `cm/camera.c` lines 388–784 as the reference): each
+member asks for its body padded by `margin × margin_by_count[n]` (Smash
+1.14 / 1.0 / 0.88 / 0.76, Melee's 1.5 / 1.32 / 1.16 / 1.0 relative to the
+duel), each stopped at the camera box; `floor_share` of the view is kept
+below the cast (Melee lowers the bottom with distance); the centre
+follows at `pan_hz` and the size at `zoom_out_hz` / `zoom_in_hz`. Before,
+the box's four edges eased at 4 Hz and the follow camera eased the centre
+again at 8 Hz (two cascaded lags). The body-visibility floor and the
+discontinuity cap are kept.
+
+| `camera_scenarios` (synthetic, deterministic) | before | after |
+|---|---|---|
+| view width, clustered 2 / 3 / 4 | 336 / 336 / 336 | 312 / 292 / 271 |
+| view width, same outer pair 2 / 3 / 4 | 521 / 521 / 521 | 521 / 511 / 502 |
+| centre error: cluster / travel / knockout | 3.1% / 4.3% / 8.5% | 1.4% / 1.5% / 4.1% |
+| pan settle after the cast stops | 0.75 s | 0.35 s |
+| launch zoom reversals | 2 | 1 |
+| converge (4) settle | 0 s | 1.13 s (zoom-in deliberately slower) |
+| bodies cut off inside the camera box | 0 | 0 |
+
+Real matches (`smash_cpu_report match-report --camera --also ID`, polygons,
+rung 5, 2 seeds × 30 s): median view 536–550 / 562–619 / 766–831 px for
+2 / 3 / 4 fighters; fighter height 0.22–0.23 / 0.19–0.21 / 0.14–0.16 of the
+view; cut-offs inside the box 0.0–1.1% of body-ticks, every sampled one a
+body falling out through the box's bottom edge. SUBJECTIVE, for Jon's play
+pass: pan 6 Hz, open 6 Hz, close 2.5 Hz, floor share 0.15, the count
+factors. Not done: facing-dependent front/back extents (no evidence yet
+that they would read better).
+
+### Found on the way: the sim's dt is not a sim fact (2026-10-30, CPU lane)
+
+MEASURED (8 fresh processes per step, one seed, clock pinned): the
+simulation is tick-identical across processes GIVEN its dt sequence, but
+`ambition_time::refresh_world_time` sets `sim_dt = frame_dt × time_scale`
+and `smooth_sim_clock_toward_target_system` eases that scale per FRAME by
+WALL dt; `match_live` asks for 1.0 at release, so a match's first ticks
+integrate a 0→1 ramp whose phase is the route transition's frame count
+(8, 9 or 10 frames → two outcome classes). Not the std maps (swapped to
+BTree anyway), not entity ids, not a leak between runs. Two rollback peers
+cannot agree on a wall-dt ramp. The fix is a design call: a fixed-dt sim
+step, with the eased time scale either presentation-only or per-tick sim
+state driven by sim causes. Until then every CPU measurement carries a
+start-tick lottery, and netplay would desync at the first match.
+
+Named one step further (same day, `[sim-clock]` log of a rung-9 match):
+every connect requests the GLOBAL sim clock to 0 (`impact_hitstop`, a
+match-level freeze held as an absolute expiry tick, capped at the feel's
+`hitlag_time`), and the clock ladder EASES toward it (down 5/s, up 14/s by
+wall dt): `live 1.000 -> 0.917 -> 0.667 -> 0.900` over four frames. So (a)
+the "freeze" is a slow-motion dip, not a freeze — Ultimate's hitlag is a
+hard hold of the two bodies, which the per-body hitlag (R2) already is; (b)
+every hit feeds the sim a frame-phased fractional-dt sequence — the lottery
+the CPU agent traced (the 0→1 ramp at release was MEASURED not to overlap
+live play; this does, on every hit); (c) two rollback peers integrate
+different dts after the same hit. The elegant fix is one rule, not a
+switch: a freeze request SNAPS the clock (0 for its ticks, 1 after) instead
+of riding the ease — tick-deterministic and a real beat. Alternatives: the
+match declares no global freeze (per-body hitlag carries it), or the
+fixed-dt sim step above. Jon's call; none applied.
+
+Traced one step further (CPU lane, 44f1c5047): `time_scale` was 1.000 and
+`sim_dt` 0.016666668 on every sampled tick of six processes — neither the
+release ramp nor the per-hit dip is the divergence (the dip IS still a feel
+and rollback hazard, above). The host runs NO sim tick on one frame in
+fifteen (56 ticks per 60 frames under bevy_ggrs pacing), the phase of that
+cadence against the match is the transition's frame count, and a
+bifurcated pair first differs by 0.245 px in a recovering body's height at
+the uppercut's 0.2 s gravity-modifier event — so some PER-FRAME system
+writes state a sim tick then reads. Ruled out as per-tick (CODE-READ): the
+CPU brain (`tick_actor_brains`, sim schedule) and the gravity frame
+resolver (`resolve_body_motion_frames`, sim schedule). Next: a census of
+Update-schedule systems that write sim components, then the same
+8-process class test.
+
+Applied (5463a23e8): the second alternative, as a per-game rule —
+`CombatRules::world_freezes_on_hit` (engine default true); Smash's room
+rules say false, so a connect holds the two bodies (per-body hitlag) and
+the world clock never dips. MEASURED after: 0 `impact_hitstop` clock lines
+in a 60 s match; 8 fresh seed-0 processes (`smash_tool`, rung 5, 60 s)
+agree on 3058 live ticks. ⚠ That does NOT close the split: the shipped
+composition (`smash_cpu_report`, pointed vs pugnacious, rung 5, 60 s, four
+fresh processes) still falls into two report classes 2/2, with no clock
+line after the initial one. A/B (MEASURED): with the freeze back on, the
+george mirror also agrees across six processes, so the rule is a feel fix
+and never a determinism one. Ruled out for the polygon split (MEASURED,
+`match-report --sim-writers` and `--recycle-ids N`): no rollback-registered
+type is written on a frame that runs no sim tick (only VFX sprites despawn
+there, by wall time); recycled entity ids leave the george mirror
+byte-identical; the fighters' `ActorRenderSize` is set once, at tick 15,
+equal in every process. Games that keep the world freeze still ride the ease; snapping it
+is still Jon's call.
+
+FOUND (78223ebf6): bevy_ggrs's clock is `frame × 10⁹ / 60` whole
+nanoseconds, so the step alternated 16 666 666 / 16 666 667 ns by the frame
+count mod 3, and `refresh_world_time` passed that to the sim. A per-tick
+trace showed one process's bodies a tick ahead of the others on the same dt
+pattern. The rollback host now declares `SimStepPeriod` (1/60 s exactly).
+MEASURED after: six fresh 60 s processes of the polygon pair give
+byte-identical reports. One seed is now one match; `--runs N` is a real
+sample.
+
+CPU self-destructs (MEASURED, now one match per seed): at rung 5 the
+pugnacious cells lost stocks at 0–20% — a brawler helpless after its up
+special, 500 px above the stage, read "ground below", chased its foe off
+the side and fell past the ledge. Two fixes: a helpless body is in
+Recovery wherever it is (9cd8ee638), and the brawler's up special no
+longer floats (it rose 430 px; Falcon Dive's shape is the impulse's 241).
+Median live ticks of 3600 (3 runs), first → helpless rule → no float:
+pointed vs pugnacious 1923 → 2697 → 3329; pugnacious mirror 1974 → 2633 →
+3366 (damage/min 32 → 10 → 85); projectile vs pointed 2450 → 3358.
+
+CPU pokes (44f1c5047, MEASURED `--runs 3` per live minute): attack whiffs
+pair r5 80→67%, pair r9 64→57%, mirror r5 →78%, mirror r9 →77%; goal
+(<50%) not reached. ⚠ mirror r5 damage fell to 0 in two of three runs —
+the refused uppercut was that cell's only landing offence; the rule is in,
+the regression is noted for the next pass (a lift admitted as an attack
+when the foe is inside its region at the opening is the intended shape;
+the mirror's foe is rarely there).
+
+CPU whiffs, traced one by one (2026-10-30, MEASURED, seeds 0–2, 60 s, whiffs
+/ moves pooled over the three runs):
+
+| cell | r5 before → after | r9 before → after |
+|---|---|---|
+| pointed v pugnacious | 80% → 55% | 64% → 45% |
+| pointed mirror | 74% → 57% | 53% → 49% |
+| pugnacious mirror | 86% → 63% | 80% → 50% |
+| projectile v pointed | 73% → 55% | 65% → 50% (merged main) |
+
+Damage per live minute roughly doubled at r5 (64–123 → 207–227) and the
+mirror-r5 lift regression is gone (169–227 damage in each run). Causes and
+fixes, all in the brain:
+
+1. The brain saw its OWN body 300 ms late (r5): the perceived self was a
+   median 87 px from the live body at whiffed presses, which was the
+   100–220 px gap@w. Q167 shipped: the body is seen now, the foe late, and
+   the lead runs on two clocks. Self-KOs: 39 → 5 in 23 fighter-minutes.
+2. Captures pressed with a body in the air (12 of 15 grab whiffs): a capture
+   now needs both bodies grounded.
+3. The recovery special's no-lead rule read the perceived foe against the
+   live self, so a foe just launched still "touched": it now carries the foe
+   to now. Uppercut gap@w r5: 122 → 47 (pair), 173 → 59 (mirror).
+4. A charge is admitted on its uncharged timing and held while the foe
+   walks through it: the hold is now let go at the last tick the strike
+   still meets the foe.
+5. A landed pummel read as a whiff (to the brain's refusal and to
+   match-report).
+
+Left, REASONED from traces: at r5 the foe reverses inside the 300 ms window
+(dash-dance, a lunge started after the view), and the lead carries the old
+velocity up to ~175 px; the haymaker still whiffs "short" (a foe crossing
+through it). Feel flags: Carl Stargan leaves through the top at 0% (3 of the
+5 remaining self-KOs); CPUs now return from 2400 px/s side launches, so
+fixtures that waited for a KO stage it.
 
 ### Not in this roadmap
 

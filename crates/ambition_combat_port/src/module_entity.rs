@@ -324,9 +324,9 @@ impl Port for SpawnModuleItemPort {
 /// * **Operation** — `in_world` while the item is loose on the stage (not in
 ///   a hand); `impact_speed` is how fast it was going when it last struck
 ///   something: the speed of the tick geometry stopped it (it stays while
-///   the item rests) or the speed of a body its path entered this tick,
-///   whichever is greater; `0` for an item that rests without having struck
-///   anything.
+///   the item rests), the speed of a body its path entered this tick, or the
+///   speed into a surface it bounced off this tick, whichever is greater; `0`
+///   for an item that rests without having struck anything.
 /// * **Owner** — `ambition_abilities::module_entity`.
 /// * **Scope** — the module entity the invocation ran for.
 /// * **Time** — offered in `module_entity_tick`, after the items moved this

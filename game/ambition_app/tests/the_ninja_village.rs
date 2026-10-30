@@ -93,3 +93,13 @@ fn the_ninja_village_is_walked_round_its_loop_and_its_exam_is_passed() {
     go_to(&mut app, ae::Vec2::new(640.0, 680.0), "the shrine's floor, by the stair");
     assert!(feet_y(&mut app) > 600.0, "the stair goes down to the shrine's floor");
 }
+
+/// Ume's tea house: in at its door under the noren, a word with Tsuru the
+/// medicine seller, and back out to the street.
+#[test]
+fn umes_tea_house_has_a_guest() {
+    let mut app = a_session_in(STREET);
+    go(&mut app, "ninja_village_tea_room", Some("street_tea_door"));
+    talk(&mut app, "npc_village_tsuru", "What do you sell?");
+    go(&mut app, STREET, Some("tea_door"));
+}

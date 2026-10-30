@@ -311,6 +311,11 @@ pub struct CameraSnapshotResolveInput<'a> {
     /// This is distinct from [`Self::extra_clamp_center_world`]: that input is a portal-padding
     /// point and is intentionally excluded from `unpadded_center_world` diagnostics.
     pub must_frame_world: Option<ae::Aabb>,
+    /// The box, in world units, the view clamps to instead of the room: a
+    /// cast's camera bounds ([`CastCameraBounds`]). `None` clamps to the room.
+    ///
+    /// [`CastCameraBounds`]: ambition_platformer2d_shared_tangle::markers::CastCameraBounds
+    pub view_box: Option<ae::Aabb>,
 }
 
 /// Resolve a camera snapshot for an arbitrary focus.
@@ -533,6 +538,7 @@ pub fn resolve_follow_camera_snapshot(
             // `unpadded_center_world` reports the camera without the portal
             // adapter's PADDING, not without the framing the game asked for.
             input.must_frame_world,
+            input.view_box,
         )
     };
     let mix = |padding: Option<ae::Vec2>| {
@@ -779,6 +785,7 @@ fn clamp_camera_target(
     zone: Option<&CameraZoneSpec>,
     extra_clamp_center_world: Option<ae::Vec2>,
     must_frame_world: Option<ae::Aabb>,
+    view_box: Option<ae::Aabb>,
 ) -> (f32, f32) {
     match mode {
         CameraClampMode::None => (target.x, target.y),
@@ -791,6 +798,7 @@ fn clamp_camera_target(
                     half_view_h,
                     extra_clamp_center_world,
                     must_frame_world,
+                    view_box,
                 );
             };
             let min_x = zone.aabb.left() + half_view_w - world.size.x * 0.5;
@@ -823,6 +831,7 @@ fn clamp_camera_target(
             half_view_h,
             extra_clamp_center_world,
             must_frame_world,
+            view_box,
         ),
     }
 }
@@ -834,11 +843,22 @@ fn clamp_to_world_bounds(
     half_view_h: f32,
     extra_clamp_center_world: Option<ae::Vec2>,
     must_frame_world: Option<ae::Aabb>,
+    view_box: Option<ae::Aabb>,
 ) -> (f32, f32) {
-    let min_x = -world.size.x * 0.5 + half_view_w;
-    let max_x = world.size.x * 0.5 - half_view_w;
-    let min_y = -world.size.y * 0.5 + half_view_h;
-    let max_y = world.size.y * 0.5 - half_view_h;
+    // The box the view stays inside, in centred render units: the room, or
+    // the cast's camera bounds when the match declares them.
+    let (lo, hi) = match view_box {
+        Some(view_box) => {
+            let a = world_to_centered_render(world, view_box.min.into());
+            let b = world_to_centered_render(world, view_box.max.into());
+            (a.min(b), a.max(b))
+        }
+        None => (-world.size * 0.5, world.size * 0.5),
+    };
+    let min_x = lo.x + half_view_w;
+    let max_x = hi.x - half_view_w;
+    let min_y = lo.y + half_view_h;
+    let max_y = hi.y - half_view_h;
     let (min_x, max_x, min_y, max_y) = expand_clamp_bounds_for_padding(
         world,
         min_x,
@@ -1047,6 +1067,8 @@ struct CastFraming {
     /// The body the presented-pose sample is taken from — the first seat, so
     /// the choice is stable rather than whichever entity sorted first.
     anchor: bevy::prelude::Entity,
+    /// Each member's body: its centre and half size.
+    bodies: Vec<(ae::Vec2, ae::Vec2)>,
 }
 
 /// Half the extra room left around the cast's bounding box, in world units.
@@ -1075,23 +1097,28 @@ fn cast_view_target(authored: ae::Vec2, presented: ae::Vec2, min_view_scale: f32
     authored * desired.max(min_view_scale)
 }
 
-/// Exponential close rate for cast framing.
-///
-/// Outward edges are adopted immediately so a launched fighter stays visible;
-/// inward edges ease at this rate.
-///
-/// An exponential chase settles at a lag of `closing speed / rate`, so this
-/// number is what decides how far behind the fight the framing sits while
-/// bodies are closing — and 5Hz left the view 36 units behind two CPUs that
-/// were only 3 units apart horizontally. That was invisible until the fight
-/// started launching bodies vertically, which is a good illustration of a
-/// camera constant being a claim about the FIGHT rather than about the camera.
-///
-/// It could not be raised while the same easing was also responsible for
-/// absorbing discontinuities — a faster rate makes a collapse jerkier in exact
-/// proportion. Now that [`CAST_FRAMING_CLOSE_MAX_UNITS_PER_S`] owns the
-/// discontinuity separately, the two are independent and this is free to track.
-const CAST_FRAMING_CLOSE_HZ: f32 = 10.0;
+/// The box a cast's view stays inside, in world units: the room grown by the
+/// match's camera bounds.
+fn cast_camera_box(world: &ae::World, bounds: ambition_platformer2d_shared_tangle::markers::CastCameraBounds) -> ae::Aabb {
+    ae::Aabb {
+        min: ae::Vec2::new(-bounds.side, -bounds.rise).into(),
+        max: ae::Vec2::new(world.size.x + bounds.side, world.size.y + bounds.fall).into(),
+    }
+}
+
+/// A cast's box, clipped to the camera box: a body past the bounds is framed
+/// AT the bounds, so the camera stops there and the body leaves the frame.
+/// The VIEW is not capped to the box (Melee clamps the framing points, not
+/// the picture): a cast as tall as the box still fits on screen, and the
+/// view overshoots the box in the other axis as its aspect demands.
+fn clip_cast_to_box(cast: ae::Aabb, view_box: ae::Aabb) -> ae::Aabb {
+    let lo: ae::Vec2 = view_box.min.into();
+    let hi: ae::Vec2 = view_box.max.into();
+    ae::Aabb {
+        min: ae::Vec2::from(cast.min).clamp(lo, hi).into(),
+        max: ae::Vec2::from(cast.max).clamp(lo, hi).into(),
+    }
+}
 
 /// Ceiling on how fast an inward cast edge may close WHILE A DISCONTINUITY IS
 /// SETTLING, in world units per second.
@@ -1187,33 +1214,74 @@ fn cast_close_allowance(settling_seconds: f32, dt: f32) -> f32 {
     }
 }
 
-/// Move one presented cast-box edge toward the current cast edge.
-///
-/// `outward` is `+1` for a maximum edge and `-1` for a minimum. Expansion is immediate;
-/// contraction eases at [`CAST_FRAMING_CLOSE_HZ`] and is additionally capped at
-/// `max_step` world units this frame. Easing the box keeps center, zoom, and clamp coherent.
-///
-/// ⛔ EXPANSION MUST STAY IMMEDIATE. Capping it while a discontinuity settles
-/// looks like the obvious way to absorb a respawn — the teleport moves one edge
-/// inward and the opposite edge outward in the same tick — and it took the
-/// stock-loss lurch from 143 units to 6.7. It also put a live fighter outside
-/// the frame on four body-frames of one match, which
-/// `every_live_fighter_stays_inside_the_frame` caught: a body launched during
-/// the settle window outruns a capped edge. The respawn is absorbed by taking
-/// the PLACED body out of the box instead — see `frame_the_cast`.
-fn ease_cast_edge(previous: f32, current: f32, alpha: f32, outward: f32, max_step: f32) -> f32 {
-    if (current - previous) * outward >= 0.0 {
-        return current;
+/// A cast's presented frame: where the view is centred and how big it is.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct CastFrame {
+    centre: ae::Vec2,
+    size: ae::Vec2,
+}
+
+impl CastFrame {
+    fn of(bounds: ae::Aabb) -> Self {
+        Self {
+            centre: bounds.center().into(),
+            size: (bounds.max - bounds.min).into(),
+        }
     }
-    let eased = (current - previous) * alpha;
-    // Never overshoot the target, and never move faster than the cap.
-    let step = eased.clamp(-max_step.abs(), max_step.abs());
-    let step = if step.abs() > (current - previous).abs() {
-        current - previous
-    } else {
-        step
-    };
-    previous + step
+
+    fn aabb(self) -> ae::Aabb {
+        ae::Aabb::new(self.centre, self.size * 0.5)
+    }
+}
+
+/// One tick's share of the way to the target for each part of the frame
+/// (`1 - e^(-hz dt)`), and the discontinuity cap in world units.
+#[derive(Clone, Copy, Debug)]
+struct CastEase {
+    pan: f32,
+    zoom_out: f32,
+    zoom_in: f32,
+    max_step: f32,
+}
+
+/// The frame a cast asks for this tick: `framed` (the members' padded boxes,
+/// stopped at the camera box) with `floor_share` of the view below it,
+/// scaled from the authored view to fit and floored at `min_view_scale`.
+fn cast_frame_target(
+    framed: ae::Aabb,
+    authored: ae::Vec2,
+    tuning: &ambition_platformer2d_shared_tangle::markers::CastFramingTuning,
+) -> CastFrame {
+    let span: ae::Vec2 = (framed.max - framed.min).into();
+    // The view's height H holds the box and the floor: H = span + share × H.
+    let tall = span.y / (1.0 - tuning.floor_share.clamp(0.0, 0.9));
+    let size = cast_view_target(authored, ae::Vec2::new(span.x, tall), tuning.min_view_scale);
+    let centre: ae::Vec2 = framed.center().into();
+    CastFrame {
+        centre: centre + ae::Vec2::new(0.0, (tall - span.y) * 0.5),
+        size,
+    }
+}
+
+/// The presented frame one tick on, toward `target`.
+///
+/// The centre and the size follow separately (Melee eases the camera's
+/// interest and its position on their own terms): a fight that moves pans the
+/// view without zooming it, and a fight that spreads zooms it without
+/// dragging the centre. The size opens at the zoom-out share and closes at
+/// the zoom-in share. While a discontinuity settles, the centre and each
+/// edge move at most `max_step` a tick, so the jerk of a member leaving or
+/// being put back does not scale with how far it went.
+fn ease_cast_frame(previous: CastFrame, target: CastFrame, ease: CastEase) -> CastFrame {
+    let pan = (target.centre - previous.centre) * ease.pan;
+    let pan = pan.clamp_length_max(ease.max_step);
+    let opening = target.size.x > previous.size.x;
+    let size = previous.size + (target.size - previous.size) * if opening { ease.zoom_out } else { ease.zoom_in };
+    let size = if opening { size } else { size.max(previous.size - ae::Vec2::splat(2.0 * ease.max_step)) };
+    CastFrame {
+        centre: previous.centre + pan,
+        size,
+    }
 }
 
 /// Framing bounds and stable anchor for the declared cast.
@@ -1232,6 +1300,7 @@ fn frame_the_cast(
 ) -> Option<CastFraming> {
     let mut anchor = None;
     let mut members = 0usize;
+    let mut member_bodies = Vec::new();
     let mut now: Vec<(bevy::prelude::Entity, ae::Vec2, ae::Vec2)> = Vec::new();
     let (mut min, mut max) = (
         ae::Vec2::new(f32::MAX, f32::MAX),
@@ -1245,6 +1314,7 @@ fn frame_the_cast(
         members += 1;
         now.push((*entity, kin.pos, kin.vel));
         let half = kin.size / 2.0;
+        member_bodies.push((kin.pos, half));
         min.x = min.x.min(kin.pos.x - half.x);
         min.y = min.y.min(kin.pos.y - half.y);
         max.x = max.x.max(kin.pos.x + half.x);
@@ -1260,6 +1330,7 @@ fn frame_the_cast(
         members,
         teleported,
         anchor,
+        bodies: member_bodies,
     })
 }
 
@@ -1324,8 +1395,8 @@ pub fn resolve_camera_observation(
     // the positions it was last seen at, and how long the discontinuity cap
     // stays armed.
     cast_framing_state: (
-        // The box eased toward the cast's real bounds on the way IN. See
-        // `CAST_FRAMING_CLOSE_HZ`.
+        // The box eased toward the cast's real bounds, at the match's rates
+        // (`CastFramingTuning::open_hz` / `close_hz`).
         bevy::prelude::Local<Option<ae::Aabb>>,
         // The population last seen — a DROP arms the cap.
         bevy::prelude::Local<Option<usize>>,
@@ -1392,7 +1463,19 @@ pub fn resolve_camera_observation(
     // subject the ordinary clamp already keeps on screen, and relaxing a room
     // clamp for one of those would just show the void beside the room.
     let mut must_frame_world: Option<ae::Aabb> = None;
-    let home = player.single().ok().map(|(e, b, bs, bc)| (e, *b, *bs, *bc));
+    let mut view_box: Option<ae::Aabb> = None;
+    // A DECLARED CAST IS THE SUBJECT. Only a match fills `FramedCast` (its
+    // seats, `match_activation`), and a match frames every seat, whoever is
+    // sitting in one: the home avatar and the controlled subject are members
+    // of the cast, not the thing the camera follows. Before this, a human
+    // seat was the avatar, so human play got the single-body follow and the
+    // cast framing ran only CPU-versus-CPU (capture_scene films, 2026-10-30).
+    let cast_declared = !framed.0.is_empty();
+    let home = if cast_declared {
+        None
+    } else {
+        player.single().ok().map(|(e, b, bs, bc)| (e, *b, *bs, *bc))
+    };
     let (mut player_body, player_base_size, blink_cam, mut followed) = match home {
         Some((entity, body, base_size, blink)) => (body, base_size, blink, entity),
         None => {
@@ -1401,6 +1484,7 @@ pub fn resolve_camera_observation(
             // published the cast already knows.
             match controlled
                 .0
+                .filter(|_| !cast_declared)
                 .and_then(|subject| body_kinematics.get(subject).ok().map(|(_, kin, _)| (*kin, subject)))
             {
                 Some((kin, subject)) => (
@@ -1450,11 +1534,16 @@ pub fn resolve_camera_observation(
                         return;
                     };
                     let dt = time.delta_secs().max(0.0);
-                    let alpha = (1.0 - (-CAST_FRAMING_CLOSE_HZ * dt).exp()).clamp(0.0, 1.0);
+                    let rate = |hz: f32| (1.0 - (-hz * dt).exp()).clamp(0.0, 1.0);
+                    view_box = cast_framing_tuning.bounds.and_then(|bounds| {
+                        let room = geometry.room_of(cast.anchor)?;
+                        Some(cast_camera_box(&geometry.in_room(room)?.0, bounds))
+                    });
+                    let clip = |bounds: ae::Aabb| view_box.map_or(bounds, |view_box| clip_cast_to_box(bounds, view_box));
                     // THE CAP IS FOR DISCONTINUITIES, and this resolve has
                     // TWO. A cast can lose a member, and a member can be put
                     // somewhere rather than travel there. Arm on either; leave
-                    // ordinary closing to the rate alone, or the view lags
+                    // ordinary following to the rates alone, or the view lags
                     // every approach for the whole match.
                     if a_cast_member_was_lost(*live_members, cast.members) || cast.teleported {
                         *settling = CAST_FRAMING_SETTLE_SECONDS;
@@ -1462,64 +1551,52 @@ pub fn resolve_camera_observation(
                     *live_members = Some(cast.members);
                     let max_step = cast_close_allowance(*settling, dt);
                     *settling = (*settling - dt).max(0.0);
-                    let bounds = match *live_cast {
-                        Some(previous) => ae::Aabb {
-                            min: ae::Vec2::new(
-                                ease_cast_edge(
-                                    previous.min.x,
-                                    cast.bounds.min.x,
-                                    alpha,
-                                    -1.0,
-                                    max_step,
-                                ),
-                                ease_cast_edge(
-                                    previous.min.y,
-                                    cast.bounds.min.y,
-                                    alpha,
-                                    -1.0,
-                                    max_step,
-                                ),
-                            )
-                            .into(),
-                            max: ae::Vec2::new(
-                                ease_cast_edge(
-                                    previous.max.x,
-                                    cast.bounds.max.x,
-                                    alpha,
-                                    1.0,
-                                    max_step,
-                                ),
-                                ease_cast_edge(
-                                    previous.max.y,
-                                    cast.bounds.max.y,
-                                    alpha,
-                                    1.0,
-                                    max_step,
-                                ),
-                            )
-                            .into(),
-                        },
-                        // The first frame ADOPTS rather than easing: a match must
-                        // open already framed, not zoom in from nothing.
-                        None => cast.bounds,
+                    // THE TARGET, raw this tick: each member's padded box,
+                    // stopped at the camera box, so a body past the box is
+                    // framed at the box with no padding beyond it.
+                    let margin = cast_framing_tuning.margin_for(cast.members);
+                    let framed = cast
+                        .bodies
+                        .iter()
+                        .map(|(at, half)| clip(ae::Aabb::new(*at, *half + ae::Vec2::splat(margin))))
+                        .reduce(|a, b| ae::Aabb {
+                            min: ae::Vec2::from(a.min).min(b.min.into()).into(),
+                            max: ae::Vec2::from(a.max).max(b.max.into()).into(),
+                        })
+                        .unwrap_or(cast.bounds);
+                    let target = cast_frame_target(framed, base_view, &cast_framing_tuning);
+                    // THE VIEW follows the target: the centre at the pan
+                    // rate, the size at the zoom-out or zoom-in rate. The
+                    // first frame of a cast ADOPTS: a match opens framed.
+                    let eased = match *live_cast {
+                        Some(previous) => ease_cast_frame(
+                            CastFrame::of(previous),
+                            target,
+                            CastEase {
+                                pan: rate(cast_framing_tuning.pan_hz),
+                                zoom_out: cast_framing_tuning.zoom_out_hz.map_or(1.0, rate),
+                                zoom_in: rate(cast_framing_tuning.zoom_in_hz),
+                                max_step,
+                            },
+                        ),
+                        None => target,
                     };
-                    *live_cast = Some(bounds);
-                    let centre: ae::Vec2 = bounds.center().into();
-                    let span: ae::Vec2 = (bounds.max - bounds.min).into();
-                    let presented = span + ae::Vec2::splat(cast_framing_tuning.margin * 2.0);
-                    base_view = cast_view_target(base_view, presented, cast_framing_tuning.min_view_scale);
-                    // AND THE CLAMP IS TOLD WHAT IT MAY NOT HIDE. Framing the
-                    // cast is worth nothing if the room clamp then throws the
-                    // centre away, which is exactly what it did — see
-                    // `CameraSnapshotResolveInput::must_frame_world`.
-                    //
-                    //  the PRESENTED box, not the cast's raw one: the presented
-                    // box contains the raw one on every frame that matters (an
-                    // edge moving outward is adopted), and holding the raw box
-                    // would make the clamp cut back the instant a body left play
-                    // while the view was still easing out there — the eased close
-                    // and a hard clamp fighting over the same frame.
-                    must_frame_world = Some(bounds);
+                    // THE BODIES ARE NEVER CUT OFF inside the camera box: the
+                    // view is never smaller than the one that holds them, and
+                    // the clamp downstream moves the centre to hold them
+                    // (`must_frame_world`). A launch leads the view out at
+                    // once; the padding follows at the zoom rate. A settling
+                    // discontinuity caps only the close and the pan.
+                    let bodies = clip(cast.bounds);
+                    let eased = CastFrame {
+                        size: eased.size.max(cast_view_target(base_view, ae::Vec2::from(bodies.max - bodies.min), 0.0)),
+                        ..eased
+                    };
+                    *live_cast = Some(eased.aabb());
+                    base_view = eased.size;
+                    let centre = eased.centre;
+                    let presented = eased.size;
+                    must_frame_world = Some(bodies);
                     (
                         ae::BodyKinematics {
                             pos: centre,
@@ -1548,7 +1625,12 @@ pub fn resolve_camera_observation(
     // Follow the CONTROLLED SUBJECT's body. Zoom + blink easing stay on the
     // home avatar's presentation state; only the follow point tracks the
     // driven body.
-    if let Some(subject) = controlled.0 {
+    //
+    // ⛔ NOT WHILE A CAST IS DECLARED. The cast's centre is the follow point
+    // then, and the driven body is one of its members: following it here
+    // pulled a human's match frame toward the human's own fighter (MEASURED:
+    // 49 px left and 50 px down of the pair's centre, two fighters).
+    if let Some(subject) = controlled.0.filter(|_| !cast_declared) {
         if let Ok((_, kin, _)) = body_kinematics.get(subject) {
             player_body.pos = kin.pos;
             // Soft framing leads the DRIVEN body; leading the home avatar's
@@ -1673,12 +1755,15 @@ pub fn resolve_camera_observation(
         //  whether the view named a body or a seat was decided upstream, by
         // `resolve_view_subjects`. What is left here is what a camera resolve
         // should be doing with it: framing.
-        let (framed, focus, subject_down, follow_world, blink, must_frame_world) = match view_subject
+        // `cast_eased`: the declared cast's frame was eased above, at the
+        // match's pan rate; the follow resolve adopts it rather than easing
+        // the centre a second time.
+        let (framed, focus, subject_down, follow_world, blink, must_frame_world, view_box, cast_eased) = match view_subject
             .0
             .and_then(|subject| view_focus(subject).map(|own| (subject, own)))
         {
             Some((subject, (own_focus, own_down, own_center))) => {
-                (subject, own_focus, own_down, own_center, None, None)
+                (subject, own_focus, own_down, own_center, None, None, None, false)
             }
             None => (
                 followed,
@@ -1687,6 +1772,8 @@ pub fn resolve_camera_observation(
                 player_body.pos,
                 Some(blink),
                 must_frame_world,
+                view_box,
+                cast_declared,
             ),
         };
         // The room this view frames is the live room of its framed body. When
@@ -1737,7 +1824,7 @@ pub fn resolve_camera_observation(
                 true
             }
         };
-        let snap_camera = blink_snap || room_changed;
+        let snap_camera = blink_snap || room_changed || cast_eased;
         if room_changed {
             // Disjoint LDtk areas: reset target easing so it never interpolates
             // through unrelated world coordinates. PER VIEW, because each view
@@ -1792,6 +1879,7 @@ pub fn resolve_camera_observation(
                 // overwrites afterwards.
                 chart_transit: presentation.chart_transit,
                 must_frame_world,
+                view_box,
             },
             Some(&mut *camera_state),
         );
@@ -2082,6 +2170,7 @@ mod m2_forward_scroll_tests {
                 extra_clamp_center_world: None,
                 chart_transit: None,
                 must_frame_world: None,
+                view_box: None,
                 ease_tuning: CameraEaseTuning::default(),
                 screen_framing: None,
                 reference_frame: Default::default(),
@@ -2201,6 +2290,7 @@ mod zone_change_tests {
                 extra_clamp_center_world: None,
                 chart_transit: None,
                 must_frame_world: None,
+                view_box: None,
                 ease_tuning: CameraEaseTuning::default(),
                 screen_framing: None,
                 reference_frame: Default::default(),
@@ -2279,6 +2369,53 @@ mod zone_change_tests {
 mod cast_framing_tests {
     use super::*;
 
+    fn frame(x: f32, w: f32) -> CastFrame {
+        CastFrame { centre: ae::Vec2::new(x, 0.0), size: ae::Vec2::new(w, w * 0.5625) }
+    }
+
+    fn ease(pan: f32, zoom_out: f32, zoom_in: f32, max_step: f32) -> CastEase {
+        CastEase { pan, zoom_out, zoom_in, max_step }
+    }
+
+    /// A match may ease the zoom OUT too (Smash: a launch leads the view out
+    /// at its own rate); the engine's `None` (a share of 1) adopts it at once.
+    #[test]
+    fn the_view_opens_at_the_zoom_out_rate_and_at_once_without_one() {
+        let alpha = 1.0 - (-4.0_f32 / 60.0).exp();
+        let eased = ease_cast_frame(frame(0.0, 100.0), frame(0.0, 200.0), ease(0.5, alpha, 0.5, f32::INFINITY));
+        assert!(eased.size.x > 100.0 && eased.size.x < 110.0, "a 4 Hz open moves ~6% of the gap: {:?}", eased.size);
+        let adopted = ease_cast_frame(frame(0.0, 100.0), frame(0.0, 200.0), ease(0.5, 1.0, 0.5, f32::INFINITY));
+        assert_eq!(adopted.size.x, 200.0, "no zoom-out rate adopts");
+    }
+
+    /// The centre and the size follow on their own rates: a fight that moves
+    /// pans without zooming, a fight that spreads zooms without panning.
+    #[test]
+    fn pan_and_zoom_follow_separately() {
+        let moved = ease_cast_frame(frame(0.0, 300.0), frame(100.0, 300.0), ease(0.25, 0.1, 0.1, f32::INFINITY));
+        assert_eq!(moved.centre.x, 25.0, "the pan share of the gap");
+        assert_eq!(moved.size.x, 300.0, "a move does not zoom");
+        let spread = ease_cast_frame(frame(0.0, 300.0), frame(0.0, 400.0), ease(0.25, 0.1, 0.1, f32::INFINITY));
+        assert_eq!(spread.centre.x, 0.0, "a spread does not pan");
+        assert!((spread.size.x - 310.0).abs() < 1e-3);
+    }
+
+    /// The camera box: a body past the match's bounds is framed AT the bound.
+    #[test]
+    fn the_cast_stops_at_the_camera_box() {
+        let world = ae::World::new("stage", ae::Vec2::new(640.0, 480.0), ae::Vec2::ZERO, Vec::new());
+        let bounds = ambition_platformer2d_shared_tangle::markers::CastCameraBounds { side: 280.0, rise: 170.0, fall: 100.0 };
+        let view_box = cast_camera_box(&world, bounds);
+        assert_eq!(ae::Vec2::from(view_box.min), ae::Vec2::new(-280.0, -170.0));
+        assert_eq!(ae::Vec2::from(view_box.max), ae::Vec2::new(920.0, 580.0));
+
+        // One body on stage, one launched 350 px past the right side.
+        let cast = ae::Aabb { min: ae::Vec2::new(300.0, 250.0).into(), max: ae::Vec2::new(990.0, 300.0).into() };
+        let clipped = clip_cast_to_box(cast, view_box);
+        assert_eq!(ae::Vec2::from(clipped.max).x, 920.0, "the launched body is framed at the bound");
+        assert_eq!(ae::Vec2::from(clipped.min), ae::Vec2::new(300.0, 250.0), "the body on stage is untouched");
+    }
+
     /// A fighter leaving play collapses the cast box, and the frame it happens
     /// on must look like every other frame.
     ///
@@ -2289,12 +2426,16 @@ mod cast_framing_tests {
     #[test]
     fn a_collapse_of_any_size_closes_at_the_same_speed() {
         let dt = 1.0 / 60.0;
-        let alpha = (1.0 - (-CAST_FRAMING_CLOSE_HZ * dt).exp()).clamp(0.0, 1.0);
+        let alpha = (1.0 - (-10.0_f32 * dt).exp()).clamp(0.0, 1.0);
         let max_step = CAST_FRAMING_CLOSE_MAX_UNITS_PER_S * dt;
+        let close = |to: f32| {
+            let eased = ease_cast_frame(frame(0.0, 600.0), frame(0.0, to), ease(alpha, 1.0, alpha, max_step));
+            (eased.size.x - 600.0) * 0.5
+        };
 
-        // A max edge collapsing inward by a little, and by a lot.
-        let small = ease_cast_edge(100.0, 80.0, alpha, 1.0, max_step) - 100.0;
-        let huge = ease_cast_edge(100.0, -400.0, alpha, 1.0, max_step) - 100.0;
+        // An edge collapsing inward by a little, and by a lot.
+        let small = close(560.0);
+        let huge = close(-400.0);
         assert!(small < 0.0 && huge < 0.0, "both close inward");
         assert!(
             huge.abs() <= max_step + 1e-3,
@@ -2305,7 +2446,7 @@ mod cast_framing_tests {
         // discontinuity was. Uncapped, a 500-unit collapse steps 40 and a
         // 50,000-unit one steps 4,000 — the jerk scaling with the cut is the
         // whole defect.
-        let enormous = ease_cast_edge(100.0, -50_000.0, alpha, 1.0, max_step) - 100.0;
+        let enormous = close(-50_000.0);
         assert_eq!(
             huge, enormous,
             "a collapse 100x larger must move the framing exactly as far"
@@ -2448,37 +2589,22 @@ mod cast_framing_tests {
         );
     }
 
-    /// Outward is still immediate: a launched fighter must never leave frame
-    /// while the box catches up.
+    /// With no zoom-out rate the view opens at once, however far: a body
+    /// leaving across the whole room is never left behind by the frame.
     #[test]
-    fn an_edge_moving_outward_is_adopted_at_once() {
-        let dt = 1.0 / 60.0;
-        let alpha = (1.0 - (-CAST_FRAMING_CLOSE_HZ * dt).exp()).clamp(0.0, 1.0);
-        let max_step = CAST_FRAMING_CLOSE_MAX_UNITS_PER_S * dt;
-        // A max edge sprinting outward, far further than the cap.
-        assert_eq!(
-            ease_cast_edge(100.0, 5_000.0, alpha, 1.0, max_step),
-            5_000.0
-        );
-        // And a min edge, whose outward direction is the other way.
-        assert_eq!(
-            ease_cast_edge(-100.0, -5_000.0, alpha, -1.0, max_step),
-            -5_000.0
-        );
+    fn an_unrated_view_opens_at_once() {
+        let max_step = CAST_FRAMING_CLOSE_MAX_UNITS_PER_S / 60.0;
+        let opened = ease_cast_frame(frame(0.0, 200.0), frame(0.0, 5_000.0), ease(0.5, 1.0, 0.5, max_step));
+        assert_eq!(opened.size.x, 5_000.0);
     }
 
-    /// The close never overshoots the edge it is chasing, however small the gap.
+    /// The close never overshoots the size it is chasing, however small the gap.
     #[test]
     fn closing_settles_exactly_on_the_target() {
-        let dt = 1.0 / 60.0;
-        let alpha = (1.0 - (-CAST_FRAMING_CLOSE_HZ * dt).exp()).clamp(0.0, 1.0);
-        let max_step = CAST_FRAMING_CLOSE_MAX_UNITS_PER_S * dt;
-        // A gap far smaller than one frame's cap.
-        let settled = ease_cast_edge(100.0, 99.9, alpha, 1.0, max_step);
-        assert!(
-            (99.9..=100.0).contains(&settled),
-            "closing overshot its target: {settled}"
-        );
+        let alpha = (1.0 - (-10.0_f32 / 60.0).exp()).clamp(0.0, 1.0);
+        let max_step = CAST_FRAMING_CLOSE_MAX_UNITS_PER_S / 60.0;
+        let settled = ease_cast_frame(frame(0.0, 200.0), frame(0.0, 199.8), ease(alpha, 1.0, alpha, max_step));
+        assert!((199.8..=200.0).contains(&settled.size.x), "closing overshot its target: {:?}", settled.size);
     }
 }
 
@@ -2580,6 +2706,7 @@ mod soft_framing_tests {
                 extra_clamp_center_world: None,
                 chart_transit: None,
                 must_frame_world: None,
+                view_box: None,
                 ease_tuning: CameraEaseTuning::default(),
                 screen_framing,
                 reference_frame: Default::default(),
@@ -3093,6 +3220,7 @@ mod observer_roll_continuity_tests {
                 extra_clamp_center_world: None,
                 chart_transit: transit,
                 must_frame_world: None,
+                view_box: None,
                 ease_tuning: Default::default(),
                 screen_framing: None,
                 reference_frame: CameraReferenceFrame::SubjectFrame,
@@ -3486,6 +3614,86 @@ mod resolved_snapshot_lifetime_tests {
         view.frame().cloned()
     }
 
+    /// A match frames its cast whoever is seated in it. The home avatar is a
+    /// member, not the subject: with a primary player at one end of the room
+    /// and a CPU seat at the other, the frame holds both (human play got the
+    /// single-body follow before this).
+    #[test]
+    fn a_declared_cast_is_framed_even_when_a_primary_player_is_seated() {
+        let mut app = app_with_a_framed_cast();
+        let human = cast_member(&mut app, ae::Vec2::new(1_000.0, 2_000.0));
+        app.world_mut().entity_mut(human).insert((
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+            ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
+            ae::BodyBaseSize { base_size: ae::Vec2::new(24.0, 40.0) },
+            ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState::default(),
+        ));
+        let cpu = cast_member(&mut app, ae::Vec2::new(2_200.0, 2_000.0));
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d_shared_tangle::markers::FramedCast>()
+            .0 = vec![human, cpu];
+        for _ in 0..3 {
+            app.update();
+        }
+        let frame = frame_of(&app).expect("a cast resolves a frame");
+        let centre = frame.snapshot.center_world;
+        let half = frame.snapshot.visible_view * 0.5;
+        for (who, x) in [("the human", 1_000.0), ("the cpu", 2_200.0)] {
+            assert!(
+                (x - centre.x).abs() <= half.x,
+                "{who} at x {x} is outside a {:.0}-wide frame centred {:.0}: the avatar was followed alone",
+                half.x * 2.0,
+                centre.x
+            );
+        }
+    }
+
+    /// A HUMAN SEAT DOES NOT MOVE THE FRAME. Two, three and four fighters at
+    /// the same places frame the same centre and size whether a seat is
+    /// driven by the player (`ControlledSubject`) or nobody is: the controlled
+    /// body is a member of the cast, and following it alone is the
+    /// single-subject camera's rule.
+    #[test]
+    fn a_controlled_seat_frames_the_same_cast_as_a_cpu_seat() {
+        let spots = [
+            ae::Vec2::new(1_000.0, 2_000.0),
+            ae::Vec2::new(1_600.0, 1_900.0),
+            ae::Vec2::new(1_250.0, 1_700.0),
+            ae::Vec2::new(1_450.0, 2_000.0),
+        ];
+        for fighters in 2..=4 {
+            let frame = |controlled: bool| {
+                let mut app = app_with_a_framed_cast();
+                let cast: Vec<_> = spots[..fighters].iter().map(|at| cast_member(&mut app, *at)).collect();
+                app.world_mut()
+                    .resource_mut::<ambition_platformer2d_shared_tangle::markers::FramedCast>()
+                    .0 = cast.clone();
+                if controlled {
+                    app.world_mut()
+                        .resource_mut::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>()
+                        .0 = Some(cast[0]);
+                }
+                for _ in 0..3 {
+                    app.update();
+                }
+                frame_of(&app).expect("a cast resolves a frame").snapshot
+            };
+            let (cpu, human) = (frame(false), frame(true));
+            assert!(
+                (cpu.center_world - human.center_world).length() < 0.01,
+                "{fighters} fighters: the frame centred {:?} with CPUs and {:?} with a human in seat 0",
+                cpu.center_world,
+                human.center_world
+            );
+            assert!(
+                (cpu.visible_view - human.visible_view).length() < 0.01,
+                "{fighters} fighters: the frame is {:?} with CPUs and {:?} with a human",
+                cpu.visible_view,
+                human.visible_view
+            );
+        }
+    }
+
     #[test]
     fn a_companion_stays_visible_only_in_views_of_its_subject() {
         let mut app = app_with_a_framed_cast();
@@ -3715,6 +3923,7 @@ mod zone_blend_tests {
                     extra_clamp_center_world: None,
                     chart_transit: None,
                     must_frame_world: None,
+                    view_box: None,
                     screen_framing: None,
                     reference_frame: CameraReferenceFrame::default(),
                     subject_down: None,

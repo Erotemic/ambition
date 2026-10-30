@@ -7,27 +7,30 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::held_items::{empty_hand, equip_held_spec, held_spec_for_item, item_in_hand};
 use ambition_platformer2d::combat::held_items::HeldItem;
-use ambition_platformer2d::items::{Inventory, Item, ItemCatalog, ItemCategory, OwnedItems};
+use ambition_platformer2d::items::{EquippedItems, Inventory, Item, ItemCatalog, ItemCategory, OwnedItems};
 use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
 
 /// What pressing confirm on a slot should do, given current ownership/equip state.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MenuAction {
-    /// Equip this weapon (attach its `HeldItem` + action set).
+    /// Equip this item: a held item goes in the hand; an ability's row is
+    /// worn and takes its slot.
     Equip(Item),
-    /// Unequip the currently-equipped weapon (restore the stashed action set).
+    /// Stow the held item in the hand.
     Unequip(Item),
     /// Consume one of a usable consumable (health / mana cell today).
     UseConsumable(Item),
-    /// Owned, but confirming does nothing yet (ability/key item, or an
-    /// unimplemented consumable). The menu still shows its detail.
+    /// Owned, but confirming does nothing: a key item, an unimplemented
+    /// consumable, or an ability already in effect on its slot. The menu still
+    /// shows its detail.
     Inspect(Item),
     /// Not in the player's possession — confirm is a no-op with feedback.
     NotOwned(Item),
 }
 
-/// Decide the action for confirming `item`, against the bag AND the hand.
-pub fn decide(items: &ItemCatalog, item: Item, owned: &Inventory<'_>) -> MenuAction {
+/// Decide the action for confirming `item`, against the bag and what the
+/// primary body has `equipped` (its hand and its worn abilities).
+pub fn decide(items: &ItemCatalog, item: Item, owned: &Inventory<'_>, equipped: EquippedItems) -> MenuAction {
     if !owned.has(item) {
         return MenuAction::NotOwned(item);
     }
@@ -36,32 +39,17 @@ pub fn decide(items: &ItemCatalog, item: Item, owned: &Inventory<'_>) -> MenuAct
         return MenuAction::Inspect(item);
     };
     match category {
-        ItemCategory::Weapon => {
-            if owned.is_equipped(item) {
-                MenuAction::Unequip(item)
-            } else {
-                MenuAction::Equip(item)
-            }
-        }
+        ItemCategory::Held if equipped.contains(item) => MenuAction::Unequip(item),
+        ItemCategory::Held => MenuAction::Equip(item),
+        // An ability in effect stays: one variant of a slot is always the
+        // body's, so to change it is to equip another one.
+        ItemCategory::Ability if items.equips(item) && !equipped.contains(item) => MenuAction::Equip(item),
+        ItemCategory::Ability => MenuAction::Inspect(item),
         ItemCategory::Consumable => match item {
             Item::HealthCell | Item::ManaCell => MenuAction::UseConsumable(item),
-            // Bomb / gold pouch / battery / chip have no in-menu use yet.
+            // The battery has no in-menu use yet.
             _ => MenuAction::Inspect(item),
         },
-        ItemCategory::Ability => {
-            // A "wired" ability — one backed by a HeldItemSpec, like Mark/Recall
-            // — equips like a weapon (toggle equip/unequip). Ability slots with
-            // no mechanic yet (Blink, Fly, …) stay inspect-only lore.
-            if items.held_item_id(item).is_some() {
-                if owned.is_equipped(item) {
-                    MenuAction::Unequip(item)
-                } else {
-                    MenuAction::Equip(item)
-                }
-            } else {
-                MenuAction::Inspect(item)
-            }
-        }
         ItemCategory::KeyItem | ItemCategory::Reserved => MenuAction::Inspect(item),
     }
 }
@@ -118,6 +106,13 @@ pub(crate) struct PrimaryHand<'w, 's> {
     // The catalog that names the item in the hand.
     items: ambition_platformer2d::items::ItemCatalogRead<'w>,
     held: Query<'w, 's, Option<&'static HeldItem>, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    // The abilities it wears.
+    worn: Query<
+        'w,
+        's,
+        Option<&'static ambition_platformer2d::characters::equipment::WornEquipment>,
+        (With<PlayerEntity>, With<PrimaryPlayer>),
+    >,
     #[cfg(feature = "portal")]
     guns: Query<
         'w,
@@ -142,6 +137,12 @@ impl PrimaryHand<'_, '_> {
         )
     }
 
+    /// What the primary player has equipped: the item in its hand and each
+    /// ability in effect on its slot.
+    pub(crate) fn equipped(&self) -> EquippedItems {
+        EquippedItems::of(self.items(), self.in_hand(), self.worn.single().ok().flatten())
+    }
+
     /// The item catalog the menu names items with: the same one
     /// [`Self::in_hand`] reads.
     pub(crate) fn items(&self) -> &ItemCatalog {
@@ -155,14 +156,23 @@ impl PrimaryHand<'_, '_> {
     }
 }
 
-/// Where a menu asks the simulation to use a consumable. The simulation
-/// spends the item and applies its effect on one stamped tick
-/// (`apply_item_uses`), so the menu writes neither the bag nor the body.
-pub(crate) type MenuItemUses<'w, 's> = ambition_platformer2d::platformer::host_intents::HostIntentWriter<
-    'w,
-    's,
-    ambition_platformer2d::items::ItemUseRequested,
->;
+/// Where a menu asks the simulation to use a consumable or to equip an
+/// ability. The simulation applies each request on one stamped tick
+/// (`apply_item_uses`, `apply_item_equips`), so the menu writes neither the
+/// bag nor the body.
+#[derive(bevy::ecs::system::SystemParam)]
+pub(crate) struct MenuItemRequests<'w, 's> {
+    uses: ambition_platformer2d::platformer::host_intents::HostIntentWriter<
+        'w,
+        's,
+        ambition_platformer2d::items::ItemUseRequested,
+    >,
+    equips: ambition_platformer2d::platformer::host_intents::HostIntentWriter<
+        'w,
+        's,
+        ambition_platformer2d::items::ItemEquipRequested,
+    >,
+}
 
 /// TEST SEAM: the primary player's hand, read from a bare `World` (the fact
 /// tests used to read off `OwnedItems::equipped`).
@@ -203,11 +213,11 @@ pub(crate) fn dispatch_item_confirm(
     hand: &PrimaryHand<'_, '_>,
     commands: &mut Commands,
     players: &mut MenuEffectPlayers<'_, '_>,
-    uses: &mut MenuItemUses<'_, '_>,
+    requests: &mut MenuItemRequests<'_, '_>,
 ) -> MenuAction {
     let items = hand.items();
-    let action = decide(items, item, &Inventory::new(owned, hand.in_hand()));
-    apply_menu_action(items, action, commands, players, uses);
+    let action = decide(items, item, &Inventory::new(owned, hand.in_hand()), hand.equipped());
+    apply_menu_action(items, action, commands, players, requests);
     action
 }
 
@@ -217,9 +227,13 @@ pub(crate) fn apply_menu_action(
     action: MenuAction,
     commands: &mut Commands,
     players: &mut MenuEffectPlayers<'_, '_>,
-    uses: &mut MenuItemUses<'_, '_>,
+    requests: &mut MenuItemRequests<'_, '_>,
 ) {
     match action {
+        // An ability is worn by the simulation, on its own tick.
+        MenuAction::Equip(item) if items.category(item) == Some(ItemCategory::Ability) => {
+            requests.equips.write(ambition_platformer2d::items::ItemEquipRequested { item });
+        }
         MenuAction::Equip(item) => {
             // The portal gun equips via its own component; other weapons via a
             // HeldItemSpec. Bail early if the item is neither. With the portal
@@ -271,7 +285,7 @@ pub(crate) fn apply_menu_action(
             }
         }
         MenuAction::UseConsumable(item @ (Item::HealthCell | Item::ManaCell)) => {
-            uses.write(ambition_platformer2d::items::ItemUseRequested { item });
+            requests.uses.write(ambition_platformer2d::items::ItemUseRequested { item });
         }
         MenuAction::UseConsumable(_) | MenuAction::Inspect(_) | MenuAction::NotOwned(_) => {}
     }
@@ -280,33 +294,31 @@ pub(crate) fn apply_menu_action(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_platformer2d::characters::equipment::WornEquipment;
+
+    fn catalog() -> &'static ItemCatalog {
+        ambition_platformer2d::items::test_item_catalog()
+    }
+
+    /// What confirming `item` does for a body with `hand` in its hand, wearing `worn`.
+    fn decide_for(item: Item, owned: &OwnedItems, hand: Option<Item>, worn: Option<&WornEquipment>) -> MenuAction {
+        decide(catalog(), item, &Inventory::new(owned, hand), EquippedItems::of(catalog(), hand, worn))
+    }
 
     #[test]
     fn unowned_item_is_a_noop_action() {
         let owned = OwnedItems::default();
-        assert_eq!(
-            decide(ambition_platformer2d::items::test_item_catalog(), Item::Axe, &Inventory::new(&owned, None)),
-            MenuAction::NotOwned(Item::Axe)
-        );
+        assert_eq!(decide_for(Item::Axe, &owned, None, None), MenuAction::NotOwned(Item::Axe));
     }
 
     #[test]
     fn weapon_toggles_between_equip_and_unequip() {
         let mut owned = OwnedItems::default();
-        owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::Axe, 1);
-        assert_eq!(
-            decide(ambition_platformer2d::items::test_item_catalog(), Item::Axe, &Inventory::new(&owned, None)),
-            MenuAction::Equip(Item::Axe)
-        );
-        assert_eq!(
-            decide(ambition_platformer2d::items::test_item_catalog(), Item::Axe, &Inventory::new(&owned, Some(Item::Axe))),
-            MenuAction::Unequip(Item::Axe)
-        );
+        owned.grant(catalog(), Item::Axe, 1);
+        assert_eq!(decide_for(Item::Axe, &owned, None, None), MenuAction::Equip(Item::Axe));
+        assert_eq!(decide_for(Item::Axe, &owned, Some(Item::Axe), None), MenuAction::Unequip(Item::Axe));
     }
 
-    /// A weapon picked up off the FLOOR has no stored copy; the hand is the
-    /// record, and the menu must offer to stow it rather than call it not
-    /// acquired (I1).
     /// THE DEFECT THE MIRROR HAD: a second seat picking up a gun-sword marked
     /// it equipped in the first seat's menu, because one process-global slot
     /// was written by every equip road. `PrimaryHand` reads the primary body
@@ -321,7 +333,7 @@ mod tests {
         }
         let mut app = App::new();
         app.init_resource::<Seen>();
-        app.insert_resource(ambition_platformer2d::items::test_item_catalog().clone());
+        app.insert_resource(catalog().clone());
         app.add_systems(Update, read);
         let sword = held_item_by_id("gun_sword").unwrap();
         // Seat two, wielding.
@@ -343,81 +355,67 @@ mod tests {
         assert_eq!(app.world().resource::<Seen>().0, Some(Some(Item::GunSword)));
     }
 
+    /// A weapon picked up off the FLOOR has no stored copy; the hand is the
+    /// record, and the menu must offer to stow it rather than call it not
+    /// acquired (I1).
     #[test]
     fn a_wielded_weapon_with_no_stored_copy_is_owned_and_stowable() {
         let owned = OwnedItems::default();
         assert_eq!(
-            decide(
-                ambition_platformer2d::items::test_item_catalog(),
-                Item::GunSword,
-                &Inventory::new(&owned, Some(Item::GunSword))
-            ),
+            decide_for(Item::GunSword, &owned, Some(Item::GunSword), None),
             MenuAction::Unequip(Item::GunSword)
         );
-        assert_eq!(
-            decide(ambition_platformer2d::items::test_item_catalog(), Item::GunSword, &Inventory::new(&owned, None)),
-            MenuAction::NotOwned(Item::GunSword)
-        );
+        assert_eq!(decide_for(Item::GunSword, &owned, None, None), MenuAction::NotOwned(Item::GunSword));
     }
 
     #[test]
     fn usable_consumables_use_others_inspect() {
         let mut owned = OwnedItems::default();
-        owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::HealthCell, 1);
-        owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::ManaCell, 1);
-        owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::DataChip, 1);
-        assert_eq!(
-            decide(ambition_platformer2d::items::test_item_catalog(), Item::HealthCell, &Inventory::new(&owned, None)),
-            MenuAction::UseConsumable(Item::HealthCell)
-        );
-        assert_eq!(
-            decide(ambition_platformer2d::items::test_item_catalog(), Item::ManaCell, &Inventory::new(&owned, None)),
-            MenuAction::UseConsumable(Item::ManaCell)
-        );
+        owned.grant(catalog(), Item::HealthCell, 1);
+        owned.grant(catalog(), Item::ManaCell, 1);
+        owned.grant(catalog(), Item::SpareBattery, 1);
+        assert_eq!(decide_for(Item::HealthCell, &owned, None, None), MenuAction::UseConsumable(Item::HealthCell));
+        assert_eq!(decide_for(Item::ManaCell, &owned, None, None), MenuAction::UseConsumable(Item::ManaCell));
         // Owned but no effect → inspect.
-        assert_eq!(
-            decide(ambition_platformer2d::items::test_item_catalog(), Item::DataChip, &Inventory::new(&owned, None)),
-            MenuAction::Inspect(Item::DataChip)
-        );
+        assert_eq!(decide_for(Item::SpareBattery, &owned, None, None), MenuAction::Inspect(Item::SpareBattery));
     }
 
     #[test]
-    fn abilities_and_key_items_inspect_when_owned() {
-        // Fly is still an unwired ability slot (no HeldItemSpec) → inspect-only.
+    fn key_items_and_placeholder_abilities_inspect_when_owned() {
+        // A placeholder ability has no row, so even a granted one equips nothing.
         let mut owned = OwnedItems::default();
-        owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::Fly, 1);
-        owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::MapFragment, 1);
-        assert_eq!(
-            decide(ambition_platformer2d::items::test_item_catalog(), Item::Fly, &Inventory::new(&owned, None)),
-            MenuAction::Inspect(Item::Fly)
-        );
-        assert_eq!(
-            decide(ambition_platformer2d::items::test_item_catalog(), Item::MapFragment, &Inventory::new(&owned, None)),
-            MenuAction::Inspect(Item::MapFragment)
-        );
+        owned.grant(catalog(), Item::AxeStance, 1);
+        owned.grant(catalog(), Item::MapFragment, 1);
+        assert_eq!(decide_for(Item::AxeStance, &owned, None, None), MenuAction::Inspect(Item::AxeStance));
+        assert_eq!(decide_for(Item::MapFragment, &owned, None, None), MenuAction::Inspect(Item::MapFragment));
     }
 
     #[test]
-    fn wired_ability_equips_like_a_weapon() {
-        // Mark/Recall is an Ability backed by a HeldItemSpec, so the menu lets
-        // you equip/unequip it (unlike Blink, a lore-only ability slot).
+    fn a_held_gauntlet_equips_like_a_weapon() {
         let mut owned = OwnedItems::default();
-        owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::MarkRecall, 1);
-        assert!(
-            ambition_platformer2d::items::test_item_catalog().held_item_id(Item::MarkRecall).is_some(),
-            "Mark/Recall is wired"
-        );
+        owned.grant(catalog(), Item::MarkRecall, 1);
+        assert!(catalog().held_item_id(Item::MarkRecall).is_some(), "Mark/Recall is wired");
+        assert_eq!(decide_for(Item::MarkRecall, &owned, None, None), MenuAction::Equip(Item::MarkRecall));
         assert_eq!(
-            decide(ambition_platformer2d::items::test_item_catalog(), Item::MarkRecall, &Inventory::new(&owned, None)),
-            MenuAction::Equip(Item::MarkRecall)
-        );
-        assert_eq!(
-            decide(
-                ambition_platformer2d::items::test_item_catalog(),
-                Item::MarkRecall,
-                &Inventory::new(&owned, Some(Item::MarkRecall))
-            ),
+            decide_for(Item::MarkRecall, &owned, Some(Item::MarkRecall), None),
             MenuAction::Unequip(Item::MarkRecall)
         );
+    }
+
+    /// An ability variant equips into its slot, and the variant in effect on
+    /// the slot stays: to change it is to equip another one.
+    #[test]
+    fn an_ability_variant_equips_until_it_is_in_effect() {
+        let owned = OwnedItems::starter(catalog());
+        assert_eq!(decide_for(Item::EyeLaser, &owned, None, None), MenuAction::Equip(Item::EyeLaser));
+        assert_eq!(
+            decide_for(Item::Fireball, &owned, None, None),
+            MenuAction::Inspect(Item::Fireball),
+            "the body's own projectile is in effect while nothing holds the slot"
+        );
+        let mut worn = WornEquipment::default();
+        worn.equip(catalog().wears(Item::EyeLaser).unwrap().clone());
+        assert_eq!(decide_for(Item::EyeLaser, &owned, None, Some(&worn)), MenuAction::Inspect(Item::EyeLaser));
+        assert_eq!(decide_for(Item::Fireball, &owned, None, Some(&worn)), MenuAction::Equip(Item::Fireball));
     }
 }

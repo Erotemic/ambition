@@ -24,7 +24,7 @@ use ambition_platformer2d::menu::{
     MenuTextAlign,
 };
 
-use ambition_platformer2d::items::{Item, ItemCatalog, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
+use ambition_platformer2d::items::{EquippedItems, Item, ItemCatalog, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition_platformer2d::persistence::settings::{UserSettings, VisualQualityProfile};
 use ambition_platformer2d::settings_menu::settings::{SettingsOption, SettingsOptionId, SettingsOptionKind};
 use ambition_platformer2d::settings_menu::system::{
@@ -122,7 +122,7 @@ impl MenuPage {
 /// `Action` controls so Bevy picking + directional focus can dispatch them. The
 /// LEFT button turns the cube left → brings the viewer-left page to front
 /// ([`MenuPage::on_viewer_left`]); mirrors the demo's `add_edge_buttons`.
-fn add_edge_buttons(model: &mut MenuPageModel<MenuPage, MenuPageAction>, page: MenuPage) {
+pub(crate) fn add_edge_buttons(model: &mut MenuPageModel<MenuPage, MenuPageAction>, page: MenuPage) {
     // `selected: false` — the focus highlight is applied IN PLACE from the live
     // cursor (`kaleidoscope_sync_focus_visuals`), not baked here, so a hover does
     // not rebuild the face (which would drop a `Pointer<Click>`).
@@ -156,7 +156,7 @@ fn page_label(page: MenuPage) -> String {
 }
 
 /// The host's line `key` (`host_text.ron`): the menu's own words.
-fn line(key: &str) -> String {
+pub(crate) fn line(key: &str) -> String {
     host().line(key).to_string()
 }
 
@@ -181,9 +181,29 @@ pub struct MenuLook {
     pub body: [f32; 4],
     /// The line of a page that has no content yet.
     pub placeholder_body: [f32; 4],
+    /// The Map page's colours.
+    pub map: MapLook,
     /// The 3D cube's own colours: its controls, scroll bars, frame and icon
     /// tints.
     pub cube: CubeLook,
+}
+
+/// The Map page's colours (`map_page`), each red, green, blue and alpha.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MapLook {
+    pub frame: [f32; 4],
+    pub room: [f32; 4],
+    pub room_here: [f32; 4],
+    pub room_unvisited: [f32; 4],
+    pub door: [f32; 4],
+    pub door_marked: [f32; 4],
+    pub label: [f32; 4],
+    /// The name of the room the player is in, on its gold.
+    pub label_here: [f32; 4],
+    /// Pins: someone to talk to, a shrine.
+    pub pin_resident: [f32; 4],
+    pub pin_shrine: [f32; 4],
 }
 
 /// The 3D cube's colours (`KaleidoscopeLook`), each red, green, blue and
@@ -415,12 +435,12 @@ pub enum MenuPageAction {
 /// A short, cell-sized verb hint for an item, mirroring the demo's
 /// `item_slot_detail` (e.g. "equip" / "use" / "key item"). Deliberately NOT the
 /// full description — the description lives in the detail panel.
-fn cell_hint(owned: &OwnedItems, items: &ItemCatalog, equipped: Option<Item>, item: Item) -> &'static str {
+fn cell_hint(owned: &OwnedItems, items: &ItemCatalog, equipped: EquippedItems, item: Item) -> &'static str {
     if !owned.has(item) {
         "--"
-    } else if equipped == Some(item) {
+    } else if equipped.contains(item) {
         "equipped"
-    } else if items.held_item_id(item).is_some() {
+    } else if items.equips(item) {
         "equip"
     } else {
         "use"
@@ -444,7 +464,7 @@ fn cell_label(name: &str) -> String {
 pub fn items_spec(
     owned: &OwnedItems,
     items: &ItemCatalog,
-    equipped: Option<Item>,
+    equipped: EquippedItems,
 ) -> ItemsOnlyPageSpec<MenuPage, MenuPageAction> {
     let mut spec = ItemsOnlyPageSpec::new(MenuPage::Items, line("menu.items.title"))
         .with_grid(ITEM_GRID_ROWS, ITEM_GRID_COLS)
@@ -465,17 +485,22 @@ pub fn items_spec(
             // The description is rendered once, in the detail panel.
             node = node
                 .detail(cell_hint(owned, items, equipped, item))
-                .equipped(equipped == Some(item));
+                .equipped(equipped.contains(item));
             // Render the item's sprite in the cell when it has one; the catalog
             // returns `None` for items with no authored art, which keeps the text
             // label (the lib falls back to text when `icon` is `None`). The item's
             // name still shows in the detail panel either way.
-            if let Some(icon) = item.icon_path() {
+            if let Some(icon) = items.icon(item) {
                 node = node.icon(icon);
             }
+            // A stack shows how many the bag holds (a stock of bombs, the
+            // health cells); a unique item has no count to show.
+            if owns && items.stacks(item) {
+                node = node.count(owned.count(item));
+            }
             if owns {
-                // Held-item weapons/abilities equip; everything else "uses".
-                let (action, label) = if items.held_item_id(item).is_some() {
+                // Held items and abilities equip; everything else "uses".
+                let (action, label) = if items.equips(item) {
                     (MenuPageAction::Equip(item), line("menu.items.equip"))
                 } else {
                     (MenuPageAction::Use(item), line("menu.items.use"))
@@ -494,7 +519,7 @@ pub fn items_spec(
 pub fn build_items_page(
     owned: &OwnedItems,
     items: &ItemCatalog,
-    equipped: Option<Item>,
+    equipped: EquippedItems,
 ) -> MenuPageModel<MenuPage, MenuPageAction> {
     let mut model = items_spec(owned, items, equipped).into_page_model();
     add_detail_panel(&mut model);
@@ -538,7 +563,7 @@ fn add_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>) {
 pub fn items_detail_slot_text(
     owned: &OwnedItems,
     items: &ItemCatalog,
-    equipped: Option<Item>,
+    equipped: EquippedItems,
     focus: MenuFocus,
 ) -> Vec<(u32, String)> {
     let item = Item::from_index(focus.item_index()).unwrap_or(Item::ALL[0]);
@@ -557,7 +582,7 @@ pub fn items_detail_slot_text(
 fn detail_lines(
     owned: &OwnedItems,
     items: &ItemCatalog,
-    equipped: Option<Item>,
+    equipped: EquippedItems,
     item: Item,
 ) -> Vec<String> {
     let mut lines = Vec::new();
@@ -570,9 +595,9 @@ fn detail_lines(
     lines.push(String::new());
     let status = if !owned.has(item) {
         line("menu.items.not_owned")
-    } else if equipped == Some(item) {
+    } else if equipped.contains(item) {
         line("menu.items.equipped")
-    } else if items.held_item_id(item).is_some() {
+    } else if items.equips(item) {
         line("menu.items.activate_to_equip")
     } else {
         line("menu.items.activate_to_use")
@@ -589,7 +614,7 @@ fn detail_lines(
 pub fn build_inventory_pages(
     owned: &OwnedItems,
     items: &ItemCatalog,
-    equipped: Option<Item>,
+    equipped: EquippedItems,
     focus: MenuFocus,
     settings: &UserSettings,
     radio: &RadioSnapshot,
@@ -610,6 +635,7 @@ pub fn build_inventory_pages(
         system_window_start,
         open_entry,
         None,
+        crate::menu::map_page::build_map_page(None),
     )
 }
 
@@ -617,7 +643,7 @@ pub fn build_inventory_pages(
 pub fn build_inventory_pages_with_quality_prompt(
     owned: &OwnedItems,
     items: &ItemCatalog,
-    equipped: Option<Item>,
+    equipped: EquippedItems,
     focus: MenuFocus,
     settings: &UserSettings,
     radio: &RadioSnapshot,
@@ -627,14 +653,12 @@ pub fn build_inventory_pages_with_quality_prompt(
     system_window_start: usize,
     open_entry: Option<SystemMenuEntryId>,
     pending_quality: Option<VisualQualityProfile>,
+    // The Map page, as the game draws it (`map_page::MapPageSource::page`).
+    map_page: MenuPageModel<MenuPage, MenuPageAction>,
 ) -> Vec<MenuPageModel<MenuPage, MenuPageAction>> {
     vec![
         build_items_page(owned, items, equipped),
-        placeholder_page(
-            MenuPage::Map,
-            &line("menu.map.title"),
-            &line("menu.map.placeholder"),
-        ),
+        map_page,
         placeholder_page(
             MenuPage::Quest,
             &line("menu.quest.title"),

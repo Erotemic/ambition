@@ -31,12 +31,20 @@ SCENERY = {
         ("village_notice_board", 2186, 660),
         ("village_watch_house", 2440, 310),
     ],
+    # The Bamboo Pass (`targets/props/ninja_pass_props.py`, drawn on the
+    # room's numbers): each piece at its frame.
+    "ninja_bamboo_pass": [("pass_bamboo", 0, 300), ("pass_bridge", 870, 770), ("pass_lookout", 1530, 500), ("pass_falls", 1880, 390),
+                          ("pass_scoreboard", 200, 722)],
     "ninja_village_forest": [
         # Cedar i stands at the room's branch i (x i*384, +16 for the first;
         # y 384 + 64 i): its frame is 40 west of the branch and 300 over it.
-        *[(f"village_cedar_{i}", i * BRANCH_STEP + (16 if i == 0 else 0) - 40, 384 + 64 * i - 300) for i in range(7)],
+        *[(f"village_cedar_{i}", i * BRANCH_STEP + (16 if i == 0 else 0) - 40, 448 + 64 * i - 300) for i in range(6)],
         ("village_clan_gatehouse", 2590, 590),
+        # The charcoal burner's camp (`ninja_forest_props.py`, room coordinates).
+        ("forest_kiln_camp", 330, FOREST_FLOOR - 200),
     ],
+    # Ume's tea house inside (`ninja_tea_room_props.py`, room coordinates).
+    "ninja_village_tea_room": [("tea_room", 16, 32)],
     "ninja_village_dojo": [
         ("village_dojo_entry", 16, 32),
         ("village_dojo_exam", 528, 32),

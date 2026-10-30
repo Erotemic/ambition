@@ -95,7 +95,7 @@
             items: [
                 (item: "healthcell", count: 3),
                 (item: "sparebattery", count: 2),
-                (item: "datachip", count: 1),
+                (item: "manacell", count: 1),
             ],
         )),
     ),
@@ -132,7 +132,7 @@
             banner: "CONSIGNMENT 0447 CLEARED — the Remainder pays its freight fee",
             items: [
                 (item: "sparebattery", count: 1),
-                (item: "goldpouch", count: 1),
+                (item: "healthcell", count: 2),
             ],
         )),
     ),
@@ -213,7 +213,7 @@
         reward: Some((
             banner: "PAGE ELEVEN RETURNED — Ines pays from the clerk's tin",
             items: [
-                (item: "goldpouch", count: 1),
+                (item: "manacell", count: 2),
                 (item: "healthcell", count: 1),
             ],
         )),

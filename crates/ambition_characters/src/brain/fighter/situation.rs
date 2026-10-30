@@ -81,9 +81,28 @@ pub fn classify(view: Perceived<'_>) -> Situation {
 
     // Recovery means outside the stage or airborne with published terrain and no
     // landing surface below. An empty terrain view means "unknown", not "void".
+    //
+    // ⛔ A SOLID OPEN FOR THIS BODY IS NOT TERRAIN TO IT. A gate floor this
+    // body passes through is in the view (other bodies meet it) and counted
+    // as "terrain is published" here, so a body above the room with only an
+    // open floor in sight read Recovery where over the bare void it read
+    // Disadvantage — `a_fighter_over_a_floor_open_for_it_plays_as_over_the_void`,
+    // once the brain saw its own body now (Q167). The floor queries already
+    // skip it (`stands_on`); this count now asks the same question.
+    let published_terrain = view.terrain.iter().any(|solid| !solid.open_for_self);
     let nothing_to_land_on =
-        !view.terrain.is_empty() && !view.self_view.on_ground && view.ground_below().is_none();
-    if view.self_offstage() || nothing_to_land_on {
+        published_terrain && !view.self_view.on_ground && view.ground_below().is_none();
+    // ABOVE the room is not off the stage (`StageView::offstage`) — unless it
+    // is past the DEATH LINE's rise side, which a stage that authors a rise
+    // margin puts well above its room and a stage that authors none leaves
+    // open. A body up there is gone, and nothing about the tick matters.
+    let past_the_rise_line = me.pos.y < view.death_line().min.y;
+    // A HELPLESS BODY IS RECOVERING WHEREVER IT IS. It cannot act until it
+    // lands, so a drift is its whole answer, and the stage is the only place
+    // to drift to. Measured 2026-10-30 (pointed vs pugnacious polygon, rung
+    // 5, seed 0): a brawler helpless 500 px above the stage read "ground
+    // below", steered at its foe off the left side, and fell past the ledge.
+    if view.self_offstage() || past_the_rise_line || nothing_to_land_on || me.helpless {
         return Situation::Recovery;
     }
 

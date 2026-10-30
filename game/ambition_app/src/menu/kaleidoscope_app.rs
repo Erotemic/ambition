@@ -31,7 +31,7 @@ use ambition_menu_kaleidoscope::{
 use bevy::prelude::*;
 
 #[cfg(feature = "kaleidoscope_menu")]
-use crate::menu::effects::{MenuEffectPlayers, MenuItemUses, PrimaryHand};
+use crate::menu::effects::{MenuEffectPlayers, MenuItemRequests, PrimaryHand};
 #[cfg(feature = "kaleidoscope_menu")]
 use crate::menu::model::{
     build_inventory_pages_with_quality_prompt, scroll_fraction_to_window_start,
@@ -1196,7 +1196,7 @@ pub(crate) fn kaleidoscope_menu_action_activated(
     mut quality_confirm: ResMut<VisualQualityConfirmState>,
     mut commands: Commands,
     mut players: MenuEffectPlayers,
-    mut uses: MenuItemUses,
+    mut requests: MenuItemRequests,
     mut sfx: SfxWriter,
     mut system: SystemMenuParams,
 ) {
@@ -1220,7 +1220,7 @@ pub(crate) fn kaleidoscope_menu_action_activated(
             &mut close_menu,
             &mut commands,
             &mut players,
-            &mut uses,
+            &mut requests,
             &mut sfx,
             &mut system,
         );
@@ -1538,7 +1538,7 @@ pub(crate) fn owned_item_action(
     if !owned.has(item) {
         return None;
     }
-    Some(if items.held_item_id(item).is_some() {
+    Some(if items.equips(item) {
         MenuPageAction::Equip(item)
     } else {
         MenuPageAction::Use(item)
@@ -2256,7 +2256,7 @@ fn kaleidoscope_sync_detail_text(
     // Build the slot→string map for whichever face's detail panel is live. Only the
     // active page carries dynamic-text slots, so a single map covers the panel.
     let slot_text: Vec<(u32, String)> = match active_page {
-        MenuPage::Items => items_detail_slot_text(&owned, hand.items(), hand.in_hand(), cursor.focus),
+        MenuPage::Items => items_detail_slot_text(&owned, hand.items(), hand.equipped(), cursor.focus),
         MenuPage::System => match cache.model.as_ref() {
             Some(model) => {
                 let focused = match cursor.focus {

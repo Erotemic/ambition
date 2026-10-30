@@ -97,7 +97,7 @@ pub fn tick_fighter(
     // before the held frame is emitted and before the pending press matures:
     // a press decided while free is stale the moment a relationship exists, and
     // maturing it would spend an APM token on a button that cannot fire.
-    if let Some(frame) = capture_context_frame(snapshot) {
+    if let Some(frame) = capture_context_frame(snapshot, state.perception.perceive()) {
         state.pending_press = None;
         state.held = frame.clone();
         *out = frame;
@@ -119,6 +119,7 @@ pub fn tick_fighter(
     // would leave the OTHER stuck down across a switch — a brain that charged a
     // smash and then chose a special would hold Attack forever.
     state.charge_hold_ticks = state.charge_hold_ticks.saturating_sub(1);
+    release_a_charge_the_foe_is_leaving(cfg, state, snapshot);
     hold_the_committed_button(state, &mut frame);
 
     if state.ticks_until_decision > 0 {
@@ -127,7 +128,20 @@ pub fn tick_fighter(
 
     watch_the_own_attack(state, snapshot);
 
+    // THE INPUT BUFFER. A press that matures while the body is in hitstun is
+    // HELD, not spent: the gate would eat the edge, and the emission below is
+    // open-loop — it charges an APM token and arms `OwnAttack` on the
+    // assumption the press reached the body. See `reeling::still_reeling`.
+    let reeling = state
+        .perception
+        .perceive()
+        .is_some_and(super::reeling::still_reeling);
+
     match state.pending_press {
+        Some(PendingAttack { ticks: 0, .. }) if reeling => {
+            // Buffered. It comes out on the first tick the stun has run down,
+            // or the next decision replaces it with what THAT tick wants.
+        }
         Some(PendingAttack {
             ticks: 0,
             binding,
@@ -271,7 +285,61 @@ fn refuses(state: &FighterState, binding: ambition_characters::brain::attack_kit
 /// two failures this replaces. A held body struggles — that is its whole agency
 /// and the only thing it may ask for — and a holding body spends the hold rather
 /// than standing in it until the clock runs out.
-fn capture_context_frame(snapshot: &BrainSnapshot) -> Option<ActorControlFrame> {
+/// The percent past which a throw is thrown to KILL: toward the nearer blast
+/// line, whichever way this body faces.
+const KILL_THROW_FRAC: f32 = 0.6;
+/// The percent past which a throw SETS UP: back-thrown off the stage when the
+/// edge is behind, up-thrown into a juggle when it is not.
+const SETUP_THROW_FRAC: f32 = 0.3;
+/// Floor room on both sides past which a low-percent throw is a down throw: a
+/// tech chase needs stage to chase on.
+const TECH_CHASE_ROOM_PX: f32 = 2.0 * ambition_characters::brain::fighter::situation::CORNER_MARGIN_PX;
+
+/// WHICH THROW, from where the hold is and how hurt the captive is — all four
+/// are reachable and each has a situation that is its own.
+///
+/// ⛔ The forward throw was the only one ever thrown: the captor's stick was
+/// forward on every hold (2026-10-29 census). The genre's throws are a
+/// decision per hold — kill, set up, juggle, chase — and this reads the
+/// decision off the same perception every other choice uses. Mirror-safe by
+/// construction: "forward" and "back" are relative to the captor's facing and
+/// the nearer edge is asked on the world axis both seats share (Q49).
+pub fn throw_direction(
+    view: ambition_characters::perception::Perceived<'_>,
+) -> ambition_characters::actor::attack_gesture::AttackDir {
+    use ambition_characters::actor::attack_gesture::AttackDir;
+    let Some(foe) = view.nearest_hostile() else {
+        return AttackDir::Forward;
+    };
+    let me = &view.self_view;
+    let facing = if me.facing < 0.0 { -1.0 } else { 1.0 };
+    let room_ahead = view.stage.room_toward(me.pos, facing);
+    let room_behind = view.stage.room_toward(me.pos, -facing);
+    let edge_ahead = room_ahead <= room_behind;
+    let percent = foe.damage_frac();
+    if percent >= KILL_THROW_FRAC {
+        if edge_ahead {
+            AttackDir::Forward
+        } else {
+            AttackDir::Back
+        }
+    } else if percent >= SETUP_THROW_FRAC {
+        if edge_ahead {
+            AttackDir::Up
+        } else {
+            AttackDir::Back
+        }
+    } else if room_ahead.min(room_behind) >= TECH_CHASE_ROOM_PX {
+        AttackDir::Down
+    } else {
+        AttackDir::Up
+    }
+}
+
+fn capture_context_frame(
+    snapshot: &BrainSnapshot,
+    view: Option<ambition_characters::perception::Perceived<'_>>,
+) -> Option<ActorControlFrame> {
     if snapshot.captured {
         let mut frame = ActorControlFrame::neutral();
         // no APM token. Mashing out of a grab is the one thing a person
@@ -293,15 +361,22 @@ fn capture_context_frame(snapshot: &BrainSnapshot) -> Option<ActorControlFrame> 
     frame.attack_axis = if snapshot.pummels_landed >= 1 {
         // MIRRORED: `attack_dir_from_axis` reads `axis.x * facing`, so a bare
         // `+x` is *forward* only for a right-facing body. See `aim_the_stick`.
+        use ambition_characters::actor::attack_gesture::{AttackDir, TILT_DEFLECTION};
         let facing = if snapshot.actor_facing < 0.0 {
             -1.0
         } else {
             1.0
         };
-        ae::LocalAxes::new(
-            ambition_characters::actor::attack_gesture::TILT_DEFLECTION * facing,
-            0.0,
-        )
+        // Up reads as `-y`. Forward stays the answer when no view reached
+        // this brain yet (the first tick), which is what it always threw.
+        match view.map_or(AttackDir::Forward, throw_direction) {
+            AttackDir::Back => ae::LocalAxes::new(-TILT_DEFLECTION * facing, 0.0),
+            AttackDir::Up => ae::LocalAxes::new(0.0, -TILT_DEFLECTION),
+            AttackDir::Down => ae::LocalAxes::new(0.0, TILT_DEFLECTION),
+            AttackDir::Forward | AttackDir::Neutral => {
+                ae::LocalAxes::new(TILT_DEFLECTION * facing, 0.0)
+            }
+        }
     } else {
         ae::LocalAxes::ZERO
     };
@@ -335,7 +410,14 @@ fn decide(
     //
     // It no longer does — refusing was right about attacking and wrong about the repertoire,
     // since a genre fighter's answer to being offstage IS a move.)
-    if situation == Situation::Recovery {
+    //
+    // ⭐ AND THE SAME DROP WHILE REELING, for the buffer's sake. `tick_fighter`
+    // holds a matured press through hitstun; a decision made inside the stun
+    // must be free to replace it, or the press that comes out on the first
+    // actionable tick is the one decided BEFORE the hit — a jab aimed at a foe
+    // who has since launched this body across the stage. The buffered press is
+    // always the latest decision's, which is what a person's buffer holds too.
+    if situation == Situation::Recovery || super::reeling::still_reeling(view) {
         state.pending_press = None;
     }
 
@@ -362,6 +444,34 @@ fn decide(
         &snapshot.attack_kit,
         &cfg.profile.utility_weights,
     );
+    // THE RANKING'S OWN TRACE (`AMBITION_RANK_TRACE=1`): the top four admitted
+    // attacks with the features behind their scores, one line each. The
+    // decision trace says what was chosen; this says what it beat and by
+    // what. `scripts`-side reader: `rank_hist.py` in the fighter-brain notes.
+    static RANK_TRACE: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
+        std::env::var("AMBITION_RANK_TRACE").is_ok_and(|value| value != "0")
+    });
+    if *RANK_TRACE {
+        let foe_pct = view.nearest_hostile().map_or(0.0, |f| f.damage_frac());
+        if let Some(foe) = view.nearest_hostile() {
+            let a = &options.admission;
+            eprintln!(
+                "[admit] {:?} {:?} gap={:.0} candidates={} admitted={} off_axis={} miss={:.0} along={:.0} across={:.0} me_ground={} foe_ground={} foe_phase={:?} stale={:.2}",
+                snapshot.subject, situation,
+                ambition_characters::brain::fighter::options::side_gap(&view),
+                a.candidates, a.admitted, a.off_axis, a.nearest_miss_px, a.miss_along, a.miss_across,
+                view.self_view.on_ground, foe.on_ground, foe.phase, view.staleness_s()
+            );
+        }
+        for (rank, a) in options.attacks.iter().take(4).enumerate() {
+            let f = &a.features;
+            eprintln!(
+                "[rank] {:?} {:?} pct={:.2} #{rank} {} score={:.3} reach={:.2} fa={:.2} kill={:.2} risk={:.2} payoff={:.2} cap={:.2} disp={:.2}",
+                snapshot.subject, situation, foe_pct, a.move_id, a.score, f.reach_fit, f.frame_advantage,
+                f.kill_potential, f.stage_risk, f.expected_payoff, f.capture_value, f.displacement_value
+            );
+        }
+    }
 
     // THE ROLLOUT PREDICTS THE BODY IT IS IN, not a default one. The
     // config's tuning carries the foe assumptions and the hit response; the
@@ -492,13 +602,28 @@ fn decide(
         .as_ref()
         .map(|refined| refined.unmodelled_movement.as_slice())
         .unwrap_or(&[]);
-    let chosen = pick_movement(
+    // ⚠ UNCONDITIONAL, like the jitter's second draw: every decision spends
+    // exactly one sample on the mix, so the stream is a function of the tick
+    // count and not of what the draws were.
+    let mix = next_signed_unit(&mut state.noise).abs();
+    // The attack's own draw, taken here beside the movement's so both are
+    // unconditional; the grab or dash attack beside the jab on an approach.
+    let attack_mix = next_signed_unit(&mut state.noise).abs();
+    let mix_margin = MIX_MARGIN_BASE + MIX_MARGIN_PER_NOISE * cfg.profile.execution_noise.max(0.0);
+    // How long the foe cannot answer: what the ranking priced its advantage
+    // against, and what a charge is bounded by.
+    let commitment = view.nearest_hostile().map_or(0.0, |foe| {
+        ambition_characters::brain::fighter::options::foe_commitment(&view, foe)
+    });
+    let chosen = pick_movement_mixed(
         &options.movement,
         vetoed,
         unmodelled,
         refined
             .as_ref()
             .and_then(|refined| refined.least_bad_movement),
+        mix,
+        mix_margin,
     );
     if let Some(verb) = chosen {
         apply_movement(verb, view, frame);
@@ -542,11 +667,23 @@ fn decide(
             .and_then(|refined| refined.binding.zip(refined.move_id.clone()))
             .filter(|(binding, _)| !refuses(state, *binding))
             .or_else(|| {
-                options
+                // The ranking's best, or its runner-up by the same draw the
+                // movement uses: a grab beside a jab, a dash attack beside a
+                // tilt, priced near-equal by the situation.
+                let mut ranked = options
                     .attacks
                     .iter()
-                    .find(|attack| !refuses(state, attack.binding))
-                    .map(|attack| (attack.binding, attack.move_id.clone()))
+                    .filter(|attack| !refuses(state, attack.binding));
+                let best = ranked.next()?;
+                // Across VERBS only: the grab or the special beside the basic.
+                // Two basics a hair apart are the ranking's call, which the
+                // refusal tests pin as an argmax.
+                let runner_up = ranked
+                    .next()
+                    .filter(|attack| attack.binding.verb != best.binding.verb)
+                    .map(|attack| (attack, attack.score));
+                let picked = mixed_pick(best, best.score, runner_up, attack_mix, mix_margin);
+                Some((picked.binding, picked.move_id.clone()))
             })
             // ⭐⭐ **AND WHEN NOTHING IN THE KIT CAN REACH THEM, A MOVE THAT
             // TRAVELS IS STILL AN ANSWER — but only because it TRAVELS THE
@@ -643,8 +780,9 @@ fn decide(
             binding: *binding,
             hold_ticks: match binding.verb {
                 ambition_characters::brain::attack_kit::AttackVerb::Smash => {
-                    super::charge::hold_ticks(
+                    super::charge::hold_ticks_within(
                         situation,
+                        commitment,
                         // ⛔ THE MOVE'S OWN HOLD POINT, not its startup. The charge
                         // begins where the timeline FREEZES, and a move that
                         // resolves no policy never freezes at all — its whole
@@ -696,8 +834,9 @@ fn decide(
                 // special that does not charge is a no-op — exactly as it is
                 // for a smash that does not.
                 ambition_characters::brain::attack_kit::AttackVerb::Special => {
-                    super::charge::hold_ticks(
+                    super::charge::hold_ticks_within(
                         situation,
+                        commitment,
                         options
                             .attacks
                             .iter()
@@ -843,16 +982,88 @@ struct DecisionSummary<'a, 'k> {
 ///
 /// ⚠ TIER 3 IS ALSO THE NO-ROLLOUT PATH. With rollouts off nothing is judged and
 /// nothing is vetoed, so L2's order comes straight through tier 3 unchanged.
+/// How far under the top movement score an option still gets picked by the
+/// mix draw, at zero execution noise. Rung 9's `0.05` noise widens it to
+/// `0.055`; rung 1's `0.40` to `0.09`. The options that enter the mix are
+/// the ones the situation priced as near-equals, 0.05 apart: the spot dodge
+/// beside the shield, the short hop beside the walk-in at spacing.
+///
+/// ⛔ UNDER 0.1 AT EVERY RUNG. The authored movement scores step by 0.1
+/// between options that are NOT a mix — Approach 0.5 over Retreat 0.4 in
+/// neutral, Approach 0.8 over the roll at 0.7 in advantage. A first cut of
+/// `0.08 + 0.3 × noise` was 0.14 at rung 5 and drew Retreat or the roll half
+/// the time: measured 2026-10-29 (pointed vs pugnacious, 60 s), moves
+/// started 23/26 → 7/8 and damage 51/24 → 9/0, with Neutral-Retreat
+/// decisions 5 → 23-28 and Advantage-Dodge 2 → 12-15 in the 30 s trace.
+const MIX_MARGIN_BASE: f32 = 0.05;
+const MIX_MARGIN_PER_NOISE: f32 = 0.1;
+
+/// The runner-up's share of the draw, from how far under the best it sits:
+/// half the draws at a dead heat, none at the margin, a line between. A
+/// uniform draw over everything inside the margin was measured to take the
+/// 0.05-under short hop on every other decision at spacing (35 hops in 30 s,
+/// the body airborne for most of its neutral); at `0.05` under a `0.07`
+/// margin this gives it one decision in seven.
+fn runner_up_share(gap: f32, margin: f32) -> f32 {
+    if margin <= 0.0 || gap < 0.0 || gap > margin {
+        return 0.0;
+    }
+    0.5 * (1.0 - gap / margin)
+}
+
+/// The best, or the runner-up when the draw falls inside its share.
+fn mixed_pick<T: Copy>(
+    best: T,
+    best_score: f32,
+    runner_up: Option<(T, f32)>,
+    mix: f32,
+    margin: f32,
+) -> T {
+    match runner_up {
+        Some((second, score))
+            if mix.clamp(0.0, 1.0) < runner_up_share(best_score - score, margin) =>
+        {
+            second
+        }
+        _ => best,
+    }
+}
+
+/// THE MIX, and the one place it is drawn. `mix` is a unit sample from the
+/// seat's own stream, taken unconditionally every decision so the stream's
+/// consumption never depends on what it drew. Among the eligible options whose
+/// score is within `margin` of the best, the draw picks one; a margin of zero
+/// is the old argmax.
+/// The argmax, which the cadence and APM tests pin; the decision draws through
+/// [`pick_movement_mixed`].
+#[cfg(test)]
 fn pick_movement(
     movement: &[ambition_characters::brain::fighter::options::MoveOption],
     vetoed: &[MovementVerb],
     unmodelled: &[MovementVerb],
     least_bad: Option<MovementVerb>,
 ) -> Option<MovementVerb> {
-    movement
+    pick_movement_mixed(movement, vetoed, unmodelled, least_bad, 0.0, 0.0)
+}
+
+fn pick_movement_mixed(
+    movement: &[ambition_characters::brain::fighter::options::MoveOption],
+    vetoed: &[MovementVerb],
+    unmodelled: &[MovementVerb],
+    least_bad: Option<MovementVerb>,
+    mix: f32,
+    margin: f32,
+) -> Option<MovementVerb> {
+    let eligible: Vec<_> = movement
         .iter()
-        .find(|option| !vetoed.contains(&option.verb) && !unmodelled.contains(&option.verb))
-        .map(|option| option.verb)
+        .filter(|option| !vetoed.contains(&option.verb) && !unmodelled.contains(&option.verb))
+        .collect();
+    eligible
+        .first()
+        .map(|best| {
+            let runner_up = eligible.get(1).map(|option| (option.verb, option.score));
+            mixed_pick(best.verb, best.score, runner_up, mix, margin)
+        })
         .or(least_bad)
         .or_else(|| {
             movement
@@ -975,6 +1186,50 @@ fn charge_gesture_of(
     }
 }
 
+/// ⛔ A CHARGE IS LET GO WHILE THE FOE IS STILL IN IT. The hold is planned at
+/// the press (`charge::hold_ticks_within`), but the move was admitted on its
+/// UNCHARGED timing and the foe keeps moving through the hold. So each tick of
+/// a hold asks the admission's question again
+/// ([`strike_meets_foe`](ambition_characters::brain::fighter::options::strike_meets_foe))
+/// for a strike released now, and releases when the foe meets it now but
+/// would not one decision later: the last moment the charge still lands. A
+/// foe that stays inside keeps the charge growing; one that never enters
+/// changes nothing.
+///
+/// Measured 2026-10-30 (pugnacious mirror, rung 5, `--runs 3`): the charged
+/// neutral special was thrown 55 times and whiffed 47, held a median 14 ticks
+/// at its hold point in the traced match while its foe walked through it.
+fn release_a_charge_the_foe_is_leaving(
+    cfg: &FighterCfg,
+    state: &mut FighterState,
+    snapshot: &BrainSnapshot,
+) {
+    if state.charge_hold_ticks == 0 {
+        return;
+    }
+    let Some(own) = state.own_attack else {
+        return;
+    };
+    let Some(candidate) = snapshot.attack_kit.iter().find(|c| c.binding == own.binding) else {
+        return;
+    };
+    let frames = &candidate.frames;
+    let Some(hold_at) = frames.charge_hold_at_s else {
+        return;
+    };
+    let Some(view) = state.perception.perceive() else {
+        return;
+    };
+    let strikes_in = (frames.threat_live_at_s.unwrap_or(frames.startup_s) - hold_at).max(0.0);
+    let next_decision = cfg.interval() as f32 / cfg.tick_hz.max(1.0);
+    use ambition_characters::brain::fighter::options::strike_meets_foe;
+    let meets_now = strike_meets_foe(&view, frames, strikes_in) == Some(true);
+    let meets_later = strike_meets_foe(&view, frames, strikes_in + next_decision) == Some(true);
+    if meets_now && !meets_later {
+        state.charge_hold_ticks = 0;
+    }
+}
+
 /// Write BOTH sustains from the charge in flight. See the call site's note.
 fn hold_the_committed_button(state: &FighterState, frame: &mut ActorControlFrame) {
     let holding = state.charge_hold_ticks > 0;
@@ -1075,12 +1330,13 @@ fn trace_decision(
         .supporting_floor()
         .map(|floor| format!("[{:.0}..{:.0}]", floor.min.x, floor.max.x));
     let line = format!(
-        "[fighter{}] situation={situation:?} x={:.0} vx={:.0} facing={:+.0} ground={} phase={:?} stage={} [{:.0}..{:.0}] floor_edge={:?} terrain={} supported={} support_x={} offered={:?} vetoed={:?} unmodelled={:?} chose={:?} least_bad={:?} attack={} routes={:?} recovery={} bounded_by={} emit_x={:.1}",
+        "[fighter{}] situation={situation:?} x={:.0} y={:.0} vx={:.0} facing={:+.0} ground={} phase={:?} stage={} [{:.0}..{:.0}]x[{:.0}..{:.0}] floor_edge={:?} terrain={} supported={} support_x={} offered={:?} vetoed={:?} unmodelled={:?} chose={:?} least_bad={:?} attack={} routes={:?} recovery={} bounded_by={} emit_x={:.1}",
         match subject {
             Some(id) => format!(" {id}"),
             None => String::new(),
         },
         me.pos.x,
+        me.pos.y,
         me.vel.x,
         // ⭐⭐ THE FIELD THAT DECIDES FORWARD FROM BACK, and it was the one the
         // line did not carry. `attack_dir_from_axis` folds the stick into the
@@ -1096,6 +1352,8 @@ fn trace_decision(
         view.stage.is_known(),
         view.stage.bounds.min.x,
         view.stage.bounds.max.x,
+        view.stage.bounds.min.y,
+        view.stage.bounds.max.y,
         view.floor_edge_distance().map(|d| d.round()),
         // ⭐ WHAT THE BODY CAN SEE UNDER ITSELF. `on_ground` is KERNEL truth and
         // `terrain` is viewport-limited PERCEPTION, so the two can contradict —
@@ -1291,6 +1549,15 @@ fn apply_movement(
             frame.jump_pressed = true;
             frame.jump_held = true;
         }
+        MovementVerb::ShortHop => {
+            // Pressed and NOT held: the kernel's squat-decided jump law reads
+            // the button at takeoff and cuts the rise. The drift is toward the
+            // foe, which is where the aerial the next decision picks will be.
+            frame.jump_pressed = true;
+            frame.jump_held = false;
+            frame.locomotion = ae::LocalAxes::new(toward, 0.0);
+            frame.facing = toward;
+        }
         MovementVerb::Dash => {
             frame.burst_pressed = true;
             frame.locomotion = ae::LocalAxes::new(toward, 0.0);
@@ -1315,7 +1582,19 @@ fn apply_movement(
                 .actors
                 .iter()
                 .any(|actor| actor.hostile_to_self && actor.alive && actor.phase.is_attacking());
-            let roll = if threatened { -toward } else { toward };
+            // A SPOT DODGE answers a swing that reaches: the stick is centred,
+            // the body stays put inside its i-frames and the foe's recovery is
+            // right there to punish. A roll answers a swing that does not
+            // reach, or closes on a foe that is not swinging.
+            let roll = if view.self_view.on_ground
+                && ambition_characters::brain::fighter::options::incoming_attack(&view)
+            {
+                0.0
+            } else if threatened {
+                -toward
+            } else {
+                toward
+            };
             frame.burst_pressed = true;
             frame.locomotion = ae::LocalAxes::new(roll, 0.0);
             // facing tracks the FOE, not the roll. A body that rolls away

@@ -384,9 +384,14 @@ fn map_over_rooms(
             .iter()
             .map(|(id, world, x)| super::MapRoomNode {
                 id: id.to_string(),
+                area: id.to_string(),
                 world: world.to_string(),
                 world_min: Vec2::new(*x, 0.0),
                 world_size: Vec2::new(640.0, 480.0),
+                // The rooms of a world side by side, joined by side exits:
+                // one region.
+                edge_exits: nodes.iter().filter(|(other, w, _)| other != id && w == world).map(|(other, ..)| other.to_string()).collect(),
+                ..Default::default()
             })
             .collect(),
         ..Default::default()
@@ -483,4 +488,139 @@ fn the_map_shows_only_the_rooms_of_the_active_rooms_world() {
 
     let mut math = map_over_rooms(&nodes, Some("gate"), "gate");
     assert_eq!(drawn(&mut math), vec!["gate"], "in the math world");
+}
+
+mod view_tests {
+    use bevy::math::Vec2;
+
+    use super::super::view::{map_view, region, MapBeyond, MapDoor, MapPin, MapPinKind};
+    use super::super::{MapMenuState, MapRoomNode};
+
+    fn node(id: &str, x: f32, y: f32, w: f32, h: f32, edges: &[&str], doors: &[(&str, f32)]) -> MapRoomNode {
+        MapRoomNode {
+            id: id.to_string(),
+            area: id.to_string(),
+            title: id.to_uppercase(),
+            world: "w".to_string(),
+            world_min: Vec2::new(x, y),
+            world_size: Vec2::new(w, h),
+            edge_exits: edges.iter().map(|e| e.to_string()).collect(),
+            secret_exits: Vec::new(),
+            doors: doors.iter().map(|(t, at)| MapDoor { at: Vec2::new(*at, 50.0), target_room: t.to_string() }).collect(),
+            pins: vec![MapPin { at: Vec2::new(w * 0.5, h * 0.5), kind: MapPinKind::Resident }],
+        }
+    }
+
+    /// A street joined east to a field by an edge exit, west to a moor by an
+    /// exit only the moor names; a tavern off the street by a door, and a
+    /// cellar off the tavern by a door.
+    fn town(visited: &[&str]) -> MapMenuState {
+        MapMenuState {
+            rooms: vec![
+                node("street", 0.0, 0.0, 100.0, 100.0, &["field"], &[("tavern", 40.0)]),
+                node("field", 100.0, 0.0, 200.0, 100.0, &["street"], &[]),
+                node("moor", -100.0, 0.0, 100.0, 100.0, &["street"], &[]),
+                node("far", 300.0, 0.0, 100.0, 100.0, &["field"], &[]),
+                node("tavern", 5000.0, 5000.0, 80.0, 40.0, &[], &[("street", 10.0)]),
+            ],
+            visited: visited.iter().map(|v| v.to_string()).collect(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn a_region_is_joined_by_edge_exits_either_way_and_not_by_doors() {
+        let map = town(&[]);
+        let mut ids: Vec<&str> = region(&map.rooms, 0).iter().map(|&i| map.rooms[i].id.as_str()).collect();
+        ids.sort();
+        assert_eq!(ids, ["far", "field", "moor", "street"]);
+        assert_eq!(region(&map.rooms, 4), [4], "the tavern, behind its door, is a region of its own");
+    }
+
+    #[test]
+    fn the_map_shows_visited_rooms_and_the_ways_on_from_them() {
+        let view = map_view(&town(&["street"]), "street", 1.5).expect("the street is on the map");
+        let shown: Vec<(&str, bool, bool)> = view.rooms.iter().map(|r| (r.id.as_str(), r.visited, r.here)).collect();
+        // The field and the moor are a step away; the far room is not shown.
+        assert_eq!(shown, [("street", true, true), ("field", false, false), ("moor", false, false)]);
+        assert_eq!(view.doors.len(), 1, "the tavern's door on the street");
+        assert_eq!(view.pins.len(), 1, "the street's resident; the field's waits for a visit");
+        assert!(view.inside.is_none());
+    }
+
+    #[test]
+    fn a_room_behind_a_secret_exit_is_not_shown_until_it_is_visited() {
+        let mut map = town(&["street"]);
+        // The field is behind a false wall of the street: secret from both
+        // sides.
+        map.rooms[0].secret_exits.push("field".to_string());
+        map.rooms[1].secret_exits.push("street".to_string());
+        let shown = |map: &MapMenuState| -> Vec<String> {
+            map_view(map, "street", 1.5).unwrap().rooms.iter().map(|r| r.id.clone()).collect()
+        };
+        assert!(!shown(&map).contains(&"field".to_string()), "the secret room is hidden: {:?}", shown(&map));
+        assert!(shown(&map).contains(&"moor".to_string()), "control: an open way is shown");
+        map.visited.insert("field".to_string());
+        assert!(shown(&map).contains(&"field".to_string()), "found, it is on the map");
+        assert_eq!(super::super::view::region(&map.rooms, 0).len(), 4, "a secret exit still joins the region");
+    }
+
+    #[test]
+    fn inside_a_building_the_map_shows_the_region_outside_and_its_door() {
+        let view = map_view(&town(&["street", "field"]), "tavern", 1.5).expect("the tavern's door is on the map");
+        assert_eq!(view.inside.as_deref(), Some("TAVERN"));
+        assert_eq!(view.here_title, "TAVERN");
+        let here: Vec<&str> = view.rooms.iter().filter(|r| r.here).map(|r| r.id.as_str()).collect();
+        assert_eq!(here, ["street"], "the room the player went in from is marked");
+        assert_eq!(view.marked_door, Some(0));
+    }
+
+    #[test]
+    fn the_frame_keeps_the_regions_proportions() {
+        let view = map_view(&town(&["street", "field", "moor", "far"]), "street", 1.5).unwrap();
+        for room in &view.rooms {
+            // Every room is 100 high; widths in frame fractions times the
+            // aspect are in world proportion to the heights.
+            let ratio = room.size.x * view.aspect / room.size.y;
+            let world = if room.id == "field" { 2.0 } else { 1.0 };
+            assert!((ratio - world).abs() < 1e-4, "{}: {ratio} != {world}", room.id);
+            assert!(room.min.x >= -1e-4 && room.min.x + room.size.x <= 1.0001);
+            assert!(room.min.y >= -1e-4 && room.min.y + room.size.y <= 1.0001);
+        }
+        assert_eq!(view.beyond, MapBeyond::default(), "a region that fits shows whole");
+    }
+
+    /// A corridor of 30 rooms, each 1600 wide, all visited.
+    fn corridor() -> MapMenuState {
+        let ids: Vec<String> = (0..30).map(|i| format!("r{i}")).collect();
+        MapMenuState {
+            rooms: (0..30)
+                .map(|i| {
+                    let next: Vec<&str> = ids.get(i + 1).map(|n| n.as_str()).into_iter().collect();
+                    node(&ids[i], i as f32 * 1600.0, 0.0, 1600.0, 800.0, &next, &[])
+                })
+                .collect(),
+            visited: ids.iter().cloned().collect(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn a_region_too_wide_for_the_frame_shows_a_window_round_the_player() {
+        let map = corridor();
+        let view = map_view(&map, "r15", 1.5).unwrap();
+        let here = view.rooms.iter().find(|r| r.here).unwrap();
+        let centre = here.min.x + here.size.x * 0.5;
+        assert!((centre - 0.5).abs() < 0.01, "the player's room is in the middle: {centre}");
+        assert!(here.size.x > 0.1, "a room is a readable part of the frame: {}", here.size.x);
+        assert!(view.rooms.len() < 30);
+        assert_eq!(view.beyond, MapBeyond { left: true, right: true, up: false, down: false });
+        for room in &view.rooms {
+            assert!(room.min.x >= -1e-4 && room.min.x + room.size.x <= 1.0001, "{} is cut to the frame", room.id);
+        }
+        // At the corridor's end, the window stops at the end.
+        let view = map_view(&map, "r0", 1.5).unwrap();
+        assert_eq!(view.beyond, MapBeyond { left: false, right: true, up: false, down: false });
+        assert!(view.rooms[0].min.x.abs() < 1e-4);
+    }
 }

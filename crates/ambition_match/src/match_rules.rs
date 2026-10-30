@@ -62,6 +62,53 @@ pub struct AuthoredMatchRules {
 pub struct AuthoredCastFraming {
     pub min_view_scale: f32,
     pub margin: f32,
+    /// The factor on `margin` for 1, 2, 3 and 4+ members (a tuple of four).
+    /// Absent: 1 for every count.
+    #[serde(default)]
+    pub margin_by_count: Option<(f32, f32, f32, f32)>,
+    /// The share of the view kept below the cast. Absent: none.
+    #[serde(default)]
+    pub floor_share: f32,
+    /// The pan rate (Hz). Absent: the engine's.
+    #[serde(default)]
+    pub pan_hz: Option<f32>,
+    /// The zoom-out rate (Hz). Absent: the view opens at once.
+    #[serde(default)]
+    pub zoom_out_hz: Option<f32>,
+    /// The zoom-in rate (Hz). Absent: the engine's.
+    #[serde(default)]
+    pub zoom_in_hz: Option<f32>,
+    /// How far past the room the view may look. Absent: it stops at the room.
+    #[serde(default)]
+    pub bounds: Option<AuthoredCameraBounds>,
+    /// The bubble a member wholly off the view is shown in. Absent: none.
+    #[serde(default)]
+    pub bubble: Option<AuthoredCastBubble>,
+}
+
+/// [`CastBubble`], as a pack writes it:
+/// `(diameter_px: 96.0, span: 150.0, rings: ((1.0, 0.3, 0.3, 1.0), ...four...), backdrop: (0.05, 0.06, 0.12, 0.85))`.
+///
+/// [`CastBubble`]: ambition_platformer2d_shared_tangle::markers::CastBubble
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthoredCastBubble {
+    pub diameter_px: f32,
+    pub span: f32,
+    /// One ring colour per seat, four seats.
+    pub rings: [(f32, f32, f32, f32); 4],
+    pub backdrop: (f32, f32, f32, f32),
+}
+
+/// [`CastCameraBounds`], as a pack writes it: `(side: 280.0, rise: 170.0, fall: 100.0)`.
+///
+/// [`CastCameraBounds`]: ambition_platformer2d_shared_tangle::markers::CastCameraBounds
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthoredCameraBounds {
+    pub side: f32,
+    pub rise: f32,
+    pub fall: f32,
 }
 
 /// [`BodyContact`], as a pack writes it: `(resistance: 0.85)`.
@@ -89,6 +136,28 @@ impl Default for AuthoredMatchRules {
             cast_framing: rules.cast_framing.map(|framing| AuthoredCastFraming {
                 min_view_scale: framing.min_view_scale,
                 margin: framing.margin,
+                margin_by_count: Some({
+                    let [a, b, c, d] = framing.margin_by_count;
+                    (a, b, c, d)
+                }),
+                floor_share: framing.floor_share,
+                pan_hz: Some(framing.pan_hz),
+                zoom_out_hz: framing.zoom_out_hz,
+                zoom_in_hz: Some(framing.zoom_in_hz),
+                bounds: framing.bounds.map(|bounds| AuthoredCameraBounds {
+                    side: bounds.side,
+                    rise: bounds.rise,
+                    fall: bounds.fall,
+                }),
+                bubble: framing.bubble.map(|bubble| AuthoredCastBubble {
+                    diameter_px: bubble.diameter_px,
+                    span: bubble.span,
+                    rings: bubble.rings.map(|[r, g, b, a]| (r, g, b, a)),
+                    backdrop: {
+                        let [r, g, b, a] = bubble.backdrop;
+                        (r, g, b, a)
+                    },
+                }),
             }),
         }
     }
@@ -111,9 +180,32 @@ impl AuthoredMatchRules {
             .map(|body| body.over(ambition_platformer2d_core::DEFAULT_TUNING));
         rules.fighter_contact = self.fighter_contact.map(|contact| BodyContact { resistance: contact.resistance });
         rules.cast_framing = self.cast_framing.map(|framing| {
-            ambition_platformer2d_shared_tangle::markers::CastFramingTuning {
+            use ambition_platformer2d_shared_tangle::markers::{CastBubble, CastCameraBounds, CastFramingTuning};
+            let engine = CastFramingTuning::default();
+            CastFramingTuning {
                 min_view_scale: framing.min_view_scale,
                 margin: framing.margin,
+                margin_by_count: framing
+                    .margin_by_count
+                    .map_or(engine.margin_by_count, |(a, b, c, d)| [a, b, c, d]),
+                floor_share: framing.floor_share,
+                pan_hz: framing.pan_hz.unwrap_or(engine.pan_hz),
+                zoom_out_hz: framing.zoom_out_hz,
+                zoom_in_hz: framing.zoom_in_hz.unwrap_or(engine.zoom_in_hz),
+                bounds: framing.bounds.map(|bounds| CastCameraBounds {
+                    side: bounds.side,
+                    rise: bounds.rise,
+                    fall: bounds.fall,
+                }),
+                bubble: framing.bubble.map(|bubble| CastBubble {
+                    diameter_px: bubble.diameter_px,
+                    span: bubble.span,
+                    rings: bubble.rings.map(|(r, g, b, a)| [r, g, b, a]),
+                    backdrop: {
+                        let (r, g, b, a) = bubble.backdrop;
+                        [r, g, b, a]
+                    },
+                }),
             }
         });
     }
@@ -169,6 +261,18 @@ impl AuthoredMatchRules {
         }
         if let Some(contact) = &self.fighter_contact {
             amount("fighter_contact.resistance", contact.resistance);
+        }
+        if let Some(share) = self.cast_framing.map(|framing| framing.floor_share) {
+            if !(share.is_finite() && (0.0..0.9).contains(&share)) {
+                problems.push(format!("`cast_framing.floor_share` is {share}; it is a share of the view, 0 to below 0.9"));
+            }
+        }
+        if let Some(bubble) = self.cast_framing.and_then(|framing| framing.bubble) {
+            for (field, value) in [("diameter_px", bubble.diameter_px), ("span", bubble.span)] {
+                if !(value.is_finite() && value > 0.0) {
+                    problems.push(format!("`cast_framing.bubble.{field}` is {value}; it is finite and above 0"));
+                }
+            }
         }
         if let Some(body) = &self.base_body {
             body.problems(&mut problems);

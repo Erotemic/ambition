@@ -2912,7 +2912,7 @@ fn a_bag_that_a_session_changed_reaches_a_later_session_through_its_save_only() 
     type Item = ambition_platformer2d::item::Item;
     type ItemGrantRequested = ambition_platformer2d::item::ItemGrantRequested;
 
-    /// One: a bomb is a unique item, so a grant of more gives one.
+    /// One bomb more than the starter stock (bombs stack, to 9).
     const BOMBS: u32 = 1;
     const TICKS: u64 = 30;
 
@@ -3256,8 +3256,9 @@ fn each_experience_begins_with_its_own_bag() {
     type OwnedItems = ambition_platformer2d::item::OwnedItems;
     type Item = ambition_platformer2d::item::Item;
 
-    /// The items of Ambition's starter set.
-    const STARTER: u32 = 10;
+    /// The items of Ambition's starter set: three health cells, two mana
+    /// cells, a battery, five bombs and the five abilities with a row.
+    const STARTER: u32 = 16;
 
     fn items_in_the_bag(app: &App) -> u32 {
         let owned = app.world().resource::<OwnedItems>();

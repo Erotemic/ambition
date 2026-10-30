@@ -621,3 +621,68 @@ fn two_supports_at_one_distance_are_told_apart_by_the_facing_and_not_by_x() {
     );
     assert!(right.x > at.x, "the support on the side the body faces wins: {right:?}");
 }
+
+/// ⛔⛔ THE LENS DIES WHERE THE GAME DIES: past the room by its authored
+/// margins, not at the room.
+///
+/// Smash's stage to the number: a 640×480 room, the platform `x` 80..560 with
+/// its top at `y = 300`, blast margins 400 to each side and 240 above and
+/// below. The body starts at `x = 660`: 20 px past the room, 100 px past the
+/// ledge, 380 px from death, the ledge in view — the shape of one seat's 64
+/// refused searches (2026-10-29, George mirror). Measured with the default kit
+/// and one air jump at ledge height: drift+jump regains from `x <= 660` and
+/// fails from 680, so 660 asks the buttons-only search and nothing more. The
+/// non-vacuity arm is the same body with the death line at the room box, which
+/// is what the lens used to believe: dead on the first step, so no search can
+/// find anything.
+#[test]
+fn a_body_past_the_room_but_short_of_the_blast_line_is_searched_alive() {
+    let start = ae::Vec2::new(660.0, 300.0);
+    let mut view = WorldView {
+        self_view: SelfView {
+            pos: start,
+            gravity_down: ae::Vec2::new(0.0, 1.0),
+            half_extent: ae::Vec2::new(12.0, 16.0),
+            alive: true,
+            on_ground: false,
+            health_max: 100,
+            ..Default::default()
+        },
+        stage: StageView {
+            bounds: ae::aabb_from_min_size(ae::Vec2::ZERO, ae::Vec2::new(640.0, 480.0)),
+        },
+        blast: Some(ae::Aabb {
+            min: ae::Vec2::new(-400.0, -240.0),
+            max: ae::Vec2::new(1040.0, 720.0),
+        }),
+        terrain: vec![PerceivedSolid {
+            aabb: ae::aabb_from_min_size(ae::Vec2::new(80.0, 300.0), ae::Vec2::new(480.0, 32.0)),
+            kind: SolidKind::Solid,
+            open_for_self: false,
+        }],
+        ..Default::default()
+    };
+    let at = RecoveryQuery {
+        pos: start,
+        vel: ae::Vec2::ZERO,
+        air_jumps_left: 1,
+    };
+
+    let alive = bare_lens(&view, with_an_air_jump()).expect("the stage is known");
+    let outlook = alive.outlook(at);
+    assert!(
+        outlook.regained(),
+        "a body 380 px from the blast line with a ledge 100 px away and an air jump \
+         in hand must find the stage, but the probe reported {outlook:?}"
+    );
+
+    view.blast = None;
+    let boxed = bare_lens(&view, with_an_air_jump()).expect("the stage is known");
+    let outlook = boxed.outlook(at);
+    assert!(
+        !outlook.regained(),
+        "with the death line at the room box the same body is already dead, so a \
+         regained verdict here means the lens is no longer reading the envelope: \
+         {outlook:?}"
+    );
+}

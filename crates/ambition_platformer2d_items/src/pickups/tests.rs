@@ -148,12 +148,12 @@ fn collecting_an_ability_pickup_grants_it_to_the_catalog() {
     app.world_mut().spawn((
         FeatureSimEntity,
         FeatureId::new("ability_drop"),
-        FeatureName::new("Blink"),
+        FeatureName::new("Grapple"),
         CenteredAabb::from_center_size(center, ae::Vec2::new(16.0, 16.0)),
         PickupFeature::new(ambition_interaction::Pickup::new(
             "ability_drop",
             ambition_interaction::PickupKind::Ability {
-                ability_id: "blink".to_string(),
+                ability_id: "grapple".to_string(),
             },
         )),
     ));
@@ -162,7 +162,7 @@ fn collecting_an_ability_pickup_grants_it_to_the_catalog() {
     assert!(
         app.world()
             .resource::<ambition_items::OwnedItems>()
-            .has(ambition_items::Item::Blink),
+            .has(ambition_items::Item::Grapple),
         "collecting an ability pickup should grant it to the catalog",
     );
 }

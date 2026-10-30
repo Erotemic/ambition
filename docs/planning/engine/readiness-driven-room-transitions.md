@@ -88,6 +88,29 @@ in 11 frames, inside the 250 ms reveal grace, with no loading screen at all.
   foreground, not a wait: it never delays commit, and it is what makes fast
   hardware show nothing.
 
+### The transition's look (2026-10-29)
+
+Jon: "some sort of room transition presentation. Individual games should have
+control over this, but the engine should offer an easy way to do it and some
+decent defaults like fade to black." The cover's picture and timing are the
+engine's (`ambition_render::rendering::room_transition_cover`); the choice is
+the game's `RoomTransitionStyles` resource: a default (`fade_to_black()`,
+180 ms out and 260 ms in) and an optional resolver that picks the style of one
+room change by its source and target rooms. Built in: a cut, a fade in any
+colour, a wipe from any side.
+
+- The room commits only under a WHOLE cover: the acknowledgement waits until
+  the cover has finished coming in and has been whole across a rendered frame.
+  A fade out is presentation, not readiness: it never waits on assets.
+- The cover is lifted, not despawned: it goes out in the style's reveal and
+  despawns itself, and gameplay resumes under it (the transaction is retired
+  at presentable, as before).
+- `PresentationCover` is on it only while it is whole, so the image census
+  and the upload budget treat a fading frame as visible.
+- A transaction that begins while the last cover is going out starts its
+  cover from that much coverage, so the screen does not pop. The first room's
+  cover lifts in the default reveal too.
+
 ### Still open
 
 1. **The visible upload budget is a starting value.** Measure the frame-time

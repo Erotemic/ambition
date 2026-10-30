@@ -71,6 +71,17 @@ fn self_offstage_is_recovery_and_outranks_everything() {
     assert_eq!(classify(seen(&view(me, vec![foe]))), Situation::Recovery);
 }
 
+/// A helpless body above the stage, its foe off the side: it recovers (to the
+/// stage) rather than chasing a foe it cannot hit and following it off.
+#[test]
+fn a_helpless_body_above_the_stage_is_recovering() {
+    let mut me = me_at(300.0, 100.0);
+    me.on_ground = false;
+    me.helpless = true;
+    let foe = foe_at(-80.0, 300.0);
+    assert_eq!(classify(seen(&view(me, vec![foe]))), Situation::Recovery);
+}
+
 /// Precedence 2, the one worth arguing about. A player who chases an
 /// offstage opponent while himself in hitstun is not edge-guarding; he is being
 /// carried.

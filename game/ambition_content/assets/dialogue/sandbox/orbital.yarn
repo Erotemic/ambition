@@ -151,3 +151,17 @@ Neil onGras Turfson: Well, actually, that blue line on the edge is all the air t
     Neil onGras Turfson: Remainder goes out surveying. I work the observation window. You should ask the captain where she's been.
 -> ⟨step away⟩
 ===
+
+title: station_dobbs
+---
+Dobbs: Welcome to orbit! First time up the ribbon? You look like a first time. Shirt? Globe? Air?
+-> What is in the bottles?
+    Dobbs: Genuine orbit air. Bottled at thirty-five thousand, seven hundred and eighty-six kilometres. Nothing but the finest vacuum.
+    Dobbs: Well. Not vacuum. The vacuum kept escaping. It's station air. But it was bottled up here. That's the genuine part.
+-> What is in the snow globes?
+    Dobbs: The planet. Shake it and there's weather. It's educational.
+-> Do people really buy this?
+    Dobbs: Everyone who comes up that ribbon has just spent an hour looking at the whole world through a window. They want something to hold. I sell them something to hold.
+-> Just looking.
+    Dobbs: So is everyone up here. That's the whole station. Come back when you want a shirt.
+===

@@ -223,12 +223,12 @@ mod tests {
         let reward = pirate_treasure_spec().reward.expect("the hoard pays out");
         assert_eq!(
             reward_items(&reward, catalog),
-            vec![(Item::HealthCell, 3), (Item::SpareBattery, 2), (Item::DataChip, 1)],
+            vec![(Item::HealthCell, 3), (Item::SpareBattery, 2), (Item::ManaCell, 1)],
             "every row resolves against the item catalog"
         );
         assert_eq!(pirate_treasure_spec().reward_flag(), "pirate_treasure_reward_granted", "the save key of old saves");
 
-        let row = r#"(item: "datachip", count: 1),"#;
+        let row = r#"(item: "manacell", count: 1),"#;
         let with = |replacement: &'static str| {
             crate::pack::compile_pack_with(move |path, text| {
                 if path != "data/quests.ron" {
@@ -238,13 +238,13 @@ mod tests {
                 text.replace(row, replacement)
             })
         };
-        let edited = with(r#"(item: "datachip", count: 4),"#).expect("a changed count compiles");
+        let edited = with(r#"(item: "manacell", count: 4),"#).expect("a changed count compiles");
         let book = lowered_quest_book(&edited).expect("the edited pack lowers a book");
         let paid = book.iter().find(|quest| quest.id == "pirate_treasure").and_then(|quest| quest.reward.as_ref());
-        assert_eq!(reward_items(paid.expect("the reward"), catalog).last(), Some(&(Item::DataChip, 4)));
+        assert_eq!(reward_items(paid.expect("the reward"), catalog).last(), Some(&(Item::ManaCell, 4)));
 
-        let refused = format!("{:?}", with(r#"(item: "datachp", count: 1),"#).expect_err("a misspelt item refuses the pack"));
-        assert!(refused.contains("datachp"), "the refusal names the item: {refused}");
+        let refused = format!("{:?}", with(r#"(item: "manacel", count: 1),"#).expect_err("a misspelt item refuses the pack"));
+        assert!(refused.contains("manacel"), "the refusal names the item: {refused}");
     }
 
     /// The quests are content: a quest added to `data/quests.ron` reaches the

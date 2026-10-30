@@ -226,6 +226,8 @@ pub fn add_presentation_plugins(app: &mut App) {
     app.add_plugins(ambition_platformer2d::render::asset_census::ImageStagePlugin);
     // What the room on screen has still to draw, which each cover waits on.
     app.add_plugins(ambition_platformer2d::render::rendering::presentation_settling::PresentationSettlingPlugin);
+    // How a room change looks (the engine's default: a fade to black).
+    app.add_plugins(ambition_platformer2d::render::rendering::room_transition_cover::RoomTransitionCoverPlugin);
 }
 
 /// Visible-side resources, registered types, and presentation child

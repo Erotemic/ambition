@@ -72,6 +72,7 @@ ambition_demo_smash = { path = "../ambition_demo_smash" }
 ambition_demo_smash_app = { path = "../ambition_demo_smash_app" }
 serde_json = "1"
 image = { version = "0.25", default-features = false, features = ["png"] }
+clap = { workspace = true }
 
 # ⛔⛤ **`test = false` ON A TARGET WITH `#[test]` ARMS IS A GUARD THAT DOES NOT
 # EXIST.** MEASURED 2026-09-12: four bins here carried it while holding 23 live
@@ -209,4 +210,9 @@ test = false
 [[bin]]
 name = "render_room_geometry"
 path = "src/bin/render_room_geometry.rs"
+test = false
+
+[[bin]]
+name = "smash_cpu_report"
+path = "src/bin/smash_cpu_report.rs"
 test = false

@@ -88,6 +88,8 @@ links to.
   generations of a character as skins (design; open question Q170).
 - [`game/noodly-temple.md`](game/noodly-temple.md) — the level of keys and
   doors that ends at the Flying Spaghetti Monster.
+- [`game/ability-loadout.md`](game/ability-loadout.md) — the inventory's
+  ability variants: equipped into a slot, one variant per slot.
 - [`game/robot-combat-feel.md`](game/robot-combat-feel.md) — the robot's
   blade in Ambition: Hollow Knight feel (Jon's ruling), the moves that are
   built, and how the Smash game keeps a fighter's moves.

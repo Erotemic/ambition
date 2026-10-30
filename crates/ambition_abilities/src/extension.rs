@@ -11,7 +11,7 @@
 //!
 //! ⛔ AN ACTION AND ITS COST ARE ONE ADMISSION. The costs of each invocation
 //! are settled before any request of the phase is lowered
-//! ([`settle_wielded_costs`]); an invocation the body cannot pay for is
+//! ([`settle_costs`]); an invocation the body cannot pay for is
 //! refused whole, so its lunge, strike and cues do not happen. See the port cards in
 //! `ambition_combat_port::wielded` and `ambition_combat_port::motion`.
 
@@ -21,7 +21,8 @@ use ambition_combat_port::{
     AimCast, AimCastPort, AimHit, BodySoundPort, BurstPort, EffectPort, EndModuleEntityPort, HitMarkPort,
     LaunchToucherPort, MarkPort, MarkView, ModuleEntityTickPort, MovementCooldownPort, PullBodiesPort, SetMarkPort,
     SetVelocityPort,
-    SpawnModuleEntityPort, SpendManaPort, WieldedAlternatePort, WieldedUsePort, Wielder, AIM_CAST_REACH,
+    SpawnModuleEntityPort, SpendManaPort, TechniqueUse, TechniqueUsePort, WieldedAlternatePort, WieldedUsePort,
+    Wielder, AIM_CAST_REACH,
 };
 /// The composition orders this port's lowering as a carry of the travelled
 /// path.
@@ -53,7 +54,7 @@ pub fn install(app: &mut App) {
     // The costs, settled before any request is lowered.
     app.install_extension_cost::<MovementCooldownPort>(WIELDED_USE, "ambition_abilities");
     app.install_extension_cost::<SpendManaPort>(WIELDED_USE, "ambition_abilities");
-    app.settle_extension_costs(WIELDED_USE, settle_wielded_costs);
+    app.settle_extension_costs(WIELDED_USE, settle_costs::<InWieldedUse>);
     // First of the phase's request ports: the host lowers them in install
     // order, so a `Place::Body` of a later port is the arrival.
     app.install_extension_submitted_request::<TransitPort, _>(WIELDED_USE, "ambition_abilities", lower_transits);
@@ -84,6 +85,14 @@ pub fn install(app: &mut App) {
 /// it stands, show a line (a tether), draw a burst and play a sound, and
 /// summon a ride and end it ([`crate::ride`]).
 pub fn install_for_technique_execution(app: &mut App) {
+    // A technique on a body's control slot, and the mana it costs.
+    app.install_extension_trigger::<TechniqueUsePort, _>(
+        TECHNIQUE_EXECUTION,
+        "ambition_abilities",
+        queue_technique_uses.run_if(ambition_extension_host::trigger_is_bound::<TechniqueUsePort>),
+    );
+    app.install_extension_cost::<SpendManaPort>(TECHNIQUE_EXECUTION, "ambition_abilities");
+    app.settle_extension_costs(TECHNIQUE_EXECUTION, settle_costs::<InTechniqueExecution>);
     app.install_extension_submitted_request::<SetVelocityPort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_abilities",
@@ -327,25 +336,115 @@ fn wielders_bound_to(
         .into_iter()
         .map(|(entity, control, held, kin, frame, bank, id, counts, cooldown, model)| {
             let c = control.0;
-            let basis = frame.basis();
-            let aim = ambition_held_items::ability_aim_local(&c, kin.facing);
-            let wielder = Wielder {
-                pressed: c.melee_pressed && !c.shield_held,
-                driven: driven.contains(&entity),
-                position: [kin.pos.x, kin.pos.y],
-                size: [kin.size.x, kin.size.y],
-                facing: kin.facing,
-                frame_side: [basis.side.x, basis.side.y],
-                frame_down: [basis.down.x, basis.down.y],
-                aim_local: [aim.x, aim.y],
-                mana: crate::mana::level(bank).map(|level| level.current),
-                names_spawns: id.is_some() && counts,
-                cooldown_ready: cooldown.is_none_or(|cooldown| cooldown.ready()),
-                swept: matches!(model, Some(ambition_platformer2d_core::movement::MotionModel::AxisSwept(_))),
-            };
+            let wielder = wielder_of(
+                c.melee_pressed && !c.shield_held,
+                driven.contains(&entity),
+                &c,
+                kin,
+                frame,
+                bank,
+                id.is_some() && counts,
+                cooldown,
+                model,
+            );
             (entity, held.id().to_owned(), c, wielder)
         })
         .collect()
+}
+
+/// A body's facts as a module reads them, with `pressed` the press the
+/// trigger is about.
+#[allow(clippy::too_many_arguments)]
+fn wielder_of(
+    pressed: bool,
+    driven: bool,
+    control: &ambition_characters::actor::control::ActorControlFrame,
+    kin: &BodyKinematics,
+    frame: &ResolvedMotionFrame,
+    bank: Option<&ActorResources>,
+    names_spawns: bool,
+    cooldown: Option<&crate::ability_cooldown::AbilityCooldown>,
+    model: Option<&ambition_platformer2d_core::movement::MotionModel>,
+) -> Wielder {
+    let basis = frame.basis();
+    let aim = ambition_held_items::ability_aim_local(control, kin.facing);
+    Wielder {
+        pressed,
+        driven,
+        position: [kin.pos.x, kin.pos.y],
+        size: [kin.size.x, kin.size.y],
+        facing: kin.facing,
+        frame_side: [basis.side.x, basis.side.y],
+        frame_down: [basis.down.x, basis.down.y],
+        aim_local: [aim.x, aim.y],
+        mana: crate::mana::level(bank).map(|level| level.current),
+        names_spawns,
+        cooldown_ready: cooldown.is_none_or(|cooldown| cooldown.ready()),
+        swept: matches!(model, Some(ambition_platformer2d_core::movement::MotionModel::AxisSwept(_))),
+    }
+}
+
+/// One invocation for each body whose action scheme carries a bound
+/// technique, for each such technique: IDLE when its slot is not pressed,
+/// held or released. Bodies in the order of their `SimId`, as for wielded
+/// uses, so two bodies' costs settle in one order on every peer.
+#[allow(clippy::type_complexity)]
+pub fn queue_technique_uses(
+    admitted: Res<AdmittedExtensions>,
+    mut invocations: ResMut<ExtensionInvocations>,
+    driven: ambition_held_items::DrivenBodies,
+    users: Query<(
+        Entity,
+        &ActorControl,
+        &ambition_characters::action_scheme::ResolvedTechniqueEdges,
+        &BodyKinematics,
+        &ResolvedMotionFrame,
+        Option<&ActorResources>,
+        Option<&SimId>,
+        Has<ambition_platformer2d_shared_tangle::sim_id::SimIdCounter>,
+        Option<&crate::ability_cooldown::AbilityCooldown>,
+        Option<&ambition_platformer2d_core::movement::MotionModel>,
+    )>,
+) {
+    let bound: Vec<&str> = admitted
+        .0
+        .entries
+        .iter()
+        .filter(|e| e.descriptor.trigger.port == TechniqueUsePort::KEY)
+        .map(|e| e.descriptor.trigger.selector.as_ref())
+        .collect();
+    if bound.is_empty() {
+        return;
+    }
+    let driven = driven.entities();
+    let mut using: Vec<_> = users
+        .iter()
+        .filter(|(_, _, edges, ..)| edges.0.iter().any(|(id, _)| bound.contains(&id.as_str())))
+        .collect();
+    using.sort_by(|a, b| {
+        (a.6.map(SimId::as_str), a.0.to_bits()).cmp(&(b.6.map(SimId::as_str), b.0.to_bits()))
+    });
+    for (entity, control, edges, kin, frame, bank, id, counts, cooldown, model) in using {
+        for (technique, edge) in edges.0.iter().filter(|(id, _)| bound.contains(&id.as_str())) {
+            let used = TechniqueUse {
+                held: edge.held,
+                released: edge.released,
+                user: wielder_of(
+                    edge.pressed,
+                    driven.contains(&entity),
+                    &control.0,
+                    kin,
+                    frame,
+                    bank,
+                    id.is_some() && counts,
+                    cooldown,
+                    model,
+                ),
+            };
+            let idle = !used.is_active();
+            invocations.trigger::<TechniqueUsePort>(&TECHNIQUE_EXECUTION, technique.clone(), entity, None, idle, used);
+        }
+    }
 }
 
 /// One invocation for each body holding a bound item: IDLE when Attack is
@@ -582,7 +681,7 @@ struct Costs {
 /// bank pays the first, and the second is refused here, before its lunge is
 /// lowered. A cooldown armed by an earlier invocation this tick runs for a
 /// later one, also when the body had no cooldown component yet.
-pub fn settle_wielded_costs(
+pub fn settle_costs<P: LowersIn>(
     mut outbox: ResMut<ExtensionOutbox>,
     mut commands: Commands,
     mut bodies: Query<(Option<&mut crate::ability_cooldown::AbilityCooldown>, Option<&mut ActorResources>)>,
@@ -596,10 +695,10 @@ pub fn settle_wielded_costs(
     ) -> &'a mut Costs {
         costs.entry(invocation).or_insert_with(|| Costs { scope, entry: entry.clone(), mana: 0.0, cooldown: None })
     }
-    for submitted in outbox.drain::<SpendManaPort>(&WIELDED_USE) {
+    for submitted in outbox.drain::<SpendManaPort>(&P::PHASE) {
         of(&mut costs, submitted.invocation, submitted.scope, &submitted.entry).mana += submitted.value.amount;
     }
-    for submitted in outbox.drain::<MovementCooldownPort>(&WIELDED_USE) {
+    for submitted in outbox.drain::<MovementCooldownPort>(&P::PHASE) {
         let cost = of(&mut costs, submitted.invocation, submitted.scope, &submitted.entry);
         cost.cooldown = Some(cost.cooldown.map_or(submitted.value.seconds, |s| s.max(submitted.value.seconds)));
     }

@@ -697,6 +697,83 @@ pub fn knockback_velocity(
     // authored DI budget. Inert at `di_max_angle == 0` (Ambition today).
     di_adjust(launch, di_input_local, gravity_dir, tuning.di_max_angle)
 }
+
+/// THE FINISHING-BLOW PREDICTION: whether a launch, under gravity alone,
+/// leaves the world through a side or the rise line before it falls back
+/// to the room's floor level.
+///
+/// Ultimate's Finish Zoom fires on a hit whose knockback and angle would
+/// KO, ignoring DI; this is that question for this engine's launch, which
+/// flies ballistically (no drag, see the fighter brain's shadow model). A
+/// body that would fall below the floor without leaving is NOT predicted:
+/// whether it falls out is the recovery game, not the blow. `gravity` is
+/// the body's resolved acceleration. The flight is sampled at
+/// `LAUNCH_PREDICTION_SAMPLES` points, exact enough for a camera cue.
+pub fn launch_leaves_the_world(pos: Vec2, vel: Vec2, gravity: Vec2, world: &crate::World) -> bool {
+    let g = gravity.length();
+    if g <= f32::EPSILON || vel.length_squared() <= f32::EPSILON {
+        return false;
+    }
+    let down = gravity / g;
+    // The later root of depth(t) = floor, with depth measured along `down`
+    // from the room's centre: 0.5 g t² + u t + c = 0.
+    let centre = world.size * 0.5;
+    let floor = centre.dot(down).abs();
+    let c = (pos - centre).dot(down) - floor;
+    let u = vel.dot(down);
+    let disc = u * u - 2.0 * g * c;
+    if disc < 0.0 {
+        return false;
+    }
+    let t_floor = (-u + disc.sqrt()) / g;
+    if t_floor <= 0.0 {
+        return false;
+    }
+    let crate::world::WorldEdgeMargins { side, rise, .. } = world.edges;
+    (1..=LAUNCH_PREDICTION_SAMPLES).any(|i| {
+        let t = t_floor * i as f32 / LAUNCH_PREDICTION_SAMPLES as f32;
+        let p = pos + vel * t + gravity * (0.5 * t * t);
+        let past_side = (p.x - centre.x).abs() - centre.x;
+        let past_rise = -p.y;
+        side.is_some_and(|margin| past_side > margin) || rise.is_some_and(|margin| past_rise > margin)
+    })
+}
+
+const LAUNCH_PREDICTION_SAMPLES: u32 = 32;
+
+#[cfg(test)]
+mod finishing_blow_tests {
+    use super::*;
+
+    fn stage() -> crate::World {
+        crate::World::new("stage", Vec2::new(640.0, 480.0), Vec2::ZERO, Vec::new())
+            .with_side_out_margin(400.0)
+            .with_rise_out_margin(240.0)
+            .with_fall_out_margin(240.0)
+    }
+
+    const GRAVITY: Vec2 = Vec2::new(0.0, 1800.0);
+
+    /// A smash at a kill percent clears the side line; the same angle at a
+    /// tilt's speed lands on the stage; a spike is left to the recovery game.
+    #[test]
+    fn a_launch_is_predicted_to_leave_only_when_its_arc_crosses_a_side_or_the_rise() {
+        let on_stage = Vec2::new(480.0, 284.0);
+        assert!(launch_leaves_the_world(on_stage, Vec2::new(1400.0, -600.0), GRAVITY, &stage()), "a kill launch");
+        assert!(!launch_leaves_the_world(on_stage, Vec2::new(300.0, -300.0), GRAVITY, &stage()), "a tilt lands");
+        assert!(launch_leaves_the_world(on_stage, Vec2::new(100.0, -1500.0), GRAVITY, &stage()), "a star KO");
+        assert!(!launch_leaves_the_world(on_stage, Vec2::new(400.0, 900.0), GRAVITY, &stage()), "a spike is not the blow's call");
+        assert!(!launch_leaves_the_world(on_stage, Vec2::ZERO, GRAVITY, &stage()), "no launch");
+    }
+
+    /// A room with no side or rise line (Ambition's rooms) never predicts.
+    #[test]
+    fn a_room_without_a_side_or_rise_line_predicts_nothing() {
+        let room = crate::World::new("room", Vec2::new(640.0, 480.0), Vec2::ZERO, Vec::new());
+        assert!(!launch_leaves_the_world(Vec2::new(320.0, 240.0), Vec2::new(3000.0, -3000.0), GRAVITY, &room));
+    }
+}
+
 #[cfg(test)]
 mod hitlag_tests {
     use super::*;

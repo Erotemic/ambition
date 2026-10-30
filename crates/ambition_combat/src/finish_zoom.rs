@@ -19,6 +19,8 @@
 
 use bevy::prelude::*;
 
+use ambition_platformer2d_core as ae;
+
 use ambition_platformer2d_shared_tangle::camera_ease::FinishZoomRequest;
 
 /// Full strength. A match ending is the one beat in a match that does not need
@@ -44,6 +46,57 @@ pub fn zoom_camera_on_decided_match(
                 closeness: DECIDED_CLOSENESS,
             });
         }
+    }
+}
+
+/// How long every fighter freezes on a finishing blow, in seconds — the
+/// platform-fighter beat where the hit that ends the match is held for the
+/// room before the body flies. Hitstop, so the victim's flash and the
+/// attacker's pose hold with it.
+pub const FINISHING_BLOW_FREEZE_S: f32 = 0.5;
+
+/// Ultimate's Finish Zoom: a hit on a fighter's LAST stock whose launch is
+/// predicted to leave the world zooms the camera and freezes the cast, on
+/// the hit tick, before the KO. The launch is read while it is STAGED: the
+/// kernel consumes it next tick (`PlayerSimulation` runs before `Combat`),
+/// so this is the one tick it is visible and the trigger needs no memory.
+pub fn zoom_camera_on_a_finishing_blow(
+    launched: Query<(
+        Entity,
+        &crate::FighterStocks,
+        &ae::BodyKinematics,
+        &ae::BodyFlightState,
+        &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+    )>,
+    geometry: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<ae::RoomGeometry>,
+    mut cast: Query<&mut ambition_characters::actor::BodyCombat, With<crate::FighterStocks>>,
+    mut requests: MessageWriter<FinishZoomRequest>,
+) {
+    let finishing = launched.iter().any(|(entity, stocks, kin, flight, frame)| {
+        let staged = flight.pending_launch_state();
+        stocks.remaining == 1
+            && !staged.flinchless
+            && staged.velocity != ae::Vec2::ZERO
+            && geometry
+                .room_of(entity)
+                .and_then(|room| geometry.in_room(room))
+                .is_some_and(|world| {
+                    ae::hit_response::launch_leaves_the_world(
+                        kin.pos,
+                        staged.velocity,
+                        frame.get().acceleration(),
+                        &world.0,
+                    )
+                })
+    });
+    if !finishing {
+        return;
+    }
+    requests.write(FinishZoomRequest {
+        closeness: DECIDED_CLOSENESS,
+    });
+    for mut combat in &mut cast {
+        combat.hitstop_timer = combat.hitstop_timer.max(FINISHING_BLOW_FREEZE_S);
     }
 }
 

@@ -49,10 +49,17 @@ from district_kit import (  # noqa: E402
     WALL, WORLDS, add_entities, door, edge, entity, ledge, make_rooms, pad, resident, room, run, sign, solid, start,
 )
 
+import props  # noqa: E402  (this directory's scenery)
+
 WORLD_LDTK = WORLDS / "science.ldtk"
 GENERATOR = "specs/eureka/make_specs.py"
 
 COURT = "eureka_gate_court"
+#: Under the lecture hall, down the stair in one of its arches.
+COLLIDER = "eureka_collider"
+COLLIDER_DOOR_X = 1828
+#: The detector's gallery (x0, x1, y), up a ladder (`eureka_collider_props.py`).
+COLLIDER_GALLERY = (1500, 1760, 384)
 QUAD = "eureka_quad"
 PATENT = "eureka_patent_office"
 LAB = "eureka_coil_lab"
@@ -61,6 +68,7 @@ STATION = "eureka_elevator_station"
 CLIMB = "eureka_elevator_climb"
 TERMINUS = "orbital_station_tether_terminus"
 BAY = "orbital_station_docking_bay"
+RANGE = "eureka_test_range"
 
 #: The contract with the gate network: the arrival point a dialled SCIENCE
 #: names (its ring is `gate_interface.yaml`, written by
@@ -75,28 +83,42 @@ HEIGHTS = "eureka_heights"
 STATION_THEME = "orbital"
 BG = "#A9D3F0"
 TOWN_MUSIC = "a_possible_morning"
-INDOOR_MUSIC = "original_lofi_loop"
-DOME_MUSIC = "eternal_cosmic"
+PATENT_MUSIC = "graphite_and_rain"
+LAB_MUSIC = "scaling_laws"
+DOME_MUSIC = "billions_and_billions"
 TETHER_MUSIC = "salt_steel_and_starlight"
 STATION_MUSIC = "between_objectives"
 
 #: Each room: (world_x, world_y), (width, height). The town is on the ground
 #: (y 6880), under the station's rooms (y 3168 and up): the climb and the
 #: terminus stand over the ground station's shaft.
+#: The world rooms touch where their side and vertical exits join, with their
+#: walk lines level (Jon, 2026-10-30: side exits connect the world, doors
+#: enter buildings, "a mostly faithful flat map"; `specs/check_flat_map.py`):
+#: the court's floor (world y 7584) is the quad's street and the ground
+#: station's floor; the climb stands on the station's roof over its shaft,
+#: and the terminus on the climb, against the east end of the station's
+#: docking bay (x 5056). The buildings (the patent office, the lab,
+#: the dome) are entered by doors and sit near their doors.
 ROOMS_AT = {
-    COURT: ((0, 6880), (1600, 832)),
-    QUAD: ((1856, 6880), (2816, 896)),
-    PATENT: ((1856, 8064), (1024, 448)),
+    COURT: ((256, 6880), (1600, 832)),
+    # Out of town (Jon, 2026-10-30): the Test Range, west of the gate court.
+    RANGE: ((256 - 2816, 6880), (2816, 832)),
+    QUAD: ((1856, 6816), (2816, 896)),
+    PATENT: ((1856, 8064), (1024, 640)),
     LAB: ((3072, 8064), (1280, 576)),
-    DOME: ((2560, 5600), (1280, 1024)),
-    STATION: ((4928, 6880), (1600, 1408)),
-    CLIMB: ((5312, 3424), (1280, 3200)),
-    TERMINUS: ((5312, 2144), (1280, 1024)),
+    COLLIDER: ((4416, 8064), (2000, 640)),
+    DOME: ((2560, 5792), (1280, 1024)),
+    STATION: ((4672, 6240), (1600, 1408)),
+    CLIMB: ((5056, 3040), (1280, 3200)),
+    TERMINUS: ((5056, 2016), (1280, 1024)),
 }
 
 #: The elevator: the cars' size and speed; the foot of the ground station's
 #: shaft (room x), and the climb's and terminus's shaft (room x).
 CAR_W, CAR_H = 128, 22
+#: How far over the ground station's floor its car waits: a hop.
+CAR_HOP = 40
 CAR_SPEED = 300.0
 CLIMB_SPEED = 340.0
 STATION_SHAFT_X = 960
@@ -107,6 +129,8 @@ EDGE_FEET = 68
 
 def build(rid, entities, title, music=TOWN_MUSIC, biome=BIOME, **kw):
     at, size = ROOMS_AT[rid]
+    # The room's scenery (`props.py`) is listed first: it draws behind.
+    entities = [*props.scenery(rid), *entities]
     return rid, room(rid, entities, at=at, size=size, biome=biome, music=music, bg=BG, title=title, generator=GENERATOR, **kw)
 
 
@@ -118,8 +142,16 @@ def vertical_edge(zone, name, x, y, w, to_room, to_zone, bidirectional=True):
 
 def car(cid, name, x, top, dy, speed):
     """A car of the elevator: it rests with its top at `top` and carries a
-    rider `dy` (up is negative)."""
-    return entity("MovingPlatform", x, top, CAR_W, CAR_H, id=cid, name=name, speed=speed, lift_dy=float(dy), one_way=True)
+    rider `dy` (up is negative). Drawn as `eureka_tether_car` (its floor is
+    the platform: `platform_looks.ron`)."""
+    return entity("MovingPlatform", x, top, CAR_W, CAR_H, id=cid, name=name, speed=speed, lift_dy=float(dy), one_way=True,
+                  visual="eureka_tether_car")
+
+
+def walk(name, x, y, w):
+    """A one-way walk the room's art draws (a gallery on its girder): a still
+    platform with no picture of its own."""
+    return entity("MovingPlatform", x, y, w, 16, id=name, name=name, speed=0.0, visual="none", one_way=True)
 
 
 def court():
@@ -131,7 +163,9 @@ def court():
     floor, walk = 704, 512
     e = [
         solid("ground", 0, floor, w, h - floor),
-        solid("west_wall", 0, 0, WALL, floor),
+        # The west wall, open on the floor to the Test Range.
+        solid("west_wall", 0, 0, WALL, floor - 112),
+        edge("court_west", "out to the Test Range", 0, floor, RANGE, "range_east"),
         solid("east_wall_high", w - WALL, 0, WALL, walk - 96),
         solid("east_wall_mid", w - WALL, walk + 16, WALL, floor - 96 - walk - 16),
         start(rid, 336, floor),
@@ -139,6 +173,8 @@ def court():
         ledge("court_bench", 860, floor - 32, 160),
         sign("court_sign_gate", 336, floor - 300, "SCIENCE: arrivals for the Eureka Institute", 420),
         sign("court_sign_tether", 900, floor - 260, "The tether: ground station east of the quad. Cars on demand.", 520),
+        # Ottoline Hum busks in the arcade's middle arch (`eureka.yarn`).
+        resident("npc_eureka_hum", "eureka_hum", 1444, floor),
         # Steps up to the raised walk that runs on east over the quad.
         ledge("walk_step_1", 1080, floor - 64, 96),
         ledge("walk_step_2", 1160, floor - 128, 96),
@@ -151,21 +187,25 @@ def court():
 
 def quad():
     """The quad. The street (y 768) runs the room; the lecture hall's terrace
-    (y 576) over its middle, the raised walk (y 512) at the west end. Doors on
+    (y 576) over its middle, the raised walk (y 576) at the west end. Doors on
     the street to the patent office and the coil laboratory, and on the
     terrace to the observatory. The cafe's awning is a step."""
     rid = QUAD
     _, (w, h) = ROOMS_AT[rid]
-    street, terrace, walk = 768, 576, 512
+    # The raised walk is as high over the street as the court's is over its
+    # floor, so the two meet level.
+    street, terrace, walk_y = 768, 576, 576
     e = [
         solid("street", 0, street, w, h - street),
-        solid("west_wall_high", 0, 0, WALL, walk - 96),
-        solid("west_wall_mid", 0, walk + 16, WALL, street - 96 - walk - 16),
+        solid("west_wall_high", 0, 0, WALL, walk_y - 96),
+        solid("west_wall_mid", 0, walk_y + 16, WALL, street - 96 - walk_y - 16),
         solid("east_wall", w - WALL, 0, WALL, street - 96),
         edge("quad_west_low", "to the gate court", 0, street, COURT, "court_east_low"),
-        edge("quad_west_high", "along the raised walk", 0, walk, COURT, "court_east_high"),
+        edge("quad_west_high", "along the raised walk", 0, walk_y, COURT, "court_east_high"),
         start(rid, 120, street),
-        ledge("raised_walk", WALL, walk, 560),
+        # The quad's art draws over these (`targets/props/eureka_quad_props.py`);
+        # they stay ledges, the ground a navigating body knows.
+        ledge("raised_walk", WALL, walk_y, 560),
         ledge("walk_stair_1", 560, street - 64, 96),
         ledge("walk_stair_2", 600, street - 128, 64),
         door("quad_patent_door", "into the patent office", 760, street, PATENT, "patent_door"),
@@ -182,6 +222,7 @@ def quad():
         door("quad_dome_door", "up to the observatory", 2180, terrace, DOME, "dome_door"),
         sign("dome_sign", 2204, terrace - 140, "OBSERVATORY: visiting hours after dark", 340),
         sign("hall_sign", 1960, terrace - 260, "THE LECTURE HALL OF THE EUREKA INSTITUTE", 460),
+        door("quad_collider_door", "down to the Collider", COLLIDER_DOOR_X, street, COLLIDER, "collider_door"),
         door("quad_lab_door", "into Tesseract Laboratories", 2440, street, LAB, "lab_door"),
         sign("lab_sign", 2464, street - 150, "TESSERACT LABORATORIES: mind the coils", 360),
         resident("npc_eureka_wilbur", "eureka_wilbur", 2620, street),
@@ -191,7 +232,8 @@ def quad():
 
 
 def patent_office():
-    """The patent office: one room, a long counter, the clerk at his desk."""
+    """The patent office: the clerk behind a long counter, the card cabinet,
+    and the archive gallery over it (one jump up from the cabinet's top)."""
     rid = PATENT
     _, (w, h) = ROOMS_AT[rid]
     floor, ceiling = h - 64, 32
@@ -204,10 +246,11 @@ def patent_office():
         start(rid, 140, floor),
         ledge("counter", 480, floor - 40, 240),
         ledge("file_cabinets", 820, floor - 96, 160),
+        ledge("archive_gallery", 760, floor - 176, w - WALL - 760),
         resident("special_patent_clerk", "eureka_patent_clerk", 640, floor),
         sign("patent_sign_rules", 520, ceiling + 40, "All applications are processed relative to the applicant.", 520),
     ]
-    return build(rid, e, None, music=INDOOR_MUSIC)
+    return build(rid, e, None, music=PATENT_MUSIC)
 
 
 def coil_lab():
@@ -230,8 +273,22 @@ def coil_lab():
         resident("npc_eureka_dmitri", "eureka_dmitri", 560, floor),
         sign("lab_sign_rules", 640, ceiling + 40, "DO NOT TOUCH THE COILS. The coils will touch you.", 520),
         sign("lab_sign_director", 1100, floor - 240, "N. TESSERACT, DIRECTOR: back soon", 320),
+        # The director's prototype (Jon, 2026-10-30: "a bit of chutzpah"): a
+        # lever that turns the lab's gravity over, and its twin hanging from
+        # the ceiling for whoever pressed it. The only door is on the floor.
+        entity("Switch", LAB_LEVER_X, floor - 32, 24, 32, id="lab_gravity_prototype", name="the prototype",
+               prompt="Do not press", action="FlipGravity"),
+        entity("Switch", LAB_LEVER_X, ceiling, 24, 32, id="lab_gravity_prototype_twin", name="the prototype's twin",
+               prompt="Press to come down", action="FlipGravity"),
+        sign("lab_sign_prototype", LAB_LEVER_X - 120, floor - 110, "ANTI-GRAVITY PROTOTYPE: DO NOT PRESS", 380),
+        sign("lab_sign_told_you", LAB_LEVER_X - 60, ceiling + 70, "TOLD YOU.", 160),
     ]
-    return build(rid, e, None, music=INDOOR_MUSIC)
+    return build(rid, e, None, music=LAB_MUSIC)
+
+
+#: Where the coil lab's gravity levers stand (x), one on the floor and one
+#: on the ceiling.
+LAB_LEVER_X = 1192
 
 
 def observatory():
@@ -259,24 +316,25 @@ def observatory():
 
 def elevator_station():
     """The ground station: a tall hall round the foot of the tether. The car
-    rests in the floor (its top level with it) under the open roof of the
-    shaft; the operator by it. The down car from the terminus lets you off
+    waits a hop over the floor under the open roof of the shaft (as the
+    Mockingbird's shark waits in the air): hop on and it is all that holds
+    you, so it carries you. Level with the floor, it set off at the first
+    touch of a foot still on the floor and rose through it. The operator is
+    by it. The down car from the terminus lets you off
     on its platform here."""
     rid = STATION
     _, (w, h) = ROOMS_AT[rid]
     floor = h - 64
     sx, sw = STATION_SHAFT_X, CAR_W
     e = [
-        solid("floor_west", 0, floor, sx, 64),
-        solid("floor_east", sx + sw, floor, w - sx - sw, 64),
-        solid("pit_floor", sx, floor + CAR_H + 8, sw, 64 - CAR_H - 8),
+        solid("floor", 0, floor, w, 64),
         solid("roof_west", 0, 0, sx, 48),
         solid("roof_east", sx + sw, 0, w - sx - sw, 48),
         solid("west_wall_high", 0, 48, WALL, floor - 96 - 48),
         solid("east_wall", w - WALL, 48, WALL, floor - 48),
         edge("station_west", "to the quad", 0, floor, QUAD, "quad_east"),
         start(rid, 200, floor),
-        car("tether_car_ground", "the tether's car", sx, floor, -(floor + 60), CAR_SPEED),
+        car("tether_car_ground", "the tether's car", sx, floor - CAR_HOP, -(floor - CAR_HOP + 60), CAR_SPEED),
         vertical_edge("station_to_climb", "up the tether", sx, 0, sw, CLIMB, "climb_from_station"),
         resident("npc_eureka_teodora", "eureka_teodora", 720, floor),
         # Where the down car lets you off (one way: up is the ride).
@@ -285,8 +343,8 @@ def elevator_station():
         sign("station_sign_car", sx + sw // 2, floor - 200, "STAND ON THE CAR TO ASCEND", 320),
         sign("station_sign_altitude", sx + sw // 2, floor - 260, "Orbit: 35,786 km. Allow for the view.", 400),
         # Galleries round the hall.
-        ledge("gallery_west", WALL, floor - 320, 480),
-        ledge("gallery_east", w - 400, floor - 320, 400 - WALL),
+        walk("gallery_west", WALL, floor - 320, 480),
+        walk("gallery_east", w - 400, floor - 320, 400 - WALL),
     ]
     return build(rid, e, "THE TETHER: GROUND STATION")
 
@@ -337,11 +395,91 @@ def terminus():
              bidirectional=False),
         door("terminus_bay_door", "to the docking bay", w - 120, floor, BAY, BAY_DOOR),
         sign("terminus_sign", w // 2, 120, "TETHER TERMINUS: the planet is 35,786 km down", 520),
+        # The arrivals board and the souvenir kiosk (`orbital_terminus_props.py`).
+        sign("terminus_sign_arrivals", 540, 300, "ARRIVALS: every car ON TIME. It is a ribbon.", 440),
+        sign("terminus_sign_kiosk", 375, floor - 150, "GENUINE ORBIT AIR, bottled at altitude", 380),
+        resident("npc_station_dobbs", "station_dobbs", 390, floor),
     ]
     return build(rid, e, "THE TETHER TERMINUS", music=STATION_MUSIC, biome=STATION_THEME)
 
 
-ROOMS = (court, quad, patent_office, coil_lab, observatory, elevator_station, elevator_climb, terminus)
+def range_enemy(n, character, x, feet, w, h, brain="combatant"):
+    return entity("EnemySpawn", x, feet - h, w, h, name=f"{RANGE}_{character}_{n}", brain=brain,
+                  character_id=character, respawn="OnRoomReenter")
+
+
+def test_range():
+    """Out of town: the Test Range, west of the gate court. Floor 704. A
+    rocket on its pad with a gantry to climb (its walks y 624..384), a blast
+    bunker whose roof is walked on (y 576), an observation tower (y 560, 416).
+    What the institute tests has got loose: searchlight crawlers, a shock
+    warden on the bunker, exploding mites; two crash-test dummies wait to be
+    hit."""
+    rid = RANGE
+    _, (w, h) = ROOMS_AT[rid]
+    floor = 704
+    bx0, bx1, btop = 1700, 1960, 576
+    e = [
+        solid("ground", 0, floor, w, h - floor),
+        solid("west_wall", 0, 0, WALL, floor),
+        solid("east_wall_high", w - WALL, 0, WALL, floor - 112),
+        edge("range_east", "back to the gate court", w - WALL, floor, COURT, "court_west"),
+        start(rid, w - 200, floor),
+        *[ledge(f"gantry_{i}", x0, y, x1 - x0) for i, (x0, x1, y) in enumerate(((680, 820, 624), (760, 900, 544), (680, 820, 464), (760, 900, 384)))],
+        solid("bunker", bx0, btop, bx1 - bx0, floor - btop),
+        ledge("tower_low", 2280, 560, 120),
+        ledge("tower_cab", 2320, 416, 120),
+        # A chest for whoever climbs to the top (Jon, 2026-10-30: "interactive elements").
+        entity("ChestSpawn", 2340, 416 - 58, 76, 58, name="the range's lost and found", reward="currency:50"),
+        sign("range_sign", w - 420, floor - 200, "EUREKA TEST RANGE: if the siren sounds, it is already too late", 520),
+        sign("rocket_sign", 960, 110, "PROBABLY FINE III", 260),
+        sign("bunker_sign", (bx0 + bx1) // 2, btop - 60, "BLAST BUNKER: knock first, then duck", 360),
+        sign("tower_sign", 2380, 300, "OBSERVATION: the safe side of the glass", 360),
+        range_enemy(1, "npc_searchlight_crawler", 1240, floor, 48, 34),
+        range_enemy(2, "npc_searchlight_crawler", 2120, floor, 48, 34),
+        range_enemy(3, "npc_shock_warden", 1810, btop, 40, 64),
+        range_enemy(4, "npc_exploding_mite", 480, floor, 38, 66, "exploding_mite"),
+        range_enemy(5, "npc_exploding_mite", 1500, floor, 38, 66, "exploding_mite"),
+        # The range's officer, between the crawler and the dummies.
+        resident("npc_eureka_pryce", "eureka_pryce", 2500, floor),
+        range_enemy(6, "sandbag", 2580, floor, 34, 58, "sandbag_finite"),
+        range_enemy(7, "sandbag", 2660, floor, 34, 58, "sandbag_finite"),
+    ]
+    return build(rid, e, "THE TEST RANGE", music=TOWN_MUSIC)
+
+
+# Made from the top of the tether down and then west: a room is placed only
+# where no room stands, so a move of the chain places the far end first.
+def collider():
+    """Under the lecture hall, down its stair: the Eureka Collider. Floor 576.
+    The ring's tunnel, its beam pipe and magnets, the staff's bicycles; the
+    detector at the east end and its gallery (y 384, up a ladder; a chest
+    there). Dr. Ilse Quark by the stair; what has got loose in the tunnel
+    (crawlers, a shock warden)."""
+    rid = COLLIDER
+    _, (w, h) = ROOMS_AT[rid]
+    floor, vault = 576, 48
+    g0, g1, gy = COLLIDER_GALLERY
+    e = [
+        solid("floor", 0, floor, w, h - floor),
+        solid("vault", 0, 0, w, vault),
+        solid("west_wall", 0, vault, WALL, floor - vault),
+        solid("east_wall", w - WALL, vault, WALL, floor - vault),
+        door("collider_door", "up to the quad", 40, floor, QUAD, "quad_collider_door"),
+        start(rid, 140, floor),
+        ledge("detector_gallery", g0, gy, g1 - g0),
+        entity("ChestSpawn", g0 + 90, gy - 58, 76, 58, name="a spare quark (charm)", reward="currency:60"),
+        resident("npc_eureka_quark", "eureka_quark", 300, floor),
+        sign("collider_sign", 560, 200, "THE EUREKA COLLIDER: circumference 27 km. Staff bicycles only.", 520),
+        sign("collider_sign_beam", 900, 330, "BEAM ON: do not lick the pipe", 300),
+        range_enemy(10, "npc_searchlight_crawler", 760, floor, 48, 34),
+        range_enemy(11, "npc_searchlight_crawler", 1080, floor, 48, 34),
+        range_enemy(12, "npc_shock_warden", 1360, floor, 40, 64),
+    ]
+    return build(rid, e, "THE EUREKA COLLIDER")
+
+
+ROOMS = (terminus, elevator_climb, elevator_station, quad, court, test_range, patent_office, coil_lab, observatory, collider)
 
 #: The docking bay's door to the terminus, on its floor west of the cargo
 #: lift (the bay is the station generator's; it lists the same door).
@@ -395,6 +533,11 @@ def main(argv):
         code, _ = run("entity", "add", str(GATE_INTERFACE), "--ldtk", str(WORLD_LDTK), "--in-place")
         if code:
             return code
+    # The ladder up to the collider's detector gallery.
+    code, _ = run("intgrid", "paint", "--ldtk", str(WORLD_LDTK), "--level", COLLIDER, "--layer", "Climbable", "--value", "1",
+                  "--px", f"{COLLIDER_GALLERY[0] - 32},{COLLIDER_GALLERY[2] - 16}", "--size", f"32,{576 - COLLIDER_GALLERY[2] + 16}")
+    if code:
+        return code
     code, _ = run("validate", str(WORLD_LDTK))
     return code
 

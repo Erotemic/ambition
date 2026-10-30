@@ -26,6 +26,32 @@ const PROBE_ANGLE: f32 = 0.3;
 /// worth holding only for the smash-DI shift.
 const MIN_LAUNCH_SPEED: f32 = 1.0;
 
+/// Is this body still inside its hitstun RIGHT NOW — unable to act on a press?
+///
+/// ⛔⛔ A PRESS MADE IN HITSTUN IS EATEN, AND AN EATEN EDGE CORRUPTS THIS BRAIN.
+/// Under `CombatRules::hitstun_locks_actions` (Smash) the hard lock runs the
+/// whole stun — up to ~44 frames — and `apply_post_hit_input_gates` strips the
+/// attack edge for all of it. The brain is open-loop about its own presses: an
+/// emission spends an APM token and arms `OwnAttack`, which then "learns" a
+/// whiff from a move that never started. Measured 2026-10-29, George mirror,
+/// 3600 ticks: a seat 364 ticks offstage pressed its authored recovery route
+/// NEVER — every press matured inside the stun and was deleted.
+///
+/// The genre's answer is the INPUT BUFFER: a press held during hitstun comes
+/// out on the first actionable frame. [`super::decision::tick_fighter`] holds a
+/// matured press while this is true and emits it the tick it turns false.
+///
+/// ⭐ "NOW": the body is seen in the present (Q167, `DelayedPerception::
+/// observe`), so its own stun and its remainder are this tick's. The delay
+/// axis is the world's, not proprioception's; the genre does not make a
+/// player wait to learn that they were hit.
+pub fn still_reeling(view: Perceived<'_>) -> bool {
+    // The body is seen NOW (Q167): its stun's remainder is the present one,
+    // and the view's staleness is the world's age, not the body's.
+    let me = &view.self_view;
+    me.alive && me.phase == BodyPhase::Hitstun && me.phase_remaining > 0.0
+}
+
 /// The stick a reeling body holds, in body-local axes — `None` when the body is
 /// not reeling and the ordinary decision owns its movement.
 ///
@@ -57,7 +83,9 @@ pub fn survival_stick(view: Perceived<'_>) -> Option<ae::LocalAxes> {
         return None;
     }
     let frame = ae::AccelerationFrame::new(me.gravity_down);
-    let bounds = view.stage.bounds;
+    // Survival is about the DEATH LINE, which lies past the room by the margins
+    // the stage authored — see `WorldView::death_line`.
+    let bounds = view.death_line();
     let launch = me.vel;
     let speed = launch.length();
 

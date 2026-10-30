@@ -1977,6 +1977,8 @@ fn throw_after_a_checkpoint(item: Item, into: &str, carried_back: bool) -> (Plat
     use bevy::ecs::system::RunSystemOnce;
     let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_for_a_replay();
     assert_eq!(sim.observation().active_room, ROOM, "precondition: Alice is in the hub");
+    // The demo's bag starts with a stock of bombs; this story counts one.
+    sim.world_mut().resource_mut::<OwnedItems>().take(item, u32::MAX);
     sim.world_mut().write_message(ItemGrantRequested {
         item: item,
         count: 1,
@@ -2268,6 +2270,8 @@ fn a_bomb_that_exploded_leaves_no_ledger_row_once_a_checkpoint_commits() {
 
     let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_for_a_replay();
     assert_eq!(sim.observation().active_room, ROOM, "precondition: Alice is in the hub");
+    // The demo's bag starts with a stock of bombs; this story counts one.
+    sim.world_mut().resource_mut::<OwnedItems>().take(Item::Bomb, u32::MAX);
     sim.world_mut().write_message(ItemGrantRequested { item: Item::Bomb, count: 1 });
     sim.step_n(base(), 4);
     commit_a_checkpoint(&mut sim);

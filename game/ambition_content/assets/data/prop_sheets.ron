@@ -205,8 +205,147 @@
     "village_cedar_3": (),
     "village_cedar_4": (),
     "village_cedar_5": (),
-    "village_cedar_6": (),
     "village_clan_gatehouse": (),
     "village_dojo_entry": (),
     "village_dojo_exam": (),
+    // Eureka: the Patent Office and the observatory, outside and in.
+    "eureka_patent_front": (),
+    "eureka_observatory_front": (),
+    "eureka_patent_room": (),
+    "eureka_observatory_room": (),
+    "eureka_lab_room": (),
+    // The Pirate Cove (PvN).
+    "cove_cave": (),
+    "cove_ledges": (),
+    "cove_doorways": (),
+    "cove_dressing": (),
+    // Zeno's Aqueduct (Math, out of town).
+    "math_zeno_aqueduct": (),
+    "math_zeno_reservoir": (),
+    // The jungle: the Tyrant King's hall.
+    "primeval_tyrant_hall_room": (),
+    // Hylbert's Hotel (Math).
+    "math_hotel_entrance": (),
+    "math_hotel_lobby_room": (),
+    "math_hotel_corridor_room": (),
+    "math_hotel_lift_shaft": (),
+    // The Searchlight Moor (Evil, out of town).
+    "moor_watchtower": (),
+    "moor_statue": (),
+    "moor_wire": (),
+    "moor_bog": (),
+    // The Evil dimension's forest road.
+    "evil_forest_roadside": (),
+    // Eureka's Test Range (Science, out of town).
+    "eureka_range_rocket": (),
+    "eureka_range_bunker": (),
+    "eureka_range_tower": (),
+    "eureka_range_field": (),
+    // The tether's ground station, and its car (a platform look).
+    "eureka_tether_hall": (),
+    "eureka_tether_car": (),
+    // The Pirate Sky Lookout (PvN, out of town).
+    "sky_lookout_deck": (),
+    // The Math gate hall (arrivals).
+    "math_hall_west": (),
+    "math_hall_east": (),
+    "math_hall_lamps": (),
+    // The Tar Pits (jungle, past the primeval trail).
+    "tar_pits_pools": (),
+    "tar_pits_mammoth": (),
+    "tar_pits_dig_camp": (),
+    "tar_pits_bones": (),
+    // The castle kitchens (Evil).
+    "castle_kitchens_room": (),
+    "complaints_room": (),
+    // The Bamboo Pass (PvN, out of the Ninja Village).
+    "pass_bamboo": (),
+    "pass_bridge": (),
+    "pass_lookout": (),
+    "pass_falls": (),
+    "pass_scoreboard": (),
+    "forest_kiln_camp": (),
+    "terminus_hall": (),
+    "allotment_west": (),
+    "allotment_beds": (),
+    "tea_room": (),
+    "climb_balloon": (),
+    "climb_karman": (),
+    "climb_satellite": (),
+    "climb_navsat": (),
+    "rookery_hide": (),
+    "workshop_room": (),
+    "point_lighthouse": (),
+    "point_cottage": (),
+    "spoke_west": (),
+    "spoke_east": (),
+    "mine_tunnel": (),
+    "hamlet_west": (),
+    "hamlet_east": (),
+    "court_busker": (),
+    "hanoi_temple": (),
+    "ranger_station_room": (),
+    // The ridge road's sinkhole, and the fossil beds under it (Jungle).
+    "ridge_sinkhole": (),
+    "fossil_beds": (),
+    "bakery_room": (),
+    // The cells under Castle Godwin (Evil).
+    "castle_cells_room": (),
+    // The Guild's secret room behind the kitchens (Evil).
+    "castle_guild_room": (),
+    "sail_loft_room": (),
+    // The Pirate Port's well, and the cellars under customs (PvN).
+    "plaza_well": (),
+    "cellars_vault": (),
+    "collider_tunnel": (),
+    // The orbital station's damaged spur (Science).
+    "spur_west": (),
+    "spur_east": (),
+    // The primeval trailhead's ranger hut.
+    "jungle_ranger_hut": (),
+    // Hylbert's ballroom: the game show, its goats and its car.
+    "math_ballroom_room": (),
+    "math_goat": (),
+    "math_car": (),
+    // The Crooked Lantern, the inn at the end of the Searchlight Moor (Evil).
+    "moor_inn_front": (),
+    "inn_room": (),
+    // The Wreckers' Reef (PvN, out of the Pirate Port).
+    "reef_shore": (),
+    "reef_wreck": (),
+    // Eureka's quad, filled in.
+    "quad_raised_walk": (),
+    "quad_cafe": (),
+    "quad_lecture_hall": (),
+    "quad_fountain": (),
+    "quad_lab_front": (),
+    // The Fractal Woods (Math, out of town).
+    "woods_far_west": (),
+    "woods_far_east": (),
+    "woods_great_tree": (),
+    // The Fibonacci Meadow, east of the woods (Math).
+    "meadow_farm": (),
+    "meadow_squares": (),
+    "meadow_field": (),
+    "woods_curiosities": (),
+    // The Smoking Mountain (jungle, past the tar pits).
+    "volcano_west": (),
+    "volcano_east": (),
+    // The orbital station's observation deck: its window.
+    "obs_deck_window": (),
+    // Eureka's gate court.
+    "court_furniture": (),
+    // The founder's crypt, under the Searchlight Moor (Evil).
+    "moor_crypt_gate": (),
+    "crypt_room": (),
+    // The orbital station's service deck.
+    "svc_clutter": (),
+    // The hall of the Shadow Clan (PvN).
+    "shadow_dojo_hall": (),
+    // Along the primeval trail.
+    "jungle_fern_clump": (),
+    "jungle_fallen_log": (),
+    "jungle_nest": (),
+    "jungle_idol_head": (),
+    "jungle_ribcage": (),
 }

@@ -53,7 +53,13 @@ GENERATOR = "specs/ninja_village/make_specs.py"
 SHRINE = "ninja_village_gate_shrine"
 STREET = "ninja_village_street"
 DOJO = "ninja_village_dojo"
+#: Ume's tea house inside, by its door in the street (under the noren).
+TEA = "ninja_village_tea_room"
+TEA_DOOR_X = 1256
 FOREST = "ninja_village_forest"
+#: Out of the village (Jon, 2026-10-30: "out of town zones with enemies"):
+#: the Bamboo Pass, east of the forest by a side exit.
+PASS = "ninja_bamboo_pass"
 
 #: The contract with Agent GATE: the arrival point a dialled SILENT names.
 ARRIVAL = "ninja_village_gate_arrival"
@@ -76,11 +82,16 @@ DOJO_MUSIC = "nine_rooftops"
 #: The village is 10000 px under the port in the PvN world file (`pvn.ldtk`):
 #: the two were laid out each in its own file, from the same corner.
 VILLAGE_Y = 10000
+#: The shrine, the street and the forest touch where their side exits join,
+#: with the low road and the high road level (`specs/check_flat_map.py`). The
+#: dojo is a building.
 ROOMS_AT = {
     SHRINE: ((0, VILLAGE_Y), (1600, 832)),
-    STREET: ((1856, VILLAGE_Y), (2816, 896)),
-    FOREST: ((4928, VILLAGE_Y), (2816, 960)),
+    STREET: ((1600, VILLAGE_Y - 64), (2816, 896)),
+    FOREST: ((4416, VILLAGE_Y - 128), (2816, 960)),
     DOJO: ((1856, VILLAGE_Y + 1152), (1600, 576)),
+    TEA: ((768, VILLAGE_Y + 1152), (1024, 512)),
+    PASS: ((4416 + 2816, VILLAGE_Y - 128), (2400, 960)),
 }
 
 
@@ -156,7 +167,9 @@ def street():
         start(rid, 120, ground),
         *[ledge(name, x0, y, x1 - x0) for name, x0, x1, y in ROOFS],
         resident("npc_village_daichi", "ninja_village_daichi", 760, ground),
-        resident("npc_village_ume", "ninja_village_ume", 1280, ground),
+        # Ume by her bench, clear of her door.
+        resident("npc_village_ume", "ninja_village_ume", 1390, ground),
+        door("street_tea_door", "into the tea house", TEA_DOOR_X, ground, TEA, "tea_door"),
         sign("tea_house_sign", 1280, ground - 200, "UME'S TEA HOUSE: gate-sick half price", 360),
         door("street_dojo_door", "into the dojo", 1736, ground, DOJO, "dojo_door"),
         sign("dojo_sign", 1760, ground - 180, "VILLAGE DOJO: rank exams on the hour", 340),
@@ -171,12 +184,15 @@ def street():
 #: the last one 64 over the floor.
 BRANCH_W, BRANCH_STEP = 320, 384
 FOREST_FLOOR = 832
-BRANCHES = [(f"branch_{i}", i * BRANCH_STEP + (WALL if i == 0 else 0), 384 + 64 * i) for i in range(7)]
+#: Six branches stepping down east from y 448, level in the world with the
+#: street's last roof (y 384 there): the high road's side exit meets the
+#: first branch (`specs/check_flat_map.py`).
+BRANCHES = [(f"branch_{i}", i * BRANCH_STEP + (WALL if i == 0 else 0), 448 + 64 * i) for i in range(6)]
 
 
 def forest():
     """The cedar forest. Floor 832. The branches step down east from the
-    west edge (y 384) to 64 over the floor: from the floor, a robot climbs
+    west edge (y 448) to 64 over the floor: from the floor, a robot climbs
     them west, back to the roofs of the street. The Shadow Dojo's door is
     at the east end."""
     rid = FOREST
@@ -186,7 +202,8 @@ def forest():
         solid("forest_floor", 0, FOREST_FLOOR, w, h - FOREST_FLOOR),
         solid("west_wall_high", 0, 0, WALL, top - 96),
         solid("west_wall_mid", 0, top + 16, WALL, FOREST_FLOOR - 96 - top - 16),
-        solid("east_wall", w - WALL, 0, WALL, FOREST_FLOOR),
+        solid("east_wall", w - WALL, 0, WALL, FOREST_FLOOR - 112),
+        edge("forest_east", "on to the bamboo pass", w - WALL, FOREST_FLOOR, PASS, "pass_west"),
         edge("forest_west_low", "to the village", 0, FOREST_FLOOR, STREET, "street_east_low"),
         edge("forest_west_high", "onto the roofs", 0, top, STREET, "street_east_high"),
         start(rid, 120, FOREST_FLOOR),
@@ -194,8 +211,43 @@ def forest():
         door("forest_clan_door", "to the hall of the Shadow Clan", 2700, FOREST_FLOOR, CLAN, CLAN_DOOR),
         sign("clan_sign", 2480, FOREST_FLOOR - 200, "HALL OF THE SHADOW CLAN. Visitors by appointment. Appointments by stealth.", 520),
         sign("forest_sign", 900, FOREST_FLOOR - 120, "Cedar path. Mind the roots.", 260),
+        # The charcoal burner at his kiln (`ninja_forest_props.py`), and the
+        # crows' hoard on the fourth branch that he tells of.
+        resident("npc_village_moriyama", "ninja_village_moriyama", 540, FOREST_FLOOR),
+        sign("kiln_sign", 424, FOREST_FLOOR - 190, "KILN LIT. Do not open for three days.", 340),
+        entity("ChestSpawn", BRANCHES[3][1] + 160, BRANCHES[3][2] - 58, 76, 58, name="the crows' hoard", reward="currency:30"),
     ]
     return build(rid, e, "THE CEDAR FOREST", music=FOREST_MUSIC)
+
+
+#: The tea room's step chest (x0, x1, tread) and the loft's floor (x0, x1,
+#: y), walked on (`ninja_tea_room_props.py` draws on these).
+TEA_STEPS = ((432, 464, 416), (464, 496, 384), (496, 528, 352), (528, 560, 320), (560, 592, 288))
+TEA_LOFT = (592, 1008, 256)
+
+
+def tea_room():
+    """Ume's tea house inside. Floor 448. The tea room, its hearth and
+    tables; the step chest up to the loft and its two guest rooms, where a
+    family who left before daylight forgot a child's sandals (Ume's talk)
+    and left a thank-you on the pillow. Tsuru the medicine seller is
+    staying."""
+    rid = TEA
+    _, (w, h) = ROOMS_AT[rid]
+    g = 448
+    e = [
+        solid("floor", 0, g, w, h - g),
+        solid("ceiling", 0, 0, w, 32),
+        solid("west_wall", 0, 32, WALL, g - 32),
+        solid("east_wall", w - WALL, 32, WALL, g - 32),
+        door("tea_door", "out to the street", 40, g, STREET, "street_tea_door"),
+        start(rid, 140, g),
+        *[ledge(f"step_{i}", x0, top, x1 - x0) for i, (x0, x1, top) in enumerate(TEA_STEPS)],
+        ledge("loft", TEA_LOFT[0], TEA_LOFT[2], TEA_LOFT[1] - TEA_LOFT[0]),
+        resident("npc_village_tsuru", "ninja_village_tsuru", 800, g),
+        entity("ChestSpawn", 610, TEA_LOFT[2] - 58, 76, 58, name="a thank-you, left on the pillow", reward="currency:20"),
+    ]
+    return build(rid, e, "UME'S TEA HOUSE")
 
 
 def dojo():
@@ -231,10 +283,71 @@ def dojo():
     return build(rid, e, "THE VILLAGE DOJO", music=DOJO_MUSIC)
 
 
-ROOMS = (shrine, street, forest, dojo)
+#: The Bamboo Pass: its gorge (x), the stream in it and its bed (y), the
+#: stepping stone out (x0, x1, y), the lookout's platforms (x0, x1, (y...)).
+#: The art (`targets/props/ninja_pass_props.py`) is drawn on these numbers.
+PASS_GORGE = (900, 1400)
+PASS_STREAM, PASS_BED = 880, 944
+PASS_STEP = (1340, 1390, 880)
+PASS_LOOKOUT = (1540, 1700, (704, 576))
+
+
+def walk(name, x, y, w):
+    """A one-way walk the room's art draws (a bridge, a platform): a still
+    platform with no picture of its own."""
+    return entity("MovingPlatform", x, y, w, 16, id=name, name=name, speed=0.0, visual="none", one_way=True)
+
+
+def pass_enemy(n, character, x, feet, w, h):
+    return entity("EnemySpawn", x, feet - h, w, h, name=f"{PASS}_{character}_{n}", brain="combatant",
+                  character_id=character, respawn="OnRoomReenter")
+
+
+def bamboo_pass():
+    """Out of the village: the Bamboo Pass, the Shadow Clan's sparring
+    ground, where everyone who passes is an opponent. Floor 832, level with
+    the forest's. A gorge with a stream (a rope bridge over it, a stone to
+    climb out by), a bamboo lookout (its ladder), a waterfall and jizo by
+    the path at the east wall."""
+    rid = PASS
+    _, (w, h) = ROOMS_AT[rid]
+    g, (g0, g1) = FOREST_FLOOR, PASS_GORGE
+    s0, s1, sy = PASS_STEP
+    l0, l1, (low, high) = PASS_LOOKOUT
+    e = [
+        solid("ground_west", 0, g, g0, h - g),
+        solid("gorge_bed", g0, PASS_BED, g1 - g0, h - PASS_BED),
+        solid("ground_east", g1, g, w - g1, h - g),
+        solid("west_wall", 0, 0, WALL, g - 112),
+        solid("east_wall", w - WALL, 0, WALL, g),
+        edge("pass_west", "back to the cedar forest", 0, g, FOREST, "forest_east"),
+        start(rid, 120, g),
+        walk("rope_bridge", g0, g, g1 - g0),
+        walk("stepping_stone", s0, sy, s1 - s0),
+        walk("lookout_low", l0, low, l1 - l0),
+        walk("lookout_high", l0, high, l1 - l0),
+        # A chest for whoever climbs to the top (Jon, 2026-10-30: "interactive elements").
+        entity("ChestSpawn", l0 + 4, low - 58, 76, 58, name="the clan's prize", reward="health:2"),
+        sign("pass_sign", 420, g - 200, "SHADOW CLAN SPARRING GROUND: all who pass are opponents. Nothing personal.", 560),
+        # Matsuda, the pass's referee, by his tally board before the first
+        # bout (`ninja_pass_props.py` `pass_scoreboard`).
+        resident("npc_village_matsuda", "ninja_village_matsuda", 330, g),
+        sign("bridge_sign", 1150, g - 110, "ROPE BRIDGE: one at a time. Opponents count.", 380),
+        sign("falls_sign", 2120, g - 140, "Please do not fight the jizo.", 300),
+        # The ninjas who can fight where they are placed (locomotion
+        # authored): the swordsmen of the rank exam and their oni leader.
+        pass_enemy(1, "npc_ninja_shadow_duelist_eye_band", 640, g, 32, 66),
+        pass_enemy(2, "npc_ninja_shadow_duelist_eye_band", 1520, g, 32, 66),
+        pass_enemy(3, "npc_ninja_shadow_oni_leader", 1600, high, 34, 71),
+        pass_enemy(4, "npc_ninja_shadow_duelist_eye_band", 2060, g, 32, 66),
+    ]
+    return build(rid, e, "THE BAMBOO PASS", music=FOREST_MUSIC)
+
+
+ROOMS = (shrine, street, forest, dojo, tea_room, bamboo_pass)
 
 #: The ladder up the baker's wall: (room, x, top, bottom).
-LADDERS = [(STREET, 400, ROOFS[0][3] - 16, 768)]
+LADDERS = [(STREET, 400, ROOFS[0][3] - 16, 768), (PASS, PASS_LOOKOUT[1] + 4, PASS_LOOKOUT[2][1] - 16, FOREST_FLOOR)]
 
 CLAN_DOOR_YAML = f"""# The Shadow Dojo's door to the Ninja Village's forest. Written by {GENERATOR}.
 level_id: {CLAN}
@@ -277,6 +390,9 @@ def main(argv):
     for rid, x, top, bottom in LADDERS:
         if code := paint(WORLD_LDTK, rid, "Climbable", 1, x, top, 32, bottom - top):
             return code
+    # The pass's stream: murky water (the art draws it).
+    if code := paint(WORLD_LDTK, PASS, "Water", 2, PASS_GORGE[0] + 16, PASS_STREAM, PASS_GORGE[1] - PASS_GORGE[0] - 16, PASS_BED - PASS_STREAM):
+        return code
     for checked in (WORLD_LDTK, SANDBOX_LDTK):
         code, _ = run("validate", str(checked))
         if code:

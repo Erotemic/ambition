@@ -162,6 +162,70 @@ def test_biome_metadata_lands_as_level_fields(tmp_path: Path) -> None:
     print("ok: biome / music / ambient / theme land as level field instances")
 
 
+def test_a_new_level_can_be_painted_with_water(tmp_path: Path) -> None:
+    """A made level carries every IntGrid layer its project defines: the
+    Searchlight Moor's bog, the tar pits and the Bamboo Pass's stream were
+    each painted after their room was made, and the paint was refused (the
+    level had no Water layer) until it did."""
+    ldtk_copy = tmp_path / "sandbox_water.ldtk"
+    shutil.copy2(LDTK_PATH, ldtk_copy)
+    spec_path = tmp_path / "water_spec.json"
+    spec_path.write_text(json.dumps({
+        "id": "water_area", "level_id": "water_level", "world_x": 24500, "world_y": 2048,
+        "px_wid": 256, "px_hei": 128, "fill_collision": "empty",
+        "entities": [{"type": "PlayerStart", "px": [16, 16], "size": [28, 46], "fields": {"name": "water_spawn"}}],
+    }))
+    r = run_tool(spec_path, ldtk_copy, "--no-repair")
+    if r.returncode != 0:
+        fail(f"area create exited {r.returncode}: {r.stderr}")
+    paint = subprocess.run(
+        [sys.executable, "-m", "ambition_ldtk_tools", "intgrid", "paint", "--ldtk", str(ldtk_copy), "--level", "water_level",
+         "--layer", "Water", "--value", "2", "--px", "32,64", "--size", "64,32", "--no-repair"],
+        capture_output=True, text=True, env={**os.environ, "PYTHONPATH": str(PKG_ROOT)},
+    )
+    if paint.returncode != 0:
+        fail(f"painting the new level's Water exited {paint.returncode}: {paint.stderr}")
+    level = next(l for l in json.loads(ldtk_copy.read_text())["levels"] if l["identifier"] == "water_level")
+    water = next(li for li in level["layerInstances"] if li["__identifier"] == "Water")
+    if sum(1 for v in water["intGridCsv"] if v == 2) != 8:
+        fail("the painted Water cells did not land")
+
+
+def test_a_room_moved_in_the_editor_stays_put_when_regenerated(tmp_path: Path) -> None:
+    """Jon (2026-10-30) lays a region out by default from its generator and
+    then moves rooms in the LDtk editor: `--keep-position` regenerates a room
+    where it stands, and without it the spec's place wins (a relayout)."""
+    ldtk_copy = tmp_path / "sandbox_moved.ldtk"
+    shutil.copy2(LDTK_PATH, ldtk_copy)
+    spec_path = tmp_path / "moved_spec.json"
+    spec_path.write_text(json.dumps({
+        "id": "moved_area", "level_id": "moved_level", "world_x": 24500, "world_y": 2048,
+        "px_wid": 256, "px_hei": 128, "fill_collision": "empty",
+        "entities": [{"type": "PlayerStart", "px": [16, 16], "size": [28, 46], "fields": {"name": "moved_spawn"}}],
+    }))
+    if run_tool(spec_path, ldtk_copy, "--no-repair").returncode != 0:
+        fail("making the level failed")
+
+    def place():
+        level = next(l for l in json.loads(ldtk_copy.read_text())["levels"] if l["identifier"] == "moved_level")
+        return level["worldX"], level["worldY"]
+
+    # The author moves it in the editor.
+    project = json.loads(ldtk_copy.read_text())
+    level = next(l for l in project["levels"] if l["identifier"] == "moved_level")
+    level["worldX"], level["worldY"] = 24800, 2304
+    ldtk_copy.write_text(json.dumps(project))
+    r = run_tool(spec_path, ldtk_copy, "--no-repair", "--replace-existing", "--keep-position")
+    if r.returncode != 0:
+        fail(f"regenerating in place exited {r.returncode}: {r.stderr}")
+    if place() != (24800, 2304):
+        fail(f"the moved room went back to its spec's place: {place()}")
+    if run_tool(spec_path, ldtk_copy, "--no-repair", "--replace-existing").returncode != 0:
+        fail("relayout failed")
+    if place() != (24500, 2048):
+        fail(f"without --keep-position the spec's place wins: {place()}")
+
+
 def test_connect_to_inserts_reciprocal_loading_zone(tmp_path: Path) -> None:
     td = tmp_path
     ldtk_copy = td / "sandbox_connect.ldtk"

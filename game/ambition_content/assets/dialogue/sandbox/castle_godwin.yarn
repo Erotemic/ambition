@@ -1,0 +1,185 @@
+title: castle_godwin_context
+---
+// Castle Godwin's staff (the Evil dimension): the people who keep a tyrant's
+// castle running, in the kitchens under the gatehouse. One node per resident,
+// named `castle_<resident>`.
+//
+// Everyday talk only (Jon, 2026-10-29: "we are world building not quest
+// building"): no flags, no errands.
+//
+// Never played. No placement names this node; it declares the zone.
+===
+
+title: castle_hargreave
+---
+Mrs Hargreave: Wipe your feet. I do not care whose side you are on, you are not tracking moor into my kitchen.
+-> What are you cooking?
+    Mrs Hargreave: Gruel. Yesterday it was gruel with a sprig of parsley. The Baron said the parsley was "insubordinate".
+    Mrs Hargreave: So it is gruel again. Gruel never contradicted anybody.
+-> How long have you worked here?
+    Mrs Hargreave: I fed the old Count, and the Count's general, and now the Baron. Three regimes.
+    Mrs Hargreave: They come and go. The kitchen stays. Somebody has to do the potatoes after the revolution.
+-> Are you evil?
+    Mrs Hargreave: I put salt in the soldiers' porridge and none in the officers'. You decide.
+-> I will get out of your way.
+===
+
+title: castle_quill
+---
+Ambrose Quill: Oh, a visitor who isn't a guard. Mind the heap; it's thirty years of suggestions and I'm halfway through filing them.
+-> What are you in for?
+    Ambrose Quill: A strongly worded letter. To the Castle, about the drains. Third paragraph, the word "frankly". They came that afternoon.
+    Ambrose Quill: That was thirty years ago. The drains are still bad. I was right, which I gather made it worse.
+-> Why is your cell open?
+    Ambrose Quill: Good behaviour. I'm the trusty. I'm trusted to stay. Where would I go? Up the tower? Through the kitchens? Everyone's very nice in the kitchens, mind.
+-> What comes down the chute?
+    Ambrose Quill: Every suggestion from the box in the Complaints Department. It goes straight down here. I read them all. Nobody else does.
+    Ambrose Quill: Most of them are about the drains.
+-> What's the lever by the desk?
+    Ambrose Quill: The trapdoor up to the barracks. The guards used to drop the complainers straight in. Pull it if you like. I never have. I'm trusted.
+-> I'll leave you to it.
+    Ambrose Quill: Do write. Not to the Castle. To me. I'll file it with the good ones.
+===
+
+title: castle_osgood
+---
+Osgood: Name? Purpose of visit? Never mind, write "hero" like the others. The book needs a name, not a truth.
+-> What do you do here?
+    Osgood: Night porter. I open the gate, I close the gate, I write down who went through it.
+    Osgood: Forty years. It has been night for all of them. The day porter, I am told, has an easier time of it.
+-> Who else has come through?
+    Osgood: A wolf that used to be a man, or the other way round. A ghost who signed twice. A salesman who wanted to sell the Baron a moat.
+    Osgood: The Baron already had a moat. He bought a second one. It is behind the first one.
+-> Do you ever sleep?
+    Osgood: In the day. I am told it is very bright. I keep the curtains shut out of loyalty.
+-> Goodnight, Osgood.
+    Osgood: It always is.
+===
+
+title: castle_dunmore
+---
+Brigid Dunmore: Brigid Dunmore, shop steward, Henchpersons' Guild, Local Six-Six-Six. You are not management, are you?
+-> What does the Guild want?
+    Brigid Dunmore: Helmets with eyeholes. A tea break that is longer than the sermon. A pension for anyone the hero throws off a battlement.
+    Brigid Dunmore: Management says the helmets are "intimidating". They are. Mostly to the people wearing them.
+-> Are you on strike?
+    Brigid Dunmore: Work to rule. We march at the speed of the slowest member, and the slowest member is a zombie.
+-> Why work for the Baron at all?
+    Brigid Dunmore: Rent, mostly. And the Baron's predecessor was worse. Ask Mrs Hargreave, she fed him.
+-> Solidarity.
+    Brigid Dunmore: Ha. Mind the hounds on the way out. They are not in the Guild. They will not join. We have asked.
+===
+
+title: evil_gudrun
+---
+Gudrun: Sit by the fire, dry your bolts. Nobody here works for the castle. Not after dark, and it is always dark.
+-> Why keep an inn out here?
+    Gudrun: Somebody has to keep a light on that is not looking for anybody.
+    Gudrun: The castle sends a man to tell me to put the lantern out. I give him soup. He forgets what he came for.
+-> Is that your face on the poster?
+    Gudrun: That is yours, love. Fourth from the left. Good likeness. They got the antenna right.
+-> What do you serve?
+    Gudrun: Stew, ale, and the news. The stew is the most reliable.
+-> Thank you, Gudrun.
+    Gudrun: Mind the bog on the way out. And the hounds. And the founder, he's lying about.
+===
+
+title: evil_tobias
+---
+Tobias: Searchlight sweeps every eleven seconds. It lingers on the bog, it skips the old cart. That is where you walk.
+-> How do you know?
+    Tobias: Thirty years trapping on this moor. The lights are newer than me. I know their habits better than the men who run them.
+-> What do you trap?
+    Tobias: Used to be rabbits. Now it's the castle's failed prototypes. They wander off. I bring them back for the bounty, and the castle pays me in coupons for the castle.
+-> What is behind the picture?
+    Tobias: A picture of the castle. Lovely frame. Nothing behind it at all. Nothing that would show the blind spots of every light on the moor.
+-> See you, Tobias.
+    Tobias: You won't. That's the point of the blind spots.
+===
+
+title: evil_mudge
+---
+Agnes Mudge: Don't push in. There's a queue. I am the queue.
+-> What number are you?
+    Agnes Mudge: Four thousand, one hundred and seventeen. They are serving three.
+    Agnes Mudge: Three has been in there since the old king. I hear him cough sometimes.
+-> What is your complaint?
+    Agnes Mudge: Searchlight shines in my bedroom window. Every eleven seconds. For forty years.
+    Agnes Mudge: I complained about it in writing. They sent me a form to complain about the form. I have filled in nine.
+-> Why not just leave?
+    Agnes Mudge: And lose my place? Young robot, I have outlived two dark lords in this chair.
+-> Good luck, Mrs Mudge.
+    Agnes Mudge: Luck is for people with lower numbers.
+===
+
+title: evil_crabbe
+---
+Hester Crabbe: Mind the beds. And wipe your feet on the way out, not in. Whatever's on the moor stays on the moor.
+-> What do you grow here?
+    Hester Crabbe: The castle's veg. Pumpkins, cabbages, nightshade, mandrakes. An army marches on its stomach, and this army has three of them.
+    Hester Crabbe: The pumpkins come up scowling. I don't carve them. That's just the soil.
+-> Why do the cabbages have teeth?
+    Hester Crabbe: Evil cabbages, evil teeth. You feed them from the side and you count your fingers after. Same as any cabbage, really.
+-> What is the prize marrow?
+    Hester Crabbe: The Malevolent Marrow. Best in show three years running. The judge was very frightened. That's not why it won. Mostly.
+-> What got into the beds?
+    Hester Crabbe: Whatever the moor sends. The dead like turned earth. I'd deal with them myself, but my back.
+-> I'll leave you to it.
+    Hester Crabbe: Don't pull anything on your way. Especially the mandrakes. ESPECIALLY the mandrakes.
+===
+
+title: castle_sprocket
+---
+Dr. Gideon Sprocket: Don't touch the kettle. Don't touch the toaster. Don't, above all, touch the button. Hello!
+-> What do you make here?
+    Dr. Gideon Sprocket: Prototypes! The castle wants an unstoppable army. I make the army. It is, so far, extremely stoppable.
+    Dr. Gideon Sprocket: The failed ones get out. They wander the moor. Tobias brings them back for the bounty and I pay him in coupons for the castle.
+-> What is the battle kettle?
+    Dr. Gideon Sprocket: Mark Forty-Seven. Legs, armour, a cannon in the spout. It boils water in ninety seconds and fires it in two. Almost.
+-> What does the red button do?
+    Dr. Gideon Sprocket: I don't know. That's why it says DO NOT. Somebody installed it before me and left a note that said DO NOT. I respect the note.
+-> Who took the big spanner?
+    Dr. Gideon Sprocket: The Henchpersons' Guild says it's a tool of the trade and a tool of the trade belongs to the trade. I say it belongs on the wall.
+-> Good luck with Mark Forty-Eight.
+    Dr. Gideon Sprocket: Forty-eight is a toaster that walks. It walks very well. It does not toast. You can't have everything.
+===
+
+title: evil_bellows
+---
+Barnaby Bellows: HEAR YE, HEAR YE! By order of the castle: the moor is closed, the bog is open, and Tuesday is compulsory.
+-> Who are you announcing to?
+    Barnaby Bellows: Whoever's there. Usually nobody. The castle says a decree isn't law until it's been read aloud, so I read them aloud, to the well.
+    Barnaby Bellows: The well has heard four hundred decrees. It's the best-informed well in the dimension.
+-> What is today's decree?
+    Barnaby Bellows: Decree Forty-Seven: smiling is compulsory on Tuesdays. Decree Forty-Eight: smiling on any other day is suspicious. Plan accordingly.
+-> What are the stocks for?
+    Barnaby Bellows: Complaining. You complain, you go in the stocks, and from the stocks you can complain about the stocks. It's very efficient. Mrs Mudge has a season ticket.
+-> Thank you, crier.
+    Barnaby Bellows: Don't thank me. Thanking the crier was banned in Decree Twelve. I'll let it go. It's not Tuesday.
+===
+
+title: evil_crumb
+---
+Prudence Crumb: Mind the flour. It gets everywhere. So does the castle.
+-> What do you bake?
+    Prudence Crumb: Two breads. The castle's: black, hard, stamped with the crest, keeps for a year. Ours: soft, warm, gone by noon.
+    Prudence Crumb: The castle's inspectors check that I bake theirs. Nobody's ever thought to check what I bake second.
+-> Do you sell to the castle staff?
+    Prudence Crumb: Mrs Hargreave comes down every morning for "the castle's order". It's twelve of ours. She says the guards don't notice. The guards say the cook's bread has got much better.
+-> I'll take a loaf.
+    Prudence Crumb: Tuesday or not, that's a smile I've earned. Here. Don't tell the crier.
+===
+
+title: evil_prentice
+---
+Silas Prentice: (He steps out from behind the flour sacks, inky to the elbows.) Oh. You're not an inspector. Good. You're not a baker either. Hm.
+-> What are you printing?
+    Silas Prentice: The Lower Godwin Gazette. One sheet, both sides, every night. The castle's decrees on the front, word for word. What they mean on the back.
+    Silas Prentice: Mrs Hargreave takes a bundle up to the kitchens every morning, wrapped round the castle's bread. The guards read it at breakfast. They think it's the menu.
+-> Isn't that dangerous?
+    Silas Prentice: Less than you'd think. The castle's inspectors can't find a press in a bakery. They've looked. They found bread. Prudence gave them some. They left happy.
+-> What is in tonight's edition?
+    Silas Prentice: "DECREE 47 REPEALED (IN OUR HEARTS)". Also a recipe, and Mrs Mudge's complaint, in full. It takes up most of the back.
+-> I won't tell.
+    Silas Prentice: I know. Nobody here does. That's the only reason any of this works.
+===

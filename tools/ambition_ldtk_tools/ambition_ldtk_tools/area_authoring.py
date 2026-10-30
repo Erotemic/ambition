@@ -894,6 +894,22 @@ def build_level(project: dict, spec: dict) -> dict:
         climbable_layer["entityInstances"] = []
         layer_instances.append(climbable_layer)
 
+    # Every other IntGrid layer the project defines (Water), empty: a level
+    # without the instance cannot be painted (`intgrid paint` refuses it).
+    built = {lyr["__identifier"] for lyr in layer_instances}
+    for layer_def in project["defs"]["layers"]:
+        if layer_def.get("type") != "IntGrid" or layer_def["identifier"] in built:
+            continue
+        layer_iid, _ = allocate_iid(project, layer_def["identifier"])
+        layer_instances.append({
+            "__identifier": layer_def["identifier"],
+            "__type": "IntGrid",
+            "iid": layer_iid,
+            "layerDefUid": layer_def["uid"],
+            "intGridCsv": [0] * (c_wid * c_hei),
+            **base_layer,
+        })
+
     level = {
         "identifier": level_id,
         "iid": level_iid,
@@ -1595,8 +1611,14 @@ def compile_area_create_plan(
     spec: dict,
     *,
     replace_existing: bool = False,
+    keep_position: bool = False,
 ) -> tuple[AreaPatchPlan, dict, list[str]]:
     """Compile an area spec into explicit patch operations.
+
+    `keep_position`: a level that already exists keeps its place in the world
+    (`worldX`, `worldY`), and the spec's place is only where a NEW level goes.
+    A room an author has moved in the LDtk editor stays where they put it when
+    its generator is run again.
 
     This is the first step away from direct mutation in ``main``.  The existing
     builders still construct the level/reciprocal zones, but the command now
@@ -1618,6 +1640,9 @@ def compile_area_create_plan(
     )
     if existing_index is not None and not replace_existing:
         raise SystemExit(f"level identifier '{level_id}' already exists")
+    if existing_index is not None and keep_position:
+        placed = project["levels"][existing_index]
+        spec = {**spec, "world_x": placed.get("worldX", 0), "world_y": placed.get("worldY", 0)}
 
     next_uid_before = int(project.get("nextUid", 1))
     level = build_level(project, spec)
@@ -1691,6 +1716,15 @@ def main(argv=None) -> int:
         help=(
             "Replace an existing level with the same identifier instead of "
             "failing. Intended for regenerating a spec-owned area."
+        ),
+    )
+    parser.add_argument(
+        "--keep-position",
+        action="store_true",
+        help=(
+            "With --replace-existing: an existing level keeps its place in the "
+            "world (an author may have moved it in the editor); the spec's "
+            "world_x/world_y place only a new level."
         ),
     )
     parser.add_argument(
@@ -1885,6 +1919,7 @@ def main(argv=None) -> int:
             tx.project,
             spec,
             replace_existing=args.replace_existing,
+            keep_position=args.keep_position,
         )
     except SystemExit as ex:
         return _fail(str(ex))

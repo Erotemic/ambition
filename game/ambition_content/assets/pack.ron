@@ -124,6 +124,8 @@
         (path: "dialogue/sandbox/military_tower.yarn", schema: "yarn_dialogue", version: 1),
         (path: "dialogue/sandbox/ninja_village.yarn", schema: "yarn_dialogue", version: 1),
         (path: "dialogue/sandbox/eureka.yarn", schema: "yarn_dialogue", version: 1),
+        (path: "dialogue/sandbox/castle_godwin.yarn", schema: "yarn_dialogue", version: 1),
+        (path: "dialogue/sandbox/primeval.yarn", schema: "yarn_dialogue", version: 1),
         // How each held item is drawn on the ground and in the hand.
         (path: "data/held_item_art.ron", schema: "held_item_art", version: 1),
         // How an item is drawn over the hand of the body that wields it.

@@ -35,6 +35,7 @@ fn frames(startup_s: f32, reach: f32, max_damage: i32, max_knockback: f32) -> Mo
         // This fixture authors no windbox.
         push_coverage: None,
         push_dir: None,
+        captures: false,
         max_damage,
         max_knockback,
         launch: ambition_entity_catalog::LaunchEnvelope::default()
@@ -371,6 +372,7 @@ fn prediction_uses_the_modal_habit_only_when_it_beats_chance() {
 fn zero_depth_or_zero_k_is_l2s_order_unchanged() {
     let view = view_with(300.0, 380.0);
     let options = OptionSet {
+        admission: Default::default(),
         movement: Vec::new(),
         attacks: vec![attack("jab", frames(0.1, 100.0, 4, 0.0))],
         motions: Vec::new(),
@@ -403,6 +405,7 @@ fn zero_depth_or_zero_k_is_l2s_order_unchanged() {
 fn the_rollout_prefers_the_move_that_actually_connects() {
     let view = view_with(300.0, 380.0); // gap 80
     let options = OptionSet {
+        admission: Default::default(),
         movement: Vec::new(),
         attacks: vec![
             attack("jab", frames(0.08, 40.0, 4, 0.0)), // 40 + 12 extent < 80: whiffs
@@ -438,6 +441,7 @@ fn the_rollout_prefers_the_move_that_actually_connects() {
 fn the_worst_shipped_budget_is_cheap_enough_to_be_a_non_event() {
     let view = view_with(300.0, 380.0);
     let options = OptionSet {
+        admission: Default::default(),
         movement: Vec::new(),
         attacks: vec![
             attack("jab", frames(0.08, 40.0, 4, 0.0)),
@@ -481,6 +485,7 @@ fn the_worst_shipped_budget_is_cheap_enough_to_be_a_non_event() {
 fn l3_decides_identically_twice() {
     let view = view_with(300.0, 380.0);
     let options = OptionSet {
+        admission: Default::default(),
         movement: Vec::new(),
         attacks: vec![
             attack("jab", frames(0.08, 40.0, 4, 0.0)),
@@ -642,6 +647,7 @@ fn the_movement_veto_survives_having_nothing_to_swing() {
     // names it: `Recovery` — "a body past the blastzone has exactly one
     // problem". That body was the one the veto skipped.
     let options = ambition_characters::brain::fighter::options::OptionSet {
+        admission: Default::default(),
         attacks: Vec::new(),
         movement: vec![ambition_characters::brain::fighter::options::MoveOption {
             verb: ambition_characters::brain::fighter::options::MovementVerb::Approach,
@@ -903,6 +909,7 @@ fn lens_for(
 fn the_same_falling_line_is_condemned_or_reprieved_by_the_bodys_own_kit() {
     let view = view_falling_beside_the_platform();
     let options = ambition_characters::brain::fighter::options::OptionSet {
+        admission: Default::default(),
         attacks: Vec::new(),
         movement: vec![ambition_characters::brain::fighter::options::MoveOption {
             verb: ambition_characters::brain::fighter::options::MovementVerb::Approach,
@@ -965,6 +972,7 @@ fn the_same_falling_line_is_condemned_or_reprieved_by_the_bodys_own_kit() {
 fn an_unmodelled_verb_is_still_unjudged_with_a_lens_attached() {
     let view = view_on_platform(440.0, 60.0);
     let options = ambition_characters::brain::fighter::options::OptionSet {
+        admission: Default::default(),
         attacks: Vec::new(),
         movement: vec![ambition_characters::brain::fighter::options::MoveOption {
             // ⛔ `Dodge`, NOT `Shield`. This test named Shield when Shield was
@@ -1012,6 +1020,7 @@ fn an_unmodelled_verb_is_still_unjudged_with_a_lens_attached() {
 fn a_decision_taken_through_the_lens_repeats_exactly() {
     let view = view_falling_beside_the_platform();
     let options = ambition_characters::brain::fighter::options::OptionSet {
+        admission: Default::default(),
         attacks: vec![attack("jab", frames(0.08, 40.0, 4, 0.0))],
         movement: vec![
             ambition_characters::brain::fighter::options::MoveOption {
@@ -1132,6 +1141,7 @@ fn the_shadow_lets_go_of_the_lip_where_the_kernel_does() {
 #[test]
 fn a_walk_off_the_lip_is_not_reprieved_by_the_platform_it_is_leaving() {
     let options = ambition_characters::brain::fighter::options::OptionSet {
+        admission: Default::default(),
         attacks: Vec::new(),
         movement: vec![ambition_characters::brain::fighter::options::MoveOption {
             verb: ambition_characters::brain::fighter::options::MovementVerb::Approach,
@@ -1201,6 +1211,7 @@ fn a_verb_the_shadow_cannot_model_is_reported_as_unjudged() {
 
     let view = view_falling_beside_the_platform();
     let options = OptionSet {
+        admission: Default::default(),
         attacks: vec![attack("jab", frames(0.08, 40.0, 4, 0.0))],
         movement: vec![
             MoveOption {

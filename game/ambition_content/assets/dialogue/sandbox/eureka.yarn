@@ -46,6 +46,9 @@ Dmitri: Do not touch that. And do not touch that. You can touch that, it is alre
     Dmitri: Everything that has a plug. Some things that do not. Last week a professor brought me a chalkboard that was "giving wrong answers".
 -> What breaks most?
     Dmitri: The coil lab. Third fuse this week. They say the coils are fine. The fuses disagree.
+-> What is the lever by the bench?
+    Dmitri: The director's anti-gravity prototype. It works. That is the problem.
+    Dmitri: If you press it, there is another one on the ceiling. I put it there after the first time.
 -> Do you ever go up the elevator?
     Dmitri: Once a month, to fix the car's brakes. Up there I fix the coffee machine too. They pay me in thanks and dried soup.
 -> I will leave you to it.
@@ -116,4 +119,45 @@ Carl Stargan: Look up. No, further. That pale dot just above the cable is the st
     <<portrait_clip "explaining">>
     Carl Stargan: Of course. Look at the station first, then past it. It is good for you to see how small a big thing is.
 -> Thank you.
+===
+
+title: eureka_pryce
+---
+Range Officer Pryce: Hard hat? No? Then stand behind me. Not that I am any harder.
+-> What is tested here?
+    Range Officer Pryce: Rockets, coils, a self-driving wheelbarrow. Whatever the institute builds, it comes out here to be found out.
+    Range Officer Pryce: I sign the form. The form has two boxes: FINE and PROBABLY FINE. Guess which I tick.
+-> Is the rocket safe?
+    Range Officer Pryce: PROBABLY FINE III? It has a name with three in it. The first two taught us a great deal, briefly.
+-> What are those dummies for?
+    Range Officer Pryce: Crash tests. Hit one. Go on. They are paid in sandbags and they do not complain, which is more than I can say for the interns.
+-> Stay safe.
+    Range Officer Pryce: Probably.
+===
+
+title: eureka_hum
+---
+Ottoline Hum: (She holds one hand near the antenna, the other by the loop. A note wavers out of nothing, like a ghost clearing its throat.)
+-> How do you play it without touching it?
+    Ottoline Hum: Your hand and the antenna make a capacitor. Move closer, the pitch goes up. The other hand on the loop is the volume. You play the air between.
+    Ottoline Hum: The trick is standing still. Breathe wrong and you're a semitone flat.
+-> What are you playing?
+    Ottoline Hum: Whatever the institute's working on. Monday it was the hydrogen spectrum. The physicists cried. The chemists asked for it in a minor key.
+-> Do people pay?
+    Ottoline Hum: Visitors off the gate pay in coins I've never seen. I've got a case of currencies from forty dimensions. The patent clerk says one of them is technically a button.
+-> Play on.
+    Ottoline Hum: Always. Mind you don't walk between me and the antenna. You'd be in the song.
+===
+
+title: eureka_quark
+---
+Dr. Ilse Quark: Visitor! Helmet's optional, curiosity isn't. Welcome to the Eureka Collider. This is the slow bit. The fast bit is in the pipe.
+-> What does the collider do?
+    Dr. Ilse Quark: We send two beams round the ring opposite ways and make them meet in the detector. Then we read the wreckage. It's the most expensive way anyone has ever found to break something to see what's in it.
+-> Why the bicycles?
+    Dr. Ilse Quark: The ring's twenty-seven kilometres round. The beam does it eleven thousand times a second. I do it once before lunch. We don't race. Well. I don't.
+-> What has got loose in the tunnel?
+    Dr. Ilse Quark: The range's crawlers come down the cable ducts for the warmth, and a shock warden followed them. Nobody's sure which way the shock warden's spin points. Mind it.
+-> What is the quark in the chest?
+    Dr. Ilse Quark: A spare. Charm flavour. You can't have a quark on its own, strictly, so don't open the box in front of a theorist.
 ===

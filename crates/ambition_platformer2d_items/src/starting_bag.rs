@@ -192,7 +192,7 @@ mod tests {
         declared.declare("with_a_bomb", a_bomb);
         app.insert_resource(declared);
         let starter = app.world().resource::<OwnedItems>().clone();
-        assert_eq!(bombs(app.world()), 0, "the starter set has a bomb, so the arm shows nothing");
+        assert_ne!(starter, a_bomb(catalog), "premise: the starter set is not the declared bag");
 
         let bag_of = |app: &mut App, experience: &'static str| {
             app.world_mut()
@@ -241,7 +241,11 @@ mod tests {
             .resource_mut::<OwnedItems>()
             .grant(catalog, Item::Bomb, 1);
         app.update();
-        assert_eq!(bombs(app.world()), 1, "control: the grant did not reach the bag");
+        assert_eq!(
+            bombs(app.world()),
+            starter.count(Item::Bomb) + 1,
+            "control: the grant did not reach the bag"
+        );
         assert_eq!(
             app.world().resource::<StartingBag>().bag(),
             &starter,

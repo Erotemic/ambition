@@ -19,7 +19,7 @@
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
 use bevy::prelude::Entity;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use ambition_characters::actor::ActorFaction;
 use ambition_combat::crowd::CrowdKind;
@@ -40,7 +40,7 @@ pub(crate) struct ObservedBody<'a> {
 /// Accumulator for one tick's observation pass.
 #[derive(Default)]
 pub(crate) struct CrowdObservation {
-    alive_by_entity: HashMap<Entity, bool>,
+    alive_by_entity: BTreeMap<Entity, bool>,
     /// One crowd per live room (OW1 cut 5d). Two instances of one room hold
     /// the same actor ids, so an id is a key only inside its own room, and a
     /// body in another room does not crowd this one.
@@ -51,12 +51,12 @@ pub(crate) struct CrowdObservation {
 #[derive(Default)]
 struct RoomCrowd {
     requests: Vec<(String, ae::Vec2, CrowdKind)>,
-    entity_to_id: HashMap<Entity, String>,
+    entity_to_id: BTreeMap<Entity, String>,
     /// The fighter each request came from, so the derived facts are keyed
     /// by the body that reads them.
-    entity_by_id: HashMap<String, Entity>,
-    faction_by_id: HashMap<String, ActorFaction>,
-    target_entity_by_id: HashMap<String, Entity>,
+    entity_by_id: BTreeMap<String, Entity>,
+    faction_by_id: BTreeMap<String, ActorFaction>,
+    target_entity_by_id: BTreeMap<String, Entity>,
 }
 
 impl CrowdObservation {
@@ -121,7 +121,7 @@ impl RoomCrowd {
         // that are not crowd actors of this room. The anti-clump rule reads this
         // so a body you are fighting counts as an opponent to close on, never a
         // neighbour to flee.
-        let opponent_id_by_id: HashMap<String, String> = self
+        let opponent_id_by_id: BTreeMap<String, String> = self
             .target_entity_by_id
             .iter()
             .filter_map(|(id, foe)| {
@@ -161,9 +161,9 @@ impl RoomCrowd {
 /// the same ids, and each body reads its own room's answer.
 #[derive(Default)]
 pub(crate) struct CrowdFacts {
-    alive_by_entity: HashMap<Entity, bool>,
-    neighbor_by_entity: HashMap<Entity, ae::Vec2>,
-    crowding_by_entity: HashMap<Entity, ambition_characters::brain::smash::CrowdingSignal>,
+    alive_by_entity: BTreeMap<Entity, bool>,
+    neighbor_by_entity: BTreeMap<Entity, ae::Vec2>,
+    crowding_by_entity: BTreeMap<Entity, ambition_characters::brain::smash::CrowdingSignal>,
 }
 
 impl CrowdFacts {
@@ -183,7 +183,7 @@ impl CrowdFacts {
 
     /// Nearest same-kind neighbour per body — handed to the movement phase for
     /// surface-walker steering.
-    pub(crate) fn neighbor_index(&self) -> &HashMap<Entity, ae::Vec2> {
+    pub(crate) fn neighbor_index(&self) -> &BTreeMap<Entity, ae::Vec2> {
         &self.neighbor_by_entity
     }
 }

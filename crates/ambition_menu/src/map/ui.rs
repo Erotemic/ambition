@@ -3,7 +3,7 @@
 //! minimap, drawing visited rooms from `MapMenuState` room geometry. Owns the
 //! panel/minimap layout constants and the `short_room_label` helper.
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 
 use bevy::prelude::*;
 
@@ -212,9 +212,9 @@ pub fn sync_map_menu(
     let Some(active_id) = room.spec().map(|spec| spec.id.clone()) else {
         return;
     };
-    // Only the rooms of the active room's world: each world file has its own
-    // coordinates, so rooms of two worlds can overlap. When the active room is
-    // not on the map, no world is known and no room is drawn.
+    // The status counts the rooms of the active room's world (each world file
+    // has its own coordinates); the canvases draw its region
+    // (`compute_canvas_visuals`).
     let active_world = map
         .rooms
         .iter()
@@ -269,8 +269,7 @@ pub fn sync_map_menu(
         compute_canvas_visuals(
             &mut desired,
             MapRoomBoxKind::Map,
-            &rooms,
-            &map.visited,
+            &map,
             &active_id,
             MAP_PANEL_WIDTH - MAP_PADDING * 2.0,
             MAP_PANEL_HEIGHT - MAP_PADDING * 2.0 - 60.0,
@@ -282,8 +281,7 @@ pub fn sync_map_menu(
         compute_canvas_visuals(
             &mut desired,
             MapRoomBoxKind::Minimap,
-            &rooms,
-            &map.visited,
+            &map,
             &active_id,
             MINIMAP_WIDTH - MINIMAP_PADDING * 2.0,
             MINIMAP_HEIGHT - MINIMAP_PADDING * 2.0,
@@ -452,80 +450,49 @@ enum MapLabelStyle {
     None,
 }
 
+/// The rooms of the player's region on one canvas, from the same
+/// [`map_view`](super::view::map_view) as the menu's Map page: one model of
+/// regions, fog and windowing, drawn here in the engine's plain style.
 #[allow(clippy::too_many_arguments)]
 fn compute_canvas_visuals(
     desired: &mut HashMap<(MapRoomBoxKind, String), RoomVisual>,
     kind: MapRoomBoxKind,
-    rooms: &[&MapRoomNode],
-    visited: &BTreeSet<String>,
+    map: &MapMenuState,
     active: &str,
     canvas_w: f32,
     canvas_h: f32,
     label_style: MapLabelStyle,
     zoom: f32,
 ) {
-    if rooms.is_empty() {
+    let Some(view) = super::view::map_view(map, active, canvas_w / canvas_h) else {
         return;
-    }
-    let min_x = rooms
-        .iter()
-        .map(|r| r.world_min.x)
-        .fold(f32::INFINITY, f32::min);
-    let max_x = rooms
-        .iter()
-        .map(|r| r.world_min.x + r.world_size.x)
-        .fold(f32::NEG_INFINITY, f32::max);
-    let min_y = rooms
-        .iter()
-        .map(|r| r.world_min.y)
-        .fold(f32::INFINITY, f32::min);
-    let max_y = rooms
-        .iter()
-        .map(|r| r.world_min.y + r.world_size.y)
-        .fold(f32::NEG_INFINITY, f32::max);
-    let span_x = (max_x - min_x).max(1.0);
-    let span_y = (max_y - min_y).max(1.0);
-    let fit_scale = (canvas_w / span_x).min(canvas_h / span_y);
-    let scale = fit_scale * zoom.clamp(MAP_ZOOM_MIN, MAP_ZOOM_MAX);
-    let active_room = rooms.iter().find(|r| r.id == active);
-    let (offset_x, offset_y) = if zoom > 1.0001 {
-        if let Some(active_room) = active_room {
-            let active_cx = active_room.world_min.x + active_room.world_size.x * 0.5;
-            let active_cy = active_room.world_min.y + active_room.world_size.y * 0.5;
-            let world_cx = (min_x + max_x) * 0.5;
-            let world_cy = (min_y + max_y) * 0.5;
-            (
-                (world_cx - active_cx) * scale,
-                (world_cy - active_cy) * scale,
-            )
-        } else {
-            (0.0, 0.0)
-        }
-    } else {
-        (0.0, 0.0)
     };
+    // Zoomed in, about the player's room; zoomed out, about the canvas.
+    let zoom = zoom.clamp(MAP_ZOOM_MIN, MAP_ZOOM_MAX);
+    let canvas = Vec2::new(canvas_w, canvas_h);
+    let pivot = match view.rooms.iter().find(|r| r.here) {
+        Some(here) if zoom > 1.0001 => (here.min + here.size * 0.5) * canvas,
+        _ => canvas * 0.5,
+    };
+    let place = |p: Vec2| (p * canvas - pivot) * zoom + canvas * 0.5;
 
-    for room in rooms {
-        let visited_now = visited.contains(&room.id);
-        let is_active = room.id == active;
-        let color = if is_active {
+    for room in &view.rooms {
+        let color = if room.here {
             Color::srgba(0.55, 0.92, 0.62, 0.95)
-        } else if visited_now {
+        } else if room.visited {
             Color::srgba(0.42, 0.78, 1.00, 0.78)
         } else {
             Color::srgba(0.30, 0.32, 0.42, 0.45)
         };
-        let border = if is_active {
+        let border = if room.here {
             Color::srgba(1.0, 1.0, 1.0, 1.0)
-        } else if visited_now {
+        } else if room.visited {
             Color::srgba(0.78, 0.92, 1.00, 0.85)
         } else {
             Color::srgba(0.55, 0.58, 0.66, 0.55)
         };
-        let left = (room.world_min.x - min_x) * scale + offset_x;
-        let top = (room.world_min.y - min_y) * scale + offset_y;
-        let width = room.world_size.x * scale;
-        let height = room.world_size.y * scale;
+        let min = place(room.min);
+        let size = room.size * canvas * zoom;
 
         let label = match label_style {
             MapLabelStyle::None => None,
@@ -534,12 +501,13 @@ fn compute_canvas_visuals(
                 font_size: 10.0,
             }),
             MapLabelStyle::Full => {
-                let text = if width >= 80.0 {
-                    room.id.clone()
+                // The room's name (`view::map_label`).
+                let text = if size.x >= 80.0 {
+                    super::view::map_label(&room.title)
                 } else {
                     short_room_label(&room.id)
                 };
-                let font_size = if width >= 120.0 { 12.0 } else { 9.0 };
+                let font_size = if size.x >= 120.0 { 12.0 } else { 9.0 };
                 Some(RoomLabel { text, font_size })
             }
         };
@@ -547,10 +515,10 @@ fn compute_canvas_visuals(
         desired.insert(
             (kind, room.id.clone()),
             RoomVisual {
-                left,
-                top,
-                width,
-                height,
+                left: min.x,
+                top: min.y,
+                width: size.x,
+                height: size.y,
                 color,
                 border,
                 label,

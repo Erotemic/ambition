@@ -167,6 +167,7 @@ npc_evil_gudrun
 npc_evil_tobias
 npc_evil_mudge
 npc_evil_crabbe
+npc_castle_sprocket
 
 [The primeval trail's people]
 npc_primeval_brandvold

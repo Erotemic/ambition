@@ -110,3 +110,19 @@ Hester Crabbe: Mind the beds. And wipe your feet on the way out, not in. Whateve
 -> I'll leave you to it.
     Hester Crabbe: Don't pull anything on your way. Especially the mandrakes. ESPECIALLY the mandrakes.
 ===
+
+title: castle_sprocket
+---
+Dr. Gideon Sprocket: Don't touch the kettle. Don't touch the toaster. Don't, above all, touch the button. Hello!
+-> What do you make here?
+    Dr. Gideon Sprocket: Prototypes! The castle wants an unstoppable army. I make the army. It is, so far, extremely stoppable.
+    Dr. Gideon Sprocket: The failed ones get out. They wander the moor. Tobias brings them back for the bounty and I pay him in coupons for the castle.
+-> What is the battle kettle?
+    Dr. Gideon Sprocket: Mark Forty-Seven. Legs, armour, a cannon in the spout. It boils water in ninety seconds and fires it in two. Almost.
+-> What does the red button do?
+    Dr. Gideon Sprocket: I don't know. That's why it says DO NOT. Somebody installed it before me and left a note that said DO NOT. I respect the note.
+-> Who took the big spanner?
+    Dr. Gideon Sprocket: The Henchpersons' Guild says it's a tool of the trade and a tool of the trade belongs to the trade. I say it belongs on the wall.
+-> Good luck with Mark Forty-Eight.
+    Dr. Gideon Sprocket: Forty-eight is a toaster that walks. It walks very well. It does not toast. You can't have everything.
+===

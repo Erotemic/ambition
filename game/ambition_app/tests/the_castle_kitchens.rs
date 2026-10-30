@@ -31,3 +31,12 @@ fn agnes_mudge_waits_in_the_complaints_department_behind_the_kitchens() {
     talk(&mut app, "npc_evil_mudge", "What number are you?");
     go(&mut app, KITCHENS, Some("complaints_door"));
 }
+
+/// The Prototype Workshop, down a door from the barracks by its failed
+/// prototypes: Dr. Gideon Sprocket talks, and the barracks is back up.
+#[test]
+fn the_castle_engineer_talks_in_the_prototype_workshop() {
+    let mut app = a_session_in("castle_godwin_workshop");
+    talk(&mut app, "npc_castle_sprocket", "What do you make here?");
+    go(&mut app, "castle_godwin_barracks", Some("workshop_door"));
+}

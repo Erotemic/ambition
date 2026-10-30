@@ -6382,6 +6382,23 @@
                 hall: ["I trap what the castle loses. The castle loses a lot.", "The searchlights have habits. So do I. Mine are older."],
             ),
         ),
+        "npc_castle_sprocket": (
+            display_name: "Dr. Gideon Sprocket",
+            // The castle's chief engineer, in the Prototype Workshop under the barracks.
+            manifest: "sprites/castle_sprocket_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "castle_godwin", "peaceful"],
+            barks: (
+                idle: ["Don't touch the button.", "Mark Forty-Seven: almost."],
+                hall: ["The castle wants an unstoppable army. I make the army. It is, so far, extremely stoppable.", "The battle kettle boils water in ninety seconds and fires it in two. Almost."],
+            ),
+        ),
         "npc_evil_crabbe": (
             display_name: "Hester Crabbe",
             // The castle's head gardener, in the allotments west of the moor.

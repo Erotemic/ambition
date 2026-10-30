@@ -43,6 +43,12 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Evil: the Prototype Workshop**, down a door added to the barracks by
+  its failed prototypes: where they come from. Tool wall (RETURN THE BIG
+  SPANNER), a walking toaster half built, the copper boiler in the red,
+  blueprints (one REJECTED), the battle kettle (MARK 47: almost), the red
+  button (DO NOT), a crate of spare parts; Dr. Gideon Sprocket the chief
+  engineer (chargen, Hall wing). Verified: the_castle_kitchens (3).
 - **Jungle: the rookery's birdwatcher**: Mildred Twitchell's hide on the
   raised ground (canvas and palm fronds, a long lens through the slit, her
   stool, notebook and thermos), and Mildred, who has stopped asking why the

@@ -10,9 +10,12 @@ Jon (2026-10-30): "build out the world detail ... adding art, flavor,
 character". The castle had soldiers and monsters and nobody who lives there:
 the kitchens are where its staff eat, gossip and organise. Mrs Hargreave the
 cook at the hearth, Osgood the night porter at his desk, Brigid Dunmore of
-the Henchpersons' Guild at the long table (`dialogue/sandbox/castle_godwin.yarn`). Through a door at
-the kitchens' east end, the castle's Complaints Department: two windows,
-both CLOSED, NOW SERVING 3, and Agnes Mudge holding ticket 4,117.
+the Henchpersons' Guild at the long table
+(`dialogue/sandbox/castle_godwin.yarn`). Through a door at the kitchens'
+east end, the castle's Complaints Department: two windows, both CLOSED,
+NOW SERVING 3, and Agnes Mudge holding ticket 4,117. And by a door ADDED to
+the barracks (x 2160, by its failed prototypes), the Prototype Workshop
+where they come from, and Dr. Gideon Sprocket.
 
 A building inside the castle, so a door: from the gatehouse floor (y 704,
 x 1240), which is ADDED to the gatehouse (its generator is older than its
@@ -35,6 +38,11 @@ WORLD = WORLDS / "evil.ldtk"
 GENERATOR = "specs/castle_kitchens/make_specs.py"
 KITCHENS = "castle_godwin_kitchens"
 COMPLAINTS = "castle_godwin_complaints"
+WORKSHOP = "castle_godwin_workshop"
+BARRACKS = "castle_godwin_barracks"
+BARRACKS_DOOR_X, BARRACKS_FLOOR = 2160, 704
+#: East of the Complaints Department, clear of the throne's halls below.
+WORKSHOP_AT = (4704, 896)
 GATEHOUSE = "castle_godwin_gatehouse"
 GATEHOUSE_DOOR_X, GATEHOUSE_FLOOR = 1240, 704
 #: Under the gatehouse, clear of the throne's halls below.
@@ -86,6 +94,41 @@ def complaints():
                 bg="#1A1416", title="THE COMPLAINTS DEPARTMENT", generator=GENERATOR)
 
 
+def workshop():
+    e = [
+        piece("workshop_room", 16, CEILING, name="workshop_room"),
+        solid("floor", 0, FLOOR, W, H - FLOOR),
+        solid("ceiling", 0, 0, W, CEILING),
+        solid("west_wall", 0, CEILING, WALL, FLOOR - CEILING),
+        solid("east_wall", W - WALL, CEILING, WALL, FLOOR - CEILING),
+        door("workshop_door", "up to the barracks", 40, FLOOR, BARRACKS, "castle_godwin_barracks_workshop"),
+        start(WORKSHOP, 140, FLOOR),
+        resident("npc_castle_sprocket", "castle_sprocket", 790, FLOOR),
+        entity("ChestSpawn", 1110, FLOOR - 58, 76, 58, name="a crate of spare parts", reward="currency:40"),
+        sign("workshop_sign_kettle", 1040, FLOOR - 150, "MARK 47: almost", 220),
+        sign("workshop_sign_button", 1180, FLOOR - 110, "DO NOT", 120),
+        sign("workshop_sign_tools", 255, 220, "RETURN THE BIG SPANNER", 300),
+    ]
+    return room(WORKSHOP, e, at=WORKSHOP_AT, size=(W, H), biome="castle_godwin", music="doves_of_the_commons", bg="#1A1416",
+                title="THE PROTOTYPE WORKSHOP", generator=GENERATOR)
+
+
+BARRACKS_DOOR_YAML = f"""# The barracks' door down to the workshop. Written by {GENERATOR}.
+level_id: {BARRACKS}
+entities:
+  - type: LoadingZone
+    px: [{BARRACKS_DOOR_X}, {BARRACKS_FLOOR - 96}]
+    size: [48, 96]
+    fields:
+      id: castle_godwin_barracks_workshop
+      name: down to the workshop
+      activation: Door
+      target_room: {WORKSHOP}
+      target_zone: workshop_door
+      bidirectional: true
+"""
+
+
 GATEHOUSE_DOOR_YAML = f"""# The gatehouse's door down to the kitchens. Written by {GENERATOR}.
 level_id: {GATEHOUSE}
 entities:
@@ -104,7 +147,7 @@ entities:
 
 def main(argv):
     paths = []
-    for rid, make in ((KITCHENS, kitchens), (COMPLAINTS, complaints)):
+    for rid, make in ((KITCHENS, kitchens), (COMPLAINTS, complaints), (WORKSHOP, workshop)):
         path = HERE / f"{rid}.ron"
         path.write_text(make())
         print(path.relative_to(HERE.parents[1]))
@@ -114,6 +157,8 @@ def main(argv):
     # The two doors name each other: only the end state is checked.
     make_rooms(WORLD, paths)
     if code := add_entities(GATEHOUSE_DOOR_YAML, WORLD, HERE / ".gatehouse_door.yaml", unless='"down to the kitchens"'):
+        return code
+    if code := add_entities(BARRACKS_DOOR_YAML, WORLD, HERE / ".barracks_door.yaml", unless='"down to the workshop"'):
         return code
     code, _ = run("validate", str(WORLD))
     return code

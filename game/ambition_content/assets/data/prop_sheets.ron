@@ -279,6 +279,8 @@
     "spoke_west": (),
     "spoke_east": (),
     "mine_tunnel": (),
+    "hamlet_west": (),
+    "hamlet_east": (),
     // The orbital station's damaged spur (Science).
     "spur_west": (),
     "spur_east": (),

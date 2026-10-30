@@ -25,6 +25,9 @@ since: its west exit is ADDED to it (and its wall opened), not regenerated.
   bite, mandrakes not to be pulled), the greenhouse's roof to climb to a
   chest, Hester Crabbe the head gardener behind her fence, and what has got
   into the beds.
+- West of the allotments by a side exit, Lower Godwin: the hamlet under the
+  castle, its cottages, bakery, well, stocks and decree board; Barnaby
+  Bellows the town crier on his platform, Prudence Crumb the baker.
 
 The art is the sprite tools' `targets/props/evil_moor_props.py`, drawn on
 these numbers.
@@ -60,6 +63,11 @@ ALLOT_W = 2000
 ALLOT_BEDS = ((960, 1160, 624), (1240, 1440, 624), (1520, 1720, 624))
 ALLOT_BUTT = (860, 900, 592)
 ALLOT_ROOF = (470, 850, 512)
+#: The hamlet, west of the allotments: the same floor, the rooms touching.
+HAMLET = "evil_lower_godwin"
+HAMLET_W = 2400
+#: The crier's platform (x0, x1, y), walked on (`evil_hamlet_props.py`).
+HAMLET_PLATFORM = (1270, 1410, 592)
 W, H, FLOOR = 2400, 784, 656
 BOG = (600, 1100, 640)
 
@@ -116,7 +124,8 @@ def allotments():
         piece("allotment_west", 40, 480, name="allotment_west"),
         piece("allotment_beds", 940, 420, name="allotment_beds"),
         solid("ground", 0, FLOOR, w, H - FLOOR),
-        solid("west_wall", 0, 0, WALL, FLOOR),
+        solid("west_wall", 0, 0, WALL, FLOOR - 112),
+        edge("allot_west", "to Lower Godwin", 0, FLOOR, HAMLET, "hamlet_east"),
         solid("east_wall", w - WALL, 0, WALL, FLOOR - 112),
         edge("allot_east", "back to the moor", w - WALL, FLOOR, MOOR, "moor_west"),
         start(ALLOT, w - 200, FLOOR),
@@ -136,6 +145,29 @@ def allotments():
     ]
     return ALLOT, room(ALLOT, e, at=(-W - w, 0), size=(w, H), biome="evil_forest", music="oppressive_crush",
                        bg="#3A0E0E", title="THE CASTLE ALLOTMENTS", generator=GENERATOR)
+
+
+def hamlet():
+    w = HAMLET_W
+    p0, p1, py = HAMLET_PLATFORM
+    e = [
+        piece("hamlet_west", 90, FLOOR - 210, name="hamlet_west"),
+        piece("hamlet_east", 1250, FLOOR - 180, name="hamlet_east"),
+        solid("ground", 0, FLOOR, w, H - FLOOR),
+        solid("west_wall", 0, 0, WALL, FLOOR),
+        solid("east_wall", w - WALL, 0, WALL, FLOOR - 112),
+        edge("hamlet_east", "to the allotments", w - WALL, FLOOR, ALLOT, "allot_west"),
+        start(HAMLET, w - 200, FLOOR),
+        ledge("crier_platform", p0, py, p1 - p0),
+        resident("npc_evil_bellows", "evil_bellows", p0 + 50, py),
+        resident("npc_evil_crumb", "evil_crumb", 780, FLOOR),
+        sign("hamlet_sign", 600, 140, "LOWER GODWIN: twinned with nowhere, by order", 460),
+        sign("hamlet_sign_stocks", 1640, FLOOR - 100, "STOCKS: for complaining", 260),
+        sign("hamlet_sign_decree", 1800, FLOOR - 190, "DECREE 47: smiling is compulsory on Tuesdays", 440),
+        sign("hamlet_sign_bakery", 810, FLOOR - 240, "CRUMB'S: bread for the castle, bread for us", 420),
+    ]
+    return HAMLET, room(HAMLET, e, at=(-W - ALLOT_W - w, 0), size=(w, H), biome="evil_forest", music="argand_waltz",
+                        bg="#3A0E0E", title="LOWER GODWIN", generator=GENERATOR)
 
 
 def inn():
@@ -203,7 +235,7 @@ entities:
 
 def main(argv):
     paths = []
-    for rid, text in (inn(), crypt(), allotments(), moor()):
+    for rid, text in (inn(), crypt(), hamlet(), allotments(), moor()):
         path = HERE / f"{rid}.ron"
         path.write_text(text)
         print(path.relative_to(HERE.parents[1]))

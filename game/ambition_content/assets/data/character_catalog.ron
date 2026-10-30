@@ -6416,6 +6416,40 @@
                 hall: ["I trap what the castle loses. The castle loses a lot.", "The searchlights have habits. So do I. Mine are older."],
             ),
         ),
+        "npc_evil_bellows": (
+            display_name: "Barnaby Bellows",
+            // The town crier of Lower Godwin, who reads the castle's decrees to the well.
+            manifest: "sprites/evil_bellows_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(68.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "castle_godwin", "peaceful"],
+            barks: (
+                idle: ["HEAR YE, HEAR YE!", "Tuesday is compulsory."],
+                hall: ["A decree isn't law until it's been read aloud, so I read them to the well. It's the best-informed well in the dimension.", "Decree Forty-Seven: smiling is compulsory on Tuesdays."],
+            ),
+        ),
+        "npc_evil_crumb": (
+            display_name: "Prudence Crumb",
+            // Bakes the castle's bread and the hamlet's, which are not the same bread.
+            manifest: "sprites/evil_crumb_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 163 cm.
+            standing_height: Some(63.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "castle_godwin", "peaceful"],
+            barks: (
+                idle: ["Mind the flour.", "Gone by noon."],
+                hall: ["Two breads: the castle's keeps for a year, ours is gone by noon.", "Nobody's ever thought to check what I bake second."],
+            ),
+        ),
         "npc_castle_sprocket": (
             display_name: "Dr. Gideon Sprocket",
             // The castle's chief engineer, in the Prototype Workshop under the barracks.

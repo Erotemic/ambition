@@ -170,6 +170,8 @@ npc_evil_tobias
 npc_evil_mudge
 npc_evil_crabbe
 npc_castle_sprocket
+npc_evil_bellows
+npc_evil_crumb
 
 [The primeval trail's people]
 npc_primeval_brandvold

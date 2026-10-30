@@ -45,3 +45,15 @@ fn the_castle_allotments_lie_west_of_the_moor() {
     go(&mut app, MOOR, Some("allot_east"));
     go(&mut app, "evil_castle_allotments", Some("moor_west"));
 }
+
+/// Lower Godwin, the hamlet west of the allotments by its side exit: the
+/// baker and the crier on his platform talk, and the allotments are back
+/// east.
+#[test]
+fn lower_godwin_lies_west_of_the_allotments() {
+    let mut app = a_session_in("evil_lower_godwin");
+    talk(&mut app, "npc_evil_crumb", "What do you bake?");
+    talk(&mut app, "npc_evil_bellows", "Who are you announcing to?");
+    go(&mut app, "evil_castle_allotments", Some("hamlet_east"));
+    go(&mut app, "evil_lower_godwin", Some("allot_west"));
+}

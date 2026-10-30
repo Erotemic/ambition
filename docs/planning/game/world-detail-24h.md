@@ -43,6 +43,13 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Evil: Lower Godwin**, the hamlet under the castle, west of the
+  allotments by a side exit: crooked thatched cottages, the bakery, the
+  well, the stocks (FOR COMPLAINING), the decree board (DECREE 47: smiling is
+  compulsory on Tuesdays), a barred cottage and a turnip cart; Barnaby
+  Bellows the town crier on his platform, who reads the decrees to the
+  well, and Prudence Crumb the baker, who bakes two breads (chargen, Hall
+  wing). Verified: the_searchlight_moor (5), check_flat_map evil 0.
 - **Jungle: rewards for the climb**: a chest on the highest ledge of the
   trailhead, the run, the ridge and the canopy (a ranger's lost lunch, a nest
   of something large, a fossil hunter's cache, an egg the size of a chest),

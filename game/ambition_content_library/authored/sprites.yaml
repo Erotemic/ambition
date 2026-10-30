@@ -574,6 +574,9 @@ collections:
   - catacombs_east
   - ridge_west
   - ridge_east
+  - hamlet_belltower
+  - hill_west
+  - hill_east
   - sail_loft_room
   - plaza_well
   - cellars_vault

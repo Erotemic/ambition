@@ -366,6 +366,10 @@
     // The Searchlight Ridge over the moor (Evil).
     "ridge_west": (),
     "ridge_east": (),
+    // Gallows Hill over Lower Godwin, and the hamlet's bell tower up to it (Evil).
+    "hamlet_belltower": (),
+    "hill_west": (),
+    "hill_east": (),
     "sail_loft_room": (),
     // The Pirate Port's well, and the cellars under customs (PvN).
     "plaza_well": (),

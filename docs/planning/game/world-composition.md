@@ -36,7 +36,22 @@ Jon, 2026-10-30:
 - **Doors left:** the front door (forest to gatehouse), and the great hall to the throne room. The throne room is the Wolfenstein/Inugami fight and its chase; a boss cannot cross rooms, so it stays one room, under the castle.
 - **Tests:** `game/ambition_app/tests/the_castle_kitchens.rs`.
 
+## The Evil outdoors (the second)
+
+```
+ [Gallows Hill]══bridge══[Searchlight Ridge]─────────────┐
+   │bell tower             ┊gap (drop)        │watchtower
+ [Lower Godwin]──[allotments]──────────────[moor]──[gate forest]
+                   │plot 13                   │crypt stair
+                 [catacombs]────────────────[crypt]
+```
+
+- **Surface row:** the hamlet, the allotments and the moor, joined at the floor; the moor joins the gate forest (and the castle).
+- **Under:** the crypt stair in the moor, west through the catacombs, up the shaft under plot 13 into the allotments.
+- **Over:** the moor's watchtower up onto the ridge; west along it, over the plank bridge, onto Gallows Hill and down the hamlet's bell tower. The bridge is dropped through onto the allotments' greenhouse (a shortcut down).
+- **Tests:** `game/ambition_app/tests/the_searchlight_moor.rs`.
+
 ## Not yet
 
 - A hit-breakable wall (Hollow Knight's secrets) is not an engine capability. The false wall is the only secret so far.
-- The other regions (the pirate port and ninja village, Eureka, the math town, the primeval trail, the evil moor) are still strings of rooms. Each wants the same treatment.
+- The other regions (the pirate port and ninja village, Eureka, the math town, the primeval trail) are still strings of rooms. Each wants the same treatment.

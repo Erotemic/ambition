@@ -88,6 +88,13 @@ RIDGE_AT, RIDGE_W, RIDGE_H, RIDGE_G = (-4000, -544), 3600, 544, 480
 RIDGE_TOWER = (3100, 3220)
 RIDGE_GAP = (70, 450)
 MOOR_TOWER_TOP = (1500, 1620)
+#: Over Lower Godwin, up its bell tower, west of the ridge and joined to it
+#: across the plank bridge over the gap: Gallows Hill. Its ground (G 480 to
+#: its foot, 544) is the ridge's; the bell tower comes up through it at the
+#: hamlet's x 1040..1160 (the rooms share x: the hill is right over it).
+HILL = "evil_gallows_hill"
+HILL_AT, HILL_W = (-6800, -544), 2800
+BELL_TOWER = (1040, 1160)
 #: The sarcophagus (x0, x1, its lid, walked on).
 SARCOPHAGUS = (1100, 1300, 440)
 FOREST = "evil_gate_forest"
@@ -214,6 +221,13 @@ def hamlet():
         edge("hamlet_east", "to the allotments", w - WALL, FLOOR, ALLOT, "allot_west"),
         start(HAMLET, w - 200, FLOOR),
         ledge("crier_platform", p0, py, p1 - p0),
+        # The bell tower: its ladder (`main`) up out of the room's top to the
+        # hill.
+        piece("hamlet_belltower", BELL_TOWER[0] - 20, 0, name="hamlet_belltower"),
+        entity("LoadingZone", BELL_TOWER[0], 0, BELL_TOWER[1] - BELL_TOWER[0], 16, id="hamlet_belltower_top",
+               name="up the bell tower to Gallows Hill", activation="EdgeExit", target_room=HILL,
+               target_zone="hill_belltower", bidirectional=True),
+        sign("hamlet_sign_bell", BELL_TOWER[1] + 60, FLOOR - 220, "THE CURFEW BELL: rung at dusk, at dawn, and whenever", 440),
         resident("npc_evil_bellows", "evil_bellows", p0 + 50, py),
         resident("npc_evil_crumb", "evil_crumb", 780, FLOOR),
         door("hamlet_bakery_door", "into Crumb's bakery", BAKERY_DOOR_X, FLOOR, BAKERY, "bakery_door"),
@@ -308,18 +322,22 @@ def ridge():
     """High over the moor and the allotments: the Searchlight Ridge, up the
     moor's watchtower. Its searchlights sweep the red sky; a sentry hut and
     its sentries; a chest before the gap at the west end, where the ridge
-    has fallen away over the allotments' greenhouse: drop down onto its
-    roof (no way back up: a shortcut down)."""
+    has fallen away over the allotments' greenhouse: a plank bridge over it
+    on west to Gallows Hill, or drop through it onto the greenhouse's roof
+    (no way back up: a shortcut down)."""
     w, h, g = RIDGE_W, RIDGE_H, RIDGE_G
     t0, t1 = RIDGE_TOWER
     g0, g1 = RIDGE_GAP
     e = [
         piece("ridge_west", 16, 0, name="ridge_west"),
         piece("ridge_east", 1800, 0, name="ridge_east"),
-        solid("ground_west_end", 0, g + 40, g0, h - g - 40),
+        solid("ground_west_end", 0, g, g0, h - g),
         solid("ground", g1, g, t0 - g1, h - g),
         solid("ground_east", t1, g, w - t1, h - g),
-        solid("west_wall", 0, 0, WALL, g + 40),
+        solid("west_wall", 0, 0, WALL, g - 112),
+        edge("ridge_west", "on to Gallows Hill", 0, g, HILL, "hill_east"),
+        # The plank bridge over the gap, dropped through to go down.
+        ledge("gap_bridge", g0, g, g1 - g0),
         solid("east_wall", w - WALL, 0, WALL, g),
         entity("LoadingZone", t0, h - 16, t1 - t0, 16, id="ridge_tower", name="down the watchtower to the moor",
                activation="EdgeExit", target_room=MOOR, target_zone="moor_ridge", bidirectional=True),
@@ -338,6 +356,39 @@ def ridge():
     ]
     return RIDGE, room(RIDGE, e, at=RIDGE_AT, size=(w, h), biome="evil_forest", music="oppressive_crush", bg="#3A0E0E",
                        title="THE SEARCHLIGHT RIDGE", generator=GENERATOR)
+
+
+def hill():
+    """Over Lower Godwin, up its bell tower: Gallows Hill, where the castle
+    hangs its notices (the gibbet is empty; the notice says so), the
+    paupers' graves, the founder's billboard; east across the plank bridge
+    to the Searchlight Ridge: the high road over the hamlet, the allotments
+    and the moor."""
+    w, h, g = HILL_W, RIDGE_H, RIDGE_G
+    t0, t1 = BELL_TOWER
+    e = [
+        piece("hill_west", 16, 200, name="hill_west"),
+        piece("hill_east", 1600, 140, name="hill_east"),
+        solid("ground_west", 0, g, t0, h - g),
+        solid("ground_east", t1, g, w - t1, h - g),
+        solid("west_wall", 0, 0, WALL, g),
+        solid("east_wall", w - WALL, 0, WALL, g - 112),
+        edge("hill_east", "on to the Searchlight Ridge", w - WALL, g, RIDGE, "ridge_west"),
+        entity("LoadingZone", t0, h - 16, t1 - t0, 16, id="hill_belltower", name="down the bell tower to Lower Godwin",
+               activation="EdgeExit", target_room=HAMLET, target_zone="hamlet_belltower_top", bidirectional=True),
+        # The hatch at the bell tower's top, as the ridge's watchtower.
+        ledge("belltower_hatch", t0, g, t1 - t0),
+        start(HILL, t1 + 120, g),
+        entity("ChestSpawn", 200, g - 58, 76, 58, name="the hangman's tips", reward="currency:60"),
+        sign("hill_sign", 1400, 260, "GALLOWS HILL: views of the whole hamlet, and it of you", 460),
+        sign("hill_sign_gibbet", 1770, 380, "TEMPORARILY UNOCCUPIED. APPLY WITHIN.", 360),
+        sign("hill_sign_graves", 560, 400, "THE PAUPERS (they could not afford names)", 400),
+        enemy(50, "npc_evil_zombie", 620, g, 30, 67),
+        enemy(51, "npc_evil_spectral_wolf", 1500, g, 56, 56),
+        enemy(52, "npc_fascist_enforcer", 2300, g, 32, 72),
+    ]
+    return HILL, room(HILL, e, at=HILL_AT, size=(w, h), biome="evil_forest", music="oppressive_crush", bg="#3A0E0E",
+                      title="GALLOWS HILL", generator=GENERATOR)
 
 
 def catacombs():
@@ -389,7 +440,7 @@ entities:
 def main(argv):
     paths = []
     # The inn first (it moves out of the catacombs' way), then the crypt.
-    for rid, text in (inn(), crypt(), catacombs(), ridge(), bakery(), hamlet(), allotments(), moor()):
+    for rid, text in (inn(), crypt(), catacombs(), ridge(), hill(), bakery(), hamlet(), allotments(), moor()):
         path = HERE / f"{rid}.ron"
         path.write_text(text)
         print(path.relative_to(HERE.parents[1]))
@@ -412,7 +463,11 @@ def main(argv):
                  # ridge on its ladder, not falling back through the hole.
                  (MOOR, "Climbable", 1, MOOR_TOWER_TOP[0] + 44, 0, 32, 272),
                  # Up out of the hole the watchtower comes up through.
-                 (RIDGE, "Climbable", 1, RIDGE_TOWER[0] + 44, RIDGE_G - 80, 32, RIDGE_H - RIDGE_G + 80)):
+                 (RIDGE, "Climbable", 1, RIDGE_TOWER[0] + 44, RIDGE_G - 80, 32, RIDGE_H - RIDGE_G + 80),
+                 # The bell tower: from the hamlet's ground up out of its top,
+                 # and up out of the hole in the hill.
+                 (HAMLET, "Climbable", 1, BELL_TOWER[0] + 44, 0, 32, FLOOR),
+                 (HILL, "Climbable", 1, BELL_TOWER[0] + 44, RIDGE_G - 80, 32, RIDGE_H - RIDGE_G + 80)):
         if code := paint(WORLD, *args):
             return code
     if code := add_entities(FOREST_EDGE_YAML, WORLD, HERE / "forest_edge.yaml", unless='"out to the moor"'):

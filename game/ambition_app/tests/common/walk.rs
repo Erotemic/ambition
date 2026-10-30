@@ -398,11 +398,12 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
                     continue;
                 }
                 // One under the body's feet (a hole under a hatch): hold down
-                // and jump, to drop through the one-way floor over it.
+                // and jump, to drop through the one-way floor over it; a body
+                // that took the ladder down the hole instead climbs on down.
                 let underfoot = graph.frame.below(exit.zone.min) >= graph.frame.below(feet) - 1.0;
-                if on_ground && underfoot && along.abs() <= exit.zone.half_size().x {
+                if underfoot && along.abs() <= exit.zone.half_size().x {
                     press.down = true;
-                    press.jump_pressed = step % 20 == 0;
+                    press.jump_pressed = on_ground && step % 20 == 0;
                     walker.step(press);
                     continue;
                 }

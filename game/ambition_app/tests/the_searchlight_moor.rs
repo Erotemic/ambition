@@ -91,3 +91,14 @@ fn the_searchlight_ridge_runs_over_the_moor_and_drops_to_the_allotments() {
     let mut app = a_session_in("evil_searchlight_ridge");
     go(&mut app, "evil_castle_allotments", Some("ridge_gap"));
 }
+
+/// Up Lower Godwin's bell tower onto Gallows Hill, east across the plank
+/// bridge onto the Searchlight Ridge, and back; down the bell tower again.
+#[test]
+fn gallows_hill_joins_the_hamlet_to_the_ridge() {
+    let mut app = a_session_in("evil_lower_godwin");
+    go(&mut app, "evil_gallows_hill", Some("hamlet_belltower_top"));
+    go(&mut app, "evil_searchlight_ridge", Some("hill_east"));
+    go(&mut app, "evil_gallows_hill", Some("ridge_west"));
+    go(&mut app, "evil_lower_godwin", Some("hill_belltower"));
+}

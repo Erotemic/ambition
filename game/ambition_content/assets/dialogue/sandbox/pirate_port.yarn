@@ -146,6 +146,22 @@ Tamsin Bolt: Mind the sail, love, it's someone's whole livelihood and it's on th
     Tamsin Bolt: Bring me a face. I'll put it on a skull. Everyone looks better on a skull.
 ===
 
+title: pirate_port_slipp
+---
+Fennimore Slipp: Ah. A visitor who came down the well, which means a visitor who did not come through customs, which means we are going to get on.
+-> What is all this?
+    Fennimore Slipp: Imports. Upstairs they declare cargo, livestock and curses. Down here we consult on which of those it would be wiser not to.
+    Fennimore Slipp: I am not a smuggler. I am an import consultant. It says so on my card. I stamped the card myself.
+-> Are those chickens?
+    Fennimore Slipp: They are a gift. To a friend. Who is a chicken. Livestock is a word for strangers.
+-> What's under the sheet?
+    Fennimore Slipp: A garden ornament. It is not cursed. The glow is decorative. Please do not make eye contact with it; it is shy and it remembers.
+-> Who are the lads at the east end?
+    Fennimore Slipp: Colleagues. Tariff-averse. They will tell you about the still, mostly with cutlasses. I would not go past the barrels.
+-> I'll be going.
+    Fennimore Slipp: Up the ladder, and you were never here. Mind you, neither was I. Neither was any of it, officially.
+===
+
 title: pirate_port_lamplugh
 ---
 Ezra Lamplugh: Evening. Or morning. Up here it's whichever the lamp says. Mind the wreckers on the rocks; they don't like visitors who leave.

@@ -43,3 +43,16 @@ fn the_sail_loft_sews_flags_to_order() {
     talk(&mut app, "npc_port_bolt", "What are the flags on the wall?");
     go(&mut app, "pirate_port_waterfront", Some("loft_door"));
 }
+
+/// The cellars under customs, down the old well against the plaza's west
+/// wall by a vertical exit: Fennimore Slipp, import consultant, talks by his
+/// desk (`pirate_port.yarn` `pirate_port_slipp`); the ladder goes up the
+/// shaft to the plaza, and back down. (Up first, as the Mobius Mine's test:
+/// the walker takes the well's ladder down from it, not from the floor.)
+#[test]
+fn the_cellars_under_customs_lie_down_the_plazas_well() {
+    let mut app = a_session_in("pirate_customs_cellars");
+    talk(&mut app, "npc_port_slipp", "What is all this?");
+    go(&mut app, "pirate_port_gate_plaza", Some("cellars_shaft"));
+    go(&mut app, "pirate_customs_cellars", Some("plaza_well"));
+}

@@ -18,8 +18,13 @@ SCENERY = {
     "pirate_port_gate_plaza": [
         ("port_harbour_house", 990, 120),
         ("port_freight_booth", 520, 560),
-        ("port_lamp_post", 104, 600),
+        # Moved east of the freight booth for the well in the west corner.
+        ("port_lamp_post", 940, 600),
+        # The old well (`targets/props/pirate_cellars_props.py`).
+        ("plaza_well", 16, 596),
     ],
+    # The cellars under customs, down the well.
+    "pirate_customs_cellars": [("cellars_vault", 16, 16)],
     "pirate_port_waterfront": [
         ("port_waterfront_west", 0, 160),
         ("port_waterfront_middle", 540, 140),

@@ -287,6 +287,9 @@
     "ranger_station_room": (),
     "bakery_room": (),
     "sail_loft_room": (),
+    // The Pirate Port's well, and the cellars under customs (PvN).
+    "plaza_well": (),
+    "cellars_vault": (),
     "collider_tunnel": (),
     // The orbital station's damaged spur (Science).
     "spur_west": (),

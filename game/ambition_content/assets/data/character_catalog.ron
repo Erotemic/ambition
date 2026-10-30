@@ -5706,6 +5706,23 @@
                 hall: ["Every captain wants a skull and every captain wants it to be theirs.", "The smiling flag was sent back. Ships kept sailing up to say hello."],
             ),
         ),
+        "npc_port_slipp": (
+            display_name: "Fennimore Slipp",
+            // Keeps the cellars under the customs plaza; an import consultant.
+            manifest: "sprites/port_slipp_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(68.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "pirate_port", "peaceful"],
+            barks: (
+                idle: ["Nothing to declare.", "*stamps something*"],
+                hall: ["Import consultant. It says so on the card. I stamped the card myself.", "The chickens are a gift. To a friend. Who is a chicken."],
+            ),
+        ),
         "npc_port_lamplugh": (
             display_name: "Ezra Lamplugh",
             // Keeps the honest light on the point past the Wreckers' Reef.

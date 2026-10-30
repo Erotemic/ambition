@@ -61,6 +61,13 @@ REEF = "pirate_wreckers_reef"
 POINT = "pirate_lighthouse_point"
 #: The sail loft inside the net loft, by its door on the waterfront.
 LOFT = "pirate_sail_loft"
+#: Under the plaza, down its old well (a vertical exit): the cellars where
+#: the freight customs never sees goes by.
+CELLARS = "pirate_customs_cellars"
+#: The well's hole in the plaza's floor, and the cellars' shaft under it
+#: (x0, x1): against the plaza's west wall, off the low road, so nobody
+#: walking east falls in; no lip of floor beyond it.
+WELL = (16, 80)
 LOFT_DOOR_X = 2300
 
 #: The contract with Agent GATE: the arrival point a dialled SAILING names.
@@ -90,6 +97,8 @@ ROOMS_AT = {
     POINT: ((4160 + 2816 + 2560, -64 - 320), (1600, 1280)),
     TAVERN: ((1856, 1152), (1024, 448)),
     LOFT: ((2944, 1152), (1024, 448)),
+    # Under the plaza: its shaft under the well.
+    CELLARS: ((0, 832), (1600, 640)),
 }
 
 #: The flag of the page in the crow's nest.
@@ -113,8 +122,13 @@ def plaza():
     _, (w, h) = ROOMS_AT[rid]
     floor, balcony = 704, 448
     e = [
-        solid("ground", 0, floor, w, h - floor),
-        solid("west_wall", 0, 0, WALL, floor),
+        # The ground, and the old well down to the cellars: a ladder down it
+        # (`LADDERS`), its bottom the way down.
+        solid("ground_east", WELL[1], floor, w - WELL[1], h - floor),
+        entity("LoadingZone", WELL[0], h - 16, WELL[1] - WELL[0], 16, id="plaza_well", name="down the old well",
+               activation="EdgeExit", target_room=CELLARS, target_zone="cellars_shaft", bidirectional=True),
+        sign("plaza_sign_well", 84, 566, "OLD WELL: dry", 136),
+        solid("west_wall", 0, 0, WALL, h),
         solid("east_wall_high", w - WALL, 0, WALL, balcony - 96),
         solid("east_wall_mid", w - WALL, balcony + 16, WALL, floor - 96 - balcony - 16),
         # The arrival is the zone of the gate ring (`gate_interface.yaml`, written
@@ -384,7 +398,53 @@ def point():
     return build(rid, e, "THE LIGHTHOUSE POINT", music=DOCK_MUSIC)
 
 
-ROOMS = (plaza, waterfront, tavern, sail_loft, docks, reef, point)
+#: The cellars (`pirate_cellars_props.py` draws on these): the floor, the
+#: vault, the barrel rack's top (x0, x1, y; walked on).
+CELLARS_FLOOR, CELLARS_CEIL = 576, 64
+CELLARS_BARRELS = (920, 1140, 480)
+
+
+def cellars_enemy(n, character, x, feet, w, h):
+    return entity("EnemySpawn", x, feet - h, w, h, name=f"{CELLARS}_{character}_{n}", brain="combatant",
+                  character_id=character, respawn="OnRoomReenter")
+
+
+def cellars():
+    """Under the gate plaza, down the old well: a brick vault where the
+    freight that customs never sees goes by. The shaft comes down at the
+    west end, by the forger's desk; Fennimore Slipp, import consultant,
+    keeps the place; past the idol, the chickens and the crates, his
+    tariff-averse colleagues guard the barrels and the still."""
+    rid = CELLARS
+    _, (w, h) = ROOMS_AT[rid]
+    g, top = CELLARS_FLOOR, CELLARS_CEIL
+    s0, s1 = WELL
+    b0, b1, by = CELLARS_BARRELS
+    e = [
+        solid("floor", 0, g, w, h - g),
+        solid("vault_west", 0, 0, s0, top),
+        solid("vault_east", s1, 0, w - s1, top),
+        solid("west_wall", 0, top, WALL, g - top),
+        solid("east_wall", w - WALL, top, WALL, g - top),
+        entity("LoadingZone", s0, 0, s1 - s0, 16, id="cellars_shaft", name="up the well to the plaza",
+               activation="EdgeExit", target_room=PLAZA, target_zone="plaza_well", bidirectional=True),
+        start(rid, 200, g),
+        ledge("barrel_rack", b0, by, b1 - b0),
+        # Fennimore Slipp by his desk (`pirate_port.yarn`).
+        resident("npc_port_slipp", "pirate_port_slipp", 340, g),
+        sign("cellars_sign", 800, 120, "BONDED CELLARS: bonded to nobody", 380),
+        entity("ChestSpawn", b0 + 70, by - 58, 76, 58, name="the undeclared strongbox", reward="currency:80"),
+        # His colleagues, east past the crates.
+        cellars_enemy(1, "npc_pirate_cutlass_viper", 880, g, 32, 68),
+        cellars_enemy(2, "npc_pirate_quartermaster", 1180, g, 34, 71),
+        cellars_enemy(3, "npc_pirate_cutlass_viper", 1440, g, 32, 68),
+    ]
+    return build(rid, e, "THE CELLARS UNDER CUSTOMS", music=DOCK_MUSIC)
+
+
+# The cellars before the plaza: the plaza's well names them, and each room is
+# validated as it is made.
+ROOMS = (cellars, plaza, waterfront, tavern, sail_loft, docks, reef, point)
 
 #: The ladders out of the two gaps of open water, and up the mainmast
 #: (painted on the `Climbable` layer): (room, x, top, bottom).
@@ -393,6 +453,10 @@ LADDERS = [
     (DOCKS, SPANS[1][1] + 2, DECK - 16, SEA_FLOOR),
     (DOCKS, MAINMAST - 16, 304 - 16, SHIP_DECK),
     (REEF, REEF_STUMP[1], REEF_STUMP[2] - 16, REEF_BOW[2]),
+    # Down the old well (its top over the floor, as the Fractal Woods' hole
+    # down to the Mobius Mine), and on down the cellars' shaft.
+    (PLAZA, WELL[0] + 16, 704 - 64, ROOMS_AT[PLAZA][1][1]),
+    (CELLARS, WELL[0] + 16, 0, CELLARS_FLOOR),
 ]
 
 COVE_DOOR_YAML = f"""# The pirate cove's door to the Pirate Port's docks. Written by {GENERATOR}.

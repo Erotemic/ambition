@@ -117,6 +117,7 @@ npc_port_wren
 npc_port_brine
 npc_port_lamplugh
 npc_port_bolt
+npc_port_slipp
 npc_village_sato
 npc_village_nagisa
 npc_village_kenji

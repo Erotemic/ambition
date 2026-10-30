@@ -43,8 +43,21 @@ def game(tmp_path: Path) -> Path:
     (runtime / "audio/music/generated/theme/full.ogg").write_bytes(b"OggS theme")
     scores = tmp_path / "tools/music_tool/scores/active"
     scores.mkdir(parents=True)
-    for name in ("theme", "sketch"):
-        (scores / f"{name}.music.yaml").write_text("schema: music\n")
+    (scores / "sketch.music.yaml").write_text("schema: music\n")
+    (scores / "theme.music.yaml").write_text("""schema: music
+title: Main Theme
+description: The hub's morning theme.
+notes:
+- Kept the original melody.
+- Lowered the bass an octave.
+tempo: {bpm: 96}
+meter: {beats_per_bar: 3, beat_unit: 4}
+sections: [{name: intro}, {name: main}]
+instruments:
+- {name: lead, group: lead, program: clean_guitar, instrument_backend: {kind: sfz, library_ref: guitar.archtop}}
+- {name: pad, group: pad, instrument_backend: {kind: surge, patch: Pads/Glass}}
+- {name: drums, group: drums, program: standard, is_drum: true}
+""")
     write_bank(runtime / "audio/sfx.bank", {"ui.click": b"OggS click"})
     sounds = tmp_path / "tools/sfx_tool/sounds/active"
     sounds.mkdir(parents=True)
@@ -67,6 +80,11 @@ def test_each_kind_reports_what_exists_what_is_missing_and_where_it_is_used(tmp_
     result = kinds.collect(tmp_path, out, HashCache(out / "hashes.json"), pack=pack, log=lambda _m: None)
     items = result["items"]
     assert items["music:theme"]["state"] == "present"
+    score = items["music:theme"]["score"]
+    assert score["description"] == "The hub's morning theme." and score["notes"][1] == "Lowered the bass an octave."
+    assert (score["bpm"], score["meter"], score["sections"]) == (96, "3/4", ["intro", "main"])
+    assert [(i["sound"], i["source"]) for i in score["instruments"]] == [
+        ("guitar.archtop", "sampled (SFZ)"), ("Pads/Glass", "synth (Surge XT)"), ("standard", "drum kit (General MIDI)")]
     assert items["music:gone"]["state"] == "missing" and items["music:gone"]["fix"]
     assert items["music:sketch"]["state"] == "missing" and "newer than the last music publish" in items["music:sketch"]["reasons"][0]
     assert items["sfx:ui.click"]["state"] == "present"

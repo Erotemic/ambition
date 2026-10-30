@@ -99,6 +99,46 @@ def _render_versions(tool: Path, notices: list) -> dict[str, list]:
     return by_cue
 
 
+def _sound_of(row: dict) -> tuple[str, str]:
+    """(source kind, sound) of one score instrument: what actually makes its sound."""
+    backend = row.get("instrument_backend") if isinstance(row.get("instrument_backend"), dict) else {}
+    kind = backend.get("kind")
+    if kind == "sfz":
+        name = backend.get("library_ref") or Path(str(backend.get("sfz_glob") or "")).name.removesuffix(".sfz")
+        return "sampled (SFZ)", name or "unspecified"
+    if kind == "surge":
+        return "synth (Surge XT)", str(backend.get("patch") or "")
+    if kind == "soundfont":
+        return "sampled (SoundFont)", str(backend.get("library_ref") or backend.get("soundfont") or "")
+    if kind == "procedural_fm":
+        carrier = (backend.get("carrier") or {}).get("waveform", "")
+        return "synth (procedural FM)", f"{carrier} carrier".strip()
+    return ("drum kit (General MIDI)" if row.get("is_drum") else "General MIDI"), str(row.get("program") or "")
+
+
+def _score_summary(path: Path) -> dict:
+    """What a music page shows of its score: description, notes, form and instruments."""
+    data = yaml.load(path.read_text(), Loader=_Loader) or {}
+    notes = data.get("notes")
+    notes = [str(n) for n in notes] if isinstance(notes, list) else [p for p in str(notes or "").split("\n\n") if p.strip()]
+    tempo, meter = data.get("tempo"), data.get("meter")
+    sections = data.get("sections")
+    names = ([s.get("name") or s.get("id") for s in sections if isinstance(s, dict)] if isinstance(sections, list)
+             else list(sections) if isinstance(sections, dict) else [])
+    instruments = []
+    for row in data.get("instruments") or []:
+        if isinstance(row, dict):
+            source, sound = _sound_of(row)
+            instruments.append({"name": row.get("name"), "group": row.get("group"), "source": source, "sound": sound,
+                                "notes": row.get("notes") if isinstance(row.get("notes"), str) else None})
+    return {"title": data.get("title"), "description": data.get("description"), "notes": notes,
+            "key": data.get("key") if isinstance(data.get("key"), str) else None,
+            "bpm": tempo.get("bpm") if isinstance(tempo, dict) else tempo if isinstance(tempo, (int, float)) else None,
+            "meter": f"{meter.get('beats_per_bar')}/{meter.get('beat_unit')}" if isinstance(meter, dict) else meter if isinstance(meter, str) else None,
+            "sections": [str(n) for n in names if n], "form": data.get("form") if isinstance(data.get("form"), str) else None,
+            "one_shot": bool(data.get("one_shot")), "instruments": instruments}
+
+
 def _music_review(path: Path) -> dict:
     data = yaml.load(path.read_text(), Loader=_Loader) or {}
     current, subject = data.get("current") or {}, data.get("subject") or {}
@@ -152,6 +192,14 @@ def _track(ctx, tid, display, audio: Path, folder, scores: Path, tool: Path, *, 
     score = scores / f"{folder}.music.yaml"
     if score.is_file():
         item["sources"].append(_rel(repo, score))
+        try:
+            item["score"] = ctx["sidecars"].read(_score_summary, score)
+            if item["score"]["title"] and not registered:
+                item["display"] = item["score"]["title"]  # no game name: the score names it
+            sources = sorted({row["source"] for row in item["score"]["instruments"]})
+            item["tags"] += sorted({"general-midi" if source.startswith(("General", "drum")) else source.split(" ")[0] for source in sources})
+        except (OSError, ValueError, yaml.YAMLError) as error:
+            item["reasons"].append(f"The score does not read: {error}")
     if audio.is_file():
         item["files"].append(_file(repo, out, audio))
         item["media"] = {"type": "audio", "href": os.path.relpath(audio, out)}

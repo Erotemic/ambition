@@ -27,7 +27,10 @@ pack, so another engine game is inspected the same way (`--profile`,
 - **Characters**, **Images** and **Inventory** read the sprite publication and
   the game catalog, as described below.
 - **Music** reads the music registry, the music tool's active scores, its newest
-  renders and its review files. A registered track the game lacks is missing;
+  renders and its review files. A song's page shows its score's description and
+  notes, key, tempo, meter and sections, and each instrument with the sound that
+  plays it: an SFZ or SoundFont sample library, a Surge XT patch, procedural FM,
+  or a General MIDI program. A registered track the game lacks is missing;
   a score no registry names is unregistered. A music review made before the
   score last changed is marked.
 - **Sound** reads the sound bank and the sound tool's sources. The page plays

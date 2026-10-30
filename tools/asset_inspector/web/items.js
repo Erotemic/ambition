@@ -76,7 +76,7 @@
 
   function search(terms) {
     const hit = text => terms.every(t => text.toLowerCase().includes(t));
-    const found = Object.values(items).filter(i => hit(i.id + " " + i.display + " " + i.tags.join(" ")));
+    const found = Object.values(items).filter(i => hit(i.id + " " + i.display + " " + i.tags.join(" ") + " " + (i.score?.description || "")));
     const characters = Object.entries(C.inventory?.identities || {}).filter(([key, a]) => hit(key + " " + a.display + " " + (a.catalog?.tags || []).join(" ")));
     const images = Object.values(C.assets || {}).filter(a => hit(a.id + " " + a.display + " " + (a.tags || []).join(" ")));
     app().innerHTML = `<h1>Search <small>${esc(terms.join(" "))}</small></h1>
@@ -132,7 +132,7 @@
     const k = C.kinds?.[kind] || {notices: [], states: {}};
     const terms = query().split(/\s+/).filter(Boolean);
     const f = filters[kind] || (filters[kind] = {state: "", used: ""});
-    let rows = all.filter(i => terms.every(t => (i.id + " " + i.display + " " + i.tags.join(" ")).toLowerCase().includes(t)));
+    let rows = all.filter(i => terms.every(t => (i.id + " " + i.display + " " + i.tags.join(" ") + " " + (i.score?.description || "")).toLowerCase().includes(t)));
     if (f.state) rows = rows.filter(i => i.state === f.state);
     if (f.used) rows = rows.filter(i => f.used === "used" ? i.uses.length : f.used === "unused" ? !i.uses.length : f.used === "reviewed" ? i.reviews : !i.reviews);
     const facet = (group, key, label) => `<button type="button" class="ghost${f[group] === key ? " on" : ""}" data-filter="${group}" data-key="${esc(key)}">${esc(label)}</button>`;
@@ -186,6 +186,25 @@
         : '<p class="empty">Open the page with <code>./scripts/asset_inspector.py</code> to save a review.</p>'}</form>`;
   }
 
+  // The score's own words: its description and notes, its form, and what plays it.
+  function scoreBox(item) {
+    const sc = item.score;
+    if (!sc) return "";
+    const facts = [sc.key, sc.bpm && `${sc.bpm} BPM`, sc.meter, sc.form, sc.one_shot && "one-shot"].filter(Boolean);
+    const groups = {};
+    sc.instruments.forEach(i => (groups[i.source] ||= []).push(i));
+    const summary = Object.entries(groups).map(([source, rows]) => `${rows.length} ${esc(source)}`).join(" · ");
+    return `<section class="box"><h2>Score</h2>
+      ${sc.title && sc.title !== item.display ? `<p><b>${esc(sc.title)}</b> <small>(the score's title)</small></p>` : ""}
+      ${sc.description ? `<p class="review-text">${esc(sc.description)}</p>` : '<p class="empty">The score has no description.</p>'}
+      ${facts.length ? `<p>${facts.map(esc).join(" · ")}</p>` : ""}
+      ${sc.sections.length ? `<p>Sections: ${sc.sections.map(esc).join(" → ")}</p>` : ""}
+      ${sc.notes.length ? `<details${sc.description ? "" : " open"}><summary>Notes (${sc.notes.length})</summary>${sc.notes.map(n => `<p class="review-text">${esc(n)}</p>`).join("")}</details>` : ""}
+      <h3>Instruments (${sc.instruments.length})</h3><p class="n">${summary}</p>
+      <table class="tbl"><thead><tr><th>Part</th><th>Sound</th><th>Source</th></tr></thead><tbody>
+        ${sc.instruments.map(i => `<tr><td>${esc(i.name)}${i.group && i.group !== i.name ? ` <small>${esc(i.group)}</small>` : ""}</td><td>${esc(i.sound)}${i.notes ? `<small>${esc(i.notes)}</small>` : ""}</td><td>${esc(i.source)}</td></tr>`).join("")}</tbody></table></section>`;
+  }
+
   function musicReviews(item) {
     const r = item.reviews;
     if (item.kind !== "music") return "";
@@ -231,6 +250,7 @@
       ${item.reasons.map(r => `<p class="stamp stale">${esc(r)}</p>`).join("")}
       ${item.fix ? `<p>Make it: <code>${esc(item.fix)}</code></p>` : ""}
       ${media(item)}
+      ${scoreBox(item)}
       <div class="cols">
         <section class="box"><h2>Source</h2>${item.sources.length ? item.sources.map(p => `<p>${source(p)}</p>`).join("") : '<p class="empty">No source is known.</p>'}</section>
         <section class="box"><h2>Files</h2>${item.files.length ? item.files.map(f => `<p><a href="${esc(f.href)}"><code>${esc(f.path)}</code></a> <small>${esc(Math.round(f.bytes / 1024))} KiB</small></p>`).join("") : '<p class="empty">Not generated.</p>'}</section>

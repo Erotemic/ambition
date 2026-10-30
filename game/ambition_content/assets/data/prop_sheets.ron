@@ -230,6 +230,11 @@
     "math_hotel_lobby_room": (),
     "math_hotel_corridor_room": (),
     "math_hotel_lift_shaft": (),
+    // The Searchlight Moor (Evil, out of town).
+    "moor_watchtower": (),
+    "moor_statue": (),
+    "moor_wire": (),
+    "moor_bog": (),
     // The Evil dimension's forest road.
     "evil_forest_roadside": (),
     // Eureka's Test Range (Science, out of town).
@@ -237,6 +242,15 @@
     "eureka_range_bunker": (),
     "eureka_range_tower": (),
     "eureka_range_field": (),
+    // The tether's ground station, and its car (a platform look).
+    "eureka_tether_hall": (),
+    "eureka_tether_car": (),
+    // The Pirate Sky Lookout (PvN, out of town).
+    "sky_lookout_deck": (),
+    // The Math gate hall (arrivals).
+    "math_hall_west": (),
+    "math_hall_east": (),
+    "math_hall_lamps": (),
     // The hall of the Shadow Clan (PvN).
     "shadow_dojo_hall": (),
     // Along the primeval trail.

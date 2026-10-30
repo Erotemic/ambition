@@ -433,7 +433,7 @@ pub(crate) fn prop_sprite_bundle(
 /// back, so two pieces that overlap (a house before an aqueduct) always draw
 /// the same way round.
 const SCENERY_Z_BACK: f32 = WORLD_Z_DUMMY + 0.55;
-const SCENERY_Z_FRONT: f32 = WORLD_Z_DUMMY + 0.95;
+pub(super) const SCENERY_Z_FRONT: f32 = WORLD_Z_DUMMY + 0.95;
 /// The z step between pieces of scenery listed one after the other.
 const SCENERY_Z_STEP: f32 = 1.0 / 4096.0;
 

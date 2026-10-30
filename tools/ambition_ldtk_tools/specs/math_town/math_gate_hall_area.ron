@@ -12,6 +12,9 @@
     parallax_theme: "math_undercroft",
     music_track: "math_town_day",
     entities: [
+        ( type: "Prop", px: [180, 48], size: [1240, 174], fields: ( name: "hall_lamps", kind: "math_hall_lamps" ) ),
+        ( type: "Prop", px: [16, 434], size: [310, 270], fields: ( name: "hall_west", kind: "math_hall_west" ) ),
+        ( type: "Prop", px: [1198, 300], size: [324, 404], fields: ( name: "hall_east", kind: "math_hall_east" ) ),
         ( type: "Solid", px: [0, 704], size: [1600, 64], fields: ( name: "floor" ) ),
         ( type: "Solid", px: [0, 0], size: [1600, 48], fields: ( name: "vault" ) ),
         ( type: "Solid", px: [0, 48], size: [16, 656], fields: ( name: "west_wall" ) ),

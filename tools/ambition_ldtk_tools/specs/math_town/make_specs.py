@@ -212,13 +212,20 @@ def cradle(prefix, cx, floor):
 def gate_hall():
     """The gate hall: a vaulted undercroft under the street. The gate stands
     in its cradle in the middle of the floor, with stairs up to its plinth;
-    galleries along the walls; the door up to the town at the east end."""
+    galleries along the walls; the door up to the town at the east end. The
+    Manifest Office's booth, the customs desk for axioms, the departures
+    board, a porter's cart, polyhedral lamps."""
     rid = HALL
     _, w, h = ROOMS_AT[rid]
     floor = h - 64
     cx = w // 2
     stand, plinth = cradle("math_gate", cx, floor)
     e = [
+        # The arrivals hall's furniture (`targets/props/math_hall_props.py`,
+        # drawn on this room's numbers): first, so it draws behind the gate.
+        framed("hall_lamps", "math_hall_lamps", 0, 48),
+        framed("hall_west", "math_hall_west", 16, 300),
+        framed("hall_east", "math_hall_east", 1150, 300),
         solid("floor", 0, floor, w, 64),
         solid("vault", 0, 0, w, 48),
         solid("west_wall", 0, 48, WALL, floor - 48),

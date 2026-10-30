@@ -14,7 +14,7 @@
 //! followed on the next frame by matching visuals.
 
 use ambition_platformer2d_core as ae;
-use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
+use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, RoomVisual, SessionSpawnScope, SpawnSessionScopedExt,
 };
@@ -40,8 +40,11 @@ fn look_layer(look: &PlatformLook, front: bool) -> Option<(&str, f32)> {
     }
 }
 
-/// Where a platform is drawn: over the blocks of the room, behind each body.
-const BACK_LAYER_Z: f32 = WORLD_Z_BLOCK + 4.0;
+/// Where a platform is drawn: over the room's scenery, behind each body. A
+/// room drawn as one picture (a hall, a shaft) is scenery, and a platform
+/// under it was hidden (2026-10-30: the Eureka tether's car vanished in its
+/// station's hall).
+const BACK_LAYER_Z: f32 = super::world::SCENERY_Z_FRONT + 0.01;
 /// Where the front row of a platform's sheet is drawn: in front of each body,
 /// behind what is drawn over a body (its name and its health).
 const FRONT_LAYER_Z: f32 = WORLD_Z_PLAYER + 6.0;

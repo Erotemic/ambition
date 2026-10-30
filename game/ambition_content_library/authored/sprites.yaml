@@ -452,11 +452,21 @@ collections:
   - math_hotel_lobby_room
   - math_hotel_corridor_room
   - math_hotel_lift_shaft
+  - moor_watchtower
+  - moor_statue
+  - moor_wire
+  - moor_bog
   - evil_forest_roadside
   - eureka_range_rocket
   - eureka_range_bunker
   - eureka_range_tower
   - eureka_range_field
+  - eureka_tether_hall
+  - eureka_tether_car
+  - sky_lookout_deck
+  - math_hall_west
+  - math_hall_east
+  - math_hall_lamps
   - shadow_dojo_hall
   - jungle_fern_clump
   - jungle_fallen_log

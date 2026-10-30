@@ -43,6 +43,12 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **PvN flat map: the village's high road** (09ccc3977) meets the forest's
+  first branch: the branches step down from y 448 (six now), art and
+  generator. check_flat_map pvn: only the Mockingbird arena's ceiling exit
+  (another lane) remains.
+- **Science: the service deck's clutter** (4567821b4): lockers, a vending
+  machine, the robots' charging dock, DAYS WITHOUT INCIDENT: 0.
 - **Evil: the founder's crypt** (a4cc9e181) under the moor, by a gate
   beside his plinth: bones, pointing busts, his medals on the sarcophagus;
   a spectral wolf and conscripts. Verified: the_searchlight_moor (3).
@@ -162,9 +168,9 @@ approach) still joins by doors; another lane's boss route, not converted.
   rooms placed as "a mostly faithful flat map". `specs/check_flat_map.py`
   reports edge exits whose rooms do not meet, and overlaps. Eureka, the Math
   town and PvN's port and village moved so neighbours touch with roads level
-  (science 5 -> 0, math 1 -> 0, pvn 9 -> 2). Left: the village's high road
-  arrives 64 px off on the forest's branch (art on both heights); the
-  Mockingbird arena's ceiling exit leads to a side.
+  (science 5 -> 0, math 1 -> 0, pvn 9 -> 2; the village's high road fixed
+  since, 09ccc3977). Left: the Mockingbird arena's ceiling exit leads to a
+  side (another lane).
 - **Math: Hylbert's Hotel** (aa3f6171a): its door in the street's passage, the
   lobby (Hylbert at the desk, the key rack that never ends, the lift whose
   dial ends in infinity), and the corridor whose east end comes back in at

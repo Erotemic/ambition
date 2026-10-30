@@ -1,8 +1,46 @@
 # Chargen: species head knobs and per-view 2D overlay art
 
-Status: plan (2026-10-29), not built. The 2D-overlay mechanism is owned by the
-CalculexAmbition agent (first subject: Nikobolt Tesseract). This page is the
-research behind the plan, for whoever builds either half.
+Status (2026-10-30): the 2D-overlay mechanism (part 1) is built; the species
+head knobs (part 2) are not started. Both halves are owned by the
+CalculexAmbition agent. This page is the research behind the plan, and the
+"As built" section records what part 1 became.
+
+## As built: overlays (renderer `chargen/overlay.py`)
+
+- A spec names its art with `overlay: <name>`; the art is
+  `data/overlays/<name>.overlay.svg`. One SVG per subject, a `<g data-view>`
+  cell per view key. In a cell, each group draws one rig part:
+  `data-overlay-part` (the part name), `data-overlay-mode` (`replace` the
+  generated drawing, or `over`: a new part `<name>__overlay` above it on the
+  same bone, with the same visibility channel), `data-overlay-anchor` (a joint
+  of `draw.view_joints`) and `data-overlay-scale` (two measures of the figure:
+  `height`, `head`, `trunk`, `leg`). The root's `data-overlay-ref` gives the
+  measures the art was drawn at, so the art follows the figure's size.
+- Paths only, flat in their group; arcs are refused. A group's own transform
+  is ignored (it only places the art for an editor); a path's transform is
+  applied. A part the view does not draw is an error.
+- Placement is from the 3D model through the anchor joint; the art itself is
+  authored per view. Clothes can be drawn with the generator's own painter on
+  lofts made for the subject (Coulomba's trumpet skirt and bolero), then
+  written as overlay paths.
+- Face channels: an `over` group on `face_eyes__<emotion>` or
+  `face_mouth__<emotion>__<viseme>` shows only with its channel (Coulomba's
+  lashes and beak).
+- Gear: a target's own parts (`chargen.extras`, e.g. Alice's hair and coat
+  marks) take art too. Their groups say `data-overlay-gear="true"`: drawn
+  when the gear is, skipped when the spec is drawn alone (the studio).
+- The studio has an overlay select, and `validate` checks the name.
+- Subjects: Nikobolt Tesseract (head, hair, moustache, coat, hands, a minus
+  pin), Coulomba Tesseract (pigeon head, beak in every mouth channel, hat,
+  clothes, a plus brooch) and Alice v2 (bob and band, softer jaw, lashes,
+  lips, a loose open jacket whose V is set in centimetres, so it is not the
+  generator's violin-shaped opening). Test: `tests/test_chargen_overlay.py`.
+- Generator fix found on the way: the `bust` bump sat on the chest line
+  (the bottom of the ribcage); it is now a third of the way from the base
+  of the neck to the waist, with a long rise above and a rounder fall.
+- Open: a left view is the mirror of its right twin, so an asymmetric feature
+  (Nikobolt's watch chain, Coulomba's plume and roses) changes sides in the
+  left views; they need their own left cells.
 
 ## What Jon asked
 

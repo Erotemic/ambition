@@ -387,6 +387,8 @@ collections:
   - station_rahimi
   - station_pell
   - station_wen
+  - science_nikobolt
+  - science_coulomba
   - port_ines
   - port_tomas
   - port_agnes

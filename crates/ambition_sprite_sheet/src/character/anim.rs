@@ -182,6 +182,10 @@ pub enum CharacterAnim {
     /// A run at the body's top speed: the legs go round faster than a run
     /// can show (generator row `sprint`). Falls back to [`Self::Run`].
     Sprint = 65,
+    /// Standing on the brink of a ledge with the body's centre near its end
+    /// (`BodyMotionFacts::teetering`): arms out, wobbling (generator row
+    /// `teeter`). Falls back to [`Self::Idle`].
+    Teeter = 66,
 }
 
 impl CharacterAnim {
@@ -204,6 +208,7 @@ impl CharacterAnim {
             "walk" | "stable" | "spin" | "side_walk" => Self::Walk,
             "run" | "closing" => Self::Run,
             "sprint" => Self::Sprint,
+            "teeter" => Self::Teeter,
             "jump" => Self::Jump,
             "fall" => Self::Fall,
             // `jab` is the quick poke; it shares the generic `Slash` read.
@@ -291,6 +296,7 @@ impl CharacterAnim {
             Walk => Idle,
             Run => Walk,
             Sprint => Run,
+            Teeter => Idle,
             Crouch => Idle,
             CrouchWalk => Crouch,
             // Through `crouch_walk`: sheets that author only one author this one.

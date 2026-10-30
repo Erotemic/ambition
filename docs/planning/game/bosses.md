@@ -1048,8 +1048,11 @@ with it (Jon, 2026-10-25). The hump ends under the left shoulder, about 93 under
 the shoulders' top: a double jump goes up through the one-way shoulders
 (`gnu_ton_fight::a_body_walks_up_the_giants_hump_and_jumps_to_his_shoulders`).
 It has two stances: on all fours, and reared up (the hump steeper, the
-shoulders higher). Moss shows where an actor can stand (the hump, the level
-part of each horn); each shoulder has an epaulet.
+shoulders higher). A trim (a gold rail with studs over a crimson band with
+gilt points) shows where an actor can stand: the hump, the level part of each
+horn, and the top of each epaulet. The surfaces are a fact of the body: they
+are ground ridden or not, so the Hall's giant (`npc_giant_gnu_whole`, no
+mount) has them too.
 
 **The fight Jon proposed.**
 

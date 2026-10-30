@@ -644,6 +644,15 @@ pub struct MovementTuning {
     /// meaning, which is what makes standing there a decision.
     #[serde(default)]
     pub teeter_margin: f32,
+    /// THE BALANCE — see [`Balance`]. `None` (the default): the body stands on
+    /// any real overlap with a surface, so it can stand on the lip of a ledge.
+    /// `Some`: it stands only while its centre is over its support, and is
+    /// pushed off an edge its centre is past.
+    ///
+    /// ⛔ THIS IS A RULE, NOT A FACT, unlike [`Self::teeter_margin`]: it
+    /// changes whether the body is on the ground.
+    #[serde(default)]
+    pub balance: Option<Balance>,
     pub max_fall_speed: f32,
     pub jump_speed: f32,
     pub double_jump_speed: f32,
@@ -1133,6 +1142,9 @@ pub struct AxisLocomotion {
     /// See [`MovementTuning::teeter_margin`]. `0.0` = no body teeters.
     #[serde(default)]
     pub teeter_margin: f32,
+    /// See [`MovementTuning::balance`]. `None` = the body stands on a lip.
+    #[serde(default)]
+    pub balance: Option<Balance>,
     pub max_fall_speed: f32,
     pub jump_speed: f32,
     pub double_jump_speed: f32,
@@ -1526,6 +1538,55 @@ impl ShieldTuning {
     }
 }
 
+/// THE BALANCE OF A BODY THAT STANDS BY ITS CENTRE OF GRAVITY.
+///
+/// A body with a balance stands only while its centre is over its support:
+/// the stretch of floor from the near end of the first surface under its
+/// feet to the far end of the last one (box tops, one-way tops, walkable
+/// lines). Seams between floor tiles are in that stretch, and so is a gap
+/// the body bridges with ground on both sides of its centre.
+///
+/// - Centre over the support: the body stands.
+/// - Centre past the end of the support by at most [`Self::teeter_band`]:
+///   the body stands and teeters (`BodyMotionFacts::teetering`).
+/// - Centre further past: the support does not hold the body. It is pushed
+///   off the edge, toward the side its centre is on, at
+///   [`Self::tip_speed`], and it falls when its box is clear.
+///
+/// A body without a balance (`None`) stands on any real overlap of its box
+/// with a surface (`collision_semantics::EDGE_OVERLAP_SLOP`): it can stand
+/// on the lip of a ledge.
+///
+/// Both numbers are fractions of the body's own half-width, so a small body
+/// and a giant tip off an edge in the same time.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Balance {
+    /// How far the centre may be past the end of the support while the body
+    /// still stands, as a fraction of its half-width.
+    pub teeter_band: f32,
+    /// How fast a body that does not stand is pushed off the edge, in
+    /// half-widths per second. The push goes through the side sweep, so a
+    /// wall stops it.
+    pub tip_speed: f32,
+}
+
+impl Balance {
+    /// The balance of a long or heavy body: it teeters while its centre is
+    /// within a sixth of its half-width past the edge, and goes off a ledge
+    /// in about a fifth of a second after that.
+    pub const LONG_BODY: Self = Self {
+        teeter_band: 1.0 / 6.0,
+        tip_speed: 4.0,
+    };
+}
+
+impl Default for Balance {
+    fn default() -> Self {
+        Self::LONG_BODY
+    }
+}
+
 /// THE FOOTSTOOL — jumping off another body's head.
 ///
 /// Set [`Self::rise_speed`] to `0.0` (the default) and no body can be stood on,
@@ -1695,6 +1756,7 @@ impl MovementTuning {
                 walk_speed: self.walk_speed,
                 turnaround_time: self.turnaround_time,
                 teeter_margin: self.teeter_margin,
+                balance: self.balance,
                 max_fall_speed: self.max_fall_speed,
                 jump_speed: self.jump_speed,
                 double_jump_speed: self.double_jump_speed,
@@ -1799,6 +1861,7 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     walk_speed: 0.0,
     turnaround_time: 0.0,
     teeter_margin: 0.0,
+    balance: None,
     max_fall_speed: MAX_FALL_SPEED,
     jump_speed: JUMP_SPEED,
     double_jump_speed: DOUBLE_JUMP_SPEED,

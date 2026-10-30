@@ -165,8 +165,8 @@ fn carve_hole_reaches_through_the_surface_grace() {
         (hole.max.y - (300.0 + CARVE_DEPTH)).abs() < 1e-3,
         "hole goes inward: {hole:?}"
     );
-    // Opening width matches the aperture (2*46).
-    assert!((hole.max.x - hole.min.x - 92.0).abs() < 1e-3, "{hole:?}");
+    // Its width is the aperture's (2*46) and the squeeze at each end.
+    assert!((hole.max.x - hole.min.x - (92.0 + 2.0 * crate::snag::SQUEEZE)).abs() < 1e-3, "{hole:?}");
 }
 
 /// The pure vector layer is exact for non-cardinal normals (checked at 45°).

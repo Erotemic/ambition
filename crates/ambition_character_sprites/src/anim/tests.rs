@@ -1036,3 +1036,21 @@ fn a_run_up_the_wall_of_a_loop_is_still_a_run() {
     c.motion.ground_speed = Some(700.0);
     assert_eq!(pick(&anim, &combat, &blink_cam, None, &c), CharacterAnim::Run);
 }
+
+/// A body that would stand still on the brink of a ledge teeters; one that
+/// walks off it, or stands anywhere else, does not. The row falls back to
+/// `idle` on a sheet without a `teeter` row.
+#[test]
+fn a_body_standing_on_the_brink_teeters() {
+    let brink = BodyAnimView {
+        teetering: true,
+        idle_below: 1.0,
+        ..Default::default()
+    };
+    assert_eq!(pick_body_anim(&brink), CharacterAnim::Teeter);
+    assert_eq!(pick_body_anim(&BodyAnimView { teetering: false, ..brink }), CharacterAnim::Idle);
+    assert_eq!(pick_body_anim(&BodyAnimView { speed: 40.0, ..brink }), CharacterAnim::Walk);
+    assert_eq!(pick_body_anim(&BodyAnimView { airborne: true, ..brink }), CharacterAnim::Fall);
+    assert_eq!(CharacterAnim::Teeter.base_pose(), Some(CharacterAnim::Idle));
+    assert_eq!(CharacterAnim::from_name("teeter"), Some(CharacterAnim::Teeter));
+}

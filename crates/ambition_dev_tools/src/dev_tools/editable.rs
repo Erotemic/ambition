@@ -288,6 +288,8 @@ pub struct EditableMovementTuning {
     pub turnaround_time: f32,
     #[reflect(ignore)]
     pub teeter_margin: f32,
+    #[reflect(ignore)]
+    pub balance: Option<ae::Balance>,
     pub parry_window_time: f32,
     /// Shield integrity, its drain/regen rates, its cost per blocked point, and
     /// the dizzy a break costs. `shield_max_health = 0.0` = unlimited guard.
@@ -367,6 +369,7 @@ impl EditableMovementTuning {
             walk_speed: self.walk_speed,
             turnaround_time: self.turnaround_time,
             teeter_margin: self.teeter_margin,
+            balance: self.balance,
             max_fall_speed: self.max_fall_speed,
             jump_speed: self.jump_speed,
             double_jump_speed: self.double_jump_speed,
@@ -549,6 +552,7 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             walk_speed: value.walk_speed,
             turnaround_time: value.turnaround_time,
             teeter_margin: value.teeter_margin,
+            balance: value.balance,
             parry_window_time: value.parry_window_time,
             shield_max_health: value.shield.max_health,
             shield_drain_per_second: value.shield.drain_per_second,

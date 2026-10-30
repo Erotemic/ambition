@@ -818,6 +818,27 @@ fn back_now(giant: &MountView) -> Option<[f32; 4]> {
     Some([x0, lifted, x1, bottom + lifted - top])
 }
 
+/// The arm of a blow on the giant's own side of its pair, from the shoulder
+/// to the near line, hurts while the blow does (for `lifetime_s`): the
+/// portal is how a blow reaches far, and a body within the arm's reach (on
+/// his back) is struck by the arm itself, and thrown as the buck throws (to
+/// clear the other shoulder).
+fn arm_sweep(inv: &mut Invocation<'_>, scholar: Vec2, shoulder: Vec2, near: Vec2, limb: &blows::Limb, lifetime_s: f32) -> Result<(), Fault> {
+    let pad = limb.strike_half;
+    let (lo, hi) = (shoulder.min(near) - pad, shoulder.max(near) + pad);
+    let center = (lo + hi) * 0.5;
+    inv.submit::<RidingHitboxPort>(RidingHitbox {
+        offset: a(center - scholar),
+        half_extent: a((hi - lo) * 0.5),
+        circle_radius: None,
+        damage: limb.damage,
+        knockback: RidingKnockback::LaunchSpeed { base: BUCK_THROW_SPEED, growth: None },
+        launch_dir: Some(ambition_combat_port::LaunchDirection::AwayFromSource(BUCK_THROW_DIR)),
+        lifetime_s,
+        name: "gnu_ton_arm_sweep".into(),
+    })
+}
+
 fn buck(inv: &mut Invocation<'_>, scholar: Vec2, back: Option<[f32; 4]>) -> Result<(), Fault> {
     inv.submit::<MountLaunchPort>(MountLaunch { velocity: [0.0, -BUCK_HOP], flinchless: true })?;
     let Some([min_x, min_y, max_x, _]) = back else {
@@ -1116,8 +1137,11 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         clock,
     });
 
-    // The far line of a blow follows the player through the tell, then locks.
-    if let (Some(exit), Some(_)) = (exit, cue.as_ref().filter(|cue| blows::tracking(cue))) {
+    // The far line of a blow follows the player through the tell while the
+    // pair is shut, then stays.
+    if let (Some(exit), Some(_)) =
+        (exit, cue.as_ref().filter(|cue| blow_limb.as_ref().is_some_and(|limb| blows::tracking(cue, limb))))
+    {
         let (want, _) = blows::far_end(&stage, giant_pos, giant_size, blow.unwrap_or(Blow::Hammer), exit, c.blow_side, aim_now);
         let mut at = v(c.punch_far);
         // The line does not go through the giant: when the player is on its
@@ -1664,11 +1688,17 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             spark(inv, far_fist - Vec2::new(0.0, body.size[1] * 0.5), GOLD, 2, 60.0)?;
         }
         match driven.filter(|(l, part)| blows::hurts(l, *part)) {
-            Some((l, _)) => {
+            Some((l, part)) => {
                 if !c.armed[i] {
                     c.armed[i] = true;
                     c.armed_at[i] = clock;
                     c.fist_generation[i] = c.fist_generation[i].wrapping_add(1);
+                    // The arm on his own side of the pair hurts too: a body
+                    // on his back that the arm swings through is struck.
+                    if let Some(&fist) = Fist::BOTH.get(i) {
+                        let left = blows::strike_time(l, part).map_or(l.hold, |t| l.strike + l.hold - t);
+                        arm_sweep(inv, scholar_pos, shoulder(fist), near, l, left.max(dt))?;
+                    }
                 }
                 // The limb carries its strike: where it is through the pair,
                 // the strike hurts there.
@@ -2341,7 +2371,8 @@ fn ink(
             // line has locked.
             let (far, way) = (v(c.punch_far), v(c.far_normal));
             let reach = c.blow_kind().map_or(0.0, |b| blows::limb(b).reach()) * 1.6;
-            let colour = if blows::tracking(cue) { INK } else { WARNING };
+            let tracking = c.blow_kind().is_some_and(|b| blows::tracking(cue, &blows::limb(b)));
+            let colour = if tracking { INK } else { WARNING };
             for k in 1..=6 {
                 let at = far + way * (reach * k as f32 / 6.0);
                 if at.y <= hall.floor {

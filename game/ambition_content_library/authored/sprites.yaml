@@ -591,6 +591,8 @@ collections:
   - woods_root_hole
   - roots_west
   - roots_east
+  - fossil_cracked_wall
+  - amber_vault_room
   - sail_loft_room
   - plaza_well
   - cellars_vault

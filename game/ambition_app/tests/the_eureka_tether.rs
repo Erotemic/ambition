@@ -155,36 +155,13 @@ fn the_collider_is_under_the_lecture_hall() {
 /// plant's bricked door (a breakable: hit it) hides Lab 0.
 #[test]
 fn the_steam_plant_loops_the_quad_through_the_collider_and_hides_lab_0() {
-    use crate::common::walk::{Keys, Press, Walker};
-    use ambition_platformer2d::breakables::BreakableFeature;
-    use ambition_platformer2d::combat::components::FeatureId;
-    use ambition_platformer2d::engine_core as ae;
+    let mut app = a_session_in("eureka_quad");
+    go(&mut app, "eureka_steam_plant", Some("quad_manhole"));
+    go(&mut app, "eureka_collider", Some("plant_east"));
+    go(&mut app, "eureka_quad", Some("collider_door"));
 
-    let mut app = crate::the_pirate_port::a_session_in("eureka_quad");
-    crate::the_pirate_port::go(&mut app, "eureka_steam_plant", Some("quad_manhole"));
-    crate::the_pirate_port::go(&mut app, "eureka_collider", Some("plant_east"));
-    crate::the_pirate_port::go(&mut app, "eureka_quad", Some("collider_door"));
-
-    let the_door = |app: &mut bevy::prelude::App| {
-        let world = app.world_mut();
-        let mut walls = world.query::<(&FeatureId, &BreakableFeature)>();
-        walls.iter(world).find(|(id, _)| id.as_str() == "eureka_plant_bricked_door").map(|(_, wall)| wall.broken())
-    };
-    let mut app = crate::the_pirate_port::a_session_in("eureka_steam_plant");
-    assert_eq!(the_door(&mut app), Some(false), "control: the bricked door stands");
-    crate::the_pirate_port::go_to(&mut app, ae::Vec2::new(110.0, 910.0), "the bricked door");
-    let mut swings = 0;
-    while the_door(&mut app) == Some(false) {
-        assert!(swings < 12, "the door did not break after {swings} swings");
-        let mut keys = Keys::new(&mut app);
-        keys.step(Press { axis: -1.0, ..Press::default() });
-        keys.step(Press { attack: true, ..Press::default() });
-        for _ in 0..24 {
-            keys.step(Press::default());
-        }
-        drop(keys);
-        swings += 1;
-    }
-    crate::the_pirate_port::go(&mut app, "eureka_first_lab", Some("secret_plant_west"));
-    crate::the_pirate_port::go(&mut app, "eureka_steam_plant", Some("secret_first_lab_east"));
+    let mut app = a_session_in("eureka_steam_plant");
+    crate::the_pirate_port::break_the_wall(&mut app, "eureka_plant_bricked_door", ae::Vec2::new(110.0, 910.0), -1.0);
+    go(&mut app, "eureka_first_lab", Some("secret_plant_west"));
+    go(&mut app, "eureka_steam_plant", Some("secret_first_lab_east"));
 }

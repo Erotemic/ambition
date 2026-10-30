@@ -35,7 +35,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
-from district_kit import WALL, WORLDS, add_entities, edge, entity, make_rooms, paint, resident, room, run, sign, solid, start  # noqa: E402
+from district_kit import WALL, WORLDS, add_entities, breakable_wall, edge, entity, make_rooms, paint, resident, room, run, sign, solid, start  # noqa: E402
 from district_scenery import body_box, piece  # noqa: E402
 
 WORLD = WORLDS / "dinosaur.ldtk"
@@ -208,6 +208,10 @@ FOSSILS_X0 = 1000
 FOSSILS_W, FOSSILS_H, FOSSILS_FLOOR, FOSSILS_ROOF = 1600, 640, 576, 64
 FOSSILS_SHAFT = (SINKHOLE[0] - FOSSILS_X0, SINKHOLE[1] - FOSSILS_X0)
 FOSSILS_SCAFFOLD = ((900, 1220, 432), (980, 1140, 320))
+#: West of the beds, behind the cracked wall over their way west (a
+#: breakable wall: hit it; broken for good in the save): the amber vault.
+AMBER = "primeval_amber_vault"
+AMBER_W = 640
 
 
 def fossil_enemy(n, character, x, feet, w, h):
@@ -227,7 +231,12 @@ def fossil_beds():
         solid("floor", 0, g, w, h - g),
         solid("roof_west", 0, 0, s0, top),
         solid("roof_east", s1, 0, w - s1, top),
-        solid("west_wall", 0, top, WALL, g - top),
+        solid("west_wall", 0, top, WALL, g - 112 - top),
+        # The way west, cracked over (`secret_`: the map shows the vault only
+        # once it is found).
+        breakable_wall("primeval_fossil_cracked_wall", WALL, g - 112, 32, 112, look="fossil_cracked_wall", hp=3,
+                       name="a cracked wall, amber in the crack"),
+        edge("secret_fossils_west", "through the cracked wall", 0, g, AMBER, "secret_amber_east"),
         solid("east_wall", w - WALL, top, WALL, g - top),
         entity("LoadingZone", s0, 0, s1 - s0, 16, id="fossils_shaft", name="up the sinkhole to the ridge road",
                activation="EdgeExit", target_room=RIDGE, target_zone="ridge_sinkhole", bidirectional=True),
@@ -245,6 +254,27 @@ def fossil_beds():
     at = (RIDGE_AT[0] + FOSSILS_X0, RIDGE_AT[1] + RIDGE_H)
     return room(FOSSILS, e, at=at, size=(w, h), biome="primeval", music="liberated_dinosaur_libertarians", bg="#2A2018",
                 title="THE FOSSIL BEDS", generator=GENERATOR)
+
+
+def amber_vault():
+    """Behind the fossil beds' cracked wall: a pocket of amber the survey
+    missed. A mosquito in it (very full), a beetle, a fern, a tiny foot, and
+    a ranger's sandwich nobody can explain."""
+    w, h, g, top = AMBER_W, FOSSILS_H, FOSSILS_FLOOR, FOSSILS_ROOF
+    e = [
+        piece("amber_vault_room", 16, 16, name="amber_vault_room"),
+        solid("floor", 0, g, w, h - g),
+        solid("roof", 0, 0, w, top),
+        solid("west_wall", 0, top, WALL, g - top),
+        solid("east_wall", w - WALL, top, WALL, g - 112 - top),
+        edge("secret_amber_east", "back through the cracked wall", w - WALL, g, FOSSILS, "secret_fossils_west"),
+        start(AMBER, w - 120, g),
+        entity("ChestSpawn", 120, g - 58, 76, 58, name="the survey's missing samples", reward="currency:120"),
+        sign("amber_sign", 320, 100, "AMBER: do not extract anything from anything", 420),
+    ]
+    at = (RIDGE_AT[0] + FOSSILS_X0 - w, RIDGE_AT[1] + RIDGE_H)
+    return room(AMBER, e, at=at, size=(w, h), biome="primeval", music="liberated_dinosaur_libertarians", bg="#2A2018",
+                title="THE AMBER VAULT", generator=GENERATOR)
 
 
 def sinkhole_yaml() -> str:
@@ -305,7 +335,7 @@ entities:
 
 def main(argv):
     paths = []
-    for rid, text in ((PITS, pits()), (MOUNTAIN, smoking_mountain()), (STATION, ranger_station()), (FOSSILS, fossil_beds())):
+    for rid, text in ((PITS, pits()), (MOUNTAIN, smoking_mountain()), (STATION, ranger_station()), (FOSSILS, fossil_beds()), (AMBER, amber_vault())):
         path = HERE / f"{rid}.ron"
         path.write_text(text)
         print(path.relative_to(HERE.parents[1]))

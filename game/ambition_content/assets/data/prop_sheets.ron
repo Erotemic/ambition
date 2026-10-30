@@ -388,6 +388,9 @@
     "woods_root_hole": (),
     "roots_west": (),
     "roots_east": (),
+    // The fossil beds' cracked wall (a breakable's look) and the amber vault behind it (jungle).
+    "fossil_cracked_wall": (),
+    "amber_vault_room": (),
     "sail_loft_room": (),
     // The Pirate Port's well, and the cellars under customs (PvN).
     "plaza_well": (),

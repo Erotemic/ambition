@@ -88,7 +88,12 @@ pub fn classify(view: Perceived<'_>) -> Situation {
     // margin puts well above its room and a stage that authors none leaves
     // open. A body up there is gone, and nothing about the tick matters.
     let past_the_rise_line = me.pos.y < view.death_line().min.y;
-    if view.self_offstage() || past_the_rise_line || nothing_to_land_on {
+    // A HELPLESS BODY IS RECOVERING WHEREVER IT IS. It cannot act until it
+    // lands, so a drift is its whole answer, and the stage is the only place
+    // to drift to. Measured 2026-10-30 (pointed vs pugnacious polygon, rung
+    // 5, seed 0): a brawler helpless 500 px above the stage read "ground
+    // below", steered at its foe off the left side, and fell past the ledge.
+    if view.self_offstage() || past_the_rise_line || nothing_to_land_on || me.helpless {
         return Situation::Recovery;
     }
 

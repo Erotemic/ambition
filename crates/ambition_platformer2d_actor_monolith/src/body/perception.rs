@@ -108,6 +108,8 @@ pub struct PerceptionBody {
     pub can_shield: bool,
     /// Mid-air jumps left (`jump.air_jumps_available`). The recovery budget.
     pub air_jumps_left: u8,
+    /// See [`ambition_characters::perception::SelfView::helpless`].
+    pub helpless: bool,
     /// What this body is doing, and how long is left of it — the no-cheat
     /// contract's "move phase / animation state" (fighter-brain.md §1).
     pub phase: BodyPhase,
@@ -805,6 +807,7 @@ pub fn build_world_view(
         burst: body.burst,
         can_shield: body.can_shield,
         air_jumps_left: body.air_jumps_left,
+        helpless: body.helpless,
         phase: body.phase,
         phase_remaining: body.phase_remaining,
         invulnerable: body.invulnerable,
@@ -1135,6 +1138,7 @@ pub(crate) fn perception_body_for(
         // planning a recovery reads the body's real budget,
         // not an assumption about what a fighter usually has.
         air_jumps_left: body.jump.air_jumps_available,
+        helpless: body.jump.post_recovery_helpless && !body.ground.on_ground,
         phase: self_peer.map(|p| p.phase).unwrap_or_default(),
         phase_remaining: self_peer.map_or(0.0, |p| p.phase_remaining),
         invulnerable: self_peer.is_some_and(|p| p.invulnerable),

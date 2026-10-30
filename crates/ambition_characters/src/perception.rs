@@ -478,6 +478,9 @@ pub struct SelfView {
     pub burst: ambition_platformer2d_core::BurstManeuver,
     /// `0` on the ground is normal — the count refreshes on landing.
     pub air_jumps_left: u8,
+    /// Airborne after its last recovery, and unable to act until it lands
+    /// (the body's helpless episode). Where it lands is its only question.
+    pub helpless: bool,
     /// Reactive guard available (capability present).
     pub can_shield: bool,
     /// What self is doing. `Disadvantage` (§1's L1 state) is `Hitstun` here.

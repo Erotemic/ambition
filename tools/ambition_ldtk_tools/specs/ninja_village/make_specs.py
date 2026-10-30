@@ -205,6 +205,11 @@ def forest():
         door("forest_clan_door", "to the hall of the Shadow Clan", 2700, FOREST_FLOOR, CLAN, CLAN_DOOR),
         sign("clan_sign", 2480, FOREST_FLOOR - 200, "HALL OF THE SHADOW CLAN. Visitors by appointment. Appointments by stealth.", 520),
         sign("forest_sign", 900, FOREST_FLOOR - 120, "Cedar path. Mind the roots.", 260),
+        # The charcoal burner at his kiln (`ninja_forest_props.py`), and the
+        # crows' hoard on the fourth branch that he tells of.
+        resident("npc_village_moriyama", "ninja_village_moriyama", 540, FOREST_FLOOR),
+        sign("kiln_sign", 424, FOREST_FLOOR - 190, "KILN LIT. Do not open for three days.", 340),
+        entity("ChestSpawn", BRANCHES[3][1] + 160, BRANCHES[3][2] - 58, 76, 58, name="the crows' hoard", reward="currency:30"),
     ]
     return build(rid, e, "THE CEDAR FOREST", music=FOREST_MUSIC)
 

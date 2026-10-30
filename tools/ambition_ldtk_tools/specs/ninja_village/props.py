@@ -39,6 +39,8 @@ SCENERY = {
         # y 384 + 64 i): its frame is 40 west of the branch and 300 over it.
         *[(f"village_cedar_{i}", i * BRANCH_STEP + (16 if i == 0 else 0) - 40, 448 + 64 * i - 300) for i in range(6)],
         ("village_clan_gatehouse", 2590, 590),
+        # The charcoal burner's camp (`ninja_forest_props.py`, room coordinates).
+        ("forest_kiln_camp", 330, FOREST_FLOOR - 200),
     ],
     "ninja_village_dojo": [
         ("village_dojo_entry", 16, 32),

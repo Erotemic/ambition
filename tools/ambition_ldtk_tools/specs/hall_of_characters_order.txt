@@ -122,6 +122,7 @@ npc_village_ume
 npc_village_daichi
 npc_village_hayashi
 npc_village_ren
+npc_village_moriyama
 
 [The orbital station]
 npc_station_okafor

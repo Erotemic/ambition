@@ -5808,6 +5808,23 @@
                 hall: ["Every week I choose a new rival. It keeps me sharp, and it keeps them humble.", "I have filled in the rival form in advance. It only needs your name."],
             ),
         ),
+        "npc_village_moriyama": (
+            display_name: "Moriyama",
+            // Burns charcoal in the cedar forest; no ninja has ever got past his kiln unseen.
+            manifest: "sprites/village_moriyama_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 163 cm.
+            standing_height: Some(63.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "ninja_village", "peaceful"],
+            barks: (
+                idle: ["Mind the smoke. It goes where you go.", "Three days and three nights, and you don't open the door."],
+                hall: ["Forty years at the kiln. Every ninja in the clan has tried to sneak past it. I see them all. They smell of cedar smoke for a week.", "Charcoal is wood that has been very patient in a very hot room."],
+            ),
+        ),
         // The residents of the orbital station of the Science dimension, made by
         // the character generator (`targets/characters/townsfolk.py`). They
         // live and work on the station (`specs/orbital_station/`).

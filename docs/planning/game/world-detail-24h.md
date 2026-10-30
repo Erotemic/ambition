@@ -43,6 +43,18 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **PvN: the charcoal burner's camp** in the cedar forest: an earth kiln
+  smoking at its vents, seasoning billets, a bark lean-to against a cedar
+  with a kettle on, charcoal bales; Moriyama (chargen) at his kiln, who
+  tells of the crows' hoard on the fourth branch (a chest there); Hall wing.
+  Verified: the_bamboo_pass (2), the_ninja_village.
+- **Fixed: murky water never landed** (5b4f72f66). MEASURED: the moor's bog,
+  the tar pits and the Bamboo Pass's stream had no Water cells; `area
+  create` built no Water layer, so each paint was refused. A made level now
+  carries every IntGrid layer its project defines (test); the three zones
+  have their water (160, 153, 124 cells). Verified: the zones' tests (9).
+  Open for Jon: murky water looks the same in every biome by design
+  (`terrain/fixtures.py`), so the tar pits' tar reads dark teal, not black.
 - **Evil: the Complaints Department** behind Castle Godwin's kitchens, by a
   door at their east end: two windows both CLOSED, NOW SERVING 3, a ticket
   machine, a padlocked suggestions box, and Agnes Mudge (chargen) holding

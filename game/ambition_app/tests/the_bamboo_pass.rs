@@ -3,9 +3,10 @@
 //!
 //! Jon (2026-10-30): "out of town zones with enemies", joined by side exits.
 //! The player starts at the pass's west end, walks by keys west into the
-//! forest, and back east out to the pass.
+//! forest, and back east out to the pass. In the forest, Moriyama the
+//! charcoal burner talks at his kiln.
 
-use crate::the_pirate_port::{a_session_in, go};
+use crate::the_pirate_port::{a_session_in, go, talk};
 
 const PASS: &str = "ninja_bamboo_pass";
 const FOREST: &str = "ninja_village_forest";
@@ -15,4 +16,10 @@ fn the_bamboo_pass_lies_east_of_the_cedar_forest_by_its_side_exit() {
     let mut app = a_session_in(PASS);
     go(&mut app, FOREST, Some("pass_west"));
     go(&mut app, PASS, Some("forest_east"));
+}
+
+#[test]
+fn moriyama_burns_charcoal_in_the_cedar_forest() {
+    let mut app = a_session_in(FOREST);
+    talk(&mut app, "npc_village_moriyama", "What are you burning?");
 }

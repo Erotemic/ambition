@@ -83,6 +83,21 @@ Daichi: Stand back! I am about to perform the Thousand Leaf Step! ...I am still 
     Daichi: I do not need luck! I need the exam to be on a Tuesday.
 ===
 
+title: ninja_village_moriyama
+---
+Moriyama: Downwind of the kiln, please. You are standing in my smoke and I am standing in it for a living.
+-> What are you burning?
+    Moriyama: Cedar, three days and three nights, with the door shut. What comes out is charcoal. What goes in is patience.
+    Moriyama: The tea house cooks on it. The smith forges on it. The dojo heats its bath on it and says it is training.
+-> Do ninja pass by here?
+    Moriyama: Every one in the clan, sooner or later, sneaking. I see them all. Then they smell of my smoke for a week and everyone else sees them too.
+    Moriyama: The Shadow Clan's elders call it the charcoal exam. They did not ask me if they could.
+-> Is there anything up in the branches?
+    Moriyama: The crows keep what they find on the fourth branch. Coins, mostly. A spoon. They will not miss it as much as they say.
+-> I'll leave you to it.
+    Moriyama: Leave by the windward side.
+===
+
 title: ninja_village_hayashi
 ---
 <<if condition("world.flag_set", "ninja_village_rank_awarded")>>

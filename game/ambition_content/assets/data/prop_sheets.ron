@@ -229,4 +229,6 @@
     "math_hotel_entrance": (),
     "math_hotel_lobby_room": (),
     "math_hotel_corridor_room": (),
+    // The Evil dimension's forest road.
+    "evil_forest_roadside": (),
 }

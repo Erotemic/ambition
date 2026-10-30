@@ -32,6 +32,9 @@ OVERLAYS = {
     "dinosaur.ldtk": {
         "primeval_tyrant_hall": [("primeval_tyrant_hall_room", 0, 0)],
     },
+    "evil.ldtk": {
+        "evil_gate_forest": [("evil_forest_roadside", 430, 260)],
+    },
 }
 
 

@@ -51,7 +51,12 @@ GATEHOUSE = "castle_godwin_gatehouse"
 TOWER = "castle_godwin_tower"
 W, H, FLOOR, CEILING = 1280, 576, 512, 48
 CW, CH, CFLOOR = 960, 448, 384
-LW = 720
+#: The cells: as wide as the gap to the tower, and 64 taller than the rooms
+#: by them so their vault meets the barracks' floor (the trapdoor's shaft,
+#: x 160..224 under the barracks' 2000..2064).
+LW, LH, LFLOOR, LCEILING = 720, 640, 576, 112
+TRAPDOOR = (160, 224)
+TRAPDOOR_LEVER = "castle_godwin_trapdoor_lever"
 #: Where each room goes when it is new (or with `--relayout`): the floor of
 #: each at world y 1344, the tower's join to the cells. The kitchens under
 #: the gatehouse's stair (their x 40..104 under its x 1240..1304); the
@@ -61,7 +66,7 @@ LW = 720
 WHERE = {
     KITCHENS: (3200, 832),
     COMPLAINTS: (3200 + W, 1344 - CFLOOR),
-    CELLS: (3200 + W + CW, 832),
+    CELLS: (3200 + W + CW, 1344 - LFLOOR),
     WORKSHOP: (7184, 1728 - FLOOR),
 }
 #: The stair up to the gatehouse: the shaft in the kitchens' ceiling (x0, x1).
@@ -134,20 +139,30 @@ def cells():
     """The cells: where the complaints end up, down the chute from the
     suggestions box, and the people who made them. Ambrose Quill, the
     trusty, out of the open cell (`castle_godwin.yarn`)."""
+    t0, t1 = TRAPDOOR
     e = [
-        piece("castle_cells_room", 16, CEILING, name="cells_room"),
-        solid("floor", 0, FLOOR, LW, H - FLOOR),
-        solid("ceiling", 0, 0, LW, CEILING),
-        solid("west_wall", 0, CEILING, WALL, FLOOR - 112 - CEILING),
-        solid("east_wall", LW - WALL, CEILING, WALL, FLOOR - 112 - CEILING),
-        edge("cells_west", "back to the Complaints Department", 0, FLOOR, COMPLAINTS, "complaints_east"),
-        edge("cells_east", "into the lab tower", LW - WALL, FLOOR, TOWER, "castle_godwin_tower_cells"),
-        start(CELLS, 260, FLOOR),
-        resident("npc_castle_quill", "castle_quill", 400, FLOOR),
-        sign("cells_sign_chute", 140, 90, "SUGGESTIONS: received", 260),
-        sign("cells_sign_rules", 560, 120, "NO COMPLAINING", 220),
+        piece("castle_cells_room", 16, LCEILING, name="cells_room"),
+        solid("floor", 0, LFLOOR, LW, LH - LFLOOR),
+        solid("vault_west", 0, 0, t0, LCEILING),
+        solid("vault_east", t1, 0, LW - t1, LCEILING),
+        solid("west_wall", 0, LCEILING, WALL, LFLOOR - 112 - LCEILING),
+        solid("east_wall", LW - WALL, LCEILING, WALL, LFLOOR - 112 - LCEILING),
+        edge("cells_west", "back to the Complaints Department", 0, LFLOOR, COMPLAINTS, "complaints_east"),
+        edge("cells_east", "into the lab tower", LW - WALL, LFLOOR, TOWER, "castle_godwin_tower_cells"),
+        # The shortcut: a ladder up the shaft to the barracks' trapdoor, shut
+        # until this lever is pulled.
+        entity("LoadingZone", t0, 0, t1 - t0, 16, id="cells_trapdoor", name="up through the trapdoor to the barracks",
+               activation="EdgeExit", target_room="castle_godwin_barracks", target_zone="castle_godwin_barracks_trapdoor",
+               bidirectional=True),
+        entity("Switch", 600, LFLOOR - 32, 24, 32, id=TRAPDOOR_LEVER, name="the trapdoor lever", prompt="Pull the lever",
+               action="ToggleFlag", target_encounter=""),
+        start(CELLS, 300, LFLOOR),
+        resident("npc_castle_quill", "castle_quill", 420, LFLOOR),
+        sign("cells_sign_chute", 140, 150, "SUGGESTIONS: received", 260),
+        sign("cells_sign_rules", 520, 180, "NO COMPLAINING", 220),
+        sign("cells_sign_trapdoor", 250, 70, "TRAPDOOR: to the barracks (lever by the desk)", 380),
     ]
-    return room(CELLS, e, at=WHERE[CELLS], size=(LW, H), biome="castle_godwin", music="doves_of_the_commons", bg="#1A1416",
+    return room(CELLS, e, at=WHERE[CELLS], size=(LW, LH), biome="castle_godwin", music="doves_of_the_commons", bg="#1A1416",
                 title="THE CELLS", generator=GENERATOR)
 
 
@@ -167,8 +182,11 @@ def main(argv):
         return 0
     # The rooms name each other: only the end state is checked.
     make_rooms(WORLD, paths, keep_position="--relayout" not in argv)
-    # The stair's ladder, up the kitchens' shaft.
+    # The stair's ladder, up the kitchens' shaft; the trapdoor's, up the
+    # cells'.
     if code := paint(WORLD, KITCHENS, "Climbable", 1, STAIR[0] + 16, 0, 32, FLOOR):
+        return code
+    if code := paint(WORLD, CELLS, "Climbable", 1, TRAPDOOR[0] + 16, 0, 32, LFLOOR):
         return code
     code, _ = run("validate", str(WORLD))
     return code

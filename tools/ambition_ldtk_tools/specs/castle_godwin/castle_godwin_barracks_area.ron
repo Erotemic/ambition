@@ -13,8 +13,11 @@
     music_track: "military_iron_resolve",
     entities: [
         ( type: "PlayerStart", px: [128, 658], size: [28, 46], fields: ( name: "castle_godwin_barracks_spawn" ) ),
-        ( type: "Solid", px: [0, 704], size: [2560, 64], fields: ( name: "floor" ) ),
         ( type: "Solid", px: [0, 0], size: [2560, 48], fields: ( name: "vault" ) ),
+        ( type: "Solid", px: [0, 704], size: [2000, 64], fields: ( name: "floor_west" ) ),
+        ( type: "Solid", px: [2064, 704], size: [496, 64], fields: ( name: "floor_east" ) ),
+        ( type: "LockWall", px: [2000, 704], size: [64, 64], fields: ( id: "castle_godwin_barracks_trapdoor", name: "the cracked trapdoor over the cells", gated_by: "world.switch_on castle_godwin_trapdoor_lever", look: "castle_cracked_floor" ) ),
+        ( type: "LoadingZone", px: [2000, 752], size: [64, 16], fields: ( id: "castle_godwin_barracks_trapdoor", name: "down the trapdoor to the cells", activation: "EdgeExit", target_room: "castle_godwin_cells", target_zone: "cells_trapdoor", bidirectional: true ) ),
         ( type: "Solid", px: [0, 48], size: [16, 544], fields: ( name: "west_wall" ) ),
         ( type: "Solid", px: [2544, 48], size: [16, 544], fields: ( name: "east_wall" ) ),
         ( type: "LoadingZone", px: [0, 608], size: [16, 96], fields: ( id: "castle_godwin_barracks_west", name: "back to the gatehouse", activation: "EdgeExit", target_room: "castle_godwin_gatehouse", target_zone: "castle_godwin_gatehouse_east", bidirectional: true ) ),

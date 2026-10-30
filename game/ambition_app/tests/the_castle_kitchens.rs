@@ -76,3 +76,30 @@ fn castle_godwin_is_one_connected_region() {
     }
     assert!(!ids.contains(&"evil_gate_forest"), "the forest is outside the front door: {ids:?}");
 }
+
+/// The shortcut: the lever by the jailer's desk opens the cracked trapdoor
+/// in the barracks' floor over the cells, and the ladder goes up through it
+/// to the barracks and back down. Before the lever, the stone is whole.
+#[test]
+fn the_lever_in_the_cells_opens_the_trapdoor_up_to_the_barracks() {
+    use crate::the_note_travels_from_alice_to_bob::tap;
+    use ambition_platformer2d::engine_core as ae;
+    use bevy::prelude::KeyCode;
+
+    let lever = |app: &bevy::prelude::App| {
+        app.world()
+            .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+            .data()
+            .switch("castle_godwin_trapdoor_lever")
+    };
+    let mut app = a_session_in(CELLS);
+    assert!(!lever(&app), "control: the lever is not pulled");
+    crate::the_pirate_port::go_to(&mut app, ae::Vec2::new(612.0, 560.0), "the trapdoor lever");
+    tap(&mut app, KeyCode::KeyF);
+    for _ in 0..30 {
+        app.update();
+    }
+    assert!(lever(&app), "the lever is pulled");
+    go(&mut app, "castle_godwin_barracks", Some("cells_trapdoor"));
+    go(&mut app, CELLS, Some("castle_godwin_barracks_trapdoor"));
+}

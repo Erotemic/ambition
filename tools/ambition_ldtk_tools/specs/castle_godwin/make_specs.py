@@ -116,6 +116,11 @@ TOWER_TOP_FLOOR = 256
 #: The stair down from the gatehouse to the kitchens: a hole in its floor
 #: (x0, x1), a ladder down it, its bottom the way down.
 GATEHOUSE_STAIR = (1240, 1304)
+#: The trapdoor in the barracks' floor (x0, x1) over the cells: shut by
+#: cracked stone until the lever in the cells is pulled, a shortcut from the
+#: lower floor up to the barracks (a ladder up the cells' shaft).
+BARRACKS_TRAPDOOR = (2000, 2064)
+TRAPDOOR_LEVER = "castle_godwin_trapdoor_lever"
 KITCHENS = "castle_godwin_kitchens"
 CELLS = "castle_godwin_cells"
 WORKSHOP = "castle_godwin_workshop"
@@ -401,8 +406,18 @@ def barracks():
     rid = BARRACKS
     _, w, h = ROOMS_AT[rid]
     floor, e = shell(rid)
-    e = [x for x in e if '"west_wall"' not in x and '"east_wall"' not in x]
+    t0, t1 = BARRACKS_TRAPDOOR
+    e = [x for x in e if '"west_wall"' not in x and '"east_wall"' not in x and '"floor"' not in x]
     e += [
+        solid("floor_west", 0, floor, t0, h - floor),
+        solid("floor_east", t1, floor, w - t1, h - floor),
+        # The trapdoor down to the cells: cracked stone until the lever in
+        # the cells is pulled; then a ladder (`PAINT`) down the hole.
+        lock_wall(f"{rid}_trapdoor", t0, floor, t1 - t0, h - floor, f"world.switch_on {TRAPDOOR_LEVER}",
+                  "the cracked trapdoor over the cells", look="castle_cracked_floor"),
+        (f'( type: "LoadingZone", px: [{t0}, {h - 16}], size: [{t1 - t0}, 16], fields: ( id: "{rid}_trapdoor", '
+         f'name: "down the trapdoor to the cells", activation: "EdgeExit", target_room: "{CELLS}", '
+         f'target_zone: "cells_trapdoor", bidirectional: true ) ),'),
         solid("west_wall", 0, 48, WALL, floor - 112 - 48),
         solid("east_wall", w - WALL, 48, WALL, floor - 112 - 48),
         edge(f"{rid}_west", "back to the gatehouse", 0, floor, GATEHOUSE, f"{GATEHOUSE}_east"),
@@ -766,6 +781,7 @@ ROOMS = (forest, gatehouse, barracks, tower, great_hall, throne)
 #: gatehouse's stair: a ladder from over its floor down the hole.
 PAINT = [
     (GATEHOUSE, "Climbable", 1, GATEHOUSE_STAIR[0] + 16, 704 - 64, 32, ROOMS_AT[GATEHOUSE][2] - 704 + 64),
+    (BARRACKS, "Climbable", 1, BARRACKS_TRAPDOOR[0] + 16, 704 - 64, 32, ROOMS_AT[BARRACKS][2] - 704 + 64),
 ]
 
 #: The fight of the great hall: its waves are authored in

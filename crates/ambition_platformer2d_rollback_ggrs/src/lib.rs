@@ -130,6 +130,11 @@ impl Plugin for GgrsBackendPlugin {
             .insert_resource(RollbackFrameRate(
                 ambition_platformer2d_runtime::SIM_TICK_HZ as usize,
             ))
+            // Each tick lasts one period exactly; `GgrsTime` rounds its
+            // deltas to whole nanoseconds (see `SimStepPeriod`).
+            .insert_resource(ambition_platformer2d_runtime::SimStepPeriod(
+                (1.0 / ambition_platformer2d_runtime::SIM_TICK_HZ) as f32,
+            ))
             .init_resource::<ambition_sim_view::PresentationPhase>()
             .insert_resource(ambition_platformer2d_runtime::RollbackHostReady);
 

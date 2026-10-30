@@ -80,16 +80,35 @@ not added — it decides feasibility, not policy.
    of the swing in progress; a `Space` band needs the reach of the foe's kit
    before it swings (its authored coverage — what a player knows of the
    character, so fair). Today that is the constant `assumed_foe_reach`.
-2. **A scripted attacker fixture.** `moveset_render --target-behavior`
-   accepts `passive | cpu`. Add a reusable scripted behaviour (repeat move M
-   from range R, through normal input and combat), usable by smash_it
-   fixtures and `match-report`, with no special case in the brain.
+2. **A scripted attacker fixture.** Done: `whiff_drill` (§5a). A
+   range-conditional attacker (for baiting) is the next fixture, after the
+   gate.
 3. **Intent state in rollback.** `Brain` is a rollback cursor; the intent's
    fields join `FighterState`'s snapshot (`snapshot_impls.rs`, "every field
    gates the next decision"). Policy in `ambition_characters`, emission in
    `ambition_combat::brain::fighter::decision`.
 4. **Fidelity of armed moves from a run** (standing vs running bindings) —
    only if the armed punish fires out of a dash.
+
+## 5a. Fixture A exists: `whiff_drill` (baseline MEASURED)
+
+`cargo run -p ambition_app_tools --bin whiff_drill -- --whiffer W --verb V
+--cpu C --level N --seconds S`: seat 0 throws V uncharged on a cadence
+through ordinary control frames and turns to face the CPU; seat 1 is the
+CPU at rung N. Swings are classed hit / stuffed / punished / unanswered by
+what the engine resolved.
+
+Baseline, reactive policy, pugnacious forward smash (reach 54 px; census
+margin +14 f at rung 9, +5 f at rung 5) against pointed, 60 s:
+
+| rung | swings | hit (CPU walked in) | whiffs | punished | unanswered: median gap |
+|---|---|---|---|---|---|
+| 9 | 28 | 5 | 20 | 5 (25%) | 182 px |
+| 5 | 33 | 4 | 27 | 6 (22%) | 143 px |
+
+The two failures are the intent's two kinds: the CPU stands ~3× the reach
+away (no `Space` band), and converts a quarter of windows that exist (no
+armed `Punish`).
 
 ## 6. The gate
 

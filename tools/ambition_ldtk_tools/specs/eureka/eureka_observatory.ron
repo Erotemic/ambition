@@ -3,7 +3,7 @@
     id: "eureka_observatory",
     level_id: "eureka_observatory",
     world_x: 2560,
-    world_y: 5600,
+    world_y: 5792,
     px_wid: 1280,
     px_hei: 1024,
     fill_collision: "empty",

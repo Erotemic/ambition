@@ -3,7 +3,7 @@
     id: "math_gate_hall",
     level_id: "math_gate_hall",
     world_x: 0,
-    world_y: 0,
+    world_y: 1344,
     px_wid: 1600,
     px_hei: 768,
     fill_collision: "empty",

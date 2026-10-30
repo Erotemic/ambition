@@ -2,8 +2,8 @@
 (
     id: "orbital_station_tether_terminus",
     level_id: "orbital_station_tether_terminus",
-    world_x: 5312,
-    world_y: 2144,
+    world_x: 5056,
+    world_y: 2016,
     px_wid: 1280,
     px_hei: 1024,
     fill_collision: "empty",

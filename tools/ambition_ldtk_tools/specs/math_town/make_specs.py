@@ -80,7 +80,13 @@ ROOMS_AT = {
     OBSERVATORY: (7500, 800, 704),
     # Out of town, west of the street along the aqueduct (Jon, 2026-10-30:
     # "out of town zones with enemies").
-    ZENO: (-3456, 3200, 896),
+    ZENO: (1712 - 3200, 3200, 896),
+}
+#: A room's world y when it is not 0. The rooms of the world touch where they
+#: join (`specs/check_flat_map.py`): Zeno's Aqueduct is west of the street at
+#: its deck, so the gate hall, which is UNDER the street, is placed there.
+ROOMS_Y = {
+    HALL: 1344,
 }
 
 #: Pixels of a town prop's frame to one world unit (`math_town_facades.PX`,
@@ -120,6 +126,7 @@ def gate(ring, portal, zone, x, floor, to_room, to_zone, name):
 
 def room(rid, entities, label_text, theme=BIOME):
     world_x, w, h = ROOMS_AT[rid]
+    world_y = ROOMS_Y.get(rid, 0)
     body = "\n        ".join(entities + [
         f'( type: "CameraZone", px: [0, 0], size: [{w}, {h}], fields: ( id: "{rid}_camera", name: "{rid}_camera", mode: "Default" ) ),',
         label(f"{rid}_label", 70, 40, label_text, min(900, w - 140)),
@@ -129,7 +136,7 @@ def room(rid, entities, label_text, theme=BIOME):
     id: "{rid}",
     level_id: "{rid}",
     world_x: {world_x},
-    world_y: 0,
+    world_y: {world_y},
     px_wid: {w},
     px_hei: {h},
     fill_collision: "empty",

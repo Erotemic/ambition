@@ -2,8 +2,8 @@
 (
     id: "eureka_elevator_climb",
     level_id: "eureka_elevator_climb",
-    world_x: 5312,
-    world_y: 3424,
+    world_x: 5056,
+    world_y: 3040,
     px_wid: 1280,
     px_hei: 3200,
     fill_collision: "empty",

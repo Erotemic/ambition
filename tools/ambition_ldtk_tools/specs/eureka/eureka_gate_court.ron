@@ -2,7 +2,7 @@
 (
     id: "eureka_gate_court",
     level_id: "eureka_gate_court",
-    world_x: 0,
+    world_x: 256,
     world_y: 6880,
     px_wid: 1600,
     px_hei: 832,

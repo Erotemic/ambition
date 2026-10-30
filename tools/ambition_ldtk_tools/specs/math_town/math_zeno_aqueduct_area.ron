@@ -2,7 +2,7 @@
 (
     id: "math_zeno_aqueduct",
     level_id: "math_zeno_aqueduct",
-    world_x: -3456,
+    world_x: -1488,
     world_y: 0,
     px_wid: 3200,
     px_hei: 896,

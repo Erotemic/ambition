@@ -86,15 +86,23 @@ STATION_MUSIC = "between_objectives"
 #: Each room: (world_x, world_y), (width, height). The town is on the ground
 #: (y 6880), under the station's rooms (y 3168 and up): the climb and the
 #: terminus stand over the ground station's shaft.
+#: The world rooms touch where their side and vertical exits join, with their
+#: walk lines level (Jon, 2026-10-30: side exits connect the world, doors
+#: enter buildings, "a mostly faithful flat map"; `specs/check_flat_map.py`):
+#: the court's floor (world y 7584) is the quad's street and the ground
+#: station's floor; the climb stands on the station's roof over its shaft,
+#: and the terminus on the climb, against the east end of the station's
+#: docking bay (x 5056). The buildings (the patent office, the lab,
+#: the dome) are entered by doors and sit near their doors.
 ROOMS_AT = {
-    COURT: ((0, 6880), (1600, 832)),
-    QUAD: ((1856, 6880), (2816, 896)),
+    COURT: ((256, 6880), (1600, 832)),
+    QUAD: ((1856, 6816), (2816, 896)),
     PATENT: ((1856, 8064), (1024, 640)),
     LAB: ((3072, 8064), (1280, 576)),
-    DOME: ((2560, 5600), (1280, 1024)),
-    STATION: ((4928, 6880), (1600, 1408)),
-    CLIMB: ((5312, 3424), (1280, 3200)),
-    TERMINUS: ((5312, 2144), (1280, 1024)),
+    DOME: ((2560, 5792), (1280, 1024)),
+    STATION: ((4672, 6240), (1600, 1408)),
+    CLIMB: ((5056, 3040), (1280, 3200)),
+    TERMINUS: ((5056, 2016), (1280, 1024)),
 }
 
 #: The elevator: the cars' size and speed; the foot of the ground station's
@@ -158,12 +166,14 @@ def court():
 
 def quad():
     """The quad. The street (y 768) runs the room; the lecture hall's terrace
-    (y 576) over its middle, the raised walk (y 512) at the west end. Doors on
+    (y 576) over its middle, the raised walk (y 576) at the west end. Doors on
     the street to the patent office and the coil laboratory, and on the
     terrace to the observatory. The cafe's awning is a step."""
     rid = QUAD
     _, (w, h) = ROOMS_AT[rid]
-    street, terrace, walk = 768, 576, 512
+    # The raised walk is as high over the street as the court's is over its
+    # floor, so the two meet level.
+    street, terrace, walk = 768, 576, 576
     e = [
         solid("street", 0, street, w, h - street),
         solid("west_wall_high", 0, 0, WALL, walk - 96),
@@ -351,7 +361,9 @@ def terminus():
     return build(rid, e, "THE TETHER TERMINUS", music=STATION_MUSIC, biome=STATION_THEME)
 
 
-ROOMS = (court, quad, patent_office, coil_lab, observatory, elevator_station, elevator_climb, terminus)
+# Made from the top of the tether down and then west: a room is placed only
+# where no room stands, so a move of the chain places the far end first.
+ROOMS = (terminus, elevator_climb, elevator_station, quad, court, patent_office, coil_lab, observatory)
 
 #: The docking bay's door to the terminus, on its floor west of the cargo
 #: lift (the bay is the station generator's; it lists the same door).

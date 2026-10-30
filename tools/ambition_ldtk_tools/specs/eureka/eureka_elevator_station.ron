@@ -2,8 +2,8 @@
 (
     id: "eureka_elevator_station",
     level_id: "eureka_elevator_station",
-    world_x: 4928,
-    world_y: 6880,
+    world_x: 4672,
+    world_y: 6240,
     px_wid: 1600,
     px_hei: 1408,
     fill_collision: "empty",

@@ -43,6 +43,20 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Jungle: the trail walks through side exits** (96d318a8c):
+  `specs/primeval/side_exits.py` turns the trail's end doors into edge
+  exits, opens the walls and places the rooms touching. Verified:
+  the_primeval_trail, check_flat_map dinosaur 0.
+- **Science: the Test Range** (cc690ce6c), out of town west of Eureka's gate
+  court: a rocket (PROBABLY FINE III) and its gantry, a blast bunker, an
+  observation tower; crawlers, a shock warden, mites, crash-test dummies.
+- **Evil: the forest road** (876c63fb7): graveyard, mausoleum, dead oak and
+  crows, a broken wheel, fog.
+
+Backlog from the side-exit rule (Jon 2026-10-30): the GNU-ton trail
+(orchard -> vector well -> conservation hall -> inversion gallery ->
+approach) still joins by doors; another lane's boss route, not converted.
+
 - **A faithful flat map** (a738acdc9, f2eed08cb). Jon: side loading zones
   connect the world (horizontal and vertical); doors only enter buildings;
   rooms placed as "a mostly faithful flat map". `specs/check_flat_map.py`

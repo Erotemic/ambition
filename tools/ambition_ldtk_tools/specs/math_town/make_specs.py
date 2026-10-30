@@ -68,7 +68,7 @@ HOME_RING, HOME_PORTAL = "Math Gate Ring (Home)", "Math Gate Portal (Home)"
 MATH_RING, MATH_PORTAL = "Math Gate Ring (Math)", "Math Gate Portal (Math)"
 HALL, STREET = "math_gate_hall", "math_town_street"
 ZENO = "math_zeno_aqueduct"
-LOBBY, CORRIDOR = "math_hotel_lobby", "math_hotel_corridor"
+LOBBY, CORRIDOR, LIFT = "math_hotel_lobby", "math_hotel_corridor", "math_hotel_lift"
 CAFE, OFFICE, OBSERVATORY = "math_cafe", "math_surveyors_office", "math_observatory"
 
 #: Each room: where it is in the world, and its size.
@@ -86,6 +86,8 @@ ROOMS_AT = {
     # it, its floor level with the lobby's.
     LOBBY: (8500, 1280, 576),
     CORRIDOR: (8500 + 1280, 1600, 448),
+    # The lift's shaft, behind the lobby's lift gate (a door: it is inside).
+    LIFT: (11600, 640, 1600),
 }
 #: A room's world y when it is not 0. The rooms of the world touch where they
 #: join (`specs/check_flat_map.py`): Zeno's Aqueduct is west of the street at
@@ -656,6 +658,7 @@ def hotel_lobby():
         solid("east_wall", w - WALL, INSIDE_CEILING, WALL, floor - 96 - INSIDE_CEILING - 16),
         door(f"{rid}_door", "out to the street", 40, floor, STREET, f"{rid}_street"),
         edge(f"{rid}_east", "to the rooms", w - WALL, floor - 96, 96, CORRIDOR, f"{CORRIDOR}_west"),
+        door(f"{rid}_lift", "into the lift", 956, floor, LIFT, f"{LIFT}_door"),
         f'( type: "PlayerStart", px: [120, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
         still("hotel_desk_top", 520, floor - 48, 240, 4),
         wanderer("hotel_hylbert", "npc_davy_hylbert", 640, floor, dialogue="davy_hylbert"),
@@ -687,7 +690,45 @@ def hotel_corridor():
     return rid, room(rid, e, "Hylbert's Hotel: the rooms. There is always one more.", theme=INTERIOR)
 
 
-ROOMS = (gate_hall, street, cafe, surveyors_office, observatory, zeno_aqueduct, hotel_lobby, hotel_corridor)
+#: The lift: its car (as Eureka's tether's: `specs/eureka/make_specs.py`)
+#: waits a hop over the landing, under the shaft; a body that comes up
+#: through a floor edge stands 69 px over it (`rooms::spawn`), so the car's
+#: top is there and a body that comes round the shaft lands on it.
+LIFT_CAR_X, LIFT_CAR_W, LIFT_CAR_H = 320, 128, 22
+LIFT_EDGE_FEET = 68
+LIFT_HOP = 40
+
+
+def hotel_lift():
+    """The lift, which only goes up: its car carries a rider out of the top
+    of the shaft, and the top comes back in at the bottom, where the car is
+    waiting. Hop off at the landing for the door back to the lobby. The
+    floors are numbered from n."""
+    rid = LIFT
+    _, w, h = ROOMS_AT[rid]
+    car_top = h - LIFT_EDGE_FEET
+    landing = car_top + LIFT_HOP
+    e = [
+        f'( type: "Prop", px: [16, 0], size: [{w - 32}, {h}], fields: ( name: "hotel_lift_shaft", kind: "math_hotel_lift_shaft" ) ),',
+        solid("west_wall", 0, 0, WALL, h),
+        solid("east_wall", w - WALL, 0, WALL, h),
+        solid("landing", WALL, landing, LIFT_CAR_X - 32 - WALL, h - landing),
+        door(f"{rid}_door", "back to the lobby", 48, landing, LOBBY, f"{LOBBY}_lift"),
+        f'( type: "PlayerStart", px: [140, {landing - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        (f'( type: "MovingPlatform", px: [{LIFT_CAR_X}, {car_top}], size: [{LIFT_CAR_W}, {LIFT_CAR_H}], fields: ( id: "hotel_lift_car", '
+         f'name: "the lift", speed: 260.0, lift_dy: {-(car_top + 60)}.0, one_way: true ) ),'),
+        (f'( type: "LoadingZone", px: [{LIFT_CAR_X}, 0], size: [{LIFT_CAR_W}, 16], fields: ( id: "{rid}_top", name: "up", '
+         f'activation: "EdgeExit", target_room: "{rid}", target_zone: "{rid}_bottom", bidirectional: false ) ),'),
+        (f'( type: "LoadingZone", px: [{LIFT_CAR_X}, {h - 16}], size: [{LIFT_CAR_W}, 16], fields: ( id: "{rid}_bottom", name: "the bottom of the shaft", '
+         f'activation: "EdgeExit", target_room: "{rid}", target_zone: "{rid}_top", bidirectional: false ) ),'),
+        label(f"{rid}_dial", 60, landing - 200, "Floors: 1, 2, 3, ..., and up", 300),
+    ]
+    for k, y in enumerate(range(h - 360, 100, -320)):
+        e.append(label(f"{rid}_floor_{k}", LIFT_CAR_X + LIFT_CAR_W + 20, y, "FLOOR n" if k == 0 else f"FLOOR n+{k}", 160))
+    return rid, room(rid, e, "Hylbert's Hotel: the lift. It only goes up.", theme=INTERIOR)
+
+
+ROOMS = (gate_hall, street, cafe, surveyors_office, observatory, zeno_aqueduct, hotel_lobby, hotel_corridor, hotel_lift)
 
 #: What is painted on an IntGrid layer of a room: (room, layer, value, px, size).
 PAINT = [(STREET, "Climbable", 1, (x, top), (32, bottom - top)) for _name, x, top, bottom in LADDERS] + [

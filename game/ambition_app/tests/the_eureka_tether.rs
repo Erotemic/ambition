@@ -130,3 +130,11 @@ fn dobbs_sells_genuine_orbit_air_at_the_terminus() {
     let mut app = a_session_in(TERMINUS);
     crate::the_pirate_port::talk(&mut app, "npc_station_dobbs", "What is in the bottles?");
 }
+
+/// Ottoline Hum busks on a theremin under the gate court's arcade
+/// (`eureka.yarn` `eureka_hum`).
+#[test]
+fn the_gate_courts_busker_plays_the_air() {
+    let mut app = a_session_in("eureka_gate_court");
+    crate::the_pirate_port::talk(&mut app, "npc_eureka_hum", "How do you play it without touching it?");
+}

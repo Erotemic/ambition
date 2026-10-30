@@ -282,6 +282,7 @@
     "mine_tunnel": (),
     "hamlet_west": (),
     "hamlet_east": (),
+    "court_busker": (),
     // The orbital station's damaged spur (Science).
     "spur_west": (),
     "spur_east": (),

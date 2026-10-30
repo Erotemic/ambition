@@ -167,6 +167,8 @@ def court():
         ledge("court_bench", 860, floor - 32, 160),
         sign("court_sign_gate", 336, floor - 300, "SCIENCE: arrivals for the Eureka Institute", 420),
         sign("court_sign_tether", 900, floor - 260, "The tether: ground station east of the quad. Cars on demand.", 520),
+        # Ottoline Hum busks in the arcade's middle arch (`eureka.yarn`).
+        resident("npc_eureka_hum", "eureka_hum", 1444, floor),
         # Steps up to the raised walk that runs on east over the quad.
         ledge("walk_step_1", 1080, floor - 64, 96),
         ledge("walk_step_2", 1160, floor - 128, 96),

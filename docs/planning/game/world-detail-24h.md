@@ -43,6 +43,10 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Science: Ottoline Hum busks** in the middle arch of the gate court's
+  arcade: a theremin on its stand, an open case of coins from forty
+  dimensions (one technically a button) (chargen, Hall wing). Verified:
+  the_eureka_tether busker test.
 - **PvN: Matsuda referees the Bamboo Pass**: the referee by his tally
   board at the way in (the day's bouts in 正, the visitors' column a nought),
   before the first bout (chargen, Hall wing). Verified: the_bamboo_pass (3).

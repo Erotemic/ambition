@@ -6259,6 +6259,23 @@
                 hall: ["Everybody on this campus runs on my coffee. Nobody tips.", "The station orders pastries by elevator. They arrive cold and complaining."],
             ),
         ),
+        "npc_eureka_hum": (
+            display_name: "Ottoline Hum",
+            // Busks on a theremin under the gate court's arcade.
+            manifest: "sprites/eureka_hum_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "eureka", "peaceful"],
+            barks: (
+                idle: ["Mind the antenna.", "Breathe wrong and you're a semitone flat."],
+                hall: ["You play the air between your hand and the antenna.", "I've got a case of currencies from forty dimensions. One of them is technically a button."],
+            ),
+        ),
         "npc_eureka_pryce": (
             display_name: "Range Officer Pryce",
             // The Test Range's officer, who has signed off every test as probably fine.

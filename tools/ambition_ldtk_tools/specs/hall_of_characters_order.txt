@@ -144,6 +144,7 @@ npc_eureka_wilbur
 npc_eureka_halvorsen
 npc_eureka_mina
 npc_eureka_pryce
+npc_eureka_hum
 
 [Made by the character generator]
 npc_armsmith_odile

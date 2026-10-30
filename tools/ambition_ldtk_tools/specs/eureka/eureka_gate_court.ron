@@ -13,6 +13,7 @@
     music_track: "a_possible_morning",
     entities: [
         ( type: "Prop", px: [551, 482], size: [1049, 222], fields: ( name: "court_furniture_0", kind: "court_furniture" ) ),
+        ( type: "Prop", px: [1386, 608], size: [98, 96], fields: ( name: "court_busker_1", kind: "court_busker" ) ),
         ( type: "Solid", px: [0, 704], size: [1600, 128], fields: ( name: "ground" ) ),
         ( type: "Solid", px: [0, 0], size: [16, 592], fields: ( name: "west_wall" ) ),
         ( type: "LoadingZone", px: [0, 608], size: [16, 96], fields: ( id: "court_west", name: "out to the Test Range", activation: "EdgeExit", target_room: "eureka_test_range", target_zone: "range_east", bidirectional: true ) ),
@@ -23,6 +24,7 @@
         ( type: "OneWayPlatform", px: [860, 672], size: [160, 16], fields: ( name: "court_bench" ) ),
         ( type: "DebugLabel", px: [126, 404], size: [420, 24], fields: ( name: "court_sign_gate", text: "SCIENCE: arrivals for the Eureka Institute", category: "Custom" ) ),
         ( type: "DebugLabel", px: [640, 444], size: [520, 24], fields: ( name: "court_sign_tether", text: "The tether: ground station east of the quad. Cars on demand.", category: "Custom" ) ),
+        ( type: "NpcSpawn", px: [1428, 640], size: [32, 64], fields: ( character_id: "npc_eureka_hum", prompt: "Talk", dialogue_id: "eureka_hum", brain_override: "stand_still" ) ),
         ( type: "OneWayPlatform", px: [1080, 640], size: [96, 16], fields: ( name: "walk_step_1" ) ),
         ( type: "OneWayPlatform", px: [1160, 576], size: [96, 16], fields: ( name: "walk_step_2" ) ),
         ( type: "OneWayPlatform", px: [1232, 512], size: [368, 16], fields: ( name: "raised_walk" ) ),

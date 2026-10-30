@@ -15,6 +15,7 @@ from district_scenery import piece
 SCENERY = {
     "eureka_gate_court": [
         ("court_furniture", 520, 470),
+        ("court_busker", 1380, 600),
     ],
     "eureka_quad": [
         # The quad between them (`targets/props/eureka_quad_props.py`).

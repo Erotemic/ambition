@@ -2469,9 +2469,12 @@ fn an_aimed_air_dodge_has_its_own_timing_and_landing_in_one_costs_its_lag() {
     // The floor's fact lands at the end of a step; the next one charges it.
     step(&mut scratch, InputState::default());
     let lag = scratch.axis().air_dodge_endlag_timer + dt;
+    // The fixture dodges straight DOWN, and the landing lag follows the
+    // dodge's angle: down lands at 0.73x the authored lag, up at 1.27x
+    // (Ultimate's 11 to 19 frames around a 15-frame middle).
     assert!(
-        (lag - 0.25).abs() < 2.0 * dt,
-        "landing in an aimed dodge charges its landing lag (0.25 s), got {lag}"
+        (lag - 0.25 * 0.73).abs() < 2.0 * dt,
+        "landing in a dodge aimed down charges 0.73 of its landing lag (0.25 s), got {lag}"
     );
     let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
     assert!(facts.air_dodge_endlag, "the landing lag is published as the dodge's endlag, which refuses moves");

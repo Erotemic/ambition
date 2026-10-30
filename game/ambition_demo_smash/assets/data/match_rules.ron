@@ -245,6 +245,9 @@
         // 1.92 (median 1.91), 1.10 x the run, as the roster's median ratio.
         max_run_speed: Some(315.0),
         initial_dash_speed: Some(345.0),
+        // Walk 1.155 u/f (Mario; median 1.11): a stick under the dash
+        // threshold walks up to this, a gait slower than the run.
+        walk_speed: Some(208.0),
         // Traction 0.102 u/f² (Mario 0.102, median 0.11): a stopped run
         // skids about 45 px. The responsive law brakes a let-go stick with
         // BOTH numbers (it approaches zero at `run_accel`, then applies

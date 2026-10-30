@@ -142,6 +142,10 @@ pub struct FighterBodyAuthoring {
     /// Speed of the first step out of standing (px/s), the burst a direction
     /// change during the initial dash also gets. `0.0` is the run speed.
     pub initial_dash_speed: Option<f32>,
+    /// See `MovementTuning::walk_speed`: the fighter's walk, a gait of its
+    /// own under the dash threshold. `None` keeps the match's.
+    #[serde(default)]
+    pub walk_speed: Option<f32>,
     /// Ground deceleration with the stick let go (px/s²): TRACTION, how far a
     /// stopped run slides.
     pub ground_friction: Option<f32>,
@@ -178,6 +182,7 @@ impl FighterBodyAuthoring {
             air_jumps: self.air_jumps.unwrap_or(base.air_jumps),
             jump_law: self.jump_law.unwrap_or(base.jump_law),
             initial_dash_speed: self.initial_dash_speed.unwrap_or(base.initial_dash_speed),
+            walk_speed: self.walk_speed.unwrap_or(base.walk_speed),
             ground_friction: self.ground_friction.unwrap_or(base.ground_friction),
             air_accel: self.air_accel.unwrap_or(base.air_accel),
             max_air_speed: self.max_air_speed.unwrap_or(base.max_air_speed),
@@ -229,6 +234,7 @@ impl FighterBodyAuthoring {
         // traction, the run speed again, no air friction.
         for (name, value) in [
             ("initial_dash_speed", self.initial_dash_speed),
+            ("walk_speed", self.walk_speed),
             ("ground_friction", self.ground_friction),
             ("max_air_speed", self.max_air_speed),
             ("air_stop_assist", self.air_stop_assist),

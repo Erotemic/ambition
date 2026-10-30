@@ -398,6 +398,10 @@ pub struct AxisManeuverState {
     /// The air dodge in flight (or in its endlag) was AIMED: it takes the
     /// directional window, endlag and landing lag.
     pub air_dodge_directional: bool,
+    /// How far UP the aimed air dodge pointed, -1 (straight down) to 1
+    /// (straight up): landing out of a dodge aimed up costs more lag than one
+    /// aimed down, as in Ultimate (11 to 19 frames by angle).
+    pub air_dodge_up: f32,
     /// Endlag after an air dodge: control is back, the evade is not.
     pub air_dodge_endlag_timer: f32,
     /// Endlag after a GROUND ROLL, the same shape as the air dodge's above and
@@ -546,6 +550,7 @@ impl Default for AxisManeuverState {
             air_dodge_timer: 0.0,
             air_dodge_push: bevy_math::Vec2::ZERO,
             air_dodge_directional: false,
+            air_dodge_up: 0.0,
             air_dodge_endlag_timer: 0.0,
             dodge_roll_endlag_timer: 0.0,
             tumble_timer: 0.0,

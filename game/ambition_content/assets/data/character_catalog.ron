@@ -5293,6 +5293,7 @@
             )),
             max_health: Some(2),
             tags: ["enemy", "fruit"],
+            cues: (notice: Some("enemy.bad_apple.notice"), tell: Some("enemy.bad_apple.tell"), swing: Some("enemy.bad_apple.swing"), hit: Some("enemy.bad_apple.hit")),
         barks: (
             on_hit: ["Bruised!", "Core damage!", "That's going to brown."],
             provoked: ["One bad apple spoils the bunch!"],
@@ -5321,6 +5322,7 @@
             )),
             max_health: Some(2),
             tags: ["enemy", "fruit"],
+            cues: (tell: Some("enemy.gravity_apple.tell"), swing: Some("enemy.gravity_apple.swing"), hit: Some("enemy.gravity_apple.hit")),
         barks: (
             on_hit: ["Equal and opposite!", "Mind the orbit!"],
             provoked: ["What goes up..."],

@@ -128,6 +128,10 @@ struct Tally {
     /// (`MoveContact::overlapped` false for the whole playback): the whiffs.
     /// A move still playing when the window closes is not counted either way.
     whiffs: usize,
+    /// Whiffs that were recovery presses: a move whose recovery route offers
+    /// a way home, started off the stage. The way home misses by design;
+    /// `whiffs - whiffs_recovery` is the attack whiffs.
+    whiffs_recovery: usize,
     /// The whiffs during which the nearest opponent was UNHITTABLE for at
     /// least one tick (dodging, invulnerable, parrying, in i-frames): swings
     /// the foe evaded, as against swings that found nothing. The remainder,
@@ -1173,6 +1177,14 @@ fn sample(
     const IN_RANGE_PX: f32 = 120.0;
     let positions: Vec<(usize, f32, f32, ae::Vec2)> =
         rows.iter().map(|row| (row.0, row.10, row.13, row.14)).collect();
+    // Which playing moves offer a way home, by id: asked of the frame data
+    // once per tick per playing move, not per sample.
+    let playback_specs: Vec<(String, bool)> = {
+        let mut q = world.query::<&MovePlayback>();
+        q.iter(world)
+            .map(|p| (p.spec.id.clone(), p.spec.frame_data().recovery_route.offers_a_way_home()))
+            .collect()
+    };
     // A frozen simulation (the window outliving the match) changes nothing.
     let world_now: Vec<(usize, f32, f32, Option<f32>)> = rows
         .iter()
@@ -1329,6 +1341,12 @@ fn sample(
             .filter(|(other, _, _, _)| *other != seat)
             .min_by(|a, b| (a.1 - here).abs().total_cmp(&(b.1 - here).abs()));
         let nearest_gap = nearest_foe.map_or(f32::INFINITY, |foe| (foe.1 - here).abs());
+        let recovery_route_of = |id: &str| {
+            playback_specs
+                .iter()
+                .find(|(spec_id, _)| spec_id == id)
+                .is_some_and(|(_, offers)| *offers)
+        };
         if let Some((id, t, charge, overlapped, boxes, move_facing)) = playback {
             let fresh = match &live_move[seat] {
                 Some(last) => last.id != id || t < last.t,
@@ -1350,6 +1368,14 @@ fn sample(
             for cause in &causes_now {
                 *causes.entry(cause).or_default() += 1;
             }
+            let recovery_press = carried.map_or_else(
+                || {
+                    let stage = ambition_demo_smash::smash_stage().world.size;
+                    let offstage = here < 0.0 || here > stage.x || pos_y > stage.y;
+                    offstage && recovery_route_of(&id)
+                },
+                |m| m.recovery_press,
+            );
             // THE NEAREST APPROACH of the foe's hurtbox to any live hitbox,
             // over the move's active ticks, in the move's own frame: along
             // (+ beyond the box, − short of it or behind) and across (+
@@ -1426,7 +1452,16 @@ fn sample(
                     }
                 }
             }
-            live_move[seat] = Some(LiveMove { id, t, touched, evaded, start_gap: gap, miss, causes });
+            live_move[seat] = Some(LiveMove {
+                id,
+                t,
+                touched,
+                evaded,
+                start_gap: gap,
+                miss,
+                causes,
+                recovery_press,
+            });
             if let Some(fraction) = charge {
                 tally.charge_held += 1;
                 tally.best_charge = tally.best_charge.max(fraction);
@@ -1479,6 +1514,9 @@ struct LiveMove {
     miss: Option<(f32, f32)>,
     /// Ticks of live-hitbox/hurtbox overlap that recorded no hit, by cause.
     causes: std::collections::BTreeMap<&'static str, usize>,
+    /// A recovery route (the move offers a way home) thrown while the body
+    /// was off the stage: a press whose job is the way home, not the foe.
+    recovery_press: bool,
 }
 
 impl Tally {
@@ -1492,6 +1530,7 @@ impl Tally {
             }
         } else {
             self.whiffs += 1;
+            self.whiffs_recovery += usize::from(m.recovery_press);
             self.whiffs_evaded += usize::from(m.evaded);
             *self.whiffed.entry(m.id.clone()).or_default() += 1;
             gaps.1.push(m.start_gap);
@@ -1769,9 +1808,10 @@ fn report_spread(label: &str, seconds: usize, all: &[Vec<Tally>], carried: &[Str
             values.last().copied().unwrap_or(0.0)
         )
     };
-    println!("  per live minute: moves {}  whiffs {}  damage {}",
+    println!("  per live minute: moves {}  whiffs {}  attack whiffs {}  damage {}",
         per_minute(|t| t.moves_started as f32),
         per_minute(|t| t.whiffs as f32),
+        per_minute(|t| (t.whiffs - t.whiffs_recovery) as f32),
         per_minute(|t| t.damage as f32),
     );
     for (i, run) in all.iter().enumerate() {
@@ -1788,6 +1828,7 @@ fn report_spread(label: &str, seconds: usize, all: &[Vec<Tally>], carried: &[Str
     println!("  moves       {}", spread(|t| t.moves_started as f32));
     println!("  whiffs      {}", spread(|t| t.whiffs as f32));
     println!("  ⇒ evaded    {}", spread(|t| t.whiffs_evaded as f32));
+    println!("  ⇒ recovery  {}   (a way-home move started off the stage)", spread(|t| t.whiffs_recovery as f32));
     println!("  hitstun     {}", spread(|t| t.hitstun as f32));
     println!("  tumbling    {}", spread(|t| t.tumbling as f32));
     println!("  downed      {}", spread(|t| t.knocked_down as f32));

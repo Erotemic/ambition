@@ -552,11 +552,19 @@ general shape; check new code against it.
   is the next thing to measure, and it is not the brain's lane.
 - **The poke the foe closes through is refused, and a recovery special is
   an attack only with the foe inside its region as it opens.** Admission
-  samples the led foe at the active window's middle and end as well; a
-  foe short of the near edge at every active sample is refused with no
+  asks, as each active window OPENS, where the led foe is: short of the
+  near edge, or somewhere the region does not lie toward (behind the body,
+  a closer that crossed through), at every opening is a refusal with no
   slack on that side (`polygon_point`'s whiffs started at a 55 px gap, its
   hits at 89, nearest approach −10 along: the foe was behind the thrust's
-  near edge by the time the box was live). A lift (`recovery_route`
+  near edge by the time the box was live). The opening, not the window's
+  middle or end: a foe inside the box as it opens is a hit however the
+  straight lead would carry it on — bodies stop at each other, and a
+  running body's own closing is not a pass-through (the rooted-move
+  fixture runs at 530 px/s into a foe 60 px ahead and must be offered the
+  poke). `match-report` splits `⇒ recovery` out of the whiffs — a way-home
+  move started off the stage misses by design — and prints `attack
+  whiffs` per live minute beside the whole. A lift (`recovery_route`
   offers a way home) is admitted only when the unled foe is inside its
   region — no lead, no slack — and in Recovery a lift whose region reaches
   the foe is not offered as a route (the ranking's to admit, or nobody's).

@@ -3525,7 +3525,7 @@ fn a_poke_the_foe_closes_through_is_refused() {
     let standing = view_with(300.0, 355.0);
     assert!(admitted(&standing), "a foe standing in the region is a hit");
     let mut closing = standing.clone();
-    closing.actors[0].vel = ae::Vec2::new(-300.0, 0.0);
+    closing.actors[0].vel = ae::Vec2::new(-400.0, 0.0);
     assert!(
         !admitted(&closing),
         "a foe closing through the near edge before the box opens is a miss"

@@ -1269,23 +1269,26 @@ pub fn generate_options(
             // hits at 89, nearest approach −10 along. The led foe at the
             // active window may not sit short of the near edge — no slack on
             // that side, because the body is there.
-            let short_at_active = attack
+            // A led foe the region does not lie toward (behind the body, a
+            // closer that crossed through) is as missed as one short of the
+            // near edge: the box cannot be there either.
+            // Asked as each active window OPENS: a foe inside the box at that
+            // moment is a hit however the straight lead would carry it on
+            // (bodies stop at each other; a running body's own closing is
+            // not a pass-through).
+            let active_samples: Vec<f32> = attack
                 .frames
                 .active_spans
                 .iter()
-                .flat_map(|(start, end)| [0.5 * (start + end), *end])
-                .map(|t| {
-                    let aim = lead_of(t);
-                    coverage.span_toward(aim, foe_extent).map(|(near, _)| {
+                .map(|(start, _)| *start)
+                .collect();
+            let short_at_active = !active_samples.is_empty()
+                && active_samples.iter().all(|t| {
+                    let aim = lead_of(*t);
+                    coverage.span_toward(aim, foe_extent).is_none_or(|(near, _)| {
                         (aim.0 * aim.0 + aim.1 * aim.1).sqrt() < near
                     })
-                })
-                .fold(None, |all: Option<bool>, short| match (all, short) {
-                    (_, None) => all,
-                    (None, Some(s)) => Some(s),
-                    (Some(a), Some(s)) => Some(a && s),
-                })
-                .unwrap_or(false);
+                });
             !short_at_active
         }
         // Only shoves: offered exactly where the shove lands.

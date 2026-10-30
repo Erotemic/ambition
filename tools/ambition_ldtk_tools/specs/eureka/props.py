@@ -1,0 +1,31 @@
+"""The scenery of Eureka's rooms: `Prop` entities (art, no collision) that
+`make_specs.py` lists before each room's other entities, so they draw behind.
+
+The art is the sprite tools' `targets/props/eureka_props.py`, drawn in each
+room's own coordinates over the walk lines `make_specs.py` places (the
+counter, the card cabinet, the archive gallery, the observatory's stair and
+platform). Each piece names the top left of its frame in its room: the
+numbers are the art's (its `PIECES` frames); change them with it.
+"""
+from __future__ import annotations
+
+from district_scenery import piece
+
+#: Room -> [(kind, frame x, frame y)], furthest back first.
+SCENERY = {
+    "eureka_quad": [
+        ("eureka_patent_front", 662, 272),
+        ("eureka_observatory_front", 2052, 208),
+    ],
+    "eureka_patent_office": [
+        ("eureka_patent_room", 16, 32),
+    ],
+    "eureka_observatory": [
+        ("eureka_observatory_room", 0, 0),
+    ],
+}
+
+
+def scenery(room_id: str) -> list[str]:
+    """The prop entity lines of `room_id`."""
+    return [piece(kind, x, y, name=f"{kind}_{i}") for i, (kind, x, y) in enumerate(SCENERY.get(room_id, []))]

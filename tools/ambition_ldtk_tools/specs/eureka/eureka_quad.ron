@@ -12,6 +12,8 @@
     parallax_theme: "eureka",
     music_track: "a_possible_morning",
     entities: [
+        ( type: "Prop", px: [668, 276], size: [324, 492], fields: ( name: "eureka_patent_front_0", kind: "eureka_patent_front" ) ),
+        ( type: "Prop", px: [2056, 217], size: [270, 359], fields: ( name: "eureka_observatory_front_1", kind: "eureka_observatory_front" ) ),
         ( type: "Solid", px: [0, 768], size: [2816, 128], fields: ( name: "street" ) ),
         ( type: "Solid", px: [0, 0], size: [16, 416], fields: ( name: "west_wall_high" ) ),
         ( type: "Solid", px: [0, 528], size: [16, 144], fields: ( name: "west_wall_mid" ) ),

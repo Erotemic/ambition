@@ -49,6 +49,8 @@ from district_kit import (  # noqa: E402
     WALL, WORLDS, add_entities, door, edge, entity, ledge, make_rooms, pad, resident, room, run, sign, solid, start,
 )
 
+import props  # noqa: E402  (this directory's scenery)
+
 WORLD_LDTK = WORLDS / "science.ldtk"
 GENERATOR = "specs/eureka/make_specs.py"
 
@@ -75,8 +77,9 @@ HEIGHTS = "eureka_heights"
 STATION_THEME = "orbital"
 BG = "#A9D3F0"
 TOWN_MUSIC = "a_possible_morning"
-INDOOR_MUSIC = "lofi_study_loop"
-DOME_MUSIC = "eternal_cosmic"
+PATENT_MUSIC = "graphite_and_rain"
+LAB_MUSIC = "scaling_laws"
+DOME_MUSIC = "physicists_guild_event_horizon_waltz"
 TETHER_MUSIC = "salt_steel_and_starlight"
 STATION_MUSIC = "between_objectives"
 
@@ -86,7 +89,7 @@ STATION_MUSIC = "between_objectives"
 ROOMS_AT = {
     COURT: ((0, 6880), (1600, 832)),
     QUAD: ((1856, 6880), (2816, 896)),
-    PATENT: ((1856, 8064), (1024, 448)),
+    PATENT: ((1856, 8064), (1024, 640)),
     LAB: ((3072, 8064), (1280, 576)),
     DOME: ((2560, 5600), (1280, 1024)),
     STATION: ((4928, 6880), (1600, 1408)),
@@ -107,6 +110,8 @@ EDGE_FEET = 68
 
 def build(rid, entities, title, music=TOWN_MUSIC, biome=BIOME, **kw):
     at, size = ROOMS_AT[rid]
+    # The room's scenery (`props.py`) is listed first: it draws behind.
+    entities = [*props.scenery(rid), *entities]
     return rid, room(rid, entities, at=at, size=size, biome=biome, music=music, bg=BG, title=title, generator=GENERATOR, **kw)
 
 
@@ -191,7 +196,8 @@ def quad():
 
 
 def patent_office():
-    """The patent office: one room, a long counter, the clerk at his desk."""
+    """The patent office: the clerk behind a long counter, the card cabinet,
+    and the archive gallery over it (one jump up from the cabinet's top)."""
     rid = PATENT
     _, (w, h) = ROOMS_AT[rid]
     floor, ceiling = h - 64, 32
@@ -204,10 +210,11 @@ def patent_office():
         start(rid, 140, floor),
         ledge("counter", 480, floor - 40, 240),
         ledge("file_cabinets", 820, floor - 96, 160),
+        ledge("archive_gallery", 760, floor - 176, w - WALL - 760),
         resident("special_patent_clerk", "eureka_patent_clerk", 640, floor),
         sign("patent_sign_rules", 520, ceiling + 40, "All applications are processed relative to the applicant.", 520),
     ]
-    return build(rid, e, None, music=INDOOR_MUSIC)
+    return build(rid, e, None, music=PATENT_MUSIC)
 
 
 def coil_lab():
@@ -231,7 +238,7 @@ def coil_lab():
         sign("lab_sign_rules", 640, ceiling + 40, "DO NOT TOUCH THE COILS. The coils will touch you.", 520),
         sign("lab_sign_director", 1100, floor - 240, "N. TESSERACT, DIRECTOR: back soon", 320),
     ]
-    return build(rid, e, None, music=INDOOR_MUSIC)
+    return build(rid, e, None, music=LAB_MUSIC)
 
 
 def observatory():

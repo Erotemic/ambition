@@ -43,6 +43,16 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Math: Hylbert's ballroom** (06fe2abc1): a game show of three lit doors
+  (stay 1/3, switch 2/3); behind them three closets: a goat, a car with a
+  bow and money, a goat. Verified: hylberts_hotel (4).
+- **Science: the coil lab's anti-gravity prototype** (21c2d7a4f): DO NOT
+  PRESS flips the lab's gravity (this room only); its twin on the ceiling
+  (TOLD YOU.) flips it back. Dmitri knows. Verified: the_eureka_tether (3).
+- **Jungle: the trail's people** (36bc19547): Ranger Brandvold at the
+  trailhead by her new hut, Dr Feld at the tar pits' dig camp (now a quiet
+  pocket). `scenery_overlay.py` adds residents and each piece by its own
+  name. Verified: the_tar_pits (2).
 - **Math: Hylbert's guests**: the Paradox Barber, Joseph Furrier and
   Python Goras at doors of the infinite corridor, with hotel talk
   (`math.yarn` `hotel_*`). Verified: hylberts_hotel (3).

@@ -143,11 +143,12 @@ pub fn portal_input_warp_flips_horizontal_for_convention(
 /// Does an actor of `size` fit through `portal`? The actor's box measured
 /// along the face against the opening: a wall portal checks the actor's
 /// height, a floor or ceiling portal its width, and a portal on a slope the
-/// box's reach along the slope.
+/// box's reach along the slope. A body may be [`crate::snag::SQUEEZE`]
+/// wider than the opening at each end.
 pub fn portal_fits(size: Vec2, portal: &PlacedPortal) -> bool {
     let along = portal.aperture().frame.tangent();
     let cross = size.x * along.x.abs() + size.y * along.y.abs();
-    cross <= portal.aperture().half_length * 2.0 + 1.0e-3
+    cross <= (portal.aperture().half_length + crate::snag::SQUEEZE) * 2.0 + 1.0e-3
 }
 
 /// Margin (px) added to a portal's thin face so a body resting on the surface

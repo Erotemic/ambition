@@ -169,7 +169,9 @@ pub fn spawn_room_visuals(
         // No picture is no nameplate also: the nameplate of a zone that is not
         // drawn named a place nothing showed (the name of the sky zone of
         // Mary-O 1-1, over a level whose secret it is).
-        if hidden_zones.is_some_and(|hidden| hidden.0.contains(&zone.id)) {
+        // A secret way is drawn by the room's art (a false wall, a loose
+        // board): a doorway and its name there would give it away.
+        if zone.is_secret() || hidden_zones.is_some_and(|hidden| hidden.0.contains(&zone.id)) {
             continue;
         }
         spawn_loading_zone(commands, session_scope, world, zone, assets, theme);
@@ -243,6 +245,10 @@ pub fn spawn_room_visuals(
         if let ambition_entity_catalog::placements::PlacementSchema::Breakable(breakable) =
             &record.schema
         {
+            if let Some(look) = breakable.look.as_deref() {
+                spawn_breakable_look(commands, session_scope, world, record, look, assets);
+                continue;
+            }
             spawn_authored_basic(
                 commands,
                 session_scope,
@@ -436,6 +442,9 @@ const SCENERY_Z_BACK: f32 = WORLD_Z_DUMMY + 0.55;
 pub(super) const SCENERY_Z_FRONT: f32 = WORLD_Z_DUMMY + 0.95;
 /// The z step between pieces of scenery listed one after the other.
 const SCENERY_Z_STEP: f32 = 1.0 / 4096.0;
+/// Where a climbable draws: in front of all the scenery, behind the actors
+/// (`feature_z(Actor)`, `WORLD_Z_DUMMY + 1.0`).
+pub(super) const CLIMBABLE_Z: f32 = SCENERY_Z_FRONT + 0.02;
 
 /// Spawn the visual entity for one [`PropSpec`], the `index`th the room
 /// lists. Falls back to a coloured rectangle when the prop's `kind` is
@@ -665,8 +674,10 @@ fn spawn_climbable_region(
 ) {
     let size = region.aabb.half_size() * 2.0;
     let render = BVec2::new(size.x, size.y);
-    // Above blocks, below the player: the player climbs in front of it.
-    let body_z = WORLD_Z_BLOCK + 4.0;
+    // Over the room's scenery (a ladder up a wall of the room's art is seen
+    // on it, not hidden behind it), under every body: the player climbs in
+    // front of it.
+    let body_z = CLIMBABLE_Z;
     let (body_color, rung_color) = match region.kind {
         // Brown ladder with darker rung accents.
         ae::ClimbableKind::Ladder => (
@@ -1300,6 +1311,55 @@ fn spawn_authored_basic(
     );
     if let Some(key) = entity_key {
         entity.insert(BoundEntitySprite::new(key));
+    }
+}
+
+/// Spawn a breakable that names a look: the prop sheet `look` fills its box,
+/// as a lock wall's look does. It is a [`FeatureVisual`], so `sync_visuals`
+/// places it, hides it when it breaks and tints it ([`PropTint`]) as it takes
+/// hits; and a [`PropVisual`], so the prop sheet binds when it is loaded and
+/// again after a quality change. Until the sheet loads it is the generic
+/// breakable sprite.
+fn spawn_breakable_look(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    world: &ae::World,
+    record: &ambition_platformer2d_world::placements::PlacementRecord,
+    look: &str,
+    assets: Option<&GameAssets>,
+) {
+    let size = record.aabb.half_size() * 2.0;
+    let render = BVec2::new(size.x, size.y);
+    let kind = FeatureVisualKind::Breakable;
+    let mut entity = commands.spawn_session_scoped(
+        session_scope,
+        (
+            Transform::from_translation(world_to_bevy(world, record.aabb.center(), feature_z(kind))),
+            Name::new(format!("Room entity: {}", record.name)),
+            FeatureVisual { id: record.id.as_str().to_string() },
+            PropVisual {
+                id: record.id.as_str().to_string(),
+                kind: look.to_string(),
+                name: record.name.clone(),
+                size: render,
+                draw: PropDraw::Structure,
+                flip_y: false,
+            },
+            super::primitives::PropTint(Color::WHITE),
+            RoomVisual,
+        ),
+    );
+    match assets.and_then(|a| a.characters.prop_asset_for_kind(look)) {
+        Some(asset) => {
+            entity.insert(prop_sprite_bundle(PropDraw::Structure, false, asset, render));
+        }
+        None => {
+            let fallback = feature_color(kind, false, false);
+            entity.insert(match assets {
+                Some(a) => entity_sprite_or_color(a, Some(game_assets::EntitySprite::BreakableIntact), render, fallback),
+                None => Sprite::from_color(fallback, render),
+            });
+        }
     }
 }
 

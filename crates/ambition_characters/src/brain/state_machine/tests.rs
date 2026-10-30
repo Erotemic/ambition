@@ -1534,6 +1534,33 @@ mod melee_tactics {
         assert!(committed, "it never committed in after its hold");
     }
 
+    /// Its first sight of its foe stops it a beat, facing the foe; then it
+    /// closes. Out of its sight and back, it stops and looks again. A brute
+    /// that does not notice closes at once.
+    #[test]
+    fn a_brute_that_notices_stops_and_looks_before_it_closes() {
+        let notices = MeleeTactics { notice_s: 0.4, ..Default::default() };
+        let mut sm = brute(notices);
+        let seen = snap(0.0, ae::Vec2::new(150.0, 0.0));
+        let first = tick(&mut sm, &seen);
+        assert_eq!(first.locomotion.x, 0.0, "first sight: it stands");
+        assert_eq!(first.facing, 1.0, "facing its foe");
+        assert!(matches!(&sm, StateMachineCfg::MeleeBrute { state, .. } if state.is_noticing()), "and it is noticing");
+        let mut closed_after = None;
+        for i in 1..60 {
+            if tick(&mut sm, &seen).locomotion.x > 0.0 {
+                closed_after = Some(i);
+                break;
+            }
+        }
+        let ticks = closed_after.expect("it never closed after its beat");
+        assert!((20..=30).contains(&ticks), "it stood about 0.4 s (24 ticks): {ticks}");
+        // Out of its sight, and back: it looks again.
+        tick(&mut sm, &snap(0.0, ae::Vec2::new(5000.0, 0.0)));
+        assert_eq!(tick(&mut sm, &seen).locomotion.x, 0.0, "seen again: it stops and looks again");
+        assert!(tick(&mut brute(MeleeTactics::default()), &seen).locomotion.x > 0.0, "control: no notice, it closes at once");
+    }
+
     /// Hit, a brute that flinches backs away from its foe.
     #[test]
     fn a_brute_that_flinches_backs_off_when_hit() {

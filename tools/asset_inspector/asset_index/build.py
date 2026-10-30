@@ -1,0 +1,394 @@
+"""Build the art index and the offline inspector page.
+
+    python -m asset_index build [--out DIR] [--jobs N] [--no-previews] [--open]
+
+Writes `DIR` (default `.agent/asset_inspector/`, git-ignored): `index.html`,
+`app.js`, `app.css`, `catalog.js` (the index, as a script so that the page
+works from `file://`) and the previews. The page links to the art and the
+source files by relative paths, so it opens in place, with no server.
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import os
+import shutil
+import subprocess
+import sys
+import time
+import webbrowser
+from collections import Counter, defaultdict
+from pathlib import Path
+from typing import Any
+
+from . import SCHEMA, assets as assets_mod, diagnostics, generators, kinds, lineage, related, thumbs, usage, inventory, reviews, sheets, sources
+from .paths import forget_roots, repo_root, roots
+from .scan import HashCache, scan
+
+WEB = Path(__file__).resolve().parents[1] / "web"
+
+
+def _git(repo: Path, *args: str) -> str:
+    done = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True)
+    return done.stdout.strip()
+
+
+def build(
+    repo: Path,
+    out: Path,
+    *,
+    jobs: int = 4,
+    previews: bool = True,
+    prune: bool = False,
+    python: str | None = None,
+    targets: dict[str, Any] | None = None,
+    lineages: bool = False,
+    profile: str = "ambition",
+    binary: Path | None = None,
+    deep: bool = False,
+    runtime_path: Path | None = None,
+    log=print,
+) -> dict[str, Any]:
+    """Index the art of `repo` into `out`. `targets` stands in for the
+    renderer registry (`list --json`), for a test."""
+    started = time.perf_counter()
+    out.mkdir(parents=True, exist_ok=True)
+
+    def step(message: str) -> None:
+        log(f"[{time.perf_counter() - started:6.1f}s] {message}")
+
+    forget_roots()
+    hashes = HashCache(out / "hash_cache.json", deep=deep)
+    # The renderer's product report is a separate process; let it run while the scan does.
+    from concurrent.futures import ThreadPoolExecutor
+    pool = ThreadPoolExecutor(max_workers=2)
+    early = pool.submit(sources.products, repo, python, deep=deep) if targets is None else None
+    family_report = pool.submit(kinds.family_status, repo)
+    pool.shutdown(wait=False)
+    step("scanning the art roots")
+    products = scan(roots(repo), hashes)
+    # Keep the digests now: a later failure must not make the next build rehash every file.
+    hashes.save()
+    step(f"{len(products)} files; reading the generators")
+    warnings: list[str] = []
+    inspection = None
+    if targets is None:
+        inspection = inventory.collect(repo, out, profile=profile, python=python, binary=binary, deep=deep, runtime_path=runtime_path,
+                                       product_report=early.result())
+        if inspection["profile"]["state"] != "available":
+            # The art, generators and lineages still index; the page names the problem and its fix.
+            problem = inspection["profile"].get("warnings") or ["The content inspection tool is unavailable."]
+            log("NOTICE: the character catalog is unavailable; indexing the art without it.\n  " + "\n  ".join(problem))
+        targets = {uid[7:]: dict(unit["generator"], root=unit["root"], outputs=unit["required"] + unit["optional"])
+                   for uid, unit in inspection["units"].items() if uid.startswith("target:")}
+        warnings = inspection["warnings"]
+    ev = generators.load_evidence(repo, targets, inspection["units"] if inspection else None)
+    ev.warnings += warnings
+    actor_targets: dict[str, str] = {}
+    step("grouping assets and reading sidecars")
+    # Sheet keys named by actor sidecars (`renderer_target`) inform resolution.
+    generators.resolve(products, ev, actor_targets)
+    assets = assets_mod.group(products, ev.generators)
+    sidecars = sheets.SidecarCache(None if deep else out / "sidecar_cache.json")
+    assets_mod.read_sidecars(assets, products, sidecars)
+    sidecars.save()
+    if inspection is not None:
+        sheets.use_runtime_layouts(assets, products, inspection)
+        sheets.use_catalog_poses(assets, inspection)
+    for asset in assets.values():
+        actor = asset.data.get("actor") or {}
+        if actor.get("renderer_target"):
+            actor_targets[asset.name] = actor["renderer_target"]
+    if actor_targets:
+        unresolved = {k: v for k, v in products.items() if v.provenance.get("confidence") == "unknown"}
+        generators.resolve(unresolved, ev, actor_targets)
+        for asset in assets.values():
+            assets_mod.rate(asset, products)
+
+    step("reading where the game uses each asset")
+    index = usage.Index(assets, products)
+    content, tables = usage.content_uses(repo, index)
+    placements, unresolved_ldtk = usage.ldtk_uses(repo, index, tables)
+    literals = usage.rust_literals(repo, index)
+    used = {u["asset"] for u in content} | {p["asset"] for p in placements} | {u["asset"] for u in literals}
+
+    preview_errors: list[str] = []
+    step("previews" + ("" if previews else " (named only; --no-previews)"))
+    preview_errors = thumbs.plan_and_draw(out, products, assets, jobs, draw=previews)
+    if prune:
+        step(f"pruned {thumbs.prune(out, products, assets)} previews the index no longer names")
+
+    step("diagnostics")
+    found = diagnostics.findings(repo, products, assets, ev, hashes, used)
+    found += [{"code": "preview-failed", "severity": "info", "subject": e.split(":", 1)[0], "message": e} for e in preview_errors]
+    for asset in assets.values():
+        for error in asset.data.get("errors", []):
+            found.append({"code": "sidecar-error", "severity": "warn", "subject": asset.id, "message": error, "asset": asset.id})
+    found += [{"code": "ldtk-unresolved", "severity": "info", "subject": f"{u['field']}={u['value']}", "message": f"{u['count']} placement(s) in {u['world']} name no asset the index can resolve.", **u} for u in unresolved_ldtk]
+
+    catalog = _catalog(repo, out, products, assets, ev, content + literals, placements, found)
+    step("visual lineages" + (" and authorship" if lineages else " (cached history)"))
+    catalog["lineages"], history_warnings = lineage.attach(repo, out, assets, catalog["assets"], targets,
+                                                        authorship=lineages, previews=previews, log=log)
+    for warning in history_warnings:
+        catalog["findings"].append({"code": "lineage-warning", "severity": "info", "subject": "design history", "message": warning})
+    step("related assets")
+    related.relate(catalog["assets"], catalog["generators"], repo)
+    if inspection is not None:
+        catalog["inventory"] = inspection
+        for asset in catalog["assets"].values():
+            unit = inspection["units"].get(asset.get("generator"))
+            if not unit:
+                continue
+            asset["inspection_unit"] = unit["id"]
+            asset["identities"] = [cid for cid in unit["identities"]
+                if inspection["identities"][cid]["catalog"].get("manifest") in asset["products"]]
+            asset["art_label"] = asset["display"]
+            if asset["identities"]:
+                identities = [inspection["identities"][cid] for cid in asset["identities"]]
+                asset["display"] = " / ".join(dict.fromkeys(identity["display"] for identity in identities))
+                asset["tags"] = sorted(set(asset["tags"] + [tag for identity in identities for tag in identity["catalog"].get("tags", [])]))
+                for identity in identities:
+                    row = identity["catalog"].get("rest_row")
+                    identity["preview"] = {"asset": asset["id"], "row": row,
+                        "cover": asset.get("layout", {}).get("covers", {}).get(row, asset.get("cover"))}
+            unit.setdefault("assets", []).append(asset["id"])
+    step("music, sound, fonts and worlds")
+    try:
+        families = family_report.result()
+    except Exception as error:  # noqa: BLE001 - the overview names it; the items still index
+        families = {"libraries": [], "notice": f"{type(error).__name__}: {error}"}
+    catalog["families"] = families
+    catalog.update(kinds.collect(repo, out, hashes, pack=sources.pack_dir(repo, profile), families=families, log=log))
+    catalog["reviews"] = reviews.snapshot(repo, catalog)
+    hashes.save()
+    catalog["build_seconds"] = round(time.perf_counter() - started, 1)
+    text = json.dumps(catalog, separators=(",", ":"), sort_keys=True)
+    text = text.replace("<", "\\u003c").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
+    partial = out / "catalog.js.partial"
+    partial.write_text(f"window.ART_CATALOG = {text};\n")
+    partial.replace(out / "catalog.js")
+    for name in ("index.html", "app.js", "app.css", "inventory.js", "characters.js", "reviews.js", "items.js"):
+        shutil.copyfile(WEB / name, out / name)
+    step(f"wrote {out / 'index.html'} ({len(assets)} assets, {len(products)} files, {len(found)} findings)")
+    return catalog
+
+
+def _describe(value: Any) -> str | None:
+    """An actor's description as text: a structured authoring description
+    (`parody_of`, `concept`, ...) gives its concept and whom it parodies."""
+    if isinstance(value, dict):
+        text = value.get("concept") or value.get("summary") or ""
+        return f"{text} (A parody of {value['parody_of']}.)" if value.get("parody_of") else text or None
+    return value
+
+
+def _catalog(repo: Path, out: Path, products, assets, ev, uses, placements, found) -> dict[str, Any]:
+    to_repo = os.path.relpath(repo, out)
+    uses_by: dict[str, list] = defaultdict(list)
+    for u in uses:
+        uses_by[u["asset"]].append({k: v for k, v in u.items() if k != "asset"})
+    places_by: dict[str, list] = defaultdict(list)
+    for p in placements:
+        places_by[p["asset"]].append({k: v for k, v in p.items() if k != "asset"})
+    finds_by: Counter = Counter(f.get("asset") for f in found if f.get("asset"))
+
+    gen_assets: dict[str, set] = defaultdict(set)
+    for asset in assets.values():
+        if asset.generator:
+            gen_assets[asset.generator].add(asset.id)
+    gens = {}
+    for gid, g in ev.generators.items():
+        record = ev.records.get(gid)
+        row = dict(g)
+        if record:
+            row["basis"] = record.get("basis")
+            row["inputs"] = [i["path"] for i in record.get("inputs", [])]
+            row["renderer"] = record.get("renderer")
+            row["written_at"] = record.get("written_at")
+            row["cache_key"] = record.get("cache_key")
+        row["assets"] = sorted(gen_assets.get(gid, ()))
+        gens[gid] = row
+
+    asset_rows = {}
+    for asset in assets.values():
+        data = asset.data
+        actor = data.get("actor") or {}
+        layout = data.get("layout")
+        if layout:
+            layout = {k: v for k, v in layout.items() if k not in ("rows",)} | {
+                "rows": [{k: v for k, v in r.items() if k != "rects"} for r in layout["rows"]]
+            }
+        portraits = data.get("portraits")
+        if portraits:
+            portraits = {"default": portraits["default"], "clips": {n: {"thumb": c.get("thumb"), "frames": len(c["rects"]), "ms": c["ms"]} for n, c in portraits["clips"].items()}}
+        frames = sum(r["frames"] for r in (layout or {}).get("rows", []))
+        asset_rows[asset.id] = {
+            "id": asset.id,
+            "family": asset.family,
+            "name": asset.name,
+            "display": actor.get("display_name") or asset.name,
+            "generator": asset.generator,
+            "confidence": asset.confidence,
+            "weakest": data.get("weakest"),
+            "cover": asset.cover,
+            "products": sorted(asset.products),
+            "character_id": actor.get("character_id"),
+            "tags": actor.get("tags", []),
+            "description": _describe(actor.get("description")) or _describe((layout or {}).get("description")),
+            "lineage": actor.get("lineage"),
+            "layout": layout,
+            "portraits": portraits,
+            "parts": data.get("parts"),
+            "body_rig": data.get("body_rig"),
+            "uses": uses_by.get(asset.id, []),
+            "placements": places_by.get(asset.id, []),
+            "findings": finds_by.get(asset.id, 0),
+            "animations": len((layout or {}).get("rows", [])),
+            "frames": frames,
+            "bytes": sum(products[p].bytes for p in asset.products),
+            "errors": data.get("errors", []),
+        }
+
+    product_rows = {}
+    for path, p in products.items():
+        prov = p.provenance
+        if prov.get("confidence") == "derived":
+            # A tier copy: the page names the source; its evidence is the same sentence each time.
+            prov = {"confidence": "derived", "derived_from": prov.get("derived_from"), "generator": prov.get("generator")}
+        product_rows[path] = {
+            "asset": p.asset,
+            "role": p.role,
+            "tier": p.root.tier,
+            "bytes": p.bytes,
+            "size": list(p.size) if p.size else None,
+            "sha256": p.sha256,
+            "thumb": p.thumb,
+            "href": os.path.relpath(p.file, out),
+            "mtime": int(p.mtime),
+            "provenance": prov,
+        }
+
+    coverage: dict[str, Counter] = defaultdict(Counter)
+    for p in products.values():
+        coverage[p.root.of or p.root.name][p.provenance.get("confidence", "unknown")] += 1
+    return {
+        "schema": SCHEMA,
+        "built_at": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat(),
+        "repo_commit": _git(repo, "rev-parse", "HEAD"),
+        "renderer_commit": _git(repo / "tools" / "ambition_sprite2d_renderer", "rev-parse", "HEAD"),
+        "repo_href": to_repo,
+        # For editor links (`vscode://file/...`); the page never reads the disk itself.
+        "repo_abs": str(repo),
+        "coverage": {k: dict(v) for k, v in sorted(coverage.items())},
+        "generators": gens,
+        "assets": asset_rows,
+        "products": product_rows,
+        "findings": found,
+    }
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="asset_index", description=__doc__.split("\n", 1)[0])
+    sub = parser.add_subparsers(dest="command", required=True)
+    b = sub.add_parser("build", help="index the art and write the inspector page")
+    s = sub.add_parser("serve", help="build the inspector and serve it with durable review notes")
+    s.add_argument("--port", type=int, default=8767)
+    for page in (b, s):
+        page.add_argument("--out", type=Path, default=None, help="default: <repo>/.agent/asset_inspector")
+        page.add_argument("--jobs", type=int, default=4, help=f"preview processes (at most {thumbs.MAX_JOBS})")
+        page.add_argument("--no-previews", action="store_true", help="name previews but draw none (a fast rebuild of the index)")
+        page.add_argument("--prune", action="store_true", help="delete previews the index no longer names")
+        page.add_argument("--renderer-python", default=None, help="the interpreter for `ambition_sprite2d_renderer list --json`")
+        page.add_argument("--authorship", action="store_true", help="read Git authorship and history previews")
+        page.add_argument("--open", action="store_true", help="open the page in a browser when built")
+    n = sub.add_parser("notes", help="read the review backlog or save a review note")
+    n.add_argument("action", choices=("backlog", "list", "add", "resolve", "reopen"))
+    n.add_argument("id", nargs="?", help="full character identity for add; note UUID for resolve or reopen")
+    n.add_argument("--text", default="")
+    n.add_argument("--priority", choices=reviews.PRIORITIES, default="normal")
+    n.add_argument("--animation", default="")
+    n.add_argument("--resolution", default="")
+    n.add_argument("--json", action="store_true")
+    n.add_argument("--out", type=Path)
+    for command in ("status", "list", "inspect", "coverage"):
+        query = sub.add_parser(command, help="query the shared art inspection model")
+        if command == "inspect":
+            query.add_argument("query")
+        else:
+            query.add_argument("--query", default="")
+        query.add_argument("--kind", default="")
+        query.add_argument("--lineage", nargs="?", const="", default="")
+        query.add_argument("--needs-generation", action="store_true")
+        query.add_argument("--strict", action="store_true", help="count possibly stale units (only shared code changed) as needing generation")
+        query.add_argument("--current-game", action="store_true")
+        query.add_argument("--animation", default="")
+        query.add_argument("--missing", default="")
+        query.add_argument("--json", action="store_true")
+        query.add_argument("--out", type=Path)
+        query.add_argument("--renderer-python")
+    for command_parser in (b, s, *[sub.choices[name] for name in ("status", "list", "inspect", "coverage")]):
+        command_parser.add_argument("--library", type=Path, help="selected content library manifest")
+        command_parser.add_argument("--profile", default="ambition", help="ambition, or a content pack directory")
+        command_parser.add_argument("--content-binary", type=Path, help="prebuilt check binary for this provider")
+        command_parser.add_argument("--deep", action="store_true", help="rehash accepted inputs and outputs")
+        command_parser.add_argument("--runtime-snapshot", type=Path)
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if not argv or argv[0].startswith("-") and argv[0] not in ("-h", "--help"):
+        # No command: show what exists now, refresh the index behind it.
+        argv = ["serve", "--open", *argv]
+    args = parser.parse_args(argv)
+    repo = repo_root()
+    if getattr(args, "library", None):
+        import os
+        os.environ["AMBITION_CONTENT_LIBRARY"] = str((repo / args.library).resolve())
+    out = (args.out or repo / ".agent" / "asset_inspector").resolve()
+    legacy = repo / ".agent" / "art_inspector"
+    if args.out is None and not out.exists() and legacy.is_dir():
+        # The art inspector's output: keep its previews and caches under the new name.
+        legacy.rename(out)
+    if args.command == "serve" and not out.is_relative_to(repo):
+        parser.error("serve --out must be inside the repository")
+    if args.command == "notes":
+        return reviews.cli(repo, out, args)
+    if args.command not in ("build", "serve"):
+        report = inventory.collect(repo, out, profile=args.profile, python=args.renderer_python, binary=args.content_binary,
+                                   deep=args.deep, runtime_path=args.runtime_snapshot)
+        rows = inventory.select(report, query=args.query, kind=args.kind, needs=args.needs_generation,
+                                game_only=args.current_game, lineage=args.lineage, missing=args.missing, strict=args.strict)
+        selected = {cid: report["identities"][cid] for unit in rows for cid in unit["identities"]}
+        if args.animation:
+            selected = {cid: dict(row, coverage=[c for c in row["coverage"] if c["action"] == args.animation]) for cid, row in selected.items()}
+        scope = inventory.select(report, query=args.query, kind=args.kind, game_only=args.current_game, lineage=args.lineage)
+        gaps = [unit["id"] for unit in scope if unit["status"]["state"] == "unknown" or any(tier["state"] == "unknown" for tier in unit["status"].get("tiers", {}).values())]
+        result = dict(report, units={row["id"]: row for row in rows}, identities=selected, summary=inventory.summary(rows),
+                      scope_summary=inventory.summary(scope), generation_evidence_gaps=gaps)
+        if args.json:
+            print(json.dumps(result, indent=2, sort_keys=True))
+        else:
+            print("Profile: " + json.dumps({k: report["profile"].get(k) for k in ("provider", "pack", "fingerprint", "state")}, sort_keys=True))
+            for warning in report["warnings"]:
+                print("WARNING: " + warning)
+            for row in rows:
+                print(f"{row['id']}: {row['status']['state']} | {row['game_use']} | {row['repair']}")
+            print(json.dumps(result["summary"], sort_keys=True))
+            print(f"{len(gaps)} bundle(s) in this scope have unknown generation evidence.")
+        return 0
+    def run(log=print):
+        return build(repo, out, jobs=args.jobs, previews=not args.no_previews, prune=args.prune, python=args.renderer_python,
+                     lineages=args.authorship, profile=args.profile, binary=args.content_binary, deep=args.deep,
+                     runtime_path=args.runtime_snapshot, log=log)
+    if args.command == "serve":
+        from .server import serve
+        serve(repo, out, port=args.port, open_browser=args.open, build=run)
+        return 0
+    run()
+    if args.open:
+        webbrowser.open((out / "index.html").as_uri())
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

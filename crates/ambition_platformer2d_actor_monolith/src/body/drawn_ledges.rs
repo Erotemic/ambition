@@ -1,5 +1,5 @@
-//! A mount's ledges that follow its art (`CharacterMount::drawn_ledges`) read
-//! the row and frame the mount is drawn in.
+//! A mount's ledges and slope that follow its art (`CharacterMount::drawn_ledges`,
+//! `CharacterMount::slope_follows`) read the row and frame the mount is drawn in.
 //!
 //! The row is the body's [`PinnedRow`]: a conductor's, or its rest row's.
 //! A pin is not rollback state (its writers derive it again each tick), so
@@ -24,7 +24,7 @@ use bevy::prelude::*;
 /// A seat on a drawn ledge (`CharacterMount::saddle_on`) goes with it.
 pub fn follow_drawn_ledges(mut mounts: Query<(&mut BackLedge, Option<&mut Mountable>, Option<&PinnedRow>)>) {
     for (mut back, mountable, pinned) in &mut mounts {
-        if back.drawn.is_empty() || back.surfaces.is_none() {
+        if !back.follows_drawing() || back.surfaces.is_none() {
             continue;
         }
         match pinned.filter(|pinned| pinned.is_pinned()) {

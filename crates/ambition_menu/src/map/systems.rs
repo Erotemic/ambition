@@ -135,7 +135,7 @@ pub fn map_room_node(level: &ambition_platformer2d_ldtk::LdtkLevel) -> MapRoomNo
                 match text(fields, "activation") {
                     Some("EdgeExit") => {
                         edge_exits.push(target.to_string());
-                        if text(fields, "id").is_some_and(|id| id.starts_with("secret_")) {
+                        if text(fields, "id").is_some_and(|id| id.starts_with(ambition_platformer2d_world::rooms::SECRET_ZONE_PREFIX)) {
                             secret_exits.push(target.to_string());
                         }
                     }

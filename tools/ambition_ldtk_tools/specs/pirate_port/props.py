@@ -25,6 +25,10 @@ SCENERY = {
     ],
     # The cellars under customs, down the well.
     "pirate_customs_cellars": [("cellars_vault", 16, 16)],
+    # The smugglers' tunnel east of them, and the hoard behind its planks
+    # (`targets/props/pirate_tunnel_props.py`).
+    "pirate_smugglers_tunnel": [("tunnel_west", 16, 16), ("tunnel_east", 1024, 16)],
+    "pirate_smugglers_hoard": [("hoard_room", 16, 16)],
     "pirate_port_waterfront": [
         ("port_waterfront_west", 0, 160),
         ("port_waterfront_middle", 540, 140),
@@ -34,6 +38,8 @@ SCENERY = {
         ("port_chandlery", 1660, 420),
         ("port_net_loft", 2076, 356),
         ("port_lamp_post", 1612, 664),
+        # The drain's hole in the street (seen when its grate is open).
+        ("port_drain_shaft", 1682, 762),
     ],
     "pirate_port_tavern": [
         ("port_tavern_room", 16, 32),

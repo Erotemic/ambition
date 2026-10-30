@@ -387,6 +387,8 @@ collections:
   - station_rahimi
   - station_pell
   - station_wen
+  - science_nikobolt
+  - science_coulomba
   - port_ines
   - port_tomas
   - port_agnes
@@ -497,15 +499,115 @@ collections:
   - hamlet_east
   - court_busker
   - hanoi_temple
+  - hanoi_needle
+  - hanoi_disk_01
+  - hanoi_disk_02
+  - hanoi_disk_03
+  - hanoi_disk_04
+  - hanoi_disk_05
+  - hanoi_disk_06
+  - hanoi_disk_07
+  - hanoi_disk_08
+  - hanoi_disk_09
+  - hanoi_disk_10
+  - hanoi_disk_11
+  - hanoi_disk_12
+  - hanoi_disk_13
+  - hanoi_disk_14
+  - hanoi_disk_15
+  - hanoi_disk_16
+  - hanoi_disk_17
+  - hanoi_disk_18
+  - hanoi_disk_19
+  - hanoi_disk_20
+  - hanoi_disk_21
+  - hanoi_disk_22
+  - hanoi_disk_23
+  - hanoi_disk_24
+  - hanoi_disk_25
+  - hanoi_disk_26
+  - hanoi_disk_27
+  - hanoi_disk_28
+  - hanoi_disk_29
+  - hanoi_disk_30
+  - hanoi_disk_31
+  - hanoi_disk_32
+  - hanoi_disk_33
+  - hanoi_disk_34
+  - hanoi_disk_35
+  - hanoi_disk_36
+  - hanoi_disk_37
+  - hanoi_disk_38
+  - hanoi_disk_39
+  - hanoi_disk_40
+  - hanoi_disk_41
+  - hanoi_disk_42
+  - hanoi_disk_43
+  - hanoi_disk_44
+  - hanoi_disk_45
+  - hanoi_disk_46
+  - hanoi_disk_47
+  - hanoi_disk_48
+  - hanoi_disk_49
+  - hanoi_disk_50
+  - hanoi_disk_51
+  - hanoi_disk_52
+  - hanoi_disk_53
+  - hanoi_disk_54
+  - hanoi_disk_55
+  - hanoi_disk_56
+  - hanoi_disk_57
+  - hanoi_disk_58
+  - hanoi_disk_59
+  - hanoi_disk_60
+  - hanoi_disk_61
+  - hanoi_disk_62
+  - hanoi_disk_63
+  - hanoi_disk_64
   - ranger_station_room
   - ridge_sinkhole
   - fossil_beds
   - bakery_room
   - castle_cells_room
   - castle_guild_room
+  - catacombs_west
+  - catacombs_east
+  - ridge_west
+  - ridge_east
+  - hamlet_belltower
+  - hill_west
+  - hill_east
+  - catacombs_cracked_wall
+  - ossuary_room
+  - run_great_tree
+  - treetops_west
+  - treetops_east
+  - quad_manhole
+  - plant_west
+  - plant_east
+  - plant_bricked_door
+  - first_lab_room
+  - woods_root_knot
+  - woods_root_hole
+  - roots_west
+  - roots_east
+  - fossil_cracked_wall
+  - amber_vault_room
+  - roots_cracked_wall
+  - conjectures_room
   - sail_loft_room
   - plaza_well
   - cellars_vault
+  - port_drain_shaft
+  - port_drain_grate
+  - tunnel_west
+  - tunnel_east
+  - hoard_room
+  - ninja_shrine_slab
+  - ninja_shrine_shaft
+  - ninja_street_board
+  - ninja_way_west
+  - ninja_way_east
   - collider_tunnel
   - spur_west
   - spur_east
@@ -513,6 +615,8 @@ collections:
   - math_ballroom_room
   - math_goat
   - math_car
+  - math_closet_curtain
+  - math_prize_case
   - moor_inn_front
   - inn_room
   - reef_shore

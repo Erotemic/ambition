@@ -663,7 +663,9 @@
             composition: None,
             default_brain: "companion_dog_roam",
             default_action_set: "peaceful",
-            locomotion: Some((run_speed: 120.0, move_style: Walk, baseline_free_flight: Some(false))),
+            // It stands by its centre of gravity (`balance`): a long body with
+            // its centre over a ledge's end or a hole goes off it.
+            locomotion: Some((run_speed: 120.0, move_style: Walk, baseline_free_flight: Some(false), balance: Some(()))),
             // It walks and hops.
             abilities: Some([Walk, Jump]),
             max_health: Some(4),
@@ -695,7 +697,7 @@
             composition: None,
             default_brain: "companion_dog_roam",
             default_action_set: "peaceful",
-            locomotion: Some((run_speed: 120.0, move_style: Walk, baseline_free_flight: Some(false))),
+            locomotion: Some((run_speed: 120.0, move_style: Walk, baseline_free_flight: Some(false), balance: Some(()))),
             abilities: Some([Walk, Jump]),
             max_health: Some(4),
             tags: ["animal", "dog", "quadruped", "companion", "peaceful"],
@@ -721,7 +723,7 @@
             composition: None,
             default_brain: "companion_dog_roam",
             default_action_set: "peaceful",
-            locomotion: Some((run_speed: 120.0, move_style: Walk, baseline_free_flight: Some(false))),
+            locomotion: Some((run_speed: 120.0, move_style: Walk, baseline_free_flight: Some(false), balance: Some(()))),
             abilities: Some([Walk, Jump]),
             max_health: Some(4),
             tags: ["animal", "dog", "quadruped", "companion", "peaceful"],
@@ -747,7 +749,7 @@
             composition: None,
             default_brain: "companion_dog_roam",
             default_action_set: "peaceful",
-            locomotion: Some((run_speed: 120.0, move_style: Walk, baseline_free_flight: Some(false))),
+            locomotion: Some((run_speed: 120.0, move_style: Walk, baseline_free_flight: Some(false), balance: Some(()))),
             abilities: Some([Walk, Jump]),
             max_health: Some(4),
             tags: ["animal", "dog", "quadruped", "companion", "peaceful"],
@@ -1864,8 +1866,9 @@
             // A heavy walk. GNU-ton's conductor walks it between his blows
             // (`ambition.boss.mount_walk`) at the speed its walk row is drawn
             // for: its hooves stand still on the floor at 135.4 a second
-            // (`giant_art.STRIDE_SPEED`).
-            locomotion: Some((run_speed: 135.4, move_style: WalkHeavy)),
+            // (`giant_art.STRIDE_SPEED`). It stands by its centre of gravity
+            // (`balance`): with its centre past a ledge it goes off it.
+            locomotion: Some((run_speed: 135.4, move_style: WalkHeavy, balance: Some(()))),
             mount: Some((
                 class: Some("giant"),
                 // The seat: where a rider's soles rest. The scholar stands on the
@@ -1880,8 +1883,11 @@
                 // conductor reads as "on its back": from the outer end of one
                 // epaulet to the outer end of the other (405..655 px of the
                 // frame, their top at 303 px, at 1.3 wu/px). It is not ground.
+                // The back and the ground in it are the giant's, ridden or
+                // not; the Hall's giant (`npc_giant_gnu_whole`) has the same.
                 back: Some((left: -14.0, right: 311.0, top: -232.05, thickness: 14.0)),
-                // Where the art has moss, a body can stand (one-way ground):
+                // Where the art has its gold-and-crimson trim
+                // (`giant_art.stand_trim`), a body can stand (one-way ground):
                 // the level part of each horn (from `gnu_horns`, about the
                 // body-box centre), and the top of each epaulet.
                 ledges: [
@@ -1902,7 +1908,11 @@
                 // (`walkable_lines`). It ends under the left end of the
                 // shoulders, about 93 lower: a double jump goes up through the
                 // one-way shoulders onto them. The points are the renderer's
-                // `giant_art.hump_line_world()`: change the two together.
+                // `giant_art.hump_line_world()`: change the two together. It
+                // FOLLOWS THE ART: the sheet publishes its two ends where the
+                // barrel is drawn (`surface:hump`), so it bobs, turns and
+                // bucks under a body that stands on it.
+                slope_follows: Some("hump"),
                 slope: [
                     (-294.4, -25.7), (-263.8, -50.6), (-233.1, -74.4), (-202.4, -95.8),
                     (-171.7, -113.9), (-141.1, -127.8), (-110.4, -136.8), (-79.7, -140.5),
@@ -1947,6 +1957,8 @@
         "npc_giant_gnu_hands": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Giant GNU Hand",
+            // A part of the giant: the giant carries the label.
+            nameplate: false,
             manifest: "sprites/gnu_ton_boss/giant_gnu_fist_spritesheet.ron",
             // Its face is the pair of hands the generator still draws for it.
             portrait: Some((
@@ -1982,7 +1994,8 @@
         // full version with arms and we remove the hands as standalone
         // characters from the hall ... It should have one stand per 'semantic
         // identity' of a character." It is not a mount and has no fists of
-        // its own: the fight uses the two parts above.
+        // its own: the fight uses the two parts above. A body stands on it
+        // where it stands on the giant of the fight.
         "npc_giant_gnu_whole": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Giant GNU",
@@ -1994,7 +2007,25 @@
             posed_body: Some(SameAs("npc_giant_gnu")),
             unmirrored: true,
             rest_row: Some("armed_rest"),
-            locomotion: Some((run_speed: 0.0, move_style: WalkHeavy)),
+            locomotion: Some((run_speed: 0.0, move_style: WalkHeavy, balance: Some(()))),
+            // Not a mount (no class), but the same body: where its trim is, a
+            // body stands on it as on the giant of the fight. The numbers are
+            // `npc_giant_gnu`'s (the same sheet, at the same scale): change
+            // the two together.
+            mount: Some((
+                back: Some((left: -14.0, right: 311.0, top: -232.05, thickness: 14.0)),
+                ledges: [
+                    (left: 28.3, right: 76.3, top: -417.4, thickness: 12.0),
+                    (left: 221.4, right: 269.4, top: -417.4, thickness: 12.0),
+                ],
+                drawn_ledges: ["shoulder_left", "shoulder_right"],
+                slope_follows: Some("hump"),
+                slope: [
+                    (-294.4, -25.7), (-263.8, -50.6), (-233.1, -74.4), (-202.4, -95.8),
+                    (-171.7, -113.9), (-141.1, -127.8), (-110.4, -136.8), (-79.7, -140.5),
+                    (-49.0, -140.4), (-18.3, -139.3), (12.3, -137.4),
+                ],
+            )),
             autonomous_profile: Some((template: StandStill, aggro_radius: 0.0, attack_range: 0.0)),
             max_health: Some(42),
             mass: Some(8.0),
@@ -3223,6 +3254,9 @@
                 attack_range: 44.0,
                 patrol_effort: 0.6,
                 chase_effort: 1.0,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): It sizes you up just out of reach, then commits; the pack spaces itself.
+                retreat_after_swing_s: 0.35,
+                tactics: (notice_s: 0.45, lurk_px: 80.0, waits_its_turn: true, footsies: Some((hold_px: 120.0, wait_s: 0.8)), flinch_back_s: 0.2),
             )),
             max_health: Some(4),
             tags: ["enemy", "large"],
@@ -4692,6 +4726,8 @@
                 attack_range: 30.0,
                 patrol_effort: 0.5,
                 chase_effort: 1.0,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): They take turns.
+                tactics: (notice_s: 0.3, waits_its_turn: true),
             )),
             max_health: Some(2),
             tags: ["enemy", "bird", "minion"],
@@ -4721,6 +4757,8 @@
                 attack_range: 30.0,
                 patrol_effort: 0.5,
                 chase_effort: 1.0,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): They take turns.
+                tactics: (notice_s: 0.3, waits_its_turn: true),
             )),
             max_health: Some(2),
             tags: ["enemy", "bird", "minion"],
@@ -4784,6 +4822,8 @@
                 attack_range: 26.0,
                 patrol_effort: 0.5,
                 chase_effort: 1.0,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): Skittish: hit it and it bolts.
+                tactics: (notice_s: 0.3, flinch_back_s: 0.5),
             )),
             max_health: Some(1),
             tags: ["enemy", "bird", "minion"],
@@ -4813,6 +4853,9 @@
                 attack_range: 42.0,
                 patrol_effort: 0.5,
                 chase_effort: 1.0,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): Kick and run.
+                retreat_after_swing_s: 0.5,
+                tactics: (notice_s: 0.4, flinch_back_s: 0.3),
             )),
             max_health: Some(3),
             tags: ["enemy", "bird", "minion"],
@@ -4843,6 +4886,9 @@
                 attack_range: 48.0,
                 patrol_effort: 0.5,
                 chase_effort: 1.0,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): It struts just out of reach, then the kick; then away.
+                retreat_after_swing_s: 0.6,
+                tactics: (notice_s: 0.4, footsies: Some((hold_px: 120.0, wait_s: 1.0)), flinch_back_s: 0.3),
             )),
             max_health: Some(4),
             tags: ["enemy", "bird", "minion"],
@@ -4871,6 +4917,9 @@
                 attack_range: 48.0,
                 patrol_effort: 0.5,
                 chase_effort: 1.0,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): As the ostrich.
+                retreat_after_swing_s: 0.6,
+                tactics: (notice_s: 0.4, footsies: Some((hold_px: 120.0, wait_s: 1.1)), flinch_back_s: 0.3),
             )),
             max_health: Some(4),
             tags: ["enemy", "bird", "minion"],
@@ -4900,6 +4949,9 @@
                 attack_range: 42.0,
                 patrol_effort: 0.5,
                 chase_effort: 1.0,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): It waits, it waits, it kicks hard.
+                attack_cooldown_s: 0.8,
+                tactics: (notice_s: 0.5, footsies: Some((hold_px: 100.0, wait_s: 1.2))),
             )),
             max_health: Some(5),
             tags: ["enemy", "bird", "minion"],
@@ -4930,6 +4982,8 @@
                 attack_range: 50.0,
                 patrol_effort: 0.3,
                 chase_effort: 0.7,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): The stare: it holds a long way off, and then it does not.
+                tactics: (notice_s: 0.6, footsies: Some((hold_px: 140.0, wait_s: 1.8))),
             )),
             max_health: Some(5),
             tags: ["enemy", "bird", "minion"],
@@ -5057,6 +5111,8 @@
                 attack_range: 30.0,
                 patrol_effort: 0.4,
                 chase_effort: 1.0,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): A huddle takes turns.
+                tactics: (notice_s: 0.35, waits_its_turn: true, flinch_back_s: 0.2),
             )),
             max_health: Some(3),
             tags: ["enemy", "bird", "minion"],
@@ -5087,6 +5143,10 @@
                 attack_range: 22.0,
                 patrol_effort: 0.6,
                 chase_effort: 1.0,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): A pack that darts: each takes its turn, bites and skips back out.
+                retreat_after_swing_s: 0.4,
+                attack_cooldown_s: 0.3,
+                tactics: (notice_s: 0.3, waits_its_turn: true, footsies: Some((hold_px: 70.0, wait_s: 0.6)), flinch_back_s: 0.3),
             )),
             max_health: Some(1),
             tags: ["enemy", "dinosaur"],
@@ -5148,6 +5208,9 @@
                 attack_range: 44.0,
                 patrol_effort: 0.5,
                 chase_effort: 1.0,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): It holds its distance, lowers its head, and comes.
+                retreat_after_swing_s: 0.5,
+                tactics: (notice_s: 0.5, footsies: Some((hold_px: 160.0, wait_s: 1.0)), flinch_back_s: 0.2),
             )),
             max_health: Some(6),
             tags: ["enemy", "dinosaur"],
@@ -5178,6 +5241,9 @@
                 attack_range: 62.0,
                 patrol_effort: 0.3,
                 chase_effort: 1.0,
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): Slow between gores: the gap is the opening.
+                attack_cooldown_s: 1.0,
+                tactics: (notice_s: 0.6),
             )),
             max_health: Some(12),
             mass: Some(8.0),
@@ -6007,6 +6073,47 @@
             barks: (
                 idle: ["Forty years, and it still looks new.", "The first link held three seconds."],
                 hall: ["I tuned this station's first stable ring. Now people commute through it.", "Cheap power made gates common. It did not make them cheap.", "Look down. That is why anyone comes up here."],
+            ),
+        ),
+        // Nikobolt Tesseract, an inventor who lives in peace in the Science
+        // dimension: a sympathetic Tesla parody (renderer
+        // `data/townsfolk/science_nikobolt.chargen.yaml`, drawn with the
+        // hand-made overlay `data/overlays/nikobolt_tesseract.overlay.svg`).
+        // Others took his inventions; he is not a villain. His home is not
+        // built yet.
+        "npc_science_nikobolt": (
+            display_name: "Nikobolt Tesseract",
+            manifest: "sprites/science_nikobolt_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 188 cm.
+            standing_height: Some(72.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["science", "inventor", "peaceful"],
+            barks: (
+                idle: ["...twenty-six, twenty-seven. Good. Twenty-seven.", "Eighteen napkins. Then I can eat."],
+                hall: ["The lamp by my door has no wire. Please stop looking for one. You are standing in the tulips.", "My coil drawings went missing. Now there is lightning over the castle on the other side of the gate.", "My wife feeds the pigeons on the roof. She says they are family. I have not asked which side."],
+            ),
+        ),
+        // Coulomba Tesseract, Nikobolt's wife: a white pigeon (renderer
+        // `data/townsfolk/science_coulomba.chargen.yaml`, drawn with the
+        // hand-made overlay `data/overlays/coulomba_tesseract.overlay.svg`).
+        "npc_science_coulomba": (
+            display_name: "Coulomba Tesseract",
+            manifest: "sprites/science_coulomba_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 165 cm.
+            standing_height: Some(63.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["science", "pigeon", "peaceful"],
+            barks: (
+                idle: ["*coo* ...pardon me.", "He counted the stairs again. Three times."],
+                hall: ["Nikobolt lit our kitchen with no wire. I still keep candles in the drawer.", "The pigeons on our roof are not my relatives. Probably not.", "People from the other gate come asking about his lightning. I send them home with seed cake."],
             ),
         ),
         "npc_station_dobbs": (

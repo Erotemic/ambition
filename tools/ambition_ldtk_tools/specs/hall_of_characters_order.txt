@@ -148,6 +148,8 @@ npc_eureka_mina
 npc_eureka_pryce
 npc_eureka_hum
 npc_eureka_quark
+npc_science_nikobolt
+npc_science_coulomba
 
 [Made by the character generator]
 npc_armsmith_odile

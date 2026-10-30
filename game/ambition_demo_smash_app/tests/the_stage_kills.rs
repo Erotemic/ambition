@@ -617,8 +617,31 @@ fn the_camera_closes_no_faster_than_it_opened() {
     // waiting body still (D201/ADR 0033), so a live launch widens the frame
     // only a little. The rule is about the teleport back.
     let mut stock_spent = false;
+    let world_width = ambition_demo_smash::smash_stage().world.size.x;
     for tick in 0..5_400 {
         app.update();
+        // THE KNOCKOUT IS STAGED, not waited for. Two rung-5 CPUs that see their
+        // own bodies now (Q167) stopped walking off the stage, and a 90 s match
+        // no longer reliably ends a stock. One launch, outward and in hitstun so
+        // no brain steers it home; the frame follows the flying body (the open)
+        // and closes after the respawn (the close), as in a real KO.
+        if tick == 900 {
+            use ambition_platformer2d::actor::{BodyKinematics, MatchSeat};
+            let world = app.world_mut();
+            let mut query = world.query::<(
+                &MatchSeat,
+                &mut BodyKinematics,
+                &mut ambition_platformer2d::characters::actor::BodyCombat,
+            )>();
+            for (seat, mut kin, mut combat) in query.iter_mut(world) {
+                if seat.0 == 1 {
+                    let toward = if kin.pos.x * 2.0 > world_width { 1.0 } else { -1.0 };
+                    kin.vel =
+                        ambition_platformer2d::engine_core::Vec2::new(2_400.0 * toward, -200.0);
+                    combat.hitstun_timer = 2.0;
+                }
+            }
+        }
         {
             let world = app.world_mut();
             let mut spends = world.resource_mut::<
@@ -1329,10 +1352,15 @@ fn a_second_match_on_the_same_stage_counts_in_and_ends() {
         let mut standing: Option<Vec<(usize, ambition_platformer2d::engine_core::Vec2)>> = None;
         for tick in 0..(countdown + 600) {
             app.update();
-            // Launch once, as soon as the ceremony releases the cast. At 2400px/s the
-            // body crosses the blast margin in a few ticks, and on one stock that ends
-            // the match. A claim about the card's wording must not depend on combat
-            // tuning.
+            // Put the fighter out of play once, as soon as the ceremony releases
+            // the cast: past the side blast line and still flying outward, so on
+            // one stock the match ends. A claim about the card's wording must not
+            // depend on combat tuning — nor on how slow the CPU is to see its own
+            // body. ⛔ A 2400 px/s launch from the stage USED to be enough because
+            // the brain saw itself 300 ms late; it sees its body now (Q167), and
+            // 11 ticks after the launch the fighter went from x 867 to x 653 with
+            // no speed in one tick and fell back toward the stage, so the first
+            // match never ended.
             if !launched && tick > countdown + 2 {
                 let world = app.world_mut();
                 let mut query = world.query::<(&MatchSeat, &mut BodyKinematics)>();
@@ -1343,6 +1371,7 @@ fn a_second_match_on_the_same_stage_counts_in_and_ends() {
                         } else {
                             -1.0
                         };
+                        kin.pos.x = world_width * 0.5 + toward * world_width * 4.0;
                         kin.vel =
                             ambition_platformer2d::engine_core::Vec2::new(2_400.0 * toward, -200.0);
                         launched = true;

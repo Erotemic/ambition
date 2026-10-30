@@ -510,7 +510,11 @@ pub(super) fn convert_pickup_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissi
         crate::surfaces::SurfaceRespawn::Never if !authored_policy => {
             ambition_entity_catalog::placements::HazardRespawn::OnRoomReload
         }
-        crate::surfaces::SurfaceRespawn::Never => ambition_entity_catalog::placements::HazardRespawn::Never,
+        // A pickup's `Never` is already remembered in the save (Q154), so
+        // `Persistent` is that.
+        crate::surfaces::SurfaceRespawn::Never | crate::surfaces::SurfaceRespawn::Persistent => {
+            ambition_entity_catalog::placements::HazardRespawn::Never
+        }
         crate::surfaces::SurfaceRespawn::OnRoomReload => {
             ambition_entity_catalog::placements::HazardRespawn::OnRoomReload
         }

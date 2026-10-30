@@ -56,7 +56,9 @@ pub enum HazardRespawn {
     AfterSeconds(f32),
     /// Respawn when the room is re-entered.
     OnRoomReload,
-    /// The object is persistent and controlled by story/save state.
+    /// Gone for good once consumed, and remembered in the save: a broken
+    /// wall stays broken when its room is built again and after a load. The
+    /// occurrence ledger keeps the fact (a `Spent` row).
     Persistent,
 }
 
@@ -281,6 +283,12 @@ pub struct BreakableSpec {
     pub collision: BreakableCollisionSpec,
     pub trigger: BreakableTriggerSpec,
     pub pogo_refresh: bool,
+    /// The prop sheet that draws this breakable while it stands (a cracked
+    /// stone, a false wall), as a `LockWall` names its look. `None` draws the
+    /// generic breakable sprites. Presentation only: the simulation does not
+    /// read it.
+    #[serde(default)]
+    pub look: Option<String>,
 }
 
 impl BreakableSpec {
@@ -294,6 +302,7 @@ impl BreakableSpec {
             collision: BreakableCollisionSpec::None,
             trigger: BreakableTriggerSpec::OnHit,
             pogo_refresh: false,
+            look: None,
         }
     }
 }

@@ -332,7 +332,17 @@ pub fn sync_visuals(
         With<PlayerVisual>,
     >,
     mut feature_query: Query<
-        (Entity, &FeatureVisual, &mut Transform, &mut Sprite, &mut Visibility),
+        (
+            Entity,
+            &FeatureVisual,
+            &mut Transform,
+            &mut Sprite,
+            &mut Visibility,
+            // A feature drawn by an authored prop sheet (a breakable's look):
+            // the sheet is its picture, so no state sprite is swapped in, and
+            // its tint is written here.
+            Option<&mut super::primitives::PropTint>,
+        ),
         Without<PlayerVisual>,
     >,
     mut warned_unsized_player: Local<bool>,
@@ -532,7 +542,7 @@ pub fn sync_visuals(
         }
     }
 
-    for (entity, visual, mut transform, mut sprite, mut visibility) in &mut feature_query {
+    for (entity, visual, mut transform, mut sprite, mut visibility, look_tint) in &mut feature_query {
         // Each write below is of a change only: a written component is marked
         // changed, and a changed `Transform` is propagated and extracted again.
         let Some(view) = feature_views.get(&visual.id) else {
@@ -558,10 +568,13 @@ pub fn sync_visuals(
         placed.rotation = Quat::from_rotation_z(view.rotation_rad);
         transform.set_if_neq(placed);
 
-        // State-aware sprite swap for breakables and chests. Pickups are
-        // chosen at spawn time and never change kind. Enemies are animated
-        // through the character spritesheet path.
-        if let Some(assets) = assets.as_deref() {
+        // A look darkens as its breakable takes hits; its sheet is its picture.
+        if let Some(mut tint) = look_tint {
+            tint.set_if_neq(super::primitives::PropTint(breakable_look_tint(view)));
+        } else if let Some(assets) = assets.as_deref() {
+            // State-aware sprite swap for breakables and chests. Pickups are
+            // chosen at spawn time and never change kind. Enemies are animated
+            // through the character spritesheet path.
             if let Some(target_key) = state_aware_entity_sprite(view) {
                 if let Some(handle) = assets.entities.get(target_key) {
                     if sprite.image != *handle {
@@ -603,6 +616,16 @@ pub fn sync_visuals(
             Visibility::Hidden
         });
     }
+}
+
+/// The tint of a breakable's look: white while whole, darker as its health
+/// goes down, so each hit shows on the authored picture.
+fn breakable_look_tint(view: &ambition_sim_view::FeatureView) -> Color {
+    if view.hp_max <= 0 {
+        return Color::WHITE;
+    }
+    let damage = 1.0 - (view.hp_current.max(0) as f32 / view.hp_max as f32).min(1.0);
+    Color::srgb(1.0 - 0.35 * damage, 1.0 - 0.4 * damage, 1.0 - 0.45 * damage)
 }
 
 fn state_aware_entity_sprite(view: &ambition_sim_view::FeatureView) -> Option<EntitySprite> {

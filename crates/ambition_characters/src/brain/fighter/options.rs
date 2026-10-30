@@ -797,32 +797,8 @@ pub fn generate_options(
     // rig's `juggle_escape` (whose answer is a down-air) pressed a jab, and
     // the rig's press rates stopped ordering by rung. That case stays on the
     // straight lead until the airborne kit is asked the question.
-    let relative_fall = if !foe.on_ground && me.on_ground {
-        NOMINAL_GRAVITY_PX_S2
-    } else {
-        0.0
-    };
-    // THE ARC ENDS AT THE FLOOR. Where the two stand on one floor their
-    // centres differ by their half-heights; a foe coming down stops there
-    // (the landing). Without the stop, rung 1's 0.5 s staleness (½·g·t² =
-    // 180 px) led a falling foe through the floor and out of every region.
-    let standing_across = me.half_extent.y - foe.half_extent.y;
-    let lead_of = |startup_s: f32| {
-        let dt = view.staleness_s() + startup_s;
-        if dt <= 0.0 {
-            return foe_local;
-        }
-        let rel = foe.vel - me.vel;
-        let facing = if me.facing < 0.0 { -1.0 } else { 1.0 };
-        let rel_local = (rel.dot(basis.side) * facing, rel.dot(basis.down));
-        let across = foe_local.1 + rel_local.1 * dt + 0.5 * relative_fall * dt * dt;
-        let across = if relative_fall > 0.0 {
-            across.min(standing_across.max(foe_local.1))
-        } else {
-            across
-        };
-        (foe_local.0 + rel_local.0 * dt, across)
-    };
+    let relative_fall = falls_toward(me, foe);
+    let lead_of = |startup_s: f32| led_foe(&view, foe, startup_s);
     // WHEN A SWING CAN MEET A MOVING FOE: at the moment its threat opens,
     // and across its active window — a body on an arc that is outside the
     // region when the hitbox opens can be inside it before the hitbox
@@ -845,6 +821,17 @@ pub fn generate_options(
             }
         }
         times
+    };
+    // ⭐ WHERE THE FOE IS WHEN THIS MOVE IS LIVE, measured from where THIS
+    // BODY will be: the move's own lunge (`start_impulse`, body-local, added
+    // at the press) carries the body too. Measured 2026-10-30 (pugnacious
+    // mirror, rung 9): both seats pressed the lunging command grab from
+    // 137 px on a lead that knew only their walking speed, and the lunges
+    // carried them through each other before the grab opened.
+    let lead_for = |frames: &ambition_entity_catalog::MoveFrameData, t: f32| {
+        let (along, across) = lead_of(t);
+        let (ix, iy) = frames.start_impulse;
+        (along - ix * t, across - iy * t)
     };
     // Lead a moving target through projectile travel as well as startup.
     // Use each hazard's travel law (including stationary and turning
@@ -1192,7 +1179,7 @@ pub fn generate_options(
         };
         let mut spanned = false;
         for t in meeting_times(&attack.frames) {
-            let aim = lead_of(t);
+            let aim = lead_for(&attack.frames, t);
             let Some((near, far)) = coverage.span_toward(aim, foe_extent) else {
                 continue;
             };
@@ -1210,6 +1197,17 @@ pub fn generate_options(
             off_axis += 1;
         }
     }
+    // ⛔ A CAPTURE WITH EITHER BODY IN THE AIR CANNOT LAND, whatever the
+    // geometry says: `acquire_captures` takes only a grounded captor and a
+    // grounded victim, so the move plays its startup, catches nobody and
+    // pays its recovery. `capture_value` prices such a hold at nothing, but a
+    // price of nothing still left the swing's reach and frame advantage to
+    // carry it. Measured 2026-10-30 (rung 5, seed 0, the body seen now):
+    // captures were the most-whiffed moves — pointed vs pugnacious, 12 of 15
+    // grab whiffs at a foe perceived airborne; the pugnacious mirror, half of
+    // its 21 collar whiffs pressed by a body in the air. Any move that
+    // attempts a capture (`MoveFrameData::captures`), whatever its button.
+    attacks.retain(|attack| !attack.frames.captures || (me.on_ground && foe.on_ground));
     attacks.retain(|attack| match (&attack.frames.coverage, &attack.frames.push_coverage) {
         // Hits somewhere: the hit is the question, and the shove it may also
         // carry is not a reason to swing at nobody.
@@ -1239,19 +1237,27 @@ pub fn generate_options(
             // quarter to a third of every whiff, thrown 80-90 px from the foe
             // — a move whose job is the way home, pressed as a poke by a lead
             // that forgave both sides.
+            //
+            // "No lead" means no STARTUP lead: the foe is still carried over
+            // its staleness to NOW (`lead_of(0.0)`), because this body is seen
+            // now and the foe late (Q167). Asked of the perceived position, a
+            // foe this body had just launched still read as touching it.
+            // Measured 2026-10-30 (rung 5, seed 1, pointed vs pugnacious):
+            // the uppercut and the rising edge were 10 of 41 whiffs, and every
+            // one thrown past 60 px was at a foe perceived in hitstun, up to
+            // 187 px away when the move began.
             if attack.frames.recovery_route.offers_a_way_home() {
-                return coverage
-                    .span_toward(foe_local, foe_extent)
-                    .is_some_and(|(near, far)| {
-                        let gap = (foe_local.0 * foe_local.0 + foe_local.1 * foe_local.1).sqrt();
-                        gap >= near && gap <= far
-                    });
+                let now = lead_of(0.0);
+                return coverage.span_toward(now, foe_extent).is_some_and(|(near, far)| {
+                    let gap = (now.0 * now.0 + now.1 * now.1).sqrt();
+                    gap >= near && gap <= far
+                });
             }
             // Admitted when the led foe is inside the region at ANY time the
             // move is live: when its threat opens, or during its active
             // window (the arc meeting the anti-air).
             let fits_when_live = meeting_times(&attack.frames).into_iter().any(|t| {
-                let aim = lead_of(t);
+                let aim = lead_for(&attack.frames, t);
                 let Some((near, far)) = coverage.span_toward(aim, foe_extent) else {
                     return false;
                 };
@@ -1284,7 +1290,7 @@ pub fn generate_options(
                 .collect();
             let short_at_active = !active_samples.is_empty()
                 && active_samples.iter().all(|t| {
-                    let aim = lead_of(*t);
+                    let aim = lead_for(&attack.frames, *t);
                     coverage.span_toward(aim, foe_extent).is_none_or(|(near, _)| {
                         (aim.0 * aim.0 + aim.1 * aim.1).sqrt() < near
                     })
@@ -1293,7 +1299,8 @@ pub fn generate_options(
         }
         // Only shoves: offered exactly where the shove lands.
         (None, Some(push)) => {
-            coverage_fit(Some(push), lead_of(threat_at(&attack.frames)), foe_extent) > 0.0
+            let t = threat_at(&attack.frames);
+            coverage_fit(Some(push), lead_for(&attack.frames, t), foe_extent) > 0.0
         }
         // ⛔⛤ **TOUCHES NOTHING — AND THAT WAS FOUR DIFFERENT MOVES WEARING
         // ONE ANSWER.** This arm admitted every move that lands no volume and
@@ -1677,6 +1684,76 @@ fn travel_of(frames: &ambition_entity_catalog::MoveFrameData) -> Option<Travel> 
 /// genre up-B are the same question asked of the same pair.
 fn motion_of(frames: &MoveFrameData) -> (f32, f32) {
     (frames.lift_side, -frames.lift_speed)
+}
+
+/// The foe's fall relative to this body for the lead: gravity when the foe is
+/// airborne over a grounded body, nothing otherwise. See [`led_foe`].
+fn falls_toward(me: &crate::perception::SelfView, foe: &PerceivedActor) -> f32 {
+    if !foe.on_ground && me.on_ground {
+        NOMINAL_GRAVITY_PX_S2
+    } else {
+        0.0
+    }
+}
+
+/// Where `foe` will be `after_s` from now, in this body's local frame (`+x`
+/// toward its facing, `+y` toward its feet).
+///
+/// ⭐ TWO CLOCKS. This body is seen NOW (Q167) and the foe `staleness` late,
+/// so the foe is carried `staleness + after_s` and this body `after_s`: a
+/// relative velocity times one dt would move this body through a past it has
+/// already lived.
+///
+/// THE ARC ENDS AT THE FLOOR. A foe coming down onto a grounded body falls
+/// under gravity ([`falls_toward`]) and stops where the two stand on one
+/// floor (their half-heights apart). Without the stop, rung 1's 0.5 s
+/// staleness (½·g·t² = 180 px) led a falling foe through the floor and out of
+/// every region.
+pub fn led_foe(view: &Perceived<'_>, foe: &PerceivedActor, after_s: f32) -> (f32, f32) {
+    let me = &view.self_view;
+    let basis = me.acceleration_frame();
+    let facing = if me.facing < 0.0 { -1.0 } else { 1.0 };
+    let local = |v: ae::Vec2| (v.dot(basis.side) * facing, v.dot(basis.down));
+    let foe_local = local(foe.pos - me.pos);
+    let foe_dt = view.staleness_s() + after_s;
+    let my_dt = after_s.max(0.0);
+    if foe_dt <= 0.0 {
+        return foe_local;
+    }
+    let relative_fall = falls_toward(me, foe);
+    let (foe_v, my_v) = (local(foe.vel), local(me.vel));
+    let along = foe_local.0 + foe_v.0 * foe_dt - my_v.0 * my_dt;
+    let across =
+        foe_local.1 + foe_v.1 * foe_dt + 0.5 * relative_fall * foe_dt * foe_dt - my_v.1 * my_dt;
+    let across = if relative_fall > 0.0 {
+        let standing_across = me.half_extent.y - foe.half_extent.y;
+        across.min(standing_across.max(foe_local.1))
+    } else {
+        across
+    };
+    (along, across)
+}
+
+/// Whether a strike that opens `strikes_in_s` from now meets the nearest foe:
+/// the led foe ([`led_foe`]) inside the move's region, with the admission's
+/// slack on both sides. `None` with no foe or no hit region.
+///
+/// The question admission asks of a swing before it is pressed, asked again
+/// while it is HELD: a charge freezes the move before its strike, and the foe
+/// keeps moving through the hold.
+pub fn strike_meets_foe(
+    view: &Perceived<'_>,
+    frames: &MoveFrameData,
+    strikes_in_s: f32,
+) -> Option<bool> {
+    let foe = view.nearest_hostile()?;
+    let coverage = frames.coverage.as_ref()?;
+    let aim = led_foe(view, foe, strikes_in_s);
+    let extent = (foe.half_extent.x, foe.half_extent.y);
+    Some(coverage.span_toward(aim, extent).is_some_and(|(near, far)| {
+        let gap = (aim.0 * aim.0 + aim.1 * aim.1).sqrt();
+        gap >= near - ADMISSION_SLACK_PX && gap <= far + ADMISSION_SLACK_PX
+    }))
 }
 
 /// Score how well a move's authored hittable region covers the opponent.

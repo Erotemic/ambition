@@ -817,6 +817,11 @@ pub struct CharacterCatalogEntry {
     /// definition can state it.
     #[serde(default)]
     pub unmirrored: bool,
+    /// A body of this character carries a name label over it. `false` for a
+    /// body that is a part of another (the giant gnu's hands): the whole has
+    /// the label.
+    #[serde(default = "carries_a_nameplate")]
+    pub nameplate: bool,
     /// The hand this character's art makes a gesture with (a pet, a shot).
     /// The default is the hand nearer the viewer. State `Far` for art that is
     /// drawn three-quarter on and reaches with its far hand. A fact of the
@@ -917,6 +922,10 @@ pub enum PosedBodyScale {
     /// differ in size because their art differs, at one scale; a height per
     /// form would state the ratio a second time.
     SameAs(String),
+}
+
+fn carries_a_nameplate() -> bool {
+    true
 }
 
 impl CharacterCatalogEntry {

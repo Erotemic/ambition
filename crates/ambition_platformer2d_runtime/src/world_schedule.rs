@@ -66,8 +66,10 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // The row a character rests in, when its catalog row states
                 // one (the giant gnu whole, with its arms on it).
                 body::pin_rest_rows,
-                // The rows of a body that fades between its attacks.
-                body::pin_fade_rows,
+                // The rows of a body that fades between its attacks; then an
+                // enemy's notice beat and the windup of its swing (a fade's
+                // pin is left alone).
+                (body::pin_fade_rows, body::pin_telegraph_rows).chain(),
                 // Each applier of a request runs on its request.
                 ambition_platformer2d_items::narrative::apply_item_grants.run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::ItemGrantRequested>),
                 ambition_platformer2d_items::narrative::apply_shop_transactions
@@ -269,6 +271,8 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
                 update_ecs_breakables.run_if(any_with_component::<ambition_breakables::BreakableFeature>),
                 // OW5: the respawn's due time, after the timer has ticked.
                 ambition_breakables::mirror_breakable_respawns,
+                // A breakable broken for good is remembered broken.
+                ambition_breakables::record_spent_breakables,
                 // Q152: a collected pickup comes back when its regrowth is due.
                 ambition_platformer2d_items::regrowth::regrow_pickups,
                 // Q154: a collected pickup authored `Never` is gone for good.

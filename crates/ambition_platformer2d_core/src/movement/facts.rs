@@ -152,7 +152,9 @@ pub struct BodyMotionFacts {
     pub turning_around: bool,
     /// Is this body standing on the BRINK — supported, but not if it leaned any
     /// further the way it faces
-    /// ([`crate::LocomotionTuning::teeter_margin`])?
+    /// ([`crate::LocomotionTuning::teeter_margin`])? A body with a balance
+    /// ([`crate::Balance`]) also teeters, whichever way it faces, while its
+    /// centre is past the end of its support within the teeter band.
     ///
     /// Published for control and animation. ⛔ It changes no collision: a
     /// teetering body may still walk off, and nothing here refuses it.

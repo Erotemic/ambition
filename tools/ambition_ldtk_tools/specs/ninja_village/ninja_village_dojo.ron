@@ -3,7 +3,7 @@
     id: "ninja_village_dojo",
     level_id: "ninja_village_dojo",
     world_x: 1856,
-    world_y: 11152,
+    world_y: 11600,
     px_wid: 1600,
     px_hei: 576,
     fill_collision: "empty",

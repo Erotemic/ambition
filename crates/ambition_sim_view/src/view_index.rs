@@ -1169,9 +1169,11 @@ pub fn rebuild_nameplate_index(
             // ⭐⭐ IS THIS BODY DRIVEN — asked of the body, not of the camera.
             bevy::prelude::Has<ambition_characters::control::DrivingParticipant>,
             Option<(&ambition_boss_encounter::BossConfig, &ambition_boss_encounter::BossEncounter)>,
+            Option<&ambition_characters::actor::WornCharacter>,
         ),
         With<FeatureSimEntity>,
     >,
+    catalog: Option<Res<ambition_characters::actor::character_catalog::CharacterCatalog>>,
 ) {
     // ⛔⛔ A PLURAL POLICY WAS PROJECTED FROM ONE SINGULAR BODY. The room rule
     // `label_driven_bodies` is documented to apply uniformly to every body
@@ -1190,7 +1192,14 @@ pub fn rebuild_nameplate_index(
     // policy wants the second.
 
     index.begin_rebuild();
-    for (entity, feature_id, identity, aabb, _combat, health, boss_phase, driven, boss) in &actors {
+    for (entity, feature_id, identity, aabb, _combat, health, boss_phase, driven, boss, worn) in &actors {
+        // A body that is a part of another carries no label of its own
+        // (`CharacterCatalogEntry::nameplate`).
+        if let (Some(worn), Some(catalog)) = (worn, catalog.as_deref()) {
+            if catalog.get(worn.id()).is_some_and(|row| !row.nameplate) {
+                continue;
+            }
+        }
         // Dead actors carry no plate (defeated boss / drained pool).
         if boss_phase.is_some_and(|phase| phase.is_defeated())
             || health.is_some_and(|health| !health.alive())

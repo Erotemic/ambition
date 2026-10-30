@@ -142,6 +142,15 @@ A door that a key opens is two entities and no code.
 - Do not put a door where it holds water back: water does not flow, so the
   door would open on water that stays where it is. Put a pool in a pit.
 
+A secret wall that the player breaks with hits is a `BreakablePlatform` with
+`collision: "Solid"`, `trigger: "OnHit"`, `max_hp` hits and
+`respawn: "Persistent"`: it stays broken for good, and the save remembers it.
+It needs an `id` that is unique in the world file, because the save keys it by
+that id (an LDtk iid changes each time a generator makes the room again).
+`look` names the prop sheet that draws it while it stands; it darkens as it
+takes hits. The generator kit writes one with
+`district_kit.breakable_wall(id, x, y, w, h, look=..., hp=...)`.
+
 `gated_by` is a condition line. A bare value is a flag. A first token with a
 dot is a condition with its arguments: `world.switch_on <switch id>` (a lever
 that is on), `encounter.cleared <encounter id>`, `inventory.holds <item>`.

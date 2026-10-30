@@ -215,7 +215,7 @@ frames; without P1–P3 that is 19 frames of a white blink. Ship them together.
 | P7 fighter camera | ✔ `MatchRules::cast_framing` (Smash: close to 45% of the stage view, 40 px margin; the engine keeps 75% / 48) | cad1bfd1b |
 | P7 camera box, eased margins, floor room | ✔ `cast_framing.{open_hz,close_hz,floor_margin,bounds}` (Smash 4/4 Hz, 40 px, side 280 / rise 170 / fall 100); measured by `match-report --camera`, see § Camera diagnosis | e121708cf |
 | P4 keys re-fit to the archetype clocks | ✔ the generator's clock tables now read the facets (sword / Falcon / zoner); the brawler's tilts and smashes were keyed 2–3 frames of 12 early (renderer 9559e08, generations 5dc7961e / 04dc07d8 / cd14f066) | — |
-| P4 open: slow wind-ups read as standing | the generator keys ONE anticipation frame before contact; on Falcon-paced moves (up-tilt hits at 0.46 of its row) frames 0–3 are idle, then a sudden swing. A gather spread over the wind-up is the next key pass (needs Jon's eye on the republished rows) | — |
+| P4 slow wind-ups gather | ✔ the anticipation keys ease with "gather" (1 − (1 − u)²) instead of cubic "in": the coil starts at once and holds (pugnacious up tilt crouches by tick 4, was standing until tick 10); all three polygons republished. Jon's eye on the rows still wanted | renderer submodule, this commit |
 | CPU: brain admits by the strike's own geometry | ✔ `authored_coverage.rs` + witness `the_brain_admits_by_the_geometry_that_hits`; pair whiffs 93→72% (r5), 72→64% (r9); mirror ~80% unchanged — admission vs foe motion next | 510c098fe |
 | P7 finishing blow | ✔ `zoom_camera_on_a_finishing_blow` + `launch_leaves_the_world` (last stock, predicted KO → finish zoom + 0.5 s freeze) | 9eaf73d32 |
 | P6 squash/stretch | ✔ `BodyPoseView::squash`: lands wide and low, relaxing over the landing beat (deeper when hard); the jump squat presses | this commit |
@@ -671,6 +671,78 @@ the refused uppercut was that cell's only landing offence; the rule is in,
 the regression is noted for the next pass (a lift admitted as an attack
 when the foe is inside its region at the opening is the intended shape;
 the mirror's foe is rarely there).
+
+CPU whiffs, traced one by one (2026-10-30, MEASURED, seeds 0–2, 60 s, whiffs
+/ moves pooled over the three runs):
+
+| cell | r5 before → after | r9 before → after |
+|---|---|---|
+| pointed v pugnacious | 80% → 55% | 64% → 45% |
+| pointed mirror | 74% → 57% | 53% → 49% |
+| pugnacious mirror | 86% → 63% | 80% → 50% |
+| projectile v pointed | 73% → 55% | 65% → 50% (merged main) |
+
+Damage per live minute roughly doubled at r5 (64–123 → 207–227) and the
+mirror-r5 lift regression is gone (169–227 damage in each run). Causes and
+fixes, all in the brain:
+
+1. The brain saw its OWN body 300 ms late (r5): the perceived self was a
+   median 87 px from the live body at whiffed presses, which was the
+   100–220 px gap@w. Q167 shipped: the body is seen now, the foe late, and
+   the lead runs on two clocks. Self-KOs: 39 → 5 in 23 fighter-minutes.
+2. Captures pressed with a body in the air (12 of 15 grab whiffs): a capture
+   now needs both bodies grounded.
+3. The recovery special's no-lead rule read the perceived foe against the
+   live self, so a foe just launched still "touched": it now carries the foe
+   to now. Uppercut gap@w r5: 122 → 47 (pair), 173 → 59 (mirror).
+4. A charge is admitted on its uncharged timing and held while the foe
+   walks through it: the hold is now let go at the last tick the strike
+   still meets the foe.
+5. A landed pummel read as a whiff (to the brain's refusal and to
+   match-report).
+
+Left, REASONED from traces: at r5 the foe reverses inside the 300 ms window
+(dash-dance, a lunge started after the view), and the lead carries the old
+velocity up to ~175 px; the haymaker still whiffs "short" (a foe crossing
+through it). Feel flags: Carl Stargan leaves through the top at 0% (3 of the
+5 remaining self-KOs); CPUs now return from 2400 px/s side launches, so
+fixtures that waited for a KO stage it.
+
+Follow-ups (2026-10-30, MEASURED, same seeds, whiffs / moves pooled, main
+f192e26c1 → after):
+
+| cell | r5 | r9 |
+|---|---|---|
+| pointed v pugnacious | 55% → 59% | 45% → 43% |
+| pointed mirror | 57% → 52% | 49% → 43% |
+| pugnacious mirror | 63% → 62% | 50% → 46% |
+| projectile v pointed | 55% → 51% | 50% → 46% |
+
+Self-KO census (23 fighters × 1 min): 5 → 5, none through the top (was 2).
+
+1. Top exits: the up special was pressed as an ATTACK (Carl Stargan after a
+   double jump; Emmy Noether's hitless lift on the motion list) and its rise
+   is not costed outside Recovery. A way home thrown as an attack must now
+   regain support in the recovery lens, which flies the body under its own
+   gravity (`RecoveryLens::route_survives`). Sanic 1 → 3 off the left ledge
+   and one Stargan left-ledge fall remain: the F0 ledge items, not the top.
+2. The command grab from 137–159 px is inside its own reach: it lunges
+   (360 px/s). In the mirror both seats press it on the same tick, the
+   lunges cross, and a mutual grab is a parry by design (S0.2, "two
+   identical brains that grab on one tick parry every time"). The lead now
+   carries the move's own lunge (`start_impulse`), which refuses a lunge
+   through a foe at point blank; the opening clash is the S0.2 cost.
+3. The crossing-through rule is general and already asked of the haymaker
+   (its box starts 5 px out, so "short" means behind). It missed because
+   it was asked at the UNCHARGED strike while the press held a charge. The
+   press now arms the charge only if the charged strike still meets the
+   foe, and taps otherwise. Haymaker whiffs: pugnacious mirror r5 42/65 →
+   35/65, pair r5 22/27 → 18/26, r9 22/53 → 20/56 and 19/37 → 16/38.
+   Refusing the move at admission instead (tried) cut the haymaker as far
+   but took the smashes off the menu, and the projectile r9 cell rose to
+   57% as the charge shot filled the gap.
+4. Left alone (a rung-5 dash-dance read); one traced match put 7 of 13
+   haymaker whiffs on a foe that changed motion after the perceived frame.
 
 ### Not in this roadmap
 

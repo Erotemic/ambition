@@ -33,6 +33,7 @@ fn frames(startup_s: f32, reach: f32, recovery_s: f32) -> MoveFrameData {
         // This fixture authors no windbox.
         push_coverage: None,
         push_dir: None,
+        captures: false,
         max_damage: 1,
         max_knockback: 0.0,
         // ⚠ EMPTY, SO `kill_potential` IS ZERO FOR EVERY FIXTURE MOVE and the
@@ -1305,6 +1306,7 @@ fn the_smash_outbids_the_jab_on_a_punish_it_fits() {
             // This fixture authors no windbox.
             push_coverage: None,
             push_dir: None,
+            captures: false,
             max_damage: 20,
             ..frames(0.25, 100.0, 0.4)
         },
@@ -1327,6 +1329,7 @@ fn the_smash_outbids_the_jab_on_a_punish_it_fits() {
             // This fixture authors no windbox.
             push_coverage: None,
             push_dir: None,
+            captures: false,
             max_damage: 4,
             ..frames(0.1, 100.0, 0.2)
         },
@@ -2627,7 +2630,10 @@ fn the_move_that_hurls_me_at_the_blastzone_costs_more_than_the_one_that_stays_pu
     let w = UtilityWeights::v1();
 
     let planted = candidate("planted", 0.1, 100.0);
-    let mut hurled = candidate("hurled", 0.1, 100.0);
+    // A fast startup, so the lunge has carried the body only 28 px when the
+    // box opens: admission leads from where the lunge puts the body, and at
+    // 0.1 s it would already have passed the foe 80 px away.
+    let mut hurled = candidate("hurled", 0.02, 100.0);
     hurled.frames.start_impulse = (1400.0, 0.0);
     let kit = [planted, hurled];
 
@@ -3586,4 +3592,55 @@ fn a_lift_with_the_foe_in_reach_is_not_a_route() {
     assert_eq!(routes(&foe_far), vec!["upb".to_string()], "nobody in reach: the way home is offered");
     let foe_near = view_with(300.0, 350.0);
     assert!(routes(&foe_near).is_empty(), "a foe in its reach: not a route, the ranking's to admit");
+}
+
+/// ⛔ A CAPTURE NEEDS BOTH BODIES ON THE GROUND. `acquire_captures` takes a
+/// grounded captor and a grounded victim only, so a move that attempts a
+/// capture is refused — whatever its button — while either body is in the air.
+#[test]
+fn a_capture_needs_both_bodies_on_the_ground() {
+    let mut collar = candidate("collar", 0.1, 60.0);
+    collar.frames.captures = true;
+    let kit = [collar];
+    let admitted = |view: &WorldView| {
+        generate_options(Perceived::cheating(view), Situation::Neutral, &kit, &UtilityWeights::default())
+            .attacks
+            .iter()
+            .any(|a| a.move_id == "collar")
+    };
+    let mut standing = view_with(300.0, 340.0);
+    standing.actors[0].on_ground = true;
+    assert!(admitted(&standing), "the control: both feet down, in reach");
+    let mut foe_up = standing.clone();
+    foe_up.actors[0].on_ground = false;
+    assert!(!admitted(&foe_up), "a foe in the air cannot be held");
+    let mut me_up = standing.clone();
+    me_up.self_view.on_ground = false;
+    assert!(!admitted(&me_up), "a body in the air cannot hold");
+}
+
+/// A LUNGE IS LED FROM WHERE IT CARRIES THE BODY: a foe standing past the
+/// box is met by a move that lunges into it, and a foe standing inside the
+/// box is lunged through.
+#[test]
+fn a_lunge_is_led_from_where_it_carries_the_body() {
+    let admitted = |impulse: f32, foe_x: f32| {
+        let mut lunge = candidate("lunge", 0.15, 60.0);
+        lunge.frames.start_impulse = (impulse, 0.0);
+        let kit = [lunge];
+        let view = view_with(300.0, 300.0 + foe_x);
+        generate_options(
+            Perceived::cheating(&view),
+            Situation::Neutral,
+            &kit,
+            &UtilityWeights::default(),
+        )
+        .attacks
+        .iter()
+        .any(|a| a.move_id == "lunge")
+    };
+    assert!(admitted(0.0, 20.0), "the control: a standing poke meets a foe inside its box");
+    assert!(!admitted(0.0, 120.0), "the control: a standing poke does not reach 120 px");
+    assert!(admitted(400.0, 120.0), "a 400 px/s lunge carries the box 60 px onto the foe");
+    assert!(!admitted(400.0, 20.0), "a 400 px/s lunge carries the body through a foe 20 px away");
 }

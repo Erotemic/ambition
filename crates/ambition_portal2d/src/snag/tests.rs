@@ -51,10 +51,11 @@ fn a_body_half_past_an_end_is_held_on_the_host() {
 }
 
 /// Straddling the opening and drifting sideways in it, it meets the end of
-/// the opening and goes back along the face.
+/// the opening (and its squeeze) and goes back along the face.
 #[test]
 fn a_body_drifting_past_an_end_inside_the_opening_is_held_at_its_side() {
-    let (push, _) = snag_push(at(22.0, 300.0), Some(at(18.0, 300.0)), &floor().aperture()).expect("held");
+    let x = 22.0 + super::SQUEEZE;
+    let (push, _) = snag_push(at(x, 300.0), Some(at(x - 4.0, 300.0)), &floor().aperture()).expect("held");
     assert!(push.y.abs() < 1e-3 && (push.x + 2.0).abs() < 1e-3, "back toward the middle by 2: {push:?}");
 }
 
@@ -162,18 +163,19 @@ fn a_body_walking_past_an_end_in_a_slope_opening_meets_its_side() {
     let ap = PlacedPortal::fixed(BLUE, Vec2::ZERO, normal, 46.0).aperture();
     let up_the_slope = ap.frame.tangent();
     assert!(up_the_slope.x > 0.0, "premise: the tangent runs up the slope to the right");
-    // 27.5 along and 10 deep: a step of 4.5 px right took where it cuts the
-    // slope past the end.
-    let centre = up_the_slope * 27.5 - normal * 10.0;
+    // 27.5 along (and the squeeze) and 10 deep: a step of 4.5 px right took
+    // where it cuts the slope past the end.
+    let end = 46.0 + super::SQUEEZE;
+    let centre = up_the_slope * (27.5 + super::SQUEEZE) - normal * 10.0;
     let half = Vec2::new(12.0, 20.0);
     let body = ae::Aabb::new(centre, half);
     let came_from = ae::Aabb::new(centre - Vec2::new(4.5, 0.0), half);
     let (t0, t1) = super::cut(&super::corners(came_from, &ap)).expect("premise: it straddles");
-    assert!(t0 > -46.0 && t1 < 46.0, "premise: before the step it cut the plane within the opening: {t0}..{t1}");
+    assert!(t0 > -end && t1 < end, "premise: before the step it cut the plane within the opening: {t0}..{t1}");
     let (_, t1) = super::cut(&super::corners(body, &ap)).expect("it straddles");
-    assert!(t1 > 46.0, "premise: after the step it cuts the plane past the end: ..{t1}");
+    assert!(t1 > end, "premise: after the step it cuts the plane past the end: ..{t1}");
     let (push, against) = snag_push(body, Some(came_from), &ap).expect("the end holds it");
-    assert!((push.length() - (t1 - 46.0)).abs() < 1e-3, "back to the end: {push:?}");
+    assert!((push.length() - (t1 - end)).abs() < 1e-3, "back to the end: {push:?}");
     assert!((against + up_the_slope).length() < 1e-3, "held back down the slope: {against:?}");
     assert!(push.dot(normal).abs() < 1e-3, "not lifted across the face: {push:?}");
 }

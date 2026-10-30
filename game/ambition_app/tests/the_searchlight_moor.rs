@@ -28,12 +28,13 @@ fn the_crooked_lantern_is_lit_at_the_end_of_the_moor() {
     go(&mut app, "evil_crooked_lantern", Some("moor_inn_door"));
 }
 
-/// The founder's crypt: down the gate beside his plinth and back up.
+/// The founder's crypt, right under the moor: up the steps to the gate
+/// beside his plinth, and back down.
 #[test]
 fn the_founder_lies_in_a_crypt_under_the_moor() {
     let mut app = a_session_in("evil_founders_crypt");
-    go(&mut app, MOOR, Some("crypt_door"));
-    go(&mut app, "evil_founders_crypt", Some("moor_crypt_door"));
+    go(&mut app, MOOR, Some("crypt_up"));
+    go(&mut app, "evil_founders_crypt", Some("moor_crypt_stair"));
 }
 
 /// The Castle Allotments, west of the moor by its side exit: Hester Crabbe
@@ -66,4 +67,52 @@ fn the_gazette_is_printed_behind_the_bakerys_flour() {
     go(&mut app, "evil_crumbs_bakery", Some("hamlet_bakery_door"));
     talk(&mut app, "npc_evil_prentice", "What are you printing?");
     go(&mut app, "evil_lower_godwin", Some("bakery_door"));
+}
+
+/// The loop under the moor: the catacombs run from the crypt's west end to a
+/// shaft up under Crabbe's plot (13) in the allotments, and back.
+#[test]
+fn the_catacombs_join_the_crypt_to_the_allotments_under_plot_13() {
+    let mut app = a_session_in("evil_catacombs");
+    go(&mut app, "evil_castle_allotments", Some("catacombs_up"));
+    go(&mut app, "evil_catacombs", Some("allot_plot_13"));
+    go(&mut app, "evil_founders_crypt", Some("catacombs_east"));
+    go(&mut app, "evil_catacombs", Some("crypt_west"));
+}
+
+/// The loop over the moor: the Searchlight Ridge, up the watchtower's top
+/// ladder and out of the moor; down again; and from its west end the drop
+/// through the gap onto the allotments' greenhouse roof.
+#[test]
+fn the_searchlight_ridge_runs_over_the_moor_and_drops_to_the_allotments() {
+    let mut app = a_session_in("evil_searchlight_ridge");
+    go(&mut app, MOOR, Some("ridge_tower"));
+    go(&mut app, "evil_searchlight_ridge", Some("moor_ridge"));
+    let mut app = a_session_in("evil_searchlight_ridge");
+    go(&mut app, "evil_castle_allotments", Some("ridge_gap"));
+}
+
+/// Up Lower Godwin's bell tower onto Gallows Hill, east across the plank
+/// bridge onto the Searchlight Ridge, and back; down the bell tower again.
+#[test]
+fn gallows_hill_joins_the_hamlet_to_the_ridge() {
+    let mut app = a_session_in("evil_lower_godwin");
+    go(&mut app, "evil_gallows_hill", Some("hamlet_belltower_top"));
+    go(&mut app, "evil_searchlight_ridge", Some("hill_east"));
+    go(&mut app, "evil_gallows_hill", Some("ridge_west"));
+    go(&mut app, "evil_lower_godwin", Some("hill_belltower"));
+}
+
+/// The catacombs' cracked wall at their west end (a breakable: hit it):
+/// broken, the way west goes into the ossuary of the other founders, and
+/// back.
+#[test]
+fn a_cracked_wall_in_the_catacombs_hides_the_other_founders() {
+    use ambition_platformer2d::engine_core as ae;
+    let wall = "evil_catacombs_cracked_wall";
+    let mut app = a_session_in("evil_catacombs");
+    crate::the_pirate_port::break_the_wall(&mut app, wall, ae::Vec2::new(110.0, 490.0), -1.0);
+    go(&mut app, "evil_other_founders", Some("secret_catacombs_west"));
+    go(&mut app, "evil_catacombs", Some("secret_ossuary_east"));
+    assert_eq!(crate::the_pirate_port::wall_broken(&mut app, wall), Some(true), "the wall stays broken");
 }

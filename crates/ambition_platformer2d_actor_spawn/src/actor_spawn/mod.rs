@@ -810,6 +810,7 @@ impl NpcActorSpawnPlan {
         );
         let motion_model = self.seed.config.tuning.motion_model(&self.seed.policy.0);
         let footprint = built_footprint(&self.seed);
+        let body_size = self.seed.kin.size;
         let cluster_bundle = self.seed.into_components();
         scope.insert_session_scoped((
                 Name::new(self.entity_name),
@@ -876,7 +877,8 @@ impl NpcActorSpawnPlan {
         if let Some(character) = worn {
             match prepared.get(&character) {
                 Some(definition) => {
-                    wear_prepared_character(&sprite_content, &mut scope.reborrow(), definition, prepared.generation())
+                    wear_prepared_character(&sprite_content, &mut scope.reborrow(), definition, prepared.generation());
+                    attach_character_mount_role(sprite_content, &mut scope.entity_scope(), definition, body_size);
                 }
                 None => {
                     scope.insert(ambition_characters::actor::WornCharacter::new(character));
@@ -1497,6 +1499,7 @@ pub fn spawn_runtime_minion_into(sprite_content: &ambition_sprite_sheet::SpriteC
             mount.saddle_on.as_deref(),
             published_surfaces_of(&sprite_content, definition),
             &mount.slope,
+            mount.slope_follows.as_deref(),
             1.0,
             &mount.pilotable_classes,
         );
@@ -1722,23 +1725,7 @@ pub fn spawn_enemy_with_faction_into(sprite_content: &ambition_sprite_sheet::Spr
         // key happened to name — which for every migrated character was the
         // reserved `combatant` row, stating no mount class, so it was already
         // answering "nothing" by the longest available route.
-        if let Some(mount) = definition.mount.as_ref() {
-            attach_mount_role_from(
-                &mut scope.entity_scope(),
-                mount.class.as_deref(),
-                Some(body_size),
-                mount.death_splash,
-                mount.saddle,
-                mount.back,
-                &mount.ledges,
-                &mount.drawn_ledges,
-                mount.saddle_on.as_deref(),
-                published_surfaces_of(&sprite_content, definition),
-                &mount.slope,
-                definition.vitals.mass.unwrap_or(1.0),
-                &mount.pilotable_classes,
-            );
-        }
+        attach_character_mount_role(sprite_content, &mut scope.entity_scope(), definition, body_size);
     }
     //  THE ARCHETYPE ROAD ENDED HERE. What stood below
     // was a SECOND constructor: resolve a row for the placement's brain key —
@@ -1880,12 +1867,6 @@ fn giant_hand_feature_id(giant_id: &str, side: &str) -> String {
     format!("giant_gnu_hand_{side}_{giant_id}")
 }
 
-/// The mount role, from values.
-///
-///  it had a sibling that took an `ArchetypeSpec` and unpacked the same seven values off it;
-/// AC6 deleted the sibling with the rows, so a CHARACTER that states it is rideable is the only
-/// thing that produces a `Mountable` ( group A: the shark family).
-#[allow(clippy::too_many_arguments)]
 /// The standing surfaces `definition`'s sheet publishes, at the scale its
 /// body is drawn at (`ambition_sprite_sheet::surfaces`), or `None` for a body
 /// that is not drawn from its sheet at an authored scale.
@@ -1900,6 +1881,42 @@ fn published_surfaces_of(sprite_content: &ambition_sprite_sheet::SpriteContent,
     ambition_sprite_sheet::surfaces::published_surfaces(&sprite_content, sheet, world_per_pixel).map(std::sync::Arc::new)
 }
 
+/// The mount role and the standing surfaces `definition` authors
+/// (`CharacterMount`), on a body of `body_size` built from it: the same for a
+/// placed body and a peaceful NPC (the Hall's giant). A body that states no
+/// mount gets nothing.
+fn attach_character_mount_role(
+    sprite_content: &ambition_sprite_sheet::SpriteContent,
+    scope: &mut EntityScope,
+    definition: &ambition_characters::prepared::PreparedCharacterDefinition,
+    body_size: ae::Vec2,
+) {
+    let Some(mount) = definition.mount.as_ref() else {
+        return;
+    };
+    attach_mount_role_from(
+        scope,
+        mount.class.as_deref(),
+        Some(body_size),
+        mount.death_splash,
+        mount.saddle,
+        mount.back,
+        &mount.ledges,
+        &mount.drawn_ledges,
+        mount.saddle_on.as_deref(),
+        published_surfaces_of(sprite_content, definition),
+        &mount.slope,
+        mount.slope_follows.as_deref(),
+        definition.vitals.mass.unwrap_or(1.0),
+        &mount.pilotable_classes,
+    );
+}
+
+/// The mount role, from values: a CHARACTER that states it is rideable is the
+/// only thing that produces a `Mountable`. A body that authors a `back` gets
+/// its [`ambition_mount::BackLedge`] whether or not it is a mount: where a
+/// body can stand on it is a fact of the body.
+#[allow(clippy::too_many_arguments)]
 fn attach_mount_role_from(
     scope: &mut EntityScope,
     mount_class: Option<&str>,
@@ -1912,6 +1929,7 @@ fn attach_mount_role_from(
     saddle_on: Option<&str>,
     surfaces: Option<std::sync::Arc<ambition_characters::actor::SurfaceTable>>,
     slope: &[(f32, f32)],
+    slope_follows: Option<&str>,
     mass: f32,
     pilotable: &[String],
 ) {
@@ -1938,17 +1956,18 @@ fn attach_mount_role_from(
             // the lighter rider orbits it under a gravity flip (sync reads Mass).
             ambition_platformer2d_shared_tangle::body::Mass(mass),
         ));
-        if let Some(back) = back {
-            scope.insert(ambition_mount::BackLedge {
-                back,
-                ledges: ledges.to_vec(),
-                drawn: drawn_ledges.iter().map(ambition_mount::DrawnLedge::new).collect(),
-                // A drawn ledge with no published surface is not ground.
-                surfaces: surfaces.filter(|_| !drawn_ledges.is_empty()),
-                saddle_on: saddle_on.map(str::to_string),
-                slope: slope.iter().map(|&(x, y)| ae::Vec2::new(x, y)).collect(),
-            });
-        }
+    }
+    if let Some(back) = back {
+        scope.insert(ambition_mount::BackLedge {
+            back,
+            ledges: ledges.to_vec(),
+            drawn: drawn_ledges.iter().map(ambition_mount::DrawnLedge::new).collect(),
+            // A drawn ledge with no published surface is not ground.
+            surfaces: surfaces.filter(|_| !drawn_ledges.is_empty() || slope_follows.is_some()),
+            saddle_on: saddle_on.map(str::to_string),
+            slope: slope.iter().map(|&(x, y)| ae::Vec2::new(x, y)).collect(),
+            slope_drawn: slope_follows.map(ambition_mount::DrawnLedge::new),
+        });
     }
     if !pilotable.is_empty() {
         scope.insert((

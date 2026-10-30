@@ -195,7 +195,8 @@ pub struct MountSlot {
 /// FOLLOWS THE ART (`CharacterMount::drawn_ledges`): each is a standing
 /// surface the mount's sheet publishes (`surfaces`), where the mount is
 /// drawn. `slope` is a line a body walks (`CharacterMount::slope`), from left
-/// to right for a mount facing right.
+/// to right for a mount facing right; `slope_drawn`, when it has one, is the
+/// surface the sheet publishes as its two ends where the art is drawn.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct BackLedge {
     pub back: ambition_characters::actor::MountBack,
@@ -208,6 +209,8 @@ pub struct BackLedge {
     /// The drawn ledge the mount's seat is on (`CharacterMount::saddle_on`).
     pub saddle_on: Option<String>,
     pub slope: Vec<ae::Vec2>,
+    /// The ends of the slope where the art is drawn (`CharacterMount::slope_follows`).
+    pub slope_drawn: Option<DrawnLedge>,
 }
 
 /// A ledge that follows the mount's art: where its surface is (about the
@@ -228,12 +231,36 @@ impl DrawnLedge {
     pub fn new(surface: impl Into<String>) -> Self {
         Self { surface: surface.into(), now: None, before: None }
     }
+
+    /// Where it is drawn now (mirrored by `side`, its left end first, about
+    /// the mount's centre), how far its middle moved since the tick before,
+    /// and how far it turned (radians, `+` turns `+x` toward `+y`). `None`
+    /// when it is not drawn now.
+    pub fn motion(&self, side: f32) -> Option<([ae::Vec2; 2], ae::Vec2, f32)> {
+        let mirrored = |p: ae::Vec2| ae::Vec2::new(side * p.x, p.y);
+        let sorted = |[a, b]: [ae::Vec2; 2]| if a.x <= b.x { [a, b] } else { [b, a] };
+        let angle = |[a, b]: [ae::Vec2; 2]| (b.y - a.y).atan2(b.x - a.x);
+        let now = sorted(self.now?.map(mirrored));
+        let (moved, turned) = self.before.map_or((ae::Vec2::ZERO, 0.0), |before| {
+            let before = sorted(before.map(mirrored));
+            ((now[0] + now[1] - before[0] - before[1]) * 0.5, angle(now) - angle(before))
+        });
+        Some((now, moved, turned))
+    }
 }
 
 impl BackLedge {
     /// A back with no other ledge.
     pub fn new(back: ambition_characters::actor::MountBack) -> Self {
-        Self { back, ledges: Vec::new(), drawn: Vec::new(), surfaces: None, saddle_on: None, slope: Vec::new() }
+        Self {
+            back,
+            ledges: Vec::new(),
+            drawn: Vec::new(),
+            surfaces: None,
+            saddle_on: None,
+            slope: Vec::new(),
+            slope_drawn: None,
+        }
     }
 
     /// The height of the seat (about the mount's centre) at `x` (facing
@@ -255,10 +282,15 @@ impl BackLedge {
         let Some(table) = self.surfaces.as_deref() else {
             return;
         };
-        for ledge in &mut self.drawn {
+        for ledge in self.drawn.iter_mut().chain(self.slope_drawn.as_mut()) {
             ledge.before = ledge.now;
             ledge.now = table.segment(rows, elapsed_s, looping, &ledge.surface);
         }
+    }
+
+    /// Does any ledge or slope of this back follow its art?
+    pub fn follows_drawing(&self) -> bool {
+        !self.drawn.is_empty() || self.slope_drawn.is_some()
     }
 
     /// Each drawn ledge where the mount is drawn: its two ends from left to
@@ -272,15 +304,8 @@ impl BackLedge {
     ) -> impl Iterator<Item = ([ae::Vec2; 2], ae::Vec2, f32)> + '_ {
         let side = ae::mirror_side(mount.facing, unmirrored);
         let pos = mount.pos;
-        let mirrored = move |p: ae::Vec2| ae::Vec2::new(side * p.x, p.y);
-        let sorted = |[a, b]: [ae::Vec2; 2]| if a.x <= b.x { [a, b] } else { [b, a] };
-        let angle = |[a, b]: [ae::Vec2; 2]| (b.y - a.y).atan2(b.x - a.x);
         self.drawn.iter().filter_map(move |ledge| {
-            let now = sorted(ledge.now?.map(mirrored));
-            let (moved, turned) = ledge.before.map_or((ae::Vec2::ZERO, 0.0), |before| {
-                let before = sorted(before.map(mirrored));
-                ((now[0] + now[1] - before[0] - before[1]) * 0.5, angle(now) - angle(before))
-            });
+            let (now, moved, turned) = ledge.motion(side)?;
             Some((now.map(|p| p + pos), moved, turned))
         })
     }
@@ -305,14 +330,32 @@ impl BackLedge {
     }
 
     /// The slope where the mount is drawn, from left to right (mirrored by
-    /// the side it is drawn facing, as the back is), or `None`.
+    /// the side it is drawn facing, as the back is), or `None`. A slope that
+    /// follows the art (`slope_drawn`) is moved, turned and scaled so its two
+    /// ends are the drawn ones.
     pub fn slope_line(&self, mount: &ae::BodyKinematics, unmirrored: bool) -> Option<Vec<ae::Vec2>> {
         if self.slope.len() < 2 {
             return None;
         }
         let side = ae::mirror_side(mount.facing, unmirrored);
-        let mut points: Vec<ae::Vec2> =
-            self.slope.iter().map(|p| ae::Vec2::new(mount.pos.x + side * p.x, mount.pos.y + p.y)).collect();
+        let drawn = self.slope_drawn.as_ref().and_then(|ledge| ledge.now).map(|[a, b]| if a.x <= b.x { [a, b] } else { [b, a] });
+        let (r0, r1) = (self.slope[0], self.slope[self.slope.len() - 1]);
+        let place = |p: ae::Vec2| match drawn {
+            // The similarity that takes the typed ends to the drawn ones.
+            Some([a, b]) if (r1 - r0).length_squared() > f32::EPSILON => {
+                let (from, to) = (r1 - r0, b - a);
+                let z = ae::Vec2::new(from.x * to.x + from.y * to.y, from.x * to.y - from.y * to.x) / from.length_squared();
+                let q = p - r0;
+                a + ae::Vec2::new(z.x * q.x - z.y * q.y, z.x * q.y + z.y * q.x)
+            }
+            _ => p,
+        };
+        let mut points: Vec<ae::Vec2> = self
+            .slope
+            .iter()
+            .map(|&p| place(p))
+            .map(|p| ae::Vec2::new(mount.pos.x + side * p.x, mount.pos.y + p.y))
+            .collect();
         // A line is one-sided by its winding: a floor runs left to right.
         if side < 0.0 {
             points.reverse();
@@ -349,9 +392,10 @@ pub const SLOPE_LINE: &str = "mount_slope";
 /// The name of a mount's drawn ledge in its room's collision overlay.
 pub const DRAWN_LEDGE_LINE: &str = "mount_drawn_ledge";
 
-/// Each ridden mount's ledges are one-way ground in the mount's own live
-/// room, moving with the mount, and its slope and its drawn ledges walkable
-/// lines. A drawn ledge also moves and turns as the drawing moves it on the
+/// Each body's ledges ([`BackLedge`]) are one-way ground in the body's own
+/// live room, moving with the body, and its slope and its drawn ledges
+/// walkable lines. They are a fact of the body: ridden or not, and a mount or
+/// not (the Hall's giant has no rider and is not a mount). A drawn ledge also moves and turns as the drawing moves it on the
 /// mount: a body that stands on it is carried by the two together. A collision-overlay
 /// contribution: the composition runs it after the overlay rebuild and before
 /// the bodies that collide.
@@ -365,17 +409,13 @@ pub fn mount_backs_are_ground(
     mounts: Query<(
         &ae::BodyKinematics,
         &BackLedge,
-        &MountSlot,
         bevy::prelude::Has<ae::Unmirrored>,
         Option<&ae::SweepSample>,
         Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     )>,
     mut overlays: ambition_platformer2d_shared_tangle::feature_overlay::RoomOverlays,
 ) {
-    for (mount, back, slot, unmirrored, step, room) in &mounts {
-        if slot.rider.is_none() {
-            continue;
-        }
+    for (mount, back, unmirrored, step, room) in &mounts {
         // A body in another live room must not stand on it.
         let Some(mut overlay) = overlays.for_room(room) else {
             continue;
@@ -395,6 +435,14 @@ pub fn mount_backs_are_ground(
         if let Some(points) = back.slope_line(mount, unmirrored) {
             let mut line = ae::SurfaceChain::open(SLOPE_LINE, points);
             line.velocity = moved;
+            // A slope that follows the art is carried by the drawing too: by
+            // the move of the middle of its drawn ends, and their turn.
+            let side = ae::mirror_side(mount.facing, unmirrored);
+            if let Some((ends, drawn_moved, turned)) = back.slope_drawn.as_ref().and_then(|ledge| ledge.motion(side)) {
+                line.velocity += drawn_moved;
+                line.turn = turned;
+                line.pivot = mount.pos + (ends[0] + ends[1]) * 0.5;
+            }
             // The mount's art draws it.
             line.hidden = true;
             overlay.chains.push(line);
@@ -1765,7 +1813,14 @@ where
             .chain(back.ledges.iter())
             .flat_map(|b| [b.left, b.right, b.top, b.thickness])
             .chain(back.slope.iter().flat_map(|p| [p.x, p.y]))
-            .chain(back.drawn.iter().flat_map(|ledge| ledge.now.into_iter().chain(ledge.before)).flatten().flat_map(|p| [p.x, p.y]))
+            .chain(
+                back.drawn
+                    .iter()
+                    .chain(back.slope_drawn.as_ref())
+                    .flat_map(|ledge| ledge.now.into_iter().chain(ledge.before))
+                    .flatten()
+                    .flat_map(|p| [p.x, p.y]),
+            )
             .fold(0u64, |h, v| h.rotate_left(16) ^ u64::from(v.to_bits()))
     });
     registrar.rollback_component_clone::<Mounted>(OWNER, "mount.mounted");
@@ -2111,7 +2166,13 @@ pub fn install_mount_simulation_systems(
         schedule.clone(),
         apply_dismount_requests.in_set(DismountRequestsApplied),
     );
-    app.add_systems(schedule.clone(), mount_backs_are_ground.in_set(MountBacksContributed));
+    // A body's ledges are ground whether or not a mount is in play.
+    app.add_systems(
+        schedule.clone(),
+        mount_backs_are_ground
+            .in_set(MountBacksContributed)
+            .run_if(bevy::prelude::any_with_component::<BackLedge>),
+    );
     // Where the room's game has no mounts, none of this has a body to act on;
     // where it has them but none is in the world, neither.
     app.configure_sets(
@@ -2121,7 +2182,6 @@ pub fn install_mount_simulation_systems(
             MountsBoarded,
             RideLeasesTicked,
             DismountRequestsApplied,
-            MountBacksContributed,
         )
             .in_set(MOUNTS)
             .run_if(mounts_are_in_play),
@@ -2503,6 +2563,50 @@ mod back_tests {
     const SHOULDER: ambition_characters::actor::MountBack =
         ambition_characters::actor::MountBack { left: -208.0, right: -100.0, top: -9.75, thickness: 14.0 };
 
+    /// A slope that follows the drawing (`CharacterMount::slope_follows`)
+    /// is placed so its typed ends are the ends the sheet draws: a hump that
+    /// bobs carries the whole line, and the line carries a body on it by the
+    /// drawing's move and turn as well as the mount's step.
+    #[test]
+    fn a_slope_that_follows_the_drawing_is_where_its_ends_are_drawn() {
+        let slope = vec![ae::Vec2::new(-100.0, 0.0), ae::Vec2::new(0.0, -50.0), ae::Vec2::new(100.0, -60.0)];
+        let mut kin = ae::BodyKinematics::default();
+        kin.pos = ae::Vec2::new(900.0, 1040.0);
+        kin.facing = 1.0;
+        let mut back = BackLedge { slope: slope.clone(), ..BackLedge::new(GNU) };
+        // Drawn nowhere yet: the typed line, moved with the mount.
+        let typed = back.slope_line(&kin, false).unwrap();
+        assert_eq!(typed[1], kin.pos + slope[1]);
+        // The drawing lifts the hump by 6 and the next frame turns it.
+        let mut drawn = DrawnLedge::new("hump");
+        drawn.before = Some([slope[0] + ae::Vec2::new(0.0, -6.0), slope[2] + ae::Vec2::new(0.0, -6.0)]);
+        drawn.now = Some([slope[0] + ae::Vec2::new(0.0, -6.0), slope[2] + ae::Vec2::new(0.0, -26.0)]);
+        back.slope_drawn = Some(drawn);
+        let line = back.slope_line(&kin, false).unwrap();
+        let near = |a: ae::Vec2, b: ae::Vec2| (a - b).length() < 1e-3;
+        assert!(near(line[0], kin.pos + ae::Vec2::new(-100.0, -6.0)), "{line:?}");
+        assert!(near(line[2], kin.pos + ae::Vec2::new(100.0, -86.0)), "{line:?}");
+        // A point between the ends is carried as the line is (here, the
+        // middle point rides up with the turn about the rump's end).
+        assert!(line[1].y < typed[1].y - 6.0, "{line:?} against {typed:?}");
+        // The overlay line carries a body by the drawing's turn.
+        let mut world = bevy::prelude::World::new();
+        insert_live_room_component(&mut world, FeatureEcsWorldOverlay::default());
+        world.spawn((kin, back));
+        let mut system = bevy::prelude::IntoSystem::into_system(mount_backs_are_ground);
+        bevy::ecs::system::System::initialize(&mut system, &mut world);
+        let _ = bevy::ecs::system::System::run(&mut system, (), &mut world);
+        let mut overlays = world.query::<&FeatureEcsWorldOverlay>();
+        let chain = overlays
+            .iter(&world)
+            .flat_map(|overlay| overlay.chains.iter())
+            .find(|c| c.name == SLOPE_LINE)
+            .cloned()
+            .expect("the slope is ground");
+        assert!(chain.turn < 0.0, "the hump's far end rose: the line turns up, {}", chain.turn);
+        assert!(near(chain.velocity, ae::Vec2::new(0.0, -10.0)), "its middle rose by 10: {:?}", chain.velocity);
+    }
+
     #[test]
     fn the_back_is_where_the_mount_is_drawn() {
         let mut kin = ae::BodyKinematics::default();
@@ -2517,12 +2621,13 @@ mod back_tests {
         assert_eq!(BackLedge::new(GNU).aabb(&kin, true), right);
     }
 
-    /// ⭐ A ridden mount's ledges are one-way blocks in its own live room's
-    /// overlay, and nowhere else; the span of its back is not ground, and an
-    /// unridden mount's ledges are not ground. They move by the step the
-    /// mount made (its `SweepSample`), not by its `vel`, which is per second.
+    /// ⭐ A body's ledges are one-way blocks in its own live room's overlay,
+    /// and nowhere else, ridden or not, and on a body that is not a mount (the
+    /// Hall's giant); the span of its back is not ground. They move by the
+    /// step the body made (its `SweepSample`), not by its `vel`, which is per
+    /// second.
     #[test]
-    fn a_ridden_mount_s_ledges_are_ground_in_its_own_live_room_only() {
+    fn a_body_s_ledges_are_ground_in_its_own_live_room_only() {
         let mut world = bevy::prelude::World::new();
         insert_live_room_component(&mut world, FeatureEcsWorldOverlay::default());
         let other = LiveRoomInstance::ACTIVATION.next();
@@ -2535,7 +2640,9 @@ mod back_tests {
         let step = ae::SweepSample { prev: kin.pos - ae::Vec2::new(0.5, -0.25), curr: kin.pos, ..Default::default() };
         let back = BackLedge { ledges: vec![SHOULDER], ..BackLedge::new(GNU) };
         let ridden = world.spawn((kin, step, back.clone(), MountSlot { rider: Some(rider) }, InRoomInstance(other))).id();
-        world.spawn((kin, back, MountSlot { rider: None }, InRoomInstance(other)));
+        let mut apart = kin;
+        apart.pos.x += 1000.0;
+        let unridden = world.spawn((apart, back, InRoomInstance(other))).id();
         let mut system = bevy::ecs::system::IntoSystem::into_system(mount_backs_are_ground);
         bevy::ecs::system::System::initialize(&mut system, &mut world);
         let _ = bevy::ecs::system::System::run(&mut system, (), &mut world);
@@ -2546,7 +2653,13 @@ mod back_tests {
                 overlay.blocks.iter().filter(|b| b.name == BACK_BLOCK).map(move |b| (*live, b.aabb, b.velocity, b.kind))
             })
             .collect();
-        let expected = BackLedge::ledge_aabb(&SHOULDER, world.get::<ae::BodyKinematics>(ridden).unwrap(), false);
-        assert_eq!(backs, vec![(other, expected, ae::Vec2::new(0.5, -0.25), ae::BlockKind::OneWay)]);
+        let at = |body| BackLedge::ledge_aabb(&SHOULDER, world.get::<ae::BodyKinematics>(body).unwrap(), false);
+        assert_eq!(
+            backs,
+            vec![
+                (other, at(ridden), ae::Vec2::new(0.5, -0.25), ae::BlockKind::OneWay),
+                (other, at(unridden), ae::Vec2::ZERO, ae::BlockKind::OneWay),
+            ]
+        );
     }
 }

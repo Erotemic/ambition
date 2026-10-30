@@ -3,7 +3,7 @@
     id: "eureka_patent_office",
     level_id: "eureka_patent_office",
     world_x: 1856,
-    world_y: 8064,
+    world_y: 9024,
     px_wid: 1024,
     px_hei: 640,
     fill_collision: "empty",

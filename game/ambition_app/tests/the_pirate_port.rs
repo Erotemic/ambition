@@ -61,6 +61,36 @@ pub(crate) fn go(app: &mut App, target: &str, zone: Option<&str>) {
     assert_eq!(live_room(app), target);
 }
 
+/// Whether the breakable `id` of the live room is broken (`None`: no live
+/// room builds it).
+pub(crate) fn wall_broken(app: &mut App, id: &str) -> Option<bool> {
+    use ambition_platformer2d::breakables::BreakableFeature;
+    use ambition_platformer2d::combat::components::FeatureId;
+    let world = app.world_mut();
+    let mut walls = world.query::<(&FeatureId, &BreakableFeature)>();
+    walls.iter(world).find(|(wall, _)| wall.as_str() == id).map(|(_, wall)| wall.broken())
+}
+
+/// Walk by keys to `at`, face the breakable wall `id` (`facing` -1 west, 1
+/// east) and hit it until it breaks, as a player does.
+pub(crate) fn break_the_wall(app: &mut App, id: &str, at: ae::Vec2, facing: f32) {
+    use crate::common::walk::{Press, Walker};
+    assert_eq!(wall_broken(app, id), Some(false), "control: the wall {id} stands");
+    go_to(app, at, id);
+    let mut swings = 0;
+    while wall_broken(app, id) == Some(false) {
+        assert!(swings < 12, "the wall {id} did not break after {swings} swings");
+        let mut keys = Keys::new(app);
+        keys.step(Press { axis: facing, ..Press::default() });
+        keys.step(Press { attack: true, ..Press::default() });
+        for _ in 0..24 {
+            keys.step(Press::default());
+        }
+        drop(keys);
+        swings += 1;
+    }
+}
+
 /// Walk by keys to stand at `at` in the live room.
 pub(crate) fn go_to(app: &mut App, at: ae::Vec2, what: &str) {
     let room = live_room(app);

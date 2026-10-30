@@ -1,0 +1,28 @@
+// Written by specs/primeval/tar_pits.py. Change the script, not this file.
+(
+    id: "primeval_amber_vault",
+    level_id: "primeval_amber_vault",
+    world_x: 27768,
+    world_y: 512,
+    px_wid: 640,
+    px_hei: 640,
+    fill_collision: "empty",
+    bg_color: "#2A2018",
+    biome: "primeval",
+    parallax_theme: "primeval",
+    music_track: "liberated_dinosaur_libertarians",
+    entities: [
+        ( type: "Prop", px: [16, 16], size: [608, 560], fields: ( name: "amber_vault_room", kind: "amber_vault_room" ) ),
+        ( type: "Solid", px: [0, 576], size: [640, 64], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [640, 64], fields: ( name: "roof" ) ),
+        ( type: "Solid", px: [0, 64], size: [16, 512], fields: ( name: "west_wall" ) ),
+        ( type: "Solid", px: [624, 64], size: [16, 400], fields: ( name: "east_wall" ) ),
+        ( type: "LoadingZone", px: [624, 480], size: [16, 96], fields: ( id: "secret_amber_east", name: "back through the cracked wall", activation: "EdgeExit", target_room: "primeval_fossil_beds", target_zone: "secret_fossils_west", bidirectional: true ) ),
+        ( type: "PlayerStart", px: [506, 530], size: [28, 46], fields: ( name: "primeval_amber_vault_spawn" ) ),
+        ( type: "ChestSpawn", px: [120, 518], size: [76, 58], fields: ( name: "the survey's missing samples", reward: "currency:120" ) ),
+        ( type: "DebugLabel", px: [110, 100], size: [420, 24], fields: ( name: "amber_sign", text: "AMBER: do not extract anything from anything", category: "Custom" ) ),
+        ( type: "CameraZone", px: [0, 0], size: [640, 640], fields: ( id: "primeval_amber_vault_camera", name: "primeval_amber_vault_camera", mode: "Default" ) ),
+        ( type: "DebugLabel", px: [70, 40], size: [500, 24], fields: ( name: "primeval_amber_vault_title", text: "THE AMBER VAULT", category: "Custom" ) ),
+    ],
+    connect_to: [],
+)

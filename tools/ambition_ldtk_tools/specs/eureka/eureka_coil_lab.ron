@@ -3,7 +3,7 @@
     id: "eureka_coil_lab",
     level_id: "eureka_coil_lab",
     world_x: 3072,
-    world_y: 8064,
+    world_y: 9024,
     px_wid: 1280,
     px_hei: 576,
     fill_collision: "empty",

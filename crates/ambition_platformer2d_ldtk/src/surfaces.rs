@@ -67,6 +67,9 @@ pub enum SurfaceRespawn {
     Never,
     OnRoomReload,
     AfterSeconds(f32),
+    /// Gone for good, and remembered in the save
+    /// (`HazardRespawn::Persistent`).
+    Persistent,
 }
 
 /// Typed intermediate representation for one LDtk `Surface` (or a legacy
@@ -78,7 +81,9 @@ pub enum SurfaceRespawn {
 /// JSON.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LdtkSurfaceSpec {
-    /// LDtk-stable instance id.
+    /// The authored id: the `id` field when it is set, else the LDtk instance
+    /// id. A breakable that the save remembers is keyed by it, so a generated
+    /// room that gets new iids each time it is made must author `id`.
     pub iid: String,
     /// Display name (defaults to identifier when not provided).
     pub name: String,
@@ -92,6 +97,9 @@ pub struct LdtkSurfaceSpec {
     pub respawn: SurfaceRespawn,
     /// Hit points for breakable surfaces. Ignored when `Indestructible`.
     pub max_hp: i32,
+    /// The prop sheet that draws a breakable surface while it stands
+    /// (`BreakableSpec::look`). Ignored when `Indestructible`.
+    pub look: Option<String>,
 }
 
 impl LdtkSurfaceSpec {
@@ -113,6 +121,7 @@ impl LdtkSurfaceSpec {
             contact: SurfaceContact::None,
             respawn: SurfaceRespawn::Never,
             max_hp: 0,
+            look: None,
         }
     }
 }
@@ -176,6 +185,7 @@ pub(super) fn parse_surface_spec(
         contact: SurfaceContact::None,
         respawn: SurfaceRespawn::Never,
         max_hp: 0,
+        look: None,
     };
 
     match entity.identifier.as_str() {
@@ -236,6 +246,15 @@ pub(super) fn parse_surface_spec(
             };
             spec.respawn = parse_timed_respawn(entity)?;
             spec.max_hp = field_i32(entity, "max_hp").unwrap_or(3);
+            spec.look = field_string(entity, "look")
+                .map(|look| look.trim().to_string())
+                .filter(|look| !look.is_empty());
+            if let Some(id) = field_string(entity, "id")
+                .map(|id| id.trim().to_string())
+                .filter(|id| !id.is_empty())
+            {
+                spec.iid = id;
+            }
         }
         "BreakablePogoOrb" => {
             // Pogo orb with health. No body collision. While intact, the collision world
@@ -265,7 +284,7 @@ pub(super) fn parse_surface_spec(
 /// - `"Never"` (default), `"OnRoomReload"`
 /// - `"AfterSeconds"` with a positive `respawn_seconds` float field
 /// - legacy inline `"AfterSeconds:<n>"` (instances saved before `respawn_seconds`)
-/// - legacy `"Persistent"`, mapped to `Never`
+/// - `"Persistent"`: gone for good and remembered in the save
 pub(crate) fn parse_timed_respawn(entity: &LdtkEntityInstance) -> Result<SurfaceRespawn, String> {
     let raw = field_string(entity, "respawn").unwrap_or_else(|| "Never".to_string());
     let trimmed = raw.trim();
@@ -281,7 +300,8 @@ pub(crate) fn parse_timed_respawn(entity: &LdtkEntityInstance) -> Result<Surface
         return Ok(SurfaceRespawn::AfterSeconds(seconds));
     }
     match trimmed {
-        "Never" | "Persistent" | "" => Ok(SurfaceRespawn::Never),
+        "Never" | "" => Ok(SurfaceRespawn::Never),
+        "Persistent" => Ok(SurfaceRespawn::Persistent),
         "OnRoomReload" => Ok(SurfaceRespawn::OnRoomReload),
         "AfterSeconds" => {
             let seconds = field_f32(entity, "respawn_seconds")
@@ -393,8 +413,12 @@ pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String
                 SurfaceRespawn::AfterSeconds(seconds) => {
                     ambition_entity_catalog::placements::HazardRespawn::AfterSeconds(seconds)
                 }
+                SurfaceRespawn::Persistent => {
+                    ambition_entity_catalog::placements::HazardRespawn::Persistent
+                }
             };
             breakable.pogo_refresh = pogo_orb_combo;
+            breakable.look = spec.look.clone();
             breakables.push(ambition_platformer2d_world::rooms::Authored::new(
                 spec.iid.clone(),
                 spec.name.clone(),

@@ -711,10 +711,10 @@ fn you_can_stand_on_the_giants_shoulders_until_it_bucks() {
     thrown_off_the_back(&mut sim, back, 8);
 }
 
-/// Where the giant's art has moss, a body can stand: the hump of its back
+/// Where the giant's art has its trim, a body can stand: the hump of its back
 /// (one line, walked), each shoulder and the level part of each horn.
 #[test]
-fn a_body_stands_where_the_giant_has_moss() {
+fn a_body_stands_where_the_giant_has_its_trim() {
     let mut sim = arena();
     untouchable_player(&mut sim);
     // Where it can stand, not the fight: the giant holds the row it is in.

@@ -60,6 +60,42 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Secrets in every region**: breakable walls hide the amber vault (jungle,
+  32c83ec37) and the conjectures (math: a cellar chalked with unsolved
+  problems, Collatz's 27 plotted). Verified: the_tar_pits, the_zeno_aqueduct (10).
+- **Math composed: the roots** under the Fractal Woods, west of the Mobius
+  Mine, up through a knot of roots (lever below) into the woods: a loop.
+  The test walker keeps over a hole's middle going down a ladder.
+  Verified: the_zeno_aqueduct (9) and every hole/ladder test (24).
+- **Science composed: the steam plant under the Eureka quad** (down a
+  manhole in the street; catwalks, boilers, one gauge in the red labelled
+  FINE; east into the Collider, up its stair: a loop) and **Lab 0** behind a
+  bricked door (a breakable wall). Verified: the_eureka_tether (8), capture.
+- **Jungle composed: the treetops** over the trail, up the great tree's
+  rope ladder in the run, down a gap in the leaves into the rookery
+  (6ba334330). Verified: the_tar_pits treetops test, captures.
+- **Ladders seen; secrets hidden (Jon 10-30: "ladders ... no ladder
+  props/sprites")**: climbables drew under the room's scenery; now over it,
+  under the cast. A secret_ zone draws no doorway. Evil: the catacombs'
+  cracked wall (the first breakable_wall) over the ossuary of the other
+  founders (6a6213768). Verified: captures, the_searchlight_moor.
+- **PvN composed**: the Pirate Port's smugglers' tunnel (cellars -> drain
+  in the waterfront's street, grate opened by a lever below; the hoard
+  behind a plank wall) (79f4130e3); the Ninja Village's hidden way (a loose
+  board in the street -> the shrine's slab, lever below) (b018ae4a1).
+  Verified: the_wreckers_reef (6), the_ninja_village (3).
+- **Evil outdoors composed (Jon 10-30: dense regions, not strings)**:
+  the crypt and the catacombs under the moor and the allotments (in by the
+  crypt stair, up under plot 13); the Searchlight Ridge over them, up the
+  moor's watchtower; Gallows Hill over Lower Godwin, up its bell tower (the
+  gibbet TEMPORARILY UNOCCUPIED, the paupers' graves, the founder's
+  billboard), across a plank bridge onto the ridge, dropped through onto the
+  greenhouse. A surface row with a loop under and a loop over (91fb598ad,
+  130060b47). Verified: the_searchlight_moor (9), check_flat_map evil 0.
+- **Math (subagents, Jon's asks)**: Monty Carlo's game plays an honest
+  round, a won car opens the prize case (13188065e); the Tower of Hanoi's
+  64 disks and three needles are props, laid out as move 555,039 of the
+  solution (97d95bac3).
 - **Science: the Eureka Collider**, down a stair in one of the lecture
   hall's arches on the quad: the ring's tunnel, its beam pipe and magnets
   (BEAM ON: do not lick the pipe), the staff's bicycles, the detector end on

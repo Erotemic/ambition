@@ -74,3 +74,26 @@ fn the_fossil_beds_lie_under_the_ridge_road() {
     go(&mut app, "primeval_ridge", Some("fossils_shaft"));
     go(&mut app, "primeval_fossil_beds", Some("ridge_sinkhole"));
 }
+
+/// The treetops over the trail (`specs/primeval/treetops.py`): up the great
+/// tree's rope ladder out of the run, east along the canopy, and down
+/// through the gap in the leaves into the rookery; and back down the tree.
+#[test]
+fn the_treetops_run_over_the_trail_from_the_great_tree_to_the_rookery() {
+    let mut app = a_session_in("primeval_run");
+    go(&mut app, "primeval_treetops", Some("run_great_tree"));
+    go(&mut app, "primeval_run", Some("treetops_trunk"));
+    let mut app = a_session_in("primeval_treetops");
+    go(&mut app, "primeval_rookery", Some("treetops_drop"));
+}
+
+/// The fossil beds' cracked wall at their west end (a breakable: hit it),
+/// amber in the crack: the amber vault behind it, and back.
+#[test]
+fn a_cracked_wall_in_the_fossil_beds_hides_the_amber_vault() {
+    use ambition_platformer2d::engine_core as ae;
+    let mut app = a_session_in("primeval_fossil_beds");
+    crate::the_pirate_port::break_the_wall(&mut app, "primeval_fossil_cracked_wall", ae::Vec2::new(110.0, 560.0), -1.0);
+    go(&mut app, "primeval_amber_vault", Some("secret_fossils_west"));
+    go(&mut app, "primeval_fossil_beds", Some("secret_amber_east"));
+}

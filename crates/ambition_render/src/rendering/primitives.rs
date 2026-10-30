@@ -104,6 +104,12 @@ pub struct FeatureVisual {
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct PropClip(pub ambition_sim_view::ClipRequest);
 
+/// The colour a [`PropVisual`] is drawn with, in place of white: a breakable
+/// that takes hits darkens toward the break. Presentation only; its owner
+/// writes it from the state every frame.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct PropTint(pub Color);
+
 /// Marker for sprites spawned from `RoomSpec.props`. Prop animation (idle row
 /// tick) runs on `With<PropVisual>`, so the engine needs no feature entity for
 /// the prop. `Without<PortalSprite>` leaves the gate ring and gate portal to

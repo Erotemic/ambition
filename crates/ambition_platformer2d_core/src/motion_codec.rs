@@ -441,6 +441,14 @@ fn put_axis_swept_params(out: &mut Vec<u8>, p: &crate::AxisSweptParams) {
     put_f32(out, l.walk_speed);
     put_f32(out, l.turnaround_time);
     put_f32(out, l.teeter_margin);
+    match l.balance {
+        Some(balance) => {
+            put_bool(out, true);
+            put_f32(out, balance.teeter_band);
+            put_f32(out, balance.tip_speed);
+        }
+        None => put_bool(out, false),
+    }
     put_f32(out, l.max_fall_speed);
     put_f32(out, l.jump_speed);
     put_f32(out, l.double_jump_speed);
@@ -574,6 +582,14 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<crate::AxisSweptParams> {
             walk_speed: r.f32()?,
             turnaround_time: r.f32()?,
             teeter_margin: r.f32()?,
+            balance: if r.bool()? {
+                Some(crate::Balance {
+                    teeter_band: r.f32()?,
+                    tip_speed: r.f32()?,
+                })
+            } else {
+                None
+            },
             max_fall_speed: r.f32()?,
             jump_speed: r.f32()?,
             double_jump_speed: r.f32()?,

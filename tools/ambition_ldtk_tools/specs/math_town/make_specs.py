@@ -78,6 +78,15 @@ CLOSETS = ("math_hotel_door_1", "math_hotel_door_2", "math_hotel_door_3")
 WOODS = "math_fractal_woods"
 #: Under the woods, down a hole in their floor (a ladder down it).
 MINE = "math_mobius_mine"
+#: West of the mine on its floor, under the woods: the great tree's roots,
+#: and a knot of them over a hole up into the woods (x0, x1, the woods' x),
+#: shut until the lever below is pulled (a shortcut opened from below).
+ROOTS = "math_fractal_roots"
+KNOT = (800, 864)
+KNOT_LEVER = "math_roots_knot_lever"
+#: West of the roots, behind the cracked wall over their way west (a
+#: breakable wall: hit it; broken for good in the save): the conjectures.
+CONJECTURES = "math_conjectures"
 #: East of the woods by a side exit, floors level: the Fibonacci Meadow.
 MEADOW = "math_fibonacci_meadow"
 #: West of the gate hall by a side exit, under the aqueduct's valley.
@@ -116,6 +125,10 @@ ROOMS_AT = {
     # Under the woods' east end: its shaft (x 96..160) under their hole.
     MINE: (1712 + 3200 + 2288 - 96, 1600, 640),
     HANOI: (-1600, 1600, 768),
+    # West of the mine, its floor the mine's.
+    ROOTS: (1712 + 3200 + 2288 - 96 - 1600, 1600, 640),
+    # Between the street's east end and the roots.
+    CONJECTURES: (1712 + 3200, 592, 640),
     MEADOW: (1712 + 3200 + 2560, 2400, 768),
 }
 #: A room's world y when it is not 0. The rooms of the world touch where they
@@ -131,6 +144,8 @@ ROOMS_Y = {
     WOODS: 560 - 704,
     # Right under the woods (their floor's foot, y 768 there).
     MINE: 560 - 704 + 768,
+    ROOTS: 560 - 704 + 768,
+    CONJECTURES: 560 - 704 + 768,
     # Level with the gate hall, west of it.
     HANOI: 1344,
     # Level with the woods, east of them.
@@ -791,15 +806,39 @@ def hotel_lift():
     return rid, room(rid, e, "Hylbert's Hotel: the lift. It only goes up.", theme=INTERIOR)
 
 
-#: The ballroom's stage doors (x), one to each closet; what is behind each.
+#: The ballroom's stage doors (x), one to each closet.
 STAGE_DOORS = (360, 616, 872)
-BEHIND = (("math_goat", "A GOAT."), ("math_car", "A CAR! You did not switch. You did not need to. This time."), ("math_goat", "A GOAT. Statistically, you were going to meet me."))
+#: The game show's flags (`math.yarn` `hotel_monty_carlo` sets them; each
+#: round clears them first). Door k: its curtain is open, and what stands
+#: behind it (a goat or the car). The prize case is open for a winner.
+MONTY_OPEN, MONTY_GOAT, MONTY_CAR = "monty_open_{}", "monty_goat_{}", "monty_car_{}"
+MONTY_WON = "monty_won"
+#: The prize case east of the stage (x, w, h on the floor) and the chest in
+#: it (x, w, h), on the case's base (the art's), inside the case on each
+#: side so that a body outside does not touch it.
+PRIZE_CASE = (1000, 96, 88)
+PRIZE_CHEST = (1010, 76, 58)
+PRIZE_BASE = 10
+#: A closet: its curtain (x0 to the east wall, floor to ceiling), and where
+#: the goat and the car stand behind it (x, w, h; the art's frames).
+CLOSET_CURTAIN_X = 160
+CLOSET_GOAT = (250, 100, 80)
+CLOSET_CAR = (200, 210, 90)
+
+
+def lock_wall(wall_id, name, x, y, w, h, gated_by, look):
+    """A `LockWall` drawn with the sheet `look` that stands until `gated_by`
+    is true (or, when `gated_by` starts with `not`, while it is true)."""
+    return (f'( type: "LockWall", px: [{x}, {y}], size: [{w}, {h}], fields: ( id: "{wall_id}", name: "{name}", '
+            f'gated_by: "{gated_by}", look: "{look}" ) ),')
 
 
 def hotel_ballroom():
-    """The hotel's ballroom, made a game show: three doors on the stage,
-    behind one a car and behind the others goats. Out of the lobby by the
-    door west of the desk."""
+    """The hotel's ballroom, made a game show: three doors on the stage, a
+    closet behind each, and the host. Each round he hides the car behind one
+    door; the closets show what is behind them only when he opens them. A
+    winner takes the chest in the prize case. Out of the lobby by the door
+    west of the desk."""
     rid = BALLROOM
     _, w, h = ROOMS_AT[rid]
     floor = h - INSIDE_FLOOR
@@ -814,6 +853,13 @@ def hotel_ballroom():
         *[door(f"{rid}_door_{k + 1}", f"door number {k + 1}", x, floor, CLOSETS[k], f"{CLOSETS[k]}_door") for k, x in enumerate(STAGE_DOORS)],
         label("ballroom_sign", 360, 80, "TONIGHT: PICK A DOOR. THEN SWITCH. ALWAYS SWITCH.", 560),
         label("ballroom_sign_odds", 940, 270, "STAY 1/3   SWITCH 2/3", 300),
+        label("ballroom_sign_prize", PRIZE_CASE[0] - 20, floor - PRIZE_CASE[2] - 40, "TONIGHT'S PRIZE", 140),
+        # The prize case: it opens when a round is won, and the next round
+        # shuts it.
+        (f'( type: "ChestSpawn", px: [{PRIZE_CHEST[0]}, {floor - PRIZE_BASE - PRIZE_CHEST[2]}], size: [{PRIZE_CHEST[1]}, {PRIZE_CHEST[2]}], '
+         f'fields: ( name: "the prize money", reward: "currency:200" ) ),'),
+        lock_wall("math_hotel_prize_case", "the prize case", PRIZE_CASE[0], floor - PRIZE_CASE[2], PRIZE_CASE[1], PRIZE_CASE[2],
+                  f"world.flag_set {MONTY_WON}", "math_prize_case"),
         # The host, west of the stage (`math.yarn` `hotel_monty_carlo`).
         f'( type: "NpcSpawn", px: [{230 - 16}, {floor - 64}], size: [32, 64], fields: ( character_id: "npc_math_monty", '
         f'brain_override: "stand_still", prompt: "Talk", dialogue_id: "hotel_monty_carlo" ) ),',
@@ -822,12 +868,18 @@ def hotel_ballroom():
 
 
 def hotel_closet(k):
-    """Behind stage door k: a small room and what is in it."""
+    """Behind stage door k: a small room, its curtain, and behind the curtain
+    a goat or the car. Each is a `LockWall` drawn with its picture: the
+    curtain stands until the host opens door k, and the goat or the car
+    stands only while the round says it is behind door k. So the closet
+    shows nothing of the round before the door is opened."""
     def make():
         rid = CLOSETS[k]
         _, w, h = ROOMS_AT[rid]
         floor = h - INSIDE_FLOOR
-        kind, words = BEHIND[k]
+        n = k + 1
+        gx, gw, gh = CLOSET_GOAT
+        cx, cw, ch = CLOSET_CAR
         e = [
             solid("floor", 0, floor, w, INSIDE_FLOOR),
             solid("ceiling", 0, 0, w, INSIDE_CEILING),
@@ -835,12 +887,12 @@ def hotel_closet(k):
             solid("east_wall", w - WALL, INSIDE_CEILING, WALL, floor - INSIDE_CEILING),
             door(f"{rid}_door", "back to the stage", 40, floor, BALLROOM, f"{BALLROOM}_door_{k + 1}"),
             f'( type: "PlayerStart", px: [110, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
-            standing(f"{rid}_prize", kind, 220, floor)[0],
-            label(f"{rid}_words", 120, 70, words, 340),
+            lock_wall(f"{rid}_curtain", f"the curtain of door number {n}", CLOSET_CURTAIN_X, INSIDE_CEILING, w - WALL - CLOSET_CURTAIN_X,
+                      floor - INSIDE_CEILING, f"world.flag_set {MONTY_OPEN.format(n)}", "math_closet_curtain"),
+            lock_wall(f"{rid}_goat", "a goat", gx, floor - gh, gw, gh, f"not world.flag_set {MONTY_GOAT.format(n)}", "math_goat"),
+            lock_wall(f"{rid}_car", "the car", cx, floor - ch, cw, ch, f"not world.flag_set {MONTY_CAR.format(n)}", "math_car"),
         ]
-        if kind == "math_car":
-            e.append(f'( type: "PickupSpawn", px: [400, {floor - 24}], size: [24, 24], fields: ( name: "{rid}_prize_money", kind: "currency:100" ) ),')
-        return rid, room(rid, e, f"Behind door number {k + 1}.", theme=INTERIOR)
+        return rid, room(rid, e, f"Behind door number {n}.", theme=INTERIOR)
     return make
 
 
@@ -871,8 +923,16 @@ def fractal_woods():
         framed("woods_things", "woods_curiosities", 1080, 400),
         # The ground, and the hole down to the mine: a ladder down it
         # (`PAINT`), its bottom the way down.
-        solid("ground_west", 0, g, WOODS_HOLE[0], h - g),
+        solid("ground_west", 0, g, KNOT[0], h - g),
+        solid("ground_middle", KNOT[1], g, WOODS_HOLE[0] - KNOT[1], h - g),
         solid("ground_east", WOODS_HOLE[1], g, w - WOODS_HOLE[1], h - g),
+        # Under the great tree, the knot of its roots over a hole down to
+        # them: shut until the lever under it is pulled; a ladder (`PAINT`).
+        framed("woods_root_hole", "woods_root_hole", KNOT[0], g),
+        (f'( type: "LockWall", px: [{KNOT[0]}, {g}], size: [{KNOT[1] - KNOT[0]}, {h - g}], fields: ( id: "math_woods_root_knot", '
+         f'name: "a knot of roots", gated_by: "world.switch_on {KNOT_LEVER}", look: "woods_root_knot" ) ),'),
+        (f'( type: "LoadingZone", px: [{KNOT[0]}, {h - 16}], size: [{KNOT[1] - KNOT[0]}, 16], fields: ( id: "{rid}_roots", '
+         f'name: "down among the roots", activation: "EdgeExit", target_room: "{ROOTS}", target_zone: "{ROOTS}_knot", bidirectional: true ) ),'),
         (f'( type: "LoadingZone", px: [{WOODS_HOLE[0]}, {h - 16}], size: [{WOODS_HOLE[1] - WOODS_HOLE[0]}, 16], fields: ( id: "{rid}_shaft", '
          f'name: "down the mine shaft", activation: "EdgeExit", target_room: "{MINE}", target_zone: "{MINE}_shaft", bidirectional: true ) ),'),
         label("woods_sign_mine", WOODS_HOLE[0] - 180, g - 120, "THE MOBIUS MINE: one side only", 260),
@@ -926,7 +986,8 @@ def mobius_mine():
         solid("floor", 0, g, w, h - g),
         solid("ceiling_west", 0, 0, s0, top),
         solid("ceiling_east", s1, 0, w - s1, top),
-        solid("west_wall", 0, top, WALL, g - top),
+        solid("west_wall", 0, top, WALL, g - 112 - top),
+        edge(f"{rid}_west", "west among the roots", 0, g - 96, 96, ROOTS, f"{ROOTS}_east"),
         solid("east_wall", w - WALL, top, WALL, g - top),
         (f'( type: "LoadingZone", px: [{s0}, 0], size: [{s1 - s0}, 16], fields: ( id: "{rid}_shaft", name: "up the shaft to the woods", '
          f'activation: "EdgeExit", target_room: "{WOODS}", target_zone: "{WOODS}_shaft", bidirectional: true ) ),'),
@@ -947,18 +1008,101 @@ def mobius_mine():
     return rid, room(rid, e, "The Mobius Mine.")
 
 
+def fractal_roots():
+    """West of the mine on its floor, under the woods: the great fractal
+    tree's roots, each branch a smaller root, all the way down; toadstools
+    in a sunflower's spiral, a vein of crystal in a Sierpinski triangle. Up
+    a shaft at the west end to the knot under the tree (the lever by it)."""
+    rid = ROOTS
+    world_x, w, h = ROOMS_AT[rid]
+    g, top = MINE_FLOOR, MINE_CEIL
+    s0, s1 = KNOT[0] + ROOMS_AT[WOODS][0] - world_x, KNOT[1] + ROOMS_AT[WOODS][0] - world_x
+    e = [
+        framed("roots_west", "roots_west", 16, 16),
+        framed("roots_east", "roots_east", 800, 16),
+        solid("floor", 0, g, w, h - g),
+        solid("ceiling_west", 0, 0, s0, top),
+        solid("ceiling_east", s1, 0, w - s1, top),
+        solid("west_wall", 0, top, WALL, g - 112 - top),
+        # The way west, cracked over (`secret_`: the map shows the
+        # conjectures only once they are found).
+        (f'( type: "BreakablePlatform", px: [{WALL}, {g - 112}], size: [32, 112], fields: ( id: "math_roots_cracked_wall", '
+         f'name: "a cracked wall, chalk dust in the crack", max_hp: 3.0, respawn: "Persistent", collision: "Solid", trigger: "OnHit", '
+         f'look: "roots_cracked_wall" ) ),'),
+        edge(f"secret_{rid}_west", "through the cracked wall", 0, g - 96, 96, CONJECTURES, f"secret_{CONJECTURES}_east"),
+        solid("east_wall", w - WALL, top, WALL, g - 112 - top),
+        edge(f"{rid}_east", "east into the mine", w - WALL, g - 96, 96, MINE, f"{MINE}_west"),
+        (f'( type: "LoadingZone", px: [{s0}, 0], size: [{s1 - s0}, 16], fields: ( id: "{rid}_knot", name: "up through the knot to the woods", '
+         f'activation: "EdgeExit", target_room: "{WOODS}", target_zone: "{WOODS}_roots", bidirectional: true ) ),'),
+        (f'( type: "Switch", px: [{s1 + 40}, {g - 32}], size: [24, 32], fields: ( id: "{KNOT_LEVER}", name: "the knot\'s lever", '
+         f'prompt: "Pull the lever", action: "ToggleFlag", target_encounter: "" ) ),'),
+        f'( type: "PlayerStart", px: [{s1 + 120}, {g - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        label("roots_sign", 560, 100, "THE ROOTS: self-similar at every scale (mind your head at every scale)", 560),
+        label("roots_sign_spiral", 1080, g - 180, "TOADSTOOLS: 89 of them. Count again.", 360),
+        f'( type: "ChestSpawn", px: [1500, {g - 58}], size: [76, 58], fields: ( name: "a root of unity", reward: "currency:60" ) ),',
+        mine_enemy(10, "npc_dividing_mite", 700, g, 40, 52, "dividing_mite").replace(MINE, ROOTS, 1),
+        (f'( type: "EnemySpawn", px: [1000, {g - 44}], size: [28, 44], fields: ( name: "{ROOTS}_npc_puppy_slug_11", '
+         f'brain: "combatant", character_id: "npc_puppy_slug", respawn: "OnRoomReenter" ) ),'),
+    ]
+    return rid, room(rid, e, "The Roots: it goes all the way down.")
+
+
+def conjectures():
+    """Behind the roots' cracked wall: a cellar chalked over with the problems
+    nobody has solved (the zeta zeros on their line, Collatz's 27, the twin
+    primes, Goldbach). PROOF LEFT AS AN EXERCISE."""
+    rid = CONJECTURES
+    _, w, h = ROOMS_AT[rid]
+    g, top = MINE_FLOOR, MINE_CEIL
+    e = [
+        framed("conjectures_room", "conjectures_room", 16, 16),
+        solid("floor", 0, g, w, h - g),
+        solid("ceiling", 0, 0, w, top),
+        solid("west_wall", 0, top, WALL, g - top),
+        solid("east_wall", w - WALL, top, WALL, g - 112 - top),
+        edge(f"secret_{rid}_east", "back through the cracked wall", w - WALL, g - 96, 96, ROOTS, f"secret_{ROOTS}_west"),
+        f'( type: "PlayerStart", px: [{w - 120}, {g - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        f'( type: "ChestSpawn", px: [240, {g - 58}], size: [76, 58], fields: ( name: "a proof (it is wrong)", reward: "currency:120" ) ),',
+        label("conjectures_sign", 70, 90, "THE CONJECTURES: solutions welcome, by post", 452),
+    ]
+    return rid, room(rid, e, "The Conjectures.")
+
+
 #: The Tower of Hanoi (`math_hanoi_props.py` draws on these): the needles,
-#: and the disks on each, bottom up, by size (each walked on).
+#: the disks, the height of a disk and the width of each, and the needle's
+#: frame about its foot (x0, y0, x1, y1). The numbers are the art's: change
+#: them with it.
 HANOI_NEEDLES = (360, 800, 1240)
-HANOI_STACKS = ((8, 7, 6, 5, 2), (4, 3), (1,))
-HANOI_DISK_H = 24
+HANOI_DISKS = 64
+HANOI_DISK_H = 8
+HANOI_NEEDLE_FRAME = (-14, -554, 14, 0)
+#: How many moves the monks have made (`math.yarn` `hanoi_lucas` says it).
+HANOI_MOVES = 555_039
+
+
+def hanoi_disk_width(size):
+    """The width of disk `size` (1 the smallest)."""
+    return 32 + 6 * size
+
+
+def hanoi_stacks(moves, disks=HANOI_DISKS):
+    """The disks on each needle after `moves` moves of the shortest solution
+    (all the disks from the first needle to the last), each needle's bottom
+    up, by size. Disk d has moved (moves + 2^(d-1)) // 2^d times, always the
+    same way round: one needle on when (disks - d) is odd, else two."""
+    stacks = ([], [], [])
+    for d in range(disks, 0, -1):
+        moved = (moves + (1 << (d - 1))) >> d
+        stacks[moved * (1 if (disks - d) % 2 else 2) % 3].append(d)
+    return stacks
 
 
 def tower_of_hanoi():
     """West of the gate hall: the Tower of Hanoi. Three diamond needles and
-    the golden disks on them, the puzzle part done; each disk is walked on,
-    so each stack is a stair; a chest on the tallest. Brother Lucas keeps
-    the count. When the last disk is moved, the world ends."""
+    the 64 golden disks on them, each needle and each disk a prop; the
+    puzzle part done. Each disk is walked on (a hidden line at its top), so
+    each stack is a climb; a chest on the tallest. Brother Lucas
+    keeps the count. When the last disk is moved, the world ends."""
     rid = HANOI
     _, w, h = ROOMS_AT[rid]
     floor = h - 64
@@ -971,18 +1115,28 @@ def tower_of_hanoi():
         edge(f"{rid}_east", "back to the gate hall", w - WALL, floor - 96, 96, HALL, f"{HALL}_west"),
         f'( type: "PlayerStart", px: [{w - 200}, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
     ]
-    for n, (nx, stack) in enumerate(zip(HANOI_NEEDLES, HANOI_STACKS)):
+    # The needles first: the room's scenery draws in its order, and a disk is
+    # in front of its needle.
+    fx0, fy0 = HANOI_NEEDLE_FRAME[:2]
+    e += [framed(f"hanoi_needle_{n}", "hanoi_needle", nx + fx0, floor + fy0) for n, nx in enumerate(HANOI_NEEDLES)]
+    stacks = hanoi_stacks(HANOI_MOVES)
+    for nx, stack in zip(HANOI_NEEDLES, stacks):
         for i, size in enumerate(stack):
-            dw = 60 + 30 * size
-            e.append(ledge(f"disk_{n}_{size}", nx - dw // 2, floor - HANOI_DISK_H * (i + 1), dw))
-    top = floor - HANOI_DISK_H * len(HANOI_STACKS[0])
+            dw, top = hanoi_disk_width(size), floor - HANOI_DISK_H * (i + 1)
+            kind = f"hanoi_disk_{size:02d}"
+            # A disk's top is a hidden walkable line, not a OneWayPlatform:
+            # that is painted on the 16-unit collision grid, and the disks
+            # are 8 high.
+            e += [framed(kind, kind, nx - dw // 2, top), line(f"{kind}_top", [(nx - dw // 2, top), (nx + dw // 2, top)])]
+    # The chest on the top disk of the tallest stack, beside its needle.
+    top = floor - HANOI_DISK_H * len(stacks[0])
     e += [
-        f'( type: "ChestSpawn", px: [{HANOI_NEEDLES[0] - 38}, {top - 58}], size: [76, 58], fields: ( name: "a golden offcut", reward: "currency:64" ) ),',
+        f'( type: "ChestSpawn", px: [{HANOI_NEEDLES[0] - 79}, {top - 58}], size: [76, 58], fields: ( name: "a golden offcut", reward: "currency:64" ) ),',
         # Brother Lucas, by the middle needle (`math.yarn` `hanoi_lucas`).
         f'( type: "NpcSpawn", px: [{1020 - 16}, {floor - 64}], size: [32, 64], fields: ( character_id: "npc_math_lucas", '
         f'brain_override: "stand_still", prompt: "Talk", dialogue_id: "hanoi_lucas" ) ),',
-        label("hanoi_sign", 560, 110, "WHEN THE LAST DISK IS MOVED, THE WORLD ENDS", 480),
-        label("hanoi_sign_count", 560, 320, "Moves left: 18,446,744,073,708,503,040", 480),
+        label("hanoi_sign", 560, 76, "WHEN THE LAST DISK IS MOVED, THE WORLD ENDS", 480),
+        label("hanoi_sign_count", 560, 108, f"Moves left: {2 ** HANOI_DISKS - 1 - HANOI_MOVES:,}", 480),
     ]
     return rid, room(rid, e, "The Tower of Hanoi.", theme="math_undercroft")
 
@@ -1044,7 +1198,7 @@ def fibonacci_meadow():
 # The meadow before the woods: the woods grew east into where it was.
 ROOMS = (gate_hall, street, cafe, surveyors_office, observatory, zeno_aqueduct, hotel_lobby, hotel_corridor, hotel_lift,
          hotel_ballroom, *[hotel_closet(k) for k in range(3)], fibonacci_meadow, fractal_woods,
-         mobius_mine, tower_of_hanoi)
+         mobius_mine, fractal_roots, conjectures, tower_of_hanoi)
 
 #: What is painted on an IntGrid layer of a room: (room, layer, value, px, size).
 PAINT = [(STREET, "Climbable", 1, (x, top), (32, bottom - top)) for _name, x, top, bottom in LADDERS] + [
@@ -1055,6 +1209,9 @@ PAINT = [(STREET, "Climbable", 1, (x, top), (32, bottom - top)) for _name, x, to
     # The mine's ladder up its shaft to the woods, and on up their hole.
     (MINE, "Climbable", 1, (112, 0), (32, MINE_FLOOR)),
     (WOODS, "Climbable", 1, (WOODS_HOLE[0] + 16, WOODS_FLOOR - 64), (32, 768 - WOODS_FLOOR + 64)),
+    # Down the knot's hole (over the floor, as the mine's), and up the roots' shaft.
+    (WOODS, "Climbable", 1, (KNOT[0] + 16, WOODS_FLOOR - 64), (32, 768 - WOODS_FLOOR + 64)),
+    (ROOTS, "Climbable", 1, (KNOT[0] + ROOMS_AT[WOODS][0] - ROOMS_AT[ROOTS][0] + 16, 0), (32, MINE_FLOOR)),
 ]
 
 

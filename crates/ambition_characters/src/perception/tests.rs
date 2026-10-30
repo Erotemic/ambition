@@ -399,6 +399,38 @@ fn a_reaction_moves_the_view_by_at_most_the_spread() {
     assert_eq!(d.age_ticks(), 21, "a sample out of range is clamped");
 }
 
+/// ⭐ Q167: THE BODY IS SEEN NOW, AS ONE SNAPSHOT; THE WORLD IS SEEN LATE.
+/// Whatever reaction the brain draws, the view it reads carries this tick's
+/// whole `SelfView` (position and ground contact from the same tick, never a
+/// live position beside a stale contact) and the foe and `sim_time` of the
+/// delayed tick.
+#[test]
+fn the_body_is_seen_now_and_the_world_late() {
+    let mut d = DelayedPerception::new(6);
+    for t in 0..20 {
+        let mut view = view_at_time(t as f32);
+        view.self_view.pos = ae::Vec2::new(t as f32, 0.0);
+        view.self_view.on_ground = t % 2 == 0;
+        view.self_view.phase_remaining = t as f32;
+        view.actors.push(PerceivedActor {
+            pos: ae::Vec2::new(100.0 + t as f32, 0.0),
+            ..Default::default()
+        });
+        d.observe(view);
+    }
+    for sample in [-1.0, 0.0, 1.0] {
+        d.react(sample);
+        let seen = d.perceive().expect("warm");
+        let age = d.age_ticks() as f32;
+        assert_eq!(seen.sim_time, 19.0 - age, "the world is `age` ticks late");
+        assert_eq!(seen.actors[0].pos.x, 119.0 - age, "and so is the foe");
+        assert_eq!(seen.self_view.pos.x, 19.0, "the body is this tick's");
+        assert!(!seen.self_view.on_ground, "its contact is the same tick's as its position");
+        assert_eq!(seen.self_view.phase_remaining, 19.0, "and so is its move clock");
+        assert_eq!(seen.staleness_s(), age, "staleness is the world's age");
+    }
+}
+
 /// A brain spawned mid-fight reacts more slowly than its profile for a few ticks — it never gets a
 /// same-tick perceive→act cheat at the exact moment a fight begins, which is the moment FB4's
 /// humanity check is watching.

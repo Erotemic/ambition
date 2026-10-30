@@ -486,6 +486,7 @@ impl MeleeBruteCfg {
             flinch_back_s: 0.0,
             counter: None,
             fades: false,
+            notice_s: 0.0,
         },
     };
     pub const BRUTE_DEFAULT: Self = Self {
@@ -502,6 +503,7 @@ impl MeleeBruteCfg {
             flinch_back_s: 0.0,
             counter: None,
             fades: false,
+            notice_s: 0.0,
         },
     };
 }
@@ -529,6 +531,17 @@ pub struct MeleeBruteState {
     pub deflects_seen: u32,
     /// Seconds until it answers a deflect ([`super::MeleeTactics::counter`]).
     pub answer_in: Option<f32>,
+    /// It has seen its foe since it last lost it ([`super::MeleeTactics::notice_s`]).
+    pub noticed: bool,
+    /// Seconds it still stands and looks at the foe it has just seen.
+    pub noticing: f32,
+}
+
+impl MeleeBruteState {
+    /// It stands and looks at a foe it has just seen ([`super::MeleeTactics::notice_s`]).
+    pub fn is_noticing(&self) -> bool {
+        self.noticing > 0.0
+    }
 }
 
 /// A target's place that moved less than this is the same goal (px).
@@ -577,6 +590,25 @@ fn tick_melee_brute(
     state.mode = ai.mode;
     *out = crate::actor::control::ActorControlFrame::neutral();
     let tactics = cfg.tactics;
+    // NOTICE: the first sight of a foe stops it a beat, facing the foe, before
+    // it chases; out of its sight again, it will notice again.
+    let sees = matches!(
+        ai.intent,
+        crate::actor::ai::CharacterAiIntent::Chase { .. } | crate::actor::ai::CharacterAiIntent::Attack { .. }
+    );
+    if !sees {
+        state.noticed = false;
+        state.noticing = 0.0;
+    } else if !state.noticed {
+        state.noticed = true;
+        state.noticing = tactics.notice_s;
+    }
+    if state.noticing > 0.0 && snapshot.alive {
+        state.noticing = (state.noticing - snapshot.dt).max(0.0);
+        out.facing = snapshot.face_toward(local_target_side(snapshot));
+        state.last_health = snapshot.health_fraction;
+        return;
+    }
     // COUNTER: its guard turned a strike aside, and the body that swung is
     // locked out; it answers after its tell, standing its ground and facing
     // its foe until then.

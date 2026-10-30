@@ -437,3 +437,53 @@ fn a_body_the_portals_move_whole_meets_only_its_own_side() {
     );
 }
 
+
+/// A dog (93 px wide) at a floor portal whose opening is 92: its centre over
+/// the opening opens the hole, though its box is partly past the end (it is
+/// pushed off that end by its balance). In line with the opening it fits,
+/// the hole is wide enough for it, the snag does not hold it, and its transit
+/// begins.
+#[test]
+fn a_dog_whose_centre_is_over_a_floor_portal_opens_it_and_goes_through() {
+    let p = PlacedPortal::fixed(BLUE, Vec2::new(500.0, 300.0), Vec2::new(0.0, -1.0), HALF);
+    let exit = PlacedPortal::fixed(ORANGE, Vec2::new(900.0, 100.0), Vec2::new(0.0, -1.0), HALF);
+    let half = Vec2::new(46.5, 30.0);
+    let standing = |x: f32| ambition_platformer2d_core::Aabb::new(Vec2::new(x, 300.0 - half.y + 0.5), half);
+    let down = Vec2::new(0.0, 30.0);
+
+    let off_centre = standing(530.0);
+    assert!(
+        crate::transit::body_opens(&p, off_centre, off_centre.center(), down, 60.0),
+        "a dog with its centre over the opening did not open it"
+    );
+    let past = standing(500.0 + HALF + 4.0);
+    assert!(
+        !crate::transit::body_opens(&p, past, past.center(), down, 60.0),
+        "a dog with its centre past the opening's end opened it"
+    );
+
+    let in_line = standing(500.0);
+    let ap = p.aperture();
+    assert!(crate::portal_fits(half * 2.0, &p), "a dog 1 px wider than the opening does not fit it");
+    let hole = crate::pieces::carve_face_with_depth(&ap, 60.0).bounds();
+    assert!(
+        hole.min.x <= in_line.min.x && in_line.max.x <= hole.max.x,
+        "the hole {hole:?} leaves a lip under the dog {in_line:?}"
+    );
+    let sunk = ambition_platformer2d_core::Aabb::new(in_line.center() + Vec2::new(0.0, 12.0), half);
+    assert!(crate::snag::fits_through(sunk, &ap), "the dog in line is snagged on the opening's ends");
+    assert_eq!(crate::snag::snag_push(sunk, Some(in_line), &ap), None, "the snag holds the dog in line");
+    let step = transit_step_with_tuning(
+        in_line.center(),
+        half * 2.0,
+        down,
+        None,
+        None,
+        None,
+        &[p.clone(), exit],
+        Vec2::new(0.0, 1.0),
+        &PortalHostDepths(vec![(BLUE, 60.0), (ORANGE, 60.0)]),
+        &PortalTuning::default(),
+    );
+    assert!(matches!(step, TransitStep::Begin { .. }), "the dog in line did not begin its transit: {step:?}");
+}

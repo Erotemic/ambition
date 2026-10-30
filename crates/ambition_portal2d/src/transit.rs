@@ -294,23 +294,25 @@ fn threaded_through(body: ae::Aabb, center: Vec2, transit: Option<PortalTransit>
 }
 
 /// Does a body (its box, its centre and its velocity) open `p`? The one rule
-/// for every body that moves: in line with the opening and in it from the
-/// front or approaching it, or inside its hole falling through. A body not in
-/// line with the opening (part of it past an end) could not pass whole: the
-/// snag would hold it, so it opens nothing (Jon 2026-10-16: a robot on a
-/// ledge whose top is the opening's end lost the ledge to the hole). "Approaching" and "falling" are
-/// relative to the portal's surface, so a portal that moves or turns onto a
-/// still body opens for it. `depth` bounds the hole by the host's thickness.
+/// for every body that moves: it fits the opening, its centre is over the
+/// opening, and it is in the opening from the front or approaching it, or
+/// inside its hole falling through. A body whose centre is past an end opens
+/// nothing (a robot on a ledge whose top is the opening's end keeps the
+/// ledge). A body whose centre is over the opening and whose box is partly
+/// past an end opens the hole and stands on the host past the end by its
+/// own support rule: one that stands by its balance (`ae::Balance`) is
+/// pushed off that end into the hole; one that stands on a lip stays on it
+/// until it is in line, and the snag holds it there. "Approaching" and
+/// "falling" are relative to the portal's surface, so a portal that moves or
+/// turns onto a still body opens for it. `depth` bounds the hole by the
+/// host's thickness.
 pub(crate) fn body_opens(p: &PlacedPortal, body: ae::Aabb, center: Vec2, vel: Vec2, depth: f32) -> bool {
     use super::placement::{approach_face, capture_face, portal_fits};
     if !portal_fits(body.half_size() * 2.0, p) {
         return false;
     }
     let ap = p.aperture();
-    // Only a body in line with the opening can pass whole, so only it opens
-    // the hole: one beside it (on a ledge whose top is the opening's end, on
-    // a ramp past its end) leaves the host whole under it.
-    if !crate::snag::in_line_with(body, &ap) {
+    if (center - ap.frame.origin).dot(ap.frame.tangent()).abs() > ap.half_length {
         return false;
     }
     let front = pp::front_distance(center, &ap.frame);

@@ -132,6 +132,10 @@ pub struct BodyMovementTuning {
     pub jump_speed: f32,
     /// Launch speed of a mid-air (double) jump (px/s).
     pub double_jump_speed: f32,
+    /// Whether the body stands by its centre of gravity
+    /// ([`ae::MovementTuning::balance`]): its character's answer
+    /// (`CharacterLocomotion::balance`).
+    pub balance: Option<ae::Balance>,
 }
 
 impl BodyMovementTuning {
@@ -141,6 +145,7 @@ impl BodyMovementTuning {
         run_accel: 650.0,
         jump_speed: 520.0,
         double_jump_speed: 430.0,
+        balance: None,
     };
 
     /// Build shared engine movement tuning for the body's gravity/run/fall parameters.
@@ -153,6 +158,7 @@ impl BodyMovementTuning {
             air_friction: 0.0,
             max_run_speed,
             max_fall_speed: self.max_fall_speed,
+            balance: self.balance,
             ..ae::MovementTuning::default()
         }
     }
@@ -193,6 +199,7 @@ impl BodyMovementPatch {
             run_accel: self.run_accel.unwrap_or(base.run_accel),
             jump_speed: self.jump_speed.unwrap_or(base.jump_speed),
             double_jump_speed: self.double_jump_speed.unwrap_or(base.double_jump_speed),
+            balance: base.balance,
         }
     }
 }

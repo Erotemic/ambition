@@ -157,6 +157,11 @@ pub struct CaptureCarryRequested {
 pub struct CapturePummelRequested {
     pub captor: Entity,
     pub damage: i32,
+    /// The move use whose effect asked for this pummel
+    /// (`ActorActionMessage::move_instance`). A pummel that lands marks that
+    /// use CONNECTED, as a catch and a throw mark theirs; `None` (a module's
+    /// pummel no move authored) marks nothing.
+    pub move_instance: Option<u32>,
 }
 
 /// A throw's authored release frame, which damages, launches, and ends capture.

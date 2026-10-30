@@ -159,7 +159,13 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// 387 -> 388: the locomotion parameters carry `walk_speed`, and the maneuver
 /// state carries `air_dodge_up`, the aimed air dodge's angle (two f32s in the
 /// motion-model codec).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 388;
+/// 388 -> 389: the locomotion parameters carry `balance`, whether the body
+/// stands by its centre of gravity (a bool and, when it does, two f32s in the
+/// motion-model codec).
+/// 389 -> 390: `actor.brain`'s `MeleeBrute` cursor (wire tag 6) adds its
+/// notice beat (`MeleeTactics::notice_s`): whether it has seen its foe
+/// (`bool`) and how long it still stands and looks (`f32`).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 390;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

@@ -64,7 +64,19 @@ Jon, 2026-10-30:
 - **Secret:** the plank wall at the tunnel's east end; the hoard behind it.
 - **Tests:** `game/ambition_app/tests/the_wreckers_reef.rs`.
 
+## The Ninja Village (the fourth)
+
+```
+ [shrine]═terrace/roofs═[street]═roofs/branches═[forest]──[bamboo pass]
+   │slab (lever below)    ┊loose board (secret)
+ [────── the hidden way ──────]
+```
+
+- **Two roads over:** the floor, and the roofs from the shrine's terrace to the forest's branches.
+- **Under:** a loose board in the street (a one-way floor, dropped through; `secret_`) into the hidden way, west to a stone slab in the shrine's floor, shut until the lever under it is pulled.
+- **Tests:** `game/ambition_app/tests/the_ninja_village.rs`.
+
 ## Not yet
 
 - A hit-breakable wall (Hollow Knight's secrets) is not an engine capability. The false wall is the only secret so far.
-- The other regions (the ninja village, Eureka, the math town, the primeval trail) are still strings of rooms. Each wants the same treatment.
+- The other regions (Eureka, the math town, the primeval trail) are still strings of rooms. Each wants the same treatment.

@@ -380,6 +380,12 @@
     "tunnel_west": (),
     "tunnel_east": (),
     "hoard_room": (),
+    // The Ninja Village's hidden way under its street, the slab and the loose board (PvN).
+    "ninja_shrine_slab": (),
+    "ninja_shrine_shaft": (),
+    "ninja_street_board": (),
+    "ninja_way_west": (),
+    "ninja_way_east": (),
     "collider_tunnel": (),
     // The orbital station's damaged spur (Science).
     "spur_west": (),

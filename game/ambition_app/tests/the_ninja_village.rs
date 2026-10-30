@@ -103,3 +103,33 @@ fn umes_tea_house_has_a_guest() {
     talk(&mut app, "npc_village_tsuru", "What do you sell?");
     go(&mut app, STREET, Some("tea_door"));
 }
+
+/// The hidden way under the street: down the loose board between the
+/// weaver's and the tea house (a secret), west under the street; the slab
+/// in the shrine's floor is shut until the lever under it is pulled; then
+/// up into the shrine, and back down.
+#[test]
+fn the_hidden_way_runs_from_a_loose_board_to_the_shrines_slab() {
+    use crate::the_note_travels_from_alice_to_bob::tap;
+    use ambition_platformer2d::engine_core as ae;
+    use bevy::prelude::KeyCode;
+
+    let lever = |app: &bevy::prelude::App| {
+        app.world()
+            .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+            .data()
+            .switch("ninja_village_slab_lever")
+    };
+    let mut app = crate::the_pirate_port::a_session_in("ninja_village_street");
+    crate::the_pirate_port::go(&mut app, "ninja_village_hidden_way", Some("secret_street_board"));
+    assert!(!lever(&app), "control: the slab's lever is not pulled");
+    crate::the_pirate_port::go_to(&mut app, ae::Vec2::new(412.0, 496.0), "the slab's lever");
+    tap(&mut app, KeyCode::KeyF);
+    for _ in 0..30 {
+        app.update();
+    }
+    assert!(lever(&app), "the slab's lever is pulled");
+    crate::the_pirate_port::go(&mut app, "ninja_village_gate_shrine", Some("way_shrine"));
+    crate::the_pirate_port::go(&mut app, "ninja_village_hidden_way", Some("shrine_slab"));
+    crate::the_pirate_port::go(&mut app, "ninja_village_street", Some("secret_way_street"));
+}

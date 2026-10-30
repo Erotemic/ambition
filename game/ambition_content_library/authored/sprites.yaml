@@ -585,6 +585,11 @@ collections:
   - tunnel_west
   - tunnel_east
   - hoard_room
+  - ninja_shrine_slab
+  - ninja_shrine_shaft
+  - ninja_street_board
+  - ninja_way_west
+  - ninja_way_east
   - collider_tunnel
   - spur_west
   - spur_east

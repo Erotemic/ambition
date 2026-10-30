@@ -43,6 +43,13 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **PvN: the Lighthouse Point**, out past the Wreckers' Reef by a side
+  exit at its east rocks (floors level): the honest light against the
+  wreckers' false one. The tower in red and white, cut away to its stair of
+  landings up to the gallery and the lamp (a chest there), its beams; the
+  keeper's cottage, garden, upturned boat; Ezra Lamplugh the keeper
+  (chargen, Hall wing); wreckers come round the point. Verified:
+  the_wreckers_reef (3), check_flat_map pvn (only the Mockingbird finding).
 - **Evil: the Prototype Workshop**, down a door added to the barracks by
   its failed prototypes: where they come from. Tool wall (RETURN THE BIG
   SPANNER), a walking toaster half built, the copper boiler in the red,

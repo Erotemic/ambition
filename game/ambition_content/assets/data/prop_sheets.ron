@@ -274,6 +274,8 @@
     "climb_navsat": (),
     "rookery_hide": (),
     "workshop_room": (),
+    "point_lighthouse": (),
+    "point_cottage": (),
     // The orbital station's damaged spur (Science).
     "spur_west": (),
     "spur_east": (),

@@ -5689,6 +5689,23 @@
                 hall: ["The Drowned Compass: we never tell you where you are, and that is why you come back.", "No gate talk before noon. It upsets the regulars."],
             ),
         ),
+        "npc_port_lamplugh": (
+            display_name: "Ezra Lamplugh",
+            // Keeps the honest light on the point past the Wreckers' Reef.
+            manifest: "sprites/port_lamplugh_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 174 cm.
+            standing_height: Some(67.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "pirate_port", "peaceful"],
+            barks: (
+                idle: ["Keep it burning.", "One hundred and twelve steps."],
+                hall: ["The wreckers' lantern says HARBOUR. Mine says ROCKS. A captain can only believe one of us.", "Keep it burning and tell the truth. That's the whole job."],
+            ),
+        ),
         "npc_port_brine": (
             display_name: "Nell Brine",
             // A beachcomber on the Wreckers' Reef's shore.

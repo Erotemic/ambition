@@ -57,6 +57,8 @@ DOCKS = "pirate_port_docks"
 #: Out of the port (Jon, 2026-10-30: "out of town zones with enemies"): the
 #: Wreckers' Reef, east of the docks by a side exit.
 REEF = "pirate_wreckers_reef"
+#: Out past the reef, east by a side exit at the east rocks' height.
+POINT = "pirate_lighthouse_point"
 
 #: The contract with Agent GATE: the arrival point a dialled SAILING names.
 ARRIVAL = "pirate_port_gate_arrival"
@@ -81,6 +83,8 @@ ROOMS_AT = {
     WATERFRONT: ((1600, -64), (2560, 896)),
     DOCKS: ((4160, -64), (2816, 960)),
     REEF: ((4160 + 2816, -64), (2560, 960)),
+    # Its floor (y 960) level with the reef's east rocks (y 640 there).
+    POINT: ((4160 + 2816 + 2560, -64 - 320), (1600, 1280)),
     TAVERN: ((1856, 1152), (1024, 448)),
 }
 
@@ -293,7 +297,9 @@ def reef():
         ledge("mast_stump", x0, top, x1 - x0),
         solid("east_rocks", REEF_EAST[0], REEF_EAST[2], REEF_EAST[1] - REEF_EAST[0], SEA_FLOOR - REEF_EAST[2]),
         solid("west_wall", 0, 0, WALL, DECK - 112),
-        solid("east_wall", w - WALL, 0, WALL, SEA_FLOOR),
+        solid("east_wall", w - WALL, 0, WALL, REEF_EAST[2] - 112),
+        solid("east_wall_low", w - WALL, REEF_EAST[2], WALL, SEA_FLOOR - REEF_EAST[2]),
+        edge("reef_east", "on to the lighthouse point", w - WALL, REEF_EAST[2], POINT, "point_west"),
         edge("reef_west", "back along the shore to the docks", 0, DECK, DOCKS, "docks_east"),
         start(rid, 120, DECK),
         # Nell Brine, beachcombing the shore (`pirate_port.yarn`).
@@ -309,7 +315,49 @@ def reef():
     return build(rid, e, "THE WRECKERS' REEF", music=DOCK_MUSIC)
 
 
-ROOMS = (plaza, waterfront, tavern, docks, reef)
+#: The lighthouse (`pirate_lighthouse_props.py` draws on these): the point's
+#: rock, the stair landings inside the tower (x0, x1, y), the gallery.
+POINT_FLOOR = 960
+POINT_LANDINGS = ((930, 1000, 880), (1000, 1070, 800), (935, 1005, 720), (995, 1065, 640), (940, 1010, 560), (990, 1060, 480))
+POINT_GALLERY = (860, 1140, 400)
+
+
+def point_enemy(n, character, x, feet, w, h):
+    return entity("EnemySpawn", x, feet - h, w, h, name=f"{POINT}_{character}_{n}", brain="combatant",
+                  character_id=character, respawn="OnRoomReenter")
+
+
+def point():
+    """Out past the reef: the Lighthouse Point, the honest light the wreckers
+    would like out. The rock (y 960) from the reef's east rocks; the
+    keeper's cottage; the lighthouse cut away, its stair of landings up
+    inside to the gallery (y 400) and the lamp; wreckers come round the
+    point on its far side."""
+    rid = POINT
+    _, (w, h) = ROOMS_AT[rid]
+    g = POINT_FLOOR
+    gx0, gx1, gy = POINT_GALLERY
+    e = [
+        solid("rock", 0, g, w, h - g),
+        solid("west_wall", 0, 0, WALL, g - 112),
+        solid("east_wall", w - WALL, 0, WALL, g),
+        edge("point_west", "back to the reef", 0, g, REEF, "reef_east"),
+        start(rid, 120, g),
+        *[ledge(f"landing_{i}", x0, y, x1 - x0) for i, (x0, x1, y) in enumerate(POINT_LANDINGS)],
+        ledge("gallery", gx0, gy, gx1 - gx0),
+        # Ezra Lamplugh, the keeper, by his cottage (`pirate_port.yarn`).
+        resident("npc_port_lamplugh", "pirate_port_lamplugh", 700, g),
+        entity("ChestSpawn", gx0 + 6, gy - 58, 76, 58, name="the keeper's oil money", reward="currency:60"),
+        sign("point_sign", 1000, 150, "THE LIGHTHOUSE: the honest one", 380),
+        sign("point_sign_cottage", 620, g - 200, "KEEPER'S COTTAGE. Wreckers: no.", 320),
+        # The wreckers, come round the point at the tower's far side.
+        point_enemy(1, "npc_pirate_cutlass_viper", 1320, g, 32, 68),
+        point_enemy(2, "npc_pirate_lookout", 1460, g, 32, 65),
+    ]
+    return build(rid, e, "THE LIGHTHOUSE POINT", music=DOCK_MUSIC)
+
+
+ROOMS = (plaza, waterfront, tavern, docks, reef, point)
 
 #: The ladders out of the two gaps of open water, and up the mainmast
 #: (painted on the `Climbable` layer): (room, x, top, bottom).

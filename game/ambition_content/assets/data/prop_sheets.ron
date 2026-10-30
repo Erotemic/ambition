@@ -285,6 +285,9 @@
     "court_busker": (),
     "hanoi_temple": (),
     "ranger_station_room": (),
+    // The ridge road's sinkhole, and the fossil beds under it (Jungle).
+    "ridge_sinkhole": (),
+    "fossil_beds": (),
     "bakery_room": (),
     "sail_loft_room": (),
     // The Pirate Port's well, and the cellars under customs (PvN).

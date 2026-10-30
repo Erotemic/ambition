@@ -6638,6 +6638,23 @@
                 hall: ["I have a rule book. The dinosaurs have teeth. We compromise.", "Fourteen years on this trail. I have lost two hats and no visitors. Yet."],
             ),
         ),
+        "npc_primeval_stratton": (
+            display_name: "Dr Petra Stratton",
+            // Maps the fossil beds under the ridge road; objects to the dinosaurs above them.
+            manifest: "sprites/primeval_stratton_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "primeval", "peaceful"],
+            barks: (
+                idle: ["Wrong layer.", "*taps the rock with a hammer*"],
+                hall: ["Sixty-six million years down. That is where they go. They will not go.", "Every morning I cross them out of the top layer, and every morning one walks over the hole."],
+            ),
+        ),
         "npc_primeval_dlamini": (
             display_name: "Ranger Dlamini",
             // Keeps the radio in the ranger station at the trailhead.

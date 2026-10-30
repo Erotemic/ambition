@@ -186,6 +186,7 @@ npc_primeval_feld
 npc_primeval_tock
 npc_primeval_twitchell
 npc_primeval_dlamini
+npc_primeval_stratton
 npc_tower_brandt
 
 [Guests from history and the studio]

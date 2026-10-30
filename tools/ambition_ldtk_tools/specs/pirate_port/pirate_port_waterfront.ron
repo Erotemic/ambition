@@ -2,8 +2,8 @@
 (
     id: "pirate_port_waterfront",
     level_id: "pirate_port_waterfront",
-    world_x: 1856,
-    world_y: 0,
+    world_x: 1600,
+    world_y: -64,
     px_wid: 2560,
     px_hei: 896,
     fill_collision: "empty",

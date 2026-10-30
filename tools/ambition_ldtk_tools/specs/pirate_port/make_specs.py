@@ -70,10 +70,13 @@ TOWN_MUSIC = "pirates_guild_black_flag_jig"
 DOCK_MUSIC = "ten_fathoms_and_a_grudge"
 
 #: Each room: (world_x, world_y), (width, height).
+#: The plaza, the waterfront and the docks touch where their side exits join,
+#: with the low road (and the high road) level (Jon, 2026-10-30: "a mostly
+#: faithful flat map"; `specs/check_flat_map.py`). The tavern is a building.
 ROOMS_AT = {
     PLAZA: ((0, 0), (1600, 832)),
-    WATERFRONT: ((1856, 0), (2560, 896)),
-    DOCKS: ((4672, 0), (2816, 960)),
+    WATERFRONT: ((1600, -64), (2560, 896)),
+    DOCKS: ((4160, -64), (2816, 960)),
     TAVERN: ((1856, 1152), (1024, 448)),
 }
 

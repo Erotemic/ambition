@@ -2,8 +2,8 @@
 (
     id: "pirate_port_docks",
     level_id: "pirate_port_docks",
-    world_x: 4672,
-    world_y: 0,
+    world_x: 4160,
+    world_y: -64,
     px_wid: 2816,
     px_hei: 960,
     fill_collision: "empty",

@@ -76,10 +76,14 @@ DOJO_MUSIC = "nine_rooftops"
 #: The village is 10000 px under the port in the PvN world file (`pvn.ldtk`):
 #: the two were laid out each in its own file, from the same corner.
 VILLAGE_Y = 10000
+#: The shrine, the street and the forest touch where their side exits join,
+#: with the low road level (`specs/check_flat_map.py`). The high road from the
+#: street's last roof (y 384) arrives on the forest's first branch 64 higher:
+#: both are drawn on their heights. The dojo is a building.
 ROOMS_AT = {
     SHRINE: ((0, VILLAGE_Y), (1600, 832)),
-    STREET: ((1856, VILLAGE_Y), (2816, 896)),
-    FOREST: ((4928, VILLAGE_Y), (2816, 960)),
+    STREET: ((1600, VILLAGE_Y - 64), (2816, 896)),
+    FOREST: ((4416, VILLAGE_Y - 128), (2816, 960)),
     DOJO: ((1856, VILLAGE_Y + 1152), (1600, 576)),
 }
 

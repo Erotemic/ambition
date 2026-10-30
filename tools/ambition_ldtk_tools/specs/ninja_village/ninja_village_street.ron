@@ -2,8 +2,8 @@
 (
     id: "ninja_village_street",
     level_id: "ninja_village_street",
-    world_x: 1856,
-    world_y: 10000,
+    world_x: 1600,
+    world_y: 9936,
     px_wid: 2816,
     px_hei: 896,
     fill_collision: "empty",

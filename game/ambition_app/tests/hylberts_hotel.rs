@@ -107,12 +107,14 @@ fn the_guests_of_hylberts_hotel_talk() {
     talk(&mut app, "npc_python_goras", "What's wrong with beans?");
 }
 
-/// The ballroom's game show: from the lobby into the ballroom, through door
+/// The ballroom's game show: from the lobby into the ballroom, where its
+/// host Monty Carlo talks (`math.yarn` `hotel_monty_carlo`), through door
 /// number 2 to the car behind it, and back out to the lobby.
 #[test]
 fn the_ballroom_has_three_doors_and_a_car_behind_one() {
     let mut app = a_session_in(LOBBY);
     go(&mut app, "math_hotel_ballroom", Some("math_hotel_lobby_ballroom"));
+    talk(&mut app, "npc_math_monty", "How does it work?");
     go(&mut app, "math_hotel_door_2", Some("math_hotel_ballroom_door_2"));
     go(&mut app, "math_hotel_ballroom", Some("math_hotel_door_2_door"));
     go(&mut app, LOBBY, Some("math_hotel_ballroom_door"));

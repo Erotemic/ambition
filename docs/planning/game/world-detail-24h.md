@@ -43,6 +43,9 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Math: Monty Carlo hosts the ballroom**: the three doors' host (chargen,
+  Hall wing), who explains why switching wins and sends a goat to each
+  mathematician who writes in. Verified: hylberts_hotel (4).
 - **Science: the tether terminus** (station end of the space elevator):
   hull hall, the ribbon through collars in floor and vault, a window on the
   planet's limb, the down car's lift doors and the bay's bulkhead, the

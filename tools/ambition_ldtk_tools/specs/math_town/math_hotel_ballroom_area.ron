@@ -24,6 +24,7 @@
         ( type: "LoadingZone", px: [872, 416], size: [48, 96], fields: ( id: "math_hotel_ballroom_door_3", name: "door number 3", activation: "Door", target_room: "math_hotel_door_3", target_zone: "math_hotel_door_3_door", bidirectional: true ) ),
         ( type: "DebugLabel", px: [360, 80], size: [560, 24], fields: ( name: "ballroom_sign", text: "TONIGHT: PICK A DOOR. THEN SWITCH. ALWAYS SWITCH.", category: "Custom" ) ),
         ( type: "DebugLabel", px: [940, 270], size: [300, 24], fields: ( name: "ballroom_sign_odds", text: "STAY 1/3   SWITCH 2/3", category: "Custom" ) ),
+        ( type: "NpcSpawn", px: [214, 448], size: [32, 64], fields: ( character_id: "npc_math_monty", brain_override: "stand_still", prompt: "Talk", dialogue_id: "hotel_monty_carlo" ) ),
         ( type: "CameraZone", px: [0, 0], size: [1280, 576], fields: ( id: "math_hotel_ballroom_camera", name: "math_hotel_ballroom_camera", mode: "Default" ) ),
         ( type: "DebugLabel", px: [70, 40], size: [900, 24], fields: ( name: "math_hotel_ballroom_label", text: "Hylbert's Hotel: the ballroom. Tonight: three doors.", category: "Custom" ) ),
     ],

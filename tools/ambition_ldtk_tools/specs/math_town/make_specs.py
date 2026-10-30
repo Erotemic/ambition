@@ -789,6 +789,9 @@ def hotel_ballroom():
         *[door(f"{rid}_door_{k + 1}", f"door number {k + 1}", x, floor, CLOSETS[k], f"{CLOSETS[k]}_door") for k, x in enumerate(STAGE_DOORS)],
         label("ballroom_sign", 360, 80, "TONIGHT: PICK A DOOR. THEN SWITCH. ALWAYS SWITCH.", 560),
         label("ballroom_sign_odds", 940, 270, "STAY 1/3   SWITCH 2/3", 300),
+        # The host, west of the stage (`math.yarn` `hotel_monty_carlo`).
+        f'( type: "NpcSpawn", px: [{230 - 16}, {floor - 64}], size: [32, 64], fields: ( character_id: "npc_math_monty", '
+        f'brain_override: "stand_still", prompt: "Talk", dialogue_id: "hotel_monty_carlo" ) ),',
     ]
     return rid, room(rid, e, "Hylbert's Hotel: the ballroom. Tonight: three doors.", theme=INTERIOR)
 

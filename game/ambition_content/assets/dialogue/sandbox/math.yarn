@@ -220,6 +220,21 @@ Davy Hylbert: Sorry, we're full tonight.
     Davy Hylbert: Right. Sorry.
 ===
 
+title: hotel_monty_carlo
+---
+Monty Carlo: Welcome, welcome, WELCOME to the ballroom! Three doors! One car! Two goats! And one lucky robot!
+-> How does it work?
+    Monty Carlo: You pick a door. I, who know everything, open another one and show you a goat. Then I ask: do you want to switch?
+    Monty Carlo: And you say yes. Because switching wins two times in three. Everybody says yes. Eventually.
+-> Why does switching win?
+    Monty Carlo: Your first pick is right one time in three. I never open the car. So the other door holds every case where you were wrong. Two in three!
+    Monty Carlo: A mathematician wrote in to say I was lying. Hundreds of them. I sent each of them a goat.
+-> What happens to the goats?
+    Monty Carlo: They live here. Hylbert gives each one a room. There are always rooms. The goats have never been happier.
+-> I'll stay where I am.
+    Monty Carlo: Staying! Bold! Wrong, two times in three, but bold!
+===
+
 title: hotel_paradox_barber
 ---
 The Paradox Barber: Hylbert gave me a room for the shop. Room n plus two. Then a guest arrived and I was moved to n plus three.

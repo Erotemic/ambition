@@ -6242,6 +6242,23 @@
                 hall: ["I trim the Koch hedge from spring to spring. Every cut makes more hedge.", "I raked the woods once. Every leaf had leaves. I stopped raking."],
             ),
         ),
+        "npc_math_monty": (
+            display_name: "Monty Carlo",
+            // Hosts the three doors in Hylbert's ballroom; always says switch.
+            manifest: "sprites/math_monty_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 183 cm.
+            standing_height: Some(70.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "math_town", "peaceful"],
+            barks: (
+                idle: ["Three doors! One car!", "Switch! Always switch!"],
+                hall: ["You pick a door, I show you a goat, you switch. Two times in three. Everybody switches eventually.", "Hundreds of mathematicians wrote in to say I was wrong. I sent each of them a goat."],
+            ),
+        ),
         // ===== Castle Godwin's staff (the Evil dimension), made by chargen: the
         // kitchens under the gatehouse.
         "npc_castle_hargreave": (

@@ -542,6 +542,10 @@ collections:
   - orchard_hanging_tree
   - orchard_swing_rail
   - orchard_crates
+  - hall_cradle
+  - hall_lectern
+  - gallery_chandelier_hung
+  - gallery_chandelier_stood
   - bad_apple
   - gravity_apple
   - mine_tunnel

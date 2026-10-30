@@ -284,6 +284,11 @@
     "orchard_hanging_tree": (),
     "orchard_swing_rail": (),
     "orchard_crates": (),
+    // GNU-ton's works: a thing in each hall that says what it is about (Science).
+    "hall_cradle": (),
+    "hall_lectern": (),
+    "gallery_chandelier_hung": (),
+    "gallery_chandelier_stood": (),
     "mine_tunnel": (),
     "hamlet_west": (),
     "hamlet_east": (),

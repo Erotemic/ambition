@@ -178,6 +178,17 @@ def camera(rid, w, h, zoom=None):
 PROPS = {
     ORCHARD: (("orchard_rising_tree", 352, 80), ("orchard_hanging_tree", 956, 80),
               ("orchard_swing_rail", 1808, 80), ("orchard_crates", 1594, 624)),
+    # `targets/props/gnu_ton_works_props.py`: a thing in each hall that says
+    # what the hall is about.
+    HALL: (("hall_cradle", 40, 48), ("hall_lectern", 1664, 716)),
+    GALLERY: (("gallery_chandelier_hung", 424, 160), ("gallery_chandelier_stood", 424, 796)),
+}
+
+#: A line of writing in a hall, by its room: (name, x, y, text, width).
+SIGNS = {
+    ORCHARD: (("orchard_crates_sign", 1560, 560, "PICKED APPLES: store this way up", 300),),
+    HALL: (("hall_lectern_sign", 1720, 660, "CONSERVATION HALL: what goes in comes out", 420),),
+    GALLERY: (("gallery_chandeliers_sign", 480, 300, "THIS GALLERY IS HUNG BOTH WAYS UP", 400),),
 }
 
 #: The works' enemies, few: it is a puzzle level (Jon, 2026-10-30: "add the
@@ -206,8 +217,8 @@ def dressing(rid):
         if room_id == rid:
             out.append(entity("EnemySpawn", x, feet - h, w, h, name=f"{rid}_{character}_{n}", brain="combatant",
                               character_id=character, respawn="OnRoomReenter"))
-    if rid == ORCHARD:
-        out.append(label("orchard_crates_sign", 1560, 560, "PICKED APPLES: store this way up", 300))
+    for name, x, y, text, w in SIGNS.get(rid, ()):
+        out.append(label(name, x, y, text, w))
     return out
 
 

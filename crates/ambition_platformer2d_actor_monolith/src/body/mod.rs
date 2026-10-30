@@ -66,6 +66,7 @@ pub mod dormancy;
 mod drawn_ledges;
 pub mod errand;
 mod fade_rows;
+mod telegraph_rows;
 #[cfg(test)]
 mod fighter_harness;
 pub mod fighter_ladder;
@@ -99,6 +100,7 @@ pub use brain_effects::spawn_projectiles_from_brain_actions;
 pub use damage::apply_feature_hit_events;
 pub use drawn_ledges::follow_drawn_ledges;
 pub use fade_rows::{FADE_ROW_WRITER, pin_fade_rows, withdraw_faded_contact};
+pub use telegraph_rows::{NOTICE_ROW, TELEGRAPH_ROW_WRITER, WINDUP_ROW, pin_telegraph_rows, telegraph_row};
 pub use interact::{TalkableBodies, interact_ecs_actors_and_switches};
 pub use pet::{
     PET_SECONDS, PET_WALK_SPEED, PetBeat, PetRequested, PetStage, advance_pet_beats,

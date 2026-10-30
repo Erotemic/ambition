@@ -93,6 +93,12 @@ pub struct NavigationRequest {
 }
 
 impl Brain {
+    /// It stands and looks at a foe it has just seen (a brute's
+    /// [`MeleeTactics::notice_s`]): its sheet's `notice` row is drawn.
+    pub fn is_noticing(&self) -> bool {
+        matches!(self, Brain::StateMachine(StateMachineCfg::MeleeBrute { state, .. }) if state.is_noticing())
+    }
+
     /// Construct a `Brain::StateMachine(StandStill)`. Used by spawn
     /// sites that want a no-op AI brain (sandbags, dialogue-only
     /// NPCs).

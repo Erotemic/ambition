@@ -156,6 +156,7 @@ mod door_with_the_touch_overlay;
 mod duel_arena;
 mod effect_quarantine;
 mod enemy_attacks_player;
+mod an_enemy_notices_then_telegraphs;
 mod every_damageable_body_is_identified;
 mod every_character_says_something;
 mod experience_scope_ownership;

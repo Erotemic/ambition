@@ -40,6 +40,13 @@ to touch, and a little danger outside town. No quest chains.
   carry more flavor; the moor is the first zone out of town.
 
 ## Run progress
+- **Jungle: the fossil beds** (0bdce43ba), down a sinkhole in the ridge
+  road (vertical exit, ladder; directly under the ridge on the flat map):
+  strata and their fossils, a skull under a survey scaffold; Dr Petra
+  Stratton, geologist, who objects that the dinosaurs upstairs are in the
+  wrong layer; compys and a raptor; a tin on the scaffold. Learned: the
+  engine draws a Climbable's ladder, so art must not; the test walker cannot
+  step into a 64-px hole from the floor (start below and climb up first).
 - **PvN: the cellars under customs** (2f33b0b6d), down the gate plaza's
   old well against its west wall (a vertical exit and a ladder; directly
   under the plaza on the flat map): the freight customs never sees. The

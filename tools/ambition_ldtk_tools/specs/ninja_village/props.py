@@ -42,6 +42,8 @@ SCENERY = {
         # The charcoal burner's camp (`ninja_forest_props.py`, room coordinates).
         ("forest_kiln_camp", 330, FOREST_FLOOR - 200),
     ],
+    # Ume's tea house inside (`ninja_tea_room_props.py`, room coordinates).
+    "ninja_village_tea_room": [("tea_room", 16, 32)],
     "ninja_village_dojo": [
         ("village_dojo_entry", 16, 32),
         ("village_dojo_exam", 528, 32),

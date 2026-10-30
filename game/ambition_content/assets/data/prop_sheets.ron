@@ -267,6 +267,7 @@
     "terminus_hall": (),
     "allotment_west": (),
     "allotment_beds": (),
+    "tea_room": (),
     // The orbital station's damaged spur (Science).
     "spur_west": (),
     "spur_east": (),

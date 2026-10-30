@@ -83,6 +83,21 @@ Daichi: Stand back! I am about to perform the Thousand Leaf Step! ...I am still 
     Daichi: I do not need luck! I need the exam to be on a Tuesday.
 ===
 
+title: ninja_village_tsuru
+---
+Tsuru: Sit, sit, the kettle's on. Ume lets me have the room upstairs every autumn. I bring her a new box of stomach powders and she pretends she doesn't need them.
+-> What do you sell?
+    Tsuru: Medicines. I leave a box with each house on my round: fever, stomach, cuts, sleep. Next autumn I come back, count what was used, and they pay for that.
+    Tsuru: Nobody pays for what they didn't need. It is the most honest trade in the mountains.
+-> Is the round long?
+    Tsuru: Forty-one villages, and every one has a dog that remembers me. Thirty-nine of the dogs are friendly.
+-> Did you see the family who left the sandals?
+    Tsuru: I heard them on the stairs before dawn. The little one asked if the shoes would be lonely. Her mother said Ume would look after them.
+    Tsuru: Ume says she's leaving them there. I've noticed she dusts them.
+-> Enjoy your tea.
+    Tsuru: I always do. It's the one thing on the round I don't have to carry.
+===
+
 title: ninja_village_moriyama
 ---
 Moriyama: Downwind of the kiln, please. You are standing in my smoke and I am standing in it for a living.

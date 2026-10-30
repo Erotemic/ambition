@@ -43,6 +43,13 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **PvN: Ume's tea house inside**, by a door under the noren in the village
+  street (Ume steps aside to her bench): the tea room (tatami, the sunken
+  hearth and its kettle, low tables, the alcove), the step chest up to the
+  loft's two guest rooms, where the family who left before daylight forgot
+  a child's sandals under the futon (Ume's talk) and left a thank-you on
+  the pillow (a chest); Tsuru the travelling medicine seller staying
+  (chargen, Hall wing). Verified: the_ninja_village (2).
 - **Evil: the Castle Allotments**, out of town west of the Searchlight Moor
   by a side exit (floor level, rooms touching): raised beds of the castle's
   vegetables (pumpkins that come up scowling, cabbages with teeth,

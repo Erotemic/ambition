@@ -53,6 +53,9 @@ GENERATOR = "specs/ninja_village/make_specs.py"
 SHRINE = "ninja_village_gate_shrine"
 STREET = "ninja_village_street"
 DOJO = "ninja_village_dojo"
+#: Ume's tea house inside, by its door in the street (under the noren).
+TEA = "ninja_village_tea_room"
+TEA_DOOR_X = 1256
 FOREST = "ninja_village_forest"
 #: Out of the village (Jon, 2026-10-30: "out of town zones with enemies"):
 #: the Bamboo Pass, east of the forest by a side exit.
@@ -87,6 +90,7 @@ ROOMS_AT = {
     STREET: ((1600, VILLAGE_Y - 64), (2816, 896)),
     FOREST: ((4416, VILLAGE_Y - 128), (2816, 960)),
     DOJO: ((1856, VILLAGE_Y + 1152), (1600, 576)),
+    TEA: ((768, VILLAGE_Y + 1152), (1024, 512)),
     PASS: ((4416 + 2816, VILLAGE_Y - 128), (2400, 960)),
 }
 
@@ -163,7 +167,9 @@ def street():
         start(rid, 120, ground),
         *[ledge(name, x0, y, x1 - x0) for name, x0, x1, y in ROOFS],
         resident("npc_village_daichi", "ninja_village_daichi", 760, ground),
-        resident("npc_village_ume", "ninja_village_ume", 1280, ground),
+        # Ume by her bench, clear of her door.
+        resident("npc_village_ume", "ninja_village_ume", 1390, ground),
+        door("street_tea_door", "into the tea house", TEA_DOOR_X, ground, TEA, "tea_door"),
         sign("tea_house_sign", 1280, ground - 200, "UME'S TEA HOUSE: gate-sick half price", 360),
         door("street_dojo_door", "into the dojo", 1736, ground, DOJO, "dojo_door"),
         sign("dojo_sign", 1760, ground - 180, "VILLAGE DOJO: rank exams on the hour", 340),
@@ -212,6 +218,36 @@ def forest():
         entity("ChestSpawn", BRANCHES[3][1] + 160, BRANCHES[3][2] - 58, 76, 58, name="the crows' hoard", reward="currency:30"),
     ]
     return build(rid, e, "THE CEDAR FOREST", music=FOREST_MUSIC)
+
+
+#: The tea room's step chest (x0, x1, tread) and the loft's floor (x0, x1,
+#: y), walked on (`ninja_tea_room_props.py` draws on these).
+TEA_STEPS = ((432, 464, 416), (464, 496, 384), (496, 528, 352), (528, 560, 320), (560, 592, 288))
+TEA_LOFT = (592, 1008, 256)
+
+
+def tea_room():
+    """Ume's tea house inside. Floor 448. The tea room, its hearth and
+    tables; the step chest up to the loft and its two guest rooms, where a
+    family who left before daylight forgot a child's sandals (Ume's talk)
+    and left a thank-you on the pillow. Tsuru the medicine seller is
+    staying."""
+    rid = TEA
+    _, (w, h) = ROOMS_AT[rid]
+    g = 448
+    e = [
+        solid("floor", 0, g, w, h - g),
+        solid("ceiling", 0, 0, w, 32),
+        solid("west_wall", 0, 32, WALL, g - 32),
+        solid("east_wall", w - WALL, 32, WALL, g - 32),
+        door("tea_door", "out to the street", 40, g, STREET, "street_tea_door"),
+        start(rid, 140, g),
+        *[ledge(f"step_{i}", x0, top, x1 - x0) for i, (x0, x1, top) in enumerate(TEA_STEPS)],
+        ledge("loft", TEA_LOFT[0], TEA_LOFT[2], TEA_LOFT[1] - TEA_LOFT[0]),
+        resident("npc_village_tsuru", "ninja_village_tsuru", 800, g),
+        entity("ChestSpawn", 610, TEA_LOFT[2] - 58, 76, 58, name="a thank-you, left on the pillow", reward="currency:20"),
+    ]
+    return build(rid, e, "UME'S TEA HOUSE")
 
 
 def dojo():
@@ -305,7 +341,7 @@ def bamboo_pass():
     return build(rid, e, "THE BAMBOO PASS", music=FOREST_MUSIC)
 
 
-ROOMS = (shrine, street, forest, dojo, bamboo_pass)
+ROOMS = (shrine, street, forest, dojo, tea_room, bamboo_pass)
 
 #: The ladder up the baker's wall: (room, x, top, bottom).
 LADDERS = [(STREET, 400, ROOFS[0][3] - 16, 768), (PASS, PASS_LOOKOUT[1] + 4, PASS_LOOKOUT[2][1] - 16, FOREST_FLOOR)]

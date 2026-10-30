@@ -60,7 +60,7 @@
     if (I) {
       const ids = Object.values(I.identities || {});
       cards.push({title: "Characters", href: "#characters", n: ids.length,
-        line: I.profile.state === "available" ? `${Object.values(I.units).filter(u => u.status?.state === "missing").length} art bundles missing, ${Object.values(I.units).filter(u => ["partial", "stale"].includes(u.status?.state)).length} stale or partial` : "catalog unavailable"});
+        line: I.profile.state === "available" ? `${Object.values(I.units).filter(u => u.status?.state === "missing").length} art bundles missing, ${Object.values(I.units).filter(u => ["partial", "stale"].includes(u.status?.state)).length} stale, ${Object.values(I.units).filter(u => u.status?.state === "possibly-stale").length} possibly stale` : "catalog unavailable"});
     }
     const images = Object.values(C.assets || {});
     cards.push({title: "Images", href: "#gallery", n: images.length, line: `${images.filter(a => a.findings).length} with findings`});

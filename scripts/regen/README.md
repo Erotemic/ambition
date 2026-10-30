@@ -32,6 +32,18 @@ planning, generation, exact membership, and unmanaged files.
 | art draws at a stale tier | `./scripts/regen/quality_variants.sh` |
 
 Read the selected sprite products with `./scripts/regen/sprites.sh --check`.
+
+A bundle is current only when every input it recorded is unchanged: that is the
+guarantee. A stale bundle is directly stale when one of its own inputs changed,
+or possibly stale when only shared renderer code, the toolchain or the set of
+renderer files changed. An input is the bundle's own when at most five bundles
+read it or its name matches the target. `--loose` rebuilds only directly stale
+and missing bundles and keeps possibly stale ones. A plain run renders those too.
+
+```bash
+./scripts/regen/sprites.sh --loose          # what its own edits changed
+./scripts/regen/sprites.sh                  # everything not strictly current
+```
 Use `--plan --json` to list definitions and `--audit --json` to inspect old loose
 files. `./scripts/regen/sprites.sh --check-toolchain` checks the renderer setup.
 

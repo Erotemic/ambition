@@ -204,6 +204,13 @@ root, outside runtime asset roots.
 Legacy receipts with no complete input record stay unknown. A known changed
 input or changed output can still prove staleness. `--needs-generation` selects
 positive missing or stale evidence; unknown generation evidence needs review.
+
+Strictly stale is not always worth a rebuild. A unit stale only because shared
+renderer code, the toolchain or the set of renderer files changed is shown as
+**possibly stale**. Its page lists the changed shared files, the most specific
+first. `--needs-generation` leaves possibly stale units out; add `--strict` to
+count them. `./scripts/regen/sprites.sh --loose` rebuilds only directly stale
+art, and a plain run rebuilds everything that is not strictly current.
 See [sprite publication](../../docs/tools/sprite-publication.md) for planning,
 source snapshots, exact membership, and unmanaged files. A focused publish
 records evidence for that bundle:

@@ -83,3 +83,18 @@ def test_one_publisher_can_serve_two_independent_lineages(tmp_path):
     assert report['identities']['game:giant']['lineages'] == ['giant']
     assert report['identities']['game:scholar']['lineages'] == ['scholar']
     assert len(report['character_groups']) == 2
+
+
+def test_shared_only_staleness_reads_as_possibly_stale_and_strict_queries_still_count_it():
+    from asset_index import inventory
+    shared = {"state": "stale", "scope": "shared", "reasons": [{"code": "changed-input", "path": "core.py", "scope": "shared"}],
+              "tiers": {"half": {"state": "stale"}}}
+    own = dict(shared, scope="direct")
+    assert inventory.loosen(shared)["state"] == "possibly-stale" and inventory.loosen(shared)["strict"] == "stale"
+    assert inventory.loosen(shared)["tiers"]["half"]["state"] == "possibly-stale"
+    assert inventory.loosen(own)["state"] == "stale"
+    report = {"identities": {}, "units": {
+        "target:a": {"id": "target:a", "kind": "actor", "identities": [], "lineages": [], "game_use": "referenced", "status": inventory.loosen(shared)},
+        "target:b": {"id": "target:b", "kind": "actor", "identities": [], "lineages": [], "game_use": "referenced", "status": inventory.loosen(own)}}}
+    assert [u["id"] for u in inventory.select(report, needs=True)] == ["target:b"]
+    assert [u["id"] for u in inventory.select(report, needs=True, strict=True)] == ["target:a", "target:b"]

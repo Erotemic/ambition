@@ -322,6 +322,7 @@ def main(argv: list[str] | None = None) -> int:
         query.add_argument("--kind", default="")
         query.add_argument("--lineage", nargs="?", const="", default="")
         query.add_argument("--needs-generation", action="store_true")
+        query.add_argument("--strict", action="store_true", help="count possibly stale units (only shared code changed) as needing generation")
         query.add_argument("--current-game", action="store_true")
         query.add_argument("--animation", default="")
         query.add_argument("--missing", default="")
@@ -356,7 +357,7 @@ def main(argv: list[str] | None = None) -> int:
         report = inventory.collect(repo, out, profile=args.profile, python=args.renderer_python, binary=args.content_binary,
                                    deep=args.deep, runtime_path=args.runtime_snapshot)
         rows = inventory.select(report, query=args.query, kind=args.kind, needs=args.needs_generation,
-                                game_only=args.current_game, lineage=args.lineage, missing=args.missing)
+                                game_only=args.current_game, lineage=args.lineage, missing=args.missing, strict=args.strict)
         selected = {cid: report["identities"][cid] for unit in rows for cid in unit["identities"]}
         if args.animation:
             selected = {cid: dict(row, coverage=[c for c in row["coverage"] if c["action"] == args.animation]) for cid, row in selected.items()}

@@ -100,6 +100,8 @@ ROOMS_AT = {
 #: The elevator: the cars' size and speed; the foot of the ground station's
 #: shaft (room x), and the climb's and terminus's shaft (room x).
 CAR_W, CAR_H = 128, 22
+#: How far over the ground station's floor its car waits: a hop.
+CAR_HOP = 40
 CAR_SPEED = 300.0
 CLIMB_SPEED = 340.0
 STATION_SHAFT_X = 960
@@ -266,24 +268,25 @@ def observatory():
 
 def elevator_station():
     """The ground station: a tall hall round the foot of the tether. The car
-    rests in the floor (its top level with it) under the open roof of the
-    shaft; the operator by it. The down car from the terminus lets you off
+    waits a hop over the floor under the open roof of the shaft (as the
+    Mockingbird's shark waits in the air): hop on and it is all that holds
+    you, so it carries you. Level with the floor, it set off at the first
+    touch of a foot still on the floor and rose through it. The operator is
+    by it. The down car from the terminus lets you off
     on its platform here."""
     rid = STATION
     _, (w, h) = ROOMS_AT[rid]
     floor = h - 64
     sx, sw = STATION_SHAFT_X, CAR_W
     e = [
-        solid("floor_west", 0, floor, sx, 64),
-        solid("floor_east", sx + sw, floor, w - sx - sw, 64),
-        solid("pit_floor", sx, floor + CAR_H + 8, sw, 64 - CAR_H - 8),
+        solid("floor", 0, floor, w, 64),
         solid("roof_west", 0, 0, sx, 48),
         solid("roof_east", sx + sw, 0, w - sx - sw, 48),
         solid("west_wall_high", 0, 48, WALL, floor - 96 - 48),
         solid("east_wall", w - WALL, 48, WALL, floor - 48),
         edge("station_west", "to the quad", 0, floor, QUAD, "quad_east"),
         start(rid, 200, floor),
-        car("tether_car_ground", "the tether's car", sx, floor, -(floor + 60), CAR_SPEED),
+        car("tether_car_ground", "the tether's car", sx, floor - CAR_HOP, -(floor - CAR_HOP + 60), CAR_SPEED),
         vertical_edge("station_to_climb", "up the tether", sx, 0, sw, CLIMB, "climb_from_station"),
         resident("npc_eureka_teodora", "eureka_teodora", 720, floor),
         # Where the down car lets you off (one way: up is the ride).

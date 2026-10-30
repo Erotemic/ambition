@@ -4,7 +4,7 @@
 //! Jon (2026-10-29): "the science dimension should have a space elevator that
 //! brings you up to the orbital station". The player walks by keys
 //! (`common::walk`) from the gate court through the quad to the tether's
-//! ground station, steps onto the car and does nothing: the car carries it
+//! ground station, hops onto the car and does nothing: the car carries it
 //! up through the roof into the climb, the climb's car carries it out of the
 //! top, and it stands in the terminus on the station. Then it walks into the
 //! docking bay and back, and takes the down car home.
@@ -23,8 +23,25 @@ const CLIMB: &str = "eureka_elevator_climb";
 const TERMINUS: &str = "orbital_station_tether_terminus";
 const BAY: &str = "orbital_station_docking_bay";
 
-/// The middle of the ground station's car, over its top (room px).
-const STATION_CAR: ae::Vec2 = ae::Vec2::new(1024.0, 1300.0);
+/// The ground station's floor under its car, and the car's top where it
+/// waits a hop over it (room px; `make_specs.py`'s `CAR_HOP`).
+const UNDER_THE_CAR: ae::Vec2 = ae::Vec2::new(1024.0, 1320.0);
+const CAR_TOP: ae::Vec2 = ae::Vec2::new(1024.0, 1304.0);
+
+/// Set the player down just over the waiting car's top.
+fn onto_the_car(app: &mut bevy::prelude::App) {
+    use ambition_platformer2d::platformer::markers::PrimaryPlayer;
+    use bevy::prelude::With;
+    let half = {
+        let mut query = app.world_mut().query_filtered::<&ae::BodyKinematics, With<PrimaryPlayer>>();
+        query.iter(app.world()).next().expect("gameplay has a primary player").size.y * 0.5
+    };
+    let mut query = app.world_mut().query_filtered::<(ae::BodyClusterQueryData, &mut ambition_platformer2d::actor::MotionModel), With<PrimaryPlayer>>();
+    let world = app.world_mut();
+    let (mut cluster_item, mut motion_model) = query.iter_mut(world).next().expect("gameplay has a primary player");
+    let mut clusters = cluster_item.as_clusters_mut();
+    ae::movement::transit_body(&mut motion_model, &mut clusters, ae::Vec2::new(CAR_TOP.x, CAR_TOP.y - half - 1.0), ae::movement::TransitVelocity::Zero);
+}
 
 #[test]
 fn the_tether_carries_a_rider_from_the_ground_to_the_station() {
@@ -36,8 +53,12 @@ fn the_tether_carries_a_rider_from_the_ground_to_the_station() {
     }
     go(&mut app, STATION, Some("quad_east"));
 
-    // Onto the car, then hands off: the tether does the rest.
-    go_to(&mut app, STATION_CAR, "the tether's car");
+    // Under the car, then onto it, then hands off: the tether does the rest.
+    // The walker's map is the room's still geometry, so it walks to the
+    // floor under the car and the hop is a placement onto the car's top (as
+    // `mockingbird_fight`'s shark ride is).
+    go_to(&mut app, UNDER_THE_CAR, "the floor under the tether's car");
+    onto_the_car(&mut app);
     let mut rooms = vec![live_room(&mut app)];
     for _ in 0..60 * 30 {
         app.update();

@@ -1,0 +1,96 @@
+title: primeval_context
+---
+// The primeval trail's people (the jungle dimension): the ranger at the
+// trailhead by the gate, the paleontologist at the tar pits past the end of
+// the trail. One node per resident, named `primeval_<resident>`.
+//
+// Everyday talk only (Jon, 2026-10-29: "we are world building not quest
+// building"): no flags, no errands.
+//
+// Never played. No placement names this node; it declares the zone.
+===
+
+title: primeval_brandvold
+---
+Ranger Brandvold: Welcome to the primeval trail. Stay on the path, carry water, and do not make eye contact with the chickens.
+-> The chickens?
+    Ranger Brandvold: Everybody worries about the raptors. The raptors are honest. The chickens know what they used to be.
+-> What's at the end of the trail?
+    Ranger Brandvold: The canopy, then the tar pits, then a paleontologist who will not leave. Past him, nobody has filled in a form.
+    Ranger Brandvold: There is also a temple with a king in it. I do not patrol the temple. The temple patrols me.
+-> Is the trail safe?
+    Ranger Brandvold: It is marked. That is not the same thing, and the sign says so in small print.
+-> Thanks, ranger.
+    Ranger Brandvold: Sign back in when you return. If you return, I mean. Most do. The form is optimistic.
+===
+
+title: primeval_feld
+---
+Dr Feld: Don't step there. Or there. Fine, step there, but gently. That is a layer.
+-> What are you digging for?
+    Dr Feld: Fossils. The tar keeps everything: mammoths, sabre-tooths, a lunchbox I think was mine.
+    Dr Feld: The difficulty is that most of my specimens are still alive and running past the tent.
+-> Isn't it dangerous?
+    Dr Feld: For the fieldwork, yes. For the field, more so. A triceratops sat on my survey grid on Tuesday.
+    Dr Feld: I have recorded it as a sedimentary event.
+-> What's the mammoth doing here?
+    Dr Feld: Sinking, very slowly, for about thirty thousand years. People walk along its back. I have stopped asking them not to.
+-> Good luck with the dig.
+    Dr Feld: Luck is for gamblers. I have a brush and a great deal of time.
+===
+
+title: primeval_tock
+---
+Professor Tock: Shh. Not you, the sky. I'm listening for it.
+-> Listening for what?
+    Professor Tock: The meteor. The big one. Everything down there has been waiting for it for sixty-six million years, they just don't know it.
+    Professor Tock: Somebody ought to be watching when it comes. I have a chair, a telescope and a thermos. That is the whole department.
+-> Isn't the volcano dangerous?
+    Professor Tock: Compared to the meteor? It's a candle. I warm my hands on it.
+-> What if it never comes?
+    Professor Tock: Then I'll have had a very long sit with a very good view. There are worse careers. Paleontology, for one. Ask Feld.
+-> Enjoy the view.
+    Professor Tock: Wave if you see anything on fire coming down. Not the lava. The lava's always on fire.
+===
+
+title: primeval_twitchell
+---
+Mildred Twitchell: Shh. Shh! Get down. You'll put up the swallows.
+-> What are you watching?
+    Mildred Twitchell: The rookery. Swallows, a shoebill, and penguins. Penguins! In a jungle, beside a volcano, a long way from any ice.
+    Mildred Twitchell: I stopped asking why in the first week. Now I just count them. There are far too many.
+-> Are the swallows African or European?
+    Mildred Twitchell: African. Unladen. I've timed them. Please don't ask me how fast; people always do, and then they laugh.
+-> What is the shoebill doing?
+    Mildred Twitchell: Standing still. It has been standing still since Tuesday. It is the most frightening bird I have ever seen, and I have seen a cassowary angry.
+-> I'll leave you to it.
+    Mildred Twitchell: Quietly, please. And if a penguin follows you, it isn't yours. Don't let it tell you it is.
+===
+
+title: primeval_stratton
+---
+Dr Petra Stratton: Mind the beds. Everything down here is in the right order, which is more than I can say for upstairs.
+-> What is wrong with upstairs?
+    Dr Petra Stratton: The dinosaurs are in it. Look at the board. They belong down here, sixty-six million years down, in the layer with the ash. That layer. The grey one.
+    Dr Petra Stratton: Every morning I cross them out of the top layer, and every morning one of them walks over the hole.
+-> What are you digging?
+    Dr Petra Stratton: The skull. Long-necked chap along the seam beside it. Feld at the tar pits says hers is older. Hers is in tar. Tar is not a layer, it is a mess.
+-> Isn't a living dinosaur good evidence?
+    Dr Petra Stratton: It's terrible evidence. It moves. You can't date a thing that runs off. The rocks sit still and tell the truth.
+-> I'll leave you to it.
+    Dr Petra Stratton: Mind the compys at the east end. They've been eating my core samples. I've had to re-date the whole cave twice.
+===
+
+title: primeval_dlamini
+---
+Ranger Dlamini: (into the radio) Station to Ridge, the walker's left the station. Over. (to you) Sorry. Welcome to the ranger station. Don't touch the jars.
+-> What do you do here?
+    Ranger Dlamini: I keep the radio. Brandvold walks the trail, Feld digs, Tock watches the sky, Twitchell counts the penguins. Every one of them checks in. I know where every walker on the trail is.
+    Ranger Dlamini: And what is eating them. That's the useful part.
+-> What is in the jars?
+    Ranger Dlamini: Ferns, eggs, and compys we've rescued from tar. They are very small and very annoyed and they bite through the lids. I've stopped labelling them. They know who they are.
+-> What is in the lost-property box?
+    Ranger Dlamini: One boot, a monocle, an umbrella. All from the same walker. We never found the rest of him. He sent a postcard from the mountain, so I think he's fine.
+-> I'll be on my way.
+    Ranger Dlamini: Check in at the ridge. If you don't, I'll assume the worst, and send Brandvold, and he'll assume the worst louder.
+===

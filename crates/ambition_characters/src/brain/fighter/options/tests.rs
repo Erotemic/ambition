@@ -329,7 +329,10 @@ fn kill_potential_reads_the_victims_meter_and_the_moves_launch() {
     v.actors[0].damage_taken = 90;
     let ripe = generate_options(Perceived::cheating(&v), Situation::Neutral, &kit, &w);
     assert!(ripe.best_attack().unwrap().score > fresh.best_attack().unwrap().score);
-    assert_eq!(ripe.best_attack().unwrap().features.kill_potential, 0.9);
+    // The meter through the readiness curve: full at 90%, which is past the
+    // band (`kill_readiness`), so the single launcher's share is 1.
+    assert_eq!(ripe.best_attack().unwrap().features.kill_potential, kill_readiness(0.9));
+    assert_eq!(kill_readiness(0.9), 1.0);
 
     // ⭐ AND THE HALF THE OLD ARM COULD NOT ASK, because it needs a SECOND
     // move: the same damaged foe, two moves that differ only in launch. The
@@ -348,9 +351,14 @@ fn kill_potential_reads_the_victims_meter_and_the_moves_launch() {
             .features
             .kill_potential
     };
-    assert_eq!(of("smash"), 0.9, "the kit's best launch earns the full meter");
+    let meter = kill_readiness(0.9);
+    assert_eq!(
+        of("smash"),
+        meter,
+        "the kit's best launch earns the full meter"
+    );
     assert!(
-        (of("jab") - 0.225).abs() < 1e-6,
+        (of("jab") - 0.25 * meter).abs() < 1e-6,
         "a quarter of the launch earns a quarter of the meter, got {}",
         of("jab")
     );
@@ -3265,4 +3273,317 @@ fn a_counter_reads_the_swing_in_the_foes_own_frame() {
     assert_eq!(value(foe(under, Some(ae::Vec2::X), 1.0)), 1.0, "sideways gravity: it swings up its side axis into me");
     assert_eq!(value(foe(under, Some(ae::Vec2::X), -1.0)), 0.0, "sideways gravity: it swings down, away");
     assert_eq!(value(foe(left, None, 1.0)), 0.0, "a foe with no known frame is not answered");
+}
+
+// ── the genre's neutral: shield the swing that reaches, space to the reach ──
+
+fn top_movement(view: &WorldView, situation: Situation, kit: &[AttackCandidate]) -> MovementVerb {
+    let options = generate_options(
+        Perceived::cheating(view),
+        situation,
+        kit,
+        &UtilityWeights::default(),
+    );
+    options.movement[0].verb
+}
+
+/// A swing in startup that REACHES this body is shielded; the same swing from
+/// a foe facing away, or one whose reach falls short, is walked at as before.
+#[test]
+fn a_swing_that_reaches_is_shielded_and_one_that_cannot_is_not() {
+    let kit = [candidate("jab", 0.05, 60.0)];
+    let mut view = view_with(300.0, 350.0);
+    view.actors[0].phase = BodyPhase::AttackStartup;
+    view.actors[0].phase_remaining = 0.2;
+    view.actors[0].attack_reach = Some(40.0);
+    view.actors[0].facing = -1.0;
+    assert_eq!(
+        top_movement(&view, Situation::Neutral, &kit),
+        MovementVerb::Shield,
+        "a 40 px swing from 50 px away, facing me, reaches with the slack"
+    );
+    assert_eq!(
+        top_movement(&view, Situation::Advantage, &kit),
+        MovementVerb::Shield
+    );
+
+    let mut away = view.clone();
+    away.actors[0].facing = 1.0;
+    assert_ne!(
+        top_movement(&away, Situation::Neutral, &kit),
+        MovementVerb::Shield,
+        "the same swing facing away from me reaches nothing of mine"
+    );
+    let mut short = view.clone();
+    short.actors[0].attack_reach = Some(10.0);
+    assert_ne!(
+        top_movement(&short, Situation::Neutral, &kit),
+        MovementVerb::Shield,
+        "a 10 px swing from 50 px away cannot reach"
+    );
+}
+
+/// Beyond its own reach the body closes; at its reach and still moving in it
+/// backs off, and at its reach moving out it closes again — the dash-dance,
+/// read off the body's own velocity.
+#[test]
+fn neutral_spaces_to_the_kits_reach_and_dances_at_it() {
+    let kit = [candidate("jab", 0.05, 60.0)];
+    let far = view_with(300.0, 520.0);
+    assert_eq!(
+        top_movement(&far, Situation::Neutral, &kit),
+        MovementVerb::Approach
+    );
+
+    // At reach with the foe just above the jab's coverage (nothing admitted),
+    // and still moving in: step back out. The same foe inside the coverage is
+    // swung at, not danced around.
+    let mut closing = view_with(300.0, 350.0);
+    closing.self_view.vel = ae::Vec2::new(120.0, 0.0);
+    closing.actors[0].pos.y = 300.0 - 40.0;
+    assert_eq!(
+        top_movement(&closing, Situation::Neutral, &kit),
+        MovementVerb::Retreat,
+        "at reach, nothing admitted, and still moving in: step back out"
+    );
+    let mut swingable = view_with(300.0, 350.0);
+    swingable.self_view.vel = ae::Vec2::new(120.0, 0.0);
+    assert_eq!(
+        top_movement(&swingable, Situation::Neutral, &kit),
+        MovementVerb::Approach,
+        "a foe inside the jab's coverage is swung at, never danced away from"
+    );
+    let mut opening = view_with(300.0, 350.0);
+    opening.self_view.vel = ae::Vec2::new(-120.0, 0.0);
+    opening.actors[0].pos.y = 300.0 - 40.0;
+    assert_eq!(
+        top_movement(&opening, Situation::Neutral, &kit),
+        MovementVerb::Approach,
+        "at reach and moving out: step back in"
+    );
+    // NON-VACUITY: a kit that reaches nothing has no band and keeps the old
+    // approach bias whatever the body is doing.
+    assert_eq!(
+        top_movement(&closing, Situation::Neutral, &[]),
+        MovementVerb::Approach
+    );
+}
+
+/// The kill term is a THRESHOLD, not a line from zero: nothing below the ready
+/// percent, everything above the band, and in a punish window above it the
+/// finisher outranks the tilt that beat it on startup at low percent.
+#[test]
+fn a_smash_wins_the_punish_window_only_once_the_victim_is_ready_to_die() {
+    assert_eq!(kill_readiness(0.1), KILL_READY_FLOOR);
+    assert_eq!(kill_readiness(0.35), KILL_READY_FLOOR);
+    assert!((kill_readiness(0.525) - 0.55).abs() < 1e-5);
+    assert_eq!(kill_readiness(0.7), 1.0);
+    assert_eq!(kill_readiness(1.0), 1.0);
+
+    let mut smash = candidate_with_launch("fsmash", 0.32, 60.0, 500.0);
+    smash.binding.verb = AttackVerb::Smash;
+    smash.frames.max_damage = 18;
+    let mut tilt = candidate_with_launch("ftilt", 0.15, 60.0, 200.0);
+    tilt.frames.max_damage = 9;
+    let kit = [tilt, smash];
+    let weights = UtilityWeights {
+        reach_fit: 1.0,
+        frame_advantage: 0.5,
+        kill_potential: 0.7,
+        stage_risk: -0.5,
+        expected_payoff: 0.3,
+        ..UtilityWeights::default()
+    };
+    let best_at = |damage: i32| {
+        let mut view = view_with(300.0, 345.0);
+        view.actors[0].damage_taken = damage;
+        // A window the smash's 0.32 s startup FITS; a shorter one is the
+        // tilt's whatever the percent, and rightly.
+        view.actors[0].phase = BodyPhase::AttackRecovery;
+        view.actors[0].phase_remaining = 0.5;
+        let options = generate_options(Perceived::cheating(&view), Situation::Advantage, &kit, &weights);
+        options.attacks[0].move_id.clone()
+    };
+    assert_eq!(best_at(10), "ftilt", "at 10% the tilt's startup wins the window");
+    assert_eq!(best_at(80), "fsmash", "at 80% the finisher is the window's answer");
+}
+
+/// A body coming down is committed for the time to the floor plus the lag it
+/// will owe there — the landing read. A body standing, or rising, is not.
+#[test]
+fn a_landing_foe_is_committed_until_it_lands_and_recovers() {
+    let mut view = view_with(300.0, 340.0);
+    view.self_view.half_extent = ae::Vec2::new(12.0, 16.0);
+    view.actors[0].half_extent = ae::Vec2::new(12.0, 16.0);
+    view.actors[0].on_ground = false;
+    view.actors[0].pos.y = 300.0 - 60.0;
+    view.actors[0].vel = ae::Vec2::new(0.0, 300.0);
+    let perceived = Perceived::cheating(&view);
+    let committed = foe_commitment(&perceived, &view.actors[0]);
+    assert!(
+        (committed - (0.2 + LANDING_LAG_NOMINAL_S)).abs() < 1e-4,
+        "60 px at 300 px/s plus the lag: {committed}"
+    );
+
+    let mut rising = view.clone();
+    rising.actors[0].vel = ae::Vec2::new(0.0, -300.0);
+    assert_eq!(
+        foe_commitment(&Perceived::cheating(&rising), &rising.actors[0]),
+        0.0
+    );
+    let standing = view_with(300.0, 340.0);
+    assert_eq!(
+        foe_commitment(&Perceived::cheating(&standing), &standing.actors[0]),
+        0.0
+    );
+}
+
+/// THE ANTI-AIR: a foe falling from above is outside the up-tilt's region
+/// when the hitbox opens and inside it before the hitbox closes, and only the
+/// ballistic lead across the active window sees that. The same foe rising, or
+/// falling beside a body that is itself falling, is not admitted.
+#[test]
+fn a_falling_foe_is_admitted_to_the_up_tilt_whose_window_its_arc_meets() {
+    let mut up_tilt = candidate("utilt", 0.1, 0.0);
+    up_tilt.frames.active_spans = vec![(0.1, 0.3)];
+    up_tilt.frames.total_s = 0.5;
+    up_tilt.frames.coverage = Some(ambition_entity_catalog::MoveCoverage {
+        min: (-20.0, -90.0),
+        max: (20.0, -30.0),
+    });
+    let kit = [up_tilt];
+    let admitted = |view: &WorldView| {
+        generate_options(Perceived::cheating(view), Situation::Neutral, &kit, &UtilityWeights::default())
+            .attacks
+            .iter()
+            .any(|a| a.move_id == "utilt")
+    };
+    // 230 px above, falling at 300 px/s: at 0.1 s the lead is −193 (a miss),
+    // at 0.3 s it is −230 + 90 + 65 = −75, inside the band (−90..−30, 24 px
+    // of slack each side). A straight lead at 0.3 s would be −140, a miss
+    // even with the slack.
+    let mut falling = view_with(300.0, 300.0);
+    falling.actors[0].on_ground = false;
+    falling.actors[0].pos.y = 300.0 - 230.0;
+    falling.actors[0].vel = ae::Vec2::new(0.0, 300.0);
+    assert!(admitted(&falling), "the arc meets the window");
+
+    let mut rising = falling.clone();
+    rising.actors[0].vel = ae::Vec2::new(0.0, -300.0);
+    assert!(!admitted(&rising), "a foe going up leaves the region");
+
+    let mut both_airborne = falling.clone();
+    both_airborne.self_view.on_ground = false;
+    assert!(!admitted(&both_airborne), "two falling bodies fall together: the straight lead, a miss");
+}
+
+/// A foe in the air above a grounded body is answered with a short hop — the
+/// aerials are only in the kit once airborne, and this is how a ground body
+/// gets there.
+#[test]
+fn a_foe_above_is_short_hopped_at() {
+    let kit = [candidate("jab", 0.05, 60.0)];
+    let mut view = view_with(300.0, 340.0);
+    view.actors[0].on_ground = false;
+    view.actors[0].pos.y = 200.0;
+    assert_eq!(
+        top_movement(&view, Situation::Advantage, &kit),
+        MovementVerb::ShortHop
+    );
+    assert_eq!(
+        top_movement(&view, Situation::Neutral, &kit),
+        MovementVerb::ShortHop
+    );
+    let mut level = view.clone();
+    level.actors[0].pos.y = 300.0;
+    assert_ne!(
+        top_movement(&level, Situation::Advantage, &kit),
+        MovementVerb::ShortHop,
+        "an airborne foe at my height is not above me"
+    );
+}
+
+/// ⛔ THE POKE THE FOE CLOSES THROUGH IS REFUSED. A thrust whose region
+/// begins 20 px out admits a foe who sits in it as the threat opens — and a
+/// foe closing at 300 px/s is behind its near edge by the time the box is
+/// live. The same foe standing still is admitted.
+#[test]
+fn a_poke_the_foe_closes_through_is_refused() {
+    let mut poke = candidate("poke", 0.14, 80.0);
+    poke.frames.active_spans = vec![(0.14, 0.22)];
+    poke.frames.coverage = Some(ambition_entity_catalog::MoveCoverage {
+        min: (20.0, -12.0),
+        max: (80.0, 12.0),
+    });
+    let kit = [poke];
+    let admitted = |view: &WorldView| {
+        generate_options(Perceived::cheating(view), Situation::Neutral, &kit, &UtilityWeights::default())
+            .attacks
+            .iter()
+            .any(|a| a.move_id == "poke")
+    };
+    let standing = view_with(300.0, 355.0);
+    assert!(admitted(&standing), "a foe standing in the region is a hit");
+    let mut closing = standing.clone();
+    closing.actors[0].vel = ae::Vec2::new(-400.0, 0.0);
+    assert!(
+        !admitted(&closing),
+        "a foe closing through the near edge before the box opens is a miss"
+    );
+}
+
+/// ⛔ A RECOVERY SPECIAL IS AN ATTACK ONLY WITH THE FOE INSIDE ITS REGION AS
+/// IT OPENS. The lead that admits an ordinary poke against an approaching
+/// foe does not admit the move whose job is the way home.
+#[test]
+fn a_recovery_special_is_an_attack_only_with_the_foe_inside_its_region() {
+    let mut lift = candidate("upb", 0.1, 60.0);
+    lift.frames.recovery_route = ambition_entity_catalog::RecoveryRoute::Burst {
+        speed: 900.0,
+        side: 0.0,
+        at_s: 0.1,
+    };
+    lift.frames.lift_speed = 900.0;
+    let poke = candidate("poke", 0.1, 60.0);
+    let kit = [lift, poke];
+    let admitted = |view: &WorldView, id: &str| {
+        generate_options(Perceived::cheating(view), Situation::Neutral, &kit, &UtilityWeights::default())
+            .attacks
+            .iter()
+            .any(|a| a.move_id == id)
+    };
+    let inside = view_with(300.0, 340.0);
+    assert!(admitted(&inside, "upb"), "inside the region as it opens: an attack");
+    let mut approaching = view_with(300.0, 390.0);
+    approaching.actors[0].vel = ae::Vec2::new(-400.0, 0.0);
+    assert!(admitted(&approaching, "poke"), "the lead admits the poke against the approach");
+    assert!(
+        !admitted(&approaching, "upb"),
+        "the lead does not admit the recovery special: no lead, no slack"
+    );
+}
+
+/// ⛔ NEVER A ROUTE-PRESS WHILE A FOE IS IN ITS REACH. In Recovery the lift is
+/// offered as a route only when no foe stands within its region's reach.
+#[test]
+fn a_lift_with_the_foe_in_reach_is_not_a_route() {
+    let mut lift = candidate("upb", 0.1, 60.0);
+    lift.frames.recovery_route = ambition_entity_catalog::RecoveryRoute::Burst {
+        speed: 900.0,
+        side: 0.0,
+        at_s: 0.1,
+    };
+    lift.frames.lift_speed = 900.0;
+    let kit = [lift];
+    let routes = |view: &WorldView| -> Vec<String> {
+        generate_options(Perceived::cheating(view), Situation::Recovery, &kit, &UtilityWeights::default())
+            .attacks
+            .iter()
+            .map(|a| a.move_id.clone())
+            .collect()
+    };
+    let foe_far = view_with(300.0, 520.0);
+    assert_eq!(routes(&foe_far), vec!["upb".to_string()], "nobody in reach: the way home is offered");
+    let foe_near = view_with(300.0, 350.0);
+    assert!(routes(&foe_near).is_empty(), "a foe in its reach: not a route, the ranking's to admit");
 }

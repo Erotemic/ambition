@@ -109,6 +109,10 @@ pub struct Platformer2dFeelTuningMonolith {
     /// the attack verb once the short recoil lock clears (the home game's
     /// "fight back while flashing"). Folded from `CombatRules::hitstun_locks_actions`.
     pub hitstun_locks_actions: bool,
+    /// Does a connect freeze the world's clock (`impact_hitstop`)? A platform
+    /// fighter says no: its hitlag is per body. Folded from
+    /// `CombatRules::world_freezes_on_hit`.
+    pub world_freezes_on_hit: bool,
     pub reset_flash_time: f32,
     pub edge_transition_cooldown: f32,
     pub door_transition_cooldown: f32,
@@ -199,6 +203,7 @@ impl Default for Platformer2dFeelTuningMonolith {
             hitlag_time: 0.070,
             hitlag_law: ambition_platformer2d_core::hit_response::HitlagLaw::Scaled,
             hitstun_locks_actions: false,
+            world_freezes_on_hit: true,
             reset_flash_time: 0.18,
             edge_transition_cooldown: 0.14,
             door_transition_cooldown: 0.16,

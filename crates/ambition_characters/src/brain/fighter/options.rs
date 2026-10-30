@@ -12,7 +12,7 @@ use crate::brain::attack_kit::{ActionLegality, AttackBinding, AttackCandidate};
 use ambition_entity_catalog::MoveFrameData;
 use ambition_platformer2d_core as ae;
 
-use super::situation::{is_punishable, Situation};
+use super::situation::Situation;
 use crate::perception::{BodyPhase, Perceived, PerceivedActor};
 
 /// One movement verb the body can attempt. Derived from `SelfView`'s capability
@@ -35,6 +35,103 @@ pub enum MovementVerb {
     Blink,
     /// Toward the stage's center. The only verb `Recovery` cares about.
     Recover,
+    /// A jump TAPPED, not held: the kernel's squat-decided law cuts the rise
+    /// to `short_hop_speed_frac` when the button is up at takeoff. The genre's
+    /// way into an aerial — the next decision, airborne, has the aerials in its
+    /// kit and the ordinary ranking picks one.
+    ShortHop,
+}
+
+/// How far past a swing's authored reach an incoming attack is still read as
+/// reaching: the foe closes the last pixels during its own startup.
+pub const INCOMING_SLACK_PX: f32 = 24.0;
+
+/// The percent band over which a finisher becomes worth its startup: nothing
+/// below `KILL_READY_FROM`, everything at `KILL_READY_FROM + KILL_READY_SPAN`.
+///
+/// ⛔ THE KILL TERM WAS `damage_frac` ITSELF, a straight line from zero, and a
+/// smash never won it: measured 2026-10-29 (pointed vs pugnacious, rung 5),
+/// in a punish window at 50% the forward smash priced `fa −0.03 + kill 0.28`
+/// against the tilt's `fa +0.20 + kill 0.14` and lost; in neutral it lost by
+/// more. The genre's kill percent is a THRESHOLD — below it a smash is a
+/// slow tilt, above it the slow tilt is the kill — so the term ramps where the
+/// finisher starts to finish and is full where it does. The ladder's
+/// `kill_potential` weight (0 at rungs 1-2, 0.7 at 5, 1.15 at 9) is what
+/// scales it by rung.
+pub const KILL_READY_FROM: f32 = 0.35;
+pub const KILL_READY_SPAN: f32 = 0.35;
+/// The term's floor below the band: enough that two finishers still ORDER by
+/// their launch against a fresh victim (the launch-law tests), far too little
+/// for a finisher to pay for its startup there.
+pub const KILL_READY_FLOOR: f32 = 0.1;
+
+/// How ready a victim at `damage_frac` is to be finished, `FLOOR..=1`.
+pub fn kill_readiness(damage_frac: f32) -> f32 {
+    let ramp = ((damage_frac - KILL_READY_FROM) / KILL_READY_SPAN).clamp(0.0, 1.0);
+    KILL_READY_FLOOR + (1.0 - KILL_READY_FLOOR) * ramp
+}
+
+/// The gravity the lead assumes for the airborne body, px/s². The facet's own
+/// gravity is not perceived; Smash's base body resolves 1,358-1,450 and the
+/// error over a 0.3 s lead at either end is under 5 px.
+pub const NOMINAL_GRAVITY_PX_S2: f32 = 1450.0;
+
+/// The landing lag a body owes when it touches down out of an aerial, as a
+/// brain estimates it: the facet's number is not perceived, and the genre's
+/// aerials land in roughly this (Ultimate: 6-15 frames).
+pub const LANDING_LAG_NOMINAL_S: f32 = 0.15;
+
+/// How long `foe` cannot answer, in seconds: its own clock while it swings or
+/// reels, and for a body coming DOWN the time to the floor plus the lag it
+/// will owe there — the landing read, which is where a whiff punish and a
+/// kill smash come from. Zero for a body that can answer now.
+pub fn foe_commitment(view: &Perceived<'_>, foe: &PerceivedActor) -> f32 {
+    let me = &view.self_view;
+    if foe.phase.is_punishable() {
+        return foe.phase_remaining;
+    }
+    if super::situation::is_landing(foe, me.gravity_down) {
+        let down = me.gravity_down;
+        let closing = foe.vel.dot(down);
+        let my_feet = me.pos.dot(down) + me.half_extent.y;
+        let their_feet = foe.pos.dot(down) + foe.half_extent.y;
+        let fall = (my_feet - their_feet).max(0.0);
+        let time_to_floor = if closing > 0.0 { fall / closing } else { 0.0 };
+        return time_to_floor + LANDING_LAG_NOMINAL_S;
+    }
+    0.0
+}
+
+/// The side-axis gap between the two bodies' boxes, `INFINITY` with nobody to
+/// measure to. Never negative: overlapping boxes are a gap of zero.
+pub fn side_gap(view: &Perceived<'_>) -> f32 {
+    let me = &view.self_view;
+    let Some(foe) = view.nearest_hostile() else {
+        return f32::INFINITY;
+    };
+    let side = me.acceleration_frame().side;
+    ((foe.pos - me.pos).dot(side).abs() - me.half_extent.x - foe.half_extent.x).max(0.0)
+}
+
+/// IS A SWING COMING THAT REACHES ME — the foe is in a swing's startup or active
+/// window, faces this body, and the move's reach (`attack_reach`, frame data a
+/// player who knows the character knows) covers the gap. The read behind the
+/// genre's "shield when the attack comes in range" and behind the spot dodge
+/// that is its mix-up; a swing that cannot reach is nothing to answer.
+pub fn incoming_attack(view: &Perceived<'_>) -> bool {
+    let me = &view.self_view;
+    let Some(foe) = view.nearest_hostile() else {
+        return false;
+    };
+    if !matches!(foe.phase, BodyPhase::AttackStartup | BodyPhase::AttackActive) {
+        return false;
+    }
+    let Some(reach) = foe.attack_reach else {
+        return false;
+    };
+    let side = me.acceleration_frame().side;
+    let foe_faces_me = (me.pos - foe.pos).dot(side) * foe.facing >= 0.0;
+    foe_faces_me && side_gap(view) <= reach + INCOMING_SLACK_PX
 }
 
 /// A scored movement option.
@@ -310,6 +407,39 @@ pub struct OptionSet {
     /// Scored pure-motion moves, best first. See [`MotionOption`]. Empty for
     /// the kits that author none, which is most of them.
     pub motions: Vec<MotionOption>,
+    /// What the admission did this tick — the instrument behind the rank
+    /// trace's `[admit]` line. Zero/`INFINITY` when no attack was priced.
+    pub admission: AdmissionStats,
+}
+
+/// How the attack admission went: how many legal candidates it saw, how many
+/// it kept, and for the one that came closest to admission, how far off it
+/// was and where the led foe sat (body-local: `+along` ahead, `across` down).
+///
+/// `off_axis` counts candidates whose region has no span at all toward the
+/// led foe — a ground poke against a foe straight above, say — which no slack
+/// in distance would admit.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AdmissionStats {
+    pub candidates: usize,
+    pub admitted: usize,
+    pub off_axis: usize,
+    pub nearest_miss_px: f32,
+    pub miss_along: f32,
+    pub miss_across: f32,
+}
+
+impl Default for AdmissionStats {
+    fn default() -> Self {
+        Self {
+            candidates: 0,
+            admitted: 0,
+            off_axis: 0,
+            nearest_miss_px: f32::INFINITY,
+            miss_along: 0.0,
+            miss_across: 0.0,
+        }
+    }
 }
 
 impl OptionSet {
@@ -447,16 +577,60 @@ pub fn generate_options(
     // Nothing here knows whose body it is.
     let lifts = lifting_candidates(kit);
 
-    // Movement first: it is the only thing `Recovery` has.
-    let mut movement = movement_options(&view, situation, !lifts.is_empty());
+    // The reach this body spaces to: the farthest its ground kit swings. A kit
+    // with no reaching ground move spaces to nothing and approaches as before.
+    let my_reach = kit
+        .iter()
+        .filter(|c| {
+            matches!(
+                c.binding.verb,
+                crate::brain::attack_kit::AttackVerb::Basic | crate::brain::attack_kit::AttackVerb::Smash
+            )
+        })
+        .map(|c| c.frames.reach)
+        .fold(0.0_f32, f32::max);
+    // Movement first: it is the only thing `Recovery` has. Re-asked below once
+    // the attack list is known, because the dash-dance is a question about
+    // having nothing to throw from here.
+    let mut movement = movement_options(&view, situation, !lifts.is_empty(), my_reach, false);
     sort_by_score_then_name(&mut movement, |m| (m.score, verb_order(m.verb)));
 
     if situation == Situation::Recovery {
         // Recovery attacks are candidates that lift the body, ordered only by lift.
         // The recovery lens decides whether any candidate actually reaches safety;
         // callers must not treat the first candidate as an endorsed route.
+        // ⛔ NEVER A ROUTE-PRESS WHILE A FOE IS IN ITS REACH. A lift whose
+        // region reaches the foe is a swing at that foe, and a swing is the
+        // attack ranking's to admit (inside the region as it opens, or not at
+        // all). Offered as a route, it was pressed at whoever stood between
+        // this body and home and whiffed by 90 px.
+        let foe_in_reach = |c: &AttackCandidate| {
+            foe.is_some_and(|foe| {
+                let to_foe = foe.pos - me.pos;
+                let basis = me.acceleration_frame();
+                let local = (
+                    to_foe.dot(basis.side) * if me.facing < 0.0 { -1.0 } else { 1.0 },
+                    to_foe.dot(basis.down),
+                );
+                let extent = (foe.half_extent.x, foe.half_extent.y);
+                c.frames
+                    .coverage
+                    .as_ref()
+                    .and_then(|coverage| coverage.span_toward(local, extent))
+                    .is_some_and(|(_, far)| {
+                        (local.0 * local.0 + local.1 * local.1).sqrt() <= far + ADMISSION_SLACK_PX
+                    })
+            })
+        };
         let mut attacks: Vec<AttackOption> = lifts
             .into_iter()
+            .filter(|c| !foe_in_reach(c))
+            // ⛔ LEGAL NOW, like every other list. The route was re-pressed on
+            // every decision through its own move and the helpless fall after
+            // it; each eaten press still spent an APM token (measured
+            // 2026-10-29: 41 of the brawler's 60 chosen attacks in a 30 s
+            // pair were this route, and its neutral presses starved).
+            .filter(|c| c.legality == ActionLegality::Now)
             .map(|c| AttackOption {
                 move_id: c.move_id.clone(),
                 frames: c.frames.clone(),
@@ -480,6 +654,7 @@ pub fn generate_options(
             movement,
             attacks,
             motions: Vec::new(),
+            admission: AdmissionStats::default(),
         };
     }
     if foe.is_none() {
@@ -490,6 +665,7 @@ pub fn generate_options(
             movement,
             attacks: Vec::new(),
             motions: Vec::new(),
+            admission: AdmissionStats::default(),
         };
     }
     let foe = foe.expect("checked");
@@ -540,11 +716,7 @@ pub fn generate_options(
     };
     // A committed opponent cannot answer for `phase_remaining` seconds. An
     // uncommitted one answers immediately, so any startup at all is a gamble.
-    let their_commitment = if is_punishable(foe, me.gravity_down) {
-        foe.phase_remaining
-    } else {
-        0.0
-    };
+    let their_commitment = foe_commitment(&view, foe);
 
     // The kit's strongest hit, for scale-free power pricing (FB6a). Zero when
     // no candidate can hurt anybody, which zeroes every payoff below.
@@ -607,6 +779,34 @@ pub fn generate_options(
     let threat_at = |frames: &ambition_entity_catalog::MoveFrameData| {
         frames.threat_live_at_s.unwrap_or(frames.startup_s)
     };
+    // THE LEAD IS BALLISTIC FOR A FOE COMING DOWN ONTO A GROUNDED BODY. The
+    // relative position evolves with the relative velocity, and for an
+    // airborne foe seen from the ground, with gravity too: it comes DOWN into
+    // the up-tilt. Both airborne, the two fall together and the lead is the
+    // straight line it always was.
+    //
+    // Measured 2026-10-30 (pointed vs pugnacious, rung 5, 30 s): the straight
+    // lead missed by a median 174 px with the foe 160-190 px off vertically
+    // and one body airborne in two thirds of the refusals, and 14 of 17
+    // thrown moves whiffed. Gravity is the brain's estimate of the kernel's
+    // (`NOMINAL_GRAVITY_PX_S2`); the facet's own number is not perceived.
+    //
+    // ⛔ THE FOE'S FALL ONLY, not this body's. A body coming down onto a
+    // grounded foe would, by the same arithmetic, "land beside it" inside
+    // the lead and admit a ground poke it cannot throw from the air — the
+    // rig's `juggle_escape` (whose answer is a down-air) pressed a jab, and
+    // the rig's press rates stopped ordering by rung. That case stays on the
+    // straight lead until the airborne kit is asked the question.
+    let relative_fall = if !foe.on_ground && me.on_ground {
+        NOMINAL_GRAVITY_PX_S2
+    } else {
+        0.0
+    };
+    // THE ARC ENDS AT THE FLOOR. Where the two stand on one floor their
+    // centres differ by their half-heights; a foe coming down stops there
+    // (the landing). Without the stop, rung 1's 0.5 s staleness (½·g·t² =
+    // 180 px) led a falling foe through the floor and out of every region.
+    let standing_across = me.half_extent.y - foe.half_extent.y;
     let lead_of = |startup_s: f32| {
         let dt = view.staleness_s() + startup_s;
         if dt <= 0.0 {
@@ -615,10 +815,36 @@ pub fn generate_options(
         let rel = foe.vel - me.vel;
         let facing = if me.facing < 0.0 { -1.0 } else { 1.0 };
         let rel_local = (rel.dot(basis.side) * facing, rel.dot(basis.down));
-        (
-            foe_local.0 + rel_local.0 * dt,
-            foe_local.1 + rel_local.1 * dt,
-        )
+        let across = foe_local.1 + rel_local.1 * dt + 0.5 * relative_fall * dt * dt;
+        let across = if relative_fall > 0.0 {
+            across.min(standing_across.max(foe_local.1))
+        } else {
+            across
+        };
+        (foe_local.0 + rel_local.0 * dt, across)
+    };
+    // WHEN A SWING CAN MEET A MOVING FOE: at the moment its threat opens,
+    // and across its active window — a body on an arc that is outside the
+    // region when the hitbox opens can be inside it before the hitbox
+    // closes, which is what an anti-air IS. Each sample is a time the move
+    // is live; the aim at that time is the led position.
+    //
+    // ⛔ ONLY FOR THE ANTI-AIR — a foe coming down onto a grounded body. A
+    // body coming down onto a grounded foe passes level with it at the end
+    // of a jab's window and was admitted to the jab (`juggle_escape`, whose
+    // answer is a down-air this rig does not author), and sampling every
+    // airborne pair's windows moved the rig's press rates per rung. Those
+    // cases keep the one sample at the threat's opening.
+    let anti_air = relative_fall > 0.0;
+    let meeting_times = |frames: &ambition_entity_catalog::MoveFrameData| {
+        let mut times = vec![threat_at(frames)];
+        if anti_air {
+            for (start, end) in &frames.active_spans {
+                times.push(0.5 * (start + end));
+                times.push(*end);
+            }
+        }
+        times
     };
     // Lead a moving target through projectile travel as well as startup.
     // Use each hazard's travel law (including stationary and turning
@@ -805,7 +1031,7 @@ pub fn generate_options(
                 // also when they cannot ANSWER — which is the window a charge
                 // exists for, and the reason the two are a `max` rather than a
                 // product.
-                kill_potential: foe.damage_frac()
+                kill_potential: kill_readiness(foe.damage_frac())
                     * if kit_max_launch > 0.0 {
                         c.frames.launch.at(worn_conditions(c)) / kit_max_launch
                     } else {
@@ -954,6 +1180,36 @@ pub fn generate_options(
     // SCORING THAT ALSO SPENDS THEM — see `threat_at` / `lead_of` /
     // `arrival_of`. They were defined here, between the scoring and this
     // filter, while admission was their only consumer.
+    // THE ADMISSION'S OWN MEASUREMENT, taken on the same aim the gate below
+    // uses, before the gate runs: how close the nearest refused candidate came.
+    let candidates = attacks.len();
+    let mut off_axis = 0;
+    let mut nearest_miss_px = f32::INFINITY;
+    let mut miss_aim = (0.0_f32, 0.0_f32);
+    for attack in &attacks {
+        let Some(coverage) = &attack.frames.coverage else {
+            continue;
+        };
+        let mut spanned = false;
+        for t in meeting_times(&attack.frames) {
+            let aim = lead_of(t);
+            let Some((near, far)) = coverage.span_toward(aim, foe_extent) else {
+                continue;
+            };
+            spanned = true;
+            let gap = (aim.0 * aim.0 + aim.1 * aim.1).sqrt();
+            let miss = (near - ADMISSION_SLACK_PX - gap)
+                .max(gap - far - ADMISSION_SLACK_PX)
+                .max(0.0);
+            if miss < nearest_miss_px {
+                nearest_miss_px = miss;
+                miss_aim = aim;
+            }
+        }
+        if !spanned {
+            off_axis += 1;
+        }
+    }
     attacks.retain(|attack| match (&attack.frames.coverage, &attack.frames.push_coverage) {
         // Hits somewhere: the hit is the question, and the shove it may also
         // carry is not a reason to swing at nobody.
@@ -977,12 +1233,63 @@ pub fn generate_options(
             // rows. ⇒ This is the code agreeing with its own specification
             // and nothing more; it did NOT fix the fighter that prompted it,
             // whose hitboxes find no body at all — see the BRAIN row.
-            let aim = lead_of(threat_at(&attack.frames));
-            let Some((near, far)) = coverage.span_toward(aim, foe_extent) else {
+            // ⛔ A RECOVERY SPECIAL IS AN ATTACK ONLY WITH THE FOE INSIDE ITS
+            // REGION AS IT OPENS: no lead, no slack. Measured 2026-10-30
+            // (rung 9, three runs): the uppercut and the rising edge were a
+            // quarter to a third of every whiff, thrown 80-90 px from the foe
+            // — a move whose job is the way home, pressed as a poke by a lead
+            // that forgave both sides.
+            if attack.frames.recovery_route.offers_a_way_home() {
+                return coverage
+                    .span_toward(foe_local, foe_extent)
+                    .is_some_and(|(near, far)| {
+                        let gap = (foe_local.0 * foe_local.0 + foe_local.1 * foe_local.1).sqrt();
+                        gap >= near && gap <= far
+                    });
+            }
+            // Admitted when the led foe is inside the region at ANY time the
+            // move is live: when its threat opens, or during its active
+            // window (the arc meeting the anti-air).
+            let fits_when_live = meeting_times(&attack.frames).into_iter().any(|t| {
+                let aim = lead_of(t);
+                let Some((near, far)) = coverage.span_toward(aim, foe_extent) else {
+                    return false;
+                };
+                let gap = (aim.0 * aim.0 + aim.1 * aim.1).sqrt();
+                gap >= near - ADMISSION_SLACK_PX && gap <= far + ADMISSION_SLACK_PX
+            });
+            if !fits_when_live {
                 return false;
-            };
-            let gap = (aim.0 * aim.0 + aim.1 * aim.1).sqrt();
-            gap >= near - ADMISSION_SLACK_PX && gap <= far + ADMISSION_SLACK_PX
+            }
+            // ⛔ THE POKE THE FOE CLOSES THROUGH. A thrust hangs out from the
+            // body (`polygon_point` spans 20..80 px), and a foe who is in it
+            // as the threat opens and still closing is BEHIND its near edge
+            // by the time the box is live. Measured 2026-10-30 (rung 5
+            // pair): the point's whiffs started at a 55 px centre gap, its
+            // hits at 89, nearest approach −10 along. The led foe at the
+            // active window may not sit short of the near edge — no slack on
+            // that side, because the body is there.
+            // A led foe the region does not lie toward (behind the body, a
+            // closer that crossed through) is as missed as one short of the
+            // near edge: the box cannot be there either.
+            // Asked as each active window OPENS: a foe inside the box at that
+            // moment is a hit however the straight lead would carry it on
+            // (bodies stop at each other; a running body's own closing is
+            // not a pass-through).
+            let active_samples: Vec<f32> = attack
+                .frames
+                .active_spans
+                .iter()
+                .map(|(start, _)| *start)
+                .collect();
+            let short_at_active = !active_samples.is_empty()
+                && active_samples.iter().all(|t| {
+                    let aim = lead_of(*t);
+                    coverage.span_toward(aim, foe_extent).is_none_or(|(near, _)| {
+                        (aim.0 * aim.0 + aim.1 * aim.1).sqrt() < near
+                    })
+                });
+            !short_at_active
         }
         // Only shoves: offered exactly where the shove lands.
         (None, Some(push)) => {
@@ -1138,7 +1445,24 @@ pub fn generate_options(
 
     let motions = motion_options(kit, foe_local, basis);
 
+    // ⛔ MEASURED 2026-10-29 (pointed vs pugnacious, 60 s, rung 5): with the
+    // dash-dance asked before the attack list existed, moves started fell
+    // from 23/26 to 7/6 and damage from 51/24 to 9/0 — the body stepped out
+    // of its own range on the decision it could have swung. The band backs
+    // off only when nothing is admitted from here.
+    let can_swing = !attacks.is_empty();
+    let mut movement = movement_options(&view, situation, !lifts.is_empty(), my_reach, can_swing);
+    sort_by_score_then_name(&mut movement, |m| (m.score, verb_order(m.verb)));
+
     OptionSet {
+        admission: AdmissionStats {
+            candidates,
+            admitted: attacks.len(),
+            off_axis,
+            nearest_miss_px,
+            miss_along: miss_aim.0,
+            miss_across: miss_aim.1,
+        },
         movement,
         attacks,
         motions,
@@ -1702,6 +2026,12 @@ fn movement_options(
     // re-derived, so movement scoring and the attack list cannot disagree about
     // it within one tick.
     kit_lifts: bool,
+    // The farthest this body's ground kit reaches: what it spaces to. `0` for a
+    // kit that reaches nothing, and then there is no spacing band.
+    my_reach: f32,
+    // Is an attack admitted from where the body stands? A body that can swing
+    // does not dance out of its own range.
+    can_swing: bool,
 ) -> Vec<MoveOption> {
     let me = &view.self_view;
     // Which way the foe is, so "approach" and "retreat" can be asked whether the
@@ -1710,6 +2040,34 @@ fn movement_options(
     // foe is not closing on anything.
     let first_foe = view.actors.iter().find(|actor| actor.hostile_to_self && actor.alive);
     let toward_foe = first_foe.map(|foe| view.side_sign_toward(foe.pos)).unwrap_or(0.0);
+    // THE GENRE'S DEFENSIVE READ. A swing that reaches is answered on the
+    // ground with a shield, or with a spot dodge as the mix-up — both outrank
+    // walking into it. `incoming_attack` is the one rule; the decision's
+    // `apply_movement` reads it again to make that dodge a SPOT dodge.
+    let incoming = me.on_ground && incoming_attack(view);
+    // SPACING: where this body stands relative to its own reach. Beyond it,
+    // close; at it, the dash-dance — away when moving in and in when moving
+    // away, which is the genre's neutral at a stand-off and comes out of the
+    // body's own velocity rather than a stored phase.
+    let gap = side_gap(view);
+    let spacing_band = my_reach > 0.0 && first_foe.is_some();
+    let beyond_reach = spacing_band && gap > my_reach * 1.15;
+    let at_reach = spacing_band && !beyond_reach;
+    let side = me.acceleration_frame().side;
+    let moving_in = toward_foe != 0.0 && me.vel.dot(side) * toward_foe > 0.0;
+    // A STAND-OFF is two bodies on the ground with nothing committed; that is
+    // the only neutral the dash-dance belongs to. Measured 2026-10-29 (rung 5,
+    // 30 s): nothing was admitted in 94% of decisions, so a dance keyed to
+    // "nothing admitted" alone backed off from a foe that was in the air or
+    // reeling, and the ground contact the attacks need never came.
+    let foe_standing = first_foe.is_some_and(|foe| {
+        foe.on_ground && !super::situation::is_punishable(foe, me.gravity_down)
+    });
+    // ANTI-AIR: a foe in the air above this body is a short hop from an
+    // aerial, and nothing on the ground reaches it.
+    let foe_above = first_foe.is_some_and(|foe| {
+        !foe.on_ground && (me.pos - foe.pos).dot(me.gravity_down) > me.half_extent.y
+    });
     let approach_walks_off = toward_foe != 0.0 && walks_off(view, toward_foe);
     let approach_overshoots = first_foe.is_some_and(|foe| overshoots(view, foe, toward_foe));
     let retreat_walks_off = toward_foe != 0.0 && walks_off(view, -toward_foe);
@@ -1843,7 +2201,16 @@ fn movement_options(
                 .actors
                 .iter()
                 .any(|actor| actor.hostile_to_self && actor.alive && actor.phase.is_attacking());
-            if me.can_shield && threatened {
+            // A swing that REACHES is the sharper read: shield, or the spot
+            // dodge beside it in the mix.
+            if incoming {
+                if me.can_shield {
+                    push(MovementVerb::Shield, 0.9);
+                }
+                if evade == Some(MovementVerb::Dodge) {
+                    push(MovementVerb::Dodge, 0.85);
+                }
+            } else if me.can_shield && threatened {
                 push(MovementVerb::Shield, 0.8);
             }
             push(MovementVerb::Retreat, 0.7);
@@ -1852,12 +2219,17 @@ fn movement_options(
             // is only travel, so a body whose button dashes keeps the lower one
             // it always had. Same slot, two bodies, two honest numbers.
             if let Some(evade) = evade {
+                // The roll outranks the walk only when something is swinging:
+                // a body cornered with nothing incoming walks out. Measured
+                // 2026-10-29 (rung 5, 60 s): 500 of 3,600 ticks evading, the
+                // corner share of this 480 px floor read as `Disadvantage` and
+                // the roll at 0.75 beat Retreat at 0.7 on every one of them.
                 push(
                     evade,
-                    if evade == MovementVerb::Dodge {
-                        0.75
-                    } else {
-                        0.6
+                    match evade {
+                        MovementVerb::Dodge if threatened => 0.75,
+                        MovementVerb::Dodge => 0.65,
+                        _ => 0.6,
                     },
                 );
             }
@@ -1866,6 +2238,17 @@ fn movement_options(
             }
         }
         Situation::EdgeGuard | Situation::Advantage => {
+            if incoming {
+                if me.can_shield {
+                    push(MovementVerb::Shield, 0.9);
+                }
+                if evade == Some(MovementVerb::Dodge) {
+                    push(MovementVerb::Dodge, 0.85);
+                }
+            }
+            if foe_above && me.on_ground {
+                push(MovementVerb::ShortHop, 0.85);
+            }
             push(MovementVerb::Approach, 0.8);
             // Rolling IN is an approach with i-frames — the genre's other use
             // for the button — so the offensive slot takes whichever maneuver
@@ -1885,8 +2268,33 @@ fn movement_options(
             }
         }
         Situation::Neutral => {
-            push(MovementVerb::Approach, 0.5);
-            push(MovementVerb::Retreat, 0.4);
+            if incoming {
+                if me.can_shield {
+                    push(MovementVerb::Shield, 0.9);
+                }
+                if evade == Some(MovementVerb::Dodge) {
+                    push(MovementVerb::Dodge, 0.85);
+                }
+            }
+            if foe_above && me.on_ground {
+                push(MovementVerb::ShortHop, 0.7);
+            }
+            if beyond_reach {
+                push(MovementVerb::Approach, 0.55);
+                push(MovementVerb::Retreat, 0.3);
+            } else if at_reach && moving_in && !can_swing && foe_standing {
+                push(MovementVerb::Retreat, 0.55);
+                push(MovementVerb::Approach, 0.45);
+            } else {
+                push(MovementVerb::Approach, 0.5);
+                push(MovementVerb::Retreat, 0.4);
+            }
+            if at_reach && me.on_ground && foe_standing {
+                // Inside the mix margin of the top ground option: now and then
+                // the neutral is entered from the air — against a body on the
+                // ground, where the aerial lands on something.
+                push(MovementVerb::ShortHop, 0.45);
+            }
             if can_jump {
                 push(MovementVerb::Jump, 0.3);
             }

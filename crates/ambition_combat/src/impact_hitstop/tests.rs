@@ -52,6 +52,26 @@ fn advance(app: &mut App, ticks: u64) {
 ///
 /// ⛔ there is no `PrimaryPlayer` anywhere in this fixture, deliberately:
 /// inventing one is the fix this refuses.
+/// A platform fighter's hitlag is per body (`CombatRules::hitlag`); its rules
+/// say the world does not stop for a connect, and the clock ladder has no
+/// freeze to ease into a slow-motion dip. The rules are the room's (here the
+/// roomless resource), folded by the system itself — the feel resource is the
+/// engine's and says yes.
+#[test]
+fn a_game_whose_hitlag_is_per_body_asks_for_no_world_freeze() {
+    let mut app = app();
+    let mut rules = crate::rules::ResolvedCombatTuning::resolve_over(None, None, None);
+    rules.world_freezes_on_hit = false;
+    app.insert_resource(rules);
+    let hitlag = Platformer2dFeelTuningMonolith::default().hitlag_time;
+    land_a_hit(&mut app, hitlag);
+    app.update();
+    assert!(
+        !app.world().resource::<ImpactHitstop>().is_freezing(now(&app)),
+        "the world froze for a game whose bodies carry their own hitlag"
+    );
+}
+
 #[test]
 fn two_cpus_trading_hits_freeze_the_world_with_no_player_in_it() {
     let mut app = app();

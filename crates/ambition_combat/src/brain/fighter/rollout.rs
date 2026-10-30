@@ -122,6 +122,10 @@ pub struct ShadowState {
     /// is faction knowledge the view does not claim.
     pub projectiles: Vec<ShadowProjectile>,
     pub stage: StageView,
+    /// The death line (`WorldView::death_line`) as a stage view, so the KO
+    /// below asks the same `offstage` predicate of the box a body actually dies
+    /// past. `stage` keeps the ROOM for the edge-pressure score.
+    pub death: StageView,
     pub gravity_down: ae::Vec2,
 }
 
@@ -276,7 +280,10 @@ impl ShadowState {
             me.ground_level = landing.map(|floor| floor.min.dot(down_unit(gravity_down)));
         }
         // See the KO block in `shadow_step`.
-        let already_out = |pos: ae::Vec2| view.stage.is_known() && view.stage.offstage(pos);
+        let death = StageView {
+            bounds: view.death_line(),
+        };
+        let already_out = |pos: ae::Vec2| death.is_known() && death.offstage(pos);
         me.started_offstage = already_out(me.pos);
         let mut foe_body = fighter_from_actor(foe, gravity_down);
         foe_body.started_offstage = already_out(foe_body.pos);
@@ -294,6 +301,7 @@ impl ShadowState {
                 })
                 .collect(),
             stage: view.stage,
+            death,
             gravity_down,
         })
     }
@@ -389,10 +397,11 @@ pub fn shadow_step(
         true
     });
 
-    // A KO is crossing the stage envelope. A body that starts outside it is recovering,
-    // not already dead; its recoverability is scored separately.
+    // A KO is crossing the DEATH LINE — the room plus its authored margins, not
+    // the room. A body that starts outside it is recovering, not already dead;
+    // its recoverability is scored separately.
     for (fighter, of_me) in [(&mut s.me, true), (&mut s.foe, false)] {
-        let outside = s.stage.is_known() && s.stage.offstage(fighter.pos);
+        let outside = s.death.is_known() && s.death.offstage(fighter.pos);
         // Keep this geometric: `refine_by_rollout` evaluates whether the body's kit can
         // recover from a committed fall.
         if !fighter.koed && outside && !fighter.started_offstage {
@@ -1252,6 +1261,10 @@ fn movement_intent(
         MovementVerb::Dash => ShadowIntent::Dash { lateral: toward },
         MovementVerb::Retreat => ShadowIntent::Drive { lateral: -toward },
         MovementVerb::Jump => ShadowIntent::Jump,
+        // A short hop is a jump whose rise is cut at takeoff; the shadow has
+        // one jump and it is the taller one, which overstates the hop's height
+        // and nothing else.
+        MovementVerb::ShortHop => ShadowIntent::Jump,
         // `Recover` was in the unmodelled list, and it is the ONLY verb that
         // can save an airborne body — so the one verb the model could not judge
         // was the one the situation it could not represent depended on. Both

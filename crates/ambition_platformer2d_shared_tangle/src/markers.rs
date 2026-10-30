@@ -30,16 +30,66 @@ pub struct FramedCast(pub Vec<Entity>);
 /// fill the screen, and the match resets it when it ends.
 #[derive(Resource, Clone, Copy, Debug, PartialEq)]
 pub struct CastFramingTuning {
-    /// The hard bound on how far a framed cast may zoom the view in, as a
-    /// fraction of the authored view.
+    /// How far the view may close in on the cast, as a fraction of the base
+    /// view. The cast never pushes it below this.
     pub min_view_scale: f32,
-    /// Half the extra room left around the cast's bounding box, in world units.
+    /// Room kept around the cast's box, in world units, on every side.
     pub margin: f32,
+    /// Extra room kept BELOW the cast's box, in world units, so the ground
+    /// they fight on stays in view and the fighters sit above the centre.
+    pub floor_margin: f32,
+    /// The rate an edge of the framed box OPENS at, in Hz. `None` adopts an
+    /// opening edge at once, so a body is never cut off while exploring; a
+    /// fighting game eases both ways and lets a launched body lead the view.
+    pub open_hz: Option<f32>,
+    /// The rate an edge of the framed box CLOSES at, in Hz.
+    pub close_hz: f32,
+    /// How far past the room the view may look. `None` stops at the room.
+    pub bounds: Option<CastCameraBounds>,
+    /// A member wholly outside the view is shown in a bubble at the view's
+    /// edge. `None` shows nothing: the member is simply off the screen.
+    pub bubble: Option<CastBubble>,
+}
+
+/// THE OFF-SCREEN BUBBLE of a cast member: a ring at the view's edge, on the
+/// line from the view's centre to the member, with a live view of the member
+/// inside it. A platform fighter's camera stops short of the blast line, so a
+/// launched fighter leaves the frame while still in play; the bubble keeps
+/// that fighter readable until it dies or comes back.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CastBubble {
+    /// The bubble's width on screen, in logical pixels.
+    pub diameter_px: f32,
+    /// The world units across the view inside the bubble.
+    pub span: f32,
+    /// The ring's colour per cast member, in cast order (RGBA, sRGB).
+    pub rings: [[f32; 4]; 4],
+    /// The colour behind the member inside the bubble (RGBA, sRGB).
+    pub backdrop: [f32; 4],
+}
+
+/// THE CAMERA BOX of a cast: how far past the room's edges the view may
+/// reach, in world units. A platform fighter kills a body well past the room
+/// (`World::edges`); its camera stops short of that line, so a launched body
+/// visibly leaves the frame instead of the camera showing the void.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CastCameraBounds {
+    pub side: f32,
+    pub rise: f32,
+    pub fall: f32,
 }
 
 impl Default for CastFramingTuning {
     fn default() -> Self {
-        Self { min_view_scale: 0.75, margin: 48.0 }
+        Self {
+            min_view_scale: 0.75,
+            margin: 48.0,
+            floor_margin: 0.0,
+            open_hz: None,
+            close_hz: 10.0,
+            bounds: None,
+            bubble: None,
+        }
     }
 }
 

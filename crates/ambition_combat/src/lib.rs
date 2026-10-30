@@ -22,6 +22,7 @@
 pub mod action_emission;
 pub mod actor_tuning;
 pub mod attack_support;
+pub mod authored_coverage;
 pub mod authored_volumes;
 pub mod banner;
 pub mod body_geometry;
@@ -685,6 +686,15 @@ pub fn install_settle_presentation_systems(
         hit_camera_shake::shake_camera_on_landed_hits
             .in_set(GameplayGated)
             .in_set(CombatSet::Settle),
+    );
+    app.add_systems(
+        schedule.clone(),
+        finish_zoom::zoom_camera_on_a_finishing_blow
+            .in_set(GameplayGated)
+            .in_set(CombatSet::Settle)
+            .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+                ambition_platformer2d_shared_tangle::capability::Capability::MatchStocks,
+            )),
     );
     app.add_systems(
         schedule.clone(),

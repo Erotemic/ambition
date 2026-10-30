@@ -108,6 +108,8 @@ pub struct PerceptionBody {
     pub can_shield: bool,
     /// Mid-air jumps left (`jump.air_jumps_available`). The recovery budget.
     pub air_jumps_left: u8,
+    /// See [`ambition_characters::perception::SelfView::helpless`].
+    pub helpless: bool,
     /// What this body is doing, and how long is left of it — the no-cheat
     /// contract's "move phase / animation state" (fighter-brain.md §1).
     pub phase: BodyPhase,
@@ -293,6 +295,46 @@ pub fn body_phase(
         return (BodyPhase::Shielding, 0.0);
     }
     (BodyPhase::Neutral, 0.0)
+}
+
+/// The box the kernel's out-of-bounds gate resets a body past (`movement::kernel`:
+/// `past_fall > fall || past_side > side || -past_fall > rise`), as a world AABB.
+///
+/// The gate resolves "past the edge" in the body's gravity frame, so which room
+/// side carries the FALL margin and which the RISE depends on `down`. The box is
+/// exact for axis-aligned gravity (every shipped stage); for a tilted gravity the
+/// dominant axis stands in, which is the conservative reading of a kernel rule
+/// that is not an AABB at all under that gravity. A margin the stage left `None`
+/// is an edge a body cannot die past, and the box is infinite there.
+pub fn death_envelope(world: &ae::World, down: ae::Vec2) -> ae::Aabb {
+    let edges = &world.edges;
+    let room = ae::aabb_from_min_size(ae::Vec2::ZERO, world.size);
+    let fall = edges.fall;
+    let side = edges.side.unwrap_or(f32::INFINITY);
+    let rise = edges.rise.unwrap_or(f32::INFINITY);
+    let (mut min, mut max) = (room.min, room.max);
+    if down.y.abs() >= down.x.abs() {
+        min.x -= side;
+        max.x += side;
+        if down.y >= 0.0 {
+            max.y += fall;
+            min.y -= rise;
+        } else {
+            min.y -= fall;
+            max.y += rise;
+        }
+    } else {
+        min.y -= side;
+        max.y += side;
+        if down.x >= 0.0 {
+            max.x += fall;
+            min.x -= rise;
+        } else {
+            min.x -= fall;
+            max.x += rise;
+        }
+    }
+    ae::Aabb { min, max }
 }
 
 /// The reach of the move a body plays, from the move's own hitboxes
@@ -765,6 +807,7 @@ pub fn build_world_view(
         burst: body.burst,
         can_shield: body.can_shield,
         air_jumps_left: body.air_jumps_left,
+        helpless: body.helpless,
         phase: body.phase,
         phase_remaining: body.phase_remaining,
         invulnerable: body.invulnerable,
@@ -777,12 +820,15 @@ pub fn build_world_view(
         pummels_landed: body.pummels_landed,
     };
 
-    // The stage is NOT viewport-clipped: a fighter can see the blastzones. It is
-    // the same envelope CC3's invariant 3 polices, so "offstage" here and "out of
-    // bounds" there are the same predicate.
+    // The stage is NOT viewport-clipped: a fighter can see the blastzones. The
+    // room box is "the stage"; the DEATH LINE is the room plus the margins the
+    // world authored, which the kernel's out-of-bounds gate reads and which a
+    // platform fighter sets large. Both are published, because they answer
+    // different questions (`StageView` vs `WorldView::death_line`).
     let stage = StageView {
         bounds: ae::aabb_from_min_size(ae::Vec2::ZERO, world.size),
     };
+    let blast = Some(death_envelope(world, body.gravity_down));
 
     // ⭐ THE ACTOR CHANNEL IS NOT CLIPPED FOR AN OMNISCIENT BODY, and this is
     // what `Perception::Omniscient` has always claimed to mean — *"the body
@@ -890,6 +936,7 @@ pub fn build_world_view(
         self_view,
         viewport,
         stage,
+        blast,
         actors,
         projectiles,
         terrain,
@@ -1091,6 +1138,7 @@ pub(crate) fn perception_body_for(
         // planning a recovery reads the body's real budget,
         // not an assumption about what a fighter usually has.
         air_jumps_left: body.jump.air_jumps_available,
+        helpless: body.jump.post_recovery_helpless && !body.ground.on_ground,
         phase: self_peer.map(|p| p.phase).unwrap_or_default(),
         phase_remaining: self_peer.map_or(0.0, |p| p.phase_remaining),
         invulnerable: self_peer.is_some_and(|p| p.invulnerable),

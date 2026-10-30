@@ -46,6 +46,7 @@
         (id: "gravity_trail_ring", name: "Gravity Trail Ring", dimension: "science"),
         (id: "gravity_trail_survey_ring", name: "Trail Survey Ring", dimension: "science"),
         (id: "orbital_station_dock", name: "Orbital Station Gate Dock", dimension: "science"),
+        (id: "eureka_gate_court", name: "Eureka Gate Court", dimension: "science"),
         (id: "pirate_port_plaza", name: "Pirate Port Gate Plaza", dimension: "pvn"),
         (id: "ninja_village_shrine", name: "Ninja Village Gate Shrine", dimension: "pvn"),
         (id: "noodly_temple_narthex", name: "Noodly Temple Narthex", dimension: "noodle"),
@@ -185,6 +186,17 @@
             terminal: Some("orbital_station_gate_terminal"),
             posted: ["LEGAL"],
             note: "Docking ring. Freight has right of way.",
+        ),
+        // ── Science (Eureka, the institute town under the station) ───────
+        (
+            zone: "eureka_gate_arrival",
+            name: "Eureka gate court",
+            facility: "eureka_gate_court",
+            room: "eureka_gate_court",
+            address: Some("SCIENCE"),
+            terminal: Some("eureka_gate_terminal"),
+            posted: ["LEGAL"],
+            note: "Institute ring. Calibrated weekly, argued about daily.",
         ),
         // ── Water (the pirate port) ───────────────────────────────────────
         (

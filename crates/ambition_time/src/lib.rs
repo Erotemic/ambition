@@ -291,14 +291,31 @@ impl WorldTime {
     }
 }
 
+/// THE LENGTH OF ONE SIMULATION STEP, declared by a host that steps the
+/// simulation at a fixed rate. Each step then lasts exactly this, in place of
+/// its clock's delta.
+///
+/// ⛔ A FIXED-RATE CLOCK IS NOT A CONSTANT DELTA. The rollback host's clock is
+/// `frame × 10⁹ / rate` whole nanoseconds, so at 60 Hz successive deltas are
+/// 16 666 666 and 16 666 667 ns by the frame count mod 3. Two matches that
+/// start on different frame counts then integrate different dt sequences, and
+/// the float difference grows until the outcome differs (MEASURED 2026-10-30:
+/// fresh processes of one seeded Smash match fell into two outcome classes).
+#[derive(Resource, Clone, Copy, Debug, PartialEq)]
+pub struct SimStepPeriod(pub f32);
+
 /// Refresh [`WorldTime`] from the schedule-local `Time × ClockState::time_scale`. The
 /// simulation schedule invokes this once per authoritative step.
 pub fn refresh_world_time(
     time: Res<Time>,
     clock: Res<ClockState>,
+    step: Option<Res<SimStepPeriod>>,
     mut world_time: ResMut<WorldTime>,
 ) {
-    let raw = time.delta_secs();
+    let raw = match step {
+        Some(step) if time.delta_secs() > 0.0 => step.0,
+        _ => time.delta_secs(),
+    };
     world_time.wall_dt = raw;
     world_time.sim_dt = raw * clock.time_scale;
 }
@@ -403,6 +420,24 @@ mod tests {
         let wt = app.world().resource::<WorldTime>();
         assert!(wt.wall_dt() > 0.0);
         assert!((wt.sim_dt() - wt.wall_dt() * 0.5).abs() < 1e-7);
+    }
+
+    #[test]
+    fn a_declared_step_period_is_every_steps_length() {
+        let mut app = App::new();
+        app.insert_resource(ClockState { time_scale: 1.0 });
+        app.insert_resource(SimStepPeriod(1.0 / 60.0));
+        app.add_plugins(TimePlugin);
+        app.insert_resource(Time::<()>::default());
+        let mut seen = Vec::new();
+        for nanos in [16_666_666, 16_666_667, 16_666_667] {
+            app.world_mut()
+                .resource_mut::<Time>()
+                .advance_by(std::time::Duration::from_nanos(nanos));
+            app.update();
+            seen.push(app.world().resource::<WorldTime>().sim_dt());
+        }
+        assert_eq!(seen, vec![1.0 / 60.0; 3], "the step rounds with its clock");
     }
 
     #[derive(Resource, Default)]

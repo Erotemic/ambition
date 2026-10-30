@@ -164,6 +164,13 @@
     "sanic_speedway"
   ],
   "science.ldtk": [
+    "eureka_coil_lab",
+    "eureka_elevator_climb",
+    "eureka_elevator_station",
+    "eureka_gate_court",
+    "eureka_observatory",
+    "eureka_patent_office",
+    "eureka_quad",
     "gnu_ton_conservation_hall",
     "gnu_ton_inversion_gallery",
     "gnu_ton_orchard",
@@ -176,7 +183,8 @@
     "orbital_station_habitation",
     "orbital_station_observation_deck",
     "orbital_station_service_deck",
-    "orbital_station_spoke"
+    "orbital_station_spoke",
+    "orbital_station_tether_terminus"
   ],
   "you_have_to_cut_the_rope.ldtk": [
     "you_have_to_cut_the_rope"

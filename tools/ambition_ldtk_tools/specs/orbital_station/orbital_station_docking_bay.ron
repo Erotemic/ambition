@@ -36,6 +36,7 @@
         ( type: "Solid", px: [2400, 576], size: [144, 32], fields: ( name: "east_landing" ) ),
         ( type: "LoadingZone", px: [2448, 480], size: [48, 96], fields: ( id: "bay_observation_door", name: "up to the observation deck", activation: "Door", target_room: "orbital_station_observation_deck", target_zone: "view_bay_door", bidirectional: true ) ),
         ( type: "LoadingZone", px: [2448, 864], size: [48, 96], fields: ( id: "bay_lift_door", name: "the cargo lift to the service deck", activation: "Door", target_room: "orbital_station_service_deck", target_zone: "service_lift_door", bidirectional: true ) ),
+        ( type: "LoadingZone", px: [2300, 864], size: [48, 96], fields: ( id: "bay_tether_door", name: "to the tether terminus", activation: "Door", target_room: "orbital_station_tether_terminus", target_zone: "terminus_bay_door", bidirectional: true ) ),
         ( type: "CameraZone", px: [0, 0], size: [2560, 1024], fields: ( id: "orbital_station_docking_bay_camera", name: "orbital_station_docking_bay_camera", mode: "Default" ) ),
         ( type: "DebugLabel", px: [64, 64], size: [900, 24], fields: ( name: "orbital_station_docking_bay_title", text: "THE DOCKING BAY: THE HAULER REMAINDER IN ITS BERTH", category: "Custom" ) ),
     ],

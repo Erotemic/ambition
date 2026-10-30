@@ -122,7 +122,7 @@ impl MenuPage {
 /// `Action` controls so Bevy picking + directional focus can dispatch them. The
 /// LEFT button turns the cube left → brings the viewer-left page to front
 /// ([`MenuPage::on_viewer_left`]); mirrors the demo's `add_edge_buttons`.
-fn add_edge_buttons(model: &mut MenuPageModel<MenuPage, MenuPageAction>, page: MenuPage) {
+pub(crate) fn add_edge_buttons(model: &mut MenuPageModel<MenuPage, MenuPageAction>, page: MenuPage) {
     // `selected: false` — the focus highlight is applied IN PLACE from the live
     // cursor (`kaleidoscope_sync_focus_visuals`), not baked here, so a hover does
     // not rebuild the face (which would drop a `Pointer<Click>`).
@@ -156,7 +156,7 @@ fn page_label(page: MenuPage) -> String {
 }
 
 /// The host's line `key` (`host_text.ron`): the menu's own words.
-fn line(key: &str) -> String {
+pub(crate) fn line(key: &str) -> String {
     host().line(key).to_string()
 }
 
@@ -181,9 +181,29 @@ pub struct MenuLook {
     pub body: [f32; 4],
     /// The line of a page that has no content yet.
     pub placeholder_body: [f32; 4],
+    /// The Map page's colours.
+    pub map: MapLook,
     /// The 3D cube's own colours: its controls, scroll bars, frame and icon
     /// tints.
     pub cube: CubeLook,
+}
+
+/// The Map page's colours (`map_page`), each red, green, blue and alpha.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MapLook {
+    pub frame: [f32; 4],
+    pub room: [f32; 4],
+    pub room_here: [f32; 4],
+    pub room_unvisited: [f32; 4],
+    pub door: [f32; 4],
+    pub door_marked: [f32; 4],
+    pub label: [f32; 4],
+    /// The name of the room the player is in, on its gold.
+    pub label_here: [f32; 4],
+    /// Pins: someone to talk to, a shrine.
+    pub pin_resident: [f32; 4],
+    pub pin_shrine: [f32; 4],
 }
 
 /// The 3D cube's colours (`KaleidoscopeLook`), each red, green, blue and
@@ -610,6 +630,7 @@ pub fn build_inventory_pages(
         system_window_start,
         open_entry,
         None,
+        crate::menu::map_page::build_map_page(None),
     )
 }
 
@@ -627,14 +648,12 @@ pub fn build_inventory_pages_with_quality_prompt(
     system_window_start: usize,
     open_entry: Option<SystemMenuEntryId>,
     pending_quality: Option<VisualQualityProfile>,
+    // The Map page, as the game draws it (`map_page::MapPageSource::page`).
+    map_page: MenuPageModel<MenuPage, MenuPageAction>,
 ) -> Vec<MenuPageModel<MenuPage, MenuPageAction>> {
     vec![
         build_items_page(owned, items, equipped),
-        placeholder_page(
-            MenuPage::Map,
-            &line("menu.map.title"),
-            &line("menu.map.placeholder"),
-        ),
+        map_page,
         placeholder_page(
             MenuPage::Quest,
             &line("menu.quest.title"),

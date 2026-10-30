@@ -1,5 +1,36 @@
 use super::*;
 
+/// A charge into an opening runs as long as the opening, between the partial
+/// and the full charge; neutral and the refused situations ignore the clock.
+#[test]
+fn a_charge_in_an_opening_is_bounded_by_the_openings_clock() {
+    let hold_at = 0.1;
+    let reach = (hold_at * 60.0_f32).ceil() as u32;
+    assert_eq!(
+        hold_ticks_within(Situation::Advantage, 0.5, hold_at, 60.0),
+        reach + 24,
+        "half a second of commitment less the hold point is 24 ticks of charge"
+    );
+    assert_eq!(
+        hold_ticks_within(Situation::Advantage, 3.0, hold_at, 60.0),
+        hold_ticks(Situation::Advantage, hold_at, 60.0),
+        "a long commitment buys the full charge and no more"
+    );
+    assert_eq!(
+        hold_ticks_within(Situation::Advantage, 0.12, hold_at, 60.0),
+        reach + 12,
+        "a window shorter than the partial still charges the partial"
+    );
+    assert_eq!(
+        hold_ticks_within(Situation::Neutral, 3.0, hold_at, 60.0),
+        hold_ticks(Situation::Neutral, hold_at, 60.0)
+    );
+    assert_eq!(
+        hold_ticks_within(Situation::Disadvantage, 3.0, hold_at, 60.0),
+        0
+    );
+}
+
 /// The whole mechanic in one assertion: an opening is worth more charge than a
 /// guess is.
 #[test]

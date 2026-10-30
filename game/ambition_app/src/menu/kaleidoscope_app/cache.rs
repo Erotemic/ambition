@@ -127,6 +127,7 @@ pub(crate) fn republish_kaleidoscope_pages(
     // systems, so this `Res` is not a B0002 conflict. Inserted at startup so it never panics.
     scroll: Res<KaleidoscopeScroll>,
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    map_page: crate::menu::map_page::MapPageSource,
     mut was_open: Local<bool>,
     mut last: Local<Option<RebuildKey>>,
 ) {
@@ -163,6 +164,8 @@ pub(crate) fn republish_kaleidoscope_pages(
         radio: cache.radio.clone(),
         dev: cache.dev.clone(),
         quality: cache.quality,
+        // Only while the menu is open: the map is not built behind gameplay.
+        map: if open { map_page.view() } else { None },
     };
     // Republish on first publish, menu-open (textures that loaded after the initial
     // build get picked up), or an actual VALUE change in anything rendered by the
@@ -179,8 +182,9 @@ pub(crate) fn republish_kaleidoscope_pages(
     let pages_empty = pages.pages.is_empty();
     let key_changed = last.as_ref() != Some(&key);
     // A content reload that publishes a new item catalog changes the names
-    // and verbs on the faces; the value key cannot see that.
-    let dirty = pages_empty || just_opened || key_changed || hand.items_changed();
+    // and verbs on the faces; the value key cannot see that, nor a game's new
+    // Map page presentation (set at startup, so this does not tick per frame).
+    let dirty = pages_empty || just_opened || key_changed || hand.items_changed() || map_page.presentation_changed();
     if !dirty {
         return;
     }
@@ -214,6 +218,7 @@ pub(crate) fn republish_kaleidoscope_pages(
         window_start,
         system_nav.open_entry,
         key.quality,
+        map_page.page(key.map.as_ref()),
     );
     pages.replace_pages(built, active);
     *last = Some(key);
@@ -238,6 +243,8 @@ pub(crate) struct RebuildKey {
     radio: RadioSnapshot,
     dev: DevSnapshot,
     quality: Option<VisualQualityProfile>,
+    /// The Map page's region, by value (`map_page`).
+    map: Option<ambition_platformer2d::menu::map::view::MapView>,
 }
 
 impl RebuildKey {
@@ -278,6 +285,9 @@ impl RebuildKey {
         }
         if self.quality != next.quality {
             changed.push("quality_confirmation");
+        }
+        if self.map != next.map {
+            changed.push("map");
         }
         changed
     }

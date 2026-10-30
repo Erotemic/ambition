@@ -894,6 +894,22 @@ def build_level(project: dict, spec: dict) -> dict:
         climbable_layer["entityInstances"] = []
         layer_instances.append(climbable_layer)
 
+    # Every other IntGrid layer the project defines (Water), empty: a level
+    # without the instance cannot be painted (`intgrid paint` refuses it).
+    built = {lyr["__identifier"] for lyr in layer_instances}
+    for layer_def in project["defs"]["layers"]:
+        if layer_def.get("type") != "IntGrid" or layer_def["identifier"] in built:
+            continue
+        layer_iid, _ = allocate_iid(project, layer_def["identifier"])
+        layer_instances.append({
+            "__identifier": layer_def["identifier"],
+            "__type": "IntGrid",
+            "iid": layer_iid,
+            "layerDefUid": layer_def["uid"],
+            "intGridCsv": [0] * (c_wid * c_hei),
+            **base_layer,
+        })
+
     level = {
         "identifier": level_id,
         "iid": level_iid,

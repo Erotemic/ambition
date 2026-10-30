@@ -577,6 +577,8 @@ pub(super) fn apply_dodge(
     let push = (frame.side() * aim.x + frame.down() * aim.y) * tuning.abilities.air_dodge_speed;
     kinematics.vel = push;
     state.air_dodge_push = push;
+    // Local `y` points toward the feet, so up is `-y`.
+    state.air_dodge_up = (-aim.y).clamp(-1.0, 1.0);
     // AIMED OR NEUTRAL, decided here once: the two have their own window,
     // endlag and landing lag (`TraversalAbilityTuning::air_dodge_window`).
     let directional = aim != bevy_math::Vec2::ZERO;

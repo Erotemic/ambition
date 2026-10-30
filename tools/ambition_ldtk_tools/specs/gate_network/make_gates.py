@@ -423,6 +423,7 @@ RECEIVER_TERMINALS = [
 DISTRICT_RINGS = [
     ("pirate_port", "pirate_port_gate_plaza", "Port Gate (Plaza)", "pirate_port_gate_arrival", "pirate_port_gate_terminal"),
     ("ninja_village", "ninja_village_gate_shrine", "Village Gate (Shrine)", "ninja_village_gate_arrival", "ninja_village_gate_terminal"),
+    ("eureka", "eureka_gate_court", "Eureka Gate (Court)", "eureka_gate_arrival", "eureka_gate_terminal"),
 ]
 DISTRICT_FLOOR = 704
 

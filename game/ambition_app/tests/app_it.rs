@@ -305,6 +305,15 @@ mod the_orbital_station;
 mod the_consignment_errand;
 mod the_pirate_port;
 mod the_ninja_village;
+mod the_eureka_tether;
+mod the_zeno_aqueduct;
+mod hylberts_hotel;
+mod the_searchlight_moor;
+mod the_tar_pits;
+mod the_castle_kitchens;
+mod the_map_page;
+mod the_bamboo_pass;
+mod the_wreckers_reef;
 mod the_gate_network;
 
 mod body_reaction_clocks;

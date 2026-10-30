@@ -34,12 +34,15 @@
     "menu.page.system": "System",
     "menu.items.title": "ITEMS",
     "menu.map.title": "MAP",
+    // The Map page: off the map, and the line naming the building the
+    // player is inside while the map shows the region outside it.
+    "menu.map.unmapped": "No map of this place.",
+    "menu.map.inside": "inside",
     "menu.quest.title": "QUEST",
     "menu.system.title": "SYSTEM",
     // The SYSTEM page's title inside one of its screens.
     "menu.system.screen_title": "SYSTEM • {screen}",
     // Pages that have no content yet.
-    "menu.map.placeholder": "Area map: discovered rooms, anchors, portal markers (host data TODO).",
     "menu.quest.placeholder": "Quest status + key items from save data (host data TODO).",
     // The items page: what a press does to the focused item, and its state.
     "menu.items.equip": "Equip",

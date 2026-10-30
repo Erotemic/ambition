@@ -54,6 +54,21 @@ PLAZA = "pirate_port_gate_plaza"
 WATERFRONT = "pirate_port_waterfront"
 TAVERN = "pirate_port_tavern"
 DOCKS = "pirate_port_docks"
+#: Out of the port (Jon, 2026-10-30: "out of town zones with enemies"): the
+#: Wreckers' Reef, east of the docks by a side exit.
+REEF = "pirate_wreckers_reef"
+#: Out past the reef, east by a side exit at the east rocks' height.
+POINT = "pirate_lighthouse_point"
+#: The sail loft inside the net loft, by its door on the waterfront.
+LOFT = "pirate_sail_loft"
+#: Under the plaza, down its old well (a vertical exit): the cellars where
+#: the freight customs never sees goes by.
+CELLARS = "pirate_customs_cellars"
+#: The well's hole in the plaza's floor, and the cellars' shaft under it
+#: (x0, x1): against the plaza's west wall, off the low road, so nobody
+#: walking east falls in; no lip of floor beyond it.
+WELL = (16, 80)
+LOFT_DOOR_X = 2300
 
 #: The contract with Agent GATE: the arrival point a dialled SAILING names.
 ARRIVAL = "pirate_port_gate_arrival"
@@ -70,11 +85,20 @@ TOWN_MUSIC = "pirates_guild_black_flag_jig"
 DOCK_MUSIC = "ten_fathoms_and_a_grudge"
 
 #: Each room: (world_x, world_y), (width, height).
+#: The plaza, the waterfront and the docks touch where their side exits join,
+#: with the low road (and the high road) level (Jon, 2026-10-30: "a mostly
+#: faithful flat map"; `specs/check_flat_map.py`). The tavern is a building.
 ROOMS_AT = {
     PLAZA: ((0, 0), (1600, 832)),
-    WATERFRONT: ((1856, 0), (2560, 896)),
-    DOCKS: ((4672, 0), (2816, 960)),
+    WATERFRONT: ((1600, -64), (2560, 896)),
+    DOCKS: ((4160, -64), (2816, 960)),
+    REEF: ((4160 + 2816, -64), (2560, 960)),
+    # Its floor (y 960) level with the reef's east rocks (y 640 there).
+    POINT: ((4160 + 2816 + 2560, -64 - 320), (1600, 1280)),
     TAVERN: ((1856, 1152), (1024, 448)),
+    LOFT: ((2944, 1152), (1024, 448)),
+    # Under the plaza: its shaft under the well.
+    CELLARS: ((0, 832), (1600, 640)),
 }
 
 #: The flag of the page in the crow's nest.
@@ -98,8 +122,13 @@ def plaza():
     _, (w, h) = ROOMS_AT[rid]
     floor, balcony = 704, 448
     e = [
-        solid("ground", 0, floor, w, h - floor),
-        solid("west_wall", 0, 0, WALL, floor),
+        # The ground, and the old well down to the cellars: a ladder down it
+        # (`LADDERS`), its bottom the way down.
+        solid("ground_east", WELL[1], floor, w - WELL[1], h - floor),
+        entity("LoadingZone", WELL[0], h - 16, WELL[1] - WELL[0], 16, id="plaza_well", name="down the old well",
+               activation="EdgeExit", target_room=CELLARS, target_zone="cellars_shaft", bidirectional=True),
+        sign("plaza_sign_well", 84, 566, "OLD WELL: dry", 136),
+        solid("west_wall", 0, 0, WALL, h),
         solid("east_wall_high", w - WALL, 0, WALL, balcony - 96),
         solid("east_wall_mid", w - WALL, balcony + 16, WALL, floor - 96 - balcony - 16),
         # The arrival is the zone of the gate ring (`gate_interface.yaml`, written
@@ -156,6 +185,8 @@ def waterfront():
         door("waterfront_tavern_door", "into The Drowned Compass", 1320, street, TAVERN, "tavern_door"),
         sign("tavern_sign", 1344, street - 150, "THE DROWNED COMPASS", 260),
         sign("market_sign", 1900, street - 120, "Fish from three seas. Ask which.", 300),
+        door("waterfront_loft_door", "into the sail loft", LOFT_DOOR_X, street, LOFT, "loft_door"),
+        sign("loft_sign", LOFT_DOOR_X + 24, street - 140, "BOLT: SAILS & FLAGS", 240),
         edge("waterfront_east_low", "to the docks", w - WALL, street, DOCKS, "docks_west_low"),
         edge("waterfront_east_high", "along the roofs to the gantry", w - WALL, roof_b, DOCKS, "docks_west_high"),
     ]
@@ -179,6 +210,27 @@ def tavern():
         resident("npc_port_wren", "pirate_port_wren", 680, floor),
         resident("npc_pirate_heavy_broadside_bess", "pirate_port_bess", 400, floor, w=64, h=96),
         sign("tavern_sign_rules", 520, ceiling + 40, "No duels. No gate talk before noon.", 360),
+    ]
+    return build(rid, e, None)
+
+
+def sail_loft():
+    """The sail loft inside the net loft: nets on the rafters, bolts of
+    canvas, a sail spread half sewn, flags to order pinned up (a skull with
+    an eyepatch, a monocle, a moustache, a party hat; a smiling one sent
+    back). Tamsin Bolt sews them (`pirate_port.yarn`)."""
+    rid = LOFT
+    _, (w, h) = ROOMS_AT[rid]
+    floor, ceiling = h - 64, 32
+    e = [
+        solid("floor", 0, floor, w, 64),
+        solid("ceiling", 0, 0, w, ceiling),
+        solid("west_wall", 0, ceiling, WALL, floor - ceiling),
+        solid("east_wall", w - WALL, ceiling, WALL, floor - ceiling),
+        door("loft_door", "out to the waterfront", 40, floor, WATERFRONT, "waterfront_loft_door"),
+        start(rid, 140, floor),
+        resident("npc_port_bolt", "pirate_port_bolt", 830, floor),
+        sign("loft_sign_flags", 560, ceiling + 260, "FLAGS TO ORDER: any face you like, on a skull", 420),
     ]
     return build(rid, e, None)
 
@@ -213,7 +265,8 @@ def docks():
         water("harbour", 0, DECK + 16, w, SEA_FLOOR - DECK - 16),
         solid("west_wall_high", 0, 0, WALL, GANTRY - 96),
         solid("west_wall_mid", 0, GANTRY + 16, WALL, DECK - 96 - GANTRY - 16),
-        solid("east_wall", w - WALL, 0, WALL, DECK),
+        solid("east_wall", w - WALL, 0, WALL, DECK - 112),
+        edge("docks_east", "along the shore to the reef", w - WALL, DECK, REEF, "reef_west"),
         edge("docks_west_low", "to the waterfront", 0, DECK, WATERFRONT, "waterfront_east_low"),
         edge("docks_west_high", "along the roofs to the waterfront", 0, GANTRY, WATERFRONT, "waterfront_east_high"),
         start(rid, 120, DECK),
@@ -242,7 +295,156 @@ def docks():
     return build(rid, e, "THE DOCKS", music=DOCK_MUSIC)
 
 
-ROOMS = (plaza, waterfront, tavern, docks)
+#: The reef (the art, `targets/props/pirate_reef_props.py`, is drawn on
+#: these): the shore's end (x), the rocks (x0, x1, top), the boarding net,
+#: the stern (x0, x1, deck), its aft castle, the bow, the mast stump's top,
+#: the east rocks.
+REEF_SHORE = 420
+REEF_ROCKS = ((500, 580, 740), (700, 780, 720))
+REEF_NET = (800, 880, 680)
+REEF_STERN = (880, 1480, 616)
+REEF_AFT = (1320, 1480, 520)
+REEF_BOW = (1760, 2300, 672)
+REEF_STUMP = (1960, 2060, 440)
+REEF_EAST = (2380, 2544, 640)
+
+
+def reef_enemy(n, character, x, feet, w, h):
+    return entity("EnemySpawn", x, feet - h, w, h, name=f"{REEF}_{character}_{n}", brain="combatant",
+                  character_id=character, respawn="OnRoomReenter")
+
+
+def reef():
+    """Out of the port: the Wreckers' Reef. A galleon broken in two on the
+    reef, and the wreckers who lured her with a false light on the shore.
+    The shore (y 768) runs on from the docks; rocks and a boarding net up
+    to the stern (y 616) and its aft castle (y 520); the fallen mast over
+    the gap; the bow (y 672) and its mast stump (y 440, a ladder); rocks at
+    the east end. The sea from y 784."""
+    rid = REEF
+    _, (w, h) = ROOMS_AT[rid]
+    s0, s1, sd = REEF_STERN
+    b0, b1, bd = REEF_BOW
+    x0, x1, top = REEF_STUMP
+    e = [
+        solid("shore", 0, DECK, REEF_SHORE, h - DECK),
+        solid("sea_floor", REEF_SHORE, SEA_FLOOR, w - REEF_SHORE, h - SEA_FLOOR),
+        water("reef_sea", REEF_SHORE, DECK + 16, w - REEF_SHORE - WALL, SEA_FLOOR - DECK - 16),
+        *[solid(f"reef_rock_{i}", a, t, b - a, SEA_FLOOR - t) for i, (a, b, t) in enumerate(REEF_ROCKS)],
+        ledge("boarding_net", REEF_NET[0], REEF_NET[2], REEF_NET[1] - REEF_NET[0]),
+        solid("stern", s0, sd, s1 - s0, SEA_FLOOR - sd),
+        ledge("aft_castle", REEF_AFT[0], REEF_AFT[2], REEF_AFT[1] - REEF_AFT[0]),
+        solid("bow", b0, bd, b1 - b0, SEA_FLOOR - bd),
+        ledge("mast_stump", x0, top, x1 - x0),
+        solid("east_rocks", REEF_EAST[0], REEF_EAST[2], REEF_EAST[1] - REEF_EAST[0], SEA_FLOOR - REEF_EAST[2]),
+        solid("west_wall", 0, 0, WALL, DECK - 112),
+        solid("east_wall", w - WALL, 0, WALL, REEF_EAST[2] - 112),
+        solid("east_wall_low", w - WALL, REEF_EAST[2], WALL, SEA_FLOOR - REEF_EAST[2]),
+        edge("reef_east", "on to the lighthouse point", w - WALL, REEF_EAST[2], POINT, "point_west"),
+        edge("reef_west", "back along the shore to the docks", 0, DECK, DOCKS, "docks_east"),
+        start(rid, 120, DECK),
+        # Nell Brine, beachcombing the shore (`pirate_port.yarn`).
+        resident("npc_port_brine", "pirate_port_brine", 240, DECK),
+        sign("reef_sign", 300, DECK - 300, "WRECKERS' REEF: the lighthouse is lying", 400),
+        sign("reef_sign_wreck", 1150, sd - 170, "THE GOOD SHIP PROBABLY (late)", 320),
+        entity("ChestSpawn", REEF_AFT[0] + 40, REEF_AFT[2] - 58, 76, 58, name="the captain's strongbox", reward="currency:100"),
+        reef_enemy(1, "npc_pirate_cutlass_viper", 1000, sd, 32, 68),
+        reef_enemy(2, "npc_pirate_quartermaster", 1200, sd, 34, 71),
+        reef_enemy(3, "npc_pirate_cutlass_viper", 1880, bd, 32, 68),
+        reef_enemy(4, "npc_pirate_lookout", 1990, top, 32, 65),
+    ]
+    return build(rid, e, "THE WRECKERS' REEF", music=DOCK_MUSIC)
+
+
+#: The lighthouse (`pirate_lighthouse_props.py` draws on these): the point's
+#: rock, the stair landings inside the tower (x0, x1, y), the gallery.
+POINT_FLOOR = 960
+POINT_LANDINGS = ((930, 1000, 880), (1000, 1070, 800), (935, 1005, 720), (995, 1065, 640), (940, 1010, 560), (990, 1060, 480))
+POINT_GALLERY = (860, 1140, 400)
+
+
+def point_enemy(n, character, x, feet, w, h):
+    return entity("EnemySpawn", x, feet - h, w, h, name=f"{POINT}_{character}_{n}", brain="combatant",
+                  character_id=character, respawn="OnRoomReenter")
+
+
+def point():
+    """Out past the reef: the Lighthouse Point, the honest light the wreckers
+    would like out. The rock (y 960) from the reef's east rocks; the
+    keeper's cottage; the lighthouse cut away, its stair of landings up
+    inside to the gallery (y 400) and the lamp; wreckers come round the
+    point on its far side."""
+    rid = POINT
+    _, (w, h) = ROOMS_AT[rid]
+    g = POINT_FLOOR
+    gx0, gx1, gy = POINT_GALLERY
+    e = [
+        solid("rock", 0, g, w, h - g),
+        solid("west_wall", 0, 0, WALL, g - 112),
+        solid("east_wall", w - WALL, 0, WALL, g),
+        edge("point_west", "back to the reef", 0, g, REEF, "reef_east"),
+        start(rid, 120, g),
+        *[ledge(f"landing_{i}", x0, y, x1 - x0) for i, (x0, x1, y) in enumerate(POINT_LANDINGS)],
+        ledge("gallery", gx0, gy, gx1 - gx0),
+        # Ezra Lamplugh, the keeper, by his cottage (`pirate_port.yarn`).
+        resident("npc_port_lamplugh", "pirate_port_lamplugh", 700, g),
+        entity("ChestSpawn", gx0 + 6, gy - 58, 76, 58, name="the keeper's oil money", reward="currency:60"),
+        sign("point_sign", 1000, 150, "THE LIGHTHOUSE: the honest one", 380),
+        sign("point_sign_cottage", 620, g - 200, "KEEPER'S COTTAGE. Wreckers: no.", 320),
+        # The wreckers, come round the point at the tower's far side.
+        point_enemy(1, "npc_pirate_cutlass_viper", 1320, g, 32, 68),
+        point_enemy(2, "npc_pirate_lookout", 1460, g, 32, 65),
+    ]
+    return build(rid, e, "THE LIGHTHOUSE POINT", music=DOCK_MUSIC)
+
+
+#: The cellars (`pirate_cellars_props.py` draws on these): the floor, the
+#: vault, the barrel rack's top (x0, x1, y; walked on).
+CELLARS_FLOOR, CELLARS_CEIL = 576, 64
+CELLARS_BARRELS = (920, 1140, 480)
+
+
+def cellars_enemy(n, character, x, feet, w, h):
+    return entity("EnemySpawn", x, feet - h, w, h, name=f"{CELLARS}_{character}_{n}", brain="combatant",
+                  character_id=character, respawn="OnRoomReenter")
+
+
+def cellars():
+    """Under the gate plaza, down the old well: a brick vault where the
+    freight that customs never sees goes by. The shaft comes down at the
+    west end, by the forger's desk; Fennimore Slipp, import consultant,
+    keeps the place; past the idol, the chickens and the crates, his
+    tariff-averse colleagues guard the barrels and the still."""
+    rid = CELLARS
+    _, (w, h) = ROOMS_AT[rid]
+    g, top = CELLARS_FLOOR, CELLARS_CEIL
+    s0, s1 = WELL
+    b0, b1, by = CELLARS_BARRELS
+    e = [
+        solid("floor", 0, g, w, h - g),
+        solid("vault_west", 0, 0, s0, top),
+        solid("vault_east", s1, 0, w - s1, top),
+        solid("west_wall", 0, top, WALL, g - top),
+        solid("east_wall", w - WALL, top, WALL, g - top),
+        entity("LoadingZone", s0, 0, s1 - s0, 16, id="cellars_shaft", name="up the well to the plaza",
+               activation="EdgeExit", target_room=PLAZA, target_zone="plaza_well", bidirectional=True),
+        start(rid, 200, g),
+        ledge("barrel_rack", b0, by, b1 - b0),
+        # Fennimore Slipp by his desk (`pirate_port.yarn`).
+        resident("npc_port_slipp", "pirate_port_slipp", 340, g),
+        sign("cellars_sign", 800, 120, "BONDED CELLARS: bonded to nobody", 380),
+        entity("ChestSpawn", b0 + 70, by - 58, 76, 58, name="the undeclared strongbox", reward="currency:80"),
+        # His colleagues, east past the crates.
+        cellars_enemy(1, "npc_pirate_cutlass_viper", 880, g, 32, 68),
+        cellars_enemy(2, "npc_pirate_quartermaster", 1180, g, 34, 71),
+        cellars_enemy(3, "npc_pirate_cutlass_viper", 1440, g, 32, 68),
+    ]
+    return build(rid, e, "THE CELLARS UNDER CUSTOMS", music=DOCK_MUSIC)
+
+
+# The cellars before the plaza: the plaza's well names them, and each room is
+# validated as it is made.
+ROOMS = (cellars, plaza, waterfront, tavern, sail_loft, docks, reef, point)
 
 #: The ladders out of the two gaps of open water, and up the mainmast
 #: (painted on the `Climbable` layer): (room, x, top, bottom).
@@ -250,6 +452,11 @@ LADDERS = [
     (DOCKS, SPANS[0][1] + 2, DECK - 16, SEA_FLOOR),
     (DOCKS, SPANS[1][1] + 2, DECK - 16, SEA_FLOOR),
     (DOCKS, MAINMAST - 16, 304 - 16, SHIP_DECK),
+    (REEF, REEF_STUMP[1], REEF_STUMP[2] - 16, REEF_BOW[2]),
+    # Down the old well (its top over the floor, as the Fractal Woods' hole
+    # down to the Mobius Mine), and on down the cellars' shaft.
+    (PLAZA, WELL[0] + 16, 704 - 64, ROOMS_AT[PLAZA][1][1]),
+    (CELLARS, WELL[0] + 16, 0, CELLARS_FLOOR),
 ]
 
 COVE_DOOR_YAML = f"""# The pirate cove's door to the Pirate Port's docks. Written by {GENERATOR}.
@@ -287,6 +494,8 @@ def main(argv):
     if code := make_rooms(WORLD_LDTK, made):
         return code
     if code := add_entities(COVE_DOOR_YAML, WORLD_LDTK, HERE / "cove_door.yaml", unless=f'"{COVE_DOOR}"'):
+        return code
+    if code := add_entities(props.cove_scenery_yaml(GENERATOR), WORLD_LDTK, HERE / "cove_scenery.yaml", unless='"cove_cave_0"'):
         return code
     if GATE_INTERFACE.exists():
         code, _ = run("entity", "add", str(GATE_INTERFACE), "--ldtk", str(WORLD_LDTK), "--in-place")

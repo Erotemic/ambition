@@ -368,6 +368,276 @@ general shape; check new code against it.
   seen in hitstun within the move's length plus the perception delay. Both
   fields are rollback state. Measured on the grid 2026-10-12: queue row BRAIN,
   road 1.
+- **A press the body cannot act on is buffered, never spent.** Under
+  `hitstun_locks_actions` the input gate eats every attack edge for the whole
+  stun, and the emission is open-loop: it charged an APM token and armed
+  `own_attack` for a move that never started. `tick_fighter` holds a matured
+  press while `reeling::still_reeling` (perceived hitstun, less the view's
+  staleness) and emits it on the first actionable tick — the genre's input
+  buffer. A decision made inside the stun replaces the buffered press, so what
+  comes out is the latest decision's. The start of a stun is still seen
+  `reaction` late, and a press maturing in that window is eaten as a person's
+  would be. Found 2026-10-29 while chasing the route regression below; measured
+  in that match it was latent (no press matured inside a stun), so the guards
+  are the two unit tests in `decision/tests.rs`, not the match.
+- **The brain dies where the game dies.** `StageView::bounds` is the ROOM box,
+  which is what `Recovery`, `EdgeGuard` and the cornering share were measured
+  on. The kernel resets a body past the room PLUS the stage's authored margins
+  (`World::edges`; Smash: 400 each side, 240 above and below), and that box is
+  `WorldView::death_line`. The recovery lens, survival DI and the shadow's KO
+  ask it; nothing else does. Measured 2026-10-29, George mirror, 3600 ticks,
+  with the lens killing at the room box: one seat spent 364 ticks offstage,
+  made 131 `Recovery` decisions that found no route, and 64 of them began from
+  a body outside the room, alive, with the platform in view — every route
+  refused from a position the game had not lost. Guards: the lens test
+  `a_body_past_the_room_but_short_of_the_blast_line_is_searched_alive` and
+  `every_authored_route_gets_pressed` (`the_repertoire_gets_used.rs`).
+- **"Off the stage" is beside the room or below it, never above it.**
+  `StageView::offstage` ignores the room's top: a body launched high over
+  the platform is being juggled with its floor still under it. `classify`
+  still reads `Recovery` past the death line's rise side (Smash: 240 px
+  above the room; a fixture with no margins: the room top — the
+  `recovery_above` scenario's premise). Measured
+  2026-10-29 (pointed vs pugnacious polygon, 30 s, rung 5): 23% of the
+  brawler's 166 `Recovery` decisions and 11% of the pointed polygon's 119
+  were above the 480 px room with the platform below, each spending its up
+  special to recover onto a stage it was already over. Recovery was 45% and
+  32% of ALL decisions in that match; the trace instrument for this is
+  `AMBITION_FIGHTER_TRACE=1 smash_cpu_report match-report`.
+- **A swing that reaches is shielded; the spot dodge is its mix-up.**
+  `options::incoming_attack`: the foe is in a swing's startup or active
+  window, faces this body, and `attack_reach` plus 24 px covers the side
+  gap. On the ground that offers `Shield` at 0.9 and `Dodge` at 0.85 in
+  every situation but `Recovery`; `apply_movement` centres the stick for
+  that dodge (a spot dodge), and rolls away for any other swing. A swing
+  that cannot reach is nothing to answer — the old "shield when anybody is
+  attacking" rule produced two statues and stays only in `Disadvantage`.
+- **Neutral spaces to the kit's reach.** `generate_options` hands
+  `movement_options` the farthest reach of the ground kit (`Basic`/`Smash`
+  candidates). Beyond 1.15× that reach: approach. At it, moving in, with NO
+  attack admitted from here: retreat; moving out: approach — the dash-dance,
+  read off the body's own velocity rather than a stored phase. The attack
+  list is built first and movement asked again with it, because a first cut
+  that danced before the list existed stepped out of its own range on the
+  decision it could have swung (measured: moves 23/26 → 7/6, damage 51/24 →
+  9/0 in the 60 s pair). A kit that reaches nothing keeps the old bias.
+  `ShortHop` (a tapped jump; the squat-decided law cuts the rise) is offered
+  at 0.45 inside the band and at 0.85/0.7 as the anti-air when the foe is
+  airborne above this body; the aerials enter the kit only once airborne.
+- **The mix is drawn once per decision from the seat's own stream.**
+  `pick_movement_mixed` draws among the eligible options within a margin of
+  the best (`0.05 + 0.1 × execution_noise`: rung 9 0.055, rung 1 0.09) —
+  the spot dodge beside the shield, the short hop beside the walk-in, which
+  are authored 0.05 apart. The margin stays under 0.1 at every rung because
+  the scores that are NOT a mix step by 0.1 (Approach over Retreat, Approach
+  over the roll); a first cut at 0.14 drew Retreat or the roll half the time
+  and cut moves started 23/26 → 7/8. The draw is unconditional (one sample
+  every decision), like the jitter's second draw, so the stream is a
+  function of the tick count.
+- **The kill term is a threshold.** `kill_readiness(damage_frac)` is 0.1
+  below 35%, 1 at 70% and a line between (the floor keeps two finishers
+  ORDERED by launch against a fresh victim, the launch-law tests' contract,
+  and is far too small to pay for a startup); the ladder's `kill_potential` weight
+  (0 at rungs 1-2, 0.7 at 5, 1.15 at 9) scales it by rung, which is where
+  "smashes at rung 9, none at rung 1" comes from. Measured before it
+  (rank trace, rung 5): a smash in the top four three times in 30 s, never
+  first, 0.04-0.16 under a tilt, because `damage_frac` from zero never let
+  the kill term pay for a 19-frame startup.
+- **A landing is a commitment.** `foe_commitment`: a swinging or reeling foe
+  owes its clock; a foe coming down owes the time to the floor plus
+  `LANDING_LAG_NOMINAL_S` (0.15 s, the genre's aerial landing lag; the
+  facet's own number is not perceived). That is the landing read; a roll is
+  not perceived as a phase yet and has no read.
+- **A charge is bounded by the opening.** `charge::hold_ticks_within`: in
+  `Advantage`/`EdgeGuard` the charge runs no longer than the commitment less
+  the hold point and no shorter than the partial. The full 90-tick charge
+  into a 20-tick recovery released into a shield.
+- **The mix is weighted and reaches the attacks.** The runner-up's share of
+  the draw is `0.5 × (1 − gap / margin)`: a coin at a dead heat, nothing at
+  the margin. A uniform draw inside the margin took the 0.05-under short hop
+  every other decision at spacing (35 hops in 30 s, the neutral spent
+  airborne). The attack ranking takes a second, unconditional draw with the
+  same rule — the grab or the dash attack beside the jab on an approach.
+- **Admission was measured before it was touched, and it was not the lever.**
+  `OptionSet::admission` (candidates, admitted, nearest miss and where the
+  led foe sat) prints as the rank trace's `[admit]` line. Measured
+  2026-10-29 (pointed vs pugnacious, rung 5, 30 s): an attack was admitted
+  in 6% of Neutral and 6% of Advantage decisions; the refusals missed by a
+  median 174 px (7 of 134 within the 24 px slack, 14 within 48), with the
+  led foe 160-190 px off vertically and one or both bodies airborne in two
+  thirds of them. The admission already leads the foe by relative velocity
+  over staleness + startup; no slack or lead fixes a 174 px miss. The lever
+  was ground contact: the dash-dance fired whenever nothing was admitted
+  (94% of decisions), the band short hop put the body in the air, and a
+  cornered body rolled (0.75 over Retreat 0.7) with nothing incoming — 500
+  of 3,600 ticks evading. Now the dance and the band hop only face a
+  standing, uncommitted foe, and the un-threatened cornered roll sits under
+  the walk. `match-report` prints `whiffs` (moves that ended with no
+  overlap): 14 of 17 and 14 of 15 in that pair before the change.
+- **The lead is ballistic for a foe coming down onto a grounded body, and
+  that swing is admitted at any time it is live.** `lead_of` adds `½·g·t²`
+  on the down axis for an airborne foe seen from the ground
+  (`NOMINAL_GRAVITY_PX_S2`, 1,450; the facet's gravity is not perceived),
+  stopped at the floor (the standing offset); admission then samples the
+  led foe when the threat opens and at the middle and end of each active
+  span — an anti-air is a foe whose arc enters the region before the hitbox
+  closes. Every other pairing keeps the straight lead and the one sample: a
+  body coming down onto a grounded foe would "land beside it" inside the
+  lead and admit a ground poke it cannot throw from the air (the rig's
+  `juggle_escape` pressed a jab, and the rig's press rates stopped ordering
+  by rung); that case waits for the airborne kit to be asked. Measured
+  before it: 70-90% of thrown moves whiffed and the refusals missed by a
+  median 174 px with the foe 160-190 px off vertically.
+- **Every before/after is `--runs 3` medians** (both seats summed), rungs 5
+  and 9, pair and mirror — see `match_report.rs`'s header: one rung-9 seed
+  gave moves 22–49–71 and damage 9–105–120 across three runs. The report
+  now pins one `update()` to one sim tick for every composition (the
+  shipped one ran off the wall clock: three concurrent reports of one binary
+  gave moves 24 vs 28 and whiffs 17 vs 25 at rung 5), and prints `live
+  ticks` and per-live-minute rates, because a KO ends the round and freezes
+  the rest of the window. Pinned, a seed played in a fresh process
+  (`--runs 1 --first-run N`) reproduces the same seed inside `--runs 3`
+  exactly, run for run (no leak between runs of one process); across
+  invocations seed 0 fell into two outcome classes (4 and 4 of 8
+  processes) with ±2 live-tick jitter inside a class — per-process state
+  the simulation reads. Measured next (2026-10-30, same cell, eight fresh
+  processes each): swapping every `std` `HashMap`/`HashSet` in the sim
+  crates for `BTreeMap`/`BTreeSet` gave 3 classes in 8 — not the cause,
+  kept as hygiene. The seats' entity ids split the classes (`1706/1707`
+  vs `1707/1708`): `GatedLockWallCache` was minted lazily on its first
+  use, before the fighters in some processes and after in others, and a
+  resource is an entity. `init_resource` at plugin build made the ids
+  identical in 8 of 8 — and the outcomes still split (2 classes in 8, six
+  and two, ±2 live ticks inside a class; the id shift was a symptom, not
+  the cause). `match-report` now prints a
+  per-tick trace (`AMBITION_MATCH_REPORT_TRACE_TICKS=1`), and the traces
+  settled it: a divergent pair is the SAME trajectory, tick for tick,
+  shifted by whole ticks at the start — the route transition's
+  asynchronous loading takes 8, 9 or 10 frames before the fighters are
+  released, and the tool's fixed frame count after `GoTo` then seeded the
+  noise at different match ticks. Anchored to the live edge (the first
+  tick a seat moves) the split remains and follows the transition's frame
+  count exactly: 9 frames gave one match in 5 of 5 processes, 8 or 10 the
+  other in 3 of 3. The aligned traces name the read: the divergent
+  trace holds a FRAME WITH NO SIM ADVANCE at its fifth tick (one line
+  repeated) where the other advances — `refresh_world_time` sets
+  `WorldTime::sim_dt = frame_dt × ClockState::time_scale`, and
+  `smooth_sim_clock_toward_target_system` eases that scale toward the
+  requested one by `rate × wall_dt` PER FRAME; `match_live`
+  (`stocks_match.rs`) requests 1.0 when the fighters are released, so the
+  first ticks of every match integrate a 0 → 1 ramp of dt whose phase is
+  the route transition's frame count. The simulation is deterministic
+  given its dt sequence; its dt is not a sim fact. ⇒ The fix is in the
+  sim: the sim steps a fixed dt, and the eased scale is either sim state
+  advanced per tick from sim causes (hitstop, match-live) or presentation
+  only — two peers in rollback cannot agree on a wall-dt ramp. Not settle
+  time (20 s of pre-match ticking changed nothing), not wall time per se
+  (clock pinned), not a run-to-run leak, not the std maps, not the ids,
+  not a parity read in a brain or hit path (the census found none).
+  ⛔ AND NOT THE RAMP EITHER, measured next (2026-10-30, `[clock]` lines,
+  six fresh processes): `ClockState::time_scale` read 1.000 on every
+  frame from the route request through the release and after it, with
+  `sim_dt` 0.016666668 on every sampled tick of every process; the
+  fighters move one frame after they are seated (the tool's roster
+  counts an 18-tick countdown and holds nobody). What the sim-tick trace
+  shows instead: the host runs NO sim tick on one frame in every fifteen
+  (ticks 15, 30, 45 … sampled twice), the phase of that cadence against
+  the match is the transition's frame count, and the first match-relative
+  divergence of a bifurcated pair is a 0.245 px step in the recovering
+  body's height at the uppercut's 0.2 s `GravityModifier` event (match
+  tick 190, both clocks reading `@0.217`). Same ticks, same dt, same move
+  clock, one tick of gravity scaled differently — a per-frame system
+  reaches a per-tick timer across the skipped frame. The skip itself
+  (bevy_ggrs pacing against the pinned frame: 56 sim ticks per 60 frames)
+  is the next thing to measure, and it is not the brain's lane.
+- **The poke the foe closes through is refused, and a recovery special is
+  an attack only with the foe inside its region as it opens.** Admission
+  asks, as each active window OPENS, where the led foe is: short of the
+  near edge, or somewhere the region does not lie toward (behind the body,
+  a closer that crossed through), at every opening is a refusal with no
+  slack on that side (`polygon_point`'s whiffs started at a 55 px gap, its
+  hits at 89, nearest approach −10 along: the foe was behind the thrust's
+  near edge by the time the box was live). The opening, not the window's
+  middle or end: a foe inside the box as it opens is a hit however the
+  straight lead would carry it on — bodies stop at each other, and a
+  running body's own closing is not a pass-through (the rooted-move
+  fixture runs at 530 px/s into a foe 60 px ahead and must be offered the
+  poke). `match-report` splits `⇒ recovery` out of the whiffs — a way-home
+  move started off the stage misses by design — and prints `attack
+  whiffs` per live minute beside the whole. A lift (`recovery_route`
+  offers a way home) is admitted only when the unled foe is inside its
+  region — no lead, no slack — and in Recovery a lift whose region reaches
+  the foe is not offered as a route (the ranking's to admit, or nobody's).
+  Tests: `a_poke_the_foe_closes_through_is_refused`,
+  `a_recovery_special_is_an_attack_only_with_the_foe_inside_its_region`,
+  `a_lift_with_the_foe_in_reach_is_not_a_route`.
+- **One authority for where a move hits.** `ambition_combat::authored_coverage`
+  derives the kit's `coverage` and `reach` by the strike spawn's own
+  per-volume rule — the sprite's authored hit polygon for a vfx-tagged
+  volume whose clip the sheet names, the RON box otherwise — from the same
+  `AuthoredAttackVolumeResolver`, the same character, size, drawn quad and
+  art floor; `tick_actor_brains` applies it to every candidate. Witness:
+  `the_brain_admits_by_the_geometry_that_hits` presses every move of the
+  pair at its first Active window and compares the region the brain is
+  handed with the live `Hitbox` extent, to the pixel. Measured (rung 9,
+  three runs, per live minute): pair moves 68.8 → 77.0, whiffs 49.4 →
+  49.2, damage 78.5 → 141.2, `inside` whiffs 5 → 1; mirror moves 57.2 →
+  54.1, whiffs 42.1 → 42.8, damage 70.2 → 99.5. The RON-box
+  `[disagree]` ticks fell from 32 to 3 at the pair because the brain no
+  longer admits those swings; the remaining whiffs miss by 40-90 px,
+  scattered on every side, with the recovery specials still the largest
+  rows.
+- **A grab that catches has connected.** The capture box is a sustain
+  effect, not a strike volume, so no `LandedBodyHit` was ever written for
+  it and nothing set the grab's `landed_hit`: a collar that caught,
+  pummelled and threw read as a whiff to the report, to the brain's own
+  `landed` (which then REFUSED the grab for `refuse_ticks`) and to every
+  on-hit cancel. `acquire_captures` marks the use that asked
+  (`CaptureAttemptRequested::move_instance`), as the throw already did.
+- **A whiff names its cause before it is blamed on the admission.**
+  `match-report` splits `whiffs` into `⇒ evaded` (the foe was unhittable
+  for a tick of the move) and, per move, the whiffs' nearest approach to a
+  live hitbox (`along` / `across`, with the hits' approach as the control).
+  ⛔ The first reading of it was wrong: per-axis medians of `along 0 /
+  across 0` were taken as "the foe was INSIDE the hitbox, overlapped and
+  refused a verdict" (uppercut 28, haymaker 20 at rung-9 mirror). The
+  cause histogram that followed — every tick on which one of combat's own
+  `Hitbox` entities overlapped the victim's hurt geometry (published
+  volumes, else `CenteredAabb`, the resolver's rule) and recorded no hit,
+  classified by respawn grace / invulnerability / damage-invuln timer /
+  shield / evading / hitstop / dead — found ZERO unexplained ticks at rung
+  9, pair and mirror, three runs each; the only such ticks were "already
+  reached this pulse" (the ticks after a landed hit). A `Hitbox` entity
+  existed on every Active-window tick (904/904, 470/470) within 0 px
+  median of the authored box. A hit is never refused; a whiff is a miss.
+  ⚠ ONE GEOMETRY DISAGREEMENT IS REAL, and the table's `inside` column
+  counts it: a move whose clip names a manifest row (`jab`, `attack_*`,
+  `smash_*`, `air_*`, `dash_attack`) strikes with the sprite's authored
+  hit polygon (`AuthoredAttackVolumeResolver`, placed by the feet pixel
+  and the drawn scale), while the brain's `MoveFrameData.coverage` is the
+  RON box. Measured (pair, rung 9, three runs): `polygon_air_up` 4 of 7
+  whiffs and `polygon_air_forward` 1 of 4 had the RON box over the foe
+  while the live hull sat 40-50 px away (`[disagree]` lines: air_forward
+  authored y 131..165, entity y 79..125). The brain is right by its map and
+  the body swings by another; the fix is one authority — build the kit's
+  coverage from the same resolver the strike spawn uses, per character's
+  own manifest. 6 of 96 whiffs; the rest never overlapped at all.
+  The collar (27) has no strike volume to measure; the recovery specials
+  (`polygon_brawler_uppercut`, `polygon_rising_edge`) are pressed as
+  recovery routes and are a quarter to a third of all whiffs (20 of 56, 29
+  of 93, 28 of 112 pooled over three runs). The admission's own share
+  is the pokes thrown while the foe closes through them (`polygon_point`:
+  whiffs start at a 55 px centre gap, hits at 89; nearest approach −10
+  along, the foe already past the thrust's near edge).
+- **The recovery route is legal-now like every attack.** The Recovery list
+  skipped `legality`; the route was re-pressed through its own move and the
+  helpless fall after it.
+- **A hold decides its throw.** `decision::throw_direction`: at kill percent
+  (≥ 0.6) toward the nearer blast line, forward or back as the captor faces;
+  at set-up percent (≥ 0.3) back when the edge is behind, up otherwise; low,
+  down when there is 240 px of floor both ways (a tech chase), up at an edge.
+  Forward was the only throw ever thrown before (census 2026-10-29); all four
+  are now reachable and the choice is mirrored by construction (Q49).
 - **Perception is delayed on purpose.** `DelayedPerception` implements the
   no-cheat reaction delay, and `Perceived::staleness_s()` reports how old a view
   is. Attack admission carries the foe forward over `staleness + time to

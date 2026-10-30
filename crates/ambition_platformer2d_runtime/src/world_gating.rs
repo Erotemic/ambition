@@ -31,6 +31,18 @@ pub struct WorldGatingSchedulePlugin;
 
 impl bevy::prelude::Plugin for WorldGatingSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
+        // ⛔⛔ THE CACHE EXISTS FROM THE START, NOT FROM ITS FIRST USE. A
+        // resource is an entity (Bevy 0.19), and `sync_authored_gated_lock_walls`
+        // minted this one lazily (`get_resource_or_insert_with`) on the first
+        // tick a room was live — which fell before the fighters' spawn in
+        // some processes and after it in others, shifting every later entity
+        // id by one. Measured 2026-10-30 (rung 5 pair, seed 0, pinned clock,
+        // eight fresh processes): seats `1706/1707` in one class of matches
+        // and `1707/1708` in the other, with the cache's `IsResource` entity
+        // the only difference in the window. Two machines must mint the same
+        // ids; a lazily created resource is the one kind of spawn no schedule
+        // orders.
+        app.init_resource::<ambition_platformer2d_world::gated_lock_walls::GatedLockWallCache>();
         let sim = app.sim_schedule();
         app.add_systems(
             sim,

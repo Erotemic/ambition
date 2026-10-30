@@ -114,13 +114,20 @@ npc_port_agnes
 npc_port_jory
 npc_port_bram
 npc_port_wren
+npc_port_brine
+npc_port_lamplugh
+npc_port_bolt
+npc_port_slipp
 npc_village_sato
 npc_village_nagisa
 npc_village_kenji
 npc_village_ume
+npc_village_tsuru
+npc_village_matsuda
 npc_village_daichi
 npc_village_hayashi
 npc_village_ren
+npc_village_moriyama
 
 [The orbital station]
 npc_station_okafor
@@ -129,6 +136,18 @@ npc_station_lindqvist
 npc_station_rahimi
 npc_station_pell
 npc_station_wen
+npc_station_dobbs
+
+[Eureka, the institute town]
+npc_eureka_teodora
+npc_eureka_priya
+npc_eureka_dmitri
+npc_eureka_wilbur
+npc_eureka_halvorsen
+npc_eureka_mina
+npc_eureka_pryce
+npc_eureka_hum
+npc_eureka_quark
 
 [Made by the character generator]
 npc_armsmith_odile
@@ -140,6 +159,34 @@ npc_tower_tanaka
 npc_tower_bankole
 npc_tower_granger
 npc_tower_ruiz
+
+[The Math town's people]
+npc_math_ivo
+npc_math_monty
+npc_math_zeno
+npc_math_kleinbottle
+npc_math_lucas
+
+[Castle Godwin's staff]
+npc_castle_hargreave
+npc_castle_osgood
+npc_castle_dunmore
+npc_evil_gudrun
+npc_evil_tobias
+npc_evil_mudge
+npc_evil_crabbe
+npc_castle_sprocket
+npc_evil_bellows
+npc_evil_crumb
+npc_evil_prentice
+
+[The primeval trail's people]
+npc_primeval_brandvold
+npc_primeval_feld
+npc_primeval_tock
+npc_primeval_twitchell
+npc_primeval_dlamini
+npc_primeval_stratton
 npc_tower_brandt
 
 [Guests from history and the studio]

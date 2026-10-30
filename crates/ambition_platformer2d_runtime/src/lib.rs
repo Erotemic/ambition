@@ -140,7 +140,7 @@ pub use sim_core_resources::SimCoreResourcesPlugin;
 
 /// The canonical timeline (netcode N0.1). Re-exported here because the sim
 /// schedule this crate assembles is what advances it.
-pub use ambition_time::SimTick;
+pub use ambition_time::{SimStepPeriod, SimTick};
 /// The per-tick input recorder (netcode N0.2).
 pub use input_stream::{InputStreamRecorder, input_stream_recording, record_input_stream};
 #[cfg(feature = "ldtk")]

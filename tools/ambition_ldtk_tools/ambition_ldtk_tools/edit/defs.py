@@ -227,7 +227,9 @@ def field_def(
         "uid": uid,
         "type": internal,
         "isArray": False,
-        "canBeNull": True,
+        # A Bool is never null: bevy_ecs_ldtk refuses a file holding one
+        # (`validate.validate_bool_is_not_null`); its default is false.
+        "canBeNull": human_type != "Bool",
         "arrayMinLength": None,
         "arrayMaxLength": None,
         "editorDisplayMode": "RefLinkBetweenCenters",
@@ -246,7 +248,7 @@ def field_def(
         "regex": None,
         "acceptFileTypes": None,
         "tilesetUid": None,
-        "defaultOverride": _default_override(human_type, default),
+        "defaultOverride": _default_override(human_type, False if human_type == "Bool" and default is None else default),
         "textLanguageMode": None,
         "symmetricalRef": False,
         "autoChainRef": True,

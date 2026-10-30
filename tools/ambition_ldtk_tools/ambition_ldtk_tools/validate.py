@@ -165,6 +165,19 @@ def editor_value_for(value, human_type):
     return [{"id": "V_String", "params": [str(value)]}]
 
 
+def validate_bool_is_not_null(errors, owner, field):
+    """A Bool field holds true or false. LDtk's editor never writes a null
+    one, and `bevy_ecs_ldtk` refuses the WHOLE file over one ("invalid type:
+    null, expected a boolean"), so no tile of any of its levels is painted.
+    The game's own parser reads null as false, so only the painting breaks,
+    silently. `repair` writes false (`fill_null_bools`)."""
+    if field.get("__type") == "Bool" and field.get("__value") is None:
+        errors.append(
+            f"{owner} field {field.get('__identifier')!r} is a null Bool; "
+            f"bevy_ecs_ldtk refuses the file (run `repair`: it writes false)"
+        )
+
+
 def validate_field_instance_editor_value(errors, owner, field):
     # Intentionally empty: LDtk 1.5.3 writes `__value` with empty
     # `realEditorValues` natively for fields that inherit a `defaultOverride`
@@ -454,7 +467,34 @@ def normalize_field_def(field_def):
     wrapped = _normalize_default_override(field_def, human_type)
     if wrapped is not None:
         changes.append(f"fieldDef {identifier}: wrapped defaultOverride as {wrapped}")
+    # A Bool is never null (`validate_bool_is_not_null`): its default is false.
+    if human_type == "Bool" and field_def.get("canBeNull"):
+        field_def["canBeNull"] = False
+        if field_def.get("defaultOverride") is None:
+            field_def["defaultOverride"] = {"id": "V_Bool", "params": [False]}
+        changes.append(f"fieldDef {identifier}: a Bool is not nullable; its default is false")
     return changes
+
+
+def fill_null_bools(project):
+    """Write false into every null Bool field instance; the game's parser
+    already reads null as false, so nothing the game does changes."""
+    count = 0
+
+    def fill(fields):
+        nonlocal count
+        for field in fields or []:
+            if field.get("__type") == "Bool" and field.get("__value") is None:
+                field["__value"] = False
+                field["realEditorValues"] = [{"id": "V_Bool", "params": [False]}]
+                count += 1
+
+    for level in project.get("levels") or []:
+        fill(level.get("fieldInstances"))
+        for layer in level.get("layerInstances") or []:
+            for entity in layer.get("entityInstances") or []:
+                fill(entity.get("fieldInstances"))
+    return count
 
 
 def normalize_definitions_for_editor(project):
@@ -572,6 +612,9 @@ def normalize_project_for_editor(project):
         changes.append(
             f"synchronized {world_coord_count} cached entity __worldX/__worldY values"
         )
+    null_bool_count = fill_null_bools(project)
+    if null_bool_count:
+        changes.append(f"wrote false into {null_bool_count} null Bool field instances")
     editor_value_count = normalize_editor_values(project)
     if editor_value_count:
         changes.append(
@@ -1009,6 +1052,7 @@ def validate(
                     f"expected level field definition uid {expected_def_uid!r}"
                 )
             validate_field_instance_editor_value(errors, f"level {identifier!r}", field)
+            validate_bool_is_not_null(errors, f"level {identifier!r}", field)
         levels_by_area[area].append(identifier)
         if area not in area_bounds:
             area_bounds[area] = [world_x, world_y, world_x + width, world_y + height]
@@ -1125,6 +1169,9 @@ def validate(
                 validate_field_instance_editor_value(
                     errors, f"level {identifier!r} entity {entity_name(entity)}", field
                 )
+                validate_bool_is_not_null(
+                    errors, f"level {identifier!r} entity {entity_name(entity)}", field
+                )
             # It had drifted in both directions: it demanded a `DebugLabel.text` the converter is
             # happy without, and knew nothing of the twelve refusals the converter really has, which
             # is how six `EnemySpawn`s with no `character_id` walked past three green checks. They
@@ -1141,6 +1188,11 @@ def validate(
                     errors.append(f"LoadingZone {entity.get('iid')} requires id")
                 else:
                     zone_id = str(zone_id)
+                    # The game refuses a world whose area has two zones of one
+                    # id (2026-10-30: a new edge exit took the id of the
+                    # canopy's door, and only the game's preparation said so).
+                    if zone_id in zones_by_area[area]:
+                        errors.append(f"active area {area!r} has duplicate LoadingZone id {zone_id!r}")
                     zones_by_area[area].add(zone_id)
                     ex, ey, ew, eh = rect(entity)
                     area_zones[area][zone_id] = {

@@ -5689,6 +5689,74 @@
                 hall: ["The Drowned Compass: we never tell you where you are, and that is why you come back.", "No gate talk before noon. It upsets the regulars."],
             ),
         ),
+        "npc_port_bolt": (
+            display_name: "Tamsin Bolt",
+            // Sews the port's sails, and its flags to order.
+            manifest: "sprites/port_bolt_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm.
+            standing_height: Some(64.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "pirate_port", "peaceful"],
+            barks: (
+                idle: ["Mind the sail.", "Any face you like, on a skull."],
+                hall: ["Every captain wants a skull and every captain wants it to be theirs.", "The smiling flag was sent back. Ships kept sailing up to say hello."],
+            ),
+        ),
+        "npc_port_slipp": (
+            display_name: "Fennimore Slipp",
+            // Keeps the cellars under the customs plaza; an import consultant.
+            manifest: "sprites/port_slipp_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(68.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "pirate_port", "peaceful"],
+            barks: (
+                idle: ["Nothing to declare.", "*stamps something*"],
+                hall: ["Import consultant. It says so on the card. I stamped the card myself.", "The chickens are a gift. To a friend. Who is a chicken."],
+            ),
+        ),
+        "npc_port_lamplugh": (
+            display_name: "Ezra Lamplugh",
+            // Keeps the honest light on the point past the Wreckers' Reef.
+            manifest: "sprites/port_lamplugh_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 174 cm.
+            standing_height: Some(67.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "pirate_port", "peaceful"],
+            barks: (
+                idle: ["Keep it burning.", "One hundred and twelve steps."],
+                hall: ["The wreckers' lantern says HARBOUR. Mine says ROCKS. A captain can only believe one of us.", "Keep it burning and tell the truth. That's the whole job."],
+            ),
+        ),
+        "npc_port_brine": (
+            display_name: "Nell Brine",
+            // A beachcomber on the Wreckers' Reef's shore.
+            manifest: "sprites/port_brine_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 163 cm.
+            standing_height: Some(63.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "pirate_port", "peaceful"],
+            barks: (
+                idle: ["Authentic salvage. Certified by me, just now.", "The tide brings it in. I bring it to you. Small fee."],
+                hall: ["Forty years on that shore. The sea has given me two anchors, a harpsichord and a man who said he was a duke.", "Wreckers light false lights. I sell the bulbs back to them."],
+            ),
+        ),
         "npc_village_sato": (
             display_name: "Sato",
             // The keeper of the gate shrine.
@@ -5791,6 +5859,57 @@
                 hall: ["Every week I choose a new rival. It keeps me sharp, and it keeps them humble.", "I have filled in the rival form in advance. It only needs your name."],
             ),
         ),
+        "npc_village_matsuda": (
+            display_name: "Matsuda",
+            // Referees the Bamboo Pass and keeps the count.
+            manifest: "sprites/village_matsuda_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm.
+            standing_height: Some(64.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "ninja_village", "peaceful"],
+            barks: (
+                idle: ["Bow to the pass.", "Fifteen to the clan. Nought to the visitors."],
+                hall: ["I referee the Bamboo Pass. The visitors' column has a nought in it. I keep it very tidy.", "Daichi won once. The duelist slipped on a leaf. I wrote it down as a leaf."],
+            ),
+        ),
+        "npc_village_tsuru": (
+            display_name: "Tsuru",
+            // A travelling medicine seller who stays at Ume's tea house each autumn.
+            manifest: "sprites/village_tsuru_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 157 cm.
+            standing_height: Some(60.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "ninja_village", "peaceful"],
+            barks: (
+                idle: ["The kettle's on.", "Forty-one villages, and every one has a dog."],
+                hall: ["I leave a box of medicines with every house and come back next autumn. They pay for what they used.", "Nobody pays for what they didn't need. It is the most honest trade in the mountains."],
+            ),
+        ),
+        "npc_village_moriyama": (
+            display_name: "Moriyama",
+            // Burns charcoal in the cedar forest; no ninja has ever got past his kiln unseen.
+            manifest: "sprites/village_moriyama_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 163 cm.
+            standing_height: Some(63.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "ninja_village", "peaceful"],
+            barks: (
+                idle: ["Mind the smoke. It goes where you go.", "Three days and three nights, and you don't open the door."],
+                hall: ["Forty years at the kiln. Every ninja in the clan has tried to sneak past it. I see them all. They smell of cedar smoke for a week.", "Charcoal is wood that has been very patient in a very hot room."],
+            ),
+        ),
         // The residents of the orbital station of the Science dimension, made by
         // the character generator (`targets/characters/townsfolk.py`). They
         // live and work on the station (`specs/orbital_station/`).
@@ -5888,6 +6007,23 @@
             barks: (
                 idle: ["Forty years, and it still looks new.", "The first link held three seconds."],
                 hall: ["I tuned this station's first stable ring. Now people commute through it.", "Cheap power made gates common. It did not make them cheap.", "Look down. That is why anyone comes up here."],
+            ),
+        ),
+        "npc_station_dobbs": (
+            display_name: "Dobbs",
+            // Keeps the souvenir kiosk at the tether terminus.
+            manifest: "sprites/station_dobbs_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(68.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["station", "townsfolk", "peaceful"],
+            barks: (
+                idle: ["Shirts! Globes! Genuine orbit air!", "You look like a first time up. Everyone does."],
+                hall: ["I sell bottled orbit air at the top of the ribbon. The vacuum kept escaping, so it is station air. Bottled up here, though.", "Everyone who comes up the tether wants something to hold. I sell them something to hold."],
             ),
         ),
         // A generated armsmith (renderer `data/townsfolk/armsmith_odile.chargen.yaml`):
@@ -6053,6 +6189,538 @@
             barks: (
                 idle: ["The General will see you.", "It is always the hour."],
                 hall: ["I keep the General's diary. It has one entry a day: 'Inspected the medals.'", "Adjutant means I am the one who knows where everything is."],
+            ),
+        ),
+        "npc_eureka_teodora": (
+            display_name: "Teodora",
+            // The space elevator's lift operator at the ground station.
+            manifest: "sprites/eureka_teodora_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "eureka", "peaceful"],
+            barks: (
+                idle: ["Car up at the hour. Car down at the half. Gravity permitting.", "Mind the gap. It is thirty-six thousand kilometres."],
+                hall: ["I run the elevator. Up to the station, down to dinner.", "The timetable is not a suggestion. Tell the Patent Clerk that."],
+            ),
+        ),
+        "npc_eureka_priya": (
+            display_name: "Priya",
+            // A graduate student who has not slept since her experiment started.
+            manifest: "sprites/eureka_priya_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(61.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "eureka", "peaceful"],
+            barks: (
+                idle: ["Day four. The data is beautiful. I am not.", "If the run fails I am moving to Math Town."],
+                hall: ["My experiment runs until it ends. So do I.", "Coffee is a reagent. Mina disagrees."],
+            ),
+        ),
+        "npc_eureka_dmitri": (
+            display_name: "Dmitri",
+            // The institute's lab technician: whatever broke, he has fixed it before.
+            manifest: "sprites/eureka_dmitri_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 184 cm.
+            standing_height: Some(71.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "eureka", "peaceful"],
+            barks: (
+                idle: ["Who touched the centrifuge.", "Duct tape is a structural material if you believe in it."],
+                hall: ["Professors break it. Students break it worse. I fix it.", "The coil lab blew a fuse again. Third time this week."],
+            ),
+        ),
+        "npc_eureka_wilbur": (
+            display_name: "Wilbur",
+            // The quad's porter and groundskeeper, a town pigeon who sweeps up after the other pigeons.
+            manifest: "sprites/eureka_wilbur_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "eureka", "pigeon", "peaceful"],
+            barks: (
+                idle: ["Shoo. Not you. Them.", "Forty years on this quad. Never once fed the birds."],
+                hall: ["I keep the quad. The quad does not keep itself, whatever the physicists say.", "Entropy, they call it. I call it Tuesday."],
+            ),
+        ),
+        "npc_eureka_halvorsen": (
+            display_name: "Professor Halvorsen",
+            // A visiting professor with a grievance about the reviewers of his paper.
+            manifest: "sprites/eureka_halvorsen_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(68.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "eureka", "professor", "peaceful"],
+            barks: (
+                idle: ["Reviewer two again. I know it is him.", "'Minor revisions.' Minor!"],
+                hall: ["I came up the gate to give one lecture. I am still here, revising.", "Peer review is a contact sport played by people who never touch anything."],
+            ),
+        ),
+        "npc_eureka_mina": (
+            display_name: "Mina",
+            // Keeps the cafe on the quad and knows which department owes her money.
+            manifest: "sprites/eureka_mina_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 164 cm.
+            standing_height: Some(63.5),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "eureka", "peaceful"],
+            barks: (
+                idle: ["Physics owes me eleven coffees. Chemistry pays in cash.", "Soup today. It is always soup when the elevator is late."],
+                hall: ["Everybody on this campus runs on my coffee. Nobody tips.", "The station orders pastries by elevator. They arrive cold and complaining."],
+            ),
+        ),
+        "npc_eureka_quark": (
+            display_name: "Dr. Ilse Quark",
+            // Runs the Eureka Collider under the lecture hall.
+            manifest: "sprites/eureka_quark_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 164 cm.
+            standing_height: Some(63.5),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "eureka", "peaceful"],
+            barks: (
+                idle: ["Helmet's optional. Curiosity isn't.", "Do not lick the pipe."],
+                hall: ["The most expensive way anyone has ever found to break something to see what's in it.", "The beam goes round eleven thousand times a second. I go round once before lunch."],
+            ),
+        ),
+        "npc_eureka_hum": (
+            display_name: "Ottoline Hum",
+            // Busks on a theremin under the gate court's arcade.
+            manifest: "sprites/eureka_hum_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "eureka", "peaceful"],
+            barks: (
+                idle: ["Mind the antenna.", "Breathe wrong and you're a semitone flat."],
+                hall: ["You play the air between your hand and the antenna.", "I've got a case of currencies from forty dimensions. One of them is technically a button."],
+            ),
+        ),
+        "npc_eureka_pryce": (
+            display_name: "Range Officer Pryce",
+            // The Test Range's officer, who has signed off every test as probably fine.
+            manifest: "sprites/eureka_pryce_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 180 cm.
+            standing_height: Some(69.7),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "eureka", "peaceful"],
+            barks: (
+                idle: ["Hard hats past this line. Hard heads optional.", "Probably fine. Sign here."],
+                hall: ["Thirty years on the range. I have signed off nine hundred tests as probably fine. Eight hundred and ninety were.", "The rocket is not leaning. The ground is."],
+            ),
+        ),
+        "npc_math_ivo": (
+            display_name: "Ivo",
+            // Groundskeeper of the Fractal Woods.
+            manifest: "sprites/math_ivo_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 176 cm.
+            standing_height: Some(68.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "math_town", "peaceful"],
+            barks: (
+                idle: ["Third iteration of the hedge. The fourth is longer.", "Mind the branches. They have branches."],
+                hall: ["I trim the Koch hedge from spring to spring. Every cut makes more hedge.", "I raked the woods once. Every leaf had leaves. I stopped raking."],
+            ),
+        ),
+        "npc_math_lucas": (
+            display_name: "Brother Lucas",
+            // Keeps the count of the moves at the Tower of Hanoi.
+            manifest: "sprites/math_lucas_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "math_town", "peaceful"],
+            barks: (
+                idle: ["One move at a time.", "Never a larger on a smaller."],
+                hall: ["When the last disk is moved, the world ends. I wrote the legend. It sold a great many puzzles.", "Nobody who understands the puzzle is ever in a hurry."],
+            ),
+        ),
+        "npc_math_kleinbottle": (
+            display_name: "Felix Kleinbottle",
+            // Mines the one-sided seam of the Mobius Mine under the woods.
+            manifest: "sprites/math_kleinbottle_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "math_town", "peaceful"],
+            barks: (
+                idle: ["Mind your head. Or your feet.", "One side. No waiting."],
+                hall: ["The seam's got one side. You never once have to go round.", "We used to make bottles with no inside. Hard to sell."],
+            ),
+        ),
+        "npc_math_zeno": (
+            display_name: "Zeno Halfway",
+            // Always halfway to the reservoir on Zeno's Aqueduct.
+            manifest: "sprites/math_zeno_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 176 cm.
+            standing_height: Some(68.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "math_town", "peaceful"],
+            barks: (
+                idle: ["Halfway!", "Half of what's left. Every day."],
+                hall: ["I set out for the reservoir at dawn, some years ago. I'm always halfway.", "An arrow I fired in my youth is still in the air. We keep each other company."],
+            ),
+        ),
+        "npc_math_monty": (
+            display_name: "Monty Carlo",
+            // Hosts the three doors in Hylbert's ballroom; always says switch.
+            manifest: "sprites/math_monty_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 183 cm.
+            standing_height: Some(70.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "math_town", "peaceful"],
+            barks: (
+                idle: ["Three doors! One car!", "Switch! Always switch!"],
+                hall: ["You pick a door, I show you a goat, you switch. Two times in three. Everybody switches eventually.", "Hundreds of mathematicians wrote in to say I was wrong. I sent each of them a goat."],
+            ),
+        ),
+        // ===== Castle Godwin's staff (the Evil dimension), made by chargen: the
+        // kitchens under the gatehouse.
+        "npc_castle_hargreave": (
+            display_name: "Mrs Hargreave",
+            // The castle's cook: three regimes fed, three regimes outlasted.
+            manifest: "sprites/castle_hargreave_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 164 cm.
+            standing_height: Some(63.5),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "castle_godwin", "peaceful"],
+            barks: (
+                idle: ["The Baron wants his eggs evil. I do them scrambled and scowl at them.", "Gruel again. Morale is a soup you cannot thicken."],
+                hall: ["I have cooked for three tyrants. They all liked my gravy and none of them said thank you.", "A castle marches on its stomach. This one mostly lurches."],
+            ),
+        ),
+        "npc_castle_osgood": (
+            display_name: "Osgood",
+            // The night porter, forty years on the night shift of a castle where it is always night.
+            manifest: "sprites/castle_osgood_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(68.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "castle_godwin", "peaceful"],
+            barks: (
+                idle: ["Curfew is always. I clock in anyway.", "Sign the book. Everybody signs the book. The ghosts sign it twice."],
+                hall: ["Forty years of night shift. I am told there is a day shift. I have never met them.", "The searchlights are for show. I am the one who actually looks."],
+            ),
+        ),
+        "npc_castle_dunmore": (
+            display_name: "Brigid Dunmore",
+            // Shop steward of the castle's henchpersons.
+            manifest: "sprites/castle_dunmore_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "castle_godwin", "peaceful"],
+            barks: (
+                idle: ["Helmets with eyeholes. It is not a lot to ask.", "Local Six-Six-Six of the Henchpersons' Guild is in session. That means the kettle is on."],
+                hall: ["We are not against evil. We are against evil without a pension.", "Every hero who comes through here gets a free hit on one of my members. We are negotiating that."],
+            ),
+        ),
+        // ===== The Crooked Lantern, the inn at the end of the Searchlight Moor
+        // (the Evil dimension), made by chargen.
+        "npc_evil_gudrun": (
+            display_name: "Gudrun",
+            // Keeps the inn and its lantern lit, whatever the castle says.
+            manifest: "sprites/evil_gudrun_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "castle_godwin", "peaceful"],
+            barks: (
+                idle: ["Stew's on. Lantern's lit. Castle can mind its own business.", "Wipe your feet. The moor follows people in."],
+                hall: ["The castle wants my lantern out. My lantern wants the castle out. We'll see who gives first.", "Every hero who stops at my inn leaves with soup in them. It is the least I can do, and the most."],
+            ),
+        ),
+        "npc_evil_tobias": (
+            display_name: "Tobias",
+            // A trapper who knows every blind spot of the castle's searchlights.
+            manifest: "sprites/evil_tobias_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 175 cm.
+            standing_height: Some(67.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "castle_godwin", "peaceful"],
+            barks: (
+                idle: ["Eleven seconds a sweep. Count with me.", "Never trust a light that looks for you."],
+                hall: ["I trap what the castle loses. The castle loses a lot.", "The searchlights have habits. So do I. Mine are older."],
+            ),
+        ),
+        "npc_evil_bellows": (
+            display_name: "Barnaby Bellows",
+            // The town crier of Lower Godwin, who reads the castle's decrees to the well.
+            manifest: "sprites/evil_bellows_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(68.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "castle_godwin", "peaceful"],
+            barks: (
+                idle: ["HEAR YE, HEAR YE!", "Tuesday is compulsory."],
+                hall: ["A decree isn't law until it's been read aloud, so I read them to the well. It's the best-informed well in the dimension.", "Decree Forty-Seven: smiling is compulsory on Tuesdays."],
+            ),
+        ),
+        "npc_evil_crumb": (
+            display_name: "Prudence Crumb",
+            // Bakes the castle's bread and the hamlet's, which are not the same bread.
+            manifest: "sprites/evil_crumb_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 163 cm.
+            standing_height: Some(63.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "castle_godwin", "peaceful"],
+            barks: (
+                idle: ["Mind the flour.", "Gone by noon."],
+                hall: ["Two breads: the castle's keeps for a year, ours is gone by noon.", "Nobody's ever thought to check what I bake second."],
+            ),
+        ),
+        "npc_evil_prentice": (
+            display_name: "Silas Prentice",
+            // Prints the Lower Godwin Gazette behind the bakery's flour.
+            manifest: "sprites/evil_prentice_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 175 cm.
+            standing_height: Some(67.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "castle_godwin", "peaceful"],
+            barks: (
+                idle: ["You're not an inspector. Good.", "One sheet, both sides, every night."],
+                hall: ["The castle's decrees on the front. What they mean on the back.", "The castle's inspectors can't find a press in a bakery. They've looked. They found bread."],
+            ),
+        ),
+        "npc_castle_sprocket": (
+            display_name: "Dr. Gideon Sprocket",
+            // The castle's chief engineer, in the Prototype Workshop under the barracks.
+            manifest: "sprites/castle_sprocket_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "castle_godwin", "peaceful"],
+            barks: (
+                idle: ["Don't touch the button.", "Mark Forty-Seven: almost."],
+                hall: ["The castle wants an unstoppable army. I make the army. It is, so far, extremely stoppable.", "The battle kettle boils water in ninety seconds and fires it in two. Almost."],
+            ),
+        ),
+        "npc_evil_crabbe": (
+            display_name: "Hester Crabbe",
+            // The castle's head gardener, in the allotments west of the moor.
+            manifest: "sprites/evil_crabbe_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 165 cm.
+            standing_height: Some(63.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "castle_godwin", "peaceful"],
+            barks: (
+                idle: ["Feed the cabbages from the side.", "Don't pull the mandrakes."],
+                hall: ["An army marches on its stomach. This army has three of them.", "The Malevolent Marrow: best in show three years running. The judge was very frightened."],
+            ),
+        ),
+        "npc_evil_mudge": (
+            display_name: "Agnes Mudge",
+            // Ticket 4,117 in the castle's Complaints Department. Now serving 3.
+            manifest: "sprites/evil_mudge_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(61.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "castle_godwin", "peaceful"],
+            barks: (
+                idle: ["Four thousand one hundred and seventeen. Don't let me forget.", "Now serving three. Still."],
+                hall: ["I complained about the searchlight. They sent a form. I complained about the form.", "I have outlived two dark lords in this queue. I will outlive the third."],
+            ),
+        ),
+        // ===== The primeval trail's people (the jungle dimension), made by chargen.
+        "npc_primeval_brandvold": (
+            display_name: "Ranger Brandvold",
+            // Keeps the trailhead by the gate, and the trail's rules.
+            manifest: "sprites/primeval_brandvold_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 174 cm.
+            standing_height: Some(67.4),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "primeval", "peaceful"],
+            barks: (
+                idle: ["Stay on the trail. The trail does not stay on you.", "Do not feed the compys. They are feeding themselves."],
+                hall: ["I have a rule book. The dinosaurs have teeth. We compromise.", "Fourteen years on this trail. I have lost two hats and no visitors. Yet."],
+            ),
+        ),
+        "npc_primeval_stratton": (
+            display_name: "Dr Petra Stratton",
+            // Maps the fossil beds under the ridge road; objects to the dinosaurs above them.
+            manifest: "sprites/primeval_stratton_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "primeval", "peaceful"],
+            barks: (
+                idle: ["Wrong layer.", "*taps the rock with a hammer*"],
+                hall: ["Sixty-six million years down. That is where they go. They will not go.", "Every morning I cross them out of the top layer, and every morning one walks over the hole."],
+            ),
+        ),
+        "npc_primeval_dlamini": (
+            display_name: "Ranger Dlamini",
+            // Keeps the radio in the ranger station at the trailhead.
+            manifest: "sprites/primeval_dlamini_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "primeval", "peaceful"],
+            barks: (
+                idle: ["Station to Ridge. Over.", "Don't touch the jars."],
+                hall: ["I know where every walker on the trail is, and what is eating them.", "The compys in the jars bite through the lids. I've stopped labelling them."],
+            ),
+        ),
+        "npc_primeval_twitchell": (
+            display_name: "Mildred Twitchell",
+            // Watches the birds of the rookery from her hide.
+            manifest: "sprites/primeval_twitchell_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 167 cm.
+            standing_height: Some(64.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "primeval", "peaceful"],
+            barks: (
+                idle: ["Shh!", "Far too many penguins."],
+                hall: ["Penguins. In a jungle, beside a volcano. I stopped asking why in the first week.", "The shoebill has been standing still since Tuesday. It is the most frightening bird I have ever seen."],
+            ),
+        ),
+        "npc_primeval_tock": (
+            display_name: "Professor Tock",
+            // Keeps the meteor watch on the Smoking Mountain's rim.
+            manifest: "sprites/primeval_tock_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "primeval", "peaceful"],
+            barks: (
+                idle: ["Any day now.", "That one? A satellite. Not ours, not yet."],
+                hall: ["The big one comes once. I intend to be the one who saw it coming.", "My thermos is older than some of the dinosaurs here. The tea is newer."],
+            ),
+        ),
+        "npc_primeval_feld": (
+            display_name: "Dr Feld",
+            // Paleontologist, digging at the tar pits.
+            manifest: "sprites/primeval_feld_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "primeval", "peaceful"],
+            barks: (
+                idle: ["Careful. That femur is older than your language.", "Another fossil. Of something that just ran past the tent."],
+                hall: ["My field is extinct animals. My field keeps trying to eat me.", "I date the bones by the layer. The triceratops dates itself, loudly."],
             ),
         ),
     },

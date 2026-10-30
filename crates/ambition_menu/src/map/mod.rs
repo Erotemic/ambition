@@ -9,15 +9,29 @@ use std::collections::BTreeSet;
 
 use bevy::prelude::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct MapRoomNode {
     pub id: String,
+    /// The room's area (`activeArea`), which a loading zone's `target_room`
+    /// may name instead of the level.
+    pub area: String,
+    /// The room's title (its `<id>_title` label), or a name made from its id.
+    pub title: String,
     /// The world file (dimension) the room belongs to. Each world has its own
     /// coordinate space, so the map draws only the rooms whose `world` is the
     /// active room's.
     pub world: String,
     pub world_min: Vec2,
     pub world_size: Vec2,
+    /// The rooms this room's edge exits (side and vertical) lead to: the
+    /// joins of a region (`view::region`).
+    pub edge_exits: Vec<String>,
+    /// This room's doors: into buildings, whose insides are regions of their
+    /// own.
+    pub doors: Vec<view::MapDoor>,
+    /// What the map marks in this room once it is visited, in the room's own
+    /// coordinates.
+    pub pins: Vec<view::MapPin>,
 }
 
 #[derive(Resource)]
@@ -168,6 +182,7 @@ mod input;
 mod pointer;
 mod systems;
 mod ui;
+pub mod view;
 
 #[cfg(test)]
 mod tests;
@@ -175,7 +190,7 @@ mod tests;
 pub use input::handle_map_menu_hotkeys;
 pub use pointer::map_menu_pointer_dismiss;
 #[cfg(feature = "ldtk")]
-pub use systems::populate_map_rooms;
+pub use systems::{map_room_node, populate_map_rooms};
 pub use systems::{
     room_from_visited_flag, room_visited_flag, sync_map_from_save, track_room_visits,
     ROOM_VISITED_FLAG_PREFIX,

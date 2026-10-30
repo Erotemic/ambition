@@ -394,6 +394,42 @@ fn an_attack_pressed_with_the_sticks_first_tick_starts_no_dash() {
 /// the window is INSTANT, which is what makes a dash-dance a conversation
 /// rather than a commitment — and the fifth is what keeps every other world in
 /// this repo exactly where it was.
+/// A body that authors a walk speed walks at it under the dash threshold:
+/// a 0.7 stick on an 0.8 threshold settles near 0.875 of the walk, well under
+/// the run continuum's 0.7 of the run; with no walk speed the continuum stays.
+#[test]
+fn a_walk_speed_caps_the_stick_under_the_dash_threshold() {
+    let world = test_world();
+    let tuned = |walk_speed: f32| {
+        let mut tuning = super::TEST_TUNING;
+        tuning.initial_dash_time = 10.0 / 60.0;
+        tuning.dash_deflection = 0.8;
+        tuning.walk_speed = walk_speed;
+        tuning
+    };
+    let hold = |x: f32| InputState {
+        axes: crate::reference_frame::LocalAxes::new(x, 0.0),
+        ..InputState::default()
+    };
+    let settled = |tuning| {
+        let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+        scratch.ground.on_ground = true;
+        for _ in 0..40 {
+            super::update_player_with_tuning_scratch(&world, &mut scratch, InputState::default(), 1.0 / 60.0, tuning);
+        }
+        for _ in 0..60 {
+            super::update_player_with_tuning_scratch(&world, &mut scratch, hold(0.7), 1.0 / 60.0, tuning);
+        }
+        scratch.kinematics.vel.x.abs()
+    };
+    let run = super::TEST_TUNING.params().locomotion.max_run_speed;
+    let walk = settled(tuned(run * 0.66));
+    let continuum = settled(tuned(0.0));
+    assert!((continuum - 0.7 * run).abs() < 0.05 * run, "no walk speed keeps the continuum: {continuum} of {run}");
+    assert!((walk - 0.875 * run * 0.66).abs() < 0.05 * run, "a 0.7 stick walks at 0.875 of the walk: {walk}");
+    assert!(walk < continuum, "the walk is slower than the continuum's reach");
+}
+
 /// A stick under the dash threshold walks, and a walk never reads as a run
 /// however fast the continuum carries it; the same stick on a body at the
 /// engine's threshold runs as it always did. So a walking attack stays a

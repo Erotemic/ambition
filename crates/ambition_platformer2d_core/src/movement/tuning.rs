@@ -598,6 +598,13 @@ pub struct MovementTuning {
     /// the stick walks up to a poke and only a hard push dashes.
     #[serde(default = "default_dash_deflection")]
     pub dash_deflection: f32,
+    /// THE WALK: the top speed a stick under `dash_deflection` carries the
+    /// body at (px/s). `0.0` keeps the run continuum (a half stick is half
+    /// the run), which is what every body did before this field existed. A
+    /// platform fighter authors it so a walk is a gait of its own, slower
+    /// than the run's lowest reach, and a walking attack is a tilt.
+    #[serde(default)]
+    pub walk_speed: f32,
     /// How fast the initial dash moves, in engine units per second. `0.0`
     /// inherits `max_run_speed`, which is the sensible default: the phase is
     /// about WHEN you may turn around, not about being faster.
@@ -1113,6 +1120,13 @@ pub struct AxisLocomotion {
     /// See [`MovementTuning::dash_deflection`]. `0.5` = the steer deadzone.
     #[serde(default = "default_dash_deflection")]
     pub dash_deflection: f32,
+    /// THE WALK: the top speed a stick under `dash_deflection` carries the
+    /// body at (px/s). `0.0` keeps the run continuum (a half stick is half
+    /// the run), which is what every body did before this field existed. A
+    /// platform fighter authors it so a walk is a gait of its own, slower
+    /// than the run's lowest reach, and a walking attack is a tilt.
+    #[serde(default)]
+    pub walk_speed: f32,
     /// See [`MovementTuning::turnaround_time`]. `0.0` = facing flips instantly.
     #[serde(default)]
     pub turnaround_time: f32,
@@ -1678,6 +1692,7 @@ impl MovementTuning {
                 initial_dash_time: self.initial_dash_time,
                 initial_dash_speed: self.initial_dash_speed,
                 dash_deflection: self.dash_deflection,
+                walk_speed: self.walk_speed,
                 turnaround_time: self.turnaround_time,
                 teeter_margin: self.teeter_margin,
                 max_fall_speed: self.max_fall_speed,
@@ -1781,6 +1796,7 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     initial_dash_time: 0.0,
     initial_dash_speed: 0.0,
     dash_deflection: DASH_DEFLECTION,
+    walk_speed: 0.0,
     turnaround_time: 0.0,
     teeter_margin: 0.0,
     max_fall_speed: MAX_FALL_SPEED,

@@ -28,6 +28,7 @@
         ( type: "Solid", px: [1700, 576], size: [260, 128], fields: ( name: "bunker" ) ),
         ( type: "OneWayPlatform", px: [2280, 560], size: [120, 16], fields: ( name: "tower_low" ) ),
         ( type: "OneWayPlatform", px: [2320, 416], size: [120, 16], fields: ( name: "tower_cab" ) ),
+        ( type: "ChestSpawn", px: [2340, 358], size: [76, 58], fields: ( name: "the range's lost and found", reward: "currency:50" ) ),
         ( type: "DebugLabel", px: [2136, 504], size: [520, 24], fields: ( name: "range_sign", text: "EUREKA TEST RANGE: if the siren sounds, it is already too late", category: "Custom" ) ),
         ( type: "DebugLabel", px: [830, 110], size: [260, 24], fields: ( name: "rocket_sign", text: "PROBABLY FINE III", category: "Custom" ) ),
         ( type: "DebugLabel", px: [1650, 516], size: [360, 24], fields: ( name: "bunker_sign", text: "BLAST BUNKER: knock first, then duck", category: "Custom" ) ),

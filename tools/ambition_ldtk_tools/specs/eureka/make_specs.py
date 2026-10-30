@@ -414,6 +414,8 @@ def test_range():
         solid("bunker", bx0, btop, bx1 - bx0, floor - btop),
         ledge("tower_low", 2280, 560, 120),
         ledge("tower_cab", 2320, 416, 120),
+        # A chest for whoever climbs to the top (Jon, 2026-10-30: "interactive elements").
+        entity("ChestSpawn", 2340, 416 - 58, 76, 58, name="the range's lost and found", reward="currency:50"),
         sign("range_sign", w - 420, floor - 200, "EUREKA TEST RANGE: if the siren sounds, it is already too late", 520),
         sign("rocket_sign", 960, 110, "PROBABLY FINE III", 260),
         sign("bunker_sign", (bx0 + bx1) // 2, btop - 60, "BLAST BUNKER: knock first, then duck", 360),

@@ -28,6 +28,7 @@
         ( type: "MovingPlatform", px: [600, 480], size: [240, 16], fields: ( id: "mammoth_back", name: "mammoth_back", speed: 0.0, visual: "none", one_way: true ) ),
         ( type: "MovingPlatform", px: [1980, 480], size: [160, 16], fields: ( id: "scaffold_low", name: "scaffold_low", speed: 0.0, visual: "none", one_way: true ) ),
         ( type: "MovingPlatform", px: [2040, 384], size: [160, 16], fields: ( id: "scaffold_high", name: "scaffold_high", speed: 0.0, visual: "none", one_way: true ) ),
+        ( type: "ChestSpawn", px: [2100, 326], size: [76, 58], fields: ( name: "the dig's best find", reward: "currency:75" ) ),
         ( type: "DebugLabel", px: [60, 376], size: [480, 24], fields: ( name: "tar_sign", text: "THE TAR PITS: everything here was once in a hurry", category: "Custom" ) ),
         ( type: "DebugLabel", px: [1330, 426], size: [340, 24], fields: ( name: "tar_sign_wet", text: "WET TAR (since the Pleistocene)", category: "Custom" ) ),
         ( type: "DebugLabel", px: [1930, 300], size: [380, 24], fields: ( name: "dig_sign", text: "DIG SITE: please do not fossilize", category: "Custom" ) ),

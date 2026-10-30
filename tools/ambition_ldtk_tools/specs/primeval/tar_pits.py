@@ -73,6 +73,8 @@ def pits():
         walk("mammoth_back", 600, 480, 240),
         walk("scaffold_low", 1980, 480, 160),
         walk("scaffold_high", 2040, 384, 160),
+        # A chest for whoever climbs to the top (Jon, 2026-10-30: "interactive elements").
+        entity("ChestSpawn", 2100, 384 - 58, 76, 58, name="the dig's best find", reward="currency:75"),
         sign("tar_sign", 300, FLOOR - 200, "THE TAR PITS: everything here was once in a hurry", 480),
         sign("tar_sign_wet", 1500, FLOOR - 150, "WET TAR (since the Pleistocene)", 340),
         sign("dig_sign", 2120, 300, "DIG SITE: please do not fossilize", 380),

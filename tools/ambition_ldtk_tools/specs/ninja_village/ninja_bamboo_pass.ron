@@ -27,6 +27,7 @@
         ( type: "MovingPlatform", px: [1340, 880], size: [50, 16], fields: ( id: "stepping_stone", name: "stepping_stone", speed: 0.0, visual: "none", one_way: true ) ),
         ( type: "MovingPlatform", px: [1540, 704], size: [160, 16], fields: ( id: "lookout_low", name: "lookout_low", speed: 0.0, visual: "none", one_way: true ) ),
         ( type: "MovingPlatform", px: [1540, 576], size: [160, 16], fields: ( id: "lookout_high", name: "lookout_high", speed: 0.0, visual: "none", one_way: true ) ),
+        ( type: "ChestSpawn", px: [1544, 646], size: [76, 58], fields: ( name: "the clan's prize", reward: "health:2" ) ),
         ( type: "DebugLabel", px: [140, 632], size: [560, 24], fields: ( name: "pass_sign", text: "SHADOW CLAN SPARRING GROUND: all who pass are opponents. Nothing personal.", category: "Custom" ) ),
         ( type: "DebugLabel", px: [960, 722], size: [380, 24], fields: ( name: "bridge_sign", text: "ROPE BRIDGE: one at a time. Opponents count.", category: "Custom" ) ),
         ( type: "DebugLabel", px: [1970, 692], size: [300, 24], fields: ( name: "falls_sign", text: "Please do not fight the jizo.", category: "Custom" ) ),

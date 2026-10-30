@@ -63,8 +63,10 @@ def moor():
         # His back, walked on: a still one-way platform with no picture (the
         # statue's art draws it), as the math town's cradle plinth.
         entity("MovingPlatform", 1890, 600, 300, 16, id="statue_back", name="statue_back", speed=0.0, visual="none", one_way=True),
+        # A chest for whoever climbs to the top (Jon, 2026-10-30: "interactive elements").
+        entity("ChestSpawn", 1600, 272 - 58, 76, 58, name="the watchman's strongbox", reward="currency:50"),
         sign("moor_sign", W - 200, FLOOR - 260, "THE MOOR: curfew is always", 360),
-        sign("tower_sign", 1590, 160, "WATCHTOWER 7 (the other six are worse)", 380),
+        sign("tower_sign", 1590, 110, "WATCHTOWER 7 (the other six are worse)", 380),
         sign("bog_sign", 850, FLOOR - 140, "BOG: do not drink, do not swim, do not look", 440),
         sign("statue_sign", 2050, 450, "OUR FOUNDER (temporarily horizontal)", 380),
         enemy(1, "npc_evil_attack_hound", 420, FLOOR, 52, 50),

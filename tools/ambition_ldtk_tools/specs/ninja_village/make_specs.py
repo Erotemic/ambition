@@ -283,6 +283,8 @@ def bamboo_pass():
         walk("stepping_stone", s0, sy, s1 - s0),
         walk("lookout_low", l0, low, l1 - l0),
         walk("lookout_high", l0, high, l1 - l0),
+        # A chest for whoever climbs to the top (Jon, 2026-10-30: "interactive elements").
+        entity("ChestSpawn", l0 + 4, low - 58, 76, 58, name="the clan's prize", reward="health:2"),
         sign("pass_sign", 420, g - 200, "SHADOW CLAN SPARRING GROUND: all who pass are opponents. Nothing personal.", 560),
         sign("bridge_sign", 1150, g - 110, "ROPE BRIDGE: one at a time. Opponents count.", 380),
         sign("falls_sign", 2120, g - 140, "Please do not fight the jizo.", 300),

@@ -145,6 +145,7 @@ fn aerial_brain_for_enemy(
             aggro_radius: policy.aggro_radius,
             attack_range: policy.attack_range,
             roam_radius,
+            dive_tell_s: policy.tactics.dive_tell_s,
         },
         state: ambition_characters::brain::state_machine::AerialState::default(),
     })

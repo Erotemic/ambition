@@ -1596,6 +1596,8 @@
                 aggro_radius: 620.0,
                 attack_range: 60.0,
                 shares_sightings: true,
+                // The tell before its dive (Jon 2026-10-30: "telegraph, attack"): it hangs and squawks, then dives.
+                tactics: (dive_tell_s: 0.35),
             )),
             max_health: Some(3),
             tags: ["pirate", "bird", "npc"],
@@ -4893,6 +4895,8 @@
                 aggro_radius: 620.0,
                 attack_range: 60.0,
                 shares_sightings: false,
+                // The tell before its dive (Jon 2026-10-30: "telegraph, attack"): it hangs on silent wings, then drops.
+                tactics: (dive_tell_s: 0.5),
             )),
             max_health: Some(4),
             tags: ["enemy", "bird", "minion"],
@@ -5115,6 +5119,8 @@
                 aggro_radius: 620.0,
                 attack_range: 44.0,
                 shares_sightings: false,
+                // The tell before its dive (Jon 2026-10-30: "telegraph, attack"): a flick of a pause, then the dart.
+                tactics: (dive_tell_s: 0.25),
             )),
             max_health: Some(1),
             tags: ["enemy", "bird", "minion"],
@@ -5149,6 +5155,8 @@
                 aggro_radius: 620.0,
                 attack_range: 44.0,
                 shares_sightings: false,
+                // The tell before its dive (Jon 2026-10-30: "telegraph, attack"): a flick of a pause, then the dart.
+                tactics: (dive_tell_s: 0.25),
             )),
             max_health: Some(2),
             tags: ["enemy", "bird", "minion"],
@@ -5180,6 +5188,8 @@
                 aggro_radius: 700.0,
                 attack_range: 60.0,
                 shares_sightings: false,
+                // The tell before its dive (Jon 2026-10-30: "telegraph, attack"): it circles, hangs, then comes down.
+                tactics: (dive_tell_s: 0.6),
             )),
             max_health: Some(5),
             tags: ["enemy", "bird", "minion"],
@@ -5279,6 +5289,9 @@
                 attack_range: 360.0,
                 patrol_effort: 0.5,
                 chase_effort: 1.0,
+                // The spit, telegraphed (Jon 2026-10-30: "telegraph, attack"): it
+                // coils with its jaws wide (its windup row), spits, and is open.
+                ranged_volley: Some((windup_s: 0.6, firing_s: 0.2, recovery_s: 1.0)),
             )),
             max_health: Some(4),
             tags: ["enemy", "dinosaur"],

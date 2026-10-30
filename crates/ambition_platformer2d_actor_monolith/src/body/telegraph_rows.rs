@@ -1,8 +1,8 @@
 //! The rows an enemy reads by (Jon, 2026-10-30: enemies that "notice, space,
 //! telegraph, attack similar to hollow knight enemies"): its `notice` row
 //! while it stands and looks at a foe it has just seen, and its `windup` row
-//! held over the startup of its swing, the telegraph, before its attack row
-//! plays the strike.
+//! held over the startup of its swing, the windup of its volley or the tell
+//! before its dive: the telegraph, before its attack plays.
 //!
 //! Derived from rollback state every tick (the brain's notice beat, the
 //! swing's phase), as the fade rows are. A sheet without the row draws as
@@ -32,6 +32,9 @@ pub const WINDUP_ROW: &str = "windup";
 pub fn telegraph_row(brain: Option<&Brain>, swing: Option<&ambition_combat::MeleeSwing>, clock: f32) -> Option<(&'static str, f32)> {
     if brain.is_some_and(Brain::is_noticing) {
         return Some((NOTICE_ROW, clock));
+    }
+    if brain.is_some_and(Brain::is_winding_up) {
+        return Some((WINDUP_ROW, clock));
     }
     let swing = swing.filter(|swing| !swing.done())?;
     matches!(swing.phase()?, AttackPhase::Startup).then_some((WINDUP_ROW, swing.elapsed))

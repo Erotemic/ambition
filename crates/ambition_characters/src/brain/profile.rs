@@ -264,6 +264,11 @@ pub struct MeleeTactics {
     /// `0.0` gives chase at once.
     #[serde(default)]
     pub notice_s: f32,
+    /// A flyer lined up over its foe hangs still this long before it dives
+    /// (s): the tell. Its sheet's `windup` row is drawn over it. `0.0` dives
+    /// at once.
+    #[serde(default)]
+    pub dive_tell_s: f32,
 }
 
 /// The answer to a deflected strike ([`MeleeTactics::counter`]).

@@ -151,3 +151,65 @@ fn the_raptor_pounces_off_the_ground_at_its_strike() {
     assert!(struck, "the raptor never struck");
     assert!(rise > 250.0, "it leaps up over its strike: {rise}");
 }
+
+/// The dilophosaurus telegraphs its spit: before each volley it holds its
+/// windup row (coiled, jaws wide) for the volley's windup.
+#[test]
+fn the_dilophosaurus_coils_before_it_spits() {
+    const SPITTER: &str = "spitting_dilophosaurus";
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let p = player_pos(sim.world_mut());
+    sim.spawn_enemy_character_at(
+        SPITTER,
+        "Dilophosaurus",
+        (p.x + 200.0, p.y),
+        (22.0, 37.0),
+        CharacterBrain::Custom("dilophosaurus".to_string()),
+        "dilophosaurus",
+    );
+    let mut windup_ticks = 0;
+    for _ in 0..600 {
+        sim.step(AgentAction::default());
+        let world = sim.world_mut();
+        let mut q = world.query::<(&FeatureId, Option<&PinnedRow>)>();
+        let Some((_, pin)) = q.iter(world).find(|(id, _)| id.as_str() == SPITTER) else { continue };
+        if pin.is_some_and(|pin| pin.is_pinned() && pin.rows.first().map(String::as_str) == Some("windup")) {
+            windup_ticks += 1;
+        }
+    }
+    // 0.6 s of windup is 36 ticks a volley.
+    assert!(windup_ticks >= 30, "it held its windup row before a spit: {windup_ticks} ticks");
+}
+
+/// A flyer telegraphs its dive: lined up over the player, the parrot hangs
+/// still for its tell (its windup row pinned) before it dives.
+#[test]
+fn the_parrot_hangs_for_its_tell_before_it_dives() {
+    const PARROT: &str = "telling_parrot";
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let p = player_pos(sim.world_mut());
+    sim.spawn_enemy_character_at(
+        PARROT,
+        "Stochastic Parrot",
+        (p.x + 60.0, p.y - 160.0),
+        (18.0, 16.0),
+        CharacterBrain::Custom("stochastic_parrot".to_string()),
+        "stochastic_parrot",
+    );
+    let mut tell_speeds = Vec::new();
+    for _ in 0..900 {
+        sim.step(AgentAction::default());
+        let world = sim.world_mut();
+        let mut q = world.query::<(&FeatureId, &BodyKinematics, Option<&PinnedRow>)>();
+        let Some((_, kin, pin)) = q.iter(world).find(|(id, ..)| id.as_str() == PARROT) else { continue };
+        if pin.is_some_and(|pin| pin.is_pinned() && pin.rows.first().map(String::as_str) == Some("windup")) {
+            tell_speeds.push(kin.vel.length());
+        } else if !tell_speeds.is_empty() {
+            break;
+        }
+    }
+    // 0.35 s of tell is 21 ticks.
+    assert!(tell_speeds.len() >= 15, "it held its tell before the dive: {} ticks", tell_speeds.len());
+    let fastest = tell_speeds.iter().skip(4).cloned().fold(0.0, f32::max);
+    assert!(fastest < 60.0, "it hangs nearly still while it tells: {fastest}");
+}

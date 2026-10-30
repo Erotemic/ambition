@@ -487,6 +487,7 @@ impl MeleeBruteCfg {
             counter: None,
             fades: false,
             notice_s: 0.0,
+            dive_tell_s: 0.0,
         },
     };
     pub const BRUTE_DEFAULT: Self = Self {
@@ -504,6 +505,7 @@ impl MeleeBruteCfg {
             counter: None,
             fades: false,
             notice_s: 0.0,
+            dive_tell_s: 0.0,
         },
     };
 }
@@ -1308,6 +1310,9 @@ pub struct AerialCfg {
     pub attack_range: f32,
     /// How far the bird ranges from its anchor (px); also the dive altitude.
     pub roam_radius: f32,
+    /// Seconds it hangs still, lined up over its foe, before it dives: the
+    /// tell ([`super::MeleeTactics::dive_tell_s`]).
+    pub dive_tell_s: f32,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -1549,7 +1554,18 @@ fn tick_aerial_hostile(
             if lined_up && snapshot.attack_cooldown_remaining <= 0.0 {
                 state.phase = AerialPhase::Dive;
                 state.mode = CharacterAiMode::Telegraph;
+                // The tell: it hangs still before the dive, from this tick.
+                state.phase_until = now + cfg.dive_tell_s;
+                if cfg.dive_tell_s > 0.0 {
+                    out.velocity_target = frame_to_world(snapshot, ae::LocalAxes::new(0.0, -20.0));
+                }
             }
+        }
+        AerialPhase::Dive if now < state.phase_until => {
+            // THE TELL: it hangs where it lined up, rising a little, before
+            // it commits.
+            state.mode = CharacterAiMode::Telegraph;
+            out.velocity_target = frame_to_world(snapshot, ae::LocalAxes::new(0.0, -20.0));
         }
         AerialPhase::Dive => {
             state.mode = CharacterAiMode::Attack;

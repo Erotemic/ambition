@@ -110,6 +110,31 @@ The two failures are the intent's two kinds: the CPU stands ~3× the reach
 away (no `Space` band), and converts a quarter of windows that exist (no
 armed `Punish`).
 
+## 5b. First gate run (2026-10-31): NOT PASSED
+
+Built (66537d545): `intent.rs` (Space, Punish) behind `tactics`, perception's
+`threat_reach`, `whiff_drill --tactics`, `AMBITION_INTENT_TRACE`. The trace
+found a perception defect that blinded every punish read, reactive and
+intent alike: a swing in recovery reported 0 s remaining (fixed, 8a2031c8f).
+
+Fixture A after that fix, one 60 s run per arm (MEASURED):
+
+| rung | policy | punished whiffs | CPU hit by the swing | CPU damage taken |
+|---|---|---|---|---|
+| 9 | reactive | 2 / 14 (14%) | 5 | 56 |
+| 9 | tactics | 2 / 33 (6%) | 1 | 15 |
+| 5 | reactive | 7 / 29 (24%) | 3 | 52 |
+| 5 | tactics | 2 / 30 (6%) | 3 | 61 |
+
+`Space` works as defence at rung 9 (hit 5 → 1, damage 56 → 15). `Punish`
+converts fewer windows than the reactive ranking. Not yet traced: whether
+it arms on the window, closes at the run speed it assumed, and is then let
+down by admission (the ranking's lead) or by the decision cadence and the
+press jitter. That trace is the next step if this work resumes; the flag
+stays off on every shipped rung until a run passes the gate. Jon paused the
+work here (2026-10-31) after a playtest: "The CPU and smash feel is MUCH
+better than it was yesterday."
+
 ## 6. The gate
 
 Identical seeds, fighters, stage and rung, `tactics` off vs on (a per-rung

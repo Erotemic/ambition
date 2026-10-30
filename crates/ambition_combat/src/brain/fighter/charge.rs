@@ -53,6 +53,36 @@ pub fn hold_ticks(situation: Situation, hold_at_s: f32, tick_hz: f32) -> u32 {
 ///
 /// `0` is a tap, and a tap is the right answer often enough that it is the
 /// default rather than a failure mode.
+/// [`hold_ticks`] bounded by the opening it is charging INTO: in an opening
+/// (`Advantage`, `EdgeGuard`) the charge runs no longer than the foe's
+/// commitment less the time to the hold point, and no shorter than the
+/// neutral's partial charge. A victim in hitstun a second from acting buys a
+/// second of charge; one with a tenth of a second buys the partial. Neutral
+/// and the refused situations are unchanged.
+///
+/// ⛔ A FULL CHARGE INTO A SHORT WINDOW WAS A WHIFF: 90 ticks held against a
+/// 20-tick recovery released the smash into a body that had long since
+/// shielded, which is one reason a charged smash was never seen to land.
+pub fn hold_ticks_within(
+    situation: Situation,
+    commitment_s: f32,
+    hold_at_s: f32,
+    tick_hz: f32,
+) -> u32 {
+    let full = charge_ticks_for(situation);
+    if full == 0 {
+        return 0;
+    }
+    let reach_ticks = (hold_at_s.max(0.0) * tick_hz.max(1.0)).ceil() as u32;
+    let charge = if matches!(situation, Situation::Advantage | Situation::EdgeGuard) && commitment_s > 0.0 {
+        let room = ((commitment_s - hold_at_s).max(0.0) * tick_hz.max(1.0)).floor() as u32;
+        room.clamp(PARTIAL_HOLD_TICKS, full)
+    } else {
+        full
+    };
+    reach_ticks.saturating_add(charge)
+}
+
 pub fn charge_ticks_for(situation: Situation) -> u32 {
     match situation {
         // The opponent is committed to something — hitstun, a whiffed swing, a

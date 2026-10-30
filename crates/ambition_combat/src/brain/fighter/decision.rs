@@ -443,6 +443,24 @@ fn decide(
         &snapshot.attack_kit,
         &cfg.profile.utility_weights,
     );
+    // THE RANKING'S OWN TRACE (`AMBITION_RANK_TRACE=1`): the top four admitted
+    // attacks with the features behind their scores, one line each. The
+    // decision trace says what was chosen; this says what it beat and by
+    // what. `scripts`-side reader: `rank_hist.py` in the fighter-brain notes.
+    static RANK_TRACE: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
+        std::env::var("AMBITION_RANK_TRACE").is_ok_and(|value| value != "0")
+    });
+    if *RANK_TRACE {
+        let foe_pct = view.nearest_hostile().map_or(0.0, |f| f.damage_frac());
+        for (rank, a) in options.attacks.iter().take(4).enumerate() {
+            let f = &a.features;
+            eprintln!(
+                "[rank] {:?} {:?} pct={:.2} #{rank} {} score={:.3} reach={:.2} fa={:.2} kill={:.2} risk={:.2} payoff={:.2} cap={:.2} disp={:.2}",
+                snapshot.subject, situation, foe_pct, a.move_id, a.score, f.reach_fit, f.frame_advantage,
+                f.kill_potential, f.stage_risk, f.expected_payoff, f.capture_value, f.displacement_value
+            );
+        }
+    }
 
     // THE ROLLOUT PREDICTS THE BODY IT IS IN, not a default one. The
     // config's tuning carries the foe assumptions and the hit response; the
@@ -577,6 +595,15 @@ fn decide(
     // exactly one sample on the mix, so the stream is a function of the tick
     // count and not of what the draws were.
     let mix = next_signed_unit(&mut state.noise).abs();
+    // The attack's own draw, taken here beside the movement's so both are
+    // unconditional; the grab or dash attack beside the jab on an approach.
+    let attack_mix = next_signed_unit(&mut state.noise).abs();
+    let mix_margin = MIX_MARGIN_BASE + MIX_MARGIN_PER_NOISE * cfg.profile.execution_noise.max(0.0);
+    // How long the foe cannot answer: what the ranking priced its advantage
+    // against, and what a charge is bounded by.
+    let commitment = view.nearest_hostile().map_or(0.0, |foe| {
+        ambition_characters::brain::fighter::options::foe_commitment(&view, foe)
+    });
     let chosen = pick_movement_mixed(
         &options.movement,
         vetoed,
@@ -585,7 +612,7 @@ fn decide(
             .as_ref()
             .and_then(|refined| refined.least_bad_movement),
         mix,
-        MIX_MARGIN_BASE + MIX_MARGIN_PER_NOISE * cfg.profile.execution_noise.max(0.0),
+        mix_margin,
     );
     if let Some(verb) = chosen {
         apply_movement(verb, view, frame);
@@ -629,11 +656,23 @@ fn decide(
             .and_then(|refined| refined.binding.zip(refined.move_id.clone()))
             .filter(|(binding, _)| !refuses(state, *binding))
             .or_else(|| {
-                options
+                // The ranking's best, or its runner-up by the same draw the
+                // movement uses: a grab beside a jab, a dash attack beside a
+                // tilt, priced near-equal by the situation.
+                let mut ranked = options
                     .attacks
                     .iter()
-                    .find(|attack| !refuses(state, attack.binding))
-                    .map(|attack| (attack.binding, attack.move_id.clone()))
+                    .filter(|attack| !refuses(state, attack.binding));
+                let best = ranked.next()?;
+                // Across VERBS only: the grab or the special beside the basic.
+                // Two basics a hair apart are the ranking's call, which the
+                // refusal tests pin as an argmax.
+                let runner_up = ranked
+                    .next()
+                    .filter(|attack| attack.binding.verb != best.binding.verb)
+                    .map(|attack| (attack, attack.score));
+                let picked = mixed_pick(best, best.score, runner_up, attack_mix, mix_margin);
+                Some((picked.binding, picked.move_id.clone()))
             })
             // ⭐⭐ **AND WHEN NOTHING IN THE KIT CAN REACH THEM, A MOVE THAT
             // TRAVELS IS STILL AN ANSWER — but only because it TRAVELS THE
@@ -730,8 +769,9 @@ fn decide(
             binding: *binding,
             hold_ticks: match binding.verb {
                 ambition_characters::brain::attack_kit::AttackVerb::Smash => {
-                    super::charge::hold_ticks(
+                    super::charge::hold_ticks_within(
                         situation,
+                        commitment,
                         // ⛔ THE MOVE'S OWN HOLD POINT, not its startup. The charge
                         // begins where the timeline FREEZES, and a move that
                         // resolves no policy never freezes at all — its whole
@@ -783,8 +823,9 @@ fn decide(
                 // special that does not charge is a no-op — exactly as it is
                 // for a smash that does not.
                 ambition_characters::brain::attack_kit::AttackVerb::Special => {
-                    super::charge::hold_ticks(
+                    super::charge::hold_ticks_within(
                         situation,
+                        commitment,
                         options
                             .attacks
                             .iter()
@@ -946,6 +987,37 @@ struct DecisionSummary<'a, 'k> {
 const MIX_MARGIN_BASE: f32 = 0.05;
 const MIX_MARGIN_PER_NOISE: f32 = 0.1;
 
+/// The runner-up's share of the draw, from how far under the best it sits:
+/// half the draws at a dead heat, none at the margin, a line between. A
+/// uniform draw over everything inside the margin was measured to take the
+/// 0.05-under short hop on every other decision at spacing (35 hops in 30 s,
+/// the body airborne for most of its neutral); at `0.05` under a `0.07`
+/// margin this gives it one decision in seven.
+fn runner_up_share(gap: f32, margin: f32) -> f32 {
+    if margin <= 0.0 || gap < 0.0 || gap > margin {
+        return 0.0;
+    }
+    0.5 * (1.0 - gap / margin)
+}
+
+/// The best, or the runner-up when the draw falls inside its share.
+fn mixed_pick<T: Copy>(
+    best: T,
+    best_score: f32,
+    runner_up: Option<(T, f32)>,
+    mix: f32,
+    margin: f32,
+) -> T {
+    match runner_up {
+        Some((second, score))
+            if mix.clamp(0.0, 1.0) < runner_up_share(best_score - score, margin) =>
+        {
+            second
+        }
+        _ => best,
+    }
+}
+
 /// THE MIX, and the one place it is drawn. `mix` is a unit sample from the
 /// seat's own stream, taken unconditionally every decision so the stream's
 /// consumption never depends on what it drew. Among the eligible options whose
@@ -978,13 +1050,8 @@ fn pick_movement_mixed(
     eligible
         .first()
         .map(|best| {
-            let within = eligible
-                .iter()
-                .take_while(|option| best.score - option.score <= margin)
-                .count()
-                .max(1);
-            let index = ((mix.clamp(0.0, 1.0) * within as f32) as usize).min(within - 1);
-            eligible[index].verb
+            let runner_up = eligible.get(1).map(|option| (option.verb, option.score));
+            mixed_pick(best.verb, best.score, runner_up, mix, margin)
         })
         .or(least_bad)
         .or_else(|| {

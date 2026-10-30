@@ -434,6 +434,33 @@ general shape; check new code against it.
   and cut moves started 23/26 → 7/8. The draw is unconditional (one sample
   every decision), like the jitter's second draw, so the stream is a
   function of the tick count.
+- **The kill term is a threshold.** `kill_readiness(damage_frac)` is 0.1
+  below 35%, 1 at 70% and a line between (the floor keeps two finishers
+  ORDERED by launch against a fresh victim, the launch-law tests' contract,
+  and is far too small to pay for a startup); the ladder's `kill_potential` weight
+  (0 at rungs 1-2, 0.7 at 5, 1.15 at 9) scales it by rung, which is where
+  "smashes at rung 9, none at rung 1" comes from. Measured before it
+  (rank trace, rung 5): a smash in the top four three times in 30 s, never
+  first, 0.04-0.16 under a tilt, because `damage_frac` from zero never let
+  the kill term pay for a 19-frame startup.
+- **A landing is a commitment.** `foe_commitment`: a swinging or reeling foe
+  owes its clock; a foe coming down owes the time to the floor plus
+  `LANDING_LAG_NOMINAL_S` (0.15 s, the genre's aerial landing lag; the
+  facet's own number is not perceived). That is the landing read; a roll is
+  not perceived as a phase yet and has no read.
+- **A charge is bounded by the opening.** `charge::hold_ticks_within`: in
+  `Advantage`/`EdgeGuard` the charge runs no longer than the commitment less
+  the hold point and no shorter than the partial. The full 90-tick charge
+  into a 20-tick recovery released into a shield.
+- **The mix is weighted and reaches the attacks.** The runner-up's share of
+  the draw is `0.5 × (1 − gap / margin)`: a coin at a dead heat, nothing at
+  the margin. A uniform draw inside the margin took the 0.05-under short hop
+  every other decision at spacing (35 hops in 30 s, the neutral spent
+  airborne). The attack ranking takes a second, unconditional draw with the
+  same rule — the grab or the dash attack beside the jab on an approach.
+- **The recovery route is legal-now like every attack.** The Recovery list
+  skipped `legality`; the route was re-pressed through its own move and the
+  helpless fall after it.
 - **A hold decides its throw.** `decision::throw_direction`: at kill percent
   (≥ 0.6) toward the nearer blast line, forward or back as the captor faces;
   at set-up percent (≥ 0.3) back when the edge is behind, up otherwise; low,

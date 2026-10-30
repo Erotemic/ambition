@@ -2139,10 +2139,14 @@ fn the_mix_picks_among_near_equals_and_never_below_the_margin() {
         MoveOption { verb: MovementVerb::Approach, score: 0.5 },
     ];
     let pick = |mix: f32, margin: f32| pick_movement_mixed(&options, &[], &[], None, mix, margin);
-    assert_eq!(pick(0.1, 0.08), Some(MovementVerb::Shield));
-    assert_eq!(pick(0.9, 0.08), Some(MovementVerb::Dodge));
-    assert_eq!(pick(0.99, 0.08), Some(MovementVerb::Dodge), "approach is a tier below");
-    assert_eq!(pick(0.99, 0.0), Some(MovementVerb::Shield), "no margin: the argmax");
+    // 0.05 under an 0.08 margin: the runner-up's share is 0.5 × (1 − 0.625) = 0.1875.
+    assert_eq!(pick(0.1, 0.08), Some(MovementVerb::Dodge));
+    assert_eq!(pick(0.2, 0.08), Some(MovementVerb::Shield));
+    assert_eq!(pick(0.99, 0.08), Some(MovementVerb::Shield), "approach is a tier below");
+    assert_eq!(pick(0.0, 0.0), Some(MovementVerb::Shield), "no margin: the argmax");
+    assert_eq!(runner_up_share(0.0, 0.08), 0.5, "a dead heat is a coin");
+    assert_eq!(runner_up_share(0.08, 0.08), 0.0, "at the margin, never");
+    assert_eq!(runner_up_share(0.2, 0.08), 0.0);
     assert_eq!(
         pick_movement_mixed(&options, &[MovementVerb::Shield], &[], None, 0.1, 0.08),
         Some(MovementVerb::Dodge),

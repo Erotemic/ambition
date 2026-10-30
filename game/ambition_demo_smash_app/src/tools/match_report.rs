@@ -119,6 +119,9 @@ pub struct MatchReportArgs {
     /// the symmetry instrument, a pair is the matchup one.
     #[arg(long, value_name = "ID")]
     pub opponent: Option<String>,
+    /// The ladder rung both seats play at (1..=9).
+    #[arg(long, default_value_t = 5)]
+    pub level: u8,
     /// How many runs to average over. Zero is treated as one, as it always was.
     #[arg(long, default_value_t = 1)]
     pub runs: usize,
@@ -140,6 +143,7 @@ pub fn run_with(args: MatchReportArgs, build: fn() -> App) {
     let character = args.character;
     let opponent = args.opponent.unwrap_or_else(|| character.clone());
     let label = format!("{character} vs {opponent}");
+    let level = args.level.clamp(1, 9);
     let runs = if args.runs > 0 { args.runs } else { 1 };
 
     #[cfg(feature = "causal")]
@@ -177,6 +181,7 @@ pub fn run_with(args: MatchReportArgs, build: fn() -> App) {
                 &character,
                 &opponent,
                 seconds,
+                level,
                 0x5F37_7A11_u64.wrapping_mul(i as u64 + 1),
                 #[cfg(feature = "causal")]
                 &mut decisions,
@@ -300,6 +305,7 @@ fn run_one(
     character: &str,
     opponent: &str,
     seconds: usize,
+    level: u8,
     noise_seed: u64,
     #[cfg(feature = "causal")] decisions: &mut DecisionTally,
     // Out-param: the header must measure the composition, and this is where
@@ -334,7 +340,7 @@ fn run_one(
     // Both seats are CPUs. `SmashSelect::roster` makes every locked seat
     // human, and nobody presses anything here.
     let characters = [character, opponent];
-    let roster = ambition_demo_smash::smash_roster_at_levels(characters, &[5, 5]);
+    let roster = ambition_demo_smash::smash_roster_at_levels(characters, &[level, level]);
     app.world_mut().insert_resource(roster);
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(

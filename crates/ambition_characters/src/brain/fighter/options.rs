@@ -12,7 +12,7 @@ use crate::brain::attack_kit::{ActionLegality, AttackBinding, AttackCandidate};
 use ambition_entity_catalog::MoveFrameData;
 use ambition_platformer2d_core as ae;
 
-use super::situation::{is_punishable, Situation};
+use super::situation::Situation;
 use crate::perception::{BodyPhase, Perceived, PerceivedActor};
 
 /// One movement verb the body can attempt. Derived from `SelfView`'s capability
@@ -45,6 +45,57 @@ pub enum MovementVerb {
 /// How far past a swing's authored reach an incoming attack is still read as
 /// reaching: the foe closes the last pixels during its own startup.
 pub const INCOMING_SLACK_PX: f32 = 24.0;
+
+/// The percent band over which a finisher becomes worth its startup: nothing
+/// below `KILL_READY_FROM`, everything at `KILL_READY_FROM + KILL_READY_SPAN`.
+///
+/// ⛔ THE KILL TERM WAS `damage_frac` ITSELF, a straight line from zero, and a
+/// smash never won it: measured 2026-10-29 (pointed vs pugnacious, rung 5),
+/// in a punish window at 50% the forward smash priced `fa −0.03 + kill 0.28`
+/// against the tilt's `fa +0.20 + kill 0.14` and lost; in neutral it lost by
+/// more. The genre's kill percent is a THRESHOLD — below it a smash is a
+/// slow tilt, above it the slow tilt is the kill — so the term ramps where the
+/// finisher starts to finish and is full where it does. The ladder's
+/// `kill_potential` weight (0 at rungs 1-2, 0.7 at 5, 1.15 at 9) is what
+/// scales it by rung.
+pub const KILL_READY_FROM: f32 = 0.35;
+pub const KILL_READY_SPAN: f32 = 0.35;
+/// The term's floor below the band: enough that two finishers still ORDER by
+/// their launch against a fresh victim (the launch-law tests), far too little
+/// for a finisher to pay for its startup there.
+pub const KILL_READY_FLOOR: f32 = 0.1;
+
+/// How ready a victim at `damage_frac` is to be finished, `FLOOR..=1`.
+pub fn kill_readiness(damage_frac: f32) -> f32 {
+    let ramp = ((damage_frac - KILL_READY_FROM) / KILL_READY_SPAN).clamp(0.0, 1.0);
+    KILL_READY_FLOOR + (1.0 - KILL_READY_FLOOR) * ramp
+}
+
+/// The landing lag a body owes when it touches down out of an aerial, as a
+/// brain estimates it: the facet's number is not perceived, and the genre's
+/// aerials land in roughly this (Ultimate: 6-15 frames).
+pub const LANDING_LAG_NOMINAL_S: f32 = 0.15;
+
+/// How long `foe` cannot answer, in seconds: its own clock while it swings or
+/// reels, and for a body coming DOWN the time to the floor plus the lag it
+/// will owe there — the landing read, which is where a whiff punish and a
+/// kill smash come from. Zero for a body that can answer now.
+pub fn foe_commitment(view: &Perceived<'_>, foe: &PerceivedActor) -> f32 {
+    let me = &view.self_view;
+    if foe.phase.is_punishable() {
+        return foe.phase_remaining;
+    }
+    if super::situation::is_landing(foe, me.gravity_down) {
+        let down = me.gravity_down;
+        let closing = foe.vel.dot(down);
+        let my_feet = me.pos.dot(down) + me.half_extent.y;
+        let their_feet = foe.pos.dot(down) + foe.half_extent.y;
+        let fall = (my_feet - their_feet).max(0.0);
+        let time_to_floor = if closing > 0.0 { fall / closing } else { 0.0 };
+        return time_to_floor + LANDING_LAG_NOMINAL_S;
+    }
+    0.0
+}
 
 /// The side-axis gap between the two bodies' boxes, `INFINITY` with nobody to
 /// measure to. Never negative: overlapping boxes are a gap of zero.
@@ -512,6 +563,12 @@ pub fn generate_options(
         // callers must not treat the first candidate as an endorsed route.
         let mut attacks: Vec<AttackOption> = lifts
             .into_iter()
+            // ⛔ LEGAL NOW, like every other list. The route was re-pressed on
+            // every decision through its own move and the helpless fall after
+            // it; each eaten press still spent an APM token (measured
+            // 2026-10-29: 41 of the brawler's 60 chosen attacks in a 30 s
+            // pair were this route, and its neutral presses starved).
+            .filter(|c| c.legality == ActionLegality::Now)
             .map(|c| AttackOption {
                 move_id: c.move_id.clone(),
                 frames: c.frames.clone(),
@@ -595,11 +652,7 @@ pub fn generate_options(
     };
     // A committed opponent cannot answer for `phase_remaining` seconds. An
     // uncommitted one answers immediately, so any startup at all is a gamble.
-    let their_commitment = if is_punishable(foe, me.gravity_down) {
-        foe.phase_remaining
-    } else {
-        0.0
-    };
+    let their_commitment = foe_commitment(&view, foe);
 
     // The kit's strongest hit, for scale-free power pricing (FB6a). Zero when
     // no candidate can hurt anybody, which zeroes every payoff below.
@@ -860,7 +913,7 @@ pub fn generate_options(
                 // also when they cannot ANSWER — which is the window a charge
                 // exists for, and the reason the two are a `max` rather than a
                 // product.
-                kill_potential: foe.damage_frac()
+                kill_potential: kill_readiness(foe.damage_frac())
                     * if kit_max_launch > 0.0 {
                         c.frames.launch.at(worn_conditions(c)) / kit_max_launch
                     } else {

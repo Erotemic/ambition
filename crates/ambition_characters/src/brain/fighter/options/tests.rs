@@ -329,7 +329,10 @@ fn kill_potential_reads_the_victims_meter_and_the_moves_launch() {
     v.actors[0].damage_taken = 90;
     let ripe = generate_options(Perceived::cheating(&v), Situation::Neutral, &kit, &w);
     assert!(ripe.best_attack().unwrap().score > fresh.best_attack().unwrap().score);
-    assert_eq!(ripe.best_attack().unwrap().features.kill_potential, 0.9);
+    // The meter through the readiness curve: full at 90%, which is past the
+    // band (`kill_readiness`), so the single launcher's share is 1.
+    assert_eq!(ripe.best_attack().unwrap().features.kill_potential, kill_readiness(0.9));
+    assert_eq!(kill_readiness(0.9), 1.0);
 
     // ⭐ AND THE HALF THE OLD ARM COULD NOT ASK, because it needs a SECOND
     // move: the same damaged foe, two moves that differ only in launch. The
@@ -348,9 +351,14 @@ fn kill_potential_reads_the_victims_meter_and_the_moves_launch() {
             .features
             .kill_potential
     };
-    assert_eq!(of("smash"), 0.9, "the kit's best launch earns the full meter");
+    let meter = kill_readiness(0.9);
+    assert_eq!(
+        of("smash"),
+        meter,
+        "the kit's best launch earns the full meter"
+    );
     assert!(
-        (of("jab") - 0.225).abs() < 1e-6,
+        (of("jab") - 0.25 * meter).abs() < 1e-6,
         "a quarter of the launch earns a quarter of the meter, got {}",
         of("jab")
     );
@@ -3358,6 +3366,75 @@ fn neutral_spaces_to_the_kits_reach_and_dances_at_it() {
     assert_eq!(
         top_movement(&closing, Situation::Neutral, &[]),
         MovementVerb::Approach
+    );
+}
+
+/// The kill term is a THRESHOLD, not a line from zero: nothing below the ready
+/// percent, everything above the band, and in a punish window above it the
+/// finisher outranks the tilt that beat it on startup at low percent.
+#[test]
+fn a_smash_wins_the_punish_window_only_once_the_victim_is_ready_to_die() {
+    assert_eq!(kill_readiness(0.1), KILL_READY_FLOOR);
+    assert_eq!(kill_readiness(0.35), KILL_READY_FLOOR);
+    assert!((kill_readiness(0.525) - 0.55).abs() < 1e-5);
+    assert_eq!(kill_readiness(0.7), 1.0);
+    assert_eq!(kill_readiness(1.0), 1.0);
+
+    let mut smash = candidate_with_launch("fsmash", 0.32, 60.0, 500.0);
+    smash.binding.verb = AttackVerb::Smash;
+    smash.frames.max_damage = 18;
+    let mut tilt = candidate_with_launch("ftilt", 0.15, 60.0, 200.0);
+    tilt.frames.max_damage = 9;
+    let kit = [tilt, smash];
+    let weights = UtilityWeights {
+        reach_fit: 1.0,
+        frame_advantage: 0.5,
+        kill_potential: 0.7,
+        stage_risk: -0.5,
+        expected_payoff: 0.3,
+        ..UtilityWeights::default()
+    };
+    let best_at = |damage: i32| {
+        let mut view = view_with(300.0, 345.0);
+        view.actors[0].damage_taken = damage;
+        // A window the smash's 0.32 s startup FITS; a shorter one is the
+        // tilt's whatever the percent, and rightly.
+        view.actors[0].phase = BodyPhase::AttackRecovery;
+        view.actors[0].phase_remaining = 0.5;
+        let options = generate_options(Perceived::cheating(&view), Situation::Advantage, &kit, &weights);
+        options.attacks[0].move_id.clone()
+    };
+    assert_eq!(best_at(10), "ftilt", "at 10% the tilt's startup wins the window");
+    assert_eq!(best_at(80), "fsmash", "at 80% the finisher is the window's answer");
+}
+
+/// A body coming down is committed for the time to the floor plus the lag it
+/// will owe there — the landing read. A body standing, or rising, is not.
+#[test]
+fn a_landing_foe_is_committed_until_it_lands_and_recovers() {
+    let mut view = view_with(300.0, 340.0);
+    view.self_view.half_extent = ae::Vec2::new(12.0, 16.0);
+    view.actors[0].half_extent = ae::Vec2::new(12.0, 16.0);
+    view.actors[0].on_ground = false;
+    view.actors[0].pos.y = 300.0 - 60.0;
+    view.actors[0].vel = ae::Vec2::new(0.0, 300.0);
+    let perceived = Perceived::cheating(&view);
+    let committed = foe_commitment(&perceived, &view.actors[0]);
+    assert!(
+        (committed - (0.2 + LANDING_LAG_NOMINAL_S)).abs() < 1e-4,
+        "60 px at 300 px/s plus the lag: {committed}"
+    );
+
+    let mut rising = view.clone();
+    rising.actors[0].vel = ae::Vec2::new(0.0, -300.0);
+    assert_eq!(
+        foe_commitment(&Perceived::cheating(&rising), &rising.actors[0]),
+        0.0
+    );
+    let standing = view_with(300.0, 340.0);
+    assert_eq!(
+        foe_commitment(&Perceived::cheating(&standing), &standing.actors[0]),
+        0.0
     );
 }
 

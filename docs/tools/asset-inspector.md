@@ -23,7 +23,7 @@ See the [tool guide](../../tools/asset_inspector/README.md) for the full interfa
 Build the content and runtime sheet reader once, then reuse it after data edits:
 
 ```bash
-cargo build -p ambition_content_schemas --bin ambition_content_check
+cargo build --release -p ambition_content_schemas --bin ambition_content_check
 python3 scripts/asset_inspector.py status --current-game --needs-generation --json
 python3 scripts/asset_inspector.py inspect npc_tower_voss --animation death --json
 python3 scripts/asset_inspector.py coverage --missing death --json

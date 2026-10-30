@@ -36,7 +36,7 @@ pub use content_schema::{
     CHARACTER_CATALOG_SCHEMA, CHARACTER_CATALOG_VERSION, CHARACTER_SCHEMA, LOCOMOTION_PRESET_SCHEMA,
 };
 pub use entry::{
-    ActionSetPreset, AxisTuningSpec, BarkSituation, BodyInsets, PettingSpec, BrainPreset, CharacterBarks, CharacterBodyKind,
+    ActionSetPreset, AxisTuningSpec, BarkSituation, BodyInsets, PettingSpec, BrainPreset, CharacterBarks, CharacterCues, CharacterBodyKind,
     CharacterCatalogData, CharacterCatalogEntry, CharacterPortraitRef, CharacterTier,
     CompositionLayer, MeleePreset, MomentumParamsSpec, MoveStylePreset, PosedBodyScale,
     RangedPreset, SpecialPreset, SpriteTuningSpec,
@@ -295,6 +295,11 @@ impl CharacterCatalog {
     /// of its idle row (`rest_row`), when the row states one.
     pub fn rest_row(&self, character_id: &str) -> Option<&str> {
         self.get(character_id)?.rest_row.as_deref()
+    }
+
+    /// The sounds of `character_id`'s attacks and beats, when the row is known.
+    pub fn cues(&self, character_id: &str) -> Option<&CharacterCues> {
+        Some(&self.get(character_id)?.cues)
     }
 
     /// The looks of `character_id`: each row that names it in `form_of`, in

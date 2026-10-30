@@ -525,6 +525,32 @@ impl CharacterBarks {
     }
 }
 
+/// The sounds a character's attacks and beats make (`sfx_registry` ids), so a
+/// telegraph is heard as well as seen (Jon, 2026-10-30: enemies that "notice,
+/// space, telegraph, attack" as Hollow Knight's do). Every cue defaults to
+/// `None`: the engine's own sound, or none.
+///
+/// - `notice`: the beat it stops on when it first sees a foe.
+/// - `tell`: its telegraph: the start of each strike's windup, or the windup
+///   its brain times (a volley's, the hang before a dive).
+/// - `swing`: each strike, as it comes out (in place of the engine's whoosh).
+/// - `hit`: a strike landing (in place of the victim's own hurt sound).
+///
+/// The move sounds are folded onto its moves when its kit is prepared
+/// (`moveset_prefabs::voice_moveset`): a move that authors its own sound at a
+/// beat keeps it.
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+pub struct CharacterCues {
+    #[serde(default)]
+    pub notice: Option<String>,
+    #[serde(default)]
+    pub tell: Option<String>,
+    #[serde(default)]
+    pub swing: Option<String>,
+    #[serde(default)]
+    pub hit: Option<String>,
+}
+
 /// Optional independently published portrait product for dialogue and other
 /// close-up presentation. The image is separate from the gameplay sheet; the
 /// manifest names the default and future expression/animation clips.
@@ -677,6 +703,9 @@ pub struct CharacterCatalogEntry {
     /// row its encounter names as `voice`.
     #[serde(default)]
     pub barks: CharacterBarks,
+    /// The sounds of its attacks and its notice ([`CharacterCues`]).
+    #[serde(default)]
+    pub cues: CharacterCues,
     /// How this character takes being petted. `Some` lets its conversation's
     /// `<<pet>>` choice pet it; `None` (the default) refuses the pet.
     #[serde(default)]

@@ -972,6 +972,7 @@ fn aerial_cfg(aggressiveness: f32) -> AerialCfg {
         aggro_radius: 90.0,
         attack_range: 40.0,
         roam_radius: 120.0,
+        dive_tell_s: 0.0,
     }
 }
 
@@ -1099,6 +1100,45 @@ fn aerial_hostile_stalks_dives_pecks_then_recovers() {
         "it must peck (melee) when the dive reaches the target"
     );
     assert!(saw_recover, "it must peel off and Recover after the dive");
+}
+
+/// A flyer with a dive tell hangs over its foe, telegraphing, for its tell
+/// before it dives (Jon, 2026-10-30: "notice, space, telegraph, attack");
+/// then it dives and pecks as before.
+#[test]
+fn aerial_hangs_still_for_its_tell_before_it_dives() {
+    let mut sm = StateMachineCfg::Aerial {
+        cfg: AerialCfg { dive_tell_s: 0.5, ..aerial_cfg(1.0) },
+        state: AerialState::default(),
+    };
+    let mut pos = ae::Vec2::new(500.0, 100.0);
+    let target = ae::Vec2::new(520.0, 400.0);
+    let mut out = crate::actor::control::ActorControlFrame::default();
+    let dt = 1.0 / 60.0;
+    let (mut tell_ticks, mut fastest_tell, mut pecked) = (0, 0.0f32, false);
+    for i in 0..900 {
+        let mut s = BrainSnapshot::idle();
+        s.actor_pos = pos;
+        s.target_pos = target;
+        s.target_alive = true;
+        s.sim_time = i as f32 * dt;
+        s.dt = dt;
+        s.attack_cooldown_remaining = 0.0;
+        tick_simple_state_machine(&mut sm, &s, &mut out);
+        let brain = crate::brain::Brain::StateMachine(sm.clone());
+        if brain.is_winding_up() {
+            tell_ticks += 1;
+            fastest_tell = fastest_tell.max(out.velocity_target.vec().length());
+        }
+        pecked |= out.melee_pressed;
+        pos += out.velocity_target.vec() * dt;
+        if pecked {
+            break;
+        }
+    }
+    assert!((28..=32).contains(&tell_ticks), "it told for about 0.5 s (30 ticks): {tell_ticks}");
+    assert!(fastest_tell < 30.0, "it hangs nearly still while it tells: {fastest_tell}");
+    assert!(pecked, "then it dives and pecks");
 }
 
 // ── ADR 0034 increment 1: what each brain needs supplied ─────────────────────

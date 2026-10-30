@@ -23,7 +23,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-from . import SCHEMA, assets as assets_mod, diagnostics, generators, kinds, lineage, related, thumbs, usage, inventory, reviews, sheets, sources
+from . import SCHEMA, assets as assets_mod, categories, diagnostics, generators, kinds, lineage, related, thumbs, usage, inventory, reviews, sheets, sources
 from .paths import forget_roots, repo_root, roots
 from .scan import HashCache, scan
 
@@ -49,6 +49,7 @@ def build(
     binary: Path | None = None,
     deep: bool = False,
     runtime_path: Path | None = None,
+    cargo: bool = False,
     log=print,
 ) -> dict[str, Any]:
     """Index the art of `repo` into `out`. `targets` stands in for the
@@ -76,7 +77,7 @@ def build(
     inspection = None
     if targets is None:
         inspection = inventory.collect(repo, out, profile=profile, python=python, binary=binary, deep=deep, runtime_path=runtime_path,
-                                       product_report=early.result())
+                                       product_report=early.result(), cargo=cargo, log=log)
         if inspection["profile"]["state"] != "available":
             # The art, generators and lineages still index; the page names the problem and its fix.
             problem = inspection["profile"].get("warnings") or ["The content inspection tool is unavailable."]
@@ -162,6 +163,7 @@ def build(
         families = {"libraries": [], "notice": f"{type(error).__name__}: {error}"}
     catalog["families"] = families
     catalog.update(kinds.collect(repo, out, hashes, pack=sources.pack_dir(repo, profile), families=families, log=log))
+    catalog["categories"] = categories.categorize(catalog)
     catalog["reviews"] = reviews.snapshot(repo, catalog)
     hashes.save()
     catalog["build_seconds"] = round(time.perf_counter() - started, 1)
@@ -304,6 +306,7 @@ def main(argv: list[str] | None = None) -> int:
         page.add_argument("--renderer-python", default=None, help="the interpreter for `ambition_sprite2d_renderer list --json`")
         page.add_argument("--authorship", action="store_true", help="read Git authorship and history previews")
         page.add_argument("--open", action="store_true", help="open the page in a browser when built")
+        page.add_argument("--no-cargo", action="store_true", help="do not rebuild a content check binary older than the engine's Rust sources")
     n = sub.add_parser("notes", help="read the review backlog or save a review note")
     n.add_argument("action", choices=("backlog", "list", "add", "resolve", "reopen"))
     n.add_argument("id", nargs="?", help="full character identity for add; note UUID for resolve or reopen")
@@ -379,7 +382,7 @@ def main(argv: list[str] | None = None) -> int:
     def run(log=print):
         return build(repo, out, jobs=args.jobs, previews=not args.no_previews, prune=args.prune, python=args.renderer_python,
                      lineages=args.authorship, profile=args.profile, binary=args.content_binary, deep=args.deep,
-                     runtime_path=args.runtime_snapshot, log=log)
+                     runtime_path=args.runtime_snapshot, cargo=not args.no_cargo, log=log)
     if args.command == "serve":
         from .server import serve
         serve(repo, out, port=args.port, open_browser=args.open, build=run)

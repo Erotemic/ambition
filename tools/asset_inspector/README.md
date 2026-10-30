@@ -24,31 +24,53 @@ pack, so another engine game is inspected the same way (`--profile`,
 
 - **Overview** joins the library's producer families (`scripts/content_status.py`)
   with a count of each kind and a list of what needs attention.
-- **Characters**, **Images** and **Inventory** read the sprite publication and
-  the game catalog, as described below.
+- **Characters** and **Inventory** read the sprite publication and the game
+  catalog, as described below.
+- Every image asset has one top-level category, each with its own tab: Props,
+  Held items, Effects, Backgrounds, Terrain & tiles, Entities & pickups,
+  Icons & UI and Reference art (`asset_index/categories.py`). The renderer
+  target's category decides unless a more specific family does (a strike effect
+  is a `props` target), then the file's folder. What no rule places is **Other**,
+  counted on the overview so a gap is visible. Reduced-tier copies count with
+  their originals. A background layer is used where a room's parallax theme
+  names it. **All images** lists everything.
 - **Music** reads the music registry, the music tool's active scores, its newest
-  renders and its review files. A registered track the game lacks is missing;
+  renders and its review files. A song's page shows its score's description and
+  notes, key, tempo, meter and sections, and each instrument with the sound that
+  plays it: an SFZ or SoundFont sample library, a Surge XT patch, procedural FM,
+  or a General MIDI program. A registered track the game lacks is missing;
   a score no registry names is unregistered. A music review made before the
   score last changed is marked.
 - **Sound** reads the sound bank and the sound tool's sources. The page plays
   each clip, extracted from the bank.
 - **Fonts** reads the font policy and the downloaded files, and draws a sample.
 - **Worlds** reads the pack's LDtk worlds: each room's music, parallax theme and
-  biome. A room's music links to its track.
+  biome. A room's music links to its track. A world page draws a map of its
+  rooms at their world positions and a preview of each room (collision, water
+  and climbable cells and entities), with the LDtk tool's room renderer.
 - **Uses** come from quoted ids and asset paths in game and engine text, and
   from world rooms.
+
+A music page can rate a render, as the music tool's review GUI does. It offers
+the render the game plays (its preview bytes equal the published file) and the
+newest render when that differs. The page saves through the music tool's own
+review owner (`ambition_music_renderer.music_reviews`), so the review file, its
+score scale and its issue tags are the same, and how far you listened is kept.
+A review is refused if the render changed since the page was built.
 
 Any item can take a review note (`serve`). A note records the version of the
 files it reviewed, so it stays attached after the asset changes.
 
-The build command needs the content inspection binary for the Characters view:
+The Characters view needs the content check binary. The inspector uses the
+newer of its release and debug builds. When the binary is missing or older than
+an engine Rust source, a build or the served page's refresh rebuilds it in
+release mode, then reads the catalog again. `--no-cargo` turns that off. By hand:
 
 ```bash
-cargo build -p ambition_content_schemas --bin ambition_content_check
+cargo build --release -p ambition_content_schemas --bin ambition_content_check
 ```
 
-Rebuild it after changes to its Rust owners. The page names it when it is
-stale. It needs no window, graphics device, or game host.
+It needs no window, graphics device, or game host.
 
 ## Common queries
 

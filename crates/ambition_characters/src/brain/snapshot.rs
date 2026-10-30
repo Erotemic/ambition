@@ -107,6 +107,10 @@ pub struct BrainSnapshot {
     /// `None` when the body has no move on its attack press, and in a
     /// snapshot that no body built. A reader then uses its own fallback band.
     pub melee_reach: Option<f32>,
+    /// The body is in a run (`BodyMotionFacts::running`): its attack press is
+    /// its running attack, and [`Self::melee_reach`] is that move's reach. A
+    /// brain that decided on that reach keeps its stride into the press.
+    pub running: bool,
     /// Which body this is, as the integration layer names it.
     ///
     /// The brain genuinely cannot know: a snapshot is pure body state, and a
@@ -329,6 +333,7 @@ impl BrainSnapshot {
             actor_aerial: false,
             attack_kit: Vec::new(),
             melee_reach: None,
+            running: false,
             subject: None,
             alive: true,
             target_pos: ae::Vec2::ZERO,

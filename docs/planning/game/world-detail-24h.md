@@ -60,6 +60,13 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Enemy patterns (Jon's shift, 10-30)**: the primeval trail's and Castle
+  Godwin's enemies notice, keep their range, telegraph with held poses and
+  charge, pounce or lunge; flyers hang before a dive; the crawling conscript,
+  the fascist swordsman and clubman, the redrawn shock warden. Their beats
+  and strikes have sounds now (a catalog row's `cues`, dfe952fbf). See
+  `enemy-patterns.md`. The 41 chargen townsfolk had dropped out of the
+  publication (`sprites.yaml` lists them now, f91682c85).
 - **Secrets in every region**: breakable walls hide the amber vault (jungle,
   32c83ec37) and the conjectures (math: a cellar chalked with unsolved
   problems, Collatz's 27 plotted). Verified: the_tar_pits, the_zeno_aqueduct (10).

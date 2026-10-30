@@ -29,6 +29,7 @@
         ( type: "Prop", px: [672, 64], size: [288, 288], fields: ( name: "Trail Survey Gate Portal", kind: "gate_portal" ) ),
         ( type: "LoadingZone", px: [744, 64], size: [144, 288], fields: ( id: "trail_survey_gate", name: "the survey ring", activation: "Door", target_room: "", target_zone: "", bidirectional: false ) ),
         ( type: "DebugLabel", px: [720, 120], size: [300, 24], fields: ( name: "approach_survey_sign", text: "SURVEY RING (MILITARY): receive only", category: "Custom" ) ),
+        ( type: "EnemySpawn", px: [960, 716], size: [44, 44], fields: ( name: "gnu_ton_works_approach_gravity_apple_3", brain: "combatant", character_id: "gravity_apple", respawn: "OnRoomReenter" ) ),
         ( type: "CameraZone", px: [0, 0], size: [1280, 1408], fields: ( id: "gnu_ton_works_approach_camera", name: "gnu_ton_works_approach_camera", mode: "Default" ) ),
         ( type: "DebugLabel", px: [64, 416], size: [900, 24], fields: ( name: "gnu_ton_works_approach_title", text: "THE APPROACH: HE STANDS ON THE SHOULDERS OF A GIANT", category: "Custom" ) ),
     ],

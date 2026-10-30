@@ -197,6 +197,7 @@ pub fn tick_controlled_brains(
             // generation is therefore inactive here.
             attack_kit: Vec::new(),
             melee_reach: None,
+            running: false,
             // The player brain reads input, not the Smash aerial path; grounded
             // locomotion semantics regardless of fly mode.
             actor_aerial: false,

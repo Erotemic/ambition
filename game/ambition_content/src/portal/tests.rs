@@ -1926,3 +1926,25 @@ fn a_portal_is_as_deep_as_the_host_it_rides() {
     assert!(matches!(host, PortalHost::Line { .. }), "{host:?}");
     assert_eq!(depth, 0.0, "nothing is behind a plank");
 }
+
+/// ⛔ Two portals never share a place (Jon, 2026-10-30: "if a portal detects
+/// an overlap they just fizzle"). An orange shot that lands on the blue's
+/// place on the left wall fizzles and the blue stays; the control lands on
+/// the same wall clear of it and opens.
+#[test]
+fn a_shot_that_would_overlap_another_portal_fizzles() {
+    for (y, overlaps) in [(220.0, true), (330.0, false)] {
+        let mut app = app_with_the_shot_adapter();
+        let blue = app
+            .world_mut()
+            .spawn(PlacedPortal::fixed(BLUE, Vec2::new(20.0, 200.0), Vec2::new(1.0, 0.0), ambition_portal2d::PORTAL_OPENING_HALF))
+            .id();
+        app.world_mut().spawn(PortalShot { channel: ORANGE, pos: Vec2::new(45.0, y), vel: Vec2::new(-1900.0, 0.0), traveled: 0.0 });
+        app.update();
+        let portals: Vec<(PortalChannel, Vec2)> =
+            app.world_mut().query::<&PlacedPortal>().iter(app.world()).map(|p| (p.channel, p.pos)).collect();
+        assert!(app.world().get_entity(blue).is_ok(), "the blue that was there first stays");
+        let oranges = portals.iter().filter(|(channel, _)| *channel == ORANGE).count();
+        assert_eq!(oranges, usize::from(!overlaps), "an orange at y {y} opens only clear of the blue: {portals:?}");
+    }
+}

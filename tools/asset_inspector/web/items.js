@@ -9,22 +9,56 @@
   const query = () => document.getElementById("q").value.trim().toLowerCase();
   const KINDS = {music: "Music", sfx: "Sound effects", font: "Fonts", world: "Worlds"};
   const VIEW = {music: "music", sfx: "sound", font: "fonts", world: "worlds"};
-  const STATE_CLASS = {present: "c-ok", missing: "c-warn", stale: "c-warn", unregistered: "c-info", unknown: "c-info"};
+  const STATE_CLASS = {present: "c-ok", missing: "c-warn", stale: "c-warn", unregistered: "c-info", excluded: "c-info", unknown: "c-info"};
   const chip = state => `<span class="chip ${STATE_CLASS[state] || "c-info"}">${esc(state)}</span>`;
   const editor = (path, line) => C.repo_abs ? `vscode://file/${C.repo_abs}/${path}${line ? ":" + line : ""}` : `${C.repo_href}/${path}`;
   const source = (path, line) => `<a href="${esc(editor(path, line))}" title="Open in the editor"><code>${esc(path)}${line ? ":" + line : ""}</code></a>`;
   const itemLink = (id, text) => items[id] ? `<a href="#item/${encodeURIComponent(id)}">${esc(text || items[id].display)}</a>` : `<code>${esc(id)}</code>`;
   const notes = key => (window.ArtReviews ? window.ArtReviews.openFor(key) : 0);
-  let player = null;
-  function play(href) {
-    if (!player) { player = new Audio(); }
-    if (player.dataset.href === href && !player.paused) { player.pause(); return; }
-    player.src = href; player.dataset.href = href; player.play();
+  // One player for the whole page, docked at the bottom: it says what is playing and links to it.
+  const bar = document.createElement("div");
+  bar.className = "now-playing"; bar.hidden = true;
+  bar.innerHTML = `<span class="np-label"></span><audio controls preload="none"></audio><button type="button" class="ghost np-close" title="Stop">✕</button>`;
+  document.body.append(bar);
+  const player = bar.querySelector("audio"), label = bar.querySelector(".np-label");
+  const title = document.title;
+  // `current` is the item id and the exact file: one track can offer several renders.
+  let current = null, currentItem = null;
+  const played = {};  // furthest second heard, by file, for music reviews
+  const keyOf = (id, href) => id + "|" + (href || items[id]?.media?.href || "");
+  function sync() {
+    const playing = current && !player.paused;
+    document.title = current ? `${playing ? "▶" : "⏸"} ${items[currentItem]?.display || currentItem} · ${title}` : title;
+    document.querySelectorAll("[data-play]").forEach(b => {
+      const on = keyOf(b.dataset.play, b.dataset.href) === current;
+      b.textContent = on && playing ? "⏸" : "▶";
+      b.closest("tr")?.classList.toggle("playing", on);
+    });
   }
+  function play(id, href, note) {
+    const item = items[id];
+    if (!item?.media || item.media.type !== "audio") return;
+    const key = keyOf(id, href);
+    if (current === key) { player.paused ? player.play() : player.pause(); return; }
+    current = key; currentItem = id;
+    player.src = href || item.media.href; player.dataset.href = href || item.media.href;
+    const what = note || (item.media.unpublished ? "the music tool's unpublished render" : "");
+    label.innerHTML = `<b>Now playing</b> ${itemLink(id)} <small>${esc(KINDS[item.kind] || item.kind)}${what ? " · " + esc(what) : ""}</small>`;
+    bar.hidden = false; document.body.classList.add("has-player");
+    player.play();
+  }
+  ["play", "pause", "ended"].forEach(type => player.addEventListener(type, sync));
+  player.addEventListener("timeupdate", () => {
+    const href = player.dataset.href, row = played[href] || (played[href] = {seconds: 0, fraction: 0});
+    row.seconds = Math.max(row.seconds, player.currentTime);
+    if (player.duration) row.fraction = Math.max(row.fraction, player.currentTime / player.duration);
+  });
+  bar.querySelector(".np-close").onclick = () => { player.pause(); player.removeAttribute("src"); current = null; bar.hidden = true; document.body.classList.remove("has-player"); sync(); };
   document.addEventListener("click", event => {
     const button = event.target.closest("[data-play]");
-    if (button) { event.preventDefault(); play(button.dataset.play); }
+    if (button) { event.preventDefault(); play(button.dataset.play, button.dataset.href, button.dataset.note); }
   });
+  window.addEventListener("hashchange", () => setTimeout(sync, 0));
 
   function families() {
     const libraries = C.families?.libraries || [];
@@ -42,7 +76,7 @@
 
   function search(terms) {
     const hit = text => terms.every(t => text.toLowerCase().includes(t));
-    const found = Object.values(items).filter(i => hit(i.id + " " + i.display + " " + i.tags.join(" ")));
+    const found = Object.values(items).filter(i => hit(i.id + " " + i.display + " " + i.tags.join(" ") + " " + (i.score?.description || "")));
     const characters = Object.entries(C.inventory?.identities || {}).filter(([key, a]) => hit(key + " " + a.display + " " + (a.catalog?.tags || []).join(" ")));
     const images = Object.values(C.assets || {}).filter(a => hit(a.id + " " + a.display + " " + (a.tags || []).join(" ")));
     app().innerHTML = `<h1>Search <small>${esc(terms.join(" "))}</small></h1>
@@ -62,8 +96,11 @@
       cards.push({title: "Characters", href: "#characters", n: ids.length,
         line: I.profile.state === "available" ? `${Object.values(I.units).filter(u => u.status?.state === "missing").length} art bundles missing, ${Object.values(I.units).filter(u => ["partial", "stale"].includes(u.status?.state)).length} stale, ${Object.values(I.units).filter(u => u.status?.state === "possibly-stale").length} possibly stale` : "catalog unavailable"});
     }
-    const images = Object.values(C.assets || {});
-    cards.push({title: "Images", href: "#gallery", n: images.length, line: `${images.filter(a => a.findings).length} with findings`});
+    for (const [key, c] of Object.entries(C.categories || {}).sort((a, b) => a[1].order - b[1].order)) {
+      if (key === "characters" || !(c.assets || 0)) continue;
+      cards.push({title: c.label, href: "#cat/" + key, n: c.assets, line: key === "other" ? "no rule classified these: worth a look"
+        : `${c.used || 0} used by the game${c.tier_copies ? ` · ${c.tier_copies} tier copies` : ""}`});
+    }
     for (const [kind, title] of Object.entries(KINDS)) {
       const k = C.kinds?.[kind];
       if (!k) continue;
@@ -85,7 +122,7 @@
 
   function table(rows, withKind) {
     return `<table class="tbl"><thead><tr><th></th>${withKind ? "<th>Kind</th>" : ""}<th>Name</th><th>State</th><th>Uses</th><th>Review</th><th>Notes</th></tr></thead><tbody>
-      ${rows.map(i => `<tr><td>${i.media?.type === "audio" ? `<button type="button" class="ghost" data-play="${esc(i.media.href)}" title="Play">▶</button>` : ""}</td>
+      ${rows.map(i => `<tr><td>${i.media?.type === "audio" ? `<button type="button" class="ghost" data-play="${esc(i.id)}" title="Play ${esc(i.display)}">▶</button>` : ""}</td>
         ${withKind ? `<td>${esc(KINDS[i.kind] || i.kind)}</td>` : ""}
         <td>${itemLink(i.id)}<br><small><code>${esc(i.name)}</code></small></td><td>${chip(i.state)}</td><td>${i.uses.length || ""}</td>
         <td>${i.reviews ? `${esc(i.reviews.score)} ${esc(i.reviews.label || "")}${i.reviews.score_changed ? " ⚠" : ""}` : ""}</td>
@@ -98,7 +135,7 @@
     const k = C.kinds?.[kind] || {notices: [], states: {}};
     const terms = query().split(/\s+/).filter(Boolean);
     const f = filters[kind] || (filters[kind] = {state: "", used: ""});
-    let rows = all.filter(i => terms.every(t => (i.id + " " + i.display + " " + i.tags.join(" ")).toLowerCase().includes(t)));
+    let rows = all.filter(i => terms.every(t => (i.id + " " + i.display + " " + i.tags.join(" ") + " " + (i.score?.description || "")).toLowerCase().includes(t)));
     if (f.state) rows = rows.filter(i => i.state === f.state);
     if (f.used) rows = rows.filter(i => f.used === "used" ? i.uses.length : f.used === "unused" ? !i.uses.length : f.used === "reviewed" ? i.reviews : !i.reviews);
     const facet = (group, key, label) => `<button type="button" class="ghost${f[group] === key ? " on" : ""}" data-filter="${group}" data-key="${esc(key)}">${esc(label)}</button>`;
@@ -110,11 +147,12 @@
         · make: <code>${esc(k.fix || "")}</code></p>
       ${rows.length ? table(rows.slice(0, 1000), false) : '<p class="empty">Nothing matches.</p>'}`;
     app().querySelectorAll("[data-filter]").forEach(b => b.onclick = () => { f[b.dataset.filter] = b.dataset.key; list(kind); });
+    sync();
   }
 
   function media(item) {
     if (!item.media) return "";
-    if (item.media.type === "audio") return `<audio controls preload="metadata" src="${esc(item.media.href)}"></audio>${item.media.unpublished ? '<p class="empty">This is the music tool\'s newest render; the game does not have it yet.</p>' : ""}`;
+    if (item.media.type === "audio") return `<p><button type="button" class="play-big" data-play="${esc(item.id)}">▶</button> Play ${esc(item.display)}</p>${item.media.unpublished ? '<p class="empty">This is the music tool\'s newest render; the game does not have it yet.</p>' : ""}`;
     if (item.media.type === "font") {
       const family = "asset-font-" + item.name.replace(/[^A-Za-z0-9]/g, "_");
       return `<style>@font-face { font-family: "${family}"; src: url("${esc(item.media.href)}"); }</style>
@@ -126,25 +164,92 @@
 
   function details(item) {
     if (item.kind === "world") {
-      const rooms = item.details.rooms || [];
-      return `<h2>Rooms (${rooms.length})</h2><table class="tbl"><thead><tr><th>Room</th><th>Size</th><th>Music</th><th>Fight music</th><th>Parallax</th><th>Biome</th></tr></thead><tbody>
-        ${rooms.map(r => `<tr><td>${esc(r.id)}</td><td>${esc((r.size || []).join("×"))}</td><td>${r.music_track ? itemLink("music:" + r.music_track, r.music_track) : ""}</td>
+      const rooms = item.details.rooms || [], pv = item.preview;
+      const anchor = id => "room-" + String(id).replace(/[^A-Za-z0-9_-]/g, "_");
+      // Boxes over the map image link each room to its row, placed as fractions of the map.
+      const map = pv ? (() => { const [x0, y0, w, h] = pv.bounds; return `<div class="world-map">
+        <a href="${esc(pv.world)}" title="Open the full-size map"><img src="${esc(pv.world)}" alt="Map of ${esc(item.display)}"></a>
+        ${rooms.map(r => `<a class="room-box" title="${esc(r.id)}" href="#item/${encodeURIComponent(item.id)}" data-room="${esc(anchor(r.id))}"
+          style="left:${(r.at[0] - x0) / w * 100}%;top:${(r.at[1] - y0) / h * 100}%;width:${r.size[0] / w * 100}%;height:${r.size[1] / h * 100}%"></a>`).join("")}</div>
+        <p class="n">Collision, water and climbable cells and entities, drawn by the LDtk tool. Click a room to see it below; a dashed room is on another depth.</p>`; })() : "";
+      return `<h2>Map</h2>${map || '<p class="empty">No preview.</p>'}
+        <h2>Rooms (${rooms.length})</h2><table class="tbl"><thead><tr><th>Preview</th><th>Room</th><th>Size</th><th>Music</th><th>Fight music</th><th>Parallax</th><th>Biome</th></tr></thead><tbody>
+        ${rooms.map(r => `<tr id="${esc(anchor(r.id))}"><td>${pv?.rooms?.[r.id] ? `<a href="${esc(pv.rooms[r.id])}" title="Open ${esc(r.id)} full size"><img class="room-thumb" loading="lazy" src="${esc(pv.rooms[r.id])}" alt=""></a>` : ""}</td><td>${esc(r.id)}</td><td>${esc((r.size || []).join("×"))}</td><td>${r.music_track ? itemLink("music:" + r.music_track, r.music_track) : ""}</td>
           <td>${r.fight_music_track ? itemLink("music:" + r.fight_music_track, r.fight_music_track) : ""}</td><td>${esc(r.parallax_theme || "")}</td><td>${esc(r.biome || "")}</td></tr>`).join("")}</tbody></table>`;
     }
     const rows = Object.entries(item.details).filter(([, v]) => v !== null && v !== "" && !(Array.isArray(v) && !v.length));
     return rows.length ? `<h2>Details</h2><table class="tbl">${rows.map(([k, v]) => `<tr><th>${esc(k.replace(/_/g, " "))}</th><td>${esc(Array.isArray(v) ? v.join(", ") : typeof v === "object" ? JSON.stringify(v) : v)}</td></tr>`).join("")}</table>` : "";
   }
 
+  const served = location.protocol.startsWith("http");
+  function reviewForm(item, target) {
+    const k = C.kinds.music || {}, tags = k.issue_tags || [], [low, high] = k.score_range || [1, 10];
+    const old = (item.reviews?.history || []).find(h => h.version === target.version_id);
+    return `<form class="music-review" data-item="${esc(item.id)}" data-version="${esc(target.version_id)}">
+      <p><button type="button" class="ghost" data-play="${esc(item.id)}" data-href="${esc(target.href)}" data-note="${esc(target.roles.join(", "))}">▶</button>
+        <b>${esc(target.roles.join(" · "))}</b> <code>${esc(target.version_id)}</code>
+        ${old ? ` · reviewed <b>${esc(old.score)}</b> ${esc(old.label || "")}` : " · not reviewed"}</p>
+      ${served ? `<div class="controls"><label>Score <input name="score" type="number" min="${low}" max="${high}" step="0.1" required value="${esc(old?.score ?? "")}"></label>
+        <span class="n">1–3 replace · 3–5 major polish · 5–7 acceptable · 7–9 strong · 9–10 standout</span></div>
+        <textarea name="notes" rows="3" placeholder="What works, what to change">${esc(old?.notes || "")}</textarea>
+        <div class="controls">${tags.map(t => `<label><input type="checkbox" name="issues" value="${esc(t)}"${old?.issues?.includes(t) ? " checked" : ""}> ${esc(t)}</label>`).join(" ")}</div>
+        <p class="controls"><button type="submit">${old ? "Update review" : "Save review"}</button> <span class="save-state" role="status"></span></p>`
+        : '<p class="empty">Open the page with <code>./scripts/asset_inspector.py</code> to save a review.</p>'}</form>`;
+  }
+
+  // The score's own words: its description and notes, its form, and what plays it.
+  function scoreBox(item) {
+    const sc = item.score;
+    if (!sc) return "";
+    const facts = [sc.key, sc.bpm && `${sc.bpm} BPM`, sc.meter, sc.form, sc.one_shot && "one-shot"].filter(Boolean);
+    const groups = {};
+    sc.instruments.forEach(i => (groups[i.source] ||= []).push(i));
+    const summary = Object.entries(groups).map(([source, rows]) => `${rows.length} ${esc(source)}`).join(" · ");
+    return `<section class="box"><h2>Score</h2>
+      ${sc.title && sc.title !== item.display ? `<p><b>${esc(sc.title)}</b> <small>(the score's title)</small></p>` : ""}
+      ${sc.description ? `<p class="review-text">${esc(sc.description)}</p>` : '<p class="empty">The score has no description.</p>'}
+      ${facts.length ? `<p>${facts.map(esc).join(" · ")}</p>` : ""}
+      ${sc.sections.length ? `<p>Sections: ${sc.sections.map(esc).join(" → ")}</p>` : ""}
+      ${sc.notes.length ? `<details${sc.description ? "" : " open"}><summary>Notes (${sc.notes.length})</summary>${sc.notes.map(n => `<p class="review-text">${esc(n)}</p>`).join("")}</details>` : ""}
+      <h3>Instruments (${sc.instruments.length})</h3><p class="n">${summary}</p>
+      <table class="tbl"><thead><tr><th>Part</th><th>Sound</th><th>Source</th></tr></thead><tbody>
+        ${sc.instruments.map(i => `<tr><td>${esc(i.name)}${i.group && i.group !== i.name ? ` <small>${esc(i.group)}</small>` : ""}</td><td>${esc(i.sound)}${i.notes ? `<small>${esc(i.notes)}</small>` : ""}</td><td>${esc(i.source)}</td></tr>`).join("")}</tbody></table></section>`;
+  }
+
   function musicReviews(item) {
     const r = item.reviews;
     if (item.kind !== "music") return "";
-    if (!r) return `<section class="box"><h2>Music reviews</h2><p class="empty">Never reviewed. Score it with <code>${esc(item.details.folder ? "./tools/ambition_music_renderer/review_music.sh" : "")}</code>.</p></section>`;
-    return `<section class="box"><h2>Music reviews (${r.count})</h2>
-      <p><b>${esc(r.score)}</b> ${esc(r.label || "")} · ${esc(r.reviewed_at || "")}</p>
+    const targets = item.review_targets || [];
+    const history = r ? `<p>Latest: <b>${esc(r.score)}</b> ${esc(r.label || "")} · ${esc(r.reviewed_at || "")}</p>
       ${r.score_changed ? '<p class="stamp stale">The score changed after this review: the review is of an older version.</p>' : ""}
       ${r.notes ? `<p class="review-text">${esc(r.notes)}</p>` : ""}
-      ${r.history.length > 1 ? `<details><summary>All ${r.history.length} reviews</summary>${r.history.map(h => `<p><b>${esc(h.score)}</b> ${esc(h.label || "")} · ${esc(h.reviewed_at || "")} · <code>${esc(h.version || "")}</code><br>${esc(h.notes)}</p>`).join("")}</details>` : ""}
-      <p>Score a render with <code>${esc(r.command)}</code>.</p></section>`;
+      ${r.history.length > 1 ? `<details><summary>All ${r.history.length} reviews</summary>${r.history.map(h => `<p><b>${esc(h.score)}</b> ${esc(h.label || "")} · ${esc(h.reviewed_at || "")} · <code>${esc(h.version || "")}</code><br>${esc(h.notes)}</p>`).join("")}</details>` : ""}` : '<p class="empty">Never reviewed.</p>';
+    return `<section class="box"><h2>Music reviews (${r ? r.count : 0})</h2>${history}
+      ${targets.length ? `<h3>Rate a render</h3><p class="n">A review rates one exact render. Listen to it here; how far you listened is saved with the review.</p>${targets.map(t => reviewForm(item, t)).join("")}`
+        : '<p class="empty">The music tool has no render of this score to review.</p>'}</section>`;
+  }
+
+  function wireMusicReviews() {
+    document.querySelectorAll("form.music-review").forEach(form => form.onsubmit = async event => {
+      event.preventDefault();
+      const item = items[form.dataset.item], target = item.review_targets.find(t => t.version_id === form.dataset.version);
+      const state = form.querySelector(".save-state"), button = form.querySelector("[type=submit]");
+      const data = new FormData(form), heard = played[target.href] || {seconds: 0, fraction: 0};
+      button.disabled = true; state.textContent = "Saving…";
+      try {
+        const response = await fetch("/api/music-reviews", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({
+          item: item.id, version_id: target.version_id, score: Number(data.get("score")), notes: data.get("notes") || "",
+          issues: data.getAll("issues"), furthest_played_seconds: heard.seconds, furthest_played_fraction: heard.fraction})});
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Could not save the review.");
+        // Show it now; the next index reads it from the music tool's review file.
+        const rows = (item.reviews ||= {count: 0, history: [], tool: "music"}).history.filter(h => h.version !== result.version_id);
+        rows.push(result.review);
+        Object.assign(item.reviews, result.review, {count: rows.length, history: rows, score_changed: false});
+        detail(item.id);
+        document.querySelector(`form[data-version="${CSS.escape(target.version_id)}"] .save-state`).textContent = `Saved to ${result.path}`;
+      } catch (error) { state.textContent = error.message; button.disabled = false; }
+    });
   }
 
   function detail(id) {
@@ -156,16 +261,25 @@
       ${item.reasons.map(r => `<p class="stamp stale">${esc(r)}</p>`).join("")}
       ${item.fix ? `<p>Make it: <code>${esc(item.fix)}</code></p>` : ""}
       ${media(item)}
+      ${scoreBox(item)}
+      ${item.kind === "world" ? `<section class="box">${details(item)}</section>` : ""}
       <div class="cols">
         <section class="box"><h2>Source</h2>${item.sources.length ? item.sources.map(p => `<p>${source(p)}</p>`).join("") : '<p class="empty">No source is known.</p>'}</section>
         <section class="box"><h2>Files</h2>${item.files.length ? item.files.map(f => `<p><a href="${esc(f.href)}"><code>${esc(f.path)}</code></a> <small>${esc(Math.round(f.bytes / 1024))} KiB</small></p>`).join("") : '<p class="empty">Not generated.</p>'}</section>
       </div>
       <section class="box"><h2>Used by (${item.uses.length})</h2>${usedBy ? `<ul>${usedBy}</ul>` : '<p class="empty">No use found in game text or worlds.</p>'}</section>
       ${item.related.length ? `<section class="box"><h2>Related</h2><p>${item.related.map(r => itemLink(r, r)).join(" · ")}</p></section>` : ""}
-      ${(() => { const d = details(item); return d ? `<section class="box">${d}</section>` : ""; })()}
+      ${(() => { const d = item.kind === "world" ? "" : details(item); return d ? `<section class="box">${d}</section>` : ""; })()}
       ${musicReviews(item)}
       ${window.ArtReviews ? window.ArtReviews.section(item.id) : ""}`;
     if (window.ArtReviews) window.ArtReviews.wire();
+    wireMusicReviews();
+    document.querySelectorAll(".room-box").forEach(box => box.onclick = event => {
+      event.preventDefault();
+      const row = document.getElementById(box.dataset.room);
+      if (row) { row.scrollIntoView({behavior: "smooth", block: "center"}); row.classList.add("playing"); setTimeout(() => row.classList.remove("playing"), 1500); }
+    });
+    sync();
   }
 
   window.AssetItems = {overview, list, detail, VIEW};

@@ -56,8 +56,8 @@ def walk(name, x, y, w):
     return entity("MovingPlatform", x, y, w, 16, id=name, name=name, speed=0.0, visual="none", one_way=True)
 
 
-def enemy(n, character, x, feet, w, h):
-    return entity("EnemySpawn", x, feet - h, w, h, name=f"{PITS}_{character}_{n}", brain="combatant",
+def enemy(n, character, x, feet, w, h, room=PITS):
+    return entity("EnemySpawn", x, feet - h, w, h, name=f"{room}_{character}_{n}", brain="combatant",
                   character_id=character, respawn="OnRoomReenter")
 
 
@@ -136,12 +136,12 @@ def smoking_mountain():
         sign("mountain_sign", 300, g - 220, "THE SMOKING MOUNTAIN: not a volcano (a volcano would need a permit)", 560),
         sign("lava_sign", 590, g - 90, "HOT", 80),
         sign("meteor_sign", 2100, SHELVES[-1][2] - 140, "METEOR WATCH: any day now (66,000,000 years and counting)", 520),
-        enemy(1, "npc_raptor_stalker", 800, SHELVES[1][2], 48, 80),
-        enemy(2, "dilophosaurus", 1560, SHELVES[3][2], 44, 74),
-        enemy(3, "pachycephalosaurus", 1860, SHELVES[4][2], 44, 72),
-        enemy(4, "compsognathus", 300, g, 24, 26),
-        enemy(5, "compsognathus", 1100, SHELVES[2][2], 24, 26),
-        enemy(6, "vulture", 2120, SHELVES[-1][2] - 200, 44, 66),
+        enemy(1, "npc_raptor_stalker", 800, SHELVES[1][2], 48, 80, room=MOUNTAIN),
+        enemy(2, "dilophosaurus", 1560, SHELVES[3][2], 44, 74, room=MOUNTAIN),
+        enemy(3, "pachycephalosaurus", 1860, SHELVES[4][2], 44, 72, room=MOUNTAIN),
+        enemy(4, "compsognathus", 300, g, 24, 26, room=MOUNTAIN),
+        enemy(5, "compsognathus", 1100, SHELVES[2][2], 24, 26, room=MOUNTAIN),
+        enemy(6, "vulture", 2120, SHELVES[-1][2] - 200, 44, 66, room=MOUNTAIN),
     ]
     at = (CANOPY_AT[0] + CANOPY_EAST + WALL + W, CANOPY_AT[1] + CANOPY_FLOOR - g)
     return room(MOUNTAIN, e, at=at, size=(w, h), biome="primeval", music="liberated_dinosaur_libertarians", bg="#3A2A22",

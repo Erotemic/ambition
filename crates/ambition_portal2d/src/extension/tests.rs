@@ -578,3 +578,82 @@ fn a_pair_one_entry_opens_and_another_keeps_is_one_pair() {
     assert_eq!(opened.len(), 2);
     assert_eq!(kept, opened, "the keeping entry closed the pair and opened another");
 }
+
+/// ⛔ Two portals never share a place (Jon, 2026-10-30: "if a portal detects
+/// an overlap they just fizzle"). A pair asked where an end would overlap a
+/// portal already open fizzles, and stays closed while it is asked for; a
+/// held pair asked onto another portal closes. The portal that was there
+/// first stays. The controls are the same pairs apart.
+#[test]
+fn a_pair_that_would_overlap_a_portal_fizzles() {
+    for (second_x, overlaps) in [(400u32, false), (150, true)] {
+        let mut app = finished_app();
+        app.world_mut().spawn((RoomInstanceRoot, LiveRoomInstance::ACTIVATION));
+        let room = InRoomInstance(LiveRoomInstance::ACTIVATION);
+        let first = app.world_mut().spawn((Asks(100), SimId::placement("a"), room)).id();
+        // Asked in the same tick: the first in the outbox opens.
+        let second = app.world_mut().spawn((Asks(second_x), SimId::placement("b"), room)).id();
+        for _ in 0..3 {
+            app.world_mut().run_schedule(Sim);
+        }
+        let open = portals(&mut app);
+        let of = |id: char| open.iter().filter(|(owner, ..)| owner.ends_with(id)).count();
+        assert_eq!(of('a'), 2, "the first pair is open: {open:?}");
+        assert_eq!(of('b'), if overlaps { 0 } else { 2 }, "the second pair fizzles only on an overlap: {open:?}");
+
+        // A fizzled pair stays closed while it is asked, even when its place
+        // comes clear; asked anew in a fresh slot (a new module ask after a
+        // stop), it opens.
+        if overlaps {
+            app.world_mut().get_mut::<Asks>(first).unwrap().0 = 0;
+            app.world_mut().run_schedule(Sim);
+            app.world_mut().run_schedule(Sim);
+            assert_eq!(portals(&mut app).len(), 0, "a fizzled pair stays closed while it is asked");
+            app.world_mut().get_mut::<Asks>(second).unwrap().0 = 0;
+            app.world_mut().run_schedule(Sim);
+            app.world_mut().get_mut::<Asks>(second).unwrap().0 = second_x;
+            app.world_mut().run_schedule(Sim);
+            app.world_mut().run_schedule(Sim);
+            assert_eq!(portals(&mut app).len(), 2, "asked again once the place is clear, it opens");
+        }
+    }
+}
+
+#[test]
+fn a_held_pair_asked_onto_another_portal_closes() {
+    let mut app = finished_app();
+    app.world_mut().spawn((RoomInstanceRoot, LiveRoomInstance::ACTIVATION));
+    let room = InRoomInstance(LiveRoomInstance::ACTIVATION);
+    app.world_mut().spawn((Asks(100), SimId::placement("a"), room));
+    let mover = app.world_mut().spawn((Asks(600), SimId::placement("b"), room)).id();
+    for _ in 0..2 {
+        app.world_mut().run_schedule(Sim);
+    }
+    assert_eq!(portals(&mut app).len(), 4, "two pairs apart");
+    app.world_mut().get_mut::<Asks>(mover).unwrap().0 = 120;
+    app.world_mut().run_schedule(Sim);
+    app.world_mut().run_schedule(Sim);
+    let open = portals(&mut app);
+    assert!(open.iter().all(|(owner, ..)| owner.ends_with('a')) && open.len() == 2, "B's pair closed, A's stayed: {open:?}");
+    app.world_mut().get_mut::<Asks>(mover).unwrap().0 = 600;
+    app.world_mut().run_schedule(Sim);
+    assert_eq!(portals(&mut app).len(), 2, "and it stays closed while it is asked");
+}
+
+#[test]
+fn a_pair_asked_across_an_open_portal_fizzles() {
+    let mut app = finished_app();
+    app.world_mut().spawn((RoomInstanceRoot, LiveRoomInstance::ACTIVATION));
+    let room = InRoomInstance(LiveRoomInstance::ACTIVATION);
+    // Its near line is at (x, 500), its far line at (x + 50, 200): a portal
+    // already open across the far line's place is overlapped by it.
+    app.world_mut().spawn((
+        PlacedPortal::fixed(crate::UNRESOLVED_LINK_CHANNEL, ae::Vec2::new(150.0, 200.0), ae::Vec2::new(1.0, 0.0), 40.0),
+        room,
+    ));
+    app.world_mut().spawn((Asks(100), SimId::placement("a"), room));
+    for _ in 0..2 {
+        app.world_mut().run_schedule(Sim);
+    }
+    assert_eq!(portals(&mut app).len(), 0, "a pair one of whose ends crosses an open portal fizzles");
+}

@@ -268,11 +268,11 @@ def character_groups(identities: dict) -> list[dict]:
 
 
 def collect(repo: Path, out: Path, *, profile="ambition", python=None, binary=None, deep=False, runtime_path=None,
-            product_report=None) -> dict:
+            product_report=None, cargo=False, log=print) -> dict:
     """`product_report`: the renderer's report, when the caller started it early."""
     if product_report is None:
         product_report = sources.products(repo, python, deep=deep)
-    prepared = sources.content(repo, profile, out, binary)
+    prepared = sources.content(repo, profile, out, binary, cargo=cargo, log=log)
     prepared["previews"] = sources.previews(prepared, out)
     files = [p for root in roots(repo) if root.tier == "full" for p in root.path.rglob("*") if p.is_file()]
     runtime = json.loads(runtime_path.read_text()) if runtime_path else None

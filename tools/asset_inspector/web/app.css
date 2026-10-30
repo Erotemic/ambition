@@ -184,3 +184,21 @@ kbd { font: 11px var(--mono); padding: 0 4px; border: 1px solid var(--rule); bor
 .tbl small { display: block; color: var(--muted); }
 button.ghost.on { outline: 2px solid var(--decl); }
 audio { width: min(640px, 100%); margin: 8px 0; }
+
+.now-playing { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; gap: 12px; align-items: center; padding: 6px 16px;
+  background: var(--panel); border-top: 2px solid var(--decl); box-shadow: none; }
+.now-playing audio { margin: 0; flex: 1; max-width: 640px; }
+.now-playing .np-label small { color: var(--muted); }
+body.has-player main { padding-bottom: 90px; }
+tr.playing td { background: var(--decl-bg); }
+.play-big { font-size: 18px; padding: 4px 14px; }
+.tbl th { white-space: nowrap; }
+form.music-review { border-top: 1px solid var(--rule); padding: 8px 0; }
+form.music-review textarea { width: 100%; margin: 6px 0; }
+form.music-review .n { color: var(--muted); font-size: 12px; }
+.now-playing[hidden] { display: none; }
+.world-map { position: relative; display: inline-block; max-width: 100%; }
+.world-map img { display: block; max-width: 100%; max-height: 70vh; }
+.world-map .room-box { position: absolute; border: 1px solid transparent; }
+.world-map .room-box:hover { border-color: #fbbf24; background: rgba(251, 191, 36, .15); }
+img.room-thumb { max-width: 220px; max-height: 90px; display: block; background: #111827; }

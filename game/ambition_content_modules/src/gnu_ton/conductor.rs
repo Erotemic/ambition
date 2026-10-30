@@ -1016,6 +1016,9 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                             let blow = exit.blow(arm);
                             let side = blows::side(&stage, giant_pos, giant_size, blow, exit, aim_now);
                             let (far, way) = blows::far_end(&stage, giant_pos, giant_size, blow, exit, side, aim_now);
+                            let limb = blows::limb(blow);
+                            let near_normal = Vec2::new(limb.normal.x * turn, limb.normal.y);
+                            let far = blows::off_the_near_line(far, way, from_giant(limb.line), near_normal, limb.half);
                             c.blow_exit = exit.code();
                             c.blow_arm = if kick { 0 } else { arm.code() };
                             c.floored = false;
@@ -1142,7 +1145,11 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     if let (Some(exit), Some(_)) =
         (exit, cue.as_ref().filter(|cue| blow_limb.as_ref().is_some_and(|limb| blows::tracking(cue, limb))))
     {
-        let (want, _) = blows::far_end(&stage, giant_pos, giant_size, blow.unwrap_or(Blow::Hammer), exit, c.blow_side, aim_now);
+        let blow = blow.unwrap_or(Blow::Hammer);
+        let (want, way) = blows::far_end(&stage, giant_pos, giant_size, blow, exit, c.blow_side, aim_now);
+        let limb = blows::limb(blow);
+        let near_normal = Vec2::new(limb.normal.x * turn, limb.normal.y);
+        let want = blows::off_the_near_line(want, way, from_giant(limb.line), near_normal, limb.half);
         let mut at = v(c.punch_far);
         // The line does not go through the giant: when the player is on its
         // other side, the line is there at once.
@@ -1151,7 +1158,9 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         }
         let to = want - at;
         let step = blows::TRACK_SPEED * dt;
-        c.punch_far = a(at + if to.length() <= step { to } else { to.normalize() * step });
+        // On its way to the place it wants, it does not cross the near line.
+        let at = at + if to.length() <= step { to } else { to.normalize() * step };
+        c.punch_far = a(blows::off_the_near_line(at, way, from_giant(limb.line), near_normal, limb.half));
     }
     // The pair eases open through the tell, and closed at the end.
     c.opening = cue

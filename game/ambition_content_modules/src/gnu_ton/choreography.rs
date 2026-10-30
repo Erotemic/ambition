@@ -1157,7 +1157,7 @@ pub mod blows {
         // (`giant_art._derive_lines`, printed by `blow_lines_world`).
         let hammer = Limb {
             // Down and forward: the line is by the shoulder.
-            line: Vec2::new(394.56, -187.5),
+            line: Vec2::new(397.2, -189.72),
             normal: Vec2::new(-0.643, -0.766),
             back: 260.0,
             deep: 60.0,
@@ -1175,7 +1175,7 @@ pub mod blows {
             strike_half: fist,
         };
         let upper = Limb {
-            line: Vec2::new(395.67, -307.22),
+            line: Vec2::new(391.5, -307.22),
             normal: Vec2::new(0.0, 1.0),
             back: 230.0,
             deep: 60.0,
@@ -1198,7 +1198,7 @@ pub mod blows {
             // over the body, and its blows go up into them (a line in the
             // body would take the giant through its own portal).
             Blow::LeftHammer => Limb {
-                line: Vec2::new(-97.55, -272.92),
+                line: Vec2::new(-75.74, -276.76),
                 normal: Vec2::new(0.174, 0.985),
                 open_from: 0.26,
                 slot: FIST_LEFT,
@@ -1206,7 +1206,7 @@ pub mod blows {
             },
             // Out and a little down: the line is turned to the forearm's way.
             Blow::Jab => Limb {
-                line: Vec2::new(364.49, -58.76),
+                line: Vec2::new(366.76, -67.18),
                 normal: Vec2::new(-0.966, -0.259),
                 back: 210.0,
                 deep: 60.0,
@@ -1224,8 +1224,8 @@ pub mod blows {
                 strike_half: fist,
             },
             Blow::LeftHook => Limb {
-                line: Vec2::new(-103.07, -291.66),
-                normal: Vec2::new(0.342, 0.94),
+                line: Vec2::new(-86.72, -271.13),
+                normal: Vec2::new(0.259, 0.966),
                 back: 210.0,
                 deep: 60.0,
                 out: 140.0,
@@ -1242,7 +1242,7 @@ pub mod blows {
                 strike_half: fist,
             },
             Blow::Upper => upper,
-            Blow::LeftUpper => Limb { line: Vec2::new(-96.58, -324.78), slot: FIST_LEFT, ..upper },
+            Blow::LeftUpper => Limb { line: Vec2::new(-91.18, -324.78), slot: FIST_LEFT, ..upper },
             Blow::Kick => Limb {
                 line: Vec2::new(315.25, 116.35),
                 normal: Vec2::new(-1.0, 0.0),
@@ -1509,6 +1509,52 @@ pub mod blows {
             at.x = giant.x + to * clear;
         }
         (at, way)
+    }
+
+    /// How far apart the two lines of a pair are kept, at their nearest. The
+    /// portal domain fizzles a pair whose ends overlap
+    /// (`PlacedPortal::opening_overlaps`): its own lines never come so near.
+    pub const LINES_APART: f32 = 24.0;
+
+    /// The far line at `far` (normal `way`) moved along itself, the least it
+    /// takes, until it is [`LINES_APART`] from the near line at `near`
+    /// (normal `near_normal`); both are `half` long each way. A far line
+    /// clear of the near line is where it was.
+    pub fn off_the_near_line(far: Vec2, way: Vec2, near: Vec2, near_normal: Vec2, half: f32) -> Vec2 {
+        let ends = |at: Vec2, normal: Vec2| {
+            let along = Vec2::new(-normal.y, normal.x).normalize_or_zero() * half;
+            (at - along, at + along)
+        };
+        let (c, d) = ends(near, near_normal);
+        let apart = |at: Vec2| {
+            let (a, b) = ends(at, way);
+            segment_distance(a, b, c, d) >= LINES_APART
+        };
+        if apart(far) {
+            return far;
+        }
+        let along = Vec2::new(-way.y, way.x).normalize_or_zero();
+        // The nearer of the two ways along the line that clears it.
+        (1..=64)
+            .map(|k| k as f32 * 8.0)
+            .flat_map(|step| [far + along * step, far - along * step])
+            .find(|at| apart(*at))
+            .unwrap_or(far)
+    }
+
+    /// The least distance between the segments `a..b` and `c..d` (0 when they
+    /// cross).
+    fn segment_distance(a: Vec2, b: Vec2, c: Vec2, d: Vec2) -> f32 {
+        let cross = |o: Vec2, p: Vec2, q: Vec2| (p - o).perp_dot(q - o);
+        if cross(a, b, c) * cross(a, b, d) < 0.0 && cross(c, d, a) * cross(c, d, b) < 0.0 {
+            return 0.0;
+        }
+        let to_segment = |p: Vec2, s0: Vec2, s1: Vec2| {
+            let span = s1 - s0;
+            let t = if span.length_squared() > 0.0 { ((p - s0).dot(span) / span.length_squared()).clamp(0.0, 1.0) } else { 0.0 };
+            p.distance(s0 + span * t)
+        };
+        to_segment(a, c, d).min(to_segment(b, c, d)).min(to_segment(c, a, b)).min(to_segment(d, a, b))
     }
 
     /// How open the pair is (0 to 1 of its length; 0: there is no pair). It
@@ -2500,6 +2546,38 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// The far line of a blow is never on its near line (the portal domain
+    /// would fizzle the pair): for each blow, on each side of a giant turned
+    /// either way, with the player anywhere over the hall, the far line kept
+    /// off the near line is apart from it, and one that was apart is where it
+    /// was.
+    #[test]
+    fn a_blows_far_line_is_kept_off_its_near_line() {
+        let s = stage();
+        let (giant, size) = GIANT;
+        let mut moved = 0;
+        for (exit, arm) in blows::Exit::ALL.into_iter().flat_map(|e| [(e, blows::Arm::Left), (e, blows::Arm::Right)]) {
+            let blow = exit.blow(arm);
+            let limb = blows::limb(blow);
+            for turn in [1.0f32, -1.0] {
+                let near = giant + Vec2::new(limb.line.x * turn, limb.line.y);
+                let near_normal = Vec2::new(limb.normal.x * turn, limb.normal.y);
+                for x in (0..=24).map(|k| s.hall.left + (s.hall.right - s.hall.left) * k as f32 / 24.0) {
+                    for y in [s.hall.floor - 40.0, giant.y - size.y * 0.5 - 60.0, near.y, near.y - 120.0] {
+                        let target = Vec2::new(x, y);
+                        let side = blows::side(&s, giant, size, blow, exit, target);
+                        let (at, way) = blows::far_end(&s, giant, size, blow, exit, side, target);
+                        let kept = blows::off_the_near_line(at, way, near, near_normal, limb.half);
+                        assert_eq!(blows::off_the_near_line(kept, way, near, near_normal, limb.half), kept,
+                                   "{blow:?} {exit:?} turned {turn} at {target}: the far line {kept} is on the near line {near}");
+                        moved += usize::from(kept != at);
+                    }
+                }
+            }
+        }
+        assert!(moved > 0, "no far line was ever on its near line: the check is not reached");
     }
 
     /// Each exit of an arm is a blow of that arm, and the arm of a blow is the

@@ -122,6 +122,7 @@ fn tick_peaceful(
         ground_ends_ahead: false,
         attack_kit: Vec::new(),
         melee_reach: None,
+        running: false,
         actor_aerial: seed.surface.gravity_scale <= 0.001,
         alive: true,
         target_pos: target,

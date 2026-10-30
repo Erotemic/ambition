@@ -1,0 +1,40 @@
+title: primeval_context
+---
+// The primeval trail's people (the jungle dimension): the ranger at the
+// trailhead by the gate, the paleontologist at the tar pits past the end of
+// the trail. One node per resident, named `primeval_<resident>`.
+//
+// Everyday talk only (Jon, 2026-10-29: "we are world building not quest
+// building"): no flags, no errands.
+//
+// Never played. No placement names this node; it declares the zone.
+===
+
+title: primeval_brandvold
+---
+Ranger Brandvold: Welcome to the primeval trail. Stay on the path, carry water, and do not make eye contact with the chickens.
+-> The chickens?
+    Ranger Brandvold: Everybody worries about the raptors. The raptors are honest. The chickens know what they used to be.
+-> What's at the end of the trail?
+    Ranger Brandvold: The canopy, then the tar pits, then a paleontologist who will not leave. Past him, nobody has filled in a form.
+    Ranger Brandvold: There is also a temple with a king in it. I do not patrol the temple. The temple patrols me.
+-> Is the trail safe?
+    Ranger Brandvold: It is marked. That is not the same thing, and the sign says so in small print.
+-> Thanks, ranger.
+    Ranger Brandvold: Sign back in when you return. If you return, I mean. Most do. The form is optimistic.
+===
+
+title: primeval_feld
+---
+Dr Feld: Don't step there. Or there. Fine, step there, but gently. That is a layer.
+-> What are you digging for?
+    Dr Feld: Fossils. The tar keeps everything: mammoths, sabre-tooths, a lunchbox I think was mine.
+    Dr Feld: The difficulty is that most of my specimens are still alive and running past the tent.
+-> Isn't it dangerous?
+    Dr Feld: For the fieldwork, yes. For the field, more so. A triceratops sat on my survey grid on Tuesday.
+    Dr Feld: I have recorded it as a sedimentary event.
+-> What's the mammoth doing here?
+    Dr Feld: Sinking, very slowly, for about thirty thousand years. People walk along its back. I have stopped asking them not to.
+-> Good luck with the dig.
+    Dr Feld: Luck is for gamblers. I have a brush and a great deal of time.
+===

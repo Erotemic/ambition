@@ -6210,5 +6210,40 @@
                 hall: ["We are not against evil. We are against evil without a pension.", "Every hero who comes through here gets a free hit on one of my members. We are negotiating that."],
             ),
         ),
+        // ===== The primeval trail's people (the jungle dimension), made by chargen.
+        "npc_primeval_brandvold": (
+            display_name: "Ranger Brandvold",
+            // Keeps the trailhead by the gate, and the trail's rules.
+            manifest: "sprites/primeval_brandvold_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 174 cm.
+            standing_height: Some(67.4),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "primeval", "peaceful"],
+            barks: (
+                idle: ["Stay on the trail. The trail does not stay on you.", "Do not feed the compys. They are feeding themselves."],
+                hall: ["I have a rule book. The dinosaurs have teeth. We compromise.", "Fourteen years on this trail. I have lost two hats and no visitors. Yet."],
+            ),
+        ),
+        "npc_primeval_feld": (
+            display_name: "Dr Feld",
+            // Paleontologist, digging at the tar pits.
+            manifest: "sprites/primeval_feld_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "primeval", "peaceful"],
+            barks: (
+                idle: ["Careful. That femur is older than your language.", "Another fossil. Of something that just ran past the tent."],
+                hall: ["My field is extinct animals. My field keeps trying to eat me.", "I date the bones by the layer. The triceratops dates itself, loudly."],
+            ),
+        ),
     },
 )

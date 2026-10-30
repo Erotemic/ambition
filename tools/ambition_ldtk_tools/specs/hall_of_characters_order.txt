@@ -153,6 +153,10 @@ npc_tower_ruiz
 npc_castle_hargreave
 npc_castle_osgood
 npc_castle_dunmore
+
+[The primeval trail's people]
+npc_primeval_brandvold
+npc_primeval_feld
 npc_tower_brandt
 
 [Guests from history and the studio]

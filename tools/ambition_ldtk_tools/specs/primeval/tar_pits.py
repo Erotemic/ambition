@@ -16,7 +16,8 @@ wall opened.
 - Two pools of tar (murky water, its picture in the art) to wade, slowly.
 - A mammoth half sunk in the first, its spine walked on (y 480).
 - The paleontologists' dig camp at the east end, its scaffold (y 480, 384).
-- Raptors, a triceratops, a dilophosaurus, compys, a vulture waiting.
+- Raptors, a triceratops, a dilophosaurus, compys, a vulture waiting; Dr
+  Feld the paleontologist, who will not leave.
 
 The art is the sprite tools' `targets/props/primeval_tar_props.py`, drawn on
 these numbers.
@@ -29,7 +30,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
-from district_kit import WALL, WORLDS, add_entities, edge, entity, make_rooms, paint, room, run, sign, solid, start  # noqa: E402
+from district_kit import WALL, WORLDS, add_entities, edge, entity, make_rooms, paint, resident, room, run, sign, solid, start  # noqa: E402
 from district_scenery import piece  # noqa: E402
 
 WORLD = WORLDS / "dinosaur.ldtk"
@@ -75,12 +76,16 @@ def pits():
         sign("tar_sign", 300, FLOOR - 200, "THE TAR PITS: everything here was once in a hurry", 480),
         sign("tar_sign_wet", 1500, FLOOR - 150, "WET TAR (since the Pleistocene)", 340),
         sign("dig_sign", 2120, 300, "DIG SITE: please do not fossilize", 380),
+        # Dr Feld, at his sieve (`dialogue/sandbox/primeval.yarn`).
+        resident("npc_primeval_feld", "primeval_feld", 2190, FLOOR),
         enemy(1, "npc_raptor_stalker", 1000, FLOOR, 48, 80),
         enemy(2, "npc_raptor_stalker", 1180, FLOOR, 48, 80),
-        enemy(3, "triceratops", 1760, FLOOR, 96, 92),
-        enemy(4, "dilophosaurus", 2240, FLOOR, 44, 74),
-        enemy(5, "compsognathus", 1900, FLOOR, 24, 26),
-        enemy(6, "compsognathus", 2300, FLOOR, 24, 26),
+        # The dig camp (x 1730..) is the one quiet place: the animals keep
+        # to the west of it, the triceratops on the camp's doorstep.
+        enemy(3, "triceratops", 1720, FLOOR, 96, 92),
+        enemy(4, "dilophosaurus", 340, FLOOR, 44, 74),
+        enemy(5, "compsognathus", 960, FLOOR, 24, 26),
+        enemy(6, "compsognathus", 1240, FLOOR, 24, 26),
         enemy(7, "vulture", 700, 420, 44, 66),
     ]
     at = (CANOPY_AT[0] + CANOPY_EAST + WALL, CANOPY_AT[1] + CANOPY_FLOOR - FLOOR)

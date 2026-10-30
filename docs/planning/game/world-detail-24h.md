@@ -43,6 +43,23 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **A faithful flat map** (a738acdc9, f2eed08cb). Jon: side loading zones
+  connect the world (horizontal and vertical); doors only enter buildings;
+  rooms placed as "a mostly faithful flat map". `specs/check_flat_map.py`
+  reports edge exits whose rooms do not meet, and overlaps. Eureka, the Math
+  town and PvN's port and village moved so neighbours touch with roads level
+  (science 5 -> 0, math 1 -> 0, pvn 9 -> 2). Left: the village's high road
+  arrives 64 px off on the forest's branch (art on both heights); the
+  Mockingbird arena's ceiling exit leads to a side.
+- **Math: Hylbert's Hotel** (aa3f6171a): its door in the street's passage, the
+  lobby (Hylbert at the desk, the key rack that never ends, the lift whose
+  dial ends in infinity), and the corridor whose east end comes back in at
+  its west end: there is always one more room. Verified: hylberts_hotel.
+- **Jungle: the Tyrant King's hall** (acff766c0): a sunken temple, carved
+  tyrant heads, his throne with a too-small crown. Added by
+  `specs/scenery_overlay.py`: the primeval generator is older than its level
+  (regenerating it drops a gate terminal, water and tuned enemies).
+
 - **Math: Zeno's Aqueduct** (3ee5622bf), the first zone out of town: the
   aqueduct's deck leaves Euclid Street west over a valley to the reservoir;
   piers close up by halves, signs count 1/2, 3/4, 7/8 of the way; The Limit

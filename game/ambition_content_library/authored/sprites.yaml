@@ -467,6 +467,10 @@ collections:
   - math_hall_west
   - math_hall_east
   - math_hall_lamps
+  - tar_pits_pools
+  - tar_pits_mammoth
+  - tar_pits_dig_camp
+  - tar_pits_bones
   - shadow_dojo_hall
   - jungle_fern_clump
   - jungle_fallen_log

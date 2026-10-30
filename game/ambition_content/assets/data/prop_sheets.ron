@@ -251,6 +251,11 @@
     "math_hall_west": (),
     "math_hall_east": (),
     "math_hall_lamps": (),
+    // The Tar Pits (jungle, past the primeval trail).
+    "tar_pits_pools": (),
+    "tar_pits_mammoth": (),
+    "tar_pits_dig_camp": (),
+    "tar_pits_bones": (),
     // The hall of the Shadow Clan (PvN).
     "shadow_dojo_hall": (),
     // Along the primeval trail.

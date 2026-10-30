@@ -213,6 +213,8 @@ frames; without P1–P3 that is 19 frames of a white blink. Ship them together.
 | R6 buffer 10 f, tap jump, short-hop button | ✔ `action_buffer_s`; `ControlSettings::tap_jump` (off by default, no menu toggle yet); the `ShortHop` action already existed and is bound in the presets | e523311c7, this commit |
 | P4 posing keys, P5 slash arcs | ✔ for the three polygons (Jon: the polygons are the Smash test players, not the robot): 12-frame rows with anticipation / smear / contact-overshoot / settle posed to each fighter's Smash windows, a shaking, glinting `smash_charge`, travelling arcs in the `*_strike_fx` rows (renderer c752183, generation 55069d31; review sheets `untracked/art-review/polygon-keys/`). Open: the beast's coil is subtle; the other fighters' rows are still one picture per phase | 96552c2c6 |
 | P7 fighter camera | ✔ `MatchRules::cast_framing` (Smash: close to 45% of the stage view, 40 px margin; the engine keeps 75% / 48) | cad1bfd1b |
+| P7 camera box, eased margins, floor room | ✔ `cast_framing.{open_hz,close_hz,floor_margin,bounds}` (Smash 4/4 Hz, 40 px, side 280 / rise 170 / fall 100); measured by `match-report --camera`, see § Camera diagnosis | e121708cf |
+| P7 finishing blow | ✔ `zoom_camera_on_a_finishing_blow` + `launch_leaves_the_world` (last stock, predicted KO → finish zoom + 0.5 s freeze) | 9eaf73d32 |
 | P6 squash/stretch | ✔ `BodyPoseView::squash`: lands wide and low, relaxing over the landing beat (deeper when hard); the jump squat presses | this commit |
 | Tap-jump menu toggle | ✔ Controls page, "Tap Jump" | this commit |
 | R6 authored walk speed, angled air-dodge lag | ✔ `walk_speed` (Smash 208 px/s), `air_dodge_up` → 0.73×–1.27× landing lag; schema 388 | 38e725306 |

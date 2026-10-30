@@ -2808,6 +2808,7 @@ fn apply_capture_snapshot(
                 extra_clamp_center_world: None,
                 chart_transit: None,
                 must_frame_world: None,
+                view_box: None,
                 ease_tuning: *ease_tuning,
                 screen_framing: None,
                 reference_frame: Default::default(),

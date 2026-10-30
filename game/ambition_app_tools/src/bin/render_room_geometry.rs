@@ -373,6 +373,7 @@ fn resolve_headless_snapshot(
             chart_transit: None,
             // A headless ROOM portrait frames a point, never a cast.
             must_frame_world: None,
+            view_box: None,
             ease_tuning: Default::default(),
             screen_framing: None,
             reference_frame: Default::default(),

@@ -573,6 +573,28 @@ of riding the ease — tick-deterministic and a real beat. Alternatives: the
 match declares no global freeze (per-body hitlag carries it), or the
 fixed-dt sim step above. Jon's call; none applied.
 
+Traced one step further (CPU lane, 44f1c5047): `time_scale` was 1.000 and
+`sim_dt` 0.016666668 on every sampled tick of six processes — neither the
+release ramp nor the per-hit dip is the divergence (the dip IS still a feel
+and rollback hazard, above). The host runs NO sim tick on one frame in
+fifteen (56 ticks per 60 frames under bevy_ggrs pacing), the phase of that
+cadence against the match is the transition's frame count, and a
+bifurcated pair first differs by 0.245 px in a recovering body's height at
+the uppercut's 0.2 s gravity-modifier event — so some PER-FRAME system
+writes state a sim tick then reads. Ruled out as per-tick (CODE-READ): the
+CPU brain (`tick_actor_brains`, sim schedule) and the gravity frame
+resolver (`resolve_body_motion_frames`, sim schedule). Next: a census of
+Update-schedule systems that write sim components, then the same
+8-process class test.
+
+CPU pokes (44f1c5047, MEASURED `--runs 3` per live minute): attack whiffs
+pair r5 80→67%, pair r9 64→57%, mirror r5 →78%, mirror r9 →77%; goal
+(<50%) not reached. ⚠ mirror r5 damage fell to 0 in two of three runs —
+the refused uppercut was that cell's only landing offence; the rule is in,
+the regression is noted for the next pass (a lift admitted as an attack
+when the foe is inside its region at the opening is the intended shape;
+the mirror's foe is rarely there).
+
 ### Not in this roadmap
 
 Stages, items, modes, CPU ladder, presentation polish, and every `S0.*` packet

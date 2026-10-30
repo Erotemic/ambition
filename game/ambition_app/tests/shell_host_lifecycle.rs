@@ -3256,9 +3256,11 @@ fn each_experience_begins_with_its_own_bag() {
     type OwnedItems = ambition_platformer2d::item::OwnedItems;
     type Item = ambition_platformer2d::item::Item;
 
-    /// The items of Ambition's starter set: three health cells, two mana
-    /// cells, a battery, five bombs and the five abilities with a row.
-    const STARTER: u32 = 16;
+    /// The items of Ambition's starter set: every real item (Jon,
+    /// 2026-10-30). Three health cells, two mana cells, a battery, five bombs,
+    /// the five abilities with a row, the seven other held items and the
+    /// three key items.
+    const STARTER: u32 = 26;
 
     fn items_in_the_bag(app: &App) -> u32 {
         let owned = app.world().resource::<OwnedItems>();

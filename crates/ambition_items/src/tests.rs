@@ -285,17 +285,46 @@ fn one_variant_of_a_slot_is_in_effect() {
     assert!(back.contains(Item::Axe), "the hand is equipped too");
 }
 
-/// The demo unlocks every ability that has a row, and no placeholder.
+/// The demo unlocks every real item (held items, key items, consumables, and
+/// every ability that has a row), and no placeholder.
 #[test]
-fn the_starter_bag_unlocks_every_real_ability() {
+fn the_starter_bag_unlocks_every_real_item() {
     let catalog = shipped();
     let owned = OwnedItems::starter(catalog);
     for item in Item::ALL {
-        if catalog.category(item) != Some(ItemCategory::Ability) {
-            continue;
+        assert_eq!(owned.has(item), catalog.is_real(item), "{item:?}");
+        if catalog.category(item) == Some(ItemCategory::Ability) {
+            assert_eq!(catalog.is_real(item), catalog.wears(item).is_some(), "{item:?}");
         }
-        assert_eq!(owned.has(item), catalog.wears(item).is_some(), "{item:?}");
-        assert_eq!(catalog.equips(item), catalog.wears(item).is_some(), "{item:?}");
     }
-    assert!(owned.has(Item::EyeLaser) && !owned.has(Item::AxeStance));
+    for item in [Item::EyeLaser, Item::PortalGun, Item::Axe, Item::Javelin, Item::Grapple, Item::MapFragment] {
+        assert!(owned.has(item), "{item:?} is unlocked");
+    }
+    for placeholder in [Item::Lightning, Item::AxeStance, Item::WhipStance, Item::DashTwo, Item::ContextualBlink] {
+        assert!(!owned.has(placeholder), "{placeholder:?} is a placeholder");
+    }
+}
+
+/// A save that lacks an unlock (made before the item was added, or while it
+/// was in the hand) does not lock it for good: the load gives each unique
+/// ability and held item of the starting bag back. A key item and a stack
+/// stay as the save says, and an item whose object the save holds is not
+/// given a second time.
+#[test]
+fn a_load_keeps_the_unlocks_of_the_starting_bag() {
+    let catalog = shipped();
+    let starting = OwnedItems::starter(catalog);
+    let mut loaded = OwnedItems::default();
+    loaded.grant(catalog, Item::HealthCell, 1);
+    let javelin = catalog.held_item_id(Item::Javelin).expect("the javelin is a held item");
+    loaded.keep_unlocks(catalog, &starting, |held| held == javelin);
+
+    for item in [Item::EyeLaser, Item::Fireball, Item::Axe, Item::PortalGun, Item::Grapple] {
+        assert!(loaded.has(item), "{item:?} is unlocked again");
+    }
+    assert!(!loaded.has(Item::Javelin), "the save holds the javelin's object: no second one");
+    assert!(!loaded.has(Item::MapFragment), "a key item stays as the save says");
+    assert_eq!(loaded.count(Item::Bomb), 0, "a stack stays as the save says");
+    assert_eq!(loaded.count(Item::HealthCell), 1, "a stack stays as the save says");
+    assert!(!loaded.has(Item::AxeStance), "a placeholder is not in the starting bag");
 }

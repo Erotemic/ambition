@@ -78,6 +78,10 @@ pub fn restore_inventory_from_save(
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
     items: ambition_items::ItemCatalogRead,
+    // The bag the session began with: its unlocks survive a save that lacks
+    // them (`OwnedItems::keep_unlocks`). Absent in a composition that records
+    // none.
+    starting: Option<Res<crate::starting_bag::StartingBag>>,
 ) {
     if restored.0 {
         return;
@@ -89,6 +93,10 @@ pub fn restore_inventory_from_save(
     if data.inventory_saved() {
         owned.apply_persisted(items.get(), data.items());
         wallet.balance = data.wallet();
+        if let Some(starting) = starting.as_deref() {
+            let carried = |held: &str| data.minted_items().iter().any(|row| row.held_item == held);
+            owned.keep_unlocks(items.get(), starting.bag(), carried);
+        }
     }
     // Domain-owned durable adoption.
     crate::pickup::minted_horizon::adopt_checkpoint_baselines_from_save(

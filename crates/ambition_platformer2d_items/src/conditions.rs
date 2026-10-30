@@ -109,7 +109,11 @@ mod tests {
     fn the_inventory_domain_reads_the_live_bag_through_loose_spelling() {
         let mut app = App::new();
         app.insert_resource(ambition_items::test_item_catalog().clone());
-        app.insert_resource(OwnedItems::starter(ambition_items::test_item_catalog()));
+        // The demo's starting bag holds every real item; this bag lacks the
+        // gun-sword, so a kind the bag does not hold can be asked about.
+        let mut bag = OwnedItems::starter(ambition_items::test_item_catalog());
+        bag.take(ambition_items::Item::GunSword, u32::MAX);
+        app.insert_resource(bag);
         let world = app.world();
 
         // The starter bag carries health cells, however the author spells them.

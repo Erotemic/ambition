@@ -24,7 +24,12 @@ demo, every ability is unlocked.
 - A variant that replaces a slot puts a technique on it
   (`EquipmentGrant::Technique`). A module binds the technique through the
   `ambition.body.technique` trigger (`TechniqueUsePort`).
-- The demo bag (`OwnedItems::starter`) grants every ability that has a row.
+- The demo bag (`OwnedItems::starter`) grants every real item
+  (`ItemCatalog::is_real`: not a placeholder). A load keeps the unique
+  equipment of the session's starting bag that the save lacks
+  (`OwnedItems::keep_unlocks`), so an old save does not lock it again.
+- A locked cell still carries the cursor: it has an action that
+  `effects::decide` answers `NotOwned`, and it says `???` with no picture.
 
 ## The grid (`game/ambition_content/assets/data/items.ron`)
 

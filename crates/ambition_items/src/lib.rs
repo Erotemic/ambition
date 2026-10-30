@@ -220,6 +220,17 @@ impl ItemCatalog {
         self.stack(item).is_some_and(|stack| stack > 1)
     }
 
+    /// Is this slot a real item, one a player can have? False for a slot the
+    /// catalog does not name, a `Reserved` slot, and a placeholder ability (an
+    /// ability with no row to wear: nothing is built behind it yet).
+    pub fn is_real(&self, item: Item) -> bool {
+        match self.category(item) {
+            None | Some(ItemCategory::Reserved) => false,
+            Some(ItemCategory::Ability) => self.wears(item).is_some(),
+            Some(_) => true,
+        }
+    }
+
     /// Does confirming this item EQUIP it, to the hand or into an action slot?
     /// An ability with no row is a placeholder and equips nothing.
     pub fn equips(&self, item: Item) -> bool {
@@ -564,19 +575,23 @@ impl OwnedItems {
         removed
     }
 
-    /// The demo's starting bag: a few consumables, a stock of bombs and EVERY
-    /// ability that has a row to wear. The demo unlocks all real abilities; a
-    /// placeholder ability (no row) stays locked.
+    /// The demo's starting bag: EVERY real item is unlocked (Jon, 2026-10-30:
+    /// "I need to have everything unlocked by default"). A stack starts with
+    /// a few (health and mana cells, a stock of bombs); each other item with
+    /// one. Only a placeholder (`ItemCatalog::is_real` is false) stays locked.
     pub fn starter(catalog: &ItemCatalog) -> Self {
         let mut owned = Self::default();
-        owned.grant(catalog, Item::HealthCell, 3);
-        owned.grant(catalog, Item::ManaCell, 2);
-        owned.grant(catalog, Item::SpareBattery, 1);
-        owned.grant(catalog, Item::Bomb, STARTER_BOMBS);
         for item in Item::ALL {
-            if catalog.category(item) == Some(ItemCategory::Ability) && catalog.wears(item).is_some() {
-                owned.grant(catalog, item, 1);
+            if !catalog.is_real(item) {
+                continue;
             }
+            let n = match item {
+                Item::HealthCell => 3,
+                Item::ManaCell => 2,
+                Item::Bomb => STARTER_BOMBS,
+                _ => 1,
+            };
+            owned.grant(catalog, item, n);
         }
         owned
     }
@@ -607,6 +622,29 @@ impl OwnedItems {
                 (c > 0).then(|| ambition_persistence::save_data::PersistedItem::new(id, c))
             })
             .collect()
+    }
+
+    /// Give back each unlock of `starting` that this bag (just loaded from a
+    /// save) does not hold: a unique ability or held item, unless `carried`
+    /// says that its object is held in the save (a held item's object, keyed
+    /// by its held-item id).
+    ///
+    /// The demo unlocks every real item (Jon, 2026-10-30), but a save made
+    /// before an item was added, or while an item was in the hand (the hand is
+    /// not saved), replaces the bag without it, and the item stays locked for
+    /// good. An unlock is equipment: a key item and a stack are left as the
+    /// save says, because a quest or a throw can spend them.
+    pub fn keep_unlocks(&mut self, catalog: &ItemCatalog, starting: &OwnedItems, carried: impl Fn(&str) -> bool) {
+        for item in Item::ALL {
+            let equipment = matches!(catalog.category(item), Some(ItemCategory::Ability | ItemCategory::Held));
+            if !equipment || catalog.stacks(item) || !starting.has(item) || self.has(item) {
+                continue;
+            }
+            if catalog.held_item_id(item).is_some_and(&carried) {
+                continue;
+            }
+            self.grant(catalog, item, 1);
+        }
     }
 
     /// Replace the owned counts from a persisted save (clears first, then grants

@@ -33,6 +33,50 @@ fn app_with(save: AmbitionGameSave, owned: OwnedItems, wallet: i32) -> (App, Ent
     (app, player)
 }
 
+/// A save made before the demo unlocked an item (or while the item was in the
+/// hand, which is not saved) replaces the bag without it. The load gives the
+/// unlocks of the session's starting bag back, and the checkpoint is that bag:
+/// a death after the load keeps them too. Control: with no starting bag, the
+/// save's bag is all there is.
+#[test]
+fn a_loaded_save_keeps_the_unlocks_of_the_starting_bag() {
+    let catalog = ambition_items::test_item_catalog();
+    let old_save = || {
+        let mut save = AmbitionGameSave::default();
+        save.data_mut().set_inventory(
+            vec![ambition_persistence::save_data::PersistedItem::new(catalog.dialog_id(Item::HealthCell).unwrap(), 2)],
+            10,
+        );
+        save
+    };
+
+    let (mut control, _) = app_with(old_save(), OwnedItems::starter(catalog), 10);
+    control.update();
+    assert!(
+        !control.world().resource::<OwnedItems>().has(Item::EyeLaser),
+        "control: with no starting bag the save's bag is all there is"
+    );
+
+    let (mut app, _) = app_with(old_save(), OwnedItems::starter(catalog), 10);
+    app.insert_resource(crate::starting_bag::StartingBag::of(OwnedItems::starter(catalog)));
+    app.update();
+    let owned = app.world().resource::<OwnedItems>();
+    for item in [Item::EyeLaser, Item::Axe, Item::PortalGun, Item::Grapple] {
+        assert!(owned.has(item), "{item:?} stays unlocked after the load");
+    }
+    assert_eq!(owned.count(Item::HealthCell), 2, "a stack is as the save says");
+    assert_eq!(owned.count(Item::Bomb), 0, "a stack is as the save says");
+    assert!(
+        ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+            crate::pickup::minted_horizon::OwnedItemsBaseline,
+        >(app.world())
+        .unwrap()
+        .remembered()
+        .has(Item::EyeLaser),
+        "the checkpoint holds the unlocks, so a death keeps them"
+    );
+}
+
 #[test]
 fn a_loaded_save_restores_items_and_wallet_over_the_starter() {
     let mut save = AmbitionGameSave::default();
@@ -172,7 +216,14 @@ fn a_new_game_does_not_write_the_old_runs_inventory_back_into_the_fresh_save() {
         )],
         137,
     );
-    let mut owned = OwnedItems::starter(ambition_items::test_item_catalog());
+    // The demo's starting bag unlocks the axe, so this run starts with a bag
+    // without it: the axe is what the OLD run acquired.
+    let starter = || {
+        let mut bag = OwnedItems::starter(ambition_items::test_item_catalog());
+        bag.take(Item::Axe, u32::MAX);
+        bag
+    };
+    let mut owned = starter();
     owned.grant(ambition_items::test_item_catalog(), Item::Axe, 1);
     let (mut app, player) = app_with(save, owned, 137);
     app.update();
@@ -193,11 +244,11 @@ fn a_new_game_does_not_write_the_old_runs_inventory_back_into_the_fresh_save() {
     // The commit's own work: the file is wiped, then the domain reducers run
     // with the pinned fresh inputs installed.
     *app.world_mut().resource_mut::<AmbitionGameSave>() = AmbitionGameSave::default();
-    let mut starter = OwnedItemsBaseline::default();
-    starter.adopt(OwnedItems::starter(ambition_items::test_item_catalog()));
+    let mut fresh = OwnedItemsBaseline::default();
+    fresh.adopt(starter());
     app.world_mut().insert_resource(ItemCheckpointRestoreInputs {
         minted: Default::default(),
-        owned: starter,
+        owned: fresh,
         grants: Default::default(),
         spends: Default::default(),
     });
@@ -252,7 +303,7 @@ fn a_new_game_does_not_write_the_old_runs_inventory_back_into_the_fresh_save() {
     // restored nothing to the bag.
     assert_eq!(
         ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<OwnedItemsBaseline>(app.world()).unwrap().remembered(),
-        &OwnedItems::starter(ambition_items::test_item_catalog()),
+        &starter(),
         "a death after this New Game would restore the wrong bag"
     );
 }

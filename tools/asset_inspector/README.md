@@ -24,8 +24,16 @@ pack, so another engine game is inspected the same way (`--profile`,
 
 - **Overview** joins the library's producer families (`scripts/content_status.py`)
   with a count of each kind and a list of what needs attention.
-- **Characters**, **Images** and **Inventory** read the sprite publication and
-  the game catalog, as described below.
+- **Characters** and **Inventory** read the sprite publication and the game
+  catalog, as described below.
+- Every image asset has one top-level category, each with its own tab: Props,
+  Held items, Effects, Backgrounds, Terrain & tiles, Entities & pickups,
+  Icons & UI and Reference art (`asset_index/categories.py`). The renderer
+  target's category decides unless a more specific family does (a strike effect
+  is a `props` target), then the file's folder. What no rule places is **Other**,
+  counted on the overview so a gap is visible. Reduced-tier copies count with
+  their originals. A background layer is used where a room's parallax theme
+  names it. **All images** lists everything.
 - **Music** reads the music registry, the music tool's active scores, its newest
   renders and its review files. A song's page shows its score's description and
   notes, key, tempo, meter and sections, and each instrument with the sound that
@@ -37,7 +45,9 @@ pack, so another engine game is inspected the same way (`--profile`,
   each clip, extracted from the bank.
 - **Fonts** reads the font policy and the downloaded files, and draws a sample.
 - **Worlds** reads the pack's LDtk worlds: each room's music, parallax theme and
-  biome. A room's music links to its track.
+  biome. A room's music links to its track. A world page draws a map of its
+  rooms at their world positions and a preview of each room (collision, water
+  and climbable cells and entities), with the LDtk tool's room renderer.
 - **Uses** come from quoted ids and asset paths in game and engine text, and
   from world rooms.
 

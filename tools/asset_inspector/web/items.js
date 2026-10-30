@@ -96,8 +96,11 @@
       cards.push({title: "Characters", href: "#characters", n: ids.length,
         line: I.profile.state === "available" ? `${Object.values(I.units).filter(u => u.status?.state === "missing").length} art bundles missing, ${Object.values(I.units).filter(u => ["partial", "stale"].includes(u.status?.state)).length} stale, ${Object.values(I.units).filter(u => u.status?.state === "possibly-stale").length} possibly stale` : "catalog unavailable"});
     }
-    const images = Object.values(C.assets || {});
-    cards.push({title: "Images", href: "#gallery", n: images.length, line: `${images.filter(a => a.findings).length} with findings`});
+    for (const [key, c] of Object.entries(C.categories || {}).sort((a, b) => a[1].order - b[1].order)) {
+      if (key === "characters" || !(c.assets || 0)) continue;
+      cards.push({title: c.label, href: "#cat/" + key, n: c.assets, line: key === "other" ? "no rule classified these: worth a look"
+        : `${c.used || 0} used by the game${c.tier_copies ? ` · ${c.tier_copies} tier copies` : ""}`});
+    }
     for (const [kind, title] of Object.entries(KINDS)) {
       const k = C.kinds?.[kind];
       if (!k) continue;
@@ -161,9 +164,17 @@
 
   function details(item) {
     if (item.kind === "world") {
-      const rooms = item.details.rooms || [];
-      return `<h2>Rooms (${rooms.length})</h2><table class="tbl"><thead><tr><th>Room</th><th>Size</th><th>Music</th><th>Fight music</th><th>Parallax</th><th>Biome</th></tr></thead><tbody>
-        ${rooms.map(r => `<tr><td>${esc(r.id)}</td><td>${esc((r.size || []).join("×"))}</td><td>${r.music_track ? itemLink("music:" + r.music_track, r.music_track) : ""}</td>
+      const rooms = item.details.rooms || [], pv = item.preview;
+      const anchor = id => "room-" + String(id).replace(/[^A-Za-z0-9_-]/g, "_");
+      // Boxes over the map image link each room to its row, placed as fractions of the map.
+      const map = pv ? (() => { const [x0, y0, w, h] = pv.bounds; return `<div class="world-map">
+        <a href="${esc(pv.world)}" title="Open the full-size map"><img src="${esc(pv.world)}" alt="Map of ${esc(item.display)}"></a>
+        ${rooms.map(r => `<a class="room-box" title="${esc(r.id)}" href="#item/${encodeURIComponent(item.id)}" data-room="${esc(anchor(r.id))}"
+          style="left:${(r.at[0] - x0) / w * 100}%;top:${(r.at[1] - y0) / h * 100}%;width:${r.size[0] / w * 100}%;height:${r.size[1] / h * 100}%"></a>`).join("")}</div>
+        <p class="n">Collision, water and climbable cells and entities, drawn by the LDtk tool. Click a room to see it below; a dashed room is on another depth.</p>`; })() : "";
+      return `<h2>Map</h2>${map || '<p class="empty">No preview.</p>'}
+        <h2>Rooms (${rooms.length})</h2><table class="tbl"><thead><tr><th>Preview</th><th>Room</th><th>Size</th><th>Music</th><th>Fight music</th><th>Parallax</th><th>Biome</th></tr></thead><tbody>
+        ${rooms.map(r => `<tr id="${esc(anchor(r.id))}"><td>${pv?.rooms?.[r.id] ? `<a href="${esc(pv.rooms[r.id])}" title="Open ${esc(r.id)} full size"><img class="room-thumb" loading="lazy" src="${esc(pv.rooms[r.id])}" alt=""></a>` : ""}</td><td>${esc(r.id)}</td><td>${esc((r.size || []).join("×"))}</td><td>${r.music_track ? itemLink("music:" + r.music_track, r.music_track) : ""}</td>
           <td>${r.fight_music_track ? itemLink("music:" + r.fight_music_track, r.fight_music_track) : ""}</td><td>${esc(r.parallax_theme || "")}</td><td>${esc(r.biome || "")}</td></tr>`).join("")}</tbody></table>`;
     }
     const rows = Object.entries(item.details).filter(([, v]) => v !== null && v !== "" && !(Array.isArray(v) && !v.length));
@@ -251,17 +262,23 @@
       ${item.fix ? `<p>Make it: <code>${esc(item.fix)}</code></p>` : ""}
       ${media(item)}
       ${scoreBox(item)}
+      ${item.kind === "world" ? `<section class="box">${details(item)}</section>` : ""}
       <div class="cols">
         <section class="box"><h2>Source</h2>${item.sources.length ? item.sources.map(p => `<p>${source(p)}</p>`).join("") : '<p class="empty">No source is known.</p>'}</section>
         <section class="box"><h2>Files</h2>${item.files.length ? item.files.map(f => `<p><a href="${esc(f.href)}"><code>${esc(f.path)}</code></a> <small>${esc(Math.round(f.bytes / 1024))} KiB</small></p>`).join("") : '<p class="empty">Not generated.</p>'}</section>
       </div>
       <section class="box"><h2>Used by (${item.uses.length})</h2>${usedBy ? `<ul>${usedBy}</ul>` : '<p class="empty">No use found in game text or worlds.</p>'}</section>
       ${item.related.length ? `<section class="box"><h2>Related</h2><p>${item.related.map(r => itemLink(r, r)).join(" · ")}</p></section>` : ""}
-      ${(() => { const d = details(item); return d ? `<section class="box">${d}</section>` : ""; })()}
+      ${(() => { const d = item.kind === "world" ? "" : details(item); return d ? `<section class="box">${d}</section>` : ""; })()}
       ${musicReviews(item)}
       ${window.ArtReviews ? window.ArtReviews.section(item.id) : ""}`;
     if (window.ArtReviews) window.ArtReviews.wire();
     wireMusicReviews();
+    document.querySelectorAll(".room-box").forEach(box => box.onclick = event => {
+      event.preventDefault();
+      const row = document.getElementById(box.dataset.room);
+      if (row) { row.scrollIntoView({behavior: "smooth", block: "center"}); row.classList.add("playing"); setTimeout(() => row.classList.remove("playing"), 1500); }
+    });
     sync();
   }
 

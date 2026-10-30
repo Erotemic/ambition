@@ -23,7 +23,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-from . import SCHEMA, assets as assets_mod, diagnostics, generators, kinds, lineage, related, thumbs, usage, inventory, reviews, sheets, sources
+from . import SCHEMA, assets as assets_mod, categories, diagnostics, generators, kinds, lineage, related, thumbs, usage, inventory, reviews, sheets, sources
 from .paths import forget_roots, repo_root, roots
 from .scan import HashCache, scan
 
@@ -163,6 +163,7 @@ def build(
         families = {"libraries": [], "notice": f"{type(error).__name__}: {error}"}
     catalog["families"] = families
     catalog.update(kinds.collect(repo, out, hashes, pack=sources.pack_dir(repo, profile), families=families, log=log))
+    catalog["categories"] = categories.categorize(catalog)
     catalog["reviews"] = reviews.snapshot(repo, catalog)
     hashes.save()
     catalog["build_seconds"] = round(time.perf_counter() - started, 1)

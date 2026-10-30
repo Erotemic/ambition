@@ -193,3 +193,16 @@ def test_a_music_review_from_the_page_rates_only_an_offered_unchanged_render(tmp
     version.preview_sha256 = "rerendered"
     with pytest.raises(LookupError):
         music_review.save(tmp_path, catalog, {"item": "music:theme", "version_id": "abc:p1", "score": 5})
+
+
+def test_a_world_page_has_a_map_and_room_previews(tmp_path, monkeypatch):
+    tool = Path(__file__).resolve().parents[2] / "ambition_ldtk_tools"
+    monkeypatch.syspath_prepend(str(tool))
+    pack = game(tmp_path)
+    out = tmp_path / "out"
+    world = kinds.collect(tmp_path, out, HashCache(out / "hashes.json"), pack=pack, log=lambda _m: None)["items"]["world:hub"]
+    preview = world["preview"]
+    assert (out / preview["world"]).read_text().startswith("<svg")
+    assert (out / preview["rooms"]["lobby"]).is_file()
+    assert preview["bounds"][2] == 320 + 2 * kinds._MARGIN
+    assert world["details"]["rooms"][0]["at"] == [0, 0]

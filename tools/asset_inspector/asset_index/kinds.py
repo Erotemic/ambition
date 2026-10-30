@@ -408,6 +408,10 @@ def worlds(ctx: dict) -> list[dict]:
             item["reasons"].append(f"The world file does not read: {error}")
             rooms = []
         item["details"]["rooms"] = rooms
+        try:
+            item["preview"] = _world_previews(ctx, path, rooms)
+        except Exception as error:  # noqa: BLE001 - previews are optional; the rooms still list
+            item["reasons"].append(f"No world preview: {type(error).__name__}: {error}")
         for room in rooms:
             for field in ("music_track", "fight_music_track"):
                 if room.get(field):
@@ -423,11 +427,79 @@ def worlds(ctx: dict) -> list[dict]:
 def _ldtk_rooms(path: Path) -> list[dict]:
     document = json.loads(path.read_text())
     rooms = []
+    linear = document.get("worldLayout") in ("LinearHorizontal", "LinearVertical")
+    cursor = 0
     for level in document.get("levels", []):
         fields = {f["__identifier"]: f.get("__value") for f in level.get("fieldInstances", []) if f.get("__identifier") in _ROOM_FIELDS}
-        rooms.append({"id": level.get("identifier"), "size": [level.get("pxWid"), level.get("pxHei")],
+        width, height = level.get("pxWid") or 0, level.get("pxHei") or 0
+        x, y = level.get("worldX", 0), level.get("worldY", 0)
+        if linear:  # a linear world stores no positions: the rooms follow each other
+            x, y = (cursor, 0) if document["worldLayout"] == "LinearHorizontal" else (0, cursor)
+            cursor += (width if document["worldLayout"] == "LinearHorizontal" else height) + 64
+        rooms.append({"id": level.get("identifier"), "size": [width, height], "at": [x, y], "depth": level.get("worldDepth", 0),
                       **{k: v for k, v in fields.items() if v not in (None, "")}})
     return rooms
+
+
+def _world_previews(ctx: dict, path: Path, rooms: list[dict]) -> dict:
+    """SVG previews of a world and of each room, drawn by the LDtk tool
+    (`ambition_ldtk_tools.room_support.render`): collision, water and climbable
+    cells, and entities. Redrawn only when the world file changes."""
+    repo, out = ctx["repo"], ctx["out"]
+    tool = repo / "tools" / "ambition_ldtk_tools"
+    if str(tool) not in sys.path:
+        sys.path.insert(0, str(tool))
+    from ambition_ldtk_tools.room_support.render import render_room_svg
+    folder = out / "worlds" / path.stem
+    stamp = folder / ".stamp"
+    st = path.stat()
+    key = f"{st.st_size}:{st.st_mtime_ns}:2"
+    names = {room["id"]: f"{re.sub(r'[^A-Za-z0-9_.-]', '_', str(room['id']))}.svg" for room in rooms}
+    if not (stamp.is_file() and stamp.read_text() == key):
+        folder.mkdir(parents=True, exist_ok=True)
+        document = json.loads(path.read_text())
+        drawn = {room["id"]: render_room_svg(document, room["id"], max_width=10**9) for room in rooms}
+        for room_id, svg in drawn.items():
+            (folder / names[room_id]).write_text(svg)
+        (folder / "_world.svg").write_text(_world_svg(rooms, drawn))
+        stamp.write_text(key)
+    left = min((r["at"][0] for r in rooms), default=0)
+    top = min((r["at"][1] for r in rooms), default=0)
+    right = max((r["at"][0] + r["size"][0] for r in rooms), default=1)
+    bottom = max((r["at"][1] + r["size"][1] for r in rooms), default=1)
+    margin = _MARGIN
+    return {"world": os.path.relpath(folder / "_world.svg", out),
+            "bounds": [left - margin, top - margin, right - left + 2 * margin, bottom - top + 2 * margin],
+            "rooms": {room_id: os.path.relpath(folder / name, out) for room_id, name in names.items()}}
+
+
+_MARGIN = 128
+
+
+def _world_svg(rooms: list[dict], drawn: dict[str, str]) -> str:
+    """Every room at its world position, each with its name. A room on another depth is dashed."""
+    if not rooms:
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>'
+    left = min(r["at"][0] for r in rooms) - _MARGIN
+    top = min(r["at"][1] for r in rooms) - _MARGIN
+    width = max(r["at"][0] + r["size"][0] for r in rooms) - left + _MARGIN
+    height = max(r["at"][1] + r["size"][1] for r in rooms) - top + _MARGIN
+    font = max(24, int(max(width, height) / 90))
+    parts = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{left} {top} {width} {height}" width="{min(width, 2400)}" height="{int(height * min(width, 2400) / width)}">',
+             f'<rect x="{left}" y="{top}" width="{width}" height="{height}" fill="#2b2f36"/>']
+    for room in sorted(rooms, key=lambda r: r.get("depth", 0), reverse=True):
+        x, y = room["at"]
+        w, h = room["size"]
+        inner = drawn[room["id"]].split(">", 1)[1].rsplit("</svg>", 1)[0]
+        parts.append(f'<svg x="{x}" y="{y}" width="{w}" height="{h}" viewBox="0 0 {w} {h}">{inner}</svg>')
+        dash = ' stroke-dasharray="24 16"' if room.get("depth") else ""
+        parts.append(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="none" stroke="#fbbf24" stroke-width="{max(4, font // 6)}"{dash}/>')
+        if w * 4 < len(str(room["id"])) * font * 2:
+            continue  # too small to label legibly: the page names it on hover
+        label = str(room["id"]).replace("&", "&amp;").replace("<", "&lt;")
+        parts.append(f'<text x="{x + font // 3}" y="{y + font}" font-family="sans-serif" font-size="{font}" fill="#fde68a" stroke="#111827" stroke-width="{max(2, font // 8)}" paint-order="stroke">{label}</text>')
+    parts.append("</svg>")
+    return "\n".join(parts) + "\n"
 
 
 # --- uses in game text ----------------------------------------------------------

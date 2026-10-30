@@ -79,8 +79,10 @@
 
   // ---- gallery -----------------------------------------------------------------------
   const PAGE = 240;
+  // A category tab (`#cat/props`) is this gallery over one category, without tier copies.
+  const CATS = C.categories || {};
   function gallery() {
-    const pool0 = assetList.filter(matches);
+    const pool0 = assetList.filter(matches).filter((a) => !state.category || (a.category === state.category && (state.tiers || !a.tier_copy)));
     const count = (key, fn) => { const m = new Map(); pool.forEach((a) => { const k = fn(a); m.set(k, (m.get(k) || 0) + 1); }); return m; };
     const group = relGroup(state.rel);
     const pool = group ? pool0.filter((a) => group.ids.has(a.id)) : pool0;
@@ -116,7 +118,9 @@
       <aside class="facets"><div><h3>Family</h3>${famHtml}</div><div><h3>Generator link</h3>${confHtml}</div><div><h3>Use</h3>${useHtml}</div>${tagHtml ? `<div><h3>Tag</h3>${tagHtml}</div>` : ""}</aside>
       <div>
         ${group ? `<div class="bar relbar">Related to ${assetLink(group.asset.id)}: <b>${esc(group.title)}</b> <button id="unrel" type="button" class="copy">show all assets</button></div>` : ""}
-        <div class="bar">${fmt(list.length)} of ${fmt(assetList.length)} assets
+        ${state.category ? `<h1>${esc(CATS[state.category]?.label || state.category)} <small>${fmt(CATS[state.category]?.used || 0)} used by the game</small></h1>` : ""}
+        <div class="bar">${fmt(list.length)} of ${fmt(state.category ? pool0.length : assetList.length)} assets
+          ${state.category && CATS[state.category]?.tier_copies ? `<label><input id="tiers" type="checkbox"${state.tiers ? " checked" : ""}> include ${fmt(CATS[state.category].tier_copies)} reduced-tier copies</label>` : ""}
           <label>sort <select id="sort">${Object.keys(sorts).map((k) => `<option${k === state.sort ? " selected" : ""}>${k}</option>`).join("")}</select></label>
           <label>size <input id="cardsize" type="range" min="100" max="260" value="${state.card}"></label>
         </div>
@@ -132,6 +136,8 @@
     const unrel = app.querySelector("#unrel");
     if (unrel) unrel.addEventListener("click", () => { state.rel = ""; state.page = 0; location.hash = "#gallery"; });
     app.querySelector("#sort").addEventListener("change", (e) => { state.sort = e.target.value; gallery(); });
+    const tiers = app.querySelector("#tiers");
+    if (tiers) tiers.onchange = () => { state.tiers = tiers.checked; state.page = 0; gallery(); };
     app.querySelector("#cardsize").addEventListener("input", (e) => { state.card = +e.target.value; app.querySelector(".grid").style.setProperty("--card", state.card + "px"); });
     const prev = app.querySelector("#prev"), next = app.querySelector("#next");
     if (prev) prev.addEventListener("click", () => { state.page--; gallery(); window.scrollTo(0, 0); });
@@ -583,13 +589,15 @@
     const [view, ...rest] = h.split("/");
     const id = rest.join("/");
     const itemKind = view === "item" ? (C.items?.[id]?.kind || "") : "";
-    const tab = view === "asset" ? "gallery" : view === "gen" ? "generators" : view === "character" ? "characters"
+    const tab = view === "cat" ? "cat-" + id : view === "asset" ? (state.category ? "cat-" + state.category : "gallery") : view === "gen" ? "generators" : view === "character" ? "characters"
       : view === "item" ? (window.AssetItems.VIEW[itemKind] || "overview") : view || "overview";
     document.querySelectorAll(".top .tabs a").forEach((a) => a.classList.toggle("on", a.dataset.view === tab));
     const KIND_OF_VIEW = { music: "music", sound: "sfx", fonts: "font", worlds: "world" };
+    if (view !== "cat" && view !== "asset") state.category = "";
     if (!view || view === "overview") window.AssetItems.overview();
     else if (KIND_OF_VIEW[view]) window.AssetItems.list(KIND_OF_VIEW[view]);
     else if (view === "item") window.AssetItems.detail(id);
+    else if (view === "cat") { if (state.category !== id) { state.category = id; state.page = 0; state.family = new Set(); } gallery(); }
     else if (view === "characters" || view === "character") window.renderArtCharacters(view === "character" ? id : "", {assetPanels, wireAnimation, lineageBox});
     else if (view === "inventory") window.renderArtInventory(id || "current");
     else if (view === "reviews") window.ArtReviews.backlog();
@@ -628,6 +636,14 @@
     document.documentElement.dataset.theme = dark ? "light" : "dark";
     try { localStorage.setItem("asset-inspector-theme", document.documentElement.dataset.theme); } catch (e) { /* ignore */ }
   });
+  // One tab per image category the index found (Characters keeps its roster view).
+  const charactersTab = document.querySelector('.top .tabs a[data-view="characters"]');
+  Object.entries(CATS).sort((a, b) => a[1].order - b[1].order).filter(([key, c]) => key !== "characters" && (c.assets || 0) > 0).reverse().forEach(([key, c]) => {
+    const a = document.createElement("a");
+    a.href = "#cat/" + key; a.dataset.view = "cat-" + key; a.textContent = c.label;
+    if (key === "other") a.title = "Assets no rule classified";
+    charactersTab.after(a);
+  });
   const stamp = document.getElementById("stamp");
   stamp.textContent = `Built ${C.built_at} at ${String(C.repo_commit).slice(0, 10)} (renderer ${String(C.renderer_commit).slice(0, 10)}) in ${C.build_seconds}s · ${fmt(assetList.length)} assets · ${fmt(Object.keys(products).length)} files · ${fmt(C.findings.length)} findings. Refresh: ./scripts/asset_inspector.py`;
   // What the index could not read, with its fix. The rest of the page still works.
@@ -635,7 +651,7 @@
   if (profile && profile.state !== "available") {
     const notice = document.createElement("div");
     notice.className = "stamp stale";
-    notice.innerHTML = `<b>The character catalog is unavailable</b>, so Characters is empty. The Raw gallery, Generators, Inventory and lineages still show the art on disk.`
+    notice.innerHTML = `<b>The character catalog is unavailable</b>, so Characters is empty. The All images, Generators, Inventory and lineages still show the art on disk.`
       + (profile.warnings || C.inventory.warnings || []).map((w) => `<pre>${esc(w)}</pre>`).join("");
     stamp.after(notice);
   }

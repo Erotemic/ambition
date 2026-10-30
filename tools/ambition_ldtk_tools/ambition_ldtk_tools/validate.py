@@ -1141,6 +1141,11 @@ def validate(
                     errors.append(f"LoadingZone {entity.get('iid')} requires id")
                 else:
                     zone_id = str(zone_id)
+                    # The game refuses a world whose area has two zones of one
+                    # id (2026-10-30: a new edge exit took the id of the
+                    # canopy's door, and only the game's preparation said so).
+                    if zone_id in zones_by_area[area]:
+                        errors.append(f"active area {area!r} has duplicate LoadingZone id {zone_id!r}")
                     zones_by_area[area].add(zone_id)
                     ex, ey, ew, eh = rect(entity)
                     area_zones[area][zone_id] = {

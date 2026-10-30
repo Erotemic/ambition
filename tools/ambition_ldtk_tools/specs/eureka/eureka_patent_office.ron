@@ -10,7 +10,7 @@
     bg_color: "#A9D3F0",
     biome: "eureka",
     parallax_theme: "eureka",
-    music_track: "lofi_study_loop",
+    music_track: "graphite_and_rain",
     entities: [
         ( type: "Solid", px: [0, 384], size: [1024, 64], fields: ( name: "floor" ) ),
         ( type: "Solid", px: [0, 0], size: [1024, 32], fields: ( name: "ceiling" ) ),

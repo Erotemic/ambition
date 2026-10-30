@@ -75,7 +75,8 @@ HEIGHTS = "eureka_heights"
 STATION_THEME = "orbital"
 BG = "#A9D3F0"
 TOWN_MUSIC = "a_possible_morning"
-INDOOR_MUSIC = "lofi_study_loop"
+PATENT_MUSIC = "graphite_and_rain"
+LAB_MUSIC = "physicists_guild_event_horizon_waltz"
 DOME_MUSIC = "eternal_cosmic"
 TETHER_MUSIC = "salt_steel_and_starlight"
 STATION_MUSIC = "between_objectives"
@@ -207,7 +208,7 @@ def patent_office():
         resident("special_patent_clerk", "eureka_patent_clerk", 640, floor),
         sign("patent_sign_rules", 520, ceiling + 40, "All applications are processed relative to the applicant.", 520),
     ]
-    return build(rid, e, None, music=INDOOR_MUSIC)
+    return build(rid, e, None, music=PATENT_MUSIC)
 
 
 def coil_lab():
@@ -231,7 +232,7 @@ def coil_lab():
         sign("lab_sign_rules", 640, ceiling + 40, "DO NOT TOUCH THE COILS. The coils will touch you.", 520),
         sign("lab_sign_director", 1100, floor - 240, "N. TESSERACT, DIRECTOR: back soon", 320),
     ]
-    return build(rid, e, None, music=INDOOR_MUSIC)
+    return build(rid, e, None, music=LAB_MUSIC)
 
 
 def observatory():

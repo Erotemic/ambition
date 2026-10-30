@@ -688,6 +688,15 @@ pub fn install_settle_presentation_systems(
     );
     app.add_systems(
         schedule.clone(),
+        finish_zoom::zoom_camera_on_a_finishing_blow
+            .in_set(GameplayGated)
+            .in_set(CombatSet::Settle)
+            .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(
+                ambition_platformer2d_shared_tangle::capability::Capability::MatchStocks,
+            )),
+    );
+    app.add_systems(
+        schedule.clone(),
         finish_zoom::zoom_camera_on_decided_match
             .run_if(ambition_platformer2d_core::a_message_waits::<crate::stocks::StocksMatchDecided>,
             )

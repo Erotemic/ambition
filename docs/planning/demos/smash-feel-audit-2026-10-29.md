@@ -496,9 +496,22 @@ the way: the view was floored at the raw span but the clamp held the eased
 box GROWN to the raw one (a taller union than the view — 17 px cut-offs),
 and a view capped to the box could not fit a cast as tall as the box.
 
-Still open after this: a KO-predicting finish zoom (Ultimate's Finish Zoom)
-and the off-screen bubble for a body between the camera box and the blast
-line — the bubble is art + HUD and needs Jon's eye.
+The finishing blow (same night): `zoom_camera_on_a_finishing_blow`
+(combat, beside the verdict zoom) fires on the hit tick when a fighter on its
+LAST stock is launched and `launch_leaves_the_world` (core, the ballistic
+arc under the body's resolved gravity, sampled 32×) crosses a side or the
+rise line before the body is back at floor level — Ultimate's Finish Zoom
+rule (knockback and angle, no DI). It requests the finish zoom and holds
+every fighter in `FINISHING_BLOW_FREEZE_S` 0.5 s of hitstop. A spike is not
+predicted (whether it falls out is the recovery game). The launch is read
+while STAGED, the one tick it is visible (the kernel consumes it next tick),
+so the trigger keeps no memory and is rollback-safe. Not built: Ultimate's
+red flash and slow-motion (presentation; the freeze stands in).
+
+Still open after this: the off-screen bubble for a body between the camera
+box and the blast line (art + HUD, needs Jon's eye) and a human pass on the
+rates (4 Hz both ways is a first value; Melee's per-frame fractions are in a
+binary table nobody has read).
 
 ### Not in this roadmap
 

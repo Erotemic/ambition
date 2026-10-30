@@ -1,0 +1,28 @@
+// Written by specs/evil_moor/make_specs.py. Change the script, not this file.
+(
+    id: "evil_other_founders",
+    level_id: "evil_other_founders",
+    world_x: -4800,
+    world_y: 784,
+    px_wid: 640,
+    px_hei: 576,
+    fill_collision: "empty",
+    bg_color: "#141012",
+    biome: "castle_godwin",
+    parallax_theme: "castle_godwin",
+    music_track: "vault_in_the_dark",
+    entities: [
+        ( type: "Prop", px: [16, 32], size: [608, 480], fields: ( name: "ossuary_room", kind: "ossuary_room" ) ),
+        ( type: "Solid", px: [0, 512], size: [640, 64], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [640, 32], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 32], size: [16, 480], fields: ( name: "west_wall" ) ),
+        ( type: "Solid", px: [624, 32], size: [16, 368], fields: ( name: "east_wall" ) ),
+        ( type: "LoadingZone", px: [624, 416], size: [16, 96], fields: ( id: "secret_ossuary_east", name: "back through the broken wall", activation: "EdgeExit", target_room: "evil_catacombs", target_zone: "secret_catacombs_west", bidirectional: true ) ),
+        ( type: "PlayerStart", px: [506, 466], size: [28, 46], fields: ( name: "evil_other_founders_spawn" ) ),
+        ( type: "ChestSpawn", px: [282, 454], size: [76, 58], fields: ( name: "the first founder's signet", reward: "currency:120" ) ),
+        ( type: "DebugLabel", px: [120, 60], size: [400, 24], fields: ( name: "ossuary_sign", text: "FOUNDERS 1 TO 6 (we do not speak of them)", category: "Custom" ) ),
+        ( type: "CameraZone", px: [0, 0], size: [640, 576], fields: ( id: "evil_other_founders_camera", name: "evil_other_founders_camera", mode: "Default" ) ),
+        ( type: "DebugLabel", px: [70, 40], size: [500, 24], fields: ( name: "evil_other_founders_title", text: "THE OTHER FOUNDERS", category: "Custom" ) ),
+    ],
+    connect_to: [],
+)

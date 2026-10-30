@@ -78,5 +78,6 @@ Jon, 2026-10-30:
 
 ## Not yet
 
-- A hit-breakable wall (Hollow Knight's secrets) is not an engine capability. The false wall is the only secret so far.
+- **A hit-breakable wall** (`district_kit.breakable_wall`, broken for good in the save) is the other kind of secret: the catacombs' cracked wall hides the ossuary of the other founders. A breakable draws UNDER the room's scenery (the block band), so the room's art leaves a window over it (the canvas's alpha cut away).
+- **Ladders** draw over the room's scenery and under the cast (`CLIMBABLE_Z`); the room's art does not draw them.
 - The other regions (Eureka, the math town, the primeval trail) are still strings of rooms. Each wants the same treatment.

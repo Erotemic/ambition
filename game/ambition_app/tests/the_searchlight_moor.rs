@@ -102,3 +102,38 @@ fn gallows_hill_joins_the_hamlet_to_the_ridge() {
     go(&mut app, "evil_gallows_hill", Some("ridge_west"));
     go(&mut app, "evil_lower_godwin", Some("hill_belltower"));
 }
+
+/// The catacombs' cracked wall at their west end (a breakable: hit it):
+/// broken, the way west goes into the ossuary of the other founders, and
+/// back.
+#[test]
+fn a_cracked_wall_in_the_catacombs_hides_the_other_founders() {
+    use crate::common::walk::{Keys, Press, Walker};
+    use ambition_platformer2d::breakables::BreakableFeature;
+    use ambition_platformer2d::combat::components::FeatureId;
+    use ambition_platformer2d::engine_core as ae;
+
+    let the_wall = |app: &mut bevy::prelude::App| {
+        let world = app.world_mut();
+        let mut walls = world.query::<(&FeatureId, &BreakableFeature)>();
+        walls.iter(world).find(|(id, _)| id.as_str() == "evil_catacombs_cracked_wall").map(|(_, wall)| wall.broken())
+    };
+    let mut app = a_session_in("evil_catacombs");
+    assert_eq!(the_wall(&mut app), Some(false), "control: the wall stands");
+    crate::the_pirate_port::go_to(&mut app, ae::Vec2::new(110.0, 490.0), "the cracked wall");
+    let mut swings = 0;
+    while the_wall(&mut app) == Some(false) {
+        assert!(swings < 12, "the wall did not break after {swings} swings");
+        let mut keys = Keys::new(&mut app);
+        keys.step(Press { axis: -1.0, ..Press::default() });
+        keys.step(Press { attack: true, ..Press::default() });
+        for _ in 0..24 {
+            keys.step(Press::default());
+        }
+        drop(keys);
+        swings += 1;
+    }
+    go(&mut app, "evil_other_founders", Some("secret_catacombs_west"));
+    go(&mut app, "evil_catacombs", Some("secret_ossuary_east"));
+    assert_eq!(the_wall(&mut app), Some(true), "the wall stays broken");
+}

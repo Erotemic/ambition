@@ -54,7 +54,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
-from district_kit import WALL, WORLDS, add_entities, door, edge, entity, ledge, make_rooms, paint, resident, room, run, sign, solid, start  # noqa: E402
+from district_kit import WALL, WORLDS, add_entities, breakable_wall, door, edge, entity, ledge, make_rooms, paint, resident, room, run, sign, solid, start  # noqa: E402
 from district_scenery import piece  # noqa: E402
 
 WORLD = WORLDS / "evil.ldtk"
@@ -77,6 +77,11 @@ CRYPT_SHAFT = (CRYPT_STAIR[0] - 800, CRYPT_STAIR[1] - 800)
 CATACOMBS = "evil_catacombs"
 CATACOMBS_AT, CATACOMBS_W = (-4160, 784), 2560
 PLOT_13 = (280, 344)
+#: West of the catacombs, behind the cracked wall the castle bricked over
+#: their way west (a breakable wall: hit it; broken for good in the save):
+#: the ossuary of the founders before the founder.
+OSSUARY = "evil_other_founders"
+OSSUARY_AT, OSSUARY_W = (CATACOMBS_AT[0] - 640, 784), 640
 #: Over the moor and the allotments, up the watchtower: the Searchlight
 #: Ridge. Its ground (G 480 to its foot, 560); the hole the watchtower comes
 #: up through (over the moor's x 1500..1620); the gap at its west end over
@@ -404,7 +409,12 @@ def catacombs():
         solid("floor", 0, g, w, h - g),
         solid("ceiling_west", 0, 0, s0, 32),
         solid("ceiling_east", s1, 0, w - s1, 32),
-        solid("west_wall", 0, 32, WALL, g - 32),
+        solid("west_wall", 0, 32, WALL, g - 112 - 32),
+        # The way west, bricked over and cracked: hit it through (`secret_`:
+        # the map shows the ossuary only once it is found).
+        breakable_wall("evil_catacombs_cracked_wall", WALL, g - 112, 32, 112, look="catacombs_cracked_wall", hp=3,
+                       name="a cracked wall, a draught through it"),
+        edge("secret_catacombs_west", "through the broken wall", 0, g, OSSUARY, "secret_ossuary_east"),
         solid("east_wall", w - WALL, 32, WALL, g - 112 - 32),
         entity("LoadingZone", s0, 0, s1 - s0, 16, id="catacombs_up", name="up the shaft to the allotments",
                activation="EdgeExit", target_room=ALLOT, target_zone="allot_plot_13", bidirectional=True),
@@ -419,6 +429,26 @@ def catacombs():
     ]
     return CATACOMBS, room(CATACOMBS, e, at=CATACOMBS_AT, size=(w, h), biome="castle_godwin", music="vault_in_the_dark",
                            bg="#141012", title="THE CATACOMBS", generator=GENERATOR)
+
+
+def ossuary():
+    """Behind the catacombs' cracked wall: the founders before the founder,
+    six busts with their faces chiselled off, each in his own hat; their
+    plaque scratched out; a sunburst of thigh bones. What they left."""
+    w, h, g = OSSUARY_W, CRYPT_H, CRYPT_FLOOR
+    e = [
+        piece("ossuary_room", 16, 0, name="ossuary_room"),
+        solid("floor", 0, g, w, h - g),
+        solid("ceiling", 0, 0, w, 32),
+        solid("west_wall", 0, 32, WALL, g - 32),
+        solid("east_wall", w - WALL, 32, WALL, g - 112 - 32),
+        edge("secret_ossuary_east", "back through the broken wall", w - WALL, g, CATACOMBS, "secret_catacombs_west"),
+        start(OSSUARY, w - 120, g),
+        entity("ChestSpawn", 282, g - 58, 76, 58, name="the first founder's signet", reward="currency:120"),
+        sign("ossuary_sign", 320, 60, "FOUNDERS 1 TO 6 (we do not speak of them)", 400),
+    ]
+    return OSSUARY, room(OSSUARY, e, at=OSSUARY_AT, size=(w, h), biome="castle_godwin", music="vault_in_the_dark",
+                         bg="#141012", title="THE OTHER FOUNDERS", generator=GENERATOR)
 
 
 FOREST_EDGE_YAML = f"""# The gate forest's way west to the moor. Written by {GENERATOR}.
@@ -440,7 +470,7 @@ entities:
 def main(argv):
     paths = []
     # The inn first (it moves out of the catacombs' way), then the crypt.
-    for rid, text in (inn(), crypt(), catacombs(), ridge(), hill(), bakery(), hamlet(), allotments(), moor()):
+    for rid, text in (inn(), crypt(), ossuary(), catacombs(), ridge(), hill(), bakery(), hamlet(), allotments(), moor()):
         path = HERE / f"{rid}.ron"
         path.write_text(text)
         print(path.relative_to(HERE.parents[1]))

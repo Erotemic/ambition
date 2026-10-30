@@ -577,6 +577,8 @@ collections:
   - hamlet_belltower
   - hill_west
   - hill_east
+  - catacombs_cracked_wall
+  - ossuary_room
   - sail_loft_room
   - plaza_well
   - cellars_vault

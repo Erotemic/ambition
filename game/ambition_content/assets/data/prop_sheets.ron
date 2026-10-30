@@ -370,6 +370,9 @@
     "hamlet_belltower": (),
     "hill_west": (),
     "hill_east": (),
+    // The catacombs' cracked wall (a breakable's look) and the ossuary behind it (Evil).
+    "catacombs_cracked_wall": (),
+    "ossuary_room": (),
     "sail_loft_room": (),
     // The Pirate Port's well, and the cellars under customs (PvN).
     "plaza_well": (),

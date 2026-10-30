@@ -48,6 +48,11 @@ impl LoadingZoneActivation {
     }
 }
 
+/// The zone id prefix that marks a secret way: the room draws no picture or
+/// nameplate for it, and the map shows the room behind it only once visited.
+/// Both sides of a secret way carry it.
+pub const SECRET_ZONE_PREFIX: &str = "secret_";
+
 /// A non-colliding rectangular trigger that swaps the active room.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct LoadingZone {
@@ -58,6 +63,11 @@ pub struct LoadingZone {
 }
 
 impl LoadingZone {
+    /// A secret way ([`SECRET_ZONE_PREFIX`]).
+    pub fn is_secret(&self) -> bool {
+        self.id.starts_with(SECRET_ZONE_PREFIX)
+    }
+
     pub fn is_ready(&self, wants_interact: bool) -> bool {
         match self.activation {
             LoadingZoneActivation::EdgeExit | LoadingZoneActivation::Walk => true,

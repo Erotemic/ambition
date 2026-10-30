@@ -1406,6 +1406,35 @@ fn a_smash_keeps_the_button_down_after_the_press() {
     assert!(!out.melee_held, "the charge never released");
 }
 
+/// A CHARGE IS ARMED ONLY WHERE THE CHARGED STRIKE STILL MEETS THE FOE: a foe
+/// walking out of the smash's region during the hold gets a tap; a foe standing
+/// in it gets the charge.
+#[test]
+fn a_smash_is_charged_only_where_the_charged_strike_lands() {
+    let armed_hold = |foe_vel: f32| {
+        let (cfg, mut state) = rig(immediate_profile());
+        let mut snapshot = armed_snapshot();
+        let smash = &mut snapshot.attack_kit[0];
+        smash.binding = AttackBinding {
+            verb: AttackVerb::Smash,
+            direction: AttackDir::Forward,
+        };
+        smash.frames.charge_hold_at_s = Some(0.02);
+        let mut view = scene(300.0, 340.0);
+        view.actors[0].vel = ae::Vec2::new(foe_vel, 0.0);
+        let mut out = ActorControlFrame::neutral();
+        tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+        state.pending_press.map(|press| press.hold_ticks)
+    };
+    let standing = armed_hold(0.0).expect("the control: the smash is pressed at a foe in reach");
+    assert!(standing > 0, "the control: a foe standing in the smash gets the charge");
+    assert_eq!(
+        armed_hold(300.0),
+        Some(0),
+        "a foe walking out during the hold must get a tap, not a charge that comes out after them"
+    );
+}
+
 /// A CHARGE IS LET GO WHILE THE FOE IS STILL IN IT: a foe leaving the smash's
 /// region releases the hold early; a foe standing in it lets the charge run.
 #[test]

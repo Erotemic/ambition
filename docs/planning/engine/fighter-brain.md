@@ -897,7 +897,11 @@ items 1 and 3: 27 → about 19.
 ✅ SHIPPED 2026-10-30 (Q167, queue row SELF-PERCEPTION): the whole `SelfView`
 is live, the foe and world stay delayed. Census on one build with only the
 self view toggled: 39 self-KOs → 5 in 23 fighter-minutes. Items 2 and 5 are
-answered by it. Open: Carl Stargan left through the top three times at 0%.
+answered by it. The top exits that remained (Carl Stargan's up special
+pressed as an attack after a double jump) are closed: a way home thrown as
+an attack must regain support in the recovery lens
+(`RecoveryLens::route_survives`). Census after, same seeds: 5 (main) → 5,
+no exit through the top (was 2); Sanic 1 → 3 off the left ledge.
 
 ### F1 — the authored ladder is the authority (Q88, 2026-10-03)
 

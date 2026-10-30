@@ -686,3 +686,25 @@ fn a_body_past_the_room_but_short_of_the_blast_line_is_searched_alive() {
          {outlook:?}"
     );
 }
+
+/// A RISE THROWN TOO HIGH LEAVES THROUGH THE TOP. The same route, asked from
+/// the shelf and from high above it: thrown from the shelf it comes back down
+/// onto it; thrown near the room's top it crosses the death line.
+#[test]
+fn a_rise_thrown_near_the_top_does_not_survive() {
+    let route = rise(900.0, 0.0);
+    let survives = |y: f32| {
+        let start = ae::Vec2::new(400.0, y);
+        let view = shelf_stage(start);
+        lens_with(&view, drifter(), &[route]).route_survives(
+            RecoveryQuery {
+                pos: start,
+                vel: ae::Vec2::ZERO,
+                air_jumps_left: 0,
+            },
+            route,
+        )
+    };
+    assert!(survives(290.0), "thrown just above the shelf, the rise falls back onto it");
+    assert!(!survives(120.0), "thrown 120 px below the top, a 900 px/s rise leaves the room");
+}

@@ -822,6 +822,17 @@ pub fn generate_options(
         }
         times
     };
+    // ⭐ WHERE THE FOE IS WHEN THIS MOVE IS LIVE, measured from where THIS
+    // BODY will be: the move's own lunge (`start_impulse`, body-local, added
+    // at the press) carries the body too. Measured 2026-10-30 (pugnacious
+    // mirror, rung 9): both seats pressed the lunging command grab from
+    // 137 px on a lead that knew only their walking speed, and the lunges
+    // carried them through each other before the grab opened.
+    let lead_for = |frames: &ambition_entity_catalog::MoveFrameData, t: f32| {
+        let (along, across) = lead_of(t);
+        let (ix, iy) = frames.start_impulse;
+        (along - ix * t, across - iy * t)
+    };
     // Lead a moving target through projectile travel as well as startup.
     // Use each hazard's travel law (including stationary and turning
     // hazards), not distance divided by a constant speed. One travel
@@ -1168,7 +1179,7 @@ pub fn generate_options(
         };
         let mut spanned = false;
         for t in meeting_times(&attack.frames) {
-            let aim = lead_of(t);
+            let aim = lead_for(&attack.frames, t);
             let Some((near, far)) = coverage.span_toward(aim, foe_extent) else {
                 continue;
             };
@@ -1246,7 +1257,7 @@ pub fn generate_options(
             // move is live: when its threat opens, or during its active
             // window (the arc meeting the anti-air).
             let fits_when_live = meeting_times(&attack.frames).into_iter().any(|t| {
-                let aim = lead_of(t);
+                let aim = lead_for(&attack.frames, t);
                 let Some((near, far)) = coverage.span_toward(aim, foe_extent) else {
                     return false;
                 };
@@ -1279,7 +1290,7 @@ pub fn generate_options(
                 .collect();
             let short_at_active = !active_samples.is_empty()
                 && active_samples.iter().all(|t| {
-                    let aim = lead_of(*t);
+                    let aim = lead_for(&attack.frames, *t);
                     coverage.span_toward(aim, foe_extent).is_none_or(|(near, _)| {
                         (aim.0 * aim.0 + aim.1 * aim.1).sqrt() < near
                     })
@@ -1288,7 +1299,8 @@ pub fn generate_options(
         }
         // Only shoves: offered exactly where the shove lands.
         (None, Some(push)) => {
-            coverage_fit(Some(push), lead_of(threat_at(&attack.frames)), foe_extent) > 0.0
+            let t = threat_at(&attack.frames);
+            coverage_fit(Some(push), lead_for(&attack.frames, t), foe_extent) > 0.0
         }
         // ⛔⛤ **TOUCHES NOTHING — AND THAT WAS FOUR DIFFERENT MOVES WEARING
         // ONE ANSWER.** This arm admitted every move that lands no volume and

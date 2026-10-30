@@ -386,6 +386,34 @@ impl RecoveryLens {
         }
     }
 
+    /// Whether THROWING `route` from `at` still regains support: the route's own
+    /// search, without the buttons-only one first. `true` for a route that moves
+    /// nothing.
+    ///
+    /// The question an attack asks of a move that is also a way home: the lens
+    /// is the only part of the brain that knows the body's own gravity, and a
+    /// rise that leaves through the top dies there however well it hits.
+    pub fn route_survives(
+        &self,
+        at: RecoveryQuery,
+        route: ambition_entity_catalog::RecoveryRoute,
+    ) -> bool {
+        match route {
+            ambition_entity_catalog::RecoveryRoute::None => true,
+            ambition_entity_catalog::RecoveryRoute::Burst { speed, side, at_s } => {
+                let body = self.scratch(at);
+                ae::movement::recovery::probe_recovery(
+                    &self.world,
+                    &body,
+                    self.frame,
+                    self.armed(speed, side, at_s),
+                )
+                .regained()
+            }
+            carrying => self.carried(at, carrying.carry()).regained(),
+        }
+    }
+
     /// Drive the real kernel from `at` and report what it found, over every
     /// route this body owns.
     pub fn outlook(&self, at: RecoveryQuery) -> ae::movement::recovery::RecoveryOutlook {

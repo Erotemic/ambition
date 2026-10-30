@@ -644,6 +644,35 @@ fn decide(
     } else {
         None
     };
+    // ⛔ A WAY HOME THROWN AS AN ATTACK MUST STILL GET THE BODY HOME. An up
+    // special is priced as a swing outside Recovery, and its rise is not
+    // costed there (a route home is not charged for moving the body). So the
+    // lens, which flies the body under its own gravity, is asked whether
+    // throwing it from here regains support. Measured 2026-10-30
+    // (`ko_envelope selfko`, 23 fighters): three of five remaining self-KOs
+    // were one fighter's up special pressed as an attack after a double jump,
+    // rising through the top blast line at 0%.
+    let throws_itself_away = |binding: ambition_characters::brain::attack_kit::AttackBinding| {
+        let Some(lens) = lens.as_ref() else {
+            return false;
+        };
+        snapshot
+            .attack_kit
+            .iter()
+            .find(|c| c.binding == binding)
+            .map(|c| c.frames.recovery_route)
+            .filter(|route| route.offers_a_way_home())
+            .is_some_and(|route| {
+                !lens.route_survives(
+                    super::recovery::RecoveryQuery {
+                        pos: view.self_view.pos,
+                        vel: view.self_view.vel,
+                        air_jumps_left: view.self_view.air_jumps_left,
+                    },
+                    route,
+                )
+            })
+    };
     // Keep the authored move id with the physical binding so traces can identify
     // the selected action even when multiple moves share a button/direction.
     let wants_attack: Option<(
@@ -665,7 +694,7 @@ fn decide(
         None => refined
             .as_ref()
             .and_then(|refined| refined.binding.zip(refined.move_id.clone()))
-            .filter(|(binding, _)| !refuses(state, *binding))
+            .filter(|(binding, _)| !refuses(state, *binding) && !throws_itself_away(*binding))
             .or_else(|| {
                 // The ranking's best, or its runner-up by the same draw the
                 // movement uses: a grab beside a jab, a dash attack beside a
@@ -673,7 +702,9 @@ fn decide(
                 let mut ranked = options
                     .attacks
                     .iter()
-                    .filter(|attack| !refuses(state, attack.binding));
+                    .filter(|attack| {
+                        !refuses(state, attack.binding) && !throws_itself_away(attack.binding)
+                    });
                 let best = ranked.next()?;
                 // Across VERBS only: the grab or the special beside the basic.
                 // Two basics a hair apart are the ranking's call, which the
@@ -701,6 +732,7 @@ fn decide(
             .or_else(|| {
                 options
                     .best_motion()
+                    .filter(|motion| !throws_itself_away(motion.binding))
                     .map(|motion| (motion.binding, motion.move_id.clone()))
             }),
     };
@@ -860,6 +892,42 @@ fn decide(
                 .find(|attack| Some(&attack.move_id) == wants_attack.as_ref().map(|(_, id)| id))
                 .map_or(0, |attack| (attack.frames.total_s * cfg.tick_hz).ceil().max(0.0) as u32),
         });
+        // ⛔ A CHARGE ONLY WHERE THE CHARGED STRIKE STILL MEETS THE FOE. The
+        // move was admitted at its UNCHARGED timing; a hold puts its strike
+        // `hold` later, so the hold is kept only if the foe, led to then, is
+        // still in the region (the admission's own question,
+        // [`strike_meets_foe`](ambition_characters::brain::fighter::options::strike_meets_foe)).
+        // Otherwise the press is a tap. Measured 2026-10-30 (pugnacious mirror,
+        // rung 5): 9 of 12 whiffed charged punches in a traced match sat at
+        // their hold point while the foe moved on; refusing the move instead
+        // took the smashes off the menu and other moves whiffed in their place.
+        let chosen_frames = options
+            .attacks
+            .iter()
+            .find(|attack| Some(&attack.move_id) == wants_attack.as_ref().map(|(_, id)| id))
+            .map(|attack| &attack.frames);
+        if let (Some(pending), Some(frames)) = (state.pending_press.as_mut(), chosen_frames) {
+            if let (true, Some(hold_at)) = (
+                matches!(
+                    pending.binding.verb,
+                    ambition_characters::brain::attack_kit::AttackVerb::Smash
+                        | ambition_characters::brain::attack_kit::AttackVerb::Special
+                ),
+                frames.charge_hold_at_s,
+            ) {
+                let held_s = pending.hold_ticks as f32 / cfg.tick_hz.max(1.0);
+                if held_s > hold_at {
+                    let strikes_in =
+                        held_s + frames.threat_live_at_s.unwrap_or(frames.startup_s) - hold_at;
+                    let meets = ambition_characters::brain::fighter::options::strike_meets_foe(
+                        &view, frames, strikes_in,
+                    );
+                    if meets == Some(false) {
+                        pending.hold_ticks = 0;
+                    }
+                }
+            }
+        }
     }
 
     trace_decision(

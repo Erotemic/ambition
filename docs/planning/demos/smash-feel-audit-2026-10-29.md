@@ -708,6 +708,42 @@ through it). Feel flags: Carl Stargan leaves through the top at 0% (3 of the
 5 remaining self-KOs); CPUs now return from 2400 px/s side launches, so
 fixtures that waited for a KO stage it.
 
+Follow-ups (2026-10-30, MEASURED, same seeds, whiffs / moves pooled, main
+f192e26c1 → after):
+
+| cell | r5 | r9 |
+|---|---|---|
+| pointed v pugnacious | 55% → 59% | 45% → 43% |
+| pointed mirror | 57% → 52% | 49% → 43% |
+| pugnacious mirror | 63% → 62% | 50% → 46% |
+| projectile v pointed | 55% → 51% | 50% → 46% |
+
+Self-KO census (23 fighters × 1 min): 5 → 5, none through the top (was 2).
+
+1. Top exits: the up special was pressed as an ATTACK (Carl Stargan after a
+   double jump; Emmy Noether's hitless lift on the motion list) and its rise
+   is not costed outside Recovery. A way home thrown as an attack must now
+   regain support in the recovery lens, which flies the body under its own
+   gravity (`RecoveryLens::route_survives`). Sanic 1 → 3 off the left ledge
+   and one Stargan left-ledge fall remain: the F0 ledge items, not the top.
+2. The command grab from 137–159 px is inside its own reach: it lunges
+   (360 px/s). In the mirror both seats press it on the same tick, the
+   lunges cross, and a mutual grab is a parry by design (S0.2, "two
+   identical brains that grab on one tick parry every time"). The lead now
+   carries the move's own lunge (`start_impulse`), which refuses a lunge
+   through a foe at point blank; the opening clash is the S0.2 cost.
+3. The crossing-through rule is general and already asked of the haymaker
+   (its box starts 5 px out, so "short" means behind). It missed because
+   it was asked at the UNCHARGED strike while the press held a charge. The
+   press now arms the charge only if the charged strike still meets the
+   foe, and taps otherwise. Haymaker whiffs: pugnacious mirror r5 42/65 →
+   35/65, pair r5 22/27 → 18/26, r9 22/53 → 20/56 and 19/37 → 16/38.
+   Refusing the move at admission instead (tried) cut the haymaker as far
+   but took the smashes off the menu, and the projectile r9 cell rose to
+   57% as the charge shot filled the gap.
+4. Left alone (a rung-5 dash-dance read); one traced match put 7 of 13
+   haymaker whiffs on a foe that changed motion after the perceived frame.
+
 ### Not in this roadmap
 
 Stages, items, modes, CPU ladder, presentation polish, and every `S0.*` packet

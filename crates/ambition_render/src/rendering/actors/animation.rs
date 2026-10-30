@@ -462,13 +462,14 @@ pub fn animate_props(
             Option<&ambition_time::ProperTimeScale>,
             Option<&mut bevy::sprite::Anchor>,
             Option<&super::super::primitives::PropClip>,
+            Option<&super::super::primitives::PropTint>,
         ),
         Without<super::super::primitives::PortalSprite>,
     >,
 ) {
     // ADR 0011: per-entity proper time. A prop that must tick while the world
     // is frozen gets a non-1.0 `ProperTimeScale`.
-    for (mut sprite, mut animator, prop, scale, anchor, clip) in &mut query {
+    for (mut sprite, mut animator, prop, scale, anchor, clip, tint) in &mut query {
         // Static-until-moving props use dt = 0, so `tick` does not advance.
         let dt = if PROP_KINDS_STATIC_UNTIL_MOVING.contains(&prop.kind.as_str()) {
             0.0
@@ -488,7 +489,7 @@ pub fn animate_props(
             dt,
             1.0,
             ambition_platformer2d_core::Vec2::Y,
-            Color::WHITE,
+            tint.map_or(Color::WHITE, |tint| tint.0),
             // Props don't crouch — full standing height.
             StanceSquash::NONE,
         );

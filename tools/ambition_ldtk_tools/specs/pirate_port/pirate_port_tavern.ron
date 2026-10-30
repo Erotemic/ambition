@@ -3,7 +3,7 @@
     id: "pirate_port_tavern",
     level_id: "pirate_port_tavern",
     world_x: 1856,
-    world_y: 1152,
+    world_y: 1600,
     px_wid: 1024,
     px_hei: 448,
     fill_collision: "empty",

@@ -42,7 +42,7 @@ pub struct StandTimer(pub f32);
 mod simulation;
 pub use simulation::{emit_breakable_destroyed, strike, update_ecs_breakables};
 mod returns;
-pub use returns::mirror_breakable_respawns;
+pub use returns::{mirror_breakable_respawns, record_spent_breakables};
 
 pub mod construction;
 

@@ -1,0 +1,26 @@
+// Written by specs/breakable_wall_lab/make_specs.py. Change the script, not this file.
+(
+    id: "breakable_wall_lab",
+    level_id: "breakable_wall_lab",
+    world_x: 86016,
+    world_y: 0,
+    px_wid: 960,
+    px_hei: 288,
+    fill_collision: "empty",
+    bg_color: "#1c1a22",
+    biome: "lab",
+    parallax_theme: "lab",
+    music_track: "tech_bros_disruption",
+    entities: [
+        ( type: "Solid", px: [0, 224], size: [960, 64], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [960, 64], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 64], size: [16, 160], fields: ( name: "west wall" ) ),
+        ( type: "PlayerStart", px: [106, 178], size: [28, 46], fields: ( name: "breakable_wall_lab_spawn" ) ),
+        ( type: "DebugLabel", px: [140, 80], size: [360, 24], fields: ( name: "lab sign", text: "Hit the cracked wall until it breaks", category: "Custom" ) ),
+        ( type: "BreakablePlatform", px: [640, 64], size: [64, 160], fields: ( id: "breakable_wall_lab_wall", name: "the cracked wall", max_hp: 3.0, respawn: "Persistent", collision: "Solid", trigger: "OnHit", look: "castle_cracked_wall" ) ),
+        ( type: "LoadingZone", px: [944, 128], size: [16, 96], fields: ( id: "lab_east", name: "to the room behind the wall", activation: "EdgeExit", target_room: "breakable_wall_lab_secret", target_zone: "secret_west", bidirectional: true ) ),
+        ( type: "CameraZone", px: [0, 0], size: [960, 288], fields: ( id: "breakable_wall_lab_camera", name: "breakable_wall_lab_camera", mode: "Default" ) ),
+        ( type: "DebugLabel", px: [70, 40], size: [820, 24], fields: ( name: "breakable_wall_lab_title", text: "Breakable wall lab", category: "Custom" ) ),
+    ],
+    connect_to: [],
+)

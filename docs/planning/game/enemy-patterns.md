@@ -59,7 +59,7 @@ The pin system is `body::pin_telegraph_rows` (`ambition_platformer2d_actor_monol
 | pachycephalosaurus | holds its distance; dome aimed and a foot scraping; a 220 px head-down rush; dazed after |
 | triceratops | horns lowered and pawing; a 260 px gore charge; a second to turn its bulk round |
 | dilophosaurus | coils with its jaws wide before each spit |
-| parrot, owl, swallows, vulture | hang over the player (0.25-0.6 s) before each dive |
+| parrot, owl, swallows, vulture | hang over the player (0.25-0.6 s) before each dive, pitched nose-down, wings flared (their windup rows) |
 | kiwi, chickens, penguins | skittish, or taking turns |
 
 Tests: `game/ambition_app/tests/an_enemy_notices_then_telegraphs.rs`.
@@ -78,6 +78,5 @@ Tests: `game/ambition_app/tests/castle_godwin_variants.rs`.
 
 ## Not yet
 
-- **Flyers' art:** the parrot, owl, swallows and vulture hang before a dive, but their sheets have no `windup` row yet.
 - **Barks** fire on provoke, not on notice. A creature has no voice cue for noticing yet.
 - **Footsies and a running attack don't mix.** Holding in a band slows a body out of its run, so a pouncer should hit and run instead.

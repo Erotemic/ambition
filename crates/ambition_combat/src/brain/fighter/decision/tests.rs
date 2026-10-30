@@ -86,6 +86,7 @@ fn armed_snapshot() -> BrainSnapshot {
                 // This fixture authors no windbox.
                 push_coverage: None,
                 push_dir: None,
+                captures: false,
                 max_damage: 8,
                 max_knockback: 40.0,
                 launch: ambition_entity_catalog::LaunchEnvelope::default()
@@ -1403,6 +1404,45 @@ fn a_smash_keeps_the_button_down_after_the_press() {
     }
     tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
     assert!(!out.melee_held, "the charge never released");
+}
+
+/// A CHARGE IS LET GO WHILE THE FOE IS STILL IN IT: a foe leaving the smash's
+/// region releases the hold early; a foe standing in it lets the charge run.
+#[test]
+fn a_charge_is_released_before_the_foe_leaves_it() {
+    let held_after = |foe_vel: f32| {
+        let (cfg, mut state) = rig(immediate_profile());
+        let binding = AttackBinding {
+            verb: AttackVerb::Smash,
+            direction: AttackDir::Forward,
+        };
+        let mut snapshot = armed_snapshot();
+        let smash = &mut snapshot.attack_kit[0];
+        smash.binding = binding;
+        smash.frames.charge_hold_at_s = Some(0.02);
+        smash.frames.startup_s = 0.1;
+        let mut view = scene(300.0, 330.0);
+        view.actors[0].vel = ae::Vec2::new(foe_vel, 0.0);
+        state.own_attack = Some(OwnAttack {
+            binding,
+            watch_ticks: 60,
+            refuse_ticks: 30,
+            before: None,
+            instance: None,
+            landed: false,
+        });
+        state.charge_hold_ticks = 60;
+        state.charge_hold_gesture = ambition_entity_catalog::ChargeGesture::Smash;
+        state.ticks_until_decision = 30;
+        let mut out = ActorControlFrame::neutral();
+        tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+        out.melee_held
+    };
+    assert!(held_after(0.0), "a foe standing in the smash let go of the charge");
+    assert!(
+        !held_after(600.0),
+        "a foe leaving the smash's region kept the charge held, so it comes out after they are gone"
+    );
 }
 
 /// A tap is still a tap. Every non-smash press arms no hold, so nothing about

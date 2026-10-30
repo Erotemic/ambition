@@ -2142,6 +2142,52 @@ mod tests {
         }
     }
 
+    /// A PUMMEL THAT LANDS IS A USE THAT CONNECTED: it marks the move use
+    /// that asked for it, and only that one.
+    #[test]
+    fn a_pummel_that_lands_marks_its_move_use_as_connected() {
+        for (claims, expect) in [(true, true), (false, false)] {
+            let mut app = App::new();
+            app.add_message::<crate::capture::CapturePummelRequested>();
+            app.add_systems(Update, apply_capture_pummels);
+            let captor = grounded_body(&mut app, "captor", ae::Vec2::ZERO);
+            let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
+            app.world_mut().entity_mut(victim).insert((
+                ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health {
+                    current: 100,
+                    max: 100,
+                    invulnerable: Default::default(),
+                }),
+                CapturedBy {
+                    captor,
+                    hold_offset_local: ae::Vec2::new(16.0, 0.0),
+                    hold_attachment: None,
+                },
+                fresh_hold(),
+            ));
+            let mut spec = ambition_characters::moveset_prefabs::simple_melee(&Default::default());
+            spec.id = "pummel".to_string();
+            let mut playback = crate::moveset::MovePlayback::new(std::sync::Arc::new(spec), 1.0);
+            playback.instance = 4;
+            app.world_mut().entity_mut(captor).insert(playback);
+            app.world_mut().write_message(crate::capture::CapturePummelRequested {
+                captor,
+                damage: 2,
+                move_instance: Some(if claims { 4 } else { 5 }),
+            });
+            app.update();
+            let landed = app
+                .world()
+                .get::<crate::moveset::MovePlayback>(captor)
+                .expect("the pummel is still playing")
+                .landed_hit;
+            assert_eq!(
+                landed, expect,
+                "claims the playing use = {claims}: a landed pummel marks exactly the use that asked for it"
+            );
+        }
+    }
+
     ///  A PUMMEL DAMAGES ITS CAPTIVE AND DOES NOT BREAK THE HOLD.
     ///
     /// The one that would catch the whole category error. If a pummel were
@@ -2184,7 +2230,11 @@ mod tests {
 
         for _ in 0..2 {
             app.world_mut()
-                .write_message(crate::capture::CapturePummelRequested { captor, damage: 3 });
+                .write_message(crate::capture::CapturePummelRequested {
+                    captor,
+                    damage: 3,
+                    move_instance: None,
+                });
             app.update();
         }
 
@@ -3036,6 +3086,11 @@ pub fn apply_capture_pummels(
         &mut ambition_characters::smash_hold_state::SmashHoldState,
         &mut ambition_characters::actor::BodyHealth,
     )>,
+    // The captor's own move use, so a pummel that lands is a use that
+    // CONNECTED — the same flag a strike, a catch and a throw set. Without it
+    // every pummel read as a whiff to the brain's own `landed` (which then
+    // refused the pummel for its refusal window) and to `match-report`.
+    mut playbacks: Query<&mut crate::moveset::MovePlayback>,
 ) {
     for request in requests.read() {
         // The captor names itself; the victim comes from the relationship. A
@@ -3054,6 +3109,13 @@ pub fn apply_capture_pummels(
         //  the count is the RULESET's, not the relation's: "how many pummels"
         // is a question only a game with pummels can ask.
         state.pummels_landed = state.pummels_landed.saturating_add(1);
+        if let (Ok(mut pb), Some(instance)) =
+            (playbacks.get_mut(request.captor), request.move_instance)
+        {
+            if pb.instance == instance {
+                pb.landed_hit = true;
+            }
+        }
     }
 }
 
@@ -3365,6 +3427,7 @@ pub fn translate_authored_capture_effects(
                     pummels.write(super::CapturePummelRequested {
                         captor: message.actor,
                         damage: p.damage,
+                        move_instance: message.move_instance,
                     });
                 }
                 Err(err) => warn!("smash pummel params did not hydrate: {err}"),

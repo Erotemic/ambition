@@ -286,6 +286,21 @@ impl ShadowState {
         let already_out = |pos: ae::Vec2| death.is_known() && death.offstage(pos);
         me.started_offstage = already_out(me.pos);
         let mut foe_body = fighter_from_actor(foe, gravity_down);
+        // THE FOE IS CARRIED TO THIS BODY'S PRESENT. This body is seen now
+        // (Q167) and the foe `staleness` late; a shadow that started both
+        // from the view would pit the present against the past. Straight
+        // dead reckoning, the same estimate the attack lead makes of a foe
+        // that keeps doing what it was seen doing; its phase clock runs down
+        // by the same age.
+        let age = view.staleness_s();
+        if age > 0.0 {
+            foe_body.pos += foe.vel * age;
+            if foe_body.on_ground {
+                foe_body.ground_level = Some(foe_body.pos.dot(down_unit(gravity_down)));
+            }
+            foe_body.phase =
+                shadow_phase_from_view(foe.phase, (foe.phase_remaining - age).max(0.0));
+        }
         foe_body.started_offstage = already_out(foe_body.pos);
         Some(Self {
             me,

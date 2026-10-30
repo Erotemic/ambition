@@ -119,6 +119,7 @@ pub fn tick_fighter(
     // would leave the OTHER stuck down across a switch — a brain that charged a
     // smash and then chose a special would hold Attack forever.
     state.charge_hold_ticks = state.charge_hold_ticks.saturating_sub(1);
+    release_a_charge_the_foe_is_leaving(cfg, state, snapshot);
     hold_the_committed_button(state, &mut frame);
 
     if state.ticks_until_decision > 0 {
@@ -1182,6 +1183,50 @@ fn charge_gesture_of(
             ambition_entity_catalog::ChargeGesture::Special
         }
         _ => ambition_entity_catalog::ChargeGesture::Smash,
+    }
+}
+
+/// ⛔ A CHARGE IS LET GO WHILE THE FOE IS STILL IN IT. The hold is planned at
+/// the press (`charge::hold_ticks_within`), but the move was admitted on its
+/// UNCHARGED timing and the foe keeps moving through the hold. So each tick of
+/// a hold asks the admission's question again
+/// ([`strike_meets_foe`](ambition_characters::brain::fighter::options::strike_meets_foe))
+/// for a strike released now, and releases when the foe meets it now but
+/// would not one decision later: the last moment the charge still lands. A
+/// foe that stays inside keeps the charge growing; one that never enters
+/// changes nothing.
+///
+/// Measured 2026-10-30 (pugnacious mirror, rung 5, `--runs 3`): the charged
+/// neutral special was thrown 55 times and whiffed 47, held a median 14 ticks
+/// at its hold point in the traced match while its foe walked through it.
+fn release_a_charge_the_foe_is_leaving(
+    cfg: &FighterCfg,
+    state: &mut FighterState,
+    snapshot: &BrainSnapshot,
+) {
+    if state.charge_hold_ticks == 0 {
+        return;
+    }
+    let Some(own) = state.own_attack else {
+        return;
+    };
+    let Some(candidate) = snapshot.attack_kit.iter().find(|c| c.binding == own.binding) else {
+        return;
+    };
+    let frames = &candidate.frames;
+    let Some(hold_at) = frames.charge_hold_at_s else {
+        return;
+    };
+    let Some(view) = state.perception.perceive() else {
+        return;
+    };
+    let strikes_in = (frames.threat_live_at_s.unwrap_or(frames.startup_s) - hold_at).max(0.0);
+    let next_decision = cfg.interval() as f32 / cfg.tick_hz.max(1.0);
+    use ambition_characters::brain::fighter::options::strike_meets_foe;
+    let meets_now = strike_meets_foe(&view, frames, strikes_in) == Some(true);
+    let meets_later = strike_meets_foe(&view, frames, strikes_in + next_decision) == Some(true);
+    if meets_now && !meets_later {
+        state.charge_hold_ticks = 0;
     }
 }
 

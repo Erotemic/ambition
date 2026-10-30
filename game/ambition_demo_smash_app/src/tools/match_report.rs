@@ -1366,6 +1366,9 @@ fn sample(
         .map(|row| (row.0, row.10, row.13, row.6.as_ref().map(|p| p.1)))
         .collect();
     let live = *last_world != world_now;
+    let sim_tick_now = world
+        .get_resource::<ambition_platformer2d::time::SimTick>()
+        .map_or(0, |t| t.get());
     // `AMBITION_MATCH_REPORT_TRACE_TICKS=1`: one line per sampled tick with
     // every seat's position, velocity and move clock, so two processes'
     // traces can be diffed to the FIRST tick they disagree on.
@@ -1534,6 +1537,13 @@ fn sample(
                 }
                 tally.moves_started += 1;
                 *tally.started.entry(id.clone()).or_default() += 1;
+                if *TRACE_MOVES {
+                    let (dx, dy) = nearest_foe
+                        .map_or((f32::NAN, f32::NAN), |foe| (foe.1 - here, foe.2 - pos_y));
+                    eprintln!(
+                        "[move-start] t{sim_tick_now} s{seat} {id} at={t:.3} dx{dx:.0} dy{dy:.0} me=({here:.0},{pos_y:.0})"
+                    );
+                }
             }
             let carried = (!fresh).then(|| live_move[seat].as_ref()).flatten();
             let touched = overlapped || carried.is_some_and(|m| m.touched);
@@ -1627,7 +1637,10 @@ fn sample(
                     }
                 }
             }
+            let start_tick = carried.map_or(sim_tick_now, |m| m.start_tick);
             live_move[seat] = Some(LiveMove {
+                seat,
+                start_tick,
                 id,
                 t,
                 touched,
@@ -1674,9 +1687,21 @@ fn composition_scope(carried: &[String]) -> String {
     )
 }
 
+/// `AMBITION_MATCH_REPORT_TRACE_MOVES=1`: a `[move-start]` line when a seat's
+/// move is first seen playing and a `[move-end]` line (HIT or WHIFF, with the
+/// gap it started at and its nearest miss) when it ends, so one whiff can be
+/// joined to the `[fighter …]` decision that pressed it in the same stream.
+static TRACE_MOVES: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
+    std::env::var("AMBITION_MATCH_REPORT_TRACE_MOVES").is_ok_and(|v| v != "0")
+});
+
 /// One seat's move in flight, and what the instrument saw of it so far.
 #[derive(Clone, Debug)]
 struct LiveMove {
+    /// Whose move, and the sim tick it was first seen playing — for the
+    /// per-move trace (`AMBITION_MATCH_REPORT_TRACE_MOVES=1`).
+    seat: usize,
+    start_tick: u64,
     id: String,
     t: f32,
     /// Its contact resolved a hit, a block or a landing at some tick.
@@ -1697,6 +1722,19 @@ struct LiveMove {
 impl Tally {
     /// A move ended: file it as a hit or a whiff, with the gap it started at.
     fn end_move(&mut self, m: &LiveMove) {
+        if *TRACE_MOVES {
+            eprintln!(
+                "[move-end] s{} {} start=t{} {} gap{:.0} miss={} evaded={} recovery={}",
+                m.seat,
+                m.id,
+                m.start_tick,
+                if m.touched { "HIT" } else { "WHIFF" },
+                m.start_gap,
+                m.miss.map_or("-".to_string(), |(a, b)| format!("{a:.0},{b:.0}")),
+                m.evaded,
+                m.recovery_press,
+            );
+        }
         let gaps = self.start_gaps.entry(m.id.clone()).or_default();
         if m.touched {
             gaps.0.push(m.start_gap);

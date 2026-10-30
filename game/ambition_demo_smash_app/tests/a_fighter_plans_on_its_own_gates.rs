@@ -135,6 +135,16 @@ fn the_cpu_over_the_void(gate: Gate) -> Vec<Vec2> {
             .in_set(FeatureWorldOverlayContributions)
             .in_set(Platformer2dSimulationPhase::WorldPrep),
     );
+    // ⛔ THE FLOOR IS THERE BEFORE THE CPU IS. The brain sees its own body now
+    // and the world `reaction` late (Q167), so a floor added on the tick the
+    // CPU is put over it is invisible to the brain until the CPU, drifting
+    // home over 40 px of void, is already back on the stage — the bare and
+    // closed runs then played the same. The floor stands in the void, where
+    // nothing on the stage meets it, for longer than any rung's reaction
+    // before the CPU arrives; one seed, so the runs agree until then.
+    for _ in 0..40 {
+        app.update();
+    }
     {
         let mut kin = app
             .world_mut()

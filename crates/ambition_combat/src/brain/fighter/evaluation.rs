@@ -84,6 +84,7 @@ fn rig_kit() -> Vec<AttackCandidate> {
         // This fixture authors no windbox.
         push_coverage: None,
         push_dir: None,
+        captures: false,
         max_damage: damage,
         max_knockback: 0.0,
         // This rig's moves author no launch, so no move on it is a finisher.

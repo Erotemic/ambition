@@ -1487,6 +1487,10 @@ impl<'a> Perceived<'a> {
     /// shipped difficulty axis and predicting perfectly would flatten it. This
     /// says how stale the view is so a consumer can LEAD ITS AIM the way a
     /// person does; it does not hand anybody the present.
+    ///
+    /// ⭐ THE WORLD'S AGE, NOT THE BODY'S. `self_view` is the present
+    /// ([`DelayedPerception::observe`], Q167), so a lead advances the FOE by
+    /// `staleness + t` and this body by `t` alone.
     pub fn staleness_s(&self) -> f32 {
         self.staleness_s
     }
@@ -1598,7 +1602,25 @@ impl DelayedPerception {
 
     /// Feed this tick's live view. Call exactly once per sim tick, from the
     /// gameplay layer — the brain never calls it.
+    /// ⭐ THE BODY IS SEEN NOW; THE WORLD IS SEEN LATE (Q167, queue row
+    /// SELF-PERCEPTION). Every view held here carries the NEWEST
+    /// [`SelfView`], whole: position, velocity, ground and support, move
+    /// phase and every other proprioceptive fact, as one consistent
+    /// snapshot of this tick — never a live position beside a stale contact.
+    /// The foes, projectiles, terrain and `sim_time` of each view stay as they
+    /// were seen, so [`Perceived::staleness_s`] is how old the WORLD is.
+    ///
+    /// Measured 2026-10-30 (pointed vs pugnacious, rung 5, seed 0): with the
+    /// self delayed too, the brain's own position at each attack press was a
+    /// median 87 px from its live body on a whiff and 72 px on a hit — more
+    /// than most strikes reach — so admission reasoned about where both
+    /// bodies had been. The 2026-10-18 probe of the same rule took the
+    /// roster's self-KOs from 46 to 11 in 20 fighter-minutes.
     pub fn observe(&mut self, view: WorldView) {
+        let now = view.self_view;
+        for held in self.buf.iter_mut() {
+            held.self_view = now;
+        }
         self.buf.push_back(view);
         while self.buf.len() > self.delay_ticks + self.spread_ticks() + 1 {
             self.buf.pop_front();

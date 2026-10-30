@@ -41,19 +41,15 @@ const MIN_LAUNCH_SPEED: f32 = 1.0;
 /// out on the first actionable frame. [`super::decision::tick_fighter`] holds a
 /// matured press while this is true and emits it the tick it turns false.
 ///
-/// ⭐ "NOW", not "in the view": the view is `staleness_s` old, so the stun it
-/// reports has already run down by that much. A body that reads its own stun
-/// as the view says it would press `reaction` ticks late, every time — that is
-/// the delay axis applied to proprioception, which the genre does not do. This
-/// is leading the aim, not un-delaying the brain: nothing here reads the
-/// present, only the past plus the clock the past itself reported.
-///
-/// ⚠ The start of a stun is still seen late — a press maturing in the first
-/// `reaction` ticks after a hit is eaten exactly as a person's would be. That
-/// is the honest cost of the delay and this does not hide it.
+/// ⭐ "NOW": the body is seen in the present (Q167, `DelayedPerception::
+/// observe`), so its own stun and its remainder are this tick's. The delay
+/// axis is the world's, not proprioception's; the genre does not make a
+/// player wait to learn that they were hit.
 pub fn still_reeling(view: Perceived<'_>) -> bool {
+    // The body is seen NOW (Q167): its stun's remainder is the present one,
+    // and the view's staleness is the world's age, not the body's.
     let me = &view.self_view;
-    me.alive && me.phase == BodyPhase::Hitstun && me.phase_remaining > view.staleness_s()
+    me.alive && me.phase == BodyPhase::Hitstun && me.phase_remaining > 0.0
 }
 
 /// The stick a reeling body holds, in body-local axes — `None` when the body is

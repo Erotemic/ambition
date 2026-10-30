@@ -985,17 +985,40 @@ def mobius_mine():
 
 
 #: The Tower of Hanoi (`math_hanoi_props.py` draws on these): the needles,
-#: and the disks on each, bottom up, by size (each walked on).
+#: the disks, the height of a disk and the width of each, and the needle's
+#: frame about its foot (x0, y0, x1, y1). The numbers are the art's: change
+#: them with it.
 HANOI_NEEDLES = (360, 800, 1240)
-HANOI_STACKS = ((8, 7, 6, 5, 2), (4, 3), (1,))
-HANOI_DISK_H = 24
+HANOI_DISKS = 64
+HANOI_DISK_H = 8
+HANOI_NEEDLE_FRAME = (-14, -554, 14, 0)
+#: How many moves the monks have made (`math.yarn` `hanoi_lucas` says it).
+HANOI_MOVES = 555_039
+
+
+def hanoi_disk_width(size):
+    """The width of disk `size` (1 the smallest)."""
+    return 32 + 6 * size
+
+
+def hanoi_stacks(moves, disks=HANOI_DISKS):
+    """The disks on each needle after `moves` moves of the shortest solution
+    (all the disks from the first needle to the last), each needle's bottom
+    up, by size. Disk d has moved (moves + 2^(d-1)) // 2^d times, always the
+    same way round: one needle on when (disks - d) is odd, else two."""
+    stacks = ([], [], [])
+    for d in range(disks, 0, -1):
+        moved = (moves + (1 << (d - 1))) >> d
+        stacks[moved * (1 if (disks - d) % 2 else 2) % 3].append(d)
+    return stacks
 
 
 def tower_of_hanoi():
     """West of the gate hall: the Tower of Hanoi. Three diamond needles and
-    the golden disks on them, the puzzle part done; each disk is walked on,
-    so each stack is a stair; a chest on the tallest. Brother Lucas keeps
-    the count. When the last disk is moved, the world ends."""
+    the 64 golden disks on them, each needle and each disk a prop; the
+    puzzle part done. Each disk is walked on (a hidden line at its top), so
+    each stack is a climb; a chest on the tallest. Brother Lucas
+    keeps the count. When the last disk is moved, the world ends."""
     rid = HANOI
     _, w, h = ROOMS_AT[rid]
     floor = h - 64
@@ -1008,18 +1031,28 @@ def tower_of_hanoi():
         edge(f"{rid}_east", "back to the gate hall", w - WALL, floor - 96, 96, HALL, f"{HALL}_west"),
         f'( type: "PlayerStart", px: [{w - 200}, {floor - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
     ]
-    for n, (nx, stack) in enumerate(zip(HANOI_NEEDLES, HANOI_STACKS)):
+    # The needles first: the room's scenery draws in its order, and a disk is
+    # in front of its needle.
+    fx0, fy0 = HANOI_NEEDLE_FRAME[:2]
+    e += [framed(f"hanoi_needle_{n}", "hanoi_needle", nx + fx0, floor + fy0) for n, nx in enumerate(HANOI_NEEDLES)]
+    stacks = hanoi_stacks(HANOI_MOVES)
+    for nx, stack in zip(HANOI_NEEDLES, stacks):
         for i, size in enumerate(stack):
-            dw = 60 + 30 * size
-            e.append(ledge(f"disk_{n}_{size}", nx - dw // 2, floor - HANOI_DISK_H * (i + 1), dw))
-    top = floor - HANOI_DISK_H * len(HANOI_STACKS[0])
+            dw, top = hanoi_disk_width(size), floor - HANOI_DISK_H * (i + 1)
+            kind = f"hanoi_disk_{size:02d}"
+            # A disk's top is a hidden walkable line, not a OneWayPlatform:
+            # that is painted on the 16-unit collision grid, and the disks
+            # are 8 high.
+            e += [framed(kind, kind, nx - dw // 2, top), line(f"{kind}_top", [(nx - dw // 2, top), (nx + dw // 2, top)])]
+    # The chest on the top disk of the tallest stack, beside its needle.
+    top = floor - HANOI_DISK_H * len(stacks[0])
     e += [
-        f'( type: "ChestSpawn", px: [{HANOI_NEEDLES[0] - 38}, {top - 58}], size: [76, 58], fields: ( name: "a golden offcut", reward: "currency:64" ) ),',
+        f'( type: "ChestSpawn", px: [{HANOI_NEEDLES[0] - 79}, {top - 58}], size: [76, 58], fields: ( name: "a golden offcut", reward: "currency:64" ) ),',
         # Brother Lucas, by the middle needle (`math.yarn` `hanoi_lucas`).
         f'( type: "NpcSpawn", px: [{1020 - 16}, {floor - 64}], size: [32, 64], fields: ( character_id: "npc_math_lucas", '
         f'brain_override: "stand_still", prompt: "Talk", dialogue_id: "hanoi_lucas" ) ),',
-        label("hanoi_sign", 560, 110, "WHEN THE LAST DISK IS MOVED, THE WORLD ENDS", 480),
-        label("hanoi_sign_count", 560, 320, "Moves left: 18,446,744,073,708,503,040", 480),
+        label("hanoi_sign", 560, 76, "WHEN THE LAST DISK IS MOVED, THE WORLD ENDS", 480),
+        label("hanoi_sign_count", 560, 108, f"Moves left: {2 ** HANOI_DISKS - 1 - HANOI_MOVES:,}", 480),
     ]
     return rid, room(rid, e, "The Tower of Hanoi.", theme="math_undercroft")
 

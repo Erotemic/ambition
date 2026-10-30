@@ -1636,7 +1636,12 @@ pub fn resolve_camera_observation(
     // Follow the CONTROLLED SUBJECT's body. Zoom + blink easing stay on the
     // home avatar's presentation state; only the follow point tracks the
     // driven body.
-    if let Some(subject) = controlled.0 {
+    //
+    // ⛔ NOT WHILE A CAST IS DECLARED. The cast's centre is the follow point
+    // then, and the driven body is one of its members: following it here
+    // pulled a human's match frame toward the human's own fighter (MEASURED:
+    // 49 px left and 50 px down of the pair's centre, two fighters).
+    if let Some(subject) = controlled.0.filter(|_| !cast_declared) {
         if let Ok((_, kin, _)) = body_kinematics.get(subject) {
             player_body.pos = kin.pos;
             // Soft framing leads the DRIVEN body; leading the home avatar's
@@ -3637,6 +3642,52 @@ mod resolved_snapshot_lifetime_tests {
                 "{who} at x {x} is outside a {:.0}-wide frame centred {:.0}: the avatar was followed alone",
                 half.x * 2.0,
                 centre.x
+            );
+        }
+    }
+
+    /// A HUMAN SEAT DOES NOT MOVE THE FRAME. Two, three and four fighters at
+    /// the same places frame the same centre and size whether a seat is
+    /// driven by the player (`ControlledSubject`) or nobody is: the controlled
+    /// body is a member of the cast, and following it alone is the
+    /// single-subject camera's rule.
+    #[test]
+    fn a_controlled_seat_frames_the_same_cast_as_a_cpu_seat() {
+        let spots = [
+            ae::Vec2::new(1_000.0, 2_000.0),
+            ae::Vec2::new(1_600.0, 1_900.0),
+            ae::Vec2::new(1_250.0, 1_700.0),
+            ae::Vec2::new(1_450.0, 2_000.0),
+        ];
+        for fighters in 2..=4 {
+            let frame = |controlled: bool| {
+                let mut app = app_with_a_framed_cast();
+                let cast: Vec<_> = spots[..fighters].iter().map(|at| cast_member(&mut app, *at)).collect();
+                app.world_mut()
+                    .resource_mut::<ambition_platformer2d_shared_tangle::markers::FramedCast>()
+                    .0 = cast.clone();
+                if controlled {
+                    app.world_mut()
+                        .resource_mut::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>()
+                        .0 = Some(cast[0]);
+                }
+                for _ in 0..3 {
+                    app.update();
+                }
+                frame_of(&app).expect("a cast resolves a frame").snapshot
+            };
+            let (cpu, human) = (frame(false), frame(true));
+            assert!(
+                (cpu.center_world - human.center_world).length() < 0.01,
+                "{fighters} fighters: the frame centred {:?} with CPUs and {:?} with a human in seat 0",
+                cpu.center_world,
+                human.center_world
+            );
+            assert!(
+                (cpu.visible_view - human.visible_view).length() < 0.01,
+                "{fighters} fighters: the frame is {:?} with CPUs and {:?} with a human",
+                cpu.visible_view,
+                human.visible_view
             );
         }
     }

@@ -716,7 +716,8 @@ fn tick_melee_brute(
                 snapshot.locomotion_for(ae::LocalAxes::new(direction_side * cfg.chase_speed * lunge, 0.0));
         }
         crate::actor::ai::CharacterAiIntent::Attack { .. } => {
-            out.facing = snapshot.face_toward(local_target_side(snapshot));
+            let toward = local_target_side(snapshot);
+            out.facing = snapshot.face_toward(toward);
             // Brain wants to start an attack windup if the cooldown
             // is clear. The ActionSet's attack spec timing then
             // determines the concrete windup → active → recover
@@ -725,6 +726,12 @@ fn tick_melee_brute(
                 && snapshot.attack_windup_remaining <= 0.0
                 && snapshot.attack_active_remaining <= 0.0
                 && snapshot.attack_recover_remaining <= 0.0;
+            // In a run, its reach was its running attack's (a pounce from
+            // far out): it keeps its stride into the press, so the press is
+            // that attack, and not the standing one of a body that pulled up.
+            if out.melee_pressed && snapshot.running {
+                out.locomotion = snapshot.locomotion_for(ae::LocalAxes::new(toward.signum() * cfg.chase_speed, 0.0));
+            }
         }
     }
 }

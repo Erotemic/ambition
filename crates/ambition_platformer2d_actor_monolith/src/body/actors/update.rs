@@ -2542,6 +2542,7 @@ fn build_enemy_brain_snapshot(
         // The reach of the attack press, from the same moveset and the same
         // posture as the kit above. See `melee_reach_of`.
         melee_reach: melee_reach_of(moveset, body.ground.on_ground, motion_facts.running),
+        running: motion_facts.running,
         // WHICH BODY THIS IS, so a published decision fact can name its
         // subject. The brain cannot know — a snapshot is body state and identity
         // is the host's to assign — so it arrives through the world-in port like

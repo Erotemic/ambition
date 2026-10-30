@@ -373,12 +373,6 @@
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.6, active_s: 0.35, recover_s: 0.8, damage: 3, reach_px: 46.0, step_px: 0.0, rush_px: 220.0)),
         ),
-        // The raptor's pounce: crouched with its claws drawn back (its windup
-        // row), then a leap at the foe, claws first; it lands and is open.
-        "raptor_pounce": (
-            move_style: Walk,
-            melee: Some(Lunge(windup_s: 0.45, active_s: 0.4, recover_s: 0.55, damage: 2, reach_px: 40.0, step_px: 0.0, rush_px: 180.0, leap_speed: 380.0)),
-        ),
         // The gore charge: horns lowered and a forefoot pawing (its windup
         // row), then the charge, then a long stop to turn its bulk round.
         "triceratops_gore": (
@@ -3271,7 +3265,7 @@
             // that changing it is now one number.
             standing_height: Some(75.8),
             composition: None,
-            default_action_set: "raptor_pounce",
+            default_action_set: "striker_swipe",
             // THE BODY, stated, so the row is a buildable character: the
             // T-rex's call SUMMONS raptors by this id, and a summon refuses a
             // character the cast cannot build (`preflight_planned_bodies`).
@@ -3287,9 +3281,13 @@
                 attack_range: 44.0,
                 patrol_effort: 0.6,
                 chase_effort: 1.0,
-                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): It sizes you up just out of reach, then commits; the pack spaces itself.
-                retreat_after_swing_s: 0.35,
-                tactics: (notice_s: 0.45, lurk_px: 80.0, waits_its_turn: true, footsies: Some((hold_px: 120.0, wait_s: 0.8)), flinch_back_s: 0.2),
+                // Temperament (Jon 2026-10-30: "notice, space, telegraph, attack"): a
+                // pouncer. It backs well off after each strike, then comes in at a
+                // run and pounces from about 200 px (its running attack,
+                // `movesets/raptor_stalker.ron`); caught up close, it bites. No
+                // footsies: holding in a band would slow it out of its run.
+                retreat_after_swing_s: 0.8,
+                tactics: (notice_s: 0.45, lurk_px: 80.0, waits_its_turn: true, flinch_back_s: 0.2),
             )),
             max_health: Some(4),
             tags: ["enemy", "large"],

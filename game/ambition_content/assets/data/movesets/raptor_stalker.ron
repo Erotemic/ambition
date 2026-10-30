@@ -1,0 +1,117 @@
+// The source of the Raptor Stalker's running attack. The game loads this file
+// through the content pack (`assets/pack.ron`); edit it here.
+//
+// DESIGN NOTES
+//
+// Jon (2026-10-30): enemies that "notice, space, telegraph, attack" as Hollow
+// Knight's do. The raptor has two attacks, and its distance picks: standing
+// in close it bites (its action set, `striker_swipe`, the `bite` row); coming
+// in at a run it POUNCES (this move, the running variant of the attack press,
+// `attack_dash`). The reach of a running body is its dash attack's, and the
+// leap counts as reach, so it pounces from about 200 px out.
+//
+// The pounce: it plants and crouches (0.45 s; its `windup` row is pinned over
+// the startup), leaps at the foe claws first with the strike live (0.4 s), and
+// lands open (0.55 s). The art is the `pounce` row (8 frames) over the move.
+(
+    schema_version: 1,
+    entities: [
+        (
+            id: "npc_raptor_stalker",
+            contracts: (
+                body: None,
+                hurtboxes: None,
+                presentation: None,
+                moveset: Some((
+                    verbs: {
+                        "attack_dash": "raptor_pounce",
+                    },
+                    moves: [
+                        (
+                            id: "raptor_pounce",
+                            display_name: Some("Pounce"),
+                            clip: (
+                                clip: "pounce",
+                                fallbacks: [
+                                    "attack_side",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 1.4,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.45,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.45,
+                                    end_s: 0.85,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            // The claws, out in front.
+                                            shape: Rect(
+                                                offset: (24.0, -2.0),
+                                                half_extents: (18.0, 20.0),
+                                            ),
+                                            damage: 2,
+                                            knockback: 220.0,
+                                            knockback_growth: None,
+                                            launch_dir: Some((1.0, -0.3)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: None,
+                                            hit_sfx: None,
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.85,
+                                    end_s: 1.4,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 0.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                // It plants for the crouch: the telegraph is
+                                // read standing, not sliding in on its run.
+                                (at_s: 0.0, kind: Impulse(local: (0.0, 0.0), mode: Set)),
+                                (at_s: 0.0, kind: HoldVelocity(seconds: 0.45)),
+                                // The leap: 180 px over the strike, up and in.
+                                (at_s: 0.45, kind: Impulse(local: (450.0, -380.0), mode: Set)),
+                                (at_s: 0.45, kind: HoldVelocity(seconds: 0.4)),
+                            ],
+                            gates: (
+                                grounded: Some(true),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: true,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            charge_mult: 1.0,
+                            move_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                    ],
+                )),
+            ),
+        ),
+    ],
+)

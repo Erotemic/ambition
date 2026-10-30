@@ -119,8 +119,9 @@ fn the_pachycephalosaurus_stands_through_its_windup_then_charges() {
     assert!(rush > 400.0, "it rushes over its strike: {rush}");
 }
 
-/// The raptor pounces: over its strike it leaves the ground at the player,
-/// claws first (its attack row is its pounce), and comes down after.
+/// The raptor pounces: coming in at a run from far out, its attack is its
+/// running attack (`movesets/raptor_stalker.ron`): it plants for its crouch,
+/// then leaves the ground at the player claws first, and comes down after.
 #[test]
 fn the_raptor_pounces_off_the_ground_at_its_strike() {
     const POUNCER: &str = "pouncing_raptor";
@@ -129,7 +130,7 @@ fn the_raptor_pounces_off_the_ground_at_its_strike() {
     sim.spawn_enemy_character_at(
         POUNCER,
         "Raptor Stalker",
-        (p.x + 150.0, p.y),
+        (p.x - 420.0, p.y),
         (24.0, 40.0),
         CharacterBrain::Custom("raptor".to_string()),
         "npc_raptor_stalker",
@@ -139,8 +140,11 @@ fn the_raptor_pounces_off_the_ground_at_its_strike() {
     for _ in 0..900 {
         sim.step(AgentAction::default());
         let world = sim.world_mut();
-        let mut q = world.query::<(&FeatureId, &BodyKinematics, MeleeSwingQuery)>();
-        let Some((_, kin, swing)) = q.iter(world).find(|(id, ..)| id.as_str() == POUNCER) else { continue };
+        let mut q = world.query::<(&FeatureId, &BodyKinematics, MeleeSwingQuery, Option<&ambition_platformer2d::combat::moveset::MovePlayback>)>();
+        let Some((_, kin, swing, playback)) = q.iter(world).find(|(id, ..)| id.as_str() == POUNCER) else { continue };
+        if swing.swing().is_some() {
+            assert_eq!(playback.map(|pb| pb.spec.id.as_str()), Some("raptor_pounce"), "coming in at a run, it pounces (not the standing bite)");
+        }
         if let Some(ambition_platformer2d::combat::AttackPhase::Active) = swing.swing().and_then(|swing| swing.phase()) {
             struck = true;
             rise = rise.max(-kin.vel.y);

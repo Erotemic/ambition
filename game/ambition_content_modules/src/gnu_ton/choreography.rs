@@ -1414,8 +1414,9 @@ pub mod blows {
     /// length.
     pub const CLEAR: f32 = 26.0;
     /// Through the tell the far line follows the player this fast (a player
-    /// runs at 270), until the last `LOCK` of it: then it stays, and the
-    /// player has a thing to step out from under, and a way that is open.
+    /// runs at 270), while the pair is shut and until the last `LOCK` of it:
+    /// then it stays, and the player has a thing to step out from under, and
+    /// a way that is open. A portal that has begun to open never moves.
     pub const TRACK_SPEED: f32 = 360.0;
     pub const LOCK: f32 = 0.3;
     /// A blow whose tell starts this soon after the last one ended is the next
@@ -1524,9 +1525,14 @@ pub mod blows {
         ease((limb.close_at - back) / (limb.close_at - RECOVER_OUT).max(0.05))
     }
 
-    /// Does the far line still follow the player?
-    pub fn tracking(cue: &Cue) -> bool {
-        matches!(cue.mv, Move::PortalPunch | Move::PortalKick) && !cue.striking && cue.t < cue.dur - LOCK
+    /// Does the far line still follow the player? Only while the pair is
+    /// shut (`opening` is 0 until `Limb::open_from`): an open portal stays
+    /// where it opened.
+    pub fn tracking(cue: &Cue, limb: &Limb) -> bool {
+        matches!(cue.mv, Move::PortalPunch | Move::PortalKick)
+            && !cue.striking
+            && cue.t < cue.dur - LOCK
+            && tell(cue) < limb.open_from
     }
 }
 

@@ -1499,6 +1499,7 @@ pub fn spawn_runtime_minion_into(sprite_content: &ambition_sprite_sheet::SpriteC
             mount.saddle_on.as_deref(),
             published_surfaces_of(&sprite_content, definition),
             &mount.slope,
+            mount.slope_follows.as_deref(),
             1.0,
             &mount.pilotable_classes,
         );
@@ -1905,6 +1906,7 @@ fn attach_character_mount_role(
         mount.saddle_on.as_deref(),
         published_surfaces_of(sprite_content, definition),
         &mount.slope,
+        mount.slope_follows.as_deref(),
         definition.vitals.mass.unwrap_or(1.0),
         &mount.pilotable_classes,
     );
@@ -1927,6 +1929,7 @@ fn attach_mount_role_from(
     saddle_on: Option<&str>,
     surfaces: Option<std::sync::Arc<ambition_characters::actor::SurfaceTable>>,
     slope: &[(f32, f32)],
+    slope_follows: Option<&str>,
     mass: f32,
     pilotable: &[String],
 ) {
@@ -1960,9 +1963,10 @@ fn attach_mount_role_from(
             ledges: ledges.to_vec(),
             drawn: drawn_ledges.iter().map(ambition_mount::DrawnLedge::new).collect(),
             // A drawn ledge with no published surface is not ground.
-            surfaces: surfaces.filter(|_| !drawn_ledges.is_empty()),
+            surfaces: surfaces.filter(|_| !drawn_ledges.is_empty() || slope_follows.is_some()),
             saddle_on: saddle_on.map(str::to_string),
             slope: slope.iter().map(|&(x, y)| ae::Vec2::new(x, y)).collect(),
+            slope_drawn: slope_follows.map(ambition_mount::DrawnLedge::new),
         });
     }
     if !pilotable.is_empty() {

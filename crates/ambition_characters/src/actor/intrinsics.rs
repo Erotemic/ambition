@@ -132,6 +132,13 @@ pub struct CharacterMount {
     /// the side it is drawn facing. Empty = none. It moves with the mount.
     #[serde(default)]
     pub slope: Vec<(f32, f32)>,
+    /// The standing surface the sheet publishes for the `slope` (its
+    /// `surface:<name>:a` / `:b` anchors are the slope's two ends where the
+    /// art is drawn): the whole slope is carried by the move of its ends, so
+    /// it bobs and turns with the drawing. `None`: it moves with the mount
+    /// only.
+    #[serde(default)]
+    pub slope_follows: Option<String>,
 }
 
 /// A span of a mount (its back, or a ledge of one-way ground), in world units

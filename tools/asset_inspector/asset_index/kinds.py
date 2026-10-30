@@ -8,8 +8,9 @@ one shape, which the page shows the same way:
     {id, kind, name, display, state, reasons, fix, sources, files, media,
      uses, reviews, tags, related, details}
 
-`state` is `present`, `missing` (declared but not generated), `unregistered`
-(a source no game entry names) or `unknown`. Sprites, backgrounds and other
+`state` is `present`, `missing` (declared or authored, but the game cannot
+load it), `excluded` (a policy leaves it out), `unregistered` (a file no game
+entry names) or `unknown`. Sprites, backgrounds and other
 images stay in the richer art index (`assets`, `inventory`).
 """
 
@@ -93,7 +94,7 @@ def music(ctx: dict) -> list[dict]:
             policy = json.loads((ctx["library_dir"] / config["policy"]).read_text())
         except (OSError, ValueError):
             pass
-    denied = set(policy.get("DENY_IDS", []))
+    denied = ctx["denied"] = set(policy.get("DENY_IDS", []))
     registry = root / config["registry"] if config.get("registry") else None
     tracks = {}
     if registry and registry.is_file():
@@ -113,10 +114,7 @@ def music(ctx: dict) -> list[dict]:
             folder = score.name.removesuffix(".music.yaml")
             if folder in seen_dirs:
                 continue
-            item = _track(ctx, folder, folder.replace("_", " ").title(), root / _TRACK_PATH.format(id=folder), folder, scores, tool, registered=False)
-            if folder in denied:
-                item["tags"].append("excluded by policy")
-            items.append(item)
+            items.append(_track(ctx, folder, folder.replace("_", " ").title(), root / _TRACK_PATH.format(id=folder), folder, scores, tool, registered=False))
     return items
 
 
@@ -146,9 +144,15 @@ def _track(ctx, tid, display, audio: Path, folder, scores: Path, tool: Path, *, 
             item["reasons"].append(f"The game has no {audio.name} for it." + (
                 " The music tool rendered it, but the render is not published." if preview else " It is not rendered."))
             item["fix"] = ctx["fix"]
+    elif ctx.get("denied") and tid in ctx["denied"]:
+        item["state"] = "excluded"
+        item["reasons"].append("The music policy excludes this score (DENY_IDS), so the registry leaves it out.")
     else:
-        item["state"] = "unregistered"
-        item["reasons"].append("A score that no registry entry names: the game cannot play it.")
+        # The registry is regenerated from the active scores at each music publish.
+        item["state"] = "missing"
+        item["reasons"].append("The score is newer than the last music publish: neither the music registry nor the game has it yet."
+                               + (" The music tool has a render." if preview else ""))
+        item["fix"] = ctx["fix"]
     if not score.is_file():
         item["reasons"].append("No score in the music tool: the source of this audio is unknown.")
     reviews = sorted((tool / "reviews" / "music" / folder).glob("*.review.yaml"))
@@ -335,26 +339,36 @@ def _ldtk_rooms(path: Path) -> list[dict]:
 # --- uses in game text ----------------------------------------------------------
 
 _TEXT = ("*.ron", "*.rs", "*.yarn", "*.json", "*.yaml")
+_QUOTED = re.compile(r'"([^"\n]+)"')
+#: A music id is a plain word (`billions_and_billions`) that other things share, such as a
+#: move clip of that name; a line names a track only when it also says music, track, cue or song.
+_MUSIC_WORDS = re.compile(r"music|track|cue|song|radio|playlist", re.I)
 
 
 def text_uses(repo: Path, items: list[dict], uses: dict) -> None:
-    """Where game and engine text names an item, by its quoted id (`"ability.fire.charge"`)."""
-    # An item is named by its id (music, sound) or by its path under the asset root (`"fonts/bundled/X.ttf"`).
-    names = {item["name"]: item["id"] for item in items if item["kind"] in ("music", "sfx")}
-    names |= {alias: item["id"] for item in items for alias in item.pop("aliases", [])}
+    """Where game and engine text names an item, by its quoted id (`"ability.fire.charge"`)
+    or quoted asset path (`"fonts/bundled/X.ttf"`)."""
+    names = {item["name"]: item for item in items if item["kind"] in ("music", "sfx")}
+    names |= {alias: item for item in items for alias in item.pop("aliases", [])}
     if not names:
         return
     patterns = "\n".join(f'"{name}"' for name in names)
-    done = subprocess.run(["git", "grep", "-n", "-o", "-F", "--no-color", "-f", "-", "--", "game", "crates", *_TEXT],
+    done = subprocess.run(["git", "grep", "-n", "-F", "--no-color", "-f", "-", "--", "game", "crates", *_TEXT],
                           cwd=repo, input=patterns, capture_output=True, text=True)
     for line in done.stdout.splitlines():
         try:
-            file, number, match = line.split(":", 2)
+            file, number, text = line.split(":", 2)
         except ValueError:
             continue
-        item = names.get(match.strip('"'))
-        if item and len(uses[item]) < 60 and "/generated/" not in file:
-            uses[item].append({"where": f"{file}:{number}", "file": file, "line": int(number)})
+        if "/generated/" in file:
+            continue
+        for quoted in _QUOTED.findall(text):
+            item = names.get(quoted)
+            if not item or (item["kind"] == "music" and quoted == item["name"] and not _MUSIC_WORDS.search(text)):
+                continue
+            rows = uses[item["id"]]
+            if len(rows) < 60 and not any(row.get("file") == file and row.get("line") == int(number) for row in rows):
+                rows.append({"where": f"{file}:{number}", "file": file, "line": int(number), "text": text.strip()[:160]})
 
 
 # --- collection -----------------------------------------------------------------
@@ -416,6 +430,9 @@ def collect(repo: Path, out: Path, hashes, *, pack: Path, families: dict | None 
     for item_id, rows in uses.items():
         if item_id in by_id:
             by_id[item_id]["uses"] = rows
+            rooms = [row["where"] for row in rows if row.get("field")]
+            if rooms and by_id[item_id]["state"] != "present":
+                by_id[item_id]["reasons"].insert(0, f"{len(rooms)} room(s) ask for it, and the game cannot play it there: {', '.join(rooms[:4])}.")
             by_id[item_id]["related"] = sorted(set(by_id[item_id]["related"]) | {row["item"] for row in rows if row.get("item")})
     sidecars.save()
     return {"kinds": kinds, "items": by_id}

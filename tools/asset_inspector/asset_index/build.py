@@ -49,6 +49,7 @@ def build(
     binary: Path | None = None,
     deep: bool = False,
     runtime_path: Path | None = None,
+    cargo: bool = False,
     log=print,
 ) -> dict[str, Any]:
     """Index the art of `repo` into `out`. `targets` stands in for the
@@ -76,7 +77,7 @@ def build(
     inspection = None
     if targets is None:
         inspection = inventory.collect(repo, out, profile=profile, python=python, binary=binary, deep=deep, runtime_path=runtime_path,
-                                       product_report=early.result())
+                                       product_report=early.result(), cargo=cargo, log=log)
         if inspection["profile"]["state"] != "available":
             # The art, generators and lineages still index; the page names the problem and its fix.
             problem = inspection["profile"].get("warnings") or ["The content inspection tool is unavailable."]
@@ -304,6 +305,7 @@ def main(argv: list[str] | None = None) -> int:
         page.add_argument("--renderer-python", default=None, help="the interpreter for `ambition_sprite2d_renderer list --json`")
         page.add_argument("--authorship", action="store_true", help="read Git authorship and history previews")
         page.add_argument("--open", action="store_true", help="open the page in a browser when built")
+        page.add_argument("--no-cargo", action="store_true", help="do not rebuild a content check binary older than the engine's Rust sources")
     n = sub.add_parser("notes", help="read the review backlog or save a review note")
     n.add_argument("action", choices=("backlog", "list", "add", "resolve", "reopen"))
     n.add_argument("id", nargs="?", help="full character identity for add; note UUID for resolve or reopen")
@@ -379,7 +381,7 @@ def main(argv: list[str] | None = None) -> int:
     def run(log=print):
         return build(repo, out, jobs=args.jobs, previews=not args.no_previews, prune=args.prune, python=args.renderer_python,
                      lineages=args.authorship, profile=args.profile, binary=args.content_binary, deep=args.deep,
-                     runtime_path=args.runtime_snapshot, log=log)
+                     runtime_path=args.runtime_snapshot, cargo=not args.no_cargo, log=log)
     if args.command == "serve":
         from .server import serve
         serve(repo, out, port=args.port, open_browser=args.open, build=run)

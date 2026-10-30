@@ -68,7 +68,7 @@ def test_each_kind_reports_what_exists_what_is_missing_and_where_it_is_used(tmp_
     items = result["items"]
     assert items["music:theme"]["state"] == "present"
     assert items["music:gone"]["state"] == "missing" and items["music:gone"]["fix"]
-    assert items["music:sketch"]["state"] == "unregistered"
+    assert items["music:sketch"]["state"] == "missing" and "newer than the last music publish" in items["music:sketch"]["reasons"][0]
     assert items["sfx:ui.click"]["state"] == "present"
     assert (out / items["sfx:ui.click"]["media"]["href"]).read_bytes() == b"OggS click"
     assert items["sfx:ui.unpacked"]["state"] == "missing"
@@ -105,3 +105,46 @@ def test_a_review_note_on_any_item_records_the_version_it_reviewed(tmp_path):
     later = kinds.collect(tmp_path, out, HashCache(out / "hashes.json"), pack=pack, log=lambda _m: None)
     note = reviews.snapshot(tmp_path, later)["notes"][0]
     assert note["generation_relation"] == "older"
+
+
+def test_a_music_id_counts_as_used_only_where_the_line_names_music(tmp_path):
+    import subprocess
+    (tmp_path / "game").mkdir(exist_ok=True)
+    (tmp_path / "game/moves.ron").write_text('clip: "theme",\n')
+    (tmp_path / "game/rooms.ron").write_text('music_track: "theme",\n')
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "add", "game"], cwd=tmp_path, check=True)
+    uses = __import__("collections").defaultdict(list)
+    kinds.text_uses(tmp_path, [{"id": "music:theme", "kind": "music", "name": "theme"}], uses)
+    assert [row["file"] for row in uses["music:theme"]] == ["game/rooms.ron"]
+
+
+def test_the_content_binary_is_rebuilt_only_when_a_rust_source_is_newer(tmp_path, monkeypatch):
+    import os
+    from asset_index import sources
+    binary = tmp_path / "target/debug/ambition_content_check"
+    binary.parent.mkdir(parents=True)
+    binary.write_text("old binary")
+    source = tmp_path / "crates/schema/src/lib.rs"
+    source.parent.mkdir(parents=True)
+    source.write_text("pub struct Tactics;")
+    os.utime(binary, (1, 1))
+    assert sources.newer_source(tmp_path, binary) == source
+    os.utime(binary, None)
+    os.utime(source, (1, 1))
+    assert sources.newer_source(tmp_path, binary) is None
+
+
+def test_the_newer_of_the_release_and_debug_binaries_is_used(tmp_path, monkeypatch):
+    import os
+    from asset_index import sources
+    monkeypatch.delenv("AMBITION_ART_CONTENT_BIN", raising=False)
+    assert sources.default_binary(tmp_path) == tmp_path / "target/release/ambition_content_check"
+    for profile, when in (("release", 100), ("debug", 200)):
+        path = tmp_path / "target" / profile / "ambition_content_check"
+        path.parent.mkdir(parents=True)
+        path.write_text(profile)
+        os.utime(path, (when, when))
+    assert sources.default_binary(tmp_path).parent.name == "debug"
+    os.utime(tmp_path / "target/release/ambition_content_check", (300, 300))
+    assert sources.default_binary(tmp_path).parent.name == "release"

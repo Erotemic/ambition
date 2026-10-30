@@ -41,14 +41,16 @@ pack, so another engine game is inspected the same way (`--profile`,
 Any item can take a review note (`serve`). A note records the version of the
 files it reviewed, so it stays attached after the asset changes.
 
-The build command needs the content inspection binary for the Characters view:
+The Characters view needs the content check binary. The inspector uses the
+newer of its release and debug builds. When the binary is missing or older than
+an engine Rust source, a build or the served page's refresh rebuilds it in
+release mode, then reads the catalog again. `--no-cargo` turns that off. By hand:
 
 ```bash
-cargo build -p ambition_content_schemas --bin ambition_content_check
+cargo build --release -p ambition_content_schemas --bin ambition_content_check
 ```
 
-Rebuild it after changes to its Rust owners. The page names it when it is
-stale. It needs no window, graphics device, or game host.
+It needs no window, graphics device, or game host.
 
 ## Common queries
 

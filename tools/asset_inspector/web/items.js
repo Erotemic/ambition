@@ -9,22 +9,46 @@
   const query = () => document.getElementById("q").value.trim().toLowerCase();
   const KINDS = {music: "Music", sfx: "Sound effects", font: "Fonts", world: "Worlds"};
   const VIEW = {music: "music", sfx: "sound", font: "fonts", world: "worlds"};
-  const STATE_CLASS = {present: "c-ok", missing: "c-warn", stale: "c-warn", unregistered: "c-info", unknown: "c-info"};
+  const STATE_CLASS = {present: "c-ok", missing: "c-warn", stale: "c-warn", unregistered: "c-info", excluded: "c-info", unknown: "c-info"};
   const chip = state => `<span class="chip ${STATE_CLASS[state] || "c-info"}">${esc(state)}</span>`;
   const editor = (path, line) => C.repo_abs ? `vscode://file/${C.repo_abs}/${path}${line ? ":" + line : ""}` : `${C.repo_href}/${path}`;
   const source = (path, line) => `<a href="${esc(editor(path, line))}" title="Open in the editor"><code>${esc(path)}${line ? ":" + line : ""}</code></a>`;
   const itemLink = (id, text) => items[id] ? `<a href="#item/${encodeURIComponent(id)}">${esc(text || items[id].display)}</a>` : `<code>${esc(id)}</code>`;
   const notes = key => (window.ArtReviews ? window.ArtReviews.openFor(key) : 0);
-  let player = null;
-  function play(href) {
-    if (!player) { player = new Audio(); }
-    if (player.dataset.href === href && !player.paused) { player.pause(); return; }
-    player.src = href; player.dataset.href = href; player.play();
+  // One player for the whole page, docked at the bottom: it says what is playing and links to it.
+  const bar = document.createElement("div");
+  bar.className = "now-playing"; bar.hidden = true;
+  bar.innerHTML = `<span class="np-label"></span><audio controls preload="none"></audio><button type="button" class="ghost np-close" title="Stop">✕</button>`;
+  document.body.append(bar);
+  const player = bar.querySelector("audio"), label = bar.querySelector(".np-label");
+  const title = document.title;
+  let current = null;
+  function sync() {
+    const playing = current && !player.paused;
+    document.title = current ? `${playing ? "▶" : "⏸"} ${items[current]?.display || current} · ${title}` : title;
+    document.querySelectorAll("[data-play]").forEach(b => {
+      const on = b.dataset.play === current;
+      b.textContent = on && playing ? "⏸" : "▶";
+      b.closest("tr")?.classList.toggle("playing", on);
+    });
   }
+  function play(id) {
+    const item = items[id];
+    if (!item?.media || item.media.type !== "audio") return;
+    if (current === id) { player.paused ? player.play() : player.pause(); return; }
+    current = id;
+    player.src = item.media.href;
+    label.innerHTML = `<b>Now playing</b> ${itemLink(id)} <small>${esc(KINDS[item.kind] || item.kind)}${item.media.unpublished ? " · the music tool's unpublished render" : ""}</small>`;
+    bar.hidden = false; document.body.classList.add("has-player");
+    player.play();
+  }
+  ["play", "pause", "ended"].forEach(type => player.addEventListener(type, sync));
+  bar.querySelector(".np-close").onclick = () => { player.pause(); player.removeAttribute("src"); current = null; bar.hidden = true; document.body.classList.remove("has-player"); sync(); };
   document.addEventListener("click", event => {
     const button = event.target.closest("[data-play]");
     if (button) { event.preventDefault(); play(button.dataset.play); }
   });
+  window.addEventListener("hashchange", () => setTimeout(sync, 0));
 
   function families() {
     const libraries = C.families?.libraries || [];
@@ -85,7 +109,7 @@
 
   function table(rows, withKind) {
     return `<table class="tbl"><thead><tr><th></th>${withKind ? "<th>Kind</th>" : ""}<th>Name</th><th>State</th><th>Uses</th><th>Review</th><th>Notes</th></tr></thead><tbody>
-      ${rows.map(i => `<tr><td>${i.media?.type === "audio" ? `<button type="button" class="ghost" data-play="${esc(i.media.href)}" title="Play">▶</button>` : ""}</td>
+      ${rows.map(i => `<tr><td>${i.media?.type === "audio" ? `<button type="button" class="ghost" data-play="${esc(i.id)}" title="Play ${esc(i.display)}">▶</button>` : ""}</td>
         ${withKind ? `<td>${esc(KINDS[i.kind] || i.kind)}</td>` : ""}
         <td>${itemLink(i.id)}<br><small><code>${esc(i.name)}</code></small></td><td>${chip(i.state)}</td><td>${i.uses.length || ""}</td>
         <td>${i.reviews ? `${esc(i.reviews.score)} ${esc(i.reviews.label || "")}${i.reviews.score_changed ? " ⚠" : ""}` : ""}</td>
@@ -110,11 +134,12 @@
         · make: <code>${esc(k.fix || "")}</code></p>
       ${rows.length ? table(rows.slice(0, 1000), false) : '<p class="empty">Nothing matches.</p>'}`;
     app().querySelectorAll("[data-filter]").forEach(b => b.onclick = () => { f[b.dataset.filter] = b.dataset.key; list(kind); });
+    sync();
   }
 
   function media(item) {
     if (!item.media) return "";
-    if (item.media.type === "audio") return `<audio controls preload="metadata" src="${esc(item.media.href)}"></audio>${item.media.unpublished ? '<p class="empty">This is the music tool\'s newest render; the game does not have it yet.</p>' : ""}`;
+    if (item.media.type === "audio") return `<p><button type="button" class="play-big" data-play="${esc(item.id)}">▶</button> Play ${esc(item.display)}</p>${item.media.unpublished ? '<p class="empty">This is the music tool\'s newest render; the game does not have it yet.</p>' : ""}`;
     if (item.media.type === "font") {
       const family = "asset-font-" + item.name.replace(/[^A-Za-z0-9]/g, "_");
       return `<style>@font-face { font-family: "${family}"; src: url("${esc(item.media.href)}"); }</style>
@@ -166,6 +191,7 @@
       ${musicReviews(item)}
       ${window.ArtReviews ? window.ArtReviews.section(item.id) : ""}`;
     if (window.ArtReviews) window.ArtReviews.wire();
+    sync();
   }
 
   window.AssetItems = {overview, list, detail, VIEW};

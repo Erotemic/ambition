@@ -247,6 +247,10 @@
     "eureka_tether_car": (),
     // The Pirate Sky Lookout (PvN, out of town).
     "sky_lookout_deck": (),
+    // The Math gate hall (arrivals).
+    "math_hall_west": (),
+    "math_hall_east": (),
+    "math_hall_lamps": (),
     // The hall of the Shadow Clan (PvN).
     "shadow_dojo_hall": (),
     // Along the primeval trail.

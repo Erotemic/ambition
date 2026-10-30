@@ -23,27 +23,39 @@ pub struct ControlledSubject(pub Option<Entity>);
 #[derive(Resource, Default, Clone, Debug, PartialEq, Eq)]
 pub struct FramedCast(pub Vec<Entity>);
 
-/// HOW TIGHTLY THE CAMERA FRAMES THE CAST: the view a cast standing together
-/// may shrink the authored view to, and the room left around its box. The
-/// engine's values frame an exploration party; a platform fighter declares a
-/// tighter pair (`MatchRules::cast_framing`) so two fighters trading blows
-/// fill the screen, and the match resets it when it ends.
+/// HOW THE CAMERA FRAMES THE CAST: the box it asks for each tick, and how
+/// fast the view follows that box. The engine's values frame an exploration
+/// party; a platform fighter declares its own (`MatchRules::cast_framing`),
+/// and the match resets it when it ends.
+///
+/// The model is Melee's (`cm/camera.c`): each member asks for a box around
+/// itself, padded more when fewer members share the screen; the union of
+/// those boxes, stopped at the camera box, is the target; and the view's
+/// centre (pan) and size (zoom) follow the target separately, with zooming
+/// out and zooming in at their own rates.
 #[derive(Resource, Clone, Copy, Debug, PartialEq)]
 pub struct CastFramingTuning {
     /// How far the view may close in on the cast, as a fraction of the base
     /// view. The cast never pushes it below this.
     pub min_view_scale: f32,
-    /// Room kept around the cast's box, in world units, on every side.
+    /// Room kept around each member's body, in world units, on every side.
     pub margin: f32,
-    /// Extra room kept BELOW the cast's box, in world units, so the ground
-    /// they fight on stays in view and the fighters sit above the centre.
-    pub floor_margin: f32,
-    /// The rate an edge of the framed box OPENS at, in Hz. `None` adopts an
-    /// opening edge at once, so a body is never cut off while exploring; a
-    /// fighting game eases both ways and lets a launched body lead the view.
-    pub open_hz: Option<f32>,
-    /// The rate an edge of the framed box CLOSES at, in Hz.
-    pub close_hz: f32,
+    /// The factor on `margin` for 1, 2, 3 and 4 or more members. A duel
+    /// pads each fighter more than a four-way fight, whose spread already
+    /// opens the view (Melee: 1.5, 1.32, 1.16, 1.0).
+    pub margin_by_count: [f32; 4],
+    /// The share of the view's height kept below the cast's box, so the
+    /// ground stays in view and the fighters sit above the centre. A share,
+    /// not a length: a wide view keeps more floor (Melee lowers the bottom
+    /// with the camera's distance).
+    pub floor_share: f32,
+    /// The rate the view's centre follows the target's, in Hz.
+    pub pan_hz: f32,
+    /// The rate the view opens toward a larger target, in Hz. `None` opens
+    /// at once, so a body is never cut off while exploring.
+    pub zoom_out_hz: Option<f32>,
+    /// The rate the view closes toward a smaller target, in Hz.
+    pub zoom_in_hz: f32,
     /// How far past the room the view may look. `None` stops at the room.
     pub bounds: Option<CastCameraBounds>,
     /// A member wholly outside the view is shown in a bubble at the view's
@@ -79,14 +91,25 @@ pub struct CastCameraBounds {
     pub fall: f32,
 }
 
+impl CastFramingTuning {
+    /// The margin for a cast of `members`.
+    pub fn margin_for(&self, members: usize) -> f32 {
+        self.margin * self.margin_by_count[members.clamp(1, 4) - 1]
+    }
+}
+
 impl Default for CastFramingTuning {
     fn default() -> Self {
         Self {
             min_view_scale: 0.75,
             margin: 48.0,
-            floor_margin: 0.0,
-            open_hz: None,
-            close_hz: 10.0,
+            margin_by_count: [1.0; 4],
+            floor_share: 0.0,
+            // The follow camera's own target rate, so a party frames as a
+            // single body is followed.
+            pan_hz: 8.0,
+            zoom_out_hz: None,
+            zoom_in_hz: 10.0,
             bounds: None,
             bubble: None,
         }

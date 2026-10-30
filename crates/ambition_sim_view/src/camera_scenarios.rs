@@ -33,9 +33,11 @@ pub(crate) fn smash_framing() -> CastFramingTuning {
     CastFramingTuning {
         min_view_scale: 0.45,
         margin: 40.0,
-        floor_margin: 40.0,
-        open_hz: Some(4.0),
-        close_hz: 4.0,
+        margin_by_count: [1.14, 1.0, 0.88, 0.76],
+        floor_share: 0.15,
+        pan_hz: 6.0,
+        zoom_out_hz: Some(6.0),
+        zoom_in_hz: 2.5,
         bounds: Some(CastCameraBounds { side: 280.0, rise: 170.0, fall: 100.0 }),
         bubble: None,
     }

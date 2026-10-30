@@ -76,6 +76,8 @@ CLOSETS = ("math_hotel_door_1", "math_hotel_door_2", "math_hotel_door_3")
 #: Out of town east of the summit (Jon, 2026-10-30: "out of town zones with
 #: enemies"): the Fractal Woods.
 WOODS = "math_fractal_woods"
+#: Under the woods, down a hole in their floor (a ladder down it).
+MINE = "math_mobius_mine"
 CAFE, OFFICE, OBSERVATORY = "math_cafe", "math_surveyors_office", "math_observatory"
 
 #: Each room: where it is in the world, and its size.
@@ -104,6 +106,8 @@ ROOMS_AT = {
     CLOSETS[1]: (14320, 480, 320),
     CLOSETS[2]: (14880, 480, 320),
     WOODS: (1712 + 3200, 2400, 768),
+    # Under the woods' east end: its shaft (x 96..160) under their hole.
+    MINE: (1712 + 3200 + 2288 - 96, 1600, 640),
 }
 #: A room's world y when it is not 0. The rooms of the world touch where they
 #: join (`specs/check_flat_map.py`): Zeno's Aqueduct is west of the street at
@@ -116,6 +120,8 @@ ROOMS_Y = {
     CORRIDOR: INSIDES_Y + (576 - 64) - (448 - 64),
     # The woods' floor (y 704) level with the summit (the street's y 560).
     WOODS: 560 - 704,
+    # Right under the woods (their floor's foot, y 768 there).
+    MINE: 560 - 704 + 768,
 }
 
 #: Pixels of a town prop's frame to one world unit (`math_town_facades.PX`,
@@ -848,7 +854,13 @@ def fractal_woods():
         framed("woods_far_east", "woods_far_east", 1192, 300),
         framed("woods_tree", "woods_great_tree", 420, 20),
         framed("woods_things", "woods_curiosities", 1080, 400),
-        solid("ground", 0, g, w, h - g),
+        # The ground, and the hole down to the mine: a ladder down it
+        # (`PAINT`), its bottom the way down.
+        solid("ground_west", 0, g, WOODS_HOLE[0], h - g),
+        solid("ground_east", WOODS_HOLE[1], g, w - WOODS_HOLE[1], h - g),
+        (f'( type: "LoadingZone", px: [{WOODS_HOLE[0]}, {h - 16}], size: [{WOODS_HOLE[1] - WOODS_HOLE[0]}, 16], fields: ( id: "{rid}_shaft", '
+         f'name: "down the mine shaft", activation: "EdgeExit", target_room: "{MINE}", target_zone: "{MINE}_shaft", bidirectional: true ) ),'),
+        label("woods_sign_mine", WOODS_HOLE[0] - 180, g - 120, "THE MOBIUS MINE: one side only", 260),
         solid("west_wall", 0, 0, WALL, g - 112),
         solid("east_wall", w - WALL, 0, WALL, g),
         edge(f"{rid}_west", "back to the summit", 0, g - 96, 96, STREET, f"{STREET}_summit_east"),
@@ -864,13 +876,62 @@ def fractal_woods():
         woods_enemy(1, "npc_puppy_slug", 1000, g, 28, 44, "combatant", "patroller"),
         woods_enemy(2, "npc_puppy_slug", 1760, g, 28, 44, "combatant", "patroller"),
         woods_enemy(3, "npc_dividing_mite", 1380, g, 40, 52, "dividing_mite"),
-        woods_enemy(4, "npc_dividing_mite", 2280, g, 40, 52, "dividing_mite"),
+        woods_enemy(4, "npc_dividing_mite", 2180, g, 40, 52, "dividing_mite"),
     ]
     return rid, room(rid, e, "The Fractal Woods: it goes all the way down.")
 
 
+#: The woods' hole down to the mine (x0, x1).
+WOODS_HOLE = (2288, 2352)
+#: The mine (`math_mine_props.py` draws on these): its floor and the
+#: ceiling's underside, both walked on; its shaft; the half twist.
+MINE_FLOOR, MINE_CEIL = 576, 64
+MINE_SHAFT = (96, 160)
+MINE_TWIST_X = 1480
+
+
+def mine_enemy(n, character, x, feet_y, w, h, brain):
+    return (f'( type: "EnemySpawn", px: [{x}, {feet_y - h}], size: [{w}, {h}], fields: ( name: "{MINE}_{character}_{n}", '
+            f'brain: "{brain}", character_id: "{character}", respawn: "OnRoomReenter" ) ),')
+
+
+def mobius_mine():
+    """Under the woods, down the shaft: a mine with one side. At its far end
+    the half twist (a switch) turns its gravity over, and the way back is
+    the ceiling, where the coins are; its twin on the ceiling turns it back.
+    Felix Kleinbottle mines it."""
+    rid = MINE
+    _, w, h = ROOMS_AT[rid]
+    g, top = MINE_FLOOR, MINE_CEIL
+    s0, s1 = MINE_SHAFT
+    e = [
+        framed("mine_tunnel", "mine_tunnel", 16, 0),
+        solid("floor", 0, g, w, h - g),
+        solid("ceiling_west", 0, 0, s0, top),
+        solid("ceiling_east", s1, 0, w - s1, top),
+        solid("west_wall", 0, top, WALL, g - top),
+        solid("east_wall", w - WALL, top, WALL, g - top),
+        (f'( type: "LoadingZone", px: [{s0}, 0], size: [{s1 - s0}, 16], fields: ( id: "{rid}_shaft", name: "up the shaft to the woods", '
+         f'activation: "EdgeExit", target_room: "{WOODS}", target_zone: "{WOODS}_shaft", bidirectional: true ) ),'),
+        f'( type: "PlayerStart", px: [220, {g - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        f'( type: "NpcSpawn", px: [{380 - 16}, {g - 64}], size: [32, 64], fields: ( character_id: "npc_math_kleinbottle", '
+        f'brain_override: "stand_still", prompt: "Talk", dialogue_id: "mine_kleinbottle" ) ),',
+        (f'( type: "Switch", px: [{MINE_TWIST_X}, {g - 32}], size: [24, 32], fields: ( id: "mine_half_twist", name: "the half twist", '
+         f'prompt: "Give it a half twist", action: "FlipGravity" ) ),'),
+        (f'( type: "Switch", px: [{MINE_TWIST_X}, {top}], size: [24, 32], fields: ( id: "mine_half_twist_back", name: "the half twist, the other side", '
+         f'prompt: "Twist it back", action: "FlipGravity" ) ),'),
+        *[f'( type: "PickupSpawn", px: [{x}, {top}], size: [24, 24], fields: ( name: "{rid}_ceiling_coin_{i}", kind: "currency:5" ) ),'
+          for i, x in enumerate(range(560, 1400, 120))],
+        label("mine_sign", 300, 120, "THE MOBIUS MINE: one side, no waiting", 380),
+        label("mine_sign_twist", MINE_TWIST_X - 100, g - 120, "THE HALF TWIST", 220),
+        mine_enemy(1, "npc_dividing_mite", 820, g, 40, 52, "dividing_mite"),
+        mine_enemy(2, "npc_dividing_mite", 1180, g, 40, 52, "dividing_mite"),
+    ]
+    return rid, room(rid, e, "The Mobius Mine.")
+
+
 ROOMS = (gate_hall, street, cafe, surveyors_office, observatory, zeno_aqueduct, hotel_lobby, hotel_corridor, hotel_lift,
-         hotel_ballroom, *[hotel_closet(k) for k in range(3)], fractal_woods)
+         hotel_ballroom, *[hotel_closet(k) for k in range(3)], fractal_woods, mobius_mine)
 
 #: What is painted on an IntGrid layer of a room: (room, layer, value, px, size).
 PAINT = [(STREET, "Climbable", 1, (x, top), (32, bottom - top)) for _name, x, top, bottom in LADDERS] + [
@@ -878,6 +939,9 @@ PAINT = [(STREET, "Climbable", 1, (x, top), (32, bottom - top)) for _name, x, to
     (OFFICE, "Climbable", 1, (ROOMS_AT[OFFICE][1] - WALL - 380 - 8, ROOMS_AT[OFFICE][2] - INSIDE_FLOOR - 300 + GALLERY_FLOOR - 16), (32, 300 - GALLERY_FLOOR + 16)),
     # Zeno's: up the first pier from the valley to the deck (the art's).
     (ZENO, "Climbable", 1, (3200 - WALL - 96, DECK - 16), (32, ZENO_FLOOR - DECK + 16)),
+    # The mine's ladder up its shaft to the woods, and on up their hole.
+    (MINE, "Climbable", 1, (112, 0), (32, MINE_FLOOR)),
+    (WOODS, "Climbable", 1, (WOODS_HOLE[0] + 16, WOODS_FLOOR - 64), (32, 768 - WOODS_FLOOR + 64)),
 ]
 
 

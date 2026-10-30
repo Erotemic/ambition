@@ -278,6 +278,7 @@
     "point_cottage": (),
     "spoke_west": (),
     "spoke_east": (),
+    "mine_tunnel": (),
     // The orbital station's damaged spur (Science).
     "spur_west": (),
     "spur_east": (),

@@ -43,6 +43,15 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Math: the Mobius Mine**, under the Fractal Woods: a ladder down a hole
+  in their floor (a vertical exit). A mine with one side: at its far end
+  the half twist (a FlipGravity switch) turns it over, the way back is the
+  ceiling where the coins are, and the switch's twin on the ceiling turns
+  it back. Leaning timber sets, ore veins, rails that twist up the back
+  wall, a cart on the floor and one hung on the ceiling; Felix Kleinbottle
+  the miner (chargen, Hall wing); dividing mites. Verified:
+  the_zeno_aqueduct (5: the walker climbs up and down the shaft),
+  check_flat_map math 0.
 - **Science: the spoke's tube** (one drawing in two frames, no noise
   across the seam): hull ribs, portholes on the stars, conduits and lamps
   overhead, the tram trench's rails and hazard edges, the lift's shaft at

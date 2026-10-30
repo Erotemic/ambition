@@ -40,3 +40,14 @@ fn zeno_is_halfway_to_the_reservoir() {
     let mut app = a_session_in(ZENO);
     crate::the_pirate_port::talk(&mut app, "npc_math_zeno", "How far have you got?");
 }
+
+/// The Mobius Mine under the woods: Felix Kleinbottle talks (`math.yarn`
+/// `mine_kleinbottle`); up the shaft's ladder to the woods, and back down
+/// the ladder in their hole.
+#[test]
+fn the_mobius_mine_lies_under_the_fractal_woods() {
+    let mut app = a_session_in("math_mobius_mine");
+    crate::the_pirate_port::talk(&mut app, "npc_math_kleinbottle", "What do you mine?");
+    go(&mut app, "math_fractal_woods", Some("math_mobius_mine_shaft"));
+    go(&mut app, "math_mobius_mine", Some("math_fractal_woods_shaft"));
+}

@@ -6276,6 +6276,23 @@
                 hall: ["I trim the Koch hedge from spring to spring. Every cut makes more hedge.", "I raked the woods once. Every leaf had leaves. I stopped raking."],
             ),
         ),
+        "npc_math_kleinbottle": (
+            display_name: "Felix Kleinbottle",
+            // Mines the one-sided seam of the Mobius Mine under the woods.
+            manifest: "sprites/math_kleinbottle_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "math_town", "peaceful"],
+            barks: (
+                idle: ["Mind your head. Or your feet.", "One side. No waiting."],
+                hall: ["The seam's got one side. You never once have to go round.", "We used to make bottles with no inside. Hard to sell."],
+            ),
+        ),
         "npc_math_zeno": (
             display_name: "Zeno Halfway",
             // Always halfway to the reservoir on Zeno's Aqueduct.

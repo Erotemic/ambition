@@ -285,6 +285,20 @@ Zeno Halfway: Good morning! Or afternoon. I set out for the reservoir at dawn. S
     Zeno Halfway: Thank you. I'll be halfway to grateful by tomorrow.
 ===
 
+title: mine_kleinbottle
+---
+Felix Kleinbottle: Mind your head. Or your feet. Down here it depends which way you're facing.
+-> What do you mine?
+    Felix Kleinbottle: The seam. It's got one side, which is a great saving. You dig along it, you come back along it, and you never once had to go round.
+-> What is the half twist?
+    Felix Kleinbottle: The far end. Press it and the mine turns over. The floor's the ceiling, the ceiling's the floor, and the coins on the ceiling are suddenly underfoot.
+    Felix Kleinbottle: Press the other one, on the other side, to come back. It's the same switch. Don't think about it too long.
+-> Why "Kleinbottle"?
+    Felix Kleinbottle: Family name. We used to make bottles with no inside. Hard to sell. You'd pour, and pour, and the bottle would agree with you.
+-> I'll go and twist.
+    Felix Kleinbottle: Lovely. Wave when you're upside down. I'll wave back. It'll look the same to both of us.
+===
+
 title: woods_ivo
 ---
 Ivo: Careful on the path. It's a lot longer than it looks, if you look closely.

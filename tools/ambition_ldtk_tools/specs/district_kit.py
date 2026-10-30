@@ -52,6 +52,15 @@ def ledge(name, x, y, w):
     return entity("OneWayPlatform", x, y, w, 16, name=name)
 
 
+def breakable_wall(id, x, y, w, h, look="", hp=3, name=None):
+    """A solid wall that breaks after `hp` hits and stays broken in the save
+    (`respawn: Persistent`). `id` keys the save: it must be unique in the
+    world file and stay the same each time the room is made. `look` is the
+    prop sheet that draws it; empty draws the generic breakable sprite."""
+    return entity("BreakablePlatform", x, y, w, h, id=id, name=name or id.replace("_", " "),
+                  max_hp=float(hp), respawn="Persistent", collision="Solid", trigger="OnHit", look=look)
+
+
 def door(zone, name, x, floor, to_room, to_zone, bidirectional=True):
     """A door standing on `floor`, its left at `x`."""
     return entity("LoadingZone", x, floor - 96, 48, 96, id=zone, name=name, activation="Door",

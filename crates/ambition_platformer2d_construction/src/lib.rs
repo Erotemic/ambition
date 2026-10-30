@@ -1861,6 +1861,13 @@ pub fn spend_request(request: &mut ActorConstructionRequest) -> bool {
                 chest.opened = true;
                 true
             }
+            // A breakable the save remembers broken (`HazardRespawn::Persistent`)
+            // is built broken, as one authored broken is.
+            ambition_entity_catalog::placements::PlacementSchema::Breakable(breakable) => {
+                breakable.state = ambition_entity_catalog::placements::BreakableStateSpec::Broken;
+                breakable.health_current = 0;
+                true
+            }
             _ => false,
         },
         _ => false,

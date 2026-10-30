@@ -269,6 +269,8 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
                 update_ecs_breakables.run_if(any_with_component::<ambition_breakables::BreakableFeature>),
                 // OW5: the respawn's due time, after the timer has ticked.
                 ambition_breakables::mirror_breakable_respawns,
+                // A breakable broken for good is remembered broken.
+                ambition_breakables::record_spent_breakables,
                 // Q152: a collected pickup comes back when its regrowth is due.
                 ambition_platformer2d_items::regrowth::regrow_pickups,
                 // Q154: a collected pickup authored `Never` is gone for good.

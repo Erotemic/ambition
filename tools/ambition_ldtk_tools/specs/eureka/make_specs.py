@@ -262,8 +262,22 @@ def coil_lab():
         resident("npc_eureka_dmitri", "eureka_dmitri", 560, floor),
         sign("lab_sign_rules", 640, ceiling + 40, "DO NOT TOUCH THE COILS. The coils will touch you.", 520),
         sign("lab_sign_director", 1100, floor - 240, "N. TESSERACT, DIRECTOR: back soon", 320),
+        # The director's prototype (Jon, 2026-10-30: "a bit of chutzpah"): a
+        # lever that turns the lab's gravity over, and its twin hanging from
+        # the ceiling for whoever pressed it. The only door is on the floor.
+        entity("Switch", LAB_LEVER_X, floor - 32, 24, 32, id="lab_gravity_prototype", name="the prototype",
+               prompt="Do not press", action="FlipGravity"),
+        entity("Switch", LAB_LEVER_X, ceiling, 24, 32, id="lab_gravity_prototype_twin", name="the prototype's twin",
+               prompt="Press to come down", action="FlipGravity"),
+        sign("lab_sign_prototype", LAB_LEVER_X - 120, floor - 110, "ANTI-GRAVITY PROTOTYPE: DO NOT PRESS", 380),
+        sign("lab_sign_told_you", LAB_LEVER_X - 60, ceiling + 70, "TOLD YOU.", 160),
     ]
     return build(rid, e, None, music=LAB_MUSIC)
+
+
+#: Where the coil lab's gravity levers stand (x), one on the floor and one
+#: on the ceiling.
+LAB_LEVER_X = 1192
 
 
 def observatory():

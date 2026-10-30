@@ -91,3 +91,27 @@ fn the_test_range_is_out_of_the_gate_court_and_back() {
     go(&mut app, "eureka_test_range", Some("court_west"));
     go(&mut app, COURT, Some("range_east"));
 }
+
+/// The coil lab's prototype: the floor lever turns the lab's gravity over and
+/// the player falls to the ceiling; its twin there turns it back.
+#[test]
+fn the_coil_labs_prototype_turns_its_gravity_over_and_back() {
+    use bevy::prelude::KeyCode;
+    let mut app = a_session_in(LAB);
+    let y = |app: &mut bevy::prelude::App| {
+        let body = crate::neighbor_prefetch_prepares_rooms::alice(app);
+        app.world().get::<ae::BodyKinematics>(body).expect("the player").pos.y
+    };
+    go_to(&mut app, ae::Vec2::new(1204.0, 490.0), "the prototype");
+    crate::the_note_travels_from_alice_to_bob::tap(&mut app, KeyCode::KeyF);
+    for _ in 0..180 {
+        app.update();
+    }
+    assert!(y(&mut app) < 150.0, "pressing the prototype did not drop the player on the ceiling (y {})", y(&mut app));
+    crate::the_note_travels_from_alice_to_bob::tap(&mut app, KeyCode::KeyF);
+    for _ in 0..180 {
+        app.update();
+    }
+    assert!(y(&mut app) > 400.0, "the twin did not bring the player down (y {})", y(&mut app));
+    assert_eq!(live_room(&mut app), LAB);
+}

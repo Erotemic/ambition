@@ -595,9 +595,14 @@ in a 60 s match; 8 fresh seed-0 processes (`smash_tool`, rung 5, 60 s)
 agree on 3058 live ticks. ⚠ That does NOT close the split: the shipped
 composition (`smash_cpu_report`, pointed vs pugnacious, rung 5, 60 s, four
 fresh processes) still falls into two report classes 2/2, with no clock
-line after the initial one. The dip was a feel and rollback hazard, and it
-is gone; the per-frame writer is a separate fault, still open (census
-below). Games that keep the world freeze still ride the ease; snapping it
+line after the initial one. A/B (MEASURED): with the freeze back on, the
+george mirror also agrees across six processes, so the rule is a feel fix
+and never a determinism one. Ruled out for the polygon split (MEASURED,
+`match-report --sim-writers` and `--recycle-ids N`): no rollback-registered
+type is written on a frame that runs no sim tick (only VFX sprites despawn
+there, by wall time); recycled entity ids leave the george mirror
+byte-identical; the fighters' `ActorRenderSize` is set once, at tick 15,
+equal in every process. Games that keep the world freeze still ride the ease; snapping it
 is still Jon's call.
 
 CPU pokes (44f1c5047, MEASURED `--runs 3` per live minute): attack whiffs

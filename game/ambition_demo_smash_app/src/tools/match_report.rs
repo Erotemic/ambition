@@ -260,6 +260,16 @@ pub struct MatchReportArgs {
     /// sit in it, every tick, reported as a block after the fighter table.
     #[arg(long)]
     pub camera: bool,
+    /// Also name every rollback-registered type whose checksum changed on a
+    /// frame that ran no sim tick: a per-frame writer of sim state, which a
+    /// resimulated frame cannot reproduce.
+    #[arg(long)]
+    pub sim_writers: bool,
+    /// Spawn and despawn this many empty entities as the match goes live, so
+    /// the sim's next spawns take recycled ids. A sim whose outcome changes
+    /// under it orders something by `Entity`.
+    #[arg(long, default_value_t = 0)]
+    pub recycle_ids: usize,
 }
 
 pub fn run(args: MatchReportArgs) {
@@ -320,6 +330,8 @@ pub fn run_with(args: MatchReportArgs, build: fn() -> App) {
                 &mut carried,
                 authored_ladder.as_ref(),
                 args.camera,
+                args.sim_writers,
+                args.recycle_ids,
             );
             cameras.push(camera);
             tallies
@@ -453,6 +465,8 @@ fn run_one(
     carried: &mut Vec<String>,
     authored_ladder: Option<&ambition_platformer2d::characters::brain::fighter::FighterBrainLadder>,
     trace_camera: bool,
+    sim_writers: bool,
+    recycle_ids: usize,
 ) -> (Vec<Tally>, CameraTally) {
     let mut app = build();
     // ⛔⛔ ONE `update()` IS ONE SIM TICK, WHATEVER COMPOSITION BUILT THE APP.
@@ -637,8 +651,65 @@ fn run_one(
         room: ambition_demo_smash::smash_stage().world.size,
         ..CameraTally::default()
     };
+    {
+        let world = app.world_mut();
+        let spare: Vec<Entity> = (0..recycle_ids).map(|_| world.spawn_empty().id()).collect();
+        for entity in spare {
+            world.despawn(entity);
+        }
+    }
+    let probes = sim_writers
+        .then(|| app.world().get_resource::<ambition_platformer2d::rollback::RollbackChecksumProbes>().cloned())
+        .flatten();
+    if sim_writers && probes.is_none() {
+        eprintln!("[sim-writers] this composition registers no checksum probes; nothing to read");
+    }
+    let mut writers: std::collections::BTreeMap<&'static str, usize> = Default::default();
+    let mut idle_frames = 0usize;
+    let mut render_sizes: std::collections::BTreeMap<usize, Option<bevy::math::Vec2>> = Default::default();
     for _ in 0..ticks {
+        let before = probes.as_ref().map(|p| (sim_tick_of(&app), p.census_all(app.world_mut())));
+        let room_entities = probes.as_ref().map(|_| room_instance_entities(&mut app));
         app.update();
+        if probes.is_some() {
+            let tick = sim_tick_of(&app);
+            let world = app.world_mut();
+            let mut q = world.query::<(&MatchSeat, Option<&ambition_platformer2d::combat::components::ActorRenderSize>)>();
+            for (seat, size) in q.iter(world) {
+                let size = size.map(|s| s.0);
+                if render_sizes.get(&seat.0) != Some(&size) {
+                    eprintln!("[sim-writers] t{tick} seat {} render size {:?}", seat.0, size);
+                    render_sizes.insert(seat.0, size);
+                }
+            }
+        }
+        if let (Some(was), Some((tick_before, _))) = (&room_entities, &before) {
+            if sim_tick_of(&app) == *tick_before {
+                let now = room_instance_entities(&mut app);
+                for (entity, kinds) in was.iter().filter(|(e, _)| !now.contains_key(e)) {
+                    eprintln!("[sim-writers] t{tick_before} despawned {entity:?}: {kinds}");
+                }
+                for (entity, kinds) in now.iter().filter(|(e, _)| !was.contains_key(e)) {
+                    eprintln!("[sim-writers] t{tick_before} spawned {entity:?}: {kinds}");
+                }
+            }
+        }
+        if let (Some(p), Some((tick_before, census_before))) = (&probes, before) {
+            if sim_tick_of(&app) == tick_before {
+                idle_frames += 1;
+                for (name, reading) in p.census_all(app.world_mut()) {
+                    let was = census_before.get(name);
+                    if was.is_none_or(|w| (w.count, w.xor) != (reading.count, reading.xor)) {
+                        *writers.entry(name).or_default() += 1;
+                        eprintln!(
+                            "[sim-writers] t{tick_before} {name} count {} -> {}",
+                            was.map_or(0, |w| w.count),
+                            reading.count
+                        );
+                    }
+                }
+            }
+        }
         if trace_camera {
             sample_camera(&mut app, &mut camera);
         }
@@ -655,8 +726,43 @@ fn run_one(
         #[cfg(feature = "causal")]
         collect_decisions(&app, decisions);
     }
+    if probes.is_some() {
+        eprintln!("[sim-writers] {idle_frames} frames ran no sim tick; types written on them:");
+        for (name, frames) in &writers {
+            eprintln!("[sim-writers]   {frames:5}  {name}");
+        }
+    }
 
     (totals, camera)
+}
+
+/// Every room-instance entity and its component names, short.
+fn room_instance_entities(app: &mut App) -> std::collections::BTreeMap<Entity, String> {
+    let world = app.world_mut();
+    let mut q = world.query::<Entity>();
+    let entities: Vec<Entity> = q.iter(world).collect();
+    entities
+        .into_iter()
+        .map(|entity| {
+            let names: Vec<String> = world
+                .inspect_entity(entity)
+                .map(|infos| {
+                    infos
+                        .map(|info| info.name().rsplit("::").next().unwrap_or("?").to_string())
+                        .collect()
+                })
+                .unwrap_or_default();
+            (entity, names.join(","))
+        })
+        .filter(|(_, names)| names.contains("InRoomInstance"))
+        .collect()
+}
+
+/// The sim tick the app has reached, or 0 before the clock exists.
+fn sim_tick_of(app: &App) -> u64 {
+    app.world()
+        .get_resource::<ambition_platformer2d::time::SimTick>()
+        .map_or(0, |t| t.get())
 }
 
 /// THE CAMERA TRACE: one row per tick of the view the match camera resolved

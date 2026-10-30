@@ -34,8 +34,8 @@ to touch, and a little danger outside town. No quest chains.
   lookout has enemies; the forest could carry more.
 - **Math** (5): the town is dressed (p48); the gate hall is thin. Out of town:
   nothing yet, a zone with enemies.
-- **Jungle** (dinosaur, 6): trail rooms have enemies and a few props each; the
-  tyrant hall has none.
+- **Jungle** (dinosaur, 7): trail rooms have enemies and props; the tyrant
+  hall is dressed; the tar pits are out past the trail.
 - **Evil** (8): Castle Godwin is dressed; the gate forest and approaches can
   carry more flavor; the moor is the first zone out of town.
 
@@ -43,6 +43,29 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Jungle: the Tar Pits** (16e495c39), past the end of the trail, east of
+  the canopy by a side exit (`specs/primeval/tar_pits.py`): two tar pools
+  (murky water drawn as tar), a mammoth half sunk (its spine a still walk),
+  a sabre-tooth skull, the paleontologists' dig camp and scaffold; raptors,
+  a triceratops, a dilophosaurus, compys, a vulture. Verified: the_tar_pits,
+  check_flat_map dinosaur 0. The new edge first took the id of the canopy's
+  door; only the game refused it, so `validate` now refuses two zones of one
+  id in an area.
+- **Math: the gate hall's arrivals furniture** (6d519ac43): the Manifest
+  Office's booth, the customs desk for axioms on the west gallery, the
+  departures board (infinity cancelled), a porter's cart, polyhedral lamps,
+  banners. Verified: math tests (5), captures.
+- **PvN: the Pirate Sky Lookout's deck** (d3014245e): the lookout's floors
+  were invisible over open sky; now a deck on a hull band, crow's nest and
+  Jolly Roger, the captain's perch, the companionway house, the sharks'
+  hitching rail, a spyglass, an anti-shark gun, four signs
+  (`scenery_overlay.py` adds signs too).
+- **Science: the tether's ground station hall and car** (c2d4e105f): a hall
+  of steel and glass round the ribbon, galleries, console, departures board,
+  altimeter, capsule tube; the cars drawn as `eureka_tether_car` (a
+  platform look). Engine: moving platforms now draw over a room's scenery
+  (a one-picture room hid every platform). Verified: the_eureka_tether,
+  render platform tests.
 - **Evil: the Searchlight Moor** (392716c7a), out of town west of the gate
   forest by a side exit (`specs/evil_moor/make_specs.py`): a ruined
   watchtower to climb, its searchlight's beam; a murky bog (IntGrid murky

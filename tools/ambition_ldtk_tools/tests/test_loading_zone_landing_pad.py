@@ -144,3 +144,28 @@ if __name__ == "__main__":
     test_a_landing_pad_nothing_arrives_through_is_still_refused()
     test_half_a_target_is_refused()
     print("LoadingZone landing-pad tests: PASS")
+
+
+def test_two_zones_of_one_id_in_an_area_are_refused():
+    """The game refuses an area with two LoadingZones of one id; so does the
+    tool, so the generator that wrote the second one hears of it."""
+    project = _one_way_project(pad_is_targeted=True)
+    src = project["levels"][0]
+    zones = [e for layer in src["layerInstances"] for e in layer["entityInstances"] if e["__identifier"] == "LoadingZone"]
+    twin = _make_loading_zone(
+        project,
+        iid="LoadingZone-src-twin",
+        zone_id="descent",
+        px=[120, 80],
+        size=[32, 48],
+        activation="Walk",
+        target_room="dst_area",
+        target_zone="arrival",
+        world_x=0,
+        world_y=0,
+    )
+    for layer in src["layerInstances"]:
+        if zones[0] in layer["entityInstances"]:
+            layer["entityInstances"].append(twin)
+    errors, _warnings = _write_and_validate(project)
+    assert any("duplicate LoadingZone id 'descent'" in e for e in errors), errors

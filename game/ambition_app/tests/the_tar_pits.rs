@@ -26,3 +26,12 @@ fn the_ranger_and_the_paleontologist_talk() {
     let mut app = a_session_in(PITS);
     talk(&mut app, "npc_primeval_feld", "What are you digging for?");
 }
+
+/// The Smoking Mountain: past the tar pits by a side exit. The player starts
+/// at the mountain's foot, walks west into the pits, and back east.
+#[test]
+fn the_smoking_mountain_rises_east_of_the_tar_pits() {
+    let mut app = a_session_in("primeval_smoking_mountain");
+    go(&mut app, PITS, Some("mountain_west"));
+    go(&mut app, "primeval_smoking_mountain", Some("tar_east"));
+}

@@ -838,7 +838,7 @@ def fractal_woods():
     g = WOODS_FLOOR
     e = [
         framed("woods_far_west", "woods_far_west", 40, 300),
-        framed("woods_far_east", "woods_far_east", 1200, 300),
+        framed("woods_far_east", "woods_far_east", 1192, 300),
         framed("woods_tree", "woods_great_tree", 420, 20),
         framed("woods_things", "woods_curiosities", 1080, 400),
         solid("ground", 0, g, w, h - g),

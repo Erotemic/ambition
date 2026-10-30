@@ -18,6 +18,7 @@ wall opened.
 - The paleontologists' dig camp at the east end, its scaffold (y 480, 384).
 - Raptors, a triceratops, a dilophosaurus, compys, a vulture waiting; Dr
   Feld the paleontologist, who will not leave.
+- East, by a side exit: the Smoking Mountain, its shelves up to a crater.
 
 The art is the sprite tools' `targets/props/primeval_tar_props.py`, drawn on
 these numbers.
@@ -36,6 +37,8 @@ from district_scenery import piece  # noqa: E402
 WORLD = WORLDS / "dinosaur.ldtk"
 GENERATOR = "specs/primeval/tar_pits.py"
 PITS = "primeval_tar_pits"
+#: Past the pits, east by a side exit: the Smoking Mountain.
+MOUNTAIN = "primeval_smoking_mountain"
 CANOPY = "primeval_canopy"
 #: The canopy's east edge in its room (x), its floor (y), and where it is in
 #: the world: the pits start where it ends, floors level.
@@ -67,7 +70,8 @@ def pits():
         solid("bed_east", b0, BED, b1 - b0, H - BED),
         solid("ground_east", b1, FLOOR, W - b1, H - FLOOR),
         solid("west_wall", 0, 0, WALL, FLOOR - 112),
-        solid("east_wall", W - WALL, 0, WALL, FLOOR),
+        solid("east_wall", W - WALL, 0, WALL, FLOOR - 112),
+        edge("tar_east", "on up the Smoking Mountain", W - WALL, FLOOR, MOUNTAIN, "mountain_west"),
         edge("tar_west", "back to the canopy", 0, FLOOR, CANOPY, "primeval_canopy_tar_pits"),
         start(PITS, 120, FLOOR),
         walk("mammoth_back", 600, 480, 240),
@@ -95,6 +99,49 @@ def pits():
                 title="THE TAR PITS", generator=GENERATOR)
 
 
+#: The mountain (the art, `targets/props/primeval_volcano_props.py`, is
+#: drawn on these): its height, the shelves walked on (x0, x1, top), the
+#: lava pits between them (x0, x1, the lava's top, the bed), the crater.
+MOUNTAIN_W, MOUNTAIN_H = 2400, 960
+SHELVES = ((0, 520, 896), (660, 1000, 800), (1000, 1300, 704), (1440, 1760, 608), (1760, 2000, 512), (2000, 2200, 416))
+LAVA_PITS = ((520, 660, 912, 944), (1300, 1440, 752, 784))
+CRATER = (2200, 2384, 448, 480)
+
+
+def smoking_mountain():
+    """Past the tar pits: the Smoking Mountain. Basalt shelves climb east
+    to the crater's rim, lava in the pits between them and in the crater (a
+    DamageVolume each); on the rim, the meteor watch (a chest). Raptors, a
+    dilophosaurus, a pachycephalosaurus, compys, a vulture over the rim."""
+    w, h = MOUNTAIN_W, MOUNTAIN_H
+    g = SHELVES[0][2]
+    e = [
+        piece("volcano_west", 0, 300, name="volcano_west"),
+        piece("volcano_east", 1192, 0, name="volcano_east"),
+        *[solid(f"shelf_{i}", x0, top, x1 - x0, h - top) for i, (x0, x1, top) in enumerate(SHELVES)],
+        *[solid(f"pit_bed_{i}", x0, bed, x1 - x0, h - bed) for i, (x0, x1, _top, bed) in enumerate(LAVA_PITS + (CRATER,))],
+        *[entity("DamageVolume", x0, top, x1 - x0, bed - top, name=f"lava_{i}", damage=1)
+          for i, (x0, x1, top, bed) in enumerate(LAVA_PITS + (CRATER,))],
+        solid("west_wall", 0, 0, WALL, g - 112),
+        solid("east_wall", w - WALL, 0, WALL, h),
+        edge("mountain_west", "back down to the tar pits", 0, g, PITS, "tar_east"),
+        start(MOUNTAIN, 120, g),
+        entity("ChestSpawn", 2060, SHELVES[-1][2] - 58, 76, 58, name="the meteor watch's thermos", reward="health:2"),
+        sign("mountain_sign", 300, g - 220, "THE SMOKING MOUNTAIN: not a volcano (a volcano would need a permit)", 560),
+        sign("lava_sign", 590, g - 90, "HOT", 80),
+        sign("meteor_sign", 2100, SHELVES[-1][2] - 140, "METEOR WATCH: any day now (66,000,000 years and counting)", 520),
+        enemy(1, "npc_raptor_stalker", 800, SHELVES[1][2], 48, 80),
+        enemy(2, "dilophosaurus", 1560, SHELVES[3][2], 44, 74),
+        enemy(3, "pachycephalosaurus", 1860, SHELVES[4][2], 44, 72),
+        enemy(4, "compsognathus", 300, g, 24, 26),
+        enemy(5, "compsognathus", 1100, SHELVES[2][2], 24, 26),
+        enemy(6, "vulture", 2120, SHELVES[-1][2] - 200, 44, 66),
+    ]
+    at = (CANOPY_AT[0] + CANOPY_EAST + WALL + W, CANOPY_AT[1] + CANOPY_FLOOR - g)
+    return room(MOUNTAIN, e, at=at, size=(w, h), biome="primeval", music="liberated_dinosaur_libertarians", bg="#3A2A22",
+                title="THE SMOKING MOUNTAIN", generator=GENERATOR)
+
+
 CANOPY_EDGE_YAML = f"""# The canopy's way east to the tar pits. Written by {GENERATOR}.
 level_id: {CANOPY}
 entities:
@@ -112,15 +159,18 @@ entities:
 
 
 def main(argv):
-    path = HERE / f"{PITS}.ron"
-    path.write_text(pits())
-    print(path.relative_to(HERE.parents[1]))
+    paths = []
+    for rid, text in ((PITS, pits()), (MOUNTAIN, smoking_mountain())):
+        path = HERE / f"{rid}.ron"
+        path.write_text(text)
+        print(path.relative_to(HERE.parents[1]))
+        paths.append(path)
     if "--apply" not in argv:
         return 0
     # The pits' west edge and the canopy's east edge name each other, so the
     # check after the first of the two writes refuses the half-joined world;
     # only the end state is checked (the last `validate`).
-    make_rooms(WORLD, [path])
+    make_rooms(WORLD, paths)
     if code := add_entities(CANOPY_EDGE_YAML, WORLD, HERE / ".canopy_edge.yaml", unless='"on to the tar pits"'):
         return code
     for args in ((CANOPY, "Collision", 0, CANOPY_EAST, CANOPY_FLOOR - 112, WALL, 112),

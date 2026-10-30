@@ -48,7 +48,7 @@ OVERLAYS = {
     },
     "science.ldtk": {
         # One drawing in two frames (`targets/props/orbital_spur_props.py`).
-        "orbital_station_damaged_spur": [("spur_west", 16, 64), ("spur_east", 1280, 64)],
+        "orbital_station_damaged_spur": [("spur_west", 16, 64), ("spur_east", 1272, 64)],
     },
 }
 

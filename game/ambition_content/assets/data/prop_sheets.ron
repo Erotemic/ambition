@@ -289,6 +289,9 @@
     "woods_far_east": (),
     "woods_great_tree": (),
     "woods_curiosities": (),
+    // The Smoking Mountain (jungle, past the tar pits).
+    "volcano_west": (),
+    "volcano_east": (),
     // The hall of the Shadow Clan (PvN).
     "shadow_dojo_hall": (),
     // Along the primeval trail.

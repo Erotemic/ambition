@@ -70,3 +70,51 @@ fn the_raptor_notices_the_player_then_winds_up_before_it_strikes() {
     assert!(notice < windup, "it notices ({notice}) before it winds up ({windup})");
     assert_eq!(swing, windup, "the windup row is held from the swing's first tick");
 }
+
+/// The pachycephalosaurus charges: it stands still through its windup (its
+/// windup row held, the telegraph), then rushes at the player head down with
+/// its strike live, far faster than it walks.
+#[test]
+fn the_pachycephalosaurus_stands_through_its_windup_then_charges() {
+    const PACHY: &str = "charging_pachy";
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let p = player_pos(sim.world_mut());
+    sim.spawn_enemy_character_at(
+        PACHY,
+        "Pachycephalosaurus",
+        (p.x + 150.0, p.y),
+        (22.0, 36.0),
+        CharacterBrain::Custom("pachycephalosaurus".to_string()),
+        "pachycephalosaurus",
+    );
+    let mut windup_speeds = Vec::new();
+    let mut strike_speeds = Vec::new();
+    for _ in 0..900 {
+        sim.step(AgentAction::default());
+        let world = sim.world_mut();
+        let mut q = world.query::<(&FeatureId, &BodyKinematics, Option<&PinnedRow>, MeleeSwingQuery)>();
+        let Some((_, kin, pin, swing)) = q.iter(world).find(|(id, ..)| id.as_str() == PACHY) else { continue };
+        let Some(swing) = swing.swing() else {
+            if !strike_speeds.is_empty() {
+                break;
+            }
+            continue;
+        };
+        match swing.phase() {
+            Some(ambition_platformer2d::combat::AttackPhase::Startup) => {
+                assert!(
+                    pin.is_some_and(|pin| pin.rows.first().map(String::as_str) == Some("windup")),
+                    "its windup row is held over the startup"
+                );
+                windup_speeds.push(kin.vel.x.abs());
+            }
+            Some(ambition_platformer2d::combat::AttackPhase::Active) => strike_speeds.push(kin.vel.x.abs()),
+            _ => {}
+        }
+    }
+    assert!(!windup_speeds.is_empty(), "it never wound up a charge");
+    let still = windup_speeds.iter().cloned().fold(0.0, f32::max);
+    let rush = strike_speeds.iter().cloned().fold(0.0, f32::max);
+    assert!(still < 40.0, "it stands still through its windup: {still}");
+    assert!(rush > 400.0, "it rushes over its strike: {rush}");
+}

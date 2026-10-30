@@ -365,13 +365,19 @@
             melee: Some(Bite(windup_s: 0.26, active_s: 0.10, recover_s: 0.38, damage: 2, reach_px: 40.0)),
             ranged: Some(Rock(speed: 420.0, damage: 1)),
         ),
+        // A charge (Jon 2026-10-30: "telegraph, attack" as Hollow Knight's
+        // enemies do): it stands with its dome aimed and a foot scraping (its
+        // windup row), then rushes head down with the strike live, and stands
+        // dazed after: the opening.
         "pachycephalosaurus_butt": (
             move_style: Walk,
-            melee: Some(Swipe(windup_s: 0.42, active_s: 0.12, recover_s: 0.52, damage: 3, reach_px: 46.0)),
+            melee: Some(Lunge(windup_s: 0.6, active_s: 0.35, recover_s: 0.8, damage: 3, reach_px: 46.0, step_px: 0.0, rush_px: 220.0)),
         ),
+        // The gore charge: horns lowered and a forefoot pawing (its windup
+        // row), then the charge, then a long stop to turn its bulk round.
         "triceratops_gore": (
             move_style: WalkHeavy,
-            melee: Some(Swipe(windup_s: 0.50, active_s: 0.14, recover_s: 0.62, damage: 4, reach_px: 64.0)),
+            melee: Some(Lunge(windup_s: 0.75, active_s: 0.4, recover_s: 1.0, damage: 4, reach_px: 64.0, step_px: 0.0, rush_px: 260.0)),
         ),
         "swallow_dart": (
             move_style: Float,

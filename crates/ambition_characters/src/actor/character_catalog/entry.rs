@@ -1121,6 +1121,9 @@ pub enum MeleePreset {
         damage: i32,
         reach_px: f32,
         step_px: f32,
+        /// A charge: the forward rush over the strike (`LungeSpec::rush_px`).
+        #[serde(default)]
+        rush_px: f32,
     },
     Slam {
         windup_s: f32,

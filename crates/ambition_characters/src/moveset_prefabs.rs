@@ -132,6 +132,26 @@ pub fn attack_move_from_melee(spec: &MeleeActionSpec) -> MoveSpec {
             kind: MoveEventKind::HoldVelocity { seconds: windup },
         });
     }
+    // A charge rushes forward over its strike: the authored distance over the
+    // active window, from the end of a windup it stood still through.
+    if let Some(rush_px) = spec.strike_rush_px().filter(|rush| *rush != 0.0) {
+        let (windup, active, ..) = spec.timeline();
+        let active = active.max(f32::EPSILON);
+        // It plants itself for the windup (unless it steps): the telegraph is
+        // read standing, not sliding in on the run that brought it.
+        if spec.windup_step_px().is_none_or(|step| step == 0.0) {
+            attack.events.push(MoveEvent {
+                at_s: 0.0,
+                kind: MoveEventKind::Impulse { local: (0.0, 0.0), mode: ambition_entity_catalog::ImpulseMode::Set },
+            });
+            attack.events.push(MoveEvent { at_s: 0.0, kind: MoveEventKind::HoldVelocity { seconds: windup } });
+        }
+        attack.events.push(MoveEvent {
+            at_s: windup,
+            kind: MoveEventKind::Impulse { local: (rush_px / active, 0.0), mode: ambition_entity_catalog::ImpulseMode::Set },
+        });
+        attack.events.push(MoveEvent { at_s: windup, kind: MoveEventKind::HoldVelocity { seconds: active } });
+    }
     attack
 }
 

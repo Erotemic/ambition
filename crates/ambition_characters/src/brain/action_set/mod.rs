@@ -1311,6 +1311,15 @@ impl MeleeActionSpec {
         }
     }
 
+    /// How far forward the body rushes over its strike, when the swing authors
+    /// a rush (a charging Lunge).
+    pub fn strike_rush_px(self) -> Option<f32> {
+        match self {
+            Self::Lunge(s) => Some(s.rush_px),
+            Self::Swipe(_) | Self::Slam(_) | Self::Bite(_) | Self::PunchWeak(_) | Self::Batter(_) => None,
+        }
+    }
+
     /// How far forward the body steps during windup, when the swing authors a
     /// step (only a Lunge does).
     pub fn windup_step_px(self) -> Option<f32> {
@@ -1416,6 +1425,11 @@ pub struct LungeSpec {
     pub reach_px: f32,
     /// Forward step (px) the actor takes during windup.
     pub step_px: f32,
+    /// Forward rush (px) over the strike, the active window: a charge. The
+    /// windup stands still (the telegraph is read), then the body runs the
+    /// distance with its strike live, and is open through its recovery.
+    #[serde(default)]
+    pub rush_px: f32,
 }
 
 impl LungeSpec {
@@ -1426,6 +1440,7 @@ impl LungeSpec {
         damage: 2,
         reach_px: 40.0,
         step_px: 18.0,
+        rush_px: 0.0,
     };
 }
 

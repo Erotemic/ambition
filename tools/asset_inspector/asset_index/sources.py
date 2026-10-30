@@ -75,8 +75,10 @@ def newer_source(repo: Path, binary: Path) -> Path | None:
 
 def build_binary(repo: Path, log=print) -> str | None:
     """Rebuild the content check binary (release). None on success, else why it was not built."""
-    log(f"rebuilding the content check binary: {BUILD_BINARY}")
-    done = subprocess.run(BUILD_BINARY.split(), cwd=repo, capture_output=True, text=True)
+    # Half the cores: the page and the game stay responsive while it builds.
+    jobs = str(max(1, (os.cpu_count() or 2) // 2))
+    log(f"rebuilding the content check binary: {BUILD_BINARY} --jobs {jobs}")
+    done = subprocess.run([*BUILD_BINARY.split(), "--jobs", jobs], cwd=repo, capture_output=True, text=True)
     return None if done.returncode == 0 else f"{BUILD_BINARY} failed:\n{done.stderr[-1500:]}"
 
 

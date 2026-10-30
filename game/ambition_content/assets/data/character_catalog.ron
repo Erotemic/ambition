@@ -1494,6 +1494,7 @@
             named_autonomous_profile: Some("pirate_striker"),
             max_health: Some(4),
             tags: ["pirate", "enemy"],
+            cues: (tell: Some("enemy.pirate.tell"), swing: Some("enemy.pirate.cutlass_slash")),
         barks: (
             on_hit: ["Inventory says NO, ye dock-rat!", "Yarr! Every coin's a-counted!", "Tally that on yer hide, swabbie!"],
             provoked: ["Pay the toll in teeth, swab!"],
@@ -1521,6 +1522,7 @@
             named_autonomous_profile: Some("pirate_ranger"),
             max_health: Some(4),
             tags: ["pirate", "enemy"],
+            cues: (tell: Some("enemy.pirate_lookout.tell")),
         barks: (
             on_hit: ["Land ho — an' I see YE comin'!", "Spyglass to me eye, boots to yer head!", "Crow's nest don't sit empty, savvy?"],
             provoked: ["Sound the alarm — all hands!"],
@@ -1750,6 +1752,7 @@
             named_autonomous_profile: Some("pirate_brute"),
             max_health: Some(6),
             tags: ["pirate", "heavy", "enemy"],
+            cues: (tell: Some("enemy.pirate_heavy.tell"), swing: Some("enemy.pirate_heavy.swing")),
         barks: (
             on_hit: ["Mind me cleaver, wee skipper!", "Aye, that smarts — but ye're worse off!", "Broadside Bess don't bend easy!", "Yarrrr! Take that an' a barrel more!"],
             provoked: ["Cleaver's thirsty — yarrrgh!"],
@@ -1825,6 +1828,7 @@
             named_autonomous_profile: Some("pirate_brute"),
             max_health: Some(6),
             tags: ["pirate", "heavy", "enemy"],
+            cues: (tell: Some("enemy.pirate_heavy.tell"), swing: Some("enemy.pirate_heavy.swing")),
         barks: (
             on_hit: ["Salt in the eye, blood in the bilge!", "Yargh! Watch yer manners on me deck!", "Wee skipper thinks he's bold, does he?", "Annet bites back, every time!"],
             provoked: ["Wee skipper picked the wrong deck!"],
@@ -1873,6 +1877,7 @@
             // near the shark.
             mass: Some(6.0),
             tags: ["pirate", "aerial", "enemy"],
+            cues: (tell: Some("enemy.burning_flying_shark.tell"), swing: Some("enemy.burning_flying_shark.swing"), hit: Some("enemy.burning_flying_shark.bite")),
         barks: (
             on_hit: ["SKREEE!", "BLAZE!", "BURN-CHOMP!"],
             provoked: ["FIRE SHARK ENGAGED!"],
@@ -2147,6 +2152,7 @@
             locomotion: Some((run_speed: 110.0, move_style: Walk)),
             max_health: Some(6),
             tags: ["ninja", "faction_leader"],
+            cues: (notice: Some("enemy.oni_leader.notice"), tell: Some("enemy.oni_leader.tell"), swing: Some("enemy.oni_leader.swing")),
         barks: (
             on_hit: ["Your form is loud.", "A warning: one breath left.", "The shadow answers."],
             provoked: ["Silence them."],
@@ -2191,6 +2197,7 @@
             named_autonomous_profile: Some("medium_striker"),
             max_health: Some(5),
             tags: ["ninja", "enemy"],
+            cues: (tell: Some("enemy.ninja_duelist.tell"), swing: Some("enemy.shadow_oni.slash")),
         barks: (
             on_hit: ["Look me in the eye when you do that.", "A clean cut. Not yours.", "Again, from the guard."],
             provoked: ["Draw."],
@@ -2939,6 +2946,7 @@
             )),
             max_health: Some(2),
             tags: ["enemy", "robot"],
+            cues: (tell: Some("enemy.exploding_mite.tell"), swing: Some("enemy.exploding_mite.swing")),
         barks: (
             on_hit: ["I EXPLODE FOR THE CAUSE!", "PROXIMITY BREACH!", "FUSE LIT — WAIT, NOT YET—"],
             provoked: ["FINAL PROTOCOL!"],
@@ -2978,6 +2986,7 @@
             )),
             max_health: Some(4),
             tags: ["enemy", "robot"],
+            cues: (tell: Some("enemy.dividing_mite.tell"), swing: Some("enemy.dividing_mite.swing")),
         barks: (
             on_hit: ["Division initiated!", "Mitosis under stress!", "Splitting... headache!"],
             provoked: ["We are multiplying!"],
@@ -3230,6 +3239,7 @@
             named_autonomous_profile: Some("pirate_striker"),
             max_health: Some(4),
             tags: ["enemy"],
+            cues: (tell: Some("enemy.pirate_viper.tell"), swing: Some("enemy.pirate.cutlass_slash")),
         barks: (
             on_hit: ["The Viper BITES!", "Cutlass out, landlubber!", "Ye danced into range!"],
             provoked: ["Draw against the Viper? Bold."],

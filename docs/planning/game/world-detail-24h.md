@@ -60,6 +60,18 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Evil outdoors composed (Jon 10-30: dense regions, not strings)**:
+  the crypt and the catacombs under the moor and the allotments (in by the
+  crypt stair, up under plot 13); the Searchlight Ridge over them, up the
+  moor's watchtower; Gallows Hill over Lower Godwin, up its bell tower (the
+  gibbet TEMPORARILY UNOCCUPIED, the paupers' graves, the founder's
+  billboard), across a plank bridge onto the ridge, dropped through onto the
+  greenhouse. A surface row with a loop under and a loop over (91fb598ad,
+  130060b47). Verified: the_searchlight_moor (9), check_flat_map evil 0.
+- **Math (subagents, Jon's asks)**: Monty Carlo's game plays an honest
+  round, a won car opens the prize case (13188065e); the Tower of Hanoi's
+  64 disks and three needles are props, laid out as move 555,039 of the
+  solution (97d95bac3).
 - **Science: the Eureka Collider**, down a stair in one of the lecture
   hall's arches on the quad: the ring's tunnel, its beam pipe and magnets
   (BEAM ON: do not lick the pipe), the staff's bicycles, the detector end on

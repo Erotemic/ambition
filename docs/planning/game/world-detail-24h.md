@@ -36,13 +36,28 @@ to touch, and a little danger outside town. No quest chains.
   nothing yet, a zone with enemies.
 - **Jungle** (dinosaur, 6): trail rooms have enemies and a few props each; the
   tyrant hall has none.
-- **Evil** (7): Castle Godwin is dressed; the gate forest and approaches can
-  carry more flavor.
+- **Evil** (8): Castle Godwin is dressed; the gate forest and approaches can
+  carry more flavor; the moor is the first zone out of town.
 
 ## Run progress
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Evil: the Searchlight Moor** (392716c7a), out of town west of the gate
+  forest by a side exit (`specs/evil_moor/make_specs.py`): a ruined
+  watchtower to climb, its searchlight's beam; a murky bog (IntGrid murky
+  water, its surface in the art) with a drowned cart; the founder toppled
+  face down off his plinth, his back walked on (a still one-way platform
+  with no picture); barbed wire; hounds, failed prototypes, risen
+  conscripts. Verified: the_searchlight_moor, check_flat_map evil 0, room
+  captures. Note: a hidden `SurfaceChain` did not hold a spawned body here.
+- **Math: Hylbert's lift only goes up** (995743d24): its top comes back in at
+  its bottom. Verified: hylberts_hotel (two laps).
+- **Jungle: trail dressing** (9ca12eaba): ferns, fallen logs, nests (one egg
+  hatching), a toppled idol head, a half-sunk ribcage in five trail rooms.
+- **PvN: the hall of the Shadow Clan** (7d76d7249): shoji, rafters as
+  balconies, racks, gong, bonsai shrine, lanterns, and the scroll the
+  Mockingbird "corrected".
 - **Jungle: the trail walks through side exits** (96d318a8c):
   `specs/primeval/side_exits.py` turns the trail's end doors into edge
   exits, opens the walls and places the rooms touching. Verified:

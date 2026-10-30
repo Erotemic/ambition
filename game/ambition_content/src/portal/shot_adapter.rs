@@ -25,6 +25,11 @@ use ambition_portal2d::{
 /// distance traveled), then geometry breaks ties. Apply placement only
 /// inside the shot's room; a shot without a live room does not move.
 /// Fizzles and successful placements emit different sound requests.
+///
+/// ⛔ Two portals never share a place ([`PlacedPortal::opening_overlaps`]):
+/// a placement whose opening would overlap a portal of another channel in
+/// its room (one already open, or one this tick opened first) fizzles, and
+/// the portal its channel had stays.
 pub fn portal_projectile_step(
     time: Res<ambition_time::WorldTime>,
     world: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<RoomGeometry>,
@@ -92,6 +97,7 @@ pub fn portal_projectile_step(
     // every resimulation of this tick.
     placements.sort_by(Placement::newest_first);
     let mut opened: Vec<(ambition_portal2d::PortalRoom, PortalChannel)> = Vec::new();
+    let mut opened_here: Vec<(ambition_portal2d::PortalRoom, PlacedPortal)> = Vec::new();
     for winner in &placements {
         if opened.contains(&(winner.room, winner.channel)) {
             // A superseded same-tick placement makes no sound of its own: exactly
@@ -100,6 +106,21 @@ pub fn portal_projectile_step(
             continue;
         }
         opened.push((winner.room, winner.channel));
+        let opening = PlacedPortal::fixed(winner.channel, winner.pos, winner.normal, ambition_portal2d::PORTAL_OPENING_HALF);
+        let overlapped = portals
+            .iter()
+            .filter(|(entity, portal)| portal.channel != winner.channel && world.room_of(*entity) == winner.room)
+            .map(|(_, portal)| portal)
+            .chain(opened_here.iter().filter(|(room, _)| *room == winner.room).map(|(_, portal)| portal))
+            .any(|portal| opening.opening_overlaps(portal));
+        if overlapped {
+            sfx.write(ambition_sfx::SfxMessage::Play {
+                id: ambition_sfx::ids::PORTAL_INVALID,
+                pos: winner.hit,
+            });
+            continue;
+        }
+        opened_here.push((winner.room, opening.clone()));
         // Hit a wall — open (or replace) the portal of this color in this room.
         for (entity, portal) in &portals {
             if portal.channel == winner.channel && world.room_of(entity) == winner.room {
@@ -113,12 +134,7 @@ pub fn portal_projectile_step(
         let mut portal = commands.spawn_room_in_session(
             scope,
             (
-                PlacedPortal::fixed(
-                    winner.channel,
-                    winner.pos,
-                    winner.normal,
-                    ambition_portal2d::PORTAL_OPENING_HALF,
-                ),
+                opening,
                 Name::new(format!("Portal: {}", winner.channel.name())),
                 // One portal per channel per room: a derived identity, so the same
                 // wall re-placed is the same logical object and a rewind can name

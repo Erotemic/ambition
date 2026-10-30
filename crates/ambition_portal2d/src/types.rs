@@ -139,6 +139,44 @@ impl PlacedPortal {
     pub fn moved_this_tick(&self) -> bool {
         self.pos != self.prev_pos || self.normal != self.prev_normal
     }
+
+    /// The two ends of its opening's line.
+    pub fn opening_ends(&self) -> [Vec2; 2] {
+        let n = self.normal.normalize_or_zero();
+        let along = Vec2::new(-n.y, n.x) * self.opening_half_length();
+        [self.pos - along, self.pos + along]
+    }
+
+    /// Does its opening overlap `other`'s: do their lines cross, or come
+    /// within [`PORTAL_OVERLAP_GAP`] of each other? Two portals never share a
+    /// place: the newer of two that would fizzles (Jon, 2026-10-30: "if a
+    /// portal detects an overlap they just fizzle"). Two openings back to
+    /// back on the faces of a wall are the wall's thickness apart, and do not
+    /// overlap.
+    pub fn opening_overlaps(&self, other: &PlacedPortal) -> bool {
+        let [a, b] = self.opening_ends();
+        let [c, d] = other.opening_ends();
+        segment_distance(a, b, c, d) < PORTAL_OVERLAP_GAP
+    }
+}
+
+/// How near two portals' lines may come and not overlap.
+pub const PORTAL_OVERLAP_GAP: f32 = 4.0;
+
+/// The least distance between the segments `a..b` and `c..d` (0 when they
+/// cross).
+fn segment_distance(a: Vec2, b: Vec2, c: Vec2, d: Vec2) -> f32 {
+    let cross = |o: Vec2, p: Vec2, q: Vec2| (p - o).perp_dot(q - o);
+    let (d1, d2, d3, d4) = (cross(a, b, c), cross(a, b, d), cross(c, d, a), cross(c, d, b));
+    if d1 * d2 < 0.0 && d3 * d4 < 0.0 {
+        return 0.0;
+    }
+    let to_segment = |p: Vec2, s0: Vec2, s1: Vec2| {
+        let span = s1 - s0;
+        let t = if span.length_squared() > 0.0 { ((p - s0).dot(span) / span.length_squared()).clamp(0.0, 1.0) } else { 0.0 };
+        p.distance(s0 + span * t)
+    };
+    to_segment(a, c, d).min(to_segment(b, c, d)).min(to_segment(c, a, b)).min(to_segment(d, a, b))
 }
 
 impl PlacedPortal {
@@ -415,5 +453,31 @@ mod stable_order_tests {
         assert_eq!(forward[0].pos, Vec2::new(-40.0, 0.0));
         assert_eq!(forward[2].pos, Vec2::new(300.0, 5.0));
         assert_eq!(forward[3].pos, Vec2::new(300.0, 10.0));
+    }
+}
+
+#[cfg(test)]
+mod overlap_tests {
+    use super::*;
+    use crate::color::PortalChannelColor;
+
+    fn at(x: f32, y: f32, normal: Vec2) -> PlacedPortal {
+        PlacedPortal::fixed(PortalChannelColor::Purple.channel(), Vec2::new(x, y), normal, 40.0)
+    }
+
+    #[test]
+    fn crossing_lines_overlap_and_one_line_on_another_overlaps() {
+        let floor = at(0.0, 0.0, Vec2::new(0.0, -1.0));
+        assert!(floor.opening_overlaps(&at(10.0, 0.0, Vec2::new(-1.0, 0.0))), "a wall line across a floor line");
+        assert!(floor.opening_overlaps(&at(30.0, 0.0, Vec2::new(0.0, -1.0))), "two floor lines that share a span");
+        assert!(floor.opening_overlaps(&at(30.0, 0.0, Vec2::new(0.0, 1.0))), "a ceiling line on a floor line");
+    }
+
+    #[test]
+    fn lines_apart_do_not_overlap_and_back_to_back_on_a_wall_do_not() {
+        let floor = at(0.0, 0.0, Vec2::new(0.0, -1.0));
+        assert!(!floor.opening_overlaps(&at(90.0, 0.0, Vec2::new(0.0, -1.0))), "end to end, apart");
+        assert!(!floor.opening_overlaps(&at(0.0, 16.0, Vec2::new(0.0, 1.0))), "on the two faces of a slab 16 thick");
+        assert!(!floor.opening_overlaps(&at(0.0, -200.0, Vec2::new(1.0, 0.0))), "far away");
     }
 }

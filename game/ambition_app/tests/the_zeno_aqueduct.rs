@@ -158,3 +158,31 @@ fn the_fibonacci_meadow_lies_east_of_the_woods() {
     go(&mut app, "math_fractal_woods", Some("math_fibonacci_meadow_west"));
     go(&mut app, "math_fibonacci_meadow", Some("math_fractal_woods_east"));
 }
+
+/// Under the Fractal Woods, west of the Mobius Mine on its floor: the roots.
+/// The knot of them over the hole up into the woods is shut until the lever
+/// under it is pulled; then up into the woods, and back down: a loop.
+#[test]
+fn the_roots_loop_the_mine_back_up_into_the_woods() {
+    use crate::the_note_travels_from_alice_to_bob::tap;
+    use ambition_platformer2d::engine_core as ae;
+    use bevy::prelude::KeyCode;
+
+    let lever = |app: &bevy::prelude::App| {
+        app.world()
+            .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+            .data()
+            .switch("math_roots_knot_lever")
+    };
+    let mut app = crate::the_pirate_port::a_session_in("math_mobius_mine");
+    crate::the_pirate_port::go(&mut app, "math_fractal_roots", Some("math_mobius_mine_west"));
+    assert!(!lever(&app), "control: the knot's lever is not pulled");
+    crate::the_pirate_port::go_to(&mut app, ae::Vec2::new(324.0, 560.0), "the knot's lever");
+    tap(&mut app, KeyCode::KeyF);
+    for _ in 0..30 {
+        app.update();
+    }
+    assert!(lever(&app), "the knot's lever is pulled");
+    crate::the_pirate_port::go(&mut app, "math_fractal_woods", Some("math_fractal_roots_knot"));
+    crate::the_pirate_port::go(&mut app, "math_fractal_roots", Some("math_fractal_woods_roots"));
+}

@@ -60,6 +60,10 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Math composed: the roots** under the Fractal Woods, west of the Mobius
+  Mine, up through a knot of roots (lever below) into the woods: a loop.
+  The test walker keeps over a hole's middle going down a ladder.
+  Verified: the_zeno_aqueduct (9) and every hole/ladder test (24).
 - **Science composed: the steam plant under the Eureka quad** (down a
   manhole in the street; catwalks, boilers, one gauge in the red labelled
   FINE; east into the Collider, up its stair: a loop) and **Lab 0** behind a

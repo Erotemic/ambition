@@ -103,8 +103,19 @@ Jon, 2026-10-30:
 - **Secret:** a bricked door at the plant's west end (a breakable wall), Lab 0 behind it.
 - **Tests:** `game/ambition_app/tests/the_eureka_tether.rs`.
 
+## The math town (the seventh)
+
+```
+ [aqueduct]──[town street]──[fractal woods]──[fibonacci meadow]
+                              │knot (lever)  │shaft
+                            [roots]──────[mobius mine]
+```
+
+- **Under:** down the mine shaft from the woods, west on the mine's floor into the roots of the great fractal tree, up through a knot of them (shut until the lever under it is pulled) into the woods again.
+- **Tests:** `game/ambition_app/tests/the_zeno_aqueduct.rs`.
+
 ## Not yet
 
 - **A hit-breakable wall** (`district_kit.breakable_wall`, broken for good in the save) is the other kind of secret: the catacombs' cracked wall hides the ossuary of the other founders. A breakable draws UNDER the room's scenery (the block band), so the room's art leaves a window over it (the canvas's alpha cut away).
 - **Ladders** draw over the room's scenery and under the cast (`CLIMBABLE_Z`); the room's art does not draw them.
-- The other regions (the math town) are still strings of rooms. Each wants the same treatment.
+- Every region of the five dimensions now has a loop. Next: more secrets (breakable walls), and joining regions to each other.

@@ -383,6 +383,11 @@
     "plant_east": (),
     "plant_bricked_door": (),
     "first_lab_room": (),
+    // The roots under the Fractal Woods and the knot over their way up (Math).
+    "woods_root_knot": (),
+    "woods_root_hole": (),
+    "roots_west": (),
+    "roots_east": (),
     "sail_loft_room": (),
     // The Pirate Port's well, and the cellars under customs (PvN).
     "plaza_well": (),

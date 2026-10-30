@@ -404,6 +404,10 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
                 if underfoot && along.abs() <= exit.zone.half_size().x {
                     press.down = true;
                     press.jump_pressed = on_ground && step % 20 == 0;
+                    // Kept over the middle of the hole: a body that takes
+                    // the ladder with an edge still over the floor beside
+                    // the hole climbs down onto that floor and stops.
+                    press.axis = if along.abs() > 6.0 { along.signum() * 0.5 } else { 0.0 };
                     walker.step(press);
                     continue;
                 }

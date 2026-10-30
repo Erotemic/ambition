@@ -78,6 +78,12 @@ CLOSETS = ("math_hotel_door_1", "math_hotel_door_2", "math_hotel_door_3")
 WOODS = "math_fractal_woods"
 #: Under the woods, down a hole in their floor (a ladder down it).
 MINE = "math_mobius_mine"
+#: West of the mine on its floor, under the woods: the great tree's roots,
+#: and a knot of them over a hole up into the woods (x0, x1, the woods' x),
+#: shut until the lever below is pulled (a shortcut opened from below).
+ROOTS = "math_fractal_roots"
+KNOT = (800, 864)
+KNOT_LEVER = "math_roots_knot_lever"
 #: East of the woods by a side exit, floors level: the Fibonacci Meadow.
 MEADOW = "math_fibonacci_meadow"
 #: West of the gate hall by a side exit, under the aqueduct's valley.
@@ -116,6 +122,8 @@ ROOMS_AT = {
     # Under the woods' east end: its shaft (x 96..160) under their hole.
     MINE: (1712 + 3200 + 2288 - 96, 1600, 640),
     HANOI: (-1600, 1600, 768),
+    # West of the mine, its floor the mine's.
+    ROOTS: (1712 + 3200 + 2288 - 96 - 1600, 1600, 640),
     MEADOW: (1712 + 3200 + 2560, 2400, 768),
 }
 #: A room's world y when it is not 0. The rooms of the world touch where they
@@ -131,6 +139,7 @@ ROOMS_Y = {
     WOODS: 560 - 704,
     # Right under the woods (their floor's foot, y 768 there).
     MINE: 560 - 704 + 768,
+    ROOTS: 560 - 704 + 768,
     # Level with the gate hall, west of it.
     HANOI: 1344,
     # Level with the woods, east of them.
@@ -908,8 +917,16 @@ def fractal_woods():
         framed("woods_things", "woods_curiosities", 1080, 400),
         # The ground, and the hole down to the mine: a ladder down it
         # (`PAINT`), its bottom the way down.
-        solid("ground_west", 0, g, WOODS_HOLE[0], h - g),
+        solid("ground_west", 0, g, KNOT[0], h - g),
+        solid("ground_middle", KNOT[1], g, WOODS_HOLE[0] - KNOT[1], h - g),
         solid("ground_east", WOODS_HOLE[1], g, w - WOODS_HOLE[1], h - g),
+        # Under the great tree, the knot of its roots over a hole down to
+        # them: shut until the lever under it is pulled; a ladder (`PAINT`).
+        framed("woods_root_hole", "woods_root_hole", KNOT[0], g),
+        (f'( type: "LockWall", px: [{KNOT[0]}, {g}], size: [{KNOT[1] - KNOT[0]}, {h - g}], fields: ( id: "math_woods_root_knot", '
+         f'name: "a knot of roots", gated_by: "world.switch_on {KNOT_LEVER}", look: "woods_root_knot" ) ),'),
+        (f'( type: "LoadingZone", px: [{KNOT[0]}, {h - 16}], size: [{KNOT[1] - KNOT[0]}, 16], fields: ( id: "{rid}_roots", '
+         f'name: "down among the roots", activation: "EdgeExit", target_room: "{ROOTS}", target_zone: "{ROOTS}_knot", bidirectional: true ) ),'),
         (f'( type: "LoadingZone", px: [{WOODS_HOLE[0]}, {h - 16}], size: [{WOODS_HOLE[1] - WOODS_HOLE[0]}, 16], fields: ( id: "{rid}_shaft", '
          f'name: "down the mine shaft", activation: "EdgeExit", target_room: "{MINE}", target_zone: "{MINE}_shaft", bidirectional: true ) ),'),
         label("woods_sign_mine", WOODS_HOLE[0] - 180, g - 120, "THE MOBIUS MINE: one side only", 260),
@@ -963,7 +980,8 @@ def mobius_mine():
         solid("floor", 0, g, w, h - g),
         solid("ceiling_west", 0, 0, s0, top),
         solid("ceiling_east", s1, 0, w - s1, top),
-        solid("west_wall", 0, top, WALL, g - top),
+        solid("west_wall", 0, top, WALL, g - 112 - top),
+        edge(f"{rid}_west", "west among the roots", 0, g - 96, 96, ROOTS, f"{ROOTS}_east"),
         solid("east_wall", w - WALL, top, WALL, g - top),
         (f'( type: "LoadingZone", px: [{s0}, 0], size: [{s1 - s0}, 16], fields: ( id: "{rid}_shaft", name: "up the shaft to the woods", '
          f'activation: "EdgeExit", target_room: "{WOODS}", target_zone: "{WOODS}_shaft", bidirectional: true ) ),'),
@@ -982,6 +1000,39 @@ def mobius_mine():
         mine_enemy(2, "npc_dividing_mite", 1180, g, 40, 52, "dividing_mite"),
     ]
     return rid, room(rid, e, "The Mobius Mine.")
+
+
+def fractal_roots():
+    """West of the mine on its floor, under the woods: the great fractal
+    tree's roots, each branch a smaller root, all the way down; toadstools
+    in a sunflower's spiral, a vein of crystal in a Sierpinski triangle. Up
+    a shaft at the west end to the knot under the tree (the lever by it)."""
+    rid = ROOTS
+    world_x, w, h = ROOMS_AT[rid]
+    g, top = MINE_FLOOR, MINE_CEIL
+    s0, s1 = KNOT[0] + ROOMS_AT[WOODS][0] - world_x, KNOT[1] + ROOMS_AT[WOODS][0] - world_x
+    e = [
+        framed("roots_west", "roots_west", 16, 16),
+        framed("roots_east", "roots_east", 800, 16),
+        solid("floor", 0, g, w, h - g),
+        solid("ceiling_west", 0, 0, s0, top),
+        solid("ceiling_east", s1, 0, w - s1, top),
+        solid("west_wall", 0, top, WALL, g - top),
+        solid("east_wall", w - WALL, top, WALL, g - 112 - top),
+        edge(f"{rid}_east", "east into the mine", w - WALL, g - 96, 96, MINE, f"{MINE}_west"),
+        (f'( type: "LoadingZone", px: [{s0}, 0], size: [{s1 - s0}, 16], fields: ( id: "{rid}_knot", name: "up through the knot to the woods", '
+         f'activation: "EdgeExit", target_room: "{WOODS}", target_zone: "{WOODS}_roots", bidirectional: true ) ),'),
+        (f'( type: "Switch", px: [{s1 + 40}, {g - 32}], size: [24, 32], fields: ( id: "{KNOT_LEVER}", name: "the knot\'s lever", '
+         f'prompt: "Pull the lever", action: "ToggleFlag", target_encounter: "" ) ),'),
+        f'( type: "PlayerStart", px: [{s1 + 120}, {g - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
+        label("roots_sign", 560, 100, "THE ROOTS: self-similar at every scale (mind your head at every scale)", 560),
+        label("roots_sign_spiral", 1080, g - 180, "TOADSTOOLS: 89 of them. Count again.", 360),
+        f'( type: "ChestSpawn", px: [1500, {g - 58}], size: [76, 58], fields: ( name: "a root of unity", reward: "currency:60" ) ),',
+        mine_enemy(10, "npc_dividing_mite", 700, g, 40, 52, "dividing_mite").replace(MINE, ROOTS, 1),
+        (f'( type: "EnemySpawn", px: [1000, {g - 44}], size: [28, 44], fields: ( name: "{ROOTS}_npc_puppy_slug_11", '
+         f'brain: "combatant", character_id: "npc_puppy_slug", respawn: "OnRoomReenter" ) ),'),
+    ]
+    return rid, room(rid, e, "The Roots: it goes all the way down.")
 
 
 #: The Tower of Hanoi (`math_hanoi_props.py` draws on these): the needles,
@@ -1114,7 +1165,7 @@ def fibonacci_meadow():
 # The meadow before the woods: the woods grew east into where it was.
 ROOMS = (gate_hall, street, cafe, surveyors_office, observatory, zeno_aqueduct, hotel_lobby, hotel_corridor, hotel_lift,
          hotel_ballroom, *[hotel_closet(k) for k in range(3)], fibonacci_meadow, fractal_woods,
-         mobius_mine, tower_of_hanoi)
+         mobius_mine, fractal_roots, tower_of_hanoi)
 
 #: What is painted on an IntGrid layer of a room: (room, layer, value, px, size).
 PAINT = [(STREET, "Climbable", 1, (x, top), (32, bottom - top)) for _name, x, top, bottom in LADDERS] + [
@@ -1125,6 +1176,9 @@ PAINT = [(STREET, "Climbable", 1, (x, top), (32, bottom - top)) for _name, x, to
     # The mine's ladder up its shaft to the woods, and on up their hole.
     (MINE, "Climbable", 1, (112, 0), (32, MINE_FLOOR)),
     (WOODS, "Climbable", 1, (WOODS_HOLE[0] + 16, WOODS_FLOOR - 64), (32, 768 - WOODS_FLOOR + 64)),
+    # Down the knot's hole (over the floor, as the mine's), and up the roots' shaft.
+    (WOODS, "Climbable", 1, (KNOT[0] + 16, WOODS_FLOOR - 64), (32, 768 - WOODS_FLOOR + 64)),
+    (ROOTS, "Climbable", 1, (KNOT[0] + ROOMS_AT[WOODS][0] - ROOMS_AT[ROOTS][0] + 16, 0), (32, MINE_FLOOR)),
 ]
 
 

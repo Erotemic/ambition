@@ -14,7 +14,7 @@
     entities: [
         ( type: "Prop", px: [127, 538], size: [390, 40], fields: ( name: "tar_bones", kind: "tar_pits_bones" ) ),
         ( type: "Prop", px: [500, 496], size: [1220, 128], fields: ( name: "tar_pools", kind: "tar_pits_pools" ) ),
-        ( type: "Prop", px: [446, 474], size: [394, 108], fields: ( name: "tar_mammoth", kind: "tar_pits_mammoth" ) ),
+        ( type: "Prop", px: [404, 430], size: [436, 163], fields: ( name: "tar_mammoth", kind: "tar_pits_mammoth" ) ),
         ( type: "Prop", px: [1739, 384], size: [591, 194], fields: ( name: "tar_dig_camp", kind: "tar_pits_dig_camp" ) ),
         ( type: "Solid", px: [0, 576], size: [520, 64], fields: ( name: "ground_west" ) ),
         ( type: "Solid", px: [520, 624], size: [380, 16], fields: ( name: "bed_west" ) ),

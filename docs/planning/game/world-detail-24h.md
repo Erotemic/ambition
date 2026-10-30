@@ -43,6 +43,10 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Jungle: the mammoth's skull**: the block of a skull is redrawn as a
+  mammoth's (a high domed crown, the eye's socket, the tusks' sheath, the
+  tusks in a spiral, clipped at the ground); curved ribs, the spine's
+  vertebrae. Verified: capture.
 - **Math: Monty Carlo hosts the ballroom**: the three doors' host (chargen,
   Hall wing), who explains why switching wins and sends a goat to each
   mathematician who writes in. Verified: hylberts_hotel (4).

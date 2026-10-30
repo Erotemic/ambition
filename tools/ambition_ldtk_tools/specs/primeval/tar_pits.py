@@ -62,7 +62,7 @@ def pits():
     e = [
         piece("tar_pits_bones", 120, 500, name="tar_bones"),
         piece("tar_pits_pools", 500, 440, name="tar_pools"),
-        piece("tar_pits_mammoth", 440, 410, name="tar_mammoth"),
+        piece("tar_pits_mammoth", 380, 410, name="tar_mammoth"),
         piece("tar_pits_dig_camp", 1730, 360, name="tar_dig_camp"),
         solid("ground_west", 0, FLOOR, a0, H - FLOOR),
         solid("bed_west", a0, BED, a1 - a0, H - BED),

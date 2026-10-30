@@ -486,6 +486,11 @@ collections:
   - inn_room
   - reef_shore
   - reef_wreck
+  - quad_raised_walk
+  - quad_cafe
+  - quad_lecture_hall
+  - quad_fountain
+  - quad_lab_front
   - shadow_dojo_hall
   - jungle_fern_clump
   - jungle_fallen_log

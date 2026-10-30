@@ -14,8 +14,14 @@ from district_scenery import piece
 #: Room -> [(kind, frame x, frame y)], furthest back first.
 SCENERY = {
     "eureka_quad": [
+        # The quad between them (`targets/props/eureka_quad_props.py`).
+        ("quad_raised_walk", 16, 536),
+        ("quad_lecture_hall", 1430, 536),
+        ("quad_lab_front", 2330, 300),
         ("eureka_patent_front", 662, 272),
         ("eureka_observatory_front", 2052, 208),
+        ("quad_cafe", 990, 480),
+        ("quad_fountain", 1250, 600),
     ],
     "eureka_patent_office": [
         ("eureka_patent_room", 16, 32),

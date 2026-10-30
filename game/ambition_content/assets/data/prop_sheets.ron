@@ -278,6 +278,12 @@
     // The Wreckers' Reef (PvN, out of the Pirate Port).
     "reef_shore": (),
     "reef_wreck": (),
+    // Eureka's quad, filled in.
+    "quad_raised_walk": (),
+    "quad_cafe": (),
+    "quad_lecture_hall": (),
+    "quad_fountain": (),
+    "quad_lab_front": (),
     // The hall of the Shadow Clan (PvN).
     "shadow_dojo_hall": (),
     // Along the primeval trail.

@@ -186,16 +186,18 @@ def quad():
     _, (w, h) = ROOMS_AT[rid]
     # The raised walk is as high over the street as the court's is over its
     # floor, so the two meet level.
-    street, terrace, walk = 768, 576, 576
+    street, terrace, walk_y = 768, 576, 576
     e = [
         solid("street", 0, street, w, h - street),
-        solid("west_wall_high", 0, 0, WALL, walk - 96),
-        solid("west_wall_mid", 0, walk + 16, WALL, street - 96 - walk - 16),
+        solid("west_wall_high", 0, 0, WALL, walk_y - 96),
+        solid("west_wall_mid", 0, walk_y + 16, WALL, street - 96 - walk_y - 16),
         solid("east_wall", w - WALL, 0, WALL, street - 96),
         edge("quad_west_low", "to the gate court", 0, street, COURT, "court_east_low"),
-        edge("quad_west_high", "along the raised walk", 0, walk, COURT, "court_east_high"),
+        edge("quad_west_high", "along the raised walk", 0, walk_y, COURT, "court_east_high"),
         start(rid, 120, street),
-        ledge("raised_walk", WALL, walk, 560),
+        # The quad's art draws over these (`targets/props/eureka_quad_props.py`);
+        # they stay ledges, the ground a navigating body knows.
+        ledge("raised_walk", WALL, walk_y, 560),
         ledge("walk_stair_1", 560, street - 64, 96),
         ledge("walk_stair_2", 600, street - 128, 64),
         door("quad_patent_door", "into the patent office", 760, street, PATENT, "patent_door"),

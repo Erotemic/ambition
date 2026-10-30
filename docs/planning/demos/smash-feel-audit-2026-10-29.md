@@ -550,6 +550,22 @@ step, with the eased time scale either presentation-only or per-tick sim
 state driven by sim causes. Until then every CPU measurement carries a
 start-tick lottery, and netplay would desync at the first match.
 
+Named one step further (same day, `[sim-clock]` log of a rung-9 match):
+every connect requests the GLOBAL sim clock to 0 (`impact_hitstop`, a
+match-level freeze held as an absolute expiry tick, capped at the feel's
+`hitlag_time`), and the clock ladder EASES toward it (down 5/s, up 14/s by
+wall dt): `live 1.000 -> 0.917 -> 0.667 -> 0.900` over four frames. So (a)
+the "freeze" is a slow-motion dip, not a freeze — Ultimate's hitlag is a
+hard hold of the two bodies, which the per-body hitlag (R2) already is; (b)
+every hit feeds the sim a frame-phased fractional-dt sequence — the lottery
+the CPU agent traced (the 0→1 ramp at release was MEASURED not to overlap
+live play; this does, on every hit); (c) two rollback peers integrate
+different dts after the same hit. The elegant fix is one rule, not a
+switch: a freeze request SNAPS the clock (0 for its ticks, 1 after) instead
+of riding the ease — tick-deterministic and a real beat. Alternatives: the
+match declares no global freeze (per-body hitlag carries it), or the
+fixed-dt sim step above. Jon's call; none applied.
+
 ### Not in this roadmap
 
 Stages, items, modes, CPU ladder, presentation polish, and every `S0.*` packet

@@ -489,7 +489,7 @@ fn the_map_shows_only_the_rooms_of_the_active_rooms_world() {
 mod view_tests {
     use bevy::math::Vec2;
 
-    use super::super::view::{map_view, region, MapDoor};
+    use super::super::view::{map_view, region, MapBeyond, MapDoor};
     use super::super::{MapMenuState, MapRoomNode};
 
     fn node(id: &str, x: f32, y: f32, w: f32, h: f32, edges: &[&str], doors: &[(&str, f32)]) -> MapRoomNode {
@@ -563,5 +563,40 @@ mod view_tests {
             assert!(room.min.x >= -1e-4 && room.min.x + room.size.x <= 1.0001);
             assert!(room.min.y >= -1e-4 && room.min.y + room.size.y <= 1.0001);
         }
+        assert_eq!(view.beyond, MapBeyond::default(), "a region that fits shows whole");
+    }
+
+    /// A corridor of 30 rooms, each 1600 wide, all visited.
+    fn corridor() -> MapMenuState {
+        let ids: Vec<String> = (0..30).map(|i| format!("r{i}")).collect();
+        MapMenuState {
+            rooms: (0..30)
+                .map(|i| {
+                    let next: Vec<&str> = ids.get(i + 1).map(|n| n.as_str()).into_iter().collect();
+                    node(&ids[i], i as f32 * 1600.0, 0.0, 1600.0, 800.0, &next, &[])
+                })
+                .collect(),
+            visited: ids.iter().cloned().collect(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn a_region_too_wide_for_the_frame_shows_a_window_round_the_player() {
+        let map = corridor();
+        let view = map_view(&map, "r15", 1.5).unwrap();
+        let here = view.rooms.iter().find(|r| r.here).unwrap();
+        let centre = here.min.x + here.size.x * 0.5;
+        assert!((centre - 0.5).abs() < 0.01, "the player's room is in the middle: {centre}");
+        assert!(here.size.x > 0.1, "a room is a readable part of the frame: {}", here.size.x);
+        assert!(view.rooms.len() < 30);
+        assert_eq!(view.beyond, MapBeyond { left: true, right: true, up: false, down: false });
+        for room in &view.rooms {
+            assert!(room.min.x >= -1e-4 && room.min.x + room.size.x <= 1.0001, "{} is cut to the frame", room.id);
+        }
+        // At the corridor's end, the window stops at the end.
+        let view = map_view(&map, "r0", 1.5).unwrap();
+        assert_eq!(view.beyond, MapBeyond { left: false, right: true, up: false, down: false });
+        assert!(view.rooms[0].min.x.abs() < 1e-4);
     }
 }

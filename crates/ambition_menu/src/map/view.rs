@@ -57,7 +57,24 @@ pub struct MapView {
     pub marked_door: Option<usize>,
     /// Width over height of the frame the fractions are of.
     pub aspect: f32,
+    /// The sides past which the region goes on, out of the frame.
+    pub beyond: MapBeyond,
 }
+
+/// The sides of the frame past which a region too big for it goes on.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct MapBeyond {
+    pub left: bool,
+    pub right: bool,
+    pub up: bool,
+    pub down: bool,
+}
+
+/// The most world, in pixels across, the map shows at once. A region wider
+/// than this (the intro's long corridor) is shown a window of it at a time,
+/// centred on the player and kept inside the region; a room of the usual
+/// 1600 px is then about a seventh of the frame, wide enough for its name.
+pub const MAP_MAX_SPAN: f32 = 12_000.0;
 
 /// The room `id` names: its level identifier or its area.
 fn find(rooms: &[MapRoomNode], id: &str) -> Option<usize> {
@@ -124,7 +141,26 @@ pub fn map_view(state: &MapMenuState, current: &str, aspect: f32) -> Option<MapV
         .collect();
     let lo = shown.iter().map(|&i| rooms[i].world_min).reduce(Vec2::min)?;
     let hi = shown.iter().map(|&i| rooms[i].world_min + rooms[i].world_size).reduce(Vec2::max)?;
-    // Fit the region in a frame of `aspect`, centred, its proportions kept.
+    // A region too big for the frame: the window of it around the player.
+    let centre = door_at.unwrap_or(rooms[anchor].world_min + rooms[anchor].world_size * 0.5);
+    let span = Vec2::new(MAP_MAX_SPAN, MAP_MAX_SPAN / aspect);
+    let window = |lo: f32, hi: f32, centre: f32, span: f32| {
+        if hi - lo <= span {
+            return (lo, hi);
+        }
+        let c = centre.clamp(lo + span * 0.5, hi - span * 0.5);
+        (c - span * 0.5, c + span * 0.5)
+    };
+    let (x0, x1) = window(lo.x, hi.x, centre.x, span.x);
+    let (y0, y1) = window(lo.y, hi.y, centre.y, span.y);
+    let beyond = MapBeyond { left: x0 > lo.x, right: x1 < hi.x, up: y0 > lo.y, down: y1 < hi.y };
+    let (lo, hi) = (Vec2::new(x0, y0), Vec2::new(x1, y1));
+    let in_window = |min: Vec2, max: Vec2| min.x < hi.x && max.x > lo.x && min.y < hi.y && max.y > lo.y;
+    let shown: Vec<usize> = shown
+        .into_iter()
+        .filter(|&i| in_window(rooms[i].world_min, rooms[i].world_min + rooms[i].world_size))
+        .collect();
+    // Fit the window in a frame of `aspect`, centred, its proportions kept.
     let extent = (hi - lo).max(Vec2::ONE);
     let scale = (aspect / extent.x).min(1.0 / extent.y);
     let used = extent * scale;
@@ -143,7 +179,7 @@ pub fn map_view(state: &MapMenuState, current: &str, aspect: f32) -> Option<MapV
         if visited(i) {
             for door in &rooms[i].doors {
                 let at = rooms[i].world_min + door.at;
-                if Some(at) != door_at {
+                if Some(at) != door_at && in_window(at, at) {
                     doors.push(to_frame(at));
                 }
             }
@@ -153,8 +189,9 @@ pub fn map_view(state: &MapMenuState, current: &str, aspect: f32) -> Option<MapV
         .iter()
         .map(|&i| {
             let room = &rooms[i];
-            let min = to_frame(room.world_min);
-            let max = to_frame(room.world_min + room.world_size);
+            // Cut to the window: a room it crosses is drawn to the frame's edge.
+            let min = to_frame(room.world_min.max(lo));
+            let max = to_frame((room.world_min + room.world_size).min(hi));
             MapViewRoom {
                 id: room.id.clone(),
                 title: room.title.clone(),
@@ -165,7 +202,7 @@ pub fn map_view(state: &MapMenuState, current: &str, aspect: f32) -> Option<MapV
             }
         })
         .collect();
-    Some(MapView { here_title, inside, rooms: view_rooms, doors, marked_door, aspect })
+    Some(MapView { here_title, inside, rooms: view_rooms, doors, marked_door, aspect, beyond })
 }
 
 /// A readable name for a room with no title of its own: its id, words

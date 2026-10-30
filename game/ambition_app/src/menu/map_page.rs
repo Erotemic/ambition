@@ -30,11 +30,11 @@ const MAP_LABEL_MIN_WIDTH: f32 = 9.0;
 
 /// A room's title fitted to `width` percent of the page: a leading "THE " is
 /// dropped, and a title still too long is cut with an ellipsis. A character
-/// of the label is about 0.55 of its height wide, and a percent of width is
+/// of the label is at most about 0.65 of its height wide, and a percent of width is
 /// 1.5 percent of height on the 3:2 page.
 fn short_title(title: &str, width: f32) -> String {
     let title = title.strip_prefix("THE ").or_else(|| title.strip_prefix("The ")).unwrap_or(title);
-    let fits = (width * 1.5 / (MAP_LABEL_SIZE * 0.55)).floor().max(3.0) as usize;
+    let fits = (width * 1.5 / (MAP_LABEL_SIZE * 0.65)).floor().max(3.0) as usize;
     if title.chars().count() <= fits {
         return title.to_string();
     }
@@ -106,11 +106,11 @@ pub(crate) fn build_map_page(view: Option<&MapView>) -> MenuPageModel<MenuPage, 
         };
         model.panel(rect, colour(fill), None);
     }
-    // The names of the visited rooms wide enough to hold one, under the
+    // The names of the visited rooms big enough to hold one, under the
     // doors' marks so neither hides the other.
     for room in view.rooms.iter().filter(|room| room.visited) {
         let w = room.size.x * f.w;
-        if w < MAP_LABEL_MIN_WIDTH {
+        if w < MAP_LABEL_MIN_WIDTH || room.size.y * f.h < MAP_LABEL_SIZE * 1.6 {
             continue;
         }
         let cx = f.x + (room.min.x + room.size.x * 0.5) * f.w;
@@ -126,6 +126,16 @@ pub(crate) fn build_map_page(view: Option<&MapView>) -> MenuPageModel<MenuPage, 
             colour(if marked { map_look.door_marked } else { map_look.door }),
             None,
         );
+    }
+    // The sides the region goes on past.
+    let arrows = [
+        (view.beyond.left, f.x - 2.6, f.y + f.h * 0.5, "<"),
+        (view.beyond.right, f.x + f.w + 2.6, f.y + f.h * 0.5, ">"),
+        (view.beyond.up, 50.0, f.y - 4.5, "^"),
+        (view.beyond.down, 50.0, f.y + f.h + 1.6, "v"),
+    ];
+    for (_, x, y, arrow) in arrows.into_iter().filter(|(on, ..)| *on) {
+        model.text(x, y - 1.5, 3.0, arrow.to_string(), MenuTextAlign::Center, colour(map_look.label));
     }
     let here = match &view.inside {
         Some(inside) => format!("{} ({})", inside, line("menu.map.inside")),

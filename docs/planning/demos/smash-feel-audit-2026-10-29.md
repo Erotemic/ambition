@@ -215,6 +215,7 @@ frames; without P1–P3 that is 19 frames of a white blink. Ship them together.
 | P7 fighter camera | ✔ `MatchRules::cast_framing` (Smash: close to 45% of the stage view, 40 px margin; the engine keeps 75% / 48) | cad1bfd1b |
 | P7 camera box, eased margins, floor room | ✔ `cast_framing.{open_hz,close_hz,floor_margin,bounds}` (Smash 4/4 Hz, 40 px, side 280 / rise 170 / fall 100); measured by `match-report --camera`, see § Camera diagnosis | e121708cf |
 | P4 keys re-fit to the archetype clocks | ✔ the generator's clock tables now read the facets (sword / Falcon / zoner); the brawler's tilts and smashes were keyed 2–3 frames of 12 early (renderer 9559e08, generations 5dc7961e / 04dc07d8 / cd14f066) | — |
+| P4 open: slow wind-ups read as standing | the generator keys ONE anticipation frame before contact; on Falcon-paced moves (up-tilt hits at 0.46 of its row) frames 0–3 are idle, then a sudden swing. A gather spread over the wind-up is the next key pass (needs Jon's eye on the republished rows) | — |
 | P7 finishing blow | ✔ `zoom_camera_on_a_finishing_blow` + `launch_leaves_the_world` (last stock, predicted KO → finish zoom + 0.5 s freeze) | 9eaf73d32 |
 | P6 squash/stretch | ✔ `BodyPoseView::squash`: lands wide and low, relaxing over the landing beat (deeper when hard); the jump squat presses | this commit |
 | Tap-jump menu toggle | ✔ Controls page, "Tap Jump" | this commit |

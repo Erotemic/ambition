@@ -242,6 +242,9 @@
     "eureka_range_bunker": (),
     "eureka_range_tower": (),
     "eureka_range_field": (),
+    // The tether's ground station, and its car (a platform look).
+    "eureka_tether_hall": (),
+    "eureka_tether_car": (),
     // The hall of the Shadow Clan (PvN).
     "shadow_dojo_hall": (),
     // Along the primeval trail.

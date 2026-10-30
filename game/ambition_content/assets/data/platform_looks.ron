@@ -13,6 +13,10 @@
     // numbers are the art module's (`targets/props/orbital_station.py`:
     // `TRAM_FLOOR_SPAN`, `TRAM_FLOOR_Y`, `MARGIN` 6, `PX` 2).
     "orbital_tram": (row: "idle", frame_px: (472.0, 248.0), span_px: (44.0, 428.0), top_px: 188.0),
+    // The Eureka tether's car: its floor is the platform. Px 2 of the art's
+    // `CAR_FRAME` (-24, -150)..(152, 40) and `CAR_SPAN` 0..128 at y 0
+    // (`targets/props/eureka_tether_props.py`).
+    "eureka_tether_car": (row: "idle", frame_px: (352.0, 380.0), span_px: (48.0, 304.0), top_px: 300.0),
     // The Mockingbird's burning shark: the platform is its back, behind the
     // saddle (`burning_flying_shark_spritesheet.ron`: body box 9..194, back
     // at row 60), from the tail fin to the head.

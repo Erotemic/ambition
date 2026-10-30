@@ -136,8 +136,16 @@ def vertical_edge(zone, name, x, y, w, to_room, to_zone, bidirectional=True):
 
 def car(cid, name, x, top, dy, speed):
     """A car of the elevator: it rests with its top at `top` and carries a
-    rider `dy` (up is negative)."""
-    return entity("MovingPlatform", x, top, CAR_W, CAR_H, id=cid, name=name, speed=speed, lift_dy=float(dy), one_way=True)
+    rider `dy` (up is negative). Drawn as `eureka_tether_car` (its floor is
+    the platform: `platform_looks.ron`)."""
+    return entity("MovingPlatform", x, top, CAR_W, CAR_H, id=cid, name=name, speed=speed, lift_dy=float(dy), one_way=True,
+                  visual="eureka_tether_car")
+
+
+def walk(name, x, y, w):
+    """A one-way walk the room's art draws (a gallery on its girder): a still
+    platform with no picture of its own."""
+    return entity("MovingPlatform", x, y, w, 16, id=name, name=name, speed=0.0, visual="none", one_way=True)
 
 
 def court():
@@ -310,8 +318,8 @@ def elevator_station():
         sign("station_sign_car", sx + sw // 2, floor - 200, "STAND ON THE CAR TO ASCEND", 320),
         sign("station_sign_altitude", sx + sw // 2, floor - 260, "Orbit: 35,786 km. Allow for the view.", 400),
         # Galleries round the hall.
-        ledge("gallery_west", WALL, floor - 320, 480),
-        ledge("gallery_east", w - 400, floor - 320, 400 - WALL),
+        walk("gallery_west", WALL, floor - 320, 480),
+        walk("gallery_east", w - 400, floor - 320, 400 - WALL),
     ]
     return build(rid, e, "THE TETHER: GROUND STATION")
 

@@ -26,10 +26,18 @@ CalculexAmbition agent. This page is the research behind the plan, and the
 - Face channels: an `over` group on `face_eyes__<emotion>` or
   `face_mouth__<emotion>__<viseme>` shows only with its channel (Coulomba's
   lashes and beak).
+- Gear: a target's own parts (`chargen.extras`, e.g. Alice's hair and coat
+  marks) take art too. Their groups say `data-overlay-gear="true"`: drawn
+  when the gear is, skipped when the spec is drawn alone (the studio).
 - The studio has an overlay select, and `validate` checks the name.
 - Subjects: Nikobolt Tesseract (head, hair, moustache, coat, hands, a minus
-  pin) and Coulomba Tesseract (pigeon head, beak in every mouth channel, hat,
-  clothes, a plus brooch). Test: `tests/test_chargen_overlay.py`.
+  pin), Coulomba Tesseract (pigeon head, beak in every mouth channel, hat,
+  clothes, a plus brooch) and Alice v2 (bob and band, softer jaw, lashes,
+  lips, a loose open jacket whose V is set in centimetres, so it is not the
+  generator's violin-shaped opening). Test: `tests/test_chargen_overlay.py`.
+- Generator fix found on the way: the `bust` bump sat on the chest line
+  (the bottom of the ribcage); it is now a third of the way from the base
+  of the neck to the waist, with a long rise above and a rounder fall.
 - Open: a left view is the mirror of its right twin, so an asymmetric feature
   (Nikobolt's watch chain, Coulomba's plume and roses) changes sides in the
   left views; they need their own left cells.

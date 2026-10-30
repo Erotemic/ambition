@@ -591,13 +591,14 @@ Applied (5463a23e8): the second alternative, as a per-game rule —
 `CombatRules::world_freezes_on_hit` (engine default true); Smash's room
 rules say false, so a connect holds the two bodies (per-body hitlag) and
 the world clock never dips. MEASURED after: 0 `impact_hitstop` clock lines
-in a 60 s match; 8 fresh seed-0 processes (rung 5, 60 s) agree on 3058 live
-ticks, and 6 fresh processes of pointed vs pugnacious give byte-identical
-reports. The process split is gone with the dip, so the Update census is
-not needed for Smash. REASONED: the dip was the per-frame writer (the hold
-is set in the sim, the ease that turns it into a scale runs per frame).
-Games that keep the world freeze still ride the ease; snapping it is still
-Jon's call.
+in a 60 s match; 8 fresh seed-0 processes (`smash_tool`, rung 5, 60 s)
+agree on 3058 live ticks. ⚠ That does NOT close the split: the shipped
+composition (`smash_cpu_report`, pointed vs pugnacious, rung 5, 60 s, four
+fresh processes) still falls into two report classes 2/2, with no clock
+line after the initial one. The dip was a feel and rollback hazard, and it
+is gone; the per-frame writer is a separate fault, still open (census
+below). Games that keep the world freeze still ride the ease; snapping it
+is still Jon's call.
 
 CPU pokes (44f1c5047, MEASURED `--runs 3` per live minute): attack whiffs
 pair r5 80→67%, pair r9 64→57%, mirror r5 →78%, mirror r9 →77%; goal

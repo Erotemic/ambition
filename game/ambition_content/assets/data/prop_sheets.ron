@@ -292,6 +292,8 @@
     // The Smoking Mountain (jungle, past the tar pits).
     "volcano_west": (),
     "volcano_east": (),
+    // The orbital station's observation deck: its window.
+    "obs_deck_window": (),
     // The hall of the Shadow Clan (PvN).
     "shadow_dojo_hall": (),
     // Along the primeval trail.

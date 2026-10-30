@@ -86,10 +86,9 @@ pub(crate) fn prepare_ambition_world(app: &mut App) {
         return;
     };
     let world_manifest = crate::worlds::world_manifest();
-    let music_registry = app
-        .world()
-        .resource::<ambition_platformer2d::audio::spec::MusicRegistry>()
-        .clone();
+    // The App's pack, not a resource: the music is generated content, and
+    // without it the pack has no registry and validation skips music.
+    let music_registry = crate::audio_registries::music_registry_of(&selected_pack);
     let character_catalog = app
         .world()
         .resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>()
@@ -115,7 +114,7 @@ pub(crate) fn prepare_ambition_world(app: &mut App) {
     // The App's own pack: validation judges the content this App installed.
     let content_report = crate::content_validation::validate_content_graph(&sprite_content,
         &selected_pack,
-        &music_registry,
+        music_registry.as_ref(),
         &ldtk_project,
         &character_catalog,
     );

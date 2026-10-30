@@ -21,6 +21,10 @@ pub struct Selection {
     pub files: BTreeMap<String, Member>,
     #[serde(default)]
     pub roots: Vec<String>,
+    /// The accepted bundle of each publication unit, by unit name
+    /// (`producer:music`, `target:hand_saint`, `atlas:full`).
+    #[serde(default)]
+    pub bundles: BTreeMap<String, String>,
     #[serde(skip)]
     root: PathBuf,
 }
@@ -35,9 +39,24 @@ pub fn managed(path: &Path) -> bool {
 }
 
 impl Selection {
+    /// The selection of a store that has published nothing.
+    pub fn empty(root: &Path) -> Self {
+        Self { schema: SCHEMA.to_owned(), generation: None, files: BTreeMap::new(), roots: Vec::new(),
+            bundles: BTreeMap::new(), root: root.to_path_buf() }
+    }
+
+    /// Read the selection of the store at `root`.
+    ///
+    /// An absent `published.json` gives an empty selection: the generated
+    /// content is not made yet, and the game runs without it. A selection
+    /// that is present and not valid is an error.
     pub fn read(root: &Path) -> Result<Self, String> {
         let path = root.join("published.json");
-        let bytes = std::fs::read(&path).map_err(|error| format!("{}: {error}", path.display()))?;
+        let bytes = match std::fs::read(&path) {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Self::empty(root)),
+            Err(error) => return Err(format!("{}: {error}", path.display())),
+        };
         let mut selection: Self = serde_json::from_slice(&bytes).map_err(|error| format!("{}: {error}", path.display()))?;
         if selection.schema != SCHEMA || selection.files.iter().any(|(name, member)| !safe(name) || !safe(&member.path)) || selection.roots.iter().any(|root| !safe(root)) {
             return Err(format!("Invalid art publication: {}", path.display()));
@@ -47,6 +66,9 @@ impl Selection {
     }
 
     pub fn root(&self) -> &Path { &self.root }
+
+    /// True when this selection names no generation (nothing is published).
+    pub fn is_empty(&self) -> bool { self.generation.is_none() && self.files.is_empty() }
 
     pub fn manages(&self, path: &Path) -> bool {
         self.files.contains_key(&path.to_string_lossy().replace('\\', "/"))

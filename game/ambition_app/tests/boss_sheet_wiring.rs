@@ -38,7 +38,10 @@ fn every_dedicated_boss_sheet_resolves_a_catalog_path() {
         &ambition_platformer2d::sprite_sheet::test_support::shared_libraries(),
             &character_catalog,
             &boss_catalog,
-            &ambition_content::audio_registries::shipped_music_registry(),
+            // The music is generated content; boss art does not need it.
+            &ambition_content::audio_registries::shipped_music_registry().unwrap_or(
+                ambition_platformer2d::content::MusicRegistry { default_track: String::new(), tracks: Vec::new() },
+            ),
             &world_manifest,
         );
 
@@ -327,7 +330,10 @@ fn boss_sheets_are_decoded_by_the_first_boss_room_and_not_at_boot() {
         &ambition_platformer2d::sprite_sheet::test_support::shared_libraries(),
             &character_catalog,
             &boss_catalog,
-            &ambition_content::audio_registries::shipped_music_registry(),
+            // The music is generated content; boss art does not need it.
+            &ambition_content::audio_registries::shipped_music_registry().unwrap_or(
+                ambition_platformer2d::content::MusicRegistry { default_track: String::new(), tracks: Vec::new() },
+            ),
             &world_manifest,
         );
     let dedicated: BTreeSet<&str> = boss_catalog

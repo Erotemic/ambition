@@ -155,10 +155,11 @@ pub fn published_body_rig(sprite_content: &ambition_sprite_sheet::SpriteContent,
 ///
 /// # Panics
 ///
-/// When the row states insets and no `posed_body`, or its sheet has no baked
+/// When the row states insets and no `posed_body`, or its baked sheet has no
 /// idle body: there is then no box to inset from. Both catalog readers refuse
 /// the first (`validator::findings`), so only a catalog that skipped them gets
-/// here.
+/// here. A sheet that is not baked (the generated art is absent) is `None`,
+/// not a panic: the game runs without generated content.
 pub fn posed_body_inset_hurtboxes(sprite_content: &ambition_sprite_sheet::SpriteContent,
     catalog: &ambition_characters::actor::character_catalog::CharacterCatalogData,
     id: &str,
@@ -168,9 +169,15 @@ pub fn posed_body_inset_hurtboxes(sprite_content: &ambition_sprite_sheet::Sprite
     let world_per_pixel = posed_body_world_per_pixel(&sprite_content, catalog, id).unwrap_or_else(|| {
         panic!("`{id}` insets its hurtbox from a body its row does not scale: state a posed_body")
     });
-    let pixels = row
+    // Generated art that is not made yet (a fresh checkout) is not a catalog
+    // bug: with no baked sheet there is no box to inset from, and the body
+    // keeps its default hurtbox. The content library warns that the sprites
+    // are missing. A baked sheet with no idle body is still refused below.
+    let sheet = row
         .manifest_target()
-        .and_then(|sheet| posed_body_geometry(&sprite_content, sheet, CharacterAnim::Idle, 1.0))
+        .unwrap_or_else(|| panic!("`{id}` insets its hurtbox and its row states no sheet"));
+    ambition_sprite_sheet::character::sheets::record_for_sheet_key(sprite_content, sheet)?;
+    let pixels = posed_body_geometry(sprite_content, sheet, CharacterAnim::Idle, 1.0)
         .map(|geometry| geometry.collision)
         .filter(|pixels| pixels.x > 0.0 && pixels.y > 0.0)
         .unwrap_or_else(|| panic!("`{id}` insets its hurtbox from a sheet with no idle body"));

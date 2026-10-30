@@ -18,6 +18,17 @@ setup fail. Publishing with `--skip-render` requires current renderer dependency
 receipts. A failed build keeps the accepted audio. Playback retains bank asset
 handles, so an accepted bank change can update the runtime without a Rust build.
 
+Missing audio does not stop the game. Without the generated music registry,
+Ambition's pack compiles with an `ungenerated-source` warning, registers no
+music, and plays no music. Without the SFX bank, the bank load fails with a
+logged error and the bank cues are silent. The SFX registry is authored
+(`authored/runtime/audio/sfx_registry.ron`), so it is always present. To see
+what is missing without a build:
+
+```bash
+python3 scripts/content_status.py --family music --family sfx
+```
+
 ## Music renderer
 
 Location: `tools/ambition_music_renderer/`

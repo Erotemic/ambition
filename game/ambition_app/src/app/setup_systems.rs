@@ -26,6 +26,31 @@ pub(crate) struct PresentationCatalogs<'w> {
 
 
 
+/// No music: the index a host has when no linked provider has music.
+pub(crate) fn no_music() -> ambition_platformer2d::content::MusicRegistry {
+    ambition_platformer2d::content::MusicRegistry { default_track: String::new(), tracks: Vec::new() }
+}
+
+/// The host's music index: the tracks of every linked provider.
+///
+/// Music is generated content. When Ambition's pack has no music registry
+/// (the music is not rendered yet), the default track comes from the first
+/// provider that has music. When no provider has music, the index is empty
+/// and the host plays no music. The content library tells the operator one
+/// time that the music is missing.
+fn host_music_registry(
+    audio_catalog: &ambition_platformer2d::audio::catalog::AudioCatalogRegistry,
+) -> ambition_platformer2d::content::MusicRegistry {
+    let default_provider = std::iter::once(ambition_content::AMBITION_CONTENT_PROVIDER)
+        .chain(audio_catalog.providers())
+        .find(|provider| audio_catalog.music_for(provider).is_some());
+    match default_provider {
+        Some(provider) => audio_catalog
+            .combined_music_registry(provider)
+            .unwrap_or_else(|error| panic!("host audio composition failed: {error}")),
+        None => no_music(),
+    }
+}
 
 /// HOST-mode presentation startup: cameras, `GameAssets`, and the audio library.
 /// No world visuals, no HUD, no player — those are SESSION-owned and spawn per activation
@@ -53,9 +78,7 @@ pub(crate) fn setup_host_presentation_system(sprite_content: bevy::prelude::Res<
     // `install_audio_library` still blesses Ambition's paths and falls back to
     // the provider-authored path for the others. A duplicate track id across
     // providers is a deterministic composition failure here.
-    let music_registry = audio_catalog
-        .combined_music_registry(ambition_content::AMBITION_CONTENT_PROVIDER)
-        .unwrap_or_else(|error| panic!("host audio composition failed: {error}"));
+    let music_registry = host_music_registry(&audio_catalog);
 
     // As the multi-game host, the sandbox asset catalog built at startup
     // (`init_sandbox_resources`) predates the Sanic/Mary-O provider
@@ -131,9 +154,7 @@ pub(crate) fn setup_host_presentation_system(
     // asset catalog from the merged character catalog so host-launched Sanic and
     // Mary-O actors resolve their sheets. The music registry only supplies
     // catalog music-track rows here (no playback in a headless build).
-    let music_registry = audio_catalog
-        .combined_music_registry(ambition_content::AMBITION_CONTENT_PROVIDER)
-        .unwrap_or_else(|error| panic!("host asset composition failed: {error}"));
+    let music_registry = host_music_registry(&audio_catalog);
     let rebuilt_catalog = hosted.is_some().then(|| {
         ambition_platformer2d::assets::platformer_assets::build_platformer2d_asset_catalog(
             &libraries,            &asset_config,

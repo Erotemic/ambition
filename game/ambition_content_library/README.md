@@ -15,9 +15,46 @@ runtime and review products, including every quality tier and the immutable
 publication store. Generated assets are ignored by Git. Do not commit them.
 Renderer source files remain in their authoring tool repositories.
 
+## Missing generated content
+
+Missing generated content does not stop the game. On a fresh checkout,
+`generated/` is absent until `scripts/setup/generated_content.sh` completes.
+The game then runs with these results:
+
+* An absent `published.json` is an empty selection. Each missing sheet shows
+  as a placeholder.
+* A pack source that a producer makes (the music registry) and that is absent
+  is an `ungenerated-source` warning on the prepared pack. The pack compiles
+  without it, and the game plays no music.
+* A missing SFX bank is a logged load error. The bank cues are silent.
+* The library prints ONE warning per process. The warning names the missing
+  families, the store, and the query command.
+
+An absent AUTHORED file (a file under `authored/`, or a file of the pack's own
+tree) is an authoring bug. It stays an error. A build that embeds its content
+(`static_content`) also stays strict.
+
+To ask what is missing or stale, without a build and with no toolchain:
+
+```bash
+python3 scripts/content_status.py                   # each family and each declared source
+python3 scripts/content_status.py --family music --json
+python3 scripts/content_status.py --require-complete   # exit 1 when something is missing or stale
+```
+
+The script exits 0 unless `--require-complete` is given. It reads
+`library.json`, the selection, each selected bundle manifest, and the library
+sources of each game pack. Stale means that an input that the bundle recipe
+records changed after the bundle was accepted. The exact producer check is
+`python3 scripts/generate_library_content.py --check`, which needs the
+renderer toolchains.
+
+## Commands
+
 From the repository root:
 
 ```bash
+python3 scripts/content_status.py
 scripts/setup/generated_content.sh
 ./scripts/regen/sprites.sh --plan --json
 ./scripts/regen/sprites.sh --check --json

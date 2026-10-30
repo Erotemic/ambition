@@ -239,6 +239,11 @@ pub struct RoomThemes {
     pub alternates: std::collections::BTreeMap<String, String>,
     #[serde(default)]
     pub motes: std::collections::BTreeMap<String, MoteStyle>,
+    /// The opaque sRGB colour behind the water of a theme, by theme key. The
+    /// water shows it until the generated backdrop art of the theme loads,
+    /// and also when that art is not generated.
+    #[serde(default)]
+    pub water_mattes: std::collections::BTreeMap<String, [f32; 3]>,
 }
 
 impl RoomThemes {
@@ -246,7 +251,17 @@ impl RoomThemes {
         self.alternates.get(theme.key()).and_then(|key| ParallaxTheme::from_key(key))
     }
 
+    /// The authored sRGB colour behind the water of `theme`, if it has one.
+    pub fn water_matte(&self, theme: ParallaxTheme) -> Option<[f32; 3]> {
+        self.water_mattes.get(theme.key()).copied()
+    }
+
     pub(crate) fn merge(&mut self, other: Self) -> Result<(), String> {
+        for (key, matte) in other.water_mattes {
+            if self.water_mattes.insert(key.clone(), matte).is_some() {
+                return Err(format!("Two libraries define the water matte of room theme {key:?}"));
+            }
+        }
         for (key, style) in other.motes {
             if self.motes.insert(key.clone(), style).is_some() { return Err(format!("Two libraries define motes for {key:?}")); }
         }

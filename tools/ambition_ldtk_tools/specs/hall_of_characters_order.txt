@@ -148,6 +148,11 @@ npc_tower_tanaka
 npc_tower_bankole
 npc_tower_granger
 npc_tower_ruiz
+
+[Castle Godwin's staff]
+npc_castle_hargreave
+npc_castle_osgood
+npc_castle_dunmore
 npc_tower_brandt
 
 [Guests from history and the studio]

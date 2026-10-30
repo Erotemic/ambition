@@ -222,3 +222,39 @@ fn the_parrot_hangs_for_its_tell_before_it_dives() {
     let fastest = tell_speeds.iter().skip(4).cloned().fold(0.0, f32::max);
     assert!(fastest < 60.0, "it hangs nearly still while it tells: {fastest}");
 }
+
+/// The attack hound, coming in at a run, lunges (its running attack,
+/// `movesets/evil_attack_hound.ron`): a crouch, then a low long spring at the
+/// player that covers ground.
+#[test]
+fn the_attack_hound_lunges_from_a_run() {
+    const HOUND: &str = "lunging_hound";
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let p = player_pos(sim.world_mut());
+    sim.spawn_enemy_character_at(
+        HOUND,
+        "Attack Hound",
+        (p.x - 420.0, p.y),
+        (26.0, 25.0),
+        CharacterBrain::Custom("attack_hound".to_string()),
+        "npc_evil_attack_hound",
+    );
+    let (mut from, mut to, mut lunged) = (None, 0.0f32, false);
+    for _ in 0..900 {
+        sim.step(AgentAction::default());
+        let world = sim.world_mut();
+        let mut q = world.query::<(&FeatureId, &BodyKinematics, MeleeSwingQuery, Option<&ambition_platformer2d::combat::moveset::MovePlayback>)>();
+        let Some((_, kin, swing, playback)) = q.iter(world).find(|(id, ..)| id.as_str() == HOUND) else { continue };
+        let lunging = playback.is_some_and(|pb| pb.spec.id == "hound_lunge");
+        if lunging && matches!(swing.swing().and_then(|swing| swing.phase()), Some(ambition_platformer2d::combat::AttackPhase::Active)) {
+            lunged = true;
+            from.get_or_insert(kin.pos.x);
+            to = kin.pos.x;
+        } else if lunged {
+            break;
+        }
+    }
+    assert!(lunged, "coming in at a run, the hound lunged");
+    let spring = (to - from.unwrap_or(to)).abs();
+    assert!(spring > 120.0, "its lunge covers ground: {spring} px");
+}

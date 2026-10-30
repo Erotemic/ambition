@@ -5535,7 +5535,7 @@
                 // The hunter: it leaps up after you, bites, runs, and comes again; hit,
                 // it springs back.
                 navigates: true,
-                tactics: (lurk_px: 110.0, waits_its_turn: true, flinch_back_s: 0.4),
+                tactics: (notice_s: 0.4, lurk_px: 110.0, waits_its_turn: true, flinch_back_s: 0.4),
             )),
             max_health: Some(3),
             tags: ["enemy", "evil", "animal", "dog", "quadruped"],

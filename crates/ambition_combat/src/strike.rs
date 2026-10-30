@@ -221,7 +221,7 @@ pub struct HitboxLifetime {
 /// through GGRS — see the `entity:hitbox` registration in `ambition_platformer2d_runtime`.
 #[derive(Component, Default, Debug, Clone)]
 pub struct HitboxHits {
-    pub hit: std::collections::HashSet<Entity>,
+    pub hit: std::collections::BTreeSet<Entity>,
 }
 
 impl bevy::ecs::entity::MapEntities for Hitbox {

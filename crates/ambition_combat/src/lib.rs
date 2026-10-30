@@ -22,6 +22,7 @@
 pub mod action_emission;
 pub mod actor_tuning;
 pub mod attack_support;
+pub mod authored_coverage;
 pub mod authored_volumes;
 pub mod banner;
 pub mod body_geometry;

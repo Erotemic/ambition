@@ -905,9 +905,9 @@ pub fn apply_hitbox_damage(
 ) {
     use ambition_platformer2d_core::frame::thread::VolumePiece;
     // Each victim's pieces, cut once a tick.
-    let mut victim_pieces: std::collections::HashMap<Entity, Vec<VolumePiece>> = std::collections::HashMap::new();
+    let mut victim_pieces: std::collections::BTreeMap<Entity, Vec<VolumePiece>> = std::collections::BTreeMap::new();
     // Each victim's guards, cut once a tick.
-    let mut victim_guards: std::collections::HashMap<Entity, Vec<CutGuard>> = std::collections::HashMap::new();
+    let mut victim_guards: std::collections::BTreeMap<Entity, Vec<CutGuard>> = std::collections::BTreeMap::new();
     // ⭐⭐ THE PULSE'S LEDGER, collected here and written to every sibling after
     // the sweep. `(striker, owner, victim)`.
     //
@@ -982,7 +982,7 @@ pub fn apply_hitbox_damage(
     });
     // Where each victim can be reached this tick (`VictimReach`), worked out
     // once.
-    let mut victim_reach: std::collections::HashMap<Entity, VictimReach> = std::collections::HashMap::new();
+    let mut victim_reach: std::collections::BTreeMap<Entity, VictimReach> = std::collections::BTreeMap::new();
     // The ranked volumes live this tick, each placed once: a victim loop asks
     // about each sibling for each body.
     let ranked: Vec<RankedStrike> = strike_ranks

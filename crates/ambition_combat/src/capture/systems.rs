@@ -173,7 +173,7 @@ pub fn acquire_captures(
 
         //  built ONCE, not asked per candidate: `captives` is the authority on
         // who is already held, and the other half of "one captive, one captor".
-        let already_held: std::collections::HashSet<Entity> =
+        let already_held: std::collections::BTreeSet<Entity> =
             captives.iter().map(|(entity, _)| entity).collect();
 
         // Gather, then rank.  never "take the first overlap": see the doc.
@@ -288,7 +288,7 @@ pub fn acquire_captures(
     });
     // ONE set. A body that appears in an accepted edge — in EITHER role — is
     // spent for this tick.
-    let mut spent: std::collections::HashSet<Entity> = Default::default();
+    let mut spent: std::collections::BTreeSet<Entity> = Default::default();
 
     // ⭐ A MUTUAL GRAB IS A PARRY, NOT A CONTEST (S0.2). Two bodies that grab
     // each other on one tick are a tie, and the rule for it is the one a clank
@@ -586,7 +586,7 @@ pub fn arm_smash_throw_edge(
     if holds.is_empty() {
         return;
     }
-    let centred: std::collections::HashSet<Entity> = captors
+    let centred: std::collections::BTreeSet<Entity> = captors
         .iter()
         .filter(|(_, control)| control.0.attack_axis == ae::LocalAxes::ZERO)
         .map(|(entity, _)| entity)
@@ -2884,8 +2884,8 @@ pub fn restrict_captor_control(
     // generic relation says nothing about locomotion; the ruleset's half does,
     // and a hold with no ruleset row (a game with no throw vocabulary) is
     // correctly absent from the carrying set and pins its captor as before.
-    let mut holding: std::collections::HashSet<Entity> = std::collections::HashSet::new();
-    let mut carrying: std::collections::HashSet<Entity> = std::collections::HashSet::new();
+    let mut holding: std::collections::BTreeSet<Entity> = std::collections::BTreeSet::new();
+    let mut carrying: std::collections::BTreeSet<Entity> = std::collections::BTreeSet::new();
     for (held, hold) in &captives {
         holding.insert(held.captor);
         if hold.is_some_and(|hold| hold.carrying) {

@@ -20,7 +20,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 /// steering, so the movement phase doesn't recompute it. Rebuilt every frame.
 #[derive(bevy::ecs::resource::Resource, Default)]
 pub struct ActorSteering {
-    pub neighbor_by_entity: std::collections::HashMap<Entity, ae::Vec2>,
+    pub neighbor_by_entity: std::collections::BTreeMap<Entity, ae::Vec2>,
 }
 
 /// Immutable, frame-local world facts consumed by autonomous actor decisions.
@@ -248,6 +248,10 @@ pub fn tick_actor_brains(
     // law, which is exactly what `LaunchLaw::default()` means. The law of each
     // actor's own live room.
     room_rules: ambition_combat::rules::CombatTuningOf,
+    // ONE AUTHORITY FOR WHERE A MOVE HITS: the kit's regions are derived from
+    // the same resolver the strike spawn places its volumes by. See
+    // `ambition_combat::authored_coverage`.
+    coverage_source: AuthoredCoverageSource,
     mut decisions: ResMut<ActorDecisionFrames>,
     // Any body's collision extent, read-only: a rider's mount, for its width,
     // and whether turning it mirrors it at all.
@@ -355,6 +359,10 @@ pub fn tick_actor_brains(
                 // the same archetype, so a body without one is not integrated at all and has no
                 // locomotion for a brain to reason about.
                 &ambition_platformer2d_core::movement::MotionModel,
+                // The worn character and the drawn quad: what the strike
+                // spawn resolves the authored hit volume by.
+                Option<&ambition_characters::actor::WornCharacter>,
+                Option<&ambition_combat::components::ActorRenderSize>,
             ),
         ),
         // Exclude BOSSES too: they carry the shared actor read-models
@@ -457,6 +465,8 @@ pub fn tick_actor_brains(
             stale_moves,
             motion_facts,
             motion_model,
+            worn_character,
+            drawn_quad,
         ),
     ) in &mut actors
     {
@@ -616,6 +626,52 @@ pub fn tick_actor_brains(
                         bodies.get(this_actor_entity).ok().and_then(|(_, _, authored, _)| authored),
                     );
                     snapshot.navigation = navigation.of(this_actor_entity);
+                    // ONE AUTHORITY FOR WHERE A MOVE HITS. The kit's regions
+                    // came from the RON boxes; the strike spawn places a
+                    // vfx-tagged volume by the sprite's authored hit polygon
+                    // instead. Measured 2026-10-30 (rung 9 pair): the brain
+                    // admitted `polygon_air_forward` with its box over the foe
+                    // while the live hitbox sat 50 px higher. Same resolver,
+                    // same inputs, same per-volume rule as the spawn.
+                    if let Some(moveset) = moveset {
+                        let character_id =
+                            worn_character.map(ambition_characters::actor::WornCharacter::id);
+                        let quad = drawn_quad.map(|quad| quad.0);
+                        let art_floor = room_rules
+                            .of(this_actor_entity)
+                            .map_or(0.0, |rules| rules.art_hit_area_min);
+                        let size = body.kin.size;
+                        let resolve = |clip: &str, start_s: f32| {
+                            coverage_source
+                                .resolver
+                                .resolve(
+                                    &coverage_source.catalog,
+                                    character_id,
+                                    clip,
+                                    size,
+                                    quad,
+                                    Some(start_s),
+                                )
+                                .map(|volume| {
+                                    if art_floor > 0.0 {
+                                        volume.at_least(ae::Vec2::splat(art_floor * size.y))
+                                    } else {
+                                        volume
+                                    }
+                                })
+                        };
+                        for candidate in &mut snapshot.attack_kit {
+                            if let Some(spec) =
+                                moveset.0.moves.iter().find(|m| m.id == candidate.move_id)
+                            {
+                                ambition_combat::authored_coverage::apply_authored_coverage(
+                                    &mut candidate.frames,
+                                    spec,
+                                    &resolve,
+                                );
+                            }
+                        }
+                    }
                     if let Some(guard) = bodies.get(this_actor_entity).ok().and_then(|(.., guard)| guard) {
                         snapshot.guard = ambition_characters::brain::GuardFact {
                             deflects: guard.deflects,
@@ -1330,6 +1386,15 @@ fn bounding_box(points: &[ae::Vec2]) -> Option<ae::Aabb> {
 }
 
 /// Publish movement cues and hit requests from body integration.
+/// What the attack kit's regions are resolved from: the authored-volume
+/// resolver the strike spawn uses and the catalog it is asked with. One
+/// parameter, because `tick_actor_brains` is at Bevy's parameter limit.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct AuthoredCoverageSource<'w> {
+    pub resolver: Res<'w, ambition_combat::authored_volumes::AuthoredAttackVolumeResolver>,
+    pub catalog: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
+}
+
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct BodyIntegrationCues<'w> {
     pub sfx: ambition_sfx::SfxWriter<'w>,
@@ -1809,9 +1874,9 @@ pub fn apply_actor_contact_damage(
 /// neighbor; actors with no same-kind peer are absent from the map.
 pub(crate) fn compute_nearest_neighbors(
     requests: &[(String, ae::Vec2, ambition_combat::crowd::CrowdKind)],
-) -> std::collections::HashMap<String, ae::Vec2> {
-    let mut neighbor_by_id: std::collections::HashMap<String, ae::Vec2> =
-        std::collections::HashMap::new();
+) -> std::collections::BTreeMap<String, ae::Vec2> {
+    let mut neighbor_by_id: std::collections::BTreeMap<String, ae::Vec2> =
+        std::collections::BTreeMap::new();
     for (id_a, pos_a, kind_a) in requests {
         let mut nearest: Option<(f32, ae::Vec2)> = None;
         for (id_b, pos_b, kind_b) in requests {
@@ -1838,18 +1903,18 @@ pub(crate) fn compute_nearest_neighbors(
 /// unit-testable in isolation from the actor tick.
 pub(crate) fn compute_crowding_by_id(
     requests: &[(String, ae::Vec2, ambition_combat::crowd::CrowdKind)],
-    faction_by_id: &std::collections::HashMap<String, ambition_characters::actor::ActorFaction>,
+    faction_by_id: &std::collections::BTreeMap<String, ambition_characters::actor::ActorFaction>,
     // id → the id of the body it's actively fighting (its `ActorTarget`), so a foe is
     // never mistaken for an ally to spread from — even a SAME-faction one (two `Npc`
     // duelists feuding via a grudge).
-    opponent_id_by_id: &std::collections::HashMap<String, String>,
-) -> std::collections::HashMap<String, ambition_characters::brain::smash::CrowdingSignal> {
+    opponent_id_by_id: &std::collections::BTreeMap<String, String>,
+) -> std::collections::BTreeMap<String, ambition_characters::brain::smash::CrowdingSignal> {
     const CROWDING_RADIUS_PX: f32 = 80.0;
     const AERIAL_CROWDING_RADIUS_PX: f32 = 220.0;
-    let mut crowding_by_id: std::collections::HashMap<
+    let mut crowding_by_id: std::collections::BTreeMap<
         String,
         ambition_characters::brain::smash::CrowdingSignal,
-    > = std::collections::HashMap::new();
+    > = std::collections::BTreeMap::new();
     for (id_a, pos_a, kind_a) in requests {
         let mut count: u8 = 0;
         let mut centroid = ae::Vec2::ZERO;
@@ -2543,7 +2608,7 @@ fn build_enemy_brain_snapshot(
 /// Per-NPC ambient-bark timing (decremented by sim dt; deterministic jitter).
 #[derive(Default)]
 pub struct NpcIdleBarkState {
-    rooms: std::collections::HashMap<
+    rooms: std::collections::BTreeMap<
         Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
         RoomBarks,
     >,
@@ -2555,8 +2620,8 @@ pub struct NpcIdleBarkState {
 /// The id is looked up by `&str`, so a tick allocates nothing.
 #[derive(Default)]
 struct RoomBarks {
-    timers: std::collections::HashMap<String, f32>,
-    rotations: std::collections::HashMap<String, u32>,
+    timers: std::collections::BTreeMap<String, f32>,
+    rotations: std::collections::BTreeMap<String, u32>,
 }
 
 /// Deterministic ambient-bark interval keyed by NPC id + counter — a tiny FNV

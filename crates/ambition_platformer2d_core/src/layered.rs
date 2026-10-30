@@ -264,7 +264,7 @@ pub trait Spatial {
 /// reach it, in list order.
 struct Grid {
     cell: f32,
-    cells: std::collections::HashMap<(i32, i32), Vec<u32>>,
+    cells: std::collections::BTreeMap<(i32, i32), Vec<u32>>,
     /// Entries too big to file by cell (more than this many cells): asked
     /// every time.
     large: Vec<u32>,

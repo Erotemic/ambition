@@ -1732,7 +1732,7 @@ pub fn advance_move_playback(
         // Active time starts a new pulse and earns a second hit — which is
         // exactly what a genuine multi-hit (a drill, a rapid jab) is, and what
         // separates one from a sweet/sour pair.
-        let mut handoff: Vec<(f32, std::collections::HashSet<Entity>)> = Vec::new();
+        let mut handoff: Vec<(f32, std::collections::BTreeSet<Entity>)> = Vec::new();
 
         // Active windows: spawn volumes on entry, despawn on exit. The box
         // lives exactly while the OWNER'S clock is inside the window, so

@@ -45,11 +45,23 @@
 //! runs of one process. Across invocations, seed 0 fell into TWO outcome
 //! classes (4 and 4 of 8 processes: live 2551-2553 / moves 30 / damage 39,
 //! and live 2636-2638 / moves 28 / damage 22), with ±2 live-tick jitter
-//! inside a class. That is per-process state the simulation reads — the
-//! `std::collections::HashMap`/`HashSet` (per-process `RandomState`) census
-//! in the sim crates is the first suspect (`body/actors/update.rs`'s
-//! neighbour and crowding maps, `hitbox/mod.rs`'s victim caches) — not the
-//! tool's seeds and not wall time.
+//! inside a class. The per-tick trace (`AMBITION_MATCH_REPORT_TRACE_TICKS`)
+//! showed a divergent pair to be ONE trajectory shifted by whole ticks at
+//! the start: the route transition's asynchronous loading takes 8, 9 or 10
+//! frames before the fighters are released, and the start tick decides the
+//! match (9 frames → one outcome in 5 of 5 processes, 8 or 10 → the other
+//! in 3 of 3, with the tool anchored to the live edge). The aligned traces
+//! name the read: a frame with NO sim advance where the other process
+//! advanced — `WorldTime::sim_dt` is `frame_dt × ClockState::time_scale`,
+//! and that scale is eased per FRAME by wall dt
+//! (`smooth_sim_clock_toward_target_system`) from the 0 the transition
+//! holds to the 1.0 `match_live` asks for. The sim is deterministic given
+//! its dt sequence; the dt sequence is not a sim fact, and the fix is in
+//! the sim (a fixed-dt step; the ramp as per-tick sim state or as
+//! presentation only). Not the std maps (swapped for
+//! BTree: 3 classes in 8), not the entity ids (`GatedLockWallCache` is
+//! initialised at build now: ids identical, outcomes still split), not
+//! settle time, not wall time, not a run-to-run leak.
 //!
 //! It is observational and has no pass/fail threshold. The asserting guard is
 //! in `tests/the_repertoire_gets_used.rs`.
@@ -472,6 +484,25 @@ fn run_one(
     for _ in 0..30 {
         app.update();
     }
+    // THE DETERMINISM WITNESS: `AMBITION_MATCH_REPORT_SETTLE_S=<secs>` keeps
+    // ticking the app for that many WALL seconds before the match is asked
+    // for, so every asset the roster needs has arrived before the first sim
+    // tick that could read it. Assets load on IO threads in wall time; the
+    // sim clock is pinned. If fresh processes agree with this and not
+    // without it, the divergence is content arriving mid-match.
+    if let Some(secs) = std::env::var("AMBITION_MATCH_REPORT_SETTLE_S")
+        .ok()
+        .and_then(|s| s.parse::<f32>().ok())
+        .filter(|s| *s > 0.0)
+    {
+        let start = std::time::Instant::now();
+        let mut frames = 0usize;
+        while start.elapsed().as_secs_f32() < secs {
+            app.update();
+            frames += 1;
+        }
+        eprintln!("[settle] {frames} frames over {secs} s before the match");
+    }
     // Resolved at `Startup` from the ids the assembled catalog carries. Absent
     // only if the demo's own plugin did not run; the header then says so.
     *carried = app
@@ -490,14 +521,34 @@ fn run_one(
                 ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
             ),
         ));
-    // Wait past the 3-2-1-GO: fighters are held for the whole ceremony. Read
-    // the count from the ruleset.
+    // ⛔⛔ ANCHOR TO THE TICK THE MATCH GOES LIVE, NOT TO A FRAME COUNT. The
+    // route transition takes a number of frames that varies per process
+    // (its loading is asynchronous), so "countdown + 30 updates after GoTo"
+    // landed 0-3 ticks earlier or later in the match from one process to
+    // the next. Measured 2026-10-30 (rung 5 pair, seed 0, pinned clock):
+    // per-tick traces of eight fresh processes were the SAME trajectory
+    // shifted by whole ticks at the start, and the noise forced below then
+    // seeded different match ticks, which is the whole "two outcome
+    // classes" story — the simulation itself is deterministic. The fighters
+    // are held for the ceremony, so the first tick a seat moves is the live
+    // edge, and it is a sim fact, not a frame count.
     let countdown = ambition_demo_smash::smash_roster(characters)
         .rules
         .opening_countdown_ticks;
-    for _ in 0..(countdown as usize + 30) {
+    let mut waited = 0usize;
+    loop {
         app.update();
+        waited += 1;
+        let world = app.world_mut();
+        let mut seats = world.query::<(&MatchSeat, &ae::BodyKinematics)>();
+        let moving = seats
+            .iter(world)
+            .any(|(_, kin)| kin.vel.length_squared() > 1e-6);
+        if moving || waited > countdown as usize + 3600 {
+            break;
+        }
     }
+    eprintln!("[live-edge] the match went live {waited} frames after the route was asked for");
 
     // Force the stream: the point is the spread across streams (as
     // `ladder_probe` does).
@@ -508,6 +559,40 @@ fn run_one(
         for (index, mut brain) in q.iter_mut(world).enumerate() {
             if let Brain::StateMachine(StateMachineCfg::Fighter { state, .. }) = &mut *brain {
                 state.noise = noise_seed.wrapping_mul(index as u64 + 1).wrapping_add(1);
+            }
+        }
+    }
+    // WHICH ENTITY EACH SEAT GOT. Query iteration is entity order, so two
+    // processes that seat the fighters in a different order run every
+    // tie-break the other way round; printing the ids lets a divergence be
+    // matched against the spawn order instead of guessed at.
+    {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        let mut seats: Vec<(usize, Entity)> = q.iter(world).map(|(e, s)| (s.0, e)).collect();
+        seats.sort();
+        let text: Vec<String> = seats.iter().map(|(s, e)| format!("seat{s}={e:?}")).collect();
+        eprintln!("[seats] {}", text.join(" "));
+        // The entities seated just before the fighters: when two processes
+        // seat the fighters one id apart, the entity that one of them spawned
+        // and the other did not (yet) is in this window.
+        if let (Some(first), Some(last)) = (seats.first(), seats.last()) {
+            let lo = first.1.index().index().saturating_sub(6);
+            let hi = last.1.index().index() + 2;
+            let mut all = world.query::<Entity>();
+            let mut near: Vec<Entity> =
+                all.iter(world).filter(|e| (lo..=hi).contains(&e.index().index())).collect();
+            near.sort();
+            for entity in near {
+                let names: Vec<String> = world
+                    .inspect_entity(entity)
+                    .map(|infos| {
+                        infos
+                            .map(|info| info.name().rsplit("::").next().unwrap_or("?").to_string())
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                eprintln!("[entity] {entity:?}: {}", names.join(","));
             }
         }
     }
@@ -1069,6 +1154,31 @@ fn sample(
         .map(|row| (row.0, row.10, row.13, row.6.as_ref().map(|p| p.1)))
         .collect();
     let live = *last_world != world_now;
+    // `AMBITION_MATCH_REPORT_TRACE_TICKS=1`: one line per sampled tick with
+    // every seat's position, velocity and move clock, so two processes'
+    // traces can be diffed to the FIRST tick they disagree on.
+    static TRACE_TICKS: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
+        std::env::var("AMBITION_MATCH_REPORT_TRACE_TICKS").is_ok_and(|v| v != "0")
+    });
+    if *TRACE_TICKS {
+        let mut cells: Vec<String> = rows
+            .iter()
+            .map(|row| {
+                format!(
+                    "s{} {:.3},{:.3} v{:.3},{:.3} hp{} {}",
+                    row.0,
+                    row.10,
+                    row.13,
+                    row.5,
+                    row.3,
+                    row.1,
+                    row.6.as_ref().map_or("-".to_string(), |p| format!("{}@{:.3}", p.0, p.1))
+                )
+            })
+            .collect();
+        cells.sort();
+        eprintln!("[tick] {}", cells.join(" | "));
+    }
     *last_world = world_now;
     // Who could not be struck this tick: the four terms `unhittable` counts
     // and the ledge's intangibility, so a whiff can say whether its foe was

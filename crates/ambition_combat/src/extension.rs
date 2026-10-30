@@ -689,7 +689,7 @@ fn lower_body_holds(
                     ae::Vec2::from(reach_half),
                 );
                 let reach = ae::CenteredAabb::new(centre, half).aabb();
-                let already: std::collections::HashSet<Entity> = captives
+                let already: std::collections::BTreeSet<Entity> = captives
                     .iter()
                     .flat_map(|(victim, held)| [victim, held.captor])
                     .chain(seized.iter().copied())

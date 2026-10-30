@@ -500,9 +500,56 @@ general shape; check new code against it.
   exactly, run for run (no leak between runs of one process); across
   invocations seed 0 fell into two outcome classes (4 and 4 of 8
   processes) with ±2 live-tick jitter inside a class — per-process state
-  the simulation reads; the `std` `HashMap`/`HashSet` census in the sim
-  crates (per-process `RandomState`: the actor monolith's neighbour and
-  crowding maps, the hitbox resolver's victim caches) is the first suspect.
+  the simulation reads. Measured next (2026-10-30, same cell, eight fresh
+  processes each): swapping every `std` `HashMap`/`HashSet` in the sim
+  crates for `BTreeMap`/`BTreeSet` gave 3 classes in 8 — not the cause,
+  kept as hygiene. The seats' entity ids split the classes (`1706/1707`
+  vs `1707/1708`): `GatedLockWallCache` was minted lazily on its first
+  use, before the fighters in some processes and after in others, and a
+  resource is an entity. `init_resource` at plugin build made the ids
+  identical in 8 of 8 — and the outcomes still split (2 classes in 8, six
+  and two, ±2 live ticks inside a class; the id shift was a symptom, not
+  the cause). `match-report` now prints a
+  per-tick trace (`AMBITION_MATCH_REPORT_TRACE_TICKS=1`), and the traces
+  settled it: a divergent pair is the SAME trajectory, tick for tick,
+  shifted by whole ticks at the start — the route transition's
+  asynchronous loading takes 8, 9 or 10 frames before the fighters are
+  released, and the tool's fixed frame count after `GoTo` then seeded the
+  noise at different match ticks. Anchored to the live edge (the first
+  tick a seat moves) the split remains and follows the transition's frame
+  count exactly: 9 frames gave one match in 5 of 5 processes, 8 or 10 the
+  other in 3 of 3. The aligned traces name the read: the divergent
+  trace holds a FRAME WITH NO SIM ADVANCE at its fifth tick (one line
+  repeated) where the other advances — `refresh_world_time` sets
+  `WorldTime::sim_dt = frame_dt × ClockState::time_scale`, and
+  `smooth_sim_clock_toward_target_system` eases that scale toward the
+  requested one by `rate × wall_dt` PER FRAME; `match_live`
+  (`stocks_match.rs`) requests 1.0 when the fighters are released, so the
+  first ticks of every match integrate a 0 → 1 ramp of dt whose phase is
+  the route transition's frame count. The simulation is deterministic
+  given its dt sequence; its dt is not a sim fact. ⇒ The fix is in the
+  sim: the sim steps a fixed dt, and the eased scale is either sim state
+  advanced per tick from sim causes (hitstop, match-live) or presentation
+  only — two peers in rollback cannot agree on a wall-dt ramp. Not settle
+  time (20 s of pre-match ticking changed nothing), not wall time per se
+  (clock pinned), not a run-to-run leak, not the std maps, not the ids,
+  not a parity read in a brain or hit path (the census found none).
+- **One authority for where a move hits.** `ambition_combat::authored_coverage`
+  derives the kit's `coverage` and `reach` by the strike spawn's own
+  per-volume rule — the sprite's authored hit polygon for a vfx-tagged
+  volume whose clip the sheet names, the RON box otherwise — from the same
+  `AuthoredAttackVolumeResolver`, the same character, size, drawn quad and
+  art floor; `tick_actor_brains` applies it to every candidate. Witness:
+  `the_brain_admits_by_the_geometry_that_hits` presses every move of the
+  pair at its first Active window and compares the region the brain is
+  handed with the live `Hitbox` extent, to the pixel. Measured (rung 9,
+  three runs, per live minute): pair moves 68.8 → 77.0, whiffs 49.4 →
+  49.2, damage 78.5 → 141.2, `inside` whiffs 5 → 1; mirror moves 57.2 →
+  54.1, whiffs 42.1 → 42.8, damage 70.2 → 99.5. The RON-box
+  `[disagree]` ticks fell from 32 to 3 at the pair because the brain no
+  longer admits those swings; the remaining whiffs miss by 40-90 px,
+  scattered on every side, with the recovery specials still the largest
+  rows.
 - **A grab that catches has connected.** The capture box is a sustain
   effect, not a strike volume, so no `LandedBodyHit` was ever written for
   it and nothing set the grab's `landed_hit`: a collar that caught,

@@ -340,6 +340,8 @@ mod tests {
                         pos: ambition_platformer2d_core::Vec2::ZERO,
                         facing: 1.0,
                         gravity_dir: ambition_platformer2d_core::DEFAULT_GRAVITY_DIR,
+                        squash: ambition_platformer2d_core::Vec2::ONE,
+                        air_stretch: 1.0,
                         clip: None,
                         move_charge: Some(*charge),
                         passage_look: None,

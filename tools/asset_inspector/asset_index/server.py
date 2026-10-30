@@ -98,8 +98,8 @@ def serve(repo: Path, out: Path, *, port=8767, open_browser=False, build=None):
         build = None
     with ThreadingHTTPServer(("127.0.0.1", port), make_handler(repo, current_catalog, status)) as server:
         url = f"http://127.0.0.1:{server.server_port}/{(out / 'index.html').relative_to(repo).as_posix()}#characters"
-        print(f"Art inspector: {url}", flush=True)
-        print("Review notes: tools/art_inspector/reviews/notes/", flush=True)
+        print(f"Asset inspector: {url}", flush=True)
+        print("Review notes: tools/asset_inspector/reviews/notes/", flush=True)
         if open_browser:
             webbrowser.open(url)
         if build is not None:
@@ -110,7 +110,7 @@ def serve(repo: Path, out: Path, *, port=8767, open_browser=False, build=None):
                     status["state"] = "done"
                 except Exception as error:  # the open page stays usable; say why it did not refresh
                     status.update(state="failed", step=f"{type(error).__name__}: {error}")
-                    print(f"Art inspector: the refresh failed; the page shows the previous index.\n{error}", flush=True)
+                    print(f"Asset inspector: the refresh failed; the page shows the previous index.\n{error}", flush=True)
             print("Showing the previous index while it refreshes.", flush=True)
             threading.Thread(target=refresh, daemon=True).start()
         try:

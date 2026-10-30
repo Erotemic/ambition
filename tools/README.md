@@ -15,7 +15,7 @@ For agent routing, start with [`../docs/tools/index.md`](../docs/tools/index.md)
 | Sprite renderer | `ambition_sprite2d_renderer/` | Generate/publish gameplay and dialogue-portrait sprite sheets plus runtime-facing metadata through plural authoring families. |
 | Background renderer | `ambition_background_renderer/` | Generate the placeholder background profiles. The parallax scenes are art: `ambition_sprite2d_renderer/ambition_sprite2d_renderer/backgrounds/`. |
 | Optimization reports | `optimization_report/` | Collect LLM-readable performance/build diagnostics. |
-| Art inspector | `art_inspector/` | Inspect each art file, its generator and its uses in one offline HTML page. |
+| Asset inspector | `asset_inspector/` | Browse and review every asset of an engine game: art, music, sound, fonts and worlds, with status, sources and lineage. |
 | ECS architecture browser | `ecs_architecture_browser/` | Inspect the generated ECS index in one offline HTML page. |
 
 ## Experimental

@@ -2,7 +2,7 @@
 from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from art_index.inventory import assemble, select
+from asset_index.inventory import assemble, select
 
 
 def test_identity_union_keeps_missing_bundles_and_explicit_relations(tmp_path):
@@ -47,7 +47,7 @@ def test_coverage_keeps_source_profile_and_runtime_fallback_separate(tmp_path):
 
 
 def test_semantic_source_support_uses_the_sheet_owners_alias_projection():
-    from art_index.inventory import supports
+    from asset_index.inventory import supports
     semantics = {'hit':'Hit','hurt':'Hit','idle':'Idle'}
     assert supports({'available':['hurt']}, 'available', 'hit', semantics)
     assert not supports({'selected':['idle']}, 'selected', 'hit', semantics)
@@ -57,7 +57,7 @@ def test_semantic_source_support_uses_the_sheet_owners_alias_projection():
 def test_referenced_prop_art_is_visible_before_a_producer_or_file_exists(tmp_path):
     prepared={'state':'available','characters':[],'sheets':{},'assets':[{'path':'sprites/chair.png','required_by':['game:prop/chair']}]}
     old={'root':'sprites','generator':{'id':'retired_chair'},'outputs':[{'path':'chair.png','sha256':'old'}],'basis':'rendered'}
-    from art_index.paths import asset_root
+    from asset_index.paths import asset_root
     report=assemble(tmp_path,{'units':{},'complete':True,'receipts':[old]},prepared,
         local_files=[asset_root(tmp_path)/'sprites/chair.png'],lineages={'chair':{'ids':['retired_chair']}})
     unit=report['units']['requirement:asset:sprites/chair.png']

@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from art_index import reviews, server
+from asset_index import reviews, server
 
 
 @pytest.fixture

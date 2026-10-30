@@ -15,7 +15,7 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from art_index import build, sheets  # noqa: E402
+from asset_index import build, sheets  # noqa: E402
 
 ASSETS = "game/ambition_content_library/generated/runtime"
 PROV = "game/ambition_content_library/generated/asset_provenance"
@@ -41,7 +41,7 @@ def test_missing_content_tool_still_builds_and_opens_the_page_naming_the_fix(tmp
 def test_no_command_serves_and_opens(monkeypatch, tmp_path):
     served = {}
     monkeypatch.setattr(build, "repo_root", lambda: tmp_path)
-    import art_index.server as server
+    import asset_index.server as server
     monkeypatch.setattr(server, "serve", lambda repo, out, **kw: served.update(kw))
     assert build.main([]) == 0
     assert served["open_browser"] and callable(served["build"])
@@ -137,7 +137,7 @@ def built(tmp_path_factory):
     store.publish({"target:foo":key}, None)
     subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
     subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
-    out = repo / ".agent" / "art_inspector"
+    out = repo / ".agent" / "asset_inspector"
     catalog = build.build(repo, out, jobs=1, targets={"foo": {"family": "sprite_target", "id": "foo", "category": "characters", "source": "tools/foo.py", "outputs": []}}, log=lambda *_: None)
     return repo, out, catalog
 
@@ -287,7 +287,7 @@ def test_related_assets_join_forms_lineages_generators_and_specs(tmp_path):
     targets, a shared catalog id, a name with a form suffix, one generator
     module, a character-generator spec. Two relations with the same members
     are one row; a person's species is a type, not a relation."""
-    from art_index import related
+    from asset_index import related
 
     data = tmp_path / "tools" / "ambition_sprite2d_renderer" / "ambition_sprite2d_renderer" / "data"
     for name, family in [("ann_v2", "cast"), ("bea", "crew"), ("cid", "crew")]:

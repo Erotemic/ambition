@@ -1,8 +1,8 @@
 """Build the art index and the offline inspector page.
 
-    python -m art_index build [--out DIR] [--jobs N] [--no-previews] [--open]
+    python -m asset_index build [--out DIR] [--jobs N] [--no-previews] [--open]
 
-Writes `DIR` (default `.agent/art_inspector/`, git-ignored): `index.html`,
+Writes `DIR` (default `.agent/asset_inspector/`, git-ignored): `index.html`,
 `app.js`, `app.css`, `catalog.js` (the index, as a script so that the page
 works from `file://`) and the previews. The page links to the art and the
 source files by relative paths, so it opens in place, with no server.
@@ -285,13 +285,13 @@ def _catalog(repo: Path, out: Path, products, assets, ev, uses, placements, foun
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="art_index", description=__doc__.split("\n", 1)[0])
+    parser = argparse.ArgumentParser(prog="asset_index", description=__doc__.split("\n", 1)[0])
     sub = parser.add_subparsers(dest="command", required=True)
     b = sub.add_parser("build", help="index the art and write the inspector page")
     s = sub.add_parser("serve", help="build the inspector and serve it with durable review notes")
     s.add_argument("--port", type=int, default=8767)
     for page in (b, s):
-        page.add_argument("--out", type=Path, default=None, help="default: <repo>/.agent/art_inspector")
+        page.add_argument("--out", type=Path, default=None, help="default: <repo>/.agent/asset_inspector")
         page.add_argument("--jobs", type=int, default=4, help=f"preview processes (at most {thumbs.MAX_JOBS})")
         page.add_argument("--no-previews", action="store_true", help="name previews but draw none (a fast rebuild of the index)")
         page.add_argument("--prune", action="store_true", help="delete previews the index no longer names")
@@ -337,7 +337,11 @@ def main(argv: list[str] | None = None) -> int:
     if getattr(args, "library", None):
         import os
         os.environ["AMBITION_CONTENT_LIBRARY"] = str((repo / args.library).resolve())
-    out = (args.out or repo / ".agent" / "art_inspector").resolve()
+    out = (args.out or repo / ".agent" / "asset_inspector").resolve()
+    legacy = repo / ".agent" / "art_inspector"
+    if args.out is None and not out.exists() and legacy.is_dir():
+        # The art inspector's output: keep its previews and caches under the new name.
+        legacy.rename(out)
     if args.command == "serve" and not out.is_relative_to(repo):
         parser.error("serve --out must be inside the repository")
     if args.command == "notes":

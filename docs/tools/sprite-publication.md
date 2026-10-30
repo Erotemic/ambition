@@ -15,7 +15,7 @@ Use `--library <manifest>` or `AMBITION_CONTENT_LIBRARY` to select another libra
 ./scripts/regen/sprites.sh --plan --target hand_saint --json
 ./scripts/regen/sprites.sh --check --json
 ./scripts/regen/sprites.sh --audit --json
-python3 scripts/art_inspector.py status --needs-generation --json
+python3 scripts/asset_inspector.py status --needs-generation --json
 ```
 
 The default scope is the selected library's collection in

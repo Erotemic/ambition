@@ -1,4 +1,4 @@
-"""`python -m art_index build`: see `build.py`."""
+"""`python -m asset_index build`: see `build.py`."""
 
 import sys
 

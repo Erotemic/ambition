@@ -56,7 +56,7 @@ def check_products(repo: Path, subject: dict) -> None:
 
 class Store:
     def __init__(self, repo: Path):
-        self.root = repo / "tools" / "art_inspector" / "reviews" / "notes"
+        self.root = repo / "tools" / "asset_inspector" / "reviews" / "notes"
 
     def path(self, note_id: str) -> Path:
         return self.root / (str(uuid.UUID(note_id)) + ".json")
@@ -122,7 +122,7 @@ def snapshot(repo: Path, catalog: dict) -> dict:
 def read_catalog(out: Path) -> dict:
     path = out / "catalog.js"
     if not path.is_file():
-        raise ValueError("Build the inspector first: python3 scripts/art_inspector.py build")
+        raise ValueError("Build the inspector first: python3 scripts/asset_inspector.py build")
     return json.loads(path.read_text().removeprefix("window.ART_CATALOG = ").rstrip().removesuffix(";"))
 
 

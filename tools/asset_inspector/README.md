@@ -1,10 +1,10 @@
-# Art inspector
+# Asset inspector
 
 Use the inspector to find required art, inspect animation coverage, and compare
 published art with its source and design history. The CLI and offline page use
 one derived report. The report does not publish art or start a Cargo build.
 
-Run `./scripts/art_inspector.py` with no arguments to see what exists. It opens
+Run `./scripts/asset_inspector.py` with no arguments to see what exists. It opens
 the last index in a browser at once and refreshes it in the background. The page
 offers a reload when the refresh is done. The first run builds before it opens.
 
@@ -25,12 +25,12 @@ window, graphics device, or game host.
 ## Common queries
 
 ```bash
-python3 scripts/art_inspector.py status --current-game --needs-generation --json
-python3 scripts/art_inspector.py inspect npc_tower_voss --animation death --json
-python3 scripts/art_inspector.py coverage --missing death --json
-python3 scripts/art_inspector.py list --kind actor,prop,background,terrain --lineage --json
-python3 scripts/art_inspector.py build --open
-python3 scripts/art_inspector.py serve --open
+python3 scripts/asset_inspector.py status --current-game --needs-generation --json
+python3 scripts/asset_inspector.py inspect npc_tower_voss --animation death --json
+python3 scripts/asset_inspector.py coverage --missing death --json
+python3 scripts/asset_inspector.py list --kind actor,prop,background,terrain --lineage --json
+python3 scripts/asset_inspector.py build --open
+python3 scripts/asset_inspector.py serve --open
 ```
 
 `--profile ambition` selects `game/ambition_content/assets`. To inspect another
@@ -45,7 +45,7 @@ queries. `inspect ID` also accepts a target, game label, tag, or source trait.
 `--animation NAME` limits its coverage table. JSON retains owner warnings and
 evidence gaps when a query has no results.
 
-The build writes `.agent/art_inspector/index.html`, its scripts, and previews.
+The build writes `.agent/asset_inspector/index.html`, its scripts, and previews.
 Open the page from disk. It needs no web server. `--no-previews` updates the
 index and names preview paths without drawing new strips. `--jobs N` sets the
 preview process count, to a maximum of six. `--prune` removes unused previews.
@@ -129,7 +129,7 @@ character page, write a note, select its priority and optional animation, then
 save it. Character cards show open-note counts. **Review notes** opens the
 backlog, sorted by priority, with an export for offline work.
 
-Notes are JSON files in `tools/art_inspector/reviews/notes/`. These are authored
+Notes are JSON files in `tools/asset_inspector/reviews/notes/`. These are authored
 review data. Commit them with other review changes. They are outside the
 generated page directory and browser storage. The service writes them at once.
 The page opened from disk can show the notes included at build time; use the
@@ -145,10 +145,10 @@ until someone reviews the fix and resolves it.
 Read and update the same files from the CLI:
 
 ```bash
-python3 scripts/art_inspector.py notes backlog --json
-python3 scripts/art_inspector.py notes add ambition:npc_general --animation death --priority high --text "The cap clips during the fall."
-python3 scripts/art_inspector.py notes resolve NOTE_UUID --resolution "Fixed the cap joint and reviewed the new fall."
-python3 scripts/art_inspector.py notes reopen NOTE_UUID
+python3 scripts/asset_inspector.py notes backlog --json
+python3 scripts/asset_inspector.py notes add ambition:npc_general --animation death --priority high --text "The cap clips during the fall."
+python3 scripts/asset_inspector.py notes resolve NOTE_UUID --resolution "Fixed the cap joint and reviewed the new fall."
+python3 scripts/asset_inspector.py notes reopen NOTE_UUID
 ```
 
 For an overnight task, read `notes backlog --json`, inspect each note's recorded
@@ -200,7 +200,7 @@ An opt-in capture writes a read-only art snapshot beside the image:
 
 ```bash
 target/debug/capture_scene military_tower player /tmp/art.png --art-snapshot
-python3 scripts/art_inspector.py build --runtime-snapshot /tmp/art.0000.art.json --open
+python3 scripts/asset_inspector.py build --runtime-snapshot /tmp/art.0000.art.json --open
 ```
 
 Use an existing room ID and the snapshot file the capture produced. The snapshot
@@ -212,7 +212,7 @@ pixel bytes are already uploaded to the live graphics device.
 
 ## Validation
 
-Run the inspector tests with `python3 -m pytest tools/art_inspector/tests -q`.
+Run the inspector tests with `python3 -m pytest tools/asset_inspector/tests -q`.
 Renderer tests cover accepted bundles, source changes, missing pages, and failed
 conversion acceptance. Sprite staging tests exercise receipt and pixel
 publication together. Rust sheet tests cover the original `Death -> Hit -> Idle`

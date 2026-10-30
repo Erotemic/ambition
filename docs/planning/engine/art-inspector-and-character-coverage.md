@@ -6,7 +6,7 @@
 Implementation: superproject `5a6a8b035e9c3af51f40c1ec4da111fbec9e0628`;
 renderer `e744ec2`.
 
-See the [inspector guide](../../../tools/art_inspector/README.md) for commands,
+See the [inspector guide](../../../tools/asset_inspector/README.md) for commands,
 evidence states, and limits.
 
 ## Delivered

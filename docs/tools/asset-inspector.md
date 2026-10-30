@@ -6,21 +6,21 @@ related_docs:
   - docs/concepts/asset-management.md
 ---
 
-# Art inspector
+# Asset inspector
 
 The inspector joins owner reports for registered bundles, prepared game
 identities, local products, concepts, and design history. It includes missing
 art. Game use, registration, generation state, and lineage are separate facts.
-See the [tool guide](../../tools/art_inspector/README.md) for the full interface.
+See the [tool guide](../../tools/asset_inspector/README.md) for the full interface.
 
 Build the content and runtime sheet reader once, then reuse it after data edits:
 
 ```bash
 cargo build -p ambition_content_schemas --bin ambition_content_check
-python3 scripts/art_inspector.py status --current-game --needs-generation --json
-python3 scripts/art_inspector.py inspect npc_tower_voss --animation death --json
-python3 scripts/art_inspector.py coverage --missing death --json
-python3 scripts/art_inspector.py build --open
+python3 scripts/asset_inspector.py status --current-game --needs-generation --json
+python3 scripts/asset_inspector.py inspect npc_tower_voss --animation death --json
+python3 scripts/asset_inspector.py coverage --missing death --json
+python3 scripts/asset_inspector.py build --open
 ```
 
 The offline page opens at Characters. This page groups declared forms and parts
@@ -38,7 +38,7 @@ physical foot anchor can use the visible bottom as its preview baseline.
 The framing evidence retains the physical anchor. Playback and
 comparison can switch to the full animation frame. Runtime RON supplies the
 geometry; the preview reports its measured framing basis.
-Use `python3 scripts/art_inspector.py serve --open` to save review notes on a
+Use `python3 scripts/asset_inspector.py serve --open` to save review notes on a
 character page. The Review notes page and `notes backlog --json` expose the
 same durable task queue. Each note keeps its exact art generation and source
 context. See the tool guide for storage, generation changes, and resolution.

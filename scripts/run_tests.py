@@ -1134,7 +1134,7 @@ def build_detached_tool_jobs(pytest_filter: str | None = None) -> list[Job]:
         return [Job("detached repo developer tools", argv)]
 
     ldtk = REPO / "tools" / "ambition_ldtk_tools"
-    inspector = REPO / "tools" / "art_inspector"
+    inspector = REPO / "tools" / "asset_inspector"
     return [
         Job("detached repo developer tools", argv),
         Job(

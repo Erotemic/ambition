@@ -31,7 +31,7 @@
     const draft = drafts.get(key) || {text: '', priority: 'normal', animation: ''};
     return `<section class="box" id="character-notes"><h2>Review notes (${notes.filter(note => note.status === 'open').length} open)</h2>
       <p>Generation <code>${esc(subject?.generation_id.slice(0, 12) || 'unavailable')}</code>. Notes keep the reviewed product hashes after art changes.</p>
-      ${!writable ? `<p class="empty">To save notes, run <code>python3 scripts/art_inspector.py serve --open</code>. ${esc(failure)}</p>` : ''}
+      ${!writable ? `<p class="empty">To save notes, run <code>python3 scripts/asset_inspector.py serve --open</code>. ${esc(failure)}</p>` : ''}
       <form id="character-note-form" data-character="${esc(key)}"><label for="review-text">What needs to change?</label>
         <textarea id="review-text" name="text" rows="4" maxlength="20000" required placeholder="Describe the problem and the result you want.">${esc(draft.text)}</textarea>
         <div class="controls"><label>Priority <select name="priority">${['high', 'normal', 'low'].map(priority => `<option${draft.priority === priority ? ' selected' : ''}>${priority}</option>`).join('')}</select></label>
@@ -72,7 +72,7 @@
     const groups = report.backlog.characters.filter(group => JSON.stringify(group).toLowerCase().includes(query));
     document.getElementById('app').innerHTML = `<h1>Character review backlog</h1><p>${report.backlog.open_count} open notes across ${report.backlog.characters.length} characters.</p>
       <p>Open notes stay in this queue after regeneration. Review the result, then resolve the note with a fix summary.</p>
-      <p class="controls"><button id="export-art-backlog" type="button">Export backlog JSON</button>${writable ? '<button id="refresh-art-notes" type="button">Refresh notes</button>' : ''} <code>python3 scripts/art_inspector.py notes backlog --json</code></p>
+      <p class="controls"><button id="export-art-backlog" type="button">Export backlog JSON</button>${writable ? '<button id="refresh-art-notes" type="button">Refresh notes</button>' : ''} <code>python3 scripts/asset_inspector.py notes backlog --json</code></p>
       ${!writable ? '<p class="empty">This page shows the notes saved at build time. Use <code>serve --open</code> to save notes and read live changes.</p>' : ''}
       ${groups.length ? groups.map(group => `<section class="box"><h2><a href="#character/${encodeURIComponent(group.character)}">${esc(group.display)}</a></h2><code>${esc(group.character)}</code>${group.notes.map(noteHtml).join('')}</section>`).join('') : '<p class="empty">No open notes match.</p>'}`;
     document.getElementById('export-art-backlog').onclick = () => {

@@ -46,6 +46,26 @@ pub struct CastFramingTuning {
     pub close_hz: f32,
     /// How far past the room the view may look. `None` stops at the room.
     pub bounds: Option<CastCameraBounds>,
+    /// A member wholly outside the view is shown in a bubble at the view's
+    /// edge. `None` shows nothing: the member is simply off the screen.
+    pub bubble: Option<CastBubble>,
+}
+
+/// THE OFF-SCREEN BUBBLE of a cast member: a ring at the view's edge, on the
+/// line from the view's centre to the member, with a live view of the member
+/// inside it. A platform fighter's camera stops short of the blast line, so a
+/// launched fighter leaves the frame while still in play; the bubble keeps
+/// that fighter readable until it dies or comes back.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CastBubble {
+    /// The bubble's width on screen, in logical pixels.
+    pub diameter_px: f32,
+    /// The world units across the view inside the bubble.
+    pub span: f32,
+    /// The ring's colour per cast member, in cast order (RGBA, sRGB).
+    pub rings: [[f32; 4]; 4],
+    /// The colour behind the member inside the bubble (RGBA, sRGB).
+    pub backdrop: [f32; 4],
 }
 
 /// THE CAMERA BOX of a cast: how far past the room's edges the view may
@@ -68,6 +88,7 @@ impl Default for CastFramingTuning {
             open_hz: None,
             close_hz: 10.0,
             bounds: None,
+            bubble: None,
         }
     }
 }

@@ -304,5 +304,20 @@
         open_hz: Some(4.0),
         close_hz: Some(4.0),
         bounds: Some((side: 280.0, rise: 170.0, fall: 100.0)),
+        // A fighter wholly past the frame (between the camera box and the
+        // blast line) is shown in a bubble at the frame's edge, ringed in its
+        // seat's HUD colour (partners by parity, as the HUD colours them).
+        bubble: Some((
+            diameter_px: 96.0,
+            span: 150.0,
+            // One per seat, four seats (a fixed four: a tuple in RON).
+            rings: (
+                (0.55, 0.85, 1.0, 1.0),
+                (1.0, 0.6, 0.55, 1.0),
+                (0.55, 0.85, 1.0, 1.0),
+                (1.0, 0.6, 0.55, 1.0),
+            ),
+            backdrop: (0.04, 0.05, 0.1, 0.85),
+        )),
     )),
 )

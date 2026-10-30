@@ -75,6 +75,23 @@ pub struct AuthoredCastFraming {
     /// How far past the room the view may look. Absent: it stops at the room.
     #[serde(default)]
     pub bounds: Option<AuthoredCameraBounds>,
+    /// The bubble a member wholly off the view is shown in. Absent: none.
+    #[serde(default)]
+    pub bubble: Option<AuthoredCastBubble>,
+}
+
+/// [`CastBubble`], as a pack writes it:
+/// `(diameter_px: 96.0, span: 150.0, rings: ((1.0, 0.3, 0.3, 1.0), ...four...), backdrop: (0.05, 0.06, 0.12, 0.85))`.
+///
+/// [`CastBubble`]: ambition_platformer2d_shared_tangle::markers::CastBubble
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthoredCastBubble {
+    pub diameter_px: f32,
+    pub span: f32,
+    /// One ring colour per seat, four seats.
+    pub rings: [(f32, f32, f32, f32); 4],
+    pub backdrop: (f32, f32, f32, f32),
 }
 
 /// [`CastCameraBounds`], as a pack writes it: `(side: 280.0, rise: 170.0, fall: 100.0)`.
@@ -121,6 +138,15 @@ impl Default for AuthoredMatchRules {
                     rise: bounds.rise,
                     fall: bounds.fall,
                 }),
+                bubble: framing.bubble.map(|bubble| AuthoredCastBubble {
+                    diameter_px: bubble.diameter_px,
+                    span: bubble.span,
+                    rings: bubble.rings.map(|[r, g, b, a]| (r, g, b, a)),
+                    backdrop: {
+                        let [r, g, b, a] = bubble.backdrop;
+                        (r, g, b, a)
+                    },
+                }),
             }),
         }
     }
@@ -143,7 +169,7 @@ impl AuthoredMatchRules {
             .map(|body| body.over(ambition_platformer2d_core::DEFAULT_TUNING));
         rules.fighter_contact = self.fighter_contact.map(|contact| BodyContact { resistance: contact.resistance });
         rules.cast_framing = self.cast_framing.map(|framing| {
-            use ambition_platformer2d_shared_tangle::markers::{CastCameraBounds, CastFramingTuning};
+            use ambition_platformer2d_shared_tangle::markers::{CastBubble, CastCameraBounds, CastFramingTuning};
             let engine = CastFramingTuning::default();
             CastFramingTuning {
                 min_view_scale: framing.min_view_scale,
@@ -155,6 +181,15 @@ impl AuthoredMatchRules {
                     side: bounds.side,
                     rise: bounds.rise,
                     fall: bounds.fall,
+                }),
+                bubble: framing.bubble.map(|bubble| CastBubble {
+                    diameter_px: bubble.diameter_px,
+                    span: bubble.span,
+                    rings: bubble.rings.map(|(r, g, b, a)| [r, g, b, a]),
+                    backdrop: {
+                        let (r, g, b, a) = bubble.backdrop;
+                        [r, g, b, a]
+                    },
                 }),
             }
         });
@@ -211,6 +246,13 @@ impl AuthoredMatchRules {
         }
         if let Some(contact) = &self.fighter_contact {
             amount("fighter_contact.resistance", contact.resistance);
+        }
+        if let Some(bubble) = self.cast_framing.and_then(|framing| framing.bubble) {
+            for (field, value) in [("diameter_px", bubble.diameter_px), ("span", bubble.span)] {
+                if !(value.is_finite() && value > 0.0) {
+                    problems.push(format!("`cast_framing.bubble.{field}` is {value}; it is finite and above 0"));
+                }
+            }
         }
         if let Some(body) = &self.base_body {
             body.problems(&mut problems);

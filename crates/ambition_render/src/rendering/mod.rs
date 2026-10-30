@@ -102,6 +102,7 @@ pub mod boss_finish;
 pub mod boss_stage;
 pub mod body_cues;
 pub mod bubble_shield;
+pub mod cast_bubble;
 mod camera;
 pub mod control_legend;
 pub mod debug_viz;
@@ -463,6 +464,17 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
         // the portal cfg: `SpriteEffect` is an engine concept any sprite may
         // carry, not a portal feature.
         app.add_plugins(ambition_sprite_fx::SpriteFxPlugin);
+
+        // The off-screen bubble of a cast member (`CastFramingTuning::bubble`).
+        // Its camera draws into an image, which needs a render app.
+        if app.get_sub_app(bevy::render::RenderApp).is_some() {
+            app.init_resource::<cast_bubble::CastBubbles>().add_systems(
+                bevy::prelude::Update,
+                cast_bubble::present_cast_bubbles
+                    .run_if(cast_bubble::bubbles_are_asked_for_or_drawn)
+                    .after(camera::camera_follow),
+            );
+        }
 
         // Portal-gun visuals (placed-portal quads, partial-transit pieces, the
         // disorientation and mode indicators) live in

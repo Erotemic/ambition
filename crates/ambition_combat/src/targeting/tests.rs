@@ -713,6 +713,7 @@ fn teams_decide_between_two_bodies_that_share_a_faction() {
 
     // Same faction (two humans), DIFFERENT teams: the hit lands.
     assert!(damage_lands_between(
+        None,
         ActorFaction::Player,
         ActorFaction::Player,
         Some(&blue),
@@ -725,6 +726,7 @@ fn teams_decide_between_two_bodies_that_share_a_faction() {
     // Same faction, SAME team: it does not. This is the 2v2 case global
     // friendly fire could never express.
     assert!(!damage_lands_between(
+        None,
         ActorFaction::Player,
         ActorFaction::Player,
         Some(&blue),
@@ -738,6 +740,7 @@ fn teams_decide_between_two_bodies_that_share_a_faction() {
     // teammate. The team wins: it is the ruleset's statement and the faction is
     // the world's.
     assert!(!damage_lands_between(
+        None,
         ActorFaction::Player,
         ActorFaction::Enemy,
         Some(&blue),
@@ -750,6 +753,7 @@ fn teams_decide_between_two_bodies_that_share_a_faction() {
     // A grudge still overrides a shared team: a per-entity feud is deliberately
     // stronger than any group rule.
     assert!(damage_lands_between(
+        None,
         ActorFaction::Player,
         ActorFaction::Player,
         Some(&blue),
@@ -762,6 +766,7 @@ fn teams_decide_between_two_bodies_that_share_a_faction() {
     // And a body with NO team is judged exactly as before — nothing outside a
     // match notices teams exist.
     assert!(damage_lands_between(
+        None,
         ActorFaction::Player,
         ActorFaction::Enemy,
         None,
@@ -771,6 +776,7 @@ fn teams_decide_between_two_bodies_that_share_a_faction() {
         victim,
     ));
     assert!(!damage_lands_between(
+        None,
         ActorFaction::Player,
         ActorFaction::Player,
         Some(&blue),
@@ -1141,4 +1147,35 @@ fn a_faction_grudge_is_settled_by_its_holder_not_by_a_downed_foe() {
     app.world_mut().get_mut::<BodyHealth>(holder).unwrap().damage(10);
     app.update();
     assert_eq!(app.world().get::<ActorAggression>(holder).unwrap().grudge, None);
+}
+
+/// An NPC that fights beside the player takes the player's foes as its own,
+/// and its swing spares the player; the player's blow still lands on it,
+/// because an alliance is one way (a provoked ally is hit by its attacker).
+#[test]
+fn an_ally_takes_the_foes_of_its_side_and_spares_it() {
+    use super::{damage_lands_between, ActorFaction, FactionRelations, FriendlyFire};
+
+    let mut relations = FactionRelations::default();
+    assert_eq!(relations.fights_beside(ActorFaction::Npc, ActorFaction::Enemy), None);
+    relations.set_allied(ActorFaction::Npc, ActorFaction::Player, true);
+    assert_eq!(
+        relations.fights_beside(ActorFaction::Npc, ActorFaction::Enemy),
+        Some(ActorFaction::Player),
+        "the player's foe is the ally's foe"
+    );
+    assert_eq!(relations.fights_beside(ActorFaction::Npc, ActorFaction::Player), None);
+
+    let body = Entity::from_raw_u32(9).expect("a valid test entity id");
+    let no_ff = FriendlyFire { enabled: false };
+    let lands = |attacker, victim, grudge| {
+        damage_lands_between(Some(&relations), attacker, victim, None, None, no_ff, grudge, body)
+    };
+    assert!(!lands(ActorFaction::Npc, ActorFaction::Player, None), "the ally's swing spares the player");
+    assert!(lands(ActorFaction::Player, ActorFaction::Npc, None), "the player's blow lands on the ally");
+    assert!(lands(ActorFaction::Npc, ActorFaction::Enemy, None), "the ally's swing lands on the foe");
+    assert!(
+        lands(ActorFaction::Npc, ActorFaction::Player, Some(Grudge::Body(body))),
+        "a provoked NPC's grudge outranks the alliance"
+    );
 }

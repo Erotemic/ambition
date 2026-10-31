@@ -103,11 +103,15 @@ def water(wid, x, y, w, h):
     return entity("WaterVolume", x, y, w, h, id=wid, name=wid.replace("_", " "))
 
 
-def room(rid, entities, *, at, size, biome, music, bg, title=None, generator, zoom=None, extra=""):
-    """The spec text of a room: its camera and title are added here."""
+def room(rid, entities, *, at, size, biome, music, bg, title=None, generator, zoom=None, extra="", dangerous=False):
+    """The spec text of a room: its camera and title are added here.
+
+    `dangerous`: the room is out of town, where an NPC on the player's side
+    joins the player's fights (`RoomMetadata::dangerous`)."""
     world_x, world_y = at
     w, h = size
     cam = {"zoom": zoom} if zoom else {}
+    danger = "\n    dangerous: true," if dangerous else ""
     body = list(entities) + [entity("CameraZone", 0, 0, w, h, id=f"{rid}_camera", name=f"{rid}_camera", mode="Default", **cam)]
     if title:
         body.append(sign(f"{rid}_title", w // 2, 40, title, min(900, w - 140)))
@@ -124,7 +128,7 @@ def room(rid, entities, *, at, size, biome, music, bg, title=None, generator, zo
     bg_color: "{bg}",
     biome: "{biome}",
     parallax_theme: "{biome}",
-    music_track: "{music}",{extra}
+    music_track: "{music}",{danger}{extra}
     entities: [
         {text}
     ],

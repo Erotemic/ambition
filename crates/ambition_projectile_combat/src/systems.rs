@@ -1278,6 +1278,7 @@ pub fn step_projectiles(
                 let can_hit = indiscriminate
                     || allegiance.as_ref().is_some_and(|side| {
                         ambition_combat::targeting::damage_lands_between(
+                            tuning.relations(),
                             side.faction,
                             victim.effective_faction(),
                             side.team(),

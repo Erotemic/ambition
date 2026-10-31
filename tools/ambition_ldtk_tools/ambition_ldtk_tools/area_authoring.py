@@ -385,6 +385,9 @@ OPTIONAL_LEVEL_FIELDS = (
     # The boss placement whose chest this room hosts
     # (`RoomMetadata::boss_reward_drop`).
     "boss_reward_drop",
+    # Out of town: an NPC that fights beside the player joins its fights here
+    # (`RoomMetadata::dangerous`).
+    "dangerous",
 )
 
 

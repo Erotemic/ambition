@@ -11,6 +11,7 @@
     biome: "primeval",
     parallax_theme: "primeval",
     music_track: "liberated_dinosaur_libertarians",
+    dangerous: true,
     entities: [
         ( type: "Prop", px: [0, 602], size: [1208, 358], fields: ( name: "volcano_west", kind: "volcano_west" ) ),
         ( type: "Prop", px: [1192, 0], size: [1208, 960], fields: ( name: "volcano_east", kind: "volcano_east" ) ),

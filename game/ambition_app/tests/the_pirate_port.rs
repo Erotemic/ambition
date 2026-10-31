@@ -105,18 +105,27 @@ pub(crate) fn go_to(app: &mut App, at: ae::Vec2, what: &str) {
 /// Walk by keys to the resident `character`, press Interact, take the first
 /// choice (it must read `choice`), and press through the rest. Answers what
 /// the resident said first.
+///
+/// A resident can move while the player walks: in a dangerous room it joins a
+/// fight the walk starts (`body::rally_allies_to_the_fight`). So the walk goes
+/// again to where it stands now, up to three times, before the talk fails.
 pub(crate) fn talk(app: &mut App, character: &str, choice: &str) -> String {
-    let at = {
-        let body = npc(app, character);
-        app.world().get::<ae::BodyKinematics>(body).expect("a live resident").pos
-    };
-    go_to(app, at, character);
-    tap(app, KeyCode::KeyF);
     let mut opened = false;
-    for _ in 0..30 {
-        app.update();
-        if dialog_active(app) {
-            opened = true;
+    for _ in 0..3 {
+        let at = {
+            let body = npc(app, character);
+            app.world().get::<ae::BodyKinematics>(body).expect("a live resident").pos
+        };
+        go_to(app, at, character);
+        tap(app, KeyCode::KeyF);
+        for _ in 0..30 {
+            app.update();
+            if dialog_active(app) {
+                opened = true;
+                break;
+            }
+        }
+        if opened {
             break;
         }
     }

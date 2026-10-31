@@ -100,7 +100,7 @@ def pits():
     ]
     at = (CANOPY_AT[0] + CANOPY_EAST + WALL, CANOPY_AT[1] + CANOPY_FLOOR - FLOOR)
     return room(PITS, e, at=at, size=(W, H), biome="primeval", music="dinosaur_liberators", bg="#2E3B22",
-                title="THE TAR PITS", generator=GENERATOR)
+                title="THE TAR PITS", generator=GENERATOR, dangerous=True)
 
 
 #: The mountain (the art, `targets/props/primeval_volcano_props.py`, is
@@ -145,7 +145,7 @@ def smoking_mountain():
     ]
     at = (CANOPY_AT[0] + CANOPY_EAST + WALL + W, CANOPY_AT[1] + CANOPY_FLOOR - g)
     return room(MOUNTAIN, e, at=at, size=(w, h), biome="primeval", music="liberated_dinosaur_libertarians", bg="#3A2A22",
-                title="THE SMOKING MOUNTAIN", generator=GENERATOR)
+                title="THE SMOKING MOUNTAIN", generator=GENERATOR, dangerous=True)
 
 
 CANOPY_EDGE_YAML = f"""# The canopy's way east to the tar pits. Written by {GENERATOR}.
@@ -253,7 +253,7 @@ def fossil_beds():
     ]
     at = (RIDGE_AT[0] + FOSSILS_X0, RIDGE_AT[1] + RIDGE_H)
     return room(FOSSILS, e, at=at, size=(w, h), biome="primeval", music="liberated_dinosaur_libertarians", bg="#2A2018",
-                title="THE FOSSIL BEDS", generator=GENERATOR)
+                title="THE FOSSIL BEDS", generator=GENERATOR, dangerous=True)
 
 
 def amber_vault():

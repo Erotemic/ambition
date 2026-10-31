@@ -22,7 +22,13 @@ use ambition_platformer2d_actor_spawn::brain_builders::provoked_mind;
 pub fn provoke_actor_in_place(
     commands: &mut Commands,
     entity: Entity,
-    em: &mut ambition_body_seed::clusters::ActorMut<'_>,
+    // The body as construction built it: the provoked mind is lowered against
+    // its own config and verbs, and provocation reads them only.
+    body: (
+        &ambition_combat::actor_tuning::ActorConfig,
+        &ambition_combat::components::ActorIdentity,
+        ambition_platformer2d_core::AbilitySet,
+    ),
     disposition: &mut ActorDisposition,
     // WHAT THE BODY CAN DO, read rather than rebuilt: provocation changes who
     // is deciding, never the body's repertoire, so the brain choice consumes
@@ -56,13 +62,8 @@ pub fn provoke_actor_in_place(
         // construction from a save's provocation fact
         // (`NpcActorSpawnPlan::provoke`). The binding records the policy by
         // canonical id (`ProvokedProfile`), never a roster key (P2.21).
-        let mind = provoked_mind(
-            policy,
-            em.config,
-            em.identity,
-            repertoire,
-            em.abilities.abilities,
-        );
+        let (config, identity, abilities) = body;
+        let mind = provoked_mind(policy, config, identity, repertoire, abilities);
         // THE MIND CHANGES. THE BODY DOES NOT.
         //
         // A provoked policy is usually `CharacterBrainTemplate::Smash`, and the

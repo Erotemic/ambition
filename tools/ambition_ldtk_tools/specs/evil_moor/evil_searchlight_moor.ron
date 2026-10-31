@@ -11,6 +11,7 @@
     biome: "evil_forest",
     parallax_theme: "evil_forest",
     music_track: "oppressive_crush",
+    dangerous: true,
     entities: [
         ( type: "Prop", px: [6, 412], size: [321, 244], fields: ( name: "moor_inn_front", kind: "moor_inn_front" ) ),
         ( type: "Prop", px: [358, 610], size: [1109, 46], fields: ( name: "moor_wire", kind: "moor_wire" ) ),

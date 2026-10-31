@@ -125,6 +125,20 @@ impl Plugin for AmbitionContentPlugin {
                 .expect("Ambition's pack has a `room_rules` source, and a pack that compiles lowers it"),
         );
 
+        // Ambition's people are on the player's side (Jon, 2026-10-30: "NPCs in
+        // dangerous areas that are aligned with you need to help you fight").
+        // An NPC with a kit joins the player's fight in a room authored
+        // `dangerous` (the actor kernel's rally), and its swings spare the
+        // player. The player is not an NPC's ally in turn: a blow the player
+        // strikes still lands, and provokes as before.
+        {
+            use ambition_characters::actor::ActorFaction;
+            app.init_resource::<ambition_combat::targeting::FactionRelations>();
+            app.world_mut()
+                .resource_mut::<ambition_combat::targeting::FactionRelations>()
+                .set_allied(ActorFaction::Npc, ActorFaction::Player, true);
+        }
+
         // Ambition's doors and gates play a passage: the door opens and you walk
         // through it; you leap into a gate and it ripples (Jon, 2026-10-19).
         // Its own rooms only, so a hosted game keeps the instant crossing.

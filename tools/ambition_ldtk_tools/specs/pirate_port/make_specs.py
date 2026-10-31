@@ -375,7 +375,7 @@ def reef():
         reef_enemy(3, "npc_pirate_cutlass_viper", 1880, bd, 32, 68),
         reef_enemy(4, "npc_pirate_lookout", 1990, top, 32, 65),
     ]
-    return build(rid, e, "THE WRECKERS' REEF", music=DOCK_MUSIC)
+    return build(rid, e, "THE WRECKERS' REEF", music=DOCK_MUSIC, dangerous=True)
 
 
 #: The lighthouse (`pirate_lighthouse_props.py` draws on these): the point's

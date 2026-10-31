@@ -1135,6 +1135,7 @@ pub fn apply_hitbox_damage(
                 // that already had it.
                 if hitbox.source != HitSide::Environment
                     && !crate::targeting::damage_lands_between(
+                        tuning.relations(),
                         source_faction,
                         victim.effective_faction(),
                         attacker.team(hitbox.owner),

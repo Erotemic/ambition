@@ -76,6 +76,7 @@ pub(crate) fn boss_damage_allowed(
         return true;
     };
     ambition_combat::targeting::damage_lands_between(
+        None,
         ambition_combat::targeting::effective_faction(*attacker_faction, attacker_driver),
         ambition_combat::targeting::effective_faction(*boss_faction, boss_driver),
         attacker_team,

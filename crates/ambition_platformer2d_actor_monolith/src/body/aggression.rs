@@ -149,7 +149,7 @@ pub fn apply_actor_stimuli(
             .or(aggression.grudge);
 
         let was_peaceful = disposition.is_peaceful();
-        let mut em = cq.as_actor_mut();
+        let em = cq.as_actor_mut();
         // ⛔ THE DURABLE HALF OF THE SAME TRANSITION. Construction builds a
         // person from the save's provocation fact, so a live flip that did not
         // record it — a `<<challenge>>` did not — came back peaceful on the next
@@ -172,7 +172,7 @@ pub fn apply_actor_stimuli(
         crate::body::actors::provoke_actor_in_place(
             &mut commands,
             entity,
-            &mut em,
+            (em.config, em.identity, em.abilities.abilities),
             &mut disposition,
             repertoire,
             provoked_policy,

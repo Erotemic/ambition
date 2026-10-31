@@ -6178,7 +6178,9 @@
             standing_height: Some(68.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            // A fighter: the dojo's teacher. Its kit is the body's, so it fights back when
+            // struck, and joins the player's fight in a dangerous room.
+            default_action_set: "striker_swipe",
             tags: ["townsfolk", "ninja_village", "peaceful"],
             barks: (
                 idle: ["Again. Slower. Then faster.", "*stamps a form with great ceremony*"],
@@ -6195,7 +6197,9 @@
             standing_height: Some(63.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            // A fighter: the dojo's top student. Its kit is the body's, so it fights back when
+            // struck, and joins the player's fight in a dangerous room.
+            default_action_set: "striker_swipe",
             tags: ["townsfolk", "ninja_village", "peaceful"],
             barks: (
                 idle: ["Hmph.", "You. Do not get comfortable."],
@@ -6466,7 +6470,9 @@
             standing_height: Some(67.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            // A fighter: a soldier. Its kit is the body's, so it fights back when
+            // struck, and joins the player's fight in a dangerous room.
+            default_action_set: "striker_swipe",
             tags: ["townsfolk", "military_tower", "soldier", "drill", "peaceful"],
             barks: (
                 idle: ["EYES FRONT.", "Left. Left. Left, right, left."],
@@ -6483,7 +6489,9 @@
             standing_height: Some(69.7),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            // A fighter: a soldier. Its kit is the body's, so it fights back when
+            // struck, and joins the player's fight in a dangerous room.
+            default_action_set: "striker_swipe",
             tags: ["townsfolk", "military_tower", "soldier", "sentry", "peaceful"],
             barks: (
                 idle: ["Halt! ...Carry on.", "*stands very still*"],
@@ -6500,7 +6508,9 @@
             standing_height: Some(62.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            // A fighter: a soldier. Its kit is the body's, so it fights back when
+            // struck, and joins the player's fight in a dangerous room.
+            default_action_set: "striker_swipe",
             tags: ["townsfolk", "military_tower", "soldier", "barracks", "peaceful"],
             barks: (
                 idle: ["Hospital corners. Look at them.", "*polishes a boot that is already shining*"],
@@ -6517,7 +6527,9 @@
             standing_height: Some(70.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            // A fighter: a soldier. Its kit is the body's, so it fights back when
+            // struck, and joins the player's fight in a dangerous room.
+            default_action_set: "striker_swipe",
             tags: ["townsfolk", "military_tower", "soldier", "barracks", "peaceful"],
             barks: (
                 idle: ["Nobody outranks me on this floor.", "The beret stays."],
@@ -6534,7 +6546,9 @@
             standing_height: Some(68.2),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            // A fighter: a soldier. Its kit is the body's, so it fights back when
+            // struck, and joins the player's fight in a dangerous room.
+            default_action_set: "striker_swipe",
             tags: ["townsfolk", "military_tower", "soldier", "armory", "quartermaster", "peaceful"],
             barks: (
                 idle: ["Sign for it.", "Chit first."],
@@ -6551,7 +6565,9 @@
             standing_height: Some(64.3),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            // A fighter: a soldier. Its kit is the body's, so it fights back when
+            // struck, and joins the player's fight in a dangerous room.
+            default_action_set: "striker_swipe",
             tags: ["townsfolk", "military_tower", "soldier", "signals", "peaceful"],
             barks: (
                 idle: ["Copy that.", "*taps the tape printer*"],
@@ -6568,7 +6584,9 @@
             standing_height: Some(68.2),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            // A fighter: a soldier. Its kit is the body's, so it fights back when
+            // struck, and joins the player's fight in a dangerous room.
+            default_action_set: "striker_swipe",
             tags: ["townsfolk", "military_tower", "soldier", "adjutant", "officer", "peaceful"],
             barks: (
                 idle: ["The General will see you.", "It is always the hour."],
@@ -6721,7 +6739,9 @@
             standing_height: Some(69.7),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            // A fighter: the officer of the Test Range. Its kit is the body's, so it fights back when
+            // struck, and joins the player's fight in a dangerous room.
+            default_action_set: "striker_swipe",
             tags: ["townsfolk", "eureka", "peaceful"],
             barks: (
                 idle: ["Hard hats past this line. Hard heads optional.", "Probably fine. Sign here."],
@@ -7049,7 +7069,9 @@
             standing_height: Some(67.4),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            // A fighter: the trail ranger: he keeps the trail by the gate, and the trail bites. Its kit is the body's, so it fights back when
+            // struck, and joins the player's fight in a dangerous room.
+            default_action_set: "striker_swipe",
             tags: ["townsfolk", "primeval", "peaceful"],
             barks: (
                 idle: ["Stay on the trail. The trail does not stay on you.", "Do not feed the compys. They are feeding themselves."],
@@ -7083,7 +7105,9 @@
             standing_height: Some(65.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            // A fighter: the trail ranger: she keeps the station by the gate, and the trail bites. Its kit is the body's, so it fights back when
+            // struck, and joins the player's fight in a dangerous room.
+            default_action_set: "striker_swipe",
             tags: ["townsfolk", "primeval", "peaceful"],
             barks: (
                 idle: ["Station to Ridge. Over.", "Don't touch the jars."],

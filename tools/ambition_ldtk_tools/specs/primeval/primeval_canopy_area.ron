@@ -11,6 +11,7 @@
     biome: "primeval",
     parallax_theme: "primeval",
     music_track: "dinosaur_liberators",
+    dangerous: true,
     entities: [
         ( type: "Solid", px: [0, 672], size: [2000, 32], fields: ( name: "floor" ) ),
         ( type: "Solid", px: [0, 0], size: [2000, 16], fields: ( name: "ceiling" ) ),

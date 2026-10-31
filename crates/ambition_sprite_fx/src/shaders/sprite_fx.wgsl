@@ -27,7 +27,7 @@
 // control.x = operation (0 multiply, 1 hue, 2 saturate, 3 silhouette)
 // control.y = flip_x flag (0 = no flip, >0.5 = mirror UV horizontally)
 // control.z = scalar argument: hue degrees, or saturation factor
-// control.w = reserved
+// control.w = flip_y flag (>0.5 = mirror UV vertically)
 @group(#{MATERIAL_BIND_GROUP}) @binding(1) var<uniform> control: vec4<f32>;
 // Straight-alpha colour argument (linear RGBA) for MULTIPLY and SILHOUETTE.
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var<uniform> colour: vec4<f32>;
@@ -110,6 +110,9 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
     if control.y > 0.5 {
         uv.x = 1.0 - uv.x;
     }
+    if control.w > 0.5 {
+        uv.y = 1.0 - uv.y;
+    }
     // Map the quad's 0..1 UV onto this sprite's frame within its atlas.
     let frame_uv = vec2<f32>(
         mix(uv_rect.x, uv_rect.z, uv.x),
@@ -125,12 +128,14 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
         // Premultiplication would rotate the hue of the ALPHA-weighted colour
         // and darken edge pixels; operate on the straight colour and carry the
         // sprite's own alpha through untouched.
-        return vec4<f32>(rotate_hue(sample.rgb, control.z), sample.a);
+        // `colour` is white unless a following draw carries its sprite's own
+        // colour (`SpriteFxMaterial::coloured`).
+        return vec4<f32>(rotate_hue(sample.rgb, control.z), sample.a) * colour;
     }
     if op < 2.5 {
         let luma = dot(sample.rgb, LUMA);
         let saturated = mix(vec3<f32>(luma), sample.rgb, control.z);
-        return vec4<f32>(clamp(saturated, vec3<f32>(0.0), vec3<f32>(1.0)), sample.a);
+        return vec4<f32>(clamp(saturated, vec3<f32>(0.0), vec3<f32>(1.0)), sample.a) * colour;
     }
     // Silhouette: the sprite contributes its SHAPE, the argument its colour.
     return vec4<f32>(colour.rgb, sample.a * colour.a);

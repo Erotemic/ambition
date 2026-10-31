@@ -531,3 +531,53 @@ fn a_shader_effect_replaced_by_a_tint_gives_the_sprite_back() {
         "the tint never landed after the crossing"
     );
 }
+
+/// A following effect keeps the animated sprite and draws its CURRENT frame:
+/// the sprite stays (blank), a child quad takes its frame's size and anchor
+/// each tick, and a cancel gives the sprite its colour back.
+#[test]
+fn a_following_effect_tracks_the_sprites_frame_and_gives_it_back() {
+    let mut app = App::new();
+    app.init_resource::<Assets<SpriteFxMaterial>>()
+        .init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<TextureAtlasLayout>>()
+        .init_resource::<Assets<Image>>();
+    app.add_systems(
+        Update,
+        (restore_sprites_without_following_effects, draw_following_sprite_effects).chain(),
+    );
+    let sprite = a_32x16_sprite(&mut app);
+    let colour = Color::srgba(1.0, 0.5, 0.25, 0.8);
+    let entity = app
+        .world_mut()
+        .spawn((
+            FollowingSpriteEffect(SpriteEffect::HueShift { degrees: 120.0 }),
+            Sprite { color: colour, ..sprite },
+            bevy::sprite::Anchor(Vec2::new(0.0, -0.5)),
+            Transform::default(),
+        ))
+        .id();
+    app.update();
+    let source = *app.world().get::<FollowingFxSource>(entity).expect("the quad was not made");
+    let drawn = app.world().get::<Sprite>(entity).expect("the animated sprite must stay");
+    assert_eq!(drawn.color.alpha(), 0.0, "the sprite still draws under its quad");
+    assert_eq!(source.original_color, colour);
+    let quad = *app.world().get::<Transform>(source.quad).unwrap();
+    assert_eq!(quad.scale.truncate(), Vec2::new(32.0, 16.0));
+    // A feet anchor puts the frame's centre half its height above the entity.
+    assert_eq!(quad.translation.truncate(), Vec2::new(0.0, 8.0));
+    assert_eq!(app.world().get::<ChildOf>(source.quad).map(|c| c.parent()), Some(entity));
+
+    // The animator changes the frame: the quad follows it.
+    app.world_mut().get_mut::<Sprite>(entity).unwrap().custom_size = Some(Vec2::new(20.0, 40.0));
+    app.update();
+    let quad = *app.world().get::<Transform>(source.quad).unwrap();
+    assert_eq!(quad.scale.truncate(), Vec2::new(20.0, 40.0));
+    assert_eq!(quad.translation.truncate(), Vec2::new(0.0, 20.0));
+
+    app.world_mut().entity_mut(entity).remove::<FollowingSpriteEffect>();
+    app.update();
+    assert_eq!(app.world().get::<Sprite>(entity).unwrap().color, colour);
+    assert!(app.world().get_entity(source.quad).is_err(), "the quad outlived its effect");
+    assert!(app.world().get::<FollowingFxSource>(entity).is_none());
+}

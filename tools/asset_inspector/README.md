@@ -13,6 +13,11 @@ at low priority, so the page stays responsive while it runs. The page offers a
 reload when the refresh is done. The first run builds before it opens.
 `scripts/art_inspector.py` is the old name and runs the same tool.
 
+Only one inspector serves a port (8767 unless `--port`). If one is already
+running, a second run says so and exits. `./scripts/asset_inspector.py --kill`
+stops the running inspector and its refresh, then serves again. It stops only
+an asset inspector, never another program on the port.
+
 A problem never stops the index. If one source cannot be read, the page still
 shows everything else. A notice names the problem and its fix, such as
 rebuilding a stale content check binary.

@@ -43,7 +43,7 @@ def test_no_command_serves_and_opens(monkeypatch, tmp_path):
     served = {}
     monkeypatch.setattr(build, "repo_root", lambda: tmp_path)
     import asset_index.server as server
-    monkeypatch.setattr(server, "serve", lambda repo, out, **kw: served.update(kw))
+    monkeypatch.setattr(server, "serve", lambda repo, out, **kw: served.update(kw) or 0)
     assert build.main([]) == 0
     assert served["open_browser"] and callable(served["build"])
 

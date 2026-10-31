@@ -83,7 +83,85 @@ def make_handler(repo: Path, catalog, status=None):
     return Handler
 
 
-def serve(repo: Path, out: Path, *, port=8767, open_browser=False, build=None, refresh_command=None):
+#: Words in the command line of a server this tool may stop (`--kill`); `art_inspector` is the old name.
+_OURS = ("asset_inspector", "art_inspector", "asset_index", "art_index")
+
+
+def _listener(port: int) -> int | None:
+    """The process listening on 127.0.0.1:`port`, from /proc (Linux), or None."""
+    inodes = set()
+    for table in ("/proc/net/tcp", "/proc/net/tcp6"):
+        try:
+            rows = Path(table).read_text().splitlines()[1:]
+        except OSError:
+            continue
+        for row in rows:
+            fields = row.split()
+            if len(fields) > 9 and fields[3] == "0A" and int(fields[1].rsplit(":", 1)[1], 16) == port:
+                inodes.add(fields[9])
+    if not inodes:
+        return None
+    for proc in Path("/proc").iterdir():
+        if not proc.name.isdigit():
+            continue
+        try:
+            for fd in (proc / "fd").iterdir():
+                link = os.readlink(fd)
+                if link.startswith("socket:[") and link[8:-1] in inodes:
+                    return int(proc.name)
+        except OSError:
+            continue
+    return None
+
+
+def _command(pid: int) -> str:
+    try:
+        return Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\0", b" ").decode(errors="replace").strip()
+    except OSError:
+        return ""
+
+
+def _children(pid: int) -> list[int]:
+    found = []
+    for proc in Path("/proc").iterdir():
+        try:
+            if proc.name.isdigit() and int((proc / "stat").read_text().rsplit(")", 1)[1].split()[1]) == pid:
+                found.append(int(proc.name))
+        except (OSError, ValueError, IndexError):
+            continue
+    return found
+
+
+def kill_server(port: int, log=print) -> bool:
+    """Stop the asset inspector serving `port` and its refresh. False when another
+    program holds the port: that is not ours to stop."""
+    import signal
+    import time
+    pid = _listener(port)
+    if pid is None or pid == os.getpid():
+        return True
+    command = _command(pid)
+    if not any(word in command for word in _OURS):
+        log(f"Port {port} is held by another program (pid {pid}: {command[:120]}); --kill stops only an asset inspector.")
+        return False
+    family = [pid, *_children(pid)]
+    family += [grandchild for child in family[1:] for grandchild in _children(child)]
+    log(f"Stopping the asset inspector on port {port} (pid {pid}).")
+    for target in reversed(family):
+        try:
+            os.kill(target, signal.SIGTERM)
+        except OSError:
+            pass
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline and _listener(port) == pid:
+        time.sleep(0.1)
+    if _listener(port) == pid:
+        os.kill(pid, signal.SIGKILL)
+        time.sleep(0.3)
+    return True
+
+
+def serve(repo: Path, out: Path, *, port=8767, open_browser=False, build=None, refresh_command=None, kill=False):
     """Serve `out`. A page built before opens at once and `refresh_command` (a
     build command line) refreshes it behind, in its own low-priority process, so
     the server answers the page while it runs. The page polls `/api/build-status`
@@ -102,9 +180,24 @@ def serve(repo: Path, out: Path, *, port=8767, open_browser=False, build=None, r
     def log(message: str) -> None:
         print(message, flush=True)
         status["step"] = message.split("\n", 1)[0]
+    if kill and not kill_server(port):
+        return 1
+    holder = _listener(port)
+    if holder is not None:
+        ours = any(word in _command(holder) for word in _OURS)
+        print(f"Port {port} is in use by {'another asset inspector' if ours else 'another program'} (pid {holder}). "
+              + ("Rerun with --kill to replace it, or use --port." if ours else "Use --port to choose another."), flush=True)
+        return 1
     if build is not None and not (out / "index.html").is_file():
         build(log)
         refresh_command = None
+    child_box: list = []
+    def stop(_signum, _frame):  # `--kill` from another run: take the refresh down too
+        for child in child_box:
+            child.terminate()
+        raise SystemExit(0)
+    import signal
+    signal.signal(signal.SIGTERM, stop)
     with ThreadingHTTPServer(("127.0.0.1", port), make_handler(repo, current_catalog, status)) as server:
         url = f"http://127.0.0.1:{server.server_port}/{(out / 'index.html').relative_to(repo).as_posix()}#overview"
         print(f"Asset inspector: {url}", flush=True)
@@ -120,6 +213,7 @@ def serve(repo: Path, out: Path, *, port=8767, open_browser=False, build=None, r
                     child = subprocess.Popen(refresh_command, cwd=repo, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                                              env=dict(os.environ, PYTHONUNBUFFERED="1"),
                                              preexec_fn=(lambda: os.nice(10)) if hasattr(os, "nice") else None)
+                    child_box.append(child)
                     lines = []
                     for line in child.stdout:
                         line = line.rstrip("\n")
@@ -137,3 +231,8 @@ def serve(repo: Path, out: Path, *, port=8767, open_browser=False, build=None, r
             server.serve_forever()
         except KeyboardInterrupt:
             pass
+        finally:
+            for child in child_box:
+                if child.poll() is None:
+                    child.terminate()
+    return 0

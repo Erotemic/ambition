@@ -387,6 +387,7 @@ fn ring_seven_answers_by_its_power_and_its_facility() {
         switch_on: &|_: &str| true,
         flag: &|_: &str| false,
         zone_exists: &|_: &str, _: &str| true,
+        distance: &|_: &str, _: &str| None,
     };
     let tangent = catalog.spell("TANGENT").expect("TANGENT spells");
     let busy = ambition_platformer2d::world::rooms::resolve_dial(&catalog, &state, HUB_RING, &tangent, &facts);

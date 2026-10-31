@@ -23,7 +23,8 @@
 //! ([`GATE_TERMINAL_CONTEXT`]), so the body at the terminal stands still.
 
 use ambition_platformer2d::world::rooms::{
-    address_fits, Chevron, GateNetworkCatalog, GateNetworkState, GateTerminalAction, GateTerminalIntent,
+    address_fits, Chevron, GateNetworkCatalog, GateNetworkState, GateRingPositions, GateTerminalAction, GateTerminalIntent,
+    RingKind,
 };
 use bevy::prelude::*;
 
@@ -189,16 +190,42 @@ pub struct TerminalModel {
 /// the save records, or every address while the catalog starts with all
 /// known), in catalog order, words and glyph addresses alike. `flag` reads a
 /// save flag.
-pub fn known_addresses(catalog: &GateNetworkCatalog, ring: &str, flag: impl Fn(&str) -> bool) -> Vec<Vec<Chevron>> {
+///
+/// A terminal lists only what its ring can reach: a gate lists gates; a
+/// portal arch lists the arches of its own world within its reach on the flat
+/// map (`positions`), so its list is where it can take the traveller.
+pub fn known_addresses(
+    catalog: &GateNetworkCatalog,
+    positions: &GateRingPositions,
+    ring: &str,
+    flag: impl Fn(&str) -> bool,
+) -> Vec<Vec<Chevron>> {
     let mut listed: Vec<Vec<Chevron>> = catalog
         .ring(ring)
         .map(|ring| ring.posted.iter().filter_map(|word| catalog.spell(word).ok()).collect())
         .unwrap_or_default();
+    let from = catalog.ring(ring);
+    let reachable = |candidate: &ambition_platformer2d::world::rooms::GateRing| {
+        let Some(from) = from else {
+            return true;
+        };
+        if candidate.kind != from.kind {
+            return false;
+        }
+        if from.kind != RingKind::Portal {
+            return true;
+        }
+        let dimension = |ring: &ambition_platformer2d::world::rooms::GateRing| {
+            catalog.facility(&ring.facility).map(|facility| facility.dimension.clone())
+        };
+        dimension(candidate) == dimension(from)
+            && positions.distance(&from.zone, &candidate.zone).is_some_and(|distance| distance <= from.reach_px() as f32)
+    };
     for candidate in &catalog.rings {
         let Some(address) = catalog.address_of(candidate) else {
             continue;
         };
-        if candidate.zone != ring && catalog.knows(candidate, &flag) && !listed.contains(&address) {
+        if candidate.zone != ring && reachable(candidate) && catalog.knows(candidate, &flag) && !listed.contains(&address) {
             listed.push(address);
         }
     }
@@ -514,18 +541,18 @@ mod tests {
     fn a_terminal_lists_its_posted_address_and_what_the_save_knows() {
         use ambition_platformer2d::world::rooms::{gate_address_known_flag, GateStartKnowledge};
         let mut catalog = catalog();
-        let all = known_addresses(&catalog, "hub_public_gate_zone", |_| false);
+        let all = known_addresses(&catalog, &GateRingPositions::default(), "hub_public_gate_zone", |_| false);
         if catalog.start_known == GateStartKnowledge::All {
             assert_eq!(all.len(), catalog.rings.len() - 1, "every other ring is listed: {all:?}");
         }
         catalog.start_known = GateStartKnowledge::Discovered;
         let spell = |word: &str| catalog.spell(word).unwrap();
-        let known = known_addresses(&catalog, "math_gate_return_zone", |_| false);
+        let known = known_addresses(&catalog, &GateRingPositions::default(), "math_gate_return_zone", |_| false);
         assert_eq!(known, [spell("LEGAL")]);
         let flag = gate_address_known_flag("GENESIS");
-        let known = known_addresses(&catalog, "math_gate_return_zone", |id| id == flag);
+        let known = known_addresses(&catalog, &GateRingPositions::default(), "math_gate_return_zone", |id| id == flag);
         assert_eq!(known, [spell("LEGAL"), spell("GENESIS")]);
-        assert!(known_addresses(&catalog, "hub_public_gate_zone", |_| false).is_empty(), "the hub posts nothing");
+        assert!(known_addresses(&catalog, &GateRingPositions::default(), "hub_public_gate_zone", |_| false).is_empty(), "the hub posts nothing");
     }
 
     /// The status line reads the network: an open link, then a refusal by

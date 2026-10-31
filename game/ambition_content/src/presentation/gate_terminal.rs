@@ -27,7 +27,7 @@
 
 use ambition_platformer2d::render::rendering::gate_portal_visuals::GateDialPreview;
 use ambition_platformer2d::world::rooms::{
-    position_grid, Chevron, GateNetworkCatalog, GateNetworkState, GateTerminalIntent, GRID_BITS,
+    position_grid, Chevron, GateNetworkCatalog, GateNetworkState, GateRingPositions, GateTerminalIntent, GRID_BITS,
 };
 use ambition_platformer2d_shared_tangle::host_intents::HostIntentWriter;
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
@@ -182,6 +182,7 @@ struct PointerInputs<'w, 's> {
 #[allow(clippy::too_many_arguments)]
 fn drive_gate_terminal(
     catalog: Option<Res<GateNetworkCatalog>>,
+    positions: Option<Res<GateRingPositions>>,
     state: Option<Res<GateNetworkState>>,
     save: Option<Res<ambition_platformer2d::persistence::save::AmbitionGameSave>>,
     mut ui: ResMut<TerminalUi>,
@@ -218,6 +219,11 @@ fn drive_gate_terminal(
     if ui.ring.as_deref() != Some(ring.as_str()) {
         let seen = state.reports.get(&ring).map(|report| report.serial);
         ui.open(&ring, seen);
+        // A portal arch is a list of places, not an address to spell: it opens
+        // on its list.
+        if catalog.ring(&ring).is_some_and(|ring| ring.kind == ambition_platformer2d::world::rooms::RingKind::Portal) {
+            ui.focus = crate::gate_terminal::TerminalFocus::List;
+        }
     }
     // A dial that answered with a link leaves the terminal, so the traveller
     // can walk into the ring.
@@ -232,7 +238,8 @@ fn drive_gate_terminal(
     }
     if terminal_owns_input(seats.as_deref()) {
         let knows = |flag: &str| save.as_ref().is_some_and(|save| save.data().flag(flag));
-        let known = known_addresses(&catalog, &ring, knows);
+        let none = GateRingPositions::default();
+        let known = known_addresses(&catalog, positions.as_deref().unwrap_or(&none), &ring, knows);
         let rows = ui.list(&catalog, &state, &known);
         let count = catalog.chevrons();
         let mut effects = Vec::new();
@@ -390,6 +397,7 @@ fn drive_gate_terminal(
 fn draw_gate_terminal(
     mut commands: Commands,
     catalog: Option<Res<GateNetworkCatalog>>,
+    positions: Option<Res<GateRingPositions>>,
     state: Option<Res<GateNetworkState>>,
     save: Option<Res<ambition_platformer2d::persistence::save::AmbitionGameSave>>,
     ui: Res<TerminalUi>,
@@ -402,7 +410,8 @@ fn draw_gate_terminal(
     let model = match (catalog.as_deref(), state, ui.ring.as_deref()) {
         (Some(catalog), Some(state), Some(ring)) if state.terminal.as_deref() == Some(ring) => {
             let knows = |flag: &str| save.as_ref().is_some_and(|save| save.data().flag(flag));
-            let known = known_addresses(catalog, ring, knows);
+            let none = GateRingPositions::default();
+            let known = known_addresses(catalog, positions.as_deref().unwrap_or(&none), ring, knows);
             Some(ui.model(catalog, &state, &known))
         }
         _ => None,

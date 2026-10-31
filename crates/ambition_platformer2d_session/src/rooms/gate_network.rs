@@ -10,13 +10,15 @@
 use bevy::prelude::{MessageReader, Res, ResMut};
 
 use ambition_platformer2d_world::rooms::{
-    gate_address_known_flag, resolve_dial, GateFacts, GateNetworkCatalog, GateNetworkState, GateTerminalAction,
-    GateTerminalIntent,
+    gate_address_known_flag, resolve_dial, GateFacts, GateNetworkCatalog, GateNetworkState, GateRingPositions,
+    GateTerminalAction, GateTerminalIntent, RingKind,
 };
 
 /// One tick of the gate network.
 ///
-/// 1. A press of a `GateTerminal` switch opens the terminal of its ring.
+/// 1. A press of a `GateTerminal` switch opens the terminal of its ring. A
+///    portal arch's terminal ATTUNES the arch: standing at it teaches its
+///    address, so other arches list it (a portal is learned by visiting it).
 /// 2. Each terminal request of the open terminal is carried out: a dial
 ///    opens a link or records why not, a hangup shuts the ring's link, a
 ///    close leaves the terminal.
@@ -34,6 +36,7 @@ pub fn run_gate_network(
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     world_time: Res<ambition_time::WorldTime>,
+    positions: Option<Res<GateRingPositions>>,
 ) {
     let Some(catalog) = catalog else {
         intents.clear();
@@ -44,7 +47,12 @@ pub fn run_gate_network(
             continue;
         }
         match catalog.ring_of_terminal(&activation.id) {
-            Some(ring) => state.terminal = Some(ring.zone.clone()),
+            Some(ring) => {
+                state.terminal = Some(ring.zone.clone());
+                if ring.kind == RingKind::Portal {
+                    save.data_mut().set_flag(gate_address_known_flag(ring.address_key()), true);
+                }
+            }
             None => bevy::log::warn_once!(
                 "the gate terminal `{}` dials from no ring of the gate network",
                 activation.id
@@ -77,7 +85,9 @@ pub fn run_gate_network(
                 let switch_on = |id: &str| data.switch(id);
                 let flag = |id: &str| data.flag(id);
                 let zone_exists = |room: &str, zone: &str| rooms.rooms().has_zone(room, zone);
-                let facts = GateFacts { switch_on: &switch_on, flag: &flag, zone_exists: &zone_exists };
+                let distance = |a: &str, b: &str| positions.as_deref().and_then(|positions| positions.distance(a, b));
+                let facts =
+                    GateFacts { switch_on: &switch_on, flag: &flag, zone_exists: &zone_exists, distance: &distance };
                 match resolve_dial(&catalog, &state, &intent.ring, address, &facts) {
                     Ok(far) => {
                         let (far_room, far_zone) = (far.room.clone(), far.zone.clone());

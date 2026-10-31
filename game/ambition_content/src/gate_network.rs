@@ -4,25 +4,92 @@
 //! The catalog is one App resource. A content reload replaces it whole: the
 //! network is one game's, and no other provider adds rings to it.
 
-use ambition_platformer2d::world::rooms::{GateNetworkCatalog, GATE_NETWORK_SCHEMA};
-use bevy::prelude::App;
+use ambition_platformer2d::world::rooms::{GateNetworkCatalog, GateRingPositions, RingPosition, GATE_NETWORK_SCHEMA};
+use bevy::prelude::{App, Commands, DetectChanges, IntoScheduleConfigs, PreUpdate, Res};
 
 /// The gate network a pack states.
 pub(crate) fn lowered_gate_network(pack: &ambition_content_pack::PreparedContentPack) -> GateNetworkCatalog {
     ambition_content_pack::lowered_rules::<GateNetworkCatalog>(pack, GATE_NETWORK_SCHEMA).cloned().unwrap_or_default()
 }
 
-/// Install the network the selected pack states.
+/// Install the network the selected pack states, and keep each ring's place
+/// on the flat map (`GateRingPositions`) up to date with the world files: a
+/// portal's reach is measured there, and a room moved in the editor moves
+/// its ring.
 pub(super) fn register(app: &mut App) {
     let pack = crate::pack::select(app.world_mut());
     let catalog = lowered_gate_network(&pack);
     app.world_mut().insert_resource(catalog);
+    app.init_resource::<GateRingPositions>();
+    app.add_systems(PreUpdate, place_gate_rings.run_if(the_rings_or_the_worlds_changed));
+}
+
+fn the_rings_or_the_worlds_changed(
+    catalog: Option<Res<GateNetworkCatalog>>,
+    project: Option<Res<ambition_platformer2d_ldtk::ActiveLdtkProject>>,
+) -> bool {
+    catalog.is_some_and(|catalog| catalog.is_changed()) || project.is_some_and(|project| project.is_changed())
+}
+
+fn place_gate_rings(
+    catalog: Option<Res<GateNetworkCatalog>>,
+    project: Option<Res<ambition_platformer2d_ldtk::ActiveLdtkProject>>,
+    mut commands: Commands,
+) {
+    let (Some(catalog), Some(project)) = (catalog, project) else {
+        return;
+    };
+    commands.insert_resource(ring_positions(&catalog, &project.0));
+}
+
+/// Where each ring of `catalog` stands on its world's flat map: the middle of
+/// its loading zone, in the level of its room that holds the zone. A ring
+/// whose zone no level holds is not placed (the world validator names it).
+pub fn ring_positions(
+    catalog: &GateNetworkCatalog,
+    project: &ambition_platformer2d_ldtk::LdtkProject,
+) -> GateRingPositions {
+    let mut positions = GateRingPositions::default();
+    for ring in &catalog.rings {
+        let found = project.levels.iter().filter(|level| level.active_area() == ring.room).find_map(|level| {
+            level
+                .all_entity_instances()
+                .find(|entity| {
+                    entity.identifier == "LoadingZone"
+                        && ambition_platformer2d_ldtk::field_string(entity, "id").as_deref() == Some(ring.zone.as_str())
+                })
+                .map(|zone| RingPosition {
+                    world: level.world_source.clone(),
+                    at: (
+                        (level.world_x + zone.px[0]) as f32 + zone.width as f32 * 0.5,
+                        (level.world_y + zone.px[1]) as f32 + zone.height as f32 * 0.5,
+                    ),
+                })
+        });
+        if let Some(position) = found {
+            positions.0.insert(ring.zone.clone(), position);
+        }
+    }
+    positions
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use ambition_platformer2d::world::rooms::normalize_address;
+
+    /// Every ring of the shipped network stands somewhere on its world's flat
+    /// map, so a portal's reach can be measured to it.
+    #[test]
+    fn every_ring_is_placed_on_its_worlds_flat_map() {
+        let catalog = lowered_gate_network(crate::pack::shipped());
+        let manifest = crate::worlds::world_manifest();
+        let project = ambition_platformer2d_ldtk::LdtkProject::load_default_for_dev(&manifest).expect("the shipped worlds load");
+        let positions = ring_positions(&catalog, &project);
+        let unplaced: Vec<&str> =
+            catalog.rings.iter().map(|ring| ring.zone.as_str()).filter(|zone| !positions.0.contains_key(*zone)).collect();
+        assert!(unplaced.is_empty(), "rings whose zone no level of their room holds: {unplaced:?}");
+    }
 
     /// The working addresses of the network are stable: a save, a sign and a
     /// speedrun route all name them. Each reaches the ring of its place.

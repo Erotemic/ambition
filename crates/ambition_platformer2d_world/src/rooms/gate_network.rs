@@ -27,6 +27,16 @@
 //!
 //! Knowledge of an address is convenience only. [`resolve_dial`] never reads
 //! what the player knows.
+//!
+//! **Two kinds of ring** (Jon, 2026-10-31: "portals should generally be within
+//! dimension, whereas dimension gates are a different thing. Portals maybe
+//! even have some lore-like range."). A GATE ([`RingKind::Gate`]) is a door
+//! between worlds and has no reach. A PORTAL ([`RingKind::Portal`], drawn as
+//! an arch) folds one world onto itself: it reaches only portals of its own
+//! dimension, and only as far as its reach on the flat map
+//! ([`GateRing::reach`], [`DEFAULT_PORTAL_REACH`]). A gate dials gates and a
+//! portal reaches portals. Where each ring stands on the flat map is the
+//! world files' ([`GateRingPositions`], derived host-side when they load).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -49,6 +59,48 @@ pub const GATE_LINK_LINGER_SECS: f32 = 1.5;
 /// How many recent addresses the network remembers for a terminal's Recent
 /// view.
 pub const GATE_RECENT_LEN: usize = 6;
+
+/// How far a portal reaches on the flat map when its ring states no reach, in
+/// world units (pixels). Lore: a fold is only so deep. About a region and its
+/// neighbours: a dimension's far side takes a chain of arches, a walk, or the
+/// long way (no surface arch reaches orbit).
+pub const DEFAULT_PORTAL_REACH: u32 = 8000;
+
+/// What kind of ring a ring is: a gate between worlds, or a portal within
+/// one.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Deserialize)]
+pub enum RingKind {
+    /// A dimension gate: dials gates, of any dimension, at any distance.
+    #[default]
+    Gate,
+    /// A portal arch: reaches portals of its own dimension within its reach.
+    Portal,
+}
+
+/// Where each ring stands on its world's flat map (its zone's middle, in
+/// world units), by ring zone id, and the world file it is in. Derived from
+/// the world files when they load (a host fact, like the room set): the
+/// catalog states no place, so a room moved in the editor moves its ring.
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
+pub struct GateRingPositions(pub BTreeMap<String, RingPosition>);
+
+/// One ring's place on the flat map.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RingPosition {
+    /// The world file (`WorldSource` id) whose coordinates `at` is in.
+    pub world: String,
+    /// The middle of the ring's zone, in world units.
+    pub at: (f32, f32),
+}
+
+impl GateRingPositions {
+    /// The distance between two rings on one flat map; `None` when either is
+    /// not placed or they are in different world files.
+    pub fn distance(&self, a: &str, b: &str) -> Option<f32> {
+        let (a, b) = (self.0.get(a)?, self.0.get(b)?);
+        (a.world == b.world).then(|| ((a.at.0 - b.at.0).powi(2) + (a.at.1 - b.at.1).powi(2)).sqrt())
+    }
+}
 
 /// One chevron of a ring: its place in the inscription, from the first.
 pub type Chevron = u8;
@@ -174,6 +226,13 @@ pub struct GateRing {
     /// A line the terminal shows about the ring (its upkeep, its traffic).
     #[serde(default)]
     pub note: String,
+    /// A gate (the default) or a portal arch.
+    #[serde(default)]
+    pub kind: RingKind,
+    /// How far a portal reaches on the flat map, in world units; `None` is
+    /// [`DEFAULT_PORTAL_REACH`]. A gate states none: a gate has no reach.
+    #[serde(default)]
+    pub reach: Option<u32>,
 }
 
 /// A ring's infrastructure state. Each state reads authored facts (the save's
@@ -210,6 +269,14 @@ pub enum DialRefusal {
     Offline(String),
     /// A ring is in use, for the reason.
     Busy(String),
+    /// A gate dialed a portal or a portal a gate: a gate dials gates, and a
+    /// portal reaches portals.
+    WrongKind,
+    /// A portal reached for a portal of another dimension: a portal folds its
+    /// own world, and another world takes a gate.
+    OtherDimension,
+    /// The far portal is farther than this one reaches.
+    OutOfReach { distance: u32, reach: u32 },
 }
 
 impl DialRefusal {
@@ -222,6 +289,9 @@ impl DialRefusal {
             Self::SameFacility => "same_facility",
             Self::Offline(_) => "offline",
             Self::Busy(_) => "busy",
+            Self::WrongKind => "wrong_kind",
+            Self::OtherDimension => "other_dimension",
+            Self::OutOfReach { .. } => "out_of_reach",
         }
     }
 
@@ -237,6 +307,11 @@ impl DialRefusal {
             Self::SameFacility => "That ring is in this facility. Walk there.".to_string(),
             Self::Offline(reason) => format!("OFFLINE: {reason}"),
             Self::Busy(reason) => format!("BUSY: {reason}"),
+            Self::WrongKind => "A gate dials gates, and a portal reaches portals.".to_string(),
+            Self::OtherDimension => "A portal can not reach another world. That takes a gate.".to_string(),
+            Self::OutOfReach { distance, reach } => {
+                format!("Too far: that arch is {distance} away, and this one reaches {reach}.")
+            }
         }
     }
 }
@@ -249,6 +324,9 @@ pub struct GateFacts<'a> {
     pub flag: &'a dyn Fn(&str) -> bool,
     /// Whether this session's world holds the zone in the room.
     pub zone_exists: &'a dyn Fn(&str, &str) -> bool,
+    /// The flat-map distance between two rings (by zone), when both are
+    /// placed in one world file ([`GateRingPositions::distance`]).
+    pub distance: &'a dyn Fn(&str, &str) -> Option<f32>,
 }
 
 impl GateNetworkCatalog {
@@ -334,6 +412,16 @@ impl GateNetworkCatalog {
 }
 
 impl GateRing {
+    /// How far this ring reaches on the flat map, in world units: a portal's
+    /// reach (its own, else [`DEFAULT_PORTAL_REACH`]); a gate reaches
+    /// anywhere.
+    pub fn reach_px(&self) -> u32 {
+        match self.kind {
+            RingKind::Gate => u32::MAX,
+            RingKind::Portal => self.reach.unwrap_or(DEFAULT_PORTAL_REACH),
+        }
+    }
+
     /// What the save's known flag of this ring's address is keyed by: its
     /// word, or, for a ring whose address is glyphs, its zone.
     pub fn address_key(&self) -> &str {
@@ -379,6 +467,10 @@ fn ring_status(ring: &GateRing, facts: &GateFacts<'_>) -> Result<(), DialRefusal
 /// 5. the far ring works and its room is in this world;
 /// 6. the far ring is not in another link.
 ///
+/// Between 3 and 4, the kinds: a gate dials only gates and a portal reaches
+/// only portals; a portal reaches only its own dimension, and only within its
+/// reach (an unplaced ring is out of reach: nothing measures it).
+///
 /// What the player knows is not read, and no faction refuses a dial.
 pub fn resolve_dial<'a>(
     catalog: &'a GateNetworkCatalog,
@@ -403,6 +495,21 @@ pub fn resolve_dial<'a>(
     let Some(far) = catalog.ring_at(address) else {
         return Err(DialRefusal::Unknown);
     };
+    if far.kind != from.kind {
+        return Err(DialRefusal::WrongKind);
+    }
+    if from.kind == RingKind::Portal {
+        let dimension = |ring: &GateRing| catalog.facility(&ring.facility).map(|facility| facility.dimension.as_str());
+        if dimension(far) != dimension(from) {
+            return Err(DialRefusal::OtherDimension);
+        }
+        let reach = from.reach_px();
+        match (facts.distance)(&from.zone, &far.zone) {
+            Some(distance) if distance <= reach as f32 => {}
+            Some(distance) => return Err(DialRefusal::OutOfReach { distance: distance.round() as u32, reach }),
+            None => return Err(DialRefusal::OutOfReach { distance: u32::MAX, reach }),
+        }
+    }
     if far.facility == from.facility {
         return Err(DialRefusal::SameFacility);
     }
@@ -465,6 +572,12 @@ pub fn gate_network_problems(catalog: &GateNetworkCatalog) -> Vec<String> {
         }
         if !zones.insert(zone) {
             problems.push(format!("the ring `{zone}` is stated twice"));
+        }
+        if ring.kind == RingKind::Gate && ring.reach.is_some() {
+            problems.push(format!("the gate `{zone}` states a reach: a gate has none (only a portal reaches so far)"));
+        }
+        if ring.reach == Some(0) {
+            problems.push(format!("the portal `{zone}` reaches 0: it reaches nothing"));
         }
         if !facilities.contains(ring.facility.as_str()) {
             problems.push(format!("`{zone}.facility` `{}` is not a facility", ring.facility));
@@ -737,6 +850,8 @@ mod tests {
             status: GateStatusRule::Online,
             posted: Vec::new(),
             note: String::new(),
+            kind: RingKind::Gate,
+            reach: None,
         }
     }
 
@@ -790,8 +905,66 @@ mod tests {
         let switch_on = |id: &str| on.contains(&id);
         let flag = |id: &str| on.contains(&id);
         let zone_exists = |_: &str, _: &str| true;
-        let facts = GateFacts { switch_on: &switch_on, flag: &flag, zone_exists: &zone_exists };
+        let distance = |_: &str, _: &str| Some(0.0);
+        let facts = GateFacts { switch_on: &switch_on, flag: &flag, zone_exists: &zone_exists, distance: &distance };
         resolve_dial(catalog, state, from, address, &facts).map(|ring| ring.zone.as_str())
+    }
+
+    /// A portal arch (Jon, 2026-10-31: "portals should generally be within
+    /// dimension, whereas dimension gates are a different thing. Portals
+    /// maybe even have some lore-like range"): it reaches a portal of its own
+    /// dimension within its reach; not a farther one, not one in another
+    /// world, and not a gate. A gate dials no portal.
+    #[test]
+    fn a_portal_reaches_its_own_world_within_its_reach_and_a_gate_reaches_no_portal() {
+        let mut catalog = catalog();
+        catalog.facilities.push(GateFacility { id: "grove".into(), name: "grove".into(), dimension: "science".into() });
+        catalog.facilities.push(GateFacility { id: "deep".into(), name: "deep".into(), dimension: "science".into() });
+        catalog.facilities.push(GateFacility { id: "glade".into(), name: "glade".into(), dimension: "math".into() });
+        let portal = |zone: &str, facility: &str, word: &str| GateRing {
+            kind: RingKind::Portal,
+            reach: Some(5000),
+            ..ring(zone, facility, Some(word))
+        };
+        catalog.rings.push(portal("grove_arch", "grove", "GLADE"));
+        catalog.rings.push(portal("deep_arch", "deep", "DENT"));
+        catalog.rings.push(portal("glade_arch", "glade", "GLEN"));
+        let at = |zone: &str| match zone {
+            "grove_arch" => Some((0.0, 0.0)),
+            "deep_arch" => Some((3000.0, 4000.0)),
+            "glade_arch" => Some((100.0, 0.0)),
+            _ => None,
+        };
+        let state = GateNetworkState::default();
+        let attempt = |from: &str, word: &str, far_at: (f32, f32)| {
+            let switch_on = |_: &str| true;
+            let flag = |_: &str| false;
+            let zone_exists = |_: &str, _: &str| true;
+            let distance = |a: &str, b: &str| {
+                let (a, b) = (at(a)?, if b == "deep_arch" { Some(far_at) } else { at(b) }?);
+                Some(((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt())
+            };
+            let facts = GateFacts { switch_on: &switch_on, flag: &flag, zone_exists: &zone_exists, distance: &distance };
+            resolve_dial(&catalog, &state, from, &spelled(&catalog, word), &facts).map(|ring| ring.zone.clone())
+        };
+        // 5000 away, and it reaches 5000: in reach.
+        assert_eq!(attempt("grove_arch", "DENT", (3000.0, 4000.0)).as_deref(), Ok("deep_arch"));
+        // 6000 away: too far.
+        assert_eq!(attempt("grove_arch", "DENT", (6000.0, 0.0)).unwrap_err().kind(), "out_of_reach");
+        // 100 away, but in another world: a portal does not fold another one.
+        assert_eq!(attempt("grove_arch", "GLEN", (0.0, 0.0)).unwrap_err().kind(), "other_dimension");
+        // A portal reaches no gate, and a gate dials no portal.
+        assert_eq!(attempt("grove_arch", "ASCENT", (0.0, 0.0)).unwrap_err().kind(), "wrong_kind");
+        assert_eq!(attempt("trail", "DENT", (0.0, 0.0)).unwrap_err().kind(), "wrong_kind");
+    }
+
+    /// A gate states no reach: the catalog refuses one that does.
+    #[test]
+    fn a_gate_with_a_reach_is_a_catalog_problem() {
+        let mut catalog = catalog();
+        catalog.rings[0].reach = Some(100);
+        let problems = gate_network_problems(&catalog);
+        assert!(problems.iter().any(|problem| problem.contains("states a reach")), "{problems:?}");
     }
 
     /// A word spells by the inscription's rule: the k-th use of a letter

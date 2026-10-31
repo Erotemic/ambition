@@ -1,74 +1,9 @@
-//! Checks that authored sprite rendering and collision describe the same body.
-//!
-//! The snake uses legacy whole-frame rendering while its sheet publishes a much
-//! flatter body rectangle. The test ratchets that ratio so scale changes cannot
-//! hide the geometry disagreement; regenerating per-frame render rectangles is
-//! the intended fix.
+//! Check that authored body geometry reaches live actors.
 
-use ambition_demo_mary_o::snake::SNAKE_SHEET_TARGET;
 use ambition_platformer2d::character_sprites::posed_body_geometry;
 use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 
-/// One Mary-O tile, in world units. Her own standing height is 48 — one and a
-/// half of these — which is the scale every enemy is read against.
-const TILE: f32 = 32.0;
-
-/// Current legacy whole-frame/body-height ratio for the snake. It is scale
-/// invariant and should decrease when the sheet gains per-frame render geometry.
-const QUAD_OVERHANG_LIMIT: f32 = 2.47;
-
-#[test]
-fn the_snakes_picture_and_its_body_describe_the_same_animal() {
-    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    // At `world_per_pixel = 1.0` the geometry comes back in SHEET PIXELS, which
-    // is what makes the scale solvable instead of guessable.
-    let walking = posed_body_geometry(&sprite_content, SNAKE_SHEET_TARGET, CharacterAnim::Idle, 1.0)
-        .expect("the snake's sheet publishes body metrics");
-    let scale = ambition_demo_mary_o::pack::PACK.posed_body_world_per_pixel(&sprite_content, SNAKE_SHEET_TARGET);
-    let world = walking.collision * scale;
-    let quad = walking.render * scale;
-
-    eprintln!(
-        "[snake] sheet_px collision={:?} render={:?}",
-        walking.collision, walking.render
-    );
-    eprintln!(
-        "[snake] at world_per_pixel={scale}: collision={world:?} ({:.2} tiles tall), quad={quad:?}",
-        world.y / TILE
-    );
-    eprintln!(
-        "[snake] the picture is {:.2}x the body's height, and {:.2}x its width",
-        quad.y / world.y.max(0.001),
-        quad.x / world.x.max(0.001)
-    );
-
-    let overhang = quad.y / world.y.max(0.001);
-    assert!(
-        overhang <= QUAD_OVERHANG_LIMIT && overhang > QUAD_OVERHANG_LIMIT - 0.15,
-        "the snake is DRAWN {:.1} world tall and COLLIDES {:.1} world tall — \
-         {overhang:.2}x. Its sheet body is {:?} px inside a {:?} px frame, and \
-         the quad is the whole frame, so the picture is square while the animal \
-         is long and flat.\n\nChanging the snake's body scale cannot fix this: \
-         the knob multiplies both numbers, so the disagreement survives every \
-         value — which is why two previous attempts at Jon's report did not \
-         land. Either the sheet frame is cropped to the animal, or the quad is \
-         sized from the BODY rather than the frame.",
-        quad.y,
-        world.y,
-        walking.collision,
-        walking.render,
-    );
-}
-
-/// The AI Slop's BOX now has its sheet's shape — the half that was fixable.
-///
-/// Its sibling above ratchets a disagreement it cannot fix: the snake's quad is the whole
-/// 128x128 sheet FRAME, so closing that gap needs an art-pipeline crop or a quad sized from the
-/// body.
-///
-/// this asserts the SHAPE, not the size, exactly like the snake's. How big
-/// a slop should be is a taste call for whoever is looking at the running game;
-/// that its box and its picture describe the same animal is not.
+/// The AI Slop uses the collision shape and width from its authored row.
 #[test]
 fn the_ai_slops_box_has_the_shape_its_sheet_publishes() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();

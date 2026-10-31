@@ -99,6 +99,12 @@ def garden():
     down to the hollow."""
     rid, w = GARDEN, GARDEN_W
     e = [
+        # The garden's things (`targets/props/magical_props.py`), first.
+        piece("garden_beds", 56, FLOOR - 60),
+        piece("garden_hill_low", 880, 508),
+        piece("garden_hill_high", 1100, 412),
+        piece("garden_hatch", HATCH[0] - 64, FLOOR - 92),
+        piece("garden_star_tree", 1530, FLOOR - 400),
         *ground(0, w, (HATCH,)),
         solid("west_wall", 0, 0, WALL, FLOOR),
         *gates.as_ron(gates.ring("Starlight Gate", "magical_gate_zone", 360, FLOOR, "the gate")),
@@ -150,6 +156,12 @@ def hollow():
     hatch = (in_hollow(HATCH[0], GARDEN_AT), in_hollow(HATCH[1], GARDEN_AT))
     well = (in_hollow(WELL[0], SQUARE_AT), in_hollow(WELL[1], SQUARE_AT))
     e = [
+        # Where the stars sleep (`targets/props/magical_props.py`), first.
+        piece("hollow_shaft_light_west", hatch[0] - 100, 0),
+        piece("hollow_shaft_light_east", well[0] - 100, 0),
+        piece("hollow_star_roots", 700, top),
+        piece("hollow_star_heap", 1100, g - 140),
+        piece("hollow_star_heap_east", 2150, g - 140),
         solid("floor", 0, g, w, h - g),
         solid("roof_west", 0, 0, hatch[0], top),
         solid("roof_middle", hatch[1], 0, well[0] - hatch[1], top),
@@ -178,6 +190,11 @@ def road():
     """Out of town on the dunes, toward the castle the void took."""
     rid, w = ROAD, ROAD_W
     e = [
+        # The dunes and what was left on the road (`targets/props/magical_props.py`), first.
+        piece("road_dunes", 1080, 444),
+        piece("road_dune_far", 2080, 508),
+        piece("road_cart", 380, FLOOR - 90),
+        piece("road_lamp", 2900, FLOOR - 190),
         *ground(0, w),
         solid("east_wall", w - WALL, 0, WALL, FLOOR),
         edge("road_west", "back to Starlight Square", 0, FLOOR, SQUARE, "square_east"),

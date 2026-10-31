@@ -13,6 +13,10 @@
     music_track: "pulse_drift_voyage",
     dangerous: true,
     entities: [
+        ( type: "Prop", px: [1091, 448], size: [710, 192], fields: ( name: "road_dunes", kind: "road_dunes" ) ),
+        ( type: "Prop", px: [2091, 512], size: [474, 128], fields: ( name: "road_dune_far", kind: "road_dune_far" ) ),
+        ( type: "Prop", px: [389, 562], size: [269, 78], fields: ( name: "road_cart", kind: "road_cart" ) ),
+        ( type: "Prop", px: [2911, 465], size: [74, 175], fields: ( name: "road_lamp", kind: "road_lamp" ) ),
         ( type: "Solid", px: [0, 640], size: [3200, 128], fields: ( name: "ground_0" ) ),
         ( type: "Solid", px: [3184, 0], size: [16, 640], fields: ( name: "east_wall" ) ),
         ( type: "LoadingZone", px: [0, 544], size: [16, 96], fields: ( id: "road_west", name: "back to Starlight Square", activation: "EdgeExit", target_room: "magical_starlight_square", target_zone: "square_east", bidirectional: true ) ),

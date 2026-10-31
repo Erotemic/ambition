@@ -938,11 +938,10 @@ impl<PageId, Action> ItemsOnlyPageSpec<PageId, Action> {
             let dimmed = !cell.owned || cell.disabled;
             let action = cell.action;
             let important = cell.important || cell.equipped;
-            let label = if cell.owned {
-                cell.label
-            } else {
-                format!("{} - ???", cell.label)
-            };
+            // An unowned cell keeps its plain name: it is greyed out and its
+            // detail says "not owned". A " - ???" suffix made a long name
+            // run out of its cell ("Axe Stance - ???").
+            let label = cell.label;
 
             page.nodes.push(MenuNode::Control {
                 rect,

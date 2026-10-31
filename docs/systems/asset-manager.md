@@ -36,6 +36,16 @@ AssetId
 
 The asset manager answers the catalog question. The caller still decides whether it needs a Bevy handle, an audio/SFX provider built by the audio layer, a filesystem path for a tool, or a skip/fallback path.
 
+An embedded library index does not mean that all its bytes are embedded.
+Installed desktop builds load external library files from
+`assets/__libraries/<library-id>/<logical-path>` under `BEVY_ASSET_ROOT`.
+The catalog's optional-file check uses the same path as the library reader.
+An absent optional file still uses its placeholder or a supported quality tier.
+
+Use `python3 scripts/content_status.py` to inspect missing and stale generated
+content. This query needs no build or renderer. Its default result is advisory;
+only `--require-complete` makes missing or stale content return a failure.
+
 ## Edit protocol
 
 When adding a new asset family:
@@ -49,7 +59,9 @@ When adding a new asset family:
 
 ## Current gaps
 
-- Some generated visual/audio assets still have tool-local workflows rather than one unified publish manifest.
+- Library freshness does not prove that an installed directory has the bytes
+  or that the runtime catalog admits them. Package hashes and runtime path
+  checks answer different questions.
 - Web/audio/mobile behavior is platform-sensitive; validate the target feature set instead of assuming desktop behavior.
 - iOS is a modeled profile, not a tested shipping target.
 

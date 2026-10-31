@@ -50,6 +50,8 @@ When a command changes, update or delete the recipe in the same patch.
 ## Platform and diagnostics
 
 - [`android-build.md`](android-build.md)
+- [`steam-deck-deploy.md`](steam-deck-deploy.md) — deploy the selected library
+  and check installed asset paths without a global freshness requirement.
 - [`web-build.md`](web-build.md)
 - [`single-executable.md`](single-executable.md) — the game as one file to
   give a player, for Linux and for Windows, with its assets inside.

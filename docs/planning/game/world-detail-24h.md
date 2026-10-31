@@ -60,6 +60,15 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Magical: the Unlit, where the void is hostile** (Jon, 10-30: "have some
+  areas where the void creatures and void fighters are hostile"): east of
+  the rift, a broken walk of ledges over standing void; down its hole a
+  ring the void built out of the shape of a fight (floor, two platforms, one
+  over them; stands of void stars watching, grey-edged so they read as
+  neither ground nor foe); west at its floor the wastes, back to the falls'
+  foot. A loop. Void stars are enemies here (dangerous rooms). The void
+  fighters (the polygons gone dark) are a parallel piece.
+  Verified: the_unlit_is_a_loop_from_the_rift_back_to_the_falls.
 - **Math: two keepers** (2e961cff7 and this): Pierre de Fermette (a parody
   of Fermat) keeps the Conjectures, every problem on the walls solved, the
   margins too small to show you; Johannes Kepplar (Kepler) keeps the summit's

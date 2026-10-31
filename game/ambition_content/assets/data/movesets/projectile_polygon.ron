@@ -112,6 +112,8 @@
 // The genre shapes are deliberate: this is still a reusable reference fighter.
 // Projectile identity belongs to the head cannon and shoot pose, not
 // to making every grounded movement action species-specific.
+// (`polygon_projectile_jab2`)
+// Its second strike, reachable only through the first jab's OnHit confirm window (the brawler's string): longer, harder and lifting, so 1-2 is the confirm Yoshi's jab is.
 (
     schema_version: 1,
     entities: [
@@ -200,6 +202,19 @@
                                     start_s: 0.09,
                                     end_s: 0.19,
                                     tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.09,
+                                    end_s: 0.19,
+                                    tag: Cancelable(
+                                        into: [
+                                            "polygon_projectile_jab2",
+                                        ],
+                                        condition: OnHit,
+                                    ),
                                     volumes: [],
                                     motion_scale: 1.0,
                                     sustain_effect: None,
@@ -2162,6 +2177,81 @@
                                 recovery: r#None,
                                 forbidden_while_held: false,
                                 roots_steering: true,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            charge_mult: 1.0,
+                            move_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        (
+                            id: "polygon_projectile_jab2",
+                            display_name: None,
+                            clip: (
+                                clip: "attack_side",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.19,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.04,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.04,
+                                    end_s: 0.09,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (24.0, -2.0),
+                                                half_extents: (19.0, 15.0),
+                                            ),
+                                            damage: 5,
+                                            knockback: 83.2,
+                                            knockback_growth: Some(1.3),
+                                            launch_dir: Some((1.0, -0.3)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: None,
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.09,
+                                    end_s: 0.19,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [],
+                            gates: (
+                                grounded: None,
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: false,
                                 recovery_route: None,
                                 costs: [],
                                 when_refused: None,

@@ -41,6 +41,11 @@ fn seats(app: &mut App) -> Option<(Entity, Entity)> {
 
 /// The human seat and the CPU seat, in a live round.
 fn seated() -> (App, Entity, Entity, Entity) {
+    seated_as(FIGHTER)
+}
+
+/// [`seated`], two of `fighter`.
+fn seated_as(fighter: &str) -> (App, Entity, Entity, Entity) {
     let mut app = ambition_app::app::build_visible_app_with(
         ambition_app::app::VisibleRenderMode::NoWindow,
         true,
@@ -52,7 +57,7 @@ fn seated() -> (App, Entity, Entity, Entity) {
         app.update();
     }
     app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster([FIGHTER, FIGHTER]));
+        .insert_resource(ambition_demo_smash::smash_roster([fighter, fighter]));
     app.world_mut().write_message(ShellCommand::GoTo(ShellRouteId::new(
         ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
     )));
@@ -518,4 +523,72 @@ fn the_sounds_of_a_grab() {
     eprintln!("[grab] {fighter}: held frames {held_frames}, free frames {free_frames}, most landings in one hold {worst_hold}");
     eprintln!("[grab] held: {held:?}");
     eprintln!("[grab] free: {free:?}");
+}
+
+/// A JAB THAT LANDS CONFIRMS INTO ITS SECOND HIT. Every polygon's first jab
+/// opens an OnHit window into its second, the 1-2 of the genre: the human
+/// jabs a held CPU, presses again inside the window, and plays the second.
+#[test]
+fn a_landed_jab_confirms_into_the_second_jab() {
+    use ambition_platformer2d::combat::moveset::MovePlayback;
+    for (fighter, second) in [
+        ("pointed_polygon", "polygon_jab2"),
+        ("pugnacious_polygon", "polygon_brawler_jab2"),
+        ("projectile_polygon", "polygon_projectile_jab2"),
+    ] {
+        let (mut app, pad, human, cpu) = seated_as(fighter);
+        hold(&mut app, cpu, true);
+        // Side by side on the floor, facing each other, inside a jab's reach.
+        let at = app.world().get::<BodyKinematics>(human).unwrap().pos;
+        for (body, dx, facing) in [(human, 0.0, 1.0), (cpu, 34.0, -1.0)] {
+            let mut kinematics = app.world_mut().get_mut::<BodyKinematics>(body).unwrap();
+            kinematics.pos = at + ae::Vec2::new(dx, 0.0);
+            kinematics.vel = ae::Vec2::ZERO;
+            kinematics.facing = facing;
+        }
+        for _ in 0..20 {
+            app.update();
+        }
+        let press = |app: &mut App, down: bool| {
+            app.world_mut().write_message(bevy::input::gamepad::RawGamepadEvent::Button(
+                bevy::input::gamepad::RawGamepadButtonChangedEvent::new(
+                    pad,
+                    GamepadButton::West,
+                    if down { 1.0 } else { 0.0 },
+                ),
+            ));
+        };
+        let mut played: Vec<String> = Vec::new();
+        // The first press once standing, the second once the first has hit.
+        let (mut first, mut second_at) = (None::<usize>, None::<usize>);
+        for tick in 0..150 {
+            let standing = app
+                .world()
+                .get::<ae::BodyGroundState>(human)
+                .is_some_and(|ground| ground.on_ground);
+            let struck = app.world().get::<BodyCombat>(cpu).is_some_and(|combat| combat.hit_flash > 0.0);
+            if first.is_none() && standing {
+                first = Some(tick);
+                press(&mut app, true);
+            }
+            if first.is_some_and(|at| tick == at + 2) {
+                press(&mut app, false);
+            }
+            if second_at.is_none() && first.is_some() && struck {
+                second_at = Some(tick);
+                press(&mut app, true);
+            }
+            if second_at.is_some_and(|at| tick == at + 2) {
+                press(&mut app, false);
+            }
+            app.update();
+            if let Some(playback) = app.world().get::<MovePlayback>(human) {
+                if played.last() != Some(&playback.spec.id) {
+                    played.push(playback.spec.id.clone());
+                }
+            }
+        }
+        eprintln!("[jab string] {fighter}: {played:?}");
+        assert!(played.iter().any(|id| id == second), "{fighter}: the second press never confirmed into {second}: {played:?}");
+    }
 }

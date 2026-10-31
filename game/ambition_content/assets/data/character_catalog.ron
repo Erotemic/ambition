@@ -428,6 +428,16 @@
             move_style: Float,
             melee: Some(Lunge(windup_s: 0.33, active_s: 0.2, recover_s: 0.5, damage: 1, reach_px: 34.0, step_px: 0.0, rush_px: 110.0)),
         ),
+        // The Dealer's Hand's toss: it cups and shakes a die (0-5, 65 ms),
+        // flings its fingers open (6-8), and holds open after (9-11). The
+        // throw stands in as a lobbed rock until gameplay composes the hand
+        // with the Quantum Die it throws (`quantum_die`, spawned at the
+        // release).
+        "dealers_hand_toss": (
+            move_style: Float,
+            melee: None,
+            ranged: Some(Rock(speed: 340.0, damage: 1)),
+        ),
         // The Gravity Apple's charge: its orbits flare, then it drops on you.
         "gravity_apple_charge": (
             move_style: Float,
@@ -5708,6 +5718,36 @@
             provoked: ["Spooky action... at a distance."],
             idle: ["(rattles in every state at once)", "I am a one. And a six. Until you look."],
             hall: ["God does not play dice with the universe. I am the dice. I play with the universe.", "My twin is in the next room. Or this one. It depends who is asking."],
+        ),
+        ),
+        // The Dealer's Hand: a spectral hand that tosses the Quantum Dice; it
+        // keeps its distance and throws.
+        "dealers_hand": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Dealer's Hand",
+            manifest: "sprites/dealers_hand_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(56.0),
+            composition: None,
+            default_action_set: "dealers_hand_toss",
+            locomotion: Some((run_speed: 100.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Skirmisher,
+                aggro_radius: 640.0,
+                attack_range: 340.0,
+                patrol_effort: 0.5,
+                chase_effort: 0.8,
+                // The toss, telegraphed: it cups and shakes, throws, and is open.
+                ranged_volley: Some((windup_s: 0.39, firing_s: 0.2, recovery_s: 0.6)),
+            )),
+            max_health: Some(4),
+            tags: ["enemy", "spectral", "math", "hylberts_hotel"],
+        barks: (
+            on_hit: ["Bad hand!", "The house always... ow."],
+            provoked: ["Feeling lucky?"],
+            idle: ["(drums its fingers)", "Place your bets."],
+            hall: ["I deal, I do not play. The dice play themselves; I merely let them go.", "Every throw is every number until it lands. I find that very relaxing."],
         ),
         ),
         "gravity_apple": (

@@ -328,6 +328,7 @@ def main(argv: list[str] | None = None) -> int:
     b = sub.add_parser("build", help="index the art and write the inspector page")
     s = sub.add_parser("serve", help="build the inspector and serve it with durable review notes")
     s.add_argument("--port", type=int, default=8767)
+    s.add_argument("--kill", action="store_true", help="stop an asset inspector already serving this port, then serve")
     for page in (b, s):
         page.add_argument("--out", type=Path, default=None, help="default: <repo>/.agent/asset_inspector")
         page.add_argument("--jobs", type=int, default=4, help=f"preview processes (at most {thumbs.MAX_JOBS})")
@@ -419,10 +420,9 @@ def main(argv: list[str] | None = None) -> int:
         options = list(argv[1:])
         if "--port" in options:
             del options[options.index("--port"):options.index("--port") + 2]
-        options = [o for o in options if o != "--open" and not o.startswith("--port=")]
+        options = [o for o in options if o not in ("--open", "--kill") and not o.startswith("--port=")]
         command = [sys.executable, str(repo / "scripts" / "asset_inspector.py"), "build", *options]
-        serve(repo, out, port=args.port, open_browser=args.open, build=run, refresh_command=command)
-        return 0
+        return serve(repo, out, port=args.port, open_browser=args.open, build=run, refresh_command=command, kill=args.kill)
     run()
     if args.open:
         webbrowser.open((out / "index.html").as_uri())

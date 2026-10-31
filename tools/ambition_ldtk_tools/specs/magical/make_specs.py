@@ -41,6 +41,15 @@ One region, not a string of rooms (`docs/planning/game/world-composition.md`):
   others: rift-gallery, gallery-falls, falls-rift, falls-heart,
   heart-gallery.
 
+- The Unlit, east of the friendly void, where the void is hostile (Jon,
+  2026-10-30: "have some areas where the void creatures and void fighters
+  are hostile"): `magical_void_ledges` east of the rift, broken ledges over
+  nothing; down its hole `magical_void_coliseum`, a ring the void built out
+  of the shape it remembers of a fight (two platforms over a floor); west of
+  it at its floor `magical_void_wastes`, back to the falls' foot. A loop:
+  rift, ledges, coliseum, wastes, falls, rift. Void stars here are enemies;
+  so are the void fighters, the polygon fighters gone dark.
+
 Mary-O meets the robot in the gate garden (Jon: "make sure maryo herself is
 in the world"). The music is hers (Jon: "use more maryo songs here too ...
 You can use billions and billions too").
@@ -77,6 +86,9 @@ GALLERY = "magical_void_gallery"
 FALLS = "magical_void_falls"
 HEART = "magical_void_heart"
 NURSERY = "magical_void_nursery"
+LEDGES = "magical_void_ledges"
+COLISEUM = "magical_void_coliseum"
+WASTES = "magical_void_wastes"
 
 FLOOR = 640
 H = 768
@@ -118,6 +130,16 @@ SHARDS = (1890, 1990, 2090)
 #: The nursery: behind the heart's west wall (a wall that breaks), west of it.
 NURSERY_W = 640
 NURSERY_AT = (HEART_AT[0] - NURSERY_W, HEART_AT[1])
+#: The Unlit: the ledges east of the rift (its floor the rift's), the
+#: coliseum under the ledges' east end, the wastes west of the coliseum at
+#: its floor (the falls' foot's floor).
+LEDGES_AT, LEDGES_W = (RIFT_AT[0] + RIFT_W, RIFT_AT[1]), 4480
+COLISEUM_W, COLISEUM_H, COLISEUM_FLOOR = 1920, 1280, 1216
+COLISEUM_AT = (LEDGES_AT[0] + LEDGES_W - COLISEUM_W, LEDGES_AT[1] + VOID_H)
+WASTES_AT, WASTES_W = (FALLS_AT[0] + FALLS_W, COLISEUM_AT[1] + COLISEUM_FLOOR - VOID_FLOOR), COLISEUM_AT[0] - (FALLS_AT[0] + FALLS_W)
+#: The ledges' hole down into the coliseum's roof (the coliseum's x).
+COLISEUM_TOP = (928, 992)
+LEDGES_HOLE = (COLISEUM_TOP[0] + COLISEUM_AT[0] - LEDGES_AT[0], COLISEUM_TOP[1] + COLISEUM_AT[0] - LEDGES_AT[0])
 #: The falls' ledge from the gallery, on its west wall at the gallery's floor.
 FALLS_SHELF_Y = GALLERY_AT[1] + VOID_FLOOR - FALLS_AT[1]
 
@@ -372,8 +394,15 @@ def floor_hole(zone, x0, x1, floor, h, to_room, to_zone, name):
                    target_room=to_room, target_zone=to_zone, bidirectional=True)]
 
 
-def void_room(rid, e, at, size, title, music):
-    return rid, room(rid, e, at=at, size=size, biome=VOID_BIOME, music=music, bg=VOID_BG, title=title, generator=GENERATOR)
+def void_room(rid, e, at, size, title, music, dangerous=False):
+    return rid, room(rid, e, at=at, size=size, biome=VOID_BIOME, music=music, bg=VOID_BG, title=title, generator=GENERATOR,
+                     dangerous=dangerous)
+
+
+def hostile_star(rid: str, n: int, x: int, floor: int) -> str:
+    """A void star of the Unlit: an enemy, as in Mary-O's own levels."""
+    return entity("EnemySpawn", x - 23, floor - 46, 46, 46, name=f"{rid}_void_star_{n}", brain="combatant",
+                  character_id="void_star", respawn="OnRoomReenter")
 
 
 def rift():
@@ -394,7 +423,8 @@ def rift():
         ledge("rift_pool_ledge", 1940, 470, 160),
         sign("rift_pool_sign", 2020, 380, "MIND THE VOID (it minds you)", 320),
         solid("roof", 0, 0, w, top),
-        solid("east_wall", w - WALL, top, WALL, g - top),
+        solid("east_wall", w - WALL, top, WALL, g - 96 - top),
+        edge("rift_east", "on, into the Unlit", w - 16, g, LEDGES, "ledges_west"),
         edge("rift_west", "back to the lizard's bridge", 0, g, BRIDGE, "bridge_east"),
         start(rid, 200, g),
         sign("rift_sign", 1240, 120, "THE VOID: colour stops here. Please leave yours at the door.", 640),
@@ -451,7 +481,8 @@ def falls():
         solid("floor", 0, g, w, h - g),
         solid("roof_west", 0, 0, FALLS_TOP[0], top),
         solid("roof_east", FALLS_TOP[1], 0, w - FALLS_TOP[1], top),
-        solid("east_wall", w - WALL, top, WALL, g - top),
+        solid("east_wall", w - WALL, top, WALL, g - 96 - top),
+        edge("falls_east", "into the wastes", w - 16, g, WASTES, "wastes_west"),
         solid("west_wall_top", 0, top, WALL, shelf - 96 - top),
         solid("west_shelf", 0, shelf, 200, 32),
         solid("west_wall_bottom", 0, shelf + 32, WALL, g - 96 - shelf - 32),
@@ -512,7 +543,93 @@ def nursery():
     return void_room(rid, e, NURSERY_AT, (w, h), "THE NURSERY", "eternal_cosmic")
 
 
-ROOMS = (garden, square, hollow, road, keep, bridge, rift, gallery, falls, heart, nursery)
+#: The ledges' broken walk: (x, w) pieces of floor at the room's floor,
+#: nothing between them but the void (it starts the room again).
+LEDGES_FLOOR = ((0, 520), (680, 300), (1140, 260), (1560, 420), (2140, 420), (2720, 380), (3260, 1220))
+
+
+def ledges():
+    """East of the rift: a broken walk over nothing, hostile. Void stars on
+    the pieces; one high ledge over each gap; the hole down to the coliseum."""
+    rid, w, h, g, top = LEDGES, LEDGES_W, VOID_H, VOID_FLOOR, VOID_ROOF
+    e = [solid("roof", 0, 0, w, top), solid("east_wall", w - WALL, top, WALL, g - top)]
+    hole = LEDGES_HOLE
+    for i, (x, pw) in enumerate(LEDGES_FLOOR):
+        # Each piece of floor, cut by the coliseum's hole where it crosses.
+        if x < hole[0] < x + pw:
+            e += [solid(f"piece_{i}a", x, g, hole[0] - x, h - g), solid(f"piece_{i}b", hole[1], g, x + pw - hole[1], h - g)]
+        else:
+            e.append(solid(f"piece_{i}", x, g, pw, h - g))
+    for i, ((x0, w0), (x1, _)) in enumerate(zip(LEDGES_FLOOR, LEDGES_FLOOR[1:])):
+        gap0, gap1 = x0 + w0, x1
+        e.append(entity("HazardBlock", gap0, g + 24, gap1 - gap0, h - g - 24, name=f"the void, gap {i}"))
+        e.append(ledge(f"over_gap_{i}", gap0 - 40, g - 110, gap1 - gap0 + 80))
+    e += [
+        *floor_hole("ledges_down", *hole, g, h, COLISEUM, "coliseum_top", "down into the ring"),
+        edge("ledges_west", "back to the rift", 0, g, RIFT, "rift_east"),
+        start(rid, 200, g),
+        sign("ledges_sign", 1300, 120, "THE UNLIT: here the void does not ask your name", 560),
+        hostile_star(rid, 1, 800, g),
+        hostile_star(rid, 2, 1650, g),
+        hostile_star(rid, 3, 2300, g),
+        hostile_star(rid, 4, 2900, g),
+        hostile_star(rid, 5, 3900, g),
+    ]
+    return void_room(rid, e, LEDGES_AT, (w, h), "THE UNLIT", "castle_crash_override", dangerous=True)
+
+
+def coliseum():
+    """Under the ledges: a ring the void built out of the shape it remembers
+    of a fight. A floor, two platforms over it and one over them. In from the
+    roof; out at the floor, west, to the wastes."""
+    rid, w, h, g, top = COLISEUM, COLISEUM_W, COLISEUM_H, COLISEUM_FLOOR, VOID_ROOF
+    e = [
+        solid("floor", 0, g, w, h - g),
+        solid("roof_west", 0, 0, COLISEUM_TOP[0], top),
+        solid("roof_east", COLISEUM_TOP[1], 0, w - COLISEUM_TOP[1], top),
+        solid("east_wall", w - WALL, top, WALL, g - top),
+        solid("west_wall", 0, top, WALL, g - 96 - top),
+        shaft_up("coliseum_top", *COLISEUM_TOP, LEDGES, "ledges_down", "up to the Unlit"),
+        edge("coliseum_west", "out to the wastes", 0, g, WASTES, "wastes_east"),
+        start(rid, 200, g),
+        # Its stage: the floor, two side platforms, a top one (one-way).
+        ledge("ring_left", 560, g - 150, 240),
+        ledge("ring_right", 1120, g - 150, 240),
+        ledge("ring_top", 840, g - 290, 240),
+        # The stair down from the roof's hole: steps of one-way.
+        *[ledge(f"ring_step_{i}", 860 - (i % 2) * 220, 220 + i * 150, 200) for i in range(5)],
+        sign("coliseum_sign", 960, 140, "THE UNLIT RING: the void learns to fight from the shapes that fought it", 760),
+        hostile_star(rid, 1, 300, g),
+        hostile_star(rid, 2, 1600, g),
+    ]
+    return void_room(rid, e, COLISEUM_AT, (w, h), "THE UNLIT RING", "invincible_maryo", dangerous=True)
+
+
+def wastes():
+    """West of the ring, at its floor: open dark to the falls' foot. Void
+    stars hunt here."""
+    rid, w, h, g, top = WASTES, WASTES_W, VOID_H, VOID_FLOOR, VOID_ROOF
+    e = [
+        solid("floor", 0, g, w, h - g),
+        solid("roof", 0, 0, w, top),
+        edge("wastes_west", "back to the falls", 0, g, FALLS, "falls_east"),
+        edge("wastes_east", "on to the ring", w - 16, g, COLISEUM, "coliseum_west"),
+        solid("west_wall", 0, top, WALL, g - 96 - top),
+        solid("east_wall", w - WALL, top, WALL, g - 96 - top),
+        start(rid, 200, g),
+        sign("wastes_sign", w // 2, 120, "THE WASTES: nothing for miles, and it is all looking at you", 620),
+        ledge("waste_rise_a", w // 4, g - 120, 200),
+        ledge("waste_rise_b", w // 2, g - 200, 200),
+        ledge("waste_rise_c", 3 * w // 4, g - 120, 200),
+        hostile_star(rid, 1, w // 4 + 100, g),
+        hostile_star(rid, 2, w // 2 + 100, g),
+        hostile_star(rid, 3, 3 * w // 4 + 100, g),
+        entity("ChestSpawn", w // 2 + 60, g - 200 - 58, 76, 58, name="what the void kept for itself", reward="currency:180"),
+    ]
+    return void_room(rid, e, WASTES_AT, (w, h), "THE WASTES", "sparse_theme", dangerous=True)
+
+
+ROOMS = (garden, square, hollow, road, keep, bridge, rift, gallery, falls, heart, nursery, ledges, coliseum, wastes)
 
 
 def main(argv):
@@ -542,7 +659,9 @@ def main(argv):
                  (GALLERY, "Climbable", 1, RIFT_WEST_HOLE[0] + 16, 0, 32, VOID_FLOOR),
                  (GALLERY, "Climbable", 1, GALLERY_HOLE[0] + 16, VOID_FLOOR - 64, 32, VOID_H - VOID_FLOOR + 64),
                  (HEART, "Climbable", 1, GALLERY_HOLE[0] + 16, 0, 32, VOID_FLOOR),
-                 (FALLS, "Climbable", 1, FALLS_TOP[0] + 16, 0, 32, 216)):
+                 (FALLS, "Climbable", 1, FALLS_TOP[0] + 16, 0, 32, 216),
+                 (LEDGES, "Climbable", 1, LEDGES_HOLE[0] + 16, VOID_FLOOR - 64, 32, VOID_H - VOID_FLOOR + 64),
+                 (COLISEUM, "Climbable", 1, COLISEUM_TOP[0] + 16, 0, 32, 236)):
         if code := paint(WORLD, *args):
             return code
     code, _ = run("validate", str(WORLD))

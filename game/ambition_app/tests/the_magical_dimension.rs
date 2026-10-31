@@ -26,6 +26,9 @@ const GALLERY: &str = "magical_void_gallery";
 const FALLS: &str = "magical_void_falls";
 const HEART: &str = "magical_void_heart";
 const NURSERY: &str = "magical_void_nursery";
+const LEDGES: &str = "magical_void_ledges";
+const COLISEUM: &str = "magical_void_coliseum";
+const WASTES: &str = "magical_void_wastes";
 
 #[test]
 fn the_square_the_hollow_and_the_garden_are_a_loop() {
@@ -100,4 +103,16 @@ fn the_hearts_west_wall_breaks_into_the_nursery() {
 fn the_rift_is_crossed_over_its_pool_to_the_falls() {
     let mut app = a_session_in(RIFT);
     go(&mut app, FALLS, Some("rift_down_east"));
+}
+
+/// The Unlit, where the void is hostile, is a loop: east from the rift along
+/// the broken ledges, down into the ring, west across the wastes to the
+/// falls' foot.
+#[test]
+fn the_unlit_is_a_loop_from_the_rift_back_to_the_falls() {
+    let mut app = a_session_in(RIFT);
+    go(&mut app, LEDGES, Some("rift_east"));
+    go(&mut app, COLISEUM, Some("ledges_down"));
+    go(&mut app, WASTES, Some("coliseum_west"));
+    go(&mut app, FALLS, Some("wastes_west"));
 }

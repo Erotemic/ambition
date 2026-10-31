@@ -594,6 +594,9 @@ impl SnapshotCursor for crate::brain::Brain {
                         put_u32(out, intent.ticks_left);
                     }
                 }
+                // Whether it has noticed its foe, and the beat it stands for.
+                put_bool(out, state.noticed);
+                put_f32(out, state.noticing);
             }
             // Every field of `RoamState` decides what the body does next: the
             // place it goes to, the leg it is on, and when its rest ends.

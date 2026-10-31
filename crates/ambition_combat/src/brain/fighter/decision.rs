@@ -11,7 +11,7 @@ use super::rollout::refine_by_rollout;
 use ambition_characters::actor::control::ActorControlFrame;
 use ambition_characters::brain::attack_kit::AttackCandidate;
 use ambition_characters::brain::fighter::data::{
-    FighterCfg, FighterState, FoeSample, OwnAttack, PendingAttack, RefusedAttack,
+    FighterCfg, FighterEngagement, FighterState, FoeSample, OwnAttack, PendingAttack, RefusedAttack,
 };
 use ambition_characters::brain::fighter::habit::Choice;
 use ambition_characters::brain::fighter::options::{
@@ -71,6 +71,35 @@ fn next_signed_unit(seed: &mut u64) -> f32 {
     (unit * 2.0 - 1.0) as f32
 }
 
+/// Whether a fighter with an [`FighterEngagement`] fights this tick. It
+/// notices a foe it knows inside its aggro radius, or the foe that hits it.
+/// It stands and looks for the notice beat (none when it was hit), and then
+/// it fights until it loses the foe. A dead body is not gated.
+fn engages(engagement: FighterEngagement, state: &mut FighterState, snapshot: &BrainSnapshot) -> bool {
+    if !snapshot.alive {
+        return true;
+    }
+    if !snapshot.target_alive {
+        state.noticed = false;
+        state.noticing = 0.0;
+        return false;
+    }
+    if !state.noticed {
+        let hit = snapshot.stun_remaining > 0.0;
+        let near = snapshot.target_delta_local().vec().length() <= engagement.aggro_radius;
+        if !(near || hit) {
+            return false;
+        }
+        state.noticed = true;
+        state.noticing = if hit { 0.0 } else { engagement.notice_s };
+    }
+    if state.noticing > 0.0 {
+        state.noticing = (state.noticing - snapshot.dt).max(0.0);
+        return false;
+    }
+    true
+}
+
 /// One tick of the fighter brain.
 ///
 /// Order matters and is the spec's: observe, emit the held intent, age the
@@ -88,6 +117,22 @@ pub fn tick_fighter(
 ) {
     if let Some(view) = view {
         state.perception.observe(view.clone());
+    }
+
+    // A room's enemy fights only once it has noticed its foe. Until then, and
+    // over the beat it stands and looks, it presses nothing and holds nothing:
+    // a press decided before it noticed must not come out after.
+    if let Some(engagement) = cfg.engagement {
+        if !engages(engagement, state, snapshot) {
+            state.pending_press = None;
+            state.charge_hold_ticks = 0;
+            state.held = ActorControlFrame::neutral();
+            *out = ActorControlFrame::neutral();
+            if state.is_noticing() {
+                out.facing = snapshot.face_toward(snapshot.target_delta_local().x);
+            }
+            return;
+        }
     }
 
     // The APM window is wall time, not decision time: a brain that thinks slowly

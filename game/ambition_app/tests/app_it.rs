@@ -158,6 +158,7 @@ mod duel_arena;
 mod effect_quarantine;
 mod enemy_attacks_player;
 mod an_enemy_notices_then_telegraphs;
+mod void_fighters;
 mod npcs_fight_beside_you;
 mod the_gnu_ton_apples;
 mod the_magical_dimension;

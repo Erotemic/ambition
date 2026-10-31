@@ -2326,3 +2326,33 @@ fn the_buffered_press_lands_the_tick_the_stun_runs_down_not_when_the_view_says_s
          view first shows it over (13), and never inside the stun"
     );
 }
+
+/// A room's enemy (a fighter with an engagement) presses nothing while its foe
+/// is out of its aggro radius; brought inside it, it stands and looks for its
+/// notice beat, and then it fights. A fighter with no engagement, a match
+/// seat, presses at once at the same distance.
+#[test]
+fn a_fighter_with_an_engagement_notices_its_foe_before_it_fights() {
+    let engaged = |cfg: FighterCfg| cfg.engaging(FighterEngagement { aggro_radius: 200.0, notice_s: 0.25 });
+    let view = scene(300.0, 340.0);
+    let far = BrainSnapshot { target_pos: ae::Vec2::new(500.0, 0.0), ..armed_snapshot() };
+    let near = BrainSnapshot { target_pos: ae::Vec2::new(40.0, 0.0), ..armed_snapshot() };
+    let (seat_cfg, mut seat) = rig(immediate_profile());
+    let cfg = engaged(seat_cfg.clone());
+    let mut state = FighterState::new(&cfg, 0x5EED);
+    let mut out = ActorControlFrame::neutral();
+    for _ in 0..60 {
+        tick_fighter(&cfg, &mut state, &far, Some(&view), &mut out);
+        assert!(!out.melee_pressed && !state.is_noticing(), "it acted on a foe out of its radius");
+    }
+    let mut ticks = Vec::new();
+    for tick in 0..60 {
+        tick_fighter(&cfg, &mut state, &near, Some(&view), &mut out);
+        ticks.push((tick, state.is_noticing(), out.melee_pressed));
+    }
+    let noticing = ticks.iter().take_while(|(_, noticing, _)| *noticing).count();
+    assert!((14..=16).contains(&noticing), "it stands for its 0.25 s notice beat: {noticing} ticks");
+    let first_press = ticks.iter().find(|(.., pressed)| *pressed).map(|(tick, ..)| *tick);
+    assert!(first_press.is_some_and(|tick| tick >= noticing), "it fights after its notice: {first_press:?}");
+    assert!(run_armed(&seat_cfg, &mut seat, 10).iter().any(|pressed| *pressed), "premise: a seat presses at once");
+}

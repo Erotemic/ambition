@@ -1,0 +1,47 @@
+// The source of the moves of `void_pugnacious_polygon`: the Pugnacious
+// Polygon's table under its own name (`borrows`), so tuning the archetype
+// tunes this fighter too.
+//
+// It is an enemy of Ambition's rooms, and Ambition is its home game: there
+// damage is health, a tilt or an aerial deals 1 and a smash attack deals 3
+// (`room_rules.ron`). The archetype's numbers are Smash percent, so `damage`
+// states this fighter's own for every move that deals damage, by its own move
+// id. The rule: a fifth of the archetype's percent, rounded, and at least 1.
+// The frames, the reach and the knockback are the archetype's.
+(
+    schema_version: 1,
+    entities: [
+        (
+            id: "void_pugnacious_polygon",
+            contracts: (
+                borrows: Some((
+                    archetype: "pugnacious_polygon",
+                    prefixes: [
+                        "polygon_brawler",
+                        "pugnacious_polygon",
+                    ],
+                    damage: {
+                        "void_pugnacious_polygon_jab": [1],
+                        "void_pugnacious_polygon_jab2": [1],
+                        "void_pugnacious_polygon_tilt_forward": [1],
+                        "void_pugnacious_polygon_tilt_up": [1],
+                        "void_pugnacious_polygon_tilt_down": [1],
+                        "void_pugnacious_polygon_dash_attack": [2],
+                        "void_pugnacious_polygon_smash_forward": [3],
+                        "void_pugnacious_polygon_smash_up": [3],
+                        "void_pugnacious_polygon_smash_down": [3],
+                        "void_pugnacious_polygon_air_neutral": [1],
+                        "void_pugnacious_polygon_air_forward": [2],
+                        "void_pugnacious_polygon_air_back": [2],
+                        "void_pugnacious_polygon_air_up": [2],
+                        "void_pugnacious_polygon_air_down": [2],
+                        "void_pugnacious_polygon_haymaker": [3],
+                        "void_pugnacious_polygon_uppercut": [2],
+                        "void_pugnacious_polygon_ground_slam": [2],
+                        "void_pugnacious_polygon_body_drop": [2],
+                    },
+                )),
+            ),
+        ),
+    ],
+)

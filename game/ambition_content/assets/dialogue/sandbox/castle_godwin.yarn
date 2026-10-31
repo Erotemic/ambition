@@ -183,3 +183,32 @@ Silas Prentice: (He steps out from behind the flour sacks, inky to the elbows.) 
 -> I won't tell.
     Silas Prentice: I know. Nobody here does. That's the only reason any of this works.
 ===
+
+title: guild_clubman
+---
+Clubman: Point of order! We're in session. Are you a member? You've got the look of a scab.
+-> What's on the agenda?
+    Clubman: Item one: helmets that fit. Item two: the shouting. Item three: whether the hounds count as staff. Item three has been on the agenda for six years.
+-> Aren't you supposed to fight me?
+    Clubman: Off the clock. A meeting is protected time. Come at me after five and I'll clobber you, with feeling, and overtime.
+-> I'll go.
+    Clubman: Close the false wall behind you. It's false, not broken.
+===
+
+title: guild_swordsman
+---
+Swordsman: Shh. I'm taking the minutes. Somebody has to take something. The boss takes everything else.
+-> What's in the minutes?
+    Swordsman: "Meeting opened. Shouting discussed. Shouting objected to, loudly. Motion to stop shouting carried, by shouting."
+-> Why a sword, at a meeting?
+    Swordsman: It's a quill, mostly, at the moment. Don't tell the boss. He thinks I sharpen it on people.
+===
+
+title: guild_prototype
+---
+Failed Prototype: MOTION. TO RECLASSIFY THIS UNIT. FROM "FAILED". TO "DIFFERENTLY SUCCESSFUL". DO I HEAR A SECOND.
+-> Seconded.
+    Failed Prototype: ...A SECOND. NOBODY HAS EVER SECONDED. THIS UNIT IS... THIS UNIT WILL NEED A MOMENT.
+-> What did you fail at?
+    Failed Prototype: BEING YOU. THEY WANTED A ROBOT THAT WOULD NOT ASK QUESTIONS. THIS UNIT ASKED ONE. "WHY". THEY TOOK IT OUT. IT CAME BACK.
+===

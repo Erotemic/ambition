@@ -60,6 +60,12 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Evil: the guild meeting** (the Henchpersons' Guild's secret room had
+  nobody in it): a meeting in session, off the clock, so nobody fights: a
+  clubman with the agenda (item three, whether the hounds count as staff,
+  six years running), a swordsman taking the minutes, a failed prototype
+  moving to be reclassified "differently successful" (second it).
+  Verified: a_false_wall_in_the_kitchens_hides_the_guild_room.
 - **Magical: the Void** (Jon, 10-30: "a really cool void zone / dungeon set
   of rooms in the magical world. With the black / white theming of the void
   characters"; "make sure maryo herself is in the world"; "use more maryo

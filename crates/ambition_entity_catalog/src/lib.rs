@@ -3112,7 +3112,8 @@ impl MoveSpec {
             lift_side,
             // The only place the fold happens. An authored route kind wins;
             // otherwise a move that commands a rise against gravity
-            // (`lift_speed > 0.0`) is a burst, and any other move is none.
+            // (`lift_speed > 0.0`) and may be used in the air is a burst, and
+            // any other move is none.
             recovery_route: match self.gates.recovery_route {
                 Some(AuthoredRecoveryRoute::SustainedAuthority { seconds, reach }) => {
                     RecoveryRoute::SustainedAuthority { seconds, reach }
@@ -3120,7 +3121,9 @@ impl MoveSpec {
                 Some(AuthoredRecoveryRoute::Teleport { distance }) => {
                     RecoveryRoute::Teleport { distance }
                 }
-                None if lift_speed > 0.0 => RecoveryRoute::Burst {
+                // A move that needs the ground is used from the ground: it
+                // is no way home, whatever it lifts.
+                None if lift_speed > 0.0 && self.gates.grounded != Some(true) => RecoveryRoute::Burst {
                     speed: lift_speed,
                     side: lift_side,
                     at_s: lift_at_s,

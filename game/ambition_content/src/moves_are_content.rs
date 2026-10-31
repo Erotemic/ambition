@@ -76,9 +76,17 @@ fn every_migrated_fighter_the_game_builds_swings_its_file_s_numbers() {
         // v2's table is the theorem chain alone, by design (see
         // `the_theorem_chain_is_two_hits_on_one_timeline`), and the Shock
         // Warden's file carries only his shield counter: his baton is his
-        // action set's melee (`movesets/shock_warden.ron`).
+        // action set's melee (`movesets/shock_warden.ron`). The attack hound's
+        // the failed prototype's and the raptor's carry only the attack they
+        // make from a run (lunge, lurch, pounce): their standing attack is their
+        // action set's melee (`movesets/evil_attack_hound.ron`,
+        // `evil_failed_prototype.ron`, `raptor_stalker.ron`).
         let floor = match id {
-            "player_robot_v2" | "npc_shock_warden" => 1,
+            "player_robot_v2"
+            | "npc_shock_warden"
+            | "npc_evil_attack_hound"
+            | "npc_evil_failed_prototype"
+            | "npc_raptor_stalker" => 1,
             _ => 20,
         };
         assert!(

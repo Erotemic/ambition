@@ -46,6 +46,9 @@ collections:
   - bubble_shield
   - pointed_polygon
   - pugnacious_polygon
+  - void_pointed_polygon
+  - void_pugnacious_polygon
+  - void_projectile_polygon
   - director
   - officer
   - performer
@@ -171,6 +174,7 @@ collections:
   - hunting_bow
   - bow_arrow
   - polygon_charge_shot
+  - void_polygon_charge_shot
   - pca_charge_shot
   - robot_slash
   - gnu_ton_slash
@@ -191,6 +195,9 @@ collections:
   - pointed_polygon_strike_fx
   - projectile_polygon_strike_fx
   - pugnacious_polygon_strike_fx
+  - void_pointed_polygon_strike_fx
+  - void_pugnacious_polygon_strike_fx
+  - void_projectile_polygon_strike_fx
   - director_strike_fx
   - performer_strike_fx
   - officer_strike_fx
@@ -231,6 +238,7 @@ collections:
   - projectile_polygon_vfx
   - pirate_admiral_vfx
   - ninja_shadow_oni_leader_vfx
+  - ninja_kagero_vfx
   - gnu_ton_vfx
   - gnu_ton_blow_fx
   - space_helmet
@@ -445,6 +453,8 @@ collections:
   - station_pippin
   - magical_celeste
   - magical_lumen
+  - math_fermat
+  - math_kepplar
   - village_matsuda
   - village_moriyama
   - village_tsuru
@@ -549,10 +559,50 @@ collections:
   - hall_lectern
   - gallery_chandelier_hung
   - gallery_chandelier_stood
+  - well_east_study
+  - well_west_parlour
+  - well_vault_table
+  - well_mistakes
   - square_wand_shop
   - square_bakery
   - square_well
   - square_house
+  - garden_hill_low
+  - garden_hill_high
+  - garden_hatch
+  - garden_star_tree
+  - garden_beds
+  - garden_pipe
+  - hollow_star_heap
+  - hollow_star_heap_east
+  - hollow_shaft_light_west
+  - hollow_shaft_light_east
+  - hollow_star_roots
+  - road_dunes
+  - road_dune_far
+  - road_cart
+  - road_lamp
+  - keep_gate
+  - keep_banner
+  - keep_star_statue
+  - keep_stair
+  - bridge_span
+  - bridge_switch
+  - bridge_tea_table
+  - rift_tear
+  - rift_outlines
+  - gallery_exhibits
+  - falls_cascade
+  - heart_black_star
+  - nursery_cradles
+  - rift_pool
+  - rift_shard
+  - void_crack_wall
+  - coliseum_stand_west
+  - coliseum_stand_east
+  - wastes_dead_things
+  - ledges_gap
+  - ring_seat
   - bad_apple
   - gravity_apple
   - mine_tunnel

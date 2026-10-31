@@ -261,7 +261,9 @@ pub struct MeleeTactics {
     /// the chase, as Hollow Knight's enemies do (Jon, 2026-10-30: "notice,
     /// space, telegraph, attack"). Its sheet's `notice` row is drawn over the
     /// beat when it has one. It notices again after it has lost its foe.
-    /// `0.0` gives chase at once.
+    /// `0.0` gives chase at once. A `Fighter` with a notice beat is a room's
+    /// enemy, and fights only a foe inside its aggro radius (`FighterEngagement`);
+    /// a `Fighter` with none fights at any distance, as a match seat does.
     #[serde(default)]
     pub notice_s: f32,
     /// A flyer lined up over its foe hangs still this long before it dives

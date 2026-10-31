@@ -1,9 +1,9 @@
 //! The shimmer in the air of a Mary-O room: sparkles and ribbons of light in
 //! the starlight rooms, embers and a low mist in the starless room, sparks
-//! and red heat in the castle.
+//! and red heat in the castle, white specks in the void.
 //!
 //! Presentation only, and content-owned. A room has a shimmer when its biome
-//! is one of Mary-O's (`ParallaxTheme::new("starlight")`, `::Stardune`, `::Starless`, `::VoidCastle`). The
+//! is one of Mary-O's (`ParallaxTheme::new("starlight")`, `::Stardune`, `::Starless`, `::VoidCastle`, `void`). The
 //! shimmer is one quad the size of the room, behind the blocks and in front
 //! of the parallax scene.
 //!
@@ -112,6 +112,18 @@ fn style_of(theme: ParallaxTheme) -> Option<ShimmerStyle> {
             tile: 480.0,
             rise: 30.0,
             band: [0.55, 0.45],
+        }),
+        // The void: specks of white that come and go, slow; one thin ribbon
+        // of grey mist. No colour.
+        "void" => Some(ShimmerStyle {
+            shapes: [[1.0, 1.0, 1.0], [0.82, 0.82, 0.84]],
+            ribbons: [[0.30, 0.30, 0.32], [0.20, 0.20, 0.22]],
+            shape_strength: 0.70,
+            ribbon_strength: 0.16,
+            twinkle: 0.9,
+            tile: 560.0,
+            rise: 4.0,
+            band: [0.45, 0.40],
         }),
         _ => None,
     }
@@ -291,10 +303,10 @@ mod tests {
 
     #[test]
     fn only_the_biomes_of_mary_o_have_a_shimmer() {
-        let with: Vec<_> = ["starlight", "stardune", "starless", "void_castle", "independent_game"].into_iter().map(ParallaxTheme::new).filter(|theme| style_of(*theme).is_some()).collect();
+        let with: Vec<_> = ["starlight", "stardune", "starless", "void_castle", "void", "independent_game"].into_iter().map(ParallaxTheme::new).filter(|theme| style_of(*theme).is_some()).collect();
         assert_eq!(
             with,
-            vec![ParallaxTheme::new("starlight"), ParallaxTheme::new("stardune"), ParallaxTheme::new("starless"), ParallaxTheme::new("void_castle")]
+            vec![ParallaxTheme::new("starlight"), ParallaxTheme::new("stardune"), ParallaxTheme::new("starless"), ParallaxTheme::new("void_castle"), ParallaxTheme::new("void")]
         );
     }
 

@@ -4109,6 +4109,14 @@ pub struct MovesetBorrow {
     /// no moves of its own: a borrower that changes a move must rename the
     /// table, or one id would name two different moves.
     pub prefixes: Vec<String>,
+    /// The damage of the borrower's HOME game, by the borrower's move id: one
+    /// value for each volume of the move that deals damage, in authoring
+    /// order. The archetype's damage is in the archetype's home game, and a
+    /// borrower whose home game measures damage differently (health, not
+    /// percent) states its own here. The frames and the geometry stay the
+    /// archetype's. A move that is not named keeps the archetype's damage.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub damage: std::collections::BTreeMap<String, Vec<i32>>,
 }
 
 /// One catalog entity: a stable id plus its contract bundle.

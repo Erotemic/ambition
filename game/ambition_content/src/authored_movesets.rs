@@ -95,6 +95,8 @@ mod reach_tests {
         // The ranged fighter. Its identity is built around distance, so its grab is
         // a tether.
         "polygon_projectile_grab",
+        // Its void, which borrows the same grab.
+        "void_projectile_polygon_grab",
     ];
 
     /// Is this move a declared tether, or the running variant the engine derives

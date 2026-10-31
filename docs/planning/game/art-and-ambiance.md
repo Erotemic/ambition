@@ -312,6 +312,18 @@ suit the style of the game.
   each shape come and go, and gives it its colour. A device with no budget
   for a shader that fills the screen draws none, and the room is then its
   scene and its skin.
+- [x] A biome for the void in Mary-O's land, `void` (Jon, 2026-10-30: "a
+  really cool void zone / dungeon ... with the black / white theming of the
+  void characters"). No colour: black things with a white or grey edge. The
+  scene is black space with white specks, broken rings about the heart of
+  the void, stars that went out, and the castle of the land broken into
+  pieces that drift apart (`backgrounds/outdoors.py::void`). The skin is
+  black with one crisp white line on each edge; the door, the ladder, the
+  decor (cracked obelisks, splinters, a fallen star) and the motes (white
+  specks) are the same. Only the play has a pure white edge: the scene and
+  the decor have grey edges, and nothing in the near layer is in the band
+  of the play, so the void enemies stay clear. No ground shadow, no
+  foreground.
 - [x] The snake with the box (`solid_snake`) is drawn again in place (Jon):
   a body with bands that tapers to its tail, a head with a gold eye under a
   brow, a bandana with two tails, a box of corrugated board in three faces

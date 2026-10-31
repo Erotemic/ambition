@@ -1529,7 +1529,7 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ **A HELD BODY'S CONTACT BASELINE IS INVALIDATED, NOT JUST ITS FLAG.**
+    /// ⛔⛔ **A HELD BODY'S CONTACT BASELINE IS STATED, NOT JUST ITS FLAG.**
     ///
     /// Jon, 2026-08-22: *"Grabbing a character still pushes them into the ground
     /// causing sfx to play repeatedly."* This system used to write
@@ -1538,14 +1538,15 @@ mod tests {
     /// forced pose, reads `false -> true`, and reports a LANDING: an
     /// `SfxMessage::Land` and a dust puff at the feet, EVERY TICK.
     ///
-    ///  this asserts `contact_initialized`, which is the half that was
-    /// missing. `on_ground` was already false and stayed false, so a test that
-    /// only read the flag agreed with the bug. The behavioural half — 120
-    /// landings in 120 ticks — is
+    /// The 08-22 fix invalidated the baseline instead, which the kernel
+    /// resolves at the hold pose: a few px off the floor, so airborne, and the
+    /// step still landed the captive every tick in a Smash grab (MEASURED
+    /// 2026-10-30: 46 landings in 47 held frames). The baseline now follows
+    /// the captor's support. The behavioural half of the first fix is
     /// `movement::tests::contacts::a_carrier_that_clears_the_ground_flag_does_not_re_land_the_body_each_tick`
     /// in the core; this one pins the WIRING that test cannot see.
     #[test]
-    fn a_held_bodys_contact_baseline_is_invalidated_every_tick() {
+    fn a_held_bodys_contact_baseline_follows_its_captor_every_tick() {
         let mut app = App::new();
         app.add_systems(Update, maintain_existing_capture_pose);
         let captor = grounded_body(&mut app, "captor", ae::Vec2::new(100.0, 50.0));
@@ -1575,15 +1576,15 @@ mod tests {
                 .world()
                 .get::<ambition_platformer2d_core::BodyGroundState>(victim)
                 .unwrap();
+            // A STATED baseline, grounded with its grounded captor: an unknown
+            // one is resolved at the hold pose, which is a few px off the
+            // floor, and the step that follows lands the captive (MEASURED:
+            // 46 landings in 47 held frames, `the_sounds_of_a_grab`).
             assert!(
-                !ground.contact_initialized,
-                "tick {tick}: the hold left the captive's contact BASELINE \
-                 standing, so the next kernel step reads airborne -> grounded \
-                 and voices a landing",
-            );
-            assert!(
-                !ground.on_ground,
-                "tick {tick}: a held body is not standing"
+                ground.contact_initialized && ground.on_ground,
+                "tick {tick}: a captive held by a grounded captor must enter the \
+                 next step grounded, or the step reads airborne -> grounded and \
+                 voices a landing",
             );
             // Put the baseline back, as a kernel step would.
             app.world_mut()
@@ -1600,8 +1601,9 @@ mod tests {
     /// wrote `on_ground = false` and left the baseline standing, so the fact was
     /// a residue of how the constraint spelled itself.
     ///
-    /// ⛔⛔ the hold now `invalidate()`s, which it must — otherwise the kernel
-    /// manufactures a landing every tick — and an invalidated baseline is
+    /// ⛔⛔ the hold states the captive's baseline every tick (grounded with a
+    /// grounded captor) — otherwise the kernel manufactures a landing every
+    /// tick. Before that it `invalidate()`d, and an invalidated baseline is
     /// RE-SAMPLED at the hold pose, which sits at the captor's own height and is
     /// therefore usually on the floor. A throw off a grounded captor came out
     /// GROUNDED, and a ground launch is not a launch:
@@ -1626,14 +1628,15 @@ mod tests {
         ));
         app.update();
 
-        // Held: the baseline is invalidated, which is the landing-loop fix.
+        // Held by a grounded captor: the baseline is stated grounded, which is
+        // the landing-loop fix (`a_held_bodys_contact_baseline_follows_its_captor_every_tick`).
         let ground = app
             .world()
             .get::<ambition_platformer2d_core::BodyGroundState>(victim)
             .unwrap();
         assert!(
-            !ground.contact_initialized,
-            "a held body's contact is unknown"
+            ground.contact_initialized && ground.on_ground,
+            "a body held by a grounded captor is held grounded"
         );
 
         // Now end the hold the way a real interruption does — despawn the
@@ -2763,6 +2766,7 @@ type CaptorPoses<'w, 's> = Query<
         Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
         Option<&'static crate::body_rig::BodyRigPose>,
         Option<&'static crate::body_rig::RigFeetOffset>,
+        Option<&'static ambition_platformer2d_core::BodyGroundState>,
     ),
     Without<CapturedBy>,
 >;
@@ -2785,7 +2789,7 @@ fn pose_captives(
     )>,
 ) {
     for (held, mut kin, mut ground, aabb, mut sweep) in &mut captives {
-        let Ok((captor_kin, captor_frame, captor_pose, captor_feet)) = captors.get(held.captor) else {
+        let Ok((captor_kin, captor_frame, captor_pose, captor_feet, captor_ground)) = captors.get(held.captor) else {
             // The captor is gone. Releasing is the RELEASE path's job, not this
             // one's — a constraint system that also dissolved relationships
             // would be a second authority on when a capture ends.
@@ -2815,15 +2819,22 @@ fn pose_captives(
         ae::movement::constrain_body_pose(&mut kin, sweep.as_deref_mut(), pos, captor_kin.vel);
         // Gravity is not written here: the frame resolver reads `CapturedBy`
         // and gives a held body no pull.
-        // ⛔⛔ **`invalidate()`, NOT `on_ground = false`.** A hold writes the
-        // captive's pose discretely every tick, which is precisely the "discrete
-        // pose change" this call exists for: it clears the contact BASELINE as
-        // well as the flag. Setting only the flag tells the kernel this body was
-        // AIRBORNE last tick, so the moment the hold puts it against the floor
-        // the kernel reads `false -> true` and reports a LANDING — every tick,
-        // for as long as the grab lasts. That is one `SfxMessage::Land` and one
-        // dust puff per tick, which is what a grab sounded and looked like.
+        // ⛔⛔ **THE CAPTIVE IS SUPPORTED WHERE ITS CAPTOR IS, AND SAYS SO.** A
+        // hold writes the captive's pose every tick, so its contact baseline is
+        // reset every tick. `on_ground = false` alone (before 2026-08-22) said
+        // "airborne last tick"; `invalidate()` (since) said "unknown", and the
+        // kernel resolves unknown by sampling support at the hold pose, which
+        // a hold offset lifts a few px off the floor: airborne. The step then
+        // put the body on the floor and the kernel reported a LANDING, one
+        // `SfxMessage::Land` and one dust puff a tick for the whole grab
+        // (MEASURED, app_it smash_reaction_poses::the_sounds_of_a_grab: 46
+        // landings in 47 held frames). The baseline is stated: grounded with a
+        // grounded captor, airborne with one in the air.
         ground.invalidate();
+        if captor_ground.is_some_and(|support| support.on_ground) {
+            ground.on_ground = true;
+            ground.contact_initialized = true;
+        }
         //  the coarse-box mirror moves in the SAME tick, exactly as the mount's
         // does: combat and presentation both read it, and a captive whose damage
         // box stayed where it was grabbed could be hit in mid-air by a strike

@@ -150,6 +150,18 @@ fn a_cell_states_each_fact_once() {
     assert_eq!(details[Item::GunSword.index()], "equipped");
     assert_eq!(details[Item::Javelin.index()], "equip");
     assert_eq!(details[Item::HealthCell.index()], "use | x3");
+    // A locked cell (a placeholder) says so once, and its name fits its cell:
+    // no "--" beside "not owned", no " - ???" after the name.
+    assert_eq!(details[Item::Lightning.index()], "not owned");
+    let labels: Vec<String> = page
+        .nodes
+        .iter()
+        .filter_map(|node| match node {
+            MenuNode::Control { kind: MenuControlKind::Item, label, .. } => Some(label.clone()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(labels[Item::Lightning.index()], cell_label("Lightning"));
     for detail in &details {
         let words: Vec<String> = detail.split(" | ").map(str::to_lowercase).collect();
         let mut unique = words.clone();

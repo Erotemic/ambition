@@ -61,6 +61,12 @@ pub struct CastFramingTuning {
     /// A member wholly outside the view is shown in a bubble at the view's
     /// edge. `None` shows nothing: the member is simply off the screen.
     pub bubble: Option<CastBubble>,
+    /// Draw bodies BETWEEN their last two ticks (one tick behind, never
+    /// overshooting) rather than a tick AHEAD of the last one
+    /// (`PresentedPose`). A game whose bodies stop, turn and freeze every few
+    /// frames reads smoother interpolated; a game that wants the least visual
+    /// latency extrapolates.
+    pub interpolate_poses: bool,
 }
 
 /// THE OFF-SCREEN BUBBLE of a cast member: a ring at the view's edge, on the
@@ -112,6 +118,7 @@ impl Default for CastFramingTuning {
             zoom_in_hz: 10.0,
             bounds: None,
             bubble: None,
+            interpolate_poses: false,
         }
     }
 }

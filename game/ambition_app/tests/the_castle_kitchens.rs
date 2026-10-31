@@ -106,7 +106,7 @@ fn the_lever_in_the_cells_opens_the_trapdoor_up_to_the_barracks() {
 
 /// The secret: the kitchens' west wall is false at the floor. Walk into it
 /// and you are in the Henchpersons' Guild's room (the strike fund in its
-/// chest), and back. The map does not show the room behind it until it is
+/// chest; a meeting in session, off the clock: the clubman talks), and back. The map does not show the room behind it until it is
 /// found.
 #[test]
 fn a_false_wall_in_the_kitchens_hides_the_guild_room() {
@@ -126,6 +126,8 @@ fn a_false_wall_in_the_kitchens_hides_the_guild_room() {
     assert!(!before.contains(&"castle_godwin_guild_room".to_string()), "the secret room is not on the map: {before:?}");
     assert!(before.contains(&COMPLAINTS.to_string()), "control: the open way east is: {before:?}");
     go(&mut app, "castle_godwin_guild_room", Some("secret_kitchens_west"));
+    talk(&mut app, "npc_fascist_clubman", "What's on the agenda?");
+    talk(&mut app, "npc_evil_failed_prototype", "Seconded.");
     go(&mut app, KITCHENS, Some("secret_guild_east"));
     let after = shown(&app, &[KITCHENS, "castle_godwin_guild_room"]);
     assert!(after.contains(&"castle_godwin_guild_room".to_string()), "found, it is on the map: {after:?}");

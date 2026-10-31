@@ -21,6 +21,7 @@
         ( type: "PlayerStart", px: [472, 530], size: [28, 46], fields: ( name: "math_conjectures_spawn" ) ),
         ( type: "ChestSpawn", px: [240, 518], size: [76, 58], fields: ( name: "a proof (it is wrong)", reward: "currency:120" ) ),
         ( type: "DebugLabel", px: [70, 90], size: [452, 24], fields: ( name: "conjectures_sign", text: "THE CONJECTURES: solutions welcome, by post", category: "Custom" ) ),
+        ( type: "NpcSpawn", px: [384, 512], size: [32, 64], fields: ( character_id: "npc_math_fermette", prompt: "Talk", dialogue_id: "conjectures_fermette", brain_override: "stand_still" ) ),
         ( type: "CameraZone", px: [0, 0], size: [592, 640], fields: ( id: "math_conjectures_camera", name: "math_conjectures_camera", mode: "Default" ) ),
         ( type: "DebugLabel", px: [70, 40], size: [452, 24], fields: ( name: "math_conjectures_label", text: "The Conjectures.", category: "Custom" ) ),
     ],

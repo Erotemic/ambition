@@ -439,11 +439,10 @@ pub enum MenuPageAction {
 /// full description — the description lives in the detail panel.
 ///
 /// One statement for each fact: an equipped cell has no hint, because the
-/// library writes "equipped" for it (`InventoryItemNode::equipped`).
+/// library writes "equipped" for it (`InventoryItemNode::equipped`), and an
+/// unowned cell has none, because the library writes "not owned".
 fn cell_hint(owned: &OwnedItems, items: &ItemCatalog, equipped: EquippedItems, item: Item) -> Option<&'static str> {
-    if !owned.has(item) {
-        Some("--")
-    } else if equipped.contains(item) {
+    if !owned.has(item) || equipped.contains(item) {
         None
     } else if items.equips(item) {
         Some("equip")

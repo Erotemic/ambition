@@ -50,6 +50,21 @@ pub struct FighterCfg {
     /// "every zero ticks" is a divide-by-zero dressed as a config.
     pub decision_interval_ticks: u32,
     pub tick_hz: f32,
+    /// When it starts to fight. `None`: always, at any distance, as a seat in
+    /// a match does: the stage is the fight.
+    pub engagement: Option<FighterEngagement>,
+}
+
+/// When a fighter that is a room's enemy starts to fight (Jon, 2026-10-30:
+/// enemies "notice, space, telegraph, attack"). It stands idle until it knows
+/// a foe inside `aggro_radius`, or until it is hit. Then it stands and looks
+/// at the foe for `notice_s`, and then it fights until it loses the foe.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FighterEngagement {
+    /// The distance (px) inside which it notices a foe it knows.
+    pub aggro_radius: f32,
+    /// How long it stands and looks at a foe it has just noticed (s).
+    pub notice_s: f32,
 }
 
 impl FighterCfg {
@@ -59,7 +74,14 @@ impl FighterCfg {
             tuning: ShadowTuning::default(),
             decision_interval_ticks: DEFAULT_DECISION_INTERVAL_TICKS,
             tick_hz: DEFAULT_TICK_HZ,
+            engagement: None,
         }
+    }
+
+    /// This config, starting to fight as `engagement` says.
+    pub fn engaging(mut self, engagement: FighterEngagement) -> Self {
+        self.engagement = Some(engagement);
+        self
     }
 
     pub fn interval(&self) -> u32 {
@@ -218,6 +240,19 @@ pub struct FighterState {
     /// The tactical intent held across decisions (`intent.rs`), when the
     /// profile runs tactics.
     pub intent: Option<super::intent::Intent>,
+    /// It has noticed its foe and fights ([`FighterCfg::engagement`]).
+    /// Cleared when it loses the foe, so it notices again.
+    pub noticed: bool,
+    /// Seconds it still stands and looks at the foe it has just noticed.
+    pub noticing: f32,
+}
+
+impl FighterState {
+    /// It stands and looks at a foe it has just noticed
+    /// ([`FighterEngagement::notice_s`]).
+    pub fn is_noticing(&self) -> bool {
+        self.noticing > 0.0
+    }
 }
 
 /// The observable facts about a foe that a habit is inferred from. Deliberately
@@ -248,6 +283,8 @@ impl FighterState {
             own_attack: None,
             refused: None,
             intent: None,
+            noticed: false,
+            noticing: 0.0,
         }
     }
 }

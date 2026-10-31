@@ -622,6 +622,35 @@ fn retiming_the_archetype_retimes_its_borrower() {
     );
 }
 
+/// A borrower from another game states its home damage over the archetype's
+/// shape: the jab of a percent fighter deals 1 health on the borrower, and
+/// keeps its frames. The archetype's damage does not change.
+#[test]
+fn a_borrower_states_its_own_games_damage_over_the_archetypes_shape() {
+    let borrower = A_BORROWER.replace(
+        r#"prefixes: ["duelist"])"#,
+        r#"prefixes: ["duelist"], damage: { "mimic_jab": [1] })"#,
+    );
+    assert_ne!(borrower, A_BORROWER, "the edit applied to the fixture");
+    let pack = accept(&[("moves/duelist.ron", AN_ARCHETYPE), ("moves/mimic.ron", &borrower)]);
+    let table = lowered_movesets(&pack).expect("lowers");
+    let damage = |id: &str, mv: &str| -> Vec<i32> {
+        let spec = table[id].move_by_id(mv).expect("the move is in the table");
+        spec.windows.iter().flat_map(|w| w.volumes.iter()).map(|v| v.damage).collect()
+    };
+    assert_eq!(damage("mimic", "mimic_jab"), [1], "the borrower's own damage");
+    assert_eq!(damage("duelist", "duelist_jab"), [3], "the archetype keeps its damage");
+    assert_eq!(table["mimic"].move_by_id("mimic_jab").map(|jab| jab.duration_s), Some(0.40));
+    for (why, wrong) in [
+        ("a move the table does not have", r#""mimic_nothing": [1]"#),
+        ("a list of the wrong length", r#""mimic_jab": [1, 1]"#),
+    ] {
+        let wrong = borrower.replace(r#""mimic_jab": [1]"#, wrong);
+        let text = format!("{:?}", refuse(&[("moves/duelist.ron", AN_ARCHETYPE), ("moves/mimic.ron", &wrong)]));
+        assert!(text.contains("moves/mimic.ron"), "{why}: the refusal does not name the borrower's file: {text}");
+    }
+}
+
 /// Each way a borrow can be wrong is refused at compile time, naming the
 /// borrower's file.
 #[test]

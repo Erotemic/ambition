@@ -85,9 +85,19 @@ fn lower_policy(
         CharacterBrainTemplate::StandStill => Brain::StateMachine(StateMachineCfg::StandStill),
         CharacterBrainTemplate::Fighter => {
             let level = policy.fighter_level;
-            let cfg = ambition_characters::brain::fighter::FighterCfg::new(
+            let mut cfg = ambition_characters::brain::fighter::FighterCfg::new(
                 ambition_characters::brain::fighter::FighterBrainProfile::engine_default(level),
             );
+            // A policy with a notice beat is a room's enemy: it fights a foe
+            // inside its aggro radius once it has noticed it. A policy with
+            // none is a match seat's, which fights at any distance; its
+            // aggro radius is not read.
+            if policy.tactics.notice_s > 0.0 {
+                cfg = cfg.engaging(ambition_characters::brain::fighter::FighterEngagement {
+                    aggro_radius: policy.aggro_radius,
+                    notice_s: policy.tactics.notice_s,
+                });
+            }
             let state = ambition_characters::brain::fighter::FighterState::new(
                 &cfg,
                 fighter_cognition_seed(enemy, &identity.id, level),

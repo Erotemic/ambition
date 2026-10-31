@@ -329,3 +329,4 @@ mod body_reaction_clocks;
 
 mod body_control_acceptance;
 mod repertoire_publication;
+mod smash_reaction_poses;

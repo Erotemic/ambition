@@ -11,9 +11,29 @@
 
 **Phase 2 wiring: done for launch, prone, getup and tech, recoil, and run stop** (`611177e91`). The kernel publishes `BodyMotionFacts::{launched, prone_face_down, getup}`. `BodyCombat::struck_height` records where the hit resolver accepted a hit. `body_state_clip` routes all four families. `StopClock` is one stop rule for the player road and the actor road (the actor road had no stop rule before). `AMBITION_CLIP_TRACE=1` prints the requested chain and the row drawn. Rollback schema is now v392.
 
-Evidence from a traced CPU match (MEASURED: `smash_match_profile --character pointed_polygon --fighters 2 --ticks 2400`). Drawn: `launch_horizontal` 8, `launch_up` 6, `launch_down` 1, `prone_face_down` 6, `prone_face_up` 2, `hit_high` 4, `hit_mid` 2, `hit_air` 2, `getup` 5, `walk_stop` 3. Not seen in that match: `hit_low`, `tech`, `run_stop` (every stop came out of a walk) and `teeter` (a pose, not a clip request, so the trace does not print it). Unit tests cover their routing.
+Evidence from a traced CPU match (MEASURED: `smash_match_profile --character pointed_polygon --fighters 2 --ticks 2400`). Drawn: `launch_horizontal` 8, `launch_up` 6, `launch_down` 1, `prone_face_down` 6, `prone_face_up` 2, `hit_high` 4, `hit_mid` 2, `hit_air` 2, `getup` 5, `walk_stop` 3.
 
-**Open:** Jon's review of the art at game scale; a recorded match that shows tech, run stop and teeter; getups that match the prone orientation (art backlog); `teeter_start`; wall and ceiling tech art; Phase 3.
+Evidence for every family, human and CPU seats (MEASURED: `app_it::smash_reaction_poses`, in the shipped composition). The test checks that each reaction row a body asks for is the row its animator draws, and prints each sequence (T tumbling, K knocked down, then the getup kind):
+
+```text
+human thrown up:      launch_up[T] -> launch_horizontal[T] -> tumble[T] -> prone_face_up[K] -> getup[Getup] -> Idle
+human thrown back:    launch_horizontal[T] -> tumble[T] -> prone_face_up[K] -> getup[Getup] -> Idle
+human thrown forward: launch_horizontal[T] -> tumble[T] -> prone_face_down[K] -> getup[Getup] -> Idle
+human spiked:         launch_down[T] -> prone_face_down[K] -> getup[Getup] -> Idle
+human tech:           tech[Tech]
+human hit high / low: hit_high / hit_low
+human run, stop:      Idle -> Walk -> Run, then Run -> Walk -> run_stop
+human teeter:         Teeter, then Teeter -> Walk -> Run off the edge
+cpu thrown up:        launch_up[T] -> tumble[T] -> air_down[T] -> tumble[T] -> tech[Tech] -> ...
+cpu thrown back:      launch_horizontal[T] -> tumble[T] -> prone_face_up[K] -> getup_roll[GetupRoll] -> ...
+cpu thrown forward:   launch_horizontal[T] -> tumble[T] -> tech_roll[TechRoll] -> ...
+cpu spiked:           launch_down[T] -> prone_face_down[K] -> getup_roll[GetupRoll] -> ...
+cpu hit low:          hit_low
+```
+
+The launches go through the launch gateway a hit uses, the run and the teeter use a real pad, and the CPU's techs are its own. The human's tech and the recoils write the state the kernel and the hit resolver write. In the up-launch, a second hit mid-flight launched the body again, which re-decided the direction. The test found one defect, now fixed: a run slows through a few Walk frames before it stops, so a run's stop drew `walk_stop`. `StopClock` now remembers a run it left less than `RUN_STOP_AFTER_RUN_SECS` before.
+
+Old/new contact sheets at the full tier and at about gameplay scale (0.35): `reaction_review` with the fallback rows interleaved (`launch,launch_up,...,walk_stop,run_stop`). The weakest changes at gameplay scale are pugnacious's `run_stop` and `hit_low`.
 
 ## Decision and outcome
 

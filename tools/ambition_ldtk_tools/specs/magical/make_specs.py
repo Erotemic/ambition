@@ -584,6 +584,9 @@ def coliseum():
     roof; out at the floor, west, to the wastes."""
     rid, w, h, g, top = COLISEUM, COLISEUM_W, COLISEUM_H, COLISEUM_FLOOR, VOID_ROOF
     e = [
+        # The stands and their crowd (`targets/props/magical_unlit_props.py`).
+        piece("coliseum_stand_west", 30, 720),
+        piece("coliseum_stand_east", 1880 - 440 - 10, 720),
         solid("floor", 0, g, w, h - g),
         solid("roof_west", 0, 0, COLISEUM_TOP[0], top),
         solid("roof_east", COLISEUM_TOP[1], 0, w - COLISEUM_TOP[1], top),
@@ -610,6 +613,7 @@ def wastes():
     stars hunt here."""
     rid, w, h, g, top = WASTES, WASTES_W, VOID_H, VOID_FLOOR, VOID_ROOF
     e = [
+        piece("wastes_dead_things", 300, g - 340, px=1.5),
         solid("floor", 0, g, w, h - g),
         solid("roof", 0, 0, w, top),
         edge("wastes_west", "back to the falls", 0, g, FALLS, "falls_east"),

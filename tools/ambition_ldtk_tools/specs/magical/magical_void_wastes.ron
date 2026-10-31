@@ -13,6 +13,7 @@
     music_track: "sparse_theme",
     dangerous: true,
     entities: [
+        ( type: "Prop", px: [313, 238], size: [2085, 338], fields: ( name: "wastes_dead_things", kind: "wastes_dead_things" ) ),
         ( type: "Solid", px: [0, 576], size: [2560, 64], fields: ( name: "floor" ) ),
         ( type: "Solid", px: [0, 0], size: [2560, 64], fields: ( name: "roof" ) ),
         ( type: "LoadingZone", px: [0, 480], size: [16, 96], fields: ( id: "wastes_west", name: "back to the falls", activation: "EdgeExit", target_room: "magical_void_falls", target_zone: "falls_east", bidirectional: true ) ),

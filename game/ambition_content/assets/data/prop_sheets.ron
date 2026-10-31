@@ -332,6 +332,10 @@
     "rift_pool": (),
     "rift_shard": (),
     "void_crack_wall": (),
+    // The Unlit (hostile void): the ring's stands, the wastes.
+    "coliseum_stand_west": (),
+    "coliseum_stand_east": (),
+    "wastes_dead_things": (),
     "mine_tunnel": (),
     "hamlet_west": (),
     "hamlet_east": (),

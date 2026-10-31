@@ -13,6 +13,8 @@
     music_track: "invincible_maryo",
     dangerous: true,
     entities: [
+        ( type: "Prop", px: [40, 730], size: [440, 486], fields: ( name: "coliseum_stand_west", kind: "coliseum_stand_west" ) ),
+        ( type: "Prop", px: [1440, 730], size: [440, 486], fields: ( name: "coliseum_stand_east", kind: "coliseum_stand_east" ) ),
         ( type: "Solid", px: [0, 1216], size: [1920, 64], fields: ( name: "floor" ) ),
         ( type: "Solid", px: [0, 0], size: [928, 64], fields: ( name: "roof_west" ) ),
         ( type: "Solid", px: [992, 0], size: [928, 64], fields: ( name: "roof_east" ) ),

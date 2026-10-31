@@ -590,6 +590,9 @@ collections:
   - rift_pool
   - rift_shard
   - void_crack_wall
+  - coliseum_stand_west
+  - coliseum_stand_east
+  - wastes_dead_things
   - bad_apple
   - gravity_apple
   - mine_tunnel

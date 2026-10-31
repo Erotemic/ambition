@@ -709,7 +709,11 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
 
         // The light about each glowing actor, after the frame, the look and
         // the impostor of its body are chosen, so it is at the drawn place.
-        app.add_systems(bevy::prelude::Startup, actor_glow::load_actor_glow_picture);
+        app.add_systems(
+            bevy::prelude::Startup,
+            actor_glow::build_actor_glow_picture
+                .run_if(bevy::ecs::schedule::common_conditions::resource_exists::<bevy::asset::Assets<bevy::image::Image>>),
+        );
         app.add_systems(
             Update,
             (actor_glow::grant_player_glows, actor_glow::sync_actor_glows)

@@ -79,6 +79,8 @@ to touch, and a little danger outside town. No quest chains.
   The ring's purse on its top platform under an empty champion's seat;
   posts at each lip of the ledges' gaps keep the void stars on their walk
   (seen after 15 s of play). Mary-O's front door, a pink pipe, in the garden.
+  Every blow a void fighter lands costs 1-3 health, throws, mines and shots
+  included; one struck by an unseen foe turns and comes (4dff28ab2).
   Verified: the_unlit_is_a_loop_from_the_rift_back_to_the_falls.
 - **Math: two keepers** (2e961cff7 and this): Pierre de Fermette (a parody
   of Fermat) keeps the Conjectures, every problem on the walls solved, the

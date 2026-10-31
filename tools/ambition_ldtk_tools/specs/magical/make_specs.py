@@ -171,7 +171,7 @@ def hollow():
         slop(rid, 3, 2300, g),
     ]
     return rid, room(rid, e, at=HOLLOW_AT, size=(w, h), biome="starless", music="vault_in_the_dark", bg="#1E1430",
-                     title="THE STARLESS HOLLOW", generator=GENERATOR)
+                     title="THE STARLESS HOLLOW", generator=GENERATOR, dangerous=True)
 
 
 def road():
@@ -192,7 +192,7 @@ def road():
         slop(rid, 3, 2600, FLOOR),
     ]
     return rid, room(rid, e, at=ROAD_AT, size=(w, H), biome="stardune", music="pulse_drift_voyage", bg="#3A2850",
-                     title="THE DUNE ROAD", generator=GENERATOR)
+                     title="THE DUNE ROAD", generator=GENERATOR, dangerous=True)
 
 
 ROOMS = (garden, square, hollow, road)

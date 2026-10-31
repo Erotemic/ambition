@@ -343,6 +343,7 @@ mod tests {
                         clip: None,
                         move_charge: Some(*charge),
                         passage_look: None,
+                        stop: Default::default(),
                     },
                 )
             })

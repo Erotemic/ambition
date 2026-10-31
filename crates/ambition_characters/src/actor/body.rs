@@ -356,6 +356,11 @@ pub struct BodyCombat {
     /// at all. [`ArmorPolicy::Super`] is exactly the old `true` and
     /// [`ArmorPolicy::None`] exactly the old `false`.
     pub armor: ArmorPolicy,
+    /// WHERE the last damaging hit landed on this body: px above its centre,
+    /// along its own up (negative is below). Written by the hit resolver when
+    /// a hit is accepted, never by an overlap. A picture fact: the recoil row
+    /// is chosen from it, and no gameplay reads it.
+    pub struck_height: f32,
     // ── Actor status / attack-timeline presentation ──
     pub training_dummy: bool,
 }
@@ -722,6 +727,10 @@ mod hard_lock_tests {
             // displacement on whichever system happened to run first.
             asdi_owed: _,
 
+            // Not a timer: where the last hit landed, read only while the
+            // hitstun it came with runs.
+            struck_height: _,
+
             // Not a timer.
             training_dummy: _,
         } = combat;
@@ -757,6 +766,10 @@ mod hard_lock_tests {
             // Cleared by `reset()`: a body put back to spawn owes nothing from
             // a freeze that is no longer happening.
             asdi_owed: _,
+
+            // NOT cleared: read only while a hitstun runs, and reset clears
+            // the hitstun.
+            struck_height: _,
 
             // Construction-owned; reset does not change body identity.
             training_dummy: _,

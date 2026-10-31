@@ -404,6 +404,7 @@ pub fn resolve_body_hit(
     }
     combat.hit_flash = feel.hit_flash;
     combat.damage_invuln_timer = feel.damage_invuln_time;
+    combat.struck_height = -(impact_pos - body_pos).dot(gravity_dir);
     let damage = ((raw_damage as f32) * damage_multiplier).round() as i32;
     // ⛔⛔ AN AUTHORED ZERO IS A WINDBOX, NOT A ROUNDING ACCIDENT. The floor
     // exists so a heavily staled or scaled-down STRIKE still registers as a hit

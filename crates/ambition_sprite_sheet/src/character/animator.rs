@@ -446,7 +446,23 @@ impl CharacterAnimator {
         fallback: CharacterAnim,
     ) {
         self.clip_loops = false;
-        let Some(slot) = self.spec.clip_slot(chain) else {
+        let slot = if clip_trace_on() {
+            let chain: Vec<&str> = chain.into_iter().collect();
+            let slot = self.spec.clip_slot(chain.iter().copied());
+            if slot != self.clip_slot {
+                match slot {
+                    Some(slot) => {
+                        let (sheet, row) = self.spec.row_name_at(slot);
+                        eprintln!("[clip] {sheet}: asked {chain:?}, drew {row}");
+                    }
+                    None => eprintln!("[clip] asked {chain:?}, no row: drew the pose {fallback:?}"),
+                }
+            }
+            slot
+        } else {
+            self.spec.clip_slot(chain)
+        };
+        let Some(slot) = slot else {
             self.request(fallback);
             return;
         };
@@ -675,4 +691,11 @@ impl CharacterAnimator {
             self.frame += 1;
         }
     }
+}
+
+/// `AMBITION_CLIP_TRACE=1` prints each change of the row a requested clip
+/// chain resolves to: the chain asked for and the row the sheet drew.
+fn clip_trace_on() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var_os("AMBITION_CLIP_TRACE").is_some_and(|v| v != "0"))
 }

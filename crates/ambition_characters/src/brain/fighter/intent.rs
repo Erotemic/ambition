@@ -33,6 +33,17 @@ pub enum IntentKind {
     Punish,
 }
 
+impl IntentKind {
+    /// The rollback wire code. Here, beside the kinds, so the brain codec
+    /// names no fighter type.
+    pub fn code(self) -> u8 {
+        match self {
+            Self::Space => 0,
+            Self::Punish => 1,
+        }
+    }
+}
+
 /// The objective held across decisions.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Intent {

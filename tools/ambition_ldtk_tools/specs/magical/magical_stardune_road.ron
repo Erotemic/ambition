@@ -11,6 +11,7 @@
     biome: "stardune",
     parallax_theme: "stardune",
     music_track: "pulse_drift_voyage",
+    dangerous: true,
     entities: [
         ( type: "Solid", px: [0, 640], size: [3200, 128], fields: ( name: "ground_0" ) ),
         ( type: "Solid", px: [3184, 0], size: [16, 640], fields: ( name: "east_wall" ) ),

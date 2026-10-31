@@ -156,6 +156,11 @@ impl CharacterSheetSpec {
         self.record.first_bound_row(chain).map(|bound| bound.slot())
     }
 
+    /// The row a slot resolved by [`Self::clip_slot`] names, and the sheet.
+    pub fn row_name_at(&self, slot: usize) -> (&str, &str) {
+        (self.record.target.as_str(), self.record.rows[slot].animation.as_str())
+    }
+
     /// Per-row timing for a slot resolved by [`Self::clip_slot`].
     pub(crate) fn row_at(&self, slot: usize) -> RowInfo {
         let row = &self.record.rows[slot];

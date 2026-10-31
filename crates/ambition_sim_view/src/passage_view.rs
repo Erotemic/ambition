@@ -152,6 +152,7 @@ mod tests {
             clip: None,
             move_charge: None,
             passage_look: None,
+            stop: Default::default(),
         }
     }
 

@@ -242,6 +242,17 @@ pub struct BodyMotionFacts {
     pub knocked_down: bool,
     /// Tech/getup invulnerability is running.
     pub getup_invulnerable: bool,
+    /// Thrown by a launch and still helpless in it: which way it threw the
+    /// body, decided at the launch. `None` once control comes back, while the
+    /// rest of the tumble is [`Self::tumbling`] alone.
+    pub launched: Option<crate::movement::knockdown::LaunchDirection>,
+    /// The body lies on its face, not on its back. Read with
+    /// [`Self::knocked_down`] and [`Self::getup`]; held from the knockdown
+    /// through the getup that ends it.
+    pub prone_face_down: bool,
+    /// The way out of the floor game this body took, while its
+    /// [`Self::getup_invulnerable`] runs.
+    pub getup: Option<crate::movement::knockdown::GetupKind>,
     /// The blink telegraph is showing (precision aim or charge hold).
     pub blink_telegraph: bool,
     /// Precision blink aim specifically (drives the aim preview).
@@ -332,10 +343,16 @@ impl BodyMotionFacts {
             self.ledge.is_some(),
             self.ledge.is_some_and(|ledge| ledge.climbing),
             self.adhesive_crawling,
+            self.prone_face_down,
         ];
         let bits = flags.iter().enumerate().fold(0u64, |bits, (i, set)| bits | (u64::from(*set) << i));
         let anchor = self.wire_anchor.unwrap_or_default();
         let amounts = [self.air_jump_rise_owned, anchor.x, anchor.y, self.blink_aim_offset.x, self.blink_aim_offset.y];
+        let codes = [
+            self.launched.map_or(0, crate::movement::knockdown::LaunchDirection::code),
+            self.getup.map_or(u8::MAX, crate::movement::knockdown::GetupKind::code),
+        ];
+        let bits = codes.iter().fold(bits, |acc, code| acc.rotate_left(8) ^ u64::from(*code));
         amounts.iter().fold(bits, |acc, amount| acc.rotate_left(13) ^ u64::from(amount.to_bits()))
     }
 
@@ -407,6 +424,11 @@ impl BodyMotionFacts {
             tumbling: state.tumble_until_landing,
             knocked_down: state.knockdown_timer > 0.0,
             getup_invulnerable: state.getup_invuln_timer > 0.0,
+            launched: state
+                .launch_direction
+                .filter(|_| state.tumble_until_landing && state.tumble_timer > 0.0),
+            prone_face_down: state.prone_face_down,
+            getup: (state.getup_invuln_timer > 0.0).then_some(state.getup_kind),
             blink_telegraph: state.blink_aiming || state.blink_hold_active,
             blink_aiming: state.blink_aiming,
             blink_aim_offset: state.blink_aim_offset,

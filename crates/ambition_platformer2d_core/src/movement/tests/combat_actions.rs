@@ -923,6 +923,62 @@ fn a_tumbling_body_that_lands_is_knocked_down_and_stands_up_on_its_own() {
     );
 }
 
+/// THE FLOOR GAME'S PICTURES ARE FACTS. The launch is drawn the way it threw
+/// the body, decided at the launch and held through the arc (a launch that
+/// arcs over must not turn into a dive); a body thrown away from the way it
+/// faces lands on its back and one thrown the way it faces on its face; and
+/// the getup says which way out it took.
+#[test]
+fn the_floor_game_publishes_how_the_body_was_thrown_how_it_lies_and_how_it_rose() {
+    use knockdown::{GetupKind, LaunchDirection};
+    let thrown = |velocity: Vec2| {
+        let world = test_world();
+        let mut scratch = scratch_at(world.spawn);
+        scratch.kinematics.pos.y = world.size.y - 400.0;
+        scratch.ground.on_ground = false;
+        scratch.flight.pending_launch = velocity;
+        step_fighter(&world, &mut scratch, InputState::default());
+        crate::movement::BodyMotionFacts::from_model(&scratch.model).launched
+    };
+    assert_eq!(thrown(Vec2::new(100.0, -900.0)), Some(LaunchDirection::Up));
+    assert_eq!(thrown(Vec2::new(-700.0, -300.0)), Some(LaunchDirection::Side));
+    assert_eq!(thrown(Vec2::new(300.0, 900.0)), Some(LaunchDirection::Down));
+
+    for (facing, face_down) in [(-1.0, false), (1.0, true)] {
+        let world = test_world();
+        let mut scratch = scratch_at(world.spawn);
+        scratch.kinematics.facing = facing;
+        launch(&world, &mut scratch, 900.0);
+        let mut knocked = false;
+        for _ in 0..200 {
+            let events = step_fighter(&world, &mut scratch, InputState::default());
+            let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+            if let Some(direction) = facts.launched {
+                assert_eq!(direction, LaunchDirection::Side, "the launch pose changed in the arc");
+            }
+            if events.operations.contains(&MovementOp::Knockdown) {
+                knocked = true;
+                break;
+            }
+        }
+        assert!(knocked, "the landing resolved into a knockdown");
+        let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+        assert_eq!(facts.prone_face_down, face_down, "facing {facing}");
+        let mut stood = false;
+        for _ in 0..120 {
+            let events = step_fighter(&world, &mut scratch, InputState::default());
+            if events.operations.contains(&MovementOp::Getup) {
+                stood = true;
+                break;
+            }
+        }
+        assert!(stood, "the knockdown ends on its own");
+        let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+        assert_eq!(facts.getup, Some(GetupKind::Getup));
+        assert_eq!(facts.prone_face_down, face_down, "the getup kept the way the body lay");
+    }
+}
+
 /// A tech refuses the knockdown, and the i-frames it grants are the SAME
 /// `evading()` term every other evade uses.
 #[test]
@@ -970,6 +1026,7 @@ fn a_tech_on_the_landing_skips_the_knockdown_entirely() {
         facts.evading(),
         "a tech is invulnerable through the one term the damage rule reads"
     );
+    assert_eq!(facts.getup, Some(knockdown::GetupKind::Tech), "the tech is drawn as a tech");
 }
 
 /// DOWN ON THE STICK EVADES IN PLACE.

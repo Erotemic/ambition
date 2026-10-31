@@ -55,6 +55,7 @@ pub use local_view::{
     ViewPlacement, ViewSubject, ViewsOnHand,
 };
 pub use passage_view::{rebuild_passage_views, PassageLookView, PassageViews};
+pub use pose_view::StopClock;
 pub use pose_view::{
     rebuild_body_pose_views, rebuild_launched_bodies_view, rebuild_shield_views, BodyPoseView, GuardBreakFact, GuardBreaksView, PoseGeometry, LaunchedBodiesView,
     LaunchedBodyFact, ShieldRingFact, ShieldRingsView, LOOK_UP_CLIP,

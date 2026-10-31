@@ -189,6 +189,9 @@ fn put_axis_maneuver_state(out: &mut Vec<u8>, state: &crate::AxisManeuverState) 
     put_f32(out, state.tech_lockout_timer);
     put_f32(out, state.knockdown_timer);
     put_f32(out, state.getup_invuln_timer);
+    put_u8(out, state.launch_direction.map_or(0, crate::movement::knockdown::LaunchDirection::code));
+    put_bool(out, state.prone_face_down);
+    put_u8(out, state.getup_kind.code());
     put_ledge_grab(out, &state.ledge_grab);
     put_wire(out, &state.wire);
     put_bool(out, state.gliding);
@@ -251,6 +254,12 @@ fn axis_maneuver_state(r: &mut Reader<'_>) -> Option<crate::AxisManeuverState> {
         tech_lockout_timer: r.f32()?,
         knockdown_timer: r.f32()?,
         getup_invuln_timer: r.f32()?,
+        launch_direction: match r.u8()? {
+            0 => None,
+            code => Some(crate::movement::knockdown::LaunchDirection::from_code(code)?),
+        },
+        prone_face_down: r.bool()?,
+        getup_kind: crate::movement::knockdown::GetupKind::from_code(r.u8()?)?,
         ledge_grab: ledge_grab(r)?,
         wire: wire(r)?,
         gliding: r.bool()?,

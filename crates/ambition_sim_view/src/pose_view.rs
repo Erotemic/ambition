@@ -59,6 +59,52 @@ pub const STOP_SECS: f32 = 0.2;
 /// The row of a stop.
 const STOP_CLIP: &str = "walk_stop";
 
+/// The row of a stop out of a run; a sheet without it draws [`STOP_CLIP`].
+const RUN_STOP_CLIP: &str = "run_stop";
+
+/// The clock of a body's last stop on the ground — ONE rule for the player's
+/// road ([`BodyPoseView`]) and every actor's ([`crate::ActorAnimFrame`]).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct StopClock {
+    /// Seconds since the body stopped walking or running, and `f32::INFINITY`
+    /// before any stop.
+    pub secs: f32,
+    /// The stop came out of a run, not a walk.
+    pub from_run: bool,
+}
+
+impl Default for StopClock {
+    fn default() -> Self {
+        Self { secs: f32::INFINITY, from_run: false }
+    }
+}
+
+impl StopClock {
+    /// The clock after a frame of `dt` in which the body, `free` of any move
+    /// or pin, is drawn as `anim` and was drawn as `before`.
+    pub fn next(self, before: Option<CharacterAnim>, anim: CharacterAnim, free: bool, dt: f32) -> Self {
+        match before {
+            Some(before) if free && anim == CharacterAnim::Idle && strides(before) => Self {
+                secs: 0.0,
+                from_run: matches!(before, CharacterAnim::Run | CharacterAnim::Sprint),
+            },
+            Some(_) => Self { secs: self.secs + dt, ..self },
+            None => Self::default(),
+        }
+    }
+
+    /// The row the stop is drawn in while it lasts, slaved to its time: the
+    /// first [`STOP_SECS`] of a stand.
+    pub fn clip(self, anim: CharacterAnim, free: bool) -> Option<crate::ClipRequest> {
+        (free && anim == CharacterAnim::Idle && self.secs < STOP_SECS).then(|| crate::ClipRequest {
+            clip: (if self.from_run { RUN_STOP_CLIP } else { STOP_CLIP }).to_string(),
+            fallbacks: if self.from_run { vec![STOP_CLIP.to_string()] } else { Vec::new() },
+            phase: Some(self.secs / STOP_SECS),
+            legs: None,
+        })
+    }
+}
+
 /// The row of a look up. A body that looks up while it walks or runs has its
 /// head turned as this row turns it (`BodyPoseView::head_up`).
 pub const LOOK_UP_CLIP: &str = "idle_look_up";
@@ -155,10 +201,9 @@ pub struct BodyPoseView {
     /// row at this fraction. The crouch holds while this is above 0, so a
     /// body that stands up from a crawl comes up through its crouch.
     pub crawl: f32,
-    /// Seconds since the body stopped walking or running on the ground, and
-    /// `f32::INFINITY` before any stop. The first [`STOP_SECS`] of a stand
-    /// are drawn in the `walk_stop` row.
-    pub stop_secs: f32,
+    /// The body's last stop on the ground. The first [`STOP_SECS`] of a stand
+    /// are drawn in the `walk_stop` row, or `run_stop` out of a run.
+    pub stop: StopClock,
     /// Where in its climb row a body on a ladder is, 0 to 1. It moves with the
     /// distance the body climbs ([`CLIMB_CYCLE_PX`] a cycle), so a body that
     /// holds still on a ladder holds still in its picture.
@@ -381,7 +426,7 @@ impl Default for BodyPoseView {
             head_up: 0.0,
             crouch: 0.0,
             crawl: 0.0,
-            stop_secs: f32::INFINITY,
+            stop: StopClock::default(),
             climb_phase: 0.0,
             wall_secs: f32::INFINITY,
             // A body with no pose yet is playing no move.
@@ -741,17 +786,10 @@ pub fn rebuild_body_pose_views(
             0.0
         };
         // The stop: the body stood after it walked or ran.
-        let stop_secs = match pose.as_deref() {
-            Some(before)
-                if free
-                    && anim == CharacterAnim::Idle
-                    && strides(before.anim) =>
-            {
-                0.0
-            }
-            Some(before) => before.stop_secs + dt,
-            None => f32::INFINITY,
-        };
+        let stop = pose
+            .as_deref()
+            .map_or_else(StopClock::default, |before| before.stop)
+            .next(pose.as_deref().map(|before| before.anim), anim, free, dt);
         // The climb row moves with the distance climbed.
         let climb_phase = {
             let before = pose.as_deref().map_or(0.0, |before| before.climb_phase);
@@ -802,7 +840,7 @@ pub fn rebuild_body_pose_views(
             head_up: if free && !turning && strides(anim) { look_up } else { 0.0 },
             crouch,
             crawl,
-            stop_secs,
+            stop,
             climb_phase,
             wall_secs,
             roll_angle: roll.map_or(0.0, |r| r.angle),
@@ -839,8 +877,8 @@ pub fn rebuild_body_pose_views(
                         && matches!(anim, CharacterAnim::Crouch | CharacterAnim::Idle)
                     {
                         Some(slaved(CROUCH_CLIP, crouch))
-                    } else if free && anim == CharacterAnim::Idle && stop_secs < STOP_SECS && look_up == 0.0 {
-                        Some(slaved(STOP_CLIP, stop_secs / STOP_SECS))
+                    } else if let Some(stop) = stop.clip(anim, free).filter(|_| look_up == 0.0) {
+                        Some(stop)
                     } else if look_up > 0.0 && anim == CharacterAnim::Idle {
                         Some(slaved(LOOK_UP_CLIP, look_up))
                     } else if free && anim == CharacterAnim::LadderClimb {
@@ -869,6 +907,15 @@ pub fn rebuild_body_pose_views(
                                 .map(ambition_character_sprites::GuardBreakBeat::from_phase),
                             parrying: shield.is_some_and(|s| s.parrying()),
                             guard_stunned: shield.is_some_and(|s| s.stun_timer > 0.0),
+                            // The player road's own `hit` read
+                            // (`pick_player_anim`).
+                            recoil: combat.filter(|c| c.hitstun_timer > 0.05).map(|c| {
+                                ambition_character_sprites::Recoil::of(
+                                    c.struck_height,
+                                    ambition_character_sprites::extent_along(kinematics.size, gravity_dir),
+                                    !ground.is_some_and(|g| g.on_ground),
+                                )
+                            }),
                             ..Default::default()
                         }
                         .with_gestures(anim_facts),

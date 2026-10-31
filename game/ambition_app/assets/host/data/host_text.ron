@@ -28,11 +28,11 @@
     "loading.failed_list": "Failed: {assets}",
     "loading.preparation_failed": "Startup preparation failed",
     // The pause menu's pages: their names on the side tabs, and their titles.
-    "menu.page.items": "Items",
+    "menu.page.items": "Equipment",
     "menu.page.map": "Map",
     "menu.page.quest": "Quest",
     "menu.page.system": "System",
-    "menu.items.title": "ITEMS",
+    "menu.items.title": "EQUIPMENT",
     "menu.map.title": "MAP",
     // The Map page: off the map, and the line naming the building the
     // player is inside while the map shows the region outside it.
@@ -42,8 +42,10 @@
     "menu.system.title": "SYSTEM",
     // The SYSTEM page's title inside one of its screens.
     "menu.system.screen_title": "SYSTEM • {screen}",
-    // Pages that have no content yet.
-    "menu.quest.placeholder": "Quest status + key items from save data (host data TODO).",
+    // The QUEST page: the things the player carries that are not
+    // equipment (the key items), under one heading.
+    "menu.quest.carried": "CARRIED",
+    "menu.quest.carried_none": "You carry nothing for a quest yet.",
     // The items page: what a press does to the focused item, and its state.
     "menu.items.equip": "Equip",
     "menu.items.use": "Use",

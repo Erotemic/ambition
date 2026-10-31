@@ -184,7 +184,8 @@
         held_item_id: None,
         dialog_id: "empty1",
     ),
-    // ---- Row 4: consumables, then key items. ----
+    // ---- Row 4: consumables, then key items. A key item is not equipment:
+    // the grid draws its cell blank, and the QUEST page lists it. ----
     (
         display_name: "Health Cell",
         description: "Restores health.",
@@ -203,8 +204,10 @@
     ),
     (
         display_name: "Spare Battery",
-        description: "Reserved ability charge. Does nothing yet.",
-        category: Consumable,
+        description: "A spare battery. It does nothing yet.",
+        // A key item: it does nothing when used, so it is not equipment.
+        // The QUEST page shows it, not the equipment grid.
+        category: KeyItem,
         held_item_id: None,
         dialog_id: "sparebattery",
         stack: 99,

@@ -276,8 +276,10 @@ fn colour([r, g, b, a]: [f32; 4]) -> MenuColor {
     MenuColor::rgba(r, g, b, a)
 }
 
-/// The cube faces (pages). `Items` is wired live from our inventory; the rest
-/// mirror OoT's subscreen tabs as host-data-driven placeholders for now.
+/// The cube faces (pages). `Items` is the EQUIPMENT page (its tab says
+/// "Equipment"): the grid of the abilities and items that the player equips
+/// or uses. The things the player only carries (the key items) are on
+/// `Quest` ([`build_quest_page`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum MenuPage {
     Items,
@@ -458,6 +460,17 @@ fn cell_label(name: &str) -> String {
     lines.join("\n")
 }
 
+/// Whether `item` is equipment: an ability or a held item to equip, or a
+/// consumable to use. Only equipment has a cell on the equipment grid. A key
+/// item is a thing the player only carries: the QUEST page lists it
+/// ([`build_quest_page`]). Jon, 2026-10-30: items "that you can't equip or do
+/// not change your abilities in some way should not be in this 24 cell
+/// inventory page, they can be stored in the quest page".
+pub fn is_equipment(items: &ItemCatalog, item: Item) -> bool {
+    use ambition_platformer2d::items::ItemCategory;
+    matches!(items.category(item), Some(ItemCategory::Ability | ItemCategory::Held | ItemCategory::Consumable))
+}
+
 /// The items-face spec built from our live inventory. Kept separate from
 /// [`build_items_page`] so it's unit-testable without the renderer.
 ///
@@ -488,13 +501,14 @@ pub fn items_spec(
             // each renderer finds the cursor on it and draws it there.
             // `effects::decide` answers that action `NotOwned`: an error sound
             // and a status line, and nothing changes.
-            // An empty slot of the grid (`Reserved`) is a blank cell: it is
+            // A slot that holds no equipment (an empty `Reserved` slot, or a
+            // key item, which the QUEST page shows) is a blank cell: it is
             // not an item to find, only a place the cursor can pass.
-            let empty = items.category(item) == Some(ambition_platformer2d::items::ItemCategory::Reserved);
-            let mut node = if owns {
-                InventoryItemNode::new(item.index(), cell_label(name))
-            } else if empty {
+            let empty = !is_equipment(items, item);
+            let mut node = if empty {
                 InventoryItemNode::new(item.index(), String::new())
+            } else if owns {
+                InventoryItemNode::new(item.index(), cell_label(name))
             } else {
                 InventoryItemNode::unowned(item.index(), cell_label(name))
             };
@@ -502,20 +516,20 @@ pub fn items_spec(
             if let Some(hint) = cell_hint(owned, items, equipped, item).filter(|_| !empty) {
                 node = node.detail(hint);
             }
-            node = node.equipped(equipped.contains(item));
+            node = node.equipped(!empty && equipped.contains(item));
             // Render the item's sprite in the cell when it has one; the catalog
             // returns `None` for items with no authored art, which keeps the text
             // label (the lib falls back to text when `icon` is `None`). The item's
             // name still shows in the detail panel either way.
-            if let Some(icon) = items.icon(item) {
+            if let Some(icon) = items.icon(item).filter(|_| !empty) {
                 node = node.icon(icon);
             }
             // A stack shows how many the bag holds (a stock of bombs, the
             // health cells); a unique item has no count to show.
-            if owns && items.stacks(item) {
+            if owns && !empty && items.stacks(item) {
                 node = node.count(owned.count(item));
             }
-            if owns {
+            if owns && !empty {
                 // Held items and abilities equip; everything else "uses". The
                 // verb is in the cell's hint, so the cell has no action label:
                 // the two said the same word ("equip | Equip").
@@ -597,6 +611,7 @@ pub fn items_detail_slot_text(
 
 /// The wrapped detail-panel lines for an item: its name, a blank, the wrapped
 /// description, and a one-line status. Mirrors the demo's `detail_lines`.
+/// A blank cell (no equipment in it) has a blank panel.
 fn detail_lines(
     owned: &OwnedItems,
     items: &ItemCatalog,
@@ -604,6 +619,9 @@ fn detail_lines(
     item: Item,
 ) -> Vec<String> {
     let mut lines = Vec::new();
+    if !is_equipment(items, item) {
+        return lines;
+    }
     lines.extend(wrap_text(items.display_name(item).unwrap_or(crate::menu::effects::UNNAMED_SLOT), DETAIL_WRAP_COLS));
     lines.push(String::new());
     lines.extend(wrap_text(items.description(item).unwrap_or(""), DETAIL_WRAP_COLS));
@@ -677,11 +695,7 @@ pub fn build_inventory_pages_with_quality_prompt(
     vec![
         build_items_page(owned, items, equipped),
         map_page,
-        placeholder_page(
-            MenuPage::Quest,
-            &line("menu.quest.title"),
-            &line("menu.quest.placeholder"),
-        ),
+        build_quest_page(owned, items),
         build_system_page_with_quality_prompt(
             settings,
             radio,
@@ -1360,34 +1374,50 @@ pub fn system_detail_slot_text(
     out
 }
 
-fn placeholder_page(
-    page: MenuPage,
-    title: &str,
-    body: &str,
-) -> MenuPageModel<MenuPage, MenuPageAction> {
-    let mut model = MenuPageModel::new(page, title, colour(menu_look().page));
-    model.text(
-        50.0,
-        38.0,
-        4.0,
-        title,
-        MenuTextAlign::Center,
-        colour(menu_look().heading),
-    );
-    model.text(
-        50.0,
-        54.0,
-        1.7,
-        body,
-        MenuTextAlign::Center,
-        colour(menu_look().placeholder_body),
-    );
-    // Placeholder pages keep the edge buttons; their focus highlight is applied in
-    // place from the live cursor (`kaleidoscope_sync_focus_visuals`), so landing on
-    // an edge button after a page turn (Fix 1) highlights it without a rebuild.
-    add_edge_buttons(&mut model, page);
+/// The QUEST face: the things the player carries that are not equipment
+/// ([`is_equipment`]), each with its description. These are the key items
+/// (the sealed note, the field survey, the spare battery). The page has no
+/// cursor stops of its own: only its edge buttons.
+pub fn build_quest_page(owned: &OwnedItems, items: &ItemCatalog) -> MenuPageModel<MenuPage, MenuPageAction> {
+    let title = line("menu.quest.title");
+    let mut model = MenuPageModel::new(MenuPage::Quest, title.as_str(), colour(menu_look().page));
+    model.text(50.0, 20.0, 4.0, title, MenuTextAlign::Center, colour(menu_look().heading));
+    model.text(50.0, 30.0, 2.6, line("menu.quest.carried"), MenuTextAlign::Center, colour(menu_look().heading));
+    let carried: Vec<Item> =
+        Item::ALL.into_iter().filter(|&item| owned.has(item) && items.is_real(item) && !is_equipment(items, item)).collect();
+    if carried.is_empty() {
+        model.text(
+            50.0,
+            38.0,
+            1.7,
+            line("menu.quest.carried_none"),
+            MenuTextAlign::Center,
+            colour(menu_look().placeholder_body),
+        );
+    }
+    for (row, &item) in carried.iter().enumerate() {
+        let y = 37.0 + row as f32 * QUEST_ROW_PITCH;
+        let name = items.display_name(item).unwrap_or(crate::menu::effects::UNNAMED_SLOT);
+        let name = match owned.count(item) {
+            1 => name.to_string(),
+            count => format!("{name} x{count}"),
+        };
+        model.text(50.0, y, 2.2, name, MenuTextAlign::Center, colour(menu_look().heading));
+        let mut description = wrap_text(items.description(item).unwrap_or(""), QUEST_WRAP_COLS);
+        description.truncate(QUEST_DESCRIPTION_LINES);
+        for (i, text) in description.into_iter().enumerate() {
+            model.text(50.0, y + 3.6 + i as f32 * 2.6, 1.55, text, MenuTextAlign::Center, colour(menu_look().body));
+        }
+    }
+    add_edge_buttons(&mut model, MenuPage::Quest);
     model
 }
+
+/// The QUEST page's layout: the distance between two carried items, and how
+/// a description wraps.
+const QUEST_ROW_PITCH: f32 = 11.0;
+const QUEST_WRAP_COLS: usize = 52;
+const QUEST_DESCRIPTION_LINES: usize = 2;
 
 /// Greedy word-wrap to `width` columns, hyphenating words longer than the column.
 /// Ported from the demo's `wrap_text` so wrapping matches exactly.

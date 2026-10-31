@@ -29,7 +29,11 @@ demo, every ability is unlocked.
   equipment of the session's starting bag that the save lacks
   (`OwnedItems::keep_unlocks`), so an old save does not lock it again.
 - A locked cell still carries the cursor: it has an action that
-  `effects::decide` answers `NotOwned`, and it says `???` with no picture.
+  `effects::decide` answers `NotOwned`. The library draws it greyed out
+  (`MenuNode::Control::dimmed`), and both renderers draw the focus colour
+  and the selection corners on it when the cursor is there. Witnesses:
+  `a_greyed_out_cell_draws_the_cursor_when_it_has_it` (flat) and
+  `a_greyed_out_cell_on_the_cube_draws_the_cursor_when_it_has_it` (cube).
 
 ## The grid (`game/ambition_content/assets/data/items.ron`)
 
@@ -37,13 +41,37 @@ demo, every ability is unlocked.
 |---|---|
 | 1 | Fireball, Eye Laser, Lightning°, Sword Stance, Axe Stance°, Whip Stance° |
 | 2 | Precision Blink, Contextual Blink°, Dash, Dash II°, Grapple, Mark / Recall |
-| 3 | Portal Gun, Axe, Javelin, Gun-Sword, Puppy-Slug Gun, Bomb |
-| 4 | Health Cell, Mana Cell, Spare Battery, Map Fragment, Sealed Note, Field Survey |
+| 3 | Portal Gun, Javelin, Gun-Sword, Puppy-Slug Gun, Bomb, (empty) |
+| 4 | Health Cell, Mana Cell, (Spare Battery\*), (Sealed Note\*), (Field Survey\*), (empty) |
 
-° = a placeholder (no row yet). Exclusive groups: `projectile` (Fireball,
+° = a placeholder (no row yet). \* = a key item: its cell is blank (see
+below). The Axe and the Map Fragment were removed on 2026-10-30 (Jon: "get
+rid of the javelin, axe, map fragment, sealed note"). The Javelin and the
+Sealed Note stay until Jon decides: the save tests use the Javelin (the
+only item that a throw spends), and the intro quest uses the note. Exclusive groups: `projectile` (Fireball,
 Eye Laser, Lightning), `stance` (Sword, Axe, Whip), `blink` (Precision,
 Contextual), `burst` (Dash, Dash II). Grapple and Mark / Recall are held
 gauntlets.
+
+## Equipment, and the QUEST page (built, 2026-10-30)
+
+Jon, 2026-10-30: items "that you just have, that you can't equip or do not
+change your abilities in some way should not be in this 24 cell inventory
+page, they can be stored in the quest page". The menu page that was called
+"Inventory" is the EQUIPMENT page.
+
+- The tab says "Equipment" and the page title says "EQUIPMENT"
+  (`host_text.ron`). The page id stays `MenuPage::Items`.
+- Equipment is an ability, a held item or a consumable
+  (`model::is_equipment`). A consumable is used from the grid (a health
+  cell heals).
+- A key item is not equipment. Its cell is blank: no name, picture, count
+  or panel text. The cursor still passes it. The Spare Battery is a key
+  item, because it does nothing when used.
+- The QUEST page (`model::build_quest_page`) lists each key item that the
+  bag holds, with its count and description, under "CARRIED".
+- Key items are not in the demo bag: the quests give them.
+- Witness: `a_carried_key_item_is_on_the_quest_page_not_the_equipment_grid`.
 
 ## Eye Laser (built)
 

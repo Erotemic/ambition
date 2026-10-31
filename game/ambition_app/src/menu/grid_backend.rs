@@ -264,7 +264,7 @@ fn tab_specs() -> Vec<BevyUiMenuTabSpec<MenuPage>> {
 /// The human label drawn on a tab button.
 fn page_tab_label(page: MenuPage) -> &'static str {
     match page {
-        MenuPage::Items => "Inventory",
+        MenuPage::Items => "Equipment",
         MenuPage::System => "System",
         MenuPage::Map => "Map",
         MenuPage::Quest => "Quest",

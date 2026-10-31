@@ -11,14 +11,14 @@ fn items_face_wires_all_24_slots_from_our_catalog() {
         "the cube's items face has one cell per inventory slot (24)"
     );
     // Slots are in grid order; labels are wrapped from our catalog.
-    // Nothing is owned here, so each cell says it is locked, and an empty
-    // slot of the grid is a blank cell.
+    // Nothing is owned here, so each cell says it is locked, and a slot with
+    // no equipment in it (an empty slot, a key item) is a blank cell.
     let catalog = ambition_platformer2d::items::test_item_catalog();
     for (idx, cell) in spec.cells.iter().enumerate() {
         assert_eq!(cell.slot.0, idx);
         let item = Item::ALL[idx];
         let name = catalog.display_name(item).unwrap();
-        if catalog.category(item) == Some(ambition_platformer2d::items::ItemCategory::Reserved) {
+        if !is_equipment(catalog, item) {
             assert_eq!((cell.label.as_str(), cell.detail.as_deref()), ("", None), "{item:?} is an empty slot");
             assert!(cell.action.is_some(), "the cursor passes an empty slot too");
         } else {
@@ -75,11 +75,62 @@ fn every_slot_of_the_grid_can_carry_the_cursor() {
         .iter()
         .filter(|node| matches!(node, MenuNode::Control { kind: MenuControlKind::Item, dimmed: true, .. }))
         .count();
-    let empty_slots = Item::ALL
-        .into_iter()
-        .filter(|item| catalog.category(*item) == Some(ambition_platformer2d::items::ItemCategory::Reserved))
-        .count();
+    let empty_slots = Item::ALL.into_iter().filter(|item| !is_equipment(catalog, *item)).count();
     assert_eq!(dimmed, Item::ALL.len() - empty_slots, "nothing is owned: every item cell is greyed out");
+}
+
+/// The equipment grid holds only equipment. A key item the player carries
+/// has a blank cell there (no name, icon, count or panel text) and is
+/// listed on the QUEST page with its description. Jon, 2026-10-30: items
+/// "that you can't equip or do not change your abilities in some way
+/// should not be in this 24 cell inventory page".
+#[test]
+fn a_carried_key_item_is_on_the_quest_page_not_the_equipment_grid() {
+    let catalog = ambition_platformer2d::items::test_item_catalog();
+    let mut owned = OwnedItems::starter(catalog);
+    owned.grant(catalog, Item::SealedNote, 1);
+    owned.grant(catalog, Item::SpareBattery, 2);
+    let carried = [Item::SealedNote, Item::SpareBattery];
+    for item in [Item::SealedNote, Item::FieldSurvey, Item::SpareBattery] {
+        assert!(!is_equipment(catalog, item), "{item:?} is not equipment");
+    }
+    for item in [Item::Fireball, Item::GunSword, Item::Bomb, Item::HealthCell] {
+        assert!(is_equipment(catalog, item), "{item:?} is equipment");
+    }
+
+    let spec = items_spec(&owned, catalog, EquippedItems::default());
+    for item in carried {
+        let cell = &spec.cells[item.index()];
+        assert_eq!(
+            (cell.label.as_str(), cell.detail.as_deref(), cell.icon.as_deref(), cell.count),
+            ("", None, None, None),
+            "{item:?} has a blank cell on the equipment grid"
+        );
+        assert!(cell.action.is_some(), "the cursor passes the blank cell of {item:?}");
+        let panel = items_detail_slot_text(&owned, catalog, EquippedItems::default(), MenuFocus::Item(item.index()));
+        assert!(panel.iter().all(|(_, text)| text.is_empty()), "the detail panel names {item:?}: {panel:?}");
+    }
+
+    let texts = |page: &MenuPageModel<MenuPage, MenuPageAction>| -> Vec<String> {
+        page.nodes
+            .iter()
+            .filter_map(|node| match node {
+                MenuNode::Text { text, .. } => Some(text.clone()),
+                _ => None,
+            })
+            .collect()
+    };
+    let quest = texts(&build_quest_page(&owned, catalog));
+    assert!(quest.contains(&line("menu.quest.carried")), "{quest:?}");
+    assert!(quest.contains(&"Sealed Note".to_string()), "the QUEST page lists the note: {quest:?}");
+    assert!(quest.contains(&"Spare Battery x2".to_string()), "the QUEST page counts the batteries: {quest:?}");
+    let note = catalog.description(Item::SealedNote).unwrap();
+    assert!(quest.iter().any(|text| note.starts_with(text.as_str()) && !text.is_empty()), "no note text: {quest:?}");
+    assert!(!quest.iter().any(|text| text.starts_with("Field Survey")), "the survey is not carried: {quest:?}");
+    assert!(!quest.iter().any(|text| text.starts_with("Gun-Sword")), "equipment is not on the QUEST page: {quest:?}");
+
+    let empty = texts(&build_quest_page(&OwnedItems::starter(catalog), catalog));
+    assert!(empty.contains(&line("menu.quest.carried_none")), "the starter bag carries no key item: {empty:?}");
 }
 
 /// A cell states each fact once: "equipped" once, a verb once.
@@ -474,13 +525,13 @@ fn system_setting_label_tracks_settings_changes() {
 
 #[test]
 fn map_and_quest_edge_buttons_are_focusable() {
-    // Fix 1: placeholder pages (Map / Quest) build real, focusable L/R edge
-    // buttons. The focus HIGHLIGHT is now applied in place from the live cursor
+    // Fix 1: a page with no cursor stops of its own (the Quest page) builds
+    // real, focusable L/R edge buttons. The focus HIGHLIGHT is now applied in place from the live cursor
     // (`kaleidoscope_sync_focus_visuals`) rather than baked into the page data,
     // so the page only needs to emit the two clickable edge controls; landing on
     // one after a page turn highlights it without a rebuild.
-    for page in [MenuPage::Map, MenuPage::Quest] {
-        let model = placeholder_page(page, "T", "body");
+    for page in [MenuPage::Quest] {
+        let model = build_quest_page(&OwnedItems::default(), ambition_platformer2d::items::test_item_catalog());
         // Both edge buttons exist as Action controls with a ChangePage action.
         let edges: Vec<_> = model
             .nodes
@@ -800,16 +851,17 @@ fn the_menu_wears_what_the_host_file_states() {
         .collect();
     assert!(!body.is_empty() && body.iter().all(|color| *color == colour(look.body)), "the body lines: {body:?}");
 
-    let placeholder = placeholder_page(MenuPage::Map, "MAP", "a line");
-    assert_eq!(placeholder.background, colour(look.page), "a placeholder page's backdrop");
+    let placeholder = build_quest_page(&OwnedItems::default(), ambition_platformer2d::items::test_item_catalog());
+    assert_eq!(placeholder.background, colour(look.page), "the quest page's backdrop");
     let inks: Vec<_> = placeholder
         .nodes
         .iter()
         .filter_map(|node| match node {
-            MenuNode::Text { text, color, .. } => Some((text.as_str(), *color)),
+            MenuNode::Text { text, color, .. } => Some((text.clone(), *color)),
             _ => None,
         })
         .collect();
-    assert!(inks.contains(&("MAP", colour(look.heading))), "a placeholder page's title: {inks:?}");
-    assert!(inks.contains(&("a line", colour(look.placeholder_body))), "a placeholder page's line: {inks:?}");
+    assert!(inks.contains(&(line("menu.quest.title"), colour(look.heading))), "the quest page's title: {inks:?}");
+    let none = line("menu.quest.carried_none");
+    assert!(inks.contains(&(none, colour(look.placeholder_body))), "the quest page's empty line: {inks:?}");
 }

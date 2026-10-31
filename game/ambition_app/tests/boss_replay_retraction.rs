@@ -272,6 +272,8 @@ fn owns(world: &mut World, item: ambition_platformer2d::items::Item) -> u32 {
 fn a_replay_takes_back_the_ability_the_retracted_defeat_granted() {
     use ambition_platformer2d::items::Item;
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    sim.step_n(AgentAction::default(), 2);
+    crate::common::begin_without(&mut sim, &[Item::MarkRecall]);
     let (px, py) = {
         let world = sim.world_mut();
         let kin = world
@@ -608,6 +610,8 @@ fn a_warden_defeat_across_a_death(banked: bool, elsewhere: bool) -> (bool, u32, 
         NEIGHBOUR, ROOM, commit_a_checkpoint, die, walk_to,
     };
     let mut sim = crate::common::fixed_60hz_room_sim(ROOM);
+    sim.step_n(AgentAction::default(), 2);
+    crate::common::begin_without(&mut sim, &[ambition_platformer2d::items::Item::MarkRecall]);
     let before = balance(sim.world_mut());
     if !banked {
         commit_a_checkpoint(&mut sim);
@@ -665,6 +669,8 @@ fn a_banked_wardens_ability_taken_after_the_checkpoint() -> (u32, u32, usize) {
     use crate::death_restores_the_checkpoint::{ROOM, commit_a_checkpoint, die};
     use ambition_platformer2d::items::Item;
     let mut sim = crate::common::fixed_60hz_room_sim(ROOM);
+    sim.step_n(AgentAction::default(), 2);
+    crate::common::begin_without(&mut sim, &[Item::MarkRecall]);
     let home = {
         let world = sim.world_mut();
         world

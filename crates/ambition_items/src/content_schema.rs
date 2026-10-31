@@ -7,7 +7,7 @@
 //! ## The file is POSITIONAL, and that is the interesting check
 //!
 //! `items.ron` is a `Vec<ItemMeta>` in grid order: slot index = `row * 6 + col`,
-//! index 0 is `Fireball`, index 23 is `FieldSurvey`. The index IS the binding
+//! index 0 is `Fireball`, index 23 is `Empty2`. The index IS the binding
 //! to the [`crate::Item`] discriminant — there is no key in the file tying a row
 //! to the item it re-authors.
 //!

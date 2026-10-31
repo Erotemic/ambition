@@ -18,6 +18,7 @@ Options:
                         stripped). Much smaller module, much slower build. Use this
                         when the browser sits on "starting..." and the console shows
                         no Rust output at all.
+  --brotli              Also prepare Brotli code and audio banks. Requires brotli.
   --wasm-opt            Run wasm-opt -Os after wasm-bindgen. Requires wasm-opt.
   --copy-assets         Copy asset bytes so the output can move to another host.
   --features LIST       Cargo features to enable. Default: web (or web_served_assets when --served is passed)
@@ -124,6 +125,7 @@ PROFILE="release"
 PROFILE_EXPLICIT=false
 GAME="ambition"
 OPT_WASM=false
+BROTLI=false
 ASSET_MODE=link
 FEATURES=""
 FEATURES_EXPLICIT=false
@@ -145,6 +147,7 @@ while [[ $# -gt 0 ]]; do
         --release) PROFILE="release"; PROFILE_EXPLICIT=true ;;
         --debug) PROFILE="debug"; PROFILE_EXPLICIT=true ;;
         --optimize) PROFILE="web-release"; PROFILE_EXPLICIT=true ;;
+        --brotli) BROTLI=true ;;
         --wasm-opt) OPT_WASM=true ;;
         --copy-assets) ASSET_MODE=copy ;;
         --features) shift; [[ $# -gt 0 ]] || fatal "--features needs a value"; FEATURES=$1; FEATURES_EXPLICIT=true ;;
@@ -262,6 +265,7 @@ if [[ "$SERVE" == true ]]; then
 fi
 
 need_cmd "$CARGO_CMD" "Install Rust via rustup."
+if [[ "$BROTLI" == true ]]; then need_cmd brotli "Install the brotli command or omit --brotli."; fi
 if [[ "$SKIP_BINDGEN" != true ]]; then
     need_cmd "$WASM_BINDGEN_CMD" "Run: ./scripts/setup/web_prereq.sh"
     if [[ -n "$WANT_BINDGEN_VERSION" ]]; then
@@ -381,7 +385,9 @@ if [[ "$SERVED_MODE" == true ]]; then
 fi
 
 if [[ "$SKIP_BINDGEN" != true ]]; then
-    python3 "$ROOT/scripts/web_bundle.py" prepare --root "$WEB_DIR" --code-dir "$OUT_DIR"
+    COMPRESSION_ARGS=()
+    if [[ "$BROTLI" == true ]]; then COMPRESSION_ARGS+=(--brotli); fi
+    python3 "$ROOT/scripts/web_bundle.py" prepare --root "$WEB_DIR" --code-dir "$OUT_DIR" "${COMPRESSION_ARGS[@]}"
 fi
 
 if [[ "$SERVE" != true ]]; then

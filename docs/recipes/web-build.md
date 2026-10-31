@@ -42,7 +42,7 @@ transport modes.
 
 ```bash
 ./build_for_web.sh --game mary-o --serve
-./build_for_web.sh --game mary-o --copy-assets
+./build_for_web.sh --game mary-o --copy-assets --brotli
 ```
 
 Mary-O uses its standalone provider and rendered shell. Its default web build
@@ -63,12 +63,17 @@ moving it to another host. The default development output links to source files.
 The current package contains the full selected library. The browser loads asset
 bytes on demand.
 
-The local server sends gzip representations with the original MIME type. A
-different host must set `Content-Encoding: gzip` when it sends a `.gz`
-representation and must serve WASM as `application/wasm`.
+The optional `--brotli` flag requires the `brotli` command. On Debian or Ubuntu,
+install it with `sudo apt-get install brotli`. The build writes both Brotli and
+gzip representations. Without the flag, the build writes gzip and removes old
+Brotli representations.
+
+The local server selects a representation the browser accepts and keeps the
+original MIME type. A different host must send `Content-Encoding: br` for
+Brotli or `Content-Encoding: gzip` for gzip. WASM needs `application/wasm`.
 Code representations are beside their source files. Audio-bank representations
 are under `.encoded/assets/`. Serve each representation at the original asset
-URL with its original MIME type and `Content-Encoding: gzip`.
+URL.
 
 To serve an existing output without a Cargo build:
 

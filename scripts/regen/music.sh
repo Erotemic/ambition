@@ -12,6 +12,7 @@
 # Usage:
 # ./scripts/regen/music.sh                    # render + install everything (default)
 # ./scripts/regen/music.sh --skip-render      # only republish from existing renders
+# ./scripts/regen/music.sh --cue id,id          # only these library cues
 # ./scripts/regen/music.sh --force            # force re-render where supported
 #
 # Useful environment overrides:
@@ -54,8 +55,15 @@ force_render=0
 radio_args=()
 radio_args+=(--backend "${AMBITION_MUSIC_BACKEND:-pretty-midi}")
 radio_args+=(--jobs "${AMBITION_MUSIC_JOBS:-6}")
-for arg in "$@"; do
-    case "$arg" in
+cue_selection=""
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --cue)
+            [ "$#" -ge 2 ] || { echo "--cue needs a cue list" >&2; exit 2; }
+            cue_selection="$2"
+            shift
+            ;;
+        --cue=*) cue_selection="${1#--cue=}" ;;
         --skip-render)
             skip_render=1
             ;;
@@ -64,8 +72,9 @@ for arg in "$@"; do
             radio_args+=(--force-render)
             ;;
         -h|--help) print_help; exit 0 ;;
-        *) echo "unknown arg: $arg" >&2; exit 2 ;;
+        *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
+    shift
 done
 
 if [ "$skip_render" -eq 1 ] && [ "$force_render" -eq 1 ]; then
@@ -104,8 +113,10 @@ else
     echo "      tools/ambition_music_renderer/download_ambition_audio_tools.sh /data/audio-tools" >&2
 fi
 
-cue_selection="$("$renderer_py" "$repo_root/scripts/regen_music_registry.py" --list-cues |
-    "$renderer_py" -c 'import json, sys; print(",".join(json.load(sys.stdin)))')"
+if [ -z "$cue_selection" ]; then
+    cue_selection="$("$renderer_py" "$repo_root/scripts/regen_music_registry.py" --list-cues |
+        "$renderer_py" -c 'import json, sys; print(",".join(json.load(sys.stdin)))')"
+fi
 radio_args+=(--cue "$cue_selection")
 echo "==> selected library music cues"
 if [ "$skip_render" -eq 1 ]; then
@@ -120,6 +131,6 @@ echo "==> music registry (music_registry.ron)"
 "$renderer_py" "$repo_root/scripts/regen_music_registry.py" \
     --generated-dir "$AMBITION_MUSIC_PUBLISH_ROOT"
 
-"$renderer_py" "$repo_root/scripts/check_regeneration_coverage.py" --family music
+"$renderer_py" "$repo_root/scripts/check_regeneration_coverage.py" --family music --cue "$cue_selection"
 
 echo "==> done"

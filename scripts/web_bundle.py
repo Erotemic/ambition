@@ -9,6 +9,8 @@ import gzip
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
+import shutil
+import subprocess
 from pathlib import Path
 import tempfile
 
@@ -25,7 +27,20 @@ def write_bytes(path: Path, data: bytes) -> None:
     temporary.replace(path)
 
 
-def prepare(root: Path, code_dir: Path) -> dict:
+def brotli_representation(path: Path, data: bytes, enabled: bool) -> dict:
+    output = path.with_name(path.name + ".br")
+    if not enabled:
+        output.unlink(missing_ok=True)
+        return {}
+    compressed = subprocess.run(["brotli", "--quality=9", "--stdout"], input=data,
+                                capture_output=True, check=True).stdout
+    write_bytes(output, compressed)
+    return {"brotli_bytes": len(compressed)}
+
+
+def prepare(root: Path, code_dir: Path, brotli: bool = False) -> dict:
+    if brotli and not shutil.which("brotli"):
+        raise ValueError("Brotli needs the brotli command. Install it or omit --brotli.")
     root = root.resolve()
     code_dir = code_dir.resolve()
     code = []
@@ -36,7 +51,8 @@ def prepare(root: Path, code_dir: Path) -> dict:
         compressed = gzip.compress(data, compresslevel=9, mtime=0)
         write_bytes(path.with_name(path.name + ".gz"), compressed)
         code.append({"path": os.path.relpath(path, root),
-                     "raw_bytes": len(data), "gzip_bytes": len(compressed)})
+                     "raw_bytes": len(data), "gzip_bytes": len(compressed),
+                     **brotli_representation(path, data, brotli)})
     if not code:
         raise ValueError(f"No browser code in {code_dir}")
     assets = [p for p in (root / "assets").rglob("*") if p.is_file()]
@@ -49,11 +65,13 @@ def prepare(root: Path, code_dir: Path) -> dict:
         relative = path.relative_to(root)
         output = root / ".encoded" / relative.with_name(relative.name + ".gz")
         write_bytes(output, compressed)
-        encoded_assets.append({"path": relative.as_posix(), "raw_bytes": len(data), "gzip_bytes": len(compressed)})
+        encoded_assets.append({"path": relative.as_posix(), "raw_bytes": len(data), "gzip_bytes": len(compressed),
+                               **brotli_representation(output.with_suffix(""), data, brotli)})
     report = {
         "code": code,
         "code_raw_bytes": sum(row["raw_bytes"] for row in code),
         "code_gzip_bytes": sum(row["gzip_bytes"] for row in code),
+        "code_brotli_bytes": sum(row["brotli_bytes"] for row in code) if brotli else None,
         "published_assets": {"files": len(assets), "raw_bytes": sum(p.stat().st_size for p in assets)},
         "compressed_assets": encoded_assets,
         "note": "Published assets are available files, not an initial-download measurement.",
@@ -61,6 +79,8 @@ def prepare(root: Path, code_dir: Path) -> dict:
     write_bytes(root / "bundle-report.json", (json.dumps(report, indent=2) + "\n").encode())
     print(f"Browser code: {report['code_raw_bytes'] / 1048576:.2f} MiB raw, "
           f"{report['code_gzip_bytes'] / 1048576:.2f} MiB gzip")
+    if brotli:
+        print(f"Browser code: {report['code_brotli_bytes'] / 1048576:.2f} MiB Brotli")
     print(f"Available assets: {len(assets)} files, {report['published_assets']['raw_bytes'] / 1048576:.2f} MiB")
     print(f"Report: {root / 'bundle-report.json'}")
     return report
@@ -116,6 +136,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     build = commands.add_parser("prepare")
+    build.add_argument("--brotli", action="store_true", help="also write Brotli representations; needs brotli")
     build.add_argument("--root", type=Path, required=True)
     build.add_argument("--code-dir", type=Path, required=True)
     serve = commands.add_parser("serve")
@@ -123,7 +144,7 @@ def main():
     serve.add_argument("--port", type=int, default=8000)
     args = parser.parse_args()
     if args.command == "prepare":
-        prepare(args.root, args.code_dir)
+        prepare(args.root, args.code_dir, args.brotli)
     else:
         server = ThreadingHTTPServer(("127.0.0.1", args.port), partial(Handler, directory=str(args.root.resolve())))
         print(f"Serving {args.root} at http://localhost:{args.port}/", flush=True)

@@ -1121,7 +1121,8 @@ fn report_one(label: &str, seconds: usize, totals: &[Tally], carried: &[String])
     }
     println!(
         "\nticks are counts of SAMPLED TICKS in that state; damage is final percent, \
-         parries and techs are events, charge is the best fraction reached."
+         parries are events, techs are ticks a tech press was armed (its \
+         window is 20), charge is the best fraction reached."
     );
     // Flag a match where nobody was launched, however much damage it has.
     if totals.iter().all(|t| t.tumbling == 0) {

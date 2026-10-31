@@ -230,6 +230,13 @@ collections:
   - void_star
   - eigenghost
   - decomposing_specter
+  - hylbert_spectral_gap
+  - hylbert_wallpaper_panel
+  - hylbert_room_door
+  - hylbert_wall_sconce
+  - hylbert_chandelier
+  - hylbert_luggage_cart
+  - hylbert_floor_strip
   - super_mary_o_spark
   - generic_action_fx
   - generic_world_fx

@@ -118,6 +118,47 @@ pub fn fixed_60hz_room_sim(room: &str) -> Platformer2dSimHarness {
         .expect("Platformer2dSimHarness::new")
 }
 
+/// Make the session one that BEGAN without `items`. The demo's starting bag
+/// unlocks every real item (2026-10-30), so a fixture about how the player
+/// GETS an item (a pickup, a boss drop, a grant) must first take the item
+/// out of each place that remembers the start: the live bag, the bag the
+/// session began with (a load keeps its unlocks), the bag's checkpoint, and
+/// the save (its mirror already wrote the starter set). Without this, the
+/// bag holds the item before the fixture acquires it, and the reading is
+/// about the starter set, not about the acquisition.
+///
+/// Step the session at least once first: the bag's checkpoint lives on the
+/// session root.
+pub fn begin_without(sim: &mut Platformer2dSimHarness, items: &[ambition_platformer2d::item::Item]) {
+    use ambition_platformer2d::item::OwnedItems;
+    use ambition_platformer2d::item_runtime::pickup::minted_horizon::OwnedItemsBaseline;
+    use ambition_platformer2d::item_runtime::starting_bag::StartingBag;
+    use ambition_platformer2d::persistence::save::AmbitionGameSave;
+    let without = |bag: &OwnedItems| {
+        let mut bag = bag.clone();
+        for item in items {
+            bag.take(*item, u32::MAX);
+        }
+        bag
+    };
+    let world = sim.world_mut();
+    let starting = without(world.resource::<StartingBag>().bag());
+    world.insert_resource(StartingBag::of(starting));
+    let live = without(world.resource::<OwnedItems>());
+    *world.resource_mut::<OwnedItems>() = live.clone();
+    ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<OwnedItemsBaseline>(world)
+        .expect("the live session root carries the bag's checkpoint")
+        .adopt(live);
+    let catalog = ambition_platformer2d::items::test_item_catalog();
+    let gone: Vec<&str> = items.iter().map(|item| catalog.dialog_id(*item).expect("a named item")).collect();
+    let mut save = world.resource_mut::<AmbitionGameSave>();
+    if save.data().inventory_saved() {
+        let wallet = save.data().wallet();
+        let kept = save.data().items().iter().filter(|row| !gone.contains(&row.id.as_str())).cloned().collect();
+        save.data_mut().set_inventory(kept, wallet);
+    }
+}
+
 #[cfg(feature = "portal")]
 use ambition_platformer2d::portal::PlacedPortal;
 

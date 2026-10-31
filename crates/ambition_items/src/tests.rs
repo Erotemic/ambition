@@ -308,6 +308,10 @@ fn the_starter_bag_unlocks_every_real_item() {
     for quest_item in [Item::SealedNote, Item::FieldSurvey] {
         assert!(!owned.has(quest_item), "{quest_item:?} is given by the intro quest");
     }
+    // The battery does nothing: it is a key item (a quest reward), not an
+    // unlock.
+    assert_eq!(catalog.category(Item::SpareBattery), Some(ItemCategory::KeyItem));
+    assert!(!owned.has(Item::SpareBattery), "the battery is a quest reward");
     assert!(!owned.has(Item::Empty1) && !owned.has(Item::Empty2));
 }
 

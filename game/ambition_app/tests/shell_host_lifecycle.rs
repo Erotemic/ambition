@@ -3248,7 +3248,7 @@ fn the_victory_npc_of_a_cleared_boss_ends_with_its_session() {
 /// its bag on the frame of its activation and 30 frames later, and the items
 /// that its save lists then.
 ///
-/// - Ambition, alone and after Sanic: the starter set, 10 items.
+/// - Ambition, alone and after Sanic: the starter set, [`STARTER`] items.
 /// - Sanic, alone and after Ambition: no item. Sanic declares no bag.
 #[test]
 fn each_experience_begins_with_its_own_bag() {
@@ -3257,10 +3257,10 @@ fn each_experience_begins_with_its_own_bag() {
     type Item = ambition_platformer2d::item::Item;
 
     /// The items of Ambition's starter set: every real unlock (Jon,
-    /// 2026-10-30). Three health cells, two mana cells, a battery, five bombs,
-    /// the five abilities with a row and the six other held items. No key
-    /// item: those are given by quests.
-    const STARTER: u32 = 22;
+    /// 2026-10-30). Three health cells, two mana cells, five bombs, the five
+    /// abilities with a row and the six other held items. No key item (the
+    /// battery is one): those are given by quests.
+    const STARTER: u32 = 21;
 
     fn items_in_the_bag(app: &App) -> u32 {
         let owned = app.world().resource::<OwnedItems>();

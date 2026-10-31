@@ -32,6 +32,7 @@ use bevy::prelude::*;
 use bevy::tasks::{futures::check_ready, AsyncComputeTaskPool, Task};
 
 use ambition_platformer2d_core as ae;
+use ae::AabbExt;
 use ae::navigation::{
     approach_point, follow_flight, leg_stick_y, FlightFacts, FlightProgress, FollowFacts, Followed, LegFacts, LegInput,
     RouteFollower,
@@ -74,6 +75,9 @@ pub enum NavGoal {
     /// Be in the air with the body's centre at this point, by flight. For a
     /// body that can fly.
     Fly(ae::Vec2),
+    /// Enter an opening with the body's collision box. A nearby point
+    /// outside the opening does not complete this goal.
+    FlyInto(ae::Aabb),
 }
 
 /// What the autoplay policy wants of the seat this frame. Written by a game's
@@ -126,14 +130,14 @@ struct Flight {
     next: usize,
     /// The goal and the graph the route is for. Another of either is planned
     /// again.
-    planned: Option<(ae::Vec2, NavGraphKey)>,
+    planned: Option<(NavGoal, NavGraphKey)>,
     /// The nearest the body came to the goal, and the frames since.
     nearest: f32,
     since_nearer: u32,
 }
 
 impl Flight {
-    /// One frame of a flight to `at` through `map`, the air of `graph`'s room
+    /// One frame of a flight through `map`, the air of `graph`'s room
     /// (the graph of `key`): plan the route when the goal or the room is new
     /// or the flight is stuck, and fly it.
     fn step(
@@ -141,9 +145,15 @@ impl Flight {
         map: &FlightMap,
         graph: &NavGraph,
         key: NavGraphKey,
-        at: ae::Vec2,
+        goal: NavGoal,
         kin: &ae::BodyKinematics,
+        half: ae::Vec2,
     ) -> (LegInput, AutopilotStatus) {
+        let (at, arrival_region) = match goal {
+            NavGoal::Fly(at) => (at, None),
+            NavGoal::FlyInto(opening) => (opening.center(), Some(ae::Aabb { min: opening.min - half, max: opening.max + half })),
+            NavGoal::Stand(_) => unreachable!("a flight has an air goal"),
+        };
         let distance = (at - kin.pos).length();
         if distance + 1.0 < self.nearest {
             self.nearest = distance;
@@ -151,17 +161,20 @@ impl Flight {
         } else {
             self.since_nearer += 1;
         }
-        if self.planned != Some((at, key)) || self.since_nearer > FLIGHT_STALL_FRAMES {
-            self.planned = Some((at, key));
+        if self.planned != Some((goal, key)) || self.since_nearer > FLIGHT_STALL_FRAMES {
+            self.planned = Some((goal, key));
             self.nearest = distance;
             self.since_nearer = 0;
             self.next = 1;
-            map.route(kin.pos, at, &mut self.search, &mut self.route);
+            match arrival_region {
+                Some(region) => { map.route_into(kin.pos, region, &mut self.search, &mut self.route); }
+                None => { map.route(kin.pos, at, &mut self.search, &mut self.route); }
+            }
         }
         if self.route.is_empty() {
             return (LegInput::default(), AutopilotStatus::NoRoute);
         }
-        let facts = FlightFacts { center: kin.pos, vel: kin.vel, side: graph.frame.side, down: graph.frame.down, law: map.law };
+        let facts = FlightFacts { center: kin.pos, vel: kin.vel, side: graph.frame.side, down: graph.frame.down, law: map.law, arrival_region };
         match follow_flight(&self.route, self.next, &facts) {
             (input, FlightProgress::Going(next)) => {
                 self.next = next;
@@ -291,6 +304,7 @@ type PlayerBody<'a> = (
     &'a ResolvedMotionFrame,
     Option<&'a InRoomInstance>,
     &'a ae::BodyFlightState,
+    Option<&'a ae::SweepSample>,
 );
 
 /// One frame of the autopilot: the order in, the seat's input out.
@@ -319,7 +333,7 @@ pub fn drive_autopilot(
         }
         AutopilotOrder::GoTo(goal) => goal,
     };
-    let Ok((entity, (kin, ground, wall, model, abilities, base_size, frame, in_room, flight))) = players.single() else {
+    let Ok((entity, (kin, ground, wall, model, abilities, base_size, frame, in_room, flight, sweep))) = players.single() else {
         script.0 = pilot.edges(LegInput::default());
         return;
     };
@@ -344,7 +358,11 @@ pub fn drive_autopilot(
         exits: specs
             .as_ref()
             .and_then(|specs| specs.spec_of(entity))
-            .map(|spec| spec.loading_zones.iter().filter(|zone| zone.is_ready(false)).map(|zone| zone.aabb).collect())
+            .map(|spec| spec.loading_zones.iter().filter(|zone| {
+                // The requested opening is a destination. Other automatic
+                // exits remain obstacles to this flight.
+                zone.is_ready(false) && !matches!(goal, NavGoal::FlyInto(opening) if opening == zone.aabb)
+            }).map(|zone| zone.aabb).collect())
             .unwrap_or_default(),
     };
     let unchanged = pilot.inputs.as_ref().is_some_and(|kept| kept.same_as(&inputs));
@@ -413,13 +431,13 @@ pub fn drive_autopilot(
     pilot.toggle_wait = pilot.toggle_wait.saturating_sub(1);
     match goal {
         // A goal in the air: take off, then fly the route.
-        NavGoal::Fly(at) => {
+        NavGoal::Fly(_) | NavGoal::FlyInto(_) => {
             pilot.follower.stop();
             pilot.goal = Some(goal);
             let (input, status) = match graph.flight.as_ref() {
                 None => (LegInput::default(), AutopilotStatus::NoGraph),
                 Some(_) if !flight.fly_enabled => (toggle_flight(&mut pilot.toggle_wait), AutopilotStatus::Going),
-                Some(map) => pilot.flight.step(map, graph, key, at, kin),
+                Some(map) => pilot.flight.step(map, graph, key, goal, kin, kin.collision_box(sweep).half_size()),
             };
             pilot.status = status;
             script.0 = pilot.edges(input);
@@ -618,7 +636,7 @@ impl Autopilot {
 
 /// The feet point of `goal` on the graph: on the surface under it, nearest it.
 fn stand_point(graph: &NavGraph, goal: NavGoal) -> Option<ae::Vec2> {
-    let (NavGoal::Stand(at) | NavGoal::Fly(at)) = goal;
+    let at = match goal { NavGoal::Stand(at) | NavGoal::Fly(at) => at, NavGoal::FlyInto(opening) => opening.center() };
     (0..graph.surfaces.len())
         .map(|index| graph.point_on(index, graph.frame.along(at)))
         .filter(|feet| graph.frame.below(*feet) >= graph.frame.below(at) - 1.0)

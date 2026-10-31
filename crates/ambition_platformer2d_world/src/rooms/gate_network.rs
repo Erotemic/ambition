@@ -330,6 +330,31 @@ pub struct GateFacts<'a> {
 }
 
 impl GateNetworkCatalog {
+    /// The fewest room crossings through authored doors and available rings.
+    /// Each ring edge must pass the same checks as a real dial. Addresses
+    /// come from the catalog; no route keeps a separate address table.
+    pub fn route(
+        &self,
+        rooms: &super::RoomSet,
+        state: &GateNetworkState,
+        from: usize,
+        to: usize,
+        facts: &GateFacts<'_>,
+    ) -> Option<Vec<super::RoomHop>> {
+        let mut links = Vec::new();
+        let addresses: Vec<_> = self.rings.iter().filter_map(|ring| self.address_of(ring).map(|address| (ring, address))).collect();
+        for source in &self.rings {
+            let Some(from) = rooms.room_index_by_id(&source.room) else { continue };
+            if source.terminal.is_none() || !rooms.has_zone(&source.room, &source.zone) { continue; }
+            for (far, address) in &addresses {
+                if resolve_dial(self, state, &source.zone, address, facts).is_err() { continue; }
+                let Some(to) = rooms.room_index_by_id(&far.room) else { continue };
+                links.push(super::RoomHop { from, to, zone: source.zone.clone(), dial: Some(address.clone()) });
+            }
+        }
+        rooms.route_with_links(from, to, &links)
+    }
+
     /// The ring whose loading zone is `zone`.
     pub fn ring(&self, zone: &str) -> Option<&GateRing> {
         self.rings.iter().find(|ring| ring.zone == zone)
@@ -893,6 +918,46 @@ mod tests {
 
     fn spelled(catalog: &GateNetworkCatalog, word: &str) -> Vec<Chevron> {
         catalog.spell(word).expect("every letter is on a chevron")
+    }
+
+    #[test]
+    fn a_route_combines_doors_and_available_gates_without_a_door_between_worlds() {
+        use super::super::{LoadingZone, LoadingZoneActivation, RoomLink, RoomSet, RoomSpec};
+        use ambition_platformer2d_core::{Aabb, Vec2, World};
+
+        let mut catalog = catalog();
+        catalog.rings.retain(|ring| ["hub", "math"].contains(&ring.zone.as_str()));
+        let room = |id: &str, zone: &str| {
+            let mut room = RoomSpec::new(id, World::new(id, Vec2::splat(500.0), Vec2::splat(100.0), vec![]));
+            room.loading_zones.push(LoadingZone {
+                id: zone.into(), name: zone.into(), activation: LoadingZoneActivation::Door,
+                aabb: Aabb::new(Vec2::splat(100.0), Vec2::splat(30.0)),
+            });
+            room
+        };
+        let rooms = RoomSet::from_parts_or_panic("approach", vec![
+            room("approach", "door"), room("hub_room", "hub"),
+            room("math_room", "math"), room("destination", "return"),
+        ], vec![
+            RoomLink { from_room: "approach".into(), from_zone: "door".into(), to_room: "hub_room".into(), to_zone: "hub".into(), bidirectional: true },
+            RoomLink { from_room: "math_room".into(), from_zone: "math".into(), to_room: "destination".into(), to_zone: "return".into(), bidirectional: true },
+        ]);
+        let state = GateNetworkState::default();
+        let facts = GateFacts {
+            switch_on: &|_| false, flag: &|_| false,
+            zone_exists: &|room, zone| rooms.has_zone(room, zone), distance: &|_, _| None,
+        };
+        assert!(rooms.route(0, 3).is_none());
+        let path = catalog.route(&rooms, &state, 0, 3, &facts).expect("door, gate, door");
+        assert_eq!(path.iter().map(|hop| (hop.from, hop.to)).collect::<Vec<_>>(), [(0, 1), (1, 2), (2, 3)]);
+        assert!(path[0].dial.is_none() && path[2].dial.is_none());
+        assert_eq!(path[1].dial, Some(spelled(&catalog, "TANGENT")));
+        let reverse = catalog.route(&rooms, &state, 3, 0, &facts).expect("the reverse trip dials home");
+        assert_eq!(reverse[1].dial, Some(spelled(&catalog, "LEGAL")));
+        catalog.rings[1].status = GateStatusRule::PoweredBy { switch: "power".into(), reason: "no power".into() };
+        assert!(catalog.route(&rooms, &state, 0, 3, &facts).is_none(), "a route must not promise a refused dial");
+        let powered = GateFacts { switch_on: &|id| id == "power", ..facts };
+        assert!(catalog.route(&rooms, &state, 0, 3, &powered).is_some());
     }
 
     fn dial<'a>(

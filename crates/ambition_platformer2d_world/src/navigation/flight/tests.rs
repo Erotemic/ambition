@@ -57,6 +57,10 @@ fn standing(map: &FlightMap, x: f32) -> Vec2 {
 /// Fly `route` in the kernel from its first point, by `follow_flight`, and
 /// return the steps it took to arrive.
 fn fly(world: &World, map: &FlightMap, route: &[Vec2]) -> Result<usize, String> {
+    fly_to(world, map, route, None).map(|(steps, _)| steps)
+}
+
+fn fly_to(world: &World, map: &FlightMap, route: &[Vec2], arrival_region: Option<ae::Aabb>) -> Result<(usize, BodyClusterScratch), String> {
     let frame = normal_frame();
     let dt = 1.0 / 60.0;
     let mut body = flier();
@@ -87,9 +91,10 @@ fn fly(world: &World, map: &FlightMap, route: &[Vec2]) -> Result<usize, String> 
             side: frame.side(),
             down: frame.down(),
             law: map.law,
+            arrival_region,
         };
         match follow_flight(route, next, &facts) {
-            (_, FlightProgress::Arrived) => return Ok(index),
+            (_, FlightProgress::Arrived) => return Ok((index, body)),
             (input, FlightProgress::Going(at)) => {
                 next = at;
                 if step(&mut body, world, frame, dt, input) {
@@ -102,6 +107,24 @@ fn fly(world: &World, map: &FlightMap, route: &[Vec2]) -> Result<usize, String> 
         "no arrival: at {:?}, flying to point {next} of {route:?}",
         body.kinematics.pos
     ))
+}
+
+#[test]
+fn a_flight_into_a_narrow_edge_opening_reaches_it_on_both_sides() {
+    use crate::rooms::{LoadingZone, LoadingZoneActivation};
+    let world = room(FLOOR - 1.0);
+    let map = map_of(&world);
+    for x in [0.0, world.size.x - 16.0] {
+        let zone = LoadingZone {
+            id: "edge".into(), name: "edge".into(), activation: LoadingZoneActivation::Door,
+            aabb: ae::Aabb { min: Vec2::new(x, FLOOR - 160.0), max: Vec2::new(x + 16.0, FLOOR) },
+        };
+        let region = ae::Aabb { min: zone.aabb.min - map.half, max: zone.aabb.max + map.half };
+        let mut route = Vec::new();
+        assert!(map.route_into(standing(&map, 900.0), region, &mut FlightSearch::default(), &mut route));
+        let (_, body) = fly_to(&world, &map, &route, Some(region)).expect("the body enters the opening");
+        assert!(zone.reached_by(body.kinematics.aabb(), Vec2::ZERO), "a nearby free point is not entry: {:?}", body.kinematics);
+    }
 }
 
 /// ⭐ A FLIGHT GOES OVER A WALL, AND A BODY THAT FOLLOWS IT ARRIVES. The route
@@ -194,4 +217,9 @@ fn there_is_no_flight_into_a_closed_box() {
         &mut route
     ));
     assert!(route.is_empty());
+    assert!(!map.route_into(
+        standing(&map, 300.0),
+        ae::Aabb::new(Vec2::new(2000.0, 900.0), Vec2::splat(30.0)),
+        &mut FlightSearch::default(), &mut route,
+    ));
 }

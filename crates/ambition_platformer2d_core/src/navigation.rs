@@ -690,6 +690,9 @@ pub struct FlightFacts {
     pub side: Vec2,
     pub down: Vec2,
     pub law: FlightLaw,
+    /// The body-center region that must be entered. With no region, a
+    /// flight ends near its last point.
+    pub arrival_region: Option<crate::Aabb>,
 }
 
 /// What a step of a flight came to.
@@ -717,7 +720,11 @@ pub fn follow_flight(route: &[Vec2], next: usize, facts: &FlightFacts) -> (LegIn
         next += 1;
     }
     let to_end = last - facts.center;
-    if next + 1 == route.len() && to_end.length() <= FLIGHT_ARRIVE && facts.vel.length() <= REST_SPEED * 4.0 {
+    let arrived = facts.arrival_region.map_or(to_end.length() <= FLIGHT_ARRIVE, |region| {
+        facts.center.x > region.min.x && facts.center.x < region.max.x
+            && facts.center.y > region.min.y && facts.center.y < region.max.y
+    });
+    if next + 1 == route.len() && arrived && facts.vel.length() <= REST_SPEED * 4.0 {
         return (LegInput { full_speed: true, ..LegInput::default() }, FlightProgress::Arrived);
     }
     let brake = (facts.law.braking * FLIGHT_BRAKE_SHARE).max(1.0);

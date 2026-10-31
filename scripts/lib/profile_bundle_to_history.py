@@ -61,6 +61,7 @@ LEDGER = measurement_paths.RUNTIME_LEDGER
 # forgotten bump is a silent invalid comparison.
 SCENARIO_VERSIONS = {
     "sandbox": 1,
+    "ambition-autoplay": 2,
     # The Smash match family, one id per ROSTER SIZE. A four-fighter round is
     # not a two-fighter round with noise on it, so they are different workloads
     # and `scripts/profile_desktop.sh` gives them different ids; bump one of

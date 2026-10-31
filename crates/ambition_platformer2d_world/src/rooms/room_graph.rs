@@ -344,6 +344,9 @@ pub struct RoomHop {
     pub from: usize,
     pub zone: String,
     pub to: usize,
+    /// A dial at this hop's source ring, before the body enters it.
+    /// `None` uses the opening's authored link.
+    pub dial: Option<Vec<super::gate_network::Chevron>>,
 }
 
 /// Resolved transition from the active room to a graph-linked destination room.

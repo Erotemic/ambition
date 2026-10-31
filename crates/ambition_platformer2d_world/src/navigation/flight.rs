@@ -22,7 +22,7 @@ use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 
 use ae::navigation::FlightLaw;
-use ae::{BlockKind, Vec2, World};
+use ae::{Aabb, BlockKind, Vec2, World};
 use ambition_platformer2d_core as ae;
 
 /// The side of a cell of the map (px).
@@ -145,13 +145,21 @@ impl FlightMap {
         search: &mut FlightSearch,
         out: &mut Vec<Vec2>,
     ) -> bool {
+        let Some(goal) = self.free_near(to) else { out.clear(); return false };
+        let end = if self.clearance_at(to) > 0.0 { to } else { self.center_of(goal) };
+        self.route_to(from, Aabb::new(self.center_of(goal), Vec2::ZERO), Some(end), search, out)
+    }
+
+    /// A flight whose end is inside `region`, in body-center coordinates.
+    /// A nearby cell outside the region is not an arrival.
+    pub fn route_into(&self, from: Vec2, region: Aabb, search: &mut FlightSearch, out: &mut Vec<Vec2>) -> bool {
+        self.route_to(from, region, None, search, out)
+    }
+
+    fn route_to(&self, from: Vec2, region: Aabb, end: Option<Vec2>, search: &mut FlightSearch, out: &mut Vec<Vec2>) -> bool {
         out.clear();
-        let (Some(start), Some(goal)) = (self.free_near(from), self.free_near(to)) else {
-            return false;
-        };
-        if !self.search(start, goal, search) {
-            return false;
-        }
+        let Some(start) = self.free_near(from) else { return false };
+        let Some(goal) = self.search(start, region, search) else { return false };
         // The cells of the route, from the start.
         search.cells.clear();
         let mut cell = goal;
@@ -187,11 +195,7 @@ impl FlightMap {
             anchor = reach;
         }
         // The end itself, when the body can be there.
-        let end = if self.clearance_at(to) > 0.0 {
-            to
-        } else {
-            self.center_of(goal)
-        };
+        let end = end.unwrap_or_else(|| self.center_of(goal));
         if out.len() > 1 {
             *out.last_mut().expect("the route has its end") = end;
         } else {
@@ -200,8 +204,8 @@ impl FlightMap {
         true
     }
 
-    /// A weighted A* over the free cells, from `start` to `goal`.
-    fn search(&self, start: u32, goal: u32, search: &mut FlightSearch) -> bool {
+    /// A weighted A* from `start` to any free cell inside `goal`.
+    fn search(&self, start: u32, goal: Aabb, search: &mut FlightSearch) -> Option<u32> {
         let cells = self.clearance.len();
         if search.stamp.len() != cells {
             search.cost = vec![0.0; cells];
@@ -216,8 +220,10 @@ impl FlightMap {
         }
         let this = search.search;
         search.open.clear();
-        let goal_at = self.center_of(goal);
-        let estimate = |cell: u32| octile(self.center_of(cell), goal_at);
+        let estimate = |cell: u32| {
+            let at = self.center_of(cell);
+            octile(at, at.clamp(goal.min, goal.max))
+        };
         search.cost[start as usize] = 0.0;
         search.parent[start as usize] = start;
         search.stamp[start as usize] = this;
@@ -225,8 +231,9 @@ impl FlightMap {
             .open
             .push(Reverse((estimate(start).to_bits(), start)));
         while let Some(Reverse((priority, cell))) = search.open.pop() {
-            if cell == goal {
-                return true;
+            let at = self.center_of(cell);
+            if at.x >= goal.min.x && at.x <= goal.max.x && at.y >= goal.min.y && at.y <= goal.max.y {
+                return Some(cell);
             }
             let here = search.cost[cell as usize];
             // A cheaper way to this cell was found after this entry was put
@@ -282,7 +289,7 @@ impl FlightMap {
                     .push(Reverse(((cost + estimate(next)).to_bits(), next)));
             }
         }
-        false
+        None
     }
 
     /// Whether a flight goes straight from `cells[a]` to `cells[b]`: each

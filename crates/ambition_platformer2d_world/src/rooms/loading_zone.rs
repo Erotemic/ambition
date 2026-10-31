@@ -63,6 +63,13 @@ pub struct LoadingZone {
 }
 
 impl LoadingZone {
+    /// Whether the body's path reaches this opening. The body's center
+    /// need not enter it: an opening can stand at the edge of the room.
+    pub fn reached_by(&self, body: ae::Aabb, delta: ae::Vec2) -> bool {
+        use ae::AabbExt;
+        ae::cast::aabb_path_contacts(body.center(), body.half_size(), delta, self.aabb)
+    }
+
     /// A secret way ([`SECRET_ZONE_PREFIX`]).
     pub fn is_secret(&self) -> bool {
         self.id.starts_with(SECRET_ZONE_PREFIX)

@@ -877,9 +877,14 @@ scripts/profile_android.sh heap --no-launch --duration 30 --heap-sampling-interv
 ## Quick recipes
 
 **An unattended desktop profile of Ambition.** The game plays itself, the
-same rooms in the same order every run: into the hall of characters and
-across it, out, to the primeval trail, a flight through the trail over its
-dinosaurs and across the tyrant's hall, a flight back to the hub, and again.
+same destination stops every run: across the hall of characters, to the
+primeval trailhead, across the tyrant's hall, back to the hub, and again.
+The current room graph and gate catalog supply the route. Available gates
+and doors share one search; a gate wins a tie with a door to the same room.
+The body opens a terminal, dials through the normal host intent channel,
+and enters the open ring. Offline or busy rings are not route edges. The
+route is planned again at each room and when the room set or catalog changes.
+New side rooms are not stops unless the itinerary names them.
 
 ```bash
 scripts/profile_desktop.sh --autoplay --duration 120   # a bundle, scenario `ambition-autoplay`
@@ -889,6 +894,7 @@ scripts/profile_desktop.sh --autoplay --duration 120   # a bundle, scenario `amb
 `--autoplay` sets `AMBITION_AUTOPLAY=ambition` and
 `AMBITION_BOOT_ROUTE=ambition_gameplay` (an explicit value wins). The
 itinerary is `ITINERARY` in `game/ambition_content/src/autoplay.rs`.
+An unavailable route waits and retries; it does not count the stop as reached.
 
 **An unattended phone profile of one game in the hub.** One command:
 

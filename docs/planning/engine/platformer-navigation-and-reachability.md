@@ -59,6 +59,21 @@ only, not physical reachability. It has no production reader yet. So:
 
 ## The room graph is navigable by its doors
 
+Runtime routes can use doors and gates in one search:
+`GateNetworkCatalog::route` adds only links that `resolve_dial` permits under
+the live gate facts. `RoomHop::dial` names the terminal action before entry.
+The catalog owns addresses and availability; the route does not copy them into
+a game-specific table. Autoplay opens the physical terminal, sends the normal
+host intent, waits for the ring, and enters through the ordinary room transition.
+
+`NavGoal::FlyInto` requires the body to enter an opening. `FlightMap::route_into`
+searches for a free body-center position inside the entry region, and the shared
+flight follower tests that region at arrival. A nearby grid point outside the
+opening is not success. `LoadingZone::reached_by` is the shared body/path test
+for the traveller and the room transition. Guards: the world tests for both
+edges and a sealed box, and
+`a_route_over_rooms::autoplay_uses_the_gate_network_and_returns_from_the_primeval_trail`.
+
 `scripts/check_world_graph_is_navigable.py` checks the shipped worlds: every
 `LoadingZone` targets a real area, and no area can be entered but not left. The
 engine's own response to a dangling target is a build-time `eprintln!` on a door

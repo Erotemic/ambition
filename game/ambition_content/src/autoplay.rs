@@ -6,8 +6,9 @@
 //! flies through the trail over its dinosaurs and across the tyrant's hall,
 //! and flies back to the hub; then again.
 //!
-//! Each stop is a room. The way there is the room graph's fewest-rooms route
-//! ([`RoomSet::route`]); in each room on it the engine's autopilot takes the
+//! Each stop is a room. Doors and available dimension gates share one room
+//! route. A gate trip uses its terminal, dials through the host intent ledger,
+//! and enters the open ring. In each room the engine's autopilot takes the
 //! body to the door the route leaves by (on foot by the room's surface graph,
 //! or in the air by its flight map), with the input a person would give, and
 //! the policy presses Interact there.
@@ -26,7 +27,13 @@ use ambition_platformer2d::engine_core as ae;
 use ae::AabbExt;
 use ambition_platformer2d::input::ControlFrame;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
-use ambition_platformer2d::world::rooms::{LiveRoomSpecs, LoadingZoneActivation, RoomSet, RoomSpec};
+use ambition_platformer2d::world::rooms::{
+    GateFacts, GateNetworkCatalog, GateNetworkState, GatePortalPhases, GateRingPositions,
+    GateTerminalAction, GateTerminalIntent, LiveRoomSpecs, LoadingZone, LoadingZoneActivation,
+    RoomHop, RoomSet, RoomSpec,
+};
+use ambition_platformer2d::platformer::host_intents::HostIntentWriter;
+use bevy::ecs::system::SystemParam;
 
 /// This game's id in the hub, the value of `AMBITION_AUTOPLAY` that selects
 /// this policy.
@@ -59,9 +66,8 @@ pub const ITINERARY: [Stop; 4] = [
 /// Frames between two presses of Interact at a door, or of Confirm in a
 /// cutscene.
 const PRESS_EVERY: u32 = 20;
-/// Frames the body may spend in one room on its way before the policy gives
-/// that stop up and takes the next.
-const GIVE_UP_FRAMES: u32 = 3600;
+/// Frames between route attempts while no route is available.
+const RETRY_ROUTE_FRAMES: u32 = 60;
 /// How far from the far wall a crossing ends (px).
 const CROSS_INSET: f32 = 96.0;
 /// How high over its arrival a flight across a room goes (px).
@@ -79,16 +85,55 @@ pub struct Itinerary {
     goal: Option<Goal>,
     frames_in_room: u32,
     frames_since_press: u32,
+    pending_dial: Option<(String, u64)>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 enum Goal {
     /// The zone this room is left by on the way to the stop.
-    Leave { zone: ae::Aabb, door: bool },
+    Leave(RoomHop),
     /// Across the stop's room, to this point.
     Cross(ae::Vec2),
     /// Nothing left to do in this room: the stop is done.
     Done,
+    /// No available route yet. A closed gate can become available later.
+    Waiting,
+}
+
+/// The live gate facts and the same request channel that the terminal uses.
+#[derive(SystemParam)]
+pub struct GateTravel<'w, 's> {
+    catalog: Res<'w, GateNetworkCatalog>,
+    state: Res<'w, GateNetworkState>,
+    positions: Res<'w, GateRingPositions>,
+    phases: Res<'w, GatePortalPhases>,
+    save: Res<'w, ambition_platformer2d::persistence::save::AmbitionGameSave>,
+    intents: HostIntentWriter<'w, 's, GateTerminalIntent>,
+    terminals: Query<'w, 's, (Entity, &'static ambition_platformer2d::encounter::switches::SwitchFeature,
+        &'static ae::geometry::CenteredAabb)>,
+}
+
+impl GateTravel<'_, '_> {
+    fn route(&self, rooms: &RoomSet, from: usize, to: usize) -> Option<Vec<RoomHop>> {
+        let data = self.save.data();
+        let switch_on = |id: &str| data.switch(id);
+        let flag = |id: &str| data.flag(id);
+        let zone_exists = |room: &str, zone: &str| rooms.has_zone(room, zone);
+        let distance = |a: &str, b: &str| self.positions.distance(a, b);
+        self.catalog.route(rooms, &self.state, from, to, &GateFacts {
+            switch_on: &switch_on, flag: &flag, zone_exists: &zone_exists, distance: &distance,
+        })
+    }
+
+    fn ask(&mut self, ring: &str, action: GateTerminalAction, it: &mut Itinerary) {
+        if action == GateTerminalAction::Close || it.frames_since_press >= PRESS_EVERY {
+            it.frames_since_press = 0;
+            if matches!(action, GateTerminalAction::Dial(_)) {
+                it.pending_dial = Some((ring.to_owned(), self.state.next_serial));
+            }
+            self.intents.write(GateTerminalIntent { ring: ring.to_owned(), action });
+        }
+    }
 }
 
 /// The policy: this frame's order to the autopilot.
@@ -97,19 +142,40 @@ pub fn play_ambition(
     mut itinerary: Local<Itinerary>,
     autopilot: Option<Res<Autopilot>>,
     rooms: Option<LiveRoomSpecs>,
-    players: Query<(Entity, &ae::BodyKinematics), With<PrimaryPlayer>>,
+    players: Query<(Entity, &ae::BodyKinematics, Option<&ae::SweepSample>), With<PrimaryPlayer>>,
     cutscene: Option<Res<ambition_cutscene::ActiveCutscene>>,
+    mut gates: GateTravel,
 ) {
-    let Ok((entity, kin)) = players.single() else {
+    let Ok((entity, kin, sweep)) = players.single() else {
         *order = AutopilotOrder::Idle;
         return;
     };
-    let Some((rooms, room)) = rooms.as_ref().and_then(|rooms| Some((rooms.rooms(), rooms.spec_of(entity)?))) else {
+    let Some(specs) = rooms.as_ref() else {
         *order = AutopilotOrder::Idle;
         return;
     };
+    let Some(room) = specs.spec_of(entity) else {
+        *order = AutopilotOrder::Idle;
+        return;
+    };
+    let rooms = specs.rooms();
     let it = &mut *itinerary;
+    if specs.set_is_changed() || gates.catalog.is_changed() {
+        it.goal = None;
+    }
     it.frames_since_press = it.frames_since_press.saturating_add(1);
+    if let Some((ring, serial)) = it.pending_dial.clone() {
+        if let Some(report) = gates.state.reports.get(&ring).filter(|report| report.serial >= serial) {
+            it.pending_dial = None;
+            if report.outcome.is_err() {
+                eprintln!("[autoplay] dial refused ring={ring} outcome={:?}; planning again", report.outcome);
+                gates.ask(&ring, GateTerminalAction::Close, it);
+                it.goal = None;
+                *order = AutopilotOrder::Idle;
+                return;
+            }
+        }
+    }
     if cutscene.is_some_and(|cutscene| cutscene.is_playing()) {
         *order = if it.frames_since_press >= PRESS_EVERY {
             it.frames_since_press = 0;
@@ -125,37 +191,68 @@ pub fn play_ambition(
         it.arrival = kin.pos;
         it.frames_in_room = 0;
         it.goal = None;
+        it.pending_dial = None;
     }
     let status = autopilot.as_deref().map(Autopilot::status);
-    if it.frames_in_room > GIVE_UP_FRAMES {
-        it.advance();
+    if it.goal == Some(Goal::Waiting) && it.frames_in_room % RETRY_ROUTE_FRAMES == 0 {
+        it.goal = None;
     }
     if it.goal == Some(Goal::Done) || (matches!(it.goal, Some(Goal::Cross(_))) && status == Some(AutopilotStatus::Arrived)) {
         it.advance();
     }
     if it.goal.is_none() {
-        it.goal = Some(goal_in(rooms, room, ITINERARY[it.stop], it.arrival));
+        it.goal = Some(goal_in(rooms, room, ITINERARY[it.stop], it.arrival, &gates));
+        eprintln!("[autoplay] room={} stop={} goal={:?}", room.id, ITINERARY[it.stop].room, it.goal);
     }
     let way = ITINERARY[it.stop].way;
     *order = match it.goal.clone() {
-        Some(Goal::Leave { zone, door }) => {
-            let in_it = contains(zone, kin.pos);
-            if door && in_it && it.frames_since_press >= PRESS_EVERY {
-                it.frames_since_press = 0;
-                AutopilotOrder::Press(ControlFrame { interact_pressed: true, ..ControlFrame::default() })
-            } else {
-                match way {
-                    // On the floor in the middle of the door.
-                    Way::Walk => AutopilotOrder::GoTo(NavGoal::Stand(ae::Vec2::new(zone.center().x, zone.max.y - 1.0))),
-                    Way::Fly => AutopilotOrder::GoTo(NavGoal::Fly(zone.center())),
+        Some(Goal::Leave(hop)) => {
+            let Some(zone) = room.loading_zones.iter().find(|zone| zone.id == hop.zone) else {
+                it.goal = None;
+                *order = AutopilotOrder::Idle;
+                return;
+            };
+            let body = kin.collision_box(sweep);
+            if let Some(address) = &hop.dial {
+                let linked = gates.state.route_from(&zone.id).is_some_and(|link| link.address == *address);
+                if gates.state.terminal.as_deref() == Some(&zone.id) {
+                    let action = if linked { GateTerminalAction::Close } else { GateTerminalAction::Dial(address.clone()) };
+                    gates.ask(&zone.id, action, it);
+                    *order = AutopilotOrder::Idle;
+                    return;
+                }
+                if !linked {
+                    if let Some(open) = gates.state.terminal.clone() {
+                        gates.ask(&open, GateTerminalAction::Close, it);
+                        *order = AutopilotOrder::Idle;
+                        return;
+                    }
+                    let terminal = gates.catalog.ring(&zone.id).and_then(|ring| ring.terminal.as_deref());
+                    let at = gates.terminals.iter().find(|(switch, feature, _)| {
+                        Some(feature.activation.id.as_str()) == terminal && specs.definition_of(*switch) == specs.definition_of(entity)
+                    }).map(|(_, _, at)| *at);
+                    *order = match at {
+                        Some(at) if body.strict_intersects(at.aabb()) => press_interact(it),
+                        Some(at) => go_to(at.center, way),
+                        None => {
+                            it.goal = None;
+                            AutopilotOrder::Idle
+                        }
+                    };
+                    return;
+                }
+                if !gates.phases.allows_traversal(&zone.id) {
+                    *order = AutopilotOrder::Idle;
+                    return;
                 }
             }
+            enter(zone, body, way, it)
         }
         Some(Goal::Cross(at)) => match way {
             Way::Walk => AutopilotOrder::GoTo(NavGoal::Stand(at)),
             Way::Fly => AutopilotOrder::GoTo(NavGoal::Fly(at)),
         },
-        Some(Goal::Done) | None => AutopilotOrder::Idle,
+        Some(Goal::Done | Goal::Waiting) | None => AutopilotOrder::Idle,
     };
 }
 
@@ -170,24 +267,40 @@ impl Itinerary {
 
 /// What the body goes to in `room` on its way to `stop`, having come in at
 /// `arrival`.
-fn goal_in(rooms: &RoomSet, room: &RoomSpec, stop: Stop, arrival: ae::Vec2) -> Goal {
+fn goal_in(rooms: &RoomSet, room: &RoomSpec, stop: Stop, arrival: ae::Vec2, gates: &GateTravel) -> Goal {
     if room.id == stop.room {
         return if stop.cross { Goal::Cross(cross_point(room.world.size, arrival, stop.way)) } else { Goal::Done };
     }
     let first_hop = rooms
         .room_index_by_id(&room.id)
         .zip(rooms.room_index_by_id(stop.room))
-        .and_then(|(from, to)| rooms.route(from, to))
+        .and_then(|(from, to)| gates.route(rooms, from, to))
         .and_then(|hops| hops.into_iter().next());
-    match first_hop.and_then(|hop| room.loading_zones.iter().find(|zone| zone.id == hop.zone)) {
-        Some(zone) => Goal::Leave { zone: zone.aabb, door: zone.activation == LoadingZoneActivation::Door },
-        // No way from here: the stop is given up.
-        None => Goal::Done,
+    match first_hop {
+        Some(hop) => Goal::Leave(hop),
+        None => Goal::Waiting,
     }
 }
 
-fn contains(zone: ae::Aabb, at: ae::Vec2) -> bool {
-    at.x >= zone.min.x && at.x <= zone.max.x && at.y >= zone.min.y && at.y <= zone.max.y
+fn go_to(at: ae::Vec2, way: Way) -> AutopilotOrder {
+    AutopilotOrder::GoTo(match way { Way::Walk => NavGoal::Stand(at), Way::Fly => NavGoal::Fly(at) })
+}
+
+fn press_interact(it: &mut Itinerary) -> AutopilotOrder {
+    if it.frames_since_press < PRESS_EVERY { return AutopilotOrder::Idle; }
+    it.frames_since_press = 0;
+    AutopilotOrder::Press(ControlFrame { interact_pressed: true, ..ControlFrame::default() })
+}
+
+fn enter(zone: &LoadingZone, body: ae::Aabb, way: Way, it: &mut Itinerary) -> AutopilotOrder {
+    if zone.activation == LoadingZoneActivation::Door && zone.reached_by(body, ae::Vec2::ZERO) {
+        return press_interact(it);
+    }
+    let at = match way {
+        Way::Walk => ae::Vec2::new(zone.aabb.center().x, zone.aabb.max.y - 1.0),
+        Way::Fly => return AutopilotOrder::GoTo(NavGoal::FlyInto(zone.aabb)),
+    };
+    go_to(at, way)
 }
 
 /// The far side of a room of `size` from `arrival`: on foot at the height it
@@ -209,5 +322,19 @@ mod tests {
         let size = ae::Vec2::new(2000.0, 700.0);
         assert_eq!(cross_point(size, ae::Vec2::new(100.0, 600.0), Way::Walk), ae::Vec2::new(1904.0, 600.0));
         assert_eq!(cross_point(size, ae::Vec2::new(1900.0, 600.0), Way::Fly), ae::Vec2::new(96.0, 536.0));
+    }
+
+    #[test]
+    fn a_flying_body_opens_an_edge_door_without_putting_its_center_outside_the_room() {
+        let zone = LoadingZone {
+            id: "west".into(), name: "west".into(), activation: LoadingZoneActivation::Door,
+            aabb: ae::Aabb { min: ae::Vec2::new(0.0, 384.0), max: ae::Vec2::new(16.0, 480.0) },
+        };
+        let body = ae::Aabb::new(ae::Vec2::new(36.0, 426.0), ae::Vec2::new(28.0, 24.0));
+        let mut it = Itinerary { frames_since_press: PRESS_EVERY, ..default() };
+        assert!(body.center().x > zone.aabb.max.x);
+        assert!(matches!(enter(&zone, body, Way::Fly, &mut it), AutopilotOrder::Press(frame) if frame.interact_pressed));
+        let far = ae::Aabb::new(ae::Vec2::new(100.0, 426.0), body.half_size());
+        assert!(matches!(enter(&zone, far, Way::Fly, &mut it), AutopilotOrder::GoTo(_)));
     }
 }

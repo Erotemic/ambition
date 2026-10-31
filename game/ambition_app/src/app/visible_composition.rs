@@ -143,13 +143,13 @@ pub fn compose_ambition_visible_game(
             }
             None => super::shell_host::compose_ambition_shell_host(app),
         }
-        ambition_platformer2d::scripted_input::install_autoplay_from_env(app);
     } else {
         super::shell_host::compose_ambition_shell_host_booting_to(
             app,
             ambition_content::provider::AMBITION_GAMEPLAY_ROUTE,
         );
     }
+    ambition_platformer2d::scripted_input::install_autoplay_from_env(app);
     // NO ROOM WITHOUT THIS. Losing this one line is what made the
     // browser show a blank canvas, and what made `capture_scene` photograph an
     // empty world for two days. It is not a decoration pass — it is how an

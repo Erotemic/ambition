@@ -242,6 +242,11 @@ impl RoomSet {
     /// Deterministic: rooms and zones are taken in index and id order, so the
     /// same set gives the same route on each peer.
     pub fn route(&self, from: usize, to: usize) -> Option<Vec<RoomHop>> {
+        self.route_with_links(from, to, &[])
+    }
+
+    /// Search authored links and the available dialed links together.
+    pub(super) fn route_with_links(&self, from: usize, to: usize, links: &[RoomHop]) -> Option<Vec<RoomHop>> {
         if from >= self.rooms.len() || to >= self.rooms.len() {
             return None;
         }
@@ -256,17 +261,22 @@ impl RoomSet {
             let Some(&node) = self.room_nodes.get(room) else {
                 continue;
             };
-            let mut out: Vec<(usize, &str)> = self
+            let mut out: Vec<RoomHop> = self
                 .graph
                 .edges_directed(node, Direction::Outgoing)
-                .map(|edge| (edge.target().index(), edge.weight().from_zone.as_str()))
-                .filter(|(target, _)| *target < self.rooms.len())
+                .map(|edge| RoomHop {
+                    from: room, to: edge.target().index(), zone: edge.weight().from_zone.clone(), dial: None,
+                })
+                .filter(|hop| hop.to < self.rooms.len())
                 .collect();
-            out.sort_unstable();
-            for (target, zone) in out {
+            out.extend(links.iter().filter(|hop| hop.from == room).cloned());
+            // Prefer a dial when a door reaches the same room in one hop.
+            out.sort_by(|a, b| (a.to, a.dial.is_none(), &a.zone).cmp(&(b.to, b.dial.is_none(), &b.zone)));
+            for hop in out {
+                let target = hop.to;
                 if !seen[target] {
                     seen[target] = true;
-                    came_by[target] = Some(RoomHop { from: room, zone: zone.to_string(), to: target });
+                    came_by[target] = Some(hop);
                     queue.push_back(target);
                 }
             }
@@ -445,7 +455,7 @@ impl RoomSet {
         wants_interact: bool,
     ) -> Option<&LoadingZone> {
         self.spec(room).loading_zones.iter().find(|zone| {
-            ae::cast::aabb_path_contacts(player_aabb.center(), player_aabb.half_size(), delta, zone.aabb)
+            zone.reached_by(player_aabb, delta)
                 && zone.is_ready(wants_interact)
         })
     }

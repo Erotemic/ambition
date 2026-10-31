@@ -102,3 +102,46 @@ fn a_room_that_no_zone_leads_into_has_no_route() {
         assert!(!entered, "`{}` is entered from a reached room and has no route", rooms.rooms[room].id);
     }
 }
+
+/// The shipped policy opens terminals, dials, crosses the Trail, and comes
+/// home through ordinary simulation input and host intents.
+#[test]
+fn autoplay_uses_the_gate_network_and_returns_from_the_primeval_trail() {
+    use ambition_app::{AmbitionSim as _, Platformer2dSimHarness};
+    use ambition_platformer2d::scripted_input::install_autoplay;
+    use ambition_platformer2d::world::rooms::{GateNetworkCatalog, GateNetworkState};
+    use crate::common::fixed_60hz_room_options;
+
+    let mut sim = Platformer2dSimHarness::new_with_options(fixed_60hz_room_options("central_hub_complex")).expect("the hub builds");
+    install_autoplay(sim.app_mut(), ambition_content::autoplay::AUTOPLAY_GAME);
+    let mut visits = Vec::new();
+    let mut went_to_trail = false;
+    let mut reached_tyrant = false;
+    let mut returned = false;
+    for _ in 0..12000 {
+        // Autoplay owns the seat. Advance its fixed clock without a second
+        // participant source that replaces its input with a neutral frame.
+        sim.app_mut().update();
+        let seen = sim.observation();
+        if visits.last() != Some(&seen.active_room) {
+            eprintln!("[autoplay trip] room={}", seen.active_room);
+            visits.push(seen.active_room.clone());
+        }
+        went_to_trail |= seen.active_room == "primeval_trailhead";
+        reached_tyrant |= seen.active_room == "primeval_tyrant_hall";
+        if reached_tyrant && seen.active_room == "central_hub_complex" {
+            returned = true;
+            break;
+        }
+        std::thread::yield_now();
+    }
+    assert!(went_to_trail && reached_tyrant && returned, "autoplay did not finish its trip: {visits:?}");
+    let world = sim.world();
+    let catalog = world.resource::<GateNetworkCatalog>();
+    let network = world.resource::<GateNetworkState>();
+    for destination in ["GENESIS", "LEGAL"] {
+        let address = catalog.spell(destination).expect("the address spells");
+        assert!(network.reports.values().any(|report| report.address == address && report.outcome.is_ok()),
+            "autoplay never dialed {destination}: {network:?}; visits={visits:?}");
+    }
+}

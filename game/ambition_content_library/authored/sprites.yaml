@@ -230,6 +230,7 @@ collections:
   - void_star
   - eigenghost
   - decomposing_specter
+  - spectral_perturbation
   - hylbert_spectral_gap
   - hylbert_wallpaper_panel
   - hylbert_room_door

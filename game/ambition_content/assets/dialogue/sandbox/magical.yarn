@@ -125,3 +125,16 @@ Void Star: Shh! You'll wake them. How did you get in? Nobody breaks a wall in th
 -> Goodnight.
     Void Star: ...Say it again. Quieter. They like that.
 ===
+
+title: magical_solid_snake
+---
+Solid Snake: Kept you waiting, huh. ...Don't jump on me. Everybody jumps on me. It's a whole thing in this kingdom.
+-> Why does everyone jump on you?
+    Solid Snake: Because I have a shell. You jump on a shell, it goes into the shell, you kick the shell, it hits six things in a row. Very satisfying. For you.
+-> What are you doing in town?
+    Solid Snake: Infiltrating. The bakery. I've been in a cardboard box by the door since Tuesday. Nobody suspects a thing. Celeste gives the box a crescent every morning.
+-> Are you on Mary-O's side?
+    Solid Snake: Against the void? Everybody is. Even the lizard. Even me. It's hard to be stomped on in the dark. You need a little light to see the shoe coming.
+-> I'll leave you be.
+    Solid Snake: Snake? Snake?! SNAAAKE. ...Sorry. Habit.
+===

@@ -214,6 +214,9 @@ def square():
         sign("square_well_sign", WELL[0] + 32, 540, "THE OLD WELL: wishes not refunded", 340),
         resident("npc_magical_celeste", "magical_celeste", 1160, FLOOR),
         resident("npc_magical_lumen", "magical_lumen", 2060, FLOOR),
+        # Mary-O's own Solid Snake, off duty in town (it wanders, as it does
+        # in her levels; nobody stomps it here).
+        resident("solid_snake", "magical_solid_snake", 1400, FLOOR, brain="", w=64, h=32),
         edge("square_east", "out of town, along the dune road", w - 16, FLOOR, ROAD, "road_west"),
     ]
     return rid, room(rid, e, at=SQUARE_AT, size=(w, H), biome="starlight", music="billions_and_billions",

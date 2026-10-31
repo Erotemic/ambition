@@ -30,6 +30,7 @@
         ( type: "DebugLabel", px: [1462, 540], size: [340, 24], fields: ( name: "square_well_sign", text: "THE OLD WELL: wishes not refunded", category: "Custom" ) ),
         ( type: "NpcSpawn", px: [1144, 576], size: [32, 64], fields: ( character_id: "npc_magical_celeste", prompt: "Talk", dialogue_id: "magical_celeste", brain_override: "stand_still" ) ),
         ( type: "NpcSpawn", px: [2044, 576], size: [32, 64], fields: ( character_id: "npc_magical_lumen", prompt: "Talk", dialogue_id: "magical_lumen", brain_override: "stand_still" ) ),
+        ( type: "NpcSpawn", px: [1368, 608], size: [64, 32], fields: ( character_id: "solid_snake", prompt: "Talk", dialogue_id: "magical_solid_snake", brain_override: "" ) ),
         ( type: "LoadingZone", px: [2544, 544], size: [16, 96], fields: ( id: "square_east", name: "out of town, along the dune road", activation: "EdgeExit", target_room: "magical_stardune_road", target_zone: "road_west", bidirectional: true ) ),
         ( type: "CameraZone", px: [0, 0], size: [2560, 768], fields: ( id: "magical_starlight_square_camera", name: "magical_starlight_square_camera", mode: "Default" ) ),
         ( type: "DebugLabel", px: [830, 40], size: [900, 24], fields: ( name: "magical_starlight_square_title", text: "STARLIGHT SQUARE", category: "Custom" ) ),

@@ -7,7 +7,7 @@
 const DEFAULT_TICKS: u32 = 300;
 
 fn main() {
-    #[cfg(feature = "visible")]
+    #[cfg(feature = "desktop")]
     if ambition_platformer2d::demo_shell::wants_a_window() {
         ambition_demo_twintrack_app::build_windowed_demo_app().run();
         return;
@@ -31,5 +31,5 @@ fn main() {
             clock.proper_time_rate,
         );
     }
-    println!("Run with `--features visible -- --window` to play the round trip.");
+    println!("Run with `--features desktop -- --window` to play the round trip.");
 }

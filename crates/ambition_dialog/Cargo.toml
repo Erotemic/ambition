@@ -31,10 +31,6 @@ ambition_sfx = { path = "../ambition_sfx" }
 # sim schedule (actor_monolith::session::durable_horizon) and this crate no
 # longer names it.
 ambition_persistence = { path = "../ambition_persistence" }
-# `ui_api` carries the windowing + time + ecs + observer surface the systems
-# and bridge use, transitively (ui_api -> default_app -> bevy_window). Matches
-# ambition_platformer2d_actor_monolith's base bevy dep so feature unification stays headless.
-# `x11` only affects isolated test/check builds of this crate: `ui_api` pulls
-# winit, which needs a display backend to compile at all (mirrors ambition_audio).
-bevy = { version = "0.19.1", default-features = false, features = ["ui_api", "x11"] }
+# UI data does not select a window backend. The host selects platform support.
+bevy = { version = "0.19.1", default-features = false, features = ["ui_api"] }
 bevy_yarnspinner = { version = "0.9", optional = true }

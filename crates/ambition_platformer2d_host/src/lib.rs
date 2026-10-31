@@ -16,6 +16,11 @@ use bevy::app::{App, Plugin};
 #[cfg(any(feature = "render", feature = "input"))]
 use bevy::prelude::*;
 
+#[cfg(all(feature = "frame_pacing", not(target_arch = "wasm32")))]
+mod framepace;
+#[cfg(all(feature = "frame_pacing", not(target_arch = "wasm32")))]
+pub use framepace::FramePacePlugin;
+
 pub mod gameplay_presentation;
 #[cfg(feature = "portal_render")]
 pub mod portal;
@@ -45,6 +50,8 @@ impl PluginGroup for PlatformerHostPlugins {
             .add(HostVfxPresentationPlugin);
         #[cfg(feature = "input")]
         let builder = builder.add(HostInputBindingsPlugin);
+        #[cfg(all(feature = "frame_pacing", not(target_arch = "wasm32")))]
+        let builder = builder.add(FramePacePlugin);
         builder
     }
 }

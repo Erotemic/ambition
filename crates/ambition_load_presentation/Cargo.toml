@@ -12,11 +12,9 @@ crate-type = ["rlib"]
 
 [features]
 default = []
-# `bevy/x11`: `ui_api` pulls winit, which needs a display backend to compile in an isolated `cargo
-# test -p ambition_load_presentation`.
+# Loading UI uses data types. The host selects the window backend.
 basic_presentation = [
     "bevy/ui_api",
-    "bevy/x11",
     "ambition_game_shell/basic_presentation",
 ]
 

@@ -15,6 +15,8 @@ bench = false
 
 [features]
 default = []
+# Native windowed host. Rendering alone also supports offscreen and web hosts.
+desktop = ["visible", "ambition_platformer2d/desktop_platform", "ambition_platformer2d/frame_pacing"]
 # Embed the demo's content pack: see `ambition_demo_sanic`.
 static_content = ["ambition_demo_sanic/static_content"]
 # Draw the world AND make it playable. Adds the engine's generic presentation face

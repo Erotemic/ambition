@@ -145,8 +145,8 @@ game_args=()
 # The `sanic` / `mary-o` / `smash` / `twintrack` mode aliases retarget this to a demo's OWN standalone
 # shell crate — the same binary `game/ambition_demo_*_app` ships, unrelated to
 # the host. This script is a launcher: demos default to WINDOWED
-# (`--features visible` + the `--window` game arg). `--headless` opts a demo
-# into its sim-only shell instead (no window, no `visible`).
+# (`--features desktop` + the `--window` game arg). `--headless` opts a demo
+# into its sim-only shell instead (no window, no `desktop`).
 target_pkg="ambition_app"
 target_bin="ambition_game_bin"
 target_kind="host"
@@ -242,7 +242,7 @@ Launch targets (mode aliases):
   twintrack, twin-track,
   twintrack-demo          TwinTrack's standalone shell — the two-seat
                           split-screen round trip (ambition_demo_twintrack_app).
-                          Demos default to windowed (--features visible + the
+                          Demos default to windowed (--features desktop + the
                           --window game arg).
   --headless, headless    Opt the selected demo into its sim-only shell (no
                           window). Ignored for the host.
@@ -574,10 +574,9 @@ fi
 features=()
 if [[ "$target_kind" == "demo" ]]; then
     if [[ "$demo_headless" -eq 0 ]]; then
-        # The demo shells draw only under `visible`. The bin checks
-        # `std::env::args().any(|a| a == "--window")` to pick its drawn path,
-        # so prepend it — it survives even with no other game args.
-        features+=(visible)
+        # Desktop selects rendering and the native window backend.
+        # The window argument selects the demo binary's drawn path.
+        features+=(desktop)
         game_args=(--window "${game_args[@]}")
     fi
 elif [[ "$target_kind" == "match_profile" ]]; then

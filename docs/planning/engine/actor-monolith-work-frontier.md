@@ -343,11 +343,25 @@ the windowed sentinel. `scripts/measure_minimum_profile_closure.py --minimum`
 prices a profile; cutting one edge saves little because the hubs reach the same
 crates.
 
-Sprite metadata selects Bevy's asset, image, log and sprite data features.
-It does not select a rendering pipeline. The headless fixture's package closure
-fell from 414 to 386 on 2026-10-26; Bevy's renderer and `wgpu` left the graph.
-Measure with `cargo tree --manifest-path fixtures/headless_profile/Cargo.toml
---locked --offline`. Rendering owners select the rendering features.
+Sprite metadata selects Bevy data features, not a rendering pipeline.
+Window backends belong to hosts. Dialogue, conversation, trace and audio
+runtime crates no longer select X11. The four standalone demo apps have a
+`desktop` feature that selects rendering and `desktop_platform`; browser and
+offscreen builds keep their own platform choice.
+
+The headless fixture's normal graph fell from 377 to 357 package versions on
+2026-10-31. Winit and 19 supporting packages left it. No package entered it.
+This measures dependencies, not binary size or build time. Re-run with
+`cargo tree --manifest-path fixtures/headless_profile/Cargo.toml --locked
+--offline --edges normal --prefix none`. Local before/after evidence is under
+`target/headless-platform-closure-probe/`.
+
+The assembled app, four standalone desktop binaries, Mary-O offscreen capture
+and Mary-O WASM pass compile checks. The separate headless consumer passes four
+tests; the renderer consumer passes eighteen. Both consumer test runs use
+`CARGO_PROFILE_DEV_DEBUG=0` and the bound target. These checks do not measure
+binary size or build time. The flagship launcher startup test also passes with
+frame pacing selected and no GPU backend.
 
 **Composition ruling:** Q108 and Q106 are resolved with Q146 and Q144 in
 [maintainer decisions](../maintainer-decisions.md). Direct and shell hosts use

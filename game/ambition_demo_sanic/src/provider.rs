@@ -63,6 +63,25 @@ pub fn sanic_session_world(sprite_content: &ambition_platformer2d::sprite_sheet:
     }
 }
 
+/// Read the starting room's theme before sprite preparation and activation.
+pub fn sanic_starting_room_metadata() -> ambition_platformer2d::world::rooms::RoomMetadata {
+    use ambition_platformer2d::ldtk_map::LdtkProject;
+    let start = START_ROOM.get().copied().unwrap_or(SPEEDWAY_ROOM_ID);
+    for world in [&crate::SPEEDWAY_WORLD, &crate::HIGHWAY_WORLD, &crate::DARKNESS_WORLD] {
+        let project = LdtkProject::from_json_str(&crate::world_text(world))
+            .expect("the Sanic world must parse");
+        let mut levels = project.levels.iter().filter(|level| level.active_area() == start).peekable();
+        if levels.peek().is_some() {
+            let mut metadata = ambition_platformer2d::world::rooms::RoomMetadata::default();
+            for level in levels {
+                metadata.merge(level.level_metadata());
+            }
+            return metadata;
+        }
+    }
+    panic!("the Sanic worlds must contain starting room {start}");
+}
+
 pub fn sanic_authored_catalogs() -> AuthoredCatalogFragments {
     AuthoredCatalogFragments::new(SANIC_CHARACTER_ID, SANIC_EXPERIENCE)
         .with_music()

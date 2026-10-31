@@ -148,8 +148,8 @@ impl VsyncMode {
     }
 }
 
-/// Frame-rate cap (battery saver). Drives `bevy_framepace`'s limiter in visible builds via
-/// `crate::host::framepace`. Default `Auto` (on, paced) for battery life.
+/// Frame cap for native windows. The host applies it to the renderer.
+/// `Auto` follows the display refresh rate.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FramePaceCap {
     #[default]

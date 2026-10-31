@@ -23,6 +23,7 @@ crate-type = ["rlib"]
 
 [features]
 default = []
+desktop = ["visible", "ambition_platformer2d/desktop_platform"]
 # No `bevy` entry, and that is a RESULT rather than an omission: this game
 # derives no components or resources, so it never needs Bevy's derive macros to
 # resolve `::bevy_ecs` through its own manifest. `ambition_platformer2d::bevy` is enough.

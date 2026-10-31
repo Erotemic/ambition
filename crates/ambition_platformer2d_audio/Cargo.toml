@@ -27,9 +27,8 @@ ambition_persistence = { path = "../ambition_persistence" }
 ambition_time = { path = "../ambition_time" }
 # The only audio backend (see `the_platformer_audio_crate_uses_only_bevy_kira_audio`).
 bevy_kira_audio = { version = "0.26", default-features = false, features = ["wav", "ogg"] }
-# `ui_api` as the monolith's base bevy dep, so feature unification is unchanged;
-# `x11` only matters for isolated builds of this crate (winit needs a backend).
-bevy = { version = "0.19.1", default-features = false, features = ["ui_api", "x11"] }
+# UI data does not select a window backend. The host selects platform support.
+bevy = { version = "0.19.1", default-features = false, features = ["ui_api"] }
 
 [dev-dependencies]
 ambition_asset_manager = { path = "../ambition_asset_manager" }

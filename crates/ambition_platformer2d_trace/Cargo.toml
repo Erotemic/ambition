@@ -27,6 +27,5 @@ ambition_combat = { path = "../ambition_combat" }
 ambition_input = { path = "../ambition_input" }
 ambition_time = { path = "../ambition_time" }
 ambition_portal2d = { path = "../ambition_portal2d", optional = true }
-# `ui_api` as the monolith's base bevy dep, so feature unification is unchanged;
-# `x11` only matters for isolated builds of this crate (winit needs a backend).
-bevy = { version = "0.19.1", default-features = false, features = ["ui_api", "x11"] }
+# UI data does not select a window backend. The host selects platform support.
+bevy = { version = "0.19.1", default-features = false, features = ["ui_api"] }

@@ -6,10 +6,11 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`framepace`](src/framepace.rs) | Apply the host's frame cap to a rendered native window. |
 | [`gameplay_presentation`](src/gameplay_presentation.rs) | Visible-host integration for gameplay presentation profiles. |
 | [`portal`](src/portal.rs) | Ambition-specific host glue for the reusable portal mechanic and renderer. |
 
-_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_3 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

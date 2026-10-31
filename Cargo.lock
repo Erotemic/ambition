@@ -187,7 +187,6 @@ dependencies = [
  "bevy",
  "bevy-inspector-egui",
  "bevy_common_assets",
- "bevy_framepace",
  "bevy_kira_audio",
  "bevy_yarnspinner",
  "console_error_panic_hook",
@@ -1110,7 +1109,6 @@ dependencies = [
  "bevy",
  "bevy-inspector-egui",
  "bevy_ecs",
- "bevy_framepace",
  "console_error_panic_hook",
  "ron 0.11.0",
  "serde",
@@ -1248,6 +1246,7 @@ dependencies = [
  "ambition_sim_view",
  "ambition_sprite_sheet",
  "bevy",
+ "bevy_framepace",
  "leafwing-input-manager",
 ]
 

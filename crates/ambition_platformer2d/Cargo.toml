@@ -140,7 +140,7 @@ ldtk_runtime = ["dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/ld
 # feature of the same name.
 wasm_modules = ["ambition_platformer2d_runtime/wasm_modules", "dep:ambition_extension_wasm"]
 physics_debris = ["ambition_platformer2d_runtime/physics_debris"]
-frame_pacing = ["ambition_platformer2d_actor_monolith/frame_pacing"]
+frame_pacing = ["ambition_render", "ambition_platformer2d_host/frame_pacing"]
 profile = ["ambition_platformer2d_actor_monolith/profile"]
 # Allocation and archetype-churn attribution: `ambition_dev_tools::perf_probe`.
 perf_probe = ["ambition_dev_tools/perf_probe"]

@@ -53,6 +53,44 @@ fn smoother_ramps_sim_state_time_scale_toward_target() {
     );
 }
 
+/// A FREEZE SNAPS ON AND OFF: one frame asking for 0 stops the clock, and
+/// the first frame asking for the pace again restores it. A ramp made a
+/// hit's freeze a slow-motion dip that reached the stop after it was over.
+#[test]
+fn a_freeze_snaps_on_and_off() {
+    let mut app = App::new();
+    app.add_message::<ClockScaleRequest>()
+        .insert_resource(RegimePolicy::default())
+        .insert_resource(RequestedClockScale::default())
+        .insert_resource(ClockState::default())
+        .insert_resource(Platformer2dFeelTuningMonolith::default())
+        .insert_resource(Time::<()>::default())
+        .init_resource::<ambition_time::WorldTime>()
+        .add_systems(
+            Update,
+            (
+                ambition_time::refresh_world_time,
+                apply_clock_scale_requests,
+                smooth_sim_clock_toward_target_system,
+            )
+                .chain(),
+        );
+    let frame = |app: &mut App, scale: f32| {
+        app.world_mut().write_message(ClockScaleRequest {
+            domain: ClockDomain::SimClock,
+            scale,
+            requester: ClockRequester::Engine,
+            reason: "freeze_test",
+        });
+        app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_millis(16));
+        app.update();
+        app.world().resource::<ClockState>().time_scale
+    };
+    assert_eq!(frame(&mut app, 0.0), 0.0, "the first frozen frame is still");
+    assert_eq!(frame(&mut app, 0.0), 0.0);
+    assert_eq!(frame(&mut app, 1.0), 1.0, "the first frame after the freeze runs at pace");
+}
+
 /// Integration check: with `WorldTime::sim_dt` at 0.25, a timer driven by `sim_dt()`
 /// advances at exactly 0.25× the wall-clock dt.
 #[test]

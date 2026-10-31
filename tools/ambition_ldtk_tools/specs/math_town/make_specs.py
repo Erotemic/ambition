@@ -180,8 +180,8 @@ def gate(ring, portal, zone, x, floor, to_room, to_zone, name):
     (_, _, top, _, _, _), _, (_, zx, _, zw, zh, _) = gates.ring("", zone, x, floor, name)
     r = gates.RING
     return [
-        f'( type: "Prop", px: [{x}, {top}], size: [{r}, {r}], fields: ( name: "{ring}", kind: "gate_ring" ) ),',
-        f'( type: "Prop", px: [{x}, {top}], size: [{r}, {r}], fields: ( name: "{portal}", kind: "gate_portal" ) ),',
+        f'( type: "Prop", px: [{x}, {top}], size: [{r}, {r}], fields: ( name: "{ring}", kind: "triangle_gate_ring" ) ),',
+        f'( type: "Prop", px: [{x}, {top}], size: [{r}, {r}], fields: ( name: "{portal}", kind: "triangle_gate_portal" ) ),',
         (f'( type: "LoadingZone", px: [{zx}, {top}], size: [{zw}, {zh}], fields: ( id: "{zone}", name: "{name}", '
          f'activation: "Door", target_room: "{to_room}", target_zone: "{to_zone}", bidirectional: false ) ),'),
     ]
@@ -1244,11 +1244,11 @@ entities:
   - type: Prop
     px: [{x}, {top}]
     size: [{r}, {r}]
-    fields: {{name: "{HOME_RING}", kind: gate_ring}}
+    fields: {{name: "{HOME_RING}", kind: triangle_gate_ring}}
   - type: Prop
     px: [{x}, {top}]
     size: [{r}, {r}]
-    fields: {{name: "{HOME_PORTAL}", kind: gate_portal}}
+    fields: {{name: "{HOME_PORTAL}", kind: triangle_gate_portal}}
   - type: LoadingZone
     px: [{x + (r - zw) // 2}, {top}]
     size: [{zw}, {r}]

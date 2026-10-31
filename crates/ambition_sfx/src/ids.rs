@@ -199,6 +199,15 @@ sfx_ids! {
     WORLD_PLATFORM_LOOP => "world.platform.loop",
     WORLD_PLATFORM_STOP => "world.platform.stop",
 
+    // World: gate wormhole. The membrane of a gate or a travel portal, played
+    // from its phase and its passages (`ambition_render`'s
+    // `rendering::gate_portal_audio`).
+    WORLD_WORMHOLE_OPEN => "world.wormhole.open",
+    WORLD_WORMHOLE_ENTER => "world.wormhole.enter",
+    WORLD_WORMHOLE_EXIT => "world.wormhole.exit",
+    /// Looped while a wormhole is open: a LOOPING bank entry.
+    WORLD_WORMHOLE_HUM => "world.wormhole.hum",
+
     // Pickups
     WORLD_PICKUP_GENERIC => "world.pickup.generic",
     WORLD_HEALTH_COLLECT => "world.health.collect",

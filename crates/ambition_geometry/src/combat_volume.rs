@@ -165,6 +165,31 @@ impl CombatVolume {
     /// at least `min` across on each axis. An axis already that wide is left
     /// alone, so a volume is never made smaller and its shape is kept: a hull
     /// is stretched along the short axis only.
+    /// The convex hull of this volume and the point `root`: the region a
+    /// limb or weapon sweeps from the body it grows out of to its drawn tip.
+    ///
+    /// A circle contributes eight points on its rim, so the hull is a little
+    /// inside the true circle there. The result is always [`Self::Convex`].
+    pub fn reaching_back_to(&self, root: Vec2) -> Self {
+        let mut points = match self {
+            CombatVolume::Aabb(a) => obb_corners(a.center(), a.half_size(), 0.0),
+            CombatVolume::Obb {
+                center,
+                half,
+                rotation,
+            } => obb_corners(*center, *half, *rotation),
+            CombatVolume::Circle { center, radius } => (0..8)
+                .map(|i| {
+                    let a = i as f32 * std::f32::consts::FRAC_PI_4;
+                    *center + Vec2::new(a.cos(), a.sin()) * *radius
+                })
+                .collect(),
+            CombatVolume::Convex { points, .. } => points.clone(),
+        };
+        points.push(root);
+        Self::convex(convex_hull(&points))
+    }
+
     pub fn at_least(&self, min: Vec2) -> Self {
         let size = self.bounds().half_size() * 2.0;
         let scale = Vec2::new(
@@ -423,6 +448,19 @@ fn pv(x: f32, y: f32) -> Vector {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn reaching_back_to_the_body_covers_the_gap_to_the_tip() {
+        let tip = CombatVolume::Aabb(Aabb::new(Vec2::new(40.0, 0.0), Vec2::new(5.0, 5.0)));
+        let reach = tip.reaching_back_to(Vec2::ZERO);
+        let b = reach.bounds();
+        assert_eq!((b.min, b.max), (Vec2::new(0.0, -5.0), Vec2::new(45.0, 5.0)));
+        // A point between the body and the tip is now inside; one above the
+        // gap, outside the wedge, is not.
+        let probe = |p: Vec2| reach.intersects(&CombatVolume::Aabb(Aabb::new(p, Vec2::splat(0.1))));
+        assert!(probe(Vec2::new(20.0, 0.0)));
+        assert!(!probe(Vec2::new(10.0, -4.0)));
+    }
 
     #[test]
     fn at_least_grows_a_sliver_on_its_short_axis_and_never_shrinks() {

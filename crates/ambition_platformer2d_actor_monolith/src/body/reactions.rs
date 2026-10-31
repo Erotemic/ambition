@@ -93,11 +93,14 @@ mod tests {
             let dt = 0.025 * scale.unwrap_or(1.0);
             for body in bodies {
                 let combat = app.world().get::<BodyCombat>(body).unwrap();
+                // Frozen: the hit's stun waits for its freeze to end
+                // (`BodyCombat::decay_reaction_timers`); the invulnerability
+                // is the recovery clock that runs on body time meanwhile.
+                assert_eq!(combat.hitstun_timer, 1.0, "{body:?}: the stun ran during the freeze");
                 assert!(
-                    (combat.hitstun_timer - (1.0 - dt)).abs() < 1e-6,
+                    (combat.damage_invuln_timer - (1.0 - dt)).abs() < 1e-6,
                     "{body:?}: wrong recovery clock"
                 );
-                assert!((combat.damage_invuln_timer - (1.0 - dt)).abs() < 1e-6);
                 assert!(
                     (combat.hitstop_timer - 0.9).abs() < 1e-6,
                     "{body:?}: freeze expiry stopped with body time"
@@ -112,7 +115,8 @@ mod tests {
             app.update();
             for body in bodies {
                 let combat = app.world().get::<BodyCombat>(body).unwrap();
-                assert!((combat.hitstun_timer - (1.0 - 2.0 * dt)).abs() < 1e-6);
+                assert_eq!(combat.hitstun_timer, 1.0);
+                assert!((combat.damage_invuln_timer - (1.0 - 2.0 * dt)).abs() < 1e-6);
                 assert!((combat.hitstop_timer - 0.8).abs() < 1e-6);
             }
         }

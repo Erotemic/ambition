@@ -116,6 +116,7 @@ mod features;
 pub mod flyline;
 pub mod tether;
 pub mod limb_trail;
+pub mod gate_portal_audio;
 pub mod gate_portal_visuals;
 pub mod passage_visuals;
 pub mod gravity_visuals;

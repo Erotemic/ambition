@@ -1136,7 +1136,23 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
             ambition_platformer2d::combat::strike::HitboxHits::default(),
         ));
     }
+    // Through the hit's FREEZE, then a few ticks of the launch: the world
+    // stops for the hitlag (a stop, not a ramp, since cb2989e74), and the
+    // launch that takes him off begins when it ends.
     for _ in 0..10 {
+        app.update();
+    }
+    for _ in 0..120 {
+        let frozen = app
+            .world()
+            .get::<ambition_platformer2d::characters::actor::BodyCombat>(seat0)
+            .is_some_and(|combat| combat.hitstop_timer > 0.0);
+        if !frozen {
+            break;
+        }
+        app.update();
+    }
+    for _ in 0..5 {
         app.update();
     }
     // ⛔ THE PREMISE: the hit actually LAUNCHED him. `tumbling` is what the rule

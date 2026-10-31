@@ -108,6 +108,15 @@ and `used` rows: a set bit bright, a used row's clear bit dim). Each wheel
 plaque draws the same grid. A ring is 288 x 288 world units (2026-10-24, so
 the grids read; its sheets are 384 px frames over 192 design units).
 
+A ring has a **shape** (2026-10-31): the triangle (`triangle_gate_ring`,
+`_portal`, `_glyphs`; `targets/props/triangle_gate.py`, the round ring's
+parts reshaped: chevrons up and down the sides, the Δ at the apex, the same
+wormhole clipped to the triangular opening, set into a pedestal with stairs
+up to the opening's foot) is the main one; the round ring (`gate_ring`) is
+the Jungle's. A ring lights the glyph sheet of its own shape
+(`ring_glyphs_kind`); a generator picks the shape with `gates.ring(...,
+shape=)`.
+
 ## The address table
 
 New game = a fresh save; with `start_known: All` every address is listed

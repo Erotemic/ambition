@@ -212,7 +212,8 @@ fn the_region_the_brain_is_handed_is_the_extent_the_body_strikes_with() {
             let Some(expected) = authored_coverage_over(spec, &resolve, |index| index == first_index) else {
                 continue;
             };
-            if resolve(spec.clip.clip.as_str(), first.start_s).is_some() {
+            let drawn = resolve(spec.clip.clip.as_str(), first.start_s).is_some();
+            if drawn {
                 manifest_backed += 1;
             }
             // Start the move at the window's opening, with the body's facing;
@@ -251,6 +252,14 @@ fn the_region_the_brain_is_handed_is_the_extent_the_body_strikes_with() {
                     "seat {} {}: brain region ({:.1},{:.1})..({:.1},{:.1}) vs live strike ({:.1},{:.1})..({:.1},{:.1})",
                     body.seat, spec.id, expected.min.0, expected.min.1, expected.max.0, expected.max.1,
                     lo.0, lo.1, hi.0, hi.1
+                ));
+            }
+            // A drawn strike reaches back to the body centre, so a foe that
+            // stands against the attacker is hit (`strike_region`).
+            if drawn && !(lo.0 <= TOLERANCE_PX && hi.0 >= -TOLERANCE_PX && lo.1 <= TOLERANCE_PX && hi.1 >= -TOLERANCE_PX) {
+                failures.push(format!(
+                    "seat {} {}: drawn strike ({:.1},{:.1})..({:.1},{:.1}) does not reach the body centre",
+                    body.seat, spec.id, lo.0, lo.1, hi.0, hi.1
                 ));
             }
             *witnessed.entry(body.character.clone().unwrap_or_default()).or_default() += 1;

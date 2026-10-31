@@ -555,7 +555,17 @@ fn install_misc_visual_sync_systems(app: &mut App) {
             ambition_platformer2d::render::rendering::gate_portal_visuals::sync_ring_lit_glyphs
                 .after(ambition_platformer2d::render::rendering::gate_portal_visuals::sync_portal_ring_animation),
             ambition_platformer2d::render::rendering::gate_portal_visuals::hide_portal_loading_zone_visuals,
+            // Each open wormhole in its destination's colour.
+            ambition_platformer2d::render::rendering::gate_portal_visuals::sync_wormhole_destination_hue,
         )
+            .after(sync_visuals)
+            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
+    )
+    // A wormhole is heard opening, humming while open, and taking a body in and
+    // giving one out: from the same phases and passages the visuals draw.
+    .add_systems(
+        Update,
+        ambition_platformer2d::render::rendering::gate_portal_audio::sync_gate_portal_audio
             .after(sync_visuals)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     )

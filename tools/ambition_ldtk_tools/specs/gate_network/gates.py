@@ -19,6 +19,14 @@ from __future__ import annotations
 import json
 
 RING = 288
+#: A ring's shape: its ring and portal prop kinds. The triangle is the gate
+#: network's main look; the round ring is the Jungle's (Jon, 2026-10-31:
+#: "Let's make the triangle the main variant though. Put the circle as the
+#: gate for the jungle dimension.").
+RING_SHAPES = {
+    "triangle": ("triangle_gate_ring", "triangle_gate_portal"),
+    "round": ("gate_ring", "gate_portal"),
+}
 ZONE_W = 144
 DIALER_W, DIALER_H = 64, 56
 SWITCH_W, SWITCH_H = 24, 32
@@ -46,14 +54,16 @@ def yaml_entity(etype: str, x: int, y: int, w: int, h: int, **fields) -> str:
     return "\n".join(lines)
 
 
-def ring(label: str, zone: str, x: int, floor: int, name: str) -> list[tuple]:
+def ring(label: str, zone: str, x: int, floor: int, name: str, shape: str = "triangle") -> list[tuple]:
     """A dialed ring standing on `floor` with its left edge at `x`: the ring
     prop, the portal prop and the zone. `label` names the props, which each
-    portal owns alone ("<label> Ring", "<label> Portal")."""
+    portal owns alone ("<label> Ring", "<label> Portal"); `shape` is a key of
+    `RING_SHAPES`."""
     top = floor - RING
+    ring_kind, portal_kind = RING_SHAPES[shape]
     return [
-        ("Prop", x, top, RING, RING, dict(name=f"{label} Ring", kind="gate_ring")),
-        ("Prop", x, top, RING, RING, dict(name=f"{label} Portal", kind="gate_portal")),
+        ("Prop", x, top, RING, RING, dict(name=f"{label} Ring", kind=ring_kind)),
+        ("Prop", x, top, RING, RING, dict(name=f"{label} Portal", kind=portal_kind)),
         ("LoadingZone", x + (RING - ZONE_W) // 2, top, ZONE_W, RING,
          dict(id=zone, name=name, activation="Door", target_room="", target_zone="", bidirectional=False)),
     ]

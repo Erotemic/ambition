@@ -222,6 +222,10 @@ frames; without P1–P3 that is 19 frames of a white blink. Ship them together.
 | Tap-jump menu toggle | ✔ Controls page, "Tap Jump" | this commit |
 | R6 authored walk speed, angled air-dodge lag | ✔ `walk_speed` (Smash 208 px/s), `air_dodge_up` → 0.73×–1.27× landing lag; schema 388 | 38e725306 |
 | CPU fighters like an Ultimate CPU | in progress (sub-agent lane on its own branch). First merge d9128c7e4: `smash_it::every_authored_route_gets_pressed` went red after the feel pass; the cause was NOT the hitstun lockout (my first reading, refuted by trace: zero presses matured inside stun) but the recovery lens probing with the room box while the game kills at the room plus the blast margins, so a fighter launched past the room edge saw no route. The brain now reads the death line (`WorldView::blast`), and holds a press made in hitstun for the first actionable tick | d9128c7e4 |
+| Hitstun starts after hitlag | ✔ hitstun and the recoil lock held through the freeze (they ran down DURING it: a jab's stun ended 1 frame after its freeze). On-hit advantage, pointed vs pugnacious at 0% / 40%: ftilt −12/−7 → −3/+2, dtilt −6/−2 → +2/+7, utilt −14/+1 → −5/+10, fair −12/−5 → −1/+6 | cb2989e74 |
+| The freeze is a stop | ✔ the world freeze snaps on and off (it ramped 12 frames in and 4 out, a slow-motion dip longer than the hitlag) | cb2989e74 |
+| Camera and drawn motion on fast displays | ✔ the cast is framed at presented poses (camera step change 6.56 → 0.005 px a frame at 144 Hz); Smash draws fighters between ticks (drawn jerk max 26.7 → 7.9 px) | 56935d9bf, 9741e4bb0 |
+| Grab landing-sound cascade | ✔ the captive's contact baseline follows its captor (46 landings in 47 held frames → 0) | f552b6d5c |
 | R5 play with Jon; posing keys beyond the polygons; Sanic's facet | open | — |
 
 Nothing above has been played by a human yet. Every number is a first cut.

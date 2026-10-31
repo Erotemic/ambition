@@ -5,11 +5,11 @@ entities:
   - type: Prop
     px: [1102, 448]
     size: [288, 288]
-    fields: {name: "Math Gate Ring (Home)", kind: gate_ring}
+    fields: {name: "Math Gate Ring (Home)", kind: triangle_gate_ring}
   - type: Prop
     px: [1102, 448]
     size: [288, 288]
-    fields: {name: "Math Gate Portal (Home)", kind: gate_portal}
+    fields: {name: "Math Gate Portal (Home)", kind: triangle_gate_portal}
   - type: LoadingZone
     px: [1174, 448]
     size: [144, 288]

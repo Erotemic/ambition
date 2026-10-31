@@ -65,6 +65,8 @@ pub struct ActorSpriteData {
     /// show a pose the disposition-agnostic picker can't infer. `Option`, so an
     /// ordinary actor is picked exactly as before.
     pub anim_override: Option<&'static ActorAnimOverride>,
+    /// A rider sits its mount (`crate::pose_view::seated`).
+    pub riding: bevy::prelude::Has<ambition_mount::RidingOn>,
     pub control_holds: Option<&'static ambition_characters::control::ControlHolds>,
     /// The move this body is playing, so the drawn row can be the one the
     /// move names. `None` for a body that is not mid-move, which is most of them
@@ -134,6 +136,9 @@ pub struct ActorAnimFrame {
     /// The body's last stop on the ground: the player road's rule
     /// ([`crate::StopClock`]), so a fighter stops as the player does.
     pub stop: crate::StopClock,
+    /// The body's last turn on the ground: the player road's rule
+    /// ([`crate::TurnClock`]), so a fighter turns as the player does.
+    pub turn: crate::TurnClock,
 }
 
 /// The clip + fallbacks one active move asks for. See [`ActorAnimFrame::clip`].
@@ -385,11 +390,15 @@ pub fn rebuild_actor_anim_index(
         // A content pose PIN wins over the picked pose (e.g. a shelled enemy's
         // withdraw cycle, which the disposition-agnostic picker cannot infer).
         let free = a.playback.is_none_or(|playback| playback.settled()) && a.anim_override.is_none();
-        let anim = a.anim_override.map(|o| o.0).unwrap_or(anim);
+        let anim = crate::pose_view::seated(a.anim_override.map(|o| o.0).unwrap_or(anim), a.riding);
         let before = index.get(a.feature_id.as_str());
         let stop = before
             .map_or_else(crate::StopClock::default, |before| before.stop)
             .next(before.map(|before| before.anim), anim, free, dt);
+        let facing = ae::mirror_side(a.kin.facing, a.unmirrored);
+        let turn = before
+            .map_or_else(crate::TurnClock::default, |before| before.turn)
+            .next(before.map(|before| (before.anim, before.facing)), anim, facing, free, dt);
         let charge = a
             .playback
             .and_then(ambition_combat::moveset::MovePlayback::smash_charge_fraction);
@@ -401,7 +410,7 @@ pub fn rebuild_actor_anim_index(
                     h.holds(ambition_characters::control::ControlHold::Conversation)
                 }),
                 pos: a.kin.pos,
-                facing: ae::mirror_side(a.kin.facing, a.unmirrored),
+                facing,
                 gravity_dir: a.frame.map_or(ae::DEFAULT_GRAVITY_DIR, |f| f.down()),
                 // what the ACTIVE MOVE asks to be drawn as. The move's own
                 // timeline is authoritative for presentation as well as
@@ -413,6 +422,7 @@ pub fn rebuild_actor_anim_index(
                 move_charge: charge,
                 passage_look: None,
                 stop,
+                turn,
                 // A HELD CHARGE outranks the move's own row, and only while it
                 // is held: the whole point of the beat is that a fighter
                 // winding up looks different from one swinging. It goes AHEAD
@@ -422,6 +432,7 @@ pub fn rebuild_actor_anim_index(
                     .playback
                     .filter(|playback| !playback.settled())
                     .map(|playback| ClipRequest::for_move(&playback.spec.clip, playback.phase()))
+                    .or_else(|| turn.clip(anim, free))
                     .or_else(|| stop.clip(anim, free))
                     .or_else(|| {
                         ClipRequest::from_chain(ambition_character_sprites::body_state_clip(

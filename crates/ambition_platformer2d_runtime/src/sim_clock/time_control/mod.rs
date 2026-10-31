@@ -93,6 +93,15 @@ pub fn smooth_sim_clock_toward_target_system(
 ) {
     // Unscaled: the ramp is in real seconds, whatever scale it is ramping.
     let frame_dt = world_time.wall_dt();
+    // ⛔⛔ A FREEZE IS NOT A RAMP. A hit's freeze asks for 0 and ends by
+    // asking for the pace again; ramped at 5/s down and 14/s up, the clock
+    // took 12 frames to reach the stop a 8–16 frame hitlag asked for and 4 to
+    // come back, so a hit played as a slow-motion dip rather than a stop. A
+    // freeze snaps on and snaps off; a slow-down (bullet time) still eases.
+    if target.sim_clock == 0.0 || clock.time_scale == 0.0 {
+        clock.time_scale = target.sim_clock;
+        return;
+    }
     let rate = if target.sim_clock < clock.time_scale {
         feel.time_ramp_down_rate
     } else {

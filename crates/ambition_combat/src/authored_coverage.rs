@@ -14,9 +14,25 @@
 //! the same resolver, so the two cannot disagree. The caller supplies the
 //! resolver as a closure over the body it already holds (character, size,
 //! drawn quad, art floor); this module names none of them.
+//!
+//! [`strike_region`] is the ONE rule that turns a drawn hit polygon into the
+//! region that hits. The spawn and the brain both call it.
 
 use ambition_entity_catalog::{MoveCoverage, MoveSpec, WindowTag};
 use ambition_platformer2d_core as ae;
+
+/// The region an authored hit polygon strikes: the polygon and the body
+/// centre it grows from, hulled (body-local, so the root is the origin).
+///
+/// The art draws the blade, the staff tip or the fist; it does not draw the
+/// arm that joins it to the body. Without the root a foe that stands against
+/// the attacker is inside the swing but outside the drawn tip, and is not
+/// hit (Jon, playtest 2026-10-31: Alice's jab and up tilt passed over a
+/// pointed polygon that nearly overlapped her). Every character's every
+/// art-drawn strike takes this rule; no move opts out.
+pub fn strike_region(authored: &ae::CombatVolume) -> ae::CombatVolume {
+    authored.reaching_back_to(ae::Vec2::ZERO)
+}
 
 /// The body-local region (facing `+x`, `+y` toward the feet) this move's
 /// Active volumes will occupy on this body, by the strike spawn's own rule:
@@ -51,7 +67,7 @@ pub fn authored_coverage_over(
                 let authored = v.vfx.as_ref().and_then(|_| resolve(clip, w.start_s));
                 match authored {
                     Some(volume) => {
-                        let b = volume.bounds();
+                        let b = strike_region(&volume).bounds();
                         MoveCoverage {
                             min: (b.min.x, b.min.y),
                             max: (b.max.x, b.max.y),
@@ -99,7 +115,8 @@ mod tests {
     }
 
     /// The authored hull, when the sheet has one, REPLACES the RON box for a
-    /// vfx-tagged volume; without a row the RON box stands.
+    /// vfx-tagged volume and reaches back to the body centre; without a row
+    /// the RON box stands.
     #[test]
     fn the_authored_hull_replaces_the_ron_box_only_where_the_sheet_has_a_row() {
         let spec = spec_with_one_blade();
@@ -107,7 +124,7 @@ mod tests {
         let hull = ae::CombatVolume::aabb(ae::Aabb::new(ae::Vec2::new(40.0, -30.0), ae::Vec2::new(10.0, 5.0)));
         let with_row = authored_coverage_of(&spec, &|clip, _| (clip == "attack_side").then(|| hull.clone()))
             .expect("a region");
-        assert_eq!((with_row.min, with_row.max), ((30.0, -35.0), (50.0, -25.0)));
+        assert_eq!((with_row.min, with_row.max), ((0.0, -35.0), (50.0, 0.0)));
         assert_ne!((with_row.min, with_row.max), (ron.min, ron.max));
         let without = authored_coverage_of(&spec, &|_, _| None).expect("a region");
         assert_eq!((without.min, without.max), (ron.min, ron.max));

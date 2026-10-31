@@ -168,6 +168,69 @@ fn turns_on_the_ground(anim: CharacterAnim) -> bool {
     anim == CharacterAnim::Idle || strides(anim)
 }
 
+/// The pose of a body that rides a mount. The mount pins the rider to its
+/// saddle every tick and the kernel then reads the rider as airborne, so a
+/// rider whose sheet draws a jump or a fall would fall in the saddle. A
+/// rider's airborne poses draw as its stand; its moves and reactions are
+/// drawn as on foot.
+pub fn seated(anim: CharacterAnim, riding: bool) -> CharacterAnim {
+    if riding && matches!(anim, CharacterAnim::Jump | CharacterAnim::Fall | CharacterAnim::CrouchJump) {
+        CharacterAnim::Idle
+    } else {
+        anim
+    }
+}
+
+/// The clock of a body's last turn on the ground — ONE rule for the player's
+/// road ([`BodyPoseView`]) and every actor's ([`crate::ActorAnimFrame`]), as
+/// [`StopClock`] is for the stop.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TurnClock {
+    /// Seconds since the drawn facing last flipped while the body stood,
+    /// walked or ran, and `f32::INFINITY` before any.
+    pub secs: f32,
+}
+
+impl Default for TurnClock {
+    fn default() -> Self {
+        Self { secs: f32::INFINITY }
+    }
+}
+
+impl TurnClock {
+    /// The clock after a frame of `dt` in which the body, `free` of any move
+    /// or pin, is drawn as `anim` toward `facing`, and was drawn as `before`
+    /// (its pose and its facing).
+    pub fn next(self, before: Option<(CharacterAnim, f32)>, anim: CharacterAnim, facing: f32, free: bool, dt: f32) -> Self {
+        match before {
+            Some((before_anim, before_facing))
+                if free && before_facing != facing && turns_on_the_ground(before_anim) && turns_on_the_ground(anim) =>
+            {
+                Self { secs: 0.0 }
+            }
+            Some(_) => Self { secs: self.secs + dt },
+            None => Self::default(),
+        }
+    }
+
+    /// The body is in its turn: the first [`TURN_SECS`] after the flip, on
+    /// the ground, under no move.
+    pub fn turning(self, anim: CharacterAnim, free: bool) -> bool {
+        free && turns_on_the_ground(anim) && self.secs < TURN_SECS
+    }
+
+    /// The row the turn is drawn in while it lasts, slaved to its time. The
+    /// row is drawn in the NEW facing, so it ends on the side view.
+    pub fn clip(self, anim: CharacterAnim, free: bool) -> Option<crate::ClipRequest> {
+        self.turning(anim, free).then(|| crate::ClipRequest {
+            clip: TURNAROUND_CLIP.to_string(),
+            fallbacks: Vec::new(),
+            phase: Some(self.secs / TURN_SECS),
+            legs: None,
+        })
+    }
+}
+
 /// How far up the stick is held for a body that stands to look up. Below the
 /// cap of a walk (`ambition_input::control::WALK_AXIS_CAP`, 0.5), so the pose
 /// is the same with the walk key held.
@@ -571,6 +634,8 @@ pub fn rebuild_body_pose_views(
                 bevy::prelude::Has<ambition_combat::stocks::KnockedOutOfTheWorld>,
                 // The stick, for the look-up pose of a body that stands.
                 Option<&ambition_characters::control::ActorControl>,
+                // A rider sits its mount: see `seated`.
+                bevy::prelude::Has<ambition_mount::RidingOn>,
                 Option<&mut BodyPoseView>,
             ),
         ),
@@ -633,6 +698,7 @@ pub fn rebuild_body_pose_views(
             granted,
             out_of_the_world,
             control,
+            riding,
             pose,
         ),
     ) in &mut bodies
@@ -719,7 +785,7 @@ pub fn rebuild_body_pose_views(
         // applies to every brain-driven actor, and it belongs here for the identical reason: a pose
         // the disposition-agnostic picker cannot infer (a shelled enemy's withdraw, a body
         // mid-power-up) is stated by the content that owns the state machine.
-        let anim = anim_override.map(|o| o.0).unwrap_or(anim);
+        let anim = seated(anim_override.map(|o| o.0).unwrap_or(anim), riding);
         // The first moments on a wall are the landing on it.
         let wall_secs = match pose.as_deref() {
             _ if !on_a_wall(anim) => f32::INFINITY,
@@ -750,19 +816,18 @@ pub fn rebuild_body_pose_views(
         };
         // The turn: the drawn facing flipped between two poses on the ground.
         let free = playback.is_none_or(|playback| playback.settled()) && anim_override.is_none();
-        let turn_secs = match pose.as_deref() {
-            Some(before)
-                if free
-                    && before.facing != drawn_facing
-                    && turns_on_the_ground(before.anim)
-                    && turns_on_the_ground(anim) =>
-            {
-                0.0
-            }
-            Some(before) => before.turn_secs + time.as_deref().map_or(0.0, bevy::prelude::Time::delta_secs),
-            None => f32::INFINITY,
-        };
-        let turning = free && turns_on_the_ground(anim) && turn_secs < TURN_SECS;
+        let turn = pose
+            .as_deref()
+            .map_or_else(TurnClock::default, |before| TurnClock { secs: before.turn_secs })
+            .next(
+                pose.as_deref().map(|before| (before.anim, before.facing)),
+                anim,
+                drawn_facing,
+                free,
+                time.as_deref().map_or(0.0, bevy::prelude::Time::delta_secs),
+            );
+        let turn_secs = turn.secs;
+        let turning = turn.turning(anim, free);
         let dt = time.as_deref().map_or(0.0, bevy::prelude::Time::delta_secs);
         // The look up rises while it is asked for and falls when it is not, as
         // the body stands, walks or runs; a body that does anything else has
@@ -875,8 +940,8 @@ pub fn rebuild_body_pose_views(
                         phase: Some(phase),
                         legs: None,
                     };
-                    if turning {
-                        Some(slaved(TURNAROUND_CLIP, turn_secs / TURN_SECS))
+                    if let Some(turn) = turn.clip(anim, free) {
+                        Some(turn)
                     } else if free
                         && 0.0 < crawl
                         && crawl < 1.0
@@ -1338,6 +1403,38 @@ mod pose_view_tests {
         let mut long_walk = vec![Run];
         long_walk.extend(std::iter::repeat_n(Walk, 60));
         assert_eq!(stop_after(&long_walk).as_deref(), Some("walk_stop"), "a second of walking after a run");
+    }
+
+    /// A rider's airborne poses draw as its stand; everything else, and a
+    /// body on foot, is drawn as picked.
+    #[test]
+    fn a_rider_sits_its_mount() {
+        use CharacterAnim::{Fall, Hit, Idle, Jump};
+        assert_eq!(seated(Fall, true), Idle);
+        assert_eq!(seated(Jump, true), Idle);
+        assert_eq!(seated(Hit, true), Hit);
+        assert_eq!(seated(Fall, false), Fall);
+    }
+
+    /// A flip of the drawn facing on the ground draws the turn row for
+    /// [`TURN_SECS`], then the body's own pose; a flip in the air, or under
+    /// a move, draws no turn.
+    #[test]
+    fn a_flip_on_the_ground_draws_the_turn_for_its_time() {
+        use CharacterAnim::{Fall, Idle, Walk};
+        let dt = 1.0 / 60.0;
+        let flipped = |from: CharacterAnim, to: CharacterAnim, free: bool| {
+            TurnClock::default().next(Some((from, 1.0)), to, 1.0, free, dt).next(Some((from, 1.0)), to, -1.0, free, dt)
+        };
+        let turn = flipped(Idle, Walk, true);
+        assert_eq!(turn.clip(Walk, true).map(|r| r.clip).as_deref(), Some("turnaround"));
+        let mut later = turn;
+        for _ in 0..((TURN_SECS / dt) as usize + 1) {
+            later = later.next(Some((Walk, -1.0)), Walk, -1.0, true, dt);
+        }
+        assert_eq!(later.clip(Walk, true), None, "the turn is over after TURN_SECS");
+        assert_eq!(flipped(Fall, Fall, true).clip(Fall, true), None, "no turn in the air");
+        assert_eq!(flipped(Idle, Idle, false).clip(Idle, false), None, "no turn under a move");
     }
 
     /// Two live rooms, one body broken and launched in each, and a stamp

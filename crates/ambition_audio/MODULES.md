@@ -16,10 +16,11 @@
 | [`output`](src/output.rs) | Runtime selection of the audio backend and final output side effect. |
 | [`render`](src/render.rs) | Provider-relative SFX source resolution and Kira adapters. |
 | [`selection`](src/selection.rs) | App-local active audio context. |
+| [`sfx_loops`](src/sfx_loops.rs) | Sustained (looping) SFX: a cue held under a key until it is stopped. |
 | [`spec`](src/spec.rs) | Audio data schema: the authored (RON) shapes for procedural SFX and pre-rendered music. |
 | [`web_unlock`](src/web_unlock.rs) | Cross-platform audio-start readiness. |
 
-_12 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_13 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

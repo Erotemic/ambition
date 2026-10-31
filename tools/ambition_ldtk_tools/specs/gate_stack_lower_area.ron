@@ -190,7 +190,7 @@
             ],
             fields: (
                 name: "Interdimensional Gate Ring",
-                kind: "gate_ring",
+                kind: "triangle_gate_ring",
             ),
         ),
         (
@@ -205,7 +205,7 @@
             ],
             fields: (
                 name: "Interdimensional Gate Portal",
-                kind: "gate_portal",
+                kind: "triangle_gate_portal",
             ),
         ),
         (

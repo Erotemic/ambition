@@ -155,6 +155,24 @@ pub struct MaterialKey {
 }
 
 impl MaterialKey {
+    /// A [`FollowingSpriteEffect`]'s draw: the effect's, flipped as the sprite
+    /// is and drawn in the sprite's own colour.
+    fn with_colour(
+        effect: SpriteEffect,
+        basis: &SpriteFrameBasis,
+        image: &Handle<Image>,
+        flip_x: bool,
+        flip_y: bool,
+        colour: Color,
+    ) -> Self {
+        let mut key = Self::new(effect, basis, image, flip_x);
+        let c = colour.to_linear();
+        let bits = |v: Vec4| [v.x.to_bits(), v.y.to_bits(), v.z.to_bits(), v.w.to_bits()];
+        key.control[3] = (if flip_y { 1.0f32 } else { 0.0 }).to_bits();
+        key.colour = bits(Vec4::new(c.red, c.green, c.blue, c.alpha));
+        key
+    }
+
     fn new(effect: SpriteEffect, basis: &SpriteFrameBasis, image: &Handle<Image>, flip_x: bool) -> Self {
         let (op, scalar, colour) = effect.shader_args();
         let c = colour.to_linear();
@@ -290,6 +308,109 @@ pub fn restore_sprites_without_effects(
     }
 }
 
+/// Draw an ANIMATED sprite through a shader [`SpriteEffect`], frame by frame.
+///
+/// [`SpriteEffect`] takes the `Sprite` away and draws the frame it had: right
+/// for a still sprite (a gun), wrong for one an animator drives, whose
+/// `Sprite` (frame, size, anchor) changes every tick. This keeps the sprite:
+/// its animator, anchor, visibility and despawn keep working on it, it
+/// draws nothing (its colour's alpha is zero), and a child quad
+/// ([`FollowingFxQuad`]) draws its CURRENT frame under the effect, carrying
+/// the sprite's own colour. The gate wormhole's per-destination hue is one.
+///
+/// Like the [`SpriteEffect`] mesh path, the quad is not a `Sprite`, so the
+/// portal compositor does not cut it at a portal's seam.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct FollowingSpriteEffect(pub SpriteEffect);
+
+/// The quad a [`FollowingSpriteEffect`] draws with: a child of the sprite.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct FollowingFxQuad;
+
+/// A sprite drawn by a [`FollowingFxQuad`]: the quad, and the colour the
+/// sprite had, which the quad draws with and a cancel gives back.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct FollowingFxSource {
+    pub quad: Entity,
+    pub original_color: Color,
+}
+
+/// Keep each [`FollowingSpriteEffect`]'s quad on its sprite's current frame:
+/// spawn it once (and blank the sprite), then each tick give it the frame's
+/// material, size and anchor offset.
+#[allow(clippy::type_complexity)]
+pub fn draw_following_sprite_effects(
+    mut commands: Commands,
+    mut materials: ResMut<Assets<SpriteFxMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    layouts: Res<Assets<TextureAtlasLayout>>,
+    images: Res<Assets<Image>>,
+    mut unit_quad: Local<Option<Handle<Mesh>>>,
+    mut cache: Local<HashMap<MaterialKey, Handle<SpriteFxMaterial>>>,
+    mut sources: Query<(
+        Entity,
+        &FollowingSpriteEffect,
+        &mut Sprite,
+        Option<&bevy::sprite::Anchor>,
+        Option<&FollowingFxSource>,
+    )>,
+    mut quads: Query<(&mut Transform, &mut MeshMaterial2d<SpriteFxMaterial>), With<FollowingFxQuad>>,
+) {
+    for (entity, effect, mut sprite, anchor, source) in &mut sources {
+        if !effect.0.needs_material() {
+            continue;
+        }
+        let Some(basis) = sprite_frame_basis(&sprite, &layouts, &images) else {
+            continue;
+        };
+        let colour = source.map_or(sprite.color, |source| source.original_color);
+        let key = MaterialKey::with_colour(effect.0, &basis, &sprite.image, sprite.flip_x, sprite.flip_y, colour);
+        let material = cache
+            .entry(key)
+            .or_insert_with(|| {
+                materials.add(
+                    SpriteFxMaterial::for_effect(effect.0, basis, sprite.image.clone(), sprite.flip_x)
+                        .flipped_y(sprite.flip_y)
+                        .coloured(colour),
+                )
+            })
+            .clone();
+        // The sprite's quad pivots on its anchor: the frame's centre is
+        // `-anchor * size` from the entity.
+        let offset = -anchor.map_or(Vec2::ZERO, |anchor| anchor.0) * basis.size;
+        let placed = Transform::from_translation(offset.extend(0.0)).with_scale(basis.size.extend(1.0));
+        match source.and_then(|source| quads.get_mut(source.quad).ok()) {
+            Some((mut transform, mut drawn)) => {
+                transform.set_if_neq(placed);
+                if drawn.0 != material {
+                    drawn.0 = material;
+                }
+            }
+            None => {
+                let mesh = unit_quad.get_or_insert_with(|| meshes.add(Rectangle::default())).clone();
+                let quad = commands
+                    .spawn((FollowingFxQuad, Mesh2d(mesh), MeshMaterial2d(material), placed, Name::new("Following sprite effect")))
+                    .id();
+                commands.entity(entity).add_child(quad).insert(FollowingFxSource { quad, original_color: colour });
+                sprite.color = colour.with_alpha(0.0);
+            }
+        }
+    }
+}
+
+/// Give a sprite back its own draw once its [`FollowingSpriteEffect`] is
+/// gone: its colour back, its quad despawned.
+pub fn restore_sprites_without_following_effects(
+    mut commands: Commands,
+    mut orphaned: Query<(Entity, &FollowingFxSource, &mut Sprite), Without<FollowingSpriteEffect>>,
+) {
+    for (entity, source, mut sprite) in &mut orphaned {
+        sprite.color = source.original_color;
+        commands.entity(source.quad).try_despawn();
+        commands.entity(entity).remove::<FollowingFxSource>();
+    }
+}
+
 /// `Material2d` for one sprite drawn through a [`SpriteEffect`].
 ///
 /// Bindings follow the WebGL2-friendly convention the other overlays in this
@@ -299,7 +420,7 @@ pub struct SpriteFxMaterial {
     /// Current atlas frame as a normalized UV rect `(min.x, min.y, max.x, max.y)`.
     #[uniform(0)]
     pub uv_rect: Vec4,
-    /// `(operation, flip_x, scalar, _)`.
+    /// `(operation, flip_x, scalar, flip_y)`.
     #[uniform(1)]
     pub control: Vec4,
     /// Colour argument (linear RGBA) for the operations that take one.
@@ -330,6 +451,24 @@ impl SpriteFxMaterial {
             colour: Vec4::new(c.red, c.green, c.blue, c.alpha),
             color_texture: image,
         }
+    }
+}
+
+impl SpriteFxMaterial {
+    /// The same draw mirrored top to bottom (a sprite's `flip_y`).
+    pub fn flipped_y(mut self, flip_y: bool) -> Self {
+        self.control.w = if flip_y { 1.0 } else { 0.0 };
+        self
+    }
+
+    /// The same draw multiplied by `colour` (a hue shift's or a saturate's
+    /// result, as a sprite's colour multiplies its texture).
+    pub fn coloured(mut self, colour: Color) -> Self {
+        if self.control.x > 0.5 && self.control.x < 2.5 {
+            let c = colour.to_linear();
+            self.colour = Vec4::new(c.red, c.green, c.blue, c.alpha);
+        }
+        self
     }
 }
 
@@ -372,6 +511,7 @@ impl Plugin for SpriteFxPlugin {
         app.add_systems(
             PostUpdate,
             (
+                restore_sprites_without_following_effects,
                 restore_sprites_without_effects,
                 // Guard the mesh path per resource. The `EmbeddedAssetRegistry` check above
                 // asks "is there an AssetPlugin"; these ask "is there a render stack". A demo
@@ -383,6 +523,10 @@ impl Plugin for SpriteFxPlugin {
                 // three at once (chained `run_if`s are ANDed); this is the same pattern as
                 // `sync_portal_view_cones` (`ambition_portal2d_presentation/src/plugin.rs`).
                 draw_sprite_effects
+                    .run_if(resource_exists::<Assets<Mesh>>)
+                    .run_if(resource_exists::<Assets<TextureAtlasLayout>>)
+                    .run_if(resource_exists::<Assets<Image>>),
+                draw_following_sprite_effects
                     .run_if(resource_exists::<Assets<Mesh>>)
                     .run_if(resource_exists::<Assets<TextureAtlasLayout>>)
                     .run_if(resource_exists::<Assets<Image>>),

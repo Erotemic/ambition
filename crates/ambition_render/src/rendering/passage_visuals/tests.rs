@@ -47,6 +47,7 @@ fn frame(passage_look: Option<PassageLookView>) -> ActorAnimFrame {
         move_charge: None,
         passage_look,
         stop: Default::default(),
+        turn: Default::default(),
     }
 }
 

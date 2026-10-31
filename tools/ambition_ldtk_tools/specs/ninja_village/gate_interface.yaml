@@ -8,13 +8,13 @@ entities:
     size: [288, 288]
     fields:
       name: "Village Gate (Shrine) Ring"
-      kind: "gate_ring"
+      kind: "triangle_gate_ring"
   - type: Prop
     px: [112, 416]
     size: [288, 288]
     fields:
       name: "Village Gate (Shrine) Portal"
-      kind: "gate_portal"
+      kind: "triangle_gate_portal"
   - type: LoadingZone
     px: [184, 416]
     size: [144, 288]

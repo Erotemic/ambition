@@ -724,14 +724,14 @@ fn a_fighter_facet_saved_while_the_game_runs_reaches_the_cast() {
 fn an_item_row_saved_while_the_game_runs_is_played() {
     use ambition_content::content_watch::ContentSourceWatch;
     use ambition_platformer2d::items::{item_catalog, Item};
-    let axe = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
-        item_catalog(sim.world()).display_name(Item::Axe).expect("the pack names the axe").to_string()
+    let gun_sword = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
+        item_catalog(sim.world()).display_name(Item::GunSword).expect("the pack names the gun-sword").to_string()
     };
     let mut sim = common::fixed_60hz_room_sim("proving_grounds");
     for _ in 0..40 {
         sim.step(common::base());
     }
-    assert_eq!(axe(&sim), "Axe", "the premise: the shipped catalog names slot 1 `Axe`");
+    assert_eq!(gun_sword(&sim), "Gun-Sword", "the premise: the shipped catalog names the slot `Gun-Sword`");
 
     let root = std::env::temp_dir().join(format!("ambition_items_watch_{}", std::process::id()));
     let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -740,18 +740,18 @@ fn an_item_row_saved_while_the_game_runs_is_played() {
         std::thread::sleep(std::time::Duration::from_millis(20));
         let path = root.join("data/items.ron");
         let text = std::fs::read_to_string(&path).unwrap();
-        let from = "display_name: \"Axe\",";
-        assert_eq!(text.matches(from).count(), 1, "the premise: items.ron names the axe once");
-        std::fs::write(&path, text.replacen(from, "display_name: \"Hatchet\",", 1)).unwrap();
+        let from = "display_name: \"Gun-Sword\",";
+        assert_eq!(text.matches(from).count(), 1, "the premise: items.ron names the gun-sword once");
+        std::fs::write(&path, text.replacen(from, "display_name: \"Sword-Gun\",", 1)).unwrap();
 
         let mut frames = 0;
-        while axe(&sim) != "Hatchet" {
+        while gun_sword(&sim) != "Sword-Gun" {
             sim.step(common::base());
             frames += 1;
             assert!(
                 frames < 600,
-                "600 frames after the save the catalog names slot 1 {:?}; reloads requested: {}",
-                axe(&sim),
+                "600 frames after the save the catalog names the slot {:?}; reloads requested: {}",
+                gun_sword(&sim),
                 sim.world().resource::<ContentSourceWatch>().requested
             );
         }

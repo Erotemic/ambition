@@ -76,9 +76,6 @@ Kernel Guide: Try the basement labs, then turn on debug mode. Check combo state,
 title: merchant_seed
 ---
 Merchant Prototype: Shop's open. Anything you can't afford is greyed out.
--> Buy Axe — 25g <<if can_afford(25)>>
-    <<buy_item "axe" 25>>
-    <<jump merchant_seed>>
 -> Buy Health Cell — 8g <<if can_afford(8)>>
     <<buy_item "healthcell" 8>>
     <<jump merchant_seed>>
@@ -105,9 +102,6 @@ Merchant Prototype: Shop's open. Anything you can't afford is greyed out.
     <<jump merchant_seed>>
 -> Sell Gun-Sword — 17g <<if condition("inventory.holds", "gunsword")>>
     <<sell_item "gunsword" 17>>
-    <<jump merchant_seed>>
--> Sell Axe — 12g <<if condition("inventory.holds", "axe")>>
-    <<sell_item "axe" 12>>
     <<jump merchant_seed>>
 -> Sell Health Cell — 4g <<if condition("inventory.holds", "healthcell")>>
     <<sell_item "healthcell" 4>>

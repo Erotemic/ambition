@@ -181,9 +181,9 @@ mod tests {
     fn buying_an_affordable_item_debits_and_grants() {
         let mut wallet = BodyWallet { balance: 30 };
         let mut owned = OwnedItems::default();
-        assert_eq!(buy(&mut wallet, &mut owned, shipped(), Item::Axe, 25), ShopTx::Bought);
+        assert_eq!(buy(&mut wallet, &mut owned, shipped(), Item::GunSword, 25), ShopTx::Bought);
         assert_eq!(wallet.balance, 5);
-        assert!(owned.has(Item::Axe));
+        assert!(owned.has(Item::GunSword));
     }
 
     #[test]
@@ -191,11 +191,11 @@ mod tests {
         let mut wallet = BodyWallet { balance: 10 };
         let mut owned = OwnedItems::default();
         assert_eq!(
-            buy(&mut wallet, &mut owned, shipped(), Item::Axe, 25),
+            buy(&mut wallet, &mut owned, shipped(), Item::GunSword, 25),
             ShopTx::CantAfford
         );
         assert_eq!(wallet.balance, 10, "wallet untouched on a failed buy");
-        assert!(!owned.has(Item::Axe), "no item granted on a failed buy");
+        assert!(!owned.has(Item::GunSword), "no item granted on a failed buy");
     }
 
     #[test]
@@ -226,7 +226,7 @@ mod tests {
         let mut wallet = BodyWallet { balance: 7 };
         let mut owned = OwnedItems::default();
         assert_eq!(
-            sell(&mut wallet, &mut owned, Item::Axe, 12),
+            sell(&mut wallet, &mut owned, Item::GunSword, 12),
             ShopTx::NotOwned
         );
         assert_eq!(wallet.balance, 7, "wallet untouched on a failed sell");
@@ -236,11 +236,11 @@ mod tests {
     fn buy_then_sell_round_trips_ownership() {
         let mut wallet = BodyWallet { balance: 25 };
         let mut owned = OwnedItems::default();
-        assert!(buy(&mut wallet, &mut owned, shipped(), Item::Axe, 25).succeeded());
+        assert!(buy(&mut wallet, &mut owned, shipped(), Item::GunSword, 25).succeeded());
         assert_eq!(wallet.balance, 0);
-        assert!(sell(&mut wallet, &mut owned, Item::Axe, 12).succeeded());
+        assert!(sell(&mut wallet, &mut owned, Item::GunSword, 12).succeeded());
         assert_eq!(wallet.balance, 12);
-        assert!(!owned.has(Item::Axe));
+        assert!(!owned.has(Item::GunSword));
     }
 
     #[test]

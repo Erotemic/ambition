@@ -174,6 +174,15 @@ fn the_note_travels_from_alice_to_bob() {
     cross(&mut app, body, PlayerSlot(0), "alice_relay");
     assert_eq!(room_of(&app, body).as_deref(), Some("alice_relay"));
     let start_step = quest_step(&app).expect("the intro quest starts by itself");
+    // ⛔ THE BAG STARTS WITHOUT THE NOTE. A starting bag that unlocked the key
+    // items too (2026-10-30) passed every reading below, because a grant of
+    // one note to a bag that holds one leaves one; and the player could hand
+    // Bob a note that Alice never gave.
+    assert_eq!(
+        (bag(&app, "sealednote"), bag(&app, "fieldsurvey")),
+        (0, 0),
+        "(notes, surveys) in the bag before the quest gives either"
+    );
 
     // Where the old pickup of the note was (`alice_relay`, px 400,696).
     put_body_at(&mut app, body, ambition_platformer2d::engine_core::Vec2::new(412.0, 684.0));

@@ -36,6 +36,9 @@ enum NodeShape {
     Control {
         kind: MenuControlKind,
         disabled: bool,
+        // A change of grey respawns the control: its corners and its icon
+        // tint are spawned from it.
+        dimmed: bool,
         icon: bool,
         detail: bool,
         thumb: bool,
@@ -54,11 +57,13 @@ fn node_shape<Action>(node: &MenuNode<Action>) -> NodeShape {
             detail,
             icon,
             action,
+            dimmed,
             thumb,
             ..
         } => NodeShape::Control {
             kind: *kind,
             disabled: control_disabled(*kind, action.is_some()),
+            dimmed: *dimmed,
             icon: icon.is_some(),
             detail: detail.is_some(),
             // `spawn_control` draws a thumb only for a list that scrolls.
@@ -320,6 +325,7 @@ fn patch_node<Action>(
                 selected,
                 important,
                 action,
+                dimmed,
                 thumb,
             },
         ) => {
@@ -349,6 +355,7 @@ fn patch_node<Action>(
                         kind: *kind,
                         important: *important,
                         disabled,
+                        dimmed: *dimmed,
                     },
                     control_visual_state(*selected, disabled, hovered),
                 ));
@@ -367,7 +374,7 @@ fn patch_node<Action>(
             }
             if let (Some(icon_plane), Some(icon)) = (parts.icon, icon) {
                 if old_icon.as_ref() != Some(icon) || old_selected != selected {
-                    let tint = control_icon_tint(&out.config.look, disabled, *selected);
+                    let tint = control_icon_tint(&out.config.look, disabled || *dimmed, *selected);
                     let image = out.asset_server.load::<Image>(icon.clone());
                     write_material(out.materials, live, icon_plane, icon_material(image, tint));
                     out.commands.entity(icon_plane).insert(KaleidoscopeFade {

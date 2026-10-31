@@ -482,20 +482,24 @@ pub fn items_spec(
             let owns = owned.has(item);
             let name = items.display_name(item).unwrap_or(crate::menu::effects::UNNAMED_SLOT);
             // ⛔ A LOCKED CELL IS STILL A PLACE FOR THE CURSOR (Jon, 2026-10-30:
-            // "even if something isn't unlocked, we need to visibly see where
-            // the cursor is"). Every renderer finds and draws the cursor through
-            // a control's action, and the library's `unowned` cell has none, so
-            // the cursor went invisible on it. A locked cell is built as a
-            // plain cell that SAYS it is locked (`???`, no picture), and its
-            // action is answered by `effects::decide` as `NotOwned`: an error
-            // sound and a status line, and nothing changes.
+            // "make sure that there is a cursor ... even if you can't equip the
+            // item / it is grayed out"). The library draws an unowned cell
+            // greyed out (`MenuNode::Control::dimmed`) and keeps its action, so
+            // each renderer finds the cursor on it and draws it there.
+            // `effects::decide` answers that action `NotOwned`: an error sound
+            // and a status line, and nothing changes.
+            // An empty slot of the grid (`Reserved`) is a blank cell: it is
+            // not an item to find, only a place the cursor can pass.
+            let empty = items.category(item) == Some(ambition_platformer2d::items::ItemCategory::Reserved);
             let mut node = if owns {
                 InventoryItemNode::new(item.index(), cell_label(name))
+            } else if empty {
+                InventoryItemNode::new(item.index(), String::new())
             } else {
-                InventoryItemNode::new(item.index(), cell_label(&format!("{name} ???")))
+                InventoryItemNode::unowned(item.index(), cell_label(name))
             };
             // The description is rendered once, in the detail panel.
-            if let Some(hint) = cell_hint(owned, items, equipped, item) {
+            if let Some(hint) = cell_hint(owned, items, equipped, item).filter(|_| !empty) {
                 node = node.detail(hint);
             }
             node = node.equipped(equipped.contains(item));
@@ -503,7 +507,7 @@ pub fn items_spec(
             // returns `None` for items with no authored art, which keeps the text
             // label (the lib falls back to text when `icon` is `None`). The item's
             // name still shows in the detail panel either way.
-            if let Some(icon) = items.icon(item).filter(|_| owns) {
+            if let Some(icon) = items.icon(item) {
                 node = node.icon(icon);
             }
             // A stack shows how many the bag holds (a stock of bombs, the

@@ -54,6 +54,7 @@ fn system_page(start: usize, detail_on: Option<usize>) -> MenuPageModel<Page, Ac
             selected: false,
             important: false,
             action: Some(Action::Row(row)),
+            dimmed: false,
             thumb: None,
         });
     }
@@ -66,6 +67,7 @@ fn system_page(start: usize, detail_on: Option<usize>) -> MenuPageModel<Page, Ac
         selected: false,
         important: false,
         action: None,
+        dimmed: false,
         thumb: Some(ScrollThumb {
             start: start as f32 / (ROWS.len() - VISIBLE) as f32,
             size: VISIBLE as f32 / ROWS.len() as f32,

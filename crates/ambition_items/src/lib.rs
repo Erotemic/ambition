@@ -68,18 +68,22 @@ pub enum Item {
     MarkRecall = 11,
     // Row 3 — held weapons and tools.
     PortalGun = 12,
-    Axe = 13,
-    Javelin = 14,
-    GunSword = 15,
-    PuppySlugGun = 16,
-    Bomb = 17,
+    Javelin = 13,
+    GunSword = 14,
+    PuppySlugGun = 15,
+    Bomb = 16,
+    /// An empty slot of the grid: no item. The Axe was here (removed
+    /// 2026-10-30: nothing in the game gave it or used it).
+    Empty1 = 17,
     // Row 4 — consumables, then key items.
     HealthCell = 18,
     ManaCell = 19,
     SpareBattery = 20,
-    MapFragment = 21,
-    SealedNote = 22,
-    FieldSurvey = 23,
+    SealedNote = 21,
+    FieldSurvey = 22,
+    /// An empty slot of the grid: no item. The Map Fragment was here
+    /// (removed 2026-10-30: nothing in the game gave it or used it).
+    Empty2 = 23,
 }
 
 /// Per-item metadata, one row per catalog slot (Refactor 1). Replaces the five
@@ -326,17 +330,17 @@ impl Item {
         Item::Grapple,
         Item::MarkRecall,
         Item::PortalGun,
-        Item::Axe,
         Item::Javelin,
         Item::GunSword,
         Item::PuppySlugGun,
         Item::Bomb,
+        Item::Empty1,
         Item::HealthCell,
         Item::ManaCell,
         Item::SpareBattery,
-        Item::MapFragment,
         Item::SealedNote,
         Item::FieldSurvey,
+        Item::Empty2,
     ];
 
     /// Grid slot index 0..24 (row-major). Equal to the enum discriminant.
@@ -575,14 +579,18 @@ impl OwnedItems {
         removed
     }
 
-    /// The demo's starting bag: EVERY real item is unlocked (Jon, 2026-10-30:
+    /// The demo's starting bag: every real item is unlocked (Jon, 2026-10-30:
     /// "I need to have everything unlocked by default"). A stack starts with
     /// a few (health and mana cells, a stock of bombs); each other item with
-    /// one. Only a placeholder (`ItemCatalog::is_real` is false) stays locked.
+    /// one. A placeholder (`ItemCatalog::is_real` is false) stays locked.
+    ///
+    /// ⛔ A KEY ITEM IS NOT AN UNLOCK. It is a fact of a quest: the intro
+    /// quest gives the Sealed Note and takes it for the Field Survey, so a bag
+    /// that starts with them lets the player hand Bob a note Alice never gave.
     pub fn starter(catalog: &ItemCatalog) -> Self {
         let mut owned = Self::default();
         for item in Item::ALL {
-            if !catalog.is_real(item) {
+            if !catalog.is_real(item) || catalog.category(item) == Some(ItemCategory::KeyItem) {
                 continue;
             }
             let n = match item {

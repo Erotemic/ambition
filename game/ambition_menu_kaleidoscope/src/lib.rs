@@ -114,6 +114,9 @@ pub struct KaleidoscopeControlStyle {
     kind: MenuControlKind,
     important: bool,
     disabled: bool,
+    /// Greyed out but focusable (`MenuNode::Control::dimmed`): grey while the
+    /// cursor is elsewhere, highlighted when it is here.
+    dimmed: bool,
 }
 
 /// Marks a control that was spawned on the ACTIVE face (the one turned to the
@@ -725,7 +728,7 @@ pub fn sync_control_focus_visuals(
 ) {
     for (style, vis, material, fade) in &mut controls {
         let highlight = vis.focused || vis.selected || vis.hovered;
-        let color = if style.disabled {
+        let color = if style.disabled || (style.dimmed && !highlight) {
             config.look.disabled
         } else {
             config.look.control_color(style.kind, highlight, style.important)

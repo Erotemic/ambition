@@ -116,6 +116,7 @@ pub(super) fn spawn_node<Action>(
             selected,
             important,
             action,
+            dimmed,
             thumb,
         } => {
             let (root, parts) = spawn_control(
@@ -131,6 +132,7 @@ pub(super) fn spawn_node<Action>(
                 *selected,
                 *important,
                 action.clone(),
+                *dimmed,
                 *thumb,
                 active,
             );
@@ -196,6 +198,7 @@ where
                 kind: MenuControlKind::Action,
                 important: false,
                 disabled: false,
+                dimmed: false,
             },
         ));
         if active {
@@ -275,6 +278,9 @@ fn spawn_control<Action>(
     selected: bool,
     important: bool,
     action: Option<Action>,
+    // Greyed out but focusable: grey until the cursor is on it, and it keeps
+    // its selection corners.
+    dimmed: bool,
     thumb: Option<ScrollThumb>,
     active: bool,
 ) -> (Entity, ControlParts)
@@ -283,7 +289,7 @@ where
 {
     let is_scrollbar = matches!(kind, MenuControlKind::Scrollbar);
     let disabled = control_disabled(kind, action.is_some());
-    let color = control_spawn_color(&config.look, kind, disabled, selected, important);
+    let color = control_spawn_color(&config.look, kind, disabled || (dimmed && !selected), selected, important);
     let base_alpha = color.alpha();
     let material = materials.add(solid_material(color));
     let control_depth = control_plane_depth(rect, kind, action.is_some());
@@ -303,6 +309,7 @@ where
             kind,
             important,
             disabled,
+            dimmed,
         },
         control_visual_state(selected, disabled, false),
         KaleidoscopeFade { base_alpha },
@@ -343,7 +350,7 @@ where
     // otherwise. Equipped (`important`) keeps full brightness but the cell bg
     // already carries the equipped accent, so the icon stays crisp white.
     let icon_handle = icon.map(|path| asset_server.load::<Image>(path.to_string()));
-    let icon_tint = control_icon_tint(&config.look, disabled, selected);
+    let icon_tint = control_icon_tint(&config.look, disabled || dimmed, selected);
     entity.with_children(|children| {
         // Spawn the selection corners on every focusable (actionable, non-scrollbar)
         // cell, but HIDDEN — `sync_selection_corner_visuals` reveals the focused

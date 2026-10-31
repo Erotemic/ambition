@@ -1818,6 +1818,9 @@ pub fn advance_move_playback(
                             }
                             other => other,
                         };
+                        // The drawn tip reaches back to the body: ONE rule,
+                        // shared with the brain's coverage.
+                        let manifest = manifest.map(|volume| crate::authored_coverage::strike_region(&volume));
                         let (local, half_extent, shape) = match &manifest {
                             // The authored convex blade: body-local points; the
                             // hitbox anchors at the body and `place_at` mirrors

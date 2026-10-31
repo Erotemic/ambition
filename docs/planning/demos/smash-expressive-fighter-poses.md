@@ -253,7 +253,8 @@ Every character gets the reaction vocabulary and the turn. Each art family takes
 | Director, Officer, Medic, Performer (the Polygons' rig profile, `humanoid-articulated-v1`) | `devtools/reaction_keys.py` (`FIGHTERS`) | Done: the same keys, solved on each rig. |
 | Character generator: Alice v2, the townsfolk, every later generated character | `chargen/motion.py` `build_library` (the twelve anchors as `Kit` poses); `chargen/sheets.py` `COMPOSED` (the turns, made from the views) | Anchors and turns in the library. Alice publishes them (`_alice_v2_motion.FIGHTER_ROWS`, `TURN_ROWS`). |
 | Player robot v3 | `player_robot_v3_reactions.py` (its own rig) | Done, with its own turnaround. |
-| Other hand-rigged cast | Each rig's own motion module | Not started. Measure the gaps with the clip table first (sheet rows against `body_state_clip`). |
+| The rest of the Smash roster: Bob, PCA, Ramen-nujan, Shadow Oni Leader, Goblin (and skins), GNU-ton, Patent Clerk, Carl Stargan, Noether, Mary-O (tall), Sanic, Pirate Admiral, Oiler, George Booul | Each rig's own motion module | Done 2026-10-31: every Smash fighter's published sheet has the twelve anchors, the floor game and the turn (MEASURED by sheet rows). The small sheets also gained the whole `fighter_core` vocabulary. |
+| Campaign-only characters | Each rig's own motion module | Not started. Measure the gaps first (sheet rows against `body_state_clip`). |
 
 The game already draws `turnaround` in the new facing over `TURN_SECS` (`ambition_sim_view::pose_view`) on the player road. A sheet's turn row must therefore END on its side view.
 

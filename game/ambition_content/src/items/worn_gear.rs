@@ -82,6 +82,10 @@ mod tests {
             tracks,
             vec![("giant_gnu", "head"), ("gnu_ton_scholar_boss", "head"), ("player_robot_v3", "head")]
         );
-        assert_eq!(app.world().resource::<AmbitionWornGear>().0, vec!["space_helmet".to_owned()]);
+        // The game's gear, by the pack file: the helmet, and Kagero's
+        // talismans pasted on the Inugami (4dc7fa1d0).
+        let mut gear = app.world().resource::<AmbitionWornGear>().0.clone();
+        gear.sort();
+        assert_eq!(gear, vec!["kagero_ofuda".to_owned(), "space_helmet".to_owned()]);
     }
 }

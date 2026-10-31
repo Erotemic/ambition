@@ -236,6 +236,7 @@ pub fn grab_shell(id: &str, clip: &str, startup_s: f32, active_s: f32, recover_s
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        shot_damage: None,
         flow: None,
     }
 }
@@ -266,6 +267,7 @@ pub fn capture_beat(id: &str, clip: &str, duration_s: f32) -> MoveSpec {
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        shot_damage: None,
         flow: None,
     }
 }
@@ -322,6 +324,8 @@ fn running_grab_from(standing: &MoveSpec) -> MoveSpec {
         // Neither: what the move holds. The running grab brandishes the same
         // item for as long as its own (longer) clock runs.
         equips,
+        // Neither: a damage. The running grab fires the same shot.
+        shot_damage,
         // Inherited, like `windows`: a running grab makes the same decision
         // from a run. The clock stretches; the sequence does not change.
         flow,
@@ -353,6 +357,7 @@ fn running_grab_from(standing: &MoveSpec) -> MoveSpec {
         autocancel_after_s: autocancel_after_s.map(|at| at + RUNNING_GRAB_EXTRA_STARTUP_S),
         sprite_spin_hz,
         equips,
+        shot_damage,
         flow,
     };
     // Events happen at the same point in the swing, which is now later. An
@@ -691,6 +696,7 @@ mod tests {
             autocancel_after_s: None,
             sprite_spin_hz: None,
             equips: None,
+            shot_damage: None,
         flow: None,
         }
     }

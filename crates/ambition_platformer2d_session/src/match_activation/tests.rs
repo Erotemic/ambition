@@ -957,6 +957,7 @@ fn a_match_grant_does_not_overwrite_a_characters_authored_moves() {
             autocancel_after_s: None,
             sprite_spin_hz: None,
             equips: None,
+            shot_damage: None,
             flow: None,
         }],
     };

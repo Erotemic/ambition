@@ -111,6 +111,7 @@ fn bare_move(id: &str, grounded: Option<bool>) -> MoveSpec {
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        shot_damage: None,
         id: id.to_string(),
         clip: ClipBinding {
             clip: id.to_string(),
@@ -1210,6 +1211,7 @@ fn timed_move(id: &str, duration_s: f32, events: Vec<MoveEvent>) -> MoveSpec {
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        shot_damage: None,
         flow: None,
     }
 }
@@ -1452,6 +1454,7 @@ fn a_smash_charge_policy_is_derived_from_the_moves_own_windup() {
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        shot_damage: None,
         flow: None,
     };
     let derived = spec.charge_policy().expect("a paying smash charges");

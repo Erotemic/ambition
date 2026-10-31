@@ -72,26 +72,30 @@ fn next_signed_unit(seed: &mut u64) -> f32 {
 }
 
 /// Whether a fighter with an [`FighterEngagement`] fights this tick. It
-/// notices a foe it knows inside its aggro radius, or the foe that hits it.
-/// It stands and looks for the notice beat (none when it was hit), and then
-/// it fights until it loses the foe. A dead body is not gated.
+/// notices a foe it knows inside its aggro radius, or the foe that hurts it
+/// (a body struck knows its striker, seen or not). It stands and looks for the
+/// notice beat (none when it was hurt), and then it fights until it loses the
+/// foe. A dead body is not gated.
 fn engages(engagement: FighterEngagement, state: &mut FighterState, snapshot: &BrainSnapshot) -> bool {
     if !snapshot.alive {
         return true;
     }
-    if !snapshot.target_alive {
-        state.noticed = false;
-        state.noticing = 0.0;
-        return false;
-    }
     if !state.noticed {
-        let hit = snapshot.stun_remaining > 0.0;
+        let hurt = snapshot.stun_remaining > 0.0
+            || state.idle_health.is_some_and(|before| snapshot.health_fraction < before);
+        state.idle_health = Some(snapshot.health_fraction);
         let near = snapshot.target_delta_local().vec().length() <= engagement.aggro_radius;
-        if !(near || hit) {
+        if !snapshot.target_alive || !(near || hurt) {
             return false;
         }
         state.noticed = true;
-        state.noticing = if hit { 0.0 } else { engagement.notice_s };
+        state.noticing = if hurt { 0.0 } else { engagement.notice_s };
+        state.idle_health = None;
+    } else if !snapshot.target_alive {
+        state.noticed = false;
+        state.noticing = 0.0;
+        state.idle_health = Some(snapshot.health_fraction);
+        return false;
     }
     if state.noticing > 0.0 {
         state.noticing = (state.noticing - snapshot.dt).max(0.0);
@@ -131,6 +135,20 @@ pub fn tick_fighter(
             if state.is_noticing() {
                 out.facing = snapshot.face_toward(snapshot.target_delta_local().x);
             }
+            return;
+        }
+        // A foe it fights and cannot see (one that struck it from out of
+        // sight, one that slipped out of view) is sought where it believes the
+        // foe is. Its moves are chosen from what it sees, so out of sight it
+        // only goes there.
+        if view.is_some_and(|view| view.nearest_hostile().is_none()) {
+            let side = snapshot.target_delta_local().x;
+            state.pending_press = None;
+            state.charge_hold_ticks = 0;
+            state.held = ActorControlFrame::neutral();
+            *out = ActorControlFrame::neutral();
+            out.facing = snapshot.face_toward(side);
+            out.locomotion = ae::LocalAxes::new(side.signum() * engagement.pursuit_effort, 0.0);
             return;
         }
     }

@@ -89,6 +89,7 @@ pub fn counter_move(
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        shot_damage: None,
         flow: None,
     }
 }

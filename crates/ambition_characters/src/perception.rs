@@ -1376,6 +1376,24 @@ impl WorldMemory {
         }
     }
 
+    /// How sure a body is of the foe that just struck it, unseen: it knows
+    /// where the blow came from, as surely as word from an ally.
+    pub const STRUCK_CONFIDENCE: f32 = Self::HEARSAY_CONFIDENCE;
+
+    /// Take in the foe that struck this body. A body that is hit knows it has
+    /// a foe and where the blow came from, seen or not; a sighting it already
+    /// holds is kept ([`Self::hear`]).
+    pub fn struck_by(&mut self, id: &str, striker: RememberedActor) {
+        self.hear(
+            id,
+            RememberedActor {
+                hostile_to_self: true,
+                confidence: Self::STRUCK_CONFIDENCE,
+                ..striker
+            },
+        );
+    }
+
     /// What we remember about a specific actor, if anything.
     pub fn get(&self, id: &str) -> Option<&RememberedActor> {
         self.actors.get(id)

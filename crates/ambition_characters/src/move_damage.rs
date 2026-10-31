@@ -12,8 +12,13 @@
 //! The match, the seat and the kit resolver read only the scale, so a second
 //! game's damage needs no new variant here or in them (queue AP78).
 
-/// Damage per move id, one value for each damaging volume, in authoring order
-/// (window by window). A move the map does not name keeps its moveset damage.
+/// Damage per move id: one value for each thing the move does that deals
+/// damage ([`damage_slots`]), in this order: each damaging volume, window by
+/// window; then each positive `damage` its effects state, at any depth of
+/// their params (a throw, a pummel, a mine, a counter's answer), the windows'
+/// effects before the events', each in authoring order; then the shot it
+/// fires, when it has a `Ranged` beat. A move the map does not name keeps its
+/// moveset damage.
 pub type MoveDamage = std::collections::BTreeMap<String, Vec<i32>>;
 
 /// The name of a damage scale. The capability that authors one owns its
@@ -64,10 +69,11 @@ pub fn verb_moves_over(
     Ok(moveset)
 }
 
-/// `moveset` with each named move's damaging volumes set to `damage`.
+/// `moveset` with each named move's damage set to `damage`, slot by slot
+/// ([`MoveDamage`]).
 ///
 /// `Err` names every move id the moveset does not have and every move whose
-/// list does not have one value for each of its damaging volumes. On `Err`
+/// list does not have one value for each of its damage slots. On `Err`
 /// nothing is applied, so the body never deals half one game's damage and half
 /// the other's.
 pub fn move_damage_over(
@@ -82,30 +88,160 @@ pub fn move_damage_over(
             ));
             continue;
         };
-        let mut volumes: Vec<&mut i32> = spec
-            .windows
-            .iter_mut()
-            .flat_map(|window| window.volumes.iter_mut())
-            .map(|volume| &mut volume.damage)
-            .filter(|damage| **damage > 0)
-            .collect();
-        if volumes.len() != values.len() {
+        let slots = damage_slots(spec);
+        if slots != values.len() {
             problems.push(format!(
-                "`move_damage` gives move `{move_id}` {} value(s), and the move has {} \
-                 volume(s) that deal damage",
+                "`move_damage` gives move `{move_id}` {} value(s), and the move has {slots} \
+                 thing(s) that deal damage (volumes, then effects that state a `damage`, \
+                 then its shot)",
                 values.len(),
-                volumes.len()
             ));
             continue;
         }
-        for (slot, value) in volumes.iter_mut().zip(values) {
-            **slot = *value;
+        let mut values = values.iter().copied();
+        let mut next = || values.next().expect("counted");
+        for volume in spec.windows.iter_mut().flat_map(|window| window.volumes.iter_mut()) {
+            if volume.damage > 0 {
+                volume.damage = next();
+            }
+        }
+        let fires = fires_a_shot(spec);
+        for effect in effects_mut(spec) {
+            for slot in effect_damage_mut(&mut effect.params.0) {
+                *slot = authored_number(next());
+            }
+        }
+        if fires {
+            spec.shot_damage = Some(next());
         }
     }
     if problems.is_empty() {
         Ok(moveset)
     } else {
         Err(problems)
+    }
+}
+
+/// `value` as the RON reader reads it from a file, so a table with a stated
+/// damage is the table a file with that number in it would parse to.
+fn authored_number(value: i32) -> ron::Value {
+    ron::from_str(&value.to_string()).expect("an integer is RON")
+}
+
+/// How many things `spec` does that deal damage: its damaging volumes, the
+/// positive `damage` values its effects state, and its shot ([`MoveDamage`]).
+pub fn damage_slots(spec: &ambition_entity_catalog::MoveSpec) -> usize {
+    let volumes = spec
+        .windows
+        .iter()
+        .flat_map(|window| window.volumes.iter())
+        .filter(|volume| volume.damage > 0)
+        .count();
+    let effects: usize = effects(spec).map(|effect| effect_damage_count(&effect.params.0)).sum();
+    volumes + effects + usize::from(fires_a_shot(spec))
+}
+
+/// The damage of each of `spec`'s slots, in slot order ([`MoveDamage`]). A
+/// shot whose table states no damage is `None`: it deals its weapon's.
+pub fn damage_values(spec: &ambition_entity_catalog::MoveSpec) -> Vec<Option<i32>> {
+    fn collect(params: &ron::Value, out: &mut Vec<Option<i32>>) {
+        match params {
+            ron::Value::Map(map) => {
+                for (key, value) in map.iter() {
+                    match value {
+                        ron::Value::Number(number) if is_damage_key(key) && positive(value) => {
+                            out.push(Some(number.clone().into_f64().round() as i32))
+                        }
+                        _ => collect(value, out),
+                    }
+                }
+            }
+            ron::Value::Seq(items) => items.iter().for_each(|item| collect(item, out)),
+            ron::Value::Option(Some(inner)) => collect(inner, out),
+            _ => {}
+        }
+    }
+    let mut out: Vec<Option<i32>> = spec
+        .windows
+        .iter()
+        .flat_map(|window| window.volumes.iter())
+        .filter(|volume| volume.damage > 0)
+        .map(|volume| Some(volume.damage))
+        .collect();
+    for effect in effects(spec) {
+        collect(&effect.params.0, &mut out);
+    }
+    if fires_a_shot(spec) {
+        out.push(spec.shot_damage);
+    }
+    out
+}
+
+fn fires_a_shot(spec: &ambition_entity_catalog::MoveSpec) -> bool {
+    spec.events
+        .iter()
+        .any(|event| matches!(event.kind, ambition_entity_catalog::MoveEventKind::Ranged))
+}
+
+/// The move's effects in slot order: each window's sustained effect, then each
+/// effect event.
+fn effects(spec: &ambition_entity_catalog::MoveSpec) -> impl Iterator<Item = &ambition_entity_catalog::EffectRef> {
+    let windows = spec.windows.iter().filter_map(|window| window.sustain_effect.as_ref());
+    let events = spec.events.iter().filter_map(|event| match &event.kind {
+        ambition_entity_catalog::MoveEventKind::Effect(effect) => Some(effect),
+        _ => None,
+    });
+    windows.chain(events)
+}
+
+fn effects_mut(spec: &mut ambition_entity_catalog::MoveSpec) -> impl Iterator<Item = &mut ambition_entity_catalog::EffectRef> {
+    let windows = spec.windows.iter_mut().filter_map(|window| window.sustain_effect.as_mut());
+    let events = spec.events.iter_mut().filter_map(|event| match &mut event.kind {
+        ambition_entity_catalog::MoveEventKind::Effect(effect) => Some(effect),
+        _ => None,
+    });
+    windows.chain(events)
+}
+
+/// Is this a positive number? (a damage that deals damage)
+fn positive(value: &ron::Value) -> bool {
+    matches!(value, ron::Value::Number(number) if number.clone().into_f64() > 0.0)
+}
+
+fn is_damage_key(key: &ron::Value) -> bool {
+    matches!(key, ron::Value::String(key) if key == "damage")
+}
+
+/// How many positive `damage` values `params` states, at any depth.
+fn effect_damage_count(params: &ron::Value) -> usize {
+    match params {
+        ron::Value::Map(map) => map
+            .iter()
+            .map(|(key, value)| if is_damage_key(key) && positive(value) { 1 } else { effect_damage_count(value) })
+            .sum(),
+        ron::Value::Seq(items) => items.iter().map(effect_damage_count).sum(),
+        ron::Value::Option(Some(inner)) => effect_damage_count(inner),
+        _ => 0,
+    }
+}
+
+/// The positive `damage` values `params` states, at any depth, in the order
+/// [`effect_damage_count`] counts them.
+fn effect_damage_mut(params: &mut ron::Value) -> Vec<&mut ron::Value> {
+    match params {
+        ron::Value::Map(map) => map
+            .iter_mut()
+            .flat_map(|(key, value)| {
+                if is_damage_key(key) && positive(value) {
+                    vec![value]
+                } else {
+                    effect_damage_mut(value)
+                }
+            })
+            .collect(),
+        ron::Value::Seq(items) => items.iter_mut().flat_map(effect_damage_mut).collect(),
+        ron::Value::Option(Some(inner)) => effect_damage_mut(inner),
+        _ => Vec::new(),
     }
 }
 

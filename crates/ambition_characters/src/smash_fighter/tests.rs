@@ -194,7 +194,7 @@ fn move_damage_that_does_not_fit_the_moves_is_refused_whole() {
         "an unknown move was not named: {problems:?}"
     );
     assert!(
-        problems.iter().any(|p| p.contains("`combo`") && p.contains("2 volume")),
+        problems.iter().any(|p| p.contains("`combo`") && p.contains("2 thing")),
         "a list of the wrong length was not named: {problems:?}"
     );
     assert_eq!(problems.len(), 2, "the key that fits was reported: {problems:?}");

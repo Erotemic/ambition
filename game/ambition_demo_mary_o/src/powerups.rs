@@ -3069,7 +3069,7 @@ mod scale_fallback_tests {
 
         for target in [
             super::SMALL_SHEET_TARGET,
-            super::TALL_SHEET_TARGET,
+            "mary_o_v2_tall_classic",
             super::FIRE_SHEET_TARGET,
         ] {
             assert_eq!(

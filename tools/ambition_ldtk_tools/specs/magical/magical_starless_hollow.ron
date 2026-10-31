@@ -11,6 +11,7 @@
     biome: "starless",
     parallax_theme: "starless",
     music_track: "vault_in_the_dark",
+    dangerous: true,
     entities: [
         ( type: "Solid", px: [0, 576], size: [3072, 64], fields: ( name: "floor" ) ),
         ( type: "Solid", px: [0, 0], size: [352, 64], fields: ( name: "roof_west" ) ),

@@ -259,6 +259,7 @@ fn each_destination_is_reached_from_the_hub_and_its_terminal_leads_home() {
         ("SAILING", "pirate_port_gate_plaza", "pirate_port_gate_arrival", "pirate_port_gate_terminal"),
         ("SILENT", "ninja_village_gate_shrine", "ninja_village_gate_arrival", "ninja_village_gate_terminal"),
         ("ALDENTE", "noodly_narthex", "noodly_narthex_gate", "noodly_gate_terminal"),
+        ("DESTINY", "magical_gate_garden", "magical_gate_zone", "magical_gate_terminal"),
     ] {
         let mut sim = room(HUB);
         assert_eq!(travel(&mut sim, HUB_TERMINAL, HUB_RING, address), room_id, "`{address}`");

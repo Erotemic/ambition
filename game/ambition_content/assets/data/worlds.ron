@@ -35,5 +35,7 @@
         // The Evil dimension: a gate in the central hub is the way in. Its
         // first place is Castle Godwin.
         (id: "world.evil_ldtk", file: "evil.ldtk"),
+        // The Magical dimension (Mary-O's), by the gate DESTINY.
+        (id: "world.magical_ldtk", file: "magical.ldtk"),
     ],
 )

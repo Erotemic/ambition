@@ -50,6 +50,7 @@
         (id: "pirate_port_plaza", name: "Pirate Port Gate Plaza", dimension: "pvn"),
         (id: "ninja_village_shrine", name: "Ninja Village Gate Shrine", dimension: "pvn"),
         (id: "noodly_temple_narthex", name: "Noodly Temple Narthex", dimension: "noodle"),
+        (id: "starlight_gate_garden", name: "Starlight Gate Garden", dimension: "magical"),
     ],
     rings: [
         // ── Home ──────────────────────────────────────────────────────────
@@ -232,6 +233,17 @@
             terminal: Some("noodly_gate_terminal"),
             posted: ["LEGAL"],
             note: "Temple ring. The pilgrims keep it clean; the sauce does not.",
+        ),
+        // ── Magical (Mary-O's dimension) ─────────────────────────────────
+        (
+            zone: "magical_gate_zone",
+            name: "Starlight gate garden",
+            facility: "starlight_gate_garden",
+            room: "magical_gate_garden",
+            address: Some("DESTINY"),
+            terminal: Some("magical_gate_terminal"),
+            posted: ["LEGAL"],
+            note: "Garden ring. The hills are round on purpose; please do not roll down them.",
         ),
     ],
 )

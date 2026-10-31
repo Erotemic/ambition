@@ -346,7 +346,7 @@ mod tests {
         let cue = r#"cue: "mary_o.revert.big_to_small""#;
         assert_eq!(authored.matches(cue).count(), 1, "the probe edits one cue");
         assert_eq!(
-            forms_of(&authored.replace(cue, r#"cue: "mary_o.revert.other""#)).cue("mary_o_tall", "mary_o"),
+            forms_of(&authored.replace(cue, r#"cue: "mary_o.revert.other""#)).cue("mary_o_tall_classic", "mary_o"),
             Some("mary_o.revert.other")
         );
 

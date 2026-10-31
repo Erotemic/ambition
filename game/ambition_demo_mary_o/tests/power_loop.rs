@@ -52,7 +52,7 @@ use ambition_demo_mary_o::powerups::{
 };
 use ambition_demo_mary_o::provider::MARY_O_CHARACTER_ID;
 
-const TALL_ID: &str = "mary_o_tall";
+const TALL_ID: &str = "mary_o_tall_classic";
 const FIRE_ID: &str = "mary_o_fire";
 
 struct Loop {

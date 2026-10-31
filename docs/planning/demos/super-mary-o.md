@@ -23,6 +23,11 @@ block-contact identity (breakable bricks, ?-blocks); room transitions
 (ADR 0024); forward-only camera policy; the provider-declared HUD seam; the
 shared economy; LDtk authoring of levels, loading zones and pipes.
 
+The home game's tall form is `mary_o_tall_classic`, with the
+`mary_o_v2_tall_classic` sheet. It uses the platformer pose set: running uses
+walk frames and falling uses the jump frame. Other games keep `mary_o_tall`
+and its fighter clips. Both forms use the shared body and animation paths.
+
 ## Status
 
 Built: `game/ambition_demo_mary_o` (content) and `game/ambition_demo_mary_o_app`

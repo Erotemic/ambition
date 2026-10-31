@@ -18,7 +18,7 @@ use bevy::prelude::*;
 
 /// `mary_o_tall`'s id is private to the demo's `powerups` module; the demo's own
 /// `power_loop.rs` hardcodes it the same way.
-const TALL_ID: &str = "mary_o_tall";
+const TALL_ID: &str = "mary_o_tall_classic";
 /// The top of the ladder: the sheet the cinder beacon puts her in. Private to
 /// `powerups` for the same reason, and hardcoded in `power_loop.rs` too.
 const FIRE_ID: &str = "mary_o_fire";

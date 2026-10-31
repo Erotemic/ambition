@@ -203,6 +203,23 @@
             ],
             form_of: Some("mary_o"),
         ),
+        // The tall form in her home game keeps the platformer pose set.
+        "mary_o_tall_classic": (
+            display_name: "Mary-O (Tall Classic)",
+            manifest: "sprites/mary_o_v2_tall_classic_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            posed_body: Some(SameAs("mary_o")),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            attack_vfx: Some("mary_o_strike_fx"),
+            abilities: Some([RunJump]),
+            axis_tuning_preset: Some("classic"),
+            max_health: Some(1),
+            tags: ["player"],
+            form_of: Some("mary_o"),
+        ),
         // The cinder beacon (fire flower) form: a second power-up above the
         // wand. Its own sheet (the white-and-red palette with a fireball pose)
         // at the grown form's size, so the grown-to-fire change moves only her

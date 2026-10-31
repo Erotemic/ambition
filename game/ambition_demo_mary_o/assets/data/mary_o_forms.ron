@@ -20,7 +20,7 @@
         (character: "mary_o"),
         // Tall: the star wand is one hit of armor. Her tall sheet and its
         // taller body are a view of wearing it (`powerups::sync_grown_form`).
-        (character: "mary_o_tall", arrival: Some(Grow), row: Some((id: "star_wand"))),
+        (character: "mary_o_tall_classic", arrival: Some(Grow), row: Some((id: "star_wand"))),
         // Fire: the same height as tall, so she arrives by a change of look.
         // The cinder beacon gives her the spark, labels her run button
         // `Run / Spark`, and multiplies the spark's damage by 1.5.
@@ -87,10 +87,10 @@
     // The sound of each change of form. The direct fire-to-small change is
     // the large-damage road, though the armor chain spends fire into tall.
     cues: [
-        (from: "mary_o", to: "mary_o_tall", cue: "mary_o.transform.small_to_big"),
-        (from: "mary_o_tall", to: "mary_o_fire", cue: "mary_o.transform.big_to_fire"),
-        (from: "mary_o_tall", to: "mary_o", cue: "mary_o.revert.big_to_small"),
-        (from: "mary_o_fire", to: "mary_o_tall", cue: "mary_o.revert.fire_to_big"),
+        (from: "mary_o", to: "mary_o_tall_classic", cue: "mary_o.transform.small_to_big"),
+        (from: "mary_o_tall_classic", to: "mary_o_fire", cue: "mary_o.transform.big_to_fire"),
+        (from: "mary_o_tall_classic", to: "mary_o", cue: "mary_o.revert.big_to_small"),
+        (from: "mary_o_fire", to: "mary_o_tall_classic", cue: "mary_o.revert.fire_to_big"),
         (from: "mary_o_fire", to: "mary_o", cue: "mary_o.revert.fire_to_small"),
     ],
 )

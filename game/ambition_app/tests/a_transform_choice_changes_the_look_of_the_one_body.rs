@@ -44,7 +44,7 @@ fn the_hall_seats_a_character_once_and_a_transform_puts_each_look_on_that_body()
     for (character, looks) in [
         ("npc_jeff_hinter", &["npc_jeff_hinter_armored"][..]),
         ("sanic", &["super_sanic"][..]),
-        ("mary_o", &["mary_o_tall", "mary_o_fire", "mary_o_cosmic"][..]),
+        ("mary_o", &["mary_o_tall", "mary_o_tall_classic", "mary_o_fire", "mary_o_cosmic"][..]),
     ] {
         let bodies = wearers(&mut sim, character);
         assert_eq!(bodies.len(), 1, "the Hall seats `{character}` {} times", bodies.len());

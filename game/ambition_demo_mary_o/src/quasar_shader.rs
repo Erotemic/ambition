@@ -588,7 +588,7 @@ mod tests {
     #[test]
     fn quasar_shader_accepts_all_mary_o_power_forms_only() {
         assert!(is_mary_o_form("mary_o"));
-        assert!(is_mary_o_form("mary_o_tall"));
+        assert!(is_mary_o_form("mary_o_tall_classic"));
         assert!(is_mary_o_form("mary_o_fire"));
         assert!(is_mary_o_form("mary_o_cosmic"));
         assert!(!is_mary_o_form("sanic"));

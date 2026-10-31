@@ -117,7 +117,7 @@ fn a_host_that_says_nothing_still_enters_level_one() {
 
 /// `mary_o_tall`'s id is private to the demo's `powerups` module; the demo's own
 /// `power_loop.rs` and the 1-1 acceptance run both name it the same way.
-const TALL_ID: &str = "mary_o_tall";
+const TALL_ID: &str = "mary_o_tall_classic";
 
 /// A DEADLOCK DETECTOR, not a route measurement.
 ///

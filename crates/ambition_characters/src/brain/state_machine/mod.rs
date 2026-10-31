@@ -1030,6 +1030,16 @@ fn tick_skirmisher(
             out.locomotion = approach_frame.locomotion;
             out.velocity_target = approach_frame.velocity_target;
         }
+        // A flyer does not freeze to aim: it holds its place in a slow small
+        // circle, so the volley's warning reads as aiming, not as a broken
+        // body hanging in the air (MEASURED in `pirate_sky_crew`). 16 px/s
+        // moves it a few pixels over a warning; the lane it fires down is
+        // still the one locked when the warning began.
+        let aiming = matches!(state.volley_phase, RangedVolleyPhase::Windup { .. } | RangedVolleyPhase::Firing { .. });
+        if aiming && snapshot.actor_aerial {
+            let (sin_t, cos_t) = (state.orbit_phase * 3.0).sin_cos();
+            out.velocity_target = frame_to_world(snapshot, ae::LocalAxes::new(cos_t * 16.0, sin_t * 16.0));
+        }
         let committed_aim = match state.volley_phase {
             RangedVolleyPhase::Windup { aim, .. } | RangedVolleyPhase::Firing { aim, .. } => {
                 Some(aim)

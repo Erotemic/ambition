@@ -32,7 +32,10 @@ to touch, and a little danger outside town. No quest chains.
 - **PvN** (13): HELD: the raider's and Iron Mary's volley telegraph
   (`ranged_volley`, as the ranger has): a rider on a flying shark hangs still
   in its saddle through the windup (pirate_sky_crew, 2 red, 10-31); the windup
-  must keep a mounted body flying first. the cove (p0), the Mockingbird arena and sky (p0), the dojo
+  must keep a mounted body flying first. Cause: the hover while aiming
+  (b9b27aa79, `SkirmisherState` windup) is gated on `snapshot.actor_aerial`,
+  which a rider in a saddle is not; the brain needs a "rides a flying mount"
+  fact (snapshot built in `actor_monolith/.../update.rs`). the cove (p0), the Mockingbird arena and sky (p0), the dojo
   interior (p0); the port and village have props. Out of town: the sky
   lookout has enemies; the forest could carry more.
 - **Math** (5): the town is dressed (p48); the gate hall is thin. Out of town:

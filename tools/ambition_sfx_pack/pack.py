@@ -69,6 +69,10 @@ CODEC_WAV = 0
 CODEC_OGG = 1
 CODEC_FLAC = 2
 
+# `ambition_sfx_bank::flag`.
+FLAG_STREAMABLE_HINT = 1 << 0
+FLAG_LOOPING = 1 << 1
+
 FNV_OFFSET = 0xCBF29CE484222325
 FNV_PRIME = 0x100000001B3
 U64_MASK = (1 << 64) - 1
@@ -184,10 +188,13 @@ def collect_entries(input_dir: Path, selected: set[str] | None = None) -> list[E
         default_gain_db = 0.0
         channels = int(meta.get("channels", 2))
         sample_rate = int(meta.get("sample_rate", 48000))
-        # flags: streamable_hint when the renderer chose ogg (longer clips).
+        # flags: streamable_hint when the renderer chose ogg (longer clips);
+        # looping when the cue rendered as a seamless loop (its `loop:` block).
         flags = 0
         if codec == CODEC_OGG:
-            flags |= 0b0000_0001
+            flags |= FLAG_STREAMABLE_HINT
+        if meta.get("loop"):
+            flags |= FLAG_LOOPING
 
         entries.append(
             Entry(

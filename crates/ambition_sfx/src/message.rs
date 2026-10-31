@@ -262,6 +262,67 @@ impl SfxWriter<'_> {
     }
 }
 
+/// Names one sustained cue, so later requests can keep it or stop it.
+///
+/// The emitter derives it from what makes the sound (a gate's room and zone),
+/// so one key is one sound: holding a key that plays does not start a second.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct SfxLoopKey(pub u64);
+
+/// A request about a sustained, looping cue (a bank entry flagged LOOPING).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum SfxLoopRequest {
+    /// Keep `id` playing under `key`, fading in over `fade_in_secs` if it is
+    /// not playing. Restated every frame the sound is wanted, so a loop that
+    /// an audio-context change silenced comes back.
+    Hold {
+        key: SfxLoopKey,
+        id: SfxId,
+        fade_in_secs: f32,
+    },
+    /// Fade the loop under `key` out over `fade_out_secs` and forget it.
+    Stop { key: SfxLoopKey, fade_out_secs: f32 },
+}
+
+/// Playback queue item for [`SfxLoopRequest`], with the ownership and
+/// provenance [`SfxLoopWriter`] captured, exactly as [`OwnedSfxMessage`].
+///
+/// Written by presentation, never by the simulation: a loop follows state the
+/// renderer observes, so a rewind has nothing of it to quarantine. A loop
+/// whose owner is no longer the live audio context is stopped by playback.
+#[derive(Message, Clone, Debug)]
+pub struct OwnedSfxLoopMessage {
+    pub owner: Option<AudioContextOwner>,
+    pub source: PresentationSourceId,
+    pub request: SfxLoopRequest,
+}
+
+/// Writer for sustained cues, under the session context's source.
+#[derive(SystemParam)]
+pub struct SfxLoopWriter<'w> {
+    messages: MessageWriter<'w, OwnedSfxLoopMessage>,
+    context: Option<Res<'w, SfxEmissionContext>>,
+}
+
+impl SfxLoopWriter<'_> {
+    pub fn hold(&mut self, key: SfxLoopKey, id: SfxId, fade_in_secs: f32) {
+        self.write(SfxLoopRequest::Hold { key, id, fade_in_secs });
+    }
+
+    pub fn stop(&mut self, key: SfxLoopKey, fade_out_secs: f32) {
+        self.write(SfxLoopRequest::Stop { key, fade_out_secs });
+    }
+
+    fn write(&mut self, request: SfxLoopRequest) {
+        let context = self.context.as_deref();
+        self.messages.write(OwnedSfxLoopMessage {
+            owner: context.and_then(SfxEmissionContext::owner),
+            source: context.map(|context| context.source().clone()).unwrap_or_default(),
+            request,
+        });
+    }
+}
+
 /// SFX writer that resolves presentation provenance from the emitting entity.
 ///
 /// `write_for` uses the entity source and falls back to the session source;

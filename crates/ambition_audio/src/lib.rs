@@ -27,6 +27,8 @@ pub mod music;
 #[cfg(feature = "kira")]
 pub mod render;
 #[cfg(feature = "kira")]
+pub mod sfx_loops;
+#[cfg(feature = "kira")]
 pub mod web_unlock;
 
 pub use mix::MusicMix;
@@ -36,9 +38,11 @@ pub use output::{AudioBackendState, AudioOutputMode};
 
 #[cfg(feature = "kira")]
 pub use bank_asset::{
-    a_cue_waits_or_was_played, audio_play_sfx_messages, SfxBankHandles, SfxBankAsset, SfxBankAssetAppExt,
+    a_cue_waits_or_was_played, audio_play_sfx_messages, SfxBankHandles, SfxSourceResolver, SfxBankAsset, SfxBankAssetAppExt,
     SfxBankAssetCatalog, SfxBankAssetPath, SfxBankAssetPlugin, SfxBankResource,
 };
+#[cfg(feature = "kira")]
+pub use sfx_loops::{a_loop_request_waits_or_a_loop_is_held, audio_play_sfx_loops, SfxLoopPlayback};
 #[cfg(feature = "kira")]
 pub use render::{
     ProviderSfxHandleCache, SfxPlaybackRecord, SfxPlaybackState, SfxSourceIdentity, SfxSourceKind,

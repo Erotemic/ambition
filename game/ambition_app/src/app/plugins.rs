@@ -588,6 +588,14 @@ fn install_misc_visual_sync_systems(app: &mut App) {
             .after(sync_visuals)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     )
+    // A wormhole is heard opening, humming while open, and taking a body in and
+    // giving one out: from the same phases and passages the visuals draw.
+    .add_systems(
+        Update,
+        ambition_platformer2d::render::rendering::gate_portal_audio::sync_gate_portal_audio
+            .after(sync_visuals)
+            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
+    )
     .add_systems(
         Update,
         (

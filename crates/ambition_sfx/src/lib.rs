@@ -34,7 +34,8 @@ mod message;
 #[cfg(feature = "bevy")]
 pub use message::{
     AudioContextOwner, BodyPresentationSource, BodySfxWriter, DerivedPresentationSource,
-    OwnedSfxMessage, PresentationSourceId, SfxEmissionContext, SfxMessage, SfxWriter,
+    OwnedSfxLoopMessage, OwnedSfxMessage, PresentationSourceId, SfxEmissionContext, SfxLoopKey,
+    SfxLoopRequest, SfxLoopWriter, SfxMessage, SfxWriter,
 };
 
 /// Stable, hashed identifier for an SFX entry. Construct via

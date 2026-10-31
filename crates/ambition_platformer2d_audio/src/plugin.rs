@@ -86,6 +86,16 @@ impl Plugin for Platformer2dAudioPlugin {
                     .run_if(ambition_audio::a_cue_waits_or_was_played)
                     .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation),
             )
+            // Sustained cues (a gate's open hum): held by presentation each
+            // frame they are wanted, accepted like the one-shots above.
+            .add_message::<ambition_sfx::OwnedSfxLoopMessage>()
+            .init_resource::<ambition_audio::SfxLoopPlayback>()
+            .add_systems(
+                Update,
+                ambition_audio::audio_play_sfx_loops
+                    .run_if(ambition_audio::a_loop_request_waits_or_a_loop_is_held)
+                    .after(audio_play_sfx_messages),
+            )
             // Observe the player's WaterContact and request the matching
             // audio environment; the smoother ramps `wetness`, then
             // `apply_audio_environment` writes the combined user-mixer

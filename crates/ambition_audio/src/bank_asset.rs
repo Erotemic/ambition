@@ -7,7 +7,9 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use ambition_sfx::{BankProvider, OwnedSfxMessage, SfxError, SfxId, SfxProvider};
+use ambition_sfx::{
+    AudioContextOwner, BankProvider, OwnedSfxMessage, PresentationSourceId, SfxError, SfxId, SfxProvider,
+};
 use bevy::asset::{
     io::Reader, Asset, AssetApp, AssetLoader, AssetServer, Assets, Handle, LoadContext, LoadState,
 };
@@ -15,12 +17,15 @@ use bevy::log::{debug, info};
 use bevy::prelude::{
     App, Commands, Local, MessageReader, Plugin, Res, ResMut, Resource, Startup, Update,
 };
+use bevy::ecs::system::SystemParam;
 use bevy::reflect::TypePath;
 use bevy_kira_audio::prelude::{AudioChannel, AudioControl, AudioSource as KiraAudioSource};
 
 use crate::catalog::SfxBankRegistry;
 use crate::library::{sfx_message_target_id, SfxChannel};
-use crate::render::{ProviderSfxHandleCache, SfxPlaybackRecord, SfxPlaybackState, SfxSourceMiss};
+use crate::render::{
+    ProviderSfxHandleCache, ResolvedSfxHandle, SfxPlaybackRecord, SfxPlaybackState, SfxSourceMiss,
+};
 use crate::selection::ActiveAudioSelection;
 use crate::spec::SfxRegistry;
 use crate::web_unlock::AUDIO_LOG_TARGET;
@@ -453,53 +458,65 @@ pub fn a_cue_waits_or_was_played(
     !messages.is_empty() || !playback.played_this_pass.is_empty()
 }
 
-pub fn audio_play_sfx_messages(
-    mut messages: MessageReader<OwnedSfxMessage>,
-    selection: Res<ActiveAudioSelection>,
-    banks: Res<SfxBankResource>,
-    pending: Option<Res<SfxBankHandles>>,
-    failed_banks: Res<FailedSfxBankLoads>,
-    asset_server: Res<AssetServer>,
-    sfx_channel: Res<AudioChannel<SfxChannel>>,
-    output: Option<Res<crate::output::AudioOutputMode>>,
-    mut cache: ResMut<ProviderSfxHandleCache>,
-    mut audio_sources: ResMut<Assets<KiraAudioSource>>,
-    mut playback: ResMut<SfxPlaybackState>,
-    audio_catalogs: Option<Res<crate::catalog::AudioCatalogRegistry>>,
-    mut first_play_logged: Local<bool>,
-) {
-    playback.played_this_pass.clear();
-    for owned in messages.read() {
-        let request = owned.request;
-        if !*first_play_logged {
-            info!(
-                target: AUDIO_LOG_TARGET,
-                "ambition audio: first owned SFX play attempt (owner={:?})",
-                owned.owner,
-            );
-            *first_play_logged = true;
-        }
-        if !selection.accepts_request_owner(owned.owner) {
+/// Everything playback reads to accept one owned request and resolve its clip.
+///
+/// One-shot cues ([`audio_play_sfx_messages`]) and sustained ones
+/// (`crate::sfx_loops`) go through the same acceptance, so a loop is refused
+/// for exactly the reasons a one-shot is, and counted in the same counters.
+#[derive(SystemParam)]
+pub struct SfxSourceResolver<'w> {
+    selection: Res<'w, ActiveAudioSelection>,
+    banks: Res<'w, SfxBankResource>,
+    pending: Option<Res<'w, SfxBankHandles>>,
+    failed_banks: Res<'w, FailedSfxBankLoads>,
+    asset_server: Res<'w, AssetServer>,
+    cache: ResMut<'w, ProviderSfxHandleCache>,
+    audio_sources: ResMut<'w, Assets<KiraAudioSource>>,
+    pub(crate) playback: ResMut<'w, SfxPlaybackState>,
+    audio_catalogs: Option<Res<'w, crate::catalog::AudioCatalogRegistry>>,
+}
+
+/// A request the live audio context accepted, with its resolved clip.
+pub(crate) struct AcceptedSfx {
+    pub owner: AudioContextOwner,
+    pub provider_id: String,
+    pub resolved: ResolvedSfxHandle,
+}
+
+impl SfxSourceResolver<'_> {
+    pub(crate) fn selection(&self) -> &ActiveAudioSelection {
+        &self.selection
+    }
+
+    /// Accept `id` for the live audio context and resolve its clip, or count
+    /// the refusal (and name a missing clip once) and return `None`.
+    pub(crate) fn accept(
+        &mut self,
+        owner: Option<AudioContextOwner>,
+        source: &PresentationSourceId,
+        id: SfxId,
+    ) -> Option<AcceptedSfx> {
+        let playback = &mut *self.playback;
+        if !self.selection.accepts_request_owner(owner) {
             playback.rejected_wrong_owner = playback.rejected_wrong_owner.saturating_add(1);
-            continue;
+            return None;
         }
-        let Some(owner) = owned.owner else {
+        let Some(owner) = owner else {
             playback.rejected_wrong_owner = playback.rejected_wrong_owner.saturating_add(1);
-            continue;
+            return None;
         };
-        let source = &owned.source;
-        let Some(provider_id) = selection.sfx_provider_for_source(source) else {
+        let Some(provider_id) = self.selection.sfx_provider_for_source(source) else {
             playback.rejected_unauthorized = playback.rejected_unauthorized.saturating_add(1);
-            continue;
+            return None;
         };
-        let id = sfx_message_target_id(request);
-        if !selection.sfx_authority_for_source(source).allows(id) {
+        if !self.selection.sfx_authority_for_source(source).allows(id) {
             playback.rejected_unauthorized = playback.rejected_unauthorized.saturating_add(1);
-            continue;
+            return None;
         }
-        let source_registry = selection.sfx_for_source(source);
+        let source_registry = self.selection.sfx_for_source(source);
         // A borrowed bank does not replace a cue the provider authored itself.
-        let own_voice = audio_catalogs
+        let own_voice = self
+            .audio_catalogs
             .as_deref()
             .is_some_and(|catalogs| catalogs.borrows_resident_sfx_bank(provider_id))
             && source_registry.is_some_and(|registry| registry.spec_for_id(id).is_some());
@@ -507,37 +524,42 @@ pub fn audio_play_sfx_messages(
             (None, None)
         } else {
             (
-                banks.provider(provider_id),
-                banks.fingerprint_for(provider_id, id),
+                self.banks.provider(provider_id),
+                self.banks.fingerprint_for(provider_id, id),
             )
         };
-        let resolved = cache.handle_for(
+        let resolved = self.cache.handle_for(
             provider_id,
             id,
             source_registry,
             bank,
             bank_fingerprint,
-            audio_sources.as_mut(),
+            self.audio_sources.as_mut(),
         );
         let resolved = match resolved {
-            Err(SfxSourceMiss::NoProviderBank) if failed_banks.errors.contains_key(provider_id) => {
+            Err(SfxSourceMiss::NoProviderBank) if self.failed_banks.errors.contains_key(provider_id) => {
                 Err(SfxSourceMiss::BankLoadFailed)
             }
             other => other,
         };
-        let resolved = match resolved {
-            Ok(resolved) => resolved,
+        match resolved {
+            Ok(resolved) => Some(AcceptedSfx {
+                owner,
+                provider_id: provider_id.to_owned(),
+                resolved,
+            }),
             Err(miss) => {
                 // Name the cue and the cause, once per (provider, cue,
                 // diagnosis). The causes are different failures, including a
                 // cue that is only early.
                 let first_word = playback.note_missing_source(provider_id, id, miss);
                 if first_word {
-                    let cue = describe_sfx_id(id, source_registry, &banks);
+                    let cue = describe_sfx_id(id, source_registry, &self.banks);
                     let outlook = if miss == SfxSourceMiss::NoProviderBank
-                        && pending
+                        && self
+                            .pending
                             .as_deref()
-                            .is_some_and(|pending| pending.is_loading(provider_id, &asset_server))
+                            .is_some_and(|pending| pending.is_loading(provider_id, &self.asset_server))
                     {
                         "its bank is still loading, so this may resolve itself"
                     } else {
@@ -549,19 +571,44 @@ pub fn audio_play_sfx_messages(
                          {miss}; {outlook}",
                     );
                 }
-                continue;
+                None
             }
+        }
+    }
+}
+
+pub fn audio_play_sfx_messages(
+    mut messages: MessageReader<OwnedSfxMessage>,
+    mut resolver: SfxSourceResolver,
+    sfx_channel: Res<AudioChannel<SfxChannel>>,
+    output: Option<Res<crate::output::AudioOutputMode>>,
+    mut first_play_logged: Local<bool>,
+) {
+    resolver.playback.played_this_pass.clear();
+    for owned in messages.read() {
+        if !*first_play_logged {
+            info!(
+                target: AUDIO_LOG_TARGET,
+                "ambition audio: first owned SFX play attempt (owner={:?})",
+                owned.owner,
+            );
+            *first_play_logged = true;
+        }
+        let id = sfx_message_target_id(owned.request);
+        let Some(accepted) = resolver.accept(owned.owner, &owned.source, id) else {
+            continue;
         };
         if crate::output::emits_to_device(output.as_deref()) {
-            sfx_channel.play(resolved.handle);
+            sfx_channel.play(accepted.resolved.handle);
         }
+        let playback = &mut *resolver.playback;
         playback.accepted_playbacks = playback.accepted_playbacks.saturating_add(1);
         let record = SfxPlaybackRecord {
-            owner,
-            presentation_source: source.clone(),
-            provider_id: provider_id.to_owned(),
+            owner: accepted.owner,
+            presentation_source: owned.source.clone(),
+            provider_id: accepted.provider_id,
             id,
-            source: resolved.source,
+            source: accepted.resolved.source,
         };
         playback.played_this_pass.push(record.clone());
         playback.last_played = Some(record);

@@ -33,6 +33,7 @@
         ( type: "NpcSpawn", px: [1368, 608], size: [64, 32], fields: ( character_id: "solid_snake", prompt: "Talk", dialogue_id: "magical_solid_snake", brain_override: "" ) ),
         ( type: "NpcSpawn", px: [2356, 584], size: [48, 32], fields: ( character_id: "npc_snakes_on_a_paper_plane", prompt: "Talk", dialogue_id: "magical_paper_plane_snakes", brain_override: "stand_still" ) ),
         ( type: "NpcSpawn", px: [834, 592], size: [32, 48], fields: ( character_id: "snake_plant", prompt: "Talk", dialogue_id: "magical_snake_plant", brain_override: "stand_still" ) ),
+        ( type: "DebugLabel", px: [2080, 470], size: [440, 24], fields: ( name: "square_void_sign", text: "-> THE CASTLE, THE VOID (Mary-O says: don't)", category: "Custom" ) ),
         ( type: "LoadingZone", px: [2544, 544], size: [16, 96], fields: ( id: "square_east", name: "out of town, along the dune road", activation: "EdgeExit", target_room: "magical_stardune_road", target_zone: "road_west", bidirectional: true ) ),
         ( type: "CameraZone", px: [0, 0], size: [2560, 768], fields: ( id: "magical_starlight_square_camera", name: "magical_starlight_square_camera", mode: "Default" ) ),
         ( type: "DebugLabel", px: [830, 40], size: [900, 24], fields: ( name: "magical_starlight_square_title", text: "STARLIGHT SQUARE", category: "Custom" ) ),

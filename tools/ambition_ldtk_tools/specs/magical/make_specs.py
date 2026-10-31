@@ -249,6 +249,7 @@ def square():
         resident("npc_snakes_on_a_paper_plane", "magical_paper_plane_snakes", 2380, FLOOR - 24, h=32, w=48),
         # And her snake plant, rooted between the wand shop and the bakery.
         resident("snake_plant", "magical_snake_plant", 850, FLOOR, h=48),
+        sign("square_void_sign", w - 260, 470, "-> THE CASTLE, THE VOID (Mary-O says: don't)", 440),
         edge("square_east", "out of town, along the dune road", w - 16, FLOOR, ROAD, "road_west"),
     ]
     return rid, room(rid, e, at=SQUARE_AT, size=(w, H), biome="starlight", music="billions_and_billions",

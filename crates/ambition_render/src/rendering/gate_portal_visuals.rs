@@ -194,12 +194,21 @@ pub fn sync_portal_ring_animation(
     }
 }
 
-/// The prop kind of the ring's lit glyphs (`interdimensional_gate_glyphs`):
+/// The prop kind of the round ring's lit glyphs (`interdimensional_gate_glyphs`):
 /// its `lit` row has one frame per chevron, that chevron's glyph ablaze where
 /// the ring draws it, and its `bit` and `used` rows one frame per cell of each
 /// chevron's position grid (`chevron * 16 + row * 4 + column`), all on the
 /// ring's own canvas.
 pub const GATE_GLYPHS_PROP_KIND: &str = "gate_glyphs";
+
+/// The prop kind of the lit glyphs of a ring of prop kind `ring_kind`: its
+/// kind with the `ring` at its end made `glyphs` (`gate_ring` lights
+/// [`GATE_GLYPHS_PROP_KIND`], `triangle_gate_ring` lights
+/// `triangle_gate_glyphs`), so each shape of ring lights its own chevrons.
+/// `None` for a kind that is no ring.
+pub fn ring_glyphs_kind(ring_kind: &str) -> Option<String> {
+    ring_kind.strip_suffix("ring").map(|stem| format!("{stem}glyphs"))
+}
 
 /// The chevrons a terminal's user has entered and not yet dialed, by the
 /// ring whose terminal is open. Presentation state a terminal writes: the
@@ -284,35 +293,39 @@ pub fn sync_ring_lit_glyphs(
     rings: Query<(Entity, &PropVisual, Option<&Children>)>,
     mut glyphs: Query<(&GateRingLitGlyph, &mut Sprite, &mut CharacterAnimator, &mut bevy::sprite::Anchor)>,
 ) {
-    let Some(asset) = assets.as_deref().and_then(|assets| assets.characters.prop_asset_for_kind(GATE_GLYPHS_PROP_KIND)) else {
+    let Some(assets) = assets.as_deref() else {
         return;
     };
     // The rows have frames per chevron, in the inscription's order.
     let Some(count) = catalog.as_deref().map(|catalog| catalog.chevrons()).filter(|count| *count > 0) else {
         return;
     };
-    if asset.spec.clip_slot(["lit"]).is_none() {
-        return;
-    }
-    // A sheet without the grid rows still lights its glyphs.
-    let grids = asset.spec.clip_slot(["bit"]).is_some() && asset.spec.clip_slot(["used"]).is_some();
     for (zone_id, config) in portals.iter() {
         // A travel portal is no chevron ring: it lights no address (its own
         // frame sheet's `charge` row is its opening).
         let portal = catalog.as_deref().and_then(|catalog| catalog.ring(zone_id)).is_some_and(|ring| {
             ring.kind == ambition_platformer2d_world::rooms::RingKind::Portal
         });
-        let mut lit = if portal {
+        let lit = if portal {
             Vec::new()
         } else {
             ring_lit_marks(&ring_lit_address(zone_id, preview.as_deref(), network.as_deref()))
         };
-        if !grids {
-            lit.retain(|mark| matches!(mark, GateRingMark::Glyph(_)));
-        }
         for (ring, prop, children) in &rings {
             if prop.name != config.ring_sprite_name {
                 continue;
+            }
+            // The glyph sheet of this ring's own shape.
+            let Some(asset) = ring_glyphs_kind(&prop.kind)
+                .and_then(|kind| assets.characters.prop_asset_for_kind(&kind))
+                .filter(|asset| asset.spec.clip_slot(["lit"]).is_some())
+            else {
+                continue;
+            };
+            let mut lit = lit.clone();
+            // A sheet without the grid rows still lights its glyphs.
+            if asset.spec.clip_slot(["bit"]).is_none() || asset.spec.clip_slot(["used"]).is_none() {
+                lit.retain(|mark| matches!(mark, GateRingMark::Glyph(_)));
             }
             let mut shown = Vec::new();
             for child in children.into_iter().flatten() {
@@ -360,6 +373,13 @@ mod tests {
     const ZONE: &str = "gate_zone";
     const RING: &str = "gate_ring";
     const RING_SHEET: &str = "interdimensional_gate_ring";
+
+    #[test]
+    fn each_shape_of_ring_lights_its_own_glyph_sheet() {
+        assert_eq!(ring_glyphs_kind("gate_ring").as_deref(), Some(GATE_GLYPHS_PROP_KIND));
+        assert_eq!(ring_glyphs_kind("triangle_gate_ring").as_deref(), Some("triangle_gate_glyphs"));
+        assert_eq!(ring_glyphs_kind("gate_portal"), None);
+    }
 
     fn ring_asset(sprite_content: &ambition_sprite_sheet::SpriteContent) -> CharacterSpriteAsset {
         CharacterSpriteAsset {

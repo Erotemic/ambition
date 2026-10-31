@@ -65,6 +65,8 @@ pub struct ActorSpriteData {
     /// show a pose the disposition-agnostic picker can't infer. `Option`, so an
     /// ordinary actor is picked exactly as before.
     pub anim_override: Option<&'static ActorAnimOverride>,
+    /// A rider sits its mount (`crate::pose_view::seated`).
+    pub riding: bevy::prelude::Has<ambition_mount::RidingOn>,
     pub control_holds: Option<&'static ambition_characters::control::ControlHolds>,
     /// The move this body is playing, so the drawn row can be the one the
     /// move names. `None` for a body that is not mid-move, which is most of them
@@ -388,7 +390,7 @@ pub fn rebuild_actor_anim_index(
         // A content pose PIN wins over the picked pose (e.g. a shelled enemy's
         // withdraw cycle, which the disposition-agnostic picker cannot infer).
         let free = a.playback.is_none_or(|playback| playback.settled()) && a.anim_override.is_none();
-        let anim = a.anim_override.map(|o| o.0).unwrap_or(anim);
+        let anim = crate::pose_view::seated(a.anim_override.map(|o| o.0).unwrap_or(anim), a.riding);
         let before = index.get(a.feature_id.as_str());
         let stop = before
             .map_or_else(crate::StopClock::default, |before| before.stop)

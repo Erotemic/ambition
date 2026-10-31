@@ -168,6 +168,19 @@ fn turns_on_the_ground(anim: CharacterAnim) -> bool {
     anim == CharacterAnim::Idle || strides(anim)
 }
 
+/// The pose of a body that rides a mount. The mount pins the rider to its
+/// saddle every tick and the kernel then reads the rider as airborne, so a
+/// rider whose sheet draws a jump or a fall would fall in the saddle. A
+/// rider's airborne poses draw as its stand; its moves and reactions are
+/// drawn as on foot.
+pub fn seated(anim: CharacterAnim, riding: bool) -> CharacterAnim {
+    if riding && matches!(anim, CharacterAnim::Jump | CharacterAnim::Fall | CharacterAnim::CrouchJump) {
+        CharacterAnim::Idle
+    } else {
+        anim
+    }
+}
+
 /// The clock of a body's last turn on the ground — ONE rule for the player's
 /// road ([`BodyPoseView`]) and every actor's ([`crate::ActorAnimFrame`]), as
 /// [`StopClock`] is for the stop.
@@ -621,6 +634,8 @@ pub fn rebuild_body_pose_views(
                 bevy::prelude::Has<ambition_combat::stocks::KnockedOutOfTheWorld>,
                 // The stick, for the look-up pose of a body that stands.
                 Option<&ambition_characters::control::ActorControl>,
+                // A rider sits its mount: see `seated`.
+                bevy::prelude::Has<ambition_mount::RidingOn>,
                 Option<&mut BodyPoseView>,
             ),
         ),
@@ -683,6 +698,7 @@ pub fn rebuild_body_pose_views(
             granted,
             out_of_the_world,
             control,
+            riding,
             pose,
         ),
     ) in &mut bodies
@@ -769,7 +785,7 @@ pub fn rebuild_body_pose_views(
         // applies to every brain-driven actor, and it belongs here for the identical reason: a pose
         // the disposition-agnostic picker cannot infer (a shelled enemy's withdraw, a body
         // mid-power-up) is stated by the content that owns the state machine.
-        let anim = anim_override.map(|o| o.0).unwrap_or(anim);
+        let anim = seated(anim_override.map(|o| o.0).unwrap_or(anim), riding);
         // The first moments on a wall are the landing on it.
         let wall_secs = match pose.as_deref() {
             _ if !on_a_wall(anim) => f32::INFINITY,
@@ -1387,6 +1403,17 @@ mod pose_view_tests {
         let mut long_walk = vec![Run];
         long_walk.extend(std::iter::repeat_n(Walk, 60));
         assert_eq!(stop_after(&long_walk).as_deref(), Some("walk_stop"), "a second of walking after a run");
+    }
+
+    /// A rider's airborne poses draw as its stand; everything else, and a
+    /// body on foot, is drawn as picked.
+    #[test]
+    fn a_rider_sits_its_mount() {
+        use CharacterAnim::{Fall, Hit, Idle, Jump};
+        assert_eq!(seated(Fall, true), Idle);
+        assert_eq!(seated(Jump, true), Idle);
+        assert_eq!(seated(Hit, true), Hit);
+        assert_eq!(seated(Fall, false), Fall);
     }
 
     /// A flip of the drawn facing on the ground draws the turn row for

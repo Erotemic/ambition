@@ -198,6 +198,9 @@ def garden():
         piece("garden_hill_high", 1100, 412),
         piece("garden_hatch", HATCH[0] - 64, FLOOR - 92),
         piece("garden_star_tree", 1530, FLOOR - 400),
+        # Mary-O's front door (`garden_pipe`), and its plate.
+        piece("garden_pipe", 1960 - 44, FLOOR - 100),
+        sign("garden_pipe_sign", 1880, FLOOR - 140, "MARY-O (if out: the castle)", 280),
         *ground(0, w, (HATCH,)),
         solid("west_wall", 0, 0, WALL, FLOOR),
         *gates.as_ron(gates.ring("Starlight Gate", "magical_gate_zone", 360, FLOOR, "the gate")),

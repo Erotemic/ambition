@@ -17,6 +17,8 @@
         ( type: "Prop", px: [1120, 414], size: [248, 226], fields: ( name: "garden_hill_high", kind: "garden_hill_high" ) ),
         ( type: "Prop", px: [1318, 554], size: [144, 96], fields: ( name: "garden_hatch", kind: "garden_hatch" ) ),
         ( type: "Prop", px: [1560, 250], size: [322, 390], fields: ( name: "garden_star_tree", kind: "garden_star_tree" ) ),
+        ( type: "Prop", px: [1922, 544], size: [106, 96], fields: ( name: "garden_pipe", kind: "garden_pipe" ) ),
+        ( type: "DebugLabel", px: [1740, 500], size: [280, 24], fields: ( name: "garden_pipe_sign", text: "MARY-O (if out: the castle)", category: "Custom" ) ),
         ( type: "Solid", px: [0, 640], size: [1376, 128], fields: ( name: "ground_0" ) ),
         ( type: "Solid", px: [1440, 640], size: [608, 128], fields: ( name: "ground_1" ) ),
         ( type: "Solid", px: [0, 0], size: [16, 640], fields: ( name: "west_wall" ) ),

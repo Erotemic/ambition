@@ -27,7 +27,7 @@
     "2026-08-17 — baseline moved by the `ambition_conversation` carve (D33 step 2). ADDED ['ambition_conversation'] to the closure AND to `never_asked_for`; REMOVED []. The ratchet stopped it and was right to: a new crate name genuinely entered the sentinel's closure. ⚠ NOTHING NEW IS LINKED — this is the conversation-continuity authority, ledger, hold and break rule that had been compiling inside `ambition_platformer2d_actor_monolith` since it was written; the monolith depends on it unconditionally, so the same code arrives by the same route under its own name. ⭐ it joins `never_asked_for` rather than the wanted half, and that is the honest entry: a movement-only game asked for neither dialogue nor conversation, and `ambition_dialog` and `ambition_ui_nav` were already counted unwanted for exactly this reason. ⛔ so the count reads 16 where it read 15, and the carve did NOT cause that — it NAMED it. The number that would mean something is a consumer linking code it did not already link, and this is not that. Shedding it needs the capability to become optional at the monolith's edge, which is the §4 obligation, not this move.",
     "2026-08-17 — baseline moved by the `ambition_boss_encounter` carve (D33). ADDED ['ambition_boss_encounter'] to the closure AND to `never_asked_for`; REMOVED []. The ratchet stopped it and was right to: a new crate name genuinely entered the sentinel's closure. ⚠ NOTHING NEW IS LINKED — this is the boss data model, catalog, phase tick, encounter entity and reward chests that had been compiling inside `ambition_platformer2d_actor_monolith` since they were written; the monolith depends on it unconditionally, so the same code arrives by the same route under its own name. ⭐ it joins `never_asked_for`, which is the honest half: a movement-only game asked for no bosses, and `ambition_encounter` was already counted unwanted for exactly that reason. ⛔ so the count reads 17 where it read 16, and the carve did NOT cause that — it NAMED it. What it bought is elsewhere: 7,635 lines left the largest compilation unit in the workspace, and the boss domain now answers upward, so a boss edit no longer rebuilds 114k lines of unrelated actor code. Shedding it from the closure needs the capability to become optional at the monolith's edge — the §4 obligation, not this move."
   ],
-  "measured_on": "2026-09-08",
+  "measured_on": "2026-10-31",
   "sentinel": "fixtures/minimal_game (declares `ambition_platformer2d` and nothing else)",
   "ambition_closure": [
     "ambition_abilities",
@@ -94,6 +94,7 @@
     "ambition_sim_schedule",
     "ambition_sim_view",
     "ambition_sprite_fx",
+    "ambition_sprite_part_format",
     "ambition_sprite_sheet",
     "ambition_time",
     "ambition_ui_nav",
@@ -101,7 +102,7 @@
     "ambition_world_items",
     "ambition_world_returns"
   ],
-  "closure_size": 70,
+  "closure_size": 71,
   "never_asked_for": [
     "ambition_abilities",
     "ambition_audio",
@@ -164,6 +165,7 @@
     "ambition_sfx",
     "ambition_sfx_bank",
     "ambition_shrine",
+    "ambition_sprite_part_format",
     "ambition_ui_nav",
     "ambition_vfx",
     "ambition_world_items",
@@ -238,5 +240,6 @@
   "session_entered_the_closure_2026_10_25": "Session lifecycle and room-crossing policy moved from the actor kernel to ambition_platformer2d_session. The runtime and publication coordinator call it above the kernel. This adds one package and no scheduled system.",
   "item_and_projectile_owners_entered_the_closure_2026_10_25": "Two owner crates replace code already linked from the actor kernel. This move does not prune capability dependencies.",
   "asset_owner_entered_the_closure_2026_10_26": "Asset catalog assembly and character materialization move above the body kernel. The new package contains code the consumer already linked. The kernel has no production edge to this owner or to the audio catalog.",
-  "world_object_owners_entered_the_closure_2026_10_26": "Three owner crates replace code already linked through the actor kernel. This cut separates transition authority and does not prune capability profiles."
+  "world_object_owners_entered_the_closure_2026_10_26": "Three owner crates replace code already linked through the actor kernel. This cut separates transition authority and does not prune capability profiles.",
+  "sprite_part_format_entered_the_closure_2026_10_31": "The published sprite-part schema moved from ambition_sprite_sheet into ambition_sprite_part_format. Build tools and the live reader now use the same types. This adds one compilation unit for code that the consumer already linked. It adds no Bevy dependency and no scheduled system. The closure grows from 70 to 71 packages."
 }

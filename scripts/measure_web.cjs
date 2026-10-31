@@ -17,6 +17,12 @@ async function main() {
   });
   const page = context.pages()[0] || await context.newPage();
   await page.addInitScript(() => {
+    window.__webLongTasks = [];
+    new PerformanceObserver(list => {
+      window.__webLongTasks.push(...list.getEntries().map(entry => ({
+        start_ms: entry.startTime, duration_ms: entry.duration,
+      })));
+    }).observe({ type: 'longtask', buffered: true });
     for (const name of ['instantiate', 'instantiateStreaming']) {
       const original = WebAssembly[name];
       WebAssembly[name] = async (...args) => {
@@ -44,22 +50,35 @@ async function main() {
   });
   session.on('Network.loadingFailed', event => errors.push({ visit, network: event.errorText }));
   page.on('pageerror', error => errors.push({ visit, error: String(error) }));
-  page.on('console', message => messages.push({ visit, type: message.type(), text: message.text() }));
+  let sceneReady = false;
+  page.on('console', message => {
+    const text = message.text();
+    messages.push({ visit, type: message.type(), text });
+    if (text.includes('[first-room-cover] revealed')) sceneReady = true;
+  });
   try {
     for (const name of ['cold', 'warm']) {
       visit = name;
+      sceneReady = false;
       await page.goto(url, { waitUntil: 'commit', timeout: 180000 });
       await page.waitForFunction(() => {
         const canvas = document.getElementById('bevy');
         return canvas?.width > 0 && canvas?.height > 0;
-      }, { timeout: 180000 });
+      }, null, { timeout: 180000 });
       timings[name] = await page.evaluate(() => ({
         canvas_ms: performance.getEntriesByName('mary-o-canvas-start')[0]?.startTime || performance.now(),
       }));
       await page.locator('#bevy').click();
-      await page.waitForTimeout(2500);
+      const deadline = Date.now() + 180000;
+      while (!sceneReady && Date.now() < deadline) await page.waitForTimeout(25);
+      if (!sceneReady) throw new Error('The first room did not become ready');
+      timings[name].ready_ms = await page.evaluate(() => performance.now());
+      await page.waitForTimeout(500);
       Object.assign(timings[name], await page.evaluate(() => ({
         capture_ms: performance.now(),
+        download_ms: performance.getEntriesByName('mary-o-download-ready')[0]?.startTime || null,
+        long_tasks: window.__webLongTasks,
+        max_long_task_ms: Math.max(0, ...window.__webLongTasks.map(task => task.duration_ms)),
         wasm_memory_bytes: window.__measuredWasmMemory?.buffer.byteLength || null,
         js_heap_bytes: performance.memory?.usedJSHeapSize || null,
       })));

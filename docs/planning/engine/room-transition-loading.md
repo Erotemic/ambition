@@ -106,7 +106,7 @@ every neighbour.
 Current shape:
 
 - Neighbour prefetch is bounded: `NEIGHBOR_PREFETCH_ROOM_BUDGET = 4`
-  (`game/ambition_app/src/app/world_flow/room_transition_assets.rs`). Excess
+  (`crates/ambition_platformer2d/src/world_flow/room_transition_assets.rs`). Excess
   neighbours are skipped as whole rooms, because cached manifests are promoted
   only when complete.
 - Parallax has an eviction counterpart: `ParallaxLayerSet::retain_themes` (API)

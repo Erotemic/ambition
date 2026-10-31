@@ -1034,9 +1034,6 @@ pub(crate) fn crawler_neighbor_blocks(
 #[allow(clippy::too_many_arguments)]
 fn integrate_actor_body(
     actor_entity: Entity,
-    // Whose cues this body emits (A13). Read-only, looked up by entity so it does
-    // not have to ride the already-12-wide cluster tuple.
-    presentation_source: Option<&ambition_sfx::PresentationSourceId>,
     em: &mut ActorMut<'_>,
     aabb: &mut CenteredAabb,
     combat: &mut BodyCombat,
@@ -1088,9 +1085,7 @@ fn integrate_actor_body(
     // than resolved here because the component lives on the entity and this
     // function takes clusters, not a `World`.
     authored_tuning: Option<ae::MovementTuning>,
-    sfx: &mut ambition_sfx::SfxWriter,
-    // Bound to this body's live room: its movement effects are drawn there.
-    vfx: &mut ambition_vfx::vfx::VfxForRoom<'_, '_>,
+    frame_out: &mut crate::body::BodyFrameOutput,
     hit_events: &mut MessageWriter<HitEvent>,
     // The kernel's own operation list, for the causal instrument only. `Option`
     // for the reason the damage path documents: an instrument that can take
@@ -1255,23 +1250,6 @@ fn integrate_actor_body(
             });
         }
     }
-    crate::body::emit_movement_fx(
-        sfx,
-        vfx,
-        &move_events,
-        em.kin.pos,
-        em.kin.facing,
-        em.kin.size,
-        presentation_source,
-    );
-    // Arm the op-driven overlay POSES this body earned this frame (the wall-jump
-    // push-off) on its `BodyAnimFacts`, through the SAME body-generic arming the
-    // player tick runs — so an AI fighter that wall-jumps shows the kick pose, not
-    // just the dust (§A9 follow-up). `advance_body_anim_overlay_clocks` decays it.
-    if let Some(anim) = anim.as_deref_mut() {
-        crate::body::arm_ground_contact_anim_overlay(anim, move_events.ground_contact);
-        crate::body::arm_movement_anim_overlays(anim, &move_events);
-    }
     // Publish the actor's footprint ORIENTED to its reference frame (a
     // surface-walker's frame is its clung surface; everyone else's is gravity at
     // their position), the single source of truth read by the debug overlay,
@@ -1297,6 +1275,7 @@ fn integrate_actor_body(
     if let Some(control) = control.as_deref_mut() {
         control.0 = frame;
     }
+    *frame_out = crate::body::BodyFrameOutput { events: move_events, reset: None };
 }
 
 /// Snapshot grounded solid-body contact boxes before any body integrates.
@@ -1400,7 +1379,6 @@ fn bounding_box(points: &[ae::Vec2]) -> Option<ae::Aabb> {
     ae::geometry::aabb_from_min_max(lo.x, lo.y, hi.x, hi.y)
 }
 
-/// Publish movement cues and hit requests from body integration.
 /// What the attack kit's regions are resolved from: the authored-volume
 /// resolver the strike spawn uses and the catalog it is asked with. One
 /// parameter, because `tick_actor_brains` is at Bevy's parameter limit.
@@ -1411,9 +1389,7 @@ pub struct AuthoredCoverageSource<'w> {
 }
 
 #[derive(bevy::ecs::system::SystemParam)]
-pub struct BodyIntegrationCues<'w> {
-    pub sfx: ambition_sfx::SfxWriter<'w>,
-    pub vfx: ambition_vfx::vfx::VfxWriter<'w>,
+pub struct BodyIntegrationMessages<'w> {
     pub hit_events: MessageWriter<'w, HitEvent>,
     /// The kernel's operation list, for the causal instrument. `Option` so a
     /// composition with no inspector registers nothing and publishes nothing —
@@ -1427,10 +1403,6 @@ pub struct BodyIntegrationCues<'w> {
 /// collision world for its room and its own contact, tuning, and envelope data.
 #[allow(clippy::too_many_arguments)]
 pub fn integrate_sim_bodies(
-    // A13: whose cues each body emits, looked up by entity. A separate read-only
-    // query rather than another member of the cluster tuple, which is already at
-    // twelve.
-    body_sources: Query<&ambition_sfx::BodyPresentationSource>,
     // Empty in every composition that has not granted the capability, and an empty snapshot
     // answers `BodyContactField::NONE` for every body.
     contact: Res<ambition_platformer2d_shared_tangle::body::BodyContactSnapshot>,
@@ -1442,21 +1414,19 @@ pub fn integrate_sim_bodies(
     // The one composer of the collision world: the room, its moving platforms
     // and the feature overlay, as every other simulated collider reads it.
     collision: ambition_platformer2d_world::collision::CollisionWorld,
-    // The live room each body is in, so it collides with that room's walls
-    // and not another live room's (OW1 cut 3d). A separate read-only query,
-    // for the reason `body_sources` gives.
+    // Each body collides with the walls of its own live room.
     body_rooms: Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     feel_tuning: Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>,
     steering: Res<ActorSteering>,
     active_tuning: Res<ambition_platformer2d_core::ActiveMovementTuning>,
-    mut cues: BodyIntegrationCues,
+    mut cues: BodyIntegrationMessages,
     mut actors: Query<
         (
             Entity,
             &mut CenteredAabb,
             &mut BodyCombat,
             Option<&mut ambition_characters::control::ActorControl>,
-            Option<&mut ambition_characters::actor::BodyAnimFacts>,
+            (Option<&mut ambition_characters::actor::BodyAnimFacts>, &mut crate::body::BodyFrameOutput),
             // ⛔⛔ THE SADDLE, NOT THE RIDER'S MARKER. This row used to read
             // `Option<&Mounted>`, and `Mounted` is stamped on the RIDER — see
             // `mount::board`, which puts `RidingOn`/`Mounted` on the rider and
@@ -1512,10 +1482,8 @@ pub fn integrate_sim_bodies(
             Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
         ),
     >,
-    // Home/player bodies (primary + any brain-driven clone). Disjoint from the
-    // actor query (`With<PlayerEntity>` vs `Without<PlayerEntity>`), so both borrow
-    // in the same system. Each carries the SAME movement clusters an actor does; the
-    // home body just also owns the `BodyFrameOutput` reset/presentation seam.
+    // The controller adapters borrow disjoint body sets. Both publish the same
+    // movement output for feedback and downstream policy.
     mut players: Query<
         (
             // Whose body this is, so the contact snapshot can hand it every
@@ -1578,7 +1546,7 @@ pub fn integrate_sim_bodies(
         mut aabb,
         mut combat,
         mut control,
-        mut anim,
+        (mut anim, mut frame_out),
         mounted,
         pose_owned_externally,
         mut motion_model,
@@ -1604,7 +1572,6 @@ pub fn integrate_sim_bodies(
         let mut em = cq.as_actor_mut();
         integrate_actor_body(
             actor_entity,
-            body_sources.get(actor_entity).ok().map(|s| s.id()),
             &mut em,
             &mut aabb,
             &mut combat,
@@ -1630,8 +1597,7 @@ pub fn integrate_sim_bodies(
             dt,
             *feel_tuning,
             authored_tuning.map(|t| t.0),
-            &mut cues.sfx,
-            &mut cues.vfx.for_room(body_rooms.get(actor_entity).ok().map(|stamp| stamp.0)),
+            &mut frame_out,
             &mut cues.hit_events,
             #[cfg(feature = "causal")]
             cues.movement_ops.as_mut(),

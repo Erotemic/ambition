@@ -49,6 +49,10 @@ reusable engine/runtime/provider interfaces
     <- thin host/app composition
 ```
 
+Build scripts can use `ambition_content_pack` and `ambition_sprite_part_format`.
+The format crate shares the sprite schema with the runtime and has no Bevy
+dependency. A game's normal engine dependencies still use the facade.
+
 Representative rules:
 
 - Reusable engine crates do not depend on Ambition's named content or app.

@@ -7,6 +7,7 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`authored_verdict_timeline`](src/authored_verdict_timeline.rs) | Reconcile the authored-verdict ring with the host's rollback timeline. |
+| [`body_feedback`](src/body_feedback.rs) | Emit movement feedback for every integrated body. |
 | [`causal`](src/causal.rs) | Bevy host adapter for `ambition_causal` recording and frame stamps. |
 | [`checkpoint_horizon`](src/checkpoint_horizon.rs) | Host wiring for the reset/checkpoint horizon. |
 | [`combat_rules`](src/combat_rules.rs) | Project match rules into the live combat tuning. |
@@ -52,7 +53,7 @@
 | [`world_overlay`](src/world_overlay.rs) | Feature collision-world overlay rebuilt from ECS-owned world geometry. |
 | [`world_schedule`](src/world_schedule.rs) | Cross-domain simulation assembly for world objects, matches, and gameplay effects. |
 
-_45 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_46 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

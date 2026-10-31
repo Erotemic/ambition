@@ -573,22 +573,7 @@ impl PlatformerPreparation<'_> {
         }
         self.complete(transaction, PREPARE_ADAPTIVE_WORK_ID);
 
-        // So `AMBITION_START_CHARACTER=<anything but the default>` failed this work item,
-        // preparation returned before publishing anything, and the session NEVER ACTIVATED — no
-        // world, no body, no error a player sees.
-        //
-        // Two sites asked one question; one was corrected and the other kept the conflation for ten
-        // days — and the corrected one runs at PREPARE_SESSION, downstream of this early `return`,
-        // so it could never be reached by the case it was written for.
-        //
-        // The two facts, and who owns each now:
-        // * the provider's DEFAULT must exist — `AuthoredCatalogFragments::validate`,
-        //   at PREPARE_CATALOGS above;
-        // * the session's SELECTION must RESOLVE — `prepare_platformer_content`,
-        //   at PREPARE_SESSION below. ONE owner, deliberately not re-asked here.
-        //
-        // What is left is the question this work item genuinely owns: the prepared
-        // world's audio provider is the one this experience authored fragments for.
+        // The prepared world must name the provider that supplied its audio.
         if source.catalogs().audio_provider.as_str() != authored.audio_provider.as_str() {
             self.fail(
                 transaction,
@@ -732,12 +717,20 @@ impl PlatformerPreparation<'_> {
         // `self.registry` mutably.
         let frozen_cast = self.candidate_cast_for(transaction);
         let frozen_catalog = candidate_catalog;
+        let startup_music = self.audio_for(transaction).music_for(authored.audio_provider.as_str())
+            .filter(|_| !report.deliberate_silence)
+            .and_then(|music| {
+                let room = content.source().room_set().activation_spec();
+                room.metadata.music_track.as_deref().and_then(|id| music.track(id))
+                    .or_else(|| music.track(&music.default_track)).cloned()
+            });
         let identity = self.sessions.0.publish(
             transaction,
             PreparedPlatformerSession {
                 content,
                 report,
                 character_catalog: frozen_catalog,
+                startup_music,
                 // ⛔ FROZEN HERE, in the same system that took the identity, so
                 // the two cannot describe different worlds.
                 // ⛔ THE TRANSACTION'S OWN CANDIDATE, never the App's
@@ -1782,21 +1775,12 @@ struct PreparedPlatformerRecord {
 /// same successful validation/assembly transaction.
 #[derive(Clone)]
 pub struct PreparedPlatformerSession {
+    /// The first music cue from this generation's catalog and entry room.
+    pub startup_music: Option<ambition_audio::spec::MusicTrack>,
     pub content: PreparedContent,
     pub report: PlatformerPreparationReport,
-    /// ⛔⛤ **THE MECHANICAL VALUES THIS GENERATION WAS FINGERPRINTED AGAINST,
-    /// FROZEN AT PREPARATION.**
-    ///
-    /// `PreparedContentIdentity` binds the prepared cast, the authored sheets and
-    /// the boss catalog — and session construction USED TO RE-READ THE SAME
-    /// MUTABLE App registries at activation, so a generation could be prepared
-    /// against cast N and have its world built from N+1 with the identity still
-    /// claiming N. MEASURED: `activate_staged_revision` inserts a fresh
-    /// `PreparedCharacterRegistry`, which is exactly the hot-reload road.
-    ///
-    /// ⇒ **A prepared generation now MEANS the frozen values**, not
-    /// *"`PreparedContent` says N, and at activation query whatever these
-    /// resources contain now"*.
+    /// The mechanics frozen during preparation. Construction must use these
+    /// values for the same content identity, instead of the live registries.
     pub mechanical: SessionMechanics,
     /// The cast frozen with `mechanical`, installed beside it at adoption as
     /// `ActiveSessionCast` (its owner, readable below the actor monolith).

@@ -25,7 +25,6 @@ use super::dev_runtime::{
     handle_debug_hotkeys, handle_ldtk_hot_reload, restart_local_ggrs_after_hot_reload,
 };
 use super::hud::{update_hud, update_quest_panel};
-use super::player_tick::sync_player_presentation;
 use super::resources::init_sandbox_resources;
 use super::setup_systems::{
     reload_visual_quality_assets_on_scale_change, setup_host_presentation_system,
@@ -154,38 +153,13 @@ fn register_app_local_sim_systems(app: &mut App) {
             .before(ambition_platformer2d::runtime::RoomReplayAdmission),
     );
 
-    // ── The PlayerSimulation gap: home presentation ───────────────────────
-    //
-    // Slotted between the possession release and the hit-event drain (the
-    // exact position it held in the old inline chain).
     app.add_systems(
         sim,
-        (
-            // HOME PRESENTATION — screen shake + landing SFX + the per-op
-            // anim/SFX/VFX — reads the movement phase's hand-off. Moves no body.
-            sync_player_presentation.in_set(GameplayGated),
-            // The HUD's combo readout, fed from the same hand-off.
-            super::combo_trace::record_combo_trace.in_set(GameplayGated),
-        )
-            .chain()
-            .in_set(
-                ambition_platformer2d::platformer::schedule::PlayerSimulationSet::PostPossession,
-            ),
+        super::combo_trace::record_combo_trace.in_set(GameplayGated).in_set(
+            ambition_platformer2d::platformer::schedule::PlayerSimulationSet::PostPossession,
+        ),
     );
     app.add_observer(super::combo_trace::restart_combo_trace);
-
-    // The RoomTransition gap — readiness transaction + authorized commit — is
-    // filled by the ENGINE now (`ambition_platformer2d::runtime::room_transition`), carried
-    // by `PlatformerEnginePlugins` so a demo host gets it too. This app keeps
-    // only its two optional CONTRIBUTORS: the asset manifest/readiness half
-    // (`world_flow::room_transition_assets`) and the cover
-    // (`install_room_transition_presentation`).
-
-    // The player avatar is carried across rooms, not staged as room content, so
-    // the room asset barrier never materializes its (deferred) worn sheet. Keep
-    // the primary player's current form decoded — its starting id AND any runtime
-    // power-form swap — so a content game's hero draws its real sprite instead of
-    // the colored-rectangle fallback. Resource-guarded: a no-op in headless.
 }
 
 /// Register presentation-side plugins (input, dialogue, inspector, audio
@@ -197,7 +171,7 @@ pub fn add_presentation_plugins(app: &mut App) {
     if !app.is_plugin_added::<ambition_platformer2d::load_presentation::AmbitionLoadPresentationPlugin>() {
         app.add_plugins(ambition_platformer2d::load_presentation::MinimalLoadPresentationPlugins);
     }
-    super::world_flow::install_room_transition_presentation(app);
+    app.add_plugins(ambition_platformer2d::world_flow::RoomLoadingPresentationPlugin);
     // The windowed-host face (E5 step 5): leafwing input bindings + the
     // camera follow/shake cluster (+ portal camera continuity). The SAME
     // group a windowed demo adds; the app-local presentation below layers
@@ -227,7 +201,6 @@ pub fn add_presentation_plugins(app: &mut App) {
     // What the room on screen has still to draw, which each cover waits on.
     app.add_plugins(ambition_platformer2d::render::rendering::presentation_settling::PresentationSettlingPlugin);
     // How a room change looks (the engine's default: a fade to black).
-    app.add_plugins(ambition_platformer2d::render::rendering::room_transition_cover::RoomTransitionCoverPlugin);
 }
 
 /// Visible-side resources, registered types, and presentation child

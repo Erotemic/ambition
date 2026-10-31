@@ -15,6 +15,8 @@ pub mod demo_shell;
 /// edge, because its Startup ordering anchor is `ambition_render`'s.
 #[cfg(feature = "ambition_render")]
 pub mod game_assets;
+#[cfg(feature = "ambition_render")]
+pub mod world_flow;
 pub mod prelude;
 pub mod scripted_input;
 pub mod session;

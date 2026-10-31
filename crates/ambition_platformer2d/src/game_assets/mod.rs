@@ -86,6 +86,7 @@ struct AssetBindRoom(RoomMetadata);
 
 impl Plugin for PlatformerAssetsPlugin {
     fn build(&self, app: &mut App) {
+        app.add_plugins(crate::world_flow::RoomLoadingPresentationPlugin);
         let config = app
             .world()
             .get_resource::<GameAssetConfig>()

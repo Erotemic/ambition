@@ -25,7 +25,6 @@ pub mod transform_beat;
 pub mod wallet_shield;
 pub use movement_fx::{
     arm_ground_contact_anim_overlay, arm_movement_anim_overlays, emit_movement_fx,
-    handle_player_events,
 };
 
 pub use dismounted_rider::install_dismounted_rider_rebuild;
@@ -225,6 +224,7 @@ pub struct BodySimulationPlugin;
 
 impl bevy::prelude::Plugin for BodySimulationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
+        app.register_required_components::<ambition_platformer2d_core::movement::MotionModel, BodyFrameOutput>();
         let sim = app.sim_schedule();
 
         // Autonomous decision is ordered by semantic phase sets. Systems may

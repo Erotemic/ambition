@@ -339,7 +339,7 @@ impl CameraShakeState {
 
 /// Camera easing and blink-in presentation state, per body. Authoritative ECS
 /// component; written by `cleanup_timers_system`, `load_room`, and
-/// `handle_player_events` (blink path). Read by the camera follow system and the
+/// the shared body feedback system. Read by the camera follow system and the
 /// sprite animator.
 ///
 /// It lives here with the rest of the camera ease vocabulary rather than in the

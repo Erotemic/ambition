@@ -8,8 +8,9 @@ use crate::web_unlock::AudioUnlockState;
 use ambition_sfx::{SfxId, SfxMessage};
 use bevy::prelude::*;
 use bevy_kira_audio::prelude::{
-    AudioChannel, AudioControl, AudioEasing, AudioSource as KiraAudioSource, AudioTween,
+    AudioChannel, AudioControl, AudioEasing, AudioTween,
 };
+pub use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 use std::time::Duration;
 
 #[derive(Resource)]

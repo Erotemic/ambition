@@ -1,0 +1,871 @@
+//! Adaptive visible presentation for ordinary room-transition transactions.
+//!
+//! The simulation-side coordinator owns readiness and commit authority. This
+//! adapter owns only the player-visible cover and generic loading foreground:
+//!
+//! - every visible transition gets an opaque cover;
+//! - the cover must have existed across a rendered frame before the synchronous
+//!   room commit may begin;
+//! - the generic loading foreground remains in hidden grace for fast loads and
+//!   reveals honest barrier evidence only when preparation takes long enough;
+//! - the cover remains for one complete target frame after commit, then the
+//!   transaction is retired and gameplay resumes.
+
+use std::collections::VecDeque;
+use std::time::Duration;
+
+use bevy::prelude::*;
+
+use crate::load::{LoadCommand, LoadCoordinator, LoadEvent};
+use crate::load_presentation::{
+    LoadExperienceSpec, LoadPresentationCommand, LoadPresentationEvent, LoadPresentationModel,
+    LoadPresentationOwnerId, LoadPresentationSet, ReadyTransitionPolicy,
+};
+use crate::platformer::schedule::GameMode;
+use crate::render::rendering::presentation_settling::{PresentationSettling, PresentationSettlingSet};
+use crate::render::rendering::room_transition_cover::{
+    spawn_room_transition_cover, CoverStroke, RoomTransitionCover, RoomTransitionCoverAnimationSet, RoomTransitionStyles,
+};
+use crate::render::rendering::UnclaimedFeatureViews;
+use crate::sim::Platformer2dSimulationPhase;
+
+use super::room_transition_assets::{
+    contribute_room_transition_assets_system, poll_room_transition_asset_readiness_system,
+    prefetch_neighbor_room_preparation_system, ContributedRoomAssets, RoomPreparationPrefetchState,
+};
+use crate::runtime::room_transition::{
+    RoomTransitionLoadPhase, RoomTransitionLoadState, RoomTransitionPresentationAvailable,
+};
+
+const ROOM_TRANSITION_EXPERIENCE: &str = "ambition.room-transition";
+
+/// Where the cover decides whether the destination room is presentable.
+///
+/// One member ([`drive_room_transition_presentation`]), and it exists so the
+/// ordering against the presentation floor's census is a NAMED, testable edge
+/// rather than an attribute nobody can check.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct RoomTransitionCoverSet;
+
+/// Visible-host policy for adaptive room-transition presentation.
+///
+/// The opaque cover is immediate and correctness-critical. The explicit loading
+/// foreground is delayed so a normal room change does not flash a progress UI.
+#[derive(Resource, Clone, Debug)]
+pub(crate) struct RoomTransitionPresentationConfig {
+    pub(crate) loading_reveal_after: Duration,
+    /// A commit below this budget should ordinarily be hidden by the normal
+    /// transition treatment rather than requiring explicit load foreground.
+    pub(crate) no_cover_commit_budget: Duration,
+    /// Covered commits above this provisional budget are correctness-safe but
+    /// still performance regressions that need construction/render optimization.
+    pub(crate) covered_commit_budget: Duration,
+    /// How long the cover may wait, after commit, for the target room to become
+    /// PRESENTABLE — every feature view the sim published has a render family's
+    /// picture on it.
+    ///
+    /// Generous on purpose. It is not a performance budget; it is the point at
+    /// which waiting longer is worse than showing the diagnosis, and a room that
+    /// legitimately draws slowly should get the loading screen rather than a
+    /// flash of magenta. The `warn!` on expiry is what turns a slow room into a
+    /// reported number instead of a feeling.
+    pub(crate) presentation_settle_deadline: Duration,
+}
+
+impl Default for RoomTransitionPresentationConfig {
+    fn default() -> Self {
+        Self {
+            loading_reveal_after: Duration::from_millis(250),
+            no_cover_commit_budget: Duration::from_millis(4),
+            covered_commit_budget: Duration::from_millis(50),
+            presentation_settle_deadline: Duration::from_secs(8),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct RoomTransitionTimingSample {
+    pub(crate) sequence: u64,
+    pub(crate) source_room: String,
+    pub(crate) target_room: String,
+    pub(crate) construction_preflight: Option<Duration>,
+    pub(crate) asset_manifest_build: Option<Duration>,
+    pub(crate) asset_wait: Option<Duration>,
+    pub(crate) request_to_ready: Option<Duration>,
+    pub(crate) cover_request_to_presented: Option<Duration>,
+    /// Time spent enqueueing the covered construction commit itself.
+    pub(crate) commit_enqueue: Option<Duration>,
+    /// Wall-clock interval from commit start through the first complete target
+    /// presentation frame. This includes deferred-command application and is
+    /// the meaningful Hall hitch budget.
+    pub(crate) commit_to_first_target_frame: Option<Duration>,
+    pub(crate) covered: bool,
+    pub(crate) prefetch_hit: bool,
+    pub(crate) loading_foreground_visible: bool,
+    pub(crate) loading_foreground_visible_duration: Duration,
+}
+
+#[derive(Resource, Debug)]
+pub(crate) struct RoomTransitionTelemetry {
+    samples: VecDeque<RoomTransitionTimingSample>,
+    capacity: usize,
+}
+
+impl Default for RoomTransitionTelemetry {
+    fn default() -> Self {
+        Self {
+            samples: VecDeque::new(),
+            capacity: 64,
+        }
+    }
+}
+
+impl RoomTransitionTelemetry {
+    #[cfg(test)]
+    pub(crate) fn samples(&self) -> impl DoubleEndedIterator<Item = &RoomTransitionTimingSample> {
+        self.samples.iter()
+    }
+
+    fn record(
+        &mut self,
+        sample: RoomTransitionTimingSample,
+        config: &RoomTransitionPresentationConfig,
+    ) {
+        if self.samples.len() == self.capacity {
+            self.samples.pop_front();
+        }
+        let budget = if sample.covered {
+            config.covered_commit_budget
+        } else {
+            config.no_cover_commit_budget
+        };
+        let observed_commit = sample
+            .commit_to_first_target_frame
+            .or(sample.commit_enqueue);
+        if observed_commit.is_some_and(|duration| duration > budget) {
+            bevy::log::warn!(
+                target: "crate::room_transition::performance",
+                "room transition {} {} -> {} commit-to-first-frame {:.3} ms exceeded {:.3} ms budget (covered={}, prefetch_hit={}, loading_visible={})",
+                sample.sequence,
+                sample.source_room,
+                sample.target_room,
+                observed_commit
+                    .map(|duration| duration.as_secs_f64() * 1000.0)
+                    .unwrap_or_default(),
+                budget.as_secs_f64() * 1000.0,
+                sample.covered,
+                sample.prefetch_hit,
+                sample.loading_foreground_visible,
+            );
+        }
+        bevy::log::info!(
+            target: "crate::room_transition::performance",
+            "room transition {} {} -> {}: construction_preflight_ms={:?} asset_manifest_ms={:?} asset_wait_ms={:?} ready_ms={:?} cover_present_ms={:?} commit_enqueue_ms={:?} commit_to_first_frame_ms={:?} loading_visible_ms={:.3} covered={} prefetch_hit={} loading_visible={}",
+            sample.sequence,
+            sample.source_room,
+            sample.target_room,
+            sample.construction_preflight.map(|d| d.as_secs_f64() * 1000.0),
+            sample.asset_manifest_build.map(|d| d.as_secs_f64() * 1000.0),
+            sample.asset_wait.map(|d| d.as_secs_f64() * 1000.0),
+            sample.request_to_ready.map(|d| d.as_secs_f64() * 1000.0),
+            sample.cover_request_to_presented.map(|d| d.as_secs_f64() * 1000.0),
+            sample.commit_enqueue.map(|d| d.as_secs_f64() * 1000.0),
+            sample.commit_to_first_target_frame.map(|d| d.as_secs_f64() * 1000.0),
+            sample.loading_foreground_visible_duration.as_secs_f64() * 1000.0,
+            sample.covered,
+            sample.prefetch_hit,
+            sample.loading_foreground_visible,
+        );
+        self.samples.push_back(sample);
+    }
+}
+
+#[derive(Resource, Default, Debug)]
+struct RoomTransitionPresentationState {
+    sequence: Option<u64>,
+    owner: Option<LoadPresentationOwnerId>,
+    update_serial: u64,
+    /// The update its cover was first seen whole: the room changes under a
+    /// cover that has been whole across a rendered frame.
+    cover_opaque_at: Option<u64>,
+    commit_observed_at: Option<u64>,
+    visible_before_commit: bool,
+    foreground_finished: bool,
+    visible_elapsed: Duration,
+    /// Whether this transition's loading screen has said why it appeared.
+    reveal_reported: bool,
+}
+
+/// Run condition of [`drive_room_transition_presentation`]: a transition is
+/// active, or the last one left a cover or presentation state for the idle
+/// branch to clear. Once cleared, the idle branch does nothing; its frame
+/// count is compared only within one transition.
+fn a_cover_is_owed(
+    transitions: Res<RoomTransitionLoadState>,
+    runtime: Res<RoomTransitionPresentationState>,
+    covers: Query<&RoomTransitionCover>,
+) -> bool {
+    transitions.active.is_some()
+        || runtime.sequence.is_some()
+        || runtime.owner.is_some()
+        || runtime.commit_observed_at.is_some()
+        || runtime.visible_before_commit
+        || runtime.foreground_finished
+        || runtime.visible_elapsed != Duration::ZERO
+        || runtime.reveal_reported
+        || covers.iter().any(|cover| !cover.is_lifting())
+}
+
+/// Why a transition's loading screen appeared: what the readiness gate was
+/// still waiting on when it did. Pure, so the naming contract is testable.
+pub(crate) fn loading_screen_reason(
+    sequence: u64,
+    target_room_id: &str,
+    phase: RoomTransitionLoadPhase,
+    pending: &[String],
+) -> String {
+    const NAMED: usize = 12;
+    if pending.is_empty() {
+        return format!(
+            "room transition {sequence} -> {target_room_id}: loading screen shown in phase {phase:?} \
+             with no asset work pending (waiting on construction, commit or presentation)"
+        );
+    }
+    let named = pending.iter().take(NAMED).cloned().collect::<Vec<_>>().join(", ");
+    let more = pending.len().saturating_sub(NAMED);
+    format!(
+        "room transition {sequence} -> {target_room_id}: loading screen shown, waiting on {} \
+         activation-critical asset(s): {named}{}",
+        pending.len(),
+        if more > 0 { format!(" (+{more} more)") } else { String::new() },
+    )
+}
+
+fn owner_for(sequence: u64) -> LoadPresentationOwnerId {
+    LoadPresentationOwnerId::new(format!("room-transition:{sequence}"))
+}
+
+fn experience(config: &RoomTransitionPresentationConfig) -> LoadExperienceSpec {
+    let mut spec = LoadExperienceSpec::basic(ROOM_TRANSITION_EXPERIENCE);
+    spec.reveal_after = config.loading_reveal_after;
+    spec.ready_policy = ReadyTransitionPolicy::AutoAdvance;
+    spec.activity = None;
+    // ⭐ NO PERCENTAGE. The gate counts settled ITEMS, and a room tile settles
+    // as one item while a character's pages settle as one more: the bar opened
+    // near 80% and crawled (2026-10-04). There is no honest scalar
+    // denominator, so the player sees the named work instead.
+    spec.show_estimated_percentage = false;
+    spec
+}
+
+/// Install the visible half of room-transition loading.
+///
+/// Headless simulation does not install this adapter and therefore does not
+/// require a cover acknowledgment. Windowed and no-window presentation hosts
+/// install it through `add_presentation_plugins` and use the exact same room
+/// transaction state as simulation.
+pub(crate) fn install_room_transition_presentation(app: &mut App) {
+    // Visible hosts resolve the same asset work for startup and room changes.
+    app.init_resource::<crate::runtime::room_transition::RoomTransitionAssetContributor>()
+        // And the same answer for a shell route's FIRST room, before it
+        // activates: the provider leaves `prepare-first-room-art` running for
+        // a host that installs this marker, and the system below completes it.
+        .init_resource::<crate::provider::FirstRoomArtContributor>()
+        .init_resource::<super::first_room_art::FirstRoomArtJobs>()
+        .init_resource::<super::first_room_cover::FirstRoomCover>()
+        .init_resource::<super::room_transition_assets::ContributedRoomAssets>()
+        .init_resource::<RoomTransitionPresentationAvailable>()
+        // The presentation floor owns this and fills it every frame. Named here
+        // too because a `Res<..>` that does not EXIST fails param validation and
+        // silently skips the system — which is a cover that never retires. A
+        // host without the render plugin then behaves as it does today: nothing
+        // is undrawn because nothing is drawing.
+        .init_resource::<UnclaimedFeatureViews>()
+        .init_resource::<PresentationSettling>()
+        .init_resource::<RoomTransitionPresentationConfig>()
+        .init_resource::<RoomTransitionPresentationState>()
+        .init_resource::<RoomTransitionTelemetry>()
+        .init_resource::<RoomTransitionStyles>()
+        .init_resource::<RoomPreparationPrefetchState>()
+        .add_systems(
+            Update,
+            (
+                super::first_room_art::prepare_first_room_art_system.run_if(super::first_room_art::first_room_art_is_owed),
+                contribute_room_transition_assets_system
+                    .run_if(super::room_transition_assets::a_transition_is_active_or_contributed),
+                poll_room_transition_asset_readiness_system.run_if(super::room_transition_assets::a_transition_is_active),
+                // the census must be THIS frame's. The presentation floor
+                // republishes `UnclaimedFeatureViews` at the tail of the visual
+                // chain; the cover retires on it being empty. Both ends are in
+                // `Update` — checked, not assumed, because an `.after` across
+                // schedules is silently vacuous and this one going quiet
+                // reintroduces the exact flash it fixes.
+                drive_room_transition_presentation.run_if(a_cover_is_owed).in_set(RoomTransitionCoverSet),
+            )
+                .chain()
+                // A room's manifest waits for the prop sheets it shows, so
+                // they are demanded first.
+                .after(crate::game_assets::PropSheetDemandSet)
+                .before(LoadPresentationSet::Observe),
+        )
+        .add_systems(
+            Update,
+            super::first_room_cover::cover_first_room.after(PresentationSettlingSet),
+        )
+        .configure_sets(
+            Update,
+            RoomTransitionCoverSet
+                .after(Platformer2dSimulationPhase::PresentationVisualSync)
+                .after(PresentationSettlingSet)
+                // It reads whether its cover is whole this frame.
+                .after(RoomTransitionCoverAnimationSet),
+        )
+        .add_systems(
+            Update,
+            prefetch_neighbor_room_preparation_system
+                .after(LoadPresentationSet::Finalize)
+                .after(crate::game_assets::PropSheetDemandSet)
+                .run_if(crate::platformer::lifecycle::session_world_exists),
+        )
+        // ⭐ Residency, not presentation — but this is where the room-change
+        // systems are wired and the policy needs the same `session_world_exists`
+        // guard. Ordered AFTER the prefetch deliberately: the prefetch may load a
+        // neighbour's theme this frame, and retiring before it would drop what it
+        // just decided to keep.
+        .add_systems(
+            Update,
+            super::parallax_residency::retire_departed_parallax_themes
+                .after(prefetch_neighbor_room_preparation_system)
+                .run_if(crate::platformer::lifecycle::session_world_exists),
+        )
+        .add_systems(
+            Update,
+            handle_room_transition_presentation_events
+                .run_if(crate::engine_core::a_message_waits::<LoadPresentationEvent>)
+                .after(LoadPresentationSet::Actions)
+                .before(LoadPresentationSet::Finalize),
+        );
+}
+
+/// Synchronize one opaque cover + generic loading foreground with the current
+/// room transaction.
+///
+/// A newly spawned cover is never acknowledged in the same update. Seeing the
+/// exact root on a later update proves it survived one presentation frame,
+/// which is the gate the simulation-side authorizer consumes.
+#[allow(clippy::too_many_arguments)]
+fn drive_room_transition_presentation(
+    mut commands: Commands,
+    time: Res<Time<Real>>,
+    config: Res<RoomTransitionPresentationConfig>,
+    model: Res<LoadPresentationModel>,
+    mut runtime: ResMut<RoomTransitionPresentationState>,
+    mut transitions: ResMut<RoomTransitionLoadState>,
+    // This adapter's covers. One that is lifting belongs to no transaction:
+    // the engine animates it out and despawns it.
+    mut covers: Query<(Entity, &mut RoomTransitionCover)>,
+    styles: Res<RoomTransitionStyles>,
+    // Features the sim published that no render family has drawn yet. The cover
+    // waits on these: see the retirement block below.
+    //
+    // NOT the magenta placeholders. That marker is a diagnostic with a
+    // grace period, so its population is deliberately EMPTY during the first
+    // frames of a room draw — precisely the frames the cover must not retire in.
+    // See `UnclaimedFeatureViews`, and `RoomTransitionCoverSet` for the ordering
+    // this read depends on.
+    //
+    // And everything else of the room that is still coming in: its terrain
+    // skin, its doors' art, pipelines compiling (`PresentationSettling`, which
+    // names the undrawn feature views too).
+    settling: Res<PresentationSettling>,
+    // Which live rooms the cover may be over (`cover_rooms`).
+    live_rooms: Query<
+        (
+            &crate::platformer::lifecycle::LiveRoomInstance,
+            &crate::world::rooms::LiveRoomDefinition,
+        ),
+        With<crate::platformer::lifecycle::RoomInstanceRoot>,
+    >,
+    contributed: Res<ContributedRoomAssets>,
+    mut presentation: MessageWriter<LoadPresentationCommand>,
+    mut loads: ResMut<LoadCoordinator>,
+    mut next_mode: ResMut<NextState<GameMode>>,
+    mut telemetry: ResMut<RoomTransitionTelemetry>,
+) {
+    runtime.update_serial = runtime.update_serial.saturating_add(1);
+    let update_serial = runtime.update_serial;
+
+    let Some(active_snapshot) = transitions.active.as_ref().cloned() else {
+        if let Some(owner) = runtime.owner.take() {
+            presentation.write(LoadPresentationCommand::Cancel { owner });
+        }
+        // Abandoned: the old room comes back as a new one would.
+        for (_, mut cover) in &mut covers {
+            cover.lift();
+        }
+        runtime.sequence = None;
+        runtime.commit_observed_at = None;
+        runtime.visible_before_commit = false;
+        runtime.foreground_finished = false;
+        runtime.visible_elapsed = Duration::ZERO;
+        runtime.reveal_reported = false;
+        return;
+    };
+
+    if runtime.sequence != Some(active_snapshot.sequence) {
+        if let Some(owner) = runtime.owner.take() {
+            presentation.write(LoadPresentationCommand::Cancel { owner });
+        }
+        // A cover still on screen (the last room change's, going out) is
+        // replaced by this one from as much of the frame as it hides, so the
+        // screen does not pop.
+        let mut from_coverage = 0.0f32;
+        for (entity, cover) in &covers {
+            from_coverage = from_coverage.max(cover.coverage());
+            commands.entity(entity).despawn();
+        }
+
+        let owner = owner_for(active_snapshot.sequence);
+        presentation.write(LoadPresentationCommand::Begin {
+            owner: owner.clone(),
+            barrier: active_snapshot.barrier.clone(),
+            spec: experience(&config),
+        });
+        let style = styles.resolve(&active_snapshot.source_room_id, active_snapshot.target_room_id());
+        spawn_room_transition_cover(&mut commands, active_snapshot.sequence, style, from_coverage);
+        let spawned_whole = style.cover == CoverStroke::Cut || from_coverage >= 1.0;
+
+        runtime.sequence = Some(active_snapshot.sequence);
+        runtime.owner = Some(owner);
+        // A cover spawned whole is whole from this update's frame on.
+        runtime.cover_opaque_at = spawned_whole.then_some(update_serial);
+        runtime.commit_observed_at = None;
+        runtime.visible_before_commit = false;
+        runtime.foreground_finished = false;
+        runtime.visible_elapsed = Duration::ZERO;
+        runtime.reveal_reported = false;
+        return;
+    }
+
+    let owner_matches = runtime
+        .owner
+        .as_ref()
+        .is_some_and(|owner| model.owner.as_ref() == Some(owner));
+    if owner_matches && model.visible {
+        runtime.visible_elapsed = runtime
+            .visible_elapsed
+            .saturating_add(Duration::from_secs_f32(time.delta_secs()));
+        // A LOADING SCREEN SAYS WHAT IT IS WAITING FOR, once, when it appears:
+        // the same facts the readiness gate holds. One with nothing named is a
+        // defect report (readiness plan, "Diagnostics").
+        if !runtime.reveal_reported {
+            runtime.reveal_reported = true;
+            bevy::log::info!(
+                target: "crate::room_transition::performance",
+                "{}",
+                loading_screen_reason(
+                    active_snapshot.sequence,
+                    active_snapshot.target_room_id(),
+                    active_snapshot.phase,
+                    contributed.pending(),
+                )
+            );
+        }
+    }
+
+    // The exact cover, whole: a fade or a wipe has finished coming in.
+    let exact_cover_opaque = covers
+        .iter()
+        .any(|(_, cover)| cover.sequence == active_snapshot.sequence && cover.is_opaque());
+    if exact_cover_opaque && runtime.cover_opaque_at.is_none() {
+        runtime.cover_opaque_at = Some(update_serial);
+    }
+    if active_snapshot.cover_required
+        && !active_snapshot.cover_presented
+        && exact_cover_opaque
+        && runtime.cover_opaque_at.is_some_and(|opaque_at| update_serial > opaque_at)
+    {
+        if let Some(active) = transitions
+            .active
+            .as_mut()
+            .filter(|active| active.sequence == active_snapshot.sequence)
+        {
+            active.cover_presented = true;
+            active.cover_presented_at = Some(time.elapsed());
+        }
+    }
+
+    if active_snapshot.phase != RoomTransitionLoadPhase::Committed {
+        runtime.commit_observed_at = None;
+        return;
+    }
+
+    let commit_observed_at = match runtime.commit_observed_at {
+        Some(observed_at) => observed_at,
+        None => {
+            runtime.commit_observed_at = Some(update_serial);
+            runtime.visible_before_commit = owner_matches && model.visible;
+            if !runtime.visible_before_commit {
+                if let Some(owner) = runtime.owner.as_ref() {
+                    presentation.write(LoadPresentationCommand::Finish {
+                        owner: owner.clone(),
+                    });
+                    runtime.foreground_finished = true;
+                }
+            }
+            update_serial
+        }
+    };
+    // ⭐ NO MINIMUM DISPLAY TIME. The cover lifts when the target is committed,
+    // rendered and presentable, and nothing else: a 300 ms floor kept a loading
+    // screen up after its work was done (readiness plan, rule 4).
+    let target_rendered_under_cover = update_serial > commit_observed_at;
+    if !target_rendered_under_cover {
+        return;
+    }
+
+    // PRESENTABLE, not merely committed.
+    //
+    // It is not a general condition: render families spawn through `Commands`, and a room with
+    // many actors takes several flushes to draw. `draw_unclaimed_feature_views` fills the gap
+    // with a deliberately-ugly magenta box — a DIAGNOSIS, per its own docs — so retiring the
+    // cover here showed the player that diagnosis as a stage of loading.
+    //
+    // placeholder sprite, and then it flashes to the characters. It looks
+    // disorienting. its not smooth. It doesn't work. It would just be better to
+    // have a loading screen if the load is going to take a hot second."* And on
+    // the way out too, because leaving is another transition.
+    //
+    // it counts UNDRAWN VIEWS, not magenta boxes, and that distinction is
+    // the fix. Counting boxes meant the cover could not tell "the
+    // art has not arrived yet" from "the art will never arrive", because the box
+    // is a diagnosis of the second and was being read as evidence of the first.
+    // give-ups — the two facts were both true because the thing it waited on was
+    // never the thing it needed to know.
+    // ⛔ THE TARGET ROOM'S, NOT THE APP'S. Another live room's art still
+    // coming in kept this cover up until the deadline. A thing of the whole
+    // App (a pipeline compiling) still holds it.
+    let targets = cover_rooms(
+        active_snapshot.arrived_in,
+        active_snapshot.target_room,
+        live_rooms.iter().map(|(instance, definition)| (*instance, *definition)),
+    );
+    let waiting = settling.pending_for(&targets);
+    let unsettled = waiting.len();
+    let since_commit = active_snapshot
+        .committed_at
+        .map(|committed| time.elapsed().saturating_sub(committed))
+        .unwrap_or_default();
+    if unsettled > 0 {
+        // never a hang.
+        if since_commit < config.presentation_settle_deadline {
+            return;
+        }
+        bevy::log::warn!(
+            target: "crate::room_transition::performance",
+            "room transition {} {} -> {} revealed with {unsettled} thing(s) \
+             still undrawn after {:.0} ms — the cover gave up waiting. A feature \
+             view here is one the sim published and no render family claimed, so \
+             either a spawn path is missing its family marker or this room draws \
+             more slowly than the deadline allows. Undrawn: {:?}",
+            active_snapshot.sequence,
+            active_snapshot.source_room_id,
+            active_snapshot.target_room_id(),
+            since_commit.as_secs_f64() * 1000.0,
+            waiting,
+        );
+    }
+
+    let Some(owner) = runtime.owner.take() else {
+        return;
+    };
+    if !runtime.foreground_finished {
+        presentation.write(LoadPresentationCommand::Finish { owner });
+    }
+    // The cover goes out in the transition's look; gameplay resumes under it.
+    for (_, mut cover) in &mut covers {
+        if cover.sequence == active_snapshot.sequence {
+            cover.lift();
+        }
+    }
+    let now = time.elapsed();
+    telemetry.record(
+        RoomTransitionTimingSample {
+            sequence: active_snapshot.sequence,
+            source_room: active_snapshot.source_room_id.clone(),
+            target_room: active_snapshot.target_room_id().to_string(),
+            construction_preflight: active_snapshot.construction_preflight_duration,
+            asset_manifest_build: active_snapshot.asset_manifest_duration,
+            asset_wait: active_snapshot
+                .requested_at
+                .zip(active_snapshot.asset_ready_at)
+                .map(|(start, ready)| ready.saturating_sub(start)),
+            request_to_ready: active_snapshot
+                .requested_at
+                .zip(active_snapshot.ready_at)
+                .map(|(start, ready)| ready.saturating_sub(start)),
+            cover_request_to_presented: active_snapshot
+                .requested_at
+                .zip(active_snapshot.cover_presented_at)
+                .map(|(requested, covered)| covered.saturating_sub(requested)),
+            commit_enqueue: active_snapshot.commit_duration,
+            commit_to_first_target_frame: active_snapshot
+                .committed_at
+                .map(|committed| now.saturating_sub(committed)),
+            covered: active_snapshot.cover_required,
+            prefetch_hit: active_snapshot.prefetch_hit,
+            loading_foreground_visible: runtime.visible_before_commit,
+            loading_foreground_visible_duration: runtime.visible_elapsed,
+        },
+        &config,
+    );
+    loads.retire(&active_snapshot.barrier.load_id);
+    transitions.active = None;
+    crate::platformer::world_log::note_game_mode_request(
+        GameMode::Playing,
+        "room_transition_retire",
+    );
+    next_mode.set(GameMode::Playing);
+    runtime.sequence = None;
+    runtime.commit_observed_at = None;
+    runtime.visible_before_commit = false;
+    runtime.foreground_finished = false;
+    runtime.visible_elapsed = Duration::ZERO;
+}
+
+fn apply_load_command(
+    loads: &mut LoadCoordinator,
+    events: &mut MessageWriter<LoadEvent>,
+    command: LoadCommand,
+) {
+    for event in loads.apply(command) {
+        events.write(event);
+    }
+}
+
+/// Route generic loading actions back to the room-transition owner.
+///
+/// Retry mints a fresh room request instead of attempting to resurrect a failed
+/// load record. Cancel and Quit both return to the still-valid source room.
+#[allow(clippy::too_many_arguments)]
+fn handle_room_transition_presentation_events(
+    mut events: MessageReader<LoadPresentationEvent>,
+    mut transitions: ResMut<RoomTransitionLoadState>,
+    mut loads: ResMut<LoadCoordinator>,
+    mut load_events: MessageWriter<LoadEvent>,
+    mut presentation: MessageWriter<LoadPresentationCommand>,
+    mut next_mode: ResMut<NextState<GameMode>>,
+) {
+    for event in events.read() {
+        let Some(active) = transitions.active.as_ref() else {
+            continue;
+        };
+        let expected_owner = owner_for(active.sequence);
+        let event_owner = match event {
+            LoadPresentationEvent::ContinueRequested { owner }
+            | LoadPresentationEvent::RetryRequested { owner, .. }
+            | LoadPresentationEvent::CancelRequested { owner }
+            | LoadPresentationEvent::QuitRequested { owner } => owner,
+        };
+        if event_owner != &expected_owner {
+            continue;
+        }
+
+        match event {
+            LoadPresentationEvent::ContinueRequested { .. } => {
+                // Room transitions use AutoAdvance and should never require an
+                // extra confirmation after readiness.
+            }
+            LoadPresentationEvent::RetryRequested { .. } => {
+                // RETRY RE-ISSUES NOTHING, and that is the whole change.
+                //
+                // It re-minted a `RoomTransitionRequested` from the failed transaction — a
+                // description that could not name a body, so a retry after a possession change
+                // transited whoever was driving by then. Dropping the transaction is the entire
+                // retry: `begin` opens a fresh one for the same crossing on the next frame.
+                //
+                // and re-recording it would have been worse than redundant.
+                // `PendingLifecycleCommit` is ROLLBACK STATE and this system runs
+                // in `Update`, which never rewinds — writing it here would drift
+                // from the peers' copy on every rewind, silently.
+                let load_id = active.barrier.load_id.clone();
+                apply_load_command(
+                    &mut loads,
+                    &mut load_events,
+                    LoadCommand::Cancel {
+                        load_id: load_id.clone(),
+                    },
+                );
+                loads.retire(&load_id);
+                transitions.active = None;
+                presentation.write(LoadPresentationCommand::Cancel {
+                    owner: expected_owner,
+                });
+            }
+            // What abandonment needs is for the `PendingLifecycleCommit` intent to STOP being
+            // pending — and the arm above spells out why this system may not do that: the intent is
+            // ROLLBACK STATE and this runs in `Update`, which never rewinds, so a write here drifts
+            // from the peers' copy silently. So this arm does the only thing it can — drop the
+            // transaction — and `begin_room_transition_load_system` sees the same still-pending
+            // intent on the very next frame and opens an identical transaction, new sequence and
+            // all. Escape during a Hall load therefore RESTARTS the load (discarding a prepared
+            // plan and its asset manifest); it does not leave it. `shell_actions.back` is ungated
+            // by phase (`basic_load_keyboard`), so this is reachable throughout, not only on a
+            // failure.
+            //
+            // A player pressing Escape is a player INTENT, and the deterministic channel for one is
+            // the input stream the sim already reads — not a presentation message, which
+            // `clear_message_on_rollback` wipes. That is a slice with a design decision in it (does
+            // a crossing become abandonable at all, or is a transition committed-on-request once
+            // the body has crossed the zone?), so it is NAMED here rather than improvised: the
+            // honest answer today is that a room transition is committed on request, and this arm
+            // is a restart button.
+            //
+            // Quit rides the same arm and wants the same drop for a different
+            // reason — it is leaving the session, so the transaction must not
+            // outlive it.
+            LoadPresentationEvent::CancelRequested { .. }
+            | LoadPresentationEvent::QuitRequested { .. } => {
+                let load_id = active.barrier.load_id.clone();
+                apply_load_command(
+                    &mut loads,
+                    &mut load_events,
+                    LoadCommand::Cancel {
+                        load_id: load_id.clone(),
+                    },
+                );
+                loads.retire(&load_id);
+                transitions.active = None;
+                presentation.write(LoadPresentationCommand::Cancel {
+                    owner: expected_owner,
+                });
+                crate::platformer::world_log::note_game_mode_request(
+                    GameMode::Playing,
+                    "room_transition_cancelled",
+                );
+                next_mode.set(GameMode::Playing);
+            }
+        }
+    }
+}
+
+/// The live rooms a transition's cover waits on: the one the crossing arrived
+/// in, which its commit recorded.
+///
+/// ⛔ NOT EVERY LIVE ROOM OF THE TARGET'S DEFINITION. Two live rooms can be of
+/// one definition, and the art of the one nobody arrived in held the cover.
+/// Only a transaction that does not know its room (before its commit, or a
+/// commit that could not tell) asks the definition.
+fn cover_rooms(
+    arrived_in: Option<crate::platformer::lifecycle::LiveRoomInstance>,
+    target_room: usize,
+    live_rooms: impl IntoIterator<
+        Item = (
+            crate::platformer::lifecycle::LiveRoomInstance,
+            crate::world::rooms::LiveRoomDefinition,
+        ),
+    >,
+) -> Vec<crate::platformer::lifecycle::LiveRoomInstance> {
+    match arrived_in {
+        Some(room) => vec![room],
+        None => live_rooms
+            .into_iter()
+            .filter(|(_, definition)| definition.index() == target_room)
+            .map(|(instance, _)| instance)
+            .collect(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Review b2c36ae4, finding 7. Two live rooms of the target's definition:
+    /// the cover waits on the one the crossing arrived in. Measured before:
+    /// it waited on both. Control: a transaction that does not know its room
+    /// asks the definition, and a room of another definition is never one.
+    /// Poison: ask the definition always.
+    #[test]
+    fn a_cover_waits_on_the_live_room_it_arrived_in() {
+        use crate::platformer::lifecycle::LiveRoomInstance;
+        use crate::world::rooms::LiveRoomDefinition;
+        let first = LiveRoomInstance::ACTIVATION;
+        let (second, third) = (first.next(), first.next().next());
+        let (hub, lab) = (LiveRoomDefinition::from_index(1), LiveRoomDefinition::from_index(2));
+        let live = [(first, hub), (second, hub), (third, lab)];
+        assert_eq!(cover_rooms(Some(second), 1, live), vec![second]);
+        assert_eq!(cover_rooms(None, 1, live), vec![first, second], "control: the definition");
+    }
+
+    #[test]
+    fn room_transition_experience_auto_advances_after_hidden_grace() {
+        let config = RoomTransitionPresentationConfig::default();
+        let spec = experience(&config);
+        assert_eq!(spec.reveal_after, Duration::from_millis(250));
+        assert_eq!(spec.ready_policy, ReadyTransitionPolicy::AutoAdvance);
+        assert!(spec.activity.is_none());
+    }
+
+    /// The player sees named work, not a percentage counted in items (a room
+    /// tile and a character's pages each settle as one item).
+    #[test]
+    fn room_transition_experience_shows_no_percentage() {
+        assert!(!experience(&RoomTransitionPresentationConfig::default()).show_estimated_percentage);
+    }
+
+    /// A loading screen names what it waits on, the same facts the gate holds,
+    /// and says so when no asset work is pending.
+    #[test]
+    fn a_loading_screen_names_the_work_it_waits_on() {
+        let pending: Vec<String> = (0..14).map(|i| format!("sprites/npc_{i:02}_parts.png")).collect();
+        let reason = loading_screen_reason(3, "hall_of_characters", RoomTransitionLoadPhase::AwaitingReadiness, &pending);
+        assert!(reason.contains("waiting on 14 activation-critical asset(s)"), "{reason}");
+        assert!(reason.contains("sprites/npc_00_parts.png") && reason.contains("(+2 more)"), "{reason}");
+        let none = loading_screen_reason(3, "hall_of_characters", RoomTransitionLoadPhase::Committed, &[]);
+        assert!(none.contains("no asset work pending") && none.contains("Committed"), "{none}");
+    }
+
+    #[test]
+    fn room_transition_owner_is_exact_per_sequence() {
+        assert_eq!(owner_for(7).as_str(), "room-transition:7");
+        assert_ne!(owner_for(7), owner_for(8));
+    }
+
+    fn timing_sample(sequence: u64) -> RoomTransitionTimingSample {
+        RoomTransitionTimingSample {
+            sequence,
+            source_room: "source".to_string(),
+            target_room: "target".to_string(),
+            construction_preflight: None,
+            asset_manifest_build: None,
+            asset_wait: None,
+            request_to_ready: None,
+            cover_request_to_presented: None,
+            commit_enqueue: None,
+            commit_to_first_target_frame: None,
+            covered: true,
+            prefetch_hit: false,
+            loading_foreground_visible: false,
+            loading_foreground_visible_duration: Duration::ZERO,
+        }
+    }
+
+    #[test]
+    fn transition_telemetry_is_bounded_and_keeps_newest_samples() {
+        let mut telemetry = RoomTransitionTelemetry {
+            samples: VecDeque::new(),
+            capacity: 2,
+        };
+        let config = RoomTransitionPresentationConfig::default();
+        telemetry.record(timing_sample(1), &config);
+        telemetry.record(timing_sample(2), &config);
+        telemetry.record(timing_sample(3), &config);
+        assert_eq!(
+            telemetry
+                .samples()
+                .map(|sample| sample.sequence)
+                .collect::<Vec<_>>(),
+            vec![2, 3],
+        );
+    }
+}

@@ -1,0 +1,304 @@
+//! Prepare the first room's images before session activation.
+
+use std::collections::BTreeMap;
+use std::sync::Arc;
+
+use bevy::prelude::{MessageWriter, Res, ResMut, Resource};
+
+use crate::publication::construction::RoomContentStagingRegistry;
+use crate::asset_manager::image_stages::RenderWorldPresent;
+use crate::game_shell::PREPARE_FIRST_ROOM_ART_WORK_ID;
+use crate::load::{
+    LoadCommand, LoadFailure, LoadId, LoadWorkId, LoadWorkState, UnitProgress,
+};
+use crate::provider::PreparedPlatformerSessions;
+use crate::world::rooms::RoomSpec;
+
+use super::room_transition_assets::{
+    build_loaded_room_asset_manifest, build_room_asset_manifest, inspect_demanded_characters,
+    inspect_room_asset_manifest, realized_character_count, room_character_tokens,
+    RoomAssetManifest, RoomResidencyOwners, RoomTransitionAssetContext,
+};
+
+/// One published session whose first room's art this host is preparing.
+struct FirstRoomArtJob {
+    #[cfg(feature = "audio")]
+    music: Option<bevy::prelude::Handle<crate::audio::library::KiraAudioSource>>,
+    room: Arc<RoomSpec>,
+    staged_actor_names: Vec<String>,
+    /// The room's cast plus the starting character: what the reveal waits to
+    /// see REALIZED, not only demanded.
+    demanded_characters: Vec<String>,
+    manifest: RoomAssetManifest,
+    /// Sheets realize one per frame after the first build and each brings pages
+    /// the manifest has not seen; rebuilt when this count moves.
+    realized_at_build: usize,
+    updates: u32,
+    /// Updates spent waiting only on GPU uploads, for the completion line.
+    waited_on_gpu_updates: u32,
+}
+
+/// The jobs in flight, by the transaction that published the session, and the
+/// ones already answered — a published record outlives its answer by the
+/// frames between `Complete` and activation, and must not be re-asked.
+#[derive(Resource, Default)]
+pub(crate) struct FirstRoomArtJobs {
+    by_load: BTreeMap<LoadId, FirstRoomArtJob>,
+    answered: std::collections::BTreeSet<LoadId>,
+}
+
+/// Run condition of [`prepare_first_room_art_system`]: a session is
+/// published, or a job of one that left the store is still to be dropped.
+pub(crate) fn first_room_art_is_owed(
+    sessions: Option<Res<PreparedPlatformerSessions>>,
+    jobs: Res<FirstRoomArtJobs>,
+) -> bool {
+    sessions.is_some_and(|sessions| sessions.published().next().is_some())
+        || !jobs.by_load.is_empty()
+        || !jobs.answered.is_empty()
+}
+
+/// Drive `prepare-first-room-art` for every published, not yet activated
+/// platformer session.
+pub(crate) fn prepare_first_room_art_system(sprite_content: bevy::prelude::Res<crate::sprite_sheet::SpriteContent>,
+    sessions: Option<Res<PreparedPlatformerSessions>>,
+    content_staging: Option<Res<RoomContentStagingRegistry>>,
+    #[cfg(feature = "audio")] audio: Option<Res<crate::audio::library::AudioLibrary>>,
+    mut jobs: ResMut<FirstRoomArtJobs>,
+    mut context: RoomTransitionAssetContext,
+    mut commands: MessageWriter<LoadCommand>,
+) {
+    let Some(sessions) = sessions else {
+        return;
+    };
+    // A record that left the store — activated, retried, or cancelled — takes
+    // its job with it; the item's state belongs to a barrier that is gone.
+    let live: std::collections::BTreeSet<LoadId> = sessions
+        .published()
+        .map(|(transaction, _)| transaction.barrier.load_id.clone())
+        .collect();
+    jobs.by_load.retain(|load_id, _| live.contains(load_id));
+    jobs.answered.retain(|load_id| live.contains(load_id));
+    // Nothing to prepare: return before the `&mut` borrows below. Each one marks
+    // its resource changed, and a changed `GameAssets` makes the parallax
+    // refresh despawn and respawn every layer on the next frame.
+    if sessions
+        .published()
+        .all(|(transaction, _)| jobs.answered.contains(&transaction.barrier.load_id))
+    {
+        return;
+    }
+
+    let (
+        Some(assets),
+        Some(catalog),
+        Some(asset_server),
+        Some(layouts),
+        Some(quality),
+        Some(states),
+    ) = (
+        context.assets.as_deref_mut(),
+        context.catalog.as_deref(),
+        context.asset_server.as_deref(),
+        context.layouts.as_deref_mut(),
+        context.quality.as_deref(),
+        context.character_load_states.as_deref_mut(),
+    )
+    else {
+        return;
+    };
+    let empty_registry = Default::default();
+
+    for (transaction, prepared) in sessions.published() {
+        // The cast THIS prepared session froze: its first room is built from
+        // it, so its art is demanded from it (not from whatever the App holds).
+        let registry = prepared.cast.cast().unwrap_or(&empty_registry);
+        let load_id = transaction.barrier.load_id.clone();
+        if jobs.answered.contains(&load_id) {
+            continue;
+        }
+        let work_id = LoadWorkId::new(PREPARE_FIRST_ROOM_ART_WORK_ID);
+        let source = prepared.content.source();
+        let job = match jobs.by_load.get_mut(&load_id) {
+            Some(job) => job,
+            None => {
+                let room = source.room_set().activation_spec();
+                let mut staged_actor_names: Vec<String> = match content_staging
+                    .as_deref()
+                    .map(|staging| staging.try_requests_for(room))
+                {
+                    Some(Ok(requests)) => {
+                        requests.into_iter().map(|request| request.name).collect()
+                    }
+                    Some(Err(error)) => {
+                        commands.write(LoadCommand::SetWorkState {
+                            load_id: load_id.clone(),
+                            work_id,
+                            state: LoadWorkState::Failed(
+                                LoadFailure::new(
+                                    "The first room's cast could not be staged",
+                                    format!("room '{}': content staging failed: {error}", room.id),
+                                )
+                                .retryable(false),
+                            ),
+                        });
+                        jobs.answered.insert(load_id);
+                        continue;
+                    }
+                    None => Vec::new(),
+                };
+                // The home body wears the starting character into the room; the
+                // room's placements never list the player, and pre-activation
+                // there is no body whose `WornCharacter` would ask. Folded into
+                // the staged names so ONE list demands it, waits for its
+                // realization AND puts its pages in the manifest (a transition
+                // re-demands a worn sheet only when it retired one).
+                let worn: Vec<String> = match source.initial_body() {
+                    crate::session::initial_body::InitialBodyPolicy::SpawnCharacter(
+                        starting,
+                    ) => vec![starting
+                        .effective_id(&prepared.report.starting_character)
+                        .to_string()],
+                    crate::session::initial_body::InitialBodyPolicy::NoInitialBody => {
+                        Vec::new()
+                    }
+                };
+                staged_actor_names.extend(worn.iter().cloned());
+                staged_actor_names.sort();
+                staged_actor_names.dedup();
+                // Whatever an earlier session left realized and this room, the
+                // worn body or its neighbours do not own leaves here, before the
+                // first reveal — the same ownership rule a room commit applies.
+                let room_set = source.room_set();
+                let claimed: Vec<String> = super::room_transition_assets::residency_claims(
+                    context.roster.as_deref(),
+                    context.actor_worn.iter(),
+                );
+                let owners = RoomResidencyOwners::for_room(
+                    room_set,
+                    room_set.activation(),
+                    &staged_actor_names,
+                    &worn,
+                    claimed.iter().map(String::as_str),
+                );
+                let manifest = build_room_asset_manifest(&sprite_content,
+                    room,
+                    &staged_actor_names,
+                    assets,
+                    catalog,
+                    asset_server,
+                    layouts,
+                    quality,
+                    states,
+                    registry,
+                    &context.authored_sheets,
+                    context.boss_catalog.as_deref(),
+                    &worn,
+                    Some(&owners),
+                );
+                let demanded_characters = room_character_tokens(room, &staged_actor_names);
+                let realized_at_build = realized_character_count(&demanded_characters, assets);
+                jobs.by_load
+                    .entry(load_id.clone())
+                    .or_insert(FirstRoomArtJob {
+                        #[cfg(feature = "audio")]
+                        music: audio.as_ref().and(prepared.startup_music.as_ref())
+                            .map(|track| asset_server.load(track.resolved_asset_path())),
+                        room: Arc::new(room.clone()),
+                        staged_actor_names,
+                        demanded_characters,
+                        manifest,
+                        realized_at_build,
+                        updates: 0,
+                        waited_on_gpu_updates: 0,
+                    })
+            }
+        };
+        job.updates = job.updates.saturating_add(1);
+        let realized = realized_character_count(&job.demanded_characters, assets);
+        if realized != job.realized_at_build {
+            job.manifest =
+                build_loaded_room_asset_manifest(&job.room, &job.staged_actor_names, assets, context.boss_catalog.as_deref());
+            job.realized_at_build = realized;
+        }
+        let mut readiness = inspect_room_asset_manifest(
+            asset_server,
+            context.images.as_deref(),
+            RenderWorldPresent::from_option(context.render_world.as_deref()),
+            context.prepared_here.as_deref(),
+            &job.manifest,
+        );
+        inspect_demanded_characters(
+            &job.demanded_characters,
+            assets,
+            Some(&*states),
+            &mut readiness,
+        );
+
+        #[cfg(feature = "audio")]
+        if let Some(handle) = &job.music {
+            readiness.total += 1;
+            match asset_server.get_load_state(handle.id()) {
+                Some(bevy::asset::LoadState::Loaded) => readiness.settled += 1,
+                Some(bevy::asset::LoadState::Failed(error)) =>
+                    readiness.failed.push(format!("entry music: {error}")),
+                _ => readiness.pending.push("entry music".to_string()),
+            }
+        }
+        let state = if !readiness.failed.is_empty() {
+            // The screen shows the title only. This line is where a phone
+            // (`adb logcat`) says which asset it was.
+            bevy::log::error!(
+                "[first-room-art] room '{}' refused: failed {}",
+                job.room.id,
+                readiness.failed.join(", ")
+            );
+            LoadWorkState::Failed(
+                LoadFailure::new(
+                    "A required asset for the first room failed to load",
+                    format!(
+                        "room '{}': failed {}",
+                        job.room.id,
+                        readiness.failed.join(", ")
+                    ),
+                )
+                .retryable(false),
+            )
+        } else if readiness.is_ready() {
+            bevy::log::info!(
+                "[first-room-art] room '{}' ready after {} updates ({} of them waiting only on \
+                 GPU uploads): {} assets, {} characters",
+                job.room.id,
+                job.updates,
+                job.waited_on_gpu_updates,
+                readiness.total,
+                job.demanded_characters.len(),
+            );
+            LoadWorkState::Complete
+        } else {
+            if readiness
+                .pending
+                .iter()
+                .all(|label| label.ends_with("(gpu upload)"))
+            {
+                job.waited_on_gpu_updates = job.waited_on_gpu_updates.saturating_add(1);
+            }
+            LoadWorkState::Running {
+                progress: Some(UnitProgress::new(
+                    readiness.settled as f32,
+                    readiness.total.max(1) as f32,
+                )),
+            }
+        };
+        let done = state.is_complete() || matches!(state, LoadWorkState::Failed(_));
+        commands.write(LoadCommand::SetWorkState {
+            load_id: load_id.clone(),
+            work_id,
+            state,
+        });
+        if done {
+            // Hold the entry music until the session adopts its playback handle.
+            jobs.answered.insert(load_id);
+        }
+    }
+}

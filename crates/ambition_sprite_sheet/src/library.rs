@@ -64,6 +64,15 @@ impl SheetTexts {
                 };
                 let held = old.get(&format!("{kind}:{key}")).cloned();
                 let key = held.as_ref().map(|row| row.0).unwrap_or_else(|| kept(key));
+                if kind == "part" {
+                    let compiled = ambition_sprite_part_format::compiled_path(logical).expect("part table");
+                    let address = format!("content://{}/{compiled}", library.manifest.id);
+                    if let Some(binary) = all_files.get(&address) {
+                        let bytes = binary.read()?;
+                        texts.part_flipbooks.push((key, BakedPartFlipbook::Encoded(bytes.into()), kept(address)));
+                        continue;
+                    }
+                }
                 if kind == "part" && file.generation.is_some() {
                     if let LibraryFileData::Native(path) = &file.data {
                         let path = kept(path.to_string_lossy().into_owned());
@@ -125,5 +134,50 @@ mod tests {
         }
         assert_eq!(image_in("game://sprites/body.ron", "sprites/body.png"), "game://sprites/body.png");
         assert_eq!(image_in("content://shared/sprites/body.ron", "sprites/body.png"), "content://shared/sprites/body.png");
+    }
+}
+
+#[cfg(test)]
+mod compiled_metadata_tests {
+    use super::*;
+    use ambition_asset_manager::content_library::{ContentLibrary, EmbeddedLibrary, EmbeddedLibraryFile};
+
+    const PARTS: &str = r#"(
+        schema_version: 1, target: "fixture", pages: ["fixture_parts.png"],
+        frame_size: (20, 30), feet_pixel: (10.0, 29.0),
+        parts: [(name: "body", page: 0, rect: (0, 0, 4, 5), pivot: (2.0, 2.5))],
+        clips: {"idle": (frame_duration_s: 0.1, frames: [
+            [(part: 0, at: (-1.0, -20.0), rotation: 0.5, scale: (1.0, 0.9))],
+            [(part: 0, at: (2.0, -21.0), rotation: 0.0, scale: (1.0, 1.0))],
+        ])},
+    )"#;
+
+    #[test]
+    fn a_served_library_prepares_parts_without_reading_ron_at_startup() {
+        let logical = "sprites/fixture_parts.ron";
+        let (path, bytes) = ambition_sprite_part_format::compile_metadata(logical, PARTS.as_bytes()).unwrap().unwrap();
+        let files = Box::leak(vec![
+            EmbeddedLibraryFile { path: logical, bytes: None },
+            EmbeddedLibraryFile { path: kept(path), bytes: Some(Box::leak(bytes.into_boxed_slice())) },
+        ].into_boxed_slice());
+        let embedded = Box::leak(Box::new(EmbeddedLibrary {
+            manifest: r#"{"schema":"ambition.content_library.v1","id":"fixture","version":"1","asset_roots":{"generated":"runtime"}}"#,
+            catalog: r#"{"entries":{}}"#, files,
+        }));
+        let mut libraries = ContentLibraries::default();
+        libraries.insert(ContentLibrary::from_embedded(embedded).unwrap()).unwrap();
+        let texts = SheetTexts::from_libraries(&libraries).unwrap();
+        let actual = texts.part_flipbooks[0].1.decode().unwrap();
+        let expected = crate::character::rigged::RiggedSpriteAsset::from_published_ron(PARTS).unwrap();
+        assert_eq!(actual.frame("idle", 0), expected.frame("idle", 0));
+        assert_eq!(actual.frame("idle", 1), expected.frame("idle", 1));
+        assert_eq!(actual.parts[0].rect, expected.parts[0].rect);
+        crate::SpriteContent::from_texts(texts).expect("the compiled tables pass normal generation preparation");
+    }
+
+    #[test]
+    fn malformed_part_source_is_reported_at_build_time() {
+        let error = ambition_sprite_part_format::compile_metadata("sprites/broken_parts.ron", b"not a table").unwrap_err();
+        assert!(error.contains("sprites/broken_parts.ron"));
     }
 }

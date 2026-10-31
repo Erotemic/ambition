@@ -32,7 +32,7 @@ use bevy::ecs::resource::Resource;
 use bevy::math::{URect, UVec2, Vec2, Vec3};
 
 mod posed;
-pub(crate) mod published;
+pub(crate) use ambition_sprite_part_format::parts as published;
 
 use published::Published;
 pub use posed::{PosedParts, TrackBinding};
@@ -43,7 +43,7 @@ pub use published::{ClipTween, Realize, RigPlacement};
 /// tween policy; a schema-1 file reads as untracked clips that step. Schema 3
 /// adds the placement rule, a draw's opacity and a frame's opacity; an older
 /// file is snapped and opaque.
-pub const PART_FLIPBOOK_SCHEMA_VERSION: u32 = 3;
+pub use ambition_sprite_part_format::SCHEMA_VERSION as PART_FLIPBOOK_SCHEMA_VERSION;
 
 /// The threads of [`RiggedSpriteAsset::warm_baked_in_background`]. The tables
 /// are a short burst of work (about 0.3 s in all from the development cache,
@@ -445,9 +445,7 @@ impl RiggedSpriteAsset {
     /// Parse and check a published `<target>_parts.ron`.
     pub fn from_published_ron(text: &str) -> Result<Self, RiggedSpriteError> {
         // A schema-2 draw writes `track: 3`, not `track: Some(3)`.
-        let published: Published = ron::Options::default()
-            .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME)
-            .from_str(text)
+        let published = ambition_sprite_part_format::read_ron(text)
             .map_err(|error| RiggedSpriteError::Parse(error.to_string()))?;
         Self::from_published(published)
     }

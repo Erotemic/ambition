@@ -184,6 +184,7 @@ dependencies = [
  "ambition_menu_kaleidoscope",
  "ambition_platformer2d",
  "ambition_sim_harness",
+ "ambition_sprite_part_format",
  "bevy",
  "bevy-inspector-egui",
  "bevy_common_assets",
@@ -438,6 +439,7 @@ dependencies = [
  "ambition_resource_spec",
  "ambition_sfx",
  "ambition_sim_view",
+ "ambition_sprite_part_format",
  "ambition_sprite_sheet",
  "ambition_time",
  "ambition_ui_nav",
@@ -550,6 +552,7 @@ dependencies = [
  "ambition_demo_mary_o_modules",
  "ambition_entity_catalog",
  "ambition_platformer2d",
+ "ambition_sprite_part_format",
  "bevy",
  "serde",
 ]
@@ -581,6 +584,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_content_pack",
  "ambition_platformer2d",
+ "ambition_sprite_part_format",
  "bevy",
 ]
 
@@ -591,6 +595,7 @@ dependencies = [
  "ambition_content_pack",
  "ambition_entity_catalog",
  "ambition_platformer2d",
+ "ambition_sprite_part_format",
  "bevy",
  "serde",
 ]
@@ -615,6 +620,7 @@ dependencies = [
  "ambition_fighter_specials",
  "ambition_platformer2d",
  "ambition_resource_spec",
+ "ambition_sprite_part_format",
  "bevy",
  "serde",
 ]
@@ -645,6 +651,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_content_pack",
  "ambition_platformer2d",
+ "ambition_sprite_part_format",
  "bevy",
 ]
 
@@ -1804,6 +1811,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_sprite_part_format"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "ron 0.11.0",
+ "serde",
+]
+
+[[package]]
 name = "ambition_sprite_sheet"
 version = "0.1.0"
 dependencies = [
@@ -1816,6 +1832,7 @@ dependencies = [
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
+ "ambition_sprite_part_format",
  "ambition_vfx",
  "bevy",
  "bincode",
@@ -4563,8 +4580,6 @@ dependencies = [
 [[package]]
 name = "cpal"
 version = "0.18.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f02e8d0327b42d3e2e4ab2119af397344eb9fc54a34bf0ddeaa1277af8681f1"
 dependencies = [
  "alsa",
  "block2 0.6.2",

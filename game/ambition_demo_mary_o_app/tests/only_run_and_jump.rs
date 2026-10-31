@@ -526,3 +526,37 @@ fn her_spark_does_not_push_her_back() {
         "she stood still, threw a spark, and moved {furthest:.2} px: the shot pushed her"
     );
 }
+
+
+#[test]
+fn a_jump_emits_the_voice_declared_by_its_body() {
+    use bevy::ecs::message::{MessageCursor, Messages};
+    use ambition_platformer2d::sfx::{BodyPresentationSource, OwnedSfxMessage, SfxMessage};
+    let mut app = boot();
+    let body = seated(&mut app).expect("Mary-O is seated");
+    let source = app.world().get::<BodyPresentationSource>(body).expect("the body has its presentation source").id().clone();
+    for _ in 0..LIVENESS_CAP {
+        if app.world().get::<ae::BodyGroundState>(body).is_some_and(|ground| ground.on_ground) {
+            break;
+        }
+        step(&mut app, ControlFrame::default());
+    }
+    let mut cursor = MessageCursor::<OwnedSfxMessage>::default();
+    cursor.read(app.world().resource::<Messages<OwnedSfxMessage>>()).for_each(drop);
+    let mut heard = false;
+    for tick in 0..LIVENESS_CAP {
+        step(&mut app, ControlFrame { jump_pressed: tick == 0, jump_held: true, ..default() });
+        for message in cursor.read(app.world().resource::<Messages<OwnedSfxMessage>>()) {
+            if matches!(message.request, SfxMessage::Jump { .. }) && message.source == source {
+                heard = true;
+            }
+        }
+        if heard { break; }
+    }
+    assert!(heard, "the real movement path emits the body's jump cue");
+    let catalog = app.world().resource::<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>();
+    let registry = catalog.sfx_for(source.as_str()).expect("the body source names its authored SFX registry");
+    let spec = registry.spec_for_id(ambition_platformer2d::sfx::SfxId::from_static("player.jump"))
+        .expect("the body's registry authorizes and voices the emitted jump");
+    assert!(spec.duration > 0.0 && spec.volume > 0.0);
+}

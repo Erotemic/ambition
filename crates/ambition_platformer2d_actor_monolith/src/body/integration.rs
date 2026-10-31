@@ -7,8 +7,8 @@ use ambition_combat::attack_support::engine_input_from_actor_control;
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 
 /// Retained movement facts for downstream body consumers.
-/// Integration replaces this output each step. Home bodies require it so
-/// participant policy and presentation can read the same events.
+/// Each integrated body publishes this output after its movement step.
+/// Participant policy and presentation read the same events.
 #[derive(Component, Default)]
 pub struct BodyFrameOutput {
     /// Events from the current movement step.

@@ -285,10 +285,7 @@ pub fn shared_host_startup_ticks(world: &mut World) -> u32 {
 /// counters never described — `hits`/`misses`/`stale_misses` all answer "what did a transition
 /// get out of it".
 pub fn prefetch_preparations(world: &bevy::prelude::World) -> u64 {
-    world
-        .get_resource::<super::world_flow::room_transition_assets::RoomPreparationPrefetchState>()
-        .map(|cache| cache.preparations)
-        .unwrap_or_default()
+    ambition_platformer2d::world_flow::prefetch_preparations(world)
 }
 
 /// Step the same multi-game host that the windowed binary ships, using Bevy's

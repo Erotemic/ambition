@@ -1,0 +1,12 @@
+[package]
+name = "ambition_sprite_part_format"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Published sprite-part wire format and build-time metadata compiler"
+
+[dependencies]
+serde = { workspace = true }
+ron = { workspace = true }
+bincode = "1.3"

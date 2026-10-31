@@ -1812,19 +1812,19 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "a loading-punctuality instrument: monotone counters plus a name set, read          by no simulation system, never fed back into gameplay",
     ),
     (
-        "ambition_app::app::world_flow::room_transition_presentation::",
+        "ambition_platformer2d::world_flow::room_transition_presentation::",
         "the transition's own curtain/telemetry: what the player is shown WHILE a          room swaps, not what the room becomes",
     ),
     (
-        "ambition_app::app::world_flow::room_transition_assets::",
+        "ambition_platformer2d::world_flow::room_transition_assets::",
         "which assets are staged and how far the prefetch got — a readiness          question about loading, never about the simulated world",
     ),
     (
-        "ambition_app::app::world_flow::first_room_art::FirstRoomArtJobs",
+        "ambition_platformer2d::world_flow::first_room_art::FirstRoomArtJobs",
         "the same readiness question asked of a shell route's FIRST room, BEFORE          it activates: per published session, the manifest being waited on and          how many updates it took. Loading work that finishes before any session          simulates; nothing in a session reads it",
     ),
     (
-        "ambition_app::app::world_flow::first_room_cover::FirstRoomCover",
+        "ambition_platformer2d::world_flow::first_room_cover::FirstRoomCover",
         "the curtain over a shell route's FIRST room until it is drawn: a phase,          an update count and a settled latch. It reads the sim tick and the          presentation's settling; no simulation system reads it",
     ),
     (

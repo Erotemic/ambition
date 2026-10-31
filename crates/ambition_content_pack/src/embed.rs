@@ -20,6 +20,9 @@ pub fn embedded_file(root: &str) -> String {
     format!("content_pack/{root}/embedded.rs")
 }
 
+/// An owner can supply a compiled metadata product beside its source identity.
+pub type MetadataCompiler = fn(&str, &[u8]) -> Result<Option<(String, Vec<u8>)>, String>;
+
 /// Call from `build.rs`. `root` is relative to the crate's directory and holds
 /// `pack.ron`.
 ///
@@ -33,7 +36,8 @@ pub fn embedded_file(root: &str) -> String {
 ///
 /// When the manifest is not readable or does not parse: a build that embeds a
 /// pack it cannot read would ship no content.
-pub fn embed_pack(root: &str) {
+
+pub fn embed_pack(root: &str, compilers: &[MetadataCompiler]) {
     println!("cargo:rerun-if-changed=build.rs");
     if std::env::var_os("CARGO_FEATURE_STATIC_CONTENT").is_none() {
         return;
@@ -45,7 +49,7 @@ pub fn embed_pack(root: &str) {
         .unwrap_or_else(|error| panic!("{} is not readable: {error}", manifest_path.display()));
     let manifest: crate::ContentPackManifest = ron::from_str(&text)
         .unwrap_or_else(|error| panic!("{} does not parse: {error}", manifest_path.display()));
-    embed_libraries(root, &manifest, manifest_path.parent().expect("pack root"));
+    embed_libraries(root, &manifest, manifest_path.parent().expect("pack root"), compilers);
     let include = |path: &str| format!("include_str!(concat!(env!(\"CARGO_MANIFEST_DIR\"), {:?}))", format!("/{root}/{path}"));
     let mut code = format!("({}, &[\n", include("pack.ron"));
     for source in &manifest.sources {
@@ -69,7 +73,7 @@ pub fn declared_paths(manifest_ron: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
-fn embed_libraries(root: &str, manifest: &crate::ContentPackManifest, pack_root: &Path) {
+fn embed_libraries(root: &str, manifest: &crate::ContentPackManifest, pack_root: &Path, compilers: &[MetadataCompiler]) {
     use ambition_asset_manager::content_library::{ContentLibrary, LibraryFileData};
     let served = std::env::var_os("CARGO_FEATURE_SERVED_CONTENT").is_some();
     let mut code = String::from("&[\n");
@@ -93,6 +97,27 @@ fn embed_libraries(root: &str, manifest: &crate::ContentPackManifest, pack_root:
         for (logical, file) in library.files().unwrap_or_else(|error| panic!("{error}")) {
             let LibraryFileData::Native(physical) = file.data else { unreachable!() };
             let metadata = logical.ends_with(".ron") || logical.ends_with(".json");
+            let mut compiled = None;
+            if metadata && !compilers.is_empty() {
+                let source = std::fs::read(&physical).expect("library metadata");
+                for compiler in compilers {
+                    if let Some(product) = compiler(&logical, &source)
+                        .unwrap_or_else(|error| panic!("{error}")) {
+                        assert!(compiled.is_none(), "Two metadata compilers own {logical}");
+                        compiled = Some(product);
+                    }
+                }
+            }
+            if let Some((prepared_path, bytes)) = compiled {
+                println!("cargo:rerun-if-changed={}", physical.display());
+                let out = std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap())
+                    .join("content_pack").join(root).join("prepared").join(&library.manifest.id).join(&prepared_path);
+                std::fs::create_dir_all(out.parent().unwrap()).expect("compiled metadata directory");
+                std::fs::write(&out, bytes).expect("compiled metadata output");
+                code.push_str(&format!("ambition_platformer2d::asset_manager::content_library::EmbeddedLibraryFile {{ path: {logical:?}, bytes: None }},\n"));
+                code.push_str(&format!("ambition_platformer2d::asset_manager::content_library::EmbeddedLibraryFile {{ path: {prepared_path:?}, bytes: Some(include_bytes!({:?}) as &[u8]) }},\n", out.to_str().unwrap()));
+                continue;
+            }
             let bytes = if metadata || (!served && library.manifest.embedded.contains(&logical)) {
                 format!("Some(include_bytes!({:?}) as &[u8])", physical.to_str().unwrap())
             } else { "None".to_owned() };

@@ -3,7 +3,6 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::body::BodyFrameOutput;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_platformer2d_shared_tangle::schedule::{gameplay_suspended, GameplayGated};
 use ambition_platformer2d_shared_tangle::schedule::{
@@ -16,12 +15,11 @@ pub struct PlayerSchedulePlugin;
 impl Plugin for PlayerSchedulePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
+        app.add_systems(sim, crate::body_feedback::emit_body_movement_feedback
+            .in_set(GameplayGated)
+            .in_set(PlayerSimulationSet::PostPossession));
         // The time of day the clock head turns (still without a `DayCycle`).
         app.init_resource::<ambition_time::DayClock>();
-        // Every player body carries the movement→presentation hand-off the
-        // movement phase writes and the presentation phase reads (required so
-        // both phase queries always match the player + any clone).
-        app.register_required_components::<ambition_platformer2d_shared_tangle::markers::PlayerEntity, BodyFrameOutput>();
         app.register_required_components_with::<ambition_platformer2d_shared_tangle::markers::PlayerEntity, ambition_platformer2d_core::CenteredAabb>(
             || ambition_platformer2d_core::CenteredAabb::new(ambition_platformer2d_core::Vec2::ZERO, ambition_platformer2d_core::Vec2::ZERO),
         );

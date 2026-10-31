@@ -27,6 +27,9 @@ asset persona.
 ./build_for_web.sh --serve
 ./build_for_web.sh --serve 9000 --open
 
+# Bind to all IPv4 interfaces so other devices can connect.
+./build_for_web.sh --serve --host all
+
 # Full served-assets persona; exposes provider assets under /assets/.
 ./build_for_web.sh --served --serve
 
@@ -42,8 +45,16 @@ transport modes.
 
 ```bash
 ./build_for_web.sh --game mary-o --serve
+./build_for_web.sh --game mary-o --serve --host 0.0.0.0
 ./build_for_web.sh --game mary-o --copy-assets --brotli
 ```
+
+The server uses `localhost` (`127.0.0.1`) by default. Set `--host all` to
+listen on `0.0.0.0` (all IPv4 interfaces), or pass `--host 0.0.0.0` directly.
+You can also set `AMBITION_WEB_HOST=all`; the `--host` option takes priority.
+Use `http://<LAN-IP>:8000/` on other devices, with the actual IP address of
+the serving computer. A firewall must permit the connection. `--open` uses
+a local browser address even when the server listens on all interfaces.
 
 Mary-O uses its standalone provider and rendered shell. Its default web build
 uses `web-release`: size optimization, thin LTO, and stripped symbols. It includes
@@ -83,7 +94,7 @@ URL.
 To serve an existing output without a Cargo build:
 
 ```bash
-python3 scripts/web_bundle.py serve --root game/ambition_demo_mary_o_app/web --port 8000
+python3 scripts/web_bundle.py serve --root game/ambition_demo_mary_o_app/web --port 8000 --host all
 ```
 
 ## Measure transfer size

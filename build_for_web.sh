@@ -38,7 +38,9 @@ Options:
                         wasm HTTP reader fetches actually resolve. Selects
                         `AssetProfile::WebServedAssets` at runtime via the
                         `web_served` feature.
-  --serve [PORT]        After building, serve `game/ambition_app/web/` on PORT (default 8000).
+  --serve [PORT]        After building, serve the selected game's web output (default port 8000).
+  --host HOST           Server bind address (default: localhost). Use 'all' for 0.0.0.0.
+                        Also accepts an IPv4 address, such as 192.168.1.10.
   --open                Open the served URL in the default browser. Implies --serve.
   --clean               Delete the wasm-bindgen output dir before building.
   --doctor              Check tools/environment and print what would be used.
@@ -48,12 +50,15 @@ Environment overrides:
   CARGO                 Cargo command. Default: cargo
   WASM_BINDGEN          wasm-bindgen command. Default: wasm-bindgen
   AMBITION_WEB_PORT     Default port for --serve. Default: 8000
+  AMBITION_WEB_HOST     Default host for --serve. Default: localhost.
+                        --host overrides this value.
 
 Examples:
   ./build_for_web.sh                          # WebStatic (embedded core assets)
   ./build_for_web.sh --serve
   ./build_for_web.sh --served --serve         # WebServedAssets (full game via served /assets/)
   ./build_for_web.sh --serve 9000 --open
+  ./build_for_web.sh --game mary-o --serve --host all  # Serve on all IPv4 interfaces.
   ./build_for_web.sh --debug --serve
   ./build_for_web.sh --doctor
 EOF
@@ -136,6 +141,7 @@ SKIP_BINDGEN=false
 SKIP_BUILD=false
 SERVE=false
 SERVE_PORT=""
+SERVE_HOST=${AMBITION_WEB_HOST:-localhost}
 OPEN_BROWSER=false
 CLEAN=false
 DOCTOR=false
@@ -166,6 +172,11 @@ while [[ $# -gt 0 ]]; do
                 SERVE_PORT=$2
                 shift
             fi
+            ;;
+        --host)
+            shift
+            [[ $# -gt 0 && -n "$1" && "$1" != -* ]] || fatal "--host needs an address or alias"
+            SERVE_HOST=$1
             ;;
         --open) OPEN_BROWSER=true; SERVE=true ;;
         --clean) CLEAN=true ;;
@@ -211,6 +222,21 @@ cd "$ROOT"
 CARGO_CMD=${CARGO:-cargo}
 WASM_BINDGEN_CMD=${WASM_BINDGEN:-wasm-bindgen}
 SERVE_PORT=${SERVE_PORT:-${AMBITION_WEB_PORT:-8000}}
+case "$SERVE_HOST" in
+    localhost|127.0.0.1)
+        SERVE_BIND_HOST=127.0.0.1
+        SERVE_URL_HOST=localhost
+        ;;
+    all|0.0.0.0)
+        SERVE_BIND_HOST=0.0.0.0
+        SERVE_URL_HOST=localhost
+        ;;
+    *)
+        SERVE_BIND_HOST=$SERVE_HOST
+        SERVE_URL_HOST=$SERVE_HOST
+        ;;
+esac
+SERVE_URL="http://$SERVE_URL_HOST:$SERVE_PORT/"
 
 WEB_DIR="$ROOT/game/$PACKAGE/web"
 if [[ -z "$OUT_DIR" ]]; then
@@ -261,7 +287,10 @@ if [[ -n "$WANT_BINDGEN_VERSION" ]]; then
     log "Cargo.lock pins wasm-bindgen $WANT_BINDGEN_VERSION (wasm-bindgen-cli must match)"
 fi
 if [[ "$SERVE" == true ]]; then
-    log "serve: http://localhost:$SERVE_PORT/ from $WEB_DIR"
+    log "serve: $SERVE_URL (bind $SERVE_BIND_HOST:$SERVE_PORT) from $WEB_DIR"
+    if [[ "$SERVE_BIND_HOST" == 0.0.0.0 ]]; then
+        log "serve: other devices can use http://<LAN-IP>:$SERVE_PORT/"
+    fi
 fi
 
 need_cmd "$CARGO_CMD" "Install Rust via rustup."
@@ -394,11 +423,11 @@ if [[ "$SERVE" != true ]]; then
     echo
     log "done. Serve the bundle with compression enabled."
     log "Examples:"
-    log "  python3 scripts/web_bundle.py serve --root $WEB_DIR --port $SERVE_PORT"
+    log "  python3 scripts/web_bundle.py serve --root $WEB_DIR --port $SERVE_PORT --host $SERVE_BIND_HOST"
     exit 0
 fi
 
-URL="http://localhost:$SERVE_PORT/"
+URL=$SERVE_URL
 
 if [[ "$OPEN_BROWSER" == true ]]; then
     # xdg-open is best-effort; failure is non-fatal.
@@ -413,10 +442,10 @@ fi
 
 if command -v python3 >/dev/null 2>&1; then
     log "serving $WEB_DIR at $URL (Ctrl-C to stop)"
-    exec python3 "$ROOT/scripts/web_bundle.py" serve --root "$WEB_DIR" --port "$SERVE_PORT"
+    exec python3 "$ROOT/scripts/web_bundle.py" serve --root "$WEB_DIR" --port "$SERVE_PORT" --host "$SERVE_BIND_HOST"
 elif command -v basic-http-server >/dev/null 2>&1; then
     log "serving $WEB_DIR at $URL via basic-http-server (Ctrl-C to stop)"
-    exec basic-http-server "$WEB_DIR" -a "127.0.0.1:$SERVE_PORT"
+    exec basic-http-server "$WEB_DIR" -a "$SERVE_BIND_HOST:$SERVE_PORT"
 else
     fatal "no static file server found. Install python3, or run: ./scripts/setup/web_prereq.sh --with-server"
 fi

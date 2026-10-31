@@ -142,12 +142,17 @@ def main():
     serve = commands.add_parser("serve")
     serve.add_argument("--root", type=Path, required=True)
     serve.add_argument("--port", type=int, default=8000)
+    serve.add_argument("--host", default="localhost",
+                       help="IPv4 bind address, localhost (default), or all (0.0.0.0)")
     args = parser.parse_args()
     if args.command == "prepare":
         prepare(args.root, args.code_dir, args.brotli)
     else:
-        server = ThreadingHTTPServer(("127.0.0.1", args.port), partial(Handler, directory=str(args.root.resolve())))
-        print(f"Serving {args.root} at http://localhost:{args.port}/", flush=True)
+        bind_host = {"localhost": "127.0.0.1", "all": "0.0.0.0"}.get(args.host, args.host)
+        server = ThreadingHTTPServer((bind_host, args.port), partial(Handler, directory=str(args.root.resolve())))
+        url_host = "localhost" if bind_host in {"127.0.0.1", "0.0.0.0"} else bind_host
+        print(f"Serving {args.root} at http://{url_host}:{server.server_port}/ "
+              f"(bind {bind_host}:{server.server_port})", flush=True)
         try:
             server.serve_forever()
         except KeyboardInterrupt:

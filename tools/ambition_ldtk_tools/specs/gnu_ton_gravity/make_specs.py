@@ -189,6 +189,9 @@ SIGNS = {
     ORCHARD: (("orchard_crates_sign", 1560, 560, "PICKED APPLES: store this way up", 300),),
     HALL: (("hall_lectern_sign", 1720, 660, "CONSERVATION HALL: what goes in comes out", 420),),
     GALLERY: (("gallery_chandeliers_sign", 480, 300, "THIS GALLERY IS HUNG BOTH WAYS UP", 400),),
+    WELL: (("well_floor_sign", 880, 1440, "MIND THE FLOOR -> (it is that wall)", 360),
+           ("well_band_sign", 520, 860, "<- AND NOW IT IS THAT ONE", 320),
+           ("well_top_sign", 400, 120, "UP IS UP AGAIN. ENJOY IT.", 300)),
 }
 
 #: The works' enemies, few: it is a puzzle level (Jon, 2026-10-30: "add the

@@ -409,6 +409,38 @@ fn melee_brute_attack_gate_respects_each_phase_timer() {
 }
 
 
+/// A flying skirmisher aims its volley holding its place in a small slow
+/// circle, never frozen in the air (`pirate_sky_crew`: a rider that hangs still
+/// reads as broken); a grounded one stands.
+#[test]
+fn a_flying_skirmisher_hovers_while_it_aims_and_a_grounded_one_stands() {
+    let cfg = SkirmisherCfg {
+        ranged_volley: Some(super::super::RangedVolley { windup_s: 0.5, firing_s: 0.2, recovery_s: 1.0 }),
+        ..SkirmisherCfg::RANGER_DEFAULT
+    };
+    for aerial in [true, false] {
+        let mut sm = StateMachineCfg::Skirmisher { cfg, state: SkirmisherState::default() };
+        let mut s = snap_at(0.0, 160.0);
+        s.dt = 1.0 / 60.0;
+        s.actor_aerial = aerial;
+        let mut speeds = Vec::new();
+        for _ in 0..40 {
+            let mut out = crate::actor::control::ActorControlFrame::neutral();
+            tick_simple_state_machine(&mut sm, &s, &mut out);
+            if matches!(&sm, StateMachineCfg::Skirmisher { state, .. } if matches!(state.volley_phase, RangedVolleyPhase::Windup { .. })) {
+                speeds.push(out.velocity_target.vec().length());
+            }
+        }
+        assert!(!speeds.is_empty(), "it never wound up");
+        let (slowest, fastest) = speeds.iter().fold((f32::MAX, 0.0f32), |(lo, hi), v| (lo.min(*v), hi.max(*v)));
+        if aerial {
+            assert!(slowest > 1.0 && fastest < 30.0, "a flyer hovers slowly while it aims: {slowest}..{fastest}");
+        } else {
+            assert!(fastest < 1e-3, "a grounded one stands: {fastest}");
+        }
+    }
+}
+
 /// Drive the same headless state-machine entry point that production uses.
 /// A large dt makes phase boundaries easy to inspect without frame rounding.
 #[test]

@@ -445,6 +445,11 @@ const SCENERY_Z_STEP: f32 = 1.0 / 4096.0;
 /// Where a climbable draws: in front of all the scenery, behind the actors
 /// (`feature_z(Actor)`, `WORLD_Z_DUMMY + 1.0`).
 pub(super) const CLIMBABLE_Z: f32 = SCENERY_Z_FRONT + 0.02;
+/// Where a door (and every other loading zone) draws: in front of all the
+/// scenery, behind climbables and the cast (Jon, 2026-10-30: "make sure all
+/// doors have a visible sprite for them"). Doors drew in the block band, under
+/// the scenery, so a room whose art is drawn over its walls hid its doors.
+pub(super) const DOOR_Z: f32 = SCENERY_Z_FRONT + 0.01;
 
 /// Spawn the visual entity for one [`PropSpec`], the `index`th the room
 /// lists. Falls back to a coloured rectangle when the prop's `kind` is
@@ -1242,7 +1247,7 @@ pub fn spawn_loading_zone(
         (
             sprite,
             anchor,
-            Transform::from_translation(world_to_bevy(world, sprite_pos, WORLD_Z_BLOCK + 6.0)),
+            Transform::from_translation(world_to_bevy(world, sprite_pos, DOOR_Z)),
             Name::new(format!("Loading zone: {}", zone.name)),
             // Carries the zone id so portal-aware systems can hide this debug
             // door for portal-mode zones (the portal sprite is the door).
@@ -2791,5 +2796,19 @@ mod prop_geometry_tests {
             "character sizing hangs the quad off a feet anchor, which slides a pipe \
              head off the block a body stands on however well the quad is sized"
         );
+    }
+}
+
+#[cfg(test)]
+mod door_z_tests {
+    use super::*;
+
+    /// A door draws over every piece of a room's scenery and under the cast,
+    /// so a room whose art covers its walls still shows its doors (Jon,
+    /// 2026-10-30: "make sure all doors have a visible sprite").
+    #[test]
+    fn a_door_draws_over_the_scenery_and_under_the_cast() {
+        assert!(DOOR_Z > SCENERY_Z_FRONT, "a door under the scenery is hidden by a room's art");
+        assert!(DOOR_Z < super::super::primitives::feature_z(FeatureVisualKind::Actor), "a door over the cast hides who walks through it");
     }
 }

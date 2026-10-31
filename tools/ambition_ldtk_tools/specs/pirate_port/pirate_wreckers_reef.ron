@@ -11,6 +11,7 @@
     biome: "pirate_port",
     parallax_theme: "pirate_port",
     music_track: "ten_fathoms_and_a_grudge",
+    dangerous: true,
     entities: [
         ( type: "Prop", px: [0, 524], size: [780, 404], fields: ( name: "reef_shore_0", kind: "reef_shore" ) ),
         ( type: "Prop", px: [870, 414], size: [1674, 514], fields: ( name: "reef_wreck_1", kind: "reef_wreck" ) ),

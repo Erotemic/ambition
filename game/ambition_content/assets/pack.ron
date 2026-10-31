@@ -122,6 +122,7 @@
         (path: "dialogue/sandbox/symmetry.yarn", schema: "yarn_dialogue", version: 1),
         (path: "dialogue/sandbox/hall.yarn", schema: "yarn_dialogue", version: 1),
         (path: "dialogue/sandbox/math.yarn", schema: "yarn_dialogue", version: 1),
+        (path: "dialogue/sandbox/magical.yarn", schema: "yarn_dialogue", version: 1),
         (path: "dialogue/sandbox/orbital.yarn", schema: "yarn_dialogue", version: 1),
         (path: "dialogue/sandbox/pirate_port.yarn", schema: "yarn_dialogue", version: 1),
         (path: "dialogue/sandbox/military_tower.yarn", schema: "yarn_dialogue", version: 1),

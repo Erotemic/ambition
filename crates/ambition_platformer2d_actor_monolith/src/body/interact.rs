@@ -46,6 +46,7 @@ pub struct TalkableBodies<'w, 's> {
                 Has<ambition_combat::death_rules::OutOfPlay>,
                 Option<&'static ambition_platformer2d_core::DepthPlane>,
                 Has<ambition_combat::components::RequiresFacing>,
+                Option<&'static ambition_combat::components::ActorAggression>,
             ),
         ),
         (
@@ -63,9 +64,9 @@ impl TalkableBodies<'_, '_> {
     pub fn nearest_in_reach(&self, subject: Entity, reach: &InteractReach) -> Option<f32> {
         self.bodies
             .iter()
-            .filter(|(entity, aabb, disposition, health, (out_of_play, plane, requires_facing))| {
+            .filter(|(entity, aabb, disposition, health, (out_of_play, plane, requires_facing, aggression))| {
                 *entity != subject
-                    && !disposition.is_hostile()
+                    && !disposition.refuses_talk(*aggression)
                     && !ambition_combat::util::body_is_untouchable(*health, *out_of_play, *plane,
                         )
                     && reach.can_talk_to(self.rooms.of(*entity), aabb, *requires_facing)
@@ -148,6 +149,7 @@ pub fn interact_ecs_actors_and_switches(
                 bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
                 Option<&ambition_platformer2d_core::DepthPlane>,
                 bevy::prelude::Has<ambition_combat::components::RequiresFacing>,
+                Option<&ambition_combat::components::ActorAggression>,
             ),
         ),
         With<FeatureSimEntity>,
@@ -220,16 +222,17 @@ pub fn interact_ecs_actors_and_switches(
             dialogue.speaker_id(subject, interactions.get(subject).ok(), identities.get(subject).ok(),
             )
         });
-        for (actor_entity, aabb, disposition, identity, interaction_payload, health, (out_of_play, plane, requires_facing),
+        for (actor_entity, aabb, disposition, identity, interaction_payload, health, (out_of_play, plane, requires_facing, aggression),
         ) in
             &actors
         {
             let (Some(speaker_id), Some(dialogue)) = (speaker_id.as_deref(), dialogue.as_mut()) else {
                 break;
             };
-            // A hostile actor gates dialogue off; a dead one is an intangible corpse
-            // and cannot be talked to.
-            if disposition.is_hostile()
+            // A hostile actor gates dialogue off (an ally fighting beside the
+            // player still talks); a dead one is an intangible corpse and
+            // cannot be talked to.
+            if disposition.refuses_talk(aggression)
                 || ambition_combat::util::body_is_untouchable(health, out_of_play, plane)
             {
                 continue;

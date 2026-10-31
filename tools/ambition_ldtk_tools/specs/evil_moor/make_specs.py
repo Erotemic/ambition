@@ -172,7 +172,7 @@ def moor():
         enemy(6, "npc_evil_zombie", 1960, 580, 30, 67),
     ]
     return MOOR, room(MOOR, e, at=(-W, 0), size=(W, H), biome="evil_forest", music="oppressive_crush",
-                      bg="#3A0E0E", title="THE SEARCHLIGHT MOOR", generator=GENERATOR)
+                      bg="#3A0E0E", title="THE SEARCHLIGHT MOOR", generator=GENERATOR, dangerous=True)
 
 
 def allotments():
@@ -362,7 +362,7 @@ def ridge():
         enemy(43, "npc_fascist_clubman", 2900, g, 32, 72),
     ]
     return RIDGE, room(RIDGE, e, at=RIDGE_AT, size=(w, h), biome="evil_forest", music="oppressive_crush", bg="#3A0E0E",
-                       title="THE SEARCHLIGHT RIDGE", generator=GENERATOR)
+                       title="THE SEARCHLIGHT RIDGE", generator=GENERATOR, dangerous=True)
 
 
 def hill():
@@ -395,7 +395,7 @@ def hill():
         enemy(52, "npc_fascist_enforcer", 2300, g, 32, 72),
     ]
     return HILL, room(HILL, e, at=HILL_AT, size=(w, h), biome="evil_forest", music="oppressive_crush", bg="#3A0E0E",
-                      title="GALLOWS HILL", generator=GENERATOR)
+                      title="GALLOWS HILL", generator=GENERATOR, dangerous=True)
 
 
 def catacombs():

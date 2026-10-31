@@ -594,6 +594,7 @@ fn active_metadata_returns_active_room_metadata() {
         nameplate_policy: Default::default(),
         gallery: false,
         practice: false,
+        dangerous: false,
         mode: None,
         fall_out_margin: None,
         side_out_margin: None,
@@ -615,6 +616,7 @@ fn active_metadata_returns_active_room_metadata() {
         nameplate_policy: Default::default(),
         gallery: false,
         practice: false,
+        dangerous: false,
         mode: None,
         fall_out_margin: None,
         side_out_margin: None,
@@ -661,6 +663,7 @@ fn room_metadata_is_empty_false_when_any_field_set() {
         nameplate_policy: Default::default(),
         gallery: false,
         practice: false,
+        dangerous: false,
         mode: None,
         fall_out_margin: None,
         side_out_margin: None,
@@ -706,6 +709,7 @@ fn room_metadata_merge_preserves_existing_values() {
         nameplate_policy: Default::default(),
         gallery: false,
         practice: false,
+        dangerous: false,
         mode: None,
         fall_out_margin: None,
         side_out_margin: None,
@@ -731,6 +735,7 @@ fn room_metadata_merge_preserves_existing_values() {
         },
         gallery: true,              // takes effect — a.gallery was false (merge ORs)
         practice: true,             // takes effect — a.practice was false (merge ORs)
+        dangerous: false,
         mode: Some("sanic".into()), // takes effect — a.mode was None
         fall_out_margin: None,
         side_out_margin: None,

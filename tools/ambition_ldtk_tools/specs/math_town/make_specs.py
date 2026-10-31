@@ -187,8 +187,14 @@ def gate(ring, portal, zone, x, floor, to_room, to_zone, name):
     ]
 
 
+#: The rooms out of town: an NPC on the player's side joins the player's
+#: fights there (`RoomMetadata::dangerous`).
+DANGEROUS = {"math_zeno_aqueduct"}
+
+
 def room(rid, entities, label_text, theme=BIOME):
     world_x, w, h = ROOMS_AT[rid]
+    danger = "\n    dangerous: true," if rid in DANGEROUS else ""
     world_y = ROOMS_Y.get(rid, 0)
     body = "\n        ".join(entities + [
         f'( type: "CameraZone", px: [0, 0], size: [{w}, {h}], fields: ( id: "{rid}_camera", name: "{rid}_camera", mode: "Default" ) ),',
@@ -206,7 +212,7 @@ def room(rid, entities, label_text, theme=BIOME):
     bg_color: "{BG}",
     biome: "{theme}",
     parallax_theme: "{theme}",
-    music_track: "{MUSIC}",
+    music_track: "{MUSIC}",{danger}
     entities: [
         {body}
     ],

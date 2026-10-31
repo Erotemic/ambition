@@ -60,6 +60,15 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **The Magical dimension (Mary-O's), begun** (Jon, 10-30: "start authoring
+  the maryo-dimension for the ambition game. I.e. the magical dimension"):
+  `magical.ldtk`, gate DESTINY (posted LEGAL), in Mary-O's own biomes. The
+  gate garden; Starlight Square east of it (wand repair closed: out fighting
+  the void; the star bakery; the old well); the Starless Hollow under both,
+  down the well and up through the garden's hatch (a loop, AI Slop); the Dune
+  Road east, out of town toward the castle the void took (`specs/magical/make_specs.py`).
+  Doors draw over a room's scenery now (542086951): hidden doors were the
+  ladders' bug again. Verified: the_gate_network (11), worlds manifest.
 - **Science: the rest of GNU-ton's works** (18921675f): a Newton's cradle
   the height of the conservation hall and the Principia on a lectern; the
   inversion gallery's chandeliers, one hung and its twin stood on the floor

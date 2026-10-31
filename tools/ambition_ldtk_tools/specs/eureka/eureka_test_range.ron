@@ -11,6 +11,7 @@
     biome: "eureka",
     parallax_theme: "eureka",
     music_track: "a_possible_morning",
+    dangerous: true,
     entities: [
         ( type: "Prop", px: [286, 640], size: [1254, 64], fields: ( name: "eureka_range_field_0", kind: "eureka_range_field" ) ),
         ( type: "Prop", px: [1986, 286], size: [628, 418], fields: ( name: "eureka_range_tower_1", kind: "eureka_range_tower" ) ),

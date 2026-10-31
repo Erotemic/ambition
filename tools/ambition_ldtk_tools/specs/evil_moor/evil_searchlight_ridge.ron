@@ -11,6 +11,7 @@
     biome: "evil_forest",
     parallax_theme: "evil_forest",
     music_track: "oppressive_crush",
+    dangerous: true,
     entities: [
         ( type: "Prop", px: [16, 0], size: [1784, 544], fields: ( name: "ridge_west", kind: "ridge_west" ) ),
         ( type: "Prop", px: [1800, 0], size: [1784, 544], fields: ( name: "ridge_east", kind: "ridge_east" ) ),

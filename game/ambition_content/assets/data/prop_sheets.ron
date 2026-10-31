@@ -289,6 +289,11 @@
     "hall_lectern": (),
     "gallery_chandelier_hung": (),
     "gallery_chandelier_stood": (),
+    // Starlight Square, the Magical dimension (Mary-O's).
+    "square_wand_shop": (),
+    "square_bakery": (),
+    "square_well": (),
+    "square_house": (),
     "mine_tunnel": (),
     "hamlet_west": (),
     "hamlet_east": (),

@@ -199,6 +199,7 @@ pub fn acquire_captures(
                 continue;
             }
             if !crate::targeting::damage_lands_between(
+                tuning.relations(),
                 *captor.faction,
                 victim.effective_faction(),
                 captor.team,

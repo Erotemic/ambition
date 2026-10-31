@@ -271,6 +271,7 @@ fn the_bystander_is_damageable_and_still_not_a_target() {
 
     assert!(
         targeting::damage_lands_between(
+            None,
             ambition_platformer2d::actor::ActorFaction::Player,
             ambition_platformer2d::actor::ActorFaction::Npc,
             Some(&hunter_team),

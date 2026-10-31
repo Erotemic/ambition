@@ -11,6 +11,7 @@
     biome: "math_town",
     parallax_theme: "math_town",
     music_track: "math_town_day",
+    dangerous: true,
     entities: [
         ( type: "Prop", px: [16, 412], size: [1840, 420], fields: ( name: "zeno_reservoir", kind: "math_zeno_reservoir" ) ),
         ( type: "Prop", px: [1850, 519], size: [1350, 313], fields: ( name: "zeno_aqueduct", kind: "math_zeno_aqueduct" ) ),

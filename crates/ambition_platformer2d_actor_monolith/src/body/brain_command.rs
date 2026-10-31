@@ -527,6 +527,9 @@ impl Plugin for BrainCommandPlugin {
                 apply_release_provocations
                     .run_if(ambition_platformer2d_core::a_message_waits::<ReleaseProvocation>)
                     .before(apply_brain_commands),
+                // A rally's end restores the authored mind through the same
+                // command, applied the same frame.
+                crate::body::rally_allies_to_the_fight.before(apply_brain_commands),
                 apply_brain_commands,
             )
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::GameplayEffects),

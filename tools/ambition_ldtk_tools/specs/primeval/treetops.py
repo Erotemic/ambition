@@ -100,7 +100,7 @@ def treetops():
         enemy(1, "npc_raptor_stalker", 2280, G),
     ]
     return room(TREETOPS, e, at=AT, size=(W, H), biome="primeval", music="dinosaur_liberators", bg="#16200F",
-                title="THE TREETOPS", generator=GENERATOR)
+                title="THE TREETOPS", generator=GENERATOR, dangerous=True)
 
 
 def tree_yaml() -> str:

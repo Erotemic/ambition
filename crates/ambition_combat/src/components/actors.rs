@@ -104,6 +104,18 @@ pub enum ActorDisposition {
 }
 
 impl ActorDisposition {
+    /// Whether this body refuses a conversation: it is fighting, and not on
+    /// the talker's side. A body rallied to a fight beside the player keeps its
+    /// own `RetaliatesWhenHit` mode (the actor kernel's rally), so it still
+    /// talks; a provoked or born-hostile body (`AggressionMode::Hostile`) does
+    /// not.
+    pub fn refuses_talk(self, aggression: Option<&ActorAggression>) -> bool {
+        self.is_hostile()
+            && !aggression.is_some_and(|aggression| {
+                matches!(aggression.mode, AggressionMode::RetaliatesWhenHit { .. })
+            })
+    }
+
     pub fn is_hostile(self) -> bool {
         matches!(self, Self::Hostile)
     }

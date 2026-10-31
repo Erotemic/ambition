@@ -192,6 +192,7 @@ SIGNS = {
     WELL: (("well_floor_sign", 880, 1440, "MIND THE FLOOR -> (it is that wall)", 360),
            ("well_band_sign", 520, 860, "<- AND NOW IT IS THAT ONE", 320),
            ("well_top_sign", 400, 120, "UP IS UP AGAIN. ENJOY IT.", 300)),
+    APPROACH: (("approach_door_sign", 720, 180, "LECTURE IN PROGRESS. PLEASE DO NOT INTERRUPT.", 440),),
 }
 
 #: The works' enemies, few: it is a puzzle level (Jon, 2026-10-30: "add the
@@ -222,6 +223,12 @@ def dressing(rid):
                               character_id=character, respawn="OnRoomReenter"))
     for name, x, y, text, w in SIGNS.get(rid, ()):
         out.append(label(name, x, y, text, w))
+    # Who keeps the works: Hortensia Pippin by her crates on the orchard's
+    # middle bank (`orbital.yarn` `works_pippin`), out of every field (a
+    # body in one falls up).
+    if rid == ORCHARD:
+        out.append(entity("NpcSpawn", 1529, 704 - 64, 32, 64, character_id="npc_station_pippin", prompt="Talk",
+                          dialogue_id="works_pippin", brain_override="stand_still"))
     return out
 
 

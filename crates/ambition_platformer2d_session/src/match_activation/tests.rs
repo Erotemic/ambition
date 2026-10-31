@@ -214,6 +214,7 @@ fn a_roster_of_two_cpu_participants_becomes_two_bodies_wearing_their_characters(
     // above only if it also renames one of them, and fails here either way.
     assert!(
         ambition_combat::targeting::damage_lands_between(
+            None,
             seated[0].3,
             seated[1].3,
             Some(left_team),
@@ -689,6 +690,7 @@ fn four_fighters_on_two_teams_can_hit_their_opponents_and_not_their_partners() {
                 continue;
             }
             let lands = damage_lands_between(
+                None,
                 *faction,
                 *other_faction,
                 Some(&MatchTeam::new(team.clone())),

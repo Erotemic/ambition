@@ -707,6 +707,7 @@ fn lower_body_holds(
                         continue;
                     }
                     if !crate::targeting::damage_lands_between(
+                        tuning.relations(),
                         attacker,
                         victim.effective_faction(),
                         team,

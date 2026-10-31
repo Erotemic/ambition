@@ -152,8 +152,15 @@ def shell(w, h):
     ]
 
 
+#: The trail rooms that are out of town: an NPC on the player's side joins the
+#: player's fights there (`RoomMetadata::dangerous`). The Tyrant King's hall
+#: is a boss arena.
+DANGEROUS = {"primeval_trailhead", "primeval_run", "primeval_rookery", "primeval_ridge", "primeval_canopy"}
+
+
 def room(rid, entities, connect, label):
     world_x, w, h = ROOMS_AT[rid]
+    danger = "\n    dangerous: true," if rid in DANGEROUS else ""
     body = "\n        ".join(entities + [
         f'( type: "CameraZone", px: [0, 0], size: [{w}, {h}], fields: ( id: "{rid}_camera", name: "{rid}_camera", mode: "Default" ) ),',
         f'( type: "DebugLabel", px: [70, 40], size: [900, 24], fields: ( name: "{rid}_label", text: "{label}", category: "Custom" ) ),',
@@ -171,7 +178,7 @@ def room(rid, entities, connect, label):
     bg_color: "{BG}",
     biome: "{BIOME}",
     parallax_theme: "{BIOME}",
-    music_track: "{MUSIC}",
+    music_track: "{MUSIC}",{danger}
     entities: [
         {body}
     ],

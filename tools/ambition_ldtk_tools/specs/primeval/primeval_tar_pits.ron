@@ -11,6 +11,7 @@
     biome: "primeval",
     parallax_theme: "primeval",
     music_track: "dinosaur_liberators",
+    dangerous: true,
     entities: [
         ( type: "Prop", px: [127, 538], size: [390, 40], fields: ( name: "tar_bones", kind: "tar_pits_bones" ) ),
         ( type: "Prop", px: [500, 496], size: [1220, 128], fields: ( name: "tar_pools", kind: "tar_pits_pools" ) ),

@@ -564,6 +564,7 @@ pub struct CombatTuningOf<'w, 's> {
     >,
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'w, 's>,
     roomless: Option<bevy::prelude::Res<'w, ResolvedCombatTuning>>,
+    relations: Option<bevy::prelude::Res<'w, crate::targeting::FactionRelations>>,
 }
 
 impl CombatTuningOf<'_, '_> {
@@ -584,6 +585,13 @@ impl CombatTuningOf<'_, '_> {
                 .map(|(_, tuning)| tuning.0)
         })
         .or_else(|| self.roomless.as_deref().copied())
+    }
+
+    /// The faction relations a strike is judged under, beside the rules: the
+    /// damage side asks them whether the striker fights beside its victim
+    /// ([`crate::targeting::damage_lands_between`]).
+    pub fn relations(&self) -> Option<&crate::targeting::FactionRelations> {
+        self.relations.as_deref()
     }
 
     /// Which live room `entity` is in, by the rule [`Self::of`] reads with.

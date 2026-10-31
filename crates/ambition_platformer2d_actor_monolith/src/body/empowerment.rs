@@ -238,6 +238,7 @@ pub fn apply_contact_harm(
                 continue;
             }
             if !ambition_combat::targeting::damage_lands_between(
+                tuning.relations(),
                 *striker_faction,
                 *victim_faction,
                 striker_team,

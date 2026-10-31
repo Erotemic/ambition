@@ -75,6 +75,8 @@ pub mod navigation;
 pub mod perception;
 mod pet;
 mod rest_row;
+mod rally;
+pub use rally::rally_allies_to_the_fight;
 mod beat_cues;
 pub use beat_cues::play_beat_cues;
 mod reactions;

@@ -145,6 +145,15 @@ pub struct RoomMetadata {
     /// game. They are completely separate." Authored as the LDtk level bool
     /// field `practice`.
     pub practice: bool,
+    /// This room is out of town, where the world fights back (the primeval
+    /// trail, the Searchlight Moor, the Wreckers' Reef). An NPC that fights
+    /// beside the player (`FactionRelations::fights_beside`) joins the player's
+    /// fight in a dangerous room, with its own kit and its own fighting mind,
+    /// and goes back to its idle when the fight ends. In any other room it
+    /// fights only when it is attacked. Authored as the LDtk level bool field
+    /// `dangerous`; an area is dangerous if any member level is.
+    #[serde(default)]
+    pub dangerous: bool,
     /// The GAME MODE this room belongs to (decomposition D-C, vision §5).
     ///
     /// A hosted demo's rules crate gates its systems on
@@ -251,6 +260,7 @@ impl RoomMetadata {
             && self.nameplate_policy.is_empty()
             && !self.gallery
             && !self.practice
+            && !self.dangerous
             && self.mode.is_none()
             && self.fall_out_margin.is_none()
             && self.side_out_margin.is_none()
@@ -269,8 +279,8 @@ impl RoomMetadata {
     /// one of them, with no message. The LDtk owner refuses such an area
     /// (`LdtkProject::validate`).
     ///
-    /// ⚠ The fields with a value each: not `gallery` and `practice` (any
-    /// level sets them), nor the visual profile and the nameplate policy,
+    /// ⚠ The fields with a value each: not `gallery`, `practice` and
+    /// `dangerous` (any level sets them), nor the visual profile and the nameplate policy,
     /// which merge their own fields.
     pub fn conflicts(&self, other: &RoomMetadata) -> Vec<(&'static str, String, String)> {
         fn differ<T: PartialEq + std::fmt::Debug>(
@@ -359,6 +369,8 @@ impl RoomMetadata {
         self.gallery = self.gallery || other.gallery;
         // Likewise practice: a boss in any member level is the area's.
         self.practice = self.practice || other.practice;
+        // And danger: one dangerous member level makes the area dangerous.
+        self.dangerous = self.dangerous || other.dangerous;
         self.visual_profile.merge(other.visual_profile);
         self.nameplate_policy.merge(other.nameplate_policy);
     }

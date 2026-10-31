@@ -29,15 +29,23 @@ const FACTION_COUNT: usize = 5;
 ///
 /// `hostile[from][to]` means `from` actors may select `to` actors as foes. The default declares
 /// Player ↔ Enemy and Player ↔ Boss hostile; all other faction pairs are non-hostile.
+///
+/// `allied[from][to]` means `from` actors fight at the side of `to` actors: an
+/// allied body may take a foe of `to` as its own foe (see
+/// [`Self::fights_beside`]). The default declares no alliance. A game declares
+/// its alliances; where an allied body helps is the game's rule too (the actor
+/// kernel's rally, which only rallies a body in a room authored `dangerous`).
 #[derive(Resource, Clone, Debug)]
 pub struct FactionRelations {
     hostile: [[bool; FACTION_COUNT]; FACTION_COUNT],
+    allied: [[bool; FACTION_COUNT]; FACTION_COUNT],
 }
 
 impl Default for FactionRelations {
     fn default() -> Self {
         let mut relations = Self {
             hostile: [[false; FACTION_COUNT]; FACTION_COUNT],
+            allied: [[false; FACTION_COUNT]; FACTION_COUNT],
         };
         // The combat baseline: the player and the hostile world are at war.
         relations.set_mutual_hostile(ActorFaction::Player, ActorFaction::Enemy, true);
@@ -63,6 +71,38 @@ impl FactionRelations {
     pub fn set_mutual_hostile(&mut self, a: ActorFaction, b: ActorFaction, hostile: bool) {
         self.set_hostile(a, b, hostile);
         self.set_hostile(b, a, hostile);
+    }
+
+    /// True iff `from`-faction actors fight at the side of `to`-faction actors.
+    /// A faction is always at its own side.
+    pub fn is_allied(&self, from: ActorFaction, to: ActorFaction) -> bool {
+        from == to || self.allied[from as usize][to as usize]
+    }
+
+    /// Set the one-directional alliance `from → to`: `from` fights beside `to`.
+    pub fn set_allied(&mut self, from: ActorFaction, to: ActorFaction, allied: bool) {
+        self.allied[from as usize][to as usize] = allied;
+    }
+
+    /// The faction a `from`-faction body fights for against a `foe`-faction
+    /// body, when it fights for one: a faction `from` is allied with (not
+    /// `from` itself) that `foe` is hostile to. `None`: `foe` threatens none of
+    /// `from`'s allies. The variants are asked in declaration order, so the
+    /// answer is deterministic.
+    pub fn fights_beside(&self, from: ActorFaction, foe: ActorFaction) -> Option<ActorFaction> {
+        const ALL: [ActorFaction; FACTION_COUNT] = [
+            ActorFaction::Player,
+            ActorFaction::Enemy,
+            ActorFaction::Npc,
+            ActorFaction::Boss,
+            ActorFaction::Neutral,
+        ];
+        ALL.into_iter().find(|&ally| {
+            ally != from
+                && ally != foe
+                && self.allied[from as usize][ally as usize]
+                && self.is_hostile(foe, ally)
+        })
     }
 }
 
@@ -172,14 +212,16 @@ impl CombatRelation {
 /// Resolve the relationship used by both targeting and damage policy.
 ///
 /// Precedence is grudge, then team when both bodies have one, then effective faction and the
-/// optional [`FactionRelations`] matrix. Participant control affects effective faction without
-/// mutating authored allegiance.
+/// optional [`FactionRelations`] matrix: a declared alliance (`attacker` fights beside
+/// `candidate`), then hostility. Participant control affects effective faction without mutating
+/// authored allegiance.
 #[allow(clippy::too_many_arguments)]
 pub fn combat_relation(
-    // `None` = no matrix opinion, which is what the DAMAGE side passes. Damage is physical:
-    // a swing that reaches a different-faction body hurts it whether or not the two are
-    // declared enemies, so the matrix arm is skipped and such a pair resolves
-    // [`CombatRelation::Neutral`] — hittable, not huntable.
+    // `None` = no matrix opinion. Damage is physical: a swing that reaches a
+    // different-faction body hurts it whether or not the two are declared
+    // enemies, so for damage a `Foe` and a `Neutral` land alike, and only the
+    // ALLIANCE arm changes what lands — an ally's swing spares the side it
+    // fights for.
     relations: Option<&FactionRelations>,
     attacker_faction: ActorFaction,
     attacker_driver: Option<&ambition_characters::control::DrivingParticipant>,
@@ -206,7 +248,11 @@ pub fn combat_relation(
     }
     let attacker_faction = effective_faction(attacker_faction, attacker_driver);
     let candidate_faction = effective_faction(candidate_faction, candidate_driver);
-    if relations.is_some_and(|r| r.is_hostile(attacker_faction, candidate_faction)) {
+    if attacker_faction != candidate_faction
+        && relations.is_some_and(|r| r.is_allied(attacker_faction, candidate_faction))
+    {
+        CombatRelation::Ally
+    } else if relations.is_some_and(|r| r.is_hostile(attacker_faction, candidate_faction)) {
         CombatRelation::Foe
     } else if attacker_faction == candidate_faction {
         CombatRelation::Ally
@@ -233,6 +279,9 @@ pub fn damage_lands(
 /// stronger than any group rule, which is what lets two teammates settle
 /// something the ruleset did not anticipate.
 pub fn damage_lands_between(
+    // The world's relations, for the alliance arm: a body that fights beside
+    // the victim's faction does not hurt it. `None` asks no alliance.
+    relations: Option<&FactionRelations>,
     attacker: ActorFaction,
     victim: ActorFaction,
     attacker_team: Option<&MatchTeam>,
@@ -250,7 +299,7 @@ pub fn damage_lands_between(
     // ignored the toggle, so a teams match could never enable friendly fire —
     // which is a real platform-fighter setting, and the flag says what it means.
     combat_relation(
-        None,
+        relations,
         attacker,
         None,
         attacker_team,

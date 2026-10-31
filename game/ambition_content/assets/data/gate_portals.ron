@@ -83,6 +83,12 @@
         portal_sprite_name: "Village Gate (Shrine) Portal",
         ring_sprite_name: "Village Gate (Shrine) Ring",
     ),
+    // Mary-O's dimension: the Starlight gate garden (DESTINY).
+    "magical_gate_zone": (
+        command: Dialed,
+        portal_sprite_name: "Starlight Gate Portal",
+        ring_sprite_name: "Starlight Gate Ring",
+    ),
     // The Noodly Temple's narthex.
     "noodly_narthex_gate": (
         command: Dialed,

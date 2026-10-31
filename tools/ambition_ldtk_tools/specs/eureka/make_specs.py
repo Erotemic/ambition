@@ -468,7 +468,7 @@ def test_range():
         range_enemy(6, "sandbag", 2580, floor, 34, 58, "sandbag_finite"),
         range_enemy(7, "sandbag", 2660, floor, 34, 58, "sandbag_finite"),
     ]
-    return build(rid, e, "THE TEST RANGE", music=TOWN_MUSIC)
+    return build(rid, e, "THE TEST RANGE", music=TOWN_MUSIC, dangerous=True)
 
 
 # Made from the top of the tether down and then west: a room is placed only

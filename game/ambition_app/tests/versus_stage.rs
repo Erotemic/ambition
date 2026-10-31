@@ -1418,6 +1418,7 @@ fn four_controllers_make_versus_a_two_versus_two() {
             }
             assert_eq!(
                 damage_lands_between(
+                    None,
                     *faction,
                     *other_faction,
                     Some(&MatchTeam::new(team.clone())),

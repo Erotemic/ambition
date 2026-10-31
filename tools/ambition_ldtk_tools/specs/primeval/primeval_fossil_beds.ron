@@ -11,6 +11,7 @@
     biome: "primeval",
     parallax_theme: "primeval",
     music_track: "liberated_dinosaur_libertarians",
+    dangerous: true,
     entities: [
         ( type: "Prop", px: [16, 16], size: [1568, 560], fields: ( name: "fossil_beds", kind: "fossil_beds" ) ),
         ( type: "Solid", px: [0, 576], size: [1600, 64], fields: ( name: "floor" ) ),

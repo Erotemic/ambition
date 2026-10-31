@@ -10,7 +10,7 @@
     bg_color: "#1E1430",
     biome: "starless",
     parallax_theme: "starless",
-    music_track: "vault_in_the_dark",
+    music_track: "embedded_theme",
     dangerous: true,
     entities: [
         ( type: "Prop", px: [299, 0], size: [170, 588], fields: ( name: "hollow_shaft_light_west", kind: "hollow_shaft_light_west" ) ),

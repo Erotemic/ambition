@@ -10,7 +10,7 @@
     bg_color: "#3A2850",
     biome: "stardune",
     parallax_theme: "stardune",
-    music_track: "pulse_drift_voyage",
+    music_track: "sparse_theme",
     dangerous: true,
     entities: [
         ( type: "Prop", px: [1091, 448], size: [710, 192], fields: ( name: "road_dunes", kind: "road_dunes" ) ),

@@ -375,10 +375,12 @@ mod tests {
         // them is `complete`, a character that authors its own locomotion. The
         // only names this Ambition-only fixture cannot resolve are the Hall's
         // guests from the Mary-O, Sanic and Smash providers; any other is a typo. A
-        // guest's transform (Mary-O tall, Super Sanic) has no placement of its
-        // own: the Hall shows it on the guest's body.
+        // guest's transform (Super Sanic) has no placement of its own: the Hall
+        // shows it on the guest's body. Mary-O tall has one: she meets the robot
+        // in the Magical dimension's gate garden in that form.
         let guests: std::collections::BTreeSet<String> = [
             "mary_o",
+            "mary_o_tall",
             "npc_snakes_on_a_cartesian_plane",
             "npc_snakes_on_a_paper_plane",
             "sanic",

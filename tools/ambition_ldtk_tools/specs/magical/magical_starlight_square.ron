@@ -10,7 +10,7 @@
     bg_color: "#F4C8E0",
     biome: "starlight",
     parallax_theme: "starlight",
-    music_track: "it_was_revealed_to_me_in_a_dream",
+    music_track: "billions_and_billions",
     entities: [
         ( type: "Prop", px: [430, 250], size: [340, 390], fields: ( name: "square_wand_shop", kind: "square_wand_shop" ) ),
         ( type: "Prop", px: [930, 180], size: [340, 460], fields: ( name: "square_bakery", kind: "square_bakery" ) ),

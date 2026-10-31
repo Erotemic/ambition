@@ -10,7 +10,7 @@
     bg_color: "#F4C8E0",
     biome: "starlight",
     parallax_theme: "starlight",
-    music_track: "it_was_revealed_to_me_in_a_dream",
+    music_track: "support_theme",
     entities: [
         ( type: "Prop", px: [60, 592], size: [244, 48], fields: ( name: "garden_beds", kind: "garden_beds" ) ),
         ( type: "Prop", px: [908, 510], size: [263, 130], fields: ( name: "garden_hill_low", kind: "garden_hill_low" ) ),
@@ -26,6 +26,7 @@
         ( type: "Prop", px: [690, 584], size: [64, 56], fields: ( name: "Starlight Gate Dialer", kind: "gate_dialer" ) ),
         ( type: "Switch", px: [710, 596], size: [24, 32], fields: ( id: "magical_gate_terminal", name: "Starlight Gate terminal", prompt: "Dial the gate", target_encounter: "", action: "GateTerminal" ) ),
         ( type: "PlayerStart", px: [206, 594], size: [28, 46], fields: ( name: "magical_gate_garden_spawn" ) ),
+        ( type: "NpcSpawn", px: [844, 576], size: [32, 64], fields: ( character_id: "mary_o_tall", prompt: "Talk", dialogue_id: "magical_mary_o", brain_override: "stand_still" ) ),
         ( type: "DebugLabel", px: [740, 300], size: [520, 24], fields: ( name: "garden_welcome", text: "THE STARLIGHT KINGDOM: please wipe your feet of void", category: "Custom" ) ),
         ( type: "OneWayPlatform", px: [960, 512], size: [160, 16], fields: ( name: "star_step_a" ) ),
         ( type: "OneWayPlatform", px: [1180, 416], size: [128, 16], fields: ( name: "star_step_b" ) ),

@@ -10,7 +10,7 @@
     bg_color: "#140A20",
     biome: "void_castle",
     parallax_theme: "void_castle",
-    music_track: "phrygian_furnace",
+    music_track: "castle_crash_override",
     entities: [
         ( type: "Prop", px: [750, 514], size: [1056, 126], fields: ( name: "bridge_span", kind: "bridge_span" ) ),
         ( type: "Prop", px: [1018, 509], size: [84, 67], fields: ( name: "bridge_tea_table", kind: "bridge_tea_table" ) ),
@@ -23,7 +23,8 @@
         ( type: "Solid", px: [544, 0], size: [1456, 64], fields: ( name: "roof_middle" ) ),
         ( type: "Solid", px: [2064, 0], size: [496, 64], fields: ( name: "roof_east" ) ),
         ( type: "Solid", px: [0, 64], size: [16, 512], fields: ( name: "west_wall" ) ),
-        ( type: "Solid", px: [2544, 64], size: [16, 512], fields: ( name: "east_wall" ) ),
+        ( type: "Solid", px: [2544, 64], size: [16, 416], fields: ( name: "east_wall" ) ),
+        ( type: "LoadingZone", px: [2544, 480], size: [16, 96], fields: ( id: "bridge_east", name: "on, into the void", activation: "EdgeExit", target_room: "magical_void_rift", target_zone: "rift_west", bidirectional: true ) ),
         ( type: "LoadingZone", px: [480, 0], size: [64, 16], fields: ( id: "bridge_west_shaft", name: "up the west stair", activation: "EdgeExit", target_room: "magical_void_keep", target_zone: "keep_west_stair", bidirectional: true ) ),
         ( type: "LoadingZone", px: [2000, 0], size: [64, 16], fields: ( id: "bridge_east_shaft", name: "up the east stair", activation: "EdgeExit", target_room: "magical_void_keep", target_zone: "keep_east_stair", bidirectional: true ) ),
         ( type: "PlayerStart", px: [346, 530], size: [28, 46], fields: ( name: "magical_void_bridge_spawn" ) ),

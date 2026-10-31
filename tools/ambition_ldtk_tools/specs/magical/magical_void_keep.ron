@@ -33,7 +33,6 @@
         ( type: "LoadingZone", px: [480, 752], size: [64, 16], fields: ( id: "keep_west_stair", name: "down the west stair", activation: "EdgeExit", target_room: "magical_void_bridge", target_zone: "bridge_west_shaft", bidirectional: true ) ),
         ( type: "OneWayPlatform", px: [2000, 640], size: [64, 16], fields: ( name: "keep_east_hatch" ) ),
         ( type: "LoadingZone", px: [2000, 752], size: [64, 16], fields: ( id: "keep_east_stair", name: "down the east stair", activation: "EdgeExit", target_room: "magical_void_bridge", target_zone: "bridge_east_shaft", bidirectional: true ) ),
-        ( type: "NpcSpawn", px: [744, 592], size: [32, 48], fields: ( character_id: "mary_o", prompt: "Talk", dialogue_id: "magical_mary_o", brain_override: "stand_still" ) ),
         ( type: "NpcSpawn", px: [984, 592], size: [32, 48], fields: ( character_id: "void_star", prompt: "Talk", dialogue_id: "magical_void_star_a", brain_override: "" ) ),
         ( type: "NpcSpawn", px: [1684, 592], size: [32, 48], fields: ( character_id: "void_star", prompt: "Talk", dialogue_id: "magical_void_star_b", brain_override: "" ) ),
         ( type: "NpcSpawn", px: [2284, 592], size: [32, 48], fields: ( character_id: "void_star", prompt: "Talk", dialogue_id: "magical_void_star_a", brain_override: "" ) ),

@@ -31,6 +31,19 @@ One region, not a string of rooms (`docs/planning/game/world-composition.md`):
 - `magical_void_bridge`: under the keep, the Void Lizard's bridge over the
   lava, its switch at the east end. Down one stair, along, up the other: a
   loop. The lizard is not an enemy here; it talks, and minds its switch.
+- The Void, east of the bridge, black and white as the void's own things
+  are (Jon, 2026-10-30: "a really cool void zone / dungeon set of rooms in
+  the magical world. With the black / white theming of the void
+  characters"): `magical_void_rift`, where the colour stops; under its west
+  end `magical_void_gallery`, THINGS THE VOID HAS TAKEN; under its east end
+  `magical_void_falls`, a shaft the void pours down; and at the bottom
+  `magical_void_heart`, the first star that went out. Every room joins two
+  others: rift-gallery, gallery-falls, falls-rift, falls-heart,
+  heart-gallery.
+
+Mary-O meets the robot in the gate garden (Jon: "make sure maryo herself is
+in the world"). The music is hers (Jon: "use more maryo songs here too ...
+You can use billions and billions too").
 
 The rooms sit where their edges meet on a flat map: the hollow's top is the
 square's and the garden's ground, its shafts under their holes.
@@ -59,6 +72,10 @@ HOLLOW = "magical_starless_hollow"
 ROAD = "magical_stardune_road"
 KEEP = "magical_void_keep"
 BRIDGE = "magical_void_bridge"
+RIFT = "magical_void_rift"
+GALLERY = "magical_void_gallery"
+FALLS = "magical_void_falls"
+HEART = "magical_void_heart"
 
 FLOOR = 640
 H = 768
@@ -79,6 +96,21 @@ BRIDGE_FLOOR, BRIDGE_ROOF, PIT_FLOOR = 576, 64, 632
 SPAN = (760, 1800)
 STAIR_WEST = (480, 544)
 STAIR_EAST = (2000, 2064)
+#: The Void: the rift east of the bridge; the gallery under its west end and
+#: the heart under the gallery; the falls, a tall shaft, under its east end.
+VOID_FLOOR, VOID_ROOF, VOID_H, VOID_BG = 576, 64, 640, "#050308"
+VOID_BIOME = "void"
+RIFT_AT, RIFT_W = (BRIDGE_AT[0] + KEEP_W, BRIDGE_AT[1]), 2560
+RIFT_WEST_HOLE = (400, 464)
+GALLERY_AT, GALLERY_W = (RIFT_AT[0], RIFT_AT[1] + VOID_H), 1792
+GALLERY_HOLE = (1200, 1264)
+HEART_AT = (RIFT_AT[0], GALLERY_AT[1] + VOID_H)
+FALLS_AT, FALLS_W, FALLS_H, FALLS_FLOOR = (GALLERY_AT[0] + GALLERY_W, GALLERY_AT[1]), 768, 1280, 1216
+#: The falls' top: under the rift's east hole (the falls' x).
+FALLS_TOP = (408, 472)
+RIFT_EAST_HOLE = (FALLS_TOP[0] + FALLS_AT[0] - RIFT_AT[0], FALLS_TOP[1] + FALLS_AT[0] - RIFT_AT[0])
+#: The falls' ledge from the gallery, on its west wall at the gallery's floor.
+FALLS_SHELF_Y = GALLERY_AT[1] + VOID_FLOOR - FALLS_AT[1]
 
 
 def in_hollow(x: int, room_at: tuple[int, int]) -> int:
@@ -106,6 +138,16 @@ def ground(x_from: int, x_to: int, holes: tuple[tuple[int, int], ...] = ()) -> l
     return out
 
 
+def ground_at(floor: int, h: int, x_from: int, x_to: int, holes: tuple[tuple[int, int], ...] = ()) -> list[str]:
+    """The floor of a void room at `floor`, cut by `holes`."""
+    out, x = [], x_from
+    for i, (h0, h1) in enumerate(sorted(holes)):
+        out.append(solid(f"ground_{i}", x, floor, h0 - x, h - floor))
+        x = h1
+    out.append(solid(f"ground_{len(holes)}", x, floor, x_to - x, h - floor))
+    return out
+
+
 def slop(rid: str, n: int, x: int, floor: int) -> str:
     return entity("EnemySpawn", x - 18, floor - 36, 36, 36, name=f"{rid}_npc_ai_slop_{n}", brain="combatant",
                   character_id="npc_ai_slop", respawn="OnRoomReenter")
@@ -127,6 +169,9 @@ def garden():
         *gates.as_ron(gates.ring("Starlight Gate", "magical_gate_zone", 360, FLOOR, "the gate")),
         *gates.as_ron(gates.terminal("Starlight Gate", "magical_gate_terminal", 690, FLOOR)),
         start(rid, 220, FLOOR),
+        # Mary-O (her tall form: the cast of this world is taller than hers), by
+        # the gate, to meet whoever comes through it.
+        resident("mary_o_tall", "magical_mary_o", 860, FLOOR, h=64),
         sign("garden_welcome", 1000, 300, "THE STARLIGHT KINGDOM: please wipe your feet of void", 520),
         ledge("star_step_a", 960, 512, 160),
         ledge("star_step_b", 1180, 416, 128),
@@ -134,7 +179,7 @@ def garden():
         sign("garden_hatch_sign", HATCH[0] + 32, 560, "HATCH (stars below)", 220),
         edge("garden_east", "on to Starlight Square", w - 16, FLOOR, SQUARE, "square_west"),
     ]
-    return rid, room(rid, e, at=GARDEN_AT, size=(w, H), biome="starlight", music="it_was_revealed_to_me_in_a_dream",
+    return rid, room(rid, e, at=GARDEN_AT, size=(w, H), biome="starlight", music="support_theme",
                      bg="#F4C8E0", title="THE GATE GARDEN", generator=GENERATOR)
 
 
@@ -162,7 +207,7 @@ def square():
         resident("npc_magical_lumen", "magical_lumen", 2060, FLOOR),
         edge("square_east", "out of town, along the dune road", w - 16, FLOOR, ROAD, "road_west"),
     ]
-    return rid, room(rid, e, at=SQUARE_AT, size=(w, H), biome="starlight", music="it_was_revealed_to_me_in_a_dream",
+    return rid, room(rid, e, at=SQUARE_AT, size=(w, H), biome="starlight", music="billions_and_billions",
                      bg="#F4C8E0", title="STARLIGHT SQUARE", generator=GENERATOR)
 
 
@@ -199,7 +244,7 @@ def hollow():
         slop(rid, 2, 1600, g),
         slop(rid, 3, 2300, g),
     ]
-    return rid, room(rid, e, at=HOLLOW_AT, size=(w, h), biome="starless", music="vault_in_the_dark", bg="#1E1430",
+    return rid, room(rid, e, at=HOLLOW_AT, size=(w, h), biome="starless", music="embedded_theme", bg="#1E1430",
                      title="THE STARLESS HOLLOW", generator=GENERATOR, dangerous=True)
 
 
@@ -225,7 +270,7 @@ def road():
         slop(rid, 2, 1900, FLOOR),
         slop(rid, 3, 2600, FLOOR),
     ]
-    return rid, room(rid, e, at=ROAD_AT, size=(w, H), biome="stardune", music="pulse_drift_voyage", bg="#3A2850",
+    return rid, room(rid, e, at=ROAD_AT, size=(w, H), biome="stardune", music="sparse_theme", bg="#3A2850",
                      title="THE DUNE ROAD", generator=GENERATOR, dangerous=True)
 
 
@@ -236,7 +281,7 @@ def void_star(n: int, x: int, floor: int) -> str:
 
 
 def keep():
-    """The castle the void took: Mary-O at a truce, void stars loitering, the
+    """The castle the void took: void stars loitering, the
     lizard's banners; a stair down at each end of the hall."""
     rid, w = KEEP, KEEP_W
     e = [
@@ -258,7 +303,6 @@ def keep():
         ledge("keep_gallery_top", 1160, 352, 300),
         *hole("keep_west", *STAIR_WEST, BRIDGE, "bridge_west_shaft", "keep_west_stair", "down the west stair"),
         *hole("keep_east", *STAIR_EAST, BRIDGE, "bridge_east_shaft", "keep_east_stair", "down the east stair"),
-        resident("mary_o", "magical_mary_o", 760, FLOOR, h=48),
         void_star(0, 1000, FLOOR),
         void_star(1, 1700, FLOOR),
         void_star(2, 2300, FLOOR),
@@ -285,7 +329,8 @@ def bridge():
         solid("roof_middle", STAIR_WEST[1], 0, STAIR_EAST[0] - STAIR_WEST[1], top),
         solid("roof_east", STAIR_EAST[1], 0, w - STAIR_EAST[1], top),
         solid("west_wall", 0, top, WALL, g - top),
-        solid("east_wall", w - WALL, top, WALL, g - top),
+        solid("east_wall", w - WALL, top, WALL, g - 96 - top),
+        edge("bridge_east", "on, into the void", w - 16, g, RIFT, "rift_west"),
         entity("LoadingZone", STAIR_WEST[0], 0, STAIR_WEST[1] - STAIR_WEST[0], 16, id="bridge_west_shaft", name="up the west stair",
                activation="EdgeExit", target_room=KEEP, target_zone="keep_west_stair", bidirectional=True),
         entity("LoadingZone", STAIR_EAST[0], 0, STAIR_EAST[1] - STAIR_EAST[0], 16, id="bridge_east_shaft", name="up the east stair",
@@ -297,11 +342,134 @@ def bridge():
         void_star(3, 400, g),
         void_star(4, 2300, g),
     ]
-    return rid, room(rid, e, at=BRIDGE_AT, size=(w, h), biome="void_castle", music="phrygian_furnace", bg="#140A20",
+    return rid, room(rid, e, at=BRIDGE_AT, size=(w, h), biome="void_castle", music="castle_crash_override", bg="#140A20",
                      title="THE VOID LIZARD'S BRIDGE", generator=GENERATOR)
 
 
-ROOMS = (garden, square, hollow, road, keep, bridge)
+def shaft_up(zone, x0, x1, to_room, to_zone, name):
+    """The way up out of a void room's roof: a gap 16 deep at its top."""
+    return entity("LoadingZone", x0, 0, x1 - x0, 16, id=zone, name=name, activation="EdgeExit",
+                  target_room=to_room, target_zone=to_zone, bidirectional=True)
+
+
+def floor_hole(zone, x0, x1, floor, h, to_room, to_zone, name):
+    """A hole in a void room's floor: a hatch to stand on, the way down at
+    the room's bottom."""
+    return [ledge(f"{zone}_hatch", x0, floor, x1 - x0),
+            entity("LoadingZone", x0, h - 16, x1 - x0, 16, id=zone, name=name, activation="EdgeExit",
+                   target_room=to_room, target_zone=to_zone, bidirectional=True)]
+
+
+def void_room(rid, e, at, size, title, music):
+    return rid, room(rid, e, at=at, size=size, biome=VOID_BIOME, music=music, bg=VOID_BG, title=title, generator=GENERATOR)
+
+
+def rift():
+    """Where the colour stops: the castle's stone breaks into black shards;
+    the town's things, half rubbed out, in white line. A hole down at each
+    end."""
+    rid, w, h, g, top = RIFT, RIFT_W, VOID_H, VOID_FLOOR, VOID_ROOF
+    e = [
+        piece("rift_tear", 0, top),
+        piece("rift_outlines", 760, 220),
+        *ground_at(g, h, 0, w, (RIFT_WEST_HOLE, RIFT_EAST_HOLE)),
+        solid("roof", 0, 0, w, top),
+        solid("east_wall", w - WALL, top, WALL, g - top),
+        edge("rift_west", "back to the lizard's bridge", 0, g, BRIDGE, "bridge_east"),
+        start(rid, 200, g),
+        sign("rift_sign", 1240, 120, "THE VOID: colour stops here. Please leave yours at the door.", 640),
+        ledge("rift_shard_a", 900, 448, 160),
+        ledge("rift_shard_b", 1300, 368, 200),
+        ledge("rift_shard_c", 1760, 448, 160),
+        *floor_hole("rift_down_west", *RIFT_WEST_HOLE, g, h, GALLERY, "gallery_up", "down into the gallery"),
+        *floor_hole("rift_down_east", *RIFT_EAST_HOLE, g, h, FALLS, "falls_top", "down the falls"),
+        void_star(5, 1000, g),
+        void_star(6, 1600, g),
+    ]
+    return void_room(rid, e, RIFT_AT, (w, h), "THE VOID", "embedded_theme")
+
+
+def gallery():
+    """THINGS THE VOID HAS TAKEN, on plinths, and a void star who minds them.
+    Up to the rift; down to the heart; east to the falls."""
+    rid, w, h, g, top = GALLERY, GALLERY_W, VOID_H, VOID_FLOOR, VOID_ROOF
+    e = [
+        piece("gallery_exhibits", 500, 200),
+        *ground_at(g, h, 0, w, (GALLERY_HOLE,)),
+        solid("roof_west", 0, 0, RIFT_WEST_HOLE[0], top),
+        solid("roof_east", RIFT_WEST_HOLE[1], 0, w - RIFT_WEST_HOLE[1], top),
+        solid("west_wall", 0, top, WALL, g - top),
+        solid("east_wall", w - WALL, top, WALL, g - 96 - top),
+        shaft_up("gallery_up", *RIFT_WEST_HOLE, RIFT, "rift_down_west", "up to the rift"),
+        *floor_hole("gallery_down", *GALLERY_HOLE, g, h, HEART, "heart_up", "down to the heart"),
+        edge("gallery_east", "on to the falls", w - 16, g, FALLS, "falls_west"),
+        start(rid, RIFT_WEST_HOLE[0] + 120, g),
+        sign("gallery_sign", 1100, 110, "THINGS THE VOID HAS TAKEN (please do not touch: they are not there)", 700),
+        sign("gallery_lamp", 620, 300, "A STAR LAMP. Switched off.", 240),
+        sign("gallery_wheel", 900, 340, "A CART'S WHEEL. Rolled off.", 260),
+        sign("gallery_moon", 1440, 340, "A CRESCENT. Bitten.", 220),
+        sign("gallery_wand", 1640, 300, "A WAND. Bent.", 180),
+        resident("void_star", "magical_void_curator", 760, g, brain="stand_still", h=48),
+        void_star(7, 1500, g),
+    ]
+    return void_room(rid, e, GALLERY_AT, (w, h), "THE GALLERY OF THE VOID", "sparse_theme")
+
+
+#: The falls' ledges, zigzag down (x, y, w): one under the ladder from the
+#: rift, none more than a jump from the next.
+FALLS_LEDGES = ((360, 200, 180), (180, 300, 180), (300, 400, 180), (160, 490, 180), (220, 680, 180),
+                (380, 790, 180), (200, 900, 180), (360, 1010, 180), (180, 1110, 180))
+
+
+def falls():
+    """A shaft the void pours down: in at its top from the rift, a ledge on
+    its west wall from the gallery, out at its foot to the heart."""
+    rid, w, h, g, top = FALLS, FALLS_W, FALLS_H, FALLS_FLOOR, VOID_ROOF
+    shelf = FALLS_SHELF_Y
+    e = [
+        piece("falls_cascade", 540, top),
+        solid("floor", 0, g, w, h - g),
+        solid("roof_west", 0, 0, FALLS_TOP[0], top),
+        solid("roof_east", FALLS_TOP[1], 0, w - FALLS_TOP[1], top),
+        solid("east_wall", w - WALL, top, WALL, g - top),
+        solid("west_wall_top", 0, top, WALL, shelf - 96 - top),
+        solid("west_shelf", 0, shelf, 200, 32),
+        solid("west_wall_bottom", 0, shelf + 32, WALL, g - 96 - shelf - 32),
+        shaft_up("falls_top", *FALLS_TOP, RIFT, "rift_down_east", "up to the rift"),
+        edge("falls_west", "back to the gallery", 0, shelf, GALLERY, "gallery_east"),
+        edge("falls_foot", "on to the heart", 0, g, HEART, "heart_east"),
+        *[ledge(f"falls_ledge_{i}", x, y, lw) for i, (x, y, lw) in enumerate(FALLS_LEDGES)],
+        start(rid, 300, g),
+        sign("falls_sign", 384, 140, "THE FALLS: the void goes down. So can you.", 420),
+        entity("ChestSpawn", 420, g - 58, 76, 58, name="a thing the void dropped", reward="currency:90"),
+    ]
+    return void_room(rid, e, FALLS_AT, (w, h), "THE FALLS", "embedded_theme")
+
+
+def heart():
+    """The bottom of the void: the first star that went out, asleep, as big
+    as the room; the eldest of the void stars beside it, who talks."""
+    rid, w, h, g, top = HEART, GALLERY_W, VOID_H, VOID_FLOOR, VOID_ROOF
+    e = [
+        piece("heart_black_star", 420, top),
+        solid("floor", 0, g, w, h - g),
+        solid("roof_west", 0, 0, GALLERY_HOLE[0], top),
+        solid("roof_east", GALLERY_HOLE[1], 0, w - GALLERY_HOLE[1], top),
+        solid("west_wall", 0, top, WALL, g - top),
+        solid("east_wall", w - WALL, top, WALL, g - 96 - top),
+        shaft_up("heart_up", *GALLERY_HOLE, GALLERY, "gallery_down", "up to the gallery"),
+        edge("heart_east", "back to the falls", w - 16, g, FALLS, "falls_foot"),
+        start(rid, w - 200, g),
+        sign("heart_sign", 700, 40 + top, "THE HEART OF THE VOID: the first star that went out. Shh.", 600),
+        ledge("heart_point_west", 200, 448, 192),
+        ledge("heart_point_east", 1000, 400, 160),
+        resident("void_star", "magical_void_elder", 1000, g, brain="stand_still", h=48),
+        entity("ChestSpawn", 1500, g - 58, 76, 58, name="a light the void could not take", reward="currency:150"),
+    ]
+    return void_room(rid, e, HEART_AT, (w, h), "THE HEART OF THE VOID", "eternal_cosmic")
+
+
+ROOMS = (garden, square, hollow, road, keep, bridge, rift, gallery, falls, heart)
 
 
 def main(argv):
@@ -326,7 +494,12 @@ def main(argv):
                  (HOLLOW, "Climbable", 1, hatch0 + 16, 0, 32, HOLLOW_FLOOR),
                  (HOLLOW, "Climbable", 1, well0 + 16, 0, 32, HOLLOW_FLOOR),
                  *((KEEP, "Climbable", 1, x + 16, FLOOR - 64, 32, H - FLOOR + 64) for x, _ in (STAIR_WEST, STAIR_EAST)),
-                 *((BRIDGE, "Climbable", 1, x + 16, 0, 32, BRIDGE_FLOOR) for x, _ in (STAIR_WEST, STAIR_EAST))):
+                 *((BRIDGE, "Climbable", 1, x + 16, 0, 32, BRIDGE_FLOOR) for x, _ in (STAIR_WEST, STAIR_EAST)),
+                 *((RIFT, "Climbable", 1, x + 16, VOID_FLOOR - 64, 32, VOID_H - VOID_FLOOR + 64) for x, _ in (RIFT_WEST_HOLE, RIFT_EAST_HOLE)),
+                 (GALLERY, "Climbable", 1, RIFT_WEST_HOLE[0] + 16, 0, 32, VOID_FLOOR),
+                 (GALLERY, "Climbable", 1, GALLERY_HOLE[0] + 16, VOID_FLOOR - 64, 32, VOID_H - VOID_FLOOR + 64),
+                 (HEART, "Climbable", 1, GALLERY_HOLE[0] + 16, 0, 32, VOID_FLOOR),
+                 (FALLS, "Climbable", 1, FALLS_TOP[0] + 16, 0, 32, 216)):
         if code := paint(WORLD, *args):
             return code
     code, _ = run("validate", str(WORLD))

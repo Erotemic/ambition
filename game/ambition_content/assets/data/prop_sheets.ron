@@ -322,6 +322,12 @@
     "bridge_span": (),
     "bridge_switch": (),
     "bridge_tea_table": (),
+    // The Void, past the lizard's bridge: black and white.
+    "rift_tear": (),
+    "rift_outlines": (),
+    "gallery_exhibits": (),
+    "falls_cascade": (),
+    "heart_black_star": (),
     "mine_tunnel": (),
     "hamlet_west": (),
     "hamlet_east": (),

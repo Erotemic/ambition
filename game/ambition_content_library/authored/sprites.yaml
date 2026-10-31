@@ -580,6 +580,11 @@ collections:
   - bridge_span
   - bridge_switch
   - bridge_tea_table
+  - rift_tear
+  - rift_outlines
+  - gallery_exhibits
+  - falls_cascade
+  - heart_black_star
   - bad_apple
   - gravity_apple
   - mine_tunnel

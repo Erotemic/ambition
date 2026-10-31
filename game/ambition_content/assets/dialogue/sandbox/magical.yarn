@@ -27,7 +27,10 @@ Ollie Lumen: Evening. Or it will be. I light the star lamps, you see, and they d
 
 title: magical_mary_o
 ---
-Mary-O: Robot. Good. You can be a witness. I'm at a truce.
+Mary-O: Robot. Good. You came through the gate. You can be a witness. I'm at a truce.
+-> Where's the void?
+    Mary-O: East. Down the dune road, through the castle, over the lizard's bridge, and keep going until the colour stops.
+    Mary-O: Bring your own colour. It doesn't lend.
 -> A truce? With the void?
     Mary-O: With the lizard. Not the void. The void doesn't do truces. It does more void.
     Mary-O: The lizard's different. I dropped him in the lava six times. He came back six times. At some point you have to ask who's the problem.
@@ -81,4 +84,31 @@ Void Star: Hey. Robot. You're not lit up either. We could be friends. We won't, 
     Void Star: Quiet. Dark. Nobody wishing. It's restful. You'd like it. Your batteries would last for ever.
 -> Bye.
     Void Star: Not "goodnight"? Everybody says goodnight to us. That's the problem.
+===
+
+title: magical_void_curator
+---
+Void Star: Welcome to the gallery. Don't touch the exhibits. You can't. They aren't there. That's the exhibit.
+-> What is all this?
+    Void Star: Things the void has taken. A lamp. A wheel. A crescent, bitten. A wand, bent. We keep the outlines. The outlines are what's left when you take the thing.
+-> Can I have the lamp back?
+    Void Star: You can have its outline. Hold it up to a dark room and it lights nothing. Very restful.
+-> Who visits?
+    Void Star: Mary-O. Every day. She stands in front of the wand and doesn't say anything. Then she goes and stomps something. We find it very moving.
+-> I'll look around.
+    Void Star: Mind the rope. It's the only thing in here with any colour, and it's black.
+===
+
+title: magical_void_elder
+---
+Void Star: ... You walked all the way down. Nobody walks all the way down. Shh. She's asleep.
+-> Who is she?
+    Void Star: The first star that went out. Before the town. Before the castle. Before the lizard learned to make tea. Every star that goes out comes down here, to lie next to her.
+-> Why did she go out?
+    Void Star: Nobody wished on her for a very long time. Then nobody wished on her at all. She closed her eyes. The void is what you see with your eyes closed. It grew.
+-> Can she be lit again?
+    Void Star: ... There's a crack in her, see. Light in it. Mary-O comes down and sits by her, and the crack is a little longer after.
+    Void Star: Don't tell anyone. It would ruin the whole void.
+-> I'll be quiet.
+    Void Star: Thank you. Take the light in the chest, if you want. She can't take it. She tried.
 ===

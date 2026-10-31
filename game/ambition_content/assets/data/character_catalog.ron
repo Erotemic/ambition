@@ -413,6 +413,13 @@
             move_style: Walk,
             melee: Some(Swipe(windup_s: 0.42, active_s: 0.24, recover_s: 0.45, damage: 2, reach_px: 58.0)),
         ),
+        // The Shift Operator's shove: she raises and turns her key (0-3, 70
+        // ms), shoves a wave of chevrons one room along (4-6), and leans out,
+        // open, after (7-9).
+        "shift_operator_shove": (
+            move_style: Float,
+            melee: Some(Swipe(windup_s: 0.28, active_s: 0.21, recover_s: 0.40, damage: 1, reach_px: 62.0)),
+        ),
         // The Gravity Apple's charge: its orbits flare, then it drops on you.
         "gravity_apple_charge": (
             move_style: Float,
@@ -5634,6 +5641,35 @@
             provoked: ["Your room is... ready."],
             idle: ["Front desk... front desk...", "Checkout was at eleven. Which eleven?"],
             hall: ["I carried bags here for an infinite number of guests. Then one more arrived.", "Every time they moved the guests along one room, a little more of me stayed behind."],
+        ),
+        ),
+        // The Shift Operator: the hotel's ghostly housekeeper, who moves every
+        // guest from room n to room n + 1; her shove pushes you one room along.
+        "shift_operator": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Shift Operator",
+            manifest: "sprites/shift_operator_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(78.0),
+            composition: None,
+            default_action_set: "shift_operator_shove",
+            locomotion: Some((run_speed: 95.0, move_style: Float, baseline_free_flight: Some(true))),
+            contact_damage: Some((strength: 0.6, amount: 1)),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 560.0,
+                attack_range: 62.0,
+                shares_sightings: false,
+                tactics: (dive_tell_s: 0.3, notice_s: 0.5),
+            )),
+            max_health: Some(4),
+            tags: ["enemy", "spectral", "math", "hylberts_hotel"],
+        barks: (
+            on_hit: ["Do not disturb!", "You'll be moved along."],
+            provoked: ["Room n, meet room n plus one."],
+            idle: ["Housekeeping.", "Everyone shift down one, please."],
+            hall: ["The hotel is full. It is always full. And there is always room for one more, if everyone moves along.", "I have never once made a bed twice. There is always a next room."],
         ),
         ),
         "gravity_apple": (

@@ -104,7 +104,8 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
     colour = colour + EMBER * ember * (0.8 + 0.6 * fury);
     // Wisps of smoke curling above the burnt edge.
     let wisp = smoothstep(0.55, 0.85, fbm(rise * 1.7 - warp)) * depth * (1.0 - base.a * (1.0 - eaten));
-    colour = colour + VIOLET * wisp * 0.35;
+    // Smoke glows violet where it leaves the robe and darkens as it rises.
+    colour = colour + mix(VIOLET * 0.35, VIOLET * 0.1, smoothstep(0.0, 0.6, 1.0 - depth)) * wisp;
     alpha = max(alpha, wisp * 0.3 * (0.5 + smoke));
 
     // GALAXY FACE: stars and nebula in the dark of the hood.
@@ -115,8 +116,15 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
         let spun = vec2<f32>(to_face.x * cos(a) - to_face.y * sin(a), to_face.x * sin(a) + to_face.y * cos(a));
         let cell = floor(spun * 9.0);
         let twinkle = 0.5 + 0.5 * sin(t * (1.0 + hash(cell) * 3.0) + hash(cell + 4.0) * TAU);
-        let star = step(0.9, hash(cell)) * smoothstep(0.35, 0.0, length(fract(spun * 9.0) - 0.5)) * twinkle;
-        let nebula = fbm(spun * 2.5 + vec2<f32>(t * 0.05, 0.0));
+        let in_cell = fract(spun * 9.0) - 0.5;
+        // Stars, the brightest with a small cross of light.
+        let core_star = smoothstep(0.35, 0.0, length(in_cell));
+        let cross = (exp(-abs(in_cell.x) * 40.0) + exp(-abs(in_cell.y) * 40.0)) * smoothstep(0.5, 0.0, length(in_cell)) * 0.4;
+        let star = step(0.9, hash(cell)) * (core_star + cross * step(0.97, hash(cell))) * twinkle;
+        // A spiral arm through the nebula.
+        let r = length(spun);
+        let arm = 0.5 + 0.5 * sin(atan2(spun.y, spun.x) * 2.0 - log(r + 0.05) * 4.0 + t * 0.2);
+        let nebula = fbm(spun * 2.5 + vec2<f32>(t * 0.05, 0.0)) * (0.6 + 0.6 * arm);
         colour = mix(colour, NEBULA * nebula * 1.4 + NODE * star, in_hood * 0.9);
     }
 
@@ -127,16 +135,26 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
     let glow = exp(-dot(d, d) / (face.z * face.z * 0.25)) * 0.5;
     let flare = exp(-pow(d.y / (face.z * 0.04), 2.0)) * exp(-abs(d.x) / (face.z * (1.2 + 1.8 * fury))) * 0.7;
     let light = (glow + flare) * face.w * beat;
-    colour = colour + VIOLET * light;
+    // Two-tone: a white-hot core to the flare, violet out along it.
+    colour = colour + VIOLET * light + NODE * flare * face.w * beat * 0.4 * exp(-abs(d.x) / (face.z * 0.5));
     alpha = max(alpha, clamp(light, 0.0, 1.0) * 0.8);
 
     // LIVING CONSTELLATION: pulses along the bright violet lines; nodes throb.
     let violet = smoothstep(0.35, 0.7, lum) * smoothstep(0.05, 0.25, base.b - base.g) * base.a;
-    let pulse = pow(0.5 + 0.5 * sin((local.x * 1.3 + local.y) * 40.0 - t * 6.0), 8.0);
+    // Pulses flow OUT from the hood along the graph: energy radiating.
+    let pulse = pow(0.5 + 0.5 * sin(length(local - face.xy) * 55.0 - t * 6.0), 8.0);
     colour = colour + NODE * violet * pulse * (0.4 + 0.6 * fury);
     let node = smoothstep(0.85, 0.95, lum) * base.a;
     let throb = 0.5 + 0.5 * sin(t * 3.0 + hash(floor(local * 60.0)) * TAU);
     colour = colour + VIOLET * node * throb * 0.4;
+
+    // A violet BACKLIGHT along its silhouette, strongest on its back (left).
+    let e = 0.006;
+    let around = sample_frame(local + vec2<f32>(e, 0.0)).a + sample_frame(local - vec2<f32>(e, 0.0)).a
+        + sample_frame(local + vec2<f32>(0.0, e)).a + sample_frame(local - vec2<f32>(0.0, e)).a;
+    let rim = clamp(base.a - around * 0.25, 0.0, 1.0) * (1.0 - eaten);
+    let back = smoothstep(0.65, 0.3, local.x);
+    colour = colour + VIOLET * rim * (0.35 + 0.5 * back) * (0.7 + 0.3 * fury);
 
     if alpha <= 0.002 {
         discard;

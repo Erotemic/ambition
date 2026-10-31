@@ -82,8 +82,13 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
     // body (bands across its height) on its own phase.
     let from_core = local - core.xy;
     let reach = smoothstep(0.04, 0.4, length(from_core));
-    let band = floor(local.y * BANDS);
-    let phase = hash(vec2<f32>(band, control.w)) * TAU;
+    // Each band quivers on its own phase. Mildly perturbed, the bands blend
+    // into each other (a smooth ripple); strongly perturbed, they snap apart
+    // into hard glitch tears.
+    let band_f = local.y * BANDS;
+    let band = floor(band_f);
+    let blend = mix(smoothstep(0.0, 1.0, fract(band_f)), step(0.5, fract(band_f)), smoothstep(0.6, 0.95, vibration));
+    let phase = mix(hash(vec2<f32>(band, control.w)), hash(vec2<f32>(band + 1.0, control.w)), blend) * TAU;
     let wobble = sin(t * TREMBLE_HZ * TAU + phase) * 0.7 + sin(t * TREMBLE_HZ * 1.7 * TAU + phase * 2.3) * 0.3;
     let along = normalize(vec2<f32>(-from_core.y, from_core.x) + vec2<f32>(1e-4, 0.0));
     let shake = along * wobble * TREMBLE_REACH * vibration * reach;
@@ -106,8 +111,13 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
     let pale = smoothstep(0.45, 0.75, lum) * smoothstep(0.35, 0.12, sat) * base.a;
     let sweep_pos = fract(t * SWEEP_HZ) * 1.6 - 0.3;
     let diagonal = (local.x + local.y * 0.6) * 0.62;
-    let sweep = exp(-pow((diagonal - sweep_pos) / SWEEP_WIDTH, 2.0));
-    colour = colour + WHITE * sweep * pale * 0.55 * shimmer;
+    // The sweep: a crisp highlight riding a soft bloom.
+    let sweep = exp(-pow((diagonal - sweep_pos) / SWEEP_WIDTH, 2.0)) * 0.35 + exp(-pow((diagonal - sweep_pos) / (SWEEP_WIDTH * 0.18), 2.0)) * 0.6;
+    colour = colour + WHITE * sweep * pale * 0.7 * shimmer;
+    // Iridescence: the pale shards play a thin film of cyan and magenta,
+    // drifting with time and across them.
+    let film = 0.5 + 0.5 * sin((local.x * 3.0 - local.y * 5.0) * TAU * 0.6 + t * 0.9);
+    colour = colour + mix(MAGENTA, CYAN, film) * pale * 0.12 * (0.4 + 0.6 * shimmer);
     let cell = floor(local * 90.0);
     let clock = fract(t * (0.6 + hash(cell) * 1.4) + hash(cell + 7.0));
     let sparkle = smoothstep(0.92, 1.0, 1.0 - abs(clock * 2.0 - 1.0)) * step(0.8, lum) * step(0.93, hash(cell + 3.0));

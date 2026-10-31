@@ -58,7 +58,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 sys.path.insert(0, str(HERE.parent / "gate_network"))
 
-from district_kit import WALL, WORLDS, edge, ensure_world, entity, ledge, make_rooms, paint, resident, room, run, sign, solid, start  # noqa: E402
+from district_kit import WALL, WORLDS, breakable_wall, edge, ensure_world, entity, ledge, make_rooms, paint, resident, room, run, sign, solid, start  # noqa: E402
 import gates  # noqa: E402
 from district_scenery import piece  # noqa: E402
 
@@ -76,6 +76,7 @@ RIFT = "magical_void_rift"
 GALLERY = "magical_void_gallery"
 FALLS = "magical_void_falls"
 HEART = "magical_void_heart"
+NURSERY = "magical_void_nursery"
 
 FLOOR = 640
 H = 768
@@ -109,6 +110,9 @@ FALLS_AT, FALLS_W, FALLS_H, FALLS_FLOOR = (GALLERY_AT[0] + GALLERY_W, GALLERY_AT
 #: The falls' top: under the rift's east hole (the falls' x).
 FALLS_TOP = (408, 472)
 RIFT_EAST_HOLE = (FALLS_TOP[0] + FALLS_AT[0] - RIFT_AT[0], FALLS_TOP[1] + FALLS_AT[0] - RIFT_AT[0])
+#: The nursery: behind the heart's west wall (a wall that breaks), west of it.
+NURSERY_W = 640
+NURSERY_AT = (HEART_AT[0] - NURSERY_W, HEART_AT[1])
 #: The falls' ledge from the gallery, on its west wall at the gallery's floor.
 FALLS_SHELF_Y = GALLERY_AT[1] + VOID_FLOOR - FALLS_AT[1]
 
@@ -455,7 +459,11 @@ def heart():
         solid("floor", 0, g, w, h - g),
         solid("roof_west", 0, 0, GALLERY_HOLE[0], top),
         solid("roof_east", GALLERY_HOLE[1], 0, w - GALLERY_HOLE[1], top),
-        solid("west_wall", 0, top, WALL, g - top),
+        # The west wall is a wall above, and below a wall that breaks (a
+        # secret: the nursery is behind it).
+        solid("west_wall", 0, top, WALL, g - 96 - top),
+        breakable_wall("heart_nursery_wall", WALL, g - 96, 32, 96, hp=3, name="a crack in the dark"),
+        edge("heart_west", "through the crack", 0, g, NURSERY, "nursery_east"),
         solid("east_wall", w - WALL, top, WALL, g - 96 - top),
         shaft_up("heart_up", *GALLERY_HOLE, GALLERY, "gallery_down", "up to the gallery"),
         edge("heart_east", "back to the falls", w - 16, g, FALLS, "falls_foot"),
@@ -469,7 +477,26 @@ def heart():
     return void_room(rid, e, HEART_AT, (w, h), "THE HEART OF THE VOID", "eternal_cosmic")
 
 
-ROOMS = (garden, square, hollow, road, keep, bridge, rift, gallery, falls, heart)
+def nursery():
+    """A secret, behind the heart's west wall: where a star goes the first
+    time it goes out. Cradles; a void star who rocks them; a chest."""
+    rid, w, h, g, top = NURSERY, NURSERY_W, VOID_H, VOID_FLOOR, VOID_ROOF
+    e = [
+        piece("nursery_cradles", 60, top),
+        solid("floor", 0, g, w, h - g),
+        solid("roof", 0, 0, w, top),
+        solid("west_wall", 0, top, WALL, g - top),
+        solid("east_wall", w - WALL, top, WALL, g - 96 - top),
+        edge("nursery_east", "back out to the heart", w - 16, g, HEART, "heart_west"),
+        start(rid, w - 120, g),
+        sign("nursery_sign", 320, 400, "THE NURSERY. Lights off, please.", 360),
+        resident("void_star", "magical_void_nurse", 230, g, brain="stand_still", h=48),
+        entity("ChestSpawn", 400, g - 58, 76, 58, name="a night light, never used", reward="currency:200"),
+    ]
+    return void_room(rid, e, NURSERY_AT, (w, h), "THE NURSERY", "eternal_cosmic")
+
+
+ROOMS = (garden, square, hollow, road, keep, bridge, rift, gallery, falls, heart, nursery)
 
 
 def main(argv):

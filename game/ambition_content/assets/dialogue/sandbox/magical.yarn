@@ -112,3 +112,16 @@ Void Star: ... You walked all the way down. Nobody walks all the way down. Shh. 
 -> I'll be quiet.
     Void Star: Thank you. Take the light in the chest, if you want. She can't take it. She tried.
 ===
+
+title: magical_void_nurse
+---
+Void Star: Shh! You'll wake them. How did you get in? Nobody breaks a wall in the void. There's nothing to break. ...You broke it.
+-> Who are they?
+    Void Star: New ones. Stars that went out for the first time today. It's a shock. You twinkle your whole life and then, one evening, nothing. They need a quiet room and somebody to rock them.
+-> Will they stay out?
+    Void Star: Most do. Some get wished on, while they sleep, by somebody up in the town who doesn't know. Then they wake up lit, and float off, and never write.
+-> What's in the chest?
+    Void Star: A night light. Nobody here has ever used it. Take it. Light something up there, where it's wanted.
+-> Goodnight.
+    Void Star: ...Say it again. Quieter. They like that.
+===

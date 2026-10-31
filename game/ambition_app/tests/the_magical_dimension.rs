@@ -11,7 +11,9 @@
 //! under it, the falls, the heart, walked round; its void stars talk. Mary-O
 //! meets the robot in the gate garden.
 
-use crate::the_pirate_port::{a_session_in, go, talk};
+use ambition_platformer2d::engine_core as ae;
+
+use crate::the_pirate_port::{a_session_in, break_the_wall, go, talk};
 
 const GARDEN: &str = "magical_gate_garden";
 const SQUARE: &str = "magical_starlight_square";
@@ -23,6 +25,7 @@ const RIFT: &str = "magical_void_rift";
 const GALLERY: &str = "magical_void_gallery";
 const FALLS: &str = "magical_void_falls";
 const HEART: &str = "magical_void_heart";
+const NURSERY: &str = "magical_void_nursery";
 
 #[test]
 fn the_square_the_hollow_and_the_garden_are_a_loop() {
@@ -77,4 +80,14 @@ fn the_void_is_walked_round_and_its_stars_talk() {
     go(&mut app, HEART, Some("falls_foot"));
     talk(&mut app, "void_star", "Who is she?");
     go(&mut app, GALLERY, Some("heart_up"));
+}
+
+/// The heart's secret: its west wall breaks, and behind it is the nursery,
+/// where a star goes the first time it goes out; its nurse talks.
+#[test]
+fn the_hearts_west_wall_breaks_into_the_nursery() {
+    let mut app = a_session_in(HEART);
+    break_the_wall(&mut app, "heart_nursery_wall", ae::Vec2::new(96.0, 560.0), -1.0);
+    go(&mut app, NURSERY, Some("heart_west"));
+    talk(&mut app, "void_star", "Who are they?");
 }

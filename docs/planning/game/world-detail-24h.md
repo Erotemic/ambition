@@ -68,11 +68,13 @@ to touch, and a little danger outside town. No quest chains.
   out in white line), the gallery of THINGS THE VOID HAS TAKEN (a curator
   void star), the falls the void pours down, and the heart: the first star
   that went out, asleep, as big as the room, its eldest void star beside it.
-  Five joins between four rooms. Mary-O, tall, meets the robot at the gate.
+  Five joins between four rooms, and a secret: the heart's west wall
+  breaks into the nursery, where a star goes the first time it goes out.
+  Mary-O, tall, meets the robot at the gate.
   Music: support_theme, billions_and_billions, embedded/sparse_theme,
   castle_crash_override, eternal_cosmic at the heart. The `void` biome
   (black/white tiles and sky) is a parallel piece.
-  Verified: the_magical_dimension (6), worlds manifest.
+  Verified: the_magical_dimension (7), worlds manifest.
 - **Science: the vector well furnished** (every wall is a floor, so each is
   furnished as one): a study standing on the east wall (bookcase, fern,
   reading lamp), a parlour on the west rock (armchair, standard lamp), a

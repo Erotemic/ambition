@@ -182,6 +182,11 @@ PROPS = {
     # what the hall is about.
     HALL: (("hall_cradle", 40, 48), ("hall_lectern", 1664, 716)),
     GALLERY: (("gallery_chandelier_hung", 424, 160), ("gallery_chandelier_stood", 424, 796)),
+    # `targets/props/gnu_ton_well_props.py`: each floor of the well furnished
+    # as one (a study on the east wall, a parlour on the west rock, a table on
+    # the vault), and the heap on the real floor where every mistake ends.
+    WELL: (("well_east_study", 1074, 1080), ("well_west_parlour", 320, 600), ("well_vault_table", 360, 48),
+           ("well_mistakes", 270, 1466)),
 }
 
 #: A line of writing in a hall, by its room: (name, x, y, text, width).

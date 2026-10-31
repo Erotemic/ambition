@@ -289,6 +289,11 @@
     "hall_lectern": (),
     "gallery_chandelier_hung": (),
     "gallery_chandelier_stood": (),
+    // The vector well, furnished on each floor its fields make.
+    "well_east_study": (),
+    "well_west_parlour": (),
+    "well_vault_table": (),
+    "well_mistakes": (),
     // Starlight Square, the Magical dimension (Mary-O's).
     "square_wand_shop": (),
     "square_bakery": (),

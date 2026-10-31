@@ -60,6 +60,13 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Science: the vector well furnished** (every wall is a floor, so each is
+  furnished as one): a study standing on the east wall (bookcase, fern,
+  reading lamp), a parlour on the west rock (armchair, standard lamp), a
+  table upside down on the vault, and on the real floor the heap where every
+  mistake ends (apples, a top hat, a book on its face, a slipper). Learned:
+  a gnu_ton `--apply` drops the approach's gate terminal; `make_gates.py
+  --apply` puts it back (and repairs intro.ldtk's Bool defs: left out).
 - **The Magical dimension: dressed, and the Void Castle** (Jon, 10-30:
   "Make sure maryo is a character in this universe and add a void lizard
   dungeon, but he is not an enemy here ... You can talk to them"). Props for

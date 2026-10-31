@@ -549,6 +549,10 @@ collections:
   - hall_lectern
   - gallery_chandelier_hung
   - gallery_chandelier_stood
+  - well_east_study
+  - well_west_parlour
+  - well_vault_table
+  - well_mistakes
   - square_wand_shop
   - square_bakery
   - square_well

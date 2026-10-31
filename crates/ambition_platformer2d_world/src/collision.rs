@@ -747,12 +747,25 @@ impl<'a> RoomCollision<'a> {
         )))
     }
 
-    /// The walls a body meets when nothing in the room moves: the authored
-    /// room and the still part of its overlay
-    /// ([`FeatureEcsWorldOverlay::still`]), with no moving platform. A
-    /// navigation graph is built over these.
+    /// The collision overlay that is at rest this tick, including platforms.
+    /// A navigation cache compares this value with the snapshot it used.
+    pub fn still_overlay(self) -> FeatureEcsWorldOverlay {
+        let mut still = self.overlay.map(FeatureEcsWorldOverlay::still).unwrap_or_default();
+        for platform in self.platforms {
+            let block = platform.as_collision_block();
+            if block.velocity != ae::Vec2::ZERO { continue; }
+            match platform.as_collision_line() {
+                Some(line) if line.turn == 0.0 => still.chains.push(line),
+                None => still.blocks.push(block),
+                _ => {},
+            }
+        }
+        still
+    }
+
+    /// The authored room and its stationary collision overlay.
     pub fn still_solids(self) -> ae::World {
-        let still = self.overlay.map(FeatureEcsWorldOverlay::still).unwrap_or_default();
+        let still = self.still_overlay();
         world_with_sandbox_solids(&self.geometry.0, &[], &still)
     }
 
@@ -1083,6 +1096,37 @@ mod collision_world_tests {
                 art_color: None,
             }],
         ))
+    }
+
+    #[test]
+    fn navigation_keeps_still_platforms_and_retracts_them_when_they_move() {
+        use bevy_ecs::system::SystemState;
+        use ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component;
+        let mut app = App::new();
+        insert_live_room_component(app.world_mut(), room_one_block());
+        let platform = |id: &str, speed| MovingPlatformState::from_sweep(
+            id, id, ae::Vec2::new(100.0, 200.0), ae::Vec2::new(128.0, 32.0), 100.0, speed,
+        );
+        let still = platform("marble", 0.0);
+        let mut moving = platform("lift", 30.0);
+        moving.update(1.0);
+        insert_live_room_component(app.world_mut(), MovingPlatformSet(vec![still, moving]));
+        let mut state = SystemState::<CollisionWorld>::new(app.world_mut());
+        let before = {
+            let collision = state.get(app.world()).expect("collision inputs");
+            let room = collision.room(None).expect("one live room");
+            let world = room.still_solids();
+            assert!(world.blocks.iter().any(|block| block.name == "marble"));
+            assert!(!world.blocks.iter().any(|block| block.name == "lift"));
+            room.still_overlay()
+        };
+        let mut moved = platform("marble", 30.0);
+        moved.update(1.0);
+        insert_live_room_component(app.world_mut(), MovingPlatformSet(vec![moved]));
+        let collision = state.get(app.world()).expect("collision inputs");
+        let room = collision.room(None).expect("one live room");
+        assert!(!room.still_solids().blocks.iter().any(|block| block.name == "marble"));
+        assert!(!before.composes_like(&room.still_overlay()));
     }
 
     fn probe_solids(world: CollisionWorld, mut out: ResMut<SolidsProbe>) {

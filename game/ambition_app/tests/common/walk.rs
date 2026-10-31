@@ -254,8 +254,8 @@ fn nearest_the_zone(graph: &NavGraph, zone: ae::Aabb) -> Option<ae::Vec2> {
 }
 
 /// The surface graph of the player's room for the player's own body. It is
-/// built over the room as the body collides with it (the authored blocks and
-/// each gate solid, a lock wall, that stands now), and each exit that fires
+/// built over the authored geometry and its stationary collision overlay,
+/// as the engine autopilot does. Each exit that fires
 /// on overlap is avoided but `keep`: a leg through one takes the body to
 /// another room.
 fn the_players_graph(walker: &mut impl Walker, player: Entity, keep: Option<ae::Aabb>) -> Result<NavGraph, String> {
@@ -273,14 +273,11 @@ fn the_players_graph(walker: &mut impl Walker, player: Entity, keep: Option<ae::
         .filter(|zone| zone.is_ready(false) && Some(zone.aabb) != keep)
         .map(|zone| zone.aabb)
         .collect();
-    let overlay = the_players_overlay(walker.world_mut(), player);
-    let world = ambition_platformer2d::world::collision::world_with_gate_solids_and_carves(
-        &rooms.spec(definition).world,
-        &overlay.gate_solids,
-        &[],
-        &[],
-    )
-    .into_owned();
+    let in_room = *walker.world().get::<ambition_platformer2d::platformer::lifecycle::InRoomInstance>(player)
+        .expect("the player is in a room");
+    let mut state = bevy::ecs::system::SystemState::<ambition_platformer2d::world::collision::CollisionWorld>::new(walker.world_mut());
+    let collision = state.get(walker.world()).expect("collision inputs");
+    let world = collision.room(Some(&in_room)).ok_or("the player's room is not live")?.still_solids();
     let frame = ae::MotionFrame::from_acceleration(ae::Vec2::new(0.0, ae::movement::GRAVITY)).expect("gravity");
     let body = the_players_body(walker.world(), player);
     NavGraph::build_avoiding(&world, &exits, &body, frame).ok_or_else(|| format!("`{room}` has no graph for the player"))

@@ -24,9 +24,9 @@
 //!
 //! The graph is built over what the body collides with that does not move:
 //! the room's authored geometry, and the parts of its overlay that do not move
-//! ([`FeatureEcsWorldOverlay::still`]). Exits that take a body on overlap are avoided: a leg
-//! through one would leave the room. A moving platform is not in it; a leg
-//! that one stops fails, and the follower plans again.
+//! ([`ambition_platformer2d_world::collision::RoomCollision::still_overlay`]).
+//! Exits that take a body on overlap are avoided: a leg through one would
+//! leave the room. Platforms in motion are excluded.
 
 use bevy::prelude::*;
 use bevy::tasks::{futures::check_ready, AsyncComputeTaskPool, Task};
@@ -354,7 +354,7 @@ pub fn drive_autopilot(
     // the key: the world is composed and stamped only when one changed.
     let inputs = GraphInputs {
         geometry: room.geometry_revision(),
-        overlay: room.overlay().map(FeatureEcsWorldOverlay::still).unwrap_or_default(),
+        overlay: room.still_overlay(),
         exits: specs
             .as_ref()
             .and_then(|specs| specs.spec_of(entity))

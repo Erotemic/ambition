@@ -81,7 +81,7 @@ pub(crate) fn project_rows(rows: &[crate::baked_part_flipbooks::PartFlipbookRow]
         for (key, table, _) in rows.iter().filter(|(key, ..)| crate::quality_variant_marker(key).is_none()) {
             let published = match table {
                 BakedPartFlipbook::File(_) => continue,
-                BakedPartFlipbook::Ron(text) => crate::sprite_tree::read_part_flipbook(text).ok(),
+                BakedPartFlipbook::Ron(text) => ambition_sprite_part_format::read_ron(text).ok(),
                 BakedPartFlipbook::Encoded(bytes) => bincode::deserialize(bytes).ok(),
             };
             if let Some(table) = published.and_then(|published| crate::sprite_tree::landmarks_of(&published)) {
@@ -115,7 +115,7 @@ fn project(full: Vec<(&'static str, String)>) -> (Vec<(&'static str, Vec<u8>)>, 
                         .filter_map(|(key, text)| {
                             // A table that does not read is refused where a
                             // sheet realizes it; it has no landmarks here.
-                            let published = crate::sprite_tree::read_part_flipbook(text).ok()?;
+                            let published = ambition_sprite_part_format::read_ron(text).ok()?;
                             let table = crate::sprite_tree::landmarks_of(&published)?;
                             let bytes = bincode::serialize(&table).ok()?;
                             Some((*key, bytes))

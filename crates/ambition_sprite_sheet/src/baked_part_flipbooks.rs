@@ -22,7 +22,7 @@ use crate::character::rigged::{RiggedSpriteAsset, RiggedSpriteError};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BakedPartFlipbook {
     /// Read at build time and embedded as bincode.
-    Encoded(&'static [u8]),
+    Encoded(std::sync::Arc<[u8]>),
     /// The published RON text: a table `build.rs` could not read (the game
     /// then refuses it with the error the RON gives).
     Ron(std::sync::Arc<str>),
@@ -52,7 +52,7 @@ fn decode_published_file(path: &str) -> Result<RiggedSpriteAsset, RiggedSpriteEr
         |bytes| RiggedSpriteAsset::from_published_bytes(bytes).ok(),
         || {
             let text = std::fs::read_to_string(file).ok()?;
-            let published = crate::sprite_tree::read_part_flipbook(&text).ok()?;
+            let published = ambition_sprite_part_format::read_ron(&text).ok()?;
             bincode::serialize(&published).ok()
         },
     );
@@ -72,7 +72,7 @@ fn decode_published_file(path: &str) -> Result<RiggedSpriteAsset, RiggedSpriteEr
 
 /// The source of the structures a table's bincode is written with: a part of
 /// the cache key, so that a build with another structure reads no old bytes.
-pub(crate) const PUBLISHED_SCHEMA_SOURCE: &str = include_str!("character/rigged/published.rs");
+pub(crate) const PUBLISHED_SCHEMA_SOURCE: &str = ambition_sprite_part_format::SCHEMA_SOURCE;
 
 
 

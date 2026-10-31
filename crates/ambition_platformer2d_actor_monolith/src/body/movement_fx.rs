@@ -5,8 +5,7 @@
 //!
 //! Pure sim + message emission — `VfxMessage` is `ambition_vfx`, not
 //! `ambition_render`, so this carries no render dependency. It is called from the
-//! host's player-tick control/sim phases; it lived in `ambition_app` only because
-//! it was authored beside that glue.
+//! shared body feedback system.
 
 
 use ambition_platformer2d_core as ae;
@@ -20,17 +19,8 @@ use ambition_vfx::vfx::VfxWriter;
 // `BodyAnimFacts` from the monolith's forward of the SAME module — one file
 // spelling one crate two ways, which is the tell a facade leaves and the only
 // reason a census counted this module as monolith-coupled.
-use ambition_characters::actor::{BodyAnimFacts, BodyCombat};
-use ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState;
+use ambition_characters::actor::BodyAnimFacts;
 use ambition_sfx::{SfxMessage, SfxWriter};
-
-/// How long the blink-in camera ease runs, in seconds.
-///
-/// ⭐ IT LIVES BESIDE ITS ONE CONSUMER. This was `crate::BLINK_IN_ANIM_TIME` at
-/// the monolith ROOT, and the whole tree named it exactly once — here. A constant
-/// parked at a 95k-line crate's address reads as shared vocabulary and is a
-/// coupling row on every census of this module; it was neither.
-const BLINK_IN_ANIM_TIME: f32 = 0.34;
 
 /// How long the wall-jump push-off pose holds (one value, beside the timer it
 /// arms; the presentation plays the row over it).
@@ -247,9 +237,7 @@ pub fn arm_movement_anim_overlays(anim: &mut BodyAnimFacts, events: &ae::FrameEv
 /// into `SfxMessage`/`VfxMessage` facts at the body's position, plus the
 /// grounded-transition landing dust.
 ///
-/// Carries NO body-specific state — the wall-jump anim pose, the blink-camera lerp, and the
-/// action hit-flash stay with each caller ([`handle_player_events`] arms them for the player;
-/// the actor tick does not).
+/// The shared body feedback system owns animation timers and camera state.
 #[allow(clippy::too_many_arguments)]
 pub fn emit_movement_fx(
     sfx: &mut SfxWriter,
@@ -583,44 +571,6 @@ fn write_splat(vfx: &mut VfxForRoom<'_, '_>, pos: ae::Vec2, splat: ImpactSplat) 
     });
     if splat.crash {
         vfx.write(VfxMessage::Impact { pos, blow: ambition_vfx::ImpactBlow::PLAIN });
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-pub fn handle_player_events(
-    sfx: &mut SfxWriter,
-    vfx: &mut VfxForRoom<'_, '_>,
-    clusters: &ae::BodyClustersMut<'_>,
-    combat: &mut BodyCombat,
-    blink_cam: &mut PlayerBlinkCameraState,
-    anim: &mut BodyAnimFacts,
-    events: ae::FrameEvents,
-    // A13: the player is a character too. Its jump should sound like ITS provider,
-    // not like whoever owns the session.
-    source: Option<&ambition_sfx::PresentationSourceId>,
-) {
-    let pos = clusters.kinematics.pos;
-    let facing = clusters.kinematics.facing;
-    let size = clusters.kinematics.size;
-    // Body-generic SFX/VFX — the SAME emitter the actor tick uses.
-    emit_movement_fx(sfx, vfx, &events, pos, facing, size, source);
-    arm_ground_contact_anim_overlay(anim, events.ground_contact);
-    // Body-generic op-driven overlay poses (the wall-jump push-off) — the SAME
-    // arming the actor tick runs (§A9). Player-specific presentation the shared
-    // arming deliberately omits stays inline below: the blink-camera lerp.
-    arm_movement_anim_overlays(anim, &events);
-    for blink in &events.blinks {
-        blink_cam.blink_in_duration = BLINK_IN_ANIM_TIME;
-        blink_cam.blink_in_timer = blink_cam.blink_in_duration;
-        blink_cam.blink_camera_from = blink.from;
-    }
-    // The white hit-flash is DAMAGE feedback — a hazard hit reads as being hurt.
-    // Movement operations (jump, dash, blink, …) deliberately do NOT flash: an
-    // action is not a hit, and flashing the sprite white on every jump reads as
-    // taking damage. Real combat/hazard damage arms `hit_flash` through the damage
-    // path (`ambition_damage`).
-    if events.reset.is_some_and(ae::ResetCause::is_hazardous) {
-        combat.hit_flash = 0.12;
     }
 }
 

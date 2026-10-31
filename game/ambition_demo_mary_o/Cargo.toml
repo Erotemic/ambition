@@ -19,6 +19,7 @@ served_content = ["static_content"]
 content_check = ["ambition_platformer2d/content_check"]
 
 [build-dependencies]
+ambition_sprite_part_format = { path = "../../crates/ambition_sprite_part_format" }
 # `build.rs` embeds each source `assets/pack.ron` declares, under
 # `static_content` (`ambition_content_pack::embed`).
 ambition_content_pack = { path = "../../crates/ambition_content_pack" }

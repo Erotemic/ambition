@@ -14,8 +14,9 @@
 | [`rollback`](src/rollback.rs) | Supported rollback session entry points. |
 | [`scripted_input`](src/scripted_input.rs) | Drive scripted local input through the production participant pipeline. |
 | [`session`](src/session.rs) | Canonical live session-world surface. |
+| [`world_flow`](src/world_flow/mod.rs) | Prepare room assets and covers for visible platformer hosts. |
 
-_8 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_9 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

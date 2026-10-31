@@ -28,8 +28,6 @@ mod hud;
 #[cfg(not(feature = "static_content"))]
 pub mod movement_defaults_watch;
 pub mod hub_games;
-mod phases;
-mod player_tick;
 mod plugins;
 mod resources;
 mod scene_setup;
@@ -44,7 +42,8 @@ pub mod versus;
 pub mod versus_fighters;
 pub mod versus_rules;
 pub mod visible_composition;
-pub(crate) mod world_flow;
+#[cfg(test)]
+mod world_flow_fixture_tests;
 
 #[cfg(feature = "input")]
 pub use ambition_platformer2d::runtime::input::populate_menu_control_frame_from_actions;
@@ -65,9 +64,8 @@ pub use cli::{
     SharedHostAcceptanceReport, SharedHostHeadlessReport, VisibleRenderMode,
     SHARED_HOST_HEADLESS_TICK_HZ,
 };
-pub use feedback::{GameplayFeedbackWriters, ProgressionResources};
+pub use feedback::ProgressionResources;
 pub use hud::update_quest_panel;
-pub use player_tick::sync_player_presentation;
 pub use plugins::{
     add_presentation_plugins, add_simulation_plugins, AmbitionGamePresentationPlugin,
     AmbitionGameSimulationPlugin,
@@ -77,4 +75,3 @@ pub use ambition_content::world_preparation::{
 };
 pub use resources::init_sandbox_resources;
 pub use sim_systems::apply_player_reset_input_system;
-pub use world_flow::RoomTransitionCoverSet;

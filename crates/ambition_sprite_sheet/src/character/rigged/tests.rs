@@ -447,7 +447,7 @@ fn every_table_decodes_from_its_bincode_to_the_flipbook_its_ron_is() {
         let bytes: Vec<u8> = match table {
             BakedPartFlipbook::Encoded(bytes) => bytes.to_vec(),
             BakedPartFlipbook::Ron(_) | BakedPartFlipbook::File(_) => {
-                let published = crate::sprite_tree::read_part_flipbook(&text).unwrap_or_else(|error| panic!("`{key}` {error}"));
+                let published = ambition_sprite_part_format::read_ron(&text).unwrap_or_else(|error| panic!("`{key}` {error}"));
                 bincode::serialize(&published).unwrap_or_else(|error| panic!("`{key}` {error}"))
             }
         };

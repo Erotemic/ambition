@@ -33,9 +33,23 @@ fn drawn_demo() -> App {
 }
 
 fn settle(app: &mut App) {
-    for _ in 0..5 {
+    use ambition_platformer2d::render::rendering::{
+        presentation_settling::PresentationCover, room_transition_cover::RoomTransitionCover,
+    };
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_secs_f64(1.0 / 60.0),
+    ));
+    for frame in 0..1200 {
         app.update();
+        let router = app.world().resource::<ShellRouter>();
+        let active = router.active.is_some() && router.pending.is_none();
+        let covered = app.world_mut().query_filtered::<Entity,
+            Or<(With<PresentationCover>, With<RoomTransitionCover>)>>()
+            .iter(app.world()).next().is_some();
+        if frame >= 4 && active && !covered { return; }
+        std::thread::sleep(std::time::Duration::from_millis(2));
     }
+    panic!("the visible route did not finish its loading work");
 }
 
 fn room_visual_count(app: &mut App) -> usize {
@@ -501,4 +515,41 @@ fn a_vfx_message_this_demo_writes_is_drawn_by_this_demo() {
          installed and skipped rather than absent — a different defect from \
          the original coin-pop report."
     );
+}
+
+
+#[test]
+fn the_standalone_session_waits_for_its_first_images_and_music() {
+    use ambition_platformer2d::platformer::lifecycle::SessionRoot;
+    use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
+    use ambition_platformer2d::audio::library::KiraAudioSource;
+    let mut app = drawn_demo();
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_secs_f64(1.0 / 60.0),
+    ));
+    let mut activated = false;
+    for _ in 0..1200 {
+        app.update();
+        if app.world_mut().query_filtered::<Entity, With<SessionRoot>>().iter(app.world()).next().is_some() {
+            activated = true;
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    assert!(activated, "the standalone session must finish its asset work");
+    let server = app.world().resource::<AssetServer>();
+    let assets = app.world().resource::<GameAssets>();
+    let sheet = assets.characters.sheet(ambition_demo_mary_o::MARY_O_CHARACTER_ID)
+        .expect("the starting character is realized before activation");
+    let images = sheet.presentation_images();
+    assert!(!images.is_empty());
+    for image in images {
+        assert!(server.is_loaded_with_dependencies(image.id()), "the first room cannot activate before its images load");
+    }
+    let catalogs = app.world().resource::<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>();
+    let music = catalogs.music_for(ambition_demo_mary_o::MARY_O_EXPERIENCE).unwrap();
+    let track = music.track(&music.default_track).unwrap();
+    let handle = server.get_handle::<KiraAudioSource>(track.resolved_asset_path())
+        .expect("the entry music is demanded before activation");
+    assert!(server.is_loaded_with_dependencies(handle.id()), "the entry music is loaded before activation");
 }

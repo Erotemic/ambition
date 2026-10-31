@@ -1217,6 +1217,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_sprite_part_format"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "ron 0.11.0",
+ "serde",
+]
+
+[[package]]
 name = "ambition_sprite_sheet"
 version = "0.1.0"
 dependencies = [
@@ -1228,6 +1237,7 @@ dependencies = [
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
+ "ambition_sprite_part_format",
  "ambition_vfx",
  "bevy",
  "bincode",

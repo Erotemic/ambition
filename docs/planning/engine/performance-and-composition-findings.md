@@ -1643,7 +1643,7 @@ Cause (MEASURED with the change counter, `probe/basement_enemies_v2`):
 `Option::as_deref_mut`. `refresh_parallax_layers_on_quality_change`
 (`parallax.rs:325`) despawns every parallax layer when `GameAssets` is changed,
 and `present_live_room_parallax` spawns them again. The writer:
-`prepare_first_room_art_system` (`ambition_app/src/app/world_flow/first_room_art.rs`)
+`prepare_first_room_art_system` (`crates/ambition_platformer2d/src/world_flow/first_room_art.rs`)
 took `GameAssets`, the atlas layouts and the character load states through
 `as_deref_mut()` every frame, also with no session to prepare. Fixed (it
 returns before the borrows when every published session is answered).

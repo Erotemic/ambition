@@ -26,6 +26,7 @@ web_served = []
 content_pack = ["dep:ambition_content_pack"]
 
 [dependencies]
+ambition_sprite_part_format = { path = "../ambition_sprite_part_format" }
 ambition_vfx = { path = "../ambition_vfx" }
 # Sprite data, image assets, and logs need no rendering pipeline.
 bevy = { version = "0.19.1", default-features = false, features = [

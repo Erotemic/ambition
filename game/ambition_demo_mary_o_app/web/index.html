@@ -13,21 +13,40 @@
     #status { position: fixed; left: 1rem; bottom: 1rem; padding: .7rem 1rem;
       background: #101020e8; border-radius: .5rem; pointer-events: none; }
     #status:empty { display: none; }
+    #boot { position: fixed; inset: 0; display: grid; place-content: center; gap: 1rem;
+      text-align: center; background: #101020; }
+    #boot[hidden] { display: none; }
+    .spinner { width: 2rem; height: 2rem; margin: auto; border: .25rem solid #ffffff30;
+      border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    progress { width: min(75vw, 22rem); }
+    @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
   </style>
 </head>
 <body>
   <div id="stage"><canvas id="bevy" tabindex="0" width="0" height="0" aria-label="Super Mary-O game"></canvas></div>
-  <div id="status" role="status">Loading Super Mary-O…</div>
+  <div id="boot" role="status" aria-live="polite">
+    <div class="spinner" aria-hidden="true"></div>
+    <strong>Super Mary-O</strong>
+    <span id="boot-message">Loading game…</span>
+    <progress id="download" aria-label="Game download"></progress>
+  </div>
+  <div id="status" role="status"></div>
   <script src="./pkg/audio_unlock.js"></script>
   <script type="module">
-    import init from './pkg/mary_o.js';
+    const boot = document.getElementById('boot');
+    const message = document.getElementById('boot-message');
+    const progress = document.getElementById('download');
+    const paint = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     const canvas = document.getElementById('bevy');
     const status = document.getElementById('status');
     performance.mark('mary-o-module-start');
     let failed = false;
     const fail = error => {
       failed = true;
-      status.textContent = 'Super Mary-O could not start. Reload the page or check the browser console.';
+      boot.hidden = false;
+      message.textContent = 'Super Mary-O could not start. Reload the page to try again.';
+      progress.hidden = true;
       console.error(error);
     };
     window.addEventListener('error', event => fail(event.error || event.message));
@@ -38,13 +57,48 @@
       if (failed || !canvas.width || !canvas.height) return;
       performance.mark('mary-o-canvas-start');
       console.info('[mary-o-web] Canvas started; the game controls loading.');
+      boot.hidden = true;
       canvas.focus();
       status.textContent = '';
       watch.disconnect();
     });
     watch.observe(canvas, { attributes: true, attributeFilter: ['width', 'height'] });
     try {
-      await init();
+      await paint();
+      const [{ default: init }, response] = await Promise.all([
+        import('./pkg/mary_o.js'), fetch('./pkg/mary_o_bg.wasm'),
+      ]);
+      if (!response.ok) throw new Error(`Game download failed: HTTP ${response.status}`);
+      let total = 0;
+      fetch('./bundle-report.json').then(r => r.json()).then(report => {
+        total = report.code.find(file => file.path.endsWith('.wasm'))?.raw_bytes || 0;
+      }).catch(() => {});
+      let received = 0;
+      const reader = response.body.getReader();
+      const body = new ReadableStream({
+        async pull(controller) {
+          const { done, value } = await reader.read();
+          if (done) {
+            performance.mark('mary-o-download-ready');
+            message.textContent = 'Preparing engine…';
+            progress.removeAttribute('value');
+            await paint();
+            controller.close();
+            return;
+          }
+          received += value.byteLength;
+          if (total) {
+            progress.max = total;
+            progress.value = received;
+            message.textContent = `Downloading game… ${Math.min(100, Math.floor(received * 100 / total))}%`;
+          } else {
+            message.textContent = 'Downloading game…';
+          }
+          controller.enqueue(value);
+        },
+        cancel(reason) { return reader.cancel(reason); },
+      });
+      await init({ module_or_path: new Response(body, { headers: { 'Content-Type': 'application/wasm' } }) });
     } catch (error) {
       if (!String(error).includes('Using exceptions for control flow')) fail(error);
     }

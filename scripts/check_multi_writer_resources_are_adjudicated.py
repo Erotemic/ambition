@@ -284,8 +284,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_render/src/rendering/parallax.rs",
         "game/ambition_app/src/app/setup_systems.rs",
         "game/ambition_app/src/app/startup_loading.rs",
-        "game/ambition_app/src/app/world_flow/parallax_residency.rs",
-        "game/ambition_app/src/app/world_flow/room_transition_assets.rs",
+        "crates/ambition_platformer2d/src/world_flow/parallax_residency.rs",
+        "crates/ambition_platformer2d/src/world_flow/room_transition_assets.rs",
     ),
     "GameplayBanner": (
         (
@@ -353,8 +353,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_rollback_ggrs/src/lifecycle_commit.rs",
         "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
         "crates/ambition_platformer2d_runtime/src/room_transition/loading.rs",
-        "game/ambition_app/src/app/world_flow/room_transition_assets.rs",
-        "game/ambition_app/src/app/world_flow/room_transition_presentation.rs",
+        "crates/ambition_platformer2d/src/world_flow/room_transition_assets.rs",
+        "crates/ambition_platformer2d/src/world_flow/room_transition_presentation.rs",
     ),
     "SimTick": (
         "crates/ambition_platformer2d_session/src/teardown.rs",
@@ -519,8 +519,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_rollback_ggrs/src/lifecycle_commit.rs",
         "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
         "crates/ambition_platformer2d_runtime/src/room_transition/loading.rs",
-        "game/ambition_app/src/app/world_flow/room_transition_assets.rs",
-        "game/ambition_app/src/app/world_flow/room_transition_presentation.rs",
+        "crates/ambition_platformer2d/src/world_flow/room_transition_assets.rs",
+        "crates/ambition_platformer2d/src/world_flow/room_transition_presentation.rs",
     ),
     "ActiveAudioSelection": (
         "crates/ambition_audio/src/bank_asset.rs",
@@ -603,7 +603,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "CharacterLoadStates": (
         "crates/ambition_platformer2d_assets/src/materialization/mod.rs",
         "game/ambition_app/src/app/startup_loading.rs",
-        "game/ambition_app/src/app/world_flow/room_transition_assets.rs",
+        "crates/ambition_platformer2d/src/world_flow/room_transition_assets.rs",
     ),
     "ConstructionSchemaCatalog": (
         "crates/ambition_platformer2d_runtime/src/gravity/plugin.rs",
@@ -684,7 +684,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "CameraShakeState": (
         "crates/ambition_platformer2d_shared_tangle/src/camera_ease.rs",
-        "game/ambition_app/src/app/player_tick.rs",
+        "crates/ambition_platformer2d_runtime/src/body_feedback.rs",
     ),
     "ClockState": (
         "crates/ambition_platformer2d_session/src/teardown.rs",
@@ -827,7 +827,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "RoomConstructionPlanPrefetch": (
         "crates/ambition_platformer2d_runtime/src/room_transition/loading.rs",
-        "game/ambition_app/src/app/world_flow/room_transition_assets.rs",
+        "crates/ambition_platformer2d/src/world_flow/room_transition_assets.rs",
     ),
     "RoomContentStagingRegistry": (
         "crates/ambition_sim_harness/src/runtime.rs",
@@ -2754,7 +2754,7 @@ ADJUDICATED: dict[str, str] = {
     ),
     "RoomConstructionPlanPrefetch": (
         "A PRODUCER/CONSUMER CACHE, NOT TWO FILLERS. "
-        "`game/ambition_app/src/app/world_flow/room_transition_assets.rs:1407`'s "
+        "`crates/ambition_platformer2d/src/world_flow/room_transition_assets.rs:1407`'s "
         "required `ResMut` builds and fills the plan — its own doc (`:107`) "
         "says \"the PREFETCH builds the same plan the transition will "
         "commit.\" "
@@ -2833,8 +2833,8 @@ ADJUDICATED: dict[str, str] = {
         "A COMMUTATIVE MAX-COMBINE, ORDER-INDEPENDENT BY CONSTRUCTION. "
         "`apply_camera_shake_requests`/`tick_camera_shake` "
         "(`crates/ambition_platformer2d_shared_tangle/src/camera_ease.rs:229,248`) "
-        "are message-kick and per-frame-decay. `sync_player_presentation` "
-        "(`game/ambition_app/src/app/player_tick.rs:29`) reaches the same "
+        "are message-kick and per-frame-decay. `emit_body_movement_feedback` "
+        "(`crates/ambition_platformer2d_runtime/src/body_feedback.rs:29`) reaches the same "
         "`kick()` method (`camera_ease.rs:193`) through a helper — "
         "`if target > self.amplitude_px { self.amplitude_px = target }` — so "
         "multiple simultaneous kicks converge on the loudest regardless of "
@@ -3152,8 +3152,8 @@ ADJUDICATED: dict[str, str] = {
         "SCHEDULE ORDERING. `census.shared_targets` names exactly one field, "
         "`parallax_layers` "
         "(`crates/ambition_sprite_sheet/src/game_assets/mod.rs:455`), shared "
-        "by `game/ambition_app/src/app/world_flow/parallax_residency.rs` and "
-        "`game/ambition_app/src/app/world_flow/room_transition_assets.rs`, "
+        "by `crates/ambition_platformer2d/src/world_flow/parallax_residency.rs` and "
+        "`crates/ambition_platformer2d/src/world_flow/room_transition_assets.rs`, "
         "touched but mutation-shaped in NEITHER — both go through `&mut "
         "self` methods, not a field assignment. `ensure_theme_loaded` "
         "(`crates/ambition_sprite_sheet/src/game_assets/mod.rs:340-372`) "
@@ -3161,7 +3161,7 @@ ADJUDICATED: dict[str, str] = {
         "additive; `retain_themes` (`:396-400`) is the ONLY eviction path, "
         "and `retire_departed_parallax_themes` is registered "
         "`.after(prefetch_neighbor_room_preparation_system)` "
-        "(`game/ambition_app/src/app/world_flow/room_transition_presentation.rs:274-275`), "
+        "(`crates/ambition_platformer2d/src/world_flow/room_transition_presentation.rs:274-275`), "
         "with the registration comment naming why: \"the prefetch may load a "
         "neighbour's theme this frame, and retiring before it would drop "
         "what it just decided to keep.\" Every other writer touches a "
@@ -3275,7 +3275,7 @@ ADJUDICATED: dict[str, str] = {
         "is documented as \"the engine's ONE decode path\" and is the only "
         "place `record` (the by_token/cast write) is called. "
         "`demand_room_character_sheets` "
-        "(`game/ambition_app/src/app/world_flow/room_transition_assets.rs:399`) "
+        "(`crates/ambition_platformer2d/src/world_flow/room_transition_assets.rs:399`) "
         "calls it at `:468`, and that one helper is itself called from "
         "`game/ambition_app/src/app/startup_loading.rs:456` (initial room) "
         "and `room_transition_assets.rs:729` (room transition/prefetch) — "
@@ -3610,7 +3610,7 @@ ADJUDICATED: dict[str, str] = {
         "(`loading.rs`); `commit.rs`'s pair sits in the sim schedule's "
         "`RoomTransitionSet::Apply` chain (`mod.rs:88-105`); and the "
         "presentation trio is chained in `Update` "
-        "(`game/ambition_app/src/app/world_flow/room_transition_presentation.rs:239-257`). "
+        "(`crates/ambition_platformer2d/src/world_flow/room_transition_presentation.rs:239-257`). "
         "⛔ WHAT IS NOT: the relationship BETWEEN those groups. MEASURED "
         "2026-09-18 by asking Bevy's own `conflicting_systems()` about the "
         "shipped app — 16 unordered pairs write this resource, held as a "

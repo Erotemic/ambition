@@ -60,9 +60,6 @@ pub enum PhysicsDebrisCue {
 }
 
 /// Typed physics-debris message (the debris twin of [`VfxMessage`]).
-/// Bundled into the same `GameplayFeedbackWriters` SystemParam as `SfxMessage`
-/// and `VfxMessage` to stay within Bevy's 16-system-param budget.
-///
 /// `room` is the live room the debris is thrown in: the room of the body or
 /// the feature that broke. Two live rooms share one coordinate space, so the
 /// position does not say which room.

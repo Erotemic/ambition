@@ -22,7 +22,7 @@ use ambition_platformer2d::render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
 use ambition_platformer2d::world::rooms::RoomSet;
 
-use super::world_flow::{
+use ambition_platformer2d::world_flow::{
     build_loaded_room_asset_manifest, inspect_room_asset_manifest, RoomAssetManifest,
 };
 use super::PresentationSetupSet;
@@ -581,7 +581,7 @@ fn build_startup_manifest(sprite_content: &ambition_platformer2d::sprite_sheet::
     staged_names.extend(worn.iter().cloned());
     staged_names.sort();
     staged_names.dedup();
-    super::world_flow::demand_room_character_sheets(&sprite_content,
+    ambition_platformer2d::world_flow::demand_room_character_sheets(&sprite_content,
         room,
         &staged_names,
         &mut inputs.game_assets,
@@ -620,9 +620,9 @@ fn build_startup_manifest(sprite_content: &ambition_platformer2d::sprite_sheet::
         }
     }
     let room_manifest = build_loaded_room_asset_manifest(room, &staged_names, &inputs.game_assets, inputs.boss_catalog.as_deref());
-    let demanded_characters = super::world_flow::room_character_tokens(room, &staged_names);
+    let demanded_characters = ambition_platformer2d::world_flow::room_character_tokens(room, &staged_names);
     let realized_at_build =
-        super::world_flow::realized_character_count(&demanded_characters, &inputs.game_assets);
+        ambition_platformer2d::world_flow::realized_character_count(&demanded_characters, &inputs.game_assets);
     let room_spec = Some(std::sync::Arc::new(room.clone()));
 
     let mut supporting = Vec::new();
@@ -699,7 +699,7 @@ fn inspect_startup_manifest(
     // the first manifest never saw. Rebuild the description when the count moved.
     if let Some(room_spec) = manifest.room_spec.clone() {
         let realized =
-            super::world_flow::realized_character_count(&manifest.demanded_characters, game_assets);
+            ambition_platformer2d::world_flow::realized_character_count(&manifest.demanded_characters, game_assets);
         if realized != manifest.realized_at_build {
             manifest.room =
                 build_loaded_room_asset_manifest(&room_spec, &manifest.staged_names, game_assets, boss_catalog);
@@ -713,7 +713,7 @@ fn inspect_startup_manifest(
         prepared_here,
         &manifest.room,
     );
-    super::world_flow::inspect_demanded_characters(
+    ambition_platformer2d::world_flow::inspect_demanded_characters(
         &manifest.demanded_characters,
         game_assets,
         Some(character_load_states),

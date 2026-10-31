@@ -17,13 +17,6 @@ pub fn sheet_key(root: &str, path: &Path) -> String {
     }
 }
 
-/// Read a published part flipbook with the schema the crate reads it with.
-pub fn read_part_flipbook(text: &str) -> Result<super::published::Published, ron::error::SpannedError> {
-    ron::Options::default()
-        .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME)
-        .from_str(text)
-}
-
 /// The landmark table of one published part flipbook: the place of each
 /// landmark track in each frame of each clip. `None` when the flipbook tracks
 /// no landmark, so that such a target has no table.

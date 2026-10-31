@@ -586,7 +586,7 @@ pub struct BodyAnimFacts {
     /// player is holding a charge and the `Aim` row plays.
     pub aim_anim_active: bool,
     /// Time remaining for the wall-jump push-off pose. Armed by
-    /// `handle_player_events` on a `MovementOp::WallJump` op. Distinct
+    /// `arm_movement_anim_overlays` on a `MovementOp::WallJump` op. Distinct
     /// from `Jump` so the wall departure reads as a kick-off rather
     /// than a ground arc. The row plays over the hold
     /// ([`WALL_JUMP_ANIM_HOLD_SECS`]).

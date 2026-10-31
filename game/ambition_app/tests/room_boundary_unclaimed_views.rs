@@ -459,7 +459,8 @@ fn no_magenta_placeholder_is_visible_while_the_cover_is_down() {
 /// members ARE rather than reasoning from a set's name.
 #[test]
 fn the_room_transition_cover_is_ordered_after_the_unclaimed_census() {
-    use ambition_app::app::{Platformer2dSimulationPhase, RoomTransitionCoverSet};
+    use ambition_app::app::Platformer2dSimulationPhase;
+    use ambition_platformer2d::world_flow::RoomTransitionCoverSet;
     use bevy::ecs::schedule::{NodeId, Schedules, SystemSet};
 
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);

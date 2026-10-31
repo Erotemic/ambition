@@ -1,4 +1,4 @@
-//! Plain Bevy UI reference presentation for load evidence and ready-hold.
+//! Show load status and the controls needed to continue or recover.
 
 use ambition_game_shell::{shell_action_edges, FrontendOwnedEntity, FrontendPresentationKind};
 use ambition_platformer2d_shared_tangle::developer_hotkeys::{
@@ -225,46 +225,9 @@ fn format_model(model: &LoadPresentationModel, quit_label: &str) -> String {
         )
         | None => {}
     }
-    let mut lines = vec![model.stage.clone()];
-    if let Some(estimate) = &model.estimate {
-        let percent = (estimate.fraction * 100.0).floor() as u32;
-        lines.push(format!("About {percent}%"));
-    }
-    lines.push(format!(
-        "{} complete · {} active · {} known remaining",
-        model.completed_steps, model.active_steps, model.known_remaining_steps
-    ));
-    append_work_section(&mut lines, "Working now", &model.active_labels);
-    append_work_section(&mut lines, "Completed", &model.completed_labels);
-    append_work_section(&mut lines, "Required next", &model.remaining_labels);
-    append_work_section(
-        &mut lines,
-        "Streaming after launch",
-        &model.streamable_labels,
-    );
-    append_work_section(
-        &mut lines,
-        "Optional background work",
-        &model.speculative_labels,
-    );
-    if let Some(additional) = &model.estimated_additional_steps {
-        lines.push(format!(
-            "Approximately {}–{} additional steps may be discovered",
-            additional.start(),
-            additional.end()
-        ));
-    } else if model.discovery_open {
-        lines.push("More work may still be discovered".to_owned());
-    }
     if model.ready_hold {
-        lines.push("Ready — press Enter to continue".to_owned());
+        "Ready to play\n\nPress Enter to continue".to_owned()
+    } else {
+        "Loading...\n\nPlease wait".to_owned()
     }
-    lines.join("\n\n")
-}
-
-fn append_work_section(lines: &mut Vec<String>, heading: &str, labels: &[String]) {
-    if labels.is_empty() {
-        return;
-    }
-    lines.push(format!("{heading}:\n{}", labels.join("\n")));
 }

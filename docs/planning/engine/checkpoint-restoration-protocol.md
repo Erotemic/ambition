@@ -215,7 +215,7 @@ filter is not a pass.
 - The terminal outcome has no presentation consumer. When one is needed, publish
   a message at completion; do not poll the single-latest outcome resource.
 - `prefetch_neighbor_room_preparation_system`
-  (`game/ambition_app/src/app/world_flow/room_transition_assets.rs`) braids a
+  (`crates/ambition_platformer2d/src/world_flow/room_transition_assets.rs`) braids a
   construction-plan cache with neighbor asset residency, so headless
   compositions hold no prefetched plans. Split the plan half from the asset
   half in its own packet.

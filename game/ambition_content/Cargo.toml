@@ -42,6 +42,7 @@ dev_hot_reload = []
 physics_debris = ["ambition_platformer2d/physics_debris"]
 
 [build-dependencies]
+ambition_sprite_part_format = { path = "../../crates/ambition_sprite_part_format" }
 # `build.rs` embeds each source `assets/pack.ron` declares, under
 # `static_content` (`ambition_content_pack::embed`).
 ambition_content_pack = { path = "../../crates/ambition_content_pack" }

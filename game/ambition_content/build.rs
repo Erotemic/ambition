@@ -6,7 +6,7 @@
 use std::path::Path;
 
 fn main() {
-    ambition_content_pack::embed::embed_pack("assets");
+    ambition_content_pack::embed::embed_pack("assets", &[ambition_sprite_part_format::compile_metadata]);
     embed_worlds();
 }
 

@@ -198,9 +198,8 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
             .after(ambition_platformer2d_shared_tangle::schedule::ItemPickupSet::WieldedAbilities),
     );
 
-    // The phases INSIDE PlayerSimulation. `PostPossession` is a HOST SLOT: the
-    // engine registers nothing into it, and a host that registers nothing gets
-    // the chain with the slot collapsed.
+    // Body feedback runs after possession and before outcome policy. Hosts can
+    // add observers to the same phase.
     app.configure_sets(
         sim,
         (

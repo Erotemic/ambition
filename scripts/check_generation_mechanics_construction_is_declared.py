@@ -155,7 +155,7 @@ DECLARED: dict[tuple[str, str], tuple[int, str]] = {
         "(read 2026-09-18)",
     ),
     (
-        "game/ambition_app/src/app/world_flow/room_transition_assets.rs",
+        "crates/ambition_platformer2d/src/world_flow/room_transition_assets.rs",
         "for_live_session",
     ): (
         1,

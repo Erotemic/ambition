@@ -38,7 +38,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 sys.path.insert(0, str(HERE.parent / "gate_network"))
 
-from district_kit import WALL, WORLDS, edge, ensure_world, entity, ledge, make_rooms, paint, room, run, sign, solid, start  # noqa: E402
+from district_kit import WALL, WORLDS, edge, ensure_world, entity, ledge, make_rooms, paint, resident, room, run, sign, solid, start  # noqa: E402
 import gates  # noqa: E402
 from district_scenery import piece  # noqa: E402
 
@@ -135,6 +135,8 @@ def square():
         ledge("square_balcony", 1900, 448, 288),
         *hole("square_well", *WELL, HOLLOW, "hollow_well_shaft", "square_well", "down the old well"),
         sign("square_well_sign", WELL[0] + 32, 540, "THE OLD WELL: wishes not refunded", 340),
+        resident("npc_magical_celeste", "magical_celeste", 1160, FLOOR),
+        resident("npc_magical_lumen", "magical_lumen", 2060, FLOOR),
         edge("square_east", "out of town, along the dune road", w - 16, FLOOR, ROAD, "road_west"),
     ]
     return rid, room(rid, e, at=SQUARE_AT, size=(w, H), biome="starlight", music="it_was_revealed_to_me_in_a_dream",

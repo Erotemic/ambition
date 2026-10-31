@@ -47,6 +47,7 @@
         ( type: "EnemySpawn", px: [1784, 664], size: [40, 40], fields: ( name: "gnu_ton_orchard_bad_apple_1", brain: "combatant", character_id: "bad_apple", respawn: "OnRoomReenter" ) ),
         ( type: "EnemySpawn", px: [2560, 476], size: [44, 44], fields: ( name: "gnu_ton_orchard_gravity_apple_2", brain: "combatant", character_id: "gravity_apple", respawn: "OnRoomReenter" ) ),
         ( type: "DebugLabel", px: [1560, 560], size: [300, 24], fields: ( name: "orchard_crates_sign", text: "PICKED APPLES: store this way up", category: "Custom" ) ),
+        ( type: "NpcSpawn", px: [1529, 640], size: [32, 64], fields: ( character_id: "npc_station_pippin", prompt: "Talk", dialogue_id: "works_pippin", brain_override: "stand_still" ) ),
         ( type: "CameraZone", px: [0, 0], size: [2816, 960], fields: ( id: "gnu_ton_orchard_camera", name: "gnu_ton_orchard_camera", mode: "Default" ) ),
         ( type: "DebugLabel", px: [64, 96], size: [900, 24], fields: ( name: "gnu_ton_orchard_title", text: "THE ORCHARD: HERE AN APPLE FALLS UP", category: "Custom" ) ),
     ],

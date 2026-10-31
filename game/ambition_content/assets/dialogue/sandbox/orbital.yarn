@@ -165,3 +165,16 @@ Dobbs: Welcome to orbit! First time up the ribbon? You look like a first time. S
 -> Just looking.
     Dobbs: So is everyone up here. That's the whole station. Come back when you want a shirt.
 ===
+
+title: works_pippin
+---
+Hortensia Pippin: Mind the apples. They fall up here. I've been picking this orchard thirty years and I still look the wrong way first.
+-> How do you pick an apple that falls up?
+    Hortensia Pippin: Long pole and a lot of patience. You don't pick them, you catch them. They come off the branch and go straight for the ceiling, and you have to be faster than gravity. Which way gravity is that day.
+-> Why is that tree upside down?
+    Hortensia Pippin: It isn't. It's the only one that's right way up. It grows towards the light, and the light's down there, on the planet. The others are the confused ones. I don't tell them.
+-> Do you know GNU-ton?
+    Hortensia Pippin: He planted the first tree. Sat under it, waiting for an apple to fall on his head. Took him a week to think of looking up. Now he won't stop lecturing about it.
+-> I'll let you work.
+    Hortensia Pippin: Take one from the crate. Hold it tight. If you let go, it's the ceiling's.
+===

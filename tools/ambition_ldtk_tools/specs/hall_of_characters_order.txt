@@ -137,6 +137,11 @@ npc_station_rahimi
 npc_station_pell
 npc_station_wen
 npc_station_dobbs
+npc_station_pippin
+
+[The Magical dimension's people]
+npc_magical_celeste
+npc_magical_lumen
 
 [Eureka, the institute town]
 npc_eureka_teodora

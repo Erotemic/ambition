@@ -599,6 +599,7 @@ collections:
   - coliseum_stand_west
   - coliseum_stand_east
   - wastes_dead_things
+  - ledges_gap
   - bad_apple
   - gravity_apple
   - mine_tunnel

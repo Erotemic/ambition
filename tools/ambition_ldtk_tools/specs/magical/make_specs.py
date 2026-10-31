@@ -564,6 +564,9 @@ def ledges():
         gap0, gap1 = x0 + w0, x1
         e.append(entity("HazardBlock", gap0, g + 24, gap1 - gap0, h - g - 24, name=f"the void, gap {i}"))
         e.append(ledge(f"over_gap_{i}", gap0 - 40, g - 110, gap1 - gap0 + 80))
+        # Its chains to the roof, and the castle falling away under it
+        # (`magical_unlit_props.py` `ledges_gap`, drawn at the first gap).
+        e.insert(0, piece("ledges_gap", gap0 - 44, top, name=f"ledges_gap_{i}"))
     e += [
         *floor_hole("ledges_down", *hole, g, h, COLISEUM, "coliseum_top", "down into the ring"),
         edge("ledges_west", "back to the rift", 0, g, RIFT, "rift_east"),

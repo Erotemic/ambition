@@ -13,6 +13,12 @@
     music_track: "castle_crash_override",
     dangerous: true,
     entities: [
+        ( type: "Prop", px: [3066, 64], size: [227, 574], fields: ( name: "ledges_gap_5", kind: "ledges_gap" ) ),
+        ( type: "Prop", px: [2526, 64], size: [227, 574], fields: ( name: "ledges_gap_4", kind: "ledges_gap" ) ),
+        ( type: "Prop", px: [1946, 64], size: [227, 574], fields: ( name: "ledges_gap_3", kind: "ledges_gap" ) ),
+        ( type: "Prop", px: [1366, 64], size: [227, 574], fields: ( name: "ledges_gap_2", kind: "ledges_gap" ) ),
+        ( type: "Prop", px: [946, 64], size: [227, 574], fields: ( name: "ledges_gap_1", kind: "ledges_gap" ) ),
+        ( type: "Prop", px: [486, 64], size: [227, 574], fields: ( name: "ledges_gap_0", kind: "ledges_gap" ) ),
         ( type: "Solid", px: [0, 0], size: [4480, 64], fields: ( name: "roof" ) ),
         ( type: "Solid", px: [4464, 64], size: [16, 512], fields: ( name: "east_wall" ) ),
         ( type: "Solid", px: [0, 576], size: [520, 64], fields: ( name: "piece_0" ) ),

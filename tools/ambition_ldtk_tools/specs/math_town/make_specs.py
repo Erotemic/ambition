@@ -1070,6 +1070,8 @@ def conjectures():
         f'( type: "PlayerStart", px: [{w - 120}, {g - 46}], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),',
         f'( type: "ChestSpawn", px: [240, {g - 58}], size: [76, 58], fields: ( name: "a proof (it is wrong)", reward: "currency:120" ) ),',
         label("conjectures_sign", 70, 90, "THE CONJECTURES: solutions welcome, by post", 452),
+        # Who keeps them: a parody of Fermat, short of a margin (`math.yarn`).
+        f'( type: "NpcSpawn", px: [384, {g - 64}], size: [32, 64], fields: ( character_id: "npc_math_fermette", prompt: "Talk", dialogue_id: "conjectures_fermette", brain_override: "stand_still" ) ),',
     ]
     return rid, room(rid, e, "The Conjectures.")
 

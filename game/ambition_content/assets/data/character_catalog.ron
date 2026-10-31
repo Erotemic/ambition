@@ -6850,6 +6850,24 @@
                 hall: ["When the last disk is moved, the world ends. I wrote the legend. It sold a great many puzzles.", "Nobody who understands the puzzle is ever in a hurry."],
             ),
         ),
+        "npc_math_fermette": (
+            display_name: "Pierre de Fermette",
+            // Keeps the Conjectures, the cellar of unsolved problems under the
+            // fractal roots (a parody of Pierre de Fermat).
+            manifest: "sprites/math_fermat_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "math_town", "peaceful"],
+            barks: (
+                idle: ["I have a marvellous proof. Have you a margin?", "Three inches. I need four."],
+                hall: ["I proved it in a margin. A man in Cambridge needed a hundred and nine pages. One of us has the better proof.", "Every problem in my cellar is solved. The margins are too small to show you."],
+            ),
+        ),
         "npc_math_kleinbottle": (
             display_name: "Felix Kleinbottle",
             // Mines the one-sided seam of the Mobius Mine under the woods.

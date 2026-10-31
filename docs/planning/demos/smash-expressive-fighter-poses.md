@@ -5,6 +5,16 @@
 **Scope:** Character art and visual presentation only. This is not an AI or combat-rules project.  
 **Reference:** The Melee reconstruction at `/home/joncrall/code/melee`, not a requirement to copy Melee's animations or timings.
 
+## Implementation status (2026-10-30)
+
+**Phase 1 art: authored and published; Jon's review at game scale is still open.** Renderer `385dcf6`: `devtools/pose_core.py` (the shared rig, solver, keys and clip writer), `devtools/reaction_keys.py` (the twelve anchors), `devtools/reaction_review.py` (contact sheets, `--silhouette`, `--gif` previews in both facings) and `devtools/clip_alias_audit.py`. All twelve rows exist on all three Polygon fighters. `teeter` and `tech` no longer alias other rows, and no new row aliases another. The hit recoils end on their settled pose, because the animator holds a clip's last frame for the length of the hitstun. Sheet budget (MEASURED, previous bundle to this one), pointed: full 9.98 to 11.06 MB, half 3.81 to 4.22 MB, quarter 1.46 to 1.61 MB, potato 186 to 201 KB. The other two fighters grew by the same fraction. Renderer suite: 1583 passed and 18 failed. The three `test_motion_ir` clip counts were updated. The other 15 failures are in files this work does not touch.
+
+**Phase 2 wiring: done for launch, prone, getup and tech, recoil, and run stop** (`611177e91`). The kernel publishes `BodyMotionFacts::{launched, prone_face_down, getup}`. `BodyCombat::struck_height` records where the hit resolver accepted a hit. `body_state_clip` routes all four families. `StopClock` is one stop rule for the player road and the actor road (the actor road had no stop rule before). `AMBITION_CLIP_TRACE=1` prints the requested chain and the row drawn. Rollback schema is now v392.
+
+Evidence from a traced CPU match (MEASURED: `smash_match_profile --character pointed_polygon --fighters 2 --ticks 2400`). Drawn: `launch_horizontal` 8, `launch_up` 6, `launch_down` 1, `prone_face_down` 6, `prone_face_up` 2, `hit_high` 4, `hit_mid` 2, `hit_air` 2, `getup` 5, `walk_stop` 3. Not seen in that match: `hit_low`, `tech`, `run_stop` (every stop came out of a walk) and `teeter` (a pose, not a clip request, so the trace does not print it). Unit tests cover their routing.
+
+**Open:** Jon's review of the art at game scale; a recorded match that shows tech, run stop and teeter; getups that match the prone orientation (art backlog); `teeter_start`; wall and ceiling tech art; Phase 3.
+
 ## Decision and outcome
 
 **Author the missing base silhouettes first. Wire them into Smash Siblings second. Improve transitions and procedural motion third.** Do not make runtime rig publication, inverse kinematics at runtime, or animation blending prerequisites for new art.

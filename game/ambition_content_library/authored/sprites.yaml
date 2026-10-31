@@ -553,6 +553,20 @@ collections:
   - square_bakery
   - square_well
   - square_house
+  - garden_hill_low
+  - garden_hill_high
+  - garden_hatch
+  - garden_star_tree
+  - garden_beds
+  - hollow_star_heap
+  - hollow_star_heap_east
+  - hollow_shaft_light_west
+  - hollow_shaft_light_east
+  - hollow_star_roots
+  - road_dunes
+  - road_dune_far
+  - road_cart
+  - road_lamp
   - bad_apple
   - gravity_apple
   - mine_tunnel

@@ -442,6 +442,7 @@ collections:
   - primeval_tock
   - primeval_twitchell
   - station_dobbs
+  - station_pippin
   - village_matsuda
   - village_moriyama
   - village_tsuru
@@ -546,6 +547,10 @@ collections:
   - hall_lectern
   - gallery_chandelier_hung
   - gallery_chandelier_stood
+  - square_wand_shop
+  - square_bakery
+  - square_well
+  - square_house
   - bad_apple
   - gravity_apple
   - mine_tunnel

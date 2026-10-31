@@ -40,6 +40,7 @@ sys.path.insert(0, str(HERE.parent / "gate_network"))
 
 from district_kit import WALL, WORLDS, edge, ensure_world, entity, ledge, make_rooms, paint, room, run, sign, solid, start  # noqa: E402
 import gates  # noqa: E402
+from district_scenery import piece  # noqa: E402
 
 WORLD = WORLDS / "magical.ldtk"
 GENERATOR = "specs/magical/make_specs.py"
@@ -118,11 +119,17 @@ def square():
     """The town's square, and its old well, which goes down."""
     rid, w = SQUARE, SQUARE_W
     e = [
+        # The fronts (`targets/props/magical_square_props.py`), first: they
+        # draw behind everything the room lists after them.
+        piece("square_wand_shop", 410, 180),
+        piece("square_bakery", 910, 170),
+        piece("square_well", 1540, 410),
+        piece("square_house", 1880, 110),
         *ground(0, w, (WELL,)),
         edge("square_west", "back to the gate garden", 0, FLOOR, GARDEN, "garden_east"),
         start(rid, 200, FLOOR),
-        sign("square_wands", 600, 420, "WAND REPAIR: closed (out fighting the void)", 440),
-        sign("square_bakery", 1100, 420, "STAR BAKERY: crescents, half moons, full moons on Sundays", 520),
+        sign("square_wands", 600, 150, "WAND REPAIR: closed (out fighting the void)", 440),
+        sign("square_bakery", 1100, 130, "STAR BAKERY: crescents, half moons, full moons on Sundays", 520),
         ledge("square_awning_a", 480, 480, 240),
         ledge("square_awning_b", 980, 480, 240),
         ledge("square_balcony", 1900, 448, 288),

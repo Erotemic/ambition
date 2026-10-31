@@ -17,7 +17,8 @@
 # Policy, and what a subagent needs to read: docs/tools/agent-worktrees.md
 set -euo pipefail
 
-MAIN="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+MAIN="$(git -C "$SCRIPT_ROOT" worktree list --porcelain | sed -n '1s/^worktree //p')"
 SLOTS=(1 2 3)
 
 die() { printf 'agent_worktree: %s\n' "$*" >&2; exit 2; }
@@ -51,9 +52,12 @@ require_slot() {
 # Held build lock == somebody is compiling here right now. The same probe the
 # guard uses; a lock nobody holds returns instantly.
 busy() {
-    local lock="$1/target/debug/.cargo-lock"
-    [ -e "$lock" ] || return 1
-    flock -n "$lock" true 2>/dev/null && return 1 || return 0
+    local lock
+    for lock in "$1"/target/*/.cargo-lock "$1"/target/*/*/.cargo-lock; do
+        [ -e "$lock" ] || continue
+        flock -n "$lock" true 2>/dev/null || return 0
+    done
+    return 1
 }
 
 human() { du -sh "$1" 2>/dev/null | cut -f1 || printf '?'; }
@@ -204,7 +208,7 @@ cmd_setup() {
 # incremental/ is per-worktree edit-loop state and the largest thing on disk;
 # seeding it buys nothing.
 cmd_seed() {
-    local n="$1" from="${2:-$MAIN}" path dst profile src_store dst_store
+    local n="$1" from="${2:-$MAIN}" path dst profile src_store dst_store deps
     path="$(slot_path "$n")"
     [ -d "$path" ] || die "slot $n is not set up — run: $0 setup $n"
     [ -d "$from/target" ] || die "donor has no target/: $from"
@@ -232,15 +236,12 @@ cmd_seed() {
     src_store="$(store_of "$from")"
     dst_store="$(store_of "$path")"
 
-    # ⭐ `profiling` IS IN THE LIST BECAUSE THE PERF SCRIPTS NEED IT.
-    # `headless_room_frame.sh`, `instrumentation_tax.sh` and their siblings all
-    # build the `profiling` profile, and seeding only debug+release meant a fresh
-    # slot faced a COLD OPTIMIZED BUILD before it could take a single
-    # measurement -- so the measurement got taken in the main tree instead, or
-    # not at all. Each iteration skips a profile the donor does not have, so this
-    # costs nothing when there is nothing to copy.
-    for profile in debug release profiling; do
-        [ -d "$from/target/$profile" ] || continue
+    # Cargo profiles are at the root or below a target triple.
+    for deps in "$src_store"/*/deps "$src_store"/*/*/deps; do
+        [ -d "$deps" ] || continue
+        profile="${deps#"$src_store"/}"
+        profile="${profile%/deps}"
+        [ -d "$src_store/$profile/.fingerprint" ] || continue
         dst="$path/target/$profile"
         mkdir -p "$dst"
         if [ -d "$src_store/$profile/deps" ]; then

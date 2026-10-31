@@ -297,7 +297,16 @@ pub fn sync_ring_lit_glyphs(
     // A sheet without the grid rows still lights its glyphs.
     let grids = asset.spec.clip_slot(["bit"]).is_some() && asset.spec.clip_slot(["used"]).is_some();
     for (zone_id, config) in portals.iter() {
-        let mut lit = ring_lit_marks(&ring_lit_address(zone_id, preview.as_deref(), network.as_deref()));
+        // A travel portal is no chevron ring: it lights no address (its own
+        // frame sheet's `charge` row is its opening).
+        let portal = catalog.as_deref().and_then(|catalog| catalog.ring(zone_id)).is_some_and(|ring| {
+            ring.kind == ambition_platformer2d_world::rooms::RingKind::Portal
+        });
+        let mut lit = if portal {
+            Vec::new()
+        } else {
+            ring_lit_marks(&ring_lit_address(zone_id, preview.as_deref(), network.as_deref()))
+        };
         if !grids {
             lit.retain(|mark| matches!(mark, GateRingMark::Glyph(_)));
         }

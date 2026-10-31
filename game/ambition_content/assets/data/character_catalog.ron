@@ -6868,6 +6868,24 @@
                 hall: ["I proved it in a margin. A man in Cambridge needed a hundred and nine pages. One of us has the better proof.", "Every problem in my cellar is solved. The margins are too small to show you."],
             ),
         ),
+        "npc_math_kepplar": (
+            display_name: "Johannes Kepplar",
+            // Keeps the Observatory on the Math town's summit (a parody of
+            // Johannes Kepler).
+            manifest: "sprites/math_kepplar_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "math_town", "peaceful"],
+            barks: (
+                idle: ["Not a circle. Never a circle.", "Equal areas in equal times."],
+                hall: ["Everyone wanted circles. Mars wanted an ellipse. I gave Mars what it wanted.", "I nested the planets in the five perfect solids. It was beautiful. It was wrong. I kept the drawing."],
+            ),
+        ),
         "npc_math_kleinbottle": (
             display_name: "Felix Kleinbottle",
             // Mines the one-sided seam of the Mobius Mine under the woods.

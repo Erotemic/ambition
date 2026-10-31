@@ -610,7 +610,8 @@ def surveyors_office():
 def observatory():
     """The Observatory on the summit: the dome open on the night, the brass
     telescope on its pier pointing up the slit, the platform up its stair
-    (walked on), the star chart and the astronomer's desk. Hylbert watches."""
+    (walked on), the star chart and the astronomer's desk; Johannes Kepplar
+    at the telescope."""
     rid = OBSERVATORY
     _, w, h = ROOMS_AT[rid]
     floor = h - INSIDE_FLOOR
@@ -635,7 +636,9 @@ def observatory():
     e += [
         piece("obs_platform", "math_obs_platform", px0, floor),
         line("obs_stair", [(px0 + 6, floor), (stair_top, top), (w - WALL, top)], "up"),
-        # Hylbert keeps his hotel's desk now (`hotel_lobby`).
+        # Hylbert keeps his hotel's desk now (`hotel_lobby`); Kepplar keeps
+        # the telescope (`math.yarn` `observatory_kepplar`).
+        f'( type: "NpcSpawn", px: [190, {floor - 64}], size: [32, 64], fields: ( character_id: "npc_math_kepplar", prompt: "Talk", dialogue_id: "observatory_kepplar", brain_override: "stand_still" ) ),',
     ]
     return rid, room(rid, e, "The Observatory on the summit.", theme=INTERIOR)
 

@@ -60,6 +60,11 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Math: two keepers** (2e961cff7 and this): Pierre de Fermette (a parody
+  of Fermat) keeps the Conjectures, every problem on the walls solved, the
+  margins too small to show you; Johannes Kepplar (Kepler) keeps the summit's
+  observatory, pointed at Mars, who wanted an ellipse. Verified:
+  the_zeno_aqueduct (11).
 - **Evil: the guild meeting** (the Henchpersons' Guild's secret room had
   nobody in it): a meeting in session, off the clock, so nobody fights: a
   clubman with the agenda (item three, whether the hounds count as staff,

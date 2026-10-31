@@ -1,6 +1,7 @@
 # Mary-O browser baseline
 
-Measured on 2026-10-30. This is a browser prototype, with one provider and
+First measured on 2026-10-30. The completion check below is from 2026-10-31.
+This is a browser prototype, with one provider and
 simulation for the native and browser hosts.
 
 ## Method
@@ -18,7 +19,7 @@ profile did not retain the large responses and gave a false repeat-visit
 baseline. Transfer counts are CDP `encodedDataLength` response counts over
 local HTTP. They are not a wide-area network or TLS measurement.
 
-## Results
+## Initial results
 
 | Measure | Result |
 | --- | ---: |
@@ -114,18 +115,19 @@ The current web embed path includes RON metadata; the native cache does not
 reduce those embedded bytes. The result, selection ID and schema hash are in
 `target/mary-o-metadata-phase-probe/part-encoding-sizes.json`.
 
-## Content limits
+## Initial content limits
 
-The selected publication has no Mary-O music files or soft-glow image. The
-compiler reports eight absent music tracks. Browser visits report missing
-`support_theme/full.ogg` and `sprites/entities/soft_glow.png`. SFX load from the
-shared bank. Keep these missing media separate from transport failures.
+The first selected publication had no Mary-O music files or soft-glow image.
+The compiler reported eight absent music tracks. Browser visits reported missing
+`support_theme/full.ogg` and `sprites/entities/soft_glow.png`. SFX loaded from the
+shared bank. The completion check uses eight accepted music cues and a
+procedural glow mask.
 
 The tool suite passed 296 tests. Its remaining Hall test reports two exhibits
 without an order entry: `bad_apple` and `gravity_apple`. The focused authoring
 checks passed 19 tests. No map content changed during the authoring move.
 
-## Verification
+## Initial verification
 
 The assembled native app check passed. The content compiler, sprite metadata,
 and facade library tests passed 208 tests, with three ignored. Mary-O's content
@@ -145,8 +147,10 @@ checks are not green.
 
 ## Next size pass
 
-Use 20 MiB for the initial playable load as a proposed working target,
-including music. It is not an accepted limit or a measured result.
+Use 32 MiB as the working budget for the captured cold playable load, including
+music. The completion check measured 30.12 MiB. This budget covers the captured
+scene. Measure later room and form loads separately. A 20 MiB cold load remains
+a later size target.
 
 First measure the game's full metadata dependency closure through the schema
 owners. Keep late-bound actors, forms, poses, and attachments in that closure.
@@ -169,3 +173,64 @@ submodule's README update is `f83a7d8`; Mary-O's map bytes did not change.
 
 The package and captures are generated files. The source and this measurement
 record are tracked.
+
+## Completion check (2026-10-31)
+
+Source: `a01e4553b`. Build with
+`./build_for_web.sh --game mary-o --copy-assets --brotli`. Brotli uses quality 9.
+The browser, viewport and persistent-profile method are the same as the initial
+measurement. The module uses the current library file index and eight accepted
+Mary-O music cues. Each cue passed its renderer dependency check. A scoped run
+keeps the full library registry unpublished; Mary-O supplies its own registry.
+
+| Measure | Result |
+| --- | ---: |
+| Raw JS and WASM | 195.86 MiB |
+| Gzip JS and WASM | 23.71 MiB |
+| Brotli JS and WASM | 16.68 MiB |
+| Cold smoke visit, with music | 30.12 MiB |
+| Repeat smoke visit | 14.30 KiB |
+| WASM linear memory at capture | 539.19 MiB |
+| Cold canvas start | 17.79 s |
+| Repeat canvas start | 16.89 s |
+| Available asset files | 10622 |
+| Available asset bytes | 1933.12 MiB |
+
+The code transfer is about 69% below the first 54.54 MiB gzip prototype. This
+comparison includes build features, asset transport and compression changes.
+Brotli code is about 30% below gzip for this final package. The browser received
+Brotli code and the SFX bank. Image and audio files load on demand.
+
+The cold visit has two HTTP 404 responses; the repeat visit has one. These are
+library ambiguity probes for short music paths. Each probe is followed by a
+successful request under `__libraries/ambition_shared/`. No requested music
+file remains unresolved. The browser reported no JavaScript errors. The glow
+has no external image request.
+
+Separate captures show a keyboard jump and a touch jump at 844 by 390. All eight
+music files decode in Chromium. A gesture-restricted Web Audio probe measured
+an output peak of 0.477 before keyboard input and 0.417 during the jump sample.
+These are mixed output samples. They do not isolate the SFX channel or test a
+physical audio device.
+
+The web-release build and the 10,622-file package contract passed. The cue
+freshness check reports eight accepted bundles and no missing or stale cue in
+the requested set. The content preflight and 21 focused Python checks passed.
+This lane covers cue publication, stale render refusal, package ownership,
+registry generation, content status and HTTP compression. It omits the full
+repository suite, other browser engines and physical devices. The full shared
+music library still needs its other cues; the scoped result covers Mary-O.
+
+Current local artifacts:
+
+- `target/mary-o-web-completion/`: network, console, audio and input receipts.
+- `target/mary-o-web-completion-keyboard/`: keyboard captures.
+- `target/mary-o-web-completion-touch/`: touch captures.
+- The completion directory's `tools/` has the separate browser probes.
+- `game/ambition_demo_mary_o_app/web/`: portable package and byte contract.
+
+Publication generation: `d6a3d911f99504617c170d0120fc2e39c1e449c477cfa715e7d3dbb31ca8a373`.
+
+Selection SHA-256: `72dc6a5b7eb5909e277cb3afe261ae062c9528f7d47e7c5077f3430fc5fd20f3`.
+
+WASM SHA-256: `af54f65b7b4e3281e91c48a60f70f2e2e17acadca22bfee0a17633f1ea4d97a1`.

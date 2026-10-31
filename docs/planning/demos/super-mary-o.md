@@ -28,10 +28,11 @@ shared economy; LDtk authoring of levels, loading zones and pipes.
 Built: `game/ambition_demo_mary_o` (content) and `game/ambition_demo_mary_o_app`
 (standalone shell).
 
-- Standalone WebGL2 prototype: `./build_for_web.sh --game mary-o --copy-assets`.
-  It uses the same provider and simulation, with shared touch controls and SFX.
-  Code is 23.70 MiB with gzip; the local cold smoke visit fetched 36.66 MiB.
-  Music and glow media are absent from the selected publication. See the
+- Standalone WebGL2 prototype (`a01e4553b`):
+  `./build_for_web.sh --game mary-o --copy-assets --brotli`.
+  The shared provider has keyboard, touch, music and SFX. Code is 16.68 MiB
+  with Brotli; the cold smoke visit fetched 30.12 MiB. The working budget is
+  32 MiB. The browser captures and 21 focused Python checks passed. See the
   [measurement](../../../dev/benchmark-candidates/mary-o-web-startup.md) and
   [web recipe](../../recipes/web-build.md#standalone-mary-o).
 

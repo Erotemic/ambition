@@ -91,3 +91,11 @@ fn the_hearts_west_wall_breaks_into_the_nursery() {
     go(&mut app, NURSERY, Some("heart_west"));
     talk(&mut app, "void_star", "Who are they?");
 }
+
+/// The rift's pool: the way east to the falls crosses it, high on a ledge
+/// over it or low on shards that crumble under a body and come back.
+#[test]
+fn the_rift_is_crossed_over_its_pool_to_the_falls() {
+    let mut app = a_session_in(RIFT);
+    go(&mut app, FALLS, Some("rift_down_east"));
+}

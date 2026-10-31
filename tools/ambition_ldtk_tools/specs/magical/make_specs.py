@@ -110,6 +110,11 @@ FALLS_AT, FALLS_W, FALLS_H, FALLS_FLOOR = (GALLERY_AT[0] + GALLERY_W, GALLERY_AT
 #: The falls' top: under the rift's east hole (the falls' x).
 FALLS_TOP = (408, 472)
 RIFT_EAST_HOLE = (FALLS_TOP[0] + FALLS_AT[0] - RIFT_AT[0], FALLS_TOP[1] + FALLS_AT[0] - RIFT_AT[0])
+#: The rift's pool: a cut in its floor where the void stands (touch it and
+#: the room starts again), crossed on shards that crumble under a body and
+#: come back.
+POOL = (1880, 2160)
+SHARDS = (1890, 1990, 2090)
 #: The nursery: behind the heart's west wall (a wall that breaks), west of it.
 NURSERY_W = 640
 NURSERY_AT = (HEART_AT[0] - NURSERY_W, HEART_AT[1])
@@ -376,7 +381,15 @@ def rift():
     e = [
         piece("rift_tear", 0, top),
         piece("rift_outlines", 760, 220),
-        *ground_at(g, h, 0, w, (RIFT_WEST_HOLE, RIFT_EAST_HOLE)),
+        piece("rift_pool", POOL[0] - 4, g),
+        *ground_at(g, h, 0, w, (RIFT_WEST_HOLE, POOL, RIFT_EAST_HOLE)),
+        entity("HazardBlock", POOL[0], g + 24, POOL[1] - POOL[0], h - g - 24, name="the void, standing"),
+        *[entity("BreakablePlatform", x, g, 60, 16, name=f"rift_shard_{i}", max_hp=1.0, collision="Solid", trigger="OnStand",
+                 respawn="AfterSeconds", respawn_seconds=2.5, look="rift_shard") for i, x in enumerate(SHARDS)],
+        # The high way over it, for those who would rather not stand on
+        # anything the void can take.
+        ledge("rift_pool_ledge", 1940, 470, 160),
+        sign("rift_pool_sign", 2020, 380, "MIND THE VOID (it minds you)", 320),
         solid("roof", 0, 0, w, top),
         solid("east_wall", w - WALL, top, WALL, g - top),
         edge("rift_west", "back to the lizard's bridge", 0, g, BRIDGE, "bridge_east"),
@@ -462,7 +475,7 @@ def heart():
         # The west wall is a wall above, and below a wall that breaks (a
         # secret: the nursery is behind it).
         solid("west_wall", 0, top, WALL, g - 96 - top),
-        breakable_wall("heart_nursery_wall", WALL, g - 96, 32, 96, hp=3, name="a crack in the dark"),
+        breakable_wall("heart_nursery_wall", WALL, g - 96, 32, 96, look="void_crack_wall", hp=3, name="a crack in the dark"),
         edge("heart_west", "through the crack", 0, g, NURSERY, "nursery_east"),
         solid("east_wall", w - WALL, top, WALL, g - 96 - top),
         shaft_up("heart_up", *GALLERY_HOLE, GALLERY, "gallery_down", "up to the gallery"),

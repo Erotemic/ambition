@@ -327,5 +327,13 @@
             ),
             backdrop: (0.04, 0.05, 0.1, 0.85),
         )),
+        // Fighters are drawn between their last two ticks, not a tick ahead:
+        // they stop, turn and freeze every few frames, and a tick ahead drew
+        // each of those past where the body stopped, then snapped it back.
+        // MEASURED (two CPUs, 20 s at 144 Hz, per-frame change of a body's
+        // drawn step): ahead p99 7.65 px, max 26.7, 152 frames over 4 px;
+        // between p99 1.51, max 7.9, 11 frames. The cost is one tick (16.7
+        // ms) of drawn latency.
+        interpolate_poses: true,
     )),
 )

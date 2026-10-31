@@ -14,7 +14,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[3]
 TOOLS = REPO / "tools" / "ambition_ldtk_tools"
 TARGET = REPO / "game" / "ambition_map_assets" / "ambition_demo_mary_o" / "worlds" / "mary_o.ldtk"
-SPEC = REPO / "game" / "ambition_demo_mary_o" / "assets" / "worlds" / "mary_o.entities.json"
+SPEC = REPO / "game" / "ambition_demo_mary_o" / "authoring" / "worlds" / "mary_o.entities.json"
 
 
 def run_tool(*args: str) -> int:

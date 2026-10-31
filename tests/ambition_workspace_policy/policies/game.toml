@@ -667,4 +667,4 @@ severity = "error"
 production_only = true
 skip_tests = true
 roots = ["game/ambition_demo_sanic/src", "game/ambition_demo_mary_o/src"]
-forbid = ["include_str!(\"../assets/worlds/mary_o.ldtk", "include_str!(\"../assets/worlds/sanic_"]
+forbid = ["include_str!(\"../authoring/worlds/mary_o.ldtk", "include_str!(\"../assets/worlds/sanic_"]

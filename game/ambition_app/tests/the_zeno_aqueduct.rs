@@ -188,11 +188,29 @@ fn the_roots_loop_the_mine_back_up_into_the_woods() {
 }
 
 /// The roots' cracked wall at their west end (a breakable: hit it), chalk
-/// dust in the crack: the conjectures behind it, and back.
+/// dust in the crack: the conjectures behind it (Pierre de Fermette keeps
+/// them, `math.yarn` `conjectures_fermette`), and back.
 #[test]
 fn a_cracked_wall_in_the_roots_hides_the_conjectures() {
     let mut app = a_session_in("math_fractal_roots");
     crate::the_pirate_port::break_the_wall(&mut app, "math_roots_cracked_wall", ae::Vec2::new(110.0, 560.0), -1.0);
     go(&mut app, "math_conjectures", Some("secret_math_fractal_roots_west"));
+    crate::the_pirate_port::talk(&mut app, "npc_math_fermette", "A margin?");
     go(&mut app, "math_fractal_roots", Some("secret_math_conjectures_east"));
+}
+
+/// The Observatory on the summit: Johannes Kepplar at the telescope
+/// (`math.yarn` `observatory_kepplar`).
+#[test]
+fn kepplar_keeps_the_observatory() {
+    let mut app = a_session_in("math_observatory");
+    crate::the_pirate_port::talk(&mut app, "npc_math_kepplar", "What are you looking at?");
+}
+
+/// The gate hall: the snakes on a Cartesian plane, come through from Mary-O's
+/// land, hover over the west gallery (`math.yarn` `hall_cartesian_snakes`).
+#[test]
+fn the_cartesian_snakes_hover_in_the_gate_hall() {
+    let mut app = a_session_in("math_gate_hall");
+    crate::the_pirate_port::talk(&mut app, "npc_snakes_on_a_cartesian_plane", "How is it?");
 }

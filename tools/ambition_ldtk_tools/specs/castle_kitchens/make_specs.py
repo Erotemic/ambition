@@ -193,7 +193,9 @@ def cells():
 def guild():
     """The Henchpersons' Guild's secret room, behind the kitchens' false west
     wall: chairs facing a lectern, the banner, the demands, the ballot box,
-    and the strike fund (a chest)."""
+    and the strike fund (a chest). A meeting is in session: three of the
+    castle's own, off the clock, so not fighting (`castle_godwin.yarn`
+    `guild_*`)."""
     e = [
         piece("castle_guild_room", 16, CEILING, name="guild_room"),
         solid("floor", 0, FLOOR, GW, H - FLOOR),
@@ -205,6 +207,9 @@ def guild():
         entity("ChestSpawn", 600, FLOOR - 58, 76, 58, name="the strike fund", reward="currency:66"),
         sign("guild_sign", 520, 300, "HENCHPERSONS' GUILD, LOCAL 666: members only", 420),
         sign("guild_sign_demands", 730, 420, "DEMANDS: dental, less shouting, helmets that fit", 420),
+        resident("npc_fascist_clubman", "guild_clubman", 200, FLOOR),
+        resident("npc_fascist_swordsman", "guild_swordsman", 330, FLOOR),
+        resident("npc_evil_failed_prototype", "guild_prototype", 460, FLOOR),
     ]
     return room(GUILD, e, at=WHERE[GUILD], size=(GW, H), biome="castle_godwin", music="doves_of_the_commons", bg="#1A1416",
                 title="THE GUILD ROOM", generator=GENERATOR)

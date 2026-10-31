@@ -12,6 +12,8 @@ default = []
 # development build reads them off disk and a tuning edit needs no Rust build.
 # Turn it on where there is no source tree to read (web, Android, a bundle).
 static_content = []
+# Embed metadata. The platform asset reader loads images and audio.
+served_content = ["static_content"]
 # The pack check binary (`mary_o_content_check`): the content CLI with this demo's
 # own schemas. Off by default: the demo never links the CLI.
 content_check = ["ambition_platformer2d/content_check"]

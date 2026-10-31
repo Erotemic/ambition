@@ -24,3 +24,161 @@ Ollie Lumen: Evening. Or it will be. I light the star lamps, you see, and they d
 -> Good night.
     Ollie Lumen: Not yet. I haven't told the lamp it's beautiful. (to the lamp) You're beautiful. (the lamp brightens)
 ===
+
+title: magical_mary_o
+---
+Mary-O: Robot. Good. You came through the gate. You can be a witness. I'm at a truce.
+-> Where's the void?
+    Mary-O: East. Down the dune road, through the castle, over the lizard's bridge, and keep going until the colour stops.
+    Mary-O: Bring your own colour. It doesn't lend.
+-> A truce? With the void?
+    Mary-O: With the lizard. Not the void. The void doesn't do truces. It does more void.
+    Mary-O: The lizard's different. I dropped him in the lava six times. He came back six times. At some point you have to ask who's the problem.
+-> Isn't the lizard your enemy?
+    Mary-O: Was. In my castles he's on a bridge, I'm on the switch, it's a whole thing. Here he's just a guy who lives on a bridge.
+    Mary-O: He makes tea. It's bad tea. I drink it. That's diplomacy.
+-> What's the plan?
+    Mary-O: Step one: don't stomp anyone. Step two: find out what the void wants. Step three: three jumps.
+    Mary-O: It's always three jumps.
+-> What about the void stars?
+    Mary-O: Stars that went out and didn't like it. Don't stomp them either. They're rude, not dangerous. Mostly. Don't hit one and find out.
+-> Carry on.
+    Mary-O: Always. If anyone lands on that switch, it wasn't me.
+===
+
+title: magical_void_lizard
+---
+Void Lizard: Hhhh. A robot. On my bridge. Wipe your feet. The void gets everywhere and I'm the one who sweeps it.
+-> Are you going to fight me?
+    Void Lizard: Not today. The bridge just got fixed. Last time someone fought me here, the bridge fell in the lava, and so did I.
+    Void Lizard: I keep the lava warm. Nobody thanks me.
+-> What's the switch for?
+    Void Lizard: Nothing. Don't land on it. It's decorative. It's a decorative switch that drops the bridge.
+    Void Lizard: Who builds a bridge with a switch that drops it? Castle architects. Hhhh. Every castle. Every one.
+-> Why is everything dark?
+    Void Lizard: It's the void. I'm made of it. I didn't ask for it either. It came in and said "you're a lizard now, made of nothing, guard this," and I said "guard it from what," and it said "her."
+    Void Lizard: She brings biscuits now. It's very confusing.
+-> Is that tea?
+    Void Lizard: Void tea. Steep a little nothing in hot water. It tastes like a room you just left.
+-> I'll go.
+    Void Lizard: Mind the switch. Mind the stars. Mind your step. Hhhh. Mind everything.
+===
+
+title: magical_void_star_a
+---
+Void Star: What are you looking at. Don't look at me. I went out. You look at stars that are lit.
+-> Why did you go out?
+    Void Star: Nobody looked. You twinkle for a thousand years, nobody makes a wish, you start to think: why bother. Then the void came, and it was very understanding.
+-> Do you want a wish?
+    Void Star: ...No. ...What kind of wish. ...No. Go away.
+-> Sorry.
+    Void Star: You should be. Everybody should be. Hmph.
+===
+
+title: magical_void_star_b
+---
+Void Star: Hey. Robot. You're not lit up either. We could be friends. We won't, but we could.
+-> Are you dangerous?
+    Void Star: Hit me and see. Don't hit me and don't see. Your choice. Both choices are fine with me. One is finer.
+-> What does the void want?
+    Void Star: Quiet. Dark. Nobody wishing. It's restful. You'd like it. Your batteries would last for ever.
+-> Bye.
+    Void Star: Not "goodnight"? Everybody says goodnight to us. That's the problem.
+===
+
+title: magical_void_curator
+---
+Void Star: Welcome to the gallery. Don't touch the exhibits. You can't. They aren't there. That's the exhibit.
+-> What is all this?
+    Void Star: Things the void has taken. A lamp. A wheel. A crescent, bitten. A wand, bent. We keep the outlines. The outlines are what's left when you take the thing.
+-> Can I have the lamp back?
+    Void Star: You can have its outline. Hold it up to a dark room and it lights nothing. Very restful.
+-> Who visits?
+    Void Star: Mary-O. Every day. She stands in front of the wand and doesn't say anything. Then she goes and stomps something. We find it very moving.
+-> I'll look around.
+    Void Star: Mind the rope. It's the only thing in here with any colour, and it's black.
+===
+
+title: magical_void_elder
+---
+Void Star: ... You walked all the way down. Nobody walks all the way down. Shh. She's asleep.
+-> Who is she?
+    Void Star: The first star that went out. Before the town. Before the castle. Before the lizard learned to make tea. Every star that goes out comes down here, to lie next to her.
+-> Why did she go out?
+    Void Star: Nobody wished on her for a very long time. Then nobody wished on her at all. She closed her eyes. The void is what you see with your eyes closed. It grew.
+-> Can she be lit again?
+    Void Star: ... There's a crack in her, see. Light in it. Mary-O comes down and sits by her, and the crack is a little longer after.
+    Void Star: Don't tell anyone. It would ruin the whole void.
+-> I'll be quiet.
+    Void Star: Thank you. Take the light in the chest, if you want. She can't take it. She tried.
+===
+
+title: magical_void_nurse
+---
+Void Star: Shh! You'll wake them. How did you get in? Nobody breaks a wall in the void. There's nothing to break. ...You broke it.
+-> Who are they?
+    Void Star: New ones. Stars that went out for the first time today. It's a shock. You twinkle your whole life and then, one evening, nothing. They need a quiet room and somebody to rock them.
+-> Will they stay out?
+    Void Star: Most do. Some get wished on, while they sleep, by somebody up in the town who doesn't know. Then they wake up lit, and float off, and never write.
+-> What's in the chest?
+    Void Star: A night light. Nobody here has ever used it. Take it. Light something up there, where it's wanted.
+-> Goodnight.
+    Void Star: ...Say it again. Quieter. They like that.
+===
+
+title: magical_solid_snake
+---
+Solid Snake: Kept you waiting, huh. ...Don't jump on me. Everybody jumps on me. It's a whole thing in this kingdom.
+-> Why does everyone jump on you?
+    Solid Snake: Because I have a shell. You jump on a shell, it goes into the shell, you kick the shell, it hits six things in a row. Very satisfying. For you.
+-> What are you doing in town?
+    Solid Snake: Infiltrating. The bakery. I've been in a cardboard box by the door since Tuesday. Nobody suspects a thing. Celeste gives the box a crescent every morning.
+-> Are you on Mary-O's side?
+    Solid Snake: Against the void? Everybody is. Even the lizard. Even me. It's hard to be stomped on in the dark. You need a little light to see the shoe coming.
+-> I'll leave you be.
+    Solid Snake: Snake? Snake?! SNAAAKE. ...Sorry. Habit.
+===
+
+title: magical_snake_plant
+---
+Snake Plant: Hssss. ...Sorry. Reflex. You came up out of the ground very suddenly and that is MY move.
+-> Do you bite?
+    Snake Plant: In the levels, yes. Out of pipes, at whoever's standing on them. In town, no. In town I'm a house plant. Very low maintenance. Water me twice a month and don't stand on my pipe.
+-> Why a snake plant?
+    Snake Plant: Sansevieria. Mother-in-law's tongue. You can't kill one. People have tried. People have jumped on me. People have thrown fire at me. I'm still here. I'm in a pot now. That's retirement.
+-> What do you think of the void?
+    Snake Plant: It doesn't water anything. It doesn't even look at things. A plant needs to be looked at, a little. Celeste looks at me every morning. Sometimes she says "nice leaves". I'd die for her. I can't die. But I'd try.
+-> Bye.
+    Snake Plant: Hssss. That one was on purpose. Goodbye.
+===
+
+title: magical_rescued_robot
+---
+Rescued Robot: Oh! A robot! Are you here to rescue me? Mary-O usually does it. She lands on the switch, the bridge falls, the gate opens, I say "Thank you, Mary-O!", and then I'm in the next castle. I don't know how. I just am.
+-> Do you want rescuing?
+    Rescued Robot: I don't know. I've never not been rescued. It's the only thing I'm good at. If you rescue me, what will Mary-O do?
+-> How many castles?
+    Rescued Robot: Eight, so far. All the same castle, I think. Same bridge. Same lizard. He brings me tea now, between rescues. We talk about the switch.
+-> Thank you, robot?
+    Rescued Robot: ...Nobody's ever thanked ME. Thank you for thanking me. Now I've thanked you. Is this a rescue? It feels like one.
+===
+
+title: magical_laden_swallow
+---
+Laden Swallow: Coconut! Coconut! Mind your head! ...Sorry. I'm carrying a coconut. It's heavy. It's very heavy for a bird my size.
+-> African or European?
+    Laden Swallow: I KNEW somebody would ask. Every traveller on this road. "African or European?" I'm from the dunes. I'm a Stardune swallow. Nobody ever asks about the airspeed of a Stardune swallow.
+-> Where are you taking it?
+    Laden Swallow: The castle. Mary-O drops coconuts on things that annoy her, and I bring her the coconuts. Then she drops them. Then I go and get them back. It's a whole economy.
+-> Put it down?
+    Laden Swallow: If I put it down I'm just a swallow. Nobody stops to talk to just a swallow.
+===
+
+title: magical_paper_plane_snakes
+---
+Snakes on a Paper Plane: Ssssorry, can't stop! We go round. The plane goes where it was thrown, and it was thrown in a circle.
+-> Who threw you?
+    Snakes on a Paper Plane: Mary-O. She folded us out of a wanted poster. Ours. Good likeness. It flies very well.
+-> Do you ever land?
+    Snakes on a Paper Plane: When it rains. Then we're snakes on a wet bit of paper, and nobody wants to talk to that.
+===

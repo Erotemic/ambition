@@ -60,6 +60,73 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Magical: more of Mary-O's cast at home**: her Solid Snake (in a box by
+  the bakery since Tuesday) and snake plant (retired to a pot) in the square,
+  the snakes on a paper plane going round over it; the laden swallow on the
+  dune road ("African or European?" "Stardune."); the robot she rescues at
+  the end of every castle, waiting in the keep. The snakes on a Cartesian
+  plane came through the gate to the Math dimension's gate hall.
+- **Magical: the Unlit, where the void is hostile** (Jon, 10-30: "have some
+  areas where the void creatures and void fighters are hostile"): east of
+  the rift, a broken walk of ledges over standing void; down its hole a
+  ring the void built out of the shape of a fight (floor, two platforms, one
+  over them; stands of void stars watching, grey-edged so they read as
+  neither ground nor foe); west at its floor the wastes, back to the falls'
+  foot. A loop. Void stars are enemies here (`npc_void_star`, this game's
+  row on Mary-O's sheet). The void fighters (07f85ece0, the polygons gone
+  dark, fighting with their Smash kits for adventure damage): the shooter
+  on the ledges' last piece, the fists in the wastes, all three in the ring.
+  The ring's purse on its top platform under an empty champion's seat;
+  posts at each lip of the ledges' gaps keep the void stars on their walk
+  (seen after 15 s of play). Mary-O's front door, a pink pipe, in the garden.
+  Verified: the_unlit_is_a_loop_from_the_rift_back_to_the_falls.
+- **Math: two keepers** (2e961cff7 and this): Pierre de Fermette (a parody
+  of Fermat) keeps the Conjectures, every problem on the walls solved, the
+  margins too small to show you; Johannes Kepplar (Kepler) keeps the summit's
+  observatory, pointed at Mars, who wanted an ellipse. Verified:
+  the_zeno_aqueduct (11).
+- **Evil: the guild meeting** (the Henchpersons' Guild's secret room had
+  nobody in it): a meeting in session, off the clock, so nobody fights: a
+  clubman with the agenda (item three, whether the hounds count as staff,
+  six years running), a swordsman taking the minutes, a failed prototype
+  moving to be reclassified "differently successful" (second it).
+  Verified: a_false_wall_in_the_kitchens_hides_the_guild_room.
+- **Magical: the Void** (Jon, 10-30: "a really cool void zone / dungeon set
+  of rooms in the magical world. With the black / white theming of the void
+  characters"; "make sure maryo herself is in the world"; "use more maryo
+  songs"). Past the lizard's bridge: the rift where the colour stops (the
+  castle's stone breaking into black shards; the town's things half rubbed
+  out in white line), the gallery of THINGS THE VOID HAS TAKEN (a curator
+  void star), the falls the void pours down, and the heart: the first star
+  that went out, asleep, as big as the room, its eldest void star beside it.
+  Five joins between four rooms, and a secret: the heart's west wall
+  breaks into the nursery, where a star goes the first time it goes out.
+  The rift's pool of standing void (it starts the room again) is crossed
+  high on a ledge or low on shards that crumble and come back.
+  Mary-O, tall, meets the robot at the gate.
+  Music: support_theme, billions_and_billions, embedded/sparse_theme,
+  castle_crash_override, eternal_cosmic at the heart. The `void` biome
+  (ecc13cdf6): white-edged black terrain, ladder and doors, a grey-line
+  broken castle drifting in the sky, white motes; greyscale only.
+  Verified: the_magical_dimension (8), worlds manifest.
+- **Science: the vector well furnished** (every wall is a floor, so each is
+  furnished as one): a study standing on the east wall (bookcase, fern,
+  reading lamp), a parlour on the west rock (armchair, standard lamp), a
+  table upside down on the vault, and on the real floor the heap where every
+  mistake ends (apples, a top hat, a book on its face, a slipper). Learned:
+  a gnu_ton `--apply` drops the approach's gate terminal; `make_gates.py
+  --apply` puts it back (and repairs intro.ldtk's Bool defs: left out).
+- **The Magical dimension: dressed, and the Void Castle** (Jon, 10-30:
+  "Make sure maryo is a character in this universe and add a void lizard
+  dungeon, but he is not an enemy here ... You can talk to them"). Props for
+  the garden (round hills under the star steps, a star tree, the hatch), the
+  hollow (stars asleep in heaps, the day down each shaft) and the road
+  (dunes, a spilled star cart, the last lamp the void is climbing). East of
+  the road the Void Castle: the keep (Mary-O at a truce, void stars that
+  wander and talk rudely, the lizard's banners, the town's star defaced) and,
+  down either stair, the Void Lizard's bridge over the lava, its tea table,
+  its switch (DO NOT LAND ON). Neutral: they fight only if struck.
+  Verified: the_magical_dimension (4, the castle loop and both talks).
 - **The Magical dimension (Mary-O's), begun** (Jon, 10-30: "start authoring
   the maryo-dimension for the ambition game. I.e. the magical dimension"):
   `magical.ldtk`, gate DESTINY (posted LEGAL), in Mary-O's own biomes. The

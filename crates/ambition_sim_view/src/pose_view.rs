@@ -62,6 +62,10 @@ const STOP_CLIP: &str = "walk_stop";
 /// The row of a stop out of a run; a sheet without it draws [`STOP_CLIP`].
 const RUN_STOP_CLIP: &str = "run_stop";
 
+/// How recently a body must have been running for the stop to be a run's:
+/// a run slows through a few walking frames before it stands.
+pub const RUN_STOP_AFTER_RUN_SECS: f32 = 0.3;
+
 /// The clock of a body's last stop on the ground — ONE rule for the player's
 /// road ([`BodyPoseView`]) and every actor's ([`crate::ActorAnimFrame`]).
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -71,11 +75,13 @@ pub struct StopClock {
     pub secs: f32,
     /// The stop came out of a run, not a walk.
     pub from_run: bool,
+    /// Seconds since the body was last drawn running.
+    pub since_run: f32,
 }
 
 impl Default for StopClock {
     fn default() -> Self {
-        Self { secs: f32::INFINITY, from_run: false }
+        Self { secs: f32::INFINITY, from_run: false, since_run: f32::INFINITY }
     }
 }
 
@@ -83,12 +89,18 @@ impl StopClock {
     /// The clock after a frame of `dt` in which the body, `free` of any move
     /// or pin, is drawn as `anim` and was drawn as `before`.
     pub fn next(self, before: Option<CharacterAnim>, anim: CharacterAnim, free: bool, dt: f32) -> Self {
+        let since_run = if matches!(anim, CharacterAnim::Run | CharacterAnim::Sprint) {
+            0.0
+        } else {
+            self.since_run + dt
+        };
         match before {
             Some(before) if free && anim == CharacterAnim::Idle && strides(before) => Self {
                 secs: 0.0,
-                from_run: matches!(before, CharacterAnim::Run | CharacterAnim::Sprint),
+                from_run: self.since_run <= RUN_STOP_AFTER_RUN_SECS,
+                since_run,
             },
-            Some(_) => Self { secs: self.secs + dt, ..self },
+            Some(_) => Self { secs: self.secs + dt, since_run, ..self },
             None => Self::default(),
         }
     }
@@ -1305,6 +1317,28 @@ pub fn rebuild_launched_bodies_view(
 #[cfg(test)]
 mod pose_view_tests {
     use super::*;
+
+    /// A run slows through a few walking frames before it stands, and its stop
+    /// is still a run's; a walk's stop is a walk's.
+    #[test]
+    fn a_run_that_slows_through_a_walk_stops_as_a_run() {
+        use CharacterAnim::{Idle, Run, Walk};
+        let dt = 1.0 / 60.0;
+        let stop_after = |gait: &[CharacterAnim]| {
+            let mut clock = StopClock::default();
+            let mut before = None;
+            for &anim in gait.iter().chain(&[Idle]) {
+                clock = clock.next(before, anim, true, dt);
+                before = Some(anim);
+            }
+            clock.clip(Idle, true).map(|request| request.clip)
+        };
+        assert_eq!(stop_after(&[Walk, Run, Run, Walk, Walk, Walk]).as_deref(), Some("run_stop"));
+        assert_eq!(stop_after(&[Walk, Walk, Walk]).as_deref(), Some("walk_stop"));
+        let mut long_walk = vec![Run];
+        long_walk.extend(std::iter::repeat_n(Walk, 60));
+        assert_eq!(stop_after(&long_walk).as_deref(), Some("walk_stop"), "a second of walking after a run");
+    }
 
     /// Two live rooms, one body broken and launched in each, and a stamp
     /// telling each body's room. Returns (guard-break rooms, launched rooms).

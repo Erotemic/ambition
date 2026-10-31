@@ -564,6 +564,8 @@ dependencies = [
  "ambition_platformer2d",
  "bevy",
  "bevy_kira_audio",
+ "console_error_panic_hook",
+ "wasm-bindgen",
 ]
 
 [[package]]

@@ -7,13 +7,33 @@
 
 ## Implementation status (2026-10-30)
 
-**Phase 1 art: authored and published; Jon's review at game scale is still open.** Renderer `385dcf6`: `devtools/pose_core.py` (the shared rig, solver, keys and clip writer), `devtools/reaction_keys.py` (the twelve anchors), `devtools/reaction_review.py` (contact sheets, `--silhouette`, `--gif` previews in both facings) and `devtools/clip_alias_audit.py`. All twelve rows exist on all three Polygon fighters. `teeter` and `tech` no longer alias other rows, and no new row aliases another. The hit recoils end on their settled pose, because the animator holds a clip's last frame for the length of the hitstun. Sheet budget (MEASURED, previous bundle to this one), pointed: full 9.98 to 11.06 MB, half 3.81 to 4.22 MB, quarter 1.46 to 1.61 MB, potato 186 to 201 KB. The other two fighters grew by the same fraction. Renderer suite: 1583 passed and 18 failed. The three `test_motion_ir` clip counts were updated. The other 15 failures are in files this work does not touch.
+**Phase 1 art: authored and published; Jon's review at game scale is still open.** Renderer `385dcf6`: `devtools/pose_core.py` (the shared rig, solver, keys and clip writer), `devtools/reaction_keys.py` (the twelve anchors), `devtools/reaction_review.py` (contact sheets, `--silhouette`, `--gif` previews in both facings) and `devtools/clip_alias_audit.py`. All twelve rows exist on all three Polygon fighters. `teeter` and `tech` no longer alias other rows, and no new row aliases another. The hit recoils end on their settled pose, because the animator holds a clip's last frame for the length of the hitstun. Sheet budget (MEASURED, previous bundle to this one), pointed: full 9.98 to 11.06 MB, half 3.81 to 4.22 MB, quarter 1.46 to 1.61 MB, potato 186 to 201 KB. The other two fighters grew by the same fraction. Renderer suite: **1610 passed, 0 failed** (MEASURED 2026-10-30; the one failure in the last full run was a peer's effect target added mid-run, listed since). This work fixed the 18 failures: clip counts for the new rows (`385dcf6`); the roster tests read `authored/sprites.yaml`, which found `ninja_kagero_vfx` unlisted and never published, now listed and published (`ca94a72`, `c72f90679`); the install audit claims the actor, rig and part companions the install copies (`446e878`); the bundle test asserts its stated intent (`446e878`); `door_swing.py` moves out of core (`446e878`); the rig editor's right-dock pages scroll so the Timeline can grow, and the oiler tests read views and faces (`dc8eaa0`); content draws composite through `blending_draw`, pixel-identical, with five measured raw exceptions: four of George Booul's draws break his part replay, and the door leaf's look changes, awaiting an art call (`9b057f8`).
 
 **Phase 2 wiring: done for launch, prone, getup and tech, recoil, and run stop** (`611177e91`). The kernel publishes `BodyMotionFacts::{launched, prone_face_down, getup}`. `BodyCombat::struck_height` records where the hit resolver accepted a hit. `body_state_clip` routes all four families. `StopClock` is one stop rule for the player road and the actor road (the actor road had no stop rule before). `AMBITION_CLIP_TRACE=1` prints the requested chain and the row drawn. Rollback schema is now v392.
 
-Evidence from a traced CPU match (MEASURED: `smash_match_profile --character pointed_polygon --fighters 2 --ticks 2400`). Drawn: `launch_horizontal` 8, `launch_up` 6, `launch_down` 1, `prone_face_down` 6, `prone_face_up` 2, `hit_high` 4, `hit_mid` 2, `hit_air` 2, `getup` 5, `walk_stop` 3. Not seen in that match: `hit_low`, `tech`, `run_stop` (every stop came out of a walk) and `teeter` (a pose, not a clip request, so the trace does not print it). Unit tests cover their routing.
+Evidence from a traced CPU match (MEASURED: `smash_match_profile --character pointed_polygon --fighters 2 --ticks 2400`). Drawn: `launch_horizontal` 8, `launch_up` 6, `launch_down` 1, `prone_face_down` 6, `prone_face_up` 2, `hit_high` 4, `hit_mid` 2, `hit_air` 2, `getup` 5, `walk_stop` 3.
 
-**Open:** Jon's review of the art at game scale; a recorded match that shows tech, run stop and teeter; getups that match the prone orientation (art backlog); `teeter_start`; wall and ceiling tech art; Phase 3.
+Evidence for every family, human and CPU seats (MEASURED: `app_it::smash_reaction_poses`, in the shipped composition). The test checks that each reaction row a body asks for is the row its animator draws, and prints each sequence (T tumbling, K knocked down, then the getup kind):
+
+```text
+human thrown up:      launch_up[T] -> launch_horizontal[T] -> tumble[T] -> prone_face_up[K] -> getup[Getup] -> Idle
+human thrown back:    launch_horizontal[T] -> tumble[T] -> prone_face_up[K] -> getup[Getup] -> Idle
+human thrown forward: launch_horizontal[T] -> tumble[T] -> prone_face_down[K] -> getup[Getup] -> Idle
+human spiked:         launch_down[T] -> prone_face_down[K] -> getup[Getup] -> Idle
+human tech:           tech[Tech]
+human hit high / low: hit_high / hit_low
+human run, stop:      Idle -> Walk -> Run, then Run -> Walk -> run_stop
+human teeter:         Teeter, then Teeter -> Walk -> Run off the edge
+cpu thrown up:        launch_up[T] -> tumble[T] -> air_down[T] -> tumble[T] -> tech[Tech] -> ...
+cpu thrown back:      launch_horizontal[T] -> tumble[T] -> prone_face_up[K] -> getup_roll[GetupRoll] -> ...
+cpu thrown forward:   launch_horizontal[T] -> tumble[T] -> tech_roll[TechRoll] -> ...
+cpu spiked:           launch_down[T] -> prone_face_down[K] -> getup_roll[GetupRoll] -> ...
+cpu hit low:          hit_low
+```
+
+The launches go through the launch gateway a hit uses, the run and the teeter use a real pad, and the CPU's techs are its own. The human's tech and the recoils write the state the kernel and the hit resolver write. In the up-launch, a second hit mid-flight launched the body again, which re-decided the direction. The test found one defect, now fixed: a run slows through a few Walk frames before it stops, so a run's stop drew `walk_stop`. `StopClock` now remembers a run it left less than `RUN_STOP_AFTER_RUN_SECS` before.
+
+Old/new contact sheets at the full tier and at about gameplay scale (0.35): `reaction_review` with the fallback rows interleaved (`launch,launch_up,...,walk_stop,run_stop`). The weakest changes at gameplay scale are pugnacious's `run_stop` and `hit_low`.
 
 ## Decision and outcome
 

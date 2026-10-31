@@ -433,6 +433,12 @@ impl CharacterAnimator {
         }
     }
 
+    /// The authored row this animator draws, or `None` when it draws its
+    /// semantic pose ([`Self::current`]).
+    pub fn drawn_clip(&self) -> Option<&str> {
+        self.clip_slot.map(|slot| self.spec.row_name_at(slot).1)
+    }
+
     /// Play an authored CLIP if this sheet has one of `chain`; otherwise the
     /// semantic pose.
     ///

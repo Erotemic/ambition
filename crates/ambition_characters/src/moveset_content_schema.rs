@@ -357,7 +357,8 @@ fn resolve_borrow(
     if let Some(own) = own {
         contract = contract.overlaid_with(own);
     }
-    Ok(contract)
+    crate::move_damage::move_damage_over(&borrow.damage, contract)
+        .map_err(|problems| format!("`{id}` borrows `{}`: {}", borrow.archetype, problems.join("; ")))
 }
 
 /// The canonical form an entry contributes to the pack fingerprint.

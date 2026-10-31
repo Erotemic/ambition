@@ -1708,7 +1708,19 @@ pub fn finish_stepped_app(app: &mut App) {
 /// systems ran every frame with nothing to animate. A game that plays a clip
 /// adds the plugin back; an `AnimationPlayer` without it finds no clip assets.
 pub fn default_plugins() -> bevy::app::PluginGroupBuilder {
-    DefaultPlugins.build().disable::<bevy::animation::AnimationPlugin>()
+    let plugins = DefaultPlugins.build().disable::<bevy::animation::AnimationPlugin>();
+    #[cfg(all(target_arch = "wasm32", feature = "web_platform", feature = "ambition_render"))]
+    let plugins = plugins.set(bevy::render::RenderPlugin {
+        render_creation: bevy::render::settings::RenderCreation::Automatic(Box::new(
+            bevy::render::settings::WgpuSettings {
+                // This platform profile uses WebGL2, including on browsers with no WebGPU adapter.
+                backends: Some(bevy::render::settings::Backends::GL),
+                ..Default::default()
+            },
+        )),
+        ..Default::default()
+    });
+    plugins
 }
 
 #[cfg(feature = "ambition_render")]
@@ -1721,11 +1733,17 @@ pub fn install_windowed_foundation(app: &mut App, title: &str, display: Display)
     let plugins = default_plugins()
         .set(bevy::asset::AssetPlugin {
             file_path: "assets".to_owned(),
+            // Runtime assets have no .meta files. A browser probe costs a request.
+            meta_check: bevy::asset::AssetMetaCheck::Never,
             ..Default::default()
         })
         .set(WindowPlugin {
             primary_window: window.then(|| Window {
                 title: title.to_string(),
+                #[cfg(target_arch = "wasm32")]
+                canvas: Some("#bevy".to_owned()),
+                #[cfg(target_arch = "wasm32")]
+                fit_canvas_to_parent: true,
                 ..Default::default()
             }),
             // Without a window there is nothing whose closing could mean "quit",

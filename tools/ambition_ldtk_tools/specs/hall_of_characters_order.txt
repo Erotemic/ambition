@@ -143,6 +143,12 @@ npc_station_pippin
 npc_magical_celeste
 npc_magical_lumen
 
+[The Void's fighters (the Unlit)]
+void_pointed_polygon
+void_pugnacious_polygon
+void_projectile_polygon
+npc_void_star
+
 [Eureka, the institute town]
 npc_eureka_teodora
 npc_eureka_priya
@@ -174,6 +180,8 @@ npc_math_monty
 npc_math_zeno
 npc_math_kleinbottle
 npc_math_lucas
+npc_math_fermette
+npc_math_kepplar
 
 [Castle Godwin's staff]
 npc_castle_hargreave

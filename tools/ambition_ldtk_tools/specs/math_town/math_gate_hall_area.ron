@@ -36,6 +36,7 @@
         ( type: "NpcSpawn", px: [220, 640], size: [32, 64], fields: ( character_id: "npc_trent", brain_override: "townsfolk_roam", dialogue_id: "trent" ) ),
         ( type: "NpcSpawn", px: [1180, 640], size: [32, 64], fields: ( character_id: "npc_walter", brain_override: "townsfolk_roam", dialogue_id: "walter" ) ),
         ( type: "NpcSpawn", px: [1320, 656], size: [32, 48], fields: ( character_id: "npc_busy_beaver", brain_override: "townsfolk_roam", dialogue_id: "busy_beaver" ) ),
+        ( type: "NpcSpawn", px: [220, 456], size: [48, 32], fields: ( character_id: "npc_snakes_on_a_cartesian_plane", prompt: "Talk", dialogue_id: "hall_cartesian_snakes", brain_override: "stand_still" ) ),
         ( type: "DebugLabel", px: [650, 404], size: [300, 24], fields: ( name: "hall_sign_gate", text: "GATE OF THE MATH DIMENSION", category: "Custom" ) ),
         ( type: "DebugLabel", px: [64, 468], size: [380, 24], fields: ( name: "hall_sign_axioms", text: "Arrivals: please declare all axioms", category: "Custom" ) ),
         ( type: "DebugLabel", px: [1156, 468], size: [380, 24], fields: ( name: "hall_sign_infinity", text: "Infinity is not a valid destination", category: "Custom" ) ),

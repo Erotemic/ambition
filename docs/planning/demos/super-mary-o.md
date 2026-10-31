@@ -28,6 +28,13 @@ shared economy; LDtk authoring of levels, loading zones and pipes.
 Built: `game/ambition_demo_mary_o` (content) and `game/ambition_demo_mary_o_app`
 (standalone shell).
 
+- Standalone WebGL2 prototype: `./build_for_web.sh --game mary-o --copy-assets`.
+  It uses the same provider and simulation, with shared touch controls and SFX.
+  Code is 23.70 MiB with gzip; the local cold smoke visit fetched 36.66 MiB.
+  Music and glow media are absent from the selected publication. See the
+  [measurement](../../../dev/benchmark-candidates/mary-o-web-startup.md) and
+  [web recipe](../../recipes/web-build.md#standalone-mary-o).
+
 - World 2 (2-1 to 2-4), each level from a script of
   `game/ambition_demo_mary_o/tools/` (`author_mary_o_2_<n>_ldtk.py`): 2-1 the
   desert (dunes, an oasis, a pyramid, a ferry), 2-2 a tomb under it (lifts,

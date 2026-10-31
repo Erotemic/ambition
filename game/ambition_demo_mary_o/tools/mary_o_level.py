@@ -33,7 +33,7 @@ TARGET = REPO / "game" / "ambition_map_assets" / "ambition_demo_mary_o" / "world
 # The same file by the path that has Mary-O's editor-art overlay beside it
 # (`mary_o.editor_art.json`). `asset editor-art` reads the overlay that is
 # beside the path it is given.
-EDITOR_ART_VIEW = REPO / "game" / "ambition_demo_mary_o" / "assets" / "worlds" / "mary_o.ldtk"
+EDITOR_ART_VIEW = REPO / "game" / "ambition_demo_mary_o" / "authoring" / "worlds" / "mary_o.ldtk"
 
 T = 32
 

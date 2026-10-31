@@ -57,7 +57,17 @@
     "magical_gate_garden",
     "magical_stardune_road",
     "magical_starless_hollow",
-    "magical_starlight_square"
+    "magical_starlight_square",
+    "magical_void_bridge",
+    "magical_void_coliseum",
+    "magical_void_falls",
+    "magical_void_gallery",
+    "magical_void_heart",
+    "magical_void_keep",
+    "magical_void_ledges",
+    "magical_void_nursery",
+    "magical_void_rift",
+    "magical_void_wastes"
   ],
   "mary_o.ldtk": [
     "mary_o_1_1",

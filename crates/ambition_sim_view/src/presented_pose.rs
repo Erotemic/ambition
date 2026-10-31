@@ -5,6 +5,11 @@
 //!
 //! `presented = current + phase * ((current - previous) / ticks_spanned)`
 //!
+//! or, for a game that asks for it (`CastFramingTuning::interpolate_poses`),
+//! interpolates between them, one tick behind and never past a stop:
+//!
+//! `presented = current - (1 - phase) * ((current - previous) / ticks_spanned)`
+//!
 //! Sprite placement, camera focus, and attached visuals must use the same presented
 //! pose or they drift relative to one another. Extrapolating measured displacement
 //! preserves collision clamping, hitstop, pause, and other movement that is not
@@ -107,6 +112,11 @@ pub struct PresentedPose {
     /// anchored to the body by its true position (a hit volume, a grab) is
     /// disturbed. Zero for every body that is not frozen by a hit it took.
     jitter: Vec2,
+    /// The last tick put the body here by a warp ([`Self::push_warped`]).
+    /// Interpolated, it is drawn at the warp's exit for that tick: its
+    /// history reaches back along its new heading, which may be the far side
+    /// of the warp.
+    warped: bool,
 }
 
 /// How far a struck body is drawn off its place at a reference-strength hit
@@ -134,6 +144,7 @@ impl PresentedPose {
             tick,
             size: Vec2::ZERO,
             jitter: Vec2::ZERO,
+            warped: false,
         }
     }
 
@@ -198,6 +209,7 @@ impl PresentedPose {
         self.previous = if continuous { self.current + resized } else { pos };
         self.current = pos;
         self.tick = tick;
+        self.warped = false;
     }
 
     /// A warp carried the body here (it did not travel): it keeps the pace it
@@ -210,10 +222,20 @@ impl PresentedPose {
         self.previous = pos - vel.normalize_or_zero() * pace * self.spanned as f32;
         self.current = pos;
         self.tick = tick;
+        self.warped = true;
     }
 
-    fn resample(&mut self, phase: f32) {
-        self.presented = self.current + self.tick_delta() * phase;
+    /// Where to draw the body `phase` of a tick on: a tick AHEAD of the last
+    /// pose (extrapolated), or BETWEEN the last two (`interpolate`: one tick
+    /// behind, and never past where the body stopped).
+    fn resample(&mut self, phase: f32, interpolate: bool) {
+        self.presented = if !interpolate {
+            self.current + self.tick_delta() * phase
+        } else if self.warped {
+            self.current
+        } else {
+            self.current - self.tick_delta() * (1.0 - phase)
+        };
     }
 }
 
@@ -274,6 +296,8 @@ pub fn advance_presented_body_poses(
     mut warps: Option<ResMut<DeclaredPoseWarps>>,
     // The hitlag law's reference, for the shake's strength (see `pose_view`).
     feel: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
+    // Whether this game draws bodies between ticks or ahead of them.
+    framing: Option<Res<ambition_platformer2d_shared_tangle::markers::CastFramingTuning>>,
     rules: ambition_combat::rules::CombatTuningOf,
     mut bodies: Query<(
         Entity,
@@ -286,6 +310,7 @@ pub fn advance_presented_body_poses(
     )>,
 ) {
     let phase = phase.get();
+    let interpolate = framing.is_some_and(|framing| framing.interpolate_poses);
     let world_hitlag_reference = feel.as_deref().map_or(0.0, |feel| feel.hitlag_time);
     for (entity, pose, presented, frame, combat) in &mut bodies {
         let Some(mut presented) = presented else {
@@ -332,7 +357,7 @@ pub fn advance_presented_body_poses(
             presented.jitter = hitlag_jitter(frozen, strength, tick.0, side);
         }
         // Resample EVERY frame — that is the entire point.
-        presented.resample(phase);
+        presented.resample(phase, interpolate);
     }
     if let Some(warps) = warps.as_mut() {
         warps.0.clear();
@@ -371,8 +396,10 @@ pub fn advance_presented_feature_poses(
     phase: Res<PresentationPhase>,
     views: Res<FeatureViewIndex>,
     mut presented: ResMut<PresentedFeaturePoses>,
+    framing: Option<Res<ambition_platformer2d_shared_tangle::markers::CastFramingTuning>>,
 ) {
     let phase = phase.get();
+    let interpolate = framing.is_some_and(|framing| framing.interpolate_poses);
     for (id, view) in views.iter() {
         match presented.poses.get_mut(id) {
             Some(pose) => {
@@ -387,7 +414,7 @@ pub fn advance_presented_feature_poses(
                     // be told from travel here.
                     pose.push(view.pos, tick.0, continuous, Vec2::ZERO);
                 }
-                pose.resample(phase);
+                pose.resample(phase, interpolate);
             }
             None => {
                 presented
@@ -520,7 +547,7 @@ mod tests {
             if pose.tick != tick {
                 pose.push(Vec2::new(per_tick * tick as f32, 0.0), tick, true, Vec2::ZERO);
             }
-            pose.resample(accumulator as f32 / TICK_NS as f32);
+            pose.resample(accumulator as f32 / TICK_NS as f32, false);
             // Truth on the sim's own terms: `per_tick` of travel for every
             // `TICK_NS` of real time that has been banked, fraction included.
             rows.push((
@@ -580,7 +607,7 @@ mod tests {
         );
         // The next frame advances NO tick and banks 95% of one. The lead is 95%
         // of ONE tick (5.7 px), not of the two-tick gap (11.4 px).
-        pose.resample(0.95);
+        pose.resample(0.95, false);
         assert!(
             (pose.presented().x - 17.7).abs() < 1e-3,
             "drew at {} px, expected 17.7",
@@ -688,14 +715,60 @@ mod tests {
         let mut pose = pose_at(Vec2::ZERO);
         pose.push(Vec2::new(6.0, 0.0), 1, true, Vec2::ZERO);
 
-        pose.resample(0.0);
+        pose.resample(0.0, false);
         assert_eq!(
             pose.presented(),
             Vec2::new(6.0, 0.0),
             "phase 0 draws the tick pose exactly — no latency"
         );
-        pose.resample(0.5);
+        pose.resample(0.5, false);
         assert_eq!(pose.presented(), Vec2::new(9.0, 0.0));
+    }
+
+    /// INTERPOLATED, a body moving steadily is drawn exactly one tick behind
+    /// its last pose, at every phase.
+    #[test]
+    fn interpolated_draws_a_steady_body_one_tick_behind() {
+        let mut pose = pose_at(Vec2::ZERO);
+        pose.push(Vec2::new(6.0, 0.0), 1, true, Vec2::ZERO);
+        for phase in [0.0, 0.25, 0.5, 1.0] {
+            pose.resample(phase, true);
+            assert!((pose.presented().x - 6.0 * phase).abs() < 1e-4, "phase {phase}: {:?}", pose.presented());
+        }
+    }
+
+    /// INTERPOLATED, a body that stops is never drawn past where it stopped:
+    /// the overshoot and snap-back extrapolation draws at every stop.
+    #[test]
+    fn interpolated_never_draws_a_stopped_body_past_its_stop() {
+        let mut ahead = pose_at(Vec2::ZERO);
+        let mut between = pose_at(Vec2::ZERO);
+        for (tick, x) in [(1, 6.0), (2, 12.0), (3, 12.0)] {
+            ahead.push(Vec2::new(x, 0.0), tick, true, Vec2::ZERO);
+            between.push(Vec2::new(x, 0.0), tick, true, Vec2::ZERO);
+            for phase in [0.0, 0.5, 0.99] {
+                ahead.resample(phase, false);
+                between.resample(phase, true);
+                assert!(between.presented().x <= 12.0 + 1e-4, "tick {tick} phase {phase}: drawn past the stop");
+            }
+        }
+        // Extrapolated, the last moving tick drew it most of a step past 12.
+        let mut probe = pose_at(Vec2::ZERO);
+        probe.push(Vec2::new(6.0, 0.0), 1, true, Vec2::ZERO);
+        probe.push(Vec2::new(12.0, 0.0), 2, true, Vec2::ZERO);
+        probe.resample(0.99, false);
+        assert!(probe.presented().x > 17.0);
+    }
+
+    /// INTERPOLATED, a warped body is drawn at the warp's exit, never back
+    /// along its heading, which may be the far side of the warp.
+    #[test]
+    fn interpolated_draws_a_warped_body_at_the_exit() {
+        let mut pose = pose_at(Vec2::ZERO);
+        pose.push(Vec2::new(6.0, 0.0), 1, true, Vec2::ZERO);
+        pose.push_warped(Vec2::new(500.0, 0.0), Vec2::new(360.0, 0.0), 2);
+        pose.resample(0.0, true);
+        assert_eq!(pose.presented(), Vec2::new(500.0, 0.0));
     }
 
     #[test]
@@ -703,7 +776,7 @@ mod tests {
         let mut pose = pose_at(Vec2::new(10.0, 20.0));
         pose.push(Vec2::new(10.0, 20.0), 1, true, Vec2::ZERO);
         for phase in [0.0, 0.5, 0.99] {
-            pose.resample(phase);
+            pose.resample(phase, false);
             assert_eq!(pose.presented(), Vec2::new(10.0, 20.0));
         }
     }
@@ -715,7 +788,7 @@ mod tests {
         // predict deep into the wall.
         let mut pose = pose_at(Vec2::ZERO);
         pose.push(Vec2::new(1.0, 0.0), 1, true, Vec2::ZERO);
-        pose.resample(1.0);
+        pose.resample(1.0, false);
         assert_eq!(pose.presented(), Vec2::new(2.0, 0.0));
     }
 
@@ -731,7 +804,7 @@ mod tests {
         let resized = resize_shift(pose.size, crouched, Vec2::new(0.0, 1.0));
         assert_eq!(resized, Vec2::new(0.0, 10.0));
         pose.push(Vec2::new(0.0, 10.0), 1, true, resized);
-        pose.resample(0.75);
+        pose.resample(0.75, false);
         assert_eq!(pose.presented(), Vec2::new(0.0, 10.0));
         assert_eq!(pose.tick_delta(), Vec2::ZERO);
     }
@@ -763,7 +836,7 @@ mod tests {
 
         let mut pose = pose_at(Vec2::ZERO);
         pose.push(Vec2::new(900.0, 0.0), 1, false, Vec2::ZERO);
-        pose.resample(1.0);
+        pose.resample(1.0, false);
         assert_eq!(
             pose.presented(),
             Vec2::new(900.0, 0.0),
@@ -777,19 +850,19 @@ mod tests {
         let mut pose = pose_at(Vec2::ZERO);
         pose.push(Vec2::new(4.5, 0.0), 1, true, Vec2::ZERO);
         pose.push_warped(Vec2::new(25.0, 0.0), Vec2::new(270.0, 0.0), 2);
-        pose.resample(1.0);
+        pose.resample(1.0, false);
         assert_eq!(pose.presented(), Vec2::new(29.5, 0.0));
         // A pair that turns it: the pace goes the way it now moves.
         let mut turned = pose_at(Vec2::ZERO);
         turned.push(Vec2::new(4.0, 0.0), 1, true, Vec2::ZERO);
         turned.push_warped(Vec2::new(50.0, 50.0), Vec2::new(0.0, -240.0), 2);
-        turned.resample(0.5);
+        turned.resample(0.5, false);
         assert_eq!(turned.presented(), Vec2::new(50.0, 48.0));
         // At rest it parks.
         let mut rest = pose_at(Vec2::ZERO);
         rest.push(Vec2::new(4.0, 0.0), 1, true, Vec2::ZERO);
         rest.push_warped(Vec2::new(50.0, 0.0), Vec2::ZERO, 2);
-        rest.resample(1.0);
+        rest.resample(1.0, false);
         assert_eq!(rest.presented(), Vec2::new(50.0, 0.0));
     }
 
@@ -799,11 +872,11 @@ mod tests {
         // presented lead shrinks with it. Nothing reads `time_scale` to do it.
         let mut full = pose_at(Vec2::ZERO);
         full.push(Vec2::new(6.7, 0.0), 1, true, Vec2::ZERO);
-        full.resample(0.5);
+        full.resample(0.5, false);
 
         let mut slow = pose_at(Vec2::ZERO);
         slow.push(Vec2::new(0.67, 0.0), 1, true, Vec2::ZERO);
-        slow.resample(0.5);
+        slow.resample(0.5, false);
 
         assert!(slow.presented().x < full.presented().x * 0.2);
     }
@@ -812,7 +885,7 @@ mod tests {
     fn authoritative_stays_the_tick_pose() {
         let mut pose = pose_at(Vec2::ZERO);
         pose.push(Vec2::new(6.0, 0.0), 1, true, Vec2::ZERO);
-        pose.resample(1.0);
+        pose.resample(1.0, false);
         assert_eq!(
             pose.authoritative(),
             Vec2::new(6.0, 0.0),
@@ -875,7 +948,7 @@ mod tests {
     fn the_delta_is_the_presented_lead_over_the_authoritative_pose() {
         let mut pose = pose_at(Vec2::ZERO);
         pose.push(Vec2::new(10.0, 0.0), 1, true, Vec2::ZERO);
-        pose.resample(0.5);
+        pose.resample(0.5, false);
         assert_eq!(pose.authoritative(), Vec2::new(10.0, 0.0));
         assert_eq!(pose.presented(), Vec2::new(15.0, 0.0));
         assert_eq!(
@@ -896,7 +969,7 @@ mod tests {
     fn carrying_by_the_delta_equals_replacing_only_for_the_bodys_own_pose() {
         let mut pose = pose_at(Vec2::new(100.0, 0.0));
         pose.push(Vec2::new(112.0, 0.0), 1, true, Vec2::ZERO);
-        pose.resample(0.5);
+        pose.resample(0.5, false);
 
         let own = pose.authoritative();
         assert_eq!(

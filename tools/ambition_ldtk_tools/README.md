@@ -60,8 +60,8 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools def register-
 # the authored values survive. Retiring or retyping a field the level still
 # uses is refused until you name it with --drop-instance-values ENTITY.FIELD.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools def upsert-entity \
-  game/ambition_demo_mary_o/assets/worlds/mary_o.entities.json \
-  --ldtk game/ambition_demo_mary_o/assets/worlds/mary_o.ldtk \
+  game/ambition_demo_mary_o/authoring/worlds/mary_o.entities.json \
+  --ldtk game/ambition_demo_mary_o/authoring/worlds/mary_o.ldtk \
   --game-owned --dry-run
 
 # Author a LINKED portal pair in one command. Two ends share a `link` id (the

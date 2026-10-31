@@ -122,7 +122,7 @@ web_platform = [
     # The rollback backend owns the wasm clock requirement.
     "ambition_platformer2d_rollback_ggrs?/web_platform",
 ]
-web_served = ["visible_web_base", "ambition_platformer2d_actor_monolith/web_served"]
+web_served = ["ambition_platformer2d_actor_monolith/web_served"]
 web_audio = ["audio"]
 headless = ["ambition_platformer2d_actor_monolith/headless"]
 dev_tools = [

@@ -1,32 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build a browser (wasm32) bundle for the Ambition sandbox.
-#
-# This is the web-build counterpart to ./build_for_android.sh. It
-# compiles the sandbox crate for `wasm32-unknown-unknown` with the
-# `web` feature composite, runs `wasm-bindgen --target web` to emit
-# the JS/wasm pair into `game/ambition_app/web/pkg/`, and
-# optionally serves the directory so a browser can load it.
-#
-# Default: Rust release build + wasm-bindgen output, no auto-serve.
-# Pass --serve to also start a static file server on http://localhost:8000/.
-#
-# See docs/recipes/web-build.md for the per-subsystem scope of the first-pass
-# web build (audio / dev tools / file watcher / mobile touch / physics
-# debris are intentionally OFF; LDtk loads via static_map).
+# Build the selected game for a browser. Run wasm-bindgen, compose its assets,
+# prepare gzip representations, and optionally start the local server.
+# See docs/recipes/web-build.md.
 
 usage() {
     cat <<'EOF'
 Usage: ./build_for_web.sh [options]
 
 Options:
+  --game NAME           Select ambition (default) or mary-o. Mary-O serves assets
+                        and uses the web-release profile by default.
   --release             Build the wasm artifact with Cargo --release (default).
   --debug               Build the wasm artifact with the dev profile (much larger, faster compile).
-  --optimize            Build with the `web-release` profile (fat LTO, opt-level=s,
+  --optimize            Build with the `web-release` profile (thin LTO, opt-level=s,
                         stripped). Much smaller module, much slower build. Use this
                         when the browser sits on "starting..." and the console shows
                         no Rust output at all.
+  --wasm-opt            Run wasm-opt -Os after wasm-bindgen. Requires wasm-opt.
+  --copy-assets         Copy asset bytes so the output can move to another host.
   --features LIST       Cargo features to enable. Default: web (or web_served_assets when --served is passed)
   --use-default-features  Also enable ambition_app default features. Off by default for web.
   --no-default-features Disable default features (default for web builds).
@@ -128,6 +121,10 @@ cargo_target_dir() {
 }
 
 PROFILE="release"
+PROFILE_EXPLICIT=false
+GAME="ambition"
+OPT_WASM=false
+ASSET_MODE=link
 FEATURES=""
 FEATURES_EXPLICIT=false
 USE_DEFAULT_FEATURES=false
@@ -144,9 +141,12 @@ SERVED_MODE=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --release) PROFILE="release" ;;
-        --debug) PROFILE="debug" ;;
-        --optimize) PROFILE="web-release" ;;
+        --game) shift; [[ $# -gt 0 ]] || fatal "--game needs a name"; GAME=$1 ;;
+        --release) PROFILE="release"; PROFILE_EXPLICIT=true ;;
+        --debug) PROFILE="debug"; PROFILE_EXPLICIT=true ;;
+        --optimize) PROFILE="web-release"; PROFILE_EXPLICIT=true ;;
+        --wasm-opt) OPT_WASM=true ;;
+        --copy-assets) ASSET_MODE=copy ;;
         --features) shift; [[ $# -gt 0 ]] || fatal "--features needs a value"; FEATURES=$1; FEATURES_EXPLICIT=true ;;
         --use-default-features) USE_DEFAULT_FEATURES=true ;;
         --no-default-features) USE_DEFAULT_FEATURES=false ;;
@@ -173,11 +173,29 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
+case "$GAME" in
+    ambition)
+        PACKAGE=ambition_app
+        OUT_NAME=ambition_app
+        PACK_DIR=ambition_content
+        ;;
+    mary-o)
+        PACKAGE=ambition_demo_mary_o_app
+        OUT_NAME=mary_o
+        PACK_DIR=ambition_demo_mary_o
+        SERVED_MODE=true
+        if [[ "$PROFILE_EXPLICIT" != true ]]; then PROFILE=web-release; fi
+        ;;
+    *) fatal "unknown game: $GAME (expected ambition or mary-o)" ;;
+esac
+
 # --served picks the right Cargo feature when one wasn't passed
 # explicitly. Specifying --features ... wins so callers can compose
 # with other features.
 if [[ "$FEATURES_EXPLICIT" != true ]]; then
-    if [[ "$SERVED_MODE" == true ]]; then
+    if [[ "$GAME" == mary-o ]]; then
+        FEATURES="web"
+    elif [[ "$SERVED_MODE" == true ]]; then
         FEATURES="web_served_assets"
     else
         FEATURES="web"
@@ -191,7 +209,7 @@ CARGO_CMD=${CARGO:-cargo}
 WASM_BINDGEN_CMD=${WASM_BINDGEN:-wasm-bindgen}
 SERVE_PORT=${SERVE_PORT:-${AMBITION_WEB_PORT:-8000}}
 
-WEB_DIR="$ROOT/game/ambition_app/web"
+WEB_DIR="$ROOT/game/$PACKAGE/web"
 if [[ -z "$OUT_DIR" ]]; then
     OUT_DIR="$WEB_DIR/pkg"
 fi
@@ -207,7 +225,7 @@ case "$PROFILE" in
     web-release) WASM_BUILD_DIR="$TARGET_DIR/wasm32-unknown-unknown/web-release" ;;
     *) fatal "unknown profile: $PROFILE (expected release, web-release or debug)" ;;
 esac
-WASM_ARTIFACT="$WASM_BUILD_DIR/ambition_app.wasm"
+WASM_ARTIFACT="$WASM_BUILD_DIR/$PACKAGE.wasm"
 
 log "repo: $ROOT"
 log "profile: $PROFILE"
@@ -224,6 +242,7 @@ log "wasm-bindgen target: $BINDGEN_TARGET  out dir: $OUT_DIR"
 # silent web audio after a build is otherwise indistinguishable from
 # "Kira refused to resume" and easy to misdiagnose.
 audio_feature_active=false
+if [[ "$GAME" == mary-o ]]; then audio_feature_active=true; fi
 case ",$FEATURES," in
     *,web_audio,*|*,web_served_assets,*|*,visible_web_served,*|*,audio,*)
         audio_feature_active=true ;;
@@ -272,7 +291,7 @@ fi
 if [[ "$SKIP_BUILD" != true ]]; then
     # `rustc --crate-type cdylib`: the manifest declares an rlib only (see its
     # `[lib]`), and the browser needs the shared library.
-    CARGO_ARGS=(rustc -p ambition_app --lib --crate-type cdylib --target wasm32-unknown-unknown)
+    CARGO_ARGS=(rustc -p "$PACKAGE" --lib --crate-type cdylib --target wasm32-unknown-unknown)
     case "$PROFILE" in
         release) CARGO_ARGS+=(--release) ;;
         web-release) CARGO_ARGS+=(--profile web-release) ;;
@@ -285,7 +304,7 @@ if [[ "$SKIP_BUILD" != true ]]; then
         CARGO_ARGS+=(--features "$FEATURES")
     fi
     log "building wasm artifact: $CARGO_CMD ${CARGO_ARGS[*]}"
-    "$CARGO_CMD" "${CARGO_ARGS[@]}"
+    CARGO_INCREMENTAL=0 "$CARGO_CMD" "${CARGO_ARGS[@]}"
 fi
 
 [[ -f "$WASM_ARTIFACT" ]] || fatal "wasm artifact not found at $WASM_ARTIFACT after build; check cargo output"
@@ -293,36 +312,27 @@ log "wasm artifact size: $(human_size "$WASM_ARTIFACT")"
 
 if [[ "$SKIP_BINDGEN" != true ]]; then
     mkdir -p "$OUT_DIR"
+    cp "$ROOT/scripts/web/audio_unlock.js" "$OUT_DIR/audio_unlock.js"
     log "running wasm-bindgen --target $BINDGEN_TARGET --out-dir $OUT_DIR"
     "$WASM_BINDGEN_CMD" \
         "$WASM_ARTIFACT" \
         --out-dir "$OUT_DIR" \
-        --out-name ambition_app \
+        --out-name "$OUT_NAME" \
         --target "$BINDGEN_TARGET" \
         --no-typescript
-    OUT_WASM="$OUT_DIR/ambition_app_bg.wasm"
-    OUT_JS="$OUT_DIR/ambition_app.js"
+    OUT_WASM="$OUT_DIR/${OUT_NAME}_bg.wasm"
+    OUT_JS="$OUT_DIR/$OUT_NAME.js"
+    if [[ "$OPT_WASM" == true ]]; then
+        need_cmd wasm-opt "Install Binaryen to use --wasm-opt."
+        log "before wasm-opt: $(human_size "$OUT_WASM")"
+        wasm-opt --enable-bulk-memory --enable-nontrapping-float-to-int -Os "$OUT_WASM" -o "$OUT_WASM.optimized"
+        mv "$OUT_WASM.optimized" "$OUT_WASM"
+    fi
     if [[ -f "$OUT_WASM" ]]; then
         log "wasm-bindgen output: $(human_size "$OUT_WASM") wasm, $(human_size "$OUT_JS") js"
-        # SIZE IS A BOOT FAILURE MODE, not a nicety. The browser must
-        # download AND COMPILE this before a single line of Rust runs, and a
-        # module in the hundreds of MB can take a minute or hang a tab outright —
-        # which presents as "the page loads and nothing happens", indistinguishable
-        # from a panic. Say the number and the fix, because the symptom does not.
         OUT_WASM_BYTES=$(stat -c%s "$OUT_WASM" 2>/dev/null || echo 0)
-        if [[ "$OUT_WASM_BYTES" -gt 104857600 && "$PROFILE" != "web-release" ]]; then
-            warn "the wasm module is $(human_size "$OUT_WASM") — very large for a browser to compile."
-            warn "  If the page sits on 'starting…' and the console shows no Rust output,"
-            warn "  this is the first suspect, not the composition."
-            warn "  ⭐ RUN --optimize. It is not a suggestion, it is measured (2026-08-15,"
-            warn "  --served at HEAD): 164M -> 84M wasm, 26.4M -> 14.3M gzipped, and the"
-            warn "  37M debug-symbol name section disappears entirely. Costs ~9 minutes."
-            warn "  The default \`release\` profile has strip = \"none\", which is where a"
-            warn "  fifth of this module comes from."
-        elif [[ "$OUT_WASM_BYTES" -gt 104857600 ]]; then
-            warn "the wasm module is $(human_size "$OUT_WASM") even under web-release."
-            warn "  The profile levers are spent; what is left is genuine code and data."
-            warn "  See docs/planning/engine/project-build-and-distribution.md."
+        if [[ "$OUT_WASM_BYTES" -gt 104857600 ]]; then
+            log "large raw module: compare the gzip report and browser startup before choosing a budget"
         fi
     else
         warn "wasm-bindgen finished but expected $OUT_WASM was not produced"
@@ -351,11 +361,17 @@ fi
 # A shipped package keeps the default `copy` — an APK cannot carry a link.
 SERVED_ASSETS_DIR="$WEB_DIR/assets"
 if [[ "$SERVED_MODE" == true ]]; then
+    PACK_ARGS=()
+    if [[ "$GAME" == mary-o && -z "${AMBITION_CONTENT_BIN:-}" ]]; then
+        export AMBITION_CONTENT_BIN="cargo run --quiet -p ambition_demo_mary_o --features content_check --bin mary_o_content_check --"
+    fi
+    if [[ "$GAME" == mary-o ]]; then PACK_ARGS=(--pack-root "$ROOT/game/$PACK_DIR/assets"); fi
     log "served assets: composing the published tree (package_asset_guard.py, profile=web)"
     if ! python3 "$ROOT/scripts/package_asset_guard.py" compose \
         --repo "$ROOT" \
+        "${PACK_ARGS[@]}" \
         --profile web \
-        --materialize link \
+        --materialize "$ASSET_MODE" \
         --output "$SERVED_ASSETS_DIR" \
         --contract "$WEB_DIR/.assets_contract.json" \
         --hash-manifest "$WEB_DIR/.assets_sha256"; then
@@ -364,12 +380,15 @@ if [[ "$SERVED_MODE" == true ]]; then
     log "served assets: published $SERVED_ASSETS_DIR (both roots, contract verified)"
 fi
 
+if [[ "$SKIP_BINDGEN" != true ]]; then
+    python3 "$ROOT/scripts/web_bundle.py" prepare --root "$WEB_DIR" --code-dir "$OUT_DIR"
+fi
+
 if [[ "$SERVE" != true ]]; then
     echo
-    log "done. Open the bundle by serving $WEB_DIR with any static file server."
+    log "done. Serve the bundle with compression enabled."
     log "Examples:"
-    log "  python3 -m http.server -d $WEB_DIR $SERVE_PORT"
-    log "  basic-http-server $WEB_DIR -a 127.0.0.1:$SERVE_PORT"
+    log "  python3 scripts/web_bundle.py serve --root $WEB_DIR --port $SERVE_PORT"
     exit 0
 fi
 
@@ -388,7 +407,7 @@ fi
 
 if command -v python3 >/dev/null 2>&1; then
     log "serving $WEB_DIR at $URL (Ctrl-C to stop)"
-    exec python3 -m http.server -d "$WEB_DIR" "$SERVE_PORT"
+    exec python3 "$ROOT/scripts/web_bundle.py" serve --root "$WEB_DIR" --port "$SERVE_PORT"
 elif command -v basic-http-server >/dev/null 2>&1; then
     log "serving $WEB_DIR at $URL via basic-http-server (Ctrl-C to stop)"
     exec basic-http-server "$WEB_DIR" -a "127.0.0.1:$SERVE_PORT"

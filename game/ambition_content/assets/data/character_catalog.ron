@@ -594,6 +594,38 @@
                 discharge: Some((muzzle: Offset(x: 0.22, y: -0.34))),
             ))),
         ),
+        // The void projectile polygon's cannon: the polygon's, at Ambition's
+        // damage, drawn black and white. A tap deals 1 health and a full hold
+        // 3, a smash attack's.
+        "void_polygon_cannon": (
+            move_style: Walk,
+            ranged: Some(Weapon((
+                style: Bolt,
+                speed: 540.0,
+                damage: 1,
+                flight: Some((
+                    gravity: 0.0,
+                    bounces: 0,
+                    bounce_on_world_contact: false,
+                    max_lifetime: 2.4,
+                    half_extent: (10.0, 8.0),
+                    boomerang_return_s: None,
+                )),
+                charge: Some((
+                    damage_mult: 3.0,
+                    speed_mult: 1.5,
+                    size_mult: 2.4,
+                    visuals: [
+                        "void_polygon_charge_shot_tier1",
+                        "void_polygon_charge_shot_tier2",
+                        "void_polygon_charge_shot_tier3",
+                        "void_polygon_charge_shot_tier4",
+                        "void_polygon_charge_shot_tier5",
+                    ],
+                )),
+                discharge: Some((muzzle: Offset(x: 0.22, y: -0.34))),
+            ))),
+        ),
         // The cellular automatons' swipe and their glider. The glider (a Conway
         // spaceship, the zoning tool) is the ranged action, not the side-B: the
         // `glider_launch` special displaces it instead of spawning a second one.
@@ -2593,6 +2625,28 @@
         ),
         hall_dialogue_id: Some("hall_npc_agent_swarm"),
         ),
+        "npc_void_star": (
+            display_name: "Unlit Void Star",
+            // A void star of the Unlit (the Magical dimension's hostile void):
+            // Mary-O's own void star (`void_star`, her sheet), as this game's
+            // enemy. In the rest of the void the stars are her guests and talk;
+            // here they walk at you, and no rule makes their top safe.
+            manifest: "sprites/void_star_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            posed_body: Some(Width(46.0)),
+            composition: None,
+            default_action_set: "striker_swipe",
+            locomotion: Some((run_speed: 48.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.5, amount: 1)),
+            autonomous_profile: Some((template: Wanderer)),
+            max_health: Some(2),
+            tags: ["enemy", "void"],
+            fallback_dialogue: [
+                "I point at nothing. I am what it points at.",
+                "Here, nobody wishes. Here, we do not stop.",
+            ],
+        ),
         "npc_ai_slop": (
             display_name: "Ai Slop",
             manifest: "sprites/ai_slop_spritesheet.ron",
@@ -4416,6 +4470,142 @@
                 provoked: ["PROJECTILE TEST."],
             ),
             hall_dialogue_id: Some("hall_projectile_polygon"),
+        ),
+        // THE VOID'S FIGHTERS (Jon, 2026-10-30: "make void versions of the
+        // polygon fighter characters and have them be enemies to fight in the
+        // void"). Each is one of the three polygons, emptied: the same rig and
+        // frames on a void sheet, the same Smash kit (its moveset borrows the
+        // polygon's table, at Ambition's damage), and the Smash CPU as its
+        // driver (`template: Fighter`). What the genre changes:
+        //
+        // - It is idle until the player comes inside its aggro radius, then it
+        //   stops a beat and looks (`notice_s`), then it fights. A room is not
+        //   a stage, and a foe across the room is left alone.
+        // - Its damage is health, not percent, and its health is a pool a few
+        //   of the robot's strings empty: tougher than a goblin, never a boss.
+        // - It plays at a middle rung of the ladder, so it is fair.
+        //
+        // A placement makes it hostile: an `EnemySpawn` that names it, with
+        // no `brain_profile`, takes the policy below.
+        "void_pointed_polygon": (
+            display_name: "Void Pointed Polygon",
+            manifest: "sprites/void_pointed_polygon_spritesheet.ron",
+            tier: Basement,
+            body_kind: Standard,
+            // 175 cm, as the polygon it is the void of.
+            standing_height: Some(67.7),
+            composition: None,
+            default_action_set: "striker_swipe",
+            attack_vfx: Some("void_pointed_polygon_strike_fx"),
+            locomotion: Some((run_speed: 220.0, move_style: Walk)),
+            // The fighter's kit, in a room: no ledge to catch, because a room
+            // has no blast zone to recover from.
+            abilities: Some([RunJump, AirJump, FastFall, Attack, DirectionalPrimary, DirectionalSpecial, Shield, Dodge]),
+            autonomous_profile: Some((
+                template: Fighter,
+                aggro_radius: 480.0,
+                attack_range: 48.0,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+                fighter_level: 4,
+                tactics: (notice_s: 0.4),
+            )),
+            max_health: Some(8),
+            tags: ["enemy", "void", "humanoid", "polygonal", "sword_fighter"],
+            cues: (notice: Some("enemy.searchlight_crawler.notice"), hit: Some("enemy.synthetic_friend.glitch_hit")),
+            authoring_description: "The Pointed Polygon with the facets emptied out: the sword archetype's rig and frames drawn as a void sheet, a reference pose that lost its reference. An original enemy for the void biome, not a copy of any Smash combatant.",
+            gameplay_description: "A sword fighter that plays the Pointed Polygon's whole Smash kit (spaced tilts, a tipper neutral special, the rising edge) as a room enemy. It waits until the player is close, stands a beat, then fights at a middle CPU rung. Its hits deal health; its pool takes a few strings.",
+            fallback_dialogue: [
+                "SILHOUETTE: NULL.",
+                "No reference. Only the edge.",
+                "The void keeps no poses.",
+            ],
+            barks: (
+                idle: ["EDGE ALIGNED TO NOTHING.", "POSE: VOID."],
+                on_hit: ["FACET UNMADE.", "LOSS LOGGED."],
+                provoked: ["INTRUDER IN THE NULL."],
+                hall: ["I was drawn, then erased. The edge stayed."],
+            ),
+        ),
+        "void_pugnacious_polygon": (
+            display_name: "Void Pugnacious Polygon",
+            manifest: "sprites/void_pugnacious_polygon_spritesheet.ron",
+            tier: Basement,
+            body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(68.9),
+            composition: None,
+            default_action_set: "striker_swipe",
+            attack_vfx: Some("void_pugnacious_polygon_strike_fx"),
+            locomotion: Some((run_speed: 230.0, move_style: Walk)),
+            abilities: Some([RunJump, AirJump, FastFall, Attack, DirectionalPrimary, DirectionalSpecial, Shield, Dodge]),
+            // A brawler closes from nearer in: it does not see as far.
+            autonomous_profile: Some((
+                template: Fighter,
+                aggro_radius: 420.0,
+                attack_range: 40.0,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+                fighter_level: 4,
+                tactics: (notice_s: 0.35),
+            )),
+            max_health: Some(9),
+            tags: ["enemy", "void", "humanoid", "polygonal", "brawler"],
+            cues: (notice: Some("enemy.searchlight_crawler.notice"), hit: Some("enemy.synthetic_friend.glitch_hit")),
+            authoring_description: "The Pugnacious Polygon with the facets emptied out: the brawler archetype's rig and frames drawn as a void sheet. An original enemy for the void biome, not a copy of any Smash combatant.",
+            gameplay_description: "A close-range brawler that plays the Pugnacious Polygon's whole Smash kit (the jab string, the haymaker, the uppercut, the shoulder rush) as a room enemy. It notices late and closes hard, at a middle CPU rung. Its hits deal health; its pool is the deepest of the three.",
+            fallback_dialogue: [
+                "STANCE: NULL.",
+                "Contact. Then nothing.",
+                "The void does not flinch.",
+            ],
+            barks: (
+                idle: ["FISTS IN THE DARK.", "GUARD: NOT REQUIRED."],
+                on_hit: ["FACET DROPPED.", "NOTED."],
+                provoked: ["CONTACT REQUESTED."],
+                hall: ["Strike first. There is no second."],
+            ),
+        ),
+        "void_projectile_polygon": (
+            display_name: "Void Projectile Polygon",
+            manifest: "sprites/void_projectile_polygon_spritesheet.ron",
+            tier: Basement,
+            body_kind: Standard,
+            // 173 cm.
+            standing_height: Some(67.0),
+            composition: None,
+            default_action_set: "void_polygon_cannon",
+            attack_vfx: Some("void_projectile_polygon_strike_fx"),
+            locomotion: Some((run_speed: 225.0, move_style: Walk)),
+            // The look of an uncharged shot: its first tier, black and white.
+            ranged_vfx: Some("void_polygon_charge_shot_tier1"),
+            abilities: Some([RunJump, AirJump, FastFall, Attack, DirectionalPrimary, DirectionalSpecial, Shield, Dodge]),
+            // A zoner sees farthest, and its kit keeps the distance.
+            autonomous_profile: Some((
+                template: Fighter,
+                aggro_radius: 560.0,
+                attack_range: 48.0,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+                fighter_level: 4,
+                tactics: (notice_s: 0.45),
+            )),
+            max_health: Some(7),
+            tags: ["enemy", "void", "bestial", "polygonal", "projectile_fighter"],
+            cues: (notice: Some("enemy.searchlight_crawler.notice"), hit: Some("enemy.synthetic_friend.glitch_hit")),
+            authoring_description: "The Projectile Polygon with the facets emptied out: the beast biped's rig, tail and head cannon drawn as a void sheet. An original enemy for the void biome, not a copy of any Smash combatant.",
+            gameplay_description: "A zoner that plays the Projectile Polygon's whole Smash kit (the stored charge shot, the ponytail boomerang, the mine) as a room enemy. It sees the player from farthest off and fights at a middle CPU rung. Its hits deal health; its pool is the shallowest of the three.",
+            fallback_dialogue: [
+                "VECTOR: INTO NOTHING.",
+                "Trajectory ends here.",
+                "Aim at the light.",
+            ],
+            barks: (
+                idle: ["TARGET: ANY LIGHT.", "BARREL COLD."],
+                on_hit: ["TRAJECTORY ERASED.", "RECALCULATING NOTHING."],
+                provoked: ["TARGET ACQUIRED."],
+                hall: ["Every shot lands somewhere. Here, nowhere."],
+            ),
         ),
         // THE TWO EASTER EGGS, and they are deliberately not advertised anywhere
         // else: no hall dialogue, no quest, no encounter table. They are on the
@@ -6848,6 +7038,42 @@
             barks: (
                 idle: ["One move at a time.", "Never a larger on a smaller."],
                 hall: ["When the last disk is moved, the world ends. I wrote the legend. It sold a great many puzzles.", "Nobody who understands the puzzle is ever in a hurry."],
+            ),
+        ),
+        "npc_math_fermette": (
+            display_name: "Pierre de Fermette",
+            // Keeps the Conjectures, the cellar of unsolved problems under the
+            // fractal roots (a parody of Pierre de Fermat).
+            manifest: "sprites/math_fermat_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "math_town", "peaceful"],
+            barks: (
+                idle: ["I have a marvellous proof. Have you a margin?", "Three inches. I need four."],
+                hall: ["I proved it in a margin. A man in Cambridge needed a hundred and nine pages. One of us has the better proof.", "Every problem in my cellar is solved. The margins are too small to show you."],
+            ),
+        ),
+        "npc_math_kepplar": (
+            display_name: "Johannes Kepplar",
+            // Keeps the Observatory on the Math town's summit (a parody of
+            // Johannes Kepler).
+            manifest: "sprites/math_kepplar_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "math_town", "peaceful"],
+            barks: (
+                idle: ["Not a circle. Never a circle.", "Equal areas in equal times."],
+                hall: ["Everyone wanted circles. Mars wanted an ellipse. I gave Mars what it wanted.", "I nested the planets in the five perfect solids. It was beautiful. It was wrong. I kept the drawing."],
             ),
         ),
         "npc_math_kleinbottle": (

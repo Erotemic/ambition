@@ -1293,9 +1293,19 @@ fn ease_cast_frame(previous: CastFrame, target: CastFrame, ease: CastEase) -> Ca
 /// to 97 units, correctly: the excluded body IS the respawning fighter, it is
 /// alive and drawn on the respawn platform, and a frame that does not contain it
 /// is a frame with a live fighter outside it. The camera has to move.
+///
+/// ⛔ EACH MEMBER IS FRAMED WHERE IT IS DRAWN (its presented pose), not where
+/// its last tick left it. The view eases every rendered frame; framed on tick
+/// poses, its target stood still between ticks and jumped a tick's travel at
+/// each one, so on a display faster than the sim the view lurched once a tick
+/// under bodies drawn moving smoothly (MEASURED, `cast_camera_jerk_on_a_fast_display`:
+/// 6.56 px of step change a frame at 144 Hz, two fighters at 400 px/s). The
+/// teleport predicate still reads the tick poses: it is about where the
+/// bodies WENT.
 fn frame_the_cast(
     cast: &[bevy::prelude::Entity],
     bodies: &bevy::prelude::Query<(bevy::prelude::Entity, &ambition_platformer2d_core::BodyKinematics, Option<&FrameAlongside>)>,
+    presented: &bevy::prelude::Query<&crate::presented_pose::PresentedPose>,
     last_seen: &mut Vec<(bevy::prelude::Entity, ae::Vec2)>,
 ) -> Option<CastFraming> {
     let mut anchor = None;
@@ -1313,12 +1323,13 @@ fn frame_the_cast(
         anchor.get_or_insert(*entity);
         members += 1;
         now.push((*entity, kin.pos, kin.vel));
+        let at = kin.pos + presented.get(*entity).map_or(ae::Vec2::ZERO, |pose| pose.delta());
         let half = kin.size / 2.0;
-        member_bodies.push((kin.pos, half));
-        min.x = min.x.min(kin.pos.x - half.x);
-        min.y = min.y.min(kin.pos.y - half.y);
-        max.x = max.x.max(kin.pos.x + half.x);
-        max.y = max.y.max(kin.pos.y + half.y);
+        member_bodies.push((at, half));
+        min.x = min.x.min(at.x - half.x);
+        min.y = min.y.min(at.y - half.y);
+        max.x = max.x.max(at.x + half.x);
+        max.y = max.y.max(at.y + half.y);
     }
     let teleported = !placed_cast_members(last_seen, &now).is_empty();
     let anchor = anchor?;
@@ -1499,7 +1510,7 @@ pub fn resolve_camera_observation(
                 ),
                 None => {
                     let Some(cast) =
-                        frame_the_cast(&framed.0, &body_kinematics, &mut cast_last_seen)
+                        frame_the_cast(&framed.0, &body_kinematics, &presented, &mut cast_last_seen)
                     else {
                         //  forget the eased framing with the cast, or the next
                         // match opens by closing in from the last one's final
@@ -1652,7 +1663,10 @@ pub fn resolve_camera_observation(
     // The SIM position, kept before the presented offset is folded in — the
     // teleport predicate below is about where the BODY went.
     let subject_sim_pos = player_body.pos;
-    if let Ok(presented) = presented.get(followed) {
+    // A cast's centre is already framed from its members' presented poses
+    // (`frame_the_cast`); carrying it by one member's lead as well moved the
+    // pair's view by seat 0's tick sawtooth.
+    if let Some(presented) = presented.get(followed).ok().filter(|_| !cast_declared) {
         player_body.pos += presented.delta();
     }
 

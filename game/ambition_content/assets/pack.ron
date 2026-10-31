@@ -68,6 +68,10 @@
         (path: "data/movesets/pointed_polygon.ron", schema: "moveset", version: 1),
         (path: "data/movesets/projectile_polygon.ron", schema: "moveset", version: 1),
         (path: "data/movesets/pugnacious_polygon.ron", schema: "moveset", version: 1),
+        // The void's fighters: the three polygons' tables, at Ambition's damage.
+        (path: "data/movesets/void_pointed_polygon.ron", schema: "moveset", version: 1),
+        (path: "data/movesets/void_pugnacious_polygon.ron", schema: "moveset", version: 1),
+        (path: "data/movesets/void_projectile_polygon.ron", schema: "moveset", version: 1),
         (path: "data/movesets/ramen_nujan.ron", schema: "moveset", version: 1),
         (path: "data/movesets/shock_warden.ron", schema: "moveset", version: 1),
         (path: "data/movesets/raptor_stalker.ron", schema: "moveset", version: 1),

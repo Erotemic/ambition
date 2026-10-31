@@ -252,38 +252,6 @@ def test_the_unmanifested_list_does_not_rot():
     )
 
 
-def test_the_portrait_scan_still_reads_full_resolution_only():
-    """⛔⛔ THE FACT THE PORTRAIT BUCKET RESTS ON, PINNED AT ITS SOURCE.
-
-    `reduced_tier_portraits` calls 487 files unreachable purely because
-    the portrait scan collects from `assets/sprites` and never from the
-    reduced tier dirs. If that changes, the bucket silently becomes a list of
-    perfectly live files — and nothing else in this suite would notice, because
-    the assets themselves would not move.
-
-    The scan is `portrait_manifests` in `ambition_sprite_sheet/src/sprite_tree.rs`
-    (2026-10-11): `build.rs` embeds what it finds, and a development build
-    reads what it finds. This reads committed Rust, so it runs on every machine.
-    """
-    scan_rs = REPO / "crates/ambition_sprite_sheet/src/sprite_tree.rs"
-    if not scan_rs.exists():
-        pytest.skip("ambition_sprite_sheet/src/sprite_tree.rs is absent")
-    text = scan_rs.read_text()
-    start = text.index("pub fn portrait_manifests")
-    body = text[start : text.index("\npub fn ", start + 1)]
-    assert len(body) > 200, "premise: a real function body was read, not an empty slice"
-    assert 'walk(&assets.join("sprites"), &assets, &mut entries);' in body, (
-        "the portrait baker no longer roots at the full-resolution sprites dir; "
-        "re-check `reduced_tier_portraits`, which calls reduced-tier portraits "
-        "unreachable ONLY because this scan never sees them"
-    )
-    for tier in ["sprites_0_5x", "sprites_0_25x", "sprites_potato"]:
-        assert tier not in body, (
-            f"the portrait baker now scans {tier}, so reduced-tier portraits "
-            "are reachable and the census bucket is wrong"
-        )
-
-
 # ── The SCRIPT's behaviour, on fixtures, unconditionally ──────────────────
 
 

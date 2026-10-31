@@ -18,6 +18,14 @@ game/ambition_app/web/pkg/
 game/ambition_app/web/assets
 game/ambition_app/web/.assets_contract.json
 game/ambition_app/web/.assets_sha256
+game/ambition_demo_mary_o_app/web/pkg/
+game/ambition_demo_mary_o_app/web/assets/
+game/ambition_demo_mary_o_app/web/.assets_contract.json
+game/ambition_demo_mary_o_app/web/.assets_sha256
+**/web/bundle-report.json
+**/web/.encoded/
+**/web/*.gz
+**/web/*.br
 
 # proptest writes regression seeds when a property fails. Useful
 # locally to reproduce a flake but shouldn't go to git.

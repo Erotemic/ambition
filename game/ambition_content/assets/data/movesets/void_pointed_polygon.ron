@@ -1,0 +1,48 @@
+// The source of the moves of `void_pointed_polygon`: the Pointed Polygon's
+// table under its own name (`borrows`), so tuning the archetype tunes this
+// fighter too.
+//
+// It is an enemy of Ambition's rooms, and Ambition is its home game: there
+// damage is health, a tilt or an aerial deals 1 and a smash attack deals 3
+// (`room_rules.ron`). The archetype's numbers are Smash percent, so `damage`
+// states this fighter's own for every move that deals damage, by its own move
+// id. The rule: a fifth of the archetype's percent, rounded, and at least 1.
+// The frames, the reach and the knockback are the archetype's.
+(
+    schema_version: 1,
+    entities: [
+        (
+            id: "void_pointed_polygon",
+            contracts: (
+                borrows: Some((
+                    archetype: "pointed_polygon",
+                    prefixes: [
+                        "polygon",
+                        "pointed_polygon",
+                    ],
+                    damage: {
+                        "void_pointed_polygon_jab": [1],
+                        "void_pointed_polygon_tilt_forward": [1],
+                        "void_pointed_polygon_tilt_up": [1],
+                        "void_pointed_polygon_tilt_down": [1],
+                        "void_pointed_polygon_dash_attack": [2],
+                        "void_pointed_polygon_smash_forward": [3],
+                        "void_pointed_polygon_smash_up": [3],
+                        "void_pointed_polygon_smash_down": [2],
+                        "void_pointed_polygon_air_neutral": [1],
+                        "void_pointed_polygon_air_forward": [2],
+                        "void_pointed_polygon_air_back": [2],
+                        "void_pointed_polygon_air_up": [1],
+                        "void_pointed_polygon_air_down": [2],
+                        // The tip, then the base.
+                        "void_pointed_polygon_point": [3, 2],
+                        "void_pointed_polygon_vector_lunge": [2],
+                        // Four link hits and the launcher.
+                        "void_pointed_polygon_rising_edge": [1, 1, 1, 1, 1],
+                        "void_pointed_polygon_falling_edge": [2],
+                    },
+                )),
+            ),
+        ),
+    ],
+)

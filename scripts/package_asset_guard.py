@@ -377,6 +377,12 @@ def collect_source_files(repo: Path, profile: str, *, pack_root: Path | None = N
 def resolve_declarations(declarations: dict[str, set[str]], files: dict[str, SourceFile]) -> dict[str, set[str]]:
     resolved: dict[str, set[str]] = defaultdict(set)
     for path, origins in declarations.items():
+        # The compiler names pack sources relative to their own pack.
+        if PACK_SOURCE_ORIGIN in origins:
+            resolved[path].add(PACK_SOURCE_ORIGIN)
+            origins = origins - {PACK_SOURCE_ORIGIN}
+            if not origins:
+                continue
         aliases = [logical for logical in files if logical.startswith("__libraries/") and logical.split("/", 2)[2] == path]
         owners = ([path] if path in files else []) + aliases
         if not path.startswith("__libraries/") and len(owners) > 1:
@@ -471,7 +477,8 @@ def read_pack_inputs(repo: Path, source_files: dict[str, SourceFile]) -> PackInp
 
 
 def scan_manifest_declarations(
-    repo: Path, source_files: dict[str, SourceFile], pack: PackInputs | None = None
+    repo: Path, source_files: dict[str, SourceFile], pack: PackInputs | None = None,
+    *, source_root: Path | None = None,
 ) -> dict[str, set[str]]:
     declarations: dict[str, set[str]] = defaultdict(set)
     # A pack file is its schema's to read; see "Declared paths" above.
@@ -520,9 +527,10 @@ def scan_manifest_declarations(
     # Provider catalogs can be compile-time raw RON strings in Rust rather than
     # loose files. Scan production source only, and only explicit asset fields
     # and asset-named constants.
-    game_root = repo / "game"
+    game_root = source_root or repo / "game"
     if game_root.is_dir():
-        for source in sorted(game_root.glob("*/src/**/*.rs")):
+        sources = game_root.rglob("*.rs") if source_root else game_root.glob("*/src/**/*.rs")
+        for source in sorted(sources):
             rel_source = source_relative_path(repo, source)
             parts = source.relative_to(game_root).parts
             # A `*_tests.rs` file is a `#[cfg(test)]` module in a file of its own
@@ -580,7 +588,10 @@ def build_contract(
     repo = repo.resolve()
     source_files = collect_source_files(repo, profile, pack_root=pack_root)
     pack = read_pack_inputs(repo, source_files)
-    declarations = resolve_declarations(scan_manifest_declarations(repo, source_files, pack), source_files)
+    source_root = pack_root.parent / "src" if pack_root is not None else None
+    declarations = resolve_declarations(
+        scan_manifest_declarations(repo, source_files, pack, source_root=source_root), source_files
+    )
     entries: dict[str, ContractEntry] = {}
 
     for rel, item in source_files.items():

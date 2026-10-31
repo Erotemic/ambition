@@ -16,7 +16,7 @@ spelled the way LDtk 1.5.3 wants them.
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools \\
 python3 -m ambition_ldtk_tools.edit.editor_art_preview \\
-    game/ambition_demo_mary_o/assets/worlds/mary_o.ldtk out.png --level mary_o_1_1
+    game/ambition_demo_mary_o/authoring/worlds/mary_o.ldtk out.png --level mary_o_1_1
 ```
 """
 

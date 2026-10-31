@@ -636,14 +636,14 @@ def game_entity_manifest_for(path: Path) -> Path:
 
 # : Where games mount their world files. Small and known, so the search below is
 # : bounded rather than a walk of the tree.
-GAME_ASSET_WORLD_GLOB = "game/*/assets/worlds"
+GAME_WORLD_GLOBS = ("game/*/assets/worlds", "game/*/authoring/worlds")
 
 
 def game_entity_manifest_candidates(path: Path) -> list[Path]:
     """Every place `path`'s sidecar manifest could legitimately live.
 
     ⛔⛔ **THE WORLD FILES ARE SYMLINKS, AND THE SIDECAR SITS BESIDE THE LINK.**
-    `game/<demo>/assets/worlds/mary_o.ldtk` is a symlink into
+    `game/<demo>/authoring/worlds/mary_o.ldtk` is a symlink into
     `game/ambition_map_assets/`, and `mary_o.entities.json` sits beside the
     LINK — because the manifest belongs to the GAME that mounts the world, not
     to the shared asset repository that stores it.
@@ -673,13 +673,14 @@ def game_entity_manifest_candidates(path: Path) -> list[Path]:
     except OSError:
         return candidates
     for root in _repo_roots(path):
-        for worlds_dir in root.glob(GAME_ASSET_WORLD_GLOB):
-            link = worlds_dir / path.name
-            try:
-                if link.is_symlink() and link.resolve() == target:
-                    offer(game_entity_manifest_for(link))
-            except OSError:
-                continue
+        for pattern in GAME_WORLD_GLOBS:
+            for worlds_dir in root.glob(pattern):
+                link = worlds_dir / path.name
+                try:
+                    if link.is_symlink() and link.resolve() == target:
+                        offer(game_entity_manifest_for(link))
+                except OSError:
+                    continue
     return candidates
 
 

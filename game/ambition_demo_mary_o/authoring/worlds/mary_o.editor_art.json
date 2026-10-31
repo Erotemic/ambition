@@ -14,7 +14,7 @@
     "and the world file itself is in the map submodule with no overlay beside it:",
     "",
     "  PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools \\",
-    "      asset editor-art game/ambition_demo_mary_o/assets/worlds/mary_o.ldtk --in-place"
+    "      asset editor-art game/ambition_demo_mary_o/authoring/worlds/mary_o.ldtk --in-place"
   ],
   "atlas_identifier": "EngineArt",
   "_entity_art_doc": [

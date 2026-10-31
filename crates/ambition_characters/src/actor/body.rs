@@ -514,11 +514,21 @@ impl BodyCombat {
     /// Advance recovery in body proper time and hitstop in unscaled step time.
     /// Hitstop expiry must advance while the simulation clock is stopped.
     pub fn decay_reaction_timers(&mut self, proper_dt: f32, unscaled_dt: f32) {
+        // ⛔⛔ THE STUN OF A HIT BEGINS WHEN ITS FREEZE ENDS. A body in hitlag
+        // keeps its hitstun and its recoil lock whole: the launch they belong
+        // to has not started yet. Decayed through the freeze, a hit's stun was
+        // spent before the body moved (MEASURED 2026-10-31, `ko_envelope
+        // feel`: a jab's 0.148 s of stun ran out one frame after its 8-frame
+        // freeze), so a victim acted as soon as the freeze lifted, before the
+        // attacker's move was over.
+        // A freeze that ends inside this step leaves the rest of the step to
+        // the stun.
+        let thawed_dt = (proper_dt - self.hitstop_timer.max(0.0)).max(0.0);
         self.damage_invuln_timer = (self.damage_invuln_timer - proper_dt).max(0.0);
         self.hit_flash = (self.hit_flash - proper_dt).max(0.0);
         self.struck_recently = (self.struck_recently - proper_dt).max(0.0);
-        self.hitstun_timer = (self.hitstun_timer - proper_dt).max(0.0);
-        self.recoil_lock_timer = (self.recoil_lock_timer - proper_dt).max(0.0);
+        self.hitstun_timer = (self.hitstun_timer - thawed_dt).max(0.0);
+        self.recoil_lock_timer = (self.recoil_lock_timer - thawed_dt).max(0.0);
         self.ledge_trump_lock_timer = (self.ledge_trump_lock_timer - proper_dt).max(0.0);
         self.sleep_timer = (self.sleep_timer - proper_dt).max(0.0);
         self.slow_timer = (self.slow_timer - proper_dt).max(0.0);
@@ -681,7 +691,7 @@ mod tests {
             hit_flash: 0.30,
             hitstop_timer: 0.02, // < dt → clamps to 0
             damage_invuln_timer: 0.50,
-            hitstun_timer: 0.10,
+            hitstun_timer: 0.07,
             recoil_lock_timer: 0.05,
             ..Default::default()
         };
@@ -689,8 +699,32 @@ mod tests {
         assert!((combat.hit_flash - 0.20).abs() < 1e-6);
         assert_eq!(combat.hitstop_timer, 0.0, "under-dt timer clamps to zero");
         assert!((combat.damage_invuln_timer - 0.40).abs() < 1e-6);
+        // The stuns decay by the 0.08 s left after the freeze.
         assert_eq!(combat.hitstun_timer, 0.0);
         assert_eq!(combat.recoil_lock_timer, 0.0);
+    }
+
+    /// A HIT'S STUN BEGINS WHEN ITS FREEZE ENDS: hitstun and the recoil lock
+    /// hold through hitlag, and a freeze that ends mid-step leaves the rest
+    /// of the step to them.
+    #[test]
+    fn hitstun_waits_for_the_freeze() {
+        let mut combat = BodyCombat {
+            hitstop_timer: 0.10,
+            hitstun_timer: 0.20,
+            recoil_lock_timer: 0.05,
+            ..Default::default()
+        };
+        combat.decay_reaction_timers(1.0 / 60.0, 1.0 / 60.0);
+        assert_eq!(combat.hitstun_timer, 0.20, "the stun ran during the freeze");
+        assert_eq!(combat.recoil_lock_timer, 0.05);
+        let mut ending = BodyCombat {
+            hitstop_timer: 0.01,
+            hitstun_timer: 0.20,
+            ..Default::default()
+        };
+        ending.decay_reaction_timers(0.04, 0.04);
+        assert!((ending.hitstun_timer - 0.17).abs() < 1e-6, "{}", ending.hitstun_timer);
     }
 }
 

@@ -231,6 +231,7 @@ collections:
   - eigenghost
   - decomposing_specter
   - spectral_perturbation
+  - gram_reaper
   - hylbert_spectral_gap
   - hylbert_wallpaper_panel
   - hylbert_room_door

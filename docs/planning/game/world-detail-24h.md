@@ -60,6 +60,17 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **The Magical dimension: dressed, and the Void Castle** (Jon, 10-30:
+  "Make sure maryo is a character in this universe and add a void lizard
+  dungeon, but he is not an enemy here ... You can talk to them"). Props for
+  the garden (round hills under the star steps, a star tree, the hatch), the
+  hollow (stars asleep in heaps, the day down each shaft) and the road
+  (dunes, a spilled star cart, the last lamp the void is climbing). East of
+  the road the Void Castle: the keep (Mary-O at a truce, void stars that
+  wander and talk rudely, the lizard's banners, the town's star defaced) and,
+  down either stair, the Void Lizard's bridge over the lava, its tea table,
+  its switch (DO NOT LAND ON). Neutral: they fight only if struck.
+  Verified: the_magical_dimension (4, the castle loop and both talks).
 - **The Magical dimension (Mary-O's), begun** (Jon, 10-30: "start authoring
   the maryo-dimension for the ambition game. I.e. the magical dimension"):
   `magical.ldtk`, gate DESTINY (posted LEGAL), in Mary-O's own biomes. The

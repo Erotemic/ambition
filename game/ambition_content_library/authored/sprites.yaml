@@ -567,6 +567,13 @@ collections:
   - road_dune_far
   - road_cart
   - road_lamp
+  - keep_gate
+  - keep_banner
+  - keep_star_statue
+  - keep_stair
+  - bridge_span
+  - bridge_switch
+  - bridge_tea_table
   - bad_apple
   - gravity_apple
   - mine_tunnel

@@ -24,3 +24,61 @@ Ollie Lumen: Evening. Or it will be. I light the star lamps, you see, and they d
 -> Good night.
     Ollie Lumen: Not yet. I haven't told the lamp it's beautiful. (to the lamp) You're beautiful. (the lamp brightens)
 ===
+
+title: magical_mary_o
+---
+Mary-O: Robot. Good. You can be a witness. I'm at a truce.
+-> A truce? With the void?
+    Mary-O: With the lizard. Not the void. The void doesn't do truces. It does more void.
+    Mary-O: The lizard's different. I dropped him in the lava six times. He came back six times. At some point you have to ask who's the problem.
+-> Isn't the lizard your enemy?
+    Mary-O: Was. In my castles he's on a bridge, I'm on the switch, it's a whole thing. Here he's just a guy who lives on a bridge.
+    Mary-O: He makes tea. It's bad tea. I drink it. That's diplomacy.
+-> What's the plan?
+    Mary-O: Step one: don't stomp anyone. Step two: find out what the void wants. Step three: three jumps.
+    Mary-O: It's always three jumps.
+-> What about the void stars?
+    Mary-O: Stars that went out and didn't like it. Don't stomp them either. They're rude, not dangerous. Mostly. Don't hit one and find out.
+-> Carry on.
+    Mary-O: Always. If anyone lands on that switch, it wasn't me.
+===
+
+title: magical_void_lizard
+---
+Void Lizard: Hhhh. A robot. On my bridge. Wipe your feet. The void gets everywhere and I'm the one who sweeps it.
+-> Are you going to fight me?
+    Void Lizard: Not today. The bridge just got fixed. Last time someone fought me here, the bridge fell in the lava, and so did I.
+    Void Lizard: I keep the lava warm. Nobody thanks me.
+-> What's the switch for?
+    Void Lizard: Nothing. Don't land on it. It's decorative. It's a decorative switch that drops the bridge.
+    Void Lizard: Who builds a bridge with a switch that drops it? Castle architects. Hhhh. Every castle. Every one.
+-> Why is everything dark?
+    Void Lizard: It's the void. I'm made of it. I didn't ask for it either. It came in and said "you're a lizard now, made of nothing, guard this," and I said "guard it from what," and it said "her."
+    Void Lizard: She brings biscuits now. It's very confusing.
+-> Is that tea?
+    Void Lizard: Void tea. Steep a little nothing in hot water. It tastes like a room you just left.
+-> I'll go.
+    Void Lizard: Mind the switch. Mind the stars. Mind your step. Hhhh. Mind everything.
+===
+
+title: magical_void_star_a
+---
+Void Star: What are you looking at. Don't look at me. I went out. You look at stars that are lit.
+-> Why did you go out?
+    Void Star: Nobody looked. You twinkle for a thousand years, nobody makes a wish, you start to think: why bother. Then the void came, and it was very understanding.
+-> Do you want a wish?
+    Void Star: ...No. ...What kind of wish. ...No. Go away.
+-> Sorry.
+    Void Star: You should be. Everybody should be. Hmph.
+===
+
+title: magical_void_star_b
+---
+Void Star: Hey. Robot. You're not lit up either. We could be friends. We won't, but we could.
+-> Are you dangerous?
+    Void Star: Hit me and see. Don't hit me and don't see. Your choice. Both choices are fine with me. One is finer.
+-> What does the void want?
+    Void Star: Quiet. Dark. Nobody wishing. It's restful. You'd like it. Your batteries would last for ever.
+-> Bye.
+    Void Star: Not "goodnight"? Everybody says goodnight to us. That's the problem.
+===

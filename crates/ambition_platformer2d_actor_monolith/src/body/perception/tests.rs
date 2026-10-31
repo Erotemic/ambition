@@ -58,6 +58,7 @@ fn peer(id: &str, pos: ae::Vec2, faction: ActorFaction) -> PerceptionPeer {
         phase: BodyPhase::Neutral,
         phase_remaining: 0.0,
         attack_reach: None,
+        threat_reach: None,
         invulnerable: false,
         tumbling: false,
         ledge_hanging: false,
@@ -852,6 +853,26 @@ fn hitstun_outranks_a_swing_and_a_swing_outranks_a_shield() {
         (BodyPhase::Neutral, 0.0),
         "a body with no combat components is neutral, not unknown"
     );
+}
+
+/// A swing in its recovery reports the time left in it: that is the window a
+/// whiff opens, and the whole punish read stands on it.
+#[test]
+fn a_swing_in_recovery_reports_the_time_left_in_it() {
+    let mut swing = ambition_combat::components::MeleeSwing::new(ambition_combat::AttackSpec {
+        intent: ambition_combat::AttackIntent::Forward,
+        startup_seconds: 0.2,
+        active_seconds: 0.1,
+        recovery_seconds: 0.5,
+        hitbox_offset: ae::Vec2::ZERO,
+        hitbox_half_size: ae::Vec2::ONE,
+        self_impulse: ae::Vec2::ZERO,
+        knockback: ae::Vec2::ZERO,
+    });
+    swing.elapsed = 0.4;
+    let (phase, remaining) = body_phase(None, Some(&swing), None);
+    assert_eq!(phase, BodyPhase::AttackRecovery);
+    assert!((remaining - 0.4).abs() < 1e-4, "0.8 s in all, 0.4 s gone: {remaining}");
 }
 
 #[test]

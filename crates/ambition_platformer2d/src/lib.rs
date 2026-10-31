@@ -1499,6 +1499,13 @@ pub mod presentation {
     pub use ambition_render::hud::declared::{
         DeclaredHudPlugin, DeclaredHudRoot, DeclaredHudSlot, declared_hud_owns,
     };
+
+    /// A light about an actor: put an [`ActorGlow`] on a body's visual, or
+    /// declare the glow on the bodies the players drive with
+    /// [`with_player_glow`](ambition_platformer2d_provider::PlatformerExperienceAuthoring::with_player_glow).
+    pub use ambition_platformer2d_shared_tangle::gameplay_presentation::{
+        ActivePlayerGlow, ActorGlow, GlowLayer, GlowLook, GlowPulse, PlayerGlowCatalog,
+    };
 }
 
 /// The SDK claim about the inspector, tested.

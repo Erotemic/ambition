@@ -267,6 +267,33 @@ def character_groups(identities: dict) -> list[dict]:
     return [{"root": key, "members": sorted(members)} for key, members in sorted(grouped.items())]
 
 
+#: Roles a pack declares through a source schema: a source of this schema names its `character`.
+ROLE_SCHEMAS = {"smash_fighter": "smash-fighter"}
+
+
+def role_tags(pack: Path) -> dict[str, set[str]]:
+    """Character id -> role tags, from the pack's role sources (`pack.ron`:
+    `(path: "data/fighters/npc_alice.ron", schema: "smash_fighter", ...)`)."""
+    import re
+    tags: dict[str, set[str]] = defaultdict(set)
+    try:
+        manifest = (pack / "pack.ron").read_text()
+    except OSError:
+        return tags
+    for line in manifest.splitlines():
+        path, schema = re.search(r'\bpath:\s*"([^"]+)"', line), re.search(r'\bschema:\s*"([^"]+)"', line)
+        if not path or not schema or schema.group(1) not in ROLE_SCHEMAS:
+            continue
+        path, schema = path.group(1), schema.group(1)
+        try:
+            found = re.search(r'\bcharacter:\s*"([^"]+)"', (pack / path).read_text())
+        except OSError:
+            continue
+        if found:
+            tags[found.group(1)].add(ROLE_SCHEMAS[schema])
+    return tags
+
+
 def collect(repo: Path, out: Path, *, profile="ambition", python=None, binary=None, deep=False, runtime_path=None,
             product_report=None, cargo=False, log=print) -> dict:
     """`product_report`: the renderer's report, when the caller started it early."""
@@ -277,6 +304,12 @@ def collect(repo: Path, out: Path, *, profile="ambition", python=None, binary=No
     files = [p for root in roots(repo) if root.tier == "full" for p in root.path.rglob("*") if p.is_file()]
     runtime = json.loads(runtime_path.read_text()) if runtime_path else None
     report = assemble(repo, product_report, prepared, local_files=files, runtime=runtime)
+    roles = role_tags(sources.pack_dir(repo, profile))
+    for identity in report["identities"].values():
+        extra = roles.get(identity.get("id"), set())
+        if extra:
+            catalog = identity["catalog"] = dict(identity["catalog"])
+            catalog["tags"] = sorted(set(catalog.get("tags") or []) | extra)
     import subprocess
     revisions = {}
     for name, path in (("game", repo), ("renderer", repo / "tools/ambition_sprite2d_renderer")):

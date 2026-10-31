@@ -143,6 +143,7 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
                 attack_range: *attack_range,
                 roam_radius: *roam_radius,
                 dive_tell_s: 0.0,
+                notice_s: 0.0,
             },
             state: ambition_characters::brain::state_machine::AerialState::default(),
         },

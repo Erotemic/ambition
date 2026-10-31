@@ -54,9 +54,17 @@ pub fn requirements(entry: &ambition_characters::actor::character_catalog::Chara
             (abilities.blink, &["blink_out", "blink_in"][..]),
             (abilities.attack, &["slash"][..]),
             (abilities.wall_cling, &["wall_grab"][..]),
+            (abilities.shield, &["block"][..]),
         ] {
             if enabled { actions.extend_from_slice(names); }
         }
+    }
+    // The defensive pose a raised guard draws (the bubble is round about
+    // it). A row that declares no grants has the session's kit, which has
+    // the shield; a part of another body raises no guard of its own. A sheet
+    // without the pose falls back to idle, and this marks the pose missing.
+    if entry.part_of.is_none() && entry.abilities.is_none() {
+        actions.push("block");
     }
     actions.sort(); actions.dedup(); actions
 }
@@ -179,6 +187,23 @@ mod tests {
         assert_eq!(drawn["state"], "direct");
         assert_eq!(drawn["row"], "death");
         assert_eq!(action(&make(&["idle", "hurt"]), "hit")["state"], "alias");
+        // A guard with no defensive pose of its own is drawn idle, and says so.
+        let guard = action(&make(&["idle"]), "block");
+        assert_eq!((guard["state"].clone(), guard["row"].clone()), (json!("fallback"), json!("idle")));
+        assert_eq!(action(&make(&["idle", "block"]), "block")["state"], "direct");
+    }
+
+    #[test]
+    fn a_body_that_can_raise_a_guard_requires_its_defensive_pose() {
+        use ambition_characters::actor::character_catalog::CharacterCatalogEntry;
+        let entry = |more: &str| -> CharacterCatalogEntry {
+            ron::from_str(&format!("(display_name: \"x\", manifest: \"x\", tier: MainHall, body_kind: Standard, default_action_set: \"peaceful\", {more})"))
+                .expect("a catalog row")
+        };
+        assert!(requirements(&entry("")).contains(&"block"), "the session's kit has the shield");
+        assert!(requirements(&entry("abilities: Some([SandboxAll])")).contains(&"block"));
+        assert!(!requirements(&entry("abilities: Some([RunJump])")).contains(&"block"), "a kit with no shield");
+        assert!(!requirements(&entry("part_of: Some(\"giant\")")).contains(&"block"), "a part of another body");
     }
     #[test]
     fn a_shared_generator_target_keeps_its_product_key_and_move_binding() {

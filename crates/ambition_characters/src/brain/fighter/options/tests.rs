@@ -5,7 +5,7 @@ use crate::brain::attack_kit::{ActionLegality, AttackBinding, AttackCandidate, A
 use crate::perception::{BodyPhase, PerceivedActor, SelfView, StageView, WorldView};
 use ambition_platformer2d_core as ae;
 
-fn frames(startup_s: f32, reach: f32, recovery_s: f32) -> MoveFrameData {
+pub(crate) fn frames(startup_s: f32, reach: f32, recovery_s: f32) -> MoveFrameData {
     MoveFrameData {
         total_s: startup_s + 0.1 + recovery_s,
         charge_hold_at_s: None,
@@ -51,7 +51,7 @@ fn frames(startup_s: f32, reach: f32, recovery_s: f32) -> MoveFrameData {
     }
 }
 
-fn candidate(id: &str, startup_s: f32, reach: f32) -> AttackCandidate {
+pub(crate) fn candidate(id: &str, startup_s: f32, reach: f32) -> AttackCandidate {
     AttackCandidate {
         move_id: id.to_string(),
         frames: frames(startup_s, reach, 0.2),
@@ -105,7 +105,7 @@ fn stage() -> StageView {
     }
 }
 
-fn view_with(me_x: f32, foe_x: f32) -> WorldView {
+pub(crate) fn view_with(me_x: f32, foe_x: f32) -> WorldView {
     WorldView {
         self_view: SelfView {
             pos: ae::Vec2::new(me_x, 300.0),

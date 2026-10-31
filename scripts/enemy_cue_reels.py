@@ -82,7 +82,10 @@ def rows_with_cues() -> list[dict]:
         if set_m and set_m.group(1) in rows:
             w = re.search(r"windup_s: ([0-9.]+)", rows[set_m.group(1)])
             melee = float(w.group(1)) if w else None
-        timed = re.search(r"dive_tell_s: ([0-9.]+)", body) or re.search(r"ranged_volley: Some\(\(windup_s: ([0-9.]+)", body)
+        # A named profile (`named_autonomous_profile`) states the brain's windup for the rows that wear it.
+        prof_m = re.search(r'named_autonomous_profile: Some\("([^"]+)"\)', body)
+        mind = body + (rows.get(prof_m.group(1), "") if prof_m else "")
+        timed = re.search(r"dive_tell_s: ([0-9.]+)", mind) or re.search(r"ranged_volley: Some\(\(windup_s: ([0-9.]+)", mind)
         windup = float(timed.group(1)) if timed else (melee or 0.3)
         name = re.search(r'display_name: "([^"]+)"', body)
         rows_out.append({"id": row_id, "name": name.group(1) if name else row_id, "cues": cues, "windup": windup})

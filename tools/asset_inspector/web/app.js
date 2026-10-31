@@ -18,6 +18,10 @@
   };
   const PARALLAX = { sky: 0.10, far_backplate: 0.20, near_background: 0.42, foreground_atmosphere: 0.60, foreground: 1.0 };
   const assets = C.assets, products = C.products, gens = C.generators;
+  // Product links are stored as `~N/name` with each folder once (`build._for_page`).
+  for (const p of Object.values(C.products || {})) {
+    if (p.href && p.href[0] === "~") { const cut = p.href.indexOf("/"); p.href = C.href_folders[+p.href.slice(1, cut)] + p.href.slice(cut); }
+  }
   const assetList = Object.values(assets);
   const state = { q: "", family: new Set(), conf: new Set(), tag: new Set(), use: "", rel: "", sort: "name", page: 0, card: 150, lastList: [] };
   // A target identifies today's asset only when it publishes one asset.

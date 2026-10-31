@@ -118,6 +118,9 @@ impl Plugin for PlatformerProviderRuntimePlugin {
                 ambition_platformer2d_shared_tangle::gameplay_presentation::ActiveDefensePresentationPolicy,
             >()
             .init_resource::<
+                ambition_platformer2d_shared_tangle::gameplay_presentation::ActivePlayerGlow,
+            >()
+            .init_resource::<
                 ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadouts,
             >()
             .configure_sets(
@@ -179,6 +182,13 @@ impl Plugin for PlatformerProviderRuntimePlugin {
                     // published on the previous tick, which is the same one-frame
                     // relationship both siblings above have.
                     crate::presentation::select_active_defense_presentation
+                        .after(adopt_candidate_platformer_session)
+                        .before(
+                            ambition_platformer2d_shared_tangle::gameplay_presentation::GameplayPresentationSet,
+                        ),
+                    // Route-owned for the same reason, and with the same
+                    // one-frame relationship to the renderer that reads it.
+                    crate::presentation::select_active_player_glow
                         .after(adopt_candidate_platformer_session)
                         .before(
                             ambition_platformer2d_shared_tangle::gameplay_presentation::GameplayPresentationSet,

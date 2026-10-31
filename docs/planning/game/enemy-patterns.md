@@ -89,6 +89,16 @@ Tests: `game/ambition_app/tests/an_enemy_notices_then_telegraphs.rs`.
 
 Tests: `game/ambition_app/tests/castle_godwin_variants.rs`.
 
+## GNU-ton's works (2026-10-30)
+
+A puzzle level, so few enemies (Jon: "light on enemies"):
+
+- **The Bad Apple** glares (a startle hardening into a glare), rears back with its maw wide, rolls at you jaws first (its `attack_side` row is a tumble drawn to its chomp's times), and sits dizzy after.
+- **The Gravity Apple** hangs over you with its orbits flaring, then drops.
+
+Test: `game/ambition_app/tests/the_gnu_ton_apples.rs`.
+
 ## Not yet
 
+- **Skirmishers and the Smash-template enemies have no notice beat** (the dilophosaurus, the pirates, the ninja duelist). Their `notice` rows are drawn (the pirates' and ninjas', fe8cae3c9) and the dilophosaurus' notice sound is made, but nothing pins or plays them yet. A brute and a flyer notice (`notice_s`).
 - **Footsies and a running attack don't mix.** Holding in a band slows a body out of its run, so a pouncer should hit and run instead.

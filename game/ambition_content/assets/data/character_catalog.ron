@@ -55,6 +55,8 @@
             attack_range: 140.0,
             patrol_effort: 0.5,
             chase_effort: 1.0,
+            // The telegraph (Jon 2026-10-30: "notice, space, telegraph, attack"): it plants and aims (its windup row) before it fires.
+            ranged_volley: Some((windup_s: 0.45, firing_s: 0.2, recovery_s: 1.0)),
         ),
         // HOW AN AMBITION CHARACTER FIGHTS ONCE PROVOKED, when it names no
         // policy of its own: the provider's declared default
@@ -380,7 +382,9 @@
             melee: Some(Lunge(windup_s: 0.75, active_s: 0.4, recover_s: 1.0, damage: 4, reach_px: 64.0, step_px: 0.0, rush_px: 260.0)),
         ),
         // The Bad Apple's chomp: it rears back with its maw wide (its windup
-        // row), then rolls at you jaws first, and sits a beat after.
+        // row), then rolls at you jaws first, and sits a beat after, dizzy. Its
+        // `attack_side` row is drawn to these times (`BAD_CHOMP_S` in the
+        // sprite tools' `_apple_enemy_family.py`): change them together.
         "bad_apple_chomp": (
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.45, active_s: 0.25, recover_s: 0.6, damage: 1, reach_px: 30.0, step_px: 0.0, rush_px: 140.0)),
@@ -1490,6 +1494,7 @@
             named_autonomous_profile: Some("pirate_striker"),
             max_health: Some(4),
             tags: ["pirate", "enemy"],
+            cues: (tell: Some("enemy.pirate.tell"), swing: Some("enemy.pirate.cutlass_slash")),
         barks: (
             on_hit: ["Inventory says NO, ye dock-rat!", "Yarr! Every coin's a-counted!", "Tally that on yer hide, swabbie!"],
             provoked: ["Pay the toll in teeth, swab!"],
@@ -1517,6 +1522,7 @@
             named_autonomous_profile: Some("pirate_ranger"),
             max_health: Some(4),
             tags: ["pirate", "enemy"],
+            cues: (tell: Some("enemy.pirate_lookout.tell")),
         barks: (
             on_hit: ["Land ho — an' I see YE comin'!", "Spyglass to me eye, boots to yer head!", "Crow's nest don't sit empty, savvy?"],
             provoked: ["Sound the alarm — all hands!"],
@@ -1602,11 +1608,11 @@
                 attack_range: 60.0,
                 shares_sightings: true,
                 // The tell before its dive (Jon 2026-10-30: "telegraph, attack"): it hangs and squawks, then dives.
-                tactics: (dive_tell_s: 0.35),
+                tactics: (dive_tell_s: 0.35, notice_s: 0.3),
             )),
             max_health: Some(3),
             tags: ["pirate", "bird", "npc"],
-            cues: (tell: Some("enemy.parrot.tell"), swing: Some("enemy.flyer.attack_dive"), hit: Some("enemy.bird.hit")),
+            cues: (notice: Some("enemy.parrot.notice"), tell: Some("enemy.parrot.tell"), swing: Some("enemy.flyer.attack_dive"), hit: Some("enemy.bird.hit")),
             // SCAFFOLD exemplar. idle migrated from features::npcs (the
             // "parrot_cove" legacy pool, now keyed by catalog id).
             barks: (
@@ -1746,6 +1752,7 @@
             named_autonomous_profile: Some("pirate_brute"),
             max_health: Some(6),
             tags: ["pirate", "heavy", "enemy"],
+            cues: (tell: Some("enemy.pirate_heavy.tell"), swing: Some("enemy.pirate_heavy.swing")),
         barks: (
             on_hit: ["Mind me cleaver, wee skipper!", "Aye, that smarts — but ye're worse off!", "Broadside Bess don't bend easy!", "Yarrrr! Take that an' a barrel more!"],
             provoked: ["Cleaver's thirsty — yarrrgh!"],
@@ -1821,6 +1828,7 @@
             named_autonomous_profile: Some("pirate_brute"),
             max_health: Some(6),
             tags: ["pirate", "heavy", "enemy"],
+            cues: (tell: Some("enemy.pirate_heavy.tell"), swing: Some("enemy.pirate_heavy.swing")),
         barks: (
             on_hit: ["Salt in the eye, blood in the bilge!", "Yargh! Watch yer manners on me deck!", "Wee skipper thinks he's bold, does he?", "Annet bites back, every time!"],
             provoked: ["Wee skipper picked the wrong deck!"],
@@ -1869,6 +1877,7 @@
             // near the shark.
             mass: Some(6.0),
             tags: ["pirate", "aerial", "enemy"],
+            cues: (tell: Some("enemy.burning_flying_shark.tell"), swing: Some("enemy.burning_flying_shark.swing"), hit: Some("enemy.burning_flying_shark.bite")),
         barks: (
             on_hit: ["SKREEE!", "BLAZE!", "BURN-CHOMP!"],
             provoked: ["FIRE SHARK ENGAGED!"],
@@ -2124,6 +2133,16 @@
             standing_height: Some(70.8),
             composition: None,
             default_brain: "melee_brute_striker",
+            // His own mind, the striker's numbers with a notice: he stops, points
+            // his sword at you (his notice row), then comes.
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 220.0,
+                attack_range: 36.0,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+                tactics: (notice_s: 0.5),
+            )),
             default_action_set: "striker_swipe",
             // Its strikes draw its own sheet (`ninja_shadow_oni_leader_strike_fx`), not the stand-in wedge.
             attack_vfx: Some("ninja_shadow_oni_leader_strike_fx"),
@@ -2133,6 +2152,7 @@
             locomotion: Some((run_speed: 110.0, move_style: Walk)),
             max_health: Some(6),
             tags: ["ninja", "faction_leader"],
+            cues: (notice: Some("enemy.oni_leader.notice"), tell: Some("enemy.oni_leader.tell"), swing: Some("enemy.oni_leader.swing")),
         barks: (
             on_hit: ["Your form is loud.", "A warning: one breath left.", "The shadow answers."],
             provoked: ["Silence them."],
@@ -2177,6 +2197,7 @@
             named_autonomous_profile: Some("medium_striker"),
             max_health: Some(5),
             tags: ["ninja", "enemy"],
+            cues: (tell: Some("enemy.ninja_duelist.tell"), swing: Some("enemy.shadow_oni.slash")),
         barks: (
             on_hit: ["Look me in the eye when you do that.", "A clean cut. Not yours.", "Again, from the guard."],
             provoked: ["Draw."],
@@ -2925,6 +2946,7 @@
             )),
             max_health: Some(2),
             tags: ["enemy", "robot"],
+            cues: (tell: Some("enemy.exploding_mite.tell"), swing: Some("enemy.exploding_mite.swing")),
         barks: (
             on_hit: ["I EXPLODE FOR THE CAUSE!", "PROXIMITY BREACH!", "FUSE LIT — WAIT, NOT YET—"],
             provoked: ["FINAL PROTOCOL!"],
@@ -2964,6 +2986,7 @@
             )),
             max_health: Some(4),
             tags: ["enemy", "robot"],
+            cues: (tell: Some("enemy.dividing_mite.tell"), swing: Some("enemy.dividing_mite.swing")),
         barks: (
             on_hit: ["Division initiated!", "Mitosis under stress!", "Splitting... headache!"],
             provoked: ["We are multiplying!"],
@@ -3216,6 +3239,7 @@
             named_autonomous_profile: Some("pirate_striker"),
             max_health: Some(4),
             tags: ["enemy"],
+            cues: (tell: Some("enemy.pirate_viper.tell"), swing: Some("enemy.pirate.cutlass_slash")),
         barks: (
             on_hit: ["The Viper BITES!", "Cutlass out, landlubber!", "Ye danced into range!"],
             provoked: ["Draw against the Viper? Bold."],
@@ -4912,11 +4936,11 @@
                 attack_range: 60.0,
                 shares_sightings: false,
                 // The tell before its dive (Jon 2026-10-30: "telegraph, attack"): it hangs on silent wings, then drops.
-                tactics: (dive_tell_s: 0.5),
+                tactics: (dive_tell_s: 0.5, notice_s: 0.5),
             )),
             max_health: Some(4),
             tags: ["enemy", "bird", "minion"],
-            cues: (tell: Some("enemy.owl.tell"), swing: Some("enemy.owl.swing")),
+            cues: (notice: Some("enemy.owl.notice"), tell: Some("enemy.owl.tell"), swing: Some("enemy.owl.swing")),
         barks: (
             on_hit: ["Hoo!", "Noted: 'hostile'. Subclass of 'visitor'."],
             provoked: ["You are now an instance of 'prey'."],
@@ -5214,11 +5238,11 @@
                 attack_range: 60.0,
                 shares_sightings: false,
                 // The tell before its dive (Jon 2026-10-30: "telegraph, attack"): it circles, hangs, then comes down.
-                tactics: (dive_tell_s: 0.6),
+                tactics: (dive_tell_s: 0.6, notice_s: 0.5),
             )),
             max_health: Some(5),
             tags: ["enemy", "bird", "minion"],
-            cues: (tell: Some("enemy.vulture.tell"), swing: Some("enemy.vulture.swing"), hit: Some("enemy.vulture.hit")),
+            cues: (notice: Some("enemy.vulture.notice"), tell: Some("enemy.vulture.tell"), swing: Some("enemy.vulture.swing"), hit: Some("enemy.vulture.hit")),
         barks: (
             on_hit: ["Hsss.", "I can wait."],
             provoked: ["Your runway just ended."],
@@ -5291,6 +5315,7 @@
             )),
             max_health: Some(2),
             tags: ["enemy", "fruit"],
+            cues: (notice: Some("enemy.bad_apple.notice"), tell: Some("enemy.bad_apple.tell"), swing: Some("enemy.bad_apple.swing"), hit: Some("enemy.bad_apple.hit")),
         barks: (
             on_hit: ["Bruised!", "Core damage!", "That's going to brown."],
             provoked: ["One bad apple spoils the bunch!"],
@@ -5319,6 +5344,7 @@
             )),
             max_health: Some(2),
             tags: ["enemy", "fruit"],
+            cues: (tell: Some("enemy.gravity_apple.tell"), swing: Some("enemy.gravity_apple.swing"), hit: Some("enemy.gravity_apple.hit")),
         barks: (
             on_hit: ["Equal and opposite!", "Mind the orbit!"],
             provoked: ["What goes up..."],
@@ -5849,11 +5875,11 @@
                 // It stabs and scuttles back out of reach.
                 retreat_after_swing_s: 0.7,
                 // It skitters in, strikes, skitters off; hit, it scurries away.
-                tactics: (lurk_px: 60.0, waits_its_turn: true, flinch_back_s: 0.5),
+                tactics: (lurk_px: 60.0, waits_its_turn: true, flinch_back_s: 0.5, notice_s: 0.4),
             )),
             max_health: Some(2),
             tags: ["enemy", "evil", "machine", "crawler"],
-            cues: (tell: Some("enemy.searchlight_crawler.tell"), swing: Some("enemy.searchlight_crawler.swing")),
+            cues: (notice: Some("enemy.searchlight_crawler.notice"), tell: Some("enemy.searchlight_crawler.tell"), swing: Some("enemy.searchlight_crawler.swing")),
         barks: (
             on_hit: ["*a sharp electronic squeal*"],
             idle: ["*servos tick*", "*the lamp hums*"],

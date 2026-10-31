@@ -973,7 +973,34 @@ fn aerial_cfg(aggressiveness: f32) -> AerialCfg {
         attack_range: 40.0,
         roam_radius: 120.0,
         dive_tell_s: 0.0,
+        notice_s: 0.0,
     }
+}
+
+/// A flyer with a notice hangs where it is when it first sees its foe, then
+/// stalks; out of sight and back, it notices again.
+#[test]
+fn aerial_hangs_a_beat_when_it_first_sees_its_foe() {
+    let mut sm = StateMachineCfg::Aerial { cfg: AerialCfg { notice_s: 0.4, ..aerial_cfg(1.0) }, state: AerialState::default() };
+    let mut out = crate::actor::control::ActorControlFrame::default();
+    let dt = 1.0 / 60.0;
+    let tick = |sm: &mut StateMachineCfg, out: &mut crate::actor::control::ActorControlFrame, i: usize, seen: bool| {
+        let mut s = BrainSnapshot::idle();
+        s.actor_pos = ae::Vec2::new(500.0, 100.0);
+        s.target_pos = ae::Vec2::new(700.0, 400.0);
+        s.target_alive = seen;
+        s.sim_time = i as f32 * dt;
+        s.dt = dt;
+        tick_simple_state_machine(sm, &s, out);
+        crate::brain::Brain::StateMachine(sm.clone()).is_noticing()
+    };
+    let noticing: Vec<bool> = (0..40).map(|i| tick(&mut sm, &mut out, i, true)).collect();
+    let beat = noticing.iter().filter(|n| **n).count();
+    assert!((22..=25).contains(&beat), "it noticed for about 0.4 s (24 ticks): {beat}");
+    assert!(!noticing[39], "then it stalks");
+    assert!(out.velocity_target.vec().length() > 1.0, "stalking, it flies");
+    tick(&mut sm, &mut out, 40, false);
+    assert!(tick(&mut sm, &mut out, 41, true), "seen again, it notices again");
 }
 
 #[test]

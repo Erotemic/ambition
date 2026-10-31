@@ -96,6 +96,7 @@ fn profile(rollout_k: u32, rollout_depth: u32) -> FighterBrainProfile {
         rollout_depth,
         rollout_k,
         utility_weights: ambition_characters::brain::fighter::options::UtilityWeights::v1(),
+        tactics: false,
     }
 }
 

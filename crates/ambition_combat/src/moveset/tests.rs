@@ -7163,6 +7163,7 @@ fn a_fighter_brain_charges_a_smash_through_the_real_chain() {
         rollout_depth: 0,
         rollout_k: 0,
         utility_weights: Default::default(),
+        tactics: false,
     });
     let mut state = FighterState::new(&cfg, 0x5EED);
 

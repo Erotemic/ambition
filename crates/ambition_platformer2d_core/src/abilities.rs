@@ -1158,6 +1158,10 @@ pub struct MatchBody {
     /// See [`MovementTuning::turnaround_time`] — what reversing out of a
     /// committed run costs. `0.0` = facing flips instantly.
     pub turnaround_time: f32,
+    /// See [`MovementTuning::holds_facing_in_air`]. A mode's: a platform
+    /// fighter aims its aerials by the facing it jumped with.
+    #[serde(default)]
+    pub holds_facing_in_air: bool,
     /// See [`MovementTuning::teeter_margin`] — how much of the footprint is the
     /// leading foot. `0.0` = no body teeters.
     pub teeter_margin: f32,
@@ -1210,6 +1214,7 @@ impl MatchBody {
             dash_deflection: self.dash_deflection,
             coyote_time: self.coyote_time,
             turnaround_time: self.turnaround_time,
+            holds_facing_in_air: self.holds_facing_in_air,
             teeter_margin: self.teeter_margin,
             ..base
         }
@@ -1278,6 +1283,7 @@ mod tests {
             dash_deflection: 0.5,
             coyote_time: 0.0,
             turnaround_time: 0.0,
+            holds_facing_in_air: false,
             teeter_margin: 0.0,
         };
         let played = stage.over(brought);

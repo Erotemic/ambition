@@ -167,7 +167,7 @@ def build(
     catalog["reviews"] = reviews.snapshot(repo, catalog)
     hashes.save()
     catalog["build_seconds"] = round(time.perf_counter() - started, 1)
-    text = json.dumps(catalog, separators=(",", ":"), sort_keys=True)
+    text = json.dumps(_for_page(catalog), separators=(",", ":"), sort_keys=True)
     text = text.replace("<", "\\u003c").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
     partial = out / "catalog.js.partial"
     partial.write_text(f"window.ART_CATALOG = {text};\n")
@@ -176,6 +176,36 @@ def build(
         shutil.copyfile(WEB / name, out / name)
     step(f"wrote {out / 'index.html'} ({len(assets)} assets, {len(products)} files, {len(found)} findings)")
     return catalog
+
+
+def _for_page(catalog: dict[str, Any]) -> dict[str, Any]:
+    """The catalog as the page reads it, without what no view uses: every page load
+    parses it. The publication's file list, each unit's copy of its bundle files,
+    and the action maps of reduced-tier sheets (the page compares full-tier actions)
+    were about a third of it. The CLI queries keep the whole report."""
+    inventory = catalog.get("inventory") or {"units": {}}
+    units = {}
+    for uid, unit in inventory.get("units", {}).items():
+        unit = dict(unit)
+        if isinstance(unit.get("publication"), dict):
+            unit["publication"] = {k: v for k, v in unit["publication"].items() if k != "files"} | {"file_count": len(unit["publication"].get("files", {}))}
+        unit["published"] = [sheet if sheet.get("tier") == "full" else {k: v for k, v in sheet.items() if k not in ("actions", "bindings")}
+                             for sheet in unit.get("published", [])]
+        units[uid] = unit
+    publication = inventory.get("publication") or {}
+    slim = dict(inventory, units=units, publication={"generation": publication.get("generation"), "file_count": len(publication.get("files", {}))},
+                # The page lists only the products no producer claims.
+                local_products=[row for row in inventory.get("local_products", []) if row.get("registration") in ("unregistered", "unknown")])
+    # A product link repeats a long relative folder: store each folder once (`~3/file.png`); app.js restores them.
+    folders: dict[str, int] = {}
+    products = {}
+    for path, row in catalog.get("products", {}).items():
+        href = row.get("href") or ""
+        folder, _, name = href.rpartition("/")
+        if folder:
+            row = dict(row, href=f"~{folders.setdefault(folder, len(folders))}/{name}")
+        products[path] = row
+    return dict(catalog, inventory=slim, products=products, href_folders=list(folders))
 
 
 def _describe(value: Any) -> str | None:
@@ -385,7 +415,13 @@ def main(argv: list[str] | None = None) -> int:
                      runtime_path=args.runtime_snapshot, cargo=not args.no_cargo, log=log)
     if args.command == "serve":
         from .server import serve
-        serve(repo, out, port=args.port, open_browser=args.open, build=run)
+        # The same options, as a build in its own process (`serve` runs it at low priority).
+        options = list(argv[1:])
+        if "--port" in options:
+            del options[options.index("--port"):options.index("--port") + 2]
+        options = [o for o in options if o != "--open" and not o.startswith("--port=")]
+        command = [sys.executable, str(repo / "scripts" / "asset_inspector.py"), "build", *options]
+        serve(repo, out, port=args.port, open_browser=args.open, build=run, refresh_command=command)
         return 0
     run()
     if args.open:

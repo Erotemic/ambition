@@ -215,6 +215,9 @@ pub struct FighterState {
     pub own_attack: Option<OwnAttack>,
     /// The binding it whiffed with, declined for as long as that move plays.
     pub refused: Option<RefusedAttack>,
+    /// The tactical intent held across decisions (`intent.rs`), when the
+    /// profile runs tactics.
+    pub intent: Option<super::intent::Intent>,
 }
 
 /// The observable facts about a foe that a habit is inferred from. Deliberately
@@ -244,6 +247,7 @@ impl FighterState {
             charge_hold_gesture: ambition_entity_catalog::ChargeGesture::Smash,
             own_attack: None,
             refused: None,
+            intent: None,
         }
     }
 }

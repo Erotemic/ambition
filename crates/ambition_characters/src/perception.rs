@@ -286,6 +286,12 @@ pub struct PerceivedActor {
     /// as the phase is: a player who knows the character knows how far its
     /// swing reaches.
     pub attack_reach: Option<f32>,
+    /// How far this body threatens before it swings: the longest reach among
+    /// its grounded normals and smashes (`MoveFrameData::reach`, measured
+    /// from the front of the body as `attack_reach` is). `None` for a body
+    /// with no moveset. Frame data a player who knows the character knows;
+    /// a spacing objective stands just outside it.
+    pub threat_reach: Option<f32>,
     /// Currently in i-frames (post-hit invulnerability). Visible: the body flashes.
     pub invulnerable: bool,
     /// Falling out of a launch, so this body's next landing is a knockdown

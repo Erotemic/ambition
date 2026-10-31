@@ -497,6 +497,16 @@ impl MeleeSwing {
             0.0
         }
     }
+
+    /// Seconds of recovery remaining: how long a swing that missed leaves its
+    /// owner open. Frame data a player who knows the move knows.
+    pub fn recovery_remaining(&self) -> f32 {
+        if matches!(self.phase(), Some(crate::AttackPhase::Recovery)) {
+            (self.spec.total_seconds() - self.elapsed).max(0.0)
+        } else {
+            0.0
+        }
+    }
 }
 
 /// The body's melee pacing floor — the one melee fact the body itself holds.

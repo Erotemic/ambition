@@ -8,7 +8,8 @@ of characters. Editing assets from the page is planned; the local server is the
 place it will write.
 
 Run `./scripts/asset_inspector.py` with no arguments. It opens the last index
-in a browser at once and refreshes it in the background. The page offers a
+in a browser at once and refreshes it in the background, in a separate process
+at low priority, so the page stays responsive while it runs. The page offers a
 reload when the refresh is done. The first run builds before it opens.
 `scripts/art_inspector.py` is the old name and runs the same tool.
 
@@ -25,7 +26,8 @@ pack, so another engine game is inspected the same way (`--profile`,
 - **Overview** joins the library's producer families (`scripts/content_status.py`)
   with a count of each kind and a list of what needs attention.
 - **Characters** and **Inventory** read the sprite publication and the game
-  catalog, as described below.
+  catalog, as described below. A character a pack declares as a Smash fighter
+  (a `smash_fighter` source naming it) is tagged `smash-fighter`.
 - Every image asset has one top-level category, each with its own tab: Props,
   Held items, Effects, Backgrounds, Terrain & tiles, Entities & pickups,
   Icons & UI and Reference art (`asset_index/categories.py`). The renderer

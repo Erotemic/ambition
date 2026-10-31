@@ -16,6 +16,7 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from asset_index import build, sheets  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))  # lib.art_publication
 
 ASSETS = "game/ambition_content_library/generated/runtime"
 PROV = "game/ambition_content_library/generated/asset_provenance"
@@ -195,6 +196,9 @@ def test_the_page_and_its_catalog_are_written_beside_each_other(built):
     c = json.loads(text[len("window.ART_CATALOG = "):].rstrip().rstrip(";"))
     # Every link is relative, so the page opens in place from file://.
     href = c["products"]["sprites/foo_spritesheet.png"]["href"]
+    if href.startswith("~"):  # a folder stored once, as the page restores it (app.js)
+        index, _, name = href[1:].partition("/")
+        href = c["href_folders"][int(index)] + "/" + name
     from lib.art_publication import Store
     accepted = Store((Path(_repo) / ASSETS).parent / "art_publication").paths()["sprites/foo_spritesheet.png"]
     assert not href.startswith("/") and (out / href).resolve() == accepted.resolve()

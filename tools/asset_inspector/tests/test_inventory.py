@@ -98,3 +98,14 @@ def test_shared_only_staleness_reads_as_possibly_stale_and_strict_queries_still_
         "target:b": {"id": "target:b", "kind": "actor", "identities": [], "lineages": [], "game_use": "referenced", "status": inventory.loosen(own)}}}
     assert [u["id"] for u in inventory.select(report, needs=True)] == ["target:b"]
     assert [u["id"] for u in inventory.select(report, needs=True, strict=True)] == ["target:a", "target:b"]
+
+
+def test_a_pack_role_source_tags_its_character(tmp_path):
+    from asset_index import inventory
+    (tmp_path / "data/fighters").mkdir(parents=True)
+    (tmp_path / "data/fighters/alice.ron").write_text('(\n    character: "npc_alice",\n    knockback_weight: Some(0.94),\n)')
+    (tmp_path / "pack.ron").write_text('''(sources: [
+        (path: "data/fighters/alice.ron", schema: "smash_fighter", version: 1),
+        (path: "data/other.ron", library: Some("shared"), schema: "character_catalog", version: 1),
+    ])''')
+    assert inventory.role_tags(tmp_path) == {"npc_alice": {"smash-fighter"}}

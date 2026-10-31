@@ -31,6 +31,12 @@ pub struct FighterBrainProfile {
     /// How many candidate options L3 rolls out. `0` with `rollout_depth = 0`.
     pub rollout_k: u32,
     pub utility_weights: UtilityWeights,
+    /// Run the tactical intent (`intent.rs`): hold a spacing band outside the
+    /// foe's threat, and arm a punish when its commitment leaves a window.
+    /// Off on every shipped rung until the experiment's gate
+    /// (`docs/planning/engine/fighter-tactical-intent.md`) says otherwise.
+    #[serde(default)]
+    pub tactics: bool,
 }
 
 impl FighterBrainProfile {
@@ -63,6 +69,7 @@ impl FighterBrainProfile {
             rollout_depth: 0,
             rollout_k: 0,
             utility_weights: UtilityWeights::default(),
+            tactics: false,
         }
     }
 

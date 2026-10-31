@@ -2414,4 +2414,4 @@ fn sort_by_score_then_name<T, K: Ord>(items: &mut [T], key: impl Fn(&T) -> (f32,
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

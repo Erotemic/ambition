@@ -193,7 +193,7 @@ fn the_dilophosaurus_coils_before_it_spits() {
 /// A flyer telegraphs its dive: lined up over the player, the parrot hangs
 /// still for its tell (its windup row pinned) before it dives.
 #[test]
-fn the_parrot_hangs_for_its_tell_before_it_dives() {
+fn the_parrot_notices_then_hangs_for_its_tell_before_it_dives() {
     const PARROT: &str = "telling_parrot";
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     let p = player_pos(sim.world_mut());
@@ -206,12 +206,16 @@ fn the_parrot_hangs_for_its_tell_before_it_dives() {
         "stochastic_parrot",
     );
     let mut tell_speeds = Vec::new();
+    let mut noticed = false;
     for _ in 0..900 {
         sim.step(AgentAction::default());
         let world = sim.world_mut();
         let mut q = world.query::<(&FeatureId, &BodyKinematics, Option<&PinnedRow>)>();
         let Some((_, kin, pin)) = q.iter(world).find(|(id, ..)| id.as_str() == PARROT) else { continue };
+        // First it hangs a beat on seeing the player (its notice).
+        noticed |= pin.is_some_and(|pin| pin.is_pinned() && pin.rows.first().map(String::as_str) == Some("notice"));
         if pin.is_some_and(|pin| pin.is_pinned() && pin.rows.first().map(String::as_str) == Some("windup")) {
+            assert!(noticed, "it noticed the player before it told");
             tell_speeds.push(kin.vel.length());
         } else if !tell_speeds.is_empty() {
             break;

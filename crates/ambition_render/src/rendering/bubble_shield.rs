@@ -208,6 +208,19 @@ fn shield_hit_pulse(stun_secs: f32) -> f32 {
     (stun_secs / HIT_PULSE_SECONDS).clamp(0.0, 1.0)
 }
 
+/// How far past the corners of the body the whole bubble reaches, as a part
+/// of the body's diagonal.
+const BUBBLE_OVER_BODY: f32 = 1.12;
+
+/// The diameter of a whole guard's bubble round a body of `size`. The bubble
+/// is ROUND, as a fighting game's is, whatever the body's shape (Jon,
+/// 2026-10-30: a bubble that took the body's width and height as two radii
+/// was an ellipse, and looked bad): it is as wide as the body's diagonal
+/// and a little more, so it clears the body's corners.
+fn shield_bubble_diameter(size: ambition_platformer2d_core::Vec2) -> f32 {
+    size.length() * BUBBLE_OVER_BODY
+}
+
 /// The part of the beat of a blocked blow in which the bubble flares.
 const BLOW_FLARE_PART: f32 = 0.4;
 /// How far from the middle of the bubble the point of a blow is drawn, as a
@@ -296,19 +309,16 @@ pub fn sync_bubble_shield_visual(
             }
             transform.translation =
                 ambition_platformer2d_core::config::world_to_bevy(&world.0, guard.pos, BUBBLE_Z);
-            // The field is an ellipse that belongs to the body, so it rotates with
-            // the body's frame. Otherwise a wall-walker's guard lies on its side.
+            // The field belongs to the body, so it rotates with the body's
+            // frame (a wall-walker's flare and blow point stay on its side).
             transform.rotation = Quat::from_rotation_z(
                 ambition_platformer2d_shared_tangle::gravity::gravity_upright_angle(
                     guard.gravity_dir,
                 ),
             );
             let pulse = shield_hit_pulse(guard.stun_secs).max(shield_blow_flare(guard.blow_phase));
-            // Generous overlap: the body is inside this, so the field must clear
-            // the silhouette.
             let extent = shield_bubble_coverage(guard.integrity) * (1.0 + HIT_PULSE_SWELL * pulse);
-            let bubble_size =
-                bevy::math::Vec2::new(guard.size.x * 1.70 * extent, guard.size.y * 1.35 * extent);
+            let bubble_size = bevy::math::Vec2::splat(shield_bubble_diameter(guard.size) * extent);
             sprite.custom_size = Some(bubble_size);
             let flicker = shield_danger_flicker(guard.integrity, tick.0);
             sprite.color = shield_bubble_color(guard.parrying, guard.integrity, pulse, flicker);
@@ -415,6 +425,14 @@ mod tests {
             vec![(LiveRoomInstance::ACTIVATION.ordinal(), flipped(big)), (second.ordinal(), flipped(small))],
             "(room, position) of each drawn bubble: each must be placed by its guard's live room and stamped with it"
         );
+        // The body is twice as tall as it is wide; its bubble is round all the
+        // same, and clears its corners.
+        let mut sizes = world.query::<(&Sprite, &Visibility)>();
+        for (sprite, _) in sizes.iter(world).filter(|(_, visibility)| **visibility == Visibility::Visible) {
+            let size = sprite.custom_size.expect("a drawn bubble has a size");
+            assert_eq!(size.x, size.y, "the bubble of a 20x40 body is round: {size:?}");
+            assert!(size.x * 0.5 > ae::Vec2::new(10.0, 20.0).length(), "it clears the body's corners: {size:?}");
+        }
     }
 
     use super::*;

@@ -19,6 +19,7 @@
 
 pub mod data;
 pub mod habit;
+pub mod intent;
 pub mod options;
 pub mod profile;
 pub mod situation;

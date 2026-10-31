@@ -165,7 +165,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// 389 -> 390: `actor.brain`'s `MeleeBrute` cursor (wire tag 6) adds its
 /// notice beat (`MeleeTactics::notice_s`): whether it has seen its foe
 /// (`bool`) and how long it still stands and looks (`f32`).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 390;
+/// 390 -> 391: a body's encoded locomotion (`AxisLocomotion`) adds
+/// `holds_facing_in_air` (`bool`), the opt-in air facing lock.
+/// The same version covers the fighter brain's tactical intent in
+/// `ambition_characters`' snapshot codec (66537d545), recorded with it.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 391;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

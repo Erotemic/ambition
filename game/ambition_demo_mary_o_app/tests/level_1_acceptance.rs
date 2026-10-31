@@ -1039,6 +1039,47 @@ fn landing_on_a_snake_stomps_it_instead_of_hurting_her() {
     );
 }
 
+/// Pressing jump as she comes down on a Solid Snake, as a player does to
+/// bounce high off it, is still a stomp (Jon, 2026-10-30: "Stomping on solid
+/// snake now hurts her instead of its koopa-like behavior"). The press lands
+/// on the tick her feet reach its back, so she is already rising when the
+/// contact is read.
+#[test]
+fn pressing_jump_as_she_lands_on_a_snake_still_stomps_it() {
+    let mut app = boot();
+    settle_until_playable(&mut app);
+    let (id, snake, _) = some_snake(&mut app).expect("level 1-1 stages Solid Snakes");
+    let hp_before = health(&mut app).expect("she has a health pool");
+    {
+        let mut kin = app
+            .world_mut()
+            .query_filtered::<&mut ae::BodyKinematics, With<PrimaryPlayer>>()
+            .single_mut(app.world_mut())
+            .expect("the controlled body");
+        kin.pos = ae::Vec2::new(snake.center().x, snake.min.y - 160.0);
+        kin.vel = ae::Vec2::ZERO;
+    }
+    let mut stomped = false;
+    for tick in 0..240 {
+        // Jump is mashed over the last few frames of the fall.
+        let feet = {
+            let mut q = app.world_mut().query_filtered::<&ae::BodyKinematics, With<PrimaryPlayer>>();
+            let kin = q.single(app.world()).expect("her body");
+            kin.pos.y + kin.size.y * 0.5
+        };
+        let near = feet > snake.min.y - 40.0 && feet < snake.max.y;
+        step(&mut app, if near && tick % 2 == 0 { with_jump(idle()) } else { idle() });
+        assert_eq!(health(&mut app), Some(hp_before), "pressing jump as she landed on a snake hurt her (tick {tick})");
+        if snake_by_id(&mut app, id.as_str())
+            .is_some_and(|(_, phase)| !matches!(phase, ambition_demo_mary_o::snake::SnakeShell::Walking))
+        {
+            stomped = true;
+            break;
+        }
+    }
+    assert!(stomped, "landing on a walking snake with jump pressed must put it into its shell");
+}
+
 /// A small Mary-O dies to one hit, and the level restarts.
 ///
 /// Every part of that was unreachable: her body carried the host's twenty-point

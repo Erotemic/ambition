@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import threading
 import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -81,10 +83,11 @@ def make_handler(repo: Path, catalog, status=None):
     return Handler
 
 
-def serve(repo: Path, out: Path, *, port=8767, open_browser=False, build=None):
-    """Serve `out`. With `build`, a page built before opens at once and
-    `build(log)` refreshes it behind; the page polls `/api/build-status` and
-    offers a reload. With no page yet, the build runs first."""
+def serve(repo: Path, out: Path, *, port=8767, open_browser=False, build=None, refresh_command=None):
+    """Serve `out`. A page built before opens at once and `refresh_command` (a
+    build command line) refreshes it behind, in its own low-priority process, so
+    the server answers the page while it runs. The page polls `/api/build-status`
+    and offers a reload. With no page yet, `build(log)` runs first."""
     cached = None
     stamp = None
     def current_catalog():
@@ -101,21 +104,32 @@ def serve(repo: Path, out: Path, *, port=8767, open_browser=False, build=None):
         status["step"] = message.split("\n", 1)[0]
     if build is not None and not (out / "index.html").is_file():
         build(log)
-        build = None
+        refresh_command = None
     with ThreadingHTTPServer(("127.0.0.1", port), make_handler(repo, current_catalog, status)) as server:
         url = f"http://127.0.0.1:{server.server_port}/{(out / 'index.html').relative_to(repo).as_posix()}#overview"
         print(f"Asset inspector: {url}", flush=True)
         print("Review notes: tools/asset_inspector/reviews/notes/", flush=True)
         if open_browser:
             webbrowser.open(url)
-        if build is not None:
+        if refresh_command:
             def refresh():
+                # A separate process at low priority: a refresh is pure Python work and a
+                # possible cargo build, which in a thread here would starve page requests.
                 status["state"] = "building"
                 try:
-                    build(log)
+                    child = subprocess.Popen(refresh_command, cwd=repo, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                             env=dict(os.environ, PYTHONUNBUFFERED="1"),
+                                             preexec_fn=(lambda: os.nice(10)) if hasattr(os, "nice") else None)
+                    lines = []
+                    for line in child.stdout:
+                        line = line.rstrip("\n")
+                        lines.append(line)
+                        log(line)
+                    if child.wait():
+                        raise RuntimeError("\n".join(lines[-8:]))
                     status["state"] = "done"
                 except Exception as error:  # the open page stays usable; say why it did not refresh
-                    status.update(state="failed", step=f"{type(error).__name__}: {error}")
+                    status.update(state="failed", step=f"{type(error).__name__}: {str(error).splitlines()[-1] if str(error) else ''}")
                     print(f"Asset inspector: the refresh failed; the page shows the previous index.\n{error}", flush=True)
             print("Showing the previous index while it refreshes.", flush=True)
             threading.Thread(target=refresh, daemon=True).start()

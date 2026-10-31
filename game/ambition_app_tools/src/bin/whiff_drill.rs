@@ -52,6 +52,10 @@ struct Args {
     /// Ticks between the end of one swing and the next press.
     #[arg(long, default_value_t = 40)]
     rest_ticks: u32,
+    /// Run the CPU with the tactical intent on (every rung of the shipped
+    /// ladder, `tactics: true`): the experiment's arm against the baseline.
+    #[arg(long)]
+    tactics: bool,
 }
 
 #[derive(Default)]
@@ -109,6 +113,24 @@ fn main() {
     let mut app = ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     let timestep = app.world().resource::<bevy::time::Time<bevy::time::Fixed>>().timestep();
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(timestep));
+    if args.tactics {
+        let text = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../ambition_content/assets/data/fighter_brain_ladder.ron"),
+        )
+        .expect("the shipped ladder");
+        let mut ladder = ambition_platformer2d::characters::brain::fighter::FighterBrainLadder::from_ron(&text)
+            .expect("the shipped ladder parses");
+        for rung in ladder.rungs_mut() {
+            rung.tactics = true;
+        }
+        use ambition_platformer2d::combat::scoped_rules::{DeclaredRules, RulesScope};
+        app.world_mut()
+            .get_resource_or_insert_with(
+                DeclaredRules::<ambition_platformer2d::characters::brain::fighter::FighterBrainLadder>::default,
+            )
+            .restate(RulesScope::Mode(ambition_demo_smash::SMASH_MODE), Some(ladder));
+    }
     for _ in 0..30 {
         app.update();
     }
@@ -239,8 +261,13 @@ fn main() {
     let mut gaps = tally.miss_gaps.clone();
     gaps.sort_by(f32::total_cmp);
     println!(
-        "whiff_drill: {} throws {} at {} (rung {}), {} s",
-        args.whiffer, args.verb, args.cpu, args.level, args.seconds
+        "whiff_drill: {} throws {} at {} (rung {}{}), {} s",
+        args.whiffer,
+        args.verb,
+        args.cpu,
+        args.level,
+        if args.tactics { ", tactics" } else { "" },
+        args.seconds
     );
     println!(
         "  swings {}  hit {}  stuffed {}  whiffed {}  punished {} ({}% of whiffs)  unanswered {}",

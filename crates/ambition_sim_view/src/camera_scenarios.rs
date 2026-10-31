@@ -322,3 +322,93 @@ fn cast_camera_scenario_table() {
         }
     }
 }
+
+/// A cast moving at a steady pace, drawn on a frame clock faster than the
+/// sim's: the presented poses lead the tick poses by the frame's phase, and
+/// the view must move as smoothly as the bodies it frames.
+///
+/// Returns the largest frame-to-frame change of the view centre's step, px,
+/// over the steady stretch. A view that moves the same distance every frame
+/// scores near zero.
+fn steady_cast_jerk(frame_hz: f32, human: bool) -> f32 {
+    let mut app = smash_app(smash_framing());
+    // The body half of the presented-pose plugin, in the set the camera
+    // resolves after.
+    app.init_resource::<crate::presented_pose::PresentationPhase>();
+    app.add_systems(
+        Update,
+        crate::presented_pose::advance_presented_body_poses.in_set(crate::presented_pose::PresentedPoseSet),
+    );
+    app.init_resource::<ambition_time::SimTick>();
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_secs_f32(1.0 / frame_hz),
+    ));
+    let pace = 400.0;
+    let at = |i: usize, t: f32| ae::Vec2::new(200.0 + 120.0 * i as f32 + pace * t, STAND_Y);
+    let bodies: Vec<Entity> = (0..2)
+        .map(|i| {
+            let mut kin = ae::BodyKinematics::default();
+            kin.pos = at(i, 0.0);
+            kin.vel = ae::Vec2::new(pace, 0.0);
+            kin.size = BODY;
+            app.world_mut().spawn(kin).id()
+        })
+        .collect();
+    app.world_mut().resource_mut::<FramedCast>().0 = bodies.clone();
+    if human {
+        app.world_mut().resource_mut::<ControlledSubject>().0 = Some(bodies[0]);
+    }
+    let frame_dt = 1.0 / frame_hz;
+    let (mut banked, mut ticks) = (0.0f32, 0u64);
+    let mut centres = Vec::new();
+    for _ in 0..(frame_hz as usize) {
+        // Bank the frame, spend it in whole ticks, keep the rest as the phase.
+        banked += frame_dt;
+        while banked >= DT {
+            banked -= DT;
+            ticks += 1;
+            app.world_mut().resource_mut::<ambition_time::SimTick>().0 = ticks;
+            for (i, body) in bodies.iter().enumerate() {
+                app.world_mut().get_mut::<ae::BodyKinematics>(*body).expect("a body").pos = at(i, ticks as f32 * DT);
+            }
+        }
+        app.world_mut()
+            .resource_mut::<crate::presented_pose::PresentationPhase>()
+            .set(banked / DT);
+        app.update();
+        let frame = app
+            .world_mut()
+            .query::<&ResolvedCameraSnapshot>()
+            .iter(app.world())
+            .find_map(|resolved| resolved.frame().cloned())
+            .expect("a cast resolves a frame");
+        centres.push(frame.snapshot.center_world.x);
+    }
+    // The second half: the view has caught up and moves at the cast's pace.
+    let steps: Vec<f32> = centres.windows(2).map(|pair| pair[1] - pair[0]).collect();
+    let steady = &steps[steps.len() / 2..];
+    steady.windows(2).map(|pair| (pair[1] - pair[0]).abs()).fold(0.0, f32::max)
+}
+
+/// The cast camera moves as smoothly as the cast on a display faster than
+/// the sim (MEASURED with `steady_cast_jerk`; see the planning note on
+/// presented poses).
+#[test]
+#[ignore = "instrument: prints the measurement"]
+fn cast_camera_jerk_on_a_fast_display() {
+    for (hz, human) in [(60.0, false), (144.0, false), (144.0, true), (75.0, true)] {
+        eprintln!("frame {hz} Hz, human {human}: max step change {:.3} px", steady_cast_jerk(hz, human));
+    }
+}
+
+/// ⛔ THE CAST VIEW DOES NOT LURCH ONCE A TICK. Framed on tick poses it moved
+/// a whole tick's travel at each tick and none between, on any display faster
+/// than the sim (MEASURED: 6.56 px of step change a frame at 144 Hz, two
+/// fighters at 400 px/s). Framed on presented poses it moves as the bodies do.
+#[test]
+fn the_cast_view_moves_as_smoothly_as_the_cast_on_a_fast_display() {
+    for (hz, human) in [(144.0, false), (144.0, true), (75.0, true)] {
+        let jerk = steady_cast_jerk(hz, human);
+        assert!(jerk < 0.5, "{hz} Hz, human {human}: the view's step changed by {jerk:.2} px in a frame");
+    }
+}

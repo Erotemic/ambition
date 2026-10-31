@@ -169,7 +169,12 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `holds_facing_in_air` (`bool`), the opt-in air facing lock.
 /// The same version covers the fighter brain's tactical intent in
 /// `ambition_characters`' snapshot codec (66537d545), recorded with it.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 391;
+/// 391 -> 392: the floor game's pictures. The maneuver state carries the
+/// launch's direction (`u8`, 0 for none), which way up a prone body lies
+/// (`bool`) and the getup it took (`u8`), in the motion-model codec; and
+/// `BodyCombat` carries `struck_height` (`f32`), where the last accepted hit
+/// landed.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 392;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

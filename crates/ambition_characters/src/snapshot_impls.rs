@@ -80,6 +80,9 @@ snapshot_pod!(crate::actor::body::BodyCombat {
     // inference, so this field costs one word here instead of a hand-rolled
     // codec for the whole component.
     armor: state,
+    // A picture fact, encoded so a replay and a rewind draw the recoil the
+    // live session drew.
+    struck_height: f32,
     training_dummy: bool,
 });
 
@@ -586,13 +589,7 @@ impl SnapshotCursor for crate::brain::Brain {
                     None => put_bool(out, false),
                     Some(intent) => {
                         put_bool(out, true);
-                        put_u8(
-                            out,
-                            match intent.kind {
-                                crate::brain::fighter::intent::IntentKind::Space => 0,
-                                crate::brain::fighter::intent::IntentKind::Punish => 1,
-                            },
-                        );
+                        put_u8(out, intent.kind.code());
                         put_str(out, &intent.target);
                         put_u32(out, intent.ticks_left);
                     }

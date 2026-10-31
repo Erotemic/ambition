@@ -131,6 +131,9 @@ pub struct ActorAnimFrame {
     /// because a possessed body and an NPC take this road. `None` outside a
     /// passage. Set by `rebuild_passage_views`, with the passage's row.
     pub passage_look: Option<crate::PassageLookView>,
+    /// The body's last stop on the ground: the player road's rule
+    /// ([`crate::StopClock`]), so a fighter stops as the player does.
+    pub stop: crate::StopClock,
 }
 
 /// The clip + fallbacks one active move asks for. See [`ActorAnimFrame::clip`].
@@ -336,7 +339,12 @@ impl ActorAnimIndex {
 /// crouch/slide, an in-flight swing — animates with no per-archetype branch; the
 /// sheet's anim set decides how richly each pose reads. The picked poses land in
 /// [`ActorAnimIndex`] for the renderer to consume by id.
-pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query<ActorSpriteData>) {
+pub fn rebuild_actor_anim_index(
+    mut index: ResMut<ActorAnimIndex>,
+    actors: Query<ActorSpriteData>,
+    time: Option<bevy::prelude::Res<bevy::prelude::Time>>,
+) {
+    let dt = time.as_deref().map_or(0.0, bevy::prelude::Time::delta_secs);
     index.begin_rebuild();
     for a in &actors {
         let swing = ambition_combat::moveset::melee_swing_of(a.playback, a.moveset);
@@ -376,7 +384,12 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
         );
         // A content pose PIN wins over the picked pose (e.g. a shelled enemy's
         // withdraw cycle, which the disposition-agnostic picker cannot infer).
+        let free = a.playback.is_none_or(|playback| playback.settled()) && a.anim_override.is_none();
         let anim = a.anim_override.map(|o| o.0).unwrap_or(anim);
+        let before = index.get(a.feature_id.as_str());
+        let stop = before
+            .map_or_else(crate::StopClock::default, |before| before.stop)
+            .next(before.map(|before| before.anim), anim, free, dt);
         let charge = a
             .playback
             .and_then(ambition_combat::moveset::MovePlayback::smash_charge_fraction);
@@ -399,6 +412,7 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                 // drawn as its swing, which is what its timeline says it is.
                 move_charge: charge,
                 passage_look: None,
+                stop,
                 // A HELD CHARGE outranks the move's own row, and only while it
                 // is held: the whole point of the beat is that a fighter
                 // winding up looks different from one swinging. It goes AHEAD
@@ -408,6 +422,7 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                     .playback
                     .filter(|playback| !playback.settled())
                     .map(|playback| ClipRequest::for_move(&playback.spec.clip, playback.phase()))
+                    .or_else(|| stop.clip(anim, free))
                     .or_else(|| {
                         ClipRequest::from_chain(ambition_character_sprites::body_state_clip(
                             a.motion_facts,
@@ -420,6 +435,16 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                                     .map(ambition_character_sprites::GuardBreakBeat::from_phase),
                                 parrying: a.shield.parrying(),
                                 guard_stunned: a.shield.stun_timer > 0.0,
+                                // The actor road's own `hit` read
+                                // (`ActorAnimState::hit_flash`).
+                                recoil: (a.combat.hit_flash > 0.0).then(|| {
+                                    let down = a.frame.map_or(ae::DEFAULT_GRAVITY_DIR, |f| f.down());
+                                    ambition_character_sprites::Recoil::of(
+                                        a.combat.struck_height,
+                                        ambition_character_sprites::extent_along(a.kin.size, down),
+                                        !a.ground.on_ground,
+                                    )
+                                }),
                                 ..Default::default()
                             }
                             .with_gestures(a.anim),

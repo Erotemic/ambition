@@ -10,7 +10,7 @@ mod attack_hitbox;
 mod posed_body;
 
 pub use anim::{
-    ActorAnimState, FighterClipFacts, GuardBreakBeat, MotionSpeeds, body_state_clip,
+    ActorAnimState, FighterClipFacts, GuardBreakBeat, MotionSpeeds, Recoil, body_state_clip, extent_along,
     pick_actor_anim, pick_player_anim,
 };
 pub use attack_hitbox::{

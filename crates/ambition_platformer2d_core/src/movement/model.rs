@@ -445,6 +445,18 @@ pub struct AxisManeuverState {
     pub knockdown_timer: f32,
     /// Invulnerability from a tech or a getup.
     pub getup_invuln_timer: f32,
+    /// Which way the launch that began this tumble threw the body. Decided at
+    /// the launch from its velocity; `None` for a tumble with no launch (a
+    /// footstool) and for a body that is not tumbling. A picture fact: nothing
+    /// in the floor game reads it.
+    pub launch_direction: Option<super::knockdown::LaunchDirection>,
+    /// The body lies on its face, not on its back. Decided at the launch and
+    /// held through the knockdown and the getup that ends it. A picture fact: it changes no
+    /// collision and no option.
+    pub prone_face_down: bool,
+    /// Which way out of the floor game the body took — the tech or getup whose
+    /// invulnerability `getup_invuln_timer` is counting.
+    pub getup_kind: super::knockdown::GetupKind,
     pub ledge_grab: Option<crate::LedgeGrabState>,
     /// THE WIRE SHE IS HANGING FROM, or `None` for a body that is not on one.
     ///
@@ -561,6 +573,9 @@ impl Default for AxisManeuverState {
             tech_lockout_timer: 0.0,
             knockdown_timer: 0.0,
             getup_invuln_timer: 0.0,
+            launch_direction: None,
+            prone_face_down: false,
+            getup_kind: super::knockdown::GetupKind::Getup,
             ledge_grab: None,
             wire: None,
             gliding: false,

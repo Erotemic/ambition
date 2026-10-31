@@ -409,7 +409,9 @@ fn accept_external_launch(
                 && super::knockdown::launch_into_tumble(
                     &mut axis.state,
                     axis.params,
-                    launch.length(),
+                    launch,
+                    clusters.kinematics.facing,
+                    ctx.frame,
                 )
             {
                 // Without it a launched body carried its stale resting contact into the same

@@ -11,6 +11,107 @@ use super::tuning::AxisSweptParams;
 use crate::body_clusters::{BodyGroundState, BodyKinematics};
 use crate::MotionFrame;
 
+/// Which way a launch threw a body, in the body's own frame. The launched pose
+/// is drawn from it: Melee picks its flying pose once, at the hit, and holds
+/// it, so a launch that arcs over does not turn into a dive half-way.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LaunchDirection {
+    /// Steeply up: the body is thrown back-first at the sky.
+    Up,
+    /// Out to the side, rising or level: the body folds around the hit.
+    Side,
+    /// Down: a spike, head first.
+    Down,
+}
+
+impl LaunchDirection {
+    /// A launch steeper than this above the side axis is `Up`, degrees.
+    pub const UP_ABOVE_DEG: f32 = 60.0;
+    /// A launch steeper than this below the side axis is `Down`, degrees.
+    pub const DOWN_BELOW_DEG: f32 = 25.0;
+
+    /// The direction of a launch at `velocity` in `frame`.
+    pub fn of(velocity: crate::Vec2, frame: MotionFrame) -> Self {
+        let up = -velocity.dot(frame.down());
+        let side = velocity.dot(frame.side()).abs();
+        let angle = up.atan2(side).to_degrees();
+        if angle > Self::UP_ABOVE_DEG {
+            Self::Up
+        } else if angle < -Self::DOWN_BELOW_DEG {
+            Self::Down
+        } else {
+            Self::Side
+        }
+    }
+
+    /// The wire code; `0` is reserved for no launch.
+    pub fn code(self) -> u8 {
+        match self {
+            Self::Up => 1,
+            Self::Side => 2,
+            Self::Down => 3,
+        }
+    }
+
+    pub fn from_code(code: u8) -> Option<Self> {
+        match code {
+            1 => Some(Self::Up),
+            2 => Some(Self::Side),
+            3 => Some(Self::Down),
+            _ => None,
+        }
+    }
+}
+
+/// Which way out of the floor game a body took. Every one of them gives the
+/// same invulnerability; the picture is what differs.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum GetupKind {
+    /// Stood up in place (a jump press, or the timer ran out).
+    #[default]
+    Getup,
+    /// Rolled out of the knockdown.
+    GetupRoll,
+    /// Stood up swinging; combat plays the move.
+    GetupAttack,
+    /// Caught the floor in place.
+    Tech,
+    /// Caught the floor and rolled.
+    TechRoll,
+    /// Caught a wall.
+    WallTech,
+    /// Caught a ceiling.
+    CeilingTech,
+}
+
+impl GetupKind {
+    /// The wire code.
+    pub fn code(self) -> u8 {
+        match self {
+            Self::Getup => 0,
+            Self::GetupRoll => 1,
+            Self::GetupAttack => 2,
+            Self::Tech => 3,
+            Self::TechRoll => 4,
+            Self::WallTech => 5,
+            Self::CeilingTech => 6,
+        }
+    }
+
+    pub fn from_code(code: u8) -> Option<Self> {
+        Some(match code {
+            0 => Self::Getup,
+            1 => Self::GetupRoll,
+            2 => Self::GetupAttack,
+            3 => Self::Tech,
+            4 => Self::TechRoll,
+            5 => Self::WallTech,
+            6 => Self::CeilingTech,
+            _ => return None,
+        })
+    }
+}
+
 /// How long a body stays in tumble after a launch, per unit of launch speed
 /// over its threshold — clamped to [`MAX_TUMBLE_TIME`]. A harder hit keeps you
 /// helpless longer, which is what makes a big hit *feel* big beyond the
@@ -92,14 +193,25 @@ pub fn jab_lock(state: &mut AxisManeuverState, tuning: AxisSweptParams, launch_s
 pub fn launch_into_tumble(
     state: &mut AxisManeuverState,
     tuning: AxisSweptParams,
-    launch_speed: f32,
+    launch: crate::Vec2,
+    facing: f32,
+    frame: MotionFrame,
 ) -> bool {
+    let launch_speed = launch.length();
     let threshold = tuning.abilities.tumble_speed;
     if threshold <= 0.0 || launch_speed < threshold {
         return false;
     }
     let over = launch_speed - threshold;
     enter_tumble(state, TUMBLE_TIME_PER_SPEED * over);
+    let direction = LaunchDirection::of(launch, frame);
+    state.launch_direction = Some(direction);
+    // THE WAY IT WILL LIE, decided with the launch: on its face when thrown the
+    // way it faces or spiked head first, on its back otherwise. A launch
+    // throws a body away from the hit it faced, so the back is the common case.
+    // Decided here and not at the landing, where the floor has already taken
+    // the travel that says which way the body was going.
+    state.prone_face_down = launch.dot(frame.side()) * facing > 0.0 || direction == LaunchDirection::Down;
     // ⭐⭐ A HARD ENOUGH LAUNCH CANNOT BE TECHED, and this is the only place that
     // can decide it: the launch SPEED is an input here and is gone by the time
     // the body reaches a surface. Deciding it at the wall would need the impact
@@ -146,6 +258,8 @@ fn enter_tumble(state: &mut AxisManeuverState, seconds: f32) {
     // latched on the NEXT tumble — a footstool is not a launch, and a body that
     // was once hit hard must not spend the rest of the stock untechable.
     state.tumble_untechable = false;
+    state.launch_direction = None;
+    state.prone_face_down = false;
     state.tumble_timer = state.tumble_timer.max(seconds.min(MAX_TUMBLE_TIME));
     state.tumble_until_landing = true;
     state.knockdown_timer = 0.0;
@@ -274,6 +388,7 @@ pub(super) fn tick_knockdown(
             // POSITION is untouched, and this is an impulse a timed press
             // earned.
             kinematics.vel = frame.side() * (wall.wall_normal_x * WALL_TECH_SPEED);
+            state.getup_kind = GetupKind::WallTech;
             events.operations.push(MovementOp::Tech);
             return without_evade(input);
         }
@@ -294,6 +409,7 @@ pub(super) fn tick_knockdown(
             // ceiling the way the wall tech pushes away from the wall, into a
             // fall it now controls.
             kinematics.vel = frame.down() * CEILING_TECH_SPEED;
+            state.getup_kind = GetupKind::CeilingTech;
             events.operations.push(MovementOp::Tech);
             return without_evade(input);
         }
@@ -334,11 +450,13 @@ pub(super) fn tick_knockdown(
     if state.tech_press_timer > 0.0 {
         state.tech_press_timer = 0.0;
         state.getup_invuln_timer = GETUP_INVULN;
-        kinematics.vel = if local_stick.x.abs() > 0.5 {
+        let rolls = local_stick.x.abs() > 0.5;
+        kinematics.vel = if rolls {
             frame.side() * (local_stick.x.signum() * TECH_ROLL_SPEED)
         } else {
             crate::Vec2::ZERO
         };
+        state.getup_kind = if rolls { GetupKind::TechRoll } else { GetupKind::Tech };
         events.operations.push(MovementOp::Tech);
         return without_evade(input);
     }
@@ -376,11 +494,13 @@ fn resolve_getup(
     if local_stick.x.abs() > 0.5 {
         kinematics.vel = frame.side() * (local_stick.x.signum() * GETUP_ROLL_SPEED);
         stand(state);
+        state.getup_kind = GetupKind::GetupRoll;
         events.operations.push(MovementOp::GetupRoll);
         return;
     }
     if input.attack_pressed {
         stand(state);
+        state.getup_kind = GetupKind::GetupAttack;
         // The kernel does not swing — it publishes the option, and the combat
         // side answers it, exactly as it does for the ledge getup attack.
         events.operations.push(MovementOp::GetupAttack);
@@ -388,6 +508,7 @@ fn resolve_getup(
     }
     if input.jump_pressed() || state.knockdown_timer <= 0.0 {
         stand(state);
+        state.getup_kind = GetupKind::Getup;
         events.operations.push(MovementOp::Getup);
     }
 }

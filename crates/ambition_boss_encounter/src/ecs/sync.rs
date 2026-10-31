@@ -147,6 +147,8 @@ mod boss_combat_rebuild_contract {
             slow_timer: _,
             slow_scale: _,
             armor: _,
+            // Where the last hit landed; the damage path writes it.
+            struck_height: _,
             training_dummy: _,
         } = combat;
     }

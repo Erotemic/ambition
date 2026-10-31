@@ -814,6 +814,11 @@ fn two_floors_at_one_height_are_told_apart_by_the_body_and_not_by_the_list() {
 /// `Vec2` with zero for "none" would save 8 and be a sentinel. At 14.4 peers
 /// a view is ~1.5 KB, which still fits L1.
 ///
+/// 112 since 2026-10-30 (66537d545): `threat_reach`, how far the perceived
+/// body's reach extends past its front, which the tactical intent's spacing
+/// band is measured from. 8 bytes; it is `None` for a body with no attack, so
+/// a zero would be a sentinel. At 14.4 peers a view is ~1.6 KB.
+///
 /// ⚠ It is also the number the "per-build cost rises with population" open
 /// question is argued over — see the measurements journal. 88 bytes × 14.4 peers
 /// was ~1.27 KB per actor's view (104 bytes: ~1.5 KB), which FITS L1, and that
@@ -822,7 +827,7 @@ fn two_floors_at_one_height_are_told_apart_by_the_body_and_not_by_the_list() {
 fn the_perception_structs_do_not_silently_widen() {
     assert_eq!(
         std::mem::size_of::<PerceivedActor>(),
-        104,
+        112,
         "PerceivedActor changed width; it is constructed ~1,900 times per tick"
     );
     assert_eq!(std::mem::size_of::<PerceivedProjectile>(), 24);

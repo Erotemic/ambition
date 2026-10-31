@@ -288,6 +288,51 @@ impl GuardBreakBeat {
     }
 }
 
+/// Which recoil a hit that did not launch is drawn with: where on the body it
+/// landed, or in the air. Melee draws a hit high, mid or low on the ground
+/// from the hurtbox it struck, and one aerial recoil off it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Recoil {
+    High,
+    Mid,
+    Low,
+    Air,
+}
+
+impl Recoil {
+    /// The recoil of a hit that landed `struck_height` px above the centre of
+    /// a body `body_height` px tall (`BodyCombat::struck_height`). The body's
+    /// top and bottom thirds are high and low.
+    pub fn of(struck_height: f32, body_height: f32, airborne: bool) -> Self {
+        let third = body_height / 6.0;
+        if airborne {
+            Self::Air
+        } else if struck_height > third {
+            Self::High
+        } else if struck_height < -third {
+            Self::Low
+        } else {
+            Self::Mid
+        }
+    }
+
+    /// The rows it asks for, new pose first, then the one recoil every sheet
+    /// drew before.
+    pub fn clip_chain(self) -> &'static [&'static str] {
+        match self {
+            Self::High => &["hit_high", "hit", "idle"],
+            Self::Mid => &["hit_mid", "hit", "idle"],
+            Self::Low => &["hit_low", "hit", "idle"],
+            Self::Air => &["hit_air", "hit", "fall", "idle"],
+        }
+    }
+}
+
+/// The extent of a body of `size` along `dir`, for an axis-aligned `dir`.
+pub fn extent_along(size: ae::Vec2, dir: ae::Vec2) -> f32 {
+    size.x * dir.x.abs() + size.y * dir.y.abs()
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct FighterClipFacts {
     /// This body is in another body's hands.
@@ -312,6 +357,10 @@ pub struct FighterClipFacts {
     /// not [`Self::guard_break`] — the shield HELD. A break is the
     /// floor game; this is the beat a blocked hit costs a defender.
     pub guard_stunned: bool,
+    /// This body is drawn struck by a hit that did not launch it, and where.
+    /// `None` when it is not drawn struck. Each road asks it with the read its
+    /// own `hit` uses, so the recoil replaces the frames that drew `hit`.
+    pub recoil: Option<Recoil>,
     /// This body is petting another (`BodyAnimFacts::petting`).
     pub petting: bool,
     /// This body is being petted (`BodyAnimFacts::petted`).
@@ -346,11 +395,11 @@ impl FighterClipFacts {
 /// tumble first would draw the launched pose through the whole prone beat and
 /// the knockdown would never be seen.
 ///
-/// `tech` / `tech_roll` / `getup_roll` are NOT distinguished here, and the
-/// reason is honest: the simulation publishes ONE `getup_invulnerable` flag, so
-/// telling a tech from an ordinary getup would mean inventing a distinction the
-/// sim has not made. That fact belongs to the subsystem that knows which
-/// `MovementOp` ran, and the row set waits for it.
+/// The floor game's three pictures are the kernel's facts: which way a launch
+/// threw the body (`launched`), which way up it lies (`prone_face_down`) and
+/// which way out it took (`getup`). Each row names its new pose first and the
+/// row a sheet drew before it after, so a sheet without the new pose draws
+/// what it drew before.
 pub fn body_state_clip(
     facts: &ambition_platformer2d_core::BodyMotionFacts,
     fighter: FighterClipFacts,
@@ -361,10 +410,23 @@ pub fn body_state_clip(
         return Some(&["grabbed", "hit", "idle"]);
     }
     if facts.knocked_down {
-        return Some(&["knockdown", "prone", "land_hard", "hit", "idle"]);
+        return Some(if facts.prone_face_down {
+            &["prone_face_down", "knockdown", "prone", "land_hard", "hit", "idle"]
+        } else {
+            &["prone_face_up", "knockdown", "prone", "land_hard", "hit", "idle"]
+        });
     }
     if facts.getup_invulnerable {
-        return Some(&["getup", "land_recovery", "idle"]);
+        use ambition_platformer2d_core::movement::knockdown::GetupKind;
+        return Some(match facts.getup {
+            Some(GetupKind::Tech) => &["tech", "getup", "land_recovery", "idle"],
+            Some(GetupKind::TechRoll) => &["tech_roll", "roll", "tech", "getup", "idle"],
+            Some(GetupKind::GetupRoll) => &["getup_roll", "roll", "getup", "idle"],
+            // Caught on a wall or a ceiling, the body is in the air and in
+            // control again. No sheet draws a wall tech yet, so it falls.
+            Some(GetupKind::WallTech | GetupKind::CeilingTech) => &["wall_tech", "fall", "idle"],
+            Some(GetupKind::Getup | GetupKind::GetupAttack) | None => &["getup", "land_recovery", "idle"],
+        });
     }
     // FOUR beats out of ONE timer, and no new simulation state: the sim still
     // publishes one `break_timer`, and `BodyShieldState::break_total` records how
@@ -375,8 +437,17 @@ pub fn body_state_clip(
     if let Some(beat) = fighter.guard_break {
         return Some(beat.clip_chain());
     }
+    // The launch, while it holds the body helpless: drawn the way the hit
+    // threw it, decided once at the launch. The rest of the tumble, with
+    // control back, is the tumble row.
     if facts.tumbling {
-        return Some(&["tumble", "hit", "fall", "idle"]);
+        use ambition_platformer2d_core::movement::knockdown::LaunchDirection;
+        return Some(match facts.launched {
+            Some(LaunchDirection::Up) => &["launch_up", "launch", "tumble", "hit", "fall", "idle"],
+            Some(LaunchDirection::Side) => &["launch_horizontal", "launch", "tumble", "hit", "fall", "idle"],
+            Some(LaunchDirection::Down) => &["launch_down", "meteor", "launch", "tumble", "hit", "fall", "idle"],
+            None => &["tumble", "hit", "fall", "idle"],
+        });
     }
     // BELOW everything above it: a captor that got knocked down is not holding
     // anybody any more, and a captor mid-throw has a MOVE, which outranks every
@@ -419,6 +490,11 @@ pub fn body_state_clip(
     // and it is what makes shieldstun visible rather than merely true.
     if fighter.guard_stunned {
         return Some(&["shield_hit", "block", "idle"]);
+    }
+    // BELOW the guard rows: a blocked hit can arm the same flash, and the
+    // guard that held it is the picture.
+    if let Some(recoil) = fighter.recoil {
+        return Some(recoil.clip_chain());
     }
     // LAST, because it is the least urgent thing a body can be doing and every
     // state above it can overlap the squat's few frames. It is here at all
@@ -1085,7 +1161,7 @@ mod state_clip_tests {
         };
         assert_eq!(
             head(&downed),
-            Some("knockdown".to_string()),
+            Some("prone_face_up".to_string()),
             "a knocked-down body drew its LAUNCH pose for the whole prone beat"
         );
 
@@ -1154,7 +1230,7 @@ mod state_clip_tests {
                 knocked_down: true,
                 ..Default::default()
             }),
-            Some("knockdown".to_string())
+            Some("prone_face_up".to_string())
         );
         // and the priority poison: a body knocked down while STILL held is
         // held — the captor's pose owns it, the way `pick_body_anim` orders it.
@@ -1173,6 +1249,89 @@ mod state_clip_tests {
             Some("grabbed".to_string()),
             "a held body drew the floor game it is not in"
         );
+    }
+
+    /// THE FLOOR GAME'S PICTURES ARE THE KERNEL'S FACTS, and each new row
+    /// keeps the row a sheet drew before it in its chain, so a sheet without
+    /// the new pose draws exactly what it drew.
+    #[test]
+    fn a_reaction_is_drawn_from_the_fact_that_names_it() {
+        use ambition_platformer2d_core::movement::knockdown::{GetupKind, LaunchDirection};
+        let chain = |facts: BodyMotionFacts, fighter: super::FighterClipFacts| {
+            super::body_state_clip(&facts, fighter).map(|chain| chain.to_vec())
+        };
+        let launched = |direction| BodyMotionFacts {
+            tumbling: true,
+            launched: Some(direction),
+            ..Default::default()
+        };
+        assert_eq!(chain(launched(LaunchDirection::Up), Default::default()).unwrap()[0], "launch_up");
+        assert_eq!(chain(launched(LaunchDirection::Side), Default::default()).unwrap()[0], "launch_horizontal");
+        let down = chain(launched(LaunchDirection::Down), Default::default()).unwrap();
+        assert_eq!(down[0], "launch_down");
+        assert!(down.contains(&"tumble"), "a sheet without the launch rows drew its tumble");
+
+        let prone = |face_down| BodyMotionFacts {
+            knocked_down: true,
+            prone_face_down: face_down,
+            ..Default::default()
+        };
+        assert_eq!(chain(prone(false), Default::default()).unwrap()[0], "prone_face_up");
+        let face_down = chain(prone(true), Default::default()).unwrap();
+        assert_eq!(face_down[0], "prone_face_down");
+        assert_eq!(face_down[1], "knockdown", "a sheet without the prone rows drew its knockdown");
+
+        let getup = |kind| BodyMotionFacts {
+            getup_invulnerable: true,
+            getup: Some(kind),
+            ..Default::default()
+        };
+        assert_eq!(chain(getup(GetupKind::Tech), Default::default()).unwrap()[0], "tech");
+        assert_eq!(chain(getup(GetupKind::Getup), Default::default()).unwrap()[0], "getup");
+        assert_eq!(chain(getup(GetupKind::GetupRoll), Default::default()).unwrap()[0], "getup_roll");
+        assert!(
+            !chain(getup(GetupKind::WallTech), Default::default()).unwrap().contains(&"tech"),
+            "a body that caught a wall drew the floor tech in the air"
+        );
+
+        let struck = |recoil| super::FighterClipFacts {
+            recoil: Some(recoil),
+            ..Default::default()
+        };
+        for (recoil, row) in [
+            (super::Recoil::High, "hit_high"),
+            (super::Recoil::Mid, "hit_mid"),
+            (super::Recoil::Low, "hit_low"),
+            (super::Recoil::Air, "hit_air"),
+        ] {
+            let rows = chain(BodyMotionFacts::default(), struck(recoil)).unwrap();
+            assert_eq!(rows[0], row);
+            assert!(rows.contains(&"hit"), "{row}: a sheet without it drew no recoil");
+        }
+        // A blocked hit that armed the flash is the guard that held it.
+        assert_eq!(
+            chain(
+                BodyMotionFacts::default(),
+                super::FighterClipFacts {
+                    guard_stunned: true,
+                    recoil: Some(super::Recoil::Mid),
+                    ..Default::default()
+                }
+            )
+            .unwrap()[0],
+            "shield_hit"
+        );
+    }
+
+    /// The body's top and bottom thirds are high and low, and the air is one
+    /// recoil wherever the hit lands.
+    #[test]
+    fn a_recoil_is_where_the_hit_landed_on_the_body() {
+        use super::Recoil;
+        assert_eq!(Recoil::of(30.0, 120.0, false), Recoil::High);
+        assert_eq!(Recoil::of(10.0, 120.0, false), Recoil::Mid);
+        assert_eq!(Recoil::of(-30.0, 120.0, false), Recoil::Low);
+        assert_eq!(Recoil::of(30.0, 120.0, true), Recoil::Air);
     }
 
     /// EVERY CHAIN ENDS SOMEWHERE A LEAN SHEET CAN REACH.

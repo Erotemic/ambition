@@ -2841,6 +2841,8 @@ mod body_combat_rebuild_contract {
             // from the cluster.
             slow_timer: _,
             slow_scale: _,
+            // Where the last hit landed: the hit resolver writes it.
+            struck_height: _,
             // ── Republished every tick from the live move by
             // `project_move_defense_windows`, which is the ONE writer. This
             // sync must never touch it: a second writer would fight the

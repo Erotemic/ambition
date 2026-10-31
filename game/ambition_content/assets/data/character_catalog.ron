@@ -1495,6 +1495,8 @@
                 chase_effort: 1.0,
                 // A crew: when a lookout sees you, the others come.
                 shares_sightings: true,
+                // It plants and aims (its windup row) before each volley: the telegraph.
+                ranged_volley: Some((windup_s: 0.5, firing_s: 0.3, recovery_s: 1.2)),
             )),
             provoked_profile: Some("pirate_boarder"),
             max_health: Some(4),
@@ -1824,6 +1826,8 @@
                 chase_effort: 1.0,
                 // A crew: when a lookout sees you, the others come.
                 shares_sightings: true,
+                // It plants and aims (its windup row) before each volley: the telegraph.
+                ranged_volley: Some((windup_s: 0.65, firing_s: 0.4, recovery_s: 1.5)),
             )),
             provoked_profile: Some("pirate_boarder_heavy"),
             max_health: Some(6),

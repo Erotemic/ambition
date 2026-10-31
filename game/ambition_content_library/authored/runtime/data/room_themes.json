@@ -469,6 +469,23 @@
       "twinkle_rate": 1.6,
       "front": 0.4
     },
+    "void": {
+      "count": 22,
+      "velocity": [
+        0.8,
+        -1.6
+      ],
+      "wander": 5.0,
+      "wander_rate": 0.08,
+      "size": [
+        1.0,
+        2.2
+      ],
+      "alpha": 0.75,
+      "twinkle": 0.5,
+      "twinkle_rate": 0.6,
+      "front": 0.3
+    },
     "void_castle": {
       "count": 30,
       "velocity": [

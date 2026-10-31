@@ -96,6 +96,24 @@ The source, compiled-library hash and outputs are under
 The probe ran beside Cargo. These are warm local measurements, not browser
 results or a controlled optimization comparison.
 
+## Part metadata encoding probe
+
+The same selection has 924 part-table manifests: 231 targets at four quality
+levels. All 924 native cache entries match their source path, size, time and
+schema key. Compare their RON and bincode bytes in logical path order:
+
+| Encoding | Raw bytes | Concatenated gzip bytes |
+| --- | ---: | ---: |
+| RON | 106,721,290 | 7,137,528 |
+| Bincode | 35,647,335 | 6,076,612 |
+
+Python gzip used level 9 and time 0. The binary form saves 71,073,955 raw bytes
+and 1,060,916 gzip bytes in this subset. This is not a WASM build or a browser
+load. Measure the full package, decode time and memory before selecting it.
+The current web embed path includes RON metadata; the native cache does not
+reduce those embedded bytes. The result, selection ID and schema hash are in
+`target/mary-o-metadata-phase-probe/part-encoding-sizes.json`.
+
 ## Content limits
 
 The selected publication has no Mary-O music files or soft-glow image. The

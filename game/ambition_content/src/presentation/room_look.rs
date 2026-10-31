@@ -81,7 +81,7 @@ const UNDERSIDE_REACH: f32 = 230.0;
 /// A block at most this tall is a platform, and gets an underside.
 const PLATFORM_MAX_HEIGHT: f32 = 40.0;
 /// Between the undersides and the surfaces, so a floor covers the foot of a
-/// door frame. The door sprite is far above (`WORLD_Z_BLOCK + 6.0`).
+/// door frame. The door sprite is far above (`DOOR_Z`, over the scenery).
 const PORTAL_Z: f32 = WORLD_Z_BLOCK + 0.15;
 /// How far a portal quad reaches past its door's trigger box.
 const PORTAL_PAD: f32 = 56.0;

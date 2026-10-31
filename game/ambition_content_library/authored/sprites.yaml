@@ -233,6 +233,7 @@ collections:
   - spectral_perturbation
   - gram_reaper
   - shift_operator
+  - quantum_die
   - hylbert_spectral_gap
   - hylbert_wallpaper_panel
   - hylbert_room_door

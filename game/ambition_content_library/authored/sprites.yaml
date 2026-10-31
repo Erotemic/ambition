@@ -46,6 +46,9 @@ collections:
   - bubble_shield
   - pointed_polygon
   - pugnacious_polygon
+  - void_pointed_polygon
+  - void_pugnacious_polygon
+  - void_projectile_polygon
   - director
   - officer
   - performer
@@ -191,6 +194,9 @@ collections:
   - pointed_polygon_strike_fx
   - projectile_polygon_strike_fx
   - pugnacious_polygon_strike_fx
+  - void_pointed_polygon_strike_fx
+  - void_pugnacious_polygon_strike_fx
+  - void_projectile_polygon_strike_fx
   - director_strike_fx
   - performer_strike_fx
   - officer_strike_fx

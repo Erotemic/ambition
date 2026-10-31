@@ -19,6 +19,8 @@
 //   level lines: everything near it holds still.
 // - FLICKER: now and then the whole room dims for a beat, as a ghost
 //   passes the lights.
+// - LENS: the vignette closes in violet, not black; colour splits a little
+//   toward the edges of the view; a fine grain moves over it all.
 //
 // Settings (one uniform struct, as the spirit field's):
 // - control: x strength 0..1, y view width over height, z seconds,
@@ -26,8 +28,10 @@
 // - view: the camera's view in its target (x, y top left; z, w size; each a
 //   part of the target).
 // - world: x, y the camera's world position in view heights (so fog and
-//   rain stay put as it moves); z the spectral gap's x in the view (0..1),
-//   or below 0 for none; w the gap's reach in view heights.
+//   rain stay put as it moves); z, w unused.
+// - gap: the spectral gap in the view: x its middle (0..1), or below 0 for
+//   none; y the level of its floor (0..1, y down: where its horizon of
+//   light lies); z its reach in view heights; w unused.
 
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
 
@@ -38,6 +42,7 @@ struct HauntedFieldSettings {
     control: vec4<f32>,
     view: vec4<f32>,
     world: vec4<f32>,
+    gap: vec4<f32>,
 }
 
 @group(0) @binding(2) var<uniform> settings: HauntedFieldSettings;
@@ -46,6 +51,9 @@ const TEAL: vec3<f32> = vec3<f32>(0.36, 0.93, 0.84);
 const VIOLET: vec3<f32> = vec3<f32>(0.42, 0.26, 0.62);
 const RAIN: vec3<f32> = vec3<f32>(0.18, 0.95, 0.66);
 const RAIN_HEAD: vec3<f32> = vec3<f32>(0.55, 1.0, 0.82);
+// The far end of a trail cools to violet.
+const RAIN_TAIL: vec3<f32> = vec3<f32>(0.42, 0.3, 0.75);
+const VIGNETTE: vec3<f32> = vec3<f32>(0.1, 0.05, 0.16);
 // Rain: columns across a view height, glyph rows down it, steps a second.
 const COLUMNS: f32 = 38.0;
 const ROWS: f32 = 26.0;
@@ -92,15 +100,24 @@ fn glyph(cell: vec2<f32>, seed: f32) -> f32 {
 
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
-    let picture = textureSample(screen_texture, texture_sampler, in.uv);
+    let plain = textureSample(screen_texture, texture_sampler, in.uv);
     let at = (in.uv - settings.view.xy) / max(settings.view.zw, vec2<f32>(0.0001));
     if at.x < 0.0 || at.y < 0.0 || at.x > 1.0 || at.y > 1.0 {
-        return picture;
+        return plain;
     }
     let strength = clamp(settings.control.x, 0.0, 1.0);
     if strength <= 0.001 {
-        return picture;
+        return plain;
     }
+    // LENS: the colour splits a little toward the edges of the view.
+    let from_mid = at - vec2<f32>(0.5);
+    let split = from_mid * dot(from_mid, from_mid) * 0.006 * strength * settings.view.zw;
+    let picture = vec4<f32>(
+        textureSample(screen_texture, texture_sampler, in.uv + split).r,
+        plain.g,
+        textureSample(screen_texture, texture_sampler, in.uv - split).b,
+        plain.a,
+    );
     let aspect = settings.control.y;
     let seconds = settings.control.z;
     let rain_strength = clamp(settings.control.w, 0.0, 1.0);
@@ -109,9 +126,9 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
     // The spectral gap's calm: 1 at the gap, 0 beyond its reach.
     var calm = 0.0;
-    if settings.world.z >= 0.0 {
-        let dx = (at.x - settings.world.z) * aspect;
-        calm = 1.0 - smoothstep(0.0, max(settings.world.w, 0.01), abs(dx));
+    if settings.gap.x >= 0.0 {
+        let dx = (at.x - settings.gap.x) * aspect;
+        calm = 1.0 - smoothstep(0.0, max(settings.gap.z, 0.01), abs(dx));
     }
     let churn = 1.0 - 0.9 * calm;
 
@@ -123,7 +140,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     colour = colour + VIOLET * shadow * 0.08 * strength + TEAL * 0.015 * strength;
     let edge = at - vec2<f32>(0.5);
     let vignette = smoothstep(0.85, 0.25, length(edge * vec2<f32>(1.0, 1.25)));
-    colour = colour * mix(1.0, 0.72 + 0.28 * vignette, strength);
+    colour = mix(colour, colour * 0.6 + VIGNETTE * 0.4, (1.0 - vignette) * 0.75 * strength);
 
     // FOG: two drifting layers, thicker low in the view; still near the gap.
     let drift = seconds * 0.04 * churn;
@@ -135,6 +152,9 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let level = 0.5 + 0.5 * sin(world.y * 120.0);
     fog = mix(fog, fog * 0.6 + level * 0.12 * low, calm);
     colour = colour + TEAL * smoothstep(0.35, 0.85, fog) * 0.26 * strength;
+    // Over the gap, a level horizon of light shimmers: the room's true level.
+    let horizon = exp(-pow((at.y - settings.gap.y) * 90.0, 2.0)) * (0.7 + 0.3 * sin(seconds * 2.0 + world.x * 30.0));
+    colour = colour + TEAL * horizon * calm * 0.18 * strength;
 
     // DIGITAL RAIN: in the dark only.
     let dark = 1.0 - smoothstep(0.08, 0.35, lum);
@@ -151,17 +171,25 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         let step_i = floor(seconds * (2.0 + hash(vec2<f32>(column, row)) * 3.0) * (1.0 - 0.9 * calm));
         let cell = vec2<f32>(fract(world.x * COLUMNS), fract(row_f));
         let lit = glyph(cell, hash(vec2<f32>(column * 7.0 + row, step_i)));
+        // A soft halo round each glyph, so the rain glows, not just prints.
+        let halo = exp(-dot(cell - vec2<f32>(0.5), cell - vec2<f32>(0.5)) * 9.0) * 0.35;
         let head = smoothstep(1.2, 0.0, lag);
+        let flick = 0.75 + 0.25 * hash(vec2<f32>(column + row, floor(seconds * 12.0)));
         // Only some columns rain at any time.
         let raining = step(0.55, hash(vec2<f32>(column, floor(seconds * 0.05 + hash(vec2<f32>(column, 9.0))))));
-        let rain = lit * trail * raining * dark * rain_strength * strength;
-        colour = colour + mix(RAIN, RAIN_HEAD, head) * rain * (0.07 + 0.16 * head);
+        let rain = (lit + halo * trail) * trail * raining * dark * rain_strength * strength * flick;
+        // The head white-teal, the trail green, its far end cooling violet.
+        let hue = mix(mix(RAIN_TAIL, RAIN, smoothstep(0.0, 0.5, trail)), RAIN_HEAD, head);
+        colour = colour + hue * rain * (0.07 + 0.16 * head);
     }
 
     // FLICKER: now and then a beat of dimming, as a ghost passes the lights.
     let beat = floor(seconds * 1.5);
     let flicker = step(0.97, hash(vec2<f32>(beat, 5.0))) * (0.5 + 0.5 * sin(seconds * 40.0));
     colour = colour * (1.0 - 0.18 * flicker * strength);
+    // A fine grain, moving.
+    let grain = hash(in.uv * 997.0 + vec2<f32>(fract(seconds * 7.13), fract(seconds * 3.71))) - 0.5;
+    colour = colour + vec3<f32>(grain * 0.025 * strength);
 
     return vec4<f32>(colour, picture.a);
 }

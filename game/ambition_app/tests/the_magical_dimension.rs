@@ -45,7 +45,7 @@ fn the_dune_road_lies_east_of_the_square() {
     go(&mut app, SQUARE, Some("road_west"));
 }
 
-/// The baker, the lamplighter and Mary-O's Solid Snake, off duty
+/// The baker, the lamplighter, and Mary-O's Solid Snake and snake plant, off duty
 /// (`dialogue/sandbox/magical.yarn`).
 #[test]
 fn the_squares_people_talk() {
@@ -53,6 +53,7 @@ fn the_squares_people_talk() {
     talk(&mut app, "npc_magical_celeste", "What do you bake?");
     talk(&mut app, "npc_magical_lumen", "Talked into it?");
     talk(&mut app, "solid_snake", "Why does everyone jump on you?");
+    talk(&mut app, "snake_plant", "Do you bite?");
 }
 
 #[test]

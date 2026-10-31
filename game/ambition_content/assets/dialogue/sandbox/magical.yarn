@@ -138,3 +138,16 @@ Solid Snake: Kept you waiting, huh. ...Don't jump on me. Everybody jumps on me. 
 -> I'll leave you be.
     Solid Snake: Snake? Snake?! SNAAAKE. ...Sorry. Habit.
 ===
+
+title: magical_snake_plant
+---
+Snake Plant: Hssss. ...Sorry. Reflex. You came up out of the ground very suddenly and that is MY move.
+-> Do you bite?
+    Snake Plant: In the levels, yes. Out of pipes, at whoever's standing on them. In town, no. In town I'm a house plant. Very low maintenance. Water me twice a month and don't stand on my pipe.
+-> Why a snake plant?
+    Snake Plant: Sansevieria. Mother-in-law's tongue. You can't kill one. People have tried. People have jumped on me. People have thrown fire at me. I'm still here. I'm in a pot now. That's retirement.
+-> What do you think of the void?
+    Snake Plant: It doesn't water anything. It doesn't even look at things. A plant needs to be looked at, a little. Celeste looks at me every morning. Sometimes she says "nice leaves". I'd die for her. I can't die. But I'd try.
+-> Bye.
+    Snake Plant: Hssss. That one was on purpose. Goodbye.
+===

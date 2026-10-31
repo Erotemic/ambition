@@ -137,6 +137,9 @@ LEDGES_AT, LEDGES_W = (RIFT_AT[0] + RIFT_W, RIFT_AT[1]), 4480
 COLISEUM_W, COLISEUM_H, COLISEUM_FLOOR = 1920, 1280, 1216
 COLISEUM_AT = (LEDGES_AT[0] + LEDGES_W - COLISEUM_W, LEDGES_AT[1] + VOID_H)
 WASTES_AT, WASTES_W = (FALLS_AT[0] + FALLS_W, COLISEUM_AT[1] + COLISEUM_FLOOR - VOID_FLOOR), COLISEUM_AT[0] - (FALLS_AT[0] + FALLS_W)
+#: Whether the void fighters' catalog rows have landed (their rooms place
+#: them only then).
+VOID_FIGHTERS_READY = False
 #: The ledges' hole down into the coliseum's roof (the coliseum's x).
 COLISEUM_TOP = (928, 992)
 LEDGES_HOLE = (COLISEUM_TOP[0] + COLISEUM_AT[0] - LEDGES_AT[0], COLISEUM_TOP[1] + COLISEUM_AT[0] - LEDGES_AT[0])
@@ -239,6 +242,8 @@ def square():
         # Mary-O's own Solid Snake, off duty in town (it wanders, as it does
         # in her levels; nobody stomps it here).
         resident("solid_snake", "magical_solid_snake", 1400, FLOOR, brain="", w=64, h=32),
+        # And her snake plant, rooted between the wand shop and the bakery.
+        resident("snake_plant", "magical_snake_plant", 850, FLOOR, h=48),
         edge("square_east", "out of town, along the dune road", w - 16, FLOOR, ROAD, "road_west"),
     ]
     return rid, room(rid, e, at=SQUARE_AT, size=(w, H), biome="starlight", music="billions_and_billions",
@@ -397,6 +402,15 @@ def floor_hole(zone, x0, x1, floor, h, to_room, to_zone, name):
 def void_room(rid, e, at, size, title, music, dangerous=False):
     return rid, room(rid, e, at=at, size=size, biome=VOID_BIOME, music=music, bg=VOID_BG, title=title, generator=GENERATOR,
                      dangerous=dangerous)
+
+
+def void_fighter(rid: str, character: str, x: int, floor: int, brain: str = "") -> str:
+    """A void fighter (the polygon fighters gone dark: `void_pointed_polygon`,
+    `void_pugnacious_polygon`, `void_projectile_polygon`): an enemy that
+    fights with its fighter's kit. `brain` empty takes the row's own
+    autonomous profile."""
+    return entity("EnemySpawn", x - 16, floor - 68, 32, 68, name=f"{rid}_{character}", brain=brain,
+                  character_id=character, respawn="OnRoomReenter")
 
 
 def hostile_star(rid: str, n: int, x: int, floor: int) -> str:
@@ -577,6 +591,8 @@ def ledges():
         hostile_star(rid, 3, 2300, g),
         hostile_star(rid, 4, 2900, g),
         hostile_star(rid, 5, 3900, g),
+        # A zoner on the long last piece, where it has room to shoot.
+        *([void_fighter(rid, "void_projectile_polygon", 4100, g)] if VOID_FIGHTERS_READY else []),
     ]
     return void_room(rid, e, LEDGES_AT, (w, h), "THE UNLIT", "castle_crash_override", dangerous=True)
 
@@ -607,6 +623,9 @@ def coliseum():
         sign("coliseum_sign", 960, 140, "THE UNLIT RING: the void learns to fight from the shapes that fought it", 760),
         hostile_star(rid, 1, 300, g),
         hostile_star(rid, 2, 1600, g),
+        # The ring's three: the sword, the fists, the shooter.
+        *([void_fighter(rid, "void_pointed_polygon", 700, g), void_fighter(rid, "void_pugnacious_polygon", 1240, g),
+           void_fighter(rid, "void_projectile_polygon", 960, g - 290)] if VOID_FIGHTERS_READY else []),
     ]
     return void_room(rid, e, COLISEUM_AT, (w, h), "THE UNLIT RING", "invincible_maryo", dangerous=True)
 
@@ -631,6 +650,7 @@ def wastes():
         hostile_star(rid, 1, w // 4 + 100, g),
         hostile_star(rid, 2, w // 2 + 100, g),
         hostile_star(rid, 3, 3 * w // 4 + 100, g),
+        *([void_fighter(rid, "void_pugnacious_polygon", w // 2 + 400, g)] if VOID_FIGHTERS_READY else []),
         entity("ChestSpawn", w // 2 + 60, g - 200 - 58, 76, 58, name="what the void kept for itself", reward="currency:180"),
     ]
     return void_room(rid, e, WASTES_AT, (w, h), "THE WASTES", "sparse_theme", dangerous=True)

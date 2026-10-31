@@ -22,6 +22,109 @@ const STREET: &str = "math_town_street";
 const LOBBY: &str = "math_hotel_lobby";
 const CORRIDOR: &str = "math_hotel_corridor";
 const LIFT: &str = "math_hotel_lift";
+const SPECTRAL_LANDING: &str = "math_hotel_spectral_landing";
+const SPECTRAL_SERVICE: &str = "math_hotel_service_landing";
+const REAPER_HALL: &str = "math_hotel_gram_reaper";
+const REAPER: &str = "hylbert_hotel.gram_reaper";
+
+fn protect_the_walker(app: &mut bevy::prelude::App) {
+    use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability};
+    let world = app.world_mut();
+    let mut q = world.query_filtered::<&mut BodyHealth, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>();
+    for mut health in q.iter_mut(world) {
+        health.health.invulnerable.set(Invulnerability::SCRIPTED, true);
+    }
+}
+
+#[test]
+fn the_haunted_wing_is_walkable_and_its_service_lift_opens_from_the_far_end() {
+    use ambition_platformer2d::characters::actor::WornCharacter;
+    let mut app = a_session_in(CORRIDOR);
+    protect_the_walker(&mut app);
+    go(&mut app, SPECTRAL_LANDING, Some("math_hotel_corridor_spectral"));
+    assert!(standing_walls(&mut app).contains("math_hotel_spectral_landing_lift_lock"));
+    let mut cast = std::collections::BTreeSet::new();
+    for room in [SPECTRAL_LANDING, "math_hotel_eigen_gallery", "math_hotel_spectral_gap", "math_hotel_shifted_suites", SPECTRAL_SERVICE] {
+        if live_room(&mut app) != room {
+            go(&mut app, room, None);
+        }
+        let world = app.world_mut();
+        let mut q = world.query::<&WornCharacter>();
+        cast.extend(q.iter(world).map(|worn| worn.id().to_owned()));
+    }
+    for enemy in ["eigenghost", "decomposing_specter", "spectral_perturbation", "shift_operator"] {
+        assert!(cast.contains(enemy), "the dungeon did not build {enemy}");
+    }
+    go_to(&mut app, ae::Vec2::new(332.0, 552.0), "the service lift breaker");
+    tap(&mut app, bevy::prelude::KeyCode::KeyF);
+    for _ in 0..30 { app.update(); }
+    go(&mut app, SPECTRAL_LANDING, Some("math_hotel_service_landing_lift"));
+    assert!(!standing_walls(&mut app).contains("math_hotel_spectral_landing_lift_lock"));
+    go(&mut app, SPECTRAL_SERVICE, Some("math_hotel_spectral_landing_service"));
+    go(&mut app, REAPER_HALL, Some("math_hotel_service_landing_east"));
+    assert!(standing_walls(&mut app).contains("hylbert_reaper_treasury_seal"));
+}
+
+#[test]
+fn the_haunted_guests_can_hurt_a_body_in_the_gallery() {
+    use ambition_platformer2d::characters::actor::BodyHealth;
+    let mut app = a_session_in("math_hotel_eigen_gallery");
+    let hp = |app: &mut bevy::prelude::App| {
+        let world = app.world_mut();
+        world.query_filtered::<&BodyHealth, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>()
+            .single(world).expect("the player has health").health.current
+    };
+    let before = hp(&mut app);
+    for _ in 0..600 {
+        if hp(&mut app) < before { return; }
+        Keys::new(&mut app).step(Press { axis: 1.0, ..Press::default() });
+    }
+    panic!("the haunted guests never hurt the body beside them");
+}
+
+#[test]
+fn defeating_the_gram_reaper_opens_the_treasury_and_keeps_it_open() {
+    use ambition_platformer2d::boss_encounter::{BossConfig, BossEncounter};
+    use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
+    use ambition_platformer2d::persistence::{save::AmbitionGameSave, save_data::PersistedEncounterState};
+    let mut app = a_session_in(REAPER_HALL);
+    protect_the_walker(&mut app);
+    assert!(standing_walls(&mut app).contains("hylbert_reaper_treasury_seal"));
+    let mut struck = false;
+    for _ in 0..600 {
+        let target = {
+            let world = app.world_mut();
+            let mut q = world.query::<(&BossConfig, &BossEncounter, &ae::BodyKinematics)>();
+            q.iter(world).find_map(|(config, status, body)| {
+                (config.id == REAPER && status.encounter.as_ref().is_some_and(|phase| !phase.boss_invulnerable()))
+                    .then_some(body.pos)
+            })
+        };
+        if let Some(at) = target {
+            app.world_mut().write_message(HitEvent {
+                pieces: Vec::new(), volume: ae::Aabb::new(at, ae::Vec2::splat(200.0)).into(),
+                damage: 9999, source: HitSource::Melee, attacker: None, room: None,
+                target: HitTarget::UnresolvedFeatures, mode: HitMode::Knockback, knockback: None,
+                ignored_targets: Vec::new(), strike_sfx: None, attacker_move_instance: None,
+            });
+            struck = true;
+            app.update();
+            break;
+        }
+        app.update();
+    }
+    assert!(struck, "the authored Reaper never entered a vulnerable phase");
+    for _ in 0..600 {
+        app.update();
+        if matches!(app.world().resource::<AmbitionGameSave>().data().boss(REAPER), PersistedEncounterState::Cleared) { break; }
+    }
+    assert!(matches!(app.world().resource::<AmbitionGameSave>().data().boss(REAPER), PersistedEncounterState::Cleared));
+    for _ in 0..30 { app.update(); }
+    assert!(!standing_walls(&mut app).contains("hylbert_reaper_treasury_seal"));
+    go(&mut app, "math_hotel_spectral_treasury", Some("math_hotel_gram_reaper_east"));
+    go(&mut app, REAPER_HALL, Some("math_hotel_spectral_treasury_west"));
+    assert!(!standing_walls(&mut app).contains("hylbert_reaper_treasury_seal"));
+}
 
 #[test]
 fn the_corridor_of_hylberts_hotel_always_has_one_more_room() {

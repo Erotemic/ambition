@@ -15,6 +15,13 @@ rooms, sprites and props get better art, and some areas get a light foreground.
 
 ## Rules of this lane
 
+Hylbert's Hotel has a haunted wing through the corridor's second door.
+Its seven rooms use the published hotel props. Eigenghosts, Decomposing
+Specters, Spectral Perturbations, and Shift Operators occupy the route.
+The service lift opens from the far end. The Gram Reaper guards the treasury;
+its seal reads the boss placement's saved defeat state. Quantum Dice are
+authored separately and are not placed in this route yet.
+
 - **Art is authored, and it lives in the authoring submodule**
   (`tools/ambition_sprite2d_renderer`). A shader composes art; it does not
   draw it.

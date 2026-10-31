@@ -51,6 +51,7 @@ from ambition_ldtk_tools.ldtk.paths import default_worlds_dir  # noqa: E402
 sys.path.insert(0, str(HERE.parent / "gate_network"))
 sys.path.insert(0, str(HERE.parent))
 import gates  # noqa: E402
+import haunted_wing  # noqa: E402
 
 MATH_LDTK = default_worlds_dir() / "math.ldtk"
 INTRO_LDTK = default_worlds_dir() / "intro.ldtk"
@@ -152,6 +153,9 @@ ROOMS_Y = {
     MEADOW: 560 - 704,
 }
 
+ROOMS_AT.update(haunted_wing.ROOMS_AT)
+ROOMS_Y.update(haunted_wing.ROOMS_Y)
+
 #: Pixels of a town prop's frame to one world unit (`math_town_facades.PX`,
 #: `math_town_terraces.PX`).
 PROP_PX = 2
@@ -189,10 +193,10 @@ def gate(ring, portal, zone, x, floor, to_room, to_zone, name):
 
 #: The rooms out of town: an NPC on the player's side joins the player's
 #: fights there (`RoomMetadata::dangerous`).
-DANGEROUS = {"math_zeno_aqueduct"}
+DANGEROUS = {"math_zeno_aqueduct", *haunted_wing.ROOMS_AT}
 
 
-def room(rid, entities, label_text, theme=BIOME):
+def room(rid, entities, label_text, theme=BIOME, *, bg=BG, music=MUSIC):
     world_x, w, h = ROOMS_AT[rid]
     danger = "\n    dangerous: true," if rid in DANGEROUS else ""
     world_y = ROOMS_Y.get(rid, 0)
@@ -209,10 +213,10 @@ def room(rid, entities, label_text, theme=BIOME):
     px_wid: {w},
     px_hei: {h},
     fill_collision: "empty",
-    bg_color: "{BG}",
+    bg_color: "{bg}",
     biome: "{theme}",
     parallax_theme: "{theme}",
-    music_track: "{MUSIC}",{danger}
+    music_track: "{music}",{danger}
     entities: [
         {body}
     ],
@@ -769,6 +773,9 @@ def hotel_corridor():
     ]
     for k, x in enumerate(CORRIDOR_DOORS):
         e.append(label(f"{rid}_room_{k}", x - 40, floor - 176, "n" if k == 0 else f"n+{k}", 80))
+    e += [door(f"{rid}_spectral", "into the haunted spectral wing", 376, floor,
+               haunted_wing.LANDING, f"{haunted_wing.LANDING}_entry"),
+          label("spectral_wing_sign", 280, floor - 224, "SPECTRAL WING / No checkout", 300)]
     # Guests, each at a door (Jon, 2026-10-30: "character"): the barber,
     # Furrier and Python Goras (their talk is `math.yarn`'s `hotel_*`).
     for character, dialogue, door_k in (("npc_paradox_barber", "hotel_paradox_barber", 2),
@@ -1213,6 +1220,7 @@ def fibonacci_meadow():
 ROOMS = (gate_hall, street, cafe, surveyors_office, observatory, zeno_aqueduct, hotel_lobby, hotel_corridor, hotel_lift,
          hotel_ballroom, *[hotel_closet(k) for k in range(3)], fibonacci_meadow, fractal_woods,
          mobius_mine, fractal_roots, conjectures, tower_of_hanoi)
+ROOMS += haunted_wing.builders(sys.modules[__name__])
 
 #: What is painted on an IntGrid layer of a room: (room, layer, value, px, size).
 PAINT = [(STREET, "Climbable", 1, (x, top), (32, bottom - top)) for _name, x, top, bottom in LADDERS] + [

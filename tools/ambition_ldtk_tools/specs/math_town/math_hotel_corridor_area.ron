@@ -26,6 +26,8 @@
         ( type: "DebugLabel", px: [840, 208], size: [80, 24], fields: ( name: "math_hotel_corridor_room_3", text: "n+3", category: "Custom" ) ),
         ( type: "DebugLabel", px: [1080, 208], size: [80, 24], fields: ( name: "math_hotel_corridor_room_4", text: "n+4", category: "Custom" ) ),
         ( type: "DebugLabel", px: [1320, 208], size: [80, 24], fields: ( name: "math_hotel_corridor_room_5", text: "n+5", category: "Custom" ) ),
+        ( type: "LoadingZone", px: [376, 288], size: [48, 96], fields: ( id: "math_hotel_corridor_spectral", name: "into the haunted spectral wing", activation: "Door", target_room: "math_hotel_spectral_landing", target_zone: "math_hotel_spectral_landing_entry", bidirectional: true ) ),
+        ( type: "DebugLabel", px: [280, 160], size: [300, 24], fields: ( name: "spectral_wing_sign", text: "SPECTRAL WING / No checkout", category: "Custom" ) ),
         ( type: "NpcSpawn", px: [690, 320], size: [32, 64], fields: ( character_id: "npc_paradox_barber", brain_override: "stand_still", prompt: "Talk", dialogue_id: "hotel_paradox_barber" ) ),
         ( type: "NpcSpawn", px: [930, 320], size: [32, 64], fields: ( character_id: "npc_joseph_furrier", brain_override: "stand_still", prompt: "Talk", dialogue_id: "hotel_joseph_furrier" ) ),
         ( type: "NpcSpawn", px: [1410, 320], size: [32, 64], fields: ( character_id: "npc_python_goras", brain_override: "stand_still", prompt: "Talk", dialogue_id: "hotel_python_goras" ) ),

@@ -9,6 +9,8 @@
 // outside the frame. An edit here is drawn after a content reload, with no
 // Rust build.
 {
+    // Native marble tiles form the haunted wing's floors and ledges.
+    "hylbert_floor_strip": (row: "idle", frame_px: (128.0, 32.0), span_px: (0.0, 128.0), top_px: 0.0),
     // The orbital station's spoke tram: its floor IS the platform. The
     // numbers are the art module's (`targets/props/orbital_station.py`:
     // `TRAM_FLOOR_SPAN`, `TRAM_FLOOR_Y`, `MARGIN` 6, `PX` 2).

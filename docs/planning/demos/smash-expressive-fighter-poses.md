@@ -243,6 +243,19 @@ Only after the silhouettes appear in the game, improve how one pose becomes anot
 
 Review the rest of Melee's motion vocabulary and Ambition's `fighter_motion_vocabulary.yaml` by physical event family, not by raw state count. Add new bases only when the current rig cannot make the event legible. Give different fighters their own stance and recoil style after the shared pose language works. The same visual system must later serve Ambition campaign characters, but no campaign conversion belongs in this first pass.
 
+### Roster rollout (Jon, 2026-10-31: "everyone really")
+
+Every character gets the reaction vocabulary and the turn. Each art family takes it once, where its poses are made:
+
+| Family | Where the poses live | State |
+| --- | --- | --- |
+| Polygon fighters | `devtools/reaction_keys.py` | Done (Phase 1). |
+| Character generator: Alice v2, the townsfolk, every later generated character | `chargen/motion.py` `build_library` (the twelve anchors as `Kit` poses); `chargen/sheets.py` `COMPOSED` (the turns, made from the views) | Anchors and turns in the library. Alice publishes them (`_alice_v2_motion.FIGHTER_ROWS`, `TURN_ROWS`). |
+| Player robot v3 | `player_robot_v3_*` (its own rig) | It has a turnaround and most reactions. The anchors are in progress. |
+| Other hand-rigged cast | Each rig's own motion module | Not started. Measure the gaps with the clip table first (sheet rows against `body_state_clip`). |
+
+The game already draws `turnaround` in the new facing over `TURN_SECS` (`ambition_sim_view::pose_view`) on the player road. A sheet's turn row must therefore END on its side view.
+
 ## Risks and constraints
 
 | Risk | Response | Blocks |

@@ -153,6 +153,7 @@ mod tests {
             move_charge: None,
             passage_look: None,
             stop: Default::default(),
+            turn: Default::default(),
         }
     }
 

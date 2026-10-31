@@ -389,6 +389,30 @@
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.45, active_s: 0.25, recover_s: 0.6, damage: 1, reach_px: 30.0, step_px: 0.0, rush_px: 140.0)),
         ),
+        // The haunted floors of Hylbert's Hotel (Jon, 2026-10-31: spectral
+        // enemies with attacks and hitboxes). Each attack's times match its
+        // sheet's `attack_side` row (`targets/characters/<id>.py`); its reach
+        // is its hitbox in front of it. Change them together.
+        // The Eigenghost lances along its eigenvector: it squeezes across
+        // (frames 0-3, 70 ms), its arm springs out (4-5), and it eases back.
+        "eigenghost_lance": (
+            move_style: Float,
+            melee: Some(Swipe(windup_s: 0.28, active_s: 0.14, recover_s: 0.42, damage: 1, reach_px: 46.0)),
+        ),
+        // The Spectral Perturbation's core lunge: its ring tilts and shards
+        // draw in (0-4, 60 ms), it darts, committed (5-8), and hangs splayed
+        // and open after (9-13): the punish window.
+        "spectral_perturbation_lunge": (
+            move_style: Float,
+            melee: Some(Lunge(windup_s: 0.30, active_s: 0.24, recover_s: 0.50, damage: 1, reach_px: 40.0, step_px: 0.0, rush_px: 190.0)),
+        ),
+        // The Decomposing Specter's spectral slash: it coils and raises its
+        // claw (0-3), holds the tell (4-6), sweeps a wide crescent (7-10),
+        // and slumps open (11-15).
+        "decomposing_specter_slash": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.42, active_s: 0.24, recover_s: 0.45, damage: 2, reach_px: 58.0)),
+        ),
         // The Gravity Apple's charge: its orbits flare, then it drops on you.
         "gravity_apple_charge": (
             move_style: Float,
@@ -5515,6 +5539,101 @@
             provoked: ["One bad apple spoils the bunch!"],
             idle: ["Grrrnch.", "Spoil. Spoil. Spoil."],
             hall: ["One bad apple spoils the bunch. I am the bunch.", "An apple a day keeps the doctor away. I keep everyone away."],
+        ),
+        ),
+        // The haunted floors of Hylbert's Hotel (Jon, 2026-10-31). Generic
+        // patterned enemies (George Boole is its special character).
+        // The Eigenghost: it drifts, lances along its eigenvector, and rears
+        // tall (its `block` row) to wall off a jump over it.
+        "eigenghost": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Eigenghost",
+            manifest: "sprites/eigenghost_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(52.0),
+            composition: None,
+            default_action_set: "eigenghost_lance",
+            locomotion: Some((run_speed: 90.0, move_style: Float, baseline_free_flight: Some(true))),
+            contact_damage: Some((strength: 0.4, amount: 1)),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 520.0,
+                attack_range: 46.0,
+                shares_sightings: false,
+                tactics: (dive_tell_s: 0.3, notice_s: 0.5),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "spectral", "math", "hylberts_hotel"],
+            cues: (notice: Some("enemy.eigenghost.notice"), tell: Some("enemy.eigenghost.tell"), swing: Some("enemy.eigenghost.swing"), hit: Some("enemy.eigenghost.hit")),
+        barks: (
+            on_hit: ["Ooo, my eigenvalues!", "You've shifted my spectrum."],
+            provoked: ["I only stretch, I never turn."],
+            idle: ["Ooooo.", "Stretch... and hold."],
+            hall: ["I am a very simple ghost. Push me any way you like and I only ever stretch along two lines.", "My eigenvalues are one and one at rest. That is the most at rest anyone has ever been."],
+        ),
+        ),
+        // The Spectral Perturbation: a floating orchid-manta of near-degenerate
+        // modes; a small disturbance and it lunges, committed, then hangs open.
+        "spectral_perturbation": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Spectral Perturbation",
+            manifest: "sprites/spectral_perturbation_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(62.0),
+            composition: None,
+            default_action_set: "spectral_perturbation_lunge",
+            locomotion: Some((run_speed: 120.0, move_style: Float, baseline_free_flight: Some(true))),
+            contact_damage: Some((strength: 0.45, amount: 1)),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 640.0,
+                attack_range: 160.0,
+                shares_sightings: false,
+                tactics: (dive_tell_s: 0.3, notice_s: 0.45),
+            )),
+            max_health: Some(4),
+            tags: ["enemy", "spectral", "math", "hylberts_hotel"],
+            cues: (notice: Some("enemy.spectral_perturbation.notice"), tell: Some("enemy.spectral_perturbation.tell"), swing: Some("enemy.spectral_perturbation.swing"), hit: Some("enemy.spectral_perturbation.hit")),
+        barks: (
+            on_hit: ["Degenerate!", "My modes are mixing!"],
+            provoked: ["One small disturbance..."],
+            idle: ["(a glassy hum)", "Nearly stable. Nearly."],
+            hall: ["Two of my eigenvalues are very nearly equal. It makes me very easy to upset.", "First-order correction: me, everywhere, all at once."],
+        ),
+        ),
+        // The Decomposing Specter: a half-zombie, half-ghost bellhop; it
+        // shambles, telegraphs a wide spectral slash, and decomposes into its
+        // eigenmodes when beaten.
+        "decomposing_specter": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Decomposing Specter",
+            manifest: "sprites/decomposing_specter_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(70.0),
+            composition: None,
+            default_action_set: "decomposing_specter_slash",
+            locomotion: Some((run_speed: 85.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 480.0,
+                attack_range: 54.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.8,
+                retreat_after_swing_s: 0.45,
+                attack_cooldown_s: 0.9,
+                tactics: (notice_s: 0.5),
+            )),
+            max_health: Some(5),
+            tags: ["enemy", "spectral", "undead", "math", "hylberts_hotel"],
+            cues: (notice: Some("enemy.decomposing_specter.notice"), tell: Some("enemy.decomposing_specter.tell"), swing: Some("enemy.decomposing_specter.swing"), hit: Some("enemy.decomposing_specter.hit")),
+        barks: (
+            on_hit: ["Room... service...", "My components!"],
+            provoked: ["Your room is... ready."],
+            idle: ["Front desk... front desk...", "Checkout was at eleven. Which eleven?"],
+            hall: ["I carried bags here for an infinite number of guests. Then one more arrived.", "Every time they moved the guests along one room, a little more of me stayed behind."],
         ),
         ),
         "gravity_apple": (

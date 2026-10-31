@@ -1,0 +1,19 @@
+// Boss encounter spec — the Gram Reaper, the boss of the haunted floors of
+// Hylbert's Hotel (Jon, 2026-10-31): a hooded spectral executioner that
+// severs connections in an inner-product space.
+//
+// Behaviour lives in `assets/data/boss_profiles.ron` ("gram_reaper_boss");
+// its art in `boss_sheets.ron`. Music: a temporary authored fallback.
+(
+    id: "gram_reaper_boss",
+    name: "Gram Reaper",
+    max_hp: 52,
+    phase1_to_transition_hp: 0.62,
+    phase2_to_enrage_hp: 0.25,
+    intro_seconds: 2.4,
+    transition_seconds: 1.8,
+    music_intro: "fast_paced_violin_boss",
+    music_phase1: "fast_paced_violin_boss",
+    music_phase2: "fast_paced_violin_boss",
+    music_enrage: "fast_paced_violin_boss",
+)

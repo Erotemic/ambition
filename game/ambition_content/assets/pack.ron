@@ -162,6 +162,7 @@
         (path: "data/boss_encounters/trex_boss.ron", schema: "boss_encounter", version: 1),
         (path: "data/boss_encounters/mode_collapse_boss.ron", schema: "boss_encounter", version: 1),
         (path: "data/boss_encounters/hunny_horror_boss.ron", schema: "boss_encounter", version: 1),
+        (path: "data/boss_encounters/gram_reaper_boss.ron", schema: "boss_encounter", version: 1),
         (path: "data/boss_encounters/overflow_boss.ron", schema: "boss_encounter", version: 1),
         (path: "data/boss_encounters/wolfenstein_boss.ron", schema: "boss_encounter", version: 1),
         (path: "data/boss_encounters/wolfenstein_inugami.ron", schema: "boss_encounter", version: 1),

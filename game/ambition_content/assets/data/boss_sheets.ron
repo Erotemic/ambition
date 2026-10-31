@@ -406,6 +406,73 @@
         // posed from), row by row by name, where rigged sprites are admitted.
         parts: Some("npc_trex_enemy"),
     ),
+    // The Gram Reaper (`targets/characters/gram_reaper.py`), every row in PNG
+    // order: idle->Rest, walk->DashEcho, attack_side->SideSweep,
+    // ortho_slash->FloorSlam, vanish->DashEcho, enrage->SpikeHalo,
+    // turn->Rest, edge_volley->SpikeHalo, hurt->Hit, death->Death.
+    "gram_reaper_boss": (
+        label_width: 100,
+        frame_width: 352,
+        frame_height: 352,
+        rows: [
+            // idle
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.12,
+            )),
+            // walk
+            (DashEcho, (
+                frame_count: 8,
+                duration_secs: 0.11,
+            )),
+            // attack_side: the graph-cut slash
+            (SideSweep, (
+                frame_count: 16,
+                duration_secs: 0.06,
+            )),
+            // ortho_slash: the Gram-Schmidt double slash
+            (FloorSlam, (
+                frame_count: 16,
+                duration_secs: 0.06,
+            )),
+            // vanish
+            (DashEcho, (
+                frame_count: 8,
+                duration_secs: 0.08,
+            )),
+            // enrage
+            (SpikeHalo, (
+                frame_count: 10,
+                duration_secs: 0.09,
+            )),
+            // turn
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.07,
+            )),
+            // edge_volley
+            (SpikeHalo, (
+                frame_count: 12,
+                duration_secs: 0.07,
+            )),
+            // hurt
+            (Hit, (
+                frame_count: 3,
+                duration_secs: 0.09,
+            )),
+            // death
+            (Death, (
+                frame_count: 12,
+                duration_secs: 0.11,
+            )),
+        ],
+        collision_scale: 1.0,
+        feet_anchor_y: 0.0,
+        frame_sample_inset: 1,
+        body_centered: false,
+        authored_faces_left: false,
+        parts: None,
+    ),
     // The Hunny Horror wears his character's sheet (`hunny_horror_boss`):
     // idle->Rest, walk->DashEcho, slash->SideSweep, punch->FloorSlam,
     // special->FloorSlam, taunt->SpikeHalo, hurt->Hit, death->Death. The sheet

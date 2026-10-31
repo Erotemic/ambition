@@ -1292,6 +1292,107 @@
     // summons — pure projectile pressure that ramps each phase. Reuses proven
     // attack profiles. Encounter numbers in boss_encounters/exploding_gradient_boss.ron.
     // ============================================================
+    // The Gram Reaper (Jon, 2026-10-31): the boss of the haunted floors of
+    // Hylbert's Hotel, a hooded spectral executioner. Its moves are the
+    // engine's geometry strikes (their hitboxes are the engine's), each with a
+    // clear telegraph, a committed strike and a punishable rest:
+    // - the GRAPH-CUT SLASH: a huge sweep in front (`side_sweep`);
+    // - the ORTHOGONAL DOUBLE-SLASH (Gram-Schmidt): a level sweep, then at
+    //   once the cut square to it, a column (`side_sweep`, `hazard_column`);
+    // - the EDGE VOLLEY: its wing fires edges, columns of light
+    //   (`hazard_column`);
+    // - ENRAGE: a burst out of its whole body (`full_body_pulse`).
+    // It floats and sways, stalking: its sheet is `gram_reaper` (the
+    // phase-change roar is its `enrage` row).
+    // ============================================================
+    "gram_reaper_boss": (
+        id: "gram_reaper_boss",
+        combat_size: Some((110.0, 170.0)),
+        movement: AnchorSway(
+            x_radius: 140.0,
+            y_bob: 10.0,
+            x_frequency: 0.5,
+            y_frequency: 0.9,
+            chase_scale: 0.3,
+            chase_limit: 140.0,
+            speed: 180.0,
+        ),
+        movement_enrage: Some(AnchorSway(
+            x_radius: 200.0,
+            y_bob: 14.0,
+            x_frequency: 0.8,
+            y_frequency: 1.2,
+            chase_scale: 0.5,
+            chase_limit: 220.0,
+            speed: 260.0,
+        )),
+        strike_speed_scale: 0.25,
+        macro_tuning: (
+            too_close_distance: 90.0,
+            too_far_distance: 420.0,
+            engage_distance: 180.0,
+            approach_duration_s: 2.6,
+            retreat_duration_s: 1.8,
+            engage_max_duration_s: 8.0,
+            approach_speed_scale: 1.3,
+            retreat_speed_scale: 0.8,
+            retreat_distance: 220.0,
+        ),
+        attacks: [
+            Strike("side_sweep"),
+            Strike("hazard_column"),
+            Strike("full_body_pulse"),
+        ],
+        attack_cooldown: 1.2,
+        attack_windup: 0.5,
+        attack_active: 0.3,
+        attack_damage: 2,
+        body_damage: 1,
+        attack_pattern: Scripted(
+            // PHASE 1: it stalks and cuts.
+            phase1: (steps: [
+                // The graph-cut slash: scythe raised back, eyes flare.
+                Telegraph(profile: Strike("side_sweep"), duration: 0.9,
+                    telegraph: Some((pose: Some("attack_side"), cue: Some("enemy.gram_reaper.tell")))),
+                Strike(profile: Strike("side_sweep"), duration: 0.35),
+                Rest(duration: 1.4),
+                // The edge volley: it points, its wing fires.
+                Telegraph(profile: Strike("hazard_column"), duration: 1.0,
+                    telegraph: Some((pose: Some("edge_volley"), cue: Some("enemy.gram_reaper.tell")))),
+                Strike(profile: Strike("hazard_column"), duration: 0.8),
+                Rest(duration: 1.3),
+            ]),
+            // PHASE 2: Gram-Schmidt: the projection, then the cut square to it.
+            phase2: (steps: [
+                Telegraph(profile: Strike("side_sweep"), duration: 0.8,
+                    telegraph: Some((pose: Some("ortho_slash"), cue: Some("enemy.gram_reaper.tell")))),
+                Strike(profile: Strike("side_sweep"), duration: 0.3),
+                Strike(profile: Strike("hazard_column"), duration: 0.5),
+                Rest(duration: 1.5),
+                Telegraph(profile: Strike("side_sweep"), duration: 0.75,
+                    telegraph: Some((pose: Some("attack_side"), cue: Some("enemy.gram_reaper.tell")))),
+                Strike(profile: Strike("side_sweep"), duration: 0.35),
+                Rest(duration: 1.1),
+                Telegraph(profile: Strike("hazard_column"), duration: 0.9,
+                    telegraph: Some((pose: Some("edge_volley"), cue: Some("enemy.gram_reaper.tell")))),
+                Strike(profile: Strike("hazard_column"), duration: 0.8),
+                Rest(duration: 1.2),
+            ]),
+            // ENRAGE: a burst out of its whole body, then the double-slash.
+            enrage: (steps: [
+                Telegraph(profile: Strike("full_body_pulse"), duration: 1.0,
+                    telegraph: Some((pose: Some("enrage"), cue: Some("enemy.gram_reaper.notice")))),
+                Strike(profile: Strike("full_body_pulse"), duration: 0.5),
+                Rest(duration: 0.9),
+                Telegraph(profile: Strike("side_sweep"), duration: 0.6,
+                    telegraph: Some((pose: Some("ortho_slash"), cue: Some("enemy.gram_reaper.tell")))),
+                Strike(profile: Strike("side_sweep"), duration: 0.3),
+                Strike(profile: Strike("hazard_column"), duration: 0.5),
+                Rest(duration: 1.2),
+            ]),
+        ),
+    ),
+    // ============================================================
     // The Hunny Horror (`docs/planning/game/bosses.md`, "The Hunny Horror";
     // Jon, 2026-10-14). Conducted: these `Special` keys say which move and
     // when; `ambition_content_modules::hunny` walks him, performs each move

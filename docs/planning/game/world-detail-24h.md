@@ -86,7 +86,8 @@ to touch, and a little danger outside town. No quest chains.
   Mary-O, tall, meets the robot at the gate.
   Music: support_theme, billions_and_billions, embedded/sparse_theme,
   castle_crash_override, eternal_cosmic at the heart. The `void` biome
-  (black/white tiles and sky) is a parallel piece.
+  (ecc13cdf6): white-edged black terrain, ladder and doors, a grey-line
+  broken castle drifting in the sky, white motes; greyscale only.
   Verified: the_magical_dimension (8), worlds manifest.
 - **Science: the vector well furnished** (every wall is a floor, so each is
   furnished as one): a study standing on the east wall (bookcase, fern,

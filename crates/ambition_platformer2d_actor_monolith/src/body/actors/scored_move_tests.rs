@@ -416,7 +416,10 @@ fn the_fighter_plays_the_move_it_scored_not_the_neutral_one() {
 
     // A gap only the up-tilt's reach fits: the jab (reach 16) falls far short,
     // so the scoring has one clear answer and the test is not measuring a tie.
-    let view = scene(70.0);
+    // 78 is the centre of the up-tilt's box (x 72 to 84). At 70 the foe stands
+    // inside the box's near edge when it is live, and the brain refuses a
+    // swing that passes in front of the foe.
+    let view = scene(78.0);
     let frame = frame_when_the_fighter_attacks(&mut brain, kit, &view);
 
     assert_eq!(

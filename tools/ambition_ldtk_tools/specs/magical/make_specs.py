@@ -585,6 +585,9 @@ def ledges():
     for i, ((x0, w0), (x1, _)) in enumerate(zip(LEDGES_FLOOR, LEDGES_FLOOR[1:])):
         gap0, gap1 = x0 + w0, x1
         e.append(entity("HazardBlock", gap0, g + 24, gap1 - gap0, h - g - 24, name=f"the void, gap {i}"))
+        # A post at each lip, as Mary-O's levels keep a walker on its walk:
+        # the void stars turn at it instead of walking off into the gap.
+        e += [solid(f"post_{i}_west", gap0 - 12, g - 20, 12, 20), solid(f"post_{i}_east", gap1, g - 20, 12, 20)]
         e.append(ledge(f"over_gap_{i}", gap0 - 40, g - 110, gap1 - gap0 + 80))
         # Its chains to the roof, and the castle falling away under it
         # (`magical_unlit_props.py` `ledges_gap`, drawn at the first gap).
@@ -614,6 +617,7 @@ def coliseum():
         # The stands and their crowd (`targets/props/magical_unlit_props.py`).
         piece("coliseum_stand_west", 30, 720),
         piece("coliseum_stand_east", 1880 - 440 - 10, 720),
+        piece("ring_seat", 960 - 70, g - 290 - 212),
         solid("floor", 0, g, w, h - g),
         solid("roof_west", 0, 0, COLISEUM_TOP[0], top),
         solid("roof_east", COLISEUM_TOP[1], 0, w - COLISEUM_TOP[1], top),

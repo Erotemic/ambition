@@ -287,6 +287,8 @@ pub struct EditableMovementTuning {
     #[reflect(ignore)]
     pub turnaround_time: f32,
     #[reflect(ignore)]
+    pub holds_facing_in_air: bool,
+    #[reflect(ignore)]
     pub teeter_margin: f32,
     #[reflect(ignore)]
     pub balance: Option<ae::Balance>,
@@ -368,6 +370,7 @@ impl EditableMovementTuning {
             dash_deflection: self.dash_deflection,
             walk_speed: self.walk_speed,
             turnaround_time: self.turnaround_time,
+            holds_facing_in_air: self.holds_facing_in_air,
             teeter_margin: self.teeter_margin,
             balance: self.balance,
             max_fall_speed: self.max_fall_speed,
@@ -551,6 +554,7 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             dash_deflection: value.dash_deflection,
             walk_speed: value.walk_speed,
             turnaround_time: value.turnaround_time,
+            holds_facing_in_air: value.holds_facing_in_air,
             teeter_margin: value.teeter_margin,
             balance: value.balance,
             parry_window_time: value.parry_window_time,
@@ -1246,6 +1250,7 @@ mod adapter_tests {
             initial_dash_time: 0.11,
             initial_dash_speed: 900.0,
             turnaround_time: 0.07,
+            holds_facing_in_air: true,
             teeter_margin: 6.0,
             jump_speed: -500.0,
             ..Default::default()
@@ -1259,6 +1264,7 @@ mod adapter_tests {
         assert_eq!(out.initial_dash_time, 0.11);
         assert_eq!(out.initial_dash_speed, 900.0);
         assert_eq!(out.turnaround_time, 0.07);
+        assert!(out.holds_facing_in_air, "a game's air facing lock survives an unrelated edit");
         assert_eq!(out.teeter_margin, 6.0);
     }
 }

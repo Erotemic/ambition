@@ -221,6 +221,9 @@
         // ground tolerates: at 7, `smash_it` lost two premise guards because
         // the CPU matchup became one-sided. The value is a feel call for Jon.
         turnaround_time: 0.05,
+        // The air facing lock, the genre's rule: a fighter keeps the facing it
+        // jumped with, so a back air is a back air.
+        holds_facing_in_air: true,
         // A quarter of the footprint past a ledge puts the fighter on the
         // brink. Published only: collision does not change.
         teeter_margin: 0.25,

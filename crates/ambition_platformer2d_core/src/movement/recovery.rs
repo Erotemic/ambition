@@ -551,13 +551,21 @@ mod tests {
         }
     }
 
-    /// The same three ordered drift efforts, plus a blink press/release
-    /// alternation. Blink completes on RELEASE (`handle_blink_clusters`), so one
-    /// blink costs two kernel steps and the cooldown swallows the presses in
-    /// between. Pure in its [`RecoveryStep`], like any policy must be.
+    /// The same three ordered drift efforts, each opening with ONE blink the
+    /// way it steers, then drifting. Blink completes on RELEASE
+    /// (`handle_blink_clusters`), so the blink is a press then a release.
+    /// Pure in its [`RecoveryStep`], like any policy must be.
+    ///
+    /// ⛔ ONE blink, not a blink every other step: a body turns to the way it
+    /// steers in the air (`holds_facing_in_air` is opt-in), and a blink held
+    /// down the whole fall keeps it aloft until it drifts past the shelf it
+    /// reached. The old alternation only got home because a locked facing
+    /// blinked the body one way while it steered the other.
     fn drift_and_blink(at: RecoveryStep) -> InputState {
         let side = [0.0_f32, -1.0, 1.0].get(at.effort).copied().unwrap_or(0.0);
-        let blink = if at.step % 2 == 0 {
+        let blink = if at.step >= 2 {
+            Edge::default()
+        } else if at.step == 0 {
             Edge {
                 pressed: true,
                 held: true,

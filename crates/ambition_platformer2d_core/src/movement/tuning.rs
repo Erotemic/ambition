@@ -627,6 +627,15 @@ pub struct MovementTuning {
     /// does with its velocity meanwhile is the ordinary run law's business.
     #[serde(default)]
     pub turnaround_time: f32,
+    /// THE AIR FACING LOCK (opt-in): an airborne body keeps the facing it
+    /// left the ground with, whichever way it drifts, so an aerial is aimed by
+    /// the facing the jump began with (a platform fighter's rule). `false` (the
+    /// engine default): a body turns to the way it steers, in the air as on
+    /// the ground. In water a body always turns with its steer, lock or not.
+    /// Jon, 2026-10-30: "Games should change direction by default, only smash,
+    /// and the main ambition game will have the opt-in behavior."
+    #[serde(default)]
+    pub holds_facing_in_air: bool,
     /// THE TEETER — how much of a body's own width counts as its LEADING FOOT,
     /// as a fraction. A body is on the brink when it is supported but that foot
     /// is over air. `0.0` (the default) means no body ever teeters, which is
@@ -1139,6 +1148,9 @@ pub struct AxisLocomotion {
     /// See [`MovementTuning::turnaround_time`]. `0.0` = facing flips instantly.
     #[serde(default)]
     pub turnaround_time: f32,
+    /// See [`MovementTuning::holds_facing_in_air`]. `false` = turns in the air.
+    #[serde(default)]
+    pub holds_facing_in_air: bool,
     /// See [`MovementTuning::teeter_margin`]. `0.0` = no body teeters.
     #[serde(default)]
     pub teeter_margin: f32,
@@ -1755,6 +1767,7 @@ impl MovementTuning {
                 dash_deflection: self.dash_deflection,
                 walk_speed: self.walk_speed,
                 turnaround_time: self.turnaround_time,
+                holds_facing_in_air: self.holds_facing_in_air,
                 teeter_margin: self.teeter_margin,
                 balance: self.balance,
                 max_fall_speed: self.max_fall_speed,
@@ -1860,6 +1873,7 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     dash_deflection: DASH_DEFLECTION,
     walk_speed: 0.0,
     turnaround_time: 0.0,
+    holds_facing_in_air: false,
     teeter_margin: 0.0,
     balance: None,
     max_fall_speed: MAX_FALL_SPEED,

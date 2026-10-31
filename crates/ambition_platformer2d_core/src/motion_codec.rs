@@ -440,6 +440,7 @@ fn put_axis_swept_params(out: &mut Vec<u8>, p: &crate::AxisSweptParams) {
     put_f32(out, l.dash_deflection);
     put_f32(out, l.walk_speed);
     put_f32(out, l.turnaround_time);
+    put_bool(out, l.holds_facing_in_air);
     put_f32(out, l.teeter_margin);
     match l.balance {
         Some(balance) => {
@@ -581,6 +582,7 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<crate::AxisSweptParams> {
             dash_deflection: r.f32()?,
             walk_speed: r.f32()?,
             turnaround_time: r.f32()?,
+            holds_facing_in_air: r.bool()?,
             teeter_margin: r.f32()?,
             balance: if r.bool()? {
                 Some(crate::Balance {

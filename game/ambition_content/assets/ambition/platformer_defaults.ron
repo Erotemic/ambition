@@ -36,6 +36,11 @@
         morph: true,
     ),
     tuning: (
+        // The air facing lock (Jon, 2026-10-30: "only smash, and the main
+        // ambition game will have the opt-in behavior"): an airborne body keeps
+        // the facing it jumped with, so its aerials aim where it faced. In
+        // water it still turns.
+        holds_facing_in_air: true,
         gravity: 2250.0,
         run_accel: 5200.0,
         air_accel: 3100.0,

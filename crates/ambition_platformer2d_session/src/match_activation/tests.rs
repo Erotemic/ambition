@@ -1179,6 +1179,7 @@ fn a_match_states_its_own_body_numbers_on_every_seat_and_disturbs_nothing_else()
         dash_deflection: 0.8,
         coyote_time: 0.0,
         turnaround_time: 7.0 / 60.0,
+        holds_facing_in_air: true,
         teeter_margin: 0.25,
         shield: ambition_platformer2d_core::ShieldTuning::OFF,
         footstool: ambition_platformer2d_core::FootstoolTuning::OFF,

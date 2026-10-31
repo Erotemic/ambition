@@ -867,6 +867,8 @@ fn a_reverse_aerial_rush_falls_out_of_jumping_from_a_turnaround() {
     let mut tuning = super::TEST_TUNING;
     tuning.initial_dash_time = 14.0 / 60.0;
     tuning.turnaround_time = 3.0 / 60.0;
+    // The platform fighter's rule: the facing a body jumped with holds.
+    tuning.holds_facing_in_air = true;
     let hold = |x: f32| InputState {
         axes: crate::reference_frame::LocalAxes::new(x, 0.0),
         ..InputState::default()
@@ -907,8 +909,8 @@ fn a_reverse_aerial_rush_falls_out_of_jumping_from_a_turnaround() {
     assert_eq!(scratch.kinematics.facing, 1.0);
 
     // Jump out of it, then steer FORWARD again — back the way the run was
-    // going. ⭐ THAT IS THE TECHNIQUE: an airborne body may not turn
-    // (`can_turn` is grounded-or-flying), so the reversed facing STICKS while
+    // going. ⭐ THAT IS THE TECHNIQUE: an airborne body of a game that holds
+    // its facing in the air may not turn, so the reversed facing STICKS while
     // the stick carries the fighter onward. ⛔ letting go instead would stop
     // the body dead — this engine's air stop assist is tight, so "momentum
     // carries you" is not a property it has, and the rush here is bought with
@@ -945,6 +947,31 @@ fn a_reverse_aerial_rush_falls_out_of_jumping_from_a_turnaround() {
         "the fighter lost the momentum it turned out of: vel_x {:.0}",
         scratch.kinematics.vel.x
     );
+}
+
+/// An airborne body turns to the way it steers, unless its game locks the
+/// facing in the air (`holds_facing_in_air`, opt-in: Jon, 2026-10-30, "Games
+/// should change direction by default, only smash, and the main ambition game
+/// will have the opt-in behavior").
+#[test]
+fn an_airborne_body_turns_with_its_steer_unless_its_game_holds_its_facing() {
+    let world = test_world();
+    let facing_after_steering_left_in_the_air = |holds: bool| {
+        let mut tuning = super::TEST_TUNING;
+        tuning.holds_facing_in_air = holds;
+        let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+        scratch.kinematics.facing = 1.0;
+        scratch.kinematics.pos.y -= 200.0;
+        scratch.ground.on_ground = false;
+        let left = InputState { axes: crate::reference_frame::LocalAxes::new(-1.0, 0.0), ..InputState::default() };
+        for _ in 0..3 {
+            super::update_player_with_tuning_scratch(&world, &mut scratch, left, 1.0 / 60.0, tuning);
+        }
+        assert!(!scratch.ground.on_ground, "the fixture landed");
+        scratch.kinematics.facing
+    };
+    assert_eq!(facing_after_steering_left_in_the_air(false), -1.0, "by default it turns in the air");
+    assert_eq!(facing_after_steering_left_in_the_air(true), 1.0, "a game that holds the facing keeps it");
 }
 
 /// RAISING A GUARD MID-RUN PLANTS YOU — but a ROLL still travels.

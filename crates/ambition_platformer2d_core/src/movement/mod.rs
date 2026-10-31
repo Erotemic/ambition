@@ -175,6 +175,7 @@ pub(crate) fn update_body_control_in_frame(
         clusters.shield,
         clusters.dodge,
         platform_drop,
+        clusters.env_contact.water.is_some(),
     );
 
     abilities::apply_fly_toggle(

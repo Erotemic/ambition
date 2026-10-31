@@ -222,10 +222,15 @@ pub(super) fn apply_intent(
     // can be left downward is a question about the WORLD, which this layer has
     // no business holding.
     platform_drop: bool,
+    // In water: a swimming body always turns with its steer.
+    in_water: bool,
 ) {
     let oos = tuning.abilities.shield.out_of_shield;
     let gate = OutOfShieldGate::read(shield.active, oos);
-    let can_turn = ground.on_ground || flight.fly_enabled;
+    // A body turns to the way it steers, in the air too, unless its game locks
+    // the facing in the air (`holds_facing_in_air`, a platform fighter's
+    // rule); in flight and in water it always turns.
+    let can_turn = ground.on_ground || flight.fly_enabled || in_water || !tuning.locomotion.holds_facing_in_air;
     let local_stick = input.local_axis();
     // ⭐⭐ REVERSING OUT OF A COMMITTED RUN COSTS A TURNAROUND, and that is what
     // makes the initial dash's free reversal worth anything: inside the dash
@@ -943,6 +948,8 @@ mod burst_maneuver_tests {
                 &mut crate::body_clusters::BodyShieldState::default(),
                 &crate::body_clusters::BodyDodgeState::default(),
                 // No platform under this fixture at all.
+                false,
+                // Nor water.
                 false,
             );
             assert_eq!(

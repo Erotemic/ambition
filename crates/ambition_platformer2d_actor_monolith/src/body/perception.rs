@@ -606,6 +606,40 @@ pub(crate) fn hear_crew(
     }
 }
 
+/// A body that is struck knows its striker. For each hit that names who
+/// landed it, the victim remembers the striker where it stands, seen or not
+/// ([`WorldMemory::struck_by`]): a shot from out of sight still turns it to
+/// the one who fired. Read before the brains decide, so the next decision
+/// knows its foe. (sim)
+///
+/// [`WorldMemory::struck_by`]: ambition_characters::perception::WorldMemory::struck_by
+pub fn remember_who_struck_it(
+    mut hits: bevy::prelude::MessageReader<ambition_combat::hitbox::ResolvedBodyHit>,
+    perceived: PerceivedWorld,
+    sim_clock: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_time::GameplayElapsed>,
+    mut memories: bevy::prelude::Query<&mut ambition_characters::perception::PerceptionMemory>,
+) {
+    for hit in hits.read() {
+        let Some(attacker) = hit.attacker.filter(|attacker| *attacker != hit.victim) else {
+            continue;
+        };
+        let (Some(striker), Ok(mut memory)) = (perceived.peer(attacker), memories.get_mut(hit.victim)) else {
+            continue;
+        };
+        memory.0.struck_by(
+            &striker.id,
+            ambition_characters::perception::RememberedActor {
+                pos: striker.pos,
+                vel: striker.vel,
+                faction: striker.faction,
+                hostile_to_self: true,
+                last_seen: sim_clock.0,
+                confidence: 1.0,
+            },
+        );
+    }
+}
+
 /// The session's one perception extent, as a deciding body asks for it.
 ///
 /// Every sighted body in a session sees the same distance. The value belongs to

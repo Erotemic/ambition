@@ -43,6 +43,11 @@ music dependency/preflight tests (21), and SFX tests (34) pass. Fresh-art app
 acceptance (22), native reload tests (2), audio core tests (63), and audio
 adapter tests (50) also pass.
 
+The actor renderer builds its default radial glow mask in its image store.
+It does not load a glow file from a content library. A host can supply another
+image before startup. Actor-glow tests cover image readiness without an asset
+server, host selection, and body visibility and retirement.
+
 ## Standing rules
 
 - Keep the shared library under `game/`. It is not a submodule.

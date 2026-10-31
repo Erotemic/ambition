@@ -2311,6 +2311,15 @@ pub struct MoveSpec {
     /// `None` for almost every move.
     #[serde(default)]
     pub equips: Option<String>,
+    /// The damage of the shot this move fires (its [`MoveEventKind::Ranged`]
+    /// beat), in this table's game. The weapon states its damage in the game
+    /// it was made for; a table played in another game states its own here
+    /// (a borrow's `damage`, a facet's `move_damage`). A charge scales it as
+    /// it scales the weapon's own.
+    ///
+    /// `None`: the weapon's own damage.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shot_damage: Option<i32>,
     /// What happens next, based on what happened before; see
     /// [`TechniqueFlow`].
     ///
@@ -2507,6 +2516,7 @@ impl MoveSpec {
             autocancel_after_s: _,
             sprite_spin_hz: _,
             equips: _,
+            shot_damage: _,
             flow,
         } = self;
         let mut found: Vec<(EffectSite, &EffectRef)> = Vec::new();

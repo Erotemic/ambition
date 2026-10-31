@@ -314,6 +314,9 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
                 ),
                 observe_actor_decision_inputs,
                 crate::body::navigation::advise_navigation,
+                // After the peers it reads the striker from.
+                crate::body::perception::remember_who_struck_it
+                    .after(crate::body::perception::collect_perception_peers),
             )
                 .in_set(ActorDecisionSet::Observe),
         );

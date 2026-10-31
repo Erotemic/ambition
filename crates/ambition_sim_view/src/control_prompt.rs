@@ -687,6 +687,7 @@ mod tests {
                 autocancel_after_s: None,
                 sprite_spin_hz: None,
                 equips: None,
+                shot_damage: None,
                 id: move_id.to_string(),
                 clip: ClipBinding {
                     clip: move_id.to_string(),

@@ -55,6 +55,26 @@ The browser reported no JavaScript errors. A Web Audio probe with gesture
 restrictions measured a nonzero SFX output peak of 0.501. It did not test a
 person's audio device. Hardware frame rate and physical devices were not tested.
 
+## Follow-up probes (2026-10-31)
+
+The static build lists 4,284 metadata files, with 132,257,496 source bytes.
+Python zlib level 9 compresses each file to 11,357,456 bytes in total. Every
+file decompresses to its exact source bytes. Gzip level 9 over the source
+texts together is 10,427,844 bytes; over the compressed files together it is
+11,255,154 bytes. Per-file compression saves raw storage but adds 827,310 bytes
+to this transfer proxy. This is not a new WASM build or browser measurement.
+Do not claim a bandwidth gain from this change. The probe result is at
+`target/mary-o-metadata-compression-probe/results.json`.
+
+A native metadata-only test took 7.24 s wall time, 4.81 s user CPU time, and
+241,052 KiB peak RSS under `/usr/bin/time -v`. It ran beside a Cargo build.
+The test was
+`enemy_quad_matches_its_box::the_ai_slops_box_has_the_shape_its_sheet_publishes`
+in the existing `mary_o_it` binary. It reads the shared sprite fixture and
+checks geometry; it creates no game app. This is one sample, not a controlled
+before-and-after comparison. Kernel sampling was unavailable because the host
+sets `perf_event_paranoid` to 4.
+
 ## Content limits
 
 The selected publication has no Mary-O music files or soft-glow image. The

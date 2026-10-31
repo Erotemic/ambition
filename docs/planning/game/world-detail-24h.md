@@ -29,7 +29,8 @@ to touch, and a little danger outside town. No quest chains.
 - **Science** (21 rooms): Eureka's coil lab (p0), elevator station, climb and
   terminus (p0): the car itself has no art; the GNU-ton halls (p0); the
   station's spur/spoke (p0). Out of town: a zone past Eureka with enemies.
-- **PvN** (13): the cove (p0), the Mockingbird arena and sky (p0), the dojo
+- **PvN** (13): the raider's and Iron Mary's volley telegraph is in (a flyer
+  hovers while it aims and orbits again in its recovery). the cove (p0), the Mockingbird arena and sky (p0), the dojo
   interior (p0); the port and village have props. Out of town: the sky
   lookout has enemies; the forest could carry more.
 - **Math** (5): the town is dressed (p48); the gate hall is thin. Out of town:
@@ -79,6 +80,8 @@ to touch, and a little danger outside town. No quest chains.
   The ring's purse on its top platform under an empty champion's seat;
   posts at each lip of the ledges' gaps keep the void stars on their walk
   (seen after 15 s of play). Mary-O's front door, a pink pipe, in the garden.
+  Every blow a void fighter lands costs 1-3 health, throws, mines and shots
+  included; one struck by an unseen foe turns and comes (4dff28ab2).
   Verified: the_unlit_is_a_loop_from_the_rift_back_to_the_falls.
 - **Math: two keepers** (2e961cff7 and this): Pierre de Fermette (a parody
   of Fermat) keeps the Conjectures, every problem on the walls solved, the

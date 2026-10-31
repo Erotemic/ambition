@@ -56,6 +56,7 @@ fn strike_hitting_for(id: &str, reach_offset: f32, damage: i32) -> MoveSpec {
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        shot_damage: None,
         id: id.to_string(),
         clip: ClipBinding {
             clip: id.to_string(),

@@ -161,12 +161,11 @@ split-debuginfo = "off"
 [profile.profiling.package."*"]
 debug = "line-tables-only"
 
-# Web size optimization is opt-in via ./build_for_web.sh --optimize: fat LTO
-# costs build time; a plain web --release artifact was ~220 MB in testing.
+# Web builds optimize code size. Asset transport is selected by the game.
 [profile.web-release]
 inherits = "release"
 opt-level = "s"
-lto = "fat"
+lto = "thin"
 codegen-units = 1
 panic = "abort"
 strip = "symbols"

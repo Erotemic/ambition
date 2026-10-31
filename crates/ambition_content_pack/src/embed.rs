@@ -71,6 +71,7 @@ pub fn declared_paths(manifest_ron: &str) -> Vec<String> {
 
 fn embed_libraries(root: &str, manifest: &crate::ContentPackManifest, pack_root: &Path) {
     use ambition_asset_manager::content_library::{ContentLibrary, LibraryFileData};
+    let served = std::env::var_os("CARGO_FEATURE_SERVED_CONTENT").is_some();
     let mut code = String::from("&[\n");
     for path in &manifest.libraries {
         let path = pack_root.join(path).canonicalize().expect("library manifest path");
@@ -92,7 +93,7 @@ fn embed_libraries(root: &str, manifest: &crate::ContentPackManifest, pack_root:
         for (logical, file) in library.files().unwrap_or_else(|error| panic!("{error}")) {
             let LibraryFileData::Native(physical) = file.data else { unreachable!() };
             let metadata = logical.ends_with(".ron") || logical.ends_with(".json");
-            let bytes = if metadata || library.manifest.embedded.contains(&logical) {
+            let bytes = if metadata || (!served && library.manifest.embedded.contains(&logical)) {
                 format!("Some(include_bytes!({:?}) as &[u8])", physical.to_str().unwrap())
             } else { "None".to_owned() };
             code.push_str(&format!("ambition_platformer2d::asset_manager::content_library::EmbeddedLibraryFile {{ path: {logical:?}, bytes: {bytes} }},\n"));

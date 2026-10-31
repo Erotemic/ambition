@@ -40,7 +40,7 @@ the entity def tells you the field exists and nothing more. Do not guess and do
 not copy `entity query`'s summary column, which truncates.
 
 ```bash
-WORLD=game/ambition_demo_mary_o/assets/worlds/mary_o.ldtk
+WORLD=game/ambition_demo_mary_o/authoring/worlds/mary_o.ldtk
 # What can I place, which layers accept it, which fields, which enums —
 # and a CENSUS of the values this world already authors for each field.
 PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools vocabulary list \

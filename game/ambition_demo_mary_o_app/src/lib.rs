@@ -2,6 +2,19 @@
 
 use bevy::prelude::*;
 
+/// Start the standalone game in the page's canvas.
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+#[wasm_bindgen::prelude::wasm_bindgen(start)]
+pub fn web_start() {
+    console_error_panic_hook::set_once();
+    let mut app = build_windowed_demo_app(RenderMode::Windowed);
+    let profile = app.world()
+        .resource::<ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig>()
+        .asset_profile;
+    bevy::log::info!("web start: AssetProfile = {}", profile.label());
+    app.run();
+}
+
 // `perf_probe` counts allocations per tracing span. Declared in the lib so
 // every binary of this package gets it.
 #[cfg(feature = "perf_probe")]
@@ -116,7 +129,7 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
 ///
 /// the entry room is answered ONCE here, and the asset bind room is read off the same
 /// session world rather than off `mary_o_session_world()`.
-#[cfg(all(feature = "visible", not(target_arch = "wasm32")))]
+#[cfg(feature = "visible")]
 pub fn build_windowed_demo_app_entering(
     render: RenderMode,
     home_route: &str,
@@ -143,7 +156,6 @@ pub fn build_windowed_demo_app_entering(
         "Super Mary-O — 1-1",
         render.into(),
     );
-    ambition_platformer2d::engine::init_engine_states(&mut app);
     // WHICH ROOM, said once. The provider installs its world source as a SYSTEM,
     // so this resource is read on the update that prepares the session and
     // inserting it at build time is early enough — the same seam
@@ -157,8 +169,9 @@ pub fn build_windowed_demo_app_entering(
     // The provider installs Mary-O's content definitions before the shared asset
     // catalog is assembled below.
     compose_mary_o_shell(&mut app, home_route);
-    // Level 1-1 is authored in code rather than LDtk, so no world manifest: a
-    // world-less catalog contributes no world rows and every other entry lands.
+    #[cfg(feature = "web")]
+    app.add_plugins(ambition_platformer2d::touch_input::TouchControlsPlugin);
+    // The provider prepares the room data. The catalog needs no world-file rows.
     app.add_plugins(
         ambition_platformer2d::game_assets::PlatformerAssetsPlugin::for_experience(
             ambition_demo_mary_o::MARY_O_EXPERIENCE,

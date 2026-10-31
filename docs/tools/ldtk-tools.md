@@ -351,7 +351,7 @@ masonry in the editor, and a `ChestSpawn` looks like the chest.
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset editor-art \
-  game/ambition_demo_mary_o/assets/worlds/mary_o.ldtk --in-place --preview /tmp/mary_o.png
+  game/ambition_demo_mary_o/authoring/worlds/mary_o.ldtk --in-place --preview /tmp/mary_o.png
 ```
 
 - The art comes from `assets/sprites/entities/*.png` — the same textures the

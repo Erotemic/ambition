@@ -592,7 +592,7 @@ pub fn vocabulary() -> ambition_platformer2d::ldtk_map::LdtkVocabulary {
 ///
 /// this exists so the AUTHORING TOOLS can be told the truth. The Python
 /// validator cannot run Rust, so it reads a declared manifest —
-/// `assets/worlds/mary_o.entities.json` — to know that `MaryOBlock` is
+/// `authoring/worlds/mary_o.entities.json` — to know that `MaryOBlock` is
 /// convertible. A declaration nobody checks is just a wish, so this slice and
 /// that manifest are pinned against each other by a test below. Neither is
 /// derived from the other, which is the whole point: the first attempt let
@@ -603,7 +603,7 @@ pub const MARY_O_LDTK_ENTITY_IDENTIFIERS: &[&str] = &[MARY_O_BLOCK, MARY_O_PIPE]
 /// The manifest the LDtk tooling reads, compiled in so the pin below cannot go
 /// looking for a file that moved.
 #[cfg(test)]
-const MARY_O_ENTITY_MANIFEST: &str = include_str!("../assets/worlds/mary_o.entities.json");
+const MARY_O_ENTITY_MANIFEST: &str = include_str!("../authoring/worlds/mary_o.entities.json");
 
 /// The word is gone from every road that could have answered it.
 #[test]
@@ -694,7 +694,7 @@ mod tests {
         installed.sort();
         assert_eq!(
             declared, installed,
-            "assets/worlds/mary_o.entities.json declares {declared:?} but \
+            "authoring/worlds/mary_o.entities.json declares {declared:?} but \
              MARY_O_LDTK_ENTITY_IDENTIFIERS installs {installed:?} — the LDtk \
              validator believes the manifest, so a difference here is either a \
              noun the tools accept that nothing can convert, or a converter no \

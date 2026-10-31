@@ -92,6 +92,10 @@ pub(crate) fn derived<T>(
     decode: impl Fn(&[u8]) -> Option<T>,
     derive: impl FnOnce() -> Option<Vec<u8>>,
 ) -> Option<T> {
+    // Embedded metadata has no file cache key and needs no filesystem path.
+    if sources.is_empty() {
+        return decode(&derive()?);
+    }
     derived_in(&dir(), kind, schema, sources, decode, derive)
 }
 

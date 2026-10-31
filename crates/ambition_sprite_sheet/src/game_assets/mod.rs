@@ -132,8 +132,13 @@ impl GameAssetConfig {
     /// Parse the supported flags out of process args. Unknown args are left
     /// alone (Bevy may consume some itself).
     pub fn from_args() -> Self {
-        let args: Vec<String> = std::env::args().skip(1).collect();
-        Self::from_arg_slice(&args)
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let args: Vec<String> = std::env::args().skip(1).collect();
+            Self::from_arg_slice(&args)
+        }
+        #[cfg(target_arch = "wasm32")]
+        Self::default()
     }
 
     /// Parse the supported flags out of an explicit arg slice. Unit-testable

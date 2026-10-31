@@ -5,7 +5,7 @@ audio path is verified only after that report.
 
 ## How the web audio path works
 
-1. **JS AudioContext-unlock shim** in `game/ambition_app/web/index.html`. It
+1. **JS AudioContext-unlock shim** in `scripts/web/audio_unlock.js`. Both browser pages load it. It
    patches `window.AudioContext` to track every context cpal creates, then calls
    `ctx.resume()` from a real DOM `pointerdown` / `keydown` / `touchstart` /
    `click` handler. Without it, Kira's `play()` calls from Bevy's RAF loop do not
@@ -25,8 +25,8 @@ audio path is verified only after that report.
 # devtools -> Network -> Disable cache -> hard reload (Cmd-Shift-R / Ctrl-Shift-R)
 ```
 
-⚠️ **The `--served` flag is required for audible audio.** Without
-it, `./build_for_web.sh --serve` produces a `web` (visual smoke)
+Ambition requires `--served` for audio. Mary-O includes audio with
+`--game mary-o`. For Ambition, `./build_for_web.sh --serve` produces a `web` (visual smoke)
 build that does NOT include `bevy_kira_audio` — the browser will
 boot silent regardless of the JS shim, because there's no audio
 backend in the wasm at all. The build script warns about this:
@@ -43,10 +43,10 @@ With `--served`, you should see:
 [web-build] audio: ENABLED in build (bevy_kira_audio in wasm). The browser must show 'AssetProfile = web_served_assets' in the boot banner.
 ```
 
-`--served` builds with `--features web_served_assets`, which includes
-`web_audio` (so `bevy_kira_audio` is in the wasm) and auto-symlinks
-`game/ambition_content_library/generated/runtime/` to `game/ambition_app/web/assets/`
-so the served URLs resolve.
+For Ambition, `--served` selects `web_served_assets`, which includes
+`web_audio`. The packager composes the selected pack and libraries under
+`game/ambition_app/web/assets/`. It links files by default. Use `--copy-assets`
+for a portable copy.
 
 ### First sanity check after page load
 

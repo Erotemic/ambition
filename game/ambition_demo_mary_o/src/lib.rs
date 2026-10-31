@@ -544,7 +544,7 @@ pub fn level_1_1() -> RoomSpec {
 /// `static_content` embeds it, so a build with no source tree needs no asset
 /// root.
 pub static MARY_O_WORLD: ambition_platformer2d::content::PackText =
-    ambition_platformer2d::content_text!("assets/worlds/mary_o.ldtk");
+    ambition_platformer2d::content_text!("authoring/worlds/mary_o.ldtk");
 
 /// The world file's text, as it is now.
 pub fn mary_o_world_text() -> std::borrow::Cow<'static, str> {

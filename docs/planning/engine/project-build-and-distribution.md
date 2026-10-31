@@ -42,14 +42,15 @@ dialog is not required. See [`godot-class-2d-capability.md`](godot-class-2d-capa
   succeeds only because an ignored artifact exists locally is not reproducible.
   Output digests cannot detect a cached output whose source dependency was left
   out of the cache key.
-- **Web.** `scripts/run_tests.py` plans the wasm `cargo check`
-  (`--target wasm32-unknown-unknown --features web_served_assets`, about 40 s
-  warm) in the default plan, and the release wasm link (about 18 min cold) and
-  the native "web persona boots" job only in the exhaustive plan. All three are
-  green. The pre-`wasm-bindgen` artifact is not a shipped size; the
-  bindgen'd, size-optimized artifact is not measured. The persona job runs
-  natively, so the wasm-only path is unexercised
-  ([`checks-that-did-not-run.md`](../../recipes/checks-that-did-not-run.md)).
+- **Web.** The runner has a flagship wasm check, an exhaustive release link,
+  and a native web-profile boot job. A native profile test does not exercise
+  browser code. Mary-O now has a standalone browser build and real Chromium
+  captures for keyboard, touch, and SFX. Its code is 23.70 MiB with gzip; a
+  local cold smoke visit fetched 36.66 MiB. The full available library is not
+  an initial download. See the
+  [baseline](../../../dev/benchmark-candidates/mary-o-web-startup.md) and
+  [web recipe](../../recipes/web-build.md#standalone-mary-o). The 20 MiB
+  initial-load target is proposed; metadata and audio closure work remains.
 - **Disk.** `scripts/check_disk_headroom.py` refuses to start a suite below
   `MIN_FREE_GB` (40), and `run_tests.py` refuses to start the next job below
   `ABORT_FREE_GB` (6), so a full disk names itself instead of dying as a link

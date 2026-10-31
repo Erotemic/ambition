@@ -17,6 +17,8 @@ bench = false
 default = []
 # Embed the demo's content pack: see `ambition_demo_mary_o`.
 static_content = ["ambition_demo_mary_o/static_content"]
+# Browser host with the same presentation and provider as the desktop host.
+web = ["visible", "static_content", "ambition_demo_mary_o/served_content", "ambition_platformer2d/web_platform", "ambition_platformer2d/web_served", "ambition_platformer2d/mobile_touch", "dep:wasm-bindgen", "dep:console_error_panic_hook"]
 # Draw the world AND make it playable. Adds the engine's generic presentation
 # face (OV1), the renderer's `visible` chain, AND the standard host input path
 # (`input`) — a windowed demo you cannot control is not a playable demo. Without
@@ -40,7 +42,7 @@ input = ["ambition_platformer2d/input"]
 # `wasm_modules`: a developer run loads the enemy brains from `.wasm` files
 # (`AMBITION_EXTENSION_MODULES`), so an enemy edit rebuilds only
 # `ambition_demo_mary_o_modules` and not this app.
-ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities", "wasm_modules"] }
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities"] }
 # The demo's own content + rules. The shell names nothing else.
 ambition_demo_mary_o = { path = "../ambition_demo_mary_o" }
 # Bevy's derives cannot be reached through a re-export (see the content crate's
@@ -49,6 +51,12 @@ bevy = { version = "0.19.1", default-features = false }
 # The windowed shell's audio face (jump SFX + music) uses the Kira backend, exactly
 # like the Sanic demo shell. Optional: the sim-only bin and exit-3 test never link it.
 bevy_kira_audio = { version = "0.26", default-features = false, features = ["ogg"], optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
+console_error_panic_hook = { version = "0.1", optional = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# File-based module loading is for native development. Browser builds link the same modules.
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["wasm_modules"] }
 
 [dev-dependencies]
 # The Void Lizard's module schedule: the authority its witness compares with.

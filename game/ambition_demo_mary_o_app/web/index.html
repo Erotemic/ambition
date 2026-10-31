@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Super Mary-O</title>
+  <link rel="icon" href="data:,">
+  <style>
+    html, body, #stage { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    body { background: #101020; color: #fff; font: 16px system-ui, sans-serif; }
+    #stage { position: fixed; inset: 0; }
+    #bevy { width: 100%; height: 100%; display: block; outline: none; touch-action: none; }
+    #status { position: fixed; left: 1rem; bottom: 1rem; padding: .7rem 1rem;
+      background: #101020e8; border-radius: .5rem; pointer-events: none; }
+    #status:empty { display: none; }
+  </style>
+</head>
+<body>
+  <div id="stage"><canvas id="bevy" tabindex="0" width="0" height="0" aria-label="Super Mary-O game"></canvas></div>
+  <div id="status" role="status">Loading Super Mary-O…</div>
+  <script src="./pkg/audio_unlock.js"></script>
+  <script type="module">
+    import init from './pkg/mary_o.js';
+    const canvas = document.getElementById('bevy');
+    const status = document.getElementById('status');
+    performance.mark('mary-o-module-start');
+    let failed = false;
+    const fail = error => {
+      failed = true;
+      status.textContent = 'Super Mary-O could not start. Reload the page or check the browser console.';
+      console.error(error);
+    };
+    window.addEventListener('error', event => fail(event.error || event.message));
+    canvas.addEventListener('pointerdown', () => canvas.focus());
+    canvas.addEventListener('blur', () => { if (!failed) status.textContent = 'Tap the game to play'; });
+    canvas.addEventListener('focus', () => { if (!failed) status.textContent = ''; });
+    const watch = new MutationObserver(() => {
+      if (failed || !canvas.width || !canvas.height) return;
+      performance.mark('mary-o-canvas-start');
+      console.info('[mary-o-web] Canvas started; the game controls loading.');
+      canvas.focus();
+      status.textContent = '';
+      watch.disconnect();
+    });
+    watch.observe(canvas, { attributes: true, attributeFilter: ['width', 'height'] });
+    try {
+      await init();
+    } catch (error) {
+      if (!String(error).includes('Using exceptions for control flow')) fail(error);
+    }
+  </script>
+</body>
+</html>

@@ -53,21 +53,15 @@ def default_hall_ldtk(anchor: Path | None = None) -> Path:
 
 
 def game_worlds_dir(game: str, anchor: Path | None = None) -> Path:
-    """Return the LDtk world directory a GAME crate owns.
+    """Return the game's authoring worlds or its served LDtk worlds.
 
-    ``default_worlds_dir`` is durable shared content — the sandbox, the hall.
-    A game that authors its own levels keeps them in its own crate instead, so
-    they ship and version with the game rather than with the engine's content
-    pack: ``game/<game>/assets/worlds``. Three demos do this now.
-
-    It lives here for the same reason every other path does: the worlds
-    directory is built in ONE place. When the shared worlds moved out of
-    ``game/ambition_content_library/generated/runtime``, every command that
-    had spelled the path itself broke at once — and Mary-O's entity manifest
-    has already moved once too, from the demo's ``tools/`` to a sidecar beside
-    the world file. Every copy of a path is a copy that has not gone stale yet.
+    A game that compiles LDtk into room data keeps its source in `authoring`.
+    A game that loads LDtk through the platform asset reader uses `assets`.
     """
-    return _repo_root(anchor) / "game" / game / "assets" / "worlds"
+    root = _repo_root(anchor) / "game" / game
+    authored = root / "authoring" / "worlds"
+    runtime = root / "assets" / "worlds"
+    return authored if authored.is_dir() or not runtime.is_dir() else runtime
 
 
 def game_world_ldtk(game: str, stem: str, anchor: Path | None = None) -> Path:

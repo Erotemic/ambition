@@ -29,7 +29,10 @@ to touch, and a little danger outside town. No quest chains.
 - **Science** (21 rooms): Eureka's coil lab (p0), elevator station, climb and
   terminus (p0): the car itself has no art; the GNU-ton halls (p0); the
   station's spur/spoke (p0). Out of town: a zone past Eureka with enemies.
-- **PvN** (13): the cove (p0), the Mockingbird arena and sky (p0), the dojo
+- **PvN** (13): HELD: the raider's and Iron Mary's volley telegraph
+  (`ranged_volley`, as the ranger has): a rider on a flying shark hangs still
+  in its saddle through the windup (pirate_sky_crew, 2 red, 10-31); the windup
+  must keep a mounted body flying first. the cove (p0), the Mockingbird arena and sky (p0), the dojo
   interior (p0); the port and village have props. Out of town: the sky
   lookout has enemies; the forest could carry more.
 - **Math** (5): the town is dressed (p48); the gate hall is thin. Out of town:

@@ -25,6 +25,7 @@
         ( type: "Solid", px: [2544, 0], size: [16, 640], fields: ( name: "east_wall" ) ),
         ( type: "LoadingZone", px: [0, 544], size: [16, 96], fields: ( id: "keep_west", name: "back out to the dune road", activation: "EdgeExit", target_room: "magical_stardune_road", target_zone: "road_east", bidirectional: true ) ),
         ( type: "PlayerStart", px: [246, 594], size: [28, 46], fields: ( name: "magical_void_keep_spawn" ) ),
+        ( type: "NpcSpawn", px: [364, 592], size: [32, 48], fields: ( character_id: "mary_o_robot", prompt: "Talk", dialogue_id: "magical_rescued_robot", brain_override: "stand_still" ) ),
         ( type: "DebugLabel", px: [1070, 150], size: [480, 24], fields: ( name: "keep_sign", text: "THE VOID CASTLE: under new management", category: "Custom" ) ),
         ( type: "OneWayPlatform", px: [860, 480], size: [280, 16], fields: ( name: "keep_gallery_west" ) ),
         ( type: "OneWayPlatform", px: [1480, 480], size: [280, 16], fields: ( name: "keep_gallery_east" ) ),

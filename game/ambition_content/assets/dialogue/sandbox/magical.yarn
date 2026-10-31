@@ -151,3 +151,34 @@ Snake Plant: Hssss. ...Sorry. Reflex. You came up out of the ground very suddenl
 -> Bye.
     Snake Plant: Hssss. That one was on purpose. Goodbye.
 ===
+
+title: magical_rescued_robot
+---
+Rescued Robot: Oh! A robot! Are you here to rescue me? Mary-O usually does it. She lands on the switch, the bridge falls, the gate opens, I say "Thank you, Mary-O!", and then I'm in the next castle. I don't know how. I just am.
+-> Do you want rescuing?
+    Rescued Robot: I don't know. I've never not been rescued. It's the only thing I'm good at. If you rescue me, what will Mary-O do?
+-> How many castles?
+    Rescued Robot: Eight, so far. All the same castle, I think. Same bridge. Same lizard. He brings me tea now, between rescues. We talk about the switch.
+-> Thank you, robot?
+    Rescued Robot: ...Nobody's ever thanked ME. Thank you for thanking me. Now I've thanked you. Is this a rescue? It feels like one.
+===
+
+title: magical_laden_swallow
+---
+Laden Swallow: Coconut! Coconut! Mind your head! ...Sorry. I'm carrying a coconut. It's heavy. It's very heavy for a bird my size.
+-> African or European?
+    Laden Swallow: I KNEW somebody would ask. Every traveller on this road. "African or European?" I'm from the dunes. I'm a Stardune swallow. Nobody ever asks about the airspeed of a Stardune swallow.
+-> Where are you taking it?
+    Laden Swallow: The castle. Mary-O drops coconuts on things that annoy her, and I bring her the coconuts. Then she drops them. Then I go and get them back. It's a whole economy.
+-> Put it down?
+    Laden Swallow: If I put it down I'm just a swallow. Nobody stops to talk to just a swallow.
+===
+
+title: magical_paper_plane_snakes
+---
+Snakes on a Paper Plane: Ssssorry, can't stop! We go round. The plane goes where it was thrown, and it was thrown in a circle.
+-> Who threw you?
+    Snakes on a Paper Plane: Mary-O. She folded us out of a wanted poster. Ours. Good likeness. It flies very well.
+-> Do you ever land?
+    Snakes on a Paper Plane: When it rains. Then we're snakes on a wet bit of paper, and nobody wants to talk to that.
+===

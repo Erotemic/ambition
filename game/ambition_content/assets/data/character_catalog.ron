@@ -2625,6 +2625,28 @@
         ),
         hall_dialogue_id: Some("hall_npc_agent_swarm"),
         ),
+        "npc_void_star": (
+            display_name: "Unlit Void Star",
+            // A void star of the Unlit (the Magical dimension's hostile void):
+            // Mary-O's own void star (`void_star`, her sheet), as this game's
+            // enemy. In the rest of the void the stars are her guests and talk;
+            // here they walk at you, and no rule makes their top safe.
+            manifest: "sprites/void_star_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            posed_body: Some(Width(46.0)),
+            composition: None,
+            default_action_set: "striker_swipe",
+            locomotion: Some((run_speed: 48.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.5, amount: 1)),
+            autonomous_profile: Some((template: Wanderer)),
+            max_health: Some(2),
+            tags: ["enemy", "void"],
+            fallback_dialogue: [
+                "I point at nothing. I am what it points at.",
+                "Here, nobody wishes. Here, we do not stop.",
+            ],
+        ),
         "npc_ai_slop": (
             display_name: "Ai Slop",
             manifest: "sprites/ai_slop_spritesheet.ron",

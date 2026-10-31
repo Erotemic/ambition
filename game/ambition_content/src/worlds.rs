@@ -377,9 +377,12 @@ mod tests {
         // guests from the Mary-O, Sanic and Smash providers; any other is a typo. A
         // guest's transform (Super Sanic) has no placement of its own: the Hall
         // shows it on the guest's body. Mary-O tall has one: she meets the robot
-        // in the Magical dimension's gate garden in that form.
+        // in the Magical dimension's gate garden in that form. Her swallow and
+        // her rescued robot live there too.
         let guests: std::collections::BTreeSet<String> = [
+            "laden_swallow",
             "mary_o",
+            "mary_o_robot",
             "mary_o_tall",
             "npc_snakes_on_a_cartesian_plane",
             "npc_snakes_on_a_paper_plane",

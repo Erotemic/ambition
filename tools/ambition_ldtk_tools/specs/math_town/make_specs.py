@@ -307,6 +307,9 @@ def gate_hall():
         wanderer("traveller_trent", "npc_trent", 220, floor, dialogue="trent"),
         wanderer("traveller_walter", "npc_walter", 1180, floor, dialogue="walter"),
         wanderer("porter_beaver", "npc_busy_beaver", 1320, floor, 48, dialogue="busy_beaver"),
+        # Over the west gallery, hovering low: the snakes on a Cartesian plane,
+        # come through the gate from Mary-O's land (`math.yarn` `hall_cartesian_snakes`).
+        f'( type: "NpcSpawn", px: [220, {floor - 192 - 56}], size: [48, 32], fields: ( character_id: "npc_snakes_on_a_cartesian_plane", prompt: "Talk", dialogue_id: "hall_cartesian_snakes", brain_override: "stand_still" ) ),',
         label("hall_sign_gate", cx - 150, floor - 300, "GATE OF THE MATH DIMENSION", 300),
         label("hall_sign_axioms", 64, floor - 236, "Arrivals: please declare all axioms", 380),
         label("hall_sign_infinity", w - 444, floor - 236, "Infinity is not a valid destination", 380),

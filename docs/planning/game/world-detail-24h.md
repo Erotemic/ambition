@@ -60,14 +60,22 @@ to touch, and a little danger outside town. No quest chains.
 
 (Newest first. Each entry: what landed, the commit, what was verified.)
 
+- **Magical: more of Mary-O's cast at home**: her Solid Snake (in a box by
+  the bakery since Tuesday) and snake plant (retired to a pot) in the square,
+  the snakes on a paper plane going round over it; the laden swallow on the
+  dune road ("African or European?" "Stardune."); the robot she rescues at
+  the end of every castle, waiting in the keep. The snakes on a Cartesian
+  plane came through the gate to the Math dimension's gate hall.
 - **Magical: the Unlit, where the void is hostile** (Jon, 10-30: "have some
   areas where the void creatures and void fighters are hostile"): east of
   the rift, a broken walk of ledges over standing void; down its hole a
   ring the void built out of the shape of a fight (floor, two platforms, one
   over them; stands of void stars watching, grey-edged so they read as
   neither ground nor foe); west at its floor the wastes, back to the falls'
-  foot. A loop. Void stars are enemies here (dangerous rooms). The void
-  fighters (the polygons gone dark) are a parallel piece.
+  foot. A loop. Void stars are enemies here (`npc_void_star`, this game's
+  row on Mary-O's sheet). The void fighters (07f85ece0, the polygons gone
+  dark, fighting with their Smash kits for adventure damage): the shooter
+  on the ledges' last piece, the fists in the wastes, all three in the ring.
   Verified: the_unlit_is_a_loop_from_the_rift_back_to_the_falls.
 - **Math: two keepers** (2e961cff7 and this): Pierre de Fermette (a parody
   of Fermat) keeps the Conjectures, every problem on the walls solved, the

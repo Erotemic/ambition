@@ -137,9 +137,9 @@ LEDGES_AT, LEDGES_W = (RIFT_AT[0] + RIFT_W, RIFT_AT[1]), 4480
 COLISEUM_W, COLISEUM_H, COLISEUM_FLOOR = 1920, 1280, 1216
 COLISEUM_AT = (LEDGES_AT[0] + LEDGES_W - COLISEUM_W, LEDGES_AT[1] + VOID_H)
 WASTES_AT, WASTES_W = (FALLS_AT[0] + FALLS_W, COLISEUM_AT[1] + COLISEUM_FLOOR - VOID_FLOOR), COLISEUM_AT[0] - (FALLS_AT[0] + FALLS_W)
-#: Whether the void fighters' catalog rows have landed (their rooms place
-#: them only then).
-VOID_FIGHTERS_READY = False
+#: Whether the void fighters' catalog rows have landed (07f85ece0: they
+#: have).
+VOID_FIGHTERS_READY = True
 #: The ledges' hole down into the coliseum's roof (the coliseum's x).
 COLISEUM_TOP = (928, 992)
 LEDGES_HOLE = (COLISEUM_TOP[0] + COLISEUM_AT[0] - LEDGES_AT[0], COLISEUM_TOP[1] + COLISEUM_AT[0] - LEDGES_AT[0])
@@ -242,6 +242,8 @@ def square():
         # Mary-O's own Solid Snake, off duty in town (it wanders, as it does
         # in her levels; nobody stomps it here).
         resident("solid_snake", "magical_solid_snake", 1400, FLOOR, brain="", w=64, h=32),
+        # Over the square, the snakes on a paper plane, going round.
+        resident("npc_snakes_on_a_paper_plane", "magical_paper_plane_snakes", 2380, FLOOR - 24, h=32, w=48),
         # And her snake plant, rooted between the wand shop and the bakery.
         resident("snake_plant", "magical_snake_plant", 850, FLOOR, h=48),
         edge("square_east", "out of town, along the dune road", w - 16, FLOOR, ROAD, "road_west"),
@@ -300,6 +302,8 @@ def road():
         edge("road_west", "back to Starlight Square", 0, FLOOR, SQUARE, "square_east"),
         edge("road_east", "into the Void Castle", w - 16, FLOOR, KEEP, "keep_west"),
         start(rid, 200, FLOOR),
+        # Over the spilled cart, a swallow with a coconut.
+        resident("laden_swallow", "magical_laden_swallow", 600, FLOOR - 24, h=40, w=54),
         sign("road_sign", 700, 360, "<- STARLIGHT SQUARE      THE CASTLE ->", 460),
         sign("road_castle", w - 520, 320, "THE CASTLE: taken by the void. Mary-O is on it. (She has a plan.)", 620),
         ledge("dune_a", 1200, 528, 192),
@@ -336,6 +340,9 @@ def keep():
         solid("east_wall", w - WALL, 0, WALL, FLOOR),
         edge("keep_west", "back out to the dune road", 0, FLOOR, ROAD, "road_east"),
         start(rid, 260, FLOOR),
+        # The robot she rescues at the end of every castle, waiting to be
+        # rescued from this one.
+        resident("mary_o_robot", "magical_rescued_robot", 380, FLOOR, h=48),
         sign("keep_sign", 1310, 150, "THE VOID CASTLE: under new management", 480),
         ledge("keep_gallery_west", 860, 480, 280),
         ledge("keep_gallery_east", 1480, 480, 280),
@@ -407,16 +414,17 @@ def void_room(rid, e, at, size, title, music, dangerous=False):
 def void_fighter(rid: str, character: str, x: int, floor: int, brain: str = "") -> str:
     """A void fighter (the polygon fighters gone dark: `void_pointed_polygon`,
     `void_pugnacious_polygon`, `void_projectile_polygon`): an enemy that
-    fights with its fighter's kit. `brain` empty takes the row's own
-    autonomous profile."""
-    return entity("EnemySpawn", x - 16, floor - 68, 32, 68, name=f"{rid}_{character}", brain=brain,
+    fights with its fighter's kit (the row's own Fighter policy drives it;
+    `brain` only says it is hostile)."""
+    return entity("EnemySpawn", x - 16, floor - 68, 32, 68, name=f"{rid}_{character}", brain=brain or "combatant",
                   character_id=character, respawn="OnRoomReenter")
 
 
 def hostile_star(rid: str, n: int, x: int, floor: int) -> str:
-    """A void star of the Unlit: an enemy, as in Mary-O's own levels."""
+    """A void star of the Unlit: an enemy, as in Mary-O's own levels (this
+    game's row, `npc_void_star`, on her sheet)."""
     return entity("EnemySpawn", x - 23, floor - 46, 46, 46, name=f"{rid}_void_star_{n}", brain="combatant",
-                  character_id="void_star", respawn="OnRoomReenter")
+                  character_id="npc_void_star", respawn="OnRoomReenter")
 
 
 def rift():

@@ -42,6 +42,7 @@ fn the_square_the_hollow_and_the_garden_are_a_loop() {
 fn the_dune_road_lies_east_of_the_square() {
     let mut app = a_session_in(SQUARE);
     go(&mut app, ROAD, Some("square_east"));
+    talk(&mut app, "laden_swallow", "African or European?");
     go(&mut app, SQUARE, Some("road_west"));
 }
 
@@ -54,12 +55,14 @@ fn the_squares_people_talk() {
     talk(&mut app, "npc_magical_lumen", "Talked into it?");
     talk(&mut app, "solid_snake", "Why does everyone jump on you?");
     talk(&mut app, "snake_plant", "Do you bite?");
+    talk(&mut app, "npc_snakes_on_a_paper_plane", "Who threw you?");
 }
 
 #[test]
 fn the_void_castle_is_a_loop_and_its_lizard_talks() {
     let mut app = a_session_in(ROAD);
     go(&mut app, KEEP, Some("road_east"));
+    talk(&mut app, "mary_o_robot", "Do you want rescuing?");
     go(&mut app, BRIDGE, Some("keep_west_stair"));
     talk(&mut app, "void_lizard", "Are you going to fight me?");
     go(&mut app, KEEP, Some("bridge_east_shaft"));

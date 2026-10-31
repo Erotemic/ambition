@@ -206,3 +206,11 @@ fn kepplar_keeps_the_observatory() {
     let mut app = a_session_in("math_observatory");
     crate::the_pirate_port::talk(&mut app, "npc_math_kepplar", "What are you looking at?");
 }
+
+/// The gate hall: the snakes on a Cartesian plane, come through from Mary-O's
+/// land, hover over the west gallery (`math.yarn` `hall_cartesian_snakes`).
+#[test]
+fn the_cartesian_snakes_hover_in_the_gate_hall() {
+    let mut app = a_session_in("math_gate_hall");
+    crate::the_pirate_port::talk(&mut app, "npc_snakes_on_a_cartesian_plane", "How is it?");
+}

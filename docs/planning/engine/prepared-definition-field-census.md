@@ -6,6 +6,10 @@ it proposes no boundary. The selected uses at the end guide the independent
 authoring boundary (I1/I2); they do not authorize a wholesale character-domain
 split.
 
+This is a saved census. Re-run the instrument before using its counts.
+Prepared beat sounds and nameplate policy now have consumers through
+`SessionCast`. Other runtime metadata still has direct catalog readers.
+
 ## Instrument
 
 ```bash
@@ -95,7 +99,7 @@ need no work: `contact_damage`, `dream_seed`, `lineage`,
 ## The authority axis
 
 The seal measures readers of one struct, so no pair of its sites can be two
-authorities. All production runtime reads resolve through
+authorities. Runtime accesses to the prepared fields in this census resolve through
 `PreparedCharacterRegistry` or a `&PreparedCharacterDefinition` handed to them.
 The real second authority is `CharacterCatalog`, which
 `CharacterAuthorityConflict` (`character_runtime/audit.rs`) already names. The

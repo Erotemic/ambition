@@ -75,6 +75,27 @@ checks geometry; it creates no game app. This is one sample, not a controlled
 before-and-after comparison. Kernel sampling was unavailable because the host
 sets `perf_event_paranoid` to 4.
 
+A separate native phase probe reads the selected library through the public
+sprite APIs. Its input has 1,868 sheet manifest files. The second run measured:
+
+| Phase | Time |
+| --- | ---: |
+| Read library | 134 ms |
+| Build snapshot | 281 ms |
+| Read texts | 1,592 ms |
+| Prepare metadata, including an input clone | 5,241 ms |
+| Compute mechanics digest | 89 ms |
+
+Preparing each metadata family alone took 3,240 ms for part flipbooks,
+1,638 ms for sheet records, 61 ms for rigs, 61 ms for portraits and 12 ms for
+pack catalogs. These are diagnostic subsets, not proposed runtime omissions.
+The next preparation profile should inspect the part and sheet owners.
+The source, compiled-library hash and outputs are under
+`target/mary-o-metadata-phase-probe/`. The selected publication generation is
+`190ae640577132f5f8da4475308bbad7966927f98f8c597b8e4f62e8ae3bff72`.
+The probe ran beside Cargo. These are warm local measurements, not browser
+results or a controlled optimization comparison.
+
 ## Content limits
 
 The selected publication has no Mary-O music files or soft-glow image. The

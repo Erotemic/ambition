@@ -231,13 +231,17 @@ Player-only stand eligibility stays until it is separately decided.
 
 ## A6. Separate prepared character definitions from live materialization/policy
 
-**State:** [`prepared-definition-field-census.md`](prepared-definition-field-census.md)
-refutes a two-way split: nine fields are read by both the spawn road and the
-runtime. All production runtime reads resolve through
-`PreparedCharacterRegistry`; the only second authority is the registry versus
-`CharacterCatalog`. `autonomous_profile` has one resolution in
-`crates/ambition_characters/src/prepared.rs`. Movement tuning is folded at the
-barrier, and the wear road reads the prepared cast only.
+**State:** the [saved field census](prepared-definition-field-census.md)
+refutes a two-way split: several fields serve both construction and runtime.
+Preparation folds movement tuning and autonomous policy. Beat sounds and
+nameplate policy are also prepared facts. Their readers use `SessionCast`;
+publication alone changes neither. Both consumer tests fail when a reader
+prefers the published cast before activation.
+
+**Open:** rest rows, petting, barks and form selection still have catalog
+readers in the actor kernel. Move each runtime fact to its prepared owner and
+use the active session generation. Keep build-time catalog assembly separate.
+Do not infer a wholesale type split from the saved reader counts.
 
 **Destination:** logical prepared-definition, action-execution, intent-policy,
 asset-materialization and session-activation owners. Keep a tightly coupled

@@ -24,6 +24,7 @@ use bevy::prelude::{Component, Resource};
 
 mod control_regions;
 mod defense;
+mod glow;
 mod hud;
 mod presets;
 mod resolve;
@@ -35,6 +36,8 @@ pub use defense::{
     ActiveDefensePresentationPolicy, DefenseCueCauses, DefensePresentationCatalog,
     DefensePresentationCues, DefensePresentationPolicy,
 };
+// A light about an actor, and the route's rule for which bodies wear one.
+pub use glow::{ActivePlayerGlow, ActorGlow, GlowLayer, GlowLook, GlowPulse, PlayerGlowCatalog};
 pub use control_regions::{
     ControlAnchor, ControlFootprint, ControlFootprints, ControlPlacement, ControlPlacementPolicy,
     PlacedControl, ResolvedControlRegions,

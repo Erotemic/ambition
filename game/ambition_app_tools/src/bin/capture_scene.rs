@@ -158,6 +158,9 @@ struct SceneCaptureConfig {
     dev_overlays: bool,
     /// Draw the navigation graph in the shot (`--nav-overlay`).
     nav_overlay: bool,
+    /// The active route declares the player highlight glow
+    /// (`--player-glow`), as a provider's `with_player_glow` does.
+    player_glow: bool,
     /// Put the combat debug view in the shot (`--combat-overlay`).
     ///
     /// `--dev-overlays` only stops the tool from hiding what a build shows.
@@ -435,6 +438,8 @@ OPTIONS:
     --nav-overlay       draw the surface graph a navigating body is advised from
                         (surfaces green, hops yellow, drops orange)
     --combat-overlay    force the COMBAT gizmos on (hitboxes, collision boxes)
+    --player-glow       the body the player drives wears the highlight glow
+                        (`ActorGlow::player_highlight`), whatever the game says
     --look-depth FOG,PATCHES
                         the fog in front of the sky of the two-state room look
                         (`RoomLookDepth`): how much, from 0 to 1, and how much
@@ -603,6 +608,21 @@ fn force_look_depth(
     let wanted = ambition_content::presentation::room_look::RoomLookDepth { fog, fog_patches };
     if *depth != wanted {
         *depth = wanted;
+    }
+}
+
+/// `--player-glow`: the active route declares the player highlight glow.
+/// The provider's route selection then publishes it, as for a game that
+/// declares it.
+fn force_player_glow(
+    router: Res<ambition_platformer2d::game_shell::ShellRouter>,
+    mut catalog: ResMut<ambition_platformer2d::presentation::PlayerGlowCatalog>,
+) {
+    let glow = ambition_platformer2d::presentation::ActorGlow::player_highlight();
+    if let Some(active) = router.active.as_ref() {
+        if catalog.get(active.route_id.as_str()) != Some(&glow) {
+            catalog.insert(active.route_id.as_str(), glow);
+        }
     }
 }
 
@@ -1339,6 +1359,10 @@ fn install_room_capture(app: &mut App) {
                 .before(ambition_platformer2d::runtime::input::mirror_primary_slot_to_control_frame),
         );
     }
+    if app.world().resource::<SceneCaptureConfig>().player_glow {
+        app.init_resource::<ambition_platformer2d::presentation::PlayerGlowCatalog>();
+        app.add_systems(Update, force_player_glow);
+    }
     if app.world().resource::<SceneCaptureConfig>().nav_overlay {
         app.insert_resource(ambition_app::dev::navigation_overlay::NavigationOverlay { shown: true });
     }
@@ -1536,6 +1560,7 @@ impl SceneCaptureConfig {
         let mut dev_overlays = false;
         let mut combat_overlay = false;
         let mut nav_overlay = false;
+        let mut player_glow = false;
         let mut boss_hp: Option<f32> = None;
         let mut boss_blows: Vec<(u64, i32)> = Vec::new();
         let mut look_depth: Option<[f32; 2]> = None;
@@ -1584,6 +1609,10 @@ impl SceneCaptureConfig {
                 // `force_combat_overlay` runs after the silencer.
                 "--nav-overlay" => {
                     nav_overlay = true;
+                    1
+                }
+                "--player-glow" => {
+                    player_glow = true;
                     1
                 }
                 "--combat-overlay" => {
@@ -2101,6 +2130,7 @@ impl SceneCaptureConfig {
                 dev_overlays,
                 combat_overlay,
                 nav_overlay,
+                player_glow,
                 boss_hp,
                 boss_blows: Vec::new(),
                 look_depth,
@@ -2152,6 +2182,7 @@ impl SceneCaptureConfig {
             dev_overlays,
             combat_overlay,
             nav_overlay,
+            player_glow,
             boss_hp,
             boss_blows,
             look_depth,

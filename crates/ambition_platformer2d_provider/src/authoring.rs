@@ -8,8 +8,9 @@ use ambition_game_shell::{
     ShellCompletionPolicy, ShellRouteId, ShellRouteSpec,
 };
 use ambition_platformer2d_shared_tangle::gameplay_presentation::{
-    DefensePresentationCatalog, DefensePresentationPolicy, GameplayPresentationProfileCatalog,
-    GameplayPresentationProfiles, HudDeclarationCatalog,
+    ActorGlow, DefensePresentationCatalog, DefensePresentationPolicy,
+    GameplayPresentationProfileCatalog, GameplayPresentationProfiles, HudDeclarationCatalog,
+    PlayerGlowCatalog,
 };
 
 use crate::catalogs::{AuthoredCatalogFragments, PlatformerAuthoredCatalogRegistry};
@@ -38,6 +39,8 @@ pub struct PlatformerExperienceAuthoring {
     pub presentation: Option<GameplayPresentationProfiles>,
     /// Which shared defense presentation effects this experience opts into.
     pub defense_presentation: Option<DefensePresentationPolicy>,
+    /// The glow on each body a player drives. `None`: no glow.
+    pub player_glow: Option<ActorGlow>,
     /// What this experience's HUD reads out.
     pub hud: Option<ambition_platformer2d_shared_tangle::gameplay_presentation::HudDeclaration>,
     /// Whether the launcher offers this experience to a player.
@@ -76,6 +79,7 @@ impl PlatformerExperienceAuthoring {
             loading: None,
             presentation: None,
             defense_presentation: None,
+            player_glow: None,
             hud: None,
             listed: true,
             launcher_look: None,
@@ -139,6 +143,14 @@ impl PlatformerExperienceAuthoring {
     /// remain independent and therefore compose with these cues.
     pub fn with_defense_presentation(mut self, policy: DefensePresentationPolicy) -> Self {
         self.defense_presentation = Some(policy);
+        self
+    }
+
+    /// Declare the glow on each body a player drives in this experience
+    /// (for example [`ActorGlow::player_highlight`]). `None` draws no glow,
+    /// which is also what a provider that says nothing gets.
+    pub fn with_player_glow(mut self, glow: Option<ActorGlow>) -> Self {
+        self.player_glow = glow;
         self
     }
 
@@ -292,6 +304,10 @@ impl PlatformerExperienceAuthoring {
             app.world_mut()
                 .resource_mut::<DefensePresentationCatalog>()
                 .insert(self.route_id.clone(), policy);
+        }
+        if let Some(glow) = self.player_glow {
+            app.init_resource::<PlayerGlowCatalog>();
+            app.world_mut().resource_mut::<PlayerGlowCatalog>().insert(self.route_id.clone(), glow);
         }
         if let Some(contents) = self.session_contents {
             app.world_mut()

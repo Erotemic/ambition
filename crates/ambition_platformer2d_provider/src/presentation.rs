@@ -2,8 +2,8 @@
 
 use ambition_platformer2d_shared_tangle::gameplay_presentation::{
     ActiveDefensePresentationPolicy, ActiveGameplayPresentationProfiles, ActiveHudDeclaration,
-    DefensePresentationCatalog, DefensePresentationPolicy, GameplayPresentationProfileCatalog,
-    HudDeclaration, HudDeclarationCatalog,
+    ActivePlayerGlow, DefensePresentationCatalog, DefensePresentationPolicy,
+    GameplayPresentationProfileCatalog, HudDeclaration, HudDeclarationCatalog, PlayerGlowCatalog,
 };
 use bevy::prelude::*;
 
@@ -80,6 +80,25 @@ pub fn select_active_defense_presentation(
         .and_then(|(active, catalog)| catalog.get(active.route_id.as_str()))
         .copied()
         .unwrap_or_else(DefensePresentationPolicy::none);
+    if active.0 != declared {
+        active.0 = declared;
+    }
+}
+
+/// Copy the active route's player glow into the resource the renderer
+/// consumes. Parallel to [`select_active_defense_presentation`]: a route that
+/// declares no glow gets none, so one game's glow does not stay on in the next.
+pub fn select_active_player_glow(
+    router: Res<ambition_game_shell::ShellRouter>,
+    catalog: Option<Res<PlayerGlowCatalog>>,
+    mut active: ResMut<ActivePlayerGlow>,
+) {
+    let declared = router
+        .active
+        .as_ref()
+        .zip(catalog.as_deref())
+        .and_then(|(active, catalog)| catalog.get(active.route_id.as_str()))
+        .copied();
     if active.0 != declared {
         active.0 = declared;
     }

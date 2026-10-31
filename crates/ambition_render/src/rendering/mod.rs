@@ -92,6 +92,8 @@ pub fn require_world_compositing(app: &mut bevy::app::App) {
     >(|| WORLD_COMPOSITING);
 }
 
+/// A light about an actor: one soft sprite for each glowing body.
+pub mod actor_glow;
 pub mod actors;
 pub mod ambient_motes;
 /// The light of the time of day over the world of a sunlit room.
@@ -705,6 +707,25 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 .run_if(session_presentation_is_ready),
         );
 
+        // The light about each glowing actor, after the frame, the look and
+        // the impostor of its body are chosen, so it is at the drawn place.
+        app.add_systems(bevy::prelude::Startup, actor_glow::load_actor_glow_picture);
+        app.add_systems(
+            Update,
+            (actor_glow::grant_player_glows, actor_glow::sync_actor_glows)
+                .chain()
+                .after(actors::sync_visuals)
+                .after(actors::animate_player)
+                .after(actors::animate_characters)
+                .after(passage_visuals::apply_passage_looks)
+                .after(actors::rigged::drive_rigged_presentations)
+                .in_set(BodyOwnedDrawableSync)
+                .in_set(
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PresentationVisualSync,
+                )
+                .run_if(session_presentation_is_ready)
+                .run_if(actor_glow::glows_are_wanted_or_drawn),
+        );
         // A body in a passage through a door or a gate: its size, opacity and
         // shade, after the animator's frame and tint and before the part
         // driver reads them; and the door it goes through, opening.

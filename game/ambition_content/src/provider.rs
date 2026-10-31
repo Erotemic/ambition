@@ -12,6 +12,10 @@ use ambition_platformer2d_runtime::PreparedPlatformerSource;
 pub const AMBITION_EXPERIENCE: &str = crate::AMBITION_CONTENT_PROVIDER;
 pub const AMBITION_GAMEPLAY_ROUTE: &str = "ambition_gameplay";
 
+/// Whether the body the player drives wears a faint highlight glow behind it
+/// (`ActorGlow::player_highlight`). Off: `true` turns it on.
+pub const PLAYER_HIGHLIGHT_GLOW: bool = false;
+
 #[derive(Resource, Clone)]
 pub struct AmbitionPreparedWorld {
     pub room_set: RoomSet,
@@ -149,6 +153,9 @@ impl Plugin for AmbitionExperiencePlugin {
         .with_presentation_profiles(profiles::adaptive_platformer())
         .with_defense_presentation(
             ambition_platformer2d::presentation::DefensePresentationPolicy::shared_iframe_blink(),
+        )
+        .with_player_glow(
+            PLAYER_HIGHLIGHT_GLOW.then(ambition_platformer2d::presentation::ActorGlow::player_highlight),
         )
         // The first bag of an Ambition session: the starter set. Its save
         // replaces it when the save holds an inventory.

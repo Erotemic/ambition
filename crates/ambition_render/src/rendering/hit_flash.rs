@@ -533,9 +533,9 @@ pub fn declare_hit_flash_demand(
 /// a body that dies behind a pane is hidden by its owner too). The render
 /// crate can ask only when the portal presentation crate is composed in.
 #[cfg(feature = "portal_render")]
-type PortalHidIt = Option<&'static ambition_portal2d_presentation::PortalSourceHidden>;
+pub(crate) type PortalHidIt = Option<&'static ambition_portal2d_presentation::PortalSourceHidden>;
 #[cfg(feature = "portal_render")]
-fn portal_alone_hides(
+pub(crate) fn portal_alone_hides(
     marker: Option<&ambition_portal2d_presentation::PortalSourceHidden>,
     visibility: &Ref<Visibility>,
 ) -> bool {
@@ -543,9 +543,9 @@ fn portal_alone_hides(
 }
 /// Without portals nothing hides a body for the compositor's reasons.
 #[cfg(not(feature = "portal_render"))]
-type PortalHidIt = ();
+pub(crate) type PortalHidIt = ();
 #[cfg(not(feature = "portal_render"))]
-fn portal_alone_hides((): (), _: &Ref<Visibility>) -> bool {
+pub(crate) fn portal_alone_hides((): (), _: &Ref<Visibility>) -> bool {
     false
 }
 

@@ -306,13 +306,13 @@ impl Platformer2dAssetCatalog {
     ///   None for `path_for`; this is exhaustive-match insurance).
     pub fn should_attempt_resolved_load(&self, resolved: &ResolvedAsset, path: &str) -> bool {
         if path.starts_with("content://") && !resolved.missing_policy.is_required() {
-            let Some(file) = self.library_files.get(path) else { return false; };
+            if !self.library_files.contains_key(path) { return false; }
             return match self.profile {
                 AssetProfile::NoAssets | AssetProfile::Headless => false,
                 AssetProfile::DesktopDevLoose | AssetProfile::DesktopInstalled
                 | AssetProfile::SteamDeckInstalled => match self.exe_bundle {
                     Some(bundle) => bundle.contains(&crate::content_library::package_path(path)),
-                    None => file.native_path().is_some_and(|path| path.is_file())
+                    None => self.resolve_local_file_path(path).is_some_and(|path| path.is_file())
                         || self.library_bytes(path).is_some(),
                 },
                 AssetProfile::AndroidBundle => self.library_bytes(path).is_some()
@@ -403,8 +403,17 @@ impl Platformer2dAssetCatalog {
         if self.exe_bundle.is_some() {
             return None;
         }
-        if let Some(file) = self.library_files.get(rel) { return file.native_path().map(std::path::Path::to_path_buf); }
-        desktop_candidate_roots(rel)
+        let installed = match self.library_files.get(rel) {
+            Some(file) => match &file.data {
+                crate::content_library::LibraryFileData::Native(path) => return Some(path.clone()),
+                crate::content_library::LibraryFileData::Embedded(Some(_)) => return None,
+                // An embedded index can refer to bytes in the installed tree.
+                crate::content_library::LibraryFileData::Embedded(None) =>
+                    crate::content_library::package_path(file.asset_path()),
+            },
+            None => std::borrow::Cow::Borrowed(rel),
+        };
+        desktop_candidate_roots(&installed)
             .into_iter()
             .find(|p| p.exists())
     }

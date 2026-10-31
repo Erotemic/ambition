@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="${REPO:-$HOME/code/ambition}"
+REPO="${REPO:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 DECK="${DECK:-deck@steamdeck}"
 
 # Name of this deployed build on the Steam Deck.
@@ -91,25 +91,6 @@ rsync -av \
     "$ASSET_HASH_MANIFEST" \
     "$DECK:$APPDIR/"
 
-# Compatibility symlinks:
-# - BEVY_ASSET_ROOT is the app directory.
-# - sprites/audio/ambition/fonts are exposed at the app root.
-# - assets/assets -> . tolerates launchers that point BEVY_ASSET_ROOT at assets.
-ssh "$DECK" "bash -s" <<EOF_REMOTE
-set -euo pipefail
-APPDIR='$APPDIR'
-
-cd "\$APPDIR"
-rm -rf sprites audio ambition fonts
-ln -sfn assets/sprites sprites
-ln -sfn assets/audio audio
-ln -sfn assets/ambition ambition
-ln -sfn assets/fonts fonts
-
-cd "\$APPDIR/assets"
-ln -sfn . assets
-EOF_REMOTE
-
 # The launcher locates its own installation directory. This is important for
 # side-by-side deployments: the same launcher works in ambition,
 # ambition-2026-08-30, or any future snapshot directory.
@@ -137,17 +118,12 @@ test -x "\$APPDIR/$BIN"
 
 cd "\$APPDIR/assets"
 sha256sum -c "\$APPDIR/asset-contract.steamdeck.sha256"
-
-test ! -e "\$APPDIR/assets/fonts/local"
-test -f "\$APPDIR/sprites/robot_spritesheet.png"
-test -f "\$APPDIR/assets/assets/audio/music/generated/long_lofi_drift/full.ogg"
 EOF_CHECK
 
 echo
 echo "Deployed to $DECK:$APPDIR"
 echo "Steam shortcut target: $APPDIR/run_ambition.sh"
 echo "Launcher sets BEVY_ASSET_ROOT to its own installation directory"
-echo "Compatibility symlinks created: sprites/audio/ambition/fonts -> assets/..."
 echo "Excluded from deployment: assets/fonts/local/"
 
 

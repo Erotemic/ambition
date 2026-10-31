@@ -1,8 +1,6 @@
 //! Host-platform integration: per-OS plugin selection (desktop, android,
 //! …) and window/display-mode controls.
 
-#[cfg(feature = "frame_pacing")]
-pub mod framepace;
 pub mod platform;
 pub mod render_asset_budget;
 pub mod render_recovery;

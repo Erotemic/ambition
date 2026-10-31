@@ -46,7 +46,10 @@ bevy = { version = "0.19.1", default-features = false, features = [
 ] }
 leafwing-input-manager = { version = "0.21", optional = true }
 
+bevy_framepace = { version = "0.22", default-features = false, optional = true }
+
 [features]
+frame_pacing = ["render", "dep:bevy_framepace"]
 # ⭐ THE CRATE'S OWN DEFAULT IS ITS OWN DESCRIPTION: this is the WINDOWED host
 # face, so building it alone builds the thing the docs above describe, and
 # `cargo test -p ambition_platformer2d_host` composes a drawing host exactly as

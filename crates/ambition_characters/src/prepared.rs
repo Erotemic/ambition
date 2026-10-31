@@ -1177,6 +1177,10 @@ pub struct PreparedCharacterDefinition {
     /// The hand the art of [`Self::sheet`] makes a gesture with: the catalog
     /// row's, and the near hand for a character with no row.
     pub gesture_hand: crate::actor::GestureHand,
+    /// The character's sounds from the catalog generation prepared with this cast.
+    pub cues: crate::actor::character_catalog::CharacterCues,
+    /// Whether this character carries a nameplate.
+    pub nameplate: bool,
     pub portrait: Option<String>,
     pub body: Option<BodySource>,
     pub hurtboxes: Option<HurtboxDoc>,
@@ -2167,6 +2171,8 @@ fn finalize_character(
         sheet,
         sheet_sizing,
         gesture_hand: catalog_row.map(|row| row.gesture_hand).unwrap_or_default(),
+        cues: catalog_row.map(|row| row.cues.clone()).unwrap_or_default(),
+        nameplate: catalog_row.is_none_or(|row| row.nameplate),
         portrait,
         body,
         hurtboxes,

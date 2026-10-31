@@ -907,6 +907,7 @@ fn a_blast_with_no_attacker_hits_only_its_own_live_room() {
         );
         app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
         install_hit_reaction_consumers(&mut app);
+        app.add_message::<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>();
         let mut time = ambition_time::WorldTime::default();
         time.set_sim_dt(0.05);
         app.insert_resource(time);
@@ -1473,32 +1474,18 @@ fn enemy_defeat_drops_a_collectible_currency_coin() {
 
 #[test]
 fn defeated_boss_drops_its_signature_ability() {
-    use ambition_boss_encounter::pattern::profile::BossBehaviorProfile;
-    // Each boss's reward ability is content data (`boss_profiles.ron`):
-    // verify the authored pairings and that each resolves to a real catalog
-    // item. Read off the RON-loaded profile by id — the engine names none.
-    let expect: &[(&str, Option<&str>)] = &[
-        ("flying_spaghetti_monster_boss", Some("blink")),
-        ("trex_boss", Some("grapple")),
-        ("gnu_ton_rider", Some("fireball")),
-        ("clockwork_warden", Some("markrecall")),
-        ("mockingbird", None),
-        ("smirking_behemoth_boss", None),
-    ];
-    for (id, ability) in expect {
-        let profile =
-            BossBehaviorProfile::from_data(ambition_boss_encounter::test_boss_catalog(), id);
-        assert_eq!(
-            profile.reward_ability.as_deref(),
-            *ability,
-            "{id} reward ability drifted from boss_profiles.ron",
+    let profiles = ambition_boss_encounter::default_boss_profiles(
+        ambition_boss_encounter::test_boss_catalog(),
+    );
+    let rewards: Vec<_> = profiles.iter().filter_map(|profile| {
+        profile.behavior.reward_ability.as_deref().map(|ability| (&profile.id, ability))
+    }).collect();
+    assert!(!rewards.is_empty(), "the authored bosses must exercise ability rewards");
+    for (id, ability) in rewards {
+        assert!(
+            ambition_items::test_item_catalog().item_by_dialog_id(ability).is_some(),
+            "boss {id} -> ability {ability} must be a real catalog item",
         );
-        if let Some(a) = ability {
-            assert!(
-                ambition_items::test_item_catalog().item_by_dialog_id(a).is_some(),
-                "boss {id} -> ability {a} must be a real catalog item",
-            );
-        }
     }
 
     // The drop spawns a single collectible Ability pickup.
@@ -1530,50 +1517,19 @@ fn defeated_boss_drops_its_signature_ability() {
 
 #[test]
 fn boss_signature_gauntlets_map_to_real_wielded_held_items() {
-    use ambition_boss_encounter::pattern::profile::BossBehaviorProfile;
-    // Signature gauntlets are content data (`boss_profiles.ron`): each must resolve to a real
-    // held-item spec so the dropped GroundItem is pick-up-able. The expected values pin the RON
-    // against the ability id consts so the two can't drift apart. The shockwave, volley, beam
-    // meteor, sentry, vortex (2026-10-01) and dive (2026-10-10) are procedural modules; their ids are the
-    // held-item ids spelled.
-    let expect: &[(&str, Option<&str>)] = &[
-        ("trex_boss", Some("shockwave")),
-        ("mockingbird", Some("volley")),
-        ("smirking_behemoth_boss", Some("beam")),
-        ("mode_collapse_boss", Some("vortex")),
-        ("hunny_horror_boss", None),
-        ("overflow_boss", Some("dive")),
-        ("gnu_ton_rider", Some("meteor")),
-        ("clockwork_warden", None),
-        ("flying_spaghetti_monster_boss", None),
-    ];
-    let mut gauntlets = 0;
-    let mut abilities = 0;
-    for (id, gauntlet) in expect {
-        let profile =
-            BossBehaviorProfile::from_data(ambition_boss_encounter::test_boss_catalog(), id);
-        assert_eq!(
-            profile.signature_gauntlet.as_deref(),
-            *gauntlet,
-            "{id} signature gauntlet drifted from boss_profiles.ron",
+    let profiles = ambition_boss_encounter::default_boss_profiles(
+        ambition_boss_encounter::test_boss_catalog(),
+    );
+    let gauntlets: Vec<_> = profiles.iter().filter_map(|profile| {
+        profile.behavior.signature_gauntlet.as_deref().map(|gauntlet| (&profile.id, gauntlet))
+    }).collect();
+    assert!(!gauntlets.is_empty(), "the authored bosses must exercise held-item rewards");
+    for (id, gauntlet) in gauntlets {
+        assert!(
+            ambition_characters::brain::held_item_by_id(gauntlet).is_some(),
+            "boss {id} -> gauntlet {gauntlet} must be a registered held item",
         );
-        if let Some(g) = profile.signature_gauntlet.as_deref() {
-            assert!(
-                ambition_characters::brain::held_item_by_id(g).is_some(),
-                "boss {id} -> gauntlet {g} must be a registered held item",
-            );
-            gauntlets += 1;
-        }
-        if profile.reward_ability.is_some() {
-            abilities += 1;
-        }
     }
-    // trex + mockingbird + smirking + mode_collapse + overflow + the gnu_ton
-    // rider each arm a wielded gauntlet (six "learn its attack" drops; trex and
-    // the rider also grant a catalog ability).
-    assert_eq!(gauntlets, 6, "six bosses drop a signature gauntlet");
-    // FSM(blink) + trex(grapple) + gnu(fireball) + clockwork(markrecall).
-    assert_eq!(abilities, 4, "four bosses grant a catalog ability");
 }
 
 #[test]

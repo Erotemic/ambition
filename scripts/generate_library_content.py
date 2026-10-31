@@ -104,13 +104,16 @@ def music_batch_dependencies(batch: tuple[str, list[str]]) -> dict:
     return dependencies
 
 
-def owner_dependencies(family: str) -> dict:
-    if family not in _DEPENDENCIES:
+def owner_dependencies(family: str, cues=None) -> dict:
+    key = (family, tuple(cues) if cues is not None else None)
+    if key not in _DEPENDENCIES:
         dependencies = {}
         if family == "music":
             import regen_music_registry as registry
             backend = os.environ.get("AMBITION_MUSIC_BACKEND", "pretty-midi")
-            cues = registry.generation_cues()
+            cues = registry.generation_cues() if cues is None else cues
+            if not cues:
+                return {}
             jobs = max(1, min(len(cues), int(os.environ.get("AMBITION_MUSIC_JOBS", "6"))))
             batches = [(backend, cues[index::jobs]) for index in range(jobs)]
             if jobs == 1:
@@ -124,15 +127,18 @@ def owner_dependencies(family: str) -> dict:
             from ambition_sfx_renderer.render import cue_hash
             collection = library().manifest["producers"][family]["collection"]
             dependencies = {load_cue(path).cue_id: cue_hash(path) for path in iter_cue_files(group=collection)}
-        _DEPENDENCIES[family] = dependencies
-    return _DEPENDENCIES[family]
+        _DEPENDENCIES[key] = dependencies
+        if family == "music":
+            for cue, fingerprint in dependencies.items():
+                _DEPENDENCIES[(family, (cue,))] = {cue: fingerprint}
+    return _DEPENDENCIES[key]
 
 
 def evidence(family: str, selected, hashes: Digests, parents=None, scope=None) -> dict:
     inputs = [{"path": os.path.relpath(path, ROOT), "sha256": hashes.file(path)} for path in input_files(family, selected)]
     return generation(inputs, [], {"producer": family, "config": selected.manifest["producers"][family],
                                    "published_parents": parents or {}, "scope": scope,
-                                   "owner_dependencies": owner_dependencies(family)}, complete=True)
+                                   "owner_dependencies": owner_dependencies(family, scope.get("cues") if family == "music" and scope else None)}, complete=True)
 
 
 def current(key: str, family: str, selected, store: Store, hashes: Digests, selection=None) -> bool:
@@ -145,6 +151,65 @@ def current(key: str, family: str, selected, store: Store, hashes: Digests, sele
     parents = {unit: selection["bundles"].get(unit) for unit in previous["parameters"].get("published_parents", {})}
     expected = evidence(family, selected, hashes, parents, previous["parameters"].get("scope"))
     return previous["key"] == expected["key"] and not store.integrity(key, hashes=hashes)
+
+
+def selected_music_cues(arguments: list[str]) -> list[str]:
+    import regen_music_registry as registry
+    requested = []
+    for index, argument in enumerate(arguments):
+        if argument == "--cue":
+            if index + 1 == len(arguments):
+                raise ValueError("--cue needs a comma-separated cue list")
+            requested.extend(arguments[index + 1].split(","))
+        elif argument.startswith("--cue="):
+            requested.extend(argument.split("=", 1)[1].split(","))
+    available = registry.generation_cues()
+    if not requested:
+        return available
+    unknown = set(requested) - set(available)
+    if unknown:
+        raise ValueError("Unknown library music cues: " + ", ".join(sorted(unknown)))
+    return sorted(set(requested))
+
+
+def music_units(cues: list[str]) -> list[str]:
+    units = ["producer:music:cue:" + cue for cue in cues]
+    if cues == selected_music_cues([]):
+        units.append("producer:music:registry")
+    return units
+
+
+def accept_music(selected, store: Store, files: dict, records: dict, before: dict, hashes: Digests) -> dict:
+    cues = before["parameters"]["scope"]["cues"]
+    registry = selected.manifest["producers"]["music"]["registry"]
+    groups = {cue: {} for cue in cues}
+    registry_files = {}
+    for name, item in files.items():
+        logical = name.removeprefix("review/music/")
+        if logical == registry:
+            registry_files[name] = item
+            continue
+        parts = Path(logical).parts
+        if parts[:3] != ("audio", "music", "generated") or len(parts) < 5 or parts[3] not in groups:
+            raise ValueError(f"Music wrote outside its selected cues: {logical}")
+        groups[parts[3]][name] = item
+    if registry not in registry_files:
+        raise ValueError("Music made no registry")
+    for logical, path in records.items():
+        registry_files["review/provenance/" + logical] = (path, "review", "full")
+    result = {}
+    for cue, members in groups.items():
+        prefix = "audio/music/generated/" + cue
+        if prefix + "/full.ogg" not in members:
+            raise ValueError(f"Music made no full mix for {cue}")
+        scoped = evidence("music", selected, hashes, scope={"cues": [cue]})
+        unit = "producer:music:cue:" + cue
+        result[unit] = store.accept(unit, members, {"owner": OWNER, "producer": "music", "generation": scoped}, roots=[prefix])
+    if cues == selected_music_cues([]):
+        scoped = evidence("music", selected, hashes, scope={"cues": []})
+        result["producer:music:registry"] = store.accept("producer:music:registry", registry_files,
+            {"owner": OWNER, "producer": "music", "generation": scoped}, roots=[registry])
+    return result
 
 
 def runtime_member(family: str, path: Path, config: dict) -> bool:
@@ -180,7 +245,7 @@ def accept_outputs(family: str, selected, store: Store, staging: Path, before: d
     validate_owner_products(family, params["owner_dependencies"])
     _INPUTS.clear()
     _DEPENDENCIES.clear()
-    if evidence(family, selected, Digests(), params["published_parents"])["key"] != before["key"]:
+    if evidence(family, selected, Digests(), params["published_parents"], params.get("scope"))["key"] != before["key"]:
         raise ValueError("Authored producer inputs changed during generation. The accepted selection was kept.")
     config = selected.manifest["producers"][family]
     owned_roots = [relative(root) for root in config["roots"]]
@@ -213,6 +278,8 @@ def accept_outputs(family: str, selected, store: Store, staging: Path, before: d
             unit = f"producer:variants:{role}:{logical}"
             scoped = evidence(family, selected, hashes, params["published_parents"], {"role": role, "logical": logical})
             replacements[unit] = store.accept(unit, members, {"owner": OWNER, "producer": family, "generation": scoped}, roots=owned_roots)
+    elif family == "music":
+        replacements = accept_music(selected, store, files, records, before, hashes)
     else:
         if not any(role == "runtime" for _, role, _ in files.values()):
             raise ValueError(f"Producer {family} made no runtime products")
@@ -226,6 +293,8 @@ def accept_outputs(family: str, selected, store: Store, staging: Path, before: d
         partial = any(arg in {"--target", "--tier"} or arg.startswith(("--target=", "--tier=")) for arg in arguments)
         if not partial:
             bundles = {unit: key for unit, key in bundles.items() if not unit.startswith("producer:variants:")}
+    if family == "music":
+        bundles.pop("producer:music", None)
     bundles.update(replacements)
     configured = selected.manifest["producers"]
     bundles = {unit: key for unit, key in bundles.items() if not unit.startswith("producer:") or unit.split(":")[1] in configured}
@@ -257,16 +326,19 @@ def run(family: str, arguments: list[str]) -> int:
             if status:
                 return status
     unit = "producer:" + family
-    old = store.selected()["bundles"].get(unit)
+    selection = store.selected()
+    scope = {"cues": selected_music_cues(arguments)} if family == "music" else None
     force = any(arg in {"--force", "--clean"} for arg in arguments)
-    if family in {"fonts", "backgrounds", "music", "sfx"} and not force and old and current(old, family, selected, store, hashes):
+    units = music_units(scope["cues"]) if family == "music" else [unit]
+    if family in {"fonts", "backgrounds", "music", "sfx"} and not force and all(
+            selection["bundles"].get(name) and current(selection["bundles"][name], family, selected, store, hashes) for name in units):
         print(f"{family}: accepted products are current")
         hashes.save()
         return 0
     parents = {}
     if family == "variants":
         parents["producer:backgrounds"] = store.selected()["bundles"]["producer:backgrounds"]
-    before = evidence(family, selected, hashes, parents)
+    before = evidence(family, selected, hashes, parents, scope)
     with tempfile.TemporaryDirectory(prefix=f"ambition-{family}-") as temporary:
         staging = Path(temporary)
         env = dict(os.environ, AMBITION_PRODUCER_WORKER=family,
@@ -288,7 +360,7 @@ def run(family: str, arguments: list[str]) -> int:
     return 0
 
 
-def check(family: str) -> int:
+def check(family: str, arguments=None) -> int:
     selected = library()
     if family == "sprites":
         return subprocess.call([str(ROOT / "scripts/regen/sprites.sh"), "--check"], cwd=ROOT)
@@ -300,8 +372,11 @@ def check(family: str) -> int:
     selection = store.selected()
     keys = {unit: key for unit, key in selection["bundles"].items()
             if unit == "producer:" + family or unit.startswith("producer:" + family + ":")}
-    failures = [unit for unit, key in keys.items() if not current(key, family, selected, store, hashes, selection)]
-    if not keys:
+    expected = set(music_units(selected_music_cues(arguments or []))) if family == "music" else set(keys)
+    failures = [unit for unit, key in keys.items() if unit in expected and not current(key, family, selected, store, hashes, selection)]
+    if family == "music":
+        failures += sorted(expected - keys.keys())
+    elif not keys:
         failures.append("missing producer publication")
     if family == "variants":
         expected = {f"producer:variants:{role}:{logical.replace('backgrounds/parallax_layers/', 'backgrounds/parallax_layers_' + suffix + '/', 1)}"
@@ -334,7 +409,7 @@ def main() -> int:
     family = arguments[1] if checking else arguments[0]
     in_owner(family, arguments)
     try:
-        return check(family) if checking else run(family, arguments[1:])
+        return check(family, arguments[2:]) if checking else run(family, arguments[1:])
     except (ValueError, OSError, KeyError) as error:
         print(f"{family}: {error}", file=sys.stderr)
         return 1

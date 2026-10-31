@@ -1,10 +1,10 @@
 //! The smash demo's binary.
 
 /// What a sim-only run steps when nobody says otherwise.
-#[cfg(not(feature = "visible"))]
+#[cfg(not(feature = "desktop"))]
 const DEFAULT_TICKS: u32 = 600;
 
-#[cfg(not(feature = "visible"))]
+#[cfg(not(feature = "desktop"))]
 fn main() {
     // Headless: step a bounded number of ticks, so a CI run ends, and report
     // what happened. The tick count comes from the shared launcher parser.
@@ -20,7 +20,7 @@ fn main() {
 ///
 /// Not `build_demo_app`: its foundation is `MinimalPlugins`, so it has no
 /// renderer or window whatever features are on.
-#[cfg(feature = "visible")]
+#[cfg(feature = "desktop")]
 fn main() {
     ambition_demo_smash_app::build_windowed_demo_app(ambition_platformer2d::app::Display::Window)
         .run();

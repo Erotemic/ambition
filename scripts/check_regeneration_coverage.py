@@ -87,7 +87,7 @@ def check_sprites(read_product: ProductReader, sources, plans_only: bool) -> lis
     return failures
 
 
-def check_music(read_product: ProductReader, plans_only: bool) -> list[str]:
+def check_music(read_product: ProductReader, plans_only: bool, selected_cues: str | None = None) -> list[str]:
     import regen_music_registry as music_registry
     cues = music_registry.generation_cues()
     if not cues:
@@ -104,7 +104,10 @@ def check_music(read_product: ProductReader, plans_only: bool) -> list[str]:
     aliases = {entry[0] for entry in music_registry.SPECIAL_ENTRIES}
     for track in sorted(registered - set(cues) - aliases):
         failures.append(f"music: registered track {track} has no regeneration cue")
-    for cue in cues:
+    wanted = set(selected_cues.split(",")) if selected_cues else set(cues)
+    if wanted - set(cues):
+        raise ValueError(f"Unknown music cues: {sorted(wanted - set(cues))}")
+    for cue in sorted(wanted):
         if cue not in music_registry.CLAIMED_DIRS and not music_registry.is_denied(cue) and cue not in registered:
             failures.append(f"music: {cue} has a score but no registry entry; run scripts/regen/music.sh")
         if not plans_only and read_product(f"audio/music/generated/{cue}/full.ogg") is None:
@@ -112,7 +115,7 @@ def check_music(read_product: ProductReader, plans_only: bool) -> list[str]:
     for track, _, asset in music_registry.SPECIAL_ENTRIES:
         if track not in registered:
             failures.append(f"music: missing registry entry {track}")
-        if not plans_only and read_product(asset) is None:
+        if not plans_only and (selected_cues is None or Path(asset).parts[3] in wanted) and read_product(asset) is None:
             failures.append(f"music: missing {asset}; run scripts/regen/music.sh")
     print(f"music: {len(cues)} planned cues, {len(registered)} registered tracks")
     return failures
@@ -188,6 +191,7 @@ print(json.dumps(paths))
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--family", action="append", choices=("sprites", "music", "sfx", "backgrounds"))
+    parser.add_argument("--cue", help="check only these comma-separated music cues")
     parser.add_argument("--plans-only", action="store_true", help="check coverage without requiring generated files")
     parser.add_argument("--asset-root", type=Path, default=None)
     args = parser.parse_args()
@@ -211,7 +215,7 @@ def main() -> int:
             elif family == "backgrounds":
                 failures.extend(check_backgrounds(read_product, sources, args.plans_only))
             elif family == "music":
-                failures.extend(check_music(read_product, args.plans_only))
+                failures.extend(check_music(read_product, args.plans_only, args.cue))
             else:
                 failures.extend(check_sfx(read_product, args.plans_only))
         except (OSError, ValueError, struct.error, subprocess.CalledProcessError) as error:

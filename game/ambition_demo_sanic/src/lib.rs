@@ -360,7 +360,7 @@ pub mod text;
 pub mod trail;
 pub use provider::{
     SANIC_EXPERIENCE, SANIC_GAMEPLAY_ROUTE, SANIC_LAUNCHER_ROUTE, SanicExperiencePlugin,
-    SanicSessionWorld, sanic_session_world,
+    SanicSessionWorld, sanic_session_world, sanic_starting_room_metadata,
 };
 
 /// Register Sanic's authored definitions in one Bevy `App`: the character

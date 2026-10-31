@@ -115,7 +115,6 @@ visible = [
     "bevy/ui_bevy_render",
     "bevy/scene",
     "bevy/png",
-    "frame_pacing",
     "bevy_ui_menu",
     "kaleidoscope_menu",
 ]
@@ -245,9 +244,6 @@ bevy_ui_menu = ["bevy/ui_picking"]
 # installing the cube camera/Lunex renderer.
 kaleidoscope_menu = []
 
-# Frame pacing (battery saver). Visible-only — the limiter lives in the render app.
-frame_pacing = ["dep:bevy_framepace"]
-
 # Bevy/Tracy per-system profiling. Off by default because it pulls
 # `tracing-tracy` and instruments every Bevy system, increasing binary
 # size and runtime overhead. Build with `cargo run --features profile`
@@ -351,10 +347,6 @@ bevy = { version = "0.19.1", default-features = false, features = [
     "ui_api",
 ] }
 bevy-inspector-egui = { version = "0.37", optional = true }
-# Frame pacing / limiter — caps the frame rate to the display refresh (Limiter::Auto)
-# so the GPU/CPU idle between frames instead of rendering as fast as possible. Big
-# battery win on mobile; gated by `frame_pacing` (needs the render app, so visible-only).
-bevy_framepace = { version = "0.22", default-features = false, optional = true }
 # Browser support deps. Pulled in only by the `web_platform` feature; the actual
 # `#[wasm_bindgen(start)]` entry point lives in `ambition_app`.
 console_error_panic_hook = { version = "0.1", optional = true }

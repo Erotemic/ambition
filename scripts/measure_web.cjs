@@ -37,6 +37,7 @@ async function main() {
   session.on('Network.responseReceived', ({ requestId, response }) => requests.set(requestId, {
     visit, url: response.url, status: response.status, mime_type: response.mimeType,
     cached: response.fromDiskCache || false,
+    content_encoding: response.headers["Content-Encoding"] || response.headers["content-encoding"] || null,
   }));
   session.on('Network.loadingFinished', ({ requestId, encodedDataLength }) => {
     if (requests.has(requestId)) requests.get(requestId).transfer_bytes = encodedDataLength;

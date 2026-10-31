@@ -18,12 +18,6 @@ basic_presentation = [
     "bevy/ui_api",
     "bevy/bevy_asset",
     "bevy/bevy_image",
-    # `ui_api` -> `default_app` -> `bevy_winit`, and winit does not compile at
-    # all without a display backend. This only matters for an ISOLATED build of
-    # this crate (a real app selects its own platform feature) — but "isolated
-    # build" is exactly what `cargo test -p ambition_game_shell` is. Same
-    # declaration `ambition_dialog` and `ambition_audio` already carry.
-    "bevy/x11",
 ]
 
 [dependencies]

@@ -8,10 +8,19 @@ by Git. The library keeps shared SFX definitions and music naming policy in
 
 ```bash
 ./scripts/regen/music.sh
+./scripts/regen/music.sh --cue support_theme,embedded_theme
 ./scripts/regen/sfx.sh
 python3 scripts/generate_library_content.py --check music
+python3 scripts/generate_library_content.py --check music --cue support_theme,embedded_theme
 python3 scripts/generate_library_content.py --check sfx
 ```
+
+Music has one accepted bundle per cue. A full run also publishes the library
+registry. A scoped run replaces only the selected cue assets and keeps any
+accepted registry. Games can declare their own tracks. A full check still
+requires every declared cue and the library registry.
+A scoped check covers only its named cues. The registry records authored track
+identities; it does not prove that every track has published audio.
 
 These scripts are part of developer setup. A missing tool or stale product makes
 setup fail. Publishing with `--skip-render` requires current renderer dependency
@@ -66,12 +75,10 @@ See [`../recipes/generated-music-workflow.md`](../recipes/generated-music-workfl
 
 ### Which instruments a render actually used
 
-The render cache is keyed by `(score YAML, backend)` and deliberately NOT by the
-installed sample libraries — that is a multi-gigabyte tree, expensive to hash and
-unstable to key on. The consequence is that **installing instruments cannot
-invalidate a render**: a cue rendered before a library existed keeps its
-General-MIDI audio, and `--force_render` re-renders everything rather than the
-cues that would actually change.
+The renderer fingerprints the score, renderer sources, and the instrument
+resources that the cue uses. A change to a used sample invalidates that render.
+A change to an unused library does not. The producer checks this fingerprint
+before it accepts a cue. Use `cue fingerprint <cue> --json` to inspect the inputs.
 
 So every render records what it resolved, in
 `generated/<cue>/.versioned/<hash>/reports/instrument_fingerprint.json`, and this

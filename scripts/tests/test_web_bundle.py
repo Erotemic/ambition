@@ -58,3 +58,46 @@ def test_browser_receives_wasm_with_the_correct_mime_type_and_encoding(tmp_path)
         finally:
             server.shutdown()
             thread.join()
+
+
+def test_brotli_delivery_and_a_rebuild_without_brotli(tmp_path):
+    import shutil
+    import subprocess
+    import pytest
+    if shutil.which("brotli") is None:
+        pytest.skip("Brotli is an optional build tool")
+    code = tmp_path / "pkg"
+    code.mkdir()
+    wasm = b"\0asm\x01\0\0\0" + b"payload" * 100
+    (code / "game.wasm").write_bytes(wasm)
+    audio = tmp_path / "assets/audio"
+    audio.mkdir(parents=True)
+    (audio / "sfx.bank").write_bytes(b"sound" * 100)
+    report = web.prepare(tmp_path, code, brotli=True)
+    assert report["code_brotli_bytes"] > 0
+    with ThreadingHTTPServer(("127.0.0.1", 0), partial(web.Handler, directory=str(tmp_path))) as server:
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            for name, expected, mime in (("pkg/game.wasm", wasm, "application/wasm"),
+                                         ("assets/audio/sfx.bank", b"sound" * 100, None)):
+                request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/{name}",
+                                                 headers={"Accept-Encoding": "br, gzip"})
+                with urllib.request.urlopen(request) as response:
+                    assert response.headers["Content-Encoding"] == "br"
+                    if mime:
+                        assert response.headers["Content-Type"] == mime
+                    assert subprocess.run(["brotli", "--decompress", "--stdout"], input=response.read(),
+                                          capture_output=True, check=True).stdout == expected
+            changed = wasm + b"new code"
+            (code / "game.wasm").write_bytes(changed)
+            web.prepare(tmp_path, code)
+            request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/pkg/game.wasm",
+                                             headers={"Accept-Encoding": "br, gzip"})
+            with urllib.request.urlopen(request) as response:
+                assert response.headers["Content-Encoding"] == "gzip"
+                assert gzip.decompress(response.read()) == changed
+            assert not (tmp_path / ".encoded/assets/audio/sfx.bank.br").exists()
+        finally:
+            server.shutdown()
+            thread.join()

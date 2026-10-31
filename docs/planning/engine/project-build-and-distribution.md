@@ -105,6 +105,16 @@ Rules from that cell:
   `run_if(resource_exists::<..>)` (see
   [`headless-verification.md`](headless-verification.md)).
 
+Standalone native demo binaries use the `desktop` feature. It combines
+rendering with the host's native platform support. `./run_game.sh mary-o`
+(and `sanic`, `smash`, or `twintrack`) selects it; `--headless` does not.
+The host owns frame pacing and applies the Video frame cap for rendered native
+windows. The actor kernel and flagship app have no separate implementation.
+The `visible` feature still supports render libraries, offscreen capture and
+browser composition. Browser hosts select `web_platform` with it.
+Offscreen and no-GPU hosts use one windowless plugin setup. It removes the
+window runner only when a platform feature selected that runner.
+
 ### B4 — generated-content/bootstrap contract
 
 A clean checkout has an explicit path to produce every required generated

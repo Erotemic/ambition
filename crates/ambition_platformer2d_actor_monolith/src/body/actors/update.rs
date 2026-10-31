@@ -2853,3 +2853,7 @@ mod body_combat_rebuild_contract {
         } = combat;
     }
 }
+
+#[cfg(test)]
+#[path = "beat_cues_tests.rs"]
+mod beat_cues_tests;

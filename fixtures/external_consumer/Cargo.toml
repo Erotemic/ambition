@@ -41,6 +41,7 @@ bench = false
 [features]
 default = []
 visible = [
+    "ambition_platformer2d/desktop_platform",
     "ambition_platformer2d/visible",
     "ambition_platformer2d/basic_shell_presentation",
     "ambition_platformer2d/input",

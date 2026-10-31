@@ -136,23 +136,13 @@ pub fn build_windowed_demo_app_with_home(render: RenderMode, home_route: &str) -
     // The provider installs Sanic's content definitions before the shared asset
     // catalog is assembled below.
     compose_sanic_shell(&mut app, home_route);
-    // Sanic owns procedural/self-contained rooms and ships no `.ldtk` file, so
-    // no world manifest: a world-less catalog contributes no world rows and
-    // every other entry still lands.
+    // Sanic loads its own LDtk rooms. It does not need the host's world catalog.
     app.add_plugins(
         ambition_platformer2d::game_assets::PlatformerAssetsPlugin::for_experience(
             ambition_demo_sanic::SANIC_EXPERIENCE,
         )
-        // Startup binding precedes activation, so the theme (and the skybridge
-        // parallax stack) comes from the authored world rather than a session
-        // root that does not exist yet.
-        .with_room(
-            ambition_demo_sanic::sanic_session_world()
-                .room_set
-                .activation_spec()
-                .metadata
-                .clone(),
-        ),
+        // Bind the authored starting theme before session activation.
+        .with_room(ambition_demo_sanic::sanic_starting_room_metadata()),
     );
 
     // OV1, closed: a camera, the room's static visuals, and the sprite/animation

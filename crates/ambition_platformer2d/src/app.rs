@@ -1779,10 +1779,7 @@ pub fn install_windowed_foundation(app: &mut App, title: &str, display: Display)
         // below: without them the graph produces no picture, and a capture that
         // reads back an empty texture reports success on a transparent PNG.
         Display::Offscreen => {
-            let plugins = plugins.disable::<bevy::winit::WinitPlugin>();
-            #[cfg(not(target_arch = "wasm32"))]
-            let plugins = plugins.disable::<bevy::app::TerminalCtrlCHandlerPlugin>();
-            app.add_plugins(plugins)
+            app.add_plugins(windowless_plugins(plugins))
         }
         // Rule 3. A `backends: None` renderer has no RenderApp, and
         // process-global logging / Ctrl+C handlers belong to an executable
@@ -1800,13 +1797,7 @@ pub fn install_windowed_foundation(app: &mut App, title: &str, display: Display)
                         ..Default::default()
                     })),
                     ..Default::default()
-                })
-                .disable::<bevy::winit::WinitPlugin>();
-            //  desktop only: there is no terminal, and no such plugin, on the web.
-            // `disable` on a plugin that does not exist for the target is a COMPILE
-            // error, not a no-op, so the cfg has to move the call and not the type.
-            #[cfg(not(target_arch = "wasm32"))]
-            let plugins = plugins.disable::<bevy::app::TerminalCtrlCHandlerPlugin>();
+                });
             // With no backend, Bevy registers the render-sync remove hooks
             // (`CameraPlugin`) and not the resource they write
             // (`PendingSyncEntity`, which `ExtractPlugin` owns), so the despawn
@@ -1814,7 +1805,7 @@ pub fn install_windowed_foundation(app: &mut App, title: &str, display: Display)
             // drains it here, so it holds one record for each such despawn
             // (the same fix, with its measurement, is in `ambition_app`'s
             // no-window arm, Q114).
-            app.add_plugins(plugins).add_plugins(bevy::render::sync_world::SyncWorldPlugin)
+            app.add_plugins(windowless_plugins(plugins)).add_plugins(bevy::render::sync_world::SyncWorldPlugin)
         }
     };
 
@@ -1822,6 +1813,16 @@ pub fn install_windowed_foundation(app: &mut App, title: &str, display: Display)
     // run conditions read the state.
     crate::engine::init_engine_states(app);
     crate::runtime::serialize_main_schedules(app);
+}
+
+/// Windowless hosts are stepped by their caller, with no process signal handler.
+#[cfg(feature = "ambition_render")]
+fn windowless_plugins(plugins: bevy::app::PluginGroupBuilder) -> bevy::app::PluginGroupBuilder {
+    #[cfg(any(feature = "desktop_platform", feature = "android_platform", feature = "web_platform"))]
+    let plugins = plugins.disable::<bevy::winit::WinitPlugin>();
+    #[cfg(not(target_arch = "wasm32"))]
+    let plugins = plugins.disable::<bevy::app::TerminalCtrlCHandlerPlugin>();
+    plugins
 }
 
 /// Declaration-time refusals that no consumer crate can reach.

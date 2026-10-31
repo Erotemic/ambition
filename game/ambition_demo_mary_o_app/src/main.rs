@@ -12,7 +12,7 @@ use ambition_demo_mary_o::{MaryOLevelState, MARY_O_MODE};
 const DEFAULT_TICKS: u32 = 300;
 
 fn main() {
-    #[cfg(feature = "visible")]
+    #[cfg(feature = "desktop")]
     if ambition_platformer2d::demo_shell::wants_a_window() {
         // The drawn demo. One plugin more than the sim-only shell below.
         let mut app = ambition_demo_mary_o_app::build_windowed_demo_app(
@@ -109,5 +109,5 @@ fn report(app: &mut App, requested: u32) {
     }
     println!();
     println!("  Nothing was drawn — this is the sim-only shell. Build with");
-    println!("  `--features visible` and pass `--window` to draw level 1-1.");
+    println!("  `--features desktop` and pass `--window` to draw level 1-1.");
 }

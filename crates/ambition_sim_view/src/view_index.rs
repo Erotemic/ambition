@@ -1173,7 +1173,7 @@ pub fn rebuild_nameplate_index(
         ),
         With<FeatureSimEntity>,
     >,
-    catalog: Option<Res<ambition_characters::actor::character_catalog::CharacterCatalog>>,
+    cast: ambition_characters::session_cast::SessionCast,
 ) {
     // ⛔⛔ A PLURAL POLICY WAS PROJECTED FROM ONE SINGULAR BODY. The room rule
     // `label_driven_bodies` is documented to apply uniformly to every body
@@ -1193,10 +1193,9 @@ pub fn rebuild_nameplate_index(
 
     index.begin_rebuild();
     for (entity, feature_id, identity, aabb, _combat, health, boss_phase, driven, boss, worn) in &actors {
-        // A body that is a part of another carries no label of its own
-        // (`CharacterCatalogEntry::nameplate`).
-        if let (Some(worn), Some(catalog)) = (worn, catalog.as_deref()) {
-            if catalog.get(worn.id()).is_some_and(|row| !row.nameplate) {
+        // Label policy belongs to the body's active character generation.
+        if let (Some(worn), Some(cast)) = (worn, cast.get()) {
+            if cast.get(worn.id()).is_some_and(|character| !character.nameplate) {
                 continue;
             }
         }
@@ -1554,5 +1553,72 @@ mod driven_nameplate_tests {
              which ONE body the camera is on rather than which bodies have a \
              participant driving them"
         );
+    }
+}
+
+#[cfg(test)]
+mod nameplate_generation_tests {
+    use super::*;
+    use ambition_characters::actor::character_catalog::{CharacterCatalog, CharacterCatalogFragment};
+    use ambition_characters::actor::WornCharacter;
+    use ambition_characters::prepared::{CharacterCatalogAppExt, PreparedCharacterRegistry};
+    use ambition_characters::session_cast::ActiveSessionCast;
+    use bevy::prelude::*;
+
+    fn prepared_label(shown: bool) -> (CharacterCatalog, PreparedCharacterRegistry) {
+        let text = format!(r#"(
+            brain_presets: {{ "idle": StandStill }},
+            action_set_presets: {{ "peaceful": (move_style: Walk) }},
+            characters: {{ "alpha": (
+                display_name: "Alpha", manifest: "alpha_spritesheet.ron",
+                tier: MainHall, body_kind: Standard, composition: None,
+                default_brain: "idle", default_action_set: "peaceful", tags: [],
+                nameplate: {shown},
+            ) }},
+        )"#);
+        let mut app = App::new();
+        app.register_character_catalog_fragment(
+            CharacterCatalogFragment::from_ron("fixture", Some("alpha"), &text).unwrap(),
+        );
+        app.finish();
+        (app.world().resource::<CharacterCatalog>().clone(),
+         app.world().resource::<PreparedCharacterRegistry>().clone())
+    }
+
+    fn has_label(app: &mut App) -> bool {
+        app.update();
+        app.world().resource::<NameplateIndex>().rows.contains_key("body")
+    }
+
+    #[test]
+    fn nameplates_change_at_cast_activation() {
+        let (_, old) = prepared_label(false);
+        let (new_catalog, new) = prepared_label(true);
+        let mut app = App::new();
+        app.init_resource::<NameplateIndex>();
+        app.init_resource::<FeatureViewIndex>();
+        app.insert_resource(ActiveSessionCast(Some(old)));
+        app.add_systems(Update, rebuild_nameplate_index);
+        app.world_mut().spawn((
+            FeatureSimEntity,
+            FeatureId("body".to_owned()),
+            ActorIdentity::new("body".to_owned(), "Alpha".to_owned()),
+            CenteredAabb::new(ae::Vec2::ZERO, ae::Vec2::new(16.0, 32.0)),
+            WornCharacter::new("alpha"),
+        ));
+        assert!(!has_label(&mut app), "the frozen cast suppresses the label without a catalog");
+        app.insert_resource(new_catalog);
+        app.insert_resource(new.clone());
+        assert!(!has_label(&mut app), "publication must not change live labels");
+        app.insert_resource(ActiveSessionCast(Some(new)));
+        assert!(has_label(&mut app));
+
+        let (catalog, hidden) = prepared_label(false);
+        app.insert_resource(catalog);
+        app.insert_resource(hidden);
+        app.insert_resource(ActiveSessionCast(None));
+        assert!(has_label(&mut app), "no cast leaves the bare body's label policy in place");
+        app.world_mut().remove_resource::<ActiveSessionCast>();
+        assert!(!has_label(&mut app), "outside a session the published cast applies");
     }
 }

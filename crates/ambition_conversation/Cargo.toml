@@ -46,11 +46,6 @@ ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 # `SimTick` — the tick a narrative input applies from.
 ambition_time = { path = "../ambition_time" }
-# `ui_api` (+ `x11`, which `ui_api`'s winit needs to compile a crate in
-# isolation) mirrors `ambition_dialog` and the monolith's base bevy dep so
-# feature unification stays headless.
-bevy = { version = "0.19.1", default-features = false, features = [
-    "ui_api",
-    "x11",
-] }
+# UI data does not select a window backend. The host selects platform support.
+bevy = { version = "0.19.1", default-features = false, features = ["ui_api"] }
 bevy_yarnspinner = { version = "0.9", optional = true }

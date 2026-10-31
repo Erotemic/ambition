@@ -270,10 +270,6 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     // the host input pipeline (`InputSet::Collect`), for every seat in every composition.
     add_audio_plugins(app);
     add_mobile_touch_plugin(app);
-    // Frame pacing / battery saver. Enabled by the normal visible personas so
-    // desktop and Android exercise the same pacing behavior by default.
-    #[cfg(feature = "frame_pacing")]
-    app.add_plugins(crate::host::framepace::FramePacePlugin);
     // V-sync: the Video setting → the primary window's present mode. Not
     // feature-gated — it is one system that does nothing without a window.
     app.add_plugins(crate::host::vsync::VsyncPlugin);

@@ -5,9 +5,8 @@
 //! and batches with the other sprites. It needs no shader, no material and no
 //! render target, so every quality tier draws it.
 //!
-//! The picture is authored art: `entities/soft_glow.png` of the sprite
-//! renderer (`targets/props/entities.py`), white light that falls off to
-//! nothing at its rim. The sprite colour gives it its hue and its strength.
+//! The renderer builds a white radial mask once. It needs no content library.
+//! The sprite colour gives the light its hue and strength.
 //!
 //! The glow is a top-level sprite that names its body (`PresentationOf`), like
 //! the hit flash. So the shared roads apply with no opt-in: a portal pane
@@ -20,6 +19,8 @@
 
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
+use bevy::asset::RenderAssetUsages;
+use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
 use ambition_platformer2d_shared_tangle::gameplay_presentation::{
     ActivePlayerGlow, ActorGlow, GlowLayer, GlowLook,
@@ -27,9 +28,6 @@ use ambition_platformer2d_shared_tangle::gameplay_presentation::{
 use ambition_platformer2d_shared_tangle::lifecycle::{
     PlayerVisual, PresentationOf, SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
-
-/// The published picture of a soft glow, under the sprite folder.
-pub const SOFT_GLOW_PICTURE: &str = "sprites/entities/soft_glow.png";
 
 /// How far behind its body a [`GlowLayer::Behind`] glow is: less than the
 /// depth between two layers of a room, so nothing comes between them.
@@ -39,16 +37,46 @@ const BEHIND_DEPTH: f32 = 0.06;
 const OVER_BIAS: f32 = 0.5;
 const _: () = assert!(OVER_BIAS < super::BODY_DEPTH_BAND);
 
-/// The soft glow picture, loaded once. With no asset server (a headless
-/// composition) there is none, and no glow is drawn.
-#[derive(Resource, Clone, Debug, Default)]
+/// The app's glow mask. Insert this resource before startup to use another image.
+#[derive(Resource, Clone, Debug)]
 pub struct ActorGlowPicture(pub Handle<Image>);
 
-/// Startup: load the soft glow picture.
-pub fn load_actor_glow_picture(mut commands: Commands, asset_server: Option<Res<AssetServer>>) {
-    if let Some(asset_server) = asset_server {
-        commands.insert_resource(ActorGlowPicture(asset_server.load(SOFT_GLOW_PICTURE)));
+impl FromWorld for ActorGlowPicture {
+    fn from_world(world: &mut World) -> Self {
+        Self(world.resource_mut::<Assets<Image>>().add(soft_glow_image()))
     }
+}
+
+fn soft_glow_image() -> Image {
+    const SIDE: u32 = 128;
+    let center = (SIDE - 1) as f32 * 0.5;
+    let radius = center - 1.0;
+    let falloff = 3.2_f32;
+    let floor = (-falloff).exp();
+    let mut data = Vec::with_capacity((SIDE * SIDE * 4) as usize);
+    for y in 0..SIDE {
+        for x in 0..SIDE {
+            let distance_squared = ((x as f32 - center).powi(2)
+                + (y as f32 - center).powi(2)) / radius.powi(2);
+            let alpha = (((-falloff * distance_squared).exp() - floor)
+                / (1.0 - floor)).clamp(0.0, 1.0);
+            data.extend_from_slice(&[255, 255, 255, (255.0 * alpha).round() as u8]);
+        }
+    }
+    let mut image = Image::new(
+        Extent3d { width: SIDE, height: SIDE, depth_or_array_layers: 1 },
+        TextureDimension::D2,
+        data,
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::default(),
+    );
+    image.sampler = bevy::image::ImageSampler::linear();
+    image
+}
+
+/// Startup: create the app's mask unless the host supplied one.
+pub fn build_actor_glow_picture(mut commands: Commands) {
+    commands.init_resource::<ActorGlowPicture>();
 }
 
 /// On a body's visual: the route's player glow put the [`ActorGlow`] there,
@@ -232,10 +260,47 @@ mod tests {
 
     fn app() -> App {
         let mut app = App::new();
-        app.insert_resource(ActorGlowPicture(Handle::default()));
+        app.init_resource::<Assets<Image>>();
+        app.add_systems(Startup, build_actor_glow_picture);
         app.init_resource::<ActivePlayerGlow>();
         app.add_systems(Update, (grant_player_glows, sync_actor_glows).chain());
         app
+    }
+
+    #[test]
+    fn a_glowing_body_has_a_ready_mask_without_a_content_library() {
+        let mut app = app();
+        app.world_mut().spawn((body_sprite(Vec3::ZERO), ActorGlow::soft(0.5, 0.6)));
+        app.update();
+        assert!(!app.world().contains_resource::<AssetServer>());
+        let sprite = app.world_mut().query_filtered::<&Sprite, With<ActorGlowVisual>>()
+            .single(app.world()).unwrap();
+        let images = app.world().resource::<Assets<Image>>();
+        let image = images.get(&sprite.image).expect("the glow has its image at spawn");
+        let size = image.size();
+        let data = image.data.as_ref().unwrap();
+        let pixel = |x: u32, y: u32| {
+            let index = ((y * size.x + x) * 4) as usize;
+            &data[index..index + 4]
+        };
+        let center = pixel(size.x / 2, size.y / 2);
+        assert_eq!(&center[..3], &[255, 255, 255]);
+        assert!(center[3] > pixel(size.x / 4, size.y / 2)[3]);
+        for edge in [pixel(0, 0), pixel(size.x / 2, 0), pixel(size.x - 1, size.y / 2)] {
+            assert_eq!(edge[3], 0, "the mask has no visible rim");
+        }
+        app.update();
+        assert_eq!(app.world().resource::<Assets<Image>>().len(), 1);
+    }
+
+    #[test]
+    fn a_host_supplied_mask_is_kept_at_startup() {
+        let mut app = app();
+        let custom = app.world_mut().resource_mut::<Assets<Image>>().add(Image::default());
+        app.insert_resource(ActorGlowPicture(custom.clone()));
+        app.update();
+        assert_eq!(app.world().resource::<ActorGlowPicture>().0, custom);
+        assert_eq!(app.world().resource::<Assets<Image>>().len(), 1);
     }
 
     /// A feet-anchored body sprite, 40 by 60, with its feet at `at`.

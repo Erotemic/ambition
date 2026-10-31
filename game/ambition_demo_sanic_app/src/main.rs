@@ -25,7 +25,7 @@ fn main() {
             std::process::exit(2);
         }
     }
-    #[cfg(feature = "visible")]
+    #[cfg(feature = "desktop")]
     if ambition_platformer2d::demo_shell::wants_a_window() {
         // The drawn demo. One plugin more than the sim-only shell below.
         ambition_demo_sanic_app::build_windowed_demo_app(
@@ -86,5 +86,5 @@ fn report(app: &mut App, requested: u32) {
     }
     println!();
     println!("  Nothing was drawn — this is the sim-only shell. Build with");
-    println!("  `--features visible` and pass `--window` to draw the speedway.");
+    println!("  `--features desktop` and pass `--window` to draw the speedway.");
 }

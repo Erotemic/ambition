@@ -371,3 +371,151 @@ fn every_reaction_pose_is_drawn_by_human_and_cpu_seats() {
     let drawn = drawn_over(&mut app, cpu, 6, "cpu hit low");
     assert!(drawn.iter().any(|r| bare(r) == "hit_low"), "the CPU's low hit drew {drawn:?}");
 }
+
+/// INSTRUMENT: how a fighter's drawn motion snaps on a display faster than
+/// the sim: the shipped presented pose, and from the same tick history the
+/// pose extrapolated a tick ahead and interpolated a tick behind. Two CPU Pointed Polygons fight for 20 s at
+/// 144 Hz; per frame, the change of each body's drawn step is the jerk.
+#[test]
+#[ignore = "instrument: prints the measurement"]
+fn drawn_motion_jerk_extrapolated_and_interpolated() {
+    let mut app = ambition_app::app::build_visible_app_with(
+        ambition_app::app::VisibleRenderMode::NoWindow,
+        true,
+        |_| {},
+    );
+    app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(1.0 / 144.0)));
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster_at_levels([FIGHTER, FIGHTER], &[5, 5]));
+    app.world_mut().write_message(ShellCommand::GoTo(ShellRouteId::new(
+        ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+    )));
+    for _ in 0..1500 {
+        app.update();
+    }
+    let mut last: std::collections::HashMap<Entity, [(ae::Vec2, ae::Vec2); 3]> = Default::default();
+    let mut jerks: [Vec<f32>; 3] = [Vec::new(), Vec::new(), Vec::new()];
+    for _ in 0..(144 * 20) {
+        app.update();
+        let phase = app.world().resource::<ambition_platformer2d::sim_view::PresentationPhase>().get();
+        let world = app.world_mut();
+        let mut bodies = world.query_filtered::<(Entity, &ambition_platformer2d::sim_view::PresentedPose), With<MatchSeat>>();
+        let now: Vec<(Entity, [ae::Vec2; 3])> = bodies
+            .iter(world)
+            .map(|(body, pose)| {
+                let extrapolated = pose.authoritative() + pose.tick_delta() * phase;
+                let interpolated = pose.authoritative() - pose.tick_delta() * (1.0 - phase);
+                (body, [pose.presented(), extrapolated, interpolated])
+            })
+            .collect();
+        for (body, drawn) in now {
+            let previous = last.get(&body).copied();
+            let mut next = drawn.map(|at| (at, ae::Vec2::ZERO));
+            for way in 0..3 {
+                if let Some(before) = previous {
+                    let step = drawn[way] - before[way].0;
+                    // A respawn is a jump, not motion.
+                    if step.length() < 200.0 {
+                        jerks[way].push((step - before[way].1).length());
+                    }
+                    next[way] = (drawn[way], step);
+                }
+            }
+            last.insert(body, next);
+        }
+    }
+    for (way, name) in [(0, "shipped"), (1, "extrapolated"), (2, "interpolated")] {
+        let mut sorted = jerks[way].clone();
+        sorted.sort_by(f32::total_cmp);
+        let at = |q: f32| sorted[((sorted.len() - 1) as f32 * q) as usize];
+        let spikes = sorted.iter().filter(|j| **j > 4.0).count();
+        eprintln!(
+            "[jerk] {name}: frames {} p50 {:.2} p95 {:.2} p99 {:.2} max {:.1} px; frames over 4 px: {spikes}",
+            sorted.len(),
+            at(0.5),
+            at(0.95),
+            at(0.99),
+            at(1.0)
+        );
+    }
+}
+
+/// Every SFX message of a frame, by its variant name, for the grab-cascade
+/// instrument below.
+#[derive(Resource, Default)]
+struct HeardThisFrame(Vec<String>);
+
+fn hear(
+    mut messages: bevy::ecs::message::MessageReader<ambition_platformer2d::sfx::OwnedSfxMessage>,
+    mut heard: ResMut<HeardThisFrame>,
+) {
+    for message in messages.read() {
+        let name = format!("{:?}", message.request);
+        heard.0.push(name.split([' ', '{', '(']).next().unwrap_or("?").to_string());
+    }
+}
+
+/// INSTRUMENT: the sounds a grab makes. Two CPU fighters fight for 60 s; each
+/// frame's SFX are tallied apart for frames in which somebody is held and
+/// frames in which nobody is. A grab that sounds a landing every tick shows as
+/// `Land` per held frame near one.
+#[test]
+#[ignore = "instrument: prints the measurement"]
+fn the_sounds_of_a_grab() {
+    let mut app = ambition_app::app::build_visible_app_with(
+        ambition_app::app::VisibleRenderMode::NoWindow,
+        true,
+        |_| {},
+    );
+    app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(1.0 / 60.0)));
+    app.init_resource::<HeardThisFrame>();
+    app.add_systems(Last, hear);
+    for _ in 0..30 {
+        app.update();
+    }
+    let fighter = std::env::var("GRAB_FIGHTER").unwrap_or_else(|_| FIGHTER.to_string());
+    app.world_mut().insert_resource(ambition_demo_smash::smash_roster_at_levels(
+        [fighter.as_str(), fighter.as_str()],
+        &[9, 9],
+    ));
+    app.world_mut().write_message(ShellCommand::GoTo(ShellRouteId::new(
+        ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+    )));
+    for _ in 0..700 {
+        app.update();
+    }
+    let mut held_frames = 0usize;
+    let mut free_frames = 0usize;
+    let mut held: std::collections::BTreeMap<String, usize> = Default::default();
+    let mut free: std::collections::BTreeMap<String, usize> = Default::default();
+    let mut worst_hold = 0usize;
+    let mut run = 0usize;
+    for _ in 0..(60 * 60) {
+        app.world_mut().resource_mut::<HeardThisFrame>().0.clear();
+        app.update();
+        let world = app.world_mut();
+        let mut captives =
+            world.query_filtered::<(), (With<MatchSeat>, With<ambition_platformer2d::combat::capture::CapturedBy>)>();
+        let holding = captives.iter(world).count() > 0;
+        let heard = std::mem::take(&mut app.world_mut().resource_mut::<HeardThisFrame>().0);
+        let lands = heard.iter().filter(|name| name.as_str() == "Land").count();
+        if holding {
+            held_frames += 1;
+            run += lands;
+        } else {
+            worst_hold = worst_hold.max(run);
+            run = 0;
+            free_frames += 1;
+        }
+        for name in heard {
+            *(if holding { &mut held } else { &mut free }).entry(name).or_default() += 1;
+        }
+    }
+    worst_hold = worst_hold.max(run);
+    eprintln!("[grab] {fighter}: held frames {held_frames}, free frames {free_frames}, most landings in one hold {worst_hold}");
+    eprintln!("[grab] held: {held:?}");
+    eprintln!("[grab] free: {free:?}");
+}

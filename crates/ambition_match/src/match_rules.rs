@@ -84,6 +84,10 @@ pub struct AuthoredCastFraming {
     /// The bubble a member wholly off the view is shown in. Absent: none.
     #[serde(default)]
     pub bubble: Option<AuthoredCastBubble>,
+    /// Draw bodies between their last two ticks rather than ahead of the last
+    /// (`CastFramingTuning::interpolate_poses`). Absent: ahead.
+    #[serde(default)]
+    pub interpolate_poses: bool,
 }
 
 /// [`CastBubble`], as a pack writes it:
@@ -158,6 +162,7 @@ impl Default for AuthoredMatchRules {
                         (r, g, b, a)
                     },
                 }),
+                interpolate_poses: framing.interpolate_poses,
             }),
         }
     }
@@ -206,6 +211,7 @@ impl AuthoredMatchRules {
                         [r, g, b, a]
                     },
                 }),
+                interpolate_poses: framing.interpolate_poses,
             }
         });
     }

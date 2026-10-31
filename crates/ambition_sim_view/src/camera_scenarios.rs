@@ -40,6 +40,7 @@ pub(crate) fn smash_framing() -> CastFramingTuning {
         zoom_in_hz: 2.5,
         bounds: Some(CastCameraBounds { side: 280.0, rise: 170.0, fall: 100.0 }),
         bubble: None,
+        interpolate_poses: true,
     }
 }
 

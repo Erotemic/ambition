@@ -54,6 +54,11 @@ audio and the shared touch controls. The page uses WebGL2.
 reader. Mary-O's `web` feature selects `served_content`. Both modes use the same
 content identities and simulation.
 
+Build scripts compile sprite-part metadata from the shared schema. The browser
+does not parse that RON at startup. The shared first-room loading job waits for
+the initial images and music before session activation. The page shows download
+progress before the engine starts; the engine then shows its loading screen.
+
 Mary-O's LDtk source and editor sidecars are under `authoring/worlds`.
 The provider compiles the same source for each host. These authoring inputs
 do not belong in the served asset tree.
@@ -100,8 +105,9 @@ NODE_PATH=/tmp/ambition-web-tools/node_modules node scripts/measure_web.cjs http
 
 The capture uses a fresh temporary browser profile for both visits. It records
 a fresh visit, a cached visit, HTTP traffic, WASM memory,
-console output, and screenshots before and after keyboard input. Canvas startup
-is a host milestone. Inspect the screenshots to confirm gameplay. Set
+console output, long tasks, and screenshots before and after keyboard input.
+It records canvas startup and first-room reveal as separate milestones. The
+capture waits for the reveal. Inspect the screenshots to confirm gameplay. Set
 `AMBITION_SOFTWARE_GPU=1` to use SwiftShader in a headless environment; its frame
 rate is not a hardware performance measurement.
 

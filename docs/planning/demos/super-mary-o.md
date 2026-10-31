@@ -30,11 +30,18 @@ Built: `game/ambition_demo_mary_o` (content) and `game/ambition_demo_mary_o_app`
 
 - Standalone WebGL2 prototype (`a01e4553b`):
   `./build_for_web.sh --game mary-o --copy-assets --brotli`.
-  The shared provider has keyboard, touch, music and SFX. Code is 16.68 MiB
-  with Brotli; the cold smoke visit fetched 30.12 MiB. The working budget is
-  32 MiB. The browser captures and 21 focused Python checks passed. See the
+  The shared provider has keyboard, touch, music and SFX. After `5de79ab7f`,
+  code is 15.84 MiB with Brotli; the cold visit fetched 29.22 MiB. The working
+  budget is 32 MiB. Browser captures and focused Python checks passed. See the
   [measurement](../../../dev/benchmark-candidates/mary-o-web-startup.md) and
   [web recipe](../../recipes/web-build.md#standalone-mary-o).
+- Web startup and movement audio (`5de79ab7f`): the standalone host could start
+  before its art and music were ready, and it lacked movement feedback. The
+  facade now installs the shared loading barrier and cover. All integrated
+  bodies use one feedback system. Sprite-part metadata compiles at build time;
+  the web audio cursor recovers after a stall. Headless jump and visible loading
+  tests pass. Browser probes hold a music download and check keyboard and touch
+  jump audio. Keep loading and body feedback in the engine, shared by all hosts.
 
 - World 2 (2-1 to 2-4), each level from a script of
   `game/ambition_demo_mary_o/tools/` (`author_mary_o_2_<n>_ldtk.py`): 2-1 the

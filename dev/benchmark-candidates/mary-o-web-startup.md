@@ -234,3 +234,105 @@ Publication generation: `d6a3d911f99504617c170d0120fc2e39c1e449c477cfa715e7d3dbb
 Selection SHA-256: `72dc6a5b7eb5909e277cb3afe261ae062c9528f7d47e7c5077f3430fc5fd20f3`.
 
 WASM SHA-256: `af54f65b7b4e3281e91c48a60f70f2e2e17acadca22bfee0a17633f1ea4d97a1`.
+
+## Startup readiness and movement audio
+
+The standalone host did not use the main app's first-room asset adapter. The
+session could start before its pictures arrived. The adapter now belongs to
+`ambition_platformer2d::world_flow`. `PlatformerAssetsPlugin` installs its
+loading plugin. The main app uses the same plugin. This plugin also installs
+the cover animation, which the main app previously installed on its own.
+
+The prepared session stores its entry music cue from the catalog used for
+that preparation. The first-room job waits for that cue and the room's images.
+It checks required GPU uploads when a render world is present. After activation,
+the cover waits for a simulation step and presentation settling. There is no
+new fixed delay.
+
+A browser probe held the entry music response. The session stayed inactive,
+and the loading screen continued to update. Releasing the response let the
+session activate and reveal its art. The basic loading screen now shows a short
+loading message and a spinner. It does not show internal work names or claim
+that the game is ready while required work is pending.
+
+The starting body's movement feedback also belonged to the main app. A real
+jump in the standalone headless host produced no jump message. A shared system
+now reads `BodyFrameOutput` for every integrated body. The app adapter and the
+actor loop's separate emitter are removed. The starting body and placed actors
+use the same effects and animation feedback. Camera feedback remains a view
+policy.
+
+The starting body in 1-1 begins in the air and has a real landing. Its new
+landing cue exposed a broad assertion in the placement test. That test now
+checks the placed actors' contact events. It does not suppress a valid landing
+sound from the starting body.
+
+The sprite-part schema now belongs to `ambition_sprite_part_format`, which has
+no Bevy dependency. Build scripts compile part RON into binary metadata. The
+build compiler and the live reader use the same serde types. The original
+source address stays in the library index; the compiled product is under
+`__prepared/sprite_parts/`.
+
+CPAL 0.18.2 kept an old buffer cursor after a browser main-thread stall. One
+probe found 154 of 259 buffers scheduled in the past, up to 2.20 seconds late.
+Those buffers overlapped while the cursor caught up. The patch in `vendor/cpal`
+keeps a valid future cursor and advances a late cursor ahead of the device
+clock. It changes no samples or authored volume. Remove the patch when a CPAL
+release contains this correction.
+
+Browser captures show the authored jump waveform after keyboard and touch
+input. A separate probe blocked the main thread for 650 ms after startup; audio
+resumed with no buffers scheduled in the past. These captures check browser
+audio output. They do not measure a physical speaker.
+
+The narrow verification lane passed the assembled-app compile check, 71 Smash
+tests, six Mary-O movement tests, nine visible tests, three placement tests,
+the app's loading and room fixtures, 19 room-readiness tests, 12 load-presentation
+tests, two compiled-metadata tests, 31 focused Python checks and all 53 absence
+contracts. The app compile check also passed after the merge with current main.
+
+Workspace policy passed 34 tests and failed one. Its remaining findings are
+the five existing pose and velocity assignments in `camera_scenarios.rs`.
+The broad Python run was stopped after 30 minutes with 1,460 passed, 93 failed
+and 19 skipped. Some failures used the old Git index and moved source paths;
+the focused checks passed after those paths and the index were updated. This
+lane does not prove the full Python suite, the full workspace library suite,
+other browser engines, physical audio devices or hardware GPU performance.
+
+Code: `5de79ab7f`. Merge used for the final web build: `f1d94b03a`.
+Local receipts and probe tools are under `target/mary-o-web-startup-fixes/`.
+
+The final sample used Chromium, SwiftShader and a 1024 by 576 viewport. It used
+a fresh profile for the cold visit and the same profile for the repeat visit.
+The server was local. These are individual samples, not a network or hardware
+performance promise.
+
+| Measure | Cold visit | Repeat visit |
+| --- | ---: | ---: |
+| Canvas start | 8.51 s | 5.40 s |
+| First room revealed | 11.37 s | 7.54 s |
+| Longest main-thread task | 5.44 s | 3.50 s |
+| HTTP transfer | 29.22 MiB | 14.45 KiB |
+| WASM memory | 405.38 MiB | 405.38 MiB |
+
+The final code is 128.24 MiB raw, 22.81 MiB with gzip and 15.84 MiB with Brotli.
+The earlier code was 195.86 MiB raw and 16.68 MiB with Brotli. Startup still has
+a blocking initialization step. The download screen can update while network
+requests are pending; this result does not prove smooth animation during every
+part of engine initialization.
+
+Each visit made 94 requests. One expected short-path ambiguity probe returned
+HTTP 404, followed by its qualified library request with HTTP 200. There were
+no JavaScript errors or unresolved required media. The held-music probe kept
+activation, art readiness and room reveal false until the response was released.
+Ten animation frames completed in 655 ms while that response was held.
+
+A second probe held the WASM request. The download screen stayed visible and
+its spinner moved across ten animation frames in 150 ms. The final keyboard,
+touch and forced-stall captures recorded 114, 132 and 130 audio buffers. None
+was scheduled in the past. The browser's audio context was already running;
+these captures do not prove recovery from an autoplay lock.
+
+The main checkout's portable package passed the same 10,622-file byte audit.
+Its WASM matches the tested package. Final WASM SHA-256:
+`371ef8a0e08fd87a8f39a8486dd9cc6be6ad41cdcc11fa749ef5f252ac449425`.

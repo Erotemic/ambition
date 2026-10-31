@@ -96,6 +96,7 @@ fn lower_policy(
                 cfg = cfg.engaging(ambition_characters::brain::fighter::FighterEngagement {
                     aggro_radius: policy.aggro_radius,
                     notice_s: policy.tactics.notice_s,
+                    pursuit_effort: policy.chase_effort,
                 });
             }
             let state = ambition_characters::brain::fighter::FighterState::new(

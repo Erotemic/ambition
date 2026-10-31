@@ -171,6 +171,7 @@ pub fn boss_attack_moveset(
                 autocancel_after_s: None,
                 sprite_spin_hz: None,
                 equips: None,
+                shot_damage: None,
         flow: None,
             })
         })

@@ -6,7 +6,9 @@
 // damage is health, a tilt or an aerial deals 1 and a smash attack deals 3
 // (`room_rules.ron`). The archetype's numbers are Smash percent, so `damage`
 // states this fighter's own for every move that deals damage, by its own move
-// id. The rule: a fifth of the archetype's percent, rounded, and at least 1.
+// id: each damaging volume, then each effect that states a damage (a throw, a
+// pummel, a mine), then the shot it fires. The rule: a fifth of the
+// archetype's percent, rounded, and at least 1.
 // The frames, the reach and the knockback are the archetype's.
 (
     schema_version: 1,
@@ -40,6 +42,14 @@
                         // Four link hits and the launcher.
                         "void_pointed_polygon_rising_edge": [1, 1, 1, 1, 1],
                         "void_pointed_polygon_falling_edge": [2],
+                        // The counter's answer.
+                        "void_pointed_polygon_riposte": [2],
+                        // The grab: the pummel, then each throw.
+                        "void_pointed_polygon_pummel": [1],
+                        "void_pointed_polygon_throw_forward": [1],
+                        "void_pointed_polygon_throw_back": [2],
+                        "void_pointed_polygon_throw_up": [1],
+                        "void_pointed_polygon_throw_down": [1],
                     },
                 )),
             ),

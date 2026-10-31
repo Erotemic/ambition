@@ -1309,6 +1309,7 @@ fn a_charged_release_scales_the_spawned_hitbox() {
                             autocancel_after_s: None,
                             sprite_spin_hz: None,
                             equips: None,
+                            shot_damage: None,
                             windows: [
                                 (start_s: 0.0, end_s: 0.2, tag: Startup, volumes: []),
                                 (start_s: 0.2, end_s: 0.4, tag: Active, volumes: [
@@ -1773,6 +1774,7 @@ fn a_forward_special_selects_the_directional_move() {
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        shot_damage: None,
         flow: None,
     };
     let moveset = MovesetContract {
@@ -1826,6 +1828,7 @@ fn gesture_test_move(id: &str) -> MoveSpec {
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        shot_damage: None,
         flow: None,
     }
 }
@@ -1975,6 +1978,7 @@ fn lunge_facing_left(unmirrored: bool) -> (ae::Vec2, f32) {
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        shot_damage: None,
         flow: None,
     };
     let mut verbs = std::collections::BTreeMap::new();
@@ -4712,6 +4716,7 @@ fn uncancelable(id: &str) -> MoveSpec {
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        shot_damage: None,
         flow: None,
     }
 }
@@ -5017,6 +5022,7 @@ fn charging_smash() -> MoveSpec {
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        shot_damage: None,
         flow: None,
     }
 }
@@ -5513,6 +5519,7 @@ fn defended_move() -> MoveSpec {
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        shot_damage: None,
         flow: None,
     }
 }
@@ -5812,6 +5819,7 @@ fn chain_link(
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        shot_damage: None,
         flow: None,
     }
 }
@@ -6520,6 +6528,7 @@ fn a_buffered_up_special_replays_as_an_up_special_after_the_stick_centres() {
         autocancel_after_s: None,
         sprite_spin_hz: None,
         equips: None,
+        shot_damage: None,
         flow: None,
     };
     let moveset = MovesetContract {

@@ -1372,3 +1372,53 @@ mod offer_census {
         println!("[offer] {silent} of {total} authored moves offer the attack scorer nothing");
     }
 }
+
+#[cfg(test)]
+mod void_fighter_damage {
+    /// The void fighters deal Ambition's damage, health and not percent, in
+    /// everything their kit does: every hitbox, every throw and pummel, the
+    /// mine and the bomb, and each shot, at 1 to 3 (a tilt's 1 to a smash
+    /// attack's 3). The polygons they borrow keep their percent.
+    #[test]
+    fn every_damage_a_void_fighter_deals_is_ambitions_health() {
+        use ambition_characters::move_damage::{damage_slots, damage_values};
+        for (void, polygon) in [
+            ("void_pointed_polygon", "pointed_polygon"),
+            ("void_pugnacious_polygon", "pugnacious_polygon"),
+            ("void_projectile_polygon", "projectile_polygon"),
+        ] {
+            let table = super::shipped(void);
+            let mut dealt = Vec::new();
+            for spec in &table.moves {
+                let values = damage_values(spec);
+                assert_eq!(values.len(), damage_slots(spec), "{void}: `{}`", spec.id);
+                for value in &values {
+                    assert!(
+                        value.is_some_and(|value| (1..=3).contains(&value)),
+                        "{void}: `{}` deals {value:?} (`None`: a shot at its weapon's damage)",
+                        spec.id
+                    );
+                }
+                dealt.push((spec.id.clone(), values));
+            }
+            let named = |suffix: &str| dealt.iter().any(|(id, values)| id.ends_with(suffix) && !values.is_empty());
+            assert!(named("_throw_back") && named("_pummel"), "{void}: its throws are in its table: {dealt:?}");
+            let polygon_throw = super::shipped(polygon)
+                .moves
+                .into_iter()
+                .find(|spec| spec.id.ends_with("_throw_back"))
+                .expect("the polygon's back throw");
+            assert!(
+                damage_values(&polygon_throw).iter().all(|value| value.is_some_and(|value| value > 3)),
+                "premise: {polygon}'s throw deals Smash percent: {:?}",
+                damage_values(&polygon_throw)
+            );
+        }
+        let mine = super::shipped("void_projectile_polygon")
+            .moves
+            .into_iter()
+            .find(|spec| spec.id == "void_projectile_polygon_smash_down")
+            .expect("the stomp that leaves the mine");
+        assert_eq!(damage_slots(&mine), 2, "premise: the stomp, then its mine");
+    }
+}

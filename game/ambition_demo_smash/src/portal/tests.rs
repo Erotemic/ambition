@@ -200,6 +200,7 @@ fn aimed_exit(aim_tilt_degrees: f32, stick: Option<ae::Vec2>) -> ae::Vec2 {
             autocancel_after_s: None,
             sprite_spin_hz: None,
             equips: None,
+            shot_damage: None,
             flow: None,
         };
         app.world_mut().entity_mut(her).insert(

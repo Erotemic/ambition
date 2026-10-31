@@ -57,14 +57,19 @@ pub struct FighterCfg {
 
 /// When a fighter that is a room's enemy starts to fight (Jon, 2026-10-30:
 /// enemies "notice, space, telegraph, attack"). It stands idle until it knows
-/// a foe inside `aggro_radius`, or until it is hit. Then it stands and looks
-/// at the foe for `notice_s`, and then it fights until it loses the foe.
+/// a foe inside `aggro_radius`, or until it is hurt (a body struck knows its
+/// striker). Then it stands and looks at the foe for `notice_s` (not when it
+/// was hurt), and then it fights until it loses the foe, going to where it
+/// believes a foe it cannot see is.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FighterEngagement {
     /// The distance (px) inside which it notices a foe it knows.
     pub aggro_radius: f32,
     /// How long it stands and looks at a foe it has just noticed (s).
     pub notice_s: f32,
+    /// How hard it runs to a foe it fights and cannot see, as a fraction of
+    /// its top speed.
+    pub pursuit_effort: f32,
 }
 
 impl FighterCfg {
@@ -245,6 +250,9 @@ pub struct FighterState {
     pub noticed: bool,
     /// Seconds it still stands and looks at the foe it has just noticed.
     pub noticing: f32,
+    /// Its health fraction the last tick it was idle, so a blow that stuns
+    /// nothing still wakes it. `None` before its first idle tick.
+    pub idle_health: Option<f32>,
 }
 
 impl FighterState {
@@ -285,6 +293,7 @@ impl FighterState {
             intent: None,
             noticed: false,
             noticing: 0.0,
+            idle_health: None,
         }
     }
 }

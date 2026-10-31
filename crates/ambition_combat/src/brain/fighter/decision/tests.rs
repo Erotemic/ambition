@@ -2333,7 +2333,7 @@ fn the_buffered_press_lands_the_tick_the_stun_runs_down_not_when_the_view_says_s
 /// seat, presses at once at the same distance.
 #[test]
 fn a_fighter_with_an_engagement_notices_its_foe_before_it_fights() {
-    let engaged = |cfg: FighterCfg| cfg.engaging(FighterEngagement { aggro_radius: 200.0, notice_s: 0.25 });
+    let engaged = |cfg: FighterCfg| cfg.engaging(FighterEngagement { aggro_radius: 200.0, notice_s: 0.25, pursuit_effort: 1.0 });
     let view = scene(300.0, 340.0);
     let far = BrainSnapshot { target_pos: ae::Vec2::new(500.0, 0.0), ..armed_snapshot() };
     let near = BrainSnapshot { target_pos: ae::Vec2::new(40.0, 0.0), ..armed_snapshot() };

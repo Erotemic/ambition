@@ -4423,9 +4423,19 @@ pub fn dispatch_move_events(
                     })
                     .and(held)
                     .and_then(|item| item.spec.ranged.clone());
-                let Some(spec) = brandished_ranged.or_else(|| actions_set.ranged.clone()) else {
+                let Some(mut spec) = brandished_ranged.or_else(|| actions_set.ranged.clone()) else {
                     continue; // owner has no ranged weapon — the move fires nothing
                 };
+                // The move's table states the shot's damage in its own game
+                // (`MoveSpec::shot_damage`); the weapon's is its own game's.
+                if let Some(damage) = playbacks
+                    .get(ev.owner)
+                    .ok()
+                    .filter(|pb| pb.spec.id == ev.move_id)
+                    .and_then(|pb| pb.spec.shot_damage)
+                {
+                    spec.damage = damage;
+                }
                 // A3 trigger-resolve: fold worn equipment modifiers into THIS shot's
                 // speed/damage. No worn equipment (the common case) returns the spec
                 // unchanged — parity by construction.

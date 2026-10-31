@@ -181,3 +181,97 @@ fn the_player_can_kill_each_void_fighter() {
         assert!(dead_at.is_some(), "{character}: the player could not kill it in a minute: {:?}", fighter(&mut sim));
     }
 }
+
+fn entity_of_fighter(sim: &mut Platformer2dSimHarness) -> Entity {
+    let world = sim.world_mut();
+    let mut q = world.query::<(Entity, &FeatureId)>();
+    q.iter(world).find(|(_, id)| id.as_str() == FIGHTER).map(|(e, _)| e).expect("the fighter")
+}
+
+fn entity_of_player(sim: &mut Platformer2dSimHarness) -> Entity {
+    let world = sim.world_mut();
+    world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).expect("the player")
+}
+
+fn facing_of_fighter(sim: &mut Platformer2dSimHarness) -> f32 {
+    let world = sim.world_mut();
+    let mut q = world.query::<(&FeatureId, &ae::BodyKinematics)>();
+    q.iter(world).find(|(id, _)| id.as_str() == FIGHTER).map(|(_, kin)| kin.facing).expect("the fighter")
+}
+
+/// Struck by a foe it cannot see, from far outside its aggro radius and its
+/// sight, a void fighter turns to the foe and comes for it: a hit is a
+/// notice of its own.
+#[test]
+fn a_void_fighter_struck_by_a_foe_it_cannot_see_turns_to_it_and_comes() {
+    use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
+    let mut sim = a_void_fighter("void_pugnacious_polygon", (16.0, 34.0), 260.0);
+    let start = fighter(&mut sim).expect("the fighter");
+    // Behind it, 900 px off: out of its radius and out of its sight.
+    let behind = -facing_of_fighter(&mut sim).signum();
+    let (p, ..) = player(&mut sim);
+    place_player(&mut sim, ae::Vec2::new(start.pos.x + behind * 900.0, p.y));
+    for _ in 0..60 {
+        sim.step(AgentAction::default());
+    }
+    let before = fighter(&mut sim).expect("the fighter");
+    assert!(before.playing.is_none() && !before.noticing, "premise: it is idle: {before:?}");
+    let (shooter, target) = (entity_of_player(&mut sim), entity_of_fighter(&mut sim));
+    sim.world_mut().write_message(HitEvent {
+        pieces: Vec::new(),
+        volume: ae::Aabb::new(before.pos, ae::Vec2::splat(20.0)).into(),
+        damage: 1,
+        source: HitSource::Projectile,
+        attacker: Some(shooter),
+        room: None,
+        target: HitTarget::Body(target),
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+        strike_sfx: None,
+        attacker_move_instance: None,
+    });
+    let (mut turned, mut came) = (false, 0.0f32);
+    for _ in 0..240 {
+        sim.step(AgentAction::default());
+        let f = fighter(&mut sim).expect("the fighter");
+        turned |= facing_of_fighter(&mut sim).signum() == behind;
+        came = came.max((f.pos.x - before.pos.x) * behind);
+    }
+    let after = fighter(&mut sim).expect("the fighter");
+    assert!(after.hp < before.hp, "premise: the shot hit it: {before:?} -> {after:?}");
+    assert!(turned, "it never turned to the foe that struck it");
+    assert!(came > 80.0, "it did not come for the foe that struck it: {came} px");
+}
+
+/// In a long fight every blow a void fighter lands costs the player 1 to 3
+/// health, whatever the blow: a strike, a throw, a mine, a shot.
+#[test]
+fn every_blow_a_void_fighter_lands_costs_the_player_a_few_points() {
+    use ambition_platformer2d::combat::hitbox::ResolvedBodyHit;
+    use bevy::ecs::message::Messages;
+    for (character, half_size) in VOID_FIGHTERS {
+        let mut sim = a_void_fighter(character, half_size, 200.0);
+        let me = entity_of_player(&mut sim);
+        let mut cursor = sim.world().resource::<Messages<ResolvedBodyHit>>().get_cursor();
+        let mut blows: Vec<(i32, String)> = Vec::new();
+        for _ in 0..3600 {
+            sim.step(AgentAction::default());
+            let playing = fighter(&mut sim).and_then(|f| f.playing).unwrap_or_default();
+            let messages = sim.world().resource::<Messages<ResolvedBodyHit>>();
+            for hit in cursor.read(messages) {
+                if hit.victim == me && hit.damage > 0 {
+                    blows.push((hit.damage, playing.clone()));
+                }
+            }
+            // The player is the target, not the subject: it never dies.
+            let world = sim.world_mut();
+            let mut q = world.query_filtered::<&mut BodyHealth, PrimaryPlayerOnly>();
+            let mut health = q.single_mut(world).expect("the player");
+            health.health.current = health.health.max;
+        }
+        eprintln!("{character}: {} blows: {blows:?}", blows.len());
+        assert!(!blows.is_empty(), "{character}: it never landed a blow");
+        assert!(blows.iter().all(|(damage, _)| (1..=3).contains(damage)), "{character}: {blows:?}");
+    }
+}

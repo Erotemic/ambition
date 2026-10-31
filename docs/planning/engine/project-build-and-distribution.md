@@ -214,6 +214,13 @@ scripts/package_outlander.py` produces the release artifact of Outlander
 asset from inside itself. The exit code tells a missing prerequisite (2) from a
 failed build (3) and a failed artifact (1). Linux only. Outlander carries its own assets and selects no shared library.
 
+**Installed library admission (`00f3f6c10`).** The desktop catalog rejected
+external images named by an embedded library index, even when installation
+had the bytes. It now checks the reader's qualified package path. The isolated
+installed-tree test and asset-manager suite pass. Optional files and freshness
+remain advisory; do not add a global generation requirement to deployment.
+See the [Steam Deck recipe](../../recipes/steam-deck-deploy.md).
+
 ### B7 - agent iteration budget
 
 The [extension architecture](extension-model.md) defines three deliberate cost

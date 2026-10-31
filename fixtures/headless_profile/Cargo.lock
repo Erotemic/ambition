@@ -126,6 +126,7 @@ dependencies = [
  "futures-lite",
  "ron 0.11.0",
  "serde",
+ "serde_json",
  "thiserror 2.0.20",
 ]
 
@@ -1145,6 +1146,7 @@ dependencies = [
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
+ "ambition_vfx",
  "bevy",
  "bincode",
  "blake3",

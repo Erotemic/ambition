@@ -626,6 +626,9 @@ def coliseum():
         ledge("ring_left", 560, g - 150, 240),
         ledge("ring_right", 1120, g - 150, 240),
         ledge("ring_top", 840, g - 290, 240),
+        # The ring's purse, on the top platform, and who holds it.
+        entity("ChestSpawn", 922, g - 290 - 58, 76, 58, name="the ring's purse", reward="currency:250"),
+        sign("coliseum_champion", 960, g - 420, "CHAMPION OF THE UNLIT RING: (vacant)", 420),
         # The stair down from the roof's hole: steps of one-way.
         *[ledge(f"ring_step_{i}", 860 - (i % 2) * 220, 220 + i * 150, 200) for i in range(5)],
         sign("coliseum_sign", 960, 140, "THE UNLIT RING: the void learns to fight from the shapes that fought it", 760),
@@ -633,7 +636,7 @@ def coliseum():
         hostile_star(rid, 2, 1600, g),
         # The ring's three: the sword, the fists, the shooter.
         *([void_fighter(rid, "void_pointed_polygon", 700, g), void_fighter(rid, "void_pugnacious_polygon", 1240, g),
-           void_fighter(rid, "void_projectile_polygon", 960, g - 290)] if VOID_FIGHTERS_READY else []),
+           void_fighter(rid, "void_projectile_polygon", 680, g - 150)] if VOID_FIGHTERS_READY else []),
     ]
     return void_room(rid, e, COLISEUM_AT, (w, h), "THE UNLIT RING", "invincible_maryo", dangerous=True)
 

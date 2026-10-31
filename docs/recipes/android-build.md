@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-07-18
+last_verified: 2026-10-31
 ---
 
 # Android build and sideload
@@ -41,38 +41,29 @@ Use `./build_for_android.sh --help` for current ABI, SDK, feature, profile,
 static-asset, logging, and output options. Do not manually maintain a parallel
 Gradle recipe in documentation.
 
-## Assets: two roots in, one tree out
+## Assets: one selected package tree
 
-A dev checkout composes **two** asset roots. A package has **one** assets dir,
-and both roots merge into it, content last:
+`scripts/package_asset_guard.py` selects the game's files and the content
+libraries that its pack declares. It uses the same library inventory as the
+desktop package. Game files keep their relative paths. Library files use
+`__libraries/<library-id>/` under `app/src/main/assets/`. The runtime resolves
+`content://<library-id>/...` through the APK AssetManager at that package path.
 
-| Source | Checkout root | In the APK |
-| --- | --- | --- |
-| default | `game/ambition_content_library/generated/runtime` | `app/src/main/assets/` |
-| `game://` | `game/ambition_content/assets` | the same dir, overlaid |
+The generated Gradle project replaces Android's default asset filter. The
+default excludes directories that start with `_`, including `__libraries/`.
+The replacement matches only the current directory (`<dir>.`), so Gradle keeps
+all files that the package guard selects. An empty ignore list restores the
+Android defaults and must not be used to disable the filter.
 
-Merging in that order reproduces the precedence `ProviderGameAssetReader`
-applies in a checkout (authored content wins, the shared generated tree backs
-it), and it is the same merge `deploy_to_steamdeck.sh` performs. Because the two
-roots collapse to one, the packaged build resolves `game://` through the
-platform's own reader — the APK AssetManager — instead of the checkout-only
-two-directory fallback; see `game_asset_source_builder` in
-[`game/ambition_app/src/app/cli.rs`](../../game/ambition_app/src/app/cli.rs).
+Generated images and audio are ignored by Git but must be present on the build
+host. Before Rust compilation, the package guard writes the selected tree and
+a path-and-SHA-256 contract. It asks the content compiler for pack declarations.
+See [the package guard guide](../tools/packaged-asset-guard.md) for validation
+rules and the policy for absent pack assets.
 
-`ambition_content/assets/sprites` is a symlink into the actors tree for LDtk's
-relative tileset paths. Packaging skips it: those images already arrive from the
-first root, and AssetManager cannot follow a symlink.
-
-Payload PNGs/audio are git-ignored but expected on disk (see `AGENTS.md`). Before
-Rust compilation, `scripts/package_asset_guard.py` composes both roots and emits
-a path-and-SHA-256 contract. The content pack's declarations come from the
-content compiler, so this step runs `cargo run -p ambition_content_schemas` on the
-host (see `docs/tools/packaged-asset-guard.md`). The build fails on missing
-declared assets (a pack asset absent from the checkout is reported instead),
-case-colliding names, symlinks, conflicting two-root paths, or copied bytes that
-do not match the desktop source view. After Gradle finishes, the script opens
-the final APK and verifies every contracted file under `assets/`; a healthy
-staging directory is not accepted as proof that the APK is healthy.
+After Gradle finishes, the build script opens the final APK and checks every
+contracted file under `assets/`. It checks both paths and bytes. A correct
+staging directory does not prove that the APK contains those files.
 
 ## Architecture rules
 

@@ -619,6 +619,13 @@ android {
         versionName '0.1.0'
     }
 
+    androidResources {
+        // The package contract selects all asset files. Keep __libraries/.
+        // An empty list restores Android's defaults, which exclude _* folders.
+        // Match only the current directory, which is never a package entry.
+        ignoreAssetsPattern = '<dir>.'
+    }
+
     packagingOptions {
         jniLibs { useLegacyPackaging = true }
     }
@@ -792,10 +799,8 @@ cat > "$APP_DIR/src/main/res/values/styles.xml" <<'EOF'
 </resources>
 EOF
 
-# Desktop development exposes two roots with a content-first fallback, while
-# Android exposes one AssetManager tree. Compose that tree through the shared
-# package guard, which also rejects case collisions, symlinks, implicit
-# conflicting overrides, missing catalog declarations, and byte drift.
+# The pack and its selected libraries form one AssetManager tree. The shared
+# package guard selects its files and checks paths, ownership, and bytes.
 log "composing and auditing runtime assets for Android"
 python3 "$ROOT/scripts/package_asset_guard.py" compose \
     --repo "$ROOT" \

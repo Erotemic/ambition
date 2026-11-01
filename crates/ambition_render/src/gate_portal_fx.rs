@@ -94,6 +94,8 @@ impl Plugin for GatePortalFxPlugin {
         embedded_asset!(app, "shaders/gate_portal_fx.wgsl");
         app.add_plugins(Material2dPlugin::<GatePortalFxMaterial>::default());
         app.add_systems(Startup, load_gate_portal_fx_art);
+        app.add_systems(Update, prepare_gate_tunnel.before(sync_gate_portal_fx)
+            .run_if(resource_exists::<GatePortalFxArt>));
         app.add_systems(
             Update,
             sync_gate_portal_fx
@@ -106,11 +108,21 @@ impl Plugin for GatePortalFxPlugin {
 }
 
 fn load_gate_portal_fx_art(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>, mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: ResMut<Assets<Mesh>>) {
-    use ambition_sprite_sheet::game_assets::load_sheet_image;
+    use ambition_sprite_sheet::game_assets::load_sheet_image_with_settings;
     commands.insert_resource(GatePortalFxArt {
-        tunnel: load_sheet_image(Some(&sprite_content), &asset_server, "gate-portal", TUNNEL_PICTURE),
+        tunnel: load_sheet_image_with_settings(Some(&sprite_content), &asset_server, "gate-portal", TUNNEL_PICTURE,
+            |settings| settings.asset_usage = bevy::asset::RenderAssetUsages::default()),
         quad: meshes.add(Rectangle::new(1.0, 1.0)),
     });
+}
+
+fn prepare_gate_tunnel(art: Res<GatePortalFxArt>, mut images: ResMut<Assets<Image>>) {
+    if !images.get(&art.tunnel).is_some_and(|image| image.texture_descriptor.mip_level_count == 1) { return }
+    let mut image = images.get_mut(&art.tunnel).expect("the tunnel was loaded");
+    crate::texture_mips::prepare_tiled_rgba(&mut image);
+    if ambition_sprite_sheet::game_assets::images_render_world_only() {
+        image.asset_usage = bevy::asset::RenderAssetUsages::RENDER_WORLD;
+    }
 }
 
 /// How strong the layer is in a phase: up with the opening, down with the

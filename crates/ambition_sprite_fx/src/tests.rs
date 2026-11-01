@@ -581,3 +581,29 @@ fn a_following_effect_tracks_the_sprites_frame_and_gives_it_back() {
     assert!(app.world().get_entity(source.quad).is_err(), "the quad outlived its effect");
     assert!(app.world().get::<FollowingFxSource>(entity).is_none());
 }
+
+/// A frame change reaches the effect and its global transform in one update.
+#[test]
+fn a_following_effect_is_placed_before_transforms_are_propagated() {
+    let mut app = App::new();
+    app.add_plugins((bevy::asset::AssetPlugin::default(), bevy::transform::TransformPlugin));
+    app.init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<TextureAtlasLayout>>()
+        .init_resource::<Assets<Image>>()
+        .add_plugins(SpriteFxPlugin);
+    let sprite = a_32x16_sprite(&mut app);
+    let entity = app.world_mut().spawn((
+        sprite,
+        FollowingSpriteEffect(SpriteEffect::HueShift { degrees: 120.0 }),
+        Transform::from_xyz(20.0, 30.0, 1.0),
+        bevy::sprite::Anchor(Vec2::new(0.25, -0.5)),
+    )).id();
+    for size in [Vec2::new(32.0, 16.0), Vec2::new(50.0, 20.0), Vec2::new(10.0, 40.0)] {
+        app.world_mut().get_mut::<Sprite>(entity).unwrap().custom_size = Some(size);
+        app.update();
+        let quad = app.world().get::<FollowingFxSource>(entity).unwrap().quad;
+        let global = app.world().get::<GlobalTransform>(quad).unwrap();
+        assert_eq!(global.translation(), Vec3::new(20.0 - size.x * 0.25, 30.0 + size.y * 0.5, 1.0));
+        assert_eq!(global.to_scale_rotation_translation().0, size.extend(1.0));
+    }
+}

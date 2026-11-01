@@ -532,7 +532,10 @@ impl Plugin for SpriteFxPlugin {
                     .run_if(resource_exists::<Assets<Image>>),
             )
                 .chain()
-                .after(apply_free_sprite_effects),
+                .after(apply_free_sprite_effects)
+                // New quads and frame sizes must reach this frame's culling and draw.
+                .before(bevy::transform::TransformSystems::Propagate)
+                .before(bevy::camera::visibility::VisibilitySystems::CalculateBounds),
         );
     }
 }

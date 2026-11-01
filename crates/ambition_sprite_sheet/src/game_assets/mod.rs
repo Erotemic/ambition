@@ -36,21 +36,29 @@ pub fn load_sheet_image(content: Option<&crate::SpriteContent>,
     source: &'static str,
     path: impl Into<bevy::asset::AssetPath<'static>>,
 ) -> Handle<Image> {
+    load_sheet_image_with_settings(content, asset_server, source, path, |_| {})
+}
+
+/// Load selected sheet bytes with explicit image settings.
+/// The caller can keep CPU pixels until its image preparation is complete.
+pub fn load_sheet_image_with_settings(
+    content: Option<&crate::SpriteContent>,
+    asset_server: &AssetServer,
+    source: &'static str,
+    path: impl Into<bevy::asset::AssetPath<'static>>,
+    settings: impl Fn(&mut bevy::image::ImageLoaderSettings) + Send + Sync + 'static,
+) -> Handle<Image> {
     let path = path.into();
     let pinned = content.and_then(|content| crate::baked_sheet_rons::current(content)
         .image_path(&path.to_string()).map(str::to_owned));
     let path = pinned.map(bevy::asset::AssetPath::from).unwrap_or(path);
     let label = path.to_string();
-    let handle = if images_render_world_only() {
-        asset_server
-            .load_builder()
-            .with_settings(|settings: &mut bevy::image::ImageLoaderSettings| {
-                settings.asset_usage = bevy::asset::RenderAssetUsages::RENDER_WORLD;
-            })
-            .load(path)
-    } else {
-        asset_server.load(path)
-    };
+    let handle = asset_server.load_builder().with_settings(move |image: &mut bevy::image::ImageLoaderSettings| {
+        if images_render_world_only() {
+            image.asset_usage = bevy::asset::RenderAssetUsages::RENDER_WORLD;
+        }
+        settings(image);
+    }).load(path);
     image_stages::note_demand(handle.id().untyped(), source, label);
     handle
 }

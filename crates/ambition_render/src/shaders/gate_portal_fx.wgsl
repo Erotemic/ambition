@@ -34,17 +34,14 @@ const CREST: vec3<f32> = vec3<f32>(0.6, 0.95, 1.0);
 // design units): the tunnel is measured from it.
 const APERTURE: f32 = 0.411;
 
-fn tunnel(uv: vec2<f32>) -> vec3<f32> {
-    // Sampled at its full size: the wrap at the seam has no derivative to
-    // pick a level from.
-    return textureSampleLevel(tunnel_texture, tunnel_sampler, fract(uv), 0.0).rgb;
+fn tunnel(uv: vec2<f32>, dx: vec2<f32>, dy: vec2<f32>) -> vec3<f32> {
+    // The sampler repeats. Gradients describe the continuous tunnel, so a
+    // wrap does not select a coarse mip for an otherwise sharp seam.
+    return textureSampleGrad(tunnel_texture, tunnel_sampler, uv, dx, dy).rgb;
 }
 
 fn shade(mesh: VertexOutput) -> vec4<f32> {
     let strength = clamp(control.x, 0.0, 1.0);
-    if strength <= 0.001 {
-        discard;
-    }
     var local_uv = mesh.uv;
     if control.y > 0.5 {
         local_uv.x = 1.0 - local_uv.x;
@@ -53,10 +50,7 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
     // Inside the membrane only, and only in its dark: the door's lines, its
     // lip and its halo are the art's.
     let lum = dot(membrane.rgb, vec3<f32>(0.2126, 0.7152, 0.0722));
-    let inside = smoothstep(0.8, 0.97, membrane.a) * smoothstep(0.12, 0.03, lum);
-    if inside <= 0.001 {
-        discard;
-    }
+    let inside = smoothstep(0.8, 0.97, membrane.a) * (1.0 - smoothstep(0.03, 0.12, lum));
     let t = globals.time;
     let p = (mesh.uv - vec2<f32>(0.5)) * 2.0;
     var r = length(p) / APERTURE;
@@ -71,13 +65,26 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
     }
     let depth = 0.32 / (r + 0.06) - t * INFLOW;
     let round = atan2(p.y, p.x) / TAU;
-    let near = tunnel(vec2<f32>(round + TWIST * depth + t * 0.03, depth));
-    let far = tunnel(vec2<f32>(round * 2.0 + 0.37 - TWIST * depth, depth * 0.5 + t * 0.1));
+    // Analytic angle gradients stay continuous across atan2's branch cut.
+    let angle_gradient = vec2<f32>(-p.y, p.x) / (max(dot(p, p), 0.000001) * TAU);
+    let angle_dx = dot(angle_gradient, dpdx(p));
+    let angle_dy = dot(angle_gradient, dpdy(p));
+    let depth_dx = dpdx(depth);
+    let depth_dy = dpdy(depth);
+    let near = tunnel(vec2<f32>(round + TWIST * depth + t * 0.03, depth),
+        vec2<f32>(angle_dx + TWIST * depth_dx, depth_dx),
+        vec2<f32>(angle_dy + TWIST * depth_dy, depth_dy));
+    let far = tunnel(vec2<f32>(round * 2.0 + 0.37 - TWIST * depth, depth * 0.5 + t * 0.1),
+        vec2<f32>(2.0 * angle_dx - TWIST * depth_dx, 0.5 * depth_dx),
+        vec2<f32>(2.0 * angle_dy - TWIST * depth_dy, 0.5 * depth_dy));
+    if strength <= 0.001 || inside <= 0.001 {
+        discard;
+    }
     var colour = near * 0.7 + far * 0.45;
     // The far end of the tunnel: a light at the vanishing point.
     colour = colour + CORE * exp(-r * r * 14.0) * 0.9;
     // Darker toward the lip, so the tunnel reads as deep.
-    let fog = smoothstep(0.95, 0.35, r);
+    let fog = (1.0 - smoothstep(0.35, 0.95, r));
     colour = colour * (0.35 + 0.65 * fog) + CREST * crest * 0.8;
     return vec4<f32>(colour, inside * strength * clamp(0.55 + 0.4 * fog + crest * 0.3, 0.0, 1.0));
 }

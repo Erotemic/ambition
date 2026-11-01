@@ -87,6 +87,8 @@ struct SceneCaptureConfig {
     /// what a switch commands (a gate's boot sequence) can be filmed without
     /// a press. A switch is saved state, not a world flag.
     switches: Vec<(String, u64)>,
+    /// Gate zone, destination address and simulation tick to dial.
+    gate_dials: Vec<(String, String, u64)>,
     /// The hour of the day to set the clock to, on its sim tick
     /// (`--hour H[@TICK]`), to photograph a room at a time of day.
     hour: Option<(f32, u64)>,
@@ -346,6 +348,8 @@ OPTIONS:
                         turn the switch NAME on at sim tick TICK [default: 1],
                         as a press would; repeat for more. Films what a switch
                         commands, such as a gate portal booting.
+    --dial-gate ZONE:ADDRESS[@TICK]
+                        dial a gate through the network at TICK [default: 1].
     --boss-blow TICK[xHEARTS|xall]
                         take HEARTS [default: 1] of each boss's health on sim
                         tick TICK, and flash it, as a blow that lands does;
@@ -760,6 +764,26 @@ fn turn_on_switches(
         if tick.get() == *on_tick {
             save.data_mut().set_switch(id, true);
             eprintln!("capture_scene: turned the switch {id} on at tick {on_tick}");
+        }
+    }
+}
+
+/// Dial through the network before progression consumes terminal requests.
+fn dial_gates(
+    config: Res<SceneCaptureConfig>,
+    tick: Res<ambition_platformer2d::time::SimTick>,
+    catalog: Res<ambition_platformer2d::world::rooms::GateNetworkCatalog>,
+    mut network: ResMut<ambition_platformer2d::world::rooms::GateNetworkState>,
+    mut intents: MessageWriter<ambition_platformer2d::world::rooms::GateTerminalIntent>,
+) {
+    use ambition_platformer2d::world::rooms::{GateTerminalAction, GateTerminalIntent};
+    for (ring, address, at) in &config.gate_dials {
+        if tick.get() == *at {
+            let address = catalog.spell(address).expect("the gate address must use the catalog inscription");
+            network.terminal = Some(ring.clone());
+            intents.write(GateTerminalIntent { ring: ring.clone(), action: GateTerminalAction::Dial(address) });
+            intents.write(GateTerminalIntent { ring: ring.clone(), action: GateTerminalAction::Close });
+            eprintln!("capture_scene: dialed gate {ring} at tick {at}");
         }
     }
 }
@@ -1349,6 +1373,9 @@ fn install_room_capture(app: &mut App) {
         sim,
         (hold_boss_health, blow_on_bosses, place_player_beside, place_player_at, record_flags, turn_on_switches, set_the_hour, ask_bodies_to_wear, put_on_gear, fire_portal_shots, fire_shots, throw_items),
     );
+    if !app.world().resource::<SceneCaptureConfig>().gate_dials.is_empty() {
+        app.add_systems(sim, dial_gates.before(ambition_platformer2d::session::rooms::gate_network::run_gate_network));
+    }
     if !app.world().resource::<SceneCaptureConfig>().player_holds.is_empty() {
         app.add_systems(
             sim,
@@ -1581,6 +1608,7 @@ impl SceneCaptureConfig {
         let mut interact_at = None;
         let mut flags: Vec<(String, u64)> = Vec::new();
         let mut switches: Vec<(String, u64)> = Vec::new();
+        let mut gate_dials = Vec::new();
         let mut hour: Option<(f32, u64)> = None;
         let mut wears: Vec<(String, String, u64)> = Vec::new();
         let mut portal_shots: Vec<PortalShotAt> = Vec::new();
@@ -1754,6 +1782,18 @@ impl SceneCaptureConfig {
                         ),
                         None => (value.clone(), 1),
                     });
+                    2
+                }
+                "--dial-gate" => {
+                    let value = args.get(i + 1).ok_or("--dial-gate requires ZONE:ADDRESS[@TICK]")?;
+                    let (dial, tick) = match value.split_once('@') {
+                        Some((dial, tick)) => (dial, tick.parse::<u64>().map_err(|_| "invalid gate dial tick")?),
+                        None => (value.as_str(), 1),
+                    };
+                    let (zone, address) = dial.split_once(':').filter(|(zone, _)| !zone.is_empty())
+                        .ok_or("--dial-gate requires ZONE:ADDRESS[@TICK]")?;
+                    if address.is_empty() { return Err("the gate address is empty".to_owned()); }
+                    gate_dials.push((zone.to_owned(), address.to_owned(), tick));
                     2
                 }
                 "--flag" => {
@@ -2111,6 +2151,7 @@ impl SceneCaptureConfig {
                 interact_at: None,
                 flags: Vec::new(),
                 switches: Vec::new(),
+                gate_dials: Vec::new(),
                 hour: None,
                 wears: Vec::new(),
                 player_at: Vec::new(),
@@ -2195,6 +2236,7 @@ impl SceneCaptureConfig {
             interact_at,
             flags,
             switches,
+            gate_dials,
             hour,
             wears,
             player_at,

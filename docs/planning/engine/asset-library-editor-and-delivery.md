@@ -2,6 +2,10 @@
 
 **State:** planning, 2026-10-31. This plan does not schedule implementation.
 **Source review:** superproject `5ec96e4e3152` (2026-10-31).
+**Implementation evidence:** [Asset library implementation review](asset-library-implementation-review.md).
+
+The implementation review supersedes any inferred performance claim in this
+plan. Treat the code-level findings as the input to the work slices below.
 **Related work:** [asset authoring, caches and delivery](../../related-work/asset-authoring-caches-and-delivery.md).
 
 ## Scope and owners
@@ -78,11 +82,45 @@ catalog. The sprite-sheet preparation step also runs at startup. This can cost
 time even though registration needs no compilation. Measure each stage before
 adding a new cache or an incremental editor database.
 
-In `publication_store.Store.publish()`, selection currently calls deep
-`integrity()` on selected bundles, including unchanged bundles. This can make a
-small publication read many old files. Change this behavior only through a
-focused publication-path implementation and measurement. Do not turn the
-performance fix into a stronger acceptance gate.
+In `publication_store.Store.publish()`, selection calls `integrity()` on
+every selected bundle. A populated digest cache avoids rereading unchanged
+payload bytes, but the selection still visits every member and checks file
+metadata. A cold or uncached publish may hash old payload bytes. `Store.accept()`
+also hashes each newly accepted file twice. Keep ownership checks and the
+atomic selection update, but remove repeated payload verification from trusted
+reuse. The [implementation review](asset-library-implementation-review.md)
+includes the observed cached and uncached cases.
+
+The development web packager also hashes all selected source files when it
+builds its contract and again when it audits the composed tree. Its symlink
+mode avoids copying bytes, not hashing them. Keep the full audit for release
+packages. Provide a separate fast preview path for local web development.
+
+## Implementation-proven boundaries
+
+The code trace identifies four ownership boundaries that we should keep clear.
+
+1. **Selected files versus editor inventory.** A selected runtime file is not
+   the same thing as a loose or historical file visible in the workspace.
+   Python and Rust tools must agree on selection, but the inspector may show
+   a larger inventory. The implementation review records the current mismatch
+   for published-only music, SFX and fonts. It also records differing behavior
+   when a publication is absent or has a mismatched metadata identity.
+2. **Logical address versus immutable physical address.** Content requests
+   use stable `content://<library>/<logical>` names. Prepared sprite handles
+   can use `content://<library>/__art/...` addresses that pin a specific
+   bundle. GC must retain bundles held by an active game, not only the bundle
+   named by the latest `published.json`.
+3. **Full game closure versus shared library inventory.** An update must include
+   its selected library members *and* game-owned content such as LDtk worlds.
+   Sending the entire shared store can waste transfer bandwidth.
+4. **Preview composition versus release audit.** Web preview and native editor
+   loops must not run whole-library hash checks. Release packaging may run an
+   explicit deep audit and pin the result.
+
+The next design seam is a small, read-only selected-file contract. It can be
+implemented in Rust and Python and checked with shared test fixtures. It is
+not an editor database, new runtime service or mandatory startup process.
 
 ## Four independent operations
 
@@ -185,6 +223,9 @@ The first useful workflows are:
 - Publish a selected target and show the resulting selection change.
 - Compare two selections, including added, replaced and removed products.
 - Show store size, retained selection roots and garbage-collection candidates.
+- Distinguish use by the selected game from repository-wide use. A game may
+  use more than one library, and the inspector must not silently use a
+  different library than its content checker.
 
 Later workflows can add safe rename/move operations, drag-and-drop bindings,
 batch import settings, undo and edit transactions. Do not make runtime loading
@@ -203,6 +244,7 @@ Measure these costs separately. Do not call them all "asset registration":
 | Native startup | Selected manifests, catalog and prepared sheet metadata | No deep asset audit; record where time goes. |
 | First visible use | Needed decode, device upload and audio work | Prepare on demand under residency policy. |
 | Inspector search | Indexed metadata | Do not decode every asset or render on status requests. |
+| Web development composition | Selected file list, symlinks or serving roots | No automatic release-level deep hash audit. |
 | Release package | Selected closure and target conversion | Deliberately more expensive; may embed or recompile. |
 
 Measure cold and warm launches, changed and unchanged launches, release and
@@ -220,8 +262,12 @@ then list unreferenced old bundles.
 Start with a **dry-run report** that names each candidate, its size, age and
 reason for retention or deletion. Actual deletion is an explicit action. Use
 a grace period and account for active readers or package jobs before deletion.
-Do not verify every stored file to decide if it is reachable. Keep the current
-selection and every pinned release usable after cleanup.
+The loader can read version-specific bundle addresses after the current
+selection has moved. An initial cleanup tool should run only while no game or
+package job uses the store; persistent pins protect shipped releases. A later
+online cleanup system would need active-reader leases or another equivalent
+lifetime rule. Do not verify every stored file to decide if it is reachable.
+Keep the current selection and every pinned release usable after cleanup.
 
 Retention defaults, pin syntax and a concurrent-reader protocol are not fixed
 by this plan. Set them when GC has a real operator and storage measurements.
@@ -258,13 +304,14 @@ Only [the live queue](../queue.md) selects implementation work.
 
 | Slice | Promote when | Completion evidence |
 | --- | --- | --- |
-| L0. Cost inventory | Startup or publish time obstructs a real iteration. | Trace launch parsing, sheet preparation, publish hashing, catalog scans and first visible use separately. |
-| L1. Metadata-only selection | A focused publish rehashes accepted unchanged bundles. | Publish touches new products and metadata; unchanged bundle payloads are not read. An old selection remains usable. |
-| L2. Common inspector/runtime selection | The inspector reports a product differently from the game's selected files. | Both resolve the same selection for images, audio and fonts; workspace-only files remain visible separately. |
-| L3. Selection snapshots and GC | Historical bundles consume useful storage or rollback needs pins. | Dry-run reports correct reachability and savings; an explicit cleanup retains current and pinned releases. |
-| L4. Rsync content updates | An external game or second machine needs content-only updates. | Transfer only missing bundles, install selection last, restart offline, and roll back. |
-| L5. Editor mutations | A real authoring operation needs stable rename, reference edits or batch changes. | One owner performs the mutation; inspector queries update without becoming authoritative. |
-| L6. Other transports | A real release needs HTTP/CDN/IPFS or remote streaming. | Same logical identities and selections; no transport-specific references in game content. |
+| L0. Cost inventory | Startup or publish time obstructs a real iteration. | Trace native parse, sheet preparation, watch scans, publication hash/stat work, web preview composition, and first visible use separately. |
+| L1. Metadata-only publication | Small publish work scales with already accepted bundles. | Accept the new bytes once; selection uses stored manifests, not deep checks of old members. Keep the previous selection usable. |
+| L2. Common selected-file contract | Inspector and runtime disagree about published-only assets. | Rust and Python agree on selected membership for images, audio and fonts; workspace-only files remain visible separately. |
+| L3. Fast preview composition | A web preview rehashes all selected files. | Preview can compose a linked tree without a release audit. Explicit release auditing remains available. |
+| L4. Selection receipts and GC | Historical bundles consume useful storage or rollback needs pins. | Report reachable and historical bundles; explicit offline cleanup retains live and pinned versions. |
+| L5. Rsync content updates | A second installation needs content-only updates. | Transfer missing bundles in a full game closure, install selection last, restart offline, and roll back. |
+| L6. Editor mutations | A real authoring operation needs stable rename, reference edits or batch changes. | One source owner performs the mutation; inspector queries update without becoming authoritative. |
+| L7. Other transports | A real release needs HTTP/CDN/IPFS or remote streaming. | Same logical identities and selections; no transport-specific references in game content. |
 
 L0 does not authorize a new binary cache by itself. If existing parsing is
 cheap, do not add one. L1 must not introduce extra integrity checks. A separate
@@ -292,7 +339,8 @@ prevalidated simulation-content project retains its own execution gate.
 ## Deferred choices
 
 - Whether focused immutable publication is fast enough to avoid a mutable
-  workspace overlay. Measure it before choosing.
+  workspace overlay. Measure it before choosing. A mutable override adds a new
+  precedence rule and must never silently override a pinned release.
 - How much of the editor index to cache, and when to update it. Start from the
   current inspector's derived queries.
 - Stable source-ID and rename policy. A first transactional rename customer

@@ -167,6 +167,27 @@ must provide those parts when its products need them.
 **Decision pressure.** Keep one Bevy runtime loader. Add focused tooling at the
 selection and publication boundaries, rather than a competing asset runtime.
 
+## What the code review adds to the comparison
+
+The [implementation review](../planning/engine/asset-library-implementation-review.md)
+identifies which parts of these engines Ambition has already implemented.
+
+| Ambition seam | Relevant engine design | Specific decision |
+| --- | --- | --- |
+| Authored source plus immutable publication | Godot import products; Unity artifact cache | Keep explicit targeted production. Do not force automatic regeneration in development. |
+| Stable `content://` name plus immutable bundle path | Unity Addressables key and bundle mapping | Preserve both identities. A source rename ID is a later editor decision. |
+| Inspector inventories and previews | Unreal Asset Registry | Make browsing metadata-first and keep the index out of game startup. |
+| Python/Rust selection mismatch | All engines need one chosen asset set | Define one selected-file contract and separate workspace-only artifacts. |
+| Per-cue music and banked SFX | Addressables and Defold delivery chunks | Measure changed bytes per update before splitting SFX bundles. |
+| Game-owned plus shared-library files | Godot export/PCK; Unreal cooking | Define a complete release closure; do not assume all assets live in a library. |
+| Version-specific sprite handles | Godot pack override order; Unity bundle lifetimes | Protect older selected bundles while they are still in use. |
+| Web link composition with full hash audit | Editor import versus release cook | Separate fast preview from an explicit release audit. |
+
+**Key difference from the imported-asset models:** Ambition's immutable store
+is not a disposable cache. Its accepted bundles can back older selections and
+shipped releases. A cleanup plan must preserve those references. A separate,
+rebuildable editor index *can* behave like a disposable metadata cache.
+
 ## Decisions this comparison informs
 
 1. **Keep authoring, production, selection and delivery separate.** Godot's

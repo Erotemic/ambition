@@ -5,6 +5,11 @@ const OWNER: &str = env!("CARGO_PKG_NAME");
 
 /// Register this domain's rollback state.
 pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {
+    registrar.declare_rollback_derived_component::<crate::ItemBody>(
+        OWNER,
+        "derived.item_body",
+        "item capability properties installed before the item's physics step",
+    );
     registrar.require_rollback::<crate::GroundItem>(OWNER, "entity:ground_item");
     registrar.require_rollback::<crate::SettledItem>(OWNER, "entity:settled_item");
     registrar

@@ -174,7 +174,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// (`bool`) and the getup it took (`u8`), in the motion-model codec; and
 /// `BodyCombat` carries `struck_height` (`f32`), where the last accepted hit
 /// landed.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 392;
+/// 392 -> 393: a resolved hit updates the victim's perception memory in the
+/// damage tick, before the next rollback snapshot. Derived item, gate,
+/// camera-framing and fixed-step inputs have explicit owner declarations.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 393;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

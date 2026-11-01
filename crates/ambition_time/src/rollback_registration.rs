@@ -8,6 +8,11 @@ pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
 {
+    registrar.declare_rollback_derived_resource::<crate::SimStepPeriod>(
+        OWNER,
+        "derived.sim_step_period",
+        "fixed period derived from the host tick rate at installation; immutable within a timeline",
+    );
     registrar.rollback_component_canonical::<crate::GameplayElapsed>(OWNER, "resource.gameplay_elapsed");
     registrar.rollback_resource_canonical::<crate::time_control::RequestedClockScale>(
         OWNER,

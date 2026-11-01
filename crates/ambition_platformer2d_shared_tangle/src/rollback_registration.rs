@@ -368,6 +368,11 @@ where
         "resource.active_round_scope",
     );
 
+    registrar.declare_rollback_derived_resource::<crate::markers::CastFramingTuning>(
+        OWNER,
+        "derived.cast_framing_tuning",
+        "camera-only projection of prepared match framing or engine defaults",
+    );
     registrar.rollback_component_clone::<crate::camera_ease::PlayerBlinkCameraState>(
         OWNER,
         "player.blink_camera_state",

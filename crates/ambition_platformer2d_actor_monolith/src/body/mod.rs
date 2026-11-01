@@ -314,11 +314,13 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
                 ),
                 observe_actor_decision_inputs,
                 crate::body::navigation::advise_navigation,
-                // After the peers it reads the striker from.
-                crate::body::perception::remember_who_struck_it
-                    .after(crate::body::perception::collect_perception_peers),
             )
                 .in_set(ActorDecisionSet::Observe),
+        );
+        app.add_systems(
+            sim,
+            crate::body::perception::remember_who_struck_it
+                .in_set(ambition_platformer2d_shared_tangle::schedule::CombatSet::Settle),
         );
         // An errand ends where a press takes an item, and after it: a body that
         // took something by a press this tick has a full hand. Before the use

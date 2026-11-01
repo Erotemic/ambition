@@ -636,10 +636,10 @@ pub(crate) fn hear_crew(
 }
 
 /// A body that is struck knows its striker. For each hit that names who
-/// landed it, the victim remembers the striker where it stands, seen or not
-/// ([`WorldMemory::struck_by`]): a shot from out of sight still turns it to
-/// the one who fired. Read before the brains decide, so the next decision
-/// knows its foe. (sim)
+/// landed it, the victim remembers the striker, seen or not
+/// ([`WorldMemory::struck_by`]). Consume resolved hits in the same simulation
+/// tick, after damage. A rewind clears the hit channel, so a later tick cannot
+/// recover an unconsumed hit from the snapshot.
 ///
 /// [`WorldMemory::struck_by`]: ambition_characters::perception::WorldMemory::struck_by
 pub fn remember_who_struck_it(

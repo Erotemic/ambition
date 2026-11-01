@@ -41,6 +41,11 @@ pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
 {
+    registrar.declare_rollback_derived_resource::<super::GateRingPositions>(
+        OWNER,
+        "derived.gate_ring_positions",
+        "flat-map positions projected from the admitted gate catalog and world files",
+    );
     registrar.require_rollback::<super::RoomSet>(OWNER, "root:room_set");
     registrar.rollback_component_clone_checksum::<super::RoomSet>(
         OWNER,

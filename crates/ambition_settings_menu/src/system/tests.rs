@@ -123,7 +123,7 @@ fn video_screen_is_the_curated_subset() {
     // one-global-profile→budget selector from the visual-quality-profiles feature)
     // leads the basic rows.
     assert_eq!(
-        &ids[..10],
+        &ids[..11],
         &[
             SettingsOptionId::VisualQuality,
             SettingsOptionId::DisplayMode,
@@ -131,6 +131,7 @@ fn video_screen_is_the_curated_subset() {
             SettingsOptionId::CameraAspect,
             SettingsOptionId::CameraFraming,
             SettingsOptionId::ViewShape,
+            SettingsOptionId::LocalViewLayout,
             SettingsOptionId::Flashes,
             SettingsOptionId::PortalWindows,
             SettingsOptionId::Colorblind,
@@ -164,6 +165,7 @@ fn shaders_screen_reaches_every_shader_option() {
                     | SettingsOptionId::CameraAspect
                     | SettingsOptionId::CameraFraming
                     | SettingsOptionId::ViewShape
+                    | SettingsOptionId::LocalViewLayout
                     | SettingsOptionId::Flashes
                     | SettingsOptionId::PortalWindows
                     | SettingsOptionId::Colorblind
@@ -201,11 +203,8 @@ fn shaders_screen_reaches_every_shader_option() {
             SettingsOptionId::ShaderVignetteStrength,
         ]
     );
-    // Each shader option carries a live slider value label (e.g. "0%") so the
-    // cube renders the same control the grid does. (The leading 12 basic Video
-    // rows — 9 basic + FramePacing + Vsync + VisualQuality — are cycles/toggles, so
-    // only the shader tail is checked.)
-    for o in options.iter().skip(12) {
+    // Shader rows use the same sliders in both menu backends.
+    for o in options.iter().filter(|option| shader_ids.contains(&option.id)) {
         assert!(matches!(o.kind, SettingsOptionKind::Slider { .. }));
     }
 }
@@ -234,6 +233,7 @@ fn system_screens_surface_every_player_facing_setting() {
         SettingsOptionId::CameraAspect,
         SettingsOptionId::CameraFraming,
         SettingsOptionId::ViewShape,
+        SettingsOptionId::LocalViewLayout,
         SettingsOptionId::Flashes,
         SettingsOptionId::Colorblind,
         SettingsOptionId::ShowFps,

@@ -3,6 +3,16 @@
 use super::*;
 
 #[test]
+fn local_view_layout_loads_old_preferences_and_preserves_an_explicit_choice() {
+    let old: VideoSettings = ron::from_str("()").unwrap();
+    assert_eq!(old.local_view_layout, LocalViewLayout::Adaptive);
+    let selected: VideoSettings = ron::from_str("(local_view_layout:AlwaysSplit)").unwrap();
+    let saved = ron::to_string(&selected).unwrap();
+    let loaded: VideoSettings = ron::from_str(&saved).unwrap();
+    assert_eq!(loaded.local_view_layout, LocalViewLayout::AlwaysSplit);
+}
+
+#[test]
 fn screen_shader_strength_stays_clamped() {
     let mut shaders = ScreenShaderSettings::default();
     shaders.nudge_strength(10.0);

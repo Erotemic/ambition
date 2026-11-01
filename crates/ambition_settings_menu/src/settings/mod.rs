@@ -73,6 +73,7 @@ pub enum SettingsOptionId {
     CameraZoom,
     CameraAspect,
     CameraFraming,
+    LocalViewLayout,
     ViewShape,
     Flashes,
     PortalWindows,
@@ -164,7 +165,7 @@ impl SettingsOptionId {
     /// This array is hand-kept. `scripts/check_enum_all_constants_are_complete.py`
     /// checks it against the enum.
     /// alone would go stale silently.
-    pub const ALL: [Self; 63] = [
+    pub const ALL: [Self; 64] = [
         Self::AcceptLocalJoins,
         Self::AimFrameMode,
         Self::Assist,
@@ -186,6 +187,7 @@ impl SettingsOptionId {
         Self::TapJump,
         Self::KeyboardPreset,
         Self::LeftStickDeadzone,
+        Self::LocalViewLayout,
         Self::MasterVolume,
         Self::MenuTapMode,
         Self::MovementFrameMode,

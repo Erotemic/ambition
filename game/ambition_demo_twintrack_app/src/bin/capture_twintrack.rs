@@ -28,7 +28,7 @@ use ambition_demo_twintrack::{
     LaboratoryTwin, ObservatoryCamera, SplitObserverCamera, TwinTrackExperiment, TwinTrackViewMode,
 };
 use ambition_platformer2d::render::capture::{
-    adopt_cameras_into_capture_target, finish_after_capture, request_capture, CaptureAdopted,
+    install_capture_cameras, CaptureCameraSet, finish_after_capture, request_capture, CaptureAdopted,
     CaptureProgress, CaptureSettings, CaptureTarget,
 };
 use bevy::prelude::*;
@@ -124,19 +124,14 @@ fn main() {
     );
     // Before `InputSet::Collect`, so a press written here is seen by the SAME
     // frame rather than by whichever one Bevy happened to order next.
+    install_capture_cameras(&mut app);
     app.add_systems(
         Update,
-        (
-            adopt_cameras_into_capture_target,
-            adopt_the_observatory,
-            adopt_the_split_observer_panes,
-            ask_for_the_split_observer_view,
-            hold_right_while_running,
-            shoot_when_warm,
-            finish_after_capture,
-        )
-            .chain()
-            .before(ambition_platformer2d::input::InputSet::Collect),
+        (ask_for_the_split_observer_view, hold_right_while_running).chain().before(ambition_platformer2d::input::InputSet::Collect),
+    );
+    app.add_systems(
+        Update,
+        (adopt_the_observatory, adopt_the_split_observer_panes, shoot_when_warm, finish_after_capture).chain().after(CaptureCameraSet),
     );
     app.run();
 }

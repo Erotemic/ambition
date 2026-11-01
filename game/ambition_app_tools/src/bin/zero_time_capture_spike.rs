@@ -62,7 +62,7 @@ fn main() {
         ambition_platformer2d::render::capture::setup_capture_target
             .after(ambition_app::app::PresentationSetupSet),
     );
-    app.add_systems(Update, ambition_platformer2d::render::capture::adopt_cameras_into_capture_target);
+    ambition_platformer2d::render::capture::install_capture_cameras(&mut app);
 
     // A hand-driven app must be finalized first. Bevy builds the render
     // device in plugin `finish()`, which `App::run()` performs and a manual

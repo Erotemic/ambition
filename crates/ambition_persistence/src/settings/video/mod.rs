@@ -22,6 +22,33 @@ fn cycle_prev<T: Copy + PartialEq, const N: usize>(all: &[T; N], current: T, fal
     all[(idx + all.len() - 1) % all.len()]
 }
 
+/// Local view layout for a game that supports independent participant views.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum LocalViewLayout {
+    #[default]
+    Adaptive,
+    AlwaysSplit,
+}
+
+impl LocalViewLayout {
+    pub const ALL: [Self; 2] = [Self::Adaptive, Self::AlwaysSplit];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Adaptive => "Adaptive",
+            Self::AlwaysSplit => "Always split",
+        }
+    }
+
+    pub fn next(self) -> Self {
+        cycle_next(&Self::ALL, self, 0)
+    }
+
+    pub fn prev(self) -> Self {
+        cycle_prev(&Self::ALL, self, 0)
+    }
+}
+
 /// How a portal's window looks: seamless (the far side exactly as a camera
 /// there sees it), or tinted, so that a window is told from the world around
 /// it. Presentation only: what a window shows and what goes through a portal
@@ -757,6 +784,8 @@ fn default_migrated_vignette_strength() -> f32 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct VideoSettings {
     #[serde(default)]
+    pub local_view_layout: LocalViewLayout,
+    #[serde(default)]
     pub display_mode: SerializableDisplayMode,
     #[serde(default)]
     pub camera_zoom: CameraZoomPreset,
@@ -801,6 +830,7 @@ pub struct VideoSettings {
 impl Default for VideoSettings {
     fn default() -> Self {
         Self {
+            local_view_layout: LocalViewLayout::default(),
             display_mode: SerializableDisplayMode::default(),
             camera_zoom: CameraZoomPreset::default(),
             camera_aspect: CameraAspectPolicy::default(),

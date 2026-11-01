@@ -318,6 +318,24 @@ pub struct CameraSnapshotResolveInput<'a> {
     pub view_box: Option<ae::Aabb>,
 }
 
+/// Fit a requested world view to a logical viewport with the selected aspect policy.
+pub(crate) fn fit_camera_view(
+    requested: ae::Vec2,
+    viewport: ae::Vec2,
+    aspect: CameraAspectPolicy,
+) -> (ae::Vec2, f32) {
+    let viewport = ae::Vec2::new(viewport.x.max(1.0), viewport.y.max(1.0));
+    let scale_by_height = requested.y / viewport.y;
+    let scale_by_width = requested.x / viewport.x;
+    let scale = match aspect {
+        CameraAspectPolicy::FitDesign => scale_by_height.max(scale_by_width),
+        CameraAspectPolicy::FixedHeight => scale_by_height,
+        CameraAspectPolicy::FixedWidth => scale_by_width,
+    };
+    let half = viewport * (scale * 0.5);
+    (half * 2.0, scale)
+}
+
 /// Resolve a camera snapshot for an arbitrary focus.
 ///
 /// In [`CameraSnapshotResolveMode::Instant`] this is deterministic and does not
@@ -383,18 +401,11 @@ pub fn resolve_follow_camera_snapshot(
 
     let target_view_w = input.base_view.x * camera_scale;
     let target_view_h = input.base_view.y * camera_scale;
-    let viewport_w = input.viewport_px.x.max(1.0);
-    let viewport_h = input.viewport_px.y.max(1.0);
-    let scale_by_height = target_view_h / viewport_h;
-    let scale_by_width = target_view_w / viewport_w;
-    let orthographic_scale = match input.aspect_policy {
-        CameraAspectPolicy::FitDesign => scale_by_height.max(scale_by_width),
-        CameraAspectPolicy::FixedHeight => scale_by_height,
-        CameraAspectPolicy::FixedWidth => scale_by_width,
-    };
-    let half_view_w = viewport_w * orthographic_scale * 0.5;
-    let half_view_h = viewport_h * orthographic_scale * 0.5;
-    let visible_view = ae::Vec2::new(half_view_w * 2.0, half_view_h * 2.0);
+    let (visible_view, orthographic_scale) = fit_camera_view(
+        ae::Vec2::new(target_view_w, target_view_h), input.viewport_px, input.aspect_policy,
+    );
+    let half_view_w = visible_view.x * 0.5;
+    let half_view_h = visible_view.y * 0.5;
 
     let desired_target_world = if input.overview_camera {
         input.focus.stable_center()
@@ -960,8 +971,8 @@ fn clamp_or_center(value: f32, min: f32, max: f32) -> f32 {
 
 /// Screen rectangle occupied by this view, published by the windowed host.
 ///
-/// Size and origin are in logical display pixels. The physical-pixel conversion belongs only at
-/// `apply_gameplay_camera_viewport`; headless views use the default design-window rectangle.
+/// Size and origin are in logical display pixels. Window and image targets use
+/// the same conversion to physical pixels.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq)]
 pub struct CameraViewport {
     /// Size of this view's rectangle, logical pixels (world-frame-free — a
@@ -971,6 +982,29 @@ pub struct CameraViewport {
     /// Top-left of this view's rectangle within the display, in logical pixels. Camera scale does
     /// not depend on origin; presentation uses it to place the view.
     pub origin_px: ae::Vec2,
+}
+
+impl CameraViewport {
+    /// Convert this view to a physical target rectangle. A full display needs no crop.
+    pub fn physical_rect(
+        self,
+        display: ambition_platformer2d_shared_tangle::gameplay_presentation::ScreenRect,
+        target: UVec2,
+    ) -> Option<(UVec2, UVec2)> {
+        if self.origin_px == display.min && self.px == display.size() {
+            return None;
+        }
+        let logical = display.size();
+        let scale_x = target.x as f32 / logical.x.max(1.0);
+        let scale_y = target.y as f32 / logical.y.max(1.0);
+        let point = |at: ae::Vec2| UVec2::new(
+            (at.x * scale_x).round().clamp(0.0, target.x as f32) as u32,
+            (at.y * scale_y).round().clamp(0.0, target.y as f32) as u32,
+        );
+        let min = point(self.origin_px - display.min);
+        let max = point(self.origin_px + self.px - display.min);
+        Some((min, UVec2::new(max.x.saturating_sub(min.x).max(1), max.y.saturating_sub(min.y).max(1))))
+    }
 }
 
 impl Default for CameraViewport {

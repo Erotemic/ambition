@@ -202,29 +202,9 @@ fn player_two_dialogue_at_choices(mut app: App, pads: Vec<Entity>, together: boo
 #[test]
 #[ignore = "needs a wgpu adapter; writes /tmp/ambition-p2-dialogue.png for visual review"]
 fn player_two_dialogue_draws_in_its_own_view() {
-    use ambition_platformer2d::render::capture::{
-        CaptureProgress, CaptureSettings, CaptureTarget, adopt_cameras_into_capture_target,
-        request_capture, setup_capture_target,
-    };
-    let mut app = crate::shell_host_rendered::rendered_app_with(ambition_app::app::VisibleRenderMode::OffscreenGpu);
-    let output = std::env::temp_dir().join("ambition-p2-dialogue.png");
-    app.insert_resource(CaptureSettings { output: output.clone(), size: UVec2::new(1280, 720), include_ui: true });
-    app.init_resource::<CaptureProgress>();
-    app.add_systems(Startup, setup_capture_target);
-    app.add_systems(Update, adopt_cameras_into_capture_target);
-    let (app, pads) = session_in(app, 2, true);
+    let (app, pads) = gpu_session("ambition-p2-dialogue.png");
     let (mut app, _) = player_two_dialogue_at_choices(app, pads, false);
-    for _ in 0..30 { app.update(); }
-    app.add_systems(Update, |mut commands: Commands, target: Res<CaptureTarget>, mut progress: ResMut<CaptureProgress>| {
-        request_capture(&mut commands, &target, &mut progress);
-    });
-    let started = std::time::Instant::now();
-    while !app.world().resource::<CaptureProgress>().completed {
-        assert!(started.elapsed() < crate::common::ACTIVATION_CEILING, "the dialogue capture did not complete");
-        app.update();
-    }
-    assert!(!app.world().resource::<CaptureProgress>().failed);
-    assert!(output.is_file());
+    capture_frame(&mut app);
     let world = app.world_mut();
     let region = world.resource::<ambition_platformer2d::ui_nav::DialogPointerRegion>().0.unwrap();
     let mut roots = world.query_filtered::<(&ComputedNode, &bevy::ui::UiGlobalTransform), With<ambition_platformer2d::render::dialog_ui::DialogOverlayRoot>>();
@@ -235,6 +215,84 @@ fn player_two_dialogue_draws_in_its_own_view() {
     assert!((bounds.min - region.min).abs().max_element() <= 1.0
         && (bounds.max - region.max).abs().max_element() <= 1.0,
         "the rendered dialogue extends outside its input region");
+}
+
+fn gpu_session(name: &str) -> (App, Vec<Entity>) {
+    use ambition_platformer2d::render::capture::{
+        CaptureProgress, CaptureSettings, install_capture_cameras, setup_capture_target,
+    };
+    let mut app = crate::shell_host_rendered::rendered_app_with(ambition_app::app::VisibleRenderMode::OffscreenGpu);
+    let output = std::env::temp_dir().join(name);
+    app.insert_resource(CaptureSettings { output, size: UVec2::new(1280, 720), include_ui: true });
+    app.init_resource::<CaptureProgress>();
+    app.add_systems(Startup, setup_capture_target);
+    install_capture_cameras(&mut app);
+    session_in(app, 2, true)
+}
+
+fn capture_frame(app: &mut App) {
+    use ambition_platformer2d::render::capture::{
+        CaptureCameraSet, CaptureProgress, CaptureSettings, CaptureTarget, request_capture,
+    };
+    for _ in 0..30 { app.update(); }
+    app.add_systems(Update, (|mut commands: Commands, target: Res<CaptureTarget>, mut progress: ResMut<CaptureProgress>| {
+        request_capture(&mut commands, &target, &mut progress);
+    }).after(CaptureCameraSet));
+    let started = std::time::Instant::now();
+    while !app.world().resource::<CaptureProgress>().completed {
+        assert!(started.elapsed() < crate::common::ACTIVATION_CEILING, "the frame capture did not complete");
+        app.update();
+    }
+    assert!(!app.world().resource::<CaptureProgress>().failed);
+    assert!(app.world().resource::<CaptureSettings>().output.is_file());
+}
+
+#[test]
+#[ignore = "needs a wgpu adapter; writes /tmp/ambition-fixed-split.png for visual review"]
+fn fixed_split_draws_both_same_room_views() {
+    let (app, pads) = gpu_session("ambition-fixed-split.png");
+    let mut app = fixed_split_from_settings(app, pads);
+    capture_frame(&mut app);
+    use ambition_platformer2d::platformer::camera_layers::MainCamera;
+    use ambition_platformer2d::sim_view::{PresentsView, camera_snapshot::CameraViewport};
+    let world = app.world_mut();
+    let mut cameras = world.query_filtered::<(&Camera, &PresentsView), With<MainCamera>>();
+    let mut rectangles = Vec::new();
+    for (camera, presents) in cameras.iter(world) {
+        assert!(camera.is_active);
+        let physical = camera.viewport.as_ref().expect("each captured split camera needs a viewport");
+        let logical = world.get::<CameraViewport>(presents.0).unwrap();
+        assert_eq!(physical.physical_position, logical.origin_px.round().as_uvec2());
+        assert_eq!(physical.physical_size, logical.px.round().as_uvec2());
+        rectangles.push((physical.physical_position, physical.physical_size));
+    }
+    rectangles.sort_by_key(|(position, _)| position.x);
+    assert_eq!(rectangles.len(), 2);
+    assert!(rectangles[0].0.x + rectangles[0].1.x <= rectangles[1].0.x,
+        "captured cameras must draw into separate physical rectangles");
+    let output = &world.resource::<ambition_platformer2d::render::capture::CaptureSettings>().output;
+    let image = Image::from_buffer(
+        &std::fs::read(output).unwrap(),
+        bevy::image::ImageType::Extension("png"),
+        bevy::image::CompressedImageFormats::empty(),
+        true,
+        default(),
+        default(),
+    ).unwrap();
+    for (position, size) in rectangles {
+        let mut lit = 0;
+        // Sample the room inside each pane, away from the HUD and touch controls.
+        for x in 1..9 {
+            for y in 1..9 {
+                let color = image.get_color_at(
+                    position.x + size.x * x / 10,
+                    position.y + size.y / 4 + size.y * y / 20,
+                ).unwrap().to_srgba();
+                if color.red.max(color.green).max(color.blue) > 0.2 { lit += 1; }
+            }
+        }
+        assert!(lit > 32, "a later camera cleared the room in pane {position:?}");
+    }
 }
 
 fn x_of(app: &App, body: Entity) -> f32 {
@@ -394,13 +452,71 @@ fn a_claimed_pads_left_stick_moves_player_two() {
     );
 }
 
+fn camera_views(app: &mut App) -> Vec<(u8, bool)> {
+    use ambition_platformer2d::platformer::camera_layers::MainCamera;
+    use ambition_platformer2d::render::platformer_presentation::SplitViewCamera;
+    use ambition_platformer2d::sim_view::{LocalViewId, PresentsView};
+    let world = app.world_mut();
+    let mut cameras = world.query_filtered::<
+        (&PresentsView, Option<&SplitViewCamera>),
+        With<MainCamera>,
+    >();
+    let mut bindings: Vec<_> = cameras
+        .iter(world)
+        .map(|(presents, split)| {
+            (
+                world.get::<LocalViewId>(presents.0)
+                    .expect("camera has a live view")
+                    .0,
+                split.is_some(),
+            )
+        })
+        .collect();
+    bindings.sort();
+    bindings
+}
+
+#[test]
+fn fixed_split_uses_the_setting_without_changing_the_session() {
+    let (app, pads) = session(2, true);
+    drop(fixed_split_from_settings(app, pads));
+}
+
+fn fixed_split_from_settings(mut app: App, pads: Vec<Entity>) -> App {
+    use ambition_platformer2d::settings_menu::settings::{apply_settings_option, SettingsOptionId};
+    use ambition_platformer2d::persistence::settings::UserSettings;
+    let root = {
+        let world = app.world_mut();
+        world.query_filtered::<Entity, With<SessionRoot>>().single(world).unwrap()
+    };
+    let one = the_primary(&mut app);
+    apply_settings_option(SettingsOptionId::LocalViewLayout, 1, &mut app.world_mut().resource_mut::<UserSettings>());
+    for _ in 0..6 { app.update(); }
+    assert_eq!(camera_views(&mut app), vec![(0, false)], "one participant keeps one view");
+    tap(&mut app, pads[1], GamepadButton::Start);
+    for _ in 0..90 { app.update(); }
+    let two = seat_one_bodies(&mut app)[0];
+    assert_eq!(camera_views(&mut app), vec![(0, false), (1, true)], "nearby participants keep separate cameras");
+    apply_settings_option(SettingsOptionId::LocalViewLayout, -1, &mut app.world_mut().resource_mut::<UserSettings>());
+    for _ in 0..90 { app.update(); }
+    assert_eq!(camera_views(&mut app), vec![(0, false)], "adaptive still merges nearby participants");
+    apply_settings_option(SettingsOptionId::LocalViewLayout, 1, &mut app.world_mut().resource_mut::<UserSettings>());
+    for _ in 0..6 { app.update(); }
+    assert_eq!(camera_views(&mut app), vec![(0, false), (1, true)]);
+    assert_eq!(the_primary(&mut app), one);
+    assert_eq!(seat_one_bodies(&mut app), vec![two]);
+    let world = app.world_mut();
+    assert_eq!(world.query_filtered::<Entity, With<SessionRoot>>().single(world).unwrap(), root);
+    app
+}
+
 /// The shipped host must supply a physical camera for every opened local view.
 /// A view and a HUD alone cannot draw the right half of the display.
 #[test]
 fn adaptive_split_opens_and_retires_a_camera_in_the_shipped_host() {
     use ambition_platformer2d::platformer::camera_layers::MainCamera;
     use ambition_platformer2d::render::platformer_presentation::SplitViewCamera;
-    use ambition_platformer2d::sim_view::{AdaptiveSplit, LocalViewId, PresentsView};
+    use ambition_platformer2d::sim_view::{AdaptiveSplit, PresentsView};
 
     let (mut app, pads) = session(2, true);
     tap(&mut app, pads[1], GamepadButton::Start);
@@ -414,26 +530,7 @@ fn adaptive_split_opens_and_retires_a_camera_in_the_shipped_host() {
     for _ in 0..6 {
         app.update();
     }
-    let camera_views = |app: &mut App| {
-        let world = app.world_mut();
-        let mut cameras = world.query_filtered::<
-            (&PresentsView, Option<&SplitViewCamera>),
-            With<MainCamera>,
-        >();
-        let mut bindings: Vec<_> = cameras
-            .iter(world)
-            .map(|(presents, split)| {
-                (
-                    world.get::<LocalViewId>(presents.0)
-                        .expect("camera has a live view")
-                        .0,
-                    split.is_some(),
-                )
-            })
-            .collect();
-        bindings.sort();
-        bindings
-    };
+
     assert_eq!(
         camera_views(&mut app),
         vec![(0, false), (1, true)],

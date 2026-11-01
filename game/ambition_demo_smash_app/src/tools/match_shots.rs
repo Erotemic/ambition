@@ -28,7 +28,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::render::capture::{
-    adopt_cameras_into_capture_target, request_capture, setup_capture_target, CaptureProgress,
+    install_capture_cameras, CaptureCameraSet, request_capture, setup_capture_target, CaptureProgress,
     CaptureSettings, CaptureTarget,
 };
 
@@ -193,13 +193,8 @@ pub fn run(args: MatchShotsArgs) {
         setup_capture_target
             .after(ambition_platformer2d::presentation::PlatformerPresentationSetupSet),
     );
-    // Adopt cameras every frame (when a camera appears is composition
-    // business), then shoot in the same frame, so a new camera can be shot at
-    // once.
-    app.add_systems(
-        Update,
-        (adopt_cameras_into_capture_target, shoot_when_asked).chain(),
-    );
+    install_capture_cameras(&mut app);
+    app.add_systems(Update, shoot_when_asked.after(CaptureCameraSet));
 
     // Finish the plugins before stepping. `App::run()` does this;
     // `App::update()` does not. `RenderPlugin` creates the wgpu device in

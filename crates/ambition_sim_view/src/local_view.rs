@@ -291,10 +291,16 @@ pub fn split_views_by_live_room(
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     drivers: bevy::prelude::Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
     adaptive: Option<bevy::prelude::Res<AdaptiveSplit>>,
+    settings: Option<bevy::prelude::Res<ambition_persistence::settings::UserSettings>>,
     cast: Option<bevy::prelude::Res<ambition_platformer2d_shared_tangle::markers::FramedCast>>,
     time: Option<bevy::prelude::Res<bevy::prelude::Time>>,
     bodies: bevy::prelude::Query<&ambition_platformer2d_core::BodyKinematics>,
-    framed: bevy::prelude::Query<(&LocalViewId, &crate::camera_snapshot::ResolvedCameraSnapshot)>,
+    framed: bevy::prelude::Query<(
+        &LocalViewId,
+        &crate::camera_snapshot::ResolvedCameraSnapshot,
+        Option<&crate::camera_snapshot::CameraViewport>,
+        Option<&ViewPlacement>,
+    )>,
     mut distance: bevy::prelude::Local<DistanceSplit>,
     views: bevy::prelude::Query<
         (
@@ -334,7 +340,31 @@ pub fn split_views_by_live_room(
     let adaptive = adaptive
         .filter(|_| laid_out_here && cast.as_ref().is_none_or(|cast| cast.0.is_empty()))
         .map(|policy| *policy);
+    use ambition_persistence::settings::video::LocalViewLayout;
+    let layout = settings.as_deref().map_or_else(Default::default, |settings| settings.video.local_view_layout);
+    // Distance uses the shared viewport even when the current layout is split.
+    let shown = adaptive.filter(|_| distance.open_at.is_none()).and_then(|_| {
+        let (_, resolved, viewport, placement) = framed.iter().find(|(id, ..)| **id == LocalViewId::FIRST)?;
+        let snapshot = &resolved.frame()?.snapshot;
+        let Some(viewport) = viewport else { return Some(snapshot.visible_view * 0.5); };
+        let placement = placement.copied().unwrap_or_default();
+        let fraction = placement.max - placement.min;
+        if fraction.x <= 0.0 || fraction.y <= 0.0 { return None; }
+        let whole = ambition_platformer2d_core::Vec2::new(viewport.px.x / fraction.x, viewport.px.y / fraction.y);
+        let aspect = settings.as_deref().map_or_else(Default::default, |settings| settings.video.camera_aspect);
+        Some(crate::camera_snapshot::fit_camera_view(snapshot.requested_view, whole, aspect).0 * 0.5)
+    });
     let apart = match adaptive {
+        Some(_) if layout == LocalViewLayout::AlwaysSplit => {
+            if seats.len() > 1 {
+                distance.open_at = distance.open_at.or(shown);
+                distance.together_for = 0.0;
+                true
+            } else {
+                *distance = DistanceSplit::default();
+                false
+            }
+        }
         Some(policy) => {
             // Each other seat's body against seat zero's, in seat zero's room.
             let anchor = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, PlayerSlot::PRIMARY)
@@ -351,10 +381,6 @@ pub fn split_views_by_live_room(
                         .collect()
                 })
                 .unwrap_or_default();
-            let shown = framed
-                .iter()
-                .find(|(id, _)| **id == LocalViewId::FIRST)
-                .and_then(|(_, resolved)| resolved.frame().map(|frame| frame.snapshot.visible_view * 0.5));
             let beyond = |half: ambition_platformer2d_core::Vec2, part: f32| {
                 offsets.iter().any(|offset| offset.x > half.x * part || offset.y > half.y * part)
             };
@@ -1225,6 +1251,10 @@ mod tests {
     #[test]
     fn the_split_leaves_a_placement_it_did_not_write() {
         let mut couch = ownership::Couch::together();
+        let mut settings = ambition_persistence::settings::UserSettings::default();
+        settings.video.local_view_layout = ambition_persistence::settings::video::LocalViewLayout::AlwaysSplit;
+        couch.world.insert_resource(settings);
+        couch.world.insert_resource(AdaptiveSplit::default());
         let top_half = ViewPlacement {
             min: ae::Vec2::ZERO,
             max: ae::Vec2::new(1.0, 0.5),
@@ -1254,6 +1284,53 @@ mod tests {
             (Some(top_half), false),
             "closed: the composition's placement did not survive a split and a merge"
         );
+    }
+
+    #[test]
+    fn fixed_split_returns_to_adaptive_distance_in_the_shared_view() {
+        use ambition_persistence::settings::{video::LocalViewLayout, UserSettings};
+        use crate::camera_snapshot::{CameraSnapshot2d, CameraViewport, ResolvedCameraFrame, ResolvedCameraSnapshot};
+        let mut couch = ownership::Couch::together();
+        let first = ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION;
+        couch.world.entity_mut(couch.alice).insert(ae::BodyKinematics::default());
+        couch.world.entity_mut(couch.bob).insert(ae::BodyKinematics {
+            pos: ae::Vec2::new(0.0, 400.0), ..Default::default()
+        });
+        let view = couch.world.spawn((LocalView, LocalViewId::FIRST, ResolvedCameraSnapshot::default())).id();
+        let mut settings = UserSettings::default();
+        settings.video.local_view_layout = LocalViewLayout::AlwaysSplit;
+        couch.world.insert_resource(settings);
+        couch.world.insert_resource(AdaptiveSplit { merge_after: 0.0, ..Default::default() });
+        let split = couch.world.register_system(split_views_by_live_room);
+        couch.world.run_system(split).unwrap();
+        assert_eq!(couch.view_count(), 2, "fixed split opens before any camera snapshot exists");
+
+        couch.world.entity_mut(view).insert((
+            CameraViewport { px: ae::Vec2::new(200.0, 600.0), origin_px: ae::Vec2::ZERO },
+            ResolvedCameraSnapshot(Some(ResolvedCameraFrame {
+                snapshot: CameraSnapshot2d {
+                    requested_view: ae::Vec2::new(400.0, 200.0),
+                    visible_view: ae::Vec2::new(400.0, 1200.0),
+                    ..Default::default()
+                },
+                follow_world: ae::Vec2::ZERO,
+                room: first,
+            })),
+        ));
+        couch.world.run_system(split).unwrap();
+        couch.world.resource_mut::<UserSettings>().video.local_view_layout = LocalViewLayout::Adaptive;
+        couch.world.run_system(split).unwrap();
+        assert_eq!(couch.view_count(), 2, "a split viewport must not enlarge the adaptive distance threshold");
+
+        couch.world.entity_mut(couch.bob).insert(ae::BodyKinematics::default());
+        couch.world.run_system(split).unwrap();
+        assert_eq!(couch.view_count(), 1, "adaptive merges when the bodies are together");
+        couch.world.resource_mut::<UserSettings>().video.local_view_layout = LocalViewLayout::AlwaysSplit;
+        couch.world.run_system(split).unwrap();
+        assert_eq!(couch.view_count(), 2, "fixed split stays open for nearby bodies");
+        couch.world.despawn(couch.bob);
+        couch.world.run_system(split).unwrap();
+        assert_eq!(couch.view_count(), 1, "one participant returns to one view");
     }
 
     /// A VIEW THAT NAMES THE BODY OF A SEAT SHOWS THAT SEAT.

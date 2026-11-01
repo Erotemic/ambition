@@ -475,6 +475,7 @@ fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
             SettingsOptionId::CameraAspect,
             SettingsOptionId::CameraFraming,
             SettingsOptionId::ViewShape,
+            SettingsOptionId::LocalViewLayout,
             SettingsOptionId::Flashes,
             SettingsOptionId::PortalWindows,
             SettingsOptionId::Colorblind,

@@ -59,6 +59,19 @@ pub struct CaptureTarget {
     pub adopted: u32,
 }
 
+/// Capture cameras have adopted this frame's layout and image target.
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct CaptureCameraSet;
+
+/// Install camera capture after the host publishes its view rectangles.
+pub fn install_capture_cameras(app: &mut App) {
+    app.configure_sets(Update, CaptureCameraSet
+        .after(ambition_platformer2d_shared_tangle::gameplay_presentation::GameplayPresentationSet)
+        .after(crate::platformer_presentation::present_split_view_rigs)
+        .before(crate::rendering::camera_follow));
+    app.add_systems(Update, adopt_cameras_into_capture_target.in_set(CaptureCameraSet));
+}
+
 /// How far along the capture is. A caller owns the policy; this is the record.
 #[derive(Resource, Debug, Default)]
 pub struct CaptureProgress {
@@ -111,13 +124,18 @@ pub fn setup_capture_target(
 /// When a camera appears depends on the composition, so this runs every
 /// frame and counts what it adopted. A caller captures only once
 /// [`CaptureTarget::adopted`] is non-zero.
-pub fn adopt_cameras_into_capture_target(
+fn adopt_cameras_into_capture_target(
     mut commands: Commands,
     settings: Res<CaptureSettings>,
     target: Option<ResMut<CaptureTarget>>,
-    mut main_cameras: Query<(Entity, &mut Camera), (With<MainCamera>, Without<CaptureAdopted>)>,
+    presentation: Option<Res<ambition_platformer2d_shared_tangle::gameplay_presentation::ResolvedGameplayPresentation>>,
+    views: Query<(Entity, &ambition_sim_view::camera_snapshot::CameraViewport), With<ambition_sim_view::LocalView>>,
+    mut main_cameras: Query<
+        (Entity, &mut Camera, &mut bevy::camera::RenderTarget, Option<&CaptureAdopted>, Option<&ambition_sim_view::PresentsView>),
+        With<MainCamera>,
+    >,
     mut hud_cameras: Query<
-        (Entity, &mut Camera),
+        (Entity, &mut Camera, &mut bevy::camera::RenderTarget),
         (
             With<FrontHudCamera>,
             Without<MainCamera>,
@@ -131,22 +149,33 @@ pub fn adopt_cameras_into_capture_target(
     let render_target = bevy::camera::RenderTarget::Image(bevy::camera::ImageRenderTarget::from(
         target.image.clone(),
     ));
-    for (entity, mut camera) in &mut main_cameras {
-        camera.is_active = true;
-        commands
-            .entity(entity)
-            .insert((render_target.clone(), Msaa::Off, CaptureAdopted));
-        target.adopted += 1;
+    let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter().map(|(view, _)| view));
+    for (entity, mut camera, mut destination, adopted, link) in &mut main_cameras {
+        if adopted.is_none() {
+            camera.is_active = true;
+            *destination = render_target.clone();
+            commands.entity(entity).insert((Msaa::Off, CaptureAdopted));
+            target.adopted += 1;
+        }
+        if let Some((presentation, (_, viewport))) = presentation.as_deref().zip(
+            on_hand.presented_by(link.copied()).and_then(|view| views.get(view).ok()),
+        ) {
+            let desired = viewport.physical_rect(presentation.display_rect, settings.size);
+            if camera.viewport.as_ref().map(|rect| (rect.physical_position, rect.physical_size)) != desired {
+                camera.viewport = desired.map(|(position, size)| bevy::camera::Viewport {
+                    physical_position: position, physical_size: size, ..default()
+                });
+            }
+        }
     }
     // Point the HUD camera at the target only when UI is wanted; otherwise a
     // "world only" capture includes the HUD. It is marked either way, so an
     // unwanted HUD camera is not revisited every frame.
-    for (entity, mut camera) in &mut hud_cameras {
+    for (entity, mut camera, mut destination) in &mut hud_cameras {
         camera.is_active = settings.include_ui;
         if settings.include_ui {
-            commands
-                .entity(entity)
-                .insert((render_target.clone(), Msaa::Off));
+            *destination = render_target.clone();
+            commands.entity(entity).insert(Msaa::Off);
         }
         commands.entity(entity).insert(CaptureAdopted);
     }

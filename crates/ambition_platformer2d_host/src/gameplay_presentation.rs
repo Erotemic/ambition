@@ -437,25 +437,9 @@ fn publish_one_views_screen_framing(
 /// Apply each view's rectangle to the physical viewport of the camera that
 /// presents it, leaving the front HUD camera full-screen.
 ///
-/// Each camera now resolves its OWN view through `PresentsView`, by the same binding rule
-/// `camera_follow` uses, and takes that view's rectangle.
-///
-/// the single-view case is unchanged, deliberately.
-/// `publish_camera_viewport` writes the whole gameplay rectangle onto any view
-/// that declares no `ambition_sim_view::ViewPlacement`, so the "full-bleed needs
-/// no viewport at all" test below still compares exactly the same two rectangles
-/// it always did and still leaves `Camera::viewport` cleared. Nothing about the
-/// shipped picture moves.
-///
-/// `Camera::viewport` is in PHYSICAL pixels while the whole layout is resolved
-/// in logical pixels (the space window cursors, touches, and `bevy_ui` share),
-/// so the scale factor is applied here and nowhere else.
-///
-/// Only cameras rendering to the WINDOW are touched. The resolved layout is a
-/// fact about the physical display, so applying it to a camera retargeted at
-/// an offscreen image — which `capture_scene` does to the main camera, sizing
-/// the image itself and resolving its own snapshot against that size — would
-/// clip the capture to a rectangle computed for a window it is not drawing to.
+/// Each camera uses the rectangle of its `PresentsView`. The shared conversion
+/// maps logical layout pixels to the physical window size. A full display
+/// needs no crop. Image targets use the capture owner and its target size.
 pub fn apply_gameplay_camera_viewport(
     presentation: Res<ResolvedGameplayPresentation>,
     windows: Query<&Window, With<PrimaryWindow>>,
@@ -474,7 +458,6 @@ pub fn apply_gameplay_camera_viewport(
     let Ok(window) = windows.single() else {
         return;
     };
-    let scale = window.scale_factor().max(f32::EPSILON);
     let display = presentation.display_rect;
     let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter().map(|(view, _)| view));
 
@@ -493,13 +476,9 @@ pub fn apply_gameplay_camera_viewport(
         // A view filling the whole display needs no viewport at all. Leaving it
         // cleared keeps the ordinary path byte-identical to the pre-viewport
         // engine instead of round-tripping through physical pixels every frame.
-        let fills_the_display = viewport.origin_px == display.min && viewport.px == display.size();
-        let desired = (!fills_the_display).then(|| Viewport {
-            physical_position: (viewport.origin_px * scale)
-                .round()
-                .max(ae::Vec2::ZERO)
-                .as_uvec2(),
-            physical_size: (viewport.px * scale).round().max(ae::Vec2::ONE).as_uvec2(),
+        let desired = viewport.physical_rect(display, window.physical_size()).map(|(position, size)| Viewport {
+            physical_position: position,
+            physical_size: size,
             ..default()
         });
 

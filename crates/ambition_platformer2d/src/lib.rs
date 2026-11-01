@@ -1305,7 +1305,7 @@ pub mod sim {
 pub mod capture {
     pub use ambition_render::capture::{
         CaptureAdopted, CaptureProgress, CaptureSettings, CaptureTarget,
-        adopt_cameras_into_capture_target, finish_after_capture, request_capture,
+        install_capture_cameras, CaptureCameraSet, finish_after_capture, request_capture,
         setup_capture_target,
     };
 }

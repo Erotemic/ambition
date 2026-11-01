@@ -11,7 +11,7 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
     use ambition_persistence::settings::gameplay::Difficulty;
     use ambition_persistence::settings::video::{
         CameraAspectPolicy, CameraFramingPreset, ColorblindMode, FlashIntensity, FramePaceCap,
-        GameplayViewShape, PortalWindowLook, VisualQualityProfile, VsyncMode,
+        GameplayViewShape, LocalViewLayout, PortalWindowLook, VisualQualityProfile, VsyncMode,
     };
 
     let v = &settings.video;
@@ -81,6 +81,17 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                     i,
                     n,
                     "Play every game in a 4:3 view with bars beside it: fewer pixels to draw on a slow device.",
+                )
+            },
+            {
+                let (i, n) = enum_index(&LocalViewLayout::ALL, v.local_view_layout);
+                cycle(
+                    SettingsOptionId::LocalViewLayout,
+                    "Split Screen",
+                    v.local_view_layout.label(),
+                    i,
+                    n,
+                    "Merge nearby views in co-op exploration, or keep them split.",
                 )
             },
             {

@@ -20,7 +20,7 @@ use std::path::PathBuf;
 
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::render::capture::{
-    adopt_cameras_into_capture_target, finish_after_capture, request_capture, setup_capture_target,
+    install_capture_cameras, CaptureCameraSet, finish_after_capture, request_capture, setup_capture_target,
     CaptureProgress, CaptureSettings, CaptureTarget,
 };
 use bevy::prelude::*;
@@ -236,17 +236,14 @@ fn main() {
     // the same frame or the next one was left to whatever order Bevy happened to
     // pick. Ambiguity in a measuring instrument is worse than a known offset:
     // the capture is supposed to be the thing that settles arguments.
+    install_capture_cameras(&mut app);
     app.add_systems(
         Update,
-        (
-            adopt_cameras_into_capture_target,
-            hold_right_while_walking,
-            press_the_utility_key_for_her_form,
-            shoot_when_warm,
-            finish_after_capture,
-        )
-            .chain()
-            .before(ambition_platformer2d::input::InputSet::Collect),
+        (hold_right_while_walking, press_the_utility_key_for_her_form).chain().before(ambition_platformer2d::input::InputSet::Collect),
+    );
+    app.add_systems(
+        Update,
+        (shoot_when_warm, finish_after_capture).chain().after(CaptureCameraSet),
     );
     app.run();
 }

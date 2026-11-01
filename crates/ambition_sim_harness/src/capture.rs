@@ -191,10 +191,7 @@ impl DeterministicCaptureSession {
             include_ui: false,
         });
         app.init_resource::<CaptureProgress>();
-        app.add_systems(
-            Update,
-            ambition_platformer2d::capture::adopt_cameras_into_capture_target,
-        );
+        ambition_platformer2d::capture::install_capture_cameras(app);
     }
 
 

@@ -303,6 +303,8 @@ pub fn present_split_view_rigs(
             Camera2d,
             Camera {
                 order: 1 + isize::from(id.0.min(7)),
+                // The first gameplay camera clears the shared target.
+                clear_color: bevy::camera::ClearColorConfig::None,
                 ..default()
             },
             MainCamera,

@@ -490,6 +490,12 @@ combat-side facts. Capture, contact harm and module foe queries resolve control
 at both ends. Owner tests cover each control combination. World-anchored area
 volumes still need captured participant identity before this option covers them.
 
+**Peer contract gate built** (`3c7f0d5bb`): the in-memory peers compare content
+fingerprints, snapshot schemas and input format before each timeline advances.
+Guards: `peer_contract_waits_for_the_other_proposal_before_simulation` and
+`peer_contract_mismatch_refuses_simulation_on_both_peers`, plus the input-format case.
+The effective co-op rule must still enter the agreed mechanical identity.
+
 Store the **effective gameplay rule** in the session's agreed/rollback-safe
 configuration, not only in one client's `GameplaySettings` resource. Validate
 rule identity across peers at session start, and define a deterministic

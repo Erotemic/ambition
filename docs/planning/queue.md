@@ -593,7 +593,11 @@ Guard: `a_possessed_bodys_shot_keeps_its_side_after_control_or_lifetime_changes`
 Shared combat-side facts landed in `c901305ae`; capture, contact harm and
 module foe queries use control allegiance at both ends. Guard:
 `capture_uses_control_allegiance_at_both_ends`, with contact and module cases.
-The co-op preference, peer agreement and world-area participant capture remain open.
+
+Peer proposal agreement landed in `3c7f0d5bb`. Each timeline waits for content,
+schema and input format agreement; local epochs stay local. Guard:
+`peer_contract_mismatch_refuses_simulation_on_both_peers` and its wait case.
+The frozen co-op choice and world-area participant capture remain open.
 
 **Next action (ordered slices; complete each behavior gate before moving):**
 

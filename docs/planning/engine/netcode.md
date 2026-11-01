@@ -250,6 +250,12 @@ Before external peers begin play, negotiate exact prepared-content identity,
 the rollback schema fingerprint, and the input payload identity. A peer with
 mismatched simulation content fails before speculative play.
 
+**In-memory gate built** (`3c7f0d5bb`): local checks now compare peer content
+fingerprints, snapshot schemas and `CONTROL_FRAME_WIRE_IDENTITY` before each timeline advances.
+Peer contracts exclude local epochs. Guards:
+`peer_contract_mismatch_refuses_simulation_on_both_peers` and `another_input_format_cannot_agree`.
+Transport between processes and its wire adapter remain open.
+
 **State identity.** The runtime dump (`schema_dump()`, recorded in
 `game/ambition_app/tests/rollback_schema_baseline.txt`) owns the schema. A
 source scan cannot own it, because a registration is a runtime call with no

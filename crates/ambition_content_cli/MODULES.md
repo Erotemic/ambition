@@ -7,8 +7,9 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`art`](src/art.rs) | Export prepared identities, dependencies and loose sheet resolution for authoring tools. |
+| [`library_assets`](src/library_assets.rs) | Resolve checked pack assets from the pack's selected libraries. |
 
-_1 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

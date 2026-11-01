@@ -603,7 +603,7 @@ body strikes use one relation; detached attacks retain control allegiance.
 Guard: `coop_friendly_fire` integration tests. Scripted strikes and the
 rendered main-game acceptance remain open.
 
-Damage-box provenance is built (schema 396): capture precedes retirement, and
+Damage-box provenance landed in `753adeda8` (schema 396): capture precedes retirement, and
 queued and immediate construction share one factory. Guard:
 `a_damage_box_keeps_its_emission_room_and_session_after_its_source_leaves`.
 Keep emission scope separate from credit; do not restore credit stand-ins.
@@ -1933,6 +1933,7 @@ The focused content suite still reports four failures also present in the
 earlier feature-union run: Void fighter damage, Performer contact windows,
 Pugnacious uppercut gravity, and the boot-pack scan of a world-flow fixture.
 These remain open at their owners.
+Module maps are current for all 105 crates; their focused check passes.
 Documentation checks also remain open: five broken local links and 55 unresolved
 planning citations were reported on 2026-11-01. Planning anchors resolve.
 

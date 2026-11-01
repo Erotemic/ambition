@@ -495,7 +495,7 @@ test covers NPC allies, possessed factions, grudges and match-team precedence.
 The runtime projection test covers two live rooms with different rule scopes.
 
 Damage-box emission now captures room, session, round and allegiance before
-source retirement (schema 396). Queued and immediate construction use one
+source retirement (`753adeda8`, schema 396). Queued and immediate construction use one
 factory. Unknown blast credit requires no temporary body. The two-room guard
 `a_damage_box_keeps_its_emission_room_and_session_after_its_source_leaves`
 covers owner loss, credit in another room, damage and room retirement.

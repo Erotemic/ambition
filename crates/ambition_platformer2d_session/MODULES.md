@@ -7,7 +7,6 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`checkpoint`](src/checkpoint.rs) | Restoring a session to its checkpoint: the startup resume and the death/retry reset. |
-| [`data`](src/data.rs) | Data manifests for the sandbox. |
 | [`death`](src/death.rs) | Participant death interlude and level-reset policy. |
 | [`durable_horizon`](src/durable_horizon.rs) | Durable persistence for occurrence, custody, and minted-item checkpoint state. |
 | [`initial_body`](src/initial_body.rs) | Session startup body selection and its prepared resource bank. |
@@ -22,7 +21,7 @@
 | [`snapshot_impls`](src/snapshot_impls.rs) | The lifecycle snapshot encoding. |
 | [`teardown`](src/teardown.rs) | Re-establish the process-global mirrors of live-session state at BOTH edges of a gameplay session. |
 
-_15 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_14 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

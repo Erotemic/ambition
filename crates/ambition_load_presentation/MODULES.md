@@ -6,7 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`basic_presentation`](src/basic_presentation.rs) | Plain Bevy UI reference presentation for load evidence and ready-hold. |
+| [`basic_presentation`](src/basic_presentation.rs) | Show load status and the controls needed to continue or recover. |
 | [`deterministic_activity`](src/deterministic_activity.rs) | Optional deterministic loading activity acceptance fixture. |
 | [`model`](src/model.rs) | Load-foreground policy, semantic view model, and arbitrary activity protocol. |
 | [`plugin`](src/plugin.rs) | Contributor-neutral hidden-grace, ready-hold, activity, and cleanup lifecycle. |

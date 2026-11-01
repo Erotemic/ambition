@@ -11,7 +11,7 @@
 | [`baked_landmarks`](src/baked_landmarks.rs) | The landmark table of every published part flipbook that tracks a landmark, `(target, bincode)` sorted by target, and the one digest that covers them all. |
 | [`baked_part_flipbooks`](src/baked_part_flipbooks.rs) | The table of every published part-flipbook draw table, sorted by key: `<target>` for the full-resolution table, `<target>.<tier>` for a quality tier's, from the `assets/sprites*` trees. |
 | [`baked_portrait_rons`](src/baked_portrait_rons.rs) | The table of `(asset_relative_manifest_path, ron_text)` pairs for every independently published `*_portraits.ron` under `assets/sprites/`. |
-| [`baked_sheet_rons`](src/baked_sheet_rons.rs) | The table of `(key, ron_text)` pairs for every published `*_spritesheet.ron`, sorted by key ([`crate::sprite_tree::sheet_manifests`]: `assets/sprites/`, its quality tiers, and one level of subdirectories). |
+| [`baked_sheet_rons`](src/baked_sheet_rons.rs) | Immutable sprite metadata selected by one App. |
 | [`binding`](src/binding.rs) | Typed animation-row binding for one sprite sheet. |
 | [`boss`](src/boss.rs) | Boss spritesheet animation, parallel to `character_sprites` but with the boss generator's own animation rows (rest / floor_slam / side_sweep / spike_halo / dash_echo / hit / death) instead of the standard 8-row `CharacterAnim` grid. |
 | [`character`](src/character/mod.rs) | Character sprite-sheet vocabulary and Bevy-side animation helpers. |
@@ -20,19 +20,21 @@
 | [`fx`](src/fx.rs) | The effect sheets the engine ships, and the mapping from effect name to sheet row. |
 | [`game_assets`](src/game_assets/mod.rs) | Game asset wiring for character sheets, entity sprites, and parallax art. |
 | [`inspection`](src/inspection.rs) | Read published sheets through the runtime parser and pose resolver. |
+| [`library`](src/library.rs) | Build one sprite generation from explicitly selected libraries. |
 | [`pack`](src/pack.rs) | [`SpritePackCatalog`]: the runtime schema for a cross-target *ultrapack*. |
 | [`portrait`](src/portrait.rs) | Runtime vocabulary for separately published dialogue portrait sheets. |
 | [`prop_sheets`](src/prop_sheets.rs) | The `prop_sheets` schema: the prop sheets a game draws, as data in its pack. |
-| [`published_cache`](src/published_cache.rs) | A development build's cache of what it derives from the published sprite tree. |
-| [`published_tree`](src/published_tree.rs) | A development build's read of the published sprite tree. |
+| [`published_cache`](src/published_cache.rs) | Cache derived sprite metadata. |
+| [`published_tree`](src/published_tree.rs) | Intern content identities and read native metadata text. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_sprite_sheet`. |
 | [`sheet_mechanics`](src/sheet_mechanics.rs) | The mechanical projection of a sheet record: the part of it the simulation reads, for the content identity. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotCursor` for this crate's own types — the rollback checksum wire. |
-| [`sprite_packs`](src/sprite_packs.rs) | Quality-tiered shared-page sprite packs (ultrapacks) — the runtime side. |
-| [`sprite_tree`](src/sprite_tree.rs) | The published sprite tree: which files the sprite publisher wrote, and the key each one is read by. |
+| [`sprite_packs`](src/sprite_packs.rs) | Select shared atlas pages from the target's library and quality tier. |
+| [`sprite_tree`](src/sprite_tree.rs) | Sprite quality keys and the geometry projection of part tables. |
 | [`surfaces`](src/surfaces.rs) | The standing surfaces a sheet publishes, as the simulation reads them ([`ambition_characters::actor::SurfaceTable`]). |
+| [`test_support`](src/test_support.rs) | An explicit shared-library fixture for corpus tests. |
 
-_25 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_27 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

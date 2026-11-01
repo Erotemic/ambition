@@ -478,6 +478,13 @@ selection: an allied player can be hit accidentally without becoming an NPC's
 foe. Audit melee, ranged hits, area effects, body ownership after possession,
 and any scripted hit path that bypasses the common combat relation.
 
+**Launch identity built** (`3c80caa69`, schema 394): `ProjectileAllegiance`
+captures the driving participant, authored faction and team. Damage, clash and
+perception use the shared effective-faction rule on that capture. Reflection
+captures the interceptor's current side. Tests cover control transfer, owner
+despawn and snapshot restore. Do not infer a launched shot's side from its
+owner's current control. The co-op rule and its preference remain open.
+
 Store the **effective gameplay rule** in the session's agreed/rollback-safe
 configuration, not only in one client's `GameplaySettings` resource. Validate
 rule identity across peers at session start, and define a deterministic

@@ -357,10 +357,12 @@ character or changes gameplay geometry.
 
 **Failure:** the inspector reads loose audio and font paths while the runtime
 uses selected publications. Python packaging and Rust also differ on missing
-publications and stale generation identities.
+publications and stale generation identities. The native feature-union host
+also registers both disk and served selections for `ambition_shared`.
 
 **Owner:** `ambition_asset_manager::content_library`,
-`scripts/lib/content_libraries.py`, and `tools/asset_inspector/asset_index`.
+`scripts/lib/content_libraries.py`, `tools/asset_inspector/asset_index`, and
+provider library installation.
 Design: [asset library review, A and E](engine/asset-library-implementation-review.md#a-selection-is-correct-in-the-runtime-but-not-uniform-in-the-tools).
 
 **Next action:** define the read-only selected-file contract in the existing
@@ -369,10 +371,16 @@ Use it for published-only sprites, music, SFX and fonts. Keep local staleness
 advisory; preserve path-safety and unreadable-file errors. State any stricter
 package requirement at the packaging boundary.
 
+Resolve disk/served delivery at the host boundary. A hosted provider must not
+claim a second selection for an imported library. Keep one validated selection
+per library ID and preserve refusal for incompatible selections.
+
 **Acceptance:** shared behavioral fixtures produce the same selected membership
 and origin in both languages. Published-only assets resolve in the inspector;
 loose unselected copies remain visible as workspace products. A usable old
-publication can run without a rebuild or a deep audit.
+publication can run without a rebuild or a deep audit. A native host with
+served-content support enabled admits its shared library once; standalone
+served games still run.
 
 ### SMASH-DEFECTS — select-screen, respawn and result lifecycle
 
@@ -577,6 +585,12 @@ Window and capture targets share the rectangle conversion; later split cameras
 retain earlier panes. Guards: `fixed_split_uses_the_setting_without_changing_the_session`
 and `fixed_split_draws_both_same_room_views`, with physical rectangles and pixels.
 Keep authored layouts and cast framing under their existing owners.
+
+Projectile launch allegiance landed in `3c80caa69` (schema 394). It captures
+participant identity with faction and team, including reflection. Damage,
+clashes and perception read that capture after control transfer or owner loss.
+Guard: `a_possessed_bodys_shot_keeps_its_side_after_control_or_lifetime_changes`.
+The co-op preference and agreed session rule are still open.
 
 **Next action (ordered slices; complete each behavior gate before moving):**
 
@@ -1887,7 +1901,14 @@ machinery; do not turn source counts or test counts into acceptance gates.
 `dfe0d768b` makes camera fixtures supply complete samples; no policy waiver was added.
 Guards: `app_it -- rollback_` passes 79 tests (6 ignored); the component localizer passes 595 restore comparisons.
 Policy: 35 passed; camera: 3 passed; Smash: 18 unit and 53 integration passed (6 ignored); app check and 53 absence contracts passed.
-Full Python tooling and union feature verification remain open. These passes do not close TEST-LANES.
+Full verification remains open. The broad Python run reported 1894 passed,
+72 failed and 30 skipped. Its codec-ledger failure is repaired in `3c80caa69`
+(six focused tests pass). The feature-union job compiled after the intro-owner
+repair in `c2cc9d6fb`, then failed in 14 targets. Its app integration target was
+interrupted after repeated library-selection startup failures. Triage the
+served/disk selection conflict under ASSET-SELECTION and the remaining content,
+art, live-reload and tooling failures at their owners. Do not claim a green
+matrix from the focused passes.
 Documentation checks also remain open: five broken local links and 55 unresolved
 planning citations were reported on 2026-11-01. Planning anchors resolve.
 

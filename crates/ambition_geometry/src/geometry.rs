@@ -410,14 +410,15 @@ fn starts_overlapping(lhs: Aabb, rhs: Aabb) -> bool {
 ///
 /// One copy, because this is Ambition's contract, not a property of either
 /// solver: resting on a floor must not block horizontal motion, and sliding
-/// along a wall must not block vertical motion.
+/// along a wall must not block vertical motion. A distance epsilon must not
+/// discard a positive normalized impact time.
 fn reject_grazing_contact(
     lhs: Aabb,
     delta: Vec2,
     rhs: Aabb,
     hit: AabbSweepHit,
 ) -> Option<AabbSweepHit> {
-    if hit.time_of_impact <= CONTACT_EPS
+    if hit.time_of_impact == 0.0
         && !lhs.strict_intersects(rhs)
         && !moves_into_touching_face(lhs, delta, rhs)
     {
@@ -513,19 +514,19 @@ fn slab_sweep(lhs: Aabb, delta: Vec2, rhs: Aabb) -> Option<AabbSweepHit> {
 
 fn moves_into_touching_face(lhs: Aabb, delta: Vec2, rhs: Aabb) -> bool {
     let y_ranges_overlap =
-        lhs.bottom() > rhs.top() + CONTACT_EPS && lhs.top() < rhs.bottom() - CONTACT_EPS;
+        lhs.bottom() > rhs.top() && lhs.top() < rhs.bottom();
     let x_ranges_overlap =
-        lhs.right() > rhs.left() + CONTACT_EPS && lhs.left() < rhs.right() - CONTACT_EPS;
+        lhs.right() > rhs.left() && lhs.left() < rhs.right();
 
     let touching_rhs_left = nearly_equal(lhs.right(), rhs.left());
     let touching_rhs_right = nearly_equal(lhs.left(), rhs.right());
     let touching_rhs_top = nearly_equal(lhs.bottom(), rhs.top());
     let touching_rhs_bottom = nearly_equal(lhs.top(), rhs.bottom());
 
-    (touching_rhs_left && y_ranges_overlap && delta.x > CONTACT_EPS)
-        || (touching_rhs_right && y_ranges_overlap && delta.x < -CONTACT_EPS)
-        || (touching_rhs_top && x_ranges_overlap && delta.y > CONTACT_EPS)
-        || (touching_rhs_bottom && x_ranges_overlap && delta.y < -CONTACT_EPS)
+    (touching_rhs_left && y_ranges_overlap && delta.x > 0.0)
+        || (touching_rhs_right && y_ranges_overlap && delta.x < 0.0)
+        || (touching_rhs_top && x_ranges_overlap && delta.y > 0.0)
+        || (touching_rhs_bottom && x_ranges_overlap && delta.y < 0.0)
 }
 
 fn parry_pose(aabb: Aabb) -> Pose {
@@ -555,6 +556,29 @@ mod tests {
         let aabb = aabb_from_min_size(Vec2::new(10.0, 20.0), Vec2::new(30.0, 40.0));
         assert_eq!(aabb.center(), Vec2::new(25.0, 40.0));
         assert_eq!(aabb.half_size(), Vec2::new(15.0, 20.0));
+    }
+
+    #[test]
+    fn a_positive_impact_time_is_not_a_grazing_contact() {
+        let body = Aabb::new(Vec2::ZERO, Vec2::ONE);
+        let wall = aabb_from_min_size(Vec2::new(1.0005, -2.0), Vec2::new(1.0, 4.0));
+        for distance in [1.0, 10.0, 100.0] {
+            let delta = Vec2::new(distance, 0.0);
+            let hit = body.sweep_hit(delta, wall).expect("a separated body closes the gap to the wall");
+            assert!(hit.time_of_impact > 0.0 && hit.time_of_impact < 1.0);
+            let at = body.translated(delta * hit.time_of_impact);
+            assert!((at.right() - wall.left()).abs() < 1e-5);
+        }
+    }
+
+    #[test]
+    fn a_tiny_closing_component_still_contacts_a_touching_wall() {
+        let body = Aabb::new(Vec2::ZERO, Vec2::ONE);
+        let wall = aabb_from_min_size(Vec2::new(1.0, -10.0), Vec2::new(1.0, 20.0));
+        let hit = body.sweep_hit(Vec2::new(0.00005, 1.0), wall)
+            .expect("motion into the wall remains blocked while the body moves along it");
+        assert_eq!(hit.time_of_impact, 0.0);
+        assert!(hit.normal1.x > 0.0);
     }
 
     #[test]

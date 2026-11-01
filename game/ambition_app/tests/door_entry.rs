@@ -453,3 +453,35 @@ fn the_rollback_door_host_publishes_a_prepared_cast() {
          protagonist: {ids:?}"
     );
 }
+
+#[test]
+fn walking_out_of_gap_run_door_stays_clear_of_stagger_steps_platform() {
+    use ambition_app::AmbitionSim as _;
+    use ambition_platformer2d::{engine_core as ae, platformer::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot}};
+    use ambition_platformer2d::platformer::markers::PrimaryPlayer;
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::fixed_60hz_room_options("gap_run"))
+        .expect("gap_run prepares");
+    let door = crate::common::door_to(&mut sim, "stagger_steps").aabb.center();
+    sim.teleport_player((door.x, door.y));
+    let mut entered = false;
+    for _ in 0..120 {
+        if sim.step(interact()).active_room == "stagger_steps" { entered = true; break; }
+    }
+    assert!(entered, "the real door interaction must reach stagger_steps");
+    let mut bodies = sim.world_mut().query_filtered::<(&ae::BodyKinematics, &InRoomInstance), With<PrimaryPlayer>>();
+    let mut rooms = sim.world_mut().query_filtered::<(&LiveRoomInstance, &ae::RoomGeometry), With<RoomInstanceRoot>>();
+    for tick in 0..120 {
+        sim.step(base());
+        let world = sim.world();
+        let (body, stamp) = bodies.single(world).unwrap();
+        let geometry = &rooms.iter(world).find(|(room, _)| **room == stamp.0).unwrap().1.0;
+        assert!(!geometry.blocks.iter().any(|block|
+            ae::collision_semantics::is_full_collision_surface(block.kind) && body.aabb().strict_intersects(block.aabb)),
+            "arrival tick {tick} embedded the body at {:?} with size {:?}", body.pos, body.size);
+    }
+    let before = bodies.single(sim.world()).unwrap().0.pos;
+    sim.step(AgentAction { jump: true, jump_held: true, ..base() });
+    for _ in 0..12 { sim.step(AgentAction { jump_held: true, ..base() }); }
+    let after = bodies.single(sim.world()).unwrap().0.pos;
+    assert!(after.y < before.y - 12.0, "the body is free to jump after the passage: {before:?} -> {after:?}");
+}

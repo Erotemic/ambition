@@ -236,17 +236,9 @@ pub fn halt_body(kinematics: &mut crate::body_clusters::BodyKinematics) {
     kinematics.vel = Vec2::ZERO;
 }
 
-/// SDI: the one thing a body may still do while frozen in hitlag.
-///
-/// Hitlag is a WINDOW rather than merely a pause, and this is what makes it one
-/// — the victim shifts itself out of the next hit's way while the current one is
-/// still stopped. Its offensive twin, DI, rides the launch the same freeze
-/// precedes.
-///
-/// A pose write, and a SWEPT one: the frozen tick calls the kernel with
-/// `dt == 0` and the kernel returns before its collision pass, so this is the
-/// only place the displacement meets the world. An unswept shift lets a body
-/// walk into or through geometry over a hitlag window.
+/// Sweep a displacement while ordinary body integration is held.
+/// SDI during hitlag and passage scenes use this path. Full solid geometry
+/// stops the shift. Velocity and movement state stay unchanged.
 pub fn shift_frozen_body(
     world: &crate::World,
     kinematics: &mut crate::body_clusters::BodyKinematics,

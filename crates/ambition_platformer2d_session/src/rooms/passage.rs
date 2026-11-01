@@ -484,6 +484,7 @@ pub fn run_zone_passages(
     world_time: Res<ambition_time::WorldTime>,
     boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
     mut pending_lifecycle: ResMut<PendingLifecycleCommit>,
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
     mut sfx: ambition_sfx::SfxWriter,
     mut bodies: Query<(
         Entity,
@@ -492,12 +493,13 @@ pub fn run_zone_passages(
         &mut ZonePassage,
         Option<&mut ControlHolds>,
         Option<&ae::PoseOwnedExternally>,
+        &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         Option<&InRoomInstance>,
     )>,
 ) {
     let dt = world_time.sim_dt();
     let now = boundary.as_ref().map_or(0, |boundary| boundary.current);
-    for (entity, clusters, mut model, mut passage, mut control_holds, pose_holds, stamp) in &mut bodies {
+    for (entity, clusters, mut model, mut passage, mut control_holds, pose_holds, frame, stamp) in &mut bodies {
         let here = stamp.map(|stamp| stamp.0);
         if passage.room.is_none() {
             passage.room = here;
@@ -558,7 +560,18 @@ pub fn run_zone_passages(
         }
         match passage.body_at() {
             Some(pos) => {
-                let pos = if passage.recorded { clusters.kinematics.pos } else { pos };
+                let pos = if passage.recorded {
+                    clusters.kinematics.pos
+                } else if passage.stage == PassageStage::Exiting {
+                    let Some(room) = collision.room(stamp) else { continue; };
+                    let Some(world) = room.solids_for(entity) else { continue; };
+                    let shift = pos - clusters.kinematics.pos;
+                    // A scene may hold control, but its walk-out cannot enter solids.
+                    ae::movement::shift_frozen_body(&world, clusters.kinematics, frame.down(), shift);
+                    clusters.kinematics.pos
+                } else {
+                    pos
+                };
                 ae::movement::transit_body(&mut model, &mut clusters, pos, ae::movement::TransitVelocity::Zero);
                 if passage.stage == PassageStage::Exiting {
                     clusters.kinematics.facing = passage.facing;
@@ -656,10 +669,46 @@ mod tests {
                     ae::body_clusters::BodyRestartLatch::default(),
                     ae::MotionModel::default(),
                 ),
+                ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
                 ZonePassage { crossing: Some(crossing.clone()), ..passage(PassageKind::Door) },
             ))
             .id();
         (app, body, crossing)
+    }
+
+    #[test]
+    fn a_door_walk_out_stops_before_a_platform_over_its_exit() {
+        use ae::AabbExt as _;
+        for (obstructed, y) in [(false, 454.0), (false, 456.0), (true, 454.0), (true, 456.0)] {
+            let (mut app, body, _) = passage_app();
+            let start = ae::Vec2::new(32.0, y);
+            let mut blocks = vec![ae::Block::solid("floor", ae::Vec2::new(16.0, 480.0), ae::Vec2::new(768.0, 16.0))];
+            if obstructed {
+                blocks.push(ae::Block::solid("first step", ae::Vec2::new(48.0, 432.0), ae::Vec2::new(112.0, 16.0)));
+            }
+            let world = ae::World::new("stagger_steps_door", ae::Vec2::new(800.0, 512.0), start, blocks);
+            ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+                app.world_mut(), ae::RoomGeometry(world.clone()));
+            app.world_mut().entity_mut(body).insert((
+                ae::BodyKinematics { pos: start, vel: ae::Vec2::ZERO, size: ae::Vec2::new(30.065935, 48.000004), facing: 1.0 },
+                ZonePassage {
+                    kind: PassageKind::Door, stage: PassageStage::Exiting, elapsed: 0.0,
+                    from: start, foot: start + ae::Vec2::new(0.0, 24.0), heart: start,
+                    half_h: 24.0, facing: 1.0, crossing: None, recorded: false, recorded_at: 0.0,
+                    arrival: None, room: None, zone: "door".into(),
+                },
+            ));
+            for tick in 0..45 {
+                app.update();
+                let kin = app.world().get::<ae::BodyKinematics>(body).unwrap();
+                assert!(!world.blocks.iter().any(|block| kin.aabb().strict_intersects(block.aabb)),
+                    "passage tick {tick} put the body inside a solid at {:?}", kin.pos);
+            }
+            let end = app.world().get::<ae::BodyKinematics>(body).unwrap().pos;
+            assert!(end.x > start.x, "the passage must move the body");
+            if !obstructed { assert!(end.x > start.x + 20.0, "an open exit keeps its walk-out"); }
+            assert!(app.world().get::<ZonePassage>(body).is_none(), "the passage returns control");
+        }
     }
 
     /// Review finding #4 (2026-10-19). The crossing is recorded and its

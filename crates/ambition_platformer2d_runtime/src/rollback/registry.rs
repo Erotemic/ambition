@@ -201,7 +201,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// The blast can damage all bodies in range, including the thrower.
 /// Resolved body hits retain the resolver's self-damage decision.
 /// A shark charge crash names only the crashing body.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 400;
+/// 400 -> 401: passage exits sweep the held body against its live room solids.
+/// A doorway animation cannot leave a body inside the next platform.
+/// Swept collision keeps every positive impact time, including near faces.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 401;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

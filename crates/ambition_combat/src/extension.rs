@@ -677,7 +677,6 @@ fn lower_body_holds(
                 };
                 let room = tuning.room_of(captor);
                 let friendly_fire = tuning.in_room(room).unwrap_or_default().friendly_fire();
-                let attacker = crate::targeting::effective_faction(*faction, driver);
                 // The reach is a box on the captor's own axes, as the hold
                 // point is (`constrain_captives`): mirror by its facing, then
                 // turn into its frame. A captor under sideways gravity
@@ -708,10 +707,12 @@ fn lower_body_holds(
                     }
                     if !crate::targeting::damage_lands_between(
                         tuning.relations(),
-                        attacker,
-                        victim.effective_faction(),
-                        team,
-                        victim.team,
+                        crate::targeting::Combatant { faction: *faction, driver, team },
+                        crate::targeting::Combatant {
+                            faction: *victim.faction,
+                            driver: victim.driver,
+                            team: victim.team,
+                        },
                         friendly_fire,
                         None,
                         victim.entity,

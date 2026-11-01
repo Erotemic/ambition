@@ -215,10 +215,16 @@ fn a_roster_of_two_cpu_participants_becomes_two_bodies_wearing_their_characters(
     assert!(
         ambition_combat::targeting::damage_lands_between(
             None,
-            seated[0].3,
-            seated[1].3,
-            Some(left_team),
-            Some(right_team),
+            ambition_combat::targeting::Combatant {
+                faction: seated[0].3,
+                driver: None,
+                team: Some(left_team),
+            },
+            ambition_combat::targeting::Combatant {
+                faction: seated[1].3,
+                driver: None,
+                team: Some(right_team),
+            },
             ambition_combat::targeting::FriendlyFire::default(),
             None,
             bevy::prelude::Entity::from_raw_u32(1).expect("nonzero raw index"),
@@ -691,10 +697,16 @@ fn four_fighters_on_two_teams_can_hit_their_opponents_and_not_their_partners() {
             }
             let lands = damage_lands_between(
                 None,
-                *faction,
-                *other_faction,
-                Some(&MatchTeam::new(team.clone())),
-                Some(&MatchTeam::new(other_team.clone())),
+            ambition_combat::targeting::Combatant {
+                faction: *faction,
+                driver: None,
+                team: Some(&MatchTeam::new(team.clone())),
+            },
+            ambition_combat::targeting::Combatant {
+                faction: *other_faction,
+                driver: None,
+                team: Some(&MatchTeam::new(other_team.clone())),
+            },
                 no_ff,
                 None,
                 *other_entity,

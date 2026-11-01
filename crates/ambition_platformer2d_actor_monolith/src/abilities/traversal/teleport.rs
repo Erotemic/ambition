@@ -164,14 +164,18 @@ impl FoeCandidate {
         other.entity != self.entity
             && ambition_combat::targeting::combat_relation(
                 None,
-                self.faction,
-                self.driving.as_ref(),
-                self.team.as_ref(),
+                ambition_combat::targeting::Combatant {
+                    faction: self.faction,
+                    driver: self.driving.as_ref(),
+                    team: self.team.as_ref(),
+                },
                 None,
                 other.entity,
-                other.faction,
-                other.driving.as_ref(),
-                other.team.as_ref(),
+                ambition_combat::targeting::Combatant {
+                    faction: other.faction,
+                    driver: other.driving.as_ref(),
+                    team: other.team.as_ref(),
+                },
             ) == ambition_combat::targeting::CombatRelation::Foe
     }
 

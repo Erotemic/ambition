@@ -336,14 +336,14 @@ pub fn spawn_projectiles_from_brain_actions(
                                 )
                                 && ambition_combat::targeting::combat_relation(
                                     matrix,
-                                    *faction,
-                                    driver,
-                                    team,
+                                    ambition_combat::targeting::Combatant { faction: *faction, driver: driver, team },
                                     None,
                                     *candidate,
-                                    **candidate_faction,
-                                    *candidate_driver,
-                                    *candidate_team,
+                                    ambition_combat::targeting::Combatant {
+                                        faction: **candidate_faction,
+                                        driver: *candidate_driver,
+                                        team: *candidate_team,
+                                    },
                                 )
                                 .is_target()
                             },

@@ -77,10 +77,16 @@ pub(crate) fn boss_damage_allowed(
     };
     ambition_combat::targeting::damage_lands_between(
         None,
-        ambition_combat::targeting::effective_faction(*attacker_faction, attacker_driver),
-        ambition_combat::targeting::effective_faction(*boss_faction, boss_driver),
-        attacker_team,
-        boss_team,
+        ambition_combat::targeting::Combatant {
+            faction: *attacker_faction,
+            driver: attacker_driver,
+            team: attacker_team,
+        },
+        ambition_combat::targeting::Combatant {
+            faction: *boss_faction,
+            driver: boss_driver,
+            team: boss_team,
+        },
         friendly_fire,
         None,
         boss_entity,

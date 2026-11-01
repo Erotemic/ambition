@@ -64,6 +64,7 @@ pub struct CaptorView {
     body: CaptureParticipant,
     faction: &'static ambition_characters::actor::ActorFaction,
     team: Option<&'static crate::targeting::MatchTeam>,
+    driver: Option<&'static ambition_characters::control::DrivingParticipant>,
     frame: Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
 }
 
@@ -200,10 +201,16 @@ pub fn acquire_captures(
             }
             if !crate::targeting::damage_lands_between(
                 tuning.relations(),
-                *captor.faction,
-                victim.effective_faction(),
-                captor.team,
-                victim.team,
+                crate::targeting::Combatant {
+                    faction: *captor.faction,
+                    driver: captor.driver,
+                    team: captor.team,
+                },
+                crate::targeting::Combatant {
+                    faction: *victim.faction,
+                    driver: victim.driver,
+                    team: victim.team,
+                },
                 friendly_fire,
                 None,
                 victim.entity,
@@ -796,6 +803,32 @@ mod tests {
             half_extents: ae::Vec2::new(12.0, 14.0),
             hold_offset: ae::Vec2::new(18.0, 0.0),
             move_instance: None,
+        }
+    }
+
+    #[test]
+    fn capture_uses_control_allegiance_at_both_ends() {
+        use ambition_characters::{actor::ActorFaction, control::{DrivingParticipant, PlayerSlot}};
+        for (captor_driven, victim_driven, expected) in [
+            (false, false, false),
+            (true, false, true),
+            (false, true, true),
+            (true, true, false),
+        ] {
+            let mut app = capture_app();
+            let captor = grounded_body(&mut app, "captor", ae::Vec2::ZERO);
+            let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
+            for (body, driven, slot) in [(captor, captor_driven, 0), (victim, victim_driven, 1)] {
+                if driven {
+                    app.world_mut().entity_mut(body).insert(DrivingParticipant(PlayerSlot(slot)));
+                }
+            }
+            app.world_mut().write_message(attempt(captor));
+            app.update();
+            assert_eq!(app.world().get::<CapturedBy>(victim).is_some(), expected,
+                "captor driven={captor_driven}, victim driven={victim_driven}");
+            assert_eq!(app.world().get::<ActorFaction>(captor), Some(&ActorFaction::Enemy));
+            assert_eq!(app.world().get::<ActorFaction>(victim), Some(&ActorFaction::Enemy));
         }
     }
 

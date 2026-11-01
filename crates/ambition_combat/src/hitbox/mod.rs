@@ -647,7 +647,10 @@ impl StrikeVictimItem<'_, '_> {
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct AttackerFacts<'w, 's> {
     aggression: Query<'w, 's, &'static ActorAggression>,
-    team: Query<'w, 's, &'static crate::targeting::MatchTeam>,
+    allegiance: Query<'w, 's, (
+        Option<&'static ambition_characters::control::DrivingParticipant>,
+        Option<&'static crate::targeting::MatchTeam>,
+    )>,
     health: Query<'w, 's, &'static ambition_characters::actor::BodyHealth>,
     stale: Query<'w, 's, &'static crate::stale::BodyStaleMoves>,
     playback: Query<'w, 's, &'static crate::moveset::MovePlayback>,
@@ -659,10 +662,6 @@ impl AttackerFacts<'_, '_> {
     /// re-tagging factions.
     fn grudge(&self, owner: Entity) -> Option<crate::components::Grudge> {
         self.aggression.get(owner).ok().and_then(|a| a.grudge)
-    }
-
-    fn team(&self, owner: Entity) -> Option<&crate::targeting::MatchTeam> {
-        self.team.get(owner).ok()
     }
 
     /// Accumulated damage, for RAGE. A body with no health pool has taken none.
@@ -1017,7 +1016,15 @@ pub fn apply_hitbox_damage(
         // staleness; this answers "what did the victim get hit BY", and a blast
         // is hit by the blast.
         let spatial_source = spatial_source_of(hitbox, owner_pos);
-        let source_faction = actor_faction_from_hit_side(hitbox.source);
+        let (driver, team) = attacker.allegiance.get(hitbox.owner).unwrap_or_default();
+        let source_side = crate::targeting::Combatant {
+            faction: actor_faction_from_hit_side(hitbox.source),
+            driver: match hitbox.anchor {
+                HitboxAnchor::FollowOwner { .. } => driver,
+                HitboxAnchor::World { .. } => None,
+            },
+            team,
+        };
 
         // ONE BODY, ONE PATH: every body-owned melee strike resolves contacts
         // here. `HitSide` selects descriptive source vocabulary only; it does not
@@ -1136,10 +1143,12 @@ pub fn apply_hitbox_damage(
                 if hitbox.source != HitSide::Environment
                     && !crate::targeting::damage_lands_between(
                         tuning.relations(),
-                        source_faction,
-                        victim.effective_faction(),
-                        attacker.team(hitbox.owner),
-                        victim.team,
+                        source_side,
+                        crate::targeting::Combatant {
+                            faction: *victim.faction,
+                            driver: victim.driver,
+                            team: victim.team,
+                        },
                         friendly_fire,
                         owner_grudge,
                         victim.entity,

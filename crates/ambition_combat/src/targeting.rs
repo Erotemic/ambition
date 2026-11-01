@@ -215,23 +215,15 @@ impl CombatRelation {
 /// optional [`FactionRelations`] matrix: a declared alliance (`attacker` fights beside
 /// `candidate`), then hostility. Participant control affects effective faction without mutating
 /// authored allegiance.
-#[allow(clippy::too_many_arguments)]
 pub fn combat_relation(
-    // `None` = no matrix opinion. Damage is physical: a swing that reaches a
-    // different-faction body hurts it whether or not the two are declared
-    // enemies, so for damage a `Foe` and a `Neutral` land alike, and only the
-    // ALLIANCE arm changes what lands — an ally's swing spares the side it
-    // fights for.
     relations: Option<&FactionRelations>,
-    attacker_faction: ActorFaction,
-    attacker_driver: Option<&ambition_characters::control::DrivingParticipant>,
-    attacker_team: Option<&MatchTeam>,
+    attacker: Combatant<'_>,
     attacker_grudge: Option<crate::components::Grudge>,
     candidate: Entity,
-    candidate_faction: ActorFaction,
-    candidate_driver: Option<&ambition_characters::control::DrivingParticipant>,
-    candidate_team: Option<&MatchTeam>,
+    victim: Combatant<'_>,
 ) -> CombatRelation {
+    let Combatant { faction: attacker_faction, driver: attacker_driver, team: attacker_team } = attacker;
+    let Combatant { faction: candidate_faction, driver: candidate_driver, team: candidate_team } = victim;
     // Against the EFFECTIVE faction, so a faction grudge follows control the way
     // the matrix arm below does.
     if attacker_grudge.is_some_and(|grudge| {
@@ -261,55 +253,26 @@ pub fn combat_relation(
     }
 }
 
-pub fn damage_lands(
-    attacker: ActorFaction,
-    victim: ActorFaction,
-    friendly_fire: FriendlyFire,
-    attacker_grudge: Option<crate::components::Grudge>,
-    victim_entity: Entity,
-) -> bool {
-    can_damage(attacker, victim, friendly_fire)
-        || attacker_grudge.is_some_and(|grudge| grudge.names(victim_entity, victim))
+/// Allegiance facts for a body or a captured projectile source.
+#[derive(Clone, Copy, Debug)]
+pub struct Combatant<'a> {
+    pub faction: ActorFaction,
+    pub driver: Option<&'a ambition_characters::control::DrivingParticipant>,
+    pub team: Option<&'a MatchTeam>,
 }
 
-/// [`damage_lands`], with a TEAM relation taking precedence when both bodies
-/// have one.
-///
-/// A grudge still overrides: it is a per-entity feud and it is deliberately
-/// stronger than any group rule, which is what lets two teammates settle
-/// something the ruleset did not anticipate.
+/// Apply the shared relationship policy to a physical strike.
+/// Self-exclusion remains the contact owner's responsibility.
 pub fn damage_lands_between(
-    // The world's relations, for the alliance arm: a body that fights beside
-    // the victim's faction does not hurt it. `None` asks no alliance.
     relations: Option<&FactionRelations>,
-    attacker: ActorFaction,
-    victim: ActorFaction,
-    attacker_team: Option<&MatchTeam>,
-    victim_team: Option<&MatchTeam>,
+    attacker: Combatant<'_>,
+    victim: Combatant<'_>,
     friendly_fire: FriendlyFire,
     attacker_grudge: Option<crate::components::Grudge>,
     victim_entity: Entity,
 ) -> bool {
-    // the damage side of [`combat_relation`], and it must not grow a second
-    // opinion. Callers pass ALREADY-EFFECTIVE factions here (the policy
-    // re-resolves them, which is idempotent), so this stays a projection.
-    //
-    // one behaviour deliberately changed: friendly fire now also frees
-    // same-TEAM damage. The old team arm returned a bare "different team?" and
-    // ignored the toggle, so a teams match could never enable friendly fire —
-    // which is a real platform-fighter setting, and the flag says what it means.
-    combat_relation(
-        relations,
-        attacker,
-        None,
-        attacker_team,
-        attacker_grudge,
-        victim_entity,
-        victim,
-        None,
-        victim_team,
-    )
-    .damage_lands(friendly_fire)
+    combat_relation(relations, attacker, attacker_grudge, victim_entity, victim)
+        .damage_lands(friendly_fire)
 }
 
 /// Pick each non-player actor's `ActorTarget` and settle target-derived standing.
@@ -509,14 +472,18 @@ pub fn select_actor_targets(
                 // speaks for itself — being seated in a match IS an allegiance.
                 let relation = combat_relation(
                     has_allegiance.then_some(&relations),
-                    self_faction,
-                    None,
-                    self_team,
+                    Combatant {
+                        faction: self_faction,
+                        driver: None,
+                        team: self_team,
+                    },
                     aggression.grudge,
                     *entity,
-                    *cand_faction,
-                    None,
-                    *cand_team,
+                    Combatant {
+                        faction: *cand_faction,
+                        driver: None,
+                        team: *cand_team,
+                    },
                 );
                 if !relation.is_target() {
                     continue;

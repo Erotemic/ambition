@@ -54,14 +54,18 @@ pub fn foes_of(world: &World, scope: Entity) -> Option<Foes> {
         .filter(|(other, _)| {
             crate::targeting::combat_relation(
                 relations,
-                faction,
-                None,
-                team,
+                crate::targeting::Combatant {
+                    faction,
+                    driver: world.get::<ambition_characters::control::DrivingParticipant>(scope),
+                    team,
+                },
                 None,
                 other.id(),
-                other.get::<ambition_characters::actor::ActorFaction>().copied().unwrap_or_default(),
-                None,
-                other.get::<crate::targeting::MatchTeam>(),
+                crate::targeting::Combatant {
+                    faction: other.get::<ambition_characters::actor::ActorFaction>().copied().unwrap_or_default(),
+                    driver: other.get::<ambition_characters::control::DrivingParticipant>(),
+                    team: other.get::<crate::targeting::MatchTeam>(),
+                },
             )
             .is_target()
         })

@@ -380,3 +380,29 @@ fn it_does_not_harm_a_body_in_another_live_room() {
         "(hits in the striker's room, hits in the other live room)"
     );
 }
+
+#[test]
+fn contact_harm_uses_control_allegiance_at_both_ends() {
+    use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+    for (striker_driven, victim_driven, expected) in [
+        (false, false, 0),
+        (true, false, 1),
+        (false, true, 1),
+        (true, true, 0),
+    ] {
+        let (mut app, striker, victim) = app_with_striker_and_victim(
+            Empowerment::HARMS_ON_CONTACT, 1.0, ActorFaction::Enemy,
+        );
+        app.world_mut().entity_mut(striker).insert(ActorFaction::Enemy);
+        for (body, driven, slot) in [(striker, striker_driven, 0), (victim, victim_driven, 1)] {
+            if driven {
+                app.world_mut().entity_mut(body).insert(DrivingParticipant(PlayerSlot(slot)));
+            }
+        }
+        app.update();
+        assert_eq!(hits(&mut app).len(), expected,
+            "striker driven={striker_driven}, victim driven={victim_driven}");
+        assert_eq!(app.world().get::<ActorFaction>(striker), Some(&ActorFaction::Enemy));
+        assert_eq!(app.world().get::<ActorFaction>(victim), Some(&ActorFaction::Enemy));
+    }
+}

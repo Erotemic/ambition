@@ -1419,10 +1419,16 @@ fn four_controllers_make_versus_a_two_versus_two() {
             assert_eq!(
                 damage_lands_between(
                     None,
-                    *faction,
-                    *other_faction,
-                    Some(&MatchTeam::new(team.clone())),
-                    Some(&MatchTeam::new(other_team.clone())),
+                    ambition_platformer2d::combat::targeting::Combatant {
+                        faction: *faction,
+                        driver: None,
+                        team: Some(&MatchTeam::new(team.clone())),
+                    },
+                    ambition_platformer2d::combat::targeting::Combatant {
+                        faction: *other_faction,
+                        driver: None,
+                        team: Some(&MatchTeam::new(other_team.clone())),
+                    },
                     no_ff,
                     None,
                     *other,

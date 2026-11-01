@@ -74,3 +74,28 @@ fn foes_are_in_identity_order() {
     fighter(&mut world, "aa", 30.0, "gold");
     assert_eq!(positions(&world, me), vec![30.0, 10.0, 20.0], "the foes are not in identity order");
 }
+
+#[test]
+fn module_foes_follow_control_allegiance_at_both_ends() {
+    use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+    for (source_driven, other_driven, expected) in [
+        (false, false, vec![]),
+        (true, false, vec![10.0]),
+        (false, true, vec![10.0]),
+        (true, true, vec![]),
+    ] {
+        let mut world = World::new();
+        world.init_resource::<crate::targeting::FactionRelations>();
+        let source = fighter(&mut world, "source", 0.0, "red");
+        let other = fighter(&mut world, "other", 10.0, "red");
+        for (body, driven, slot) in [(source, source_driven, 0), (other, other_driven, 1)] {
+            world.entity_mut(body).remove::<crate::targeting::MatchTeam>();
+            world.entity_mut(body).insert(ActorFaction::Enemy);
+            if driven {
+                world.entity_mut(body).insert(DrivingParticipant(PlayerSlot(slot)));
+            }
+        }
+        assert_eq!(positions(&world, source), expected,
+            "source driven={source_driven}, other driven={other_driven}");
+    }
+}

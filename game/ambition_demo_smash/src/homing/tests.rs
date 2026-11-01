@@ -272,10 +272,16 @@ fn the_bystander_is_damageable_and_still_not_a_target() {
     assert!(
         targeting::damage_lands_between(
             None,
-            ambition_platformer2d::actor::ActorFaction::Player,
-            ambition_platformer2d::actor::ActorFaction::Npc,
-            Some(&hunter_team),
-            None,
+            ambition_platformer2d::combat::targeting::Combatant {
+                faction: ambition_platformer2d::actor::ActorFaction::Player,
+                driver: None,
+                team: Some(&hunter_team),
+            },
+            ambition_platformer2d::combat::targeting::Combatant {
+                faction: ambition_platformer2d::actor::ActorFaction::Npc,
+                driver: None,
+                team: None,
+            },
             targeting::FriendlyFire { enabled: false },
             None,
             other,
@@ -285,14 +291,18 @@ fn the_bystander_is_damageable_and_still_not_a_target() {
     assert!(
         !targeting::combat_relation(
             None,
-            ambition_platformer2d::actor::ActorFaction::Player,
-            None,
-            Some(&hunter_team),
+            ambition_platformer2d::combat::targeting::Combatant {
+                faction: ambition_platformer2d::actor::ActorFaction::Player,
+                driver: None,
+                team: Some(&hunter_team),
+            },
             None,
             other,
-            ambition_platformer2d::actor::ActorFaction::Npc,
-            None,
-            None,
+            ambition_platformer2d::combat::targeting::Combatant {
+                faction: ambition_platformer2d::actor::ActorFaction::Npc,
+                driver: None,
+                team: None,
+            },
         )
         .is_target(),
         "the bystander IS a target, so there is no disagreement to guard"

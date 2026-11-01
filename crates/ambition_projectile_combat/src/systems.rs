@@ -1277,10 +1277,16 @@ pub fn step_projectiles(
                     || allegiance.as_ref().is_some_and(|side| {
                         ambition_combat::targeting::damage_lands_between(
                             tuning.relations(),
-                            side.effective_faction(),
-                            victim.effective_faction(),
-                            side.team(),
-                            victim.team,
+                            ambition_combat::targeting::Combatant {
+                                faction: side.faction,
+                                driver: side.driver.as_ref(),
+                                team: side.team(),
+                            },
+                            ambition_combat::targeting::Combatant {
+                                faction: *victim.faction,
+                                driver: victim.driver,
+                                team: victim.team,
+                            },
                             friendly_fire,
                             firer_grudge,
                             victim.entity,

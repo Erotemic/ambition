@@ -184,6 +184,7 @@ pub fn apply_contact_harm(
             (Option<&Empowered>, Option<&WornCharacter>),
             (&ae::BodyKinematics, Option<&ae::SweepSample>),
             &ActorFaction,
+            Option<&ambition_characters::control::DrivingParticipant>,
             Option<&ContactHarm>,
             Option<&ambition_combat::targeting::MatchTeam>,
         ),
@@ -193,6 +194,7 @@ pub fn apply_contact_harm(
         Entity,
         &CenteredAabb,
         &ActorFaction,
+        Option<&ambition_characters::control::DrivingParticipant>,
         &BodyHealth,
         &ae::BodyMotionFacts,
         &ambition_platformer2d_core::BodyShieldState,
@@ -208,7 +210,7 @@ pub fn apply_contact_harm(
     // The rules of the striker's own live room, and the room it touches in.
     tuning: ambition_combat::rules::CombatTuningOf,
 ) {
-    for (striker, (grant, worn), (kin, last_step), striker_faction, harm, striker_team) in &empowered {
+    for (striker, (grant, worn), (kin, last_step), striker_faction, striker_driver, harm, striker_team) in &empowered {
         if !empowerment_of(grant, worn, cast.get()).holds(Empowerment::HARMS_ON_CONTACT) {
             continue;
         }
@@ -223,6 +225,7 @@ pub fn apply_contact_harm(
             victim,
             victim_aabb,
             victim_faction,
+            victim_driver,
             victim_health,
             facts,
             shield,
@@ -239,10 +242,16 @@ pub fn apply_contact_harm(
             }
             if !ambition_combat::targeting::damage_lands_between(
                 tuning.relations(),
-                *striker_faction,
-                *victim_faction,
-                striker_team,
-                victim_team,
+                ambition_combat::targeting::Combatant {
+                    faction: *striker_faction,
+                    driver: striker_driver,
+                    team: striker_team,
+                },
+                ambition_combat::targeting::Combatant {
+                    faction: *victim_faction,
+                    driver: victim_driver,
+                    team: victim_team,
+                },
                 friendly_fire,
                 None,
                 victim,

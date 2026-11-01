@@ -65,6 +65,12 @@ After Gradle finishes, the build script opens the final APK and checks every
 contracted file under `assets/`. It checks both paths and bytes. A correct
 staging directory does not prove that the APK contains those files.
 
+The generated project sets `android.experimental.forceDeterministicApk=true`.
+Changed package inputs produce a fresh APK. This avoids an integer overflow in
+incremental ZIP updates when entry offsets differ by more than 2 GiB. Rust,
+asset compression, and Java build outputs remain cached. The build script
+requests Gradle stack traces for packaging failures.
+
 ## Architecture rules
 
 - Platform/device policy belongs in host/platform composition.

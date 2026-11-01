@@ -597,6 +597,10 @@ cat > "$PROJECT_DIR/gradle.properties" <<'EOF'
 # validation unless this flag is enabled in the generated project.
 android.useAndroidX=true
 
+# Rebuild the APK when its inputs change. Incremental ZIP updates can overflow
+# when entry offsets differ by more than 2 GiB. Keep other build tasks cached.
+android.experimental.forceDeterministicApk=true
+
 # Keep the generated Android project local and predictable. The build script
 # already points GRADLE_USER_HOME at target/android/gradle-user-home by default.
 org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8
@@ -864,7 +868,7 @@ if [[ "$APK_BUILD_TYPE" == "release" ]]; then
 fi
 
 log "assembling APK with Gradle task: $GRADLE_TASK"
-( cd "$PROJECT_DIR" && GRADLE_USER_HOME="$GRADLE_USER_HOME" "$GRADLE_CMD" --no-daemon "$GRADLE_TASK" )
+( cd "$PROJECT_DIR" && GRADLE_USER_HOME="$GRADLE_USER_HOME" "$GRADLE_CMD" --no-daemon --stacktrace "$GRADLE_TASK" )
 
 APK_DIR="$APP_DIR/build/outputs/apk/$APK_BUILD_TYPE"
 APK=$(find "$APK_DIR" -maxdepth 1 -type f -name '*.apk' | sort | tail -1)

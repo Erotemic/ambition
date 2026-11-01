@@ -191,7 +191,8 @@ fn world(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, ro
     app.init_schedule(Sim);
     app.add_message::<ActorActionMessage>()
         .add_message::<ProjectileSpawnRequest>()
-        .add_message::<ambition_vfx::EffectRequest>()
+        .add_message::<ambition_characters::summon::SummonRequest>()
+        .add_message::<ambition_combat::damage_box::DamageBoxRequest>()
         .add_message::<ambition_sfx::OwnedSfxMessage>()
         .init_resource::<ambition_time::SimTick>()
         .init_resource::<ambition_time::WorldTime>();
@@ -340,27 +341,22 @@ fn run(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, road
             request.owner = Entity::PLACEHOLDER;
             by_boss.entry(boss).or_default().push(format!("{request:?}"));
         }
-        for effect in app
-            .world_mut()
-            .resource_mut::<Messages<ambition_vfx::EffectRequest>>()
-            .drain()
-        {
-            let boss = bosses
-                .iter()
-                .position(|b| *b == effect.owner)
-                .expect("only a boss emits");
-            let line = match effect.effect {
-                ambition_vfx::Effect::DamageBox(b) => format!(
-                    "DamageBox {{ center: {:?}, faction: {:?}, half_extent: {:?}, damage: {}, knockback: {:?}, lifetime_s: {:?}, name: {:?} }}",
-                    b.center, b.faction, b.half_extent, b.damage, b.knockback, b.lifetime_s, b.name
-                ),
-                ambition_vfx::Effect::Summon(m) => format!(
-                    "Summon {{ id: {}, pos: {:?}, half_size: {:?}, character_id: {}, encounter_id: {}, faction: {:?}, ridden: {}, health: {:?}, keeps_contact_damage: {} }}",
-                    m.id, m.pos, m.half_size, m.character_id, m.encounter_id, m.faction,
-                    m.ridden_by_summoner.is_some(), m.health, m.keeps_contact_damage
-                ),
-            };
-            by_boss.entry(boss).or_default().push(line);
+        for effect in app.world_mut().resource_mut::<Messages<ambition_combat::damage_box::DamageBoxRequest>>().drain() {
+            let boss = bosses.iter().position(|b| *b == effect.owner).expect("only a boss emits");
+            let b = effect.damage_box;
+            by_boss.entry(boss).or_default().push(format!(
+                "DamageBox {{ center: {:?}, faction: {:?}, half_extent: {:?}, damage: {}, knockback: {:?}, lifetime_s: {:?}, name: {:?} }}",
+                effect.center, effect.source, b.half_extent, b.damage, b.knockback, b.lifetime_s, b.name
+            ));
+        }
+        for effect in app.world_mut().resource_mut::<Messages<ambition_characters::summon::SummonRequest>>().drain() {
+            let boss = bosses.iter().position(|b| *b == effect.owner).expect("only a boss emits");
+            let m = effect.spec;
+            by_boss.entry(boss).or_default().push(format!(
+                "Summon {{ id: {}, pos: {:?}, half_size: {:?}, character_id: {}, encounter_id: {}, faction: {:?}, ridden: {}, health: {:?}, keeps_contact_damage: {} }}",
+                m.id, m.pos, m.half_size, m.character_id, m.encounter_id, m.faction,
+                m.ridden_by_summoner.is_some(), m.health, m.keeps_contact_damage
+            ));
         }
         // The live damage boxes each boss owns (a held box is an entity, not a
         // message), sorted: the two Apps allocate entities differently.

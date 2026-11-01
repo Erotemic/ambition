@@ -22,6 +22,7 @@
 | [`clank`](src/clank.rs) | TWO ATTACKS MEETING — hitbox-vs-hitbox arbitration, before either reaches a victim. |
 | [`components`](src/components/mod.rs) | ECS-native feature components. |
 | [`crowd`](src/crowd.rs) | Crowding classification used by fighter spacing logic. |
+| [`damage_box`](src/damage_box.rs) | Damage-box requests capture their source context before deferred construction. |
 | [`death_rules`](src/death_rules.rs) | Game-scoped consequences of participant death (ADR 0033). |
 | [`dormancy_rule`](src/dormancy_rule.rs) | How near an observer must be for a hostile's brain to keep thinking: one game's rule for its own rooms (`room_rules`, field `hostile_wake_radius`). |
 | [`events`](src/events.rs) | Combat message/event vocabulary and small shared value types. |
@@ -63,7 +64,7 @@
 | [`vitality`](src/vitality.rs) | A move that pays or repays its own mover's health. |
 | [`worn_kit`](src/worn_kit.rs) | The kit a body wears: what a character id resolves to when a body puts it on. |
 
-_56 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_57 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

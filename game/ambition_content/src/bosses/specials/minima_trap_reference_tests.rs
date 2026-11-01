@@ -58,7 +58,8 @@ const MINIMA_TRAP_MINION_SPAWN_OFFSET_PX: f32 = 90.0;
 /// once-per-strike `HitboxHits` set ensures the player takes at
 /// most one hit per pit lifetime.
 pub fn spawn_minima_trap_from_special_messages(
-    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
+    mut effects: ambition_combat::damage_box::DamageBoxWriter,
+    mut summons: MessageWriter<ambition_characters::summon::SummonRequest>,
     mut messages: MessageReader<ActorActionMessage>,
     // Per-boss target via `ActorTarget` (populated by
     // `select_actor_targets`); the multi-player-ready pattern.
@@ -108,18 +109,14 @@ pub fn spawn_minima_trap_from_special_messages(
         );
         let pit_center = player_pos.unwrap_or(boss.kin.pos);
 
-        effects.write(ambition_vfx::EffectRequest {
-            owner: entity,
-            effect: ambition_vfx::Effect::DamageBox(ambition_vfx::DamageBoxEffect {
-                center: pit_center,
-                faction: ambition_vfx::HitSide::Boss,
+        effects.write(entity, entity, ambition_vfx::HitSide::Boss, pit_center, ambition_combat::strike::DamageBox {
                 half_extent: ae::Vec2::new(hx, hy),
-                damage,
+                damage: damage,
                 knockback: MINIMA_TRAP_KNOCKBACK,
                 lifetime_s: hazard_duration_s.max(0.05),
                 name: None,
-            }),
-        });
+                shape: None,
+            });
 
         if spawn_minion {
             let minion_id = format!(
@@ -152,25 +149,25 @@ pub fn spawn_minima_trap_from_special_messages(
                 pit_center.x + toward_boss_x * minion_offset_px,
                 pit_center.y,
             );
-            effects.write(ambition_vfx::EffectRequest {
-                owner: entity,
-                effect: ambition_vfx::Effect::Summon(ambition_vfx::SummonSpec {
+            summons.write(ambition_characters::summon::SummonRequest {
+            owner: entity,
+            spec: ambition_characters::summon::SummonSpec {
                     id: minion_id,
                     pos: minion_pos,
                     half_size: MINIMA_TRAP_MINION_HALF_SIZE,
                     character_id: MINIMA_TRAP_MINION_CHARACTER.to_string(),
                     encounter_id,
-                    faction: ambition_vfx::HitSide::Enemy,
-                    calling: ambition_vfx::SummonCalling::Fight,
-                    // A boss drops a minion; nobody rides it.
+                    faction: ambition_characters::actor::ActorFaction::Enemy,
+                    calling: ambition_characters::summon::SummonCalling::Fight,
+
                     ridden_by_summoner: None,
-                    // The sentinel's minions keep the vitals their character authors.
+
                     health: None,
-                    // A boss minion keeps its character's hazard.
+
                     keeps_contact_damage: true,
                     holds: Vec::new(),
-                }),
-            });
+                },
+        });
         }
 
         state.fired_this_strike = true;

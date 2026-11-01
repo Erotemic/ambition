@@ -314,7 +314,7 @@ pub trait PresentationEffectVisitor {
 /// | `DebrisBurstMessage` | `physics_spawn_debris_messages` (`Update`) | spawns physics debris |
 /// | `CameraShakeRequest` | `apply_camera_shake_requests` (`Update`) | moves the screen |
 ///
-/// Deliberately absent: `EffectRequest` and `ProjectileSpawnRequest`, whose readers are
+/// Deliberately absent: `DamageBoxRequest`, `SummonRequest` and `ProjectileSpawnRequest`, whose readers are
 /// all sim-side despite the effect-shaped names.
 pub fn for_each_presentation_effect(app: &mut App, visitor: &mut impl PresentationEffectVisitor) {
     use ambition_platformer2d_shared_tangle::camera_ease::{CameraShakeRequest, FinishZoomRequest};

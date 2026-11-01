@@ -118,7 +118,7 @@ pub fn install_for_technique_execution(app: &mut App) {
         "ambition_abilities",
         crate::module_entity::owned_entities_of,
     );
-    app.install_extension_submitted_request::<ambition_combat_port::EndOwnedEntityPort, _>(
+    app.install_extension_retirement_request::<ambition_combat_port::EndOwnedEntityPort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_abilities",
         crate::module_entity::lower_owned_entity_ends,
@@ -203,7 +203,7 @@ pub fn install_module_entities(app: &mut App) {
         "ambition_abilities",
         crate::module_entity::lower_body_pulls,
     );
-    app.install_extension_submitted_request::<EndModuleEntityPort, _>(
+    app.install_extension_retirement_request::<EndModuleEntityPort, _>(
         MODULE_ENTITY_TICK,
         "ambition_abilities",
         crate::module_entity::lower_module_entity_ends,
@@ -847,7 +847,6 @@ fn lower_velocities<L: LowersIn>(mut outbox: ResMut<ExtensionOutbox>, mut bodies
         kin.vel = Vec2::from(submitted.value.velocity);
     }
 }
-
 
 fn lower_body_sounds<L: LowersIn>(
     mut outbox: ResMut<ExtensionOutbox>,

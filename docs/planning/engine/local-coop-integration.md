@@ -494,11 +494,13 @@ identity, and peer refusal for different effective choices. The combat policy
 test covers NPC allies, possessed factions, grudges and match-team precedence.
 The runtime projection test covers two live rooms with different rule scopes.
 
-**Remaining:** the detached-area test supplies `InRoomInstance`. The real
-`spawn_damage_box` factory does not stamp a room. Its resolver uses the owner's
-room or the sole live room; owner loss with two live rooms leaves no answer.
-Give the area explicit room and session provenance before owner retirement,
-then prove that case through the real factory. `StrikePort` still emits an
+Damage-box emission now captures room, session, round and allegiance before
+source retirement (schema 396). Queued and immediate construction use one
+factory. Unknown blast credit requires no temporary body. The two-room guard
+`a_damage_box_keeps_its_emission_room_and_session_after_its_source_leaves`
+covers owner loss, credit in another room, damage and room retirement.
+
+**Remaining:** `StrikePort` still emits an
 unresolved volume that the player consumer routes to the primary body. Put
 that strike through the common body resolver. Audit owned environmental areas
 against the explicit self-damage contract. Complete the rendered two-controller

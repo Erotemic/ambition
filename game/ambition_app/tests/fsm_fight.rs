@@ -109,23 +109,14 @@ fn fight_started(sim: &mut Platformer2dSimHarness) {
 /// A player's blow of `half` at `center`: a one-tick player-side volume.
 fn strike_at(sim: &mut Platformer2dSimHarness, center: ae::Vec2, half: ae::Vec2) {
     let (owner, ..) = player(sim);
-    let world = sim.world_mut();
-    let mut commands = world.commands();
-    ambition_platformer2d::combat::strike::spawn_damage_box(
-        &mut commands,
-        owner,
-        ambition_platformer2d::combat::hitbox::HitSide::Player,
-        center,
-        ambition_platformer2d::combat::strike::DamageBox {
-            half_extent: half,
-            shape: None,
-            damage: 1,
-            knockback: 0.0,
-            lifetime_s: 0.05,
-            name: Some("test_blow"),
-        },
-    );
-    world.flush();
+    use bevy::ecs::system::RunSystemOnce;
+    sim.world_mut().run_system_once(move |mut boxes: ambition_platformer2d::combat::damage_box::DamageBoxSpawner| {
+        boxes.spawn(owner, owner, ambition_platformer2d::combat::hitbox::HitSide::Player, center,
+            ambition_platformer2d::combat::strike::DamageBox {
+                half_extent: half, shape: None, damage: 1, knockback: 0.0,
+                lifetime_s: 0.05, name: Some("test_blow"),
+            }).expect("the player emits a strike");
+    }).unwrap();
 }
 
 /// The god takes over its own pose, and swims BESIDE you, not over you: its

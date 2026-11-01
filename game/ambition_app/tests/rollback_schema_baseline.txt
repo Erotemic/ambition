@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v395
+ggrs-rollback-schema-v396
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -122,7 +122,6 @@ boss.phase	component-canonical	BossPhase	bevy_ggrs canonical codec snapshot + id
 capture.captured_by	component-clone	CapturedBy	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 combat.attack_allegiance	component-canonical	AttackAllegiance	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 combat.capabilities	component-clone	CombatCapabilities	bevy_ggrs clone snapshot; not in the session checksum
-combat.credit_stand_in	component-clone	CreditStandIn	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 combat.depicted_by_owner	component-clone	DepictedByOwner	bevy_ggrs clone snapshot; not in the session checksum
 combat.fixed_strike_feature_pulse	component-canonical	FixedStrikeFeaturePulse	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 combat.held_damage_boxes	component-clone-cursor	HeldDamageBoxes	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -362,11 +361,11 @@ message.clock_scale_request	message-clear	ClockScaleRequest	clear abandoned-futu
 message.conversation_cut_bark	message-clear	ConversationCutBark	clear abandoned-future message buffer in LoadWorld::Mapping
 message.conversation_ended	message-clear	ConversationEnded	clear abandoned-future message buffer in LoadWorld::Mapping
 message.cut_rope_room_replay_requested	message-clear	CutRopeRoomReplayRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.damage_box_request	message-clear	DamageBoxRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.debris_burst	message-clear	DebrisBurstMessage	clear abandoned-future message buffer in LoadWorld::Mapping
 message.deflected_body_hit	message-clear	DeflectedBodyHit	clear abandoned-future message buffer in LoadWorld::Mapping
 message.dismount_requested	message-clear	DismountRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.drop_portal_gun	message-clear	DropPortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
-message.effect_request	message-clear	EffectRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.encounter_command	message-clear	EncounterCommand	clear abandoned-future message buffer in LoadWorld::Mapping
 message.encounter_event	message-clear	EncounterEventMsg	clear abandoned-future message buffer in LoadWorld::Mapping
 message.encounter_gate	message-clear	EncounterGate	clear abandoned-future message buffer in LoadWorld::Mapping
@@ -419,6 +418,7 @@ message.spawn_actor_request	message-clear	SpawnActorRequest	clear abandoned-futu
 message.spawn_projectile	message-clear	ProjectileSpawnRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.stocks_match_decided	message-clear	StocksMatchDecided	clear abandoned-future message buffer in LoadWorld::Mapping
 message.sudden_death_began	message-clear	SuddenDeathBegan	clear abandoned-future message buffer in LoadWorld::Mapping
+message.summon_request	message-clear	SummonRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.switch_activated	message-clear	SwitchActivated	clear abandoned-future message buffer in LoadWorld::Mapping
 message.toggle_portal_gun	message-clear	TogglePortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
 message.toggle_portal_guns_active	message-clear	TogglePortalGunsActive	clear abandoned-future message buffer in LoadWorld::Mapping

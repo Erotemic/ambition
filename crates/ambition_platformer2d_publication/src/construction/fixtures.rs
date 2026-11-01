@@ -207,11 +207,11 @@ pub fn prepare(sprite_content: &ambition_sprite_sheet::SpriteContent,
 }
 
 /// Drive the real `apply_summon_effects` system over one summon request.
-pub fn run_summon(world: &mut World, summoner: Entity, spec: ambition_vfx::SummonSpec) {
-    world.write_message(ambition_vfx::EffectRequest {
-        owner: summoner,
-        effect: ambition_vfx::Effect::Summon(spec),
-    });
+pub fn run_summon(world: &mut World, summoner: Entity, spec: ambition_characters::summon::SummonSpec) {
+    world.write_message(ambition_characters::summon::SummonRequest {
+            owner: summoner,
+            spec: spec,
+        });
     world
         .run_system_cached(ambition_platformer2d_actor_monolith::body::apply_summon_effects)
         .expect("the summon executor runs");
@@ -225,7 +225,7 @@ pub fn run_summon(world: &mut World, summoner: Entity, spec: ambition_vfx::Summo
 /// [`a_boss_the_construction_executor_built_can_summon`].
 pub fn insert_summon_resources(world: &mut World) {
     world.init_resource::<ambition_sprite_sheet::SpriteContent>();
-    world.init_resource::<bevy::ecs::message::Messages<ambition_vfx::EffectRequest>>();
+    world.init_resource::<bevy::ecs::message::Messages<ambition_characters::summon::SummonRequest>>();
     world.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     world.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
     world.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
@@ -233,15 +233,15 @@ pub fn insert_summon_resources(world: &mut World) {
     world.insert_resource(fixture_cast().clone());
 }
 
-pub fn summon_spec(id: &str) -> ambition_vfx::SummonSpec {
-    ambition_vfx::SummonSpec {
+pub fn summon_spec(id: &str) -> ambition_characters::summon::SummonSpec {
+    ambition_characters::summon::SummonSpec {
         id: id.to_string(),
         pos: ae::Vec2::ZERO,
         half_size: ae::Vec2::splat(8.0),
         character_id: "puppy_slug".into(),
         encounter_id: "enc_1".into(),
-        faction: ambition_vfx::HitSide::Enemy,
-        calling: ambition_vfx::SummonCalling::Fight,
+        faction: ambition_characters::actor::ActorFaction::Enemy,
+        calling: ambition_characters::summon::SummonCalling::Fight,
         // A minion nobody rides, which is every summon these fixtures are about.
         ridden_by_summoner: None,
         // The sentinel's minions keep the vitals their character authors.

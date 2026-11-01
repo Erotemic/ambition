@@ -3,7 +3,7 @@
 //! ⭐⭐ THE OTHER HALF OF `ambition_entity_catalog::smash_vitality`. The key and its
 //! params are what a MOVESET authors; charging a live body is engine work, and
 //! it belongs HERE rather than in a game crate because this crate already owns
-//! every other road to a body's health — `strike::apply_effects`, the hit
+//! every other road to a body's health — `damage_box::materialize_damage_boxes`, the hit
 //! reaction, the death rules. A second place that moves the meter is exactly the
 //! shape this repository keeps paying for.
 //!

@@ -323,6 +323,7 @@ fn riding_hitbox(owner: Entity, offset: Vec2, half: Vec2, shape: Option<ae::Volu
 /// Perform one tick: fly the god, perform its live move, sting, and draw it.
 pub fn conduct_fsm(
     mut commands: Commands,
+    mut damage_boxes: ambition_combat::damage_box::DamageBoxSpawner,
     time: Res<ambition_time::WorldTime>,
     // The hall is the god's own live room's (OW1 cut 7).
     world: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<ae::RoomGeometry>,
@@ -345,7 +346,7 @@ pub fn conduct_fsm(
     >,
     mut hitboxes: Query<&mut Hitbox>,
     mut projectiles: MessageWriter<ProjectileSpawnRequest>,
-    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
+    mut effects: MessageWriter<ambition_characters::summon::SummonRequest>,
     mut vfx: VfxWriter,
     mut sfx: BodySfxWriter,
 ) {
@@ -486,7 +487,7 @@ pub fn conduct_fsm(
                         conductor.fired = true;
                         conductor.stranded = Some(0.0);
                         let x = conductor.dive_x;
-                        land(&mut commands, god, conductor, &hall, x, &mut vfx, &mut sfx);
+                        land(&mut commands, &mut damage_boxes, god, conductor, &hall, x, &mut vfx, &mut sfx);
                     }
                     Vec2::new(conductor.dive_x, y)
                 }
@@ -672,6 +673,7 @@ pub fn face_conducted_gods(
 /// The dive lands: a shock each way along the floor, and a splash.
 fn land(
     commands: &mut Commands,
+    damage_boxes: &mut ambition_combat::damage_box::DamageBoxSpawner,
     god: Entity,
     conductor: &mut FsmConductor,
     hall: &Hall,
@@ -682,8 +684,8 @@ fn land(
     let feet = Vec2::new(x, hall.floor - WAVE_HALF.y);
     for (slot, dir) in [-1.0f32, 1.0].into_iter().enumerate() {
         let wx = x + dir * BELL_HALF.x;
-        let hitbox = ambition_combat::strike::spawn_damage_box(
-            commands,
+        let hitbox = damage_boxes.spawn(
+            god,
             god,
             HitSide::Boss,
             Vec2::new(wx, feet.y),
@@ -695,7 +697,7 @@ fn land(
                 lifetime_s: 4.0,
                 name: Some("fsm_dive_shock"),
             },
-        );
+        ).expect("the emitting god is live");
         if let Some(old) = conductor.waves[slot].take() {
             commands.entity(old.hitbox).try_despawn();
         }

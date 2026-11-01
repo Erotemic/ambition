@@ -2,7 +2,7 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_vfx** — Reusable effect vocabulary + executor.
+**ambition_vfx** — Shared visual-effect vocabulary.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|

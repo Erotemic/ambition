@@ -6,7 +6,7 @@
 //!   meteor, sentry, vortex, blink, dive, mark/recall, grapple)
 //! * [`ride`]: the extension adapters of a summoned ride
 //! * [`thrown`]: the gravity grenade, and the puppy-slug gun (a summon of a
-//!   companion through `ambition_vfx::Effect::Summon`)
+//!   companion through `ambition_characters::summon::SummonRequest`)
 //! * [`traversal`]: the blink rule, the mark of mark/recall
 //! * [`ability_cooldown`]: the shared cooldown
 //!

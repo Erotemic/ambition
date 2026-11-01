@@ -31,7 +31,7 @@ fn world(modules: Vec<ModuleDescriptor>, item: &str, mana: f32) -> (App, Entity)
     app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
     app.init_schedule(Sim);
     app.add_message::<ambition_projectiles::ProjectileSpawnRequest>()
-        .add_message::<ambition_vfx::EffectRequest>()
+        .add_message::<ambition_characters::summon::SummonRequest>()
         .add_message::<ambition_sfx::OwnedSfxMessage>()
         .add_message::<ambition_characters::brain::ActorActionMessage>()
         .init_resource::<ambition_time::SimTick>()

@@ -1380,7 +1380,7 @@ pub enum SpecialActionSpec {
     /// engine names no boss special.
     Special(String),
     // `ShockwaveSlam` moved off this enum onto the generic effect seam
-    // (`ambition_vfx::Effect::DamageBox`): an actor-generic
+    // (`ambition_combat::damage_box::DamageBoxRequest`): an actor-generic
     // ground-slam is now an emitted effect, not a Special variant. It was the
     // first actor-generic special; the rest migrate the same way.
 }

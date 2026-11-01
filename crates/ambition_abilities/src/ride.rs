@@ -24,7 +24,7 @@ use bevy::prelude::*;
 /// Install the summoned ride's ports in `technique_execution`, and the steer
 /// of a held course.
 pub fn install_for_technique_execution(app: &mut App) {
-    app.add_message::<ambition_vfx::EffectRequest>();
+    app.add_message::<ambition_characters::summon::SummonRequest>();
     app.add_message::<DismountRequested>();
     app.install_extension_submitted_request::<SummonRidePort, _>(TECHNIQUE_EXECUTION, "ambition_abilities", lower_summon_rides);
     app.install_extension_observation::<RidePort>(TECHNIQUE_EXECUTION, "ambition_abilities", ride_of);
@@ -65,7 +65,7 @@ pub fn held_course_probe(course: &HeldCourse) -> u64 {
 /// Summon each ride a module asked for, where its asker is.
 fn lower_summon_rides(
     mut outbox: ResMut<ExtensionOutbox>,
-    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
+    mut effects: MessageWriter<ambition_characters::summon::SummonRequest>,
     bodies: Query<&BodyKinematics>,
 ) {
     for submitted in outbox.drain::<SummonRidePort>(&TECHNIQUE_EXECUTION) {
@@ -77,19 +77,19 @@ fn lower_summon_rides(
         let Ok(kin) = bodies.get(submitted.scope) else {
             continue;
         };
-        effects.write(ambition_vfx::EffectRequest {
+        effects.write(ambition_characters::summon::SummonRequest {
             owner: submitted.scope,
-            effect: ambition_vfx::Effect::Summon(ambition_vfx::SummonSpec {
-                // Where the asker is, so boarding is a weld, not a teleport.
+            spec: ambition_characters::summon::SummonSpec {
+                // Birth at the summoner permits boarding without a transit.
                 pos: kin.pos,
                 half_size: Vec2::from(summon.half_size),
                 character_id: summon.character_id,
-                // A ride belongs to no boss's encounter.
+                // The ride has no boss encounter.
                 encounter_id: summon.label.clone(),
                 id: summon.label,
-                faction: ambition_vfx::HitSide::Neutral,
-                calling: ambition_vfx::SummonCalling::Fight,
-                ridden_by_summoner: Some(ambition_vfx::SummonedRide {
+                faction: ambition_characters::actor::ActorFaction::Neutral,
+                calling: ambition_characters::summon::SummonCalling::Fight,
+                ridden_by_summoner: Some(ambition_characters::summon::SummonedRide {
                     seconds: summon.seconds,
                     board_within: summon.board_within,
                     board_deadline_s: summon.board_deadline_s,
@@ -97,7 +97,7 @@ fn lower_summon_rides(
                 health: summon.health,
                 keeps_contact_damage: summon.keeps_contact_damage,
                 holds: if summon.holds.is_empty() { Vec::new() } else { vec![summon.holds] },
-            }),
+            },
         });
     }
 }

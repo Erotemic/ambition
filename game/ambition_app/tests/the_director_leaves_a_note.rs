@@ -40,11 +40,12 @@ struct Blasts {
 }
 
 fn capture_blasts(
-    mut reader: MessageReader<ambition_platformer2d::vfx::EffectRequest>,
+    mut reader: MessageReader<ambition_platformer2d::combat::damage_box::DamageBoxRequest>,
     mut blasts: ResMut<Blasts>,
 ) {
     for request in reader.read() {
-        if let ambition_platformer2d::vfx::Effect::DamageBox(b) = &request.effect {
+        {
+            let b = &request.damage_box;
             if b.name == Some("blast") {
                 blasts.detonations += 1;
                 blasts.last_owner = Some(request.owner);

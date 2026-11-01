@@ -5,7 +5,7 @@
 //! boss's settled facts and whether it pressed the key.
 //!
 //! The request: a boss module's [`BossSummonPort`] minion enters the summon
-//! executor's one road (`EffectRequest` → `Effect::Summon`), in the boss's
+//! executor's one road (`SummonRequest` → character construction), in the boss's
 //! encounter. See the port cards in `ambition_boss_special_port`.
 
 use ambition_boss_special_port::{BossCaster, BossSpecialCast, BossSummonPort};
@@ -182,7 +182,7 @@ pub fn install_conduct(app: &mut App) {
 
 fn lower_boss_summons<L: LowersIn>(
     mut outbox: ResMut<ExtensionOutbox>,
-    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
+    mut effects: MessageWriter<ambition_characters::summon::SummonRequest>,
     bosses: Query<&BossConfig>,
 ) {
     for submitted in outbox.drain::<BossSummonPort>(&L::PHASE) {
@@ -203,26 +203,26 @@ fn lower_boss_summons<L: LowersIn>(
             );
             continue;
         };
-        effects.write(ambition_vfx::EffectRequest {
+        effects.write(ambition_characters::summon::SummonRequest {
             owner: submitted.scope,
-            effect: ambition_vfx::Effect::Summon(ambition_vfx::SummonSpec {
+            spec: ambition_characters::summon::SummonSpec {
                 id,
                 pos: ambition_platformer2d_core::Vec2::from(summon.position),
                 half_size: ambition_platformer2d_core::Vec2::from(summon.half_size),
                 character_id: summon.character_id,
                 encounter_id: boss.behavior.id.clone(),
-                // Its own appendages pass through the boss's volumes.
+
                 faction: match summon.side {
-                    ambition_boss_special_port::SummonSide::Enemy => ambition_vfx::HitSide::Enemy,
-                    ambition_boss_special_port::SummonSide::Boss => ambition_vfx::HitSide::Boss,
-                    ambition_boss_special_port::SummonSide::Player => ambition_vfx::HitSide::Player,
+                    ambition_boss_special_port::SummonSide::Enemy => ambition_characters::actor::ActorFaction::Enemy,
+                    ambition_boss_special_port::SummonSide::Boss => ambition_characters::actor::ActorFaction::Boss,
+                    ambition_boss_special_port::SummonSide::Player => ambition_characters::actor::ActorFaction::Player,
                 },
-                calling: ambition_vfx::SummonCalling::Fight,
+                calling: ambition_characters::summon::SummonCalling::Fight,
                 ridden_by_summoner: None,
                 health: summon.health,
                 keeps_contact_damage: summon.keeps_contact_damage,
                 holds: summon.holds,
-            }),
+            },
         });
     }
 }

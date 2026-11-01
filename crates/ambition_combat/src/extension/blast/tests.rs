@@ -50,13 +50,14 @@ struct Seen {
 #[derive(Resource, Default)]
 struct Boxes(Vec<Seen>);
 
-fn capture(mut reader: MessageReader<ambition_vfx::EffectRequest>, mut boxes: ResMut<Boxes>) {
+fn capture(mut reader: MessageReader<crate::damage_box::DamageBoxRequest>, mut boxes: ResMut<Boxes>) {
     for request in reader.read() {
-        if let ambition_vfx::Effect::DamageBox(b) = &request.effect {
+        {
+            let b = &request.damage_box;
             boxes.0.push(Seen {
                 owner: request.owner,
-                center: b.center,
-                faction: b.faction,
+                center: request.center,
+                faction: request.source,
                 half_extent: b.half_extent,
                 damage: b.damage,
                 knockback: b.knockback,
@@ -147,10 +148,9 @@ fn a_blast_is_where_its_body_is_and_credited_to_the_body_named() {
     assert_eq!((b.half_extent, b.damage, b.knockback, b.lifetime_s), (ae::Vec2::splat(44.0), 7, 1.5, 0.08));
 }
 
-/// A credit whose body has left goes to a stand-in that is not the body under
-/// the blast, and the stand-in leaves once the blast can no longer land.
+/// A missing credit body must not become the body under the blast.
 #[test]
-fn a_blast_whose_credited_body_left_is_owned_by_a_stand_in_until_it_is_spent() {
+fn a_blast_whose_credited_body_left_has_explicit_unknown_credit() {
     let mut app = app();
     let marked = body(&mut app, "marked", ae::Vec2::ZERO);
     let gone = body(&mut app, "gone", ae::Vec2::ZERO);
@@ -159,16 +159,9 @@ fn a_blast_whose_credited_body_left_is_owned_by_a_stand_in_until_it_is_spent() {
     press(&mut app, marked, &format!(r#"(credit: "{named}", lifetime_s: 0.3)"#));
     step(&mut app);
     let got = boxes(&mut app);
-    let owner = got[0].owner;
-    assert_ne!(owner, marked, "the credit fell to the body under the blast");
-    assert!(app.world().get::<CreditStandIn>(owner).is_some(), "the owner is not a stand-in");
-    let stays = ((0.3 + CREDIT_STAND_IN_MARGIN_S) / DT).ceil() as usize;
-    for _ in 1..stays {
-        step(&mut app);
-    }
-    assert!(app.world().get_entity(owner).is_ok(), "the stand-in left before its blast was spent");
-    step(&mut app);
-    assert!(app.world().get_entity(owner).is_err(), "the stand-in outlived its blast");
+    assert_eq!(got.len(), 1);
+    assert_eq!(got[0].owner, Entity::PLACEHOLDER);
+    assert_ne!(got[0].owner, marked);
 }
 
 /// A blast that names nobody, has no end, or is out of its ranges is

@@ -7,10 +7,10 @@ use super::*;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer2d_shared_tangle::lifecycle::{ActiveSessionScope, SessionSpawnScope};
 
-/// Lib-side executor for `Effect::Summon`: the runtime-dynamic origin of the
+/// Lib-side executor for `SummonRequest`: the runtime-dynamic origin of the
 /// three the construction planner covers.
 ///
-/// Lives next to the spawner (not in `effects::apply_effects`) so the
+/// Lives next to the character spawner so the
 /// `ambition_vfx` crate stays free of the enemy-roster substrate.
 ///
 /// ## Why a summon is planned at all
@@ -47,7 +47,7 @@ impl SummonerSequenceReservation {
 
 pub fn apply_summon_effects(
     mut commands: bevy::prelude::Commands,
-    mut requests: bevy::prelude::MessageReader<ambition_vfx::EffectRequest>,
+    mut requests: bevy::prelude::MessageReader<ambition_characters::summon::SummonRequest>,
     character_catalog: bevy::prelude::Res<CharacterCatalog>,
     // `Option` like every other reader of it: a composition with no registered characters is
     // ordinary, not degraded.
@@ -98,12 +98,10 @@ pub fn apply_summon_effects(
     let mut board_after_commit: Vec<(
         bevy::prelude::Entity,
         ambition_platformer2d_shared_tangle::sim_id::SimId,
-        ambition_vfx::SummonedRide,
+        ambition_characters::summon::SummonedRide,
     )> = Vec::new();
     for req in requests.read() {
-        let ambition_vfx::Effect::Summon(s) = &req.effect else {
-            continue;
-        };
+        let s = &req.spec;
         let (Ok(summoner), Ok(counter)) = (identities.get(req.owner), counters.get(req.owner))
         else {
             // Loud, not silent: every body carrying a `FeatureId` is identified
@@ -151,8 +149,8 @@ pub fn apply_summon_effects(
         // named under the identity derived here, so each one is distinct and
         // its name rewinds with its summoner's counter.
         let feature_id = match s.calling {
-            ambition_vfx::SummonCalling::Fight => s.id.clone(),
-            ambition_vfx::SummonCalling::Companion => format!(
+            ambition_characters::summon::SummonCalling::Fight => s.id.clone(),
+            ambition_characters::summon::SummonCalling::Companion => format!(
                 "{}:{}",
                 s.id,
                 ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(summoner, taken).as_str()
@@ -169,7 +167,7 @@ pub fn apply_summon_effects(
                 half_size: s.half_size,
                 character_id: s.character_id.clone(),
                 encounter_id: s.encounter_id.clone(),
-                faction: ambition_combat::actor_faction_from_hit_side(s.faction),
+                faction: s.faction,
                 calling: s.calling,
             },
         ));

@@ -12,7 +12,9 @@ const OWNER: &str = env!("CARGO_PKG_NAME");
 pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
-{    registrar.rollback_component_canonical::<crate::perception::PerceptionMemory>(
+{
+    registrar.clear_message_on_rollback::<crate::summon::SummonRequest>(OWNER, "message.summon_request");
+    registrar.rollback_component_canonical::<crate::perception::PerceptionMemory>(
         OWNER,
         "actor.perception_memory",
     );

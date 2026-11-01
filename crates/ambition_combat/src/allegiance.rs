@@ -2,7 +2,7 @@
 //! Capture runs before contacts and before an owner can leave the world.
 //! Reflection can replace the capture. Grudges remain live owner state.
 
-use bevy::prelude::{Commands, Component, Entity, Query, Without, With, Or};
+use bevy::prelude::{Commands, Component, Entity, Query, Without};
 
 use ambition_characters::{actor::ActorFaction, control::DrivingParticipant};
 use crate::targeting::{MatchTeam, Combatant};
@@ -44,28 +44,15 @@ impl AttackAllegiance {
     }
 }
 
-/// Capture each new detached attack once, before damage or owner retirement.
+/// Capture each new projectile before contact or owner retirement.
 pub fn stamp_attack_allegiance(
     mut commands: Commands,
-    unstamped: Query<
-        (Entity, Option<&ambition_projectiles::ProjectileOwner>, Option<&crate::strike::Hitbox>),
-        (Without<AttackAllegiance>, Or<(With<ambition_projectiles::ProjectileOwner>, With<crate::strike::Hitbox>)>),
-    >,
-    firers: Query<(Option<&ActorFaction>, Option<&MatchTeam>, Option<&DrivingParticipant>)>,
+    unstamped: Query<(Entity, &ambition_projectiles::ProjectileOwner), Without<AttackAllegiance>>,
+    firers: Query<(&ActorFaction, Option<&MatchTeam>, Option<&DrivingParticipant>)>,
 ) {
-    for (attack, projectile_owner, hitbox) in &unstamped {
-        let (owner, fallback) = match (projectile_owner, hitbox) {
-            (Some(owner), _) => (owner.0, None),
-            (_, Some(hitbox)) if matches!(hitbox.anchor, crate::strike::HitboxAnchor::World { .. })
-                && hitbox.source != ambition_vfx::HitSide::Environment => {
-                (hitbox.owner, Some(crate::actor_faction_from_hit_side(hitbox.source)))
-            }
-            _ => continue,
-        };
-        let Ok((faction, team, driver)) = firers.get(owner) else { continue; };
-        if let Some(faction) = faction.copied().or(fallback) {
-            commands.entity(attack).insert(AttackAllegiance::from_body(faction, team, driver));
-        }
+    for (attack, owner) in &unstamped {
+        let Ok((faction, team, driver)) = firers.get(owner.0) else { continue; };
+        commands.entity(attack).insert(AttackAllegiance::from_body(*faction, team, driver));
     }
 }
 

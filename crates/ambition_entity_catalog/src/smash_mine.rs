@@ -26,7 +26,7 @@ pub struct PlaceMineParams {
     /// Where it appears, body-local (`+x` toward facing, `+y` gravity-down).
     pub offset: (f32, f32),
     /// How hard the blast throws what it catches: the feel multiplier
-    /// `DamageBoxEffect::knockback` is, not a launch speed.
+    /// `DamageBox::knockback` is, not a launch speed.
     pub knockback: f32,
     /// How long the blast stays live, in seconds: long enough to meet each
     /// body it covers, short enough that a body that walks in later is not

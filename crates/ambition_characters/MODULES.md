@@ -27,9 +27,10 @@
 | [`smash_fighter`](src/smash_fighter/mod.rs) | Character-owned authored `smash_fighter` facet. |
 | [`smash_hold_state`](src/smash_hold_state.rs) | `SmashHoldState` — the platform-fighter RULES of a hold, as runtime state. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
+| [`summon`](src/summon.rs) | Requests and data for constructing a summoned character. |
 | [`technique`](src/technique.rs) | THE AUTHORED SCHEMAS OF ENGINE TECHNIQUES — the params an `on_hit` effect carries, and nothing that executes one. |
 
-_22 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_23 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -19,6 +19,7 @@
 //!   hosting them here inverts that edge. `ActorSpriteMetrics` was refused on
 //!   exactly this ground before it found its owner.
 
+pub mod summon;
 pub mod action_scheme;
 pub mod actor;
 pub mod binding_namespaces;

@@ -15,8 +15,8 @@ use bevy::prelude::*;
 
 /// Offer a blast and the scope's credit in `technique_execution`.
 pub fn install(app: &mut App) {
-    app.add_message::<ambition_vfx::EffectRequest>();
-    app.install_extension_request::<BlastPort, _>(
+    app.add_message::<crate::damage_box::DamageBoxRequest>();
+    app.install_extension_submitted_request::<BlastPort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_combat",
         lower_blasts::<InTechniqueExecution>,
@@ -27,7 +27,7 @@ pub fn install(app: &mut App) {
 /// Offer a blast and the scope's credit in `module_entity_tick`: an entity
 /// that goes off (a bomb) owns its blast.
 pub fn install_for_module_entity_tick(app: &mut App) {
-    app.add_message::<ambition_vfx::EffectRequest>();
+    app.add_message::<crate::damage_box::DamageBoxRequest>();
     app.install_extension_submitted_request::<BlastPort, _>(
         MODULE_ENTITY_TICK,
         "ambition_combat",
@@ -53,49 +53,12 @@ pub fn credit_of(body: &SimId) -> u64 {
     hash.max(1)
 }
 
-/// How long a credit stand-in outlives the blast it was spawned for, so every
-/// contact the blast makes can still resolve its owner.
-pub const CREDIT_STAND_IN_MARGIN_S: f32 = 0.17;
-
-/// The owner of a blast whose credited body has left: an entity that is not
-/// the body under the blast and is no participant, so the credit falls to
-/// nobody rather than to the victim. It leaves once the blast can no longer
-/// land.
-///
-/// Rollback state: a rewind across the blast must restore it, or the replayed
-/// blast has no owner.
-#[derive(Component, Clone, Debug, PartialEq)]
-pub struct CreditStandIn {
-    pub remaining_s: f32,
-}
-
-/// The rollback value projection: the clock, in milliseconds.
-pub fn credit_stand_in_probe(stand_in: &CreditStandIn) -> u64 {
-    (stand_in.remaining_s * 1000.0).round().max(0.0) as u64
-}
-
-/// Lower each blast a module asked for in the phase `L`, in the order asked.
-///
-/// The `technique_execution` lowering also spends the stand-ins' clocks,
-/// first: it runs each tick, and one system that ticks the stand-ins and
-/// spawns them keeps both on one clock.
+/// Emit each validated blast with the emitter's captured context.
 pub fn lower_blasts<L: LowersIn>(
-    mut commands: Commands,
     mut outbox: ResMut<ExtensionOutbox>,
-    time: Res<ambition_time::WorldTime>,
-    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
+    mut effects: crate::damage_box::DamageBoxWriter,
     identities: Query<(Entity, &SimId)>,
-    mut stand_ins: Query<(Entity, &mut CreditStandIn)>,
 ) {
-    if L::PHASE == TECHNIQUE_EXECUTION {
-        let dt = time.sim_dt();
-        for (stand_in, mut credit) in &mut stand_ins {
-            credit.remaining_s -= dt;
-            if credit.remaining_s <= 0.0 {
-                commands.entity(stand_in).despawn();
-            }
-        }
-    }
     for submitted in outbox.drain::<BlastPort>(&L::PHASE) {
         let blast = submitted.value;
         let refused = blast.credit == 0
@@ -112,29 +75,16 @@ pub fn lower_blasts<L: LowersIn>(
             .iter()
             .find(|(_, identity)| credit_of(identity) == blast.credit)
             .map(|(body, _)| body)
-            .unwrap_or_else(|| {
-                commands
-                    .spawn((
-                        CreditStandIn { remaining_s: blast.lifetime_s + CREDIT_STAND_IN_MARGIN_S },
-                        Name::new("Credit stand-in"),
-                    ))
-                    .id()
-            });
-        effects.write(ambition_vfx::EffectRequest {
-            owner,
-            effect: ambition_vfx::Effect::DamageBox(ambition_vfx::DamageBoxEffect {
-                center: ae::Vec2::from(blast.center),
-                // `Environment`, not `Neutral`: `melee_source` excludes Neutral
-                // from the body path, so a Neutral blast damages nobody.
-                // `Environment` also waives self-immunity.
-                faction: ambition_vfx::HitSide::Environment,
+            .unwrap_or(Entity::PLACEHOLDER);
+        // Environmental blasts permit self-damage and use the emission room.
+        effects.write(submitted.scope, owner, ambition_vfx::HitSide::Environment, ae::Vec2::from(blast.center), crate::strike::DamageBox {
                 half_extent: ae::Vec2::from(blast.half_extent),
                 damage: blast.damage,
                 knockback: blast.knockback,
                 lifetime_s: blast.lifetime_s,
                 name: Some("blast"),
-            }),
-        });
+                shape: None,
+            });
     }
 }
 

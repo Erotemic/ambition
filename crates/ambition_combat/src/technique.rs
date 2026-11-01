@@ -3,7 +3,7 @@
 //! ⛔⛔ **THE AUTHORITY IS `ambition_entity_catalog`'s AND THE SHELL IS HERE.**
 //! `TechniqueSupport` is engine-free on purpose — authored content vocabulary
 //! carries no bevy dependency — so the resource wrapper lives beside the crate
-//! that owns effect EXECUTION (`strike::apply_effects`,
+//! that owns effect EXECUTION (`damage_box::materialize_damage_boxes`,
 //! [`crate::strike::EffectExecutionSet`]) rather than in the catalog.
 //!
 //! ⚠ AND NOT IN THE RUNTIME, which is where it was first written. The runtime

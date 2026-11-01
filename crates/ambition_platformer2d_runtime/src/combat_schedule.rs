@@ -221,11 +221,9 @@ impl Plugin for CombatSchedulePlugin {
                 >.or_eager(bevy::ecs::schedule::common_conditions::resource_changed::<ambition_sprite_sheet::SpriteContent>),
             ),
         );
-        // The effect seam: techniques (the shockwave gauntlet, the boss
-        // phase-transition slam, …) emit `EffectRequest`; `apply_effects` below
-        // drains it. Registered here so the writers never hit an unregistered
-        // message.
-        app.add_message::<ambition_vfx::EffectRequest>();
+        // Simulation construction channels are separate from visual effects.
+        app.add_message::<ambition_characters::summon::SummonRequest>();
+        app.add_message::<ambition_combat::damage_box::DamageBoxRequest>();
         app.add_message::<ambition_combat::moveset::MoveEventMessage>();
         // One authoritative resolved body-contact fact. The shared hitbox resolver
         // writes it; move confirms and authored on-hit techniques both consume it
@@ -397,11 +395,11 @@ impl Plugin for CombatSchedulePlugin {
                     .after(ambition_combat::body_rig::BodyRigPoseResolved)
                     .in_set(GameplayGated),
                 (
-                    ambition_combat::strike::apply_effects
+                    ambition_combat::damage_box::materialize_damage_boxes
                         .in_set(ambition_combat::strike::EffectExecutionSet)
                         .in_set(GameplayGated),
                     // ⭐⭐ IN `EffectExecutionSet`, NOT MERELY CHAINED AFTER ITS
-                    // OTHER MEMBER. It was chained after `apply_effects` without
+                    // OTHER MEMBER. It was chained after `materialize_damage_boxes` without
                     // being in the set, so `ContentSpecials.before(EffectExecutionSet)`
                     // implied NOTHING about it — and `ambition_demo_smash` had to
                     // write `.before(...apply_summon_effects)` by hand, a ruleset
@@ -410,7 +408,7 @@ impl Plugin for CombatSchedulePlugin {
                     // executor; saying so is what lets a consumer order against
                     // the phase.
                     ambition_platformer2d_actor_monolith::body::apply_summon_effects
-                        .run_if(ambition_platformer2d_core::a_message_waits::<ambition_vfx::EffectRequest>)
+                        .run_if(ambition_platformer2d_core::a_message_waits::<ambition_characters::summon::SummonRequest>)
                         .in_set(ambition_combat::strike::EffectExecutionSet)
                         .in_set(GameplayGated),
                 )
@@ -523,7 +521,7 @@ impl Plugin for CombatSchedulePlugin {
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
             },
-            // AHEAD of `apply_effects`, so a fighter who paid for a move is
+            // AHEAD of `materialize_damage_boxes`, so a fighter who paid for a move is
             // already poorer when this frame's hits resolve — a price that
             // settled afterwards would let her be launched at the percent she
             // had before she bought the tempo.

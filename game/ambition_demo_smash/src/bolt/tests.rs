@@ -14,7 +14,7 @@ use ambition_platformer2d::characters::control::ActorControl;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::smash_bolt::{SteeredBoltParams, STEERED_BOLT};
 use ambition_platformer2d::platformer::sim_id::{SimId, SimIdCounter};
-use ambition_platformer2d::vfx::{Effect, EffectRequest};
+use ambition_platformer2d::combat::damage_box::DamageBoxRequest;
 
 const DT: f32 = 1.0 / 60.0;
 
@@ -109,14 +109,11 @@ fn put_bolt(app: &mut App, at: ae::Vec2) {
 
 /// The hits of this tick and the last, by their live time.
 fn hits(app: &mut App) -> Vec<f32> {
-    let messages = app.world().resource::<Messages<EffectRequest>>();
+    let messages = app.world().resource::<Messages<DamageBoxRequest>>();
     messages
         .get_cursor()
         .read(messages)
-        .filter_map(|request| match &request.effect {
-            Effect::DamageBox(hit) => Some(hit.lifetime_s),
-            _ => None,
-        })
+        .map(|request| request.damage_box.lifetime_s)
         .collect()
 }
 

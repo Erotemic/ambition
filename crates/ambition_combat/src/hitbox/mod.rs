@@ -706,6 +706,7 @@ impl AttackerFacts<'_, '_> {
 /// this instead of enumerating, so the next output added to the struct reaches
 /// all of them at once.
 pub fn register_strike_outcome_messages(app: &mut bevy::prelude::App) {
+    app.add_message::<crate::damage_box::DamageBoxRequest>();
     app.add_message::<VfxInRoom>();
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();

@@ -184,7 +184,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// input covered by prepared content identity. Combat owns the shared captured
 /// allegiance of projectiles and detached volumes, including participant identity.
 /// A fixed strike records whether it published its feature pulse.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 395;
+/// 395 -> 396: damage-box requests capture room, session, round and allegiance
+/// before materialization. Combat owns their channel; summons have their own
+/// request. Unknown blast credit no longer creates a temporary body.
+/// Extension requests capture source facts before the retirement stage.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 396;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

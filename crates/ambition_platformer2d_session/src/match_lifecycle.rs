@@ -81,7 +81,7 @@ impl Plugin for MatchLifecyclePlugin {
                 // What a match created ends with it. In `CombatSet::Trigger`,
                 // the earliest combat phase, so no fighter can trip a mine that
                 // an earlier match left behind.
-                (ambition_match::stamp_credit_stand_ins, ambition_match::sweep_objects_from_ended_matches)
+                ambition_match::sweep_objects_from_ended_matches
                     .in_set(ambition_platformer2d_shared_tangle::schedule::CombatSet::Trigger),
             )
             .add_systems(

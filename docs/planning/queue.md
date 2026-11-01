@@ -558,8 +558,7 @@ control.
 
 ### MULTIPLAYER-SEAMS — make local multiplayer safe for netplay
 
-**Remaining failure:** detached areas lack room provenance after owner loss
-with two live rooms; scripted strike volumes still use primary-body routing;
+**Remaining failure:** scripted strike volumes still use primary-body routing;
 the Ambition menu has one input, cursor and visible state; room loading covers the other viewport; F1
 gizmos use primary room data. Routine peer room commits still hold the whole
 session. These are separate authority, presentation and gameplay-rule boundaries.
@@ -604,11 +603,14 @@ body strikes use one relation; detached attacks retain control allegiance.
 Guard: `coop_friendly_fire` integration tests. Scripted strikes and the
 rendered main-game acceptance remain open.
 
+Damage-box provenance is built (schema 396): capture precedes retirement, and
+queued and immediate construction share one factory. Guard:
+`a_damage_box_keeps_its_emission_room_and_session_after_its_source_leaves`.
+Keep emission scope separate from credit; do not restore credit stand-ins.
+
 **Next action (ordered slices; complete each behavior gate before moving):**
 
-3. **Finish gameplay-rule coverage:** give detached areas explicit room and
-   session provenance before owner retirement. Prove owner loss with two live
-   rooms through the real factory. Then route `StrikePort` through the common
+3. **Finish gameplay-rule coverage:** route `StrikePort` through the common
    body resolver and remove its unresolved primary-body broadcast. Audit owned
    environmental areas against the explicit self-damage policy. Keep NPC target
    selection and authored match rules separate. The saved ON/OFF choice, frozen
@@ -1917,14 +1919,20 @@ machinery; do not turn source counts or test counts into acceptance gates.
 `dfe0d768b` makes camera fixtures supply complete samples; no policy waiver was added.
 Guards: `app_it -- rollback_` passes 79 tests (6 ignored); the component localizer passes 595 restore comparisons.
 Policy: 35 passed; camera: 3 passed; Smash: 18 unit and 53 integration passed (6 ignored); app check and 53 absence contracts passed.
-Full verification remains open. The broad Python run reported 1894 passed,
-72 failed and 30 skipped. Its codec-ledger failure is repaired in `3c80caa69`
-(six focused tests pass). The feature-union job compiled after the intro-owner
+Full verification remains open. The latest broad Python run reported 1893 passed,
+73 failed and 30 skipped. The codec check now passes. The two failures from
+the damage-box change (phase placement and unused VFX dependencies) pass in
+a focused eight-test run. The other failures also occurred in the earlier
+72-failure run. These focused repairs do not prove a green matrix. The feature-union job compiled after the intro-owner
 repair in `c2cc9d6fb`, then failed in 14 targets. Its app integration target was
 interrupted after repeated library-selection startup failures. Triage the
 served/disk selection conflict under ASSET-SELECTION and the remaining content,
 art, live-reload and tooling failures at their owners. Do not claim a green
 matrix from the focused passes.
+The focused content suite still reports four failures also present in the
+earlier feature-union run: Void fighter damage, Performer contact windows,
+Pugnacious uppercut gravity, and the boot-pack scan of a world-flow fixture.
+These remain open at their owners.
 Documentation checks also remain open: five broken local links and 55 unresolved
 planning citations were reported on 2026-11-01. Planning anchors resolve.
 

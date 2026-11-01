@@ -625,8 +625,7 @@ pub(crate) fn apply_actor_hit(sprite_content: &ambition_sprite_sheet::SpriteCont
                 // punished (the read: kill it at range / sidestep the body).
                 if caps.explodes_on_death {
                     spawn_death_explosion(
-                        &mut writers.commands,
-                        session_scope,
+                        &mut writers.damage_boxes,
                         actor_entity,
                         em.kin.pos,
                     );

@@ -14,7 +14,7 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::smash_mine::{PlaceMineParams, PLACE_MINE};
 use ambition_platformer2d::item::{GroundItem, ItemCustody};
 use ambition_platformer2d::platformer::sim_id::SimId;
-use ambition_platformer2d::vfx::{Effect, EffectRequest};
+use ambition_platformer2d::combat::damage_box::DamageBoxRequest;
 
 fn app_with(road: Road) -> App {
     app_on(road, ambition_demo_smash_modules::mine::module)
@@ -80,15 +80,13 @@ struct Seen {
 
 /// The blasts written this frame.
 fn blasts_now(app: &mut App) -> Vec<Seen> {
-    let messages = app.world().resource::<Messages<EffectRequest>>();
+    let messages = app.world().resource::<Messages<DamageBoxRequest>>();
     let mut cursor = messages.get_cursor();
     cursor
         .read(messages)
-        .filter_map(|request| match &request.effect {
-            Effect::DamageBox(b) => {
-                Some(Seen { center: b.center, faction: b.faction, knockback: b.knockback, lifetime_s: b.lifetime_s })
-            }
-            _ => None,
+        .map(|request| {
+            let b = &request.damage_box;
+            Seen { center: request.center, faction: request.source, knockback: b.knockback, lifetime_s: b.lifetime_s }
         })
         .collect()
 }

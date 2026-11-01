@@ -287,7 +287,7 @@ was `abilities`, `features`, `items`, `session`
   `ResetToCheckpoint`; every consumer names them there.
 - `abilities -> features/session` was the puppy-slug gun spawning its slug
   through the minion spawner. It asks the summon executor now
-  (`ambition_vfx::SummonCalling::Companion`), the executor marks the body
+  (`ambition_characters::summon::SummonCalling::Companion`), the executor marks the body
   `SummonedCompanion`, and the gun is `ambition_abilities::thrown`'s, in
   `ItemPickupSet::WieldedAbilities`. Rollback schema v381.
 - `items -> abilities` was the gun's registration in the item plugin; it

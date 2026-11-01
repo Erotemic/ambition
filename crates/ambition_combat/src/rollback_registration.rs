@@ -26,6 +26,9 @@ where
                     ^ (u64::from(clock.gait_elapsed_s.to_bits()) << 8)
             },
         );
+    registrar.clear_message_on_rollback::<crate::damage_box::DamageBoxRequest>(
+        OWNER, "message.damage_box_request",
+    );
     registrar.rollback_component_canonical::<crate::allegiance::AttackAllegiance>(
         OWNER, "combat.attack_allegiance",
     );
@@ -274,13 +277,6 @@ where
         OWNER,
         "body.status_clocks",
         crate::extension::status::status_clocks_probe,
-    );
-    // The owner of a blast whose credited body has left: a rewind across the
-    // blast restores it, or the replayed blast credits the body under it.
-    registrar.rollback_component_clone_probed::<crate::extension::blast::CreditStandIn>(
-        OWNER,
-        "combat.credit_stand_in",
-        crate::extension::blast::credit_stand_in_probe,
     );
     // A guard's run toward breaking, its stagger, and its deflect count, which
     // the guarded body's brain reads to answer a deflect.

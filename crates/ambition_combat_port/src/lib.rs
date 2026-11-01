@@ -5,7 +5,7 @@
 //!
 //! * **Operation** — put a short-lived damage box into the world.
 //! * **Owner** — `ambition_combat::extension`, which lowers it into
-//!   `EffectRequest` → `Effect::DamageBox`, the effect executor's one road.
+//!   `DamageBoxRequest` → combat materialization, the effect executor's one road.
 //! * **Scope and grant** — the box's owner is the body the invocation ran
 //!   for, and its FACTION is that body's own faction. A module cannot choose
 //!   whom a box hurts; a body with no faction has its boxes refused.

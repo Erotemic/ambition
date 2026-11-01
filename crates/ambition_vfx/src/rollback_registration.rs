@@ -11,7 +11,6 @@ pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
 {
-    registrar.clear_message_on_rollback::<crate::EffectRequest>(OWNER, "message.effect_request");
     registrar.clear_message_on_rollback::<crate::vfx::DebrisBurstMessage>(
         OWNER,
         "message.debris_burst",

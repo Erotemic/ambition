@@ -106,7 +106,7 @@ fn app() -> App {
     crate::extension::install_module_entities(&mut app);
     app.configure_sets(
         Sim,
-        ExtensionSet::Collect(TECHNIQUE_EXECUTION).after(ExtensionSet::Lower(MODULE_ENTITY_TICK)),
+        ExtensionSet::Phase(TECHNIQUE_EXECUTION).after(ExtensionSet::Phase(MODULE_ENTITY_TICK)),
     );
     let entry = |key: &'static str, phase, port, selector: &'static str, reads, writes, requests, run| EntryDescriptor {
         key: key.into(),

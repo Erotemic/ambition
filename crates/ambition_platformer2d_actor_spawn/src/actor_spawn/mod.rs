@@ -1366,7 +1366,7 @@ pub fn spawn_runtime_minion_into(sprite_content: &ambition_sprite_sheet::SpriteC
     faction: ambition_characters::actor::ActorFaction,
     aggression: ambition_combat::components::ActorAggression,
     // Health for THIS occurrence, overriding the character's authored vitals.
-    // See `ambition_vfx::SummonSpec::health`.
+    // See `ambition_characters::summon::SummonSpec::health`.
     health: Option<u32>,
     // Whether this occurrence keeps the character's authored contact hazard.
     keeps_contact_damage: bool,
@@ -1430,7 +1430,7 @@ pub fn spawn_runtime_minion_into(sprite_content: &ambition_sprite_sheet::SpriteC
     // whose move table runs 2–17 — and the pirate's up-B drops it exactly where
     // its rider is, which in a fight is exactly where the hits are. `None`
     // leaves the authored vitals alone, which is every summon that predates
-    // this. See `ambition_vfx::SummonSpec::health`.
+    // this. See `ambition_characters::summon::SummonSpec::health`.
     if let Some(health) = health {
         enemy.health = ambition_characters::actor::BodyHealth::new(
             ambition_characters::actor::Health::new(health.max(1) as i32),

@@ -66,18 +66,14 @@ fn a_bomb(fuse_s: f32, vel: ae::Vec2) -> (App, Entity) {
 /// Drained every tick, not at the end. Bevy messages are double-buffered and
 /// dropped after two frames, so a check after ten ticks misses a blast on tick
 /// six.
-fn blasts_of(app: &mut App, ticks: usize) -> Vec<ambition_platformer2d::vfx::DamageBoxEffect> {
+fn blasts_of(app: &mut App, ticks: usize) -> Vec<ambition_platformer2d::combat::damage_box::DamageBoxRequest> {
     let mut blasts = Vec::new();
     for _ in 0..ticks {
         app.update();
         blasts.extend(
             app.world_mut()
-                .resource_mut::<Messages<ambition_platformer2d::vfx::EffectRequest>>()
+                .resource_mut::<Messages<ambition_platformer2d::combat::damage_box::DamageBoxRequest>>()
                 .drain()
-                .filter_map(|request| match request.effect {
-                    ambition_platformer2d::vfx::Effect::DamageBox(blast) => Some(blast),
-                    _ => None,
-                }),
         );
     }
     blasts
@@ -94,7 +90,7 @@ fn the_blast_throws_with_the_bombs_knockback() {
     let (mut app, _) = a_bomb(0.05, ae::Vec2::ZERO);
     let thrown: Vec<_> = blasts_of(&mut app, 10)
         .into_iter()
-        .map(|blast| (blast.knockback, blast.lifetime_s, blast.faction))
+        .map(|blast| (blast.damage_box.knockback, blast.damage_box.lifetime_s, blast.source))
         .collect();
     assert_eq!(
         thrown,
@@ -238,7 +234,7 @@ fn the_bomb_from_its_module_file_goes_off_as_the_linked_one_does() {
         let runner = runner_of(&app, BOMB);
         assert_eq!(runner.starts_with("Loaded"), road == Road::Loaded, "{road:?}: {runner}");
         let per_tick: Vec<Vec<(ae::Vec2, f32, i32)>> = (0..12)
-            .map(|_| blasts_of(&mut app, 1).into_iter().map(|b| (b.center, b.half_extent.x, b.damage)).collect())
+            .map(|_| blasts_of(&mut app, 1).into_iter().map(|b| (b.center, b.damage_box.half_extent.x, b.damage_box.damage)).collect())
             .collect();
         seen.push(per_tick);
     }

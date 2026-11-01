@@ -254,7 +254,6 @@ fn every_body_the_strike_road_can_hit_has_a_stable_identity() {
     );
 }
 
-
 // ───────────────────────────────────────────────────────────────────────────
 // THE ROADS THE CENSUS ABOVE DOES NOT TRAVEL.
 //
@@ -562,23 +561,21 @@ fn the_summon_road_builds_an_identified_minion() {
     let (before, _) = damageable_census(sim.world_mut());
 
     sim.world_mut()
-        .write_message(ambition_platformer2d::vfx::EffectRequest {
+        .write_message(ambition_platformer2d::characters::summon::SummonRequest {
             owner: summoner,
-            effect: ambition_platformer2d::vfx::Effect::Summon(
-                ambition_platformer2d::vfx::SummonSpec {
+            spec: ambition_platformer2d::characters::summon::SummonSpec {
                     id: "census_summon".to_string(),
                     pos: Vec2::new(300.0, 200.0),
                     half_size: Vec2::new(12.0, 12.0),
                     character_id: "npc_burning_flying_shark".to_string(),
                     encounter_id: "census_summon_encounter".to_string(),
-                    faction: ambition_platformer2d::vfx::HitSide::Enemy,
-                    calling: ambition_platformer2d::vfx::SummonCalling::Fight,
+                    faction: ambition_platformer2d::characters::actor::ActorFaction::Enemy,
+                    calling: ambition_platformer2d::characters::summon::SummonCalling::Fight,
                     ridden_by_summoner: None,
                     health: None,
                     keeps_contact_damage: false,
                     holds: Vec::new(),
                 },
-            ),
         });
     sim.step_n(AgentAction::default(), 30);
 
@@ -638,23 +635,21 @@ fn a_summoned_minion_wears_its_character_and_keeps_its_summoned_health() {
             .expect("the settled sandbox holds an identified damageable body to summon from")
     };
     sim.world_mut()
-        .write_message(ambition_platformer2d::vfx::EffectRequest {
+        .write_message(ambition_platformer2d::characters::summon::SummonRequest {
             owner: summoner,
-            effect: ambition_platformer2d::vfx::Effect::Summon(
-                ambition_platformer2d::vfx::SummonSpec {
+            spec: ambition_platformer2d::characters::summon::SummonSpec {
                     id: "worn_summon".to_string(),
                     pos: Vec2::new(300.0, 200.0),
                     half_size: Vec2::new(12.0, 12.0),
                     character_id: "npc_burning_flying_shark".to_string(),
                     encounter_id: "worn_summon_encounter".to_string(),
-                    faction: ambition_platformer2d::vfx::HitSide::Enemy,
-                    calling: ambition_platformer2d::vfx::SummonCalling::Fight,
+                    faction: ambition_platformer2d::characters::actor::ActorFaction::Enemy,
+                    calling: ambition_platformer2d::characters::summon::SummonCalling::Fight,
                     ridden_by_summoner: None,
                     health: Some(3),
                     keeps_contact_damage: false,
                     holds: Vec::new(),
                 },
-            ),
         });
     sim.step_n(AgentAction::default(), 30);
 

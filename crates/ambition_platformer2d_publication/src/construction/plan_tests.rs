@@ -317,7 +317,7 @@ fn a_summoned_minion_is_planned_as_a_dynamic_child_of_its_summoner() {
             character_id: "puppy_slug".into(),
             encounter_id: "enc_1".into(),
             faction: ambition_characters::actor::ActorFaction::Enemy,
-            calling: ambition_vfx::SummonCalling::Fight,
+            calling: ambition_characters::summon::SummonCalling::Fight,
         },
     );
 
@@ -364,7 +364,7 @@ fn two_summons_from_one_summoner_do_not_collide() {
         character_id: "puppy_slug".into(),
         encounter_id: "enc_1".into(),
         faction: ambition_characters::actor::ActorFaction::Enemy,
-        calling: ambition_vfx::SummonCalling::Fight,
+        calling: ambition_characters::summon::SummonCalling::Fight,
     };
     let live: std::collections::BTreeSet<SimId> = [summoner.clone()].into_iter().collect();
     let plan = ConstructionPlan::<ActorConstruction>::prepare(
@@ -405,7 +405,7 @@ fn a_summon_under_an_unknown_summoner_is_rejected() {
                 character_id: "puppy_slug".into(),
                 encounter_id: "enc_1".into(),
                 faction: ambition_characters::actor::ActorFaction::Enemy,
-                calling: ambition_vfx::SummonCalling::Fight,
+                calling: ambition_characters::summon::SummonCalling::Fight,
             },
         )],
         &Default::default(),
@@ -724,14 +724,14 @@ fn successive_summons_allocate_non_overlapping_identities() {
         .id();
 
     // Two summons in ONE batch: the reservation advances within the batch.
-    world.write_message(ambition_vfx::EffectRequest {
-        owner: boss,
-        effect: ambition_vfx::Effect::Summon(summon_spec("a")),
-    });
-    world.write_message(ambition_vfx::EffectRequest {
-        owner: boss,
-        effect: ambition_vfx::Effect::Summon(summon_spec("b")),
-    });
+    world.write_message(ambition_characters::summon::SummonRequest {
+            owner: boss,
+            spec: summon_spec("a"),
+        });
+    world.write_message(ambition_characters::summon::SummonRequest {
+            owner: boss,
+            spec: summon_spec("b"),
+        });
     world
         .run_system_cached(ambition_platformer2d_actor_monolith::body::apply_summon_effects)
         .expect("the summon executor runs");
@@ -779,10 +779,10 @@ fn a_companion_summon_is_built_passive_marked_and_named_under_its_identity() {
         run_summon(
             &mut world,
             summoner,
-            ambition_vfx::SummonSpec {
+            ambition_characters::summon::SummonSpec {
                 id: "slug".into(),
-                faction: ambition_vfx::HitSide::Player,
-                calling: ambition_vfx::SummonCalling::Companion,
+                faction: ambition_characters::actor::ActorFaction::Player,
+                calling: ambition_characters::summon::SummonCalling::Companion,
                 ..summon_spec("slug")
             },
         );
@@ -892,7 +892,7 @@ fn every_parameter_variant_matches_its_descriptor() {
             character_id: "puppy_slug".into(),
             encounter_id: "enc".into(),
             faction: ambition_characters::actor::ActorFaction::Enemy,
-            calling: ambition_vfx::SummonCalling::Fight,
+            calling: ambition_characters::summon::SummonCalling::Fight,
         },
     );
 
@@ -928,10 +928,10 @@ fn a_counter_mutation_before_the_commit_applies_refuses_with_nothing_built() {
     let boss = world
         .spawn((SimId::placement("boss_1"), SimIdCounter::default()))
         .id();
-    world.write_message(ambition_vfx::EffectRequest {
-        owner: boss,
-        effect: ambition_vfx::Effect::Summon(summon_spec("slop_add")),
-    });
+    world.write_message(ambition_characters::summon::SummonRequest {
+            owner: boss,
+            spec: summon_spec("slop_add"),
+        });
 
     let mut schedule = Schedule::default();
     // Turned off here deliberately: the point is to reproduce the interleaving, not to rely on
@@ -982,7 +982,7 @@ fn minion_request(id: &str, archetype: &str) -> ActorConstructionRequest {
             character_id: archetype.to_string(),
             encounter_id: "e".into(),
             faction: ambition_characters::actor::ActorFaction::Enemy,
-            calling: ambition_vfx::SummonCalling::Fight,
+            calling: ambition_characters::summon::SummonCalling::Fight,
         },
     )
 }

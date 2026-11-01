@@ -14,7 +14,6 @@ use ambition_characters::brain::{
 use ambition_boss_encounter::BossClusterRef;
 use ambition_platformer2d::actor::FeatureSimEntity;
 use ambition_platformer2d_core as ae;
-use ambition_vfx::{Effect, EffectRequest};
 
 // ---- T-Rex's seismic stomp (content-only, open-seam; world-space arena hazard) ----
 
@@ -67,7 +66,7 @@ fn seismic_world_floor_centers(
 /// short-lived damage boxes spreading from the boss (content-only; open-seam
 /// special; room hazard, not projectiles). Jump the wave.
 pub fn spawn_seismic_stomp_from_special_messages(
-    mut effects: MessageWriter<EffectRequest>,
+    mut effects: ambition_combat::damage_box::DamageBoxWriter,
     mut messages: MessageReader<ActorActionMessage>,
     mut bosses: Query<
         (
@@ -95,17 +94,13 @@ pub fn spawn_seismic_stomp_from_special_messages(
             SEISMIC_SEGMENTS_PER_SIDE,
             SEISMIC_SPACING,
         ) {
-            effects.write(EffectRequest {
-                owner: entity,
-                effect: Effect::DamageBox(ambition_vfx::DamageBoxEffect {
-                    center,
-                    faction: ambition_vfx::HitSide::Boss,
-                    half_extent: SEISMIC_HALF_EXTENT,
-                    damage: SEISMIC_DAMAGE,
-                    knockback: SEISMIC_KNOCKBACK,
-                    lifetime_s: SEISMIC_LIFETIME,
-                    name: None,
-                }),
+            effects.write(entity, entity, ambition_vfx::HitSide::Boss, center, ambition_combat::strike::DamageBox {
+                half_extent: SEISMIC_HALF_EXTENT,
+                damage: SEISMIC_DAMAGE,
+                knockback: SEISMIC_KNOCKBACK,
+                lifetime_s: SEISMIC_LIFETIME,
+                name: None,
+                shape: None,
             });
         }
         state.fired_this_strike = true;

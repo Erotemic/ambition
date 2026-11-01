@@ -32,7 +32,7 @@ pub fn install_for_body_contact(app: &mut App) {
         queue_body_contacts.run_if(ambition_extension_host::trigger_is_bound::<BodyContactPort>),
     );
     app.install_extension_submitted_request::<ContactBouncePort, _>(BODY_CONTACT, "ambition_combat", lower_contact_bounces);
-    app.install_extension_submitted_request::<BodyDefeatPort, _>(BODY_CONTACT, "ambition_combat", lower_body_defeats);
+    app.install_extension_retirement_request::<BodyDefeatPort, _>(BODY_CONTACT, "ambition_combat", lower_body_defeats);
 }
 
 /// The touchers of each touched body of this tick, in the order its

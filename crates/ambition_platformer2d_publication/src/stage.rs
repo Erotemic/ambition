@@ -763,6 +763,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "portal")]
     #[test]
     fn portal_gun_is_a_capability_owned_construction_lane() {
     let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();

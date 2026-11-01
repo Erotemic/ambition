@@ -4,12 +4,11 @@
 //! deduplication lives here. Presentation reads the combat geometry view instead
 //! of depending on live strike components.
 
-use bevy::prelude::{Commands, Component, Entity, MessageReader, Name};
+use bevy::prelude::{Commands, Component, Entity, Name};
 
 use ambition_platformer2d_core as ae;
 
 pub use ambition_vfx::HitSide;
-use ambition_vfx::{Effect, EffectRequest};
 
 /// Unit-bearing knockback payload carried by a live [`Hitbox`].
 ///
@@ -277,6 +276,7 @@ impl Hitbox {
 /// The `DamageBox` effect primitive: a world-anchored, time-limited damage
 /// volume. `owner` + `source` faction are supplied at spawn, so one shape serves
 /// player AOEs, boss hazards, and enemy death blasts.
+#[derive(Clone)]
 pub struct DamageBox {
     pub half_extent: ae::Vec2,
     /// Optional non-box shape (a disc for an explosion, a convex blast cone).
@@ -296,7 +296,7 @@ pub struct DamageBox {
 /// The largest FEEL MULTIPLIER a `DamageBox` can plausibly mean.
 ///
 /// ⛔⛔ THIS CONSTANT EXISTS BECAUSE `f32` CANNOT TELL A MULTIPLIER FROM A
-/// SPEED, AND THREE SHIPPED BLASTS GOT IT WRONG. `DamageBoxEffect::knockback` is
+/// SPEED, AND THREE SHIPPED BLASTS GOT IT WRONG. `DamageBox::knockback` is
 /// a dimensionless multiplier over the victim's feel-tuned launch — the band
 /// every long-standing author sits in is 1.1 (beam), 1.3 (shockwave) and 1.6
 /// (boss, exploder). The smash demo authored engine-unit LAUNCH SPEEDS into it:
@@ -326,7 +326,7 @@ pub fn plausible_feel_scale(knockback: f32) -> bool {
 ///
 /// This volume keeps its world position. Use [`spawn_body_strike`] for a
 /// volume that follows its owner.
-pub fn spawn_damage_box(
+pub(crate) fn spawn_damage_box(
     commands: &mut Commands,
     owner: Entity,
     source: HitSide,
@@ -342,7 +342,7 @@ pub fn spawn_damage_box(
             source,
             anchor: HitboxAnchor::World { center },
             half_extent: dbox.half_extent,
-            shape: dbox.shape.clone(),
+            shape: dbox.shape,
             facing: 1.0,
             damage: dbox.damage,
             // DamageBox knockback is authored as a feel multiplier (values such
@@ -447,44 +447,9 @@ pub fn spawn_body_strike(
         .id()
 }
 
-/// Generic effect executor: drains [`EffectRequest`]s and spawns each
-/// `DamageBox`. Pure executor — every effect carries its own geometry, so this
-/// needs no actor queries. Reads in message order (unsorted) to match the
-/// per-consumer behavior it replaces.
-/// The set `apply_effects` runs in, so a caller can order against a NAME
-/// rather than against this function.
-///
-///  this crate has no `Plugin` and deliberately keeps none: it is an effect
-/// VOCABULARY plus one executor, and the host decides when to run it. A set is
-/// the smaller thing that makes the host's decision expressible — it says WHERE
-/// the executor sits without claiming when the host should install it.
+/// Materialization boundary for damage boxes and summoned bodies.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct EffectExecutionSet;
-
-pub fn apply_effects(mut commands: Commands, mut requests: MessageReader<EffectRequest>) {
-    for req in requests.read() {
-        match &req.effect {
-            Effect::DamageBox(d) => {
-                spawn_damage_box(
-                    &mut commands,
-                    req.owner,
-                    d.faction,
-                    d.center,
-                    DamageBox {
-                        half_extent: d.half_extent,
-                        shape: None,
-                        damage: d.damage,
-                        knockback: d.knockback,
-                        lifetime_s: d.lifetime_s,
-                        name: d.name,
-                    },
-                );
-            }
-            // Materialized by the actor-construction executor beside its substrate.
-            Effect::Summon(_) => {}
-        }
-    }
-}
 
 #[cfg(test)]
 mod hitbox_shape_tests {
@@ -495,7 +460,7 @@ mod hitbox_shape_tests {
     /// not as a test.
     ///
     /// Jon, 2026-09-05: *"does the projectile polygon bomb just straight up kill
-    /// the other player?"* It did. `DamageBoxEffect::knockback` is dimensionless
+    /// the other player?"* It did. `DamageBox::knockback` is dimensionless
     /// and the shipped band is 1.1–1.6; the bomb authored `blast_radius * 2.4` =
     /// 134.4, the mine 124.8, the steered bolt 92.0.
     ///

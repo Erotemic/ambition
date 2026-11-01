@@ -70,7 +70,7 @@ fn a_conductor_reads_the_boss_health_its_refusal_and_the_tracked_body_now() {
     });
     app.add_message::<ambition_characters::brain::ActorActionMessage>()
         .add_message::<ambition_projectiles::ProjectileSpawnRequest>()
-        .add_message::<ambition_vfx::EffectRequest>()
+        .add_message::<ambition_characters::summon::SummonRequest>()
         .add_message::<ambition_vfx::vfx::VfxInRoom>()
         .add_message::<ambition_sfx::OwnedSfxMessage>()
         .init_resource::<ambition_time::SimTick>()

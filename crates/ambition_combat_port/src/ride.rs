@@ -25,7 +25,7 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 ///   it. From birth it holds the status `holds` (none when empty), so the
 ///   module that summoned it ticks it (`ambition.body.status_tick`).
 /// * **Owner** — `ambition_abilities::ride`, which lowers it into
-///   `EffectRequest` → `Effect::Summon`, the summon executor's one road.
+///   `SummonRequest` → character construction, the summon executor's one road.
 /// * **Scope** — the asker, who must have a simulation identity: the mount's
 ///   identity descends from it.
 /// * **Identity** — `label` is the mount's id, and its save key: a summon

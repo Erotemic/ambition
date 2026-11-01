@@ -97,7 +97,7 @@ fn detached_attacks_keep_the_participants_rule_after_control_or_owner_loss() {
         for projectile in [false, true] {
             for remove_owner in [false, true] {
                 let mut sim = party(enabled);
-                let room = bob_beside_alice(&mut sim, ROOM, Some(PlayerSlot(1)));
+                bob_beside_alice(&mut sim, ROOM, Some(PlayerSlot(1)));
                 let source = driven(&mut sim, 1);
                 let victim = driven(&mut sim, 0);
                 sim.world_mut().entity_mut(source).insert(ActorFaction::Enemy);
@@ -119,18 +119,14 @@ fn detached_attacks_keep_the_participants_rule_after_control_or_owner_loss() {
                     ));
                     None
                 } else {
-                    Some(sim.world_mut().spawn((
-                        combat::strike::Hitbox {
-                            owner: source, source: combat::strike::HitSide::Player,
-                            anchor: combat::strike::HitboxAnchor::World { center },
-                            half_extent: ae::Vec2::splat(24.0), shape: None, facing: 1.0,
-                            damage: 1, knockback: combat::strike::HitboxKnockback::FeelScale(0.0),
-                            launch_dir: None, frame_down: ae::DEFAULT_GRAVITY_DIR,
-                            reaction: None, strike_sfx: None, guard: Default::default(),
-                        },
-                        combat::strike::HitboxHits::default(),
-                        combat::strike::HitboxLifetime { remaining_s: 1.0 }, InRoomInstance(room),
-                    )).id())
+                    use bevy::ecs::system::RunSystemOnce;
+                    Some(sim.world_mut().run_system_once(move |mut boxes: combat::damage_box::DamageBoxSpawner| {
+                        boxes.spawn(source, source, combat::strike::HitSide::Player, center,
+                            combat::strike::DamageBox {
+                                half_extent: ae::Vec2::splat(24.0), shape: None, damage: 1,
+                                knockback: 0.0, lifetime_s: 1.0, name: Some("owned area"),
+                            }).expect("the live source emits a box")
+                    }).unwrap())
                 };
                 sim.step(base());
                 let attack = area.unwrap_or_else(|| {
@@ -187,5 +183,89 @@ fn peers_with_different_coop_damage_choices_refuse_before_simulation() {
         assert!(reason.contains("peer contract mismatch"), "{reason}");
         assert_eq!(sim.world().resource::<ambition_platformer2d::time::SimTick>().0, tick);
         assert_eq!(sim.world().resource::<RollbackFrameCount>().0, 0);
+    }
+}
+
+#[test]
+fn a_damage_box_keeps_its_emission_room_and_session_after_its_source_leaves() {
+    use bevy::ecs::system::RunSystemOnce;
+    use ambition_platformer2d::characters::actor::ActorFaction;
+    use ambition_platformer2d::platformer::lifecycle::{RoomScopedEntity, SessionScopedEntity};
+    for immediate in [false, true] {
+        for remote_credit in [false, true] {
+            let mut sim = party(true);
+            let room = bob_beside_alice(&mut sim, ROOM, Some(PlayerSlot(1)));
+            assert_eq!(crate::common::walk_through_the_door_to(&mut sim, "central_hub_complex"), "central_hub_complex");
+            assert_eq!(crate::two_players_two_live_rooms::live_rooms(&mut sim).len(), 2);
+            let alice = driven(&mut sim, 0);
+            let bob = driven(&mut sim, 1);
+            assert_ne!(sim.world().get::<InRoomInstance>(alice).unwrap().0, room);
+            let session = *sim.world().get::<SessionScopedEntity>(bob).expect("the live body has a session");
+            sim.world_mut().entity_mut(bob).insert((
+                combat::components::ActiveCombatant,
+                ambition_platformer2d::actor::BodyHealth::new(ambition_platformer2d::actor::Health::new(100)),
+            ));
+            for _ in 0..2 { sim.step(base()); }
+            let center = sim.world().get::<ae::BodyKinematics>(bob).unwrap().pos + ae::Vec2::new(0.0, -80.0);
+            let emitter = sim.world_mut().spawn((ActorFaction::Enemy, InRoomInstance(room), session)).id();
+            let owner = if remote_credit { alice } else { emitter };
+            let source = if remote_credit { combat::strike::HitSide::Player } else { combat::strike::HitSide::Enemy };
+            let damage_box = combat::strike::DamageBox {
+                half_extent: ae::Vec2::splat(24.0), shape: None, damage: 1,
+                knockback: 0.0, lifetime_s: 60.0, name: Some("room provenance"),
+            };
+            if immediate {
+                sim.world_mut().run_system_once(move |mut boxes: combat::damage_box::DamageBoxSpawner| {
+                    boxes.spawn(emitter, owner, source, center, damage_box.clone()).expect("the source is live");
+                }).unwrap();
+            } else {
+                sim.world_mut().run_system_once(move |mut boxes: combat::damage_box::DamageBoxWriter| {
+                    assert!(boxes.write(emitter, owner, source, center, damage_box.clone()));
+                }).unwrap();
+            }
+            sim.world_mut().despawn(emitter);
+            sim.step(base());
+            let attack = {
+                let world = sim.world_mut();
+                let attacks: Vec<_> = world.query::<(Entity, &combat::strike::Hitbox)>().iter(world)
+                    .filter(|(_, hit)| hit.owner == owner && hit.world_volume(center).center() == center)
+                    .map(|(entity, _)| entity).collect();
+                assert_eq!(attacks.len(), 1);
+                attacks[0]
+            };
+            assert_eq!(sim.world().get::<InRoomInstance>(attack).unwrap().0, room);
+            assert_eq!(sim.world().get::<SessionScopedEntity>(attack), Some(&session));
+            assert!(sim.world().get::<RoomScopedEntity>(attack).is_some());
+            let allegiance = sim.world().get::<combat::allegiance::AttackAllegiance>(attack).unwrap();
+            assert_eq!(allegiance.driver, remote_credit.then_some(DrivingParticipant(PlayerSlot(0))));
+            sim.world_mut().get_mut::<ae::BodyKinematics>(bob).unwrap().pos = center;
+            let damage = |sim: &Platformer2dSimHarness| sim.world().get::<ambition_platformer2d::actor::BodyHealth>(bob).unwrap().damage_taken();
+            let before = damage(&sim);
+            for _ in 0..2 { sim.step(base()); }
+            assert!(damage(&sim) > before, "immediate={immediate}, remote_credit={remote_credit}");
+            assert_eq!(crate::two_players_two_live_rooms::live_rooms(&mut sim).len(), 2);
+            let other_room = sim.world().get::<InRoomInstance>(alice).unwrap().0;
+            let control_center = sim.world().get::<ae::BodyKinematics>(alice).unwrap().pos + ae::Vec2::new(0.0, -1000.0);
+            let control = sim.world_mut().run_system_once(move |mut boxes: combat::damage_box::DamageBoxSpawner| {
+                boxes.spawn(alice, alice, combat::strike::HitSide::Player, control_center,
+                    combat::strike::DamageBox {
+                        half_extent: ae::Vec2::splat(8.0), shape: None, damage: 1,
+                        knockback: 0.0, lifetime_s: 60.0, name: Some("other room control"),
+                    }).unwrap()
+            }).unwrap();
+            use ae::AabbExt as _;
+            let door = crate::two_players_two_live_rooms::door_of(&mut sim, ROOM, "central_hub_complex").aabb.center();
+            crate::two_players_two_live_rooms::put_bob_at(&mut sim, door);
+            for _ in 0..120 {
+                sim.drive_seat(1, ae::ControlFrame { interact_pressed: true, interact_held: true, ..Default::default() });
+                sim.step(base());
+                if sim.world().get::<InRoomInstance>(bob).unwrap().0 == other_room { break; }
+            }
+            sim.drive_seat(1, ae::ControlFrame::default());
+            for _ in 0..30 { sim.step(base()); }
+            assert_eq!(crate::two_players_two_live_rooms::live_rooms(&mut sim), vec![(other_room, "central_hub_complex".to_string())]);
+            assert!(sim.world().get_entity(attack).is_err(), "a fixed area outlived its room");
+            assert!(sim.world().get_entity(control).is_ok(), "the other room lost its fixed area");
+        }
     }
 }

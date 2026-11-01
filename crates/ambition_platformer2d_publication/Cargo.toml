@@ -16,7 +16,6 @@ ambition_mount = { path = "../ambition_mount" }
 ambition_encounter = { path = "../ambition_encounter" }
 ambition_registry_core = { path = "../ambition_registry_core" }
 ambition_portal2d = { path = "../ambition_portal2d", optional = true }
-ambition_vfx = { path = "../ambition_vfx" }
 ambition_interaction = { path = "../ambition_interaction" }
 ambition_platformer2d_items = { path = "../ambition_platformer2d_items" }
 ambition_breakables = { path = "../ambition_breakables" }

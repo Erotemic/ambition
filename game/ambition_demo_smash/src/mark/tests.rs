@@ -7,7 +7,6 @@ use crate::module_road::{app_on, runner_of, Road};
 use ambition_demo_smash_modules::mark::{Mark, MARKED};
 use ambition_platformer2d::actor::MatchSeat;
 use ambition_platformer2d::combat::death_rules::OutOfPlay;
-use ambition_platformer2d::combat::extension::blast::{CreditStandIn, CREDIT_STAND_IN_MARGIN_S};
 use ambition_platformer2d::combat::extension::status::BodyStatuses;
 use ambition_platformer2d::combat::on_hit::OnHitEffectMessage;
 use ambition_platformer2d::engine_core as ae;
@@ -100,13 +99,14 @@ struct CapturedBlasts {
 }
 
 fn capture_blasts(
-    mut reader: MessageReader<ambition_platformer2d::vfx::EffectRequest>,
+    mut reader: MessageReader<ambition_platformer2d::combat::damage_box::DamageBoxRequest>,
     mut cap: ResMut<CapturedBlasts>,
 ) {
     for request in reader.read() {
-        if let ambition_platformer2d::vfx::Effect::DamageBox(b) = &request.effect {
+        {
+            let b = &request.damage_box;
             cap.count += 1;
-            cap.last = b.center;
+            cap.last = request.center;
             cap.last_owner = Some(request.owner);
             cap.last_lifetime_s = b.lifetime_s;
         }
@@ -393,9 +393,7 @@ fn a_live_mark_is_a_readable_clock_on_its_body() {
     assert!(app.world().resource::<BodyClocksView>().0.is_empty(), "the mark went off and its clock is still drawn");
 }
 
-/// The credit outlives the body. A fighter eliminated during the fuse has
-/// left; a stand-in owns the blast for its lifetime and then leaves. The
-/// owner is not the victim, and the stand-in is not a participant.
+/// A departed attacker must not transfer blast credit to its victim.
 #[test]
 fn a_blast_whose_attacker_has_left_the_match_is_not_credited_to_the_victim() {
     let mut app = app();
@@ -418,18 +416,7 @@ fn a_blast_whose_attacker_has_left_the_match_is_not_credited_to_the_victim() {
         "the attacker's body was gone and the blast fell back to the VICTIM as its owner: a bystander it KOs is \
          credited to the fighter who was marked"
     );
-    assert!(app.world().get::<CreditStandIn>(owner).is_some(), "the owner is not a credit stand-in");
-    assert!(
-        app.world().get::<MatchSeat>(owner).is_none(),
-        "a credit stand-in must not be a PARTICIPANT, or the match counts a fighter who is out"
-    );
-    // It leaves once the blast can no longer land: the blast's own time and
-    // the margin, counted from the detonation.
-    let stays = ((params(0.1).blast_s + CREDIT_STAND_IN_MARGIN_S) / DT).ceil() as usize;
-    for _ in 0..stays {
-        app.update();
-    }
-    assert!(app.world().get_entity(owner).is_err(), "the credit stand-in outlived the blast it stood in for");
+    assert_eq!(owner, Entity::PLACEHOLDER, "departed credit is unknown");
 }
 
 /// The loaded file's mark goes off as the linked one's: on the same tick,

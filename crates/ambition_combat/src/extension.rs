@@ -1,7 +1,7 @@
 //! The combat domain's extension request adapters.
 //!
 //! A module's damage box enters the effect executor's one road
-//! (`EffectRequest` → `Effect::DamageBox`). A module's HELD damage box is an
+//! (`DamageBoxRequest` → combat materialization). A module's HELD damage box is an
 //! entity this adapter spawns, keeps while the module asks for it, and
 //! despawns ([`HeldDamageBoxes`]). Each box is owned by the body the
 //! invocation ran for and is on that body's EFFECTIVE faction
@@ -26,6 +26,7 @@ use ambition_characters::actor::ActorFaction;
 /// Install the request port in `technique_execution`, before the effect
 /// executor.
 pub fn install(app: &mut App) {
+    app.add_message::<crate::damage_box::DamageBoxRequest>();
     app.install_extension_submitted_request::<DamageBoxPort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_combat",
@@ -129,6 +130,7 @@ fn body_attachments_of(world: &World, scope: Entity) -> Option<BodyAttachments> 
 /// item's use), before the effect executor and the hit resolution, as in
 /// `technique_execution`.
 pub fn install_for_wielded_use(app: &mut App) {
+    app.add_message::<crate::damage_box::DamageBoxRequest>();
     app.install_extension_submitted_request::<DamageBoxPort, _>(
         WIELDED_USE,
         "ambition_combat",
@@ -196,10 +198,9 @@ fn lower_strikes(
     }
 }
 
-
 fn lower_damage_boxes<L: LowersIn>(
     mut outbox: ResMut<ExtensionOutbox>,
-    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
+    mut effects: crate::damage_box::DamageBoxWriter,
     factions: Query<(
         &ActorFaction,
         Option<&ambition_characters::control::DrivingParticipant>,
@@ -217,18 +218,14 @@ fn lower_damage_boxes<L: LowersIn>(
         };
         let faction = crate::targeting::effective_faction(*authored, driver);
         let b = submitted.value;
-        effects.write(ambition_vfx::EffectRequest {
-            owner: submitted.scope,
-            effect: ambition_vfx::Effect::DamageBox(ambition_vfx::DamageBoxEffect {
-                center: ae::Vec2::from(b.center),
-                faction: crate::hit_side_from_actor_faction(faction),
+        effects.write(submitted.scope, submitted.scope, crate::hit_side_from_actor_faction(faction), ae::Vec2::from(b.center), crate::strike::DamageBox {
                 half_extent: ae::Vec2::from(b.half_extent),
                 damage: b.damage,
                 knockback: b.knockback,
                 lifetime_s: b.lifetime_s,
                 name: None,
-            }),
-        });
+                shape: None,
+            });
     }
 }
 
@@ -342,6 +339,7 @@ fn cast_ray(
 #[allow(clippy::too_many_arguments)]
 fn lower_held_damage_boxes<P: LowersIn>(
     mut commands: Commands,
+    mut damage_boxes: crate::damage_box::DamageBoxSpawner,
     mut outbox: ResMut<ExtensionOutbox>,
     admitted: Res<AdmittedExtensions>,
     mut holders: Query<(Entity, &mut HeldDamageBoxes)>,
@@ -466,8 +464,8 @@ fn lower_held_damage_boxes<P: LowersIn>(
             continue;
         };
         let faction = crate::targeting::effective_faction(*authored, driver);
-        let entity = crate::strike::spawn_damage_box(
-            &mut commands,
+        let Some(entity) = damage_boxes.spawn(
+            s.scope,
             s.scope,
             crate::hit_side_from_actor_faction(faction),
             s.center,
@@ -479,7 +477,7 @@ fn lower_held_damage_boxes<P: LowersIn>(
                 lifetime_s: s.lifetime_s,
                 name: None,
             },
-        );
+        ) else { continue; };
         if let Some(direction) = s.launch_dir {
             commands.entity(entity).entry::<crate::strike::Hitbox>().and_modify(move |mut hitbox| {
                 hitbox.launch_dir = Some(port_launch_direction(direction));

@@ -54,7 +54,7 @@ ACCUMULATORS = [
 
 def test_the_authored_fill_is_lowered_in_content_specials():
     """The authored half reads the press in `technique_execution`, whose
-    `Lower` set the composition places in `ContentSpecials`: the phase whose
+    phase parent the composition places in `ContentSpecials`: the phase whose
     own doc promises that a special dispatched this frame reaches its
     technique THIS frame. Moved later it would read the press out of the
     second buffer on the following frame — the same cross-frame read, in the
@@ -66,7 +66,7 @@ def test_the_authored_fill_is_lowered_in_content_specials():
     ), "the refill adapter is no longer installed in `technique_execution`"
     composition = (REPO / "crates/ambition_platformer2d_runtime/src/extension_composition.rs").read_text()
     placement = re.search(
-        r"ExtensionSet::Lower\(TECHNIQUE_EXECUTION\),\s*\)\s*\.in_set\(GameplayGated\)\s*\.in_set\(CombatSet::(\w+)\)",
+        r"ExtensionSet::Phase\(TECHNIQUE_EXECUTION\)\s*\.in_set\(GameplayGated\)\s*\.in_set\(CombatSet::(\w+)\)",
         composition,
     )
     assert placement, "could not find where the composition places `technique_execution`"

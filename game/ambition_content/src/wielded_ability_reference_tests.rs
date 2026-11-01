@@ -4,7 +4,6 @@
 //! Test-only: the game runs the modules. `wielded_ability_parity_tests` holds
 //! each module to its reference on the linked and the WASM road.
 
-
 pub mod shockwave {
     use bevy::prelude::*;
 
@@ -43,7 +42,7 @@ pub mod shockwave {
             &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
             Option<&mut ambition_platformer2d_core::resources::ActorResources>,
         )>,
-        mut effects: MessageWriter<ambition_vfx::EffectRequest>,
+        mut effects: ambition_combat::damage_box::DamageBoxWriter,
         mut sfx: ambition_sfx::BodySfxWriter,
     ) {
         for (entity, control, held, kin, resolved_frame, mut mana) in &mut wielders {
@@ -59,17 +58,13 @@ pub mod shockwave {
             }
             // The body's per-tick resolved frame (ADR 0024 frame law).
             let half_extent = resolved_frame.basis().to_world_half(SHOCKWAVE_HALF);
-            effects.write(ambition_vfx::EffectRequest {
-                owner: entity,
-                effect: ambition_vfx::Effect::DamageBox(ambition_vfx::DamageBoxEffect {
-                    center: kin.pos,
-                    faction: ambition_vfx::HitSide::Player,
-                    half_extent,
-                    damage: SHOCKWAVE_DAMAGE,
-                    knockback: SHOCKWAVE_KNOCKBACK,
-                    lifetime_s: SHOCKWAVE_LIFETIME_S,
-                    name: Some("Shockwave AOE"),
-                }),
+            effects.write(entity, entity, ambition_vfx::HitSide::Player, kin.pos, ambition_combat::strike::DamageBox {
+                half_extent: half_extent,
+                damage: SHOCKWAVE_DAMAGE,
+                knockback: SHOCKWAVE_KNOCKBACK,
+                lifetime_s: SHOCKWAVE_LIFETIME_S,
+                name: Some("Shockwave AOE"),
+                shape: None,
             });
             sfx.write_for(
                 entity,
@@ -81,7 +76,6 @@ pub mod shockwave {
         }
     }
 }
-
 
 pub mod beam {
     use ambition_characters::control::ActorControl;
@@ -154,7 +148,7 @@ pub mod beam {
             &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
             Option<&mut ambition_platformer2d_core::resources::ActorResources>,
         )>,
-        mut effects: MessageWriter<ambition_vfx::EffectRequest>,
+        mut effects: ambition_combat::damage_box::DamageBoxWriter,
         mut sfx: ambition_sfx::BodySfxWriter,
     ) {
         for subject in driven.entities() {
@@ -179,17 +173,13 @@ pub mod beam {
             let (offset_local, half_local) = beam_geometry(aim, kin.facing);
             let offset = frame.to_world(offset_local);
             let half_extent = frame.to_world_half(half_local);
-            effects.write(ambition_vfx::EffectRequest {
-                owner: entity,
-                effect: ambition_vfx::Effect::DamageBox(ambition_vfx::DamageBoxEffect {
-                    center: kin.pos + offset,
-                    faction: ambition_vfx::HitSide::Player,
-                    half_extent,
-                    damage: BEAM_DAMAGE,
-                    knockback: BEAM_KNOCKBACK,
-                    lifetime_s: BEAM_LIFETIME_S,
-                    name: Some("Focus Beam"),
-                }),
+            effects.write(entity, entity, ambition_vfx::HitSide::Player, kin.pos + offset, ambition_combat::strike::DamageBox {
+                half_extent: half_extent,
+                damage: BEAM_DAMAGE,
+                knockback: BEAM_KNOCKBACK,
+                lifetime_s: BEAM_LIFETIME_S,
+                name: Some("Focus Beam"),
+                shape: None,
             });
             // G1: the beam is this body's ability, so it speaks in this body's voice.
             sfx.write_for(
@@ -202,7 +192,6 @@ pub mod beam {
         }
     }
 }
-
 
 pub mod volley {
     use bevy::prelude::*;
@@ -333,7 +322,6 @@ pub mod volley {
         }
     }
 }
-
 
 pub mod meteor {
     use bevy::prelude::*;

@@ -40,9 +40,10 @@ pub use admission::{
     ModuleBackend, ModuleCode, PortOffer, Refusal, SaveRoad,
 };
 pub use exec::{
-    run_phase, ExtensionFaults, ExtensionInvocations, ExtensionOutbox, FaultRecord, InActorThink, InBodyContact, InBossConduct,
-    InHitReaction, InModuleEntityTick, InTechniqueExecution, InWieldedUse, InstalledPortCodecs, InvocationId, LowersIn,
-    PendingInvocation, Submitted, Supplier,
+    run_phase, ExtensionFaults, ExtensionInvocations, ExtensionOutbox, FaultRecord, InActorThink,
+    InBodyContact, InBossConduct, InHitReaction, InModuleEntityTick, InTechniqueExecution,
+    InWieldedUse, InstalledPortCodecs, InvocationId, LowersIn, PendingInvocation, Submitted,
+    Supplier,
 };
 pub use store::{register_rollback_state, BodyRecords, RecordSet, SessionRecords, StoredRecord};
 
@@ -53,6 +54,8 @@ pub enum ExtensionSet {
     /// The admission backstop. It runs before every phase and does nothing
     /// once the App is admitted.
     Admit,
+    /// All steps of one phase share its schedule and run conditions.
+    Phase(Phase),
     /// Trigger adapters queue invocations.
     Collect(Phase),
     /// The host runs the admitted entries.
@@ -63,17 +66,16 @@ pub enum ExtensionSet {
     Settle(Phase),
     /// Request adapters give submitted requests to their domains.
     Lower(Phase),
+    /// Retirement adapters remove sources after all requests capture their facts.
+    Retire(Phase),
     /// The request adapters of a phase that act only on what was submitted
     /// ([`ExtensionAppExt::install_extension_submitted_request`]), inside
     /// `Lower(phase)`. They sleep on a tick whose invocations submitted no
     /// request in the phase. A held port's adapter, which releases what was
     /// not asked again, is not in it.
     LowerSubmitted(Phase),
-    /// One request port's adapter, inside `Lower(phase)`. The host runs the
-    /// request ports of a phase in the order they were installed: two
-    /// adapters can write to one domain message (a damage box and a summon
-    /// are both `EffectRequest`s), and their order is the order the domain
-    /// executes them in.
+    /// One request adapter, inside its lowering or retirement stage.
+    /// Adapters run in installation order within each stage.
     LowerPort(Phase, ambition_extension_sdk::PortKey),
 }
 
@@ -91,7 +93,12 @@ pub struct AdmittedExtensions(pub Arc<Admitted>);
 /// placed module entity names its entry), which no admitted entry declares.
 pub fn trigger_is_bound<P: Port>(admitted: Option<Res<AdmittedExtensions>>) -> bool {
     admitted.is_some_and(|admitted| {
-        admitted.is_changed() || admitted.0.entries.iter().any(|entry| entry.descriptor.trigger.port == P::KEY)
+        admitted.is_changed()
+            || admitted
+                .0
+                .entries
+                .iter()
+                .any(|entry| entry.descriptor.trigger.port == P::KEY)
     })
 }
 
@@ -125,7 +132,10 @@ impl ExtensionGeneration {
         for module in declared {
             let d = &module.descriptor;
             let code = match &d.code {
-                CodeIdentity::StaticNative { crate_name, version } => {
+                CodeIdentity::StaticNative {
+                    crate_name,
+                    version,
+                } => {
                     format!("native {crate_name} {version}")
                 }
                 CodeIdentity::Loaded { abi, digest } => format!("loaded {abi} {digest:016x}"),
@@ -151,13 +161,20 @@ struct ExtensionInstallation {
     offers: Vec<PortOffer>,
     /// The save roads whose adapters the composition installed.
     save_roads: BTreeSet<SaveRoad>,
-    suppliers: HashMap<ambition_extension_sdk::PortKey, (Supplier, ambition_extension_sdk::EncodeFn)>,
+    suppliers:
+        HashMap<ambition_extension_sdk::PortKey, (Supplier, ambition_extension_sdk::EncodeFn)>,
     request_decoders: HashMap<ambition_extension_sdk::PortKey, ambition_extension_sdk::DecodeFn>,
     modules: Vec<DeclaredModule>,
     /// Phases whose systems are already in the schedule.
     phases: BTreeSet<Phase>,
-    /// The request port installed last in each phase.
-    last_request: HashMap<Phase, ambition_extension_sdk::PortKey>,
+    /// The request port installed last in each phase and stage.
+    last_request: HashMap<(Phase, RequestStage), ambition_extension_sdk::PortKey>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+enum RequestStage {
+    Lower,
+    Retire,
 }
 
 /// Adds the extension host to the simulation schedule given here.
@@ -187,7 +204,9 @@ impl Plugin for ExtensionHostPlugin {
             .add_systems(
                 self.schedule,
                 admit_world
-                    .run_if(bevy::prelude::not(bevy::prelude::resource_exists::<AdmittedExtensions>))
+                    .run_if(bevy::prelude::not(
+                        bevy::prelude::resource_exists::<AdmittedExtensions>,
+                    ))
                     .in_set(ExtensionSet::Admit),
             );
     }
@@ -318,6 +337,15 @@ pub trait ExtensionAppExt {
         adapter: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
     ) -> &mut Self;
 
+    /// Install a destructive request adapter after all ordinary requests in
+    /// the phase. Sources stay live until those requests capture their facts.
+    fn install_extension_retirement_request<P: Port, M>(
+        &mut self,
+        phase: Phase,
+        owner: &'static str,
+        adapter: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
+    ) -> &mut Self;
+
     /// Declare a module. Admission runs in `Plugin::finish`.
     fn add_extension_module(&mut self, module: ModuleDescriptor) -> &mut Self {
         self.add_declared_extension_module(module.into())
@@ -336,10 +364,15 @@ pub trait ExtensionAppExt {
     ) -> &mut Self {
         let artifact: Arc<str> = Arc::from(artifact);
         for descriptor in modules {
-            let module = admission::loaded_module_index(backend.as_ref(), &artifact, &descriptor.key);
+            let module =
+                admission::loaded_module_index(backend.as_ref(), &artifact, &descriptor.key);
             self.add_declared_extension_module(DeclaredModule {
                 descriptor,
-                code: ModuleCode::Loaded { backend: backend.clone(), module, artifact: artifact.clone() },
+                code: ModuleCode::Loaded {
+                    backend: backend.clone(),
+                    module,
+                    artifact: artifact.clone(),
+                },
                 replaces,
             });
         }
@@ -376,13 +409,18 @@ fn ensure_phase(app: &mut App, schedule: Interned<dyn ScheduleLabel>, phase: &Ph
     app.configure_sets(
         schedule,
         (
-            ExtensionSet::Admit,
             ExtensionSet::Collect(phase.clone()),
             ExtensionSet::Invoke(phase.clone()),
             ExtensionSet::Settle(phase.clone()),
             ExtensionSet::Lower(phase.clone()),
+            ExtensionSet::Retire(phase.clone()),
         )
-            .chain(),
+            .chain()
+            .in_set(ExtensionSet::Phase(phase.clone())),
+    );
+    app.configure_sets(
+        schedule,
+        ExtensionSet::Phase(phase.clone()).after(ExtensionSet::Admit),
     );
     let submitted = phase.clone();
     app.configure_sets(
@@ -411,6 +449,48 @@ fn offer<P: Port>(role: PortRole, phase: Phase, owner: &'static str) -> PortOffe
         phase,
         owner,
     }
+}
+
+fn install_request<'a, P: Port, M>(
+    app: &'a mut App,
+    phase: Phase,
+    owner: &'static str,
+    adapter: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
+    stage: RequestStage,
+) -> &'a mut App {
+    let (schedule, mut installation) = installation(app);
+    installation
+        .offers
+        .push(offer::<P>(PortRole::Request, phase.clone(), owner));
+    installation
+        .request_decoders
+        .insert(P::KEY, ambition_extension_sdk::decode_erased::<P>);
+    let previous = installation
+        .last_request
+        .insert((phase.clone(), stage), P::KEY);
+    ensure_phase(app, schedule, &phase);
+    let parent = match stage {
+        RequestStage::Lower => ExtensionSet::Lower(phase.clone()),
+        RequestStage::Retire => ExtensionSet::Retire(phase.clone()),
+    };
+    if stage == RequestStage::Retire && previous.is_none() {
+        let submitted = phase.clone();
+        app.configure_sets(
+            schedule,
+            parent
+                .clone()
+                .run_if(move |outbox: Res<ExtensionOutbox>| outbox.holds_phase(&submitted)),
+        );
+    }
+    let set = ExtensionSet::LowerPort(phase.clone(), P::KEY);
+    app.configure_sets(schedule, set.clone().in_set(parent));
+    if let Some(previous) = previous {
+        app.configure_sets(
+            schedule,
+            set.clone().after(ExtensionSet::LowerPort(phase, previous)),
+        );
+    }
+    app.add_systems(schedule, adapter.in_set(set))
 }
 
 impl ExtensionAppExt for App {
@@ -487,21 +567,16 @@ impl ExtensionAppExt for App {
         owner: &'static str,
         adapter: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
     ) -> &mut Self {
-        let (schedule, mut installation) = installation(self);
-        installation
-            .offers
-            .push(offer::<P>(PortRole::Request, phase.clone(), owner));
-        installation
-            .request_decoders
-            .insert(P::KEY, ambition_extension_sdk::decode_erased::<P>);
-        let previous = installation.last_request.insert(phase.clone(), P::KEY);
-        ensure_phase(self, schedule, &phase);
-        let set = ExtensionSet::LowerPort(phase.clone(), P::KEY);
-        self.configure_sets(schedule, set.clone().in_set(ExtensionSet::Lower(phase.clone())));
-        if let Some(previous) = previous {
-            self.configure_sets(schedule, set.clone().after(ExtensionSet::LowerPort(phase, previous)));
-        }
-        self.add_systems(schedule, adapter.in_set(set))
+        install_request::<P, M>(self, phase, owner, adapter, RequestStage::Lower)
+    }
+
+    fn install_extension_retirement_request<P: Port, M>(
+        &mut self,
+        phase: Phase,
+        owner: &'static str,
+        adapter: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
+    ) -> &mut Self {
+        install_request::<P, M>(self, phase, owner, adapter, RequestStage::Retire)
     }
 
     fn install_extension_submitted_request<P: Port, M>(
@@ -527,7 +602,9 @@ impl ExtensionAppExt for App {
             module.descriptor.key
         );
         let generation = {
-            let mut installation = self.world_mut().get_resource_or_init::<ExtensionInstallation>();
+            let mut installation = self
+                .world_mut()
+                .get_resource_or_init::<ExtensionInstallation>();
             installation.modules.push(module);
             ExtensionGeneration::of(&installation.modules)
         };

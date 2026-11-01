@@ -5,9 +5,9 @@
 //! surface-walker wander); they're simply player-allied now.
 //!
 //! The gun asks for each slug through the summon executor's one road
-//! (`EffectRequest` → `Effect::Summon`), as a boss asks for a minion. It states
+//! (`SummonRequest` → character construction), as a boss asks for a minion. It states
 //! what it wants: a companion ([`SummonCalling::Companion`]) on the player's
-//! side ([`HitSide::Player`]). The executor builds the body, gives it its
+//! side ([`ActorFaction::Player`]). The executor builds the body, gives it its
 //! identity under the summoner, and marks it [`SummonedCompanion`]. The
 //! `can_damage` matrix then does all the work — a Player-faction body damages
 //! Enemy-faction actors and is damaged by them, but never harms the player.
@@ -18,7 +18,8 @@ use ambition_combat::components::SummonedCompanion;
 use ambition_combat::held_items::HeldItem;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::BodyKinematics;
-use ambition_vfx::{Effect, EffectRequest, HitSide, SummonCalling, SummonSpec};
+use ambition_characters::actor::ActorFaction;
+use ambition_characters::summon::{SummonRequest, SummonCalling, SummonSpec};
 use bevy::prelude::*;
 
 /// The held-item id the gun grants (see `brain::action_set` HELD_ITEMS).
@@ -48,7 +49,7 @@ pub fn fire_puppy_slug_gun_system(
     driven: ambition_held_items::DrivenBodies,
     players: Query<(&ActorControl, &BodyKinematics, &HeldItem)>,
     companions: Query<(), With<SummonedCompanion>>,
-    mut effects: MessageWriter<EffectRequest>,
+    mut effects: MessageWriter<SummonRequest>,
     mut sfx: ambition_sfx::BodySfxWriter,
 ) {
     // ⛔⛔ A QUERY CANNOT SEE A SUMMON THAT IS NOT BUILT YET, and every driven
@@ -75,25 +76,25 @@ pub fn fire_puppy_slug_gun_system(
             continue;
         }
         let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
-        effects.write(EffectRequest {
+        effects.write(SummonRequest {
             owner: subject,
-            effect: Effect::Summon(SummonSpec {
+            spec: SummonSpec {
                 id: SLUG_KIND.into(),
                 pos: kin.pos + ae::Vec2::new(facing * 40.0, -6.0),
                 half_size: ae::Vec2::new(14.0, 12.0),
                 character_id: SLUG_ARCHETYPE.into(),
-                // Synthetic "encounter" so room reset cleans summons up alongside
-                // other feature entities; no real boss owns them.
+
+                // The room owns cleanup; no boss owns this summon.
                 encounter_id: "player_summon".into(),
-                // On the player's side: damages the player's enemies via the
-                // faction matrix, never the player, and just wanders.
-                faction: HitSide::Player,
+
+                // The companion shares its summoner's combat side.
+                faction: ActorFaction::Player,
                 calling: SummonCalling::Companion,
                 ridden_by_summoner: None,
                 health: None,
                 keeps_contact_damage: true,
                 holds: Vec::new(),
-            }),
+            },
         });
         summoned_this_tick += 1;
         // The GUN is the caster's, not the summoned slug's.
@@ -115,21 +116,19 @@ mod tests {
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<EffectRequest>();
+        app.add_message::<SummonRequest>();
         app.add_systems(Update, fire_puppy_slug_gun_system);
         app
     }
 
     /// The summons the gun asked for on the last update: (summoner, spec).
-    fn summons(app: &App) -> Vec<(Entity, ae::Vec2, HitSide, SummonCalling, String)> {
-        let messages = app.world().resource::<Messages<EffectRequest>>();
+    fn summons(app: &App) -> Vec<(Entity, ae::Vec2, ActorFaction, SummonCalling, String)> {
+        let messages = app.world().resource::<Messages<SummonRequest>>();
         messages
             .iter_current_update_messages()
-            .filter_map(|req| match &req.effect {
-                Effect::Summon(s) => {
-                    Some((req.owner, s.pos, s.faction, s.calling, s.character_id.clone()))
-                }
-                _ => None,
+            .map(|req| {
+                let s = &req.spec;
+                (req.owner, s.pos, s.faction, s.calling, s.character_id.clone())
             })
             .collect()
     }
@@ -154,7 +153,7 @@ mod tests {
         assert_eq!(*owner, player, "the summoner is the body that fired");
         // The player's side is what makes the slug harm the player's enemies and
         // never the player; a companion is what makes it wander, not hunt.
-        assert_eq!(*side, HitSide::Player);
+        assert_eq!(*side, ActorFaction::Player);
         assert_eq!(*calling, SummonCalling::Companion);
         assert_eq!(character, SLUG_ARCHETYPE);
     }

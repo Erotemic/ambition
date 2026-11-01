@@ -61,6 +61,7 @@ const SADDLE_POINT_KNOCKBACK: f32 = 1.6;
 /// move the cross with the boss in real time — out of scope here.)
 pub fn spawn_saddle_point_from_special_messages(
     mut commands: Commands,
+    mut damage_boxes: ambition_combat::damage_box::DamageBoxSpawner,
     world_time: Res<WorldTime>,
     mut messages: MessageReader<ActorActionMessage>,
     mut bosses: Query<
@@ -113,7 +114,7 @@ pub fn spawn_saddle_point_from_special_messages(
         // spawn the initial active hitbox + reset rotation timer.
         // The boss may move during the strike (AnchorSway), so each
         // toggle re-spawns at the *current* boss center.
-        let spawn_axis_hitbox = |commands: &mut Commands, axis_horizontal: bool| -> Entity {
+        let spawn_axis_hitbox = |damage_boxes: &mut ambition_combat::damage_box::DamageBoxSpawner, axis_horizontal: bool| -> Entity {
             let (he_x, he_y) = if axis_horizontal {
                 (arm_length, arm_thickness)
             } else {
@@ -122,13 +123,9 @@ pub fn spawn_saddle_point_from_special_messages(
             // Lifetime > axis_period_s so the hitbox doesn't expire
             // mid-axis. We despawn it on toggle or strike end.
             //
-            // This one calls the executor DIRECTLY (not via `Effect::DamageBox`)
-            // on purpose: the rotating cross tracks each arm's `Entity` to
-            // despawn it on toggle, and the fire-and-forget `EffectRequest` seam
-            // can't hand the spawned entity back. Effects you need a handle to
-            // use the spawn helper directly; fire-and-forget ones emit a request.
-            ambition_combat::strike::spawn_damage_box(
-                commands,
+            // Keep the constructed entity so each toggle can remove its arm.
+            damage_boxes.spawn(
+                entity,
                 entity,
                 ambition_vfx::HitSide::Boss,
                 boss.kin.pos,
@@ -140,7 +137,7 @@ pub fn spawn_saddle_point_from_special_messages(
                     lifetime_s: period * 2.0,
                     name: None,
                 },
-            )
+            ).expect("the emitting boss is live")
         };
 
         if !state.strike_active {
@@ -156,7 +153,7 @@ pub fn spawn_saddle_point_from_special_messages(
             // expectation: cross forms, horizontal arm lights up
             // first, then alternates).
             state.axis_horizontal = true;
-            state.horizontal_hitbox = Some(spawn_axis_hitbox(&mut commands, true));
+            state.horizontal_hitbox = Some(spawn_axis_hitbox(&mut damage_boxes, true));
             state.vertical_hitbox = None;
             state.axis_remaining_s = period;
             state.strike_active = true;
@@ -175,9 +172,9 @@ pub fn spawn_saddle_point_from_special_messages(
                 commands.entity(h).despawn();
             }
             if state.axis_horizontal {
-                state.horizontal_hitbox = Some(spawn_axis_hitbox(&mut commands, true));
+                state.horizontal_hitbox = Some(spawn_axis_hitbox(&mut damage_boxes, true));
             } else {
-                state.vertical_hitbox = Some(spawn_axis_hitbox(&mut commands, false));
+                state.vertical_hitbox = Some(spawn_axis_hitbox(&mut damage_boxes, false));
             }
             state.axis_remaining_s = period;
         }

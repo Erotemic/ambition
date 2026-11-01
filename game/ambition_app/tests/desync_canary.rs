@@ -422,7 +422,7 @@ fn two_seats_drive_independent_streams_through_a_rewind() {
 ///
 /// The clockwork warden at half health leaves Phase1 for Phase2 on its HP
 /// trigger, under a sync-test session that rewinds every tick. The change
-/// emits a shockwave damage box. It was an `EffectRequest` written in
+/// emits a shockwave damage box. It was a deferred damage request written in
 /// Progression, AFTER the combat phase's effect executor, so it was executed
 /// one tick later; a restore of the snapshot between the two ticks cleared the
 /// waiting request, the replay had no shockwave, and the session mismatched at

@@ -662,7 +662,7 @@ fn hazard_victim(app: &mut App, faction: ActorFaction, at: ae::Vec2) -> Entity {
 /// comments saying Neutral hurts everybody. The resolver says the opposite:
 /// `melee_source` excludes Neutral from the body path and its terminal arm is
 /// empty. ⇒ **All three damaged nobody**, and every test stopped at "a
-/// `DamageBoxEffect` request exists" so nothing ever asked.
+/// `DamageBox` request exists" so nothing ever asked.
 ///
 /// ⭐ THE OWNER ASSERTION IS THE ONE THAT ENCODES JON'S FOURTH QUESTION.
 /// `hitbox.owner` answers *who is credited*; it must not also answer *who is

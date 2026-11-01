@@ -22,32 +22,19 @@ const EXPLODER_BLAST_LIFETIME_S: f32 = 0.14;
 /// doesn't chain), and the player's shield/parry can still negate it. `owner` is
 /// the dying mite (moot for ignore-self, since the blast never hits its own side).
 ///
-/// Calls the executor DIRECTLY (not via `Effect::DamageBox`) on purpose: this
-/// runs in the hit-resolution stage, AFTER `apply_effects`, so a fire-and-forget
-/// `EffectRequest` would land a frame late. Spawning the box here keeps it
-/// same-frame (and replay-identical).
+/// Hit resolution follows queued materialization. Construct now so the
+/// snapshot for this tick includes the death blast.
 pub(super) fn spawn_death_explosion(
-    commands: &mut Commands,
-    session_scope: SessionSpawnScope,
+    damage_boxes: &mut ambition_combat::damage_box::DamageBoxSpawner,
     owner: Entity,
     pos: ae::Vec2,
 ) {
-    let entity = ambition_combat::strike::spawn_damage_box(
-        commands,
-        owner,
-        ambition_vfx::HitSide::Enemy,
-        pos,
+    damage_boxes.spawn(owner, owner, ambition_vfx::HitSide::Enemy, pos,
         ambition_combat::strike::DamageBox {
-            half_extent: ae::Vec2::splat(EXPLODER_BLAST_HALF),
-            shape: None,
-            damage: EXPLODER_BLAST_DAMAGE,
-            knockback: EXPLODER_BLAST_KNOCKBACK,
-            lifetime_s: EXPLODER_BLAST_LIFETIME_S,
-            name: Some("Exploding mite blast"),
-        },
-    );
-    let mut entity_commands = commands.entity(entity);
-    session_scope.apply_to(&mut entity_commands);
+            half_extent: ae::Vec2::splat(EXPLODER_BLAST_HALF), shape: None,
+            damage: EXPLODER_BLAST_DAMAGE, knockback: EXPLODER_BLAST_KNOCKBACK,
+            lifetime_s: EXPLODER_BLAST_LIFETIME_S, name: Some("Exploding mite blast"),
+        });
 }
 
 /// Lateral offset (px) each split offspring spawns from the parent's corpse.

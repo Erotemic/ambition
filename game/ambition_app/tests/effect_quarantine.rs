@@ -176,8 +176,8 @@ fn the_journal_drains_once_every_frame_confirms() {
 
 /// The classification, as an executable claim.
 ///
-/// The quarantine work-list named `EffectRequest` as VFX exposure. It is not:
-/// its remaining readers are simulation-side (`apply_effects` spawns hitboxes
+/// Construction requests change simulation state:
+/// their readers run in simulation (`materialize_damage_boxes` spawns hitboxes
 /// and `apply_summon_effects` spawns minions), as is the projectile domain's
 /// `ProjectileSpawnRequest`. Deferring one of those to the confirmed boundary would
 /// not quarantine an external effect — it would change what the simulation
@@ -189,7 +189,9 @@ fn the_journal_drains_once_every_frame_confirms() {
 #[test]
 fn only_presentation_facing_effects_are_quarantined() {
     use ambition_platformer2d::vfx::vfx::DebrisBurstMessage;
-    use ambition_platformer2d::vfx::{EffectRequest, FireworksRequest, FxRequest, VfxInRoom};
+    use ambition_platformer2d::vfx::{FireworksRequest, FxRequest, VfxInRoom};
+    use ambition_platformer2d::characters::summon::SummonRequest;
+    use ambition_platformer2d::combat::damage_box::DamageBoxRequest;
 
     let sim = sim_with_rewind_distance(4);
     let world = sim.world();
@@ -229,7 +231,8 @@ fn only_presentation_facing_effects_are_quarantined() {
         ambition_platformer2d::platformer::camera_ease::CameraShakeRequest,
     );
     assert_not_quarantined!(
-        EffectRequest,
+        SummonRequest,
+        DamageBoxRequest,
         ambition_platformer2d::projectiles::ProjectileSpawnRequest,
     );
 }

@@ -8,8 +8,10 @@
 //!    in admitted order, for each queued trigger it is bound to, in queue
 //!    order. It checks the staged output and commits it, or discards all of
 //!    it on a fault.
-//! 3. `ExtensionSet::Lower(phase)` — request adapters drain
+//! 3. `ExtensionSet::Settle(phase)` settles costs before requests apply.
+//! 4. `ExtensionSet::Lower(phase)` — request adapters drain
 //!    [`ExtensionOutbox`] and give each request to the owning domain.
+//! 5. `ExtensionSet::Retire(phase)` removes sources after request lowering.
 //!
 //! The queue and the outbox are empty at the end of the phase. They hold no
 //! state from one tick to the next, so they are not rollback state.

@@ -117,7 +117,7 @@ fn world(road: Road, ability: &Ability) -> (App, Vec<Entity>) {
     app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
     app.init_schedule(Sim);
     app.add_message::<ProjectileSpawnRequest>()
-        .add_message::<ambition_vfx::EffectRequest>()
+        .add_message::<ambition_combat::damage_box::DamageBoxRequest>()
         .add_message::<ambition_sfx::OwnedSfxMessage>()
         .add_message::<ambition_characters::brain::ActorActionMessage>()
         .init_resource::<ambition_time::SimTick>()
@@ -204,14 +204,12 @@ fn run(road: Road, ability: &Ability) -> Trace {
             request.owner = Entity::PLACEHOLDER;
             out.entry(i).or_default().push(format!("{request:?}"));
         }
-        for effect in app.world_mut().resource_mut::<Messages<ambition_vfx::EffectRequest>>().drain() {
+        for effect in app.world_mut().resource_mut::<Messages<ambition_combat::damage_box::DamageBoxRequest>>().drain() {
             let i = index(effect.owner);
-            let ambition_vfx::Effect::DamageBox(b) = effect.effect else {
-                panic!("only damage boxes here");
-            };
+            let b = effect.damage_box;
             out.entry(i).or_default().push(format!(
                 "DamageBox {{ center: {:?}, faction: {:?}, half_extent: {:?}, damage: {}, knockback: {:?}, lifetime_s: {:?} }}",
-                b.center, b.faction, b.half_extent, b.damage, b.knockback, b.lifetime_s
+                effect.center, effect.source, b.half_extent, b.damage, b.knockback, b.lifetime_s
             ));
         }
         let sounds: Vec<_> = app
@@ -443,7 +441,7 @@ mod transits {
         app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         app.init_schedule(Sim);
         app.add_message::<ProjectileSpawnRequest>()
-            .add_message::<ambition_vfx::EffectRequest>()
+            .add_message::<ambition_combat::damage_box::DamageBoxRequest>()
             .add_message::<ambition_vfx::vfx::VfxInRoom>()
             .add_message::<ambition_combat::events::HitEvent>()
             .add_message::<ambition_sfx::OwnedSfxMessage>()

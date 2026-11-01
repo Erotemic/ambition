@@ -51,8 +51,8 @@ pub fn app_with(road: Road, modules: &[fn() -> ModuleDescriptor]) -> App {
     app.configure_sets(
         Update,
         (
-            ExtensionSet::Collect(phases::TECHNIQUE_EXECUTION).after(ExtensionSet::Lower(phases::MODULE_ENTITY_TICK)),
-            ExtensionSet::Collect(phases::HIT_REACTION).after(ExtensionSet::Lower(phases::TECHNIQUE_EXECUTION)),
+            ExtensionSet::Phase(phases::TECHNIQUE_EXECUTION).after(ExtensionSet::Phase(phases::MODULE_ENTITY_TICK)),
+            ExtensionSet::Phase(phases::HIT_REACTION).after(ExtensionSet::Phase(phases::TECHNIQUE_EXECUTION)),
         ),
     );
     match road {

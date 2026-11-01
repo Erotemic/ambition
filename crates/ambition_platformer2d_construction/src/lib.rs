@@ -23,7 +23,6 @@ use ambition_platformer2d_actor_spawn::{SpawnActorKind, SpawnActorRequest};
 use crate::placements::ActorPlacementContext;
 use ambition_boss_encounter::BossCatalog;
 
-
 /// An LDtk-authored ground item (a walk-into pickup).
 pub const RECIPE_AUTHORED_GROUND_ITEM: &str = "ambition.authored-ground-item";
 /// An actor a provider staged into a room during construction.
@@ -202,9 +201,9 @@ pub enum ActorConstructionParams {
     },
 }
 
-pub use ambition_vfx::SummonCalling;
+pub use ambition_characters::summon::SummonCalling;
 
-/// A minion resolved from `Effect::Summon`.
+/// A minion resolved from `SummonRequest`.
 #[derive(Clone, Debug)]
 pub struct SummonedMinionParams {
     /// Stable feature id, which is what per-entity systems (targeting,
@@ -216,13 +215,13 @@ pub struct SummonedMinionParams {
     pub character_id: String,
     pub encounter_id: String,
     pub faction: ambition_characters::actor::ActorFaction,
-    /// What the body is summoned for. See `ambition_vfx::SummonCalling`.
-    pub calling: ambition_vfx::SummonCalling,
+    /// What the body is summoned for. See `ambition_characters::summon::SummonCalling`.
+    pub calling: ambition_characters::summon::SummonCalling,
     /// Health for this occurrence, overriding the character's authored vitals.
-    /// See `ambition_vfx::SummonSpec::health`.
+    /// See `ambition_characters::summon::SummonSpec::health`.
     pub health: Option<u32>,
     /// Whether this occurrence keeps the character's authored contact hazard.
-    /// See `ambition_vfx::SummonSpec::keeps_contact_damage`.
+    /// See `ambition_characters::summon::SummonSpec::keeps_contact_damage`.
     pub keeps_contact_damage: bool,
 }
 
@@ -798,20 +797,20 @@ fn construct_summoned_minion(
         minion.encounter_id.clone(),
         minion.faction,
         match minion.calling {
-            ambition_vfx::SummonCalling::Fight => ambition_combat::components::ActorAggression::hostile(),
+            ambition_characters::summon::SummonCalling::Fight => ambition_combat::components::ActorAggression::hostile(),
             // On its summoner's side by faction, and it hunts nobody: the
             // `can_damage` matrix still lets it hurt the summoner's foes.
-            ambition_vfx::SummonCalling::Companion => ambition_combat::components::ActorAggression::passive(),
+            ambition_characters::summon::SummonCalling::Companion => ambition_combat::components::ActorAggression::passive(),
         },
         minion.health,
         minion.keeps_contact_damage,
     );
     match minion.calling {
         // Called into the fight: it knows where its quarry is.
-        ambition_vfx::SummonCalling::Fight => {
+        ambition_characters::summon::SummonCalling::Fight => {
             ctx.root_scope().insert(ambition_combat::components::SummonedToTheFight);
         }
-        ambition_vfx::SummonCalling::Companion => {
+        ambition_characters::summon::SummonCalling::Companion => {
             ctx.root_scope().insert(ambition_combat::components::SummonedCompanion);
         }
     }
@@ -2324,7 +2323,6 @@ fn conducting_rider(
             .then_some(ambition_characters::actor::ActorFaction::Enemy)
     }
 }
-
 
 /// Turn a room's FROZEN placement-lowering decisions into construction rows —
 /// the Phase-4 migration for the placement family (hazard, interactable/NPC,

@@ -123,7 +123,7 @@ fn world(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, ro
     app.init_schedule(Sim);
     app.add_message::<ambition_characters::brain::ActorActionMessage>()
         .add_message::<ProjectileSpawnRequest>()
-        .add_message::<ambition_vfx::EffectRequest>()
+        .add_message::<ambition_characters::summon::SummonRequest>()
         .add_message::<ambition_vfx::vfx::VfxInRoom>()
         .add_message::<ambition_sfx::OwnedSfxMessage>()
         .init_resource::<ambition_time::SimTick>()
@@ -285,9 +285,9 @@ fn observe(app: &mut App, god: Entity, arm: Arm) -> Vec<String> {
         request.owner = Entity::PLACEHOLDER;
         out.push(format!("{request:?}"));
     }
-    for effect in world.resource_mut::<Messages<ambition_vfx::EffectRequest>>().drain() {
-        match effect.effect {
-            ambition_vfx::Effect::Summon(spec) => out.push(format!(
+    for effect in world.resource_mut::<Messages<ambition_characters::summon::SummonRequest>>().drain() {
+        let spec = effect.spec;
+        out.push(format!(
                 "summon {:?} {:?} {} {} {:?} {:?} {:?} {}",
                 spec.pos,
                 spec.half_size,
@@ -297,9 +297,7 @@ fn observe(app: &mut App, god: Entity, arm: Arm) -> Vec<String> {
                 spec.ridden_by_summoner,
                 spec.health,
                 spec.keeps_contact_damage
-            )),
-            _ => out.push("effect (not a summon)".to_string()),
-        }
+            ));
     }
     for vfx in world.resource_mut::<Messages<ambition_vfx::vfx::VfxInRoom>>().drain().map(|m| m.vfx) {
         out.push(format!("vfx {vfx:?}"));

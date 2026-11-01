@@ -24,9 +24,12 @@ pub use ambition_extension_host::ExtensionGeneration;
 /// The name of the prepared-content section that holds [`ExtensionGeneration`].
 pub const EXTENSION_MODULES_SECTION: &str = "extension.modules";
 use ambition_extension_sdk::phases::{
-    ACTOR_THINK, BODY_CONTACT, BOSS_CONDUCT, HIT_REACTION, MODULE_ENTITY_TICK, TECHNIQUE_EXECUTION, WIELDED_USE,
+    ACTOR_THINK, BODY_CONTACT, BOSS_CONDUCT, HIT_REACTION, MODULE_ENTITY_TICK, TECHNIQUE_EXECUTION,
+    WIELDED_USE,
 };
-use ambition_platformer2d_shared_tangle::schedule::{CombatSet, GameplayGated, ItemPickupSet, SimScheduleExt};
+use ambition_platformer2d_shared_tangle::schedule::{
+    CombatSet, GameplayGated, ItemPickupSet, SimScheduleExt,
+};
 use bevy::prelude::*;
 
 /// Install every port this composition offers, with its adapter: the one list
@@ -67,8 +70,7 @@ pub fn install_ports(app: &mut App) {
     // actor_think
     ambition_combat::extension::install_for_actor_think(app);
     ambition_abilities::extension::install_for_actor_think(app);
-    // body_contact: the burst and the sound before the defeat, which removes
-    // the body they are drawn and heard for.
+    // body_contact: retirement follows all ordinary request adapters.
     ambition_abilities::extension::install_for_body_contact(app);
     ambition_combat::extension::install_for_body_contact(app);
     // hit_reaction
@@ -81,7 +83,7 @@ pub fn install_ports(app: &mut App) {
 pub fn order_phases(app: &mut App, schedule: impl bevy::ecs::schedule::ScheduleLabel) {
     app.configure_sets(
         schedule,
-        ExtensionSet::Collect(MODULE_ENTITY_TICK).after(ExtensionSet::Lower(WIELDED_USE)),
+        ExtensionSet::Phase(MODULE_ENTITY_TICK).after(ExtensionSet::Phase(WIELDED_USE)),
     );
 }
 
@@ -108,11 +110,7 @@ impl Plugin for ExtensionCompositionPlugin {
         // sits before the effect and projectile executors that drain it.
         app.configure_sets(
             sim,
-            (
-                ExtensionSet::Collect(TECHNIQUE_EXECUTION),
-                ExtensionSet::Invoke(TECHNIQUE_EXECUTION),
-                ExtensionSet::Lower(TECHNIQUE_EXECUTION),
-            )
+            ExtensionSet::Phase(TECHNIQUE_EXECUTION)
                 .in_set(GameplayGated)
                 .in_set(CombatSet::ContentSpecials),
         );
@@ -123,11 +121,7 @@ impl Plugin for ExtensionCompositionPlugin {
         // the resolution and the settlement.
         app.configure_sets(
             sim,
-            (
-                ExtensionSet::Collect(HIT_REACTION),
-                ExtensionSet::Invoke(HIT_REACTION),
-                ExtensionSet::Lower(HIT_REACTION),
-            )
+            ExtensionSet::Phase(HIT_REACTION)
                 .in_set(GameplayGated)
                 .in_set(CombatSet::ContentFlavor),
         );
@@ -140,29 +134,21 @@ impl Plugin for ExtensionCompositionPlugin {
         // a native user, so a cooldown armed this tick also ticks this tick.
         app.configure_sets(
             sim,
-            (
-                ExtensionSet::Collect(WIELDED_USE),
-                ExtensionSet::Invoke(WIELDED_USE),
-                ExtensionSet::Settle(WIELDED_USE),
-                ExtensionSet::Lower(WIELDED_USE),
-            )
+            ExtensionSet::Phase(WIELDED_USE)
                 .in_set(GameplayGated)
                 .in_set(ItemPickupSet::WieldedAbilities),
         );
         app.configure_sets(
             sim,
-            ExtensionSet::Lower(WIELDED_USE).before(ambition_abilities::ability_cooldown::tick_ability_cooldown),
+            ExtensionSet::Phase(WIELDED_USE)
+                .before(ambition_abilities::ability_cooldown::tick_ability_cooldown),
         );
         // `module_entity_tick` guarantees: an entity spawned in `wielded_use`
         // this tick exists (the ordering edge gives the spawn's commands a
         // sync point), and a request is consumed this tick.
         app.configure_sets(
             sim,
-            (
-                ExtensionSet::Collect(MODULE_ENTITY_TICK),
-                ExtensionSet::Invoke(MODULE_ENTITY_TICK),
-                ExtensionSet::Lower(MODULE_ENTITY_TICK),
-            )
+            ExtensionSet::Phase(MODULE_ENTITY_TICK)
                 .in_set(GameplayGated)
                 .in_set(ItemPickupSet::WieldedAbilities),
         );
@@ -188,7 +174,7 @@ impl Plugin for ExtensionCompositionPlugin {
                 WIELDED_USE,
                 <ambition_abilities::extension::TransitPort as ambition_extension_sdk::Port>::KEY,
             )
-                .in_set(ambition_platformer2d_shared_tangle::schedule::BodyPathSet::Carry),
+            .in_set(ambition_platformer2d_shared_tangle::schedule::BodyPathSet::Carry),
         );
         // A pull is travel: its lowering is a body-path carry, before the
         // path's readers (constraints, contacts, crossings) this tick.
@@ -207,11 +193,7 @@ impl Plugin for ExtensionCompositionPlugin {
         // effect and projectile executors run in the combat phase, after it).
         app.configure_sets(
             sim,
-            (
-                ExtensionSet::Collect(BOSS_CONDUCT),
-                ExtensionSet::Invoke(BOSS_CONDUCT),
-                ExtensionSet::Lower(BOSS_CONDUCT),
-            )
+            ExtensionSet::Phase(BOSS_CONDUCT)
                 .in_set(GameplayGated)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate)
                 // Conducting a boss is the boss capability's work: it sleeps
@@ -227,7 +209,7 @@ impl Plugin for ExtensionCompositionPlugin {
         app.add_systems(
             sim,
             crate::posed_limbs::stop_posed_limbs_at_what_they_meet
-                .after(ExtensionSet::Lower(BOSS_CONDUCT))
+                .after(ExtensionSet::Phase(BOSS_CONDUCT))
                 .before(ExtensionSet::Collect(BODY_CONTACT))
                 .in_set(GameplayGated)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate)
@@ -239,11 +221,7 @@ impl Plugin for ExtensionCompositionPlugin {
         // integrates after it.
         app.configure_sets(
             sim,
-            (
-                ExtensionSet::Collect(ACTOR_THINK),
-                ExtensionSet::Invoke(ACTOR_THINK),
-                ExtensionSet::Lower(ACTOR_THINK),
-            )
+            ExtensionSet::Phase(ACTOR_THINK)
                 .in_set(GameplayGated)
                 .after(ambition_platformer2d_shared_tangle::schedule::ActorDecisionSet::Publish)
                 .before(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::ControlGate),
@@ -253,14 +231,10 @@ impl Plugin for ExtensionCompositionPlugin {
         // damage reads the bodies, so a body it defeats hurts nobody.
         app.configure_sets(
             sim,
-            (
-                ExtensionSet::Collect(BODY_CONTACT),
-                ExtensionSet::Invoke(BODY_CONTACT),
-                ExtensionSet::Lower(BODY_CONTACT),
-            )
+            ExtensionSet::Phase(BODY_CONTACT)
                 .in_set(GameplayGated)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate)
-                .after(ExtensionSet::Lower(BOSS_CONDUCT))
+                .after(ExtensionSet::Phase(BOSS_CONDUCT))
                 .before(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::ContactDamage),
         );
         // The side a conducted boss's module chose reaches the body through
@@ -268,7 +242,11 @@ impl Plugin for ExtensionCompositionPlugin {
         app.add_systems(
             sim,
             ambition_boss_encounter::conduct::face_conducted_bosses
-                .run_if(bevy::prelude::any_with_component::<ambition_boss_encounter::conduct::ConductedFacing>)
+                .run_if(
+                    bevy::prelude::any_with_component::<
+                        ambition_boss_encounter::conduct::ConductedFacing,
+                    >,
+                )
                 .in_set(GameplayGated)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::BossSteerSlot)
                 .in_set(BOSS_ENCOUNTERS),
@@ -317,20 +295,36 @@ fn load_developer_modules(app: &mut App) {
     let listed = match app.world().get_resource::<ExtensionModuleFiles>() {
         Some(files) => files.0.clone(),
         None => match std::env::var(EXTENSION_MODULES_VAR) {
-            Ok(list) => list.split(':').filter(|p| !p.is_empty()).map(Into::into).collect(),
+            Ok(list) => list
+                .split(':')
+                .filter(|p| !p.is_empty())
+                .map(Into::into)
+                .collect(),
             Err(_) => return,
         },
     };
     let mut watched = Vec::new();
     for path in wasm_files(&listed) {
-        let bytes = std::fs::read(&path)
-            .unwrap_or_else(|e| panic!("{EXTENSION_MODULES_VAR}: cannot read {}: {e}", path.display()));
-        let (backend, modules) = ambition_extension_wasm::WasmModules::load(&bytes)
-            .unwrap_or_else(|e| panic!("{EXTENSION_MODULES_VAR}: {} does not load: {e}", path.display()));
+        let bytes = std::fs::read(&path).unwrap_or_else(|e| {
+            panic!(
+                "{EXTENSION_MODULES_VAR}: cannot read {}: {e}",
+                path.display()
+            )
+        });
+        let (backend, modules) =
+            ambition_extension_wasm::WasmModules::load(&bytes).unwrap_or_else(|e| {
+                panic!(
+                    "{EXTENSION_MODULES_VAR}: {} does not load: {e}",
+                    path.display()
+                )
+            });
         info!(
             "{EXTENSION_MODULES_VAR}: {} provides {:?}",
             path.display(),
-            modules.iter().map(|m| m.key.to_string()).collect::<Vec<_>>()
+            modules
+                .iter()
+                .map(|m| m.key.to_string())
+                .collect::<Vec<_>>()
         );
         app.add_loaded_extension_modules(&path.display().to_string(), backend, modules, true);
         watched.push((path.clone(), modified(&path)));
@@ -411,13 +405,16 @@ fn propose_module_reload(world: &mut World) {
     for path in &changed {
         match std::fs::read(path)
             .map_err(|e| format!("cannot read: {e}"))
-            .and_then(|bytes| ambition_extension_wasm::WasmModules::load(&bytes).map_err(|e| e.to_string()))
-        {
-            Ok((backend, modules)) => loaded.push(ambition_extension_host::reload::LoadedArtifact {
-                artifact: std::sync::Arc::from(path.display().to_string()),
-                backend,
-                modules,
-            }),
+            .and_then(|bytes| {
+                ambition_extension_wasm::WasmModules::load(&bytes).map_err(|e| e.to_string())
+            }) {
+            Ok((backend, modules)) => {
+                loaded.push(ambition_extension_host::reload::LoadedArtifact {
+                    artifact: std::sync::Arc::from(path.display().to_string()),
+                    backend,
+                    modules,
+                })
+            }
             Err(reason) => error!(
                 "{EXTENSION_MODULES_VAR}: {} changed and does NOT load; its running code \
                  stays: {reason}",
@@ -509,7 +506,12 @@ fn wasm_files(listed: &[std::path::PathBuf]) -> Vec<std::path::PathBuf> {
     for path in listed.iter().cloned() {
         if path.is_dir() {
             let mut found: Vec<_> = std::fs::read_dir(&path)
-                .unwrap_or_else(|e| panic!("{EXTENSION_MODULES_VAR}: cannot list {}: {e}", path.display()))
+                .unwrap_or_else(|e| {
+                    panic!(
+                        "{EXTENSION_MODULES_VAR}: cannot list {}: {e}",
+                        path.display()
+                    )
+                })
                 .filter_map(|entry| entry.ok().map(|e| e.path()))
                 .filter(|p| p.extension().is_some_and(|x| x == "wasm"))
                 .collect();

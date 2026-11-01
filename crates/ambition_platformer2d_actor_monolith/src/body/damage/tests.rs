@@ -1536,13 +1536,9 @@ fn boss_signature_gauntlets_map_to_real_wielded_held_items() {
 fn exploding_mite_blast_is_a_player_damaging_enemy_hitbox() {
     let mut app = App::new();
     app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
-    app.add_systems(Update, |mut c: Commands| {
-        spawn_death_explosion(
-            &mut c,
-            ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
-            Entity::PLACEHOLDER,
-            ae::Vec2::new(50.0, 60.0),
-        );
+    let mite = app.world_mut().spawn(ambition_characters::actor::ActorFaction::Enemy).id();
+    app.add_systems(Update, move |mut boxes: ambition_combat::damage_box::DamageBoxSpawner| {
+        spawn_death_explosion(&mut boxes, mite, ae::Vec2::new(50.0, 60.0));
     });
     app.update();
     let mut q = app.world_mut().query::<&ambition_combat::hitbox::Hitbox>();

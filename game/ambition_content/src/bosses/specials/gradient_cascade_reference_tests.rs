@@ -59,7 +59,7 @@ fn gradient_cascade_minion_x_offset(i: i32, count: i32) -> f32 {
 /// boss x. Gravity carries them down toward the player; the
 /// character's own wanderer policy and contact damage do the rest.
 pub fn spawn_gradient_cascade_minions_from_special_messages(
-    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
+    mut effects: MessageWriter<ambition_characters::summon::SummonRequest>,
     mut messages: MessageReader<ActorActionMessage>,
     mut bosses: Query<
         (
@@ -100,25 +100,25 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
                 "gradient_sentinel_cascade:{}:{}:{}",
                 boss.config.id, state.spawn_index, i
             );
-            effects.write(ambition_vfx::EffectRequest {
-                owner: entity,
-                effect: ambition_vfx::Effect::Summon(ambition_vfx::SummonSpec {
+            effects.write(ambition_characters::summon::SummonRequest {
+            owner: entity,
+            spec: ambition_characters::summon::SummonSpec {
                     id: minion_id,
                     pos: spawn_pos,
                     half_size: GRADIENT_CASCADE_MINION_HALF_SIZE,
                     character_id: GRADIENT_CASCADE_MINION_CHARACTER.to_string(),
                     encounter_id: encounter_id.clone(),
-                    faction: ambition_vfx::HitSide::Enemy,
-                    calling: ambition_vfx::SummonCalling::Fight,
-                    // A boss drops a minion; nobody rides it.
+                    faction: ambition_characters::actor::ActorFaction::Enemy,
+                    calling: ambition_characters::summon::SummonCalling::Fight,
+
                     ridden_by_summoner: None,
-                    // The sentinel's minions keep the vitals their character authors.
+
                     health: None,
-                    // A boss minion keeps its character's hazard.
+
                     keeps_contact_damage: true,
                     holds: Vec::new(),
-                }),
-            });
+                },
+        });
         }
         state.fired_this_strike = true;
         state.spawn_index = state.spawn_index.wrapping_add(1);

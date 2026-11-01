@@ -128,6 +128,7 @@ pub struct FeatureHitWriters<'w, 's> {
     /// (`writers.commands.spawn(...)`) instead of hand-threading a separate
     /// `&mut Commands` through every helper that already takes `writers`.
     pub commands: Commands<'w, 's>,
+    pub damage_boxes: ambition_combat::damage_box::DamageBoxSpawner<'w, 's>,
     /// Captured gameplay-session owner for loot, minions, and death effects.
     pub active_session:
         Option<Res<'w, ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,

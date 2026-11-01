@@ -111,7 +111,7 @@ pub struct BossCaster {
 ///
 /// * **Operation** — bring a character into the boss's encounter: a minion.
 /// * **Owner** — `ambition_boss_encounter::extension`, which lowers it into
-///   `EffectRequest` → `Effect::Summon`, the summon executor's one road.
+///   `SummonRequest` → character construction, the summon executor's one road.
 /// * **Scope and grant** — only a BOSS can summon: a request for a body
 ///   that is not a boss is refused. The minion joins the boss's encounter.
 ///   It fights on the side [`SummonSide`] names: the boss's own, the

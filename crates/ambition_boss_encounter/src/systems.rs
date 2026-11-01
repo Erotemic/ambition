@@ -520,7 +520,7 @@ const BOSS_DEFEAT_FREEZE_TICKS: u64 = 24;
 /// edges and materialize their gameplay/presentation feedback. The edge comes
 /// from the rollback-owned phase machine rather than being re-derived here.
 pub fn boss_phase_transition_feedback(
-    mut commands: Commands,
+    mut damage_boxes: ambition_combat::damage_box::DamageBoxSpawner,
     mut phase_changes: MessageReader<super::events::BossPhaseChanged>,
     mut sfx: ambition_sfx::SfxWriter,
     // An intent, not a write. The kick is applied after the confirmed-frame
@@ -605,17 +605,10 @@ pub fn boss_phase_transition_feedback(
             // (`HitSide::Boss`), so the shared `apply_hitbox_damage` lands it
             // on the player.
             //
-            // ⛔ SPAWNED HERE, NOT REQUESTED. This system runs in Progression,
-            // AFTER the combat phase's effect executor, so an `EffectRequest`
-            // written here was only executed on the NEXT tick. A rollback that
-            // restored the snapshot between the two ticks cleared the waiting
-            // request (a message buffer is cleared on load), and the replay had
-            // no shockwave: a GGRS sync test of an HP-triggered phase change
-            // mismatched on that frame (2026-10-01). The box is the same
-            // `spawn_damage_box` the executor would have called, made in the
-            // tick that decides it, so the snapshot of that tick holds it.
-            ambition_combat::strike::spawn_damage_box(
-                &mut commands,
+            // Progression follows queued materialization. Construct now so the
+            // snapshot for this tick includes the transition's damage box.
+            damage_boxes.spawn(
+                entity,
                 entity,
                 ambition_vfx::HitSide::Boss,
                 aabb.center,

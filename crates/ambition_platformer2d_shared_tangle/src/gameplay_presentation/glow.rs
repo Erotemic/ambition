@@ -59,14 +59,13 @@ pub struct ActorGlow {
     /// The hue of the light, sRGB `0..=1`. Only the hue counts: the renderer
     /// scales it to full brightness, and black is drawn as white.
     pub color: [f32; 3],
-    /// The radius of the light, in heights of the body's drawn frame.
+    /// The radius of the light, in standing body heights.
     pub radius: f32,
     /// The opacity of the light at its middle, `0..=1`.
     pub intensity: f32,
     /// Behind the body or over it.
     pub layer: GlowLayer,
-    /// The middle of the light from the middle of the drawn frame, in heights
-    /// of that frame, `+y` up. `x` is toward the body's facing.
+    /// The middle of the light from the standing body centre, in body heights, `+y` up. `x` is toward the body's facing.
     pub offset: [f32; 2],
     pub pulse: Option<GlowPulse>,
     pub look: GlowLook,
@@ -87,7 +86,7 @@ impl ActorGlow {
     }
 
     /// The light that marks the body a player drives: pale, faint, behind
-    /// it, and a little larger than its frame, so the body is easy to find in
+    /// it, and a little larger than its standing body, so the body is easy to find in
     /// a busy room and its silhouette stays the same.
     pub const fn player_highlight() -> Self {
         Self {

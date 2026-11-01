@@ -176,6 +176,11 @@ impl CharacterSheetSpec {
         metrics.authored_body.then(|| metrics.pose_body_bbox(anim)).flatten()
     }
 
+    /// The pose's body, frame and offset in world units.
+    pub fn posed_body_geometry(&self, anim: CharacterAnim, world_per_pixel: f32) -> Option<PosedBodyGeometry> {
+        posed_body_geometry_of(&self.record, anim, world_per_pixel)
+    }
+
     /// The names of all rows, in row order.
     pub fn row_names(&self) -> impl Iterator<Item = &str> {
         self.record.rows.iter().map(|row| row.animation.as_str())
@@ -745,6 +750,10 @@ pub fn posed_body_geometry(content: &crate::SpriteContent,
     world_per_pixel: f32,
 ) -> Option<PosedBodyGeometry> {
     let record = record_for_sheet_key(&content, target)?;
+    posed_body_geometry_of(record, anim, world_per_pixel)
+}
+
+fn posed_body_geometry_of(record: &SheetRecord, anim: CharacterAnim, world_per_pixel: f32) -> Option<PosedBodyGeometry> {
     let metrics = record.body_metrics.as_ref()?;
     let bbox = metrics.pose_body_bbox(anim)?;
     let frame_w = record.frame_width.max(1) as f32;

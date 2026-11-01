@@ -79,7 +79,7 @@ pub mod ids {
     // The five rows of `generic_explosions`. These were `ExplosionKind`'s five
     // variants; a blink, a bomb, a recall and a pickup pop name one directly now.
     fx_ids! {
-        /// The default point detonation: bomb, grenade, blink arrival.
+        /// The default point detonation: bomb or grenade.
         CLASSIC_BURST => "classic_burst",
         /// A rounder, softer pop — a launcher's "up you go".
         BURST_ROUND => "burst_round",
@@ -93,6 +93,10 @@ pub mod ids {
         /// engine names from OUTSIDE the old five, and the reason this module
         /// is a list rather than an enum.
         SONIC_BOOM => "sonic_boom",
+        /// A broken sigil and code strands at a teleport origin.
+        DIGITAL_DEPARTURE => "digital_departure",
+        /// A broken sigil and code strands at a teleport destination.
+        DIGITAL_ARRIVAL => "digital_arrival",
     }
 }
 

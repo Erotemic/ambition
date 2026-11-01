@@ -1048,9 +1048,13 @@ pub fn drive_rigged_presentations(
     mut slots: Slots,
     mut too_large: Local<HashSet<String>>,
     mut posed_past_cell: Local<HashSet<String>>,
+    mut held_warp_tick: Local<u64>,
     preview: Option<Res<BodyWarpPreview>>,
     time: Option<Res<Time>>,
 ) {
+    let tick = time.as_ref().map_or(0, |time| (time.elapsed_secs_f64() * 12.0).floor() as u64);
+    let held_warp_changed = tick != *held_warp_tick;
+    *held_warp_tick = tick;
     // The preview's warp and how far through it this frame is. The clock is
     // only the preview's: a row's own warp runs on the animator.
     let preview = preview.map(|preview| {
@@ -1427,17 +1431,20 @@ pub fn drive_rigged_presentations(
             }
             atlas.cells = cells;
         }
-        // A page's cameras run on a frame where a body of the page drawn from
-        // parts changed its cell, and rest otherwise: the target keeps what
-        // they last rendered.
+        // Source parts render only when a cell changes. The targets keep their
+        // pixels between renders.
         let run = *drawing && changed;
         if run {
             atlas.generation += 1;
         }
-        for entity in &atlas.cameras {
+        // A held warp changes only the finishing pass. Its source parts stay cached.
+        let animate_held = *drawing && held_warp_changed
+            && atlas.cells.warp.iter().any(|warp| warp.x == 1.0 && warp.y >= 0.98);
+        for (pass, entity) in atlas.cameras.iter().enumerate() {
+            let active = run || (pass > 0 && animate_held);
             if let Ok(mut camera) = cameras.get_mut(*entity) {
-                if camera.is_active != run {
-                    camera.is_active = run;
+                if camera.is_active != active {
+                    camera.is_active = active;
                 }
             }
         }

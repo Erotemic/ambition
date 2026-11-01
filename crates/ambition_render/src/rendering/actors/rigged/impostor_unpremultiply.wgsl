@@ -15,6 +15,7 @@
 // here too (`warped`), for the same reason: it is one picture.
 
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
+#import bevy_sprite::mesh2d_view_bindings::globals
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var premultiplied: texture_2d<f32>;
 
@@ -108,6 +109,14 @@ fn warped(local: vec2<f32>, origin: vec2<f32>, cell_texels: vec2<f32>, w: vec4<f
             dx += sin(frac * 3.14159265 * 7.0 + progress * 7.0) * 1.8 * u * progress;
             dy = -(5.0 + abs(frac - 0.5) * 18.0) * u * progress;
             alpha = max(0.06, 1.0 - 0.88 * progress);
+            // The held pose stays dissolved. Only its strands change with time.
+            if w.y >= 0.98 {
+                let tick = floor(globals.time * 12.0);
+                let code = fract(sin(i * 127.1 + tick * 311.7) * 43758.5453);
+                dx += (code - 0.5) * 5.0 * u;
+                dy += (fract(code * 7.0) - 0.5) * 8.0 * u;
+                alpha *= 0.45 + 1.4 * code;
+            }
             if progress > 0.35 && (i32(i) + i32(progress * 10.0)) % 3 == 0 {
                 alpha *= 0.35;
             }

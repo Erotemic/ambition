@@ -1954,3 +1954,75 @@ fn a_held_blink_dissolves_once_and_stays_dissolved_until_arrival() {
     app.update();
     assert_eq!(warp_of(&app, root), Vec4::ZERO);
 }
+
+#[test]
+fn a_tracking_glow_keeps_its_geometry_when_the_body_is_composited() {
+    use crate::rendering::actor_glow::{ActorGlowVisual, build_actor_glow_picture, sync_actor_glows};
+    use ambition_platformer2d_shared_tangle::gameplay_presentation::ActorGlow;
+    let content = ambition_sprite_sheet::test_support::shared_sprites();
+    for anchor in [Anchor::CENTER, Anchor(Vec2::new(0.0, -0.5))] {
+        let (mut app, root) = app_anchored(&content, true, raider(&content, true), anchor);
+        app.world_mut().resource_mut::<Composite>().0 = false;
+        app.world_mut().entity_mut(root).insert(ActorGlow::player_highlight());
+        app.add_systems(Startup, build_actor_glow_picture);
+        app.add_systems(Update, sync_actor_glows.after(drive_rigged_presentations));
+        settle(&mut app);
+        let read = |app: &mut App| {
+            let (place, sprite) = app.world_mut().query_filtered::<(&Transform, &Sprite), With<ActorGlowVisual>>()
+                .single(app.world()).unwrap();
+            (place.translation, sprite.custom_size, sprite.color)
+        };
+        let direct = read(&mut app);
+        let direct_quad = app.world().get::<Sprite>(root).unwrap().custom_size;
+        assert!(app.world().get::<FrameInSprite>(root).is_none());
+        app.world_mut().resource_mut::<Composite>().0 = true;
+        settle(&mut app);
+        assert!(app.world().get::<FrameInSprite>(root).is_some(), "the body switched to its shader-readable image");
+        assert_ne!(app.world().get::<Sprite>(root).unwrap().custom_size, direct_quad,
+            "the shader image has a different canvas");
+        assert_eq!(read(&mut app), direct, "the canvas cannot resize or move the tracking glow");
+        app.world_mut().get_mut::<Sprite>(root).unwrap().color = Color::linear_rgba(4.0, 2.0, 1.0, 1.0);
+        app.update();
+        assert_eq!(read(&mut app), direct, "an actor tint cannot brighten the tracking glow");
+    }
+}
+
+#[test]
+fn a_held_blink_refreshes_its_finish_without_redrawing_its_parts() {
+    use ambition_sprite_sheet::character::CharacterAnim;
+    let content = ambition_sprite_sheet::test_support::shared_sprites();
+    let flipbook = RiggedSpriteAsset::baked(&content, "player_robot_v3").unwrap();
+    let (mut app, root) = app_with(&content, true, sheet_with(&content, "player_robot_v3", Some(flipbook)));
+    app.init_resource::<Time>();
+    app.init_resource::<Assets<Mesh>>();
+    app.init_resource::<Assets<ImpostorUnpremultiply>>();
+    {
+        let mut animator = app.world_mut().get_mut::<CharacterAnimator>(root).unwrap();
+        animator.request(CharacterAnim::BlinkOut);
+        animator.tick(10.0);
+    }
+    settle(&mut app);
+    app.update();
+    let generation = atlas(&app).generation;
+    assert_eq!(warp_of(&app, root).y, 1.0);
+    let cameras = atlas(&app).cameras.clone();
+    assert_eq!(cameras.len(), 2);
+    assert!(cameras.iter().all(|camera| !app.world().get::<Camera>(*camera).unwrap().is_active));
+
+    app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_millis(100));
+    app.update();
+    assert!(!app.world().get::<Camera>(cameras[0]).unwrap().is_active, "the source parts stay cached");
+    assert!(app.world().get::<Camera>(cameras[1]).unwrap().is_active, "the held strands refresh");
+    assert_eq!(atlas(&app).generation, generation);
+    assert_eq!(warp_of(&app, root).y, 1.0, "the dissolve does not restart");
+    app.update();
+    assert!(!app.world().get::<Camera>(cameras[1]).unwrap().is_active, "no refresh without a new tick");
+
+    app.world_mut().get_mut::<CharacterAnimator>(root).unwrap().request(CharacterAnim::Idle);
+    app.update();
+    app.update();
+    app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_millis(100));
+    app.update();
+    assert_eq!(warp_of(&app, root), Vec4::ZERO);
+    assert!(cameras.iter().all(|camera| !app.world().get::<Camera>(*camera).unwrap().is_active));
+}

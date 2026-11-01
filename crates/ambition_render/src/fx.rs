@@ -438,9 +438,7 @@ pub fn vfx_spawn_messages(sprite_content: bevy::prelude::Res<ambition_sprite_she
 
 /// Can `fx` be drawn as art now, and from what?
 ///
-/// The decision `spawn_effect` makes, factored out for tests. `None` means the
-/// particle fallback: the id names no shipped row, or the row's sheet is not
-/// decoded in these assets.
+/// Resolve a named effect. `None` means the row or its sheet is unavailable.
 pub fn resolve_drawable<'a>(sprite_content: &'a ambition_sprite_sheet::SpriteContent,
     assets: Option<&'a ambition_sprite_sheet::game_assets::GameAssets>,
     fx: FxId,
@@ -484,18 +482,7 @@ fn spawn_effect(sprite_content: &ambition_sprite_sheet::SpriteContent,
         note_effect_miss(&sprite_content, fx);
     }
     let Some((effect, asset, slot)) = resolve_drawable(&sprite_content, assets, fx) else {
-        // Fallback keeps the call site useful in headless/no-asset profiles.
-        spawn_burst(
-            commands,
-            Some(session_scope),
-            world,
-            pos,
-            24,
-            260.0,
-            [0.95, 0.74, 0.28, 0.85],
-            ParticleKind::Spark,
-        );
-        spawn_impact(commands, Some(session_scope), world, pos);
+        // An unavailable effect must not draw a different effect.
         return;
     };
     draw_effect_clip(
@@ -532,8 +519,7 @@ const GENERIC_HIT_FX_SCALE: f32 = 0.6;
 
 /// Draw the shipped hit art at `pos`, or fall back to the bare marker.
 ///
-/// The fallback is [`spawn_impact`], not [`spawn_effect`]'s particle burst,
-/// so a composition with no decoded sheets looks as it did before.
+/// A composition with no decoded sheets draws the procedural hit marker.
 fn spawn_hit_marker(sprite_content: &ambition_sprite_sheet::SpriteContent,
     commands: &mut Commands,
     session_scope: Option<SessionSpawnScope>,
@@ -1434,44 +1420,17 @@ pub fn spawn_blink_effects(
     to: ae::Vec2,
     precision: bool,
 ) {
-    for pos in [from, to] {
+    for (pos, effect) in [
+        (from, ambition_vfx::fx::ids::DIGITAL_DEPARTURE),
+        (to, ambition_vfx::fx::ids::DIGITAL_ARRIVAL),
+    ] {
         spawn_effect(
             sprite_content, commands, session_scope, world, assets, pos,
-            ambition_vfx::fx::ids::SHOCKWAVE,
-            if precision { 1.8 } else { 1.35 },
+            effect,
+            if precision { 1.15 } else { 1.0 },
             ambition_vfx::FxPose::default(),
         );
     }
-    let exit_color = if precision {
-        [0.40, 0.34, 1.00, 0.78]
-    } else {
-        [0.24, 0.74, 1.00, 0.68]
-    };
-    let entry_color = if precision {
-        [0.92, 0.42, 1.00, 0.92]
-    } else {
-        [0.42, 1.00, 0.92, 0.90]
-    };
-    spawn_burst(
-        commands,
-        session_scope,
-        world,
-        from,
-        if precision { 18 } else { 12 },
-        250.0,
-        exit_color,
-        ParticleKind::Spark,
-    );
-    spawn_burst(
-        commands,
-        session_scope,
-        world,
-        to,
-        if precision { 28 } else { 18 },
-        360.0,
-        entry_color,
-        ParticleKind::Spark,
-    );
 }
 
 /// Live ring of orbiting embers showing where the next blink will land.

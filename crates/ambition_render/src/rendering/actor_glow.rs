@@ -123,35 +123,57 @@ pub fn grant_player_glows(
     }
 }
 
-/// Where a body's glow is and how wide, from the body's drawn sprite. `None`
-/// while the sprite has no drawn size (its first frame).
-pub fn glow_placement(glow: &ActorGlow, body: &Transform, sprite: &Sprite, anchor: Option<&Anchor>) -> Option<(Vec3, f32)> {
-    let size = sprite.custom_size?;
-    // The middle of the drawn frame, from the point its anchor puts at the
-    // body's origin; then the authored offset, mirrored with the facing.
-    let frame_middle = -anchor.map_or(Vec2::ZERO, |anchor| anchor.0) * size;
-    let facing = if sprite.flip_x { -1.0 } else { 1.0 };
-    let offset = Vec2::new(glow.offset[0] * facing, glow.offset[1]) * size.y;
-    let local = (frame_middle + offset) * body.scale.truncate();
-    let middle = body.translation.truncate() + (body.rotation * local.extend(0.0)).truncate();
-    let z = body.translation.z
-        + match glow.layer {
-            GlowLayer::Behind => -BEHIND_DEPTH,
-            GlowLayer::Over => OVER_BIAS,
+/// Place a glow from the standing body geometry. Shader targets can change
+/// their canvas size without changing this geometry.
+pub fn glow_placement(
+    glow: &ActorGlow, body: &Transform, sprite: &Sprite, anchor: Option<&Anchor>,
+    animator: Option<&ambition_sprite_sheet::character::CharacterAnimator>,
+) -> Option<(Vec3, f32)> {
+    let fallback_size = sprite.custom_size?;
+    let mirrored = sprite.flip_x ^ animator.is_some_and(|animator| animator.draws_mirror_row());
+    let facing = if mirrored { -1.0 } else { 1.0 };
+    let (height, middle) = if let Some((animator, basis)) = animator.and_then(|animator| animator.render_basis.map(|basis| (animator, basis))) {
+        let (height, mut middle) = match animator.spec.posed_body_geometry(ambition_sprite_sheet::character::CharacterAnim::Idle, 1.0) {
+            Some(geometry) => {
+                let scale = basis.render_size / geometry.render;
+                let offset = Vec2::new(-geometry.sprite_offset.x, geometry.sprite_offset.y) * scale;
+                (geometry.collision.y * scale.y, -basis.feet_anchor * basis.render_size + offset)
+            }
+            None => (basis.render_size.y, -basis.feet_anchor * basis.render_size),
         };
-    let diameter = 2.0 * glow.radius.max(0.0) * size.y * body.scale.y.abs();
-    Some((middle.extend(z), diameter))
+        middle.x *= facing;
+        (height, middle)
+    } else {
+        (fallback_size.y, -anchor.map_or(Vec2::ZERO, |anchor| anchor.0) * fallback_size)
+    };
+    let offset = Vec2::new(glow.offset[0] * facing, glow.offset[1]) * height;
+    let local = (middle + offset) * body.scale.truncate();
+    let middle = body.translation.truncate() + (body.rotation * local.extend(0.0)).truncate();
+    let z = body.translation.z + match glow.layer {
+        GlowLayer::Behind => -BEHIND_DEPTH,
+        GlowLayer::Over => OVER_BIAS,
+    };
+    Some((middle.extend(z), 2.0 * glow.radius.max(0.0) * height * body.scale.y.abs()))
+}
+
+fn passage_alpha(
+    direct: Option<&ambition_sim_view::PassageLookView>,
+    visual: Option<&super::primitives::FeatureVisual>,
+    frames: Option<&ambition_sim_view::ActorAnimIndex>,
+) -> f32 {
+    direct.copied().or_else(|| visual.and_then(|visual| frames?.get(&visual.id)?.passage_look))
+        .map_or(1.0, |look| look.alpha.clamp(0.0, 1.0))
 }
 
 /// The sprite of a glow on sim tick `tick`.
-fn glow_sprite(glow: &ActorGlow, picture: &Handle<Image>, diameter: f32, tick: u64) -> Sprite {
+fn glow_sprite(glow: &ActorGlow, picture: &Handle<Image>, diameter: f32, tick: u64, alpha: f32) -> Sprite {
     match glow.look {
         GlowLook::SoftDisc => {
             let [r, g, b] = glow.light_color();
             Sprite {
                 image: picture.clone(),
                 custom_size: Some(Vec2::splat(diameter)),
-                color: Color::srgba(r, g, b, glow.intensity_at(tick)),
+                color: Color::srgba(r, g, b, glow.intensity_at(tick) * alpha),
                 ..default()
             }
         }
@@ -179,6 +201,7 @@ pub fn sync_actor_glows(
     mut commands: Commands,
     picture: Option<Res<ActorGlowPicture>>,
     tick: Option<Res<ambition_time::SimTick>>,
+    frames: Option<Res<ambition_sim_view::ActorAnimIndex>>,
     bodies: Query<
         (
             Entity,
@@ -189,6 +212,9 @@ pub fn sync_actor_glows(
             Option<Ref<Visibility>>,
             Option<&SessionScopedEntity>,
             super::hit_flash::PortalHidIt,
+            Option<&ambition_sprite_sheet::character::CharacterAnimator>,
+            Option<&ambition_sim_view::PassageLookView>,
+            Option<&super::primitives::FeatureVisual>,
         ),
         Without<ActorGlowVisual>,
     >,
@@ -197,7 +223,7 @@ pub fn sync_actor_glows(
     let tick = tick.map_or(0, |tick| tick.0);
     let mut drawn: Vec<Entity> = Vec::new();
     for (entity, visual, mut transform, mut sprite, mut visibility) in &mut glows {
-        let Ok((_, glow, body, body_sprite, anchor, body_visibility, _, portal_hid_it)) = bodies.get(visual.body) else {
+        let Ok((_, glow, body, body_sprite, anchor, body_visibility, _, portal_hid_it, animator, passage, feature)) = bodies.get(visual.body) else {
             commands.entity(entity).try_despawn();
             continue;
         };
@@ -207,7 +233,7 @@ pub fn sync_actor_glows(
             continue;
         }
         drawn.push(visual.body);
-        let Some((at, diameter)) = glow_placement(glow, body, body_sprite, anchor) else {
+        let Some((at, diameter)) = glow_placement(glow, body, body_sprite, anchor, animator) else {
             continue;
         };
         let wanted = glow_visibility(body_visibility.is_some_and(|shown| {
@@ -217,7 +243,7 @@ pub fn sync_actor_glows(
             *visibility = wanted;
         }
         transform.set_if_neq(Transform::from_translation(at));
-        let now = glow_sprite(glow, &sprite.image, diameter, tick);
+        let now = glow_sprite(glow, &sprite.image, diameter, tick, passage_alpha(passage, feature, frames.as_deref()));
         if sprite.custom_size != now.custom_size || sprite.color != now.color {
             sprite.custom_size = now.custom_size;
             sprite.color = now.color;
@@ -226,18 +252,18 @@ pub fn sync_actor_glows(
     let Some(picture) = picture else {
         return;
     };
-    for (body, glow, transform, sprite, anchor, body_visibility, session_owner, portal_hid_it) in &bodies {
+    for (body, glow, transform, sprite, anchor, body_visibility, session_owner, portal_hid_it, animator, passage, feature) in &bodies {
         if drawn.contains(&body) {
             continue;
         }
-        let Some((at, diameter)) = glow_placement(glow, transform, sprite, anchor) else {
+        let Some((at, diameter)) = glow_placement(glow, transform, sprite, anchor, animator) else {
             continue;
         };
         let scope = session_owner.map_or(SessionSpawnScope::UNSCOPED, |owner| SessionSpawnScope::scoped(owner.0));
         commands.spawn_session_scoped(
             scope,
             (
-                glow_sprite(glow, &picture.0, diameter, tick),
+                glow_sprite(glow, &picture.0, diameter, tick, passage_alpha(passage, feature, frames.as_deref())),
                 Transform::from_translation(at),
                 // Set each frame above: the glow is a separate root and does
                 // not inherit its body's visibility.
@@ -321,6 +347,29 @@ mod tests {
             .collect()
     }
 
+    #[test]
+    fn the_tracking_glow_ignores_actor_tints_and_uses_the_passage_fade() {
+        let mut app = app();
+        let body = app.world_mut().spawn((body_sprite(Vec3::ZERO), ActorGlow::player_highlight())).id();
+        let alpha = |app: &mut App| app.world_mut().query_filtered::<&Sprite, With<ActorGlowVisual>>()
+            .single(app.world()).unwrap().color.alpha();
+        app.update();
+        let normal = alpha(&mut app);
+        for tint in [Color::linear_rgba(8.0, 3.0, 1.0, 1.0), Color::srgba(0.1, 0.1, 0.1, 0.0)] {
+            app.world_mut().get_mut::<Sprite>(body).unwrap().color = tint;
+            app.update();
+            assert_eq!(alpha(&mut app), normal);
+        }
+        app.world_mut().entity_mut(body).insert(ambition_sim_view::PassageLookView {
+            scale: 1.0, alpha: 0.5, shade: 1.0, transit: 0.0,
+        });
+        app.update();
+        assert_eq!(alpha(&mut app), normal * 0.5);
+        app.world_mut().entity_mut(body).remove::<ambition_sim_view::PassageLookView>();
+        app.update();
+        assert_eq!(alpha(&mut app), normal);
+    }
+
     /// A body that carries a glow gets one sprite that names it, about the
     /// middle of its drawn frame (not at its feet: that would read as a
     /// shadow), behind it. It follows the body, and it goes when the body
@@ -395,8 +444,8 @@ mod tests {
     fn an_offset_turns_with_the_facing() {
         let glow = ActorGlow::soft(0.5, 0.5).with_offset([0.25, 0.0]);
         let (sprite, anchor, transform, _) = body_sprite(Vec3::ZERO);
-        let right = glow_placement(&glow, &transform, &sprite, Some(&anchor)).unwrap().0;
-        let left = glow_placement(&glow, &transform, &Sprite { flip_x: true, ..sprite }, Some(&anchor)).unwrap().0;
+        let right = glow_placement(&glow, &transform, &sprite, Some(&anchor), None).unwrap().0;
+        let left = glow_placement(&glow, &transform, &Sprite { flip_x: true, ..sprite }, Some(&anchor), None).unwrap().0;
         assert_eq!(right.x, 15.0);
         assert_eq!(left.x, -15.0);
     }

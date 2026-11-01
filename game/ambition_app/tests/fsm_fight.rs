@@ -113,6 +113,8 @@ fn strike_at(sim: &mut Platformer2dSimHarness, center: ae::Vec2, half: ae::Vec2)
     sim.world_mut().run_system_once(move |mut boxes: ambition_platformer2d::combat::damage_box::DamageBoxSpawner| {
         boxes.spawn(owner, owner, ambition_platformer2d::combat::hitbox::HitSide::Player, center,
             ambition_platformer2d::combat::strike::DamageBox {
+                cause: ambition_platformer2d::combat::events::HitSource::Melee,
+                move_instance: None,
                 half_extent: half, shape: None, damage: 1, knockback: ambition_platformer2d::combat::strike::HitboxKnockback::FeelScale(0.0),
                 lifetime_s: 0.05, name: Some("test_blow"),
             }).expect("the player emits a strike");

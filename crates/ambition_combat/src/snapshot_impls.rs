@@ -442,3 +442,7 @@ impl SnapshotState for crate::strike::FixedStrikeFeaturePulse {
         Some(Self { emitted: r.bool()? })
     }
 }
+
+snapshot_unit_enum!(crate::events::HitSource {
+    Melee = 0, Projectile = 1, Pogo = 2, Hazard = 3, Contact = 4, LeftTheWorld = 10,
+});

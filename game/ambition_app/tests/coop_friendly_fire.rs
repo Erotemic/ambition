@@ -123,6 +123,8 @@ fn detached_attacks_keep_the_participants_rule_after_control_or_owner_loss() {
                     Some(sim.world_mut().run_system_once(move |mut boxes: combat::damage_box::DamageBoxSpawner| {
                         boxes.spawn(source, source, combat::strike::HitSide::Player, center,
                             combat::strike::DamageBox {
+                                cause: combat::events::HitSource::Melee,
+                                move_instance: None,
                                 half_extent: ae::Vec2::splat(24.0), shape: None, damage: 1,
                                 knockback: combat::strike::HitboxKnockback::FeelScale(0.0), lifetime_s: 1.0, name: Some("owned area"),
                             }).expect("the live source emits a box")
@@ -211,6 +213,8 @@ fn a_damage_box_keeps_its_emission_room_and_session_after_its_source_leaves() {
             let owner = if remote_credit { alice } else { emitter };
             let source = if remote_credit { combat::strike::HitSide::Player } else { combat::strike::HitSide::Enemy };
             let damage_box = combat::strike::DamageBox {
+                cause: combat::events::HitSource::Melee,
+                move_instance: None,
                 half_extent: ae::Vec2::splat(24.0), shape: None, damage: 1,
                 knockback: combat::strike::HitboxKnockback::FeelScale(0.0), lifetime_s: 60.0, name: Some("room provenance"),
             };
@@ -249,6 +253,8 @@ fn a_damage_box_keeps_its_emission_room_and_session_after_its_source_leaves() {
             let control = sim.world_mut().run_system_once(move |mut boxes: combat::damage_box::DamageBoxSpawner| {
                 boxes.spawn(alice, alice, combat::strike::HitSide::Player, control_center,
                     combat::strike::DamageBox {
+                        cause: combat::events::HitSource::Melee,
+                        move_instance: None,
                         half_extent: ae::Vec2::splat(8.0), shape: None, damage: 1,
                         knockback: combat::strike::HitboxKnockback::FeelScale(0.0), lifetime_s: 60.0, name: Some("other room control"),
                     }).unwrap()
@@ -320,5 +326,67 @@ fn scripted_strikes_use_body_contacts_for_either_participant() {
         assert_eq!(after > before, lands, "slot {source_slot}, friendly fire={enabled}: {before} -> {after}");
         assert!(!sim.world_mut().query::<&combat::strike::Hitbox>().iter(sim.world())
             .any(|hitbox| hitbox.owner == source), "a one-tick strike remained live");
+    }
+}
+
+#[test]
+fn projectile_splashes_keep_launch_allegiance_and_reach_either_participant() {
+    use ambition_platformer2d::characters::actor::ActorFaction;
+    use ambition_platformer2d::projectiles as shots;
+    for enabled in [false, true] {
+        for source_slot in [0, 1] {
+            for retire_owner in [false, true] {
+                let mut sim = party(enabled);
+                bob_beside_alice(&mut sim, ROOM, Some(PlayerSlot(1)));
+                let source = driven(&mut sim, source_slot);
+                let victim = driven(&mut sim, 1 - source_slot);
+                sim.world_mut().entity_mut(source).insert(ActorFaction::Enemy);
+                sim.world_mut().entity_mut(victim).insert((
+                    combat::components::ActiveCombatant,
+                    ambition_platformer2d::actor::BodyHealth::new(ambition_platformer2d::actor::Health::new(100)),
+                ));
+                for _ in 0..2 { sim.step(base()); }
+                let pos = sim.world().get::<ae::BodyKinematics>(victim).unwrap().pos;
+                sim.world_mut().write_message(shots::ProjectileSpawnRequest::named(
+                    source,
+                    shots::InFlightProjectile { body: shots::ProjectileBody::from_spec(shots::ProjectileSpec {
+                        origin: pos + ae::Vec2::new(60.0, -80.0), direction: ae::Vec2::X,
+                        damage: 1, speed: 0.0, max_lifetime: 1.0,
+                        half_extent: ae::Vec2::splat(4.0), gravity: 0.0, bounces: 0,
+                        world_hit: shots::WorldHitPolicy::ExpireOnContact,
+                        charge_tier: 0, boomerang_return_s: None, splash_half_extent: 128.0,
+                    }) }, shots::ProjectileKind::Fireball, shots::ProjectileStart::StepNextTick,
+                ));
+                sim.step(base());
+                let shot = {
+                    let world = sim.world_mut();
+                    let shots: Vec<_> = world.query::<(Entity, &shots::ProjectileOwner)>().iter(world)
+                        .filter(|(_, owner)| owner.0 == source).map(|(entity, _)| entity).collect();
+                    assert_eq!(shots.len(), 1);
+                    shots[0]
+                };
+                assert_eq!(sim.world().get::<combat::allegiance::AttackAllegiance>(shot).unwrap().driver,
+                    Some(DrivingParticipant(PlayerSlot(source_slot))));
+                sim.world_mut().entity_mut(shot).insert(shots::FiredByMoveInstance(11));
+                if retire_owner { sim.world_mut().despawn(source); }
+                else { sim.world_mut().entity_mut(source).remove::<DrivingParticipant>(); }
+                sim.world_mut().get_mut::<ae::BodyKinematics>(shot).unwrap().vel = ae::Vec2::new(0.0, 12000.0);
+                let before = sim.world().get::<ambition_platformer2d::actor::BodyHealth>(victim).unwrap().damage_taken();
+                for _ in 0..2 { sim.step(base()); }
+                let after = sim.world().get::<ambition_platformer2d::actor::BodyHealth>(victim).unwrap().damage_taken();
+                assert!(sim.world().get_entity(shot).is_err(), "the shot must hit the floor and emit its splash");
+                let messages = sim.world().resource::<Messages<combat::HitEvent>>();
+                let mut cursor = messages.get_cursor();
+                let hits: Vec<_> = cursor.read(messages).filter(|hit|
+                    hit.attacker == Some(source) && hit.target == combat::events::HitTarget::Body(victim)
+                ).collect();
+                assert_eq!(after > before, enabled, "source={source_slot}, retired={retire_owner}, enabled={enabled}: {before} -> {after}");
+                assert_eq!(!hits.is_empty(), enabled);
+                for hit in hits {
+                    assert_eq!(hit.source, combat::events::HitSource::Projectile);
+                    assert_eq!(hit.attacker_move_instance, Some(11));
+                }
+            }
+        }
     }
 }

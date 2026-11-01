@@ -78,6 +78,8 @@ pub fn lower_blasts<L: LowersIn>(
             .unwrap_or(Entity::PLACEHOLDER);
         // Environmental blasts permit self-damage and use the emission room.
         effects.write(submitted.scope, owner, ambition_vfx::HitSide::Environment, ae::Vec2::from(blast.center), crate::strike::DamageBox {
+                cause: crate::events::HitSource::Melee,
+                move_instance: None,
                 half_extent: ae::Vec2::from(blast.half_extent),
                 damage: blast.damage,
                 knockback: crate::strike::HitboxKnockback::FeelScale(blast.knockback),

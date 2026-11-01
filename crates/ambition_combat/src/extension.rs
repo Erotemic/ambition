@@ -171,6 +171,8 @@ fn lower_strikes(
             crate::hit_side_from_actor_faction(faction),
             center,
             crate::strike::DamageBox {
+                cause: crate::events::HitSource::Melee,
+                move_instance: None,
                 half_extent,
                 shape,
                 damage: strike.damage,
@@ -205,6 +207,8 @@ fn lower_damage_boxes<L: LowersIn>(
         let faction = crate::targeting::effective_faction(*authored, driver);
         let b = submitted.value;
         effects.write(submitted.scope, submitted.scope, crate::hit_side_from_actor_faction(faction), ae::Vec2::from(b.center), crate::strike::DamageBox {
+                cause: crate::events::HitSource::Melee,
+                move_instance: None,
                 half_extent: ae::Vec2::from(b.half_extent),
                 damage: b.damage,
                 knockback: crate::strike::HitboxKnockback::FeelScale(b.knockback),
@@ -456,6 +460,8 @@ fn lower_held_damage_boxes<P: LowersIn>(
             crate::hit_side_from_actor_faction(faction),
             s.center,
             crate::strike::DamageBox {
+                cause: crate::events::HitSource::Melee,
+                move_instance: None,
                 half_extent: s.half_extent,
                 shape: s.shape.clone(),
                 damage: s.damage,

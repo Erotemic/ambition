@@ -130,6 +130,8 @@ pub fn spawn_saddle_point_from_special_messages(
                 ambition_vfx::HitSide::Boss,
                 boss.kin.pos,
                 ambition_combat::strike::DamageBox {
+                    cause: ambition_combat::events::HitSource::Melee,
+                    move_instance: None,
                     half_extent: ae::Vec2::new(he_x, he_y),
                     shape: None,
                     damage,

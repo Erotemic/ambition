@@ -20,6 +20,14 @@ fn capture_hits(mut reader: MessageReader<HitEvent>, mut cap: ResMut<CapturedHit
     }
 }
 
+
+fn splash_move_uses(app: &mut App) -> Vec<Option<u32>> {
+    let world = app.world_mut();
+    world.query::<(&ambition_combat::strike::Hitbox, &HitSource, Option<&ambition_combat::moveset::AttackerMoveInstance>)>()
+        .iter(world).filter(|(_, cause, _)| **cause == HitSource::Projectile)
+        .map(|(_, _, instance)| instance.map(|instance| instance.0)).collect()
+}
+
 fn insert_projectile_authority(app: &mut App) {
     // The stepper resolves each shot's visual id through the (empty here) content
     // catalog for its detonation-FX pick; init it so the `Res` param validates.
@@ -355,8 +363,8 @@ fn each_shot_hands_its_own_move_use_to_the_hit_it_lands() {
 /// be a body the shot never touched — so it needs the provenance for exactly
 /// the same reason the direct hit does, and it can lose it independently.
 ///
-/// ⚠ Told apart from the direct hit by `HitTarget::Volume`, which is what a
-/// splash is: an area, not a named recipient.
+/// The landing strike carries the move credit before the common resolver
+/// selects its body and feature recipients.
 #[test]
 fn the_splash_of_a_landed_shot_names_the_move_use_that_fired_it() {
     let mut app = arena_projectile_app(ambition_combat::targeting::FactionRelations::default());
@@ -365,16 +373,7 @@ fn the_splash_of_a_landed_shot_names_the_move_use_that_fired_it() {
     spawn_stamped_enemy_glider_with_splash(&mut app, pos, 3, Some(11), 12.0);
     app.update();
 
-    let cap = app.world().resource::<CapturedHits>();
-    let splashes: Vec<Option<u32>> = cap
-        .0
-        .iter()
-        .filter(|e| {
-            matches!(e.source, HitSource::Projectile)
-                && e.target == ambition_combat::events::HitTarget::Volume
-        })
-        .map(|e| e.attacker_move_instance)
-        .collect();
+    let splashes = splash_move_uses(&mut app);
     assert_eq!(
         splashes.len(),
         1,
@@ -442,16 +441,7 @@ fn a_shot_that_expires_on_a_wall_still_names_the_move_use_that_fired_it() {
     );
     app.update();
 
-    let cap = app.world().resource::<CapturedHits>();
-    let splashes: Vec<Option<u32>> = cap
-        .0
-        .iter()
-        .filter(|e| {
-            matches!(e.source, HitSource::Projectile)
-                && e.target == ambition_combat::events::HitTarget::Volume
-        })
-        .map(|e| e.attacker_move_instance)
-        .collect();
+    let splashes = splash_move_uses(&mut app);
     assert_eq!(
         splashes.len(),
         1,
@@ -484,22 +474,18 @@ fn a_shot_that_reaches_a_breakable_names_the_move_use_that_fired_it() {
     app.update();
 
     let cap = app.world().resource::<CapturedHits>();
-    let shots: Vec<(String, Option<u32>)> = cap
+    let shots: Vec<_> = cap
         .0
         .iter()
         .filter(|e| matches!(e.source, HitSource::Projectile))
-        .map(|e| (format!("{:?}", e.target), e.attacker_move_instance))
+        .map(|e| (e.target, e.attacker_move_instance))
         .collect();
     assert!(
-        shots.iter().any(|(target, _)| target.starts_with("Feature")),
+        shots.iter().any(|(target, _)| matches!(target, ambition_combat::events::HitTarget::Feature(_))),
         "the premise: the shot took the FEATURE branch, not the body branch -- \
          got {shots:?}"
     );
-    assert!(
-        shots.iter().any(|(target, _)| target == "Volume"),
-        "the premise: the feature branch emitted its landing area too -- got \
-         {shots:?}"
-    );
+    assert_eq!(splash_move_uses(&mut app), vec![Some(11)]);
     assert!(
         shots.iter().all(|(_, instance)| *instance == Some(11)),
         "every event this shot produced names the use that fired it; got {shots:?}"

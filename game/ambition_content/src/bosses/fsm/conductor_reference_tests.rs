@@ -690,6 +690,8 @@ fn land(
             HitSide::Boss,
             Vec2::new(wx, feet.y),
             DamageBox {
+                cause: ambition_combat::events::HitSource::Melee,
+                move_instance: None,
                 half_extent: WAVE_HALF,
                 shape: None,
                 damage: WAVE_DAMAGE,

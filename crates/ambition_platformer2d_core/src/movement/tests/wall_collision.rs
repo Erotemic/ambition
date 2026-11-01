@@ -1524,3 +1524,46 @@ fn a_one_way_does_not_block_a_body_walking_sideways_into_it() {
          the landing rule. Both are broken if you are reading this."
     );
 }
+
+#[test]
+fn a_jump_beside_stacked_wall_blocks_is_not_a_ceiling_hit() {
+    for width in [17.3, 30.0, 31.731] {
+        for offset in [0.0, 20000.0] {
+            for facing in [-1.0, 1.0] {
+                for ceiling in [false, true] {
+                    let wall_x = offset + if facing > 0.0 { 300.0 } else { 700.0 };
+                    let tile_x = if facing > 0.0 { wall_x } else { wall_x - 32.0 };
+                    let start = Vec2::new(wall_x - facing * (width * 0.5), 485.0);
+                    let mut world = World::new("stacked wall", Vec2::new(40000.0, 900.0), start, vec![
+                        Block::solid("floor", Vec2::new(0.0, 500.0), Vec2::new(40000.0, 32.0)),
+                        Block::solid("wall foot", Vec2::new(tile_x, 468.0), Vec2::splat(32.0)),
+                        Block::solid("wall above", Vec2::new(tile_x, 436.0), Vec2::splat(32.0)),
+                    ]);
+                    if ceiling {
+                        world.blocks.push(Block::solid("ceiling over body", Vec2::new(start.x - 16.0, 436.0), Vec2::new(32.0, 32.0)));
+                    }
+                    let mut body = scratch_with(AbilitySet::basic(), start);
+                    body.kinematics.size = Vec2::new(width, 30.0);
+                    for _ in 0..6 {
+                        step_scratch(&world, &mut body, InputState { axes: crate::LocalAxes::new(facing, 0.0), ..Default::default() });
+                    }
+                    assert!(body.ground.on_ground);
+                    let resting = body.kinematics.pos.y;
+                    let mut hit_head = false;
+                    for frame in 0..6 {
+                        let events = step_scratch(&world, &mut body, InputState {
+                            axes: crate::LocalAxes::new(facing, 0.0),
+                            movement: crate::ActionEdges::EMPTY.with(crate::MovementAction::Jump,
+                                crate::Edge { pressed: frame == 0, held: true, released: false }),
+                            ..Default::default()
+                        });
+                        hit_head |= events.contacts.iter().any(|contact| contact.kind == crate::collision_semantics::ContactKind::Head);
+                    }
+                    assert_eq!(hit_head, ceiling, "width={width}, offset={offset}, facing={facing}, ceiling={ceiling}, pos={:?}", body.kinematics.pos);
+                    assert_eq!(resting - body.kinematics.pos.y > 10.0, !ceiling,
+                        "width={width}, offset={offset}, facing={facing}, ceiling={ceiling}, resting={resting}, pos={:?}", body.kinematics.pos);
+                }
+            }
+        }
+    }
+}

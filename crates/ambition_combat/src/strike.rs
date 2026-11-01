@@ -34,7 +34,7 @@ pub enum HitboxKnockback {
 /// an attack (or by a `DamageBox` effect); despawned when its [`HitboxLifetime`]
 /// expires. Damage resolution runs in [`crate::hitbox::apply_hitbox_damage`].
 #[derive(Component, Clone, Debug)]
-#[require(FixedStrikeFeaturePulse)]
+#[require(FixedStrikeFeaturePulse, crate::events::HitSource)]
 pub struct Hitbox {
     /// Entity that spawned the hitbox (skip self-hits; look up the follow
     /// anchor's world position each tick).
@@ -279,6 +279,10 @@ impl Hitbox {
 /// player AOEs, boss hazards, and enemy death blasts.
 #[derive(Clone)]
 pub struct DamageBox {
+    /// The cause reported to each recipient.
+    pub cause: crate::events::HitSource,
+    /// The use of the move that created this strike, when a move created it.
+    pub move_instance: Option<u32>,
     pub half_extent: ae::Vec2,
     /// Optional non-box shape (a disc for an explosion, a convex blast cone).
     /// `None` = the `half_extent` box. The world-anchored counterpart to the
@@ -345,6 +349,10 @@ pub(crate) fn spawn_damage_box(
         },
         HitboxHits::default(),
     ));
+    e.insert(dbox.cause);
+    if let Some(instance) = dbox.move_instance {
+        e.insert(crate::moveset::AttackerMoveInstance(instance));
+    }
     if let Some(name) = dbox.name {
         e.insert(Name::new(name));
     }

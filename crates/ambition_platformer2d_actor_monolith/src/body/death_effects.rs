@@ -31,6 +31,8 @@ pub(super) fn spawn_death_explosion(
 ) {
     damage_boxes.spawn(owner, owner, ambition_vfx::HitSide::Enemy, pos,
         ambition_combat::strike::DamageBox {
+            cause: ambition_combat::events::HitSource::Melee,
+            move_instance: None,
             half_extent: ae::Vec2::splat(EXPLODER_BLAST_HALF), shape: None,
             damage: EXPLODER_BLAST_DAMAGE, knockback: ambition_combat::strike::HitboxKnockback::FeelScale(EXPLODER_BLAST_KNOCKBACK),
             lifetime_s: EXPLODER_BLAST_LIFETIME_S, name: Some("Exploding mite blast"),

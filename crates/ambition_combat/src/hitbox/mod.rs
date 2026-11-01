@@ -846,6 +846,7 @@ pub fn apply_hitbox_damage(
     mut hitboxes: Query<(
         Entity,
         &Hitbox,
+        &HitSource,
         &mut HitboxHits,
         Option<&crate::moveset::AttackerMoveInstance>,
         Option<&crate::allegiance::AttackAllegiance>,
@@ -999,7 +1000,7 @@ pub fn apply_hitbox_damage(
             })
         })
         .collect();
-    for (hitbox_entity, hitbox, mut hits, move_instance, captured, mut feature_pulse) in &mut hitboxes {
+    for (hitbox_entity, hitbox, cause, mut hits, move_instance, captured, mut feature_pulse) in &mut hitboxes {
         let Some(owner_pos) = owner_position(hitbox) else {
             continue;
         };
@@ -1028,29 +1029,16 @@ pub fn apply_hitbox_damage(
             HitboxAnchor::World { .. } => captured.map_or(live_side, |side| side.as_combatant()),
         };
 
-        // ONE BODY, ONE PATH: every body-owned melee strike resolves contacts
-        // here. `HitSide` selects descriptive source vocabulary only; it does not
-        // select a different overlap/dedup/knockback algorithm.
-        let melee_source = match (hitbox.source, hitbox.anchor) {
-            (HitSide::Player, _) => Some(HitSource::Melee),
-            (HitSide::Enemy | HitSide::Npc, _) => Some(HitSource::Melee),
-            (HitSide::Boss, _) => Some(HitSource::Melee),
-            (HitSide::Neutral, _) => None,
-            // ⭐⭐ A HAZARD TAKES THE BODY PATH, WHICH IS THE WHOLE POINT. A
-            // thrown bomb, a placed mine and a steered bolt all authored
-            // `Neutral` and therefore hurt NOBODY — the resolver is explicit
-            // that Neutral never spawns a damaging hitbox, and three shipped
-            // moves believed the opposite. This is the side that means "hurts
-            // everyone", and everyone is reached through the melee path.
-            (HitSide::Environment, _) => Some(HitSource::Melee),
-        };
+        // Every strike uses these body contacts. Side controls damage permission;
+        // cause describes the result.
+        let body_source = (hitbox.source != HitSide::Neutral).then_some(*cause);
 
         let (strike_room, pieces) = place(hitbox_entity, hitbox, owner_pos);
         // What a feature (a boss, a breakable) is hit by: the pieces, when a
         // pair cut the strike; else the volume, whole.
         let cut = pieces.len() != 1 || !pieces[0].bounds.is_empty();
         let feature_pieces = || if cut { pieces.clone() } else { Vec::new() };
-        if let Some(source_kind) = melee_source {
+        if let Some(source_kind) = body_source {
             let owner_grudge = attacker.grudge(hitbox.owner);
 
             // ⛔⛤ IN A STABLE ORDER, NOT QUERY ORDER. This was
@@ -1536,7 +1524,7 @@ pub fn apply_hitbox_damage(
             if *sibling_owner != owner || *sibling == striker {
                 continue;
             }
-            if let Ok((_, _, mut hits, _, _, _)) = hitboxes.get_mut(*sibling) {
+            if let Ok((_, _, _, mut hits, _, _, _)) = hitboxes.get_mut(*sibling) {
                 hits.hit.insert(victim);
             }
         }

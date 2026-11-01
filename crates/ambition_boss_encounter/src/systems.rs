@@ -613,6 +613,8 @@ pub fn boss_phase_transition_feedback(
                 ambition_vfx::HitSide::Boss,
                 aabb.center,
                 ambition_combat::strike::DamageBox {
+                    cause: ambition_combat::events::HitSource::Melee,
+                    move_instance: None,
                     half_extent: ae::Vec2::new(170.0, 80.0),
                     shape: None,
                     damage: 2,

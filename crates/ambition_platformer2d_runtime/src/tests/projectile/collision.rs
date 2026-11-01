@@ -1338,23 +1338,9 @@ fn a_shot_leaving_its_throwers_hull_still_reaches_the_boss_beyond_it() {
     );
 }
 
-/// ⛔⛔ **THE DIRECT REQUEST IS WRITTEN BEFORE ITS LANDING SPLASH, ON BOTH
-/// RECEIVER ROADS.**
-///
-/// The ordinary body branch wrote the targeted request and then the area one;
-/// the boss/breakable branch wrote the splash FIRST. So for a boss or a
-/// breakable the area event was applied before the hit that caused it, and
-/// wherever the first application changes what the second finds — a hit that
-/// grants invulnerability, or one that breaks the target — the splash was
-/// credited and the shot refused.
-///
-/// ⚠ IT ASSERTS THE EMITTED ORDER, deliberately. The consequence needs content
-/// that reacts differently to the two orders (an i-frame window, a one-hit
-/// break with a reward), and the ORDER is the thing this patch changes; a
-/// fixture that could only see the consequence would be green for either order
-/// against a target with none.
+/// A feature contact names its direct recipient and creates one landing strike.
 #[test]
-fn the_direct_request_precedes_its_landing_splash_for_a_feature_target() {
+fn a_feature_contact_keeps_its_direct_request_and_one_landing_strike() {
     use ambition_combat::components::FeatureName;
     use ambition_combat::events::{HitEvent, HitTarget};
 
@@ -1406,21 +1392,15 @@ fn the_direct_request_precedes_its_landing_splash_for_a_feature_target() {
     app.update();
 
     let seen = &app.world().resource::<EmittedTargets>().0;
-    // ⛔ THE PREMISE. Both events must exist, or "direct came first" is satisfied
-    // by a road that emits one of them.
-    assert_eq!(
-        seen.len(),
-        2,
-        "expected exactly the direct request and its one landing splash, got {seen:?}"
-    );
-    assert!(
-        matches!(seen[0], HitTarget::Feature(_)),
-        "the landing splash was written before the direct request it belongs to, \
-         so a target that reacts to the first application — an i-frame window, a \
-         one-hit break — resolves the AREA event and refuses the shot that \
-         caused it. Order: {seen:?}"
-    );
-    assert_eq!(seen[1], HitTarget::Volume, "order: {seen:?}");
+    assert_eq!(seen.len(), 1, "the direct request names exactly one feature: {seen:?}");
+    assert!(matches!(seen[0], HitTarget::Feature(_)));
+    let world = app.world_mut();
+    let strikes: Vec<_> = world.query::<(&ambition_combat::strike::Hitbox, &ambition_combat::events::HitSource)>()
+        .iter(world).filter(|(_, cause)| **cause == ambition_combat::events::HitSource::Projectile)
+        .map(|(strike, _)| strike.world_volume(ae::Vec2::ZERO)).collect();
+    assert_eq!(strikes.len(), 1);
+    assert!(strikes[0].intersects_aabb(ae::Aabb::new(ae::Vec2::new(400.0, 300.0), ae::Vec2::splat(1.0))));
+
 }
 
 /// ⛔⛔ **A RETURNING SHOT SURVIVES A CRATE EXACTLY AS IT SURVIVES A BODY.**
@@ -2519,21 +2499,17 @@ fn a_shot_swallowed_by_an_absorber_never_reaches_the_body_behind_it() {
 #[test]
 fn the_landing_splash_detonates_at_the_contact_not_at_the_tick_endpoint() {
     use ambition_combat::components::FeatureName;
-    use ambition_combat::events::{HitEvent, HitTarget};
+    use ambition_combat::events::HitSource;
 
     #[derive(bevy::prelude::Resource, Default)]
     struct SplashCentres(Vec<ae::Vec2>);
 
     fn record(
-        mut reader: bevy::prelude::MessageReader<HitEvent>,
-        mut seen: bevy::prelude::ResMut<SplashCentres>,
+        strikes: Query<(&ambition_combat::strike::Hitbox, &HitSource), Added<ambition_combat::strike::Hitbox>>,
+        mut seen: ResMut<SplashCentres>,
     ) {
-        seen.0.extend(
-            reader
-                .read()
-                .filter(|event| matches!(event.target, HitTarget::Volume))
-                .map(|event| event.volume.center()),
-        );
+        seen.0.extend(strikes.iter().filter(|(_, cause)| **cause == HitSource::Projectile)
+            .map(|(strike, _)| strike.world_volume(ae::Vec2::ZERO).center()));
     }
 
     const TARGET: ae::Vec2 = ae::Vec2::new(400.0, 300.0);

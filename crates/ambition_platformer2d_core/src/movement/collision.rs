@@ -329,6 +329,12 @@ pub(super) fn sweep_player_axis_clusters(
         if policy.passes_through(block) {
             return false;
         }
+        // An edge touch across the moving axis is not a blocking face.
+        let (body_min, body_max) = axis_span(start_body, axis.perpendicular());
+        let (block_min, block_max) = axis_span(block.aabb, axis.perpendicular());
+        if body_max <= block_min || body_min >= block_max {
+            return false;
+        }
         if matches!(block.kind, BlockKind::OneWay) {
             return one_way_landing_from_feet(
                 start_body,

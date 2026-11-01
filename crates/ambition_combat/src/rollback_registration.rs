@@ -6,7 +6,7 @@
 
 use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 use ambition_platformer2d_core::snapshot::{
-    checksum_bytes, put_bool, put_f32, put_i32, put_str, put_u8, put_u64, put_vec2,
+    checksum_bytes, put_bool, put_f32, put_i32, put_str, put_u8, put_u64, put_vec2, SnapshotState,
 };
 
 const OWNER: &str = env!("CARGO_PKG_NAME");
@@ -545,6 +545,7 @@ where
         |hitbox| hitbox.owner,
     );
     registrar.rollback_map_entities::<crate::strike::Hitbox>(OWNER, "map.hitbox");
+    registrar.rollback_component_canonical::<crate::events::HitSource>(OWNER, "combat.strike_cause");
     registrar.rollback_component_canonical::<crate::strike::FixedStrikeFeaturePulse>(
         OWNER, "combat.fixed_strike_feature_pulse",
     );
@@ -637,7 +638,7 @@ fn impact_hitstop_checksum(hold: &crate::impact_hitstop::ImpactHitstop) -> u64 {
 }
 
 fn pending_player_hits_checksum(pending: &crate::events::PendingPlayerHitEvents) -> u64 {
-    use crate::events::{HitKnockbackMagnitude, HitMode, HitSource, HitTarget};
+    use crate::events::{HitKnockbackMagnitude, HitMode, HitTarget};
     let mut bytes = Vec::new();
     put_u64(&mut bytes, pending.0.len() as u64);
     for staged in &pending.0 {
@@ -673,19 +674,7 @@ fn pending_player_hits_checksum(pending: &crate::events::PendingPlayerHitEvents)
         put_vec2(&mut bytes, bounds.min);
         put_vec2(&mut bytes, bounds.max);
         put_i32(&mut bytes, event.damage);
-        // The `f32` beside each tag was `PlayerSlash`'s own impulse channel. That
-        // channel is gone — knockback has one representation — so it is a
-        // constant here. The slot stays because the layout is shared.
-        let (source_tag, source_payload) = match event.source {
-            HitSource::Melee => (0u8, 0.0),
-            HitSource::Projectile => (1, 0.0),
-            HitSource::Pogo => (2, 0.0),
-            HitSource::Hazard => (3, 0.0),
-            HitSource::Contact => (4, 0.0),
-            HitSource::LeftTheWorld => (10, 0.0),
-        };
-        put_u8(&mut bytes, source_tag);
-        put_f32(&mut bytes, source_payload);
+        event.source.encode(&mut bytes);
         put_bool(&mut bytes, event.attacker.is_some());
         // The room decides which bodies a staged `Volume` hit can reach, so
         // two peers that stage it in different rooms must not agree. It is a

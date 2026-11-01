@@ -95,6 +95,8 @@ pub fn spawn_seismic_stomp_from_special_messages(
             SEISMIC_SPACING,
         ) {
             effects.write(entity, entity, ambition_vfx::HitSide::Boss, center, ambition_combat::strike::DamageBox {
+                cause: ambition_combat::events::HitSource::Melee,
+                move_instance: None,
                 half_extent: SEISMIC_HALF_EXTENT,
                 damage: SEISMIC_DAMAGE,
                 knockback: ambition_combat::strike::HitboxKnockback::FeelScale(SEISMIC_KNOCKBACK),

@@ -470,13 +470,6 @@ struct PlayerProjectileTickInfo {
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ProjectileStepSet;
 
-/// The burst a landing shot deals when its spec carries a splash.
-///
-/// One `HitEvent` over a box of `half` about the impact, `HitTarget::Volume`
-/// so everything in it — bodies, breakables, bosses — resolves through the
-/// same damage road a melee volume takes; one cue and one flash. This is the
-/// fireball's explosion, absorbed from the former held-shot simulation so a
-/// fireball is a projectile with a splash and not a second projectile system.
 /// The protocol's world-vs-target rule, as one testable comparison.
 ///
 /// `true` when an independent blocking surface reaches this leg no later than a
@@ -616,7 +609,11 @@ mod coalesce_tests {
     }
 }
 
+/// Resolve a splash through the common strike path. The shot supplies its
+/// emission scope, captured allegiance, cause, and move credit before retirement.
 pub(crate) fn emit_landing_splash(
+    projectile: Entity,
+    allegiance: Option<&AttackAllegiance>,
     pos: ae::Vec2,
     damage: i32,
     half: f32,
@@ -627,24 +624,25 @@ pub(crate) fn emit_landing_splash(
     // The use of the move of the attacker that fired this shot, if a move
     // fired it. The caller supplies the value. See `FiredByMoveInstance`.
     move_instance: Option<u32>,
-    feature_damage: &mut MessageWriter<HitEvent>,
+    blasts: &mut ambition_combat::damage_box::DamageBoxSpawner,
     sfx: &mut SfxWriter,
     vfx: &mut VfxWriter,
 ) {
-    feature_damage.write(HitEvent {
-        pieces: Vec::new(),
-        strike_sfx: None,
-        volume: ae::Aabb::new(pos, ae::Vec2::splat(half)).into(),
-        damage,
-        source: HitSource::Projectile,
-        attacker,
-        room,
-        target: HitTarget::Volume,
-        mode: HitMode::Knockback,
-        knockback: None,
-        ignored_targets: Vec::new(),
-        attacker_move_instance: move_instance,
-    });
+    let source = allegiance.map_or_else(
+        || if attacker.is_none() { ambition_combat::strike::HitSide::Environment } else { ambition_combat::strike::HitSide::Neutral },
+        |side| ambition_combat::hit_side_from_actor_faction(side.effective_faction()),
+    );
+    blasts.spawn(projectile, attacker.unwrap_or(Entity::PLACEHOLDER), source, pos,
+        ambition_combat::strike::DamageBox {
+            cause: HitSource::Projectile,
+            move_instance,
+            half_extent: ae::Vec2::splat(half),
+            shape: None,
+            damage,
+            knockback: ambition_combat::strike::HitboxKnockback::FeelScale(1.0),
+            lifetime_s: 0.0,
+            name: Some("projectile splash"),
+        });
     sfx.write(SfxMessage::Play {
         id: ambition_sfx::ids::WORLD_ROCK_HIT,
         emitter: (pos).into(),
@@ -755,7 +753,7 @@ pub fn step_projectiles(
     // one reason — rebuilding a boss's hurt geometry to answer "does this shot
     // reach it" — and the answer comes from the published volumes now. The
     // projectile stepper no longer needs to know what a boss IS.
-    (owner_combat, visual_catalog, mut outcome_fx, boss_guards): (
+    (owner_combat, visual_catalog, mut outcome_fx, boss_guards, mut blasts): (
         Query<(
             &ActorFaction,
             Option<&ActorAggression>,
@@ -768,6 +766,7 @@ pub fn step_projectiles(
         // Whether a boss turns blows. `apply_boss_hit` reads the same two
         // fields and decides the damage; the shot reads them for its look.
         Query<(&BossConfig, &ambition_boss_encounter::BossEncounter)>,
+        ambition_combat::damage_box::DamageBoxSpawner,
     ),
 ) {
     let dt = world_time.sim_dt();
@@ -1522,13 +1521,15 @@ pub fn step_projectiles(
                 if !game.returns() {
                     if game.splash_half_extent > 0.0 {
                         emit_landing_splash(
+                            proj_entity,
+                            allegiance.as_ref(),
                             impact,
                             game.damage.max(1),
                             game.splash_half_extent,
                             owner_entity,
                             shot_room,
                             fired_by_move,
-                            &mut feature_damage,
+                            &mut blasts,
                             &mut sfx,
                             &mut vfx,
                         );
@@ -1606,6 +1607,8 @@ pub fn step_projectiles(
                 }
                 if game.splash_half_extent > 0.0 {
                     emit_landing_splash(
+                        proj_entity,
+                        allegiance.as_ref(),
                         // ⛔ THE SELECTED CONTACT, NOT THE TICK ENDPOINT — same
                         // defect as the body road above, same reason it is
                         // gameplay rather than presentation. This branch has the
@@ -1617,7 +1620,7 @@ pub fn step_projectiles(
                         owner_entity,
                         shot_room,
                         fired_by_move,
-                        &mut feature_damage,
+                        &mut blasts,
                         &mut sfx,
                         &mut vfx,
                     );
@@ -1688,13 +1691,15 @@ pub fn step_projectiles(
             WorldHitOutcome::Expired { pos } => {
                 if game.splash_half_extent > 0.0 {
                     emit_landing_splash(
+                        proj_entity,
+                        allegiance.as_ref(),
                         pos,
                         game.damage.max(1),
                         game.splash_half_extent,
                         owner_entity,
                         shot_room,
                         fired_by_move,
-                        &mut feature_damage,
+                        &mut blasts,
                         &mut sfx,
                         &mut vfx,
                     );

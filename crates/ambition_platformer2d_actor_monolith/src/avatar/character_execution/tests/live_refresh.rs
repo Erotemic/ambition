@@ -1,4 +1,5 @@
 use ambition_characters::actor::WornCharacter;
+use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_characters::brain::ActionSet;
 use ambition_platformer2d_core::BodyAbilities;
 use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
@@ -51,6 +52,7 @@ fn a_body_built_after_admission_is_projected_onto_in_the_same_tick() {
         commands.spawn((
             PlayerEntity,
             PrimaryPlayer,
+            DrivingParticipant(PlayerSlot::PRIMARY),
             MotionModel::default(),
             ambition_platformer2d_core::BodyKinematics::default(),
             ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
@@ -173,6 +175,7 @@ fn an_ability_the_mask_disabled_can_be_enabled_again_from_the_base() {
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
+            DrivingParticipant(PlayerSlot::PRIMARY),
             MotionModel::default(),
             ambition_platformer2d_core::BodyKinematics::default(),
             ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
@@ -287,6 +290,7 @@ fn live_ability_sync_does_not_rederive_authored_movement_identity() {
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
+            DrivingParticipant(PlayerSlot::PRIMARY),
             WornCharacter::new("sanic"),
             MotionModel::default(),
             Name::new("unset"),
@@ -382,6 +386,7 @@ fn restricted_ability_base_survives_the_sandbox_default_mask() {
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
+            DrivingParticipant(PlayerSlot::PRIMARY),
             MotionModel::default(),
             ambition_platformer2d_core::BodyKinematics::default(),
             ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
@@ -474,6 +479,7 @@ fn authored_movement_tuning_drives_the_air_jump_count_not_the_dev_editable() {
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
+            DrivingParticipant(PlayerSlot::PRIMARY),
             MotionModel::default(),
             ambition_platformer2d_core::BodyKinematics::default(),
             ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
@@ -549,6 +555,7 @@ fn cross_model_rewear_preserves_shared_state_and_initializes_axis_private_state(
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
+            DrivingParticipant(PlayerSlot::PRIMARY),
             WornCharacter::new("sanic"),
             MotionModel::default(),
             Name::new("unset"),

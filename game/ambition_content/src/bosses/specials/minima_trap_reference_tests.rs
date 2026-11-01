@@ -110,6 +110,8 @@ pub fn spawn_minima_trap_from_special_messages(
         let pit_center = player_pos.unwrap_or(boss.kin.pos);
 
         effects.write(entity, entity, ambition_vfx::HitSide::Boss, pit_center, ambition_combat::strike::DamageBox {
+                cause: ambition_combat::events::HitSource::Melee,
+                move_instance: None,
                 half_extent: ae::Vec2::new(hx, hy),
                 damage: damage,
                 knockback: ambition_combat::strike::HitboxKnockback::FeelScale(MINIMA_TRAP_KNOCKBACK),

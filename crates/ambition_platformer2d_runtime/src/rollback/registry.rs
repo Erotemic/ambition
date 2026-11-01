@@ -194,7 +194,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// Up interaction gestures yield to jump and combat until Up is released.
 /// 397 -> 398: body ability snapshots include solid-wall blink traversal.
 /// Developer ability admission can lend God Blink to controlled bodies.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 398;
+/// 398 -> 399: fixed strikes carry their semantic cause. Projectile splashes
+/// use scoped body contacts and retain launch allegiance and move credit.
+/// Axis sweeps require positive overlap across the moving axis.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 399;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

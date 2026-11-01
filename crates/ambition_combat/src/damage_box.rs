@@ -36,6 +36,7 @@ struct DamageBoxOrigins<'w, 's> {
             Option<&'static MatchTeam>,
             Option<&'static SessionScopedEntity>,
             Option<&'static RoundScopedEntity>,
+            Option<&'static AttackAllegiance>,
         ),
     >,
     rooms: LiveRooms<'w, 's>,
@@ -50,7 +51,7 @@ impl DamageBoxOrigins<'_, '_> {
         center: ae::Vec2,
         damage_box: DamageBox,
     ) -> Option<DamageBoxRequest> {
-        let Ok((_, _, _, session, round)) = self.facts.get(emitter) else {
+        let Ok((_, _, _, session, round, captured)) = self.facts.get(emitter) else {
             warn!("damage box refused: its emitter {emitter:?} has left");
             return None;
         };
@@ -58,8 +59,10 @@ impl DamageBoxOrigins<'_, '_> {
             .in_room(self.rooms.of(emitter));
         let allegiance = if source == HitSide::Environment {
             None
+        } else if let Some(captured) = captured {
+            Some(captured.clone())
         } else {
-            let Ok((faction, driver, team, _, _)) = self.facts.get(owner) else {
+            let Ok((faction, driver, team, _, _, _)) = self.facts.get(owner) else {
                 warn!("damage box refused: its credit body {owner:?} has left");
                 return None;
             };

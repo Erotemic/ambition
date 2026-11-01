@@ -413,15 +413,16 @@ impl GameplayBannerRequested {
     }
 }
 
-/// Semantic cause of a [`HitEvent`]. Attacker identity comes from
+/// Semantic cause of a live strike and each [`HitEvent`] it resolves. Attacker identity comes from
 /// [`HitEvent::attacker`], victim routing from the named target, and launch
 /// strength from authored hit data. Add new attack causes here rather than
 /// creating parallel hit channels.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum HitSource {
     /// A body-owned strike — a swing, a slash, a lunge corridor. Whose swing
     /// it is comes from [`HitEvent::attacker`]; how hard it lands comes from the
     /// attacker's own weight and the strike's authored [`HitKnockback`].
+    #[default]
     Melee,
     /// A fired shot. Kept distinct from [`Self::Melee`] because a victim
     /// genuinely wants to know whether it took a contact swing or a ranged shot

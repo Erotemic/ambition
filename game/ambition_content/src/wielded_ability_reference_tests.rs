@@ -59,6 +59,8 @@ pub mod shockwave {
             // The body's per-tick resolved frame (ADR 0024 frame law).
             let half_extent = resolved_frame.basis().to_world_half(SHOCKWAVE_HALF);
             effects.write(entity, entity, ambition_vfx::HitSide::Player, kin.pos, ambition_combat::strike::DamageBox {
+                cause: ambition_combat::events::HitSource::Melee,
+                move_instance: None,
                 half_extent: half_extent,
                 damage: SHOCKWAVE_DAMAGE,
                 knockback: ambition_combat::strike::HitboxKnockback::FeelScale(SHOCKWAVE_KNOCKBACK),
@@ -174,6 +176,8 @@ pub mod beam {
             let offset = frame.to_world(offset_local);
             let half_extent = frame.to_world_half(half_local);
             effects.write(entity, entity, ambition_vfx::HitSide::Player, kin.pos + offset, ambition_combat::strike::DamageBox {
+                cause: ambition_combat::events::HitSource::Melee,
+                move_instance: None,
                 half_extent: half_extent,
                 damage: BEAM_DAMAGE,
                 knockback: ambition_combat::strike::HitboxKnockback::FeelScale(BEAM_KNOCKBACK),

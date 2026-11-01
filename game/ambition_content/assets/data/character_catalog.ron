@@ -6443,7 +6443,7 @@
             ),
         ),
         "npc_port_wren": (
-            display_name: "Wren",
+            display_name: "Lark",
             // The keeper of the waterfront tavern.
             manifest: "sprites/port_wren_spritesheet.ron",
             tier: MainHall,

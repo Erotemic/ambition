@@ -30,7 +30,7 @@ and reviewing them is `docs/concepts/anti-llmism-style-guide.md`.
 | Kagero and Castle Godwin | Sato, Daichi, Hayashi, Duelist, Shadow Oni | Kagero is spoken of as independent of the village dojo; a few people have heard where she went | Optional recognition after her actual boss-fight appearance, keyed to a reliable event if one is authored |
 | The wrong-list raid and safer maps | Alice, Bob, Oiler, the clerk, the gate janitor | The wrong address has visible paperwork and human consequences; the cartographers protect routes | Trace one document through the institutions; keep the creator's unfinished sentence unresolved |
 | A future friendship | Oiler | Mentions Faith "Fia" Knoss as a fellow mechanic, without starting or resolving her future plot | Introduce Fia in person through repairs and trust, rather than an explanatory speech |
-| Local character relationships | Wren, Bram, Jory, Ume, Ren, Daichi, Gus Pell | Residents know and annoy one another; a town has routines when the player is absent | Add small stateful callbacks if those interactions become playable |
+| Local character relationships | Lark, Bram, Jory, Ume, Ren, Daichi, Gus Pell | Residents know and annoy one another; a town has routines when the player is absent | Add small stateful callbacks if those interactions become playable |
 
 The Castle Godwin list requests, gravity-test paperwork, and individual bits
 of personal history in the Yarn lines are **provisional playable seeds**. They

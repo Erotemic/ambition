@@ -216,7 +216,7 @@ def waterfront():
 
 
 def tavern():
-    """The Drowned Compass: one room, the counter at the east end. Wren keeps
+    """The Drowned Compass: one room, the counter at the east end. Lark keeps
     it; Broadside Bess of the cove drinks in it."""
     rid = TAVERN
     _, (w, h) = ROOMS_AT[rid]

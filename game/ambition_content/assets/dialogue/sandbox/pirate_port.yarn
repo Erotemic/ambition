@@ -104,16 +104,16 @@ Bram: Harbour master. The docks are mine, the cove is the crews', and the sky ov
 
 title: pirate_port_wren
 ---
-Wren: Welcome to The Drowned Compass. We never tell you where you are, which is why you come back.
+Lark: Welcome to The Drowned Compass. We never tell you where you are, which is why you come back.
 -> What do you serve?
-    Wren: Grog, chowder, and a tea for the gate-sick that is mostly ginger and hope.
+    Lark: Grog, chowder, and a tea for the gate-sick that is mostly ginger and hope.
 -> Who is the big one?
-    Wren: Bess, from the cove. She pays, she sings, and nobody asks about the cannon port in her blade.
+    Lark: Bess, from the cove. She pays, she sings, and nobody asks about the cannon port in her blade.
 -> What's everyone arguing about?
-    Wren: Bram raised the dock fees. Jory says he isn't paying. Bram says Jory never pays.
-    Wren: They'll be in here after sunset to sort it out over supper.
+    Lark: Bram raised the dock fees. Jory says he isn't paying. Bram says Jory never pays.
+    Lark: They'll be in here after sunset to sort it out over supper.
 -> Has Bess always come here?
-    Wren: Since she was small enough to sit on the counter. Last night she bought the whole room supper. She wouldn't say why.
+    Lark: Since she was small enough to sit on the counter. Last night she bought the whole room supper. She wouldn't say why.
 -> Carry on.
 ===
 

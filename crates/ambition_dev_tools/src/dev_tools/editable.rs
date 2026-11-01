@@ -25,6 +25,7 @@ pub struct EditableAbilitySet {
     pub precision_blink: bool,
     pub blink_through_soft_walls: bool,
     pub blink_through_hard_walls: bool,
+    pub blink_through_solids: bool,
     pub attack: bool,
     pub pogo: bool,
     pub directional_primary: bool,
@@ -64,6 +65,7 @@ impl EditableAbilitySet {
             precision_blink: self.precision_blink,
             blink_through_soft_walls: self.blink_through_soft_walls,
             blink_through_hard_walls: self.blink_through_hard_walls,
+            blink_through_solids: self.blink_through_solids,
             attack: self.attack,
             pogo: self.pogo,
             directional_primary: self.directional_primary,
@@ -107,6 +109,7 @@ impl From<ae::AbilitySet> for EditableAbilitySet {
             precision_blink,
             blink_through_soft_walls,
             blink_through_hard_walls,
+            blink_through_solids,
             attack,
             pogo,
             directional_primary,
@@ -141,6 +144,7 @@ impl From<ae::AbilitySet> for EditableAbilitySet {
             precision_blink,
             blink_through_soft_walls,
             blink_through_hard_walls,
+            blink_through_solids,
             attack,
             pogo,
             directional_primary,
@@ -653,13 +657,13 @@ pub struct ActivePlayerBodyProfile(pub Option<PlayerBodyProfile>);
 /// The admitted developer ability mask — the third stage for the ability domain.
 ///
 /// Same three stages as [`ActivePlayerBodyProfile`]. Without this resource,
-/// both admission and projection depend on a primary player existing, so a
+/// both admission and projection depend on a controlled body existing, so a
 /// pending proposal re-enters the admission decision every frame while the
 /// player is absent. With it, a body built later projects the admitted mask,
 /// not whatever the editor holds at that time.
 ///
 /// `None` means nothing is admitted yet. The first publish seeds it from the
-/// editable, so the primary player has the mask from the first tick.
+/// editable, so controlled bodies have the mask from the first tick.
 #[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq)]
 pub struct ActiveEditableAbilityMask(pub Option<ae::AbilitySet>);
 

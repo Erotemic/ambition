@@ -192,7 +192,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// hitbox lifetime. Each player body consumes its resolved damage and uses
 /// its own seat's transition hold when it records a safe position.
 /// Up interaction gestures yield to jump and combat until Up is released.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 397;
+/// 397 -> 398: body ability snapshots include solid-wall blink traversal.
+/// Developer ability admission can lend God Blink to controlled bodies.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 398;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

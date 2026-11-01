@@ -156,8 +156,7 @@ fn blink_destination_to_point_internal(
 
 fn blink_path_blocker_abilities(abilities: &crate::abilities::AbilitySet, kind: BlockKind) -> bool {
     match kind {
-        // No upgrade passes a solid or a barrier.
-        BlockKind::Solid | BlockKind::Barrier => true,
+        BlockKind::Solid | BlockKind::Barrier => !abilities.blink_through_solids,
         BlockKind::BlinkWall { tier } => !abilities_can_blink_through(abilities, tier),
         // Neither directional kind blocks a blink PATH: a one-way is not a wall
         // and a bonk-only block is not there at all unless a head is coming up
@@ -211,12 +210,18 @@ fn blink_collision_abilities(
     aabb: Aabb,
 ) -> BlinkCollision {
     let mut pass_through = false;
-    for block in &world.blocks {
+    for block in world.blocks.near(aabb) {
         if !aabb.strict_intersects(block.aabb) {
             continue;
         }
         match block.kind {
-            BlockKind::Solid | BlockKind::Barrier => return BlinkCollision::Blocked,
+            BlockKind::Solid | BlockKind::Barrier => {
+                if abilities.blink_through_solids {
+                    pass_through = true;
+                } else {
+                    return BlinkCollision::Blocked;
+                }
+            }
             BlockKind::BlinkWall { tier } => {
                 if abilities_can_blink_through(abilities, tier) {
                     pass_through = true;
@@ -226,6 +231,17 @@ fn blink_collision_abilities(
             }
             BlockKind::OneWay | BlockKind::BonkOnly => pass_through = true,
             BlockKind::Hazard | BlockKind::PogoOrb | BlockKind::Rebound { .. } => {}
+        }
+    }
+    for chain in world.chains.near(aabb) {
+        if chain.kind == crate::world::SurfaceKind::Solid && chain.closed
+            && crate::solid_lines::push_out(aabb, &chain.points).is_some()
+        {
+            if abilities.blink_through_solids {
+                pass_through = true;
+            } else {
+                return BlinkCollision::Blocked;
+            }
         }
     }
     if pass_through {

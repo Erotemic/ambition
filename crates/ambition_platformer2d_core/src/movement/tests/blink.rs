@@ -7,7 +7,7 @@ use crate::body_clusters::BodyClusterScratch;
 #[allow(unused_imports)]
 use crate::test_support::*;
 use crate::world::BlinkWallTier;
-use crate::{AbilitySet, Vec2};
+use crate::{AabbExt, AbilitySet, Vec2};
 
 fn scratch_at(spawn: Vec2) -> BodyClusterScratch {
     BodyClusterScratch::new_with_abilities(spawn, AbilitySet::sandbox_all())
@@ -324,4 +324,74 @@ fn blink_walls_can_be_passed_by_upgrade_without_allowing_solid_walls() {
         Vec2::new(340.0, 140.0),
     );
     assert!(passed_to.x > 300.0);
+}
+
+#[test]
+fn god_blink_crosses_walls_but_keeps_a_free_destination_inside_the_world() {
+    use crate::world::{Block, BlockKind};
+    let mut world = test_world();
+    world.blocks.clear();
+    let from = Vec2::new(140.0, 140.0);
+    let target = Vec2::new(340.0, 140.0);
+    for kind in [BlockKind::Solid, BlockKind::Barrier,
+        BlockKind::BlinkWall { tier: BlinkWallTier::Soft },
+        BlockKind::BlinkWall { tier: BlinkWallTier::Hard }] {
+        let mut wall = Block::solid("locked passage", Vec2::new(220.0, 0.0), Vec2::new(22.0, 300.0));
+        wall.kind = kind;
+        world.blocks.clear();
+        world.blocks.push(wall);
+        let normal = scratch_with(AbilitySet::basic(), from);
+        let god = scratch_with(crate::AbilityGrant::GodBlink.to_set(), from);
+        let normal_to = blink_destination_to_point_clusters(&world, &normal.kinematics, &normal.abilities, target);
+        assert!(normal_to.x < 220.0, "normal blink passed {kind:?}");
+        let to = blink_destination_to_point_clusters(&world, &god.kinematics, &god.abilities, target);
+        assert_eq!(to, target, "God Blink stopped at {kind:?}");
+        let inside_wall = blink_destination_to_point_clusters(&world, &god.kinematics, &god.abilities, Vec2::new(230.0, 140.0));
+        assert!(inside_wall.x < 220.0);
+        assert!(!crate::geometry::Aabb::new(inside_wall, god.kinematics.size * 0.5).strict_intersects(world.blocks[0].aabb));
+        let outside = blink_destination_to_point_clusters(&world, &god.kinematics, &god.abilities, Vec2::new(5000.0, -5000.0));
+        let half = god.kinematics.size * 0.5;
+        assert!(outside.x >= half.x && outside.x <= world.size.x - half.x);
+        assert!(outside.y >= half.y && outside.y <= world.size.y - half.y);
+    }
+    assert!(!AbilitySet::sandbox_all().blink_through_solids);
+}
+
+#[test]
+fn a_blink_with_no_free_destination_emits_no_committed_effect() {
+    let mut world = test_world();
+    world.blocks.clear();
+    let mut scratch = scratch_at(Vec2::new(140.0, 140.0));
+    world.blocks.push(crate::world::Block::solid(
+        "flush wall", scratch.kinematics.pos + Vec2::new(scratch.kinematics.size.x * 0.5, -100.0),
+        Vec2::new(200.0, 300.0)));
+    scratch.axis_mut().blink_hold_active = true;
+    let from = scratch.kinematics.pos;
+    let input = InputState {
+        movement: crate::ActionEdges::EMPTY.with(crate::MovementAction::Blink,
+            crate::Edge { pressed: false, held: false, released: true }),
+        blink_quick_dir: crate::WorldVec2(Vec2::new(1.0, 0.0)),
+        ..Default::default()
+    };
+    let events = update_player_control_with_tuning_scratch(&world, &mut scratch, input, 1.0 / 60.0, TEST_TUNING);
+    assert_eq!(scratch.kinematics.pos, from);
+    assert!(events.blinks.is_empty());
+    assert!(!events.operations.contains(&MovementOp::Blink));
+    assert!(!scratch.axis().blink_hold_active);
+    assert_eq!(scratch.blink.cooldown, 0.0);
+}
+
+#[test]
+fn god_blink_does_not_land_inside_a_solid_outline() {
+    let mut world = test_world();
+    world.blocks.clear();
+    world.chains.push(crate::world::SurfaceChain::solid("wall outline", vec![
+        Vec2::new(220.0, 0.0), Vec2::new(260.0, 0.0),
+        Vec2::new(260.0, 300.0), Vec2::new(220.0, 300.0),
+    ]));
+    let god = scratch_with(crate::AbilityGrant::GodBlink.to_set(), Vec2::new(140.0, 140.0));
+    let to = blink_destination_to_point_clusters(&world, &god.kinematics, &god.abilities, Vec2::new(240.0, 140.0));
+    assert!(crate::solid_lines::put_out_of_solid_lines(&world, crate::Aabb::new(to, god.kinematics.size * 0.5)).is_none());
+    let beyond = blink_destination_to_point_clusters(&world, &god.kinematics, &god.abilities, Vec2::new(340.0, 140.0));
+    assert_eq!(beyond, Vec2::new(340.0, 140.0));
 }

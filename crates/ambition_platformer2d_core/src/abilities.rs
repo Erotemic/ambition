@@ -63,6 +63,9 @@ pub struct AbilitySet {
     /// Allow blink pathing through hard blink gates. This is intentionally a
     /// separate future upgrade so some walls can remain meaningful blockers.
     pub blink_through_hard_walls: bool,
+    /// Cross solid walls and barriers during a blink. The body must land in open space.
+    #[serde(default)]
+    pub blink_through_solids: bool,
     /// Generic slash/attack verb.
     pub attack: bool,
     /// Downward attack/pogo refresh verb.
@@ -237,6 +240,7 @@ impl AbilitySet {
             precision_blink: _,
             blink_through_soft_walls: _,
             blink_through_hard_walls: _,
+            blink_through_solids: _,
             ledge_grab: _,
             swim: _,
             glide: _,
@@ -273,6 +277,7 @@ impl AbilitySet {
             precision_blink: false,
             blink_through_soft_walls: false,
             blink_through_hard_walls: false,
+            blink_through_solids: false,
             ledge_grab: false,
             swim: false,
             glide: false,
@@ -311,6 +316,7 @@ impl AbilitySet {
             precision_blink: false,
             blink_through_soft_walls: false,
             blink_through_hard_walls: false,
+            blink_through_solids: false,
             attack: false,
             pogo: false,
             directional_primary: false,
@@ -344,7 +350,7 @@ impl AbilitySet {
         }
     }
 
-    /// Endgame sandbox defaults: every currently implemented verb is enabled.
+    /// Endgame sandbox defaults. Wall bypass requires an explicit grant.
     pub const fn sandbox_all() -> Self {
         Self {
             move_horizontal: true,
@@ -363,6 +369,7 @@ impl AbilitySet {
             precision_blink: true,
             blink_through_soft_walls: true,
             blink_through_hard_walls: true,
+            blink_through_solids: false,
             attack: true,
             pogo: true,
             directional_primary: true,
@@ -406,6 +413,7 @@ impl AbilitySet {
             precision_blink: true,
             blink_through_soft_walls: true,
             blink_through_hard_walls: false,
+            blink_through_solids: false,
             attack: true,
             pogo: true,
             directional_primary: true,
@@ -451,6 +459,7 @@ impl AbilitySet {
         precision_blink: false,
         blink_through_soft_walls: false,
         blink_through_hard_walls: false,
+        blink_through_solids: false,
         attack: false,
         pogo: false,
         directional_primary: false,
@@ -490,6 +499,7 @@ impl AbilitySet {
         precision_blink: true,
         blink_through_soft_walls: true,
         blink_through_hard_walls: true,
+        blink_through_solids: true,
         attack: true,
         pogo: true,
         directional_primary: true,
@@ -536,6 +546,7 @@ impl AbilitySet {
                 || other.blink_through_soft_walls,
             blink_through_hard_walls: self.blink_through_hard_walls
                 || other.blink_through_hard_walls,
+            blink_through_solids: self.blink_through_solids || other.blink_through_solids,
             attack: self.attack || other.attack,
             pogo: self.pogo || other.pogo,
             directional_primary: self.directional_primary || other.directional_primary,
@@ -560,10 +571,7 @@ impl AbilitySet {
     /// A mask can only ever REMOVE grants, never add them, so it is the safe
     /// operator for a session-level capability restriction (a story moment that
     /// forbids a verb, a dev toggle that gates one off) layered over whatever a
-    /// character composed. `intersect` with a mask of [`sandbox_all`] is the
-    /// identity.
-    ///
-    /// [`sandbox_all`]: AbilitySet::sandbox_all
+    /// character composed. [`Self::ALL`] is the identity mask.
     pub const fn intersect(self, mask: Self) -> Self {
         Self {
             move_horizontal: self.move_horizontal && mask.move_horizontal,
@@ -584,6 +592,7 @@ impl AbilitySet {
                 && mask.blink_through_soft_walls,
             blink_through_hard_walls: self.blink_through_hard_walls
                 && mask.blink_through_hard_walls,
+            blink_through_solids: self.blink_through_solids && mask.blink_through_solids,
             attack: self.attack && mask.attack,
             pogo: self.pogo && mask.pogo,
             directional_primary: self.directional_primary && mask.directional_primary,
@@ -753,7 +762,7 @@ pub enum AbilityGrant {
     /// flight-toggle button. Intended for spacecraft, swimmers in a dedicated
     /// free-movement game, and other bodies whose base locomotion is flight.
     FreeFlight,
-    /// Every implemented verb ([`AbilitySet::sandbox_all`]).
+    /// The endgame sandbox kit ([`AbilitySet::sandbox_all`]).
     SandboxAll,
     /// Curl into the Morph Ball. A progression grant an experience hands its
     /// home body, not part of any character's kit.
@@ -780,6 +789,8 @@ pub enum AbilityGrant {
     PrecisionBlink,
     /// Blink through soft and hard walls.
     BlinkThroughWalls,
+    /// Blink through all walls and barriers, with a safe destination.
+    GodBlink,
     /// The special reads the stick, so a direction and the special button can
     /// play different moves.
     DirectionalSpecial,
@@ -897,6 +908,15 @@ impl AbilityGrant {
             Self::BlinkThroughWalls => AbilitySet {
                 blink_through_soft_walls: true,
                 blink_through_hard_walls: true,
+                blink_through_solids: false,
+                ..AbilitySet::NONE
+            },
+            Self::GodBlink => AbilitySet {
+                blink: true,
+                precision_blink: true,
+                blink_through_soft_walls: true,
+                blink_through_hard_walls: true,
+                blink_through_solids: true,
                 ..AbilitySet::NONE
             },
             Self::DirectionalSpecial => AbilitySet {
@@ -1533,7 +1553,7 @@ mod tests {
     fn intersect_only_removes_never_adds() {
         // A mask can gate a verb OFF but can never grant one the base lacks.
         let base = AbilityGrant::RunJump.to_set();
-        // Masking by sandbox_all (the permissive default) is the identity.
+        // The sandbox ceiling permits this base kit.
         assert_eq!(base.intersect(AbilitySet::sandbox_all()), base);
         // A restrictive mask removes jump.
         let no_jump_mask = AbilitySet {

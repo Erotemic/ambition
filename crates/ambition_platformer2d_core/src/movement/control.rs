@@ -94,6 +94,13 @@ pub fn handle_blink_clusters(
                 tuning.abilities.blink_distance,
             )
         };
+        if (to - from).length_squared() <= 1.0e-10 {
+            state.blink_hold_active = false;
+            state.blink_aiming = false;
+            state.blink_hold_timer = 0.0;
+            state.blink_aim_offset = facing_aim_offset;
+            return;
+        }
         super::blink::complete_blink_clusters(
             kinematics,
             blink,

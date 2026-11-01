@@ -30,6 +30,7 @@ impl SnapshotState for crate::AbilitySet {
         put_bool(out, self.precision_blink);
         put_bool(out, self.blink_through_soft_walls);
         put_bool(out, self.blink_through_hard_walls);
+        put_bool(out, self.blink_through_solids);
         put_bool(out, self.attack);
         put_bool(out, self.pogo);
         put_bool(out, self.directional_primary);
@@ -66,6 +67,7 @@ impl SnapshotState for crate::AbilitySet {
             precision_blink: r.bool()?,
             blink_through_soft_walls: r.bool()?,
             blink_through_hard_walls: r.bool()?,
+            blink_through_solids: r.bool()?,
             attack: r.bool()?,
             pogo: r.bool()?,
             directional_primary: r.bool()?,

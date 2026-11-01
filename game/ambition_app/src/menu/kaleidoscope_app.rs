@@ -613,6 +613,7 @@ pub(crate) struct KaleidoscopeScroll {
 /// copies (`SystemMenuSnapshotParams`) in a third system.
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct SystemMenuParams<'w, 's> {
+    abilities: Option<ResMut<'w, ambition_platformer2d::dev_tools::dev_tools::EditableAbilitySet>>,
     dev_tools: ResMut<'w, ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>,
     // The Developer screen also reaches global debug flags and LDtk auto-reload,
     // which live on these two resources (not `DeveloperTools`).
@@ -724,6 +725,7 @@ impl SystemMenuParams<'_, '_> {
             SystemOptionId::Dev(id) => {
                 apply_dev_toggle(
                     DevToggleWrite {
+                        abilities: self.abilities.as_deref_mut(),
                         dev: &mut self.dev_tools,
                         dev_state: &mut self.dev_state,
                         ldtk_reload: &mut self.ldtk_reload,
@@ -766,6 +768,7 @@ impl SystemMenuParams<'_, '_> {
             SystemOptionId::Dev(id) if id.is_cycle() => {
                 apply_dev_toggle(
                     DevToggleWrite {
+                        abilities: self.abilities.as_deref_mut(),
                         dev: &mut self.dev_tools,
                         dev_state: &mut self.dev_state,
                         ldtk_reload: &mut self.ldtk_reload,
@@ -825,6 +828,7 @@ impl SystemMenuParams<'_, '_> {
     /// the same reason as [`Self::radio_snapshot`].
     pub(crate) fn dev_snapshot(&self) -> DevSnapshot {
         dev_snapshot(DevToggleRead {
+            abilities: self.abilities.as_deref(),
             dev: &self.dev_tools,
             dev_state: &self.dev_state,
             ldtk_reload: &self.ldtk_reload,
@@ -861,6 +865,7 @@ pub(crate) struct GameModeIo<'w> {
 /// mutable `SystemMenuParams` (different systems).
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct SystemMenuSnapshotParams<'w, 's> {
+    abilities: Option<Res<'w, ambition_platformer2d::dev_tools::dev_tools::EditableAbilitySet>>,
     dev_tools: Res<'w, ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>,
     dev_state: Res<'w, ambition_platformer2d::dev_tools::DeveloperRuntimeState>,
     ldtk_reload: Res<'w, ambition_platformer2d::dev_tools::WorldSourceHotReload>,
@@ -901,6 +906,7 @@ impl SystemMenuSnapshotParams<'_, '_> {
     /// Build the live developer-toggle snapshot for the SYSTEM IR.
     fn dev_snapshot(&self) -> DevSnapshot {
         dev_snapshot(DevToggleRead {
+            abilities: self.abilities.as_deref(),
             dev: &self.dev_tools,
             dev_state: &self.dev_state,
             ldtk_reload: &self.ldtk_reload,

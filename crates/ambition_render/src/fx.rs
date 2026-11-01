@@ -415,7 +415,7 @@ pub fn vfx_spawn_messages(sprite_content: bevy::prelude::Res<ambition_sprite_she
                 to,
                 precision,
             } => {
-                spawn_blink_effects(&mut commands, spawn_scope, world, from, to, precision);
+                spawn_blink_effects(&sprite_content, &mut commands, spawn_scope, world, assets.as_deref(), from, to, precision);
             }
             // The melee slash is drawn by
             // `rendering::slash_visuals::spawn_slash_effects`. No-op here so the
@@ -1425,13 +1425,23 @@ pub fn spawn_dust(
 }
 
 pub fn spawn_blink_effects(
+    sprite_content: &ambition_sprite_sheet::SpriteContent,
     commands: &mut Commands,
     session_scope: Option<SessionSpawnScope>,
     world: &ae::World,
+    assets: Option<&ambition_sprite_sheet::game_assets::GameAssets>,
     from: ae::Vec2,
     to: ae::Vec2,
     precision: bool,
 ) {
+    for pos in [from, to] {
+        spawn_effect(
+            sprite_content, commands, session_scope, world, assets, pos,
+            ambition_vfx::fx::ids::SHOCKWAVE,
+            if precision { 1.8 } else { 1.35 },
+            ambition_vfx::FxPose::default(),
+        );
+    }
     let exit_color = if precision {
         [0.40, 0.34, 1.00, 0.78]
     } else {
@@ -1462,7 +1472,6 @@ pub fn spawn_blink_effects(
         entry_color,
         ParticleKind::Spark,
     );
-    spawn_impact(commands, session_scope, world, to);
 }
 
 /// Live ring of orbiting embers showing where the next blink will land.

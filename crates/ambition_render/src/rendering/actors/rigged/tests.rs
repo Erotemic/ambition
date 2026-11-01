@@ -1924,3 +1924,33 @@ fn a_limb_twin_keeps_its_roots_size_frame_after_frame() {
     assert!(size(root).is_some(), "the root draws its cell");
     assert_eq!(size(twin), size(root), "the twin is drawn at its root's size");
 }
+
+#[test]
+fn a_held_blink_dissolves_once_and_stays_dissolved_until_arrival() {
+    use ambition_sprite_sheet::character::CharacterAnim;
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (_, mut app, root) = robot(&sprite_content);
+    {
+        let mut animator = app.world_mut().get_mut::<CharacterAnimator>(root).unwrap();
+        animator.request(CharacterAnim::BlinkOut);
+        animator.tick(2.0);
+    }
+    app.update();
+    let dissolved = warp_of(&app, root);
+    assert_eq!(dissolved.x, 1.0);
+    assert!(dissolved.y >= 1.0, "the body did not finish dissolving: {dissolved:?}");
+    for _ in 0..80 {
+        let mut animator = app.world_mut().get_mut::<CharacterAnimator>(root).unwrap();
+        animator.request(CharacterAnim::BlinkOut);
+        animator.tick(0.017);
+        drop(animator);
+        app.update();
+        assert!(warp_of(&app, root).y >= 1.0, "the body dissolved again while held");
+    }
+    app.world_mut().get_mut::<CharacterAnimator>(root).unwrap().request(CharacterAnim::BlinkIn);
+    app.update();
+    assert_eq!(warp_of(&app, root).x, 2.0);
+    app.world_mut().get_mut::<CharacterAnimator>(root).unwrap().request(CharacterAnim::Idle);
+    app.update();
+    assert_eq!(warp_of(&app, root), Vec4::ZERO);
+}

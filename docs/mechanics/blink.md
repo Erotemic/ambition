@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-07-18
+last_verified: 2026-11-01
 related_docs:
   - docs/systems/blink-and-fastfall.md
   - docs/systems/blink-motion-policy.md
@@ -53,6 +53,26 @@ The reusable mechanism should answer:
 
 Provider or capability data may choose range, resource cost, recovery, whether a
 surface is blink-soft/hard, and visual/audio treatment.
+
+## Developer wall bypass
+
+Open the pause menu, then System → Developer → God Blink. This grants blink,
+precision aim, and passage through solid walls, blink walls, and encounter
+barriers to controlled bodies. The destination must be free space inside the
+room. The normal range still applies. Aim past a wall, then release Blink.
+
+The toggle uses mechanical-edit admission and a temporary ability contribution.
+It does not set progression flags, award encounter rewards, or change the
+character's base kit. Turn it off to withdraw the grant. A body that loses its
+controller also loses the developer contribution. Other ability ceilings still
+apply.
+
+## Blink presentation
+
+Hold Blink to dissolve once. The body stays dissolved until release. A committed
+blink plays the arrival pose and an environmental shockwave at each endpoint.
+The effects use the same live room as the blink event. A blocked request with no
+movement emits no committed blink effects.
 
 ## Validation
 

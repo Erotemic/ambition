@@ -7,13 +7,13 @@
 //!   stats resources + their engine conversions, the movement/debug profile
 //!   enums, and the inspector-visibility run conditions. Plus the live-edit
 //!   sync systems that push inspector edits onto the authoritative player body
-//!   (they name only the foundational `Body*` clusters + `PrimaryPlayerOnly`).
+//!   (they name body clusters and controller authority).
 //! - [`profiling`] — the startup profiler marks (read by audio + setup).
 //! - [`runtime_census`] — the profiling-only workload censuses (off unless
 //!   `AMBITION_PROFILE_CENSUS` is set) and the clock every census samples on.
 //! - [`persistence`] — `DeveloperTools` disk persistence (developer.ron).
 //! - [`contribute_editable_ability_mask`] — the simulation system that offers the
-//!   admitted ability mask to the primary player as a ceiling contribution.
+//!   admitted ability mask and temporary grants to controlled bodies.
 //!
 //! Presentation UI remains in `ambition_app`; gameplay tracing remains with the
 //! simulation state it samples.
@@ -40,7 +40,7 @@ pub use sim_plugin::{DevInspectorMirrorSet, DevToolsSimPlugin};
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly;
+use ambition_characters::control::DrivingParticipant;
 use dev_tools::EditableAbilitySet;
 
 /// Marker type that owns the editable ability-set domain in
@@ -109,33 +109,47 @@ pub fn admit_editable_abilities(
 /// [`AbilityContributions`]: ambition_platformer2d_core::AbilityContributions
 pub const EDITABLE_ABILITY_MASK: &str = "dev.editable_ability_mask";
 
-/// Contribute the admitted mask to the primary player, if any, as a ceiling
-/// over its verbs. `project_body_abilities` turns it into the effective set.
-/// A mask can only turn a verb off, never add one the character was not
-/// authored with.
+/// Apply the admitted ceiling to controlled bodies. God Blink adds a separate
+/// grant. Other ceilings still apply. `project_body_abilities` computes the result.
 ///
 /// It runs in the simulation, where bodies are built, so a new body gets its
 /// admitted abilities on the same tick. It reads the mask, not the editor
 /// resource (see [`dev_tools::ActiveEditableAbilityMask`]). While an edit
-/// awaits admission the previous contribution stays, so a refused edit reaches
-/// no body.
+/// awaits admission, bodies use the last admitted value. A control handoff
+/// still withdraws the old body's contribution.
 pub fn contribute_editable_ability_mask(
     active_mask: Res<dev_tools::ActiveEditableAbilityMask>,
-    pending: Res<ambition_platformer2d_core::PendingMechanicalEdits>,
-    mut player_q: Query<&mut ambition_platformer2d_core::AbilityContributions, PrimaryPlayerOnly>,
+    mut bodies: Query<(&mut ambition_platformer2d_core::AbilityContributions, Has<DrivingParticipant>)>,
 ) {
-    if pending.is_pending(ability_set_domain()) {
-        return;
-    }
     let Some(mask) = active_mask.0 else {
         return;
     };
-    let Ok(mut contributions) = player_q.single_mut() else {
-        return;
-    };
-    let ceiling = ambition_platformer2d_core::AbilityContribution::Ceiling(mask);
-    if contributions.get(EDITABLE_ABILITY_MASK) != Some(ceiling) {
-        contributions.set(EDITABLE_ABILITY_MASK, ceiling);
+    use ambition_platformer2d_core::{AbilityContribution, AbilityGrant};
+    let god_blink = mask.blink_through_solids;
+    let granted = if god_blink { AbilityGrant::GodBlink.to_set() } else { ambition_platformer2d_core::AbilitySet::NONE };
+    let ceiling = AbilityContribution::Ceiling(ambition_platformer2d_core::AbilitySet {
+        blink_through_solids: true,
+        ..mask.union(granted)
+    });
+    const GOD_BLINK: &str = "dev.god_blink";
+    for (mut contributions, controlled) in &mut bodies {
+        if !controlled {
+            for key in [EDITABLE_ABILITY_MASK, GOD_BLINK] {
+                if contributions.get(key).is_some() { contributions.clear(key); }
+            }
+            continue;
+        }
+        if contributions.get(EDITABLE_ABILITY_MASK) != Some(ceiling) {
+            contributions.set(EDITABLE_ABILITY_MASK, ceiling);
+        }
+        if god_blink {
+            let grant = AbilityContribution::Lend(granted);
+            if contributions.get(GOD_BLINK) != Some(grant) {
+                contributions.set(GOD_BLINK, grant);
+            }
+        } else if contributions.get(GOD_BLINK).is_some() {
+            contributions.clear(GOD_BLINK);
+        }
     }
 }
 
@@ -321,6 +335,47 @@ mod ability_admission_tests {
             "nothing recorded WHAT was admitted, so a body built later projects \
              whatever the editor panel holds at that moment instead",
         );
+    }
+
+    #[test]
+    fn god_blink_is_lent_to_controlled_bodies_and_withdrawn_without_changing_their_base() {
+        use ambition_platformer2d_core::{AbilityContributions, AbilitySet};
+        use ambition_characters::control::PlayerSlot;
+        let mut app = App::new();
+        app.init_resource::<EditableAbilitySet>();
+        app.init_resource::<dev_tools::ActiveEditableAbilityMask>();
+        app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
+        app.add_systems(Update, (admit_editable_abilities, contribute_editable_ability_mask).chain());
+        let bodies: Vec<_> = [PlayerSlot(0), PlayerSlot(1)].into_iter().map(|seat| {
+            app.world_mut().spawn((DrivingParticipant(seat), AbilityContributions::default())).id()
+        }).collect();
+        {
+            let mut editable = app.world_mut().resource_mut::<EditableAbilitySet>();
+            editable.blink = false;
+            editable.precision_blink = false;
+        }
+        app.update();
+        let base = AbilitySet::basic();
+        let effective = |app: &App, body| app.world().get::<AbilityContributions>(body).unwrap().apply(base);
+        assert!(!effective(&app, bodies[0]).blink_through_solids);
+        app.world_mut().resource_mut::<EditableAbilitySet>().blink_through_solids = true;
+        app.world_mut().resource_mut::<ambition_platformer2d_core::PendingMechanicalEdits>().propose(ability_set_domain());
+        app.update();
+        for body in &bodies {
+            let set = effective(&app, *body);
+            assert!(set.blink && set.precision_blink && set.blink_through_solids);
+        }
+        app.insert_resource(ambition_platformer2d_core::MechanicalEditAdmission::Refuse);
+        app.world_mut().resource_mut::<ambition_platformer2d_core::PendingMechanicalEdits>().propose(ability_set_domain());
+        app.world_mut().entity_mut(bodies[1]).remove::<DrivingParticipant>();
+        app.update();
+        assert_eq!(effective(&app, bodies[1]), base);
+        assert!(effective(&app, bodies[0]).blink_through_solids);
+        app.insert_resource(ambition_platformer2d_core::MechanicalEditAdmission::Publish);
+        app.world_mut().resource_mut::<EditableAbilitySet>().blink_through_solids = false;
+        app.world_mut().resource_mut::<ambition_platformer2d_core::PendingMechanicalEdits>().propose(ability_set_domain());
+        app.update();
+        for body in bodies { assert_eq!(effective(&app, body), base); }
     }
 
     /// A refused edit is not admitted. This fails if admission drained the domain

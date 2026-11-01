@@ -11,6 +11,7 @@ use super::*;
 /// which aggregates the same three. Bundled so [`dev_snapshot`] /
 /// [`apply_dev_toggle`] stay single-source for every Developer row.
 pub(crate) struct DevToggleRead<'a> {
+    pub(crate) abilities: Option<&'a ambition_platformer2d::dev_tools::dev_tools::EditableAbilitySet>,
     pub(crate) dev: &'a ambition_platformer2d::dev_tools::dev_tools::DeveloperTools,
     pub(crate) dev_state: &'a ambition_platformer2d::dev_tools::DeveloperRuntimeState,
     pub(crate) ldtk_reload: &'a ambition_platformer2d::dev_tools::WorldSourceHotReload,
@@ -34,6 +35,7 @@ pub(crate) struct DevToggleRead<'a> {
 }
 
 pub(crate) struct DevToggleWrite<'a> {
+    pub(crate) abilities: Option<&'a mut ambition_platformer2d::dev_tools::dev_tools::EditableAbilitySet>,
     pub(crate) dev: &'a mut ambition_platformer2d::dev_tools::dev_tools::DeveloperTools,
     pub(crate) dev_state: &'a mut ambition_platformer2d::dev_tools::DeveloperRuntimeState,
     pub(crate) ldtk_reload: &'a mut ambition_platformer2d::dev_tools::WorldSourceHotReload,
@@ -63,6 +65,7 @@ pub(crate) fn dev_snapshot(ctx: DevToggleRead<'_>) -> DevSnapshot {
         ctx.dev_state.debug_enabled(),
     ));
     values.push(DevSnapshot::toggle(D::SlowMotion, ctx.dev_state.slowmo));
+    values.push(DevSnapshot::toggle(D::GodBlink, ctx.abilities.is_some_and(|a| a.blink_through_solids)));
     values.push(DevSnapshot::toggle(D::Inspector, dev.inspector_visible));
     values.push(DevSnapshot::toggle(
         D::WorldInspector,
@@ -147,6 +150,11 @@ pub(crate) fn apply_dev_toggle(ctx: DevToggleWrite<'_>, id: DevToggleId, dir: i3
         // `SettingsItem::DebugOverlay` / `SlowMotion` arms).
         D::DebugOverlay => ctx.dev_state.debug = !ctx.dev_state.debug,
         D::SlowMotion => ctx.dev_state.slowmo = !ctx.dev_state.slowmo,
+        D::GodBlink => {
+            if let Some(abilities) = ctx.abilities {
+                abilities.blink_through_solids = !abilities.blink_through_solids;
+            }
+        }
         D::Inspector => dev.inspector_visible = !dev.inspector_visible,
         D::WorldInspector => dev.world_inspector_visible = !dev.world_inspector_visible,
         D::Gizmos => dev.gizmos_enabled = !dev.gizmos_enabled,

@@ -291,6 +291,7 @@ fn developer_screen_surfaces_resource_backed_extra_toggles() {
     for id in [
         DevToggleId::DebugOverlay,
         DevToggleId::SlowMotion,
+        DevToggleId::GodBlink,
         DevToggleId::LdtkAutoApply,
     ] {
         assert!(
@@ -310,7 +311,6 @@ fn developer_screen_surfaces_resource_backed_extra_toggles() {
         assert!(DevToggleId::ALL.contains(&id));
         assert!(id.is_cycle(), "{id:?} is a cycle");
     }
-    assert_eq!(DevToggleId::ALL.len(), 23);
 }
 
 #[test]

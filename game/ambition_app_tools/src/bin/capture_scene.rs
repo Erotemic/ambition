@@ -367,7 +367,7 @@ OPTIONS:
     --player-holds NAMES[@TICK]
                         the player holds the controls NAMES from sim tick TICK
                         [default: 60]: up, down, left, right, walk, jump,
-                        attack, special, shield, projectile (the fire
+                        attack, special, shield, blink, projectile (the fire
                         button, held to charge), joined with `+`, or `none`.
                         A button the hold before did not have down is pressed
                         on TICK and held after it. Repeat for a sequence; the
@@ -861,6 +861,7 @@ struct HeldControls {
     special: bool,
     shield: bool,
     projectile: bool,
+    blink: bool,
 }
 
 impl HeldControls {
@@ -881,10 +882,11 @@ impl HeldControls {
                 "special" => held.special = true,
                 "shield" => held.shield = true,
                 "projectile" => held.projectile = true,
+                "blink" => held.blink = true,
                 other => {
                     return Err(format!(
                         "--player-holds does not know '{other}'. Known: up, down, left, right, walk, \
-                         jump, attack, special, shield, projectile, none"
+                         jump, attack, special, shield, projectile, blink, none"
                     ))
                 }
             }
@@ -904,6 +906,9 @@ impl HeldControls {
         ae::ControlFrame {
             axis_x: self.axis.x,
             axis_y: self.axis.y,
+            blink_held: self.blink,
+            blink_pressed: pressed(self.blink, |held| held.blink),
+            blink_released: !self.blink && before.is_some_and(|before| before.blink),
             jump_held: self.jump,
             jump_pressed: pressed(self.jump, |held| held.jump),
             attack_held: self.attack,

@@ -25,6 +25,7 @@ pub enum DevToggleId {
     // Global dev flags (sourced from `DeveloperRuntimeState`, not `DeveloperTools`).
     DebugOverlay,
     SlowMotion,
+    GodBlink,
     // Inspectors.
     Inspector,
     WorldInspector,
@@ -73,12 +74,13 @@ impl DevToggleId {
     /// (DebugOverlay/SlowMotion) and the trailing LdtkAutoApply are sourced from
     /// `DeveloperRuntimeState` / `WorldSourceHotReload` (not `DeveloperTools`). Physical
     /// keyboard chords are owned by the central developer-hotkey registry.
-    pub const ALL: [Self; 23] = [
+    pub const ALL: [Self; 24] = [
         // Pinned FIRST so it lands under the cursor the instant you drill into
         // Developer — the menu-frontend toggle is the one developers flip most.
         Self::MenuBackend,
         Self::DebugOverlay,
         Self::SlowMotion,
+        Self::GodBlink,
         Self::Inspector,
         Self::WorldInspector,
         Self::Gizmos,
@@ -105,6 +107,7 @@ impl DevToggleId {
         match self {
             Self::DebugOverlay => "Debug Overlay",
             Self::SlowMotion => "Slow Motion",
+            Self::GodBlink => "God Blink",
             Self::Inspector => "Inspector",
             Self::WorldInspector => "World Inspector",
             Self::Gizmos => "Gizmos",
@@ -133,6 +136,7 @@ impl DevToggleId {
         match self {
             Self::DebugOverlay => "Toggle the debug overlay (state, timers, gizmos).",
             Self::SlowMotion => "Toggle slow-motion for inspecting fast motion.",
+            Self::GodBlink => "Blink through walls and encounter barriers. Land in open space.",
             Self::Inspector => "Show the reflected resource inspector windows.",
             Self::WorldInspector => "Show the full-world entity/resource inspector.",
             Self::Gizmos => "Master switch for Bevy gizmo overlays.",

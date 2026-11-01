@@ -135,6 +135,7 @@ fn extra_dev_toggles_flip_their_non_developer_resources() {
     ] {
         apply_dev_toggle(
             DevToggleWrite {
+                abilities: None,
                 dev: &mut dev,
                 dev_state: &mut dev_state,
                 ldtk_reload: &mut ldtk_reload,
@@ -164,6 +165,7 @@ fn extra_dev_toggles_flip_their_non_developer_resources() {
     );
     // The snapshot mirrors the live state for all three (no field drift).
     let snap = dev_snapshot(DevToggleRead {
+            abilities: None,
         dev: &dev,
         dev_state: &dev_state,
         ldtk_reload: &ldtk_reload,
@@ -199,6 +201,7 @@ fn menu_backend_dev_row_cycles_inventory_backend() {
     // The snapshot label reflects the live backend.
     let label = |b: InventoryUiBackend| {
         dev_snapshot(DevToggleRead {
+            abilities: None,
             dev: &dev,
             dev_state: &dev_state,
             ldtk_reload: &ldtk_reload,
@@ -223,6 +226,7 @@ fn menu_backend_dev_row_cycles_inventory_backend() {
     // Dispatching the row flips the backend Grid → Cube …
     apply_dev_toggle(
         DevToggleWrite {
+                abilities: None,
             dev: &mut dev,
             dev_state: &mut dev_state,
             ldtk_reload: &mut ldtk_reload,
@@ -240,6 +244,7 @@ fn menu_backend_dev_row_cycles_inventory_backend() {
     // … and back Cube → Grid.
     apply_dev_toggle(
         DevToggleWrite {
+                abilities: None,
             dev: &mut dev,
             dev_state: &mut dev_state,
             ldtk_reload: &mut ldtk_reload,
@@ -270,6 +275,7 @@ fn show_hitboxes_toggles_feature_and_player_fields_like_pause() {
 
     apply_dev_toggle(
         DevToggleWrite {
+                abilities: None,
             dev: &mut dev,
             dev_state: &mut dev_state,
             ldtk_reload: &mut ldtk_reload,
@@ -290,6 +296,7 @@ fn show_hitboxes_toggles_feature_and_player_fields_like_pause() {
     );
 
     let snap = dev_snapshot(DevToggleRead {
+            abilities: None,
         dev: &dev,
         dev_state: &dev_state,
         ldtk_reload: &ldtk_reload,
@@ -1548,6 +1555,7 @@ fn scroll_total_rows(app: &App) -> usize {
         .resource::<ambition_platformer2d::dev_tools::WorldSourceHotReload>();
     let backend = *app.world().resource::<InventoryUiBackend>();
     let snap = dev_snapshot(DevToggleRead {
+            abilities: None,
         dev,
         dev_state,
         ldtk_reload,

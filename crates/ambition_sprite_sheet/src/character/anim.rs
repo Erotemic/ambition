@@ -378,7 +378,9 @@ impl CharacterAnim {
 pub fn non_looping(anim: CharacterAnim) -> bool {
     matches!(
         anim,
-        CharacterAnim::Slash
+        CharacterAnim::BlinkOut
+            | CharacterAnim::BlinkIn
+            | CharacterAnim::Slash
             | CharacterAnim::Hit
             | CharacterAnim::Death
             | CharacterAnim::LedgeClimb

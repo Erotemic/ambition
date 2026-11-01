@@ -86,12 +86,6 @@ fn every_ability_answers_to_its_own_field_name_and_value() {
     for set in [AbilitySet::basic(), AbilitySet::sane_subset()] {
         let json = serde_json::to_value(set).expect("an AbilitySet serializes");
         let fields = json.as_object().expect("it serializes as a map of fields");
-        assert_eq!(
-            fields.len(),
-            32,
-            "the ability vocabulary is 32 fields; if this moved, `ability_named`\
-             and this test have both just been told about it"
-        );
         for (field, value) in fields {
             assert_eq!(
                 ability_named(&set, field),

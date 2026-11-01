@@ -1160,7 +1160,7 @@ fn integrate_actor_body(
             source: HitSource::Contact,
             attacker: Some(actor_entity),
             room: None,
-            target: HitTarget::Volume,
+            target: HitTarget::Body(actor_entity),
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),

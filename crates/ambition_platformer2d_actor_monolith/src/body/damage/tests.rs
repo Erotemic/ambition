@@ -321,6 +321,7 @@ fn enemy_charge_crash_is_processed_as_enemy_damage() {
     app.add_systems(Update, apply_feature_hit_events);
 
     let actor_entity = spawn_hostile_actor(&mut app);
+    let bystander = spawn_hostile_actor(&mut app);
     let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
     app.world_mut().write_message(HitEvent {
         pieces: Vec::new(),
@@ -328,9 +329,9 @@ fn enemy_charge_crash_is_processed_as_enemy_damage() {
         volume: event_volume.into(),
         damage: 10,
         source: HitSource::Contact,
-        attacker: None,
+        attacker: Some(actor_entity),
         room: None,
-        target: HitTarget::Volume,
+        target: HitTarget::Body(actor_entity),
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
@@ -355,6 +356,9 @@ fn enemy_charge_crash_is_processed_as_enemy_damage() {
         !health.alive(),
         "charge crash should mark the enemy dead through the normal kill path"
     );
+    assert_eq!(app.world().get::<BodyHealth>(bystander).unwrap().current(), 5,
+        "the crash names its own body, not every overlapping body");
+
 }
 
 #[test]
@@ -884,17 +888,10 @@ fn debris_rooms_of_a_kill_in_the_second_room(
         .collect()
 }
 
-/// OW1 cut 4b: a blast with no attacker hits only the bodies of the live
-/// room it happens in.
-///
-/// A bomb's blast names no victim (`Volume`) and no attacker, so the
-/// attacker cannot give it a room. The shipped fuse system writes the blast
-/// from a bomb in #0, with live rooms #0 and #1 both live. The control puts
-/// the enemy in #0, at the blast, and it takes damage: a blast that has no
-/// room of its own is in no room while two are live, and hits nothing. The
-/// subject puts the same enemy, in the same place, in #1, and it takes none.
+/// A bomb resolves through scoped strikes after its source leaves.
+/// A body at the same coordinates in another live room takes no damage.
 #[test]
-fn a_blast_with_no_attacker_hits_only_its_own_live_room() {
+fn a_bomb_blast_hits_only_its_own_live_room() {
     use ambition_platformer2d_shared_tangle::lifecycle::{
         InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
     };
@@ -913,7 +910,11 @@ fn a_blast_with_no_attacker_hits_only_its_own_live_room() {
         app.insert_resource(time);
         app.add_systems(
             Update,
-            (ambition_abilities::ranged::bomb::tick_bomb_fuses, apply_feature_hit_events,
+            (
+                ambition_abilities::ranged::bomb::tick_bomb_fuses,
+                ambition_combat::damage_box::materialize_damage_boxes,
+                ambition_combat::hitbox::apply_hitbox_damage,
+                apply_feature_hit_events,
             ).chain(),
         );
         for room in [first, first.next()] {
@@ -938,7 +939,7 @@ fn a_blast_with_no_attacker_hits_only_its_own_live_room() {
     };
     assert!(
         health_after_a_blast(first) < 5,
-        "control: a blast with no attacker did not hit a body in its own room"
+        "control: a bomb blast did not hit a body in its own room"
     );
     assert_eq!(health_after_a_blast(first.next()), 5, "a blast reached a body in another live room");
 }

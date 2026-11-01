@@ -65,6 +65,7 @@ struct Loop {
 impl Loop {
     fn new() -> Self {
         let mut app = App::new();
+        app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 1.0 / 60.0));
         app.init_resource::<SpentPowerBlocks>();
         // The transformation beat times itself against the ARRIVING form's
@@ -333,7 +334,7 @@ fn every_tier_change_holds_its_arriving_sheets_transition_clip() {
         grow.clock_scale < 1.0,
         "a step UP asks the regime to slow the world for the moment"
     );
-    let grow_clip = clip_secs(&sprite_content, "mary_o_v2_tall", CharacterAnim::Grow);
+    let grow_clip = clip_secs(&sprite_content, "mary_o_v2_tall_classic", CharacterAnim::Grow);
     assert!(
         grow.duration * grow.clock_scale >= grow_clip - 1e-4,
         "the beat must outlast its own dilation: {:.3}s of wall time at {:.2}x \
@@ -401,7 +402,7 @@ fn every_tier_change_holds_its_arriving_sheets_transition_clip() {
         "the beat is the hitstun window she had none of"
     );
     assert!(
-        shrink.duration >= clip_secs(&sprite_content, "mary_o_v2_tall", CharacterAnim::Shrink) - 1e-4,
+        shrink.duration >= clip_secs(&sprite_content, "mary_o_v2_tall_classic", CharacterAnim::Shrink) - 1e-4,
         "and it lasts as long as the clip"
     );
 
@@ -435,7 +436,7 @@ fn each_mary_o_sheet_publishes_the_transitions_that_arrive_at_it() {
         "and fire can lose two tiers into it"
     );
 
-    let tall = sheet("mary_o_v2_tall");
+    let tall = sheet("mary_o_v2_tall_classic");
     assert!(tall.maps(CharacterAnim::Grow), "small becomes tall here");
     assert!(
         tall.maps(CharacterAnim::Shrink),
@@ -450,7 +451,7 @@ fn each_mary_o_sheet_publishes_the_transitions_that_arrive_at_it() {
 
     for (name, spec) in [
         ("mary_o_v2", &small),
-        ("mary_o_v2_tall", &tall),
+        ("mary_o_v2_tall_classic", &tall),
         ("mary_o_v2_fire", &fire),
     ] {
         assert!(
@@ -1271,6 +1272,7 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
 /// test in three rooms.
 fn pipe_shell(room_id: &str) -> App {
     let mut app = App::new();
+        app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
     app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 1.0 / 60.0));
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();

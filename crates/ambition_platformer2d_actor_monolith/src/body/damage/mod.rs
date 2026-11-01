@@ -771,16 +771,9 @@ pub fn apply_feature_hit_events(sprite_content: bevy::prelude::Res<ambition_spri
                 None if rooms.of(actor_entity) != event_room => continue,
                 _ => {}
             }
-            // IDENTITY BEATS EVERY RELATIONSHIP RULE — the body resolver's
-            // first line, and this scan did not have it. A broadcast that
-            // overlaps its own emitter damaged it.
-            //
-            // the DIRECTION words were doing this job, which is why nobody
-            // noticed: a body-contact hit was filed victim-side, the drain
-            // skipped every victim-side broadcast, and the self-hit could not
-            // arise. Fold the direction out of the vocabulary and the protection
-            // leaves with it — so state the rule that was actually wanted.
-            if event.attacker == Some(actor_entity) {
+            // A resolved body hit carries the resolver's self-damage decision.
+            // Unresolved contacts must still exclude their own emitter.
+            if actor_target.is_none() && event.attacker == Some(actor_entity) {
                 continue;
             }
             let prefix = if disposition.is_hostile() {

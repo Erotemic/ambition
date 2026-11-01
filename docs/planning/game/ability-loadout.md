@@ -119,8 +119,9 @@ feel like a bomb: weight, a bounce, and a blast on a hard contact.
 - **Fuse flash.** `GroundItemFact::fuse_left_s` carries the fuse to the
   view. The sprite flashes red and swells, from 3 to 14 flashes a second
   as the fuse burns down (`fuse_flash`).
-- The Smash item bombs use the same `bomb` item, so they have the same
-  weight, bounce and detonation.
+- The inventory bomb arms on a throw and disarms on a catch. The Smash
+  `polygon_bomb` has an authored module fuse that also burns in a hand.
+  Both blasts use the shared strike resolver and can hurt all nearby bodies.
 
 Witnesses: `bombs_are_a_stock_in_the_bag` (`app_it`: the stock, the re-arm,
 the empty hand and the normal attack; a hard throw goes off on contact and a

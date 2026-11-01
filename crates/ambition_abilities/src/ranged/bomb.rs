@@ -1,5 +1,4 @@
-//! Bomb — a thrown held item that explodes, damaging enemies in a radius via
-//! a player-side AABB [`HitEvent`].
+//! A thrown bomb emits a scoped environmental blast.
 //!
 //! Uses the held-item substrate: `bomb` is a pure-throwable `HeldItemSpec` (no
 //! melee or ranged verb), so a plain `Attack` throws it and it flies as a
@@ -13,14 +12,17 @@
 //!   (a hard throw into a wall or the floor);
 //! * a strike on a body at [`BOMB_BODY_DETONATION_SPEED`] or faster.
 //!
-//! The blast is a `Melee`-source hit that damages enemies and bosses in it
-//! (the player is spared), with a large burst, smoke, a shockwave and a camera
-//! shake. A bomb that was never thrown does not arm, and a bomb in a hand
-//! does not go off on an impact.
+//! The blast can damage every body in range, including the thrower. It has
+//! a burst, smoke, a shockwave and a camera shake. A bomb that was never thrown
+//! does not arm. A bomb in a hand does not go off on an impact.
 
 use bevy::prelude::*;
 
-use ambition_combat::events::{HitEvent, HitMode, HitSource, HitTarget};
+use ambition_combat::{
+    damage_box::DamageBoxWriter,
+    events::HitSource,
+    strike::{DamageBox, HitSide, HitboxKnockback},
+};
 use ambition_held_items::{GroundItem, ItemBody, ItemCustody, ItemStruckBody, ItemStruckSurface, Release, ReleasedAs};
 use ambition_platformer2d_core as ae;
 
@@ -49,8 +51,8 @@ pub const BOMB_BODY: ItemBody = ItemBody {
     slide: 0.7,
     rest_speed: 60.0,
 };
-/// Blast half-extent (AABB), px.
-const BOMB_BLAST_HALF: f32 = 80.0;
+/// Blast radius, px.
+const BOMB_BLAST_RADIUS: f32 = 80.0;
 /// Explosion damage.
 const BOMB_DAMAGE: i32 = 4;
 /// Camera shake of a blast, px (before the game's cap).
@@ -119,9 +121,9 @@ pub fn strikes_hard_enough(surface: f32, body: f32) -> bool {
 }
 
 /// Burn down lit fuses, and set off each bomb whose fuse ended or that struck
-/// something hard this tick. A blast is a player-side [`HitEvent`] (it
-/// damages enemies and bosses in the AABB, not the player), with its sound,
-/// burst and camera shake, and the bomb despawns.
+/// something hard this tick. The blast uses the shared strike resolver.
+/// The bomb owns the blast because it can change hands. The blast can damage
+/// all bodies in range. The bomb despawns after it emits the strike.
 ///
 /// It reads the strikes that `ground_item_physics` published this tick
 /// ([`ItemStruckSurface`], [`ItemStruckBody`]). Only a loose bomb strikes:
@@ -137,7 +139,7 @@ pub fn tick_bomb_fuses(
         Option<&ItemStruckSurface>,
         Option<&ItemStruckBody>,
     )>,
-    mut hits: MessageWriter<HitEvent>,
+    mut blasts: DamageBoxWriter,
     mut sfx: ambition_sfx::BodySfxWriter,
     mut vfx: ambition_vfx::vfx::VfxWriter,
     mut shake: MessageWriter<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>,
@@ -170,21 +172,15 @@ pub fn tick_bomb_fuses(
             continue;
         }
         let room = rooms.of(entity);
-        // Detonate: a broadcast player-side hit over a disc, so the blast is
-        // radial.
-        hits.write(HitEvent {
-            pieces: Vec::new(),
-            strike_sfx: None,
-            volume: ae::CombatVolume::circle(ground.pos, BOMB_BLAST_HALF),
+        blasts.write(entity, entity, HitSide::Environment, ground.pos, DamageBox {
+            cause: HitSource::Hazard,
+            move_instance: None,
+            half_extent: ae::Vec2::splat(BOMB_BLAST_RADIUS),
+            shape: Some(ae::VolumeShape::circle(BOMB_BLAST_RADIUS)),
             damage: BOMB_DAMAGE,
-            source: HitSource::Melee,
-            attacker: None,
-            room,
-            target: HitTarget::Volume,
-            mode: HitMode::Knockback,
-            knockback: None,
-            ignored_targets: Vec::new(),
-            attacker_move_instance: None,
+            knockback: HitboxKnockback::FeelScale(1.0),
+            lifetime_s: 0.0,
+            name: Some("bomb blast"),
         });
         // The bomb inherits its thrower's source at spawn, so the blast plays
         // the thrower's cue, or the session's when nothing was stamped.
@@ -279,7 +275,7 @@ mod tests {
     #[test]
     fn catching_a_live_bomb_puts_the_fuse_out() {
         let mut app = App::new();
-        app.add_message::<HitEvent>();
+        app.add_message::<ambition_combat::damage_box::DamageBoxRequest>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         app.add_message::<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>();
@@ -348,55 +344,44 @@ mod tests {
     }
 
     #[derive(Resource, Default)]
-    struct CapturedHits(Vec<HitEvent>);
+    struct CapturedBlasts(Vec<ambition_combat::damage_box::DamageBoxRequest>);
 
-    fn capture_hits(mut reader: MessageReader<HitEvent>, mut out: ResMut<CapturedHits>) {
+    fn capture_blasts(mut reader: MessageReader<ambition_combat::damage_box::DamageBoxRequest>, mut out: ResMut<CapturedBlasts>) {
         out.0.extend(reader.read().cloned());
     }
 
     #[test]
-    fn fuse_expiry_detonates_a_player_side_blast_and_despawns() {
-        let mut app = App::new();
-        app.add_message::<HitEvent>();
-        app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
-        app.add_message::<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>();
-        app.init_resource::<CapturedHits>();
-        let mut wt = ambition_time::WorldTime::default();
-        wt.set_sim_dt(0.05); // sim_dt() > the 0.001 fuse
-        app.insert_resource(wt);
-        app.add_systems(Update, (tick_bomb_fuses, capture_hits).chain());
-        let bomb = app
-            .world_mut()
+    fn fuse_expiry_emits_an_environmental_blast_and_despawns() {
+        let mut app = fuse_app();
+        let bomb = app.world_mut()
             .spawn((bomb_ground(ae::Vec2::ZERO), BombFuse { timer: 0.001 }))
             .id();
         app.update();
-        assert!(
-            app.world().get::<GroundItem>(bomb).is_none(),
-            "bomb despawns on detonation"
-        );
-        let hits = &app.world().resource::<CapturedHits>().0;
-        let hit = hits.first().expect("a blast HitEvent was emitted");
-        assert_eq!(hit.damage, BOMB_DAMAGE);
-        assert!(
-            matches!(hit.source, HitSource::Melee),
-            "player-side blast (spares the player, hits enemies)"
-        );
+        assert!(app.world().get::<GroundItem>(bomb).is_none());
+        let hits = &app.world().resource::<CapturedBlasts>().0;
+        assert_eq!(hits.len(), 1);
+        let hit = &hits[0];
+        assert_eq!(hit.owner, bomb);
+        assert_eq!(hit.source, HitSide::Environment);
+        assert!(hit.allegiance.is_none());
+        assert_eq!(hit.damage_box.damage, BOMB_DAMAGE);
+        assert_eq!(hit.damage_box.cause, HitSource::Hazard);
+        assert_eq!(hit.damage_box.shape, Some(ae::VolumeShape::circle(BOMB_BLAST_RADIUS)));
     }
 
     /// An app that runs the fuse ticker with every message it writes, and
     /// captures the blasts.
     fn fuse_app() -> App {
         let mut app = App::new();
-        app.add_message::<HitEvent>();
+        app.add_message::<ambition_combat::damage_box::DamageBoxRequest>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         app.add_message::<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>();
-        app.init_resource::<CapturedHits>();
+        app.init_resource::<CapturedBlasts>();
         let mut wt = ambition_time::WorldTime::default();
         wt.set_sim_dt(1.0 / 60.0);
         app.insert_resource(wt);
-        app.add_systems(Update, (tick_bomb_fuses, capture_hits).chain());
+        app.add_systems(Update, (tick_bomb_fuses, capture_blasts).chain());
         app
     }
 
@@ -421,7 +406,7 @@ mod tests {
         let soft = lit(&mut app, Some(BOMB_SURFACE_DETONATION_SPEED * 0.5), None);
         app.update();
         assert!(app.world().get::<GroundItem>(hard).is_none(), "a hard strike did not set the bomb off");
-        assert_eq!(app.world().resource::<CapturedHits>().0.len(), 1, "one blast, the hard one's");
+        assert_eq!(app.world().resource::<CapturedBlasts>().0.len(), 1, "one blast, the hard one's");
         let left = app.world().get::<BombFuse>(soft).expect("a soft landing does not set it off").timer;
         assert!(
             left <= BOMB_FUSE_AFTER_BOUNCE_SECS,
@@ -455,7 +440,7 @@ mod tests {
         app.world_mut().entity_mut(carried).insert(ItemCustody::Held { holder });
         app.update();
         assert!(app.world().get::<GroundItem>(carried).is_some());
-        assert!(app.world().resource::<CapturedHits>().0.is_empty());
+        assert!(app.world().resource::<CapturedBlasts>().0.is_empty());
     }
 
     /// Each bomb gets its body before it moves, and no other item does.

@@ -390,3 +390,89 @@ fn projectile_splashes_keep_launch_allegiance_and_reach_either_participant() {
         }
     }
 }
+
+#[test]
+fn inventory_bombs_hurt_either_participant_only_in_the_blast_room() {
+    use ambition_platformer2d::{abilities::ranged::bomb::BombFuse, held_items::{GroundItem, Release, ReleasedAs}};
+    use ambition_platformer2d::actor::{BodyHealth, Health};
+    for (enabled, separate_rooms) in [(false, false), (true, false), (false, true)] {
+        let mut sim = party(enabled);
+        bob_beside_alice(&mut sim, ROOM, Some(PlayerSlot(1)));
+        if separate_rooms {
+            assert_eq!(crate::common::walk_through_the_door_to(&mut sim, "central_hub_complex"), "central_hub_complex");
+        }
+        let alice = driven(&mut sim, 0);
+        let bob = driven(&mut sim, 1);
+        for body in [alice, bob] {
+            sim.world_mut().entity_mut(body).insert((
+                combat::components::ActiveCombatant,
+                BodyHealth::new(Health::new(100)),
+            ));
+            crate::a_second_seat_joins_the_session::put_body_at(&mut sim, body, ae::Vec2::new(400.0, 100.0));
+        }
+        for _ in 0..2 { sim.step(base()); }
+        let room = *sim.world().get::<InRoomInstance>(bob).unwrap();
+        let pos = sim.world().get::<ae::BodyKinematics>(bob).unwrap().pos;
+        let before = [alice, bob].map(|body| sim.world().get::<BodyHealth>(body).unwrap().damage_taken());
+        let bomb = sim.world_mut().spawn((
+            GroundItem::released(
+                ambition_platformer2d::characters::brain::held_item_by_id("bomb").unwrap(),
+                pos, ae::Vec2::ZERO, ae::Vec2::splat(14.0),
+            ),
+            ReleasedAs(Release::Throw), BombFuse { timer: 0.001 }, room,
+        )).id();
+        for _ in 0..2 { sim.step(base()); }
+        assert!(sim.world().get_entity(bomb).is_err(), "the bomb detonated");
+        let messages = sim.world().resource::<Messages<combat::HitEvent>>();
+        let mut cursor = messages.get_cursor();
+        let hits: Vec<_> = cursor.read(messages).filter(|hit| hit.attacker == Some(bomb)).collect();
+        for (index, body) in [alice, bob].into_iter().enumerate() {
+            let lands = body == bob || !separate_rooms;
+            let after = sim.world().get::<BodyHealth>(body).unwrap().damage_taken();
+            assert_eq!(after > before[index], lands, "seat {index}, friendly fire={enabled}, separate rooms={separate_rooms}: {} -> {after}", before[index]);
+            assert_eq!(hits.iter().any(|hit| hit.target == combat::events::HitTarget::Body(body)), lands);
+        }
+        assert!(hits.iter().all(|hit| hit.source == combat::events::HitSource::Hazard));
+        assert!(!sim.world_mut().query::<&combat::strike::Hitbox>().iter(sim.world()).any(|hit| hit.owner == bomb),
+            "the blast resolves once after its bomb leaves");
+    }
+}
+
+#[test]
+fn an_environmental_strike_can_hurt_its_credit_body_in_either_seat() {
+    use ambition_platformer2d::actor::{BodyHealth, Health};
+    use combat::strike::{Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, HitboxKnockback, HitSide};
+    for source_slot in [0, 1] {
+        for source in [HitSide::Environment, HitSide::Player] {
+            let mut sim = party(false);
+            let room = bob_beside_alice(&mut sim, ROOM, Some(PlayerSlot(1)));
+            let owner = driven(&mut sim, source_slot);
+            let other = driven(&mut sim, 1 - source_slot);
+            for body in [owner, other] {
+                sim.world_mut().entity_mut(body).insert((
+                    combat::components::ActiveCombatant, BodyHealth::new(Health::new(100)),
+                ));
+                crate::a_second_seat_joins_the_session::put_body_at(&mut sim, body, ae::Vec2::new(400.0, 100.0));
+            }
+            for _ in 0..2 { sim.step(base()); }
+            let pos = sim.world().get::<ae::BodyKinematics>(owner).unwrap().pos;
+            let before = [owner, other].map(|body| sim.world().get::<BodyHealth>(body).unwrap().damage_taken());
+            sim.world_mut().spawn((
+                Hitbox {
+                    owner, source, anchor: HitboxAnchor::World { center: pos },
+                    half_extent: ae::Vec2::splat(80.0), shape: None, facing: 1.0, damage: 4,
+                    knockback: HitboxKnockback::FeelScale(0.0), launch_dir: None,
+                    frame_down: ae::DEFAULT_GRAVITY_DIR, reaction: None, strike_sfx: None, guard: Default::default(),
+                },
+                combat::events::HitSource::Hazard, HitboxHits::default(),
+                HitboxLifetime { remaining_s: 0.0 }, InRoomInstance(room),
+            ));
+            for _ in 0..2 { sim.step(base()); }
+            for (index, body) in [owner, other].into_iter().enumerate() {
+                let after = sim.world().get::<BodyHealth>(body).unwrap().damage_taken();
+                assert_eq!(after > before[index], source == HitSide::Environment,
+                    "source={source:?}, owner seat={source_slot}, victim={index}: {} -> {after}", before[index]);
+            }
+        }
+    }
+}

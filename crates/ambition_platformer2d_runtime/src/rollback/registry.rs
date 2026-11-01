@@ -197,7 +197,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// 398 -> 399: fixed strikes carry their semantic cause. Projectile splashes
 /// use scoped body contacts and retain launch allegiance and move credit.
 /// Axis sweeps require positive overlap across the moving axis.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 399;
+/// 399 -> 400: thrown inventory bombs use scoped environmental strikes.
+/// The blast can damage all bodies in range, including the thrower.
+/// Resolved body hits retain the resolver's self-damage decision.
+/// A shark charge crash names only the crashing body.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 400;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

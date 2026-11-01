@@ -2,9 +2,11 @@
 
 ## Current shape
 
-`AudioEnvironment` (`crates/ambition_platformer2d_actor_monolith/src/audio/environment.rs`)
-reads `WaterContact.submersion`, smooths a `wetness` value, and writes
-environment mix changes to the music and SFX channels.
+`AudioEnvironment` (`crates/ambition_platformer2d_audio/src/environment.rs`)
+reads `WaterContact.submersion` and smooths a `wetness` value. Music receives
+its channel gain. SFX publishes user and environment gain through `SfxMix`;
+the shared voice mixer combines it with distance attenuation. A Kira SFX
+channel-volume command would replace the per-voice gain, so do not use one.
 
 The audible result is a **volume duck**, not a low-pass filter:
 
@@ -26,8 +28,8 @@ effect handles, so it needs a direct-Kira backend or an upstream seam.
 ## Validation
 
 ```bash
-cargo test -p ambition_platformer2d_actor_monolith --lib audio
-cargo test -p ambition_platformer2d_actor_monolith --lib water
+cargo test -p ambition_platformer2d_audio --lib environment
+cargo test -p ambition_audio --features kira --lib one_shots_and_held_loops
 ```
 
 For web audio behaviour, use

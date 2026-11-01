@@ -28,6 +28,8 @@ pub struct GridMenuNav;
 #[derive(bevy::ecs::schedule::SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct KaleidoscopeMenuNav;
 
+#[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
+mod build_label;
 pub mod dispatch;
 pub mod effects;
 #[cfg(feature = "bevy_ui_menu")]

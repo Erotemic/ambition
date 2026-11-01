@@ -92,6 +92,10 @@ pub fn install_unified_menu_shared(app: &mut App) {
         .init_resource::<RebindCapture>()
         .init_resource::<VisualQualityConfirmState>()
         .add_plugins(AmbitionInventoryUiPlugin);
+    #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
+    if !app.is_plugin_added::<super::build_label::PauseBuildLabelPlugin>() {
+        app.add_plugins(super::build_label::PauseBuildLabelPlugin);
+    }
     // The System-model cache belongs to the cube — the grid backend builds and
     // dirties its own page model — so it is initialised with the renderer that
     // reads it rather than in the backend-neutral chain above.

@@ -92,7 +92,7 @@ impl ActorGlow {
     pub const fn player_highlight() -> Self {
         Self {
             color: [0.80, 0.92, 1.0],
-            ..Self::soft(0.85, 0.42)
+            ..Self::soft(0.85, 0.042)
         }
     }
 

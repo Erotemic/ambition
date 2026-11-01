@@ -48,7 +48,7 @@ fn fingerprint(message: &OwnedSfxMessage) -> String {
         SfxMessage::Dash { pos } => ("dash", pos),
         SfxMessage::Blink { pos, .. } => ("blink", pos),
         SfxMessage::Pogo { pos } => ("pogo", pos),
-        SfxMessage::Land { pos } => ("land", pos),
+        SfxMessage::Land { pos, .. } => ("land", pos),
         SfxMessage::Slash { pos } => ("slash", pos),
         SfxMessage::Hit { pos } => ("hit", pos),
         SfxMessage::Death { pos } => ("death", pos),

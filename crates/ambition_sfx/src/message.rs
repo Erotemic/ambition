@@ -186,6 +186,8 @@ pub enum SfxMessage {
     /// authors `player.land` voices a footfall without per-game wiring.
     Land {
         pos: Vec2,
+        /// Impact amplitude before distance and user volume are applied.
+        strength: f32,
     },
     Slash {
         pos: Vec2,
@@ -206,11 +208,19 @@ pub enum SfxMessage {
 }
 
 impl SfxMessage {
+    pub fn gain(self) -> f32 {
+        match self {
+            Self::Land { strength, .. } if strength.is_finite() => strength.clamp(0.0, 1.0),
+            Self::Land { .. } => 0.0,
+            _ => 1.0,
+        }
+    }
+
     pub fn emitter(self) -> crate::SfxEmitter {
         match self {
             Self::Play { emitter, .. } => emitter,
             Self::Jump { pos } | Self::DoubleJump { pos } | Self::Dash { pos }
-            | Self::Blink { pos, .. } | Self::Pogo { pos } | Self::Land { pos }
+            | Self::Blink { pos, .. } | Self::Pogo { pos } | Self::Land { pos, .. }
             | Self::Slash { pos } | Self::Hit { pos } | Self::Death { pos }
             | Self::Reset { pos } => crate::SfxEmitter::point(pos),
         }

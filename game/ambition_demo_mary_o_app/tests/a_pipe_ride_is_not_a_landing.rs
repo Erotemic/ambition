@@ -55,7 +55,7 @@ const HERS: f32 = 96.0;
 fn landings(app: &App, cursor: &mut MessageCursor<OwnedSfxMessage>, at: Vec2) -> usize {
     cursor
         .read(app.world().resource::<Messages<OwnedSfxMessage>>())
-        .filter(|message| matches!(message.request, SfxMessage::Land { pos } if pos.distance(at) < HERS))
+        .filter(|message| matches!(message.request, SfxMessage::Land { pos, .. } if pos.distance(at) < HERS))
         .count()
 }
 

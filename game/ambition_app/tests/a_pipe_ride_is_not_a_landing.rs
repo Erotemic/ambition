@@ -85,7 +85,7 @@ fn the_ride_down_a_pipe_writes_no_landing_cue_in_the_flagship() {
             for message in sounds.read(app.world().resource::<Messages<OwnedSfxMessage>>()) {
                 let text = format!("{:?}", message.request);
                 *heard.entry(text.split(|c: char| !c.is_alphanumeric()).next().unwrap_or_default().to_string()).or_default() += 1;
-                if matches!(message.request, SfxMessage::Land { pos } if pos.distance(at) < HERS) {
+                if matches!(message.request, SfxMessage::Land { pos, .. } if pos.distance(at) < HERS) {
                     landings += 1;
                     when.push(format!("tick {ticks}, she is at {:.1},{:.1}: {:?} from {:?}", at.x, at.y, message.request, message.source));
                 }

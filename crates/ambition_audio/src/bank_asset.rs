@@ -607,7 +607,7 @@ pub fn audio_play_sfx_messages(
         };
         let emitter = owned.request.emitter();
         let duration = resolver.duration(&accepted.resolved.handle);
-        let voice = output.start(accepted.owner, accepted.resolved.handle, emitter, duration, None);
+        let voice = output.start(accepted.owner, accepted.resolved.handle, emitter, duration, None, owned.request.gain());
         let gain = voice.gain;
         shots.0.push(voice);
         let playback = &mut *resolver.playback;

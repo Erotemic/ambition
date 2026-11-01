@@ -58,7 +58,7 @@ fn the_start_of_with(
         let cues: Vec<Vec2> = cursor
             .read(sim.world().resource::<Messages<OwnedSfxMessage>>())
             .filter_map(|message| match message.request {
-                SfxMessage::Land { pos } => Some(pos),
+                SfxMessage::Land { pos, .. } => Some(pos),
                 _ => None,
             })
             .collect();

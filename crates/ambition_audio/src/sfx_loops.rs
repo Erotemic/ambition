@@ -132,6 +132,7 @@ pub fn audio_play_sfx_loops(
                     emitter,
                     duration,
                     Some(fade_in_secs),
+                    1.0,
                 );
                 loops.held.insert(
                     key,
@@ -284,6 +285,43 @@ mod tests {
             "the ended session's loop is gone"
         );
     }
+    #[test]
+    fn a_quiet_landing_keeps_its_strength_as_the_listener_moves() {
+        use crate::{audio_play_sfx_messages, spatial::{SfxOneShots, update_sfx_attenuation}};
+        use ambition_sfx::{OwnedSfxMessage, SfxListeners, SfxMessage};
+        use bevy::{prelude::{IntoScheduleConfigs, Vec2}, time::TimeUpdateStrategy};
+        let mut app = app();
+        let registry = SfxRegistry {
+            sample_rate: 44_100,
+            sfx: vec![SfxSpec {
+                cue: Some(crate::spec::SoundCueKey::Land), id: None,
+                waveform: WaveformSpec::Sine, frequency: 110.0, frequency_end: 90.0,
+                duration: 0.5, volume: 0.5, attack: 0.0, release: 0.02, noise: 0.0,
+            }],
+        };
+        app.world_mut().resource_mut::<ActiveAudioSelection>()
+            .select_gameplay(1, "fixture", None, Some(registry), BTreeSet::new());
+        app.insert_resource(TimeUpdateStrategy::ManualDuration(std::time::Duration::from_millis(16)));
+        app.add_message::<OwnedSfxMessage>();
+        app.add_systems(Update, audio_play_sfx_messages.before(audio_play_sfx_loops));
+        app.add_systems(Update, update_sfx_attenuation.after(audio_play_sfx_loops));
+        app.world_mut().resource_mut::<SfxListeners>().0 = vec![Vec2::ZERO];
+        app.world_mut().write_message(OwnedSfxMessage {
+            owner: Some(AudioContextOwner::Gameplay(1)), source: "fixture".into(),
+            request: SfxMessage::Land { pos: Vec2::ZERO, strength: 0.1 },
+        });
+        app.update();
+        let gain = |app: &App| app.world().resource::<SfxOneShots>().0[0].gain;
+        assert!((gain(&app) - 0.1).abs() < 1e-6);
+        app.world_mut().resource_mut::<SfxListeners>().0[0] = Vec2::new(880.0, 0.0);
+        app.update();
+        assert!((gain(&app) - 0.05).abs() < 1e-6);
+        app.world_mut().resource_mut::<SfxListeners>().0[0] = Vec2::ZERO;
+        app.update();
+        assert!((gain(&app) - 0.1).abs() < 1e-6);
+        assert_eq!(app.world().resource::<crate::SfxPlaybackState>().accepted_playbacks, 1);
+    }
+
     #[test]
     fn one_shots_and_held_loops_follow_listener_motion_without_restarting() {
         use crate::{

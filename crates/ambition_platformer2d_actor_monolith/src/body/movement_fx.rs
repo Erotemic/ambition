@@ -164,6 +164,14 @@ pub fn landing_force(impact_speed: f32) -> f32 {
     splat_force(impact_speed, SplatBand::FLOOR)
 }
 
+/// Small drops make quiet footfalls. A hard landing reaches full amplitude.
+fn landing_sound_strength(impact_speed: f32) -> f32 {
+    if !impact_speed.is_finite() { return 0.0; }
+    let relative = (impact_speed / HARD_LAND_SPEED).clamp(0.0, 1.0);
+    let squared = relative * relative;
+    squared * squared
+}
+
 /// The splat this arrival asks for.
 ///
 /// An ordinary arrival under the band's onset asks for nothing and keeps the
@@ -519,7 +527,10 @@ pub fn emit_movement_fx(
         let feet = pos + ae::Vec2::new(0.0, size.y * 0.5);
         // Touchdown footfall. Emitted for every body; provider authority gates
         // it, so a game hears it only by authoring `player.land`.
-        sfx.write_for_body(source, SfxMessage::Land { pos: feet });
+        let strength = landing_sound_strength(impact_speed);
+        if strength >= 0.01 {
+            sfx.write_for_body(source, SfxMessage::Land { pos: feet, strength });
+        }
         vfx.write(VfxMessage::Dust { pos: feet, facing });
         if let Some(splat) = impact_splat(impact_speed, involuntary, SplatBand::FLOOR) {
             write_splat(vfx, feet, splat);
@@ -597,6 +608,28 @@ mod tests {
             ae::Vec2::new(20.0, 40.0),
             None,
         );
+    }
+
+    #[test]
+    fn stair_drops_are_quieter_than_a_jump_landing() {
+        let mut app = App::new();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<VfxInRoom>();
+        app.insert_resource(TestEvents(ae::FrameEvents::default()));
+        app.add_systems(Update, emit_system);
+        let mut strengths = Vec::new();
+        for impact_speed in [20.0, 200.0, 500.0] {
+            app.world_mut().resource_mut::<TestEvents>().0.ground_contact =
+                ae::GroundContactTransition::Landed { impact_speed, involuntary: false };
+            app.update();
+            let messages = app.world_mut().resource_mut::<bevy::ecs::message::Messages<ambition_sfx::OwnedSfxMessage>>()
+                .drain().map(|message| message.request.gain()).collect::<Vec<_>>();
+            strengths.push(messages.first().copied().unwrap_or(0.0));
+        }
+        assert_eq!(strengths[0], 0.0, "a tiny support correction makes no footfall");
+        assert!(strengths[1] > 0.0 && strengths[1] < strengths[2] * 0.1,
+            "a stair drop is quiet beside a real landing: {strengths:?}");
+        assert!(strengths[2] > 0.5);
     }
 
     /// The body-generic emitter (shared by the player tick AND the actor tick)

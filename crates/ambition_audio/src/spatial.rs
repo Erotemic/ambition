@@ -24,6 +24,7 @@ pub struct SfxVoice {
     pub owner: AudioContextOwner,
     pub emitter: SfxEmitter,
     pub gain: f32,
+    source_gain: f32,
     state: VoiceOutput,
     source: Handle<AudioSource>,
     loop_fade: Option<f32>,
@@ -69,8 +70,10 @@ impl SfxVoiceOutput<'_> {
         emitter: SfxEmitter,
         duration: Duration,
         loop_fade: Option<f32>,
+        source_gain: f32,
     ) -> SfxVoice {
-        let gain = self.gain(emitter);
+        let source_gain = if source_gain.is_finite() { source_gain.clamp(0.0, 1.0) } else { 0.0 };
+        let gain = self.gain(emitter) * source_gain;
         let state = if crate::output::emits_to_device(self.output.as_deref()) {
             VoiceOutput::Pending
         } else {
@@ -80,6 +83,7 @@ impl SfxVoiceOutput<'_> {
             owner,
             emitter,
             gain,
+            source_gain,
             state,
             source,
             loop_fade,
@@ -116,7 +120,7 @@ impl SfxVoice {
         instances: &mut Assets<AudioInstance>,
     ) -> bool {
         let live = selection.accepts_request_owner(Some(self.owner));
-        self.gain = if live { output.gain(self.emitter) } else { 0.0 };
+        self.gain = if live { output.gain(self.emitter) * self.source_gain } else { 0.0 };
         match &self.state {
             VoiceOutput::Recording => {
                 return live

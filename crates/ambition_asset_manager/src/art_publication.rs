@@ -57,7 +57,12 @@ impl Selection {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Self::empty(root)),
             Err(error) => return Err(format!("{}: {error}", path.display())),
         };
-        let mut selection: Self = serde_json::from_slice(&bytes).map_err(|error| format!("{}: {error}", path.display()))?;
+        Self::from_bytes(root, &bytes)
+    }
+
+    fn from_bytes(root: &Path, bytes: &[u8]) -> Result<Self, String> {
+        let path = root.join("published.json");
+        let mut selection: Self = serde_json::from_slice(bytes).map_err(|error| format!("{}: {error}", path.display()))?;
         if selection.schema != SCHEMA || selection.files.iter().any(|(name, member)| !safe(name) || !safe(&member.path)) || selection.roots.iter().any(|root| !safe(root)) {
             return Err(format!("Invalid art publication: {}", path.display()));
         }
@@ -85,5 +90,64 @@ impl Selection {
 
     pub fn entries(&self) -> impl Iterator<Item = (&str, PathBuf)> {
         self.files.iter().map(|(name, member)| (name.as_str(), self.root.join(&member.path)))
+    }
+}
+
+/// A reader that parses a publication only when its bytes change.
+#[derive(Default)]
+pub struct SelectionCache {
+    entries: BTreeMap<PathBuf, CachedSelection>,
+}
+
+struct CachedSelection {
+    bytes: Option<Vec<u8>>,
+    selection: Result<Selection, String>,
+}
+
+impl SelectionCache {
+    /// Read the current selection. Missing files remain empty selections.
+    pub fn read(&mut self, root: &Path) -> Result<&Selection, String> {
+        let path = root.join("published.json");
+        let bytes = match std::fs::read(&path) {
+            Ok(bytes) => Some(bytes),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+            Err(error) => return Err(format!("{}: {error}", path.display())),
+        };
+        if !self.entries.get(root).is_some_and(|cached| cached.bytes == bytes) {
+            let selection = bytes.as_deref().map_or_else(|| Ok(Selection::empty(root)), |bytes| Selection::from_bytes(root, bytes));
+            self.entries.insert(root.to_path_buf(), CachedSelection { bytes, selection });
+        }
+        self.entries.get(root).expect("selection is cached").selection.as_ref().map_err(Clone::clone)
+    }
+}
+
+#[cfg(test)]
+mod cache_tests {
+    use super::*;
+
+    #[test]
+    fn a_reader_follows_replacement_invalid_data_and_removal() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("published.json");
+        let mut cache = SelectionCache::default();
+        assert!(cache.read(root.path()).unwrap().is_empty());
+        let publish = |hash: &str| {
+            let bytes = serde_json::json!({
+                "schema": SCHEMA, "generation": "same",
+                "files": {"sprites/a.png": {"path": "bundles/a.png", "sha256": hash, "role": "runtime", "tier": "full"}}
+            }).to_string();
+            std::fs::write(root.path().join("next.json"), bytes).unwrap();
+            std::fs::rename(root.path().join("next.json"), &path).unwrap();
+        };
+        publish("old");
+        assert_eq!(cache.read(root.path()).unwrap().files["sprites/a.png"].sha256, "old");
+        publish("new");
+        assert_eq!(cache.read(root.path()).unwrap().files["sprites/a.png"].sha256, "new");
+        std::fs::write(&path, "invalid").unwrap();
+        assert!(cache.read(root.path()).is_err());
+        publish("new");
+        assert_eq!(cache.read(root.path()).unwrap().files["sprites/a.png"].sha256, "new");
+        std::fs::remove_file(path).unwrap();
+        assert!(cache.read(root.path()).unwrap().is_empty());
     }
 }

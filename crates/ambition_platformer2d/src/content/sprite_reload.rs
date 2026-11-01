@@ -100,14 +100,15 @@ struct Scanner {
     seen_once: bool,
     /// Looks taken, the first included.
     looks: u32,
-    manifests: Vec<(String, PathBuf, Option<SystemTime>)>,
+    manifests: std::collections::BTreeMap<(String, PathBuf), Option<SystemTime>>,
     images: std::collections::BTreeMap<String, String>,
     selections: std::collections::BTreeMap<String, Result<Option<String>, String>>,
+    publications: ambition_asset_manager::art_publication::SelectionCache,
 }
 
 impl Scanner {
     fn new(libraries: ContentLibraries, content: ambition_sprite_sheet::SpriteContent) -> Self {
-        Self { libraries, content, seen_once: false, looks: 0, manifests: Vec::new(), images: Default::default(), selections: Default::default() }
+        Self { libraries, content, seen_once: false, looks: 0, manifests: Default::default(), images: Default::default(), selections: Default::default(), publications: Default::default() }
     }
 
     fn look(&mut self) -> Found {
@@ -120,7 +121,10 @@ impl Scanner {
             if let Some(root) = library.publication_root() {
                 files.push((format!("content://{}", library.manifest.id), root.join("published.json")));
             }
-            let selected = library.selection();
+            let selected = match library.publication_root() {
+                Some(root) => self.publications.read(&root).map(Some),
+                None => Ok(None),
+            };
             selections.insert(library.manifest.id.clone(), selected.as_ref()
                 .map(|selection| selection.as_ref().and_then(|selection| selection.generation.clone()))
                 .map_err(Clone::clone));
@@ -128,9 +132,11 @@ impl Scanner {
                 images.extend(selected.files.iter()
                     .map(|(name, member)| (format!("content://{}/{name}", library.manifest.id), member.sha256.clone())));
             }
-            if let Ok(selected) = library.files() {
-                files.extend(selected.into_iter().filter(|(_, file)| file.generation.is_none())
-                    .filter_map(|(logical, file)| file.native_path().map(|path| (format!("content://{}/{logical}", library.manifest.id), path.to_path_buf()))));
+            if let Ok(selected) = selected {
+                if let Ok(loose) = library.loose_files(selected) {
+                    files.extend(loose.into_iter()
+                        .filter_map(|(logical, file)| file.native_path().map(|path| (format!("content://{}/{logical}", library.manifest.id), path.to_path_buf()))));
+                }
             }
         }
         let now = stamped_manifests(files);
@@ -152,19 +158,16 @@ impl Scanner {
         found.manifests.extend(selections.iter().filter(|(id, selected)| self.selections.get(*id) != Some(*selected))
             .map(|(id, _)| format!("content://{id}")));
         self.selections = selections;
-        found.manifests.extend(now
-            .iter()
-            .filter(|(key, path, seen)| !self.manifests.iter().any(|(was, at, before)| was == key && at == path && before == seen))
-            .map(|(key, ..)| key.clone()));
-        found.manifests.extend(
-            self.manifests
-                .iter()
-                .filter(|(was, at, _)| !now.iter().any(|(key, path, _)| key == was && path == at))
-                .map(|(was, ..)| was.clone()),
-        );
-        found.logical_images.extend(now.iter().filter(|(key, _, _)| found.manifests.contains(key) && !key.ends_with(".ron"))
-            .filter(|(_, path, _)| path.file_name().is_some_and(|name| name != "published.json"))
-            .map(|(key, _, _)| key.clone()));
+        found.manifests.extend(now.iter()
+            .filter(|(key, seen)| self.manifests.get(*key) != Some(*seen))
+            .map(|((key, _), _)| key.clone()));
+        found.manifests.extend(self.manifests.keys()
+            .filter(|key| !now.contains_key(*key))
+            .map(|(key, _)| key.clone()));
+        found.logical_images.extend(now.keys()
+            .filter(|(key, path)| found.manifests.contains(key) && !key.ends_with(".ron")
+                && path.file_name().is_some_and(|name| name != "published.json"))
+            .map(|(key, _)| key.clone()));
         self.manifests = now;
         if !found.manifests.is_empty() {
             let snapshot = self.libraries.snapshot();
@@ -414,8 +417,8 @@ fn modified(path: &Path) -> Option<SystemTime> {
 /// Each sheet manifest, body rig and part flipbook, the files a sheet
 /// generation is read from. A rig or a flipbook is keyed by its file name, so
 /// no such key is a manifest key.
-fn stamped_manifests(files: Vec<(String, PathBuf)>) -> Vec<(String, PathBuf, Option<SystemTime>)> {
-    files.into_iter().map(|(key, path)| { let seen = modified(&path); (key, path, seen) }).collect()
+fn stamped_manifests(files: Vec<(String, PathBuf)>) -> std::collections::BTreeMap<(String, PathBuf), Option<SystemTime>> {
+    files.into_iter().map(|(key, path)| { let seen = modified(&path); ((key, path), seen) }).collect()
 }
 
 fn reload(asset_server: Option<&AssetServer>, libraries: Option<&ambition_asset_manager::library_source::LibraryAssets>, paths: Vec<String>) -> u32 {

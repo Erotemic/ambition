@@ -224,12 +224,26 @@ impl ContentLibrary {
             })).collect());
         }
         let selected = self.selection()?;
+        let mut files = self.loose_files(selected.as_ref())?;
+        if let Some(selected) = selected {
+            for (logical, physical) in selected.entries() {
+                if files.contains_key(logical) { return Err(format!("Authored asset {logical:?} collides with its published product")); }
+                files.insert(logical.to_owned(), LibraryFile { library: self.manifest.id.clone(),
+                    logical: logical.to_owned(), data: LibraryFileData::Native(physical), generation: selected.generation.clone(),
+                    address: format!("content://{}/__art/{}", self.manifest.id, selected.files[logical].path) });
+            }
+        }
+        Ok(files)
+    }
+    /// Loose files outside the products owned by `selected`.
+    pub fn loose_files(&self, selected: Option<&Selection>) -> Result<BTreeMap<String, LibraryFile>, String> {
+        if self.is_embedded() { return Ok(BTreeMap::new()); }
         let mut files = BTreeMap::new();
         for (role, relative) in &self.manifest.asset_roots {
             let root = self.root.join(relative);
             if !root.is_dir() { continue; }
-            for (logical, physical) in regular_files(&root, if role == "authored" { None } else { selected.as_ref() })? {
-                if role != "authored" && selected.as_ref().is_some_and(|selection| selection.manages(Path::new(&logical))) {
+            for (logical, physical) in regular_files(&root, if role == "authored" { None } else { selected })? {
+                if role != "authored" && selected.is_some_and(|selection| selection.manages(Path::new(&logical))) {
                     continue;
                 }
                 let file = LibraryFile { library: self.manifest.id.clone(), logical: logical.clone(),
@@ -241,16 +255,9 @@ impl ContentLibrary {
                 }
             }
         }
-        if let Some(selected) = selected {
-            for (logical, physical) in selected.entries() {
-                if files.contains_key(logical) { return Err(format!("Authored asset {logical:?} collides with its published product")); }
-                files.insert(logical.to_owned(), LibraryFile { library: self.manifest.id.clone(),
-                    logical: logical.to_owned(), data: LibraryFileData::Native(physical), generation: selected.generation.clone(),
-                    address: format!("content://{}/__art/{}", self.manifest.id, selected.files[logical].path) });
-            }
-        }
         Ok(files)
     }
+
 }
 
 impl ContentLibraries {

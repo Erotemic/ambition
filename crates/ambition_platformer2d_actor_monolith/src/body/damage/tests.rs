@@ -2815,10 +2815,10 @@ fn a_projectile_hit_flashes_its_victim_but_never_its_thrower() {
 fn a_boss_is_adjudicated_by_the_same_relationship_rule_as_any_other_body() {
     use ambition_characters::actor::ActorFaction;
     use ambition_characters::control::DrivingParticipant;
-    use ambition_combat::targeting::FriendlyFire;
+    use ambition_combat::targeting::DamagePolicy;
 
     let boss_entity = bevy::prelude::Entity::from_raw_u32(7).expect("nonzero raw index");
-    let ff = FriendlyFire::default();
+    let ff = DamagePolicy::default();
     let side = |faction: &'static ActorFaction, driver: Option<&'static DrivingParticipant>| {
         Some((faction, driver, None))
     };

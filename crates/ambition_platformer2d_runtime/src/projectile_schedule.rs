@@ -9,8 +9,8 @@
 //! are split.
 
 pub use ambition_projectile_combat::{
-    charge_projectile_input, stamp_new_projectile_allegiance, step_projectiles,
-    ProjectileAllegiance, ProjectileStepSet,
+    charge_projectile_input, step_projectiles,
+    ProjectileStepSet,
 };
 pub use ambition_projectiles::collision_world::ProjectileCollisionWorld;
 pub use ambition_projectiles::materialize_projectiles_for_next_tick;

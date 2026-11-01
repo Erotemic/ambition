@@ -14,7 +14,7 @@
 //! actor/item/boss shots deliberately remain kind-less.
 //!
 //! The named kind is not faction authority: reflected or remotely controlled
-//! shots keep their kind while their `ProjectileAllegiance` can change.
+//! shots keep their kind while their `AttackAllegiance` can change.
 
 use ambition_platformer2d_core::Vec2;
 use bevy::prelude::Component;

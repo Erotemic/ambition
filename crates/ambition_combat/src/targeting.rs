@@ -115,22 +115,31 @@ pub struct FriendlyFire {
     pub enabled: bool,
 }
 
+/// A session's immutable damage choice for driven allies in its own rooms.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[component(immutable)]
+pub struct ParticipantFriendlyFire {
+    pub scope: crate::scoped_rules::RulesScope,
+    pub enabled: bool,
+}
+
+/// Resolved damage permission for one room.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct DamagePolicy {
+    pub allies: bool,
+    pub participants: Option<bool>,
+}
+
+impl From<FriendlyFire> for DamagePolicy {
+    fn from(value: FriendlyFire) -> Self {
+        Self { allies: value.enabled, participants: None }
+    }
+}
+
 /// Register combat-owned relationship resources.
 pub fn init_targeting_resources(app: &mut App) {
     app.init_resource::<FactionRelations>();
     app.init_resource::<FriendlyFire>();
-}
-
-/// Whether an `attacker`-faction hit may damage a `victim`-faction body. The
-/// engine rule (see [`FriendlyFire`]): damage lands on any DIFFERENT faction;
-/// same-faction is blocked unless friendly fire is enabled. Self-exclusion
-/// (attacker entity == victim entity) is handled by the caller.
-pub fn can_damage(
-    attacker: ActorFaction,
-    victim: ActorFaction,
-    friendly_fire: FriendlyFire,
-) -> bool {
-    friendly_fire.enabled || attacker != victim
 }
 
 /// Resolve combat allegiance without mutating authored faction state.
@@ -191,16 +200,6 @@ pub enum CombatRelation {
 }
 
 impl CombatRelation {
-    /// May a strike from the attacker damage this body?
-    ///
-    /// Physical: anything not an ally can be hit. An ally needs friendly fire.
-    pub fn damage_lands(self, friendly_fire: FriendlyFire) -> bool {
-        match self {
-            CombatRelation::Foe | CombatRelation::Neutral => true,
-            CombatRelation::Ally => friendly_fire.enabled,
-        }
-    }
-
     /// Is this a body an autonomous brain should go after?
     ///
     /// Relational: only a declared foe. A neutral bystander is left alone.
@@ -267,12 +266,18 @@ pub fn damage_lands_between(
     relations: Option<&FactionRelations>,
     attacker: Combatant<'_>,
     victim: Combatant<'_>,
-    friendly_fire: FriendlyFire,
+    policy: DamagePolicy,
     attacker_grudge: Option<crate::components::Grudge>,
     victim_entity: Entity,
 ) -> bool {
-    combat_relation(relations, attacker, attacker_grudge, victim_entity, victim)
-        .damage_lands(friendly_fire)
+    match combat_relation(relations, attacker, attacker_grudge, victim_entity, victim) {
+        CombatRelation::Foe | CombatRelation::Neutral => true,
+        CombatRelation::Ally => {
+            let participants = attacker.driver.is_some() && victim.driver.is_some()
+                && attacker.team.is_none() && victim.team.is_none();
+            if participants { policy.participants.unwrap_or(policy.allies) } else { policy.allies }
+        }
+    }
 }
 
 /// Pick each non-player actor's `ActorTarget` and settle target-derived standing.

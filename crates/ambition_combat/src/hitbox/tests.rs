@@ -513,12 +513,9 @@ fn a_body_waiting_out_its_death_beat_is_intangible_though_it_is_at_full_health()
     );
 }
 
-/// The unification keystone: a Player-faction hitbox (a wielded boss
-/// AOE) emits exactly one attacker-side Volume `HitEvent` that
-/// `apply_feature_hit_events` then resolves against enemies/bosses — the
-/// same primitive a Boss-faction hitbox uses to hit the player.
+/// A detached strike resolves bodies and leaves feature routing to its consumer.
 #[test]
-fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
+fn a_detached_strike_resolves_bodies_before_publishing_its_feature_remainder() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
@@ -555,12 +552,13 @@ fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
     ));
+    let victim = hazard_victim(&mut app, ActorFaction::Enemy, ae::Vec2::new(200.0, 80.0));
     app.update();
     let cap = app.world().resource::<CapturedHits>();
     assert_eq!(
-        cap.0.len(),
+        cap.body_hits().len(),
         1,
-        "player AOE emits exactly one feature-damaging hit"
+        "the body contact resolves once"
     );
     assert!(
         matches!(cap.0[0].source, HitSource::Melee),
@@ -568,8 +566,9 @@ fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
     );
     assert!(cap.0[0].source.seeks_victims());
     assert!(
-        matches!(cap.0[0].target, HitTarget::Volume),
-        "volume hit (every overlapping actor/boss)"
+        cap.0.iter().any(|hit| hit.target == HitTarget::Body(victim))
+            && cap.0.iter().any(|hit| hit.target == HitTarget::UnresolvedFeatures),
+        "body damage and the feature remainder have distinct recipients"
     );
     assert_eq!(cap.0[0].damage, 5);
 }
@@ -1168,10 +1167,9 @@ fn enemy_hitbox_hits_a_non_targeted_player_strays_are_physical() {
     assert_eq!(cap[0].target, HitTarget::Body(player));
 }
 
-/// The AOE fires once, not every tick of its lifetime — the owner doubles
-/// as a fired-sentinel in `HitboxHits`.
+/// A detached strike cannot hit the same body twice in its active window.
 #[test]
-fn player_faction_hitbox_only_fires_once() {
+fn a_detached_strike_hits_each_body_only_once() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
@@ -1205,14 +1203,22 @@ fn player_faction_hitbox_only_fires_once() {
         HitboxLifetime { remaining_s: 1.0 },
         HitboxHits::default(),
     ));
+    hazard_victim(&mut app, ActorFaction::Enemy, ae::Vec2::ZERO);
     app.update();
     app.update();
     app.update();
     assert_eq!(
-        app.world().resource::<CapturedHits>().0.len(),
+        app.world().resource::<CapturedHits>().body_hits().len(),
         1,
-        "the AOE emits its hit once across multiple live ticks"
+        "the area hits the body once across multiple live ticks"
     );
+    assert_eq!(
+        app.world().resource::<CapturedHits>().0.iter()
+            .filter(|hit| hit.target == HitTarget::UnresolvedFeatures).count(),
+        1,
+        "one fixed area cannot damage a feature on every live tick"
+    );
+
 }
 
 #[test]

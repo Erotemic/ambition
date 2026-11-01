@@ -180,7 +180,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// 393 -> 394: projectile allegiance captures the driving participant at launch.
 /// Damage, clash and perception use that control state after the firer leaves.
 /// The codec ledger also records the fighter notice and idle-health fields.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 394;
+/// 394 -> 395: the scoped participant damage rule is an immutable session
+/// input covered by prepared content identity. Combat owns the shared captured
+/// allegiance of projectiles and detached volumes, including participant identity.
+/// A fixed strike records whether it published its feature pulse.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 395;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

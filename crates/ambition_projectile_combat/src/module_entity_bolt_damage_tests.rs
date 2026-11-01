@@ -3,7 +3,7 @@
 //! ports, 2026-10-01).
 //!
 //! It lives HERE because it chains the projectile request through
-//! `materialize_projectiles_for_this_tick` → `stamp_new_projectile_allegiance`
+//! `materialize_projectiles_for_this_tick` → `stamp_attack_allegiance`
 //! → `step_projectiles`, and the last two are the KERNEL's. A test that needs
 //! two crates belongs where both are visible.
 //!
@@ -110,7 +110,7 @@ fn a_module_entitys_bolt_damages_the_enemy_it_was_fired_at() {
         (
             fire_once,
             ambition_projectiles::materialize_projectiles_for_this_tick,
-            crate::stamp_new_projectile_allegiance,
+            ambition_combat::allegiance::stamp_attack_allegiance,
             crate::step_projectiles,
             capture_hits,
         )

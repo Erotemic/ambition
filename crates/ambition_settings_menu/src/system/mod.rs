@@ -534,6 +534,7 @@ fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
             SettingsOptionId::AimFrameMode,
             SettingsOptionId::PortalReverseFacing,
             SettingsOptionId::AcceptLocalJoins,
+            SettingsOptionId::CoopFriendlyFire,
             SettingsOptionId::DebugHud,
             SettingsOptionId::QuestHud,
             SettingsOptionId::TraceAutoDump,

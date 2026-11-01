@@ -65,7 +65,7 @@ type CombatSide<'w> = (
 pub(crate) fn boss_damage_allowed(
     attacker: Option<CombatSide<'_>>,
     boss: Option<CombatSide<'_>>,
-    friendly_fire: ambition_combat::targeting::FriendlyFire,
+    friendly_fire: ambition_combat::targeting::DamagePolicy,
     boss_entity: Entity,
 ) -> bool {
     let (
@@ -659,7 +659,7 @@ pub fn apply_feature_hit_events(sprite_content: bevy::prelude::Res<ambition_spri
         resolved_rules.fold_into_feel(&mut feel);
         // AE6: the MATCH's friendly-fire rule, not the world's baseline toggle —
         // the same value the body resolver reads.
-        let friendly_fire = resolved_rules.friendly_fire();
+        let friendly_fire = resolved_rules.damage_policy();
         if matches!(event.source, HitSource::Pogo) {
             for (entity, _id, name, aabb, mut feature) in &mut breakables {
                 if feature.broken() || !feature.state().pogo_refresh {

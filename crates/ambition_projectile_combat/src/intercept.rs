@@ -25,7 +25,7 @@ use ambition_platformer2d_core::BodyKinematics;
 use ambition_projectiles::entity::ProjectileOwner;
 use bevy::prelude::*;
 
-use super::allegiance::ProjectileAllegiance;
+use ambition_combat::allegiance::AttackAllegiance;
 
 /// What an interception DOES to the shot it caught.
 #[derive(Clone, Debug, PartialEq)]
@@ -68,7 +68,7 @@ pub fn intercept_projectile(
     projectile: Entity,
     kin: &mut BodyKinematics,
     interceptor: Entity,
-    interceptor_allegiance: ProjectileAllegiance,
+    interceptor_allegiance: AttackAllegiance,
     response: &ProjectileInterception,
 ) -> bool {
     match response {
@@ -120,8 +120,8 @@ mod tests {
     use super::*;
     use ambition_characters::actor::ActorFaction;
 
-    fn allegiance(faction: ActorFaction) -> ProjectileAllegiance {
-        ProjectileAllegiance {
+    fn allegiance(faction: ActorFaction) -> AttackAllegiance {
+        AttackAllegiance {
             driver: None,
             faction,
             team: None,
@@ -186,7 +186,7 @@ mod tests {
         app.world_mut().flush();
         assert!(survived, "a reflected shot reported itself destroyed");
         assert_eq!(
-            app.world().get::<ProjectileAllegiance>(shot),
+            app.world().get::<AttackAllegiance>(shot),
             Some(&mine),
             "the reflected shot kept the FIRER's allegiance, so it is still \
              hostile to the body that just parried it"

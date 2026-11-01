@@ -6,7 +6,7 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use bevy::prelude::*;
 
-use super::allegiance::ProjectileAllegiance;
+use ambition_combat::allegiance::AttackAllegiance;
 use ambition_boss_encounter::BossConfig;
 use ambition_characters::actor::ActorFaction;
 use ambition_combat::components::{
@@ -36,7 +36,7 @@ const PROJECTILE_REFLECT_SPEED_SCALE: f32 = 1.3;
 const PARRY_HEAL: i32 = 1;
 
 /// Reflect a parried projectile and transfer combat ownership to the parrier.
-/// `ProjectileOwner` and `ProjectileAllegiance` change together so damage uses
+/// `ProjectileOwner` and `AttackAllegiance` change together so damage uses
 /// the parrier's authority. Presentation source stays with the original shot,
 /// while the parry clang uses the parrier's source: combat ownership and a
 /// projectile's voice are separate facts.
@@ -45,7 +45,7 @@ fn reflect_parried_shot(
     proj_entity: Entity,
     kin: &mut BodyKinematics,
     parrier: Entity,
-    parrier_allegiance: ProjectileAllegiance,
+    parrier_allegiance: AttackAllegiance,
     parrier_source: Option<&ambition_sfx::PresentationSourceId>,
     // The live room the shot flies in: the parry impact is drawn there.
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
@@ -684,7 +684,7 @@ pub fn step_projectiles(
             &mut ProjectileGameplay,
             Option<&ProjectileOwner>,
             // `None` is reserved for a genuinely ownerless/environmental volley.
-            Option<&ProjectileAllegiance>,
+            Option<&AttackAllegiance>,
             &ProjectileSeq,
             Option<&ambition_projectiles::ProjectileKind>,
             Option<&ambition_projectiles::ProjectileVisualId>,
@@ -828,7 +828,7 @@ pub fn step_projectiles(
         // and reaches only that room's bodies (OW1 cut 4). A shot whose room
         // is not live is not stepped.
         let shot_room = carved.shot_room(proj_entity, owner_entity);
-        let friendly_fire = tuning.in_room(shot_room).map(|t| t.friendly_fire()).unwrap_or_default();
+        let friendly_fire = tuning.in_room(shot_room).map(|t| t.damage_policy()).unwrap_or_default();
         let room_index = match composed.iter().position(|(room, _)| *room == shot_room) {
             Some(index) => index,
             None => {
@@ -847,12 +847,12 @@ pub fn step_projectiles(
         let owner_combat_data = owner_entity.and_then(|e| owner_combat.get(e).ok());
         // Projectile allegiance is frozen launch authority and rollback state. Parry may
         // deliberately rewrite it; it must not be re-derived from a firer that may be gone.
-        let allegiance: Option<ProjectileAllegiance> = match stamped_allegiance {
+        let allegiance: Option<AttackAllegiance> = match stamped_allegiance {
             Some(stamped) => Some(stamped),
             // First sight. A shot always takes flight while its firer lives, so
             // this is the tick the fact is still there to be frozen.
             None => {
-                let fresh = owner_combat_data.map(|(faction, _, team, driver)| ProjectileAllegiance::from_body(*faction, team, driver));
+                let fresh = owner_combat_data.map(|(faction, _, team, driver)| AttackAllegiance::from_body(*faction, team, driver));
                 if let Some(fresh) = fresh.clone() {
                     commands.entity(proj_entity).insert(fresh);
                 }
@@ -1356,7 +1356,7 @@ pub fn step_projectiles(
                         proj_entity,
                         &mut kin,
                         victim.entity,
-                        ProjectileAllegiance::from_body(*victim.faction, victim.team, victim.driver),
+                        AttackAllegiance::from_body(*victim.faction, victim.team, victim.driver),
                         &super::intercept::ProjectileInterception::Consume,
                     );
                     if victim.is_player {
@@ -1393,7 +1393,7 @@ pub fn step_projectiles(
                         &mut kin,
                         victim.entity,
                         // Reflection captures the parrier's current faction, team and control.
-                        ProjectileAllegiance::from_body(*victim.faction, victim.team, victim.driver),
+                        AttackAllegiance::from_body(*victim.faction, victim.team, victim.driver),
                         victim.voice.map(ambition_sfx::BodyPresentationSource::id),
                         shot_room,
                         &mut sfx,
@@ -1744,7 +1744,7 @@ mod parry_tests {
                 proj,
                 &mut kin,
                 parrier.0,
-                ProjectileAllegiance {
+                AttackAllegiance {
                     driver: None,
                     faction: ActorFaction::Player,
                     team: None,
@@ -1847,8 +1847,8 @@ mod parry_tests {
         // The shot's allegiance is a stamp it carries, so the re-own has to overwrite it
         // deliberately
         assert_eq!(
-            world.get::<ProjectileAllegiance>(proj),
-            Some(&ProjectileAllegiance {
+            world.get::<AttackAllegiance>(proj),
+            Some(&AttackAllegiance {
                 driver: None,
                 faction: ActorFaction::Player,
                 team: None,

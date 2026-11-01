@@ -139,6 +139,9 @@ pub struct GameplaySettings {
     /// restart the game.
     #[serde(default)]
     pub accept_local_joins: bool,
+    /// Damage between controlled allies in the next Ambition session.
+    #[serde(default = "default_coop_friendly_fire")]
+    pub coop_friendly_fire: bool,
     /// How raw LOCOMOTION input maps onto the controlled body's local frame.
     /// `BodyRelativeAssist` follows the body frame except when upside-down, where
     /// the mapping accommodates screen orientation. `ScreenRelative` (the default)
@@ -186,6 +189,8 @@ fn default_quest_hud_visible() -> bool {
     false
 }
 
+fn default_coop_friendly_fire() -> bool { true }
+
 impl Default for GameplaySettings {
     fn default() -> Self {
         Self {
@@ -198,6 +203,7 @@ impl Default for GameplaySettings {
             pause_input_when_unfocused: false,
             portal_reverses_facing: false,
             accept_local_joins: false,
+            coop_friendly_fire: default_coop_friendly_fire(),
             movement_frame_mode: default_movement_frame_mode(),
             aim_frame_mode: default_aim_frame_mode(),
             camera_reference_frame: CameraReferenceFrame::default(),
@@ -527,5 +533,20 @@ mod tests {
         assert_eq!(g.camera_reference_frame, CameraReferenceFrame::WorldFixed);
         g.cycle_camera_reference_frame(-1);
         assert_eq!(g.camera_reference_frame, CameraReferenceFrame::SubjectFrame);
+    }
+}
+
+#[cfg(test)]
+mod coop_policy_tests {
+    use super::*;
+
+    #[test]
+    fn a_saved_preference_is_optional_for_an_older_settings_file() {
+        let settings = GameplaySettings::default();
+        assert!(settings.coop_friendly_fire);
+        let mut legacy = serde_json::to_value(settings).unwrap();
+        legacy.as_object_mut().unwrap().remove("coop_friendly_fire").unwrap();
+        let restored: GameplaySettings = serde_json::from_value(legacy).unwrap();
+        assert!(restored.coop_friendly_fire);
     }
 }

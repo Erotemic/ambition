@@ -720,7 +720,7 @@ fn collect_perception_projectiles_snapshots_live_projectiles_once_with_frozen_si
         ambition_projectiles::LiveProjectile,
         kin(200.0),
         game(3),
-        ambition_projectile_combat::ProjectileAllegiance {
+        ambition_combat::allegiance::AttackAllegiance {
             driver: None,
             faction: ActorFaction::Enemy,
             team: Some(ambition_combat::targeting::MatchTeam::new("red")),
@@ -732,7 +732,7 @@ fn collect_perception_projectiles_snapshots_live_projectiles_once_with_frozen_si
         ambition_projectiles::LiveProjectile,
         kin(300.0),
         game(4),
-        ambition_projectile_combat::ProjectileAllegiance::from_body(
+        ambition_combat::allegiance::AttackAllegiance::from_body(
             ActorFaction::Enemy, None,
             Some(&ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot(1))),
         ),

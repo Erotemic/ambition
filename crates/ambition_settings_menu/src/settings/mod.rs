@@ -138,6 +138,8 @@ pub enum SettingsOptionId {
     PortalReverseFacing,
     /// Whether a second local player may join (Q153). Default OFF.
     AcceptLocalJoins,
+    /// Damage between controlled allies in the next Ambition session.
+    CoopFriendlyFire,
     /// How raw LOCOMOTION input maps onto the controlled body's local frame
     /// (`Hybrid` body-relative assist vs `Screen` screen-directed). Flows into
     /// `MovementTuning::movement_frame_mode`.
@@ -165,8 +167,9 @@ impl SettingsOptionId {
     /// This array is hand-kept. `scripts/check_enum_all_constants_are_complete.py`
     /// checks it against the enum.
     /// alone would go stale silently.
-    pub const ALL: [Self; 64] = [
+    pub const ALL: [Self; 65] = [
         Self::AcceptLocalJoins,
+        Self::CoopFriendlyFire,
         Self::AimFrameMode,
         Self::Assist,
         Self::BurstInputMode,

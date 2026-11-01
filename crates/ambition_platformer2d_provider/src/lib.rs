@@ -14,6 +14,7 @@ pub mod lifecycle;
 pub mod presentation;
 pub mod session_contents;
 pub mod world_source;
+mod world_identity;
 
 pub use authoring::PlatformerExperienceAuthoring;
 pub mod catalogs;

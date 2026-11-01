@@ -448,6 +448,12 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                 "Reverse facing when a portal turns the controlled body back along the same wall.",
             ),
             toggle(
+                SettingsOptionId::CoopFriendlyFire,
+                "Co-op Friendly Fire",
+                g.coop_friendly_fire,
+                "Allow co-op partners to hurt each other. Applies to the next session.",
+            ),
+            toggle(
                 SettingsOptionId::AcceptLocalJoins,
                 "Accept Second Player",
                 g.accept_local_joins,

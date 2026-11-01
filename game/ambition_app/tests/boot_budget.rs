@@ -242,7 +242,7 @@ fn no_system_is_registered_twice_in_one_schedule() {
         // THIS tick, whose firer can still be eliminated later in `Settle`.
         (
             "GgrsSchedule",
-            "allegiance::stamp_new_projectile_allegiance",
+            "allegiance::stamp_attack_allegiance",
             "delayed bolts take their side inside Materialize, not next frame",
         ),
         // `body/mod.rs` — once in `WorldPrep` for the pogo derivation and the

@@ -143,7 +143,7 @@ pub fn claim_footstools(
             let stomper_room = rooms.of(stomper.entity);
             let friendly_fire = tuning
                 .in_room(stomper_room)
-                .is_some_and(|t| t.friendly_fire().enabled);
+                .is_some_and(|t| t.friendly_fire);
 
             for victim in decide.iter() {
                 if victim.entity == stomper.entity

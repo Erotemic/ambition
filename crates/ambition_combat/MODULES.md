@@ -8,7 +8,9 @@
 |---|---|
 | [`action_emission`](src/action_emission.rs) | The brain's action stream, routed around the moveset. |
 | [`actor_tuning`](src/actor_tuning.rs) | PER-ACTOR RUNTIME TUNING, THE BRAIN-CONSTRUCTION INPUTS, AND THE CONFIG THAT CARRIES THEM. |
+| [`allegiance`](src/allegiance.rs) | Captured allegiance for projectiles and detached strike volumes. |
 | [`attack_support`](src/attack_support.rs) | Attack-phase support: brain-output → engine-input translation, the shared post-hit stagger gates, the moveset down-air's world-orb pogo, and the debug-overlay hitbox source. |
+| [`authored_coverage`](src/authored_coverage.rs) | ONE AUTHORITY FOR WHERE A MOVE HITS: the region the brain admits a swing by is the region the strike will occupy. |
 | [`authored_volumes`](src/authored_volumes.rs) | App-local authored attack-volume resolution. |
 | [`banner`](src/banner.rs) | Gameplay banner ticking and deferred-request application. |
 | [`body_geometry`](src/body_geometry/mod.rs) | ACTOR-NEUTRAL COMBAT GEOMETRY: how a body's collision box and its damageable hurtbox are derived from its pose. |
@@ -61,7 +63,7 @@
 | [`vitality`](src/vitality.rs) | A move that pays or repays its own mover's health. |
 | [`worn_kit`](src/worn_kit.rs) | The kit a body wears: what a character id resolves to when a body puts it on. |
 
-_54 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_56 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -217,7 +217,7 @@ pub fn apply_contact_harm(
         // A body touches only bodies of its own live room (OW1): two live
         // rooms share one local frame.
         let striker_room = tuning.room_of(striker);
-        let friendly_fire = tuning.in_room(striker_room).map(|t| t.friendly_fire()).unwrap_or_default();
+        let friendly_fire = tuning.in_room(striker_room).map(|t| t.damage_policy()).unwrap_or_default();
         let harm = harm.copied().unwrap_or_default();
         // "Everything I touch" is literally this body's collision box.
         let volume = kin.collision_box(last_step);

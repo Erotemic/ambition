@@ -151,10 +151,7 @@ pub struct ClashContender<'a> {
     pub family: ClashFamily,
     pub damage: i32,
     /// This attack's side, frozen at the moment it came out.
-    pub faction: ambition_characters::actor::ActorFaction,
-    /// Its match team, when it had one. `None` outside a match — the faction
-    /// rule then decides, exactly as it does for any unseated body.
-    pub team: Option<&'a crate::targeting::MatchTeam>,
+    pub allegiance: crate::targeting::Combatant<'a>,
 }
 
 /// What a contest decided.
@@ -267,12 +264,9 @@ fn sides_are_opposed(
     b: &ClashContender<'_>,
     rules: crate::rules::ResolvedCombatTuning,
 ) -> bool {
-    // Teams outrank faction, exactly as they do for damage: two humans in a
-    // match share a faction and are still opponents.
-    if let (Some(a_team), Some(b_team)) = (a.team, b.team) {
-        return a_team != b_team;
-    }
-    crate::targeting::can_damage(a.faction, b.faction, rules.friendly_fire())
+    crate::targeting::damage_lands_between(
+        None, a.allegiance, b.allegiance, rules.damage_policy(), None, b.owner,
+    )
 }
 
 /// What a trade COSTS both fighters: their moves end, and both are thrown back.

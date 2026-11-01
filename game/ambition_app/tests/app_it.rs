@@ -55,6 +55,7 @@ mod a_lever_left_on_is_on_when_you_come_back;
 mod a_room_look_undresses_when_its_budget_goes;
 mod a_room_occupant_belongs_to_the_live_room;
 mod two_players_two_live_rooms;
+mod coop_friendly_fire;
 mod readiness_gate;
 mod two_peers;
 mod one_body_two_tickers;

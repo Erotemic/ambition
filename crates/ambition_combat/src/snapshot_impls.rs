@@ -403,3 +403,42 @@ impl SnapshotState for crate::stale::BodyStaleMoves {
         })
     }
 }
+
+impl SnapshotState for crate::allegiance::AttackAllegiance {
+    fn encode(&self, out: &mut Vec<u8>) {
+        self.faction.encode(out);
+        put_bool(out, self.driver.is_some());
+        if let Some(driver) = self.driver { put_u8(out, driver.0.0); }
+        match &self.team {
+            None => put_bool(out, false),
+            Some(team) => {
+                put_bool(out, true);
+                put_str(out, team.as_str());
+            }
+        }
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        let faction = ambition_characters::actor::ActorFaction::decode(r)?;
+        let driver = if r.bool()? {
+            Some(ambition_characters::control::DrivingParticipant(
+                ambition_characters::control::PlayerSlot(r.u8()?),
+            ))
+        } else { None };
+        let team = if r.bool()? {
+            Some(crate::targeting::MatchTeam::new(r.str()?))
+        } else {
+            None
+        };
+        Some(Self { faction, driver, team })
+    }
+}
+
+impl SnapshotState for crate::strike::FixedStrikeFeaturePulse {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_bool(out, self.emitted);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self { emitted: r.bool()? })
+    }
+}

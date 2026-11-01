@@ -208,6 +208,7 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
             tog!(settings.gameplay.portal_reverses_facing)
         }
         SettingsOptionId::AcceptLocalJoins => tog!(settings.gameplay.accept_local_joins),
+        SettingsOptionId::CoopFriendlyFire => tog!(settings.gameplay.coop_friendly_fire),
         SettingsOptionId::MovementFrameMode => settings.gameplay.cycle_movement_frame_mode(dir),
         SettingsOptionId::AimFrameMode => settings.gameplay.cycle_aim_frame_mode(dir),
         SettingsOptionId::CameraReferenceFrame => {

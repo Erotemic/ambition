@@ -32,13 +32,15 @@ pub enum HitboxKnockback {
 
 /// One in-flight strike's damage volume. Spawned on the windup → active edge of
 /// an attack (or by a `DamageBox` effect); despawned when its [`HitboxLifetime`]
-/// expires. Damage resolution (`apply_hitbox_damage`) lives in the game lib.
+/// expires. Damage resolution runs in [`crate::hitbox::apply_hitbox_damage`].
 #[derive(Component, Clone, Debug)]
+#[require(FixedStrikeFeaturePulse)]
 pub struct Hitbox {
     /// Entity that spawned the hitbox (skip self-hits; look up the follow
     /// anchor's world position each tick).
     pub owner: Entity,
-    /// Whose attack is this? Picks the target query in damage resolution.
+    /// Source policy: Environment permits self-hits and ignores factions.
+    /// Neutral does not damage bodies. Other sources use the common relation.
     pub source: HitSide,
     /// `FollowOwner` re-resolves the AABB each tick from the owner's
     /// authoritative position; `World` is a fixed world-space rectangle.
@@ -224,6 +226,12 @@ pub struct HitboxHits {
     pub hit: std::collections::BTreeSet<Entity>,
 }
 
+/// A fixed strike publishes one feature pulse. Body contacts have their own ledger.
+#[derive(Component, Default, Clone, Copy, Debug)]
+pub struct FixedStrikeFeaturePulse {
+    pub(crate) emitted: bool,
+}
+
 impl bevy::ecs::entity::MapEntities for Hitbox {
     fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
         self.owner = mapper.get_mapped(self.owner);
@@ -316,10 +324,8 @@ pub fn plausible_feel_scale(knockback: f32) -> bool {
 /// rotating-cross arms) can despawn it later. The single spawn point for
 /// world-anchored damage boxes.
 ///
-/// ⚠ AND "WORLD-ANCHORED" IS THE WHOLE SCOPE OF THAT SENTENCE. For a swing that
-/// belongs to a BODY — hurts the people in front of it and not the fighter who
-/// threw it — see [`spawn_body_strike`], which is the sibling road and exists
-/// because no spelling of a world-anchored box can express that.
+/// This volume keeps its world position. Use [`spawn_body_strike`] for a
+/// volume that follows its owner.
 pub fn spawn_damage_box(
     commands: &mut Commands,
     owner: Entity,
@@ -380,37 +386,9 @@ pub fn spawn_damage_box(
     e.id()
 }
 
-/// Spawn an ordinary BODY strike: player-sided, anchored to `owner`, resolved by
-/// the same melee path a move's own volume takes. Returns the entity.
-///
-/// ⛔⛔ THE SIBLING OF [`spawn_damage_box`], AND THE DIFFERENCE IS NOT COSMETIC.
-/// A `DamageBox` is anchored `World`, and the resolver's table reads
-/// `(HitSide::Player, HitboxAnchor::World { .. }) => None` — a player-sided world
-/// box takes NO melee path and damages nobody. The only side that reaches bodies
-/// from a world anchor is `Environment`, which by design consults **no
-/// self-exclusion**: *"your own bomb hurts you, and you still placed it."*
-/// ⇒ So a technique that wants "a swing that hurts THEM and not ME" cannot be
-/// spelled as a `DamageBox` at all. It needs this: `Player` + `FollowOwner`,
-/// where the owner is excluded by identity and `damage_lands_between` still
-/// decides teams, factions and friendly fire.
-///
-/// ⚠ WHICH IS WHY IT EXISTS. The first draft of the riposte technique authored a
-/// world box on `Environment` and would have cut the fighter who threw it — a
-/// counter that damages its own owner — and the mistake was invisible until the
-/// citation in `a_hazard_hits_bystander_and_owner_alike_where_a_neutral_box_hits_neither`
-/// was actually read.
-///
-/// ⛔⛔ `body_frame` IS NOT DECORATION AND THE ROTATION HAPPENS HERE, NOT AT THE
-/// CALL SITE. `HitboxAnchor::FollowOwner`'s field is *named* `local_offset` and
-/// is resolved as `owner_pos + local_offset` — a WORLD displacement. Every
-/// caller therefore has to rotate before it stores, and until 2026-09-06 the one
-/// caller did not: the riposte handed over `(facing * reach, 0)` and raw
-/// half-extents, so under any non-identity gravity the counter cut along world
-/// +x while the swordfighter faced somewhere else. Taking the frame instead of a
-/// bare `down` makes that impossible to forget and makes the parameter name
-/// true. The authored road does the same two transforms in
-/// `place_body_local_volume`; a technique and a volume must not disagree about
-/// which way "forward" points.
+/// Spawn a strike that follows its owner. The common body resolver supplies
+/// damage permission. Offsets and half extents use the owner's frame; convert
+/// them at spawn so each caller uses the same placement rule.
 pub fn spawn_body_strike(
     commands: &mut Commands,
     owner: Entity,

@@ -385,17 +385,17 @@ fn a_grudge_lands_a_hit_between_same_faction_bodies() {
 
     // Same faction, no grudge → spared.
     assert!(
-        !damage_lands_between(None, Combatant { faction: ActorFaction::Npc, driver: None, team: None }, Combatant { faction: ActorFaction::Npc, driver: None, team: None }, ff, None, rival),
+        !damage_lands_between(None, Combatant { faction: ActorFaction::Npc, driver: None, team: None }, Combatant { faction: ActorFaction::Npc, driver: None, team: None }, (ff).into(), None, rival),
         "same-faction non-grudged allies are spared (friendly fire off)"
     );
     // Same faction, grudge against THIS victim → lands.
     assert!(
-        damage_lands_between(None, Combatant { faction: ActorFaction::Npc, driver: None, team: None }, Combatant { faction: ActorFaction::Npc, driver: None, team: None }, ff, Some(Grudge::Body(rival)), rival),
+        damage_lands_between(None, Combatant { faction: ActorFaction::Npc, driver: None, team: None }, Combatant { faction: ActorFaction::Npc, driver: None, team: None }, (ff).into(), Some(Grudge::Body(rival)), rival),
         "a grudge against the victim authorizes a same-faction hit"
     );
     // Grudge against someone ELSE → this victim still spared.
     assert!(
-        !damage_lands_between(None, Combatant { faction: ActorFaction::Npc, driver: None, team: None }, Combatant { faction: ActorFaction::Npc, driver: None, team: None }, ff, Some(Grudge::Body(bystander)), rival),
+        !damage_lands_between(None, Combatant { faction: ActorFaction::Npc, driver: None, team: None }, Combatant { faction: ActorFaction::Npc, driver: None, team: None }, (ff).into(), Some(Grudge::Body(bystander)), rival),
         "a grudge against a different entity does not authorize hitting this one"
     );
 }
@@ -463,7 +463,7 @@ fn damage_lands_is_a_strict_superset_of_can_damage() {
     let some = app.world_mut().spawn_empty().id();
     for grudge in [None, Some(Grudge::Body(some))] {
         assert!(
-            damage_lands_between(None, Combatant { faction: ActorFaction::Enemy, driver: None, team: None }, Combatant { faction: ActorFaction::Player, driver: None, team: None }, ff, grudge, some),
+            damage_lands_between(None, Combatant { faction: ActorFaction::Enemy, driver: None, team: None }, Combatant { faction: ActorFaction::Player, driver: None, team: None }, (ff).into(), grudge, some),
             "a cross-faction hit always lands (grudge={grudge:?})"
         );
     }
@@ -718,7 +718,7 @@ fn teams_decide_between_two_bodies_that_share_a_faction() {
             driver: None,
             team: Some(&red),
         },
-        no_ff,
+        (no_ff).into(),
         None,
         victim,
     ));
@@ -737,7 +737,7 @@ fn teams_decide_between_two_bodies_that_share_a_faction() {
             driver: None,
             team: Some(&blue),
         },
-        no_ff,
+        (no_ff).into(),
         None,
         victim,
     ));
@@ -757,7 +757,7 @@ fn teams_decide_between_two_bodies_that_share_a_faction() {
             driver: None,
             team: Some(&blue),
         },
-        no_ff,
+        (no_ff).into(),
         None,
         victim,
     ));
@@ -776,7 +776,7 @@ fn teams_decide_between_two_bodies_that_share_a_faction() {
             driver: None,
             team: Some(&blue),
         },
-        no_ff,
+        (no_ff).into(),
         Some(Grudge::Body(victim)),
         victim,
     ));
@@ -795,7 +795,7 @@ fn teams_decide_between_two_bodies_that_share_a_faction() {
             driver: None,
             team: None,
         },
-        no_ff,
+        (no_ff).into(),
         None,
         victim,
     ));
@@ -811,7 +811,7 @@ fn teams_decide_between_two_bodies_that_share_a_faction() {
             driver: None,
             team: None,
         },
-        no_ff,
+        (no_ff).into(),
         None,
         victim,
     ));
@@ -1215,7 +1215,7 @@ fn an_ally_takes_the_foes_of_its_side_and_spares_it() {
             driver: None,
             team: None,
         },
-        no_ff,
+        (no_ff).into(),
         grudge,
         body,
     )
@@ -1227,4 +1227,29 @@ fn an_ally_takes_the_foes_of_its_side_and_spares_it() {
         lands(ActorFaction::Npc, ActorFaction::Player, Some(Grudge::Body(body))),
         "a provoked NPC's grudge outranks the alliance"
     );
+}
+
+#[test]
+fn participant_damage_has_its_own_policy_without_changing_teams_or_npc_allies() {
+    let body = Entity::from_raw_u32(9).unwrap();
+    let first = DrivingParticipant(PlayerSlot(0));
+    let second = DrivingParticipant(PlayerSlot(1));
+    let human = Combatant { faction: ActorFaction::Enemy, driver: Some(&first), team: None };
+    let partner = Combatant { faction: ActorFaction::Boss, driver: Some(&second), team: None };
+    let npc = Combatant { faction: ActorFaction::Player, driver: None, team: None };
+    let blue = MatchTeam::new("blue");
+    let red = MatchTeam::new("red");
+    for enabled in [false, true] {
+        let policy = DamagePolicy { allies: false, participants: Some(enabled) };
+        let lands = |a, b| damage_lands_between(None, a, b, policy, None, body);
+        assert_eq!(lands(human, partner), enabled);
+        assert!(!lands(human, npc));
+        assert!(!lands(npc, human));
+        assert!(!lands(Combatant { team: Some(&blue), ..human }, Combatant { team: Some(&blue), ..partner }));
+        assert!(lands(Combatant { team: Some(&blue), ..human }, Combatant { team: Some(&red), ..partner }));
+        assert!(damage_lands_between(None, human, partner, policy, Some(Grudge::Body(body)), body));
+        assert!(damage_lands_between(None, Combatant { team: Some(&blue), ..human },
+            Combatant { team: Some(&blue), ..partner },
+            DamagePolicy { allies: true, participants: Some(enabled) }, None, body));
+    }
 }

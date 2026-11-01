@@ -282,7 +282,7 @@ fn the_bystander_is_damageable_and_still_not_a_target() {
                 driver: None,
                 team: None,
             },
-            targeting::FriendlyFire { enabled: false },
+            (targeting::FriendlyFire { enabled: false }).into(),
             None,
             other,
         ),

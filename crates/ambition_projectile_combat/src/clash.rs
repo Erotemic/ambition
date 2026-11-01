@@ -52,7 +52,7 @@ fn arbitrate_attack_clashes(
             &mut ambition_platformer2d_shared_tangle::projectile::ProjectileGameplay,
             &ambition_projectiles::ProjectileSeq,
             Option<&ambition_projectiles::ProjectileOwner>,
-            Option<&crate::ProjectileAllegiance>,
+            Option<&ambition_combat::allegiance::AttackAllegiance>,
         ),
         With<ambition_projectiles::LiveProjectile>,
     >,
@@ -99,11 +99,13 @@ fn arbitrate_attack_clashes(
                 ClashFamily::AerialMelee
             },
             damage: hitbox.damage,
-            faction: factions
-                .get(volume.owner)
-                .map(|(faction, driver)| ambition_combat::targeting::effective_faction(*faction, driver))
-                .unwrap_or_default(),
-            team: teams.get(volume.owner).ok(),
+            allegiance: {
+                let (faction, driver) = factions.get(volume.owner)
+                    .map(|(faction, driver)| (*faction, driver)).unwrap_or_default();
+                ambition_combat::targeting::Combatant {
+                    faction, driver, team: teams.get(volume.owner).ok(),
+                }
+            },
         }));
     }
 
@@ -111,11 +113,8 @@ fn arbitrate_attack_clashes(
         // ⛔ THE SIDE IS THE ONE STAMPED AT LAUNCH. A shot outlives its firer, so
         // chasing the owner's components answers about a body that may already
         // have been taken out of play — the same reason `step_projectiles` reads
-        // `ProjectileAllegiance` rather than the owner.
-        let (faction, team) = match allegiance {
-            Some(side) => (side.effective_faction(), side.team()),
-            None => continue,
-        };
+        // `AttackAllegiance` rather than the owner.
+        let Some(side) = allegiance else { continue; };
         contenders.push((tuning.room_of(entity), ClashContender {
             order: ClashOrder::Shot(seq.0),
             attack: ClashAttack::Shot(entity),
@@ -126,8 +125,9 @@ fn arbitrate_attack_clashes(
             volume: ae::CombatVolume::aabb(ae::Aabb::new(kin.pos, kin.size * 0.5)),
             family: ClashFamily::Shot,
             damage: game.damage,
-            faction,
-            team,
+            allegiance: ambition_combat::targeting::Combatant {
+                faction: side.faction, driver: side.driver.as_ref(), team: side.team(),
+            },
         }));
     }
 
@@ -455,7 +455,7 @@ mod tests {
                 seq,
                 ambition_projectiles::ProjectileOwner(owner),
                 ambition_projectiles::LiveProjectile,
-                crate::ProjectileAllegiance {
+                ambition_combat::allegiance::AttackAllegiance {
                     driver: None,
                     faction: ambition_characters::actor::ActorFaction::Player,
                     team: team
@@ -566,14 +566,14 @@ mod tests {
                 } else {
                     let owner = app.world_mut().spawn_empty().id();
                     let shot = a_shot_on_team(&mut app, ae::Vec2::ZERO, 6, owner, None);
-                    app.world_mut().entity_mut(shot).insert(crate::ProjectileAllegiance::from_body(
+                    app.world_mut().entity_mut(shot).insert(ambition_combat::allegiance::AttackAllegiance::from_body(
                         ActorFaction::Enemy, None, driven.then_some(&driver),
                     ));
                     app.world_mut().despawn(owner);
                 }
                 let owner = app.world_mut().spawn_empty().id();
                 let opposed = a_shot_on_team(&mut app, ae::Vec2::ZERO, 6, owner, None);
-                app.world_mut().entity_mut(opposed).insert(crate::ProjectileAllegiance::from_body(
+                app.world_mut().entity_mut(opposed).insert(ambition_combat::allegiance::AttackAllegiance::from_body(
                     ActorFaction::Enemy, None, None,
                 ));
                 app.world_mut().despawn(owner);

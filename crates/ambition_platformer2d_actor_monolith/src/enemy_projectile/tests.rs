@@ -807,7 +807,7 @@ fn a_shot_orphaned_before_its_first_step_does_not_turn_on_its_team() {
 ///
 /// The positive term for
 /// [`a_shot_orphaned_before_its_first_step_does_not_turn_on_its_team`], and the
-/// reason `stamp_new_projectile_allegiance` exists. That test pins the SAFE
+/// reason `stamp_attack_allegiance` exists. That test pins the SAFE
 /// behaviour when nothing stamped the bolt; this one pins that the production
 /// schedule stamps it, so the safe fallback is never reached.
 ///
@@ -861,7 +861,7 @@ fn a_shot_stamped_at_birth_survives_its_firers_elimination() {
 
     // `Materialize`: the bolts exist and take their side. No step yet.
     app.world_mut()
-        .run_system_once(ambition_projectile_combat::stamp_new_projectile_allegiance)
+        .run_system_once(ambition_combat::allegiance::stamp_attack_allegiance)
         .expect("the stamping system runs");
 
     // `Settle`, same tick: the final stock is spent and the body leaves play.
@@ -1120,7 +1120,7 @@ fn parried_shot_retains_its_interceptors_side(possessed: bool) {
 
     let bodies = live_projectile_bodies(&mut app);
     assert_eq!(bodies.len(), 1, "the parried bolt stays in flight");
-    let mut stamps = app.world_mut().query::<&ambition_projectile_combat::ProjectileAllegiance>();
+    let mut stamps = app.world_mut().query::<&ambition_combat::allegiance::AttackAllegiance>();
     let stamp = stamps.single(app.world()).unwrap();
     assert_eq!(stamp.driver, possessed.then_some(driver));
     assert_eq!(stamp.effective_faction(), ActorFaction::Player);
@@ -1532,7 +1532,7 @@ fn a_possessed_bodys_shot_keeps_its_side_after_control_or_lifetime_changes() {
                 let participant = DrivingParticipant(ambition_characters::control::PlayerSlot(1));
                 if driven { app.world_mut().entity_mut(owner).insert(participant); }
                 app.update();
-                let stamped = app.world().get::<ambition_projectile_combat::ProjectileAllegiance>(shot).unwrap();
+                let stamped = app.world().get::<ambition_combat::allegiance::AttackAllegiance>(shot).unwrap();
                 assert_eq!(stamped.driver, driven.then_some(participant));
                 assert!(app.world().resource::<CapturedHits>().0.is_empty(), "launch precedes contact");
                 if despawn {

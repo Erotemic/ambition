@@ -1449,7 +1449,12 @@ pub fn apply_player_hit_events(
     // world's rules got to disagree. The rules of each struck player's own
     // live room (OW1).
     room_rules: ambition_combat::rules::CombatTuningOf,
-    attacker_factions: Query<&ambition_characters::actor::ActorFaction>,
+    combat_sides: Query<(
+        &ambition_characters::actor::ActorFaction,
+        Option<&ambition_characters::control::DrivingParticipant>,
+        Option<&ambition_combat::targeting::MatchTeam>,
+        Option<&ambition_combat::components::ActorAggression>,
+    )>,
     mut player_q: Query<
         (
             Entity,
@@ -1582,27 +1587,33 @@ pub fn apply_player_hit_events(
         };
         // The rules of this player's own live room.
         let combat_rules = room_rules.of(player_entity).unwrap_or_default();
-        let friendly_fire = combat_rules.friendly_fire();
+        let friendly_fire = combat_rules.damage_policy();
         let mut feel = base_feel;
         combat_rules.fold_into_feel(&mut feel);
         let target_events: Vec<FeatureHitEvent> = resolved
             .iter()
             .filter(|(t, _)| *t == player_entity)
             .map(|(_, e)| e)
-            // Friendly-fire gate: a same-faction attacker (co-op ally) doesn't damage
-            // the player unless friendly fire is on; any different-faction hit lands
-            // (the observer takes a duel's strays). Hits with no entity attacker
-            // (hazards or genuinely ownerless projectiles) are environmental and always apply.
-            .filter(
-                |e| match e.attacker.and_then(|a| attacker_factions.get(a).ok()) {
-                    Some(faction) => ambition_combat::targeting::can_damage(
-                        *faction,
-                        ambition_characters::actor::ActorFaction::Player,
-                        friendly_fire,
-                    ),
-                    None => true,
-                },
-            )
+            // A resolved body contact carries its producer's damage decision.
+            // An unresolved volume asks the live relation here.
+            .filter(|event| {
+                if !matches!(event.target, HitTarget::Volume) { return true; }
+                let Some((source_faction, source_driver, source_team, aggression)) =
+                    event.attacker.and_then(|source| combat_sides.get(source).ok())
+                else { return true; };
+                let Ok((victim_faction, victim_driver, victim_team, _)) = combat_sides.get(player_entity)
+                else { return false; };
+                ambition_combat::targeting::damage_lands_between(
+                    room_rules.relations(),
+                    ambition_combat::targeting::Combatant {
+                        faction: *source_faction, driver: source_driver, team: source_team,
+                    },
+                    ambition_combat::targeting::Combatant {
+                        faction: *victim_faction, driver: victim_driver, team: victim_team,
+                    },
+                    friendly_fire, aggression.and_then(|a| a.grudge), player_entity,
+                )
+            })
             .cloned()
             .collect();
         let damaged_this_frame = !target_events.is_empty();

@@ -26,6 +26,9 @@ where
                     ^ (u64::from(clock.gait_elapsed_s.to_bits()) << 8)
             },
         );
+    registrar.rollback_component_canonical::<crate::allegiance::AttackAllegiance>(
+        OWNER, "combat.attack_allegiance",
+    );
     registrar.rollback_component_clone::<crate::hurtbox_resolution::AuthoredHurtboxes>(
         OWNER,
         "actor.authored_hurtboxes",
@@ -386,6 +389,11 @@ where
         "derived.room_combat_tuning",
         "refolded on each live room root from that room's CombatRules over the world baseline every WorldPrep",
     );
+    registrar.declare_rollback_derived_component::<crate::targeting::ParticipantFriendlyFire>(
+        OWNER,
+        "derived.participant_friendly_fire",
+        "immutable session rule covered by prepared content identity",
+    );
     // CAPTURE: the relationship is state; the requests are not.
     //
     // `CapturedBy` is authoritative sim state — a rewind past a grab must undo
@@ -541,6 +549,9 @@ where
         |hitbox| hitbox.owner,
     );
     registrar.rollback_map_entities::<crate::strike::Hitbox>(OWNER, "map.hitbox");
+    registrar.rollback_component_canonical::<crate::strike::FixedStrikeFeaturePulse>(
+        OWNER, "combat.fixed_strike_feature_pulse",
+    );
     registrar.rollback_component_clone_entity_set::<crate::strike::HitboxHits>(
         OWNER,
         "combat.hitbox_hits",

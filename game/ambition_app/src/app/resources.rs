@@ -165,7 +165,8 @@ fn insert_host_resources(
         // Aggregate user settings (video/audio/controls/gameplay).
         // Mutated by the pause menu; read by audio/video/gameplay
         // systems and the input deadzone/hysteresis filter.
-        .insert_resource(ambition_platformer2d::persistence::settings::UserSettings::default());
+        // The host can supply settings before it composes this game.
+        .init_resource::<ambition_platformer2d::persistence::settings::UserSettings>();
 }
 
 /// A hub without Ambition: no Ambition world, cast, bosses or validation. The

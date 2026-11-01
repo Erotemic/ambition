@@ -22,7 +22,7 @@ use bevy::prelude::*;
 
 /// Marker on EVERY in-flight projectile entity. The unified stepper, reset
 /// lifecycle, perception, and debug tooling all query this one occurrence fact.
-/// Combat side is frozen separately by the actor-domain `ProjectileAllegiance`;
+/// Combat side is frozen separately by the combat domain's `AttackAllegiance`;
 /// presentation is selected by `ProjectileVisualId` and optional `ProjectileKind`.
 ///
 /// It requires the victim ledger, so every spawn road gets one.

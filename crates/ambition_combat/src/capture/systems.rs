@@ -143,7 +143,7 @@ pub fn acquire_captures(
         // into (OW1). Two live rooms share one local frame, so a body at the
         // same place in another room is not in reach.
         let captor_room = tuning.room_of(attempt.captor);
-        let friendly_fire = tuning.in_room(captor_room).unwrap_or_default().friendly_fire();
+        let friendly_fire = tuning.in_room(captor_room).unwrap_or_default().damage_policy();
         if crate::util::body_is_untouchable(Some(captor.body.health), captor.body.out_of_play, captor.body.plane) {
             continue;
         }

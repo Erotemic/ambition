@@ -558,8 +558,9 @@ control.
 
 ### MULTIPLAYER-SEAMS — make local multiplayer safe for netplay
 
-**Remaining failure:** co-op friendly fire is off; the Ambition menu has one
-input, cursor and visible state; room loading covers the other viewport; F1
+**Remaining failure:** detached areas lack room provenance after owner loss
+with two live rooms; scripted strike volumes still use primary-body routing;
+the Ambition menu has one input, cursor and visible state; room loading covers the other viewport; F1
 gizmos use primary room data. Routine peer room commits still hold the whole
 session. These are separate authority, presentation and gameplay-rule boundaries.
 See the [cause and acceptance map](engine/local-coop-integration.md#follow-up-audit-co-op-works-but-participant-and-view-scope-leaks-2026-10-24)
@@ -597,14 +598,22 @@ module foe queries use control allegiance at both ends. Guard:
 Peer proposal agreement landed in `3c7f0d5bb`. Each timeline waits for content,
 schema and input format agreement; local epochs stay local. Guard:
 `peer_contract_mismatch_refuses_simulation_on_both_peers` and its wait case.
-The frozen co-op choice and world-area participant capture remain open.
+Scoped co-op damage uses schema 395: the saved ON default freezes in the
+session and enters peer content identity. Melee, projectiles and detached
+body strikes use one relation; detached attacks retain control allegiance.
+Guard: `coop_friendly_fire` integration tests. Scripted strikes and the
+rendered main-game acceptance remain open.
 
 **Next action (ordered slices; complete each behavior gate before moving):**
 
-3. **Gameplay rule:** add co-op friendly fire ON by default and a host OFF
-   option through the common damage relation. Freeze/agree the rule in the session
-   contract before peer simulation. Include melee, ranged, and possession
-   coverage; keep self-damage and NPC target selection rules distinct.
+3. **Finish gameplay-rule coverage:** give detached areas explicit room and
+   session provenance before owner retirement. Prove owner loss with two live
+   rooms through the real factory. Then route `StrikePort` through the common
+   body resolver and remove its unresolved primary-body broadcast. Audit owned
+   environmental areas against the explicit self-damage policy. Keep NPC target
+   selection and authored match rules separate. The saved ON/OFF choice, frozen
+   session identity, peer refusal, melee and detached attack coverage are built.
+   Complete the rendered two-controller main-game acceptance before closing.
 4. **Independent local menus:** separate per-seat open state, focus, page,
    inventory, and viewport UI for Grid and Kaleidoscope. An offline session
    pause arbiter pauses while any menu is open, but each seat still controls

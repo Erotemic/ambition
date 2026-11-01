@@ -676,7 +676,7 @@ fn lower_body_holds(
                     continue;
                 };
                 let room = tuning.room_of(captor);
-                let friendly_fire = tuning.in_room(room).unwrap_or_default().friendly_fire();
+                let friendly_fire = tuning.in_room(room).unwrap_or_default().damage_policy();
                 // The reach is a box on the captor's own axes, as the hold
                 // point is (`constrain_captives`): mirror by its facing, then
                 // turn into its frame. A captor under sideways gravity

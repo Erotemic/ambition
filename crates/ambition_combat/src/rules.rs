@@ -521,6 +521,7 @@ pub struct ResolvedCombatTuning {
     /// See [`CombatRules::grab_mash_seconds`].
     pub grab_mash_seconds: f32,
     pub friendly_fire: bool,
+    pub participant_friendly_fire: Option<bool>,
     /// The line between this room's light and heavy hits, where its game
     /// stated one ([`crate::strike_weight`]). Declared apart from
     /// [`CombatRules`], so [`Self::resolve`] leaves it `None` and the projection
@@ -761,6 +762,7 @@ impl ResolvedCombatTuning {
                 grab_hold_max_seconds: rules.grab_hold_max_seconds,
                 grab_mash_seconds: rules.grab_mash_seconds,
                 friendly_fire: rules.friendly_fire,
+                participant_friendly_fire: None,
                 clank_damage_window: rules.clank_damage_window,
                 clank_rebound_speed: rules.clank_rebound_speed,
                 edge_cancel_recovery: rules.edge_cancel_recovery.unwrap_or(false),
@@ -818,6 +820,7 @@ impl ResolvedCombatTuning {
                 grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
                 grab_mash_seconds: FLAT_GRAB_MASH_SECONDS,
                 friendly_fire: baseline_ff,
+                participant_friendly_fire: None,
                 // ⛔ AN UNDECLARED WORLD DOES NOT CLANK. Ambition's rooms are
                 // not a fighting game: two swings meeting there have always both
                 // landed, and turning that on to buy a Smash feature is the
@@ -882,13 +885,14 @@ impl ResolvedCombatTuning {
         self.growth_base.scale(base)
     }
 
-    /// The friendly-fire toggle in the shape `can_damage` already takes, so the
-    /// targeting rule keeps ONE signature whichever side supplies it.
-    pub fn friendly_fire(self) -> crate::targeting::FriendlyFire {
-        crate::targeting::FriendlyFire {
-            enabled: self.friendly_fire,
+    /// The room's complete ally damage policy.
+    pub fn damage_policy(self) -> crate::targeting::DamagePolicy {
+        crate::targeting::DamagePolicy {
+            allies: self.friendly_fire,
+            participants: self.participant_friendly_fire,
         }
     }
+
 }
 
 impl Default for ResolvedCombatTuning {
@@ -1208,6 +1212,7 @@ mod tests {
                 grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
                 grab_mash_seconds: FLAT_GRAB_MASH_SECONDS,
                 friendly_fire: false,
+                participant_friendly_fire: None,
                 clank_damage_window: 0.0,
                 clank_rebound_speed: 0.0,
                 // ⛔ AN UNDECLARED WORLD KEEPS ITS LAG. Nothing outside a

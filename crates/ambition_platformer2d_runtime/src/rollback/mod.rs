@@ -80,7 +80,6 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     ambition_cutscene::register_rollback_state(registrar);
     ambition_persistence::register_rollback_state(registrar);
     ambition_projectiles::register_rollback_state(registrar);
-    ambition_projectile_combat::register_rollback_state(registrar);
     ambition_platformer2d_items::register_rollback_state(registrar);
     ambition_extension_host::register_rollback_state(registrar);
     ambition_sim_view::register_rollback_state(registrar);

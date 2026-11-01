@@ -522,7 +522,7 @@ pub struct PerceptionProjectiles(pub Vec<PerceptionProjectile>);
 
 /// Collect one snapshot row for every live projectile.
 ///
-/// `LiveProjectile` is occurrence identity; `ProjectileAllegiance` is the frozen
+/// `LiveProjectile` is occurrence identity; `AttackAllegiance` is the frozen
 /// combat side. The old player/enemy spawn-family markers are deliberately not
 /// part of perception: an open-visual projectile can be friendly, and a named
 /// projectile can be hostile after a reflect. An unstamped environmental shot
@@ -534,7 +534,7 @@ pub fn collect_perception_projectiles(
             bevy::prelude::Entity,
             &ambition_platformer2d_core::BodyKinematics,
             &ambition_projectiles::ProjectileGameplay,
-            Option<&ambition_projectile_combat::ProjectileAllegiance>,
+            Option<&ambition_combat::allegiance::AttackAllegiance>,
             Option<&ambition_projectiles::ProjectileOwner>,
         ),
         bevy::prelude::With<ambition_projectiles::LiveProjectile>,

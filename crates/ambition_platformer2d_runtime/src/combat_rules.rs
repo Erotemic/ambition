@@ -29,6 +29,9 @@ pub fn project_combat_rules(
     landing_lag: ambition_combat::governing_rules::GoverningRules<ambition_combat::landing_lag::LandingLagRules>,
     baseline_feel: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
     baseline_ff: Option<Res<ambition_combat::targeting::FriendlyFire>>,
+    participant_rule: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_combat::targeting::ParticipantFriendlyFire,
+    >>,
     rule_rooms: ambition_combat::governing_rules::LiveRuleRooms,
     roots: bevy::prelude::Query<
         (
@@ -42,13 +45,17 @@ pub fn project_combat_rules(
     // up the tuning resources still resolves, and `resolve_over` says what an
     // absent baseline stands at.
     let resolve = |room: ambition_combat::scoped_rules::ActiveRoom<'_>| {
-        ambition_combat::rules::ResolvedCombatTuning::resolve_over(
+        let mut resolved = ambition_combat::rules::ResolvedCombatTuning::resolve_over(
             declared.in_room(room).copied(),
             baseline_feel.as_deref(),
             baseline_ff.as_deref(),
         )
         .with_strike_weight(strike_weight.in_room(room).copied())
-        .with_landing_lag(landing_lag.in_room(room).copied())
+        .with_landing_lag(landing_lag.in_room(room).copied());
+        resolved.participant_friendly_fire = participant_rule.as_ref()
+            .filter(|rule| rule.scope.governs(room))
+            .map(|rule| rule.enabled);
+        resolved
     };
     commands.insert_resource(resolve(ambition_combat::scoped_rules::ActiveRoom::NoRoom));
     for (root, room) in &roots {
@@ -98,6 +105,9 @@ mod tests {
             .add_systems(Update, project_combat_rules);
         app.world_mut().spawn((
             SessionRoot(SessionScopeId(1)),
+            ambition_combat::targeting::ParticipantFriendlyFire {
+                scope: RulesScope::UntaggedRooms, enabled: true,
+            },
             RoomSet::from_parts_or_panic(
                 "hall",
                 vec![room("hall", None), room("stage", Some("smash"))],
@@ -122,6 +132,10 @@ mod tests {
             .map(|(room, tuning)| (*room, tuning.0.strike_weight))
             .collect();
         rooms.sort_by_key(|(room, _)| *room);
+        let policies: Vec<_> = world.query::<(&LiveRoomInstance, &RoomCombatTuning)>()
+            .iter(world).map(|(room, tuning)| (*room, tuning.0.damage_policy().participants)).collect();
+        assert!(policies.contains(&(first, Some(true))));
+        assert!(policies.contains(&(first.next(), None)));
         let roomless = world
             .resource::<ambition_combat::rules::ResolvedCombatTuning>()
             .strike_weight;

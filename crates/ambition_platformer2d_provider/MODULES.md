@@ -12,9 +12,10 @@
 | [`lifecycle`](src/lifecycle.rs) | The shared provider lifecycle: preparation, prepared-session ownership, and activation into the live session world. |
 | [`presentation`](src/presentation.rs) | Project route declarations into active camera, defense and HUD presentation. |
 | [`session_contents`](src/session_contents.rs) | What an experience puts into its own session while the engine builds it. |
+| [`world_identity`](src/world_identity.rs) | Canonical identity sections for a prepared world and its session rules. |
 | [`world_source`](src/world_source.rs) | A provider's world source and its refusal: what the shared lifecycle runs when the shell asks an experience to prepare, and how a world that cannot be built fails that preparation. |
 
-_7 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_8 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

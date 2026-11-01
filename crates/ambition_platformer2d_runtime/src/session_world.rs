@@ -58,6 +58,7 @@ pub struct PreparedPlatformerSource {
     /// What the experience grants and permits the home body. See
     /// [`HomeBodyAbilities`].
     home_body_abilities: HomeBodyAbilities,
+    participant_friendly_fire: Option<ambition_combat::targeting::ParticipantFriendlyFire>,
     /// The active-area index an authoring FORMAT installed, if any. `None`
     /// for every RON-authored game, which is what makes this optional rather
     /// than a field they fill with an empty value — see the module header.
@@ -80,6 +81,7 @@ impl PreparedPlatformerSource {
             initial_body: InitialBodyPolicy::SpawnCharacter(starting_character.clone()),
             home_body_resources: HomeBodyResources::default(),
             home_body_abilities: HomeBodyAbilities::default(),
+            participant_friendly_fire: None,
             starting_character,
             #[cfg(feature = "ldtk")]
             installed_ldtk_index: None,
@@ -113,6 +115,7 @@ impl PreparedPlatformerSource {
             initial_body: InitialBodyPolicy::NoInitialBody,
             home_body_resources: HomeBodyResources::default(),
             home_body_abilities: HomeBodyAbilities::default(),
+            participant_friendly_fire: None,
             #[cfg(feature = "ldtk")]
             installed_ldtk_index: None,
         }
@@ -146,6 +149,19 @@ impl PreparedPlatformerSource {
     pub fn with_installed_ldtk_index(mut self, index: LdtkRuntimeIndex) -> Self {
         self.installed_ldtk_index = Some(index);
         self
+    }
+
+    /// Freeze the session's scoped participant damage choice.
+    pub fn with_participant_friendly_fire(
+        mut self,
+        rule: ambition_combat::targeting::ParticipantFriendlyFire,
+    ) -> Self {
+        self.participant_friendly_fire = Some(rule);
+        self
+    }
+
+    pub fn participant_friendly_fire(&self) -> Option<ambition_combat::targeting::ParticipantFriendlyFire> {
+        self.participant_friendly_fire
     }
 
     pub fn catalogs(&self) -> &PlatformerSessionCatalogs {
@@ -201,6 +217,7 @@ impl PreparedPlatformerSource {
             initial_body: self.initial_body.clone(),
             home_body_resources: self.home_body_resources.clone(),
             home_body_abilities: self.home_body_abilities,
+            participant_friendly_fire: self.participant_friendly_fire,
             #[cfg(feature = "ldtk")]
             installed_ldtk_index: self.installed_ldtk_index.clone(),
         }

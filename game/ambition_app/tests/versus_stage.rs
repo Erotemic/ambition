@@ -1429,7 +1429,7 @@ fn four_controllers_make_versus_a_two_versus_two() {
                         driver: None,
                         team: Some(&MatchTeam::new(other_team.clone())),
                     },
-                    no_ff,
+                    (no_ff).into(),
                     None,
                     *other,
                 ),

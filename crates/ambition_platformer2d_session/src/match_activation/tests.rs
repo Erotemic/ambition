@@ -225,7 +225,7 @@ fn a_roster_of_two_cpu_participants_becomes_two_bodies_wearing_their_characters(
                 driver: None,
                 team: Some(right_team),
             },
-            ambition_combat::targeting::FriendlyFire::default(),
+            (ambition_combat::targeting::FriendlyFire::default()).into(),
             None,
             bevy::prelude::Entity::from_raw_u32(1).expect("nonzero raw index"),
         ),
@@ -707,7 +707,7 @@ fn four_fighters_on_two_teams_can_hit_their_opponents_and_not_their_partners() {
                 driver: None,
                 team: Some(&MatchTeam::new(other_team.clone())),
             },
-                no_ff,
+                (no_ff).into(),
                 None,
                 *other_entity,
             );

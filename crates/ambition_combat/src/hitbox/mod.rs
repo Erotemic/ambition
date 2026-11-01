@@ -16,8 +16,7 @@ use super::targeting::effective_faction;
 use super::util::midpoint;
 use crate::actor_faction_from_hit_side;
 use ambition_time::WorldTime;
-use ambition_vfx::vfx::VfxMessage;
-use ambition_vfx::vfx::{VfxInRoom, VfxWriter};
+use ambition_vfx::vfx::VfxInRoom;
 
 // Public hitbox vocabulary remains available beside the resolution systems.
 pub use crate::strike::{
@@ -648,6 +647,7 @@ impl StrikeVictimItem<'_, '_> {
 pub struct AttackerFacts<'w, 's> {
     aggression: Query<'w, 's, &'static ActorAggression>,
     allegiance: Query<'w, 's, (
+        Option<&'static ActorFaction>,
         Option<&'static ambition_characters::control::DrivingParticipant>,
         Option<&'static crate::targeting::MatchTeam>,
     )>,
@@ -728,8 +728,6 @@ pub fn register_strike_outcome_messages(app: &mut bevy::prelude::App) {
 /// the edit that caused it.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct StrikeOutcomeWriters<'w> {
-    /// Wielded-AOE VFX only; victim-side `emit_hit_feedback` owns melee feedback.
-    pub vfx: VfxWriter<'w>,
     pub hit_events: MessageWriter<'w, HitEvent>,
     /// Overlap.
     pub landed: MessageWriter<'w, LandedBodyHit>,
@@ -849,6 +847,8 @@ pub fn apply_hitbox_damage(
         &Hitbox,
         &mut HitboxHits,
         Option<&crate::moveset::AttackerMoveInstance>,
+        Option<&crate::allegiance::AttackAllegiance>,
+        &mut crate::strike::FixedStrikeFeaturePulse,
     )>,
     owners: Query<&super::components::CenteredAabb>,
     // Owner-position fallback when the owner carries no `CenteredAabb`
@@ -998,7 +998,7 @@ pub fn apply_hitbox_damage(
             })
         })
         .collect();
-    for (hitbox_entity, hitbox, mut hits, move_instance) in &mut hitboxes {
+    for (hitbox_entity, hitbox, mut hits, move_instance, captured, mut feature_pulse) in &mut hitboxes {
         let Some(owner_pos) = owner_position(hitbox) else {
             continue;
         };
@@ -1016,24 +1016,25 @@ pub fn apply_hitbox_damage(
         // staleness; this answers "what did the victim get hit BY", and a blast
         // is hit by the blast.
         let spatial_source = spatial_source_of(hitbox, owner_pos);
-        let (driver, team) = attacker.allegiance.get(hitbox.owner).unwrap_or_default();
-        let source_side = crate::targeting::Combatant {
-            faction: actor_faction_from_hit_side(hitbox.source),
-            driver: match hitbox.anchor {
-                HitboxAnchor::FollowOwner { .. } => driver,
-                HitboxAnchor::World { .. } => None,
-            },
+        let (faction, driver, team) = attacker.allegiance.get(hitbox.owner).unwrap_or_default();
+        let live_side = crate::targeting::Combatant {
+            faction: faction.copied().unwrap_or_else(|| actor_faction_from_hit_side(hitbox.source)),
+            driver,
             team,
+        };
+        let source_side = match hitbox.anchor {
+            HitboxAnchor::FollowOwner { .. } => live_side,
+            HitboxAnchor::World { .. } => captured.map_or(live_side, |side| side.as_combatant()),
         };
 
         // ONE BODY, ONE PATH: every body-owned melee strike resolves contacts
         // here. `HitSide` selects descriptive source vocabulary only; it does not
         // select a different overlap/dedup/knockback algorithm.
         let melee_source = match (hitbox.source, hitbox.anchor) {
-            (HitSide::Player, HitboxAnchor::FollowOwner { .. }) => Some(HitSource::Melee),
+            (HitSide::Player, _) => Some(HitSource::Melee),
             (HitSide::Enemy | HitSide::Npc, _) => Some(HitSource::Melee),
             (HitSide::Boss, _) => Some(HitSource::Melee),
-            (HitSide::Player, HitboxAnchor::World { .. }) | (HitSide::Neutral, _) => None,
+            (HitSide::Neutral, _) => None,
             // ⭐⭐ A HAZARD TAKES THE BODY PATH, WHICH IS THE WHOLE POINT. A
             // thrown bomb, a placed mine and a steered bolt all authored
             // `Neutral` and therefore hurt NOBODY — the resolver is explicit
@@ -1076,7 +1077,7 @@ pub fn apply_hitbox_damage(
             let room_rules = tuning.in_room(strike_room);
             let ruleset_growth = room_rules.map(|t| t.knockback_growth).unwrap_or_default();
             let rules = room_rules.unwrap_or_default();
-            let friendly_fire = room_rules.map(|t| t.friendly_fire()).unwrap_or_default();
+            let friendly_fire = room_rules.map(|t| t.damage_policy()).unwrap_or_default();
             // What the strike can touch at most, when no pair cuts it: the
             // broad phase below rejects a body none of whose parts it reaches.
             let strike_bounds = (!cut).then(|| world_volume.bounds());
@@ -1487,9 +1488,11 @@ pub fn apply_hitbox_damage(
 
             // Publish the unresolved feature half of the strike after body targets
             // have been resolved. Feature consumers may scan bosses/breakables but
-            // must not damage bodies again. Per-strike dedup is authoritative in
-            // `MovePlayback.hit_targets`, which is the only record.
-            {
+            // must not damage bodies again. A fixed strike publishes this pulse once.
+            // A moving strike uses the move's feature hit list.
+            let fixed = matches!(hitbox.anchor, HitboxAnchor::World { .. });
+            if !fixed || !feature_pulse.emitted {
+                if fixed { feature_pulse.emitted = true; }
                 out.hit_events.write(HitEvent {
                     pieces: feature_pieces(),
                     strike_sfx: hitbox.strike_sfx,
@@ -1506,42 +1509,6 @@ pub fn apply_hitbox_damage(
                 });
             }
             continue;
-        }
-
-        match hitbox.source {
-            // Keep its broadcast semantics until that separate primitive is refactored: fire
-            // once per strike via the owner sentinel and let the feature resolver fan out the
-            // volume.
-            HitSide::Player => {
-                debug_assert!(matches!(hitbox.anchor, HitboxAnchor::World { .. }));
-                if hits.hit.insert(hitbox.owner) {
-                    out.vfx.write_in(strike_room, VfxMessage::Impact {
-                        pos: world_volume.center(),
-                        blow: ambition_vfx::ImpactBlow::PLAIN,
-                    });
-                    out.hit_events.write(HitEvent {
-                        pieces: feature_pieces(),
-                        strike_sfx: hitbox.strike_sfx,
-                        volume: world_volume.clone(),
-                        damage: hitbox.damage.max(damage_floor(hitbox.damage)),
-                        source: HitSource::Melee,
-                        attacker: Some(hitbox.owner),
-                        room: None,
-                        target: HitTarget::Volume,
-                        mode: HitMode::Knockback,
-                        knockback: None,
-                        ignored_targets: Vec::new(),
-                                            attacker_move_instance: move_instance.map(|i| i.0),
-                    });
-                }
-            }
-            // Neutral never spawns a damaging hitbox (a provoked Npc is handled
-            // by the direct melee path above with its real faction).
-            HitSide::Neutral => {}
-            // These sides were consumed by `melee_source` and continued above.
-            HitSide::Enemy | HitSide::Boss | HitSide::Npc | HitSide::Environment => {
-                unreachable!()
-            }
         }
     }
 
@@ -1566,7 +1533,7 @@ pub fn apply_hitbox_damage(
             if *sibling_owner != owner || *sibling == striker {
                 continue;
             }
-            if let Ok((_, _, mut hits, _)) = hitboxes.get_mut(*sibling) {
+            if let Ok((_, _, mut hits, _, _, _)) = hitboxes.get_mut(*sibling) {
                 hits.hit.insert(victim);
             }
         }

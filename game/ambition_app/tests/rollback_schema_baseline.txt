@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v394
+ggrs-rollback-schema-v395
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -120,9 +120,11 @@ boss.limb_strike_box	component-clone-cursor	LimbStrikeBox	bevy_ggrs clone snapsh
 boss.overrides	component-clone	BossOverrides	bevy_ggrs clone snapshot; not in the session checksum
 boss.phase	component-canonical	BossPhase	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 capture.captured_by	component-clone	CapturedBy	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
+combat.attack_allegiance	component-canonical	AttackAllegiance	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 combat.capabilities	component-clone	CombatCapabilities	bevy_ggrs clone snapshot; not in the session checksum
 combat.credit_stand_in	component-clone	CreditStandIn	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 combat.depicted_by_owner	component-clone	DepictedByOwner	bevy_ggrs clone snapshot; not in the session checksum
+combat.fixed_strike_feature_pulse	component-canonical	FixedStrikeFeaturePulse	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 combat.held_damage_boxes	component-clone-cursor	HeldDamageBoxes	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 combat.hitbox	component-clone	Hitbox	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 combat.hitbox_hits	component-clone	HitboxHits	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
@@ -195,6 +197,7 @@ derived.limb_bond_start	derived	LimbBondStart	written again each tick from its g
 derived.module_entity_touchers	derived	ModuleEntityTouchers	written again in each tick's module_entity_tick collect and read only by that tick's lowering
 derived.navigation_advice	derived	NavigationAdvice	rebuilt in the Observe phase from the room's surface graph, each body and its brain's goal
 derived.nearest_interactable	derived	NearestInteractable	proximity read model recomputed per frame
+derived.participant_friendly_fire	derived	ParticipantFriendlyFire	immutable session rule covered by prepared content identity
 derived.perception_peers	derived	PerceptionPeers	perception snapshot rebuilt every tick before brains read it
 derived.perception_projectiles	derived	PerceptionProjectiles	perception snapshot rebuilt every tick before brains read it
 derived.player_body_frame_output	derived	BodyFrameOutput	republished by body integration every simulation frame
@@ -454,7 +457,6 @@ portal.transit	component-clone	PortalTransit	bevy_ggrs clone snapshot; not in th
 portal.transit_cooldown	component-clone	PortalTransitCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 presentation.body_source	component-clone	BodyPresentationSource	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 presentation.body_source_derived	component-clone	DerivedPresentationSource	bevy_ggrs clone snapshot; not in the session checksum
-projectile.allegiance	component-canonical	ProjectileAllegiance	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.fired_by_move_instance	component-canonical	FiredByMoveInstance	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.gameplay	component-canonical	ProjectileGameplay	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.hits	component-clone	ProjectileHits	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities

@@ -348,8 +348,20 @@ fn restate_ambition_seating(
 
 /// The provider's session-world source: matching preparation requests clone
 /// the boot-prepared LDtk world published by the app in [`AmbitionPreparedWorld`].
-fn ambition_session_world(prepared_world: Res<AmbitionPreparedWorld>) -> PreparedPlatformerSource {
-    prepared_world.prepared_source()
+fn ambition_session_world(
+    prepared_world: Res<AmbitionPreparedWorld>,
+    settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+) -> PreparedPlatformerSource {
+    let enabled = settings.as_ref().map_or_else(
+        || ambition_persistence::settings::UserSettings::default().gameplay.coop_friendly_fire,
+        |settings| settings.gameplay.coop_friendly_fire,
+    );
+    prepared_world.prepared_source().with_participant_friendly_fire(
+        ambition_combat::targeting::ParticipantFriendlyFire {
+            scope: ambition_combat::scoped_rules::RulesScope::UntaggedRooms,
+            enabled,
+        },
+    )
 }
 
 #[cfg(test)]

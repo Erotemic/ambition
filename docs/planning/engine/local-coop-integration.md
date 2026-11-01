@@ -465,43 +465,43 @@ cooldown and grace.
 
 ### Friendly fire: peer-safe, participant-scoped damage policy
 
-Set Ambition's co-op **default** to friendly fire enabled. Allow the session
-host to turn it off. This option governs allied participant-controlled bodies
-and appropriate owned projectiles, with self-hit exclusions kept explicit.
-It must not silently change nonplayer ally damage or Versus room rules.
+Ambition's saved co-op choice defaults to ON. The settings menu can turn it
+OFF for the next session. Preparation copies the choice into the immutable
+`ParticipantFriendlyFire` on the session root and includes it in prepared
+content identity. A preference edit does not change a live session or a
+content reload. A new session reads the current preference.
 
-The engine already has `FriendlyFire` and `ResolvedRoomCombatRules`. Identify
-where the current Ambition room obtains its resolved value before adding the
-option. Specify precedence between the session co-op choice and authored
-room/match rules, and test it. Keep damage eligibility distinct from AI target
-selection: an allied player can be hit accidentally without becoming an NPC's
-foe. Audit melee, ranged hits, area effects, body ownership after possession,
-and any scripted hit path that bypasses the common combat relation.
+The rule governs allied driven bodies in Ambition's untagged rooms. NPC ally
+damage retains the base policy. Tagged rooms and match teams retain authored
+rules. `ResolvedCombatTuning::damage_policy` projects these facts through the
+common damage relation. Damage permission does not change AI target selection.
+Contact owners keep explicit self-hit exclusions; an environmental hazard has
+its own self-damage contract.
 
-**Launch identity built** (`3c80caa69`, schema 394): `ProjectileAllegiance`
-captures the driving participant, authored faction and team. Damage, clash and
-perception use the shared effective-faction rule on that capture. Reflection
-captures the interceptor's current side. Tests cover control transfer, owner
-despawn and snapshot restore. Do not infer a launched shot's side from its
-owner's current control. The co-op rule and its preference remain open.
+Combat owns `AttackAllegiance`, shared by projectiles and detached strike
+volumes. It captures faction, participant and team before contacts or owner
+retirement. Reflection replaces the capture with the interceptor's side.
+Do not infer a launched attack's side from its owner's current control.
+Detached player areas use the common body resolver. Their feature pulse has
+separate rollback state; a body's hit list is not a pulse sentinel. Schema 395
+records these changes.
 
-**Shared relation built** (`c901305ae`): targeting and damage use the same
-combat-side facts. Capture, contact harm and module foe queries resolve control
-at both ends. Owner tests cover each control combination. World-anchored area
-volumes still need captured participant identity before this option covers them.
+Guards: `coop_friendly_fire` in `app_it` covers both melee directions, ON/OFF,
+projectiles and detached areas after control or owner loss, frozen session
+identity, and peer refusal for different effective choices. The combat policy
+test covers NPC allies, possessed factions, grudges and match-team precedence.
+The runtime projection test covers two live rooms with different rule scopes.
 
-**Peer contract gate built** (`3c7f0d5bb`): the in-memory peers compare content
-fingerprints, snapshot schemas and input format before each timeline advances.
-Guards: `peer_contract_waits_for_the_other_proposal_before_simulation` and
-`peer_contract_mismatch_refuses_simulation_on_both_peers`, plus the input-format case.
-The effective co-op rule must still enter the agreed mechanical identity.
-
-Store the **effective gameplay rule** in the session's agreed/rollback-safe
-configuration, not only in one client's `GameplaySettings` resource. Validate
-rule identity across peers at session start, and define a deterministic
-change boundary for changing it during play (or require a session restart).
-Persist the local preference separately from the agreed session value. In
-solo play the option has no second player target.
+**Remaining:** the detached-area test supplies `InRoomInstance`. The real
+`spawn_damage_box` factory does not stamp a room. Its resolver uses the owner's
+room or the sole live room; owner loss with two live rooms leaves no answer.
+Give the area explicit room and session provenance before owner retirement,
+then prove that case through the real factory. `StrikePort` still emits an
+unresolved volume that the player consumer routes to the primary body. Put
+that strike through the common body resolver. Audit owned environmental areas
+against the explicit self-damage contract. Complete the rendered two-controller
+main-game acceptance. Broad verification remains tracked by TEST-LANES;
+focused passes do not close it.
 
 ### Menus and pause: per-seat focus, explicit global pause aggregation
 

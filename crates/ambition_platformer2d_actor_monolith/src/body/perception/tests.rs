@@ -721,16 +721,26 @@ fn collect_perception_projectiles_snapshots_live_projectiles_once_with_frozen_si
         kin(200.0),
         game(3),
         ambition_projectile_combat::ProjectileAllegiance {
+            driver: None,
             faction: ActorFaction::Enemy,
             team: Some(ambition_combat::targeting::MatchTeam::new("red")),
         },
     ));
     app.world_mut()
         .spawn((ambition_projectiles::LiveProjectile, kin(50.0), game(2)));
+    app.world_mut().spawn((
+        ambition_projectiles::LiveProjectile,
+        kin(300.0),
+        game(4),
+        ambition_projectile_combat::ProjectileAllegiance::from_body(
+            ActorFaction::Enemy, None,
+            Some(&ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot(1))),
+        ),
+    ));
     app.update();
 
     let shots = app.world().resource::<PerceptionProjectiles>();
-    assert_eq!(shots.0.len(), 2, "one row per live projectile");
+    assert_eq!(shots.0.len(), 3, "one row per live projectile");
     assert!(
         shots.0.iter().any(|p| {
             p.faction == Some(ActorFaction::Enemy)
@@ -739,6 +749,8 @@ fn collect_perception_projectiles_snapshots_live_projectiles_once_with_frozen_si
         }),
         "the sided shot carries its frozen allegiance"
     );
+    assert!(shots.0.iter().any(|shot| shot.faction == Some(ActorFaction::Player) && shot.damage == 4),
+        "a possessed body's shot is perceived on its participant's side");
     assert!(
         shots
             .0

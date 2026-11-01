@@ -177,7 +177,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// 392 -> 393: a resolved hit updates the victim's perception memory in the
 /// damage tick, before the next rollback snapshot. Derived item, gate,
 /// camera-framing and fixed-step inputs have explicit owner declarations.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 393;
+/// 393 -> 394: projectile allegiance captures the driving participant at launch.
+/// Damage, clash and perception use that control state after the firer leaves.
+/// The codec ledger also records the fighter notice and idle-health fields.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 394;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

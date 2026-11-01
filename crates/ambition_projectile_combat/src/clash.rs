@@ -57,7 +57,7 @@ fn arbitrate_attack_clashes(
         With<ambition_projectiles::LiveProjectile>,
     >,
     owner_pos: Query<&ae::BodyKinematics>,
-    factions: Query<&ambition_characters::actor::ActorFaction>,
+    factions: Query<(&ambition_characters::actor::ActorFaction, Option<&ambition_characters::control::DrivingParticipant>)>,
     teams: Query<&ambition_combat::targeting::MatchTeam>,
     mut playing: Query<&mut ambition_combat::moveset::MovePlayback>,
     // The rules of each contender's own live room.
@@ -101,7 +101,7 @@ fn arbitrate_attack_clashes(
             damage: hitbox.damage,
             faction: factions
                 .get(volume.owner)
-                .copied()
+                .map(|(faction, driver)| ambition_combat::targeting::effective_faction(*faction, driver))
                 .unwrap_or_default(),
             team: teams.get(volume.owner).ok(),
         }));
@@ -113,7 +113,7 @@ fn arbitrate_attack_clashes(
         // have been taken out of play — the same reason `step_projectiles` reads
         // `ProjectileAllegiance` rather than the owner.
         let (faction, team) = match allegiance {
-            Some(side) => (side.faction, side.team()),
+            Some(side) => (side.effective_faction(), side.team()),
             None => continue,
         };
         contenders.push((tuning.room_of(entity), ClashContender {
@@ -456,6 +456,7 @@ mod tests {
                 ambition_projectiles::ProjectileOwner(owner),
                 ambition_projectiles::LiveProjectile,
                 crate::ProjectileAllegiance {
+                    driver: None,
                     faction: ambition_characters::actor::ActorFaction::Player,
                     team: team
                         .map(|t| ambition_combat::targeting::MatchTeam::new(t.to_string())),
@@ -547,6 +548,39 @@ mod tests {
         assert!(spent(&app, a) && spent(&app, b), "two opposed bolts met and both flew on");
         let clanks = app.world().resource::<Messages<AttacksClanked>>().iter_current_update_messages().count();
         assert_eq!(clanks, 1, "a shot trade announced {clanks} clanks; it is one event");
+    }
+
+    #[test]
+    fn possession_changes_clash_allegiance_for_bodies_and_launched_shots() {
+        use ambition_characters::{actor::ActorFaction, control::{DrivingParticipant, PlayerSlot}};
+        for driven in [false, true] {
+            for melee in [false, true] {
+                let mut app = an_arena(9.0);
+                let driver = DrivingParticipant(PlayerSlot(1));
+                if melee {
+                    let body = a_swinging_fighter(&mut app, ae::Vec2::ZERO, "a", true);
+                    app.world_mut().entity_mut(body).remove::<ambition_combat::targeting::MatchTeam>();
+                    app.world_mut().entity_mut(body).insert(ActorFaction::Enemy);
+                    if driven { app.world_mut().entity_mut(body).insert(driver); }
+                    a_strike_volume(&mut app, body, "swing", 6);
+                } else {
+                    let owner = app.world_mut().spawn_empty().id();
+                    let shot = a_shot_on_team(&mut app, ae::Vec2::ZERO, 6, owner, None);
+                    app.world_mut().entity_mut(shot).insert(crate::ProjectileAllegiance::from_body(
+                        ActorFaction::Enemy, None, driven.then_some(&driver),
+                    ));
+                    app.world_mut().despawn(owner);
+                }
+                let owner = app.world_mut().spawn_empty().id();
+                let opposed = a_shot_on_team(&mut app, ae::Vec2::ZERO, 6, owner, None);
+                app.world_mut().entity_mut(opposed).insert(crate::ProjectileAllegiance::from_body(
+                    ActorFaction::Enemy, None, None,
+                ));
+                app.world_mut().despawn(owner);
+                app.update();
+                assert_eq!(spent(&app, opposed), driven, "driven={driven}, melee={melee}");
+            }
+        }
     }
 
     /// Two attacks clash only in one live room, under that room's rules (OW1).

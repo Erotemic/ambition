@@ -1,6 +1,6 @@
 //! Wire format for projectile combat state.
 
-use ambition_platformer2d_core::snapshot::{put_bool, put_str, Reader, SnapshotState};
+use ambition_platformer2d_core::snapshot::{put_bool, put_str, put_u8, Reader, SnapshotState};
 
 /// A shot's own side of the fight.
 ///
@@ -11,6 +11,8 @@ use ambition_platformer2d_core::snapshot::{put_bool, put_str, Reader, SnapshotSt
 impl SnapshotState for crate::ProjectileAllegiance {
     fn encode(&self, out: &mut Vec<u8>) {
         self.faction.encode(out);
+        put_bool(out, self.driver.is_some());
+        if let Some(driver) = self.driver { put_u8(out, driver.0.0); }
         match &self.team {
             None => put_bool(out, false),
             Some(team) => {
@@ -22,12 +24,17 @@ impl SnapshotState for crate::ProjectileAllegiance {
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         let faction = ambition_characters::actor::ActorFaction::decode(r)?;
+        let driver = if r.bool()? {
+            Some(ambition_characters::control::DrivingParticipant(
+                ambition_characters::control::PlayerSlot(r.u8()?),
+            ))
+        } else { None };
         let team = if r.bool()? {
             Some(ambition_combat::targeting::MatchTeam::new(r.str()?))
         } else {
             None
         };
-        Some(Self { faction, team })
+        Some(Self { faction, driver, team })
     }
 }
 

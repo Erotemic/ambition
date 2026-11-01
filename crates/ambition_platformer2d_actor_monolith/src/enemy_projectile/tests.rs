@@ -33,79 +33,7 @@ fn insert_projectile_authority(app: &mut App) {
 /// unchanged (covered by the existing boss-special consumer tests).
 #[test]
 fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
-    let mut app = App::new();
-    insert_projectile_authority(&mut app);
-    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
-        app.world_mut(),
-        ambition_platformer2d_core::RoomGeometry(ae::World::new(
-            "phys",
-            ae::Vec2::new(800.0, 800.0),
-            ae::Vec2::new(400.0, 400.0),
-            vec![ae::Block::solid(
-                "floor",
-                ae::Vec2::new(0.0, 780.0),
-                ae::Vec2::new(800.0, 20.0),
-            )],
-        )),
-    );
-    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
-    app.add_message::<HitEvent>();
-    app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<VfxInRoom>();
-    app.add_message::<ambition_vfx::vfx::FxRequest>();
-    app.add_message::<ambition_damage::healing::PlayerHealRequested>();
-    app.init_resource::<ProjectileSeqCounter>();
-    app.init_resource::<CapturedHits>();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default(),
-    );
-    app.init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>();
-    app.add_systems(
-        Update,
-        (ambition_projectile_combat::step_projectiles, capture_hits).chain(),
-    );
-
-    let enemy_pos = ae::Vec2::new(300.0, 100.0);
-    let enemy = app
-        .world_mut()
-        .spawn((
-            ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
-            ambition_combat::components::FeatureId::new("test_enemy"),
-            ambition_combat::components::CenteredAabb::new(enemy_pos, ae::Vec2::new(16.0, 24.0)),
-            ambition_combat::components::ActorDisposition::Hostile,
-            //  a body with no faction is not something production builds. The
-            // fixture had none, because the branch it was written against broadcast
-            // a volume and never asked whose side anyone was on. `damage_lands` is
-            // the routing rule for every shot now, so an unfactioned body is not a
-            // hard target — it is a body the victim query cannot even see.
-            ambition_characters::actor::ActorFaction::Enemy,
-            ambition_characters::actor::BodyCombat {
-                hit_flash: 0.0,
-                training_dummy: false,
-                ..Default::default()
-            },
-        ))
-        .id();
-    // A player-faction shot already overlapping the enemy.
-    spawn_test_projectile(
-        &mut app,
-        ProjectileSpawn {
-            origin: enemy_pos,
-            dir: ae::Vec2::new(1.0, 0.0),
-            speed: 200.0,
-            damage: 3,
-            max_lifetime: 2.0,
-            half_extent: ae::Vec2::new(8.0, 8.0),
-            gravity: 0.0,
-            visual_id: String::new(),
-            // Straight shot: this ability authors no bounce.
-            bounces: 0,
-            bounce_on_world_contact: false,
-            splash_half_extent: 0.0,
-            boomerang_return_s: None,
-        },
-        ActorFaction::Player,
-    );
-
+    let (mut app, enemy) = player_shot_overlapping_enemy();
     app.update();
 
     let cap = app.world().resource::<CapturedHits>();
@@ -1157,7 +1085,13 @@ fn a_parried_enemy_shot_stops_naming_the_firers_move_use() {
 
 #[test]
 fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
+    for possessed in [false, true] { parried_shot_retains_its_interceptors_side(possessed); }
+}
+
+fn parried_shot_retains_its_interceptors_side(possessed: bool) {
     let (mut app, player) = parry_ready_player_app();
+    let driver = ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot(1));
+    if possessed { app.world_mut().entity_mut(player).insert((ActorFaction::Enemy, driver)); }
     let player_pos = ae::Vec2::new(200.0, 200.0);
     // An enemy bolt overlapping the player, travelling left (toward where it
     // came from — at the player).
@@ -1186,6 +1120,12 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
 
     let bodies = live_projectile_bodies(&mut app);
     assert_eq!(bodies.len(), 1, "the parried bolt stays in flight");
+    let mut stamps = app.world_mut().query::<&ambition_projectile_combat::ProjectileAllegiance>();
+    let stamp = stamps.single(app.world()).unwrap();
+    assert_eq!(stamp.driver, possessed.then_some(driver));
+    assert_eq!(stamp.effective_faction(), ActorFaction::Player);
+    assert_eq!(stamp.faction, if possessed { ActorFaction::Enemy } else { ActorFaction::Player });
+
     let body = &bodies[0].body;
     // Parry RE-OWNS the bolt to the player (so its firer faction is Player next
     // tick → it routes as the player's own shot, back at the enemies) — it does
@@ -1493,4 +1433,122 @@ fn spawn_executor_attaches_visual_id() {
         vec!["glider".to_string()],
         "the glider visual id must ride onto the spawned projectile"
     );
+}
+
+fn player_shot_overlapping_enemy() -> (App, Entity) {
+    let mut app = App::new();
+    insert_projectile_authority(&mut app);
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+        app.world_mut(),
+        ambition_platformer2d_core::RoomGeometry(ae::World::new(
+            "phys",
+            ae::Vec2::new(800.0, 800.0),
+            ae::Vec2::new(400.0, 400.0),
+            vec![ae::Block::solid(
+                "floor",
+                ae::Vec2::new(0.0, 780.0),
+                ae::Vec2::new(800.0, 20.0),
+            )],
+        )),
+    );
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
+    app.add_message::<HitEvent>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<VfxInRoom>();
+    app.add_message::<ambition_vfx::vfx::FxRequest>();
+    app.add_message::<ambition_damage::healing::PlayerHealRequested>();
+    app.init_resource::<ProjectileSeqCounter>();
+    app.init_resource::<CapturedHits>();
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default(),
+    );
+    app.init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>();
+    app.add_systems(
+        Update,
+        (ambition_projectile_combat::step_projectiles, capture_hits).chain(),
+    );
+
+    let enemy_pos = ae::Vec2::new(300.0, 100.0);
+    let enemy = app
+        .world_mut()
+        .spawn((
+            ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
+            ambition_combat::components::FeatureId::new("test_enemy"),
+            ambition_combat::components::CenteredAabb::new(enemy_pos, ae::Vec2::new(16.0, 24.0)),
+            ambition_combat::components::ActorDisposition::Hostile,
+            //  a body with no faction is not something production builds. The
+            // fixture had none, because the branch it was written against broadcast
+            // a volume and never asked whose side anyone was on. `damage_lands` is
+            // the routing rule for every shot now, so an unfactioned body is not a
+            // hard target — it is a body the victim query cannot even see.
+            ambition_characters::actor::ActorFaction::Enemy,
+            ambition_characters::actor::BodyCombat {
+                hit_flash: 0.0,
+                training_dummy: false,
+                ..Default::default()
+            },
+        ))
+        .id();
+    // A player-faction shot already overlapping the enemy.
+    spawn_test_projectile(
+        &mut app,
+        ProjectileSpawn {
+            origin: enemy_pos,
+            dir: ae::Vec2::new(1.0, 0.0),
+            speed: 200.0,
+            damage: 3,
+            max_lifetime: 2.0,
+            half_extent: ae::Vec2::new(8.0, 8.0),
+            gravity: 0.0,
+            visual_id: String::new(),
+            // Straight shot: this ability authors no bounce.
+            bounces: 0,
+            bounce_on_world_contact: false,
+            splash_half_extent: 0.0,
+            boomerang_return_s: None,
+        },
+        ActorFaction::Player,
+    );
+
+    (app, enemy)
+}
+
+#[test]
+fn a_possessed_bodys_shot_keeps_its_side_after_control_or_lifetime_changes() {
+    use ambition_characters::control::DrivingParticipant;
+    use ambition_projectiles::ProjectileOwner;
+    for driven in [false, true] {
+        for victim_faction in [ActorFaction::Player, ActorFaction::Enemy] {
+            for despawn in [false, true] {
+                let (mut app, victim) = player_shot_overlapping_enemy();
+                app.world_mut().entity_mut(victim).insert((
+                    victim_faction,
+                    ambition_combat::components::CenteredAabb::new(
+                        ae::Vec2::new(350.0, 100.0), ae::Vec2::new(16.0, 24.0),
+                    ),
+                ));
+                let mut shots = app.world_mut().query::<(Entity, &ProjectileOwner)>();
+                let (shot, owner) = shots.single(app.world()).map(|(shot, owner)| (shot, owner.0)).unwrap();
+                app.world_mut().entity_mut(owner).insert(ActorFaction::Enemy);
+                let participant = DrivingParticipant(ambition_characters::control::PlayerSlot(1));
+                if driven { app.world_mut().entity_mut(owner).insert(participant); }
+                app.update();
+                let stamped = app.world().get::<ambition_projectile_combat::ProjectileAllegiance>(shot).unwrap();
+                assert_eq!(stamped.driver, driven.then_some(participant));
+                assert!(app.world().resource::<CapturedHits>().0.is_empty(), "launch precedes contact");
+                if despawn {
+                    app.world_mut().despawn(owner);
+                } else if driven {
+                    app.world_mut().entity_mut(owner).remove::<DrivingParticipant>();
+                } else {
+                    app.world_mut().entity_mut(owner).insert(participant);
+                }
+                for _ in 0..25 { app.update(); }
+                let launch_side = if driven { ActorFaction::Player } else { ActorFaction::Enemy };
+                let expected = launch_side != victim_faction;
+                let hit = app.world().resource::<CapturedHits>().0.iter().any(|hit|
+                    hit.target == ambition_combat::events::HitTarget::Body(victim));
+                assert_eq!(hit, expected, "driven={driven}, victim={victim_faction:?}, despawn={despawn}");
+            }
+        }
+    }
 }

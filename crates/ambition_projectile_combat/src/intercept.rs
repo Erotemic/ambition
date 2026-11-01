@@ -122,6 +122,7 @@ mod tests {
 
     fn allegiance(faction: ActorFaction) -> ProjectileAllegiance {
         ProjectileAllegiance {
+            driver: None,
             faction,
             team: None,
         }

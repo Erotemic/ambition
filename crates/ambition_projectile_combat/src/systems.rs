@@ -760,6 +760,7 @@ pub fn step_projectiles(
             &ActorFaction,
             Option<&ActorAggression>,
             Option<&ambition_combat::targeting::MatchTeam>,
+            Option<&ambition_characters::control::DrivingParticipant>,
         )>,
         Res<ambition_projectiles::ProjectileVisualCatalog>,
         // The effect a shot's look shows where it lands, is turned, or goes out.
@@ -851,10 +852,7 @@ pub fn step_projectiles(
             // First sight. A shot always takes flight while its firer lives, so
             // this is the tick the fact is still there to be frozen.
             None => {
-                let fresh = owner_combat_data.map(|(faction, _, team)| ProjectileAllegiance {
-                    faction: *faction,
-                    team: team.cloned(),
-                });
+                let fresh = owner_combat_data.map(|(faction, _, team, driver)| ProjectileAllegiance::from_body(*faction, team, driver));
                 if let Some(fresh) = fresh.clone() {
                     commands.entity(proj_entity).insert(fresh);
                 }
@@ -865,7 +863,7 @@ pub fn step_projectiles(
         // from the current owner. If grudges gain a lifetime beyond the firer,
         // stamp the target's `SimId` on the projectile rather than an `Entity`.
         let firer_grudge: Option<ambition_combat::components::Grudge> = owner_combat_data
-            .and_then(|(_, agg, _)| agg)
+            .and_then(|(_, agg, _, _)| agg)
             .and_then(|a| a.grudge);
         // Only a projectile with no named owner is indiscriminate. A temporarily
         // unresolved named owner must not turn a team-owned shot into a hazard.
@@ -1279,7 +1277,7 @@ pub fn step_projectiles(
                     || allegiance.as_ref().is_some_and(|side| {
                         ambition_combat::targeting::damage_lands_between(
                             tuning.relations(),
-                            side.faction,
+                            side.effective_faction(),
                             victim.effective_faction(),
                             side.team(),
                             victim.team,
@@ -1352,10 +1350,7 @@ pub fn step_projectiles(
                         proj_entity,
                         &mut kin,
                         victim.entity,
-                        ProjectileAllegiance {
-                            faction: *victim.faction,
-                            team: victim.team.cloned(),
-                        },
+                        ProjectileAllegiance::from_body(*victim.faction, victim.team, victim.driver),
                         &super::intercept::ProjectileInterception::Consume,
                     );
                     if victim.is_player {
@@ -1391,14 +1386,8 @@ pub fn step_projectiles(
                         proj_entity,
                         &mut kin,
                         victim.entity,
-                        // The parrier's side, written OVER the firer's: this is
-                        // the parrier's bolt now. Authored faction, the same one
-                        // the firer's stamp freezes, so the two sides of the
-                        // re-own are the same question asked the same way.
-                        ProjectileAllegiance {
-                            faction: *victim.faction,
-                            team: victim.team.cloned(),
-                        },
+                        // Reflection captures the parrier's current faction, team and control.
+                        ProjectileAllegiance::from_body(*victim.faction, victim.team, victim.driver),
                         victim.voice.map(ambition_sfx::BodyPresentationSource::id),
                         shot_room,
                         &mut sfx,
@@ -1750,6 +1739,7 @@ mod parry_tests {
                 &mut kin,
                 parrier.0,
                 ProjectileAllegiance {
+                    driver: None,
                     faction: ActorFaction::Player,
                     team: None,
                 },
@@ -1853,6 +1843,7 @@ mod parry_tests {
         assert_eq!(
             world.get::<ProjectileAllegiance>(proj),
             Some(&ProjectileAllegiance {
+                driver: None,
                 faction: ActorFaction::Player,
                 team: None,
             }),

@@ -547,7 +547,7 @@ pub fn collect_perception_projectiles(
             pos: kin.pos,
             vel: kin.vel,
             damage: game.damage,
-            faction: allegiance.map(|side| side.faction),
+            faction: allegiance.map(|side| side.effective_faction()),
             team: allegiance.and_then(|side| side.team.clone()),
             room: rooms
                 .stamped(shot)

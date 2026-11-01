@@ -506,8 +506,12 @@ The shared player damage consumer serves both joined bodies and reads each body'
 seat for transition holds. Guard: `scripted_strikes_use_body_contacts_for_either_participant`.
 It covers both seats, ON/OFF and separate live rooms.
 
-**Remaining:** route bombs, projectile splashes and other unresolved area hits
-through the common body resolver. Audit owned environmental areas against the
+Projectile splashes landed in `4f47d98a5` (schema 399). The common strike
+factory keeps the shot's launch allegiance, hit cause and firing move after
+control loss or firer retirement. Guard:
+`projectile_splashes_keep_launch_allegiance_and_reach_either_participant`.
+
+**Remaining:** route bombs and actor contact areas through the common body resolver. Audit owned environmental areas against the
 explicit self-damage contract. Complete the rendered two-controller main-game
 acceptance. Broad verification remains tracked by TEST-LANES; focused passes do not close it.
 

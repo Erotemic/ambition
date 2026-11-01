@@ -570,7 +570,7 @@ and [product decisions](game/multiplayer.md#local-co-op-behavior-decided-in-the-
 `ambition_input`), UI ownership and viewport mapping (`ambition_sim_view`,
 `ambition_content::presentation::dialog`, `ambition_app::menu`), blink clocks
 (`ambition_platformer2d_actor_monolith`), combat/session rule projection
-(`ambition_combat`, `ambition_damage`, Ambition settings/session), room lifecycle
+(`ambition_combat`, `ambition_damage`, `ambition_projectile_combat`, Ambition settings/session), room lifecycle
 (`ambition_platformer2d_runtime`, `ambition_platformer2d_rollback_ggrs`,
 Ambition transition presenter), debug viz (`ambition_render`, Ambition dev UI).
 Do not assign one crate as owner of every concern.
@@ -612,6 +612,11 @@ Scripted strikes and joined-player damage landed in `69f705d8c` (schema 397).
 Both seats use scoped hitboxes and the shared damage consumer. Guard:
 `scripted_strikes_use_body_contacts_for_either_participant` covers ON/OFF and separate rooms.
 Do not restore primary-body routing for scripted strikes.
+
+Projectile splashes landed in `4f47d98a5` (schema 399). They use scoped strikes
+with captured launch allegiance, hit cause and move credit. Guard:
+`projectile_splashes_keep_launch_allegiance_and_reach_either_participant` covers
+both seats, ON/OFF, control loss and firer retirement.
 
 Jump and combat input now consume the current Up interaction gesture until release
 (`69f705d8c`). Guards: `recorded_up_and_jump_sequence_does_not_interact` and

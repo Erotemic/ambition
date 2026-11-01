@@ -568,18 +568,14 @@ and [product decisions](game/multiplayer.md#local-co-op-behavior-decided-in-the-
 Ambition transition presenter), debug viz (`ambition_render`, Ambition dev UI).
 Do not assign one crate as owner of every concern.
 
+**Completed slices:** dialogue ownership and viewport routing landed in
+`94d8822f9`; real controller tests cover same-room and separate-room play, and
+GPU layout bounds match the owner input region. Shared geometry covers split/merge.
+Blink symmetry landed in `0754ed273`; both seats hold, release and finish cooldown,
+and blink presentation timers use wall time. Keep one committed-input preview path.
+
 **Next action (ordered slices; complete each behavior gate before moving):**
 
-1. **Dialogue authority and viewport:** route the initiator's
-   `ConversationInputOwner` through participant-to-seat mapping to
-   `SeatMenuFrames`; make dialogue hold context owner-specific; project owner
-   in `DialogView` and constrain the rendered overlay and pointer targets to
-   the initiating participant's view. Keep the current one-conversation
-   authority and stamped narrative output. Check split/merge during dialogue.
-2. **Blink symmetry:** tick `PlayerBlinkCameraState` for each owner that can
-   arm it. Verify the simulation blink hold/release and visual ease separately
-   for both seats; do not move the core blink operation without a failing
-   kernel witness.
 3. **Gameplay and presentation options:** add `Adaptive`/`AlwaysSplit` as
    client-local presentation policy with adaptive as default. Add co-op
    friendly fire ON by default and a host OFF option through the common
@@ -1884,6 +1880,17 @@ Recheck the scanner and current fixtures, then reduce repeated Smash/Versus
 setup while retaining distinct behavior and phase boundaries. Retire only
 obsolete diagnostics. Apply the current AGENTS.md rule against new meta-test
 machinery; do not turn source counts or test counts into acceptance gates.
+
+**Current correctness findings (2026-11-01):** the assembled `rollback_`
+filter reports 66 passed, 13 failed and 6 ignored. Resolve the live `ItemBody`
+classification and resource decisions for `CastFramingTuning`, `GateRingPositions`
+and `SimStepPeriod` at their owners. Localize the forced-rewind mismatches in
+contact, possession, boss techniques and checkpoint restoration before further
+multiplayer rule work. Do not raise census ceilings or add broad waivers.
+The workspace policy run also reports five pose/velocity writes in the camera
+scenario fixture; resolve whether that fixture states samples or simulates bodies.
+The Smash rerun and union feature sweep still need target-volume headroom.
+
 **Owner:** test runner / app integration lane. Operational rules and what a
 green lane does not clear:
 [`running-the-heavy-app-it-lane.md`](../recipes/running-the-heavy-app-it-lane.md).

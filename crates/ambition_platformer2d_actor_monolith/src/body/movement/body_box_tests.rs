@@ -70,7 +70,7 @@ fn step_in_gravity(sprite_content: &ambition_sprite_sheet::SpriteContent, down: 
         false,
         ae::BodyContactField::NONE,
     );
-    let attack = em.contact_attack().expect("premise: the body has a contact attack");
+    let attack = super::ContactAttack::from_body(em.kin, em.surface, &em.config.tuning).expect("premise: the body has a contact attack");
     let mut footprint = ae::CenteredAabb::from_center_size(em.kin.pos, em.kin.size);
     ambition_combat::body_geometry::publish_body_footprint(
         &mut footprint,

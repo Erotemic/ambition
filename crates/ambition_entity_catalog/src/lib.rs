@@ -2846,6 +2846,19 @@ impl MoveSpec {
         strikes.max(self.active_captures().map(|p| p.reach_x()).fold(0.0_f32, f32::max))
     }
 
+    /// Time until the first active hit, capture, or sustained hazard.
+    /// A hitless move uses its full duration. A counter stance is not a hit.
+    pub fn startup_s(&self) -> f32 {
+        self.windows.iter()
+            .filter(|window| matches!(window.tag, WindowTag::Active)
+                && (!window.volumes.is_empty() || window.sustain_effect.as_ref().is_some_and(|effect| {
+                    effect.key == crate::smash_capture::CAPTURE_ATTEMPT || crate::hazard::hazard_of(effect).is_some()
+                })))
+            .map(|window| window.start_s)
+            .reduce(f32::min)
+            .unwrap_or(self.duration_s)
+    }
+
     /// Derive this move's frame data: the startup / active / recovery /
     /// cancel windows and the strike's reach. A pure derivation from
     /// `windows` + `duration_s`, with no stored state. The fighter brain
@@ -2871,31 +2884,7 @@ impl MoveSpec {
                 _ => None,
             })
             .collect();
-        // Startup = time until the first live hit; a move with no live hit is
-        // pure recovery/utility, so its "startup" is its whole duration.
-        //
-        // ⛔ A LIVE HIT, NOT AN ACTIVE WINDOW. A counter's stance is Active
-        // (the parry authority reads that tag) and hits nobody until somebody
-        // strikes into it. `third_law` holds its stance from 0.0 s and sweeps
-        // at 0.18 s; read from the first Active window, it was a frame-0
-        // strike, the fastest move of the kit, and the brain pressed it at
-        // point blank for 0% damage. A window is live when it has a volume, a
-        // capture or a sustained hazard.
-        let live = |w: &MoveWindow| {
-            matches!(w.tag, WindowTag::Active)
-                && (!w.volumes.is_empty()
-                    || w.sustain_effect.as_ref().is_some_and(|effect| {
-                        effect.key == crate::smash_capture::CAPTURE_ATTEMPT
-                            || crate::hazard::hazard_of(effect).is_some()
-                    }))
-        };
-        let startup_s = self
-            .windows
-            .iter()
-            .filter(|w| live(w))
-            .map(|w| w.start_s)
-            .reduce(f32::min)
-            .unwrap_or(self.duration_s);
+        let startup_s = self.startup_s();
         // Recovery = from the last Active edge to the move's end.
         let last_active_end = active_spans.iter().map(|(_, e)| *e).fold(0.0_f32, f32::max);
         let recovery_s = (self.duration_s - last_active_end).max(0.0);

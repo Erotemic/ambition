@@ -248,7 +248,17 @@ pub struct PerceptionPortal {
 /// [`PerceptionPeer`] carries its source `Entity` so a viewer excludes ITSELF (and
 /// resolves grudges) when building its own view.
 #[derive(bevy::prelude::Resource, Default)]
-pub struct PerceptionPeers(pub Vec<PerceptionPeer>);
+pub struct PerceptionPeers {
+    rows: Vec<PerceptionPeer>,
+    by_entity: Vec<(bevy::prelude::Entity, usize)>,
+}
+
+impl PerceptionPeers {
+    fn peer(&self, entity: bevy::prelude::Entity) -> Option<&PerceptionPeer> {
+        let index = self.by_entity.binary_search_by_key(&entity, |(entity, _)| *entity).ok()?;
+        self.rows.get(self.by_entity[index].1)
+    }
+}
 
 /// Collect the peer snapshot from every live body — player, actor, AND boss all
 /// carry [`BodyKinematics`], so ONE query spans them (guardrail #1: no per-type
@@ -401,7 +411,7 @@ pub fn collect_perception_peers(
     )>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
-    peers.0.clear();
+    let mut count = 0;
     for (
         entity,
         id,
@@ -425,8 +435,8 @@ pub fn collect_perception_peers(
         // the ECS Entity index, which depends on local allocation order.
         // Reject an unnamed body and report its missing spawn identity.
         let Some(stable_id) = id
-            .map(|f| f.as_str().to_string())
-            .or_else(|| sim_id.map(|id| id.as_str().to_string()))
+            .map(|f| f.as_str())
+            .or_else(|| sim_id.map(|id| id.as_str()))
         else {
             bevy::log::error!(
                 "{entity:?} is a perceivable body with no `FeatureId` and no \
@@ -444,10 +454,18 @@ pub fn collect_perception_peers(
         };
         let swing = melee.swing();
         let (phase, phase_remaining) = body_phase(combat, swing.as_ref(), shield);
-        peers.0.push(PerceptionPeer {
+        let team = team.map(|team| {
+            let mut previous = peers.rows.get_mut(count).and_then(|peer| peer.team.take()).map(|team| team.0).unwrap_or_default();
+            previous.clone_from(&team.0);
+            ambition_combat::targeting::MatchTeam::new(previous)
+        });
+        let mut id = peers.rows.get_mut(count).map(|peer| std::mem::take(&mut peer.id)).unwrap_or_default();
+        id.clear();
+        id.push_str(stable_id);
+        let peer = PerceptionPeer {
             knockback_weight: tuning.map_or(1.0, |t| t.weight),
             entity,
-            id: stable_id,
+            id,
             pos: kin.pos,
             vel: kin.vel,
             facing: kin.facing,
@@ -474,14 +492,25 @@ pub fn collect_perception_peers(
             invulnerable: body_invulnerable(combat),
             damage_taken: health.damage_taken(),
             health_max: health.max(),
-            team: team.cloned(),
+            team,
             room: rooms.of(entity),
-        });
+        };
+        if count < peers.rows.len() {
+            peers.rows[count] = peer;
+        } else {
+            peers.rows.push(peer);
+        }
+        count += 1;
     }
+    peers.rows.truncate(count);
     // Each live room's bodies in one run, so a viewer borrows its own room's
     // run (`PerceivedWorld::peers_in`). The sort is stable: the order inside
     // a room is the order the query gave, as it was before.
-    peers.0.sort_by_key(|peer| peer.room);
+    peers.rows.sort_by_key(|peer| peer.room);
+    let PerceptionPeers { rows, by_entity } = &mut *peers;
+    by_entity.clear();
+    by_entity.extend(rows.iter().enumerate().map(|(index, peer)| (peer.entity, index)));
+    by_entity.sort_unstable_by_key(|(entity, _)| *entity);
 }
 
 /// Per-frame snapshot of every live projectile, refreshed by
@@ -1342,7 +1371,7 @@ impl PerceivedWorld<'_, '_> {
         &self,
         room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     ) -> &[PerceptionPeer] {
-        let peers = self.peers.as_deref().map_or(&[][..], |peers| peers.0.as_slice());
+        let peers = self.peers.as_deref().map_or(&[][..], |peers| peers.rows.as_slice());
         let start = peers.partition_point(|peer| peer.room < room);
         let end = peers.partition_point(|peer| peer.room <= room);
         &peers[start..end]
@@ -1356,7 +1385,7 @@ impl PerceivedWorld<'_, '_> {
     pub fn peer(&self, body: bevy::prelude::Entity) -> Option<&PerceptionPeer> {
         self.peers
             .as_ref()
-            .and_then(|peers| peers.0.iter().find(|peer| peer.entity == body))
+            .and_then(|peers| peers.peer(body))
     }
 
     /// The live shots in flight in the live room `room`.

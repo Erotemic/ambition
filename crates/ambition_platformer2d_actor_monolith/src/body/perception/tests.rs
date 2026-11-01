@@ -550,7 +550,7 @@ fn a_viewer_perceives_only_the_bodies_of_its_own_live_room() {
     }
     app.update();
 
-    assert_eq!(app.world().resource::<PerceptionPeers>().0.len(), 4, "control: every body is snapshotted");
+    assert_eq!(app.world().resource::<PerceptionPeers>().rows.len(), 4, "control: every body is snapshotted");
     assert_eq!(
         app.world().resource::<Seen>().0,
         vec![vec!["alice", "carol"], vec!["bob"], vec!["dave"]],
@@ -596,13 +596,13 @@ fn collect_perception_peers_snapshots_every_body() {
     app.update();
 
     let peers = app.world().resource::<PerceptionPeers>();
-    assert_eq!(peers.0.len(), 2, "every body is snapshotted");
-    let a = peers.0.iter().find(|p| p.entity == alice).unwrap();
+    assert_eq!(peers.rows.len(), 2, "every body is snapshotted");
+    let a = peers.peer(alice).unwrap();
     assert_eq!(a.id, "alice");
     assert_eq!(a.pos, ae::Vec2::new(10.0, 20.0));
     assert_eq!(a.faction, ActorFaction::Enemy);
     assert!(a.alive);
-    let b = peers.0.iter().find(|p| p.entity == bob).unwrap();
+    let b = peers.peer(bob).unwrap();
     assert_eq!(
         b.id, "slot:3",
         "a `FeatureId`-less body is named by its `SimId`, not by its ECS index"
@@ -616,7 +616,7 @@ fn collect_perception_peers_snapshots_every_body() {
     // is unreachable from them. A poison that does not fire is a finding: what
     // this loop actually covers is a future id source that renders an index for
     // a body that does have an identity, which the refusal arm cannot see.
-    for peer in &peers.0 {
+    for peer in &peers.rows {
         let index_shaped = peer
             .id
             .strip_prefix('e')
@@ -631,6 +631,23 @@ fn collect_perception_peers_snapshots_every_body() {
             peer.id
         );
     }
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+    app.world_mut().entity_mut(alice).insert(InRoomInstance(LiveRoomInstance::ACTIVATION.next()));
+    app.world_mut().entity_mut(bob).insert((InRoomInstance(LiveRoomInstance::ACTIVATION), ambition_combat::targeting::MatchTeam::new("blue")));
+    app.update();
+    let peers = app.world().resource::<PerceptionPeers>();
+    assert_eq!(peers.peer(alice).unwrap().id, "alice");
+    assert_eq!(peers.peer(bob).unwrap().team.as_ref().unwrap().0, "blue");
+    app.world_mut().despawn(alice);
+    app.world_mut().entity_mut(bob).insert((kin(123.0), ambition_combat::targeting::MatchTeam::new("red")));
+    app.update();
+    let peers = app.world().resource::<PerceptionPeers>();
+    assert!(peers.peer(alice).is_none());
+    let bob = peers.peer(bob).unwrap();
+    assert_eq!(bob.id, "slot:3");
+    assert_eq!(bob.pos.x, 123.0);
+    assert_eq!(bob.team.as_ref().unwrap().0, "red");
+
 }
 
 /// ⛔⛤ **A PERCEIVABLE BODY THAT NOTHING CAN NAME IS REFUSED, LOUDLY — AND FOR A

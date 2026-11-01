@@ -3,7 +3,6 @@
 //! Branches on `ActorDisposition`, not an actor type — every actor is the same
 //! unified cluster.
 
-use crate::body::ActorMutIntegrationExt;
 use bevy::prelude::Entity;
 
 use super::super::ae;
@@ -370,7 +369,7 @@ pub(crate) fn apply_actor_hit(sprite_content: &ambition_sprite_sheet::SpriteCont
                 });
             if let Some(line) = line {
                 writers.vfx.write_in(room, VfxMessage::SpeechBubble {
-                    pos: em.bark_anchor(),
+                    pos: crate::body::movement::bark_anchor(em.kin),
                     text: line.to_string(),
                 },
                 );

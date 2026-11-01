@@ -62,9 +62,6 @@ pub(crate) trait ActorMutIntegrationExt {
     ) -> ae::FrameEvents;
 
     fn aabb(&self) -> ae::Aabb;
-    fn bark_anchor(&self) -> ae::Vec2;
-    fn body_damage_aabb(&self) -> Option<ae::Aabb>;
-    fn contact_attack(&self) -> Option<ContactAttack>;
 }
 
 impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
@@ -438,9 +435,6 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
     // reader — the shape `reference_a_comment_describes_intent` warns about,
     // where two derivations of one fact drift apart because only one is used.
 
-    fn bark_anchor(&self) -> ae::Vec2 {
-        self.kin.pos + ae::Vec2::new(0.0, -self.kin.size.y * 0.72 - 16.0)
-    }
 
     // `begin_melee_attack` is deleted. A body's melee swing is a moveset
     // `"attack"` move: the brain's `melee_pressed` edge starts it via
@@ -448,51 +442,14 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
     // the active-window strike — one melee lifecycle for every body, paced by the
     // move's own duration rather than a separate recovery cooldown.
 
-    fn body_damage_aabb(&self) -> Option<ae::Aabb> {
-        if !self.config.tuning.body_contact_damage {
-            return None;
-        }
-        Some(self.aabb())
-    }
 
-    /// Snapshot this actor's live body-contact attack (its damage box + the
-    /// tuning/frame facts the victim pass needs), taken while the attacker's
-    /// clusters are borrowed. The victim resolution runs AFTER the borrow ends
-    /// (fable review §A4: contact damage targets any body, so the
-    /// victim query aliases the attacker query and the two passes must split).
-    fn contact_attack(&self) -> Option<ContactAttack> {
-        let body_damage = self.body_damage_aabb()?;
-        // The attacker's live reference frame (§B2 keeps `surface_normal`
-        // current for every body): knockback separates along ITS side axis,
-        // not screen-X.
-        let down = -self
-            .surface
-            .surface_normal
-            .normalize_or(ae::Vec2::new(0.0, -1.0));
-        Some(ContactAttack {
-            volume: body_damage,
-            damage: self.config.tuning.damage_amount,
-            // Body contact ALWAYS imparts a separating push: a body that runs into
-            // an enemy is shoved out of its box, so it doesn't sit inside taking
-            // a hit every i-frame window. Most archetypes author `contact_strength
-            // = 0` (it tuned the OLD knockback-scaling, not "no knockback"), which
-            // read as "you stick to the enemy" — the floor fixes that. Feel-tunable.
-            strength: self
-                .config
-                .tuning
-                .contact_strength
-                .max(BODY_CONTACT_MIN_KNOCKBACK),
-            source_pos: self.kin.pos,
-            facing: self.kin.facing,
-            frame_side: ae::AccelerationFrame::new(down).side,
-        })
-    }
 }
 
-/// An actor's live body-contact attack, snapshotted by [`ActorMutIntegrationExt::contact_attack`]
-/// so the victim pass can resolve player AND actor victims after the attacker
-/// borrow ends. One event builder for every victim kind — the `HitTarget` stamp
-/// is the only difference.
+pub(crate) fn bark_anchor(kin: &ae::BodyKinematics) -> ae::Vec2 {
+    kin.pos + ae::Vec2::new(0.0, -kin.size.y * 0.72 - 16.0)
+}
+
+/// A body's contact attack, read from its motion and authored tuning.
 pub struct ContactAttack {
     pub volume: ae::Aabb,
     pub damage: i32,
@@ -504,6 +461,23 @@ pub struct ContactAttack {
 }
 
 impl ContactAttack {
+    pub fn from_body(
+        kin: &ae::BodyKinematics,
+        surface: &ae::body_clusters::ActorSurfaceState,
+        tuning: &ambition_combat::actor_tuning::ActorTuning,
+    ) -> Option<Self> {
+        if !tuning.body_contact_damage { return None; }
+        let down = -surface.surface_normal.normalize_or(ae::Vec2::new(0.0, -1.0));
+        Some(Self {
+            volume: kin.aabb_oriented(-surface.surface_normal),
+            damage: tuning.damage_amount,
+            strength: tuning.contact_strength.max(BODY_CONTACT_MIN_KNOCKBACK),
+            source_pos: kin.pos,
+            facing: kin.facing,
+            frame_side: ae::AccelerationFrame::new(down).side,
+        })
+    }
+
     pub fn hit_event(
         &self,
         attacker: bevy::prelude::Entity,

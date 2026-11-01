@@ -7,7 +7,6 @@
 //! already-hostile re-derive — in place, no cluster swap, no entity churn.
 
 use bevy::prelude::*;
-use crate::body::ActorMutIntegrationExt;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_combat::events::GameplayBanner;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage, VfxWriter};
@@ -40,7 +39,10 @@ pub fn apply_actor_stimuli(
             Option<&ambition_characters::brain::ActionSet>,
             Option<&ActorInteraction>,
             &mut ActorDisposition,
-            ambition_body_seed::clusters::ActorClusterQueryData,
+            &ambition_platformer2d_core::BodyKinematics,
+            &ambition_combat::components::ActorIdentity,
+            &ambition_combat::actor_tuning::ActorConfig,
+            &ambition_platformer2d_core::BodyAbilities,
             // WHICH CHARACTER THIS BODY IS — the gameplay identity, not
             // the sprite's. See `provoke_actor_in_place`.
             Option<&ambition_characters::actor::WornCharacter>,
@@ -67,7 +69,10 @@ pub fn apply_actor_stimuli(
             repertoire,
             interaction,
             mut disposition,
-            mut cq,
+            kin,
+            identity,
+            config,
+            abilities,
             worn,
         )) = actors.get_mut(actor)
         else {
@@ -85,7 +90,6 @@ pub fn apply_actor_stimuli(
         if !challenged && disposition.is_peaceful() {
             aggression.strikes = aggression.strikes.saturating_add(1);
             if let Some(interaction) = interaction {
-                let actor = cq.as_actor_mut();
                 let provokes = provoked_policy.is_some() && aggression.provoked();
                 let text = if provokes {
                     crate::body::npcs::npc_hostile_bark_line(&catalog, &interaction.interactable)
@@ -96,18 +100,18 @@ pub fn apply_actor_stimuli(
                 };
                 let room = rooms.of(entity);
                 vfx.write_in(room, VfxMessage::SpeechBubble {
-                    pos: actor.bark_anchor(),
+                    pos: crate::body::movement::bark_anchor(kin),
                     text: text.to_string(),
                 });
                 if provokes {
                     vfx.write_in(room, VfxMessage::Burst {
-                        pos: actor.kin.pos,
+                        pos: kin.pos,
                         count: 16,
                         speed: 230.0,
                         color: [0.84, 0.95, 1.0, 0.82],
                         kind: ParticleKind::Spark,
                     });
-                    banner.show(format!("{} turns hostile", actor.identity.name), 2.6);
+                    banner.show(format!("{} turns hostile", identity.name), 2.6);
                 }
             }
         }
@@ -149,7 +153,6 @@ pub fn apply_actor_stimuli(
             .or(aggression.grudge);
 
         let was_peaceful = disposition.is_peaceful();
-        let em = cq.as_actor_mut();
         // ⛔ THE DURABLE HALF OF THE SAME TRANSITION. Construction builds a
         // person from the save's provocation fact, so a live flip that did not
         // record it — a `<<challenge>>` did not — came back peaceful on the next
@@ -165,14 +168,14 @@ pub fn apply_actor_stimuli(
                 == Some(&ambition_characters::actor::ActorFaction::Player);
         if was_peaceful && interaction.is_some() && players_provocation {
             provocations.write(ambition_persistence::npc_provocation::NpcProvocationChanged {
-                id: em.identity.id.clone(),
+                id: identity.id.clone(),
                 provoked: true,
             });
         }
         crate::body::actors::provoke_actor_in_place(
             &mut commands,
             entity,
-            (em.config, em.identity, em.abilities.abilities),
+            (config, identity, abilities.abilities),
             &mut disposition,
             repertoire,
             provoked_policy,

@@ -712,241 +712,209 @@ pub fn tick_actor_brains(
                             );
                         }
                     }
-                    // Headless world-out view for this body (S4/S5), built ALWAYS for the
-                    // brain's tactical queries (line-of-fire over the SAME derived
-                    // collision world `feature_world` the body integrates against — never a
-                    // parallel sensor). Body-generic (guardrail #1): the same
-                    // `build_world_view` the player-robot body uses. The SELF-view is
-                    // HONEST — real (possession-aware) faction, `can_fire` reflecting a real
-                    // ranged slot, hostility against the LIVE `FactionRelations` + grudge.
-                    let self_faction = ambition_combat::targeting::effective_faction(
-                        faction
-                            .copied()
-                            .unwrap_or(ambition_characters::actor::ActorFaction::Enemy),
-                        // always `None` on this branch — the loop `continue`s
-                        // above for any body a participant drives — and stated
-                        // rather than folded away, because the SELF-view is
-                        // documented as "real (possession-aware) faction" and a
-                        // future reader must see which term carries that.
-                        driver,
-                    );
-                    // The other bodies this actor perceives (§A7): the shared
-                    // pre-collected snapshot, BORROWED. Self is excluded by one
-                    // comparison inside `build_world_view` against
-                    // `PerceptionBody::viewer`; this used to be a per-actor
-                    // `Vec` clone of every other row and was measured at half
-                    // the hall's cognition cost.
-                    let view_peers = perceived.peers_in(room);
-                    // Self's own move phase / i-frames come from the SAME per-tick
-                    // snapshot every peer's do — one derivation (`body_phase`), so a
-                    // body cannot read itself more precisely than its opponent reads it.
-                    let self_peer = perceived.peer(this_actor_entity);
-                    // WHAT THIS BODY'S BURST BUTTON WOULD DO IF PRESSED NOW.
-                    // The kernel's own rule (`resolve_burst_maneuver`), asked one
-                    // phase early — so the brain names the maneuver the body will
-                    // actually perform instead of re-deriving the precedence.
-                    //
-                    // a body on a NON-axis model has no `AxisManeuverState` to
-                    // read, and the default reads as "no window open, no endlag".
-                    // that is a reading of a PRESENT model that is not
-                    // axis-swept — a crawler genuinely has no air-dodge window —
-                    // and NOT a reading of an absent component, which ADR 0024 §1
-                    // forbids and the query above now makes unrepresentable.
-                    // ⭐ ADR 0034 INCREMENT 1: the brain declares what it needs.
-                    //
-                    // ⛔⛔ THIS CHANGES CHECKSUMMED STATE, ON PURPOSE. A `None`
-                    // brain stops maintaining `PerceptionMemory`, so its
-                    // remembered set stays empty where it used to track peers
-                    // the brain could never read — for a body that BECOMES
-                    // `None` as well as one that starts there, which needed
-                    // `enforce_empty_belief_for_none` below and did not hold
-                    // until 2026-09-02. Deterministic — the gate reads
-                    // `StateMachineCfg`, which is rollback state — but the VALUE
-                    // moves, which is why `GGRS_ROLLBACK_SCHEMA_VERSION` moved
-                    // with it.
-                    //
-                    // ⚠ ONLY `None` SKIPS THE BUILD. `believed_target` derives
-                    // the belief FROM the view, so `TargetBelief` still needs one
-                    // constructed; making that road cheap is a later increment,
-                    // not this one. At `hall_of_characters` the saving is the
-                    // whole authored cast: 129 of 129 declare `None`.
+                    // Tactical queries use the same collision world as movement.
                     let perception_need = brain_ref.perception_requirement();
-                    let perception_body = super::super::perception::perception_body_for(
-                        &body,
-                        self_faction,
-                        enemy_gravity_dir,
-                        action_set,
-                        self_peer,
-                        aggression,
-                        motion_model,
-                        capture,
-                        // ⚠ RAGE IS THIS BODY'S OWN, so it is resolved per
-                        // body rather than once for the stage: the same
-                        // derivation the hit resolver uses
-                        // (`rules.rage_scale(attacker damage)`), read off the
-                        // meter this fighter is carrying now.
-                        combat_rules.as_ref().map_or_else(
-                            ambition_characters::perception::LaunchLaw::default,
-                            |rules| ambition_characters::perception::LaunchLaw {
-                                growth_scale: rules.victim_percent_knockback_scale,
-                                growth_base: rules.growth_base,
-                                // ⛔ AND THE FALLBACK GROWTH, WITHOUT WHICH A
-                                // VOLUME THAT AUTHORS `None` READS AS A SET
-                                // LAUNCH. The hit resolver spends this on the
-                                // same volumes; the brain reading `0.0` for
-                                // them put `cellular_pulse` at 140px/s where
-                                // the stage throws it 490.
-                                ruleset_growth: rules.knockback_growth,
-                                rage: rules.rage_scale(body.health.damage_taken()),
-                                base_scale: rules.base_knockback_scale,
-                            },
-                        ),
-                    );
-                    // ⭐⭐ ONLY `TacticalWorld` BUILDS A VIEW NOW. `TargetBelief`
-                    // — seven of the nine templates — takes the cheap road
-                    // below, which finds the same foe from borrowed peers and
-                    // folds the same memory without constructing a
-                    // `PerceivedActor` (and its owned `String`) per peer.
-                    let world_view = if perception_need.needs_world_view() {
-                        super::super::perception::build_world_view(
-                            &perception_body,
-                            &view_peers,
-                            perceived.projectiles_in(room),
-                            &[],
-                            feature_world,
-                            &open_gates,
-                            relations,
-                            perception_policy,
-                            sim_now,
-                        )
-                    } else {
-                        ambition_characters::perception::WorldView::default()
-                    };
-                    // The cheap road, for the seven templates that only ever
-                    // wanted a target. One pass over the peers: the nearest
-                    // hostile, and the visible count the census needs.
-                    let cheap = perception_need.needs_target_belief().then(|| {
-                        super::super::perception::nearest_hostile_peer(
-                            &perception_body,
-                            &view_peers,
-                            relations,
-                            perception_policy,
-                        )
-                    });
-                    // ⚠ AN INSTRUMENT, OFF BY DEFAULT: one relaxed load when the
-                    // census is not running. `view_peers` is what the room
-                    // OFFERED this viewer; `actors` is what its viewport and
-                    // faction rules KEPT. The gap between the two is what an
-                    // attention budget would bound.
-                    //
-                    // ⛔ ONLY A VIEW THAT WAS ACTUALLY BUILT. A `None` brain now
-                    // gets `WorldView::default()`, and counting those recorded
-                    // 45,795 views of `kept=0` — a mean over bodies that never
-                    // looked, which is not the population the budget is about.
-                    // ⛔⛔ `kept` COMES FROM WHICHEVER ROAD RAN. A `TargetBelief`
-                    // body no longer builds a view, so `world_view.actors.len()`
-                    // is 0 for it — reading that would drop the census toward
-                    // zero for seven of the nine templates and quietly ruin the
-                    // instrument that priced this change. The cheap road counts
-                    // the same population (everything VISIBLE, allies included)
-                    // on the pass that finds the target.
-                    // ⛔ THE VIEW ROAD FIRST. `TacticalWorld` needs a target
-                    // belief too, so `cheap` is `Some` for it as well — and the
-                    // cheap count is the UNCAPPED visible set. Testing `cheap`
-                    // first recorded `kept = visible` for every world-view brain
-                    // and the density sweep could not see the attention budget
-                    // at all (yardrat, 2026-09-03: `kept_max` 129 with the cap
-                    // at 16). A body that built a view reports what the view
-                    // carries; only a body that did not reports the cheap count.
-                    if perception_need.needs_world_view() {
-                        ambition_characters::perception::census::note_world_view(
-                            view_peers.len(),
-                            world_view.actors.len() + world_view.remainder.actors,
-                            world_view.actors.len(),
-                        );
-                    } else if let Some(cheap) = cheap.as_ref() {
-                        ambition_characters::perception::census::note_world_view(
-                            view_peers.len(),
-                            cheap.visible_count,
-                            cheap.visible_count,
-                        );
-                    }
-                    // `None` means an EMPTY belief state, not a frozen one --
-                    // the rule, and why it lives at the invariant rather than in
-                    // `BrainCommand`, is on the helper.
                     super::super::perception::enforce_empty_belief_for_none(
                         perception_need,
                         perception_memory.as_deref_mut(),
                     );
-                    // Sight and memory answer together; an `Omniscient` body
-                    // already carries the global `ActorTarget` and is not
-                    // overridden. Perceiving nobody is a real answer (idle).
-                    // ⛔⛔ THE FOLD RUNS ON BOTH ROADS. `WorldMemory` decays every
-                    // actor NOT seen this tick, so skipping it for a body that
-                    // no longer builds a view would fade every remembered foe as
-                    // though it had left the viewport — pursuit (I6) stops, a
-                    // body that can SEE its foe still looks right, and only the
-                    // one CHASING breaks. The cheap road feeds the same fold
-                    // borrowed peer fields instead of constructed actors.
-                    if let Some(cheap) = cheap.as_ref() {
-                        if let Some(memory) = perception_memory.as_deref_mut() {
-                            let viewport = &cheap.viewport;
-                            memory.0.update_from_seen(
+                    // A brain that reads no perception needs no sensor inputs.
+                    let world_view = if perception_need.needs_target_belief() {
+                        let self_faction = ambition_combat::targeting::effective_faction(
+                            faction
+                                .copied()
+                                .unwrap_or(ambition_characters::actor::ActorFaction::Enemy),
+                            // always `None` on this branch — the loop `continue`s
+                            // above for any body a participant drives — and stated
+                            // rather than folded away, because the SELF-view is
+                            // documented as "real (possession-aware) faction" and a
+                            // future reader must see which term carries that.
+                            driver,
+                        );
+                        // The other bodies this actor perceives (§A7): the shared
+                        // pre-collected snapshot, BORROWED. Self is excluded by one
+                        // comparison inside `build_world_view` against
+                        // `PerceptionBody::viewer`; this used to be a per-actor
+                        // `Vec` clone of every other row and was measured at half
+                        // the hall's cognition cost.
+                        let view_peers = perceived.peers_in(room);
+                        // Self's own move phase / i-frames come from the SAME per-tick
+                        // snapshot every peer's do — one derivation (`body_phase`), so a
+                        // body cannot read itself more precisely than its opponent reads it.
+                        let self_peer = perceived.peer(this_actor_entity);
+                        let perception_body = super::super::perception::perception_body_for(
+                            &body,
+                            self_faction,
+                            enemy_gravity_dir,
+                            action_set,
+                            self_peer,
+                            aggression,
+                            motion_model,
+                            capture,
+                            // ⚠ RAGE IS THIS BODY'S OWN, so it is resolved per
+                            // body rather than once for the stage: the same
+                            // derivation the hit resolver uses
+                            // (`rules.rage_scale(attacker damage)`), read off the
+                            // meter this fighter is carrying now.
+                            combat_rules.as_ref().map_or_else(
+                                ambition_characters::perception::LaunchLaw::default,
+                                |rules| ambition_characters::perception::LaunchLaw {
+                                    growth_scale: rules.victim_percent_knockback_scale,
+                                    growth_base: rules.growth_base,
+                                    // ⛔ AND THE FALLBACK GROWTH, WITHOUT WHICH A
+                                    // VOLUME THAT AUTHORS `None` READS AS A SET
+                                    // LAUNCH. The hit resolver spends this on the
+                                    // same volumes; the brain reading `0.0` for
+                                    // them put `cellular_pulse` at 140px/s where
+                                    // the stage throws it 490.
+                                    ruleset_growth: rules.knockback_growth,
+                                    rage: rules.rage_scale(body.health.damage_taken()),
+                                    base_scale: rules.base_knockback_scale,
+                                },
+                            ),
+                        );
+                        // ⭐⭐ ONLY `TacticalWorld` BUILDS A VIEW NOW. `TargetBelief`
+                        // — seven of the nine templates — takes the cheap road
+                        // below, which finds the same foe from borrowed peers and
+                        // folds the same memory without constructing a
+                        // `PerceivedActor` (and its owned `String`) per peer.
+                        let world_view = if perception_need.needs_world_view() {
+                            super::super::perception::build_world_view(
+                                &perception_body,
+                                &view_peers,
+                                perceived.projectiles_in(room),
+                                &[],
+                                feature_world,
+                                &open_gates,
+                                relations,
+                                perception_policy,
                                 sim_now,
-                                dt,
-                                view_peers
-                                    .iter()
-                                    .filter(|p| {
-                                        super::super::perception::peer_is_visible_to_body(
-                                            perception_policy,
-                                            viewport,
-                                            &perception_body,
-                                            p,
-                                        )
-                                    })
-                                    .map(|p| ambition_characters::perception::SeenActor {
-                                        id: p.id.as_str(),
-                                        pos: p.pos,
-                                        vel: p.vel,
-                                        faction: p.faction,
-                                        hostile_to_self:
-                                            super::super::perception::peer_is_hostile_to_body(
-                                                &perception_body,
-                                                relations,
-                                                p,
-                                            ),
-                                    }),
+                            )
+                        } else {
+                            ambition_characters::perception::WorldView::default()
+                        };
+                        // The cheap road, for the seven templates that only ever
+                        // wanted a target. One pass over the peers: the nearest
+                        // hostile, and the visible count the census needs.
+                        let cheap = perception_need.needs_target_belief().then(|| {
+                            super::super::perception::nearest_hostile_peer(
+                                &perception_body,
+                                &view_peers,
+                                relations,
+                                perception_policy,
+                            )
+                        });
+                        // ⚠ AN INSTRUMENT, OFF BY DEFAULT: one relaxed load when the
+                        // census is not running. `view_peers` is what the room
+                        // OFFERED this viewer; `actors` is what its viewport and
+                        // faction rules KEPT. The gap between the two is what an
+                        // attention budget would bound.
+                        //
+                        // ⛔ ONLY A VIEW THAT WAS ACTUALLY BUILT. A `None` brain now
+                        // gets `WorldView::default()`, and counting those recorded
+                        // 45,795 views of `kept=0` — a mean over bodies that never
+                        // looked, which is not the population the budget is about.
+                        // ⛔⛔ `kept` COMES FROM WHICHEVER ROAD RAN. A `TargetBelief`
+                        // body no longer builds a view, so `world_view.actors.len()`
+                        // is 0 for it — reading that would drop the census toward
+                        // zero for seven of the nine templates and quietly ruin the
+                        // instrument that priced this change. The cheap road counts
+                        // the same population (everything VISIBLE, allies included)
+                        // on the pass that finds the target.
+                        // ⛔ THE VIEW ROAD FIRST. `TacticalWorld` needs a target
+                        // belief too, so `cheap` is `Some` for it as well — and the
+                        // cheap count is the UNCAPPED visible set. Testing `cheap`
+                        // first recorded `kept = visible` for every world-view brain
+                        // and the density sweep could not see the attention budget
+                        // at all (yardrat, 2026-09-03: `kept_max` 129 with the cap
+                        // at 16). A body that built a view reports what the view
+                        // carries; only a body that did not reports the cheap count.
+                        if perception_need.needs_world_view() {
+                            ambition_characters::perception::census::note_world_view(
+                                view_peers.len(),
+                                world_view.actors.len() + world_view.remainder.actors,
+                                world_view.actors.len(),
+                            );
+                        } else if let Some(cheap) = cheap.as_ref() {
+                            ambition_characters::perception::census::note_world_view(
+                                view_peers.len(),
+                                cheap.visible_count,
+                                cheap.visible_count,
                             );
                         }
-                    }
-                    if let Some(believed) = perception_need
-                        .needs_target_belief()
-                        .then(|| match cheap.as_ref() {
-                            Some(cheap) => super::super::perception::belief_from_nearest(
-                                perception_policy,
-                                cheap.nearest_hostile.map(|p| p.pos),
-                                perception_memory.as_deref_mut(),
-                            ),
-                            None => super::super::perception::believed_target(
-                                perception_policy,
-                                &world_view,
-                                perception_memory.as_deref_mut(),
-                                dt,
-                            ),
-                        })
-                        .flatten()
-                    {
-                        match believed {
-                            Some(pos) => {
-                                snapshot.target_pos = pos;
-                                snapshot.target_alive = true;
-                            }
-                            None => {
-                                snapshot.target_pos = body.kin.pos;
-                                snapshot.target_alive = false;
+                        // Sight and memory answer together; an `Omniscient` body
+                        // already carries the global `ActorTarget` and is not
+                        // overridden. Perceiving nobody is a real answer (idle).
+                        // ⛔⛔ THE FOLD RUNS ON BOTH ROADS. `WorldMemory` decays every
+                        // actor NOT seen this tick, so skipping it for a body that
+                        // no longer builds a view would fade every remembered foe as
+                        // though it had left the viewport — pursuit (I6) stops, a
+                        // body that can SEE its foe still looks right, and only the
+                        // one CHASING breaks. The cheap road feeds the same fold
+                        // borrowed peer fields instead of constructed actors.
+                        if let Some(cheap) = cheap.as_ref() {
+                            if let Some(memory) = perception_memory.as_deref_mut() {
+                                let viewport = &cheap.viewport;
+                                memory.0.update_from_seen(
+                                    sim_now,
+                                    dt,
+                                    view_peers
+                                        .iter()
+                                        .filter(|p| {
+                                            super::super::perception::peer_is_visible_to_body(
+                                                perception_policy,
+                                                viewport,
+                                                &perception_body,
+                                                p,
+                                            )
+                                        })
+                                        .map(|p| ambition_characters::perception::SeenActor {
+                                            id: p.id.as_str(),
+                                            pos: p.pos,
+                                            vel: p.vel,
+                                            faction: p.faction,
+                                            hostile_to_self:
+                                                super::super::perception::peer_is_hostile_to_body(
+                                                    &perception_body,
+                                                    relations,
+                                                    p,
+                                                ),
+                                        }),
+                                );
                             }
                         }
-                    }
+                        if let Some(believed) = perception_need
+                            .needs_target_belief()
+                            .then(|| match cheap.as_ref() {
+                                Some(cheap) => super::super::perception::belief_from_nearest(
+                                    perception_policy,
+                                    cheap.nearest_hostile.map(|p| p.pos),
+                                    perception_memory.as_deref_mut(),
+                                ),
+                                None => super::super::perception::believed_target(
+                                    perception_policy,
+                                    &world_view,
+                                    perception_memory.as_deref_mut(),
+                                    dt,
+                                ),
+                            })
+                            .flatten()
+                        {
+                            match believed {
+                                Some(pos) => {
+                                    snapshot.target_pos = pos;
+                                    snapshot.target_alive = true;
+                                }
+                                None => {
+                                    snapshot.target_pos = body.kin.pos;
+                                    snapshot.target_alive = false;
+                                }
+                            }
+                        }
+                        world_view
+                    } else {
+                        ambition_characters::perception::WorldView::default()
+                    };
                     let mut bf = ambition_characters::actor::control::ActorControlFrame::neutral();
                     let peaceful = ambition_characters::brain::ActionSet::peaceful();
                     let actions = action_set.unwrap_or(&peaceful);
@@ -1701,143 +1669,57 @@ pub fn integrate_sim_bodies(
 /// (possessed) body — it holds a `DrivingParticipant`, it fights for you, and its
 /// body must not harm you on contact (the same effective-allegiance rule the melee
 /// strike + boss damage use).
-#[allow(clippy::too_many_arguments)]
 pub fn apply_actor_contact_damage(
-    // The struck body's own victim consumer emits its `HurtFeedback` now, so this system only
-    // writes the `HitEvent`.
     mut hit_events: MessageWriter<HitEvent>,
-    mut set: bevy::ecs::system::ParamSet<(
-        Query<
-            (
-                Entity,
-                &ambition_combat::components::ActorTarget,
-                Option<&ambition_characters::control::DrivingParticipant>,
-                // ⭐⭐ IS THIS BODY SEATED IN A MATCH? D206. Whether touching a
-                // body hurts is a CHARACTER trait
-                // (`CharacterBodyBlueprint::contact_damage`), and that is right
-                // for the overworld: a goblin you walk into hurts you. It is
-                // wrong for a versus match, where a fighter's body is never a
-                // permanent hazard — the genre puts damage in MOVES.
-                //
-                // MEASURED: goblin vs `perfect_cellular_automaton`, both
-                // authoring a contact-damage block, traded **6,908 Contact hit
-                // events in 3,776 ticks — 109.8/s** against 29.5/s of melee,
-                // because this system writes an event EVERY TICK two bodies
-                // overlap and the only thing pacing it is the victim's i-frames.
-                // That is what Jon heard as *"a bad sfx problem with goblin and
-                // pca"*: every one of those events asks for `player.hit`, the
-                // unauthored default for an enemy-profile victim. A george
-                // mirror was quiet at 223 — not because the engine behaves
-                // differently, but because George authors no contact block.
-                //
-                // ⛔ THE SEAT AND NOT THE TUNING. `actor_clusters` builds this
-                // tuning on the SHARED character→body road, which the overworld
-                // NPC and the seated fighter both take, so it cannot answer a
-                // question about the match. And a ruleset that reached in and
-                // rewrote the tuning would be editing a construction-time fact
-                // that a re-seat puts straight back. The seat is the authority
-                // and this is the read that asks it.
-                //
-                // ⛔ NOT a claim that a fighter can never harm on contact. A
-                // move that wants a damaging body state grants it as a move —
-                // Sanic's ball dash, a super form, a spiked shell — and none of
-                // those flows through this permanent trait.
-                Has<ambition_match::MatchSeat>,
-                Option<ambition_body_seed::clusters::ActorClusterQueryData>,
-                Option<&ambition_combat::actor_tuning::ContactThreatWithdrawn>,
-                // ⛔ THE SADDLE IS NOT A CONTACT. A rider stands IN its mount's
-                // box — the seat is where its soles rest on the mount's back, so
-                // the two footprints overlap by construction, every tick they are
-                // paired. That overlap is the ride, not a body walking into a
-                // body; asked as a contact it killed a player piloting a wild
-                // shark in twelve ticks. Both ends of the one relation, because
-                // either body can be the one authoring contact damage.
-                Option<&ambition_mount::MountSlot>,
-                Option<&ambition_mount::RidingOn>,
-                // A boss's body hurts only while its fight runs: not asleep,
-                // not in its intro (the Inugami lies in Wolfenstein's body
-                // until he falls).
-                Option<&ambition_boss_encounter::BossEncounter>,
-            ),
-            // Bosses are contact attackers through THIS shared system now (fable
-            // AD2): their `body_contact_damage` tuning is driven from
-            // `behavior.body_damage` at spawn, so no `Without<BossConfig>` carve-out.
-            (
-                With<FeatureSimEntity>,
-                Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-            ),
-        >,
-        // Victims: any body with a published footprint — a player, an NPC a
-        // provoked enemy tracks, a duel opponent. The ONE vulnerability rule
-        // (§A5) + the ONE published hurtbox (§A6).
-        Query<(
-            &CenteredAabb,
+    attackers: Query<
+        (
+            Entity,
+            &ambition_combat::components::ActorTarget,
+            Option<&ambition_characters::control::DrivingParticipant>,
+            Has<ambition_match::MatchSeat>,
+            &ae::BodyKinematics,
             &ambition_characters::actor::BodyHealth,
-            &ambition_platformer2d_core::BodyMotionFacts,
-            &ambition_platformer2d_core::BodyShieldState,
-            &ambition_characters::actor::BodyCombat,
-        )>,
+            &ae::body_clusters::ActorSurfaceState,
+            &ambition_combat::actor_tuning::ActorConfig,
+            Option<&ambition_combat::actor_tuning::ContactThreatWithdrawn>,
+            Option<&ambition_mount::MountSlot>,
+            Option<&ambition_mount::RidingOn>,
+            Option<&ambition_boss_encounter::BossEncounter>,
+        ),
+        (With<FeatureSimEntity>, Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>),
+    >,
+    victims: Query<(
+        &CenteredAabb,
+        &ambition_characters::actor::BodyHealth,
+        &ambition_platformer2d_core::BodyMotionFacts,
+        &ambition_platformer2d_core::BodyShieldState,
+        &ambition_characters::actor::BodyCombat,
     )>,
 ) {
-    // Pass 1 — snapshot each live contact attack while the attacker's clusters
-    // are borrowed.
-    let mut pending: Vec<(Entity, Entity, crate::body::movement::ContactAttack)> = Vec::new();
-    for (actor_entity, target, driver, seated_in_a_match, clusters, withdrawn, saddle, riding, encounter,
-    ) in
-        &mut set.p0()
-    {
-        let Some(mut cq) = clusters else {
-            continue;
-        };
-        let em = cq.as_actor_mut();
-        // Body-contact hazard is off for any participant-driven body; derived
-        // from the DRIVER (no possession special-case), gated by the body's
-        // authored `body_contact_damage` tuning and by any live withdrawal.
+    for (attacker, target, driver, seated, kin, health, surface, config, withdrawn, saddle, riding, encounter) in &attackers {
+        // A match seat attacks through moves. A driven body has no automatic
+        // contact attack. A sleeping boss and its intro are not contact hazards.
         let fighting = encounter.is_none_or(|encounter| {
-            !matches!(
-                encounter.encounter_phase(),
-                ambition_boss_encounter::BossEncounterPhase::Dormant | ambition_boss_encounter::BossEncounterPhase::Intro
-            )
+            !matches!(encounter.encounter_phase(),
+                ambition_boss_encounter::BossEncounterPhase::Dormant | ambition_boss_encounter::BossEncounterPhase::Intro)
         });
-        let enabled = driver.is_none()
-            && !seated_in_a_match
-            && em.config.tuning.body_contact_damage
-            && !withdrawn.is_some_and(|w| w.0)
-            && fighting;
-        if !enabled || !em.health.alive() {
+        if driver.is_some() || seated || !health.alive()
+            || withdrawn.is_some_and(|withdrawn| withdrawn.0) || !fighting {
             continue;
         }
-        // The body this actor tracks (already resolved relationally by
-        // `select_actor_targets` — a foe by faction or grudge); its entity is
-        // stamped on the emitted `HitEvent::target` so the right victim
-        // consumer lands the hit.
-        let Some(target_entity) = target.entity else {
+        let Some(target) = target.entity else { continue; };
+        // A rider and its mount overlap by construction.
+        if saddle.and_then(|slot| slot.rider) == Some(target) || riding.map(|on| on.mount) == Some(target) {
+            continue;
+        }
+        let Some(attack) = crate::body::movement::ContactAttack::from_body(kin, surface, &config.tuning) else {
             continue;
         };
-        let carried = saddle.and_then(|slot| slot.rider);
-        let carrier = riding.map(|on| on.mount);
-        if carried == Some(target_entity) || carrier == Some(target_entity) {
+        let Ok((hurtbox, health, facts, shield, combat)) = victims.get(target) else { continue; };
+        if !ambition_combat::util::body_vulnerable(health.health.invulnerable, facts.evading(), shield, combat) {
             continue;
         }
-        if let Some(attack) = em.contact_attack() {
-            pending.push((actor_entity, target_entity, attack));
-        }
-    }
-    // Pass 2 — resolve each victim through its published hurtbox.
-    let victims = set.p1();
-    for (attacker, target_entity, attack) in pending {
-        let Ok((hurtbox, victim_health, facts, shield, combat)) = victims.get(target_entity) else {
-            continue;
-        };
-        if !ambition_combat::util::body_vulnerable(
-            victim_health.health.invulnerable,
-            facts.evading(),
-            shield,
-            combat,
-        ) {
-            continue;
-        }
-        if let Some(damage) = attack.hit_event(attacker, target_entity, hurtbox.aabb()) {
+        if let Some(damage) = attack.hit_event(attacker, target, hurtbox.aabb()) {
             hit_events.write(damage);
         }
     }
@@ -1906,6 +1788,7 @@ pub(crate) fn compute_crowding_by_id(
             CROWDING_RADIUS_PX
         };
         let faction_a = faction_by_id.get(id_a);
+        let opponent = opponent_id_by_id.get(id_a);
         for (id_b, pos_b, kind_b) in requests {
             if id_a == id_b {
                 continue;
@@ -1916,7 +1799,7 @@ pub(crate) fn compute_crowding_by_id(
             // this fighter is actively targeting (its grudge foe in a same-faction
             // duel) — either way, don't anti-clump away from it.
             let different_faction = faction_a != faction_by_id.get(id_b);
-            let is_my_target = opponent_id_by_id.get(id_a) == Some(id_b);
+            let is_my_target = opponent == Some(id_b);
             if different_faction || is_my_target {
                 continue;
             }
@@ -2144,14 +2027,14 @@ pub(super) fn melee_reach_of(
         grounded,
         running,
     )?;
-    let frames = spec.frame_data();
     // A charge carries its strike forward: the run it makes over the strike
     // (a set speed held from the end of its startup) is reach too, so it
     // starts its charge from as far as it will run.
+    let startup_s = spec.startup_s();
     let rush: f32 = spec
         .events
         .iter()
-        .filter(|event| event.at_s >= frames.startup_s - 1e-4)
+        .filter(|event| event.at_s >= startup_s - 1e-4)
         .filter_map(|event| match event.kind {
             ambition_entity_catalog::MoveEventKind::Impulse { local: (speed, _), mode: ambition_entity_catalog::ImpulseMode::Set } => {
                 let held = spec.events.iter().find_map(|hold| match hold.kind {
@@ -2163,7 +2046,7 @@ pub(super) fn melee_reach_of(
             _ => None,
         })
         .sum();
-    let reach = frames.reach + rush;
+    let reach = spec.strike_reach() + rush;
     (reach > 0.0).then_some(reach)
 }
 

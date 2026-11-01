@@ -84,11 +84,11 @@ impl CrowdObservation {
             return;
         };
         self.alive_by_entity.insert(entity, alive);
-        let crowd = self.rooms.entry(body.room).or_default();
-        crowd.entity_to_id.insert(entity, body.id.to_string());
         if !in_a_fight || !alive {
             return;
         }
+        let crowd = self.rooms.entry(body.room).or_default();
+        crowd.entity_to_id.insert(entity, body.id.to_string());
         crowd
             .requests
             .push((body.id.to_string(), body.pos, body.kind));

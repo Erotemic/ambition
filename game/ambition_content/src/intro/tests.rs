@@ -14,11 +14,12 @@ fn dialog_start_sets_dialogue_id_for_intro_and_sandbox() {
     // unified registry routes both families through the same
     // dialogue_id surface.
     let mut state = DialogState::default();
-    state.start("creator_intro", "Creator", DialogueContext::scripted());
+    let owner = ambition_input::InputOwner::Participant(ambition_input::ParticipantId(1));
+    state.start("creator_intro", "Creator", DialogueContext::scripted(), owner);
     assert_eq!(state.dialogue_id(), "creator_intro");
-    state.start("oiler_intro", "Oiler", DialogueContext::scripted());
+    state.start("oiler_intro", "Oiler", DialogueContext::scripted(), owner);
     assert_eq!(state.dialogue_id(), "oiler_intro");
-    state.start("hub_guide", "Kernel Guide", DialogueContext::scripted());
+    state.start("hub_guide", "Kernel Guide", DialogueContext::scripted(), owner);
     assert_eq!(state.dialogue_id(), "hub_guide");
 }
 

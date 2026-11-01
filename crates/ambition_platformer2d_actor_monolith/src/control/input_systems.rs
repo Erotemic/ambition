@@ -214,6 +214,15 @@ pub fn interaction_input_system(
         // This seat's own frame policy, off the replayed frame — see
         // `derive_slot_direction_gestures`.
         let movement_mode = frame.control_frame_modes.movement;
+        let direction_is_claimed = frame.jump_pressed || frame.jump_held
+            || frame.attack_pressed || frame.attack_held
+            || frame.special_pressed || frame.special_held
+            || frame.burst_pressed || frame.grab_pressed || frame.shield_held
+            || frame.projectile_pressed || frame.projectile_held
+            || frame.blink_pressed || frame.blink_held;
+        if direction_is_claimed {
+            interaction.cancel_up_interact(feel.interaction_hold_time);
+        }
         let door_double_tap_up = std::mem::take(&mut interaction.double_tap_up_pending);
         // Down + Interact is the possession gesture
         // (`control::possession`), so a held-Down interact is
@@ -528,6 +537,81 @@ mod interaction_suppression_tests {
             .resource::<SlotInteractionState>()
             .primary()
             .buffered()
+    }
+
+    #[test]
+    fn up_held_during_jump_and_air_attacks_does_not_interact() {
+        use ambition_characters::control::{PlayerSlot, SeatRawFrames, SlotControls};
+        let mut app = App::new();
+        app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
+        app.init_resource::<Platformer2dFeelTuningMonolith>();
+        app.init_resource::<SlotInteractionState>();
+        app.init_resource::<SeatRawFrames>();
+        app.init_resource::<SlotControls>();
+        app.add_systems(Update, (derive_slot_direction_gestures, interaction_input_system).chain());
+        for tick in 0..240 {
+            for slot in [PlayerSlot(0), PlayerSlot(1)] {
+                app.world_mut().resource_mut::<SeatRawFrames>().set(slot, ControlFrame {
+                    axis_y: -1.0,
+                    up_pressed: tick == 0,
+                    jump_pressed: tick == 1,
+                    jump_held: (1..12).contains(&tick),
+                    attack_pressed: tick == 15,
+                    attack_held: (15..30).contains(&tick),
+                    ..Default::default()
+                });
+            }
+            app.update();
+            for slot in [PlayerSlot(0), PlayerSlot(1)] {
+                assert!(!app.world().resource::<SlotInteractionState>().get(slot).buffered(),
+                    "slot {slot:?} interacted on tick {tick} while Up remained held after combat input");
+            }
+        }
+        for slot in [PlayerSlot(0), PlayerSlot(1)] {
+            app.world_mut().resource_mut::<SeatRawFrames>().set(slot, ControlFrame::default());
+        }
+        app.update();
+        let mut fired = [false; 2];
+        for tick in 0..180 {
+            for slot in [PlayerSlot(0), PlayerSlot(1)] {
+                app.world_mut().resource_mut::<SeatRawFrames>().set(slot, ControlFrame {
+                    axis_y: -1.0, up_pressed: tick == 0, ..Default::default()
+                });
+            }
+            app.update();
+            for slot in [PlayerSlot(0), PlayerSlot(1)] {
+                fired[slot.0 as usize] |= app.world().resource::<SlotInteractionState>().get(slot).buffered();
+            }
+        }
+        assert_eq!(fired, [true, true], "releasing Up permits a new deliberate hold");
+    }
+
+    #[test]
+    fn recorded_up_and_jump_sequence_does_not_interact() {
+        use ambition_characters::control::{PlayerSlot, SeatRawFrames, SlotControls};
+        let recorded: Vec<(u16, ControlFrame)> = serde_json::from_str(include_str!("fixtures/up_jump_door.json"))
+            .expect("the recorded input runs decode");
+        let mut app = App::new();
+        app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
+        app.init_resource::<Platformer2dFeelTuningMonolith>();
+        app.init_resource::<SlotInteractionState>();
+        app.init_resource::<SeatRawFrames>();
+        app.init_resource::<SlotControls>();
+        app.add_systems(Update, (derive_slot_direction_gestures, interaction_input_system).chain());
+        let mut tick = 255001;
+        for (count, frame) in recorded {
+            for _ in 0..count {
+                for slot in [PlayerSlot(0), PlayerSlot(1)] {
+                    app.world_mut().resource_mut::<SeatRawFrames>().set(slot, frame);
+                }
+                app.update();
+                for slot in [PlayerSlot(0), PlayerSlot(1)] {
+                    assert!(!app.world().resource::<SlotInteractionState>().get(slot).buffered(),
+                        "slot {slot:?} interacted on recorded tick {tick}");
+                }
+                tick += 1;
+            }
+        }
     }
 
     /// A TAP THAT ONLY EVER EXISTED IN THE LATCH STILL REACHES THE BUFFER.

@@ -616,7 +616,7 @@ pub fn boss_phase_transition_feedback(
                     half_extent: ae::Vec2::new(170.0, 80.0),
                     shape: None,
                     damage: 2,
-                    knockback: 1.6,
+                    knockback: ambition_combat::strike::HitboxKnockback::FeelScale(1.6),
                     lifetime_s: 0.30,
                     name: Some("Shockwave AOE"),
                 },

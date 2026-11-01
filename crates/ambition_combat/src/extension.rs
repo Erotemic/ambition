@@ -136,9 +136,6 @@ pub fn install_for_wielded_use(app: &mut App) {
         "ambition_combat",
         lower_damage_boxes::<InWieldedUse>,
     );
-    // The strike adapter writes the hit message: a composition with the port
-    // has it, whether or not a module strikes.
-    app.add_message::<crate::events::HitEvent>();
     app.install_extension_submitted_request::<StrikePort, _>(WIELDED_USE, "ambition_combat", lower_strikes);
 }
 
@@ -146,55 +143,44 @@ pub fn install_for_wielded_use(app: &mut App) {
 /// attacker, so the hit resolution reads its side.
 fn lower_strikes(
     mut outbox: ResMut<ExtensionOutbox>,
-    mut hits: MessageWriter<crate::events::HitEvent>,
-    bodies: Query<&ae::BodyKinematics>,
+    mut effects: crate::damage_box::DamageBoxWriter,
+    bodies: Query<(&ae::BodyKinematics, &ActorFaction, Option<&ambition_characters::control::DrivingParticipant>)>,
 ) {
     use ambition_combat_port::{Place, StrikeVolume};
     for submitted in outbox.drain::<StrikePort>(&WIELDED_USE) {
         let strike = submitted.value;
-        let body = bodies.get(submitted.scope).ok().map(|kin| [kin.pos.x, kin.pos.y]);
-        // Where a place is: `Place::Body` is where the body is now, after a
-        // transit of this tick.
-        let at = |place: Place| match (place, body) {
-            (Place::Body, None) => None,
-            (place, body) => Some(ae::Vec2::from(place.resolve(body.unwrap_or_default()))),
-        };
-        let volume = match strike.volume {
-            StrikeVolume::Circle { at: place, radius } => at(place).map(|c| ae::CombatVolume::circle(c, radius)),
-            StrikeVolume::Span { from, to, pad } => at(from).zip(at(to)).map(|(from, to)| {
-                let half = ae::Vec2::new((to.x - from.x).abs() * 0.5 + pad * 0.5, (to.y - from.y).abs() * 0.5 + pad * 0.5);
-                ae::CombatVolume::from(ae::Aabb::new((from + to) * 0.5, half))
-            }),
-        };
-        let Some(volume) = volume else {
-            warn!("extension entry {} asked for a strike at a body with no position; refused", submitted.entry);
+        let Ok((kin, faction, driver)) = bodies.get(submitted.scope) else {
+            warn!("extension entry {} asked for a strike from a body without position or faction; refused", submitted.entry);
             continue;
         };
-        let center = volume.center();
-        hits.write(crate::events::HitEvent {
-            pieces: Vec::new(),
-            strike_sfx: None,
-            volume,
-            damage: strike.damage,
-            source: crate::events::HitSource::Melee,
-            attacker: Some(submitted.scope),
-            room: None,
-            target: crate::events::HitTarget::Volume,
-            mode: crate::events::HitMode::Knockback,
-            knockback: strike.knockback.map(|k| crate::events::HitKnockback {
-                // An ordinary hit: it stuns.
-                reaction: ae::hit_response::HitReaction::Strike,
-                dir: k.dir,
-                magnitude: crate::events::HitKnockbackMagnitude::FeelScale(k.feel_scale),
-                source_pos: center,
-                impact_pos: center,
-                launch_dir: None,
-                follow: None,
-                guard: Default::default(),
-            }),
-            ignored_targets: Vec::new(),
-            attacker_move_instance: None,
-        });
+        let at = |place: Place| ae::Vec2::from(place.resolve([kin.pos.x, kin.pos.y]));
+        let (center, half_extent, shape) = match strike.volume {
+            StrikeVolume::Circle { at: place, radius } => (
+                at(place), ae::Vec2::splat(radius), Some(ae::VolumeShape::Circle { radius }),
+            ),
+            StrikeVolume::Span { from, to, pad } => {
+                let (from, to) = (at(from), at(to));
+                let half = (to - from).abs() * 0.5 + ae::Vec2::splat(pad * 0.5);
+                ((from + to) * 0.5, half, None)
+            }
+        };
+        let faction = crate::targeting::effective_faction(*faction, driver);
+        effects.write(
+            submitted.scope,
+            submitted.scope,
+            crate::hit_side_from_actor_faction(faction),
+            center,
+            crate::strike::DamageBox {
+                half_extent,
+                shape,
+                damage: strike.damage,
+                knockback: strike.knockback.map_or(crate::strike::HitboxKnockback::FeelScale(1.0), |k| {
+                    crate::strike::HitboxKnockback::DirectedFeelScale { scale: k.feel_scale, dir: k.dir }
+                }),
+                lifetime_s: 0.0,
+                name: None,
+            },
+        );
     }
 }
 
@@ -221,7 +207,7 @@ fn lower_damage_boxes<L: LowersIn>(
         effects.write(submitted.scope, submitted.scope, crate::hit_side_from_actor_faction(faction), ae::Vec2::from(b.center), crate::strike::DamageBox {
                 half_extent: ae::Vec2::from(b.half_extent),
                 damage: b.damage,
-                knockback: b.knockback,
+                knockback: crate::strike::HitboxKnockback::FeelScale(b.knockback),
                 lifetime_s: b.lifetime_s,
                 name: None,
                 shape: None,
@@ -473,7 +459,7 @@ fn lower_held_damage_boxes<P: LowersIn>(
                 half_extent: s.half_extent,
                 shape: s.shape.clone(),
                 damage: s.damage,
-                knockback: s.knockback,
+                knockback: crate::strike::HitboxKnockback::FeelScale(s.knockback),
                 lifetime_s: s.lifetime_s,
                 name: None,
             },

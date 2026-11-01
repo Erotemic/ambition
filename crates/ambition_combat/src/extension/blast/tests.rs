@@ -42,7 +42,7 @@ struct Seen {
     faction: ambition_vfx::HitSide,
     half_extent: ae::Vec2,
     damage: i32,
-    knockback: f32,
+    knockback: crate::strike::HitboxKnockback,
     lifetime_s: f32,
 }
 
@@ -145,7 +145,7 @@ fn a_blast_is_where_its_body_is_and_credited_to_the_body_named() {
     assert_eq!(b.owner, striker, "the blast is not credited to the body the credit names");
     assert_eq!(b.center, ae::Vec2::new(120.0, -8.0), "the blast is not where its body is");
     assert_eq!(b.faction, ambition_vfx::HitSide::Environment, "a blast took a side");
-    assert_eq!((b.half_extent, b.damage, b.knockback, b.lifetime_s), (ae::Vec2::splat(44.0), 7, 1.5, 0.08));
+    assert_eq!((b.half_extent, b.damage, b.knockback, b.lifetime_s), (ae::Vec2::splat(44.0), 7, crate::strike::HitboxKnockback::FeelScale(1.5), 0.08));
 }
 
 /// A missing credit body must not become the body under the blast.

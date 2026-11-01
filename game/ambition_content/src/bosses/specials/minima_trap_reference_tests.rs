@@ -112,7 +112,7 @@ pub fn spawn_minima_trap_from_special_messages(
         effects.write(entity, entity, ambition_vfx::HitSide::Boss, pit_center, ambition_combat::strike::DamageBox {
                 half_extent: ae::Vec2::new(hx, hy),
                 damage: damage,
-                knockback: MINIMA_TRAP_KNOCKBACK,
+                knockback: ambition_combat::strike::HitboxKnockback::FeelScale(MINIMA_TRAP_KNOCKBACK),
                 lifetime_s: hazard_duration_s.max(0.05),
                 name: None,
                 shape: None,

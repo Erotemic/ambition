@@ -312,10 +312,9 @@ mod transits {
 
     struct TransitItem {
         item: &'static str,
-        native: fn(&mut App),
         /// How many times each body is moved, read from a trace.
         count: fn(&Trace) -> Vec<usize>,
-        /// How many times each body is moved on the reference road.
+        /// Which bodies the module can move.
         moves: fn(&[usize]) -> bool,
         /// The item moves a body along a line, so the walls stop it.
         along: bool,
@@ -331,16 +330,6 @@ mod transits {
 
     const BLINK: TransitItem = TransitItem {
         item: "blink",
-        native: |app| {
-            app.add_systems(
-                Sim,
-                (
-                    super::super::wielded_ability_reference_tests::blink::blink_system,
-                    ambition_platformer2d::abilities::ability_cooldown::tick_ability_cooldown,
-                )
-                    .chain(),
-            );
-        },
         count: blinks,
         // The cooldown ran out between moves; the brain's body and the body
         // off the swept kernel do not blink.
@@ -349,16 +338,6 @@ mod transits {
     };
     const DIVE: TransitItem = TransitItem {
         item: "dive",
-        native: |app| {
-            app.add_systems(
-                Sim,
-                (
-                    super::super::wielded_ability_reference_tests::dive::fire_dive_system,
-                    ambition_platformer2d::abilities::ability_cooldown::tick_ability_cooldown,
-                )
-                    .chain(),
-            );
-        },
         count: blinks,
         // Each press that the mana pays for: the body with mana for one dive
         // dives once, the body off the swept kernel dives, the brain's does
@@ -368,16 +347,6 @@ mod transits {
     };
     const MARK_RECALL: TransitItem = TransitItem {
         item: "mark_recall",
-        native: |app| {
-            app.add_systems(
-                Sim,
-                (
-                    super::super::wielded_ability_reference_tests::mark_recall::mark_recall_system,
-                    ambition_platformer2d::abilities::ability_cooldown::tick_ability_cooldown,
-                )
-                    .chain(),
-            );
-        },
         count: blinks,
         // Each driven body recalls to a mark it set; the brain's body does
         // not.
@@ -387,16 +356,6 @@ mod transits {
 
     const GRAPPLE: TransitItem = TransitItem {
         item: "grapple",
-        native: |app| {
-            app.add_systems(
-                Sim,
-                (
-                    super::super::wielded_ability_reference_tests::grapple::grapple_system,
-                    ambition_platformer2d::abilities::ability_cooldown::tick_ability_cooldown,
-                )
-                    .chain(),
-            );
-        },
         count: pulls,
         // The bodies in #1 have the wall within the range: the driven ones
         // are pulled, the crawler (which aims at the wall on each of its eight
@@ -436,7 +395,7 @@ mod transits {
         ))
     }
 
-    fn world(road: Road, item: &TransitItem) -> (App, Vec<Entity>) {
+    fn world(wasm: bool, item: &TransitItem) -> (App, Vec<Entity>) {
         let mut app = App::new();
         app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         app.init_schedule(Sim);
@@ -452,25 +411,18 @@ mod transits {
         // The cooldown runs on simulation time: 60 ticks a second.
         app.world_mut().resource_mut::<ambition_time::WorldTime>().set_sim_dt(1.0 / 60.0);
         let tick_cooldowns = ambition_platformer2d::abilities::ability_cooldown::tick_ability_cooldown;
-        match road {
-            // The shipped order: the native chain, then the cooldowns tick.
-            Road::NativeSystem => (item.native)(&mut app),
-            // The shipped order: `wielded_use`, then the cooldowns tick.
-            Road::Module | Road::Wasm => {
-                app.add_plugins(ExtensionHostPlugin::new(Sim));
-                ambition_platformer2d_runtime::extension_composition::install_ports(&mut app);
-                app.add_systems(Sim, tick_cooldowns.after(ExtensionSet::Lower(WIELDED_USE)));
-                if road == Road::Wasm {
-                    let (backend, modules) = wasm_modules();
-                    app.add_loaded_extension_modules("ambition_content_modules.wasm", backend, modules, false);
-                } else {
-                    for module in ambition_content_modules::modules() {
-                        app.add_extension_module(module);
-                    }
-                }
-                app.finish();
+        app.add_plugins(ExtensionHostPlugin::new(Sim));
+        ambition_platformer2d_runtime::extension_composition::install_ports(&mut app);
+        app.add_systems(Sim, tick_cooldowns.after(ExtensionSet::Lower(WIELDED_USE)));
+        if wasm {
+            let (backend, modules) = wasm_modules();
+            app.add_loaded_extension_modules("ambition_content_modules.wasm", backend, modules, false);
+        } else {
+            for module in ambition_content_modules::modules() {
+                app.add_extension_module(module);
             }
         }
+        app.finish();
         insert_live_room_component(app.world_mut(), room(Vec::new()));
         let walled = LiveRoomInstance::ACTIVATION.next();
         spawn_live_room(
@@ -536,8 +488,8 @@ mod transits {
         (app, bodies)
     }
 
-    fn run(road: Road, item: &TransitItem) -> Trace {
-        let (mut app, bodies) = world(road, item);
+    fn run(wasm: bool, item: &TransitItem) -> Trace {
+        let (mut app, bodies) = world(wasm, item);
         let index = |e: Entity| bodies.iter().position(|b| *b == e).map_or(usize::MAX, |i| i);
         let mut trace = Vec::new();
         for tick in 0..TICKS {
@@ -553,11 +505,12 @@ mod transits {
             }
             app.world_mut().run_schedule(Sim);
             let mut out: BTreeMap<usize, Vec<String>> = BTreeMap::new();
-            for hit in app.world_mut().resource_mut::<Messages<ambition_combat::events::HitEvent>>().drain() {
-                let i = hit.attacker.map_or(usize::MAX, index);
-                out.entry(i).or_default().push(format!(
-                    "Hit {{ volume: {:?}, damage: {}, source: {:?}, mode: {:?}, knockback: {:?}, room: {:?} }}",
-                    hit.volume, hit.damage, hit.source, hit.mode, hit.knockback, hit.room
+            for request in app.world_mut().resource_mut::<Messages<ambition_combat::damage_box::DamageBoxRequest>>().drain() {
+                let damage_box = request.damage_box;
+                out.entry(index(request.owner)).or_default().push(format!(
+                    "Strike {{ center: {:?}, half_extent: {:?}, shape: {:?}, damage: {}, knockback: {:?}, lifetime_s: {} }}",
+                    request.center, damage_box.half_extent, damage_box.shape, damage_box.damage,
+                    damage_box.knockback, damage_box.lifetime_s,
                 ));
             }
             for vfx in app.world_mut().resource_mut::<Messages<ambition_vfx::vfx::VfxInRoom>>().drain() {
@@ -581,10 +534,7 @@ mod transits {
             for (i, remap) in remaps {
                 out.entry(i).or_default().push(remap);
             }
-            // A tick's effects and sounds are compared as a set. The module
-            // orders them by entry (every mark, then every recall) and the
-            // native system by body; the simulation reads none of them. The
-            // hits, which it reads, keep their order.
+            // Compare presentation as a set. Strike requests keep their order.
             if let Some(presented) = out.get_mut(&usize::MAX) {
                 presented.sort();
             }
@@ -635,17 +585,17 @@ mod transits {
     }
 
     #[test]
-    fn each_transit_module_moves_each_body_as_its_native_system_did() {
+    fn transit_modules_respect_body_capabilities_walls_and_rooms() {
         for item in [&BLINK, &DIVE, &MARK_RECALL, &GRAPPLE] {
-            let native = run(Road::NativeSystem, item);
-            let moved = (item.count)(&native);
-            // ⭐ The premise: the reference moved the bodies it should.
-            assert!((item.moves)(&moved), "{}: the reference moved {moved:?}", item.item);
+            let linked = run(false, item);
+            let moved = (item.count)(&linked);
+            // ⭐ The premise: the module moved the bodies it should.
+            assert!((item.moves)(&moved), "{}: the module moved {moved:?}", item.item);
             // The premise of the wall: a move of the body in #1 stopped short
             // of the wall at x = 380 (its right side at the wall, less a
             // margin), not the full distance on.
             let x = |line: &str| -> Option<f32> { line.strip_prefix("at Vec2(")?.split(',').next()?.parse().ok() };
-            let xs: Vec<f32> = native.iter().filter_map(|t| t[&0].last().and_then(|s| x(s))).collect();
+            let xs: Vec<f32> = linked.iter().filter_map(|t| t[&0].last().and_then(|s| x(s))).collect();
             assert!(
                 !item.along
                     || xs.windows(2).any(|w| w[1] > w[0] && w[1] - w[0] < 139.0 && w[1] + 12.0 <= 380.0 && w[1] + 12.0 > 360.0),
@@ -654,7 +604,7 @@ mod transits {
             );
             // The premise of the room rule: body 1 pressed Blink while its only
             // mark was in the other room.
-            let first_mark_of_its_own = native.iter().position(|t| t[&1].iter().any(|l| l.contains("mark Some((Some(Vec2(") && !l.contains("500.0, 300.0")));
+            let first_mark_of_its_own = linked.iter().position(|t| t[&1].iter().any(|l| l.contains("mark Some((Some(Vec2(") && !l.contains("500.0, 300.0")));
             let early_blink = (0..TICKS).find(|&t| blink_on(t, 1)).expect("body 1 presses Blink");
             assert!(
                 first_mark_of_its_own.is_none_or(|t| t > early_blink),
@@ -665,24 +615,22 @@ mod transits {
             // its sound and pulls nothing.
             // A sound line names its id by hash.
             let dash = format!("{:?}", ambition_sfx::ids::PLAYER_DASH);
-            let dashes = native.iter().flat_map(|t| t.get(&usize::MAX).into_iter().flatten()).filter(|l| l.contains(&dash)).count();
+            let dashes = linked.iter().flat_map(|t| t.get(&usize::MAX).into_iter().flatten()).filter(|l| l.contains(&dash)).count();
             assert!(
                 item.item != "grapple" || dashes > moved.iter().sum::<usize>(),
                 "grapple: {dashes} sounds and {moved:?} pulls: no miss"
             );
-            let module = run(Road::Module, item);
-            assert_eq!(module, native, "{}: the linked module", item.item);
         }
     }
 
     #[test]
-    fn each_transit_wasm_build_moves_each_body_as_its_native_system_did() {
+    fn transit_wasm_matches_linked_modules() {
         for item in [&BLINK, &DIVE, &MARK_RECALL, &GRAPPLE] {
-            let native = run(Road::NativeSystem, item);
-            let wasm = run(Road::Wasm, item);
+            let linked = run(false, item);
+            let wasm = run(true, item);
             assert_eq!(
                 crate::bosses::specials::module_parity_tests::quantize(&wasm),
-                crate::bosses::specials::module_parity_tests::quantize(&native),
+                crate::bosses::specials::module_parity_tests::quantize(&linked),
                 "{}",
                 item.item
             );

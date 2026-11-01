@@ -693,7 +693,7 @@ fn land(
                 half_extent: WAVE_HALF,
                 shape: None,
                 damage: WAVE_DAMAGE,
-                knockback: WAVE_KNOCKBACK,
+                knockback: ambition_combat::strike::HitboxKnockback::FeelScale(WAVE_KNOCKBACK),
                 lifetime_s: 4.0,
                 name: Some("fsm_dive_shock"),
             },

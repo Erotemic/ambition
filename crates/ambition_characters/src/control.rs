@@ -241,6 +241,13 @@ impl SlotGestures {
         before < threshold && self.up_hold_timer >= threshold
     }
 
+    /// Consume the current Up gesture until Up is released.
+    pub fn cancel_up_interact(&mut self, hold_threshold: f32) {
+        self.up_tap_timer = 0.0;
+        self.double_tap_up_pending = false;
+        self.up_hold_timer = self.up_hold_timer.max(hold_threshold);
+    }
+
     /// Update the interact buffer and return whether the buffer is live.
     pub fn buffered_interact(&mut self, pressed: bool, frame_dt: f32, window: f32) -> bool {
         self.interact_buffer_timer = (self.interact_buffer_timer - frame_dt).max(0.0);

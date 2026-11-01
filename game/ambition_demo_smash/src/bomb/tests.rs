@@ -94,7 +94,7 @@ fn the_blast_throws_with_the_bombs_knockback() {
         .collect();
     assert_eq!(
         thrown,
-        vec![(1.35, 0.3, ambition_platformer2d::vfx::HitSide::Environment)],
+        vec![(ambition_platformer2d::combat::strike::HitboxKnockback::FeelScale(1.35), 0.3, ambition_platformer2d::vfx::HitSide::Environment)],
         "the blast did not throw with the bomb's authored knockback and live time, as a hazard"
     );
 }

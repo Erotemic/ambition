@@ -74,7 +74,7 @@ fn mines(app: &mut App) -> Vec<(Option<SimId>, f32)> {
 struct Seen {
     center: ae::Vec2,
     faction: ambition_platformer2d::vfx::HitSide,
-    knockback: f32,
+    knockback: ambition_platformer2d::combat::strike::HitboxKnockback,
     lifetime_s: f32,
 }
 
@@ -114,7 +114,7 @@ fn the_blast_is_authored_as_a_hazard_and_not_as_an_inert_side() {
     press(&mut app, fighter);
     let found = blasts_now(&mut app);
     assert_eq!(found.len(), 1, "the armed mine did not answer at all");
-    assert_eq!(found[0].knockback, params().knockback, "the blast throws with {}, not the move's", found[0].knockback);
+    assert_eq!(found[0].knockback, ambition_platformer2d::combat::strike::HitboxKnockback::FeelScale(params().knockback), "the blast throws with {:?}, not the move's", found[0].knockback);
     assert_eq!(found[0].lifetime_s, params().blast_s, "the blast is live for {} s, not the move's", found[0].lifetime_s);
     assert_eq!(
         found[0].faction,

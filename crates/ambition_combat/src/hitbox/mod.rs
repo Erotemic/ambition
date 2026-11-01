@@ -276,7 +276,7 @@ fn resolved_hitbox_knockback_magnitude(
         // tuning — there is no `base + growth * percent` to decompose — so the
         // ruleset's percent knob has nothing to act on here. Its staling is
         // applied whole by the caller, which is what it has always been.
-        HitboxKnockback::FeelScale(scale) => HitKnockbackMagnitude::FeelScale(scale.max(0.0)),
+        HitboxKnockback::FeelScale(scale) | HitboxKnockback::DirectedFeelScale { scale, .. } => HitKnockbackMagnitude::FeelScale(scale.max(0.0)),
         HitboxKnockback::LaunchSpeed { base, growth } => {
             // Preserve authored growth until the shared launch law resolves it.
             // `Some(0.0)` means fixed knockback; `None` selects the ruleset
@@ -1328,7 +1328,9 @@ pub fn apply_hitbox_damage(
                 // sideways gravity the attacker and victim separate along
                 // world-Y, exactly when a screen-X comparison degenerates.
                 let side = victim.knockback_side();
-                let dir = if (victim_body.center() - source_here).dot(side) >= 0.0 {
+                let dir = if let HitboxKnockback::DirectedFeelScale { dir, .. } = hitbox.knockback {
+                    dir
+                } else if (victim_body.center() - source_here).dot(side) >= 0.0 {
                     1.0
                 } else {
                     -1.0

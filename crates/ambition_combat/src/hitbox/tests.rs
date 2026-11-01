@@ -738,81 +738,72 @@ fn a_hazard_hits_bystander_and_owner_alike_where_a_neutral_box_hits_neither() {
     );
 }
 
-/// ⛔⛔ A WORLD-ANCHORED BLAST LAUNCHES AWAY FROM THE BLAST, NOT AWAY FROM ITS
-/// OWNER.
-///
-/// `world_volume()` already ignores `owner_pos` for a `World` anchor — but the
-/// knockback DIRECTION and `source_pos` still read it, so the same explosion
-/// threw a victim differently depending on where the entity credited with it
-/// happened to be standing. ⇒ The steered bolt is the named customer: its
-/// `DamageBox` is centred at `bolt.pos` while the owner is the CASTER, so a
-/// curved bolt striking from one side launched its victim away from Carl on the
-/// other.
-///
-/// ⭐ ATTRIBUTION AND GEOMETRY ARE DIFFERENT QUESTIONS, which is Jon's own split:
-/// `hitbox.owner` keeps answering "who is credited"; where the hit came FROM is
-/// the anchor's business. ⛔ Two victims placed symmetrically about the blast
-/// must be thrown APART — that is the shape a shared owner position cannot
-/// produce, because it throws them both the same way.
+/// A blast uses its center unless it authors a direction.
+/// The credit body's position does not select that direction.
 #[test]
-fn a_world_blast_throws_victims_apart_regardless_of_where_its_owner_stands() {
-    let blast = ae::Vec2::new(200.0, 80.0);
-    // The owner stands far to one side — the caster of a bolt that curved.
-    let owner_at = ae::Vec2::new(-400.0, 80.0);
+fn a_world_blast_uses_its_position_unless_a_direction_is_authored() {
+    for (knockback, direction) in [
+        (HitboxKnockback::FeelScale(1.0), None),
+        (HitboxKnockback::DirectedFeelScale { scale: 1.0, dir: -1.0 }, Some(-1.0)),
+        (HitboxKnockback::DirectedFeelScale { scale: 1.0, dir: 1.0 }, Some(1.0)),
+    ] {
+        let blast = ae::Vec2::new(200.0, 80.0);
+        // The owner stands far to one side — the caster of a bolt that curved.
+        let owner_at = ae::Vec2::new(-400.0, 80.0);
 
-    let mut app = App::new();
-    app.add_message::<HitEvent>();
-    app.add_message::<LandedBodyHit>();
-    app.add_message::<ParriedBodyHit>();
-    app.add_message::<crate::guard::DeflectedBodyHit>();
-    app.add_message::<VfxInRoom>();
-    app.init_resource::<CapturedHits>();
-    app.init_resource::<crate::targeting::FriendlyFire>();
-    app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
+        let mut app = App::new();
+        app.add_message::<HitEvent>();
+        app.add_message::<LandedBodyHit>();
+        app.add_message::<ParriedBodyHit>();
+        app.add_message::<crate::guard::DeflectedBodyHit>();
+        app.add_message::<VfxInRoom>();
+        app.init_resource::<CapturedHits>();
+        app.init_resource::<crate::targeting::FriendlyFire>();
+        app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
 
-    let owner = hazard_victim(&mut app, ActorFaction::Player, owner_at);
-    let left = hazard_victim(&mut app, ActorFaction::Enemy, blast - ae::Vec2::new(24.0, 0.0));
-    let right = hazard_victim(&mut app, ActorFaction::Enemy, blast + ae::Vec2::new(24.0, 0.0));
-    app.world_mut().spawn((
-        Hitbox {
-            strike_sfx: None,
-            owner,
-            source: HitSide::Environment,
-            anchor: HitboxAnchor::World { center: blast },
-            half_extent: ae::Vec2::new(60.0, 30.0),
-            shape: None,
-            facing: 1.0,
-            damage: 5,
-            knockback: crate::strike::HitboxKnockback::FeelScale(1.0),
-            launch_dir: None,
-            frame_down: ae::Vec2::new(0.0, 1.0),
-            reaction: None,
-            guard: Default::default(),
-        },
-        HitboxLifetime { remaining_s: 0.2 },
-        HitboxHits::default(),
-    ));
-    app.update();
+        let owner = hazard_victim(&mut app, ActorFaction::Player, owner_at);
+        let left = hazard_victim(&mut app, ActorFaction::Enemy, blast - ae::Vec2::new(24.0, 0.0));
+        let right = hazard_victim(&mut app, ActorFaction::Enemy, blast + ae::Vec2::new(24.0, 0.0));
+        app.world_mut().spawn((
+            Hitbox {
+                strike_sfx: None,
+                owner,
+                source: HitSide::Environment,
+                anchor: HitboxAnchor::World { center: blast },
+                half_extent: ae::Vec2::new(60.0, 30.0),
+                shape: None,
+                facing: 1.0,
+                damage: 5,
+                knockback,
+                launch_dir: None,
+                frame_down: ae::Vec2::new(0.0, 1.0),
+                reaction: None,
+                guard: Default::default(),
+            },
+            HitboxLifetime { remaining_s: 0.2 },
+            HitboxHits::default(),
+        ));
+        app.update();
 
-    let cap = app.world().resource::<CapturedHits>();
-    let side_for = |who: Entity| -> Option<f32> {
-        cap.0
-            .iter()
-            .find(|e| matches!(e.target, HitTarget::Body(b) if b == who))
-            .and_then(|e| e.knockback.as_ref())
-            .map(|k| k.dir)
-    };
-    let (l, r) = (side_for(left), side_for(right));
-    assert!(
-        l.is_some() && r.is_some(),
-        "the blast did not reach both bodies standing in it (left={l:?}, right={r:?})"
-    );
-    assert_ne!(
-        l, r,
-        "both victims were thrown the SAME way ({l:?} vs {r:?}) — the direction \
-         is being measured from the owner, who is off to one side, rather than \
-         from the explosion they are standing around"
-    );
+        let cap = app.world().resource::<CapturedHits>();
+        let side_for = |who: Entity| -> Option<f32> {
+            cap.0
+                .iter()
+                .find(|e| matches!(e.target, HitTarget::Body(b) if b == who))
+                .and_then(|e| e.knockback.as_ref())
+                .map(|k| k.dir)
+        };
+        let (l, r) = (side_for(left), side_for(right));
+        assert!(
+            l.is_some() && r.is_some(),
+            "the blast did not reach both bodies standing in it (left={l:?}, right={r:?})"
+        );
+        if let Some(direction) = direction {
+            assert_eq!((l, r), (Some(direction), Some(direction)));
+        } else {
+            assert_eq!((l, r), (Some(-1.0), Some(1.0)));
+        }
+    }
 }
 
 /// ⛔⛔ AND A FOLLOWING BOX STILL MEASURES FROM ITS OWNER, NOT FROM ITS OWN

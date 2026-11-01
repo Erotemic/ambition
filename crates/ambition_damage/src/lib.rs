@@ -1434,10 +1434,8 @@ pub fn apply_player_hit_events(
     mut death_writers: BodyDeathWriters,
     mut sfx_writer: SfxWriter,
     mut vfx_writer: VfxWriter,
-    // SLOT-0 BY DESIGN: the safe-position memory this feeds is slot 0's respawn
-    // point. Damage ROUTING itself is body-generic (it runs off factions and the
-    // grudge); only "where does the local player wake up" is primary-scoped.
-    primary_q: Query<Entity, ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
+    // The legacy unresolved-area route still needs the primary body.
+    primary_q: Query<Entity, PrimaryPlayerOnly>,
     // Friendly-fire policy (the DAMAGE side) + a faction lookup for the hit's
     // attacker: damage is physical, so any DIFFERENT-faction attacker's hit lands
     // on the player — including a duel's stray that the observer walked into. Only
@@ -1489,18 +1487,8 @@ pub fn apply_player_hit_events(
             // nested, so the tuple stays inside Bevy's width.
             (&ae::BodyMotionFacts, bevy::prelude::Has<ae::PoseOwnedExternally>),
         ),
-        // SLOT-0 BY DESIGN: this is the PLAYER-VICTIM path — hitstop, the death
-        // banner, the safe-position rewind. Actor-vs-actor damage runs through
-        // `apply_actor_hit_events` on the same `HitEvent` stream; the two differ
-        // only in the feel/save consequences the local human is owed.
-        //
-        // AND A BODY THAT HAS ALREADY LOST IS NOT A TARGET (ADR 0033).
-        // hit by enemies."* Mary-O answered that by granting herself
-        // `Invulnerability::SCRIPTED` for the beat — a game holding a grant open
-        // for a state the engine could see all along. "Out of play" IS "no
-        // hurtbox", so the filter says it once, here, for every game.
         (
-            PrimaryPlayerOnly,
+            bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
             bevy::prelude::Without<ambition_combat::death_rules::OutOfPlay>,
         ),
     >,
@@ -1697,8 +1685,9 @@ pub fn apply_player_hit_events(
             in_hitstun: combat.hitstun_timer > 0.0,
             feature_requested_reset: false,
             blink_grace_active: facts.blink_grace,
-            // The primary seat's own cooldown: this path is slot 0's.
-            room_transitioning: sim_state.holds(0),
+            room_transitioning: combat_sides.get(player_entity).ok()
+                .and_then(|(_, driver, _, _)| driver)
+                .is_some_and(|driver| sim_state.holds(driver.0.0 as usize)),
         };
         remember_safe_player_position(&mut safety, &clusters, &safe_world, ctx);
     }

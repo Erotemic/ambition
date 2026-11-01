@@ -188,7 +188,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// before materialization. Combat owns their channel; summons have their own
 /// request. Unknown blast credit no longer creates a temporary body.
 /// Extension requests capture source facts before the retirement stage.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 396;
+/// 396 -> 397: scripted strikes use the shared body resolver and scoped
+/// hitbox lifetime. Each player body consumes its resolved damage and uses
+/// its own seat's transition hold when it records a safe position.
+/// Up interaction gestures yield to jump and combat until Up is released.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 397;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

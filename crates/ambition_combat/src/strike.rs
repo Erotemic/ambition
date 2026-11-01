@@ -12,11 +12,12 @@ pub use ambition_vfx::HitSide;
 
 /// Unit-bearing knockback payload carried by a live [`Hitbox`].
 ///
-/// World damage boxes use a dimensionless multiplier over the victim's normal
-/// reaction. Authored melee volumes use an absolute launch speed and may add
-/// smash-style speed growth from the victim's accumulated damage.
+/// A strike can use a multiplier over the victim's normal reaction or an
+/// absolute launch speed. A launch speed can grow with accumulated damage.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum HitboxKnockback {
+    /// A feel multiplier with an explicit side in the victim's frame.
+    DirectedFeelScale { scale: f32, dir: f32 },
     /// Dimensionless multiplier over the victim's feel-tuned launch.
     FeelScale(f32),
     /// Absolute engine-unit launch speed plus speed growth per damage point.
@@ -284,8 +285,8 @@ pub struct DamageBox {
     /// player/enemy melee `shape`.
     pub shape: Option<ae::VolumeShape>,
     pub damage: i32,
-    /// Dimensionless multiplier over the victim's standard feel-tuned launch.
-    pub knockback: f32,
+    /// Launch strength and optional direction.
+    pub knockback: HitboxKnockback,
     /// Final lifetime in seconds — callers pass the already-clamped value.
     pub lifetime_s: f32,
     /// Optional inspector/debug name. `None` matches the call sites that spawn
@@ -293,21 +294,7 @@ pub struct DamageBox {
     pub name: Option<&'static str>,
 }
 
-/// The largest FEEL MULTIPLIER a `DamageBox` can plausibly mean.
-///
-/// ⛔⛔ THIS CONSTANT EXISTS BECAUSE `f32` CANNOT TELL A MULTIPLIER FROM A
-/// SPEED, AND THREE SHIPPED BLASTS GOT IT WRONG. `DamageBox::knockback` is
-/// a dimensionless multiplier over the victim's feel-tuned launch — the band
-/// every long-standing author sits in is 1.1 (beam), 1.3 (shockwave) and 1.6
-/// (boss, exploder). The smash demo authored engine-unit LAUNCH SPEEDS into it:
-/// the bomb 134.4, the mine 124.8, the steered bolt 92.0. A 134× launch kills
-/// at any percent, which is how it was noticed — by a player, not by a test.
-///
-/// ⭐ 8.0 IS DELIBERATELY LOOSE. It is not a balance ceiling and must not become
-/// one: a blast four times harder than the boss's is a design choice somebody
-/// may want. What it catches is the ORDER-OF-MAGNITUDE error — a number that
-/// only makes sense as pixels per second — and a tight bound here would turn a
-/// units guard into a tuning argument.
+/// Upper bound for a plausible feel multiplier. Absolute speeds use `LaunchSpeed`.
 pub const MAX_PLAUSIBLE_FEEL_SCALE: f32 = 8.0;
 
 /// Does this `DamageBox` knockback read as a feel multiplier rather than as a
@@ -345,14 +332,7 @@ pub(crate) fn spawn_damage_box(
             shape: dbox.shape,
             facing: 1.0,
             damage: dbox.damage,
-            // DamageBox knockback is authored as a feel multiplier (values such
-            // as 1.0 or 1.6), not an engine-unit melee launch speed.
-            //
-            // ⛔ AND THE SENTENCE ABOVE WAS NOT ENOUGH — see
-            // `MAX_PLAUSIBLE_FEEL_SCALE`. Three shipped blasts read it as a
-            // launch speed anyway, so the contract is now checked here, at the
-            // ONE place every `DamageBox` in the workspace becomes a `Hitbox`.
-            knockback: HitboxKnockback::FeelScale(dbox.knockback),
+            knockback: dbox.knockback,
             launch_dir: None,
             // World-anchored volumes are authored in world space (arena
             // hazards); screen-down IS their frame.
@@ -372,16 +352,12 @@ pub(crate) fn spawn_damage_box(
     // ships one absurd blast should still run so somebody can see it happen and
     // say so — which is exactly how the bomb was found. A panic here would turn
     // a visible, reportable bug into a crash on somebody else's machine.
-    if !plausible_feel_scale(dbox.knockback) {
-        bevy::prelude::warn!(
-            "a DamageBox was spawned with knockback {} — that field is a FEEL \
-             MULTIPLIER (the shipped band is 1.1–1.6, ceiling {}), not an \
-             engine-unit launch speed. A value this size launches at roughly \
-             {}x the intended force and will kill at any percent.",
-            dbox.knockback,
-            MAX_PLAUSIBLE_FEEL_SCALE,
-            dbox.knockback.round() as i64
-        );
+    let feel_scale = match dbox.knockback {
+        HitboxKnockback::FeelScale(scale) | HitboxKnockback::DirectedFeelScale { scale, .. } => Some(scale),
+        HitboxKnockback::LaunchSpeed { .. } => None,
+    };
+    if let Some(scale) = feel_scale.filter(|scale| !plausible_feel_scale(*scale)) {
+        bevy::prelude::warn!("damage-box feel multiplier {scale} exceeds the plausible range; use LaunchSpeed for an absolute speed");
     }
     e.id()
 }

@@ -1,0 +1,366 @@
+[
+  [
+    5,
+    {
+      "axis_y": -1.0
+    }
+  ],
+  [
+    1,
+    {
+      "axis_y": -1.0,
+      "jump_pressed": true,
+      "jump_held": true
+    }
+  ],
+  [
+    4,
+    {
+      "axis_y": -1.0,
+      "jump_held": true
+    }
+  ],
+  [
+    1,
+    {
+      "axis_y": -1.0,
+      "jump_released": true
+    }
+  ],
+  [
+    2,
+    {
+      "axis_y": -1.0
+    }
+  ],
+  [
+    13,
+    {}
+  ],
+  [
+    1,
+    {
+      "axis_y": -1.0,
+      "up_pressed": true
+    }
+  ],
+  [
+    8,
+    {
+      "axis_y": -1.0
+    }
+  ],
+  [
+    1,
+    {
+      "axis_y": -1.0,
+      "jump_pressed": true,
+      "jump_held": true
+    }
+  ],
+  [
+    3,
+    {
+      "axis_y": -1.0,
+      "jump_held": true
+    }
+  ],
+  [
+    1,
+    {
+      "axis_y": -1.0,
+      "jump_released": true
+    }
+  ],
+  [
+    6,
+    {
+      "axis_y": -1.0
+    }
+  ],
+  [
+    1,
+    {
+      "axis_y": -1.0,
+      "jump_pressed": true,
+      "jump_held": true
+    }
+  ],
+  [
+    4,
+    {
+      "axis_y": -1.0,
+      "jump_held": true
+    }
+  ],
+  [
+    1,
+    {
+      "axis_y": -1.0,
+      "jump_released": true
+    }
+  ],
+  [
+    4,
+    {
+      "axis_y": -1.0
+    }
+  ],
+  [
+    1,
+    {
+      "axis_y": -1.0,
+      "jump_pressed": true,
+      "jump_held": true
+    }
+  ],
+  [
+    4,
+    {
+      "axis_y": -1.0,
+      "jump_held": true
+    }
+  ],
+  [
+    1,
+    {
+      "axis_y": -1.0,
+      "jump_released": true
+    }
+  ],
+  [
+    12,
+    {
+      "axis_y": -1.0
+    }
+  ],
+  [
+    1,
+    {
+      "axis_y": -1.0,
+      "jump_pressed": true,
+      "jump_held": true
+    }
+  ],
+  [
+    2,
+    {
+      "axis_y": -1.0,
+      "jump_held": true
+    }
+  ],
+  [
+    1,
+    {
+      "axis_y": -1.0,
+      "jump_released": true
+    }
+  ],
+  [
+    4,
+    {
+      "axis_y": -1.0
+    }
+  ],
+  [
+    1,
+    {
+      "axis_y": -1.0,
+      "jump_pressed": true,
+      "jump_held": true
+    }
+  ],
+  [
+    2,
+    {
+      "axis_y": -1.0,
+      "jump_held": true
+    }
+  ],
+  [
+    1,
+    {
+      "axis_y": -1.0,
+      "jump_released": true
+    }
+  ],
+  [
+    5,
+    {
+      "axis_y": -1.0
+    }
+  ],
+  [
+    1,
+    {
+      "axis_y": -1.0,
+      "jump_pressed": true,
+      "jump_held": true
+    }
+  ],
+  [
+    2,
+    {
+      "axis_y": -1.0,
+      "jump_held": true
+    }
+  ],
+  [
+    1,
+    {
+      "axis_y": -1.0,
+      "jump_released": true
+    }
+  ],
+  [
+    15,
+    {
+      "axis_y": -1.0
+    }
+  ],
+  [
+    1,
+    {
+      "axis_y": -1.0,
+      "jump_pressed": true,
+      "jump_held": true
+    }
+  ],
+  [
+    2,
+    {
+      "axis_y": -1.0,
+      "jump_held": true
+    }
+  ],
+  [
+    1,
+    {
+      "axis_y": -1.0,
+      "jump_released": true
+    }
+  ],
+  [
+    5,
+    {
+      "axis_y": -1.0
+    }
+  ],
+  [
+    1,
+    {
+      "axis_y": -1.0,
+      "jump_pressed": true,
+      "jump_held": true
+    }
+  ],
+  [
+    2,
+    {
+      "axis_y": -1.0,
+      "jump_held": true
+    }
+  ],
+  [
+    1,
+    {
+      "axis_y": -1.0,
+      "jump_released": true
+    }
+  ],
+  [
+    5,
+    {
+      "axis_y": -1.0
+    }
+  ],
+  [
+    1,
+    {
+      "axis_y": -1.0,
+      "jump_pressed": true,
+      "jump_held": true
+    }
+  ],
+  [
+    3,
+    {
+      "axis_y": -1.0,
+      "jump_held": true
+    }
+  ],
+  [
+    1,
+    {
+      "axis_y": -1.0,
+      "jump_released": true
+    }
+  ],
+  [
+    7,
+    {
+      "axis_y": -1.0
+    }
+  ],
+  [
+    8,
+    {
+      "axis_x": -0.70710677,
+      "axis_y": -0.70710677
+    }
+  ],
+  [
+    2,
+    {
+      "axis_y": -1.0
+    }
+  ],
+  [
+    1,
+    {
+      "axis_y": -1.0,
+      "jump_pressed": true,
+      "jump_held": true
+    }
+  ],
+  [
+    2,
+    {
+      "axis_y": -1.0,
+      "jump_held": true
+    }
+  ],
+  [
+    2,
+    {
+      "axis_x": 0.70710677,
+      "axis_y": -0.70710677,
+      "jump_held": true
+    }
+  ],
+  [
+    1,
+    {
+      "axis_x": 0.70710677,
+      "axis_y": -0.70710677,
+      "jump_released": true
+    }
+  ],
+  [
+    9,
+    {
+      "axis_x": 0.70710677,
+      "axis_y": -0.70710677
+    }
+  ],
+  [
+    17,
+    {
+      "axis_y": -1.0
+    }
+  ],
+  [
+    58,
+    {}
+  ]
+]

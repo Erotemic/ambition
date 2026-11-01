@@ -309,6 +309,33 @@ fn holding_up_opens_a_door_and_a_short_hold_does_not() {
     );
 }
 
+#[test]
+fn holding_up_for_air_attacks_does_not_open_a_door() {
+    let mut sim = fixed_60hz_sim();
+    for _ in 0..10 { sim.step(base()); }
+    let before = active_room(&mut sim);
+    let door = stand_in_a_door(&mut sim).expect("the start room has a door");
+    for tick in 0..240 {
+        sim.step(AgentAction {
+            move_y: -1.0,
+            up_pressed: tick == 0,
+            jump: tick == 1,
+            jump_held: (1..12).contains(&tick),
+            attack: tick == 15,
+            attack_held: (15..30).contains(&tick),
+            ..base()
+        });
+        assert_eq!(active_room(&mut sim), before, "Up used for air attacks entered {door} on tick {tick}");
+    }
+    stand_in_a_door(&mut sim).expect("the door remains available");
+    sim.step(interact());
+    for _ in 0..90 {
+        sim.step(base());
+        if active_room(&mut sim) != before { return; }
+    }
+    panic!("explicit Interact did not open {door} after the combat gesture ended");
+}
+
 /// A DOOR under a ROLLBACK host — the combination nothing covered.
 ///
 /// Covers the rollback-host door path: hold interact on a real door and require the room to change.

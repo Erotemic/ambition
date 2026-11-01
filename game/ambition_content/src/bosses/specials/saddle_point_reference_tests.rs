@@ -133,7 +133,7 @@ pub fn spawn_saddle_point_from_special_messages(
                     half_extent: ae::Vec2::new(he_x, he_y),
                     shape: None,
                     damage,
-                    knockback: SADDLE_POINT_KNOCKBACK,
+                    knockback: ambition_combat::strike::HitboxKnockback::FeelScale(SADDLE_POINT_KNOCKBACK),
                     lifetime_s: period * 2.0,
                     name: None,
                 },

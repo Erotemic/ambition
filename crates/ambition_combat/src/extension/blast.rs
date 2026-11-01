@@ -80,7 +80,7 @@ pub fn lower_blasts<L: LowersIn>(
         effects.write(submitted.scope, owner, ambition_vfx::HitSide::Environment, ae::Vec2::from(blast.center), crate::strike::DamageBox {
                 half_extent: ae::Vec2::from(blast.half_extent),
                 damage: blast.damage,
-                knockback: blast.knockback,
+                knockback: crate::strike::HitboxKnockback::FeelScale(blast.knockback),
                 lifetime_s: blast.lifetime_s,
                 name: Some("blast"),
                 shape: None,

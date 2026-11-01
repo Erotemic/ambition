@@ -124,7 +124,7 @@ fn detached_attacks_keep_the_participants_rule_after_control_or_owner_loss() {
                         boxes.spawn(source, source, combat::strike::HitSide::Player, center,
                             combat::strike::DamageBox {
                                 half_extent: ae::Vec2::splat(24.0), shape: None, damage: 1,
-                                knockback: 0.0, lifetime_s: 1.0, name: Some("owned area"),
+                                knockback: combat::strike::HitboxKnockback::FeelScale(0.0), lifetime_s: 1.0, name: Some("owned area"),
                             }).expect("the live source emits a box")
                     }).unwrap())
                 };
@@ -212,7 +212,7 @@ fn a_damage_box_keeps_its_emission_room_and_session_after_its_source_leaves() {
             let source = if remote_credit { combat::strike::HitSide::Player } else { combat::strike::HitSide::Enemy };
             let damage_box = combat::strike::DamageBox {
                 half_extent: ae::Vec2::splat(24.0), shape: None, damage: 1,
-                knockback: 0.0, lifetime_s: 60.0, name: Some("room provenance"),
+                knockback: combat::strike::HitboxKnockback::FeelScale(0.0), lifetime_s: 60.0, name: Some("room provenance"),
             };
             if immediate {
                 sim.world_mut().run_system_once(move |mut boxes: combat::damage_box::DamageBoxSpawner| {
@@ -250,7 +250,7 @@ fn a_damage_box_keeps_its_emission_room_and_session_after_its_source_leaves() {
                 boxes.spawn(alice, alice, combat::strike::HitSide::Player, control_center,
                     combat::strike::DamageBox {
                         half_extent: ae::Vec2::splat(8.0), shape: None, damage: 1,
-                        knockback: 0.0, lifetime_s: 60.0, name: Some("other room control"),
+                        knockback: combat::strike::HitboxKnockback::FeelScale(0.0), lifetime_s: 60.0, name: Some("other room control"),
                     }).unwrap()
             }).unwrap();
             use ae::AabbExt as _;
@@ -267,5 +267,58 @@ fn a_damage_box_keeps_its_emission_room_and_session_after_its_source_leaves() {
             assert!(sim.world().get_entity(attack).is_err(), "a fixed area outlived its room");
             assert!(sim.world().get_entity(control).is_ok(), "the other room lost its fixed area");
         }
+    }
+}
+
+#[test]
+fn scripted_strikes_use_body_contacts_for_either_participant() {
+    use ambition_app::AgentAction;
+    use ambition_platformer2d::actor::{BodyHealth, Health};
+    for (enabled, source_slot, separate_rooms) in [
+        (false, 0, false), (false, 1, false), (true, 0, false), (true, 1, false),
+        (true, 1, true),
+    ] {
+        let mut sim = party(enabled);
+        crate::a_second_seat_joins_the_session::join(&mut sim, 4).expect("the second seat joins");
+        sim.drive_seat(1, ae::ControlFrame::default());
+        if separate_rooms {
+            assert_eq!(crate::common::walk_through_the_door_to(&mut sim, "central_hub_complex"), "central_hub_complex");
+        }
+        let source = driven(&mut sim, source_slot);
+        let victim = driven(&mut sim, 1 - source_slot);
+        assert_eq!(sim.world().get::<InRoomInstance>(source) == sim.world().get::<InRoomInstance>(victim), !separate_rooms);
+        let lands = enabled && !separate_rooms;
+        let spec = ambition_platformer2d::characters::brain::held_item_by_id("blink").unwrap();
+        sim.world_mut().entity_mut(source).insert(combat::held_items::HeldItem::new(spec));
+        for (body, x) in [(source, 400.0), (victim, 550.0)] {
+            sim.world_mut().entity_mut(body).insert((
+                combat::components::ActiveCombatant,
+                BodyHealth::new(Health::new(100)),
+            ));
+            crate::a_second_seat_joins_the_session::put_body_at(&mut sim, body, ae::Vec2::new(x, 100.0));
+        }
+        for _ in 0..2 { sim.step(base()); }
+        let before = sim.world().get::<BodyHealth>(victim).unwrap().damage_taken();
+        let from = sim.world().get::<ae::BodyKinematics>(source).unwrap().pos;
+        if source_slot == 1 {
+            sim.drive_seat(1, ae::ControlFrame { axis_x: 1.0, attack_pressed: true, ..Default::default() });
+            sim.step(base());
+            sim.drive_seat(1, ae::ControlFrame::default());
+        } else {
+            sim.step(AgentAction { move_x: 1.0, attack: true, ..base() });
+        }
+        let to = sim.world().get::<ae::BodyKinematics>(source).unwrap().pos;
+        assert!(to.x - from.x > 100.0, "slot {source_slot} used the real blink module: {from:?} -> {to:?}");
+        let events = sim.world().resource::<Messages<combat::events::HitEvent>>();
+        let strikes: Vec<_> = events.get_cursor().read(events)
+            .filter(|event| event.attacker == Some(source)).cloned().collect();
+        assert!(!strikes.iter().any(|event| matches!(event.target, combat::events::HitTarget::Volume)), "a scripted strike left an unresolved body area");
+        assert_eq!(strikes.iter().any(|event| event.target == combat::events::HitTarget::Body(victim)), lands,
+            "slot {source_slot}, friendly fire={enabled}: {strikes:?}");
+        for _ in 0..3 { sim.step(base()); }
+        let after = sim.world().get::<BodyHealth>(victim).unwrap().damage_taken();
+        assert_eq!(after > before, lands, "slot {source_slot}, friendly fire={enabled}: {before} -> {after}");
+        assert!(!sim.world_mut().query::<&combat::strike::Hitbox>().iter(sim.world())
+            .any(|hitbox| hitbox.owner == source), "a one-tick strike remained live");
     }
 }

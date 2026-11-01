@@ -128,6 +128,9 @@ CONCEPTS over claims about spellings.
   — Bevy assets, Unity Addressables and Unreal Asset Manager compared with
   logical `AssetId`, runtime profiles, source policy and generated-art
   publication hygiene. Checked 2026-08-07.
+* [Asset authoring, import caches, editor indexes and delivery](asset-authoring-caches-and-delivery.md)
+  — Godot, Unity, Unreal, Defold and Bevy compared with Ambition's current
+  editor, publication and content-update direction. Checked 2026-10-31.
 * [Loading coordination, activation barriers, and supersession](loading-coordination-activation-barriers-and-supersession.md)
   — Bevy/Unity/Unreal/Godot async loading compared with `ambition_load`'s
   contributor-neutral required/degradable/speculative work, open discovery,

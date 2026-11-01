@@ -228,6 +228,8 @@ Open questions belong in
 | 2026-10-26 | Mary-O and Sanic multiplayer, if implemented, is level-scoped, with level completion requiring all participating players to finish. | High |
 | 2026-10-26 | Full object/ragdoll physics should be opt-in; carrying/placing persistent objects is independently valuable, and simple physics should remain possible. | Medium |
 | 2026-10-26 | Reevaluate prior agent-written plans, ADRs, names and crate mergers on evidence; take a conservative approach to irreversible consolidation rather than treating a historical plan as binding. | High |
+| 2026-10-31 | Keep stale but usable binaries, sprites, audio and other content available in native development. Treat freshness and missing provenance as non-blocking diagnostics. Provide a cheap way to list stale products and their reasons. Do not add automatic rebuild or deep integrity scans to routine startup, reuse or publication. Run higher-assurance checks explicitly for releases, then reuse their result. | High |
+| 2026-10-31 | Native asset registration and focused publication must not cause a Rust rebuild when Rust code and schemas have not changed. A restart is acceptable; hot reload is optional. Static distributions may rebuild and embed their selected content. | High |
 
 ## Consequences that need more than one row
 

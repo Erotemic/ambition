@@ -176,12 +176,20 @@ slices. Only `queue.md` promotes them.
   engine crates only when a current dependency/provider boundary still owns it.
 - ▢ **Editable SVG/component character authoring.** Continue from concrete
   character-production pressure, not an editor checklist.
+- ▢ **Asset library and editor lifecycle.** Measure the real time for focused
+  publication or startup, or promote a real asset-browser operation. Keep
+  staleness advisory and preserve the native no-rebuild path. Owner:
+  [`engine/asset-library-editor-and-delivery.md`](engine/asset-library-editor-and-delivery.md).
 
 ## Build, platform and performance reservoir
 
 - ▢ **Project build/iteration architecture.** Measure profiles, resource-aware
   test lanes, feature combinations and bootstrap cost. Owner:
   [`engine/project-build-and-distribution.md`](engine/project-build-and-distribution.md).
+- ▢ **Published asset cleanup and content-only delivery.** Promote GC when
+  old bundles cause a storage problem or a release needs pinned versions.
+  Promote rsync updates when a second machine or external game needs them.
+  Owner: [`engine/asset-library-editor-and-delivery.md`](engine/asset-library-editor-and-delivery.md).
 - ▢ **Rendered external-consumer proof.** Headless consumption exists; run the
   visible consumer on suitable hardware when available.
 - ▢ **Cross-compile persona audit.** Check one host-buildable target/persona at a

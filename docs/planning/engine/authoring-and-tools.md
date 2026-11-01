@@ -53,6 +53,8 @@ accepted bundle selection used by generation and inspection.
 
 The [art inspector and character coverage plan](art-inspector-and-character-coverage.md)
 applies this contract to character identity, art families and missing animations.
+The [asset-library lifecycle plan](asset-library-editor-and-delivery.md) owns
+publication, selection history, editor asset browsing and future delivery.
 
 Inspection answers what exists, which source owns it, what it resolves to, which
 capability executes it and which other definitions reference it. Runtime inspection

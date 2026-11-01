@@ -120,7 +120,16 @@ Do not make `PreparedContentPack` itself a serializable bag of trait objects. Ev
 
 ### V3 — Release fast path and trust check
 
-Build the artifact during packaging through the existing validator and strict package guard. Include expected digests and complete compiler/section requirements in the release manifest. At startup, check integrity and compatibility, hydrate, and use the normal admission/publication path. No authored source reparse is needed when those checks pass. If a release artifact is corrupt or incompatible, fail with a clear refusal; do not silently activate an unchecked or stale pack.
+Build the artifact during packaging through the existing validator and strict
+package guard. Include expected digests and compiler/section requirements in
+the release manifest. Check full byte integrity at the explicit release or
+installation boundary. Record the trusted local selection. An ordinary startup
+can reuse that result without a second full-content audit. Check the required
+format and runtime compatibility, then hydrate through the normal admission
+path. If a required prepared section cannot be read or is incompatible with
+the running engine, keep the active generation and report the failure.
+This release-only policy must not refuse usable stale media or old development
+binaries. See the [asset-library lifecycle plan](asset-library-editor-and-delivery.md).
 
 Development can instead recompile from local authored source on a cache miss. On a reload failure, retain the active generation. Never publish part of a candidate because its cache entry was present.
 

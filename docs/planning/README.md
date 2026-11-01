@@ -258,6 +258,8 @@ links to.
 - [`engine/inspection-diagnostics-and-workbench.md`](engine/inspection-diagnostics-and-workbench.md)
 - [`engine/art-inspector-and-character-coverage.md`](engine/art-inspector-and-character-coverage.md)
   — character identity, art families and animation coverage without a game build.
+- [`engine/asset-library-editor-and-delivery.md`](engine/asset-library-editor-and-delivery.md)
+  — authored assets, immutable publication, inspector evolution, cleanup and content updates.
 - [`engine/headless-verification.md`](engine/headless-verification.md)
 - [`engine/prevalidated-content-artifacts.md`](engine/prevalidated-content-artifacts.md)
   — content validated ahead of time for fast admission; deferred.

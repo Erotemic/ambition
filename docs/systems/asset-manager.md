@@ -12,6 +12,11 @@ It does **not** replace Bevy's `AssetServer`, handles, load states, dependencies
 - Required assets should fail loudly unless the active profile explicitly tolerates missing assets.
 - Optional/presentation assets may fall back, skip display, or use embedded placeholders depending on the caller.
 - Generated assets become runtime assets only after an explicit publish/install step.
+- A stale or previously accepted asset remains usable in native development.
+  Freshness and provenance are advisory. Avoid automatic rebuild and deep
+  integrity scans during startup and normal asset reads. A release may use an
+  explicit, stronger preflight. See the
+  [asset-library lifecycle plan](../planning/engine/asset-library-editor-and-delivery.md).
 
 ## Platform profile matrix
 

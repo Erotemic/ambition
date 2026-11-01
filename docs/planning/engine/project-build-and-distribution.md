@@ -188,6 +188,10 @@ NDK, GPU or display as broken code.
 
 ### B6 — packaging/distribution
 
+The [asset-library lifecycle plan](asset-library-editor-and-delivery.md) owns
+content-only selection, old-bundle cleanup and future rsync delivery. Keep
+those operations separate from executable builds and target packaging.
+
 Keep packaging/release work product-driven, but Engine 1.0 needs at least one
 complete external-project path rather than leaving packaging indefinitely
 abstract. The eventual external-project layout, SDK templates, update mechanism

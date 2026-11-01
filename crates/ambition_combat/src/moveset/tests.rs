@@ -2083,7 +2083,7 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
     assert_eq!(sfx.len(), 1, "the Sfx event played one sound");
     assert_eq!(sfx[0].source.as_str(), "sanic.moves");
     assert!(
-        matches!(sfx[0].request, SfxMessage::Play { pos, .. } if pos == ae::Vec2::new(42.0, 7.0)),
+        matches!(sfx[0].request, SfxMessage::Play { emitter, .. } if emitter.position() == Some(ae::Vec2::new(42.0, 7.0))),
         "played at the owner's position"
     );
     let acts: Vec<ActorActionMessage> = app

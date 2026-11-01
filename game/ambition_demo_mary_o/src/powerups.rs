@@ -518,7 +518,7 @@ pub fn bonk_power_blocks(
                             id: ambition_platformer2d::sfx::SfxId::from_static(
                                 crate::provider::COIN_PICKUP_SFX,
                             ),
-                            pos,
+                            emitter: (pos).into(),
                         },
                     );
                     continue;
@@ -891,7 +891,7 @@ pub fn sync_grown_form(sprite_content: bevy::prelude::Res<ambition_platformer2d:
                 body,
                 ambition_platformer2d::sfx::SfxMessage::Play {
                     id: ambition_platformer2d::sfx::SfxId::new(cue_id),
-                    pos: kin.pos,
+                    emitter: (kin.pos).into(),
                 },
             );
         }

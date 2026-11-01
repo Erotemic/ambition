@@ -19,10 +19,10 @@ use bevy::prelude::{
 };
 use bevy::ecs::system::SystemParam;
 use bevy::reflect::TypePath;
-use bevy_kira_audio::prelude::{AudioChannel, AudioControl, AudioSource as KiraAudioSource};
+use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
 use crate::catalog::SfxBankRegistry;
-use crate::library::{sfx_message_target_id, SfxChannel};
+use crate::library::sfx_message_target_id;
 use crate::render::{
     ProviderSfxHandleCache, ResolvedSfxHandle, SfxPlaybackRecord, SfxPlaybackState, SfxSourceMiss,
 };
@@ -280,6 +280,9 @@ impl Plugin for SfxBankAssetPlugin {
             .init_resource::<SfxBankRegistry>()
             .init_resource::<ProviderSfxHandleCache>()
             .init_resource::<SfxPlaybackState>()
+            .init_resource::<crate::SfxMix>()
+            .init_resource::<ambition_sfx::SfxListeners>()
+            .init_resource::<crate::spatial::SfxOneShots>()
             .init_resource::<FailedSfxBankLoads>()
             .add_systems(Startup, kick_off_bank_load)
             .add_systems(Update, promote_loaded_sfx_bank)
@@ -488,6 +491,10 @@ impl SfxSourceResolver<'_> {
         &self.selection
     }
 
+    pub(crate) fn duration(&self, handle: &Handle<KiraAudioSource>) -> std::time::Duration {
+        self.audio_sources.get(handle).expect("a resolved SFX source is loaded").sound.duration()
+    }
+
     /// Accept `id` for the live audio context and resolve its clip, or count
     /// the refusal (and name a missing clip once) and return `None`.
     pub(crate) fn accept(
@@ -580,8 +587,8 @@ impl SfxSourceResolver<'_> {
 pub fn audio_play_sfx_messages(
     mut messages: MessageReader<OwnedSfxMessage>,
     mut resolver: SfxSourceResolver,
-    sfx_channel: Res<AudioChannel<SfxChannel>>,
-    output: Option<Res<crate::output::AudioOutputMode>>,
+    output: crate::spatial::SfxVoiceOutput,
+    mut shots: ResMut<crate::spatial::SfxOneShots>,
     mut first_play_logged: Local<bool>,
 ) {
     resolver.playback.played_this_pass.clear();
@@ -598,9 +605,11 @@ pub fn audio_play_sfx_messages(
         let Some(accepted) = resolver.accept(owned.owner, &owned.source, id) else {
             continue;
         };
-        if crate::output::emits_to_device(output.as_deref()) {
-            sfx_channel.play(accepted.resolved.handle);
-        }
+        let emitter = owned.request.emitter();
+        let duration = resolver.duration(&accepted.resolved.handle);
+        let voice = output.start(accepted.owner, accepted.resolved.handle, emitter, duration, None);
+        let gain = voice.gain;
+        shots.0.push(voice);
         let playback = &mut *resolver.playback;
         playback.accepted_playbacks = playback.accepted_playbacks.saturating_add(1);
         let record = SfxPlaybackRecord {
@@ -609,6 +618,8 @@ pub fn audio_play_sfx_messages(
             provider_id: accepted.provider_id,
             id,
             source: accepted.resolved.source,
+            emitter,
+            gain,
         };
         playback.played_this_pass.push(record.clone());
         playback.last_played = Some(record);

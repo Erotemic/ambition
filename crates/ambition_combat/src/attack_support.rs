@@ -353,7 +353,7 @@ pub fn pogo_moveset_off_world_orbs(
         sfx.write_for(
             owner,
             match cue {
-                Some(id) => SfxMessage::Play { id, pos },
+                Some(id) => SfxMessage::Play { id, emitter: (pos).into() },
                 None => SfxMessage::Pogo { pos },
             },
         );

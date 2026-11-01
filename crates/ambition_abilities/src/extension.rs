@@ -863,7 +863,7 @@ fn lower_body_sounds<L: LowersIn>(
             submitted.scope,
             ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::SfxId::new(&sound.cue),
-                pos,
+                emitter: (pos).into(),
             },
         );
     }

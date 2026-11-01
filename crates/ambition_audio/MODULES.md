@@ -17,10 +17,11 @@
 | [`render`](src/render.rs) | Provider-relative SFX source resolution and Kira adapters. |
 | [`selection`](src/selection.rs) | App-local active audio context. |
 | [`sfx_loops`](src/sfx_loops.rs) | Sustained (looping) SFX: a cue held under a key until it is stopped. |
+| [`spatial`](src/spatial.rs) | Shared distance mixing for active one-shot and sustained sound voices. |
 | [`spec`](src/spec.rs) | Audio data schema: the authored (RON) shapes for procedural SFX and pre-rendered music. |
 | [`web_unlock`](src/web_unlock.rs) | Cross-platform audio-start readiness. |
 
-_13 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_14 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

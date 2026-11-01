@@ -660,7 +660,7 @@ pub(crate) fn handle_player_damage_events(
                 victim_source,
                 SfxMessage::Play {
                     id: ambition_sfx::ids::WORLD_ROCK_HIT,
-                    pos: clusters.kinematics.pos,
+                    emitter: (clusters.kinematics.pos).into(),
                 },
             );
             banner_requests.write(GameplayBannerRequested::new("blocked", 1.0));
@@ -684,7 +684,7 @@ pub(crate) fn handle_player_damage_events(
                 victim_source,
                 SfxMessage::Play {
                     id: ambition_sfx::ids::PLAYER_DAMAGE,
-                    pos: impact_pos,
+                    emitter: (impact_pos).into(),
                 },
             );
             banner_requests.write(GameplayBannerRequested::new("POWERUP LOST", 1.4));
@@ -795,7 +795,7 @@ pub(crate) fn handle_player_damage_events(
                         attacker_source,
                         SfxMessage::Play {
                             id,
-                            pos: impact_pos,
+                            emitter: (impact_pos).into(),
                         },
                     );
                 }

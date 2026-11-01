@@ -2023,7 +2023,7 @@ fn warp_through_secret_pipe(
             entity,
             ambition_platformer2d::sfx::SfxMessage::Play {
                 id: ambition_platformer2d::sfx::SfxId::new(pipe::PIPE_WARP_SFX),
-                pos: kin.pos,
+                emitter: (kin.pos).into(),
             },
         );
     }

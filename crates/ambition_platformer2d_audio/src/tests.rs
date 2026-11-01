@@ -75,7 +75,7 @@ fn sfx_message_maps_to_sound_cue() {
     assert_eq!(
         SfxMessage::Play {
             id: sfx::ids::PLAYER_JUMP,
-            pos
+            emitter: (pos).into()
         }
         .cue(),
         None

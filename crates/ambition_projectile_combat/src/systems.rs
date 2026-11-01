@@ -78,7 +78,7 @@ fn reflect_parried_shot(
         parrier_source,
         SfxMessage::Play {
             id: ambition_sfx::ids::WORLD_ROCK_HIT,
-            pos: kin.pos,
+            emitter: (kin.pos).into(),
         },
     );
     vfx.write_in(room, VfxMessage::Impact { pos: kin.pos, blow: ambition_vfx::ImpactBlow::PLAIN });
@@ -647,7 +647,7 @@ pub(crate) fn emit_landing_splash(
     });
     sfx.write(SfxMessage::Play {
         id: ambition_sfx::ids::WORLD_ROCK_HIT,
-        pos,
+        emitter: (pos).into(),
     });
     vfx.for_room(room).write(VfxMessage::Effect {
         pos,

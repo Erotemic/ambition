@@ -290,7 +290,7 @@ pub fn lob(origin: Vec2, target: Vec2) -> (Vec2, f32) {
 }
 
 fn play(sfx: &mut BodySfxWriter, body: Entity, id: &'static str, pos: Vec2) {
-    sfx.write_for(body, SfxMessage::Play { id: SfxId::from_static(id), pos });
+    sfx.write_for(body, SfxMessage::Play { id: SfxId::from_static(id), emitter: (pos).into() });
 }
 
 /// A volume riding the bell.

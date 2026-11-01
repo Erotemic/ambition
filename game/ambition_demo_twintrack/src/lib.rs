@@ -1160,7 +1160,7 @@ fn consume_twintrack_signal_arrivals(
                     TWINTRACK_EXPERIENCE,
                     ambition_platformer2d::sfx::SfxMessage::Play {
                         id: ambition_platformer2d::sfx::SfxId::from_static(SFX_CLOCK_REPORT),
-                        pos: arrival.position,
+                        emitter: (arrival.position).into(),
                     },
                 );
                 if experiment.clock_report_mask == CLOCK_REPORT_MASK {
@@ -1178,7 +1178,7 @@ fn consume_twintrack_signal_arrivals(
                     TWINTRACK_EXPERIENCE,
                     ambition_platformer2d::sfx::SfxMessage::Play {
                         id: ambition_platformer2d::sfx::SfxId::from_static(cue),
-                        pos: arrival.position,
+                        emitter: (arrival.position).into(),
                     },
                 );
                 if arrival.accepted {
@@ -1195,7 +1195,7 @@ fn consume_twintrack_signal_arrivals(
                     TWINTRACK_EXPERIENCE,
                     ambition_platformer2d::sfx::SfxMessage::Play {
                         id: ambition_platformer2d::sfx::SfxId::from_static(SFX_TAG_HIT),
-                        pos: arrival.position,
+                        emitter: (arrival.position).into(),
                     },
                 );
                 if experiment.tag_hits >= LIGHT_TAG_ROUNDS {

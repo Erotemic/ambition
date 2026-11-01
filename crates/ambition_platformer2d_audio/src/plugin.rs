@@ -38,6 +38,15 @@ pub struct Platformer2dAudioPlugin;
 
 impl Plugin for Platformer2dAudioPlugin {
     fn build(&self, app: &mut App) {
+        app.configure_sets(PostUpdate, (
+            ambition_sfx::SfxPresentationSet::Listeners,
+            ambition_sfx::SfxPresentationSet::Playback,
+            ambition_sfx::SfxPresentationSet::Attenuation,
+        ).chain().before(bevy_kira_audio::AudioSystemSet::PlayTypedChannels));
+        app.add_systems(PostUpdate, ambition_audio::spatial::update_sfx_attenuation
+            .in_set(ambition_sfx::SfxPresentationSet::Attenuation)
+            .run_if(|shots: Res<ambition_audio::spatial::SfxOneShots>, loops: Res<ambition_audio::SfxLoopPlayback>|
+                !shots.0.is_empty() || loops.has_voices()));
         app.init_resource::<ambition_audio::AudioOutputMode>()
             .add_plugins(ambition_audio::AmbitionAudioBackendPlugin)
             .add_message::<ambition_audio::selection::AudioContextChanged>()
@@ -81,25 +90,26 @@ impl Plugin for Platformer2dAudioPlugin {
                     .run_if(music_auto_start_when_ungated),
             )
             .add_systems(
-                Update,
+                PostUpdate,
                 audio_play_sfx_messages
                     .run_if(ambition_audio::a_cue_waits_or_was_played)
-                    .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation),
+                    .in_set(ambition_sfx::SfxPresentationSet::Playback),
             )
             // Sustained cues (a gate's open hum): held by presentation each
             // frame they are wanted, accepted like the one-shots above.
             .add_message::<ambition_sfx::OwnedSfxLoopMessage>()
             .init_resource::<ambition_audio::SfxLoopPlayback>()
             .add_systems(
-                Update,
+                PostUpdate,
                 ambition_audio::audio_play_sfx_loops
                     .run_if(ambition_audio::a_loop_request_waits_or_a_loop_is_held)
+                    .in_set(ambition_sfx::SfxPresentationSet::Playback)
                     .after(audio_play_sfx_messages),
             )
             // Observe the player's WaterContact and request the matching
             // audio environment; the smoother ramps `wetness`, then
-            // `apply_audio_environment` writes the combined user-mixer
-            // × environment volume to Kira. Order: detect → smooth →
+            // `apply_audio_environment` publishes the combined user and
+            // environment mix. Order: detect → smooth →
             // apply so a single frame fully propagates a state change.
             .add_systems(
                 Update,

@@ -53,7 +53,8 @@ fn fingerprint(message: &OwnedSfxMessage) -> String {
         SfxMessage::Hit { pos } => ("hit", pos),
         SfxMessage::Death { pos } => ("death", pos),
         SfxMessage::Reset { pos } => ("reset", pos),
-        SfxMessage::Play { id, pos } => {
+        SfxMessage::Play { id, emitter } => {
+                let pos = emitter.position().expect("a world cue has a position");
             return format!("{source}::play:{id:?}@{:.0},{:.0}", pos.x, pos.y)
         }
     };

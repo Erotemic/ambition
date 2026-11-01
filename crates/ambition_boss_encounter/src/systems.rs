@@ -571,7 +571,7 @@ pub fn boss_phase_transition_feedback(
             },
             );
             for cue in ["boss.generic.defeat", "cutscene.dramatic_chord.defeat"] {
-                sfx.write(ambition_sfx::SfxMessage::Play { id: ambition_sfx::SfxId::new(cue), pos: kin.pos,
+                sfx.write(ambition_sfx::SfxMessage::Play { id: ambition_sfx::SfxId::new(cue), emitter: (kin.pos).into(),
                 });
             }
             let mut room_vfx = vfx.for_room(rooms.of(entity));
@@ -598,7 +598,7 @@ pub fn boss_phase_transition_feedback(
             );
             sfx.write(ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::WORLD_ROCK_HIT,
-                pos: ae::Vec2::ZERO,
+                emitter: (kin.pos).into(),
             });
             // The transition is a dodgeable gameplay beat, not only feel: the
             // boss puts a damage box at its centre, on its side

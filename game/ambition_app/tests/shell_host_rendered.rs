@@ -673,7 +673,7 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
         &mut app,
         SfxMessage::Play {
             id: ids::UI_MENU_MOVE,
-            pos: Vec2::ZERO,
+            emitter: ambition_platformer2d::sfx::SfxEmitter::Global,
         },
     )
     .expect("the title owns and resolves its menu-move SFX");
@@ -683,6 +683,7 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
     );
     assert!(matches!(menu.owner, AudioContextOwner::Frontend(_)));
     assert_eq!(menu.id, ids::UI_MENU_MOVE);
+    assert_eq!(menu.gain, app.world().resource::<ambition_platformer2d::audio::SfxMix>().effective_sfx);
 
     app.world_mut().write_message(ShellCommand::GoTo(
         ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
@@ -785,7 +786,7 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
         &mut app,
         SfxMessage::Play {
             id: unauthored,
-            pos: Vec2::ZERO,
+            emitter: (Vec2::ZERO).into(),
         },
     );
     assert!(
@@ -876,7 +877,7 @@ fn a_hosted_game_plays_the_bank_cues_its_moves_name() {
             &mut app,
             SfxMessage::Play {
                 id: SfxId::new("player.attack.charge"),
-                pos: Vec2::ZERO,
+                emitter: (Vec2::ZERO).into(),
             },
         )
         .unwrap_or_else(|| panic!("hosted '{provider}' resolves the bank cue its moves name"));
@@ -1797,7 +1798,7 @@ fn an_sfx_cue_saved_while_the_game_runs_is_played() {
         std::fs::write(&path, with_cue(300.0)).unwrap();
         let frames = wait_for(&mut app, 300.0);
         eprintln!("a saved new cue reached the session's registry {frames} frames after the save");
-        let first = play_owned_sfx(&mut app, SfxMessage::Play { id, pos: Vec2::ZERO })
+        let first = play_owned_sfx(&mut app, SfxMessage::Play { id, emitter: (Vec2::ZERO).into() })
             .filter(|record| record.id == id)
             .expect("the added cue plays once the reload is activated");
         assert_eq!(first.source.kind, SfxSourceKind::Procedural);
@@ -1806,7 +1807,7 @@ fn an_sfx_cue_saved_while_the_game_runs_is_played() {
         std::fs::write(&path, with_cue(400.0)).unwrap();
         let frames = wait_for(&mut app, 400.0);
         eprintln!("a retuned cue reached the session's registry {frames} frames after the save");
-        let second = play_owned_sfx(&mut app, SfxMessage::Play { id, pos: Vec2::ZERO })
+        let second = play_owned_sfx(&mut app, SfxMessage::Play { id, emitter: (Vec2::ZERO).into() })
             .filter(|record| record.id == id)
             .expect("the retuned cue plays");
         assert_ne!(
@@ -1818,5 +1819,30 @@ fn an_sfx_cue_saved_while_the_game_runs_is_played() {
     let _ = std::fs::remove_dir_all(&root);
     if let Err(payload) = outcome {
         std::panic::resume_unwind(payload);
+    }
+}
+
+/// The assembled host uses its live observer and keeps menu cues non-positional.
+#[test]
+fn a_world_sound_uses_the_live_listener_and_a_menu_sound_does_not() {
+    use ambition_platformer2d::sfx::{ids, OwnedSfxMessage, SfxEmissionContext, SfxEmitter, SfxListeners, SfxMessage};
+    use ambition_platformer2d::audio::render::SfxPlaybackState;
+    let mut app = rendered_app();
+    settle(&mut app);
+    app.world_mut().write_message(ShellCommand::GoTo(ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into()));
+    settle(&mut app);
+    let at = *app.world().resource::<SfxListeners>().0.first().expect("the local view publishes its listener");
+    let context = app.world().resource::<SfxEmissionContext>();
+    let owner = context.owner();
+    let source = context.source().clone();
+    for (emitter, expected) in [(SfxEmitter::point(at), 1.0),
+        (SfxEmitter::point(at + Vec2::splat(5000.0)), 0.0), (SfxEmitter::Global, 1.0)] {
+        app.world_mut().write_message(OwnedSfxMessage { owner, source: source.clone(),
+            request: SfxMessage::Play { id: ids::UI_MENU_MOVE, emitter } });
+        app.update();
+        let record = app.world().resource::<SfxPlaybackState>().played_this_pass.iter()
+            .find(|record| record.id == ids::UI_MENU_MOVE && record.emitter == emitter)
+            .expect("the authorized request reaches playback");
+        assert_eq!(record.gain, expected * app.world().resource::<ambition_platformer2d::audio::SfxMix>().effective_sfx);
     }
 }

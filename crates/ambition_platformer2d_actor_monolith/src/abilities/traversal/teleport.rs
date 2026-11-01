@@ -496,7 +496,7 @@ pub fn apply_authored_teleports(
             message.actor,
             ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::PLAYER_BLINK,
-                pos: target,
+                emitter: (target).into(),
             },
         );
     }

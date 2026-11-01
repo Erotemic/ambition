@@ -285,7 +285,7 @@ pub fn break_monitor_boxes(
                         crate::provider::SANIC_EXPERIENCE,
                         ambition_platformer2d::sfx::SfxMessage::Play {
                             id: ambition_platformer2d::sfx::SfxId::from_static(crate::SFX_MONITOR),
-                            pos: center,
+                            emitter: (center).into(),
                         },
                     );
                 }
@@ -313,7 +313,7 @@ pub fn break_monitor_boxes(
                 crate::provider::SANIC_EXPERIENCE,
                 ambition_platformer2d::sfx::SfxMessage::Play {
                     id: ambition_platformer2d::sfx::SfxId::from_static(crate::SFX_MONITOR),
-                    pos: center,
+                    emitter: (center).into(),
                 },
             );
             match block.name.as_str() {

@@ -24,3 +24,16 @@ impl MusicMix {
         self.effective_music
     }
 }
+
+/// Effective SFX gain after user settings and acoustic-environment mixing.
+/// The voice mixer multiplies this gain by each emitter's attenuation.
+#[derive(Resource, Clone, Copy, Debug)]
+pub struct SfxMix {
+    pub effective_sfx: f32,
+}
+
+impl Default for SfxMix {
+    fn default() -> Self {
+        Self { effective_sfx: 1.0 }
+    }
+}

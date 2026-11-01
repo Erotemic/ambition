@@ -94,6 +94,7 @@ pub fn require_world_compositing(app: &mut bevy::app::App) {
 
 /// A light about an actor: one soft sprite for each glowing body.
 pub mod actor_glow;
+pub mod audio_listeners;
 pub mod actors;
 pub mod ambient_motes;
 /// The light of the time of day over the world of a sunlit room.
@@ -547,6 +548,9 @@ pub struct PresentationVisualAnimationPlugin;
 impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
     app.init_resource::<ambition_sprite_sheet::SpriteContent>();
+        app.init_resource::<ambition_sfx::SfxListeners>();
+        app.add_systems(bevy::prelude::PostUpdate, audio_listeners::publish_audio_listeners
+            .in_set(ambition_sfx::SfxPresentationSet::Listeners));
 
         use bevy::prelude::{IntoScheduleConfigs, Update};
         // Every visual below draws from frame-clock presented poses, so the

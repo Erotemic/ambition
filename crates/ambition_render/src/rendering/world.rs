@@ -1633,7 +1633,7 @@ pub fn sync_lock_wall_visuals(
     *settled = now;
     let mut heard = |id: ambition_sfx::SfxId, pos: ae::Vec2| {
         if let Some(sfx) = sfx.as_mut() {
-            sfx.write(ambition_sfx::SfxMessage::Play { id, pos });
+            sfx.write(ambition_sfx::SfxMessage::Play { id, emitter: (pos).into() });
         }
     };
 

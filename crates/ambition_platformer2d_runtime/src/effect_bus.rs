@@ -48,7 +48,7 @@ pub fn apply_switch_effects(
             });
         sfx.write(ambition_sfx::SfxMessage::Play {
             id: ambition_sfx::ids::WORLD_SWITCH_TOGGLE,
-            pos: effect.pos,
+            emitter: (effect.pos).into(),
         });
     }
 }
@@ -63,7 +63,7 @@ pub fn apply_gameplay_sfx_effects(
     for effect in effects.read() {
         sfx.write(ambition_sfx::SfxMessage::Play {
             id: effect.id,
-            pos: effect.pos,
+            emitter: (effect.pos).into(),
         });
     }
 }

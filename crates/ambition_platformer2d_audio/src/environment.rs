@@ -10,7 +10,7 @@ use bevy::prelude::*;
 
 use bevy_kira_audio::prelude::{AudioChannel, AudioControl};
 
-use ambition_audio::library::{amplitude_to_decibels, MusicChannel, SfxChannel};
+use ambition_audio::library::{amplitude_to_decibels, MusicChannel};
 
 /// Coarse classification of the player's acoustic surroundings. The
 /// gameplay layer picks one of these; the audio layer is responsible
@@ -146,15 +146,10 @@ pub fn smooth_audio_environment(
     env.advance(time.wall_dt());
 }
 
-/// Single writer for the music + SFX channel volumes. Combines user
-/// mixer settings with the smoothed [`AudioEnvironment`] attenuation
-/// so:
-///
-/// * changing volume sliders while submerged still works (the
-///   re-compose runs whenever either input changes);
-/// * the gameplay layer never reaches into Kira directly;
-/// * one cache key (`Local<Option<(...)>>`) gates the per-frame
-///   write — we don't spam `set_volume` once steady-state is reached.
+/// Combine user settings and the acoustic environment.
+/// Music uses its channel. SFX publishes a gain for the shared voice mixer.
+/// Kira channel-volume commands replace instance volumes, so SFX must not
+/// use one alongside per-voice distance attenuation.
 ///
 /// `TODO: kira_underwater_filter_backend` — the volume attenuation
 /// computed here is the placeholder until the bevy_kira_audio
@@ -169,7 +164,7 @@ pub fn apply_audio_environment(
     settings: Res<ambition_persistence::settings::UserSettings>,
     env: Res<AudioEnvironment>,
     music_channel: Res<AudioChannel<MusicChannel>>,
-    sfx_channel: Res<AudioChannel<SfxChannel>>,
+    mut sfx_mix: ResMut<ambition_audio::SfxMix>,
     mut last: Local<Option<(ambition_persistence::settings::AudioSettings, f32)>>,
 ) {
     let current_settings = settings.audio;
@@ -180,9 +175,8 @@ pub fn apply_audio_environment(
     }
     let music_db =
         amplitude_to_decibels(current_settings.effective_music() * env.music_attenuation());
-    let sfx_db = amplitude_to_decibels(current_settings.effective_sfx() * env.sfx_attenuation());
+    sfx_mix.effective_sfx = current_settings.effective_sfx() * env.sfx_attenuation();
     music_channel.set_volume(music_db);
-    sfx_channel.set_volume(sfx_db);
     *last = Some(key);
 }
 

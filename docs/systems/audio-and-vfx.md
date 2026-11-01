@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-07-18
+last_verified: 2026-11-01
 ---
 
 # Audio and VFX
@@ -43,6 +43,42 @@ rooms a binding: a room with none plays its `music_track` from the top. The
 primeval trail is the example, and a test of `ambition_content` holds it to
 that. An entry section always plays to its end; the section after it starts on
 the frame nearest that end, at the state the game asks for then.
+
+## Distance attenuation
+
+`SfxEmitter` states whether a cue is global or has a world-space source.
+`SfxShape` supports a point, circle or axis-aligned rectangle. The listener
+and source use simulation coordinates, in world units. Render coordinates
+must pass through the room's coordinate adapter before emission.
+
+`SfxFalloff` gives two distances from the nearest point of the shape. The
+sound keeps its authored level through the inner distance and fades smoothly
+to silence at the outer distance. Every point inside a circle or rectangle
+has distance zero. The default point source is full through 160 units and
+silent at 1600 units. Each emitter can supply a different range.
+
+This follows the inner/outer-distance model described by
+[FMOD](https://www.fmod.com/docs/2.04/api/core-api-common.html).
+[Volumetric audio sources](https://developers.meta.com/vr/design/immersive_sound/)
+use source regions for extended sounds such as rivers and crowds.
+
+`SfxListeners` is host presentation input. The platformer publishes the followed
+world position of every local view. The shared output uses the highest gain
+across those listeners, so a second view cannot double the voice volume.
+Global cues need no listener. Menus, dialogue-panel blips and narrative cues
+with no world origin use `SfxEmitter::Global`; zero is a valid world position.
+
+One-shots and loops use the same voice and gain calculation. Moving a listener
+updates playing voices. Restating a loop can move or reshape its emitter
+without restarting the clip. Backend gain changes use a 30 ms tween. The user
+mixer and acoustic-environment gain enter through `SfxMix`. The voice mixer
+multiplies those gains by distance attenuation and writes the final volume.
+Do not use a Kira channel-volume command for SFX: it replaces per-voice volume.
+
+The gate hum uses a circle over the gate's authored prop region. Its full
+source region stays at full volume, then fades to silence over 1200 units.
+A host without a device records these same gain decisions and releases
+one-shots at the decoded clip duration.
 
 ## VFX ownership
 

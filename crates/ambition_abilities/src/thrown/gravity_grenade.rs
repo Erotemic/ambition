@@ -160,7 +160,7 @@ pub fn tick_gravity_grenade_fuses(
             entity,
             ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::PORTAL_POWERUP,
-                pos: ground.pos,
+                emitter: (ground.pos).into(),
             },
         );
         vfx.for_room(rooms.of(entity)).write(ambition_vfx::vfx::VfxMessage::Effect {

@@ -405,7 +405,7 @@ pub fn emit_hit_feedback(
         sound_source,
         ambition_sfx::SfxMessage::Play {
             id: resolve_strike_sfx(hurt, strike_sfx, damage, weight),
-            pos,
+            emitter: (pos).into(),
         },
     );
     vfx.write(VfxMessage::Impact {

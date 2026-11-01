@@ -27,11 +27,13 @@ pub mod music;
 #[cfg(feature = "kira")]
 pub mod render;
 #[cfg(feature = "kira")]
+pub mod spatial;
+#[cfg(feature = "kira")]
 pub mod sfx_loops;
 #[cfg(feature = "kira")]
 pub mod web_unlock;
 
-pub use mix::MusicMix;
+pub use mix::{MusicMix, SfxMix};
 #[cfg(feature = "kira")]
 pub use output::{AmbitionAudioAppExt, AmbitionAudioBackendPlugin};
 pub use output::{AudioBackendState, AudioOutputMode};

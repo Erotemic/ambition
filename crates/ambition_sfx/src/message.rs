@@ -201,8 +201,20 @@ pub enum SfxMessage {
     },
     Play {
         id: SfxId,
-        pos: Vec2,
+        emitter: crate::SfxEmitter,
     },
+}
+
+impl SfxMessage {
+    pub fn emitter(self) -> crate::SfxEmitter {
+        match self {
+            Self::Play { emitter, .. } => emitter,
+            Self::Jump { pos } | Self::DoubleJump { pos } | Self::Dash { pos }
+            | Self::Blink { pos, .. } | Self::Pogo { pos } | Self::Land { pos }
+            | Self::Slash { pos } | Self::Hit { pos } | Self::Death { pos }
+            | Self::Reset { pos } => crate::SfxEmitter::point(pos),
+        }
+    }
 }
 
 /// Playback queue item with ownership and presentation provenance captured at
@@ -279,6 +291,7 @@ pub enum SfxLoopRequest {
         key: SfxLoopKey,
         id: SfxId,
         fade_in_secs: f32,
+        emitter: crate::SfxEmitter,
     },
     /// Fade the loop under `key` out over `fade_out_secs` and forget it.
     Stop { key: SfxLoopKey, fade_out_secs: f32 },
@@ -305,8 +318,8 @@ pub struct SfxLoopWriter<'w> {
 }
 
 impl SfxLoopWriter<'_> {
-    pub fn hold(&mut self, key: SfxLoopKey, id: SfxId, fade_in_secs: f32) {
-        self.write(SfxLoopRequest::Hold { key, id, fade_in_secs });
+    pub fn hold(&mut self, key: SfxLoopKey, id: SfxId, emitter: crate::SfxEmitter, fade_in_secs: f32) {
+        self.write(SfxLoopRequest::Hold { key, id, emitter, fade_in_secs });
     }
 
     pub fn stop(&mut self, key: SfxLoopKey, fade_out_secs: f32) {

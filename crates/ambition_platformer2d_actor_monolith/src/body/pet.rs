@@ -432,7 +432,7 @@ pub fn advance_pet_beats(
                 if let Some(sound) = &petting.sound {
                     sfx.write(SfxMessage::Play {
                         id: SfxId::new(sound),
-                        pos: center.center,
+                        emitter: (center.center).into(),
                     });
                 }
                 // The hearts rise from the head that is petted; from the top

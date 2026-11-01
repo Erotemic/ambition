@@ -395,7 +395,7 @@ pub fn spawn_projectiles_from_brain_actions(
         if let Some(cue) = discharge.fire_sfx.as_deref() {
             sfx.write(SfxMessage::Play {
                 id: ambition_sfx::SfxId::new(cue),
-                pos: spawn.origin,
+                emitter: (spawn.origin).into(),
             });
         }
         // ⭐ A SHOT THAT A MOVE FIRES NAMES THE USE THAT FIRED IT. The

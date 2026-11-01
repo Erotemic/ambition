@@ -768,7 +768,7 @@ fn emit_sanic_skid_sfx(
                 subject,
                 ambition_platformer2d::sfx::SfxMessage::Play {
                     id: ambition_platformer2d::sfx::SfxId::from_static(SFX_SKID),
-                    pos,
+                    emitter: (pos).into(),
                 },
             );
         }
@@ -909,7 +909,7 @@ fn sync_super_form_traits(
             } else {
                 SFX_DETRANSFORM
             }),
-            pos,
+            emitter: (pos).into(),
         };
         match body {
             // I3: with no body, fall back to the course that authored the cue,
@@ -1174,7 +1174,7 @@ pub fn scatter_rings_on_hit(
             event.victim,
             ambition_platformer2d::sfx::SfxMessage::Play {
                 id: ambition_platformer2d::sfx::SfxId::from_static(SFX_RING_LOSS),
-                pos: event.pos,
+                emitter: (event.pos).into(),
             },
         );
     }
@@ -1423,7 +1423,7 @@ pub fn clear_act_at_goal(
             provider::SANIC_EXPERIENCE,
             ambition_platformer2d::sfx::SfxMessage::Play {
                 id: ambition_platformer2d::sfx::SfxId::from_static(SFX_TRANSFORM),
-                pos: kin.pos,
+                emitter: (kin.pos).into(),
             },
         );
     }

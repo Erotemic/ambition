@@ -70,7 +70,7 @@ pub mod shockwave {
                 entity,
                 ambition_sfx::SfxMessage::Play {
                     id: ambition_sfx::ids::WORLD_ROCK_HIT,
-                    pos: kin.pos,
+                    emitter: (kin.pos).into(),
                 },
             );
         }
@@ -186,7 +186,7 @@ pub mod beam {
                 entity,
                 ambition_sfx::SfxMessage::Play {
                     id: ambition_sfx::ids::WORLD_ROCK_HIT,
-                    pos: kin.pos,
+                    emitter: (kin.pos).into(),
                 },
             );
         }
@@ -316,7 +316,7 @@ pub mod volley {
                 entity,
                 ambition_sfx::SfxMessage::Play {
                     id: ambition_sfx::ids::WORLD_ROCK_HIT,
-                    pos: kin.pos,
+                    emitter: (kin.pos).into(),
                 },
             );
         }
@@ -448,7 +448,7 @@ pub mod meteor {
                 entity,
                 ambition_sfx::SfxMessage::Play {
                     id: ambition_sfx::ids::WORLD_ROCK_HIT,
-                    pos: kin.pos,
+                    emitter: (kin.pos).into(),
                 },
             );
         }
@@ -593,7 +593,7 @@ pub mod sentry {
                 wielder,
                 ambition_sfx::SfxMessage::Play {
                     id: ambition_sfx::ids::WORLD_ROCK_HIT,
-                    pos: kin.pos,
+                    emitter: (kin.pos).into(),
                 },
             );
         }
@@ -783,7 +783,7 @@ pub mod sentry {
                 entity,
                 ambition_sfx::SfxMessage::Play {
                     id: ambition_sfx::ids::WORLD_ROCK_HIT,
-                    pos: sentry.pos,
+                    emitter: (sentry.pos).into(),
                 },
             );
         }
@@ -911,7 +911,7 @@ pub mod vortex {
                 subject,
                 ambition_sfx::SfxMessage::Play {
                     id: ambition_sfx::ids::PLAYER_BLINK,
-                    pos: center,
+                    emitter: (center).into(),
                 },
             );
         }
@@ -1191,7 +1191,7 @@ pub mod blink {
                 player,
                 ambition_sfx::SfxMessage::Play {
                     id: ambition_sfx::ids::PLAYER_BLINK,
-                    pos: target,
+                    emitter: (target).into(),
                 },
             );
             // A wisp where you left, a flash where you arrive, in the live room
@@ -1407,7 +1407,7 @@ pub mod dive {
                 player,
                 ambition_sfx::SfxMessage::Play {
                     id: ambition_sfx::ids::PLAYER_BLINK,
-                    pos: target,
+                    emitter: (target).into(),
                 },
             );
         }
@@ -1486,7 +1486,7 @@ pub mod mark_recall {
                     player,
                     ambition_sfx::SfxMessage::Play {
                         id: ambition_sfx::ids::PLAYER_DASH,
-                        pos,
+                        emitter: (pos).into(),
                     },
                 );
                 vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
@@ -1534,7 +1534,7 @@ pub mod mark_recall {
                         player,
                         ambition_sfx::SfxMessage::Play {
                             id: ambition_sfx::ids::PLAYER_BLINK,
-                            pos: target,
+                            emitter: (target).into(),
                         },
                     );
                     vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
@@ -1621,7 +1621,7 @@ pub mod grapple {
                     player,
                     ambition_sfx::SfxMessage::Play {
                         id: ambition_sfx::ids::PLAYER_DASH,
-                        pos: from,
+                        emitter: (from).into(),
                     },
                 );
                 continue;
@@ -1643,7 +1643,7 @@ pub mod grapple {
                 player,
                 ambition_sfx::SfxMessage::Play {
                     id: ambition_sfx::ids::PLAYER_DASH,
-                    pos: from,
+                    emitter: (from).into(),
                 },
             );
             // Draw the grapple line as a tan spark trail from the player to the

@@ -649,7 +649,7 @@ fn resume_sim(mode: &Option<Res<State<GameMode>>>, next: &mut Option<ResMut<Next
 fn play(sfx: &mut SfxWriter, id: ambition_sfx::SfxId) {
     sfx.write(SfxMessage::Play {
         id,
-        pos: Vec2::ZERO,
+        emitter: ambition_sfx::SfxEmitter::Global,
     });
 }
 

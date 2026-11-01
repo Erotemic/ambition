@@ -58,7 +58,7 @@ fn hums(phase: GatePortalPhase) -> bool {
 /// - `world.wormhole.enter` / `exit` when a body starts its `swallow` / `emit`
 ///   ripple through the membrane.
 ///
-/// The cue position is the membrane's drawn translation (render space).
+/// The source region uses simulation world coordinates.
 #[allow(clippy::too_many_arguments)]
 pub fn sync_gate_portal_audio(
     portals: Res<GatePortalRegistry>,
@@ -66,6 +66,7 @@ pub fn sync_gate_portal_audio(
     passages: Option<Res<PassageViews>>,
     membranes: Query<(Entity, &PropVisual, &GlobalTransform)>,
     rooms: LiveRooms,
+    geometry: Query<(Entity, &ambition_platformer2d_core::RoomGeometry)>,
     context: Option<Res<SfxEmissionContext>>,
     mut sfx: Option<SfxWriter>,
     mut loops: Option<SfxLoopWriter>,
@@ -76,27 +77,33 @@ pub fn sync_gate_portal_audio(
         *memory = GateAudioMemory { owner, ..default() };
     }
 
-    let mut drawn: HashMap<Gate, (GatePortalPhase, Vec2)> = HashMap::new();
+    let mut drawn: HashMap<Gate, (GatePortalPhase, ambition_sfx::SfxEmitter)> = HashMap::new();
     for (zone, config) in portals.iter() {
         for (entity, prop, transform) in &membranes {
             if prop.name == config.portal_sprite_name {
-                let at = transform.translation().truncate();
-                drawn.insert((rooms.of(entity), zone.clone()), (phases.phase(zone), at));
+                let room = rooms.of(entity);
+                let Some((_, geometry)) = geometry.iter().find(|(root, _)| rooms.of(*root) == room) else { continue };
+                let at = ambition_platformer2d_core::config::bevy_size_to_world(geometry.0.size, transform.translation().truncate());
+                let emitter = ambition_sfx::SfxEmitter::Spatial {
+                    shape: ambition_sfx::SfxShape::Circle { center: at, radius: prop.size.min_element() * 0.5 },
+                    falloff: ambition_sfx::SfxFalloff::new(0.0, 1200.0),
+                };
+                drawn.insert((room, zone.clone()), (phases.phase(zone), emitter));
             }
         }
     }
 
-    for (gate, (phase, at)) in &drawn {
+    for (gate, (phase, emitter)) in &drawn {
         let opened = matches!(phase, GatePortalPhase::Opening { .. })
             && memory.phases.get(gate).is_some_and(|before| !matches!(before, GatePortalPhase::Opening { .. }));
         if opened {
             if let Some(sfx) = sfx.as_mut() {
-                sfx.write(SfxMessage::Play { id: ids::WORLD_WORMHOLE_OPEN, pos: *at });
+                sfx.write(SfxMessage::Play { id: ids::WORLD_WORMHOLE_OPEN, emitter: *emitter });
             }
         }
         if hums(*phase) {
             if let Some(loops) = loops.as_mut() {
-                loops.hold(wormhole_hum_key(gate), ids::WORLD_WORMHOLE_HUM, WORMHOLE_HUM_FADE_IN_SECS);
+                loops.hold(wormhole_hum_key(gate), ids::WORLD_WORMHOLE_HUM, *emitter, WORMHOLE_HUM_FADE_IN_SECS);
             }
             memory.humming.insert(gate.clone());
         }
@@ -127,10 +134,10 @@ pub fn sync_gate_portal_audio(
             _ => continue,
         };
         if *count > before {
-            let pos = drawn.get(gate).map_or(Vec2::ZERO, |(_, at)| *at);
+            let Some((_, emitter)) = drawn.get(gate) else { continue };
             if let Some(sfx) = sfx.as_mut() {
                 for _ in before..*count {
-                    sfx.write(SfxMessage::Play { id, pos });
+                    sfx.write(SfxMessage::Play { id, emitter: *emitter });
                 }
             }
         }
@@ -159,6 +166,8 @@ mod tests {
         let mut context = SfxEmissionContext::default();
         context.set(AudioContextOwner::Direct, "test.provider");
         app.insert_resource(context);
+        app.world_mut().spawn(ambition_platformer2d_core::RoomGeometry(ambition_platformer2d_core::World::new(
+            "audio fixture", Vec2::new(1000.0, 800.0), Vec2::ZERO, Vec::new())));
         app.add_systems(Update, sync_gate_portal_audio);
         app
     }
@@ -299,4 +308,20 @@ mod tests {
         app.update();
         assert_eq!(played(&mut app), vec![ids::WORLD_WORMHOLE_EXIT]);
     }
+    #[test]
+    fn the_wormhole_hum_uses_its_world_region_and_fades_beyond_it() {
+        let mut app = app();
+        draw_membrane(&mut app);
+        set_phase(&mut app, GatePortalPhase::On);
+        app.update();
+        let requests = app.world_mut().resource_mut::<Messages<OwnedSfxLoopMessage>>().drain().collect::<Vec<_>>();
+        let emitter = requests.iter().find_map(|request| match request.request {
+            SfxLoopRequest::Hold { emitter, .. } => Some(emitter), _ => None,
+        }).expect("the open gate holds a hum");
+        assert_eq!(emitter.position(), Some(Vec2::new(540.0, 388.0)));
+        assert_eq!(emitter.gain_at(Vec2::new(540.0, 388.0)), 1.0);
+        assert_eq!(emitter.gain_at(Vec2::new(600.0, 388.0)), 1.0);
+        assert_eq!(emitter.gain_at(Vec2::new(2540.0, 388.0)), 0.0);
+    }
+
 }

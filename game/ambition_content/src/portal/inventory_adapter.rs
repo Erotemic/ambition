@@ -119,7 +119,7 @@ fn drop_one_portal_gun(
     );
     sfx.write(ambition_sfx::SfxMessage::Play {
         id: ambition_sfx::ids::PORTAL_FIZZLE,
-        pos: kin.pos,
+        emitter: (kin.pos).into(),
     });
 }
 
@@ -221,7 +221,7 @@ fn pick_up_one_portal_gun(
             // Rising sci-fi charge-up as the device wakes.
             sfx.write(ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::PORTAL_POWERUP,
-                pos: kin.pos,
+                emitter: (kin.pos).into(),
             });
             bevy::log::info!(target: "ambition_platformer2d::portal", "picked up the portal gun");
             break;

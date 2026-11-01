@@ -336,7 +336,7 @@ pub fn emit_movement_fx(
                     source,
                     SfxMessage::Play {
                         id: ambition_sfx::ids::PLAYER_TECH,
-                        pos,
+                        emitter: (pos).into(),
                     },
                 );
                 vfx.write(VfxMessage::Burst {

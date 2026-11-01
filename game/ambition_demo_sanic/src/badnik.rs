@@ -124,7 +124,7 @@ pub fn defeat_badniks(
             entity,
             ambition_platformer2d::sfx::SfxMessage::Play {
                 id: ambition_platformer2d::sfx::SfxId::from_static(crate::SFX_BADNIK),
-                pos: badnik_kin.pos,
+                emitter: (badnik_kin.pos).into(),
             },
         );
         // Neutralize before the contact pass runs, then remove the body.

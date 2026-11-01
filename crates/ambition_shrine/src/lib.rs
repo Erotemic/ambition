@@ -206,7 +206,7 @@ pub fn heal_save_shrine_system(
         activation.remaining = 0.78;
         sfx.write(ambition_sfx::SfxMessage::Play {
             id: ambition_sfx::ids::WORLD_HEALTH_COLLECT,
-            pos: kin.pos,
+            emitter: (kin.pos).into(),
         });
         bevy::log::info!(
             target: "ambition_platformer2d::shrine",

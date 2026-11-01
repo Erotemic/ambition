@@ -351,7 +351,7 @@ pub fn detect_room_transition_system(
                     super::passage::PassageKind::Door => ambition_sfx::ids::WORLD_DOOR_OPEN,
                     super::passage::PassageKind::Gate => ambition_sfx::ids::WORLD_PORTAL_ENTER,
                 },
-                pos: kin.pos,
+                emitter: (kin.pos).into(),
             });
             if let Some(gestures) = slot_gestures.get_mut(seat) {
                 gestures.clear();

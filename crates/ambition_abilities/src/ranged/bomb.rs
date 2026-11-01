@@ -160,7 +160,7 @@ pub fn tick_bomb_fuses(
                     entity,
                     ambition_sfx::SfxMessage::Play {
                         id: ambition_sfx::ids::WORLD_ROCK_HIT,
-                        pos: ground.pos,
+                        emitter: (ground.pos).into(),
                     },
                 );
             }
@@ -192,7 +192,7 @@ pub fn tick_bomb_fuses(
             entity,
             ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::WORLD_EXPLOSION,
-                pos: ground.pos,
+                emitter: (ground.pos).into(),
             },
         );
         // A large burst, the smoke it leaves, and a ring: the blast reads as

@@ -279,7 +279,7 @@ pub fn emit_breakable_destroyed(
     });
     sfx.write(SfxMessage::Play {
         id: ambition_sfx::ids::WORLD_CRATE_BREAK,
-        pos,
+        emitter: (pos).into(),
     });
 }
 

@@ -306,13 +306,15 @@ fn cached_sfx_source_is_current(
 }
 
 /// Observable fact written by the actual playback decision path.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SfxPlaybackRecord {
     pub owner: AudioContextOwner,
     pub presentation_source: PresentationSourceId,
     pub provider_id: String,
     pub id: SfxId,
     pub source: SfxSourceIdentity,
+    pub emitter: ambition_sfx::SfxEmitter,
+    pub gain: f32,
 }
 
 #[derive(Resource, Default, Clone, Debug)]

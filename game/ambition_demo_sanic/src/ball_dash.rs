@@ -272,7 +272,7 @@ pub fn tick_ball_dash(
                             id: ambition_platformer2d::sfx::SfxId::from_static(crate::rev_tier_id(
                                 charge,
                             )),
-                            pos: kin.pos,
+                            emitter: (kin.pos).into(),
                         },
                     );
                 }
@@ -293,7 +293,7 @@ pub fn tick_ball_dash(
                     entity,
                     ambition_platformer2d::sfx::SfxMessage::Play {
                         id: ambition_platformer2d::sfx::SfxId::from_static(crate::SFX_LAUNCH),
-                        pos: kin.pos,
+                        emitter: (kin.pos).into(),
                     },
                 );
                 if rolling.is_none() {

@@ -309,7 +309,7 @@ pub fn collect_ecs_pickups(
             }
             _ => ambition_sfx::ids::WORLD_PICKUP_GENERIC,
         };
-        sfx.write(SfxMessage::Play { id, pos });
+        sfx.write(SfxMessage::Play { id, emitter: (pos).into() });
     }
 }
 

@@ -198,7 +198,7 @@ pub fn apply_authored_trapdoors(
             message.actor,
             ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::SfxId::new(&params.sfx),
-                pos: door,
+                emitter: (door).into(),
             },
         );
     }

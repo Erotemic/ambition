@@ -102,7 +102,7 @@ pub fn fire_puppy_slug_gun_system(
             subject,
             ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::WORLD_HEALTH_COLLECT,
-                pos: kin.pos,
+                emitter: (kin.pos).into(),
             },
         );
     }

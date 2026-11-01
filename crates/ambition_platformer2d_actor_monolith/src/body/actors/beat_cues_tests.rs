@@ -35,7 +35,8 @@ fn heard(app: &mut App) -> Vec<SfxId> {
     app.world_mut().resource_mut::<Messages<OwnedSfxMessage>>().drain().map(|message| {
         assert_eq!(message.source, "fixture-voice".into());
         match message.request {
-            SfxMessage::Play { id, pos } => {
+            SfxMessage::Play { id, emitter } => {
+                let pos = emitter.position().expect("a world cue has a position");
                 assert_eq!(pos, ae::Vec2::new(12.0, 34.0));
                 id
             }

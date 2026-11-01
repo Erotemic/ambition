@@ -299,7 +299,7 @@ fn on_present_line(
                 saw_shout = true;
                 sfx.write(SfxMessage::Play {
                     id: ambition_sfx::ids::DIALOGUE_MARKUP_SHOUT,
-                    pos: bevy::math::Vec2::ZERO,
+                    emitter: ambition_sfx::SfxEmitter::Global,
                 });
             }
             "whisper" => {
@@ -307,7 +307,7 @@ fn on_present_line(
                 saw_whisper = true;
                 sfx.write(SfxMessage::Play {
                     id: ambition_sfx::ids::DIALOGUE_MARKUP_WHISPER,
-                    pos: bevy::math::Vec2::ZERO,
+                    emitter: ambition_sfx::SfxEmitter::Global,
                 });
             }
             _ => {}

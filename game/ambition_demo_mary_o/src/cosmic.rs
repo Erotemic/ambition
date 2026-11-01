@@ -188,7 +188,7 @@ pub fn toggle_cosmic_form(sprite_content: bevy::prelude::Res<ambition_platformer
         body,
         ambition_platformer2d::sfx::SfxMessage::Play {
             id: ambition_platformer2d::sfx::SfxId::from_static(cue),
-            pos: kin.pos,
+            emitter: (kin.pos).into(),
         },
     );
 }

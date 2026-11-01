@@ -170,7 +170,7 @@ pub fn apply_pogo_bounce(
         sfx.write_for(
             msg.owner,
             match cue {
-                Some(id) => SfxMessage::Play { id, pos },
+                Some(id) => SfxMessage::Play { id, emitter: (pos).into() },
                 None => SfxMessage::Pogo { pos },
             },
         );

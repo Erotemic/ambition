@@ -30,6 +30,10 @@ pub mod ids;
 pub mod voice;
 
 #[cfg(feature = "bevy")]
+pub mod spatial;
+#[cfg(feature = "bevy")]
+pub use spatial::{SfxEmitter, SfxFalloff, SfxListeners, SfxPresentationSet, SfxShape};
+#[cfg(feature = "bevy")]
 mod message;
 #[cfg(feature = "bevy")]
 pub use message::{

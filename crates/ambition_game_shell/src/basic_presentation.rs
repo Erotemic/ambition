@@ -212,7 +212,7 @@ fn basic_shell_pointer(
         launcher_commands.write(ShellLauncherCommand::Activate(activation.action.0));
         sfx.write(SfxMessage::Play {
             id: ids::UI_MENU_ACCEPT,
-            pos: Vec2::ZERO,
+            emitter: ambition_sfx::SfxEmitter::Global,
         });
     }
 
@@ -226,7 +226,7 @@ fn basic_shell_pointer(
         launcher_commands.write(ShellLauncherCommand::SelectTab(tab.index));
         sfx.write(SfxMessage::Play {
             id: ids::UI_MENU_MOVE,
-            pos: Vec2::ZERO,
+            emitter: ambition_sfx::SfxEmitter::Global,
         });
     }
 }
@@ -260,7 +260,7 @@ fn basic_shell_menu_intent(
             launcher_commands.write(ShellLauncherCommand::CycleTab(1));
             sfx.write(SfxMessage::Play {
                 id: ids::UI_MENU_MOVE,
-                pos: Vec2::ZERO,
+                emitter: ambition_sfx::SfxEmitter::Global,
             });
             return;
         }
@@ -268,7 +268,7 @@ fn basic_shell_menu_intent(
             launcher_commands.write(ShellLauncherCommand::CycleTab(bump));
             sfx.write(SfxMessage::Play {
                 id: ids::UI_MENU_MOVE,
-                pos: Vec2::ZERO,
+                emitter: ambition_sfx::SfxEmitter::Global,
             });
             return;
         }
@@ -282,7 +282,7 @@ fn basic_shell_menu_intent(
                 launcher_commands.write(ShellLauncherCommand::SelectRow(cursor.selected()));
                 sfx.write(SfxMessage::Play {
                     id: ids::UI_MENU_MOVE,
-                    pos: Vec2::ZERO,
+                    emitter: ambition_sfx::SfxEmitter::Global,
                 });
             }
             let adjust = menu_frame
@@ -292,7 +292,7 @@ fn basic_shell_menu_intent(
                 launcher_commands.write(ShellLauncherCommand::AdjustSetting(adjust));
                 sfx.write(SfxMessage::Play {
                     id: ids::UI_MENU_ACCEPT,
-                    pos: Vec2::ZERO,
+                    emitter: ambition_sfx::SfxEmitter::Global,
                 });
             }
             return;
@@ -301,21 +301,21 @@ fn basic_shell_menu_intent(
             launcher_commands.write(ShellLauncherCommand::Previous);
             sfx.write(SfxMessage::Play {
                 id: ids::UI_MENU_MOVE,
-                pos: Vec2::ZERO,
+                emitter: ambition_sfx::SfxEmitter::Global,
             });
         }
         if down {
             launcher_commands.write(ShellLauncherCommand::Next);
             sfx.write(SfxMessage::Play {
                 id: ids::UI_MENU_MOVE,
-                pos: Vec2::ZERO,
+                emitter: ambition_sfx::SfxEmitter::Global,
             });
         }
         if confirm {
             launcher_commands.write(ShellLauncherCommand::LaunchSelected);
             sfx.write(SfxMessage::Play {
                 id: ids::UI_MENU_ACCEPT,
-                pos: Vec2::ZERO,
+                emitter: ambition_sfx::SfxEmitter::Global,
             });
         }
     } else if confirm {
@@ -335,7 +335,7 @@ fn advance_active_sequence(
     };
     sfx.write(SfxMessage::Play {
         id: ids::UI_MENU_ACCEPT,
-        pos: Vec2::ZERO,
+        emitter: ambition_sfx::SfxEmitter::Global,
     });
     if runtime
         .current()

@@ -376,7 +376,7 @@ pub fn cmd_spawn_chest(In(id): In<String>) {
 pub fn cmd_play_sfx(In(id_str): In<String>, mut sfx: ambition_sfx::SfxWriter) {
     sfx.write(ambition_sfx::SfxMessage::Play {
         id: ambition_sfx::SfxId::new(&id_str),
-        pos: ae::Vec2::ZERO,
+        emitter: ambition_sfx::SfxEmitter::Global,
     });
 }
 

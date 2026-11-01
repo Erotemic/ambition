@@ -386,7 +386,7 @@ pub(crate) fn apply_actor_hit(sprite_content: &ambition_sprite_sheet::SpriteCont
                 victim_source.as_ref(),
                 SfxMessage::Play {
                     id: ambition_sfx::ids::WORLD_ROCK_HIT,
-                    pos: em.kin.pos,
+                    emitter: (em.kin.pos).into(),
                 },
             );
             writers.vfx.write_in(room, VfxMessage::Impact { pos: impact, blow: ambition_vfx::ImpactBlow::PLAIN });
@@ -745,7 +745,7 @@ pub(crate) fn apply_actor_hit(sprite_content: &ambition_sprite_sheet::SpriteCont
             let death_cue = match caps.death_sound.as_deref() {
                 Some(sound) => SfxMessage::Play {
                     id: ambition_sfx::SfxId::new(sound),
-                    pos: em.kin.pos,
+                    emitter: (em.kin.pos).into(),
                 },
                 None => SfxMessage::Death { pos: em.kin.pos },
             };

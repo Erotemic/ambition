@@ -4331,7 +4331,7 @@ pub fn dispatch_move_events(
                     .unwrap_or(ae::Vec2::ZERO);
                 let request = SfxMessage::Play {
                     id: SfxId::new(cue),
-                    pos,
+                    emitter: (pos).into(),
                 };
                 if ev.presentation_source.is_unscoped() {
                     sfx.write(request);

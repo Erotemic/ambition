@@ -698,7 +698,7 @@ impl RoomTransitionFinalize<'_, '_> {
         if let Some((cue, pos)) = door_sfx {
             self.effects.sfx.write(SfxMessage::Play {
                 id: ambition_sfx::SfxId::new(cue),
-                pos: *pos,
+                emitter: (*pos).into(),
             });
         }
 

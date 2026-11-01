@@ -84,7 +84,7 @@ pub fn apply_authored_vitality(
             message.actor,
             ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::SfxId::new(&params.sfx),
-                pos: at,
+                emitter: (at).into(),
             },
         );
     }

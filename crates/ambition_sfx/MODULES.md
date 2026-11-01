@@ -8,9 +8,10 @@
 |---|---|
 | [`ids`](src/ids.rs) | Hand-maintained ids for reusable gameplay/presentation SFX. Provider-specific cast, story, and named-content ids belong with their provider/content. |
 | [`message`](src/message.rs) | Session-owned SFX requests. |
+| [`spatial`](src/spatial.rs) | Sound-emitter geometry and distance attenuation in world units. |
 | [`voice`](src/voice.rs) | Which voice a speaker speaks with: the dialogue blip a speaker label or a dialogue id resolves to. |
 
-_3 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -44,7 +44,6 @@ use crate::menu::model::{
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
 #[cfg(feature = "kaleidoscope_menu")]
-use ambition_platformer2d::engine_core::Vec2;
 use ambition_platformer2d::input::MenuControlFrame;
 use ambition_platformer2d::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 // ⚠ NOT gated on `kaleidoscope_menu`. `SystemMenuBinding::model`,
@@ -61,16 +60,12 @@ use ambition_platformer2d::settings_menu::system::{
 };
 use ambition_platformer2d::sfx::{SfxMessage, SfxWriter};
 
-/// Play a one-shot UI sound for the cube menu: `Play { id, pos }` with `pos = ZERO`.
-/// `Play` is non-spatialized (see `ambition_platformer2d::audio::audio_play_sfx_messages` — it
-/// looks the id up in the bank and plays it full-volume; the `pos` is unused for
-/// `Play`), so `Vec2::ZERO` keeps menu sounds audible at full volume. If the id
-/// isn't packed into the runtime bank yet the play just no-ops (safe).
+/// Play a menu cue at the user mixer level, without distance attenuation.
 #[inline]
 pub(crate) fn play_ui(sfx: &mut SfxWriter, id: ambition_platformer2d::sfx::SfxId) {
     sfx.write(SfxMessage::Play {
         id,
-        pos: Vec2::ZERO,
+        emitter: ambition_platformer2d::sfx::SfxEmitter::Global,
     });
 }
 

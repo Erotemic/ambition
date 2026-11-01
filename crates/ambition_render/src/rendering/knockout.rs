@@ -216,7 +216,7 @@ pub fn emit_knockout_beat(
         });
         sfx.write(SfxMessage::Play {
             id: ids::WORLD_EXPLOSION,
-            pos: base,
+            emitter: (base).into(),
         });
     }
 }

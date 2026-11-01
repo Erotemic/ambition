@@ -549,7 +549,7 @@ pub fn run_zone_passages(
         {
             sfx.write(ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::WORLD_DOOR_CLOSE,
-                pos: passage.foot,
+                emitter: (passage.foot).into(),
             });
         }
         if passage.stage == PassageStage::Exiting && passage.elapsed >= stage_s {

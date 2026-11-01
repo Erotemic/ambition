@@ -1103,7 +1103,7 @@ pub fn apply_feature_hit_events(sprite_content: bevy::prelude::Res<ambition_spri
                         event.damage,
                         resolved_rules.strike_weight,
                     ),
-                    pos: impact,
+                    emitter: (impact).into(),
                 });
             }
             writers.vfx.write_in(rooms.of(entity), VfxMessage::Impact { pos: impact, blow: ambition_vfx::ImpactBlow::PLAIN });

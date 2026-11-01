@@ -81,7 +81,7 @@ pub fn emit_smash_charge_cues(
             // held button from a dropped input.
             sfx.write(SfxMessage::Play {
                 id: ids::PLAYER_SMASH_CHARGE_LATCH,
-                pos,
+                emitter: (pos).into(),
             });
         }
         let memory = state.live.entry(key.clone()).or_default();
@@ -89,7 +89,7 @@ pub fn emit_smash_charge_cues(
             memory.locked = true;
             sfx.write(SfxMessage::Play {
                 id: ids::PLAYER_SMASH_CHARGE_LOADED,
-                pos,
+                emitter: (pos).into(),
             });
         }
         still_charging.insert(key);
@@ -133,7 +133,7 @@ pub fn emit_parry_cues(
         if !state.live.contains(&key) {
             sfx.write(SfxMessage::Play {
                 id: ids::PLAYER_PARRY,
-                pos,
+                emitter: (pos).into(),
             });
         }
         sounding.insert(key);

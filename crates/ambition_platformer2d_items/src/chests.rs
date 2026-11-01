@@ -219,7 +219,7 @@ pub fn open_ecs_chests(
             });
             sfx.write(SfxMessage::Play {
                 id: ambition_sfx::ids::WORLD_TREASURE_CHEST_OPEN,
-                pos,
+                emitter: (pos).into(),
             });
             if let Some(encounter_id) =
                 ambition_encounter::encounter_id_from_chest_feature_id(id.as_str())

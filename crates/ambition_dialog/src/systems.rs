@@ -65,7 +65,7 @@ pub fn dialog_reveal_tick(
                     dialogue.dialogue_id(),
                     dialogue.speech_style(),
                 ),
-                pos: Vec2::ZERO,
+                emitter: ambition_sfx::SfxEmitter::Global,
             });
         }
         return;

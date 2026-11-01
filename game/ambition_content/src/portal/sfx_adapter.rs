@@ -38,23 +38,23 @@ pub fn play_portal_sfx(
     for ev in fired.read() {
         sfx.write(ambition_sfx::SfxMessage::Play {
             id: ambition_sfx::ids::PORTAL_FIRE,
-            pos: ev.origin,
+            emitter: (ev.origin).into(),
         });
         sfx.write(ambition_sfx::SfxMessage::Play {
             id: ambition_sfx::ids::PORTAL_TRAVEL,
-            pos: ev.origin,
+            emitter: (ev.origin).into(),
         });
     }
     for ev in entered.read() {
         sfx.write(ambition_sfx::SfxMessage::Play {
             id: ambition_sfx::ids::PORTAL_ENTER,
-            pos: ev.pos,
+            emitter: (ev.pos).into(),
         });
     }
     for ev in transited.read() {
         sfx.write(ambition_sfx::SfxMessage::Play {
             id: ambition_sfx::ids::PORTAL_EXIT,
-            pos: ev.exit_pos,
+            emitter: (ev.exit_pos).into(),
         });
     }
 }

@@ -176,7 +176,7 @@ pub fn process_fx_requests(sprite_content: bevy::prelude::Res<ambition_sprite_sh
         if let Some(id) = request.sfx.or_else(|| effect_cue(&sprite_content, request.fx)) {
             let play = SfxMessage::Play {
                 id,
-                pos: request.pos,
+                emitter: (request.pos).into(),
             };
             if request.source.is_unscoped() {
                 sfx.write(play);

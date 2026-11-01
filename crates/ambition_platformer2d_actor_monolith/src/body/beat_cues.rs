@@ -27,7 +27,7 @@ pub fn play_beat_cues(
             BrainBeat::Tell => &cues.tell,
         };
         if let Some(cue) = cue {
-            sfx.write_for(body, SfxMessage::Play { id: SfxId::new(cue), pos: kin.pos });
+            sfx.write_for(body, SfxMessage::Play { id: SfxId::new(cue), emitter: (kin.pos).into() });
         }
     }
 }

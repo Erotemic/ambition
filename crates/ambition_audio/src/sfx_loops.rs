@@ -11,16 +11,15 @@
 //! here, so the end of a session never leaves one running.
 
 use std::collections::BTreeMap;
-use std::time::Duration;
 
-use ambition_sfx::{AudioContextOwner, OwnedSfxLoopMessage, SfxId, SfxLoopKey, SfxLoopRequest};
-use bevy::asset::Handle;
+use ambition_sfx::{OwnedSfxLoopMessage, SfxId, SfxLoopKey, SfxLoopRequest};
 use bevy::ecs::message::Messages;
 use bevy::prelude::{MessageReader, Res, ResMut, Resource};
-use bevy_kira_audio::prelude::{AudioChannel, AudioControl, AudioInstance, AudioTween, PlaybackState};
+use bevy_kira_audio::prelude::{
+    AudioControl, PlaybackState,
+};
 
 use crate::bank_asset::SfxSourceResolver;
-use crate::library::SfxChannel;
 
 /// The fade a loop gets when its context ends under it.
 const CONTEXT_END_FADE_SECS: f32 = 0.25;
@@ -28,20 +27,16 @@ const CONTEXT_END_FADE_SECS: f32 = 0.25;
 /// One held loop.
 #[derive(Clone, Debug)]
 pub struct HeldSfxLoop {
-    pub owner: AudioContextOwner,
     pub id: SfxId,
-    /// The playing instance; `None` where the output is not a device (headless),
-    /// so the loop is accepted and held without a sound.
-    pub instance: Option<Handle<AudioInstance>>,
+    pub source: ambition_sfx::PresentationSourceId,
+    pub voice: crate::spatial::SfxVoice,
 }
 
 /// The loops playing now, by key.
 #[derive(Resource, Default, Debug)]
 pub struct SfxLoopPlayback {
-    held: BTreeMap<SfxLoopKey, HeldSfxLoop>,
-    /// Stopped loops whose instance the backend had not created yet: stopped
-    /// once it exists, so a loop stopped on the frame it started still ends.
-    stopping: Vec<(Handle<AudioInstance>, f32)>,
+    pub(crate) held: BTreeMap<SfxLoopKey, HeldSfxLoop>,
+    pub(crate) fading: Vec<crate::spatial::SfxVoice>,
     /// Loops started (or restarted) since the app began: a stable diagnostic.
     pub started: u64,
 }
@@ -58,6 +53,10 @@ impl SfxLoopPlayback {
     pub fn is_empty(&self) -> bool {
         self.held.is_empty()
     }
+
+    pub fn has_voices(&self) -> bool {
+        !self.held.is_empty() || !self.fading.is_empty()
+    }
 }
 
 /// Run condition of [`audio_play_sfx_loops`]: a request waits, or a loop is held.
@@ -65,89 +64,98 @@ pub fn a_loop_request_waits_or_a_loop_is_held(
     messages: Option<Res<Messages<OwnedSfxLoopMessage>>>,
     loops: Res<SfxLoopPlayback>,
 ) -> bool {
-    messages.is_some_and(|messages| !messages.is_empty()) || !loops.is_empty() || !loops.stopping.is_empty()
-}
-
-fn tween(secs: f32) -> AudioTween {
-    AudioTween::linear(Duration::from_secs_f32(secs.max(0.0)))
+    messages.is_some_and(|messages| !messages.is_empty()) || !loops.is_empty()
 }
 
 impl SfxLoopPlayback {
-    /// Stop `held`'s instance with a fade, now or once the backend creates it.
-    fn stop(&mut self, instances: &mut bevy::asset::Assets<AudioInstance>, held: HeldSfxLoop, fade: f32) {
-        let Some(handle) = held.instance else { return };
-        match instances.get_mut(&handle) {
-            Some(mut instance) => instance.stop(tween(fade)),
-            None => self.stopping.push((handle, fade)),
-        }
-    }
-
-    /// Retry the stops that waited for their instance; drop the ones that ended.
-    fn retry_stops(&mut self, channel: &AudioChannel<SfxChannel>, instances: &mut bevy::asset::Assets<AudioInstance>) {
-        self.stopping.retain(|(handle, fade)| match instances.get_mut(handle) {
-            Some(mut instance) => {
-                instance.stop(tween(*fade));
-                false
-            }
-            None => channel.state(handle) == PlaybackState::Queued,
-        });
+    fn stop(&mut self, mut held: HeldSfxLoop, fade: f32, now: std::time::Duration) {
+        held.voice.request_stop(fade, now);
+        self.fading.push(held.voice);
     }
 }
 
 pub fn audio_play_sfx_loops(
     mut messages: MessageReader<OwnedSfxLoopMessage>,
     mut resolver: SfxSourceResolver,
-    sfx_channel: Res<AudioChannel<SfxChannel>>,
-    output: Option<Res<crate::output::AudioOutputMode>>,
-    mut instances: ResMut<bevy::asset::Assets<AudioInstance>>,
+    output: crate::spatial::SfxVoiceOutput,
     mut loops: ResMut<SfxLoopPlayback>,
 ) {
-    loops.retry_stops(&sfx_channel, &mut instances);
     // A loop of a context that is no longer live ends with it.
     let ended: Vec<SfxLoopKey> = loops
         .held
         .iter()
-        .filter(|(_, held)| !resolver.selection().accepts_request_owner(Some(held.owner)))
+        .filter(|(_, held)| {
+            !resolver
+                .selection()
+                .accepts_request_owner(Some(held.voice.owner))
+        })
         .map(|(key, _)| *key)
         .collect();
     for key in ended {
         if let Some(held) = loops.held.remove(&key) {
-            loops.stop(&mut instances, held, CONTEXT_END_FADE_SECS);
+            loops.stop(held, CONTEXT_END_FADE_SECS, output.now());
         }
     }
 
-    let device = crate::output::emits_to_device(output.as_deref());
     for owned in messages.read() {
         match owned.request {
-            SfxLoopRequest::Hold { key, id, fade_in_secs } => {
-                if let Some(held) = loops.held.get(&key) {
+            SfxLoopRequest::Hold {
+                key,
+                id,
+                emitter,
+                fade_in_secs,
+            } => {
+                if let Some(held) = loops.held.get_mut(&key) {
                     // Stopped under us (the channel stops on a context change).
-                    let silenced = held
-                        .instance
-                        .as_ref()
-                        .is_some_and(|handle| sfx_channel.state(handle) == PlaybackState::Stopped);
-                    if held.id == id && !silenced {
+                    let silenced = held.voice.instance().is_some_and(|handle| {
+                        output.channel.state(handle) == PlaybackState::Stopped
+                    });
+                    if held.id == id
+                        && held.source == owned.source
+                        && owned.owner == Some(held.voice.owner)
+                        && !silenced
+                    {
+                        held.voice.emitter = emitter;
                         continue;
                     }
-                    let held = loops.held.remove(&key).expect("just read");
-                    loops.stop(&mut instances, held, fade_in_secs);
                 }
                 let Some(accepted) = resolver.accept(owned.owner, &owned.source, id) else {
                     continue;
                 };
-                let instance = device.then(|| {
-                    sfx_channel
-                        .play(accepted.resolved.handle)
-                        .looped()
-                        .fade_in(tween(fade_in_secs))
-                        .handle()
-                });
-                loops.held.insert(key, HeldSfxLoop { owner: accepted.owner, id, instance });
+                if let Some(held) = loops.held.remove(&key) {
+                    loops.stop(held, fade_in_secs, output.now());
+                }
+                let duration = resolver.duration(&accepted.resolved.handle);
+                let voice = output.start(
+                    accepted.owner,
+                    accepted.resolved.handle,
+                    emitter,
+                    duration,
+                    Some(fade_in_secs),
+                );
+                loops.held.insert(
+                    key,
+                    HeldSfxLoop {
+                        id,
+                        source: owned.source.clone(),
+                        voice,
+                    },
+                );
                 loops.started = loops.started.saturating_add(1);
             }
             SfxLoopRequest::Stop { key, fade_out_secs } => {
+                if !resolver.selection().accepts_request_owner(owned.owner) {
+                    continue;
+                }
+                if !loops
+                    .held
+                    .get(&key)
+                    .is_some_and(|held| held.source == owned.source)
+                {
+                    continue;
+                }
                 if let Some(held) = loops.held.remove(&key) {
-                    loops.stop(&mut instances, held, fade_out_secs);
+                    loops.stop(held, fade_out_secs, output.now());
                 }
             }
         }
@@ -219,7 +227,16 @@ mod tests {
     }
 
     fn hold(app: &mut App, owner: u64) {
-        send(app, owner, SfxLoopRequest::Hold { key: KEY, id: SfxId::new(HUM), fade_in_secs: 1.0 });
+        send(
+            app,
+            owner,
+            SfxLoopRequest::Hold {
+                key: KEY,
+                id: SfxId::new(HUM),
+                fade_in_secs: 1.0,
+                emitter: ambition_sfx::SfxEmitter::Global,
+            },
+        );
     }
 
     /// A hold restated every frame starts its loop once; a stop ends it.
@@ -232,9 +249,19 @@ mod tests {
         }
         let loops = app.world().resource::<SfxLoopPlayback>();
         assert_eq!(loops.held(KEY).map(|held| held.id), Some(SfxId::new(HUM)));
-        assert_eq!(loops.started, 1, "restating a hold does not start a second loop");
+        assert_eq!(
+            loops.started, 1,
+            "restating a hold does not start a second loop"
+        );
 
-        send(&mut app, 1, SfxLoopRequest::Stop { key: KEY, fade_out_secs: 0.5 });
+        send(
+            &mut app,
+            1,
+            SfxLoopRequest::Stop {
+                key: KEY,
+                fade_out_secs: 0.5,
+            },
+        );
         app.update();
         assert!(app.world().resource::<SfxLoopPlayback>().is_empty());
     }
@@ -252,6 +279,165 @@ mod tests {
         select(&mut app, 2);
         hold(&mut app, 1);
         app.update();
-        assert!(app.world().resource::<SfxLoopPlayback>().is_empty(), "the ended session's loop is gone");
+        assert!(
+            app.world().resource::<SfxLoopPlayback>().is_empty(),
+            "the ended session's loop is gone"
+        );
+    }
+    #[test]
+    fn one_shots_and_held_loops_follow_listener_motion_without_restarting() {
+        use crate::{
+            audio_play_sfx_messages,
+            spatial::{update_sfx_attenuation, SfxOneShots},
+        };
+        use ambition_sfx::{
+            OwnedSfxMessage, SfxEmitter, SfxFalloff, SfxListeners, SfxMessage, SfxShape,
+        };
+        use bevy::{
+            prelude::{IntoScheduleConfigs, Vec2},
+            time::TimeUpdateStrategy,
+        };
+        let mut app = app();
+        app.insert_resource(TimeUpdateStrategy::ManualDuration(
+            std::time::Duration::from_millis(16),
+        ));
+        app.add_message::<OwnedSfxMessage>();
+        app.add_systems(Update, audio_play_sfx_messages.before(audio_play_sfx_loops));
+        app.add_systems(Update, update_sfx_attenuation.after(audio_play_sfx_loops));
+        app.world_mut().resource_mut::<SfxListeners>().0 = vec![Vec2::ZERO];
+        let emitter = SfxEmitter::Spatial {
+            shape: SfxShape::Point(Vec2::ZERO),
+            falloff: SfxFalloff::new(10.0, 110.0),
+        };
+        app.world_mut().write_message(OwnedSfxMessage {
+            owner: Some(AudioContextOwner::Gameplay(1)),
+            source: "fixture".into(),
+            request: SfxMessage::Play {
+                id: SfxId::new(HUM),
+                emitter,
+            },
+        });
+        send(
+            &mut app,
+            1,
+            SfxLoopRequest::Hold {
+                key: KEY,
+                id: SfxId::new(HUM),
+                emitter,
+                fade_in_secs: 1.0,
+            },
+        );
+        app.update();
+        for (position, gain) in [(0.0, 1.0), (60.0, 0.5), (210.0, 0.0), (0.0, 1.0)] {
+            app.world_mut().resource_mut::<SfxListeners>().0[0] = Vec2::new(position, 0.0);
+            app.update();
+            let shots = app.world().resource::<SfxOneShots>();
+            assert_eq!(shots.0.len(), 1);
+            assert_eq!(shots.0[0].gain, gain);
+            let loops = app.world().resource::<SfxLoopPlayback>();
+            assert_eq!(loops.held(KEY).unwrap().voice.gain, gain);
+            assert_eq!(loops.started, 1);
+        }
+        app.world_mut().resource_mut::<SfxListeners>().0[0] = Vec2::new(60.0, 0.0);
+        app.world_mut()
+            .resource_mut::<crate::SfxMix>()
+            .effective_sfx = 0.25;
+        app.update();
+        assert_eq!(app.world().resource::<SfxOneShots>().0[0].gain, 0.125);
+        assert_eq!(
+            app.world()
+                .resource::<SfxLoopPlayback>()
+                .held(KEY)
+                .unwrap()
+                .voice
+                .gain,
+            0.125
+        );
+        app.world_mut()
+            .resource_mut::<crate::SfxMix>()
+            .effective_sfx = 0.0;
+        app.update();
+        assert_eq!(app.world().resource::<SfxOneShots>().0[0].gain, 0.0);
+        assert_eq!(
+            app.world()
+                .resource::<SfxLoopPlayback>()
+                .held(KEY)
+                .unwrap()
+                .voice
+                .gain,
+            0.0
+        );
+        app.world_mut()
+            .resource_mut::<crate::SfxMix>()
+            .effective_sfx = 1.0;
+        app.world_mut().resource_mut::<SfxListeners>().0[0] = Vec2::ZERO;
+        // A new hold changes the source position, not the loop's identity.
+        send(
+            &mut app,
+            1,
+            SfxLoopRequest::Hold {
+                key: KEY,
+                id: SfxId::new(HUM),
+                emitter: Vec2::splat(5000.0).into(),
+                fade_in_secs: 1.0,
+            },
+        );
+        app.update();
+        let loops = app.world().resource::<SfxLoopPlayback>();
+        assert_eq!(loops.held(KEY).unwrap().voice.gain, 0.0);
+        assert_eq!(loops.started, 1);
+
+        // A menu cue has no world position and stays audible with no listener.
+        app.world_mut().resource_mut::<SfxListeners>().0.clear();
+        app.world_mut().write_message(OwnedSfxMessage {
+            owner: Some(AudioContextOwner::Gameplay(1)),
+            source: "fixture".into(),
+            request: SfxMessage::Play {
+                id: SfxId::new(HUM),
+                emitter: SfxEmitter::Global,
+            },
+        });
+        app.update();
+        assert_eq!(
+            app.world().resource::<SfxOneShots>().0.last().unwrap().gain,
+            1.0
+        );
+        send(
+            &mut app,
+            1,
+            SfxLoopRequest::Hold {
+                key: KEY,
+                id: SfxId::new(HUM),
+                emitter: SfxEmitter::Global,
+                fade_in_secs: 1.0,
+            },
+        );
+        app.update();
+        send(
+            &mut app,
+            1,
+            SfxLoopRequest::Stop {
+                key: KEY,
+                fade_out_secs: 0.3,
+            },
+        );
+        app.update();
+        assert_eq!(app.world().resource::<SfxLoopPlayback>().fading.len(), 1);
+        app.world_mut()
+            .resource_mut::<crate::SfxMix>()
+            .effective_sfx = 0.0;
+        app.update();
+        assert_eq!(
+            app.world().resource::<SfxLoopPlayback>().fading[0].gain,
+            0.0
+        );
+        for _ in 0..40 {
+            app.update();
+        }
+        assert!(app.world().resource::<SfxLoopPlayback>().fading.is_empty());
+        assert!(
+            app.world().resource::<SfxOneShots>().0.is_empty(),
+            "finished one-shots are released"
+        );
     }
 }

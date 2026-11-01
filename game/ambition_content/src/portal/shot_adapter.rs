@@ -85,7 +85,7 @@ pub fn portal_projectile_step(
             PortalShotStep::Fizzle { pos } => {
                 sfx.write(ambition_sfx::SfxMessage::Play {
                     id: ambition_sfx::ids::PORTAL_INVALID,
-                    pos,
+                    emitter: (pos).into(),
                 });
                 commands.entity(proj_entity).despawn();
             }
@@ -116,7 +116,7 @@ pub fn portal_projectile_step(
         if overlapped {
             sfx.write(ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::PORTAL_INVALID,
-                pos: winner.hit,
+                emitter: (winner.hit).into(),
             });
             continue;
         }
@@ -127,7 +127,7 @@ pub fn portal_projectile_step(
                 commands.entity(entity).despawn();
                 sfx.write(ambition_sfx::SfxMessage::Play {
                     id: ambition_sfx::ids::PORTAL_CLOSE,
-                    pos: winner.hit,
+                    emitter: (winner.hit).into(),
                 });
             }
         }
@@ -153,7 +153,7 @@ pub fn portal_projectile_step(
         }
         sfx.write(ambition_sfx::SfxMessage::Play {
             id: ambition_sfx::ids::PORTAL_ATTACH,
-            pos: winner.hit,
+            emitter: (winner.hit).into(),
         });
     }
 }

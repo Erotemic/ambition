@@ -122,7 +122,7 @@ Design the pure planner around an indexed, immutable line. A candidate public AP
 
 These are design names, not existing types. The planner can be a pure Rust `ambition_mumblespeak` crate with no Bevy, game-cast, or audio-device dependency. A narrow adapter in `ambition_dialog`/`ambition_audio` can consume the plan. Add no new Bevy plugin unless a second integration makes it useful.
 
-The current `SfxMessage::Play { id, pos }` does not carry timed formant or expression parameters. Do not smuggle dynamic voice parameters into a fake SFX ID. Either add a bounded typed presentation-audio event at the existing audio boundary or use a voice-specific adapter that writes through the same mixer. Keep one speaker/voice selection path in `dialogue_voiceprints`. When the new format is ready, migrate the existing cue entries with a deliberate data/schema change rather than keeping two unrelated registries.
+The current `SfxMessage::Play { id, emitter }` does not carry timed formant or expression parameters. Do not smuggle dynamic voice parameters into a fake SFX ID. Either add a bounded typed presentation-audio event at the existing audio boundary or use a voice-specific adapter that writes through the same mixer. Keep one speaker/voice selection path in `dialogue_voiceprints`. When the new format is ready, migrate the existing cue entries with a deliberate data/schema change rather than keeping two unrelated registries.
 
 ## Sound design: baseline from the video
 

@@ -129,20 +129,21 @@ struct Observed {
     pos: ae::Vec2,
 }
 
-fn sound(message: &SfxMessage) -> (String, ae::Vec2) {
-    match message {
-        SfxMessage::Jump { pos } => ("jump".into(), *pos),
-        SfxMessage::DoubleJump { pos } => ("double_jump".into(), *pos),
-        SfxMessage::Dash { pos } => ("dash".into(), *pos),
-        SfxMessage::Blink { pos, .. } => ("blink".into(), *pos),
-        SfxMessage::Pogo { pos } => ("pogo".into(), *pos),
-        SfxMessage::Land { pos } => ("land".into(), *pos),
-        SfxMessage::Slash { pos } => ("slash".into(), *pos),
-        SfxMessage::Hit { pos } => ("hit".into(), *pos),
-        SfxMessage::Death { pos } => ("death".into(), *pos),
-        SfxMessage::Reset { pos } => ("reset".into(), *pos),
-        SfxMessage::Play { id, pos } => (format!("play:{id}"), *pos),
-    }
+fn sound(message: &SfxMessage) -> (String, Option<ae::Vec2>) {
+    let kind = match message {
+        SfxMessage::Jump { .. } => "jump".into(),
+        SfxMessage::DoubleJump { .. } => "double_jump".into(),
+        SfxMessage::Dash { .. } => "dash".into(),
+        SfxMessage::Blink { .. } => "blink".into(),
+        SfxMessage::Pogo { .. } => "pogo".into(),
+        SfxMessage::Land { .. } => "land".into(),
+        SfxMessage::Slash { .. } => "slash".into(),
+        SfxMessage::Hit { .. } => "hit".into(),
+        SfxMessage::Death { .. } => "death".into(),
+        SfxMessage::Reset { .. } => "reset".into(),
+        SfxMessage::Play { id, .. } => format!("play:{id}"),
+    };
+    (kind, message.emitter().position())
 }
 
 fn solids(world: &mut World) -> Vec<ae::Aabb> {
@@ -271,6 +272,10 @@ fn run(options: &Options, policy: Policy) -> Run {
         let messages = world.resource::<Messages<OwnedSfxMessage>>();
         for message in cursor.read(messages) {
             let (kind, pos) = sound(&message.request);
+            let Some(pos) = pos else {
+                *elsewhere.entry(kind).or_default() += 1;
+                continue;
+            };
             if (pos - player_pos).length() < ATTRIBUTE_PX * 0.5 {
                 *player_sounds.entry(kind).or_default() += 1;
                 continue;

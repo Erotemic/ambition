@@ -1113,13 +1113,9 @@ pub struct BlinkReticle {
     pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
-/// Rebuild [`BlinkPreviewFact`] each tick, one reticle for each driven body:
-/// the controlled subject reads the primary seat's device actions, and each
-/// other seat's body reads the frame committed for its seat. Mirrors the destination
-/// resolution used by the engine and the `show_blink_preview` debug overlay.
-/// The blink button shares ground with menu input, so this honours the same
-/// gameplay-only gate as `draw_player_debug` — paused / dialog states don't
-/// light up the ring.
+/// Rebuild each driven body's blink preview from its committed seat controls.
+/// The preview uses the same room collision query as the body operation.
+/// Paused and dialogue modes hide the preview.
 #[cfg(feature = "input")]
 #[allow(clippy::type_complexity)]
 pub fn rebuild_blink_preview_fact(
@@ -1141,60 +1137,30 @@ pub fn rebuild_blink_preview_fact(
     // room's walls, so the preview does too.
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mode: Res<bevy::prelude::State<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
-    action_query: Query<
-        &leafwing_input_manager::prelude::ActionState<
-            ambition_input::Platformer2dInputActionMonolith,
-        >,
-        (
-            With<ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual>,
-            With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
-        ),
-    >,
-    // The blink reticle previews from the CONTROLLED SUBJECT (the body
-    // holding `DrivingParticipant(PRIMARY)`) — the body you are driving — so it
-    // follows a possessed body instead of hovering at the vacated home
-    // avatar. Both player and actor bodies carry these blink clusters.
-    controlled: Res<ControlledSubject>,
     player_q: Query<(
         &BodyKinematics,
         &ambition_platformer2d_core::BodyAbilities,
         &ambition_platformer2d_core::BodyMotionFacts,
     )>,
-    // Every other seat's body, and the frame committed for its seat: a
-    // second player sees where its own blink lands.
     drivers: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
     seats: Option<Res<ambition_characters::control::SlotControls>>,
 ) {
-    use ambition_input::read_gameplay_control_frame;
-
-    let gameplay = mode.get().allows_gameplay();
-    let primary = if gameplay {
-        action_query.single().ok().map(read_gameplay_control_frame).unwrap_or_default()
-    } else {
-        Default::default()
-    };
-    let mut subjects: Vec<(Entity, ae::ControlFrame)> = controlled.0.map(|subject| (subject, primary)).into_iter().collect();
-    let mut others: Vec<_> = drivers
-        .iter()
-        .filter(|(body, driver)| {
-            driver.0 != ambition_characters::control::PlayerSlot::PRIMARY && Some(*body) != controlled.0
-        })
-        .map(|(body, driver)| (driver.0, body))
-        .collect();
-    others.sort_unstable();
-    for (slot, body) in others {
-        let controls = match seats.as_deref() {
-            Some(seats) if gameplay => seats.get(slot),
-            _ => Default::default(),
-        };
-        subjects.push((body, controls));
+    if !mode.get().allows_gameplay() {
+        if !fact.reticles.is_empty() {
+            fact.reticles.clear();
+        }
+        return;
     }
-    let reticles: Vec<BlinkReticle> = subjects
+    let mut slots: Vec<_> = drivers.iter().map(|(_, driver)| driver.0).collect();
+    slots.sort_unstable();
+    slots.dedup();
+    let reticles: Vec<BlinkReticle> = slots
         .into_iter()
-        .filter_map(|(subject, controls)| {
+        .filter_map(|slot| {
+            let subject = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, slot)?;
+            let controls = seats.as_deref().map_or_else(Default::default, |seats| seats.get(slot));
             let (kin, abilities, motion_facts) = player_q.get(subject).ok()?;
-            blink_reticle(&collision, &live, subject, kin, abilities, motion_facts, controls,
-            )
+            blink_reticle(&collision, &live, subject, kin, abilities, motion_facts, controls)
         })
         .collect();
     if fact.reticles != reticles {
@@ -1916,7 +1882,9 @@ mod blink_preview_room_tests {
                 InRoomInstance(live[room]),
             ))
             .id();
-        app.insert_resource(ControlledSubject(Some(subject)));
+        app.world_mut().entity_mut(subject).insert(ambition_characters::control::DrivingParticipant(
+            ambition_characters::control::PlayerSlot::PRIMARY,
+        ));
         app.add_systems(Update, rebuild_blink_preview_fact);
         app.update();
         let reticles = &app.world().resource::<BlinkPreviewFact>().reticles;

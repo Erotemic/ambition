@@ -642,3 +642,36 @@ fn a_second_seat_holding_blink_has_its_own_reticle() {
         "the reticles while seat 1 holds Blink, from {at:?}: {shown:?}"
     );
 }
+
+#[test]
+fn both_seats_release_blink_and_finish_its_cooldown() {
+    use ambition_platformer2d::engine_core::BodyBlinkState;
+    use ambition_platformer2d::sim_view::BlinkPreviewFact;
+
+    let mut sim = booted_in("central_hub_complex");
+    let second = seat_one_joins(&mut sim);
+    let first = the_primary(&mut sim);
+    for frame in 0..4 {
+        let held = ControlFrame {
+            axis_x: 1.0,
+            blink_pressed: frame == 0,
+            blink_held: true,
+            ..default()
+        };
+        sim.drive_seat(SEAT, held);
+        sim.step_frame(held);
+    }
+    assert_eq!(sim.world().resource::<BlinkPreviewFact>().reticles.len(), 2);
+    let release = ControlFrame { axis_x: 1.0, blink_released: true, ..default() };
+    sim.drive_seat(SEAT, release);
+    sim.step_frame(release);
+    assert!(sim.world().resource::<BlinkPreviewFact>().reticles.is_empty());
+    for body in [first, second] {
+        assert!(sim.world().get::<BodyBlinkState>(body).unwrap().cooldown > 0.0,
+            "the release did not execute this body's blink");
+    }
+    sim.step_n(AgentAction::default(), 180);
+    for body in [first, second] {
+        assert_eq!(sim.world().get::<BodyBlinkState>(body).unwrap().cooldown, 0.0);
+    }
+}

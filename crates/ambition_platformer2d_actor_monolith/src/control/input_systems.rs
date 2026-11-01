@@ -254,40 +254,22 @@ pub fn interaction_input_system(
     }
 }
 
-/// Decay presentation-only animation and flash timers.
-///
-/// Runs every frame (including paused/dialogue) so visual flash and
-/// animation pose timers wind down continuously, not just during
-/// gameplay. Owns: real-time decay of `slash_anim_timer`, `blink_in_timer`,
-/// `camera_snap_timer`. New presentation-flash timers belong here; gameplay
-/// timers belong in `derive_slot_direction_gestures`.
-///
+/// Advance each body's blink presentation with unscaled wall time.
 pub fn cleanup_timers_system(
     world_time: Res<ambition_time::WorldTime>,
-    mut player_q: Query<
-        &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
-        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
-    >,
+    mut blinks: Query<&mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState>,
 ) {
-    // Unscaled, so the camera ease keeps winding down while gameplay is
-    // suspended (suspension zeroes the scale, not the step).
     let frame_dt = world_time.wall_dt();
-    let Ok(mut blink_cam) = player_q.single_mut() else {
-        return;
-    };
-    // ⛔⛤ **AND THE BODY-GENERIC ANIM OVERLAYS LEFT FOR THE SAME REASON, 2026-09-12.**
-    // This system called `advance_body_anim_overlays` on the PRIMARY player, and
-    // the actor tick skipped every `PlayerEntity` — so a second player body,
-    // which carries `PlayerEntity` without `PrimaryPlayer`, was advanced by
-    // NEITHER and its armed poses never decayed. They advance for every body in
-    // `features::advance_body_anim_overlay_clocks` now, on `sim_dt` rather than
-    // on two different clocks.
-    //
-    // ⇒ What is left here is genuinely player-specific PRESENTATION state, and
-    // `Time::delta_secs` is right for it: the blink-camera lerp decays even
-    // while gameplay is suspended, which is the whole point of a camera ease.
-    blink_cam.blink_in_timer = (blink_cam.blink_in_timer - frame_dt).max(0.0);
-    blink_cam.camera_snap_timer = (blink_cam.camera_snap_timer - frame_dt).max(0.0);
+    for mut blink in &mut blinks {
+        let blink_in = (blink.blink_in_timer - frame_dt).max(0.0);
+        let camera_snap = (blink.camera_snap_timer - frame_dt).max(0.0);
+        if blink.blink_in_timer != blink_in {
+            blink.blink_in_timer = blink_in;
+        }
+        if blink.camera_snap_timer != camera_snap {
+            blink.camera_snap_timer = camera_snap;
+        }
+    }
 }
 
 #[cfg(test)]

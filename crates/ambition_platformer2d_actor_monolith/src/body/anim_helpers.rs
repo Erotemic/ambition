@@ -132,55 +132,27 @@ mod every_player_slot_gets_its_overlays_ticked {
         }
     }
 
-    /// The player road keeps the state that really is the player's, and keeps
-    /// its own clock for it.
-    ///
-    /// ⚠ Present because the fix REMOVED a call from `cleanup_timers_system`,
-    /// and a fix that quietly took the blink-camera decay with it would leave a
-    /// camera ease that never finishes — visible, and nothing else watches it.
     #[test]
-    fn the_player_tick_still_decays_the_blink_camera_it_owns() {
+    fn every_blink_presentation_uses_wall_time_even_when_simulation_is_paused() {
         let mut app = App::new();
-        let mut time = Time::<()>::default();
-        time.advance_by(std::time::Duration::from_secs_f32(DT));
-        app.insert_resource(time);
-
-        let primary = app
-            .world_mut()
-            .spawn((
-                PlayerEntity,
-                PrimaryPlayer,
-                PlayerBlinkCameraState {
-                    blink_in_timer: ARMED,
-                    camera_snap_timer: ARMED,
-                    ..Default::default()
-                },
-            ))
-            .id();
-
-        app.init_resource::<ambition_time::ClockState>();
-        app.init_resource::<ambition_time::WorldTime>();
-        app.add_systems(
-            Update,
-            (ambition_time::refresh_world_time, crate::control::cleanup_timers_system,
-            ).chain(),
-        );
+        let mut world_time = ambition_time::WorldTime::default();
+        world_time.set_wall_dt(DT);
+        world_time.set_sim_dt(0.0);
+        app.insert_resource(world_time);
+        let primary = app.world_mut().spawn((PlayerEntity, PrimaryPlayer,
+            PlayerBlinkCameraState { blink_in_timer: ARMED, camera_snap_timer: ARMED, ..Default::default() },
+        )).id();
+        let second = app.world_mut().spawn((PlayerEntity,
+            PlayerBlinkCameraState { blink_in_timer: DT, camera_snap_timer: DT / 2.0, ..Default::default() },
+        )).id();
+        let observer = app.world_mut().spawn(PlayerBlinkCameraState::default()).id();
+        app.world_mut().spawn(armed_body());
+        app.add_systems(Update, crate::control::cleanup_timers_system);
         app.update();
-
-        let blink = app
-            .world()
-            .get::<PlayerBlinkCameraState>(primary)
-            .expect("player");
-        let expected = ARMED - DT;
-        assert!(
-            (blink.blink_in_timer - expected).abs() < 1e-6,
-            "the blink-in ease should still decay in the player tick: {}",
-            blink.blink_in_timer
-        );
-        assert!(
-            (blink.camera_snap_timer - expected).abs() < 1e-6,
-            "the camera-snap ease should still decay in the player tick: {}",
-            blink.camera_snap_timer
-        );
+        for (body, expected) in [(primary, ARMED - DT), (second, 0.0), (observer, 0.0)] {
+            let blink = app.world().get::<PlayerBlinkCameraState>(body).unwrap();
+            assert_eq!(blink.blink_in_timer, expected);
+            assert_eq!(blink.camera_snap_timer, expected);
+        }
     }
 }

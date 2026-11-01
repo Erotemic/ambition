@@ -120,18 +120,18 @@ fn median(mut values: Vec<f32>) -> f32 {
     values[values.len() / 2]
 }
 
+// These entities contain camera input samples. They have no motion model.
+fn body_sample(pos: ae::Vec2, vel: ae::Vec2) -> ae::BodyKinematics {
+    ae::BodyKinematics { pos, vel, size: BODY, ..Default::default() }
+}
+
 /// Run `scenario` with a fresh camera; `human` seats a controlled body in 0.
 pub(crate) fn run(scenario: &Scenario, framing: CastFramingTuning, human: bool) -> Measured {
     let mut app = smash_app(framing.clone());
     let mut last: Vec<ae::Vec2> = (0..scenario.bodies).map(|i| (scenario.path)(i, 0.0)).collect();
     let bodies: Vec<Entity> = last
         .iter()
-        .map(|at| {
-            let mut kin = ae::BodyKinematics::default();
-            kin.pos = *at;
-            kin.size = BODY;
-            app.world_mut().spawn(kin).id()
-        })
+        .map(|at| app.world_mut().spawn(body_sample(*at, ae::Vec2::ZERO)).id())
         .collect();
     app.world_mut().resource_mut::<FramedCast>().0 = bodies.clone();
     if human {
@@ -143,9 +143,7 @@ pub(crate) fn run(scenario: &Scenario, framing: CastFramingTuning, human: bool) 
         let t = tick as f32 * DT;
         for (i, body) in bodies.iter().enumerate() {
             let at = (scenario.path)(i, t);
-            let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(*body).expect("a body");
-            kin.vel = (at - last[i]) / DT;
-            kin.pos = at;
+            app.world_mut().entity_mut(*body).insert(body_sample(at, (at - last[i]) / DT));
             last[i] = at;
         }
         app.update();
@@ -348,11 +346,7 @@ fn steady_cast_jerk(frame_hz: f32, human: bool) -> f32 {
     let at = |i: usize, t: f32| ae::Vec2::new(200.0 + 120.0 * i as f32 + pace * t, STAND_Y);
     let bodies: Vec<Entity> = (0..2)
         .map(|i| {
-            let mut kin = ae::BodyKinematics::default();
-            kin.pos = at(i, 0.0);
-            kin.vel = ae::Vec2::new(pace, 0.0);
-            kin.size = BODY;
-            app.world_mut().spawn(kin).id()
+            app.world_mut().spawn(body_sample(at(i, 0.0), ae::Vec2::new(pace, 0.0))).id()
         })
         .collect();
     app.world_mut().resource_mut::<FramedCast>().0 = bodies.clone();
@@ -370,7 +364,9 @@ fn steady_cast_jerk(frame_hz: f32, human: bool) -> f32 {
             ticks += 1;
             app.world_mut().resource_mut::<ambition_time::SimTick>().0 = ticks;
             for (i, body) in bodies.iter().enumerate() {
-                app.world_mut().get_mut::<ae::BodyKinematics>(*body).expect("a body").pos = at(i, ticks as f32 * DT);
+                app.world_mut().entity_mut(*body).insert(body_sample(
+                    at(i, ticks as f32 * DT), ae::Vec2::new(pace, 0.0),
+                ));
             }
         }
         app.world_mut()

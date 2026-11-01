@@ -1881,15 +1881,11 @@ setup while retaining distinct behavior and phase boundaries. Retire only
 obsolete diagnostics. Apply the current AGENTS.md rule against new meta-test
 machinery; do not turn source counts or test counts into acceptance gates.
 
-**Current correctness findings (2026-11-01):** the assembled `rollback_`
-filter reports 66 passed, 13 failed and 6 ignored. Resolve the live `ItemBody`
-classification and resource decisions for `CastFramingTuning`, `GateRingPositions`
-and `SimStepPeriod` at their owners. Localize the forced-rewind mismatches in
-contact, possession, boss techniques and checkpoint restoration before further
-multiplayer rule work. Do not raise census ceilings or add broad waivers.
-The workspace policy run also reports five pose/velocity writes in the camera
-scenario fixture; resolve whether that fixture states samples or simulates bodies.
-The Smash rerun and union feature sweep still need target-volume headroom.
+**Correctness repair (2026-11-01):** `4cea7026d` settles hit memory in the damage tick and declares four derived inputs at their owners.
+`dfe0d768b` makes camera fixtures supply complete samples; no policy waiver was added.
+Guards: `app_it -- rollback_` passes 79 tests (6 ignored); the component localizer passes 595 restore comparisons.
+Policy: 35 passed; camera: 3 passed; Smash: 18 unit and 53 integration passed (6 ignored); app check and 53 absence contracts passed.
+Full Python tooling and union feature verification remain open. These passes do not close TEST-LANES.
 
 **Owner:** test runner / app integration lane. Operational rules and what a
 green lane does not clear:

@@ -39,6 +39,10 @@ Standing facts:
   per-world development knob, read once at App build.
 - The attention cut is deterministic because the kept set feeds
   `WorldMemory`, which is rollback state.
+- A resolved hit updates perception memory in `CombatSet::Settle`, before the
+  snapshot. `ResolvedBodyHit` is cleared on rewind, so its consequence cannot
+  wait for the next tick. Guard: `contact_state_survives_real_rewind_and_resimulation`
+  in [the contact replay](../../../game/ambition_app/tests/rollback_contact.rs).
 - Budget guards: `a_crowd_is_attended_to_hostiles_first_and_the_rest_is_counted`,
   `below_the_attention_cap_the_view_is_what_it_always_was`.
 

@@ -550,13 +550,11 @@ control.
 
 ### MULTIPLAYER-SEAMS — make local multiplayer safe for netplay
 
-**Failure (maintainer playtest, 2026-10-24):** local co-op works, but Player 2
-cannot control its own dialogue; dialogue and room loading cover the other
-viewport; Player 2 can remain in blink presentation; friendly fire is off;
-the Ambition menu has one input/cursor/visible state; F1 gizmos use primary
-room data. Fixed split is not a selectable policy. These are independent
-authority, client-local presentation, and gameplay-rule boundaries. See the
-source-verified [cause and acceptance map](engine/local-coop-integration.md#follow-up-audit-co-op-works-but-participant-and-view-scope-leaks-2026-10-24)
+**Remaining failure:** co-op friendly fire is off; the Ambition menu has one
+input, cursor and visible state; room loading covers the other viewport; F1
+gizmos use primary room data. Routine peer room commits still hold the whole
+session. These are separate authority, presentation and gameplay-rule boundaries.
+See the [cause and acceptance map](engine/local-coop-integration.md#follow-up-audit-co-op-works-but-participant-and-view-scope-leaks-2026-10-24)
 and [product decisions](game/multiplayer.md#local-co-op-behavior-decided-in-the-2026-10-24-playtest).
 
 **Owner:** dialogue input (`ambition_dialog`, `ambition_conversation`,
@@ -574,12 +572,16 @@ GPU layout bounds match the owner input region. Shared geometry covers split/mer
 Blink symmetry landed in `0754ed273`; both seats hold, release and finish cooldown,
 and blink presentation timers use wall time. Keep one committed-input preview path.
 
+Fixed split landed in `751ad0b34` through the persisted video setting and view lifecycle.
+Window and capture targets share the rectangle conversion; later split cameras
+retain earlier panes. Guards: `fixed_split_uses_the_setting_without_changing_the_session`
+and `fixed_split_draws_both_same_room_views`, with physical rectangles and pixels.
+Keep authored layouts and cast framing under their existing owners.
+
 **Next action (ordered slices; complete each behavior gate before moving):**
 
-3. **Gameplay and presentation options:** add `Adaptive`/`AlwaysSplit` as
-   client-local presentation policy with adaptive as default. Add co-op
-   friendly fire ON by default and a host OFF option through the common
-   damage relation. Freeze/agree the effective gameplay rule in the session
+3. **Gameplay rule:** add co-op friendly fire ON by default and a host OFF
+   option through the common damage relation. Freeze/agree the rule in the session
    contract before peer simulation. Include melee, ranged, and possession
    coverage; keep self-damage and NPC target selection rules distinct.
 4. **Independent local menus:** separate per-seat open state, focus, page,
@@ -1886,6 +1888,8 @@ machinery; do not turn source counts or test counts into acceptance gates.
 Guards: `app_it -- rollback_` passes 79 tests (6 ignored); the component localizer passes 595 restore comparisons.
 Policy: 35 passed; camera: 3 passed; Smash: 18 unit and 53 integration passed (6 ignored); app check and 53 absence contracts passed.
 Full Python tooling and union feature verification remain open. These passes do not close TEST-LANES.
+Documentation checks also remain open: five broken local links and 55 unresolved
+planning citations were reported on 2026-11-01. Planning anchors resolve.
 
 **Owner:** test runner / app integration lane. Operational rules and what a
 green lane does not clear:
@@ -2366,6 +2370,12 @@ responsibility to its owner and keep one body, control, and action path.
 | # | Item | Next step |
 |---|---|---|
 | AP14 | Complete actor-monolith responsibility separation | The kernel module graph is a DAG. Lifecycle, publication, materialization, items, world objects, device input, observation, and global schedules have explicit owners. The public `body` API owns execution; `control` owns accepted control. Room technique grants follow each driven body. Real simulation covers two-seat possession, reaction clocks, controlled-body removal, action continuity, one-step free motion before and after seat releases, and mounted motion through timed dismount under rollback. Audit residual responsibilities and public operations. Keep accepted control and body execution together. Preserve rollback, publication barriers, and the number of active systems. See the [decomposition plan](engine/actor-monolith-decomposition.md#dependency-first-extraction-sequence). |
+
+**Installation finding (2026-11-01):** the engine-installation check reports
+`sync_ring_lit_glyphs` and `crumble_lock_wall_visuals` in the main-game plugin.
+Recheck their capability owners and move reusable installation with its behavior.
+The capture installer now owns its schedule; its old exception was removed.
+Do not add an exception to hide these two findings.
 
 **Acceptance:** each cut moves state, behaviour and installation together and
 deletes the old edge; `python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80`

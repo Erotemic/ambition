@@ -343,7 +343,7 @@ The current product rules are in
 |---|---|---|
 | Player 2 cannot drive dialogue that Player 2 opened | `InputOwner` projects from the conversation to `DialogState` and `DialogView`; input reads the accepted owner frame from `SeatMenuFrames`. | **Fixed in `94d8822f9`**; real controller tests cover same-room and separate-room dialogue, including navigation and close ownership. |
 | Dialogue covers the entire display | Both presenters use `DialogSurface` to resolve the owner view and clip the root. `DialogPointerRegion` uses the same rectangle. | **Fixed in `94d8822f9`**; split/merge tests and a real GPU capture check bounds. This does not close other UI or transition surfaces. |
-| Cannot select always-split view mode | Ambition installs `AdaptiveSplit` in `ambition_content::provider`. `split_views_by_live_room` splits by room count and optional distance; `GameplaySettings` has no layout choice. | **Confirmed missing policy**. Add an explicit view policy instead of altering thresholds to prevent merging. |
+| Always-split view mode | `VideoSettings::local_view_layout` selects `Adaptive` or `AlwaysSplit` through the shared settings menu. The existing view and camera owners apply it. | **Built 2026-11-01** (`751ad0b34`). Controller and GPU tests cover live switching, retained session/body identity, separate rectangles and drawn panes. |
 | Player 2 stays in blink state | Every `PlayerBlinkCameraState` advances on wall time. Every preview reads committed seat controls through the driven body. | **Fixed in `0754ed273`**; the two-seat simulation test covers press, hold, release and completed cooldown. A separate paused-clock test covers presentation decay. |
 | Player strikes do not hurt the other player | `FriendlyFire::default().enabled` is false. Both driven bodies resolve to `ActorFaction::Player`; `damage_lands_between` allows same-faction damage only when friendly fire is enabled (unless another relation overrides). | **Confirmed default rule explains allied damage rejection**. Prove Ambition's actual resolved room rule and all attack families. The explicit `friendly_fire: false` in `game/ambition_app/assets/data/room_rules.ron` is a **Versus** stage declaration, not the general Ambition room default. |
 | Only one player can use the pause/menu | Ambition's kaleidoscope and grid menu systems read one `MenuControlFrame`, one `InventoryUiState`, and singleton focus/page/cursor state. `ShellPauseMenu` supports an owning seat but Ambition suppresses it and supplies its own menu. | **Confirmed singleton Ambition menu**. The shell seat rule is not two independent menus. |
@@ -426,8 +426,8 @@ simulation through `NarrativeInputLedger`. Preserve that contract.
 
 ### Split policy: adaptive by default, fixed split as a local option
 
-Create one explicit layout-policy value, for example `Adaptive` or
-`AlwaysSplit`, in the local presentation settings. The default is `Adaptive`.
+`VideoSettings::local_view_layout` owns one `LocalViewLayout` value:
+`Adaptive` or `AlwaysSplit`. The default is `Adaptive`.
 `AlwaysSplit` shows separate independent viewports whenever at least two
 local participants are active, including while they are in the same room and
 standing together. It never merges while two local participants remain.
@@ -445,10 +445,10 @@ players are alive must not reset the session or steal input.
 
 The movement kernel's `handle_blink_clusters` starts the held aim state and
 completes the blink on the release edge. The movement tick decays cooldown
-and grace timers per body. The presentation path can arm each player's
-`PlayerBlinkCameraState`, but its cleanup currently selects only the primary
-body. This is a valid fix target without moving blink logic into a new host
-special case.
+and grace timers per body. The presentation path arms each body's
+`PlayerBlinkCameraState`. Its cleanup now decays every body's presentation
+timers from wall time (`0754ed273`). The simulation still owns release,
+cooldown and grace.
 
 - Tick presentation-only blink easing for **every** body with the component,
   once each applicable presentation frame. Retain the existing unscaled

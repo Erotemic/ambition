@@ -191,7 +191,7 @@ impl SyncTestSettings {
 pub fn start_sync_test_session(
     world: &mut World,
     settings: SyncTestSettings,
-) -> Result<(), StartSyncTestError> {
+) -> Result<(), StartRollbackSessionError> {
     start_sync_test_session_owned(world, settings, SyncTestOwner::Caller)
 }
 
@@ -203,7 +203,7 @@ pub fn start_sync_test_session_owned(
     world: &mut World,
     settings: SyncTestSettings,
     owner: SyncTestOwner,
-) -> Result<(), StartSyncTestError> {
+) -> Result<(), StartRollbackSessionError> {
     // GGRS construction touches no world, so it runs first and a rejected
     // setting cannot leave a half-installed timeline.
     let session = build_sync_test_session(settings)?;
@@ -394,38 +394,39 @@ impl FrameZeroEligibility {
     }
 }
 
-/// Why starting a local sync-test session failed.
-///
-/// The two causes are different. A GGRS error is about the settings. A
-/// frame-zero refusal is about the world and can clear when the candidate
-/// publishes, so a caller that retries must be able to tell them apart.
+/// Why starting a rollback timeline failed.
+/// Settings, carrier eligibility and peer proposals have separate refusal causes.
+/// A candidate publication can clear a carrier refusal.
 #[derive(Debug)]
-pub enum StartSyncTestError {
+pub enum StartRollbackSessionError {
     /// GGRS refused the settings. Touches no world.
     Ggrs(ggrs::GgrsError),
     /// The world is not in a state that can declare frame zero. Nothing was
     /// mutated and no session was installed.
     FrameZeroRefused(FrameZeroRefused),
+    /// The transport refused this generation's contract proposal.
+    PeerContract(String),
 }
 
-impl std::fmt::Display for StartSyncTestError {
+impl std::fmt::Display for StartRollbackSessionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Ggrs(error) => write!(f, "{error}"),
             Self::FrameZeroRefused(refusal) => write!(f, "{refusal}"),
+            Self::PeerContract(reason) => write!(f, "{reason}"),
         }
     }
 }
 
-impl std::error::Error for StartSyncTestError {}
+impl std::error::Error for StartRollbackSessionError {}
 
-impl From<ggrs::GgrsError> for StartSyncTestError {
+impl From<ggrs::GgrsError> for StartRollbackSessionError {
     fn from(error: ggrs::GgrsError) -> Self {
         Self::Ggrs(error)
     }
 }
 
-impl From<FrameZeroRefused> for StartSyncTestError {
+impl From<FrameZeroRefused> for StartRollbackSessionError {
     fn from(refusal: FrameZeroRefused) -> Self {
         Self::FrameZeroRefused(refusal)
     }
@@ -701,17 +702,8 @@ fn install_session_with_ownership(
     session: AmbitionGgrsSession,
     ownership: RollbackSessionOwnership,
 ) {
-    // Borrowed for the same reason `enforce_session_contract` borrows: a clone's
-    // memo starts empty, so reading through one leaves the world's registry
-    // permanently uncached and every later frame pays the full hash.
-    let schema = world
-        .get_resource::<RollbackRegistry>()
-        .map(RollbackRegistry::schema_fingerprint)
-        .unwrap_or_else(|| RollbackRegistry::default().schema_fingerprint());
-    // The timeline names its owner at install. This decides which content it
-    // may bind to, whose health it carries, and who may read the answer.
+    let contract = timeline_contract(world);
     let owner = ambition_platformer2d_shared_tangle::lifecycle::live_session_scope(world);
-    let content = content_identity_of(world, owner);
     // AC23 and the cross-session rule are one rule, in
     // `ActiveRollbackAuthority::installed`. A caller supplies who and what,
     // never whether. An install must not hide a divergence behind a clean
@@ -719,7 +711,7 @@ fn install_session_with_ownership(
     let authority = ActiveRollbackAuthority::installed(
         world.get_resource::<ActiveRollbackAuthority>(),
         owner,
-        RollbackTimelineContract { content, schema },
+        contract,
     );
     let generation = authority.generation().0;
     world.insert_resource(authority);
@@ -741,6 +733,16 @@ fn install_session_with_ownership(
         confirmed: -1,
         session: generation,
     });
+}
+
+/// Read the contract that a new timeline will install.
+pub(crate) fn timeline_contract(world: &World) -> RollbackTimelineContract {
+    let schema = world
+        .get_resource::<RollbackRegistry>()
+        .map(RollbackRegistry::schema_fingerprint)
+        .unwrap_or_else(|| RollbackRegistry::default().schema_fingerprint());
+    let owner = ambition_platformer2d_shared_tangle::lifecycle::live_session_scope(world);
+    RollbackTimelineContract { content: content_identity_of(world, owner), schema }
 }
 
 /// Remove every resource whose presence means a rollback session is active.
@@ -922,6 +924,10 @@ pub(crate) fn install_session_bridge(app: &mut App) {
             >),
     );
 
+    app.configure_sets(
+        PreUpdate,
+        RunGgrsSystems.run_if(crate::peer::peer_agreement_is_ready),
+    );
     app.add_systems(Update, report_input_written_to_the_wrong_seam);
     app.init_resource::<InputSeamMisuse>()
         .init_resource::<PendingSeatInputs>()
@@ -1509,6 +1515,7 @@ pub(crate) fn enforce_session_contract(world: &mut World) {
         }
         _ => {}
     }
+    crate::peer::enforce_peer_contract(world);
 }
 
 /// Retire the authority governing a scope the shell has just retired.
@@ -1546,7 +1553,7 @@ pub(crate) fn retire_rollback_authority_with_its_scope(
 /// reason is also copied into the process-lifetime
 /// [`RollbackDiagnosticHistory`], which outlives the session and authorizes
 /// nothing.
-fn invalidate_session(world: &mut World, reason: String) {
+pub(crate) fn invalidate_session(world: &mut World, reason: String) {
     let record = world
         .get_resource::<ActiveRollbackAuthority>()
         .map(|authority| RollbackDiagnostic {
@@ -1927,7 +1934,7 @@ mod carrier_order_tests {
             "the refusal installed a GGRS clock for a session that does not exist"
         );
         match refused.expect_err("the start road must refuse") {
-            StartSyncTestError::FrameZeroRefused(refusal) => {
+            StartRollbackSessionError::FrameZeroRefused(refusal) => {
                 assert_eq!(refusal.hidden_candidates, 1);
                 assert_eq!(refusal.carriers, 2, "the refusal names the WHOLE population");
             }

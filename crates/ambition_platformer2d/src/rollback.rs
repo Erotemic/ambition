@@ -30,11 +30,11 @@ pub use ambition_platformer2d_rollback_ggrs::local_session;
 /// in-memory transport for two Apps in one process (netcode N2).
 pub use ambition_platformer2d_rollback_ggrs::peer::{
     build_peer_session, loopback_transports, start_peer_session, LoopbackSocket,
-    LoopbackTransport, PeerLineage, PeerSessionSettings, PeerTransport,
+    LoopbackTransport, PeerContentContract, PeerLineage, PeerSessionSettings, PeerTimelineContract, PeerTransport,
 };
 pub use ambition_platformer2d_rollback_ggrs::session::{
     drive_control_frame, drive_slot_frame, mechanical_mutation_boundary,
-    session_health, session_is_active, MechanicalMutationBoundary,
+    session_health, session_is_active, MechanicalMutationBoundary, StartRollbackSessionError,
     start_sync_test_session, stop_session, stop_session_deferred, ActiveRollbackAuthority,
     RollbackDiagnostic, RollbackDiagnosticHistory, RollbackExecutionStats,
     RollbackSessionOwnership, RollbackTimelineContract, RollbackTimelineGeneration,

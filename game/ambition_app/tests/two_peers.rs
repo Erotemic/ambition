@@ -1167,3 +1167,80 @@ fn a_host_that_commits_alone_simulates_while_its_crossing_waits() {
          (0 ticks: this host froze, and the freeze is for a peer session only)"
     );
 }
+
+#[test]
+fn peer_contract_waits_for_the_other_proposal_before_simulation() {
+    let (a, b) = ("127.0.0.1:7031".parse().unwrap(), "127.0.0.1:7032".parse().unwrap());
+    let (to_bob, to_alice) = loopback_transports(a, b, LATENCY);
+    let (mut alice, _) = peer(ROOM, 0, (1, b), to_bob, Poison::None);
+    let before = sim_tick(&alice);
+    for _ in 0..20 {
+        alice.app_mut().update();
+    }
+    assert_eq!(sim_tick(&alice), before);
+    assert_eq!(alice.world().resource::<RollbackFrameCount>().0, 0);
+    alice.rollback_health().expect("a missing proposal waits without invalidation");
+
+    fn another_local_activation(sim: &mut Platformer2dSimHarness) {
+        use ambition_platformer2d::runtime::{ContentEpoch, PreparedContent, publish_session_content};
+        let world = sim.world_mut();
+        let mut roots = world.query_filtered::<
+            &PreparedContent,
+            With<ambition_platformer2d::platformer::lifecycle::SessionRoot>,
+        >();
+        let content = roots.single(world).expect("one prepared session").clone();
+        let epoch = ContentEpoch(content.epoch().0 + 17);
+        publish_session_content(world, content.with_epoch(epoch));
+    }
+    let (mut bob, _) = peer_prepared_by(
+        ROOM, 1, (0, a), to_alice, Poison::None, another_local_activation,
+    );
+    let bobs_before = sim_tick(&bob);
+    for _ in 0..120 {
+        alice.app_mut().update();
+        bob.app_mut().update();
+        if sim_tick(&alice) > before && sim_tick(&bob) > bobs_before {
+            break;
+        }
+    }
+    alice.rollback_health().expect("equal contracts remain healthy");
+    bob.rollback_health().expect("equal contracts remain healthy");
+    assert!(sim_tick(&alice) > before);
+    assert!(sim_tick(&bob) > bobs_before);
+}
+
+#[test]
+fn peer_contract_mismatch_refuses_simulation_on_both_peers() {
+    use ambition_platformer2d::runtime::{PreparedContentIdentity, ContentFingerprint};
+    use ambition_platformer2d::runtime::rollback::{descriptor, RollbackEntryKind, RollbackRegistry};
+
+    fn different_content(sim: &mut Platformer2dSimHarness) {
+        let world = sim.world_mut();
+        let mut roots = world.query_filtered::<
+            &mut PreparedContentIdentity,
+            With<ambition_platformer2d::platformer::lifecycle::SessionRoot>,
+        >();
+        let mut identity = roots.single_mut(world).expect("one prepared session");
+        identity.fingerprint = ContentFingerprint::from_bytes([19; 32]);
+    }
+    fn different_schema(sim: &mut Platformer2dSimHarness) {
+        sim.world_mut().resource_mut::<RollbackRegistry>().try_register(descriptor::<u64>(
+            "test", "test.peer.contract.schema", RollbackEntryKind::ResourceCloneCustomChecksum,
+            "peer has another resource schema",
+        )).unwrap();
+    }
+    for prepare in [different_content as fn(&mut Platformer2dSimHarness), different_schema] {
+        let (a, b) = ("127.0.0.1:7041".parse().unwrap(), "127.0.0.1:7042".parse().unwrap());
+        let (to_bob, to_alice) = loopback_transports(a, b, LATENCY);
+        let (mut alice, _) = peer(ROOM, 0, (1, b), to_bob, Poison::None);
+        let (mut bob, _) = peer_prepared_by(ROOM, 1, (0, a), to_alice, Poison::None, prepare);
+        for sim in [&mut alice, &mut bob] {
+            let before = sim_tick(sim);
+            sim.app_mut().update();
+            let reason = sim.rollback_health().expect_err("different contracts must be refused");
+            assert!(reason.contains("peer contract mismatch"), "{reason}");
+            assert_eq!(sim_tick(sim), before);
+            assert_eq!(sim.world().resource::<RollbackFrameCount>().0, 0);
+        }
+    }
+}

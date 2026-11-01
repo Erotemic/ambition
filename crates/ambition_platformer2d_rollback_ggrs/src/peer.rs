@@ -10,14 +10,47 @@ use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use bevy::prelude::{Resource, World};
+use bevy::prelude::{Res, Resource, World};
+use ambition_platformer2d_runtime::{
+    ActiveRollbackAuthority, ContentFingerprint, ContentFingerprintSchemaVersion,
+    PreparedContentIdentity, RollbackTimelineContract, SnapshotSchemaFingerprint,
+};
 use bevy_ggrs::ggrs::{self, DesyncDetection, Message, NonBlockingSocket, PlayerType, SessionBuilder};
 use bevy_ggrs::Session;
 
 use crate::session::{
     install_rebased_session, AmbitionGgrsConfig, AmbitionGgrsSession, FrameZeroEligibility,
-    StartSyncTestError,
+    StartRollbackSessionError,
 };
+
+/// Prepared-content fields used for agreement between independent peers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PeerContentContract {
+    pub fingerprint_schema: ContentFingerprintSchemaVersion,
+    pub fingerprint: ContentFingerprint,
+    pub snapshot_schema: SnapshotSchemaFingerprint,
+}
+
+/// The immutable content and schema proposal for one peer timeline.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PeerTimelineContract {
+    pub content: Option<PeerContentContract>,
+    pub schema: SnapshotSchemaFingerprint,
+    pub input_wire_identity: u32,
+}
+
+impl From<&RollbackTimelineContract> for PeerTimelineContract {
+    fn from(local: &RollbackTimelineContract) -> Self {
+        let RollbackTimelineContract { content, schema } = local;
+        Self {
+            content: content.map(|PreparedContentIdentity {
+                fingerprint_schema, fingerprint, snapshot_schema, epoch: _,
+            }| PeerContentContract { fingerprint_schema, fingerprint, snapshot_schema }),
+            schema: *schema,
+            input_wire_identity: ambition_platformer2d_core::CONTROL_FRAME_WIRE_IDENTITY,
+        }
+    }
+}
 
 /// The players of a P2P session as one peer sees them.
 #[derive(Clone, Debug)]
@@ -74,6 +107,15 @@ pub trait PeerTransport: Send + Sync + 'static {
     /// the link until the session polls it, so a session that is built and
     /// not installed costs nothing.
     fn socket_for(&self, generation: u32) -> Box<dyn NonBlockingSocket<SocketAddr>>;
+
+    /// Announce an immutable proposal for this generation. A repeated equal
+    /// proposal is permitted. A different proposal for the same generation is refused.
+    fn offer_contract(&self, generation: u32, contract: &PeerTimelineContract) -> Result<(), String>;
+
+    /// Read a remote peer's proposal, or wait while it is unavailable.
+    /// Exchange must progress before GGRS sockets are polled. Return only
+    /// the named peer and generation's immutable proposal.
+    fn receive_contract(&self, generation: u32, from: SocketAddr) -> Result<Option<PeerTimelineContract>, String>;
 }
 
 struct BoxedSocket(Box<dyn NonBlockingSocket<SocketAddr>>);
@@ -101,12 +143,35 @@ pub struct PeerLineage {
     settings: PeerSessionSettings,
     transport: Box<dyn PeerTransport>,
     generation: u32,
+    proposal: PeerTimelineContract,
+    agreed: bool,
 }
 
 impl PeerLineage {
     /// The generation of the live session.
     pub fn generation(&self) -> u32 {
         self.generation
+    }
+
+    fn agreement(&self, current: &RollbackTimelineContract) -> Result<bool, String> {
+        if PeerTimelineContract::from(current) != self.proposal {
+            return Err(format!("peer generation {} changed its proposed contract", self.generation));
+        }
+        if self.agreed {
+            return Ok(true);
+        }
+        let mut complete = true;
+        for &(_, remote) in &self.settings.remote {
+            match self.transport.receive_contract(self.generation, remote)? {
+                None => complete = false,
+                Some(observed) if observed == self.proposal => {}
+                Some(observed) => return Err(format!(
+                    "peer contract mismatch at generation {} from {}: expected {:?}, observed {:?}",
+                    self.generation, remote, self.proposal, observed,
+                )),
+            }
+        }
+        Ok(complete)
     }
 
     /// Construct the session of the next generation WITHOUT touching the
@@ -119,26 +184,27 @@ impl PeerLineage {
     }
 }
 
-/// Start a P2P session whose peers agreed to begin at the live world: the
-/// world becomes frame zero (`install_rebased_session`). Each peer calls this
-/// at the same point of the same world. It is generation 0 of the peer's
-/// [`PeerLineage`].
+/// Start a peer timeline over the prepared live world.
 ///
-/// The same two checks as a sync test, in the same order: GGRS refuses the
-/// settings, or the world cannot declare frame zero. Either refusal leaves the
-/// world unchanged.
+/// Each peer must construct the same initial world. The transport compares
+/// content and schema contracts before GGRS can advance generation zero.
+/// A settings, carrier or proposal refusal leaves the live world unchanged.
 pub fn start_peer_session(
     world: &mut World,
     settings: &PeerSessionSettings,
     transport: impl PeerTransport,
-) -> Result<(), StartSyncTestError> {
+) -> Result<(), StartRollbackSessionError> {
     let session = build_peer_session(settings, BoxedSocket(transport.socket_for(0)))?;
     let eligibility = FrameZeroEligibility::check(world)?;
+    let proposal = PeerTimelineContract::from(&crate::session::timeline_contract(world));
+    transport.offer_contract(0, &proposal).map_err(StartRollbackSessionError::PeerContract)?;
     install_rebased_session(world, session, eligibility);
     world.insert_resource(PeerLineage {
         settings: settings.clone(),
         transport: Box::new(transport),
         generation: 0,
+        proposal,
+        agreed: false,
     });
     Ok(())
 }
@@ -151,8 +217,40 @@ pub(crate) fn install_next_peer_session(
     session: AmbitionGgrsSession,
     eligibility: FrameZeroEligibility,
 ) {
+    let proposal = PeerTimelineContract::from(&crate::session::timeline_contract(world));
+    let offered = {
+        let lineage = world.resource::<PeerLineage>();
+        lineage.transport.offer_contract(lineage.generation + 1, &proposal)
+    };
+    if let Err(reason) = offered {
+        crate::session::invalidate_session(world, reason);
+        return;
+    }
     install_rebased_session(world, session, eligibility);
-    world.resource_mut::<PeerLineage>().generation += 1;
+    let mut lineage = world.resource_mut::<PeerLineage>();
+    lineage.generation += 1;
+    lineage.proposal = proposal;
+    lineage.agreed = false;
+}
+
+/// Validate local stability and collect peer proposals before GGRS advances.
+pub(crate) fn enforce_peer_contract(world: &mut World) {
+    let Some(lineage) = world.get_resource::<PeerLineage>() else {
+        return;
+    };
+    let became_ready = world.get_resource::<ActiveRollbackAuthority>()
+        .ok_or_else(|| "peer session has no rollback authority".to_string())
+        .and_then(|authority| lineage.agreement(authority.contract()))
+        .map(|ready| ready && !lineage.agreed);
+    match became_ready {
+        Ok(true) => world.resource_mut::<PeerLineage>().agreed = true,
+        Ok(false) => {}
+        Err(reason) => crate::session::invalidate_session(world, reason),
+    }
+}
+
+pub(crate) fn peer_agreement_is_ready(lineage: Option<Res<PeerLineage>>) -> bool {
+    lineage.is_none_or(|lineage| lineage.agreed)
 }
 
 /// One peer's end of an in-memory link, for each session it starts.
@@ -218,6 +316,7 @@ struct Link {
     // Ordered by address, so two runs deliver in one order.
     waiting: BTreeMap<SocketAddr, VecDeque<Parcel>>,
     dropped_old: u64,
+    contracts: BTreeMap<(u32, SocketAddr), PeerTimelineContract>,
 }
 
 struct Parcel {
@@ -228,6 +327,7 @@ struct Parcel {
 }
 
 /// The two ends of one link, at `a` and `b`.
+/// Use a new link for each gameplay session.
 pub fn loopback_transports(
     a: SocketAddr,
     b: SocketAddr,
@@ -237,6 +337,7 @@ pub fn loopback_transports(
         delay,
         waiting: BTreeMap::new(),
         dropped_old: 0,
+        contracts: BTreeMap::new(),
     }));
     let end = |address| LoopbackTransport {
         address,
@@ -248,6 +349,21 @@ pub fn loopback_transports(
 impl PeerTransport for LoopbackTransport {
     fn socket_for(&self, generation: u32) -> Box<dyn NonBlockingSocket<SocketAddr>> {
         Box::new(self.socket(generation))
+    }
+
+    fn offer_contract(&self, generation: u32, contract: &PeerTimelineContract) -> Result<(), String> {
+        let mut link = self.link.lock().expect("no holder of the link panics");
+        match link.contracts.entry((generation, self.address)) {
+            std::collections::btree_map::Entry::Vacant(entry) => { entry.insert(*contract); }
+            std::collections::btree_map::Entry::Occupied(entry) if entry.get() == contract => {}
+            _ => return Err(format!("peer {} already proposed another contract for generation {}", self.address, generation)),
+        }
+        Ok(())
+    }
+
+    fn receive_contract(&self, generation: u32, from: SocketAddr) -> Result<Option<PeerTimelineContract>, String> {
+        Ok(self.link.lock().expect("no holder of the link panics")
+            .contracts.get(&(generation, from)).copied())
     }
 }
 
@@ -268,6 +384,7 @@ impl NonBlockingSocket<SocketAddr> for LoopbackSocket {
             delay,
             waiting,
             dropped_old,
+            ..
         } = &mut *link;
         let queue = waiting.entry(self.address).or_default();
         // The session that could read a parcel of an older generation ended.
@@ -314,6 +431,38 @@ mod tests {
             desync_interval: 1,
             disconnect_timeout: Duration::from_secs(60),
         }
+    }
+
+    #[test]
+    fn another_proposal_for_one_generation_refuses_start_without_changing_the_world() {
+        let (a, b) = addresses();
+        let (alice, _) = loopback_transports(a, b, 0);
+        let mut world = World::new();
+        let mut previous = PeerTimelineContract::from(&crate::session::timeline_contract(&world));
+        previous.schema = ambition_platformer2d_runtime::SnapshotSchemaFingerprint::from_bytes([7; 32]);
+        alice.offer_contract(0, &previous).unwrap();
+        let error = start_peer_session(&mut world, &settings(0, (1, b)), alice).unwrap_err();
+        assert!(matches!(error, StartRollbackSessionError::PeerContract(_)));
+        assert!(!crate::session::session_is_active(&world));
+        assert!(!world.contains_resource::<ActiveRollbackAuthority>());
+        assert!(!world.contains_resource::<PeerLineage>());
+    }
+
+    #[test]
+    fn another_input_format_cannot_agree() {
+        let (a, b) = addresses();
+        let (alice, bob) = loopback_transports(a, b, 0);
+        let current = crate::session::timeline_contract(&World::new());
+        let proposal = PeerTimelineContract::from(&current);
+        let mut incompatible = proposal;
+        incompatible.input_wire_identity ^= 1;
+        bob.offer_contract(0, &incompatible).unwrap();
+        let lineage = PeerLineage {
+            settings: settings(0, (1, b)), transport: Box::new(alice),
+            generation: 0, proposal, agreed: false,
+        };
+        let reason = lineage.agreement(&current).unwrap_err();
+        assert!(reason.contains("peer contract mismatch"), "{reason}");
     }
 
     fn running(session: &AmbitionGgrsSession) -> bool {

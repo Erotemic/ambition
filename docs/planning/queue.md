@@ -357,8 +357,7 @@ character or changes gameplay geometry.
 
 **Failure:** the inspector reads loose audio and font paths while the runtime
 uses selected publications. Python packaging and Rust also differ on missing
-publications and stale generation identities. The native feature-union host
-also registers both disk and served selections for `ambition_shared`.
+publications and stale generation identities.
 
 **Owner:** `ambition_asset_manager::content_library`,
 `scripts/lib/content_libraries.py`, `tools/asset_inspector/asset_index`, and
@@ -371,9 +370,11 @@ Use it for published-only sprites, music, SFX and fonts. Keep local staleness
 advisory; preserve path-safety and unreadable-file errors. State any stricter
 package requirement at the packaging boundary.
 
-Resolve disk/served delivery at the host boundary. A hosted provider must not
-claim a second selection for an imported library. Keep one validated selection
-per library ID and preserve refusal for incompatible selections.
+**Host registration is built:** providers import identities and retain the
+host's selected source. Explicit conflicting selections still refuse. Guard:
+`a_provider_import_keeps_the_host_selection_but_an_explicit_conflict_refuses`.
+The native app with served-provider support and standalone served Mary-O step
+successfully. Keep provider imports separate from explicit source selection.
 
 **Acceptance:** shared behavioral fixtures produce the same selected membership
 and origin in both languages. Published-only assets resolve in the inspector;
@@ -1923,12 +1924,13 @@ Full verification remains open. The latest broad Python run reported 1893 passed
 73 failed and 30 skipped. The codec check now passes. The two failures from
 the damage-box change (phase placement and unused VFX dependencies) pass in
 a focused eight-test run. The other failures also occurred in the earlier
-72-failure run. These focused repairs do not prove a green matrix. The feature-union job compiled after the intro-owner
-repair in `c2cc9d6fb`, then failed in 14 targets. Its app integration target was
-interrupted after repeated library-selection startup failures. Triage the
-served/disk selection conflict under ASSET-SELECTION and the remaining content,
-art, live-reload and tooling failures at their owners. Do not claim a green
-matrix from the focused passes.
+72-failure run. These focused repairs do not prove a green matrix. Feature-union compilation
+passes, but broad verification remains open after the earlier 14-target failure.
+A later run was stopped after the repeated disk/served startup refusal. The
+host-registration repair now passes native/served headless and co-op cases,
+and standalone served Mary-O. Re-run the union and triage remaining content,
+art, live-reload and tooling failures at their owners. Consumer lockfiles now
+include the VFX edge removal; focused absence and dependency tests pass.
 The focused content suite still reports four failures also present in the
 earlier feature-union run: Void fighter damage, Performer contact windows,
 Pugnacious uppercut gravity, and the boot-pack scan of a world-flow fixture.

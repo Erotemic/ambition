@@ -111,13 +111,26 @@ fn validate(manifest: &LibraryManifest) -> Result<(), String> {
     Ok(())
 }
 
+impl LibraryManifest {
+    /// Parse and validate a library declaration without reading its products.
+    pub fn from_json(text: &str) -> Result<Self, String> {
+        let manifest = serde_json::from_str(text).map_err(|error| error.to_string())?;
+        validate(&manifest)?;
+        Ok(manifest)
+    }
+
+    /// Read a declaration without loading its catalog or selected files.
+    pub fn read(path: &Path) -> Result<Self, String> {
+        let text = std::fs::read_to_string(path)
+            .map_err(|error| format!("{}: {error}", path.display()))?;
+        Self::from_json(&text).map_err(|error| format!("{}: {error}", path.display()))
+    }
+}
+
 impl ContentLibrary {
     pub fn read(path: impl AsRef<Path>) -> Result<Self, String> {
         let path = path.as_ref();
-        let text = std::fs::read_to_string(path).map_err(|error| format!("{}: {error}", path.display()))?;
-        let manifest: LibraryManifest = serde_json::from_str(&text)
-            .map_err(|error| format!("{}: {error}", path.display()))?;
-        validate(&manifest)?;
+        let manifest = LibraryManifest::read(path)?;
         let root = path.parent().unwrap_or(Path::new(".")).canonicalize()
             .map_err(|error| format!("{}: {error}", path.display()))?;
         let catalog = match &manifest.catalog {
@@ -132,9 +145,8 @@ impl ContentLibrary {
     }
 
     pub fn from_embedded(library: &'static EmbeddedLibrary) -> Result<Self, String> {
-        let manifest: LibraryManifest = serde_json::from_str(library.manifest).map_err(|error| error.to_string())?;
+        let manifest = LibraryManifest::from_json(library.manifest)?;
         let catalog = serde_json::from_str(library.catalog).map_err(|error| error.to_string())?;
-        validate(&manifest)?;
         let mut paths = std::collections::BTreeSet::new();
         for file in library.files {
             if !relative(file.path) || !paths.insert(file.path) {

@@ -757,7 +757,6 @@ dependencies = [
  "ambition_platformer2d_world",
  "ambition_shrine",
  "ambition_sprite_sheet",
- "ambition_vfx",
  "bevy",
 ]
 
@@ -893,7 +892,6 @@ dependencies = [
  "ambition_registry_core",
  "ambition_shrine",
  "ambition_sprite_sheet",
- "ambition_vfx",
  "ambition_world_returns",
  "bevy",
  "serde_json",

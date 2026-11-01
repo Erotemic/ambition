@@ -281,10 +281,18 @@ pub mod content {
             self
         }
 
-        pub fn register_libraries(&self, world: &mut bevy::prelude::World) {
+        /// Select this pack's library sources for the host.
+        /// A different selection for an existing library is refused.
+        pub fn select_libraries(&self, world: &mut bevy::prelude::World) {
             let pack = self.prepared();
             libraries::install(world, &pack.root, &pack.libraries, self.libraries)
                 .unwrap_or_else(|error| panic!("Content libraries for `{}`: {error}", self.prepared().id.0));
+        }
+
+        fn import_libraries(&self, world: &mut bevy::prelude::World) {
+            let pack = self.prepared();
+            libraries::import(world, &pack.root, &pack.libraries, self.libraries)
+                .unwrap_or_else(|error| panic!("Content library imports for `{}`: {error}", pack.id.0));
         }
 
         /// The pack also compiles against `schemas`: the schemas of rules
@@ -659,7 +667,7 @@ pub mod content {
 
         /// Register the catalog and every character in it.
         pub fn register(self, app: &mut bevy::prelude::App) {
-            self.pack.register_libraries(app.world_mut());
+            self.pack.import_libraries(app.world_mut());
     app.init_resource::<ambition_sprite_sheet::SpriteContent>();
     let sprite_content = app.world().resource::<ambition_sprite_sheet::SpriteContent>().clone();
             use ambition_characters::prepared::CharacterCatalogAppExt;

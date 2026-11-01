@@ -483,7 +483,7 @@ pub(crate) fn install_selection(
     let embedded = pack.root.as_os_str().is_empty().then_some(include!(concat!(env!("OUT_DIR"), "/content_pack/assets/libraries.rs")) as &'static [ambition_platformer2d::asset_manager::content_library::EmbeddedLibrary]);
     #[cfg(not(feature = "static_content"))]
     let embedded = None;
-    ambition_platformer2d::content::libraries::install(world, &pack.root, &pack.libraries, embedded)
+    ambition_platformer2d::content::libraries::import(world, &pack.root, &pack.libraries, embedded)
         .unwrap_or_else(|error| panic!("Content libraries: {error}"));
     world.insert_resource(ambition_platformer2d_runtime::SelectedContentIdentity(
         identity_line(&pack),

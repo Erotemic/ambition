@@ -62,7 +62,7 @@ pub fn compose_ambition_shell_host_with_the_timeline_start_unordered(app: &mut A
 }
 
 fn compose_ambition_shell_host_inner(app: &mut App, initial_route: &str) {
-    super::host_pack::HOST_PACK.register_libraries(app.world_mut());
+    super::host_pack::HOST_PACK.select_libraries(app.world_mut());
     app.insert_resource(AmbitionShellHosted);
 
     // The title screen has its own theme. The engine's frontend audio policy

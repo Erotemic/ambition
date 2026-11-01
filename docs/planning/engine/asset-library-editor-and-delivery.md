@@ -70,7 +70,7 @@ The implementation already separates several concerns:
 | --- | --- | --- |
 | Library declaration | `game/ambition_content_library/library.json` | Names producer families, paths and the catalog. |
 | Asset roles and metadata | `authored/catalog.json` and `AssetManifest` | This is not a complete editor database. |
-| Selected game libraries | Game `pack.ron`; `ContentLibraries` | A game selects zero or more libraries. |
+| Library imports and host selection | Game `pack.ron`; `ContentLibraries` | Providers import identities; the host selects one source per library. |
 | Selected runtime files | `ContentLibrary::files()` and `LibrarySnapshot` | The selected publication owns managed generated roots. |
 | Immutable products | Python `publication_store.Store` | Acceptance, selection and deep audit currently overlap. |
 | Runtime bytes | Bevy `AssetSource` and `AssetServer` | Do not copy this loader into the inspector. |
@@ -121,6 +121,15 @@ The code trace identifies four ownership boundaries that we should keep clear.
 4. **Preview composition versus release audit.** Web preview and native editor
    loops must not run whole-library hash checks. Release packaging may run an
    explicit deep audit and pin the result.
+
+Host registration now separates explicit selection from provider imports.
+`EmbeddedPack::select_libraries` selects sources for the host; a different
+selection for an existing ID is refused. Character registration and game-pack
+publication import library identities. They retain a host selection and supply
+the pack's default only when the ID has no selection. Reused imports validate
+the declaration without loading the unused catalog, copying the active table,
+or preparing its sheet metadata again. Native and served delivery use this
+same operation; an enabled provider feature does not replace the host's source.
 
 The next design seam is a small, read-only selected-file contract. It can be
 implemented in Rust and Python and checked with shared test fixtures. It is

@@ -202,6 +202,12 @@ world crate's and the content crate's unit tests):
   power, the traffic board, transit sickness bags; the janitor's and the
   guide's lines on organic travellers).
 
+Wormhole repair (`7efda3670`): late quad placement and unfiltered tunnel samples
+caused visible faults. Effects now precede transform propagation and bounds;
+Ultra uses filtered mip levels. Guards: 15 sprite-effect, 11 gate and 2 mip tests,
+plus High/Ultra captures. The selected SFX bank lacked all four wormhole cues;
+`./scripts/regen/sfx.sh` publishes the complete active bank on each host.
+
 ## Future expansion
 
 - Several public gates in one hub (the rules hold already: one facility).

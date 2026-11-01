@@ -71,15 +71,15 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
     let angle_dy = dot(angle_gradient, dpdy(p));
     let depth_dx = dpdx(depth);
     let depth_dy = dpdy(depth);
+    if strength <= 0.001 || inside <= 0.001 {
+        discard;
+    }
     let near = tunnel(vec2<f32>(round + TWIST * depth + t * 0.03, depth),
         vec2<f32>(angle_dx + TWIST * depth_dx, depth_dx),
         vec2<f32>(angle_dy + TWIST * depth_dy, depth_dy));
     let far = tunnel(vec2<f32>(round * 2.0 + 0.37 - TWIST * depth, depth * 0.5 + t * 0.1),
         vec2<f32>(2.0 * angle_dx - TWIST * depth_dx, 0.5 * depth_dx),
         vec2<f32>(2.0 * angle_dy - TWIST * depth_dy, 0.5 * depth_dy));
-    if strength <= 0.001 || inside <= 0.001 {
-        discard;
-    }
     var colour = near * 0.7 + far * 0.45;
     // The far end of the tunnel: a light at the vanishing point.
     colour = colour + CORE * exp(-r * r * 14.0) * 0.9;

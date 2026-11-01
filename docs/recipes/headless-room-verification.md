@@ -93,6 +93,16 @@ cargo run -p ambition_app_tools --bin capture_scene -- <ROOM_ID> <X,Y|player> [O
 This runs the actual presentation plugins, so it is the only path that shows
 sprite ART.
 
+To film a network gate, use `--dial-gate ZONE:ADDRESS[@TICK]`. The capture opens
+its terminal and sends the dial through the simulation's network. For example:
+
+```bash
+AMBITION_QUALITY_PROFILE=ultra cargo run -p ambition_app_tools --bin capture_scene -- \
+  central_hub_complex 1440,832 /tmp/gate.png 640x480 \
+  --dial-gate hub_public_gate_zone:TANGENT@120 --tick-per-frame \
+  --warmup 120 --frames 36 --stride 2
+```
+
 **Quality.** A capture tool takes its picture at the `low` visual quality
 profile unless `AMBITION_QUALITY_PROFILE` names another
 (`name_capture_quality_profile` in `crates/ambition_render/src/capture.rs`;

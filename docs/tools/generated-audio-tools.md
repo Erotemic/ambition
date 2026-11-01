@@ -42,6 +42,11 @@ what is missing without a build:
 python3 scripts/content_status.py --family music --family sfx
 ```
 
+A cue in a loose bank does not prove that the game can play it. The selected
+library publication supplies the runtime bank. Inspect that selected bank when
+a cue is silent, then use `./scripts/regen/sfx.sh` to render and publish the
+complete active collection. A stale loose bank can also omit existing cues.
+
 ## Music renderer
 
 Location: `tools/ambition_music_renderer/`

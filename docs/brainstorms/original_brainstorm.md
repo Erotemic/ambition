@@ -1116,3 +1116,50 @@ We need a way to mark if a name was human approved or llm generated. The name
 could be LLM generated and human approved, or human generated and approved by
 someone else. But I need a quick way to say: rerandomize all the llm generated
 names I didn't approve.
+
+--- 
+
+Not sure if I said this, but I want to incorporate flatland some way. It makes
+too much sense.
+
+
+Also perhaps the robot's name is Scout. And the creator's name follows from
+that. Perhaps the 2nd player is Jem, 3rd could be Dill, 4th, not sure, maybe
+Harper.  It's funny, but it also kinda works I think. We've got to be smart
+about how we do it. Atticus is a name to live up to. Perhaps it's not the
+creator, but some moral pillar in the story.
+
+
+We likely should confront the idea or perception of training an LLM as
+"stealing". We could likely use Picasso playfully here as a foil. But also talk
+about what people really mean when they say that, because at face value its a
+bit of a hyperbole.
+
+I want some sort of spectral zone where george boole lives, and there are
+eigen-creatures, and plays on mathematical spectral theory, but as ghosts.
+Spectral graph theory, spectra of a matrix.
+
+
+---
+
+
+Some mathamticians that can cast the spatial quotient more skillfully than others.
+
+----
+
+So in hylbert's hotel we have a haunted section that can act as a dungeon. We
+can actually do quite a bit with the hotel. 
+
+Maybe someone put a modulo curse on it, so now instead of having infinite rooms
+it wraps around and the guests have become infinitely crowded and identified.
+Maybe some of them don't like to be identified because they are very private,
+or secret agents or something - the crypto crew could come in here.
+
+There is also a haunted section with a spectral gap. The gap stabilizes the
+space. I'm not sure if maybe you are set on a quest to close the gap because
+they think the hole in the floor is the problem, but in reality it is the only
+thing keeping the subspaces stable. Or maybe the quest is more direct and they
+know they need to widen the gap because its closing and making everything in
+the hotel unstable.
+
+The boss will be the Gram Reaper.

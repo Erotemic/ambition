@@ -559,7 +559,7 @@ control.
 
 ### MULTIPLAYER-SEAMS — make local multiplayer safe for netplay
 
-**Remaining failure:** scripted strike volumes still use primary-body routing;
+**Remaining failure:** some area hits still bypass the common body resolver;
 the Ambition menu has one input, cursor and visible state; room loading covers the other viewport; F1
 gizmos use primary room data. Routine peer room commits still hold the whole
 session. These are separate authority, presentation and gameplay-rule boundaries.
@@ -570,7 +570,7 @@ and [product decisions](game/multiplayer.md#local-co-op-behavior-decided-in-the-
 `ambition_input`), UI ownership and viewport mapping (`ambition_sim_view`,
 `ambition_content::presentation::dialog`, `ambition_app::menu`), blink clocks
 (`ambition_platformer2d_actor_monolith`), combat/session rule projection
-(`ambition_combat`, Ambition settings/session), room lifecycle
+(`ambition_combat`, `ambition_damage`, Ambition settings/session), room lifecycle
 (`ambition_platformer2d_runtime`, `ambition_platformer2d_rollback_ggrs`,
 Ambition transition presenter), debug viz (`ambition_render`, Ambition dev UI).
 Do not assign one crate as owner of every concern.
@@ -601,18 +601,26 @@ schema and input format agreement; local epochs stay local. Guard:
 Scoped co-op damage landed in `0a4bdab1b` (schema 395). The saved ON default
 freezes in the session and enters peer content identity. Melee, projectiles and detached
 body strikes use one relation; detached attacks retain control allegiance.
-Guard: `coop_friendly_fire` integration tests. Scripted strikes and the
-rendered main-game acceptance remain open.
+Guard: `coop_friendly_fire` integration tests. The rendered main-game acceptance remains open.
 
 Damage-box provenance landed in `753adeda8` (schema 396): capture precedes retirement, and
 queued and immediate construction share one factory. Guard:
 `a_damage_box_keeps_its_emission_room_and_session_after_its_source_leaves`.
 Keep emission scope separate from credit; do not restore credit stand-ins.
 
+Scripted strikes and joined-player damage landed in `69f705d8c` (schema 397).
+Both seats use scoped hitboxes and the shared damage consumer. Guard:
+`scripted_strikes_use_body_contacts_for_either_participant` covers ON/OFF and separate rooms.
+Do not restore primary-body routing for scripted strikes.
+
+Jump and combat input now consume the current Up interaction gesture until release
+(`69f705d8c`). Guards: `recorded_up_and_jump_sequence_does_not_interact` and
+`holding_up_for_air_attacks_does_not_open_a_door`. Explicit Interact still works.
+
 **Next action (ordered slices; complete each behavior gate before moving):**
 
-3. **Finish gameplay-rule coverage:** route `StrikePort` through the common
-   body resolver and remove its unresolved primary-body broadcast. Audit owned
+3. **Finish gameplay-rule coverage:** route the remaining area hits through the
+   common body resolver and remove the unresolved body fallbacks. Audit owned
    environmental areas against the explicit self-damage policy. Keep NPC target
    selection and authored match rules separate. The saved ON/OFF choice, frozen
    session identity, peer refusal, melee and detached attack coverage are built.

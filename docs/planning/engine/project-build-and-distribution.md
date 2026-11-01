@@ -115,6 +115,12 @@ browser composition. Browser hosts select `web_platform` with it.
 Offscreen and no-GPU hosts use one windowless plugin setup. It removes the
 window runner only when a platform feature selected that runner.
 
+The Ambition pause menu shows a small build label (`f2014af36`). It contains
+build time in Unix seconds and the short Git revision. A `+` means the source
+tree was not clean. `AMBITION_BUILD_ID` supplies a CI identifier.
+Build with `AMBITION_HIDE_BUILD_ID=1` to hide the label. Grid and cube menus
+use the same label; normal play does not show it.
+
 ### B4 — generated-content/bootstrap contract
 
 A clean checkout has an explicit path to produce every required generated

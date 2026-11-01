@@ -500,12 +500,16 @@ factory. Unknown blast credit requires no temporary body. The two-room guard
 `a_damage_box_keeps_its_emission_room_and_session_after_its_source_leaves`
 covers owner loss, credit in another room, damage and room retirement.
 
-**Remaining:** `StrikePort` still emits an
-unresolved volume that the player consumer routes to the primary body. Put
-that strike through the common body resolver. Audit owned environmental areas
-against the explicit self-damage contract. Complete the rendered two-controller
-main-game acceptance. Broad verification remains tracked by TEST-LANES;
-focused passes do not close it.
+Scripted strikes and joined-player damage landed in `69f705d8c` (schema 397).
+`StrikePort` uses the scoped hitbox factory and the common body resolver.
+The shared player damage consumer serves both joined bodies and reads each body's
+seat for transition holds. Guard: `scripted_strikes_use_body_contacts_for_either_participant`.
+It covers both seats, ON/OFF and separate live rooms.
+
+**Remaining:** route bombs, projectile splashes and other unresolved area hits
+through the common body resolver. Audit owned environmental areas against the
+explicit self-damage contract. Complete the rendered two-controller main-game
+acceptance. Broad verification remains tracked by TEST-LANES; focused passes do not close it.
 
 ### Menus and pause: per-seat focus, explicit global pause aggregation
 

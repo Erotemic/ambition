@@ -1,13 +1,7 @@
-//! How long does the game take to read each published part-flipbook draw
-//! table? `RiggedSpriteAsset::baked` reads a table on the main thread the
-//! first time a sheet realizes it. Times what this build reads (the embedded
-//! bincode under `static_content`; in a development build the file, through
-//! the cache of `published_cache`) beside a parse of the RON it was built
-//! from. In a development build the first run after a publish fills the cache.
+//! Measure RON parsing and binary decoding for selected part tables.
 //!
-//!     cargo run --profile profiling -p ambition_sprite_sheet --features static_content --example measure_part_table_parse
-//!
-//! Prints the slowest tables and the totals.
+//! Set `AMBITION_CONTENT_LIBRARY` to a `library.json` path, then run:
+//! `cargo run --profile profiling -p ambition_sprite_sheet --example measure_part_table_parse`.
 
 use std::time::Instant;
 
@@ -15,12 +9,19 @@ use ambition_sprite_sheet::baked_part_flipbooks::{part_flipbooks, published_ron_
 use ambition_sprite_sheet::character::rigged::RiggedSpriteAsset;
 
 fn main() {
+    let path = std::env::var("AMBITION_CONTENT_LIBRARY").expect("Set AMBITION_CONTENT_LIBRARY to a library.json path");
+    let mut libraries = ambition_asset_manager::content_library::ContentLibraries::default();
+    libraries.insert(ambition_asset_manager::content_library::ContentLibrary::read(path).expect("read the selected library")).unwrap();
+    let snapshot = libraries.snapshot().expect("read the selected products");
+    let content = ambition_sprite_sheet::SpriteContent::from_texts(
+        ambition_sprite_sheet::baked_sheet_rons::SheetTexts::from_snapshot(&snapshot, None).unwrap()
+    ).expect("admit the selected sprite metadata");
     let mut rows = Vec::new();
-    for (key, table, _) in part_flipbooks() {
+    for (key, table, _) in part_flipbooks(&content) {
         if key.contains('.') {
             continue;
         }
-        let text = published_ron_on_build_host(key).expect("the published file");
+        let text = published_ron_on_build_host(&content, key).expect("the published file");
         let start = Instant::now();
         RiggedSpriteAsset::from_published_ron(&text).unwrap_or_else(|e| panic!("{key}: {e}"));
         let parse = start.elapsed().as_secs_f64() * 1e3;
@@ -29,7 +30,7 @@ fn main() {
         let decode = start.elapsed().as_secs_f64() * 1e3;
         rows.push((*key, text.len(), parse, decode));
     }
-    assert!(!rows.is_empty(), "no embedded part flipbooks");
+    assert!(!rows.is_empty(), "no selected part flipbooks");
     rows.sort_by(|a, b| b.2.total_cmp(&a.2));
     for (key, bytes, parse, decode) in rows.iter().take(12) {
         println!("{key:36} {:6.2} MB RON  parse {parse:7.1} ms  decode {decode:6.2} ms", *bytes as f64 / 1e6);

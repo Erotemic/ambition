@@ -728,7 +728,7 @@ pub fn bind_rigged_presentations(sprite_content: bevy::prelude::Res<ambition_spr
     assets: Option<Res<GameAssets>>,
     asset_server: Option<Res<AssetServer>>,
     impostors: ImpostorAssets,
-    mut by_sheet: Local<HashMap<(String, TextureResolutionScale), RiggedSpritePages>>,
+    mut sheets_by_tier: Local<HashMap<TextureResolutionScale, HashMap<String, RiggedSpritePages>>>,
     mut posed_by_target: Local<HashMap<String, Option<Arc<PosedParts>>>>,
     mut roots: Query<(
         Entity,
@@ -749,7 +749,7 @@ pub fn bind_rigged_presentations(sprite_content: bevy::prelude::Res<ambition_spr
         return;
     }
     if assets.is_changed() {
-        by_sheet.clear();
+        for sheets in sheets_by_tier.values_mut() { sheets.clear(); }
         // The posed parts are bound from the pages and the body rig: a sheet
         // generation publishes both again and retires every realization, so
         // a change of the assets binds them again too.
@@ -757,7 +757,7 @@ pub fn bind_rigged_presentations(sprite_content: bevy::prelude::Res<ambition_spr
         for sheet in assets.characters.ready_sheets() {
             if let Some(pages) = &sheet.rigged {
                 // By the sheet's key: a generator's sheets share a `target`.
-                by_sheet.insert((sheet.spec.base_sheet_key().to_owned(), sheet.resolved_tier), pages.clone());
+                sheets_by_tier.entry(sheet.resolved_tier).or_default().insert(sheet.spec.base_sheet_key().to_owned(), pages.clone());
             }
         }
     }
@@ -766,7 +766,7 @@ pub fn bind_rigged_presentations(sprite_content: bevy::prelude::Res<ambition_spr
     for (root, animator, bound, mut sprite, presented) in &mut roots {
         let owner = presented.map(RiggedPresentedBy::owner);
         let tier = bound.map_or(TextureResolutionScale::Full, |bound| bound.scale);
-        let wanted = by_sheet.get(&(animator.spec.base_sheet_key().to_owned(), tier));
+        let wanted = sheets_by_tier.get(&tier).and_then(|sheets| sheets.get(animator.spec.base_sheet_key()));
         let current = owner.and_then(|owner| presentations.get(owner).ok());
         let same = match (wanted, current) {
             (Some(wanted), Some(current)) => Arc::ptr_eq(&wanted.flipbook, &current.pages.flipbook),
@@ -1092,14 +1092,14 @@ pub fn drive_rigged_presentations(
             Some(_) => COMPOSED_HOLD_FRAMES,
             None => presentation.overflow_hold.saturating_sub(1),
         };
-        if let Some(reach) = past_cell.filter(|_| wanted && posed_past_cell.insert(presentation.target.clone())) {
+        if let Some(reach) = past_cell.filter(|_| wanted && !posed_past_cell.contains(presentation.target.as_str()) && posed_past_cell.insert(presentation.target.clone())) {
             warn!(
                 "rigged sprites: `{}` is read as one image but its pose puts a part {reach:.0} px past its                  frame, more than the {margin} px its cell gives; while it does, its parts draw directly and                  its readers see no image",
                 presentation.target,
             );
         }
         let class = impostor_cell_class(flipbook.frame_size.as_vec2(), margin);
-        if wanted && class.is_none() && too_large.insert(presentation.target.clone()) {
+        if wanted && class.is_none() && !too_large.contains(presentation.target.as_str()) && too_large.insert(presentation.target.clone()) {
             warn!(
                 "rigged sprites: `{}` is read as one image but cannot be composited — its {} px frame fits \
                  no impostor cell (the largest is {} px with {margin} px margins); its parts draw \
@@ -1624,7 +1624,15 @@ fn drive_direct_presentation(
     if current {
         return;
     }
-    presentation.shown = Some((draws.to_vec(), root_color.to_vec3(), 0));
+    match presentation.shown.as_mut() {
+        Some((shown, color, generation)) => {
+            shown.clear();
+            shown.extend_from_slice(draws);
+            *color = root_color.to_vec3();
+            *generation = 0;
+        }
+        None => presentation.shown = Some((draws.to_vec(), root_color.to_vec3(), 0)),
+    }
     write_slots(presentation, draws, slots, |draw| part_color(draw, root_color));
 }
 

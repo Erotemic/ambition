@@ -26,6 +26,7 @@
 //! composite fades.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
 
 use bevy::ecs::entity::Entity;
 use bevy::ecs::resource::Resource;
@@ -159,10 +160,12 @@ pub struct RiggedSpriteAsset {
     /// [`PartPose`], which no file states; measure those with
     /// [`Self::reach_past_frame`].
     pub art_overhang: f32,
-    clips: BTreeMap<String, RigSpriteClip>,
+    clips: Arc<BTreeMap<String, RigSpriteClip>>,
     /// The rows that this flipbook leaves to the baked sheet.
-    baked_clips: BTreeSet<String>,
-    draws: Vec<PartDraw>,
+    baked_clips: Arc<BTreeSet<String>>,
+    draws: Arc<[PartDraw]>,
+    // The next frame's matching draw, as a one-based index into `draws`.
+    tween_targets: Arc<[Option<std::num::NonZeroU32>]>,
     max_draws: usize,
     /// The tracks that show how hurt the body is ([`is_wound_track`]).
     wound_tracks: Vec<u16>,
@@ -297,12 +300,12 @@ fn shorter_turn(from: f32, to: f32) -> f32 {
 
 /// The draw of the next frame that `draw` tweens to: the draw of its track,
 /// when that draw is the same part. `None` for a draw that holds still.
-fn tween_target<'a>(draw: &PartDraw, following: &'a [PartDraw]) -> Option<&'a PartDraw> {
+fn tween_target_index(draw: &PartDraw, following: &[PartDraw]) -> Option<usize> {
     let track = draw.track?;
     following
         .iter()
-        .find(|next| next.track == Some(track))
-        .filter(|target| target.part == draw.part)
+        .position(|next| next.track == Some(track))
+        .filter(|index| following[*index].part == draw.part)
 }
 
 /// The most a sampled in-between may be short of the true reach, in sheet
@@ -328,20 +331,17 @@ fn tween_overhang(
     parts: &[RigPart],
     draws: &[PartDraw],
     clips: &BTreeMap<String, RigSpriteClip>,
+    tween_targets: &[Option<std::num::NonZeroU32>],
     frame_size: Vec2,
     feet_pixel: Vec2,
 ) -> f32 {
-    let frame = |clip: &RigSpriteClip, index: usize| {
-        let (start, len) = clip.frames[index];
-        &draws[start as usize..(start + len) as usize]
-    };
     let mut overhang = 0.0_f32;
     for clip in clips.values().filter(|clip| clip.tween != ClipTween::Step) {
         for index in 0..clip.frames.len() {
-            // The first after the last: a tweened clip loops.
-            let following = frame(clip, (index + 1) % clip.frames.len());
-            for draw in frame(clip, index) {
-                let (Some(target), Some(part)) = (tween_target(draw, following), parts.get(usize::from(draw.part))) else {
+            let (start, len) = clip.frames[index];
+            for at in start as usize..(start + len) as usize {
+                let draw = &draws[at];
+                let (Some(target), Some(part)) = (tween_targets[at].map(|index| &draws[index.get() as usize - 1]), parts.get(usize::from(draw.part))) else {
                     continue;
                 };
                 let turn = shorter_turn(draw.rotation, target.rotation).abs();
@@ -552,10 +552,20 @@ impl RiggedSpriteAsset {
                 },
             );
         }
+        let mut tween_targets = vec![None; draws.len()];
+        for clip in clips.values().filter(|clip| clip.tween != ClipTween::Step) {
+            for (index, &(start, len)) in clip.frames.iter().enumerate() {
+                let (next, next_len) = clip.frames[(index + 1) % clip.frames.len()];
+                let following = &draws[next as usize..(next + next_len) as usize];
+                for at in start as usize..(start + len) as usize {
+                    tween_targets[at] = tween_target_index(&draws[at], following).and_then(|index| std::num::NonZeroU32::new(next + index as u32 + 1));
+                }
+            }
+        }
         let frame_size = UVec2::new(published.frame_size.0, published.frame_size.1);
         let feet_pixel = Vec2::new(published.feet_pixel.0, published.feet_pixel.1);
         let art_overhang = art_overhang(&parts, &draws, frame_size.as_vec2(), feet_pixel)
-            .max(tween_overhang(&parts, &draws, &clips, frame_size.as_vec2(), feet_pixel));
+            .max(tween_overhang(&parts, &draws, &clips, &tween_targets, frame_size.as_vec2(), feet_pixel));
         Ok(Self {
             target: published.target,
             texel_scale: published.texel_scale,
@@ -568,9 +578,10 @@ impl RiggedSpriteAsset {
             parts,
             wound_tracks: (0..published.tracks.len()).filter(|i| is_wound_track(&published.tracks[*i])).map(|i| i as u16).collect(),
             tracks: published.tracks,
-            clips,
-            baked_clips,
-            draws,
+            clips: Arc::new(clips),
+            baked_clips: Arc::new(baked_clips),
+            draws: draws.into(),
+            tween_targets: tween_targets.into(),
             max_draws,
         })
     }
@@ -583,7 +594,7 @@ impl RiggedSpriteAsset {
         if let Some(row) = rows.iter().find(|row| self.realization(row).is_none()) {
             return Err(RiggedSpriteError::Unrealized((*row).to_owned()));
         }
-        let stated = self.clips.keys().chain(&self.baked_clips);
+        let stated = self.clips.keys().chain(self.baked_clips.iter());
         if let Some(row) = stated.into_iter().find(|row| !rows.contains(row.as_str())) {
             return Err(RiggedSpriteError::UnknownRow(row.clone()));
         }
@@ -740,18 +751,18 @@ impl RiggedSpriteAsset {
     /// The frame's opacity is the current frame's ([`Self::frame_opacity`]).
     pub fn tween_into(&self, row: &str, index: usize, t: f32, out: &mut Vec<PartDraw>) -> Option<()> {
         let clip = self.clips.get(row)?;
-        let current = self.frame(row, index)?;
+        let index = index.min(clip.frames.len() - 1);
+        let (start, len) = clip.frames[index];
+        let current = &self.draws[start as usize..(start + len) as usize];
         out.clear();
         out.extend_from_slice(current);
         if clip.tween == ClipTween::Step || t <= 0.0 {
             return Some(());
         }
-        let index = index.min(clip.frames.len() - 1);
-        let following = self.frame(row, (index + 1) % clip.frames.len())?;
         let t = t.min(1.0);
-        for draw in out.iter_mut() {
-            if let Some(target) = tween_target(draw, following) {
-                *draw = tween_draw(draw, target, t);
+        for (draw, target) in out.iter_mut().zip(&self.tween_targets[start as usize..(start + len) as usize]) {
+            if let Some(target) = target {
+                *draw = tween_draw(draw, &self.draws[target.get() as usize - 1], t);
             }
         }
         Some(())

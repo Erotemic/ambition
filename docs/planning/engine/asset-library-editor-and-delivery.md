@@ -122,7 +122,7 @@ The code trace identifies four ownership boundaries that we should keep clear.
    loops must not run whole-library hash checks. Release packaging may run an
    explicit deep audit and pin the result.
 
-Host registration now separates explicit selection from provider imports.
+Host registration (`fb1621179`) separates explicit selection from provider imports.
 `EmbeddedPack::select_libraries` selects sources for the host; a different
 selection for an existing ID is refused. Character registration and game-pack
 publication import library identities. They retain a host selection and supply

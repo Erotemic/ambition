@@ -370,7 +370,7 @@ Use it for published-only sprites, music, SFX and fonts. Keep local staleness
 advisory; preserve path-safety and unreadable-file errors. State any stricter
 package requirement at the packaging boundary.
 
-**Host registration is built:** providers import identities and retain the
+**Host registration landed in `fb1621179`:** providers import identities and retain the
 host's selected source. Explicit conflicting selections still refuse. Guard:
 `a_provider_import_keeps_the_host_selection_but_an_explicit_conflict_refuses`.
 The native app with served-provider support and standalone served Mary-O step

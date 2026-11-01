@@ -41,7 +41,8 @@ impl Plugin for YarnBridgePlugin {
         app.init_resource::<DialogueNodeIndex>();
         app.add_systems(
             Update,
-            spawn_dialogue_runner.run_if(
+            spawn_dialogue_runner.before(dispatch_pending_dialog_requests)
+                .in_set(crate::DialogFrameSet::Narrative).run_if(
                 resource_exists::<YarnProject>.and_then(not(resource_exists::<DialogueRunnerEntity>)),
             ),
         );
@@ -50,10 +51,12 @@ impl Plugin for YarnBridgePlugin {
         // view and box were rebuilt each frame.
         app.add_systems(
             Update,
-            dispatch_pending_dialog_requests.run_if(|state: Option<Res<DialogState>>| {
+            dispatch_pending_dialog_requests.in_set(crate::DialogFrameSet::Narrative)
+                .before(YarnSpinnerSystemSet).run_if(|state: Option<Res<DialogState>>| {
                 state.is_some_and(|state| state.has_pending_request())
             }),
         );
+        app.configure_sets(Update, YarnSpinnerSystemSet.in_set(crate::DialogFrameSet::Narrative));
         app.add_observer(on_present_line);
         app.add_observer(on_present_options);
         app.add_observer(on_dialogue_completed);

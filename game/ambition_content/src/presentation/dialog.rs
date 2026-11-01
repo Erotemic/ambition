@@ -21,7 +21,7 @@ use ambition_content_schemas::rules::DialogLook;
 use ambition_content_schemas::text::lowered_ambition_text;
 use ambition_platformer2d::content::{hole, ShownText};
 use ambition_render::dialog_ui::{
-    claim_dialog_presentation, DialogOverlayRoot, DialogPresentationSet,
+    claim_dialog_presentation, dialog_owner_label, DialogOverlayRoot, DialogPresentationSet, DialogSurface,
 };
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_sim_view::DialogView;
@@ -30,10 +30,8 @@ use ambition_sprite_sheet::{
 };
 use ambition_ui_nav::DialogChoiceSlot;
 use bevy::prelude::*;
-use bevy::window::PrimaryWindow;
 
 const PRESENTER_NAME: &str = "ambition_content::AmbitionDialogUiPlugin";
-const DEFAULT_VIEWPORT: Vec2 = Vec2::new(1280.0, 720.0);
 
 /// Optional game-owned portrait override for one stable character id.
 ///
@@ -161,7 +159,7 @@ pub struct AmbitionDialogScrollThumb;
 
 #[derive(Resource, Default)]
 struct AmbitionDialogLayoutCache {
-    viewport: Option<Vec2>,
+    viewport: Option<Rect>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -399,7 +397,7 @@ fn sync_ambition_dialog_ui(sprite_content: bevy::prelude::Res<ambition_platforme
     mut commands: Commands,
     dialogue: Res<DialogView>,
     overlays: Query<Entity, With<DialogOverlayRoot>>,
-    windows: Query<&Window, With<PrimaryWindow>>,
+    surface: DialogSurface,
     mut layout_cache: ResMut<AmbitionDialogLayoutCache>,
     ui_fonts: Option<Res<UiFonts>>,
     character_catalog: Res<CharacterCatalog>,
@@ -427,14 +425,10 @@ fn sync_ambition_dialog_ui(sprite_content: bevy::prelude::Res<ambition_platforme
     pack: Res<crate::pack::SelectedContentPack>,
 ) {
     let portrait_registry = ambition_platformer2d::sprite_sheet::baked_sheet_rons::current(&sprite_content).portraits();
-    let viewport = windows
-        .single()
-        .ok()
-        .map(|window| Vec2::new(window.width(), window.height()))
-        .unwrap_or(DEFAULT_VIEWPORT);
-    let layout_changed = layout_cache.viewport != Some(viewport);
+    let rect = surface.rect(&dialogue);
+    let layout_changed = layout_cache.viewport != rect;
     if layout_changed {
-        layout_cache.viewport = Some(viewport);
+        layout_cache.viewport = rect;
     }
 
     let presentation_inputs_changed = dialogue.is_changed()
@@ -453,12 +447,13 @@ fn sync_ambition_dialog_ui(sprite_content: bevy::prelude::Res<ambition_platforme
     for entity in overlays.iter() {
         commands.entity(entity).despawn();
     }
-    if !dialogue.active {
+    if !dialogue.active || rect.is_none() {
         portrait_playback.clear();
         return;
     }
 
-    let profile = DialogLayoutProfile::for_viewport(viewport);
+    let rect = rect.unwrap();
+    let profile = DialogLayoutProfile::for_viewport(rect.size());
     let look = &tuning.0.dialog_look;
     let text = lowered_ambition_text(pack.get()).expect("Ambition's pack states its dialogue words (`data/ambition_text.ron`)");
     // the window used to RECENTER on every selection change, which on a phone is a moving
@@ -545,7 +540,8 @@ fn sync_ambition_dialog_ui(sprite_content: bevy::prelude::Res<ambition_platforme
 
     commands
         .spawn((
-            Node {
+            {
+            let mut node = Node {
                 position_type: PositionType::Absolute,
                 left: Val::Px(0.0),
                 right: Val::Px(0.0),
@@ -566,6 +562,9 @@ fn sync_ambition_dialog_ui(sprite_content: bevy::prelude::Res<ambition_platforme
                 justify_content: JustifyContent::FlexStart,
                 align_items: AlignItems::Center,
                 ..default()
+            };
+            surface.place(&mut node, rect);
+            node
             },
             ZIndex(45),
             DialogOverlayRoot,
@@ -601,7 +600,7 @@ fn sync_ambition_dialog_ui(sprite_content: bevy::prelude::Res<ambition_platforme
                     portrait_source_rect,
                     &monogram,
                     accent,
-                    speaker_label,
+                    &format!("{} · {}", speaker_label, dialog_owner_label(dialogue.input_owner)),
                     &profile,
                     &dialog_font,
                     look,
@@ -1334,7 +1333,7 @@ mod tests {
         assert_eq!(root.align_items, AlignItems::Center);
         assert_eq!(root.padding.top, Val::Px(24.0));
         assert_eq!(root.top, Val::Px(0.0));
-        assert_eq!(root.bottom, Val::Px(0.0));
+        assert_eq!(root.bottom, Val::Auto);
 
         let mut panels = app
             .world_mut()

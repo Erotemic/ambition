@@ -24,6 +24,8 @@ use bevy::math::Vec2;
 #[cfg(feature = "ui")]
 use bevy_yarnspinner::prelude::OptionId;
 
+use ambition_input::InputOwner;
+
 /// A `start()` request waiting for the Yarn bridge to drain it.
 ///
 /// The [`DialogueContext`] rides along so the bridge can publish `$speaker_id`
@@ -44,6 +46,7 @@ pub struct DialogState {
     /// the runner reports `DialogueCompleted`. Bridge-write access
     /// inside the crate; readers go through `active()`.
     pub(crate) active: bool,
+    input_owner: Option<InputOwner>,
     /// Display name of the NPC that started this conversation.
     /// Yarn lines carry their own `character_name`; this is the
     /// fallback shown when a line has no speaker prefix.
@@ -189,8 +192,9 @@ impl DialogState {
     /// call `runner.start_node`. Increments
     /// `AmbitionGameSave.dialog_visits[id]` so Yarn's `visit_count(id)`
     /// function reflects the new visit.
-    pub fn start(&mut self, dialogue_id: &str, npc_name: &str, context: DialogueContext) {
+    pub fn start(&mut self, dialogue_id: &str, npc_name: &str, context: DialogueContext, input_owner: InputOwner) {
         self.active = true;
+        self.input_owner = Some(input_owner);
         self.dialogue_id = dialogue_id.to_string();
         self.npc_name = npc_name.to_string();
         // A fresh conversation has no known speaker actor until the caller
@@ -237,6 +241,7 @@ impl DialogState {
     /// dismisses accumulated text.
     pub(crate) fn clear_conversation_presentation(&mut self) {
         self.active = false;
+        self.input_owner = None;
         self.reset_presentation_identity();
         self.current_speaker.clear();
         self.current_line.clear();
@@ -259,6 +264,19 @@ impl DialogState {
     pub fn close(&mut self) {
         self.clear_conversation_presentation();
         self.pending_close = true;
+    }
+
+    pub fn input_owner(&self) -> Option<InputOwner> {
+        self.input_owner
+    }
+
+    /// Change input ownership without restarting the conversation.
+    pub fn set_input_owner(&mut self, owner: InputOwner) {
+        if self.input_owner != Some(owner) {
+            self.input_owner = Some(owner);
+            self.pointer_armed = None;
+            self.row_press.clear();
+        }
     }
 
     pub fn active(&self) -> bool {
@@ -628,7 +646,7 @@ mod closed_state_tests {
     #[test]
     fn every_field_is_cleared_by_a_close_or_rewritten_by_the_next_start() {
         let mut state = DialogState::default();
-        state.start("guide", "Guide", DialogueContext::scripted());
+        state.start("guide", "Guide", DialogueContext::scripted(), ambition_input::InputOwner::Primary);
         // Dirty everything a live conversation touches, so a field that survives
         // the close survives visibly rather than because it was never set.
         state.current_speaker = "Someone Else".to_string();
@@ -647,6 +665,7 @@ mod closed_state_tests {
         let DialogState {
             // —— cleared by `clear_conversation_presentation` ——
             active,
+            input_owner,
             conversation_character_id,
             presented_speaker_character_id,
             portrait_clip,
@@ -677,6 +696,7 @@ mod closed_state_tests {
         } = &state;
 
         assert!(!active, "a closed dialogue is not active");
+        assert_eq!(*input_owner, None);
         assert!(conversation_character_id.is_empty());
         assert!(presented_speaker_character_id.is_empty());
         assert!(portrait_clip.is_empty());

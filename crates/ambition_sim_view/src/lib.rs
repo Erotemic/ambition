@@ -47,6 +47,10 @@ pub use attack_vfx_view::{rebuild_attack_vfx_views, AttackVfxView};
 pub use camera_snapshot::{local_view_facts, CameraViewState, PresentedViewState};
 pub use defense_view::{defense_cue_causes, DefenseCueCauses};
 pub use dialog_view::{rebuild_dialog_view, DialogView};
+
+/// Dialogue facts are ready for this frame's presenters.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct DialogViewSync;
 pub use facts::*;
 pub use local_view::{
     compose_local_views, resolve_view_subjects, AdaptiveSplit, spawn_local_view, split_views_by_live_room,
@@ -109,6 +113,9 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
         app.init_resource::<BossFrameIndex>();
         app.init_resource::<NameplateIndex>();
         app.init_resource::<DialogView>();
+        app.add_systems(bevy::prelude::Update,
+            rebuild_dialog_view.in_set(DialogViewSync)
+                .after(ambition_dialog::DialogFrameSet::Narrative));
         app.init_resource::<ControlPrompt>();
         app.init_resource::<PassageViews>();
         app.init_resource::<CombatGeometryView>();
@@ -163,9 +170,6 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // hurtboxes plus live world-space strike volumes, independent of
                 // which controller (if any) drives each body.
                 rebuild_combat_geometry_view,
-                // The dialogue overlay's row (recon C3): presentation reads
-                // THIS, never the live `DialogState`.
-                rebuild_dialog_view,
                 // "What does each control do right now" for the controlled
                 // subject — the touch overlay reads this instead of the sim.
                 rebuild_control_prompt.in_set(ControlPromptRebuilt),

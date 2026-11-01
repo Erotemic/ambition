@@ -14,7 +14,7 @@ use crate::runtime::DialogState;
 use crate::speech_sfx::{should_play_talk_blip, talk_blip_id_for_speaker};
 use ambition_sfx::voice::DialogueVoiceCatalog;
 #[cfg(feature = "input")]
-use ambition_input::{ActiveDevice, MenuControlFrame, SeatActiveDevices, DIALOGUE_CONTEXT};
+use ambition_input::{ActiveDevice, MenuControlFrame, SeatActiveDevices, SeatMenuFrames, ParticipantId, LocalSeatTopology, KeyboardOwner, DIALOGUE_CONTEXT};
 #[cfg(feature = "input")]
 use ambition_input::{participant::ParticipantContexts, InputParticipant};
 #[cfg(feature = "input")]
@@ -87,7 +87,10 @@ pub fn dialog_reveal_tick(
 #[cfg(feature = "input")]
 pub fn dialog_pointer_input(
     mut dialogue: ResMut<DialogState>,
-    participants: Query<&ParticipantContexts, With<InputParticipant>>,
+    participants: Query<(&InputParticipant, &ParticipantContexts)>,
+    channels: Option<Res<LocalSeatTopology>>,
+    keyboard: Option<Res<KeyboardOwner>>,
+    region: Option<Res<ambition_ui_nav::DialogPointerRegion>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     choices: Query<(&Interaction, &DialogChoiceSlot), Changed<Interaction>>,
     settings: Option<Res<UserSettings>>,
@@ -95,7 +98,10 @@ pub fn dialog_pointer_input(
     touches: Option<Res<Touches>>,
     mouse_buttons: Option<Res<ButtonInput<MouseButton>>>,
 ) {
-    if !dialogue.active() || dialogue_input_is_captured(participants.iter()) {
+    let owner = dialogue.input_owner();
+    if !dialogue.active() || dialogue_input_is_captured(participants.iter().filter_map(|(person, contexts)| {
+        owner.filter(|owner| owner.accepts(person.id)).map(|_| contexts)
+    })) {
         return;
     }
     let cursor_position = windows.single().ok().and_then(Window::cursor_position);
@@ -108,7 +114,7 @@ pub fn dialog_pointer_input(
     // presses a row before the touch fold has published `Touch`.
     let direct_touch_active = touches
         .as_deref()
-        .is_some_and(|touches| touches.iter().next().is_some());
+        .is_some_and(|touches| touches.iter().next().is_some() || touches.iter_just_released().next().is_some());
     let pointer_input = if direct_touch_active {
         Some(ActiveDevice::Touch)
     } else {
@@ -120,6 +126,17 @@ pub fn dialog_pointer_input(
     // reads the finger's position instead. Also read the just-released finger:
     // on the frame it lifts, Bevy has already removed it from `pressed`.
     let pointer_position = ambition_ui_nav::pointer_position(touches.as_deref(), cursor_position);
+    let pointer_seat = pointer_participant(channels.as_deref(), keyboard.as_deref(), direct_touch_active);
+    if !pointer_seat.is_some_and(|seat| owner.is_some_and(|owner| owner.accepts(seat)))
+        || region.as_deref().is_some_and(|region| {
+            !region.0.is_some_and(|rect| pointer_position.is_some_and(|point| rect.contains(point)))
+        })
+    {
+        if dialogue.row_press.armed().is_some() {
+            dialogue.row_press.clear();
+        }
+        return;
+    }
     let pointer_up = ambition_ui_nav::pointer_up(touches.as_deref(), mouse_buttons.as_deref());
 
     let option_count = dialogue.options().len();
@@ -269,20 +286,60 @@ pub fn a_conversation_is_open_or_held(dialogue: Option<Res<DialogState>>) -> boo
 #[cfg(feature = "input")]
 pub fn dialog_input(
     menu: Res<MenuControlFrame>,
-    participants: Query<&ParticipantContexts, With<InputParticipant>>,
+    frames: Res<SeatMenuFrames>,
+    participants: Query<(&InputParticipant, &ParticipantContexts)>,
+    channels: Option<Res<LocalSeatTopology>>,
+    keyboard: Option<Res<KeyboardOwner>>,
+    region: Option<Res<ambition_ui_nav::DialogPointerRegion>>,
+    windows: Query<&Window, With<PrimaryWindow>>,
+    touches: Option<Res<Touches>>,
     mut dialogue: ResMut<DialogState>,
 ) {
     // The claims that take the conversation's input also hold its reveal and
     // its presentation (`DialogState::held`): a surface above the conversation
     // owns the screen until it closes.
-    let held = dialogue_input_is_captured(participants.iter());
+    let owner = dialogue.input_owner();
+    let held = dialogue_input_is_captured(participants.iter().filter_map(|(person, contexts)| {
+        owner.filter(|owner| owner.accepts(person.id)).map(|_| contexts)
+    }));
     if dialogue.held != held {
         dialogue.held = held;
     }
     if held {
         return;
     }
-    apply_dialog_menu_input(&menu, dialogue);
+    // The opening press belongs to the world action, not to the new text surface.
+    if dialogue.pending_start.is_some() {
+        return;
+    }
+    let mut frame = frames.seats().find_map(|(seat, frame)| {
+        (owner.is_some_and(|owner| owner.accepts(ParticipantId(seat)))
+            && (frame.any_navigation() || frame.select || frame.back || frame.start))
+            .then_some(frame)
+    }).unwrap_or_default();
+    let pointer_seat = pointer_participant(channels.as_deref(), keyboard.as_deref(),
+        touches.as_deref().is_some_and(|touches| touches.iter().next().is_some() || touches.iter_just_released().next().is_some()));
+    let pointer = ambition_ui_nav::pointer_position(
+        touches.as_deref(), windows.single().ok().and_then(Window::cursor_position),
+    );
+    if pointer_seat.is_some_and(|seat| owner.is_some_and(|owner| owner.accepts(seat)))
+        && region.as_deref().is_none_or(|region| region.0.is_some_and(|rect| pointer.is_some_and(|point| rect.contains(point))))
+    {
+        frame.scroll_y += menu.scroll_y;
+        frame.drag_scroll_y += menu.drag_scroll_y;
+    }
+    apply_dialog_menu_input(&frame, dialogue);
+}
+
+#[cfg(feature = "input")]
+fn pointer_participant(topology: Option<&LocalSeatTopology>, keyboard: Option<&KeyboardOwner>, touch: bool) -> Option<ParticipantId> {
+    if touch {
+        return Some(ParticipantId::PRIMARY);
+    }
+    match topology.filter(|topology| topology.is_frozen()).and_then(LocalSeatTopology::declared_channels) {
+        Some(plan) => plan.keyboard_channel(),
+        None => Some(keyboard.and_then(|keyboard| keyboard.0).unwrap_or(ParticipantId::PRIMARY)),
+    }
 }
 
 /// Whether an overlay holds the conversation's input: a participant declares the
@@ -728,6 +785,7 @@ mod tests {
         app.add_plugins(InputPlugin);
         app.insert_resource(dialogue_with_options(2));
         app.init_resource::<MenuControlFrame>();
+        app.init_resource::<SeatMenuFrames>();
         app.add_systems(Update, (dialog_input, dialog_pointer_input));
         app.update();
         app.world_mut().spawn((Interaction::None, DialogChoiceSlot { index: 0 }));
@@ -739,6 +797,7 @@ mod tests {
     fn dialogue_with_options(count: usize) -> DialogState {
         let mut dialogue = DialogState::default();
         dialogue.active = true;
+        dialogue.set_input_owner(ambition_input::InputOwner::Primary);
         dialogue.current_options = (0..count)
             .map(|index| crate::DialogChoice {
                 label: format!("Option {index}"),
@@ -747,6 +806,71 @@ mod tests {
             .collect();
         dialogue.reveal_full_options();
         dialogue
+    }
+
+    #[test]
+    fn dialogue_reads_its_owner_and_only_its_owners_context_claims() {
+        use ambition_input::{ContextClaim, PAUSE_CONTEXT};
+        use ambition_input::participant::context_priority;
+        let mut app = App::new();
+        let mut dialogue = dialogue_with_options(3);
+        dialogue.set_input_owner(ambition_input::InputOwner::Participant(ParticipantId(1)));
+        app.insert_resource(dialogue);
+        app.insert_resource(MenuControlFrame { back: true, ..default() });
+        app.init_resource::<SeatMenuFrames>();
+        app.add_systems(Update, dialog_input);
+        let mut primary_claims = ParticipantContexts::default();
+        primary_claims.declare(ContextClaim::capturing(DIALOGUE_CONTEXT, context_priority::DIALOGUE));
+        primary_claims.declare(ContextClaim::capturing(PAUSE_CONTEXT, context_priority::PAUSE));
+        app.world_mut().spawn((InputParticipant::primary(), primary_claims));
+        let mut owner_claims = ParticipantContexts::default();
+        owner_claims.declare(ContextClaim::capturing(DIALOGUE_CONTEXT, context_priority::DIALOGUE));
+        let owner = app.world_mut().spawn((InputParticipant::with_id(ParticipantId(1)), owner_claims)).id();
+        app.world_mut().resource_mut::<SeatMenuFrames>().set(0, MenuControlFrame { back: true, ..default() });
+        app.world_mut().resource_mut::<SeatMenuFrames>().set(1, MenuControlFrame { down: true, ..default() });
+        app.update();
+        let dialogue = app.world().resource::<DialogState>();
+        assert!(dialogue.active());
+        assert!(!dialogue.held());
+        assert_eq!(dialogue.selected_option(), 1);
+        app.world_mut().get_mut::<ParticipantContexts>(owner).unwrap()
+            .declare(ContextClaim::capturing(PAUSE_CONTEXT, context_priority::PAUSE));
+        app.update();
+        let dialogue = app.world().resource::<DialogState>();
+        assert!(dialogue.held());
+        assert_eq!(dialogue.selected_option(), 1);
+    }
+
+    #[test]
+    fn an_opening_press_does_not_advance_the_new_text_surface() {
+        let mut app = App::new();
+        let mut dialogue = DialogState::default();
+        dialogue.start("intro", "Guide", crate::DialogueContext::scripted(), ambition_input::InputOwner::Primary);
+        app.insert_resource(dialogue);
+        app.init_resource::<MenuControlFrame>();
+        let mut frames = SeatMenuFrames::default();
+        frames.set(0, MenuControlFrame { select: true, ..default() });
+        app.insert_resource(frames);
+        app.add_systems(Update, dialog_input);
+        app.update();
+        let dialogue = app.world().resource::<DialogState>();
+        assert!(dialogue.active());
+        assert!(dialogue.pending_start.is_some());
+        assert!(!dialogue.pending_advance);
+        assert!(dialogue.pending_select.is_none());
+    }
+
+    #[test]
+    fn a_pointer_outside_the_dialogue_view_cannot_select_a_choice() {
+        let mut rows = Rows::new(3);
+        rows.app.insert_resource(ambition_ui_nav::DialogPointerRegion(Some(Rect::from_corners(Vec2::new(100.0, 0.0), Vec2::new(200.0, 100.0)))));
+        rows.touch(TouchPhase::Started, Vec2::new(20.0, 30.0))
+            .interaction(2, Interaction::Pressed).step();
+        assert_eq!(rows.app.world().resource::<DialogState>().selected_option(), 0);
+        rows.app.world_mut().resource_mut::<DialogState>().set_input_owner(ambition_input::InputOwner::Participant(ParticipantId(1)));
+        rows.touch(TouchPhase::Moved, Vec2::new(150.0, 30.0))
+            .interaction(2, Interaction::Pressed).step();
+        assert_eq!(rows.app.world().resource::<DialogState>().selected_option(), 0);
     }
 
     /// Touch keeps the configured policy — and drag safety comes from RELEASE.

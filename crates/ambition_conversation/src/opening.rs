@@ -8,7 +8,8 @@ use bevy::prelude::*;
 
 use ambition_combat::components::{ActorIdentity, ActorInteraction};
 
-use super::authority::{ActiveConversation, ConversationInputOwner, LiveConversation};
+use super::authority::{ActiveConversation, LiveConversation};
+use ambition_input::InputOwner;
 use super::instance::ConversationInstanceId;
 
 /// The dialogue-dispatch seam: everything the interaction system needs to decide
@@ -97,7 +98,7 @@ impl DialogueDispatch<'_, '_> {
         speaker_name: &str,
         speaker_id: &str,
         listener_id: &str,
-        input_owner: ConversationInputOwner,
+        input_owner: InputOwner,
     ) -> bool {
         let context = ambition_dialog::DialogueContext::between(speaker_id, listener_id);
         // SELF-TALK. The speaker IS the listener — the player possessed this

@@ -14,10 +14,9 @@
 use bevy::log::info;
 use bevy::prelude::*;
 
-use crate::reading_layout::{fit_to_reading_rect, place_in_reading_rect};
 use crate::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_platformer2d_shared_tangle::gameplay_presentation::ResolvedGameplayPresentation;
-use ambition_sim_view::DialogView;
+use ambition_sim_view::{DialogView, LocalView, LocalViewId, ViewParticipant, ViewPlacement, SharedViewHudFacts, ViewHudSeat, ViewSubject};
 use ambition_ui_nav::DialogChoiceSlot;
 
 const DEFAULT_CONTINUE_HINT: &str = "Confirm / Interact: continue    Back: close";
@@ -34,6 +33,84 @@ pub struct DialogPresentationSet;
 /// Session/shell tests can use this without knowing the concrete skin.
 #[derive(Component)]
 pub struct DialogOverlayRoot;
+
+pub fn dialog_owner_label(owner: Option<ambition_input::InputOwner>) -> String {
+    match owner {
+        Some(ambition_input::InputOwner::Participant(id)) => format!("P{}", u16::from(id.slot()) + 1),
+        Some(ambition_input::InputOwner::Primary) => "P1".to_owned(),
+        Some(ambition_input::InputOwner::AllParticipants) => "P*".to_owned(),
+        None => String::new(),
+    }
+}
+
+/// Resolve the dialogue surface from its participant and the current view layout.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct DialogSurface<'w, 's> {
+    views: Query<'w, 's, (&'static LocalViewId, Option<&'static ViewParticipant>, Option<&'static ViewPlacement>, Option<&'static SharedViewHudFacts>, Option<&'static ViewHudSeat>, Has<ViewSubject>), With<LocalView>>,
+    presentation: Option<Res<'w, ResolvedGameplayPresentation>>,
+    windows: Query<'w, 's, &'static Window, With<bevy::window::PrimaryWindow>>,
+}
+
+impl DialogSurface<'_, '_> {
+    pub fn rect(&self, dialogue: &DialogView) -> Option<Rect> {
+        use ambition_input::InputOwner;
+        let display = self.presentation.as_deref().map(|p| Rect::from_corners(p.display_rect.min, p.display_rect.max))
+            .unwrap_or_else(|| Rect::from_corners(Vec2::ZERO, self.windows.single().map_or(Vec2::new(1280.0, 720.0), |window| Vec2::new(window.width(), window.height()))));
+        let reading = self.presentation.as_deref().map_or(display, |p| {
+            let rect = p.reading_rect();
+            Rect::from_corners(rect.min, rect.max)
+        });
+        if dialogue.input_owner == Some(InputOwner::AllParticipants) || self.views.is_empty() {
+            return Some(reading);
+        }
+        dialogue.input_owner?;
+        let shared = self.views.iter().count() == 1;
+        let (_, _, placement, _, _, _) = self.views.iter().filter(|(_, participant, _, seats, seat, subject)| {
+            participant.is_some_and(|participant| dialogue.controls_seat(participant.0))
+                || seat.and_then(|seat| seat.0).is_some_and(|seat| dialogue.controls_seat(seat))
+                || seats.is_some_and(|seats| seats.0.iter().any(|(seat, _)| dialogue.controls_seat(*seat)))
+                || (shared && participant.is_none() && !subject && seat.is_none())
+        }).min_by_key(|(id, ..)| **id)?;
+        let gameplay = self.presentation.as_deref().map_or(display, |p| Rect::from_corners(p.gameplay_rect.min, p.gameplay_rect.max));
+        let (origin, size) = placement.copied().unwrap_or_default().carve(gameplay.min, gameplay.size());
+        let min = origin.max(reading.min);
+        let max = (origin + size).min(reading.max);
+        (max.cmpgt(min).all()).then(|| Rect::from_corners(min, max))
+    }
+
+    pub fn place(&self, node: &mut Node, rect: Rect) {
+        let display_origin = self.presentation.as_deref().map_or(Vec2::ZERO, |p| p.display_rect.min);
+        node.position_type = PositionType::Absolute;
+        node.left = Val::Px(rect.min.x - display_origin.x);
+        node.top = Val::Px(rect.min.y - display_origin.y);
+        node.width = Val::Px(rect.width());
+        node.height = Val::Px(rect.height());
+        node.right = Val::Auto;
+        node.bottom = Val::Auto;
+        node.overflow = Overflow::clip();
+    }
+}
+
+fn fit_dialog_surface(
+    surface: DialogSurface,
+    dialogue: Res<DialogView>,
+    mut pointer_region: ResMut<ambition_ui_nav::DialogPointerRegion>,
+    mut roots: Query<(&mut Node, &mut Visibility), With<DialogOverlayRoot>>,
+) {
+    let rect = dialogue.active.then(|| surface.rect(&dialogue)).flatten();
+    if pointer_region.0 != rect {
+        pointer_region.0 = rect;
+    }
+    for (mut node, mut visibility) in &mut roots {
+        let next_visibility = if rect.is_some() { Visibility::Inherited } else { Visibility::Hidden };
+        if *visibility != next_visibility { *visibility = next_visibility; }
+        if let Some(rect) = rect {
+            let mut next = node.clone();
+            surface.place(&mut next, rect);
+            if *node != next { *node = next; }
+        }
+    }
+}
 
 /// Records which plugin claimed the one dialogue-presentation slot.
 #[derive(Resource, Clone, Debug, PartialEq, Eq)]
@@ -58,9 +135,14 @@ pub fn claim_dialog_presentation(app: &mut App, owner: &'static str) {
         );
     }
     app.insert_resource(DialogPresentationOwner(owner));
+    app.init_resource::<ambition_ui_nav::DialogPointerRegion>();
+    app.add_systems(Update, fit_dialog_surface.after(DialogPresentationSet).run_if(a_dialogue_is_shown_or_changed));
     // The presenter runs while a dialogue is shown and on the frame its view
     // changes, so the frame it closes takes the box down.
-    app.configure_sets(Update, DialogPresentationSet.run_if(a_dialogue_is_shown_or_changed));
+    app.configure_sets(Update, DialogPresentationSet
+        .after(ambition_sim_view::camera_snapshot::CameraObservationSet)
+        .after(ambition_sim_view::DialogViewSync)
+        .run_if(a_dialogue_is_shown_or_changed));
 }
 
 /// Run condition of [`DialogPresentationSet`]: a dialogue is shown, or its
@@ -78,12 +160,7 @@ impl Plugin for DefaultDialogUiPlugin {
         claim_dialog_presentation(app, "ambition_render::DefaultDialogUiPlugin");
         app.add_systems(
             Update,
-            (
-                sync_default_dialog_ui,
-                fit_to_reading_rect::<DialogOverlayRoot>,
-            )
-                .chain()
-                .in_set(DialogPresentationSet),
+            sync_default_dialog_ui.in_set(DialogPresentationSet),
         );
     }
 }
@@ -99,22 +176,26 @@ pub fn sync_default_dialog_ui(
     dialogue: Res<DialogView>,
     overlays: Query<Entity, With<DialogOverlayRoot>>,
     ui_fonts: Option<Res<UiFonts>>,
-    presentation: Option<Res<ResolvedGameplayPresentation>>,
+    surface: DialogSurface,
+    mut previous_rect: Local<Option<Rect>>,
     mut logged_font_state: Local<bool>,
 ) {
     let fonts_changed = ui_fonts.as_ref().is_some_and(|fonts| fonts.is_changed());
-    if !dialogue.is_changed() && !fonts_changed {
+    let rect = surface.rect(&dialogue);
+    let layout_changed = *previous_rect != rect;
+    *previous_rect = rect;
+    if !dialogue.is_changed() && !fonts_changed && !layout_changed {
         return;
     }
 
     for entity in overlays.iter() {
         commands.entity(entity).despawn();
     }
-    if !dialogue.active {
+    if !dialogue.active || rect.is_none() {
         return;
     }
 
-    let title = default_title(&dialogue);
+    let title = format!("{} · {}", default_title(&dialogue), dialog_owner_label(dialogue.input_owner));
     let options = &dialogue.option_labels;
     let selected = dialogue.selected_option;
 
@@ -175,7 +256,7 @@ pub fn sync_default_dialog_ui(
                     align_items: AlignItems::Center,
                     ..default()
                 };
-                place_in_reading_rect(&mut node, presentation.as_deref());
+                surface.place(&mut node, rect.unwrap());
                 node
             },
             ZIndex(45),
@@ -356,5 +437,42 @@ mod tests {
             .world_mut()
             .query_filtered::<Entity, With<DialogOverlayRoot>>();
         assert_eq!(roots.iter(app.world()).count(), 1);
+    }
+
+    #[test]
+    fn dialogue_follows_its_participant_through_split_merge_and_view_removal() {
+        use ambition_characters::control::PlayerSlot;
+        use ambition_input::InputOwner;
+        use ambition_input::ParticipantId;
+        let mut app = App::new();
+        app.insert_resource(DialogView {
+            active: true,
+            input_owner: Some(InputOwner::Participant(ParticipantId(1))),
+            body: "A line in progress".to_owned(),
+            selected_option: 2,
+            ..default()
+        });
+        app.add_plugins(DefaultDialogUiPlugin);
+        let first = app.world_mut().spawn((LocalView, LocalViewId(0), ViewParticipant(PlayerSlot(0)), ViewPlacement::column(0, 2))).id();
+        let second = app.world_mut().spawn((LocalView, LocalViewId(1), ViewParticipant(PlayerSlot(1)), ViewPlacement::column(1, 2))).id();
+        app.update();
+        let rect = app.world().resource::<ambition_ui_nav::DialogPointerRegion>().0.unwrap();
+        assert_eq!(rect, Rect::from_corners(Vec2::new(640.0, 0.0), Vec2::new(1280.0, 720.0)));
+        let mut roots = app.world_mut().query_filtered::<&Node, With<DialogOverlayRoot>>();
+        let root = roots.single(app.world()).unwrap();
+        assert_eq!(root.left, Val::Px(640.0));
+        assert_eq!(root.width, Val::Px(640.0));
+        assert_eq!(root.overflow, Overflow::clip());
+        app.world_mut().despawn(second);
+        app.world_mut().entity_mut(first).remove::<ViewParticipant>();
+        app.world_mut().entity_mut(first).remove::<ViewPlacement>();
+        app.update();
+        assert_eq!(app.world().resource::<ambition_ui_nav::DialogPointerRegion>().0.unwrap().size(), Vec2::new(1280.0, 720.0));
+        assert_eq!(app.world().resource::<DialogView>().body, "A line in progress");
+        assert_eq!(app.world().resource::<DialogView>().selected_option, 2);
+        app.world_mut().entity_mut(first).insert(ViewParticipant(PlayerSlot(0)));
+        app.update();
+        assert!(app.world().resource::<ambition_ui_nav::DialogPointerRegion>().0.is_none());
+        assert_eq!(roots.iter(app.world()).count(), 0);
     }
 }

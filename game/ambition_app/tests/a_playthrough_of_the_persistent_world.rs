@@ -248,30 +248,12 @@ fn the_save_file(
 /// (a software adapter is enough) and no window. `NoWindow` has no render
 /// app, so nothing in it is drawn.
 fn a_rendered_shipped_session() -> App {
-    use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
-    let mut app = build_visible_app_with(VisibleRenderMode::OffscreenGpu, true, |_| {});
-    // The surface a window would give the camera. Without it the camera has
-    // no size to frame the room with.
+    let mut app = crate::shell_host_rendered::rendered_app_with(
+        ambition_app::app::VisibleRenderMode::OffscreenGpu,
+    );
     app.insert_resource(ambition_platformer2d::host::gameplay_presentation::HeadlessDisplaySurface(
         ae::Vec2::new(960.0, 540.0),
     ));
-    // `app.run()` waits for the wgpu device that plugin finish creates on
-    // another task; a stepped App must wait for it too. Wait only while the
-    // plugins are being added: a composition that finished them already is
-    // past `Ready`, and a wait for `Ready` would not end.
-    let started = std::time::Instant::now();
-    while app.plugins_state() == bevy::app::PluginsState::Adding {
-        assert!(
-            started.elapsed() < crate::common::ACTIVATION_CEILING,
-            "the plugins of the rendered App were not ready in {:?}",
-            crate::common::ACTIVATION_CEILING
-        );
-        bevy::tasks::tick_global_task_pools_on_main_thread();
-    }
-    if app.plugins_state() == bevy::app::PluginsState::Ready {
-        app.finish();
-        app.cleanup();
-    }
     the_player_enters(app, false)
 }
 

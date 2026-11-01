@@ -263,9 +263,9 @@ pub fn interact_ecs_actors_and_switches(
             // this is, decided here because the `ParticipantId` ↔ `PlayerSlot` correspondence
             // lives in exactly one place (`crate::participant_seat`) and that place is this crate.
             let input_owner = dialogue.driving_slot(subject).map_or(
-                ambition_conversation::ConversationInputOwner::Primary,
+                ambition_input::InputOwner::Primary,
                 |slot| {
-                    ambition_conversation::ConversationInputOwner::Participant(
+                    ambition_input::InputOwner::Participant(
                         crate::participant_seat::participant_of(slot),
                     )
                 },

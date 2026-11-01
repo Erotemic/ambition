@@ -46,10 +46,29 @@ use ambition_platformer2d::render::rendering::HudText;
 /// Pinning the timestep makes `settle()` mean an exact number of sim frames on
 /// any machine, exactly as the sibling `shell_host_startup` module already does.
 pub(crate) fn rendered_app() -> App {
-    let mut app = ambition_app::app::build_visible_app(VisibleRenderMode::NoWindow, true);
+    rendered_app_with(VisibleRenderMode::NoWindow)
+}
+
+pub(crate) fn rendered_app_with(render: VisibleRenderMode) -> App {
+    let gpu = matches!(render, VisibleRenderMode::OffscreenGpu);
+    let mut app = ambition_app::app::build_visible_app(render, true);
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
         1.0 / 60.0,
     )));
+    if gpu {
+        app.insert_resource(ambition_platformer2d::host::gameplay_presentation::HeadlessDisplaySurface(
+            ambition_platformer2d::engine_core::Vec2::new(1280.0, 720.0),
+        ));
+        let started = std::time::Instant::now();
+        while app.plugins_state() == bevy::app::PluginsState::Adding {
+            assert!(started.elapsed() < crate::common::ACTIVATION_CEILING);
+            bevy::tasks::tick_global_task_pools_on_main_thread();
+        }
+        if app.plugins_state() == bevy::app::PluginsState::Ready {
+            app.finish();
+            app.cleanup();
+        }
+    }
     app
 }
 

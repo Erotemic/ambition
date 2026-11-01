@@ -19,6 +19,7 @@
 
 #![cfg(feature = "rl_sim")]
 
+use ambition_platformer2d::input::InputOwner;
 use ambition_app::rl_sim::{
     AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
 };
@@ -1614,7 +1615,7 @@ fn open_a_conversation_on_known_ticks(
     >,
 ) {
     use ambition_platformer2d::conversation::{
-        ActiveConversation, ConversationInputOwner, ConversationInstanceId, LiveConversation,
+        ActiveConversation, ConversationInstanceId, LiveConversation,
     };
     let _: &ActiveConversation = &conversation;
     if tick.0 == CLOSES_AT {
@@ -1634,7 +1635,7 @@ fn open_a_conversation_on_known_ticks(
         ),
         initiator: None,
         talker: None,
-        input_owner: ConversationInputOwner::Primary,
+        input_owner: InputOwner::Primary,
         speaker_name: String::new(),
     });
 }
@@ -2498,7 +2499,7 @@ fn open_a_conversation_on_the_very_first_tick(
     >,
 ) {
     use ambition_platformer2d::conversation::{
-        ConversationInputOwner, ConversationInstanceId, LiveConversation,
+        ConversationInstanceId, LiveConversation,
     };
     if tick.0 != FIRST_TICK {
         return;
@@ -2513,7 +2514,7 @@ fn open_a_conversation_on_the_very_first_tick(
         ),
         initiator: None,
         talker: None,
-        input_owner: ConversationInputOwner::Primary,
+        input_owner: InputOwner::Primary,
         speaker_name: String::new(),
     });
 }

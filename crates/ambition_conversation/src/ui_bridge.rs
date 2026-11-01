@@ -92,10 +92,13 @@ pub fn project_the_dialog_ui_from_the_conversation(
         }
         return;
     };
+    if dialog.input_owner() != Some(live.input_owner) {
+        dialog.set_input_owner(live.input_owner);
+    }
     if attached.as_ref() == Some(&live.instance) {
         return;
     }
     *attached = Some(live.instance.clone());
     // Instance identity includes dialogue context, so corrected participants restart Yarn state.
-    dialog.start(live.dialogue_id(), &live.speaker_name, live.context());
+    dialog.start(live.dialogue_id(), &live.speaker_name, live.context(), live.input_owner);
 }

@@ -17,7 +17,7 @@ fn default_state_is_inactive() {
 #[test]
 fn start_activates_dialogue() {
     let mut s = DialogState::default();
-    s.start("guide", "Guide", DialogueContext::scripted());
+    s.start("guide", "Guide", DialogueContext::scripted(), ambition_input::InputOwner::Primary);
     assert!(s.active());
     assert_eq!(s.dialogue_id(), "guide");
     assert_eq!(s.speaker_label(), "Guide");
@@ -27,7 +27,7 @@ fn start_activates_dialogue() {
 #[test]
 fn close_deactivates() {
     let mut s = DialogState::default();
-    s.start("guide", "Guide", DialogueContext::scripted());
+    s.start("guide", "Guide", DialogueContext::scripted(), ambition_input::InputOwner::Primary);
     s.close();
     assert!(!s.active());
 }
@@ -39,6 +39,7 @@ fn stable_portrait_identity_defaults_to_listener_and_resets_cleanly() {
         "guide",
         "Guide",
         DialogueContext::between("player", "npc_guide"),
+        ambition_input::InputOwner::Primary,
     );
     assert_eq!(s.speaker_character_id(), "npc_guide");
     assert_eq!(s.portrait_clip(), "");
@@ -67,6 +68,7 @@ fn body_does_not_panic_when_no_node() {
         "nonexistent_dialogue_id_for_test",
         "X",
         DialogueContext::scripted(),
+        ambition_input::InputOwner::Primary,
     );
     // The runtime returns an empty string when no PresentLine has
     // arrived yet — the UI treats that as "loading" and shows the
@@ -79,14 +81,14 @@ fn body_does_not_panic_when_no_node() {
 #[test]
 fn selected_option_starts_at_zero() {
     let mut s = DialogState::default();
-    s.start("guide", "Guide", DialogueContext::scripted());
+    s.start("guide", "Guide", DialogueContext::scripted(), ambition_input::InputOwner::Primary);
     assert_eq!(s.selected_option(), 0);
 }
 
 #[test]
 fn confirm_while_typing_reveals_the_full_line_first() {
     let mut s = DialogState::default();
-    s.start("guide", "Guide", DialogueContext::scripted());
+    s.start("guide", "Guide", DialogueContext::scripted(), ambition_input::InputOwner::Primary);
     s.start_revealing_line("Hello world".to_string());
     s.tick_reveal(0.01);
     assert!(!s.line_reveal_complete());
@@ -101,7 +103,7 @@ fn confirm_while_typing_reveals_the_full_line_first() {
 #[test]
 fn confirm_after_line_complete_advances_when_no_options_exist() {
     let mut s = DialogState::default();
-    s.start("guide", "Guide", DialogueContext::scripted());
+    s.start("guide", "Guide", DialogueContext::scripted(), ambition_input::InputOwner::Primary);
     s.start_revealing_line("Hello world".to_string());
     s.reveal_full_line();
 
@@ -114,7 +116,7 @@ fn confirm_after_line_complete_advances_when_no_options_exist() {
 #[test]
 fn confirm_with_options_preserves_option_selection() {
     let mut s = DialogState::default();
-    s.start("guide", "Guide", DialogueContext::scripted());
+    s.start("guide", "Guide", DialogueContext::scripted(), ambition_input::InputOwner::Primary);
     s.start_revealing_line("Pick one".to_string());
     s.reveal_full_line();
     s.current_options = vec![
@@ -139,7 +141,7 @@ fn confirm_with_options_preserves_option_selection() {
 #[test]
 fn options_are_visible_immediately() {
     let mut s = DialogState::default();
-    s.start("guide", "Guide", DialogueContext::scripted());
+    s.start("guide", "Guide", DialogueContext::scripted(), ambition_input::InputOwner::Primary);
     s.start_revealing_line("Pick one".to_string());
     s.reveal_full_line();
     s.current_options = vec![
@@ -160,7 +162,7 @@ fn options_are_visible_immediately() {
 #[test]
 fn typewriter_reveal_respects_multibyte_char_boundaries() {
     let mut s = DialogState::default();
-    s.start("guide", "Guide", DialogueContext::scripted());
+    s.start("guide", "Guide", DialogueContext::scripted(), ambition_input::InputOwner::Primary);
     // 'é' is two bytes; a reveal that used the char COUNT as a byte
     // INDEX would slice mid-codepoint and panic. Tick incrementally
     // and assert every partial reveal is a valid char-boundary prefix
@@ -188,14 +190,14 @@ fn visible_dialog_window_keeps_selected_option_in_range() {
 #[test]
 fn dialogue_speech_style_resets_between_lines_and_sessions() {
     let mut s = DialogState::default();
-    s.start("guide", "Guide", DialogueContext::scripted());
+    s.start("guide", "Guide", DialogueContext::scripted(), ambition_input::InputOwner::Primary);
     s.set_speech_style(DialogSpeechStyle::Whisper);
     assert_eq!(s.speech_style(), DialogSpeechStyle::Whisper);
 
     s.close();
     assert_eq!(s.speech_style(), DialogSpeechStyle::Normal);
 
-    s.start("guide", "Guide", DialogueContext::scripted());
+    s.start("guide", "Guide", DialogueContext::scripted(), ambition_input::InputOwner::Primary);
     assert_eq!(s.speech_style(), DialogSpeechStyle::Normal);
 }
 

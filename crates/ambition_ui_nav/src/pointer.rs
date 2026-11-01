@@ -410,6 +410,11 @@ mod tests {
     }
 }
 
+/// The visible dialogue surface in logical window coordinates.
+/// `None` means that no dialogue surface can receive pointer input.
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default)]
+pub struct DialogPointerRegion(pub Option<bevy::math::Rect>);
+
 /// Marker on a rendered dialog choice-row entity, carrying its option index.
 ///
 /// The render layer's dialog UI spawns these; the sim-side dialog

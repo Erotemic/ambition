@@ -51,7 +51,8 @@ impl Plugin for ConversationPlugin {
         app.add_systems(
             Update,
             (
-                project_the_dialog_ui_from_the_conversation,
+                project_the_dialog_ui_from_the_conversation
+                    .before(ambition_dialog::DialogFrameSet::Input),
                 publish_the_narrative_end,
             )
                 .chain()

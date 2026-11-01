@@ -22,9 +22,9 @@ where
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
             live.instance.hash(&mut hasher);
             match live.input_owner {
-                crate::ConversationInputOwner::Participant(id) => (1u8, id.slot()).hash(&mut hasher),
-                crate::ConversationInputOwner::Primary => (2u8, 0u8).hash(&mut hasher),
-                crate::ConversationInputOwner::AllParticipants => (3u8, 0u8).hash(&mut hasher),
+                ambition_input::InputOwner::Participant(id) => (1u8, id.slot()).hash(&mut hasher),
+                ambition_input::InputOwner::Primary => (2u8, 0u8).hash(&mut hasher),
+                ambition_input::InputOwner::AllParticipants => (3u8, 0u8).hash(&mut hasher),
             }
             hasher.finish()
         },

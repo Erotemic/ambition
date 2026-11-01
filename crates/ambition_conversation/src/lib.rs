@@ -6,7 +6,7 @@
 //! ledger with the conversation identity and simulation tick attached.
 //!
 //! This crate does not derive the `ParticipantId`/player-slot correspondence; the
-//! caller supplies [`ConversationInputOwner`]. Payload vocabulary remains owned by
+//! caller supplies [`ambition_input::InputOwner`]. Payload vocabulary remains owned by
 //! the domain that consumes it, while [`ConversationPlugin`] owns conversation
 //! registration and ordering.
 //!
@@ -20,7 +20,7 @@
 //!   arrived here as the RULE for when characters may talk over each other; the
 //!   words are a game content crate's.
 //! - **Who is speaking to whom.** The caller supplies
-//!   [`ConversationInputOwner`]; deriving it from a player slot here would make
+//!   [`ambition_input::InputOwner`]; deriving it from a player slot here would make
 //!   this crate reason about seats it cannot see.
 
 mod authority;
@@ -39,7 +39,7 @@ mod ui_bridge;
 #[cfg(test)]
 mod tests;
 
-pub use authority::{ActiveConversation, ConversationInputOwner, LiveConversation};
+pub use authority::{ActiveConversation, LiveConversation};
 pub use hold::{project_conversation_hold, HeldByConversation};
 pub use instance::ConversationInstanceId;
 pub use ledger::{

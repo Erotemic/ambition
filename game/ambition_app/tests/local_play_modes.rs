@@ -84,7 +84,10 @@ fn accept_joins(app: &mut App, accept: bool) {
 /// An Ambition session in the rendered host with `pads` pads connected before
 /// it starts and the setting `accept`. Pad `n` is named "pad n".
 fn session(pads: usize, accept: bool) -> (App, Vec<Entity>) {
-    let mut app = rendered_app();
+    session_in(rendered_app(), pads, accept)
+}
+
+fn session_in(mut app: App, pads: usize, accept: bool) -> (App, Vec<Entity>) {
     settle(&mut app);
     accept_joins(&mut app, accept);
     let connected = (0..pads).map(|index| connect_named_pad(&mut app, &format!("pad {index}"))).collect();
@@ -114,6 +117,124 @@ fn seat_one_bodies(app: &mut App) -> Vec<Entity> {
         .filter(|(_, driver)| driver.0 == PlayerSlot(SEAT))
         .map(|(entity, _)| entity)
         .collect()
+}
+
+#[test]
+fn player_two_controls_its_dialogue_while_player_one_keeps_playing() {
+    let (app, pads) = session(2, true);
+    let (mut app, pads) = player_two_dialogue_at_choices(app, pads, false);
+    tap(&mut app, pads[0], GamepadButton::East);
+    assert!(app.world().resource::<ambition_platformer2d::dialog::DialogState>().active());
+    tap(&mut app, pads[1], GamepadButton::East);
+    assert!(!app.world().resource::<ambition_platformer2d::dialog::DialogState>().active());
+}
+
+#[test]
+fn player_two_can_talk_while_player_one_plays_in_the_same_room() {
+    let (app, pads) = session(2, true);
+    let (app, _) = player_two_dialogue_at_choices(app, pads, true);
+    assert_eq!(
+        app.world().resource::<State<ambition_platformer2d::platformer::schedule::GameMode>>().get(),
+        &ambition_platformer2d::platformer::schedule::GameMode::Playing,
+        "a conversation must not suspend the other participant's world actions",
+    );
+}
+
+fn player_two_dialogue_at_choices(mut app: App, pads: Vec<Entity>, together: bool) -> (App, Vec<Entity>) {
+    use ambition_platformer2d::dialog::DialogState;
+    use ambition_platformer2d::input::InputOwner;
+    use ambition_platformer2d::input::ParticipantId;
+    use crate::neighbor_prefetch_prepares_rooms::cross;
+    use crate::the_note_travels_from_alice_to_bob::{npc, put_body_at};
+    tap(&mut app, pads[1], GamepadButton::Start);
+    for _ in 0..6 { app.update(); }
+    let two = seat_one_bodies(&mut app)[0];
+    let one = the_primary(&mut app);
+    cross(&mut app, two, PlayerSlot(1), "alice_relay");
+    if together {
+        cross(&mut app, one, PlayerSlot(0), "alice_relay");
+    }
+    let alice = npc(&mut app, "npc_alice");
+    let at = app.world().get::<BodyKinematics>(alice).unwrap().pos;
+    put_body_at(&mut app, two, at);
+    for _ in 0..10 { app.update(); }
+    tap(&mut app, pads[1], GamepadButton::RightTrigger);
+    assert_eq!(app.world().resource::<DialogState>().input_owner(), Some(InputOwner::Participant(ParticipantId(1))));
+    for _ in 0..80 {
+        if app.world().resource::<DialogState>().options().len() >= 2 { break; }
+        tap(&mut app, pads[1], GamepadButton::South);
+        app.update();
+    }
+    assert!(app.world().resource::<DialogState>().options().len() >= 2, "player two could not reach Alice's choices");
+    let selected = app.world().resource::<DialogState>().selected_option();
+    tap(&mut app, pads[0], GamepadButton::DPadDown);
+    assert_eq!(app.world().resource::<DialogState>().selected_option(), selected);
+    pad_button(&mut app, pads[1], GamepadButton::DPadRight, 1.0);
+    app.update();
+    assert!(!app.world().resource::<ambition_platformer2d::input::SeatInputContexts>().gameplay_owned(1));
+    assert_eq!(app.world().resource::<SlotControls>().get(PlayerSlot(1)).axis_x, 0.0);
+    pad_button(&mut app, pads[1], GamepadButton::DPadRight, 0.0);
+    app.update();
+    let [one_moved, _] = push_right(&mut app, Device::Pad(pads[0]), &[one, two])[..] else { unreachable!() };
+    assert!(one_moved >= MOVED, "the unrelated participant could not move");
+    assert!(app.world().resource::<DialogState>().active());
+    tap(&mut app, pads[1], GamepadButton::DPadDown);
+    assert_ne!(app.world().resource::<DialogState>().selected_option(), selected);
+    let view = app.world().resource::<ambition_platformer2d::sim_view::DialogView>();
+    assert_eq!(view.input_owner, Some(InputOwner::Participant(ParticipantId(1))));
+    assert!(view.instance.is_some());
+    let region = app.world().resource::<ambition_platformer2d::ui_nav::DialogPointerRegion>().0.unwrap();
+    if !together {
+        use ambition_platformer2d::sim_view::{LocalView, ViewParticipant};
+        use ambition_platformer2d::sim_view::camera_snapshot::CameraViewport;
+        let world = app.world_mut();
+        let mut views = world.query_filtered::<(&ViewParticipant, &CameraViewport), With<LocalView>>();
+        let (_, viewport) = views.iter(world).find(|(participant, _)| participant.0 == PlayerSlot(1))
+            .expect("the talker's room has a view");
+        let min = Vec2::new(viewport.origin_px.x, viewport.origin_px.y);
+        let max = min + Vec2::new(viewport.px.x, viewport.px.y);
+        assert!(region.min.cmpge(min).all() && region.max.cmple(max).all(),
+            "dialogue {region:?} extends outside the talker's camera {viewport:?}");
+    }
+    (app, pads)
+}
+
+#[test]
+#[ignore = "needs a wgpu adapter; writes /tmp/ambition-p2-dialogue.png for visual review"]
+fn player_two_dialogue_draws_in_its_own_view() {
+    use ambition_platformer2d::render::capture::{
+        CaptureProgress, CaptureSettings, CaptureTarget, adopt_cameras_into_capture_target,
+        request_capture, setup_capture_target,
+    };
+    let mut app = crate::shell_host_rendered::rendered_app_with(ambition_app::app::VisibleRenderMode::OffscreenGpu);
+    let output = std::env::temp_dir().join("ambition-p2-dialogue.png");
+    app.insert_resource(CaptureSettings { output: output.clone(), size: UVec2::new(1280, 720), include_ui: true });
+    app.init_resource::<CaptureProgress>();
+    app.add_systems(Startup, setup_capture_target);
+    app.add_systems(Update, adopt_cameras_into_capture_target);
+    let (app, pads) = session_in(app, 2, true);
+    let (mut app, _) = player_two_dialogue_at_choices(app, pads, false);
+    for _ in 0..30 { app.update(); }
+    app.add_systems(Update, |mut commands: Commands, target: Res<CaptureTarget>, mut progress: ResMut<CaptureProgress>| {
+        request_capture(&mut commands, &target, &mut progress);
+    });
+    let started = std::time::Instant::now();
+    while !app.world().resource::<CaptureProgress>().completed {
+        assert!(started.elapsed() < crate::common::ACTIVATION_CEILING, "the dialogue capture did not complete");
+        app.update();
+    }
+    assert!(!app.world().resource::<CaptureProgress>().failed);
+    assert!(output.is_file());
+    let world = app.world_mut();
+    let region = world.resource::<ambition_platformer2d::ui_nav::DialogPointerRegion>().0.unwrap();
+    let mut roots = world.query_filtered::<(&ComputedNode, &bevy::ui::UiGlobalTransform), With<ambition_platformer2d::render::dialog_ui::DialogOverlayRoot>>();
+    let (node, transform) = roots.single(world).unwrap();
+    let (_, _, center) = transform.to_scale_angle_translation();
+    let bounds = Rect::from_center_size(center * node.inverse_scale_factor(), node.size() * node.inverse_scale_factor());
+    eprintln!("dialogue input region: {region:?}; computed UI bounds: {bounds:?}");
+    assert!((bounds.min - region.min).abs().max_element() <= 1.0
+        && (bounds.max - region.max).abs().max_element() <= 1.0,
+        "the rendered dialogue extends outside its input region");
 }
 
 fn x_of(app: &App, body: Entity) -> f32 {

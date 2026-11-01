@@ -42,6 +42,24 @@ impl ParticipantId {
     }
 }
 
+/// Who may control a surface. The caller must select an owner.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InputOwner {
+    Participant(ParticipantId),
+    Primary,
+    AllParticipants,
+}
+
+impl InputOwner {
+    pub fn accepts(self, participant: ParticipantId) -> bool {
+        match self {
+            Self::Participant(owner) => owner == participant,
+            Self::Primary => participant == ParticipantId::PRIMARY,
+            Self::AllParticipants => true,
+        }
+    }
+}
+
 /// The persistent participant entity marker. Spawned once by the host input
 /// plugin at boot; never session-scoped, never despawned with a world.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]

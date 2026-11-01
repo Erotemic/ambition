@@ -2,8 +2,8 @@
 //!
 //! This row snapshots presentation-neutral dialogue facts (visibility, dialogue id, stable speaker
 //! identity, portrait clip, speaker / conversation labels, body, options, and selection), rebuilt
-//! sim-side in the FeatureViewSync tail like every other read-model; presentation is a pure
-//! consumer.
+//! after the narrative frame work and before dialogue presentation. Presentation
+//! consumes the snapshot.
 
 use ambition_dialog::DialogState;
 use bevy::prelude::{DetectChanges, Res, ResMut, Resource};
@@ -12,6 +12,10 @@ use bevy::prelude::{DetectChanges, Res, ResMut, Resource};
 /// dialogue is running.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct DialogView {
+    /// The participant whose controls can advance this dialogue.
+    pub input_owner: Option<ambition_input::InputOwner>,
+    /// The simulation conversation from which this surface was built.
+    pub instance: Option<ambition_conversation::ConversationInstanceId>,
     /// Whether a dialogue presenter should be visible at all: a conversation
     /// runs and no surface above it holds it (`DialogState::held`). A held
     /// conversation comes back from the same state when the surface closes.
@@ -41,6 +45,14 @@ pub struct DialogView {
     pub selected_option: usize,
 }
 
+impl DialogView {
+    pub fn controls_seat(&self, seat: ambition_characters::control::PlayerSlot) -> bool {
+        self.input_owner.is_some_and(|owner| owner.accepts(
+            ambition_platformer2d_actor_monolith::participant_seat::participant_of(seat),
+        ))
+    }
+}
+
 /// Rebuild [`DialogView`] from the live [`DialogState`]. Change-gated: an idle
 /// frame (no dialogue mutation) does no string work; during an active dialogue
 /// the state mutates every reveal tick anyway, which is exactly when the
@@ -48,15 +60,19 @@ pub struct DialogView {
 ///
 /// `Option`: a composition without the dialogue capability (`Capability::Dialogue`)
 /// has no `DialogState`, and the view stays at its idle default.
-pub fn rebuild_dialog_view(dialogue: Option<Res<DialogState>>, mut view: ResMut<DialogView>) {
+pub fn rebuild_dialog_view(dialogue: Option<Res<DialogState>>, conversation: Option<Res<ambition_conversation::ActiveConversation>>, mut view: ResMut<DialogView>) {
     let Some(dialogue) = dialogue else {
+        if view.active || view.input_owner.is_some() || view.instance.is_some() {
+            *view = DialogView::default();
+        }
         return;
     };
     // Nothing to mirror while the state is unchanged and the view already
     // agrees it is open or closed. An open dialogue that waits for the player
     // writes nothing, so its box is not rebuilt each tick.
     let shown = dialogue.active() && !dialogue.held();
-    if !dialogue.is_changed() && view.active == shown {
+    if !dialogue.is_changed() && view.active == shown
+        && conversation.as_ref().is_none_or(|conversation| !conversation.is_changed()) {
         return;
     }
     // ⭐⭐ ONE DESTRUCTURE, NO `..`, COVERING BOTH BRANCHES. Every field of the
@@ -75,6 +91,8 @@ pub fn rebuild_dialog_view(dialogue: Option<Res<DialogState>>, mut view: ResMut<
     // buffer on a row that rebuilds on EVERY REVEAL TICK of an active dialogue —
     // the allocation this function's change-gate exists to avoid.
     let DialogView {
+        input_owner,
+        instance,
         active,
         dialogue_id,
         speaker_character_id,
@@ -87,7 +105,14 @@ pub fn rebuild_dialog_view(dialogue: Option<Res<DialogState>>, mut view: ResMut<
     } = &mut *view;
 
     *active = shown;
+    *input_owner = dialogue.input_owner();
+    let next_instance = conversation.as_deref().and_then(|conversation| conversation.instance());
+    if instance.as_ref() != next_instance {
+        *instance = next_instance.cloned();
+    }
     if !*active {
+        *input_owner = None;
+        *instance = None;
         dialogue_id.clear();
         speaker_character_id.clear();
         portrait_clip.clear();
@@ -138,6 +163,7 @@ mod tests {
             "intro_greeting",
             "Robo",
             ambition_dialog::DialogueContext::between("player", "npc_robo"),
+            ambition_input::InputOwner::Primary,
         );
         app.world_mut()
             .resource_mut::<DialogState>()
@@ -176,6 +202,7 @@ mod tests {
             "intro_greeting",
             "Robo",
             ambition_dialog::DialogueContext::between("player", "npc_robo"),
+            ambition_input::InputOwner::Primary,
         );
         app.update();
         assert!(app.world().resource::<DialogView>().active);

@@ -358,7 +358,7 @@ pub fn declare_gameplay_input_context(
 }
 
 /// Declare dialogue and cutscene input contexts from their authoritative owners.
-/// Conversation capture is attributed by `ConversationInputOwner`; absent attribution
+/// Conversation capture is attributed by `InputOwner`; absent attribution
 /// captures nobody. Pause remains separate because it routes menu input rather than a
 /// neutral gameplay frame.
 pub fn declare_in_session_input_contexts(
@@ -374,16 +374,7 @@ pub fn declare_in_session_input_contexts(
         .and_then(ambition_conversation::ActiveConversation::input_owner);
     let in_cutscene = cutscene.is_playing();
     for (participant, mut contexts) in &mut participants {
-        let in_dialogue = match owner {
-            Some(ambition_conversation::ConversationInputOwner::Participant(id)) => {
-                participant.id == id
-            }
-            Some(ambition_conversation::ConversationInputOwner::Primary) => {
-                participant.id == ambition_input::ParticipantId::PRIMARY
-            }
-            Some(ambition_conversation::ConversationInputOwner::AllParticipants) => true,
-            None => false,
-        };
+        let in_dialogue = owner.is_some_and(|owner| owner.accepts(participant.id));
         // Touch the component only when a claim actually moves, so a quiet
         // frame is not a change-detection event for every reader downstream.
         if contexts.is_declared(DIALOGUE_CONTEXT) != in_dialogue {
@@ -1720,7 +1711,7 @@ mod focus_gate_tests {
                 None,
                 None,
                 "chat",
-                ambition_conversation::ConversationInputOwner::Participant(ParticipantId(1)),
+                ambition_input::InputOwner::Participant(ParticipantId(1)),
             ));
         app.update();
         let seats = app.world().resource::<SeatInputContexts>();
@@ -1750,7 +1741,7 @@ mod focus_gate_tests {
                 None,
                 None,
                 "chat",
-                ambition_conversation::ConversationInputOwner::Participant(ParticipantId(0)),
+                ambition_input::InputOwner::Participant(ParticipantId(0)),
             ));
         app.update();
 

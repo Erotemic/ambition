@@ -5,7 +5,7 @@
 //! opening tick, Yarn node, both bodies' `SimId`s, and the speaker/listener ids
 //! visible to Yarn.
 //!
-//! Presentation (`speaker_name`) and control routing (`ConversationInputOwner`) do
+//! Presentation (`speaker_name`) and control routing (`InputOwner`) do
 //! not affect identity. Entity handles are also excluded because rollback may remap
 //! them.
 //!

@@ -108,7 +108,7 @@ fn talking(app: &mut App) {
             None,
             None,
             "Start",
-            crate::ConversationInputOwner::Primary,
+            ambition_input::InputOwner::Primary,
         ));
 }
 

@@ -6,19 +6,7 @@ use bevy::prelude::*;
 
 use super::instance::ConversationInstanceId;
 
-/// Who owns input while a conversation is live. There is no default; callers
-/// must choose ownership explicitly.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ConversationInputOwner {
-    /// Participant driving the initiator, resolved from `DrivingParticipant`.
-    Participant(ambition_input::ParticipantId),
-    /// The primary seat only. A scripted conversation nobody in the world
-    /// started, where the shell's owner advances the box.
-    Primary,
-    /// Every seat. For a conversation that genuinely should stop the couch —
-    /// chosen at the call site, never inferred from an absence.
-    AllParticipants,
-}
+use ambition_input::InputOwner;
 
 /// The live conversation's deterministic facts. Nothing presentational.
 ///
@@ -47,7 +35,7 @@ pub struct LiveConversation {
     pub talker: Option<Entity>,
     /// Input ownership. This is rollback state but not conversation identity;
     /// changing the driver does not restart the narrative instance.
-    pub input_owner: ConversationInputOwner,
+    pub input_owner: InputOwner,
     /// Presentation-only fallback speaker name; excluded from instance identity
     /// and desync fingerprints.
     pub speaker_name: String,
@@ -67,7 +55,7 @@ impl LiveConversation {
         initiator: Option<Entity>,
         talker: Option<Entity>,
         dialogue_id: impl Into<String>,
-        input_owner: ConversationInputOwner,
+        input_owner: InputOwner,
     ) -> Self {
         Self {
             instance: ConversationInstanceId::mint(
@@ -149,7 +137,7 @@ impl ActiveConversation {
         self.live.as_ref().and_then(|live| live.initiator)
     }
 
-    pub fn input_owner(&self) -> Option<ConversationInputOwner> {
+    pub fn input_owner(&self) -> Option<InputOwner> {
         self.live.as_ref().map(|live| live.input_owner)
     }
 

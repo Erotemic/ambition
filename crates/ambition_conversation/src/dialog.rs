@@ -35,6 +35,7 @@ impl Plugin for YarnBindingsPlugin {
         // condition would not be: "no menu frame" would then silently mean "dialogue accepts no
         // input".
         app.init_resource::<ambition_input::MenuControlFrame>();
+        app.init_resource::<ambition_input::SeatMenuFrames>();
         // CHAINED, and that is a fix rather than a transcription: both take
         // `ResMut<DialogState>`, and they sat in two different `Update` blocks with nothing
         // ordering them.
@@ -53,17 +54,13 @@ impl Plugin for YarnBindingsPlugin {
             // After this frame's claims are declared, so an overlay opened
             // over the conversation captures its input from the next frame on.
             .after(ambition_input::InputSet::ResolveContext)
+            .in_set(ambition_input::MenuFrameConsume)
+            .in_set(ambition_dialog::DialogFrameSet::Input)
             .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists)
             .run_if(ambition_dialog::a_conversation_is_open_or_held)
             .in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(
                 ambition_platformer2d_shared_tangle::capability::Capability::Dialogue,
             ));
-        // A press acts on what the player saw: before the runner presents what
-        // comes next. Without this order, the press that advanced a line
-        // could also take the first of the options that line uncovered, in
-        // the frame they appeared (the order of plugin installation decided).
-        #[cfg(feature = "ui")]
-        let dialog_systems = dialog_systems.before(bevy_yarnspinner::prelude::YarnSpinnerSystemSet);
         app.add_systems(Update, dialog_systems);
         // no GAME installer is pushed from here any more. A game's
         // vocabulary arrives through `YarnContentBindings` from the crate that

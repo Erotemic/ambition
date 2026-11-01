@@ -2,6 +2,7 @@
 //! interaction module's test file — where these lived while the systems did.
 
 use bevy::prelude::*;
+use ambition_input::InputOwner;
 
 use ambition_characters::actor::BodyCombat;
 use ambition_platformer2d_core as ae;
@@ -11,7 +12,7 @@ use ambition_characters::control::{ControlHold, ControlHolds};
 
 use super::{
     break_dialogue_on_hit_or_separation, project_conversation_hold, ActiveConversation,
-    ConversationInputOwner, HeldByConversation,
+    HeldByConversation,
 };
 
 fn body(app: &mut App, at: ae::Vec2) -> Entity {
@@ -49,7 +50,7 @@ fn talking_app() -> (App, Entity, Entity) {
             Some(initiator),
             Some(npc),
             "chat",
-            ConversationInputOwner::Primary,
+            InputOwner::Primary,
         ));
     (app, initiator, npc)
 }
@@ -68,7 +69,7 @@ fn live_at(node: &str, tick: u64) -> super::LiveConversation {
             None,
             &ambition_dialog::DialogueContext::scripted(),
         ),
-        ..super::LiveConversation::for_test(None, None, node, ConversationInputOwner::Primary)
+        ..super::LiveConversation::for_test(None, None, node, InputOwner::Primary)
     }
 }
 
@@ -122,7 +123,7 @@ fn instance_wearing(worn: &str) -> super::ConversationInstanceId {
             "The Admiral",
             &speaker,
             "npc_admiral",
-            ConversationInputOwner::Primary,
+            InputOwner::Primary,
         ));
     }
     state.apply(app.world_mut());
@@ -400,6 +401,24 @@ fn replaying_the_opening_tick_does_not_reopen_the_box() {
         "a second visit through the same node is a second conversation, and \
          suppressing it would leave the player looking at nothing"
     );
+}
+
+#[test]
+fn changing_the_input_owner_does_not_restart_the_narrative() {
+    let mut app = App::new();
+    app.init_resource::<ActiveConversation>();
+    app.init_resource::<ambition_dialog::DialogState>();
+    app.add_systems(Update, super::project_the_dialog_ui_from_the_conversation);
+    let mut live = live_at("chat", 5);
+    app.world_mut().resource_mut::<ActiveConversation>().open(live.clone());
+    app.update();
+    app.world_mut().resource_mut::<ambition_dialog::DialogState>().close();
+    live.input_owner = InputOwner::Participant(ambition_input::ParticipantId(1));
+    app.world_mut().resource_mut::<ActiveConversation>().open(live);
+    app.update();
+    let dialogue = app.world().resource::<ambition_dialog::DialogState>();
+    assert!(!dialogue.active());
+    assert_eq!(dialogue.input_owner(), Some(InputOwner::Participant(ambition_input::ParticipantId(1))));
 }
 
 /// Two conversations may finish inside one rollback window; both completion

@@ -5,6 +5,7 @@
 //! interaction edge. The test distinguishes failure to physically reach the zone
 //! from failure of the transition once overlap occurs.
 
+use ambition_platformer2d::input::InputOwner;
 use ambition_app::{AgentAction, Platformer2dSimHarness};
 use ambition_platformer2d::engine_core::AabbExt;
 use ambition_platformer2d::world::rooms::{LoadingZone, LoadingZoneActivation};
@@ -295,7 +296,7 @@ fn arm_the_discriminators(sim: &mut Platformer2dSimHarness) {
 /// apart from the crossing's own close.
 fn seat_a_conversation(sim: &mut Platformer2dSimHarness) {
     use ambition_platformer2d::conversation::{
-        ConversationInputOwner, LiveConversation,
+        LiveConversation,
     };
     let world = sim.world_mut();
     assert!(
@@ -311,7 +312,7 @@ fn seat_a_conversation(sim: &mut Platformer2dSimHarness) {
             None,
             None,
             "walking_into_a_loading_zone::a_seated_conversation",
-            ConversationInputOwner::Participant(ambition_platformer2d::input::ParticipantId(200)),
+            InputOwner::Participant(ambition_platformer2d::input::ParticipantId(200)),
         ));
 }
 

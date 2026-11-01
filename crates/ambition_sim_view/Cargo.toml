@@ -41,6 +41,7 @@ ambition_shrine = { path = "../ambition_shrine" }
 ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_combat = { path = "../ambition_combat" }
 ambition_dialog = { path = "../ambition_dialog" }
+ambition_conversation = { path = "../ambition_conversation" }
 ambition_boss_encounter = { path = "../ambition_boss_encounter" }
 ambition_encounter = { path = "../ambition_encounter" }
 ambition_characters = { path = "../ambition_characters" }

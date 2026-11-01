@@ -73,9 +73,8 @@ pub fn complete_blink_clusters(
     });
 }
 
-/// Compute the blink destination in the player's aim direction,
-/// clamped to a collision-safe stopping point + the
-/// `blink_through_soft_walls` ability gate.
+/// Resolve the body's blink destination. Normal blink obeys collision policy;
+/// the developer override accepts the requested point.
 ///
 /// `aim` must be the already-resolved world-space direction (the caller owns
 /// the zero-stick fallback — "forward along facing" is `frame.side * facing`,
@@ -98,7 +97,7 @@ pub fn blink_destination_clusters(
     )
 }
 
-/// Blink to a specific aim point, clamped to a collision-safe destination.
+/// Resolve a specific aim point under the body's active blink policy.
 pub fn blink_destination_to_point_clusters(
     world: &World,
     kinematics: &crate::body_clusters::BodyKinematics,
@@ -133,6 +132,9 @@ fn blink_destination_to_point_internal(
     abilities: &crate::abilities::AbilitySet,
     target: Vec2,
 ) -> Vec2 {
+    if abilities.unrestricted_blink {
+        return target;
+    }
     let half = size * 0.5;
     let mut target = target;
     target.x = target.x.clamp(half.x, world.size.x - half.x);
@@ -156,7 +158,7 @@ fn blink_destination_to_point_internal(
 
 fn blink_path_blocker_abilities(abilities: &crate::abilities::AbilitySet, kind: BlockKind) -> bool {
     match kind {
-        BlockKind::Solid | BlockKind::Barrier => !abilities.blink_through_solids,
+        BlockKind::Solid | BlockKind::Barrier => true,
         BlockKind::BlinkWall { tier } => !abilities_can_blink_through(abilities, tier),
         // Neither directional kind blocks a blink PATH: a one-way is not a wall
         // and a bonk-only block is not there at all unless a head is coming up
@@ -216,11 +218,7 @@ fn blink_collision_abilities(
         }
         match block.kind {
             BlockKind::Solid | BlockKind::Barrier => {
-                if abilities.blink_through_solids {
-                    pass_through = true;
-                } else {
-                    return BlinkCollision::Blocked;
-                }
+                return BlinkCollision::Blocked;
             }
             BlockKind::BlinkWall { tier } => {
                 if abilities_can_blink_through(abilities, tier) {
@@ -237,11 +235,7 @@ fn blink_collision_abilities(
         if chain.kind == crate::world::SurfaceKind::Solid && chain.closed
             && crate::solid_lines::push_out(aabb, &chain.points).is_some()
         {
-            if abilities.blink_through_solids {
-                pass_through = true;
-            } else {
-                return BlinkCollision::Blocked;
-            }
+            return BlinkCollision::Blocked;
         }
     }
     if pass_through {
@@ -259,4 +253,17 @@ fn abilities_can_blink_through(
         BlinkWallTier::Soft => abilities.blink_through_soft_walls,
         BlinkWallTier::Hard => abilities.blink_through_hard_walls,
     }
+}
+
+/// Keep an unrestricted placement until the body blinks out or loses the override.
+pub(super) fn holds_unrestricted_placement(
+    world: &World,
+    body: Aabb,
+    abilities: &crate::abilities::AbilitySet,
+) -> bool {
+    abilities.unrestricted_blink && (
+        body.min.x < 0.0 || body.min.y < 0.0
+        || body.max.x > world.size.x || body.max.y > world.size.y
+        || blink_collision_abilities(world, &crate::abilities::AbilitySet::NONE, body) != BlinkCollision::Free
+    )
 }

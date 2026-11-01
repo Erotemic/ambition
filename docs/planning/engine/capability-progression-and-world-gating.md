@@ -53,7 +53,7 @@ The current body capability layers are:
 | `AbilityBase` | body component | intrinsic authored capability set |
 | `BodyAbilities` | body component | effective set read by movement/gameplay |
 | `AbilityContributions` | body component | keyed lends and ceilings, one key per source |
-| admitted developer mask | mechanical edit domain | a ceiling contribution on the primary player |
+| admitted developer mask | mechanical edit domain | a ceiling contribution on controlled bodies |
 | participant progression | none | not currently a separate authority |
 
 `AbilityBase` exists so restrictions do not destroy the body's authored identity.
@@ -70,7 +70,14 @@ A source owns one key in the body's `AbilityContributions` and never writes
 | key | source | contribution | lifetime |
 |---|---|---|---|
 | `dev.editable_ability_mask` | `ambition_dev_tools::contribute_editable_ability_mask` | ceiling | while an admitted mask exists |
+| `dev.god_blink` | developer God Blink toggle | temporary lend of blink, precision aim and unrestricted placement | while admitted and controlled |
 | `portal.transit` | `portal::withhold_wall_verbs_during_transit` | ceiling without the four wall verbs | while `PortalTransit` |
+
+Acquired and equipped tiers stay in their own source data. An override must not
+save a tier and write it back later. It adds or removes its contribution. The
+projection reads the current sources, so an upgrade made during an override is
+retained when the override ends. God Blink is a developer contribution, not an
+inventory item or a progression unlock.
 
 Sources write in `WorldPrepSet::BeforeIntegrate`; the projection runs between it
 and `Integrate`. The contributions are declared rollback-derived: each source

@@ -327,7 +327,7 @@ fn blink_walls_can_be_passed_by_upgrade_without_allowing_solid_walls() {
 }
 
 #[test]
-fn god_blink_crosses_walls_but_keeps_a_free_destination_inside_the_world() {
+fn god_blink_accepts_destinations_inside_walls_and_outside_the_world() {
     use crate::world::{Block, BlockKind};
     let mut world = test_world();
     world.blocks.clear();
@@ -347,14 +347,12 @@ fn god_blink_crosses_walls_but_keeps_a_free_destination_inside_the_world() {
         let to = blink_destination_to_point_clusters(&world, &god.kinematics, &god.abilities, target);
         assert_eq!(to, target, "God Blink stopped at {kind:?}");
         let inside_wall = blink_destination_to_point_clusters(&world, &god.kinematics, &god.abilities, Vec2::new(230.0, 140.0));
-        assert!(inside_wall.x < 220.0);
-        assert!(!crate::geometry::Aabb::new(inside_wall, god.kinematics.size * 0.5).strict_intersects(world.blocks[0].aabb));
+        assert_eq!(inside_wall, Vec2::new(230.0, 140.0));
+        assert!(crate::geometry::Aabb::new(inside_wall, god.kinematics.size * 0.5).strict_intersects(world.blocks[0].aabb));
         let outside = blink_destination_to_point_clusters(&world, &god.kinematics, &god.abilities, Vec2::new(5000.0, -5000.0));
-        let half = god.kinematics.size * 0.5;
-        assert!(outside.x >= half.x && outside.x <= world.size.x - half.x);
-        assert!(outside.y >= half.y && outside.y <= world.size.y - half.y);
+        assert_eq!(outside, Vec2::new(5000.0, -5000.0));
     }
-    assert!(!AbilitySet::sandbox_all().blink_through_solids);
+    assert!(!AbilitySet::sandbox_all().unrestricted_blink);
 }
 
 #[test]
@@ -382,7 +380,7 @@ fn a_blink_with_no_free_destination_emits_no_committed_effect() {
 }
 
 #[test]
-fn god_blink_does_not_land_inside_a_solid_outline() {
+fn god_blink_can_land_inside_a_solid_outline() {
     let mut world = test_world();
     world.blocks.clear();
     world.chains.push(crate::world::SurfaceChain::solid("wall outline", vec![
@@ -391,7 +389,110 @@ fn god_blink_does_not_land_inside_a_solid_outline() {
     ]));
     let god = scratch_with(crate::AbilityGrant::GodBlink.to_set(), Vec2::new(140.0, 140.0));
     let to = blink_destination_to_point_clusters(&world, &god.kinematics, &god.abilities, Vec2::new(240.0, 140.0));
-    assert!(crate::solid_lines::put_out_of_solid_lines(&world, crate::Aabb::new(to, god.kinematics.size * 0.5)).is_none());
+    assert_eq!(to, Vec2::new(240.0, 140.0));
+    assert!(crate::solid_lines::put_out_of_solid_lines(&world, crate::Aabb::new(to, god.kinematics.size * 0.5)).is_some());
     let beyond = blink_destination_to_point_clusters(&world, &god.kinematics, &god.abilities, Vec2::new(340.0, 140.0));
     assert_eq!(beyond, Vec2::new(340.0, 140.0));
+}
+
+#[test]
+fn god_blink_cursor_can_move_beyond_normal_range() {
+    let world = test_world();
+    for unrestricted in [false, true] {
+        let mut set = AbilitySet::sandbox_all();
+        set.unrestricted_blink = unrestricted;
+        let mut body = scratch_with(set, world.spawn);
+        body.axis_mut().blink_hold_active = true;
+        body.axis_mut().blink_aiming = true;
+        body.axis_mut().blink_aim_offset = Vec2::new(TEST_TUNING.precision_blink_distance, 0.0);
+        let input = InputState {
+            movement: crate::ActionEdges::EMPTY.with(crate::MovementAction::Blink,
+                crate::Edge { held: true, ..Default::default() }),
+            blink_aim_step: crate::WorldVec2(Vec2::new(1.0, 0.0)),
+            ..Default::default()
+        };
+        for _ in 0..120 {
+            update_player_control_with_tuning_scratch(&world, &mut body, input, 1.0 / 60.0, TEST_TUNING);
+        }
+        let range = body.axis().blink_aim_offset.length();
+        if unrestricted { assert!(range > TEST_TUNING.precision_blink_distance * 2.0); }
+        else { assert!(range <= TEST_TUNING.precision_blink_distance + 0.001); }
+    }
+}
+
+#[test]
+fn an_unrestricted_blink_stays_embedded_and_can_blink_out_again() {
+    let mut world = test_world();
+    world.blocks.clear();
+    world.chains.push(crate::world::SurfaceChain::solid("wall", vec![
+        Vec2::new(220.0, 0.0), Vec2::new(300.0, 0.0),
+        Vec2::new(300.0, 400.0), Vec2::new(220.0, 400.0),
+    ]));
+    for target in [Vec2::new(260.0, 140.0), Vec2::new(5000.0, 5000.0)] {
+        let mut body = scratch_with(crate::AbilityGrant::GodBlink.to_set(), Vec2::new(140.0, 140.0));
+        body.axis_mut().blink_hold_active = true;
+        body.axis_mut().blink_aiming = true;
+        body.axis_mut().blink_aim_offset = target - body.kinematics.pos;
+        let release = InputState {
+            movement: crate::ActionEdges::EMPTY.with(crate::MovementAction::Blink,
+                crate::Edge { released: true, ..Default::default() }),
+            ..Default::default()
+        };
+        let event = step_scratch(&world, &mut body, release);
+        assert_eq!(event.blinks.len(), 1);
+        assert_eq!(body.kinematics.pos, target);
+        for _ in 0..120 {
+            let event = step_scratch(&world, &mut body, InputState::default());
+            assert_eq!(body.kinematics.pos, target);
+            assert!(event.reset.is_none());
+        }
+        assert_eq!(body.blink.cooldown, 0.0, "the override must not trap the body behind a frozen cooldown");
+        let outside = Vec2::new(400.0, 140.0);
+        body.axis_mut().blink_hold_active = true;
+        body.axis_mut().blink_aiming = true;
+        body.axis_mut().blink_aim_offset = outside - target;
+        let event = step_scratch(&world, &mut body, release);
+        assert_eq!(event.blinks.len(), 1);
+        assert!((body.kinematics.pos - outside).length() < 0.01);
+    }
+}
+
+#[test]
+fn leaving_god_blink_resumes_collision_recovery() {
+    let mut world = test_world();
+    world.blocks.clear();
+    world.chains.push(crate::world::SurfaceChain::solid("wall", vec![
+        Vec2::new(220.0, 0.0), Vec2::new(300.0, 0.0),
+        Vec2::new(300.0, 400.0), Vec2::new(220.0, 400.0),
+    ]));
+    let mut body = scratch_with(crate::AbilityGrant::GodBlink.to_set(), Vec2::new(260.0, 140.0));
+    step_scratch(&world, &mut body, InputState::default());
+    assert_eq!(body.kinematics.pos, Vec2::new(260.0, 140.0));
+    body.abilities.abilities.unrestricted_blink = false;
+    step_scratch(&world, &mut body, InputState::default());
+    assert!(crate::solid_lines::put_out_of_solid_lines(&world, body.kinematics.aabb_oriented(Vec2::new(0.0, 1.0))).is_none());
+}
+
+#[test]
+fn leaving_god_blink_restores_the_range_before_a_stationary_hold_or_release() {
+    let mut world = test_world();
+    world.blocks.clear();
+    for released in [false, true] {
+        let mut body = scratch_at(Vec2::new(140.0, 140.0));
+        body.axis_mut().blink_hold_active = true;
+        body.axis_mut().blink_aiming = true;
+        body.axis_mut().blink_hold_timer = 10.0;
+        body.axis_mut().blink_aim_offset = Vec2::new(TEST_TUNING.precision_blink_distance * 5.0, 0.0);
+        let from = body.kinematics.pos;
+        let event = update_player_control_with_tuning_scratch(&world, &mut body, InputState {
+            movement: crate::ActionEdges::EMPTY.with(crate::MovementAction::Blink,
+                crate::Edge { held: !released, released, ..Default::default() }),
+            ..Default::default()
+        }, 1.0 / 60.0, TEST_TUNING);
+        assert!(body.axis().blink_aim_offset.length() <= TEST_TUNING.precision_blink_distance + 0.001);
+        if released {
+            assert_eq!(event.blinks.len(), 1);
+            assert!((body.kinematics.pos - from).length() <= TEST_TUNING.precision_blink_distance + 0.001);
+        }
+    }
 }

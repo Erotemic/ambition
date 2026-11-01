@@ -204,7 +204,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// 400 -> 401: passage exits sweep the held body against its live room solids.
 /// A doorway animation cannot leave a body inside the next platform.
 /// Swept collision keeps every positive impact time, including near faces.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 401;
+/// 401 -> 402: developer blink can hold an unrestricted placement.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 402;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

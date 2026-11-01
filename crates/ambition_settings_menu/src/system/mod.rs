@@ -136,7 +136,7 @@ impl DevToggleId {
         match self {
             Self::DebugOverlay => "Toggle the debug overlay (state, timers, gizmos).",
             Self::SlowMotion => "Toggle slow-motion for inspecting fast motion.",
-            Self::GodBlink => "Blink through walls and encounter barriers. Land in open space.",
+            Self::GodBlink => "Aim anywhere, including inside walls. Turn off to restore your blink abilities.",
             Self::Inspector => "Show the reflected resource inspector windows.",
             Self::WorldInspector => "Show the full-world entity/resource inspector.",
             Self::Gizmos => "Master switch for Bevy gizmo overlays.",

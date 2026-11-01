@@ -63,9 +63,9 @@ pub struct AbilitySet {
     /// Allow blink pathing through hard blink gates. This is intentionally a
     /// separate future upgrade so some walls can remain meaningful blockers.
     pub blink_through_hard_walls: bool,
-    /// Cross solid walls and barriers during a blink. The body must land in open space.
+    /// Developer placement override. Blink ignores surfaces, room bounds and range.
     #[serde(default)]
-    pub blink_through_solids: bool,
+    pub unrestricted_blink: bool,
     /// Generic slash/attack verb.
     pub attack: bool,
     /// Downward attack/pogo refresh verb.
@@ -240,7 +240,7 @@ impl AbilitySet {
             precision_blink: _,
             blink_through_soft_walls: _,
             blink_through_hard_walls: _,
-            blink_through_solids: _,
+            unrestricted_blink: _,
             ledge_grab: _,
             swim: _,
             glide: _,
@@ -277,7 +277,7 @@ impl AbilitySet {
             precision_blink: false,
             blink_through_soft_walls: false,
             blink_through_hard_walls: false,
-            blink_through_solids: false,
+            unrestricted_blink: false,
             ledge_grab: false,
             swim: false,
             glide: false,
@@ -316,7 +316,7 @@ impl AbilitySet {
             precision_blink: false,
             blink_through_soft_walls: false,
             blink_through_hard_walls: false,
-            blink_through_solids: false,
+            unrestricted_blink: false,
             attack: false,
             pogo: false,
             directional_primary: false,
@@ -369,7 +369,7 @@ impl AbilitySet {
             precision_blink: true,
             blink_through_soft_walls: true,
             blink_through_hard_walls: true,
-            blink_through_solids: false,
+            unrestricted_blink: false,
             attack: true,
             pogo: true,
             directional_primary: true,
@@ -413,7 +413,7 @@ impl AbilitySet {
             precision_blink: true,
             blink_through_soft_walls: true,
             blink_through_hard_walls: false,
-            blink_through_solids: false,
+            unrestricted_blink: false,
             attack: true,
             pogo: true,
             directional_primary: true,
@@ -459,7 +459,7 @@ impl AbilitySet {
         precision_blink: false,
         blink_through_soft_walls: false,
         blink_through_hard_walls: false,
-        blink_through_solids: false,
+        unrestricted_blink: false,
         attack: false,
         pogo: false,
         directional_primary: false,
@@ -499,7 +499,7 @@ impl AbilitySet {
         precision_blink: true,
         blink_through_soft_walls: true,
         blink_through_hard_walls: true,
-        blink_through_solids: true,
+        unrestricted_blink: true,
         attack: true,
         pogo: true,
         directional_primary: true,
@@ -546,7 +546,7 @@ impl AbilitySet {
                 || other.blink_through_soft_walls,
             blink_through_hard_walls: self.blink_through_hard_walls
                 || other.blink_through_hard_walls,
-            blink_through_solids: self.blink_through_solids || other.blink_through_solids,
+            unrestricted_blink: self.unrestricted_blink || other.unrestricted_blink,
             attack: self.attack || other.attack,
             pogo: self.pogo || other.pogo,
             directional_primary: self.directional_primary || other.directional_primary,
@@ -592,7 +592,7 @@ impl AbilitySet {
                 && mask.blink_through_soft_walls,
             blink_through_hard_walls: self.blink_through_hard_walls
                 && mask.blink_through_hard_walls,
-            blink_through_solids: self.blink_through_solids && mask.blink_through_solids,
+            unrestricted_blink: self.unrestricted_blink && mask.unrestricted_blink,
             attack: self.attack && mask.attack,
             pogo: self.pogo && mask.pogo,
             directional_primary: self.directional_primary && mask.directional_primary,
@@ -908,15 +908,13 @@ impl AbilityGrant {
             Self::BlinkThroughWalls => AbilitySet {
                 blink_through_soft_walls: true,
                 blink_through_hard_walls: true,
-                blink_through_solids: false,
+                unrestricted_blink: false,
                 ..AbilitySet::NONE
             },
             Self::GodBlink => AbilitySet {
                 blink: true,
                 precision_blink: true,
-                blink_through_soft_walls: true,
-                blink_through_hard_walls: true,
-                blink_through_solids: true,
+                unrestricted_blink: true,
                 ..AbilitySet::NONE
             },
             Self::DirectionalSpecial => AbilitySet {

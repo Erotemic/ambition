@@ -65,7 +65,7 @@ pub(crate) fn dev_snapshot(ctx: DevToggleRead<'_>) -> DevSnapshot {
         ctx.dev_state.debug_enabled(),
     ));
     values.push(DevSnapshot::toggle(D::SlowMotion, ctx.dev_state.slowmo));
-    values.push(DevSnapshot::toggle(D::GodBlink, ctx.abilities.is_some_and(|a| a.blink_through_solids)));
+    values.push(DevSnapshot::toggle(D::GodBlink, ctx.abilities.is_some_and(|a| a.unrestricted_blink)));
     values.push(DevSnapshot::toggle(D::Inspector, dev.inspector_visible));
     values.push(DevSnapshot::toggle(
         D::WorldInspector,
@@ -152,7 +152,7 @@ pub(crate) fn apply_dev_toggle(ctx: DevToggleWrite<'_>, id: DevToggleId, dir: i3
         D::SlowMotion => ctx.dev_state.slowmo = !ctx.dev_state.slowmo,
         D::GodBlink => {
             if let Some(abilities) = ctx.abilities {
-                abilities.blink_through_solids = !abilities.blink_through_solids;
+                abilities.unrestricted_blink = !abilities.unrestricted_blink;
             }
         }
         D::Inspector => dev.inspector_visible = !dev.inspector_visible,

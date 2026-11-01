@@ -63,11 +63,13 @@ pub fn handle_blink_clusters(
             if aim_input.length_squared() > 0.01 {
                 state.blink_aim_offset +=
                     aim_input * (tuning.abilities.precision_blink_aim_speed * control_dt);
-                state.blink_aim_offset = state
-                    .blink_aim_offset
-                    .clamp_length_max(tuning.abilities.precision_blink_distance);
             }
         }
+    }
+
+    if !abilities.abilities.unrestricted_blink {
+        state.blink_aim_offset = state.blink_aim_offset
+            .clamp_length_max(tuning.abilities.precision_blink_distance);
     }
 
     if state.blink_hold_active && input.blink_released() {

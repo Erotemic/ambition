@@ -125,10 +125,10 @@ pub fn contribute_editable_ability_mask(
         return;
     };
     use ambition_platformer2d_core::{AbilityContribution, AbilityGrant};
-    let god_blink = mask.blink_through_solids;
+    let god_blink = mask.unrestricted_blink;
     let granted = if god_blink { AbilityGrant::GodBlink.to_set() } else { ambition_platformer2d_core::AbilitySet::NONE };
     let ceiling = AbilityContribution::Ceiling(ambition_platformer2d_core::AbilitySet {
-        blink_through_solids: true,
+        unrestricted_blink: true,
         ..mask.union(granted)
     });
     const GOD_BLINK: &str = "dev.god_blink";
@@ -357,25 +357,59 @@ mod ability_admission_tests {
         app.update();
         let base = AbilitySet::basic();
         let effective = |app: &App, body| app.world().get::<AbilityContributions>(body).unwrap().apply(base);
-        assert!(!effective(&app, bodies[0]).blink_through_solids);
-        app.world_mut().resource_mut::<EditableAbilitySet>().blink_through_solids = true;
+        assert!(!effective(&app, bodies[0]).unrestricted_blink);
+        app.world_mut().resource_mut::<EditableAbilitySet>().unrestricted_blink = true;
         app.world_mut().resource_mut::<ambition_platformer2d_core::PendingMechanicalEdits>().propose(ability_set_domain());
         app.update();
         for body in &bodies {
             let set = effective(&app, *body);
-            assert!(set.blink && set.precision_blink && set.blink_through_solids);
+            assert!(set.blink && set.precision_blink && set.unrestricted_blink);
         }
         app.insert_resource(ambition_platformer2d_core::MechanicalEditAdmission::Refuse);
         app.world_mut().resource_mut::<ambition_platformer2d_core::PendingMechanicalEdits>().propose(ability_set_domain());
         app.world_mut().entity_mut(bodies[1]).remove::<DrivingParticipant>();
         app.update();
         assert_eq!(effective(&app, bodies[1]), base);
-        assert!(effective(&app, bodies[0]).blink_through_solids);
+        assert!(effective(&app, bodies[0]).unrestricted_blink);
         app.insert_resource(ambition_platformer2d_core::MechanicalEditAdmission::Publish);
-        app.world_mut().resource_mut::<EditableAbilitySet>().blink_through_solids = false;
+        app.world_mut().resource_mut::<EditableAbilitySet>().unrestricted_blink = false;
         app.world_mut().resource_mut::<ambition_platformer2d_core::PendingMechanicalEdits>().propose(ability_set_domain());
         app.update();
         for body in bodies { assert_eq!(effective(&app, body), base); }
+    }
+
+    #[test]
+    fn god_blink_preserves_each_acquired_blink_tier_and_upgrades_made_while_active() {
+        use ambition_platformer2d_core::{AbilityContributions, AbilitySet, AbilityGrant};
+        use ambition_characters::control::PlayerSlot;
+        let tiers = [AbilityGrant::Blink, AbilityGrant::PrecisionBlink, AbilityGrant::BlinkThroughWalls];
+        for acquired in [AbilitySet::NONE,
+            tiers[0].to_set(),
+            tiers[0].to_set().union(tiers[1].to_set()),
+            tiers[0].to_set().union(tiers[1].to_set()).union(tiers[2].to_set())] {
+            let mut app = App::new();
+            app.init_resource::<EditableAbilitySet>();
+            app.init_resource::<dev_tools::ActiveEditableAbilityMask>();
+            app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
+            app.add_systems(Update, (admit_editable_abilities, contribute_editable_ability_mask).chain());
+            let body = app.world_mut().spawn((DrivingParticipant(PlayerSlot(0)), AbilityContributions::default())).id();
+            let effective = |app: &App, base| app.world().get::<AbilityContributions>(body).unwrap().apply(base);
+            app.update();
+            assert_eq!(effective(&app, acquired), acquired);
+            app.world_mut().resource_mut::<EditableAbilitySet>().unrestricted_blink = true;
+            app.world_mut().resource_mut::<ambition_platformer2d_core::PendingMechanicalEdits>().propose(ability_set_domain());
+            app.update();
+            let lent = effective(&app, acquired);
+            assert!(lent.unrestricted_blink);
+            assert_eq!(lent.blink_through_soft_walls, acquired.blink_through_soft_walls);
+            assert_eq!(lent.blink_through_hard_walls, acquired.blink_through_hard_walls);
+            let upgraded = acquired.union(AbilityGrant::PrecisionBlink.to_set());
+            app.world_mut().resource_mut::<EditableAbilitySet>().unrestricted_blink = false;
+            app.world_mut().resource_mut::<ambition_platformer2d_core::PendingMechanicalEdits>().propose(ability_set_domain());
+            app.update();
+            assert_eq!(effective(&app, acquired), acquired);
+            assert_eq!(effective(&app, upgraded), upgraded);
+        }
     }
 
     /// A refused edit is not admitted. This fails if admission drained the domain

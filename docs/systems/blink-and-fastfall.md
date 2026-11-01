@@ -40,7 +40,8 @@ world-Y velocity edit in device-input code.
 
 - Both mechanics work for any capable actor/controller.
 - Gravity rotation transforms direction and collision consistently.
-- Blink success cannot leave a body penetrating geometry; rejection is atomic.
+- Normal blink cannot leave a body inside geometry. Developer God Blink accepts
+  unrestricted placements. Rejection leaves the body unchanged.
 - Fast-fall never bypasses body mode, contact, or velocity policy.
 - Cooldowns/resources/locks are authoritative simulation data.
 - Presentation consumes committed outcomes and can be absent headlessly.

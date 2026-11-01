@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v401",
+    "version": "ggrs-rollback-schema-v402",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -194,6 +194,7 @@
     "ambition_combat::components::RulesetOwnsDeath",
     "ambition_combat::death_rules::DeathInterlude",
     "ambition_combat::death_rules::OutOfPlay",
+    "ambition_combat::events::HitSource",
     "ambition_combat::moveset::AttackerMoveInstance",
     "ambition_combat::moveset::MoveOccurrence",
     "ambition_combat::moveset::StrikeRank",

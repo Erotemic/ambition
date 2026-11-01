@@ -44,7 +44,7 @@
         ( type: "LoadingZone", px: [1584, 608], size: [16, 96], fields: ( id: "math_hotel_gram_reaper_east", name: "through the haunted wing", activation: "EdgeExit", target_room: "math_hotel_spectral_treasury", target_zone: "math_hotel_spectral_treasury_west", bidirectional: true ) ),
         ( type: "Solid", px: [1408, 32], size: [72, 546], fields: ( name: "treasury_lintel" ) ),
         ( type: "LockWall", px: [1408, 578], size: [72, 126], fields: ( id: "hylbert_reaper_treasury_seal", name: "the treasury seal", gated_by: "boss.cleared hylbert_hotel.gram_reaper", look: "hylbert_room_door" ) ),
-        ( type: "BossSpawn", px: [900, 520], size: [110, 170], fields: ( name: "Gram Reaper", brain: "PhaseScript:gram_reaper_boss", encounter_id: "hylbert_hotel.gram_reaper" ) ),
+        ( type: "BossSpawn", px: [845, 350], size: [220, 340], fields: ( name: "Gram Reaper", brain: "PhaseScript:gram_reaper_boss", encounter_id: "hylbert_hotel.gram_reaper" ) ),
         ( type: "MovingPlatform", px: [224, 608], size: [128, 32], fields: ( id: "reaper_ledge_0_0", name: "reaper_ledge_0_0", speed: 0.0, visual: "hylbert_floor_strip", one_way: true ) ),
         ( type: "MovingPlatform", px: [352, 608], size: [32, 32], fields: ( id: "reaper_ledge_0_1", name: "reaper_ledge_0_1", speed: 0.0, visual: "hylbert_floor_strip", one_way: true ) ),
         ( type: "MovingPlatform", px: [1184, 608], size: [128, 32], fields: ( id: "reaper_ledge_1_0", name: "reaper_ledge_1_0", speed: 0.0, visual: "hylbert_floor_strip", one_way: true ) ),

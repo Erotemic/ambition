@@ -1307,7 +1307,7 @@
     // ============================================================
     "gram_reaper_boss": (
         id: "gram_reaper_boss",
-        combat_size: Some((110.0, 170.0)),
+        // The placement sets the scale. The sheet defines the body.
         movement: AnchorSway(
             x_radius: 140.0,
             y_bob: 10.0,

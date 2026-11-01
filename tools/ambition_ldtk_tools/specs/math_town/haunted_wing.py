@@ -9,6 +9,7 @@ ARENA = "math_hotel_gram_reaper"
 VAULT = "math_hotel_spectral_treasury"
 SHORTCUT = "math_hotel_service_lift"
 BOSS = "hylbert_hotel.gram_reaper"
+REAPER_SIZE = (220, 340)
 
 # The side exits meet at world y 5104. Doors connect the hotel interiors.
 ROOMS_AT = {
@@ -172,12 +173,13 @@ def builders(kit):
 
     def arena():
         rid, floor = ARENA, FLOORS[ARENA]
+        boss_w, boss_h = REAPER_SIZE
         e = shell(rid)
         e += [join(rid, "west", SERVICE), join(rid, "east", VAULT),
               kit.solid("treasury_lintel", 1408, 32, 72, floor - 158),
               kit.lock_wall("hylbert_reaper_treasury_seal", "the treasury seal", 1408, floor - 126, 72, 126,
                             f"boss.cleared {BOSS}", "hylbert_room_door"),
-              (f'( type: "BossSpawn", px: [900, {floor - 184}], size: [110, 170], '
+              (f'( type: "BossSpawn", px: [{955 - boss_w // 2}, {floor - 14 - boss_h}], size: [{boss_w}, {boss_h}], '
                f'fields: ( name: "Gram Reaper", brain: "PhaseScript:gram_reaper_boss", encounter_id: "{BOSS}" ) ),')]
         for i, (x, y, w) in enumerate([(224, 608, 160), (1184, 608, 160)]):
             e += platform(f"reaper_ledge_{i}", x, y, w)

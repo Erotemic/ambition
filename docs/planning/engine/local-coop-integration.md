@@ -485,6 +485,11 @@ captures the interceptor's current side. Tests cover control transfer, owner
 despawn and snapshot restore. Do not infer a launched shot's side from its
 owner's current control. The co-op rule and its preference remain open.
 
+**Shared relation built** (`c901305ae`): targeting and damage use the same
+combat-side facts. Capture, contact harm and module foe queries resolve control
+at both ends. Owner tests cover each control combination. World-anchored area
+volumes still need captured participant identity before this option covers them.
+
 Store the **effective gameplay rule** in the session's agreed/rollback-safe
 configuration, not only in one client's `GameplaySettings` resource. Validate
 rule identity across peers at session start, and define a deterministic

@@ -590,7 +590,10 @@ Projectile launch allegiance landed in `3c80caa69` (schema 394). It captures
 participant identity with faction and team, including reflection. Damage,
 clashes and perception read that capture after control transfer or owner loss.
 Guard: `a_possessed_bodys_shot_keeps_its_side_after_control_or_lifetime_changes`.
-The co-op preference and agreed session rule are still open.
+Shared combat-side facts landed in `c901305ae`; capture, contact harm and
+module foe queries use control allegiance at both ends. Guard:
+`capture_uses_control_allegiance_at_both_ends`, with contact and module cases.
+The co-op preference, peer agreement and world-area participant capture remain open.
 
 **Next action (ordered slices; complete each behavior gate before moving):**
 

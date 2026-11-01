@@ -511,8 +511,14 @@ factory keeps the shot's launch allegiance, hit cause and firing move after
 control loss or firer retirement. Guard:
 `projectile_splashes_keep_launch_allegiance_and_reach_either_participant`.
 
-**Remaining:** route bombs and actor contact areas through the common body resolver. Audit owned environmental areas against the
-explicit self-damage contract. Complete the rendered two-controller main-game
+Inventory bombs use scoped environmental strikes (`3d6651f5a`, schema 400).
+Resolved self-hits now reach both body consumers. Guards:
+`inventory_bombs_hurt_either_participant_only_in_the_blast_room` and
+`an_environmental_strike_can_hurt_its_credit_body_in_either_seat`.
+Shark charge crashes name only the crashing body.
+
+**Remaining:** route sliding-shell contact areas through the common body resolver
+and remove the unresolved body fallbacks. Complete the rendered two-controller main-game
 acceptance. Broad verification remains tracked by TEST-LANES; focused passes do not close it.
 
 ### Menus and pause: per-seat focus, explicit global pause aggregation

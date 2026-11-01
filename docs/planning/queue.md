@@ -48,6 +48,15 @@ engine crates, and developer setup generates and checks every media family.
 An independent game runs without the shared library. Keep generated assets
 ignored and do not restore an implicit engine art tree.
 
+## Mary-O polish (user interrupt, 2026-11-01)
+
+The current user request takes priority over the remaining multiplayer slices.
+[Track M](demos/super-mary-o.md#current-user-work) owns four changes: quiet stair
+landings, cosmic transitions for each base form, walker body contact with an
+initial-overlap check, and clear art for breakable blocks versus permanent terrain.
+Also keep the shared player glow subtle through door passages.
+Finish the behavior and visual checks before returning to MULTIPLAYER-SEAMS.
+
 ## Recent plan triage (2026-11-01)
 
 This review covers the 19 planning documents added since 2026-10-26.
@@ -617,6 +626,12 @@ Projectile splashes landed in `4f47d98a5` (schema 399). They use scoped strikes
 with captured launch allegiance, hit cause and move credit. Guard:
 `projectile_splashes_keep_launch_allegiance_and_reach_either_participant` covers
 both seats, ON/OFF, control loss and firer retirement.
+
+Inventory bombs use scoped environmental strikes (`3d6651f5a`, schema 400).
+Both seats take blast damage only in its live room; resolved self-hits reach
+both body consumers. Guards: `inventory_bombs_hurt_either_participant_only_in_the_blast_room`
+and `an_environmental_strike_can_hurt_its_credit_body_in_either_seat`.
+Shark charge crashes name only the crashing body. Sliding shells remain open.
 
 Jump and combat input now consume the current Up interaction gesture until release
 (`69f705d8c`). Guards: `recorded_up_and_jump_sequence_does_not_interact` and
@@ -3373,6 +3388,26 @@ the game draws the same at each tier.
 ## Receipts
 
 Closed rows that an open row, a script or an inbound link still names.
+
+### Player blink and glow polish — ✅ DONE 2026-11-01
+
+`3c6be8856` replaces blink endpoint explosions with digital sigils. Held strands
+flicker without another dissolve or another render of the source parts. The
+tracking glow uses standing body geometry and ignores actor shader tints.
+Render, effect and art checks pass, with a rendered sequence.
+
+`c77acdf8f` lets developer God Blink accept any point, including solid geometry
+and points outside the room. Cooldowns run while the placement is held. Turning
+the override off restores normal collision and range. Movement and contribution
+checks cover placement, exit, withdrawal and acquired tiers. Keep developer
+contributions separate from acquired and equipped ability data.
+
+### Gap Run doorway exit — ✅ DONE 2026-11-01
+
+`d666a09bf` sweeps passage walk-outs against the destination room's solids. The
+collision cast keeps every positive impact time. The Gap Run to Stagger Steps
+headless check covers exit clearance and a later jump. Do not write an unchecked
+walk-out position into the body.
 
 ### A4 — separate control authority from body execution on the real schedule — ✅ DONE 2026-10-09
 

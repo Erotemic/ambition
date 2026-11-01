@@ -28,6 +28,21 @@ The home game's tall form is `mary_o_tall_classic`, with the
 walk frames and falling uses the jump frame. Other games keep `mary_o_tall`
 and its fighter clips. Both forms use the shared body and animation paths.
 
+## Current user work
+
+User request, 2026-11-01:
+
+- [x] `c4270a259`: landing cues scale with impact. Small drops are silent, and
+  stair drops stay quiet as the listener moves. Audio and movement checks pass.
+- [ ] Draw cosmic entry and exit for small, classic tall and fire forms. The
+  transition must start and end in the correct form. Check all six directions.
+- [ ] Let walkers block each other and turn at contact. Use the shared body
+  path. Refuse overlapping authored starts and check head-on encounters.
+- [ ] Give breakable bricks a clear visual difference from permanent blocks,
+  platforms and ground. Inspect the result in the game.
+- [x] `3c6be8856`: the tracking glow uses standing body geometry and ignores
+  actor tints. The passage fade is separate. Compositing and tint checks pass.
+
 ## Status
 
 Built: `game/ambition_demo_mary_o` (content) and `game/ambition_demo_mary_o_app`

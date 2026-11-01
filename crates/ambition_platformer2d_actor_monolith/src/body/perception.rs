@@ -347,7 +347,7 @@ pub fn death_envelope(world: &ae::World, down: ae::Vec2) -> ae::Aabb {
 /// (`MoveFrameData::reach`, Q35), or `None` when it plays no move. What a
 /// watcher reads as `PerceivedActor::attack_reach`.
 pub(crate) fn attack_reach_of(playback: Option<&ambition_combat::moveset::MovePlayback>) -> Option<f32> {
-    playback.map(|playback| playback.spec.frame_data().reach)
+    playback.map(|playback| playback.spec.strike_reach())
 }
 
 /// The longest reach among a body's grounded normals and smashes — every
@@ -359,7 +359,7 @@ pub(crate) fn threat_reach_of(moveset: Option<&ambition_combat::moveset::ActorMo
         .iter()
         .filter(|(verb, _)| !verb.starts_with("air") && !verb.contains("special") && verb.as_str() != "grab")
         .filter_map(|(_, id)| contract.moves.iter().find(|spec| &spec.id == id))
-        .map(|spec| spec.frame_data().reach)
+        .map(|spec| spec.strike_reach())
         .filter(|reach| reach.is_finite() && *reach > 0.0)
         .reduce(f32::max)
 }

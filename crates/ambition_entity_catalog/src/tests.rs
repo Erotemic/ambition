@@ -149,6 +149,40 @@ fn startup(end_s: f32) -> MoveWindow {
 // --- CM7: frame-data introspection ---
 
 #[test]
+fn strike_reach_counts_active_hits_and_captures_but_not_windboxes() {
+    let mut strike = authoring::strike(authoring::Strike {
+        startup_s: 0.1,
+        active_s: 0.1,
+        recover_s: 0.2,
+        offset: (28.0, 0.0),
+        half_extents: (16.0, 12.0),
+        ..authoring::Strike::new("strike", "attack")
+    });
+    let active = strike.windows.iter().position(|w| matches!(w.tag, WindowTag::Active)).unwrap();
+    let mut gust = strike.windows[active].volumes[0].clone();
+    gust.shape = VolumeShape::Circle { offset: (100.0, 0.0), radius: 50.0 };
+    gust.reaction = Some(VolumeReaction::Windbox(WindboxVolume { repeating: true }));
+    strike.windows[active].volumes.push(gust.clone());
+    gust.reaction = None;
+    strike.windows[0].volumes.push(gust);
+    assert_eq!(strike.strike_reach(), 44.0);
+
+    strike.windows[active].sustain_effect = Some(EffectRef {
+        key: crate::smash_capture::CAPTURE_ATTEMPT.into(),
+        params: ParamValue::from_typed(&crate::smash_capture::CaptureAttemptParams {
+            offset: (60.0, 0.0),
+            half_extents: (20.0, 12.0),
+            hold_offset: (12.0, 0.0),
+        }).unwrap(),
+    });
+    assert_eq!(strike.strike_reach(), 80.0);
+    assert_eq!(strike.frame_data().reach, 80.0);
+
+    strike.windows[active].tag = WindowTag::Startup;
+    assert_eq!(strike.strike_reach(), 0.0);
+}
+
+#[test]
 fn frame_data_derives_startup_active_recovery_cancels_and_reach() {
     let mut m = bare_move("smash_side", None);
     m.duration_s = 0.60;

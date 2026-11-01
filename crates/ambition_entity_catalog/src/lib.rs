@@ -2824,6 +2824,28 @@ impl MoveSpec {
         })
     }
 
+    fn active_captures(&self) -> impl Iterator<Item = crate::smash_capture::CaptureAttemptParams> + '_ {
+        self.windows
+            .iter()
+            .filter(|w| matches!(w.tag, WindowTag::Active))
+            .filter_map(|w| w.sustain_effect.as_ref())
+            .filter(|effect| effect.key == crate::smash_capture::CAPTURE_ATTEMPT)
+            .filter_map(|effect| effect.params.hydrate().ok())
+    }
+
+    /// The farthest body-local +x edge of an active strike or capture.
+    /// Windboxes and spawned hazards do not extend this reach.
+    pub fn strike_reach(&self) -> f32 {
+        let strikes = self.windows
+            .iter()
+            .filter(|w| matches!(w.tag, WindowTag::Active))
+            .flat_map(|w| &w.volumes)
+            .filter(|v| !matches!(v.reaction, Some(VolumeReaction::Windbox(_))))
+            .map(|v| v.shape.leading_edge_x())
+            .fold(0.0_f32, f32::max);
+        strikes.max(self.active_captures().map(|p| p.reach_x()).fold(0.0_f32, f32::max))
+    }
+
     /// Derive this move's frame data: the startup / active / recovery /
     /// cancel windows and the strike's reach. A pure derivation from
     /// `windows` + `duration_s`, with no stored state. The fighter brain
@@ -2891,7 +2913,6 @@ impl MoveSpec {
                 .filter(|w| matches!(w.tag, WindowTag::Active))
                 .flat_map(|w| w.volumes.iter())
         };
-        let extent_x = |v: &HitVolume| v.shape.leading_edge_x();
         let box_of = |v: &HitVolume| v.shape.coverage_box();
         let union = |volumes: &mut dyn Iterator<Item = MoveCoverage>| {
             volumes.reduce(|a, b| MoveCoverage {
@@ -2899,12 +2920,6 @@ impl MoveSpec {
                 max: (a.max.0.max(b.max.0), a.max.1.max(b.max.1)),
             })
         };
-        // Reach: the farthest body-local +x extent of any hittable Active
-        // volume. Zero when the move has no hittable volume.
-        let reach = active_volumes()
-            .filter(|v| hittable(v))
-            .map(extent_x)
-            .fold(0.0_f32, f32::max);
         // A capture is a reach, and it is not in `volumes`.
         // [`smash_capture::CAPTURE_ATTEMPT`] sustains on an Active window's
         // `sustain_effect`. Without this, a grab has no region, and an option
@@ -2912,28 +2927,11 @@ impl MoveSpec {
         // derivation is here, where the params and key are declared, so a
         // command grab on an ordinary attack verb gets the same answer as the
         // neutral grab.
-        let captures = || {
-            self.windows
-                .iter()
-                .filter(|w| matches!(w.tag, WindowTag::Active))
-                .filter_map(|w| w.sustain_effect.as_ref())
-                .filter(|effect| effect.key == crate::smash_capture::CAPTURE_ATTEMPT)
-                .filter_map(|effect| {
-                    effect
-                        .params
-                        .hydrate::<crate::smash_capture::CaptureAttemptParams>()
-                        .ok()
-                })
-        };
+        let captures = || self.active_captures();
         let capture_box = |p: &crate::smash_capture::CaptureAttemptParams| {
             let (min, max) = p.coverage();
             MoveCoverage { min, max }
         };
-        let reach = reach.max(
-            captures()
-                .map(|p| p.reach_x())
-                .fold(0.0_f32, f32::max),
-        );
         let coverage = union(
             &mut active_volumes()
                 .filter(|v| hittable(v))
@@ -3104,7 +3102,7 @@ impl MoveSpec {
             active_spans,
             recovery_s,
             cancel_windows,
-            reach,
+            reach: self.strike_reach(),
             ignores_guard,
             hazard,
             threat_live_at_s,

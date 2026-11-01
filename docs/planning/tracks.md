@@ -298,3 +298,10 @@ Before promoting a card:
 3. state the product, authority or dependency payoff;
 4. give one inspectable acceptance criterion;
 5. promote only executable work to `queue.md`.
+
+## Deferred experiment from the recent plan triage
+
+- **Fighter tactical intent:** the first measured gate failed and the maintainer
+  paused the experiment. Keep `tactics` off in shipped profiles. A later
+  selection starts with the failed punish trace, not a production rollout.
+  Owner: [fighter tactical intent](engine/fighter-tactical-intent.md#5b-first-gate-run-2026-10-31-not-passed).

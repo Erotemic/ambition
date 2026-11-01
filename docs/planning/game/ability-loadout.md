@@ -1,5 +1,10 @@
 # The ability loadout: equipped variants in the inventory grid (started 2026-10-29)
 
+**Execution:** LOADOUT-AUTHORITY, ITEM-CONTENT and ABILITY-VARIANTS in the
+[live queue](../queue.md) own the remaining work. A7 owns bomb pocketing's
+custody and checkpoint contract. The unlock/cursor work from `c0c091931` is
+already merged; do not repeat its old landing instructions.
+
 Jon, 2026-10-29: keep the 24-cell grid, but some cells are mutually
 exclusive ability variants that the player equips. To equip one changes
 which ability is in that major movement or action slot. This "equip" is
@@ -46,9 +51,9 @@ demo, every ability is unlocked.
 
 ° = a placeholder (no row yet). \* = a key item: its cell is blank (see
 below). The Axe and the Map Fragment were removed on 2026-10-30 (Jon: "get
-rid of the javelin, axe, map fragment, sealed note"). The Javelin and the
-Sealed Note stay until Jon decides: the save tests use the Javelin (the
-only item that a throw spends), and the intro quest uses the note. Exclusive groups: `projectile` (Fireball,
+rid of the javelin, axe, map fragment, sealed note"). The Javelin and Sealed Note remain in content.
+ITEM-CONTENT owns their removal and the fixture/intro updates. A test dependency
+does not retain unwanted named content. Exclusive groups: `projectile` (Fireball,
 Eye Laser, Lightning), `stance` (Sword, Axe, Whip), `blink` (Precision,
 Contextual), `burst` (Dash, Dash II). Grapple and Mark / Recall are held
 gauntlets.
@@ -122,7 +127,7 @@ the empty hand and the normal attack; a hard throw goes off on contact and a
 soft one on its fuse), the `ranged::bomb` and `ambition_held_items` unit
 tests (bounce, one-way landing, strike rules).
 
-Open for bombs:
+## Open for bombs
 
 - **Pocket a bomb.** A bomb picked up off the floor cannot go into the
   bag. To pocket it (+1 to the bag, the object ends) is the reverse of the
@@ -159,27 +164,9 @@ Open for bombs:
    swaps a moveset, which `EquipmentGrant` does not have.
 7. A laser sound of its own (it uses `boss.wolfenstein.zap` now).
 
-## Where this stands (2026-10-30, before a reboot)
+## Remaining item cleanup
 
-Branch `inventory-unlocks-cursor` (commit c0c091931) is NOT on main yet.
-
-- Done on it: every real item unlocked in the demo bag; a load keeps the
-  unlocks (`OwnedItems::keep_unlocks`); the cursor shows on a locked cell;
-  each cell states each fact once. Unit, menu and bag app tests pass.
-- To land it: merge `origin/main` (27 commits ahead). The merge stopped on a
-  submodule conflict in `game/ambition_map_assets`: take main's pin (the
-  branch does not change that submodule), then run `cargo check -p
-  ambition_app --tests --features rl_sim` and `cargo test -p
-  ambition_workspace_policy`. The policy test `engine_policies` failed
-  on the half-merged tree; check it again on the clean merge, and on
-  `origin/main` alone, before deciding whose it is.
-- Reds on main that are NOT from this work (they fail the same on
-  d91b5c2b6): 5 tests in `death_restores_the_checkpoint` and 2 in
-  `two_persistence_authorities_for_one_item`, all "pressed Attack ... never
-  picked it up" / "the throw mints exactly one instance".
-- Next task (Jon, 2026-10-30): REMOVE the unused items Javelin, Axe, Map
-  Fragment and Sealed Note from the inventory (enum, `items.ron`, held-item
-  specs, placements, tests; the Javelin is the minted item of several
-  checkpoint fixtures and needs a replacement there). Jon also said he does
-  not know what most items are: list each remaining item and what uses it,
-  so he can choose more to remove.
+The maintainer requested removal of Javelin, Axe, Map Fragment and Sealed Note
+on 2026-10-30. Axe and Map Fragment are absent from the grid; the other two
+still have content consumers. ITEM-CONTENT owns the remaining removal and a
+list of each retained item's real use. Recheck current consumers before edits.

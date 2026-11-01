@@ -48,6 +48,39 @@ engine crates, and developer setup generates and checks every media family.
 An independent game runs without the shared library. Keep generated assets
 ignored and do not restore an implicit engine art tree.
 
+## Recent plan triage (2026-11-01)
+
+This review covers the 19 planning documents added since 2026-10-26.
+The order below is the triage recommendation under the existing work order.
+Keep the current multiplayer correctness work first, including LOADOUT-AUTHORITY
+for independent equipment menus. Then take ASSET-SELECTION,
+SMASH-DEFECTS, ITEM-CONTENT, ASSET-PUBLISH and ASSET-PREVIEW in that order. Continue A9 and
+AP14 ownership work before the lower-priority ENEMY-NOTICE, WORLD-LAYERS and
+POSE-CONTINUITY content and presentation work, followed by ABILITY-VARIANTS and
+CHARGEN-SPECIES. TEST-LANES retains the test-consolidation work.
+
+| New owner document | Disposition |
+| --- | --- |
+| [Architecture reassessment](engine/architecture-reassessment-and-composable-multiplayer.md) | Design review, not approval for a rewrite. A9 and AP14 retain the current ownership and composition work. Island rollback, host migration and physics remain proposed experiments. |
+| [Art inspector and coverage](engine/art-inspector-and-character-coverage.md) | Built. ASSET-SELECTION owns the remaining selected-publication differences; do not rebuild the inspector. |
+| [First static test audit](test-corpus-static-audit-phase2.md) | Historical evidence for TEST-LANES, alongside the later audit. Current AGENTS.md rules govern verification; do not add test-count or meta-test gates. |
+| [Smash defect review](demos/smash-defect-review-2026-10-31.md) | SMASH-DEFECTS owns execution; the review owns evidence. |
+| [Asset editor and delivery](engine/asset-library-editor-and-delivery.md) | ASSET-SELECTION, ASSET-PUBLISH and ASSET-PREVIEW are selected. GC, content-only delivery and editor mutations retain their customer triggers in `tracks.md`. |
+| [Asset implementation review](engine/asset-library-implementation-review.md) | Evidence for the same three asset rows; no duplicate tasks. Cost traces are part of those slices. |
+| [World layers and travel](game/world-layers-and-travel.md) | Portal mechanics are built; WORLD-LAYERS owns the remaining authored topology. |
+| [Enemy patterns](game/enemy-patterns.md) | ENEMY-NOTICE owns the remaining skirmisher/profile gap; do not repeat built fighter engagement or completed variants. |
+| [Region composition](game/world-composition.md) | WORLD-LAYERS rechecks remaining region links and secrets against current generators. Completed regions are not requeued. |
+| [World detail run](game/world-detail-24h.md) | Its counts predate many completed rooms. Recheck them within WORLD-LAYERS; do not restart the dated run or repeat its completed art. |
+| [Expressive fighter poses](demos/smash-expressive-fighter-poses.md) | Phases 1 and 2 are built; POSE-CONTINUITY owns the remaining visual work. |
+| [Fighter tactical intent](engine/fighter-tactical-intent.md) | Deferred: the measured gate failed and the maintainer paused the experiment. Keep the shipped flag off; do not schedule production rollout. |
+| [Ability loadout](game/ability-loadout.md) | LOADOUT-AUTHORITY, ITEM-CONTENT and ABILITY-VARIANTS own the remaining work. A7 owns bomb pocketing and its occurrence/accounting contract. The old branch handoff is obsolete. |
+| [Chargen species and overlays](game/chargen-species-knobs-and-2d-overlays.md) | Overlay loading is built; CHARGEN-SPECIES owns the remaining shape parameters and asymmetric cells. |
+| [Smash feel audit](demos/smash-feel-audit-2026-10-29.md) | Already routed through D72 and the parity inventory. Recheck completed R/P rows before selecting another change; no duplicate combat queue. |
+| [Test consolidation plan](test-suite-consolidation-action-plan-2026-10-26.md) | TEST-LANES owns execution. Keep distinct behavioral witnesses; remove repeated setup and obsolete diagnostics. |
+| [Static test audit](test-corpus-static-audit-findings-2026-10-26.md) | Evidence for that same TEST-LANES slice; its counts are dated, not deletion targets. |
+| [External art migration](engine/external-art-library-migration.md) | Built; keep its receipt and do not repeat the migration. |
+| [Sprite bundle publication](engine/sprite-bundle-publication.md) | Built; ASSET-PUBLISH addresses the measured selection cost, not a replacement publication architecture. |
+
 ## Current multiplayer correctness interrupt (2026-10-24)
 
 The maintainer confirms that baseline local two-player play and adaptive
@@ -241,6 +274,219 @@ universal planner and the Bevy 0.20 upgrade. Q157 is Jon's decision; build
 neither side of it.
 
 ## P0 — architecture and correctness
+
+### LOADOUT-AUTHORITY — equipment changes enter through simulation input
+
+**Failure:** abilities equip through `ItemEquipRequested`, but the menu still
+puts held items in the hand and stows them outside the simulation tick.
+
+**Owner:** menu effects, item input, held-item custody and body capabilities.
+Design: [ability loadout](game/ability-loadout.md#open-for-bombs).
+
+**Next action:** route held equips and stows through the existing stamped
+item-intent path. Attribute the request to its participant/body and apply it
+at the custody owner. Remove the host-side simulation writes; do not add a
+second equipment channel for each menu or item.
+
+**Acceptance:** Grid and Kaleidoscope use the same operation. Each participant
+changes only its own hand/loadout. Replay and checkpoint restore preserve
+custody, stock and re-arming without duplicated objects. A menu cannot equip
+an item before the corresponding simulation input is accepted.
+
+### ITEM-CONTENT — remove retired items without letting fixtures retain them
+
+**Failure:** Javelin and Sealed Note remain in authored content partly because
+older tests and the intro handover use them. Axe and Map Fragment removal is
+already reflected in the grid. The maintainer requested removal and an item
+usage list on 2026-10-30.
+
+**Owner:** item content, held specs, world placements, intro dialogue and their
+behavioral fixtures. Design: [ability loadout](game/ability-loadout.md).
+
+**Next action:** list each remaining item and its real consumers. Remove the
+retired named content from every owner. Replace custody/checkpoint fixtures
+with an existing supported item and update the intro handover consistently;
+tests are not a reason to retain unwanted named content. Recheck saved-data
+handling before removing a serialized identifier.
+
+**Acceptance:** the equipment and quest pages reflect actual content. No
+placement, dialogue, recipe or save reader names a removed item. The retained
+custody and persistent-world witnesses still exercise real production paths.
+
+### ABILITY-VARIANTS — finish the authored loadout through shared capability seams
+
+**Failure:** the loadout plan still has placeholder variants, no authored
+upgrade fact, and hard-coded eye-laser origin measurements.
+
+**Owner:** equipment preparation, body control slots, content modules and
+character landmarks. Design: [ability loadout, open work](game/ability-loadout.md#open).
+
+**Next action:** after LOADOUT-AUTHORITY, recheck the published eye-laser row
+and add its visor landmark and sound at their source owners. Then support
+Blink and stance replacement through the existing technique/equipment seam,
+with one authoritative upgrade fact. Author Contextual Blink, Precision Blink
+tiers and the remaining variants in that model, not named engine branches.
+
+**Acceptance:** each real variant changes its declared slot on any supported
+body. Replacing or removing equipment restores the prepared intrinsic kit.
+A placeholder stays visibly unavailable until it has an admitted implementation.
+Tiers, equipment and checkpoint/save state agree. Keep quality selection out
+of gameplay authority.
+
+### CHARGEN-SPECIES — species parameters and asymmetric overlay views
+
+**Failure:** the overlay mechanism is built, but species heads still expose
+mainly muzzle and ear choices. Mirrored left cells move asymmetric details
+to the wrong side.
+
+**Owner:** renderer `chargen` specification, species geometry, overlay data and
+studio applicability. Design: [species knobs and overlays](game/chargen-species-knobs-and-2d-overlays.md).
+
+**Next action:** add meaningful dog and pigeon parameters first, then the
+other listed species. Keep parameter defaults, generation and studio controls
+at their canonical owners. Add explicit left cells for asymmetric details;
+reuse the existing overlay mechanism. New random draws follow existing draws.
+
+**Acceptance:** head crops and posed clips show distinct valid shapes in every
+view; heads stay attached and asymmetric features keep their side. Existing
+seeds retain their established fields. Publish each changed product and its
+quality variants through the current pipeline. No runtime shader redraws the
+character or changes gameplay geometry.
+
+### ASSET-SELECTION — one selected-file contract for runtime and tools
+
+**Failure:** the inspector reads loose audio and font paths while the runtime
+uses selected publications. Python packaging and Rust also differ on missing
+publications and stale generation identities.
+
+**Owner:** `ambition_asset_manager::content_library`,
+`scripts/lib/content_libraries.py`, and `tools/asset_inspector/asset_index`.
+Design: [asset library review, A and E](engine/asset-library-implementation-review.md#a-selection-is-correct-in-the-runtime-but-not-uniform-in-the-tools).
+
+**Next action:** define the read-only selected-file contract in the existing
+Rust and Python readers. Separate selected membership from workspace inventory.
+Use it for published-only sprites, music, SFX and fonts. Keep local staleness
+advisory; preserve path-safety and unreadable-file errors. State any stricter
+package requirement at the packaging boundary.
+
+**Acceptance:** shared behavioral fixtures produce the same selected membership
+and origin in both languages. Published-only assets resolve in the inspector;
+loose unselected copies remain visible as workspace products. A usable old
+publication can run without a rebuild or a deep audit.
+
+### SMASH-DEFECTS — select-screen, respawn and result lifecycle
+
+**Failure:** source review found off-page portraits that retain their old
+rectangle, a default jump budget at respawn, a result clock without a pause
+check, stale mouse state at route entry, and invisible page controls.
+
+**Owner:** Smash select UI and route lifecycle, stock placement, and the shared
+body reset API. Evidence: [SD-01 through SD-07](demos/smash-defect-review-2026-10-31.md).
+
+**Next action:** reproduce and fix SD-01 and SD-05 through the one page layout;
+then SD-02 through the body's authored jump policy; then SD-03 and SD-04 through
+the existing pause and route lifecycle. Measure idle component change ticks and
+portrait demands for SD-06 and SD-07 before selecting a performance change.
+Keep the existing S0 combat work separate.
+
+**Acceptance:** small-view mouse, touch and pad input reaches every visible
+page; off-page children are hidden. Real stock loss preserves each fighter's
+jump budget. Pause preserves the result delay. The first click after route
+re-entry uses its actual pointer position. Report idle demand/change counts
+and frame cost separately from correctness.
+
+### ASSET-PUBLISH — selection does not audit old bundle payloads
+
+**Failure:** acceptance hashes the source and copied product; selection calls
+`integrity()` for every selected bundle, including unchanged bundles.
+
+**Owner:** renderer publication store and library producer scripts.
+Design: [asset library review, B](engine/asset-library-implementation-review.md#b-publication-works-but-checks-the-past-on-every-change).
+
+**Next action:** record a small and a many-bundle baseline of time, bytes read,
+hashes and stat calls. Accept new bytes in one copy/hash pass. Select from
+accepted manifests, check ownership conflicts, and keep the atomic swap.
+Move deep payload inspection to an explicit audit.
+
+**Acceptance:** focused publication does not read or hash old payloads.
+Concurrent independent publications survive the merge; a failed producer
+leaves the previous selection usable. Stale parents remain advisory. Report
+measured cost; do not add a new binary cache or store service.
+
+### ASSET-PREVIEW — local composition and release audit are separate operations
+
+**Failure:** linked web preview composition hashes every selected input and
+then audits the composed tree as if it were a release.
+
+**Owner:** `scripts/package_asset_guard.py` and web preview setup.
+Design: [asset library review, D](engine/asset-library-implementation-review.md#d-the-web-development-packager-does-release-level-work).
+
+**Next action:** measure the current preview operation. Add an explicit local
+composition policy that uses selected manifests and links without a deep
+payload audit. Keep the explicit strict release path.
+
+**Acceptance:** local preview uses the same selected file set without hashing
+all media. Missing required files have a useful diagnostic. Android, Steam
+Deck and static web release packages still pass their final asset contracts.
+
+### ENEMY-NOTICE — complete first-sight beats on the existing brain paths
+
+**Failure:** the dilophosaurus and other skirmishers have authored notice art
+or sound but no notice interval in `SkirmisherCfg`. The enemy-pattern plan's
+claim that all fighter-template enemies lack notice is stale: fighter
+engagement already implements it.
+
+**Owner:** `ambition_characters::brain::state_machine`, combat brain emission,
+and authored character profiles. Design: [enemy patterns](game/enemy-patterns.md#not-yet).
+
+**Next action:** extend the existing first-sight/beat contract to skirmishers.
+Audit the named pirate and ninja profiles against fighter engagement; author
+missing values rather than another fighter notice implementation.
+
+**Acceptance:** first sight produces one authored pose and cue before attack;
+loss and reacquisition follow the declared policy. Hurt interruption and
+ranged volley timing still work. A body without notice data keeps its declared
+policy. Use the same beat projection for every controller.
+
+### WORLD-LAYERS — fold the remaining long dimensions into connected regions
+
+**Failure:** the current Jungle world is 25792 by 1888 pixels; Magical is
+17408 by 2688. Both still have long horizontal layouts. Travel portal kinds,
+reach checks and same-dimension rules already landed in `c818c0801`.
+
+**Owner:** `tools/ambition_ldtk_tools/specs` generators and
+`game/ambition_map_assets`. Design: [world layers](game/world-layers-and-travel.md),
+[region composition](game/world-composition.md), and
+[remaining room detail](game/world-detail-24h.md).
+
+**Next action:** fold Jungle into surface, underground and canopy regions,
+then add Magical's sky and local arch network. Reuse the existing portal and
+gate machinery. Keep authored rooms editable in LDtk. Recheck old room-detail
+counts before selecting missing props, secrets or region links.
+
+**Acceptance:** the flat map matches room placement; neighboring regions have
+loops and distinct vertical connections. Real movement reaches their exits,
+shortcuts and arches. Hidden rooms and permanent breaks survive save/load.
+Review the semantic LDtk diff and capture the changed places. Do not add a
+second travel implementation or turn the target aspect ratio into a test.
+
+### POSE-CONTINUITY — one visual transition path after the completed base poses
+
+**State:** the foundational Smash art and wiring gates are complete. Phase 3
+continuity and campaign-only coverage remain open.
+
+**Owner:** sprite-sheet animation and rig presentation, with renderer-authored
+visual bindings. Design: [expressive poses, Phase 3](demos/smash-expressive-fighter-poses.md#phase-3---improve-continuity-and-body-weight-polish).
+
+**Next action:** measure clip transitions on one reference fighter. Establish
+stable visual bindings only where that experiment needs them, then implement
+compatible transitions and planted contacts on the shared presentation path.
+Measure campaign sheet gaps before authoring more rows.
+
+**Acceptance:** human and CPU bodies share the path; contact timing and sharp
+attack poses remain readable. Check interruptions, rollback resets, quality
+tiers and portals at game scale. Preserve Mary-O's classic home-game tall
+poses. Visual rig work does not enable gameplay rig geometry.
 
 ### LOCAL-PLAY-MODES — two local modes, explicit join and menu leave
 
@@ -1631,6 +1877,13 @@ lane; a release artifact is produced by a documented command.
 
 ### TEST-LANES — keep required test lanes executable
 
+**Selected consolidation slice (2026-11-01):** use the
+[test consolidation plan](test-suite-consolidation-action-plan-2026-10-26.md)
+and its [static evidence](test-corpus-static-audit-findings-2026-10-26.md).
+Recheck the scanner and current fixtures, then reduce repeated Smash/Versus
+setup while retaining distinct behavior and phase boundaries. Retire only
+obsolete diagnostics. Apply the current AGENTS.md rule against new meta-test
+machinery; do not turn source counts or test counts into acceptance gates.
 **Owner:** test runner / app integration lane. Operational rules and what a
 green lane does not clear:
 [`running-the-heavy-app-it-lane.md`](../recipes/running-the-heavy-app-it-lane.md).
@@ -2396,6 +2649,12 @@ occurrence creation. Death drops, match spawns and other roads still mint
 identity/provenance/custody facts at their occurrence sites. Two mint sites
 degrade on purpose and belong to the `ItemCustody` inventory leg:
 `ambition_held_items`'s thrown-item mint and `puppy_slug_gun`'s minion mint.
+
+**Concrete inventory customer:** [bomb pocketing](game/ability-loadout.md#open-for-bombs)
+needs one occurrence-to-quantity exchange that the checkpoint can restore.
+Record the received quantity and the object's retirement at the existing
+custody/accounting owner. Prove conservation through throw, pickup, pocket,
+death and save/load; do not add an unrelated grants mirror beside spends.
 
 **Next implementation:** centralize only the occurrence decisions that share an
 actual invariant (identity, custody, provenance, rollback ownership). Do not add a

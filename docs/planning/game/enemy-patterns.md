@@ -47,13 +47,13 @@ The catalog row's `cues` (`CharacterCues`, `sfx_registry` ids), so a telegraph i
 
 The strike sounds are folded onto its moves when its kit is prepared (`moveset_prefabs::voice_moveset`), its moveset file's moves too. A move keeps a sound it authored. The beats are played by `body::play_beat_cues`, off the brain's beat edges (`Brain::beat`).
 
-The primeval trail and Castle Godwin rows state their cues (2026-10-30, the `enemy.<creature>.notice|tell|swing|hit` recipes). `scripts/enemy_cue_reels.py` plays each row's cues in their timing, to judge by ear. A notice beat is a brute's only (`notice_s`): the flyers, the dilophosaurus and the searchlight crawler have none, so their notice recipes are not stated on a row.
+The primeval trail and Castle Godwin rows state their cues (2026-10-30, the `enemy.<creature>.notice|tell|swing|hit` recipes). `scripts/enemy_cue_reels.py` plays each row's cues in their timing, to judge by ear. Brutes, flyers and fighter engagement can emit notice beats. Skirmisher timing and the remaining authored profiles are tracked by ENEMY-NOTICE.
 
 ## What the art gives a character
 
 Row names are the contract. A sheet without a row draws as before (`PinnedRow`).
 
-- **`notice`:** pinned while the brute is noticing. A startle: head up and turned to the player, crest or frill raised.
+- **`notice`:** pinned while the brain is noticing. A startle: head up and turned to the player, crest or frill raised.
 - **`windup`:** pinned over a melee swing's startup, a skirmisher's volley windup, and a flyer's tell before its dive. An exaggerated, held anticipation pose: crouched, cocked, horns down. Every frame is the full pose, because the row loops on the sim clock and only a small shiver is allowed.
 - **`attack_side`:** the strike. It is played by the move's progress over the whole move, so the frames after the windup land on the strike and the recovery. A row alias (`ROW_ALIASES`) can name another clip, e.g. the raptor's `attack_side` is its `pounce`.
 
@@ -100,5 +100,9 @@ Test: `game/ambition_app/tests/the_gnu_ton_apples.rs`.
 
 ## Not yet
 
-- **Skirmishers and the Smash-template enemies have no notice beat** (the dilophosaurus, the pirates, the ninja duelist). Their `notice` rows are drawn (the pirates' and ninjas', fe8cae3c9) and the dilophosaurus' notice sound is made, but nothing pins or plays them yet. A brute and a flyer notice (`notice_s`).
+- **Skirmishers still lack a first-sight interval.** The dilophosaurus has a
+  ranged volley but `SkirmisherCfg` has no notice field. Fighter engagement
+  already has a notice interval and a beat; recheck pirate and ninja authored
+  profiles before changing that mechanism. Execution:
+  [ENEMY-NOTICE](../queue.md#enemy-notice--complete-first-sight-beats-on-the-existing-brain-paths).
 - **Footsies and a running attack don't mix.** Holding in a band slows a body out of its run, so a pouncer should hit and run instead.

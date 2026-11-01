@@ -1,6 +1,9 @@
 # World layers and travel
 
-**State:** OPEN (15-hour run from 2026-10-31; see "Run progress").
+**State:** remaining topology is selected in
+[WORLD-LAYERS](../queue.md#world-layers--fold-the-remaining-long-dimensions-into-connected-regions).
+Travel portal mechanics are built (`c818c0801`); Jungle and Magical still need
+the layout pass. Their counts and bounds were rechecked on 2026-10-31.
 
 Jon, 2026-10-31: "Maybe the world is divided into a surface, underground,
 sky, and space for planet like dimensions, and then the topological
@@ -97,6 +100,8 @@ A layer is not a corridor. The rules:
 5. Each step: the flat map checked (`specs/check_flat_map.py`), the walks
    tested, the ratio in the census updated.
 
-## Run progress
+## Built travel seam
 
-(Newest first.)
+`c818c0801` adds portal kinds, same-dimension reach checks and terminal
+filtering. `a37f2af31` routes autoplay through live gate links. Reuse that
+travel path for the authored arches; do not implement another one.

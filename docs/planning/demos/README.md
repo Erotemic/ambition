@@ -25,6 +25,11 @@ intent). Each demo crate pair is `game/ambition_demo_<name>` (content) and
 `game/ambition_demo_<name>_app` (standalone shell). Add `--headless` to a
 `run_game.sh` demo target for its sim-only shell.
 
+The [Smash defect review](smash-defect-review-2026-10-31.md) records source
+findings. [SMASH-DEFECTS](../queue.md#smash-defects--select-screen-respawn-and-result-lifecycle)
+owns their execution. [Expressive fighter poses](smash-expressive-fighter-poses.md)
+owns visual design; POSE-CONTINUITY in the queue owns its remaining work.
+
 `game/ambition_demo_pocket` is not a customer. Its manifest calls it a "tiny
 fourth-provider acceptance fixture for Ambition's provider authoring surface".
 It has no product charter and needs no plan. If it gets a product charter, add

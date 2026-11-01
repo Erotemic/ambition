@@ -1,5 +1,9 @@
 # Composing regions (dense, interconnected, LDtk-tweakable)
 
+**Execution:** [WORLD-LAYERS](../queue.md#world-layers--fold-the-remaining-long-dimensions-into-connected-regions)
+selects the remaining layout work. Recheck existing secrets and connections
+before adding them; the region descriptions below include completed work.
+
 Jon, 2026-10-30:
 - "focus on compositions of levels, rather than having levels continue out in flat zones, think of how hollow knight / silk song do it. There are large interconnected regions with paths between them and the world is dense, it doesn't go on horizontally or vertically forever. It mixes between them, and has winding and secret passages."
 - "I need [it] to be laid out in a way where it's pretty good by default, but I can also go in and manually tweak and reposition the levels / shift the world around in ldtk."

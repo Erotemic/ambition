@@ -1,6 +1,9 @@
 # Test-suite consolidation: action plan
 
-**Status:** Active. **Date:** 2026-10-26. **Scope:** Ambition Rust tests, first in `ambition_app`.
+**Status:** selected under [TEST-LANES](queue.md#test-lanes--keep-required-test-lanes-executable).
+**Date:** 2026-10-26. **Scope:** Ambition Rust tests, first in `ambition_app`.
+Current repository instructions govern implementation. Do not add meta-test
+machinery or a source-count acceptance gate to carry out this plan.
 
 This document gives a new agent a start point for reducing test maintenance cost.
 It is a plan, not a claim that the tests named here are safe to delete.
@@ -270,10 +273,8 @@ adding one, find the nearest existing test and say which new failure mechanism
 the new test covers. If an old test has become redundant, retire it in the
 same change with evidence. If nothing is wrong, make no additional tests.
 
-## Next handoff
+## Execution
 
-Start with **Step 0** to verify the corrected scanner against the live checkout,
-then make **Step 1** the first implementation change. Do not modify production
-Rust to make tests easier to write. Leave the existing audit findings and older
-planning documents intact, except for files this campaign has explicitly
-created or obtained permission to edit.
+TEST-LANES owns current status and order. Recheck the corrected scanner and
+live fixtures, then start with repeated Smash setup. Keep production APIs and
+real phase boundaries intact. The findings are evidence, not a deletion quota.

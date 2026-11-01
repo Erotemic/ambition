@@ -1,9 +1,9 @@
 # Chargen: species head knobs and per-view 2D overlay art
 
-Status (2026-10-30): the 2D-overlay mechanism (part 1) is built; the species
-head knobs (part 2) are not started. Both halves are owned by the
-CalculexAmbition agent. This page is the research behind the plan, and the
-"As built" section records what part 1 became.
+**State:** the overlay mechanism is built. Species parameters and asymmetric
+view cells remain open under
+[CHARGEN-SPECIES](../queue.md#chargen-species--species-parameters-and-asymmetric-overlay-views).
+The renderer's `chargen` modules own implementation; this page owns the design.
 
 ## As built: overlays (renderer `chargen/overlay.py`)
 

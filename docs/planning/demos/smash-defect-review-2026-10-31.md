@@ -4,23 +4,16 @@
 runtime-confirmed. This review records defects and possible performance costs.
 It does not track Smash feature parity or game feel.
 
-**Tracking:** Standalone review and TODO list. All task statuses are owned by
-this document; do not copy these tasks into or edit the shared planning queue.
-Recheck the current source before each fix. This defect review does not change
-the existing [`S0.*` combat work order](super-smash-siblings.md#start-here).
+**Tracking:** [SMASH-DEFECTS in the live queue](../queue.md#smash-defects--select-screen-respawn-and-result-lifecycle)
+owns execution and status. This document owns the source findings, reproduction
+steps and acceptance details. The maintainer selected queue triage on
+2026-10-31. Recheck current source before each fix. The existing
+[`S0.*` combat work order](super-smash-siblings.md#start-here) remains separate.
 
-## TODO (standalone)
+## Findings
 
-- [ ] **SD-01 (P1):** Hide off-page portraits on character-select page changes.
-- [ ] **SD-02 (P2):** Preserve fighter-specific air-jump budgets after respawn.
-- [ ] **SD-03 (P2):** Stop the match-results return countdown while paused.
-- [ ] **SD-04 (P2):** Resynchronize mouse position when re-entering character select.
-- [ ] **SD-05 (P2):** Display page navigation controls that match their hit targets.
-- [ ] **SD-06 (P2, investigate):** Measure and avoid unnecessary UI change ticks.
-- [ ] **SD-07 (P2, investigate):** Measure and avoid repeated idle portrait requests.
-
-Each item is expanded below with evidence, reproduction steps, proposed fix,
-and acceptance criteria. Mark checkboxes here as the work is completed.
+SD-01 through SD-05 describe correctness candidates. SD-06 and SD-07 require
+cost measurements. Their evidence and acceptance criteria follow below.
 
 ## Review rules
 

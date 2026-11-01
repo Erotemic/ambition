@@ -1,6 +1,10 @@
 # Asset library, editor and content delivery
 
-**State:** planning, 2026-10-31. This plan does not schedule implementation.
+**State:** selected slices, 2026-10-31. The live queue owns execution:
+[ASSET-SELECTION](../queue.md#asset-selection--one-selected-file-contract-for-runtime-and-tools),
+[ASSET-PUBLISH](../queue.md#asset-publish--selection-does-not-audit-old-bundle-payloads),
+and [ASSET-PREVIEW](../queue.md#asset-preview--local-composition-and-release-audit-are-separate-operations).
+The other slices retain their promotion triggers.
 **Source review:** superproject `5ec96e4e3152` (2026-10-31).
 **Implementation evidence:** [Asset library implementation review](asset-library-implementation-review.md).
 

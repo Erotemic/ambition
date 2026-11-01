@@ -1,8 +1,9 @@
 # Smash Siblings: foundational fighter poses and expressive motion
 
-**Status:** Proposed design and art plan (2026-10-30; revised 2026-10-31 after review).  
-**First customer:** Smash Siblings; later use in Ambition's campaign.  
-**Scope:** Character art and visual presentation only. This is not an AI or combat-rules project.  
+**Status:** Base pose art and wiring are complete. Remaining visual work is selected in
+[POSE-CONTINUITY](../queue.md#pose-continuity--one-visual-transition-path-after-the-completed-base-poses) (2026-10-31).
+**First customer:** Smash Siblings; later use in Ambition's campaign.
+**Scope:** Character art and visual presentation only. This is not an AI or combat-rules project.
 **Reference:** The Melee reconstruction at `/home/joncrall/code/melee`, not a requirement to copy Melee's animations or timings.
 
 ## Implementation status (2026-10-30)
@@ -63,7 +64,7 @@ The following distinctions are the useful reference for this art pass:
 | Launch | `DamageFlyHi`, `DamageFlyN`, `DamageFlyLw`, `DamageFlyTop`, `DamageFlyRoll` (`forward.h:376-380`) | A launch deserves its own base shapes, separate from a flinch. |
 | Prone | `DownBound/Wait/Damage/Stand/Attack/...` for both `U` and `D` (`forward.h:472-487`) | Face-up and face-down ground states need different poses and exits. |
 | Tech | `Passive`, `PassiveStandF/B`, `PassiveWall`, `PassiveWallJump`, `PassiveCeil` (`forward.h:488-493`) | A successful impact recovery should look unlike an ordinary getup. |
-| Teeter | `Ottotto`, `OttottoWait` (`forward.h:534-535`) | Losing balance and holding balance are separate visual beats. |
+| Teeter | Play an entry, then a held teeter pose; interrupt on movement or fall. | `BodyMotionFacts::teetering` exists. Recheck the current pose clock before adding an entry timer or `teeter_start` art. |
 | Ledge | `CliffCatch`, `CliffWait`, climbs, attacks, escapes, jumps (`forward.h:541-552`) | The first hand contact, the hang, and the exit should read separately. |
 
 ### How Melee selects a damage motion
@@ -203,11 +204,11 @@ Use the existing clip-selection seam instead of introducing 341 new gameplay sta
 | Family | Proposed presentation routing | Existing facts or missing input |
 | --- | --- | --- |
 | Launch direction | Choose up / horizontal / down from the launched body's velocity; retain tumble when applicable. | **Exists.** `BodyPoseView.vel` and the actor's kinematics carry the movement direction to presentation. Use the per-fighter read-model, not `LaunchedBodiesView`, which is a pooled VFX view. Do not recompute combat knockback. |
-| Hit region and severity | Pick the authored high / mid / low / air recoil; vary strength by knockback level. | **Missing.** `ResolvedBodyHit` carries the victim, attacker and hitlag, not the struck region. Hurt volumes have no anatomical identity: `DamageableVolumes` stores unlabeled `CombatVolume` values, and `victim_pieces` can contain portal-cut geometry. Either preserve semantic hurt-region metadata through resolution, or classify the **accepted** contact relative to the victim's body. Publish the result as a small resolved visual-impact cue from authoritative hit processing. Never use overlap (`LandedBodyHit`) as a landed hit. |
-| Prone orientation | Pick face-up or face-down prone and the matching getup. | **Missing, explicit task.** `movement/knockdown.rs` keeps prone as model-private state with no orientation. Decide what sets it, publish it as a fact, keep it stable from knockdown through getup, and make it deterministically reconstructable under rollback and replay. It must not alter gameplay collision. |
-| Teeter | Play `teeter_start` once on entry, then `teeter` as a hold; interrupt on movement or fall. | `BodyMotionFacts::teetering` exists. Add a "seconds since teeter began" field to `BodyPoseView`, as `turn_secs` and `stop_secs` already do, rather than new state. |
-| Floor tech | Select a specific tech clip only when the corresponding tech succeeded. | **Missing.** `body_state_clip()` receives `getup_invulnerable` but not the actual tech/getup distinction. The movement owner must publish the resolved action type. |
-| Run brake | Play `run_stop` on a real stop from a run, not on every frame below run speed. | Use `BodyPoseView::stop_secs` (seconds since the body stopped walking or running; its first `STOP_SECS` already select `walk_stop`) and extend it to tell a run's stop from a walk's. **Do not use `BodyMotionFacts::skidding`**: it is currently false for `AxisSwept` walkers. |
+| Hit region and severity | Select the authored recoil from accepted hit processing. | Built: `BodyCombat::struck_height` records the accepted contact height; the shared clip selector reads it. Do not recompute damage or treat an overlap as an accepted hit. |
+| Prone orientation | Select the prone orientation and matching getup. | The movement owner publishes `BodyMotionFacts::prone_face_down` and `BodyMotionFacts::getup`. Remaining orientation-specific art belongs to POSE-CONTINUITY. |
+| Teeter | Play an entry, then a held teeter pose; interrupt on movement or fall. | `BodyMotionFacts::teetering` exists. Recheck the current pose clock before adding an entry timer or `teeter_start` art. |
+| Floor tech | Select a tech clip after a successful tech. | Built: the movement owner publishes the getup kind and the shared selector routes the tech and roll families. |
+| Run brake | Select `run_stop` after a run and `walk_stop` after a walk. | Built: `StopClock` carries the shared stop rule for human and CPU bodies. Do not select it from `BodyMotionFacts::skidding`. |
 
 The principal routing point is `crates/ambition_character_sprites/src/anim/mod.rs`, especially `body_state_clip()` (around lines 330-430) and the common animation selection path. `body_state_clip()` explicitly states that `tech`, `tech_roll`, and `getup_roll` collapse because the available facts do not distinguish them. `pick_body_anim()` already checks `teetering` (around lines 566-589), but does not select the start clip separately.
 

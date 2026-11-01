@@ -1,5 +1,9 @@
 # World detail run (24 h, 2026-10-30)
 
+**Tracking:** [WORLD-LAYERS](../queue.md#world-layers--fold-the-remaining-long-dimensions-into-connected-regions)
+owns the next topology and room-detail selection. The counts below are a dated
+baseline. Recheck current generators before repeating any completed work.
+
 Jon, 2026-10-30: "build out the world detail of the different maps and
 dimensions, adding art, flavor, character, and interactive elements, and a bit
 of chutzpah. This can also include out of town zones with enemies. Focus on pvn

@@ -13,8 +13,8 @@ pub const AMBITION_EXPERIENCE: &str = crate::AMBITION_CONTENT_PROVIDER;
 pub const AMBITION_GAMEPLAY_ROUTE: &str = "ambition_gameplay";
 
 /// Whether the body the player drives wears a faint highlight glow behind it
-/// (`ActorGlow::player_highlight`). Off: `true` turns it on.
-pub const PLAYER_HIGHLIGHT_GLOW: bool = false;
+/// (`ActorGlow::player_highlight`). Enabled by default for Ambition.
+pub const PLAYER_HIGHLIGHT_GLOW: bool = true;
 
 #[derive(Resource, Clone)]
 pub struct AmbitionPreparedWorld {
@@ -402,6 +402,15 @@ mod tests {
             .get(&ShellRouteId::new(AMBITION_GAMEPLAY_ROUTE))
             .expect("provider registered its route");
         assert!(route.preparation.is_some());
+        // The default is a route-owned, cheap sprite glow: installing the
+        // Ambition provider should declare it even in another host.
+        assert_eq!(
+            app.world()
+                .resource::<ambition_platformer2d::presentation::PlayerGlowCatalog>()
+                .get(AMBITION_GAMEPLAY_ROUTE)
+                .copied(),
+            Some(ambition_platformer2d::presentation::ActorGlow::player_highlight()),
+        );
     }
 
     /// Ambition's cast authors fighter specials (a counter, a placed spring,

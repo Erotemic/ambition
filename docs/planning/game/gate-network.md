@@ -1,7 +1,7 @@
 # The gate network
 
-**State:** OPEN. The network, every destination's ring, the military gate and
-the first knowledge sources are built and tested (see "Current slice").
+**State:** built core. The interdimensional gate system and authored destinations are built and
+tested; only the future expansions below remain in planning.
 Rules for the engine: `ambition_platformer2d_world::rooms::gate_network`.
 Ambition's catalog: `game/ambition_content/assets/data/gate_network.ron`.
 
@@ -178,36 +178,6 @@ GENESIS and CITADEL; the gate janitor of the gate stack teaches TANGENT; the
 General teaches SENTINEL with the clearance. A content test holds every
 address a dialogue teaches to the catalog.
 
-## Current slice
-
-Built and tested (`game/ambition_app/tests/the_gate_network.rs`, the
-world crate's and the content crate's unit tests):
-
-- the catalog, its validation, the dial decision, links and statuses;
-- dialing in the simulation through host intents, the crossing through the
-  shipped room transition, no crossing while the ring is still opening, one
-  transition per crossing, the link closing after its traveller;
-- knowledge through save flags, its save/load round trip, the
-  `start_known` switch;
-- the terminal panel (Known, Recent, Manual; keyboard, gamepad, touch);
-- the public hub gate, the developer wing, Ring 7 and its breaker;
-- every destination's ring and terminal (Math town, the primeval
-  trailhead and rookery, Castle Godwin's forest, the gravity trail, the
-  orbital station, the pirate port, the ninja village, the Noodly Temple),
-  each with a way home that needs no known address;
-- the military annex: its checkpoint, the crawlway, the clearance, the
-  survey ring TESLA;
-- a dial and a crossing under a sync-test rollback session;
-- the first dialogue that teaches addresses, and the upkeep in view (ring
-  power, the traffic board, transit sickness bags; the janitor's and the
-  guide's lines on organic travellers).
-
-Wormhole repair (`7efda3670`): late quad placement and unfiltered tunnel samples
-caused visible faults. Effects now precede transform propagation and bounds;
-Ultra uses filtered mip levels. Guards: 15 sprite-effect, 11 gate and 2 mip tests,
-plus High/Ultra captures. The selected SFX bank lacked all four wormhole cues;
-`./scripts/regen/sfx.sh` publishes the complete active bank on each host.
-
 ## Future expansion
 
 - Several public gates in one hub (the rules hold already: one facility).
@@ -224,12 +194,6 @@ plus High/Ultra captures. The selected SFX bank lacked all four wormhole cues;
   font yet. A terminal's switch draws nothing: the console is its art. The
   console's dial has the ring's layout (`arch_angle`), with a big solid Δ,
   the press that engages a dial, in the slice the base takes on the ring.
-- At Ultra (`ShaderBudget::allow_showcase_materials`) a membrane has a
-  wormhole layer (`ambition_render::gate_portal_fx`: the authored tunnel
-  picture streamed down a twisting tunnel, a wave through it per passage),
-  and a body in a gate's light dissolves into it or condenses out of it (the
-  body overlay's transit cue, from the passage look's `transit`). Below Ultra
-  the authored membrane and the passage's fade are the whole look.
 - More knowledge sources: signs and documents that set `gate.known.*` (the
   addresses on the away terminals are posted already), and the news board.
 - A guard at the checkpoint (no fitting NPC character yet; the sign and the

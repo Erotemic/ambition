@@ -72,6 +72,46 @@ interaction, Smash rules or content select the behavior where required, rollback
 identity and order are deterministic, and no character-ID branch exists. An
 `S0.*` label on a row below means the gate overrides that section's order.
 
+### Small execution packets for the remaining gate
+
+Use **one packet per change**; update its existing table row and remove this
+handoff when it no longer adds information. The shipped ladder and ordinary
+match must exercise each mechanic, not just an isolated kernel unit test.
+
+1. **S0.1, remaining customer activation:** the clash implementation already
+   exists. Recheck the shipped `clank_damage_window: 0.0` declarations; try the
+   proposed `9.0` in a playable Smash configuration, get maintainer feel
+   approval before shipping the retune, and add a match-path test in which two
+   authored strikes actually clank. Do **not** replace the arbitration code.
+   While human tuning is pending, treat this as blocked and take S0.3.
+2. **S0.3a, posture eligibility:** introduce a default-compatible grounded /
+   airborne / prone hit-volume filter at the hit-volume authoring and hit
+   resolution seam. Cover each posture and a split hit with two differently
+   eligible volumes; exercise a shipped move. Then close only that subfeature
+   inside S0.3. Follow with clank/transcendence, per-hit hitlag/SDI, no-tech,
+   set-weight and armor bypass as *separate* subfeatures with real customers.
+   The guard/shield-damage portion of S0.3 is already built; do not redo it.
+3. **S0.7, crawler trait:** retain match-wide crouch permission, but make
+   crouch travel a fighter-authored property; one crawler should move and a
+   non-crawler should crouch in place. Test both initial spawn and stock
+   respawn. Do not branch on fighter ID or globally change crouch speed.
+4. **S0.4 / S0.5:** their missing airborne-grab customer and knockback-armor
+   threshold require the rulings described in their rows. Do not invent a
+   placeholder semantic just to mark these complete. Tackle S0.8 and S0.9 as
+   one reaction/effect family at a time, with an authored customer and rollback
+   witness, rather than one broad status-system rewrite.
+
+**After the S0 gate:** CPU adoption is its own work, not a pretext to rewrite
+movement. Under [CPU adoption](#14-cpu-adoption), use the actual shipped
+`fighter_brain_ladder.ron` in `match-report --ladder` and `capture-probe` to
+choose *one* underused move family (first smashes, shield or grab). Add only
+missing observation/option policy on the common fighter brain, verify the
+sampled CPU uses the authored move without violating the human movement rules,
+and update that one inventory row. UI defects SD-01 to SD-07 are separately
+owned by [SMASH-DEFECTS](../queue.md#smash-defects--select-screen-respawn-and-result-lifecycle)
+and the [source review](smash-defect-review-2026-10-31.md); fix only when they
+block an S0 test or the queue selects them.
+
 ## Scope and implementation rules
 
 The target is Smash-like platform fighting, not byte-for-byte Ultimate. When

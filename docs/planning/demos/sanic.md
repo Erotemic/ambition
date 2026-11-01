@@ -82,7 +82,41 @@ gap.
 ## Open acceptance
 
 This list is the single source. [`status.md`](../status.md) and
-[`tracks.md`](../tracks.md) refer here.
+[`tracks.md`](../tracks.md) refer here. Remove a finding, including its details,
+when its production-path regression passes; Git keeps the diagnosis.
+
+### AIR-FACING — reversing input must turn Sanic in a jump
+
+**Failure to reproduce:** The shared movement policy defaults
+`holds_facing_in_air` to `false`, but the human-control producer in
+`crates/ambition_characters/src/brain/player.rs` sets `out.facing` from the
+stick only when `snapshot.actor_on_ground || snapshot.actor_aerial`.
+`actor_aerial` means a gravity-free flyer, **not** a jumping runner. The
+`SurfaceMomentum` arm of
+`crates/ambition_platformer2d_core/src/movement/kernel.rs` applies the
+producer's `facing_intent`, so a jumping Sanic may keep facing the old way.
+The axis-swept arm already respects the opt-in lock, with an in-water override
+(`movement/abilities.rs`). Recheck HEAD before changing anything.
+
+**One bounded fix:** Give the producer the **resolved ability to turn this
+tick**, derived from the body's effective movement policy and actual
+water/flight/ground facts at the snapshot builder in
+`crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs`, or
+place the equivalent single gate at the shared consumer. Do not infer this
+from vertical velocity, confuse `actor_aerial` with jumping, change Smash's
+attack gesture directions, or hard-code game IDs. Keep input neutral from
+spontaneously changing facing. Retain `holds_facing_in_air: true` for Smash
+and Ambition; Mary-O and Sanic use the default `false`.
+
+**Acceptance/test:** Through human `ControlFrame` -> `BrainSnapshot` ->
+`ActorControlFrame` -> the actual movement kernel, reverse left/right while
+jumping as Sanic (momentum) and Mary-O (axis): both turn even before landing.
+In an opt-in Smash/Ambition case, airborne reverse input must **not** turn
+before a back-air gesture resolves. In *water*, reverse input must turn even
+with the opt-in set; include neutral stick, flight and grounded controls.
+Use focused `ambition_characters` and `ambition_platformer2d_core` tests plus
+`game/ambition_demo_sanic_app/tests/standard_input_path.rs` or the owning
+session test. Do not add a parallel movement or player-only simulator.
 
 - **High route beats safe route.** A headless gate that completes act 1 faster
   through the rewarded high route, with the same selected profile and control

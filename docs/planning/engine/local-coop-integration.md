@@ -465,6 +465,8 @@ cooldown and grace.
 
 ### Friendly fire: peer-safe, participant-scoped damage policy
 
+Implemented core: `0a4bdab1b` (schema 395). Remaining work is listed below.
+
 Ambition's saved co-op choice defaults to ON. The settings menu can turn it
 OFF for the next session. Preparation copies the choice into the immutable
 `ParticipantFriendlyFire` on the session root and includes it in prepared

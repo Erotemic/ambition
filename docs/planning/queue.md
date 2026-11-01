@@ -598,8 +598,8 @@ module foe queries use control allegiance at both ends. Guard:
 Peer proposal agreement landed in `3c7f0d5bb`. Each timeline waits for content,
 schema and input format agreement; local epochs stay local. Guard:
 `peer_contract_mismatch_refuses_simulation_on_both_peers` and its wait case.
-Scoped co-op damage uses schema 395: the saved ON default freezes in the
-session and enters peer content identity. Melee, projectiles and detached
+Scoped co-op damage landed in `0a4bdab1b` (schema 395). The saved ON default
+freezes in the session and enters peer content identity. Melee, projectiles and detached
 body strikes use one relation; detached attacks retain control allegiance.
 Guard: `coop_friendly_fire` integration tests. Scripted strikes and the
 rendered main-game acceptance remain open.

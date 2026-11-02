@@ -804,3 +804,9 @@ survives loss of a body assignment and returns with rollback. Guards:
 Do not derive admission from offered devices or current bodies. Menu creation
 and retirement still need this record. Seed new menu Start latches from the
 live input so the join press does not also open the menu.
+
+The shared touch confirm prompt follows the primary menu (`e5c60f897`).
+Guards: `the_shared_prompt_follows_the_primary_menu_and_clears_when_it_retires`
+and `an_inventory_context_gets_its_verb_without_a_simulation_tick`.
+Cue publication uses the frame clock and the inventory input context.
+Do not let another participant's menu change this prompt.

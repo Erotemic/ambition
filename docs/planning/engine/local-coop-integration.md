@@ -567,6 +567,12 @@ pickups and parries cannot fall back to the primary body. Guard:
 rewind and projectile parry cases. These host intents remain local ingress;
 peer agreement still needs the session input protocol.
 
+Held-item menu actions select the acting participant's body (`1cf0a124a`).
+Missing or ambiguous bindings change no hand. Portal-gun pairs stay with that
+body. Guard: `held_item_actions_use_the_named_participants_body`, with the
+missing-driver and portal-pair cases. These mutations still run in host Update;
+stamped held-item intents and participant-owned menu state remain open.
+
 An explicit session pause aggregator should own the final local `GameMode`
 request. Menu instances only assert or release their individual pause claim.
 Also test a dialogue under one menu and a room transition under another, so

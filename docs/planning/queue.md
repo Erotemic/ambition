@@ -653,6 +653,12 @@ inventory. Healing requires one named body, including pickup and parry rewards.
 Guard: `item_requests_restore_and_equip_the_joined_participant`, with the
 consumable rewind and projectile parry cases. Shared menu state remains open.
 
+Held-item menu actions select the acting participant's body (`1cf0a124a`).
+Missing or ambiguous bindings change no hand. Portal-gun pairs stay with that
+body. Guard: `held_item_actions_use_the_named_participants_body`, with the
+missing-driver and portal-pair cases. These mutations still run in host Update;
+stamped held-item intents and participant-owned menu state remain open.
+
 **Next action (ordered slices; complete each behavior gate before moving):**
 
 4. **Independent local menus:** separate per-seat open state, focus, page,
@@ -1958,17 +1964,18 @@ machinery; do not turn source counts or test counts into acceptance gates.
 `dfe0d768b` makes camera fixtures supply complete samples; no policy waiver was added.
 Guards: `app_it -- rollback_` passes 79 tests (6 ignored); the component localizer passes 595 restore comparisons.
 Policy: 35 passed; camera: 3 passed; Smash: 18 unit and 53 integration passed (6 ignored); app check and 53 absence contracts passed.
-Full verification remains open. The latest broad Python run reported 1893 passed,
-73 failed and 30 skipped. The codec check now passes. The two failures from
-the damage-box change (phase placement and unused VFX dependencies) pass in
-a focused eight-test run. The other failures also occurred in the earlier
-72-failure run. These focused repairs do not prove a green matrix. Feature-union compilation
-passes, but broad verification remains open after the earlier 14-target failure.
-A later run was stopped after the repeated disk/served startup refusal. The
-host-registration repair now passes native/served headless and co-op cases,
-and standalone served Mary-O. Re-run the union and triage remaining content,
-art, live-reload and tooling failures at their owners. Consumer lockfiles now
-include the VFX edge removal; focused absence and dependency tests pass.
+Full verification remains open. On `3fd235b7d`, the broad Rust checks pass:
+79 rollback tests (6 ignored), 18 Smash unit tests and 53 integration tests
+(6 ignored), 10 Mary-O power-loop tests, 108 Sanic tests, and 35 policy tests.
+The Grid-only, no-audio app check also passes on the native host.
+The latest Python sweep reported 1895 passed, 71 failed and 30 skipped.
+Two additional failures came from stale module-map and menu-router references;
+`1ec2aea38` repairs them, and both focused checks pass. The other 69 failures
+also occurred in the prior sweep. These focused repairs do not prove a green matrix.
+The latest feature-union build stopped at the 6 GiB free-space floor before
+tests ran. That gate is unverified. Earlier content failures remain open.
+The minimal headless app without portals also fails: shell UI/Winit feature
+imports and a feature-dependent held-item helper signature need repair.
 The focused content suite still reports four failures also present in the
 earlier feature-union run: Void fighter damage, Performer contact windows,
 Pugnacious uppercut gravity, and the boot-pack scan of a world-flow fixture.

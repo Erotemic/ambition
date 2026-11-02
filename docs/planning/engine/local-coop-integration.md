@@ -346,7 +346,7 @@ The current product rules are in
 | Always-split view mode | `VideoSettings::local_view_layout` selects `Adaptive` or `AlwaysSplit` through the shared settings menu. The existing view and camera owners apply it. | **Built 2026-11-01** (`751ad0b34`). Controller and GPU tests cover live switching, retained session/body identity, separate rectangles and drawn panes. |
 | Player 2 stays in blink state | Every `PlayerBlinkCameraState` advances on wall time. Every preview reads committed seat controls through the driven body. | **Fixed in `0754ed273`**; the two-seat simulation test covers press, hold, release and completed cooldown. A separate paused-clock test covers presentation decay. |
 | Player strikes do not hurt the other player | `FriendlyFire::default().enabled` is false. Both driven bodies resolve to `ActorFaction::Player`; `damage_lands_between` allows same-faction damage only when friendly fire is enabled (unless another relation overrides). | **Confirmed default rule explains allied damage rejection**. Prove Ambition's actual resolved room rule and all attack families. The explicit `friendly_fire: false` in `game/ambition_app/assets/data/room_rules.ron` is a **Versus** stage declaration, not the general Ambition room default. |
-| Only one player can use the pause/menu | Ambition's kaleidoscope and grid menu systems read one `MenuControlFrame`, one `InventoryUiState`, and singleton focus/page/cursor state. `ShellPauseMenu` supports an owning seat but Ambition suppresses it and supplies its own menu. | **Confirmed singleton Ambition menu**. The shell seat rule is not two independent menus. |
+| Only one player can use the pause/menu | Ambition's kaleidoscope and grid menu systems read one `MenuControlFrame` and singleton focus/page/cursor state. Inventory open state has an explicit owner, but the frontend still creates one surface. `ShellPauseMenu` supports an owning seat but Ambition suppresses it and supplies its own menu. | **Confirmed singleton Ambition menu**. The shell seat rule is not two independent menus. |
 | Either player's door flashes black over both panes | `room_transition_presentation::drive_room_transition_presentation` spawns one 100%-width/height `RoomTransitionCoverRoot` with `GlobalZIndex(900)`. `RoomTransitionLoadState` has one active transaction. | **Confirmed full-window cover**. Test whether sim time stops separately. The eager host already avoids `GameMode::RoomTransition` when another participant has play in progress; the peer host can still hold all simulation for a synchronized commit. |
 | F1 gizmos show the wrong room or offset | `ambition_render::rendering::debug_viz::draw_debug_viz` and `ambition_app::dev::debug_overlay::draw_debug_overlay` select `PrimaryLiveRoom`/`PrimaryLiveRoomSpec`. They use the default gizmo path, which all gameplay cameras can see. App labels also convert through the primary room. | **Confirmed primary-room leak**, consistent with the report. Player trails already use retained `GizmoAsset`s with room `RenderLayers`; reuse that boundary. |
 | Adaptive split/merge feels inconsistent | `AdaptiveSplit` keeps `split_beyond`, `merge_within`, `merge_after`, and a local `DistanceSplit` latch. | **No source defect established**. The maintainer deferred threshold and animation polish. Preserve the current policy and test topology only. |
@@ -556,8 +556,8 @@ The immediate couch-co-op product rule is:
 Grid and Cube use one menu lifecycle (`47da81062`). The shared route owns
 entry, close and platform pause. Guard:
 `a_platform_pause_opens_the_grid_and_keeps_it_open`, with the existing menu
-and dialogue cases. The state is still shared; participant-owned instances
-and pause claims remain open. Do not restore backend-specific game-mode writes.
+and dialogue cases. Page, cursor, pointer and renderer state still require
+menu-instance ownership. Do not restore backend-specific game-mode writes.
 
 Item use and ability equipment requests name the acting participant
 (`5549b8402`, schema 407). Simulation resolves its current controlled body.
@@ -571,12 +571,23 @@ Held-item menu actions select the acting participant's body (`1cf0a124a`).
 Missing or ambiguous bindings change no hand. Portal-gun pairs stay with that
 body. Guard: `held_item_actions_use_the_named_participants_body`, with the
 missing-driver and portal-pair cases. These mutations still run in host Update;
-stamped held-item intents and participant-owned menu state remain open.
+stamped held-item intents and independent menu presentation remain open.
 
-An explicit session pause aggregator should own the final local `GameMode`
-request. Menu instances only assert or release their individual pause claim.
-Also test a dialogue under one menu and a room transition under another, so
-unrelated close events cannot unpause or suppress the other surface.
+
+Inventory open state now belongs to a menu entity with an explicit
+participant (`a27074b3f`). Input claims affect only that owner. One pause arbiter
+holds offline play until the last menu closes, restores the underlying mode,
+and clears claims on session retirement. Guards:
+`each_inventory_claims_only_its_owner_without_a_game_mode` and
+`only_the_last_menu_close_restores_the_underlying_mode`, with transition-mode
+and retirement cases. The host dialogue-under-menu test also passes.
+Pending mode requests survive the pause step (`7711a82cc`); guard:
+`a_mode_request_in_the_open_frame_is_not_replaced_by_menu_pause`.
+The app still creates one surface; page, cursor, pointer, cache and renderer
+state still require menu-instance ownership. Do not add a resource mirror.
+
+The mode tests prove claim aggregation. Full two-menu navigation and rendering
+still need host acceptance with two pads, a dialogue, and a room transition.
 
 Ambition's kaleidoscope menu has a special 3D camera and full-window gate;
 viewport-scoped menus need a per-view presentation design, render target, or
@@ -584,11 +595,11 @@ clipped alternative without one whole-window cube drawing over both panes.
 The grid backend must obey the same menu-instance contract. Refactor the
 shared menu *model* before duplicating render cameras.
 
-**Netplay policy is a separate decision:** a client's local menu cannot freeze
-remote peers on its own. Define whether that client continues to submit neutral
-control frames, asks all peers for an agreed pause, or uses another explicit
-session rule. Do not reuse the offline pause aggregator as the online
-protocol without that decision.
+**Netplay menu policy:** a local menu does not pause a remote timeline
+(`a27074b3f`). Its input context captures only its participant, so the existing
+router submits neutral gameplay controls for that participant. Guard:
+`a_local_menu_does_not_pause_a_remote_timeline`. This is local pause policy;
+it does not prove peer agreement for inventory mutations or lifecycle changes.
 
 ### Room crossing: isolate cover and eliminate unrelated simulation stalls
 

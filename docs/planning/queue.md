@@ -560,7 +560,7 @@ control.
 
 ### MULTIPLAYER-SEAMS — make local multiplayer safe for netplay
 
-**Remaining failure:** the Ambition menu has one input, cursor and visible state; room loading covers the other viewport; F1
+**Remaining failure:** the Ambition menu presentation has one input, cursor and page model; room loading covers the other viewport; F1
 gizmos use primary room data. Routine peer room commits still hold the whole
 session. These are separate authority, presentation and gameplay-rule boundaries.
 See the [cause and acceptance map](engine/local-coop-integration.md#follow-up-audit-co-op-works-but-participant-and-view-scope-leaks-2026-10-24)
@@ -645,7 +645,7 @@ Menu lifecycle is shared by Grid and Cube (`47da81062`). Entry, close and
 platform pause use one route. Guard: `a_platform_pause_opens_the_grid_and_keeps_it_open`,
 with the existing menu and dialogue cases. Grid-only/no-audio composition also
 compiles on the native host. Do not restore backend-specific game-mode writes.
-Menu state and pause claims still need participant ownership.
+Page, cursor, pointer and render state still need menu-instance ownership.
 
 Item use and ability equipment requests name their acting participant
 (`5549b8402`, schema 407). Simulation resolves its current body before it spends
@@ -657,15 +657,27 @@ Held-item menu actions select the acting participant's body (`1cf0a124a`).
 Missing or ambiguous bindings change no hand. Portal-gun pairs stay with that
 body. Guard: `held_item_actions_use_the_named_participants_body`, with the
 missing-driver and portal-pair cases. These mutations still run in host Update;
-stamped held-item intents and participant-owned menu state remain open.
+stamped held-item intents and independent menu presentation remain open.
+
+Inventory open state now belongs to a menu entity with an explicit
+participant (`a27074b3f`). Input claims affect only that owner. One pause arbiter
+holds offline play until the last menu closes, restores the underlying mode,
+and clears claims on session retirement. Guards:
+`each_inventory_claims_only_its_owner_without_a_game_mode` and
+`only_the_last_menu_close_restores_the_underlying_mode`, with transition-mode
+and retirement cases. The host dialogue-under-menu test also passes.
+Pending mode requests survive the pause step (`7711a82cc`); guard:
+`a_mode_request_in_the_open_frame_is_not_replaced_by_menu_pause`.
+The app still creates one surface; page, cursor, pointer, cache and renderer
+state still require menu-instance ownership. Do not add a resource mirror.
 
 **Next action (ordered slices; complete each behavior gate before moving):**
 
 4. **Independent local menus:** separate per-seat open state, focus, page,
-   inventory, and viewport UI for Grid and Kaleidoscope. An offline session
-   pause arbiter pauses while any menu is open, but each seat still controls
-   its own menu and one close cannot resume the game prematurely. An online
-   pause policy must be decided before reusing this rule with remote peers.
+   inventory, and viewport UI for Grid and Kaleidoscope. Use the shared offline
+   pause arbiter; each seat must still control its own menu. A local menu on
+   a remote timeline captures its participant's input without pausing peers.
+   Prove the full menu path with two pads before closing this slice.
 5. **Per-view presentation isolation:** a room transition cover follows only
    its affected participant/view; the other viewport renders and accepts
    gameplay. Define a deterministic policy for concurrent transition requests

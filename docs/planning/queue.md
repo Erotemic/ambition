@@ -433,7 +433,7 @@ measured cost; do not add a new binary cache or store service.
 **Failure:** linked web preview composition hashes every selected input and
 then audits the composed tree as if it were a release.
 
-**Owner:** `scripts/package_asset_guard.py` and web preview setup.
+**Owner:** `scripts/package/package_asset_guard.py` and web preview setup.
 Design: [asset library review, D](engine/asset-library-implementation-review.md#d-the-web-development-packager-does-release-level-work).
 
 **Next action:** measure the current preview operation. Add an explicit local
@@ -2092,7 +2092,7 @@ under `--features visible`. Still linked through the monolith and not used by
 Outlander: menu, items, encounter, boss_encounter, cutscene, conversation,
 held_items, audio (the deferred monolith carve).
 
-**SG2 done 2026-10-09:** `scripts/package_outlander.py` builds and verifies
+**SG2 done 2026-10-09:** `scripts/package/package_outlander.py` builds and verifies
 Outlander's desktop artifact. The smoke run must load the game's own art and
 must read no asset outside the artifact. Outlander selects no shared library.
 The external library migration removes the inherited engine-asset list and its

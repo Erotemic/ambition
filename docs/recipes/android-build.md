@@ -43,7 +43,7 @@ Gradle recipe in documentation.
 
 ## Assets: one selected package tree
 
-`scripts/package_asset_guard.py` selects the game's files and the content
+`scripts/package/package_asset_guard.py` selects the game's files and the content
 libraries that its pack declares. It uses the same library inventory as the
 desktop package. Game files keep their relative paths. Library files use
 `__libraries/<library-id>/` under `app/src/main/assets/`. The runtime resolves

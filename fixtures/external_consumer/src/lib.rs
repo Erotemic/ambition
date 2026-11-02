@@ -549,7 +549,7 @@ pub struct OutlanderSmokeReport {
 
 /// The windowed game with no GPU: the walk, then `frames` more ticks for the
 /// asset loads to finish. A packaged build runs this from its own directory to
-/// show that it stands alone (`scripts/package_outlander.py`).
+/// show that it stands alone (`scripts/package/package_outlander.py`).
 #[cfg(feature = "visible")]
 pub fn smoke_windowed_app(frames: usize) -> Result<OutlanderSmokeReport, String> {
     #[derive(Resource, Default)]

@@ -988,7 +988,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         # that must read every asset from inside it. It traces the run with
         # strace; without strace it cannot prove that, so it does not run.
         jobs.append(Job("external consumer: outlander release artifact",
-                        [sys.executable, "scripts/package_outlander.py"],
+                        [sys.executable, "scripts/package/package_outlander.py"],
                         cwd=str(REPO), builds=True,
                         missing=None if shutil.which("strace") else
                         "install strace: the artifact check traces which asset files the game opens"))

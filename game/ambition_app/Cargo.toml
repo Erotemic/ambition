@@ -37,7 +37,7 @@ desktop_dev = [
     "mimalloc_alloc",
 ]
 
-# The build a player gets (`scripts/package_single_exe.py`): the window, no
+# The build a player gets (`scripts/package/package_single_exe.py`): the window, no
 # developer tools, and the maps and the content data compiled in, because no
 # source tree is beside the program. It is the `android` set with the desktop
 # platform. The art, the music and the sound bank are written after the

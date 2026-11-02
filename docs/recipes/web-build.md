@@ -94,7 +94,7 @@ URL.
 To serve an existing output without a Cargo build:
 
 ```bash
-python3 scripts/web_bundle.py serve --root game/ambition_demo_mary_o_app/web --port 8000 --host all
+python3 scripts/package/web_bundle.py serve --root game/ambition_demo_mary_o_app/web --port 8000 --host all
 ```
 
 ## Measure transfer size

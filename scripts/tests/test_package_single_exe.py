@@ -1,6 +1,6 @@
 """The packager writes the bundle the game reads.
 
-`scripts/package_single_exe.py` writes the asset tree after the program, and
+`scripts/package/package_single_exe.py` writes the asset tree after the program, and
 `crates/ambition_asset_manager/src/exe_bundle.rs` reads it. Two programs in two
 languages hold the one layout, so one small file holds it for both:
 `crates/ambition_asset_manager/tests/data/exe_bundle_golden.bin`. The arm here
@@ -21,7 +21,7 @@ GOLDEN = REPO / "crates" / "ambition_asset_manager" / "tests" / "data" / "exe_bu
 
 sys.path.insert(0, str(REPO / "scripts"))
 _spec = importlib.util.spec_from_file_location(
-    "package_single_exe_under_test", REPO / "scripts" / "package_single_exe.py"
+    "package_single_exe_under_test", REPO / "scripts" / "package/package_single_exe.py"
 )
 packager = importlib.util.module_from_spec(_spec)
 sys.modules[_spec.name] = packager

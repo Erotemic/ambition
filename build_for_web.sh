@@ -33,7 +33,7 @@ Options:
   --served              Build the served-assets browser persona:
                         switches the default feature to `web_served_assets`,
                         and publishes the composed asset tree into
-                        game/ambition_app/web/assets/ (scripts/package_asset_guard.py,
+                        game/ambition_app/web/assets/ (scripts/package/package_asset_guard.py,
                         profile=web) so the page-served `/assets/...` URLs Bevy's
                         wasm HTTP reader fetches actually resolve. Selects
                         `AssetProfile::WebServedAssets` at runtime via the
@@ -400,7 +400,7 @@ if [[ "$SERVED_MODE" == true ]]; then
     fi
     if [[ "$GAME" == mary-o ]]; then PACK_ARGS=(--pack-root "$ROOT/game/$PACK_DIR/assets"); fi
     log "served assets: composing the published tree (package_asset_guard.py, profile=web)"
-    if ! python3 "$ROOT/scripts/package_asset_guard.py" compose \
+    if ! python3 "$ROOT/scripts/package/package_asset_guard.py" compose \
         --repo "$ROOT" \
         "${PACK_ARGS[@]}" \
         --profile web \
@@ -416,14 +416,14 @@ fi
 if [[ "$SKIP_BINDGEN" != true ]]; then
     COMPRESSION_ARGS=()
     if [[ "$BROTLI" == true ]]; then COMPRESSION_ARGS+=(--brotli); fi
-    python3 "$ROOT/scripts/web_bundle.py" prepare --root "$WEB_DIR" --code-dir "$OUT_DIR" "${COMPRESSION_ARGS[@]}"
+    python3 "$ROOT/scripts/package/web_bundle.py" prepare --root "$WEB_DIR" --code-dir "$OUT_DIR" "${COMPRESSION_ARGS[@]}"
 fi
 
 if [[ "$SERVE" != true ]]; then
     echo
     log "done. Serve the bundle with compression enabled."
     log "Examples:"
-    log "  python3 scripts/web_bundle.py serve --root $WEB_DIR --port $SERVE_PORT --host $SERVE_BIND_HOST"
+    log "  python3 scripts/package/web_bundle.py serve --root $WEB_DIR --port $SERVE_PORT --host $SERVE_BIND_HOST"
     exit 0
 fi
 
@@ -442,7 +442,7 @@ fi
 
 if command -v python3 >/dev/null 2>&1; then
     log "serving $WEB_DIR at $URL (Ctrl-C to stop)"
-    exec python3 "$ROOT/scripts/web_bundle.py" serve --root "$WEB_DIR" --port "$SERVE_PORT" --host "$SERVE_BIND_HOST"
+    exec python3 "$ROOT/scripts/package/web_bundle.py" serve --root "$WEB_DIR" --port "$SERVE_PORT" --host "$SERVE_BIND_HOST"
 elif command -v basic-http-server >/dev/null 2>&1; then
     log "serving $WEB_DIR at $URL via basic-http-server (Ctrl-C to stop)"
     exec basic-http-server "$WEB_DIR" -a "$SERVE_BIND_HOST:$SERVE_PORT"

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Build the game as one file to give a player: the program with its assets inside.
 
-    python3 scripts/package_single_exe.py                     # Linux and Windows
-    python3 scripts/package_single_exe.py --platform windows
-    python3 scripts/package_single_exe.py --skip-build        # package what is built
-    python3 scripts/package_single_exe.py --assets all        # each quality tier
+    python3 scripts/package/package_single_exe.py                     # Linux and Windows
+    python3 scripts/package/package_single_exe.py --platform windows
+    python3 scripts/package/package_single_exe.py --skip-build        # package what is built
+    python3 scripts/package/package_single_exe.py --assets all        # each quality tier
 
 The result is `target/single_exe/ambition-linux-x86_64` and
 `target/single_exe/ambition-windows-x86_64.exe`. Each is the `ship` profile
@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import sys as _sys
 from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
@@ -63,11 +64,11 @@ import sys
 import tempfile
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
+REPO = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO / "scripts"))
 
 from scripts.measure import measure_pack_reachability  # noqa: E402
-import package_asset_guard  # noqa: E402
+from scripts.package import package_asset_guard  # noqa: E402
 
 PACKAGE = "ambition_app"
 BINARY = "ambition_game_bin"

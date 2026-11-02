@@ -10,7 +10,7 @@ from threading import Thread
 import urllib.request
 
 
-spec = importlib.util.spec_from_file_location("web_bundle", Path(__file__).parents[1] / "web_bundle.py")
+spec = importlib.util.spec_from_file_location("web_bundle", Path(__file__).parents[1] / "package/web_bundle.py")
 web = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(web)
 

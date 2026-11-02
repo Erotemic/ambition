@@ -231,7 +231,7 @@ fn a_pack_is_refused_for_a_composition_without_its_capability() {
     assert!(text.contains("character_catalog"), "the refusal names the schema it cannot read:\n{text}");
 }
 
-/// `--package-inputs` is what `scripts/package_asset_guard.py` reads to learn
+/// `--package-inputs` is what `scripts/package/package_asset_guard.py` reads to learn
 /// which files the pack needs. The paths are the ones the SCHEMA resolved: a
 /// music cue's section file is under the cue's `asset_root`, which no reader
 /// of the bare `path:` field can know.

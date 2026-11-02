@@ -6,7 +6,7 @@
 //! answering the *naming* question differently is the day the browser and the
 //! desktop are playing two different games out of two different trees.
 //!
-//! The composed publication seam that merges BOTH roots — `scripts/package_asset_guard.py`,
+//! The composed publication seam that merges BOTH roots — `scripts/package/package_asset_guard.py`,
 //! which Android and the Steam Deck deploy already used — arrived and the web script was never
 //! migrated to it. So everything the content crate owned was absent from the browser's
 //! `/assets/` — including every `.ldtk` world — and nothing measured the gap because nothing

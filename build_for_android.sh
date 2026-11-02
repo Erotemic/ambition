@@ -806,7 +806,7 @@ EOF
 # The pack and its selected libraries form one AssetManager tree. The shared
 # package guard selects its files and checks paths, ownership, and bytes.
 log "composing and auditing runtime assets for Android"
-python3 "$ROOT/scripts/package_asset_guard.py" compose \
+python3 "$ROOT/scripts/package/package_asset_guard.py" compose \
     --repo "$ROOT" \
     --profile android \
     --output "$ASSETS_OUT" \
@@ -883,7 +883,7 @@ cp "$APK" "$OUT_APK"
 # finished APK as a ZIP and verify every asset path and byte against the exact
 # contract generated before compilation.
 log "verifying final APK asset contract"
-python3 "$ROOT/scripts/package_asset_guard.py" audit-zip \
+python3 "$ROOT/scripts/package/package_asset_guard.py" audit-zip \
     --contract "$ASSET_CONTRACT" \
     --archive "$OUT_APK" \
     --prefix assets/

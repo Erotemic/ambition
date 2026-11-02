@@ -64,7 +64,7 @@ Store.publish() -> published.json -------------------------+
 | Native runtime file identity and bytes | `ContentLibraries` and `LibraryAssets` | `content_library.rs:217-259,315-330`; `library_source.rs:45-75,90-134` |
 | Prepared sprite metadata and its activation | Sprite sheet subsystem | `platformer2d/src/content/libraries.rs:8-27`; `baked_sheet_rons.rs:258-339` |
 | Inspector entries and use sites | Inspector read model | `tools/ambition_editor/asset_index/` |
-| Complete release asset tree | Game-owned files plus selected library files | `scripts/package_asset_guard.py:350-374` |
+| Complete release asset tree | Game-owned files plus selected library files | `scripts/package/package_asset_guard.py:350-374` |
 
 ## Code findings, ordered by leverage
 
@@ -178,7 +178,7 @@ cache without measurements.
 ### D. The web development packager does release-level work
 
 `collect_source_files()` computes SHA-256 for each selected game or library
-file (`scripts/package_asset_guard.py:350-374`). `audit_tree()` hashes the
+file (`scripts/package/package_asset_guard.py:350-374`). `audit_tree()` hashes the
 composed files again (`package_asset_guard.py:734-764`). The script documents
 that even `compose --materialize link`, used for served-web development,
 performs the full audit (header lines 25-36).

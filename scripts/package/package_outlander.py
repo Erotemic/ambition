@@ -19,7 +19,7 @@ import tarfile
 import tempfile
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
+REPO = Path(__file__).resolve().parent.parent.parent
 GAME = REPO / "fixtures" / "external_consumer"
 BINARY = "outlander_visible"
 FEATURES = "visible"

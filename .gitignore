@@ -13,7 +13,7 @@ examples/*/target/
 # Generated browser bundle (wasm-bindgen output from ./build_for_web.sh).
 game/ambition_app/web/pkg/
 # The composed asset tree `./build_for_web.sh --served` publishes (via
-# scripts/package_asset_guard.py) so the served browser persona can fetch
+# scripts/package/package_asset_guard.py) so the served browser persona can fetch
 # `/assets/...` over HTTP, plus the byte contract that publication proves.
 game/ambition_app/web/assets
 game/ambition_app/web/.assets_contract.json

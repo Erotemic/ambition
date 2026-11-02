@@ -219,7 +219,7 @@ Minimum competitive proof:
 One-click GUI export is not an acceptance requirement.
 
 **One external desktop artifact (2026-10-09):** `python3
-scripts/package_outlander.py` produces the release artifact of Outlander
+scripts/package/package_outlander.py` produces the release artifact of Outlander
 (`fixtures/external_consumer`, the SDK game) and checks that it reads every
 asset from inside itself. The exit code tells a missing prerequisite (2) from a
 failed build (3) and a failed artifact (1). Linux only. Outlander carries its own assets and selects no shared library.

@@ -1,3 +1,4 @@
+use crate::menu::dispatch::menu_action_activated;
 use super::*;
 use crate::menu::model::{build_inventory_pages, system_rows, SystemRow};
 use ambition_platformer2d::characters::brain::ActionSet;
@@ -77,7 +78,7 @@ fn grid_app() -> App {
     // `render_app` builds on this harness, and re-registering the consumer there
     // gave the message two independent readers. Both dispatched, so a pointer
     // click equipped and then unequipped the same item and the test read `None`.
-    app.add_systems(Update, grid_menu_action_activated.after(grid_menu_nav));
+    app.add_systems(Update, menu_action_activated.after(grid_menu_nav));
     *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::Grid;
     app.world_mut().spawn((
         PlayerEntity,
@@ -647,11 +648,11 @@ fn render_app() -> App {
     // a frame late.
     app.configure_sets(
         Update,
-        BevyUiMenuInteractionSet.before(grid_menu_action_activated),
+        BevyUiMenuInteractionSet.before(menu_action_activated),
     );
     app.add_systems(
         Update,
-        grid_menu_republish_view.after(grid_menu_action_activated),
+        (crate::menu::system_cache::cache_system_menu, grid_menu_republish_view).chain().after(menu_action_activated),
     );
     app.add_systems(
         Update,
@@ -1013,10 +1014,11 @@ fn grid_scroll_total_rows(app: &mut App) -> usize {
     app.world_mut()
         .run_system_once(
             |settings: Res<UserSettings>,
-             system_nav: Single<&KaleidoscopeSystemNav>,
+             system_nav: Single<(Entity, &KaleidoscopeSystemNav)>,
              system: SystemMenuParams| {
-                let model = system.model(&settings);
-                grid_system_row_count(MenuPage::System, &system_nav, &model, None)
+                let (menu, system_nav) = system_nav.into_inner();
+                let model = system.model(&settings, menu, None);
+                grid_system_row_count(MenuPage::System, system_nav, &model, None)
             },
         )
         .unwrap()
@@ -1369,4 +1371,52 @@ fn wheel_scrolls_only_the_visible_menu_under_the_mouse() {
     app.update();
     assert_eq!(app.world().get::<GridMenuTabState>(first).unwrap().system_window_start, Some(1));
     assert_eq!(app.world().get::<GridMenuTabState>(second).unwrap().system_window_start, Some(1));
+}
+
+
+#[test]
+fn each_menu_publishes_and_refreshes_its_owners_rebind_rows() {
+    use ambition_platformer2d::input::{BindingRecipe, BindingOverride, BindingSources, KeyboardPreset, OverrideControl, ParticipantId, SeatBindings};
+    use ambition_platformer2d::inventory_ui::{InventoryMenu, InventoryUiState};
+    let mut app = render_app();
+    app.init_resource::<SeatBindings>();
+    let first = crate::menu::test_support::menu_id(app.world());
+    app.world_mut().get_mut::<InventoryUiState>(first).unwrap().visible = true;
+    app.world_mut().get_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>(first).unwrap().active = Some(MenuPage::System);
+    app.world_mut().get_mut::<KaleidoscopeSystemNav>(first).unwrap().open_entry = Some(SystemMenuEntryId::Rebind);
+    let second = app.world_mut().spawn((
+        crate::menu::MenuInstance,
+        InventoryMenu { owner: ParticipantId::SECONDARY },
+        InventoryUiState { visible: true, ..default() },
+        ActiveMenuPages::<MenuPage, MenuPageAction> { active: Some(MenuPage::System), ..default() },
+        KaleidoscopeSystemNav { open_entry: Some(SystemMenuEntryId::Rebind) },
+    )).id();
+    crate::menu::test_support::spawn_binding_participant(&mut app, ParticipantId::PRIMARY,
+        BindingRecipe::preset(KeyboardPreset::arrows_zxc().id).with_sources(BindingSources::KeyboardOnly));
+    let mut recipe = BindingRecipe::gamepad_only();
+    recipe.set_binding_override(BindingOverride { action: "Attack".into(), control: OverrideControl::Button(GamepadButton::North) });
+    let person = crate::menu::test_support::spawn_binding_participant(&mut app, ParticipantId::SECONDARY, recipe);
+    app.add_systems(Update, (ambition_platformer2d::input::rebuild_maps_from_recipes, ambition_platformer2d::input::publish_seat_bindings).chain().before(crate::menu::system_cache::cache_system_menu));
+    let labels = |app: &mut App| app.world_mut().query::<&Text>().iter(app.world()).map(|text| text.0.clone()).collect::<Vec<_>>();
+    let roots = |app: &mut App| {
+        app.world_mut().query_filtered::<(Entity, &ambition_platformer2d::menu::MenuSurface), With<GridMenuRoot>>()
+            .iter(app.world()).map(|(entity, owner)| (owner.0, entity)).collect::<std::collections::HashMap<_, _>>()
+    };
+    app.update();
+    app.update();
+    assert!(labels(&mut app).iter().any(|label| label == "Attack: X"));
+    assert!(labels(&mut app).iter().any(|label| label == "Attack: Y"));
+    let initial = roots(&mut app);
+    app.world_mut().resource_mut::<ambition_platformer2d::input::SeatActiveDevices>().mark_primary(ambition_platformer2d::input::ActiveDevice::Mouse);
+    app.update();
+    assert_eq!(roots(&mut app), initial);
+
+    app.world_mut().get_mut::<BindingRecipe>(person).unwrap().set_binding_override(BindingOverride { action: "Attack".into(), control: OverrideControl::Button(GamepadButton::South) });
+    app.update();
+    assert!(labels(&mut app).iter().any(|label| label == "Attack: A"));
+    let changed = roots(&mut app);
+    assert_eq!(changed[&first], initial[&first]);
+    assert_ne!(changed[&second], initial[&second]);
+    for _ in 0..4 { app.update(); }
+    assert_eq!(roots(&mut app), changed);
 }

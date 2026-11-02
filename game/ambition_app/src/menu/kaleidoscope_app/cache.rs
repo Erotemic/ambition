@@ -1,106 +1,6 @@
-//! System-tab page caching: the cached snapshot + the cache/republish systems
-//! and the change-detection RebuildKey that suppresses no-op republishes.
+//! Cube page publication from each menu's cached System model.
 
 use super::*;
-/// Per-frame cache of the System face's built model + windowed rows + the radio/dev
-/// snapshots. `SystemMenuModel::build` (the full settings IR plus many per-row string
-/// allocations) and the radio/dev snapshots were each rebuilt THREE times per frame
-/// on the System face — once each in [`republish_kaleidoscope_pages`],
-/// [`kaleidoscope_sync_focus_visuals`], and [`kaleidoscope_sync_detail_text`]. They
-/// run back-to-back in one chain with identical inputs, so [`cache_system_menu`]
-/// builds them once and the three consumers read this.
-#[derive(Component, Default)]
-pub(crate) struct CachedSystemMenu {
-    /// The System model for the live face, or `None` when another face is active.
-    pub(crate) model: Option<SystemMenuModel>,
-    /// `system_rows(model, open_entry)` for the live drill state (empty off-System).
-    pub(crate) rows: Vec<SystemRow>,
-    /// Snapshots feeding the model AND the republish `RebuildKey`, which carries them
-    /// on every face — so these are refreshed each frame regardless of active page.
-    pub(crate) radio: RadioSnapshot,
-    pub(crate) dev: DevSnapshot,
-    /// Pending visual-quality profile, if the Video screen is asking for confirmation.
-    pub(crate) quality: Option<VisualQualityProfile>,
-    /// The settings VALUE the cached model was built from. Compared, never
-    /// tick-checked: a `ResMut<UserSettings>` taken by a navigation system
-    /// dirties the tick every frame with the value unchanged.
-    settings: Option<UserSettings>,
-    /// The drill-down the cached rows were built for.
-    open_entry: Option<SystemMenuEntryId>,
-    /// How many times the System model was actually built. An instrument for the
-    /// churn count D-CUBE-CHURN asks for: an open System face with no input must
-    /// hold this at one.
-    pub(crate) model_builds: u64,
-}
-
-impl CachedSystemMenu {
-    /// Are the cached rows the ones a reader asking about `open_entry` wants?
-    ///
-    /// ⛔⛔ THE ONE STALENESS A READER OUTSIDE THE FRAME CHAIN CAN HIT.
-    /// `cache_system_menu` runs once per visible frame at the front of the
-    /// chain, but `kaleidoscope_pointer_move` is an OBSERVER — it fires on a
-    /// `Pointer<Move>` whenever one arrives, which may be before this frame's
-    /// cache run. Of the six inputs the rows are built from, five (settings,
-    /// radio, dev, quality, and the model itself) cannot move without a frame
-    /// passing; the drill-down CAN, because a PRESS opens it. So this is the
-    /// whole of the currency question, and it is one comparison.
-    pub(crate) fn rows_are_current_for(&self, open_entry: Option<SystemMenuEntryId>) -> bool {
-        self.model.is_some() && self.open_entry == open_entry
-    }
-}
-
-/// Build the System model + radio/dev snapshots ONCE per frame (front of the visible
-/// chain) into [`CachedSystemMenu`]. The model + rows are built only while the System
-/// face is active; the snapshots are always refreshed (the republish key carries them
-/// on every face). See [`CachedSystemMenu`] for why.
-pub(crate) fn cache_system_menu(
-    mut menus: Query<(
-        &ActiveMenuPages<MenuPage, MenuPageAction>,
-        &KaleidoscopeSystemNav,
-        &VisualQualityConfirmState,
-        &mut CachedSystemMenu,
-    )>,
-    settings: Res<UserSettings>,
-    snapshot: SystemMenuSnapshotParams,
-) {
-    let radio = snapshot.radio_snapshot();
-    let dev = snapshot.dev_snapshot();
-    for (pages, system_nav, quality_confirm, mut cache) in &mut menus {
-        let quality = quality_confirm.pending();
-        if pages.active == Some(MenuPage::System) {
-            // Rebuild only when an INPUT'S VALUE moved. The model is the full
-            // settings IR plus a string per row, and this system runs every visible
-            // frame; before this gate it was built ~60 times a second on a face
-            // nobody was touching (D-CUBE-CHURN). Values, not change ticks — see
-            // `republish_kaleidoscope_pages` for the tick cliff.
-            let stale = cache.model.is_none()
-                || cache.settings.as_ref() != Some(&*settings)
-                || cache.radio != radio
-                || cache.dev != dev
-                || cache.quality != quality
-                || cache.open_entry != system_nav.open_entry;
-            if stale {
-                let model = crate::menu::model::system_menu_model_with_pending_quality(
-                    &settings, &radio, &dev, quality,
-                );
-                cache.rows =
-                    system_rows_with_quality_prompt(&model, system_nav.open_entry, quality);
-                cache.model = Some(model);
-                cache.settings = Some(settings.clone());
-                cache.open_entry = system_nav.open_entry;
-                cache.model_builds += 1;
-            }
-        } else {
-            cache.model = None;
-            cache.rows.clear();
-            cache.settings = None;
-        }
-        cache.radio = radio.clone();
-        cache.dev = dev.clone();
-        cache.quality = quality;
-    }
-}
-
 /// Republish the cube's faces from our live inventory + the focus cursor (the
 /// host-owned data seam — the cube renderer treats `ActiveMenuPages` as read-only).
 ///
@@ -158,7 +58,11 @@ pub(crate) fn republish_kaleidoscope_pages(
         } else {
             0
         };
+        let Some(model) = cache.model.as_ref() else {
+            continue;
+        };
         let key = RebuildKey {
+            system_revision: cache.model_builds,
             window_start,
             active: pages.active,
             open_entry: system_nav.open_entry,
@@ -224,9 +128,8 @@ pub(crate) fn republish_kaleidoscope_pages(
             body_source.items(),
             key.equipped,
             cursor.focus,
-            &settings,
+            model,
             &key.radio,
-            &key.dev,
             window_start,
             system_nav.open_entry,
             key.quality,
@@ -244,6 +147,7 @@ pub(crate) fn republish_kaleidoscope_pages(
 /// forces a rebuild — see `republish_kaleidoscope_pages`.
 #[derive(PartialEq)]
 pub(crate) struct RebuildKey {
+    system_revision: u64,
     window_start: usize,
     active: Option<MenuPage>,
     open_entry: Option<SystemMenuEntryId>,
@@ -263,6 +167,9 @@ pub(crate) struct RebuildKey {
 impl RebuildKey {
     fn changed_fields(&self, next: &Self) -> Vec<&'static str> {
         let mut changed = Vec::new();
+        if self.system_revision != next.system_revision {
+            changed.push("system_revision");
+        }
         if self.window_start != next.window_start {
             changed.push("window_start");
         }

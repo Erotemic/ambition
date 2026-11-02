@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use ambition_platformer2d::menu::ActiveMenuPages;
 
 use crate::menu::effects::{
-    dispatch_item_confirm, MenuAction, MenuEffectBodies, MenuItemRequests, MenuBodySource,
+    dispatch_item_confirm, MenuAction, MenuBodySource, MenuEffectBodies, MenuItemRequests,
 };
 use crate::menu::kaleidoscope_app::{
     back_edge_focus, close_system_entry, play_ui, rotate_sfx, KaleidoscopeCursor,
@@ -102,7 +102,7 @@ pub(crate) fn dispatch_menu_action(
         MenuPageAction::ConfirmVisualQuality => {
             if let Some(profile) = quality_confirm.take_confirmed() {
                 settings.video.quality.profile = profile;
-                focus_visual_quality_setting_row(settings, system_nav, cursor, system);
+                focus_visual_quality_setting_row(menu, settings, system_nav, cursor, system);
                 play_ui(sfx, ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT);
                 info!("cube system action: confirmed visual quality {:?}", profile);
             } else {
@@ -112,7 +112,7 @@ pub(crate) fn dispatch_menu_action(
         }
         MenuPageAction::CancelVisualQuality => {
             quality_confirm.cancel();
-            focus_visual_quality_setting_row(settings, system_nav, cursor, system);
+            focus_visual_quality_setting_row(menu, settings, system_nav, cursor, system);
             play_ui(sfx, ambition_platformer2d::sfx::ids::UI_MENU_BACK);
             info!("cube system action: cancelled visual quality change");
         }
@@ -174,12 +174,13 @@ pub(crate) fn dispatch_menu_action(
 }
 
 fn focus_visual_quality_setting_row(
+    menu: Entity,
     settings: &UserSettings,
     system_nav: &KaleidoscopeSystemNav,
     cursor: &mut KaleidoscopeCursor,
     system: &SystemMenuParams,
 ) {
-    let model = system.model(settings);
+    let model = system.model(settings, menu, None);
     let rows = system_rows_with_quality_prompt(&model, system_nav.open_entry, None);
     if let Some(idx) = rows
         .iter()
@@ -257,4 +258,79 @@ fn apply_system_option(
         SettingsOptionKind::Action => {}
     }
     info!("cube system option: {:?}", option);
+}
+
+/// Apply each menu action once, independent of the selected renderer.
+#[cfg(all(
+    feature = "input",
+    any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")
+))]
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn menu_action_activated(
+    mut activated: MessageReader<ambition_platformer2d::menu::MenuActionActivated<MenuPageAction>>,
+    mut menus: Query<(
+        Entity,
+        &ambition_platformer2d::inventory_ui::InventoryMenu,
+        &mut ActiveMenuPages<MenuPage, MenuPageAction>,
+        &mut KaleidoscopeCursor,
+        &mut KaleidoscopeSystemNav,
+        &mut VisualQualityConfirmState,
+        &mut ambition_platformer2d::inventory_ui::InventoryUiState,
+    )>,
+    owned: Res<OwnedItems>,
+    body_source: MenuBodySource,
+    mut settings: ResMut<UserSettings>,
+    mut commands: Commands,
+    mut players: MenuEffectBodies,
+    mut requests: MenuItemRequests,
+    mut sfx: SfxWriter,
+    mut system: SystemMenuParams,
+    #[cfg(feature = "bevy_ui_menu")] mut grids: Query<
+        &mut crate::menu::grid_backend::GridMenuTabState,
+    >,
+) {
+    for activation in activated.read() {
+        let Ok((
+            menu_entity,
+            menu_owner,
+            mut pages,
+            mut cursor,
+            mut system_nav,
+            mut quality_confirm,
+            mut overlay,
+        )) = menus.get_mut(activation.menu)
+        else {
+            continue;
+        };
+        if !overlay.visible {
+            continue;
+        }
+        let mut close_menu = false;
+        crate::menu::dispatch::dispatch_menu_action(
+            menu_entity,
+            menu_owner.owner,
+            activation.action,
+            &mut pages,
+            &mut system_nav,
+            &mut cursor,
+            &owned,
+            &body_source,
+            &mut settings,
+            &mut quality_confirm,
+            &mut close_menu,
+            &mut commands,
+            &mut players,
+            &mut requests,
+            &mut sfx,
+            &mut system,
+        );
+        #[cfg(feature = "bevy_ui_menu")]
+        if let Ok(mut grid) = grids.get_mut(menu_entity) {
+            grid.invalidate();
+        }
+        if close_menu {
+            quality_confirm.cancel();
+            overlay.close();
+        }
+    }
 }

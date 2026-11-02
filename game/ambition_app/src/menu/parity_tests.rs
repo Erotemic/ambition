@@ -361,7 +361,7 @@ mod dispatch_parity {
         install_bevy_ui_menu_actions, BevyUiMenuInteractionSet,
     };
 
-    use crate::menu::grid_backend::{grid_menu_action_activated};
+    use crate::menu::dispatch::menu_action_activated;
     use crate::menu::kaleidoscope_app::{
         kaleidoscope_pointer_press, kaleidoscope_pointer_release,
         KaleidoscopeSystemNav,
@@ -417,10 +417,7 @@ mod dispatch_parity {
         install_bevy_ui_menu_actions::<MenuPageAction>(&mut app);
         app.add_systems(
             Update,
-            (
-                grid_menu_action_activated,
-                crate::menu::kaleidoscope_app::kaleidoscope_menu_action_activated,
-            )
+            menu_action_activated
                 .after(BevyUiMenuInteractionSet),
         );
         *app.world_mut().resource_mut::<InventoryUiBackend>() = backend;
@@ -566,51 +563,24 @@ mod dispatch_parity {
     /// grid's deliberate post-dispatch re-pin differs. The shared part — the cube
     /// honoring `ChangePage` — is asserted; the grid's documented override is too.
     #[test]
-    fn change_page_is_a_deliberate_per_backend_asymmetry() {
-        // Cube: ChangePage moves the active page (the cube's real page-turn path).
-        let mut cube = menu_app(InventoryUiBackend::LunexKaleidoscope);
-        activate(
-            &mut cube,
-            InventoryUiBackend::LunexKaleidoscope,
-            MenuPageAction::ChangePage(MenuPage::System),
-        );
-        let cube_page = crate::menu::test_support::active_pages(cube.world())
-            .active;
-        assert_eq!(
-            cube_page,
-            Some(MenuPage::System),
-            "the cube honors ChangePage (its page-turn affordance)"
-        );
+    fn page_actions_select_the_same_page_through_either_frontend() {
+        for backend in [InventoryUiBackend::Grid, InventoryUiBackend::LunexKaleidoscope] {
+            let mut app = menu_app(backend);
+            activate(&mut app, backend, MenuPageAction::ChangePage(MenuPage::System));
+            assert_eq!(crate::menu::test_support::active_pages(app.world()).active, Some(MenuPage::System));
+        }
+    }
 
-        // Grid: a synthetic ChangePage is REFUSED, so the active page is exactly
-        // what it was before. The grid never emits ChangePage controls in practice
-        // (it strips them); this drives one anyway to pin the refusal.
-        //
-        // ⛔⛤ **THE STARTING PAGE IS SET EXPLICITLY, AND IT DID NOT USED TO BE.**
-        // This arm asserted `Some(Items)` while the fixture published no pages at
-        // all, so `active` was `None` — the value it observed came from the grid's
-        // old post-dispatch RE-PIN, which wrote `Some(tab_page(active_tab))`
-        // unconditionally and thereby INITIALISED the field as a side effect. ⇒ The
-        // arm was reading an initialisation, not a refusal, and it would have passed
-        // against a dispatcher that honoured `ChangePage` and was then overwritten.
-        // Seeding the page first makes it assert a genuine NO-OP: the value is
-        // unchanged because nothing touched it.
-        let mut grid = menu_app(InventoryUiBackend::Grid);
-        crate::menu::test_support::active_pages_mut(grid.world_mut())
-            .active = Some(MenuPage::Items);
-        activate(
-            &mut grid,
-            InventoryUiBackend::Grid,
-            MenuPageAction::ChangePage(MenuPage::System),
-        );
-        let grid_page = crate::menu::test_support::active_pages(grid.world())
-            .active;
-        assert_eq!(
-            grid_page,
-            Some(MenuPage::Items),
-            "the grid dispatched a ChangePage it is supposed to refuse: page changes \
-             come from the tab bar, and the flat renderer strips ChangePage controls"
-        );
+    #[test]
+    fn a_backend_change_applies_once_and_the_next_action_uses_the_new_frontend() {
+        for backend in [InventoryUiBackend::Grid, InventoryUiBackend::LunexKaleidoscope] {
+            let mut app = menu_app(backend);
+            let action = MenuPageAction::SystemOption(ambition_platformer2d::settings_menu::system::SystemOptionId::Dev(ambition_platformer2d::settings_menu::system::DevToggleId::MenuBackend));
+            activate(&mut app, backend, action);
+            assert_eq!(*app.world().resource::<InventoryUiBackend>(), backend.next());
+            activate(&mut app, backend.next(), action);
+            assert_eq!(*app.world().resource::<InventoryUiBackend>(), backend);
+        }
     }
 
     /// Dispatch parity: a settings TOGGLE mutates `UserSettings` identically on

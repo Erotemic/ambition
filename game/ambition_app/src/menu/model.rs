@@ -639,9 +639,8 @@ pub fn build_inventory_pages(
         items,
         equipped,
         focus,
-        settings,
+        &system_menu_model_with_pending_quality(settings, radio, dev, None),
         radio,
-        dev,
         system_window_start,
         open_entry,
         None,
@@ -655,9 +654,8 @@ pub fn build_inventory_pages_with_quality_prompt(
     items: &ItemCatalog,
     equipped: EquippedItems,
     focus: MenuFocus,
-    settings: &UserSettings,
+    system_model: &SystemMenuModel,
     radio: &RadioSnapshot,
-    dev: &DevSnapshot,
     // The effective System scroll-window start (Features C/D). Drives which System
     // rows render + the scrollbar thumb position.
     system_window_start: usize,
@@ -671,9 +669,8 @@ pub fn build_inventory_pages_with_quality_prompt(
         map_page,
         build_quest_page(owned, items),
         build_system_page_with_quality_prompt(
-            settings,
+            system_model,
             radio,
-            dev,
             focus,
             system_window_start,
             open_entry,
@@ -1092,9 +1089,8 @@ pub fn build_system_page(
     open_entry: Option<SystemMenuEntryId>,
 ) -> MenuPageModel<MenuPage, MenuPageAction> {
     build_system_page_with_quality_prompt(
-        settings,
+        &system_menu_model_with_pending_quality(settings, radio, dev, None),
         radio,
-        dev,
         focus,
         window_start,
         open_entry,
@@ -1103,9 +1099,8 @@ pub fn build_system_page(
 }
 
 pub fn build_system_page_with_quality_prompt(
-    settings: &UserSettings,
+    sys_model: &SystemMenuModel,
     radio: &RadioSnapshot,
-    dev: &DevSnapshot,
     focus: MenuFocus,
     // The EFFECTIVE scroll-window start (cursor-derived OR a drag/wheel override —
     // see [`system_effective_window_start`]). Drives which rows render + the thumb.
@@ -1113,7 +1108,6 @@ pub fn build_system_page_with_quality_prompt(
     open_entry: Option<SystemMenuEntryId>,
     pending_quality: Option<VisualQualityProfile>,
 ) -> MenuPageModel<MenuPage, MenuPageAction> {
-    let sys_model = system_menu_model_with_pending_quality(settings, radio, dev, pending_quality);
     let mut model = MenuPageModel::new(
         MenuPage::System,
         line("menu.system.title"),

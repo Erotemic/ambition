@@ -8,18 +8,12 @@ use super::*;
 fn system_row_count(
     pages: &ActiveMenuPages<MenuPage, MenuPageAction>,
     system_nav: &KaleidoscopeSystemNav,
-    settings: &UserSettings,
-    snapshot: &SystemMenuSnapshotParams,
+    model: &SystemMenuModel,
     pending_quality: Option<VisualQualityProfile>,
 ) -> usize {
     if pages.active != Some(MenuPage::System) {
         return 0;
     }
-    let model = SystemMenuModel::build(
-        settings,
-        &snapshot.radio_snapshot(),
-        &snapshot.dev_snapshot(),
-    );
     system_rows_with_quality_prompt(&model, system_nav.open_entry, pending_quality).len()
 }
 
@@ -70,24 +64,14 @@ pub(crate) fn kaleidoscope_scroll_wheel(
         if steps == 0 {
             continue;
         }
-        let total = system_row_count(
-            &pages,
-            &system_nav,
-            &settings,
-            &snapshot,
-            quality_confirm.pending(),
-        );
+        let model = snapshot.model(&settings, menu, quality_confirm.pending());
+        let total = system_row_count(&pages, &system_nav, &model, quality_confirm.pending());
         if total <= SYSTEM_VISIBLE_ROWS {
             continue; // nothing to scroll
         }
         let max = system_max_window_start(total) as i32;
         // Seed from the effective start so the first wheel notch moves relative to what
         // is currently shown (cursor-derived window) rather than jumping to 0.
-        let model = SystemMenuModel::build(
-            &settings,
-            &snapshot.radio_snapshot(),
-            &snapshot.dev_snapshot(),
-        );
         let rows = system_rows_with_quality_prompt(
             &model,
             system_nav.open_entry,
@@ -127,13 +111,8 @@ pub(crate) fn kaleidoscope_apply_scroll_drag(
         if !state.visible {
             continue;
         }
-        let total = system_row_count(
-            pages,
-            system_nav,
-            &settings,
-            &snapshot,
-            quality_confirm.pending(),
-        );
+        let model = snapshot.model(&settings, drag.menu, quality_confirm.pending());
+        let total = system_row_count(pages, system_nav, &model, quality_confirm.pending());
         if let Some(start) = scroll_fraction_to_window_start(total, drag.fraction.clamp(0.0, 1.0)) {
             scroll.system_window_start = Some(start);
         }

@@ -1,6 +1,7 @@
 //! Behaviour tests for the cube's interaction seams, driven through the real
 //! systems/observers as the app wires them.
 use super::*;
+use crate::menu::dispatch::menu_action_activated;
 use crate::menu::model::{build_inventory_pages, system_rows};
 use crate::menu::test_support::{
     click_control, pointer_location, spawn_control, trigger_move, trigger_press, trigger_release,
@@ -82,7 +83,7 @@ fn base_kaleidoscope_test_app() -> App {
     app.add_message::<ambition_platformer2d::game_shell::PauseRequested>();
     app.add_systems(
         Update,
-        kaleidoscope_menu_action_activated
+        menu_action_activated
             .after(kaleidoscope_focus_nav)
             // and BEFORE republish, exactly as production chains it: a
             // republish that runs first draws the menu as it was before the
@@ -913,7 +914,7 @@ fn real_input_cube_app(
     app.add_message::<ambition_platformer2d::game_shell::PauseRequested>();
     app.add_systems(
         Update,
-        kaleidoscope_menu_action_activated
+        menu_action_activated
             .after(kaleidoscope_focus_nav)
             // and BEFORE republish, exactly as production chains it: a
             // republish that runs first draws the menu as it was before the
@@ -2545,7 +2546,7 @@ fn arming_a_rebind_does_not_capture_the_key_that_armed_it() {
     let mut app = App::new();
 
     app.init_resource::<SeatBindings>();
-    crate::menu::test_support::spawn_inventory_menu(&mut app, Default::default());
+    crate::menu::test_support::spawn_inventory_menu(&mut app, ambition_platformer2d::inventory_ui::InventoryUiState { visible: true, ..default() });
     app.init_resource::<UserSettings>();
     app.init_resource::<ButtonInput<KeyCode>>();
     app.add_systems(
@@ -2559,6 +2560,7 @@ fn arming_a_rebind_does_not_capture_the_key_that_armed_it() {
     app.world_mut().spawn((
         InputParticipant::primary(),
         KeyboardPreset::arrows_zxc().input_map(),
+        ambition_platformer2d::input::BindingRecipe::preset(KeyboardPreset::arrows_zxc().id),
     ));
     app.update();
 
@@ -2743,17 +2745,12 @@ fn the_cached_rows_resolve_a_system_action_exactly_as_a_fresh_model_does() {
          the one it replaced",
     );
 
-    // ⛔ THE OTHER ARM: off the System face the cache is EMPTY, and the guard
-    // must say so — otherwise the hover path substitutes an empty list and every
-    // System action reachable off-face resolves to row zero.
     crate::menu::test_support::active_pages_mut(app.world_mut()).active = Some(MenuPage::Items);
     app.update();
     let cache = crate::menu::test_support::menu_component::<CachedSystemMenu>(app.world());
-    assert!(
-        !cache.rows_are_current_for(open_entry),
-        "off the System face the cache holds no rows, and a guard that still \
-         said yes would resolve every off-face System hover to row zero",
-    );
+    assert!(cache.rows_are_current_for(open_entry));
+    assert_eq!(focus_for_action(action, MenuPage::System, &cache.rows), from_fresh);
+
 }
 
 fn cube_mode(app: &App) -> GameMode {
@@ -2859,7 +2856,7 @@ fn each_menu_caches_and_publishes_its_own_system_page_without_idle_churn() {
         Update,
         (cache_system_menu, republish_kaleidoscope_pages)
             .chain()
-            .after(kaleidoscope_menu_action_activated),
+            .after(menu_action_activated),
     );
     let first = crate::menu::test_support::menu_id(app.world());
     app.world_mut()
@@ -2966,7 +2963,7 @@ fn each_menu_caches_and_publishes_its_own_system_page_without_idle_churn() {
 #[cfg(feature = "bevy_ui_menu")]
 #[test]
 fn two_seats_open_navigate_and_close_their_own_menus_with_one_pause() {
-    use crate::menu::grid_backend::{grid_menu_action_activated, grid_menu_nav};
+    use crate::menu::grid_backend::grid_menu_nav;
     use ambition_platformer2d::input::{ParticipantId, SeatMenuFrames};
     use ambition_platformer2d::inventory_ui::{InventoryMenu, InventoryUiState};
     for backend in [
@@ -2982,10 +2979,9 @@ fn two_seats_open_navigate_and_close_their_own_menus_with_one_pause() {
                 crate::menu::lifecycle::route_menu_lifecycle,
                 grid_menu_nav,
                 kaleidoscope_focus_nav,
-                grid_menu_action_activated,
             )
                 .chain()
-                .before(kaleidoscope_menu_action_activated),
+                .before(menu_action_activated),
         );
         let first = crate::menu::test_support::menu_id(app.world());
         let second = app
@@ -3291,4 +3287,51 @@ fn wheel_scrolls_only_the_visible_menu_under_the_mouse() {
     app.update();
     assert_eq!(app.world().get::<KaleidoscopeScroll>(first).unwrap().system_window_start, Some(1));
     assert_eq!(app.world().get::<KaleidoscopeScroll>(second).unwrap().system_window_start, Some(2));
+}
+
+
+#[test]
+fn each_menu_publishes_and_refreshes_its_owners_rebind_rows() {
+    use ambition_platformer2d::input::{BindingRecipe, BindingOverride, BindingSources, KeyboardPreset, OverrideControl, ParticipantId, SeatBindings};
+    use ambition_platformer2d::inventory_ui::{InventoryMenu, InventoryUiState};
+    let mut app = base_kaleidoscope_test_app();
+    app.init_resource::<SeatBindings>();
+    let first = crate::menu::test_support::menu_id(app.world());
+    app.world_mut().get_mut::<InventoryUiState>(first).unwrap().visible = true;
+    app.world_mut().get_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>(first).unwrap().active = Some(MenuPage::System);
+    app.world_mut().get_mut::<KaleidoscopeSystemNav>(first).unwrap().open_entry = Some(SystemMenuEntryId::Rebind);
+    let second = app.world_mut().spawn((
+        crate::menu::MenuInstance,
+        InventoryMenu { owner: ParticipantId::SECONDARY },
+        InventoryUiState { visible: true, ..default() },
+        ActiveMenuPages::<MenuPage, MenuPageAction> { active: Some(MenuPage::System), ..default() },
+        KaleidoscopeSystemNav { open_entry: Some(SystemMenuEntryId::Rebind) },
+    )).id();
+    crate::menu::test_support::spawn_binding_participant(&mut app, ParticipantId::PRIMARY,
+        BindingRecipe::preset(KeyboardPreset::arrows_zxc().id).with_sources(BindingSources::KeyboardOnly));
+    let mut recipe = BindingRecipe::gamepad_only();
+    recipe.set_binding_override(BindingOverride { action: "Attack".into(), control: OverrideControl::Button(GamepadButton::North) });
+    let person = crate::menu::test_support::spawn_binding_participant(&mut app, ParticipantId::SECONDARY, recipe);
+    app.add_systems(Update, (ambition_platformer2d::input::rebuild_maps_from_recipes, ambition_platformer2d::input::publish_seat_bindings, cache_system_menu, republish_kaleidoscope_pages).chain());
+    let labels = |app: &App, menu: Entity| {
+        app.world().get::<ActiveMenuPages<MenuPage, MenuPageAction>>(menu).unwrap().pages.iter()
+            .find(|page| page.id == MenuPage::System).unwrap().nodes.iter().filter_map(|node| {
+                if let ambition_platformer2d::menu::MenuNode::Control { label, .. } = node { Some(label.clone()) } else { None }
+            }).collect::<Vec<_>>()
+    };
+    app.update();
+    app.update();
+    assert!(labels(&app, first).iter().any(|label| label == "Attack: X"));
+    assert!(labels(&app, second).iter().any(|label| label == "Attack: Y"));
+    let versions = [first, second].map(|menu| app.world().get::<ActiveMenuPages<MenuPage, MenuPageAction>>(menu).unwrap().version);
+    app.world_mut().get_mut::<BindingRecipe>(person).unwrap().set_binding_override(BindingOverride { action: "Attack".into(), control: OverrideControl::Button(GamepadButton::South) });
+    app.update();
+    assert!(labels(&app, second).iter().any(|label| label == "Attack: A"));
+    assert_eq!(app.world().get::<ActiveMenuPages<MenuPage, MenuPageAction>>(first).unwrap().version, versions[0]);
+    let updated = app.world().get::<ActiveMenuPages<MenuPage, MenuPageAction>>(second).unwrap().version;
+    assert!(updated > versions[1]);
+    let builds = [first, second].map(|menu| app.world().get::<CachedSystemMenu>(menu).unwrap().model_builds);
+    for _ in 0..4 { app.update(); }
+    assert_eq!(app.world().get::<ActiveMenuPages<MenuPage, MenuPageAction>>(second).unwrap().version, updated);
+    assert_eq!([first, second].map(|menu| app.world().get::<CachedSystemMenu>(menu).unwrap().model_builds), builds);
 }

@@ -105,10 +105,8 @@ pub fn spawn_primary_input_participant(
 /// (its `Changed<InputMap>` hook) in the same frame, through the machinery a
 /// preset change already proved.
 ///
-/// Only the primary: couch seats are gamepad-only recipes, and what preset
-/// the keyboard player picked is not a fact about their pad. Per-seat presets
-/// and per-seat overrides wait on the product question of whether couch seats
-/// get their own persisted profiles at all.
+/// The primary profile persists in settings. Other participants retain their
+/// own recipe overrides. Persistent profiles for those participants are not defined.
 pub fn sync_primary_recipe_from_settings(
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     mut participants: Query<(&InputParticipant, &mut ambition_input::BindingRecipe)>,

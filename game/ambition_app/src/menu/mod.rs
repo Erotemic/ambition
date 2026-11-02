@@ -19,6 +19,15 @@ mod build_label;
 mod regions;
 #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
 pub(crate) mod lifecycle;
+#[cfg(feature = "input")]
+mod bindings;
+#[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
+mod system_cache;
+
+#[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
+#[derive(bevy::prelude::SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) struct MenuActionsApplied;
+
 pub mod dispatch;
 pub mod effects;
 #[cfg(feature = "bevy_ui_menu")]
@@ -47,8 +56,8 @@ mod parity_tests;
 #[require(kaleidoscope_app::KaleidoscopeCursor, kaleidoscope_app::KaleidoscopeSystemNav,
     kaleidoscope_app::RebindCapture, quality_confirm::VisualQualityConfirmState)]
 #[cfg_attr(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"), require(lifecycle::MenuLifecycleState))]
-#[cfg_attr(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"), require(regions::MenuRegion))]
+#[cfg_attr(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"), require(regions::MenuRegion, system_cache::CachedSystemMenu))]
 #[cfg_attr(feature = "bevy_ui_menu", require(grid_backend::GridMenuTabState))]
 #[cfg_attr(feature = "kaleidoscope_menu", require(kaleidoscope_app::KaleidoscopeScroll,
-    kaleidoscope_app::CachedSystemMenu, kaleidoscope_app::MenuPublication, ambition_menu_kaleidoscope::KaleidoscopeOpenState))]
+    kaleidoscope_app::MenuPublication, ambition_menu_kaleidoscope::KaleidoscopeOpenState))]
 pub(crate) struct MenuInstance;

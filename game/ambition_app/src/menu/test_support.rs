@@ -260,3 +260,14 @@ pub(crate) fn wheel(app: &mut App, y: f32) {
         phase: bevy::input::touch::TouchPhase::Moved,
     });
 }
+
+
+#[cfg(feature = "input")]
+pub(crate) fn spawn_binding_participant(app: &mut App, owner: ambition_platformer2d::input::ParticipantId, recipe: ambition_platformer2d::input::BindingRecipe) -> Entity {
+    app.world_mut().spawn((
+        ambition_platformer2d::input::InputParticipant::with_id(owner),
+        recipe.build(),
+        recipe,
+        leafwing_input_manager::prelude::ActionState::<ambition_platformer2d::input::Platformer2dInputActionMonolith>::default(),
+    )).id()
+}

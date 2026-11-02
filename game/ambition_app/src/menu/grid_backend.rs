@@ -21,7 +21,7 @@ use ambition_platformer2d::menu::{
     ActiveMenuPages, MenuActionActivated, MenuFocusKey, MenuNode, MenuRect, MenuTabActivated,
 };
 
-use crate::menu::effects::{MenuBodySource, MenuEffectBodies, MenuItemRequests};
+use crate::menu::effects::MenuBodySource;
 use crate::menu::kaleidoscope_app::{
     focus_for_action, owned_item_action, play_ui, system_focus_nav, KaleidoscopeCursor,
     KaleidoscopeSystemNav, SystemMenuParams,
@@ -40,17 +40,12 @@ use ambition_platformer2d::persistence::settings::{UserSettings, VisualQualityPr
 use ambition_platformer2d::settings_menu::system::{SystemMenuEntryId, SystemMenuModel};
 use ambition_platformer2d::sfx::SfxWriter;
 
-/// The effect/dispatch resources shared by [`grid_menu_nav`] and
-/// [`grid_menu_action_activated`], bundled into one [`SystemParam`] so each stays
-/// under Bevy's 16-param ceiling (the same reason the cube bundles `SystemMenuParams`).
+/// Item and settings effects used by Grid navigation.
 #[derive(bevy::ecs::system::SystemParam)]
-pub(crate) struct MenuDispatchParams<'w, 's> {
+pub(crate) struct MenuNavParams<'w, 's> {
     owned: Res<'w, OwnedItems>,
     body_source: MenuBodySource<'w, 's>,
     settings: ResMut<'w, UserSettings>,
-    commands: Commands<'w, 's>,
-    players: MenuEffectBodies<'w, 's>,
-    requests: MenuItemRequests<'w, 's>,
     sfx: SfxWriter<'w>,
     system: SystemMenuParams<'w, 's>,
 }
@@ -117,6 +112,10 @@ pub(crate) enum GridFocusZone {
 }
 
 impl GridMenuTabState {
+    pub(crate) fn invalidate(&mut self) {
+        self.last_key = None;
+    }
+
     pub(crate) fn reset_navigation(&mut self) {
         self.focus_zone = GridFocusZone::Body;
         self.system_window_start = None;
@@ -140,6 +139,7 @@ impl Default for GridMenuTabState {
 /// change — re-renders). Mirrors the cube's `last` republish key, flat.
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct ViewKey {
+    system_revision: u64,
     tab: usize,
     open_entry: Option<SystemMenuEntryId>,
     focus: MenuFocus,
@@ -325,10 +325,10 @@ pub(crate) fn grid_menu_nav(
         &mut ambition_platformer2d::inventory_ui::InventoryUiState,
     )>,
     // The ONE activation event. A controller/keyboard submit publishes the same
-    // message the renderer's pointer bridge does, so `grid_menu_action_activated`
+    // message the renderer's pointer bridge does, so `crate::menu::dispatch::menu_action_activated`
     // is the single place a chosen action is dispatched.
     mut activated: MessageWriter<MenuActionActivated<MenuPageAction>>,
-    mut fx: MenuDispatchParams,
+    mut fx: MenuNavParams,
 ) {
     for (
         menu_entity,
@@ -569,11 +569,11 @@ pub(crate) fn grid_menu_republish_view(
         &KaleidoscopeSystemNav,
         &VisualQualityConfirmState,
         &mut GridMenuTabState,
+        &super::system_cache::CachedSystemMenu,
     )>,
     owned: Res<OwnedItems>,
     body_source: MenuBodySource,
-    settings: Res<UserSettings>,
-    system: SystemMenuParams,
+    backend: Res<InventoryUiBackend>,
     map_page: crate::menu::map_page::MapPageSource,
     roots: Query<
         (Entity, &ambition_platformer2d::menu::MenuSurface),
@@ -591,12 +591,11 @@ pub(crate) fn grid_menu_republish_view(
         system_nav,
         quality_confirm,
         mut tab_state,
+        cache,
     ) in &mut menus
     {
         let has_root = roots.iter().any(|(_, owner)| owner.0 == menu_entity);
-        // Read the backend from `system` (it owns the resource); a separate `Res` here
-        // would be a B0002 conflict with that `ResMut`.
-        let active = system.backend() == InventoryUiBackend::Grid && overlay.visible;
+        let active = backend.effective() == InventoryUiBackend::Grid && overlay.visible;
         if !active {
             // Tear the tree down when not the active+open backend, and forget the key so
             // a reopen always rebuilds.
@@ -616,27 +615,18 @@ pub(crate) fn grid_menu_republish_view(
             body.and_then(|body| body.in_hand),
         );
 
-        // RENDER THE GRID'S TAB, not the shared `pages.active` (which the cube drives).
-        // The grid builds the active tab's `MenuPageModel` from the SAME backend-agnostic
-        // builder the cube uses (`build_inventory_pages`), then renders THE PAGE WHOSE
-        // `id == grid tab` — so switching tabs actually switches the body. Building here
-        // (instead of fishing the cube's `pages.pages` out by id) makes the grid
-        // self-sufficient: it does not depend on the cube's republish ordering/gating,
-        // which was why the body could lag a tab behind / always read Items.
+        // The selected tab uses the same System model as navigation and the Cube.
         let active_page = active_page(&pages);
-        let model = system.model(&settings);
+        let Some(model) = cache.model.as_ref() else {
+            continue;
+        };
         // The EFFECTIVE System window start: an explicit wheel/drag override wins
         // (Features C/D), otherwise it follows the cursor — exactly the cube's rule via
         // the shared `system_effective_window_start`. Hovering moves the cursor but, with
         // an override set, does NOT shift the window, so hovering no longer scrolls.
         let window_start = if active_page == MenuPage::System {
-            let rows = system_rows_with_quality_prompt(
-                &model,
-                system_nav.open_entry,
-                quality_confirm.pending(),
-            );
             crate::menu::model::system_effective_window_start(
-                &rows,
+                &cache.rows,
                 cursor.focus(),
                 tab_state.system_window_start,
             )
@@ -644,6 +634,7 @@ pub(crate) fn grid_menu_republish_view(
             0
         };
         let key = ViewKey {
+            system_revision: cache.model_builds,
             tab: active_tab_index(&pages),
             open_entry: system_nav.open_entry,
             focus: cursor.focus(),
@@ -660,23 +651,18 @@ pub(crate) fn grid_menu_republish_view(
         };
         // The dispatch paths ALSO clear `last_key` directly (the belt-and-braces force-republish),
         // so even a state change this key can't see (e.g. a dev snapshot) still re-renders.
-        let state_changed = owned.is_changed()
-            || body_source.items_changed()
-            || settings.is_changed()
-            || map_page.changed();
+        let state_changed = owned.is_changed() || body_source.items_changed() || map_page.changed();
         if tab_state.last_key == Some(key) && has_root && !state_changed {
             continue;
         }
         tab_state.last_key = Some(key);
-
         let built = build_inventory_pages_with_quality_prompt(
             &inventory,
             body_source.items(),
             key.equipped,
             cursor.focus(),
-            &settings,
-            &system.radio_snapshot(),
-            &system.dev_snapshot(),
+            &model,
+            &cache.radio,
             window_start,
             system_nav.open_entry,
             quality_confirm.pending(),
@@ -805,7 +791,7 @@ pub(crate) fn grid_menu_scroll_wheel(
             continue;
         }
         let active_page = active_page(&pages);
-        let model = system.model(&settings);
+        let model = system.model(&settings, menu, quality_confirm.pending());
         let total =
             grid_system_row_count(active_page, &system_nav, &model, quality_confirm.pending());
         if total <= SYSTEM_VISIBLE_ROWS {
@@ -860,7 +846,7 @@ pub(crate) fn grid_menu_apply_scroll_drag(
         if !overlay.visible {
             continue;
         }
-        let model = system.model(&settings);
+        let model = system.model(&settings, drag.menu, quality_confirm.pending());
         let total = grid_system_row_count(
             active_page(pages),
             system_nav,
@@ -869,93 +855,6 @@ pub(crate) fn grid_menu_apply_scroll_drag(
         );
         if let Some(start) = scroll_fraction_to_window_start(total, drag.fraction.clamp(0.0, 1.0)) {
             tab_state.system_window_start = Some(start);
-        }
-    }
-}
-
-/// Activate a flat-menu control selected by mouse or touch. The renderer's one
-/// `Interaction` bridge publishes the semantic [`MenuPageAction`]; this host
-/// adapter routes it through the SAME dispatcher as keyboard/controller select.
-#[cfg(feature = "input")]
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn grid_menu_action_activated(
-    mut activated: MessageReader<MenuActionActivated<MenuPageAction>>,
-    mut menus: Query<(
-        Entity,
-        &ambition_platformer2d::inventory_ui::InventoryMenu,
-        &mut ActiveMenuPages<MenuPage, MenuPageAction>,
-        &mut GridMenuTabState,
-        &mut KaleidoscopeCursor,
-        &mut KaleidoscopeSystemNav,
-        &mut VisualQualityConfirmState,
-        &mut ambition_platformer2d::inventory_ui::InventoryUiState,
-    )>,
-    mut fx: MenuDispatchParams,
-) {
-    // Backend read from `fx.system` (it owns the resource); a separate `Res` would
-    // B0002-conflict with that `ResMut`.
-    if fx.system.backend() != InventoryUiBackend::Grid {
-        activated.clear();
-        return;
-    }
-    for activation in activated.read() {
-        let Ok((
-            menu_entity,
-            menu_owner,
-            mut pages,
-            mut tab_state,
-            mut cursor,
-            mut system_nav,
-            mut quality_confirm,
-            mut overlay,
-        )) = menus.get_mut(activation.menu)
-        else {
-            continue;
-        };
-        if !overlay.visible {
-            continue;
-        }
-        // ⛔⛤ **THE GRID REFUSES `ChangePage` EXPLICITLY NOW, AND IT USED TO SAY SO
-        // BY OVERWRITING.** Page changes here come from the TAB BAR; the flat
-        // renderer STRIPS the `ChangePage` edge controls
-        // (`flat_renderer_skips_page_turn_edge_controls`), so this action cannot be
-        // raised by the shipped UI at all. The old code let it through the
-        // dispatcher and then re-pinned `pages.active` from the grid's OWN copy of
-        // the active tab — a refusal expressed as "whatever that did, overwrite it
-        // from my shadow value".
-        //
-        // ⇒ With one owner there is no shadow to overwrite from, so the intent has
-        // to be stated rather than implied. That is strictly better: the rule was
-        // always "the grid does not change pages this way", and it now reads that
-        // way instead of depending on a second field existing.
-        if matches!(activation.action, MenuPageAction::ChangePage(_)) {
-            continue;
-        }
-        let mut close_menu = false;
-        crate::menu::dispatch::dispatch_menu_action(
-            menu_entity,
-            menu_owner.owner,
-            activation.action,
-            &mut pages,
-            &mut system_nav,
-            &mut cursor,
-            &fx.owned,
-            &fx.body_source,
-            &mut fx.settings,
-            &mut quality_confirm,
-            &mut close_menu,
-            &mut fx.commands,
-            &mut fx.players,
-            &mut fx.requests,
-            &mut fx.sfx,
-            &mut fx.system,
-        );
-        // Force the next republish so a pointer/touch-dispatched state change
-        // (equip, setting toggle, radio song) refreshes immediately.
-        tab_state.last_key = None;
-        if close_menu {
-            quality_confirm.cancel();
-            overlay.close();
         }
     }
 }
@@ -1057,7 +956,8 @@ pub fn install_grid_unified_menu(app: &mut App) {
         grid_menu_republish_view
             .after(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::CoreSimulation)
             // Closed and torn down, it has nothing to build or take down.
-            .run_if(a_menu_is_open_or_a_grid_tree_was),
+            .run_if(a_menu_is_open_or_a_grid_tree_was)
+            .after(super::system_cache::cache_system_menu),
     );
     // ⛔ NOTHING IS REGISTERED HERE ANY MORE, and the ordering edge that used to
     // be went with it. Carrying the active page across a backend switch needed a
@@ -1077,7 +977,6 @@ pub fn install_grid_unified_menu(app: &mut App) {
         app.add_systems(
             Update,
             (
-                grid_menu_action_activated,
                 grid_menu_tab_activated,
                 grid_menu_scroll_wheel,
                 grid_menu_apply_scroll_drag,
@@ -1090,6 +989,7 @@ pub fn install_grid_unified_menu(app: &mut App) {
                 // `InputSet` contract that an edge produced this frame is consumed
                 // this frame.
                 .after(ambition_platformer2d::input::MenuNavConsume)
+                .before(super::system_cache::cache_system_menu)
                 .before(grid_menu_republish_view),
         );
     }

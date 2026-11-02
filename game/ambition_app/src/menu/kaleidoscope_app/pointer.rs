@@ -104,16 +104,14 @@ pub(crate) fn kaleidoscope_pointer_move(
     };
     let next = match focus_without_system_model(action, active_page) {
         Some(focus) => focus,
-        None if cache.rows_are_current_for(system_nav.open_entry) => {
+        None if cache.rows_are_current_for(system_nav.open_entry)
+            && cache.bindings_are_current_for(surface.0, &snapshot) =>
+        {
             focus_for_action(action, active_page, &cache.rows)
         }
         None => {
             // An observer can run before the cache sees a changed drill-down.
-            let model = SystemMenuModel::build(
-                &settings,
-                &snapshot.radio_snapshot(),
-                &snapshot.dev_snapshot(),
-            );
+            let model = snapshot.model(&settings, surface.0, quality_confirm.pending());
             let rows = system_rows_with_quality_prompt(
                 &model,
                 system_nav.open_entry,
@@ -172,7 +170,7 @@ pub(crate) fn kaleidoscope_pointer_release(
             let next = match focus_without_system_model(action, active_page) {
                 Some(focus) => focus,
                 None => {
-                    let model = system.model(&settings);
+                    let model = system.model(&settings, menu, quality_confirm.pending());
                     let rows = system_rows_with_quality_prompt(
                         &model,
                         system_nav.open_entry,

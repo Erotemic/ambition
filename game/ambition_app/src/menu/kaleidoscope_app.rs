@@ -32,7 +32,6 @@ use bevy::prelude::*;
 
 use crate::menu::effects::MenuBodySource;
 #[cfg(feature = "kaleidoscope_menu")]
-use crate::menu::effects::{MenuEffectBodies, MenuItemRequests};
 #[cfg(feature = "kaleidoscope_menu")]
 use crate::menu::model::{
     build_inventory_pages_with_quality_prompt, scroll_fraction_to_window_start,
@@ -122,6 +121,24 @@ pub fn install_unified_menu_shared(app: &mut App) {
             .chain()
             .in_set(ambition_platformer2d::menu::render::MenuSurfaceLayout)
             .before(bevy::camera::CameraUpdateSystems),
+    );
+    #[cfg(all(
+        feature = "input",
+        any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")
+    ))]
+    app.add_systems(PostUpdate, capture_armed_rebind);
+    #[cfg(all(feature = "input", any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")))]
+    app.add_systems(Update, crate::menu::dispatch::menu_action_activated
+        .in_set(super::MenuActionsApplied)
+        .after(ambition_platformer2d::input::MenuNavConsume)
+        .after(ambition_platformer2d::menu::render::bevy_ui::BevyUiMenuInteractionSet));
+    #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
+    app.add_systems(
+        Update,
+        super::system_cache::cache_system_menu
+            .run_if(super::system_cache::any_menu_visible)
+            .after(ambition_platformer2d::input::MenuNavConsume)
+            .after(super::MenuActionsApplied),
     );
     install_menu_confirm_provider(app);
 }
@@ -226,7 +243,11 @@ fn cube_render_needed(
 #[cfg(feature = "kaleidoscope_menu")]
 fn sleep_lunex_while_the_cube_rests(app: &mut App) {
     use ambition_menu_kaleidoscope::UiSystems;
-    for set in [UiSystems::PreCompute, UiSystems::Compute, UiSystems::PostCompute] {
+    for set in [
+        UiSystems::PreCompute,
+        UiSystems::Compute,
+        UiSystems::PostCompute,
+    ] {
         app.configure_sets(Update, set.clone().run_if(kaleidoscope_render_needed))
             .configure_sets(PostUpdate, set.run_if(kaleidoscope_render_needed));
     }
@@ -269,7 +290,9 @@ fn game_kaleidoscope_config() -> KaleidoscopeMenuConfig {
 
 /// The cube's colours as the host's `menu_look.ron` states them.
 #[cfg(feature = "kaleidoscope_menu")]
-pub(crate) fn cube_look(cube: &crate::menu::model::CubeLook) -> ambition_menu_kaleidoscope::KaleidoscopeLook {
+pub(crate) fn cube_look(
+    cube: &crate::menu::model::CubeLook,
+) -> ambition_menu_kaleidoscope::KaleidoscopeLook {
     let colour = |[r, g, b, a]: [f32; 4]| Color::srgba(r, g, b, a);
     ambition_menu_kaleidoscope::KaleidoscopeLook {
         selected: colour(cube.selected),
@@ -322,73 +345,65 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
     // question is "who owns registering it". `add_message` is a no-op if present.
     app.add_message::<MenuActionActivated<MenuPageAction>>();
     app.add_message::<ambition_platformer2d::game_shell::PauseRequested>();
-    app.add_systems(Update, spawn_kaleidoscope_scrim.before(gate_kaleidoscope_menu))
-        // PHASE 1 — decide this frame's CONTENT, BEFORE the lib rebuild. Nav mutates the cursor;
-        // scroll/cache/republish derive the page model + System scroll window from it.
-        .add_systems(
-            Update,
-            (
-                // Nav first (mutates the cursor), then republish (reads the cursor +
-                // inventory) so the highlight + detail panel reflect this frame's move.
-                // Also in `MenuNavConsume` for the same fold-ordering reason above.
-                kaleidoscope_focus_nav
-                    .run_if(kaleidoscope_menu_visible)
-                    .in_set(ambition_platformer2d::input::MenuNavConsume)
-                    // ORDERED against the grid backend's nav; see `menu::GridMenuNav`.
-                    .in_set(crate::menu::KaleidoscopeMenuNav),
-                // between nav and republish, deliberately. Nav and the
-                // pointer-release observer both PUBLISH the chosen action; this
-                // dispatches it. Running it after republish would draw the menu a
-                // frame before the equip it just performed.
-                kaleidoscope_menu_action_activated.run_if(kaleidoscope_menu_visible),
-                // After the dispatch that arms it, so an arm and its capture
-                // cannot be a frame apart in the wrong direction. the ORDER is
-                // not what stops the confirm key becoming the binding —
-                // `RebindCapture::settle` is, because a just-pressed set is a
-                // fact about the frame rather than about where in it you read.
-                #[cfg(feature = "input")]
-                capture_armed_rebind.run_if(kaleidoscope_menu_visible),
-                // Scroll the System window independently of selection before republish.
-                // After the touch layer has folded this frame's drag into the
-                // menu frame, which is what the consume set is pinned behind.
-                kaleidoscope_scroll_wheel
-                    .run_if(kaleidoscope_menu_visible)
-                    .in_set(ambition_platformer2d::input::MenuFrameConsume),
-                kaleidoscope_apply_scroll_drag
-                    .run_if(kaleidoscope_menu_visible)
-                    .after(ambition_platformer2d::menu::render::bevy_ui::BevyUiMenuInteractionSet),
-                // Build the System model + radio/dev snapshots ONCE per frame; the
-                // republish + both in-place sync systems read this cache instead of
-                // each rebuilding it (3 heavy builds/frame → 1 on the System face).
-                cache_system_menu.run_if(kaleidoscope_menu_visible),
-                // Republish the cube's model only for the cube backend; Grid builds and
-                // dirties its own page model.
-                republish_kaleidoscope_pages.run_if(kaleidoscope_menu_visible),
-            )
-                .chain()
-                .before(rebuild_cube_faces::<MenuPage, MenuPageAction>),
+    app.add_systems(
+        Update,
+        spawn_kaleidoscope_scrim.before(gate_kaleidoscope_menu),
+    )
+    // PHASE 1 — decide this frame's CONTENT, BEFORE the lib rebuild. Nav mutates the cursor;
+    // scroll/cache/republish derive the page model + System scroll window from it.
+    .add_systems(
+        Update,
+        (
+            // Nav first (mutates the cursor), then republish (reads the cursor +
+            // inventory) so the highlight + detail panel reflect this frame's move.
+            // Also in `MenuNavConsume` for the same fold-ordering reason above.
+            kaleidoscope_focus_nav
+                .run_if(kaleidoscope_menu_visible)
+                .in_set(ambition_platformer2d::input::MenuNavConsume)
+                // ORDERED against the grid backend's nav; see `menu::GridMenuNav`.
+                .in_set(crate::menu::KaleidoscopeMenuNav),
+            // Scroll the System window independently of selection before republish.
+            // After the touch layer has folded this frame's drag into the
+            // menu frame, which is what the consume set is pinned behind.
+            kaleidoscope_scroll_wheel
+                .after(super::MenuActionsApplied)
+                .run_if(kaleidoscope_menu_visible)
+                .in_set(ambition_platformer2d::input::MenuFrameConsume)
+                .before(super::system_cache::cache_system_menu),
+            kaleidoscope_apply_scroll_drag
+                .before(super::system_cache::cache_system_menu)
+                .run_if(kaleidoscope_menu_visible)
+                .after(ambition_platformer2d::menu::render::bevy_ui::BevyUiMenuInteractionSet),
+            // Republish the cube's model only for the cube backend; Grid builds and
+            // dirties its own page model.
+            republish_kaleidoscope_pages
+                .run_if(kaleidoscope_menu_visible)
+                .after(super::system_cache::cache_system_menu),
         )
-        // PHASE 2 — reflect that content, AFTER the lib rebuild. The focus HIGHLIGHT
-        // and the detail-panel TEXT update IN PLACE from the live cursor over the
-        // freshly (re)built controls.
-        .add_systems(
-            Update,
-            (
-                kaleidoscope_sync_focus_visuals.run_if(kaleidoscope_menu_visible),
-                kaleidoscope_sync_detail_text.run_if(kaleidoscope_menu_visible),
-                gate_kaleidoscope_menu,
-                cycle_dev_gravity.run_if(bevy::input::common_conditions::input_just_pressed(
-                    KeyCode::Backslash,
-                )),
-                fade_kaleidoscope_scrim.run_if(kaleidoscope_render_needed),
-            )
-                .chain()
-                .after(rebuild_cube_faces::<MenuPage, MenuPageAction>)
-                .before(KaleidoscopeFocusVisuals),
+            .chain()
+            .before(rebuild_cube_faces::<MenuPage, MenuPageAction>),
+    )
+    // PHASE 2 — reflect that content, AFTER the lib rebuild. The focus HIGHLIGHT
+    // and the detail-panel TEXT update IN PLACE from the live cursor over the
+    // freshly (re)built controls.
+    .add_systems(
+        Update,
+        (
+            kaleidoscope_sync_focus_visuals.run_if(kaleidoscope_menu_visible),
+            kaleidoscope_sync_detail_text.run_if(kaleidoscope_menu_visible),
+            gate_kaleidoscope_menu,
+            cycle_dev_gravity.run_if(bevy::input::common_conditions::input_just_pressed(
+                KeyCode::Backslash,
+            )),
+            fade_kaleidoscope_scrim.run_if(kaleidoscope_render_needed),
         )
-        .add_observer(kaleidoscope_pointer_press)
-        .add_observer(kaleidoscope_pointer_move)
-        .add_observer(kaleidoscope_pointer_release);
+            .chain()
+            .after(rebuild_cube_faces::<MenuPage, MenuPageAction>)
+            .before(KaleidoscopeFocusVisuals),
+    )
+    .add_observer(kaleidoscope_pointer_press)
+    .add_observer(kaleidoscope_pointer_move)
+    .add_observer(kaleidoscope_pointer_release);
 }
 
 /// Which input source currently owns the cube cursor. Mirrors the grid's
@@ -421,7 +436,9 @@ pub(crate) struct KaleidoscopeCursor {
 impl KaleidoscopeCursor {
     pub(crate) fn reset_pointer(&mut self) {
         #[cfg(feature = "kaleidoscope_menu")]
-        { self.last_pointer_focus = None; }
+        {
+            self.last_pointer_focus = None;
+        }
     }
 
     /// Keyboard/gamepad nav took the cursor to `focus` (claims ownership).
@@ -475,7 +492,7 @@ impl RebindCapture {
         self.armed_this_frame = true;
     }
 
-    #[cfg(feature = "kaleidoscope_menu")]
+    #[cfg(all(feature = "input", any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")))]
     /// Let one frame pass before a press can be captured. Returns whether the
     /// caller should wait.
     pub(crate) fn settle(&mut self) -> bool {
@@ -484,19 +501,19 @@ impl RebindCapture {
         waiting
     }
 
-    #[cfg(feature = "kaleidoscope_menu")]
+    #[cfg(all(feature = "input", any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")))]
     pub(crate) fn armed(&self) -> Option<usize> {
         self.armed_row
     }
 
     /// Take the arm — a capture resolves once, whatever it produced.
-    #[cfg(feature = "kaleidoscope_menu")]
+    #[cfg(all(feature = "input", any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")))]
     pub(crate) fn take(&mut self) -> Option<usize> {
         self.armed_row.take()
     }
 }
 
-#[cfg(feature = "kaleidoscope_menu")]
+#[cfg(all(feature = "input", any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")))]
 /// Resolve an armed rebind: the next physical press becomes the binding.
 ///
 /// this cannot live in the menu's dispatch, which is why arming and
@@ -510,60 +527,91 @@ impl RebindCapture {
 /// and the row cannot disagree without a second table existing to disagree
 /// through.
 ///
-/// Writing the override into `UserSettings` is the whole of the wiring: the
-/// recipe sync picks it up, `rebuild_maps_from_recipes` rebuilds the map, and
-/// behaviour, glyphs and the touch overlay follow in the same frame.
-#[cfg(feature = "input")]
+/// The primary profile persists in settings. Other participants keep their
+/// overrides in their input recipes. The map rebuild publishes the new bindings.
+#[cfg(all(
+    feature = "input",
+    any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")
+))]
 pub(crate) fn capture_armed_rebind(
-    menu_state: Single<(
+    mut menus: Query<(
         &ambition_platformer2d::inventory_ui::InventoryMenu,
+        &ambition_platformer2d::inventory_ui::InventoryUiState,
         &mut RebindCapture,
     )>,
     keys: Option<Res<bevy::input::ButtonInput<bevy::prelude::KeyCode>>>,
     pads: Query<&bevy::prelude::Gamepad>,
+    mut participants: Query<(
+        &ambition_platformer2d::input::InputParticipant,
+        &leafwing_input_manager::prelude::InputMap<
+            ambition_platformer2d::input::Platformer2dInputActionMonolith,
+        >,
+        &mut ambition_platformer2d::input::BindingRecipe,
+    )>,
     bindings: Option<Res<ambition_platformer2d::input::SeatBindings>>,
     mut settings: ResMut<UserSettings>,
 ) {
-    let (menu_owner, mut capture) = menu_state.into_inner();
-
-    let Some(row) = capture.armed() else {
-        return;
-    };
-    // the press that ARMED this row is still just-pressed. Capturing it would
-    // bind the action to the confirm key.
-    if capture.settle() {
-        return;
-    }
-    let Some(bindings) = bindings else {
-        // No projection, so no rows were built and nothing can resolve. Drop the
-        // arm rather than leaving the menu waiting on a press that can never
-        // land.
-        capture.take();
-        return;
-    };
-    let pressed = ambition_platformer2d::input::pressed_controls_this_frame(
-        keys.as_deref(),
-        pads.iter().flat_map(|pad| pad.get_just_pressed().copied()),
-    );
-    if pressed.is_empty() {
-        return;
-    }
-    let seat = menu_owner.owner.slot();
-    let Some(action) = bindings
-        .for_seat(seat)
-        .all()
-        .nth(row)
-        .and_then(|(name, _)| ambition_platformer2d::input::action_named(name))
-    else {
-        capture.take();
-        return;
-    };
-    // A frame of only-unbindable presses captures nothing and LEAVES THE ARM —
-    // the player pressed something the game cannot store, so the row keeps
-    // waiting rather than pretending it stored it.
-    if let Some(override_) = ambition_platformer2d::input::capture(&action, pressed) {
-        settings.controls.set_binding_override(override_);
-        capture.take();
+    for (owner, state, mut capture) in &mut menus {
+        let Some(row) = capture.armed() else {
+            continue;
+        };
+        if !state.visible {
+            capture.take();
+            continue;
+        }
+        if capture.settle() {
+            continue;
+        }
+        let Some(bindings) = bindings.as_deref() else {
+            capture.take();
+            continue;
+        };
+        let mut matches = participants
+            .iter_mut()
+            .filter(|(participant, _, _)| participant.id == owner.owner);
+        let Some((_, map, mut recipe)) = matches.next() else {
+            capture.take();
+            continue;
+        };
+        if matches.next().is_some() {
+            capture.take();
+            continue;
+        }
+        let keyboard = if recipe.sources.admits_keyboard() {
+            keys.as_deref()
+        } else {
+            None
+        };
+        let pad = if recipe.sources.admits_gamepad() {
+            map.gamepad().and_then(|pad| pads.get(pad).ok())
+        } else {
+            None
+        };
+        let pressed = ambition_platformer2d::input::pressed_controls_this_frame(
+            keyboard,
+            pad.into_iter()
+                .flat_map(|pad| pad.get_just_pressed().copied()),
+        );
+        if pressed.is_empty() {
+            continue;
+        }
+        let Some(action) = bindings
+            .for_seat(owner.owner.slot())
+            .all()
+            .nth(row)
+            .and_then(|(name, _)| ambition_platformer2d::input::action_named(name))
+        else {
+            capture.take();
+            continue;
+        };
+        if let Some(over) = ambition_platformer2d::input::capture(&action, pressed) {
+            if owner.owner == ambition_platformer2d::input::ParticipantId::PRIMARY {
+                settings.controls.set_binding_override(over);
+            } else {
+                recipe.set_binding_override(over);
+            }
+            capture.take();
+        }
     }
 }
 
@@ -591,6 +639,8 @@ pub(crate) struct KaleidoscopeScroll {
 /// copies (`SystemMenuSnapshotParams`) in a third system.
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct SystemMenuParams<'w, 's> {
+    #[cfg(feature = "input")]
+    pub(super) bindings: crate::menu::bindings::MenuBindings<'w, 's>,
     abilities: Option<ResMut<'w, ambition_platformer2d::dev_tools::dev_tools::EditableAbilitySet>>,
     dev_tools: ResMut<'w, ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>,
     // The Developer screen also reaches global debug flags and LDtk auto-reload,
@@ -801,7 +851,12 @@ impl SystemMenuParams<'_, '_> {
         if let (Some(library), Some(music_state)) =
             (self.library.as_deref(), self.music_state.as_deref())
         {
-            return radio_snapshot_from(library, music_state, self.radio.as_deref(), self.music_director.as_deref());
+            return radio_snapshot_from(
+                library,
+                music_state,
+                self.radio.as_deref(),
+                self.music_director.as_deref(),
+            );
         }
         RadioSnapshot::default()
     }
@@ -825,17 +880,36 @@ impl SystemMenuParams<'_, '_> {
     }
 
     /// Build the live SYSTEM model from current settings + held resources.
-    pub(crate) fn model(&self, settings: &UserSettings) -> SystemMenuModel {
-        SystemMenuModel::build(settings, &self.radio_snapshot(), &self.dev_snapshot())
+    pub(crate) fn model(
+        &self,
+        settings: &UserSettings,
+        menu: Entity,
+        quality: Option<ambition_platformer2d::persistence::settings::VisualQualityProfile>,
+    ) -> SystemMenuModel {
+        let model = crate::menu::model::system_menu_model_with_pending_quality(
+            settings,
+            &self.radio_snapshot(),
+            &self.dev_snapshot(),
+            quality,
+        );
+        #[cfg(feature = "input")]
+        {
+            return self.bindings.attach(model, menu);
+        }
+        #[cfg(not(feature = "input"))]
+        {
+            let _ = menu;
+            model
+        }
     }
 }
 
-#[cfg(feature = "kaleidoscope_menu")]
-/// Resources `republish_kaleidoscope_pages` reads (immutably) to snapshot the radio + dev
-/// state into the SYSTEM IR. Separate `Res` bundle so it never conflicts with the
-/// mutable `SystemMenuParams` (different systems).
+#[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
+/// Read-only sources for the menu-owned System models.
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct SystemMenuSnapshotParams<'w, 's> {
+    #[cfg(feature = "input")]
+    pub(super) bindings: crate::menu::bindings::MenuBindings<'w, 's>,
     abilities: Option<Res<'w, ambition_platformer2d::dev_tools::dev_tools::EditableAbilitySet>>,
     dev_tools: Res<'w, ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>,
     dev_state: Res<'w, ambition_platformer2d::dev_tools::DeveloperRuntimeState>,
@@ -860,22 +934,51 @@ pub(crate) struct SystemMenuSnapshotParams<'w, 's> {
     radio: Option<Res<'w, ambition_platformer2d::audio::library::RadioStationState>>,
 }
 
-#[cfg(feature = "kaleidoscope_menu")]
+#[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
 impl SystemMenuSnapshotParams<'_, '_> {
+    #[cfg(feature = "kaleidoscope_menu")]
+    fn model(
+        &self,
+        settings: &UserSettings,
+        menu: Entity,
+        quality: Option<VisualQualityProfile>,
+    ) -> SystemMenuModel {
+        let model = crate::menu::model::system_menu_model_with_pending_quality(
+            settings,
+            &self.radio_snapshot(),
+            &self.dev_snapshot(),
+            quality,
+        );
+        #[cfg(feature = "input")]
+        {
+            return self.bindings.attach(model, menu);
+        }
+        #[cfg(not(feature = "input"))]
+        {
+            let _ = menu;
+            model
+        }
+    }
+
     /// Build the live radio-station snapshot for the SYSTEM IR (empty under no
     /// `audio` / when the radio resources are absent).
-    fn radio_snapshot(&self) -> RadioSnapshot {
+    pub(super) fn radio_snapshot(&self) -> RadioSnapshot {
         #[cfg(feature = "audio")]
         if let (Some(library), Some(music_state)) =
             (self.library.as_deref(), self.music_state.as_deref())
         {
-            return radio_snapshot_from(library, music_state, self.radio.as_deref(), self.music_director.as_deref());
+            return radio_snapshot_from(
+                library,
+                music_state,
+                self.radio.as_deref(),
+                self.music_director.as_deref(),
+            );
         }
         RadioSnapshot::default()
     }
 
     /// Build the live developer-toggle snapshot for the SYSTEM IR.
-    fn dev_snapshot(&self) -> DevSnapshot {
+    pub(super) fn dev_snapshot(&self) -> DevSnapshot {
         dev_snapshot(DevToggleRead {
             abilities: self.abilities.as_deref(),
             dev: &self.dev_tools,
@@ -908,8 +1011,13 @@ fn radio_snapshot_from(
     let stations = (0..library.track_count())
         .filter_map(|i| library.display_name_at(i).map(|name| (i, name.to_string())))
         .collect();
-    let now_playing = ambition_platformer2d::audio::music::now_playing_label(library, music_state, director);
-    RadioSnapshot { stations, active, now_playing }
+    let now_playing =
+        ambition_platformer2d::audio::music::now_playing_label(library, music_state, director);
+    RadioSnapshot {
+        stations,
+        active,
+        now_playing,
+    }
 }
 
 mod dev_toggles;
@@ -960,7 +1068,7 @@ fn kaleidoscope_focus_nav(
     // the shared pause arbiter applies its released claim.
     // the game mode is GONE from nav. It was here only so a close-via-action
     // (Reset Sandbox) could unpause exactly like an Esc-close — and that close
-    // travels with the dispatch, into `kaleidoscope_menu_action_activated`. Nav
+    // travels with the dispatch, into `menu_action_activated`. Nav
     // announces; it does not act.
     owned: Res<OwnedItems>,
     body_source: MenuBodySource,
@@ -1179,86 +1287,6 @@ fn kaleidoscope_focus_nav(
     }
 }
 
-#[cfg(feature = "kaleidoscope_menu")]
-/// The cube's ONE dispatcher for a chosen action.
-///
-/// the cube had no consumer at all, which is the asymmetry this closes.
-/// The grid published `MenuActionActivated` from its pointer bridge and
-/// dispatched it in one system; the cube dispatched inline from THREE places —
-/// its keyboard nav, `system_focus_nav`, and the `Pointer<Release>` observer —
-/// each carrying its own copy of the close-after-dispatch, and each needing the
-/// full dispatch parameter set at a call site that had nothing else to do with
-/// it. Menu actions change the surface state. The shared pause arbiter
-/// applies the combined claim after the actions finish.
-#[cfg(feature = "input")]
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn kaleidoscope_menu_action_activated(
-    mut activated: MessageReader<MenuActionActivated<MenuPageAction>>,
-    mut menus: Query<(
-        Entity,
-        &ambition_platformer2d::inventory_ui::InventoryMenu,
-        &mut ActiveMenuPages<MenuPage, MenuPageAction>,
-        &mut KaleidoscopeCursor,
-        &mut KaleidoscopeSystemNav,
-        &mut VisualQualityConfirmState,
-        &mut ambition_platformer2d::inventory_ui::InventoryUiState,
-    )>,
-    owned: Res<OwnedItems>,
-    body_source: MenuBodySource,
-    mut settings: ResMut<UserSettings>,
-    mut commands: Commands,
-    mut players: MenuEffectBodies,
-    mut requests: MenuItemRequests,
-    mut sfx: SfxWriter,
-    mut system: SystemMenuParams,
-) {
-    // Backend read from `system` (the bundle owns it); a separate `Res` would
-    // B0002-conflict with that `ResMut`.
-    if system.backend() != InventoryUiBackend::LunexKaleidoscope {
-        activated.clear();
-        return;
-    }
-    for activation in activated.read() {
-        let Ok((
-            menu_entity,
-            menu_owner,
-            mut pages,
-            mut cursor,
-            mut system_nav,
-            mut quality_confirm,
-            mut overlay,
-        )) = menus.get_mut(activation.menu)
-        else {
-            continue;
-        };
-        if !overlay.visible {
-            continue;
-        }
-        let mut close_menu = false;
-        crate::menu::dispatch::dispatch_menu_action(
-            menu_entity,
-            menu_owner.owner,
-            activation.action,
-            &mut pages,
-            &mut system_nav,
-            &mut cursor,
-            &owned,
-            &body_source,
-            &mut settings,
-            &mut quality_confirm,
-            &mut close_menu,
-            &mut commands,
-            &mut players,
-            &mut requests,
-            &mut sfx,
-            &mut system,
-        );
-        if close_menu {
-            overlay.close();
-        }
-    }
-}
-
 /// Emit `UI_MENU_MOVE` ONCE when the cursor's focus actually changed this frame and
 /// the page did NOT turn (a page turn plays its own directional rotate sound, and a
 /// select that lands on a new control already played accept/equip/etc.). This is the
@@ -1326,12 +1354,15 @@ pub(crate) fn system_focus_nav(
     // target (the tab bar), so UP off the top must reach that, not wrap.
     wrap_rows: bool,
 ) {
+    if dx == 0 && dy == 0 && !menu.select && !menu.back {
+        return;
+    }
     let focus_before = cursor.focus;
     let page_before = pages.active;
     // The rows shown for the current drill-down state: the SYSTEM entry list at the
     // top level, or the open entry's screen rows + a Back row. Built from the live
     // model so radio/dev/language rows are enumerated correctly.
-    let model = system.model(settings);
+    let model = system.model(settings, menu_entity, quality_confirm.pending());
     let rows =
         system_rows_with_quality_prompt(&model, system_nav.open_entry, quality_confirm.pending());
     let count = rows.len().max(1) as i32;
@@ -1602,8 +1633,16 @@ pub(crate) fn menu_confirm_label(
         return None;
     };
     match owned_item_action(owned, items, idx)? {
-        MenuPageAction::Equip(_) => Some(crate::app::host_pack::host_text().line("menu.items.equip").to_owned()),
-        MenuPageAction::Use(_) => Some(crate::app::host_pack::host_text().line("menu.items.use").to_owned()),
+        MenuPageAction::Equip(_) => Some(
+            crate::app::host_pack::host_text()
+                .line("menu.items.equip")
+                .to_owned(),
+        ),
+        MenuPageAction::Use(_) => Some(
+            crate::app::host_pack::host_text()
+                .line("menu.items.use")
+                .to_owned(),
+        ),
         _ => None,
     }
 }
@@ -2125,6 +2164,10 @@ fn kaleidoscope_sync_detail_text(
 // delete the seam.
 #[cfg(feature = "kaleidoscope_menu")]
 mod cache;
+#[cfg(all(test, feature = "kaleidoscope_menu"))]
+use super::system_cache::cache_system_menu;
+#[cfg(feature = "kaleidoscope_menu")]
+pub(crate) use super::system_cache::CachedSystemMenu;
 #[cfg(feature = "kaleidoscope_menu")]
 mod scroll;
 #[cfg(feature = "kaleidoscope_menu")]

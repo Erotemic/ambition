@@ -37,6 +37,7 @@ pub struct ActorSteering {
 #[derive(bevy::ecs::resource::Resource, Default)]
 pub struct ActorDecisionFacts {
     crowd: super::crowd_observation::CrowdFacts,
+    side_contacts: std::collections::HashMap<Entity, f32>,
 }
 
 /// Frame-local output of the autonomous DECIDE phase.
@@ -68,6 +69,8 @@ impl ActorDecisionFrames {
 /// Observation owns the population scan; decision consumes this derived
 /// resource. The schedule edge between them is the same-tick contract.
 pub(crate) fn observe_actor_decision_inputs(
+    contact: Res<ambition_platformer2d_shared_tangle::body::BodyContactSnapshot>,
+    frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     mut facts: ResMut<ActorDecisionFacts>,
     mut steering: ResMut<ActorSteering>,
     controlled: Query<
@@ -104,6 +107,7 @@ pub(crate) fn observe_actor_decision_inputs(
         ),
     >,
 ) {
+    facts.side_contacts.clear();
     let mut observation = super::crowd_observation::CrowdObservation::default();
     for (entity, health) in &controlled {
         observation.note_controlled_liveness(entity, health.current() > 0);
@@ -128,6 +132,16 @@ pub(crate) fn observe_actor_decision_inputs(
             .unwrap_or(false)
     };
     for (entity, disposition, target, body, faction, in_a_fight, carrying, room) in &actors {
+        if !contact.is_empty() {
+            if let Some(body) = body.as_ref() {
+                let down = frames.get(entity).map_or(ae::DEFAULT_GRAVITY_DIR, |frame| frame.down());
+                let facing = body.kin.facing.signum();
+                let right = ae::Vec2::new(down.y, -down.x);
+                if contact.blocks_side(entity, right * facing) {
+                    facts.side_contacts.insert(entity, -facing);
+                }
+            }
+        }
         let fighting = ambition_combat::components::CombatStanding::of(*disposition, in_a_fight)
             .takes_damage();
         let ridden = carrying.and_then(|slot| slot.rider).is_some_and(alive) && alive(entity);
@@ -636,6 +650,8 @@ pub fn tick_actor_brains(
                         aerial,
                         bodies.get(this_actor_entity).ok().and_then(|(_, _, authored, _)| authored),
                     );
+                    snapshot.side_contact_normal = snapshot.side_contact_normal
+                        .or_else(|| decision_facts.side_contacts.get(&this_actor_entity).copied());
                     snapshot.navigation = navigation.of(this_actor_entity);
                     // ONE AUTHORITY FOR WHERE A MOVE HITS. The kit's regions
                     // came from the RON boxes; the strike spawn places a
@@ -1257,19 +1273,22 @@ fn integrate_actor_body(
 /// each of its pieces, the part through the pair where it is, at the far
 /// end, moving as the pair carries it. Its own entry is its whole box, first.
 pub fn snapshot_body_contact(
+    marked: Query<(), With<ambition_platformer2d_core::movement::BodyContact>>,
+    rules: ambition_combat::governing_rules::RulesOf<ambition_platformer2d_core::movement::BodyContact>,
     mut snapshot: ResMut<ambition_platformer2d_shared_tangle::body::BodyContactSnapshot>,
     bodies: Query<(
         bevy::prelude::Entity,
         &ambition_platformer2d_core::BodyKinematics,
         &ae::BodyGroundState,
         &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
-        &ambition_platformer2d_shared_tangle::body::BodyContact,
+        Option<&ambition_platformer2d_core::movement::BodyContact>,
     )>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     // Last tick's pairs and straddlers: where each body is as this tick begins.
     passages: Option<Res<ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>>,
 ) {
     snapshot.clear();
+    if marked.is_empty() && !rules.any_live_declaration() { return; }
     // Each grounded body's box, and the parts of it a pair carries elsewhere.
     let mut boxes: Vec<(bevy::prelude::Entity, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, ae::Aabb, ae::Vec2,
     )> =
@@ -1278,6 +1297,7 @@ pub fn snapshot_body_contact(
         if !ground.on_ground {
             continue;
         }
+        let Some(contact) = contact.or_else(|| rules.of(entity)) else { continue; };
         let room = rooms.of(entity);
         let contact_box = kinematics.aabb_oriented(frame.down());
         // its ENTRY velocity — this pass runs before any body resolves its
@@ -1660,8 +1680,8 @@ pub fn integrate_sim_bodies(
     }
 }
 
-/// Observer phase — body-contact damage. Reads each actor's POST-movement body
-/// overlap against the player it targets and emits a `HitEvent` when they touch.
+/// Emit one contact hit from post-movement overlap or entry-state contact.
+/// A body that turns away still touched its target during this tick.
 /// A pure observer of integrated body state: it ticks no brain, moves no body,
 /// and mirrors no read-model — it only watches the world and emits damage facts.
 /// Runs after `update_ecs_actors` (movement) so the overlap it checks is this
@@ -1670,6 +1690,7 @@ pub fn integrate_sim_bodies(
 /// body must not harm you on contact (the same effective-allegiance rule the melee
 /// strike + boss damage use).
 pub fn apply_actor_contact_damage(
+    contact: Res<ambition_platformer2d_shared_tangle::body::BodyContactSnapshot>,
     mut hit_events: MessageWriter<HitEvent>,
     attackers: Query<
         (
@@ -1719,7 +1740,7 @@ pub fn apply_actor_contact_damage(
         if !ambition_combat::util::body_vulnerable(health.health.invulnerable, facts.evading(), shield, combat) {
             continue;
         }
-        if let Some(damage) = attack.hit_event(attacker, target, hurtbox.aabb()) {
+        if let Some(damage) = attack.hit_event(attacker, target, hurtbox.aabb(), contact.touching_pair(attacker, target)) {
             hit_events.write(damage);
         }
     }

@@ -213,8 +213,7 @@ where
     registrar.declare_rollback_derived_resource::<crate::body::BodyContactSnapshot>(
         OWNER,
         "derived.body_contact_snapshot",
-        "cleared and refilled from authoritative BodyKinematics every tick, immediately \
-         before the movement phase that reads it",
+        "cleared and refilled from authoritative BodyKinematics before decisions and movement each tick",
     );
     registrar.declare_rollback_derived_resource::<crate::lifecycle::AwayFromAuthoredRoom>(
         OWNER,
@@ -222,7 +221,7 @@ where
         "rewritten every tick from the bodies' live rooms and provenance, immediately \
          before the custody projection that reads it",
     );
-    registrar.rollback_component_clone_probed::<crate::body::BodyContact>(
+    registrar.rollback_component_clone_probed::<ambition_platformer2d_core::movement::BodyContact>(
         OWNER,
         "body.contact",
         // probed, not presence-only. The capability is a NUMBER: two peers

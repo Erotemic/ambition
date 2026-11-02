@@ -65,9 +65,9 @@ pub struct BrainSnapshot {
     /// Whether the actor is grounded (touching a `Solid` / `OneWay`
     /// floor this tick).
     pub actor_on_ground: bool,
-    /// Local-side normal of the body's current semantic wall contact. `-1` means
-    /// a wall on local-right (its outward normal pushes left), `+1` a wall on
-    /// local-left. This is a collision FACT; brains may decide what to do with it.
+    /// Local-side normal of contact with a wall or a blocking body. `-1` means
+    /// contact on local-right; `+1` means contact on local-left. The brain
+    /// decides whether to turn.
     pub side_contact_normal: Option<f32>,
     /// Autonomous steering preference authored for simple walkers. Consumed by
     /// Patrol/Wanderer brains, never by movement integration or human control.

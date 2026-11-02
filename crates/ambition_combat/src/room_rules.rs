@@ -35,6 +35,7 @@ use crate::rules::CombatRules;
 use crate::scoped_rules::{DeclareRulesExt as _, DeclaredRules, RulesScope};
 use crate::strike_weight::StrikeWeightRules;
 use ambition_projectiles::FireballFlight;
+use ambition_platformer2d_core::movement::BodyContact;
 
 /// The capability that owns this schema.
 pub const ROOM_RULES_CAPABILITY: &str = "combat";
@@ -83,6 +84,9 @@ struct AuthoredRoomRules {
     /// `ProjectileKind::spec`.
     #[serde(default)]
     fireball: Option<FireballFlight>,
+    /// Grounded bodies resist walking through each other. A body can override this rule.
+    #[serde(default)]
+    body_contact: Option<BodyContact>,
 }
 
 /// One game's rules for its own rooms, lowered from its pack.
@@ -96,6 +100,7 @@ pub struct RoomRules {
     pub corpses: Option<Corpse>,
     pub kill_beat: Option<KillBeat>,
     pub fireball: Option<FireballFlight>,
+    pub body_contact: Option<BodyContact>,
 }
 
 impl AuthoredRoomRules {
@@ -141,6 +146,11 @@ impl AuthoredRoomRules {
                 ));
             }
         }
+        if let Some(contact) = self.body_contact {
+            if !(contact.resistance.is_finite() && (0.0..=1.0).contains(&contact.resistance)) {
+                problems.push("`body_contact.resistance` must be finite and in 0..=1".into());
+            }
+        }
         if let Some(fireball) = &self.fireball {
             problems.extend(fireball.problems());
         }
@@ -157,6 +167,7 @@ impl AuthoredRoomRules {
             corpses: self.corpses,
             kill_beat: self.kill_beat,
             fireball: self.fireball,
+            body_contact: self.body_contact,
         }
     }
 }
@@ -285,6 +296,9 @@ pub fn declare_room_rules(app: &mut App, scope: RulesScope, rules: RoomRules) {
     if let Some(kill_beat) = rules.kill_beat {
         app.declare_rules(scope, kill_beat);
     }
+    if let Some(contact) = rules.body_contact {
+        app.declare_rules(scope, contact);
+    }
     if let Some(fireball) = rules.fireball {
         app.declare_rules(scope, fireball);
     }
@@ -295,6 +309,8 @@ pub fn declare_room_rules(app: &mut App, scope: RulesScope, rules: RoomRules) {
 /// candidate means remove, as for every family a reload publishes.
 pub fn restate_room_rules(world: &mut World, scope: RulesScope, rules: Option<&RoomRules>) {
     let rules = rules.copied().unwrap_or_default();
+    world.get_resource_or_insert_with(DeclaredRules::<BodyContact>::default)
+        .restate(scope, rules.body_contact);
     world
         .get_resource_or_insert_with(DeclaredRules::<DeathRules>::default)
         .restate(scope, rules.death);

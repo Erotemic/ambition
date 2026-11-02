@@ -156,6 +156,11 @@ pub struct RulesOf<'w, 's, T: std::fmt::Debug + Send + Sync + 'static> {
 }
 
 impl<T: std::fmt::Debug + Send + Sync + 'static> RulesOf<'_, '_, T> {
+    /// Whether any live room has a declaration of this rule.
+    pub fn any_live_declaration(&self) -> bool {
+        self.rules.room.any_live(|room| self.rules.in_room(room).is_some())
+    }
+
     /// The rules in force for the live room `entity` is in.
     pub fn of(&self, entity: Entity) -> Option<&T> {
         self.in_live_room(self.rooms.room_of(entity))

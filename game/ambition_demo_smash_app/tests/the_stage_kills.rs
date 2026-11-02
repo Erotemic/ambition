@@ -1884,7 +1884,8 @@ fn two_cpus_wearing_one_character_stop_being_a_perfect_reflection() {
 #[test]
 fn the_stage_grants_body_contact_to_both_seated_fighters() {
     use ambition_platformer2d::actor::MatchSeat;
-    use ambition_platformer2d::platformer::body::{BodyContact, BodyContactSnapshot};
+    use ambition_platformer2d::engine_core::movement::BodyContact;
+    use ambition_platformer2d::platformer::body::BodyContactSnapshot;
 
     let mut app = build_demo_app();
     for _ in 0..30 {

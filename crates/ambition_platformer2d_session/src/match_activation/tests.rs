@@ -1602,7 +1602,7 @@ fn an_ordinary_roster_seats_fighters_that_can_act() {
 /// match that declares no contact seats fighters that pass through each other.
 #[test]
 fn a_match_that_declares_fighter_contact_seats_solid_fighters_and_no_other() {
-    use ambition_platformer2d_shared_tangle::body::BodyContact;
+    use ambition_platformer2d_core::movement::BodyContact;
     let firm = BodyContact { resistance: 0.4 };
     for (declared, label) in [(Some(firm), "declared"), (None, "undeclared")] {
         let mut app = seating_app();

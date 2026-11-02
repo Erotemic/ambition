@@ -436,3 +436,16 @@ fn the_split_is_per_blocker_so_the_nearest_closing_neighbour_still_binds() {
         "the near closing neighbour did not bind: moved {moved}",
     );
 }
+
+#[test]
+fn a_side_contact_is_directional_and_requires_cross_axis_overlap() {
+    let mover = crate::Aabb::new(crate::Vec2::new(10.0, 10.0), crate::Vec2::splat(5.0));
+    let right = crate::Aabb::new(crate::Vec2::new(20.0, 10.0), crate::Vec2::splat(5.0));
+    assert!(touches_body_side(mover, right, crate::Vec2::X));
+    assert!(!touches_body_side(mover, right, crate::Vec2::NEG_X));
+    let above = crate::Aabb::new(crate::Vec2::new(10.0, 0.0), crate::Vec2::splat(5.0));
+    assert!(touches_body_side(mover, above, crate::Vec2::NEG_Y));
+    assert!(!touches_body_side(mover, above, crate::Vec2::X));
+    let far = crate::Aabb::new(crate::Vec2::new(21.0, 10.0), crate::Vec2::splat(5.0));
+    assert!(!touches_body_side(mover, far, crate::Vec2::X));
+}

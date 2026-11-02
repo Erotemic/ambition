@@ -6,6 +6,7 @@
 //! filters, never by re-splitting the component.
 
 use bevy::prelude::*;
+use ambition_platformer2d_core::AabbExt;
 
 /// Marks the single body whose position drives the room's live gravity
 /// resolution (the active player). The runtime's `resolve_active_gravity`
@@ -66,39 +67,6 @@ impl Default for Mass {
     /// that centre onto whichever body forgot to author one.
     fn default() -> Self {
         Self(1.0)
-    }
-}
-
-/// THIS BODY IS SOLID TO OTHER BODIES THAT ARE ALSO SOLID.
-///
-/// presence is the whole opt-in. A body without this component is not resisted and does not
-/// resist, and the movement kernel resolves it byte for byte as it did before body contact existed
-/// (`ambition_platformer2d_core::movement::body_contact`).
-///
-/// it is not jostle, and it must not be renamed to that. A platform
-/// fighter grants it to its cast and calls the result jostle; a co-op platformer
-/// might grant it so two partners cannot stand at the same point on a switch.
-/// The mechanism is *one body's motion constrained by the bodies it is touching*
-/// and nothing about that sentence is a genre.
-///
-/// the number is a KNOB because the GAMES differ. Smash-likes let fighters squeeze past
-/// each other; a beat-em-up may want a wall.
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
-pub struct BodyContact {
-    /// How hard OTHER bodies resist this one, `0.0` (not at all) to `1.0` (a
-    /// solid wall). See `BodyContactField::resistance`.
-    pub resistance: f32,
-}
-
-impl BodyContact {
-    /// The value a platform fighter wants: two fighters walking into each other
-    /// stall where they meet, and a determined one still squeezes past.
-    pub const FIRM: Self = Self { resistance: 0.85 };
-}
-
-impl Default for BodyContact {
-    fn default() -> Self {
-        Self::FIRM
     }
 }
 
@@ -198,12 +166,35 @@ impl BodyContactSnapshot {
         self.bodies.len()
     }
 
+    /// Whether this pair touched at entry, before either body moved away.
+    pub fn touching_pair(&self, first: Entity, second: Entity) -> bool {
+        if first == second { return false; }
+        let Some((_, room, first, _)) = self.bodies.iter().find(|(entity, ..)| *entity == first) else { return false; };
+        let Some((_, other_room, second, _)) = self.bodies.iter().find(|(entity, ..)| *entity == second) else { return false; };
+        if room != other_room { return false; }
+        first.aabb.strict_intersects(second.aabb)
+            || [ambition_platformer2d_core::Vec2::X, ambition_platformer2d_core::Vec2::NEG_X,
+                ambition_platformer2d_core::Vec2::Y, ambition_platformer2d_core::Vec2::NEG_Y].into_iter()
+                .any(|direction| ambition_platformer2d_core::movement::touches_body_side(first.aabb, second.aabb, direction))
+    }
+
+    /// Whether another body touches the side this body faces.
+    pub fn blocks_side(&self, body: Entity, direction: ambition_platformer2d_core::Vec2) -> bool {
+        let Some((_, room, own, resistance)) = self.bodies.iter().find(|(entity, ..)| *entity == body) else { return false; };
+        if *resistance <= 0.0 { return false; }
+        self.bodies.iter()
+            .filter(|(other, other_room, ..)| *other != body && other_room == room)
+            .map(|(_, _, blocker, _)| blocker)
+            .chain(self.seen_by.iter().filter(|(seer, _)| *seer == body).map(|(_, blocker)| blocker))
+            .any(|blocker| ambition_platformer2d_core::movement::touches_body_side(own.aabb, blocker.aabb, direction))
+    }
+
     /// THIS BODY'S CONTACT FIELD: the boxes of every OTHER solid body in its
     /// live room, and this body's own resistance to them.
     ///
     /// a body that is not in the snapshot gets an INERT field, which is
     /// the whole opt-in expressed once. It is not in the snapshot because it
-    /// carries no [`BodyContact`], or because it is airborne — and neither of
+    /// carries no [`ambition_platformer2d_core::movement::BodyContact`], or because it is airborne — and neither of
     /// those needs a second question at the call site.
     ///
     /// a caller-owned scratch buffer, not a returned `Vec`. This runs per

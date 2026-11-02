@@ -282,10 +282,8 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
         app.init_resource::<crate::body::navigation::NavigationAdvice>();
         app.init_resource::<crate::body::navigation::RoomNavigation>();
         app.init_resource::<ActorSteering>();
-        // Every solid body's contact box, resampled before every movement
-        // phase. Empty in every composition that grants no body the
-        // capability, and an empty snapshot answers `BodyContactField::NONE`
-        // for every body — so this resource existing changes nothing on its own.
+        // Decisions and movement share the entry-state boxes. The snapshot is
+        // empty when no body or live room declares contact resistance.
         app.init_resource::<ambition_platformer2d_shared_tangle::body::BodyContactSnapshot>();
         app.init_resource::<crate::body::perception::PerceptionPeers>();
         app.init_resource::<crate::body::perception::PerceptionProjectiles>();
@@ -415,15 +413,10 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
                     ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
                 ),
         );
-        // Contacts read bodies after platform movement and cache retirement.
+        // Brains and movement read one entry-state contact snapshot.
         app.add_systems(
             sim,
-            snapshot_body_contact
-                .after(ambition_platformer2d_world::platforms::MovingPlatformStep)
-                .after(ambition_mount::MountsSteeredByRiders)
-                .in_set(
-                    ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
-                ),
+            snapshot_body_contact.before(observe_actor_decision_inputs).in_set(ActorDecisionSet::Observe),
         );
         app.add_systems(
             sim,

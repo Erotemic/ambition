@@ -19,7 +19,7 @@ use ambition_content_pack::{
 };
 use ambition_characters::smash_fighter::FighterBodyAuthoring;
 use ambition_platformer2d_core::{MatchAbilities, MatchBody};
-use ambition_platformer2d_shared_tangle::body::BodyContact;
+use ambition_platformer2d_core::movement::BodyContact;
 use serde::Deserialize;
 
 use crate::MatchRules;
@@ -49,7 +49,7 @@ pub struct AuthoredMatchRules {
     /// The game's default fighter body, as a patch over the engine's
     /// (`DEFAULT_TUNING`). See [`MatchRules::base_body`].
     pub base_body: Option<FighterBodyAuthoring>,
-    pub fighter_contact: Option<AuthoredContact>,
+    pub fighter_contact: Option<BodyContact>,
     /// How tightly the camera frames the fighters. `None` keeps the engine's
     /// exploration framing.
     pub cast_framing: Option<AuthoredCastFraming>,
@@ -115,12 +115,6 @@ pub struct AuthoredCameraBounds {
     pub fall: f32,
 }
 
-/// [`BodyContact`], as a pack writes it: `(resistance: 0.85)`.
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AuthoredContact {
-    pub resistance: f32,
-}
 
 impl Default for AuthoredMatchRules {
     fn default() -> Self {
@@ -136,7 +130,7 @@ impl Default for AuthoredMatchRules {
             body: rules.body,
             // `MatchRules` holds the resolved body, not the patch it came from.
             base_body: None,
-            fighter_contact: rules.fighter_contact.map(|contact| AuthoredContact { resistance: contact.resistance }),
+            fighter_contact: rules.fighter_contact,
             cast_framing: rules.cast_framing.map(|framing| AuthoredCastFraming {
                 min_view_scale: framing.min_view_scale,
                 margin: framing.margin,
@@ -183,7 +177,7 @@ impl AuthoredMatchRules {
         rules.base_body = self
             .base_body
             .map(|body| body.over(ambition_platformer2d_core::DEFAULT_TUNING));
-        rules.fighter_contact = self.fighter_contact.map(|contact| BodyContact { resistance: contact.resistance });
+        rules.fighter_contact = self.fighter_contact;
         rules.cast_framing = self.cast_framing.map(|framing| {
             use ambition_platformer2d_shared_tangle::markers::{CastBubble, CastCameraBounds, CastFramingTuning};
             let engine = CastFramingTuning::default();

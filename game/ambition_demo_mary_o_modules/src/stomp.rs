@@ -35,7 +35,7 @@ pub enum PlayerTouch {
     /// down onto it, or already resting on it. Resting counts: a body under
     /// the player's feet must never hurt them.
     Top,
-    /// Overlapping anywhere else: beside it, or rising into it from below.
+    /// Side contact or overlap below the head band.
     Side,
 }
 
@@ -44,9 +44,6 @@ pub enum PlayerTouch {
 /// in her pack ([`crate::rules::StompRules`]).
 pub fn player_touch(body: Bounds, player: Bounds, player_vel: [f32; 2], band: f32) -> Option<PlayerTouch> {
     let overlap_x = player.min[0] < body.max[0] && player.max[0] > body.min[0];
-    if !overlap_x {
-        return None;
-    }
     let feet = player.max[1];
     // The band is penetration tolerance, not reach: the player's feet must
     // have reached the head plane. Allowing `head - band` classified a
@@ -61,9 +58,32 @@ pub fn player_touch(body: Bounds, player: Bounds, player_vel: [f32; 2], band: f3
     let on_head = feet >= body.min[1] && feet <= body.min[1] + band;
     // Falling onto the head, or standing on it (`vel.y == 0`), is a stomp.
     // Rising INTO it from below is not: that is a hit.
-    if on_head && player_vel[1] >= 0.0 {
+    if overlap_x && on_head && player_vel[1] >= 0.0 {
         return Some(PlayerTouch::Top);
     }
     let overlap_y = player.min[1] < body.max[1] && player.max[1] > body.min[1];
-    overlap_y.then_some(PlayerTouch::Side)
+    // Integration can leave a small rounding gap at a solid face.
+    let scale = [player.min[0], player.max[0], body.min[0], body.max[0]]
+        .into_iter().map(f32::abs).fold(1.0_f32, f32::max);
+    let tolerance = 4.0 * f32::EPSILON * scale;
+    let touches_x = player.min[0] <= body.max[0] + tolerance
+        && player.max[0] >= body.min[0] - tolerance;
+    (touches_x && overlap_y).then_some(PlayerTouch::Side)
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_solid_side_contact_is_not_a_corner_stomp() {
+        let body = Bounds { min: [10.0, 10.0], max: [30.0, 30.0] };
+        let beside = Bounds { min: [-10.0, 12.0], max: [10.0, 32.0] };
+        assert_eq!(player_touch(body, beside, [1.0, 0.0], 16.0), Some(PlayerTouch::Side));
+        let corner = Bounds { min: [-10.0, -10.0], max: [10.0, 10.0] };
+        assert_eq!(player_touch(body, corner, [0.0, 1.0], 16.0), None);
+        let apart = Bounds { min: [-10.01, 12.0], max: [9.99, 32.0] };
+        assert_eq!(player_touch(body, apart, [1.0, 0.0], 16.0), None);
+    }
 }

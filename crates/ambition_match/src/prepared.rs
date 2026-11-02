@@ -217,7 +217,7 @@ pub struct MatchRules {
     /// value (`BodyContact`), so it goes on the body in the flush that builds
     /// it: a fighter that got it a tick later could walk through its rival on
     /// its first frame.
-    pub fighter_contact: Option<ambition_platformer2d_shared_tangle::body::BodyContact>,
+    pub fighter_contact: Option<ambition_platformer2d_core::movement::BodyContact>,
     /// Which damage the fighters' moves deal in this match: each moveset's own
     /// (`None`, the default), or the damage each character states in this
     /// damage scale. The capability that authors a scale gives its name to the

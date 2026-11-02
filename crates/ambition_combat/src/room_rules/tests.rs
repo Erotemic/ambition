@@ -170,3 +170,22 @@ fn a_misspelled_combat_field_is_an_unknown_field() {
     assert!(lowered(&out).is_none());
     assert_eq!(out.diagnostics.first().map(|d| d.code), Some(DiagnosticCode::UnknownField));
 }
+
+#[test]
+fn body_contact_is_scoped_and_removed_when_the_rule_is_removed() {
+    use ambition_platformer2d_core::movement::BodyContact;
+    let out = check("(body_contact: Some((resistance: 1.0)))");
+    assert!(out.diagnostics.is_empty(), "{:?}", out.diagnostics);
+    let rules = lowered(&out).unwrap();
+    assert_eq!(rules.body_contact, Some(BodyContact { resistance: 1.0 }));
+    let scope = RulesScope::Mode("mary_o");
+    let mut app = App::new();
+    declare_room_rules(&mut app, scope, rules);
+    assert_eq!(app.world().resource::<DeclaredRules<BodyContact>>().governing(crate::scoped_rules::ActiveRoom::Mode("mary_o")), rules.body_contact.as_ref());
+    assert!(app.world().resource::<DeclaredRules<BodyContact>>().governing(crate::scoped_rules::ActiveRoom::Mode("sanic")).is_none());
+    restate_room_rules(app.world_mut(), scope, None);
+    assert!(app.world().resource::<DeclaredRules<BodyContact>>().governing(crate::scoped_rules::ActiveRoom::Mode("mary_o")).is_none());
+    for value in ["-0.1", "1.1", "NaN"] {
+        assert!(!check(&format!("(body_contact: Some((resistance: {value})))")).diagnostics.is_empty());
+    }
+}

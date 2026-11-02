@@ -483,8 +483,9 @@ impl ContactAttack {
         attacker: bevy::prelude::Entity,
         target: bevy::prelude::Entity,
         target_body: ae::Aabb,
+        touching_at_entry: bool,
     ) -> Option<HitEvent> {
-        if !self.volume.strict_intersects(target_body) {
+        if !touching_at_entry && !self.volume.strict_intersects(target_body) {
             return None;
         }
         let impact = midpoint(target_body.center(), self.volume.center());

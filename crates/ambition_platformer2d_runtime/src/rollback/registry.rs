@@ -208,7 +208,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// 402 -> 403: God Blink changes destination selection only; normal physics follows.
 /// 403 -> 404: transformation requests retain named clips and their wall clocks.
 /// Replacing a beat releases its previous clock and invulnerability claims.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 404;
+/// 404 -> 405: decisions and movement share the same entry-state body contacts.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 405;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

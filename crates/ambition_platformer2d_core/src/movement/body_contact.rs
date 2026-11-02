@@ -15,6 +15,28 @@
 
 use crate::{Aabb, AabbExt};
 
+/// Resistance to walking through other grounded bodies.
+/// A body value overrides its room's rule. Without either value, contact is inert.
+#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct BodyContact {
+    /// How hard OTHER bodies resist this one, `0.0` (not at all) to `1.0` (a
+    /// solid wall). See `BodyContactField::resistance`.
+    pub resistance: f32,
+}
+
+impl BodyContact {
+    /// The value a platform fighter wants: two fighters walking into each other
+    /// stall where they meet, and a determined one still squeezes past.
+    pub const FIRM: Self = Self { resistance: 0.85 };
+}
+
+impl Default for BodyContact {
+    fn default() -> Self {
+        Self::FIRM
+    }
+}
+
 /// THE OTHER BODIES THIS STEP MAY NOT MOVE FREELY THROUGH, and how hard they
 /// resist.
 ///
@@ -133,6 +155,18 @@ fn spans(mover: Aabb, blocker: Aabb, horizontal: bool) -> (f32, f32, f32, f32) {
     } else {
         (mover.min.y, mover.max.y, blocker.min.y, blocker.max.y)
     }
+}
+
+/// Whether a blocker touches the side in the proposed direction.
+pub fn touches_body_side(mover: Aabb, blocker: Aabb, direction: crate::Vec2) -> bool {
+    if direction.length_squared() == 0.0 { return false; }
+    let horizontal = direction.x.abs() >= direction.y.abs();
+    let positive = if horizontal { direction.x > 0.0 } else { direction.y > 0.0 };
+    let (lo, hi, other_lo, other_hi) = spans(mover, blocker, horizontal);
+    let tolerance = [lo, hi, other_lo, other_hi].into_iter().map(f32::abs).fold(1.0, f32::max) * f32::EPSILON * 4.0;
+    overlaps_across(mover, blocker, horizontal)
+        && gap_along(mover, blocker, horizontal, positive) <= tolerance
+        && deepens(mover, blocker, horizontal, positive)
 }
 
 /// How much free space lies between the two boxes along this axis in the

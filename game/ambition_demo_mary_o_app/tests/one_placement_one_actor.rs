@@ -236,3 +236,143 @@ fn a_snake_is_built_with_its_shell_state() {
         seen.len()
     );
 }
+
+#[test]
+fn two_walkers_meet_without_overlap_and_turn_away() {
+    use ambition_platformer2d::characters::actor::WornCharacter;
+    use ambition_platformer2d::engine_core::BodyKinematics;
+    let mut app = ambition_demo_mary_o_app::build_demo_app();
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(std::time::Duration::from_secs_f64(1.0 / 60.0)));
+    for _ in 0..120 { app.update(); }
+    let mut q = app.world_mut().query::<(Entity, &WornCharacter)>();
+    let mut slops: Vec<_> = q.iter(app.world()).filter(|(_, worn)| worn.id() == "ai_slop").map(|(entity, _)| entity).collect();
+    slops.sort();
+    assert!(slops.len() >= 2, "the real level must supply the pair");
+    let pair = [slops[0], slops[1]];
+    for (entity, x, facing) in [(pair[0], 350.0, 1.0), (pair[1], 410.0, -1.0)] {
+        let mut kin = app.world_mut().get_mut::<BodyKinematics>(entity).unwrap();
+        kin.pos = ambition_platformer2d::engine_core::Vec2::new(x, 416.0 - kin.size.y * 0.5);
+        kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
+        kin.facing = facing;
+    }
+    let mut touched = false;
+    let mut turned = false;
+    for _ in 0..120 {
+        app.update();
+        let left = app.world().get::<BodyKinematics>(pair[0]).unwrap();
+        let right = app.world().get::<BodyKinematics>(pair[1]).unwrap();
+        let gap = right.aabb().min.x - left.aabb().max.x;
+        assert!(gap >= -0.001, "the pair overlaps by {}", -gap);
+        touched |= gap < 0.01;
+        turned |= left.facing < 0.0 && right.facing > 0.0;
+        if touched && turned { break; }
+    }
+    assert!(touched, "the pair never reached contact");
+    assert!(turned, "the pair did not turn away");
+}
+
+#[test]
+fn authored_enemy_starts_do_not_overlap_their_constructed_bodies() {
+    use ambition_platformer2d::engine_core::{Aabb, AabbExt};
+    use ambition_platformer2d::platformer::body::SpawnBaseline;
+    let mut overlaps = Vec::new();
+    for room in ambition_demo_mary_o::authored_levels() {
+        if room.enemy_spawns.is_empty() { continue; }
+        let mut app = ambition_demo_mary_o_app::build_demo_app();
+        app.insert_resource(ambition_demo_mary_o::provider::MaryOEntryRoom(room.id.clone()));
+        app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(std::time::Duration::from_secs_f64(1.0 / 60.0)));
+        let mut ready = false;
+        for _ in 0..120 {
+            app.update();
+            let mut q = app.world_mut().query::<(&FeatureId, &SpawnBaseline, &ActorConfig)>();
+            if q.iter(app.world()).filter(|(id, ..)| room.enemy_spawns.iter().any(|spawn| spawn.id == id.0)).count() == room.enemy_spawns.len() {
+                ready = true;
+                break;
+            }
+        }
+        assert!(ready, "{} did not construct all authored enemies", room.id);
+        let mut q = app.world_mut().query::<(&FeatureId, &SpawnBaseline, &ActorConfig)>();
+        let starts: Vec<_> = q.iter(app.world())
+            .filter(|(id, _, _)| room.enemy_spawns.iter().any(|spawn| spawn.id == id.0))
+            .map(|(id, spawn, _)| (id.0.clone(), Aabb::new(spawn.pos, spawn.size * 0.5)))
+            .collect();
+        for (i, (left_id, left)) in starts.iter().enumerate() {
+            for (right_id, right) in &starts[i + 1..] {
+                if left.strict_intersects(*right) {
+                    overlaps.push(format!("{}: {left_id} {left:?} overlaps {right_id} {right:?}", room.id));
+                }
+            }
+        }
+    }
+    assert!(overlaps.is_empty(), "{}", overlaps.join("\n"));
+}
+
+#[test]
+fn a_walker_still_hurts_a_body_it_touches_before_turning_away() {
+    use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+    use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::platformer::markers::PrimaryPlayer;
+    let mut app = ambition_demo_mary_o_app::build_demo_app();
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(std::time::Duration::from_secs_f64(1.0 / 60.0)));
+    for _ in 0..120 { app.update(); }
+    let mut q = app.world_mut().query_filtered::<Entity, With<PrimaryPlayer>>();
+    let player = q.single(app.world()).unwrap();
+    let mut q = app.world_mut().query::<(Entity, &WornCharacter, &BodyKinematics)>();
+    let enemy = q.iter(app.world()).filter(|(_, worn, _)| worn.id() == "ai_slop")
+        .min_by(|a, b| a.2.pos.x.total_cmp(&b.2.pos.x)).unwrap().0;
+    let player_size = app.world().get::<BodyKinematics>(player).unwrap().size;
+    let enemy_size = app.world().get::<BodyKinematics>(enemy).unwrap().size;
+    for (entity, x, facing) in [(player, 350.0, 1.0), (enemy, 350.0 + (player_size.x + enemy_size.x) * 0.5, -1.0)] {
+        let mut kin = app.world_mut().get_mut::<BodyKinematics>(entity).unwrap();
+        kin.pos = ambition_platformer2d::engine_core::Vec2::new(x, 416.0 - kin.size.y * 0.5);
+        kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
+        kin.facing = facing;
+    }
+    let mut others = app.world_mut().query::<(Entity, &mut ActorConfig)>();
+    for (entity, mut config) in others.iter_mut(app.world_mut()) {
+        if entity != enemy { config.tuning.body_contact_damage = false; }
+    }
+    let before = app.world().get::<BodyHealth>(player).unwrap().current();
+    assert!(before > 0);
+    for _ in 0..4 { app.update(); }
+    assert!(app.world().get::<BodyKinematics>(enemy).unwrap().facing > 0.0, "the walker did not turn away");
+    assert!(app.world().get::<BodyHealth>(player).unwrap().current() < before, "the walker turned away from physical contact without dealing its contact hit");
+}
+
+#[test]
+fn walking_into_a_boxed_snake_still_kicks_it() {
+    use ambition_platformer2d::characters::actor::WornCharacter;
+    use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::platformer::markers::PrimaryPlayer;
+    let mut app = ambition_demo_mary_o_app::build_demo_app();
+    ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
+    app.insert_resource(ambition_demo_mary_o::provider::MaryOEntryRoom(ambition_demo_mary_o::test_course::TEST_COURSE_ROOM_ID.into()));
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(std::time::Duration::from_secs_f64(1.0 / 60.0)));
+    for _ in 0..120 { app.update(); }
+    let mut q = app.world_mut().query_filtered::<Entity, With<PrimaryPlayer>>();
+    let player = q.single(app.world()).unwrap();
+    let mut q = app.world_mut().query::<(Entity, &WornCharacter)>();
+    let snake = q.iter(app.world()).find(|(_, worn)| worn.id() == "solid_snake").unwrap().0;
+    *app.world_mut().get_mut::<SnakeShell>(snake).unwrap() = SnakeShell::Boxed(100.0);
+    app.world_mut().entity_mut(snake).insert(
+        ambition_platformer2d::characters::control::ControlHolds::only(
+            ambition_platformer2d::characters::control::ControlHold::Sequence));
+    for _ in 0..4 { app.update(); }
+    for (entity, x) in [(player, 350.0), (snake, 420.0)] {
+        let mut kin = app.world_mut().get_mut::<BodyKinematics>(entity).unwrap();
+        kin.pos = ambition_platformer2d::engine_core::Vec2::new(x, 416.0 - kin.size.y * 0.5);
+        kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
+    }
+    app.world_mut().resource_mut::<ambition_platformer2d::scripted_input::ScriptedControls>().0 = ambition_platformer2d::input::ControlFrame { axis_x: 1.0, ..Default::default() };
+    let mut kicked = false;
+    for _ in 0..90 {
+        app.update();
+        kicked |= matches!(app.world().get::<SnakeShell>(snake), Some(SnakeShell::Sliding { .. }));
+        if kicked { break; }
+    }
+    app.world().resource::<ambition_platformer2d::scripted_input::ScriptedControlsObserved>()
+        .assert_the_script_reached_the_simulation();
+    assert!(kicked, "solid-body contact prevented the side kick: player={:?}, snake={:?}, shell={:?}",
+        app.world().get::<BodyKinematics>(player), app.world().get::<BodyKinematics>(snake),
+        app.world().get::<SnakeShell>(snake));
+}

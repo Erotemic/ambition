@@ -75,6 +75,7 @@ pub(crate) fn grid_backend_active(backend: Res<InventoryUiBackend>) -> bool {
 /// NOT CHECKED.
 #[derive(Component)]
 pub(crate) struct GridMenuTabState {
+    rendered_font: Option<bevy::text::FontSource>,
     /// True last frame (so we detect the rising edge of an open to seed the tab).
     was_open: bool,
     /// The last-rendered view key; a change re-spawns the bevy_ui tree.
@@ -125,6 +126,7 @@ impl GridMenuTabState {
 impl Default for GridMenuTabState {
     fn default() -> Self {
         Self {
+            rendered_font: None,
             was_open: false,
             last_key: None,
             focus_zone: GridFocusZone::Body,
@@ -580,6 +582,7 @@ pub(crate) fn grid_menu_republish_view(
         (With<BevyUiMenuRoot>, With<GridMenuRoot>),
     >,
     assets: Option<Res<AssetServer>>,
+    menu_font: Option<Res<ambition_platformer2d::menu::render::bevy_ui::MenuFont>>,
     mut commands: Commands,
 ) {
     for (
@@ -651,11 +654,16 @@ pub(crate) fn grid_menu_republish_view(
         };
         // The dispatch paths ALSO clear `last_key` directly (the belt-and-braces force-republish),
         // so even a state change this key can't see (e.g. a dev snapshot) still re-renders.
-        let state_changed = owned.is_changed() || body_source.items_changed() || map_page.changed();
+        let font = menu_font.as_deref().and_then(|font| font.0.as_ref());
+        let state_changed = tab_state.rendered_font.as_ref() != font
+            || owned.is_changed()
+            || body_source.items_changed()
+            || map_page.changed();
         if tab_state.last_key == Some(key) && has_root && !state_changed {
             continue;
         }
         tab_state.last_key = Some(key);
+        tab_state.rendered_font = font.cloned();
         let built = build_inventory_pages_with_quality_prompt(
             &inventory,
             body_source.items(),
@@ -722,10 +730,11 @@ pub(crate) fn grid_menu_republish_view(
         };
         // Fix 3: hand the `AssetServer` to the renderer so the Items tab shows its
         // sprite ICONS (the model's per-cell icon path), like the cube does.
-        let root = ambition_platformer2d::menu::render::bevy_ui::spawn_bevy_ui_menu_with_assets(
+        let root = ambition_platformer2d::menu::render::bevy_ui::spawn_bevy_ui_menu_with_font(
             &mut commands,
             &view,
             assets.as_deref(),
+            font,
         );
         // Identity, not species: the teardown above must only claim the GRID's own
         // tree. Other `BevyUiMenuRoot` producers (the shell launcher/title screen)

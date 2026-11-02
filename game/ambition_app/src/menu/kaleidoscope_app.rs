@@ -17,7 +17,7 @@ use ambition_platformer2d::menu::{
 };
 #[cfg(feature = "kaleidoscope_menu")]
 use ambition_platformer2d::menu::{
-    AmbitionMenuControl, MenuDynamicText, MenuDynamicTextContent, MenuVisualState,
+    AmbitionMenuControl, MenuVisualState,
 };
 // Named only by the cube's own systems, so they follow the same gate the cube does.
 #[cfg(feature = "kaleidoscope_menu")]
@@ -37,7 +37,7 @@ use crate::menu::model::{
     build_inventory_pages_with_quality_prompt, scroll_fraction_to_window_start,
     system_effective_window_start, system_max_window_start, SYSTEM_VISIBLE_ROWS,
 };
-#[cfg(feature = "kaleidoscope_menu")]
+#[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
 use crate::menu::model::{items_detail_slot_text, system_detail_slot_text};
 use crate::menu::model::{
     system_rows_with_quality_prompt, MenuFocus, MenuPage, MenuPageAction, SystemRow,
@@ -140,6 +140,17 @@ pub fn install_unified_menu_shared(app: &mut App) {
             .after(ambition_platformer2d::input::MenuNavConsume)
             .after(super::MenuActionsApplied),
     );
+    #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
+    {
+        let details = sync_menu_detail_text
+            .run_if(super::system_cache::any_menu_visible)
+            .after(super::system_cache::cache_system_menu);
+        #[cfg(feature = "bevy_ui_menu")]
+        let details = details.after(super::grid_backend::grid_menu_republish_view);
+        #[cfg(feature = "kaleidoscope_menu")]
+        let details = details.after(rebuild_cube_faces::<MenuPage, MenuPageAction>).before(KaleidoscopeFocusVisuals);
+        app.add_systems(Update, details);
+    }
     install_menu_confirm_provider(app);
 }
 
@@ -390,7 +401,6 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
         Update,
         (
             kaleidoscope_sync_focus_visuals.run_if(kaleidoscope_menu_visible),
-            kaleidoscope_sync_detail_text.run_if(kaleidoscope_menu_visible),
             gate_kaleidoscope_menu,
             cycle_dev_gravity.run_if(bevy::input::common_conditions::input_just_pressed(
                 KeyCode::Backslash,
@@ -2081,15 +2091,9 @@ fn kaleidoscope_sync_focus_visuals(
     }
 }
 
-/// Fill the detail-panel's dynamic text IN PLACE from the live cursor (Items face
-/// right panel + System face bottom panel), writing [`MenuDynamicTextContent`] by
-/// slot. The page data itself is cursor-INDEPENDENT, so the cursor-dependent detail
-/// text updates without a face rebuild — the lib's `apply_dynamic_text` copies the
-/// content into the `Text3d`.
-///
-/// Cube-only: `Text3d` is Lunex's, and so is the panel this fills.
-#[cfg(feature = "kaleidoscope_menu")]
-fn kaleidoscope_sync_detail_text(
+/// Publish the owning menu's detail text for either renderer.
+#[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
+fn sync_menu_detail_text(
     owned: Option<Res<OwnedItems>>,
     body_source: MenuBodySource,
     menus: Query<(
@@ -2097,12 +2101,12 @@ fn kaleidoscope_sync_detail_text(
         &ambition_platformer2d::inventory_ui::InventoryMenu,
         &ActiveMenuPages<MenuPage, MenuPageAction>,
         &KaleidoscopeCursor,
-        &CachedSystemMenu,
+        &crate::menu::system_cache::CachedSystemMenu,
     )>,
     mut texts: Query<(
         &ambition_platformer2d::menu::MenuSurface,
-        &MenuDynamicText,
-        &mut MenuDynamicTextContent,
+        &ambition_platformer2d::menu::MenuDynamicText,
+        &mut ambition_platformer2d::menu::MenuDynamicTextContent,
     )>,
 ) {
     let Some(owned) = owned else {

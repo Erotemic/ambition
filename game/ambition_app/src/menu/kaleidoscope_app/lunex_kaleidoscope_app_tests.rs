@@ -1299,7 +1299,7 @@ fn bug2_app(active: MenuPage) -> App {
             cache_system_menu,
             republish_kaleidoscope_pages,
             kaleidoscope_sync_focus_visuals,
-            kaleidoscope_sync_detail_text,
+            sync_menu_detail_text,
             fake_rebuild_cube_faces,
         )
             .chain(),

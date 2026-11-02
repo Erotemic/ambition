@@ -1,6 +1,6 @@
 use super::{
-    scrollbar_drag, scrollbar_drag_start, scrollbar_press, scrollbar_press_drag, scrollbar_release,
-    MenuScrollDragged, MenuScrollbar, ScrollbarDragState,
+    scrollbar_drag, scrollbar_drag_start, scrollbar_press, MenuScrollDragged, MenuScrollbar,
+    ScrollbarDragState,
 };
 use bevy::camera::NormalizedRenderTarget;
 use bevy::picking::events::{Drag, DragStart, Pointer, Press, Release};
@@ -24,6 +24,7 @@ fn location(y: f32) -> Location {
 #[test]
 fn drag_on_scrollbar_emits_proportional_fraction() {
     let mut app = App::new();
+    let menu = app.world_mut().spawn(ScrollbarDragState::default()).id();
     app.add_message::<MenuScrollDragged>();
     app.add_observer(scrollbar_drag_start);
     app.add_observer(scrollbar_drag);
@@ -31,11 +32,14 @@ fn drag_on_scrollbar_emits_proportional_fraction() {
     // Track spans screen y in [100, 300] (top 100, height 200).
     let bar = app
         .world_mut()
-        .spawn(MenuScrollbar {
-            track_top_y: 100.0,
-            track_height: 200.0,
-            ..Default::default()
-        })
+        .spawn((
+            ambition_menu::MenuSurface(menu),
+            MenuScrollbar {
+                track_top_y: 100.0,
+                track_height: 200.0,
+                ..Default::default()
+            },
+        ))
         .id();
 
     // DragStart at the very top of the track -> fraction 0.
@@ -85,11 +89,10 @@ fn drag_on_scrollbar_emits_proportional_fraction() {
 #[test]
 fn press_and_move_on_scrollbar_emits_proportional_fraction() {
     let mut app = App::new();
+    let menu = app.world_mut().spawn(ScrollbarDragState::default()).id();
     app.add_message::<MenuScrollDragged>();
-    app.init_resource::<ScrollbarDragState>();
     app.add_observer(scrollbar_press);
-    app.add_observer(scrollbar_release);
-    app.add_systems(Update, scrollbar_press_drag);
+    ambition_menu::install_menu_scroll_interactions(&mut app);
 
     // The pointer whose live position the tracker reads each frame.
     let pointer = app
@@ -100,16 +103,19 @@ fn press_and_move_on_scrollbar_emits_proportional_fraction() {
     // Track spans screen y in [100, 300] (top 100, height 200).
     let bar = app
         .world_mut()
-        .spawn(MenuScrollbar {
-            track_top_y: 100.0,
-            track_height: 200.0,
-            ..Default::default()
-        })
+        .spawn((
+            ambition_menu::MenuSurface(menu),
+            MenuScrollbar {
+                track_top_y: 100.0,
+                track_height: 200.0,
+                ..Default::default()
+            },
+        ))
         .id();
     // The press jump + manual tracker map against the resource's last-known-good
     // rect (normally maintained by `project_scrollbar_tracks`); seed it directly.
     {
-        let mut st = app.world_mut().resource_mut::<ScrollbarDragState>();
+        let mut st = app.world_mut().get_mut::<ScrollbarDragState>(menu).unwrap();
         st.track_top_y = 100.0;
         st.track_height = 200.0;
     }
@@ -139,7 +145,10 @@ fn press_and_move_on_scrollbar_emits_proportional_fraction() {
     assert_eq!(press.len(), 1, "press emits exactly one fraction");
     assert!((press[0] - 0.0).abs() < 1e-4, "press at top = {}", press[0]);
     assert_eq!(
-        app.world().resource::<ScrollbarDragState>().pressed_by,
+        app.world()
+            .get::<ScrollbarDragState>(menu)
+            .unwrap()
+            .pressed_by,
         Some(PointerId::Mouse),
         "press marks the track held"
     );
@@ -172,7 +181,10 @@ fn press_and_move_on_scrollbar_emits_proportional_fraction() {
         bar,
     ));
     assert_eq!(
-        app.world().resource::<ScrollbarDragState>().pressed_by,
+        app.world()
+            .get::<ScrollbarDragState>(menu)
+            .unwrap()
+            .pressed_by,
         None,
         "release clears the held pointer"
     );
@@ -189,16 +201,16 @@ fn press_and_move_on_scrollbar_emits_proportional_fraction() {
     );
 }
 
-/// The held-pointer state lives in [`ScrollbarDragState`] (a resource), NOT on the entity, so
+/// The held-pointer state lives in [`ScrollbarDragState`] on the menu entity, not on the widget, so
 /// the drag must survive: after despawning the pressed bar and spawning a fresh one, the manual
 /// tracker keeps emitting for the held pointer against the NEW track.
 #[test]
 fn held_drag_survives_a_scrollbar_respawn() {
     let mut app = App::new();
+    let menu = app.world_mut().spawn(ScrollbarDragState::default()).id();
     app.add_message::<MenuScrollDragged>();
-    app.init_resource::<ScrollbarDragState>();
     app.add_observer(scrollbar_press);
-    app.add_systems(Update, scrollbar_press_drag);
+    ambition_menu::install_menu_scroll_interactions(&mut app);
 
     let pointer = app
         .world_mut()
@@ -206,15 +218,18 @@ fn held_drag_survives_a_scrollbar_respawn() {
         .id();
     let bar1 = app
         .world_mut()
-        .spawn(MenuScrollbar {
-            track_top_y: 100.0,
-            track_height: 200.0,
-        })
+        .spawn((
+            ambition_menu::MenuSurface(menu),
+            MenuScrollbar {
+                track_top_y: 100.0,
+                track_height: 200.0,
+            },
+        ))
         .id();
-    // Seed the resource's last-known-good rect (normally maintained each frame by
+    // Seed the menu's last-known-good rect (normally maintained each frame by
     // `project_scrollbar_tracks`); it persists across the respawn below.
     {
-        let mut st = app.world_mut().resource_mut::<ScrollbarDragState>();
+        let mut st = app.world_mut().get_mut::<ScrollbarDragState>(menu).unwrap();
         st.track_top_y = 100.0;
         st.track_height = 200.0;
     }
@@ -227,7 +242,7 @@ fn held_drag_survives_a_scrollbar_respawn() {
             .collect()
     };
 
-    // Press on bar1 -> the RESOURCE records the held pointer.
+    // Press on bar1 records the held pointer on the menu.
     app.world_mut().trigger(Pointer::new(
         PointerId::Mouse,
         location(100.0),
@@ -246,10 +261,13 @@ fn held_drag_survives_a_scrollbar_respawn() {
     app.world_mut().entity_mut(bar1).despawn();
     let _bar2 = app
         .world_mut()
-        .spawn(MenuScrollbar {
-            track_top_y: 100.0,
-            track_height: 200.0,
-        })
+        .spawn((
+            ambition_menu::MenuSurface(menu),
+            MenuScrollbar {
+                track_top_y: 100.0,
+                track_height: 200.0,
+            },
+        ))
         .id();
 
     // Move the live pointer + run a frame: the tracker must STILL emit against the
@@ -266,5 +284,91 @@ fn held_drag_survives_a_scrollbar_respawn() {
         (tracked.last().unwrap() - 0.5).abs() < 1e-4,
         "tracks the live pointer (mid) on the new track = {}",
         tracked.last().unwrap(),
+    );
+}
+
+#[test]
+fn two_menu_drags_survive_widget_rebuilds_and_release_independently() {
+    let mut app = App::new();
+    ambition_menu::install_menu_scroll_interactions(&mut app);
+    ambition_menu::install_menu_scroll_interactions(&mut app);
+    app.add_observer(scrollbar_press);
+    let menus = [(100.0, 200.0), (0.0, 100.0)].map(|(track_top_y, track_height)| {
+        app.world_mut()
+            .spawn(ScrollbarDragState {
+                track_top_y,
+                track_height,
+                ..Default::default()
+            })
+            .id()
+    });
+    let pointers = [PointerId::Touch(10), PointerId::Touch(20)];
+    for (index, y) in [200.0, 75.0].into_iter().enumerate() {
+        app.world_mut()
+            .spawn((pointers[index], PointerLocation::new(location(y))));
+        let bar = app
+            .world_mut()
+            .spawn((
+                ambition_menu::MenuSurface(menus[index]),
+                MenuScrollbar::default(),
+            ))
+            .id();
+        app.world_mut().trigger(Pointer::new(
+            pointers[index],
+            location(y),
+            Press {
+                button: PointerButton::Primary,
+                hit: bevy::picking::backend::HitData::new(bar, 0.0, None, None),
+                count: 1,
+            },
+            bar,
+        ));
+        app.world_mut().entity_mut(bar).despawn();
+        app.world_mut().spawn((
+            ambition_menu::MenuSurface(menus[index]),
+            MenuScrollbar::default(),
+        ));
+    }
+    app.world_mut()
+        .resource_mut::<Messages<MenuScrollDragged>>()
+        .clear();
+    app.update();
+    let emitted: Vec<_> = app
+        .world_mut()
+        .resource_mut::<Messages<MenuScrollDragged>>()
+        .drain()
+        .collect();
+    assert_eq!(
+        emitted.len(),
+        2,
+        "each held menu emits one motion per frame"
+    );
+    for (index, fraction) in [0.5, 0.75].into_iter().enumerate() {
+        assert!(emitted.contains(&MenuScrollDragged {
+            menu: menus[index],
+            fraction
+        }));
+    }
+    app.world_mut().trigger(Pointer::new(
+        pointers[0],
+        location(200.0),
+        Release {
+            button: PointerButton::Primary,
+            hit: bevy::picking::backend::HitData::new(menus[0], 0.0, None, None),
+        },
+        menus[0],
+    ));
+    app.update();
+    let emitted: Vec<_> = app
+        .world_mut()
+        .resource_mut::<Messages<MenuScrollDragged>>()
+        .drain()
+        .collect();
+    assert_eq!(
+        emitted,
+        vec![MenuScrollDragged {
+            menu: menus[1],
+            fraction: 0.75
+        }]
     );
 }

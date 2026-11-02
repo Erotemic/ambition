@@ -1439,11 +1439,21 @@ fn the_shipped_title_screen_is_wired_for_a_pointer() {
     );
 
     // 3. The shell consumes what the renderer publishes.
+    let menu = {
+        let mut tabs = app.world_mut().query_filtered::<
+            &ambition_platformer2d::menu::MenuSurface,
+            With<ambition_platformer2d::menu::render::bevy_ui::BevyUiMenuTab>,
+        >();
+        tabs.iter(app.world())
+            .next()
+            .expect("a rendered tab has a menu owner")
+            .0
+    };
     app.world_mut()
         .resource_mut::<bevy::ecs::message::Messages<
             ambition_platformer2d::menu::MenuTabActivated,
         >>()
-        .write(ambition_platformer2d::menu::MenuTabActivated { index: 1 });
+        .write(ambition_platformer2d::menu::MenuTabActivated { menu, index: 1 });
     app.update();
     app.update();
     assert_eq!(
@@ -1497,11 +1507,21 @@ fn switching_the_tab_redraws_the_menu_the_player_sees() {
     let before_words = words(&mut app);
     let before_tab = active_tab(&mut app);
 
+    let menu = {
+        let mut tabs = app.world_mut().query_filtered::<
+            &ambition_platformer2d::menu::MenuSurface,
+            With<ambition_platformer2d::menu::render::bevy_ui::BevyUiMenuTab>,
+        >();
+        tabs.iter(app.world())
+            .next()
+            .expect("a rendered tab has a menu owner")
+            .0
+    };
     app.world_mut()
         .resource_mut::<bevy::ecs::message::Messages<
             ambition_platformer2d::menu::MenuTabActivated,
         >>()
-        .write(ambition_platformer2d::menu::MenuTabActivated { index: 1 });
+        .write(ambition_platformer2d::menu::MenuTabActivated { menu, index: 1 });
     for _ in 0..8 {
         app.update();
     }
@@ -1825,8 +1845,10 @@ fn an_sfx_cue_saved_while_the_game_runs_is_played() {
 /// The assembled host uses its live observer and keeps menu cues non-positional.
 #[test]
 fn a_world_sound_uses_the_live_listener_and_a_menu_sound_does_not() {
-    use ambition_platformer2d::sfx::{ids, OwnedSfxMessage, SfxEmissionContext, SfxEmitter, SfxListeners, SfxMessage};
     use ambition_platformer2d::audio::render::SfxPlaybackState;
+    use ambition_platformer2d::sfx::{
+        ids, OwnedSfxMessage, SfxEmissionContext, SfxEmitter, SfxListeners, SfxMessage,
+    };
     let mut app = rendered_app();
     settle(&mut app);
     app.world_mut().write_message(ShellCommand::GoTo(ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into()));

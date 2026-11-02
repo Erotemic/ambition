@@ -14,6 +14,7 @@ pub(super) fn panel_layer(rect: &MenuRect) -> i32 {
 /// Spawn one [`MenuNode`] into the body container.
 pub(super) fn spawn_node<Action>(
     body: &mut RelatedSpawnerCommands<ChildOf>,
+    menu: Entity,
     node: &MenuNode<Action>,
     focused: Option<crate::MenuFocusKey>,
     assets: Option<&AssetServer>,
@@ -94,6 +95,7 @@ pub(super) fn spawn_node<Action>(
         } => {
             spawn_control(
                 body,
+                menu,
                 *rect,
                 *kind,
                 label,
@@ -149,6 +151,7 @@ pub(super) fn control_text_color(focused: bool) -> Color {
 /// in both backends.
 fn spawn_control<Action>(
     body: &mut RelatedSpawnerCommands<ChildOf>,
+    menu: Entity,
     rect: MenuRect,
     kind: MenuControlKind,
     label: &str,
@@ -182,6 +185,7 @@ fn spawn_control<Action>(
     let label_color = control_text_color(focused);
 
     let mut control = body.spawn((
+        crate::MenuSurface(menu),
         Button,
         node_from_rect(rect),
         BackgroundColor(bg),

@@ -1,10 +1,10 @@
 use super::*;
 use crate::menu::model::{build_inventory_pages, system_rows, SystemRow};
-use ambition_platformer2d::settings_menu::settings::SettingsOptionId;
 use ambition_platformer2d::characters::brain::ActionSet;
 use ambition_platformer2d::items::Item;
 use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d::platformer::schedule::GameMode;
+use ambition_platformer2d::settings_menu::settings::SettingsOptionId;
 use ambition_platformer2d::settings_menu::system::{SystemMenuEntryId, SystemMenuModel};
 
 /// What the primary player's HAND holds, as the catalog sees it (I1): the fact
@@ -1118,9 +1118,7 @@ fn grid_scrollbar_drag_fraction_sets_window_start_proportionally() {
     let cursor_before = app.world().resource::<KaleidoscopeCursor>().focus();
 
     // Drag to the BOTTOM of the track (fraction 1.0) → window_start == max.
-    app.world_mut()
-        .resource_mut::<Messages<ambition_platformer2d::menu::MenuScrollDragged>>()
-        .write(ambition_platformer2d::menu::MenuScrollDragged { fraction: 1.0 });
+    crate::menu::test_support::scroll_drag(&mut app, 1.0);
     app.update();
     assert_eq!(
         grid_window_start(&app),
@@ -1129,9 +1127,7 @@ fn grid_scrollbar_drag_fraction_sets_window_start_proportionally() {
     );
 
     // Drag to the MIDDLE (fraction 0.5) → ~half the range.
-    app.world_mut()
-        .resource_mut::<Messages<ambition_platformer2d::menu::MenuScrollDragged>>()
-        .write(ambition_platformer2d::menu::MenuScrollDragged { fraction: 0.5 });
+    crate::menu::test_support::scroll_drag(&mut app, 0.5);
     app.update();
     assert_eq!(
         grid_window_start(&app),
@@ -1218,4 +1214,53 @@ fn a_platform_pause_opens_the_grid_and_keeps_it_open() {
     app.world_mut().write_message(ambition_platformer2d::game_shell::PauseRequested);
     app.update();
     assert!(is_open(&app), "a platform pause request must not close the menu");
+}
+
+#[test]
+fn foreign_menu_messages_cannot_drill_turn_or_scroll_this_menu() {
+    use ambition_platformer2d::menu::{MenuActionActivated, MenuScrollDragged, MenuTabActivated};
+    let mut app = scroll_grid_app();
+    app.add_message::<MenuTabActivated>();
+    app.add_systems(Update, grid_menu_tab_activated.after(grid_menu_nav));
+    let menu = crate::menu::test_support::menu_id(app.world());
+    let foreign = app.world_mut().spawn_empty().id();
+    app.world_mut().write_message(MenuActionActivated {
+        menu: foreign,
+        action: MenuPageAction::OpenSystemEntry(SystemMenuEntryId::Video),
+    });
+    app.world_mut().write_message(MenuTabActivated {
+        menu: foreign,
+        index: 0,
+    });
+    app.world_mut().write_message(MenuScrollDragged {
+        menu: foreign,
+        fraction: 1.0,
+    });
+    app.update();
+    assert_eq!(active_tab(&app), MenuPage::System);
+    assert_eq!(
+        app.world().resource::<KaleidoscopeSystemNav>().open_entry,
+        Some(SystemMenuEntryId::Developer)
+    );
+    assert_eq!(grid_window_start(&app), None);
+
+    app.world_mut().write_message(MenuScrollDragged {
+        menu,
+        fraction: 0.0,
+    });
+    app.world_mut().write_message(MenuScrollDragged {
+        menu: foreign,
+        fraction: 1.0,
+    });
+    app.update();
+    assert_eq!(grid_window_start(&app), Some(0));
+    app.world_mut().write_message(MenuActionActivated {
+        menu,
+        action: MenuPageAction::OpenSystemEntry(SystemMenuEntryId::Video),
+    });
+    app.update();
+    assert_eq!(
+        app.world().resource::<KaleidoscopeSystemNav>().open_entry,
+        Some(SystemMenuEntryId::Video)
+    );
 }

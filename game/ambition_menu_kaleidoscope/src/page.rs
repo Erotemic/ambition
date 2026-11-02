@@ -13,6 +13,7 @@ pub(super) fn render_page_model<PageId, Action>(
     materials: &mut Assets<StandardMaterial>,
     asset_server: &AssetServer,
     config: &KaleidoscopeMenuConfig,
+    menu: Entity,
     model: &MenuPageModel<PageId, Action>,
     active: bool,
 ) where
@@ -34,7 +35,16 @@ pub(super) fn render_page_model<PageId, Action>(
         spawn_nav_arrows(ui, materials, &config.look, active);
     }
     for (index, node) in model.nodes.iter().enumerate() {
-        spawn_node(ui, materials, asset_server, config, index, node, active);
+        spawn_node(
+            ui,
+            materials,
+            asset_server,
+            config,
+            menu,
+            index,
+            node,
+            active,
+        );
     }
 }
 
@@ -45,6 +55,7 @@ pub(super) fn spawn_node<Action>(
     materials: &mut Assets<StandardMaterial>,
     asset_server: &AssetServer,
     config: &KaleidoscopeMenuConfig,
+    menu: Entity,
     index: usize,
     node: &MenuNode<Action>,
     active: bool,
@@ -140,10 +151,13 @@ pub(super) fn spawn_node<Action>(
             root
         }
     };
-    ui.commands().entity(root).insert(RenderedNode {
-        index,
-        node: node.clone(),
-    });
+    ui.commands().entity(root).insert((
+        ambition_menu::MenuSurface(menu),
+        RenderedNode {
+            index,
+            node: node.clone(),
+        },
+    ));
 }
 
 fn spawn_panel<Action>(

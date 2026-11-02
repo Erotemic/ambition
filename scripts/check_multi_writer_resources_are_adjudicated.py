@@ -838,10 +838,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_session/src/durable_horizon.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
-    "ScrollbarDragState": (
-        "crates/ambition_menu/src/render/bevy_ui/mod.rs",
-        "game/ambition_menu_kaleidoscope/src/lib.rs",
-    ),
     "SeatActiveDevices": (
         "crates/ambition_input/src/active_input.rs",
         "crates/ambition_touch_input/src/menu_bridge.rs",
@@ -2796,21 +2792,6 @@ ADJUDICATED: dict[str, str] = {
         "writer is in the presentation crate, not `portal_inspector.rs`; and "
         "the inspector button is `:595`, not `:323`. The conclusion was right "
         "and its addresses were not — re-derive before citing this row."
-    ),
-    "ScrollbarDragState": (
-        "TWO-BACKEND MUTUAL EXCLUSION, SAME SHAPE AS `KaleidoscopeCursor`. "
-        "The struct's own doc (`crates/ambition_menu/src/lib.rs:222-225`) "
-        "states it: \"Shared by BOTH renderers (only one menu is active at a "
-        "time), so it lives in the shared model.\" The grid backend's scroll "
-        "install is gated `.run_if(grid_backend_active)` "
-        "(`game/ambition_app/src/menu/grid_backend.rs:1193`); the cube's "
-        "`scrollbar_press` (`game/ambition_menu_kaleidoscope/src/lib.rs:1209`) "
-        "additionally gates on `bars.get(press.entity).is_ok()`, matching "
-        "only the cube's own `MenuScrollbar` entities, and "
-        "`scrollbar_release` (`:1231`) compare-guards on "
-        "`pressed_by == Some(pointer_id)` before clearing. Only one "
-        "backend's entity tree exists at a time. Measured by "
-        "CalculexAmbition, 2026-09-18."
     ),
     "SeatActiveDevices": (
         "TWO SIGNAL LAYERS ASSERTING THE IDENTICAL FACT, IDEMPOTENT. Both "

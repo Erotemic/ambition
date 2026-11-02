@@ -18,7 +18,10 @@
 //! [`AmbitionInventoryUiPlugin`] installs only the renderer-agnostic
 //! resources/messages, so a host can keep it even with no renderer enabled.
 
-use bevy::prelude::{App, Component, Message, Plugin, Resource};
+use bevy::prelude::{
+    App, Component, Entity, IntoScheduleConfigs, Message, MessageWriter, On, Plugin, Query,
+    Resource, SystemSet, Update, Vec2,
+};
 
 pub mod backend;
 pub mod map;
@@ -203,17 +206,13 @@ pub fn scrollbar_fraction_from_rect(
 /// the bevy_ui grid and the kaleidoscope cube publish this message.
 #[derive(Message, Clone, Copy, Debug, PartialEq)]
 pub struct MenuScrollDragged {
+    pub menu: Entity,
     /// Drag position along the track, `0.0` (top) .. `1.0` (bottom).
     pub fraction: f32,
 }
 
-/// Which pointer, if any, is dragging a menu scrollbar.
-///
-/// A resource, not a flag on the scrollbar: a scroll change triggers a
-/// republish, and the flat grid backend respawns its scrollbar on each one,
-/// which would reset an entity flag. Keyed on the persistent `PointerId`, so the drag survives
-/// respawns. Shared by both renderers (only one menu is active at a time).
-#[derive(Resource, Default)]
+/// A menu's drag state, kept across scrollbar widget rebuilds.
+#[derive(Component, Default)]
 pub struct ScrollbarDragState {
     pub pressed_by: Option<bevy::picking::pointer::PointerId>,
     /// Track screen rect (top edge and height, logical px), cached at press.
@@ -221,6 +220,78 @@ pub struct ScrollbarDragState {
     /// zero for a frame, so the tracker maps the pointer against this cache.
     pub track_top_y: f32,
     pub track_height: f32,
+}
+
+/// Geometry publishers run before the shared scroll-motion reader.
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum MenuScrollGeometry {
+    Layout,
+    Projection,
+}
+
+/// Shared pointer release and motion for every menu renderer.
+pub struct MenuScrollInteractionPlugin;
+
+impl Plugin for MenuScrollInteractionPlugin {
+    fn build(&self, app: &mut App) {
+        app.configure_sets(
+            Update,
+            (MenuScrollGeometry::Layout, MenuScrollGeometry::Projection).chain(),
+        );
+        app.add_message::<MenuScrollDragged>()
+            .add_observer(release_menu_scroll_drag)
+            .add_systems(
+                Update,
+                emit_menu_scroll_drag
+                    .after(MenuScrollGeometry::Projection)
+                    .in_set(render::bevy_ui::BevyUiMenuInteractionSet),
+            );
+    }
+}
+
+/// Install the shared drag reader once, even when both renderers are present.
+pub fn install_menu_scroll_interactions(app: &mut App) {
+    if !app.is_plugin_added::<MenuScrollInteractionPlugin>() {
+        app.add_plugins(MenuScrollInteractionPlugin);
+    }
+}
+
+fn release_menu_scroll_drag(
+    release: On<bevy::picking::events::Pointer<bevy::picking::events::Release>>,
+    mut states: Query<&mut ScrollbarDragState>,
+) {
+    for mut drag in &mut states {
+        if drag.pressed_by == Some(release.pointer_id) {
+            drag.pressed_by = None;
+        }
+    }
+}
+
+fn emit_menu_scroll_drag(
+    pointers: Query<(
+        &bevy::picking::pointer::PointerId,
+        &bevy::picking::pointer::PointerLocation,
+    )>,
+    states: Query<(Entity, &ScrollbarDragState)>,
+    mut out: MessageWriter<MenuScrollDragged>,
+) {
+    for (menu, drag) in &states {
+        let Some(held) = drag.pressed_by else {
+            continue;
+        };
+        let Some(loc) = pointers
+            .iter()
+            .find(|(id, _)| **id == held)
+            .and_then(|(_, loc)| loc.location())
+        else {
+            continue;
+        };
+        if let Some(fraction) =
+            scrollbar_fraction_from_rect(drag.track_top_y, drag.track_height, loc.position.y)
+        {
+            out.write(MenuScrollDragged { menu, fraction });
+        }
+    }
 }
 
 impl<Action> MenuNode<Action> {
@@ -563,6 +634,76 @@ impl Default for MenuCubeGeometry {
 #[derive(Component, Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct AmbitionMenuRoot;
 
+/// The stable menu entity that owns a rendered node.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MenuSurface(pub Entity);
+
+/// Pointer state for one menu, independent of its current widgets.
+#[derive(Component)]
+#[require(ScrollbarDragState, MenuTabInteraction)]
+pub struct MenuInteraction<Action> {
+    pub(crate) arm: ambition_ui_nav::PressArm<MenuFocusKey>,
+    pub(crate) armed: Option<(Action, Entity)>,
+    pub(crate) confirm_armed: Option<MenuFocusKey>,
+    pub(crate) preview: Option<Action>,
+    pointer: Option<bevy::picking::pointer::PointerId>,
+}
+
+impl<Action> Default for MenuInteraction<Action> {
+    fn default() -> Self {
+        Self {
+            arm: Default::default(),
+            armed: None,
+            confirm_armed: None,
+            preview: None,
+            pointer: None,
+        }
+    }
+}
+
+impl<Action> MenuInteraction<Action> {
+    /// Start a gesture from one rendered control.
+    pub fn press_pointer(
+        &mut self,
+        pointer: bevy::picking::pointer::PointerId,
+        focus: MenuFocusKey,
+        action: Action,
+        entity: Entity,
+        position: Vec2,
+    ) {
+        self.pointer = Some(pointer);
+        self.arm.press(focus, Some(position));
+        self.armed = Some((action, entity));
+    }
+
+    /// Motion from another pointer cannot cancel this gesture.
+    pub fn move_pointer(&mut self, pointer: bevy::picking::pointer::PointerId, position: Vec2) {
+        if self.pointer == Some(pointer) {
+            self.arm.moved(Some(position));
+        }
+    }
+
+    /// Finish the matching gesture, including a release after a widget rebuild.
+    pub fn release_pointer(
+        &mut self,
+        pointer: bevy::picking::pointer::PointerId,
+    ) -> Option<Action> {
+        if self.pointer != Some(pointer) {
+            return None;
+        }
+        self.pointer = None;
+        let released = self.arm.release_anywhere();
+        let armed = self.armed.take();
+        released.and(armed).map(|(action, _)| action)
+    }
+}
+
+#[derive(Component, Default)]
+pub(crate) struct MenuTabInteraction {
+    pub(crate) arm: ambition_ui_nav::RowPress,
+    pub(crate) armed_entity: Option<Entity>,
+}
+
 /// ECS component attached to a rendered menu page/face.
 #[derive(Component, Clone, Debug, Eq, PartialEq)]
 pub struct AmbitionMenuPage<PageId> {
@@ -642,14 +783,15 @@ pub struct MenuScrollPane {
 /// Attach this component to the menu entity. The host publishes page data;
 /// renderers read it without changing the model.
 #[derive(Component, Clone, Debug)]
-pub struct ActiveMenuPages<PageId, Action> {
+#[require(MenuInteraction<Action>)]
+pub struct ActiveMenuPages<PageId, Action: Send + Sync + 'static> {
     pub pages: Vec<MenuPageModel<PageId, Action>>,
     pub active: Option<PageId>,
     pub visible: bool,
     pub version: u64,
 }
 
-impl<PageId, Action> Default for ActiveMenuPages<PageId, Action> {
+impl<PageId, Action: Send + Sync + 'static> Default for ActiveMenuPages<PageId, Action> {
     fn default() -> Self {
         Self {
             pages: Vec::new(),
@@ -660,7 +802,7 @@ impl<PageId, Action> Default for ActiveMenuPages<PageId, Action> {
     }
 }
 
-impl<PageId, Action> ActiveMenuPages<PageId, Action> {
+impl<PageId, Action: Send + Sync + 'static> ActiveMenuPages<PageId, Action> {
     pub fn replace_pages(&mut self, pages: Vec<MenuPageModel<PageId, Action>>, active: PageId) {
         self.pages = pages;
         self.active = Some(active);
@@ -674,6 +816,7 @@ impl<PageId, Action> ActiveMenuPages<PageId, Action> {
 /// know about `OwnedItems`, health, mana, or player components.
 #[derive(Message, Clone, Debug, PartialEq)]
 pub struct MenuActionActivated<Action> {
+    pub menu: Entity,
     pub action: Action,
 }
 
@@ -700,12 +843,14 @@ impl<Action> MenuDestructiveActions<Action> {
 /// generic. The host decides what switching to `index` means.
 #[derive(Message, Clone, Copy, Debug, Eq, PartialEq)]
 pub struct MenuTabActivated {
+    pub menu: Entity,
     pub index: usize,
 }
 
 /// A host-defined action is currently hovered or focused.
 #[derive(Message, Clone, Debug, PartialEq)]
 pub struct MenuActionPreviewed<Action> {
+    pub menu: Entity,
     pub action: Action,
 }
 

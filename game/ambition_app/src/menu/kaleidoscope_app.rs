@@ -295,7 +295,6 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
     // backend reads it too, and initialising it here left it absent whenever the
     // cube was compiled out.
     app.init_resource::<KaleidoscopeScroll>()
-        .init_resource::<KaleidoscopePointerPress>()
         .add_plugins(KaleidoscopeMenuPlugin::<MenuPage, MenuPageAction>::default());
     // Gate only the cube's render sets: closed menus can still open and manage
     // camera routing, while face rendering stops when it is not visible/animating.
@@ -351,7 +350,9 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                 kaleidoscope_scroll_wheel
                     .run_if(kaleidoscope_menu_visible)
                     .in_set(ambition_platformer2d::input::MenuFrameConsume),
-                kaleidoscope_apply_scroll_drag.run_if(kaleidoscope_menu_visible),
+                kaleidoscope_apply_scroll_drag
+                    .run_if(kaleidoscope_menu_visible)
+                    .after(ambition_platformer2d::menu::render::bevy_ui::BevyUiMenuInteractionSet),
                 // Build the System model + radio/dev snapshots ONCE per frame; the
                 // republish + both in-place sync systems read this cache instead of
                 // each rebuilding it (3 heavy builds/frame → 1 on the System face).
@@ -443,23 +444,6 @@ impl KaleidoscopeCursor {
 pub(crate) struct KaleidoscopeSystemNav {
     pub(crate) open_entry: Option<SystemMenuEntryId>,
 }
-
-#[cfg(feature = "kaleidoscope_menu")]
-/// Feature E: the in-flight pointer press, so a press-then-drag-away can be CANCELLED
-/// (no activation) while a clean tap still activates. Set on `Pointer<Press>`, marked
-/// cancelled once the pointer travels past `ui_nav::ROW_TAP_SLOP_PX` from the press
-/// origin (a drag, not a tap), and consumed by the release observer. Mouse OR touch —
-/// both arrive through the same pointer events, so this is mouse-testable.
-///
-/// The arm is the shared `ui_nav::PressArm` now; what stays local is only the choice of IDENTITY.
-/// The cube keys on the ACTION rather than a row index because its cells have no stable ordinal —
-/// and, like a windowed list, it despawns and respawns them between press and release, which is the
-/// historical `Pointer<Click>` failure (press and release must resolve to the SAME entity, which a
-/// rebuilding perspective cube routinely broke).
-#[derive(Resource, Default)]
-pub(crate) struct KaleidoscopePointerPress(
-    pub(crate) ambition_platformer2d::ui_nav::PressArm<MenuPageAction>,
-);
 
 /// A rebind row is armed, waiting for the next physical press.
 ///
@@ -959,7 +943,7 @@ fn kaleidoscope_focus_nav(
     // Features C/D: keyboard navigation CLEARS the explicit scroll override so the
     // System window resumes following the selection cursor (the wheel/drag set it).
     mut scroll: ResMut<KaleidoscopeScroll>,
-    mut pages: Single<&mut ActiveMenuPages<MenuPage, MenuPageAction>>,
+    pages: Single<(Entity, &mut ActiveMenuPages<MenuPage, MenuPageAction>)>,
     // Navigation emits CloseMenu. The action consumer closes the surface;
     // the shared pause arbiter applies its released claim.
     overlay: Single<&ambition_platformer2d::inventory_ui::InventoryUiState>,
@@ -978,6 +962,7 @@ fn kaleidoscope_focus_nav(
     mut sfx: SfxWriter,
     mut system: SystemMenuParams,
 ) {
+    let (menu_entity, mut pages) = pages.into_inner();
     // Read the backend from `system` (the bundle owns it); a separate `Res` here
     // would be a B0002 conflict with that `ResMut`.
     if system.backend() != InventoryUiBackend::LunexKaleidoscope || !overlay.visible {
@@ -1043,6 +1028,7 @@ fn kaleidoscope_focus_nav(
             scroll.system_window_start = None;
         }
         system_focus_nav(
+            menu_entity,
             &menu,
             dx,
             dy,
@@ -1089,7 +1075,10 @@ fn kaleidoscope_focus_nav(
             });
         }
         if menu.back {
-            activated.write(MenuActionActivated { action: MenuPageAction::CloseMenu });
+            activated.write(MenuActionActivated {
+                menu: menu_entity,
+                action: MenuPageAction::CloseMenu,
+            });
         }
         emit_move_sfx(
             &mut sfx,
@@ -1118,7 +1107,10 @@ fn kaleidoscope_focus_nav(
     }
 
     if menu.back {
-        activated.write(MenuActionActivated { action: MenuPageAction::CloseMenu });
+        activated.write(MenuActionActivated {
+            menu: menu_entity,
+            action: MenuPageAction::CloseMenu,
+        });
         return;
     }
 
@@ -1136,7 +1128,10 @@ fn kaleidoscope_focus_nav(
             // its edge controls), which is why all three arms are activations and
             // only System, handled above, is not.
             Some(action) => {
-                activated.write(MenuActionActivated { action });
+                activated.write(MenuActionActivated {
+                    menu: menu_entity,
+                    action,
+                });
             }
             // Selecting an empty / unowned item slot is a no-op: error feedback.
             // Not an activation — there is no action to announce.
@@ -1170,7 +1165,7 @@ pub(crate) fn kaleidoscope_menu_action_activated(
     mut activated: MessageReader<MenuActionActivated<MenuPageAction>>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
-    mut pages: Single<&mut ActiveMenuPages<MenuPage, MenuPageAction>>,
+    pages: Single<(Entity, &mut ActiveMenuPages<MenuPage, MenuPageAction>)>,
     mut overlay: Single<&mut ambition_platformer2d::inventory_ui::InventoryUiState>,
     owned: Res<OwnedItems>,
     hand: PrimaryHand,
@@ -1182,6 +1177,7 @@ pub(crate) fn kaleidoscope_menu_action_activated(
     mut sfx: SfxWriter,
     mut system: SystemMenuParams,
 ) {
+    let (menu_entity, mut pages) = pages.into_inner();
     // Backend read from `system` (the bundle owns it); a separate `Res` would
     // B0002-conflict with that `ResMut`.
     if system.backend() != InventoryUiBackend::LunexKaleidoscope || !overlay.visible {
@@ -1189,6 +1185,9 @@ pub(crate) fn kaleidoscope_menu_action_activated(
         return;
     }
     for activation in activated.read() {
+        if activation.menu != menu_entity {
+            continue;
+        }
         let mut close_menu = false;
         crate::menu::dispatch::dispatch_menu_action(
             activation.action,
@@ -1249,6 +1248,7 @@ fn step_system_row(row: i32, dy: i32, count: i32, wrap_rows: bool) -> i32 {
 }
 
 pub(crate) fn system_focus_nav(
+    menu_entity: Entity,
     menu: &MenuControlFrame,
     dx: i32,
     dy: i32,
@@ -1311,7 +1311,10 @@ pub(crate) fn system_focus_nav(
             quality_confirm.cancel();
             close_system_entry(system_nav, cursor);
         } else {
-            activated.write(MenuActionActivated { action: MenuPageAction::CloseMenu });
+            activated.write(MenuActionActivated {
+                menu: menu_entity,
+                action: MenuPageAction::CloseMenu,
+            });
         }
         return;
     }
@@ -1369,7 +1372,10 @@ pub(crate) fn system_focus_nav(
             // The close-after-dispatch (a "Reset Sandbox" row unpausing exactly
             // like an Esc) moves with the dispatch, into the one consumer. The
             // `back` close above stays here: it is navigation, not an action.
-            activated.write(MenuActionActivated { action });
+            activated.write(MenuActionActivated {
+                menu: menu_entity,
+                action,
+            });
         }
         return;
     }
@@ -2009,7 +2015,9 @@ fn kaleidoscope_sync_detail_text(
     // Build the slot→string map for whichever face's detail panel is live. Only the
     // active page carries dynamic-text slots, so a single map covers the panel.
     let slot_text: Vec<(u32, String)> = match active_page {
-        MenuPage::Items => items_detail_slot_text(&owned, hand.items(), hand.equipped(), cursor.focus),
+        MenuPage::Items => {
+            items_detail_slot_text(&owned, hand.items(), hand.equipped(), cursor.focus)
+        }
         MenuPage::System => match cache.model.as_ref() {
             Some(model) => {
                 let focused = match cursor.focus {

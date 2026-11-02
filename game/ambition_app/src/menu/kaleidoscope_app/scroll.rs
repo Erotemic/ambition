@@ -98,7 +98,7 @@ pub(crate) fn kaleidoscope_scroll_wheel(
 pub(crate) fn kaleidoscope_apply_scroll_drag(
     backend: Res<InventoryUiBackend>,
     ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
-    pages: Single<&ActiveMenuPages<MenuPage, MenuPageAction>>,
+    pages: Single<(Entity, &ActiveMenuPages<MenuPage, MenuPageAction>)>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
     snapshot: SystemMenuSnapshotParams,
@@ -106,13 +106,19 @@ pub(crate) fn kaleidoscope_apply_scroll_drag(
     mut scroll: ResMut<KaleidoscopeScroll>,
     mut dragged: MessageReader<ambition_platformer2d::menu::MenuScrollDragged>,
 ) {
+    let (menu_entity, pages) = pages.into_inner();
     let open = ui_state.map(|s| s.visible).unwrap_or(false);
     if backend.effective() != InventoryUiBackend::LunexKaleidoscope || !open {
         dragged.clear();
         return;
     }
     // Use the LAST drag fraction this frame (the freshest pointer position).
-    let Some(fraction) = dragged.read().last().map(|d| d.fraction.clamp(0.0, 1.0)) else {
+    let Some(fraction) = dragged
+        .read()
+        .filter(|drag| drag.menu == menu_entity)
+        .last()
+        .map(|d| d.fraction.clamp(0.0, 1.0))
+    else {
         return;
     };
     let total = system_row_count(

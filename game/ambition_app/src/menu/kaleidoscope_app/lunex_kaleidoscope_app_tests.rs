@@ -55,7 +55,6 @@ fn base_kaleidoscope_test_app() -> App {
     app.init_resource::<KaleidoscopeSystemNav>();
     app.init_resource::<KaleidoscopeScroll>();
     app.init_resource::<CachedSystemMenu>();
-    app.init_resource::<KaleidoscopePointerPress>();
     app.init_resource::<crate::menu::kaleidoscope_app::RebindCapture>();
     app.insert_resource(ambition_platformer2d::items::test_item_catalog().clone());
     app.init_resource::<OwnedItems>();
@@ -887,7 +886,6 @@ fn real_input_cube_app(
     app.init_resource::<KaleidoscopeSystemNav>();
     app.init_resource::<KaleidoscopeScroll>();
     app.init_resource::<CachedSystemMenu>();
-    app.init_resource::<KaleidoscopePointerPress>();
     app.init_resource::<crate::menu::kaleidoscope_app::RebindCapture>();
     app.insert_resource(ambition_platformer2d::items::test_item_catalog().clone());
     app.init_resource::<OwnedItems>();
@@ -982,10 +980,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
             keys.release(KeyCode::Escape);
         }
     };
-    let visible = |app: &App| {
-        crate::menu::test_support::inventory_state(app.world())
-            .visible
-    };
+    let visible = |app: &App| crate::menu::test_support::inventory_state(app.world()).visible;
 
     // First Esc press → opens the cube.
     press_esc(&mut app, true);
@@ -1053,11 +1048,12 @@ fn back_closes_the_kaleidoscope_and_resumes_play_via_real_input() {
         app.update();
     };
     let mode = |app: &App| *app.world().resource::<State<GameMode>>().get();
-    let visible = |app: &App| {
-        crate::menu::test_support::inventory_state(app.world())
-            .visible
-    };
-    assert_eq!(mode(&app), GameMode::Playing, "premise: the game is being played");
+    let visible = |app: &App| crate::menu::test_support::inventory_state(app.world()).visible;
+    assert_eq!(
+        mode(&app),
+        GameMode::Playing,
+        "premise: the game is being played"
+    );
 
     for (round, page) in [MenuPage::System, MenuPage::Items, MenuPage::Map]
         .into_iter()
@@ -1255,11 +1251,12 @@ fn real_inventory_and_settings_value_changes_republish_cube_pages() {
 /// The per-face narrowing has its own tests in `ambition_menu_kaleidoscope`.
 fn fake_rebuild_cube_faces(
     mut commands: Commands,
-    pages: Single<&ActiveMenuPages<MenuPage, MenuPageAction>>,
+    pages: Single<(Entity, &ActiveMenuPages<MenuPage, MenuPageAction>)>,
     existing: Query<Entity, With<AmbitionMenuControl<MenuPageAction>>>,
     mut last_version: Local<Option<u64>>,
     mut last_active: Local<Option<MenuPage>>,
 ) {
+    let (menu, pages) = pages.into_inner();
     if *last_version == Some(pages.version) && *last_active == pages.active {
         return;
     }
@@ -1277,6 +1274,7 @@ fn fake_rebuild_cube_faces(
             } = node
             {
                 commands.spawn((
+                    ambition_platformer2d::menu::MenuSurface(menu),
                     AmbitionMenuControl::<MenuPageAction> {
                         kind: *kind,
                         action: Some(action.clone()),
@@ -1333,7 +1331,7 @@ fn control_entity(app: &mut App, action: MenuPageAction) -> Entity {
 fn hover_then_click(app: &mut App, move_to: MenuPageAction, click_target: MenuPageAction) {
     // The entity a real pointer press latches onto, captured BEFORE the rebuild.
     let target = control_entity(app, click_target);
-    // 1. PRESS the target: arms the action in `KaleidoscopePointerPress`.
+    // 1. PRESS the target: arms the menu interaction.
     app.world_mut().trigger(Pointer::new(
         PointerId::Mouse,
         pointer_location(),
@@ -1640,9 +1638,7 @@ fn scrollbar_drag_fraction_sets_window_start_proportionally() {
     let cursor_before = app.world().resource::<KaleidoscopeCursor>().focus;
 
     // Drag to the BOTTOM of the track (fraction 1.0) -> window_start == max.
-    app.world_mut()
-        .resource_mut::<Messages<ambition_platformer2d::menu::MenuScrollDragged>>()
-        .write(ambition_platformer2d::menu::MenuScrollDragged { fraction: 1.0 });
+    crate::menu::test_support::scroll_drag(&mut app, 1.0);
     app.update();
     assert_eq!(
         app.world()
@@ -1653,9 +1649,7 @@ fn scrollbar_drag_fraction_sets_window_start_proportionally() {
     );
 
     // Drag to the MIDDLE (fraction 0.5) -> ~half the range.
-    app.world_mut()
-        .resource_mut::<Messages<ambition_platformer2d::menu::MenuScrollDragged>>()
-        .write(ambition_platformer2d::menu::MenuScrollDragged { fraction: 0.5 });
+    crate::menu::test_support::scroll_drag(&mut app, 0.5);
     app.update();
     let expected_mid = (0.5 * max as f32).round() as usize;
     assert_eq!(
@@ -1718,14 +1712,10 @@ fn keyboard_nav_clears_the_scroll_override() {
 /// `KaleidoscopeSystemNav.open_entry` after, so the test can see whether the
 /// release's drill-in action fired (activated) or was cancelled by a drag.
 fn press_move_click(app: &mut App, press_pos: Vec2, move_pos: Vec2) -> Entity {
-    let entity = app
-        .world_mut()
-        .spawn(AmbitionMenuControl::<MenuPageAction> {
-            kind: ambition_platformer2d::menu::MenuControlKind::OptionToggle,
-            action: Some(MenuPageAction::OpenSystemEntry(SystemMenuEntryId::Video)),
-            focus: ambition_platformer2d::menu::MenuFocusKey::default(),
-        })
-        .id();
+    let entity = spawn_control(
+        app,
+        MenuPageAction::OpenSystemEntry(SystemMenuEntryId::Video),
+    );
     let loc = |p: Vec2| Location {
         target: NormalizedRenderTarget::None {
             width: 1,
@@ -1829,15 +1819,6 @@ fn release_dispatch_survives_a_control_rebuild_between_press_and_release() {
 
     // 1. Arm a press on the Blink control.
     let pressed = arm_press(&mut app, MenuPageAction::Equip(Item::Grapple));
-    assert_eq!(
-        app.world()
-            .resource::<KaleidoscopePointerPress>()
-            .0
-            .armed()
-            .copied(),
-        Some(MenuPageAction::Equip(Item::Grapple)),
-        "the press armed the control's action in the guard"
-    );
 
     // 2. Simulate a face rebuild: despawn EVERY control (incl. the pressed one)
     //    and respawn a fresh one with a NEW entity id, exactly like the cube does
@@ -1925,7 +1906,6 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
     app.init_resource::<KaleidoscopeSystemNav>();
     app.init_resource::<KaleidoscopeScroll>();
     app.init_resource::<CachedSystemMenu>();
-    app.init_resource::<KaleidoscopePointerPress>();
     app.init_resource::<crate::menu::kaleidoscope_app::RebindCapture>();
     let mut owned = OwnedItems::default();
     owned.grant(ambition_platformer2d::items::test_item_catalog(), owned_item, 1);

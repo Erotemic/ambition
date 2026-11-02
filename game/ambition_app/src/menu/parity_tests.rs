@@ -364,7 +364,7 @@ mod dispatch_parity {
     use crate::menu::grid_backend::{grid_menu_action_activated, GridMenuTabState};
     use crate::menu::kaleidoscope_app::{
         kaleidoscope_pointer_press, kaleidoscope_pointer_release, KaleidoscopeCursor,
-        KaleidoscopePointerPress, KaleidoscopeSystemNav,
+        KaleidoscopeSystemNav,
     };
     use crate::menu::model::{MenuPage, MenuPageAction};
     use crate::menu::test_support::{spawn_control, trigger_press, trigger_release};
@@ -388,7 +388,6 @@ mod dispatch_parity {
         app.init_resource::<InventoryUiBackend>();
         app.init_resource::<KaleidoscopeCursor>();
         app.init_resource::<KaleidoscopeSystemNav>();
-        app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<crate::menu::kaleidoscope_app::RebindCapture>();
         app.init_resource::<GridMenuTabState>();
         app.insert_resource(ambition_platformer2d::items::test_item_catalog().clone());

@@ -317,7 +317,7 @@ pub(crate) fn grid_menu_nav(
     mut tab_state: ResMut<GridMenuTabState>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
-    mut pages: Single<&mut ActiveMenuPages<MenuPage, MenuPageAction>>,
+    pages: Single<(Entity, &mut ActiveMenuPages<MenuPage, MenuPageAction>)>,
     mut overlay: Single<&mut ambition_platformer2d::inventory_ui::InventoryUiState>,
     // The ONE activation event. A controller/keyboard submit publishes the same
     // message the renderer's pointer bridge does, so `grid_menu_action_activated`
@@ -325,6 +325,7 @@ pub(crate) fn grid_menu_nav(
     mut activated: MessageWriter<MenuActionActivated<MenuPageAction>>,
     mut fx: MenuDispatchParams,
 ) {
+    let (menu_entity, mut pages) = pages.into_inner();
     // Read the backend from `fx.system` (it owns the resource); a separate `Res`
     // here would be a B0002 conflict with that `ResMut`.
     if fx.system.backend() != InventoryUiBackend::Grid || !overlay.visible {
@@ -426,7 +427,10 @@ pub(crate) fn grid_menu_nav(
                 let idx = cursor.focus().item_index();
                 match owned_item_action(&fx.owned, fx.hand.items(), idx) {
                     Some(action) => {
-                        activated.write(MenuActionActivated { action });
+                        activated.write(MenuActionActivated {
+                            menu: menu_entity,
+                            action,
+                        });
                     }
                     None => play_ui(&mut fx.sfx, grid_sfx::ERROR),
                 }
@@ -442,6 +446,7 @@ pub(crate) fn grid_menu_nav(
             // Reuse the cube's System row nav (drill in/out, value-step, select →
             // dispatch, back → drill-out/close): identical behavior + one dispatcher.
             system_focus_nav(
+                menu_entity,
                 &menu,
                 dx,
                 dy,
@@ -535,7 +540,7 @@ fn a_menu_is_open_or_a_grid_tree_was(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn grid_menu_republish_view(
     overlay: Single<&ambition_platformer2d::inventory_ui::InventoryUiState>,
-    pages: Single<&ActiveMenuPages<MenuPage, MenuPageAction>>,
+    pages: Single<(Entity, &ActiveMenuPages<MenuPage, MenuPageAction>)>,
     owned: Res<OwnedItems>,
     hand: PrimaryHand,
     cursor: Res<KaleidoscopeCursor>,
@@ -549,6 +554,7 @@ pub(crate) fn grid_menu_republish_view(
     assets: Option<Res<AssetServer>>,
     mut commands: Commands,
 ) {
+    let (menu_entity, pages) = pages.into_inner();
     // Read the backend from `system` (it owns the resource); a separate `Res` here
     // would be a B0002 conflict with that `ResMut`.
     let active = system.backend() == InventoryUiBackend::Grid && overlay.visible;
@@ -673,6 +679,7 @@ pub(crate) fn grid_menu_republish_view(
         GridFocusZone::Body => None,
     };
     let view = BevyUiMenuView {
+        menu: menu_entity,
         tabs: &tabs,
         active_tab: active_tab_index(&pages),
         page: &page,
@@ -778,7 +785,7 @@ pub(crate) fn grid_menu_scroll_wheel(
 #[cfg(feature = "input")]
 pub(crate) fn grid_menu_apply_scroll_drag(
     overlay: Single<&ambition_platformer2d::inventory_ui::InventoryUiState>,
-    pages: Single<&ActiveMenuPages<MenuPage, MenuPageAction>>,
+    pages: Single<(Entity, &ActiveMenuPages<MenuPage, MenuPageAction>)>,
     mut tab_state: ResMut<GridMenuTabState>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
@@ -786,6 +793,7 @@ pub(crate) fn grid_menu_apply_scroll_drag(
     system: SystemMenuParams,
     mut dragged: MessageReader<ambition_platformer2d::menu::MenuScrollDragged>,
 ) {
+    let (menu_entity, pages) = pages.into_inner();
     // Backend read from `system` (it owns the resource); a separate `Res` would
     // B0002-conflict with that `ResMut`.
     if system.backend() != InventoryUiBackend::Grid || !overlay.visible {
@@ -793,7 +801,12 @@ pub(crate) fn grid_menu_apply_scroll_drag(
         return;
     }
     // Use the LAST drag fraction this frame (the freshest pointer position).
-    let Some(fraction) = dragged.read().last().map(|d| d.fraction.clamp(0.0, 1.0)) else {
+    let Some(fraction) = dragged
+        .read()
+        .filter(|drag| drag.menu == menu_entity)
+        .last()
+        .map(|d| d.fraction.clamp(0.0, 1.0))
+    else {
         return;
     };
     let active_page = active_page(&pages);
@@ -815,10 +828,11 @@ pub(crate) fn grid_menu_action_activated(
     mut tab_state: ResMut<GridMenuTabState>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
-    mut pages: Single<&mut ActiveMenuPages<MenuPage, MenuPageAction>>,
+    pages: Single<(Entity, &mut ActiveMenuPages<MenuPage, MenuPageAction>)>,
     mut overlay: Single<&mut ambition_platformer2d::inventory_ui::InventoryUiState>,
     mut fx: MenuDispatchParams,
 ) {
+    let (menu_entity, mut pages) = pages.into_inner();
     // Backend read from `fx.system` (it owns the resource); a separate `Res` would
     // B0002-conflict with that `ResMut`.
     if fx.system.backend() != InventoryUiBackend::Grid || !overlay.visible {
@@ -826,6 +840,9 @@ pub(crate) fn grid_menu_action_activated(
         return;
     }
     for activation in activated.read() {
+        if activation.menu != menu_entity {
+            continue;
+        }
         // ⛔⛤ **THE GRID REFUSES `ChangePage` EXPLICITLY NOW, AND IT USED TO SAY SO
         // BY OVERWRITING.** Page changes here come from the TAB BAR; the flat
         // renderer STRIPS the `ChangePage` edge controls
@@ -879,15 +896,19 @@ pub(crate) fn grid_menu_tab_activated(
     mut tab_state: ResMut<GridMenuTabState>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
-    mut pages: Single<&mut ActiveMenuPages<MenuPage, MenuPageAction>>,
+    pages: Single<(Entity, &mut ActiveMenuPages<MenuPage, MenuPageAction>)>,
     mut quality_confirm: ResMut<VisualQualityConfirmState>,
     mut sfx: SfxWriter,
 ) {
+    let (menu_entity, mut pages) = pages.into_inner();
     if backend.effective() != InventoryUiBackend::Grid || !overlay.visible {
         activated.clear();
         return;
     }
     for activation in activated.read() {
+        if activation.menu != menu_entity {
+            continue;
+        }
         let next = activation.index.min(MenuPage::ALL.len() - 1);
         quality_confirm.cancel();
         system_nav.open_entry = None;

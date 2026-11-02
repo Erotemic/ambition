@@ -85,7 +85,7 @@ pub struct KaleidoscopeFocusVisuals;
 /// System set holding the cube's per-frame RENDER + render-adjacent systems
 /// ([`rebuild_cube_faces`], [`animate_cube_ring`], [`apply_dynamic_text`],
 /// [`fade_kaleidoscope_materials`], the [`KaleidoscopeFocusVisuals`] readers,
-/// [`project_scrollbar_tracks`], [`scrollbar_press_drag`]). The `PreUpdate`-schedule
+/// [`project_scrollbar_tracks`]). The `PreUpdate`-schedule
 /// half of cube rendering (the 3D picking backend) lives in [`KaleidoscopeRenderPre`].
 /// This set runs every frame by default. A host that uses another presentation
 /// may `.run_if(...)` this set and [`KaleidoscopeRenderPre`] to render only the
@@ -465,9 +465,13 @@ where
             // Feature C: draggable scrollbar. Keep each scrollbar track's screen
             // extent fresh (projection), and observe pointer drags on a scrollbar
             // to emit the neutral `MenuScrollDragged` fraction the host applies.
-            app.add_message::<MenuScrollDragged>();
-            app.init_resource::<ScrollbarDragState>();
-            app.add_systems(Update, project_scrollbar_tracks.in_set(KaleidoscopeRender));
+            ambition_menu::install_menu_scroll_interactions(app);
+            app.add_systems(
+                Update,
+                project_scrollbar_tracks
+                    .in_set(KaleidoscopeRender)
+                    .in_set(ambition_menu::MenuScrollGeometry::Projection),
+            );
             app.add_observer(scrollbar_drag_start);
             app.add_observer(scrollbar_drag);
             // Fix 1: the manual press+move tracker (the robust path for the cube's
@@ -476,13 +480,6 @@ where
             // for the pointer's live position each frame while pressed — so dragging
             // the thumb scrolls even where `Pointer<Drag>` continuity doesn't reach.
             app.add_observer(scrollbar_press);
-            app.add_observer(scrollbar_release);
-            app.add_systems(
-                Update,
-                scrollbar_press_drag
-                    .after(project_scrollbar_tracks)
-                    .in_set(KaleidoscopeRender),
-            );
         }
         // Feature B: cross-fade the whole cube (faces/controls/text/icons) with the
         // open/close fold `amount`, so it fades in/out like the scrim instead of
@@ -526,6 +523,7 @@ fn setup_cube<PageId: Send + Sync + 'static, Action: Send + Sync + 'static>(
     commands.spawn((
         Name::new("Cube pause camera"),
         KaleidoscopePauseCamera,
+        ambition_menu::MenuSurface(*menu),
         Camera3d::default(),
         // The cube is an unlit UI scene, not an HDR-lit world. Opt out of the
         // default LUT-backed Camera3d tonemapper: it adds measurable frame cost and,
@@ -808,6 +806,7 @@ fn renderer_page_identity_changed<PageId, Action>(
 ) -> bool
 where
     PageId: PartialEq,
+    Action: Send + Sync + 'static,
 {
     last_version != Some(pages.version) || last_active != pages.active.as_ref()
 }
@@ -879,6 +878,7 @@ pub fn rebuild_cube_faces<PageId, Action>(
                     let rendered = rendered.expect("a kept face carries its RenderedFace");
                     if rendered.model != *model || rendered.active != active {
                         let mut out = reconcile::FaceWriter {
+                            menu: ring,
                             commands: &mut commands,
                             materials: &mut materials,
                             asset_server: &asset_server,
@@ -916,6 +916,7 @@ pub fn rebuild_cube_faces<PageId, Action>(
             config_changed,
         );
 
+        let menu = ring;
         commands.entity(ring).with_children(|ring| {
             for (i, model) in pages.pages.iter().enumerate() {
                 if kept[i].is_some() {
@@ -931,6 +932,7 @@ pub fn rebuild_cube_faces<PageId, Action>(
                 let rot = Quat::from_rotation_y(angle);
                 let scale = Vec3::new(flip, 1.0, 1.0);
                 let mut face = ring.spawn((
+                    ambition_menu::MenuSurface(menu),
                     Name::new("Cube face"),
                     AmbitionMenuPage {
                         id: model.id.clone(),
@@ -962,7 +964,15 @@ pub fn rebuild_cube_faces<PageId, Action>(
                     RenderLayers::layer(0),
                 ));
                 face.with_children(|ui| {
-                    render_page_model(ui, &mut materials, &asset_server, &config, model, active)
+                    render_page_model(
+                        ui,
+                        &mut materials,
+                        &asset_server,
+                        &config,
+                        menu,
+                        model,
+                        active,
+                    )
                 });
             }
         });
@@ -1195,14 +1205,28 @@ fn fade_kaleidoscope_materials(
 /// fraction. Runs while the cube camera is active; bails otherwise (the menu is
 /// shut). A headless test can skip this and set [`MenuScrollbar`] fields directly.
 fn project_scrollbar_tracks(
-    camera_query: Query<(&Camera, &GlobalTransform), With<KaleidoscopePauseCamera>>,
-    mut scrollbars: Query<(&mut MenuScrollbar, &Dimension, &GlobalTransform)>,
-    mut drag: ResMut<ScrollbarDragState>,
+    camera_query: Query<
+        (&Camera, &GlobalTransform, &ambition_menu::MenuSurface),
+        With<KaleidoscopePauseCamera>,
+    >,
+    mut scrollbars: Query<(
+        &mut MenuScrollbar,
+        &Dimension,
+        &GlobalTransform,
+        &ambition_menu::MenuSurface,
+    )>,
+    mut states: Query<&mut ScrollbarDragState>,
 ) {
-    let Some((camera, cam_transform)) = camera_query.iter().find(|(c, _)| c.is_active) else {
-        return;
-    };
-    for (mut bar, dimension, node_transform) in &mut scrollbars {
+    for (mut bar, dimension, node_transform, surface) in &mut scrollbars {
+        let Some((camera, cam_transform, _)) = camera_query
+            .iter()
+            .find(|(camera, _, owner)| camera.is_active && owner.0 == surface.0)
+        else {
+            continue;
+        };
+        let Ok(mut drag) = states.get_mut(surface.0) else {
+            continue;
+        };
         let half_h = dimension.y * 0.5;
         // Top + bottom edge of the track in node-local space → world → screen.
         let top_world = node_transform.transform_point(Vec3::new(0.0, half_h, 0.0));
@@ -1237,12 +1261,15 @@ fn scrollbar_fraction(bar: &MenuScrollbar, pointer_y: f32) -> Option<f32> {
 /// the thumb there — exactly like a desktop scrollbar.
 fn scrollbar_drag_start(
     drag: On<Pointer<DragStart>>,
-    bars: Query<&MenuScrollbar>,
+    bars: Query<(&MenuScrollbar, &ambition_menu::MenuSurface)>,
     mut out: MessageWriter<MenuScrollDragged>,
 ) {
-    if let Ok(bar) = bars.get(drag.entity) {
+    if let Ok((bar, surface)) = bars.get(drag.entity) {
         if let Some(fraction) = scrollbar_fraction(bar, drag.pointer_location.position.y) {
-            out.write(MenuScrollDragged { fraction });
+            out.write(MenuScrollDragged {
+                menu: surface.0,
+                fraction,
+            });
         }
     }
 }
@@ -1252,12 +1279,15 @@ fn scrollbar_drag_start(
 /// OR touch — both arrive as the same `Pointer<Drag>`).
 fn scrollbar_drag(
     drag: On<Pointer<Drag>>,
-    bars: Query<&MenuScrollbar>,
+    bars: Query<(&MenuScrollbar, &ambition_menu::MenuSurface)>,
     mut out: MessageWriter<MenuScrollDragged>,
 ) {
-    if let Ok(bar) = bars.get(drag.entity) {
+    if let Ok((bar, surface)) = bars.get(drag.entity) {
         if let Some(fraction) = scrollbar_fraction(bar, drag.pointer_location.position.y) {
-            out.write(MenuScrollDragged { fraction });
+            out.write(MenuScrollDragged {
+                menu: surface.0,
+                fraction,
+            });
         }
     }
 }
@@ -1271,61 +1301,26 @@ fn scrollbar_drag(
 /// `MenuScrollDragged` fraction, so having both is safe).
 fn scrollbar_press(
     press: On<Pointer<Press>>,
-    bars: Query<&MenuScrollbar>,
-    mut drag: ResMut<ScrollbarDragState>,
+    bars: Query<&ambition_menu::MenuSurface, With<MenuScrollbar>>,
+    mut states: Query<&mut ScrollbarDragState>,
     mut out: MessageWriter<MenuScrollDragged>,
 ) {
-    if bars.get(press.entity).is_ok() {
-        // Mark the held pointer; geometry is the LAST KNOWN GOOD rect maintained in
-        // the resource by `project_scrollbar_tracks` (the entity's own geometry can
-        // still be zero on the press frame right after a respawn).
-        drag.pressed_by = Some(press.pointer_id);
-        if let Some(fraction) = ambition_menu::scrollbar_fraction_from_rect(
-            drag.track_top_y,
-            drag.track_height,
-            press.pointer_location.position.y,
-        ) {
-            out.write(MenuScrollDragged { fraction });
-        }
-    }
-}
-
-/// Releasing the pointer ends the manual scrollbar drag (clears the resource).
-fn scrollbar_release(release: On<Pointer<Release>>, mut drag: ResMut<ScrollbarDragState>) {
-    if drag.pressed_by == Some(release.pointer_id) {
-        drag.pressed_by = None;
-    }
-}
-
-/// While a pointer is held on a scrollbar (`ScrollbarDragState.pressed_by`), emit
-/// the neutral `MenuScrollDragged` fraction for that pointer's LIVE position each
-/// frame against the CURRENT scrollbar entity (re-found by component, so it works
-/// even after the per-step republish respawns the entity). This is what makes
-/// click-and-drag work on the cube (mouse AND touch — both arrive as a
-/// `PointerLocation`) where the custom 3D backend doesn't drive `Pointer<Drag>`.
-fn scrollbar_press_drag(
-    pointers: Query<(&PointerId, &PointerLocation)>,
-    drag: Res<ScrollbarDragState>,
-    mut out: MessageWriter<MenuScrollDragged>,
-) {
-    let Some(held) = drag.pressed_by else {
+    let Ok(surface) = bars.get(press.entity) else {
         return;
     };
-    let Some(loc) = pointers
-        .iter()
-        .find(|(id, _)| **id == held)
-        .and_then(|(_, loc)| loc.location())
-    else {
+    let Ok(mut drag) = states.get_mut(surface.0) else {
         return;
     };
-    // Map the live pointer onto the CACHED track rect (constant during a drag, and
-    // valid across the respawn that zeroes a fresh entity's geometry).
+    drag.pressed_by = Some(press.pointer_id);
     if let Some(fraction) = ambition_menu::scrollbar_fraction_from_rect(
         drag.track_top_y,
         drag.track_height,
-        loc.position.y,
+        press.pointer_location.position.y,
     ) {
-        out.write(MenuScrollDragged { fraction });
+        out.write(MenuScrollDragged {
+            menu: surface.0,
+            fraction,
+        });
     }
 }
 
@@ -1458,11 +1453,11 @@ pub fn sleep_light_visibility_without_lights(app: &mut App) {
 }
 
 #[cfg(test)]
-mod light_dormancy_tests;
-#[cfg(test)]
 mod fade_tests;
 #[cfg(test)]
 mod fold_ease_tests;
+#[cfg(test)]
+mod light_dormancy_tests;
 #[cfg(test)]
 mod per_face_rebuild_tests;
 #[cfg(test)]

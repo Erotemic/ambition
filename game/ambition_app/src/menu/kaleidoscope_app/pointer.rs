@@ -11,23 +11,35 @@ use super::*;
 pub(crate) fn kaleidoscope_pointer_press(
     press: On<Pointer<Press>>,
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
-    controls: Query<&AmbitionMenuControl<MenuPageAction>>,
-    mut state: ResMut<KaleidoscopePointerPress>,
+    controls: Query<(
+        &AmbitionMenuControl<MenuPageAction>,
+        &ambition_platformer2d::menu::MenuSurface,
+    )>,
+    mut menus: Query<(
+        &ambition_platformer2d::inventory_ui::InventoryUiState,
+        &mut ambition_platformer2d::menu::MenuInteraction<MenuPageAction>,
+    )>,
 ) {
-    let open = ui_state.map(|s| s.visible).unwrap_or(false);
-    if backend.effective() != InventoryUiBackend::LunexKaleidoscope || !open {
+    if backend.effective() != InventoryUiBackend::LunexKaleidoscope {
         return;
     }
-    // Only arm the tap-guard for a control that DOES something: the arm's
-    // identity IS the action, so a press on decoration cannot arm and needs no
-    // separate "armed but actionless" state to fall through on release.
-    if let Ok(control) = controls.get(press.entity) {
-        if let Some(action) = control.action {
-            // The ACTION, not the entity, so RELEASE dispatches
-            // entity-independently and survives a face rebuild in between.
-            state.0.press(action, Some(press.pointer_location.position));
-        }
+    let Ok((control, surface)) = controls.get(press.entity) else {
+        return;
+    };
+    let Ok((state, mut interaction)) = menus.get_mut(surface.0) else {
+        return;
+    };
+    if !state.visible {
+        return;
+    }
+    if let Some(action) = control.action {
+        interaction.press_pointer(
+            press.pointer_id,
+            control.focus,
+            action,
+            press.entity,
+            press.pointer_location.position,
+        );
     }
 }
 
@@ -46,8 +58,11 @@ pub(crate) fn kaleidoscope_pointer_press(
 ///    the hovered option."
 pub(crate) fn kaleidoscope_pointer_move(
     move_: On<Pointer<Move>>,
-    controls: Query<&AmbitionMenuControl<MenuPageAction>>,
-    pages: Single<&ActiveMenuPages<MenuPage, MenuPageAction>>,
+    controls: Query<(
+        &AmbitionMenuControl<MenuPageAction>,
+        &ambition_platformer2d::menu::MenuSurface,
+    )>,
+    pages: Single<(Entity, &ActiveMenuPages<MenuPage, MenuPageAction>)>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
     quality_confirm: Res<VisualQualityConfirmState>,
@@ -59,7 +74,7 @@ pub(crate) fn kaleidoscope_pointer_move(
     cache: Res<CachedSystemMenu>,
     // Feature E: a press in flight is cancelled (no click) once the pointer drags
     // past the tap threshold from its press origin.
-    mut press: ResMut<KaleidoscopePointerPress>,
+    mut interactions: Query<&mut ambition_platformer2d::menu::MenuInteraction<MenuPageAction>>,
     mut sfx: SfxWriter,
     // ⛔⛤ THE GATE ITS TWO SIBLINGS ALREADY HAD — added 2026-09-18. The backend
     // is read from `snapshot`, which already holds it, rather than taken as a
@@ -70,7 +85,10 @@ pub(crate) fn kaleidoscope_pointer_move(
     // threshold, this is a DRAG — the arm marks itself cancelled so the eventual
     // release does not activate the control. (This drag-cancel runs regardless of the
     // active-input gate below: a touch/pen drag must still cancel a tap.)
-    press.0.moved(Some(move_.pointer_location.position));
+    let (menu_entity, pages) = pages.into_inner();
+    for mut interaction in &mut interactions {
+        interaction.move_pointer(move_.pointer_id, move_.pointer_location.position);
+    }
     // ⛔⛤ **THIS BACKEND, AND ONLY WHILE ITS MENU IS OPEN — 2026-09-18.** An
     // observer takes no `run_if`, so `kaleidoscope_pointer_press` and
     // `kaleidoscope_pointer_release` each open with this exact test and this one
@@ -103,7 +121,10 @@ pub(crate) fn kaleidoscope_pointer_move(
     let Some(active_page) = pages.active else {
         return;
     };
-    if let Ok(control) = controls.get(move_.entity) {
+    if let Ok((control, surface)) = controls.get(move_.entity) {
+        if surface.0 != menu_entity {
+            return;
+        }
         if let Some(action) = control.action {
             // A hover fires on EVERY mouse move across a control, so the settings IR
             // is built only for the actions that actually read it (a System row's
@@ -169,9 +190,13 @@ pub(crate) fn kaleidoscope_pointer_move(
 /// release. Drag cancellation still wins when movement exceeds the tap threshold.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn kaleidoscope_pointer_release(
-    _release: On<Pointer<Release>>,
-    ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
-    pages: Single<&ActiveMenuPages<MenuPage, MenuPageAction>>,
+    release: On<Pointer<Release>>,
+    mut menus: Query<(
+        Entity,
+        &ambition_platformer2d::inventory_ui::InventoryUiState,
+        &ActiveMenuPages<MenuPage, MenuPageAction>,
+        &mut ambition_platformer2d::menu::MenuInteraction<MenuPageAction>,
+    )>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
@@ -179,44 +204,36 @@ pub(crate) fn kaleidoscope_pointer_release(
     mut activated: MessageWriter<MenuActionActivated<MenuPageAction>>,
     // Still needed for the focus resolve below (`system.model`), not for dispatch.
     system: SystemMenuParams,
-    // In-flight press; activation uses the action stored at press time.
-    mut press: ResMut<KaleidoscopePointerPress>,
 ) {
-    let open = ui_state.as_deref().map(|s| s.visible).unwrap_or(false);
-    // Read the backend from `system` (it owns the resource); a separate `Res` here
-    // would be a B0002 conflict with that `ResMut`.
-    if system.backend() != InventoryUiBackend::LunexKaleidoscope || !open {
+    if system.backend() != InventoryUiBackend::LunexKaleidoscope {
         return;
     }
-    // Consume the press guard (whatever happens, the next press starts fresh). A
-    // release with no armed press, or a drag-away cancel, falls through to "no
-    // activation".
-    //
-    // `release_anywhere`, not `release` — the cube respawns its cells under the
-    // finger, so which control is under the pointer NOW is not evidence about which
-    // one the press began on. The press already captured that. A flat list has that
-    // evidence and uses the stricter form.
-    let Some(action) = press.0.release_anywhere() else {
-        return;
-    };
-    if let Some(active_page) = pages.active {
-        // Same rule as the hover path: build the settings IR only for the actions
-        // whose focus is a System ROW INDEX.
-        let next = match focus_without_system_model(action, active_page) {
-            Some(focus) => focus,
-            None => {
-                let model = system.model(&settings);
-                let rows = system_rows_with_quality_prompt(
-                    &model,
-                    system_nav.open_entry,
-                    quality_confirm.pending(),
-                );
-                focus_for_action(action, active_page, &rows)
-            }
+    for (menu, state, pages, mut interaction) in &mut menus {
+        let Some(action) = interaction.release_pointer(release.pointer_id) else {
+            continue;
         };
-        cursor.focus = next;
-        cursor.owner = FocusSource::Pointer;
-        cursor.last_pointer_focus = Some(next);
+        if !state.visible {
+            continue;
+        }
+        if let Some(active_page) = pages.active {
+            // Same rule as the hover path: build the settings IR only for the actions
+            // whose focus is a System ROW INDEX.
+            let next = match focus_without_system_model(action, active_page) {
+                Some(focus) => focus,
+                None => {
+                    let model = system.model(&settings);
+                    let rows = system_rows_with_quality_prompt(
+                        &model,
+                        system_nav.open_entry,
+                        quality_confirm.pending(),
+                    );
+                    focus_for_action(action, active_page, &rows)
+                }
+            };
+            cursor.focus = next;
+            cursor.owner = FocusSource::Pointer;
+            cursor.last_pointer_focus = Some(next);
+        }
+        activated.write(MenuActionActivated { menu, action });
     }
-    activated.write(MenuActionActivated { action });
 }

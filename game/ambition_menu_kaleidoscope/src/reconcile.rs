@@ -95,6 +95,7 @@ pub struct LiveFaceNodes<'w, 's, Action: Send + Sync + 'static> {
 
 /// Everything a reconcile writes through.
 pub(super) struct FaceWriter<'a, 'w, 's> {
+    pub(super) menu: Entity,
     pub(super) commands: &'a mut Commands<'w, 's>,
     pub(super) materials: &'a mut Assets<StandardMaterial>,
     pub(super) asset_server: &'a AssetServer,
@@ -142,8 +143,18 @@ pub(super) fn reconcile_face<PageId, Action>(
                 if let Some(new) = new {
                     let (materials, asset_server, config) =
                         (&mut *out.materials, out.asset_server, out.config);
+                    let menu = out.menu;
                     out.commands.entity(face).with_children(|ui| {
-                        spawn_node(ui, materials, asset_server, config, index, new, active);
+                        spawn_node(
+                            ui,
+                            materials,
+                            asset_server,
+                            config,
+                            menu,
+                            index,
+                            new,
+                            active,
+                        );
                     });
                 }
             }

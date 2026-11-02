@@ -16,6 +16,14 @@ enum Action {
     Setting,
 }
 
+fn menu_id(world: &World) -> Entity {
+    world
+        .try_query_filtered::<Entity, With<crate::MenuInteraction<Action>>>()
+        .unwrap()
+        .single(world)
+        .expect("one fixture menu")
+}
+
 fn tab_set() -> Vec<BevyUiMenuTabSpec<Page>> {
     vec![
         BevyUiMenuTabSpec::new(Page::Inventory, "Inventory"),
@@ -76,6 +84,8 @@ fn sample_page() -> (MenuPageModel<Page, Action>, MenuFocusKey) {
 
 fn build_app() -> App {
     let mut app = App::new();
+    app.world_mut()
+        .spawn(crate::MenuInteraction::<Action>::default());
     app.add_plugins(MinimalPlugins);
     app
 }
@@ -86,6 +96,7 @@ fn spawn_view(app: &mut App, active_tab: usize, focused: Option<MenuFocusKey>) {
     let tabs = tab_set();
     app.world_mut().commands().queue(move |world: &mut World| {
         let view = BevyUiMenuView {
+            menu: menu_id(world),
             tabs: &tabs,
             active_tab,
             page: &page,
@@ -136,6 +147,7 @@ fn focused_tab_is_flagged_on_the_tab_button() {
     let tabs = tab_set();
     app.world_mut().commands().queue(move |world: &mut World| {
         let view = BevyUiMenuView {
+            menu: menu_id(world),
             tabs: &tabs,
             active_tab: 0,
             page: &page,
@@ -223,6 +235,7 @@ fn a_row_activates_when_the_pointer_comes_up_on_it_not_when_it_goes_down() {
     assert_eq!(
         drain_activations(&mut app),
         vec![crate::MenuActionActivated {
+            menu: menu_id(app.world()),
             action: Action::Equip,
         }],
         "coming up on the row is",
@@ -295,6 +308,7 @@ fn an_arm_survives_the_page_respawning_under_the_finger() {
     assert_eq!(
         drain_activations(&mut app),
         vec![crate::MenuActionActivated {
+            menu: menu_id(app.world()),
             action: Action::Equip,
         }],
         "the finger came up on the control it pressed, whatever entity now draws it",
@@ -361,7 +375,13 @@ fn a_tab_activates_on_the_way_up_like_every_other_control() {
         .entity_mut(entity)
         .insert(Interaction::Hovered);
     app.update();
-    assert_eq!(drain(&mut app), vec![crate::MenuTabActivated { index: 2 }]);
+    assert_eq!(
+        drain(&mut app),
+        vec![crate::MenuTabActivated {
+            menu: menu_id(app.world()),
+            index: 2
+        }]
+    );
 
     // A press that slides off the tab changes nothing.
     app.world_mut()
@@ -432,6 +452,7 @@ fn full_size_scrollbar_draws_no_thumb() {
     let tabs = tab_set();
     app.world_mut().commands().queue(move |world: &mut World| {
         let view = BevyUiMenuView {
+            menu: menu_id(world),
             tabs: &tabs,
             active_tab: 1,
             page: &page,
@@ -458,6 +479,8 @@ fn item_cell_with_icon_spawns_an_image_node() {
     // An owned item cell with an icon path renders an `ImageNode` when an
     // `AssetServer` is available, like the cube.
     let mut app = App::new();
+    app.world_mut()
+        .spawn(crate::MenuInteraction::<Action>::default());
     app.add_plugins(MinimalPlugins)
         .add_plugins(bevy::asset::AssetPlugin::default())
         .init_asset::<Image>();
@@ -477,6 +500,7 @@ fn item_cell_with_icon_spawns_an_image_node() {
     let tabs = tab_set();
     app.world_mut().commands().queue(move |world: &mut World| {
         let view = BevyUiMenuView {
+            menu: menu_id(world),
             tabs: &tabs,
             active_tab: 0,
             page: &page,
@@ -517,6 +541,7 @@ fn item_cell_without_assets_falls_back_to_label() {
     let tabs = tab_set();
     app.world_mut().commands().queue(move |world: &mut World| {
         let view = BevyUiMenuView {
+            menu: menu_id(world),
             tabs: &tabs,
             active_tab: 0,
             page: &page,
@@ -742,6 +767,7 @@ fn the_destructive_guard_reaches_a_pointer_menu_and_leaves_its_neighbours_alone(
     assert_eq!(
         tap(&mut app, setting),
         vec![crate::MenuActionActivated {
+            menu: menu_id(app.world()),
             action: Action::Setting
         }],
         "a reversible row still costs one tap; a guard everywhere is only a tax"
@@ -754,6 +780,7 @@ fn the_destructive_guard_reaches_a_pointer_menu_and_leaves_its_neighbours_alone(
     assert_eq!(
         tap(&mut app, equip),
         vec![crate::MenuActionActivated {
+            menu: menu_id(app.world()),
             action: Action::Equip
         }],
         "the second tap on the SAME row is the answer to the guard"
@@ -801,6 +828,7 @@ fn two_destructive_rows_with_the_same_action_arm_separately() {
     let tabs = tab_set();
     app.world_mut().commands().queue(move |world: &mut World| {
         let view = BevyUiMenuView {
+            menu: menu_id(world),
             tabs: &tabs,
             active_tab: 0,
             page: &page,
@@ -907,9 +935,11 @@ fn a_press_that_survives_a_tab_bar_republish_still_activates() {
     // The republish: this tab's node is despawned and rebuilt, so the release
     // lands on a different entity with the same index.
     app.world_mut().despawn(pressed);
+    let menu = menu_id(app.world());
     let fresh = app
         .world_mut()
         .spawn((
+            crate::MenuSurface(menu),
             Button,
             Interaction::None,
             BevyUiMenuTab {
@@ -971,6 +1001,7 @@ fn tab_app() -> App {
     let tabs = tab_set();
     app.world_mut().commands().queue(move |world: &mut World| {
         let view = BevyUiMenuView {
+            menu: menu_id(world),
             tabs: &tabs,
             active_tab: 1,
             page: &page,
@@ -1234,6 +1265,7 @@ fn hovering_a_selected_row_does_not_move_the_selection() {
     let tabs = tab_set();
     app.world_mut().commands().queue(move |world: &mut World| {
         let view = BevyUiMenuView {
+            menu: menu_id(world),
             tabs: &tabs,
             active_tab: 0,
             page: &page,
@@ -1308,6 +1340,7 @@ fn a_menu_reopened_under_a_resting_pointer_previews_its_row_again() {
     let tabs = tab_set();
     app.world_mut().commands().queue(move |world: &mut World| {
         let view = BevyUiMenuView {
+            menu: menu_id(world),
             tabs: &tabs,
             active_tab: 0,
             page: &page,
@@ -1319,9 +1352,7 @@ fn a_menu_reopened_under_a_resting_pointer_previews_its_row_again() {
         let row = world
             .query::<(Entity, &AmbitionMenuControl<Action>)>()
             .iter(world)
-            .find_map(|(entity, control)| {
-                (control.action == Some(Action::Equip)).then_some(entity)
-            })
+            .find_map(|(entity, control)| (control.action == Some(Action::Equip)).then_some(entity))
             .expect("sample page has an Equip row");
         world.entity_mut(row).insert(Interaction::Hovered);
     });
@@ -1329,6 +1360,7 @@ fn a_menu_reopened_under_a_resting_pointer_previews_its_row_again() {
     assert_eq!(
         drain_previews(&mut app),
         vec![crate::MenuActionPreviewed {
+            menu: menu_id(app.world()),
             action: Action::Equip,
         }],
         "the reopened menu's hovered row is a new hover",
@@ -1356,7 +1388,14 @@ fn greyed_out_cell_app(focus: Option<usize>) -> (App, Entity) {
     install_bevy_ui_menu_tabs(&mut app);
     let tabs = tab_set();
     app.world_mut().commands().queue(move |world: &mut World| {
-        let view = BevyUiMenuView { tabs: &tabs, active_tab: 0, page: &page, focused, focused_tab: None };
+        let view = BevyUiMenuView {
+            menu: menu_id(world),
+            tabs: &tabs,
+            active_tab: 0,
+            page: &page,
+            focused,
+            focused_tab: None,
+        };
         let mut commands = world.commands();
         spawn_bevy_ui_menu(&mut commands, &view);
     });
@@ -1393,4 +1432,100 @@ fn a_greyed_out_cell_draws_the_cursor_when_it_has_it() {
     app.world_mut().get_mut::<MenuVisualState>(locked).unwrap().focused = true;
     app.update();
     assert_eq!(background(&app, locked), focus, "the cursor came back: the highlight is drawn");
+}
+
+#[test]
+fn equal_row_keys_in_two_menus_keep_independent_press_arms() {
+    let mut app = build_app();
+    install_bevy_ui_menu_actions::<Action>(&mut app);
+    let first = menu_id(app.world());
+    let second = app
+        .world_mut()
+        .spawn(crate::MenuInteraction::<Action>::default())
+        .id();
+    let rows = [first, second].map(|menu| {
+        app.world_mut()
+            .spawn((
+                Button,
+                Interaction::Pressed,
+                crate::MenuSurface(menu),
+                AmbitionMenuControl {
+                    kind: MenuControlKind::Action,
+                    action: Some(Action::Equip),
+                    focus: MenuFocusKey::default(),
+                },
+            ))
+            .id()
+    });
+    app.update();
+    assert!(app
+        .world_mut()
+        .resource_mut::<Messages<crate::MenuActionActivated<Action>>>()
+        .drain()
+        .next()
+        .is_none());
+    for (index, row) in rows.into_iter().enumerate() {
+        *app.world_mut().get_mut::<Interaction>(row).unwrap() = Interaction::Hovered;
+        app.update();
+        let emitted: Vec<_> = app
+            .world_mut()
+            .resource_mut::<Messages<crate::MenuActionActivated<Action>>>()
+            .drain()
+            .collect();
+        assert_eq!(
+            emitted,
+            vec![crate::MenuActionActivated {
+                menu: [first, second][index],
+                action: Action::Equip
+            }]
+        );
+    }
+}
+
+#[test]
+fn a_destructive_confirmation_in_one_menu_cannot_confirm_another_menu() {
+    let mut app = build_app();
+    install_bevy_ui_menu_actions::<Action>(&mut app);
+    app.insert_resource(crate::MenuDestructiveActions::<Action>::new(|_| true));
+    let first = menu_id(app.world());
+    let second = app
+        .world_mut()
+        .spawn(crate::MenuInteraction::<Action>::default())
+        .id();
+    let rows = [first, second].map(|menu| {
+        app.world_mut()
+            .spawn((
+                Button,
+                Interaction::None,
+                crate::MenuSurface(menu),
+                AmbitionMenuControl {
+                    kind: MenuControlKind::Action,
+                    action: Some(Action::Equip),
+                    focus: MenuFocusKey::default(),
+                },
+            ))
+            .id()
+    });
+    for (index, should_confirm) in [(0, false), (1, false), (0, true), (1, true)] {
+        *app.world_mut().get_mut::<Interaction>(rows[index]).unwrap() = Interaction::Pressed;
+        app.update();
+        *app.world_mut().get_mut::<Interaction>(rows[index]).unwrap() = Interaction::Hovered;
+        app.update();
+        let emitted: Vec<_> = app
+            .world_mut()
+            .resource_mut::<Messages<crate::MenuActionActivated<Action>>>()
+            .drain()
+            .collect();
+        let expected = if should_confirm {
+            vec![crate::MenuActionActivated {
+                menu: [first, second][index],
+                action: Action::Equip,
+            }]
+        } else {
+            vec![]
+        };
+        assert_eq!(emitted, expected);
+        *app.world_mut().get_mut::<Interaction>(rows[index]).unwrap() = Interaction::None;
+        app.update();
+    }
 }

@@ -98,6 +98,8 @@ impl<PageId> BevyUiMenuTabSpec<PageId> {
 /// control key. The renderer is a pure function of this view; it only spawns
 /// the entity tree.
 pub struct BevyUiMenuView<'a, PageId, Action> {
+    /// The stable menu entity that owns this view.
+    pub menu: Entity,
     /// The ordered tab set (page id + label), drawn left→right in the tab bar.
     pub tabs: &'a [BevyUiMenuTabSpec<PageId>],
     /// Index into `tabs` of the active tab (clamped on use).
@@ -313,6 +315,7 @@ where
             // On top of the gameplay HUD so the menu's buttons get the pointer.
             GlobalZIndex(1000),
             BevyUiMenuRoot,
+            crate::MenuSurface(view.menu),
             AmbitionMenuRoot,
             Name::new("bevy_ui menu root"),
         ))
@@ -378,6 +381,7 @@ where
                             },
                             BackgroundColor(bg),
                             BorderColor::all(border_color),
+                            crate::MenuSurface(view.menu),
                             BevyUiMenuTab {
                                 index: i,
                                 active,
@@ -421,7 +425,7 @@ where
                 ))
                 .with_children(|body| {
                     for node in &view.page.nodes {
-                        spawn_node(body, node, view.focused, assets, font);
+                        spawn_node(body, view.menu, node, view.focused, assets, font);
                     }
                 });
         });
@@ -470,97 +474,65 @@ fn bevy_ui_scrollbar_fraction(
 /// pressed position. Mirrors the cube's `scrollbar_press`.
 fn bevy_ui_scrollbar_press(
     press: On<Pointer<Press>>,
-    bars: Query<&BevyUiMenuScrollbar>,
-    mut drag: ResMut<crate::ScrollbarDragState>,
+    bars: Query<&crate::MenuSurface, With<BevyUiMenuScrollbar>>,
+    mut states: Query<&mut crate::ScrollbarDragState>,
     mut out: MessageWriter<crate::MenuScrollDragged>,
 ) {
-    if bars.get(press.entity).is_ok() {
-        // Geometry comes from the last good rect kept by
-        // `bevy_ui_maintain_track_rect`: a respawned node's `ComputedNode` is
-        // zero on the press frame.
-        drag.pressed_by = Some(press.pointer_id);
-        if let Some(fraction) = crate::scrollbar_fraction_from_rect(
-            drag.track_top_y,
-            drag.track_height,
-            press.pointer_location.position.y,
-        ) {
-            out.write(crate::MenuScrollDragged { fraction });
-        }
+    let Ok(surface) = bars.get(press.entity) else {
+        return;
+    };
+    let Ok(mut drag) = states.get_mut(surface.0) else {
+        return;
+    };
+    drag.pressed_by = Some(press.pointer_id);
+    if let Some(fraction) = crate::scrollbar_fraction_from_rect(
+        drag.track_top_y,
+        drag.track_height,
+        press.pointer_location.position.y,
+    ) {
+        out.write(crate::MenuScrollDragged {
+            menu: surface.0,
+            fraction,
+        });
     }
 }
 
-/// Keep the [`ScrollbarDragState`](crate::ScrollbarDragState) track rect at
-/// the grid scrollbar's last good screen rect. Never overwrite it with the
-/// zero a node reports on the frame it respawns.
+/// Keep each menu's last valid track geometry across widget rebuilds.
 fn bevy_ui_maintain_track_rect(
-    bars: Query<(&ComputedNode, &UiGlobalTransform), With<BevyUiMenuScrollbar>>,
-    mut drag: ResMut<crate::ScrollbarDragState>,
+    bars: Query<
+        (&ComputedNode, &UiGlobalTransform, &crate::MenuSurface),
+        With<BevyUiMenuScrollbar>,
+    >,
+    mut states: Query<&mut crate::ScrollbarDragState>,
 ) {
-    for (computed, transform) in &bars {
+    for (computed, transform, surface) in &bars {
         let (top_y, height) = bevy_ui_track_rect(computed, transform);
         if height > f32::EPSILON {
-            drag.track_top_y = top_y;
-            drag.track_height = height;
+            if let Ok(mut drag) = states.get_mut(surface.0) {
+                drag.track_top_y = top_y;
+                drag.track_height = height;
+            }
         }
     }
 }
 
-/// While dragging on the scrollbar, emit the fraction for the pointer's
-/// position. `bevy_ui` picking drives `Pointer<Drag>` reliably, so this is
-/// the primary path; the press-drag tracker is a backup.
 fn bevy_ui_scrollbar_drag(
     drag: On<Pointer<Drag>>,
-    bars: Query<(&BevyUiMenuScrollbar, &ComputedNode, &UiGlobalTransform)>,
+    bars: Query<
+        (&ComputedNode, &UiGlobalTransform, &crate::MenuSurface),
+        With<BevyUiMenuScrollbar>,
+    >,
     mut out: MessageWriter<crate::MenuScrollDragged>,
 ) {
-    if let Ok((_, computed, transform)) = bars.get(drag.entity) {
+    if let Ok((computed, transform, surface)) = bars.get(drag.entity) {
         if let Some(fraction) =
             bevy_ui_scrollbar_fraction(computed, transform, drag.pointer_location.position.y)
         {
-            out.write(crate::MenuScrollDragged { fraction });
+            out.write(crate::MenuScrollDragged {
+                menu: surface.0,
+                fraction,
+            });
         }
-    }
-}
-
-/// Releasing the pointer ends the drag on every track it held (a release can
-/// land off the thumb). Mirrors the cube's `scrollbar_release`.
-fn bevy_ui_scrollbar_release(
-    release: On<Pointer<Release>>,
-    mut drag: ResMut<crate::ScrollbarDragState>,
-) {
-    if drag.pressed_by == Some(release.pointer_id) {
-        drag.pressed_by = None;
-    }
-}
-
-/// While a pointer is held on a scrollbar
-/// ([`ScrollbarDragState`](crate::ScrollbarDragState)), emit the fraction for
-/// its live position each frame. The track is found by component, so the drag
-/// survives the republish that respawns it.
-fn bevy_ui_scrollbar_press_drag(
-    pointers: Query<(
-        &bevy::picking::pointer::PointerId,
-        &bevy::picking::pointer::PointerLocation,
-    )>,
-    drag: Res<crate::ScrollbarDragState>,
-    mut out: MessageWriter<crate::MenuScrollDragged>,
-) {
-    let Some(held) = drag.pressed_by else {
-        return;
-    };
-    let Some(loc) = pointers
-        .iter()
-        .find(|(id, _)| **id == held)
-        .and_then(|(_, loc)| loc.location())
-    else {
-        return;
-    };
-    // Use the cached track rect: it stays valid across the respawn that zeroes
-    // the new node's layout.
-    if let Some(fraction) =
-        scrollbar_fraction_from_rect(drag.track_top_y, drag.track_height, loc.position.y)
-    {
-        out.write(crate::MenuScrollDragged { fraction });
     }
 }
 
@@ -572,23 +544,20 @@ fn bevy_ui_scrollbar_press_drag(
 /// because the new node stays `Interaction::None` until the next `PreUpdate`
 /// focus pass.
 fn publish_bevy_ui_menu_actions<Action>(
-    rows: Query<(Entity, &Interaction, &AmbitionMenuControl<Action>), With<Button>>,
+    rows: Query<
+        (
+            Entity,
+            &Interaction,
+            &AmbitionMenuControl<Action>,
+            &crate::MenuSurface,
+        ),
+        With<Button>,
+    >,
+    mut menus: Query<(Entity, &mut crate::MenuInteraction<Action>)>,
     pointers: Query<&bevy::picking::pointer::PointerLocation>,
     mut activated: MessageWriter<crate::MenuActionActivated<Action>>,
-    // Keyed by the control (`MenuFocusKey`), not by its action. Two rows can
-    // do the same thing; keyed by action, tapping destructive row A then row
-    // B would fire B on its first tap. `MenuFocusKey` is stable across the
-    // republishes that move entities.
-    mut arm: Local<ambition_ui_nav::PressArm<MenuFocusKey>>,
-    // The action and entity behind the armed key. The action is a payload
-    // emitted on activation.
-    mut armed: Local<Option<(Action, Entity)>>,
     risk: Option<Res<crate::MenuDestructiveActions<Action>>>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
-    // A second arm with a different question: `arm` asks whether a finger is
-    // still down; this asks whether a destructive row was already tapped once.
-    // It must outlive the gesture so the user can answer the confirm.
-    mut confirm_armed: Local<Option<MenuFocusKey>>,
 ) where
     Action: Clone + Send + Sync + 'static,
 {
@@ -604,77 +573,88 @@ fn publish_bevy_ui_menu_actions<Action>(
             .map(|l| l.position)
     };
 
-    let mut pressed: Option<(MenuFocusKey, Action, Entity)> = None;
-    let mut armed_now: Option<(Entity, Interaction)> = None;
-    for (entity, interaction, control) in &rows {
-        let Some(action) = control.action.clone() else {
-            continue;
-        };
-        if arm.armed() == Some(&control.focus) {
-            armed_now = Some((entity, *interaction));
-        }
-        if *interaction == Interaction::Pressed && pressed.is_none() {
-            pressed = Some((control.focus, action, entity));
-        }
-    }
-
-    match pressed {
-        // Held. A press on a different control replaces the arm; the later
-        // finger is the live one.
-        Some((focus, action, entity)) => {
-            if arm.armed() == Some(&focus) {
-                arm.moved(locate());
-                // Re-anchor: a rebuild while held moves the control, and the
-                // leave test compares against its current place.
-                *armed = Some((action, entity));
-            } else {
-                // Pressing a different row cancels a pending confirm. Compared
-                // by control, so a row with the same action is still a
-                // different row.
-                if confirm_armed.as_ref() != Some(&focus) {
-                    *confirm_armed = None;
-                }
-                arm.press(focus, locate());
-                *armed = Some((action, entity));
+    for (menu, mut state) in &mut menus {
+        let crate::MenuInteraction {
+            arm,
+            armed,
+            confirm_armed,
+            ..
+        } = &mut *state;
+        let mut pressed: Option<(MenuFocusKey, Action, Entity)> = None;
+        let mut armed_now: Option<(Entity, Interaction)> = None;
+        for (entity, interaction, control, surface) in &rows {
+            if surface.0 != menu {
+                continue;
+            }
+            let Some(action) = control.action.clone() else {
+                continue;
+            };
+            if arm.armed() == Some(&control.focus) {
+                armed_now = Some((entity, *interaction));
+            }
+            if *interaction == Interaction::Pressed && pressed.is_none() {
+                pressed = Some((control.focus, action, entity));
             }
         }
-        None if arm.is_armed() => {
-            let pressed_at = armed.as_ref().map(|(_, entity)| *entity);
-            match armed_now {
-                // Came up ON the armed control.
-                Some((_, Interaction::Hovered)) => {
-                    let released = arm.release_anywhere();
-                    if let (Some(focus), Some((action, _))) = (released, armed.take()) {
-                        // Whether a release activates is the tap policy in
-                        // `ambition_input`. This bridge supplies only which row
-                        // was released on and whether it is destructive.
-                        let destructive = risk
-                            .as_deref()
-                            .is_some_and(|risk| (risk.is_destructive)(&action));
-                        let tap_mode = settings
-                            .as_deref()
-                            .map(|settings| settings.controls.menu_tap_mode)
-                            .unwrap_or_default();
-                        // A release is the selection here, so the guard only
-                        // asks whether this row was already armed.
-                        let press =
-                            tap_mode.resolve_press(focus, &focus, destructive, &mut confirm_armed);
-                        if press == ambition_input::settings::MenuPointerPress::Confirm {
-                            activated.write(crate::MenuActionActivated { action });
+
+        match pressed {
+            // Held. A press on a different control replaces the arm; the later
+            // finger is the live one.
+            Some((focus, action, entity)) => {
+                if arm.armed() == Some(&focus) {
+                    arm.moved(locate());
+                    // Re-anchor: a rebuild while held moves the control, and the
+                    // leave test compares against its current place.
+                    *armed = Some((action, entity));
+                } else {
+                    // Pressing a different row cancels a pending confirm. Compared
+                    // by control, so a row with the same action is still a
+                    // different row.
+                    if confirm_armed.as_ref() != Some(&focus) {
+                        *confirm_armed = None;
+                    }
+                    arm.press(focus, locate());
+                    *armed = Some((action, entity));
+                }
+            }
+            None if arm.is_armed() => {
+                let pressed_at = armed.as_ref().map(|(_, entity)| *entity);
+                match armed_now {
+                    // Came up ON the armed control.
+                    Some((_, Interaction::Hovered)) => {
+                        let released = arm.release_anywhere();
+                        if let (Some(focus), Some((action, _))) = (released, armed.take()) {
+                            // Whether a release activates is the tap policy in
+                            // `ambition_input`. This bridge supplies only which row
+                            // was released on and whether it is destructive.
+                            let destructive = risk
+                                .as_deref()
+                                .is_some_and(|risk| (risk.is_destructive)(&action));
+                            let tap_mode = settings
+                                .as_deref()
+                                .map(|settings| settings.controls.menu_tap_mode)
+                                .unwrap_or_default();
+                            // A release is the selection here, so the guard only
+                            // asks whether this row was already armed.
+                            let press =
+                                tap_mode.resolve_press(focus, &focus, destructive, confirm_armed);
+                            if press == ambition_input::settings::MenuPointerPress::Confirm {
+                                activated.write(crate::MenuActionActivated { menu, action });
+                            }
                         }
                     }
+                    // Same entity, no longer under the pointer: it was left.
+                    Some((entity, Interaction::None)) if Some(entity) == pressed_at => {
+                        arm.clear();
+                        *armed = None;
+                    }
+                    // Absent, or at a new entity: mid-rebuild. Hold the arm; the
+                    // release finds the control again.
+                    _ => {}
                 }
-                // Same entity, no longer under the pointer: it was left.
-                Some((entity, Interaction::None)) if Some(entity) == pressed_at => {
-                    arm.clear();
-                    *armed = None;
-                }
-                // Absent, or at a new entity: mid-rebuild. Hold the arm; the
-                // release finds the control again.
-                _ => {}
             }
+            None => {}
         }
-        None => {}
     }
 }
 
@@ -682,26 +662,38 @@ fn publish_bevy_ui_menu_actions<Action>(
 /// row is emitted; overlapping pickable rows are treated as a layout error rather
 /// than exposing query order to the host.
 fn publish_bevy_ui_menu_previews<Action>(
-    rows: Query<(&Interaction, &AmbitionMenuControl<Action>), With<Button>>,
+    rows: Query<
+        (
+            &Interaction,
+            &AmbitionMenuControl<Action>,
+            &crate::MenuSurface,
+        ),
+        With<Button>,
+    >,
+    mut menus: Query<(Entity, &mut crate::MenuInteraction<Action>)>,
     mut previewed: MessageWriter<crate::MenuActionPreviewed<Action>>,
-    mut last: Local<Option<Action>>,
 ) where
     Action: Clone + PartialEq + Send + Sync + 'static,
 {
-    let hovered = rows
-        .iter()
-        .find(|(interaction, _)| **interaction == Interaction::Hovered)
-        .and_then(|(_, control)| control.action.clone());
+    for (menu, mut state) in &mut menus {
+        let last = &mut state.preview;
+        let hovered = rows
+            .iter()
+            .find(|(interaction, _, surface)| {
+                surface.0 == menu && **interaction == Interaction::Hovered
+            })
+            .and_then(|(_, control, _)| control.action.clone());
 
-    // Edge-triggered: a pointer resting on a row stays `Hovered`, and a
-    // message per frame would force the host to debounce. Compared by action
-    // value, not its `Debug` text.
-    if hovered == *last {
-        return;
-    }
-    *last = hovered.clone();
-    if let Some(action) = hovered {
-        previewed.write(crate::MenuActionPreviewed { action });
+        // Edge-triggered: a pointer resting on a row stays `Hovered`, and a
+        // message per frame would force the host to debounce. Compared by action
+        // value, not its `Debug` text.
+        if hovered == *last {
+            continue;
+        }
+        *last = hovered.clone();
+        if let Some(action) = hovered {
+            previewed.write(crate::MenuActionPreviewed { menu, action });
+        }
     }
 }
 
@@ -714,54 +706,59 @@ fn publish_bevy_ui_menu_previews<Action>(
 /// Keyed by row index ([`ambition_ui_nav::RowPress`]), because a tab's
 /// `index` is stable across the republishes that move its entities.
 fn publish_bevy_ui_menu_tabs(
-    tabs: Query<(Entity, &Interaction, &BevyUiMenuTab), With<Button>>,
+    tabs: Query<(Entity, &Interaction, &BevyUiMenuTab, &crate::MenuSurface), With<Button>>,
+    mut menus: Query<(Entity, &mut crate::MenuTabInteraction)>,
     pointers: Query<&bevy::picking::pointer::PointerLocation>,
     mut activated: MessageWriter<crate::MenuTabActivated>,
-    mut arm: Local<ambition_ui_nav::RowPress>,
-    mut armed_entity: Local<Option<Entity>>,
 ) {
     let at = pointers
         .iter()
         .find_map(|p| p.location())
         .map(|l| l.position);
 
-    let mut pressed: Option<(usize, Entity)> = None;
-    let mut armed_now: Option<(Entity, Interaction)> = None;
-    for (entity, interaction, tab) in &tabs {
-        if arm.armed() == Some(&tab.index) {
-            armed_now = Some((entity, *interaction));
+    for (menu, mut state) in &mut menus {
+        let crate::MenuTabInteraction { arm, armed_entity } = &mut *state;
+        let mut pressed: Option<(usize, Entity)> = None;
+        let mut armed_now: Option<(Entity, Interaction)> = None;
+        for (entity, interaction, tab, surface) in &tabs {
+            if surface.0 != menu {
+                continue;
+            }
+            if arm.armed() == Some(&tab.index) {
+                armed_now = Some((entity, *interaction));
+            }
+            if *interaction == Interaction::Pressed && pressed.is_none() {
+                pressed = Some((tab.index, entity));
+            }
         }
-        if *interaction == Interaction::Pressed && pressed.is_none() {
-            pressed = Some((tab.index, entity));
-        }
-    }
 
-    match pressed {
-        Some((index, entity)) => {
-            if arm.armed() == Some(&index) {
-                arm.moved(at);
-                *armed_entity = Some(entity);
-            } else {
-                arm.press(index, at);
-                *armed_entity = Some(entity);
-            }
-        }
-        None if arm.is_armed() => match armed_now {
-            Some((_, Interaction::Hovered)) => {
-                if let Some(index) = arm.release_anywhere() {
-                    activated.write(crate::MenuTabActivated { index });
+        match pressed {
+            Some((index, entity)) => {
+                if arm.armed() == Some(&index) {
+                    arm.moved(at);
+                    *armed_entity = Some(entity);
+                } else {
+                    arm.press(index, at);
+                    *armed_entity = Some(entity);
                 }
-                *armed_entity = None;
             }
-            // A different entity (or none) means the tab bar is mid-republish;
-            // new nodes read `None` until the next focus pass.
-            Some((entity, Interaction::None)) if Some(entity) == *armed_entity => {
-                arm.clear();
-                *armed_entity = None;
-            }
-            _ => {}
-        },
-        None => {}
+            None if arm.is_armed() => match armed_now {
+                Some((_, Interaction::Hovered)) => {
+                    if let Some(index) = arm.release_anywhere() {
+                        activated.write(crate::MenuTabActivated { menu, index });
+                    }
+                    *armed_entity = None;
+                }
+                // A different entity (or none) means the tab bar is mid-republish;
+                // new nodes read `None` until the next focus pass.
+                Some((entity, Interaction::None)) if Some(entity) == *armed_entity => {
+                    arm.clear();
+                    *armed_entity = None;
+                }
+                _ => {}
+            },
+            None => {}
+        }
     }
 }
 
@@ -804,6 +801,7 @@ where
                 publish_bevy_ui_menu_actions::<Action>,
                 publish_bevy_ui_menu_previews::<Action>,
             )
+                .chain()
                 .in_set(BevyUiMenuInteractionSet),
         );
 }
@@ -973,18 +971,16 @@ struct BevyUiMenuTabsInstalled;
 /// applies the emitted fraction to its scroll window (like the cube's
 /// `kaleidoscope_apply_scroll_drag`).
 pub fn install_bevy_ui_menu_scroll(app: &mut App) {
-    app.add_message::<crate::MenuScrollDragged>();
-    app.init_resource::<crate::ScrollbarDragState>();
+    crate::install_menu_scroll_interactions(app);
     app.add_observer(bevy_ui_scrollbar_press);
     app.add_observer(bevy_ui_scrollbar_drag);
-    app.add_observer(bevy_ui_scrollbar_release);
     // Maintain the last good rect before the tracker reads it each frame.
     // A scrollbar is a menu control: with no control there is no track to
     // keep and no drag of this backend's to follow.
     app.add_systems(
         Update,
-        (bevy_ui_maintain_track_rect, bevy_ui_scrollbar_press_drag)
-            .chain()
+        bevy_ui_maintain_track_rect
+            .in_set(crate::MenuScrollGeometry::Layout)
             .run_if(a_flat_menu_is_up_or_was()),
     );
 }

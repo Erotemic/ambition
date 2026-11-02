@@ -83,6 +83,10 @@ enum BasicLauncherPage {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct BasicLauncherAction(usize);
 
+#[derive(Component)]
+#[require(ambition_menu::MenuInteraction<BasicLauncherAction>)]
+struct BasicLauncherMenu;
+
 /// The full-screen tap surface of a startup card. It acknowledges or skips the
 /// card, the same command as keyboard or controller confirm.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -93,6 +97,7 @@ pub struct BasicShellPresentationPlugin;
 
 impl Plugin for BasicShellPresentationPlugin {
     fn build(&self, app: &mut App) {
+        app.world_mut().spawn(BasicLauncherMenu);
         install_bevy_ui_menu_actions::<BasicLauncherAction>(app);
         // Installs `publish_bevy_ui_menu_tabs`, which turns a tab press into
         // `MenuTabActivated`. Without it, pointer presses on the tab strip do
@@ -199,6 +204,7 @@ fn publish_shell_ui_cues(
 /// renderer draws it from `Interaction`, and it does not move the
 /// keyboard/controller cursor (`ShellLauncherState::selected`).
 fn basic_shell_pointer(
+    menu: Single<Entity, With<BasicLauncherMenu>>,
     launcher: Res<ShellLauncherState>,
     mut activated: MessageReader<MenuActionActivated<BasicLauncherAction>>,
     mut tab_activated: MessageReader<ambition_menu::MenuTabActivated>,
@@ -206,7 +212,7 @@ fn basic_shell_pointer(
     mut sfx: SfxWriter,
 ) {
     for activation in activated.read() {
-        if !launcher.active {
+        if !launcher.active || activation.menu != *menu {
             continue;
         }
         launcher_commands.write(ShellLauncherCommand::Activate(activation.action.0));
@@ -220,7 +226,7 @@ fn basic_shell_pointer(
     // `MenuTabActivated`; this is its reader on the title screen. Keyboard tests
     // do not cover this path; `clicking_the_settings_tab_reaches_it` does.
     for tab in tab_activated.read() {
-        if !launcher.active {
+        if !launcher.active || tab.menu != *menu {
             continue;
         }
         launcher_commands.write(ShellLauncherCommand::SelectTab(tab.index));
@@ -353,11 +359,12 @@ fn basic_shell_card_tap(
     launcher: Res<ShellLauncherState>,
     sequence: Res<ActiveShellSequence>,
     mut activated: MessageReader<MenuActionActivated<ShellCardAction>>,
+    cards: Query<(), With<BasicSequenceRoot>>,
     mut sequence_commands: MessageWriter<ShellSequenceCommand>,
     mut sfx: SfxWriter,
 ) {
-    for _tap in activated.read() {
-        if launcher.active {
+    for tap in activated.read() {
+        if launcher.active || !cards.contains(tap.menu) {
             continue;
         }
         advance_active_sequence(&sequence, &mut sequence_commands, &mut sfx);
@@ -367,6 +374,7 @@ fn basic_shell_card_tap(
 /// Rebuild the launcher or startup card when [`shell_frame_key`] changes.
 fn render_basic_shell(
     mut commands: Commands,
+    menu: Single<Entity, With<BasicLauncherMenu>>,
     launcher: Res<ShellLauncherState>,
     registry: Res<ShellExperienceRegistry>,
     launcher_presentation: Res<ShellLauncherPresentation>,
@@ -414,6 +422,7 @@ fn render_basic_shell(
     if launcher.active {
         spawn_launcher_menu(
             &mut commands,
+            *menu,
             &launcher,
             &catalog,
             &launcher_presentation,
@@ -435,8 +444,12 @@ fn render_basic_shell(
         .as_deref()
         .and_then(|font| font.0.clone())
         .unwrap_or_default();
+    let card = commands.spawn_empty().id();
     commands
-        .spawn((
+        .entity(card)
+        .insert((
+            ambition_menu::MenuInteraction::<ShellCardAction>::default(),
+            ambition_menu::MenuSurface(card),
             BasicSequenceRoot,
             FrontendOwnedEntity::shell(activation_id, FrontendPresentationKind::StartupRoot),
             Node {
@@ -535,6 +548,7 @@ fn render_basic_shell(
 
 fn spawn_launcher_menu(
     commands: &mut Commands,
+    menu: Entity,
     launcher: &ShellLauncherState,
     catalog: &[ShellLaunchEntry],
     presentation: &ShellLauncherPresentation,
@@ -718,6 +732,7 @@ fn spawn_launcher_menu(
         BevyUiMenuTabSpec::new(BasicLauncherPage::Settings, LauncherTab::Settings.label()),
     ];
     let view = BevyUiMenuView::<BasicLauncherPage, BasicLauncherAction> {
+        menu,
         tabs: &tabs,
         active_tab: match launcher.tab {
             LauncherTab::Home => 0,
@@ -1234,6 +1249,11 @@ mod semantic_input_tests {
                 },
             ))
             .id();
+        app.world_mut().entity_mut(card).insert((
+            BasicSequenceRoot,
+            ambition_menu::MenuSurface(card),
+            ambition_menu::MenuInteraction::<ShellCardAction>::default(),
+        ));
         app.update();
         assert!(
             drained_sequence(&mut app).is_empty(),
@@ -1322,6 +1342,7 @@ mod pointer_hover_tests {
             .resource_mut::<ambition_sfx::SfxEmissionContext>()
             .set(ambition_sfx::AudioContextOwner::Frontend(9), "shell.test");
         app.init_resource::<ShellLauncherState>();
+        app.world_mut().spawn(BasicLauncherMenu);
         app.add_systems(Update, basic_shell_pointer);
         app.world_mut().resource_mut::<ShellLauncherState>().active = active;
         app
@@ -1351,9 +1372,7 @@ mod pointer_hover_tests {
         let mut app = app_with_pointer(true);
         // What `publish_bevy_ui_menu_tabs` writes when a tab is pressed and
         // released on itself. Index 1 is Settings (`LauncherTab::ALL`).
-        app.world_mut()
-            .resource_mut::<bevy::ecs::message::Messages<ambition_menu::MenuTabActivated>>()
-            .write(ambition_menu::MenuTabActivated { index: 1 });
+        crate::basic_presentation::emit_tab(&mut app, 1);
         app.update();
         let commands = drained(&mut app);
         assert!(
@@ -1371,9 +1390,7 @@ mod pointer_hover_tests {
     #[test]
     fn clicking_the_tab_you_are_on_does_not_move_the_strip() {
         let mut app = app_with_pointer(true);
-        app.world_mut()
-            .resource_mut::<bevy::ecs::message::Messages<ambition_menu::MenuTabActivated>>()
-            .write(ambition_menu::MenuTabActivated { index: 0 });
+        crate::basic_presentation::emit_tab(&mut app, 0);
         app.update();
         let commands = drained(&mut app);
         assert!(
@@ -1406,9 +1423,7 @@ mod pointer_hover_tests {
         app.world_mut()
             .resource_mut::<ShellLauncherState>()
             .selected = 0;
-        app.world_mut().write_message(MenuActionPreviewed {
-            action: BasicLauncherAction(2),
-        });
+        crate::basic_presentation::emit_preview(&mut app, BasicLauncherAction(2));
         app.update();
         let commands = drained(&mut app);
         assert!(
@@ -1434,9 +1449,7 @@ mod pointer_hover_tests {
     #[test]
     fn pressing_a_launcher_row_still_activates_it() {
         let mut app = app_with_pointer(true);
-        app.world_mut().write_message(MenuActionActivated {
-            action: BasicLauncherAction(1),
-        });
+        crate::basic_presentation::emit_action(&mut app, BasicLauncherAction(1));
         app.update();
         assert_eq!(drained(&mut app), vec![ShellLauncherCommand::Activate(1)]);
     }
@@ -1464,6 +1477,7 @@ mod pointer_hover_tests {
             launcher.active = true;
             launcher.selected = 0;
         }
+        app.world_mut().spawn(BasicLauncherMenu);
         app.add_systems(Update, basic_shell_pointer.after(BevyUiMenuInteractionSet));
 
         let mut page = MenuPageModel::new(0u8, "Games", MenuColor::BLUE_PANEL);
@@ -1481,6 +1495,7 @@ mod pointer_hover_tests {
         let tabs = vec![BevyUiMenuTabSpec::new(0u8, "Games")];
         app.world_mut().commands().queue(move |world: &mut World| {
             let view = BevyUiMenuView {
+                menu: crate::basic_presentation::launcher_menu_id(world),
                 tabs: &tabs,
                 active_tab: 0,
                 page: &page,
@@ -1553,12 +1568,8 @@ mod pointer_hover_tests {
     #[test]
     fn a_hover_while_the_launcher_is_inactive_is_ignored() {
         let mut app = app_with_pointer(false);
-        app.world_mut().write_message(MenuActionPreviewed {
-            action: BasicLauncherAction(2),
-        });
-        app.world_mut().write_message(MenuActionActivated {
-            action: BasicLauncherAction(2),
-        });
+        crate::basic_presentation::emit_preview(&mut app, BasicLauncherAction(2));
+        crate::basic_presentation::emit_action(&mut app, BasicLauncherAction(2));
         app.update();
         assert!(drained(&mut app).is_empty());
     }
@@ -1704,4 +1715,34 @@ mod cursor_moves_without_a_rebuild_tests {
             "and left row 0"
         );
     }
+}
+
+#[cfg(test)]
+fn launcher_menu_id(world: &World) -> Entity {
+    world
+        .try_query_filtered::<Entity, With<BasicLauncherMenu>>()
+        .unwrap()
+        .single(world)
+        .expect("one fixture launcher")
+}
+
+#[cfg(test)]
+fn emit_tab(app: &mut App, index: usize) {
+    let menu = launcher_menu_id(app.world());
+    app.world_mut()
+        .write_message(ambition_menu::MenuTabActivated { menu, index });
+}
+
+#[cfg(test)]
+fn emit_action(app: &mut App, action: BasicLauncherAction) {
+    let menu = launcher_menu_id(app.world());
+    app.world_mut()
+        .write_message(MenuActionActivated { menu, action });
+}
+
+#[cfg(test)]
+fn emit_preview(app: &mut App, action: BasicLauncherAction) {
+    let menu = launcher_menu_id(app.world());
+    app.world_mut()
+        .write_message(ambition_menu::MenuActionPreviewed { menu, action });
 }

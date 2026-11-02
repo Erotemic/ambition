@@ -51,9 +51,11 @@ pub(crate) fn pointer_location() -> Location {
 }
 
 pub(crate) fn spawn_control(app: &mut App, action: MenuPageAction) -> Entity {
+    let menu = menu_id(app.world());
     app.world_mut()
         .spawn((
             Button,
+            ambition_platformer2d::menu::MenuSurface(menu),
             AmbitionMenuControl::<MenuPageAction> {
                 kind: MenuControlKind::OptionToggle,
                 action: Some(action),
@@ -147,4 +149,18 @@ pub(crate) fn active_pages(world: &World) -> &Pages {
 pub(crate) fn active_pages_mut(world: &mut World) -> Mut<'_, Pages> {
     let entity = world.query_filtered::<Entity, With<Pages>>().single(world).expect("one fixture menu");
     world.get_mut(entity).unwrap()
+}
+
+pub(crate) fn menu_id(world: &World) -> Entity {
+    world
+        .try_query_filtered::<Entity, With<ambition_platformer2d::inventory_ui::InventoryMenu>>()
+        .expect("fixture menu owner")
+        .single(world)
+        .expect("one fixture menu")
+}
+
+pub(crate) fn scroll_drag(app: &mut App, fraction: f32) {
+    let menu = menu_id(app.world());
+    app.world_mut()
+        .write_message(ambition_platformer2d::menu::MenuScrollDragged { menu, fraction });
 }

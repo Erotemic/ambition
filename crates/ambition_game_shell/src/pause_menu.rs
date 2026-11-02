@@ -49,6 +49,10 @@ enum PauseEntry {
     Close,
 }
 
+#[derive(Component)]
+#[require(ambition_menu::MenuInteraction<PauseEntry>)]
+struct ShellPauseMenuInstance;
+
 impl PauseEntry {
     /// Build rows from two independent facts. `Resume` needs a session.
     /// `Quit to Title` needs a route other than home: a frontend subroute such
@@ -215,6 +219,7 @@ pub struct ShellPauseMenuPlugin;
 
 impl Plugin for ShellPauseMenuPlugin {
     fn build(&self, app: &mut App) {
+        app.world_mut().spawn(ShellPauseMenuInstance);
         install_bevy_ui_menu_actions::<PauseEntry>(app);
         // The menu edits `UserSettings`, so it must supply them. Otherwise the
         // audio rows draw defaults but every adjust does nothing (as in the
@@ -424,6 +429,7 @@ fn drive_shell_pause_menu(
 /// function as keyboard or controller confirm.
 #[allow(clippy::too_many_arguments)]
 fn shell_pause_menu_pointer(
+    instance: Single<Entity, With<ShellPauseMenuInstance>>,
     context: PauseMenuContext,
     suppressed: Res<ShellPauseMenuSuppressed>,
     mut activated: MessageReader<MenuActionActivated<PauseEntry>>,
@@ -438,7 +444,7 @@ fn shell_pause_menu_pointer(
     let rows = context.rows();
     for activation in activated.read() {
         // Session-independent, like the keyboard path.
-        if suppressed.0 || !menu.open {
+        if suppressed.0 || !menu.open || activation.menu != *instance {
             continue;
         }
         menu.cursor = rows
@@ -513,6 +519,7 @@ fn activate_pause_entry(
 /// route facts, audio values).
 fn render_shell_pause_menu(
     mut commands: Commands,
+    instance: Single<Entity, With<ShellPauseMenuInstance>>,
     menu: Res<ShellPauseMenu>,
     context: PauseMenuContext,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
@@ -606,6 +613,7 @@ fn render_shell_pause_menu(
 
     let tabs = [BevyUiMenuTabSpec::new(PausePage::Root, "Paused")];
     let view = BevyUiMenuView::<PausePage, PauseEntry> {
+        menu: *instance,
         tabs: &tabs,
         active_tab: 0,
         page: &page,

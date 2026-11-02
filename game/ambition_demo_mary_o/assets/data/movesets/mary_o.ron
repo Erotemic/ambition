@@ -2254,6 +2254,15 @@
             ),
         ),
         (
+            id: "mary_o_tall_classic",
+            contracts: (
+                borrows: Some((
+                    archetype: "mary_o",
+                    prefixes: [],
+                )),
+            ),
+        ),
+        (
             id: "mary_o_fire",
             contracts: (
                 borrows: Some((

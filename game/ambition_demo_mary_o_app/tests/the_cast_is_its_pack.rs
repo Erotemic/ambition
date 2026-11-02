@@ -48,7 +48,7 @@ fn the_mary_o_cast_is_prepared_from_its_pack_as_the_rust_registration_built_it()
     assert_eq!(small.sheet.as_deref(), Some("mary_o_v2"));
     assert_eq!(tall.sheet.as_deref(), Some("mary_o_v2_tall_classic"));
     assert_eq!(fighter.sheet.as_deref(), Some("mary_o_v2_tall"));
-    // The home form keeps its walk and jump fallbacks. Other games use the fighter clips.
+    // The home form runs with walk art. Its fall row draws the jump pose.
     use ambition_platformer2d::sprite_sheet::character::{CharacterAnim, SheetTuning, try_load_spec_for_target};
     let spec = |form: &ambition_platformer2d::characters::prepared::PreparedCharacterDefinition| {
         try_load_spec_for_target(&sprite_content, form.sheet.as_deref().unwrap(), &SheetTuning::default())
@@ -57,7 +57,7 @@ fn the_mary_o_cast_is_prepared_from_its_pack_as_the_rust_registration_built_it()
     let classic = spec(tall);
     let expressive = spec(fighter);
     assert_eq!(classic.resolve_anim(CharacterAnim::Run), CharacterAnim::Walk);
-    assert_eq!(classic.resolve_anim(CharacterAnim::Fall), CharacterAnim::Jump);
+    assert_eq!(classic.resolve_anim(CharacterAnim::Fall), CharacterAnim::Fall);
     assert_eq!(expressive.resolve_anim(CharacterAnim::Run), CharacterAnim::Run);
     assert_eq!(expressive.resolve_anim(CharacterAnim::Fall), CharacterAnim::Fall);
     assert_eq!(fire.sheet.as_deref(), Some("mary_o_v2_fire"));

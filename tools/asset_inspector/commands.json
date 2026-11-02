@@ -1,0 +1,22 @@
+{
+  "commands": [
+    {
+      "id": "assets",
+      "title": "Inspect published assets and review notes",
+      "owner": "tools/asset_inspector",
+      "command": "python3 scripts/asset_inspector.py status --json",
+      "help": "python3 scripts/asset_inspector.py --help",
+      "requires": [
+        "scripts/asset_inspector.py",
+        "tools/asset_inspector/asset_index/build.py"
+      ],
+      "docs": "tools/asset_inspector/README.md",
+      "inputs": "Selected library, cached index, and publication evidence.",
+      "outputs": "JSON asset facts; build and serve produce offline previews.",
+      "mutation": "Status, inspect and list read data. Build writes cache. Notes commands write authored review data.",
+      "build": "No Cargo build. Use the owner Python environment.",
+      "status": "active",
+      "cwd": "repository root"
+    }
+  ]
+}

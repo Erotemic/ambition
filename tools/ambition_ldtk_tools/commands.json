@@ -1,0 +1,21 @@
+{
+  "commands": [
+    {
+      "id": "ldtk",
+      "title": "Edit an LDtk room with semantic operations",
+      "owner": "tools/ambition_ldtk_tools",
+      "command": "PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools --help",
+      "help": "PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools --help",
+      "requires": [
+        "tools/ambition_ldtk_tools/ambition_ldtk_tools/__main__.py"
+      ],
+      "docs": "tools/ambition_ldtk_tools/README.md",
+      "inputs": "LDtk world or authored operation spec.",
+      "outputs": "Validation, query results, or transactional edits.",
+      "mutation": "Help and queries read only. Explicit edit operations write worlds.",
+      "build": "No Cargo build. Use the owner Python environment.",
+      "status": "active",
+      "cwd": "repository root"
+    }
+  ]
+}

@@ -112,7 +112,7 @@ Do not move a check into `regen` solely because regeneration calls it. A produce
 
 ### T0. Produce a command and path-consumer inventory
 
-**Precondition:** none. **Status:** selected through TOOL-DISCOVERY.
+**Precondition:** none. **Status:** implemented. See [command discovery](../../tools/command-discovery.md).
 
 1. Enumerate actual supported commands from the root scripts, tool READMEs, package entry points, `game/ambition_app_tools/Cargo.toml`, and available command help. Separate supported, internal, experimental, archived, and unknown.
 2. For proposed moves, identify references in Python imports, shell scripts, tests, Cargo config, CI workflows, documentation, and generated indexes. Detect `__file__`-relative repository-root computations, `sys.path` assumptions, working-directory dependencies, and references to authored data under old tool paths.
@@ -122,7 +122,7 @@ Do not move a check into `regen` solely because regeneration calls it. A produce
 
 ### T1. Improve agent tool discovery before moving tools
 
-**Depends on:** T0. **Status:** selected through TOOL-DISCOVERY.
+**Depends on:** T0. **Status:** implemented. Intent retrieval and missing-source tests cover the command catalog.
 
 Extend `generate_agent_index.py` and/or its focused helpers to enumerate a curated set of supported commands across root scripts, tools, and Cargo binaries. Preserve `scripts/agent_query.py` as the agent entry point. Search by developer intent, not only package directory name. Each result should provide a usable example, help command, owner, build/reuse requirement, relevant output, and link to authoritative documentation. Prefer reading commands from tool-local descriptors or existing definitions. Do not maintain an exhaustive hand-written second command registry. Keep generation fast and the catalog non-authoritative.
 

@@ -74,3 +74,7 @@ An agent-facing tool should have:
 `tools/experimental/` and nested tool checkouts are not automatically supported
 runtime dependencies. Promote a workflow deliberately before documenting it as
 the canonical front door.
+
+## Command discovery
+
+Use [command discovery](command-discovery.md) to find supported operations by intent.

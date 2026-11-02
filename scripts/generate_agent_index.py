@@ -283,7 +283,9 @@ def build_tool_index() -> dict[str, object]:
                     else None,
                 }
             )
-    return {**generated_meta(), "tools": tools}
+    from lib.tool_catalog import inventory
+
+    return {**generated_meta(), "tools": tools, **inventory(ROOT)}
 
 
 def build_archive_index() -> dict[str, object]:
@@ -624,6 +626,11 @@ def write_generation_stamp(indexed_files: int | None = None) -> None:
 
 
 def main() -> int:
+    if "--tools-only" in __import__("sys").argv:
+        INDEX_DIR.mkdir(parents=True, exist_ok=True)
+        write_json(INDEX_DIR / "tool_index.json", build_tool_index())
+        print("generated .agent/index/tool_index.json")
+        return 0
     files = iter_files()
     INDEX_DIR.mkdir(parents=True, exist_ok=True)
     write_json(INDEX_DIR / "entry_points.json", build_entry_points())

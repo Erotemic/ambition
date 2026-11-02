@@ -46,6 +46,7 @@ AGENT_README_PATH = AGENT_DIR / "README.md"
 SCHEMA_VERSION = 1
 
 KNOWN_COMMANDS = {
+    "tools",
     "overview",
     "task",
     "symbol",
@@ -979,8 +980,22 @@ def command_overview() -> None:
     print("guide: .agent/README.md")
 
 
+def print_tools(query: str, limit: int) -> None:
+    from lib.tool_catalog import commands
+
+    rows = ranked(commands(ROOT), query, ("title", "id", "inputs", "outputs"), "title", limit)
+    print_section("Supported commands (run from repository root)", [
+        f"[{value:3}] {row['title']} — {row['owner']}\n"
+        f"  command: {row['command']}\n  help: {row['help']}\n"
+        f"  inputs: {row['inputs']}\n  outputs: {row['outputs']}\n"
+        f"  mutation: {row['mutation']}\n  build/reuse: {row['build']}\n"
+        f"  availability: {row['availability']}\n  docs: {row['docs']}"
+        for value, row in rows])
+
+
 def command_task(query: str, limit: int) -> None:
     print(f"Task packet: {query}")
+    print_tools(query, limit)
     print_docs(query, limit)
     print_files(query, limit)
     print_symbols(query, limit)
@@ -1403,6 +1418,8 @@ def parser() -> argparse.ArgumentParser:
     task.add_argument("query", nargs="+")
     symbol = sub.add_parser("symbol")
     symbol.add_argument("query", nargs="+")
+    tools = sub.add_parser("tools", help="find owner commands by intent; reads current descriptors")
+    tools.add_argument("query", nargs="+")
     docs = sub.add_parser("docs")
     docs.add_argument("query", nargs="+")
     ecs = sub.add_parser("ecs")
@@ -1496,6 +1513,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         command_task(" ".join(args.query), limit)
     elif args.command == "symbol":
         print_symbols(" ".join(args.query), limit)
+    elif args.command == "tools":
+        print_tools(" ".join(args.query), limit)
     elif args.command == "docs":
         print_docs(" ".join(args.query), limit)
     elif args.command == "ecs":

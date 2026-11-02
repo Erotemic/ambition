@@ -1,0 +1,21 @@
+{
+  "commands": [
+    {
+      "id": "moveset",
+      "title": "Tune a move and inspect moveset balance",
+      "owner": "tools/ambition_moveset_inspector",
+      "command": "bash tools/ambition_moveset_inspector/serve_inspector.sh --no-export",
+      "help": "bash tools/ambition_moveset_inspector/serve_inspector.sh --help",
+      "requires": [
+        "tools/ambition_moveset_inspector/serve_inspector.sh"
+      ],
+      "docs": "tools/ambition_moveset_inspector/docs/inspector.md",
+      "inputs": "Existing exported moveset bundle.",
+      "outputs": "Local web inspector.",
+      "mutation": "Serves cached data. Review actions write the owner review bank.",
+      "build": "Reuses bundle and existing binaries. --build opts into Cargo builds.",
+      "status": "active",
+      "cwd": "repository root"
+    }
+  ]
+}

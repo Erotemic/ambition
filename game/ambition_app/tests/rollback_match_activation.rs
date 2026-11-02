@@ -841,6 +841,11 @@ fn rewinds_across_a_two_human_activation_and_reconstructs_both_seats() {
         "a two-human match did not come back from the rewind as seats 0 and 1"
     );
 
+    let members = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        ambition_platformer2d::session::participants::SessionParticipants,
+    >(sim.world()).expect("the session owns participant membership");
+    assert_eq!(members.iter().map(|slot| slot.0).collect::<Vec<_>>(), vec![0, 1]);
+
     for tick in 0..20 {
         sim.step(AgentAction::default());
         sim.rollback_health()

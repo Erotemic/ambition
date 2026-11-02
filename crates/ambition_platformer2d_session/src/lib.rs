@@ -14,6 +14,7 @@ pub mod death;
 pub mod durable_horizon;
 /// A second seat joins the session (Q153 default).
 pub mod join;
+pub mod participants;
 pub mod lifecycle_commit;
 pub mod reset;
 pub mod setup;

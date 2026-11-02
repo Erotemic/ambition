@@ -14,8 +14,9 @@ fn build_body(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteCo
     setup: LiveInitialBodySetup,
     world: SoleLiveRoom<RoomGeometry>,
     mut built: ResMut<BuiltBody>,
+    root: Single<&SessionRoot>,
 ) {
-    built.0 = Some(setup.spawn(&sprite_content, &mut commands, SessionSpawnScope::UNSCOPED, &world, "alpha"));
+    built.0 = Some(setup.spawn(&sprite_content, &mut commands, SessionSpawnScope::scoped(root.0), &world, "alpha"));
 }
 
 fn app(policy: crate::initial_body::InitialBodyPolicy) -> App {
@@ -78,6 +79,9 @@ fn live_initial_body_uses_the_sessions_frozen_cast() {
         .player
         .expect("the policy builds a body");
     assert_eq!(app.world().get::<BodyHealth>(body).unwrap().max(), 17);
+    assert!(ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+        crate::participants::SessionParticipants,
+    >(app.world()).unwrap().contains(ambition_characters::control::PlayerSlot::PRIMARY));
 }
 
 #[test]

@@ -5,6 +5,10 @@ use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 const OWNER: &str = env!("CARGO_PKG_NAME");
 
 pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {
+    registrar.rollback_component_canonical::<crate::participants::SessionParticipants>(
+        OWNER,
+        "session.participants",
+    );
     registrar
         .rollback_resource_canonical::<crate::lifecycle_commit::PendingLifecycleCommit>(
             OWNER,

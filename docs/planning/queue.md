@@ -829,14 +829,18 @@ Guards: `motion_and_release_follow_the_finger_that_armed_each_menu`,
 Rendered one-frame touches open Rebind and select Map. Do not restore global
 pointer selection or window-only activation.
 
+Session admission now uses `SessionParticipants` (`0d184ce24`). Membership
+survives loss of a body assignment and returns with rollback. Guard:
+`start_does_not_readmit_a_participant_without_a_current_body_assignment`.
+Do not derive admission from offered devices or current bodies.
+
 **Next action (ordered slices; complete each behavior gate before moving):**
 
 4. **Independent local menus:** separate per-seat open state, focus, page,
    inventory, and viewport UI for Grid and Kaleidoscope. Use the shared offline
    pause arbiter; each seat must still control its own menu. A local menu on
    a remote timeline captures its participant's input without pausing peers.
-   Declare session membership independently of device and body presence.
-   Use it for join admission and menu creation and retirement. Finish prompts
+   Use session membership for menu creation and retirement. Finish prompts
    and remaining pointer routing. Keep the joining Start press distinct from
    opening a new menu.
    Prove the full menu path with two pads before closing this slice.

@@ -472,6 +472,13 @@ pub fn activate_the_prepared_match(sprite_content: bevy::prelude::Res<ambition_s
     let rules = prepared.rules();
     let mut bodies: Vec<(Entity, &PreparedSeat)> = Vec::new();
     for seat in prepared.seats() {
+        if let Some(channel) = seat.authority.local_channel() {
+            crate::participants::admit_participant(
+                &mut commands,
+                session_scope,
+                ambition_platformer2d_actor_monolith::participant_seat::player_slot_of(channel),
+            );
+        }
         if occupied.contains(&seat.seat) {
             continue;
         }

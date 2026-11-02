@@ -797,10 +797,10 @@ Rendered one-frame touches open Rebind and select Map. Do not restore global
 pointer selection or window-only activation.
 
 
-The next admission slice must use one session-owned membership record for
-both joins and menu lifetime. Offered `InputParticipant` entities and current
-`DrivingParticipant` bodies are not that record. The current
-`crates/ambition_platformer2d_session/src/join.rs::seat_a_joining_participant`
-query checks body assignments. Membership must survive death and possession
-and end on explicit leave or session retirement. Seed new menu Start latches
-from the live input so the join press does not also open the menu.
+Session admission now uses `SessionParticipants` (`0d184ce24`). Membership
+survives loss of a body assignment and returns with rollback. Guards:
+`start_does_not_readmit_a_participant_without_a_current_body_assignment` and
+`rewinds_across_a_two_human_activation_and_reconstructs_both_seats`.
+Do not derive admission from offered devices or current bodies. Menu creation
+and retirement still need this record. Seed new menu Start latches from the
+live input so the join press does not also open the menu.

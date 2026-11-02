@@ -220,13 +220,13 @@ with its ingress question (Q136 ruling: choose ingress by semantic ownership).
 
 ### The session-root aliases
 
-<!-- alias-split: SessionWorldRef=43/25 SessionWorldMut=49/27 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=7/7 SoleLiveRoomSpec=4/4 -->
+<!-- alias-split: SessionWorldRef=46/29 SessionWorldMut=49/29 live_session_world_root=3/1 session_root_for_scope=3/3 SoleLiveRoom=7/7 SoleLiveRoomSpec=4/4 -->
 | spelling | what it is | production uses / files |
 | --- | --- | ---: |
-| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 43 / 25 |
-| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 49 / 27 |
+| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 46 / 29 |
+| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 49 / 29 |
 | `live_session_world_root` | the root whose scope is the active scope | 3 / 1 |
-| `session_root_for_scope` | a named scope's root, through the disabling marker | 2 / 2 |
+| `session_root_for_scope` | a named scope's root, through the disabling marker | 3 / 3 |
 | `SoleLiveRoom<T>` | `Single<Ref<T>, With<RoomInstanceRoot>>`; one-live-room debt, not a session alias | 7 / 7 |
 | `SoleLiveRoomSpec` | the authored spec of the one live room; same debt | 4 / 4 |
 

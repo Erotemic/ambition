@@ -81,6 +81,11 @@ CHARGEN-SPECIES. TEST-LANES retains the test-consolidation work.
 | [Static test audit](test-corpus-static-audit-findings-2026-10-26.md) | Evidence for that same TEST-LANES slice; its counts are dated, not deletion targets. |
 | [External art migration](engine/external-art-library-migration.md) | Built; keep its receipt and do not repeat the migration. |
 | [Sprite bundle publication](engine/sprite-bundle-publication.md) | Built; ASSET-PUBLISH addresses the measured selection cost, not a replacement publication architecture. |
+| [Tooling layout and editor consolidation](engine/tooling-layout-and-editor-consolidation.md) | TOOL-DISCOVERY selects T0-T1. EDITOR-SHELL selects T2 after discovery. T3-T5 remain conditional on the inventory; no bulk file move is selected. |
+
+TOOL-DISCOVERY and EDITOR-SHELL follow the selected asset-contract and A9/AP14
+ownership work. They do not interrupt game fixes or MULTIPLAYER-SEAMS.
+Keep the renderer submodules and Rust instrument binaries at their current owners.
 
 ## Current multiplayer correctness interrupt (2026-10-24)
 
@@ -438,6 +443,59 @@ payload audit. Keep the explicit strict release path.
 **Acceptance:** local preview uses the same selected file set without hashing
 all media. Missing required files have a useful diagnostic. Android, Steam
 Deck and static web release packages still pass their final asset contracts.
+
+### TOOL-DISCOVERY — find supported commands by developer intent
+
+**Failure:** the generated tool index lists immediate tool directories. It does
+not identify supported script commands or Cargo binaries, so a workflow still
+requires broad source search.
+
+**Owner:** `scripts/generate_agent_index.py`, `scripts/agent_query.py`, and the
+packages that own each command.
+Design: [tooling layout, T0-T1](engine/tooling-layout-and-editor-consolidation.md).
+
+**Priority:** after the selected asset-contract and A9/AP14 ownership work.
+
+**Next action:** inventory supported capture, moveset, LDtk, asset-inspection
+and ECS workflows on current main. Record their canonical command, help,
+inputs, outputs, mutation policy and build or binary-reuse requirement.
+Identify path consumers before any move. Extend the existing generated index
+from tool-owned descriptions and existing entry points. Keep internal and
+experimental commands distinct; do not add a second command registry.
+
+**Acceptance:** intent queries for screenshots, deterministic capture, move
+tuning, room editing, published assets and ECS inspection return runnable
+commands and their owner documents. Missing commands have useful diagnostics.
+Discovery stays fast and does not require a GUI, Cargo build or asset audit.
+No tool or submodule move is part of this slice.
+
+### EDITOR-SHELL — promote the existing inspector without a second authority
+
+**Failure:** the Asset Inspector and specialist tools have separate entry
+points, with no common navigation for existing inspection workflows.
+
+**Owner:** the existing `tools/asset_inspector` implementation and its CLI.
+Design: [tooling layout, T2](engine/tooling-layout-and-editor-consolidation.md).
+
+**Depends on:** TOOL-DISCOVERY and its path-consumer inventory.
+
+**Next action:** promote the inspector as Ambition Editor under
+`tools/ambition_editor/`, with minimal internal renaming. Preserve its asset
+browsing, JSON commands, cached previews, serve behavior and authored review
+notes. Link to at least one existing specialist tool through its supported
+command. Update known callers in the same change; keep only deliberate stable
+launchers. Do not merge tool environments or reimplement domain operations.
+
+**Acceptance:** one editor opens the existing asset and review workflows and
+reaches another inspection capability. Agents can obtain the same facts and
+invoke that capability without browser automation. Review IDs, provenance,
+selected libraries and stale-preview access survive. Inspection does not gain
+a mandatory build, regeneration or full-library audit.
+
+T3-T5 remain proposed in the owner document. Select one relocation or cleanup
+batch only when the discovery inventory shows its owner, benefit and callers.
+Keep unique capabilities regardless of use counts; do not add forwarding
+wrappers for every moved script.
 
 ### ENEMY-NOTICE — complete first-sight beats on the existing brain paths
 

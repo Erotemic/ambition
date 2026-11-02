@@ -1,6 +1,9 @@
 # Tooling layout, discovery, and Ambition Editor consolidation
 
-**State:** PROPOSED FOR TRIAGE. This document is not a task queue or an approval to move files.
+**State:** TRIAGED. [TOOL-DISCOVERY](../queue.md#tool-discovery--find-supported-commands-by-developer-intent)
+selects T0-T1. [EDITOR-SHELL](../queue.md#editor-shell--promote-the-existing-inspector-without-a-second-authority)
+selects T2 after discovery. T3-T5 remain conditional on the inventory. The queue
+owns execution; this document does not approve bulk file moves.
 **Source snapshot:** `19c66394` (2026-11-02 archive).
 **Scope:** Repository development and authoring tools, their paths, entry points, and discovery. No game or engine behavior change is intended.
 
@@ -10,7 +13,9 @@ Use `tools/` for substantial author-time applications and packages. Keep all exi
 
 The editor must also serve LLM development. The same functions must be discoverable and callable without clicking through the editor. Do not build a second authoring authority, a universal tool runtime, or a new gameplay mutation service as part of this migration.
 
-The next agent should triage the work packets below against current main before adding anything to `docs/planning/queue.md`. Other agents may be editing that queue. This plan does not change it.
+The selected packets follow the current multiplayer, asset-contract and
+A9/AP14 ownership work. Check each path and consumer on current main before a
+move. Keep implementation in small patches.
 
 ## Current evidence and concrete paths
 
@@ -107,7 +112,7 @@ Do not move a check into `regen` solely because regeneration calls it. A produce
 
 ### T0. Produce a command and path-consumer inventory
 
-**Precondition:** none. **Status:** proposed. **Suggested first packet.**
+**Precondition:** none. **Status:** selected through TOOL-DISCOVERY.
 
 1. Enumerate actual supported commands from the root scripts, tool READMEs, package entry points, `game/ambition_app_tools/Cargo.toml`, and available command help. Separate supported, internal, experimental, archived, and unknown.
 2. For proposed moves, identify references in Python imports, shell scripts, tests, Cargo config, CI workflows, documentation, and generated indexes. Detect `__file__`-relative repository-root computations, `sys.path` assumptions, working-directory dependencies, and references to authored data under old tool paths.
@@ -117,7 +122,7 @@ Do not move a check into `regen` solely because regeneration calls it. A produce
 
 ### T1. Improve agent tool discovery before moving tools
 
-**Depends on:** T0. **Status:** proposed.
+**Depends on:** T0. **Status:** selected through TOOL-DISCOVERY.
 
 Extend `generate_agent_index.py` and/or its focused helpers to enumerate a curated set of supported commands across root scripts, tools, and Cargo binaries. Preserve `scripts/agent_query.py` as the agent entry point. Search by developer intent, not only package directory name. Each result should provide a usable example, help command, owner, build/reuse requirement, relevant output, and link to authoritative documentation. Prefer reading commands from tool-local descriptors or existing definitions. Do not maintain an exhaustive hand-written second command registry. Keep generation fast and the catalog non-authoritative.
 
@@ -125,7 +130,7 @@ Extend `generate_agent_index.py` and/or its focused helpers to enumerate a curat
 
 ### T2. Promote the existing Asset Inspector to Ambition Editor
 
-**Depends on:** T0; preferably T1. **Status:** proposed.
+**Depends on:** TOOL-DISCOVERY (T0-T1). **Status:** selected through EDITOR-SHELL.
 
 Start with the existing inspector implementation. Retain the asset browsing and review workflows as the first editor area. Introduce a coherent name and navigation shell. Preserve stable review data, JSON CLI operations, selected library behavior, cached previews, and current `serve` semantics. Integrate other tools first by links or command invocation, not by moving their core code. The existing `scripts/asset_inspector.py` can remain the small supported CLI launcher if it is useful; retire the `art_inspector.py` alias when all call sites are migrated. Inspect compatibility needs before choosing the final rename operation.
 

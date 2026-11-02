@@ -92,7 +92,7 @@ worth more than two runs of one instrument agreeing. The class is real — two
 rows prove it — but it is found by READING, and `--roles` already narrows the
 reading to fifteen rows.
 
-Run: python3 scripts/measure_citation_symbol_roles.py [--adjacent]
+Run: python3 scripts/measure/measure_citation_symbol_roles.py [--adjacent]
 """
 from __future__ import annotations
 
@@ -102,7 +102,7 @@ import pathlib
 import re
 import sys
 
-REPO = pathlib.Path(__file__).resolve().parent.parent
+REPO = pathlib.Path(__file__).resolve().parent.parent.parent
 _spec = importlib.util.spec_from_file_location(
     "_c", REPO / "scripts" / "check_planning_citations.py"
 )

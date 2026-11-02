@@ -29,7 +29,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-SCRIPT = REPO / "scripts/measure_character_data_coverage.py"
+SCRIPT = REPO / "scripts/measure/measure_character_data_coverage.py"
 
 
 def load():

@@ -23,7 +23,7 @@ import pytest
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO / "scripts"))
 
-import measure_authored_strike_extents as census  # noqa: E402
+from scripts.measure import measure_authored_strike_extents as census  # noqa: E402
 
 ONE_ENTITY = """(
     schema_version: 1,

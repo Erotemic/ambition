@@ -28,14 +28,14 @@ made it work: the original victim's loop lives in a HELPER (`play_mirror_match`)
 so a scanner that reads only test bodies reports a clean suite and is wrong. A
 negative result here would have been a claim about the query.
 
-Run:  python scripts/measure_blind_update_budgets.py [--root DIR]
+Run:  python scripts/measure/measure_blind_update_budgets.py [--root DIR]
 """
 import argparse
 import pathlib
 import re
 import sys
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent
+ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 
 FN = re.compile(r"\n\s*(?:pub(?:\([^)]*\))?\s+)?fn\s+(\w+)")
 LOOP = re.compile(r"for\s+(?:_\w*|\w+)\s+in\s+0\.\.")

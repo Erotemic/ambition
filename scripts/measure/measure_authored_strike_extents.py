@@ -20,8 +20,8 @@ from its sprite, not from its move table. `scripts/measure_strike_area_over_body
 is the instrument for that and still needs a recording; this one answers the
 cheaper half — "which authored boxes are small in absolute terms, and where".
 
-    python3 scripts/measure_authored_strike_extents.py
-    python3 scripts/measure_authored_strike_extents.py --verb attack_forward
+    python3 scripts/measure/measure_authored_strike_extents.py
+    python3 scripts/measure/measure_authored_strike_extents.py --verb attack_forward
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ import argparse
 import pathlib
 import re
 
-MOVESETS = pathlib.Path(__file__).resolve().parent.parent / (
+MOVESETS = pathlib.Path(__file__).resolve().parent.parent.parent / (
     "game/ambition_content/assets/data/movesets"
 )
 

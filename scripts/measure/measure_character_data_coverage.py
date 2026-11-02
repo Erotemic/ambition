@@ -28,11 +28,16 @@ comments; this splits the catalog on its 8-space id headers and reads each row's
 own `Some(...)`.
 
 Usage:
-    scripts/measure_character_data_coverage.py
-    scripts/measure_character_data_coverage.py --json
+    scripts/measure/measure_character_data_coverage.py
+    scripts/measure/measure_character_data_coverage.py --json
 """
 
 from __future__ import annotations
+
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
 import json
@@ -41,11 +46,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-REPO = Path(
-    subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
-    ).stdout.strip()
-)
+REPO = Path(__file__).resolve().parents[2]
 from lib.content_libraries import runtime_files
 
 def sheet_files():

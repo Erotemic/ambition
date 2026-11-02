@@ -22,7 +22,7 @@ Re-run these before you quote a number. Do not copy counts into other pages.
 
 ```bash
 python3 scripts/measure_foreign_system_ordering.py
-python3 scripts/measure_carveable_installations.py
+python3 scripts/measure/measure_carveable_installations.py
 python3 scripts/check_facade_dependency_closure.py
 python3 scripts/measure_minimum_profile_closure.py --minimum
 ```

@@ -396,7 +396,7 @@ backticked symbol beside it occurs only in tests. A correct row that names a
 test on purpose has the same shape as a row that mis-cites a test as
 production. Only prose separates them. `check_planning_citations.py --roles`
 narrows the reading to a short report and does not gate. Reproduce the
-measurement with `python3 scripts/measure_citation_symbol_roles.py [--adjacent]`.
+measurement with `python3 scripts/measure/measure_citation_symbol_roles.py [--adjacent]`.
 
 General rule: ask whether a CORRECT case also matches before you ask how many
 cases match.

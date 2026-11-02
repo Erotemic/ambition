@@ -204,7 +204,7 @@ Then ONE LAW: the world cameras blend in linear light (`WORLD_COMPOSITING`, a
 constant), and so does the atlas (`impostor_compositing`). With the atlas in the
 art's gamma and the world in linear, a body changed its outlines every time it
 switched road (a hit flash, a portal): MEASURED by
-`scripts/measure_composition_switch.py` (robot, alice, ninja_shadow_oni_leader,
+`scripts/measure/measure_composition_switch.py` (robot, alice, ninja_shadow_oni_leader,
 623 frames, one texel a pixel), the same frame on the two roads differed by more
 than 8 levels on a median 100 and up to 1,088 pixels (peak 68 levels) with a
 gamma atlas, and on none (peak 8) with a linear one. On opaque frames at half

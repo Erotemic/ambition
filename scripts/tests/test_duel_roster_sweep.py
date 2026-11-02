@@ -6,7 +6,7 @@ import importlib.util
 import pathlib
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
-SCRIPT = REPO / "scripts/measure_duel_roster.py"
+SCRIPT = REPO / "scripts/measure/measure_duel_roster.py"
 
 
 def _module():

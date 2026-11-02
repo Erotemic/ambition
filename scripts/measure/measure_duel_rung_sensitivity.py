@@ -116,9 +116,9 @@ vitals; the `KNOWN_BARE_REGISTRATIONS` entry claiming otherwise was stale and
 the list is now empty. ⇒ **The rung-3 row is what made anyone look**, and the
 answer was that the catalog was wrong rather than the roster.
 
-    python3 scripts/measure_duel_rung_sensitivity.py --run   # slow, 15 duels
-    python3 scripts/measure_duel_rung_sensitivity.py         # fold the log
-    python3 scripts/measure_duel_rung_sensitivity.py --fill  # only missing rows
+    python3 scripts/measure/measure_duel_rung_sensitivity.py --run   # slow, 15 duels
+    python3 scripts/measure/measure_duel_rung_sensitivity.py         # fold the log
+    python3 scripts/measure/measure_duel_rung_sensitivity.py --fill  # only missing rows
 """
 
 from __future__ import annotations
@@ -130,7 +130,7 @@ import pathlib
 import re
 import subprocess
 
-REPO = pathlib.Path(__file__).resolve().parents[1]
+REPO = pathlib.Path(__file__).resolve().parents[2]
 LOG = REPO / "target/duel_rung_sweep.log"
 
 # The three bit-identical bouts from `measure_duel_roster.py`, plus the reason

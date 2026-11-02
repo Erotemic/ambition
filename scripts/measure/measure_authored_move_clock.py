@@ -31,11 +31,16 @@ fixed). `rows` rebuilds each borrower's whole table with the one Python copy of
 the engine's rule, `measure_authored_strike_extents.borrowed`.
 
 Usage:
-    scripts/measure_authored_move_clock.py            # distribution + the longest-live
-    scripts/measure_authored_move_clock.py --top 20
+    scripts/measure/measure_authored_move_clock.py            # distribution + the longest-live
+    scripts/measure/measure_authored_move_clock.py --top 20
 """
 
 from __future__ import annotations
+
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
 import glob
@@ -43,8 +48,8 @@ import pathlib
 import re
 import sys
 
-from measure_authored_strike_extents import borrowed
-from measure_authored_strike_extents import read as read_verbs_and_borrow
+from scripts.measure.measure_authored_strike_extents import borrowed
+from scripts.measure.measure_authored_strike_extents import read as read_verbs_and_borrow
 
 ENTITY = re.compile(r'^            id: "([a-z_0-9]+)",', re.M)
 MOVE_ID = re.compile(r'id:\s*"([a-z_0-9]+)"')

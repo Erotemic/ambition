@@ -104,7 +104,7 @@ import pathlib
 import re
 import sys
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+ROOT = pathlib.Path(__file__).resolve().parents[2]
 #: Vocabulary every capability already depends on; naming it is not a leak.
 SHARED = {"ambition_platformer2d_shared_tangle"}
 

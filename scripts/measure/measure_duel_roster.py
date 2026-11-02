@@ -136,8 +136,8 @@ bouts.**
 table above because that table is stamped to `8dbb5e91d` and hers is not**, and
 mixing stamps is how a table stops meaning anything.
 
-    python3 scripts/measure_duel_roster.py --run     # run the sweep (slow)
-    python3 scripts/measure_duel_roster.py           # fold an existing log
+    python3 scripts/measure/measure_duel_roster.py --run     # run the sweep (slow)
+    python3 scripts/measure/measure_duel_roster.py           # fold an existing log
 """
 
 from __future__ import annotations
@@ -148,7 +148,7 @@ import pathlib
 import re
 import subprocess
 
-REPO = pathlib.Path(__file__).resolve().parents[1]
+REPO = pathlib.Path(__file__).resolve().parents[2]
 LOG = REPO / "target/duel_roster_sweep.log"
 GATE = 0.5
 

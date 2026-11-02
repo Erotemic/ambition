@@ -19,7 +19,7 @@ a pixel is wrong past 64 levels, forgiving a one-pixel shift) and a STRICT one: 
 pixels, composited over mid grey, that differ by more than 8 levels, and the
 largest difference. The gate forgives what a strict eye may still see pop.
 
-    python3 scripts/measure_composition_switch.py --target robot --scale 1 --scale 0.5
+    python3 scripts/measure/measure_composition_switch.py --target robot --scale 1 --scale 0.5
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
+REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "tools" / "ambition_sprite2d_renderer"))
 
 import numpy as np  # noqa: E402

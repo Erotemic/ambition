@@ -26,8 +26,8 @@ STATED. It is not a population and this output never calls it one.
 Both need reading. The crate column is the first filter: `..._actor_spawn` and
 `ambition_platformer2d_construction` host recipes.
 
-    python3 scripts/measure_damageable_bundles_without_identity.py
-    python3 scripts/measure_damageable_bundles_without_identity.py --all
+    python3 scripts/measure/measure_damageable_bundles_without_identity.py
+    python3 scripts/measure/measure_damageable_bundles_without_identity.py --all
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ import pathlib
 import re
 import sys
 
-REPO = pathlib.Path(__file__).resolve().parent.parent
+REPO = pathlib.Path(__file__).resolve().parent.parent.parent
 ROOTS = ("crates", "game", "tools")
 
 # What makes an entity a candidate victim for the strike resolver: `StrikeVictim`

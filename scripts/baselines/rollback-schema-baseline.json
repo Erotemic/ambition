@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v408",
+    "version": "ggrs-rollback-schema-v409",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -157,6 +157,7 @@
       "scope.mode\tcomponent-canonical\tModeScopedEntity",
       "scope.room\tcomponent-canonical\tRoomScopedEntity",
       "scope.room_instance\tcomponent-canonical\tInRoomInstance",
+      "session.participants\tcomponent-canonical\tSessionParticipants",
       "smash.hold_state\tcomponent-canonical\tSmashHoldState"
     ]
   },
@@ -247,6 +248,7 @@
     "ambition_platformer2d_core::player_state::ResourceMeter",
     "ambition_platformer2d_core::reference_frame::GameplayFramePolicy",
     "ambition_platformer2d_core::resources::ActorResources",
+    "ambition_platformer2d_session::SessionParticipants",
     "ambition_platformer2d_session::lifecycle_commit::PendingLifecycleCommit",
     "ambition_platformer2d_shared_tangle::construction::SpawnOrigin",
     "ambition_platformer2d_shared_tangle::construction::TransactionId",

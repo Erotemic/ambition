@@ -157,6 +157,12 @@ pub fn simulation_world(sprite_content: &ambition_sprite_sheet::SpriteContent,
         ),
     );
 
+    crate::participants::admit_participant(
+        commands,
+        session_scope,
+        ambition_characters::control::PlayerSlot::PRIMARY,
+    );
+
     // The player entity is returned to the caller (the provider session builder
     // or the direct-entry startup system). Presentation discovers this home
     // avatar by its `PrimaryPlayer` marker — no process-global handle bag records

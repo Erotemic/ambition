@@ -1,30 +1,24 @@
-//! A second seat joins the session (Q153, ruled 2026-10-19).
+//! Start admits an unjoined participant and constructs its home body.
 //!
-//! A seat with no body that presses Start gets its home body beside the
-//! primary body, in the primary's live room, wearing the primary's character.
-//! Start is the explicit join gesture: the input layer gives a seat a pad only
-//! when that pad claims it with Start (`ambition_input::claim_local_seats`),
-//! and a single-player session holds no handle for any other seat, so no
-//! gameplay button of another pad seats anybody. The join is a simulation
-//! fact: the press is in the seat's input for the frame, so a rewind across
-//! the join frame builds the same body again, and a remote peer builds it on
-//! the same frame.
+//! Membership belongs to the session. Device changes, death and possession
+//! do not admit a participant again. The join runs in simulation so rollback
+//! restores both membership and body construction on the same frame.
 
 use bevy::prelude::*;
 
-use ambition_characters::control::{DrivingParticipant, PlayerSlot, SlotControls};
+use ambition_characters::control::{PlayerSlot, SlotControls};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_world::collision::CollisionWorld;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, InRoomInstance, LiveRoomOf, SessionCommands, SessionRoot, SessionScopedEntity,
 };
-use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
 
 use ambition_platformer2d_actor_monolith::avatar::{HomeBodyAbilities};
 use crate::initial_body::{HomeBodyResources, InitialBodyPolicy, StartingCharacter};
 use crate::setup::{spawn_home_body, HomeBody};
 
-/// Build the home body of each seat that presses Start and has no body yet.
+/// Build a home body when an unjoined participant presses Start.
 ///
 /// Only a session that builds a home body for its primary seat seats a second
 /// one: a match owns its whole cast (`InitialBodyPolicy`). The primary must be
@@ -36,14 +30,13 @@ pub fn seat_a_joining_participant(sprite_content: Res<ambition_sprite_sheet::Spr
     active: Option<Res<ActiveSessionScope>>,
     tuning: Res<ae::ActiveMovementTuning>,
     cast: Option<Res<ambition_characters::session_cast::ActiveSessionCast>>,
-    roots: Query<(&SessionRoot, &InitialBodyPolicy, &HomeBodyResources, &HomeBodyAbilities)>,
+    roots: Query<(&SessionRoot, &InitialBodyPolicy, &HomeBodyResources, &HomeBodyAbilities, &crate::participants::SessionParticipants)>,
     rooms: LiveRoomOf<ae::RoomGeometry>,
     collision: CollisionWorld,
     primary: Query<
         (Entity, &ae::BodyKinematics, &ambition_characters::actor::WornCharacter, Option<&InRoomInstance>, Option<&ae::SweepSample>),
         (With<PrimaryPlayer>, Without<ambition_combat::death_rules::OutOfPlay>),
     >,
-    seated: Query<&DrivingParticipant, With<PlayerEntity>>,
     bodies: Query<(
         &ae::BodyKinematics,
         Option<&ae::SweepSample>,
@@ -52,25 +45,20 @@ pub fn seat_a_joining_participant(sprite_content: Res<ambition_sprite_sheet::Spr
         Option<&ae::DepthPlane>,
     )>,
 ) {
-    // Every row, not only the seats the session holds a handle for. A row the
-    // session holds no handle for is not republished from GGRS input (the
-    // registry's "at the head of every frame" is about held handles), and no
-    // writer leaves a press in it: measured neutral at the title and in the
-    // next session, for Ambition and for Sanic (review 2026-10-05).
-    let joining: Vec<PlayerSlot> = (1..SlotControls::MAX_SLOTS)
-        .map(|index| PlayerSlot(index as u8))
-        .filter(|seat| controls.get(*seat).start_pressed)
-        .filter(|seat| !seated.iter().any(|driver| driver.0 == *seat))
-        .collect();
-    if joining.is_empty() {
+    if !(1..SlotControls::MAX_SLOTS).any(|index| controls.get(PlayerSlot(index as u8)).start_pressed) {
         return;
     }
     let Some(session) = active.as_deref().and_then(ActiveSessionScope::current) else {
         return;
     };
-    let Some((_, policy, resources, abilities)) = roots.iter().find(|(root, ..)| root.0 == session) else {
+    let Some((_, policy, resources, abilities, members)) = roots.iter().find(|(root, ..)| root.0 == session) else {
         return;
     };
+    let joining: Vec<PlayerSlot> = (1..SlotControls::MAX_SLOTS)
+        .map(|index| PlayerSlot(index as u8))
+        .filter(|seat| controls.get(*seat).start_pressed && !members.contains(*seat))
+        .collect();
+    if joining.is_empty() { return; }
     if !matches!(policy, InitialBodyPolicy::SpawnCharacter(_)) {
         return;
     }
@@ -119,6 +107,7 @@ pub fn seat_a_joining_participant(sprite_content: Res<ambition_sprite_sheet::Spr
         };
         body.at = at;
         let body = spawn_home_body(&sprite_content, &mut commands, scope, body, ());
+        crate::participants::admit_participant(&mut commands, scope, seat);
         occupied.push(ae::Aabb::new(at, shape.body_half));
         info!(target: "ambition_platformer2d::session", "seat {} joined as {body:?}", seat.0);
     }

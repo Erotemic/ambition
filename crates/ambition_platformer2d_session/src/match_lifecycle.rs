@@ -9,6 +9,7 @@ pub struct MatchLifecyclePlugin;
 impl Plugin for MatchLifecyclePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
+        crate::participants::require_participants_on_session_root(app);
         app.init_resource::<ambition_match::live_match_clock::LiveMatchTicks>()
             .init_resource::<ambition_match::seating::SessionMatchOrdinal>()
             .add_systems(

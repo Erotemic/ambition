@@ -12,6 +12,7 @@ use ambition_app::rl_sim::{
     AgentAction, AmbitionSim as _, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
 };
 use ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes;
+use ambition_platformer2d::session::participants::SessionParticipants;
 use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_platformer2d::combat::death_rules::OutOfPlay;
@@ -133,6 +134,9 @@ fn a_seat_with_no_body_joins_beside_the_primary_on_a_start_press() {
         sim.step(AgentAction::default());
     }
     assert!(bodies_of_the_seat(&mut sim).is_empty(), "control: a Jump press is not the join gesture");
+    let members = ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionParticipants>(sim.world()).unwrap();
+    assert!(members.contains(PlayerSlot::PRIMARY));
+    assert!(!members.contains(PlayerSlot(SEAT)));
     let primary = the_primary(&mut sim);
 
     let (body, primary_at) = join(&mut sim, 4).expect("seat 1 pressed Start and no body was built");
@@ -160,6 +164,7 @@ fn a_seat_with_no_body_joins_beside_the_primary_on_a_start_press() {
         sim.rollback_health()
             .unwrap_or_else(|error| panic!("frame {frame} after the join: {error}"));
     }
+    assert!(ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionParticipants>(sim.world()).unwrap().contains(PlayerSlot(SEAT)));
     let stats = sim.rollback_execution_stats().expect("GGRS instrumentation is installed");
     assert!(stats.load_runs > 0, "no rewind happened, so the join frame was never resimulated");
     // One body, and not the same `Entity`: a rewind across the join frame
@@ -674,4 +679,20 @@ fn both_seats_release_blink_and_finish_its_cooldown() {
     for body in [first, second] {
         assert_eq!(sim.world().get::<BodyBlinkState>(body).unwrap().cooldown, 0.0);
     }
+}
+
+
+#[test]
+fn start_does_not_readmit_a_participant_without_a_current_body_assignment() {
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz()),
+    ).expect("the session builds");
+    let (body, _) = join(&mut sim, 4).expect("the second participant joins");
+    sim.world_mut().entity_mut(body).remove::<DrivingParticipant>();
+    sim.drive_seat(SEAT, start());
+    sim.step(AgentAction::default());
+    let world = sim.world_mut();
+    let count = world.query::<&SimId>().iter(world).filter(|id| id.as_str() == "slot:1").count();
+    assert_eq!(count, 1, "Start must not construct another home body for an admitted participant");
+    assert!(ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionParticipants>(world).unwrap().contains(PlayerSlot(SEAT)));
 }

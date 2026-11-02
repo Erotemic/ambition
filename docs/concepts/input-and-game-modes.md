@@ -6,6 +6,7 @@ authority: durable-concept
 last_verified: 2026-07-18
 implemented_by:
   - crates/ambition_input
+  - crates/ambition_platformer2d_session/src/participants.rs
   - crates/ambition_characters/src/action_scheme.rs
   - crates/ambition_sim_view/src/control_prompt.rs
   - crates/ambition_touch_input
@@ -42,6 +43,19 @@ stored. It is not an independent authored truth. The shared
 resolver both gates gameplay and produces the meaning shown through
 `ControlPrompt`; UI must not maintain its own capability logic.
 
+## Participants and session membership
+
+`InputParticipant` owns process-local device and binding state.
+`SessionParticipants` on the session root states which slots the session has
+admitted. `DrivingParticipant` states which participant currently controls a
+body. These are separate facts.
+
+Initial session construction, match activation and Start admission use the
+same session-owned membership operation. Rollback restores this record with
+the session. Device changes, death and possession do not change membership.
+A surface that needs session membership must read this record, rather than
+count input devices or current body assignments.
+
 ## Invariants
 
 - Gameplay reads semantic actions, never keyboard labels.
@@ -74,6 +88,7 @@ resolver both gates gameplay and produces the meaning shown through
 - `ambition_input`: device bindings, semantic gameplay/menu frames, presets,
   motion-input recognition, active-source policy.
 - `ambition_characters`: actor-local control, action schemes, brains, perception.
+- `ambition_platformer2d_session`: session membership and admission.
 - `ambition_sim_view`: `ControlPrompt` and other observation read models.
 - `ambition_touch_input`: touch HUD and fold into the same semantic frames.
 - `ambition_menu`, `ambition_settings_menu`, `ambition_ui_nav`: renderer-neutral

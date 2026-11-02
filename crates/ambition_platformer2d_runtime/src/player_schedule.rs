@@ -15,6 +15,7 @@ pub struct PlayerSchedulePlugin;
 impl Plugin for PlayerSchedulePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
+        ambition_platformer2d_session::participants::require_participants_on_session_root(app);
         app.add_systems(sim, crate::body_feedback::emit_body_movement_feedback
             .in_set(GameplayGated)
             .in_set(PlayerSimulationSet::PostPossession));
@@ -396,9 +397,7 @@ impl Plugin for PlayerSchedulePlugin {
                 .in_set(Platformer2dSimulationPhase::PlayerInput)
                 .before(crate::sandbox_reset::RoomReplayAdmission),
         );
-        // A seat with no body joins on a Jump press in its input for the frame,
-        // once that input is in `SlotControls` and before any body reads its
-        // character for the tick (Q153 default).
+        // Start admits an unjoined participant before character projection.
         app.add_systems(
             sim,
             ambition_platformer2d_session::join::seat_a_joining_participant

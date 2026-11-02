@@ -61,6 +61,7 @@ const FONT_FAMILY: &str = "DejaVu Sans";
 
 /// Marks the rotating ring root that holds the cube faces.
 #[derive(Component)]
+#[require(KaleidoscopeOpenState)]
 pub struct MenuRing;
 
 /// The publication applied to one ring. The renderer owns this cache.
@@ -223,7 +224,8 @@ const MAX_FOLD_EASE_DT: f32 = 1.0 / 30.0;
 /// The host sets [`KaleidoscopeOpenState::target`]; [`animate_cube_ring`] eases `amount`
 /// toward it each frame and folds the faces accordingly. The host also reads
 /// `amount` to drive camera/visibility so the close animation is visible.
-#[derive(Resource, Default)]
+#[derive(Component, Default)]
+#[require(MaterialFadeState)]
 pub struct KaleidoscopeOpenState {
     pub amount: f32,
     pub target: f32,
@@ -406,8 +408,7 @@ where
     Action: Clone + PartialEq + Send + Sync + 'static,
 {
     fn build(&self, app: &mut App) {
-        app.add_plugins(UiLunexPlugins)
-            .init_resource::<KaleidoscopeOpenState>();
+        app.add_plugins(UiLunexPlugins);
         sleep_light_visibility_without_lights(app);
         // fontdb::load_system_fonts() is a no-op on Android (explicitly excluded
         // by fontdb via `not(target_os = "android")`). Seed /system/fonts/ on the
@@ -517,64 +518,67 @@ where
 fn setup_cube<PageId: Send + Sync + 'static, Action: Send + Sync + 'static>(
     mut commands: Commands,
     config: Res<KaleidoscopeMenuConfig>,
-    menu: Single<Entity, With<ActiveMenuPages<PageId, Action>>>,
+    menus: Query<Entity, With<ActiveMenuPages<PageId, Action>>>,
 ) {
     let geo = config.geometry;
-    commands.spawn((
-        Name::new("Cube pause camera"),
-        KaleidoscopePauseCamera,
-        ambition_menu::MenuSurface(*menu),
-        Camera3d::default(),
-        // The cube is an unlit UI scene, not an HDR-lit world. Opt out of the
-        // default LUT-backed Camera3d tonemapper: it adds measurable frame cost and,
-        // when its optional LUT payload is trimmed, Bevy substitutes a magenta
-        // diagnostic texture. `None` is both the intended look and the cheap path.
-        Tonemapping::None,
-        // A Camera3d composited over a Camera2d on the same window MUST share its
-        // sample count or it renders its clear but drops all geometry. The game's
-        // Camera2d uses Bevy's default (Sample4); pin the same value explicitly.
-        // (A/B evidence also showed `Msaa::Off` recovers no frame time, so there
-        // is no perf reason to diverge.)
-        Msaa::Sample4,
-        Camera {
-            order: config.camera_order,
-            // Host-gated by default: OFF until the host activates the menu. An
-            // active higher-order camera otherwise clears the whole screen every
-            // frame, hiding the lower-order game cameras.
-            is_active: config.camera_starts_active,
-            // Transparent clear (Option 1 overlay) keeps the live game world
-            // visible behind the cube. A standalone demo flips `camera_clears` on.
-            clear_color: if config.camera_clears {
-                ClearColorConfig::default()
-            } else {
-                ClearColorConfig::None
+    for menu in &menus {
+        commands.spawn((
+            Name::new("Cube pause camera"),
+            KaleidoscopePauseCamera,
+            ambition_menu::MenuSurface(menu),
+            Camera3d::default(),
+            // The cube is an unlit UI scene, not an HDR-lit world. Opt out of the
+            // default LUT-backed Camera3d tonemapper: it adds measurable frame cost and,
+            // when its optional LUT payload is trimmed, Bevy substitutes a magenta
+            // diagnostic texture. `None` is both the intended look and the cheap path.
+            Tonemapping::None,
+            // A Camera3d composited over a Camera2d on the same window MUST share its
+            // sample count or it renders its clear but drops all geometry. The game's
+            // Camera2d uses Bevy's default (Sample4); pin the same value explicitly.
+            // (A/B evidence also showed `Msaa::Off` recovers no frame time, so there
+            // is no perf reason to diverge.)
+            Msaa::Sample4,
+            Camera {
+                order: config.camera_order,
+                // Host-gated by default: OFF until the host activates the menu. An
+                // active higher-order camera otherwise clears the whole screen every
+                // frame, hiding the lower-order game cameras.
+                is_active: config.camera_starts_active,
+                // Transparent clear (Option 1 overlay) keeps the live game world
+                // visible behind the cube. A standalone demo flips `camera_clears` on.
+                clear_color: if config.camera_clears {
+                    ClearColorConfig::default()
+                } else {
+                    ClearColorConfig::None
+                },
+                ..default()
             },
-            ..default()
-        },
-        RenderLayers::layer(0),
-        // Set the vertical FOV explicitly from the SAME constant the geometry derives
-        // the camera distance from (instead of relying on Bevy's default happening to
-        // be 45°), so the framing margin stays correct if that default ever changes.
-        Projection::Perspective(PerspectiveProjection {
-            fov: ambition_menu::MenuCubeGeometry::CAMERA_FOV_RADIANS,
-            ..default()
-        }),
-        Transform::from_translation(Vec3::new(0.0, geo.camera_y, -geo.camera_distance))
-            .looking_at(Vec3::new(0.0, geo.look_y, 0.0), Vec3::Y),
-    ));
-    commands.entity(*menu).insert((
-        Name::new("Cube menu ring"),
-        AmbitionMenuRoot,
-        MenuRing,
-        UiRoot3d,
-        Transform::default(),
-        if config.ring_starts_visible {
-            Visibility::Visible
-        } else {
-            Visibility::Hidden
-        },
-        RenderLayers::layer(0),
-    ));
+            RenderLayers::layer(0),
+            // Set the vertical FOV explicitly from the SAME constant the geometry derives
+            // the camera distance from (instead of relying on Bevy's default happening to
+            // be 45°), so the framing margin stays correct if that default ever changes.
+            Projection::Perspective(PerspectiveProjection {
+                fov: ambition_menu::MenuCubeGeometry::CAMERA_FOV_RADIANS,
+                ..default()
+            }),
+            Transform::from_translation(Vec3::new(0.0, geo.camera_y, -geo.camera_distance))
+                .looking_at(Vec3::new(0.0, geo.look_y, 0.0), Vec3::Y),
+        ));
+        commands.entity(menu).insert((
+            Name::new("Cube menu ring"),
+            AmbitionMenuRoot,
+            ambition_menu::MenuSurface(menu),
+            MenuRing,
+            UiRoot3d,
+            Transform::default(),
+            if config.ring_starts_visible {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            },
+            RenderLayers::layer(0),
+        ));
+    }
 }
 
 /// 3D picking backend for the cube's perspective camera.
@@ -597,6 +601,7 @@ fn cube_3d_picking(
             &Camera,
             &bevy::camera::RenderTarget,
             &GlobalTransform,
+            &ambition_menu::MenuSurface,
         ),
         With<KaleidoscopePauseCamera>,
     >,
@@ -616,6 +621,7 @@ fn cube_3d_picking(
             &GlobalTransform,
             Option<&Pickable>,
             &ViewVisibility,
+            &ambition_menu::MenuSurface,
         ),
         (
             With<KaleidoscopeControlStyle>,
@@ -624,84 +630,91 @@ fn cube_3d_picking(
     >,
     mut output: MessageWriter<PointerHits>,
 ) {
-    // The gated cube camera is only active while the menu is open; bail otherwise.
-    let Some((cam_entity, camera, render_target, cam_transform)) =
-        camera_query.iter().find(|(_, c, _, _)| c.is_active)
-    else {
-        return;
-    };
     let primary_window = primary_window.single().ok();
-
-    // Hoverable control planes only (skip IGNORE: disabled controls). Decoration /
-    // panels / text / the face root are already excluded by the `KaleidoscopeControlStyle`
-    // query filter above.
-    let candidates: Vec<_> = nodes
+    for (cam_entity, camera, render_target, cam_transform, camera_surface) in camera_query
         .iter()
-        .filter(|(_, _, transform, pickable, vis)| {
-            vis.get()
-                && !transform.affine().is_nan()
-                && pickable.map(|p| p.is_hoverable).unwrap_or(true)
-        })
-        .map(|(entity, dimension, transform, pickable, _)| (entity, dimension, transform, pickable))
-        .collect();
-
-    for (pointer, location) in pointers
-        .iter()
-        .filter_map(|(pointer, loc)| loc.location().map(|l| (pointer, l)))
+        .filter(|(_, camera, _, _, _)| camera.is_active)
     {
-        // Only handle pointers on this camera's render target.
-        let on_target = render_target
-            .normalize(primary_window)
-            .is_some_and(|t| t == location.target);
-        if !on_target {
-            continue;
-        }
+        // Hoverable control planes only (skip IGNORE: disabled controls). Decoration /
+        // panels / text / the face root are already excluded by the `KaleidoscopeControlStyle`
+        // query filter above.
+        let candidates: Vec<_> = nodes
+            .iter()
+            .filter(|(_, _, transform, pickable, vis, surface)| {
+                surface.0 == camera_surface.0
+                    && vis.get()
+                    && !transform.affine().is_nan()
+                    && pickable.map(|p| p.is_hoverable).unwrap_or(true)
+            })
+            .map(|(entity, dimension, transform, pickable, _, _)| {
+                (entity, dimension, transform, pickable)
+            })
+            .collect();
 
-        let viewport_pos = camera
-            .logical_viewport_rect()
-            .map(|v| v.min)
-            .unwrap_or_default();
-        let pos_in_viewport = location.position - viewport_pos;
-        let Ok(ray) = camera.viewport_to_world(cam_transform, pos_in_viewport) else {
-            continue;
-        };
-
-        let mut picks: Vec<(Entity, HitData)> = Vec::new();
-        for (entity, dimension, node_transform, _pickable) in candidates.iter().copied() {
-            // Intersect the cursor ray with the node's local Z=0 plane.
-            let world_to_node = node_transform.affine().inverse();
-            let ray_origin_node = world_to_node.transform_point3(ray.origin);
-            let ray_dir_node = world_to_node.transform_vector3(*ray.direction);
-            if ray_dir_node.z.abs() < 1e-6 {
-                continue; // parallel to the plane
-            }
-            let t = -ray_origin_node.z / ray_dir_node.z;
-            if t < 0.0 {
-                continue; // behind the camera
-            }
-            let hit_node = ray_origin_node + ray_dir_node * t;
-            let rect = Rect::from_center_size(Vec2::ZERO, **dimension);
-            if !rect.contains(hit_node.xy()) {
+        for (pointer, location) in pointers
+            .iter()
+            .filter_map(|(pointer, loc)| loc.location().map(|l| (pointer, l)))
+        {
+            // Only handle pointers on this camera's render target.
+            let on_target = render_target
+                .normalize(primary_window)
+                .is_some_and(|t| t == location.target);
+            if !on_target {
                 continue;
             }
-            let hit_world = node_transform.transform_point(hit_node.xy().extend(0.0));
-            // Depth = distance from the camera along the ray (nearer = smaller).
-            let depth = (hit_world - ray.origin).length();
-            picks.push((
-                entity,
-                HitData::new(
-                    cam_entity,
-                    depth,
-                    Some(hit_world),
-                    Some(*node_transform.back()),
-                ),
-            ));
+
+            if camera
+                .logical_viewport_rect()
+                .is_some_and(|rect| !rect.contains(location.position))
+            {
+                continue;
+            }
+            let viewport_pos = camera
+                .logical_viewport_rect()
+                .map(|v| v.min)
+                .unwrap_or_default();
+            let pos_in_viewport = location.position - viewport_pos;
+            let Ok(ray) = camera.viewport_to_world(cam_transform, pos_in_viewport) else {
+                continue;
+            };
+
+            let mut picks: Vec<(Entity, HitData)> = Vec::new();
+            for (entity, dimension, node_transform, _pickable) in candidates.iter().copied() {
+                // Intersect the cursor ray with the node's local Z=0 plane.
+                let world_to_node = node_transform.affine().inverse();
+                let ray_origin_node = world_to_node.transform_point3(ray.origin);
+                let ray_dir_node = world_to_node.transform_vector3(*ray.direction);
+                if ray_dir_node.z.abs() < 1e-6 {
+                    continue; // parallel to the plane
+                }
+                let t = -ray_origin_node.z / ray_dir_node.z;
+                if t < 0.0 {
+                    continue; // behind the camera
+                }
+                let hit_node = ray_origin_node + ray_dir_node * t;
+                let rect = Rect::from_center_size(Vec2::ZERO, **dimension);
+                if !rect.contains(hit_node.xy()) {
+                    continue;
+                }
+                let hit_world = node_transform.transform_point(hit_node.xy().extend(0.0));
+                // Depth = distance from the camera along the ray (nearer = smaller).
+                let depth = (hit_world - ray.origin).length();
+                picks.push((
+                    entity,
+                    HitData::new(
+                        cam_entity,
+                        depth,
+                        Some(hit_world),
+                        Some(*node_transform.back()),
+                    ),
+                ));
+            }
+            // Nearest plane first so the picking core's hover/click resolves the
+            // front-most control.
+            picks.sort_by(|a, b| a.1.depth.total_cmp(&b.1.depth));
+            let order = camera.order as f32;
+            output.write(PointerHits::new(*pointer, picks, order));
         }
-        // Nearest plane first so the picking core's hover/click resolves the
-        // front-most control.
-        picks.sort_by(|a, b| a.1.depth.total_cmp(&b.1.depth));
-        let order = camera.order as f32;
-        output.write(PointerHits::new(*pointer, picks, order));
     }
 }
 
@@ -992,82 +1005,90 @@ pub fn rebuild_cube_faces<PageId, Action>(
 fn animate_cube_ring<PageId, Action>(
     time: Res<Time>,
     config: Res<KaleidoscopeMenuConfig>,
-    mut state: ResMut<KaleidoscopeOpenState>,
-    pages: Option<Single<&ActiveMenuPages<PageId, Action>>>,
-    mut ring: Query<&mut Transform, (With<MenuRing>, Without<CubeFace>)>,
-    mut faces: Query<(&CubeFace, &mut Transform), Without<MenuRing>>,
+    mut rings: Query<
+        (
+            Entity,
+            &ActiveMenuPages<PageId, Action>,
+            &mut KaleidoscopeOpenState,
+            &mut Transform,
+        ),
+        (With<MenuRing>, Without<CubeFace>),
+    >,
+    mut faces: Query<(&ChildOf, &CubeFace, &mut Transform), Without<MenuRing>>,
 ) where
     PageId: PartialEq + Send + Sync + 'static,
     Action: Send + Sync + 'static,
 {
-    let Ok(mut ring_t) = ring.single_mut() else {
-        return;
-    };
-    let Some(pages) = pages else {
-        return;
-    };
-    let n = pages.pages.len().max(1) as f32;
+    for (menu, pages, mut state, mut ring_t) in &mut rings {
+        let n = pages.pages.len().max(1) as f32;
 
-    // Detect open vs close from the host's target: >0.5 = opening, else closing.
-    let opening = state.target > 0.5;
+        // Detect open vs close from the host's target: >0.5 = opening, else closing.
+        let opening = state.target > 0.5;
 
-    // Ease the open amount toward the host's target (demo's exp ease). The CLOSE
-    // uses a faster rate (`close_speed_scale`×) so the cube folds away snappily
-    // without the lingering tail, while the OPEN keeps its gentle ease.
-    let rate = if opening {
-        config.open_close_speed
-    } else {
-        config.open_close_speed * config.close_speed_scale
-    };
-    let new_amount = ease_fold_amount(state.amount, state.target, rate, time.delta_secs());
-    let open = smoothstep(new_amount.clamp(0.0, 1.0));
+        // Ease the open amount toward the host's target (demo's exp ease). The CLOSE
+        // uses a faster rate (`close_speed_scale`×) so the cube folds away snappily
+        // without the lingering tail, while the OPEN keeps its gentle ease.
+        let rate = if opening {
+            config.open_close_speed
+        } else {
+            config.open_close_speed * config.close_speed_scale
+        };
+        let new_amount = ease_fold_amount(state.amount, state.target, rate, time.delta_secs());
+        let open = smoothstep(new_amount.clamp(0.0, 1.0));
 
-    // Opening spin: start the ring one page-step toward the viewer-right
-    // neighbour and ease to 0 with the open `amount`, so the active page swings
-    // to the front. `from_rotation_y(-idx * TAU/n)` brings the viewer-left
-    // neighbour (`idx+1`) to front for a positive step, so the offset starts
-    // negative.
-    let spin_offset = if opening {
-        -config.open_spin_faces * (1.0 - open)
-    } else {
-        0.0 // close never spins — it just folds away facing the active page.
-    };
+        // Opening spin: start the ring one page-step toward the viewer-right
+        // neighbour and ease to 0 with the open `amount`, so the active page swings
+        // to the front. `from_rotation_y(-idx * TAU/n)` brings the viewer-left
+        // neighbour (`idx+1`) to front for a positive step, so the offset starts
+        // negative.
+        let spin_offset = if opening {
+            -config.open_spin_faces * (1.0 - open)
+        } else {
+            0.0 // close never spins — it just folds away facing the active page.
+        };
 
-    // Snap the ring so the active face turns to the camera (OoT page turn).
-    let active_idx = pages
-        .active
-        .as_ref()
-        .and_then(|a| pages.pages.iter().position(|p| &p.id == a))
-        .unwrap_or(0) as f32;
-    let target = Quat::from_rotation_y(-(active_idx + spin_offset) * std::f32::consts::TAU / n);
-    let rotate_step = (time.delta_secs() * config.page_rotate_speed).clamp(0.0, 1.0);
-    let spin = ring_t.rotation.slerp(target, rotate_step);
+        // Snap the ring so the active face turns to the camera (OoT page turn).
+        let active_idx = pages
+            .active
+            .as_ref()
+            .and_then(|a| pages.pages.iter().position(|p| &p.id == a))
+            .unwrap_or(0) as f32;
+        let target = Quat::from_rotation_y(-(active_idx + spin_offset) * std::f32::consts::TAU / n);
+        let rotate_step = (time.delta_secs() * config.page_rotate_speed).clamp(0.0, 1.0);
+        let spin = ring_t.rotation.slerp(target, rotate_step);
 
-    let amount_settled =
-        new_amount == state.target && (new_amount - state.amount).abs() <= f32::EPSILON;
-    let rotation_settled = ring_t.rotation.angle_between(target) < 1.0e-4;
-    if amount_settled && rotation_settled {
-        return;
-    }
-    state.amount = new_amount;
-
-    match config.open_close_style {
-        MenuOpenCloseStyle::SmoothScale => {
-            let scale = config.min_open_scale + (1.0 - config.min_open_scale) * open;
-            ring_t.rotation = spin;
-            ring_t.scale = Vec3::splat(scale);
-            ring_t.translation = Vec3::new(0.0, -0.05 * (1.0 - open), -0.42 * (1.0 - open));
-            for (face, mut t) in &mut faces {
-                reset_face_transform(face, &mut t);
-            }
+        let amount_settled =
+            new_amount == state.target && (new_amount - state.amount).abs() <= f32::EPSILON;
+        let rotation_settled = ring_t.rotation.angle_between(target) < 1.0e-4;
+        if amount_settled && rotation_settled {
+            continue;
         }
-        MenuOpenCloseStyle::OotPageFold => {
-            ring_t.rotation = spin;
-            ring_t.scale = Vec3::ONE;
-            ring_t.translation = Vec3::new(0.0, -0.10 * (1.0 - open), 0.0);
-            let fold = config.fold_radians * (1.0 - open);
-            for (face, mut t) in &mut faces {
-                apply_face_fold(face, fold, &mut t);
+        state.amount = new_amount;
+
+        match config.open_close_style {
+            MenuOpenCloseStyle::SmoothScale => {
+                let scale = config.min_open_scale + (1.0 - config.min_open_scale) * open;
+                ring_t.rotation = spin;
+                ring_t.scale = Vec3::splat(scale);
+                ring_t.translation = Vec3::new(0.0, -0.05 * (1.0 - open), -0.42 * (1.0 - open));
+                for (parent, face, mut t) in &mut faces {
+                    if parent.parent() != menu {
+                        continue;
+                    }
+                    reset_face_transform(face, &mut t);
+                }
+            }
+            MenuOpenCloseStyle::OotPageFold => {
+                ring_t.rotation = spin;
+                ring_t.scale = Vec3::ONE;
+                ring_t.translation = Vec3::new(0.0, -0.10 * (1.0 - open), 0.0);
+                let fold = config.fold_radians * (1.0 - open);
+                for (parent, face, mut t) in &mut faces {
+                    if parent.parent() != menu {
+                        continue;
+                    }
+                    apply_face_fold(face, fold, &mut t);
+                }
             }
         }
     }
@@ -1127,9 +1148,11 @@ fn ease_fold_amount(amount: f32, target: f32, rate: f32, dt: f32) -> f32 {
 /// alpha channel on existing `StandardMaterial` assets in place (the spawn sites
 /// each `materials.add(..)` a unique handle per entity, so this never aliases).
 fn fade_kaleidoscope_materials(
-    state: Res<KaleidoscopeOpenState>,
+    mut states: Query<(&KaleidoscopeOpenState, &mut MaterialFadeState)>,
+    surfaces: Query<&ambition_menu::MenuSurface>,
+    parents: Query<&ChildOf>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    faded: Query<(&KaleidoscopeFade, &MeshMaterial3d<StandardMaterial>)>,
+    faded: Query<(Entity, &KaleidoscopeFade, &MeshMaterial3d<StandardMaterial>)>,
     // Faded planes that need this sweep this frame. Two causes:
     //
     // * `Changed<MeshMaterial3d>`: a plane `rebuild_cube_faces` just spawned.
@@ -1152,23 +1175,27 @@ fn fade_kaleidoscope_materials(
             With<KaleidoscopeFade>,
         ),
     >,
-    mut last_amount: Local<f32>,
 ) {
-    let amount = state.amount.clamp(0.0, 1.0);
-    // PERF: SETTLE EARLY-OUT. Each plane's target (mode + alpha)
-    // depends only on `amount` and its static `base_alpha`/textured-ness, so when
-    // the fold amount is unchanged AND no faded plane's material was respawned or
-    // recolored this frame, the whole sweep is a guaranteed no-op — skip it instead
-    // of doing a `materials.get()` for every one of the ~hundreds of menu planes
-    // every frame while the menu just sits open.
-    if (amount - *last_amount).abs() <= f32::EPSILON && touched.is_empty() {
+    let any_amount_changed = states
+        .iter()
+        .any(|(state, previous)| previous.amount != Some(state.amount.clamp(0.0, 1.0)));
+    if !any_amount_changed && touched.is_empty() {
         return;
     }
-    *last_amount = amount;
     // Solid planes remain opaque so depth bands resolve without z-fighting.
     // Textured planes remain blended so transparent glyph/icon texels stay
     // transparent; only those planes cross-fade with `amount`.
-    for (fade, material) in &faded {
+    for (entity, fade, material) in &faded {
+        let Some(owner) = scene_menu(entity, &surfaces, &parents) else {
+            continue;
+        };
+        let Ok((state, previous)) = states.get(owner) else {
+            continue;
+        };
+        let amount = state.amount.clamp(0.0, 1.0);
+        if previous.amount == Some(amount) && !touched.contains(entity) {
+            continue;
+        }
         // Copy the few fields out so the immutable read ends before any get_mut.
         let Some((textured, cur_mode, cur_alpha)) = materials.get(&material.0).map(|m| {
             (
@@ -1195,6 +1222,12 @@ fn fade_kaleidoscope_materials(
                 mat.alpha_mode = target_mode;
                 mat.base_color.set_alpha(target_alpha);
             }
+        }
+    }
+    for (state, mut previous) in &mut states {
+        let amount = Some(state.amount.clamp(0.0, 1.0));
+        if previous.amount != amount {
+            previous.amount = amount;
         }
     }
 }
@@ -1478,3 +1511,21 @@ pub use page::RenderedNode;
 // (lunex lays out only the cube).
 pub use bevy_lunex::UiSystems;
 use page::{apply_dynamic_text, render_page_model};
+
+#[derive(Component, Default)]
+struct MaterialFadeState {
+    amount: Option<f32>,
+}
+
+fn scene_menu(
+    mut entity: Entity,
+    surfaces: &Query<&ambition_menu::MenuSurface>,
+    parents: &Query<&ChildOf>,
+) -> Option<Entity> {
+    loop {
+        if let Ok(surface) = surfaces.get(entity) {
+            return Some(surface.0);
+        }
+        entity = parents.get(entity).ok()?.parent();
+    }
+}

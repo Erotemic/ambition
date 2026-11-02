@@ -31,3 +31,28 @@ fn kaleidoscope_camera_uses_the_cheap_unlit_render_contract() {
         "the failed runtime MSAA experiment must not silently rewrite the established camera contract",
     );
 }
+
+#[test]
+fn setup_creates_a_camera_for_each_published_menu() {
+    let mut app = App::new();
+    app.insert_resource(KaleidoscopeMenuConfig::default());
+    let menus = [0, 1].map(|_| {
+        app.world_mut()
+            .spawn(ambition_menu::ActiveMenuPages::<(), ()>::default())
+            .id()
+    });
+    app.add_systems(Startup, setup_cube::<(), ()>);
+    app.update();
+    let mut cameras = app
+        .world_mut()
+        .query_filtered::<&ambition_menu::MenuSurface, With<KaleidoscopePauseCamera>>();
+    let owners: std::collections::HashSet<_> =
+        cameras.iter(app.world()).map(|surface| surface.0).collect();
+    assert_eq!(owners, menus.into_iter().collect());
+    for menu in menus {
+        assert!(app
+            .world()
+            .get::<super::KaleidoscopeOpenState>(menu)
+            .is_some());
+    }
+}

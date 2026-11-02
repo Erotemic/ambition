@@ -2436,14 +2436,20 @@ fn overlay_camera_app(amount: f32) -> (App, Entity, Entity, Entity, Entity) {
     let mut app = App::new();
     app.init_resource::<InventoryUiBackend>();
     *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::LunexKaleidoscope;
-    crate::menu::test_support::spawn_inventory_menu(&mut app, ambition_platformer2d::inventory_ui::InventoryUiState {
-        visible: true,
-        ..Default::default()
-    });
-    app.insert_resource(ambition_menu_kaleidoscope::KaleidoscopeOpenState {
-        amount,
-        target: amount,
-    });
+    crate::menu::test_support::spawn_inventory_menu(
+        &mut app,
+        ambition_platformer2d::inventory_ui::InventoryUiState {
+            visible: true,
+            ..Default::default()
+        },
+    );
+    let menu = crate::menu::test_support::menu_id(app.world());
+    app.world_mut()
+        .entity_mut(menu)
+        .insert(ambition_menu_kaleidoscope::KaleidoscopeOpenState {
+            amount,
+            target: amount,
+        });
     app.add_systems(Update, gate_kaleidoscope_menu);
 
     let main = app.world_mut().spawn((Camera::default(), MainCamera)).id();
@@ -2463,6 +2469,7 @@ fn overlay_camera_app(amount: f32) -> (App, Entity, Entity, Entity, Entity) {
                 ..Default::default()
             },
             ambition_menu_kaleidoscope::KaleidoscopePauseCamera,
+            ambition_platformer2d::menu::MenuSurface(menu),
         ))
         .id();
     (app, main, front, capture, cube)
@@ -2505,12 +2512,11 @@ fn closing_cube_toggles_only_the_cube_camera() {
     app.update();
     assert!(camera_active(&app, cube));
 
-    crate::menu::test_support::inventory_state_mut(app.world_mut())
-        .visible = false;
+    crate::menu::test_support::inventory_state_mut(app.world_mut()).visible = false;
     {
-        let mut open = app
-            .world_mut()
-            .resource_mut::<ambition_menu_kaleidoscope::KaleidoscopeOpenState>();
+        let mut open = crate::menu::test_support::menu_component_mut::<
+            ambition_menu_kaleidoscope::KaleidoscopeOpenState,
+        >(app.world_mut());
         open.amount = 0.0;
         open.target = 0.0;
     }
@@ -3163,4 +3169,97 @@ fn two_seats_open_navigate_and_close_their_own_menus_with_one_pause() {
             GameMode::Playing
         );
     }
+}
+
+#[test]
+fn each_cubes_camera_and_scrim_follow_its_own_fold() {
+    use ambition_menu_kaleidoscope::{KaleidoscopeOpenState, KaleidoscopePauseCamera};
+    use ambition_platformer2d::input::ParticipantId;
+    use ambition_platformer2d::inventory_ui::{InventoryMenu, InventoryUiState};
+    use ambition_platformer2d::menu::MenuSurface;
+    let mut app = App::new();
+    app.insert_resource(InventoryUiBackend::LunexKaleidoscope);
+    app.add_systems(
+        Update,
+        (gate_kaleidoscope_menu, fade_kaleidoscope_scrim).chain(),
+    );
+    let menus = [ParticipantId::PRIMARY, ParticipantId::SECONDARY].map(|owner| {
+        app.world_mut()
+            .spawn((
+                crate::menu::MenuInstance,
+                InventoryMenu { owner },
+                InventoryUiState {
+                    visible: true,
+                    ..default()
+                },
+                KaleidoscopeOpenState {
+                    amount: 1.0,
+                    target: 1.0,
+                },
+            ))
+            .id()
+    });
+    let cameras = menus.map(|menu| {
+        app.world_mut()
+            .spawn((
+                KaleidoscopePauseCamera,
+                MenuSurface(menu),
+                Camera::default(),
+            ))
+            .id()
+    });
+    let scrims = menus.map(|menu| {
+        app.world_mut()
+            .spawn((
+                KaleidoscopeScrim,
+                MenuSurface(menu),
+                BackgroundColor(Color::NONE),
+            ))
+            .id()
+    });
+    app.update();
+    assert!(cameras
+        .into_iter()
+        .all(|camera| camera_active(&app, camera)));
+    app.world_mut()
+        .get_mut::<InventoryUiState>(menus[0])
+        .unwrap()
+        .visible = false;
+    app.world_mut()
+        .get_mut::<KaleidoscopeOpenState>(menus[0])
+        .unwrap()
+        .amount = 0.0;
+    app.update();
+    assert!(!camera_active(&app, cameras[0]));
+    assert!(camera_active(&app, cameras[1]));
+    assert_eq!(
+        app.world()
+            .get::<BackgroundColor>(scrims[0])
+            .unwrap()
+            .0
+            .alpha(),
+        0.0
+    );
+    assert!(
+        app.world()
+            .get::<BackgroundColor>(scrims[1])
+            .unwrap()
+            .0
+            .alpha()
+            > 0.0
+    );
+    assert_eq!(
+        app.world()
+            .get::<KaleidoscopeOpenState>(menus[0])
+            .unwrap()
+            .target,
+        0.0
+    );
+    assert_eq!(
+        app.world()
+            .get::<KaleidoscopeOpenState>(menus[1])
+            .unwrap()
+            .target,
+        1.0
+    );
 }

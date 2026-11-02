@@ -1,24 +1,8 @@
 //! The cube-menu scrim (dimming backdrop): its display camera, spawn, target,
 //! and the open/close alpha fade.
 //!
-//! # A FULL-SCREEN SCRIM IS A DISPLAY FACT, NOT A VIEW FACT
-//!
-//! The scrim dims THE WORLD so the cube's text reads, and it must draw BEHIND
-//! the order-8 cube. The default UI camera is the order-9 front HUD camera, so
-//! it cannot simply inherit that; it needs a target with a lower order.
-//!
-//! - under any fixed-aspect presentation profile the gameplay camera already
-//!   carries a `Camera::viewport` (`apply_gameplay_camera_viewport`), so the
-//!   "full-screen" scrim covered the gameplay rectangle and left the surround
-//!   bars undimmed;
-//! - under a split layout there is one gameplay camera per local view, and the
-//!   resource is whichever rig was inserted last — so the scrim would dim ONE
-//!   PANE.
-//!
-//! So the scrim owns [`KaleidoscopeScrimCamera`]: a full-screen, viewport-free
-//! `Camera2d` that sits one order behind the cube and renders no sprites at all.
-//! It answers "the whole display" by construction, and it keeps answering it
-//! however many gameplay views the composition grows.
+//! Each scrim node belongs to one menu. A shared display camera draws these
+//! nodes behind the cube cameras. Node placement must follow the menu region.
 
 use super::*;
 
@@ -53,6 +37,7 @@ pub(crate) fn spawn_kaleidoscope_scrim(
     // config is inserted at plugin build time, so it is here by `Startup`;
     // `Option` keeps a fixture that skips the cube plugin from panicking.
     config: Option<Res<KaleidoscopeMenuConfig>>,
+    menus: Query<Entity, With<ambition_platformer2d::inventory_ui::InventoryMenu>>,
 ) {
     let order = config
         .map(|config| config.camera_order - 1)
@@ -75,23 +60,26 @@ pub(crate) fn spawn_kaleidoscope_scrim(
         ))
         .id();
 
-    commands.spawn((
-        KaleidoscopeScrim,
-        Name::new("Cube readability scrim"),
-        Node {
-            position_type: PositionType::Absolute,
-            left: Val::Px(0.0),
-            top: Val::Px(0.0),
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            ..default()
-        },
-        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.0)),
-        UiTargetCamera(camera),
-        // Never eat clicks meant for the world/cube; purely a visual dimmer.
-        GlobalZIndex(-1),
-        Pickable::IGNORE,
-    ));
+    for menu in &menus {
+        commands.spawn((
+            ambition_platformer2d::menu::MenuSurface(menu),
+            KaleidoscopeScrim,
+            Name::new("Cube readability scrim"),
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                top: Val::Px(0.0),
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.0)),
+            UiTargetCamera(camera),
+            // Never eat clicks meant for the world/cube; purely a visual dimmer.
+            GlobalZIndex(-1),
+            Pickable::IGNORE,
+        ));
+    }
 }
 
 /// Repair path: give any untargeted scrim the scrim camera.
@@ -122,17 +110,20 @@ pub(crate) fn retarget_kaleidoscope_scrim(
 /// Fade the dim-scrim's alpha with the cube's eased open `amount`, so the world
 /// dims in/out exactly with the fold. Fully transparent when the cube is shut.
 pub(crate) fn fade_kaleidoscope_scrim(
-    open_state: Res<ambition_menu_kaleidoscope::KaleidoscopeOpenState>,
-    mut scrim: Query<&mut BackgroundColor, With<KaleidoscopeScrim>>,
+    open_states: Query<&ambition_menu_kaleidoscope::KaleidoscopeOpenState>,
+    mut scrims: Query<
+        (
+            &ambition_platformer2d::menu::MenuSurface,
+            &mut BackgroundColor,
+        ),
+        With<KaleidoscopeScrim>,
+    >,
 ) {
-    let alpha = open_state.amount.clamp(0.0, 1.0) * SCRIM_PEAK_ALPHA;
-    let want = Color::srgba(0.0, 0.0, 0.0, alpha);
-    for mut bg in &mut scrim {
-        // Compared before writing: `BackgroundColor` is change-detected, and the
-        // fold sits settled for most of the frames this system runs — an
-        // unconditional assignment dirties the UI node every one of them.
-        if bg.0 != want {
-            bg.0 = want;
+    for (owner, mut background) in &mut scrims {
+        let amount = open_states.get(owner.0).map_or(0.0, |state| state.amount);
+        let want = Color::srgba(0.0, 0.0, 0.0, amount.clamp(0.0, 1.0) * SCRIM_PEAK_ALPHA);
+        if background.0 != want {
+            background.0 = want;
         }
     }
 }
@@ -169,6 +160,7 @@ mod tests {
             ))
             .id();
 
+        crate::menu::test_support::spawn_inventory_menu(&mut app, Default::default());
         app.add_systems(Startup, spawn_kaleidoscope_scrim);
         app.update();
 

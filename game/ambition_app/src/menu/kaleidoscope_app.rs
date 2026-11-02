@@ -166,17 +166,21 @@ fn kaleidoscope_menu_visible(
 fn kaleidoscope_render_needed(
     backend: Res<InventoryUiBackend>,
     ui_state: Query<&ambition_platformer2d::inventory_ui::InventoryUiState>,
-    open_state: Option<Res<ambition_menu_kaleidoscope::KaleidoscopeOpenState>>,
+    open_states: Query<&ambition_menu_kaleidoscope::KaleidoscopeOpenState>,
 ) -> bool {
-    let (target, amount) = open_state
-        .map(|s| (s.target, s.amount))
-        .unwrap_or((0.0, 0.0));
+    let open = ui_state.iter().any(|s| s.visible);
     cube_render_needed(
         KALEIDOSCOPE_MENU_BACKEND_ENABLED,
         backend.effective() == InventoryUiBackend::LunexKaleidoscope,
-        ui_state.iter().any(|s| s.visible),
-        target,
-        amount,
+        open,
+        open_states
+            .iter()
+            .map(|state| state.target)
+            .fold(0.0, f32::max),
+        open_states
+            .iter()
+            .map(|state| state.amount)
+            .fold(0.0, f32::max),
     )
 }
 
@@ -1944,58 +1948,40 @@ fn cycle_dev_gravity(
 #[cfg(feature = "kaleidoscope_menu")]
 fn gate_kaleidoscope_menu(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
-    mut open_state: ResMut<ambition_menu_kaleidoscope::KaleidoscopeOpenState>,
-    mut cube_cameras: Query<&mut Camera, With<ambition_menu_kaleidoscope::KaleidoscopePauseCamera>>,
+    mut menus: Query<(
+        Entity,
+        &ambition_platformer2d::inventory_ui::InventoryUiState,
+        &mut ambition_menu_kaleidoscope::KaleidoscopeOpenState,
+    )>,
+    mut cube_cameras: Query<
+        (&ambition_platformer2d::menu::MenuSurface, &mut Camera),
+        With<ambition_menu_kaleidoscope::KaleidoscopePauseCamera>,
+    >,
     mut rings: Query<&mut Visibility, With<ambition_menu_kaleidoscope::MenuRing>>,
-    mut last_show: Local<Option<bool>>,
 ) {
-    let open = ui_state.map(|s| s.visible).unwrap_or(false);
-    let show = KALEIDOSCOPE_MENU_BACKEND_ENABLED
-        && backend.effective() == InventoryUiBackend::LunexKaleidoscope
-        && open;
-    if *last_show != Some(show) {
-        info!(
-            "cube gate: show={show} backend={:?} menu_open={open}",
-            *backend
-        );
-        *last_show = Some(show);
-    }
-    // Drive the lib's open/close fold: it eases `amount` toward this target each
-    // frame (see `animate_kaleidoscope_open`). We gate the camera/visibility off the eased
-    // AMOUNT (not the binary `show`) so the close-fold animation stays on-screen
-    // until the cube has fully folded shut.
-    //
-    // Compared before writing, like the camera and ring writes below. This system
-    // runs every frame with no run condition (it has to — it detects the open
-    // EDGE), so an unconditional `ResMut` write would mark `KaleidoscopeOpenState`
-    // changed on every frame of the game's life, for a value that moves twice per
-    // menu visit.
-    let target = if show { 1.0 } else { 0.0 };
-    if open_state.target != target {
-        open_state.target = target;
-    }
-    // Hide the camera/ring once the close-fold has decayed past a sizable cutoff
-    // (not a near-zero `0.002`) so the slow fold/scrim TAIL is cut and the menu
-    // clears snappily. Combined with the lib's faster close decay
-    // (`close_speed_scale`), the scrim (which follows `amount`) reads as a quick
-    // fade-out. The cutoff only matters while CLOSING; opening crosses it instantly.
-    let shown = open_state.amount > 0.08;
-    // Overlay contract: the cube camera clears `None` and renders OVER the live world, so only the
-    // cube's own camera toggles here.
-    for mut camera in &mut cube_cameras {
-        if camera.is_active != shown {
-            camera.is_active = shown;
+    for (menu, ui_state, mut open_state) in &mut menus {
+        let show = KALEIDOSCOPE_MENU_BACKEND_ENABLED
+            && backend.effective() == InventoryUiBackend::LunexKaleidoscope
+            && ui_state.visible;
+        let target = if show { 1.0 } else { 0.0 };
+        if open_state.target != target {
+            open_state.target = target;
         }
-    }
-    let want = if shown {
-        Visibility::Visible
-    } else {
-        Visibility::Hidden
-    };
-    for mut vis in &mut rings {
-        if *vis != want {
-            *vis = want;
+        let shown = open_state.amount > 0.08;
+        for (owner, mut camera) in &mut cube_cameras {
+            if owner.0 == menu && camera.is_active != shown {
+                camera.is_active = shown;
+            }
+        }
+        if let Ok(mut visibility) = rings.get_mut(menu) {
+            let want = if shown {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            };
+            if *visibility != want {
+                *visibility = want;
+            }
         }
     }
 }

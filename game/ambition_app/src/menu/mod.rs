@@ -47,5 +47,5 @@ mod parity_tests;
 #[cfg_attr(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"), require(lifecycle::MenuLifecycleState))]
 #[cfg_attr(feature = "bevy_ui_menu", require(grid_backend::GridMenuTabState))]
 #[cfg_attr(feature = "kaleidoscope_menu", require(kaleidoscope_app::KaleidoscopeScroll,
-    kaleidoscope_app::CachedSystemMenu, kaleidoscope_app::MenuPublication))]
+    kaleidoscope_app::CachedSystemMenu, kaleidoscope_app::MenuPublication, ambition_menu_kaleidoscope::KaleidoscopeOpenState))]
 pub(crate) struct MenuInstance;

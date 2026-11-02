@@ -749,6 +749,16 @@ The app still needs per-menu navigation, cache, fold and viewport state before
 two-pad menu acceptance. Do not restore global gesture state or events with no owner.
 
 
+Menu equipment, actions and maps use the owning participant's current body
+(`69de9c2cd`). Cells, details and confirm hints share the body's inventory view.
+The Grid map updates when that body changes live rooms. Guards:
+`either_backend_uses_the_menu_owners_current_body_and_hand`,
+`each_menu_map_follows_its_controlled_body_between_live_rooms` and
+`an_open_grid_map_follows_the_owner_without_a_map_resource_change`.
+Missing or ambiguous bindings have no body; do not select the primary body.
+Navigation, caches, fold, viewport and per-seat frontend input remain open.
+Held-item mutations still need stamped intents before peer agreement.
+
 **Next action (ordered slices; complete each behavior gate before moving):**
 
 4. **Independent local menus:** separate per-seat open state, focus, page,

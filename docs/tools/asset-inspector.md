@@ -18,7 +18,7 @@ review note. A failure in one source becomes a notice, never a refusal.
 For sprites it joins owner reports for registered bundles, prepared game
 identities, local products, concepts, and design history. Game use,
 registration, generation state, and lineage are separate facts.
-See the [tool guide](../../tools/asset_inspector/README.md) for the full interface.
+See the [tool guide](../../tools/ambition_editor/README.md) for the full interface.
 
 Build the content and runtime sheet reader once, then reuse it after data edits:
 

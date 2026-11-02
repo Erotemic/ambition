@@ -1,0 +1,75 @@
+{
+  "commands": [
+    {
+      "id": "ecs",
+      "title": "Inspect ECS systems and architecture diagnostics",
+      "owner": "tools/ecs_architecture_browser",
+      "command": "python3 scripts/ecs_browser.py",
+      "help": "python3 scripts/ecs_browser.py --help",
+      "requires": [
+        "scripts/ecs_browser.py",
+        "tools/ecs_architecture_browser/web/index.html"
+      ],
+      "docs": "tools/ecs_architecture_browser/README.md",
+      "inputs": "Generated .agent ECS inventory.",
+      "outputs": "Offline .agent/ecs_browser/index.html.",
+      "mutation": "Writes derived pages.",
+      "build": "No Cargo build. Use the owner Python environment.",
+      "status": "active",
+      "cwd": "repository root",
+      "url": "../ecs_browser/index.html"
+    },
+    {
+      "id": "sprites",
+      "title": "Author characters and inspect sprite generation",
+      "owner": "tools/ambition_sprite2d_renderer",
+      "command": "bash scripts/regen/sprites.sh --list",
+      "help": "bash scripts/regen/sprites.sh --help",
+      "requires": [
+        "scripts/regen/sprites.sh",
+        "tools/ambition_sprite2d_renderer/README.md"
+      ],
+      "inputs": "Authored character sources and publication selection.",
+      "outputs": "Generation plan and sprite products.",
+      "mutation": "List reads data. Explicit publication writes selected bundles.",
+      "docs": "tools/ambition_sprite2d_renderer/README.md",
+      "build": "No Cargo build. Use the renderer environment. Music review needs uv and Qt.",
+      "cwd": "repository root",
+      "status": "active"
+    },
+    {
+      "id": "music",
+      "title": "Review generated music",
+      "owner": "tools/ambition_music_renderer",
+      "command": "bash tools/ambition_music_renderer/review_music.sh",
+      "help": "bash tools/ambition_music_renderer/review_music.sh --help",
+      "requires": [
+        "tools/ambition_music_renderer/review_music.sh"
+      ],
+      "inputs": "MusicIR scores and existing audio.",
+      "outputs": "Music review window and diagnostics.",
+      "mutation": "Review edits and render actions write owner data.",
+      "docs": "tools/ambition_music_renderer/README.md",
+      "build": "No Cargo build. Use the renderer environment. Music review needs uv and Qt.",
+      "cwd": "repository root",
+      "status": "active"
+    },
+    {
+      "id": "sfx",
+      "title": "Inspect sound effect authoring commands",
+      "owner": "tools/ambition_sfx_renderer",
+      "command": "PYTHONPATH=tools/ambition_sfx_renderer python3 -m ambition_sfx_renderer --help",
+      "help": "PYTHONPATH=tools/ambition_sfx_renderer python3 -m ambition_sfx_renderer --help",
+      "requires": [
+        "tools/ambition_sfx_renderer/ambition_sfx_renderer/__main__.py"
+      ],
+      "inputs": "SFXIR sources.",
+      "outputs": "Command help; renderer commands produce audio and manifests.",
+      "mutation": "Help reads only. Render and publication commands write outputs.",
+      "docs": "tools/ambition_sfx_renderer/README.md",
+      "build": "No Cargo build. Use the renderer environment. Music review needs uv and Qt.",
+      "cwd": "repository root",
+      "status": "active"
+    }
+  ]
+}

@@ -78,7 +78,7 @@ def check_products(repo: Path, subject: dict) -> None:
 
 class Store:
     def __init__(self, repo: Path):
-        self.root = repo / "tools" / "asset_inspector" / "reviews" / "notes"
+        self.root = repo / "tools" / "ambition_editor" / "reviews" / "notes"
 
     def path(self, note_id: str) -> Path:
         return self.root / (str(uuid.UUID(note_id)) + ".json")

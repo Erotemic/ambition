@@ -84,7 +84,7 @@ def make_handler(repo: Path, catalog, status=None):
 
 
 #: Words in the command line of a server this tool may stop (`--kill`); `art_inspector` is the old name.
-_OURS = ("asset_inspector", "art_inspector", "asset_index", "art_index")
+_OURS = ("asset_inspector", "asset_index")
 
 
 def _listener(port: int) -> int | None:
@@ -201,7 +201,7 @@ def serve(repo: Path, out: Path, *, port=8767, open_browser=False, build=None, r
     with ThreadingHTTPServer(("127.0.0.1", port), make_handler(repo, current_catalog, status)) as server:
         url = f"http://127.0.0.1:{server.server_port}/{(out / 'index.html').relative_to(repo).as_posix()}#overview"
         print(f"Asset inspector: {url}", flush=True)
-        print("Review notes: tools/asset_inspector/reviews/notes/", flush=True)
+        print("Review notes: tools/ambition_editor/reviews/notes/", flush=True)
         if open_browser:
             webbrowser.open(url)
         if refresh_command:

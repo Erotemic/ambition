@@ -1,11 +1,17 @@
 # Tooling layout, discovery, and Ambition Editor consolidation
 
-**State:** TRIAGED. [TOOL-DISCOVERY](../queue.md#tool-discovery--find-supported-commands-by-developer-intent)
+**State:** T0-T2 implemented. [TOOL-DISCOVERY](../queue.md#tool-discovery--find-supported-commands-by-developer-intent)
 selects T0-T1. [EDITOR-SHELL](../queue.md#editor-shell--promote-the-existing-inspector-without-a-second-authority)
 selects T2 after discovery. T3-T5 remain conditional on the inventory. The queue
 owns execution; this document does not approve bulk file moves.
 **Source snapshot:** `19c66394` (2026-11-02 archive).
 **Scope:** Repository development and authoring tools, their paths, entry points, and discovery. No game or engine behavior change is intended.
+
+**Receipts:** command discovery and path inventory: `3e3bb72a27`; editor promotion: `61a8189823`.
+Intent queries now find owner commands. The editor reuses that catalog and keeps
+asset review as its first area. The 70 focused tests cover retrieval, missing
+source, asset inspection, review notes, and tool navigation. T3-T5 remain
+conditional. Renderer submodule paths must stay fixed.
 
 ## Decision to make
 
@@ -24,7 +30,7 @@ The source snapshot has:
 - **257 direct files** in `scripts/`. This includes **65 `check_*`** and **63 `measure_*`** files. `scripts/tests/` contains **234 direct test files**. `scripts/regen/` already groups regeneration drivers such as `assets.sh`, `sprites.sh`, `music.sh`, `sfx.sh`, and `backgrounds.sh`.
 - Tool packages and applications under `tools/`, including `asset_inspector`, `ambition_moveset_inspector`, `ambition_ldtk_tools`, `ecs_architecture_browser`, `optimization_report`, and `vanity_card_prep`.
 - Gitlink submodules at `tools/ambition_sprite2d_renderer`, `tools/ambition_music_renderer`, and `tools/ambition_sfx_renderer`. Their location is a fixed requirement. An empty checkout in a source export does not mean the tool is absent.
-- The Asset Inspector implementation in `tools/asset_inspector/{asset_index,web,reviews,tests}`. `scripts/asset_inspector.py` is its supported CLI, with `build`, `serve`, `status`, `inspect`, `coverage`, `list`, and review-note workflows. `scripts/art_inspector.py` is a legacy alias. Review notes are authored data; generated inspector pages are not.
+- The Asset Inspector implementation in `tools/ambition_editor/{asset_index,web,reviews,tests}`. `scripts/asset_inspector.py` is its supported CLI, with `build`, `serve`, `status`, `inspect`, `coverage`, `list`, and review-note workflows. The legacy art-inspector alias has been removed. Review notes are authored data; generated inspector pages are not.
 - The moveset inspector as a separate Python/web tool under `tools/ambition_moveset_inspector/`, launched by `serve_inspector.sh`. `game/ambition_app_tools` owns Rust binaries for capture, headless execution, moveset takes and rendering, trace replay, and room geometry rendering. The editor should reuse them.
 - `scripts/ecs_browser.py` builds the web output whose frontend lives in `tools/ecs_architecture_browser/web/`. `scripts/moveset_report.py`, `scripts/moveset_visualizations.py`, and `scripts/render_take_diagnostic.py` are candidates for review alongside the moveset tool, not automatic moves.
 - `scripts/generate_agent_index.py::build_tool_index` scans immediate `tools/` directories and records README and Python-project presence. It does **not** inventory supported commands in `scripts/` or Cargo binaries. `scripts/agent_query.py` is already the agent discovery front door.
@@ -93,7 +99,7 @@ This is a direction, not a command to create empty folders. Decide which scripts
 - **Later integration, only where valuable:** cross-links from a selected character or asset to its generator, move, use sites, capture, room, and historical appearance; unified display of tool outputs and diagnostics. Favor navigation and presentation integration over merging internal implementations.
 - **Excluded:** an alternative content catalog, a generic mutable registry of Bevy state, a second simulation harness, replacing the LDtk editor, copying renderer code out of submodules, or recreating source-of-truth metadata inside the editor.
 
-The existing Asset Inspector stores authored notes under `tools/asset_inspector/reviews/notes/`. A physical package move must preserve all notes, stable note IDs, provenance, internal links, and any scripts that look them up. Its generated `.agent/asset_inspector` outputs can remain under their current path until there is a demonstrated need to change that path. Do not require a generated-output rename merely to rename the tool.
+Ambition Editor stores authored notes under `tools/ambition_editor/reviews/notes/`. A physical package move must preserve all notes, stable note IDs, provenance, internal links, and any scripts that look them up. Its generated `.agent/asset_inspector` outputs can remain under their current path until there is a demonstrated need to change that path. Do not require a generated-output rename merely to rename the tool.
 
 ## Script ownership candidates (triage, not preapproved moves)
 
@@ -112,7 +118,7 @@ Do not move a check into `regen` solely because regeneration calls it. A produce
 
 ### T0. Produce a command and path-consumer inventory
 
-**Precondition:** none. **Status:** selected through TOOL-DISCOVERY.
+**Precondition:** none. **Status:** implemented. See [command discovery](../../tools/command-discovery.md).
 
 1. Enumerate actual supported commands from the root scripts, tool READMEs, package entry points, `game/ambition_app_tools/Cargo.toml`, and available command help. Separate supported, internal, experimental, archived, and unknown.
 2. For proposed moves, identify references in Python imports, shell scripts, tests, Cargo config, CI workflows, documentation, and generated indexes. Detect `__file__`-relative repository-root computations, `sys.path` assumptions, working-directory dependencies, and references to authored data under old tool paths.
@@ -122,7 +128,7 @@ Do not move a check into `regen` solely because regeneration calls it. A produce
 
 ### T1. Improve agent tool discovery before moving tools
 
-**Depends on:** T0. **Status:** selected through TOOL-DISCOVERY.
+**Depends on:** T0. **Status:** implemented. Intent retrieval and missing-source tests cover the command catalog.
 
 Extend `generate_agent_index.py` and/or its focused helpers to enumerate a curated set of supported commands across root scripts, tools, and Cargo binaries. Preserve `scripts/agent_query.py` as the agent entry point. Search by developer intent, not only package directory name. Each result should provide a usable example, help command, owner, build/reuse requirement, relevant output, and link to authoritative documentation. Prefer reading commands from tool-local descriptors or existing definitions. Do not maintain an exhaustive hand-written second command registry. Keep generation fast and the catalog non-authoritative.
 
@@ -130,7 +136,7 @@ Extend `generate_agent_index.py` and/or its focused helpers to enumerate a curat
 
 ### T2. Promote the existing Asset Inspector to Ambition Editor
 
-**Depends on:** TOOL-DISCOVERY (T0-T1). **Status:** selected through EDITOR-SHELL.
+**Depends on:** TOOL-DISCOVERY (T0-T1). **Status:** implemented. The editor Tools page uses the owner command catalog.
 
 Start with the existing inspector implementation. Retain the asset browsing and review workflows as the first editor area. Introduce a coherent name and navigation shell. Preserve stable review data, JSON CLI operations, selected library behavior, cached previews, and current `serve` semantics. Integrate other tools first by links or command invocation, not by moving their core code. The existing `scripts/asset_inspector.py` can remain the small supported CLI launcher if it is useful; retire the `art_inspector.py` alias when all call sites are migrated. Inspect compatibility needs before choosing the final rename operation.
 

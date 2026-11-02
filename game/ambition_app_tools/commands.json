@@ -1,0 +1,112 @@
+{
+  "commands": [
+    {
+      "id": "capture_scene",
+      "title": "Screenshot and deterministic capture through the render stack",
+      "owner": "game/ambition_app_tools",
+      "command": "target/debug/capture_scene military_tower player /tmp/scene.png --warmup 60",
+      "help": "target/debug/capture_scene --help",
+      "requires": [
+        "game/ambition_app_tools/src/bin/capture_scene.rs"
+      ],
+      "docs": "docs/tools/index.md",
+      "inputs": "Room or route; focus and capture options.",
+      "outputs": "PNG images; optional art snapshot JSON.",
+      "mutation": "Runs an isolated simulation; writes requested output files.",
+      "build": "Reuse target/debug/capture_scene or target/release/capture_scene. If absent, enable the target bind, then cargo build -p ambition_app_tools --bin capture_scene. Capture needs graphics support.",
+      "status": "active",
+      "cwd": "repository root",
+      "binary": "capture_scene"
+    },
+    {
+      "id": "headless",
+      "title": "Headless simulation diagnostics",
+      "owner": "game/ambition_app_tools",
+      "command": "target/debug/headless 120",
+      "help": "sed -n '1,25p' game/ambition_app_tools/src/bin/headless.rs",
+      "requires": [
+        "game/ambition_app_tools/src/bin/headless.rs"
+      ],
+      "docs": "docs/systems/headless-simulation.md",
+      "inputs": "Tick count and room options.",
+      "outputs": "Simulation summary; optional trace.",
+      "mutation": "Runs an isolated simulation; writes requested output files.",
+      "build": "Reuse target/debug/headless or target/release/headless. If absent, enable the target bind, then cargo build -p ambition_app_tools --bin headless. Capture needs graphics support.",
+      "status": "active",
+      "cwd": "repository root",
+      "binary": "headless"
+    },
+    {
+      "id": "trace_replay",
+      "title": "Replay recorded simulation traces",
+      "owner": "game/ambition_app_tools",
+      "command": "target/debug/trace_replay /tmp/trace.json",
+      "help": "target/debug/trace_replay",
+      "requires": [
+        "game/ambition_app_tools/src/bin/trace_replay.rs"
+      ],
+      "docs": "docs/systems/headless-simulation.md",
+      "inputs": "Recorded simulation trace.",
+      "outputs": "Replay comparison diagnostics.",
+      "mutation": "Runs an isolated simulation; writes requested output files.",
+      "build": "Reuse target/debug/trace_replay or target/release/trace_replay. If absent, enable the target bind, then cargo build -p ambition_app_tools --bin trace_replay. Capture needs graphics support.",
+      "status": "active",
+      "cwd": "repository root",
+      "binary": "trace_replay"
+    },
+    {
+      "id": "moveset_takes",
+      "title": "Record deterministic move simulation takes",
+      "owner": "game/ambition_app_tools",
+      "command": "target/debug/moveset_takes --help",
+      "help": "target/debug/moveset_takes --help",
+      "requires": [
+        "game/ambition_app_tools/src/bin/moveset_takes.rs"
+      ],
+      "docs": "tools/ambition_moveset_inspector/docs/inspector.md",
+      "inputs": "Fighter and move options.",
+      "outputs": "JSON simulation takes.",
+      "mutation": "Runs an isolated simulation; writes requested output files.",
+      "build": "Reuse target/debug/moveset_takes or target/release/moveset_takes. If absent, enable the target bind, then cargo build -p ambition_app_tools --bin moveset_takes. Capture needs graphics support.",
+      "status": "active",
+      "cwd": "repository root",
+      "binary": "moveset_takes"
+    },
+    {
+      "id": "moveset_render",
+      "title": "Render recorded move takes",
+      "owner": "game/ambition_app_tools",
+      "command": "target/debug/moveset_render --help",
+      "help": "target/debug/moveset_render --help",
+      "requires": [
+        "game/ambition_app_tools/src/bin/moveset_render.rs"
+      ],
+      "docs": "tools/ambition_moveset_inspector/docs/inspector.md",
+      "inputs": "Recorded takes and render options.",
+      "outputs": "Rendered move images.",
+      "mutation": "Runs an isolated simulation; writes requested output files.",
+      "build": "Reuse target/debug/moveset_render or target/release/moveset_render. If absent, enable the target bind, then cargo build -p ambition_app_tools --bin moveset_render. Capture needs graphics support.",
+      "status": "active",
+      "cwd": "repository root",
+      "binary": "moveset_render"
+    },
+    {
+      "id": "render_room_geometry",
+      "title": "Inspect room geometry diagnostics",
+      "owner": "game/ambition_app_tools",
+      "command": "target/debug/render_room_geometry military_tower /tmp/geometry.png",
+      "help": "sed -n '1,25p' game/ambition_app_tools/src/bin/render_room_geometry.rs",
+      "requires": [
+        "game/ambition_app_tools/src/bin/render_room_geometry.rs"
+      ],
+      "docs": "docs/tools/index.md",
+      "inputs": "Room geometry options.",
+      "outputs": "Room geometry render.",
+      "mutation": "Runs an isolated simulation; writes requested output files.",
+      "build": "Reuse target/debug/render_room_geometry or target/release/render_room_geometry. If absent, enable the target bind, then cargo build -p ambition_app_tools --bin render_room_geometry. Capture needs graphics support.",
+      "status": "active",
+      "cwd": "repository root",
+      "binary": "render_room_geometry"
+    }
+  ]
+}

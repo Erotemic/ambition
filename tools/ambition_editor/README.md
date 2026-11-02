@@ -1,4 +1,10 @@
-# Asset inspector
+# Ambition Editor
+
+Ambition Editor starts with asset inspection and review. The Tools page links
+to independent inspection and authoring tools. It shows the same owner commands
+as `python3 scripts/agent_query.py tools "<task>"`. Start each service with its
+shown command before opening a service link. Commands run from the repository
+root. No tool service starts when this page opens.
 
 The asset inspector is the one place to browse and review every asset of an
 engine game: characters and their sprite sheets, images, music, sound effects,
@@ -11,7 +17,7 @@ Run `./scripts/asset_inspector.py` with no arguments. It opens the last index
 in a browser at once and refreshes it in the background, in a separate process
 at low priority, so the page stays responsive while it runs. The page offers a
 reload when the refresh is done. The first run builds before it opens.
-`scripts/art_inspector.py` is the old name and runs the same tool.
+The supported launcher is `scripts/asset_inspector.py`.
 
 Only one inspector serves a port (8767 unless `--port`). If one is already
 running, a second run says so and exits. `./scripts/asset_inspector.py --kill`
@@ -186,7 +192,7 @@ character page, write a note, select its priority and optional animation, then
 save it. Character cards show open-note counts. **Review notes** opens the
 backlog, sorted by priority, with an export for offline work.
 
-Notes are JSON files in `tools/asset_inspector/reviews/notes/`. These are authored
+Notes are JSON files in `tools/ambition_editor/reviews/notes/`. These are authored
 review data. Commit them with other review changes. They are outside the
 generated page directory and browser storage. The service writes them at once.
 The page opened from disk can show the notes included at build time; use the
@@ -276,7 +282,7 @@ pixel bytes are already uploaded to the live graphics device.
 
 ## Validation
 
-Run the inspector tests with `python3 -m pytest tools/asset_inspector/tests -q`.
+Run the inspector tests with `python3 -m pytest tools/ambition_editor/tests -q`.
 Renderer tests cover accepted bundles, source changes, missing pages, and failed
 conversion acceptance. Sprite staging tests exercise receipt and pixel
 publication together. Rust sheet tests cover the original `Death -> Hit -> Idle`

@@ -63,7 +63,7 @@ Store.publish() -> published.json -------------------------+
 | Selected bundle versions | `published.json` | `publication_store.py:145-202` |
 | Native runtime file identity and bytes | `ContentLibraries` and `LibraryAssets` | `content_library.rs:217-259,315-330`; `library_source.rs:45-75,90-134` |
 | Prepared sprite metadata and its activation | Sprite sheet subsystem | `platformer2d/src/content/libraries.rs:8-27`; `baked_sheet_rons.rs:258-339` |
-| Inspector entries and use sites | Inspector read model | `tools/asset_inspector/asset_index/` |
+| Inspector entries and use sites | Inspector read model | `tools/ambition_editor/asset_index/` |
 | Complete release asset tree | Game-owned files plus selected library files | `scripts/package_asset_guard.py:350-374` |
 
 ## Code findings, ordered by leverage
@@ -80,7 +80,7 @@ The snapshot passed to Bevy is consistent for a given installation.
 The inspector takes another route. The music, SFX and font providers inspect
 loose `generated/runtime/full` paths, rather than every selected member.
 Published-only media can therefore be marked missing
-(`tools/asset_inspector/asset_index/kinds.py:150-230,297-307,352-380`).
+(`tools/ambition_editor/asset_index/kinds.py:150-230,297-307,352-380`).
 The image scanner also inventories loose products under managed roots.
 That is useful workspace information, but such files are not automatically
 runtime-selected (`asset_index/paths.py:96-132`).
@@ -247,7 +247,7 @@ share the same query model. A fast editor index can cache the selected view,
 other available products, use sites, and provenance. It must not add work to
 native startup. Keep game-scoped uses and cross-game uses as separate queries;
 the inspector currently scans all `game/*/assets/*.ron` and fixed LDtk roots
-(`tools/asset_inspector/asset_index/usage.py:66-72,117-121`).
+(`tools/ambition_editor/asset_index/usage.py:66-72,117-121`).
 
 ## Decisions and alternatives
 

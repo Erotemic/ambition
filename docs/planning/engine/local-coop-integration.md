@@ -784,11 +784,23 @@ Production captures reach Rebind in Cube and Grid. Do not restore global
 capture or per-backend action consumers. Main-game menu admission and retirement,
 prompts and remaining pointer routing still need the full two-pad playthrough.
 
-Grid text now fits its own layout region (`c10ff5c21`). Native text measurements
-cover independent resize, size recovery, centered anchors and idle stability in
-`text_fits_its_menu_region_and_recovers_without_changing_another_menu`.
-Grid uses the host font, and both renderers receive the owning menu's detail
-text (`72af9be68`). Production Rebind and equipment captures pass visual review.
-Do not restore fixed text sizes or a Cube-only detail provider. The capture
-image cannot exercise Grid's native window-only `Interaction` path. Replace
-that path with pointer events as part of the remaining pointer routing work.
+Grid text fits its menu region and restores its authored maximum (`c10ff5c21`).
+Guard: `text_fits_its_menu_region_and_recovers_without_changing_another_menu`.
+Grid uses the host font; both renderers receive owner detail text (`72af9be68`).
+Production Rebind and equipment captures pass visual review. Do not restore
+fixed text sizes or a Cube-only detail provider.
+
+Grid gestures now use picking and stable menu owners (`e3c8824da`).
+Guards: `motion_and_release_follow_the_finger_that_armed_each_menu`,
+`tab_gestures_follow_their_own_pointer_across_menus` and `a_raw_release_uses_the_pressed_bounds_after_a_widget_rebuild`.
+Rendered one-frame touches open Rebind and select Map. Do not restore global
+pointer selection or window-only activation.
+
+
+The next admission slice must use one session-owned membership record for
+both joins and menu lifetime. Offered `InputParticipant` entities and current
+`DrivingParticipant` bodies are not that record. The current
+`crates/ambition_platformer2d_session/src/join.rs::seat_a_joining_participant`
+query checks body assignments. Membership must survive death and possession
+and end on explicit leave or session retirement. Seed new menu Start latches
+from the live input so the join press does not also open the menu.

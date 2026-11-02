@@ -560,8 +560,7 @@ control.
 
 ### MULTIPLAYER-SEAMS — make local multiplayer safe for netplay
 
-**Remaining failure:** rendered two-controller combat acceptance is open;
-the Ambition menu has one input, cursor and visible state; room loading covers the other viewport; F1
+**Remaining failure:** the Ambition menu has one input, cursor and visible state; room loading covers the other viewport; F1
 gizmos use primary room data. Routine peer room commits still hold the whole
 session. These are separate authority, presentation and gameplay-rule boundaries.
 See the [cause and acceptance map](engine/local-coop-integration.md#follow-up-audit-co-op-works-but-participant-and-view-scope-leaks-2026-10-24)
@@ -602,7 +601,7 @@ schema and input format agreement; local epochs stay local. Guard:
 Scoped co-op damage landed in `0a4bdab1b` (schema 395). The saved ON default
 freezes in the session and enters peer content identity. Melee, projectiles and detached
 body strikes use one relation; detached attacks retain control allegiance.
-Guard: `coop_friendly_fire` integration tests. The rendered main-game acceptance remains open.
+Guard: `coop_friendly_fire` integration tests. Rendered acceptance is recorded below.
 
 Damage-box provenance landed in `753adeda8` (schema 396): capture precedes retirement, and
 queued and immediate construction share one factory. Guard:
@@ -631,17 +630,19 @@ kicker. Body events name one recipient; consumers no longer scan body areas.
 Guards: `a_snake_is_each_players`, `an_excluded_sweetspot_cannot_suppress_an_allowed_sibling`,
 and the app rollback and friendly-fire cases. Do not restore unresolved body targets.
 
+Rendered two-pad combat passed in `6d9e70de3`. Both pads emit melee and
+projectiles. ON permits damage to the other body; OFF prevents it. Neither
+attack hurts its source. Guards: `two_pads_damage_each_other_in_the_rendered_game`
+and `two_pads_spare_each_other_in_the_rendered_game`. GPU captures show both
+panes and the expected health values. The existing dialogue and fixed-split
+GPU cases also pass.
+
 Jump and combat input now consume the current Up interaction gesture until release
 (`69f705d8c`). Guards: `recorded_up_and_jump_sequence_does_not_interact` and
 `holding_up_for_air_attacks_does_not_open_a_door`. Explicit Interact still works.
 
 **Next action (ordered slices; complete each behavior gate before moving):**
 
-3. **Finish gameplay-rule acceptance:** complete the rendered two-controller
-   main-game acceptance for both melee and projectiles with friendly fire ON
-   and OFF. Keep NPC target selection and authored match rules separate.
-   Scoped area hits and resolved body routing are complete. Broad verification
-   remains tracked by TEST-LANES; focused passes do not close it.
 4. **Independent local menus:** separate per-seat open state, focus, page,
    inventory, and viewport UI for Grid and Kaleidoscope. An offline session
    pause arbiter pauses while any menu is open, but each seat still controls

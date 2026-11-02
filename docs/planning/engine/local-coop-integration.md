@@ -523,7 +523,15 @@ Body targets name one recipient, and body consumers do not scan unresolved areas
 Guards: `a_snake_is_each_players` and
 `an_excluded_sweetspot_cannot_suppress_an_allowed_sibling`.
 
-**Remaining:** complete the rendered two-controller main-game acceptance.
+Rendered acceptance passed in `6d9e70de3`. Both pads drive melee and
+projectiles through raw input events in the main GPU host. ON damages the
+other body; OFF permits attack emission but prevents body contacts and damage.
+Neither attack hurts its source. Guards:
+`two_pads_damage_each_other_in_the_rendered_game` and
+`two_pads_spare_each_other_in_the_rendered_game`. Both captures show split
+views and the expected health values. The dialogue and fixed-split GPU cases
+also pass.
+
 Broad verification remains tracked by TEST-LANES; focused passes do not close it.
 
 ### Menus and pause: per-seat focus, explicit global pause aggregation

@@ -114,10 +114,11 @@ impl<'w> MusicLayerChannels<'w> {
         handle: Handle<KiraAudioSource>,
         looped: bool,
         fade_ms: u64,
-    ) {
+    ) -> Option<Handle<bevy_kira_audio::AudioInstance>> {
         if self.output_mode().emits_to_device() {
-            play_handle(self.channel(bank, slot), handle, looped, fade_ms);
+            return Some(play_handle(self.channel(bank, slot), handle, looped, fade_ms));
         }
+        None
     }
 }
 
@@ -132,22 +133,22 @@ fn set_linear_volume(channel: &DynamicAudioChannel, linear: f32) {
     channel.set_volume(amplitude_to_decibels(linear));
 }
 
-fn play_handle(channel: &DynamicAudioChannel, handle: Handle<KiraAudioSource>, looped: bool, fade_ms: u64) {
+fn play_handle(channel: &DynamicAudioChannel, handle: Handle<KiraAudioSource>, looped: bool, fade_ms: u64) -> Handle<bevy_kira_audio::AudioInstance> {
     if looped {
         if fade_ms == 0 {
-            channel.play(handle).looped();
+            channel.play(handle).looped().handle()
         } else {
             channel.play(handle).looped().fade_in(AudioTween::new(
                 Duration::from_millis(fade_ms),
                 AudioEasing::InPowi(2),
-            ));
+            )).handle()
         }
     } else if fade_ms == 0 {
-        channel.play(handle);
+        channel.play(handle).handle()
     } else {
         channel.play(handle).fade_in(AudioTween::new(
             Duration::from_millis(fade_ms),
             AudioEasing::InPowi(2),
-        ));
+        )).handle()
     }
 }

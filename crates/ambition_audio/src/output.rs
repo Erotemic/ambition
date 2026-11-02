@@ -44,6 +44,19 @@ pub struct AudioBackendState {
     pub device_backend_installed: bool,
 }
 
+/// Host facts that permit silence without a playback fault.
+#[derive(Resource, Clone, Copy, Debug)]
+pub struct AudioPlaybackConditions {
+    pub device_suspended: bool,
+    pub initial_presentation_ready: bool,
+}
+
+impl Default for AudioPlaybackConditions {
+    fn default() -> Self {
+        Self { device_suspended: false, initial_presentation_ready: true }
+    }
+}
+
 /// Installs either the real Kira backend or a non-device recording foundation.
 ///
 /// If it is not, normal device playback is selected for backwards-compatible visible hosts.
@@ -54,6 +67,7 @@ pub struct AmbitionAudioBackendPlugin;
 impl Plugin for AmbitionAudioBackendPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<AudioOutputMode>();
+        app.init_resource::<AudioPlaybackConditions>();
         let mode = *app.world().resource::<AudioOutputMode>();
         match mode {
             AudioOutputMode::Device => {

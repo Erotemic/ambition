@@ -275,10 +275,10 @@ source address stays in the library index; the compiled product is under
 
 CPAL 0.18.2 kept an old buffer cursor after a browser main-thread stall. One
 probe found 154 of 259 buffers scheduled in the past, up to 2.20 seconds late.
-Those buffers overlapped while the cursor caught up. The patch in `vendor/cpal`
-keeps a valid future cursor and advances a late cursor ahead of the device
-clock. It changes no samples or authored volume. Remove the patch when a CPAL
-release contains this correction.
+Those buffers overlapped while the cursor caught up. A local patch kept a
+future cursor and advanced a late cursor ahead of the device clock. The
+maintainer later chose the published CPAL release to avoid fork maintenance.
+The browser scheduling defect can recur after a main-thread stall.
 
 Browser captures show the authored jump waveform after keyboard and touch
 input. A separate probe blocked the main thread for 650 ms after startup; audio

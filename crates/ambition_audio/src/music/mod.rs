@@ -49,6 +49,7 @@ const DEBUG_LOG_PERIOD_SECONDS: f32 = 1.0;
 pub mod catalog;
 pub mod channels;
 pub mod director;
+pub mod diagnostics;
 pub mod state;
 
 pub use catalog::{

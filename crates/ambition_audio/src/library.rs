@@ -8,7 +8,7 @@ use crate::web_unlock::AudioUnlockState;
 use ambition_sfx::{SfxId, SfxMessage};
 use bevy::prelude::*;
 use bevy_kira_audio::prelude::{
-    AudioChannel, AudioControl, AudioEasing, AudioTween,
+    AudioChannel, AudioControl, AudioEasing, AudioTween, AudioInstance,
 };
 pub use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 use std::time::Duration;
@@ -387,6 +387,7 @@ impl AudioLibrary {
 pub struct MusicPlaybackState {
     active_track: String,
     play_generation: u64,
+    instance: Option<Handle<AudioInstance>>,
 }
 
 impl MusicPlaybackState {
@@ -398,12 +399,17 @@ impl MusicPlaybackState {
         Self {
             active_track,
             play_generation: 0,
+            instance: None,
         }
     }
 
-    /// What is playing, or empty for silence.
+    /// The selected base track. Use the instance state to confirm playback.
     pub fn active_track(&self) -> &str {
         &self.active_track
+    }
+
+    pub fn instance(&self) -> Option<&Handle<AudioInstance>> {
+        self.instance.as_ref()
     }
 
     /// How many times the base channel was started. Only equality between two
@@ -417,6 +423,7 @@ impl MusicPlaybackState {
     /// same track id, because a restart is the event this records.
     pub fn begin_track(&mut self, track_id: impl Into<String>) {
         self.active_track = track_id.into();
+        self.instance = None;
         self.play_generation = self.play_generation.wrapping_add(1);
     }
 
@@ -424,6 +431,7 @@ impl MusicPlaybackState {
     /// so the generation moves here too.
     pub fn silence(&mut self) {
         self.active_track.clear();
+        self.instance = None;
         self.play_generation = self.play_generation.wrapping_add(1);
     }
 
@@ -461,7 +469,7 @@ pub fn start_default_music_when_ready(
     unlock: Res<AudioUnlockState>,
     mut library: ResMut<AudioLibrary>,
     asset_server: Res<AssetServer>,
-    state: Res<MusicPlaybackState>,
+    mut state: ResMut<MusicPlaybackState>,
     music_channel: Res<AudioChannel<MusicChannel>>,
     output: Option<Res<crate::output::AudioOutputMode>>,
     mut waiting_logged: Local<bool>,
@@ -512,10 +520,12 @@ pub fn start_default_music_when_ready(
         track_id, asset_path
     );
     if crate::output::emits_to_device(output.as_deref()) {
-        music_channel.play(handle).looped().fade_in(AudioTween::new(
+        let instance = music_channel.play(handle).looped().fade_in(AudioTween::new(
             Duration::from_millis(220),
             AudioEasing::InPowi(2),
-        ));
+        )).handle();
+        state.begin_track(track_id);
+        state.instance = Some(instance);
     }
     started.0 = true;
 }
@@ -554,7 +564,7 @@ pub fn switch_to_music_track_over(
         music_channel.stop().fade_out(AudioTween::new(fade_out, AudioEasing::OutPowi(2)));
     }
     let fade_in = crossfade.unwrap_or(Duration::from_millis(220));
-    play_music_track(library, asset_server, next_track, music_channel, output, fade_in);
+    state.instance = play_music_track(library, asset_server, next_track, music_channel, output, fade_in);
 }
 
 /// Select station `next_track`, if the library has it. The music director plays
@@ -580,21 +590,23 @@ fn play_music_track(
     music_channel: &AudioChannel<MusicChannel>,
     output: crate::output::AudioOutputMode,
     fade_in: Duration,
-) {
+) -> Option<Handle<AudioInstance>> {
     let Some((handle, one_shot)) = library.resolve_track(track_id, asset_server) else {
         warn!("cannot play missing music track '{track_id}'");
-        return;
+        return None;
     };
     if output.emits_to_device() {
         let fade = AudioTween::new(fade_in, AudioEasing::InPowi(2));
         // A sting ends. Looping a three-second fanfare would repeat it until
         // the sequence ends.
-        if one_shot {
-            music_channel.play(handle).fade_in(fade);
+        let instance = if one_shot {
+            music_channel.play(handle).fade_in(fade).handle()
         } else {
-            music_channel.play(handle).looped().fade_in(fade);
-        }
+            music_channel.play(handle).looped().fade_in(fade).handle()
+        };
+        return Some(instance);
     }
+    None
 }
 
 #[cfg(test)]

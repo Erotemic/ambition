@@ -113,7 +113,7 @@ members = [
 # dev/bevy_idle_systems measures executor overhead. Both own separate lockfiles.
 # fixtures/external_consumer tests the public ambition_platformer2d umbrella
 # as a third-party consumer, without workspace-only policy exemptions.
-exclude = ["vendor/cpal", "fixtures/external_consumer", "dev/bevy_ceiling", "dev/bevy_idle_systems"]
+exclude = ["fixtures/external_consumer", "dev/bevy_ceiling", "dev/bevy_idle_systems"]
 resolver = "2"
 
 # Centralize shared versions to avoid compiling duplicates (previously ron
@@ -224,9 +224,6 @@ codegen-units = 256
 # Temporary upstream fixes: pin immutable revisions, not moving branches.
 # Each patch needs an explicit retirement condition.
 [patch.crates-io]
-# Keep web audio buffers ahead of the device clock after a main-thread stall.
-# Remove this patch when a CPAL release includes the correction.
-cpal = { path = "vendor/cpal" }
 # GgrsFrameTiming (timestep, overstep, overstep_fraction) merged upstream in
 # gschup/bevy_ggrs#134 after v0.22.0; this pins the upstream merge.
 # RETIRE once a published release contains #134.

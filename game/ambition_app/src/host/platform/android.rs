@@ -208,12 +208,14 @@ mod audio_lifecycle {
     /// beside its successor. A 40 ms tween keeps the cut from clicking.
     pub(super) fn apply_android_suspend_to_audio(
         state: Res<AndroidSuspendState>,
+        mut conditions: ResMut<ambition_platformer2d::audio::output::AudioPlaybackConditions>,
         mut instances: ResMut<Assets<AudioInstance>>,
         mut paused: Local<Vec<AssetId<AudioInstance>>>,
     ) {
         if !state.just_changed {
             return;
         }
+        conditions.device_suspended = state.suspended;
         let tween = || AudioTween::linear(Duration::from_millis(40));
         if state.suspended {
             for (id, instance) in instances.iter_mut() {

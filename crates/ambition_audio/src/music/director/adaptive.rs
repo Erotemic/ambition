@@ -366,6 +366,8 @@ fn start_adaptive_state(
     channels.set_bank_silent(new_bank);
     director.current_gains[new_bank.index()] = [0.0; MAX_LAYERS];
     director.target_gains[new_bank.index()] = [0.0; MAX_LAYERS];
+    director.instances[new_bank.index()] = std::array::from_fn(|_| None);
+    director.bank_sections[new_bank.index()] = Some((provider_id.to_owned(), cue.id.clone(), section.id.clone()));
 
     let mut started = 0usize;
     for source in &section.sources {
@@ -374,7 +376,7 @@ fn start_adaptive_state(
             .map(|layer| layer.slot.min(MAX_LAYERS - 1))
             .unwrap_or(0);
         if let Some(handle) = assets.get(provider_id, &cue.id, &section.id, &source.layer_id) {
-            channels.play_layer(new_bank, slot, handle, section.looped, LAYER_START_FADE_MS);
+            director.instances[new_bank.index()][slot] = channels.play_layer(new_bank, slot, handle, section.looped, LAYER_START_FADE_MS);
             started += 1;
         } else {
             warn!(

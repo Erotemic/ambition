@@ -91,5 +91,4 @@ ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features 
 # keep this rev IDENTICAL to the root `Cargo.toml`'s. Two revs would compile
 # and desync.
 [patch.crates-io]
-cpal = { path = "../../vendor/cpal" }
 bevy_ggrs = { git = "https://github.com/gschup/bevy_ggrs", rev = "f1853823bfb888fcd9d468a136bb81fd6b9ed481" }

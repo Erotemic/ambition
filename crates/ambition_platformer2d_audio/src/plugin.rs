@@ -189,7 +189,19 @@ impl Plugin for Platformer2dAudioPlugin {
             );
         // After the backend plugin, which owns the channel store on a device.
         ambition_audio::music::add_music_layer_channels(app);
+        app.init_resource::<ambition_audio::music::diagnostics::MusicPlaybackDiagnostics>()
+            .add_systems(Update, publish_audio_readiness)
+            .add_systems(PostUpdate, ambition_audio::music::diagnostics::observe_music_playback
+                .after(bevy_kira_audio::AudioSystemSet::PlayTypedChannels)
+                .after(bevy_kira_audio::AudioSystemSet::PlayDynamicChannels));
     }
+}
+
+fn publish_audio_readiness(
+    readiness: Option<Res<InitialGameplayReadiness>>,
+    mut conditions: ResMut<ambition_audio::output::AudioPlaybackConditions>,
+) {
+    conditions.initial_presentation_ready = readiness.as_deref().is_none_or(|ready| ready.is_ready());
 }
 
 #[derive(SystemParam)]
@@ -389,12 +401,10 @@ fn apply_frontend_music_policy(
     if matches!(owner, Some(ambition_sfx::AudioContextOwner::Frontend(_))) {
         if let Some(track_id) = selection.preferred_track() {
             if selection.music_authority().allows(track_id) {
-                if let Some(handle) = library.resolve_track_handle(track_id, &asset_server) {
-                    if layer_channels.output_mode().emits_to_device() {
-                        base_music_channel.play(handle).looped();
-                    }
-                    music_state.begin_track(track_id);
-                }
+                ambition_audio::library::switch_to_music_track(
+                    &mut library, &asset_server, &mut music_state, &base_music_channel,
+                    layer_channels.output_mode(), track_id,
+                );
             }
         }
     }

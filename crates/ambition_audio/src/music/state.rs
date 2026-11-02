@@ -29,6 +29,8 @@ pub struct MusicDirectorState {
     pub(super) default_resume_started: bool,
     pub(super) debug_log_timer: f32,
     pub(super) last_simple_track: Option<String>,
+    pub(super) instances: [[Option<Handle<bevy_kira_audio::AudioInstance>>; MAX_LAYERS]; 2],
+    pub(super) bank_sections: [Option<(String, String, String)>; 2],
 }
 
 impl Default for MusicDirectorState {
@@ -51,6 +53,8 @@ impl Default for MusicDirectorState {
             default_resume_started: false,
             debug_log_timer: 0.0,
             last_simple_track: None,
+            instances: std::array::from_fn(|_| std::array::from_fn(|_| None)),
+            bank_sections: [None, None],
         }
     }
 }

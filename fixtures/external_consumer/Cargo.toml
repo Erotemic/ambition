@@ -84,5 +84,4 @@ bevy = { version = "0.19.1", default-features = false }
 # two copies of one decision are a fork, and the root's comment already names
 # the retirement condition (#134 shipping in a released `bevy_ggrs`).
 [patch.crates-io]
-cpal = { path = "../../vendor/cpal" }
 bevy_ggrs = { git = "https://github.com/gschup/bevy_ggrs", rev = "f1853823bfb888fcd9d468a136bb81fd6b9ed481" }

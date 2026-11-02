@@ -79,6 +79,38 @@ fn step(app: &mut App, seconds: f32) {
     app.update();
 }
 
+#[test]
+fn the_music_watchdog_separates_requests_decoding_backend_gaps_and_explicit_silence() {
+    use crate::music::diagnostics::{observe_music_playback, MusicPlaybackDiagnostics, MusicPlaybackStatus};
+    let (mut app, handles) = fixture();
+    app.insert_resource(crate::output::AudioOutputMode::Device)
+        .init_asset::<bevy_kira_audio::AudioInstance>()
+        .init_resource::<MusicPlaybackDiagnostics>()
+        .init_resource::<crate::selection::ActiveAudioSelection>()
+        .insert_resource(crate::web_unlock::AudioUnlockState { unlocked: true, ..default() })
+        .add_systems(PostUpdate, observe_music_playback);
+    step(&mut app, 0.25);
+    assert_eq!(app.world().resource::<MusicPlaybackDiagnostics>().status, Some(MusicPlaybackStatus::Loading));
+    for handle in &handles { decode(&mut app, handle); }
+    step(&mut app, 0.75);
+    let report = app.world().resource::<MusicPlaybackDiagnostics>();
+    assert_eq!(report.status, Some(MusicPlaybackStatus::BackendSilent));
+    assert_eq!(report.expected, "cue:trail state:intro");
+    assert_eq!(report.section.as_deref(), Some("intro"));
+    assert_eq!(report.gap_seconds, 1.0);
+    app.world_mut().resource_mut::<MusicIntent>().adaptive = Some(AdaptiveCueDirective::Play {
+        cue_id: "not_authored".into(), state_id: "intro".into(),
+    });
+    step(&mut app, 0.25);
+    assert_eq!(app.world().resource::<MusicPlaybackDiagnostics>().status, Some(MusicPlaybackStatus::MissingContent));
+    app.world_mut().resource_mut::<MusicIntent>().authority = MusicAuthority::governed(Vec::<String>::new());
+    step(&mut app, 0.25);
+    let report = app.world().resource::<MusicPlaybackDiagnostics>();
+    assert_eq!(report.status, Some(MusicPlaybackStatus::DeliberateSilence));
+    assert_eq!(report.gap_seconds, 0.0);
+    assert_eq!(report.gap_count, 1);
+}
+
 /// A slow layer must not start the intro clock before the complete cue can play.
 #[test]
 fn decoding_layers_does_not_consume_the_intro_or_split_their_start() {

@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "records": [
+    {
+      "id": "example-chorus-powered-bridge",
+      "name": "Example only: a bridge that changes with a chorus",
+      "kind": "district concept",
+      "family": "Music & composition",
+      "origin": "hypothesis",
+      "tags": ["creative", "craft", "kinetic", "technological"],
+      "source_scope": ["analysis:example_supplement"]
+    },
+    {
+      "id": "example-mechanical-set-maker",
+      "name": "Example only: a machine that builds theatrical sets",
+      "kind": "district concept",
+      "family": "Industrial engineering",
+      "origin": "hypothesis",
+      "tags": ["technological", "craft", "creative", "social"],
+      "source_scope": ["analysis:example_supplement"]
+    },
+    {
+      "id": "example-debate-auditorium",
+      "name": "Example only: an auditorium where arguments change the terrain",
+      "kind": "district concept",
+      "family": "Rhetoric & philosophy",
+      "origin": "hypothesis",
+      "tags": ["formal", "creative", "social", "kinetic"],
+      "source_scope": ["analysis:example_supplement"]
+    }
+  ]
+}

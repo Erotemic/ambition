@@ -1,0 +1,2332 @@
+{
+  "schema_version": 1,
+  "dataset_status": "Exploratory hand-coded inventory. Not canon. Source scopes are leads for audit, not verified per-item citations.",
+  "features": [
+    {
+      "id": "formal",
+      "description": "Logical, mathematical, or axiomatic structures."
+    },
+    {
+      "id": "empirical",
+      "description": "Investigation of observable events or scientific practice."
+    },
+    {
+      "id": "creative",
+      "description": "Artistic expression, narrative, design, and creative practice."
+    },
+    {
+      "id": "craft",
+      "description": "Learned skill, practical mastery, or deliberate workmanship."
+    },
+    {
+      "id": "social",
+      "description": "Community, relationships, collaboration, or institutions."
+    },
+    {
+      "id": "authority",
+      "description": "Law, hierarchy, rule, force, or political authority."
+    },
+    {
+      "id": "technological",
+      "description": "Tools, machines, computation, or engineered systems."
+    },
+    {
+      "id": "organic",
+      "description": "Animals, plants, ecosystems, or biological systems."
+    },
+    {
+      "id": "elemental",
+      "description": "Fire, water, weather, earth, or physical environments."
+    },
+    {
+      "id": "mythic",
+      "description": "Magic, supernatural stories, or mythic beings."
+    },
+    {
+      "id": "kinetic",
+      "description": "Movement, speed, combat, or bodily dexterity."
+    },
+    {
+      "id": "surreal",
+      "description": "Impossible or dreamlike physical rules."
+    },
+    {
+      "id": "cosmic",
+      "description": "Space, planets, large scales, or astronomical phenomena."
+    },
+    {
+      "id": "ominous",
+      "description": "Danger, fear, corruption, or harmful forces."
+    },
+    {
+      "id": "domestic",
+      "description": "Ordinary life, home, leisure, food, and everyday care."
+    }
+  ],
+  "origin_notes": {
+    "original": "Compiled from user brainstorm material. The exact per-entry text location is not audited.",
+    "built": "Represented in a later repository plan or implementation inventory. This is not proof of a shipped feature.",
+    "later": "Compiled from later brainstorm material. Maintainer endorsement is not established.",
+    "conversation_user": "Direction stated by the user in the 2026-11-01 design conversation.",
+    "conversation_proposed": "Assistant suggestion in the 2026-11-01 design conversation. Not endorsed.",
+    "llm": "LLM-generated brainstorm candidate. Not endorsed.",
+    "hypothesis": "Derived example added for analysis. Not sourced from the user."
+  },
+  "records": [
+    {
+      "id": "noodle-dimension",
+      "name": "Noodle Dimension",
+      "kind": "world seed",
+      "family": "Cuisine & absurdity",
+      "origin": "original",
+      "tags": [
+        "surreal",
+        "domestic",
+        "mythic"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "evil-nazi-dimension",
+      "name": "Evil / Nazi Dimension",
+      "kind": "world seed",
+      "family": "Authoritarian power",
+      "origin": "original",
+      "tags": [
+        "social",
+        "authority",
+        "ominous",
+        "technological"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "forest-ninja-dimension",
+      "name": "Forest / Ninja Dimension",
+      "kind": "world seed",
+      "family": "Stealth & martial mastery",
+      "origin": "original",
+      "tags": [
+        "organic",
+        "kinetic",
+        "craft",
+        "social"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "water-pirate-dimension",
+      "name": "Water / Pirate Dimension",
+      "kind": "world seed",
+      "family": "Nautical adventure",
+      "origin": "original",
+      "tags": [
+        "elemental",
+        "kinetic",
+        "social",
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "science-dimension",
+      "name": "Science Dimension",
+      "kind": "world seed",
+      "family": "Experimental science",
+      "origin": "original",
+      "tags": [
+        "empirical",
+        "technological",
+        "cosmic",
+        "craft"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "math-dimension",
+      "name": "Math Dimension",
+      "kind": "world seed",
+      "family": "Formal mathematics",
+      "origin": "original",
+      "tags": [
+        "formal",
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "fire-inferno-lava-dimension",
+      "name": "Fire / Inferno / Lava Dimension",
+      "kind": "world seed",
+      "family": "Elemental frontiers",
+      "origin": "original",
+      "tags": [
+        "elemental",
+        "mythic",
+        "ominous"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "magical-mary-o-dimension",
+      "name": "Magical / Mary-O Dimension",
+      "kind": "world seed",
+      "family": "Magical fantasy",
+      "origin": "original",
+      "tags": [
+        "mythic",
+        "kinetic",
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "sanic-dimension",
+      "name": "Sanic Dimension",
+      "kind": "world seed",
+      "family": "Speed & kinetics",
+      "origin": "original",
+      "tags": [
+        "kinetic",
+        "craft",
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "dog-dimension",
+      "name": "Dog Dimension",
+      "kind": "world seed",
+      "family": "Animal societies",
+      "origin": "original",
+      "tags": [
+        "organic",
+        "domestic",
+        "social"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "jungle-bird-dinosaur-dimension",
+      "name": "Jungle / Bird / Dinosaur Dimension",
+      "kind": "world seed",
+      "family": "Primeval ecology",
+      "origin": "original",
+      "tags": [
+        "organic",
+        "empirical",
+        "kinetic"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "techno-cyberpunk-dimension",
+      "name": "Techno / Cyberpunk Dimension",
+      "kind": "world seed",
+      "family": "Cyberpunk & AI",
+      "origin": "original",
+      "tags": [
+        "technological",
+        "social",
+        "authority",
+        "ominous"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "pure-regal-dimension",
+      "name": "Pure / Regal Dimension",
+      "kind": "world seed",
+      "family": "Royalty & purity",
+      "origin": "original",
+      "tags": [
+        "social",
+        "authority",
+        "mythic"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "corrupted-dimension",
+      "name": "Corrupted Dimension",
+      "kind": "world seed",
+      "family": "Corruption & void",
+      "origin": "original",
+      "tags": [
+        "ominous",
+        "surreal",
+        "mythic"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "monster-dimension",
+      "name": "Monster Dimension",
+      "kind": "world seed",
+      "family": "Monsters & horror",
+      "origin": "original",
+      "tags": [
+        "organic",
+        "mythic",
+        "ominous"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "unassigned-catch-all-world",
+      "name": "Unassigned catch-all world",
+      "kind": "world seed",
+      "family": "Unassigned",
+      "origin": "original",
+      "tags": [
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "home-dimension",
+      "name": "Home Dimension",
+      "kind": "world seed",
+      "family": "Home & civilian life",
+      "origin": "original",
+      "tags": [
+        "social",
+        "domestic",
+        "technological"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "pirate-and-ninja-combined-world-pvn",
+      "name": "Pirate-and-Ninja combined world (PvN)",
+      "kind": "world revision",
+      "family": "Nautical adventure",
+      "origin": "built",
+      "tags": [
+        "kinetic",
+        "elemental",
+        "craft",
+        "social"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "art-expanded-to-creativity-philosophy-storytelling-and-mastery",
+      "name": "Art expanded to creativity, philosophy, storytelling and mastery",
+      "kind": "world revision",
+      "family": "Creative culture",
+      "origin": "conversation_user",
+      "tags": [
+        "creative",
+        "craft",
+        "social",
+        "formal"
+      ],
+      "source_scope": [
+        "conversation:2026-11-01"
+      ]
+    },
+    {
+      "id": "science-expanded-to-discovery-and-technology",
+      "name": "Science expanded to discovery and technology",
+      "kind": "world revision",
+      "family": "Experimental science",
+      "origin": "conversation_proposed",
+      "tags": [
+        "empirical",
+        "technological",
+        "craft",
+        "cosmic"
+      ],
+      "source_scope": [
+        "conversation:2026-11-01"
+      ]
+    },
+    {
+      "id": "collapsed-media-void-broadcast",
+      "name": "Collapsed media / Void Broadcast",
+      "kind": "candidate world",
+      "family": "Media & spectacle",
+      "origin": "later",
+      "tags": [
+        "creative",
+        "technological",
+        "cosmic",
+        "surreal",
+        "ominous"
+      ],
+      "source_scope": [
+        "docs/brainstorms/after_intro_brainstorm.md",
+        "docs/brainstorms/good_llm_ideas/original_notes.md"
+      ]
+    },
+    {
+      "id": "circus-dimension-types",
+      "name": "Circus dimension types",
+      "kind": "candidate world",
+      "family": "Performing arts",
+      "origin": "later",
+      "tags": [
+        "creative",
+        "craft",
+        "kinetic",
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/after_intro_brainstorm.md",
+        "docs/brainstorms/good_llm_ideas/original_notes.md"
+      ]
+    },
+    {
+      "id": "theme-park-sovereignty",
+      "name": "Theme Park Sovereignty",
+      "kind": "candidate polity",
+      "family": "Media & spectacle",
+      "origin": "llm",
+      "tags": [
+        "creative",
+        "technological",
+        "social",
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "cardboard-kingdom",
+      "name": "Cardboard Kingdom",
+      "kind": "candidate polity",
+      "family": "Royalty & purity",
+      "origin": "llm",
+      "tags": [
+        "creative",
+        "craft",
+        "social",
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "left-handed-kingdom",
+      "name": "Left-Handed Kingdom",
+      "kind": "candidate polity",
+      "family": "Mirror worlds",
+      "origin": "llm",
+      "tags": [
+        "kinetic",
+        "surreal",
+        "social"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "pasta-republic",
+      "name": "Pasta Republic",
+      "kind": "candidate polity",
+      "family": "Cuisine & absurdity",
+      "origin": "llm",
+      "tags": [
+        "domestic",
+        "craft",
+        "social",
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "bright-and-dark-mirrored-worlds",
+      "name": "Bright and dark mirrored worlds",
+      "kind": "setting motif",
+      "family": "Mirror worlds",
+      "origin": "original",
+      "tags": [
+        "surreal",
+        "ominous",
+        "mythic"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "imaginary-quaternion-plane",
+      "name": "Imaginary/quaternion plane",
+      "kind": "setting motif",
+      "family": "Formal mathematics",
+      "origin": "original",
+      "tags": [
+        "formal",
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "topology-defined-mathematical-manifolds",
+      "name": "Topology-defined mathematical manifolds",
+      "kind": "setting motif",
+      "family": "Formal mathematics",
+      "origin": "original",
+      "tags": [
+        "formal",
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "two-kinds-of-world-planetary-vs-topological",
+      "name": "Two kinds of world: planetary vs topological",
+      "kind": "setting structure",
+      "family": "World topology",
+      "origin": "built",
+      "tags": [
+        "formal",
+        "elemental",
+        "organic"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "home-gate-terminal-airport",
+      "name": "Home gate terminal / airport",
+      "kind": "region",
+      "family": "Gate infrastructure",
+      "origin": "original",
+      "tags": [
+        "technological",
+        "social",
+        "domestic"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "gate-side-market-and-repair-stalls",
+      "name": "Gate-side market and repair stalls",
+      "kind": "region",
+      "family": "Home & civilian life",
+      "origin": "later",
+      "tags": [
+        "social",
+        "domestic",
+        "technological"
+      ],
+      "source_scope": [
+        "docs/brainstorms/after_intro_brainstorm.md",
+        "docs/brainstorms/good_llm_ideas/original_notes.md"
+      ]
+    },
+    {
+      "id": "manifest-office-gate-authority-bureaucracy",
+      "name": "Manifest Office / Gate Authority bureaucracy",
+      "kind": "region",
+      "family": "Civic institutions",
+      "origin": "later",
+      "tags": [
+        "social",
+        "authority",
+        "technological"
+      ],
+      "source_scope": [
+        "docs/brainstorms/after_intro_brainstorm.md",
+        "docs/brainstorms/good_llm_ideas/original_notes.md"
+      ]
+    },
+    {
+      "id": "creator-s-basement-laboratory",
+      "name": "Creator's basement laboratory",
+      "kind": "region",
+      "family": "Experimental science",
+      "origin": "original",
+      "tags": [
+        "technological",
+        "empirical",
+        "ominous"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "military-guarded-gate",
+      "name": "Military-guarded gate",
+      "kind": "region",
+      "family": "Authoritarian power",
+      "origin": "original",
+      "tags": [
+        "social",
+        "authority",
+        "technological"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "castle-godwin",
+      "name": "Castle Godwin",
+      "kind": "region",
+      "family": "Authoritarian power",
+      "origin": "original",
+      "tags": [
+        "authority",
+        "ominous",
+        "social"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "evil-forest-and-moor",
+      "name": "Evil forest and moor",
+      "kind": "region",
+      "family": "Corruption & void",
+      "origin": "built",
+      "tags": [
+        "organic",
+        "ominous"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "castle-catacombs-and-crypts",
+      "name": "Castle catacombs and crypts",
+      "kind": "region",
+      "family": "Monsters & horror",
+      "origin": "built",
+      "tags": [
+        "ominous",
+        "mythic"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "castle-hamlet-and-civilians",
+      "name": "Castle hamlet and civilians",
+      "kind": "region",
+      "family": "Home & civilian life",
+      "origin": "built",
+      "tags": [
+        "social",
+        "domestic",
+        "ominous"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "nazi-embassy-contested-diplomacy",
+      "name": "Nazi embassy / contested diplomacy",
+      "kind": "region",
+      "family": "Civic institutions",
+      "origin": "original",
+      "tags": [
+        "social",
+        "authority",
+        "ominous"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "pirate-port-and-seafaring-town",
+      "name": "Pirate port and seafaring town",
+      "kind": "region",
+      "family": "Nautical adventure",
+      "origin": "original",
+      "tags": [
+        "elemental",
+        "social",
+        "domestic",
+        "kinetic"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "pirate-cove-and-underwater-coast",
+      "name": "Pirate cove and underwater coast",
+      "kind": "region",
+      "family": "Nautical adventure",
+      "origin": "built",
+      "tags": [
+        "elemental",
+        "kinetic",
+        "organic"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "pirate-flying-shark-skyship-route",
+      "name": "Pirate flying-shark skyship route",
+      "kind": "region",
+      "family": "Nautical adventure",
+      "origin": "original",
+      "tags": [
+        "kinetic",
+        "elemental",
+        "organic",
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "pirate-sky-lookout",
+      "name": "Pirate sky lookout",
+      "kind": "region",
+      "family": "Nautical adventure",
+      "origin": "built",
+      "tags": [
+        "kinetic",
+        "elemental"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "smugglers-tunnels",
+      "name": "Smugglers' tunnels",
+      "kind": "region",
+      "family": "Nautical adventure",
+      "origin": "built",
+      "tags": [
+        "social",
+        "kinetic",
+        "ominous"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "ninja-village",
+      "name": "Ninja village",
+      "kind": "region",
+      "family": "Stealth & martial mastery",
+      "origin": "built",
+      "tags": [
+        "craft",
+        "kinetic",
+        "domestic",
+        "social"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "ninja-dojo-and-training-grounds",
+      "name": "Ninja dojo and training grounds",
+      "kind": "region",
+      "family": "Stealth & martial mastery",
+      "origin": "built",
+      "tags": [
+        "craft",
+        "kinetic",
+        "social"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "ninja-hidden-passage-and-bamboo-forest",
+      "name": "Ninja hidden passage and bamboo forest",
+      "kind": "region",
+      "family": "Stealth & martial mastery",
+      "origin": "built",
+      "tags": [
+        "kinetic",
+        "organic",
+        "craft"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "shonen-adventure-rivalry",
+      "name": "Shonen adventure rivalry",
+      "kind": "theme",
+      "family": "Stealth & martial mastery",
+      "origin": "original",
+      "tags": [
+        "kinetic",
+        "social",
+        "craft"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "science-city-of-eureka",
+      "name": "Science city of Eureka",
+      "kind": "region",
+      "family": "Experimental science",
+      "origin": "built",
+      "tags": [
+        "empirical",
+        "technological",
+        "social",
+        "domestic"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "eureka-university-quad-and-lectures",
+      "name": "Eureka university quad and lectures",
+      "kind": "region",
+      "family": "Experimental science",
+      "origin": "built",
+      "tags": [
+        "empirical",
+        "social",
+        "craft"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "science-test-range",
+      "name": "Science test range",
+      "kind": "region",
+      "family": "Experimental science",
+      "origin": "built",
+      "tags": [
+        "empirical",
+        "technological",
+        "kinetic"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "coil-lab-and-anti-gravity-prototypes",
+      "name": "Coil lab and anti-gravity prototypes",
+      "kind": "region",
+      "family": "Experimental science",
+      "origin": "built",
+      "tags": [
+        "empirical",
+        "technological",
+        "formal"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "steam-plant-and-boilers",
+      "name": "Steam plant and boilers",
+      "kind": "region",
+      "family": "Industrial engineering",
+      "origin": "built",
+      "tags": [
+        "technological",
+        "craft",
+        "elemental"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "eureka-collider",
+      "name": "Eureka collider",
+      "kind": "region",
+      "family": "Experimental science",
+      "origin": "built",
+      "tags": [
+        "empirical",
+        "technological",
+        "cosmic"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "gnu-ton-gravity-trail",
+      "name": "Gnu-ton gravity trail",
+      "kind": "region",
+      "family": "Experimental science",
+      "origin": "original",
+      "tags": [
+        "formal",
+        "empirical",
+        "kinetic"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "gnu-ton-orchard-falling-apples",
+      "name": "Gnu-ton orchard / falling apples",
+      "kind": "region",
+      "family": "Experimental science",
+      "origin": "built",
+      "tags": [
+        "empirical",
+        "organic",
+        "formal"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "space-elevator-tether",
+      "name": "Space elevator/tether",
+      "kind": "region",
+      "family": "Space exploration",
+      "origin": "built",
+      "tags": [
+        "technological",
+        "cosmic",
+        "kinetic"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "orbital-station-and-docking-bay",
+      "name": "Orbital station and docking bay",
+      "kind": "region",
+      "family": "Space exploration",
+      "origin": "original",
+      "tags": [
+        "technological",
+        "cosmic",
+        "social",
+        "domestic"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "planets-and-offworld-spacecraft",
+      "name": "Planets and offworld spacecraft",
+      "kind": "region",
+      "family": "Space exploration",
+      "origin": "original",
+      "tags": [
+        "cosmic",
+        "empirical",
+        "technological"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "data-center-fortress",
+      "name": "Data center fortress",
+      "kind": "region",
+      "family": "Cyberpunk & AI",
+      "origin": "original",
+      "tags": [
+        "technological",
+        "authority",
+        "ominous"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "math-town-euclid-street",
+      "name": "Math Town / Euclid Street",
+      "kind": "region",
+      "family": "Formal mathematics",
+      "origin": "built",
+      "tags": [
+        "formal",
+        "social",
+        "domestic"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "mathematical-observatory",
+      "name": "Mathematical observatory",
+      "kind": "region",
+      "family": "Formal mathematics",
+      "origin": "built",
+      "tags": [
+        "formal",
+        "cosmic",
+        "empirical"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "fractal-woods",
+      "name": "Fractal woods",
+      "kind": "region",
+      "family": "Formal mathematics",
+      "origin": "built",
+      "tags": [
+        "formal",
+        "organic",
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "fibonacci-meadow",
+      "name": "Fibonacci meadow",
+      "kind": "region",
+      "family": "Formal mathematics",
+      "origin": "built",
+      "tags": [
+        "formal",
+        "organic"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "m-bius-mine",
+      "name": "Möbius mine",
+      "kind": "region",
+      "family": "Formal mathematics",
+      "origin": "built",
+      "tags": [
+        "formal",
+        "surreal",
+        "kinetic"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "zeno-aqueduct",
+      "name": "Zeno aqueduct",
+      "kind": "region",
+      "family": "Formal mathematics",
+      "origin": "built",
+      "tags": [
+        "formal",
+        "kinetic",
+        "elemental"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "hylbert-s-hotel",
+      "name": "Hylbert's Hotel",
+      "kind": "region",
+      "family": "Formal mathematics",
+      "origin": "original",
+      "tags": [
+        "formal",
+        "surreal",
+        "domestic"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "cantor-s-world-of-infinities",
+      "name": "Cantor's world of infinities",
+      "kind": "region",
+      "family": "Formal mathematics",
+      "origin": "original",
+      "tags": [
+        "formal",
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "geometry-school-classical-forms",
+      "name": "Geometry school / classical forms",
+      "kind": "region",
+      "family": "Formal mathematics",
+      "origin": "original",
+      "tags": [
+        "formal",
+        "craft",
+        "social"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "proof-magic-theorem-abilities",
+      "name": "Proof magic / theorem abilities",
+      "kind": "gameplay motif",
+      "family": "Formal mathematics",
+      "origin": "original",
+      "tags": [
+        "formal",
+        "mythic",
+        "kinetic"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "homology-loops-and-topological-routes",
+      "name": "Homology loops and topological routes",
+      "kind": "gameplay motif",
+      "family": "Formal mathematics",
+      "origin": "original",
+      "tags": [
+        "formal",
+        "kinetic",
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "perfect-cellular-automaton-landscape",
+      "name": "Perfect cellular automaton landscape",
+      "kind": "gameplay motif",
+      "family": "Formal mathematics",
+      "origin": "original",
+      "tags": [
+        "formal",
+        "technological",
+        "organic"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "noodly-temple",
+      "name": "Noodly Temple",
+      "kind": "region",
+      "family": "Cuisine & absurdity",
+      "origin": "built",
+      "tags": [
+        "surreal",
+        "mythic",
+        "domestic"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "noodle-rigatoni-biome",
+      "name": "Noodle/rigatoni biome",
+      "kind": "region",
+      "family": "Cuisine & absurdity",
+      "origin": "built",
+      "tags": [
+        "domestic",
+        "surreal",
+        "organic"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "flying-spaghetti-monster",
+      "name": "Flying Spaghetti Monster",
+      "kind": "character / boss",
+      "family": "Cuisine & absurdity",
+      "origin": "original",
+      "tags": [
+        "mythic",
+        "surreal",
+        "ominous"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "cooking-arena-and-monster-chefs",
+      "name": "Cooking arena and monster chefs",
+      "kind": "region",
+      "family": "Culinary craft",
+      "origin": "later",
+      "tags": [
+        "craft",
+        "creative",
+        "domestic",
+        "social"
+      ],
+      "source_scope": [
+        "docs/brainstorms/after_intro_brainstorm.md",
+        "docs/brainstorms/good_llm_ideas/original_notes.md"
+      ]
+    },
+    {
+      "id": "primeval-trailhead-ranger-station",
+      "name": "Primeval trailhead / ranger station",
+      "kind": "region",
+      "family": "Primeval ecology",
+      "origin": "built",
+      "tags": [
+        "organic",
+        "empirical",
+        "domestic"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "dinosaur-canyon-and-ancient-forest",
+      "name": "Dinosaur canyon and ancient forest",
+      "kind": "region",
+      "family": "Primeval ecology",
+      "origin": "built",
+      "tags": [
+        "organic",
+        "kinetic"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "fossil-beds-and-paleontology",
+      "name": "Fossil beds and paleontology",
+      "kind": "region",
+      "family": "Primeval ecology",
+      "origin": "built",
+      "tags": [
+        "organic",
+        "empirical"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "canopy-and-treetop-paths",
+      "name": "Canopy and treetop paths",
+      "kind": "region",
+      "family": "Primeval ecology",
+      "origin": "built",
+      "tags": [
+        "organic",
+        "kinetic",
+        "craft"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "rookery-birdwatcher-s-hide",
+      "name": "Rookery / birdwatcher's hide",
+      "kind": "region",
+      "family": "Animal societies",
+      "origin": "built",
+      "tags": [
+        "organic",
+        "empirical"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "tar-pits",
+      "name": "Tar pits",
+      "kind": "region",
+      "family": "Primeval ecology",
+      "origin": "built",
+      "tags": [
+        "organic",
+        "elemental",
+        "ominous"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "smoking-mountain-volcano",
+      "name": "Smoking Mountain / volcano",
+      "kind": "region",
+      "family": "Elemental frontiers",
+      "origin": "built",
+      "tags": [
+        "elemental",
+        "organic",
+        "ominous"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "tyrant-king-s-temple",
+      "name": "Tyrant King's temple",
+      "kind": "region",
+      "family": "Monsters & horror",
+      "origin": "built",
+      "tags": [
+        "organic",
+        "authority",
+        "ominous"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "magical-mary-o-village",
+      "name": "Magical Mary-O village",
+      "kind": "region",
+      "family": "Magical fantasy",
+      "origin": "built",
+      "tags": [
+        "mythic",
+        "domestic",
+        "social"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "magical-garden-and-starlight",
+      "name": "Magical garden and starlight",
+      "kind": "region",
+      "family": "Magical fantasy",
+      "origin": "built",
+      "tags": [
+        "mythic",
+        "organic",
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "void-castle-unlit-dungeon",
+      "name": "Void Castle / Unlit dungeon",
+      "kind": "region",
+      "family": "Corruption & void",
+      "origin": "built",
+      "tags": [
+        "mythic",
+        "ominous",
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "magical-hollows-below-the-surface",
+      "name": "Magical hollows below the surface",
+      "kind": "region",
+      "family": "Magical fantasy",
+      "origin": "built",
+      "tags": [
+        "mythic",
+        "ominous",
+        "kinetic"
+      ],
+      "source_scope": [
+        "docs/planning/game/world-composition.md",
+        "docs/planning/game/open-world-roadmap.md"
+      ]
+    },
+    {
+      "id": "mages-guild",
+      "name": "Mages Guild",
+      "kind": "faction",
+      "family": "Magical fantasy",
+      "origin": "original",
+      "tags": [
+        "mythic",
+        "craft",
+        "social"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "artists-guild",
+      "name": "Artists Guild",
+      "kind": "faction",
+      "family": "Creative culture",
+      "origin": "original",
+      "tags": [
+        "creative",
+        "social",
+        "craft"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "musicians-and-orchestras",
+      "name": "Musicians and orchestras",
+      "kind": "culture seed",
+      "family": "Music & composition",
+      "origin": "conversation_user",
+      "tags": [
+        "creative",
+        "craft",
+        "social"
+      ],
+      "source_scope": [
+        "conversation:2026-11-01"
+      ]
+    },
+    {
+      "id": "music-conservatory-composer-region",
+      "name": "Music Conservatory / composer region",
+      "kind": "region idea",
+      "family": "Music & composition",
+      "origin": "conversation_proposed",
+      "tags": [
+        "creative",
+        "craft",
+        "formal"
+      ],
+      "source_scope": [
+        "conversation:2026-11-01"
+      ]
+    },
+    {
+      "id": "storytelling-library-literary-district",
+      "name": "Storytelling library / literary district",
+      "kind": "region idea",
+      "family": "Literature & narrative",
+      "origin": "conversation_proposed",
+      "tags": [
+        "creative",
+        "social",
+        "domestic"
+      ],
+      "source_scope": [
+        "conversation:2026-11-01"
+      ]
+    },
+    {
+      "id": "theater-backstage-performance",
+      "name": "Theater / backstage performance",
+      "kind": "region idea",
+      "family": "Performing arts",
+      "origin": "conversation_proposed",
+      "tags": [
+        "creative",
+        "craft",
+        "surreal"
+      ],
+      "source_scope": [
+        "conversation:2026-11-01"
+      ]
+    },
+    {
+      "id": "dance-choreography-acrobatics",
+      "name": "Dance / choreography / acrobatics",
+      "kind": "culture seed",
+      "family": "Performing arts",
+      "origin": "conversation_proposed",
+      "tags": [
+        "creative",
+        "craft",
+        "kinetic"
+      ],
+      "source_scope": [
+        "conversation:2026-11-01"
+      ]
+    },
+    {
+      "id": "painting-and-sculpture-gallery",
+      "name": "Painting and sculpture gallery",
+      "kind": "region idea",
+      "family": "Creative culture",
+      "origin": "conversation_proposed",
+      "tags": [
+        "creative",
+        "craft",
+        "surreal"
+      ],
+      "source_scope": [
+        "conversation:2026-11-01"
+      ]
+    },
+    {
+      "id": "architecture-and-impossible-buildings",
+      "name": "Architecture and impossible buildings",
+      "kind": "region idea",
+      "family": "Design & construction",
+      "origin": "conversation_proposed",
+      "tags": [
+        "creative",
+        "craft",
+        "formal",
+        "surreal"
+      ],
+      "source_scope": [
+        "conversation:2026-11-01"
+      ]
+    },
+    {
+      "id": "rhetoric-debate-persuasion-and-charisma",
+      "name": "Rhetoric, debate, persuasion and charisma",
+      "kind": "culture seed",
+      "family": "Rhetoric & philosophy",
+      "origin": "conversation_user",
+      "tags": [
+        "creative",
+        "social",
+        "craft",
+        "formal"
+      ],
+      "source_scope": [
+        "conversation:2026-11-01"
+      ]
+    },
+    {
+      "id": "philosophical-allegory-of-the-cave",
+      "name": "Philosophical allegory of the cave",
+      "kind": "region idea",
+      "family": "Rhetoric & philosophy",
+      "origin": "conversation_user",
+      "tags": [
+        "formal",
+        "creative",
+        "surreal"
+      ],
+      "source_scope": [
+        "conversation:2026-11-01"
+      ]
+    },
+    {
+      "id": "artisans-workshops-and-technical-mastery",
+      "name": "Artisans, workshops and technical mastery",
+      "kind": "culture seed",
+      "family": "Design & construction",
+      "origin": "conversation_proposed",
+      "tags": [
+        "creative",
+        "craft",
+        "technological"
+      ],
+      "source_scope": [
+        "conversation:2026-11-01"
+      ]
+    },
+    {
+      "id": "cinema-and-film-production",
+      "name": "Cinema and film production",
+      "kind": "culture seed",
+      "family": "Media & spectacle",
+      "origin": "conversation_proposed",
+      "tags": [
+        "creative",
+        "technological",
+        "social"
+      ],
+      "source_scope": [
+        "conversation:2026-11-01"
+      ]
+    },
+    {
+      "id": "satire-comedy-improvisation",
+      "name": "Satire / comedy / improvisation",
+      "kind": "culture seed",
+      "family": "Media & spectacle",
+      "origin": "conversation_proposed",
+      "tags": [
+        "creative",
+        "social",
+        "surreal"
+      ],
+      "source_scope": [
+        "conversation:2026-11-01"
+      ]
+    },
+    {
+      "id": "sports-skill-and-dexterity",
+      "name": "Sports / skill and dexterity",
+      "kind": "culture seed",
+      "family": "Speed & kinetics",
+      "origin": "conversation_proposed",
+      "tags": [
+        "craft",
+        "kinetic",
+        "social"
+      ],
+      "source_scope": [
+        "conversation:2026-11-01"
+      ]
+    },
+    {
+      "id": "art-authenticity-and-creative-labor-disputes",
+      "name": "Art authenticity and creative labor disputes",
+      "kind": "theme",
+      "family": "Creative culture",
+      "origin": "original",
+      "tags": [
+        "creative",
+        "social",
+        "authority"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "cyberpunk-industrial-metropolis-possible",
+      "name": "Cyberpunk industrial metropolis (possible)",
+      "kind": "region idea",
+      "family": "Cyberpunk & AI",
+      "origin": "hypothesis",
+      "tags": [
+        "technological",
+        "social",
+        "authority",
+        "ominous"
+      ],
+      "source_scope": [
+        "analysis:2026-11-01"
+      ]
+    },
+    {
+      "id": "robot-personhood-ai-fork-society",
+      "name": "Robot/personhood/AI-fork society",
+      "kind": "theme",
+      "family": "Cyberpunk & AI",
+      "origin": "later",
+      "tags": [
+        "technological",
+        "social",
+        "formal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/after_intro_brainstorm.md",
+        "docs/brainstorms/good_llm_ideas/original_notes.md"
+      ]
+    },
+    {
+      "id": "machine-vs-artisan-luddites",
+      "name": "Machine vs artisan / Luddites",
+      "kind": "theme",
+      "family": "Industrial engineering",
+      "origin": "original",
+      "tags": [
+        "technological",
+        "social",
+        "craft",
+        "authority"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "portal-repair-and-patchwrights",
+      "name": "Portal repair and Patchwrights",
+      "kind": "faction",
+      "family": "Gate infrastructure",
+      "origin": "llm",
+      "tags": [
+        "technological",
+        "craft",
+        "domestic"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "gate-janitors-maintenance-workforce",
+      "name": "Gate Janitors / maintenance workforce",
+      "kind": "faction",
+      "family": "Gate infrastructure",
+      "origin": "later",
+      "tags": [
+        "technological",
+        "domestic",
+        "craft",
+        "social"
+      ],
+      "source_scope": [
+        "docs/brainstorms/after_intro_brainstorm.md",
+        "docs/brainstorms/good_llm_ideas/original_notes.md"
+      ]
+    },
+    {
+      "id": "porters-cargo-supply-chains",
+      "name": "Porters / cargo supply chains",
+      "kind": "faction",
+      "family": "Gate infrastructure",
+      "origin": "llm",
+      "tags": [
+        "social",
+        "domestic",
+        "kinetic"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "dimensional-postal-service-sky-couriers",
+      "name": "Dimensional postal service / Sky Couriers",
+      "kind": "faction",
+      "family": "Gate infrastructure",
+      "origin": "llm",
+      "tags": [
+        "social",
+        "kinetic",
+        "technological"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "mathematicians-guild",
+      "name": "Mathematicians Guild",
+      "kind": "faction",
+      "family": "Formal mathematics",
+      "origin": "original",
+      "tags": [
+        "formal",
+        "craft",
+        "social"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "physicists-guild",
+      "name": "Physicists Guild",
+      "kind": "faction",
+      "family": "Experimental science",
+      "origin": "original",
+      "tags": [
+        "empirical",
+        "formal",
+        "social"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "fighters-and-thieves-guilds",
+      "name": "Fighters and Thieves Guilds",
+      "kind": "faction",
+      "family": "Stealth & martial mastery",
+      "origin": "original",
+      "tags": [
+        "kinetic",
+        "craft",
+        "social"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "goblins-everywhere",
+      "name": "Goblins everywhere",
+      "kind": "culture seed",
+      "family": "Home & civilian life",
+      "origin": "later",
+      "tags": [
+        "domestic",
+        "social",
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/after_intro_brainstorm.md",
+        "docs/brainstorms/good_llm_ideas/original_notes.md"
+      ]
+    },
+    {
+      "id": "monster-control-bureau",
+      "name": "Monster Control Bureau",
+      "kind": "faction",
+      "family": "Monsters & horror",
+      "origin": "llm",
+      "tags": [
+        "organic",
+        "mythic",
+        "authority"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "watershed-advocates-ecological-politics",
+      "name": "Watershed Advocates / ecological politics",
+      "kind": "faction",
+      "family": "Ecology & stewardship",
+      "origin": "llm",
+      "tags": [
+        "organic",
+        "empirical",
+        "social"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "fork-rights-movement-ai-personhood",
+      "name": "Fork Rights Movement / AI personhood",
+      "kind": "faction",
+      "family": "Cyberpunk & AI",
+      "origin": "llm",
+      "tags": [
+        "technological",
+        "social",
+        "formal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "uptime-monks-latency-cult",
+      "name": "Uptime Monks / Latency Cult",
+      "kind": "faction",
+      "family": "Cyberpunk & AI",
+      "origin": "llm",
+      "tags": [
+        "technological",
+        "mythic",
+        "formal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "clown-monastery",
+      "name": "Clown Monastery",
+      "kind": "faction",
+      "family": "Performing arts",
+      "origin": "llm",
+      "tags": [
+        "creative",
+        "mythic",
+        "kinetic",
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "polka-mech-union",
+      "name": "Polka Mech Union",
+      "kind": "faction",
+      "family": "Music & composition",
+      "origin": "llm",
+      "tags": [
+        "creative",
+        "craft",
+        "technological",
+        "social"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "volcano-choir-lava-singers",
+      "name": "Volcano Choir / lava singers",
+      "kind": "faction",
+      "family": "Elemental frontiers",
+      "origin": "llm",
+      "tags": [
+        "elemental",
+        "creative",
+        "mythic"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "weather-barons",
+      "name": "Weather Barons",
+      "kind": "faction",
+      "family": "Elemental frontiers",
+      "origin": "llm",
+      "tags": [
+        "elemental",
+        "authority",
+        "social"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "origami-armada",
+      "name": "Origami Armada",
+      "kind": "faction",
+      "family": "Design & construction",
+      "origin": "llm",
+      "tags": [
+        "creative",
+        "craft",
+        "kinetic"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "lighthouse-cowboys",
+      "name": "Lighthouse Cowboys",
+      "kind": "faction",
+      "family": "Space exploration",
+      "origin": "llm",
+      "tags": [
+        "cosmic",
+        "kinetic",
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "rodeo-astronauts",
+      "name": "Rodeo Astronauts",
+      "kind": "faction",
+      "family": "Space exploration",
+      "origin": "llm",
+      "tags": [
+        "cosmic",
+        "kinetic",
+        "organic"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "haunted-customer-service-line",
+      "name": "Haunted customer-service line",
+      "kind": "faction",
+      "family": "Monsters & horror",
+      "origin": "llm",
+      "tags": [
+        "ominous",
+        "social",
+        "technological",
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "library-of-loud-silence",
+      "name": "Library of Loud Silence",
+      "kind": "faction",
+      "family": "Literature & narrative",
+      "origin": "llm",
+      "tags": [
+        "creative",
+        "authority",
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "celebrity-impersonators-and-mirror-barbers",
+      "name": "Celebrity impersonators and mirror barbers",
+      "kind": "faction",
+      "family": "Mirror worlds",
+      "origin": "llm",
+      "tags": [
+        "creative",
+        "craft",
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "calendar-pirates-stolen-time",
+      "name": "Calendar Pirates / stolen time",
+      "kind": "faction",
+      "family": "Nautical adventure",
+      "origin": "llm",
+      "tags": [
+        "kinetic",
+        "surreal",
+        "formal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "bureau-of-unfinished-business-ghosts",
+      "name": "Bureau of Unfinished Business / ghosts",
+      "kind": "faction",
+      "family": "Monsters & horror",
+      "origin": "llm",
+      "tags": [
+        "ominous",
+        "mythic",
+        "social"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "interdimensional-chamber-of-commerce",
+      "name": "Interdimensional Chamber of Commerce",
+      "kind": "faction",
+      "family": "Civic institutions",
+      "origin": "llm",
+      "tags": [
+        "social",
+        "authority",
+        "domestic"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "society-of-closed-gates-gate-moral-panics",
+      "name": "Society of closed gates / gate moral panics",
+      "kind": "faction",
+      "family": "Civic institutions",
+      "origin": "llm",
+      "tags": [
+        "social",
+        "authority",
+        "ominous"
+      ],
+      "source_scope": [
+        "docs/brainstorms/llm_brainstorm.md",
+        "docs/brainstorms/after_intro_brainstorm.md"
+      ]
+    },
+    {
+      "id": "mystic-local-gods-and-conflicting-beliefs",
+      "name": "Mystic local gods and conflicting beliefs",
+      "kind": "theme",
+      "family": "Religion & metaphysics",
+      "origin": "original",
+      "tags": [
+        "mythic",
+        "formal",
+        "social"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "girdle-proof-permission-network",
+      "name": "Girdle proof/permission network",
+      "kind": "theme",
+      "family": "Religion & metaphysics",
+      "origin": "later",
+      "tags": [
+        "formal",
+        "social",
+        "authority",
+        "technological"
+      ],
+      "source_scope": [
+        "docs/brainstorms/after_intro_brainstorm.md",
+        "docs/brainstorms/good_llm_ideas/original_notes.md"
+      ]
+    },
+    {
+      "id": "corrupted-media-and-signal-creatures",
+      "name": "Corrupted media and signal creatures",
+      "kind": "theme",
+      "family": "Media & spectacle",
+      "origin": "later",
+      "tags": [
+        "creative",
+        "technological",
+        "ominous",
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/after_intro_brainstorm.md",
+        "docs/brainstorms/good_llm_ideas/original_notes.md"
+      ]
+    },
+    {
+      "id": "nature-preservation-vs-extractive-development",
+      "name": "Nature preservation vs extractive development",
+      "kind": "theme",
+      "family": "Ecology & stewardship",
+      "origin": "original",
+      "tags": [
+        "organic",
+        "empirical",
+        "social",
+        "technological"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "political-propaganda-and-institutional-control",
+      "name": "Political propaganda and institutional control",
+      "kind": "theme",
+      "family": "Authoritarian power",
+      "origin": "original",
+      "tags": [
+        "social",
+        "authority",
+        "ominous"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "mirror-worlds-and-alternate-identities",
+      "name": "Mirror worlds and alternate identities",
+      "kind": "theme",
+      "family": "Mirror worlds",
+      "origin": "original",
+      "tags": [
+        "surreal",
+        "formal",
+        "social"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "fire-and-elemental-hazard-variants",
+      "name": "Fire and elemental hazard variants",
+      "kind": "motif",
+      "family": "Elemental frontiers",
+      "origin": "original",
+      "tags": [
+        "elemental",
+        "mythic",
+        "kinetic"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "eldritch-monster-mutations",
+      "name": "Eldritch monster mutations",
+      "kind": "motif",
+      "family": "Monsters & horror",
+      "origin": "later",
+      "tags": [
+        "organic",
+        "ominous",
+        "surreal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/after_intro_brainstorm.md",
+        "docs/brainstorms/good_llm_ideas/original_notes.md"
+      ]
+    },
+    {
+      "id": "celestial-observatory-cosmic-astronomy",
+      "name": "Celestial observatory / cosmic astronomy",
+      "kind": "motif",
+      "family": "Space exploration",
+      "origin": "original",
+      "tags": [
+        "cosmic",
+        "empirical",
+        "formal"
+      ],
+      "source_scope": [
+        "docs/brainstorms/original_brainstorm.md"
+      ]
+    },
+    {
+      "id": "the-complete-map-done-world-antagonist",
+      "name": "The Complete Map / Done World antagonist",
+      "kind": "theme",
+      "family": "Religion & metaphysics",
+      "origin": "later",
+      "tags": [
+        "formal",
+        "authority",
+        "surreal",
+        "ominous"
+      ],
+      "source_scope": [
+        "docs/brainstorms/after_intro_brainstorm.md",
+        "docs/brainstorms/good_llm_ideas/original_notes.md"
+      ]
+    }
+  ]
+}

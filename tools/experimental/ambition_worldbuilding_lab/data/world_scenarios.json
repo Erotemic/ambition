@@ -1,0 +1,371 @@
+{
+  "schema_version": 1,
+  "status": "All scenarios are exploratory. They do not change game canon, the gate graph, or current plans.",
+  "protected_world_ids": [
+    "math"
+  ],
+  "scenarios": [
+    {
+      "id": "historical-17",
+      "description": "The 17-slot source brainstorm, with speculative family assignments; not current topology.",
+      "worlds": [
+        {
+          "id": "noodle",
+          "label": "Noodle",
+          "families": [
+            "Cuisine & absurdity",
+            "Culinary craft"
+          ],
+          "physical_setting": "The Noodly Temple and pasta landscapes."
+        },
+        {
+          "id": "evil",
+          "label": "Evil",
+          "families": [
+            "Authoritarian power",
+            "Civic institutions"
+          ],
+          "physical_setting": "Castle Godwin and its controlled towns."
+        },
+        {
+          "id": "ninja",
+          "label": "Forest / Ninja",
+          "families": [
+            "Stealth & martial mastery"
+          ],
+          "physical_setting": "Ninja settlements, dojos, and forests."
+        },
+        {
+          "id": "pirate",
+          "label": "Water / Pirate",
+          "families": [
+            "Nautical adventure"
+          ],
+          "physical_setting": "Islands, ports, ships, and ocean routes."
+        },
+        {
+          "id": "science",
+          "label": "Science",
+          "families": [
+            "Experimental science",
+            "Space exploration",
+            "Industrial engineering"
+          ],
+          "physical_setting": "Experiment sites, research cities, and orbital stations."
+        },
+        {
+          "id": "math",
+          "label": "Math",
+          "families": [
+            "Formal mathematics"
+          ],
+          "physical_setting": "An inhabited mathematical manifold."
+        },
+        {
+          "id": "fire",
+          "label": "Fire / Inferno",
+          "families": [
+            "Elemental frontiers"
+          ],
+          "physical_setting": "Volcanic terrain and lava settlements."
+        },
+        {
+          "id": "magical",
+          "label": "Magical",
+          "families": [
+            "Magical fantasy",
+            "Religion & metaphysics"
+          ],
+          "physical_setting": "Enchanted kingdoms and mythic creatures."
+        },
+        {
+          "id": "sanic",
+          "label": "Sanic",
+          "families": [
+            "Speed & kinetics"
+          ],
+          "physical_setting": "Fast terrain and racing communities."
+        },
+        {
+          "id": "dog",
+          "label": "Dog",
+          "families": [
+            "Animal societies"
+          ],
+          "physical_setting": "Towns populated by speaking animals."
+        },
+        {
+          "id": "jungle",
+          "label": "Jungle / Dinosaur",
+          "families": [
+            "Primeval ecology",
+            "Ecology & stewardship"
+          ],
+          "physical_setting": "Prehistoric forests and animal habitats."
+        },
+        {
+          "id": "techno",
+          "label": "Techno / Cyberpunk",
+          "families": [
+            "Cyberpunk & AI",
+            "Design & construction"
+          ],
+          "physical_setting": "A high-tech urban civilization."
+        },
+        {
+          "id": "regal",
+          "label": "Pure / Regal",
+          "families": [
+            "Royalty & purity"
+          ],
+          "physical_setting": "A highly ordered royal society."
+        },
+        {
+          "id": "corrupted",
+          "label": "Corrupted",
+          "families": [
+            "Corruption & void",
+            "Mirror worlds"
+          ],
+          "physical_setting": "A transformed landscape with unstable rules."
+        },
+        {
+          "id": "monster",
+          "label": "Monster",
+          "families": [
+            "Monsters & horror"
+          ],
+          "physical_setting": "A world of monsters and hostile environments."
+        },
+        {
+          "id": "unassigned",
+          "label": "Unassigned",
+          "families": [],
+          "physical_setting": "Historical open slot, not a defined world."
+        },
+        {
+          "id": "home",
+          "label": "Home",
+          "families": [
+            "Home & civilian life",
+            "Gate infrastructure"
+          ],
+          "physical_setting": "The inhabited central hub and surrounding neighborhoods."
+        }
+      ]
+    },
+    {
+      "id": "consolidated",
+      "description": "Broaden Art into creative culture and treat science plus technology as one civilization; keep Math distinct.",
+      "worlds": [
+        {
+          "id": "home",
+          "label": "Home",
+          "families": [
+            "Home & civilian life",
+            "Gate infrastructure",
+            "Civic institutions"
+          ],
+          "physical_setting": "Home city and gate logistics."
+        },
+        {
+          "id": "math",
+          "label": "Math",
+          "families": [
+            "Formal mathematics"
+          ],
+          "physical_setting": "A physically real mathematical manifold, not a general philosophy dimension."
+        },
+        {
+          "id": "creativity",
+          "label": "Creativity and Culture",
+          "families": [
+            "Creative culture",
+            "Performing arts",
+            "Music & composition",
+            "Literature & narrative",
+            "Rhetoric & philosophy",
+            "Design & construction",
+            "Media & spectacle",
+            "Culinary craft"
+          ],
+          "physical_setting": "A settled region of studios, theaters, libraries, workshops, and public forums."
+        },
+        {
+          "id": "discovery",
+          "label": "Discovery and Technology",
+          "families": [
+            "Experimental science",
+            "Industrial engineering",
+            "Space exploration",
+            "Cyberpunk & AI",
+            "Ecology & stewardship"
+          ],
+          "physical_setting": "A research and industrial civilization with planets, labs, factories, and spaceports."
+        },
+        {
+          "id": "adventure",
+          "label": "Pirate and Ninja",
+          "families": [
+            "Nautical adventure",
+            "Stealth & martial mastery",
+            "Speed & kinetics"
+          ],
+          "physical_setting": "Islands with ports, forests, villages, ships, and mountains."
+        },
+        {
+          "id": "primeval",
+          "label": "Primeval",
+          "families": [
+            "Primeval ecology",
+            "Animal societies",
+            "Elemental frontiers",
+            "Ecology & stewardship"
+          ],
+          "physical_setting": "Forests, mountains, volcanoes, and prehistoric settlements."
+        },
+        {
+          "id": "magic",
+          "label": "Magical",
+          "families": [
+            "Magical fantasy",
+            "Religion & metaphysics",
+            "Mirror worlds",
+            "Monsters & horror"
+          ],
+          "physical_setting": "Fantastic kingdoms, dungeons, and supernatural landscapes."
+        },
+        {
+          "id": "evil",
+          "label": "Evil",
+          "families": [
+            "Authoritarian power",
+            "Royalty & purity",
+            "Corruption & void",
+            "Civic institutions"
+          ],
+          "physical_setting": "Castle Godwin and the surrounding political state."
+        },
+        {
+          "id": "noodle",
+          "label": "Noodle",
+          "families": [
+            "Cuisine & absurdity",
+            "Culinary craft"
+          ],
+          "physical_setting": "A fully traversable culinary landscape."
+        }
+      ]
+    },
+    {
+      "id": "tech-split",
+      "description": "Test an independent cyberpunk/industrial world rather than folding it into scientific discovery.",
+      "worlds": [
+        {
+          "id": "home",
+          "label": "Home",
+          "families": [
+            "Home & civilian life",
+            "Gate infrastructure",
+            "Civic institutions"
+          ],
+          "physical_setting": "Home city and gate logistics."
+        },
+        {
+          "id": "math",
+          "label": "Math",
+          "families": [
+            "Formal mathematics"
+          ],
+          "physical_setting": "A physically real mathematical manifold, not a general philosophy dimension."
+        },
+        {
+          "id": "creativity",
+          "label": "Creativity and Culture",
+          "families": [
+            "Creative culture",
+            "Performing arts",
+            "Music & composition",
+            "Literature & narrative",
+            "Rhetoric & philosophy",
+            "Culinary craft"
+          ],
+          "physical_setting": "A settled region of studios, theaters, libraries, workshops, and public forums."
+        },
+        {
+          "id": "discovery",
+          "label": "Science and Exploration",
+          "families": [
+            "Experimental science",
+            "Space exploration",
+            "Ecology & stewardship"
+          ],
+          "physical_setting": "Scientific outposts, observatories, planets, and field stations."
+        },
+        {
+          "id": "industry",
+          "label": "Cyberpunk and Industry",
+          "families": [
+            "Cyberpunk & AI",
+            "Design & construction",
+            "Industrial engineering",
+            "Media & spectacle"
+          ],
+          "physical_setting": "A sprawling high-technology metropolis with media and factory districts."
+        },
+        {
+          "id": "adventure",
+          "label": "Pirate and Ninja",
+          "families": [
+            "Nautical adventure",
+            "Stealth & martial mastery",
+            "Speed & kinetics"
+          ],
+          "physical_setting": "Islands with ports, forests, villages, ships, and mountains."
+        },
+        {
+          "id": "primeval",
+          "label": "Primeval",
+          "families": [
+            "Primeval ecology",
+            "Animal societies",
+            "Elemental frontiers",
+            "Ecology & stewardship"
+          ],
+          "physical_setting": "Forests, mountains, volcanoes, and prehistoric settlements."
+        },
+        {
+          "id": "magic",
+          "label": "Magical",
+          "families": [
+            "Magical fantasy",
+            "Religion & metaphysics",
+            "Mirror worlds",
+            "Monsters & horror"
+          ],
+          "physical_setting": "Fantastic kingdoms, dungeons, and supernatural landscapes."
+        },
+        {
+          "id": "evil",
+          "label": "Evil",
+          "families": [
+            "Authoritarian power",
+            "Royalty & purity",
+            "Corruption & void",
+            "Civic institutions"
+          ],
+          "physical_setting": "Castle Godwin and the surrounding political state."
+        },
+        {
+          "id": "noodle",
+          "label": "Noodle",
+          "families": [
+            "Cuisine & absurdity",
+            "Culinary craft"
+          ],
+          "physical_setting": "A fully traversable culinary landscape."
+        }
+      ]
+    }
+  ]
+}

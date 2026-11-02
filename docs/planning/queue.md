@@ -24,10 +24,10 @@ around its result. Do not append to it.
 
 Scripts read this file:
 
-- `scripts/check_blocking_set_names_every_gate.py` reads each `**Blocked by:**`
+- `scripts/checks/check_blocking_set_names_every_gate.py` reads each `**Blocked by:**`
   field to the next blank line, and each `**Acceptance:**` clause.
 - A heading that contains `✅`, `DONE` or `CLOSED` marks its row closed for
-  that script, for `scripts/check_discharged_holds_are_rewritten.py` and for the
+  that script, for `scripts/checks/check_discharged_holds_are_rewritten.py` and for the
   two consolidation-ledger checks. The ledger holds work on `ID-PEER` by its
   row id, and a ledger test needs `A10` to stay a closed row.
 - Other documents and source comments link to row headings. Do not rename a
@@ -2270,7 +2270,7 @@ told. The four above remain.
 **Open items:**
 
 1. **The compile-cost ratchet reports and does not fail the gate** (re-measured 2026-10-09: 8 findings, 0 gating, exit 0). Since `a614327fe` (2026-09-25, Jon: "line-count should not be a gate") only PATH and GONE gate; the size and seconds rows are reports. The critical path of 15 crates is banked (2026-10-09, `--adopt-wins`). The carve was `d56c46de9`, which removed `ambition_items`'s dead dependency on `ambition_combat`; the old 16-crate chain went through that edge. Two `--adopt-wins` defects found on the way are fixed: a held row kept its old `depth` (path 15 beside a row of depth 16), and `carried_from` dropped the older commit of a chain (`scripts/tests/test_compile_ratchet.py`, each arm red under its poison). Still open: the baseline disagrees with itself in three places (`ambition_geometry`, the monolith, `ambition_platformer2d_core`). The held numbers are from `11ef33c5b5a5`, and their table rows were already different, so no adopt can repair this; only a deliberate re-freeze can. Reported: the monolith's largest unit (100,742 → 132,359 lines). ⛔ Do not re-freeze with `--update` as bookkeeping: it banks the regressions, and that is a judgement to state in its own commit.
-2. **An arm fails only in company** (see [the triage page](triage/a-composition-acceptance-that-only-fails-in-company.md)): `composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps` failed once on 2026-09-10, and its assertion was never captured. Three other instances of the signature were per-arm measurements reading process-global state (`app_it` runs arms as threads of one process); they are fixed, and `scripts/a_test_static_is_a_channel_between_arms.py` guards the class. Next: capture this arm's assertion. `hall_redecode_census.rs` asserts over a delta of a process-wide counter, and it is not a candidate: it is `#[ignore]`d and run alone by `scripts/measure/measure_hall_redecodes.sh` (read 2026-10-08). Counted 2026-10-09 from this machine's cost ledger (`run_tests_cost.jsonl`) since 2026-09-10: 56 job runs that run `app_it` in company passed and 35 failed, and no failed row says which arm failed: the evidence was only in a status file that the next run writes over. Measured 2026-10-13: that cost-ledger row was not written for a narrowed `--only-job` run, which is how a change's required checks run, so the lane ledger (`target/lane_ledger.jsonl`) held 25 failed `ambition_app` runs since 2026-10-09 and none said which arm failed. Now the lane ledger row, written for each job that runs, keeps a failed job's `failure_evidence`, and the cost ledger copy is deleted (`test_a_failed_job_keeps_its_evidence_in_the_lane_ledger_row`, through `run()`). A recurrence can be counted from that ledger. The A9 probe found and repaired two couplings that fail a composition without `BossEncounters` (`simulation_world` required `BossCatalog`; the progression plugin registered `populate_boss_encounter_registry`); whether either was this failure is not known. ⛔ Do not add a retry.
+2. **An arm fails only in company** (see [the triage page](triage/a-composition-acceptance-that-only-fails-in-company.md)): `composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps` failed once on 2026-09-10, and its assertion was never captured. Three other instances of the signature were per-arm measurements reading process-global state (`app_it` runs arms as threads of one process); they are fixed, and `scripts/checks/a_test_static_is_a_channel_between_arms.py` guards the class. Next: capture this arm's assertion. `hall_redecode_census.rs` asserts over a delta of a process-wide counter, and it is not a candidate: it is `#[ignore]`d and run alone by `scripts/measure/measure_hall_redecodes.sh` (read 2026-10-08). Counted 2026-10-09 from this machine's cost ledger (`run_tests_cost.jsonl`) since 2026-09-10: 56 job runs that run `app_it` in company passed and 35 failed, and no failed row says which arm failed: the evidence was only in a status file that the next run writes over. Measured 2026-10-13: that cost-ledger row was not written for a narrowed `--only-job` run, which is how a change's required checks run, so the lane ledger (`target/lane_ledger.jsonl`) held 25 failed `ambition_app` runs since 2026-10-09 and none said which arm failed. Now the lane ledger row, written for each job that runs, keeps a failed job's `failure_evidence`, and the cost ledger copy is deleted (`test_a_failed_job_keeps_its_evidence_in_the_lane_ledger_row`, through `run()`). A recurrence can be counted from that ledger. The A9 probe found and repaired two couplings that fail a composition without `BossEncounters` (`simulation_world` required `BossCatalog`; the progression plugin registered `populate_boss_encounter_registry`); whether either was this failure is not known. ⛔ Do not add a retry.
 3. **The reload family failed under load, and its waits for the first activation now wait on the condition (2026-10-09).** The family is `an_edit_reaches_the_shipped_game`. Measured with the family alone at 30 test threads, five runs for each state: on main `0e2c22f9e`, five of five runs were red (two or three arms for each run, ten different arms, 13 failures), and each failure was a premise that the first session is live. With the waits changed, five of five runs were green. The cause: the gameplay route becomes active after work on other threads, so a fixed 240 frames is not a wait. Alone, the route was active on frame 3; in company it was seen on frame 83, and the red runs are the cases later than frame 240. The waits are in `game/ambition_app/tests/common/mod.rs`: `step_until_route_is_active`, `step_until_route_is_active_and_settled` and `ActivationWindow`. Each waits on the route under a ceiling of 120 seconds of wall time and then steps the frames the old loop stepped after frame 3. Two arms in that file hold the ceiling (`a_wait_for_a_route_that_never_activates_ends_at_its_ceiling` and the one for the window); with a ceiling check removed, its arm does not end. Converted 2026-10-09 (CalculexAmbition, `4cfe4e476` and the next commit): 16 candidate arms wait until `PendingGeneration` is gone and first assert that one was pending; two arms refused at request time assert that none is pending; two handoff waits wait on the activation id and on the handoff, under the same ceiling. Measured: a generation settled in 2-3 frames alone and at 30 test threads, so these arms were not short of frames; the change is that a negative arm now fails if the refusal was never decided. Left: the census probe, one handoff whose premise check fails loudly when its transaction has not run, three loops that assert on each frame, and each other family (63 loops of 240 frames outside this file). Done 2026-10-12, Smash: `wait_for_the_round_to_go_live` was vacuous with no seats ("none held" before the cast was built), so six fixtures waited a blind 240 frames for the 180-tick count, which a late activation can outlast. It now waits for seats with no opening hold, under the wall-clock ceiling, and the six waits use it (75 of 75 pass; the old condition reddens 13 at their "the cast exists" premises). Counted after: 63 `0..240` loops in the app tests, of which 5 are in the reload file and 5 are Smash loops that break on their own condition. No failure of those was seen in the ten runs after the change; that is not a proof that they hold. One older session-root handoff failure did not reproduce in four full runs, and its assertion was never captured. One of its two candidate arms (`the_shipped_app_never_holds_two_session_roots_across_a_handoff`) had this window; whether that was the failure is not known. ⛔ Do not add a retry, and do not make the 240 larger: wait on the condition.
 
 4. **`NOT RUN` is a first-class receipt state** (Q59 ruling, 2026-10-03). A
@@ -2816,7 +2816,7 @@ second authoring source.
   validator's per-room count and its `active_area_ids` room check, which held
   by construction, are deleted; it keeps the missing-script check. Shipped
   worlds: 0 conflicts.
-  ✅ 2026-10-07, `scripts/check_world_graph_is_navigable.py` read the zone
+  ✅ 2026-10-07, `scripts/checks/check_world_graph_is_navigable.py` read the zone
   targets untrimmed, so it was stricter than the engine (a `"vault "` target
   resolves in the game and was reported as dangling). It reads them with the
   engine's `field_text` rule now (`test_a_door_target_is_read_with_the_engines_text_rule`,
@@ -2880,7 +2880,7 @@ composition variants.
 and steps a real body, installs none of what it omits, and has its session-edge
 parameters validated; a control arm proves the probe can say yes
 (`ambition_platformer2d_host/tests/supported_profiles.rs`,
-`scripts/check_engine_profiles.py`). The probe found eight couplings that made a
+`scripts/checks/check_engine_profiles.py`). The probe found eight couplings that made a
 promised omission fail on its first tick; all are repaired in source, and the table
 is in [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md#supported-profiles).
 
@@ -3895,7 +3895,7 @@ limits are in [the session edge](engine/construction-and-reconstitution.md#the-s
 Every class of level-box read that was a footprint question asks the turned
 box now, each with an arm red in turned gravity first; every remaining read
 has a class and a reason in `scripts/baselines/level-box-readers.json`, held
-by `scripts/check_level_box_readers.py`. The rule, two rejected approaches and
+by `scripts/checks/check_level_box_readers.py`. The rule, two rejected approaches and
 nine open items are in
 [one box for a turned body](engine/controlled-character-actor-kernel.md#one-box-for-a-turned-body).
 
@@ -3970,7 +3970,7 @@ and the arms in `id_peer_audit.rs`. The standing rules are in
 
 ### ROLLBACK-MUTATOR-POPULATION — the mutator guard sees a quarter of rollback state — ✅ DONE 2026-10-03
 
-`scripts/check_rollback_mutators_run_in_sim.py` reads every rollback
+`scripts/checks/check_rollback_mutators_run_in_sim.py` reads every rollback
 registration in every supported parameter spelling, including exclusive-world
 bodies and one helper hop (`inherited_mutations`). 494 systems, 0 acknowledged
 offenders. The save restore chain left the scan with BODY-BORN-ON-THE-TIMELINE;
@@ -4106,7 +4106,7 @@ rollback state. The host-side `Update` request is deleted. Guards:
 
 `ambition_platformer2d_core::rollback_kind::spelling` holds every (kind,
 sentence) pair once, and both registration roads reference it. Guard:
-`scripts/check_rollback_kind_spelled_once.py`.
+`scripts/checks/check_rollback_kind_spelled_once.py`.
 
 ### A12 — finish move-contact attribution and reflection identity
 

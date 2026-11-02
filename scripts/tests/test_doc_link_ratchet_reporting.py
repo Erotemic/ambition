@@ -33,7 +33,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-SCRIPT = REPO / "scripts/check_doc_link_ratchet.py"
+SCRIPT = REPO / "scripts/checks/check_doc_link_ratchet.py"
 
 
 def load():
@@ -85,7 +85,7 @@ def rig(tmp_path, monkeypatch):
 
 def run(module, argv):
     monkey = sys.argv
-    sys.argv = ["check_doc_link_ratchet.py", *argv]
+    sys.argv = ["checks/check_doc_link_ratchet.py", *argv]
     try:
         return module.main()
     finally:

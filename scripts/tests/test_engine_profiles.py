@@ -7,7 +7,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-import check_engine_profiles as guard  # noqa: E402
+from scripts.checks import check_engine_profiles as guard  # noqa: E402
 
 WITNESS = "SUPPORTED_PROFILES.iter() is_installed the_control_installs_every_capability"
 

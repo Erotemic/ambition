@@ -27,7 +27,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-CHECK = REPO / "scripts" / "check_gauntlet_props_are_rendered.py"
+CHECK = REPO / "scripts" / "checks/check_gauntlet_props_are_rendered.py"
 
 
 def _run() -> subprocess.CompletedProcess[str]:

@@ -13,7 +13,7 @@
 //!   decides for it; wiring bodies into a running simulation is the layer above.
 //!   Enforced rather than promised —
 //!   `characters-do-not-depend-on-the-actor-integration-layer` in
-//!   `scripts/check_absence_contracts.py` is that sentence as a check.
+//!   `scripts/checks/check_absence_contracts.py` is that sentence as a check.
 //! - **Anything the SHEET derives.** Frame rects, measured body extents and
 //!   render sizes belong to `ambition_sprite_sheet`, which depends on this crate;
 //!   hosting them here inverts that edge. `ActorSpriteMetrics` was refused on

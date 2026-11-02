@@ -76,7 +76,7 @@ def test_the_two_test_predicates_are_the_SHARED_ones():
     scripts = pathlib.Path(mod.__file__).resolve().parent
     sys.path.insert(0, str(scripts / "lib"))
     sys.path.insert(0, str(scripts))
-    import check_rollback_mutators_run_in_sim as mutator_guard
+    from scripts.checks import check_rollback_mutators_run_in_sim as mutator_guard
     import test_paths
 
     # ⚠ THE CACHED MODULE, NOT A FRESH `exec_module`. A second execution of the

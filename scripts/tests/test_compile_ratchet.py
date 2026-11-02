@@ -1,4 +1,4 @@
-"""The SECONDS weighting behind `scripts/compile_ratchet.py` (D27).
+"""The SECONDS weighting behind `scripts/checks/compile_ratchet.py` (D27).
 
 The graph walk was already guarded by the gate's own existence — it runs in the
 suite and reddens when it is wrong. What was not guarded is the WEIGHT each node
@@ -20,7 +20,7 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
-import compile_ratchet as ratchet  # noqa: E402
+from scripts.checks import compile_ratchet as ratchet  # noqa: E402
 
 MONOLITH = "ambition_platformer2d_actor_monolith"
 FLOOR = "ambition_platformer2d_core"

@@ -402,7 +402,7 @@ mod flow_tests {
     ///
     /// This checks registration only, not that the PNG exists. Sprites are
     /// generated and gitignored, so a file check would fail on a fresh checkout.
-    /// `scripts/check_published_sheets_are_present.py` checks presence.
+    /// `scripts/checks/check_published_sheets_are_present.py` checks presence.
     #[test]
     fn every_held_item_a_move_creates_has_art() {
         use bevy::prelude::App;

@@ -13,7 +13,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-import check_narrative_writers_have_a_ledger as guard  # noqa: E402
+from scripts.checks import check_narrative_writers_have_a_ledger as guard  # noqa: E402
 
 
 def sources(pairs):

@@ -137,7 +137,7 @@ python scripts/agent_query.py tests "<behavior>"
 Use focused checks when relevant:
 
 ```bash
-python scripts/check_doc_links.py
+python scripts/checks/check_doc_links.py
 python scripts/generate_agent_index.py
 python -m ambition_ldtk_tools validate <world.ldtk>
 ```

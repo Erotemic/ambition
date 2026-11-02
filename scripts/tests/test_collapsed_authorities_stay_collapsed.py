@@ -11,7 +11,7 @@ REPO = pathlib.Path(__file__).resolve().parents[2]
 
 def _load():
     name = "check_collapsed_authorities_stay_collapsed"
-    spec = importlib.util.spec_from_file_location(name, REPO / "scripts" / f"{name}.py")
+    spec = importlib.util.spec_from_file_location(name, REPO / "scripts" / "checks" / f"{name}.py")
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
     spec.loader.exec_module(module)

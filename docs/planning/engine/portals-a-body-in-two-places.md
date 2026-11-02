@@ -168,7 +168,7 @@ bar from the near line to the floor. Fixed in `950467e64`:
 - The twin follows its root after `animate_characters` and
   `pose_boss_part_animators` (it drew the frame before).
 
-Guard: `scripts/check_limb_through_portal.py` films the fight twice, with
+Guard: `scripts/checks/check_limb_through_portal.py` films the fight twice, with
 the limb and with it drawn nowhere (`capture_scene --limbs-unseen SLOT`),
 and fails when the limb's area in a tick is under 35% of its area before
 the blow, or (windows off) changes more than 1.8 times in a tick. On the
@@ -521,7 +521,7 @@ that cut a portal.
   between them (Jon 2026-10-25, "a serious problem": 3-17 px at Low, which
   captured each window every 100 ms). A tier caps how many windows are open
   (`max_active_captures`), never how old one is. Guard:
-  `scripts/check_portal_seam_over_time.py`.
+  `scripts/checks/check_portal_seam_over_time.py`.
 
 ## One road for every drawable: the carry (2026-10-25)
 
@@ -563,7 +563,7 @@ cutter, its fallback copy and `PortalTransitHidden` are deleted.
 - The far-side compositor leaves a carried drawable, and one that reaches
   out from the viewer's side of a pane, to the carry.
 
-Guard: `scripts/check_portal_carry.py` films each kind with and without it
+Guard: `scripts/checks/check_portal_carry.py` films each kind with and without it
 (windows off), and fails when the kind is drawn behind the entry inside
 the opening (more than 40 px) or nothing comes out of the exit. MEASURED
 (low): carry on 3/3, 0 px behind; `--carry off` 0/3 (slash up to 1955 px

@@ -26,7 +26,7 @@ REPO = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO / ".github/workflows/test.yml"
 
 GENERATE = "scripts/generate_agent_index.py"
-CHECK = "scripts/check_agent_kb.py"
+CHECK = "scripts/checks/check_agent_kb.py"
 
 
 def workflow_text() -> str:
@@ -64,7 +64,7 @@ def test_the_checker_really_does_require_the_generated_index():
     """⛔ POSITIVE CONTROL. The test above is about ordering; if the checker ever
     stopped requiring the index, the ordering rule would be pinning nothing.
     """
-    checker = (REPO / "scripts/check_agent_kb.py").read_text()
+    checker = (REPO / "scripts/checks/check_agent_kb.py").read_text()
     assert "generate_agent_index.py" in checker, (
         "the checker no longer points at the generator; re-derive whether the "
         "workflow ordering rule above is still the real constraint"
@@ -100,12 +100,12 @@ def test_the_maintenance_lane_generates_before_it_checks_too():
     """
     plan = (REPO / "scripts" / "run_tests.py").read_text(encoding="utf-8")
     gen = plan.find("scripts/generate_agent_index.py")
-    chk = plan.find("scripts/check_agent_kb.py")
+    chk = plan.find("scripts/checks/check_agent_kb.py")
     assert gen != -1, (
         "run_tests.py no longer plans scripts/generate_agent_index.py; "
         "--maintenance cannot pass on a clean checkout without it"
     )
-    assert chk != -1, "run_tests.py no longer plans scripts/check_agent_kb.py"
+    assert chk != -1, "run_tests.py no longer plans scripts/checks/check_agent_kb.py"
     assert gen < chk, (
         "the maintenance lane checks the agent KB before generating its index; "
         "generating afterwards is the same as not generating at all"

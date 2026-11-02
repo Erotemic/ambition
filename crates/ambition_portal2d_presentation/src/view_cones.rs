@@ -222,7 +222,7 @@ impl Default for PortalViewConeMode {
 /// A tier sets how many captures are taken and how often. It does not change
 /// what a window shows: a window is the far side at the density of the view,
 /// with its backdrop, at every tier. A cheaper picture in the window is a seam
-/// (`scripts/check_portal_window_seams.py` measures it).
+/// (`scripts/checks/check_portal_window_seams.py` measures it).
 #[derive(Resource, Clone, Debug, Reflect, PartialEq)]
 #[reflect(Resource)]
 pub struct PortalCaptureQualityBudget {
@@ -519,7 +519,7 @@ pub struct PortalViewConeConfig {
     /// cameras see only the world layer. Positive values include other portal
     /// windows, with one frame of lag. Such a window is drawn for the eye, not
     /// for the capture's camera, so the picture in it is not the far side:
-    /// it is not seamless (`scripts/check_portal_window_seams.py`, case D at
+    /// it is not seamless (`scripts/checks/check_portal_window_seams.py`, case D at
     /// recursion 1). A correct nested window needs a rig for each path.
     pub recursion_depth: u32,
     /// Render z of the window mesh. Defaults to [`crate::PORTAL_WINDOW_Z`]: above

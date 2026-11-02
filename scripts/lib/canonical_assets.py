@@ -97,7 +97,7 @@ def _run_freshness_check(repo: Path) -> tuple[bool, str]:
     returns False with the reason, because a stale-box false finding is exactly
     what this precondition exists to prevent.
     """
-    script = repo / "scripts" / "check_quality_variants_are_fresh.py"
+    script = repo / "scripts" / "checks/check_quality_variants_are_fresh.py"
     if not script.is_file():
         return False, f"{script} is missing, so freshness could not be established."
     try:
@@ -112,7 +112,7 @@ def _run_freshness_check(repo: Path) -> tuple[bool, str]:
     detail = (done.stdout + done.stderr).strip().splitlines()
     head = detail[0] if detail else "no output"
     return False, (
-        f"`python3 scripts/check_quality_variants_are_fresh.py` exits "
+        f"`python3 scripts/checks/check_quality_variants_are_fresh.py` exits "
         f"{done.returncode}: {head}"
     )
 

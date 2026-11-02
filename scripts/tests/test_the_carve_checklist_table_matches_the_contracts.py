@@ -27,7 +27,7 @@ OWNER_DOC = REPO / "docs/planning/engine/actor-monolith-decomposition.md"
 @pytest.fixture(scope="module")
 def contracts() -> list[dict]:
     spec = importlib.util.spec_from_file_location(
-        "absence", REPO / "scripts/check_absence_contracts.py"
+        "absence", REPO / "scripts/checks/check_absence_contracts.py"
     )
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module

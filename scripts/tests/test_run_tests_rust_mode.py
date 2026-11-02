@@ -189,7 +189,7 @@ def test_the_maintenance_lane_holds_only_periodic_hygiene():
     script path OR the literal `--check`, because those were the two shapes then
     in the lane. That is still the LIST, spelled as a suffix rule: the vanished
     job ends in `--strict` and was rejected for running "not a repository
-    script" while its second argument was `scripts/check_planning_citations.py`.
+    script" while its second argument was `scripts/checks/check_planning_citations.py`.
     ⇒ The property is "this job runs a repository script and not cargo", and it
     does not care where in the argv the script appears. A proxy that enumerates
     today's shapes will keep failing on tomorrow's, one relaxation at a time.
@@ -212,7 +212,7 @@ def test_the_maintenance_lane_holds_only_periodic_hygiene():
             "plan; this lane exists so housekeeping cannot delay a Rust edit."
         )
     names = {job.argv[1] if len(job.argv) > 1 else "" for job in jobs}
-    assert "scripts/check_agent_kb.py" in names, (
+    assert "scripts/checks/check_agent_kb.py" in names, (
         "the agent-KB audit is the lane's founding member; if it moved, say where"
     )
 

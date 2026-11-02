@@ -164,7 +164,7 @@ impl SettingsOptionId {
     /// no screen; `every_settings_option_id_reaches_a_screen` walks this list to
     /// catch that.
     ///
-    /// This array is hand-kept. `scripts/check_enum_all_constants_are_complete.py`
+    /// This array is hand-kept. `scripts/checks/check_enum_all_constants_are_complete.py`
     /// checks it against the enum.
     /// alone would go stale silently.
     pub const ALL: [Self; 65] = [

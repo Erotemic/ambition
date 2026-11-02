@@ -17,7 +17,7 @@ channel between arms. Three other instances of this signature were per-arm
 measurements that read process-global state, and they are fixed. The cause of
 the one that had a measured cause was a `static AtomicUsize` input cadence in
 the test file itself (`how_much_of_the_peer_checksum_actually_varies.rs`), not
-an engine global. `scripts/a_test_static_is_a_channel_between_arms.py` guards
+an engine global. `scripts/checks/a_test_static_is_a_channel_between_arms.py` guards
 that class in `tests/`.
 
 Eliminated for the open instance, by reading the code:

@@ -202,6 +202,6 @@ echo "Regenerating agent indexes..."
 run_python scripts/generate_agent_index.py
 
 echo "Checking generated navigation..."
-run_python scripts/check_agent_kb.py
+run_python scripts/checks/check_agent_kb.py
 
 echo "Source navigation regenerated successfully."

@@ -21,6 +21,10 @@ Usage::
 
 from __future__ import annotations
 
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
+
 import argparse
 import json
 import os
@@ -36,7 +40,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
-import compile_ratchet as ratchet  # noqa: E402
+from scripts.checks import compile_ratchet as ratchet  # noqa: E402
 import measurement_paths  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]

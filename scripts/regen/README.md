@@ -65,7 +65,7 @@ membership within a published producer's declared roots.
 python3 scripts/generate_library_content.py --check        # all declared media
 python3 scripts/generate_library_content.py --check music  # one family
 ./scripts/regen/sprites.sh --check                         # sprite bundles
-python3 scripts/check_quality_variants_are_fresh.py        # quality products
+python3 scripts/checks/check_quality_variants_are_fresh.py        # quality products
 ```
 
 Freshness includes source files, generator code, tool versions, and the audio
@@ -107,7 +107,7 @@ machines least able to notice.
 ⭐ **The checker already existed and nothing called it.**
 
 ```bash
-python3 scripts/check_quality_variants_are_fresh.py   # says exactly what is stale
+python3 scripts/checks/check_quality_variants_are_fresh.py   # says exactly what is stale
 ./scripts/regen/quality_variants.sh                   # fixes it, incrementally
 ```
 
@@ -121,7 +121,7 @@ sheets ~175s.
 
 ## Coverage checks
 
-Run `python3 scripts/check_regeneration_coverage.py` to check the sprite publish
+Run `python3 scripts/checks/check_regeneration_coverage.py` to check the sprite publish
 plan, the music roster and files, the SFX bank, and generated scenery files.
 Use `--family sprites` (or `music`, `sfx`, `backgrounds`) for one family.
 Use `--plans-only` when runtime assets are absent. This mode checks source

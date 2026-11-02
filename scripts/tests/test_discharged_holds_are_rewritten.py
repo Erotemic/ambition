@@ -25,14 +25,14 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-SCRIPT = REPO / "scripts" / "check_discharged_holds_are_rewritten.py"
+SCRIPT = REPO / "scripts" / "checks/check_discharged_holds_are_rewritten.py"
 
 # ⚠ The arms above run the script as a SUBPROCESS, which is the right shape for
 # its exit codes. Rule 3's arms call the predicate DIRECTLY, because what they
 # pin is which sentences it recognises, and routing a three-line fixture through
 # a whole-corpus scan would test the scan instead.
 sys.path.insert(0, str(REPO / "scripts"))
-import check_discharged_holds_are_rewritten as guard  # noqa: E402
+from scripts.checks import check_discharged_holds_are_rewritten as guard  # noqa: E402
 
 FLAGGED = [
     "## A7. Separate item custody",

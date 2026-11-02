@@ -11,7 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from check_engine_systems_are_engine_installed import (  # noqa: E402
+from scripts.checks.check_engine_systems_are_engine_installed import (  # noqa: E402
     REPO,
     UNCLAIMED_BUDGET,
     WAIVERS,
@@ -124,7 +124,7 @@ def test_open_rows_and_waivers_never_overlap():
     should and names the blocker. A name in both means nobody has decided, while
     the check reports a decision either way.
     """
-    import check_engine_systems_are_engine_installed as guard
+    from scripts.checks import check_engine_systems_are_engine_installed as guard
 
     both = set(guard.WAIVERS) & set(guard.OPEN_ROWS)
     assert not both, f"decided and undecided at once: {sorted(both)}"
@@ -137,7 +137,7 @@ def test_every_open_row_names_a_BLOCKER_not_an_intention():
     which is what every unfixed thing says — so the entry has to carry the
     specific question it waits on, or it is a TODO with a ratchet's authority.
     """
-    import check_engine_systems_are_engine_installed as guard
+    from scripts.checks import check_engine_systems_are_engine_installed as guard
 
     thin = [
         name

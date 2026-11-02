@@ -46,7 +46,7 @@ and should be discoverable from current source/help/UI.
 ```bash
 ./run_tests.sh -p ambition_dev_tools
 ./run_tests.sh -k dev_tool
-python scripts/check_doc_links.py
+python scripts/checks/check_doc_links.py
 ```
 
 For profiling workflows see [`../recipes/profiling.md`](../recipes/profiling.md).

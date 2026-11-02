@@ -10,7 +10,7 @@ consumer-matrix category naming a test.
 
 What that means for this document is that it can now be read as a record rather
 than a plan. Every mechanism it describes exists:
-`scripts/check_absence_contracts.py` enforces the allowlist at zero, the
+`scripts/checks/check_absence_contracts.py` enforces the allowlist at zero, the
 blind-agent gate has been run six times, and the Deferred section's largest
 item — rollback as a public knob — was delivered by slice F with the six
 properties it demanded, each carrying its own acceptance test.
@@ -125,7 +125,7 @@ prelude is a discovery problem for an agent, not a convenience.
 **2. The primary gameplay compatibility promise is made at that semantic facade, not arbitrary internal paths.** Inner crates remain usable by engine developers without a blanket stability promise. A game ordinarily depends on `ambition_platformer2d`; explicitly reviewed focused SDKs (such as the portable extension SDK) and headless host contracts may also be published as supported boundaries when external consumers and tests justify them.
 
 **3. Game code may name only the reviewed public surface — an ALLOWLIST, and it
-is executable.** `scripts/check_absence_contracts.py` already owns this class:
+is executable.** `scripts/checks/check_absence_contracts.py` already owns this class:
 `DEPENDENCY_CONTRACTS` is a transitive, Cargo-metadata-backed table of
 `{crate, forbidden, reason}` with four live rows, including
 `engine-crates-do-not-consume-the-umbrella-facade`. The extension needed is
@@ -230,7 +230,7 @@ A crate rename should not automatically change semantic imports. Conversely, int
 ## Current implications for agents
 
 - **A consumer names only the reviewed public surface.** `MODULE_ALLOWLISTS`
-  in `scripts/check_absence_contracts.py` enforces this at module-path
+  in `scripts/checks/check_absence_contracts.py` enforces this at module-path
   granularity over `fixtures/external_consumer/`, with the baseline at zero.
   When consumer code needs a new `ambition_platformer2d::` module, the module is reviewed
   into `allowed` — the baseline never grows.

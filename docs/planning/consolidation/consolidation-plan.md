@@ -110,7 +110,7 @@ composition cannot hold a live state without its required owners:
 - Each optional read of a session-owned canonical authority names what its
   `None` means, in a closed class vocabulary:
   [session-authority-none-arms.md](session-authority-none-arms.md), held to source
-  by `scripts/check_session_authority_none_arms.py`.
+  by `scripts/checks/check_session_authority_none_arms.py`.
 - Each supported profile installs every capability it does not omit and
   validates its session-edge parameters, and refuses content that needs a
   capability it omits (A9, `ambition_platformer2d_host/tests/supported_profiles.rs`).
@@ -163,7 +163,7 @@ view left and 33 until the four checkpoint baselines left):
 - `SessionMechanics` (1 resource with six fields; do not count its fields).
 
 The HTML comment above is the machine-readable copy.
-`scripts/check_session_owner_census_matches_source.py` compares it with source.
+`scripts/checks/check_session_owner_census_matches_source.py` compares it with source.
 The census page lists the member names. The guard counts the optional
 (`Option<ResMut<..>>`) members too, for example `BossDefeatsSinceCheckpoint`.
 
@@ -234,7 +234,7 @@ with its ingress question (Q136 ruling: choose ingress by semantic ownership).
 
 Method: parameter form (`Name<` for aliases, `name(` for functions) over
 `crates/` and `game/`, test files dropped, `#[cfg(test)]` modules and comments
-stripped. `scripts/check_alias_census_agrees_with_source.py` compares the marker
+stripped. `scripts/checks/check_alias_census_agrees_with_source.py` compares the marker
 with a live count. The census row `BEVY-SESSION-ROOT` owns the session-alias
 total. The `SoleLiveRoom*` readers belong to
 [open-world runtime and residency](../engine/open-world-runtime-and-residency.md).
@@ -243,7 +243,7 @@ The `Single` semantics is the engine's meaning (Q132). The scope-aware helpers a
 for lifecycle code that sees both sides of a handoff. Guards:
 `the_shipped_app_never_holds_two_session_roots_across_a_handoff`,
 `a_prepared_candidate_never_counts_as_a_canonical_session_root`, and
-`scripts/check_session_root_construction_is_declared.py`.
+`scripts/checks/check_session_root_construction_is_declared.py`.
 
 ### Sequence
 

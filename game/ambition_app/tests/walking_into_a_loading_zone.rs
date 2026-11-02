@@ -704,7 +704,7 @@ fn the_shipped_apps_own_first_room_publishes() {
 /// under test rather than an absent one) and a Yarn node the shipped content
 /// authors (so the box opens and the narrative stamp stays quiet). See the
 /// `ActiveConversation` verdict in
-/// `scripts/check_multi_writer_resources_are_adjudicated.py` for the poison this
+/// `scripts/checks/check_multi_writer_resources_are_adjudicated.py` for the poison this
 /// probe was built to explain.
 #[test]
 #[ignore = "probe: prints the frame a seated conversation is closed; asserts nothing"]

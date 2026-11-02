@@ -29,7 +29,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-SCRIPT = REPO / "scripts/check_zone_name_ratchet.py"
+SCRIPT = REPO / "scripts/checks/check_zone_name_ratchet.py"
 
 
 def load():
@@ -42,7 +42,7 @@ def load():
 
 def run(module, argv):
     saved = sys.argv
-    sys.argv = ["check_zone_name_ratchet.py", *argv]
+    sys.argv = ["checks/check_zone_name_ratchet.py", *argv]
     try:
         return module.main()
     finally:

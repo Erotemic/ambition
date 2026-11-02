@@ -103,7 +103,7 @@ fn the_schema_is_the_same_from_a_second_build() {
 ///
 /// The arm above builds `Platformer2dSimHarness`; the shipped binary builds
 /// `build_visible_app`. Everything that reads this baseline — the ratchet in
-/// `scripts/check_absence_contracts.py`, the fingerprint two peers would
+/// `scripts/checks/check_absence_contracts.py`, the fingerprint two peers would
 /// negotiate, this file's own byte-for-byte comparison — is describing the
 /// sandbox unless the two compositions register the same schema. A schema that
 /// differed between them would mean the guarded identity is not the shipped

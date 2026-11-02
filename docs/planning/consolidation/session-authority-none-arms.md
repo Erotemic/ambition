@@ -1,7 +1,7 @@
 # Session-authority `None` arms (C07)
 
 > **Status: audited 2026-10-08.** Every optional read of a session-owned authority names what its
-> `None` means, or was converted to a required read. `scripts/check_session_authority_none_arms.py`
+> `None` means, or was converted to a required read. `scripts/checks/check_session_authority_none_arms.py`
 > holds this table to source: a new optional read with no row fails, and so does a row whose
 > function no longer reads one.
 

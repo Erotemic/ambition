@@ -334,7 +334,7 @@ fields by design; it does not cover the peer payload.
 
 - **Identity and ratchet.** `CONTROL_FRAME_WIRE_IDENTITY` names the shape.
   `the-peer-input-payload-may-not-move-without-its-identity`
-  (`scripts/check_absence_contracts.py`) ratchets the field list in declaration
+  (`scripts/checks/check_absence_contracts.py`) ratchets the field list in declaration
   order plus nested enum variants with payloads, `PeerInput` and its verdict
   included. Order is part of the shape, because bincode is positional. An
   unrecognized field type raises. The baseline records the shape of EACH

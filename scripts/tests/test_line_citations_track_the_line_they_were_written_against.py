@@ -16,7 +16,7 @@ import subprocess
 import pytest
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
-SCRIPT = REPO / "scripts" / "check_planning_line_citations.py"
+SCRIPT = REPO / "scripts" / "checks/check_planning_line_citations.py"
 
 
 @pytest.fixture(scope="module")

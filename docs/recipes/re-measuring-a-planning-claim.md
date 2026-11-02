@@ -48,7 +48,7 @@ sentence, the green is not evidence for it.
 
 - `check_planning_citations.py` resolves cited symbols and paths. It does not
   check prose about location, and it does not check test names.
-  `scripts/check_planning_test_citations.py` checks backticked test names.
+  `scripts/checks/check_planning_test_citations.py` checks backticked test names.
 - After a carve, sweep old paths and sort the hits into HISTORY and STALE.
   Re-tense stale sentences; do not purge correct history.
 - A remembered rule is a hypothesis about a situation. Before you "fix" a pipe,
@@ -141,7 +141,7 @@ nobody was adding to points at the instrument first.
 - Promote a figure into doctrine only after you re-derive it from the source, not
   from the document you read it in.
 - Drift from a stored baseline is not comparable with change over a day. When two
-  figures disagree, run the instrument (for example `scripts/compile_ratchet.py`)
+  figures disagree, run the instrument (for example `scripts/checks/compile_ratchet.py`)
   instead of reasoning about what it might measure.
 - Two instruments can use one word for different things. Find each instrument's
   own definition before you reconcile two outputs.
@@ -173,7 +173,7 @@ prediction before the run.
 
 Before you correct a number, ask whether it counts repository content or build
 output. Repository content that disagrees is drift. Build output that disagrees
-is two machines. Run `scripts/check_quality_variants_are_fresh.py` on each tree
+is two machines. Run `scripts/checks/check_quality_variants_are_fresh.py` on each tree
 before you compare anything downstream of generated art.
 
 Write claims that survive: a ratio or a single named consumer ("one target opts

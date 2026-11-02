@@ -27,7 +27,7 @@ import pytest
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-CHECKER = REPO / "scripts" / "check_planning_citations.py"
+CHECKER = REPO / "scripts" / "checks/check_planning_citations.py"
 
 _spec = importlib.util.spec_from_file_location("_citations", CHECKER)
 _mod = importlib.util.module_from_spec(_spec)

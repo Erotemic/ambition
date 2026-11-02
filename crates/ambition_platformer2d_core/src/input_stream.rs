@@ -30,7 +30,7 @@ pub const INPUT_STREAM_VERSION: u32 = 1;
 /// Bump it when the wire changes: fields, types, field order, or nested
 /// enum variants. The input uses positional bincode encoding. A rollback
 /// state schema or replay stream version does not cover this format.
-/// `scripts/check_absence_contracts.py` checks the source-level shape.
+/// `scripts/checks/check_absence_contracts.py` checks the source-level shape.
 pub const CONTROL_FRAME_WIRE_IDENTITY: u32 = 4;
 
 /// Everything wrong with a stream, said precisely enough to act on.

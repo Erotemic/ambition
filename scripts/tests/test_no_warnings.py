@@ -14,7 +14,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
-from check_no_warnings import (  # noqa: E402
+from scripts.checks.check_no_warnings import (  # noqa: E402
     REPO as CHECKED_REPO,
     VacuousFreshRun,
     fresh_touch_targets,

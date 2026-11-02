@@ -302,13 +302,13 @@ stay independently usable by engine developers and carry **no stability
 promise** — if your imports name one, you are depending on our implementation
 topology and we will move it.
 
-That is enforced, not asked for: `scripts/check_absence_contracts.py` carries a
+That is enforced, not asked for: `scripts/checks/check_absence_contracts.py` carries a
 module allowlist over consumer code, with a frozen baseline that may only
 shrink. Run it to see what the reference consumer still names and how often:
 
 ```bash
-python3 scripts/check_absence_contracts.py
-python3 scripts/check_absence_contracts.py --allowlist-open-count
+python3 scripts/checks/check_absence_contracts.py
+python3 scripts/checks/check_absence_contracts.py --allowlist-open-count
 ```
 
 Every module in that output is a dependency the SDK has not yet hidden behind a

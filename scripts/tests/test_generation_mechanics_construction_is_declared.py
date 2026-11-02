@@ -15,7 +15,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
-import check_generation_mechanics_construction_is_declared as guard  # noqa: E402
+from scripts.checks import check_generation_mechanics_construction_is_declared as guard  # noqa: E402
 from lib.rust_source import strip_comments  # noqa: E402
 from lib.test_paths import strip_test_modules  # noqa: E402
 

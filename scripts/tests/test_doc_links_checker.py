@@ -26,7 +26,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-SCRIPT = REPO / "scripts/check_doc_links.py"
+SCRIPT = REPO / "scripts/checks/check_doc_links.py"
 
 
 @pytest.fixture(scope="module")
@@ -185,7 +185,7 @@ def test_a_double_backtick_code_span_hides_the_link_inside_it():
     span backticks could in principle over-blank and swallow a real broken link;
     measured, it does not.
     """
-    import check_doc_links as cdl
+    from scripts.checks import check_doc_links as cdl
 
     text = "was `` `[text](other.md#anchor)` `` in backticks"
     blanked = cdl._blank_code_spans(text)

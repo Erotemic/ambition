@@ -24,7 +24,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-CHECK = REPO / "scripts" / "check_world_graph_is_navigable.py"
+CHECK = REPO / "scripts" / "checks/check_world_graph_is_navigable.py"
 
 
 def _module():

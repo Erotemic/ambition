@@ -18,8 +18,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
-import check_host_produced_sim_consumed_requests as guard  # noqa: E402
-import check_rollback_mutators_run_in_sim as sim  # noqa: E402
+from scripts.checks import check_host_produced_sim_consumed_requests as guard  # noqa: E402
+from scripts.checks import check_rollback_mutators_run_in_sim as sim  # noqa: E402
 
 ROLLBACK_REGISTRY_REL = "crates/ambition_platformer2d_runtime/src/rollback/mod.rs"
 

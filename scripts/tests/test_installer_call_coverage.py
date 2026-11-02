@@ -16,7 +16,7 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
-import check_disk_headroom as guard  # noqa: E402
+from scripts.checks import check_disk_headroom as guard  # noqa: E402
 
 
 class _Done:

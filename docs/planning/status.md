@@ -82,7 +82,7 @@ prepared generations, composability, the persistent world, multiview and
 reactive characters.
 
 A row that waits on a maintainer ruling names it in its `**Blocked by:**`
-field. `scripts/check_blocking_set_names_every_gate.py` keeps those fields and
+field. `scripts/checks/check_blocking_set_names_every_gate.py` keeps those fields and
 the blocking-set table in `awaiting-maintainer-decision.md` in agreement.
 
 If a row closes, remove it from the queue unless another open row needs a short

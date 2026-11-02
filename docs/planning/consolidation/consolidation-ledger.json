@@ -52,7 +52,7 @@
     "Counts from metric_tags are campaign observations, not quality limits.",
     "A ledger item can describe a family instead of one Rust type when the family is the architectural unit.",
     "The census did not compile or run Rust.",
-    "Every `duplicate_truth_family` item carries `duplicate_authority_state` from `duplicate_authority_states`, and the `suspect_duplicate_authority` metric tag is carried by exactly the OPEN_PRESSURE ones. MEASURED 2026-09-17: the tag said 4 while three of those four families were declared closed in prose, so the campaign's headline count was stale by three. `scripts/check_consolidation_ledger_states_are_live.py` fails if the tag and the state disagree, or if the census page's State column disagrees with either.",
+    "Every `duplicate_truth_family` item carries `duplicate_authority_state` from `duplicate_authority_states`, and the `suspect_duplicate_authority` metric tag is carried by exactly the OPEN_PRESSURE ones. MEASURED 2026-09-17: the tag said 4 while three of those four families were declared closed in prose, so the campaign's headline count was stale by three. `scripts/checks/check_consolidation_ledger_states_are_live.py` fails if the tag and the state disagree, or if the census page's State column disagrees with either.",
     "`blocked_by` names a LIVE gate. A gate that has been discharged moves to `was_blocked_by` with what discharged it and when; the same checker fails if a `blocked_by` entry names a campaign `queue.md` marks done, or names nothing `queue.md` or `awaiting-maintainer-decision.md` can resolve."
   ],
   "static_measurement_snapshot": {
@@ -4039,7 +4039,7 @@
         "AUTH-SESSION-WORLD"
       ],
       "why_it_exists": "The shell owns route activation while lower simulation code must not depend on shell vocabulary.",
-      "consolidation_hypothesis": "Done 2026-09-16. One of the four correlation carriers was a real duplicate and is deleted: a one-entry Resource copy of the (activation, scope) pair the live instance already carried, whose lookup had no production reader. What remains is a layer split, and it is a dependency contract rather than a claim -- `ambition_platformer2d_shared_tangle` may not reach `ambition_game_shell`, transitively, by `platformer-primitives-stays-a-foundation` in `scripts/check_absence_contracts.py`. Do not collapse shell route identity into simulation identity.",
+      "consolidation_hypothesis": "Done 2026-09-16. One of the four correlation carriers was a real duplicate and is deleted: a one-entry Resource copy of the (activation, scope) pair the live instance already carried, whose lookup had no production reader. What remains is a layer split, and it is a dependency contract rather than a claim -- `ambition_platformer2d_shared_tangle` may not reach `ambition_game_shell`, transitively, by `platformer-primitives-stays-a-foundation` in `scripts/checks/check_absence_contracts.py`. Do not collapse shell route identity into simulation identity.",
       "verification_needed": "Discharged 2026-09-16: the writer/reader map ran, the deletion landed, and its runtime arms live in `crates/ambition_game_shell/src/session/tests.rs`.",
       "metric_tags": []
     },

@@ -19,7 +19,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
-import check_disk_headroom as guard  # noqa: E402
+from scripts.checks import check_disk_headroom as guard  # noqa: E402
 
 
 def test_it_reads_the_target_dir_from_cargo_config():
@@ -53,7 +53,7 @@ def test_free_space_is_a_positive_number_of_gb():
 
 def _run(*args) -> subprocess.CompletedProcess:
     return subprocess.run(
-        [sys.executable, str(REPO / "scripts" / "check_disk_headroom.py"), *args],
+        [sys.executable, str(REPO / "scripts" / "checks/check_disk_headroom.py"), *args],
         capture_output=True,
         text=True,
     )

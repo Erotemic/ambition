@@ -274,7 +274,7 @@ links to.
 
 ## Mechanical checks
 
-`scripts/check_planning_docs_survive.py` makes sure that the live control-plane
+`scripts/checks/check_planning_docs_survive.py` makes sure that the live control-plane
 documents exist, are not trivial, and keep their required headings. Its module
 docstring and `LIVE_CONTROL_PLANE` table are the reference; do not copy them
 here.
@@ -286,7 +286,7 @@ is not part of it. Three classes of check are easy to forget:
 - a gate sentence that names a campaign that `queue.md` marks finished;
 - a number copied away from its source;
 - a link to a heading. A heading rename breaks it, and only
-  `scripts/check_planning_anchors_resolve.py` sees that.
+  `scripts/checks/check_planning_anchors_resolve.py` sees that.
 
 ## Authority order
 

@@ -51,7 +51,7 @@ dialog is not required. See [`godot-class-2d-capability.md`](godot-class-2d-capa
   [baseline](../../../dev/benchmark-candidates/mary-o-web-startup.md) and
   [web recipe](../../recipes/web-build.md#standalone-mary-o). The 20 MiB
   initial-load target is proposed; metadata and audio closure work remains.
-- **Disk.** `scripts/check_disk_headroom.py` refuses to start a suite below
+- **Disk.** `scripts/checks/check_disk_headroom.py` refuses to start a suite below
   `MIN_FREE_GB` (40), and `run_tests.py` refuses to start the next job below
   `ABORT_FREE_GB` (6), so a full disk names itself instead of dying as a link
   error. `target/` is bind-mounted; `df` on the working directory can read the
@@ -292,7 +292,7 @@ agents: plan/check/build/test/package with clear artifact/cache ownership.
 ## Distinguish dependency closure from executable footprint
 
 [Packet A9](actor-monolith-work-frontier.md) measures the public facade's
-supported profiles. `scripts/check_facade_dependency_closure.py` owns the
+supported profiles. `scripts/checks/check_facade_dependency_closure.py` owns the
 mandatory internal dependency closure of the facade (normal, non-optional,
 `path` dependencies) and the fact that `ambition_render` is outside it. Do not
 copy the number here. Count other packages, not the facade itself; a number that

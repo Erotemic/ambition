@@ -11,7 +11,7 @@ import importlib.util
 import sys
 from pathlib import Path
 
-SCRIPT = Path(__file__).resolve().parents[1] / "check_headless_arms_can_fail.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "checks/check_headless_arms_can_fail.py"
 _spec = importlib.util.spec_from_file_location("check_headless_arms_can_fail", SCRIPT)
 guard = importlib.util.module_from_spec(_spec)
 sys.modules[_spec.name] = guard

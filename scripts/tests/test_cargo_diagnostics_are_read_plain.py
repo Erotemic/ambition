@@ -87,8 +87,8 @@ def test_the_detector_still_finds_the_three_it_was_written_for():
     in — if the detector loses them it has stopped being an instrument."""
     found = {str(p.relative_to(REPO)) for p in population()}
     for name in (
-        "scripts/check_doc_link_ratchet.py",
-        "scripts/check_no_warnings.py",
+        "scripts/checks/check_doc_link_ratchet.py",
+        "scripts/checks/check_no_warnings.py",
         "scripts/run_tests.py",
     ):
         assert name in found, f"the detector no longer sees {name}: {sorted(found)}"

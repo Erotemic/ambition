@@ -1,4 +1,4 @@
-"""Tests for `scripts/gate_suite.py` change classification.
+"""Tests for `scripts/checks/gate_suite.py` change classification.
 
 Documentation/measurement-only edits may select the smoke gate. Any source,
 asset, configuration, or unknown path must fail toward the full suite so a
@@ -10,7 +10,7 @@ import importlib.util
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-_spec = importlib.util.spec_from_file_location("gate_suite", REPO / "scripts" / "gate_suite.py")
+_spec = importlib.util.spec_from_file_location("gate_suite", REPO / "scripts" / "checks/gate_suite.py")
 gate = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(gate)
 
@@ -68,7 +68,7 @@ def test_the_measurements_submodule_is_skippable():
 
 def test_the_gate_script_itself_is_not_prose():
     """A change to the decider must be gated by the full suite, not by itself."""
-    assert not gate.is_skippable_only(["scripts/gate_suite.py"])
+    assert not gate.is_skippable_only(["scripts/checks/gate_suite.py"])
 
 
 def test_an_empty_change_set_is_NOT_skippable():

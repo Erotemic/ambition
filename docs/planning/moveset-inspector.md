@@ -213,7 +213,7 @@ tools/ambition_moveset_inspector/check_draw_path.mjs
 tools/ambition_moveset_inspector/check_runtime_contract.mjs
 tools/ambition_moveset_inspector/check_takes_discovery.mjs
 scripts/tests/test_moveset_inspector_renderer.py
-scripts/check_absence_contracts.py
+scripts/checks/check_absence_contracts.py
 ```
 
 | # | requirement | where it lives |

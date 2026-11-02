@@ -96,7 +96,7 @@ Measure composability along four independent axes:
 | Public API | Can an external game use the supported path without internal re-exports? |
 
 A no-render plugin configuration can still compile renderer dependencies.
-`scripts/check_facade_dependency_closure.py` owns the facade closure count; do
+`scripts/checks/check_facade_dependency_closure.py` owns the facade closure count; do
 not restate the number on a planning page.
 
 ### What moves with an authority

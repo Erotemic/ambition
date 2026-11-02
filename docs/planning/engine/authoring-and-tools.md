@@ -188,7 +188,7 @@ Hall (exhibits moved, the exit door `name` overwritten).
 
 **What is known about the recurring rewrite (2026-10-04).** Two fixes did not
 stop it: `54d99e7fb` (reuse tileset and rule uids; write only when changed)
-and `2e69e81b9` (`scripts/check_ldtk_uid_leak.py`, a leaked-uid warning in
+and `2e69e81b9` (`scripts/checks/check_ldtk_uid_leak.py`, a leaked-uid warning in
 `ldtk/io.py`, no fallback that reformats a whole file). Later map-assets
 commits still rewrite much more than they change: `576a8fd` rewrote all of
 `sanic_darkness.ldtk` (96,147 tile lines, 346 changed iids) for a small move;

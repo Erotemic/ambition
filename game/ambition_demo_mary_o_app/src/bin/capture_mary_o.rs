@@ -234,7 +234,7 @@ fn main() {
     );
     // the placement runs in the SIM schedule, not beside the other capture
     // systems. It calls `transit_body`, which writes `MotionModel` — rollback
-    // state — and `scripts/check_rollback_mutators_run_in_sim.py` catches
+    // state — and `scripts/checks/check_rollback_mutators_run_in_sim.py` catches
     // rollback state mutated outside the rewinding schedule. It caught this one.
     //
     // A waiver would have been the easy answer ("a capture binary has no peer to

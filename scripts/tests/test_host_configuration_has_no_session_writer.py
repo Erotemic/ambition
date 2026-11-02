@@ -13,7 +13,7 @@ import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-import check_host_configuration_has_no_session_writer as guard  # noqa: E402
+from scripts.checks import check_host_configuration_has_no_session_writer as guard  # noqa: E402
 from scripts.measure import multi_writer_resource_census as census  # noqa: E402
 
 

@@ -74,7 +74,7 @@ for the traveller and the room transition. Guards: the world tests for both
 edges and a sealed box, and
 `a_route_over_rooms::autoplay_uses_the_gate_network_and_returns_from_the_primeval_trail`.
 
-`scripts/check_world_graph_is_navigable.py` checks the shipped worlds: every
+`scripts/checks/check_world_graph_is_navigable.py` checks the shipped worlds: every
 `LoadingZone` targets a real area, and no area can be entered but not left. The
 engine's own response to a dangling target is a build-time `eprintln!` on a door
 that then does nothing, so the script is the guard.

@@ -11,7 +11,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-import check_session_authority_none_arms as guard  # noqa: E402
+from scripts.checks import check_session_authority_none_arms as guard  # noqa: E402
 
 
 def _tree(tmp_path: pathlib.Path, body: str, name: str = "crates/ambition_x/src/lib.rs") -> pathlib.Path:

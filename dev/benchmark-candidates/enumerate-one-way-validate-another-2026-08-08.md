@@ -85,7 +85,7 @@ Both shapes are legitimate; what is not legitimate is mixing them silently:
   `REPO.rglob("Cargo.lock")` and runs `cargo tree --locked` in each — filesystem
   to filesystem, and it carries a vacuity guard so an empty population is a
   failure rather than a pass.
-* `scripts/check_retired_crate_names.py` sweeps `git ls-files` **and then names
+* `scripts/checks/check_retired_crate_names.py` sweeps `git ls-files` **and then names
   the untracked population it also needs** (`extra_paths()` adds `.goal/*.json`),
   with the incident above written above the function as the reason.
 

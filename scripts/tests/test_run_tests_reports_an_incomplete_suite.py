@@ -123,7 +123,7 @@ def test_a_maintenance_lane_that_builds_is_not_exempt_from_the_floor(
     running it on a box at 12 GB, hours after writing the exemption.
 
     An argv check cannot catch this: the argv is
-    `python3 scripts/check_doc_link_ratchet.py`. The `builds` flag on the job
+    `python3 scripts/checks/check_doc_link_ratchet.py`. The `builds` flag on the job
     is what the guard reads, and this pins that it is read at all.
     """
     jobs = [

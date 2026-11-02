@@ -13,7 +13,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
-import check_raw_key_reads_do_not_collide_with_presets as guard  # noqa: E402
+from scripts.checks import check_raw_key_reads_do_not_collide_with_presets as guard  # noqa: E402
 
 
 def test_the_binding_filter_is_not_the_label_table():

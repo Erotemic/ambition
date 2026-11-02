@@ -365,7 +365,7 @@ def check(family: str, arguments=None) -> int:
     if family == "sprites":
         return subprocess.call([str(ROOT / "scripts/regen/sprites.sh"), "--check"], cwd=ROOT)
     if family == "variants" and "backgrounds" not in selected.manifest["producers"]:
-        return subprocess.call([sys.executable, str(ROOT / "scripts/check_quality_variants_are_fresh.py")], cwd=ROOT)
+        return subprocess.call([sys.executable, str(ROOT / "scripts/checks/check_quality_variants_are_fresh.py")], cwd=ROOT)
 
     store = Store(selected.path.parent / relative(selected.manifest["publication"]))
     hashes = Digests(store.root / "producer-inputs.json")

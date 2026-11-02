@@ -94,7 +94,7 @@ Built 2026-10-06 (queue LEVEL-BOX-READERS): the transit record
 (`reconcile_transit`, schema 315), the world and reach readers, the arrival of
 each traversal, the portal carve and eviction, the brain's floor queries, the
 trace, and the two procedures written in world axes (the pet and
-`CommandedMove`'s facing). `scripts/check_level_box_readers.py` compares the
+`CommandedMove`'s facing). `scripts/checks/check_level_box_readers.py` compares the
 search with `scripts/baselines/level-box-readers.json`, where each remaining
 read has a class and a reason; it is red on a new read and on a baseline line
 that is gone. It finds only the spellings it searches: a box built another way

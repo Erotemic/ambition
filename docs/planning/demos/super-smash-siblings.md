@@ -148,7 +148,7 @@ Binary rules (the modal CLI):
 
 - Collapse binaries within one crate, never across crates. Each `capture_*` tool
   stays in the demo crate it photographs; one binary for all of them would couple
-  demos (`scripts/check_absence_contracts.py`,
+  demos (`scripts/checks/check_absence_contracts.py`,
   `capability-footprint-may-not-grow`).
 - Product entry points (`ambition_game_bin` and the `*_demo` shells) stay
   standalone binaries.

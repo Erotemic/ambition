@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-SCRIPT = REPO / "scripts" / "check_body_drawables_declare_their_owner.py"
+SCRIPT = REPO / "scripts" / "checks/check_body_drawables_declare_their_owner.py"
 
 
 def _module():

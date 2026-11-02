@@ -392,6 +392,6 @@ something to an implementation crate does not make it public here automatically.
 
 There are still crate-shaped mirrors under `ambition_platformer2d::` while the
 first-party games migrate. They carry no SDK compatibility promise. Real
-consumers are ratcheted against naming them by `scripts/check_absence_contracts.py`;
+consumers are ratcheted against naming them by `scripts/checks/check_absence_contracts.py`;
 when a consumer needs a missing concept, add the narrow semantic seam instead of
 teaching it an implementation-crate path.

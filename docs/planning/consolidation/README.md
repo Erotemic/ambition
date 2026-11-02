@@ -50,16 +50,16 @@ lists).
 
 | script | what it holds |
 | --- | --- |
-| `scripts/check_consolidation_ledger_still_resolves.py` | every cited path exists, every CamelCase name in a `current_truth` resolves, workspace crates match cargo, storage-kind claims match source |
-| `scripts/check_consolidation_ledger_states_are_live.py` | every ledger ID is named on the census page; the page's evidence class equals the ledger's; the DUP State column, the `suspect_duplicate_authority` tag and the split sentence agree; every `blocked_by` names a live queue row or `Q` question |
-| `scripts/check_session_owner_census_matches_source.py` | the `session-owner-census` marker in the plan, the census name lists and every restated count match `teardown.rs` and `checkpoint.rs` |
-| `scripts/check_engine_profiles.py` | A9: the profile registry and its `profile-contract:` markers agree, the witness still iterates the registry with its control arm, and the headless/windowed dependency closures say what the contract says |
-| `scripts/check_session_authority_none_arms.py` | every function that reads a canonical session authority optionally has a `none-arm:` row in `session-authority-none-arms.md` with a class from the closed vocabulary and a reason; no row is stale |
-| `scripts/check_alias_census_agrees_with_source.py` | the `alias-census` marker in the census and the `alias-split` marker in the plan match a live count |
-| `scripts/check_collapsed_authorities_stay_collapsed.py` | deleted second owners stay deleted in code |
-| `scripts/check_separated_authorities_stay_separated.py` | the `LEGITIMATE_SEPARATION` families keep their separating shape |
-| `scripts/check_discharged_holds_are_rewritten.py` | no `**DO NOT START BEFORE:**` line names a finished campaign |
-| `scripts/check_planning_docs_survive.py` | line floors and required headings for these pages |
+| `scripts/checks/check_consolidation_ledger_still_resolves.py` | every cited path exists, every CamelCase name in a `current_truth` resolves, workspace crates match cargo, storage-kind claims match source |
+| `scripts/checks/check_consolidation_ledger_states_are_live.py` | every ledger ID is named on the census page; the page's evidence class equals the ledger's; the DUP State column, the `suspect_duplicate_authority` tag and the split sentence agree; every `blocked_by` names a live queue row or `Q` question |
+| `scripts/checks/check_session_owner_census_matches_source.py` | the `session-owner-census` marker in the plan, the census name lists and every restated count match `teardown.rs` and `checkpoint.rs` |
+| `scripts/checks/check_engine_profiles.py` | A9: the profile registry and its `profile-contract:` markers agree, the witness still iterates the registry with its control arm, and the headless/windowed dependency closures say what the contract says |
+| `scripts/checks/check_session_authority_none_arms.py` | every function that reads a canonical session authority optionally has a `none-arm:` row in `session-authority-none-arms.md` with a class from the closed vocabulary and a reason; no row is stale |
+| `scripts/checks/check_alias_census_agrees_with_source.py` | the `alias-census` marker in the census and the `alias-split` marker in the plan match a live count |
+| `scripts/checks/check_collapsed_authorities_stay_collapsed.py` | deleted second owners stay deleted in code |
+| `scripts/checks/check_separated_authorities_stay_separated.py` | the `LEGITIMATE_SEPARATION` families keep their separating shape |
+| `scripts/checks/check_discharged_holds_are_rewritten.py` | no `**DO NOT START BEFORE:**` line names a finished campaign |
+| `scripts/checks/check_planning_docs_survive.py` | line floors and required headings for these pages |
 
 ⚠ A green run of these checks does not say that a `current_truth` sentence is
 still true. An owner can change while every path and name still resolves. Re-read
@@ -73,7 +73,7 @@ the source behind a row before you cost work from it.
   `scripts/lib/`.
 - `python3 scripts/measure/multi_writer_resource_census.py` lists resources written from
   more than one production file. It is a shortlist, not a finding list.
-- `python3 scripts/check_multi_writer_resources_are_adjudicated.py` ratchets that
+- `python3 scripts/checks/check_multi_writer_resources_are_adjudicated.py` ratchets that
   population and prints the types that still have no written verdict. Quote its
   output, not a copy of it.
 - `python3 scripts/measure/measure_session_scoped_resource_readers.py` counts the readers

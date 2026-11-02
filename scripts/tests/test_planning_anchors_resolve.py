@@ -7,7 +7,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-import check_planning_anchors_resolve as guard  # noqa: E402
+from scripts.checks import check_planning_anchors_resolve as guard  # noqa: E402
 
 
 def test_every_planning_pointer_resolves_today():

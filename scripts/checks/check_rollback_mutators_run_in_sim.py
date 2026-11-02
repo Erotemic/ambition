@@ -1,0 +1,1275 @@
+#!/usr/bin/env python3
+"""Does anything mutate ROLLBACK state from a schedule that never rewinds?
+
+A component registered for rollback is restored on every rewind. A system that
+mutates it must therefore run inside the schedule GGRS resimulates — reached via
+`app.sim_schedule()` — and not in a literal `Update`.
+
+⛔ **under a fixed-tick host the two are the same schedule**, so the mistake
+costs nothing and shows nothing. Under GGRS they are different: the value
+rewinds, the mutation does not replay with it, and the meter drifts a little
+further from the peer's every rewind. Nothing crashes and no test fails.
+
+This found nothing new on the day it was written, which is the point — it was
+written *after* `regen_player_mana` turned up by hand (S34). That system mutates
+`BodyMana`, registered as `body.mana`, from the app's HUD chain in `Update`, at
+render rate. Its own doc even stated the rule it was breaking: *"a sim mutator
+never lives in presentation"*. The code had moved out of the render module; the
+`add_systems` call had not.
+
+# # three ways the cheap version of this check lies (S35, all paid for)
+
+The first draft returned 87 rows and essentially all were artifacts:
+
+1. **a system named `update`.** Searching for its name near an `add_systems(
+   Update, …)` also matches the `app.update();` in nearly every test helper —
+   about 80 of those 87 rows. Reading each call by PAREN BALANCE removes it by
+   construction: `app.update()` is not inside the parentheses.
+2. **a fixed-size text window.** Reading N characters after `add_systems(` runs
+   past the end of that call into the next one, attributing systems to schedules
+   they were never registered in.
+3. **`#[cfg(test)]` modules inside PRODUCTION files.** Skipping `tests.rs` and
+   `tests/` is not enough — `vortex.rs` and `mary_o/powerups.rs` both register
+   rollback mutators into `Update` inside an inline `fn test_app()`. That is
+   correct, and it looks exactly like the defect.
+
+⚠ and the parsing rules of the sibling guard apply unchanged: comments are not
+registrations, and `run_if`/`after`/`before` name systems somebody ELSE
+registered. Both are imported rather than reimplemented.
+
+# # What it deliberately is not
+
+⚠ it reads the CANONICAL rollback registrations as the source of truth for what
+is snapshot state. A type rolled back through some other path is invisible here.
+
+⚠ and it cannot see a system registered through a helper, a macro, or a variable
+holding a schedule label other than the `sim_schedule()` idiom. The shape it
+catches is a literal `Update`/`PostUpdate`/`PreUpdate`/`FixedUpdate`, which is
+the shape the one real instance had.
+
+⚠ and it cannot see a GENERIC system. It finds a mutator by the rollback type
+that its parameter list names, and `ResMut<T>` names none. Measured 2026-10-04:
+`forget_attempts_on_activation::<T>` (`session/reset/mod.rs`) is registered in
+a literal `Update` and writes `BrokenBricks`, `SpentPowerBlocks` and
+`SpentMonitors`, each registered with `rollback_resource_clone_checksum`. It
+is not in the scan and has no `WAIVERS` entry. Two systems that do the same work with a named type
+(`forget_portal_frames_on_activation`, `restart_heavy_object_cycle_on_activation`)
+were reported on the day they were written. The three are correct for one
+reason (the activation edge is before the timeline that a rewind can cross),
+but the scan gives that answer for the named two only. Not repaired.
+(`forget_narrative_inputs_on_activation::<M>` has the same shape and is not an
+instance: its ledger is an external input and is not registered for rollback.)
+
+Usage:
+    python3 scripts/checks/check_rollback_mutators_run_in_sim.py
+    python3 scripts/checks/check_rollback_mutators_run_in_sim.py --list
+"""
+
+from __future__ import annotations
+
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
+import argparse
+import functools
+import re
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+from test_paths import is_test_path  # noqa: E402
+from test_paths import strip_test_modules as shared_strip_test_modules  # noqa: E402
+
+REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO / "scripts"))
+
+from rust_source import strip_comments  # noqa: E402
+from scripts.measure import measure_user_settings_in_simulation as _settings  # noqa: E402
+from scripts.checks.check_engine_systems_are_engine_installed import (  # noqa: E402
+    add_systems_bodies,
+    strip_run_conditions,
+)
+
+SOURCE_ROOTS = ["crates", "game"]
+ROLLBACK_REGISTRY = REPO / "crates/ambition_platformer2d_runtime/src/rollback/mod.rs"
+
+#: ⛔⛤ **THE SIXTH SPELLING, AND THIS ONE WAS IN THE TEST ITSELF.** Until
+#: 2026-09-18 this was a membership test against a four-element tuple of BARE
+#: labels — `("Update", "PostUpdate", "PreUpdate", "FixedUpdate")` — and
+#: `collect` did `if schedule not in NON_REWINDING: continue`. The tree spells a
+#: non-rewinding schedule in QUALIFIED form **39 times** (`bevy::prelude::Update`
+#: ×20, `bevy::app::PreUpdate` ×8, `bevy::app::Update` ×3,
+#: `bevy::prelude::FixedUpdate` ×2, and the rest), and every one of those
+#: registrations was SKIPPED. Same failure direction as the other five: the guard
+#: reported FEWER offenders. Measured when it was found: two live ones were
+#: invisible — `publish_player_stats_edits` (`bevy::app::PreUpdate`) and
+#: `reset_checkpoint_coordinator_on_activation` (`bevy::prelude::Update`).
+#:
+#: ⭐ **SO THE TEST IS INVERTED RATHER THAN THE LIST WIDENED, AND THAT IS THE
+#: POINT.** Widening an enumeration of the schedules that DO NOT rewind asks the
+#: guard to know every host spelling the tree will ever use — an open set that
+#: grows with every crate, and whose omissions are silent. The rewinding set is
+#: CLOSED and short: the sim schedule and GGRS's own protocol schedules. Naming
+#: that set and reporting everything else means a schedule nobody anticipated
+#: arrives as a FINDING, which is the recoverable direction.
+#:
+#: Each entry says why a rollback-state write reached from that label is not this
+#: guard's finding. An entry is an exemption, so it carries its argument.
+REWINDING_OR_NOT_A_TIMELINE: dict[str, str] = {
+    # -- the rewinding schedule itself ---------------------------------------
+    "GgrsSchedule": "the schedule GGRS resimulates; this is where a mutator belongs",
+    "AdvanceWorld": "bevy_ggrs's per-frame advance, which RUNS `GgrsSchedule`",
+    # -- GGRS's own protocol schedules ---------------------------------------
+    "SaveWorld": "the snapshot is TAKEN here; a write is part of taking it",
+    "LoadWorld": "the snapshot is RESTORED here; a write is part of restoring it",
+    "ReadInputs": "input collection, ordered by GGRS around the rewind",
+    # -- before any timeline exists ------------------------------------------
+    # ⚠ NOT the same claim as the two above. These run once, before
+    # `maintain_local_session` has a session to start, so there is no ring and
+    # no frame to restore. `Startup` was deliberately absent from the old tuple
+    # for this reason; making the reason explicit is what the inversion costs.
+    "PreStartup": "runs before any GGRS session exists",
+    "Startup": "runs before any GGRS session exists",
+    "PostStartup": "runs before any GGRS session exists",
+    # -- the commit executor -------------------------------------------------
+    # ⛔ THIS ONE IS AN ARGUMENT ABOUT AUTHORIZATION, NOT ABOUT TIME. A
+    # `CheckpointDomainApply` system mutates rollback state on purpose: it is a
+    # domain reducer for a restore that has already been ADMITTED, and the
+    # schedule is run by exactly one caller — held by
+    # `scripts/checks/check_commit_only_schedules_have_one_runner.py`, which is what
+    # makes "run by the commit executor" a checkable fact rather than a comment.
+    # If that guard ever goes red this exemption is void.
+    "CheckpointDomainApply": "run only by the commit executor; see check_commit_only_schedules_have_one_runner.py",
+    # The same argument, for the consequences of a restore's replay. Its
+    # readers are registered TWICE: in the simulation for an ordinary replay,
+    # and here for a checkpoint restore, whose replay is pinned at the
+    # admission and runs only when the verdict publishes the restored room
+    # (`verify_and_publish` -> `run_restore_consequences`). Their writes from
+    # this registration are part of the commit, as the domain apply's are.
+    "RestoreConsequences": "run only inside the commit of a published restore; see check_commit_only_schedules_have_one_runner.py",
+}
+
+
+def normalize_schedule(label: str) -> str:
+    """`bevy::prelude::Update` and `Update` are the SAME SCHEDULE.
+
+    ⚠ the path prefix is the only thing dropped. A label with arguments
+    (`FramePhaseMark(index)`) keeps them and will not match any exemption, which
+    is the safe direction — it enters the population and can be adjudicated.
+    """
+    return label.rsplit("::", 1)[-1].strip()
+
+
+#: `let <name> = ..sim_schedule(..)` — the ONE binding idiom worth resolving.
+_SIM_SCHEDULE_BINDING = re.compile(
+    r"\blet\s+([a-z_][a-z_0-9]*)\s*=\s*[^;]*?\bsim_schedule\s*\("
+)
+
+
+def sim_schedule_bindings(text: str) -> set[str]:
+    """Local names bound to `app.sim_schedule()` in `text`.
+
+    ⭐ **[`is_schedule_variable`] SAYS RESOLVING A LABEL "NEEDS DATAFLOW, WHICH
+    IS A DIFFERENT INSTRUMENT", AND THAT IS TRUE IN GENERAL AND FALSE FOR THIS
+    ONE SHAPE.** MEASURED 2026-09-18 over the production corpus, every local
+    ever bound to a `sim_schedule()` call is one of TWO names: `sim` in 45 files
+    and `pre_collect_sim` in one. That is not dataflow, it is an idiom with a
+    single exception, and the exception is the interesting one — the label
+    `pre_collect_sim` reads as opaque, so a message system registered through it
+    was classified by a guess rather than by a reading.
+
+    ⚠ Deliberately one level and same-file: a binding whose right-hand side is
+    a helper returning a schedule is NOT resolved, and stays opaque so it is
+    reported rather than assumed.
+    """
+    return set(_SIM_SCHEDULE_BINDING.findall(_settings.without_comments(text)))
+
+
+def is_schedule_variable(label: str) -> bool:
+    """Is this label a VARIABLE rather than a literal the scan can resolve?
+
+    ⛔ THE RESIDUAL, STATED RATHER THAN IMPLIED. `app.add_systems(sim, …)` is the
+    sanctioned sim-schedule idiom and accounts for 258 of the workspace's
+    `add_systems` calls, but a source scan cannot tell `sim` from any other
+    local binding — `schedule`, `load_schedule` and `pre_collect_sim` all appear.
+    A variable label is therefore SKIPPED, and a mutator hidden behind one is
+    invisible to this guard. Resolving it needs dataflow, which is a different
+    instrument.
+
+    ⛔⛤ IT NORMALIZES FIRST, AND THE FIRST DRAFT OF THIS FUNCTION DID NOT — which
+    reproduced, inside the fix, the exact defect the fix was for. `bevy::app::
+    PreUpdate` begins with a lowercase `b`, so testing the raw label's first
+    character classified every qualified schedule as a VARIABLE and skipped it,
+    and the inverted guard reported the same eight rows as the broken one. A
+    green that does not move after a repair is a finding about the repair.
+    """
+    head = normalize_schedule(label).split("(")[0].split(".")[0].strip()
+    return bool(head) and not head[0].isupper()
+
+
+@functools.cache
+def wrapper_registered_systems(repo: Path = REPO) -> frozenset[str]:
+    """Systems a REGISTRATION WRAPPER hands to the simulation schedule.
+
+    ⭐ **THE HELPERS ARE BORROWED, NOT RESPELLED.** `install_technique` /
+    `install_techniques` are the whole wrapper family in this workspace — the
+    only two functions in `crates/`, `game/` and `tools/` that take
+    `impl IntoScheduleConfigs` — and `measure_user_settings_in_simulation.py`
+    already owns finding them and the fixpoint over them. This calls
+    `find_sim_forwarders`, `schedule_parameter_installers` and
+    `identifiers_in_call` against the sources THIS module already holds, so the
+    tree is read once and the forwarder rule has one keeper. See
+    `check_host_produced_sim_consumed_requests.unlocated_message_systems` for what believing the other diagnosis cost.
+
+    ⚠ The population is narrower than the owner's on purpose: `_production_sources`
+    excludes tests, and a registration that only a test performs is not a
+    schedule fact about the shipped game.
+
+    ⚠ Comments are blanked first because the owner's helpers expect that, and
+    because prose is 72% of `combat_schedule.rs`: unblanked, the direct
+    `add_systems` scan below admits 16 names that exist only inside comments.
+    """
+    sources = {
+        str(path): _settings.without_comments(text)
+        for path, text in _production_sources(repo)
+    }
+    # ⚠ **DISCOVERY IS NARROWED AND THE CALL-SITE SCAN IS NOT**, because the two
+    # halves cost differently. `find_sim_forwarders` closes a fixpoint with an
+    # `enclosing_fn` walk per match, so over every production source it runs for
+    # minutes; restricted to files that mention `add_systems` -- the owner's own
+    # population -- it is seconds, and a wrapper that never names the call it
+    # forwards into cannot be found by either. Reading the RESULT back out is a
+    # regex per forwarder, so that half sweeps everything and no call site in a
+    # file without `add_systems` is missed.
+    declaring = {
+        path: text for path, text in sources.items() if "add_systems" in text
+    }
+    names = set(_settings.schedule_parameter_installers(declaring))
+    forwarders = _settings.find_sim_forwarders(declaring)
+    for text in sources.values():
+        for forwarder in forwarders:
+            for match in re.finditer(rf"\b{re.escape(forwarder)}\s*\(", text):
+                names.update(_settings.identifiers_in_call(text, match.end()))
+    return frozenset(names)
+
+
+
+
+def is_non_rewinding(label: str) -> bool:
+    """Would a rollback-state write from this schedule survive a rewind?
+
+    True means the write is NOT replayed and NOT restored — the finding shape.
+    """
+    if is_schedule_variable(label):
+        return False
+    return normalize_schedule(label) not in REWINDING_OR_NOT_A_TIMELINE
+
+# ⭐ RESOURCE CLONE REGISTRATIONS ARE IN THE POPULATION SINCE 2026-09-16, and the
+# COMPONENT ones deliberately are not. They are snapshotted and restored on every
+# rewind exactly like the canonical ones, so an outside mutation drifts
+# identically — the distinction was never about rollback semantics, only about
+# which spelling the first version of this file happened to grep for.
+#
+# ⭐⭐ THE COMPONENT HALF IS IN SINCE 2026-09-16, and what unblocked it was
+# MEASURING the objection instead of restating it. The blocker was "most of the
+# 65 offenders are `Transform` writes from camera, sprite and inspection systems
+# — presentation reading a component that happens to be rollback-registered, and
+# telling a simulation write from a presentation write does not exist yet".
+# Counted by type: **52 of the 64 are `Transform` and twelve are not.** The
+# undecidable part is one type, not the population, so it is excluded by NAME
+# with the count beside it rather than holding the other 338 types out.
+#
+# ⇒ And the twelve it buys are the interesting ones. Widening surfaced
+# `sync_ldtk_level_set` (`LdtkRuntimeIndex`) — which is why
+# `handle_ldtk_hot_reload`'s waiver read stale and why widening the RESOURCE
+# half alone could not cure it — plus `portal_dev_toggle_system`,
+# `reconcile_roster_with_frozen_topology` and `compute_music_intent`.
+_ROLLBACK_REGISTRATION = re.compile(
+    r"rollback_(?:component|resource)_[a-z_]*::<([^>]+)>"
+)
+
+#: ⛔ EXCLUDED BY NAME, WITH THE MEASUREMENT THAT JUSTIFIES IT. A `Transform`
+#: write from a camera, a sprite placer or an inspector is presentation acting on
+#: a component that happens to be rollback-registered, and this guard cannot tell
+#: that from a simulation write. Excluding the TYPE keeps the other 338 in the
+#: population; excluding the population to avoid this one type is what kept
+#: `LdtkRuntimeIndex` invisible for a fortnight.
+#:
+#: ⚠ THIS IS A REAL BLIND SPOT, NOT A RESOLVED QUESTION. A genuine simulation
+#: write to `Transform` outside the rewind is invisible here and will stay
+#: invisible until a sim-versus-presentation distinction exists. Do not read a
+#: green from this guard as a statement about `Transform`.
+PRESENTATION_SHARED = frozenset({"Transform"})
+_PUB_FN = re.compile(r"\bfn\s+([a-z_][a-z_0-9]*)\s*\(")
+_CFG_TEST = re.compile(r"#\[cfg\(test\)\]\s*mod\s+[A-Za-z_][A-Za-z_0-9]*\s*\{")
+# ⛔⛤ `SessionWorldMut<T>` IS A MUTABLE PARAM AND WAS INVISIBLE UNTIL
+# 2026-09-15. A10.3d rewrote `handle_ldtk_hot_reload`'s `ResMut<RoomSet>` as
+# `SessionWorldMut<RoomSet>`, and this scanner stopped seeing the system at all —
+# its waiver went "stale" while the mutation was untouched. Measured when the
+# hole was found: SIX distinct types are reached through this param and ALL SIX
+# are rollback-registered. A guard keyed on how a write is SPELLED goes blind
+# when a refactor respells it, and the direction is the dangerous one — it
+# reports no offenders.
+# ⚠ THE OPTIONAL LIFETIME IS NOT COSMETIC. A system signature elides it
+# (`ResMut<T>`), but a `#[derive(SystemParam)]` FIELD cannot (`ResMut<'w, T>`),
+# so the lifetime-free form matched every function and no struct — and the
+# struct bodies are where 13 rollback-registered types were hiding.
+_MUTABLE_PARAM_TYPE = re.compile(
+    r"(?:&mut\s+|ResMut\s*<\s*|SessionWorldMut\s*<\s*)"
+    r"(?:'[a-z_][A-Za-z_0-9]*\s*,\s*)?"
+    r"(?:[A-Za-z_][A-Za-z_0-9]*::)*([A-Z][A-Za-z_0-9]*)\b"
+)
+
+#: ⛔⛤ **THE FIFTH SPELLING, AND IT IS THE ONE THIS FILE PREDICTED.** Everything
+#: above reads a SIGNATURE. An exclusive-world system's signature is
+#: `fn foo(world: &mut World)` — [`_MUTABLE_PARAM_TYPE`] matches it happily and
+#: extracts the type `World`, which is not rollback-registered, so the scan moved
+#: on. Every write such a system performs lives in its BODY, through
+#: `world.resource_mut::<T>()`, `world.get_mut::<T>(entity)` or the session-world
+#: helpers — and an exclusive-world system is what a COMMIT EXECUTOR is, so the
+#: writes this hid are the destructive ones.
+#:
+#: ⚠ MEASURED 2026-09-18 BEFORE THE WIDENING, so the claim is a count and not a
+#: worry: NINE functions reach a registered type this way and SEVEN of them were
+#: invisible. `MovingPlatformSet` is among them — for the second time. This
+#: file's `rollback_types` docstring records it as the entire population the
+#: guard could see before 2026-09-02, and the `SystemParam` hole hid it again in
+#: September; `apply_world_replacement` writes it through an exclusive world.
+#: A type that keeps disappearing is a fact about how many ways a write can be
+#: spelled, not about that type.
+#:
+#: ⛔ THE RESIDUAL IS STATED RATHER THAN IMPLIED: six of the nine are HELPERS, not
+#: registered systems, so they enter the population and can produce no finding —
+#: `collect` attributes a schedule by matching a name inside an `add_systems`
+#: body, and a helper is named in neither. Answering for them needs caller
+#: attribution, which is a different instrument. What this spelling buys is the
+#: seventh: `commit_confirmed_lifecycle`, registered in `PreUpdate`.
+_EXCLUSIVE_WORLD_WRITE = re.compile(
+    r"\.(?:resource_mut|get_resource_mut|get_mut|entity_mut)\s*::\s*<\s*"
+    r"(?:'[a-z_][A-Za-z_0-9]*\s*,\s*)?(?:[A-Za-z_][A-Za-z_0-9]*::)*([A-Z][A-Za-z_0-9]*)\b"
+    r"|session_world_component_mut(?:_at)?\s*::\s*<\s*"
+    r"(?:[A-Za-z_][A-Za-z_0-9]*::)*([A-Z][A-Za-z_0-9]*)\b"
+)
+
+#: A `#[derive(SystemParam)]` bundle: the derive, then the struct it decorates.
+_SYSTEM_PARAM_STRUCT = re.compile(
+    r"#\[derive\([^)]*\bSystemParam\b[^)]*\)\]"
+    r"(?:\s*#\[[^\]]*\])*"
+    r"\s*(?:pub(?:\([^)]*\))?\s+)?struct\s+([A-Za-z_][A-Za-z_0-9]*)"
+)
+
+# ── Waivers ──
+#
+# name → why mutating rollback state outside the rewinding schedule is correct
+# here. An entry is a claim that a value's drift across a rewind does not matter,
+# which is a strong claim and should read like one — so both entries below cite
+# the code that makes them true rather than asserting it.
+# ⛔⛤ ACKNOWLEDGED IS NOT A WAIVER, AND THE DIFFERENCE IS THE WHOLE POINT OF
+# HAVING TWO TABLES. A `WAIVERS` entry asserts *this system's drift across a
+# rewind does not matter*, and each one carries the argument for why. An entry
+# here asserts the OPPOSITE — the drift is real, it is owed, and it is owed to a
+# named row — so waiving these would write down something false while that row
+# is open. (MENU-RESET-MIDSESSION closed 2026-09-19; Q129 was decided
+# 2026-10-03.)
+#
+# ⚠ WHY THE LIST EXISTS AT ALL: while the guard cannot go green, a THIRTEENTH
+# offender cannot change its verdict. A check that reports FAILED before and
+# after a regression has stopped being a check, and a reader uses the exit code
+# whatever the row says. Banking the known set restores the only property that
+# matters here — red means SOMETHING CHANGED. (YardratAmbition's catch.)
+#
+# ⛔ AND AN ENTRY THAT STOPS BEING A FINDING IS ALSO FATAL, which is what keeps
+# this from rotting into a second waiver table: a name here that the scan no
+# longer reports has been FIXED, and leaving it banked would silently absorb the
+# next system to take its place.
+ACKNOWLEDGED: dict[str, str] = {
+    # ✅ `adopt_occurrence_checkpoint_from_save`, `complete_durable_restore`
+    # and `restore_inventory_from_save` left on 2026-10-03, first for WAIVERS and
+    # then out of the scan: they run in the simulation schedule now
+    # (BODY-BORN-ON-THE-TIMELINE), so their writes rewind with the save they read.
+    # ✅ `compute_music_intent` left because it was FIXED: it still runs, and
+    # now binds `EncounterMusicRequest` as a `SessionWorldRef`. Its one write was
+    # the `last_applied` mirror that AP12/W021 deleted (dbffb1a76).
+    # ✅ `dispatch_pending_dialog_requests` was banked here and is GONE because
+    # it was FIXED, and the distinction was checked rather than assumed: the
+    # system still exists (`ambition_dialog/src/bridge.rs`), so the scan did not
+    # lose sight of it -- it no longer touches `AmbitionGameSave` at all. The
+    # dialogue-visit increment it used to make from `Update` now lives in
+    # `session::durable_horizon::count_the_dialogue_visit_when_a_conversation_opens`,
+    # inside the rewinding schedule, where a rewind replays it.
+    # ✅ `grid_menu_action_activated` and `kaleidoscope_menu_action_activated`
+    # left on 2026-09-28. They read `OwnedItems` and write New Game and
+    # consumable uses as host intents; the simulation applies both.
+    # ✅ The three `persist_*_to_save` mirrors were banked here and are GONE
+    # because they were FIXED, not because the scan lost sight of them: they now
+    # register through `app.sim_schedule()`, so a rewind replays them. The stale
+    # check below is what forced this deletion to be deliberate.
+    # ✅ `portal_dev_toggle_system` left on 2026-09-28: it writes a
+    # `TogglePortalGunsActive` host intent, and the simulation flips the guns.
+    # ✅ `sync_ldtk_level_set` left on 2026-09-29: the index it wrote an active
+    # area into is prepared content with no rollback row now, and the sync
+    # compares the bundles' `LevelSet` with the active room's levels.
+    # ✅ `reconcile_roster_with_frozen_topology` left on 2026-10-03 because it
+    # was FIXED: it still runs (`game/ambition_app/src/app/versus.rs`), and now
+    # binds `ActiveMatch` as a `Res`. Its one rollback write was
+    # `ActiveMatch::adopt_seat_topology`, a copy of the roster's record that
+    # nothing read; the field and the method are deleted (schema 302).
+}
+
+
+# ⛤ **FOUR ROWS LEFT ON 2026-09-18 AND ONLY ONE OF THEM WAS A DELETION.** The
+# stale-row check below (`stale_waivers` in `main`) was added the same day and
+# named all four on its first run, against a review that had spotted one. Each
+# was triaged before the row was touched, because "delete the row until it
+# passes" is the failure mode this table has:
+#
+#   * `spawn_requested_player_clone` -- the system is GONE, deleted with the
+#     clone hotkey in `89d78a4a5`. The reviewer's specimen.
+#   * `materialize_projectiles_for_this_tick`, `spawn_projectiles_from_brain_actions`
+#     -- both still mutate rollback state and both now register inside the sim
+#     schedule (`crates/ambition_platformer2d_runtime/src/combat_schedule.rs:332`,
+#     `:357`). The waiver is DISCHARGED, which is the outcome it was waiting for.
+#   * `handle_ldtk_hot_reload` -- KEPT, and the first pass over this list was
+#     wrong to drop it. The demotion of its `SessionWorldMut<RoomSet>` /
+#     `SessionWorldMut<LdtkRuntimeIndex>` to `SessionWorldRef` on 2026-09-18 was
+#     an honest repair that took the system out of this guard's
+#     SIGNATURE-KEYED population, but the write it causes is still there, in the
+#     staged closure inside `reload_ldtk_world_from_disk` -- a HELPER, which
+#     `collect` could not attribute a schedule to until `inherited_mutations`
+#     (one hop, 2026-10-03). It sat in `BLIND_SPOTS` until then: the argument
+#     that must be re-read rather than deleted when the scan goes quiet.
+#
+# ⇒ Two of the four were good news that no instrument was reporting, one was a
+#   deletion, and one was the trap.
+# ⛔⛤ **A WAIVER WHOSE SUBJECT THE SCAN CANNOT SEE, WITH THE ARGUMENT FOR WHY IT
+# STAYS.** `stale_waivers` in `main` refuses a waiver that names nothing this
+# scan reports. That is the right default and it has exactly one legitimate
+# exception: the scan lost the system while the WRITE is still there. Such an
+# entry is not a second waiver — it is the evidence that the first one is still
+# load-bearing, and deleting it because the guard went quiet is the move the
+# whole table exists to refuse.
+#
+# ⚠ **IT LIVES HERE RATHER THAN IN THE TEST BECAUSE IT IS PRODUCTION KNOWLEDGE
+# ABOUT THIS GUARD.** It was declared in
+# `scripts/tests/test_rollback_mutators_run_in_sim.py` until 2026-09-18, which
+# meant the SCRIPT could not honour its own escape: a review found the script
+# exiting 0 on a waiver whose system had been deleted, while the arm that would
+# have caught it sat red in a suite the maintenance lane does not run. Two
+# owners, and the one with the exit code had neither half.
+#: name → (file that defines it, why the waiver survives the scan losing it)
+BLIND_SPOTS: dict[str, tuple[str, str]] = {
+    # ✅ `handle_ldtk_hot_reload` left on 2026-10-03: `inherited_mutations`
+    # attributes the write in its helper `reload_ldtk_world_from_disk` to it,
+    # so the scan sees it again and its waiver has a subject.
+}
+
+
+WAIVERS: dict[str, str] = {
+    "handle_ldtk_hot_reload": (
+        "⛔ a hot reload DISCARDS the rollback timeline rather than continuing "
+        "it. `restart_local_ggrs_after_hot_reload` runs in the same module and "
+        "calls `stop_session` then `start_sync_test_session`, so there is no "
+        "history for the mutation to be inconsistent with. Checked at that "
+        "function, not inferred from the word 'reload'."
+    ),
+    # -- added 2026-09-18, the SIXTH SPELLING's two findings -------------------
+    # Both were invisible while this file tested a tuple of BARE schedule labels
+    # (see `REWINDING_OR_NOT_A_TIMELINE`). Neither is a new system; both have
+    # been registered under a QUALIFIED label since they were written.
+    "publish_player_stats_edits": (
+        "\u2b50 IT PUBLISHES ONLY WHEN NO TIMELINE CAN CONTRADICT IT, AND THAT IS "
+        "DECIDED UPSTREAM IN THE SAME SCHEDULE. `PreUpdate` here is not a mistake "
+        "that survived a move -- it is the `MechanicalEditSet::Propose -> Admit -> "
+        "Publish` chain, and `sim_plugin.rs` records the opposite arrangement as "
+        "the `Q120` DEFECT: registered into `app.sim_schedule()` this write landed "
+        "inside `GgrsSchedule`, where a resimulation of confirmed frames read it on "
+        "every ADVANCE.\n"
+        "    \u26d4 THE ARGUMENT IS THE ADMISSION, NOT THE SCHEDULE. "
+        "`decide_mechanical_edit_admission` (`local_session.rs:190`) runs in "
+        "`MechanicalEditSet::Admit`, i.e. BEFORE this system, and answers from "
+        "`mechanical_mutation_boundary`: `NoTimeline` publishes because there is no "
+        "ring to restore an older value from; `LocallyRebasable` calls "
+        "`stop_session(world)` FIRST and publishes into the gap it just made; "
+        "`ForeignTimeline` and an unhealthy authority REFUSE, and this system's "
+        "`matches!(admission, Some(Refuse))` early-returns with the proposal still "
+        "pending. So every path that reaches the write has established that no "
+        "saved frame exists to erase it.\n"
+        "    \u26a0 THE ABSENT-RESOURCE PATH IS THE ONE WORTH CHECKING, and it "
+        "closes structurally rather than by luck: the publisher takes "
+        "`Option<Res<MechanicalEditAdmission>>` and publishes when it is missing. "
+        "The decider is registered by `install_session_bridge` "
+        "(`session.rs:1123`) -- the same call that installs the GGRS session -- so "
+        "a composition cannot have a rollback timeline without having the decider. "
+        "\u26d4 If that registration ever moves out of `install_session_bridge`, "
+        "this entry is void."
+    ),
+    "hand_the_save_to_the_activating_experience": (
+        "\u2b50 THE SAME CHAIN ARGUMENT AS `reset_session_scoped_resources_on_"
+        "activation` (the checkpoint coordinator's own twin was deleted in C03, "
+        "2026-10-07, when its values moved onto the session root): it is a member of `SessionScopeSet::Activate` "
+        "(`ambition_game_shell/src/session.rs`), between the bridge that announces "
+        "the activation and the providers that build the session, so no rollback "
+        "session exists for this scope while it writes `AmbitionGameSave`.\n"
+        "    \u26d4 IT IS NOT A HYGIENE WAIVER. The save is durable data admitted "
+        "into a session (Q132), and this is the admission: the activating "
+        "experience gets its own save. Without it, another experience's room "
+        "visits reached Ambition's save and the peer checksum (Q129, ID-PEER "
+        "road 4)."
+    ),
+    # -- added 2026-09-18, the FIFTH SPELLING's one finding --------------------
+    "commit_confirmed_lifecycle": (
+        "\u2b50 IT WRITES ON A FRAME NO REWIND CAN REACH, AND THEN REMOVES THE RING "
+        "THAT WOULD HAVE HELD ONE. Two structural facts, not one argument. (1) The "
+        "intent is taken through `pending.confirmed(boundary.confirmed)` "
+        "(`lifecycle_commit.rs:67`), so the slot is only cleared for an intent "
+        "queued on a frame GGRS has CONFIRMED -- a frame the rollback window has "
+        "already passed. (2) The same call then installs a session built by "
+        "`build_sync_test_session`, which is a NEW `start_synctest_session()` "
+        "(`session.rs:224`): installing it drops the old `AmbitionGgrsSession` and "
+        "the whole saved-state ring with it, so after this call no pre-commit frame "
+        "exists to restore. The source already says the second half -- *\"the first "
+        "frame-zero SaveWorld overwrites every ring slot, so no earlier frame can "
+        "restore the pre-op room\"* -- and it is the load-bearing one: (1) alone "
+        "leaves frames between the confirmed one and this call, and a restore of "
+        "one of THOSE would reinstate the intent and re-commit.\n"
+        "    \u26d4 THE RESIDUAL, because this waiver is a claim and claims rot: it "
+        "depends on the commit and the install staying in ONE call with nothing "
+        "fallible between them. That ordering is `lifecycle_commit.rs`'s *\"From "
+        "here NOTHING may fail\"* block, and it is the same ordering the 2026-09-17 "
+        "review had to impose on `maintain_local_session` for the same reason. If "
+        "the install ever becomes reachable without the commit, or vice versa, this "
+        "entry is void."
+    ),
+    # ── added 2026-09-16, ID-PEER ────────────────────────────────────────────
+    # The two session-scoped resource resets. They answer this guard in two
+    # DIFFERENT ways, which is why they are two entries and not one: the first
+    # writes before the timeline exists, the second writes to one that is ending.
+    "reset_session_scoped_resources_on_activation": (
+        "\u2b50 THE WRITE PRECEDES THE TIMELINE IT WOULD OTHERWISE MUTATE, by a "
+        "chain rather than by a rebase. `ambition_game_shell/src/session.rs` "
+        "configures `(GameplaySessionSet::Bridge, SessionScopeSet::Activate, "
+        "GameplaySessionSet::Providers).chain()`; "
+        "`adopt_candidate_platformer_session` makes a prepared root LIVE in "
+        "`Providers`; and `maintain_local_session` starts GGRS only when "
+        "`gameplay_active`, which `local_session.rs` defines as "
+        "`session_world_entity(world).is_some()`. So no GGRS session exists for "
+        "this scope until after `Activate` has run. \u26a0 The invariant depends on "
+        "a prepared-but-unadopted root staying INVISIBLE: A10.5 builds it "
+        "before `RouteActivated`, and only its `InactiveCandidate` disabling "
+        "component keeps `session_world_entity` from seeing it -- held by "
+        "`a_hidden_candidate_session_is_invisible_to_the_live_world_and_visible_to_its_transaction`. \u26d4 NOT a rebase "
+        "argument: `LifecycleIntent` has two variants, `Transition` and "
+        "`ReconstituteRoom`, and a session activation records neither."
+    ),
+    "reset_session_scoped_resources_on_retire": (
+        "\u26a0 A DIFFERENT CLAIM FROM ITS ACTIVATION SIBLING. \u26d4 IT IS NOT THE "
+        "CHAIN ARGUMENT, AND `SessionScopeSet::RetireAuthority -> Cleanup` LOOKS "
+        "LIKE IT IS: `retire_rollback_authority_with_its_scope` stops the session "
+        "through `commands.queue(...)`, a DEFERRED command, so the `Cleanup` "
+        "reset can run while the outgoing `AmbitionGgrsSession` is still "
+        "installed \u2014 set order does not order what one side defers. The waiver "
+        "is instead that the timeline is ENDING: the function's own doc says "
+        "'HYGIENE, NOT CORRECTNESS ... `reset_session_scoped_resources_on_"
+        "activation` is what makes the next session safe, and it does not "
+        "depend on this having run.' A write to a discarded timeline corrupts "
+        "no comparison anyone will make."
+    ),
+    # ── added 2026-10-04, SESSION-EDGE-STATE ─────────────────────────────────
+    # Two resets that the owner crate registers, not `SessionScopedResources`.
+    # They are in the same set as the activation reset above, so they have its
+    # answer and its residual.
+    "forget_portal_frames_on_activation": (
+        "THE WRITE PRECEDES THE TIMELINE, by the chain that "
+        "`reset_session_scoped_resources_on_activation` states. "
+        "`PortalPlugin` registers it in `SessionScopeSet::Activate`, and it "
+        "writes only on a `SessionScopeActivated`. The session world becomes "
+        "live in `Providers`, after `Activate`, and GGRS starts only for a live "
+        "session world. So no saved frame of this scope holds the value that "
+        "the write replaces. Held by "
+        "`shell_host_lifecycle::what_a_session_spawned_and_cycled_does_not_reach_the_next_session` "
+        "(with the reset not registered, `PortalFrameHistory` differs at tick 0). "
+        "\u26d4 THE RESIDUAL: the claim is the SET, not the schedule. The same "
+        "system in a plain `Update` slot could run after `Providers`, on a "
+        "frame that GGRS has saved, and this entry would then be false."
+    ),
+    "restart_heavy_object_cycle_on_activation": (
+        "THE WRITE PRECEDES THE TIMELINE, by the chain that "
+        "`reset_session_scoped_resources_on_activation` states. "
+        "`AmbitionBossContentPlugin` registers it in `SessionScopeSet::Activate`, "
+        "and it writes only on a `SessionScopeActivated`. Held by "
+        "`shell_host_lifecycle::what_a_session_spawned_and_cycled_does_not_reach_the_next_session` "
+        "(with the reset not registered, `CutRopeHeavyObjectCycle` differs on 31 "
+        "frames). \u26d4 THE RESIDUAL: the claim is the SET, not the schedule; "
+        "see `forget_portal_frames_on_activation`."
+    ),
+    # ── added 2026-09-02 with the widening, triaged by ambition-df ───────────
+    # These six appeared the moment `rollback_types` stopped reading one file.
+    # Each is waived with the reason its drift across a rewind does not matter,
+    # in this table's existing idiom: state what was CHECKED, not what the name
+    # suggests.
+    "ask_for_the_split_observer_view": (
+        "⛔ a CAPTURE BINARY, never a rollback host. "
+        "`game/ambition_demo_twintrack_app/src/bin/capture_twintrack.rs` builds "
+        "its own app to record a comparison; it starts no GGRS session, so "
+        "`TwinTrackExperiment` has no timeline to be inconsistent with."
+    ),
+    # ✅ The menu bundle's five waivers (`grid_menu_apply_scroll_drag`,
+    # `grid_menu_nav`, `grid_menu_republish_view`, `grid_menu_scroll_wheel`,
+    # `kaleidoscope_focus_nav`) were discharged on 2026-09-28: `SystemMenuParams`
+    # holds a New Game host-intent writer now, not `ResMut<NewGameResetRequested>`,
+    # so no taker of the bundle has mutable access to rollback state.
+    "track_versus_roster": (
+        "⛔ WAIVED ON A SCHEDULE EDGE, MEASURED 2026-09-18 — NOT on the body "
+        "condition its first waiver claimed. That waiver said GGRS cannot have "
+        "started *'only once a live primary player body exists'*; "
+        "`maintain_local_session` (`rollback_ggrs/src/local_session.rs:249`) "
+        "has no body condition anywhere in it, and measured, the SESSION WORLD "
+        "it does gate on is already there on the frame the arm fires. ⇒ The "
+        "premise was false and this sat in ACKNOWLEDGED for part of one day. "
+        "What holds is an ordering: "
+        "`(track_versus_roster, reconcile_roster_with_frozen_topology).chain()` "
+        "is registered `.before(LocalSessionSet::Maintain)` "
+        "(`game/ambition_app/src/app/versus.rs`), the maintainer is the only "
+        "system in this host that installs a session, and so no timeline can "
+        "exist while the arm runs. Held by "
+        "`the_roster_arm_writes_the_scoreboard_before_the_timeline_starts` "
+        "(`game/ambition_app/tests/versus_stage.rs`), which compares the "
+        "world's CHANGE TICKS at frame end — write at 4458, session installed "
+        "at 4927 on first entry — because both systems are in `Update` and "
+        "`contains_resource` cannot tell the two orders apart. Poison-verified: "
+        "`.before` -> `.after` puts the install one tick BEFORE the write and "
+        "the arm fails. ⚠ TWO FACTS NOW HANG FROM AN EDGE WRITTEN FOR THE "
+        "FIRST OF THEM — the seat count and a `rollback_resource_clone_checksum` "
+        "row — so widening or dropping it reopens a peer-compared write inside "
+        "the rewind window. ⛔⛤ AND ONE EDGE WAS NOT ENOUGH, FOUND 2026-10-03: "
+        "on the activation frame the arm ran BEFORE `advance_pending_route` made "
+        "the route active, read the old route, and did nothing, so the maintainer "
+        "started the session that frame and the write landed two frames later on "
+        "a live timeline. The durable-hydration gate hid this by holding the "
+        "session back; it went with BODY-BORN-ON-THE-TIMELINE. The chain is now "
+        "also `.after(AmbitionGameShellSet::Pending)`. Poison (that edge "
+        "removed): the test fails with the write on a frame that began live. "
+        "⛔ 2026-10-04: the schedule did not order `LocalSessionSet::Maintain` "
+        "against `GameplaySessionSet::Providers`, and a merge of two unrelated "
+        "commits moved the maintainer before the providers. The session then "
+        "came up one frame after the world, and the test compared nothing "
+        "(its floor was red). The host now puts the maintainer after the "
+        "providers (`rollback::start_the_timeline_with_the_session_world`), "
+        "and the floor asks that EVERY firing frame installs the session. "
+        "Poison (that edge removed): the floor is red. Poison (`.before` -> "
+        "`.after` on the roster edge): install at tick 3900, write at 3901, red."
+    ),
+    "refresh_world_time": (
+        "⛔ NOT installed by any composition. `ambition_time::TimePlugin` — the "
+        "only thing that registers this into `Update` — is added exactly once in "
+        "the whole workspace, inside that crate's own `#[test] fn`. Production "
+        "registers `refresh_world_time` through `player_schedule` into the sim "
+        "schedule, which is correct. Verified by two routes: no `add_plugins` "
+        "hit outside the test, and every other `TimePlugin` mention resolves to "
+        "`bevy::time::TimePlugin`.\n"
+        "⚠ so the plugin is a TRAP rather than a defect: correct today because "
+        "nobody uses it, wrong the moment somebody does. `ambition_time` is a "
+        "content-free crate with no access to `sim_schedule()`, so it cannot fix "
+        "this itself — which is the argument for deleting the plugin rather than "
+        "keeping a registration nothing exercises."
+    ),
+}
+
+
+#: ⭐ MOVED to `scripts/lib/test_paths.py` 2026-09-17 and re-exported here, the
+#: same way `is_test_path` was. A THIRD consumer appeared and wrote its own copy
+#: (`multi_writer_resource_census.py`), and `architecture_census.py` held a
+#: weaker variant that discarded the whole file TAIL — 12% of its own population.
+#: Trap 3 below is still the reason this function exists; what moved is where the
+#: answer lives.
+strip_test_modules = shared_strip_test_modules
+
+
+def _is_test_path(path: Path) -> bool:
+    """Is this file test-only, so its `Update` registrations are fixtures?
+
+    ⚠ **`*_tests.rs` is the repo's other test-file convention and this used to
+    miss all 51 of them.** A file named `foo_tests.rs` is always declared as
+    `#[cfg(test)] mod foo_tests;` (sometimes through a `#[path]` attribute, which
+    is why a naive parent grep does not see it), so it cannot carry a production
+    registration — the same reason `strip_test_modules` drops inline
+    `#[cfg(test)] mod` blocks out of production files. The first such file to
+    register a rollback mutator into `Update` was flagged as a real breach.
+
+    ⭐ MOVED to `scripts/lib/test_paths.py` 2026-09-16 and re-exported here. This
+    was the WIDEST of the five copies that had drifted apart, and the one whose
+    `#![cfg(test)]` fix (`c6715b84e`) the other four never got. The owner now
+    carries both halves, so this call site is the union rather than one end of
+    a spread.
+    """
+    return is_test_path(path)
+
+
+#: A whole file compiled out of a release build. ⛔ THE NAME CONVENTIONS ABOVE
+#: ARE A PROXY AND THIS IS THE FACT. `features/ecs/fighter_harness.rs` is a test
+#: harness living beside the code it exercises, declared `mod fighter_harness;`
+#: with no `#[cfg(test)]` on the declaration and `#![cfg(test)]` INSIDE the file
+#: — so every name rule above passes it and its `Update` registrations entered
+#: the production corpus as if they shipped.
+#:
+#: ⚠ MEASURED 2026-09-16: 4 files carry this attribute and ALL FOUR were missed,
+#: so the proxy had no overlap with the fact at all. Found by chasing
+#: `materialize_projectiles_for_this_tick`, which read as a serious breach —
+#: projectile spawning is simulation, not presentation — and was a fixture.
+#: ⚠ AND `#![cfg(any(test, feature = "test-support"))]` IS THE SAME FACT: a
+#: fixture file another crate's tests share (the construction fixtures the room
+#: coordinator's tests build from, 2026-10-22) is compiled for tests and for
+#: that feature only, never into a shipped build.
+_FILE_IS_TEST_ONLY = re.compile(
+    r'^[ \t]*#!\[cfg\((?:test|any\(test,\s*feature\s*=\s*"test-support"\))\)\]', re.M
+)
+
+
+@functools.cache
+def _production_sources(repo: Path = REPO) -> tuple[tuple[Path, str], ...]:
+    """Read and normalize each production Rust source once per repository.
+
+    `collect()` needs the same source corpus twice: once to discover which
+    systems mutate rollback state and once to find where those systems are
+    scheduled. Re-reading and re-stripping every Rust file for the second pass
+    adds no information inside one checker invocation.
+    """
+    found: list[tuple[Path, str]] = []
+    for root in SOURCE_ROOTS:
+        if not (repo / root).is_dir():
+            continue
+        for src in sorted((repo / root).rglob("*.rs")):
+            if _is_test_path(src):
+                continue
+            text = strip_test_modules(strip_comments(src.read_text(errors="replace")))
+            # An inner `#![cfg(test)]` compiles the WHOLE file out, so nothing in
+            # it can be a production registration whatever the file is called.
+            if _FILE_IS_TEST_ONLY.search(text):
+                continue
+            found.append((src, text))
+    return tuple(found)
+
+
+@functools.cache
+def rollback_types(repo: Path = REPO) -> set[str]:
+    """Every type registered for canonical rollback, by its bare name.
+
+    ⛔⛔ THIS READ ONE FILE UNTIL 2026-09-02, AND THE GUARD WAS GREEN OVER 1% OF
+    ITS OWN STATED POPULATION. It scanned only
+    `crates/ambition_platformer2d_runtime/src/rollback/mod.rs`, which holds a
+    single `rollback_component_canonical::<…>` — `MovingPlatformSet`. The
+    workspace holds **87 such registrations across 10 files, naming 113 types**
+    (`ambition_characters`, `ambition_combat`, `platformer2d_core`,
+    `actor_monolith`, `shared_tangle`, `projectiles`, …). So "4 systems mutate
+    rollback state, none registered into a non-rewinding schedule" read as a
+    clean bill of health for rollback and certified one type.
+
+    ⭐ Registration is DISTRIBUTED — each crate owns its own
+    `rollback_registration.rs` — so any single-file registry is a snapshot of
+    one crate, not the source of truth this docstring always claimed to read.
+    Scanning the same production sources the mutator scan uses keeps the two
+    halves over one population by construction.
+    """
+    found = {
+        m.group(1).strip().split("::")[-1]
+        for _path, text in _production_sources(repo)
+        for m in _ROLLBACK_REGISTRATION.finditer(text)
+    }
+    return found - PRESENTATION_SHARED
+
+
+#: What the scan must still be able to SEE. ⛔⛔ EVERY HOLE THIS GUARD HAS EVER
+#: HAD FAILED IN THE GREEN DIRECTION — `&mut T` alone (2026-09-02, 1 type
+#: visible of 113), `SessionWorldMut<T>` (2026-09-15, six types), and
+#: `#[derive(SystemParam)]` (2026-09-16, THIRTEEN registered types behind one
+#: identifier). Each time the report got SHORTER and CLEANER, and each time that
+#: read as good news.
+#:
+#: ⭐ SO THE COUNT IS PART OF THE VERDICT. A fifth spelling that hides forty
+#: types cannot announce itself, but it cannot avoid making these numbers FALL.
+#: Raise a floor when the tree genuinely grows; a DROP is the signature of the
+#: next hole and must fail loudly rather than pass quietly.
+POPULATION_FLOOR = {
+    # ⭐ RAISED 139 -> 300 WHEN THE COMPONENT HALF LANDED (2026-09-16): the
+    # population went 139 -> 338, and a floor left at the old value would have
+    # let the whole widening silently revert while still reading green.
+    "rollback types": 300,
+    "system param bundles": 55,
+    # ⭐⛤ ADDED 2026-09-18, AND THIS FILE HAD ARGUED FOR IT IN PROSE FOR TWO
+    # DAYS WITHOUT CHECKING IT. The paragraph above says a hidden spelling
+    # "cannot avoid making these numbers FALL" -- and the number a spelling
+    # actually moves is THIS one, the count of systems that reach a registered
+    # type. It was printed under `--list` and floored by nothing, so every
+    # spelling hole this file records could have re-opened without the guard
+    # noticing. MEASURED 2026-09-18: 523, after the exclusive-world spelling
+    # took it from 516.
+    "mutating systems": 470,
+}
+
+
+def population_sizes(repo: Path = REPO) -> dict[str, int]:
+    return {
+        "rollback types": len(rollback_types(repo)),
+        "system param bundles": len(system_param_mutables(repo)),
+        "mutating systems": len(mutating_systems(repo)),
+    }
+
+
+def population_shortfalls(repo: Path = REPO) -> list[str]:
+    """⚠ A guard that reads source cannot tell "clean tree" from "broken scan"
+    by looking at its own output. This is the term whose correct value is known
+    in advance, so the two stop looking alike."""
+    sizes = population_sizes(repo)
+    return [
+        f"{label}: {sizes[label]} visible, floor is {floor}"
+        for label, floor in POPULATION_FLOOR.items()
+        if sizes[label] < floor
+    ]
+
+
+def _braced(text: str, open_brace: int) -> str:
+    depth, index = 0, open_brace
+    while index < len(text):
+        if text[index] == "{":
+            depth += 1
+        elif text[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[open_brace : index + 1]
+        index += 1
+    return text[open_brace:]
+
+
+@functools.cache
+def system_param_mutables(repo: Path = REPO) -> dict[str, frozenset[str]]:
+    """`#[derive(SystemParam)]` bundle name → every type it borrows mutably.
+
+    ⛔⛔ THE FOURTH SPELLING OF A MUTABLE WRITE, AND THE WORST ONE. The scanner
+    reads function SIGNATURES, so a system taking `resources: SessionScopedResources`
+    showed ONE opaque identifier and this guard reported nothing. That single
+    bundle holds 25 `ResMut` fields, **13 of them rollback-registered** —
+    `MovingPlatformSet` among them, which this file's own `rollback_types`
+    docstring records as the ENTIRE population the guard could see before
+    2026-09-02. So the guard could be blind to a mutation of the very type it
+    was built around, and read clean while doing it. MEASURED 2026-09-16; the
+    workspace has 60 such bundles across 42 files, so this is a pattern rather
+    than one site.
+
+    ⇒ Same disease as the `SessionWorldMut<T>` hole above, and the fix is the
+    same shape: resolve the spelling generally instead of naming the site.
+    Nesting is resolved transitively, because a bundle may hold a bundle.
+    """
+    direct: dict[str, set[str]] = {}
+    nested: dict[str, set[str]] = {}
+    for _path, text in _production_sources(repo):
+        for match in _SYSTEM_PARAM_STRUCT.finditer(text):
+            brace = text.find("{", match.end())
+            if brace < 0:
+                continue
+            body = _braced(text, brace)
+            direct[match.group(1)] = set(_MUTABLE_PARAM_TYPE.findall(body))
+            nested[match.group(1)] = set(re.findall(r"\b([A-Z][A-Za-z_0-9]*)\b", body))
+
+    resolved: dict[str, frozenset[str]] = {}
+
+    def resolve(name: str, seen: frozenset[str]) -> frozenset[str]:
+        if name in resolved:
+            return resolved[name]
+        if name in seen:
+            return frozenset()  # a cycle cannot add anything new
+        out = set(direct.get(name, ()))
+        for candidate in nested.get(name, ()):
+            if candidate != name and candidate in direct:
+                out |= resolve(candidate, seen | {name})
+        answer = frozenset(out)
+        if not (seen - {name}):
+            resolved[name] = answer
+        return answer
+
+    return {name: resolve(name, frozenset()) for name in direct}
+
+
+#: A bundle FIELD and the type it borrows mutably — the same spellings
+#: [`_MUTABLE_PARAM_TYPE`] accepts, but keeping the field name.
+_MUTABLE_FIELD = re.compile(
+    r"(?:pub(?:\([^)]*\))?\s+)?([a-z_][a-z_0-9]*)\s*:\s*"
+    r"(?:&mut\s+|ResMut\s*<\s*|SessionWorldMut\s*<\s*)"
+    r"(?:'[a-z_][A-Za-z_0-9]*\s*,\s*)?"
+    r"(?:[A-Za-z_][A-Za-z_0-9]*::)*([A-Z][A-Za-z_0-9]*)\b"
+)
+
+#: A bundle field holding ANOTHER bundle, so a path can be built through it.
+#:
+#: ⚠ The generic arguments can hold commas: a bundle with a cursor takes two
+#: lifetimes (`AdmittedReplays<'w, 's>`). A comma-free form did not see that
+#: field, so the cursor inside it left every census that walks bundles.
+#: Arguments that nest (`Option<Res<..>>`) are still not matched; such a field
+#: is not a bundle.
+_NESTED_FIELD = re.compile(
+    r"(?:pub(?:\([^)]*\))?\s+)?([a-z_][a-z_0-9]*)\s*:\s*"
+    r"(?:[A-Za-z_][A-Za-z_0-9]*::)*([A-Z][A-Za-z_0-9]*)\s*(?:<[^<>]*>)?\s*,"
+)
+
+
+@functools.cache
+def bundle_fields_matching(
+    field: re.Pattern[str], repo: Path = REPO
+) -> tuple[tuple[str, tuple[tuple[str, str], ...]], ...]:
+    """`bundle -> ((dotted field path, captured type), ..)` for one field shape.
+
+    `field` captures two groups — the field name and the type it carries — and
+    is matched against each `#[derive(SystemParam)]` struct body. A field
+    holding ANOTHER bundle is followed, so a cursor two levels down arrives as
+    `outer.inner`.
+
+    ⭐ **ONE WALK, THREE CALLERS, AND IT WAS THREE COPIES UNTIL 2026-09-18.**
+    `Local` fields, `MessageReader` cursors and mutable-resource fields were
+    each resolved by their own byte-identical twenty lines — two of them in the
+    same file. They agreed only because nobody had edited one yet: the cursor
+    copy was written because the `Local` copy already existed and the reviewer
+    who found the gap had to name a production specimen rather than a poison,
+    since no arm could see that one road had grown and the others had not.
+    Collapsing them puts "what a bundle IS" in the module that owns
+    `_SYSTEM_PARAM_STRUCT`, `_NESTED_FIELD` and `_braced`, which is where the
+    next caller will look.
+
+    ⚠ The `field` pattern stays with the CALLER, because the three differ in
+    what they mean, not in how they are found. Only the walk is shared.
+    """
+    direct: dict[str, list[tuple[str, str]]] = {}
+    nested: dict[str, list[tuple[str, str]]] = {}
+    for _path, text in _production_sources(repo):
+        for match in _SYSTEM_PARAM_STRUCT.finditer(text):
+            brace = text.find("{", match.end())
+            if brace < 0:
+                continue
+            body = _braced(text, brace)
+            direct[match.group(1)] = field.findall(body)
+            nested[match.group(1)] = _NESTED_FIELD.findall(body)
+
+    def resolve(name: str, seen: frozenset[str]) -> dict[str, str]:
+        out = {field_name: ty for field_name, ty in direct.get(name, ())}
+        for field_name, candidate in nested.get(name, ()):
+            if candidate == name or candidate in seen or candidate not in direct:
+                continue
+            for path, ty in resolve(candidate, seen | {name}).items():
+                out.setdefault(f"{field_name}.{path}", ty)
+        return out
+
+    return tuple(
+        (name, tuple(sorted(resolve(name, frozenset()).items())))
+        for name in sorted(direct)
+    )
+
+
+def bundle_field_pattern(wrapper: str) -> re.Pattern[str]:
+    """A bundle FIELD holding `Wrapper<'lifetimes.., Payload>`, both captured.
+
+    ⚠ Lifetime-tolerant by construction (`(?:'a\\s*,\\s*)*`). The `Local` copy
+    accepted at most one and the cursor copy accepted any number, which is the
+    kind of silent divergence three hand-written twins produce.
+    """
+    return re.compile(
+        r"(?:pub(?:\([^)]*\))?\s+)?([a-z_][a-z_0-9]*)\s*:\s*"
+        r"(?:[A-Za-z_][A-Za-z_0-9]*::)*" + wrapper + r"\s*<\s*"
+        r"(?:'[a-z_][A-Za-z_0-9]*\s*,\s*)*"
+        r"(?:[A-Za-z_][A-Za-z_0-9]*::)*([A-Z][A-Za-z_0-9]*)\b"
+    )
+
+
+def _system_param_mutable_fields_cached(
+    repo: Path,
+) -> tuple[tuple[str, tuple[tuple[str, str], ...]], ...]:
+    return bundle_fields_matching(_MUTABLE_FIELD, repo)
+
+
+def system_param_mutable_fields(repo: Path = REPO) -> dict[str, dict[str, str]]:
+    """`#[derive(SystemParam)]` bundle → `{field access path: mutable type}`.
+
+    ⛔⛤ **[`system_param_mutables`] ANSWERS "WHICH TYPES", AND A REVIEW ON
+    2026-09-18 SHOWED THAT IS NOT ENOUGH.** Reduced to a set of types, a bundle
+    field cannot be asked about: a consumer that spends a request through
+    `p.req` is invisible to any check that looks for a direct `ResMut`
+    parameter, and a system that merely HOLDS a bundle counts as a writer of
+    every type in it even when it touches none of them. Both errors were
+    reproduced — a false negative and a false positive from the same missing
+    mapping — so the path survives here and the caller can look for it in the
+    body.
+
+    ⚠ Nesting builds a dotted path (`outer.inner`), which is what a body
+    actually writes. A cycle contributes nothing rather than recursing.
+    """
+    return {name: dict(fields) for name, fields in _system_param_mutable_fields_cached(repo)}
+
+
+def _params(text: str, open_paren: int) -> str:
+    depth = 1
+    index = open_paren
+    while index < len(text) and depth:
+        if text[index] == "(":
+            depth += 1
+        elif text[index] == ")":
+            depth -= 1
+        index += 1
+    return text[open_paren : index - 1]
+
+
+@functools.cache
+def mutating_systems(repo: Path = REPO) -> dict[str, list[str]]:
+    """system name → the rollback types its signature takes mutably.
+
+    Extract mutable parameter type names once and intersect with the rollback
+    registry. The old implementation ran one regular expression per rollback
+    type for every function signature — hundreds of regex searches for each
+    candidate function even though a signature names only a handful of types.
+    """
+    types = rollback_types(repo)
+    bundles = system_param_mutables(repo)
+    found: dict[str, list[str]] = {}
+    for _src, text in _production_sources(repo):
+        for match in _PUB_FN.finditer(text):
+            params = _params(text, match.end())
+            mutated = set(_MUTABLE_PARAM_TYPE.findall(params))
+            # A bundle named in the signature contributes what IT borrows
+            # mutably; see `system_param_mutables` for why one identifier can
+            # stand for thirteen registered types.
+            for identifier in re.findall(r"\b([A-Z][A-Za-z_0-9]*)\b", params):
+                mutated |= bundles.get(identifier, frozenset())
+            # ...and an EXCLUSIVE-WORLD system names nothing in its signature.
+            # Its writes are in the body; see `_EXCLUSIVE_WORLD_WRITE`. The
+            # `World` test is what keeps this from reading every helper's body:
+            # a `&mut T` parameter is already covered above, and a function with
+            # no world cannot reach a resource this way.
+            brace = text.find("{", match.end()) if "World" in params else -1
+            if brace < 0:
+                # ...or a function that takes no world and BUILDS one a command
+                # will run: `commands.queue(move |world: &mut World| ..)` is the
+                # staged-closure shape, and the write inside it is the same
+                # write. Checking the body costs a `find` on functions that do
+                # not mention it.
+                candidate = text.find("{", match.end())
+                body_preview = _braced(text, candidate) if candidate >= 0 else ""
+                brace = candidate if "&mut World" in body_preview else -1
+            if brace >= 0:
+                for write in _EXCLUSIVE_WORLD_WRITE.finditer(_braced(text, brace)):
+                    mutated.add(write.group(1) or write.group(2))
+            hits = sorted(types.intersection(mutated))
+            if hits:
+                found.setdefault(match.group(1), hits)
+    for name, hits in inherited_mutations(repo, found).items():
+        found.setdefault(name, hits)
+    return found
+
+
+#: A free-function call: a name not preceded by `.` or a word character, with
+#: an optional `path::` prefix and turbofish. A method call (`self.timer.tick(..)`)
+#: is not one, which is what made the bare-name match of 2026-09-18 report 11
+#: false pairs.
+_FREE_CALL = re.compile(
+    r"(?<![.\w])(?:[A-Za-z_][A-Za-z0-9_]*::)*([a-z_][a-z0-9_]*)\s*(?:::<[^>]*>)?\s*\("
+)
+_FN_DEF = re.compile(r"\bfn\s+([a-z_][a-z0-9_]*)\s*(?:<[^>{]*>)?\s*\(")
+
+
+def inherited_mutations(
+    repo: Path, direct: dict[str, list[str]]
+) -> dict[str, list[str]]:
+    """registered system name → the rollback types it mutates through ONE
+    helper call.
+
+    A system that calls a helper which writes rollback state writes it too
+    (`handle_ldtk_hot_reload` → `reload_ldtk_world_from_disk`). One hop, and
+    only a call this can resolve: a free-function call (not a method) to a name
+    defined once in production sources, or once in the caller's own file. A
+    name defined in several places (`tick`, `install`) is not attributed: which
+    one the call reaches needs real name resolution.
+    """
+    sources = _production_sources(repo)
+    # Only a REGISTERED system can be a finding, so only those bodies are read;
+    # reading every function's body tripled this guard's run time.
+    registered: set[str] = set()
+    for _src, text in sources:
+        for body in add_systems_bodies(text):
+            registered.update(re.findall(r"\b([a-z_][a-z0-9_]*)\b", body))
+    places: dict[str, list[Path]] = {}
+    callers: list[tuple[str, Path, str, int]] = []
+    for src, text in sources:
+        for match in _FN_DEF.finditer(text):
+            name = match.group(1)
+            places.setdefault(name, []).append(src)
+            if name in registered and name not in direct:
+                callers.append((name, src, text, match.end()))
+    inherited: dict[str, set[str]] = {}
+    for name, src, text, end in callers:
+        brace = text.find("{", end)
+        semi = text.find(";", end)
+        if brace < 0 or 0 <= semi < brace:
+            continue
+        for call in _FREE_CALL.finditer(_braced(text, brace)):
+            callee = call.group(1)
+            if callee == name or callee not in direct:
+                continue
+            where = places.get(callee, [])
+            if len(where) == 1 or where.count(src) == 1:
+                inherited.setdefault(name, set()).update(direct[callee])
+    return {name: sorted(hits) for name, hits in inherited.items()}
+
+
+def collect(
+    repo: Path = REPO, honour_waivers: bool = True
+) -> list[tuple[str, str, str, list[str]]]:
+    """(system, file, schedule, mutated types) registered outside the rewind.
+
+    `honour_waivers=False` returns what the scan sees BEFORE `WAIVERS` is
+    applied, which is the only way to ask whether a waiver still has a subject
+    — see [`stale_waivers`].
+    """
+    mutators = mutating_systems(repo)
+    findings: list[tuple[str, str, str, list[str]]] = []
+    seen: set[tuple[str, str]] = set()
+    for src, text in _production_sources(repo):
+        for body in add_systems_bodies(text):
+            schedule, _, rest = body.partition(",")
+            schedule = schedule.strip()
+            if not is_non_rewinding(schedule):
+                continue
+            schedule = normalize_schedule(schedule)
+            rest = strip_run_conditions(rest)
+            for name, hits in mutators.items():
+                if honour_waivers and name in WAIVERS:
+                    continue
+                if re.search(rf"\b{name}\b", rest):
+                    key = (name, str(src))
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    findings.append(
+                        (name, str(src.relative_to(repo)), schedule, hits)
+                    )
+    return sorted(findings)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--list", action="store_true", help="also print what was scanned")
+    args = parser.parse_args()
+
+    mutators = mutating_systems()
+    findings = collect()
+
+    if args.list:
+        for label, size in population_sizes().items():
+            print(f"{size} {label} (floor {POPULATION_FLOOR[label]})")
+        print(f"{len(mutators)} systems take one mutably\n")
+
+    # ⛔ BEFORE THE FINDINGS, because "no offenders" over a collapsed population
+    # is the failure this guard cannot otherwise report. A shortfall means the
+    # SCAN lost reach, and every clean line below it would be a lie.
+    shortfalls = population_shortfalls()
+    if shortfalls:
+        print(
+            "the scan lost reach — it can no longer see part of its own "
+            "population:\n\n  " + "\n  ".join(shortfalls) + "\n\n"
+            "Every hole this guard has had reported FEWER offenders, not more, "
+            "so a falling count is the symptom and an empty report is the "
+            "reward. Find the write spelling that stopped matching before you "
+            "trust any verdict from this file. If the drop is legitimate — "
+            "registrations really were deleted — lower POPULATION_FLOOR in the "
+            "same commit that deletes them.",
+            file=sys.stderr,
+        )
+        return 1
+
+    # ⛔⛤ **AND THE SAME RULE FOR THE OTHER TABLE, WHICH IT DID NOT HAVE.**
+    # `ACKNOWLEDGED` has been protected against a stale row since it was
+    # written; `WAIVERS` never was, and the asymmetry is invisible from inside
+    # because `collect` SKIPS a waived name before it can become a finding, so
+    # no later check can notice the subject is gone. Found by review 2026-09-18,
+    # with a live specimen: `spawn_requested_player_clone` was deleted with the
+    # clone in `89d78a4a5` and its waiver — a long, carefully argued one — sat
+    # here pre-approving whatever took that name, while this script exited 0.
+    # Same defect class as the `rollback_coverage.rs` waiver rows, one table
+    # over.
+    stale_waivers = sorted(
+        set(WAIVERS)
+        - {name for name, *_ in collect(honour_waivers=False)}
+        - set(BLIND_SPOTS)
+    )
+    if stale_waivers:
+        print(
+            "WAIVERS names systems this scan no longer reports:\n\n  "
+            + "\n  ".join(stale_waivers)
+            + "\n\nA waiver is an argument about a SPECIFIC system's write. "
+            "With the subject gone the argument cannot be true or false, and "
+            "the row silently pre-approves the next system to be given that "
+            "name. Three readings, and they want different fixes: the system "
+            "was DELETED (delete the row, in the commit that deletes it); it "
+            "MOVED into the rewinding schedule (delete the row and say so — "
+            "that is the waiver being discharged, the outcome it was waiting "
+            "for); or the scan stopped seeing it, which is the dangerous one "
+            "and the one to rule out first.",
+            file=sys.stderr,
+        )
+        return 1
+
+    banked = {name for name, *_ in findings if name in ACKNOWLEDGED}
+    # ⛔ A BANKED NAME THE SCAN NO LONGER REPORTS WAS FIXED. Leaving it here
+    # would absorb the next system to take its place, which is the failure this
+    # whole file exists to refuse.
+    stale = sorted(set(ACKNOWLEDGED) - banked)
+    if stale:
+        print(
+            "ACKNOWLEDGED names systems this scan no longer reports:\n\n  "
+            + "\n  ".join(f"{name}  (owed to {ACKNOWLEDGED[name]})" for name in stale)
+            + "\n\nEither it was moved into the rewinding schedule — delete the "
+            "entry in the same commit, and say so — or the scan stopped seeing "
+            "it, which is the more likely reading and the more dangerous one. "
+            "⛔ Do not delete an entry to make this pass without checking which "
+            "of the two happened.",
+            file=sys.stderr,
+        )
+        return 1
+
+    if banked:
+        print(
+            f"{len(banked)} acknowledged offender(s), each owed to an open row "
+            "and NOT waived — the drift is real:\n\n  "
+            + "\n  ".join(
+                f"{name}  → {ACKNOWLEDGED[name]}" for name in sorted(banked)
+            ),
+            file=sys.stderr,
+        )
+
+    findings = [f for f in findings if f[0] not in ACKNOWLEDGED]
+
+    if findings:
+        lines = [
+            f"  {name}  ({', '.join(hits)})\n    registered into {schedule} at {file}"
+            for name, file, schedule, hits in findings
+        ]
+        print(
+            "rollback state is mutated from a schedule that never rewinds, and "
+            "this system is NOT in the acknowledged set:\n\n"
+            + "\n".join(lines)
+            + "\n\nThe value is restored on every rewind and this mutation is not "
+            "replayed with it, so it drifts from the peer's a little further each "
+            "time — silently, and only under GGRS, because a fixed-tick host runs "
+            "the same schedule either way.\n\n"
+            "Register it through `app.sim_schedule()` instead. If it genuinely "
+            "belongs outside the rewind, add it to WAIVERS with the reason its "
+            "drift across a rewind does not matter.",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(
+        f"OK: {len(mutators)} systems mutate rollback state; "
+        f"{len(banked)} acknowledged and owed, no NEW offender."
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

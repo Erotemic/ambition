@@ -318,7 +318,7 @@ python scripts/agent_query.py ecs "<resource, message, or system>"
 Useful non-Rust checks and runtime probes:
 
 ```bash
-python scripts/check_doc_links.py
+python scripts/checks/check_doc_links.py
 python scripts/generate_agent_index.py
 cargo run -p ambition_app_tools --bin headless -- 30
 ```

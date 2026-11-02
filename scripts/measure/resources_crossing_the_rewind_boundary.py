@@ -87,7 +87,7 @@ REPO = Path(__file__).resolve().parent.parent.parent
 # The sibling guard owns the parsing. Loading it by path keeps ONE copy of the
 # rules that were paid for three times over.
 _SPEC = importlib.util.spec_from_file_location(
-    "rollback_mutator_guard", REPO / "scripts/check_rollback_mutators_run_in_sim.py"
+    "rollback_mutator_guard", REPO / "scripts/checks/check_rollback_mutators_run_in_sim.py"
 )
 GUARD = importlib.util.module_from_spec(_SPEC)
 sys.modules["rollback_mutator_guard"] = GUARD

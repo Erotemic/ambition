@@ -953,6 +953,7 @@ fn transform_beat_policy(sprite_content: &ambition_platformer2d::sprite_sheet::S
         anim,
         clock_scale,
         untouchable: true,
+        clip: None,
     }
 }
 

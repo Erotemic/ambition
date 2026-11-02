@@ -9,7 +9,7 @@
 use bevy::prelude::*;
 
 use ambition_characters::actor::BodyHealth;
-use ambition_sprite_sheet::character::{ActorAnimOverride, CharacterAnim};
+use ambition_sprite_sheet::character::{ActorAnimOverride, CharacterAnim, PinnedRow};
 use ambition_time::{ClockDomain, WorldTime};
 
 use ambition_time::time_control::{ClockRequester, ClockScaleRequest};
@@ -17,16 +17,28 @@ use ambition_time::time_control::{ClockRequester, ClockScaleRequest};
 /// What ONE transformation looks like. Carried by the
 /// [`TransformBeatRequested`] that asks for it, so the game that owns the
 /// change states it where it makes the change.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TransformBeatPolicy {
     /// Wall-clock seconds the beat holds.
     pub duration: f32,
     /// The pose held while it runs.
     pub anim: CharacterAnim,
+    /// An exact authored row. The fixed pose remains the animation fallback.
+    pub clip: Option<String>,
     /// Clock scale to REQUEST while it runs. `1.0` asks for nothing.
     pub clock_scale: f32,
     /// Whether the body is untouchable for the duration.
     pub untouchable: bool,
+}
+
+impl TransformBeatPolicy {
+    pub(crate) fn probe(&self) -> u64 {
+        u64::from(self.duration.to_bits())
+            ^ u64::from(self.clock_scale.to_bits()).rotate_left(32)
+            ^ (self.anim as u64).rotate_left(17)
+            ^ u64::from(self.untouchable).rotate_left(16)
+            ^ self.clip.as_deref().map_or(0, |clip| ambition_platformer2d_core::snapshot::checksum_bytes(clip.as_bytes())).rotate_left(7)
+    }
 }
 
 impl Default for TransformBeatPolicy {
@@ -36,6 +48,7 @@ impl Default for TransformBeatPolicy {
             anim: CharacterAnim::Idle,
             clock_scale: 1.0,
             untouchable: true,
+            clip: None,
         }
     }
 }
@@ -46,7 +59,7 @@ impl Default for TransformBeatPolicy {
 /// so a game never states the duration twice. Registered snapshot state: it gates
 /// whether the body can be hit, and anything that can cause an input or a hit to
 /// be IGNORED is simulation state regardless of which struct it lives on.
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
+#[derive(Component, Clone, Debug, PartialEq)]
 pub struct TransformBeat {
     pub remaining: f32,
     pub policy: TransformBeatPolicy,
@@ -73,7 +86,7 @@ pub struct TransformBeat {
 /// body held NOW, which is a later transformation's if a second one happened
 /// inside the window, and a re-created body lost the policy and transformed
 /// with no beat. One rollback value cannot disagree with itself.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct TransformBeatRequested(pub TransformBeatPolicy);
 
 /// Start a beat for each requesting body, with the policy its request carries.
@@ -82,9 +95,10 @@ pub struct TransformBeatRequested(pub TransformBeatPolicy);
 /// in half a second is one transformation as far as the player can see.
 pub fn begin_requested_transform_beats(
     mut commands: Commands,
-    mut bodies: Query<(Entity, &TransformBeatRequested, Option<&mut BodyHealth>)>,
+    mut bodies: Query<(Entity, &TransformBeatRequested, Option<&mut BodyHealth>, Option<&TransformBeat>)>,
+    mut clock: MessageWriter<ClockScaleRequest>,
 ) {
-    for (body, request, health) in &mut bodies {
+    for (body, request, health, previous) in &mut bodies {
         // Consumed, or it would re-fire every frame.
         commands.entity(body).remove::<TransformBeatRequested>();
         let policy = &request.0;
@@ -92,17 +106,20 @@ pub fn begin_requested_transform_beats(
         // nothing is restored: a star burning through this transformation holds
         // `EMPOWERED` the whole time and is unaffected by us taking and releasing
         // `TRANSFORMING`, which is the entire reason invulnerability is a set.
-        if policy.untouchable {
-            if let Some(mut health) = health {
-                health
-                    .health
-                    .invulnerable
-                    .set(ambition_characters::actor::Invulnerability::TRANSFORMING, true);
-            }
+        if let Some(mut health) = health {
+            health.health.invulnerable.set(ambition_characters::actor::Invulnerability::TRANSFORMING, policy.untouchable);
+        }
+        if policy.clock_scale == 1.0 && previous.is_some_and(|beat| beat.policy.clock_scale != 1.0) {
+            clock.write(ClockScaleRequest {
+                domain: ClockDomain::SimClock,
+                scale: 1.0,
+                requester: ClockRequester::Engine,
+                reason: "transform_beat_end",
+            });
         }
         commands.entity(body).try_insert(TransformBeat {
             remaining: policy.duration,
-            policy: *policy,
+            policy: policy.clone(),
         });
     }
 }
@@ -112,12 +129,12 @@ pub fn run_transform_beats(
     time: Res<WorldTime>,
     mut commands: Commands,
     mut clock: MessageWriter<ClockScaleRequest>,
-    mut bodies: Query<(Entity, &mut TransformBeat, Option<&mut BodyHealth>)>,
+    mut bodies: Query<(Entity, &mut TransformBeat, Option<&mut BodyHealth>, Option<&mut PinnedRow>)>,
 ) {
     // WALL time: a beat that slows the clock must not also slow its own timer,
     // or its duration becomes a function of its own effect.
     let dt = time.wall_dt();
-    for (entity, mut beat, health) in &mut bodies {
+    for (entity, mut beat, health, pinned) in &mut bodies {
         beat.remaining -= dt;
         let still_running = beat.remaining > 0.0;
 
@@ -142,6 +159,22 @@ pub fn run_transform_beats(
                     "transform_beat_end"
                 },
             });
+        }
+
+        if let Some(clip) = beat.policy.clip.as_deref().filter(|_| still_running) {
+            let elapsed = (beat.policy.duration - beat.remaining).max(0.0);
+            if let Some(mut pin) = pinned {
+                if pin.rows.len() != 1 || pin.rows[0] != clip || pin.elapsed != elapsed
+                    || pin.looping || pin.writer != Some("transform_beat") {
+                    pin.pin_as("transform_beat", &[clip], elapsed, false);
+                }
+            } else {
+                let mut pin = PinnedRow::default();
+                pin.pin_as("transform_beat", &[clip], elapsed, false);
+                commands.entity(entity).try_insert(pin);
+            }
+        } else if let Some(mut pin) = pinned {
+            if pin.written_by("transform_beat") { pin.clear(); }
         }
 
         if still_running {
@@ -235,6 +268,7 @@ mod tests {
                 anim: CharacterAnim::Taunt,
                 clock_scale: 1.0,
                 untouchable: true,
+            clip: None,
             }))
             .id();
 
@@ -269,6 +303,7 @@ mod tests {
             anim: CharacterAnim::Idle,
             clock_scale: 0.35,
             untouchable: true,
+            clip: None,
         }));
         advance(&mut app, 0.05);
 
@@ -384,4 +419,48 @@ mod tests {
             "the second transformation did not restart the beat ({remaining})",
         );
     }
+    #[test]
+    fn a_named_transform_row_uses_the_beats_clock_and_rebuilds_after_restore() {
+        let mut app = app();
+        let body = app.world_mut().spawn(TransformBeatRequested(TransformBeatPolicy {
+            duration: 1.0,
+            clip: Some("transform_small".into()),
+            ..Default::default()
+        })).id();
+        advance(&mut app, 0.2);
+        let saved = app.world().get::<TransformBeat>(body).unwrap().clone();
+        let pin = app.world().get::<PinnedRow>(body).unwrap();
+        assert_eq!(pin.rows, ["transform_small"]);
+        assert!((pin.elapsed - 0.2).abs() < 0.0001);
+        assert!(!pin.looping);
+        advance(&mut app, 0.3);
+        let expected = app.world().get::<PinnedRow>(body).unwrap().clone();
+        app.world_mut().entity_mut(body).insert(saved);
+        advance(&mut app, 0.3);
+        assert_eq!(app.world().get::<PinnedRow>(body), Some(&expected));
+        advance(&mut app, 1.0);
+        assert!(!app.world().get::<PinnedRow>(body).unwrap().is_pinned());
+    }
+
+    #[test]
+    fn replacing_a_slow_untouchable_beat_releases_its_old_claims() {
+        use ambition_characters::actor::{Health, Invulnerability};
+        let mut app = app();
+        let body = app.world_mut().spawn((
+            BodyHealth::new(Health::new(3)),
+            TransformBeatRequested(TransformBeatPolicy { duration: 1.0, clock_scale: 0.25, ..Default::default() }),
+        )).id();
+        advance(&mut app, 0.1);
+        assert!(app.world().get::<BodyHealth>(body).unwrap().health.invulnerable.holds(Invulnerability::TRANSFORMING));
+        app.world_mut().resource_mut::<bevy::ecs::message::Messages<ClockScaleRequest>>().clear();
+        app.world_mut().entity_mut(body).insert(TransformBeatRequested(TransformBeatPolicy {
+            duration: 1.0, untouchable: false, ..Default::default()
+        }));
+        advance(&mut app, 0.1);
+        assert!(!app.world().get::<BodyHealth>(body).unwrap().health.invulnerable.holds(Invulnerability::TRANSFORMING));
+        let messages = app.world().resource::<bevy::ecs::message::Messages<ClockScaleRequest>>();
+        let mut cursor = messages.get_cursor();
+        assert!(cursor.read(messages).any(|request| request.scale == 1.0));
+    }
+
 }

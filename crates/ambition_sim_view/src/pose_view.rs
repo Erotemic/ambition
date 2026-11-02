@@ -111,7 +111,7 @@ impl StopClock {
         (free && anim == CharacterAnim::Idle && self.secs < STOP_SECS).then(|| crate::ClipRequest {
             clip: (if self.from_run { RUN_STOP_CLIP } else { STOP_CLIP }).to_string(),
             fallbacks: if self.from_run { vec![STOP_CLIP.to_string()] } else { Vec::new() },
-            phase: Some(self.secs / STOP_SECS),
+            time: Some(crate::ClipTime::Phase(self.secs / STOP_SECS)),
             legs: None,
         })
     }
@@ -225,7 +225,7 @@ impl TurnClock {
         self.turning(anim, free).then(|| crate::ClipRequest {
             clip: TURNAROUND_CLIP.to_string(),
             fallbacks: Vec::new(),
-            phase: Some(self.secs / TURN_SECS),
+            time: Some(crate::ClipTime::Phase(self.secs / TURN_SECS)),
             legs: None,
         })
     }
@@ -636,6 +636,7 @@ pub fn rebuild_body_pose_views(
                 Option<&ambition_characters::control::ActorControl>,
                 // A rider sits its mount: see `seated`.
                 bevy::prelude::Has<ambition_mount::RidingOn>,
+                Option<&ambition_sprite_sheet::character::PinnedRow>,
                 Option<&mut BodyPoseView>,
             ),
         ),
@@ -699,6 +700,7 @@ pub fn rebuild_body_pose_views(
             out_of_the_world,
             control,
             riding,
+            pinned,
             pose,
         ),
     ) in &mut bodies
@@ -927,7 +929,7 @@ pub fn rebuild_body_pose_views(
             anim,
             //  a MOVE names its row; failing that, a fighter STATE does — the
             // same two-step the actor road takes, so the two never disagree.
-            clip: playback
+            clip: crate::ClipRequest::with_pin(playback
                 .filter(|playback| !playback.settled())
                 .map(|playback| crate::ClipRequest::for_move(&playback.spec.clip, playback.phase()).over_legs(legs))
                 .or_else(|| {
@@ -937,7 +939,7 @@ pub fn rebuild_body_pose_views(
                     let slaved = |clip: &str, phase: f32| crate::ClipRequest {
                         clip: clip.to_string(),
                         fallbacks: Vec::new(),
-                        phase: Some(phase),
+                        time: Some(crate::ClipTime::Phase(phase)),
                         legs: None,
                     };
                     if let Some(turn) = turn.clip(anim, free) {
@@ -1007,7 +1009,7 @@ pub fn rebuild_body_pose_views(
                     Some(_) => chain.ahead_of(crate::SMASH_CHARGE_CLIP),
                     None => chain,
                 })
-                .or_else(|| charge.map(|_| crate::ClipRequest::only(crate::SMASH_CHARGE_CLIP))),
+                .or_else(|| charge.map(|_| crate::ClipRequest::only(crate::SMASH_CHARGE_CLIP))), pinned),
             hit_flash_secs: combat.map_or(0.0, |c| c.hit_flash),
             parry_flash_secs: shield.map_or(0.0, |s| s.parry_caught_timer),
             hit_strength: ambition_platformer2d_core::hit_response::hit_strength_fraction(
@@ -1504,6 +1506,24 @@ mod pose_view_tests {
     fn shield_rings_view_defaults_empty() {
         let view = ShieldRingsView::default();
         assert!(view.0.is_empty());
+    }
+
+    #[test]
+    fn a_posed_body_keeps_the_named_pin_and_its_external_clock() {
+        use ambition_sprite_sheet::character::PinnedRow;
+        let mut app = bevy::prelude::App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
+        app.add_systems(bevy::prelude::Update, rebuild_body_pose_views);
+        let mut pin = PinnedRow::default();
+        pin.pin_as("transform_beat", &["transform_small"], 0.7, false);
+        let body = app.world_mut().spawn((PosedBody, ambition_platformer2d_core::BodyKinematics::default(), pin)).id();
+        app.update();
+        let request = app.world().get::<BodyPoseView>(body).unwrap().clip.as_ref().unwrap();
+        assert_eq!(request.clip, "transform_small");
+        assert_eq!(request.time, Some(crate::ClipTime::Seconds { elapsed: 0.7, looping: false }));
+        app.world_mut().get_mut::<PinnedRow>(body).unwrap().clear();
+        app.update();
+        assert!(app.world().get::<BodyPoseView>(body).unwrap().clip.is_none());
     }
 
     #[test]

@@ -541,6 +541,17 @@ impl CharacterAnimator {
         self.clip_phase = self.clip_slot.and(phase);
     }
 
+    /// Drive the resolved row from elapsed seconds on an external clock.
+    pub fn slave_clip_to_seconds(&mut self, elapsed: f32, looping: bool) {
+        self.clip_phase = self.clip_slot.map(|slot| {
+            let row = self.spec.row_at(slot);
+            let duration = row.frame_count as f32 * row.duration_secs;
+            if duration <= 0.0 { return 0.0; }
+            if looping { elapsed.max(0.0).rem_euclid(duration) / duration }
+            else { (elapsed / duration).clamp(0.0, 1.0) }
+        });
+    }
+
     /// Say that the clip drawn now is the picture of the body above the hips,
     /// and that its legs are in the pose `legs` (a walk, a run, a jump, a
     /// fall); `None`: the clip is the whole body. Call each frame, after the

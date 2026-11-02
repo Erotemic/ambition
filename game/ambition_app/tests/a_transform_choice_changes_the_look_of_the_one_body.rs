@@ -104,7 +104,7 @@ fn a_look_with_a_transform_row_plays_it_when_the_body_changes_into_it() {
 
     ask(&mut sim, body, "npc_jeff_hinter_armored");
     sim.step_n(base(), 4);
-    let beat = *sim
+    let beat = sim
         .world()
         .get::<TransformBeat>(body)
         .expect("the armored look has a `transform` row, and no beat plays it");

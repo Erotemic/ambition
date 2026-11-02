@@ -114,6 +114,7 @@ fn arrival_beat(sprite_content: &ambition_sprite_sheet::SpriteContent,
         anim: CharacterAnim::Transform,
         clock_scale: 1.0,
         untouchable: true,
+        clip: None,
     })
 }
 

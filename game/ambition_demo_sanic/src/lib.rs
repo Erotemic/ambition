@@ -849,6 +849,7 @@ fn super_form_beat() -> ambition_platformer2d::actors::body::transform_beat::Tra
         anim: ambition_platformer2d::sprite_sheet::character::CharacterAnim::Taunt,
         clock_scale: form.beat_clock_scale,
         untouchable: true,
+        clip: None,
     }
 }
 

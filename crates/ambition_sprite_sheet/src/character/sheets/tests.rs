@@ -932,6 +932,12 @@ fn a_clip_slaved_to_a_move_is_drawn_at_the_moves_progress() {
         rigged: None,
     };
     let slot = spec.clip_slot(["attack_side"]).expect("the row resolves by name");
+    let mut clocked = CharacterAnimator::new(&asset);
+    for (elapsed, looping, frame) in [(0.07, false, 1), (0.14, false, 2), (0.02, false, 0), (0.25, true, 1), (1.0, false, 2)] {
+        clocked.request_clip(["attack_side"], CharacterAnim::Idle);
+        clocked.slave_clip_to_seconds(elapsed, looping);
+        assert_eq!(clocked.tick(0.5), spec.flat_index_at(slot, frame), "external clock at {elapsed}, looping={looping}");
+    }
     let move_s = 0.31_f32;
     let dt = 0.01_f32;
 

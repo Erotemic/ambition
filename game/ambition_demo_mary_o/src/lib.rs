@@ -1713,6 +1713,7 @@ impl Plugin for MaryORulesPlugin {
             self.scope,
             (
                 cosmic::toggle_cosmic_form,
+                cosmic::update_cosmic_return_clip.run_if(bevy::prelude::any_with_component::<ambition_platformer2d::actors::body::transform_beat::TransformBeat>),
                 // Only a body whose form is changing has a beat.
                 cosmic::come_back_from_the_form
                     .run_if(bevy::prelude::any_with_component::<ambition_platformer2d::actors::body::transform_beat::TransformBeat>),

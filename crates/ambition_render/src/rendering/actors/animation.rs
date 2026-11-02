@@ -83,7 +83,11 @@ pub(crate) fn apply_character_frame(
         conversation_held,
         barking,
     );
-    animator.slave_clip_to(clip.and_then(|request| request.phase));
+    match clip.and_then(|request| request.time) {
+        Some(ambition_sim_view::ClipTime::Seconds { elapsed, looping }) => animator.slave_clip_to_seconds(elapsed, looping),
+        Some(ambition_sim_view::ClipTime::Phase(phase)) => animator.slave_clip_to(Some(phase)),
+        None => animator.slave_clip_to(None),
+    }
     // A move whose row is the upper body only: the legs keep their own pose.
     animator.under_clip(clip.and_then(|request| request.legs));
     // Gravity-aware facing flip: a ~180° up-gravity roll already mirrors the

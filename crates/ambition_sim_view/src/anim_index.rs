@@ -150,12 +150,8 @@ pub struct ActorAnimFrame {
 pub struct ClipRequest {
     pub clip: String,
     pub fallbacks: Vec<String>,
-    /// The requesting move's normalized progress (`MoveSpec::phase_at`), when a
-    /// MOVE asked. The row is then SLAVED to the move — frame `floor(phase * n)`
-    /// — so a row fits its move's windows whatever its authored frame rate, and
-    /// hitstop or a slowed body freezes or slows the drawing with the hitbox.
-    /// `None` (a body state, a held charge) plays the row on its own clock.
-    pub phase: Option<f32>,
+    /// The clock supplied by the requester. None uses the sheet's clock.
+    pub time: Option<ClipTime>,
     /// The row is the picture of the body above the hips, and this is the
     /// pose of its legs: what the body does under the move (it walks, runs,
     /// jumps or falls). `None`: the row is the whole body. See
@@ -163,7 +159,25 @@ pub struct ClipRequest {
     pub legs: Option<ambition_sprite_sheet::character::CharacterAnim>,
 }
 
+/// The position of a clip on its requester's clock.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ClipTime {
+    Phase(f32),
+    Seconds { elapsed: f32, looping: bool },
+}
+
 impl ClipRequest {
+    /// Put a content pin ahead of the body's request and retain its clock.
+    pub fn with_pin(base: Option<Self>, pin: Option<&ambition_sprite_sheet::character::PinnedRow>) -> Option<Self> {
+        let Some(pin) = pin.filter(|pin| pin.is_pinned()) else { return base; };
+        let mut request = match base {
+            Some(base) => pin.rows.iter().rev().fold(base, |chain, row| chain.ahead_of(row)),
+            None => Self::from_chain(&pin.rows.iter().map(String::as_str).collect::<Vec<_>>())?,
+        };
+        request.time = Some(ClipTime::Seconds { elapsed: pin.elapsed, looping: pin.looping });
+        Some(request)
+    }
+
     /// Build a request from a static preference chain — the shape
     /// `ambition_character_sprites::body_state_clip` answers in.
     pub fn from_chain(chain: &[&str]) -> Option<Self> {
@@ -171,7 +185,7 @@ impl ClipRequest {
         Some(Self {
             clip: (*clip).to_string(),
             fallbacks: fallbacks.iter().map(|f| (*f).to_string()).collect(),
-            phase: None,
+            time: None,
             legs: None,
         })
     }
@@ -188,7 +202,7 @@ impl ClipRequest {
         Self {
             clip: binding.clip.clone(),
             fallbacks: binding.fallbacks.clone(),
-            phase: Some(phase),
+            time: Some(ClipTime::Phase(phase)),
             legs: None,
         }
     }
@@ -222,7 +236,7 @@ impl ClipRequest {
             fallbacks,
             // The row placed ahead is a BODY STATE's (a held charge), and the
             // move's progress is frozen while it shows — it runs its own clock.
-            phase: None,
+            time: None,
             legs: None,
         }
     }
@@ -233,7 +247,7 @@ impl ClipRequest {
         Self {
             clip: clip.to_string(),
             fallbacks: Vec::new(),
-            phase: None,
+            time: None,
             legs: None,
         }
     }
@@ -428,7 +442,7 @@ pub fn rebuild_actor_anim_index(
                 // winding up looks different from one swinging. It goes AHEAD
                 // of the move's chain rather than replacing it, so a sheet
                 // that authors no charge row draws exactly what it drew before.
-                clip: a
+                clip: ClipRequest::with_pin(a
                     .playback
                     .filter(|playback| !playback.settled())
                     .map(|playback| ClipRequest::for_move(&playback.spec.clip, playback.phase()))
@@ -466,19 +480,7 @@ pub fn rebuild_actor_anim_index(
                         None => chain,
                     })
                     .or_else(|| charge.map(|_| ClipRequest::only(SMASH_CHARGE_CLIP)))
-                    // A content PIN outranks everything the body is doing: it
-                    // names the row content decided this body shows (a gnu's
-                    // buck). The rest of the chain stays behind it, so a sheet
-                    // without the pinned row draws exactly what it drew before.
-                    .map_or_else(
-                        || a.pinned.filter(|pin| pin.is_pinned()).and_then(|pin| {
-                            ClipRequest::from_chain(&pin.rows.iter().map(String::as_str).collect::<Vec<_>>())
-                        }),
-                        |chain| match a.pinned.filter(|pin| pin.is_pinned()) {
-                            Some(pin) => Some(pin.rows.iter().rev().fold(chain, |c, row| c.ahead_of(row))),
-                            None => Some(chain),
-                        },
-                    ),
+                    , a.pinned),
             },
         );
     }

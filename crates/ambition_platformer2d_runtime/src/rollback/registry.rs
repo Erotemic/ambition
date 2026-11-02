@@ -206,7 +206,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// Swept collision keeps every positive impact time, including near faces.
 /// 401 -> 402: developer blink can hold an unrestricted placement.
 /// 402 -> 403: God Blink changes destination selection only; normal physics follows.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 403;
+/// 403 -> 404: transformation requests retain named clips and their wall clocks.
+/// Replacing a beat releases its previous clock and invulnerability claims.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 404;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

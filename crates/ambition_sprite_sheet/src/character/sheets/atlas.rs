@@ -109,6 +109,12 @@ impl CharacterSheetSpec {
         row.frame_count as f32 * row.duration_secs
     }
 
+    /// The duration of one exact authored row, without an animation fallback.
+    pub fn named_clip_seconds(&self, name: &str) -> Option<f32> {
+        let row = self.row_at(self.clip_slot([name])?);
+        Some(row.frame_count as f32 * row.duration_secs)
+    }
+
     /// Distinct page images this sheet addresses (`1` for the common case).
     pub fn page_count(&self) -> u32 {
         self.record.page_count()

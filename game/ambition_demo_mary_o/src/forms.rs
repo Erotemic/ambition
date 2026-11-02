@@ -37,6 +37,7 @@ pub struct MaryOForms {
 pub struct FormRung {
     /// The catalog row she is drawn as on this rung.
     pub character: String,
+    pub cosmic: CosmicClips,
     /// The clip that shows her arrive at this rung from below (it is
     /// authored on this rung's sheet). The bottom rung is never arrived at
     /// from below.
@@ -45,6 +46,14 @@ pub struct FormRung {
     /// The equipment row she wears on this rung; none on the bottom rung.
     #[serde(default)]
     pub row: Option<FormRow>,
+}
+
+/// The cosmic sheet rows for a base form.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CosmicClips {
+    pub enter: String,
+    pub leave: String,
 }
 
 /// How she arrives at a rung from below.
@@ -87,6 +96,10 @@ pub struct FormCue {
 }
 
 impl MaryOForms {
+    pub fn cosmic_clips(&self, character: &str) -> Option<&CosmicClips> {
+        self.ladder.iter().find(|rung| rung.character == character).map(|rung| &rung.cosmic)
+    }
+
     /// The top rung's rank.
     pub fn top(&self) -> u8 {
         (self.ladder.len() - 1) as u8
@@ -155,6 +168,9 @@ impl MaryOForms {
                 }
                 _ => {}
             }
+            if rung.cosmic.enter.trim().is_empty() || rung.cosmic.leave.trim().is_empty() {
+                problems.push(format!("`ladder[{rank}].cosmic` needs entry and exit rows"));
+            }
             if rung.character.trim().is_empty() {
                 problems.push(format!("`ladder[{rank}].character` is empty"));
             }
@@ -220,7 +236,7 @@ fn shot_problems(shot: &RangedActionSpec, at: &str) -> Vec<String> {
 pub fn mary_o_forms_schema() -> SchemaRegistration {
     rules_schema(
         MARY_O_FORMS_SCHEMA,
-        1,
+        2,
         "mary_o_demo",
         "Her power ladder: each form's character, how she arrives at it, the \
          equipment row she wears on it (armor that a hit spends into the rung \
@@ -242,6 +258,7 @@ mod tests {
     fn rung(character: &str, arrival: Option<FormArrival>, row: Option<&str>) -> FormRung {
         FormRung {
             character: character.into(),
+            cosmic: CosmicClips { enter: "transform".into(), leave: "shrink".into() },
             arrival,
             row: row.map(|id| FormRow { id: id.into(), modifiers: Vec::new(), grants: Vec::new() }),
         }
@@ -309,7 +326,7 @@ mod tests {
             root.join("pack.ron"),
             format!(
                 r#"(id: "mary_o_forms_probe", version: "0.1.0", namespace: "probe", requires: [],
-                    sources: [(path: "data/mary_o_forms.ron", schema: "{MARY_O_FORMS_SCHEMA}", version: 1)])"#
+                    sources: [(path: "data/mary_o_forms.ron", schema: "{MARY_O_FORMS_SCHEMA}", version: 2)])"#
             ),
         )
         .unwrap();
@@ -353,11 +370,11 @@ mod tests {
         // A spark that the road cannot fly, and a row on the bottom rung.
         let lifetime = "max_lifetime: 1.5,";
         assert_eq!(authored.matches(lifetime).count(), 1, "the probe edits the spark's lifetime");
-        let bottom = r#"(character: "mary_o"),"#;
+        let bottom = r#"(character: "mary_o", cosmic: (enter: "transform_small", leave: "shrink_small")),"#;
         assert_eq!(authored.matches(bottom).count(), 1, "the probe edits the bottom rung");
         for (text, field) in [
             (authored.replace(lifetime, "max_lifetime: -1.0,"), "`ladder[2].row.grants[0].flight.max_lifetime`"),
-            (authored.replace(bottom, r#"(character: "mary_o", row: Some((id: "extra"))),"#), "`ladder[0].row`"),
+            (authored.replace(bottom, r#"(character: "mary_o", cosmic: (enter: "transform_small", leave: "shrink_small"), row: Some((id: "extra"))),"#), "`ladder[0].row`"),
         ] {
             let refused = match compile(&text) {
                 Ok(_) => panic!("{field}: the ladder was admitted"),

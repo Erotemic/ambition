@@ -103,15 +103,14 @@ where
     registrar.rollback_component_clone_probed::<crate::body::transform_beat::TransformBeat>(
         OWNER,
         "actor.transform_beat",
-        |beat| beat.remaining.to_bits() as u64,
+        |beat| u64::from(beat.remaining.to_bits()) ^ beat.policy.probe().rotate_left(17),
     );
     // Probed by value: the request carries the policy of the beat it asks for.
     registrar.rollback_component_clone_probed::<crate::body::transform_beat::TransformBeatRequested>(
         OWNER,
         "actor.transform_beat_requested",
         |request| {
-            (u64::from(request.0.duration.to_bits()) << 32)
-                | u64::from(request.0.clock_scale.to_bits())
+            request.0.probe()
         },
     );
 

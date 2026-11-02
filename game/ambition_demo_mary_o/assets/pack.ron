@@ -31,7 +31,7 @@
         (path: "data/mary_o_rules.ron", schema: "mary_o_rules", version: 1),
         // Her power ladder: each form, the row she wears on it (the spark is
         // the cinder beacon's), and the sound of each change of form.
-        (path: "data/mary_o_forms.ron", schema: "mary_o_forms", version: 1),
+        (path: "data/mary_o_forms.ron", schema: "mary_o_forms", version: 2),
         // Her cutscenes: the thanks at the end of a castle.
         (path: "data/cutscenes/castle.ron", schema: "cutscene_library", version: 1),
         // The sheets of her level's construction: pipes, pole, lift, lava.

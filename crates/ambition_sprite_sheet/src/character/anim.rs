@@ -498,8 +498,10 @@ impl PinnedRow {
     }
 
     pub fn pin(&mut self, rows: &[&str], elapsed: f32, looping: bool) {
-        self.rows.clear();
-        self.rows.extend(rows.iter().map(|r| (*r).to_string()));
+        if !self.rows.iter().map(String::as_str).eq(rows.iter().copied()) {
+            self.rows.clear();
+            self.rows.extend(rows.iter().map(|r| (*r).to_string()));
+        }
         self.elapsed = elapsed;
         self.looping = looping;
         self.writer = None;

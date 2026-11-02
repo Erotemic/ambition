@@ -526,7 +526,7 @@ fn joint_binding_measures_pixel_error_after_joint_scale() {
 #[test]
 fn mary_os_parts_are_placed_by_her_body_rigs_pose() {
     let content = &crate::test_support::shared_sprites();
-    for target in ["mary_o_v2", "mary_o_v2_fire", "mary_o_v2_tall"] {
+    for target in ["mary_o_v2", "mary_o_v2_fire", "mary_o_v2_tall", "mary_o_v2_tall_classic"] {
         let (flipbook, rig, posed) = posed(&content, target);
         assert!(posed.frames_measured() > 0, "{target}: no clip shares its frames with the rig, so this measures nothing");
         let (mut joints, mut placed) = (Vec::new(), Vec::new());
@@ -558,8 +558,10 @@ fn mary_os_parts_are_placed_by_her_body_rigs_pose() {
                         "{target} {row}[{index}]: the part `{name}` rides no joint of the body rig"
                     );
                     compared += 1;
+                    let angle = (drawn.rotation - from_pose.rotation + std::f32::consts::PI)
+                        .rem_euclid(std::f32::consts::TAU) - std::f32::consts::PI;
                     assert!(
-                        drawn.at.distance(from_pose.at) <= 1.0 && (drawn.rotation - from_pose.rotation).abs() <= 0.02,
+                        drawn.at.distance(from_pose.at) <= 1.0 && angle.abs() <= 0.02,
                         "{target} {row}[{index}]: the rig's pose puts part {} at {:?} turned {}, the flipbook at {:?} turned {}",
                         drawn.part,
                         from_pose.at,

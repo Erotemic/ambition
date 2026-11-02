@@ -102,15 +102,14 @@ fn the_utility_control_puts_her_in_the_form_and_takes_her_out_of_it() {
     press_utility(&mut app);
     idle(&mut app, 4);
     assert_eq!(worn(&app, body), COSMIC_CHARACTER_ID, "one press of the Utility control is the form");
-    let beat = *app
+    let beat = app
         .world()
         .get::<TransformBeat>(body)
         .expect("her way into the form has its transformation");
     assert_eq!(beat.policy.anim, CharacterAnim::Transform);
-    // The row of her sheet: 36 frames of 95 ms. A beat of the fallback length
-    // is a sheet the demo did not read.
+    // The beat uses the selected row's authored duration.
     assert!(
-        (beat.policy.duration - 3.42).abs() < 0.05,
+        (beat.policy.duration - cosmic_clip_seconds(&app, beat.policy.clip.as_deref().unwrap())).abs() < 0.0001,
         "the transformation is as long as its row takes to draw, and it is {} s",
         beat.policy.duration
     );
@@ -122,17 +121,17 @@ fn the_utility_control_puts_her_in_the_form_and_takes_her_out_of_it() {
     assert_eq!(worn(&app, body), COSMIC_CHARACTER_ID);
 
     // The next press is her way out. She wears the form while its row plays:
-    // 18 frames of 95 ms, and a hold on the last.
+    // The selected return row and a hold on its last frame.
     press_utility(&mut app);
     idle(&mut app, 8);
     assert_eq!(worn(&app, body), COSMIC_CHARACTER_ID, "she left the form before the row of her way out played");
-    let leave = *app
+    let leave = app
         .world()
         .get::<TransformBeat>(body)
         .expect("her way out of the form has its row");
     assert_eq!(leave.policy.anim, CharacterAnim::Shrink);
     assert!(
-        (leave.policy.duration - 1.91).abs() < 0.05,
+        (leave.policy.duration - cosmic_clip_seconds(&app, leave.policy.clip.as_deref().unwrap()) - ambition_demo_mary_o::rules::mary_o_rules().cosmic.leave_hold_seconds).abs() < 0.0001,
         "her way out is as long as its row takes to draw and its hold, and it is {} s",
         leave.policy.duration
     );
@@ -238,4 +237,88 @@ fn in_the_form_she_does_not_fly_over_the_top_of_the_room() {
     }
     assert!(highest < 40.0, "she did not get near the top of the room, so this measured nothing (top {highest})");
     assert!(highest >= -0.5, "her head went {} px over the top of the room", -highest);
+}
+
+fn cosmic_clip_seconds(app: &App, clip: &str) -> f32 {
+    use ambition_platformer2d::character::{AuthoredSheets, CharacterCatalog};
+    let content = app.world().resource::<ambition_platformer2d::sprite_sheet::SpriteContent>();
+    let catalog = app.world().resource::<CharacterCatalog>();
+    let authored = app.world().resource::<AuthoredSheets>();
+    ambition_platformer2d::sprite_sheet::character::catalog_join::sheet_for_character_id_from_data(
+        content, authored, catalog.data(), COSMIC_CHARACTER_ID,
+    ).unwrap().named_clip_seconds(clip).unwrap()
+}
+
+#[test]
+fn each_base_form_uses_its_own_cosmic_entry_and_return() {
+    use ambition_platformer2d::characters::equipment::WornEquipment;
+    use ambition_platformer2d::sprite_sheet::character::PinnedRow;
+    let forms = ambition_demo_mary_o::forms::mary_o_forms();
+    let (mut app, body) = seated();
+    for rung in &forms.ladder {
+        let mut equipped = WornEquipment::default();
+        if let Some(row) = &rung.row { equipped.equip(forms.row(&row.id).unwrap()); }
+        app.world_mut().entity_mut(body).insert(equipped);
+        idle(&mut app, 40);
+        assert_eq!(worn(&app, body), rung.character);
+        press_utility(&mut app);
+        idle(&mut app, 4);
+        let beat = app.world().get::<TransformBeat>(body).unwrap();
+        assert_eq!(beat.policy.clip.as_deref(), Some(rung.cosmic.enter.as_str()));
+        assert_eq!(app.world().get::<PinnedRow>(body).unwrap().rows, [rung.cosmic.enter.as_str()]);
+        press_utility(&mut app);
+        idle(&mut app, 8);
+        press_utility(&mut app);
+        idle(&mut app, 4);
+        let beat = app.world().get::<TransformBeat>(body).unwrap();
+        assert_eq!(beat.policy.clip.as_deref(), Some(rung.cosmic.leave.as_str()));
+        assert_eq!(app.world().get::<PinnedRow>(body).unwrap().rows, [rung.cosmic.leave.as_str()]);
+        press_utility(&mut app);
+        idle(&mut app, 40);
+        assert_eq!(worn(&app, body), rung.character);
+    }
+}
+
+#[test]
+fn a_pickup_during_the_cosmic_exit_changes_the_return_without_restarting_it() {
+    use ambition_platformer2d::characters::equipment::WornEquipment;
+    let (mut app, body) = in_the_form();
+    press_utility(&mut app);
+    idle(&mut app, 12);
+    let before = app.world().get::<TransformBeat>(body).unwrap().remaining;
+    let forms = ambition_demo_mary_o::forms::mary_o_forms();
+    let fire = forms.ladder.last().unwrap();
+    let mut equipment = WornEquipment::default();
+    equipment.equip(forms.row(&fire.row.as_ref().unwrap().id).unwrap());
+    app.world_mut().entity_mut(body).insert(equipment);
+    idle(&mut app, 4);
+    let beat = app.world().get::<TransformBeat>(body).unwrap();
+    assert_eq!(beat.policy.clip.as_deref(), Some(fire.cosmic.leave.as_str()));
+    assert!(beat.remaining < before);
+    press_utility(&mut app);
+    idle(&mut app, 40);
+    assert_eq!(worn(&app, body), fire.character);
+}
+
+#[test]
+fn cosmic_requests_belong_to_each_body_without_a_primary_subject_lookup() {
+    use ambition_platformer2d::characters::action_scheme::ResolvedTechniqueEdges;
+    use ambition_platformer2d::actors::body::transform_beat::TransformBeatRequested;
+    use bevy::ecs::system::RunSystemOnce;
+    let (mut app, _) = seated();
+    let forms = ambition_demo_mary_o::forms::mary_o_forms();
+    let bodies: Vec<_> = forms.ladder.iter().take(2).map(|rung| {
+        app.world_mut().spawn((
+            WornCharacter(rung.character.clone().into()),
+            BodyKinematics::default(),
+            ResolvedTechniqueEdges(vec![("transform".into(), ambition_platformer2d::engine_core::Edge {
+                pressed: true, held: true, ..Default::default()
+            })]),
+        )).id()
+    }).collect();
+    app.world_mut().run_system_once(ambition_demo_mary_o::cosmic::toggle_cosmic_form).unwrap();
+    for (body, rung) in bodies.into_iter().zip(&forms.ladder) {
+        assert_eq!(worn(&app, body), COSMIC_CHARACTER_ID);
+        assert_eq!(app.world().get::<TransformBeatRequested>(body).unwrap().0.clip.as_deref(), Some(rung.cosmic.enter.as_str()));
+    }
 }

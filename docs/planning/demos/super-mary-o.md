@@ -34,8 +34,9 @@ User request, 2026-11-01:
 
 - [x] `c4270a259`: landing cues scale with impact. Small drops are silent, and
   stair drops stay quiet as the listener moves. Audio and movement checks pass.
-- [ ] Draw cosmic entry and exit for small, classic tall and fire forms. The
-  transition must start and end in the correct form. Check all six directions.
+- [x] Cosmic entry and return use the small, classic tall or fire rows named
+  by the form data. The shared beat retains the row and clock. Eight Mary-O
+  behavior tests and all six native captures pass. Art producer: `c29ced8`.
 - [ ] Let walkers block each other and turn at contact. Use the shared body
   path. Refuse overlapping authored starts and check head-on encounters.
 - [ ] Give breakable bricks a clear visual difference from permanent blocks,
@@ -186,9 +187,10 @@ Built: `game/ambition_demo_mary_o` (content) and `game/ambition_demo_mary_o_app`
     faster. The form is off her ladder of forms: she is in it while she wears
     its row, and she comes back to the rung her equipment gives her.
   - Her sheet is `mary_o_v2_cosmic` of the sprite renderer, drawn on her v2
-    body. A jump is one beat of her wings. The row `transform` is the
-    transformation from her fire form, 36 frames; the game holds her in it
-    for as long as it takes to draw, and a second press ends it.
+    body. A jump is one beat of her wings. Each base form names its entry
+    and return rows in `mary_o_forms.ron`. Entry has 36 frames; return has
+    24 frames and ends in the form supplied by her equipment. The shared
+    beat uses the row's duration, and a second press ends the beat.
   - Light is not in her sheet: the glow with stars behind her is a shader
     that reads the starlight shimmer picture (`cosmic_aura.rs`). The engine's
     spark particles are squares and were taken out; a star particle is not
@@ -198,7 +200,7 @@ Built: `game/ambition_demo_mary_o` (content) and `game/ambition_demo_mary_o_app`
     the border of her body, and the overlay of the quasar over her while she
     holds a quasar (not from the form alone). The barrier is about her hair
     and her figure and not about her wings: she is drawn from parts in the
-    form (each row but `transform`), and the part renderer says where the
+    form (except the baked entry and return rows), and the part renderer says where the
     parts of her body are (`cosmic_barrier.rs`, `PartSetRequest`).
   - A hit stops the world for 0.02 s at most in the form
     (`cosmic::shorten_her_hit_stop`).

@@ -17,15 +17,16 @@
     slot: "mary_o_form",
     ladder: [
         // Small: no form row.
-        (character: "mary_o"),
+        (character: "mary_o", cosmic: (enter: "transform_small", leave: "shrink_small")),
         // Tall: the star wand is one hit of armor. Her tall sheet and its
         // taller body are a view of wearing it (`powerups::sync_grown_form`).
-        (character: "mary_o_tall_classic", arrival: Some(Grow), row: Some((id: "star_wand"))),
+        (character: "mary_o_tall_classic", cosmic: (enter: "transform_tall", leave: "shrink_tall"), arrival: Some(Grow), row: Some((id: "star_wand"))),
         // Fire: the same height as tall, so she arrives by a change of look.
         // The cinder beacon gives her the spark, labels her run button
         // `Run / Spark`, and multiplies the spark's damage by 1.5.
         (
             character: "mary_o_fire",
+            cosmic: (enter: "transform", leave: "shrink"),
             arrival: Some(Transform),
             row: Some((
                 id: "cinder_beacon",

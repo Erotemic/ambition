@@ -13,7 +13,7 @@
 //!
 //! ```text
 //! cargo run -p ambition_demo_mary_o_app --features capture --bin capture_mary_o \
-//!     -- OUT.png [WIDTHxHEIGHT] [--room ID] [--warmup N] [--walk N] [--at X,Y] [--transform N] [--no-ui]
+//!     -- OUT.png [WIDTHxHEIGHT] [--room ID] [--warmup N] [--walk N] [--at X,Y] [--form ID] [--transform N] [--return N] [--no-ui]
 //! ```
 
 use std::path::PathBuf;
@@ -52,6 +52,8 @@ struct Warmup {
     /// her way into her cosmic form. A shot `N` frames after the press is frame
     /// `N` of the transformation; a shot more than 3.5 s after it is the form.
     transform_at: Option<u32>,
+    return_at: Option<u32>,
+    form: Option<String>,
 }
 
 fn main() {
@@ -65,6 +67,8 @@ fn main() {
     let mut debug_boxes = false;
     let mut at: Option<ae::Vec2> = None;
     let mut transform_at: Option<u32> = None;
+    let mut return_at = None;
+    let mut form = None;
     let mut room = ambition_demo_mary_o::LEVEL_1_1_ROOM_ID.to_string();
 
     let mut positional_seen = false;
@@ -126,6 +130,16 @@ fn main() {
                 };
                 at = Some(ae::Vec2::new(x, y));
             }
+            "--form" => {
+                let id = args.next().unwrap_or_else(|| fail("--form needs a base character id"));
+                if ambition_demo_mary_o::forms::mary_o_forms().cosmic_clips(&id).is_none() {
+                    fail("--form must name a base form from the authored ladder");
+                }
+                form = Some(id);
+            }
+            "--return" => {
+                return_at = Some(args.next().and_then(|v| v.parse().ok()).unwrap_or_else(|| fail("--return needs the frames from the press to the shot")));
+            }
             "--transform" => {
                 transform_at = Some(
                     args.next()
@@ -177,6 +191,7 @@ fn main() {
     app.add_plugins(bevy::app::ScheduleRunnerPlugin::run_loop(
         std::time::Duration::from_millis(0),
     ));
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(std::time::Duration::from_secs_f64(1.0 / 60.0)));
     app.insert_resource(CaptureSettings {
         output,
         size,
@@ -201,6 +216,8 @@ fn main() {
         remaining: warmup,
         walk_right: walk,
         transform_at,
+        return_at,
+        form,
         settle: 1,
         at,
     });
@@ -228,7 +245,7 @@ fn main() {
     {
         use ambition_platformer2d::platformer::schedule::SimScheduleExt;
         let sim = app.sim_schedule();
-        app.add_systems(sim, place_before_the_shutter);
+        app.add_systems(sim, (prepare_capture_form, place_before_the_shutter).chain());
     }
     // the synthetic input must be written BEFORE the frame collects it.
     // These sat in `Update` with no edge to `ambition_platformer2d::input::InputSet::Collect`,
@@ -283,6 +300,9 @@ fn shoot_when_warm(
     if warmup.settle > 0 {
         warmup.settle -= 1;
         return;
+    }
+    if let Some(form) = warmup.form.as_deref() {
+        fail(&format!("the body did not reach the requested form '{form}'"));
     }
     request_capture(&mut commands, &target, &mut progress);
 }
@@ -610,6 +630,34 @@ fn place_before_the_shutter(
     warmup.at = None;
 }
 
+/// Equip the authored base form before the capture's input sequence.
+fn prepare_capture_form(
+    mut commands: Commands,
+    target: Option<Res<CaptureTarget>>,
+    mut warmup: ResMut<Warmup>,
+    mut bodies: Query<(
+        Entity,
+        Option<&mut ambition_platformer2d::characters::equipment::WornEquipment>,
+        &ambition_platformer2d::characters::actor::WornCharacter,
+    ), With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>,
+) {
+    if target.is_none_or(|target| target.adopted == 0) { return; }
+    let Some(id) = warmup.form.as_deref() else { return; };
+    let Ok((body, worn, character)) = bodies.single_mut() else { return; };
+    if character.id() == id {
+        warmup.form = None;
+        return;
+    }
+    let forms = ambition_demo_mary_o::forms::mary_o_forms();
+    let rung = forms.ladder.iter().find(|rung| rung.character == id).expect("validated base form");
+    let mut equipment = ambition_platformer2d::characters::equipment::WornEquipment::default();
+    if let Some(row) = &rung.row { equipment.equip(forms.row(&row.id).unwrap()); }
+    match worn {
+        Some(mut worn) => { if *worn != equipment { *worn = equipment; } }
+        None => { commands.entity(body).insert(equipment); }
+    }
+}
+
 fn hold_right_while_walking(
     mut keys: ResMut<ButtonInput<KeyCode>>,
     target: Option<Res<CaptureTarget>>,
@@ -650,7 +698,7 @@ fn press_the_utility_key_for_her_form(
     if target.is_none_or(|target| target.adopted == 0) {
         return;
     }
-    if warmup.transform_at == Some(warmup.remaining) && warmup.remaining > 0 {
+    if warmup.form.is_none() && (warmup.transform_at == Some(warmup.remaining) || warmup.return_at == Some(warmup.remaining)) && warmup.remaining > 0 {
         keys.press(KeyCode::KeyD);
     } else {
         keys.release(KeyCode::KeyD);
@@ -661,7 +709,7 @@ fn fail(message: &str) -> ! {
     eprintln!("capture_mary_o: {message}");
     eprintln!(
         "usage: capture_mary_o OUT.png [WIDTHxHEIGHT] [--room ID] [--warmup N] \
-         [--walk N] [--at X,Y] [--transform N] [--no-ui]"
+         [--walk N] [--at X,Y] [--form ID] [--transform N] [--return N] [--no-ui]"
     );
     std::process::exit(2);
 }

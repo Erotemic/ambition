@@ -286,12 +286,12 @@ impl Loop {
     fn requested_beat(&self) -> (TransformBeatPolicy, bool) {
         let world = self.app.world();
         if let Some(request) = world.get::<TransformBeatRequested>(self.body) {
-            return (request.0, true);
+            return (request.0.clone(), true);
         }
         let beat = world
             .get::<TransformBeat>(self.body)
             .expect("a tier change asks for its transformation beat");
-        (beat.policy, false)
+        (beat.policy.clone(), false)
     }
 }
 

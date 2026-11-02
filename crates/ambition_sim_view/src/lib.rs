@@ -28,7 +28,7 @@ pub use trail_snapshot::{snapshot_emitted_trails, TrailSnapshot, TrailStrip, Tra
 
 pub use anim_index::{
     rebuild_actor_anim_index, rebuild_boss_frame_index, ActorAnimFrame, ActorAnimIndex,
-    ActorSpriteData, BossFrameIndex, BossFrameView, ClipRequest, HazardLaneFact, SMASH_CHARGE_CLIP,
+    ActorSpriteData, BossFrameIndex, BossFrameView, ClipRequest, ClipTime, HazardLaneFact, SMASH_CHARGE_CLIP,
 };
 pub use combat_geometry_view::{
     rebuild_combat_geometry_view, CombatBodyGeometryView, CombatGeometryView, CombatRayView,

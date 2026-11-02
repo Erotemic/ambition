@@ -91,8 +91,7 @@ pub fn install_unified_menu_shared(app: &mut App) {
     // the on-screen menu-confirm control reads the real action. Backend-
     // agnostic (reads the shared KaleidoscopeCursor), and self-gates on the
     // overlay being open, so it lives with the shared resources rather than
-    // either backend. Registered in the SIM schedule, strictly before its
-    // reader — see `install_menu_confirm_provider`.
+    // either backend.
     #[cfg(all(
         feature = "input",
         any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")
@@ -154,31 +153,14 @@ pub fn install_unified_menu_shared(app: &mut App) {
     install_menu_confirm_provider(app);
 }
 
-/// Register the menu-confirm cue provider in the SIM schedule, ordered
-/// strictly before its reader.
-///
-/// `publish_menu_confirm_prompt` WRITES the inventory's `UiCue` and
-/// `rebuild_control_prompt` READS the cues — and the reader lives in the sim
-/// schedule's [`Platformer2dSimulationPhase::FeatureViewSync`]. Registering the writer in `Update`
-/// (a different schedule) made the read one frame stale under a `FixedUpdate`
-/// sim, and non-deterministic about WHICH frame's label it saw (Update and
-/// FixedUpdate interleave by wall-clock). Co-locating the writer in the same
-/// schedule + set and ordering it `.before` the reader makes the confirm label
-/// land the SAME sim tick the prompt is rebuilt, under any sim schedule — the
-/// producer→consumer edge is explicit, not incidental.
+/// Publish on the frame clock before the primary surface prompt.
+/// A host that simulates in `Update` also rebuilds its prompt after this cue.
 pub(crate) fn install_menu_confirm_provider(app: &mut App) {
-    use ambition_platformer2d::platformer::schedule::{
-        Platformer2dSimulationPhase, SimScheduleExt,
-    };
-    use bevy::prelude::IntoScheduleConfigs;
-    let sim = app.sim_schedule();
-    // Idempotent: the shell presentation and host input plugin init it too;
-    // a direct-entry app without either still needs the cue store to exist.
     app.init_resource::<ambition_platformer2d::input::ActiveUiCues>();
     app.add_systems(
-        sim,
+        Update,
         publish_menu_confirm_prompt
-            .in_set(Platformer2dSimulationPhase::FeatureViewSync)
+            .in_set(ambition_platformer2d::input::InputSet::PublishCues)
             .before(ambition_platformer2d::sim_view::ControlPromptRebuilt),
     );
 }
@@ -1657,59 +1639,36 @@ pub(crate) fn menu_confirm_label(
     }
 }
 
-/// The inventory's input-context identity — cue-only today (its input
-/// consumption still rides the in-session menu path); minted here so the
-/// published verb joins the shared cue vocabulary instead of a bespoke
-/// menu bridge.
-pub(crate) const INVENTORY_CUE_CONTEXT: ambition_platformer2d::input::InputContextId =
-    ambition_platformer2d::input::InputContextId("ambition.inventory");
-
-/// P4b: publish the focused inventory item's verb as
-/// this surface's [`ambition_platformer2d::input::UiCue`], so runtime inventory controls
-/// read "Equip" / "Use" instead of a generic "Select".
-///
-/// The tier-safe seam: `ControlPrompt` (sim_view, lower tier) can't see the app
-/// menu model, so the app resolves the verb here from the ONE focus source
-/// (`KaleidoscopeCursor`, shared by both inventory backends) + `OwnedItems`, and
-/// publishes it into the shared cue vocabulary; `rebuild_control_prompt` folds
-/// the top cue and falls back to "Select" when nothing is published.
-/// Self-gates on the inventory overlay being open (backend-agnostic
-/// `InventoryUiState.visible`), so a closed menu retracts the cue.
+/// The shared touch prompt follows the primary participant's menu.
+/// Other menus keep their own focus and do not publish to this surface.
 fn publish_menu_confirm_prompt(
-    menu_state: Single<(&KaleidoscopeCursor,)>,
-    ui_state: Option<
-        Single<(
-            &ambition_platformer2d::inventory_ui::InventoryMenu,
-            &ambition_platformer2d::inventory_ui::InventoryUiState,
-        )>,
-    >,
+    menus: Query<(
+        &ambition_platformer2d::inventory_ui::InventoryMenu,
+        &ambition_platformer2d::inventory_ui::InventoryUiState,
+        &KaleidoscopeCursor,
+    )>,
     owned: Option<Res<OwnedItems>>,
     body_source: MenuBodySource,
     mut cues: ResMut<ambition_platformer2d::input::ActiveUiCues>,
 ) {
-    let (cursor,) = menu_state.into_inner();
-
-    let state = ui_state.map(Single::into_inner);
-    let owner = state.map(|(menu, _)| menu.owner);
-    let menu_open = state.is_some_and(|(_, state)| state.visible);
-    let inventory = owned.as_deref().map(|bag| {
-        ambition_platformer2d::items::Inventory::new(
-            bag,
-            owner.and_then(|owner| body_source.read(owner).and_then(|body| body.in_hand)),
-        )
-    });
-    let label = menu_confirm_label(
-        menu_open,
-        cursor.focus(),
-        inventory.as_ref(),
-        body_source.items(),
-    );
+    let label = menus.iter()
+        .find(|(menu, _, _)| menu.owner == ambition_platformer2d::input::ParticipantId::PRIMARY)
+        .and_then(|(menu, state, cursor)| {
+            let inventory = owned.as_deref().map(|bag| {
+                ambition_platformer2d::items::Inventory::new(
+                    bag,
+                    body_source.read(menu.owner).and_then(|body| body.in_hand),
+                )
+            });
+            menu_confirm_label(state.visible, cursor.focus(), inventory.as_ref(), body_source.items())
+        });
+    let active = label.is_some();
     let cue = ambition_platformer2d::input::UiCue {
-        context: INVENTORY_CUE_CONTEXT,
-        priority: 150,
-        submit_label: label.clone().unwrap_or_default(),
+        context: ambition_platformer2d::input::INVENTORY_CONTEXT,
+        priority: ambition_platformer2d::input::participant::context_priority::INVENTORY,
+        submit_label: label.unwrap_or_default(),
     };
-    ambition_platformer2d::input::ActiveUiCues::sync_marked(&mut cues, cue, label.is_some());
+    ambition_platformer2d::input::ActiveUiCues::sync_marked(&mut cues, cue, active);
 }
 
 /// The edge-button focus on `to` that turns BACK toward `from` (Fix 1). On `to`, the LEFT edge
@@ -2183,3 +2142,6 @@ pub(crate) use scroll::*;
 // The cube's own tests, which build the Lunex plugin stack.
 #[cfg(all(test, feature = "kaleidoscope_menu"))]
 mod lunex_kaleidoscope_app_tests;
+
+#[cfg(test)]
+mod confirm_prompt_tests;

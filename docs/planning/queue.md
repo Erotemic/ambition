@@ -834,14 +834,20 @@ survives loss of a body assignment and returns with rollback. Guard:
 `start_does_not_readmit_a_participant_without_a_current_body_assignment`.
 Do not derive admission from offered devices or current bodies.
 
+The shared touch confirm prompt follows the primary menu (`e5c60f897`).
+Guards: `the_shared_prompt_follows_the_primary_menu_and_clears_when_it_retires`
+and `an_inventory_context_gets_its_verb_without_a_simulation_tick`.
+Cue publication uses the frame clock and the inventory input context.
+Do not let another participant's menu change this prompt.
+
 **Next action (ordered slices; complete each behavior gate before moving):**
 
 4. **Independent local menus:** separate per-seat open state, focus, page,
    inventory, and viewport UI for Grid and Kaleidoscope. Use the shared offline
    pause arbiter; each seat must still control its own menu. A local menu on
    a remote timeline captures its participant's input without pausing peers.
-   Use session membership for menu creation and retirement. Finish prompts
-   and remaining pointer routing. Keep the joining Start press distinct from
+   Use session membership for menu creation and retirement. Finish the
+   remaining pointer routing. Keep the joining Start press distinct from
    opening a new menu.
    Prove the full menu path with two pads before closing this slice.
 5. **Per-view presentation isolation:** a room transition cover follows only

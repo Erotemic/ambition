@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-CHECKER = REPO / "scripts" / "check_planning_citations.py"
+CHECKER = REPO / "scripts" / "checks/check_planning_citations.py"
 
 #: A name no source in this repository defines. `ControlHold::Sequence` and
 #: `ids::SHOCKWAVE` were both reported as missing by an earlier indexer and both
@@ -78,7 +78,7 @@ def run(tmp_path: Path) -> tuple[int, str]:
     doc = tmp_path / "fixture.md"
     # A file that certainly exists and certainly has fewer than 999999 lines.
     doc.write_text(FIXTURE.format(
-        moved_file="scripts/check_planning_citations.py", dead_path=DEAD_PATH,
+        moved_file="scripts/checks/check_planning_citations.py", dead_path=DEAD_PATH,
     ))
     proc = subprocess.run(
         [sys.executable, str(CHECKER), str(doc)],
@@ -271,7 +271,7 @@ def test_an_emptied_planning_document_is_a_refusal_not_a_clean_run() -> None:
     try:
         victim.write_bytes(b"")
         run = subprocess.run(
-            [sys.executable, str(REPO / "scripts" / "check_planning_citations.py"),
+            [sys.executable, str(REPO / "scripts" / "checks/check_planning_citations.py"),
              "docs/planning"],
             capture_output=True, text=True, cwd=REPO, timeout=900,
         )

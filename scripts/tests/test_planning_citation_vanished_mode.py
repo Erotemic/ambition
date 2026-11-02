@@ -35,7 +35,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-SCRIPT = REPO / "scripts/check_planning_citations.py"
+SCRIPT = REPO / "scripts/checks/check_planning_citations.py"
 
 
 def load():
@@ -401,7 +401,7 @@ def test_the_flag_pair_actually_hands_source_to_the_differential_through_main(
     monkeypatch.chdir(repo)
     monkeypatch.setattr(
         sys, "argv",
-        ["check_planning_citations.py", "--vanished", base, "--comments", str(doc)],
+        ["checks/check_planning_citations.py", "--vanished", base, "--comments", str(doc)],
     )
     module.main()
     assert "`carved_away`" in capsys.readouterr().out, (
@@ -426,7 +426,7 @@ def test_without_comments_main_leaves_source_out_of_the_differential(
 
     monkeypatch.chdir(repo)
     monkeypatch.setattr(
-        sys, "argv", ["check_planning_citations.py", "--vanished", base, str(doc)]
+        sys, "argv", ["checks/check_planning_citations.py", "--vanished", base, str(doc)]
     )
     module.main()
     assert "`carved_away`" not in capsys.readouterr().out

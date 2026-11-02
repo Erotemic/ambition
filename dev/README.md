@@ -160,7 +160,7 @@ not re-declare a ledger path in a script; three scripts used to and that is what
 made this move expensive.
 
 ⚠ **`dev/compile_ratchet_baseline.json` deliberately stayed in this repo.** It is
-a GATE INPUT — the bare `python3 scripts/compile_ratchet.py` gate reads it on
+a GATE INPUT — the bare `python3 scripts/checks/compile_ratchet.py` gate reads it on
 every run — and a gate whose baseline sits behind an uninitialised submodule
 cannot run. It is bounded
 too: one frozen snapshot, rewritten rather than appended.
@@ -170,8 +170,8 @@ too: one frozen snapshot, rewritten rather than appended.
 | `run_tests_cost.jsonl` | `job` | `scripts/run_tests.py` | wall + per-job cost of the suite |
 | `compile_cost.jsonl` | `scenario` | `scripts/measure/compile_cost.py` | what an EDIT costs to rebuild |
 | `compile_units.jsonl` | `unit` | `scripts/measure/compile_collect.py` | seconds, frontend/codegen split and LOC per compile unit |
-| `compile_graph.jsonl` | `graph` | `scripts/compile_ratchet.py --update` | the deterministic build-shape numbers the gate guards |
-| `carve_lineage.jsonl` | `carve` | `scripts/compile_ratchet.py --record-carve` | what a module split from, and why |
+| `compile_graph.jsonl` | `graph` | `scripts/checks/compile_ratchet.py --update` | the deterministic build-shape numbers the gate guards |
+| `carve_lineage.jsonl` | `carve` | `scripts/checks/compile_ratchet.py --record-carve` | what a module split from, and why |
 
 **Every row in all five carries the same seven-key envelope, and `kind` is the
 discriminator that lets them be read as one table.** The field-by-field contract

@@ -109,7 +109,7 @@ def test_music_plan_and_registry_write_work_outside_the_checkout(tmp_path):
             "registry": "audio/music_registry.ron", "collection": "radio"}},
     }))
     result = subprocess.run(
-        [sys.executable, str(ROOT / "scripts/check_regeneration_coverage.py"),
+        [sys.executable, str(ROOT / "scripts/checks/check_regeneration_coverage.py"),
             "--family", "music", "--plans-only"],
         cwd=ROOT, env=dict(os.environ, AMBITION_CONTENT_LIBRARY=str(manifest)),
         capture_output=True, text=True,

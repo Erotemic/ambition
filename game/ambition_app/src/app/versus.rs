@@ -620,7 +620,7 @@ pub fn compose_versus_experience(app: &mut App) {
     // stays in `Update` for a stated reason — the teardown it shares a chain
     // with must outlive `GameplaySimulationRoot` — so this is not a line to
     // move; it is a claim to stop making. The guard knows: it is banked as
-    // MENU-RESET-MIDSESSION in `scripts/check_rollback_mutators_run_in_sim.py`,
+    // MENU-RESET-MIDSESSION in `scripts/checks/check_rollback_mutators_run_in_sim.py`,
     // and what it owes is a probe showing the write PRECEDES the timeline. Until
     // then it is an `Update` write to a `rollback_resource_clone_checksum` row,
     // so the exposure is PEER-COMPARED and not merely restore-local.

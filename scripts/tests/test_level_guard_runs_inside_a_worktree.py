@@ -33,7 +33,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-SCRIPT = REPO / "scripts/check_authored_levels_survive.py"
+SCRIPT = REPO / "scripts/checks/check_authored_levels_survive.py"
 
 
 def load():
@@ -86,7 +86,7 @@ def test_the_guard_still_refuses_an_empty_sweep(tmp_path, monkeypatch, capsys):
     module = load()
     monkeypatch.setattr(module, "REPO", tmp_path)
     # `main` parses sys.argv, which pytest owns — give it its own.
-    monkeypatch.setattr(sys, "argv", ["check_authored_levels_survive.py"])
+    monkeypatch.setattr(sys, "argv", ["checks/check_authored_levels_survive.py"])
     assert module.main() != 0
     assert "checked nothing" in capsys.readouterr().out
 

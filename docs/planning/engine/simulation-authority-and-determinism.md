@@ -131,7 +131,7 @@ Each gameplay domain owns the registration of its rollback types. The host/backe
 composes offers; it does not enumerate leaf gameplay types itself.
 
 `central-rollback-does-not-enumerate-domains` in
-`scripts/check_absence_contracts.py` protects this boundary.
+`scripts/checks/check_absence_contracts.py` protects this boundary.
 
 ### Wire-format changes are explicit
 
@@ -161,7 +161,7 @@ single-threaded executor. This is a measured implementation choice, not a
 requirement that deterministic simulation must always be single-threaded.
 
 Ordering edges are meaningful only when the referenced set has real members in
-the composition. `scripts/check_set_pins_have_engine_members.py` detects engine
+the composition. `scripts/checks/check_set_pins_have_engine_members.py` detects engine
 pins to empty engine sets.
 
 ### Session-owned rollback authority
@@ -264,7 +264,7 @@ when its value is derived.** "Derived" says how a value is computed; rollback
 cares whether anything reads it before its writer runs again. For example,
 `Dormant` (`actor.dormant`) is recomputed every tick, but `Without<Dormant>`
 filters production queries, so it must stay registered.
-`scripts/check_presence_filtered_state_is_rollback_registered.py` measures the
+`scripts/checks/check_presence_filtered_state_is_rollback_registered.py` measures the
 inverse: a presence-filtered component with no rollback row at all.
 
 `PlayerSlot` (`actor.player_slot`) is an open question: it is `component-clone`,
@@ -425,7 +425,7 @@ is immaterial while nothing in `SaveWorld` writes the save.
 
 The "outside the rewinding schedule" measurement sees only registered types whose
 probe can see a value change. Unregistered state written from `Update` is
-invisible to it. `scripts/check_rollback_mutators_run_in_sim.py` lists the
+invisible to it. `scripts/checks/check_rollback_mutators_run_in_sim.py` lists the
 acknowledged offenders.
 
 ### Host-to-host determinism witness
@@ -485,11 +485,11 @@ the production composition installs or orders it correctly.
 
 These guards are discovery/structural checks, not substitutes for runtime proof:
 
-- `scripts/check_rollback_mutators_run_in_sim.py` — catches known rollback-state
+- `scripts/checks/check_rollback_mutators_run_in_sim.py` — catches known rollback-state
   mutation registered outside the rewinding schedule;
-- `scripts/check_set_pins_have_engine_members.py` — catches engine ordering pins
+- `scripts/checks/check_set_pins_have_engine_members.py` — catches engine ordering pins
   to empty engine sets;
-- `scripts/check_absence_contracts.py` — includes the domain-ownership and wire
+- `scripts/checks/check_absence_contracts.py` — includes the domain-ownership and wire
   compatibility absence contracts.
 
 When a static census has an unattributed/unknown bucket, it can establish a floor,

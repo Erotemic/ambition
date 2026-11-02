@@ -1,0 +1,2915 @@
+#!/usr/bin/env python3
+"""Verify architectural absence and dependency contracts.
+
+Source contracts search production code after stripping comments, so prose about a
+removed symbol cannot violate the guard. Dependency contracts inspect `cargo
+metadata` transitively. Each contract has a narrow predicate and reason; remove or
+invert the contract when the architecture intentionally changes. Tests red-probe
+the checker so a broken measurement cannot report success."""
+
+from __future__ import annotations
+
+import argparse
+import functools
+import json
+import re
+import subprocess
+import sys
+from bisect import bisect_right
+from pathlib import Path
+
+class SentinelLockfileStale(RuntimeError):
+    """The capability-footprint sentinel's own `Cargo.lock` no longer resolves.
+
+    Its own failure, reported as one contract's RED, rather than a traceback that
+    silences every contract after it.
+    """
+
+
+# Every entry is one architectural absence. `paths` are git pathspecs limited to
+# production source; `patterns` are Python regexes matched against comment-
+# stripped lines. Keep patterns narrow — see the module docstring.
+#
+# CONFINEMENT, NOT SINGULARITY — and the names now say so.
+#
+# A contract that excludes the one allowed file proves "no reference exists
+# OUTSIDE this file". It does not prove that exactly one call exists inside it,
+# that the intended call still exists, or that a second resolver was not added
+# beside the first. `provider_of_character` already has TWO calls inside
+# `presentation.rs` and satisfies its guard.
+#
+# These were originally named `one-caller-of-*` / `one-reader-of-*`, and never were. It is just
+# not the stronger claim, so the ids no longer imply it.
+#
+# If exact singularity ever matters for one of these, add a positive count
+# assertion INSIDE the allowed file rather than renaming it back.
+ABSENCE_CONTRACTS: list[dict] = [
+    {
+        "id": "only-the-collision-world-composes-collision",
+        "paths": [
+            "crates/",
+            "game/",
+            "examples/",
+            ":(exclude)crates/ambition_platformer2d_world/src/collision.rs",
+            ":(exclude)crates/ambition_platformer2d_world/src/platforms/mod.rs",
+            # Its inline `#[cfg(test)]` module composes the world to test what
+            # a body reads after a brick breaks; the file's production half
+            # does not. A path check cannot see the test module.
+            ":(exclude)game/ambition_demo_mary_o/src/bricks.rs",
+        ],
+        "patterns": [
+            r"world_with_(sandbox_solids|moving_platforms|portal_carves)\(",
+        ],
+        "reason": (
+            "ONE COMPOSER OF WHAT A BODY COLLIDES WITH. `CollisionWorld` "
+            "(`ambition_platformer2d_world/src/collision.rs`) composes the room, "
+            "its moving platforms and the feature overlay, and every simulated "
+            "collider reads it. Until 2026-09-29 the body step composed its own "
+            "copy from three separate parameters, beside a doc that said no "
+            "consumer did. OW1 cut 3 moves the geometry onto a per-instance "
+            "root, and a second composer is a second place that would still "
+            "read the one live room."
+        ),
+    },
+    {
+        "id": "one-registrar-installs-the-session-teardown",
+        "paths": [
+            "crates/",
+            "game/",
+            "examples/",
+            ":(exclude)crates/ambition_platformer2d_provider/src/authoring.rs",
+            ":(exclude)crates/ambition_game_shell/",
+        ],
+        "patterns": [
+            r"ExperienceRegistration::new\(",
+        ],
+        "reason": (
+            "EVERY COMPOSITION THAT CAN REACH A SECOND SESSION MUST INSTALL THE "
+            "SESSION RESET, AND THE ONLY THING THAT GUARANTEES IT IS THIS BEING "
+            "THE ONLY REGISTRAR. The chain, MEASURED 2026-09-16: a second session "
+            "needs a second activation; `ShellActivationId` is minted in exactly "
+            "one place (`ambition_game_shell/src/router.rs`); the router routes "
+            "only to a REGISTERED experience; and `PlatformerExperience::register` "
+            "installs `PlatformerProviderRuntimePlugin` unconditionally, which "
+            "installs `SessionTeardownPlugin` and its exhaustive "
+            "`SessionScopedResources` destructure. A second registrar is a road to "
+            "a second session that resets nothing, and the resources it fails to "
+            "reset are stamps from the PREVIOUS session -- which read as valid.\n"
+            "\u26d4 THIS EXISTS BECAUSE THE ARGUMENT IT REPLACES WAS A CENSUS OF "
+            "WRITERS. `SessionScopedResources`' completeness was justified by "
+            "*'the only production registrar is this one'*, which is a count, and "
+            "a count rots the day somebody adds a provider crate. A boundary "
+            "notices; a count in a comment does not.\n"
+            "\u26a0 `ambition_game_shell` is excluded because its OWN tests "
+            "register experiences and activate multiple sessions without the "
+            "provider. They cannot exhibit the failure: that crate depends on "
+            "`ambition_platformer2d_shared_tangle` and on neither `ambition_match` "
+            "nor the actor monolith, so it cannot NAME the session-scoped match "
+            "resources, let alone hold one across an activation. The exclusion is "
+            "the dependency graph's answer, not an amnesty."
+        ),
+    },
+    {
+        "id": "only-the-candidate-builder-hides-a-root",
+        "paths": [
+            "crates/",
+            "game/",
+            "examples/",
+            ":(exclude)crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs",
+            ":(exclude)crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs",
+            ":(exclude)crates/ambition_platformer2d_publication/src/stage.rs",
+        ],
+        "patterns": [
+            r"construction::(hide_candidate_session_root|hide_candidate_session_entity)\(",
+            r"use .*construction::.*(hide_candidate_session_root"
+            r"|hide_candidate_session_entity)",
+        ],
+        "reason": (
+            "A10: HIDING IS HOW A CANDIDATE STAYS OFF TO THE SIDE, AND IT IS A "
+            "DISABLING MARKER -- applying it to something that is NOT a candidate "
+            "removes that entity from every ordinary query in the game while "
+            "leaving it alive, which is the least debuggable failure this "
+            "machinery can produce. `InactiveCandidate` itself is `pub(crate)` so "
+            "no outside crate can name it or hook it; these two helpers are the "
+            "only doors through the crate wall, and each has exactly ONE "
+            "production caller (MEASURED 2026-09-15): the room builder hides the "
+            "candidate session root it just minted, and `SessionSpawnScope::apply_to` "
+            "applies the hiding POLICY to what a candidate session spawns. "
+            "\u26a0 The paths exclude those two owners and the defining module. A "
+            "third caller is a third opinion about what belongs to a candidate, "
+            "and the marker's whole safety argument is that the set is decided in "
+            "one place."
+        ),
+    },
+    {
+        "id": "only-the-publication-authority-publishes-a-candidate",
+        # Everything EXCEPT the three files that legitimately own these words:
+        # the two publication authorities and the module that defines them.
+        "paths": [
+            "crates/",
+            "game/",
+            "examples/",
+            ":(exclude)crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs",
+            ":(exclude)crates/ambition_platformer2d_publication/src/transaction.rs",
+            ":(exclude)crates/ambition_platformer2d_provider/src/lifecycle.rs",
+        ],
+        "patterns": [
+            # QUALIFIED calls. `game/ambition_content` defines an unrelated
+            # `publish_candidate` of its own, which is why this asks for the
+            # module path rather than the bare name -- a name-only pattern reds
+            # on a function that has nothing to do with A10.
+            r"construction::(publish_candidate|publish_candidate_session"
+            r"|retire_superseded|retire_candidate|discard_candidate_session)\(",
+            # And the IMPORT, because an imported name is then called bare and a
+            # qualified-call pattern cannot see it. Measured before writing this:
+            # no production file imports any of them, and nothing globs
+            # `construction::*`.
+            r"use .*construction::.*(publish_candidate|publish_candidate_session"
+            r"|retire_superseded|retire_candidate|discard_candidate_session)",
+        ],
+        "reason": (
+            "A10: ONE BOUNDED PUBLICATION AUTHORITY PER LEVEL, AND A SECOND "
+            "CALLER IS A SECOND AUTHORITY. A candidate world is only allowed to "
+            "become authoritative through the exact sequence the level owns -- "
+            "for a ROOM `publish_candidate` then `apply_world_replacement` then "
+            "`retire_superseded`, in `publication/transaction.rs`; for a SESSION "
+            "`publish_candidate_session` in the provider's adoption, with "
+            "`discard_candidate_session` as its refusal half. Each of those "
+            "primitives is `pub` because it crosses a crate boundary, not because "
+            "anyone else may call it, and the property that A10 rests on is "
+            "currently held by there being exactly one production call site each "
+            "(MEASURED 2026-09-15). "
+            "The failure this prevents is the one A10 exists to remove and the "
+            "hardest to see in review: a new road that publishes a candidate "
+            "WITHOUT projecting and verifying the world publication would produce, "
+            "or that retires N before N+1 is authoritative. Both are one function "
+            "call away and neither looks wrong locally. "
+            "\u26a0 `apply_world_replacement` is absent from the patterns because "
+            "it is private to its own file -- unexpressible rather than "
+            "forbidden, which is the stronger form and the one to prefer whenever "
+            "a primitive does not have to cross a crate boundary."
+        ),
+    },
+    {
+        "id": "a-production-condition-states-why-it-said-no",
+        "paths": ["crates/", "game/", "examples/"],
+        "patterns": [
+            {
+                "grep": r"from_bool_unexplained",
+                # The definition site declares it; every other mention CALLS it.
+                "match": r"(?<!fn )from_bool_unexplained",
+            }
+        ],
+        "reason": (
+            "A CONDITION THAT ANSWERS 'NO' MUST SAY WHY, and that is a product "
+            "requirement rather than polish -- M5 of "
+            "`engine/authored-gameplay-logic-and-orchestration.md`, restated in "
+            "`engine/inspection-diagnostics-and-workbench.md` as structured "
+            "'why not' explanation. `ConditionOutcome::NotSatisfied(WhyNot { term, "
+            "subject, observed })` is the vocabulary; `from_bool_unexplained` is "
+            "the fixture arm, and its own doc says so: 'FIXTURES ONLY: a "
+            "production evaluator that reaches for this has a why-not it is not "
+            "stating, and the grep for this name is the list of them.' "
+            "That sentence described a grep somebody had to remember to run. It "
+            "is a contract now. "
+            "The failure it prevents is the hardest thing in a level to diagnose "
+            "from outside: a gated wall that will not open, with nothing said "
+            "about which term blocked it or what the domain saw. Seven published "
+            "conditions across four domains state one today; the eighth is where "
+            "a convention kept by hand stops being kept."
+        ),
+    },
+    {
+        "id": "the-sim-clock-is-world-time",
+        # The simulation's one time authority is `WorldTime`, published at
+        # `SimClockHead` from Bevy's `Time`; `SimDt` is its derived mirror.
+        "paths": [
+            "crates/ambition_platformer2d_runtime/src/sim_clock/",
+            "crates/ambition_platformer2d_actor_monolith/src/control/",
+            "crates/ambition_platformer2d_trace/src/",
+            "crates/ambition_dev_tools/src/lib.rs",
+        ],
+        "patterns": [
+            {
+                "grep": r"Res<",
+                "match": r"Res<\s*(bevy::(prelude|time)::)?Time\s*(<[^>]*>)?\s*>",
+            }
+        ],
+        "reason": (
+            "ONE CLOCK. Inside the rewinding schedule `Res<Time>` happens to "
+            "carry the same delta as `WorldTime::wall_dt()`, which is why the "
+            "clock smoothing, the camera-ease decay and the trace recorder "
+            "reading it directly never diverged — and why nothing would notice "
+            "the day one of them did. They read `WorldTime`; the trace "
+            "recorder's `sim_dt` had in fact diverged, multiplying by the scale "
+            "this tick's smoothing had already moved. A presentation timer that "
+            "wants the render frame's clock runs in `Update` and reads "
+            "`PresentationTime`."
+        ),
+    },
+    {
+        "id": "world-construction-does-not-read-the-ability-editor",
+        "paths": [
+            "crates/ambition_platformer2d_provider/",
+            "crates/ambition_platformer2d_session/src/",
+            "game/ambition_demo_mary_o/src/",
+            "game/ambition_demo_sanic/src/",
+        ],
+        "patterns": [r"EditableAbilitySet", r"fallback_abilities"],
+        "reason": (
+            "A DEVELOPER'S ABILITY SELECTION IS A MASK OVER THE BASE, NEVER THE "
+            "BASE. `SimulationSetup` took a `fallback_abilities: AbilitySet` and "
+            "all four callers passed `editable_abilities.as_engine()`, so an "
+            "editor value the rollback timeline had REFUSED still entered "
+            "simulation through CONSTRUCTION, and an ability switched off in the "
+            "panel was missing from the base a later edit is supposed to "
+            "re-enable it from. `Q120`'s protocol is editable -> proposal -> "
+            "admission -> `ActiveEditableAbilityMask` -> `base` intersect `mask`. "
+            "The parameter is deleted (the shared fallback is "
+            "`AbilitySet::sandbox_all()`, an engine constant, which is what all "
+            "four passed in practice), and this contract is what keeps a new "
+            "caller from reintroducing the road. GPT architecture review "
+            "2026-09-14, which named one of the four sites. "
+            "\u26a0 THE PATHS ARE THE CONSTRUCTION ROADS, not the workspace: "
+            "`ambition_dev_tools` defines the type and `live_refresh`'s tests "
+            "legitimately drive it."
+        ),
+    },
+    {
+        "id": "the-two-move-drivers-do-not-author-their-own-presses",
+        "paths": [
+            "game/ambition_app_tools/src/bin/moveset_takes.rs",
+            "game/ambition_app_tools/src/bin/moveset_render.rs",
+        ],
+        "patterns": [
+            r"(jump|attack|special|grab|taunt)_pressed",
+            r"attack_strong_hint",
+            r"attack_held",
+        ],
+        "reason": (
+            "ONE DEFINITION OF 'PERFORM THIS MOVE'. `moveset_takes` records what the "
+            "engine does with a press and `moveset_render` photographs it, and for a "
+            "while each had its own: its own take-off loop, its own aim settle, its own "
+            "retry count, and its own hold schedule -- the recorder held while "
+            "`tick < TAKE_TICKS / 4` and the renderer while `shot < frames / 4`. Those "
+            "happened to agree at 37 ticks, which is why nothing caught it: two tools "
+            "photographing the same move by coincidence. Worse, the renderer's spelling "
+            "made CAPTURE PARAMETERS change the move -- asking for 12 pictures instead "
+            "of 24 charged the smash half as long. "
+            "`support/move_exercise.rs` owns the press table, `action_frame`, "
+            "`HOLD_TICKS` and `prepare`; a driver that constructs a button field is "
+            "growing a second answer to a question that has one. If a driver needs a "
+            "posture or a schedule the shared exercise cannot express, add it THERE."
+        ),
+    },
+    {
+        "id": "the-recorders-do-not-resolve-their-own-combat-geometry",
+        "paths": [
+            "game/ambition_app_tools/src/bin/moveset_takes.rs",
+            "game/ambition_app_tools/src/bin/moveset_render.rs",
+            # The shared serializer is held to the same rule it exists to
+            # enforce: it reads the view and joins identity, and resolves
+            # nothing.
+            "crates/ambition_sim_harness/src/combat_observation.rs",
+        ],
+        "patterns": [
+            r"world_volume|world_aabb",
+            r"DamageableVolumes",
+            r"ResolvedHurtboxes",
+        ],
+        "reason": (
+            "ONE RESOLVER FOR HIT AND HURT GEOMETRY, AND IT IS THE ENGINE'S. "
+            "`moveset_takes::sample` queried `Hitbox`, built its own owner-position "
+            "map and called `world_volume` itself -- a second implementation of a "
+            "rule `CombatGeometryView` already owns, which had already been wrong "
+            "once: it reached for `world_aabb`, so a rotated box, a disc and a "
+            "sweeping arc were all recorded as the axis-aligned rectangle CONTAINING "
+            "them. It also had no damageable geometry at all, so a recording could "
+            "show a strike passing through a fighter and could not say whether that "
+            "fighter was hittable there. "
+            "`CombatGeometryView` resolves strike volumes with the same call the "
+            "combat resolver uses and applies the runtime's three-way damageable "
+            "rule (published / published-empty is intangible / unpublished falls "
+            "back to the coarse box); `combat_observation` serializes it. A tool "
+            "that reads `Hitbox` or `DamageableVolumes` directly is growing a second "
+            "answer to a question that has one. If the view is missing a fact the "
+            "observatory needs, EXTEND THE VIEW -- that is how `damage` and "
+            "`hurtbox_source` got there."
+        ),
+    },
+    {
+        "id": "ending-a-move-goes-through-the-one-teardown-path",
+        "paths": [
+            "crates/",
+            "game/",
+            # `cancel_move_playback` IS the path, and it is the removal.
+            ":(exclude)crates/ambition_combat/src/moveset/mod.rs",
+        ],
+        # POSIX ERE -- `git grep` does not take non-capturing groups. Matching
+        # `remove::<` as a substring covers `try_remove::<` too, which is the
+        # spelling two of the three offenders used.
+        "patterns": [r"remove::<[ A-Za-z0-9_:]*MovePlayback"],
+        "reason": (
+            "ENDING A MOVE MEANS ENDING ITS STRIKE BOXES. A move's hit volumes are "
+            "spawned entities the playback owns by id; stripping `MovePlayback` on "
+            "its own orphans them, and they stand until the next tick's "
+            "`retire_orphaned_strike_volumes` sweep. `cancel_move_playback` is the "
+            "one teardown path and despawns both. "
+            "This has been rediscovered twice. The helper's own doc records FOUR "
+            "hand-copies, one of them carrying the comment 'Tear down exactly as "
+            "natural completion does (the ONE teardown path)' -- a claim the code "
+            "made true by duplication. Three more survived that consolidation: the "
+            "smash respawn, the versus round reset, and an interrupted boss windup. "
+            "A comment cannot hold this invariant, because the wrong version is one "
+            "line shorter and reads correct. "
+            "If a site genuinely has no boxes to despawn (a windup, say), call the "
+            "helper anyway -- it is a no-op there, and being a no-op is not a reason "
+            "to keep a second meaning of 'cancel this move' alive."
+        ),
+    },
+    {
+        "id": "the-generic-brain-does-not-grow-new-platform-fighter-edges",
+        "paths": [
+            "crates/ambition_characters/src/brain/",
+            # the codec that rewinds the brain, outside `brain/` and named the
+            # fighter's fields by hand — see the pattern note below.
+            "crates/ambition_characters/src/snapshot_impls.rs",
+            # THE PLATFORM-FIGHTER BRAIN ITSELF. `brain/fighter/` is the
+            # capability; it is allowed to know what it is.
+            ":(exclude)crates/ambition_characters/src/brain/fighter",
+            # 1. ✔ CLOSED 2026-08-28, so the CARVE-OUT GOES WITH IT. The generic
+            #    `BrainSnapshot` carried `attack_kit:
+            #    Vec<fighter::options::AttackCandidate>` — every brain paying for
+            #    a field only one of them reads, in a type only one of them owns.
+            #    The kit was never fighter vocabulary (`AttackBinding`'s own doc:
+            #    *"the ordinary gesture vocabulary, not a fighter-only bypass"*)
+            #    and lives in `brain/attack_kit.rs` now. ⛔ an exclusion kept past
+            #    the edge it excused is a hole, not a record.
+            # 2. the generic `StateMachineCfg` has a `Fighter` VARIANT holding
+            #    `FighterCfg`/`FighterState`, so the shared state-machine brain
+            #    cannot compile without the fighter one. This is the big edge:
+            #    removing it needs a registration seam so a capability supplies
+            #    its own brain variant.
+            ":(exclude)crates/ambition_characters/src/brain/state_machine/mod.rs",
+            # 4. `Brain`'s rollback cursor codec encodes the fighter's own state
+            #    fields. The capability owes its own rollback row before this can
+            #    go — the pattern `SmashHoldState` proved. ⇒ the file is excluded
+            #    HERE and re-covered by its own contract below, which watches
+            #    `fighter::` on it and lets only the enum variant through. A
+            #    whole-file exemption for one known edge is a hole: a returning
+            #    `fighter::` type would have walked in beside it.
+            ":(exclude)crates/ambition_characters/src/snapshot_impls.rs",
+            # 5. `brain/mod.rs` maps the variant to the string `"fighter"` for
+            #    diagnostics. The SMALLEST edge and the one a registration seam
+            #    answers for free: a registered brain carries its own name, so
+            #    the generic side stops enumerating names it does not own.
+            ":(exclude)crates/ambition_characters/src/brain/mod.rs",
+        ],
+        # Watch both direct module references and the enum variant used by the
+        # rollback codec outside `brain/`.
+        "patterns": [r"\bfighter::", r"StateMachineCfg::Fighter"],
+        "reason": (
+            "The 2026-08-19 GPT review withdrew the standing 'do not carve yet' hold on "
+            "D166: 'I no longer think that should be treated as indefinitely binding... "
+            "the carve has now been earned.' It also said to make the SEMANTIC boundary "
+            "load-bearing first and let a dedicated platform-fighter capability crate "
+            "follow only if the dependency result comes out clean. This contract is that "
+            "boundary, stated as a checkable claim: the generic brain names the "
+            "platform-fighter brain in exactly TWO places now (2026-08-28, down from "
+            "three when this was written and five when it was first costed), and it "
+            "may not grow a third. Without it the carve gets costed from a photograph months later, "
+            "which is how the previous estimate went stale."
+        ),
+    },
+    {
+        "id": "the-brain-codec-names-the-fighter-only-through-the-enum-variant",
+        "paths": ["crates/ambition_characters/src/snapshot_impls.rs"],
+        # ⛔ ONE PATTERN, DELIBERATELY. The sibling contract above watches BOTH
+        # `fighter::` and `StateMachineCfg::Fighter`; this file legitimately
+        # matches the second (the rollback cursor codec has to encode the variant
+        # it is rewinding), so it is excluded there and covered here by the half
+        # that is still forbidden.
+        "patterns": [r"\bfighter::"],
+        "reason": (
+            "The rollback cursor codec matches `StateMachineCfg::Fighter` because it "
+            "encodes the brain it rewinds, and that edge goes when the registration "
+            "seam does. It must not acquire any OTHER platform-fighter dependency in "
+            "the meantime. The sibling contract excluded this whole file for the one "
+            "known match, which meant a new `fighter::` type could be added here and "
+            "the ratchet would stay green -- the exemption was broader than the edge "
+            "it excused, during the migration it exists to ratchet. Zero `fighter::` "
+            "matches here as of 2026-08-28, when `AttackVerb` moved to "
+            "`brain::attack_kit`; this keeps it that way."
+        ),
+    },
+    {
+        # ⛔⛤ RULED 2026-09-13: an epoch is a GAP-TOLERANT LINEAGE ID. The
+        # hot-reload road allocates BEFORE a preflight that can fail — deliberately,
+        # so a rebuilt root's `TransactionId` names the generation it is BECOMING
+        # rather than the one it replaces — so a refused reload burns a number.
+        # `ContentEpoch` therefore does not derive `Ord`/`PartialOrd`, which makes
+        # "epoch 7 is newer than epoch 5" a compile error rather than a convention.
+        # MEASURED before removing them: the workspace and every test target
+        # compiled unchanged, so nothing compared two epochs.
+        #
+        # ⇒ Re-deriving them is the one edit that would quietly make a GAP mean
+        # something, and it would do so far from the allocator. If ordering is
+        # genuinely wanted, the decision to revisit is RESERVATION SEMANTICS
+        # (hand the number back on refusal) — delete this contract in that commit.
+        "id": "content-epochs-are-not-ordered",
+        "paths": ["crates/ambition_platformer2d_core/src/content_epoch.rs"],
+        "patterns": [r"^\s*(Ord|PartialOrd),\s*$"],
+        "reason": (
+            "A ContentEpoch is a gap-tolerant lineage id: the hot-reload road "
+            "allocates before a preflight that can refuse, so a refused reload "
+            "leaves a hole in the sequence. Deriving Ord would make that hole "
+            "comparable, and 'epoch 7 is newer than epoch 5' would become "
+            "expressible in code that has no way to know a number was burned. "
+            "Epochs answer equality only: 'is this the generation I was planned "
+            "against'."
+        ),
+    },
+    {
+        "id": "player-input-frame-mirror-does-not-return",
+        "paths": ["crates/", "game/"],
+        "patterns": [r"\bPlayerInputFrame\b"],
+        "reason": (
+            "Per-tick participant input is owned by SlotControls and selected by "
+            "Brain::Player(slot); body mechanics consume ActorControl. Reintroducing "
+            "an entity-local PlayerInputFrame would create a second input authority "
+            "whose lifetime can diverge under possession, couch play, and rollback."
+        ),
+    },
+    {
+        "id": "a-second-writer-of-a-match-global-must-answer-ownership",
+        "paths": [
+            "crates/",
+            "game/",
+            # ActiveMatch is PUBLISHED by activation - the one place a match
+            # becomes active - and RETIRED by the versus stage's ownership-gated
+            # teardown.
+            #
+            # HOW TO TELL THEM APART, when this next goes red: grep the path this list already
+            # names for the write.
+            #
+            # Activation stayed the one writer. 2026-09-03: activation's file is
+            # `match_activation.rs` (preparation left for `ambition_match`); the
+            # exemption moved with the writer, it did not widen.
+            ":(exclude)crates/ambition_platformer2d_session/src/match_activation.rs",
+            ":(exclude)game/ambition_app/src/app/versus.rs",
+            # ⛔⛤ THE THIRD WRITER ARRIVED 2026-09-16, AND THE REVIEW THIS
+            # CONTRACT EXISTS TO FORCE IS WHAT PUT IT HERE: a GPT architecture
+            # review found that the session-activation edge reset the three
+            # `MatchInstance`-stamped mirrors and left the authority they mirror
+            # standing. `ActiveMatch`'s peer projection is `(seat count,
+            # ordinal)`, both written by the PREVIOUS session, so two hosts
+            # entering one new session after different histories began it with
+            # different checksummed state.
+            #
+            # ⭐ THE OWNERSHIP ANSWER, which is what this list is for. This
+            # writer never claims a match and never needs to know whose match it
+            # is deleting: it asserts that NO match is live, at the one boundary
+            # where no owner can still have a claim. A receipt alive when
+            # `SessionScopeActivated` fires belongs to an EARLIER scope by
+            # construction — `active_scope.begin()` mints a fresh monotonic id
+            # per activation, and `activate_the_prepared_match` refuses a plan
+            # whose session differs from the live one, so no match spans two
+            # sessions. A composition with no session lifecycle never writes the
+            # message and never reaches this code.
+            #
+            # ⇒ So it does not need `published_by` to answer, and adding one
+            # would not change what it does. The VALUE still has exactly one
+            # writer (activation). A fourth writer that PUBLISHES rather than
+            # clears is still the graduation this contract is watching for.
+            ":(exclude)crates/ambition_platformer2d_session/src/teardown.rs",
+        ],
+        "patterns": [
+            r"commands *\. *(insert_resource *\([^;]*|remove_resource::< *[A-Za-z0-9_: ]*)(ActiveMatch)",
+        ],
+        "reason": (
+            "`ActiveMatch` is a GLOBAL resource shared by "
+            "every experience in the host, and unlike `MatchParticipantRoster` it "
+            "carries no `published_by` - so there is no ownership question to ask and "
+            "no way to ask it. It is safe TODAY because exactly one writer "
+            "touches it. The roster was safe the same way until Smash's character "
+            "select published one from a different route, and Versus deleted "
+            "another game's match every frame; the fix was an owner field, learned "
+            "three separate times, the third one only after a stage opened with one "
+            "fighter instead of two. This contract does not add an owner - it makes "
+            "the SECOND writer visible at the moment it appears, which is when the "
+            "ownership question actually has to be answered rather than months "
+            "later from a photograph. If this list has to grow, growing it IS the "
+            "review. "
+            "GRADUATED 2026-08-10: `DeclaredCombatRules` was watched here for "
+            "exactly this reason and the second writer arrived - the smash demo "
+            "declares a DI budget, so the versus stage is no longer alone. The "
+            "review the contract exists to force HAPPENED and its answer is an "
+            "owner field: the resource carries `declared_by`, both stages name "
+            "themselves, and both give it back with `releasing_owned`. A type "
+            "that can answer the ownership question does not need a contract "
+            "asking whether anyone will, so it left this pattern rather than "
+            "being waived into it. `ActiveMatch` still cannot answer and stays. "
+            "NOTE this contract sees `commands` writes only. A shell experience "
+            "scope can also DELETE a match global by declaring "
+            "`releasing::<ActiveMatch>()`, which is invisible here and is how "
+            "two experiences came to claim sole ownership of both match globals "
+            "at once (fixed 2026-08-07). That class is checked by "
+            "`app_it::experience_scope_ownership`, which asks the composed scope "
+            "registry rather than the source text - the two are complementary "
+            "and neither subsumes the other."
+        ),
+    },
+    {
+        "id": "the-seat-topology-has-one-engine-side-creator",
+        "paths": [
+            "crates/",
+            "game/",
+            # The engine system that freezes it from the roster. This is the one
+            # place a shipped build gets a topology.
+            ":(exclude)crates/ambition_platformer2d_runtime/src/input.rs",
+            # The rollback observatory legitimately creates one for a proof
+            # session that has no roster (Ambition's own rooms). It is behind
+            # `dev_tools`, which is exactly the problem below — it may HAVE one,
+            # it may not be the only one that does.
+            ":(exclude)game/ambition_app/src/dev/rollback_observatory.rs",
+        ],
+        # `commands.` is the SYSTEM spelling. The checker excludes test PATHS
+        # and cannot see an inline `#[cfg(test)]` module, and `versus.rs` has one
+        # that inserts a topology by hand to drive the reconciler. Keying on
+        # `commands.` separates a system from a fixture's `app.insert_resource`
+        # without excluding a production file wholesale — the same discriminator
+        # the roster contract uses, and for the same reason.
+        "patterns": [
+            r"commands *\. *(insert_resource *\([^;]*LocalSeatTopology|remove_resource::< *[A-Za-z0-9_: ]*LocalSeatTopology)",
+        ],
+        "reason": (
+            "`LocalSeatTopology` is what makes a session stop re-sampling devices "
+            "- it freezes the roster's seat count and the handle->device mapping, "
+            "and every consumer takes `Option<Res<..>>` and returns early without "
+            "it. For months the ONLY thing that created one was the rollback "
+            "observatory, behind `#[cfg(feature = \"dev_tools\")]`, which the "
+            "android persona omits: so `reconcile_roster_with_frozen_topology` "
+            "returned on its first line every frame in every build a player runs, "
+            "and `assign_local_seat_devices` always used live discovery - the "
+            "behaviour its own doc calls the bug. Every test passed because tests "
+            "construct the resource by hand. A second creator makes 'is it frozen' "
+            "depend on which one ran, which is the same question with two answers "
+            "that this resource exists to prevent."
+        ),
+    },
+    {
+        "id": "the-global-roster-is-retired-only-by-its-owner",
+        "paths": [
+            "crates/",
+            "game/",
+            # The two experiences that publish a roster are the two that may
+            # retire one, and BOTH ask `is_published_by` first. They are named
+            # here rather than trusted: the point is that a THIRD site cannot
+            # appear without this list changing.
+            ":(exclude)game/ambition_app/src/app/versus.rs",
+            ":(exclude)game/ambition_demo_smash/src/lib.rs",
+        ],
+        # `commands.remove_resource` is the SYSTEM spelling; the checker excludes test PATHS but
+        # cannot see an inline `#[cfg(test)]` module, and `input_systems.rs` has one that
+        # retires a roster to prove a seat is retired with it. Keying on `commands.` separates a
+        # system from a test's `app.world_mut()` without excluding a production file wholesale.
+        # an exclusive system using `world.remove_resource` would slip; if one ever appears,
+        # this pattern grows rather than the exclusion list. ERE, not PCRE — `git grep -E`. A
+        # `(?:…)` group makes git exit 2 with "Invalid preceding regular expression", which the
+        # harness turns into a crash whose exit code 1 looks EXACTLY like the contract firing.
+        #
+        # the module path is OPTIONAL. The first draft matched only the bare
+        # type name, and a probe using
+        # `remove_resource::<crate::character_runtime::MatchParticipantRoster>`
+        # sailed straight through — a contract that only sees one spelling of the
+        # thing it forbids is a contract the next person writes around by accident.
+        "patterns": [
+            r"commands *\. *remove_resource::< *([A-Za-z0-9_]+ *:: *)*MatchParticipantRoster"
+        ],
+        "reason": (
+            "`MatchParticipantRoster` is a GLOBAL resource shared by every "
+            "experience in the host, and clearing 'the roster' is how one game "
+            "deletes another's match. The rule has been learned three times: "
+            "Versus's teardown got an `is_published_by` guard after it deleted "
+            "Smash's match every frame, Smash's select-arrival reset got one, and "
+            "on 2026-08-01 the reconciler - which had none - rebuilt Smash's "
+            "roster with a builder that stamps VERSUS ownership, so Versus then "
+            "deleted it as its own and Smash's match opened with one fighter "
+            "instead of two. Nothing named the rule in one place, so each site "
+            "learned it separately and the third had not. A new removal site "
+            "belongs beside an ownership question; if this list has to grow, the "
+            "growth is the review."
+        ),
+    },
+    {
+        "id": "central-rollback-does-not-enumerate-domains",
+        "paths": ["crates/ambition_platformer2d_runtime/src/rollback/mod.rs"],
+        "patterns": [
+            # The host may compose a domain's ONE public rollback offer. It may
+            # not reach through that seam to name any concrete gameplay type.
+            {
+                "grep": r"ambition_platformer2d_actor_monolith::",
+                "match": r"ambition_platformer2d_actor_monolith::(?!register_rollback_state\b)",
+            },
+            {
+                "grep": r"ambition_boss_encounter::",
+                "match": r"ambition_boss_encounter::(?!register_rollback_state\b)",
+            },
+            {
+                "grep": r"ambition_characters::",
+                "match": r"ambition_characters::(?!register_rollback_state\b)",
+            },
+            {
+                "grep": r"ambition_combat::",
+                "match": r"ambition_combat::(?!register_rollback_state\b)",
+            },
+            {
+                "grep": r"ambition_conversation::",
+                "match": r"ambition_conversation::(?!register_rollback_state\b)",
+            },
+            {
+                "grep": r"ambition_cutscene::",
+                "match": r"ambition_cutscene::(?!register_rollback_state\b)",
+            },
+            {
+                "grep": r"ambition_encounter::",
+                "match": r"ambition_encounter::(?!register_rollback_state\b)",
+            },
+            {
+                "grep": r"ambition_items::",
+                "match": r"ambition_items::(?!register_rollback_state\b)",
+            },
+            {
+                "grep": r"ambition_platformer2d_shared_tangle::",
+                "match": r"ambition_platformer2d_shared_tangle::(?!register_rollback_state\b)",
+            },
+            {
+                "grep": r"ambition_portal2d::",
+                "match": r"ambition_portal2d::(?!register_rollback_state\b)",
+            },
+            {
+                "grep": r"ambition_projectiles::",
+                "match": r"ambition_projectiles::(?!register_rollback_state\b)",
+            },
+            {
+                "grep": r"ambition_sprite_sheet::",
+                "match": r"ambition_sprite_sheet::(?!register_rollback_state\b)",
+            },
+            {
+                "grep": r"ambition_vfx::",
+                "match": r"ambition_vfx::(?!register_rollback_state\b)",
+            },
+        ],
+        "reason": (
+            "Domain-owned rollback migration. The runtime may compose a domain's "
+            "single `register_rollback_state` offer, but the concrete types and "
+            "their projections belong in the crate that owns them. A new "
+            "gameplay registration therefore changes the owning crate, not a "
+            "runtime `domains/` census. Runtime-adjacent state — engine_core, "
+            "persistence, sfx, sim_view, time, and host/session machinery — may "
+            "still be registered directly here."
+        ),
+    },
+    {
+        "id": "registration-does-not-demand-art",
+        # BOTH halves of registration, since the P1.7 split. A guard scoped to the file that
+        # kept the seam would have watched the wrong half of its own subject, which is the
+        # "instrument that measures nothing" shape this file's header names.
+        "paths": [
+            "crates/ambition_platformer2d_assets/src/materialization/definition.rs",
+            "crates/ambition_characters/src/prepared.rs",
+        ],
+        "patterns": [r"CharacterLoadDemand::request", r"\bdemand\.request\("],
+        "reason": (
+            "Registering a character DECLARES it; it does not ask for its art. "
+            "Demanding at registration defeats the room/match/worn projection "
+            "model — every registered character would decode whether or not "
+            "anything staged it. Staging is the only demand source (queue A1). "
+            "`CharacterLoadDemand` is legitimately named in this file's prose, "
+            "which is why this matches code only."
+        ),
+    },
+    {
+        "id": "the-worlds-path-is-confined-to-ldtk-paths",
+        # The subject includes TEST modules: five of them spelled the path too,
+        # and a contract that guards only the package would have watched half a
+        # migration.
+        "include_tests": True,
+        "paths": [
+            "tools/ambition_ldtk_tools/",
+            # The one legitimate home, and the test that pins what it returns.
+            ":(exclude)tools/ambition_ldtk_tools/ambition_ldtk_tools/ldtk/paths.py",
+            ":(exclude)tools/ambition_ldtk_tools/tests/test_ldtk_core_helpers.py",
+        ],
+        "patterns": [r'/\s*"worlds"'],
+        "reason": (
+            "The LDtk worlds directory is built in ONE place, `ldtk/paths.py`, "
+            "whose own docstring says it exists 'so individual commands do not "
+            "recreate stale repository-layout assumptions'. Fifteen commands and "
+            "five test modules then recreated them anyway, in three different "
+            "spellings, and when the worlds moved out of "
+            "`game/ambition_content_library/generated/runtime` every one of them broke: 11 of 149 "
+            "tests red on a clean tree, and a bare `ldtk edit measure` dying with "
+            "FileNotFoundError because its `--ldtk` default pointed at a "
+            "directory that had not existed for weeks (2026-07-28). A second "
+            "copy of a correct path is a copy that has not gone stale YET."
+        ),
+    },
+    {
+        "id": "no-string-keyed-sheet-row-lookup",
+        "paths": ["crates/", "game/", "fixtures/", "tools/"],
+        "patterns": [r"\.row_index_of\(", r"\bfn row_index_of\b"],
+        "reason": (
+            "A sheet row addressed by an arbitrary &str returned None when the "
+            "sprite called the animation `death` and the policy asked for "
+            "`dead`, and NOTHING DREW — an absence rendered as an absence. The "
+            "lookup was deleted in favour of resolved bindings, and the story "
+            "survives only as prose in two `binding.rs` module docs "
+            "(binding-resolution boundary, 2026-07-25/26)."
+        ),
+    },
+    {
+        # "migrated" is a claim about what no longer exists, which is exactly the
+        # kind of claim this file is for.
+        "id": "outlander-does-not-hand-order-its-own-composition",
+        # This contract is scoped to the external consumer; in-repo composition
+        # is measured separately.
+        "paths": ["fixtures/external_consumer/"],
+        # The fixture's tests ARE the consumer — a third party exercising the
+        # public API — so a test that rebuilds the composition by hand is exactly
+        # the second path this forbids, not an exemption from it.
+        "include_tests": True,
+        "patterns": [
+            # The engine ordering rules `ambition_platformer2d::app` now owns.
+            r"\badd_headless_foundation\b",
+            r"\binit_engine_states\b",
+            r"\bPlatformerEnginePlugins\b",
+            r"\bPlatformerHostPlugins\b",
+            r"\bPlatformerAssetsPlugin\b",
+            r"\bPlatformerPresentationPlugin\b",
+            r"\bMinimalShellPlugins\b",
+            # Bevy's own group: `PlatformerApp` decides windowed-vs-headless and
+            # which five plugins a GPU-less window disables. A consumer adding
+            # `DefaultPlugins` itself has taken that decision back.
+            r"\bDefaultPlugins\b",
+        ],
+        "reason": (
+            "The fixture had three hand-ordered builders totalling ~110 lines "
+            "(`build_outlander_app`, `build_outlander_rollback_app`, "
+            "`build_windowed_app`) plus two shared helpers, and between them they "
+            "restated eight engine ordering rules — four of which failed "
+            "silently: an asset source registered after `AssetPlugin` sealed its "
+            "sources, a GPU-less window missing one of five disables, engine "
+            "groups before `init_engine_states`, a host naming no initial route "
+            "and therefore preparing nothing. All three now go through "
+            "`ambition_platformer2d::app::PlatformerApp`, and `src/bin/dump.rs` — the last "
+            "hand-ordered path, which also installed the WINDOWED host in a "
+            "headless dump — was retired with it. Reintroducing any of these "
+            "names in the consumer means a second composition exists, which is "
+            "the state slice A4 is defined as ending. Retiring them is also what "
+            "closed `ambition_platformer2d::engine` and `ambition_platformer2d::windowed_host` on the A1 "
+            "ratchet, so a regression here shows up in two places."
+        ),
+    },
+    {
+        "id": "rollback-exit-oracle-is-not-quarantined",
+        # The one contract whose SUBJECT is a test file. Everything else is about
+        # production code, so tests are excluded by default — see `violations`.
+        "include_tests": True,
+        "paths": ["game/ambition_app/tests/rollback_exit_oracle.rs"],
+        "patterns": [
+            # An `#[ignore]` here is either opt-in TOOLING (a bisection you run
+            # when the oracle is red) or a DISABLED GUARD. Only the second is
+            # the absence this contract is about, and the reason string is what
+            # tells them apart — so the contract requires one, which also makes
+            # "why is this off?" answerable without reading the test body.
+            {
+                "grep": r"#\[ignore",
+                "match": r"#\[ignore(?!\s*=\s*\"(?:diagnostic|audit|measurement)\b)",
+            },
+            "known GGRS divergence",
+        ],
+        "reason": (
+            "This oracle guards a KNOWN determinism failure, so an ordinary "
+            "green run has to include it. It was `#[ignore]`d and red for a "
+            "long time; the file now explains that history in prose, and the "
+            "prose must not be mistaken for the attribute coming back "
+            "(queue A6). Release blocker for rollback multiplayer. A new "
+            "`#[ignore]` is allowed only as `diagnostic`/`audit`/`measurement` "
+            "tooling — anything else is a guard being switched off, which is "
+            "queue E1's rule applied where it was learned."
+        ),
+    },
+    {
+        "id": "the-character-domain-is-not-named-after-a-character",
+        "paths": ["crates/ambition_characters/"],
+        "patterns": [
+            # An ITEM named after one creature. Comment-stripped, so the doc
+            # citations in `entry.rs` ("48.0 is not invented: it is the
+            # protagonist, `player_robot_v3`") and the `npc_puppy_slug` fixtures
+            # in `character_catalog/binding.rs` are not what this is about — a
+            # crate may EXPLAIN itself with a concrete example and may TEST with
+            # one. What it may not do is own one's policy.
+            {
+                # `git grep` prefilters with ERE, then the Python `match`
+                # refines — the declaration keyword is what makes this about
+                # OWNERSHIP rather than about the string appearing at all.
+                "grep": r"player_robot|PLAYER_ROBOT",
+                "match": r"\b(?:fn|const|static|struct|enum|trait)\s+\w*(?:player_robot|PLAYER_ROBOT)\w*",
+            },
+        ],
+        "reason": (
+            "`ambition_characters` is the reusable authored-template layer — "
+            "the crate whose whole claim is that a character is DATA. On "
+            "2026-08-12 it acquired `apply_player_robot_slash_sfx` and three "
+            "`PLAYER_ROBOT_*` cue constants: canonical protagonist presentation "
+            "policy, in the domain crate, because the bulk move that lowered "
+            "`moveset/prefabs.rs` took everything that was ADJACENT in the file "
+            "rather than everything preparation CALLS. Measured, the overlay had "
+            "exactly one production caller and it was the protagonist road; "
+            "`prepare_character` never reached it (GPT 5.6 review of 1579ab3). "
+            "The generic builder vocabulary it reads — SWING_SFX_CUE, "
+            "SLASH_ARC_VFX, SLASH_POKE_VFX — is genuinely the builders' and "
+            "stays. The test is whether preparation needs it, and an item NAMED "
+            "after one creature has already answered no."
+        ),
+    },
+    {
+        "id": "the-character-fold-is-not-a-public-capability",
+        "paths": ["crates/ambition_characters/src/prepared.rs"],
+        "patterns": [
+            # A PUBLIC mint or a PUBLIC consumer of the staged partial. Either
+            # one alone is enough: the fold is spellable the moment both ends of
+            # the pipe are reachable, and they were both `pub` for one day.
+            # ⛔⛤ **NARROWED 2026-09-13: `StagedCharacterOverrides` LEFT THIS LIST,
+            # AND THE CONTRACT GOT STRONGER RATHER THAN WEAKER.** `215ecc43c`
+            # made that struct `pub` so the provider could hold a `Res<>` handle
+            # and call `deterministic_dump` on it for the prepared-content
+            # fingerprint — a finished READ, which is exactly what this
+            # contract's own reason says MAY cross the boundary. The contract
+            # went red on a proxy that had stopped tracking the guarantee.
+            #
+            # ⭐⭐ **AND THE GUARANTEE ITSELF WAS MEASURED BEFORE THE PROXY WAS
+            # TOUCHED, because narrowing a contract to make it green is how a
+            # guard stops meaning anything.** Compiling a reference to each fold
+            # entry point from `ambition_platformer2d_provider` — a different
+            # crate — at HEAD:
+            #
+            #     error[E0603]: function `finalize_cast` is private
+            #     error[E0603]: function `prepare_for_registration` is private
+            #     error[E0603]: function `prepare_character` is private
+            #
+            # ⇒ The fold is UNREACHABLE from outside the crate, which is the
+            # thing this contract exists to hold. The staged TYPE being nameable
+            # buys a caller nothing: with every fold entry private, holding a
+            # `StagedCharacterOverrides` lets you read it and not fold it.
+            #
+            # ⇒ So the list names the FOLD, and `prepare_character` /
+            # `finalize_character` join it — they were never here, and they are
+            # the two halves `finalize_cast` is built from.
+            {
+                "grep": r"pub (fn|struct) (finalize_cast|finalize_character|prepare_character|prepare_for_registration|StagedCharacter|StagedRegistration)",
+                "match": r"^\s*pub (?:fn|struct) (?:finalize_cast|finalize_character|prepare_character|prepare_for_registration|StagedCharacter|StagedRegistration)\b",
+            },
+        ],
+        "reason": (
+            "`CharacterPreparationPlugin` exists to stop a cast being folded "
+            "before the catalog it inherits from is installed — a provider that "
+            "folded early would bake an empty row in permanently, and which "
+            "provider goes first is a composition detail no provider can see. "
+            "That guarantee was module privacy until campaign P1.7 moved the "
+            "model down and left the lifecycle up, which forced `finalize_cast` "
+            "and `prepare_for_registration` to be `pub` so the App layer could "
+            "reach them. The staged value stayed opaque and the docs called "
+            "early folding 'unspellable' — but opacity of a FIELD prevents "
+            "nothing when both ends of the pipe are public: "
+            "`finalize_cast([prepare(..).staged], whatever_catalog_exists_now, ..)` "
+            "is ordinary safe code (GPT 5.6 review, priority 2). The lifecycle "
+            "moved down beside the fold, and what crosses the crate boundary is "
+            "a CONTRIBUTION (`stage_authored_character`) and a finished READ "
+            "(`PreparedCharacterRegistry`) — never the fold. `test-support` "
+            "keeps `prepare_and_finalize_for_test` for tests of pure folding; "
+            "that is a separate, feature-gated road and this contract does not "
+            "name it."
+        ),
+    },
+    {
+        "id": "fight-tests-do-not-hand-roll-damage",
+        "paths": ["crates/", "game/", "fixtures/"],
+        "patterns": [r"\b\w*_hp\s*-=", r"\bhp\s*-=\s*\d"],
+        "reason": (
+            "The two-provider fight test used to compute an AABB overlap by "
+            "hand and subtract integers from local variables: no entities, no "
+            "`MovePlayback`, no hit events, no `BodyHealth`. It proved the test "
+            "could do arithmetic. Damage is asserted through the production "
+            "path or not at all (queue A2)."
+        ),
+    },
+    {
+        "id": "the-smash-fighter-facet-is-read-only-by-its-owner",
+        "paths": [
+            "crates/",
+            "game/",
+            "fixtures/",
+            ":!crates/ambition_characters/src/smash_fighter/",
+        ],
+        "patterns": [r"\blowered_smash_fighters\b", r"\bSmashFighterFacet\b"],
+        "reason": (
+            "The platform-fighter facet has one reader, its capability "
+            "(`ambition_characters::smash_fighter`): `fold_into_definition` folds "
+            "its character facts through `pack_facets::fold_character_facets`, "
+            "and `fighter_body` gives its match fact to a composition (queue "
+            "AP78). Before, the generic `PackCast::register` read the book and "
+            "folded the weight, and the Smash demo read it again for the body. A "
+            "registration road that names one facet capability is the precedent "
+            "for naming the next; a demo that reads the facet is a second "
+            "interpreter of it."
+        ),
+    },
+    {
+        "id": "the-provider-resolver-is-confined-to-one-file",
+        "paths": [
+            "crates/",
+            "game/",
+            "fixtures/",
+            ":!crates/ambition_platformer2d_assets/src/materialization/presentation.rs",
+        ],
+        "patterns": [r"\bprovider_of_character\("],
+        "reason": (
+            "Which provider owns a character is decided in `presentation.rs` "
+            "(the prepared definition's) and consumed everywhere else. A second "
+            "caller is a second answer, and the failure is a body emitting in "
+            "the wrong provider's voice: audible, attributable to nothing, and "
+            "only on a crossover stage where two providers are live at once."
+        ),
+    },
+    {
+        "id": "the-boss-encounter-phase-is-stored-once",
+        "paths": ["crates/", "game/", "fixtures/"],
+        "patterns": [
+            r"\bsync_boss_encounter_phase\b",
+            r"\.status\.encounter_phase([^(]|$)",
+        ],
+        "reason": (
+            "AP33 (2026-09-25). `BossEncounter` carried `encounter_phase`, a copy "
+            "of its own `encounter.phase` that a system rewrote every tick; the "
+            "brain, member progress and banter read the copy. The phase is read "
+            "through `BossEncounter::encounter_phase()` from the phase state "
+            "itself, so there is no second value to fall behind."
+        ),
+    },
+    {
+        "id": "the-catalog-owners-map-is-not-a-provider-authority",
+        "paths": [
+            "crates/",
+            "game/",
+            "fixtures/",
+            ":!crates/ambition_characters/src/actor/character_catalog/registry.rs",
+            ":!crates/ambition_platformer2d_assets/src/materialization/audit.rs",
+            ":!game/ambition_app/tests/app_local_catalog_composition.rs",
+        ],
+        "patterns": [r"\.provider_for\("],
+        "reason": (
+            "AP31 (2026-09-25). The barrier prepares every catalog row under "
+            "the provider that registered it, so `CharacterCatalogOwners` holds "
+            "no provider the prepared registry does not. The resolver and the "
+            "move clock each asked it as a fallback, which answered a "
+            "registered-only character with nobody. Assembly writes it, the "
+            "parity audit cross-checks it, and the catalog-composition test "
+            "pins its assembly; a sim or presentation reader asks the prepared "
+            "definition."
+        ),
+    },
+    {
+        "id": "the-catalog-axis-tuning-is-confined-to-one-file",
+        # ENGINE crates only, and that is the claim rather than a concession.
+        # What must stay singular is the place the ENGINE weighs a catalog
+        # tuning against a definition's. A game reading its own catalog is a
+        # game reading its own content — Mary-O's inline tests assert her
+        # classic-physics numbers that way, and forbidding it would be
+        # forbidding a provider to know what it authored.
+        "paths": [
+            "crates/",
+            # The exemption is the same ONE file it always was; only its address changed, and this
+            # guard catching the move is the guard working.
+            ":!crates/ambition_characters/src/prepared.rs",
+            ":!crates/ambition_platformer2d_actor_monolith/src/avatar/character_execution.rs",
+            ":!crates/ambition_characters/src/actor/character_catalog/mod.rs",
+        ],
+        "patterns": [r"\baxis_tuning\("],
+        "reason": (
+            "The catalog's movement feel is read in one place and weighed "
+            "against the definition's there. This one nearly broke on the "
+            "commit that introduced it: the seated projection first read the "
+            "prepared value DIRECTLY, so for a character with catalog tuning "
+            "and no authored tuning the worn path inserted the marker and the "
+            "projection removed it on the same tick. Two paths answering one "
+            "question, reintroduced by the commit closing that exact failure. "
+            "⚠ 2026-07-29: `definition.rs` joined the allowed set because the "
+            "fold moved to the barrier — and the projection's half of that old "
+            "bug is GONE with it, because there is no longer a prepared value "
+            "the projection could read `None` from while the worn path read a "
+            "row."
+        ),
+    },
+    {
+        "id": "the-movement-tuning-resolver-is-confined-to-one-file",
+        "paths": [
+            "crates/",
+            "game/",
+            "fixtures/",
+            # The ONE production caller, and the re-export that lets it be one.
+            ":!crates/ambition_platformer2d_actor_monolith/src/avatar/character_execution.rs",
+            ":!crates/ambition_platformer2d_actor_monolith/src/avatar/mod.rs",
+        ],
+        "patterns": [r"\bmovement_tuning_for_character\("],
+        "reason": (
+            "`movement_tuning_for_character` resolves prepared-vs-catalog for a "
+            "body's movement tuning, and it is one of the four surviving "
+            "character resolvers Campaign 1 decided to KEEP rather than collapse "
+            "(X12: they answer different fields on different cadences, and one "
+            "universal resolver is the premature abstraction the review warns "
+            "against). Keeping four is only safe while each has exactly one "
+            "caller — the campaign's content is a guard that no FIFTH appears. "
+            "Found 2026-07-28 by verifying the claim that every resolver was "
+            "pinned: three were, this one was not, and an unguarded resolver is "
+            "the one a second caller grows on."
+        ),
+    },
+    {
+        "id": "the-catalog-only-motion-model-resolver-stays-deleted",
+        "paths": ["crates/", "game/", "fixtures/"],
+        "patterns": [r"\bmotion_model_spec_for_character_id\b"],
+        "reason": (
+            "AP30 (2026-09-25). The barrier prepares every catalog row, so a "
+            "worn body's movement policy is its prepared definition's and "
+            "`motion_model_spec_for_character` is a plain registry read. It "
+            "used to WEIGH the registry against this catalog-only resolver, and "
+            "a from-scratch bundle called the catalog one directly, so the home "
+            "body ignored a definition's authored model. A second way to ask "
+            "the catalog is a second answer."
+        ),
+    },
+    {
+        "id": "the-actor-mirrors-stay-deleted",
+        "paths": ["crates/", "game/", "fixtures/"],
+        "patterns": [r"\bActorIntent\b", r"\bActorCooldowns\b"],
+        "reason": (
+            "AC1 of the authority-convergence campaign (2026-08-13). These two "
+            "components MIRRORED state the body already owned: an intent the "
+            "brain had already published and cooldowns the move playback already "
+            "tracked, kept in a second place and reconciled by a sweep. The "
+            "campaign deleted them (29 and 25 references at arming, 0 at close) "
+            "and the ratchet is the point — a mirror does not come back as a "
+            "mirror, it comes back as one innocent helper that needs 'just the "
+            "intent' somewhere the body is not in scope. "
+            "MIGRATED HERE 2026-08-15 from a goal-guard check that was a bare "
+            "`grep -rn --include=*.rs`. That form reddens on a doc comment "
+            "EXPLAINING the removal, which is the recurrence this file's header "
+            "documents three times; contracts strip comments before matching."
+        ),
+    },
+    {
+        "id": "no-build-legacy-body-then-patch-it",
+        "paths": ["crates/", "game/", "fixtures/"],
+        "patterns": [r"\badopt_character_intrinsics\b"],
+        "reason": (
+            "AC5 of the same campaign. This was the seam of the two-step "
+            "construction the campaign existed to remove: build a body from the "
+            "legacy archetype, THEN patch the authored character's intrinsics "
+            "over it. While that call existed, the character definition was a "
+            "correction applied to a legacy default rather than the authority, "
+            "so every intrinsic had two possible origins and 'which one won' was "
+            "a function of ordering. Construction reads the definition directly "
+            "now; a reappearance of this symbol means the legacy default is back "
+            "underneath, which is the failure mode 'DELETION IS THE PROOF' names. "
+            "MIGRATED HERE 2026-08-15 from a goal-guard check, same reason as "
+            "`the-actor-mirrors-stay-deleted`."
+        ),
+    },
+]
+
+# Files whose content is ABOUT the contracts rather than governed by them.
+SELF_REFERENTIAL = {"scripts/checks/check_absence_contracts.py"}
+
+# Dependency-edge contracts, read from `cargo metadata` rather than from text.
+#
+# A grep cannot express "crate A must not depend on crate B". It can find the `use` that proves
+# it, and miss the one added through a re-export tomorrow; it cannot see a dependency introduced
+# through an intermediary at all.
+#
+# `forbidden` is checked TRANSITIVELY. The claim being guarded is never "no
+# direct dependency line" — it is that a foundation crate cannot REACH gameplay,
+# and reaching it through one intermediary is the same architectural failure with
+# an extra hop. A layering inversion almost never arrives as a direct edge.
+DEPENDENCY_CONTRACTS: list[dict] = [
+    {
+        "id": "geometry-is-the-floor",
+        "crate": "ambition_geometry",
+        "forbidden": "*",
+        "reason": (
+            "Shapes, boxes and reference frames — the vocabulary every other "
+            "crate is written in terms of, and the one layer with no workspace "
+            "dependency at all. This is what `ambition_platformer2d_core`'s "
+            "contract used to say; the floor MOVED DOWN when the kernel was "
+            "carved out, and the guarantee has to move with it or it is not a "
+            "floor, it is a habit."
+        ),
+    },
+    {
+        "id": "projectile-spec-is-a-floor",
+        "crate": "ambition_projectile_spec",
+        "forbidden": "*",
+        # The one edge, named: the spawn value is the projectile domain's
+        # extension request port value (`ProjectileSpawnPort`), and the port
+        # trait lives in the SDK — which is itself a floor (below).
+        "allowed": ["ambition_extension_sdk"],
+        "reason": (
+            "Content-free spawn data. It exists so a consumer can take the "
+            "vocabulary without taking a 16,927-line platformer crate, and that "
+            "is worth exactly nothing if it grows a workspace dependency of its "
+            "own — the closure it was carved to shrink would grow straight back. "
+            "⚠ this is the SECOND crate to carry `forbidden: \"*\"`, which is "
+            "the rule an `allowed` entry has to satisfy: a named allowance is "
+            "only safe if the crate it names is itself a floor."
+        ),
+    },
+    {
+        "id": "extension-sdk-is-a-floor",
+        "crate": "ambition_extension_sdk",
+        "forbidden": "*",
+        "reason": (
+            "The portable procedural extension contract. A module author builds "
+            "against it without Bevy, the host or any engine implementation "
+            "(extension-model D5; fast-iteration FI1). One workspace edge out of "
+            "here puts the engine into every module's build, and the no-relink "
+            "loop it exists for is gone."
+        ),
+    },
+    {
+        "id": "resource-spec-is-a-floor",
+        "crate": "ambition_resource_spec",
+        "forbidden": "*",
+        "reason": (
+            "The authored resource identity, prices and declarations. Content "
+            "data and the body floor both speak it, so it can depend on neither "
+            "— and on nothing else, or core's second allowed edge stops being a "
+            "leaf and the floor grows a closure."
+        ),
+    },
+    {
+        "id": "engine-core-is-the-floor",
+        "crate": "ambition_platformer2d_core",
+        "forbidden": "*",
+        # the edges, named. Core sits on the geometry kernel and on the
+        # resource vocabulary, and on nothing else; BOTH carry `forbidden: "*"`,
+        # so the chain still bottoms out with no outward edge. The second edge
+        # exists because content data (`ambition_entity_catalog`'s move prices)
+        # and the body floor (core's resource bank) must share one resource
+        # identity and may not depend on each other. Widening this list for
+        # anything that is not itself a leaf is how "the floor" becomes
+        # "roughly the floor".
+        "allowed": ["ambition_geometry", "ambition_resource_spec"],
+        "reason": (
+            "The movement and body vocabulary every other crate is written in "
+            "terms of. It depends on NO workspace crate except the geometry "
+            "kernel it was carved from, and that is what makes it the layer "
+            "everything else can agree on rather than one more participant in "
+            "a cycle. A second edge out of here makes the whole graph a "
+            "suggestion."
+        ),
+    },
+    {
+        "id": "platformer-primitives-stays-a-foundation",
+        "crate": "ambition_platformer2d_shared_tangle",
+        "forbidden": [
+            "ambition_platformer2d_actor_monolith",
+            "ambition_characters",
+            "ambition_combat",
+            "ambition_platformer2d_runtime",
+            "ambition_content",
+            "ambition_platformer2d",
+            # ⛔⛤ **AND THE SHELL, ADDED 2026-09-16 TO MAKE A LAYER SPLIT THAT
+            # WAS ONLY PROSE MECHANICAL.** `ActiveSessionScope` lives here and
+            # `ActiveGameplaySession` lives in `ambition_game_shell`, and
+            # DUP-SESSION-CURRENT's acceptance says the split must survive:
+            # "which scope is current, and is it ready" is a simulation
+            # question, and the shell's route/activation identity cannot answer
+            # it. That was argued from behaviour, and behaviour changes.
+            # MEASURED before adding: `cargo tree -p
+            # ambition_platformer2d_shared_tangle -e normal` reaches
+            # `ambition_game_shell` ZERO times, so this pins today's graph
+            # rather than asking for a change.
+            "ambition_game_shell",
+        ],
+        "reason": (
+            "Session scope, binding resolution and stable ids — the vocabulary "
+            "gameplay crates USE. It sits directly above `engine_core` and "
+            "below everything that has opinions about actors, so a dependency "
+            "on one of those inverts the layering the refactor timeline is "
+            "built on (foundations < gameplay_core < content). ⭐ The shell edge "
+            "is the same rule one layer over: the simulation's own session "
+            "identity must be complete without the shell's, which is what lets "
+            "`a_hidden_candidate_session_is_invisible_to_the_live_world_and_"
+            "visible_to_its_transaction` exercise a whole reserve/publish "
+            "lifecycle in this crate's own tests with no router in the world."
+        ),
+    },
+    {
+        "id": "characters-do-not-depend-on-the-actor-integration-layer",
+        "crate": "ambition_characters",
+        "forbidden": ["ambition_platformer2d_actor_monolith", "ambition_platformer2d_runtime", "ambition_platformer2d"],
+        "reason": (
+            "`ambition_platformer2d_actor_monolith` depends on `ambition_characters`, which makes "
+            "the reverse edge a cycle waiting to be discovered by the compiler "
+            "at the worst moment. It also matters for the deferred "
+            "`ambition_platformer2d_actor_monolith` decomposition: if a coherent actor kernel exists "
+            "at all, `ambition_characters` is below it."
+        ),
+    },
+    {
+        "id": "engine-crates-do-not-consume-the-umbrella-facade",
+        "crate": "ambition_platformer2d_actor_monolith",
+        "forbidden": ["ambition_platformer2d"],
+        "reason": (
+            "`ambition_platformer2d` is the facade a CONSUMER builds a game against; it "
+            "re-exports `ambition_platformer2d_actor_monolith` among thirty-odd others. An engine "
+            "crate reaching back through it is circular by construction, and it "
+            "is how a headless consumer ends up compiling the render stack. "
+            "⚠ deliberately scoped to engine crates: `ambition_content` DOES "
+            "depend on the facade today, and whether that should stop is a "
+            "MEASUREMENT question the campaign defers rather than a rule."
+        ),
+    },
+]
+
+# Consumer-module ratchets freeze the exact named set rather than a count:
+#   1. `named ⊆ allowed ∪ baseline` forbids new internal-module dependencies.
+#   2. `baseline ⊆ named` removes baseline entries as consumers migrate away.
+# An empty allowlist therefore converges monotonically toward the public SDK.
+MODULE_ALLOWLISTS: list[dict] = [
+    {
+        "id": "outlander-names-only-the-public-sdk",
+        # This contract measures only the external-consumer fixture.
+        "paths": ["fixtures/external_consumer/"],
+        # Fixture tests exercise the same public API and are part of this consumer surface.
+        "include_tests": True,
+        "facade": "ambition_platformer2d",
+        # Reviewed public SDK surface. Add a module only when the SDK contract names it;
+        # an allowlist entry is a compatibility commitment, not a ratchet escape hatch.
+        "allowed": {
+            "actor",
+            "app",
+            "bevy",
+            "character",
+            "rollback",
+            "sim",
+            "view",
+            "world",
+        },
+        # Empty baseline: this consumer names no implementation-shaped modules.
+        "baseline": set(),
+        "reason": (
+            "A game depends on `ambition_platformer2d`, and `ambition_platformer2d` is currently the list "
+            "of crates the engine happens to be built from — so a consumer's "
+            "imports encode our implementation topology and we cannot move an "
+            "implementation without breaking them (ADR 0031). Outlander reaches "
+            "through the facade for `ambition_platformer2d::runtime::rollback::put_f32`: a "
+            "third party building a game is naming an internal serialisation "
+            "helper. Each name in `baseline` is one leak still open. The set may "
+            "not GAIN a member, and it may not KEEP one the consumer has stopped "
+            "naming — see the two invariants above. Zero means consumers name "
+            "only the SDK."
+        ),
+    },
+    {
+        "id": "minimal-game-names-only-the-public-sdk",
+        # The minimal-game fixture has an independent public-SDK ratchet.
+        "paths": ["fixtures/minimal_game/"],
+        "include_tests": True,
+        "facade": "ambition_platformer2d",
+        # `bevy` is a documented facade re-export and therefore part of the public surface.
+        "allowed": {"actor", "app", "bevy", "character", "sim", "view", "world"},
+        # Empty baseline: the minimal consumer now names only reviewed SDK
+        # surface. New implementation-module imports must fail this ratchet.
+        "baseline": set(),
+        "reason": (
+            "The movement-only minimal game is the consumer-matrix row Outlander "
+            "structurally cannot fill: it asks for almost nothing, so whatever it "
+            "still has to name is a floor on what EVERY game must know. Four "
+            "modules, all of them the room/experience declaration path — since "
+            "reduced to ZERO by slices B and C. The set "
+            "may not GAIN a member, and it may not KEEP one this game stops "
+            "naming."
+        ),
+    },
+    {
+        "id": "sim-harness-names-only-the-public-sdk",
+        # The reusable sim harness is a real engine customer: it owns a Bevy App,
+        # queries bodies, mutates test setup, drives participants, and can start
+        # rollback. If it needs crate-shaped facade paths, those are SDK gaps.
+        "paths": ["crates/ambition_sim_harness/"],
+        "include_tests": True,
+        "facade": "ambition_platformer2d",
+        "allowed": {
+            "actor",
+            # ⭐ OFFSCREEN CAPTURE IS AN SDK CONCEPT, added 2026-08-29 when the
+            # harness took the deterministic capture session in. It is NOT a
+            # crate mirror — the crate is `ambition_render` — and it is behind a
+            # default-off feature, so a sim that takes no pictures links none of
+            # it. ⛔ the rule this widens is "no implementation topology", and a
+            # game-concept module is exactly what the rule asks for.
+            "capture",
+            "character",
+            "engine",
+            # ⭐ PROCEDURAL EXTENSIONS ARE AN SDK CONCEPT, added 2026-10-01 when
+            # the harness took the loaded-module option (`ExtensionModuleFiles`).
+            # The facade module gathers the host, the SDK and the WASM backend
+            # under one engine concept, so the harness names no crate.
+            "extension",
+            "item",
+            # ⭐ WHAT AN OBSERVER READS IS AN SDK CONCEPT, added 2026-08-30 when
+            # the harness took the combat observation in. It is NOT a crate
+            # mirror — the crate is `ambition_sim_view` — and it is the same
+            # widening `capture` got: the rule is "no implementation topology",
+            # and naming the CAPABILITY is exactly what the rule asks for. The
+            # gap it closes was five crate-shaped paths (`engine_core`,
+            # `sim_view`, `mount`, `projectiles`, `platformer::sim_id`) reached
+            # for one question the engine already answers.
+            "observation",
+            "participant",
+            "rollback",
+            "session",
+            "settings",
+            "sim",
+            "world",
+        },
+        "baseline": set(),
+        "reason": (
+            "The programmatic simulation harness is part of the supported engine "
+            "surface, not an implementation crate. It used to depend only on the "
+            "facade while naming `actors`, `engine_core`, `platformer`, `runtime`, "
+            "`characters`, `entity_catalog`, `boss_encounter`, `input`, and "
+            "`persistence` through it. Those names encoded implementation topology. "
+            "Its baseline is now zero; new crate-mirror imports are SDK regressions."
+        ),
+    },
+    {
+        "id": "capability-demo-names-only-the-public-sdk",
+        # The capability itself deliberately stays below the facade. Its tests are
+        # the outside author/host proving that the capability composes through the SDK.
+        "paths": ["examples/capability_demo/tests/"],
+        "include_tests": True,
+        "facade": "ambition_platformer2d",
+        "allowed": {
+            "app",
+            "content",
+            "participant",
+            "rollback",
+            "session",
+            "sim",
+            "world",
+        },
+        "baseline": set(),
+        "reason": (
+            "The capability example is the worked external-author path. Its tests "
+            "must compose and inspect through semantic SDK modules, without knowing "
+            "that session storage lives in shared_tangle, action registration in "
+            "ambition_input, or rollback presentation timing in ambition_sim_view."
+        ),
+    },
+]
+
+# Central rollback ownership ratchet.
+# New domain state must not enter central registration, and entries that leave
+# must be pruned from the frozen baseline.
+
+# Frozen as a SET, never as a count.
+#
+# §2e's subject, made non-increasing.
+#
+# ONE invariant, not two, and the asymmetry is deliberate. The set may not GROW. The other two
+# ratchets need both halves; copying that here would add a rule with no failure behind it, which is
+# how a guard becomes ceremony.
+CAPABILITY_FOOTPRINT_BASELINE = (
+    "scripts/baselines/capability-footprint-baseline.json"
+)
+
+CAPABILITY_FOOTPRINT_SENTINEL = "fixtures/minimal_game"
+
+
+# ⛔⛔ THE CAPABILITY A CONSUMER DID NOT ASK FOR MUST NOT BE IN ITS COMPILE
+# CLOSURE. The sentinel above measures a consumer that asks for the renderer (its
+# own exit criterion draws a windowed face), so it cannot answer the question A9
+# actually poses: does a consumer that selected NO capability still compile one?
+#
+# ⭐ AND THE ANSWER HAS TO COME FROM A FEATURE-RESOLVED WALK. The manifest graph
+# `dependency_violations` uses counts every OPTIONAL edge, so it reports a
+# renderer that no feature ever enables — the exact wrong subject the sentinel's
+# own docstring warns about one rung up. `cargo tree --edges normal` with the
+# facade's features off is the resolver's own answer.
+#
+# Measured 2026-09-09: this held on ONE edge and one only —
+# `ambition_platformer2d -> ambition_platformer2d_host -> ambition_render`, where
+# the host named the renderer unconditionally. It is a feature now, and the
+# closure went 52 crates to 50 (`ambition_render` and `ambition_sprite_fx`).
+FEATURELESS_FACADE = "ambition_platformer2d"
+# ⚠ NOT A GENERAL "presentation is absent" CLAIM — the crates measured out of the
+# closure, named. Widening this to every presentation crate would assert
+# something no measurement supports; add a name here when a measurement removes
+# it, not before.
+#
+# ⛔⛔ AND EACH NAME IS SCOPED TO THIS PROFILE, NOT TO THE WORKSPACE.
+# `ambition_menu` joined 2026-09-09 when the runtime's map installer became its
+# `map` feature — and "the menu crate is never linked without the map" would be
+# FALSE: `ambition_platformer2d_host` legitimately takes it under `render`, for
+# the `MenuFont` handoff the composition root is the only place to make. What
+# this contract says is narrower and checkable: a consumer that selected NO
+# capability compiles none of them. Runtime INSTALLATION in a profile that does
+# render is a separate question with a separate witness
+# (`every_room_the_map_calls_visited_has_its_visit_on_the_save`, which reddens
+# when the facade stops forwarding `ambition_platformer2d_runtime/map`).
+FEATURELESS_FACADE_FORBIDS = (
+    "ambition_render",
+    "ambition_sprite_fx",
+    "ambition_menu",
+)
+# ⛔ THE ANTI-VACUITY FLOOR. A `cargo tree` that fails, or one whose output shape
+# changes, yields an empty set — and an empty set contains no forbidden crate, so
+# the contract would print `ok` having measured nothing. These two are in the
+# closure of a facade with every feature off by construction (the facade's own
+# manifest names them unconditionally), so their ABSENCE means the instrument
+# broke, not that the architecture improved.
+FEATURELESS_FACADE_FLOOR = ("ambition_platformer2d_core", "ambition_platformer2d_runtime")
+
+
+@functools.cache
+def featureless_facade_closure(root: Path) -> set[str]:
+    """The `ambition_*` crates a consumer links naming the facade and NO feature.
+
+    Process-local cache, for [`sentinel_linked_closure`]'s reason: one checker
+    invocation observes one tree.
+    """
+    result = subprocess.run(
+        [
+            cargo_binary(),
+            "tree",
+            "--prefix",
+            "none",
+            "--edges",
+            "normal",
+            "-p",
+            FEATURELESS_FACADE,
+            "--no-default-features",
+        ],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return set()
+    return {
+        line.split(" ", 1)[0]
+        for line in result.stdout.splitlines()
+        if line.startswith("ambition_")
+    }
+
+
+def featureless_facade_report(root: Path) -> tuple[list[str], list[str]]:
+    """`(forbidden crates present, floor crates missing)`."""
+    closure = featureless_facade_closure(root)
+    present = [crate for crate in FEATURELESS_FACADE_FORBIDS if crate in closure]
+    missing = [crate for crate in FEATURELESS_FACADE_FLOOR if crate not in closure]
+    return present, missing
+
+
+# ⭐ THE SDK GAME LINKS NO CAPABILITY IT OMITS (SDK-GAME). Outlander is the small
+# independent game on the public facade: its own workspace and lockfile, so the
+# resolver sees exactly what a third party gets. It selects the renderer and
+# rollback, and nothing below. Measured in BOTH builds, because a windowed build
+# that links what the headless one omits is presentation changing capability:
+# until 2026-10-09 the monolith's `visible` turned on portals and the LDtk crate,
+# so the windowed Outlander linked both (61 crates; 59 after the cut).
+SDK_GAME = "fixtures/external_consumer"
+SDK_GAME_BUILDS: tuple[tuple[str, ...], ...] = ((), ("visible",))
+# The facade's optional capabilities Outlander does not select. Name a crate
+# here only when a measurement shows it absent from both builds.
+SDK_GAME_OMITS = (
+    "ambition_inventory_ui",
+    "ambition_portal2d",
+    "ambition_portal2d_presentation",
+    "ambition_platformer2d_ldtk",
+    "ambition_settings_menu",
+    "ambition_touch_input",
+    "ambition_relativity",
+    "ambition_relativity2d",
+)
+# The anti-vacuity floor: Outlander names the facade and asks for the renderer,
+# so a closure without these measured nothing.
+SDK_GAME_FLOOR = ("ambition_platformer2d", "ambition_render")
+
+
+@functools.cache
+def _sdk_game_tree(root: Path, features: tuple[str, ...]) -> tuple[frozenset[str], str]:
+    """`(closure, cargo's error)`: the error is empty when `cargo tree` ran."""
+    # `--offline`, not `--locked`: this lockfile is git-ignored, so a fresh clone
+    # has none to hold, and the resolver writes it from the manifests. Offline,
+    # so a check does not download: a machine that never fetched the fixture's
+    # dependencies gets cargo's own error and the remedy, not a silent pass.
+    command = [cargo_binary(), "tree", "--prefix", "none", "--edges", "normal", "--offline"]
+    if features:
+        command += ["--features", ",".join(features)]
+    result = subprocess.run(
+        command, cwd=root / SDK_GAME, capture_output=True, text=True, check=False
+    )
+    if result.returncode != 0:
+        # cargo's first `error:` line and its innermost cause; the last line is
+        # usually a generic `help:` hint.
+        lines = [line.strip() for line in result.stderr.splitlines() if line.strip()]
+        first = next((line for line in lines if line.startswith("error")), "(no error line)")
+        causes = [line for line in lines if not line.startswith(("error", "help", "Caused by", "warning"))]
+        return frozenset(), first + (f" ({causes[-1]})" if causes else "")
+    return frozenset(
+        line.split(" ", 1)[0]
+        for line in result.stdout.splitlines()
+        if line.startswith("ambition_")
+    ), ""
+
+
+def sdk_game_closure(root: Path, features: tuple[str, ...]) -> set[str]:
+    """The `ambition_*` crates the SDK game links in the build `features` selects."""
+    return set(_sdk_game_tree(root, features)[0])
+
+
+def sdk_game_tree_errors(root: Path) -> list[str]:
+    """cargo's error for each build whose tree did not resolve."""
+    errors = []
+    for features in SDK_GAME_BUILDS:
+        error = _sdk_game_tree(root, features)[1]
+        if error:
+            errors.append(f"{'+'.join(features) or 'headless'}: {error}")
+    return errors
+
+
+def sdk_game_report(root: Path) -> tuple[list[str], list[str]]:
+    """`(omitted crates linked, floor crates missing)`, each as `build: crate`."""
+    present, missing = [], []
+    for features in SDK_GAME_BUILDS:
+        build = "+".join(features) or "headless"
+        closure = sdk_game_closure(root, features)
+        present += [f"{build}: {crate}" for crate in SDK_GAME_OMITS if crate in closure]
+        missing += [f"{build}: {crate}" for crate in SDK_GAME_FLOOR if crate not in closure]
+    return present, missing
+
+
+@functools.cache
+def sentinel_linked_closure(root: Path) -> set[str]:
+    """The `ambition_*` crates the sentinel actually LINKS, from cargo's resolver.
+
+    Process-local cache: one checker/test invocation observes one repository tree.
+    Re-running Cargo for the same root cannot add correctness while the process is
+    alive; it only repeats dependency resolution. A later invocation gets a fresh
+    observation.
+
+    ⚠ Until slice H this walked the workspace manifest graph from `ambition_platformer2d`,
+    which was correct while every facade edge was unconditional and became the
+    wrong subject the moment they were features: a static walk counts an
+    optional edge the sentinel never enabled, so the counter could never move.
+    The baseline's own subject line has always been "what a consumer links by
+    depending on the facade" — so ask cargo what the sentinel resolves, in the
+    sentinel's own workspace, with the sentinel's own feature choices.
+
+    `--locked` on purpose: a dependency change that alters the sentinel's
+    lockfile must arrive WITH that lockfile, or this check fails loudly instead
+    of silently rewriting it.
+
+    ⛔⛔ AND "FAILS LOUDLY" USED TO MEAN "CRASHES THE WHOLE CHECKER", which is a
+    different thing and a much worse one. `check=True` raised
+    `CalledProcessError` on the stale-lockfile exit, so the script died on a
+    traceback BEFORE most contracts ran and every one of them produced no verdict
+    at all. Measured 2026-09-04: a new workspace crate staled
+    `fixtures/minimal_game/Cargo.lock`, and two REDs sat behind that traceback for
+    a day — one of them an undeclared rollback wire-format entry. A guard whose
+    measurement crashes looks nothing like a guard that fails.
+
+    ⇒ The stale lockfile is now a SentinelLockfileStale, raised here and turned
+    into one contract's failure by the caller, so the other 37 still report.
+    """
+    result = subprocess.run(
+        [
+            cargo_binary(),
+            "tree",
+            "--locked",
+            "--prefix",
+            "none",
+            "--edges",
+            "normal",
+        ],
+        cwd=root / CAPABILITY_FOOTPRINT_SENTINEL,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise SentinelLockfileStale(
+            f"`cargo tree --locked` in {CAPABILITY_FOOTPRINT_SENTINEL} exited "
+            f"{result.returncode}. The sentinel keeps its OWN lockfile and a "
+            "workspace build never touches it, so adding or removing a crate "
+            "stales it silently. Regenerate it and commit it with the dependency "
+            "change:\n"
+            f"    (cd {CAPABILITY_FOOTPRINT_SENTINEL} && cargo tree --offline "
+            ">/dev/null)\n"
+            f"cargo said:\n{result.stderr.strip()[:800]}"
+        )
+    raw = result.stdout
+    return {
+        line.split(" ", 1)[0]
+        for line in raw.splitlines()
+        if line.startswith("ambition")
+    }
+
+
+def capability_footprint_violations(root: Path) -> list[str]:
+    """Crates the sentinel links that were not in the frozen closure."""
+    baseline = json.loads((root / CAPABILITY_FOOTPRINT_BASELINE).read_text())
+    return sorted(sentinel_linked_closure(root) - set(baseline["ambition_closure"]))
+
+
+def capability_footprint_departures(root: Path) -> list[str]:
+    """Crates the frozen closure still names that the sentinel no longer links.
+
+    ⛔ THE RATCHET WAS ONE-DIRECTIONAL FOR SIX WEEKS AND THAT IS HOW THE BASELINE
+    ROTTED. Growth is the violation, so growth is all it looked for -- and a
+    DEPARTURE left the closure and the counts pruned by whoever noticed, while
+    every sub-list that named the crate kept naming it. On 2026-09-03 five such
+    names were found across two lists, one of them twelve days old, and they were
+    not cosmetic: `reachable_only_through_the_facade` is the "closable by a
+    manifest edit?" list a carve decision is taken off, and three of its four
+    entries had already left.
+
+    ⭐ A DEPARTURE IS GOOD NEWS AND STILL FAILS, on purpose. The footprint
+    shrinking is the outcome the whole campaign wants; what must not happen is
+    the shrink landing while the record of it does not. Red here means "re-freeze
+    the baseline IN THIS COMMIT", which is the same discipline the checklist
+    already applies to a carve that adds a crate.
+    """
+    baseline = json.loads((root / CAPABILITY_FOOTPRINT_BASELINE).read_text())
+    return sorted(set(baseline["ambition_closure"]) - sentinel_linked_closure(root))
+
+
+ROLLBACK_SCHEMA_BASELINE = (
+    "scripts/baselines/rollback-schema-baseline.json"
+)
+
+
+@functools.cache
+def rollback_schema_usage(root: Path) -> dict[str, list[str]]:
+    """Return every type encoded into the rollback wire format.
+
+    The stable NAMES were also censused here until 2026-09-16; see the note
+    above this function's return for why a source scan cannot own them.
+
+    Cache the read-only census because several invariants query the same tree.
+    The wire format is distributed across central and domain-owned impls, so the
+    guard scans both. Type paths are qualified by crate to disambiguate local
+    `crate::...` spellings.
+    """
+    # The central runtime-adjacent registrations plus domain-owned offers.
+    #
+    # The wire format was never a synonym for either central path.
+    #
+    # Deliberately NOT a glob over the whole `rollback/` directory: `codec.rs`,
+    # `session.rs` and friends contain dotted string literals that are not
+    # registration names, and a ratchet that swallows them measures noise.
+    registration_paths = [root / "crates/ambition_platformer2d_runtime/src/rollback/mod.rs"]
+    # AND IT HAPPENED AGAIN, ONE LEVEL FURTHER OUT. The two
+    # paragraphs above describe registrations leaving one FILE. They have now
+    # left the runtime CRATE: `RollbackRegistrar` lets a domain register its own
+    # state, so `resource.gate_portal_phases` reported as having left the schema
+    # while it was still very much in the wire format.
+    #
+    # so stop hand-listing places and follow the MARKER instead, the same
+    # lesson `encoded_types` learned by following the types. A federated
+    # registration site is exactly a file whose function takes the registrar:
+    # `&mut impl RollbackRegistrar`. Nothing else spells that, the trait's own
+    # definition does not, and a domain that starts registering is picked up
+    # without editing this script — which is the whole point, since a guard that
+    # needs an edit per domain is the census it exists to prevent.
+    # the marker is the TRAIT NAME, not one spelling of the bound: the first
+    # federated domain writes `<R>(registrar: &mut R) where R: RollbackRegistrar`,
+    # and a scanner keyed to `&mut impl RollbackRegistrar` matched none of it.
+    #
+    # and the DEFINING crate is excluded on purpose — the trait's own doc
+    # examples spell registration names that were never in the wire format, which
+    # is precisely the "swallows noise" failure the paragraph above warns about.
+    registration_paths.extend(
+        sorted(
+            path
+            for path in root.glob("crates/*/src/**/*.rs")
+            if not is_test_path(str(path))
+            # the BOUND, not a mention. `RollbackRegistrar` also appears in
+            # imports, prose and a test-only `impl`, and matching those swallowed
+            # `ability.cooldown` and the trait's own doc examples — names that
+            # were never registrations. A federated registration site is a
+            # function generic over the registrar, and nothing else is.
+            and "R: RollbackRegistrar" in path.read_text(errors="replace")
+        )
+    )
+    def _registration_text(path: Path) -> str:
+        """Production registrations only.
+
+        ⛔ `is_test_path` reads the PATH, and a federated domain keeps its
+        registration in an ordinary source file with a `#[cfg(test)] mod tests`
+        inside it — whose fake registrar names (`gate.a`, `gate.alpha`) are not
+        the wire format. Cut the file at its test module.
+        """
+        text = path.read_text(errors="replace")
+        # A declaration's file is excluded by `is_test_path` already.
+        match = re.search(r"#\[cfg\(test\)\]\s*mod\s+\w+\s*\{", text)
+        return text if match is None else text[: match.start()]
+
+    registration = "\n".join(
+        _registration_text(path)
+        for path in registration_paths
+        if path.exists() and not is_test_path(str(path))
+    )
+
+    encoded: set[str] = set()
+    # ⛔ `game/` ENCODES TOO, and globbing `crates/` alone missed nine
+    # `SnapshotState` sites in `ambition_content`'s boss specials. Unlike the
+    # name census this widening is safe to make: the pattern is a plain `impl`
+    # in the file that owns the type, not a registration road with four
+    # spellings, so a new game crate is picked up without editing this script.
+    sources = sorted(root.glob("crates/*/src/**/*.rs")) + sorted(
+        root.glob("game/*/src/**/*.rs")
+    )
+    for source in sources:
+        if is_test_path(str(source)):
+            continue
+        text = source.read_text(errors="replace")
+        # Both `snapshot_pod!` and `snapshot_unit_enum!` GENERATE that impl inside the macro body,
+        # and the macro's own definition spells it `impl $crate::snapshot::SnapshotState for $ty` —
+        # so every type encoded through either macro was invisible.
+        #
+        # Exactly the failure this function's own header describes twice already — an instrument
+        # that measures less than it says and reports the success condition.
+        crate = source.relative_to(root).parts[1]
+        for match in re.findall(
+            r"impl SnapshotState for ([A-Za-z0-9_:<>]+)", text
+        ):
+            # `crate::Foo` inside `ambition_platformer2d_actor_monolith` IS `ambition_platformer2d_actor_monolith::Foo`;
+            # collapse the doubled prefix so the frozen name reads like a path.
+            encoded.add(f"{crate}::{match}".replace("::crate::", "::"))
+        # the macro takes a `$ty:path` first, so the type is everything up to
+        # the opening brace. Both macros are matched by ONE pattern on purpose: a
+        # second pattern is a second thing to forget when a third macro lands.
+        for match in re.findall(
+            r"snapshot_(?:pod|unit_enum)!\(\s*([A-Za-z0-9_:<>]+)\s*\{", text
+        ):
+            encoded.add(f"{crate}::{match}".replace("::crate::", "::"))
+
+    # ⛔⛤ THE NAME CENSUS LIVED HERE AND WAS 15% BLIND ABOUT THE ONLY ROWS
+    # PEERS COMPARE. Measured 2026-09-16 against the runtime dump: of its 493
+    # rows, 73 were invisible to this scan and 21 of those feed the peer
+    # checksum — a seventh of the 144 that do. Three causes, and only one was
+    # the root glob: 47 registrations live under `game/`, 26 are colon-form
+    # (`entity:*`) which a dot-requiring pattern cannot match however well the
+    # file is reached, and the marker followed above is one of FOUR spellings
+    # of "this file registers" (`R: RollbackRegistrar`, `&mut impl
+    # RollbackRegistrar`, an inline `SchemaRollbackRegistrar::new(app)`, and the
+    # `AmbitionRollbackApp` extension trait on `&mut App`, which names no
+    # registrar at all).
+    #
+    # ⇒ The lesson is not "widen it once more" — the comments above record that
+    # chase being lost three times. A SOURCE SCAN CANNOT OWN THIS FACT, because
+    # a registration is a runtime call and nothing stops a fifth spelling. The
+    # runtime registry enumerates itself; `rollback_schema_baseline.txt` is that
+    # enumeration, checked in, and guarded byte-for-byte by the Rust lane. A
+    # second frozen copy of its name column here was a duplicate authority whose
+    # only unique behaviour was being wrong.
+    #
+    # `encoded_types` stays: which Rust types implement `SnapshotState` is a
+    # fact the name dump does not record, and it is read off a plain `impl`
+    # pattern rather than by following a registration road.
+    return {"encoded_types": sorted(encoded)}
+
+
+ROLLBACK_SCHEMA_DUMP = "game/ambition_app/tests/rollback_schema_baseline.txt"
+
+
+def peer_checksum_schema(root: Path) -> tuple[str, list[str]]:
+    """`version, rows` — the peer-visible slice of the checked-in schema dump.
+
+    The dump's first line is the schema version (`ggrs-rollback-schema-v194`)
+    and every later line is `name\tkind\ttype\tdetail`. Only rows whose kind
+    answers `RollbackEntryKind::feeds_peer_checksum()` are returned.
+
+    ⛔⛤ `detail` IS KEPT EXACTLY WHERE IT DISTINGUISHES ROWS OF THE SAME KIND,
+    and dropped where it does not. Dropping it wholesale was the first version of
+    this function and it was blind to 48 of the 144 rows: a
+    `resource-clone-custom-checksum` row records what its `fn(&T) -> u64`
+    actually covers, and 22 of them say 22 different things, so narrowing a
+    projection moves no name, no kind and no type. Keeping it wholesale is the
+    opposite error — 85 `component-canonical` rows share ONE sentence, so a
+    reworded word would redden 85 rows and teach people to re-freeze without
+    reading, which is the tax `Q122` measured at 83 rows for one pluralised word.
+
+    ⇒ The rule is the artifact's own: a kind whose rows all carry the same
+    sentence has a `detail` the `kind` column already implies, and a kind whose
+    rows differ is using it to say something `kind` cannot. That covers both
+    reviewed projections (`uses_peer_projection`) and the optional/required
+    split under `resource-canonical`, where `rollback_resource_optional_canonical`
+    adds a presence term to the checksum without changing name, kind or type.
+    """
+    lines = (root / ROLLBACK_SCHEMA_DUMP).read_text().splitlines()
+    feeding = checksum_feeding_kinds(root)
+    fields = [
+        line.split("\t")
+        for line in lines[1:]
+        if line.count("\t") >= 2 and line.split("\t")[1] in feeding
+    ]
+    detail_says_something = {
+        kind
+        for kind in feeding
+        if len({row[3] for row in fields if row[1] == kind and len(row) > 3}) > 1
+    }
+    rows = [
+        "\t".join(row[:4] if row[1] in detail_says_something else row[:3])
+        for row in fields
+    ]
+    return lines[0].strip(), sorted(rows)
+
+
+@functools.cache
+def checksum_feeding_kinds(root: Path) -> frozenset[str]:
+    """The dump labels of every kind that feeds the peer checksum.
+
+    Read from the TRUE arm of `RollbackEntryKind::feeds_peer_checksum` and its
+    `as_str` table, never hand-listed here. A hand-kept copy of this set is the
+    documented cause of `id_peer_audit.rs` hiding 25 of 29 registrations: every
+    `*CustomChecksum` kind was missing from its list, so the three checkpoint
+    resources that write a raw `SessionScopeId` into their projection went
+    unexamined by the guard whose whole subject they are.
+    """
+    text = (
+        root / "crates/ambition_platformer2d_core/src/rollback_kind.rs"
+    ).read_text()
+    true_arm = text.split("pub fn feeds_peer_checksum")[1].split("=> true")[0]
+    labels = dict(re.findall(r'Self::(\w+)\s*=>\s*"([a-z-]+)"', text))
+    feeding = {
+        labels[variant]
+        for variant in re.findall(r"Self::(\w+)", true_arm)
+        if variant in labels
+    }
+    # A kind whose label is missing from `as_str` would silently drop its rows,
+    # and a filter that matches nothing reports the success condition.
+    if len(feeding) != len(set(re.findall(r"Self::(\w+)", true_arm))):
+        raise AssertionError(
+            "a kind in feeds_peer_checksum's TRUE arm has no `as_str` label; "
+            "the dump filter would drop its rows and read green"
+        )
+    return frozenset(feeding)
+
+
+INPUT_PAYLOAD_BASELINE = "scripts/baselines/input-payload-baseline.json"
+
+CONTROL_FRAME_SOURCE = "crates/ambition_platformer2d_core/src/control_frame.rs"
+
+#: `GgrsConfig::Input` is `PeerInput`: a `ControlFrame` and the peer's verdict.
+PEER_INPUT_SOURCE = "crates/ambition_platformer2d_rollback_ggrs/src/peer_input.rs"
+
+
+#: Types whose bincode encoding is the same width for every value. Bincode 1
+#: writes integers and floats fixnum, so each is its own size; `bool` is one
+#: byte. ⛔ NOTHING ELSE GOES IN HERE without measuring: the point of the set is
+#: that membership is a claim about the ENCODING, not about the Rust type being
+#: `Copy` or small.
+#: The non-primitive types this census FOLLOWS into. A field of any other type
+#: is refused rather than recorded — see `refuse_variable_width`.
+_FOLLOWED_FIELD_TYPES = ("AttackStrengthHint", "crate::ControlFrameModes", "InputFrameMode")
+#: The same, for the `PeerInput` wrapper and its verdict.
+_FOLLOWED_PEER_INPUT_TYPES = ("ControlFrame", "PeerVerdict", "PreparationVerdict")
+
+FIXED_WIDTH_PRIMITIVES = frozenset(
+    {"bool", "f32", "f64"}
+    | {f"u{bits}" for bits in (8, 16, 32, 64)}
+    | {f"i{bits}" for bits in (8, 16, 32, 64)}
+)
+
+#: Spellings whose encoding is decided by the VALUE. Recognised only to make the
+#: refusal below say WHY; anything unrecognised is refused too.
+_VARIABLE_WIDTH_HINTS = ("Option<", "Vec<", "String", "&str", "Box<", "HashMap", "BTreeMap", "[")
+
+
+def refuse_variable_width(owner: str, fields: list[tuple[str, str]], followed: set[str]) -> None:
+    """Raise unless every field of `owner` encodes to a value-independent width.
+
+    ⛔⛤ **THIS EXISTED FOR `ControlFrame`'s OWN FIELDS AND NOT FOR THE TYPES IT
+    REACHES — POISON-VERIFIED BY THE GPT ARCHITECTURE REVIEW OF 2026-09-16, THE
+    DAY AFTER THE ENUM HALF WAS CLOSED.** Adding `poison_optional: Option<bool>`
+    to `ControlFrameModes` and BUMPING `CONTROL_FRAME_WIRE_IDENTITY` produced no
+    violation: the census recorded the new field and the ratchet accepted it,
+    because a recorded change plus a bumped identity is the legitimate road.
+
+    ⭐⭐ **AND THAT IS THE DISTINCTION THIS FUNCTION EXISTS TO MAKE. A WIRE
+    IDENTITY BUMP BUYS A DIFFERENT FIXED-WIDTH PROTOCOL, NOT A VARIABLE-WIDTH
+    ONE.** Ambition concatenates every local player's frame into one payload and
+    the receiving side divides the received total evenly by the player count, so
+    `None` encoding shorter than `Some(false)` subdivides the packet in the wrong
+    places no matter how carefully the change was announced. A ratchet can be
+    satisfied by a bump; this cannot.
+
+    ⚠ It refuses an UNRECOGNISED type as well as a known-variable one. A guard
+    that silently accepted what it could not classify would be the same hole in a
+    politer costume; `followed` is the escape hatch, and a type enters it only
+    once someone has taught the census its shape.
+    """
+    for name, ty in fields:
+        if ty in FIXED_WIDTH_PRIMITIVES or ty in followed:
+            continue
+        why = (
+            "encodes to a width decided by its value"
+            if any(hint in ty for hint in _VARIABLE_WIDTH_HINTS)
+            else "is not a type this census can classify"
+        )
+        raise AssertionError(
+            f"`{owner}::{name}: {ty}` {why}, so `ControlFrame`'s bincode encoding "
+            "is no longer FIXED-WIDTH. Ambition packs every local player's frame "
+            "into one payload and the receiving side divides the received total "
+            "evenly by the player count, so a frame whose width depends on its "
+            "value subdivides the packet in the wrong places -- with no checksum "
+            "anywhere to notice. ⛔ BUMPING `CONTROL_FRAME_WIRE_IDENTITY` DOES "
+            "NOT MAKE THIS SAFE: the identity buys a different fixed-width "
+            "protocol, not a variable-width one. If the payload really must carry "
+            "a variable-width field, the packing has to write a per-player length "
+            "first, and THAT is the change to review."
+        )
+
+
+def serialized_variants(enum_name: str, body: str) -> list[str]:
+    r"""Every variant of `enum_name` WITH ITS PAYLOAD, in declaration order.
+
+    ⛔⛤ **IT READ ONLY FIELDLESS VARIANTS AND THAT WAS A HOLE, POISON-VERIFIED BY
+    THE GPT ARCHITECTURE REVIEW OF 2026-09-16.** The pattern was
+    `^\s*(\w+),` — a bare identifier followed by a comma — so adding
+    `Charged(u8)` to `AttackStrengthHint` changed the peer input encoding and the
+    census still reported the same three rows and NO violation. The executable
+    byte pin next door does not necessarily catch it either: its corpus never
+    constructs the new variant, and a developer adding one would naturally repair
+    the exhaustive Rust matches, leaving the repository green with the recorded
+    input identity unbumped.
+
+    ⚠ Bincode writes a variant INDEX and then the variant's own payload, so a
+    data-carrying variant changes both what the bytes mean and — crucially for
+    this type — how MANY there are.
+    """
+    rows = []
+    depth = 0
+    item = ""
+    for raw in body.splitlines():
+        line = raw.split("//", 1)[0].strip()
+        if not line or line.startswith("#["):
+            continue
+        for char in line:
+            if char in "({[":
+                depth += 1
+            elif char in ")}]":
+                depth -= 1
+            if char == "," and depth == 0:
+                rows.append(item.strip())
+                item = ""
+            else:
+                item += char
+        item += " "
+    if item.strip():
+        rows.append(item.strip())
+    out = []
+    for row in rows:
+        row = re.sub(r"\s+", " ", row).strip()
+        if not row or not re.match(r"[A-Za-z_]", row):
+            continue
+        out.append(f"{enum_name}::{row}")
+    return out
+
+
+def variants_carrying_data(rows: list[str]) -> list[str]:
+    """Which of `rows` are not unit variants.
+
+    ⭐⭐ **A REFUSAL, NOT A RECORDING, BECAUSE `ControlFrame`'s ENCODING MUST BE
+    FIXED-WIDTH AND A DATA-CARRYING VARIANT BREAKS THAT.** Ambition packs every
+    local player's input into one payload and the receiving side divides the
+    total byte count evenly among the player count, so two players whose frames
+    encode to different widths are subdivided in the wrong places — with no
+    checksum anywhere to notice. A variant whose payload differs from its
+    siblings' makes one frame's width depend on what the player pressed.
+    """
+    return [row for row in rows if re.search(r"[({]", row)]
+
+
+def input_payload_shape(root: Path) -> tuple[str, list[str]]:
+    """`version, shape` — what two peers exchange, and the identity that names it.
+
+    `AmbitionGgrsConfig = GgrsConfig<PeerInput>`, and `ggrs` documents
+    `Config::Input` as "the only game-related data transmitted over the network".
+    So `PeerInput`'s declaration, with the `ControlFrame` it holds first and the
+    verdict after it, IS the peer input format, and this returns it field by
+    field, in declaration order, because bincode encodes positionally.
+
+    ⭐ A SOURCE SCAN IS THE RIGHT OWNER HERE AND WAS THE WRONG ONE FOR THE
+    ROLLBACK SCHEMA NAMES, which this same file rejected on the same day. The
+    difference is not fastidiousness: a registration is a runtime CALL with four
+    spellings and nothing preventing a fifth, so source text cannot enumerate
+    them. A struct's fields are ONE authoritative declaration in ONE file, and
+    there is no second way to spell them.
+
+    ⚠ THE TRANSITIVE BOUNDARY, NAMED RATHER THAN ASSUMED COMPLETE. A field whose
+    type is not primitive can change shape without `ControlFrame`'s text moving.
+    Today there is exactly one such type, `AttackStrengthHint`, and its variants
+    are included below. `_UNCOVERED_FIELD_TYPES` fails the census if a second one
+    appears, because the alternative is a guard that silently stops covering the
+    thing it names.
+    """
+    text = (root / CONTROL_FRAME_SOURCE).read_text()
+    body = text.split("pub struct ControlFrame {", 1)[1].split("\n}", 1)[0]
+    fields = re.findall(r"^\s*pub (\w+): ([A-Za-z_0-9:<>]+),", body, re.MULTILINE)
+    uncovered = {ty for _, ty in fields} - FIXED_WIDTH_PRIMITIVES - set(
+        _FOLLOWED_FIELD_TYPES
+    )
+    if uncovered:
+        raise AssertionError(
+            f"`ControlFrame` now has field types this census does not follow: "
+            f"{sorted(uncovered)}. Each can change the bincode shape two peers "
+            "exchange without `ControlFrame`'s own text moving. Add it to the "
+            "covered set AND include its shape below, or the guard stops "
+            "covering what it claims to."
+        )
+    refuse_variable_width("ControlFrame", fields, set(_FOLLOWED_FIELD_TYPES))
+    shape = [f"{name}: {ty}" for name, ty in fields]
+    hint = text.split("pub enum AttackStrengthHint {", 1)[1].split("\n}", 1)[0]
+    hint_variants = serialized_variants("AttackStrengthHint", hint)
+    shape += hint_variants
+    # ⭐ THE TRANSITIVE EDGE FIRED WITHIN HOURS OF BEING BUILT, and it fired on
+    # the change this ratchet was built in anticipation of: `SETTINGS-ROLLBACK`
+    # moved the seat's frame-mode policy onto `ControlFrame`, and
+    # `ControlFrameModes` is a second non-primitive field type. Its two fields
+    # and `InputFrameMode`'s variants all move the bincode shape without
+    # `ControlFrame`'s own text moving, which is precisely what the refusal
+    # above exists to force someone to notice.
+    frame_modes = (
+        root / "crates/ambition_geometry/src/reference_frame.rs"
+    ).read_text()
+    modes_body = frame_modes.split("pub struct ControlFrameModes {", 1)[1].split(
+        "\n}", 1
+    )[0]
+    modes_fields = re.findall(
+        r"^\s*pub (\w+): ([A-Za-z_0-9:<>]+),", modes_body, re.MULTILINE
+    )
+    # ⛔ THE TRANSITIVE HALF. `ControlFrame`'s own fields were checked and the
+    # types they REACH were not, which is the hole the second review poisoned
+    # open with `Option<bool>` on this very struct.
+    refuse_variable_width("ControlFrameModes", modes_fields, set(_FOLLOWED_FIELD_TYPES))
+    shape += [f"ControlFrameModes::{name}: {ty}" for name, ty in modes_fields]
+    mode_enum = frame_modes.split("pub enum InputFrameMode {", 1)[1].split("\n}", 1)[0]
+    mode_variants = serialized_variants("InputFrameMode", mode_enum)
+    shape += mode_variants
+    # THE WRAPPER. `AmbitionGgrsConfig = GgrsConfig<PeerInput>`, so the
+    # `ControlFrame` rows above are the first field of what crosses, and the
+    # verdict follows them on the wire.
+    peer_input = (root / PEER_INPUT_SOURCE).read_text()
+    followed = set(_FOLLOWED_PEER_INPUT_TYPES)
+    wrapper_rows = []
+    for owner in ("PeerInput", "PeerVerdict"):
+        owner_body = peer_input.split(f"pub struct {owner} {{", 1)[1].split("\n}", 1)[0]
+        owner_fields = re.findall(
+            r"^\s*pub (\w+): ([A-Za-z_0-9:<>]+),", owner_body, re.MULTILINE
+        )
+        refuse_variable_width(owner, owner_fields, followed)
+        wrapper_rows.append([f"{owner}::{name}: {ty}" for name, ty in owner_fields])
+    verdict_enum = peer_input.split("pub enum PreparationVerdict {", 1)[1].split(
+        "\n}", 1
+    )[0]
+    verdict_variants = serialized_variants("PreparationVerdict", verdict_enum)
+    shape = wrapper_rows[0] + shape + wrapper_rows[1] + verdict_variants
+    # ⛔ THE ENUM ROWS ONLY. `shape` also holds `Struct::field: Type` rows, and a
+    # refusal that read those would be answering a different question.
+    carrying = variants_carrying_data(hint_variants + mode_variants + verdict_variants)
+    if carrying:
+        raise AssertionError(
+            f"the peer input payload now has data-carrying enum variant(s): "
+            f"{carrying}. `ControlFrame`'s bincode encoding must be FIXED-WIDTH "
+            "-- every local player's frame is packed into one payload and the "
+            "receiving side divides the total byte count evenly among the player "
+            "count, so a frame whose width depends on which variant was chosen "
+            "is subdivided in the wrong places, with no checksum to notice. If "
+            "this is deliberate, the packing has to carry a per-player length "
+            "first, and THAT is the change to review -- not this line."
+        )
+    version = re.search(
+        r"pub const CONTROL_FRAME_WIRE_IDENTITY: u32 = (\d+);",
+        (root / "crates/ambition_platformer2d_core/src/input_stream.rs").read_text(),
+    )
+    if version is None:
+        raise AssertionError(
+            "`CONTROL_FRAME_WIRE_IDENTITY` is gone. It is the only thing that "
+            "names the shape two peers exchange; without it this guard compares "
+            "a frozen list against itself and reports success."
+        )
+    return version.group(1), shape
+
+
+def input_payload_violations(root: Path) -> list[str]:
+    """Breaches of: the peer input shape may not move without its identity.
+
+    The same invariant as `peer_checksum_schema_violations`, on the other half of
+    the wire. The STATE half got an identity, a ratchet and an
+    instrument-independence arm; this is the input half's first one.
+
+    ⛔ AND `INPUT_STREAM_VERSION` DOES NOT COVER THIS, however much it looks
+    like it does. It versions recorded replay files and exempts added fields BY
+    DESIGN, on the strength of `#[serde(default)]` — which cannot participate on
+    the wire at all, because bincode is non-self-describing and never looks for a
+    field by name.
+
+    ⛔⛤ FROM 2026-09-28 TO 2026-10-04 THIS RETURNED NOTHING FOR ANY SHAPE. The
+    baseline held one shape and one identity, and a different identity was the
+    exemption: the bump from 2 to 3 was not followed by a freeze, so each later
+    shape was compared with nothing. A field added at identity 3 read green
+    (measured by poison 2026-10-04). Now the baseline records the shape of
+    EACH identity, and the live identity must be one of them.
+    """
+    shapes = json.loads((root / INPUT_PAYLOAD_BASELINE).read_text())["identities"]
+    version, shape = input_payload_shape(root)
+    if version not in shapes:
+        return [
+            f"identity {version} has no recorded shape: freeze it in "
+            f"{INPUT_PAYLOAD_BASELINE} (the recorded identities are {sorted(shapes)})"
+        ]
+    frozen = shapes[version]
+    if shape == frozen:
+        return []
+    added = [row for row in shape if row not in frozen]
+    removed = [row for row in frozen if row not in shape]
+    moved = [] if (added or removed) else ["field ORDER changed"]
+    return (
+        [f"ENTERED the peer input payload at identity {version}: {row}" for row in added]
+        + [f"LEFT the peer input payload at identity {version}: {row}" for row in removed]
+        + moved
+    )
+
+
+def peer_checksum_schema_violations(root: Path) -> list[str]:
+    """Breaches of: the peer-visible schema may not move without the version.
+
+    ⭐ THE REPOSITORY ALREADY OBEYED THIS AND NEVER SAID SO. Across every commit
+    that touched the dump, 14 changed the checksum-feeding row set and all 14
+    moved the version; two changed the wider row set and held the version, and
+    both added a single row of a kind that feeds no checksum
+    (`derived.attacker_move_instance`, `smash.body_mark`) — which
+    `ambition_mount`'s own registration documents as the deliberate case. So
+    this is not a new rule, it is the rule the repo has been following written
+    down where it can fail.
+
+    ⚠ WHY THIS NEEDS A FROZEN PRIOR AT ALL, when the dump is already checked in
+    and guarded: the dump has no memory of its previous self. "Did the version
+    move WHEN the peer-visible set moved" is the one question about it that the
+    tree cannot answer alone, which is exactly why this baseline earns its
+    place and a second copy of the name column did not.
+    """
+    baseline = json.loads((root / ROLLBACK_SCHEMA_BASELINE).read_text())
+    frozen = baseline["peer_checksum_schema"]
+    version, rows = peer_checksum_schema(root)
+    breaches: list[str] = []
+    if sorted(frozen["rows"]) != rows and frozen["version"] == version:
+        added = sorted(set(rows) - set(frozen["rows"]))
+        removed = sorted(set(frozen["rows"]) - set(rows))
+        for row in added:
+            breaches.append(f"ENTERED the peer checksum at {version}: {row}")
+        for row in removed:
+            breaches.append(f"LEFT the peer checksum at {version}: {row}")
+    return breaches
+
+
+def rollback_schema_violations(root: Path) -> tuple[list[str], list[str]]:
+    """`new, stale` — invariant 1's breaches and invariant 2's."""
+    baseline = json.loads((root / ROLLBACK_SCHEMA_BASELINE).read_text())
+    current = rollback_schema_usage(root)
+    new: list[str] = []
+    stale: list[str] = []
+    for key in ("encoded_types",):
+        frozen = set(baseline[key])
+        live = set(current[key])
+        new.extend(f"{key}: {item}" for item in sorted(live - frozen))
+        stale.extend(f"{key}: {item}" for item in sorted(frozen - live))
+    return new, stale
+
+
+_LINE_COMMENT = re.compile(r"//.*$")
+_HASH_COMMENT = re.compile(r"#(?!\[).*$")
+_BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
+
+
+def is_test_path(path: str) -> bool:
+    """Whether `path` names a separate test file.
+
+    Contracts exclude test paths unless `include_tests` is set. Inline
+    `#[cfg(test)]` modules are not detectable by this path-only check, so
+    contracts that would match inline tests must narrow their paths.
+    """
+    return (
+        "/tests/" in path
+        or path.endswith("/tests.rs")
+        or path.endswith("_tests.rs")
+        or "/tests/" in path
+        or path.endswith("_test.rs")
+    )
+
+
+def strip_comments_for(path: str, line: str) -> str:
+    """Return `line` with comment text removed before pattern matching.
+
+    Keep the stripping conservative so code is never hidden as prose. Hash
+    comments are stripped only for languages where `#` is comment syntax; Rust
+    attributes such as `#[ignore]` must remain visible.
+
+    ⚠ **NOT routed to `lib/rust_source.strip_comments`, on purpose (measured
+    2026-09-18).** That owner answers "strip comments from a whole source
+    file"; this answers "strip comments from one already-matched `git grep`
+    line, in a language this call site names." A `/* */` block spanning
+    multiple lines cannot be seen one grep-matched line at a time — the input
+    here is never the file, only a line `git grep` already picked out — and the
+    per-path `#` handling for non-Rust/TOML files has no equivalent in the
+    owner at all. Same regex vocabulary, different question; a forced merge
+    would either drop the multi-language handling or pretend a single line can
+    answer a multi-line question.
+    """
+    stripped = _BLOCK_COMMENT.sub(" ", line)
+    stripped = _LINE_COMMENT.sub("", stripped)
+    if not path.endswith((".rs", ".toml")):
+        stripped = _HASH_COMMENT.sub("", stripped)
+    return stripped
+
+
+def git_grep(pattern: str, paths: list[str], root: Path) -> list[tuple[str, int, str]]:
+    """Every `path, line number, text` match for `pattern` under `paths`."""
+    command = ["git", "grep", "-n", "-I", "-E", pattern, "--", *paths]
+    result = subprocess.run(
+        command, cwd=root, capture_output=True, text=True, check=False
+    )
+    # git grep exits 1 for "no matches", which is the outcome this file wants.
+    if result.returncode not in (0, 1):
+        raise RuntimeError(f"git grep failed: {result.stderr.strip()}")
+    hits = []
+    for raw in result.stdout.splitlines():
+        parts = raw.split(":", 2)
+        if len(parts) != 3:
+            continue
+        path, number, text = parts
+        try:
+            hits.append((path, int(number), text))
+        except ValueError:
+            continue
+    return hits
+
+
+def violations(contract: dict, root: Path) -> list[tuple[str, int, str]]:
+    """Every production line that violates `contract`, comments excluded.
+
+    A pattern is either a string (git grep and the confirming match are the same
+    expression) or a `{"grep": ..., "match": ...}` pair. The pair exists because
+    `git grep -E` is POSIX ERE and has no lookaround: the coarse expression finds
+    candidate lines cheaply and the precise Python one decides. Splitting them is
+    what lets a contract say "an ignore WITHOUT a diagnostic reason" instead of
+    settling for "an ignore", which is the difference between a contract that
+    survives and one that gets waived.
+    """
+    found: list[tuple[str, int, str]] = []
+    include_tests = contract.get("include_tests", False)
+    for pattern in contract["patterns"]:
+        if isinstance(pattern, str):
+            grep, confirm = pattern, pattern
+        else:
+            grep, confirm = pattern["grep"], pattern["match"]
+        compiled = re.compile(confirm)
+        for path, number, text in git_grep(grep, contract["paths"], root):
+            if path in SELF_REFERENTIAL:
+                continue
+            if not include_tests and is_test_path(path):
+                continue
+            if compiled.search(strip_comments_for(path, text)):
+                found.append((path, number, text.strip()))
+    found.sort()
+    return found
+
+
+def _leading_identifier(text: str) -> list[str]:
+    """The identifier a use-tree item starts with, or nothing."""
+    match = re.match(r"\s*([A-Za-z_][A-Za-z0-9_]*)", text)
+    # `self` re-exports the facade root, which names no module.
+    if not match or match.group(1) == "self":
+        return []
+    return [match.group(1)]
+
+
+def use_tree_heads(text: str, index: int) -> list[str]:
+    """The top-level module names a use tree introduces at `index`.
+
+    ⚠ **This exists because a line regex is EVADABLE, and silently.**
+    `ambition_platformer2d::time` is easy to match. `use ambition_platformer2d::{time::Foo, audio::Bar};`
+    is the same two leaks written in idiomatic Rust, and a
+    `\\bambition_platformer2d::([a-z_]+)` pattern matches neither of them — it sees `{` and
+    stops. The fixture happens to contain no brace-grouped facade import today,
+    so a line regex would have been green, correct, and wrong the first time
+    somebody wrote ordinary Rust.
+
+    Forbidding the braced form was the cheaper fix and it was rejected: a
+    contract that outlaws standard syntax to keep its own parser simple is a
+    contract that gets waived. So the tree is parsed. Only the depth-1 heads
+    matter — `{a::{b, c}, d}` names `a` and `d` — which is why this needs no
+    recursion into nested groups.
+    """
+    while index < len(text) and text[index].isspace():
+        index += 1
+    if index >= len(text):
+        return []
+    if text[index] != "{":
+        return _leading_identifier(text[index:])
+
+    heads: list[str] = []
+    depth = 0
+    item: list[str] = []
+    for position in range(index, len(text)):
+        character = text[position]
+        if character == "{":
+            depth += 1
+            if depth == 1:
+                item = []
+                continue
+        elif character == "}":
+            depth -= 1
+            if depth == 0:
+                heads.extend(_leading_identifier("".join(item)))
+                return heads
+        if depth == 1 and character == ",":
+            heads.extend(_leading_identifier("".join(item)))
+            item = []
+            continue
+        item.append(character)
+    # An unterminated group is malformed Rust; take what was readable rather
+    # than reporting the file as clean.
+    heads.extend(_leading_identifier("".join(item)))
+    return heads
+
+
+def facade_modules(text: str, facade: str) -> list[tuple[int, str]]:
+    """Every `offset, top-level module` named through `facade::` in `text`."""
+    found: list[tuple[int, str]] = []
+    for match in re.finditer(rf"\b{re.escape(facade)}::", text):
+        for head in use_tree_heads(text, match.end()):
+            found.append((match.start(), head))
+    return found
+
+
+def allowlist_usage(contract: dict, root: Path) -> dict[str, list[tuple[str, int]]]:
+    """Every facade module the consumer names, mapped to where it names it.
+
+    Whole-file rather than line-by-line, because a use tree spans lines and the
+    heads have to be attributed to the `ambition_platformer2d::` that introduced them.
+    Comments are stripped with the same line-local helper the other tables use,
+    so the prose recurrence this module exists to survive is survived here too:
+    a doc comment naming `ambition_platformer2d::runtime` is not a consumer naming it.
+    """
+    listed = subprocess.run(
+        ["git", "ls-files", "--", *contract["paths"]],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+
+    usage: dict[str, list[tuple[str, int]]] = {}
+    for relative in listed:
+        if not relative.endswith(".rs"):
+            continue
+        if not contract.get("include_tests", False) and is_test_path(relative):
+            continue
+        try:
+            raw = (root / relative).read_text(errors="replace")
+        except OSError:
+            continue
+        stripped = "\n".join(
+            strip_comments_for(relative, line) for line in raw.splitlines()
+        )
+        starts = [0]
+        for line in stripped.splitlines():
+            starts.append(starts[-1] + len(line) + 1)
+        for offset, module in facade_modules(stripped, contract["facade"]):
+            number = max(1, bisect_right(starts, offset))
+            usage.setdefault(module, []).append((relative, number))
+    return {module: sorted(where) for module, where in sorted(usage.items())}
+
+
+def allowlist_violations(
+    contract: dict, usage: dict[str, list[tuple[str, int]]]
+) -> tuple[list[str], list[str]]:
+    """`new, stale` — invariant 1's breaches and invariant 2's."""
+    named = set(usage)
+    allowed = set(contract["allowed"])
+    baseline = set(contract["baseline"])
+    return sorted(named - allowed - baseline), sorted(baseline - named)
+
+
+#: ⭐ MOVED to `scripts/lib/cargo_bin.py` 2026-09-02 and re-exported here, so the
+#: name every call site in this file already uses keeps working. The lesson this
+#: docstring recorded — "a check that can only ever report `command not found`
+#: can never pass" — was true and was only applied in four of six places;
+#: `check_capability_ships.py` and the sub-workspace lockfile test called bare
+#: `cargo` and crashed on a machine where rustup's cargo is not on PATH.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+from cargo_bin import cargo_binary  # noqa: E402,F401
+
+
+@functools.cache
+def workspace_graph(root: Path) -> dict[str, set[str]]:
+    """Every workspace crate's DIRECT workspace dependencies, from the manifests.
+
+    Process-local cache: dependency contracts are parameterized over the same
+    workspace. Resolve Cargo metadata once per root instead of once per contract.
+
+    `--no-deps` keeps this to the workspace: registry crates are somebody else's
+    layering problem. Dev-dependencies are included deliberately — a test that
+    reaches upward compiles the upward edge, and "only in tests" is exactly the
+    excuse under which a layering inversion first arrives.
+    """
+    raw = subprocess.run(
+        [cargo_binary(), "metadata", "--no-deps", "--format-version", "1"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    metadata = json.loads(raw)
+    members = {package["name"] for package in metadata["packages"]}
+    return {
+        package["name"]: {
+            dependency["name"]
+            for dependency in package["dependencies"]
+            if dependency["name"] in members
+        }
+        for package in metadata["packages"]
+    }
+
+
+def reachable(graph: dict[str, set[str]], start: str) -> dict[str, list[str]]:
+    """Every crate `start` can reach, mapped to the path that gets there.
+
+    The path is the whole value of reporting this: "A depends on B" is arguable,
+    "A -> C -> B" is a fix.
+    """
+    found: dict[str, list[str]] = {}
+    queue = [(start, [start])]
+    while queue:
+        crate, path = queue.pop(0)
+        for dependency in sorted(graph.get(crate, ())):
+            if dependency in found or dependency == start:
+                continue
+            found[dependency] = path + [dependency]
+            queue.append((dependency, path + [dependency]))
+    return found
+
+
+def dependency_violations(contract: dict, graph: dict[str, set[str]]) -> list[str]:
+    crate = contract["crate"]
+    if crate not in graph:
+        return [f"contract names `{crate}`, which is not a workspace member"]
+    reached = reachable(graph, crate)
+    forbidden = contract["forbidden"]
+    targets = sorted(reached) if forbidden == "*" else forbidden
+    # an `allowed` entry is a NAMED edge, never a category. A floor crate that
+    # sits on a smaller floor is still a floor; a floor with an open-ended
+    # exception list is not. Each name here has to be a crate that itself
+    # carries a `forbidden: "*"` contract, or the invariant has just moved
+    # somewhere nobody is checking.
+    allowed = set(contract.get("allowed", ()))
+    return [
+        " -> ".join(reached[target])
+        for target in targets
+        if target in reached and target not in allowed
+    ]
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help=(
+            "accepted and not needed: a violated contract always exits 1. "
+            "Before 2026-10-04 a run without this flag printed RED and exited 0"
+        ),
+    )
+    parser.add_argument(
+        "--allowlist-open-count",
+        action="store_true",
+        help=(
+            "print the number of baseline modules a consumer still names, and "
+            "nothing else — the campaign's progress metric, for a goal check"
+        ),
+    )
+    args = parser.parse_args()
+
+    root = Path(
+        subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+    )
+
+    if args.allowlist_open_count:
+        # Deliberately the count of BASELINE modules still named, not of every
+        # module named: a new module is invariant 1's problem and this number
+        # must not be able to rise when one appears. It only ever falls.
+        #
+        # Empty baselines are still active guards: a new private-module import
+        # makes the corresponding contract fail.
+        still_open = sum(
+            len(set(allowlist_usage(contract, root)) & set(contract["baseline"]))
+            for contract in MODULE_ALLOWLISTS
+        )
+        print(still_open)
+        return 0
+
+    broken = 0
+    for contract in ABSENCE_CONTRACTS:
+        found = violations(contract, root)
+        if not found:
+            print(f"  ok   {contract['id']}")
+            continue
+        broken += 1
+        print(f"  RED  {contract['id']}")
+        print(f"       {contract['reason']}")
+        for path, number, text in found:
+            print(f"       {path}:{number}: {text}")
+
+    graph = workspace_graph(root)
+    for contract in DEPENDENCY_CONTRACTS:
+        found = dependency_violations(contract, graph)
+        if not found:
+            print(f"  ok   {contract['id']}")
+            continue
+        broken += 1
+        print(f"  RED  {contract['id']}")
+        print(f"       {contract['reason']}")
+        for path in found:
+            print(f"       {path}")
+
+    for contract in MODULE_ALLOWLISTS:
+        usage = allowlist_usage(contract, root)
+        new, stale = allowlist_violations(contract, usage)
+        still_open = sorted(set(usage) & set(contract["baseline"]))
+        facade = contract["facade"]
+        if not new and not stale:
+            print(
+                f"  ok   {contract['id']}"
+                f"  ({len(still_open)} of {len(contract['baseline'])} baseline "
+                f"modules still named)"
+            )
+        else:
+            broken += 1
+            print(f"  RED  {contract['id']}")
+            print(f"       {contract['reason']}")
+            for module in new:
+                sites = usage[module]
+                print(
+                    f"       NEW  {facade}::{module} "
+                    f"({len(sites)} uses) is in neither the reviewed public "
+                    f"surface nor the frozen baseline"
+                )
+                for path, number in sites:
+                    print(f"            {path}:{number}")
+            for module in stale:
+                print(
+                    f"       STALE  {facade}::{module} is in the baseline but "
+                    f"the consumer no longer names it — PRUNE it in this "
+                    f"commit, or the baseline is a budget and the slot it "
+                    f"leaves behind can be filled silently"
+                )
+        # §2a of the growth method: which paths does the consumer still name,
+        # and how many times. Frequency is the crude cost proxy and it is
+        # usually right, so the instrument prints it rather than making the
+        # next slice go and count by hand.
+        if still_open:
+            ranked = sorted(
+                ((len(usage[module]), module) for module in still_open),
+                reverse=True,
+            )
+            summary = "  ".join(f"{module}:{count}" for count, module in ranked)
+            print(f"       still named — {summary}")
+
+    present, missing = featureless_facade_report(root)
+    if missing:
+        broken += 1
+        print("  RED  the-featureless-facade-links-none-of-these  (INSTRUMENT BROKEN)")
+        print(
+            "       The closure is missing crates the facade names "
+            "unconditionally, so `cargo tree` measured nothing and this "
+            "contract's `ok` would have meant nothing:"
+        )
+        for crate in missing:
+            print(f"       ABSENT {crate} — expected in every closure")
+    elif present:
+        broken += 1
+        print("  RED  the-featureless-facade-links-none-of-these")
+        print(
+            "       A consumer that named the facade and selected NO capability "
+            "still compiles these. A9: a promised-absent capability must be "
+            "absent from the resolved closure, not merely unused at runtime. "
+            "Find the edge with `cargo tree -e normal --no-default-features "
+            f"-p {FEATURELESS_FACADE} -i <crate>` and make it a feature."
+        )
+        for crate in present:
+            print(f"       LINKED {crate}")
+    else:
+        print(
+            "  ok   the-featureless-facade-links-none-of-these  "
+            f"({len(featureless_facade_closure(root))} ambition crates linked "
+            f"with every facade feature off)"
+        )
+
+    present, missing = sdk_game_report(root)
+    if missing:
+        broken += 1
+        print("  RED  the-sdk-game-links-no-capability-it-omits  (INSTRUMENT BROKEN)")
+        print("       The SDK game's closure is missing crates it names, so `cargo tree` measured nothing.")
+        errors = sdk_game_tree_errors(root)
+        for error in errors:
+            print(f"       cargo: {error}")
+        if any("offline" in error or "download" in error for error in errors):
+            print(f"       Its dependencies are not fetched on this machine: run `cargo fetch` in {SDK_GAME}.")
+        for crate in missing:
+            print(f"       ABSENT {crate}")
+    elif present:
+        broken += 1
+        print("  RED  the-sdk-game-links-no-capability-it-omits")
+        print(
+            "       The SDK game links a facade capability it does not select. "
+            f"Find the edge with `cargo tree -e normal,features -i <crate>` in {SDK_GAME} "
+            "and make it follow the capability's own feature."
+        )
+        for crate in present:
+            print(f"       LINKED {crate}")
+    else:
+        sizes = ", ".join(
+            f"{'+'.join(features) or 'headless'} {len(sdk_game_closure(root, features))}"
+            for features in SDK_GAME_BUILDS
+        )
+        print(f"  ok   the-sdk-game-links-no-capability-it-omits  ({sizes} ambition crates)")
+
+    # ⛔ The sentinel's own lockfile is a PREREQUISITE of these two contracts and
+    # of nothing else, so its staleness is reported as one RED and the remaining
+    # 37 contracts still get verdicts. See `SentinelLockfileStale`.
+    try:
+        grown = capability_footprint_violations(root)
+        left = capability_footprint_departures(root)
+    except SentinelLockfileStale as stale_lock:
+        broken += 1
+        print("  RED  capability-footprint-sentinel-lockfile-is-stale")
+        for line in str(stale_lock).splitlines():
+            print(f"       {line}")
+        grown, left = [], []
+    if left:
+        broken += 1
+        print("  RED  capability-footprint-baseline-is-stale")
+        print(
+            "       ⭐ THE FOOTPRINT SHRANK, which is the outcome the campaign "
+            "wants — but the baseline still names crates the sentinel no longer "
+            "links, and every sub-list that names them goes stale silently. "
+            "Re-freeze it in THIS commit."
+        )
+        for crate in left:
+            print(f"       LEFT   {crate} is no longer in the consumer's closure")
+    if not grown:
+        footprint = json.loads((root / CAPABILITY_FOOTPRINT_BASELINE).read_text())
+        print(
+            f"  ok   capability-footprint-may-not-grow  "
+            f"({footprint['closure_size']} crates linked, "
+            f"{footprint['never_asked_for_count']} a movement-only game never asked for)"
+        )
+    else:
+        broken += 1
+        print("  RED  capability-footprint-may-not-grow")
+        print(
+            "       Depending on `ambition_platformer2d` links these too. §2e: a perfectly "
+            "semantic API can still force a movement-only game to compile and "
+            "link every unrelated gameplay domain — no forbidden path is named "
+            "and the footprint is still wrong."
+        )
+        for crate in grown:
+            print(f"       NEW    {crate} entered the consumer's closure")
+        # ⛔⛔ A RISE HERE IS NOT AUTOMATICALLY A REGRESSION, AND THIS LINE EXISTS
+        # BECAUSE THE PLANNING ROW HAD TO SAY SO ONCE PER RISE INSTEAD.
+        #
+        # The count moves in OPPOSITE directions for the two architectural axes.
+        # Carving a domain OUT of the monolith raises it: the domain was always
+        # linked, and extraction only makes it a visible crate in the closure —
+        # not one byte more is compiled by a movement-only game. Making a domain
+        # OPTIONAL lowers it. So the LEVEL says nothing on its own; only a
+        # classified delta does, and the classification is a human judgement this
+        # script cannot make.
+        #
+        # ⇒ Six rises were recorded before this line existed, and every one of
+        # them needed a sentence in `queue.md` explaining which kind it was.
+        print(
+            "       ⇒ CLASSIFY IT before reading it as a regression. A CARVE "
+            "raises this count while compiling\n"
+            "         no more code — the domain was already linked inside the "
+            "monolith and is now its own crate.\n"
+            "         A genuinely NEW dependency also raises it. The two are "
+            "opposite outcomes with the same delta,\n"
+            "         so record which one this is in the baseline and in the "
+            "queue's capability-footprint row."
+        )
+
+    new, stale = rollback_schema_violations(root)
+    if not new and not stale:
+        baseline = json.loads((root / ROLLBACK_SCHEMA_BASELINE).read_text())
+        print(
+            f"  ok   rollback-wire-format-changes-are-declared  "
+            f"({len(baseline['encoded_types'])} encoded types across "
+            f"{len({t.split('::')[0] for t in baseline['encoded_types']})} crates)"
+        )
+    else:
+        broken += 1
+        print("  RED  rollback-wire-format-changes-are-declared")
+        print(
+            "       Every type in the rollback wire format, wherever it is "
+            "encoded. THE SET MAY GROW — what it may not do is drift "
+            "unacknowledged. A new entry is a wire-format change: peers whose "
+            "schemas differ cannot agree about a snapshot, so adding one means "
+            "updating this baseline AND bumping "
+            "GGRS_ROLLBACK_SCHEMA_VERSION in the SAME commit, and saying why."
+        )
+        print(
+            "       ⚠ this rule was 'the set may only shrink' until 2026-08-23, "
+            "inherited from `central-rollback-ownership-may-not-grow` — a "
+            "MIGRATION constraint from when the orphan rule forced every impl "
+            "into one file. Slice F federated that, and the shrink-only reading "
+            "outlived its condition: it forbade genuinely new canonical "
+            "gameplay state. `resource.impact_hitstop` is the case that "
+            "settled it — a freeze that decides the sim clock IS simulation "
+            "truth, and burying it in an already-registered type to appease a "
+            "ratchet would make the architecture worse to satisfy a guard."
+        )
+        for item in new:
+            print(
+                f"       NEW    {item} entered the rollback wire format — "
+                "declare it (baseline + schema version) or drop it"
+            )
+
+    input_moves = input_payload_violations(root)
+    input_version, input_shape = input_payload_shape(root)
+    if not input_moves:
+        print(
+            f"  ok   the-peer-input-payload-may-not-move-without-its-identity  "
+            f"({len(input_shape)} rows at CONTROL_FRAME_WIRE_IDENTITY={input_version})"
+        )
+    else:
+        broken += 1
+        print("  RED  the-peer-input-payload-may-not-move-without-its-identity")
+        print(
+            "       `PeerInput` (a `ControlFrame` and a verdict) is the GGRS input type — ggrs calls it \"the "
+            "only game-related data transmitted\n"
+            "       over the network\" — and its shape changed while "
+            "CONTROL_FRAME_WIRE_IDENTITY held.\n"
+            "       ⛔ INPUT_STREAM_VERSION DOES NOT COVER THIS. That versions "
+            "recorded replay files and exempts\n"
+            "         added fields by design, resting on `#[serde(default)]`, "
+            "which cannot participate on the\n"
+            "         wire at all: bincode is non-self-describing and never "
+            "looks for a field by name.\n"
+            "       ⇒ Bump CONTROL_FRAME_WIRE_IDENTITY in "
+            "crates/ambition_platformer2d_core/src/input_stream.rs and\n"
+            "         record the shape of the new identity in this baseline, in ONE commit."
+        )
+        for item in input_moves:
+            print(f"       {item}")
+
+    peer_moves = peer_checksum_schema_violations(root)
+    version, feeding_rows = peer_checksum_schema(root)
+    if not peer_moves:
+        print(
+            f"  ok   the-peer-visible-schema-may-not-move-without-the-version  "
+            f"({len(feeding_rows)} rows feed the peer checksum at {version})"
+        )
+    else:
+        broken += 1
+        print("  RED  the-peer-visible-schema-may-not-move-without-the-version")
+        print(
+            "       The set of registrations that FEED THE PEER CHECKSUM "
+            "changed while the schema version held.\n"
+            "       These are the only rows two peers compare, so a peer on the "
+            "old build and a peer on the new one\n"
+            "       now checksum different state under the SAME advertised "
+            "identity — they will not refuse each\n"
+            "       other before play, they will diverge during it."
+        )
+        print(
+            "       ⇒ Bump GGRS_ROLLBACK_SCHEMA_VERSION in "
+            "crates/ambition_platformer2d_runtime/src/rollback/registry.rs, "
+            "re-dump\n"
+            "         game/ambition_app/tests/rollback_schema_baseline.txt, and "
+            "re-freeze this baseline — all in ONE commit.\n"
+            "       ⚠ A row of a kind that feeds NO checksum may land without a "
+            "bump, and this invariant lets it:\n"
+            "         two such additions are in the history and "
+            "`ambition_mount`'s registration documents why."
+        )
+        for item in peer_moves:
+            print(f"       {item}")
+        for item in stale:
+            print(
+                f"       STALE  {item} left the rollback registration but is "
+                f"still in the baseline — PRUNE it in this commit"
+            )
+
+    total = (
+        len(ABSENCE_CONTRACTS)
+        + len(DEPENDENCY_CONTRACTS)
+        + len(MODULE_ALLOWLISTS)
+        # ⛔⛤ THE HAND-EMITTED CONTRACTS, COUNTED BY HAND — AND THE HAND WAS
+        # WRONG FOR A DAY. This read `+ 3` while five were being printed: the
+        # peer-checksum schema ratchet landed 2026-09-16 without bumping it, so
+        # the lane reported "44 of 44" over 45 contracts, and the only reason it
+        # looked right is that a total nobody derives is a total nobody checks.
+        # The same failure this file's own footprint ratchet exists to catch, in
+        # the line that counts it.
+        #
+        # ⇒ Name them, so the next addition has somewhere obvious to go:
+        #   1. capability footprint
+        #   2. rollback wire format
+        #   3. the featureless consumer's closure
+        #   4. the-peer-visible-schema-may-not-move-without-the-version
+        #   5. the-peer-input-payload-may-not-move-without-its-identity
+        #   6. the-sdk-game-links-no-capability-it-omits
+        + 6
+    )
+    if broken:
+        print(f"\n{broken} of {total} absence contracts are violated.")
+        print(
+            "Either the reintroduction is a mistake, or the architecture changed "
+            "on purpose — in which case DELETE or INVERT the contract in the same "
+            "commit rather than waiving it."
+        )
+        # A red contract is exit 1 with or without `--check`. The run without
+        # the flag exited 0, so a gate list that tested the exit code could
+        # not fail: a stale sentinel lockfile was RED in the log of one and
+        # was pushed (2026-10-04).
+        return 1
+    print(f"\n{total} of {total} absence contracts hold.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

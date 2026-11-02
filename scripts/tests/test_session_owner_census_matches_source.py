@@ -12,7 +12,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-import check_session_owner_census_matches_source as guard  # noqa: E402
+from scripts.checks import check_session_owner_census_matches_source as guard  # noqa: E402
 
 
 def test_the_census_matches_source_today():

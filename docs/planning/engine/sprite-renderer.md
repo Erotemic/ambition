@@ -82,7 +82,7 @@ character is rigged.
   rendered raster. A caller that needs new high-resolution detail (dialog
   portraits) needs an explicit family or target capability.
 - **A missing asset can look like a code bug.**
-  `scripts/check_published_sheets_are_present.py` checks that every sheet the
+  `scripts/checks/check_published_sheets_are_present.py` checks that every sheet the
   publish roster claims is on disk, so a roster/disk mismatch fails as itself.
   It counts rostered targets. The `ambition_sprite_sheet` floor counts
   published sheets. They are different populations.

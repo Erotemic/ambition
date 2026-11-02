@@ -11,7 +11,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-import check_separated_authorities_stay_separated as guard  # noqa: E402
+from scripts.checks import check_separated_authorities_stay_separated as guard  # noqa: E402
 
 
 def test_the_shipped_tree_holds_both_separations():

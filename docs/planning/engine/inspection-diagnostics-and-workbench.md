@@ -80,7 +80,7 @@ An unsatisfied condition reports the term that blocked it, the object it names
 and that object's current state. This is a product requirement.
 [`authored-gameplay-logic-and-orchestration.md`](authored-gameplay-logic-and-orchestration.md)
 owns the authored-logic contract; the requirement is stated here.
-`scripts/check_absence_contracts.py` enforces it.
+`scripts/checks/check_absence_contracts.py` enforces it.
 
 - Vocabulary: `ConditionOutcome::NotSatisfied(WhyNot { term, subject, observed })`.
   Every production evaluator states one. `from_bool_unexplained` is the fixture

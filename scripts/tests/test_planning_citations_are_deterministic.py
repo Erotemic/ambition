@@ -31,7 +31,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-SCRIPT = REPO / "scripts/check_planning_citations.py"
+SCRIPT = REPO / "scripts/checks/check_planning_citations.py"
 
 
 def run_on(doc: Path) -> tuple[int, str]:
@@ -68,7 +68,7 @@ def mixed_doc_output(tmp_path_factory) -> str:
     doc = tmp_path_factory.mktemp("cites") / "row.md"
     doc.write_text(
         "an ambiguous one: `mod.rs:5`\n"
-        "an unambiguous one: `scripts/check_planning_citations.py:1`\n"
+        "an unambiguous one: `scripts/checks/check_planning_citations.py:1`\n"
     )
     return run_on(doc)[1]
 

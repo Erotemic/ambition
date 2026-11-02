@@ -30,7 +30,7 @@ REPO = Path(
     ).stdout.strip()
 )
 SPEC = importlib.util.spec_from_file_location(
-    "check_severed_sentences", REPO / "scripts" / "check_severed_sentences.py"
+    "check_severed_sentences", REPO / "scripts" / "checks/check_severed_sentences.py"
 )
 mod = importlib.util.module_from_spec(SPEC)
 sys.modules["check_severed_sentences"] = mod

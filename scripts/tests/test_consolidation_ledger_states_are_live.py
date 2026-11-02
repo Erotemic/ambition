@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import check_consolidation_ledger_states_are_live as mod  # noqa: E402
+from scripts.checks import check_consolidation_ledger_states_are_live as mod  # noqa: E402
 
 
 def run(mutate=None, census: str | None = None) -> list[str]:

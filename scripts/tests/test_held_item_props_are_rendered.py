@@ -31,7 +31,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-CHECK = REPO / "scripts" / "check_held_item_props_are_rendered.py"
+CHECK = REPO / "scripts" / "checks/check_held_item_props_are_rendered.py"
 
 
 def _module():

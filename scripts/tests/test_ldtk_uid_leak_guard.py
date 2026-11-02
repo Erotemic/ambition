@@ -17,7 +17,7 @@ import sys
 
 _SPEC = importlib.util.spec_from_file_location(
     "check_ldtk_uid_leak",
-    pathlib.Path(__file__).resolve().parents[1] / "check_ldtk_uid_leak.py",
+    pathlib.Path(__file__).resolve().parents[1] / "checks/check_ldtk_uid_leak.py",
 )
 guard = importlib.util.module_from_spec(_SPEC)
 sys.modules["check_ldtk_uid_leak"] = guard

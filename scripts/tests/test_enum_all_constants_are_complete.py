@@ -20,7 +20,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-SCRIPT = REPO / "scripts/check_enum_all_constants_are_complete.py"
+SCRIPT = REPO / "scripts/checks/check_enum_all_constants_are_complete.py"
 
 
 def load():

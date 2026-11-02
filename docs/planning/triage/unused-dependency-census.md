@@ -2,7 +2,7 @@
 
 **Status:** the `[dependencies]` census of every workspace member with a
 `src/lib.rs` was completed and applied on 2026-09-18. `[dev-dependencies]` are
-covered by the standing guard `scripts/check_dev_dependencies_are_used.py`.
+covered by the standing guard `scripts/checks/check_dev_dependencies_are_used.py`.
 Manifest comments in `game/ambition_app`, `game/ambition_content` and
 `crates/ambition_damage` cite this page as their evidence.
 

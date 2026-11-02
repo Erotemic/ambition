@@ -1747,7 +1747,7 @@ def section_graph(load: LedgerLoad) -> str:
     <strong>⛔ this is a snapshot, not a series.</strong> One row exists. Nothing on this
     page can say whether any of these numbers moved, because there is no second measurement
     to move from. The ledger is deterministic and cheap
-    (<code>scripts/compile_ratchet.py --update</code> needs no build), so a second row is
+    (<code>scripts/checks/compile_ratchet.py --update</code> needs no build), so a second row is
     one command away — but until it is taken, every figure below is a single reading of a
     single commit.
   </div>
@@ -1823,7 +1823,7 @@ def section_carve(load: LedgerLoad) -> str:
   <div class="note">
     <strong>What would make this section a graph.</strong> Each carve appends its own row at
     the moment it splits, via
-    <code>scripts/compile_ratchet.py --record-carve</code>. Cross-referenced against
+    <code>scripts/checks/compile_ratchet.py --record-carve</code>. Cross-referenced against
     <code>compile_units.jsonl</code>, a populated lineage answers the question none of the
     other four ledgers can: whether splitting a module actually moved the seconds, or only
     moved the lines.

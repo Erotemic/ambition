@@ -18,7 +18,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-import check_commit_only_schedules_have_one_runner as guard  # noqa: E402
+from scripts.checks import check_commit_only_schedules_have_one_runner as guard  # noqa: E402
 
 
 def test_every_commit_only_schedule_has_one_runner_today():

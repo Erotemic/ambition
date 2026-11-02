@@ -100,7 +100,7 @@ Then run both gates after you add or remove a workspace crate:
 
 ```bash
 cargo test -p ambition_workspace_policy --test policy   # read the per-policy lines
-python3 scripts/check_absence_contracts.py | tail -5    # confirm a verdict per contract
+python3 scripts/checks/check_absence_contracts.py | tail -5    # confirm a verdict per contract
 ```
 
 A stale sentinel lockfile (`fixtures/minimal_game/Cargo.lock`) is reported as

@@ -26,7 +26,7 @@ block nothing.
 **The blocking set is empty (2026-10-19).** The 2026-10-19 rulings closed
 `Q157`, its one entry.
 
-`scripts/check_blocking_set_names_every_gate.py` reads the queue's
+`scripts/checks/check_blocking_set_names_every_gate.py` reads the queue's
 `**Blocked by:**` fields and fails if a gate has no row in a table here. Each
 table row links a `Q` that has a section on this page with at least two
 options, written `* **(a) …`. Derive gates from the field, not from row prose.

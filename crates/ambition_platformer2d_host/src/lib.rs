@@ -391,7 +391,7 @@ fn tune_clash_strategy_to_bindings(
 
 /// Projectiles that were fired are projectiles that are drawn.
 ///
-/// Found by `scripts/check_engine_systems_are_engine_installed.py`, built after the same shape cost
+/// Found by `scripts/checks/check_engine_systems_are_engine_installed.py`, built after the same shape cost
 /// three defects in four days (the world-label pass, the parallax theme load, the parallax layer
 /// sync).
 ///
@@ -466,7 +466,7 @@ pub struct HostVfxPresentationPlugin;
 impl Plugin for HostVfxPresentationPlugin {
     fn build(&self, app: &mut App) {
         // spelled out on purpose — a short path is INVISIBLE to
-        // `scripts/check_engine_systems_are_engine_installed.py`. That checker only recognises a
+        // `scripts/checks/check_engine_systems_are_engine_installed.py`. That checker only recognises a
         // registration whose FIRST path segment is an engine crate name, and the app registered
         // these as `fx::update_particles` / bare `vfx_spawn_messages`. The blind spot is already
         // written down for `setup_capture_target` in that file's own waiver list; do not re-shorten

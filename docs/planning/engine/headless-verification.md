@@ -86,7 +86,7 @@ capture_scene --route <ROUTE_ID> [OUT.png] [WIDTHxHEIGHT] [OPTIONS]
   `--press` drives keys and touches through the route's own lobby.
 - `--press-during N` opens the shutter N press-driving frames into the
   sequence. It exits 2 when the sequence ends before frame N, and it is
-  refused without `--press` or with 0. `scripts/verify_press_during_capture.sh`
+  refused without `--press` or with 0. `scripts/checks/verify_press_during_capture.sh`
   checks the pixels.
 - A capture is at the `low` quality profile unless `AMBITION_QUALITY_PROFILE`
   names another. Name `high` or `ultra` to judge art; do not use `potato`,

@@ -26,7 +26,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
-import check_consolidation_ledger_still_resolves as guard  # noqa: E402
+from scripts.checks import check_consolidation_ledger_still_resolves as guard  # noqa: E402
 
 
 def test_the_real_ledger_resolves() -> None:
@@ -178,7 +178,7 @@ def test_that_sweep_imports_its_pattern_rather_than_restating_it():
     grew its own copy of the mood regex, widening one would silently leave the
     other behind — which is the defect the rule itself exists to catch.
     """
-    import check_discharged_holds_are_rewritten as holds
+    from scripts.checks import check_discharged_holds_are_rewritten as holds
 
     planted = [
         {

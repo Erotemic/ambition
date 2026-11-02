@@ -165,7 +165,7 @@ impl BaseGravity {
 ///
 /// ⛔ [`BaseGravity`] IS ROLLBACK STATE, and a developer control that wrote it
 /// from `Update` mutated a rewound value on a schedule that never rewinds —
-/// the exact class `scripts/check_rollback_mutators_run_in_sim.py` exists to
+/// the exact class `scripts/checks/check_rollback_mutators_run_in_sim.py` exists to
 /// catch, and it caught this one (2026-09-03, waived with this fix named).
 /// Same inversion as `ClockScaleRequest`: the sim reads a request the tool
 /// publishes, never the tool's hand on the resource.

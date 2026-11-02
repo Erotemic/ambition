@@ -33,6 +33,10 @@ An empty job plan or unknown package is an error; the process exits nonzero when
 any selected job fails."""
 from __future__ import annotations
 
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
 import json
 import os
@@ -57,7 +61,7 @@ STATUS_NAME = "run_tests_status.json"
 #: still recognises the variable as its own.
 NESTED_ENV = "AMBITION_RUN_TESTS_OUTER_PID"
 # Share the repository disk-headroom policy rather than duplicating it in this runner.
-from check_disk_headroom import MIN_FREE_GB, free_gb_on_target, target_dir  # noqa: E402
+from scripts.checks.check_disk_headroom import MIN_FREE_GB, free_gb_on_target, target_dir  # noqa: E402
 
 # The floor for ABANDONING a run in progress, as opposed to refusing to
 # start one. Deliberately far below `MIN_FREE_GB`: dipping under the
@@ -299,7 +303,7 @@ class Job:
     # `cargo doc -p <crate> --no-deps` per crate. ⚠ Found 2026-09-03 by running
     # that lane on a volume at 12 GB: the lane the guard waves through is the
     # one that can still fill the disk. An argv check cannot see it either, the
-    # argv is `python3 scripts/check_doc_link_ratchet.py`.
+    # argv is `python3 scripts/checks/check_doc_link_ratchet.py`.
     #
     # ⇒ Default False, so a NEW job is treated as cheap. That is the wrong
     # default for safety and the right one for honesty: anything else would
@@ -600,11 +604,11 @@ def slow_python_checker_jobs() -> list[Job]:
         # of "no warnings" meaning the whole tree rather than the last diff.
         Job(
             "no warnings (cargo check --all-targets, fresh)",
-            [sys.executable, "scripts/check_no_warnings.py", "--fresh"],
+            [sys.executable, "scripts/checks/check_no_warnings.py", "--fresh"],
         ),
         Job(
             "doc links (active KB)",
-            [sys.executable, "scripts/check_doc_links.py"],
+            [sys.executable, "scripts/checks/check_doc_links.py"],
         ),
         # ⛔⛤ **IT LIVES HERE AND NOT ONLY IN `--maintenance`, AND PUTTING IT
         # THERE FIRST WAS THE MISTAKE.** I registered this in
@@ -615,7 +619,7 @@ def slow_python_checker_jobs() -> list[Job]:
         # gate is where it has to be.
         Job(
             "LDtk worlds: no uid allocated and discarded",
-            [sys.executable, "scripts/check_ldtk_uid_leak.py"],
+            [sys.executable, "scripts/checks/check_ldtk_uid_leak.py"],
         ),
         # The authoring policy (`ambition_ldtk_tools policy check`) had no gate,
         # and five CameraZones drifted onto the wrong layer. It runs under the
@@ -624,7 +628,7 @@ def slow_python_checker_jobs() -> list[Job]:
             "LDtk worlds: the authoring policy holds",
             [
                 tool_python(REPO / "tools" / "ambition_ldtk_tools", "AMBITION_LDTK_PYTHON"),
-                "scripts/check_ldtk_policy.py",
+                "scripts/checks/check_ldtk_policy.py",
             ],
         ),
         Job(
@@ -637,7 +641,7 @@ def slow_python_checker_jobs() -> list[Job]:
             "planning + doctrine citations (reports, does not gate)",
             [
                 sys.executable,
-                "scripts/check_planning_citations.py",
+                "scripts/checks/check_planning_citations.py",
                 # ⭐ THE DEFAULT IS `docs/planning` ALONE, and the pages that
                 # describe CURRENT behaviour were never scanned. Aimed here
                 # 2026-09-03 it found three live-doc citations pointing at
@@ -676,13 +680,13 @@ def slow_python_checker_jobs() -> list[Job]:
             "a path named in a source comment exists (reports, does not gate)",
             [
                 sys.executable,
-                "scripts/check_planning_citations.py",
+                "scripts/checks/check_planning_citations.py",
                 "--comment-paths",
             ],
         ),
         Job(
             "compile-cost ratchet (frozen weights, not a stopwatch)",
-            [sys.executable, "scripts/compile_ratchet.py"],
+            [sys.executable, "scripts/checks/compile_ratchet.py"],
         ),
     ]
 
@@ -859,7 +863,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         # A portal window shows its far side exactly: the same pixels as a
         # camera there, at the cheapest and the richest tier.
         jobs.append(Job("acceptance: portal windows are seamless",
-                        [sys.executable, "scripts/check_portal_window_seams.py", "--build",
+                        [sys.executable, "scripts/checks/check_portal_window_seams.py", "--build",
                          "--cases", "D,gnu_floor", "--tiers", "potato,high"],
                         builds=True))
 
@@ -900,7 +904,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # run of `supported_profiles` builds the drawing host too, so it cannot show that a
     # headless profile does not depend on it; this run can. It also carries the dependency
     # closure half of the contract: no `ambition_render` in this feature set's tree
-    # (`scripts/check_engine_profiles.py` reads that).
+    # (`scripts/checks/check_engine_profiles.py` reads that).
     if everything and (not only or "ambition_platformer2d_host" in only):
         check_jobs.append(Job(
             "engine profiles: headless witnesses with no renderer (--no-default-features)",
@@ -1240,18 +1244,18 @@ def build_maintenance_jobs() -> list[Job]:
         ),
         Job(
             "agent KB (periodic doc/index hygiene)",
-            [sys.executable, "scripts/check_agent_kb.py"],
+            [sys.executable, "scripts/checks/check_agent_kb.py"],
         ),
         Job(
             "broken intra-doc links (ratchet; cold cargo doc, minutes)",
-            [sys.executable, "scripts/check_doc_link_ratchet.py", "--check"],
+            [sys.executable, "scripts/checks/check_doc_link_ratchet.py", "--check"],
             # The one maintenance job that is not pure Python: it runs
             # `cargo doc -p <crate> --no-deps` for every crate.
             builds=True,
         ),
         Job(
             "zone names (ratchet)",
-            [sys.executable, "scripts/check_zone_name_ratchet.py", "--check"],
+            [sys.executable, "scripts/checks/check_zone_name_ratchet.py", "--check"],
         ),
         # ⛔⛤ **AND THIS ONE WAS DOCUMENTED AS A GATE AND RUN BY NO LANE.**
         # `AGENTS.md` lists it under "enforce with `--check`" and nothing did:
@@ -1289,11 +1293,11 @@ def build_maintenance_jobs() -> list[Job]:
         # itself and prints the non-windowing findings either way.
         Job(
             "declared system packages present on this host (report-only)",
-            [sys.executable, "scripts/check_declared_system_packages.py"],
+            [sys.executable, "scripts/checks/check_declared_system_packages.py"],
         ),
         Job(
             "architecture absence contracts (dependency edges that must stay absent)",
-            [sys.executable, "scripts/check_absence_contracts.py", "--check"],
+            [sys.executable, "scripts/checks/check_absence_contracts.py", "--check"],
             builds=True,
         ),
         # ⛔ AND THIS ONE HAD NEVER BEEN AIMED AT ALL. `--vanished` reports
@@ -1308,7 +1312,7 @@ def build_maintenance_jobs() -> list[Job]:
             "planning + doctrine rows citing a vanished name (periodic)",
             [
                 sys.executable,
-                "scripts/check_planning_citations.py",
+                "scripts/checks/check_planning_citations.py",
                 "--vanished",
                 PLANNING_VANISHED_BASELINE,
                 # ⭐ DOCTRINE ROTS THE SAME WAY, and the checker already took
@@ -1370,7 +1374,7 @@ def build_maintenance_jobs() -> list[Job]:
             "planning rows whose `path:NN` no longer addresses its line (periodic)",
             [
                 sys.executable,
-                "scripts/check_planning_line_citations.py",
+                "scripts/checks/check_planning_line_citations.py",
             ],
         ),
         # ⛔⛤ A ROW THAT ANNOUNCES ITS HOLD IS DISCHARGED AND STILL STATES IT.
@@ -1391,7 +1395,7 @@ def build_maintenance_jobs() -> list[Job]:
             "doc rows stating a gate or an imperative a closed campaign discharged (periodic)",
             [
                 sys.executable,
-                "scripts/check_discharged_holds_are_rewritten.py",
+                "scripts/checks/check_discharged_holds_are_rewritten.py",
                 # ⭐ WIDER THAN `docs/planning`, AND THE WIDENING WAS MEASURED
                 # BEFORE IT WAS INSTALLED: 1,084 rows -> 1,552, zero new
                 # findings. A gate sentence or a stale imperative about a closed
@@ -1427,7 +1431,7 @@ def build_maintenance_jobs() -> list[Job]:
             "live control-plane documents still have their content",
             [
                 sys.executable,
-                "scripts/check_planning_docs_survive.py",
+                "scripts/checks/check_planning_docs_survive.py",
             ],
         ),
         # ⛔⛤ THE ONE THING IN THIS LANE THAT READS RUST. It is here rather than
@@ -1440,7 +1444,7 @@ def build_maintenance_jobs() -> list[Job]:
             "a rollback registration's kind is spelled once, not per road",
             [
                 sys.executable,
-                "scripts/check_rollback_kind_spelled_once.py",
+                "scripts/checks/check_rollback_kind_spelled_once.py",
             ],
         ),
         # ⛔⛤ A CAMPAIGN'S STARTING CENSUS DRIFTS WHILE IT WAITS ON ITS GATES.
@@ -1452,7 +1456,7 @@ def build_maintenance_jobs() -> list[Job]:
             "C03's session-owner census still matches source",
             [
                 sys.executable,
-                "scripts/check_session_owner_census_matches_source.py",
+                "scripts/checks/check_session_owner_census_matches_source.py",
             ],
         ),
         # ⭐ A PROFILE IS A PROMISE ABOUT WHAT IS ABSENT. The Rust witnesses step a
@@ -1464,7 +1468,7 @@ def build_maintenance_jobs() -> list[Job]:
             "A9's engine profiles: registry, markers and dependency closure",
             [
                 sys.executable,
-                "scripts/check_engine_profiles.py",
+                "scripts/checks/check_engine_profiles.py",
             ],
         ),
         # ⛔ AN OPTIONAL READ OF A SESSION AUTHORITY IS A CLAIM ABOUT WHICH
@@ -1477,7 +1481,7 @@ def build_maintenance_jobs() -> list[Job]:
             "C07's optional reads of session authorities each say what None means",
             [
                 sys.executable,
-                "scripts/check_session_authority_none_arms.py",
+                "scripts/checks/check_session_authority_none_arms.py",
             ],
         ),
         # ⛔⛤ A HEADING RENAME BREAKS EVERY POINTER TO IT AND NOTHING ELSE
@@ -1489,7 +1493,7 @@ def build_maintenance_jobs() -> list[Job]:
             "planning pointers land on a heading that exists",
             [
                 sys.executable,
-                "scripts/check_planning_anchors_resolve.py",
+                "scripts/checks/check_planning_anchors_resolve.py",
             ],
         ),
         # ⛔⛤ THE PATH CHECKERS ABOVE RESOLVE PATHS, SYMBOLS AND ANCHORS; A
@@ -1503,7 +1507,7 @@ def build_maintenance_jobs() -> list[Job]:
             "planning docs cite test names that exist",
             [
                 sys.executable,
-                "scripts/check_planning_test_citations.py",
+                "scripts/checks/check_planning_test_citations.py",
             ],
         ),
         # ⛔⛤ THIS CHECKER EXISTED, HAD ITS OWN PYTEST AND ITS OWN SECTION IN
@@ -1516,7 +1520,7 @@ def build_maintenance_jobs() -> list[Job]:
             "the consolidation ledger's paths and names still resolve",
             [
                 sys.executable,
-                "scripts/check_consolidation_ledger_still_resolves.py",
+                "scripts/checks/check_consolidation_ledger_still_resolves.py",
             ],
         ),
         # ⛔⛤ AND THE JOB ABOVE CHECKS THAT THE LEDGER'S CITATIONS RESOLVE, NOT
@@ -1531,7 +1535,7 @@ def build_maintenance_jobs() -> list[Job]:
             "the consolidation ledger's status fields agree with each other",
             [
                 sys.executable,
-                "scripts/check_consolidation_ledger_states_are_live.py",
+                "scripts/checks/check_consolidation_ledger_states_are_live.py",
             ],
         ),
         # ⛔⛤ A REVIEW FOUND A NARRATIVE WRITER WITH NO LEDGER, AND THE HALF
@@ -1544,7 +1548,7 @@ def build_maintenance_jobs() -> list[Job]:
             "every narrative writer has an installed ledger plugin",
             [
                 sys.executable,
-                "scripts/check_narrative_writers_have_a_ledger.py",
+                "scripts/checks/check_narrative_writers_have_a_ledger.py",
             ],
         ),
         # ⛔ THE CENSUS'S `LEGITIMATE_SEPARATION` ROWS DEFEND THEMSELVES WORST
@@ -1555,7 +1559,7 @@ def build_maintenance_jobs() -> list[Job]:
             "the census's legitimate separations still hold in source",
             [
                 sys.executable,
-                "scripts/check_separated_authorities_stay_separated.py",
+                "scripts/checks/check_separated_authorities_stay_separated.py",
             ],
         ),
         # ⭐ `Q132` (decided 2026-09-19) rules that exactly one canonical live
@@ -1567,7 +1571,7 @@ def build_maintenance_jobs() -> list[Job]:
             "every production `SessionRoot` constructor is declared",
             [
                 sys.executable,
-                "scripts/check_session_root_construction_is_declared.py",
+                "scripts/checks/check_session_root_construction_is_declared.py",
             ],
         ),
         # ⛔⛤ TWO CORRECT NUMBERS THAT READ AS A CONTRADICTION. The census row
@@ -1581,7 +1585,7 @@ def build_maintenance_jobs() -> list[Job]:
             "the SessionWorldRef/Mut census still matches the tree",
             [
                 sys.executable,
-                "scripts/check_alias_census_agrees_with_source.py",
+                "scripts/checks/check_alias_census_agrees_with_source.py",
             ],
         ),
         # ⛔⛤ THE BLOCKING SET A MAINTAINER READS WAS WRONG TWICE IN ONE DAY,
@@ -1594,7 +1598,7 @@ def build_maintenance_jobs() -> list[Job]:
             "the blocking set names every gate the queue states",
             [
                 sys.executable,
-                "scripts/check_blocking_set_names_every_gate.py",
+                "scripts/checks/check_blocking_set_names_every_gate.py",
             ],
         ),
         # ⛔⛔ THE WRITER-SIDE CENSUS EXISTED, PRINTED A SHORTLIST, AND NO LANE
@@ -1610,7 +1614,7 @@ def build_maintenance_jobs() -> list[Job]:
             "no resource gains a writer without somebody adjudicating it",
             [
                 sys.executable,
-                "scripts/check_multi_writer_resources_are_adjudicated.py",
+                "scripts/checks/check_multi_writer_resources_are_adjudicated.py",
             ],
         ),
         # A rollback-registered resource that is host configuration is not in
@@ -1620,7 +1624,7 @@ def build_maintenance_jobs() -> list[Job]:
             "no production code writes a host-configuration resource",
             [
                 sys.executable,
-                "scripts/check_host_configuration_has_no_session_writer.py",
+                "scripts/checks/check_host_configuration_has_no_session_writer.py",
             ],
         ),
         # A request drained inside the rewinding schedule and written from
@@ -1633,7 +1637,7 @@ def build_maintenance_jobs() -> list[Job]:
             "a request the simulation drains has no writer nobody adjudicated",
             [
                 sys.executable,
-                "scripts/check_sim_consumed_request_writers.py",
+                "scripts/checks/check_sim_consumed_request_writers.py",
             ],
         ),
         # ⛔⛤ A `Local` IS HOST STORAGE NOTHING SNAPSHOTS. A system registered
@@ -1650,7 +1654,7 @@ def build_maintenance_jobs() -> list[Job]:
             "every value remembered inside the rewinding schedule has been read",
             [
                 sys.executable,
-                "scripts/check_sim_schedule_memory_is_adjudicated.py",
+                "scripts/checks/check_sim_schedule_memory_is_adjudicated.py",
             ],
         ),
         # ⛔ AND THE RESOURCE HALF, which the guard above named as its own
@@ -1660,7 +1664,7 @@ def build_maintenance_jobs() -> list[Job]:
             "every resource accumulated inside the rewinding schedule has been read",
             [
                 sys.executable,
-                "scripts/check_sim_schedule_resource_memory_is_adjudicated.py",
+                "scripts/checks/check_sim_schedule_resource_memory_is_adjudicated.py",
             ],
         ),
         # ⛔⛤ Q136's POPULATION, WHICH HAD NEVER BEEN ENUMERATED. An intent
@@ -1678,7 +1682,7 @@ def build_maintenance_jobs() -> list[Job]:
             "every host-raised, sim-spent intent has been read",
             [
                 sys.executable,
-                "scripts/check_host_produced_sim_consumed_requests.py",
+                "scripts/checks/check_host_produced_sim_consumed_requests.py",
             ],
         ),
         # A body that is not square has one box, turned to its DOWN. A reader
@@ -1690,7 +1694,7 @@ def build_maintenance_jobs() -> list[Job]:
         # stops the obvious regrowth, and it does not show there is none.
         Job(
             "each level-box read of a body is classified",
-            [sys.executable, "scripts/check_level_box_readers.py"],
+            [sys.executable, "scripts/checks/check_level_box_readers.py"],
         ),
         # `CheckpointDomainApply`'s authorization is made out of WHEN its
         # reducers run: the commit executor runs that schedule and nothing else
@@ -1704,7 +1708,7 @@ def build_maintenance_jobs() -> list[Job]:
             "a commit-only schedule has exactly one production runner",
             [
                 sys.executable,
-                "scripts/check_commit_only_schedules_have_one_runner.py",
+                "scripts/checks/check_commit_only_schedules_have_one_runner.py",
             ],
         ),
         # ⛔ `const ALL` is a hand-written copy of an enum's variant list and
@@ -1719,7 +1723,7 @@ def build_maintenance_jobs() -> list[Job]:
             "every `const ALL` lists every variant its enum declares",
             [
                 sys.executable,
-                "scripts/check_enum_all_constants_are_complete.py",
+                "scripts/checks/check_enum_all_constants_are_complete.py",
             ],
         ),
         # ⛔⛤ THE UNUSED-DEPENDENCY CENSUS CANNOT SEE THIS HALF. Its detector is
@@ -1730,7 +1734,7 @@ def build_maintenance_jobs() -> list[Job]:
             "every declared dev-dependency is named by its own crate",
             [
                 sys.executable,
-                "scripts/check_dev_dependencies_are_used.py",
+                "scripts/checks/check_dev_dependencies_are_used.py",
             ],
         ),
         # ⛔ Q144 IS THE LAST OPEN DUPLICATE-AUTHORITY FAMILY, AND ITS OPTION 1
@@ -1745,7 +1749,7 @@ def build_maintenance_jobs() -> list[Job]:
             "every live `GenerationMechanics` construction declares its road",
             [
                 sys.executable,
-                "scripts/check_generation_mechanics_construction_is_declared.py",
+                "scripts/checks/check_generation_mechanics_construction_is_declared.py",
             ],
         ),
         # ⛔⛤ SIX PLANNING PAGES STATED THE FACADE'S DEPENDENCY CLOSURE AND GAVE
@@ -1759,7 +1763,7 @@ def build_maintenance_jobs() -> list[Job]:
             "the facade's dependency closure has one owner and every page agrees",
             [
                 sys.executable,
-                "scripts/check_facade_dependency_closure.py",
+                "scripts/checks/check_facade_dependency_closure.py",
             ],
         ),
         # ⛔⛤ A WAIVER WHOSE SUBJECT IS GONE PRE-APPROVES WHATEVER TAKES ITS
@@ -1774,7 +1778,7 @@ def build_maintenance_jobs() -> list[Job]:
             "every rollback-coverage waiver still names a subject",
             [
                 sys.executable,
-                "scripts/check_rollback_waivers_have_subjects.py",
+                "scripts/checks/check_rollback_waivers_have_subjects.py",
             ],
         ),
         # ⛔⛤ THE PLAYER-CLONE HOTKEY SHIPPED ON A KEY TWO PRESETS BOUND, and no
@@ -1784,7 +1788,7 @@ def build_maintenance_jobs() -> list[Job]:
             "no raw `KeyCode` read steals a key a shipped preset binds",
             [
                 sys.executable,
-                "scripts/check_raw_key_reads_do_not_collide_with_presets.py",
+                "scripts/checks/check_raw_key_reads_do_not_collide_with_presets.py",
             ],
         ),
         # ⛔⛤ **A RATCHET THAT ONLY THE SLOW SUITE RAN.** This script's `main()`
@@ -1798,7 +1802,7 @@ def build_maintenance_jobs() -> list[Job]:
             "presence-filtered state is rollback registered",
             [
                 sys.executable,
-                "scripts/check_presence_filtered_state_is_rollback_registered.py",
+                "scripts/checks/check_presence_filtered_state_is_rollback_registered.py",
             ],
         ),
         # ⛔⛤ **AND ITS SIBLING WAS IN THE SAME STATE, holding more.**
@@ -1817,7 +1821,7 @@ def build_maintenance_jobs() -> list[Job]:
         # two were confirmed by hand instead.
         Job(
             "rollback state is not mutated outside the rewinding schedule",
-            [sys.executable, "scripts/check_rollback_mutators_run_in_sim.py"],
+            [sys.executable, "scripts/checks/check_rollback_mutators_run_in_sim.py"],
         ),
         # ⛔⛤ **AND THE CENSUS THAT FOUND THOSE TWO USED `check_*.py` AS ITS
         # POPULATION, SO IT COULD NOT SEE THE NEXT TWO.** One is named for the
@@ -1833,7 +1837,7 @@ def build_maintenance_jobs() -> list[Job]:
         # The 10 interior-mutable test statics and their adjudications. 3 seconds.
         Job(
             "a test static is a channel between arms",
-            [sys.executable, "scripts/a_test_static_is_a_channel_between_arms.py"],
+            [sys.executable, "scripts/checks/a_test_static_is_a_channel_between_arms.py"],
         ),
         # ⭐ The consolidation census calls three duplicate-authority families
         # RESOLVED, and until 2026-09-18 the only thing holding that was
@@ -1842,7 +1846,7 @@ def build_maintenance_jobs() -> list[Job]:
         # is about the tree. This asks the tree. 1 second.
         Job(
             "a collapsed authority stays collapsed",
-            [sys.executable, "scripts/check_collapsed_authorities_stay_collapsed.py"],
+            [sys.executable, "scripts/checks/check_collapsed_authorities_stay_collapsed.py"],
         ),
         # ⛔⛤ **EIGHT MORE, FOUND BY ASKING `Q59` FOR A NUMBER — 2026-09-18.**
         # That row asked *"two validation ledgers can be red when no lane ran:
@@ -1866,42 +1870,42 @@ def build_maintenance_jobs() -> list[Job]:
         # 11 seconds for the eight.
         Job(
             "the pinned music renderer refuses the GM fallback",
-            [sys.executable, "scripts/check_pinned_music_renderer_refuses_gm.py"],
+            [sys.executable, "scripts/checks/check_pinned_music_renderer_refuses_gm.py"],
         ),
         Job(
             "every Option-read capability has a shipping writer",
-            [sys.executable, "scripts/check_capability_ships.py"],
+            [sys.executable, "scripts/checks/check_capability_ships.py"],
         ),
         Job(
             "engine presentation systems are engine-installed",
-            [sys.executable, "scripts/check_engine_systems_are_engine_installed.py"],
+            [sys.executable, "scripts/checks/check_engine_systems_are_engine_installed.py"],
         ),
         Job(
             "headless stepping arms can fail",
-            [sys.executable, "scripts/check_headless_arms_can_fail.py"],
+            [sys.executable, "scripts/checks/check_headless_arms_can_fail.py"],
         ),
         Job(
             "no retired crate name is live",
-            [sys.executable, "scripts/check_retired_crate_names.py"],
+            [sys.executable, "scripts/checks/check_retired_crate_names.py"],
         ),
         Job(
             "set pins have engine members",
-            [sys.executable, "scripts/check_set_pins_have_engine_members.py"],
+            [sys.executable, "scripts/checks/check_set_pins_have_engine_members.py"],
         ),
         Job(
             "no severed sentences in planning",
-            [sys.executable, "scripts/check_severed_sentences.py"],
+            [sys.executable, "scripts/checks/check_severed_sentences.py"],
         ),
         Job(
             "quality variants are fresh",
-            [sys.executable, "scripts/check_quality_variants_are_fresh.py"],
+            [sys.executable, "scripts/checks/check_quality_variants_are_fresh.py"],
         ),
         # Every authored door lands in a real area with a real arrival zone, and
         # no area is a trap. Content, not architecture — and at 0.15 s the
         # cheapest verdict in the lane. 0.2 seconds.
         Job(
             "the world graph is navigable",
-            [sys.executable, "scripts/check_world_graph_is_navigable.py"],
+            [sys.executable, "scripts/checks/check_world_graph_is_navigable.py"],
         ),
     ]
 

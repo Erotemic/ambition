@@ -98,7 +98,7 @@ Rules:
 An absence is a claim about the store you looked in. Write "not present in this
 checkout at `<sha>`". For a presence claim, name the ref that reaches the object.
 
-`scripts/check_planning_citations.py` checks local objects only. Its suggested
+`scripts/checks/check_planning_citations.py` checks local objects only. Its suggested
 `git log -S ... --all` searches local refs only. It cannot prove "never existed"
 in a shallow or epoch-limited clone. Do not delete a citation or call it
 fabricated to get a zero exit status. When a guard is red on a citation, re-run

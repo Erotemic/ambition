@@ -385,7 +385,7 @@ deferral and the hold are still two rules (`entity_is_still_a_candidate`,
 
 - `[census] rooms` prints every live room, its definition, its instance and its
   holders.
-- `scripts/check_alias_census_agrees_with_source.py` counts the sole-room
+- `scripts/checks/check_alias_census_agrees_with_source.py` counts the sole-room
   readers.
 - The two-player witnesses are in
   `game/ambition_app/tests/two_players_two_live_rooms.rs`.

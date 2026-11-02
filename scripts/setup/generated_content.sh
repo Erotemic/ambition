@@ -33,8 +33,8 @@ done
 
 verify_generated_content_is_current() {
     python3 "$repo_root/scripts/generate_library_content.py" --check
-    python3 "$repo_root/scripts/check_quality_variants_are_fresh.py"
-    python3 "$repo_root/scripts/check_regeneration_coverage.py"
+    python3 "$repo_root/scripts/checks/check_quality_variants_are_fresh.py"
+    python3 "$repo_root/scripts/checks/check_regeneration_coverage.py"
 }
 
 regenerate_assets() {

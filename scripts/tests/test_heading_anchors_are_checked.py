@@ -27,7 +27,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-SCRIPT = REPO / "scripts/check_planning_citations.py"
+SCRIPT = REPO / "scripts/checks/check_planning_citations.py"
 
 
 def load():

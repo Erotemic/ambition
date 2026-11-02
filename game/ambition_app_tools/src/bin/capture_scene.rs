@@ -110,7 +110,7 @@ struct SceneCaptureConfig {
     /// stays only while the body touches a climbable region.
     player_climbs: bool,
     /// One side of a portal window seam check (`--seam PORTAL:window|far`,
-    /// read by `scripts/check_portal_window_seams.py`).
+    /// read by `scripts/checks/check_portal_window_seams.py`).
     seam: Option<SeamCheck>,
     /// Controls the primary player holds from a sim tick on
     /// (`--player-holds NAMES[@TICK]`). No capture key reaches the
@@ -135,11 +135,11 @@ struct SceneCaptureConfig {
     /// nowhere, in the body or in its limbs' twins (`--limbs-unseen`); empty
     /// for every limb. A film with the limbs and one without differ by the
     /// limbs' pixels alone, so a limb's picture can be measured through a
-    /// portal pair (`scripts/check_limb_through_portal.py`).
+    /// portal pair (`scripts/checks/check_limb_through_portal.py`).
     limbs_unseen: Option<Vec<String>>,
     /// The pairs carry what goes through them (`--carry on|off`): off draws
     /// each drawable whole on its side, to compare a film against
-    /// (`scripts/check_portal_carry.py`).
+    /// (`scripts/checks/check_portal_carry.py`).
     carry: bool,
     /// Worn gear the primary player puts on, each from a sim tick
     /// (`--gear ID[@TICK]`): a gear id of the `worn_gear` content.
@@ -393,7 +393,7 @@ OPTIONS:
                         shot logs its sim tick)
     --seam PORTAL:window|far
                         one side of a portal window seam check
-                        (`scripts/check_portal_window_seams.py`). Both sides
+                        (`scripts/checks/check_portal_window_seams.py`). Both sides
                         hide the parallax layer in front of the play, which
                         is not seen through a portal. `window` writes
                         <OUT>.seam.json beside the shot: the window of PORTAL

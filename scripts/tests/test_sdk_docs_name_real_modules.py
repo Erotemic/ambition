@@ -74,7 +74,7 @@ def test_every_reviewed_sdk_module_is_documented():
     import sys
 
     sys.path.insert(0, str(REPO / "scripts"))
-    from check_absence_contracts import MODULE_ALLOWLISTS
+    from scripts.checks.check_absence_contracts import MODULE_ALLOWLISTS
 
     promised: set[str] = set()
     for contract in MODULE_ALLOWLISTS:

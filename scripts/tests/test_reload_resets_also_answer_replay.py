@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-SCRIPT = REPO / "scripts" / "check_reload_resets_also_answer_replay.py"
+SCRIPT = REPO / "scripts" / "checks/check_reload_resets_also_answer_replay.py"
 
 LOAD_ONLY = """
 /// Rearm the widgets when the room loads.

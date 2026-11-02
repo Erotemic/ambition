@@ -465,7 +465,7 @@ impl CutsceneLibrary {
 /// `auto_trigger_room_cutscenes` in the monolith's `Cutscene` phase and
 /// `update_boss_encounters` in `ProgressionSet::BossAdvance` — happen to be sim
 /// systems, so a replay re-produces whatever the rewind dropped. Nothing
-/// enforced that until `scripts/check_sim_consumed_request_writers.py`, which
+/// enforced that until `scripts/checks/check_sim_consumed_request_writers.py`, which
 /// ratchets the WRITER SET: a new writer fails the maintenance lane until
 /// somebody reads its body and records which schedule it runs in.
 ///

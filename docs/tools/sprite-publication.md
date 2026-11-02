@@ -41,7 +41,7 @@ Art never needs cargo:
 ```bash
 ./scripts/regen/sprites.sh --target hand_saint
 ./scripts/regen/sprites.sh
-python3 scripts/check_quality_variants_are_fresh.py --require-evidence
+python3 scripts/checks/check_quality_variants_are_fresh.py --require-evidence
 ```
 
 Each build reads a private source snapshot and writes into a clean directory.

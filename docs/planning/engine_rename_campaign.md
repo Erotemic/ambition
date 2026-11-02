@@ -1,7 +1,7 @@
 # Engine restructuring candidates
 
 **Status:** candidates with triggers, not a flag-day refactor. The retired
-`Sandbox*` crate naming is guarded by `python3 scripts/check_retired_crate_names.py`.
+`Sandbox*` crate naming is guarded by `python3 scripts/checks/check_retired_crate_names.py`.
 The active actor carve is
 [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
 Couch input assignment (`InputAssignmentPolicy` in

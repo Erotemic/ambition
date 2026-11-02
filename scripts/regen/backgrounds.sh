@@ -102,6 +102,6 @@ for logical in producer(repo, "backgrounds")["required_outputs"]:
         raise SystemExit(f"Background generation did not produce: {output}")
 PYTHON
 
-"$scene_python" "$repo_root/scripts/check_regeneration_coverage.py" --family backgrounds
+"$scene_python" "$repo_root/scripts/checks/check_regeneration_coverage.py" --family backgrounds
 
 echo "==> done"

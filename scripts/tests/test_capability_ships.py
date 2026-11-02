@@ -15,7 +15,7 @@ REPO = Path(__file__).resolve().parents[2]
 
 def test_every_optionally_read_capability_has_a_shipping_writer():
     result = subprocess.run(
-        [sys.executable, "scripts/check_capability_ships.py"],
+        [sys.executable, "scripts/checks/check_capability_ships.py"],
         cwd=REPO,
         capture_output=True,
         text=True,

@@ -61,7 +61,7 @@ third writer appears, revisit — not before.
 ## 2. `dev/ambition_dev_measurements/compile_graph.jsonl` — `kind: "graph"`
 
 **Deterministic. No build required. Populated today.** Written by
-`scripts/compile_ratchet.py --update`; the same object is frozen as
+`scripts/checks/compile_ratchet.py --update`; the same object is frozen as
 `dev/compile_ratchet_baseline.json`, which is what the gate compares against.
 
 | field | source | populated |
@@ -112,7 +112,7 @@ reliable for one crate against *itself* over time. Use it for the second thing.
 **Per-module wall time. Needs a real build.** 19 real rows today, back-filled from
 the 2026-08-07 report that produced the journal's findings.
 
-Written by `scripts/compile_ratchet.py --ingest-timings <cargo-timing.html>`.
+Written by `scripts/checks/compile_ratchet.py --ingest-timings <cargo-timing.html>`.
 
 ⭐ **the HTML is the source, and that is a finding rather than a fallback.**
 `cargo build --timings=json` is `-Z unstable-options` on stable, which is part of
@@ -600,7 +600,7 @@ why. A carve knows what it split from at the moment it splits and never again.
 Appended by the carve's own commit:
 
 ```
-python3 scripts/compile_ratchet.py --record-carve \
+python3 scripts/checks/compile_ratchet.py --record-carve \
     --from <path> --to <path> --from-crate <c> --to-crate <c> --why '<one sentence>'
 ```
 

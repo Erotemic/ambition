@@ -26,7 +26,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-SCRIPT = REPO / "scripts/check_level_box_readers.py"
+SCRIPT = REPO / "scripts/checks/check_level_box_readers.py"
 
 #: One production line that reads the level box.
 READ = "    let reach = kinematics.aabb();"

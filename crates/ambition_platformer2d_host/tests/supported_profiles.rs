@@ -13,7 +13,7 @@
 //!    requires every capability to read installed. Without it, a probe that is
 //!    always false makes every profile pass.
 //!
-//! Each witness prints `PROFILE-WITNESS <name> ...`; `scripts/check_engine_profiles.py`
+//! Each witness prints `PROFILE-WITNESS <name> ...`; `scripts/checks/check_engine_profiles.py`
 //! runs this file under both feature sets and requires a line per profile.
 
 use bevy::prelude::*;

@@ -83,6 +83,6 @@ PYTHON
 )
 "$renderer_py" "$pack_script" --input "$renderer_dir/output" --output "$AMBITION_ASSETS_ROOT/audio/sfx.bank" --cue-list "$cue_list"
 
-"$renderer_py" "$repo_root/scripts/check_regeneration_coverage.py" --family sfx
+"$renderer_py" "$repo_root/scripts/checks/check_regeneration_coverage.py" --family sfx
 
 echo "==> done"

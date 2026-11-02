@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent
-CHECKER = REPO / "scripts" / "check_planning_citations.py"
+CHECKER = REPO / "scripts" / "checks/check_planning_citations.py"
 
 
 def _repo_with(tmp_path: Path, comment: str) -> Path:

@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from check_retired_crate_names import (  # noqa: E402
+from scripts.checks.check_retired_crate_names import (  # noqa: E402
     RETIRED_CRATE_NAMES,
     retired_names_in_line,
 )
@@ -79,7 +79,7 @@ def test_the_live_tree_names_no_retired_crate():
     Matches how every other guard here is wired: the per-line tests above prove
     it CAN fire, and this one is what actually holds the line.
     """
-    from check_retired_crate_names import offences, tracked_files
+    from scripts.checks.check_retired_crate_names import offences, tracked_files
 
     found = offences(tracked_files())
     assert not found, "\n".join(
@@ -105,7 +105,7 @@ def test_the_goal_harness_config_is_scanned_even_though_it_is_untracked():
     state; what is being tested is the RULE, and the rule needs a directory, not
     this directory.
     """
-    from check_retired_crate_names import extra_paths
+    from scripts.checks.check_retired_crate_names import extra_paths
 
     root = Path(tempfile.mkdtemp())
     goal = root / ".goal"
@@ -130,7 +130,7 @@ def test_the_LIVE_QUEUES_are_not_exempt():
     They are actionable instructions, not historical records, so stale names in
     them can misdirect future work.
     """
-    import check_retired_crate_names as guard
+    from scripts.checks import check_retired_crate_names as guard
 
     exempt = [p for p in guard.HISTORICAL_PREFIXES if "queue-" in p]
     assert not exempt, (
@@ -144,7 +144,7 @@ def test_a_retired_TYPE_name_is_tracked_too():
     A stale crate name breaks a build. A stale type name in a planning doc
     quietly retires a piece of work, which is worse for being silent.
     """
-    import check_retired_crate_names as guard
+    from scripts.checks import check_retired_crate_names as guard
 
     assert guard.RETIRED_CRATE_NAMES.get("SandboxAction") == (
         "Platformer2dInputActionMonolith"

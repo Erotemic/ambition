@@ -20,7 +20,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
-import check_set_pins_have_engine_members as guard  # noqa: E402
+from scripts.checks import check_set_pins_have_engine_members as guard  # noqa: E402
 
 SET_DEF = (
     "#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]\n"

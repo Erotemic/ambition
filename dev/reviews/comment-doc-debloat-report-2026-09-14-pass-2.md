@@ -138,7 +138,7 @@ for isolated technique payloads.
   cleanup; no test logic changed.
 - `scripts/tests/test_sdk_docs_name_real_modules.py` changes include one assertion diagnostic
   string so it no longer names the deleted prototype; the assertion logic is unchanged.
-- `python3 scripts/check_doc_links.py` still reports exactly the two pre-existing missing
+- `python3 scripts/checks/check_doc_links.py` still reports exactly the two pre-existing missing
   generated-inventory links: `README.md -> .agent/README.md` and
   `docs/README.md -> ../.agent/README.md`. No changed SDK document introduced a broken link.
 - `rustfmt` is not installed in this review environment, so no formatter check was available.

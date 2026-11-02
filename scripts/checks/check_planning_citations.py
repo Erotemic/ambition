@@ -1,0 +1,1487 @@
+#!/usr/bin/env python3
+"""Check that the symbols and files `docs/planning/` cites actually exist.
+
+⛔⛔ WHY THIS EXISTS. On 2026-09-02 a planning row cited
+`grid_backend::focus_key_for_cursor`, a function that has NEVER existed --
+`git log -S` finds no commit that ever added it. It was invented, then copied
+into a commit message and a doc comment because each reuse copied the previous
+one. Nothing we run could see it: it is in prose, so the compiler and rustfmt
+never look, and it greps to nothing, which is indistinguishable from code that
+MOVED. A reader cannot tell a fabricated citation from a stale one, and the
+stale/fabricated distinction is the difference between "fix the row" and "the
+row was never true".
+
+⭐⭐ **A BLIND SPOT THAT WAS DIAGNOSED, PARKED, AND IS NOW CLOSED: THE DIRECTORY A
+SOURCE SENTENCE NAMES.** Paths in `docs/` were always resolved here; paths in
+`.rs` comments were resolved by nobody, so a doc comment naming
+`abilities/traversal/{blink,dive,mark_recall}.rs` reddened nothing when those
+files moved to `crates/ambition_abilities/src/traversal/`. A carve breaks prose
+paths silently and IN BULK, because the prose describing WHERE a population lives
+is exactly the prose a carve invalidates.
+
+⇒ `--comment-paths` closes it (2026-09-17), running in the default plan as *"a
+path named in a source comment exists"*. The argument that kept it parked -- that
+prose paths are also written about deleted files on purpose, so a checker buys a
+suppression list -- was measured: of 234 such citations, 20 did not resolve, 8
+were placeholders named `foo`, 6 said in their own words that the path was gone,
+and 7 were live claims pointing at nothing. Fourteen `cite-ok` markers, in a
+convention this file already had, and the gate was green the day it landed.
+
+⚠ It is a SEPARATE FLAG from `--comments` because that mode's SYMBOL half has
+standing advisory findings and cannot gate; one flag would have held the
+enforceable half hostage to the advisory one.
+
+⭐ THE POINT IS THE TRIAGE, NOT THE COUNT. Every finding here is one of:
+
+    MOVED       the file or symbol was renamed/deleted -> update the row
+    FABRICATED  it never existed -> the row's claim needs re-deriving, not
+                re-pointing. `git log -S '<name>' --all` is the discriminator
+                and this script prints the command for you.
+    QUOTED      a row deliberately quotes a name that is wrong, to record a
+                mistake. Mark those (see MARKER below) so they stop reporting.
+    NOT A PATH  a SCHEMATIC (`provider::local_name` -- the SHAPE of a key) or an
+                AUTHORED CONTENT KEY (`smash::duelist`, `versus::versus_duelist`
+                -- a catalog fragment, not a Rust item). Both are spelled like
+                paths and neither half is ever an item. There is no reliable way
+                to tell these from a real path by regex, so they are marked, not
+                matched. Expect them: they were a fifth of one sweep's findings.
+
+⛔⛔ WHAT IT DOES NOT LOOK AT, MEASURED 2026-09-02 — AND "all resolved" MUST NOT
+BE READ AS "every citation in the row is real". `SYMBOL` requires at least one
+`::`, so only QUALIFIED names and `file.rs:123` citations are extracted. A BARE
+backticked identifier — `build_prop_sprite_asset_packed`, the commonest citation
+form in these docs — is never counted. Verified by poisoning: renaming one to
+`build_prop_sprite_asset_packed_totally_invented` left the run at the same 526
+citations and still printed "all resolved".
+
+⭐ ONE NARROW SLICE OF THE BARE FORM *IS* CHECKED, by `--vanished REF`: a bare
+name that WAS a definition at REF and is not one at HEAD. The name's own history
+supplies the precision, so no heuristic has to decide what is "code-shaped", and
+it answers the question a decomposition carve actually raises — which rows cite
+an item the carve renamed or removed. It does NOT report names that never
+existed; that is the 542 below, deliberately left alone.
+
+⚠ AND EXTENDING IT TO BARE NAMES IS NOT AN IMPROVEMENT, which is why this is a
+documented bound rather than a TODO. `docs/planning/` holds 1490 distinct bare
+backticked snake_case tokens; 948 resolve to a defined name and 542 do not, of
+which 408 are code-shaped. The non-resolvers are dominated by things that are
+CORRECT and are not Rust items: room and content keys (`hall_of_characters`,
+`carl_stargan`), directories (`sprites_0_25x`), test binaries (`app_it`),
+upstream API (`add_systems`, `configure_sets`), and CSV columns
+(`resident_mb`). That is ~408 findings, mostly legitimate — a worklist nobody
+would finish, which is worse than the gap.
+
+⇒ So a bare-name citation is checked by a READER, not by this script. When a row
+turns on one, verify it by hand and say so.
+
+⚠ THIS IS A LINTER FOR PROSE AND IT WILL HAVE FALSE POSITIVES. It cannot know
+about upstream crates, external tools, or names that only appear in generated
+code. It is a WORKLIST, not a gate, and it exits 0 unless `--strict` is passed.
+
+USAGE
+    scripts/checks/check_planning_citations.py [--strict] [PATH ...]
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+#: ⚠ SAME LINE OR THE NEXT ONE. A wrapped comment routinely puts the citation at
+#: the end of one line and the parenthetical reason at the start of the next, so
+#: a strict same-line rule quietly ignored half the markers people wrote — three
+#: of them mine, and I re-triaged those citations twice before noticing.
+#:
+#: Put this on the same line as a citation that is wrong ON PURPOSE -- a row
+#: quoting a mistake it is recording. `three classes of comment history`: a
+#: quoted mistake outlives the mistake, and must not be silently "fixed".
+MARKER = "cite-ok"
+
+
+from urllib.parse import unquote
+
+
+def marker_suppresses(lines: list[str], lineno: int, marker: str = MARKER) -> bool:
+    """Does `marker` silence the citation on 1-based `lineno` of `lines`?
+
+    ⭐⭐ **THE SCOPE IS THE CITATION'S OWN LINE OR THE ONE BELOW IT**, because a
+    citation often ends a wrapped sentence and the marker will not fit beside
+    it at 80 columns.
+
+    ⛔⛔ **THIS PREDICATE IS A FUNCTION SO THAT IT HAS ONE KEEPER.** It was
+    spelled out three times here and a FOURTH time, DIFFERENTLY, in
+    `scripts/tests/test_planning_citations_are_deterministic.py`, which accepted
+    the marker only on the SAME line. MEASURED 2026-09-10: a marker placed one
+    line below its citation is legal by this module's documented rule, passed
+    `--strict`, and reddened that guard.
+
+    ⇒ **An author who follows the documentation gets a red.** A documented
+    affordance that is a trap is worse than an undocumented one, and the fix is
+    to widen the deviating reader — never to narrow the documented rule to match
+    it. Any new reader of the marker calls this rather than re-spelling it.
+    """
+    if marker in lines[lineno - 1]:
+        return True
+    # `lines[lineno]` IS the next line: `lineno` is 1-based, the list is not.
+    return lineno < len(lines) and marker in lines[lineno]
+
+_repository = subprocess.run(
+    ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True,
+)
+REPO = Path(_repository.stdout.strip()) if _repository.returncode == 0 else Path(__file__).resolve().parents[2]
+
+#: Tracked paths that `git ls-files` lists and the worktree lacks -- reported, never read.
+MISSING_TRACKED: list[Path] = []
+
+# `path/file.rs:123` or `file.rs:123`
+#
+# ⛔ THIS RULE CHECKS THE COORDINATE, NEVER THE CONTENT: the path resolves, the
+# line is not past the end of the file, the path is unambiguous. Whether line 123
+# still HOLDS what the sentence says is a different question with a different
+# owner -- `scripts/checks/check_planning_line_citations.py`, which reads the cited file
+# as it stood at the citing doc line's own blame commit and compares text to
+# text. It found 103 of 295 citations no longer addressing their line on its
+# first run, all of them green here and correctly so.
+FILE_LINE = re.compile(r"`([A-Za-z0-9_./-]+\.(?:rs|py|ron|toml|sh|md)):(\d+)`")
+# `module::thing` / `Type::method` -- at least one `::`, ordinary Rust idents.
+SYMBOL = re.compile(r"`([A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)+)`")
+
+# ⛔⛔ A PATH WITHOUT A LINE NUMBER WAS NOT BEING CHECKED AT ALL. `FILE_LINE`
+# requires the `:123` suffix, and almost no planning row writes one: prose cites
+# `features/ecs/footstool.rs`, not `…:168`. MEASURED 2026-09-02: the sweep that
+# reported "all 353 citations resolve" was true and judged NONE of the 319 bare
+# paths in the same files, one of which had been dead since `00030e603`.
+#
+# ⭐ THE HARD PART IS THAT THE REPOSITORY ABBREVIATES ON PURPOSE, so a plain
+# existence test reports the abbreviation instead of the rot — the "teaches its
+# reader to skim" failure this file already warns about, which would be worse
+# than no check. Three conventions are all correct and all common:
+#
+#     platformer2d_core/src/abilities.rs   crates/ambition_platformer2d_core/…
+#     actor_monolith/src/…/grapple.rs      …ambition_platformer2d_actor_monolith
+#     core/draw.py                         inside the sprite-renderer SUBMODULE
+#
+# ⭐ SO THE RULE IS ORDERED CONTAINMENT, not a suffix match: the basename must
+# name a real file, and every component the citation writes must appear in that
+# file's path IN ORDER, where a component matches either exactly or as the tail
+# of an `ambition_`-prefixed crate directory. All three above resolve;
+# `features/ecs/footstool.rs` does not, because `footstool.rs` lives in
+# `crates/ambition_combat/src/` and that path contains neither `features` nor
+# `ecs`. That is the finding, and it is what a reader following the row hits.
+PATH_SUFFIXES = ("rs", "py", "ron", "toml", "sh", "wgsl", "ldtk", "json", "md")
+PATH_CITE = re.compile(
+    r"`([A-Za-z0-9_][A-Za-z0-9_./-]*/[A-Za-z0-9_.-]+\.(?:"
+    + "|".join(PATH_SUFFIXES)
+    + r"))`(?!:)"
+)
+#: ⚠ A BUILD OUTPUT IS NOT ROT. Rows cite `target/run_tests_status.json` by its
+#: real path, which is the correct way to name one; it is absent because nothing
+#: has been built in this checkout yet, not because the row is wrong.
+GENERATED_PREFIXES = ("target/", "dist/", "build/")
+
+#: Segments that are never a definition to look for on their own.
+NOISE = {
+    "self", "crate", "super", "std", "core", "alloc",
+    # ⛔ `X::mod` IS A PATH IDIOM, NOT A SYMBOL. The repo writes `conversion::mod`
+    # and `rendering::mod` to mean "that module's mod.rs"; there is no item named
+    # `mod` to find and reporting it is pure noise.
+    "mod",
+    # ⛔ PRIMITIVES ARE NOT OURS. `usize::MAX` and `f32::INFINITY` cite the
+    # standard library; the repository happens to define fields and type
+    # aliases with these spellings, so the qualifier test alone lets them past.
+    "usize", "isize", "bool", "char", "str", "String",
+    "u8", "u16", "u32", "u64", "u128", "i8", "i16", "i32", "i64", "i128",
+    "f32", "f64",
+}
+
+
+# A BARE backticked identifier -- no `::`, so `SYMBOL` never sees it, and it is
+# the commonest citation form in these docs.
+BARE = re.compile(r"`([A-Za-z_][A-Za-z0-9_]{2,})`")
+
+
+def source_text_at(ref: str, suffixes: tuple[str, ...] = (".rs", ".py")) -> str:
+    """`source_text`, but for a tree that is not checked out.
+
+    ⭐ THIS IS WHAT MAKES THE BARE-NAME CHECK PRECISE INSTEAD OF NOISY. Asking
+    "does this bare name resolve?" yields ~408 findings that are mostly correct
+    citations of things that are not Rust items -- content keys, directories,
+    upstream Bevy API, CSV columns. Asking "was it a definition at REF and is it
+    not one now?" answers a different question with almost no false positives,
+    because the name's OWN HISTORY proves it was once a real item here.
+
+    ⚠ ONE `git cat-file --batch`, not one `git show` per file. The tree holds
+    thousands of sources; a process each takes minutes and this takes under a
+    second.
+    """
+    # ⛔⛔ A REF THAT DOES NOT RESOLVE USED TO END IN A PYTHON TRACEBACK. Ran as
+    # `--vanished $(git log --before=... -1 --format=%H)..HEAD` on a tree whose
+    # commits are all newer than the date, the command substitution produced an
+    # EMPTY string and `git ls-tree -r --name-only ''` exited 128 — surfacing as
+    # `CalledProcessError` with no hint that the BASE was the problem. A check
+    # whose failure mode is a stack trace reads as broken rather than as
+    # misinvoked, and this row exists because people already skip it.
+    listing = subprocess.run(
+        ["git", "ls-tree", "-r", "--name-only", ref],
+        cwd=REPO, capture_output=True, text=True,
+    )
+    if listing.returncode != 0:
+        raise SystemExit(
+            f"⛔ `{ref}` does not name a commit in this repository"
+            f"{' (it is EMPTY — a command substitution that produced nothing?)' if not ref.strip() else ''}."
+            f"\n   git said: {listing.stderr.strip()}"
+            "\n   ⇒ `--vanished` wants a REF or a RANGE: `--vanished HEAD` compares"
+            "\n     HEAD against the working tree, `--vanished A..B` attributes a carve."
+        )
+    listing = listing.stdout.split("\n")
+    paths = [p for p in listing if p.endswith(suffixes)]
+    if not paths:
+        return ""
+    proc = subprocess.run(
+        ["git", "cat-file", "--batch"],
+        cwd=REPO, input="".join(f"{ref}:{p}\n" for p in paths).encode(),
+        capture_output=True, check=True,
+    )
+    out, chunks, i = proc.stdout, [], 0
+    while i < len(out):
+        nl = out.find(b"\n", i)
+        if nl < 0:
+            break
+        # `<oid> blob <size>`. Every path came from `ls-tree` ON THIS REF, so
+        # a `missing` answer is unreachable and is NOT handled: a branch that
+        # cannot run is a branch no test can hold honest.
+        size = int(out[i:nl].split()[2])
+        chunks.append(out[nl + 1 : nl + 1 + size].decode("utf-8", "replace"))
+        i = nl + 1 + size + 1
+    return "\n".join(chunks)
+
+
+def item_names(text: str) -> set[str]:
+    """`defined_names` WITHOUT the field rule, for the vanished differential.
+
+    ⛔ `FIELD` IS TOO WEAK TO CARRY A REGRESSION CLAIM, measured on the first
+    real run: it put `ambition_demo_pocket` in the baseline index and not in
+    HEAD's, so the check reported five rows as citing a vanished name -- while
+    the crate is alive at `game/ambition_demo_pocket` and in the workspace
+    members. A field name is not the thing the doc row is citing, and fields are
+    renamed constantly; every TRUE positive in that run came from `DEFINITION`.
+    """
+    return set(DEFINITION.findall(text)) | set(BARE_ITEM.findall(text))
+
+
+#: A git abbreviation in this repo is 7-12 characters; a full object name is 40.
+#: ⛔ 16 AND 32 ARE NOT SHAs AND MUST NOT BE ASKED ABOUT. `runtime-frame-history.md`
+#: is full of 16-hex ROLLBACK CHECKSUMS and the campaign docs carry 32-hex hashes;
+#: a first pass that matched `[0-9a-f]{7,40}` called twenty of them "unresolved
+#: commits", which is a checker teaching its reader to skim.
+COMMIT = re.compile(r"`([0-9a-f]{7,12}|[0-9a-f]{40})`")
+
+
+def submodule_paths(root: Path) -> list[str]:
+    """Initialised submodules, which own commits this repository cannot see."""
+    out = subprocess.run(
+        ["git", "config", "--file", ".gitmodules", "--get-regexp", "path"],
+        cwd=root, capture_output=True, text=True,
+    ).stdout.split()
+    paths = out[1::2]
+    return [p for p in paths if (root / p / ".git").exists()]
+
+
+def git_epoch(root: Path) -> str | None:
+    """The root commit's subject, when this history was deliberately truncated.
+
+    ⛔⛔ A HISTORY TRUNCATION MAKES EVERY OLDER SHA CITATION UNRESOLVABLE AT ONCE,
+    and none of them is a defect. Jon squashed this repository and every
+    submodule to a single root on 2026-09-06; the next run reported **576
+    unresolved commit citations across 70 planning files**, which is not 576
+    findings but one event.
+
+    ⚠ AND THE CHECK GENUINELY LOSES POWER HERE, which is why this returns the
+    epoch rather than silently skipping. A pre-epoch sha and a FABRICATED sha are
+    now indistinguishable: both fail to resolve, for different reasons, and no
+    evidence remains to tell them apart. The honest report says so once instead
+    of printing 576 lines that imply 576 problems.
+    """
+    root_commits = subprocess.run(
+        ["git", "rev-list", "--max-parents=0", "HEAD"],
+        cwd=root, capture_output=True, text=True,
+    )
+    if root_commits.returncode != 0:
+        return None
+    names = root_commits.stdout.split()
+    if len(names) != 1:
+        return None
+    subject = subprocess.run(
+        ["git", "log", "-1", "--format=%s", names[0]],
+        cwd=root, capture_output=True, text=True,
+    ).stdout.strip()
+    return f"{names[0][:9]} ({subject})" if "epoch" in subject.lower() else None
+
+
+class CitationLookupFailed(RuntimeError):
+    """A repository could not answer whether it holds a commit.
+
+    ⭐ RAISED RATHER THAN LOGGED, because the alternative this replaced was to
+    treat silence as a clean answer. A check that cannot reach its evidence must
+    say so loudly enough to stop the run.
+    """
+
+
+def _reachable_from_remote(cwd: Path) -> set[str] | None:
+    """Every commit in `cwd` reachable from a REMOTE-TRACKING ref, or None.
+
+    ⭐ `--remotes`, not `--all`. A commit on a local branch and nowhere else is an
+    address only its own machine can resolve, which is exactly the citation this
+    exists to refuse. Returning None on failure keeps a git error meaning UNKNOWN
+    rather than "nothing is shared" — the same rule `missing_in` learned the hard
+    way, in the opposite direction.
+    """
+    proc = subprocess.run(
+        ["git", "rev-list", "--remotes"], cwd=cwd, capture_output=True, text=True,
+    )
+    if proc.returncode != 0:
+        return None
+    return set(proc.stdout.split())
+
+
+def unresolved_commits(root: Path, docs: list[Path]) -> tuple[list, list[str]]:
+    """Backticked commit names no reachable repository holds.
+
+    ⭐ SUBMODULE COMMITS ARE REAL CITATIONS AND ARE NOT IN THIS OBJECT STORE.
+    Seven of the eight the first survey flagged were exactly that, and each says
+    so in its own prose ("SUBMODULES (`db7e72f` in the map assets…)"). Asking the
+    submodule is a fact; guessing from the sentence would be a heuristic.
+
+    ⚠ An UNINITIALISED submodule cannot answer, so its name is returned and
+    printed. A check that silently skipped it would report a clean run whose
+    cleanliness depended on a directory being empty.
+    """
+    seen: dict[str, list[tuple[str, int]]] = {}
+    for doc in docs:
+        rel = doc.relative_to(root) if doc.is_relative_to(root) else doc
+        # `marker_suppresses` is the one keeper of the marker's scope; see its
+        # docstring. Re-spelling it here is how the lanes drifted apart.
+        doc_lines = doc.read_text(errors="replace").splitlines()
+        for lineno, line in enumerate(doc_lines, 1):
+            if marker_suppresses(doc_lines, lineno):
+                continue
+            for m in COMMIT.finditer(line):
+                seen.setdefault(m.group(1), []).append((str(rel), lineno))
+    if not seen:
+        return [], []
+
+    def missing_in(cwd: Path, names: list[str]) -> list[str]:
+        """Which of `names` this repository does not hold.
+
+        ⛔⛔ A GIT FAILURE MEANS UNKNOWN, NEVER "ALL RESOLVED". This read the
+        subprocess's stdout and ignored its RETURN CODE, so a repository that
+        could not answer -- an unsafe-directory refusal, a broken object store --
+        produced empty stdout, `zip` then paired nothing, and every name came
+        back RESOLVED. A reviewer reproduced exactly that: a fabricated
+        `deadbeef1234` was reported as fine because one initialised submodule's
+        git invocation failed.
+        ⚠ `zip` is the second half of the same trap: it stops at the shorter
+        sequence, so a PARTIAL answer silently certified the names git never got
+        to. Both are now errors.
+        """
+        query = "\n".join(f"{n}^{{commit}}" for n in names)
+        proc = subprocess.run(
+            ["git", "cat-file", "--batch-check"], cwd=cwd,
+            input=query, capture_output=True, text=True,
+        )
+        lines = proc.stdout.splitlines()
+        if proc.returncode != 0 or len(lines) != len(names):
+            raise CitationLookupFailed(
+                f"`git cat-file` in {cwd} exited {proc.returncode} and answered "
+                f"{len(lines)} of {len(names)} name(s): "
+                f"{(proc.stderr or '').strip()[:200]}"
+            )
+        return [n for n, line in zip(names, lines) if "missing" in line]
+
+    outstanding = missing_in(root, list(seen))
+    # ⛔ ONLY THE SUPERPROJECT'S OWN COMMITS GET THE REACHABILITY TEST BELOW. A
+    # submodule commit is legitimately absent from every ref HERE, and asking
+    # `git branch --contains` about it in this repository reports every one of
+    # them as unreachable — which it did, on the first run of this check.
+    resolved_here = [n for n in seen if n not in set(outstanding)]
+    all_subs = subprocess.run(
+        ["git", "config", "--file", ".gitmodules", "--get-regexp", "path"],
+        cwd=root, capture_output=True, text=True,
+    ).stdout.split()[1::2]
+    live = submodule_paths(root)
+    # ⛔⛔ A SUBMODULE COMMIT MUST BE ON THE SUBMODULE'S REMOTE, NOT MERELY IN ITS
+    # LOCAL OBJECT STORE — and the difference is the whole reason this is here.
+    # 2026-09-06: I cited an UNPUSHED music-renderer commit three times. It exists
+    # here, so this checker said RESOLVED and the lane was green; on the fighter
+    # lane's machine the object does not exist and `origin/main` went RED. ⇒ The
+    # guard was answering about MY CHECKOUT while its docstring says it "asks the
+    # submodule, which is a fact". The unstated scope was WHOSE submodule.
+    #
+    # ⚠ THE RULE IS DELIBERATELY STRICTER THAN THE PARENT'S, which accepts any ref
+    # (`rev-list --all`, remote branches included) because citing unmerged parent
+    # work is legitimate and the parent gets pushed as a matter of course. A
+    # SUBMODULE pointer is deliberately NOT pushed here — that is the subject of an
+    # open maintainer question — so "reachable from some local branch" is precisely
+    # the state that fools the author and nobody else.
+    # ⇒ Reachable from a REMOTE-TRACKING ref is the honest test for "an address
+    # another checkout can fetch".
+    for sub in live:
+        if not outstanding:
+            break
+        present_here = [n for n in outstanding if n not in missing_in(root / sub, outstanding)]
+        if not present_here:
+            continue
+        shared = _reachable_from_remote(root / sub)
+        if shared is None:
+            # ⚠ Could not ask. UNKNOWN is not RESOLVED — leave them outstanding.
+            continue
+        resolved_names = []
+        for name in present_here:
+            full_sha = subprocess.run(
+                ["git", "rev-parse", f"{name}^{{commit}}"], cwd=root / sub,
+                capture_output=True, text=True,
+            ).stdout.strip()
+            if full_sha and full_sha in shared:
+                resolved_names.append(name)
+        outstanding = [n for n in outstanding if n not in resolved_names]
+    findings = [
+        (rel, lineno, f"`{name}`") for name in outstanding for rel, lineno in seen[name]
+    ]
+
+    # ⛔⛔ EXISTING IS NOT THE SAME AS FINDABLE. A commit that was REBASED away
+    # still sits in the local object store, so `cat-file -e` says yes and nobody
+    # else can fetch it. That is not hypothetical: `a3924b2b2` was cited in
+    # queue.md as the fix for a union failure and is that commit's PRE-REBASE
+    # name — a reviewer read it as fabricated, which it was not. And two commits
+    # cited as "salvage the behaviour from these" were on NO REF AT ALL, one
+    # `git gc` from being unrecoverable for everyone.
+    #
+    # ⚠ A remote BRANCH is fine — citing unmerged work is legitimate. What is
+    # not fine is a sha reachable from nothing.
+    # ⚠ TWO GIT CALLS, NOT ONE PER SHA. A `merge-base --is-ancestor` per citation
+    # is ~239 processes and was 10 s of the repo-tooling lane; the set of commits
+    # reachable from every ref is one walk, and membership is then free.
+    reachable = set(subprocess.run(
+        ["git", "rev-list", "--all"], cwd=root, capture_output=True, text=True,
+    ).stdout.split())
+    full = {}
+    if resolved_here:
+        query = "".join(f"{n}^{{commit}}\n" for n in resolved_here)
+        out = subprocess.run(
+            ["git", "cat-file", "--batch-check"], cwd=root,
+            input=query, capture_output=True, text=True,
+        ).stdout.splitlines()
+        for name, line in zip(resolved_here, out):
+            parts = line.split()
+            if len(parts) >= 2 and parts[1] == "commit":
+                full[name] = parts[0]
+    unreachable = [n for n, sha in full.items() if sha not in reachable]
+    findings.extend(
+        (rel, lineno, f"`{name}`  (exists locally, reachable from NO ref — "
+                      "rebased away or on a deleted branch; push it or cite the "
+                      "commit that landed)")
+        for name in unreachable for rel, lineno in seen[name]
+    )
+    return findings, sorted(set(all_subs) - set(live))
+
+
+CRATE_NAME = re.compile(r'^name\s*=\s*"([^"]+)"', re.M)
+
+
+def crate_names() -> set[str]:
+    """Every crate the workspace currently declares, from its manifests.
+
+    ⛔ A CRATE NAME IS NOT AN ITEM, and the index cannot tell the difference: a
+    `mod ambition_platformer2d_actor_monolith` at the baseline that is not there
+    now made the differential report the MONOLITH as vanished while the crate is
+    alive and named in `Cargo.toml`. The manifest is the authority on whether a
+    crate exists, so ask it rather than infer from a `mod` line.
+    """
+    names = set()
+    for rel in repo_files():
+        if rel.name != "Cargo.toml":
+            continue
+        try:
+            names.update(CRATE_NAME.findall((REPO / rel).read_text(errors="replace")))
+        except OSError as err:
+            _note_unreadable(rel, err)
+            continue
+    return names
+
+
+def still_a_field(text: str) -> set[str]:
+    """Names the HEAD tree still defines AS A FIELD.
+
+    ⛔ SUBTRACTED FROM THE DIFFERENTIAL, NEVER ADDED TO THE BASELINE, and the
+    asymmetry is the whole point. `item_names` deliberately drops `FIELD`
+    because a field in the BASELINE index invents names the doc never cited --
+    the measured case was `ambition_demo_pocket`, reported vanished while the
+    crate is alive. Dropping it on BOTH sides then created the mirror error: a
+    name that was an item at the baseline and is a FIELD now gets reported,
+    although the row citing it resolves perfectly.
+
+    ⚠ MEASURED 2026-09-03 on a 2026-08-13 baseline: 3 of 45 findings were this
+    shape -- `attacks` (`boss_encounter/src/pattern/profile.rs:73`), `grounded`
+    (`combat/src/hit_reaction.rs:412`) and `combat`. All three are short,
+    generic names, which is exactly the population `FIELD` is too weak to make
+    claims ABOUT and strong enough to REFUTE claims about. Asking "is it still
+    defined as anything?" can only remove findings, so the documented failure
+    cannot come back through this door.
+    """
+    return set(FIELD.findall(text))
+
+
+def vanished_report(docs: list[Path], since: str, defined: set[str]) -> int:
+    """Bare citations naming something that WAS defined at `since` and is not now.
+
+    This is the post-carve pass: a carve that renames or removes an item leaves
+    every planning row citing it silently stale, and `SYMBOL` cannot see those
+    rows because the rows spell the name bare.
+
+    ⭐ `since` TAKES `A..B` AS WELL AS A SINGLE REF, and the range form is the
+    one a real carve needs. A bare ref compares that ref to the WORKING TREE, so
+    it only attributes correctly while HEAD still IS the carve. The first time
+    this ran for real the integrator had already merged past it and had to hand
+    me `c761a9d80..83460e3f3`; run as a bare ref a day later it sweeps up every
+    removal since and attributes none of them.
+
+    ⚠ The DOCUMENTS are always read from the working tree, whichever form is
+    used. The question is "which rows must I fix now", not "what did the rows
+    say then".
+    """
+    if ".." in since:
+        base, head = since.split("..", 1)
+        head = head or "HEAD"
+        head_text = source_text_at(head)
+        was = item_names(source_text_at(base))
+        now = item_names(head_text)
+        # ⛔ Crate names come from the working tree either way: a name Cargo.toml
+        # still declares is not vanished, whatever a historical tree said.
+        gone = was - now - crate_names() - still_a_field(head_text)
+        print(f"indexed {len(was)} defined name(s) at {base}, {len(now)} at {head}; "
+              f"{len(gone)} left between them", file=sys.stderr)
+    else:
+        was = item_names(source_text_at(since))
+        head_text = source_text()
+        gone = was - item_names(head_text) - crate_names() - still_a_field(head_text)
+        print(f"indexed {len(was)} defined name(s) at {since}; "
+              f"{len(gone)} of them no longer defined at HEAD "
+              f"(⚠ that is REF→WORKING TREE, not REF→a carve — pass `A..B` to "
+              f"attribute a range)", file=sys.stderr)
+    findings = []
+    for doc in docs:
+        # A doc passed by absolute path may sit outside the tree (a fixture, a
+        # poison). Reporting it is more useful than raising.
+        rel = doc.relative_to(REPO) if doc.is_relative_to(REPO) else doc
+        # ⛔⛔ `marker_suppresses`, NOT `MARKER in line`. This lane re-spelled the
+        # predicate and accepted the marker only on the citation's OWN line,
+        # while `marker_suppresses` documents (and `--strict` honours) the line
+        # below as well — so a marker placed exactly as the documentation says
+        # silenced `--strict` and left this lane red. That is the fourth copy
+        # the predicate's own docstring was written to end.
+        doc_lines = doc.read_text(errors="replace").splitlines()
+        for lineno, line in enumerate(doc_lines, 1):
+            if marker_suppresses(doc_lines, lineno):
+                continue
+            for m in BARE.finditer(line):
+                if m.group(1) in gone:
+                    findings.append((str(rel), lineno, m.group(0)))
+    print(f"\n{len(findings)} bare citation(s) of a name that vanished since {since}")
+    for rel, lineno, cite in findings:
+        print(f"  {rel}:{lineno}\n    {cite}")
+    if findings:
+        print("""
+⇒ EACH IS A ROW THE CARVE LEFT BEHIND. The name was a definition in this tree
+  at the baseline and is not one at HEAD, so the row cites something that no
+  longer exists under that name. Repoint the row, or -- if the row is
+  RECORDING the old name on purpose -- mark the line and it stops reporting.""")
+    return len(findings)
+
+
+def repo_files() -> list[Path]:
+    """Tracked files that are ACTUALLY ON DISK.
+
+    ⛔ `git ls-files` LISTS A FILE THAT HAS BEEN DELETED IN THE WORKTREE and not
+    yet committed, and that broke this checker two ways at once. The loud one:
+    `--comments` reads every tracked `.rs` and died with `FileNotFoundError`
+    mid-sweep, so the run reported nothing at all. The quiet one is worse — the
+    deleted path stays in the name index, so a citation to a file someone just
+    removed still RESOLVES, and the checker's whole job is to catch that.
+
+    ⇒ Filter here rather than at the read sites: one gate keeps the index and
+    every reader honest, and a `try/except OSError` at a read would have fixed
+    only the crash while leaving the citation passing.
+
+    The skipped paths are counted and reported rather than dropped in silence —
+    a large count means a half-finished rename, not a clean tree.
+
+    ⛔ **THE PREDICATE IS `exists()`, AND `is_file()` IS WRONG HERE.** It called
+    seven healthy paths deleted on the first run: the five submodule gitlinks,
+    which `git ls-files` reports as entries and which are directories on disk,
+    plus `game/ambition_content/assets/sprites` and the Mary-O demo's twin —
+    tracked SYMLINKS into the monolith's sprite directory. All seven exist; none
+    is readable as a file; only `exists()` tells the three cases apart.
+    """
+    out = subprocess.run(
+        ["git", "ls-files"], cwd=REPO, capture_output=True, text=True, check=True
+    ).stdout.split()
+    kept = []
+    for rel in (Path(p) for p in out):
+        if (REPO / rel).exists():
+            kept.append(rel)
+        else:
+            MISSING_TRACKED.append(rel)
+    return kept
+
+
+def source_text(suffixes: tuple[str, ...] = (".rs", ".py")) -> str:
+    """Every tracked source with one of `suffixes`, concatenated once.
+
+    ⛔ THE SUFFIX ARGUMENT IS NOT A CONVENIENCE. Concatenating Rust and Python
+    into one index makes a name in either language qualify a citation in the
+    other, and they collide: a `class FontSource:` in a font-download script
+    made the checker judge Rust's upstream `FontSource::Family` as ours, then
+    report its variant missing — four findings from one collision. A citation in
+    a `.rs` file is judged against Rust definitions.
+
+    One read beats a `grep -r` per citation: a full planning sweep asks a few
+    hundred questions and the tree is large enough that the difference is
+    minutes.
+    """
+    chunks = []
+    for rel in repo_files():
+        if rel.suffix not in suffixes:
+            continue
+        try:
+            chunks.append((REPO / rel).read_text(errors="replace"))
+        except OSError as err:
+            _note_unreadable(rel, err)
+            continue
+    return "\n".join(chunks)
+
+
+DEF_KINDS = (
+    "fn", "struct", "enum", "trait", "const", "static", "type", "mod",
+    "union", "class", "def", "macro_rules!",
+)
+#: One pass over the whole tree, collecting every name it DEFINES.
+#: ⛔ MODIFIERS MUST BE CONSUMED, NOT MATCHED. The first version alternated over
+#: the keywords directly, so `pub const fn levelled` matched `const` and captured
+#: the NEXT word -- "fn" -- and the real name was never indexed at all. Every
+#: `const fn`, `async fn` and `unsafe fn` in the tree was invisible, which shows
+#: up as a citation to a function that plainly exists being reported missing.
+DEFINITION = re.compile(
+    r"\b(?:pub\s*(?:\([^)]*\)\s*)?)?"
+    r"(?:default\s+)?(?:const\s+|async\s+|unsafe\s+|extern\s+\"[^\"]*\"\s+)*"
+    r"(?:" + "|".join(re.escape(k) for k in DEF_KINDS) + r")\s+([A-Za-z_][A-Za-z0-9_]*)"
+)
+#: An enum variant or associated item, at the start of a line.
+#:
+#: ⚠ `=` is in the class for two real declaration styles this missed: a variant
+#: with a DISCRIMINANT (`Sequence = 1 << 0,`), and a name declared inside a MACRO
+#: arm (`SHOCKWAVE => "shockwave",`). Both reported as missing until measured;
+#: both exist. A prose linter should err toward believing the tree.
+BARE_ITEM = re.compile(r"^\s*([A-Z][A-Za-z0-9_]*)\s*[,({=]", re.M)
+#: A STRUCT FIELD. Without this the checker reports every `Type::field` citation
+#: -- `ControlSettings::right_stick_mode` is a field, not a method, and the
+#: repository cites fields as often as functions.
+FIELD = re.compile(r"^\s*(?:pub(?:\([^)]*\))?\s+)?([a-z_][a-z0-9_]*)\s*:", re.M)
+
+
+#: A qualifier is only OURS if the tree declares it as a type or a module.
+#: ⛔ Not "any defined name": field and variant indexing is deliberately loose so
+#: TAILS resolve, and reusing it for qualifiers let `Gizmos::text_2d` and
+#: `bevy_ggrs::RollbackId` through -- upstream names that happen to collide with
+#: something loose. A checker that reports upstream names teaches its reader to
+#: skim, which is how a real finding gets missed.
+QUALIFIER = re.compile(
+    r"\b(?:struct|enum|trait|mod|type|class)\s+([A-Za-z_][A-Za-z0-9_]*)"
+)
+
+
+def dependency_crates() -> set[str]:
+    """Every crate named as a dependency anywhere in the workspace.
+
+    A qualifier that names one is upstream by construction, whatever our source
+    happens to contain.
+    """
+    names: set[str] = set()
+    for rel in repo_files():
+        if rel.name != "Cargo.toml":
+            continue
+        try:
+            body = (REPO / rel).read_text(errors="replace")
+        except OSError as err:
+            _note_unreadable(rel, err)
+            continue
+        names.update(re.findall(r"^\s*([a-z][a-z0-9_-]*)\s*=", body, re.M))
+    return {n.replace("-", "_") for n in names}
+
+
+def defined_names(text: str) -> set[str]:
+    """Every name the tree DEFINES, indexed once.
+
+    ⛔ MENTIONS MUST NOT COUNT, which is the whole difficulty. The fabricated
+    name that prompted this script APPEARS in the repo -- inside the comment
+    that cites it -- so a substring search would have called it present. Only
+    definition sites go in this set.
+
+    ⚠ And it is built ONCE. The first draft asked a dozen regexes of the whole
+    concatenated tree per citation and did not finish in ten minutes; a few
+    hundred citations against a set is instant.
+    """
+    names = set(DEFINITION.findall(text))
+    names.update(BARE_ITEM.findall(text))
+    names.update(FIELD.findall(text))
+    return names
+
+
+def submodule_files() -> list[str]:
+    """Every file a SUBMODULE tracks, as a path from the superproject root.
+
+    ⛔ THE SUBMODULE'S OWN ROOT IS THE CONVENTION its docs cite from.
+    `engine/sprite-renderer.md` documents the renderer and writes `core/draw.py`,
+    which is exactly right from inside `tools/ambition_sprite2d_renderer/` and
+    names nothing at all when joined to the superproject. Six such citations were
+    the largest single group in the first path sweep; they are correct prose and
+    must not report. Ordered containment does the rest — the components resolve
+    against the real path once the real path is in the index.
+    """
+    listing = subprocess.run(
+        ["git", "submodule", "--quiet", "foreach", "--recursive",
+         'git ls-files | sed "s|^|$displaypath/|"'],
+        cwd=REPO, capture_output=True, text=True,
+    )
+    return listing.stdout.split()
+
+
+ROLE_MARKER = "cite-test"
+
+
+def cfg_test_regions(path: Path) -> list[tuple[int, int]]:
+    """The line ranges of `path` that only a test build compiles.
+
+    ⛔⛔ **EVERY `#[cfg(test)]` OPENS A REGION. DO NOT SPLIT THE FILE AT THE
+    FIRST ONE, AND DO NOT LOOK FOR `mod tests`.** A file can hold several test
+    modules, a test module can sit above production items, and a module named
+    for its subject (`mod breakable_tests`, `mod slot_gesture_tests`) is
+    invisible to a name search. Splitting at the first attribute classifies
+    every definition below it as a test, which is the same defect this check
+    exists to find, one level up.
+
+    ⛔ **AN ATTRIBUTE ON AN ITEM WITH NO BODY OPENS NO REGION.**
+    `#[cfg(test)] mod slot_gesture_tests;` and `#[cfg(test)] use ...;` end at
+    their semicolon. MEASURED 2026-09-10: a first version that counted braces
+    without this rule ran on to the next unrelated block and swallowed
+    `CharacterBrainTemplate`, a production enum, plus two more. It reported 21
+    findings where there are 18. ⇒ **The instrument's own false positives look
+    exactly like the defect it hunts.**
+    """
+    try:
+        lines = path.read_text(errors="replace").splitlines()
+    except OSError as err:
+        _note_unreadable(path, err)
+        return []
+    regions: list[tuple[int, int]] = []
+    for i, line in enumerate(lines):
+        if not line.strip().startswith("#[cfg(test)]"):
+            continue
+        depth, started, end = 0, False, None
+        for j in range(i + 1, len(lines)):
+            body = lines[j]
+            if not started and ";" in body and "{" not in body.split(";")[0]:
+                break
+            depth += body.count("{") - body.count("}")
+            if "{" in body:
+                started = True
+            if started and depth <= 0:
+                end = j
+                break
+        if started and end is not None:
+            regions.append((i + 1, end + 1))
+    return regions
+
+
+def role_report(docs: list[Path], by_suffix: dict[str, list[str]]) -> int:
+    """Report line citations that land inside a `#[cfg(test)]` region.
+
+    ⭐⭐ **A COUNT IS NOT A CHECK ON A LIST, AND THIS IS THE CHEAPEST PART OF
+    THE LIST TO CHECK.** MEASURED 2026-09-10 on A4's writer map: the page named
+    four production readers of `body_driving_seat`, the count was still four
+    156 commits later, and two of the four members were wrong. One of them,
+    `control/queries.rs:224`, is a TEST — `#[cfg(test)]` sits at line 209, and
+    it sat at 209 in the stamped commit too. ⇒ **Wrong at the stamp, and
+    invisible to 156 commits of checking, because every other check asked
+    whether the citation RESOLVED.** It resolves. Only its ROLE is wrong.
+
+    ⛔⛔ **WHAT THIS CANNOT DO, AND NOBODY SHOULD INHERIT THE BLIND SPOT:**
+
+    * It cannot see a citation that lands on a real PRODUCTION line that is
+      simply the wrong one. Nothing here knows what the row meant to point at.
+    * It does not read the prose, so it cannot tell a row CLAIMING production
+      from a row citing a test on purpose. It reports both and asks a person.
+    * It judges only unambiguous single-file citations. A suffix matching two
+      tracked files is already reported by the resolver.
+
+    ⇒ **REPORT-ONLY ON PURPOSE.** MEASURED 2026-09-10: 18 of 336 line citations
+    across `docs/` land in a test region, and roughly half are deliberate. A
+    gate here would redden the whole planning corpus on rows that are correct,
+    and a blanket sweep of `cite-test` markers would be the amnesty list that
+    hides the real ones. Triage them; mark the deliberate ones with `cite-test`.
+    """
+    findings: list[tuple[str, int, str, str]] = []
+    checked = 0
+    regions: dict[str, list[tuple[int, int]]] = {}
+    for doc in docs:
+        try:
+            rel = doc.relative_to(REPO)
+        except ValueError:
+            rel = doc
+        try:
+            doc_lines = doc.read_text(errors="replace").splitlines()
+        except OSError as err:
+            _note_unreadable(rel, err)
+            continue
+        for lineno, line in enumerate(doc_lines, 1):
+            if marker_suppresses(doc_lines, lineno, ROLE_MARKER):
+                continue
+            for m in FILE_LINE.finditer(line):
+                path, want = m.group(1), int(m.group(2))
+                hits = sorted(p for p in by_suffix.get(Path(path).name, [])
+                              if p.endswith(path))
+                if len(hits) != 1:
+                    continue
+                checked += 1
+                if hits[0] not in regions:
+                    regions[hits[0]] = cfg_test_regions(REPO / hits[0])
+                for start, end in regions[hits[0]]:
+                    if start <= want <= end:
+                        findings.append((str(rel), lineno, m.group(0),
+                                         f"{hits[0]} compiles this line only in a "
+                                         f"TEST build — `#[cfg(test)]` at line {start}"))
+                        break
+    print(f"\nchecked the ROLE of {checked} unambiguous line citation(s)")
+    if not findings:
+        print("none of them land inside a #[cfg(test)] region.")
+        return 0
+    print(f"{len(findings)} land inside a #[cfg(test)] region:\n")
+    for rel, lineno, cite, why in findings:
+        print(f"  {rel}:{lineno}\n    {cite} -- {why}")
+    print(f"""
+⇒ EACH ONE IS EITHER A ROW CITING A TEST ON PURPOSE OR A ROW THAT CALLS A TEST
+  PRODUCTION. This check cannot tell them apart, because it does not read the
+  prose. A person must.
+
+  Citing a test deliberately -- "asserted in-tree at ...", a fixture named in a
+  coverage table -- is correct and common. Put `{ROLE_MARKER}` on that line and
+  it stops reporting.
+
+  A row that counts the line as a production writer, a reader, a type
+  definition or a dependency USE is wrong, and the count above it will not say
+  so: a list can keep its total while a member changes role.
+
+⛔ WHAT THIS CHECK CANNOT SEE: a citation that resolves to a real PRODUCTION
+  line that is simply the wrong one. Nothing here knows what the row meant to
+  point at. A green role check is not a check on that.""")
+    return len(findings)
+
+
+def _same_component(have: str, want: str) -> bool:
+    """One path component, allowing the crate-directory abbreviation.
+
+    `ambition_characters` IS `characters` for citation purposes, and
+    `ambition_platformer2d_actor_monolith` is `actor_monolith`: prose drops the
+    vendor prefix and as much of the crate path as still reads unambiguously.
+    Anchored on `_` so it stays a word boundary — `combat` must not match
+    `ambition_precombat`.
+    """
+    return have == want or have.endswith("_" + want)
+
+
+def path_resolves(cite: str, by_name: dict[str, list[str]]) -> bool:
+    """Does `cite` name a real file, allowing the repository's abbreviations?"""
+    parts = cite.split("/")
+    for candidate in by_name.get(parts[-1], []):
+        have = candidate.split("/")
+        i = 0
+        for want in parts:
+            while i < len(have) and not _same_component(have[i], want):
+                i += 1
+            if i == len(have):
+                break
+            i += 1
+        else:
+            return True
+    return False
+
+
+# ⛔⛔ READS THAT FAILED, COUNTED — because this checker's whole output is an
+# ABSENCE ("this citation resolves to nothing"), and a scanner whose rules report
+# absences reports its own finding whenever the MACHINE goes wrong instead of the
+# code.
+#
+# ⚠ The three `except OSError: continue` sites below each shrink the corpus this
+# checker searches. One dropped read is a crate name not learned or a Cargo.toml
+# not indexed; a THOUSAND dropped reads — file-descriptor exhaustion from a
+# parallel job, a permissions change, a half-mounted volume — is a checker that
+# searches almost nothing and prints "all resolved."
+#
+# ⇒ Found 2026-09-04 by the sibling case: a workspace-policy run beside a
+# descriptor-hungry grep failed thirty ways, each naming a repository fact that
+# was false, and NOTHING in the output said "I could not read a file."
+#
+# ⭐ The fix is not to make reads fatal — a genuinely unreadable stray file should
+# not stop a planning-doc check. It is to make the count VISIBLE, so a clean run
+# cannot hide a broken scan.
+_UNREADABLE: list[str] = []
+
+
+# ⛔⛤ **A LINK'S FRAGMENT WAS CHECKED BY NOBODY, AND THIS CHECKER'S OWN `ok`
+# WAS THE COVER.** Measured 2026-09-16: renaming one heading in
+# `awaiting-maintainer-decision.md` silently broke five inbound links while this
+# script printed *"all resolved"* — because every existing question it asks is
+# about a FILE or a NAME, and an anchor is neither. Sweeping the corpus then
+# found two links already broken by earlier heading renames
+# (`ROLLBACK-BAG-DESYNC`, `A10`), both invisible for the same reason.
+#
+# ⇒ A heading is a public interface the moment another page links to it, and a
+# rename is a breaking change no lane could see.
+ANCHOR_LINK = re.compile(r"\[[^\]]*\]\(([^)\s]*#[^)\s]+)\)")
+
+
+def heading_slugs(text: str) -> set[str]:
+    """Every anchor GitHub would mint for this document's headings.
+
+    ⚠ THIS IS A REIMPLEMENTATION OF SOMEONE ELSE'S ALGORITHM, so it is pinned by
+    a known-answer case in `scripts/tests/test_heading_anchors_are_checked.py` rather than
+    trusted: lowercase, drop everything that is not word/space/hyphen (which is
+    what removes backticks, `?`, `/`, `:` and emoji), then spaces to hyphens.
+    An emoji dropped from the middle of a heading leaves its two surrounding
+    spaces behind as two hyphens, which is why `A10`'s live anchor reads
+    `...publication---done-...` with three.
+    """
+    found = set()
+    for line in text.splitlines():
+        m = re.match(r"^#{1,6}\s+(.*)$", line)
+        if not m:
+            continue
+        title = m.group(1).strip().replace("`", "").lower()
+        title = re.sub(r"[^\w\s-]", "", title, flags=re.UNICODE)
+        found.add(re.sub(r"\s", "-", title))
+    return found
+
+
+def anchor_findings(
+    docs: list[Path],
+) -> tuple[list[tuple[str, int, str, str]], int]:
+    """Report every in-repo markdown link whose `#fragment` names no heading.
+
+    ⚠ ONLY LINKS THIS REPOSITORY CAN ANSWER FOR. An `http(s)` target belongs to
+    someone else, and a fragment into a file this corpus does not contain is the
+    existing path check's business, not this one's -- reporting it here would
+    print the same defect twice under two names.
+    """
+    slugs: dict[Path, set[str]] = {}
+
+    def slugs_of(path: Path) -> set[str] | None:
+        if path not in slugs:
+            try:
+                slugs[path] = heading_slugs(path.read_text(encoding="utf-8"))
+            except OSError:
+                return None
+        return slugs[path]
+
+    out: list[tuple[str, int, str, str]] = []
+    examined = 0
+    for doc in docs:
+        try:
+            lines = doc.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            continue
+        for lineno, line in enumerate(lines, 1):
+            for m in ANCHOR_LINK.finditer(line):
+                target = m.group(1)
+                if target.startswith(("http://", "https://", "mailto:")):
+                    continue
+                filepart, _, fragment = target.partition("#")
+                fragment = unquote(fragment).lower()
+                if not fragment:
+                    continue
+                dest = doc if filepart == "" else (doc.parent / filepart)
+                if dest.suffix != ".md":
+                    continue
+                have = slugs_of(dest)
+                if have is None:
+                    # No such file. The path check owns that message.
+                    continue
+                examined += 1
+                if fragment not in have:
+                    out.append((
+                        str(doc), lineno, m.group(0),
+                        f"no heading in {dest.name} mints the anchor "
+                        f"`#{fragment}` — a heading was renamed and this link "
+                        f"was left behind",
+                    ))
+    # ⚠ THE COUNT IS LINKS EXAMINED, NOT ROWS RETURNED. The first version of
+    # this added `len(findings)` to the caller's `checked`, so a clean corpus
+    # reported the same total as before the check existed and there was no way
+    # to tell "70 anchors are fine" from "the pass never ran".
+    return out, examined
+
+
+def _note_unreadable(rel: object, err: OSError) -> None:
+    """Record a read this scan could not make. See `_UNREADABLE`."""
+    _UNREADABLE.append(f"{rel}: {type(err).__name__}: {err}")
+
+
+#: What this suite must still be able to SEE. ⛔✦ A CHECKER OVER A MISSING
+#: DOCUMENT DOES NOT FAIL — IT HAS NOTHING TO CHECK. MEASURED 2026-09-16, and it
+#: was an incident rather than a hypothetical: a script truncated
+#: `docs/planning/status.md` to ZERO BYTES, the file was committed and pushed
+#: empty, and `--maintenance` passed 7/7 over it. Every citation gate here is a
+#: statement about the citations a document CONTAINS, and a document that
+#: contains nothing satisfies all of them.
+#:
+#: ⇒ The floor is per-DOCUMENT and not a total, because a total hides exactly
+#: this: 176 lines leaving one file is a rounding error against the corpus and is
+#: the whole of that file.
+PLANNING_DOC_FLOOR = 40
+
+
+def refuse_a_corpus_that_lost_a_document(docs, requested) -> str:
+    """Any planning document that is empty, or a directory that holds none.
+
+    ⚠ A NEW document is legitimately short, so the floor is on the corpus's
+    EXISTING members: a tracked file that has lost its content. An untracked new
+    file is not judged.
+    """
+    import subprocess
+
+    if not docs:
+        return (
+            f"⛔ no planning document found under {', '.join(str(p) for p in requested)}.\n"
+            "   A citation gate over an empty corpus passes every check it makes."
+        )
+    try:
+        listed = subprocess.run(
+            ["git", "-C", str(REPO), "ls-files", "--", "docs/planning"],
+            capture_output=True, text=True, check=True,
+        ).stdout.split()
+    except (OSError, subprocess.CalledProcessError):
+        return ""  # UNKNOWN, never "clean" — the ordinary passes still run.
+    tracked = {REPO / line for line in listed if line.endswith(".md")}
+    emptied = sorted(
+        str(doc.relative_to(REPO))
+        for doc in docs
+        if doc in tracked
+        and doc.exists()
+        and len([ln for ln in doc.read_text(errors="replace").splitlines() if ln.strip()])
+        < 1
+    )
+    if emptied:
+        return (
+            "⛔ these tracked planning documents have no content left:\n  "
+            + "\n  ".join(emptied)
+            + "\n   A checker over a missing document reports CLEAN, so this is a "
+            "refusal rather than a finding. Restore from git; if the file is "
+            "genuinely retired, delete it rather than emptying it."
+        )
+    return ""
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--strict", action="store_true",
+                        help="exit 1 when anything is unresolved")
+    parser.add_argument(
+        "--comments", action="store_true",
+        help="also check backticked citations in Rust COMMENTS (the fabricated "
+             "name that prompted this script reached one, where nothing looks)",
+    )
+    parser.add_argument(
+        "--comment-paths", action="store_true",
+        help="check backticked PATH citations in Rust comments and nothing "
+             "else -- the half of --comments that is green at HEAD and can "
+             "therefore gate a lane",
+    )
+    parser.add_argument(
+        "--vanished", metavar="REF_OR_RANGE",
+        help="report BARE backticked citations of names that were defined at "
+             "REF and are not now -- the post-carve pass. Takes `A..B` too, "
+             "which is the form to use once HEAD has moved past the carve",
+    )
+    parser.add_argument(
+        "--roles", action="store_true",
+        help="also report line citations that land inside a `#[cfg(test)]` "
+             "region -- a row that calls a test a production site. REPORTS, "
+             "does not gate: about half of them cite a test on purpose",
+    )
+    parser.add_argument("paths", nargs="*", type=Path,
+                        default=[REPO / "docs" / "planning"])
+    args = parser.parse_args()
+
+    docs = []
+    for p in args.paths:
+        p = p if p.is_absolute() else REPO / p
+        docs.extend(sorted(p.rglob("*.md")) if p.is_dir() else [p])
+
+    hollow = refuse_a_corpus_that_lost_a_document(docs, args.paths)
+    if hollow:
+        print(hollow, file=sys.stderr)
+        return 1
+
+    print(f"reading {len(list(repo_files()))} tracked files ...", file=sys.stderr)
+    text = source_text()
+    defined = defined_names(text)
+    deps = dependency_crates()
+    ours = set(QUALIFIER.findall(text)) - deps
+    # A citation inside a `.rs` file is judged against RUST names only; see
+    # `source_text`. Planning prose cites both languages, so it keeps the union.
+    rust_text = source_text((".rs",))
+    rust_defined = defined_names(rust_text)
+    rust_ours = set(QUALIFIER.findall(rust_text)) - deps
+    print(f"indexed {len(defined)} defined name(s), {len(ours)} usable qualifier(s)",
+          file=sys.stderr)
+    if MISSING_TRACKED:
+        # ⚠ Not a failure — an uncommitted deletion is a normal working state.
+        # But say it, because every citation to one of these paths is now
+        # correctly reported as dead, and that is surprising until you know why.
+        shown = ", ".join(sorted({str(p) for p in MISSING_TRACKED})[:3])
+        print(f"skipped {len(set(MISSING_TRACKED))} tracked file(s) missing from "
+              f"the worktree (deleted, not yet committed): {shown}"
+              f"{' ...' if len(set(MISSING_TRACKED)) > 3 else ''}", file=sys.stderr)
+    tracked = {str(p) for p in repo_files()}
+    by_suffix: dict[str, list[str]] = {}
+    for p in tracked:
+        by_suffix.setdefault(Path(p).name, []).append(p)
+    # ⛔ SUBMODULE FILES BELONG IN THE PATH INDEX AND NOT IN `by_suffix`.
+    # `FILE_LINE` opens the file it resolves to and counts its lines; the path
+    # check only asks whether it exists. Keeping the wider index separate means
+    # adding submodules cannot change what the line-number pass already reports.
+    by_path_name: dict[str, list[str]] = {}
+    for p in list(tracked) + submodule_files():
+        by_path_name.setdefault(Path(p).name, []).append(p)
+
+    findings: list[tuple[str, int, str, str]] = []
+    checked = 0
+    # ⛔⛤ **TWO HALVES WITH DIFFERENT KINDS OF EVIDENCE, SO THEY ARE TWO FLAGS.**
+    # A PATH either exists or it does not, which is why `--comment-paths` is a
+    # separate flag — but it does NOT gate the lane: `AGENTS.md` rules out
+    # permanent file-location machinery for a failure no behavioural test could
+    # hold, and a stale path in a comment is exactly that. A SYMBOL
+    # citation can be wrong about a name this checker cannot know — a macro
+    # declaration, an upstream method reached through a type name this repo also
+    # defines (`World::iter_entities` is exactly that) — and the lane's own
+    # non-strict citation job argues the case: *"failing the lane on one would
+    # train everybody to pass --no-verify."*
+    # ⚠ **BOTH HALVES ARE NEVERTHELESS CLEAN AT HEAD, 2026-09-17.** The symbol
+    # half reported 21; five were live and were repointed (a merged
+    # `CharacterDefinition` field, a renamed room sweep, a gravity function that
+    # never existed under that name), and the other sixteen are comments RECORDING
+    # a name that is gone on purpose, now carrying `cite-ok`. So
+    # `--comments --strict` exits 0 today; what stops it gating is the class of
+    # mistake it can make, not a backlog.
+    if args.comments or args.comment_paths:
+        # ⭐ SAME RULE, WIDER TARGET. A comment citation is judged exactly like a
+        # planning one -- there is no reason a name in prose is more real for
+        # sitting next to the code. MEASURED 2026-09-02: 2,847 judged, 45
+        # distinct names unresolved in 59 places, about 2%.
+        for rel in repo_files():
+            if rel.suffix != ".rs":
+                continue
+            src_lines = (REPO / rel).read_text(errors="replace").splitlines()
+            for lineno, line in enumerate(src_lines, 1):
+                stripped = line.lstrip()
+                if not stripped.startswith("//"):
+                    continue
+                if marker_suppresses(src_lines, lineno):
+                    continue
+                for m in SYMBOL.finditer(line) if args.comments else ():
+                    parts = m.group(1).split("::")
+                    head, tail = parts[0], parts[-1]
+                    if tail in NOISE or len(tail) < 3:
+                        continue
+                    if head in NOISE or head not in rust_ours:
+                        continue
+                    checked += 1
+                    if tail not in rust_defined:
+                        findings.append((str(rel), lineno, m.group(0),
+                                         "nothing DEFINES this name"))
+                # ⛔⛤ **THE SAME PATH RULE, ON THE SURFACE THAT HAD NOBODY.**
+                # `--comments` judged SYMBOLS in Rust comments and nothing else,
+                # while `PATH_CITE` ran only over `docs/` — so a doc comment
+                # naming a directory was checked by no lane at all. That is the
+                # gap this mode closes, and it cost seven live citations on 2026-09-17: two
+                # sent a reader to `app/schedule.rs`, a file that does not exist,
+                # and one claimed constants were "co-authored" with a deleted
+                # file.
+                # ⇒ ONE RESOLVER, not a second script. `path_resolves` already
+                # knows the repository's abbreviation habit and `cite-ok` already
+                # means "wrong on purpose"; a sibling checker would have been a
+                # second authority on the same question.
+                for m in PATH_CITE.finditer(line):
+                    cite = m.group(1)
+                    if cite.startswith(GENERATED_PREFIXES) or "..." in cite:
+                        continue
+                    checked += 1
+                    if not path_resolves(cite, by_path_name):
+                        findings.append((str(rel), lineno, m.group(0),
+                                         "no file at this path"))
+    for doc in docs:
+        # ⛔ A DOC OUTSIDE THE REPO IS A LEGITIMATE TARGET -- a fixture under
+        # pytest's tmp_path, or a file being checked before it is committed.
+        # `relative_to` RAISES on those, which crashed the checker rather than
+        # reporting anything, and a crash reads as "no findings" to any caller
+        # that only looks at the output.
+        try:
+            rel = doc.relative_to(REPO)
+        except ValueError:
+            rel = doc
+        doc_lines = doc.read_text(errors="replace").splitlines()
+        for lineno, line in enumerate(doc_lines, 1):
+            if marker_suppresses(doc_lines, lineno):
+                continue
+            for m in FILE_LINE.finditer(line):
+                checked += 1
+                path, want = m.group(1), int(m.group(2))
+                # ⛔ SORTED. `tracked` is a SET, so `by_suffix`'s lists come out
+                # in a per-process order — Python randomises string hashing — and
+                # an unsorted list made both the chosen candidate and the printed
+                # message vary run to run over an unchanged tree.
+                hits = sorted(p for p in by_suffix.get(Path(path).name, [])
+                              if p.endswith(path))
+                if not hits:
+                    findings.append((str(rel), lineno, m.group(0), "no such file"))
+                    continue
+                # ⛔⛔ EVERY CANDIDATE, NOT `hits[0]`. A suffix like
+                # `game_assets/mod.rs` can match two tracked files, and checking
+                # an ARBITRARY one made this report depend on `git ls-files`
+                # ordering: the same citation came back "unresolved" and
+                # "all resolved" on alternate runs of the same tree, which sent
+                # me hunting a git race that did not exist. A checker whose
+                # answer is not a function of its input is worse than no checker.
+                # ⚠ THIS CATCHES AN OVERRUN AND NOTHING ELSE, which is worth
+                # knowing before trusting a green run on line citations: a
+                # `file.rs:NN` that points at the WRONG line inside a long
+                # enough file is invisible here. Spot-checked 2026-09-03 —
+                # `gameplay_presentation/tests.rs:915` is cited for
+                # `mod two_views_one_host`, which is at 914; the citation lands
+                # on the `use super::*;` beneath it and passes. That is a
+                # tolerable miss (a reader still arrives inside the right item)
+                # and it is NOT a defect this checker can find, because
+                # verifying it would mean knowing what the row meant to point
+                # at. ⇒ A line citation degrades silently as a file grows; a
+                # crate-qualified path plus a NAME degrades loudly, because the
+                # name is checked.
+                lengths = {
+                    hit: len((REPO / hit).read_text(errors="replace").splitlines())
+                    for hit in hits
+                }
+                if not any(want <= n for n in lengths.values()):
+                    worst = ", ".join(f"{h} has {n} lines" for h, n in lengths.items())
+                    findings.append((str(rel), lineno, m.group(0), worst))
+                elif len(hits) > 1:
+                    # It resolves against ONE of several — deterministic now, but
+                    # the reader cannot tell which file the row means.
+                    findings.append((
+                        str(rel), lineno, m.group(0),
+                        f"AMBIGUOUS: {len(hits)} tracked files match this suffix "
+                        f"({', '.join(hits)}) — name the full path",
+                    ))
+            for m in PATH_CITE.finditer(line):
+                cite = m.group(1)
+                # An elided path (`tools/.../specs/x.ron`) names a shape, not a
+                # file, and a build output is absent by construction.
+                if cite.startswith(GENERATED_PREFIXES) or "..." in cite:
+                    continue
+                checked += 1
+                if not path_resolves(cite, by_path_name):
+                    findings.append((str(rel), lineno, m.group(0),
+                                     "no file at this path"))
+            for m in SYMBOL.finditer(line):
+                checked += 1
+                parts = m.group(1).split("::")
+                head, tail = parts[0], parts[-1]
+                if tail in NOISE or len(tail) < 3:
+                    continue
+                # ⛔ ONLY JUDGE NAMES THIS REPOSITORY OWNS. `FontSize::Rem`,
+                # `YarnSpinnerPlugin::with_yarn_sources` and `usize::MAX` are
+                # upstream, and a checker that reports them teaches its reader
+                # to skim past it -- which is how a real finding gets missed.
+                # Requiring the QUALIFIER to be defined here is the cheapest
+                # test that keeps `grid_backend::…` and drops the rest.
+                if head in NOISE or head not in ours:
+                    continue
+                if tail not in defined:
+                    findings.append((str(rel), lineno, m.group(0),
+                                     "nothing DEFINES this name"))
+
+    # Anchors, over the same corpus the citation pass just walked.
+    anchor_rows, anchors_examined = anchor_findings(docs)
+    checked += anchors_examined
+    findings.extend(anchor_rows)
+
+    if args.roles:
+        # ⚠ ITS COUNT IS NOT ADDED TO `findings`. This lane REPORTS; a role
+        # finding is a worklist entry for a person, not a resolution failure,
+        # and folding it into the gate would redden `--strict` on the many rows
+        # that cite a test correctly. See `role_report`.
+        role_report(docs, by_suffix)
+
+    # ⛔⛔ THIS USED TO `return`, AND THAT MADE THE ONLY LANE THAT RUNS THIS
+    # CHECKER ASK ONE QUESTION OUT OF TWO.
+    #
+    # The `--maintenance` job passes `--vanished BASELINE <5 doc trees>
+    # --strict`. With the early return, that `--strict` gated the VANISHED
+    # report alone and ordinary resolution never ran — so **1,710 citations
+    # across 199 files were checked by no lane at all**, while the job printed
+    # `ok`. MEASURED 2026-09-10 at `d55de989a`: six were unresolved at the time
+    # the lane was green over them.
+    #
+    # ⛔ A GATE THAT REPORTS `ok` WITHOUT ASKING ITS QUESTION IS WORSE THAN NO
+    # GATE, because it converts an unknown into an assurance and nobody looks
+    # again. The two modes now run in one pass and the exit code takes both.
+    #
+    # ⚠ AND THE EARLIER READING OF THIS WAS TOO KIND. "A green `--strict` says
+    # nothing about `--vanished`" describes two lanes with different
+    # populations. The real shape was that the two questions were MUTUALLY
+    # EXCLUSIVE in one process: whichever mode a caller picked, the other was
+    # never asked, so "run the lane the gate runs" was not sufficient either.
+    vanished_findings = 0
+    if args.vanished:
+        # ⛔⛤ **`--comments` WIDENED RESOLUTION AND NEVER WIDENED THIS, WHICH IS
+        # HOW A DELETED NAME LIVED IN FIVE SOURCE COMMENTS FOR FIVE DAYS.**
+        # `retire_outgoing` was deleted by A10 on 2026-09-14. The QUALIFIED
+        # spelling (`RoomConstructionPlan::retire_outgoing`) is a `SYMBOL`, so
+        # `--comments` caught it and it was repaired on 2026-09-17; the five
+        # BARE spellings were in neither population — bare names resolve too
+        # noisily to check directly (~408 findings, see `source_text_at`), and
+        # the differential that CAN judge them read only documents.
+        #
+        # ⚠ REPORT, NOT GATE, AND OPT-IN FOR A MEASURED REASON: at the lane's
+        # own baseline this adds 246 findings across 109 names. That is a
+        # periodic sweep's backlog, not an edit's verdict, so it arrives only
+        # when the caller asks for BOTH flags and the lane job (which passes
+        # neither `--comments` nor `--strict`) is unaffected.
+        vanished_docs = docs
+        if args.comments:
+            vanished_docs = docs + [f for f in repo_files() if f.suffix == ".rs"]
+        vanished_findings = vanished_report(vanished_docs, args.vanished, defined)
+
+    # ⭐ COMMIT NAMES ARE CITATIONS TOO, and nothing checked them until
+    # 2026-09-03. A fabricated SHA is invisible exactly the way a fabricated
+    # symbol was: it looks like evidence and nobody types it into `git show`.
+    # The survey that added this found 225 of them and ZERO fabricated, which is
+    # the reason to guard it now rather than after the first one.
+    commit_findings, dark_submodules = unresolved_commits(REPO, docs)
+    checked += len(commit_findings)
+    epoch = git_epoch(REPO)
+    if epoch and commit_findings:
+        # ⛔⛔ ONE EVENT, NOT N FINDINGS. See `git_epoch`: a truncation discards
+        # the objects every older citation names, so listing them individually
+        # buries the path findings under hundreds of lines that share one cause
+        # and one non-answer.
+        files = sorted({rel for rel, _, _ in commit_findings})
+        print(
+            f"\n⚠ {len(commit_findings)} commit citation(s) across {len(files)} "
+            f"file(s) name commits this history no longer holds.\n"
+            f"  This repository was truncated to a single root — {epoch} — so "
+            "every sha older than it is\n  gone by intent, and these are NOT "
+            "individual defects.\n"
+            "  ⛔ THE CHECK IS WEAKER HERE AND SAYS SO: a pre-epoch sha and a "
+            "FABRICATED one are now\n  indistinguishable, because no evidence "
+            "survives to tell them apart. Commit citations written\n  AFTER the "
+            "epoch are still verified normally."
+        )
+    else:
+        findings.extend(
+            (rel, lineno, cite, "no commit with this name here or in any INITIALISED submodule — "
+             "⚠ a submodule's objects can simply be stale, so run "
+             "`git submodule foreach git fetch` before believing this one")
+            for rel, lineno, cite in commit_findings
+        )
+    if dark_submodules:
+        print(
+            f"\n⚠ {len(dark_submodules)} submodule(s) are NOT initialised, so a "
+            f"commit name they own cannot be verified: {', '.join(dark_submodules)}\n"
+            "  `git submodule update --init` to close the gap. Until then a clean "
+            "run is clean ONLY for the repositories that answered."
+        )
+        # ⭐ SAME PROPERTY, AND IT PREDATES THE UNREAD-FILE ONE: this text has
+        # always said a clean run is clean only for what answered, and the exit
+        # code has always said it was clean full stop. Folded into the same gate.
+        _UNREADABLE.extend(f"submodule {name}: not initialised" for name in sorted(dark_submodules))
+
+    print(f"\nchecked {checked} citation(s) across {len(docs)} planning file(s)")
+
+    # ⛔ BEFORE the verdict, because it qualifies the verdict. A citation resolves
+    # against an index built from files this run could read; reads it could not
+    # make are citations it could not have caught.
+    if _UNREADABLE:
+        print(
+            f"\n⛔ {len(_UNREADABLE)} file(s) could not be READ, so the index this "
+            "check searched is incomplete and a clean result below is clean only "
+            "for what answered:"
+        )
+        for line in _UNREADABLE[:10]:
+            print(f"  {line}")
+        if len(_UNREADABLE) > 10:
+            print(f"  ... and {len(_UNREADABLE) - 10} more")
+
+    if not findings:
+        # ⛔⛔ THE EXIT CODE IS WHAT A GATE READS, AND THE FIRST VERSION OF THIS
+        # QUALIFIER DID NOT REACH IT. The unread-file count printed above the
+        # verdict, which fixed it for a HUMAN and left the CI lane seeing a clean
+        # zero — the qualifier visible where somebody looks and invisible where
+        # the decision is made, which is the same defect one level up.
+        #
+        # ⚠ NOT fatal in the bare lane, deliberately: this is a worklist, and one
+        # stray unreadable file should not stop a planning-doc check. `--strict`
+        # is the gate lane, and there an incomplete scan is not a pass.
+        #
+        # ⭐ And the STRING changes too, because "all resolved." printed above a
+        # warning is the sentence that gets quoted into a planning doc — which is
+        # exactly how a false clean bill travels.
+        if _UNREADABLE:
+            print(
+                f"all resolved, but {len(_UNREADABLE)} file(s) went UNREAD — "
+                "clean only for what answered."
+            )
+            return 1 if args.strict else 0
+        # ⚠ RESOLUTION IS CLEAN AND THE VANISHED HALF MAY NOT BE. Saying "all
+        # resolved" and exiting 0 over a live vanished finding is the same false
+        # assurance this arm was changed to stop giving, one mode over.
+        if vanished_findings:
+            print(f"all resolved, but {vanished_findings} vanished-name "
+                  f"finding(s) stand — see the report above.")
+            return 1 if args.strict else 0
+        print("all resolved.")
+        return 0
+    print(f"{len(findings)} unresolved:\n")
+    for rel, lineno, cite, why in findings:
+        print(f"  {rel}:{lineno}\n    {cite} -- {why}")
+    print(f"""
+⇒ TRIAGE EACH ONE. It is MOVED, FABRICATED, or QUOTED-ON-PURPOSE, and the
+  three want different fixes. The discriminator between the first two is:
+
+      git log -S '<the name>' --all --oneline
+
+  Output means it existed and was renamed or deleted: repoint the row. NO
+  output means it never existed: the row's claim needs re-deriving, because
+  whoever wrote it was describing code they had not read.
+
+  For a citation that is wrong deliberately -- a row quoting a mistake it is
+  recording -- put `{MARKER}` on that line and it stops reporting.""")
+    if vanished_findings:
+        print(f"\n⚠ AND {vanished_findings} vanished-name finding(s) stand as "
+              "well, reported above. They are a different question from the "
+              "list here: these citations do not resolve NOW; those name what "
+              "a commit range REMOVED.")
+    return 1 if args.strict else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

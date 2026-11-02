@@ -13,7 +13,7 @@ no safety.
 
 | what you changed | run this | what it does NOT cover |
 |---|---|---|
-| a doc, a plan | per edit, the planning guards (`python3 scripts/check_planning_citations.py --strict`, `python3 scripts/check_planning_anchors_resolve.py`, `python3 scripts/check_doc_links.py`); at a push, the repo tooling job, which runs them and reads `AGENTS.md` and the goal file | a crate: no crate compiles prose |
+| a doc, a plan | per edit, the planning guards (`python3 scripts/checks/check_planning_citations.py --strict`, `python3 scripts/checks/check_planning_anchors_resolve.py`, `python3 scripts/checks/check_doc_links.py`); at a push, the repo tooling job, which runs them and reads `AGENTS.md` and the goal file | a crate: no crate compiles prose |
 | Rust inside ONE crate, no public API moved | `cargo test -p <crate>` | anything composing that crate; feature-gated tests |
 | anything the app composes | `cargo check -p ambition_app` | behaviour. A per-crate `cargo check` can be green while the app build fails. |
 | anything a `#[cfg(feature = …)]` gates | `cargo test -p <crate> --features <f>` (or `cargo check -p <crate> --features <combo> --all-targets`) | that the app still builds; other feature combinations |
@@ -73,7 +73,7 @@ Notes:
   `test_every_contract_holds_against_the_live_tree` in
   `scripts/tests/test_absence_contracts.py`, which is the only check that catches
   a registration or a dependency edge in the wrong place.
-  `python3 scripts/check_absence_contracts.py` exits 1 on a violation, with or
+  `python3 scripts/checks/check_absence_contracts.py` exits 1 on a violation, with or
   without `--check` (before 2026-10-04 the run without the flag exited 0).
 
 ## Why each caveat is there
@@ -166,7 +166,7 @@ parallel run cannot go below its longest test; suspect one long pole before a lo
 
 ## When the suite refuses on disk headroom
 
-`scripts/check_disk_headroom.py` blocks a run below 40 GB free.
+`scripts/checks/check_disk_headroom.py` blocks a run below 40 GB free.
 
 1. Run `scripts/setup/target_bindmount.sh --status` first. A huge target is often
    an absent bind; repairing the bind returns the space.
@@ -202,7 +202,7 @@ whether it is true. Prose is verified by being used. Rules:
    given `--strict`. Decide which line proves the outcome before you run the tool:
 
    ```bash
-   python3 scripts/check_planning_citations.py > /tmp/cit.log 2>&1
+   python3 scripts/checks/check_planning_citations.py > /tmp/cit.log 2>&1
    grep -E 'checked|unresolved|all resolved' /tmp/cit.log
    ```
 
@@ -213,13 +213,13 @@ whether it is true. Prose is verified by being used. Rules:
 
 ### Doc links are the one prose check
 
-rustdoc resolves intra-doc links. `scripts/check_doc_link_ratchet.py` runs
+rustdoc resolves intra-doc links. `scripts/checks/check_doc_link_ratchet.py` runs
 `cargo doc` as a ratchet over a hand-kept list of crates, in `--maintenance`.
 
 - **A carve breaks doc links silently.** Prose moves to a crate where its names
   are not in scope. In the carve's own commit, add the destination crate to the
   ratchet's `CRATES` list and run
-  `python3 scripts/check_doc_link_ratchet.py --check`.
+  `python3 scripts/checks/check_doc_link_ratchet.py --check`.
 - **A `pub(crate)` item cannot be the target of a cross-crate doc link.** Write
   prose that names the crate and module, and say that it is deliberately not a
   link.

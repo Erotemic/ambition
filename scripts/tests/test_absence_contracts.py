@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 REPO = Path(__file__).resolve().parents[2]
 
-from check_absence_contracts import (  # noqa: E402
+from scripts.checks.check_absence_contracts import (  # noqa: E402
     ABSENCE_CONTRACTS,
     strip_comments_for,
     violations,
@@ -270,7 +270,7 @@ def test_every_contract_holds_against_the_live_tree(contract):
 # The half a grep cannot express. Same rule as above: the live tree is green, so
 # a test that only ran it would prove nothing. These feed synthetic graphs.
 
-from check_absence_contracts import (  # noqa: E402
+from scripts.checks.check_absence_contracts import (  # noqa: E402
     DEPENDENCY_CONTRACTS,
     dependency_violations,
     reachable,
@@ -362,7 +362,7 @@ def test_every_dependency_contract_holds_against_the_live_workspace(contract):
 # different syntax. These probe the two invariants, the evasion, and the prose
 # recurrence.
 
-from check_absence_contracts import (  # noqa: E402
+from scripts.checks.check_absence_contracts import (  # noqa: E402
     MODULE_ALLOWLISTS,
     allowlist_usage,
     allowlist_violations,
@@ -501,7 +501,7 @@ def test_the_allowlist_baseline_is_not_silently_empty(contract):
 
 # ── The central-rollback-ownership ratchet ──────────────────────────────────
 
-from check_absence_contracts import (  # noqa: E402
+from scripts.checks.check_absence_contracts import (  # noqa: E402
     ROLLBACK_SCHEMA_BASELINE,
     rollback_schema_usage,
     rollback_schema_violations,
@@ -520,7 +520,7 @@ def test_the_rollback_ratchet_is_not_silently_empty():
     A broken extractor could otherwise report an empty, apparently green wire
     format. Assert both the encoded-type and peer-visible populations directly.
     """
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     root = Path(__file__).resolve().parents[2]
     current = rollback_schema_usage(root)
@@ -573,7 +573,7 @@ def test_the_rollback_ratchet_catches_a_new_central_registration(tmp_path, monke
     """
     import json
 
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     root = Path(__file__).resolve().parents[2]
     baseline = json.loads((root / ROLLBACK_SCHEMA_BASELINE).read_text())
@@ -607,7 +607,7 @@ def test_the_rollback_ratchet_catches_an_unpruned_baseline(tmp_path, monkeypatch
     """
     import json
 
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     root = Path(__file__).resolve().parents[2]
     baseline = json.loads((root / ROLLBACK_SCHEMA_BASELINE).read_text())
@@ -646,7 +646,7 @@ def _fake_tree(tmp_path, version, rows):
 
 
 def test_the_peer_visible_schema_ratchet_holds_against_the_live_tree():
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     root = Path(__file__).resolve().parents[2]
     assert contracts.peer_checksum_schema_violations(root) == []
@@ -673,7 +673,7 @@ def test_the_frozen_prior_is_at_the_live_version_or_this_ratchet_compares_nothin
     """
     import json
 
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     root = Path(__file__).resolve().parents[2]
     frozen = json.loads(
@@ -692,7 +692,7 @@ def test_a_checksum_feeding_row_that_lands_without_a_version_bump_is_caught(
     tmp_path, monkeypatch
 ):
     """⛔ The failure this invariant exists for."""
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     root = Path(__file__).resolve().parents[2]
     version, rows = contracts.peer_checksum_schema(root)
@@ -721,7 +721,7 @@ def test_the_same_row_with_the_version_moved_is_allowed(tmp_path, monkeypatch):
     is the shrink-only reading that `resource.impact_hitstop` already settled
     once for the wire-format ratchet next door.
     """
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     root = Path(__file__).resolve().parents[2]
     version, rows = contracts.peer_checksum_schema(root)
@@ -753,7 +753,7 @@ def test_a_row_feeding_no_checksum_may_land_without_a_version_bump(
     train people to bump the version meaninglessly, which is how a fingerprint
     stops meaning anything.
     """
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     root = Path(__file__).resolve().parents[2]
     version, rows = contracts.peer_checksum_schema(root)
@@ -786,7 +786,7 @@ def test_a_narrowed_projection_moves_the_slice_and_a_reworded_kind_does_not():
     distinguishes rows of its kind. Without the control this test would pass for
     a slice that simply hashed everything.
     """
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     root = Path(__file__).resolve().parents[2]
     _, rows = contracts.peer_checksum_schema(root)
@@ -821,7 +821,7 @@ def test_a_narrowed_projection_moves_the_slice_and_a_reworded_kind_does_not():
 
 
 def test_the_input_payload_ratchet_holds_against_the_live_tree():
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     root = Path(__file__).resolve().parents[2]
     assert contracts.input_payload_violations(root) == []
@@ -830,7 +830,7 @@ def test_the_input_payload_ratchet_holds_against_the_live_tree():
 def test_the_input_payload_census_is_not_silently_empty():
     """⭐ THE VACUITY CONTROL. Every assertion next door is `not <difference>`,
     and a census that stopped finding fields makes all of them pass."""
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     root = Path(__file__).resolve().parents[2]
     version, shape = contracts.input_payload_shape(root)
@@ -854,7 +854,7 @@ def test_the_input_payload_census_is_not_silently_empty():
 def test_a_field_added_without_bumping_the_identity_is_caught(tmp_path, monkeypatch):
     """⛔ The failure this ratchet exists for, and the one about to happen:
     SETTINGS-ROLLBACK's recommended repair adds a `ControlFrame` field."""
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     root = Path(__file__).resolve().parents[2]
     version, shape = contracts.input_payload_shape(root)
@@ -876,7 +876,7 @@ def test_the_same_field_with_the_identity_bumped_is_allowed(tmp_path, monkeypatc
     could be satisfied by forbidding all change, which would block the very
     repair that made this guard worth building. The road is a bumped identity
     WITH its shape recorded beside the old one."""
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     root = Path(__file__).resolve().parents[2]
     version, shape = contracts.input_payload_shape(root)
@@ -899,7 +899,7 @@ def test_a_bumped_identity_with_no_recorded_shape_is_caught(tmp_path, monkeypatc
     held identity 2, the source said 3, and a different identity was the
     exemption, so each shape at identity 3 read green, a poisoned field too.
     An identity with no recorded shape is now itself the violation."""
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     root = Path(__file__).resolve().parents[2]
     version, shape = contracts.input_payload_shape(root)
@@ -924,7 +924,7 @@ def test_an_unfollowed_field_type_raises_instead_of_reading_green():
     variants are censused; a second appearing must FAIL, because the alternative
     is a guard that silently stops covering the thing it is named after.
     """
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     root = Path(__file__).resolve().parents[2]
     _, shape = contracts.input_payload_shape(root)
@@ -963,7 +963,7 @@ def test_a_data_carrying_variant_is_recorded_rather_than_skipped():
     identity unbumped. ⇒ The closure claim *"a silent payload-shape change is
     impossible"* was false while this held.
     """
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     body = """
     /// A doc comment, which the scan must not read as a variant.
@@ -993,7 +993,7 @@ def test_a_data_carrying_variant_is_refused_because_the_encoding_must_be_fixed_w
     what the player pressed, so the subdivision lands in the wrong places with no
     checksum anywhere to notice.
     """
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     assert contracts.variants_carrying_data(["E::Auto", "E::Smash"]) == []
     assert contracts.variants_carrying_data(
@@ -1003,7 +1003,7 @@ def test_a_data_carrying_variant_is_refused_because_the_encoding_must_be_fixed_w
 
 def test_the_live_input_enums_are_all_fieldless():
     """The refusal above, asked of the tree rather than of a fixture."""
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     root = Path(__file__).resolve().parents[2]
     _, shape = contracts.input_payload_shape(root)
@@ -1030,7 +1030,7 @@ def test_the_printed_total_equals_the_contracts_actually_printed():
 
     root = Path(__file__).resolve().parents[2]
     run = subprocess.run(
-        [sys.executable, str(root / "scripts" / "check_absence_contracts.py")],
+        [sys.executable, str(root / "scripts" / "checks/check_absence_contracts.py")],
         capture_output=True,
         text=True,
         cwd=root,
@@ -1061,7 +1061,7 @@ def test_the_checksum_feeding_kinds_are_read_from_the_source_not_a_list():
     """
     import re
 
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     root = Path(__file__).resolve().parents[2]
     feeding = contracts.checksum_feeding_kinds(root)
@@ -1078,7 +1078,7 @@ def test_the_checksum_feeding_kinds_are_read_from_the_source_not_a_list():
 
 # ── The capability-footprint ratchet ────────────────────────────────────────
 
-from check_absence_contracts import (  # noqa: E402
+from scripts.checks.check_absence_contracts import (  # noqa: E402
     CAPABILITY_FOOTPRINT_BASELINE,
     capability_footprint_violations,
 )
@@ -1098,7 +1098,7 @@ def test_the_footprint_ratchet_catches_a_new_linked_crate(tmp_path, monkeypatch)
     """
     import json
 
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     root = Path(__file__).resolve().parents[2]
     # Capture the real closure BEFORE patching, or the stub recurses into itself.
@@ -1149,7 +1149,7 @@ def test_the_footprint_baseline_is_not_silently_empty():
 def test_the_rollback_wire_format_baseline_is_declared_and_current():
     """Every type on the rollback wire is in the baseline, and every baseline row
     still describes a live type."""
-    from check_absence_contracts import rollback_schema_violations
+    from scripts.checks.check_absence_contracts import rollback_schema_violations
 
     new, stale = rollback_schema_violations(REPO)
     assert not new, (
@@ -1168,7 +1168,7 @@ def test_the_wire_format_baseline_is_not_silently_empty():
     """⭐ THE VACUITY CONTROL. Both assertions above are `not <difference>`, and a
     baseline that failed to load — or a collector that stopped finding encoded
     types — makes both differences empty and both assertions pass."""
-    from check_absence_contracts import ROLLBACK_SCHEMA_BASELINE
+    from scripts.checks.check_absence_contracts import ROLLBACK_SCHEMA_BASELINE
 
     baseline = json.loads((REPO / ROLLBACK_SCHEMA_BASELINE).read_text())
     # The floor came down from 140 at schema 285 (2026-10-01), not because of a
@@ -1189,7 +1189,7 @@ def test_the_wire_format_baseline_is_not_silently_empty():
 
 def test_the_capability_footprint_contract_holds_against_the_live_tree():
     """The other baseline-backed contract, covered here for the same reason."""
-    from check_absence_contracts import capability_footprint_violations
+    from scripts.checks.check_absence_contracts import capability_footprint_violations
 
     found = capability_footprint_violations(REPO)
     assert not found, "capability footprint grew:\n  " + "\n  ".join(found)
@@ -1212,7 +1212,7 @@ def test_the_capability_footprint_contract_holds_against_the_live_tree():
 
 
 def test_the_featureless_closure_holds_against_the_live_tree():
-    from check_absence_contracts import featureless_facade_report
+    from scripts.checks.check_absence_contracts import featureless_facade_report
 
     present, missing = featureless_facade_report(REPO)
     assert not missing, (
@@ -1229,7 +1229,7 @@ def test_the_featureless_closure_catches_a_forbidden_crate(monkeypatch):
     tree stops containing the crate it names — a probe against a fabricated
     closure would keep passing after the measurement stopped working.
     """
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     live = contracts.featureless_facade_closure(REPO)
     # A crate that IS linked with every feature off — the floor's own subject.
@@ -1250,7 +1250,7 @@ def test_the_featureless_closure_reports_a_broken_instrument_rather_than_ok(monk
     package, an output-format change, a stale lockfile — yields an empty set,
     which contains no forbidden crate and would print `ok` having measured
     nothing."""
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     monkeypatch.setattr(contracts, "featureless_facade_closure", lambda _root: set())
     present, missing = contracts.featureless_facade_report(REPO)
@@ -1260,7 +1260,7 @@ def test_the_featureless_closure_reports_a_broken_instrument_rather_than_ok(monk
 
 def test_the_featureless_closure_is_not_silently_empty():
     """The census must stay big enough to be the subject this contract names."""
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     live = contracts.featureless_facade_closure(REPO)
     assert len(live) >= 40, (
@@ -1273,7 +1273,7 @@ def test_the_featureless_closure_is_not_silently_empty():
 def test_the_sdk_game_closure_catches_a_capability_it_omits(monkeypatch):
     """The red probe, against the LIVE closure: a crate both builds link, named as
     omitted, reports once per build."""
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     linked = contracts.SDK_GAME_FLOOR[0]
     for features in contracts.SDK_GAME_BUILDS:
@@ -1290,7 +1290,7 @@ def test_the_sdk_game_closure_catches_a_capability_it_omits(monkeypatch):
 def test_the_sdk_game_closure_reports_a_broken_instrument_rather_than_ok(monkeypatch):
     """The anti-vacuity control: an empty closure contains no omitted crate, so
     without the floor a failed `cargo tree` would print ok."""
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     monkeypatch.setattr(contracts, "sdk_game_closure", lambda _root, _features: set())
     present, missing = contracts.sdk_game_report(REPO)
@@ -1313,7 +1313,7 @@ def test_a_variable_width_field_is_refused_even_with_the_identity_bumped():
     count, so `None` encoding shorter than `Some(false)` subdivides the packet in
     the wrong places however carefully the change was announced.
     """
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     followed = set(contracts._FOLLOWED_FIELD_TYPES)
     # The legitimate shapes pass.
@@ -1336,7 +1336,7 @@ def test_a_variable_width_field_is_refused_even_with_the_identity_bumped():
 
 def test_the_live_payload_is_fixed_width_at_every_level():
     """The refusal above, asked of the tree rather than of a fixture."""
-    import check_absence_contracts as contracts
+    from scripts.checks import check_absence_contracts as contracts
 
     root = Path(__file__).resolve().parents[2]
     _, shape = contracts.input_payload_shape(root)

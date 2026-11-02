@@ -9,7 +9,7 @@ not a second queue. Proposed file and API names below are design targets.
 
 When a hold is discharged, rewrite the hold sentence in place to name what
 discharged it. Do not add a banner above it.
-`scripts/check_discharged_holds_are_rewritten.py` enforces this.
+`scripts/checks/check_discharged_holds_are_rewritten.py` enforces this.
 
 ## Readiness map
 
@@ -427,8 +427,8 @@ the focused tests that ran, profile evidence and open questions. Run:
 
 ```bash
 git diff --check
-python3 scripts/check_doc_links.py
-python3 scripts/check_planning_citations.py
+python3 scripts/checks/check_doc_links.py
+python3 scripts/checks/check_planning_citations.py
 ```
 
 Stop and revise the packet if the claimed state has an unknown writer, the move

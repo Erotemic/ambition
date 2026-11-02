@@ -197,7 +197,7 @@ Use the narrowest command that actually covers the change. Full matrix:
 
   ```bash
   ./scripts/regen/quality_variants.sh
-  python3 scripts/check_quality_variants_are_fresh.py
+  python3 scripts/checks/check_quality_variants_are_fresh.py
   ```
 
 ### Generated assets
@@ -239,7 +239,7 @@ When adding or removing a workspace crate, run:
 
 ```bash
 cargo test -p ambition_workspace_policy --test policy
-python3 scripts/check_absence_contracts.py --check
+python3 scripts/checks/check_absence_contracts.py --check
 ```
 
 Search for other crate-name allowlists, lockfiles, and repository tooling that may need updates.
@@ -284,7 +284,7 @@ Add durable lessons to `dev/benchmark-candidates/`; never transient project stat
 * Do not resolve a divergent submodule by recency or by `git submodule update`; list each line's unique commits and keep the semantic superset (Q78, same doc).
 * Formatting is advisory, never an acceptance gate.
 * `./run_tests.sh` is the broad repository test backbone. Prefer narrower checks when they cover the touched invariant.
-* `cargo test -p <crate>` does not cover the `-D warnings` invariant. Use `scripts/check_no_warnings.py` when that invariant matters.
+* `cargo test -p <crate>` does not cover the `-D warnings` invariant. Use `scripts/checks/check_no_warnings.py` when that invariant matters.
 * If you assemble a narrow verification lane, say what it omits.
 * For long-running commands, use their status artifacts rather than polling process names.
 

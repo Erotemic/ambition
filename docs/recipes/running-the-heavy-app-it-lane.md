@@ -175,7 +175,7 @@ them apart. A rollback composition is a different host; re-measure there.
 ## Counting what an arm proves
 
 Counting calls to a safety API measures vigilance. Counting assertions that a
-broken world fails measures safety. `scripts/check_headless_arms_can_fail.py`
+broken world fails measures safety. `scripts/checks/check_headless_arms_can_fail.py`
 checks that headless arms assert something a non-stepping engine cannot satisfy.
 When you poison an arm, check that the poison changed the scope the arm uses (for
 example, a shared helper that does the stepping).

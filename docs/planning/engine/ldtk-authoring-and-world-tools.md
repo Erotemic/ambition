@@ -2,7 +2,7 @@
 
 **State:** OPEN authoring program. Ambition is the primary customer.
 
-`scripts/check_authored_levels_survive.py` baselines each world file's level
+`scripts/checks/check_authored_levels_survive.py` baselines each world file's level
 identifiers. Adding levels is fine. Removing a recorded one is an error unless
 the baseline is explicitly `--bless`ed. It guards roster survival only; other
 validators own level contents and entity correctness.

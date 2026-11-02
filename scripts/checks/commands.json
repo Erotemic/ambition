@@ -1,0 +1,55 @@
+{
+  "commands": [
+    {
+      "id": "check_doc_links",
+      "title": "Check repository documentation links",
+      "owner": "scripts/checks",
+      "command": "python3 scripts/checks/check_doc_links.py",
+      "help": "python3 scripts/checks/check_doc_links.py --help",
+      "requires": [
+        "scripts/checks/check_doc_links.py"
+      ],
+      "docs": "scripts/checks/README.md",
+      "inputs": "Repository source, documentation, or recorded build measurements.",
+      "outputs": "Findings with a process exit status.",
+      "mutation": "Reads inputs. Explicit record options can update the owner baseline.",
+      "build": "No Cargo build for these inspection commands.",
+      "status": "active",
+      "cwd": "repository root"
+    },
+    {
+      "id": "check_absence_contracts",
+      "title": "Check source ownership absence contracts",
+      "owner": "scripts/checks",
+      "command": "python3 scripts/checks/check_absence_contracts.py --check",
+      "help": "python3 scripts/checks/check_absence_contracts.py --help",
+      "requires": [
+        "scripts/checks/check_absence_contracts.py"
+      ],
+      "docs": "scripts/checks/README.md",
+      "inputs": "Repository source, documentation, or recorded build measurements.",
+      "outputs": "Findings with a process exit status.",
+      "mutation": "Reads inputs. Explicit record options can update the owner baseline.",
+      "build": "No Cargo build for these inspection commands.",
+      "status": "active",
+      "cwd": "repository root"
+    },
+    {
+      "id": "compile_ratchet",
+      "title": "Inspect compile cost ratchet findings",
+      "owner": "scripts/checks",
+      "command": "python3 scripts/checks/compile_ratchet.py --diff",
+      "help": "python3 scripts/checks/compile_ratchet.py --help",
+      "requires": [
+        "scripts/checks/compile_ratchet.py"
+      ],
+      "docs": "scripts/checks/README.md",
+      "inputs": "Repository source, documentation, or recorded build measurements.",
+      "outputs": "Findings with a process exit status.",
+      "mutation": "Reads inputs. Explicit record options can update the owner baseline.",
+      "build": "No Cargo build for these inspection commands.",
+      "status": "active",
+      "cwd": "repository root"
+    }
+  ]
+}

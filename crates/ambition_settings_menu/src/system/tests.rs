@@ -374,7 +374,7 @@ fn language_stub_only_english_available() {
 /// could appear on no screen and other tests would still pass.
 ///
 /// Three guards split the work:
-/// `scripts/check_enum_all_constants_are_complete.py` (run by `--maintenance`)
+/// `scripts/checks/check_enum_all_constants_are_complete.py` (run by `--maintenance`)
 /// decides whether a variant is on `ALL`; this test decides where it appears;
 /// `apply.rs`'s exhaustive match decides what changing it does.
 #[test]
@@ -409,7 +409,7 @@ fn every_settings_option_id_reaches_a_screen() {
         // The catch-all arm defaults to `true`, so a new id on `ALL` fails below
         // unless a player can reach it or an explicit arm says why not. An id
         // missing from `ALL` is caught by
-        // `scripts/check_enum_all_constants_are_complete.py`.
+        // `scripts/checks/check_enum_all_constants_are_complete.py`.
         let must_reach = match id {
             // A momentary Close / Back action, not a setting with a value, so it is
             // not a row on any settings screen.

@@ -280,7 +280,7 @@ with the same save. The rules:
   `StartingBag::begin_the_session`); a persisted inventory overlays it.
 - **Host configuration is not session state.** `FriendlyFire`, `RegimePolicy`
   and `FactionRelations` cross the edge on purpose.
-  `scripts/check_host_configuration_has_no_session_writer.py` fails when a
+  `scripts/checks/check_host_configuration_has_no_session_writer.py` fails when a
   system writes one inside a session; it must then join the reset.
 - **The timeline starts with the session world.**
   `rollback::start_the_timeline_with_the_session_world` orders the maintainer

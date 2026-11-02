@@ -8,7 +8,7 @@ The campaigns that act on this map are in [`consolidation-plan.md`](consolidatio
 Method: static source, manifest, planning and generated-inventory inspection. No
 compiler or runtime is used. The last column of each table is the row's evidence
 class; this page owns it, and the ledger's copy must match
-(`scripts/check_consolidation_ledger_states_are_live.py`).
+(`scripts/checks/check_consolidation_ledger_states_are_live.py`).
 
 ## Current authority map
 
@@ -126,13 +126,13 @@ The split is derived from the ledger, not counted by hand:
 
 A resolved row is a receipt: the one owner now, and any standing rule. A
 `LEGITIMATE_SEPARATION` row says two similar-looking owners hold different facts.
-`scripts/check_collapsed_authorities_stay_collapsed.py` keeps deleted second
-owners deleted, and `scripts/check_separated_authorities_stay_separated.py` keeps
+`scripts/checks/check_collapsed_authorities_stay_collapsed.py` keeps deleted second
+owners deleted, and `scripts/checks/check_separated_authorities_stay_separated.py` keeps
 the separations separate.
 
 | ID | Family | State | Current state | Consolidation direction | Evidence |
 | --- | --- | --- | --- | --- | --- |
-| DUP-SESSION-CURRENT | Current gameplay-session identity family | RESOLVED — one collapse landed | `ActiveGameplaySession`, `ActiveSessionScope`, `SessionRoot` and `GameplaySessionWorldRoot` each answer a different layer's question. The one copy that was not a layer split, a one-entry resource that duplicated the live correlation, is deleted. | Keep the layer split. `ambition_platformer2d_shared_tangle` may not reach `ambition_game_shell` (`platformer-primitives-stays-a-foundation` in `scripts/check_absence_contracts.py`). | SOURCE_CONFIRMED |
+| DUP-SESSION-CURRENT | Current gameplay-session identity family | RESOLVED — one collapse landed | `ActiveGameplaySession`, `ActiveSessionScope`, `SessionRoot` and `GameplaySessionWorldRoot` each answer a different layer's question. The one copy that was not a layer split, a one-entry resource that duplicated the live correlation, is deleted. | Keep the layer split. `ambition_platformer2d_shared_tangle` may not reach `ambition_game_shell` (`platformer-primitives-stays-a-foundation` in `scripts/checks/check_absence_contracts.py`). | SOURCE_CONFIRMED |
 | DUP-CONTENT-CURRENT | Live content-generation identity family | RESOLVED — published through the room verdict | `PreparedContent`, `PreparedContentIdentity` and `ActiveContentBinding` are Components on the session root from one lowering. The hot reload advances the content generation only behind `publication_succeeded`. | None on this axis. The peer-facing half of the identity is ID-PEER's. | SOURCE_CONFIRMED |
 | DUP-GENERATION-MECHANICS | Activated generation mechanics versus App registries | RESOLVED — the fallback is deleted (2026-09-20) | `GenerationMechanics` holds one set of registries. Callers choose `of` or `for_live_session`, which refuses when no generation is active. No live rebuild, the LDtk world reload included, reads App registries. | A direct composition that rebuilds rooms installs its own scoped `SessionMechanics` (`install_direct_session_root`). `perception_extent_for` keeps an App fallback on purpose: it is a read at decision time, not construction. | SOURCE_CONFIRMED |
 | DUP-LAUNCH-LAW | How far a hit launches its victim | RESOLVED — the second owner is deleted (2026-09-20) | One owner, `ambition_entity_catalog::launch::launch_speed`, in a crate that combat and the fighter brain both see. It takes the move's growth as an `Option`, and `LaunchConditions` carries the ruleset growth, so no caller decides "the ruleset decides" early. `ambition_combat` resolves the inputs (`ResolvedCombatTuning`) and does not own the arithmetic. | Rule: a factor that multiplies only part of each candidate's expression can reorder candidates even when it is common to all of them. Per-move staling is such a factor; queue.md's BRAIN row tracks it. | SOURCE_CONFIRMED |
@@ -204,7 +204,7 @@ gameplay session owns them:
 
 `SessionMechanics` is one more App resource whose semantic owner is the activated
 content generation. The unique total is **30** — the two App-resource lists are disjoint, so
-it is their sum (the root family is not counted). `scripts/check_session_owner_census_matches_source.py` checks
+it is their sum (the root family is not counted). `scripts/checks/check_session_owner_census_matches_source.py` checks
 both name lists and every restated count against source.
 
 Fifteen members are optional (`Option<ResMut<..>>`, present only when their
@@ -363,7 +363,7 @@ relationships where ordering carries an architectural invariant.
 | ORDER-ROOM-TRANSACTION | transaction open/baseline capture | construction + verify/publish tail | not an ordering: `PendingConstructionBaseline` and `PendingConstructionReceipt` are Components on the publication entity, so baseline, staged world, effects and verdict name the same publication by construction | verification compares the result to the baseline that belongs to this transaction | RESOLVED_BY_A10 | SOURCE_CONFIRMED |
 | ORDER-ROOM-REPLACE | candidate construction and validation | publication, then the outgoing sweep | `replace_live_world` stages the whole replacement and publishes on admission | two rooms' bodies coexist for the length of ONE command flush, which no scheduled system can observe; a refusal publishes nothing | RESOLVED_BY_A10 | SOURCE_CONFIRMED |
 | ORDER-CONTENT-ACTIVATION | content publication gate | shell activation and content commit | atomicity, not order: `advance_pending_route` is an exclusive system that runs each gate evaluator inside its own world access; on refusal it cancels, then releases | a gate answers `Hold` / `Admit` / `Refuse` and never releases itself; a gate that answered yes earlier does not authorize a later activation | NORMAL_PIPELINE_ORDER | SOURCE_CONFIRMED |
-| ORDER-CHECKPOINT | checkpoint admission | room/replay commit and domain restore | a schedule only the commit executor runs (`CheckpointDomainApply`), plus an operation key that is a session stamp and an admission-advanced sequence | domain restore cannot treat an unadmitted request as authority; `scripts/check_commit_only_schedules_have_one_runner.py` keeps the executor the only runner | NORMAL_PIPELINE_ORDER | SOURCE_CONFIRMED |
+| ORDER-CHECKPOINT | checkpoint admission | room/replay commit and domain restore | a schedule only the commit executor runs (`CheckpointDomainApply`), plus an operation key that is a session stamp and an admission-advanced sequence | domain restore cannot treat an unadmitted request as authority; `scripts/checks/check_commit_only_schedules_have_one_runner.py` keeps the executor the only runner | NORMAL_PIPELINE_ORDER | SOURCE_CONFIRMED |
 | ORDER-NEW-GAME | new-game admission | the fresh-run reducers | the confirmed-frame lifecycle commit, which runs `CheckpointDomainApply` with `FreshRunRestore` installed | domain state resets only inside an authorized commit; a New Game is admitted by the checkpoint coordinator like a death | NORMAL_PIPELINE_ORDER | SOURCE_CONFIRMED |
 
 Do not replace clear Bevy set ordering with a custom scheduler abstraction.
@@ -420,7 +420,7 @@ fan-out improves. Small crates are not merge candidates because they are small.
 
 <!-- alias-census: parameter_form=92 files=40 -->
 The line above is `BEVY-SESSION-ROOT`'s machine-readable count.
-`scripts/check_alias_census_agrees_with_source.py` compares it with a live
+`scripts/checks/check_alias_census_agrees_with_source.py` compares it with a live
 measurement. The per-spelling split is in the plan, under C03.
 
 The strongest pattern is **Bevy mechanism + Ambition semantic invariant**:

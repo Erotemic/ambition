@@ -253,7 +253,7 @@ records evidence for that bundle:
 ```bash
 ./scripts/regen/sprites.sh --target tower_voss
 ./scripts/regen/quality_variants.sh --target tower_voss
-python3 scripts/check_quality_variants_are_fresh.py
+python3 scripts/checks/check_quality_variants_are_fresh.py
 ```
 
 The quality check reports legacy evidence gaps. Add `--require-evidence` to fail

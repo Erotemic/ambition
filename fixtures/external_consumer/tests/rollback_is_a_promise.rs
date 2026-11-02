@@ -226,7 +226,7 @@ fn the_plan_settles_past_activation_before_frame_zero() {
 /// Property 1: frozen schema.
 ///
 /// ENFORCED elsewhere, and this test says where: `rollback-wire-format-is-frozen`
-/// in `scripts/check_absence_contracts.py` freezes all 63 encoded types across
+/// in `scripts/checks/check_absence_contracts.py` freezes all 63 encoded types across
 /// the nine crates that own them, both directions — a type may not join the
 /// wire format unseen, and one that leaves must be pruned in the same commit.
 ///

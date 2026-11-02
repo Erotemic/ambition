@@ -1,4 +1,4 @@
-"""What `scripts/check_dev_dependencies_are_used.py` must not get wrong.
+"""What `scripts/checks/check_dev_dependencies_are_used.py` must not get wrong.
 
 The checker is TEXTUAL by necessity — the compiler's own answer
 (`-W unused_crate_dependencies`) costs a full workspace rebuild — so the ways a
@@ -16,7 +16,7 @@ import sys
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 _SPEC = importlib.util.spec_from_file_location(
     "check_dev_dependencies_are_used",
-    REPO_ROOT / "scripts" / "check_dev_dependencies_are_used.py",
+    REPO_ROOT / "scripts" / "checks/check_dev_dependencies_are_used.py",
 )
 check = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(check)
@@ -25,7 +25,7 @@ _SPEC.loader.exec_module(check)
 def test_the_shipped_tree_has_no_stranded_dev_dependency():
     """The ratchet itself. Seven were removed on 2026-09-18; this holds the zero."""
     done = subprocess.run(
-        [sys.executable, "scripts/check_dev_dependencies_are_used.py"],
+        [sys.executable, "scripts/checks/check_dev_dependencies_are_used.py"],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,

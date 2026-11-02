@@ -30,7 +30,7 @@ REPO = Path(
 )
 SPEC = importlib.util.spec_from_file_location(
     "check_pinned_music_renderer_refuses_gm",
-    REPO / "scripts" / "check_pinned_music_renderer_refuses_gm.py",
+    REPO / "scripts" / "checks/check_pinned_music_renderer_refuses_gm.py",
 )
 mod = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = mod

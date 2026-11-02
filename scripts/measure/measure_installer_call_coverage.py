@@ -75,6 +75,10 @@ Usage::
 
 from __future__ import annotations
 
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
+
 import argparse
 import json
 import os
@@ -198,7 +202,7 @@ def main() -> int:
     # (exit 2) on an unverified target volume, so an unbound checkout never
     # reaches the first mutation; and a full disk is refused up front rather
     # than discovered fourteen builds in.
-    from check_disk_headroom import MIN_FREE_GB, free_gb_on_target
+    from scripts.checks.check_disk_headroom import MIN_FREE_GB, free_gb_on_target
 
     def require_headroom(when: str) -> None:
         free = free_gb_on_target()

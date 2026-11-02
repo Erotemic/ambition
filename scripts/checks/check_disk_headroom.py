@@ -1,0 +1,248 @@
+#!/usr/bin/env python3
+"""Check free space on the filesystem Cargo actually writes to.
+
+The target directory follows `CARGO_TARGET_DIR`, then `.cargo/config.toml`, then
+the repository-local `target/`. The default threshold is sized for a full suite;
+callers performing smaller work may request a lower floor.
+
+Usage::
+
+    python3 scripts/checks/check_disk_headroom.py
+    python3 scripts/checks/check_disk_headroom.py --min-gb 5
+    python3 scripts/checks/check_disk_headroom.py --quiet"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent.parent
+
+# A floor with a little room, not a precise budget — the point is to refuse BEFORE a job dies of
+# ENOSPC and reports it as a compile error.
+#
+# ⚠ MEASURED COUNTER-EXAMPLE, calculex VM, 2026-09-03: this floor PASSED at 42 GB free and
+# `./run_tests.sh --rust` still died of ENOSPC — after all 6957 tests had passed, while writing its
+# own status file, so the traceback pointed at `run_tests.py` rather than at the disk. The run
+# needed more than 42 GB on top of a `target/` that a day of multi-profile work had grown to 267 GB
+# (`target/debug/incremental` alone was 156 GB and is safe to delete).
+# ⇒ Two honest readings, and this comment does not pick between them: the floor is low for a full
+# nextest + doc-test pass, or a `target/` that large inflates what one costs. Whoever raises it
+# should measure a run on a pruned tree first, because the second reading would make a higher floor
+# treat a disposable cache as a requirement.
+MIN_FREE_GB = 40.0
+
+
+def target_dir() -> Path:
+    """Resolve the Cargo target directory from environment, config, or repo default."""
+    if env := os.environ.get("CARGO_TARGET_DIR"):
+        return Path(env)
+    config = REPO / ".cargo" / "config.toml"
+    if config.is_file():
+        for line in config.read_text().splitlines():
+            line = line.strip()
+            if line.startswith("target-dir"):
+                _, _, value = line.partition("=")
+                value = value.strip().strip('"').strip("'")
+                if value:
+                    return Path(value)
+    return REPO / "target"
+
+
+BINDMOUNT = os.path.join(REPO, "scripts", "setup", "target_bindmount.sh")
+
+
+def _bindmount_check_exit_code() -> int | None:
+    """Ask the bind-mount script whether `target/` is the volume to build on.
+
+    That script is the one authority for the mount fact; this does not re-derive
+    it. Returns its exit code, or `None` when the question could not be ASKED —
+    the script missing, not executable, or dying on something other than its own
+    verdict.
+    """
+    if not os.path.isfile(BINDMOUNT):
+        return None
+    try:
+        done = subprocess.run(["bash", BINDMOUNT, "--check"], check=False)
+    except OSError:
+        return None
+    return done.returncode
+
+
+def require_verified_target_volume() -> None:
+    """Refuse unless `target/` is the volume cargo SHOULD be writing to.
+
+    ⭐ THIS IS THE PRECONDITION OF THE NUMBER BELOW, WHICH IS WHY IT LIVES INSIDE
+    IT. `free_gb_on_target()` measures whatever `target/` currently resolves to.
+    On a virtiofs checkout whose bind mount is absent — the state every reboot
+    leaves behind, since the bind does not survive one — that is the SHARED
+    volume, so the floor answers about the wrong filesystem and passing it
+    licenses the build onto the mount AGENTS.md spends sixty lines forbidding.
+    Measured 2026-09-07 on this box after a reboot: unbound, `df` on `target/`
+    read 33 GB free on the 1.8 TB shared volume while the intended store had 13.
+
+    ⛔ IT IS NOT A CHECK THE CALLER MUST REMEMBER TO RUN FIRST. It used to be:
+    `run_tests.sh` ran `target_bindmount.sh --check` and refused, and
+    `scripts/run_tests.py` — the door agents actually use — did not, so whether
+    the precondition held depended on which entry point you came through. Making
+    it part of the read removes the ordering question rather than testing it: no
+    caller can obtain the number from an unverified volume, in any order.
+
+    ⛔ REFUSE RATHER THAN WARN, and refuse here rather than in a doc, because a
+    doc is what got skipped: an agent built all day unbound on 2026-08-27, was
+    asked to reclaim the space, and deleted 205 GB of the LIVE target instead of
+    restoring the mount. A warning at the top of a job that prints for several
+    minutes is a warning nobody reads, and the fix is one command.
+
+    ⛔ AN INDETERMINATE ANSWER REFUSES. A probe that could not run is not a
+    passing probe; treating "I could not tell" as "fine" is how a guard reports a
+    clean tree it never looked at.
+    """
+    code = _bindmount_check_exit_code()
+    if code == 0:
+        return
+    if code is None:
+        print(
+            f"REFUSING: could not ask {BINDMOUNT} whether target/ is bound.\n"
+            "  A probe that cannot run is not a probe that passed. Fix the "
+            "script or the shell before building.",
+            file=sys.stderr,
+        )
+    else:
+        # The script has already printed its own diagnosis and remedy to stderr.
+        print(
+            f"REFUSING: {BINDMOUNT} --check exited {code}. Not building until "
+            "target/ is the volume it should be.",
+            file=sys.stderr,
+        )
+    sys.exit(2)
+
+
+def _build_volume() -> Path | None:
+    """Ask the bind-mount script which directory the artifacts will land on.
+
+    Same authority as `_bindmount_check_exit_code`: the mount policy is stated
+    once, in the shell script, and read here. `None` when it cannot be asked.
+    """
+    if not os.path.isfile(BINDMOUNT):
+        return None
+    try:
+        done = subprocess.run(
+            ["bash", BINDMOUNT, "--build-volume"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return None
+    out = done.stdout.strip()
+    return Path(out) if done.returncode == 0 and out else None
+
+
+def free_gb_on_target() -> float:
+    """Free space on the volume cargo writes to, once that volume is verified.
+
+    ⛔ WALKING UP FROM A MISSING `target/` ANSWERS ABOUT THE WRONG VOLUME. Before
+    the first build `target/` does not exist, so the walk reaches the REPO — the
+    shared mount — while the bind is about to put the local store underneath it.
+    Measured 2026-09-10, target ABSENT: repo 110.5 GB free, store 26.9, floor 40.
+    The gate printed OK on a volume 13 GB below its own floor.
+
+    ⇒ So ask `--build-volume` for the directory the artifacts land on, and walk
+    up from THAT. The walk stays, because the store's own parent may not exist on
+    a fresh box; it just starts from the right path.
+    """
+    require_verified_target_volume()
+    path = _build_volume() or target_dir()
+    while not path.exists() and path != path.parent:
+        path = path.parent
+    return shutil.disk_usage(path).free / 1024**3
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--min-gb",
+        type=float,
+        default=MIN_FREE_GB,
+        help=f"required free GB (default {MIN_FREE_GB}, the full-suite floor)",
+    )
+    parser.add_argument("--quiet", action="store_true", help="exit code only")
+    args = parser.parse_args()
+
+    free = free_gb_on_target()
+    # ⛔ NAME THE VOLUME THE NUMBER CAME FROM. Printing `target/` beside a figure
+    # read off the store sends the reader to `du` the wrong path.
+    where = _build_volume() or target_dir()
+    if free < args.min_gb:
+        print(
+            f"REFUSING: {free:.1f} GB free on {where}, need {args.min_gb:.0f} GB.\n\n"
+            "⚠ do not start a build. A mid-build ENOSPC does not say 'disk full' — "
+            "it surfaces as unrelated compile errors in whichever crate was "
+            "unlucky, and the real cause appears nowhere.\n\n"
+            # The rule (Q77, Jon 2026-10-01): the safety invariant is the BIND,
+            # not the path. Bound, destructive cleanup under `target/` is
+            # allowed, `rm -rf` included; unbound, delete nothing. A refusal
+            # message is read at the moment someone is under pressure to free
+            # space, so every line that names a deletion says which state it
+            # applies to (`test_disk_headroom.py` reads it line by line).
+            "  1. scripts/setup/target_bindmount.sh --status\n"
+            "     An enormous target/ is almost always an ABSENT BIND, and\n"
+            "     repairing it returns the space without deleting anything --\n"
+            "     the duplicate underneath was never supposed to exist.\n"
+            f"  2. Is it bound, and is {where}\n"
+            "     genuinely full? Bound, `cargo clean` is yours to run\n"
+            "     (also `--release`, `-p <crate>`) -- AGENTS.md, Jon 2026-09-10.\n"
+            # ⛔⛤ SAY WHAT EACH RECLAIM COSTS, so a reader under pressure can
+            # pick one instead of inventing a cut. This message named
+            # `cargo clean` without saying it forces a rebuild, and never
+            # mentioned the incremental-cache wrapper -- so the cheapest option
+            # was invisible and `rm -rf …/incremental` looked like the only way
+            # to get space without a long build. `Q77` records that reasoning
+            # twice. Measured 2026-09-16 on one box: our crates' artifacts ~35 G,
+            # the whole directory ~80 G, the incremental cache 82 G.
+            # ⛔ EACH LINE NAMING THE COMMAND CARRIES THE STATE WORD, and that is
+            # a guard's requirement rather than a style: `test_disk_headroom.py`
+            # reads this message LINE BY LINE, because a blanket "free space with
+            # `cargo clean`" is the advice the 2026-09-03 incident followed. A
+            # reflow that pushed the command onto an unqualified line turned that
+            # test red on 2026-09-16 and the wording is what fixes it.
+            "     Bound, `cargo clean --workspace` reclaims our crates (~35 GB\n"
+            "     measured) and rebuilds Ambition only; bound, `cargo clean`\n"
+            "     with no flag reclaims everything (~80 GB), Bevy included.\n"
+            "  2a. Space now, with nothing rebuilt:\n"
+            "     ./scripts/maintenance/clean_workspace_crates.sh --incremental-only\n"
+            "     (add --apply). It deletes the incremental CACHE, not\n"
+            "     artifacts, so no fingerprint is invalidated: a crate that was\n"
+            "     fresh stays fresh and is skipped. Measured 82 GB across 985\n"
+            "     crate sessions, 33 GB free -> 115 GB. The only cost is that\n"
+            "     the next EDIT to a crate recompiles it whole. Run it without\n"
+            "     --apply first; it prints the number. It REFUSES while a\n"
+            "     build holds the profile's `.cargo-lock`: deleting the cache\n"
+            "     under a live rustc can split its state or kill the compile.\n"
+            "  2b. Bound, `rm -rf` of a directory under it is also yours\n"
+            "     (AGENTS.md, Jon 2026-10-01). Bound, delete only your own:\n"
+            "     the volume is shared, so do not prune other builds by mtime.\n"
+            "  3. UNBOUND, it is Jon's filesystem: report the numbers and stop.\n"
+            "     Unbound, do not `rm -rf` or `cargo clean` anything there.\n"
+            f"  Reading only (safe): du -sh {where}/debug/* | sort -h\n\n"
+            "⚠ THE VOLUME IS SHARED with the main checkout and every other agent "
+            "worktree, so a number you read here is not yours alone: on "
+            "2026-09-03 the main tree held 270 GB and one worktree 99 GB. That "
+            "is a reason to report rather than reclaim -- the biggest directory "
+            "is usually someone else's live build.",
+            file=sys.stderr,
+        )
+        return 1
+
+    if not args.quiet:
+        print(f"OK: {free:.1f} GB free on {where} (floor {args.min_gb:.0f}).")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

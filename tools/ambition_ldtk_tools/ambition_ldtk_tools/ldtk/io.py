@@ -61,7 +61,7 @@ def warn_if_uid_leaked(path: Path, project: dict[str, Any], text: str) -> None:
 
     ⚠ **A WARNING AND NOT A REFUSAL, BECAUSE A DELETION LEGITIMATELY RAISES THE
     COUNTER ABOVE THE CONTENTS.** Removing the highest-uid entity is not a leaked
-    allocation. `scripts/check_ldtk_uid_leak.py` is the gate that refuses one
+    allocation. `scripts/checks/check_ldtk_uid_leak.py` is the gate that refuses one
     reaching a commit; this is the signal that says who made it.
     """
     counter = int(project.get("nextUid", 1))
@@ -72,7 +72,7 @@ def warn_if_uid_leaked(path: Path, project: dict[str, Any], text: str) -> None:
             f"⚠ {path}: nextUid={counter} but nothing uses more than {highest} — "
             f"{leak} uid(s) allocated and never written. Whatever command just "
             f"ran allocates BEFORE it checks whether the thing already exists; "
-            f"see scripts/check_ldtk_uid_leak.py.",
+            f"see scripts/checks/check_ldtk_uid_leak.py.",
             file=sys.stderr,
         )
 

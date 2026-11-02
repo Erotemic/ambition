@@ -131,6 +131,6 @@ echo "==> music registry (music_registry.ron)"
 "$renderer_py" "$repo_root/scripts/regen_music_registry.py" \
     --generated-dir "$AMBITION_MUSIC_PUBLISH_ROOT"
 
-"$renderer_py" "$repo_root/scripts/check_regeneration_coverage.py" --family music --cue "$cue_selection"
+"$renderer_py" "$repo_root/scripts/checks/check_regeneration_coverage.py" --family music --cue "$cue_selection"
 
 echo "==> done"

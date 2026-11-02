@@ -18,7 +18,7 @@
 //! absent from the build: the engine crates behind these capabilities are
 //! unconditional dependencies of this crate (`Q106`), so only the facade's
 //! feature-gated edges (the renderer, the menu, …) can be absent from a
-//! dependency closure. `scripts/check_engine_profiles.py` holds that half.
+//! dependency closure. `scripts/checks/check_engine_profiles.py` holds that half.
 //!
 //! The witnesses live in `ambition_platformer2d_host/tests/supported_profiles.rs`:
 //! each profile is built, stepped over a real body, and checked against
@@ -175,7 +175,7 @@ pub enum HostFace {
 
 /// A named, supported composition.
 ///
-/// `profile-contract: <name>` markers below are what `scripts/check_engine_profiles.py`
+/// `profile-contract: <name>` markers below are what `scripts/checks/check_engine_profiles.py`
 /// reads; a profile with no marker, or a marker with no profile, is red.
 #[derive(Clone, Copy, Debug)]
 pub struct EngineProfile {

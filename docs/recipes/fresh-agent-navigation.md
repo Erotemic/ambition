@@ -89,7 +89,7 @@ Ask:
 ## After changing structure or docs
 
 ```bash
-python scripts/check_doc_links.py
+python scripts/checks/check_doc_links.py
 python scripts/generate_agent_index.py
 ./run_tests.sh --list
 ```

@@ -55,7 +55,13 @@ REPO_TOOLING_JOB = "repo tooling (scripts/tests; repo-coupled)"
 LDTK_TOOLS_DIR = "tools/ambition_ldtk_tools"
 LDTK_TOOLS_JOB = "ldtk authoring tool tests"
 #: Jobs that only the detached tool lane plans (`run_tests.py --tool-tests`).
-DETACHED_TOOL_JOBS = {LDTK_TOOLS_JOB}
+TOOL_JOBS = {
+    LDTK_TOOLS_DIR: LDTK_TOOLS_JOB,
+    "tools/ambition_editor": "Ambition Editor tests",
+    "tools/ecs_architecture_browser": "ECS architecture browser tests",
+    "tools/ambition_moveset_inspector": "moveset inspection tool tests",
+}
+DETACHED_TOOL_JOBS = set(TOOL_JOBS.values())
 
 #: The sprite tree (`ambition_sprite_sheet`): a development build reads it at
 #: run time, so its own tests at default features never compile the embedded
@@ -416,8 +422,9 @@ def requirements_for(path: str, members: dict[str, str], repo: Path = REPO) -> s
         required.add(Job(REPO_TOOLING_JOB))
     if path.startswith(SPRITE_SHEET_DIR + "/"):
         required.add(Job(SPRITE_TREE_EMBEDDED_JOB))
-    if path.startswith(LDTK_TOOLS_DIR + "/") and path.endswith(".py"):
-        required.add(Job(LDTK_TOOLS_JOB))
+    for directory, job in TOOL_JOBS.items():
+        if path.startswith(directory + "/") and path.endswith(".py"):
+            required.add(Job(job))
     return required
 
 

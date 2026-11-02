@@ -1,7 +1,7 @@
 schema_version: 4
 
 generator: scripts/generate_agent_index.py
-lint: scripts/check_agent_kb.py
+lint: scripts/checks/check_agent_kb.py
 
 entrypoints:
   canonical: AGENTS.md

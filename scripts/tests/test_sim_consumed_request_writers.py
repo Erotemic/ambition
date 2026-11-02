@@ -12,7 +12,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-import check_sim_consumed_request_writers as guard  # noqa: E402
+from scripts.checks import check_sim_consumed_request_writers as guard  # noqa: E402
 
 
 def test_the_writer_set_is_adjudicated_today():

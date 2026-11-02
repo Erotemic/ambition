@@ -23,7 +23,7 @@ Re-run these before you quote a number. Do not copy counts into other pages.
 ```bash
 python3 scripts/measure/measure_foreign_system_ordering.py
 python3 scripts/measure/measure_carveable_installations.py
-python3 scripts/check_facade_dependency_closure.py
+python3 scripts/checks/check_facade_dependency_closure.py
 python3 scripts/measure/measure_minimum_profile_closure.py --minimum
 ```
 
@@ -228,7 +228,7 @@ excluded:
 **What a profile does NOT claim.**
 
 * It claims *not installed*, not *not linked*. The crates behind these capabilities are
-  unconditional dependencies (`Q106`); `scripts/check_engine_profiles.py` asserts they
+  unconditional dependencies (`Q106`); `scripts/checks/check_engine_profiles.py` asserts they
   ARE in the closure, so the day one becomes optional that check goes red and the
   contract can be upgraded.
 * The bag itself (`OwnedItems`) is core state. `Inventory` removes collecting and the

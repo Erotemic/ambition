@@ -14,7 +14,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-import check_alias_census_agrees_with_source as guard  # noqa: E402
+from scripts.checks import check_alias_census_agrees_with_source as guard  # noqa: E402
 
 
 def test_the_shipped_documents_agree_with_the_tree():

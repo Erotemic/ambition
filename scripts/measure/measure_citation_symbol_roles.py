@@ -104,7 +104,7 @@ import sys
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
 _spec = importlib.util.spec_from_file_location(
-    "_c", REPO / "scripts" / "check_planning_citations.py"
+    "_c", REPO / "scripts" / "checks/check_planning_citations.py"
 )
 _m = importlib.util.module_from_spec(_spec)
 sys.modules["_c"] = _m

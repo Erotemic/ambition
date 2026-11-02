@@ -1163,3 +1163,23 @@ know they need to widen the gap because its closing and making everything in
 the hotel unstable.
 
 The boss will be the Gram Reaper.
+
+---
+
+So discussing that I would be the bossofthegame with GPT yesterday was fun. Had
+some good ideas - some contrived ones too - it seems like it wants to be seen
+as helpful even though we are going to be in the antagonist role. It would be
+fun if I had one of the agent's "carry" me on its shoulders or something as I
+roamed around.  I also think I don't want to overdo it with I'm the final boss.
+It needs to be a later game reveal or perhaps something you can play the entire
+game - or complete a main story question - without ever finding out.
+
+
+The art dimension is also seriously underdeveloped, and its very important.
+It's how humans communicate with each other. The best ideas can be useless if
+not communicated well. The art dimension should have multiple components:
+visual, audio, conceptual.
+
+The inhabitants of this dimension likely hate the gates the most. We could use
+bob ross, picasso, lots of other parodies are possible here. Escher, Khalo, van
+Goh, Dali, Banksy, Doyal, Lietz, Tolkien, Poe, Shelly, ...

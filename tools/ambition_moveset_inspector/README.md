@@ -18,6 +18,11 @@ The visualization coordinator can reuse `moveset_render`. It does not record new
 takes or build Rust when those artifacts are missing. The server owns review
 notes. Ambition Editor links to this tool and does not copy its data model.
 
+The same owner holds `smash_retime.py` for authored timing proposals and
+`fetch_smash_ultimate_moves.py` / `fetch_smash_ultimate_reference.py` for comparison
+data. Their help describes inputs. Reference fetches write the existing files
+under `docs/related-work/data/`. They are not runtime content producers.
+
 Run the owner tests:
 
 ```bash

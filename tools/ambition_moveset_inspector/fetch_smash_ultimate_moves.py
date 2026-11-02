@@ -17,8 +17,8 @@ ground and air normals.
 
 Usage::
 
-    python3 scripts/fetch_smash_ultimate_moves.py
-    python3 scripts/fetch_smash_ultimate_moves.py --fighter "Ganondorf" --move Up_tilt
+    python3 tools/ambition_moveset_inspector/fetch_smash_ultimate_moves.py
+    python3 tools/ambition_moveset_inspector/fetch_smash_ultimate_moves.py --fighter "Ganondorf" --move Up_tilt
 """
 import argparse
 import csv
@@ -29,7 +29,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-OUT = Path(__file__).resolve().parent.parent / "docs/related-work/data/smash_ultimate_move_hitboxes.csv"
+OUT = Path(__file__).resolve().parent.parent.parent / "docs/related-work/data/smash_ultimate_move_hitboxes.csv"
 PAGE = "https://www.ssbwiki.com/index.php?title={title}&action=raw"
 
 ANCHORS = [

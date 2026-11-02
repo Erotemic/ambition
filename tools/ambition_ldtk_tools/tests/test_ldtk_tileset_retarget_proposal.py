@@ -21,6 +21,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import subprocess
+import struct
 import sys
 from pathlib import Path
 
@@ -31,7 +32,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-SCRIPT = REPO / "scripts/propose_ldtk_tileset_retarget.py"
+SCRIPT = REPO / "tools/ambition_ldtk_tools/propose_ldtk_tileset_retarget.py"
 
 
 def load():
@@ -45,7 +46,11 @@ def load():
 def worlds_or_skip(module):
     if not module.MAP_ASSETS.is_dir():
         pytest.skip("game/ambition_map_assets is not checked out")
-    if module.png_size(module.ASSETS / "sprites_0_25x" / module.SHEET) is None:
+    try:
+        image = module.asset_path(f"sprites_0_25x/{module.SHEET}")
+    except ValueError as error:
+        pytest.skip(str(error))
+    if module.png_size(image) is None:
         pytest.skip("the sprite tiers are gitignored generated output; absent here")
     found = [
         w
@@ -69,8 +74,9 @@ def test_every_retargeted_world_is_still_valid_json():
 
 def test_the_path_moves_and_every_pixel_field_moves_with_it():
     module = load()
-    new_w, new_h = module.png_size(module.ASSETS / "sprites_0_25x" / module.SHEET)
-    for world in worlds_or_skip(module):
+    worlds = worlds_or_skip(module)
+    new_w, new_h = module.png_size(module.asset_path(f"sprites_0_25x/{module.SHEET}"))
+    for world in worlds:
         before = json.loads(world.read_text())
         after = json.loads("".join(module.retarget_world(world, "sprites_0_25x")[1]))
         old = [
@@ -146,7 +152,9 @@ def test_it_refuses_to_emit_an_empty_patch(tmp_path, monkeypatch, capsys):
     module = load()
     monkeypatch.setattr(module, "MAP_ASSETS", tmp_path)
     (tmp_path / "empty.ldtk").write_text('{"defs": {"tilesets": []}}')
-    monkeypatch.setattr(module, "ASSETS", module.ASSETS)
+    image = tmp_path / "sheet.png"
+    image.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00\x00\x00\rIHDR" + struct.pack(">II", 832, 672))
+    monkeypatch.setattr(module, "asset_path", lambda _logical: image)
     code = module.main([])
     out = capsys.readouterr().out
     if code == 2 and "Absent is not zero" in out:

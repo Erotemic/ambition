@@ -14,7 +14,7 @@ is linear in percent for a fixed hit, so the fit is exact wherever our
 reference is proportional to its anchor.
 
 Ultimate's numbers come from ``docs/related-work/data/smash_ultimate_move_hitboxes.csv``
-(``scripts/fetch_smash_ultimate_moves.py``). Each move is represented by its
+(``tools/ambition_moveset_inspector/fetch_smash_ultimate_moves.py``). Each move is represented by its
 strongest hitbox at 100% on a weight-100 victim, which is the clean hit of a
 sweetspotted move and the launcher of a multi-hit one, evaluated at the percent
 the move's linking hits carried the victim to (``linking_damage``).

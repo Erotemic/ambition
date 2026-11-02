@@ -30,12 +30,17 @@ This script writes a diff and nothing else. `--apply` exists but is deliberately
 not what the committed patch was produced with.
 
 Usage:
-    scripts/propose_ldtk_tileset_retarget.py                    # diff to stdout
-    scripts/propose_ldtk_tileset_retarget.py --out dev/patches/x.patch
-    scripts/propose_ldtk_tileset_retarget.py --tier sprites_potato
+    tools/ambition_ldtk_tools/propose_ldtk_tileset_retarget.py                    # diff to stdout
+    tools/ambition_ldtk_tools/propose_ldtk_tileset_retarget.py --out dev/patches/x.patch
+    tools/ambition_ldtk_tools/propose_ldtk_tileset_retarget.py --tier sprites_potato
 """
 
 from __future__ import annotations
+
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[2] / "scripts"))
 
 import argparse
 import difflib
@@ -46,11 +51,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-REPO = Path(
-    subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
-    ).stdout.strip()
-)
+REPO = Path(__file__).resolve().parents[2]
 MAP_ASSETS = REPO / "game/ambition_map_assets"
 from lib.content_libraries import runtime_files
 
@@ -203,7 +204,7 @@ def main(argv: list[str]) -> int:
         f"{args.tier}\n"
         "\n"
         f"    cd <repo root> && git apply {args.out or '<this file>'}\n"
-        f"    # regenerate: scripts/propose_ldtk_tileset_retarget.py --out "
+        f"    # regenerate: tools/ambition_ldtk_tools/propose_ldtk_tileset_retarget.py --out "
         f"{args.out or '<this file>'}\n"
         "\n"
         "⛔ THE FILES ARE IN `game/ambition_map_assets`, WHICH IS A SUBMODULE.\n"

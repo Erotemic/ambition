@@ -14,7 +14,7 @@ Every claim is labelled:
 - **ULTIMATE** — Ultimate Frame Data / SmashWiki. Movement numbers come from
   [`../../related-work/smash-ultimate-fighter-reference.md`](../../related-work/smash-ultimate-fighter-reference.md);
   per-move frames are from memory of UFD's Mario page and are marked `(verify)`.
-  `scripts/fetch_smash_ultimate_moves.py` can be extended to fetch frames.
+  `tools/ambition_moveset_inspector/fetch_smash_ultimate_moves.py` can be extended to fetch frames.
 
 ## The short answer
 
@@ -250,7 +250,7 @@ at 370). On-hit advantage (`adv_f`) is still negative for most moves below
 polygons' tilts and aerials launched 120–290 px/s at 0%, short stun against
 24–40 frame moves). Answered the same evening with
 `SmashFighterFacet::move_knockback` (a factor on each move's base launch on
-the Smash stage, growth untouched; written by `scripts/smash_retime.py`:
+the Smash stage, growth untouched; written by `tools/ambition_moveset_inspector/smash_retime.py`:
 forward/down tilt ×1.6, dash attack ×1.5, nair/fair ×1.5, bair/uair ×1.3,
 dair ×1.4, up tilt and smashes ×1.0). Re-measured: ftilt −6 at 0% and −1 at
 40%, dtilt −7 / −2, bair −7 / +2, utilt +6 / +21; aerials stay negative in

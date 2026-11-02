@@ -524,3 +524,10 @@ Recent LDtk-tool refactors established shared seams for future commands:
 - Commands that run repair + validate after writing should use `ambition_ldtk_tools.edit.postprocess.run_repair_and_validate`.
 - Validation rule modules should emit `ambition_ldtk_tools.ldtk.issues.Issue` directly when possible; legacy string diagnostics are compatibility-only.
 - Area-authoring create now compiles to `AreaPatchPlan` operations before applying them, which is the migration path toward fully typed LDtk patch ops.
+
+## Tileset retarget proposals
+
+`python3 tools/ambition_ldtk_tools/propose_ldtk_tileset_retarget.py --help`
+describes the image-based retarget command. It reads the selected sprite
+publication and proposes coordinate changes as a diff. It does not write
+worlds unless `--apply` is given. Its tests live with this tool.

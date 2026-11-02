@@ -680,6 +680,17 @@ The frontend still has one input and shared navigation, pointer, system-model
 cache, fold and camera state. Full two-pad menu acceptance remains open.
 
 
+Menu events now name their menu entity (`4d4ddf89c`). Press, confirmation,
+preview and scrollbar state belong to that entity. Grid, Cube and shell
+consumers reject events from other menus. Both renderers share one drag reader.
+Guards: `equal_row_keys_in_two_menus_keep_independent_press_arms`,
+`a_destructive_confirmation_in_one_menu_cannot_confirm_another_menu`,
+`two_menu_drags_survive_widget_rebuilds_and_release_independently` and
+`foreign_menu_messages_cannot_drill_turn_or_scroll_this_menu`.
+The app still needs per-menu navigation, cache, fold and viewport state before
+two-pad menu acceptance. Do not restore global gesture state or events with no owner.
+
+
 **Next action (ordered slices; complete each behavior gate before moving):**
 
 4. **Independent local menus:** separate per-seat open state, focus, page,

@@ -37,8 +37,14 @@ User request, 2026-11-01:
 - [x] Cosmic entry and return use the small, classic tall or fire rows named
   by the form data. The shared beat retains the row and clock. Eight Mary-O
   behavior tests and all six native captures pass. Art producer: `c29ced8`.
-- [ ] Let walkers block each other and turn at contact. Use the shared body
-  path. Refuse overlapping authored starts and check head-on encounters.
+- [x] `c471257e5`: room rules use shared body contact. Walkers stop and turn
+  at contact; contact damage and shell kicks still work. Eight real-host
+  contact and placement tests pass. Map producer `08c8d69` separates enemy
+  starts; the guard checks constructed spawn boxes in every authored room.
+- [ ] Finish the visible Mary-O acceptance checks. The full run has 127 passes,
+  seven failures and three ignored tests. Resolve pipe cues at low frame rates,
+  HUD and session setup, brick skin setup, classic-sheet fall resolution and
+  warp-label alpha. Do not close this interrupt from the contact tests alone.
 - [x] Breakable bricks use red masonry with open joints and cracks. Permanent
   terrain keeps its own art. The catalog includes all quality variants; two
   dressing tests and a native World 1-1 capture pass. Art producer: `15ba06f`.

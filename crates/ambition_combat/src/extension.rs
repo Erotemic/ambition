@@ -454,7 +454,7 @@ fn lower_held_damage_boxes<P: LowersIn>(
             continue;
         };
         let faction = crate::targeting::effective_faction(*authored, driver);
-        let Some(entity) = damage_boxes.spawn(
+        let Some(mut born) = damage_boxes.spawn(
             s.scope,
             s.scope,
             crate::hit_side_from_actor_faction(faction),
@@ -471,13 +471,14 @@ fn lower_held_damage_boxes<P: LowersIn>(
             },
         ) else { continue; };
         if let Some(direction) = s.launch_dir {
-            commands.entity(entity).entry::<crate::strike::Hitbox>().and_modify(move |mut hitbox| {
+            born.entry::<crate::strike::Hitbox>().and_modify(move |mut hitbox| {
                 hitbox.launch_dir = Some(port_launch_direction(direction));
             });
         }
         if let Some(ray) = &s.ray {
-            commands.entity(entity).insert(ray.clone());
+            born.insert(ray.clone());
         }
+        let entity = born.id();
         let record = HeldDamageBoxRecord {
             entry: s.entry.clone(),
             slot: s.slot,

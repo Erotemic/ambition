@@ -113,7 +113,8 @@ impl DamageBoxWriter<'_, '_> {
     }
 }
 
-/// Immediate construction for phases that run after the request consumer.
+/// Queue construction after the request consumer has run.
+/// Add birth components through the returned builder, on the spawn queue.
 #[derive(SystemParam)]
 pub struct DamageBoxSpawner<'w, 's> {
     origins: DamageBoxOrigins<'w, 's>,
@@ -128,11 +129,12 @@ impl DamageBoxSpawner<'_, '_> {
         source: HitSide,
         center: ae::Vec2,
         damage_box: DamageBox,
-    ) -> Option<Entity> {
+    ) -> Option<EntityCommands<'_>> {
         let request = self
             .origins
             .capture(emitter, owner, source, center, damage_box)?;
-        Some(materialize(&mut self.commands, request))
+        let entity = materialize(&mut self.commands, request);
+        Some(self.commands.entity(entity))
     }
 }
 

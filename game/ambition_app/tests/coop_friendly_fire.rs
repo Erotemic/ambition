@@ -127,7 +127,7 @@ fn detached_attacks_keep_the_participants_rule_after_control_or_owner_loss() {
                                 move_instance: None,
                                 half_extent: ae::Vec2::splat(24.0), shape: None, damage: 1,
                                 knockback: combat::strike::HitboxKnockback::FeelScale(0.0), lifetime_s: 1.0, name: Some("owned area"),
-                            }).expect("the live source emits a box")
+                            }).expect("the live source emits a box").id()
                     }).unwrap())
                 };
                 sim.step(base());
@@ -257,7 +257,7 @@ fn a_damage_box_keeps_its_emission_room_and_session_after_its_source_leaves() {
                         move_instance: None,
                         half_extent: ae::Vec2::splat(8.0), shape: None, damage: 1,
                         knockback: combat::strike::HitboxKnockback::FeelScale(0.0), lifetime_s: 60.0, name: Some("other room control"),
-                    }).unwrap()
+                    }).unwrap().id()
             }).unwrap();
             use ae::AabbExt as _;
             let door = crate::two_players_two_live_rooms::door_of(&mut sim, ROOM, "central_hub_complex").aabb.center();

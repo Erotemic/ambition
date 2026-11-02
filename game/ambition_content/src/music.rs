@@ -121,9 +121,8 @@ mod tests {
         assert!(failure.contains("unknown state 'missing'"), "{failure}");
     }
 
-    /// The rooms of the primeval trail, in the order of the level: the levels
-    /// of the dinosaur dimension's world whose name starts `primeval_`, by
-    /// where they are.
+    /// The trail rooms that request its continuous song, in world order.
+    /// Side rooms can request a different track.
     fn rooms_of_the_trail() -> Vec<String> {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/worlds/dinosaur.ldtk");
         let world: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).expect("the world file")).expect("the world is JSON");
@@ -133,7 +132,10 @@ mod tests {
             .iter()
             .filter_map(|level| {
                 let id = level["identifier"].as_str()?;
-                id.starts_with("primeval_").then(|| (level["worldX"].as_i64().unwrap_or(0), id.to_string()))
+                let continuous = level["fieldInstances"].as_array()?.iter().any(|field|
+                    field["__identifier"] == "music_track" && field["__value"] == "dinosaur_liberators");
+                (id.starts_with("primeval_") && continuous)
+                    .then(|| (level["worldX"].as_i64().unwrap_or(0), id.to_string()))
             })
             .collect();
         rooms.sort();

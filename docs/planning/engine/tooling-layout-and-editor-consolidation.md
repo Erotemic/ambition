@@ -1,6 +1,6 @@
 # Tooling layout, discovery, and Ambition Editor consolidation
 
-**State:** T0-T5 implemented. Final verification is in progress.
+**State:** COMPLETE. T0-T5 are implemented and verified.
 The user selected all packets on 2026-11-02. The shared queue was not reorganized.
 **Source snapshot:** `19c66394` (2026-11-02 archive).
 **Scope:** Repository development and authoring tools, their paths, entry points, and discovery. No game or engine behavior change is intended.
@@ -8,7 +8,13 @@ The user selected all packets on 2026-11-02. The shared queue was not reorganize
 **Receipts:** discovery and editor shell: `3e3bb72a27`, `61a8189823`;
 package-owned inspection: `e0fac3518b`, `6820d91348`;
 measurements: `0ee9e6ab2d`, `3318d174bf`; maintenance: `8c9d8fd92f`;
-packaging: `c169ff5a37`; checks: `4309a73549`.
+packaging: `c169ff5a37`; checks: `4309a73549`; final layout and cleanup: `1e898136d4`.
+The final acceptance lane passed 290 tests, with four artifact-dependent skips.
+All 53 absence contracts passed. Editor HTTP/JSON operations, CLI discovery,
+LDtk metadata inspection, and Cargo target inventory checks passed. Asset bytes
+and map Gitlinks match the baseline. The five existing broken documentation
+links are outside this change.
+
 Root scripts now have one operational category or a documented stable launcher
 role. Owner tests, intent retrieval, CLI smoke checks, and a path-consumer audit
 cover the moves. Renderer submodule paths must stay fixed.
@@ -154,9 +160,9 @@ Start with the existing inspector implementation. Retain the asset browsing and 
 
 **Depends on:** T0 and the relevant owners' tests. **Status:** implemented.
 The ECS browser and three moveset commands now live with their tool owners.
-Their tests moved with them. The focused inspection suite passes 109 tests.
-The remaining fighter and LDtk command move passes 60 tests; three tests need
-published art that is absent from this checkout.
+Their tests and command descriptions moved with them. Owner verification
+covers the report, SVG, browser, and retarget behavior. Tests that need published
+art run when that artifact exists.
 
 Evaluate `tools/ecs_architecture_browser/ecs_browser.py` for relocation beside `tools/ecs_architecture_browser`. Evaluate the three named moveset scripts against the moveset inspector and Rust take-rendering binaries. Move a script only if the destination can own its tests, entry point, and documentation. Update all direct consumers as part of the same move. Avoid creating a second backend in the editor.
 

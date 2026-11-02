@@ -654,7 +654,7 @@ mod actor_decision_phase_tests {
         ActorDecisionSet::Publish,
     ];
 
-    const DECISION_MEMBERSHIP: [(&str, ActorDecisionSet); 11] = [
+    const DECISION_MEMBERSHIP: [(&str, ActorDecisionSet); 12] = [
         ("dissolve_settled_grudges", ActorDecisionSet::Targeting),
         ("select_actor_targets", ActorDecisionSet::Targeting),
         ("assess_dormancy", ActorDecisionSet::Prepare),
@@ -662,6 +662,7 @@ mod actor_decision_phase_tests {
         ("collect_perception_peers", ActorDecisionSet::Observe),
         ("collect_perception_projectiles", ActorDecisionSet::Observe),
         ("observe_actor_decision_inputs", ActorDecisionSet::Observe),
+        ("snapshot_body_contact", ActorDecisionSet::Observe),
         ("advise_navigation", ActorDecisionSet::Observe),
         ("tick_actor_brains", ActorDecisionSet::Decide),
         ("publish_actor_decision_frames", ActorDecisionSet::Publish),
@@ -671,7 +672,7 @@ mod actor_decision_phase_tests {
     const MOVEMENT_MEMBERSHIP: [(
         &str,
         ambition_platformer2d_shared_tangle::schedule::WorldPrepSet,
-    ); 8] = [
+    ); 7] = [
         (
             "tick_capture_holds",
             ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
@@ -686,10 +687,6 @@ mod actor_decision_phase_tests {
         ),
         (
             "advance_moving_platforms",
-            ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
-        ),
-        (
-            "snapshot_body_contact",
             ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
         ),
         (

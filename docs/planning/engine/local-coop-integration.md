@@ -771,5 +771,16 @@ Wheel input now targets the visible menu under the mouse in its display window
 `wheel_scrolls_only_the_visible_menu_under_the_mouse` covers both backends,
 adjacent region edges and hidden menus. The Cube guard also covers a second
 participant's drag. Do not restore a global wheel target or a primary-menu
-fallback. Main-game menu admission and retirement, prompts, rebind capture and
-remaining pointer routing still need the full two-pad playthrough.
+fallback.
+
+Rebind rows now show each owner's live bindings (`4692366bb`). Capture reads
+only that participant's assigned devices and edits that profile. The primary
+profile persists in settings; other profiles stay on their participants. Both
+frontends use one cached System model and one action consumer. Guards:
+`rebind_capture_follows_the_owners_devices_and_changes_only_that_profile`,
+`each_menu_publishes_and_refreshes_its_owners_rebind_rows` (both backends) and
+`a_backend_change_applies_once_and_the_next_action_uses_the_new_frontend`.
+Production captures reach Rebind in Cube and Grid. Do not restore global
+capture or per-backend action consumers. Main-game menu admission and retirement,
+prompts, remaining pointer routing and long Grid heading fitting still need the
+full two-pad playthrough.

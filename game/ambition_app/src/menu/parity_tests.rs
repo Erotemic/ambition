@@ -398,6 +398,7 @@ mod dispatch_parity {
     app.add_systems(PostUpdate, crate::menu::lifecycle::aggregate_menu_pause);
         app.init_resource::<ambition_platformer2d::menu::map::MapMenuState>();
         app.init_resource::<MenuControlFrame>();
+    app.init_resource::<ambition_platformer2d::input::SeatMenuFrames>();
         app.init_resource::<ambition_platformer2d::input::SeatActiveDevices>();
         app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::items::ItemUseRequested>>();
         app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::items::ItemEquipRequested>>();

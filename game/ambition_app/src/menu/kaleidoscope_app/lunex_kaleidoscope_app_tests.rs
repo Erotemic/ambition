@@ -64,6 +64,7 @@ fn base_kaleidoscope_test_app() -> App {
     app.add_systems(PostUpdate, crate::menu::lifecycle::aggregate_menu_pause);
     app.init_resource::<ambition_platformer2d::menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
+    app.init_resource::<ambition_platformer2d::input::SeatMenuFrames>();
     app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<
         ambition_platformer2d::items::ItemUseRequested,
     >>();
@@ -402,15 +403,18 @@ fn press_bumper(app: &mut App, right: bool) {
     } else {
         frame.page_left = true;
     }
-    app.insert_resource(frame);
+    crate::menu::test_support::set_menu_frame(app.world_mut(), frame);
     app.update();
 }
 
 fn press_select(app: &mut App) {
-    app.insert_resource(MenuControlFrame {
-        select: true,
-        ..Default::default()
-    });
+    crate::menu::test_support::set_menu_frame(
+        app.world_mut(),
+        MenuControlFrame {
+            select: true,
+            ..Default::default()
+        },
+    );
     app.update();
 }
 
@@ -437,7 +441,7 @@ fn press_dir(app: &mut App, left: bool) {
     } else {
         frame.right = true;
     }
-    app.insert_resource(frame);
+    crate::menu::test_support::set_menu_frame(app.world_mut(), frame);
     app.update();
 }
 
@@ -464,13 +468,19 @@ fn active_page(app: &App) -> Option<MenuPage> {
 #[test]
 fn active_backend_nav_consumes_the_select_edge() {
     let mut app = system_nav_app(MenuFocus::System(0));
-    app.insert_resource(MenuControlFrame {
-        select: true,
-        ..Default::default()
-    });
+    crate::menu::test_support::set_menu_frame(
+        app.world_mut(),
+        MenuControlFrame {
+            select: true,
+            ..Default::default()
+        },
+    );
     app.update();
     assert!(
-        !app.world().resource::<MenuControlFrame>().select,
+        !app.world()
+            .resource::<ambition_platformer2d::input::SeatMenuFrames>()
+            .for_seat(0)
+            .select,
         "the cube nav (active backend) consumed the select edge"
     );
 }
@@ -795,7 +805,7 @@ fn system_edge_left_moves_inward_to_the_row_list() {
     let mut app = system_nav_app(MenuFocus::EdgeLeft);
     let mut frame = MenuControlFrame::default();
     frame.right = true;
-    app.insert_resource(frame);
+    crate::menu::test_support::set_menu_frame(app.world_mut(), frame);
     app.update();
 
     assert_eq!(
@@ -815,7 +825,7 @@ fn system_row_horizontal_moves_to_the_edge_buttons() {
     let mut app = system_nav_app(MenuFocus::System(1));
     let mut frame = MenuControlFrame::default();
     frame.left = true;
-    app.insert_resource(frame);
+    crate::menu::test_support::set_menu_frame(app.world_mut(), frame);
     app.update();
 
     assert_eq!(
@@ -884,6 +894,7 @@ fn real_input_cube_app(
     app.add_systems(PostUpdate, crate::menu::lifecycle::aggregate_menu_pause);
     app.init_resource::<ambition_platformer2d::menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
+    app.init_resource::<ambition_platformer2d::input::SeatMenuFrames>();
     app.init_resource::<ambition_platformer2d::input::MenuInputState>();
     app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<
         ambition_platformer2d::items::ItemUseRequested,
@@ -913,6 +924,7 @@ fn real_input_cube_app(
     app.add_systems(
         Update,
         (
+            ambition_platformer2d::runtime::input::populate_seat_menu_frames,
             ambition_platformer2d::runtime::input::populate_menu_control_frame_from_actions,
             crate::menu::lifecycle::route_menu_lifecycle,
             kaleidoscope_focus_nav,
@@ -1112,7 +1124,7 @@ fn opening_the_kaleidoscope_clears_stale_pointer_hover_state() {
     let mut app = open_app();
     crate::menu::test_support::menu_component_mut::<KaleidoscopeCursor>(app.world_mut())
         .last_pointer_focus = Some(MenuFocus::Item(7));
-    app.world_mut().resource_mut::<MenuControlFrame>().start = true;
+    crate::menu::test_support::menu_frame_mut(app.world_mut()).start = true;
     crate::menu::test_support::inventory_state_mut(app.world_mut()).visible = false;
     app.update();
 
@@ -1579,7 +1591,7 @@ fn a_finger_drag_scrolls_the_window_not_the_selection() {
 
     // Three rows of upward travel, as `fold_touch_gestures` reports it.
     {
-        let mut frame = app.world_mut().resource_mut::<MenuControlFrame>();
+        let mut frame = crate::menu::test_support::menu_frame_mut(app.world_mut());
         frame.scroll_y = -3.0;
         frame.drag_scroll_y = -3.0;
     }
@@ -1599,7 +1611,7 @@ fn a_finger_drag_scrolls_the_window_not_the_selection() {
 
     // And back down again, clamped at the top.
     {
-        let mut frame = app.world_mut().resource_mut::<MenuControlFrame>();
+        let mut frame = crate::menu::test_support::menu_frame_mut(app.world_mut());
         frame.scroll_y = 5.0;
         frame.drag_scroll_y = 5.0;
     }
@@ -1677,7 +1689,7 @@ fn keyboard_nav_clears_the_scroll_override() {
     // A DOWN keypress moves the cursor and clears the override.
     let mut frame = MenuControlFrame::default();
     frame.down = true;
-    app.insert_resource(frame);
+    crate::menu::test_support::set_menu_frame(app.world_mut(), frame);
     app.update();
     assert_eq!(
         crate::menu::test_support::menu_component::<KaleidoscopeScroll>(app.world())
@@ -2768,9 +2780,9 @@ fn cube_is_open(app: &App) -> bool {
 fn cube_press(app: &mut App, f: fn(&mut MenuControlFrame)) {
     let mut frame = MenuControlFrame::default();
     f(&mut frame);
-    app.insert_resource(frame);
+    crate::menu::test_support::set_menu_frame(app.world_mut(), frame);
     app.update();
-    app.insert_resource(MenuControlFrame::default());
+    crate::menu::test_support::set_menu_frame(app.world_mut(), MenuControlFrame::default());
     app.update();
 }
 
@@ -2960,4 +2972,195 @@ fn each_menu_caches_and_publishes_its_own_system_page_without_idle_churn() {
             .unwrap()
             .rows_are_current_for(Some(SystemMenuEntryId::Controls))
     );
+}
+
+#[cfg(feature = "bevy_ui_menu")]
+#[test]
+fn two_seats_open_navigate_and_close_their_own_menus_with_one_pause() {
+    use crate::menu::grid_backend::{grid_menu_action_activated, grid_menu_nav};
+    use ambition_platformer2d::input::{ParticipantId, SeatMenuFrames};
+    use ambition_platformer2d::inventory_ui::{InventoryMenu, InventoryUiState};
+    for backend in [
+        InventoryUiBackend::Grid,
+        InventoryUiBackend::LunexKaleidoscope,
+    ] {
+        let mut app = base_kaleidoscope_test_app();
+        app.insert_state(GameMode::Playing);
+        app.insert_resource(backend);
+        app.add_systems(
+            Update,
+            (
+                crate::menu::lifecycle::route_menu_lifecycle,
+                grid_menu_nav,
+                kaleidoscope_focus_nav,
+                grid_menu_action_activated,
+            )
+                .chain()
+                .before(kaleidoscope_menu_action_activated),
+        );
+        let first = crate::menu::test_support::menu_id(app.world());
+        let second = app
+            .world_mut()
+            .spawn((
+                crate::menu::MenuInstance,
+                InventoryMenu {
+                    owner: ParticipantId::SECONDARY,
+                },
+                ActiveMenuPages::<MenuPage, MenuPageAction>::default(),
+            ))
+            .id();
+        let menus = [first, second];
+        let tick = |app: &mut App, inputs: [MenuControlFrame; 2]| {
+            let mut frames = app.world_mut().resource_mut::<SeatMenuFrames>();
+            for (slot, input) in inputs.into_iter().enumerate() {
+                frames.set(slot as u8, input);
+            }
+            app.update();
+        };
+        let neutral = MenuControlFrame::default();
+        // The global shell frame cannot act on either participant's inventory.
+        app.insert_resource(MenuControlFrame {
+            start: true,
+            select: true,
+            back: true,
+            ..neutral
+        });
+        tick(&mut app, [neutral; 2]);
+        assert!(
+            menus.into_iter().all(|menu| !app
+                .world()
+                .get::<InventoryUiState>(menu)
+                .unwrap()
+                .visible)
+        );
+        tick(
+            &mut app,
+            [
+                neutral,
+                MenuControlFrame {
+                    start: true,
+                    ..neutral
+                },
+            ],
+        );
+        assert!(!app.world().get::<InventoryUiState>(first).unwrap().visible);
+        assert!(app.world().get::<InventoryUiState>(second).unwrap().visible);
+        tick(
+            &mut app,
+            [
+                neutral,
+                MenuControlFrame {
+                    start: true,
+                    ..neutral
+                },
+            ],
+        );
+        assert!(
+            app.world().get::<InventoryUiState>(second).unwrap().visible,
+            "held Start cannot close the menu"
+        );
+        tick(
+            &mut app,
+            [
+                MenuControlFrame {
+                    start: true,
+                    ..neutral
+                },
+                MenuControlFrame {
+                    start: true,
+                    ..neutral
+                },
+            ],
+        );
+        assert!(app.world().get::<InventoryUiState>(first).unwrap().visible);
+        assert!(app.world().get::<InventoryUiState>(second).unwrap().visible);
+        assert_eq!(
+            *app.world().resource::<State<GameMode>>().get(),
+            GameMode::Paused
+        );
+        tick(
+            &mut app,
+            [MenuControlFrame {
+                inventory: true,
+                ..neutral
+            }; 2],
+        );
+        for menu in menus {
+            assert_eq!(
+                app.world()
+                    .get::<ActiveMenuPages<MenuPage, MenuPageAction>>(menu)
+                    .unwrap()
+                    .active,
+                Some(MenuPage::Items)
+            );
+        }
+        tick(
+            &mut app,
+            [
+                MenuControlFrame {
+                    right: true,
+                    ..neutral
+                },
+                MenuControlFrame {
+                    down: true,
+                    ..neutral
+                },
+            ],
+        );
+        assert_eq!(
+            app.world()
+                .get::<KaleidoscopeCursor>(first)
+                .unwrap()
+                .focus(),
+            MenuFocus::Item(1)
+        );
+        assert_eq!(
+            app.world()
+                .get::<KaleidoscopeCursor>(second)
+                .unwrap()
+                .focus(),
+            MenuFocus::Item(ambition_platformer2d::items::ITEM_GRID_COLS)
+        );
+        assert!(!app.world().resource::<SeatMenuFrames>().for_seat(0).right);
+        assert!(!app.world().resource::<SeatMenuFrames>().for_seat(1).down);
+        tick(
+            &mut app,
+            [
+                MenuControlFrame {
+                    back: true,
+                    ..neutral
+                },
+                neutral,
+            ],
+        );
+        tick(&mut app, [neutral; 2]);
+        assert!(!app.world().get::<InventoryUiState>(first).unwrap().visible);
+        assert!(app.world().get::<InventoryUiState>(second).unwrap().visible);
+        assert_eq!(
+            *app.world().resource::<State<GameMode>>().get(),
+            GameMode::Paused
+        );
+        tick(
+            &mut app,
+            [
+                neutral,
+                MenuControlFrame {
+                    back: true,
+                    ..neutral
+                },
+            ],
+        );
+        tick(&mut app, [neutral; 2]);
+        assert!(
+            menus.into_iter().all(|menu| !app
+                .world()
+                .get::<InventoryUiState>(menu)
+                .unwrap()
+                .visible)
+        );
+        assert_eq!(
+            *app.world().resource::<State<GameMode>>().get(),
+            GameMode::Playing
+        );
+    }
 }

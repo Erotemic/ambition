@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 use ambition_platformer2d::game_shell::PauseRequested;
-use ambition_platformer2d::input::MenuControlFrame;
+use ambition_platformer2d::input::{SeatMenuFrames, ParticipantId};
 use ambition_platformer2d::inventory_ui::InventoryUiState;
 use ambition_platformer2d::menu::{ActiveMenuPages, backend::InventoryUiBackend, map::MapMenuState};
 use ambition_platformer2d::platformer::schedule::GameMode;
@@ -68,12 +68,20 @@ pub(crate) fn aggregate_menu_pause(
     }
 }
 
+/// The Start edge state of one inventory surface.
+#[derive(Component, Default)]
+pub(crate) struct MenuLifecycleState {
+    last_start: bool,
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn route_menu_lifecycle(
-    mut input: ResMut<MenuControlFrame>,
+    mut frames: ResMut<SeatMenuFrames>,
     backend: Res<InventoryUiBackend>,
-    menu: Single<(
+    mut menus: Query<(
         Entity,
+        &ambition_platformer2d::inventory_ui::InventoryMenu,
+        &mut MenuLifecycleState,
         &mut InventoryUiState,
         &mut ActiveMenuPages<MenuPage, MenuPageAction>,
         &mut KaleidoscopeCursor,
@@ -83,78 +91,90 @@ pub(crate) fn route_menu_lifecycle(
     mode: Res<State<GameMode>>,
     mut map: ResMut<MapMenuState>,
     mut sfx: SfxWriter,
-    mut last_start: Local<bool>,
     mut pause: MessageReader<PauseRequested>,
     #[cfg(feature = "bevy_ui_menu")] mut grid: Query<&mut super::grid_backend::GridMenuTabState>,
 ) {
-    let (menu_entity, mut overlay, mut pages, mut cursor, mut system, mut quality) =
-        menu.into_inner();
     if !backend.effective().is_available() {
         return;
     }
     let platform_pause = pause.read().count() > 0;
-    let start = input.start && !*last_start;
-    *last_start = input.start;
-    if start {
-        input.back = false;
-    }
-
-    let page = if platform_pause {
-        if overlay.visible {
-            return;
+    for (
+        menu_entity,
+        owner,
+        mut latch,
+        mut overlay,
+        mut pages,
+        mut cursor,
+        mut system,
+        mut quality,
+    ) in &mut menus
+    {
+        let mut input = frames.for_seat(owner.owner.slot());
+        let start = input.start && !latch.last_start;
+        latch.last_start = input.start;
+        if start {
+            input.back = false;
+            frames.for_seat_mut(owner.owner.slot()).back = false;
         }
-        MenuPage::System
-    } else if start {
-        if overlay.visible {
-            quality.cancel();
-            if system.open_entry.is_some() {
-                close_system_entry(&mut system, &mut cursor);
-                play_ui(&mut sfx, ids::UI_MENU_BACK);
-                #[cfg(feature = "bevy_ui_menu")]
-                if let Ok(mut grid) = grid.get_mut(menu_entity) {
-                    grid.reset_navigation();
+        let platform_pause = platform_pause && owner.owner == ParticipantId::PRIMARY;
+
+        let page = if platform_pause {
+            if overlay.visible {
+                continue;
+            }
+            MenuPage::System
+        } else if start {
+            if overlay.visible {
+                quality.cancel();
+                if system.open_entry.is_some() {
+                    close_system_entry(&mut system, &mut cursor);
+                    play_ui(&mut sfx, ids::UI_MENU_BACK);
+                    #[cfg(feature = "bevy_ui_menu")]
+                    if let Ok(mut grid) = grid.get_mut(menu_entity) {
+                        grid.reset_navigation();
+                    }
+                } else {
+                    overlay.close();
+                    play_ui(&mut sfx, ids::UI_MENU_CLOSE);
                 }
-            } else {
+                continue;
+            }
+            MenuPage::System
+        } else if input.inventory {
+            MenuPage::Items
+        } else if input.map {
+            MenuPage::Map
+        } else {
+            continue;
+        };
+
+        if overlay.visible {
+            if super::model::open_overlay_key(page, pages.active) == OpenOverlayKey::Close {
+                quality.cancel();
                 overlay.close();
                 play_ui(&mut sfx, ids::UI_MENU_CLOSE);
+                continue;
             }
-            return;
+        } else {
+            if !super::model::overlay_may_open(*mode.get()) {
+                continue;
+            }
+            overlay.visible = true;
+            play_ui(&mut sfx, ids::UI_MENU_OPEN);
         }
-        MenuPage::System
-    } else if input.inventory {
-        MenuPage::Items
-    } else if input.map {
-        MenuPage::Map
-    } else {
-        return;
-    };
-
-    if overlay.visible {
-        if super::model::open_overlay_key(page, pages.active) == OpenOverlayKey::Close {
-            quality.cancel();
-            overlay.close();
-            play_ui(&mut sfx, ids::UI_MENU_CLOSE);
-            return;
+        pages.active = Some(page);
+        system.open_entry = None;
+        cursor.reset_pointer();
+        cursor.mark_keyboard(match page {
+            MenuPage::Items => MenuFocus::Item(0),
+            MenuPage::System => MenuFocus::System(0),
+            MenuPage::Map | MenuPage::Quest => MenuFocus::EdgeLeft,
+        });
+        map.open = false;
+        #[cfg(feature = "bevy_ui_menu")]
+        if let Ok(mut grid) = grid.get_mut(menu_entity) {
+            grid.reset_navigation();
         }
-    } else {
-        if !super::model::primary_overlay_may_open(*mode.get()) {
-            return;
-        }
-        overlay.visible = true;
-        play_ui(&mut sfx, ids::UI_MENU_OPEN);
-    }
-    pages.active = Some(page);
-    system.open_entry = None;
-    cursor.reset_pointer();
-    cursor.mark_keyboard(match page {
-        MenuPage::Items => MenuFocus::Item(0),
-        MenuPage::System => MenuFocus::System(0),
-        MenuPage::Map | MenuPage::Quest => MenuFocus::EdgeLeft,
-    });
-    map.open = false;
-    #[cfg(feature = "bevy_ui_menu")]
-    if let Ok(mut grid) = grid.get_mut(menu_entity) {
-        grid.reset_navigation();
     }
 }
 

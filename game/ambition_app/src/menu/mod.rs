@@ -4,23 +4,8 @@
 //! `ambition_platformer2d::menu` (the `ambition_menu` crate) owns the Map tab; this module keeps
 //! backend selector; this crate owns app-level wiring and effects.
 
-/// The two inventory backends' menu-nav systems, ordered against each other.
-///
-/// Both join `MenuNavConsume`, which orders the frame WRITER before them and says
-/// nothing about which of THEM runs first. That mattered once they started
-/// consuming: `MenuControlFrame::consume_nav_edges()` clears the nav edges for
-/// every later reader in any crate, so "whoever runs first eats the press" was the
-/// real arbitration and its order was whatever the scheduler picked.
-///
-/// Either order is correct — at most one backend is effective in a frame, and each
-/// nav is gated on its own backend — so what this fixes is that the order is
-/// STATED. Grid first because it is the backend that survives when the cube is
-/// compiled out.
-///
-/// The order lives here, not as a `.after()` inside either backend: the two are
-/// registered under DIFFERENT features (`bevy_ui_menu` / `kaleidoscope_menu`), so a
-/// direct system-to-system edge would only exist in builds that compile both. A set
-/// can be ordered whether or not it has members.
+/// Run Grid navigation before Cube navigation. The active backend consumes only
+/// its menu owner's edges. A backend switch cannot apply those edges twice.
 #[derive(bevy::ecs::schedule::SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct GridMenuNav;
 
@@ -59,6 +44,7 @@ mod parity_tests;
 #[derive(bevy::prelude::Component, Default)]
 #[require(kaleidoscope_app::KaleidoscopeCursor, kaleidoscope_app::KaleidoscopeSystemNav,
     kaleidoscope_app::RebindCapture, quality_confirm::VisualQualityConfirmState)]
+#[cfg_attr(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"), require(lifecycle::MenuLifecycleState))]
 #[cfg_attr(feature = "bevy_ui_menu", require(grid_backend::GridMenuTabState))]
 #[cfg_attr(feature = "kaleidoscope_menu", require(kaleidoscope_app::KaleidoscopeScroll,
     kaleidoscope_app::CachedSystemMenu, kaleidoscope_app::MenuPublication))]

@@ -307,11 +307,14 @@ impl MenuPage {
 /// because the overlay's input context captures above the dialogue's
 /// (`context_priority::INVENTORY`). It does not open over a cutscene or a room
 /// transition.
-pub(crate) fn primary_overlay_may_open(
+pub(crate) fn overlay_may_open(
     mode: ambition_platformer2d::platformer::schedule::GameMode,
 ) -> bool {
     use ambition_platformer2d::platformer::schedule::GameMode;
-    matches!(mode, GameMode::Playing | GameMode::Paused | GameMode::Dialogue)
+    matches!(
+        mode,
+        GameMode::Playing | GameMode::Paused | GameMode::Dialogue
+    )
 }
 
 

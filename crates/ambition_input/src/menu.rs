@@ -54,6 +54,18 @@ impl SeatMenuFrames {
         self.seats.insert(slot, frame);
     }
 
+    /// Edit the menu intent of one seat. A missing seat starts with neutral input.
+    pub fn for_seat_mut(&mut self, slot: u8) -> &mut MenuControlFrame {
+        self.seats.entry(slot).or_default()
+    }
+
+    /// Clear navigation edges for one seat after its active frontend reads them.
+    pub fn consume_nav_edges(&mut self, slot: u8) {
+        if let Some(frame) = self.seats.get_mut(&slot) {
+            frame.consume_nav_edges();
+        }
+    }
+
     pub fn clear(&mut self) {
         self.seats.clear();
     }

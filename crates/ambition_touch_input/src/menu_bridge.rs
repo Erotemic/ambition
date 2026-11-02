@@ -35,6 +35,7 @@ pub fn fold_touch_gestures(
     placement: Res<crate::placement::TouchControlPlacement>,
     mut gesture: ResMut<MenuTouchGestureState>,
     mut frame: ResMut<MenuControlFrame>,
+    mut seats: ResMut<ambition_input::SeatMenuFrames>,
     mut devices: ResMut<SeatActiveDevices>,
 ) {
     // Any real overlay input this frame marks the primary seat's device as
@@ -86,6 +87,10 @@ pub fn fold_touch_gestures(
     let dragged = gesture.drag_scroll.update(menu_pos, 30.0, 3.0, 5.0);
     frame.scroll_y += dragged;
     frame.drag_scroll_y += dragged;
+    let slot = ambition_input::ParticipantId::PRIMARY.slot();
+    let seat = seats.for_seat_mut(slot);
+    seat.scroll_y += dragged;
+    seat.drag_scroll_y += dragged;
 }
 
 /// Should `pos` count as occupied by an on-screen touch control?

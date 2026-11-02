@@ -251,8 +251,8 @@ fn genuine_touch_activity_marks_touch_active() {
     use super::bevy_plugin::{MenuTouchGestureState, MobileTouchState};
     use super::menu_bridge::fold_touch_gestures;
     use ambition_input::{ActiveDevice, MenuControlFrame, SeatActiveDevices};
-    use bevy::input::touch::Touches;
     use bevy::input::ButtonInput;
+    use bevy::input::touch::Touches;
     use bevy::prelude::*;
 
     let mut app = App::new();
@@ -262,6 +262,7 @@ fn genuine_touch_activity_marks_touch_active() {
     app.init_resource::<MenuTouchGestureState>();
     app.init_resource::<super::placement::TouchControlPlacement>();
     app.init_resource::<MenuControlFrame>();
+    app.init_resource::<ambition_input::SeatMenuFrames>();
     app.init_resource::<ambition_persistence::settings::UserSettings>();
     app.init_resource::<SeatActiveDevices>();
     app.add_systems(Update, fold_touch_gestures);
@@ -292,8 +293,8 @@ fn a_drag_outside_the_controls_is_reported_as_a_drag() {
     use super::bevy_plugin::{MenuTouchGestureState, MobileTouchState};
     use super::menu_bridge::fold_touch_gestures;
     use ambition_input::{MenuControlFrame, SeatActiveDevices};
-    use bevy::input::touch::Touches;
     use bevy::input::ButtonInput;
+    use bevy::input::touch::Touches;
     use bevy::prelude::*;
     use bevy::window::PrimaryWindow;
 
@@ -304,6 +305,7 @@ fn a_drag_outside_the_controls_is_reported_as_a_drag() {
     app.init_resource::<MenuTouchGestureState>();
     app.init_resource::<super::placement::TouchControlPlacement>();
     app.init_resource::<MenuControlFrame>();
+    app.init_resource::<ambition_input::SeatMenuFrames>();
     app.init_resource::<ambition_persistence::settings::UserSettings>();
     app.init_resource::<SeatActiveDevices>();
     app.add_systems(Update, fold_touch_gestures);
@@ -328,6 +330,10 @@ fn a_drag_outside_the_controls_is_reported_as_a_drag() {
 
     let frame = *app.world().resource::<MenuControlFrame>();
     assert_eq!(frame.drag_scroll_y, -2.0, "60 px up is two 30 px rows");
+    let seats = app.world().resource::<ambition_input::SeatMenuFrames>();
+    assert_eq!(seats.for_seat(0).drag_scroll_y, frame.drag_scroll_y);
+    assert_eq!(seats.for_seat(0).scroll_y, frame.scroll_y);
+    assert_eq!(seats.for_seat(1), MenuControlFrame::default());
     assert_eq!(frame.scroll_y, frame.drag_scroll_y);
 }
 

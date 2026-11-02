@@ -37,6 +37,7 @@ pub(crate) fn kaleidoscope_scroll_wheel(
     backend: Res<InventoryUiBackend>,
     ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
     pages: Single<(
+        &ambition_platformer2d::inventory_ui::InventoryMenu,
         &ActiveMenuPages<MenuPage, MenuPageAction>,
         &KaleidoscopeSystemNav,
         &VisualQualityConfirmState,
@@ -46,9 +47,9 @@ pub(crate) fn kaleidoscope_scroll_wheel(
     settings: Res<UserSettings>,
     snapshot: SystemMenuSnapshotParams,
     mut wheel: MessageReader<bevy::input::mouse::MouseWheel>,
-    menu_frame: Res<MenuControlFrame>,
+    menu_frames: Res<ambition_platformer2d::input::SeatMenuFrames>,
 ) {
-    let (pages, system_nav, quality_confirm, cursor, mut scroll) = pages.into_inner();
+    let (menu_owner, pages, system_nav, quality_confirm, cursor, mut scroll) = pages.into_inner();
 
     let open = ui_state.map(|s| s.visible).unwrap_or(false);
     if backend.effective() != InventoryUiBackend::LunexKaleidoscope || !open {
@@ -67,7 +68,10 @@ pub(crate) fn kaleidoscope_scroll_wheel(
         };
     }
     // A drag up the screen is negative on the frame and moves the window down.
-    steps -= menu_frame.drag_scroll_y.round() as i32;
+    steps -= menu_frames
+        .for_seat(menu_owner.owner.slot())
+        .drag_scroll_y
+        .round() as i32;
     if steps == 0 {
         return;
     }

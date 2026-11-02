@@ -33,6 +33,7 @@ use crate::menu::model::{
     SYSTEM_VISIBLE_ROWS,
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
+#[cfg(test)]
 use ambition_platformer2d::input::MenuControlFrame;
 use ambition_platformer2d::items::{OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition_platformer2d::menu::backend::{InventoryUiBackend, BEVY_UI_MENU_BACKEND_ENABLED};
@@ -313,8 +314,8 @@ fn seed_cursor_for_tab(active_tab: usize, cursor: &mut KaleidoscopeCursor) {
 #[cfg(feature = "input")]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn grid_menu_nav(
-    mut menu_frame: ResMut<MenuControlFrame>,
-    pages: Single<(
+    mut menu_frames: ResMut<ambition_platformer2d::input::SeatMenuFrames>,
+    mut menus: Query<(
         Entity,
         &ambition_platformer2d::inventory_ui::InventoryMenu,
         &mut ActiveMenuPages<MenuPage, MenuPageAction>,
@@ -322,15 +323,15 @@ pub(crate) fn grid_menu_nav(
         &mut KaleidoscopeCursor,
         &mut KaleidoscopeSystemNav,
         &mut VisualQualityConfirmState,
+        &mut ambition_platformer2d::inventory_ui::InventoryUiState,
     )>,
-    mut overlay: Single<&mut ambition_platformer2d::inventory_ui::InventoryUiState>,
     // The ONE activation event. A controller/keyboard submit publishes the same
     // message the renderer's pointer bridge does, so `grid_menu_action_activated`
     // is the single place a chosen action is dispatched.
     mut activated: MessageWriter<MenuActionActivated<MenuPageAction>>,
     mut fx: MenuDispatchParams,
 ) {
-    let (
+    for (
         menu_entity,
         menu_owner,
         mut pages,
@@ -338,175 +339,175 @@ pub(crate) fn grid_menu_nav(
         mut cursor,
         mut system_nav,
         mut quality_confirm,
-    ) = pages.into_inner();
-    // Read the backend from `fx.system` (it owns the resource); a separate `Res`
-    // here would be a B0002 conflict with that `ResMut`.
-    if fx.system.backend() != InventoryUiBackend::Grid || !overlay.visible {
-        // Not the active backend — leave the frame for whichever nav owns it.
-        return;
-    }
-    // This frame's menu navigation belongs to the Grid now: snapshot it, then CONSUME
-    // the one-shot nav edges so the Cube backend's nav (sharing this `Res` in the same
-    // frame) can't re-fire the same press if the "Menu Backend" row flips
-    // `InventoryUiBackend` mid-frame.
-    let menu = *menu_frame;
-    menu_frame.consume_nav_edges();
-    // The Esc/Start toggle is owned by `route_menu_lifecycle`; bail so a single Esc
-    // can't both close here and reopen there (the cube's Esc-Esc reopen guard).
-    if menu.start {
-        return;
-    }
+        mut overlay,
+    ) in &mut menus
+    {
+        // Read the backend from `fx.system` (it owns the resource); a separate `Res`
+        // here would be a B0002 conflict with that `ResMut`.
+        if fx.system.backend() != InventoryUiBackend::Grid || !overlay.visible {
+            // Not the active backend — leave the frame for whichever nav owns it.
+            continue;
+        }
+        // Consume only this seat's edges before a backend switch can expose them again.
+        let menu = menu_frames.for_seat(menu_owner.owner.slot());
+        menu_frames.consume_nav_edges(menu_owner.owner.slot());
+        // The Esc/Start toggle is owned by `route_menu_lifecycle`; bail so a single Esc
+        // can't both close here and reopen there (the cube's Esc-Esc reopen guard).
+        if menu.start {
+            continue;
+        }
 
-    // Bumpers cycle tabs with wraparound (the shared MenuControlFrame contract).
-    // Bumpers act regardless of focus zone and leave focus in the body (they're the
-    // "fast" tab switch); arrow-key tab nav is the discoverable alternative (Fix 4).
-    let bump = (menu.page_right as i32) - (menu.page_left as i32);
-    if bump != 0 {
-        let n = MenuPage::ALL.len() as i32;
-        let next = ((active_tab_index(&pages) as i32 + bump).rem_euclid(n)) as usize;
-        system_nav.open_entry = None;
-        tab_state.system_window_start = None;
-        seed_cursor_for_tab(next, &mut cursor);
-        tab_state.focus_zone = GridFocusZone::Body;
-        pages.active = Some(tab_page(next));
-        play_ui(&mut fx.sfx, grid_sfx::TAB_CHANGE);
-        return;
-    }
-
-    let active_page = active_page(&pages);
-    // Keep the shared pages pointer aligned with the active tab so the republished
-    // model (built by `republish_kaleidoscope_pages`) is the tab we render.
-    pages.active = Some(active_page);
-
-    let dx = (menu.right as i32) - (menu.left as i32);
-    let dy = (menu.down as i32) - (menu.up as i32);
-
-    // Fix 4: when focus is on the TAB BAR, the arrow keys drive the tabs: LEFT/RIGHT
-    // cycle (live, so the body under them updates), DOWN or SELECT activate the focused
-    // tab and drop focus back into the body, and Back drops to the body without
-    // switching. The bumpers above still work independently.
-    if tab_state.focus_zone == GridFocusZone::Tabs {
-        if dx != 0 {
+        // Bumpers cycle tabs with wraparound (the shared MenuControlFrame contract).
+        // Bumpers act regardless of focus zone and leave focus in the body (they're the
+        // "fast" tab switch); arrow-key tab nav is the discoverable alternative (Fix 4).
+        let bump = (menu.page_right as i32) - (menu.page_left as i32);
+        if bump != 0 {
             let n = MenuPage::ALL.len() as i32;
-            let next = ((active_tab_index(&pages) as i32 + dx).rem_euclid(n)) as usize;
-            quality_confirm.cancel();
+            let next = ((active_tab_index(&pages) as i32 + bump).rem_euclid(n)) as usize;
             system_nav.open_entry = None;
             tab_state.system_window_start = None;
             seed_cursor_for_tab(next, &mut cursor);
+            tab_state.focus_zone = GridFocusZone::Body;
             pages.active = Some(tab_page(next));
             play_ui(&mut fx.sfx, grid_sfx::TAB_CHANGE);
-            return;
+            continue;
         }
-        if menu.select || dy > 0 {
-            // Activate: focus is already the live tab; just drop into the body (the
-            // cursor was seeded for this tab when we switched onto it).
-            tab_state.focus_zone = GridFocusZone::Body;
-            seed_cursor_for_tab(active_tab_index(&pages), &mut cursor);
-            play_ui(&mut fx.sfx, grid_sfx::ACCEPT);
-            return;
-        }
-        if menu.back {
-            tab_state.focus_zone = GridFocusZone::Body;
-            play_ui(&mut fx.sfx, grid_sfx::BACK);
-            return;
-        }
-        // No other input does anything while the tab bar holds focus.
-        return;
-    }
 
-    // Fix 4: UP from the TOP body row moves focus onto the tab bar.
-    if dy < 0 && cursor_on_top_row(active_page, cursor.focus(), system_nav.open_entry) {
-        tab_state.focus_zone = GridFocusZone::Tabs;
-        play_ui(&mut fx.sfx, grid_sfx::TAB_CHANGE);
-        return;
-    }
+        let active_page = active_page(&pages);
+        // Keep the shared pages pointer aligned with the active tab so the republished
+        // model (built by `republish_kaleidoscope_pages`) is the tab we render.
+        pages.active = Some(active_page);
 
-    match active_page {
-        MenuPage::Items => {
-            if dx != 0 || dy != 0 {
-                let next = move_items_cursor(cursor.focus(), dx, dy);
-                cursor.mark_keyboard(next);
+        let dx = (menu.right as i32) - (menu.left as i32);
+        let dy = (menu.down as i32) - (menu.up as i32);
+
+        // Fix 4: when focus is on the TAB BAR, the arrow keys drive the tabs: LEFT/RIGHT
+        // cycle (live, so the body under them updates), DOWN or SELECT activate the focused
+        // tab and drop focus back into the body, and Back drops to the body without
+        // switching. The bumpers above still work independently.
+        if tab_state.focus_zone == GridFocusZone::Tabs {
+            if dx != 0 {
+                let n = MenuPage::ALL.len() as i32;
+                let next = ((active_tab_index(&pages) as i32 + dx).rem_euclid(n)) as usize;
+                quality_confirm.cancel();
+                system_nav.open_entry = None;
+                tab_state.system_window_start = None;
+                seed_cursor_for_tab(next, &mut cursor);
+                pages.active = Some(tab_page(next));
+                play_ui(&mut fx.sfx, grid_sfx::TAB_CHANGE);
+                continue;
+            }
+            if menu.select || dy > 0 {
+                // Activate: focus is already the live tab; just drop into the body (the
+                // cursor was seeded for this tab when we switched onto it).
+                tab_state.focus_zone = GridFocusZone::Body;
+                seed_cursor_for_tab(active_tab_index(&pages), &mut cursor);
+                play_ui(&mut fx.sfx, grid_sfx::ACCEPT);
+                continue;
             }
             if menu.back {
-                play_ui(&mut fx.sfx, grid_sfx::CLOSE);
-                quality_confirm.cancel();
-                overlay.close();
-                return;
+                tab_state.focus_zone = GridFocusZone::Body;
+                play_ui(&mut fx.sfx, grid_sfx::BACK);
+                continue;
             }
-            if menu.select {
-                // The ERROR bark stays here because it is NOT an activation:
-                // an empty cell has no action to publish, and the consumer
-                // could not tell "nothing there" from "nobody pressed".
-                let idx = cursor.focus().item_index();
-                match owned_item_action(
-                    &ambition_platformer2d::items::Inventory::new(
-                        &fx.owned,
-                        fx.body_source
-                            .read(menu_owner.owner)
-                            .and_then(|body| body.in_hand),
-                    ),
-                    fx.body_source.items(),
-                    idx,
-                ) {
-                    Some(action) => {
-                        activated.write(MenuActionActivated {
-                            menu: menu_entity,
-                            action,
-                        });
+            // No other input does anything while the tab bar holds focus.
+            continue;
+        }
+
+        // Fix 4: UP from the TOP body row moves focus onto the tab bar.
+        if dy < 0 && cursor_on_top_row(active_page, cursor.focus(), system_nav.open_entry) {
+            tab_state.focus_zone = GridFocusZone::Tabs;
+            play_ui(&mut fx.sfx, grid_sfx::TAB_CHANGE);
+            continue;
+        }
+
+        match active_page {
+            MenuPage::Items => {
+                if dx != 0 || dy != 0 {
+                    let next = move_items_cursor(cursor.focus(), dx, dy);
+                    cursor.mark_keyboard(next);
+                }
+                if menu.back {
+                    play_ui(&mut fx.sfx, grid_sfx::CLOSE);
+                    quality_confirm.cancel();
+                    overlay.close();
+                    continue;
+                }
+                if menu.select {
+                    // The ERROR bark stays here because it is NOT an activation:
+                    // an empty cell has no action to publish, and the consumer
+                    // could not tell "nothing there" from "nobody pressed".
+                    let idx = cursor.focus().item_index();
+                    match owned_item_action(
+                        &ambition_platformer2d::items::Inventory::new(
+                            &fx.owned,
+                            fx.body_source
+                                .read(menu_owner.owner)
+                                .and_then(|body| body.in_hand),
+                        ),
+                        fx.body_source.items(),
+                        idx,
+                    ) {
+                        Some(action) => {
+                            activated.write(MenuActionActivated {
+                                menu: menu_entity,
+                                action,
+                            });
+                        }
+                        None => play_ui(&mut fx.sfx, grid_sfx::ERROR),
                     }
-                    None => play_ui(&mut fx.sfx, grid_sfx::ERROR),
                 }
             }
-        }
-        MenuPage::System => {
-            // Features C/D: a keyboard move/select takes the selection cursor back
-            // over from the wheel/scrollbar — drop any explicit scroll override so the
-            // window snaps to follow the cursor again (the cube's clear-on-keyboard rule).
-            if dx != 0 || dy != 0 || menu.select {
-                tab_state.system_window_start = None;
+            MenuPage::System => {
+                // Features C/D: a keyboard move/select takes the selection cursor back
+                // over from the wheel/scrollbar — drop any explicit scroll override so the
+                // window snaps to follow the cursor again (the cube's clear-on-keyboard rule).
+                if dx != 0 || dy != 0 || menu.select {
+                    tab_state.system_window_start = None;
+                }
+                // Reuse the cube's System row nav (drill in/out, value-step, select →
+                // dispatch, back → drill-out/close): identical behavior + one dispatcher.
+                system_focus_nav(
+                    menu_entity,
+                    &menu,
+                    dx,
+                    dy,
+                    &mut cursor,
+                    &mut system_nav,
+                    &mut pages,
+                    &mut fx.settings,
+                    &mut quality_confirm,
+                    active_page,
+                    &mut activated,
+                    &mut fx.sfx,
+                    &mut fx.system,
+                    // Grid switches pages via the TAB BAR — never the cube's edge
+                    // page-turn. Passing `false` keeps System-row LEFT/RIGHT from walking
+                    // onto an edge and firing `turn_page` (the cube rotate-SFX + a
+                    // one-frame face flip that leaked into Grid mode).
+                    false,
+                    // No vertical wrap: the Grid's rows sit below the tab bar, a real
+                    // target UP off the top row must reach — so clamp, don't wrap.
+                    false,
+                );
+                // Belt-and-braces: keep the shared page pointer on this tab (republish also
+                // aligns it). With `allow_page_turn=false` the nav can no longer move it.
+                if overlay.visible {
+                    pages.active = Some(active_page);
+                }
+                // Fix 3: a System select can toggle/cycle a setting (mutating state but not
+                // the cursor); force the next republish so the new value/cursor shows now.
+                if menu.select {
+                    tab_state.last_key = None;
+                }
             }
-            // Reuse the cube's System row nav (drill in/out, value-step, select →
-            // dispatch, back → drill-out/close): identical behavior + one dispatcher.
-            system_focus_nav(
-                menu_entity,
-                &menu,
-                dx,
-                dy,
-                &mut cursor,
-                &mut system_nav,
-                &mut pages,
-                &mut fx.settings,
-                &mut quality_confirm,
-                active_page,
-                &mut activated,
-                &mut fx.sfx,
-                &mut fx.system,
-                // Grid switches pages via the TAB BAR — never the cube's edge
-                // page-turn. Passing `false` keeps System-row LEFT/RIGHT from walking
-                // onto an edge and firing `turn_page` (the cube rotate-SFX + a
-                // one-frame face flip that leaked into Grid mode).
-                false,
-                // No vertical wrap: the Grid's rows sit below the tab bar, a real
-                // target UP off the top row must reach — so clamp, don't wrap.
-                false,
-            );
-            // Belt-and-braces: keep the shared page pointer on this tab (republish also
-            // aligns it). With `allow_page_turn=false` the nav can no longer move it.
-            if overlay.visible {
-                pages.active = Some(active_page);
-            }
-            // Fix 3: a System select can toggle/cycle a setting (mutating state but not
-            // the cursor); force the next republish so the new value/cursor shows now.
-            if menu.select {
-                tab_state.last_key = None;
-            }
-        }
-        MenuPage::Map | MenuPage::Quest => {
-            // Placeholder tabs: only Back does anything.
-            if menu.back {
-                play_ui(&mut fx.sfx, grid_sfx::CLOSE);
-                quality_confirm.cancel();
-                overlay.close();
+            MenuPage::Map | MenuPage::Quest => {
+                // Placeholder tabs: only Back does anything.
+                if menu.back {
+                    play_ui(&mut fx.sfx, grid_sfx::CLOSE);
+                    quality_confirm.cancel();
+                    overlay.close();
+                }
             }
         }
     }

@@ -49,6 +49,7 @@ fn grid_app() -> App {
     app.add_systems(PostUpdate, crate::menu::lifecycle::aggregate_menu_pause);
     app.init_resource::<ambition_platformer2d::menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
+    app.init_resource::<ambition_platformer2d::input::SeatMenuFrames>();
 
     app.init_resource::<ambition_platformer2d::input::SeatActiveDevices>();
     app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<
@@ -94,7 +95,7 @@ fn grid_app() -> App {
 }
 
 fn set_frame(app: &mut App, f: impl FnOnce(&mut MenuControlFrame)) {
-    let mut frame = app.world_mut().resource_mut::<MenuControlFrame>();
+    let mut frame = crate::menu::test_support::menu_frame_mut(app.world_mut());
     *frame = MenuControlFrame::default();
     f(&mut frame);
 }

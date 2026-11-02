@@ -211,3 +211,28 @@ pub(crate) fn menu_component_mut<T: Component<Mutability = bevy::ecs::component:
     let menu = menu_id(world);
     world.get_mut::<T>(menu).expect("fixture menu component")
 }
+
+pub(crate) fn set_menu_frame(
+    world: &mut World,
+    frame: ambition_platformer2d::input::MenuControlFrame,
+) {
+    let owner = world
+        .get::<ambition_platformer2d::inventory_ui::InventoryMenu>(menu_id(world))
+        .unwrap()
+        .owner;
+    world
+        .resource_mut::<ambition_platformer2d::input::SeatMenuFrames>()
+        .set(owner.slot(), frame);
+}
+
+pub(crate) fn menu_frame_mut(
+    world: &mut World,
+) -> Mut<'_, ambition_platformer2d::input::MenuControlFrame> {
+    let owner = world
+        .get::<ambition_platformer2d::inventory_ui::InventoryMenu>(menu_id(world))
+        .unwrap()
+        .owner;
+    world
+        .resource_mut::<ambition_platformer2d::input::SeatMenuFrames>()
+        .map_unchanged(|frames| frames.for_seat_mut(owner.slot()))
+}

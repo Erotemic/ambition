@@ -192,6 +192,7 @@ pub struct TouchControlsPlugin;
 
 impl Plugin for TouchControlsPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<ambition_input::SeatMenuFrames>();
         // This overlay spawns text and runs `.after(UiFontsLoaded)`. An empty
         // set makes that ordering do nothing, so install the plugin that fills it.
         ambition_render::ui_fonts::UiFontsPlugin::ensure_installed(app);

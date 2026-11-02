@@ -77,7 +77,8 @@ pub(crate) fn play_ui(sfx: &mut SfxWriter, id: ambition_platformer2d::sfx::SfxId
 /// the optional 3D cube backend. Keep this separate from cube installation so a
 /// Grid-only build does not spawn the cube camera/ring or register Lunex systems.
 pub fn install_unified_menu_shared(app: &mut App) {
-    app.init_resource::<InventoryUiBackend>()
+    app.init_resource::<ambition_platformer2d::input::SeatMenuFrames>()
+        .init_resource::<InventoryUiBackend>()
         // The pointer-hover handlers read `SeatActiveDevices`. The input plugin
         // also inits it; init here too so the menu remains self-sufficient
         // (`init_resource` is idempotent).
@@ -928,10 +929,10 @@ pub(crate) use scrim::*;
 /// page; `back` closes the menu. The republish runs after this in the chain.
 #[allow(clippy::too_many_arguments)]
 fn kaleidoscope_focus_nav(
-    mut menu_frame: ResMut<MenuControlFrame>,
+    mut menu_frames: ResMut<ambition_platformer2d::input::SeatMenuFrames>,
     // Features C/D: keyboard navigation CLEARS the explicit scroll override so the
     // System window resumes following the selection cursor (the wheel/drag set it).
-    pages: Single<(
+    mut menus: Query<(
         Entity,
         &ambition_platformer2d::inventory_ui::InventoryMenu,
         &mut ActiveMenuPages<MenuPage, MenuPageAction>,
@@ -939,10 +940,10 @@ fn kaleidoscope_focus_nav(
         &mut KaleidoscopeSystemNav,
         &mut KaleidoscopeScroll,
         &mut VisualQualityConfirmState,
+        &ambition_platformer2d::inventory_ui::InventoryUiState,
     )>,
     // Navigation emits CloseMenu. The action consumer closes the surface;
     // the shared pause arbiter applies its released claim.
-    overlay: Single<&ambition_platformer2d::inventory_ui::InventoryUiState>,
     // the game mode is GONE from nav. It was here only so a close-via-action
     // (Reset Sandbox) could unpause exactly like an Esc-close — and that close
     // travels with the dispatch, into `kaleidoscope_menu_action_activated`. Nav
@@ -957,7 +958,7 @@ fn kaleidoscope_focus_nav(
     mut sfx: SfxWriter,
     mut system: SystemMenuParams,
 ) {
-    let (
+    for (
         menu_entity,
         menu_owner,
         mut pages,
@@ -965,124 +966,195 @@ fn kaleidoscope_focus_nav(
         mut system_nav,
         mut scroll,
         mut quality_confirm,
-    ) = pages.into_inner();
-    // Read the backend from `system` (the bundle owns it); a separate `Res` here
-    // would be a B0002 conflict with that `ResMut`.
-    if system.backend() != InventoryUiBackend::LunexKaleidoscope || !overlay.visible {
-        // Not the active backend — leave the frame for whichever nav owns it.
-        return;
-    }
-    // This frame's menu navigation belongs to the cube now: snapshot it, then CONSUME
-    // the one-shot nav edges so the Grid backend's nav (which shares this `Res` in the
-    // same frame) can't re-fire the same press if the "Menu Backend" row flips
-    // `InventoryUiBackend` mid-frame (the cause of the unreliable in-menu toggle).
-    let menu = *menu_frame;
-    menu_frame.consume_nav_edges();
-    // The Esc/pause toggle (`menu.start`) is owned ENTIRELY by `route_menu_lifecycle`
-    // (close the cube / drill out of a System category / restore GameMode).
-    if menu.start {
-        return;
-    }
-    let Some(active_page) = pages.active else {
-        return;
-    };
-
-    // Remember the focus we start the frame on. A cursor MOVE (focus actually
-    // changes) plays `UI_MENU_MOVE` exactly once at the end of this system — NOT on
-    // the per-frame rebuild churn (this only fires when keyboard/gamepad nav lands on
-    // a different control). Page turns / selects emit their own distinct sounds, so
-    // we suppress the move sound when the page changed this frame.
-    let focus_before = cursor.focus;
-    let page_before = pages.active;
-
-    // Directional intent (one step; the menu frame already debounces repeat).
-    let dx = (menu.right as i32) - (menu.left as i32);
-    let dy = (menu.down as i32) - (menu.up as i32);
-
-    // Left bumper rotates to the viewer-left page, right bumper to the viewer-right page. The
-    // cursor lands on the new page's back-edge button.
-    let bump = (menu.page_right as i32) - (menu.page_left as i32);
-    if bump < 0 {
-        turn_page_seeded(
-            &mut pages,
-            &mut cursor,
-            active_page.on_viewer_left(),
-            &mut sfx,
-        );
-        return;
-    } else if bump > 0 {
-        turn_page_seeded(
-            &mut pages,
-            &mut cursor,
-            active_page.on_viewer_right(),
-            &mut sfx,
-        );
-        return;
-    }
-
-    // The System face is an interactive option list: UP/DOWN move the cursor
-    // between rows, LEFT/RIGHT at the column edges turn the page (or step a
-    // value), and SELECT applies the focused option.
-    if active_page == MenuPage::System {
-        // Features C/D: a keyboard move/select takes the selection cursor back over
-        // from the wheel/scrollbar — drop any explicit scroll override so the window
-        // snaps to follow the cursor again.
-        if dx != 0 || dy != 0 || menu.select {
-            scroll.system_window_start = None;
+        overlay,
+    ) in &mut menus
+    {
+        // Read the backend from `system` (the bundle owns it); a separate `Res` here
+        // would be a B0002 conflict with that `ResMut`.
+        if system.backend() != InventoryUiBackend::LunexKaleidoscope || !overlay.visible {
+            // Not the active backend — leave the frame for whichever nav owns it.
+            continue;
         }
-        system_focus_nav(
-            menu_entity,
-            &menu,
-            dx,
-            dy,
-            &mut cursor,
-            &mut system_nav,
-            &mut pages,
-            &mut settings,
-            &mut quality_confirm,
-            active_page,
-            &mut activated,
-            &mut sfx,
-            &mut system,
-            // The cube turns its face on LEFT/RIGHT at the row edges.
-            true,
-            // The cube's System face is a closed list — UP/DOWN wrap around.
-            true,
-        );
-        return;
-    }
-
-    // Other non-items faces (Map / Quest placeholders) respond to horizontal page
-    // turns; arrows rotate, landing the cursor on the new page's back-edge button
-    // (Fix 1). The L/R bumpers (Fix 2) are already handled above for every face.
-    if active_page != MenuPage::Items {
-        // Placeholder faces (Map / Quest) have only the two edge buttons and no centre content, so
-        // edge nav is the whole story: `edge_button_nav` rotates on an OUTWARD step / select and
-        // crosses to the opposite edge on an INWARD step.
-        if edge_button_nav(
-            &mut cursor,
-            &mut pages,
-            active_page,
-            dx,
-            menu.select,
-            true,
-            EdgeInward::OppositeEdge,
-            &mut sfx,
-        ) == EdgeNav::NotOnEdge
-            && dx != 0
-        {
-            cursor.mark_keyboard(if dx < 0 {
-                MenuFocus::EdgeLeft
-            } else {
-                MenuFocus::EdgeRight
-            });
+        // Consume only this seat's edges before a backend switch can expose them again.
+        let menu = menu_frames.for_seat(menu_owner.owner.slot());
+        menu_frames.consume_nav_edges(menu_owner.owner.slot());
+        // The Esc/pause toggle (`menu.start`) is owned ENTIRELY by `route_menu_lifecycle`
+        // (close the cube / drill out of a System category / restore GameMode).
+        if menu.start {
+            continue;
         }
+        let Some(active_page) = pages.active else {
+            continue;
+        };
+
+        // Remember the focus we start the frame on. A cursor MOVE (focus actually
+        // changes) plays `UI_MENU_MOVE` exactly once at the end of this system — NOT on
+        // the per-frame rebuild churn (this only fires when keyboard/gamepad nav lands on
+        // a different control). Page turns / selects emit their own distinct sounds, so
+        // we suppress the move sound when the page changed this frame.
+        let focus_before = cursor.focus;
+        let page_before = pages.active;
+
+        // Directional intent (one step; the menu frame already debounces repeat).
+        let dx = (menu.right as i32) - (menu.left as i32);
+        let dy = (menu.down as i32) - (menu.up as i32);
+
+        // Left bumper rotates to the viewer-left page, right bumper to the viewer-right page. The
+        // cursor lands on the new page's back-edge button.
+        let bump = (menu.page_right as i32) - (menu.page_left as i32);
+        if bump < 0 {
+            turn_page_seeded(
+                &mut pages,
+                &mut cursor,
+                active_page.on_viewer_left(),
+                &mut sfx,
+            );
+            continue;
+        } else if bump > 0 {
+            turn_page_seeded(
+                &mut pages,
+                &mut cursor,
+                active_page.on_viewer_right(),
+                &mut sfx,
+            );
+            continue;
+        }
+
+        // The System face is an interactive option list: UP/DOWN move the cursor
+        // between rows, LEFT/RIGHT at the column edges turn the page (or step a
+        // value), and SELECT applies the focused option.
+        if active_page == MenuPage::System {
+            // Features C/D: a keyboard move/select takes the selection cursor back over
+            // from the wheel/scrollbar — drop any explicit scroll override so the window
+            // snaps to follow the cursor again.
+            if dx != 0 || dy != 0 || menu.select {
+                scroll.system_window_start = None;
+            }
+            system_focus_nav(
+                menu_entity,
+                &menu,
+                dx,
+                dy,
+                &mut cursor,
+                &mut system_nav,
+                &mut pages,
+                &mut settings,
+                &mut quality_confirm,
+                active_page,
+                &mut activated,
+                &mut sfx,
+                &mut system,
+                // The cube turns its face on LEFT/RIGHT at the row edges.
+                true,
+                // The cube's System face is a closed list — UP/DOWN wrap around.
+                true,
+            );
+            continue;
+        }
+
+        // Other non-items faces (Map / Quest placeholders) respond to horizontal page
+        // turns; arrows rotate, landing the cursor on the new page's back-edge button
+        // (Fix 1). The L/R bumpers (Fix 2) are already handled above for every face.
+        if active_page != MenuPage::Items {
+            // Placeholder faces (Map / Quest) have only the two edge buttons and no centre content, so
+            // edge nav is the whole story: `edge_button_nav` rotates on an OUTWARD step / select and
+            // crosses to the opposite edge on an INWARD step.
+            if edge_button_nav(
+                &mut cursor,
+                &mut pages,
+                active_page,
+                dx,
+                menu.select,
+                true,
+                EdgeInward::OppositeEdge,
+                &mut sfx,
+            ) == EdgeNav::NotOnEdge
+                && dx != 0
+            {
+                cursor.mark_keyboard(if dx < 0 {
+                    MenuFocus::EdgeLeft
+                } else {
+                    MenuFocus::EdgeRight
+                });
+            }
+            if menu.back {
+                activated.write(MenuActionActivated {
+                    menu: menu_entity,
+                    action: MenuPageAction::CloseMenu,
+                });
+            }
+            emit_move_sfx(
+                &mut sfx,
+                focus_before,
+                cursor.focus,
+                page_before,
+                pages.active,
+            );
+            continue;
+        }
+
+        if dx != 0 || dy != 0 {
+            match move_spatial(cursor.focus, dx, dy, active_page) {
+                SpatialMove::Focus(next) => cursor.mark_keyboard(next),
+                SpatialMove::TurnLeft => {
+                    turn_page(&mut pages, active_page.on_viewer_left(), &mut sfx);
+                    // Land the cursor on the new face's right arrow (so pressing back
+                    // toward centre re-enters the grid) — demo's turn_page_from_edge.
+                    cursor.mark_keyboard(MenuFocus::EdgeRight);
+                }
+                SpatialMove::TurnRight => {
+                    turn_page(&mut pages, active_page.on_viewer_right(), &mut sfx);
+                    cursor.mark_keyboard(MenuFocus::EdgeLeft);
+                }
+            }
+        }
+
         if menu.back {
             activated.write(MenuActionActivated {
                 menu: menu_entity,
                 action: MenuPageAction::CloseMenu,
             });
+            continue;
         }
+
+        if menu.select {
+            let action = match cursor.focus {
+                MenuFocus::EdgeLeft => {
+                    Some(MenuPageAction::ChangePage(active_page.on_viewer_left()))
+                }
+                MenuFocus::EdgeRight => {
+                    Some(MenuPageAction::ChangePage(active_page.on_viewer_right()))
+                }
+                MenuFocus::Item(idx) => owned_item_action(
+                    &ambition_platformer2d::items::Inventory::new(
+                        &owned,
+                        body_source
+                            .read(menu_owner.owner)
+                            .and_then(|body| body.in_hand),
+                    ),
+                    body_source.items(),
+                    idx,
+                ),
+                // System focus is handled by the System branch above; never reached here.
+                MenuFocus::System(_) => None,
+            };
+            match action {
+                // PUBLISH, do not dispatch — the same event a tap on this cell
+                // raises. Page turns come through here too (the cube turns faces via
+                // its edge controls), which is why all three arms are activations and
+                // only System, handled above, is not.
+                Some(action) => {
+                    activated.write(MenuActionActivated {
+                        menu: menu_entity,
+                        action,
+                    });
+                }
+                // Selecting an empty / unowned item slot is a no-op: error feedback.
+                // Not an activation — there is no action to announce.
+                None => play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_ERROR),
+            }
+        }
+
         emit_move_sfx(
             &mut sfx,
             focus_before,
@@ -1090,74 +1162,7 @@ fn kaleidoscope_focus_nav(
             page_before,
             pages.active,
         );
-        return;
     }
-
-    if dx != 0 || dy != 0 {
-        match move_spatial(cursor.focus, dx, dy, active_page) {
-            SpatialMove::Focus(next) => cursor.mark_keyboard(next),
-            SpatialMove::TurnLeft => {
-                turn_page(&mut pages, active_page.on_viewer_left(), &mut sfx);
-                // Land the cursor on the new face's right arrow (so pressing back
-                // toward centre re-enters the grid) — demo's turn_page_from_edge.
-                cursor.mark_keyboard(MenuFocus::EdgeRight);
-            }
-            SpatialMove::TurnRight => {
-                turn_page(&mut pages, active_page.on_viewer_right(), &mut sfx);
-                cursor.mark_keyboard(MenuFocus::EdgeLeft);
-            }
-        }
-    }
-
-    if menu.back {
-        activated.write(MenuActionActivated {
-            menu: menu_entity,
-            action: MenuPageAction::CloseMenu,
-        });
-        return;
-    }
-
-    if menu.select {
-        let action = match cursor.focus {
-            MenuFocus::EdgeLeft => Some(MenuPageAction::ChangePage(active_page.on_viewer_left())),
-            MenuFocus::EdgeRight => Some(MenuPageAction::ChangePage(active_page.on_viewer_right())),
-            MenuFocus::Item(idx) => owned_item_action(
-                &ambition_platformer2d::items::Inventory::new(
-                    &owned,
-                    body_source
-                        .read(menu_owner.owner)
-                        .and_then(|body| body.in_hand),
-                ),
-                body_source.items(),
-                idx,
-            ),
-            // System focus is handled by the System branch above; never reached here.
-            MenuFocus::System(_) => None,
-        };
-        match action {
-            // PUBLISH, do not dispatch — the same event a tap on this cell
-            // raises. Page turns come through here too (the cube turns faces via
-            // its edge controls), which is why all three arms are activations and
-            // only System, handled above, is not.
-            Some(action) => {
-                activated.write(MenuActionActivated {
-                    menu: menu_entity,
-                    action,
-                });
-            }
-            // Selecting an empty / unowned item slot is a no-op: error feedback.
-            // Not an activation — there is no action to announce.
-            None => play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_ERROR),
-        }
-    }
-
-    emit_move_sfx(
-        &mut sfx,
-        focus_before,
-        cursor.focus,
-        page_before,
-        pages.active,
-    );
 }
 
 #[cfg(feature = "kaleidoscope_menu")]

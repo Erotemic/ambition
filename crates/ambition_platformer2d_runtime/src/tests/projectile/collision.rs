@@ -2170,6 +2170,10 @@ fn an_open_parry_window_reflects_a_shot_and_takes_it_over() {
         "the reflected shot still belongs to whoever fired it, so it is hostile \
          to the body that just parried it"
     );
+    let targets: Vec<_> = app.world().resource::<Messages<ambition_damage::healing::BodyHealRequested>>()
+        .iter_current_update_messages().map(|heal| heal.target).collect();
+    assert_eq!(targets, vec![parrier], "the heal must name the body that caught the shot");
+
 }
 
 /// ⛔⛔ AND A CLOSED WINDOW DOES NOT REFLECT — the control the pair above does
@@ -2265,7 +2269,7 @@ fn an_absorbing_parry_consumes_the_shot_rather_than_returning_it() {
     let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
     app.update();
 
-    app.world_mut().spawn((
+    let parrier = app.world_mut().spawn((
         ambition_characters::actor::ActorFaction::Enemy,
         ae::BodyKinematics {
             pos: ae::Vec2::new(500.0, 300.0),
@@ -2283,7 +2287,7 @@ fn an_absorbing_parry_consumes_the_shot_rather_than_returning_it() {
             absorb_window_timer: 0.20,
             ..Default::default()
         },
-    ));
+    )).id();
 
     {
         let spec = ProjectileKind::Fireball.spec(
@@ -2305,6 +2309,10 @@ fn an_absorbing_parry_consumes_the_shot_rather_than_returning_it() {
          `absorb_window_timer` is not reaching the interception, and every
          absorber is a reflector wearing another name"
     );
+    let targets: Vec<_> = app.world().resource::<Messages<ambition_damage::healing::BodyHealRequested>>()
+        .iter_current_update_messages().map(|heal| heal.target).collect();
+    assert_eq!(targets, vec![parrier], "the heal must name the body that caught the shot");
+
 }
 
 /// ⛔⛔ AN ABSORBED SHOT STOPS. It does not carry on into the body behind.

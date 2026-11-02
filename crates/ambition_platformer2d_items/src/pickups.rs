@@ -156,7 +156,7 @@ pub fn magnetize_pickups(
 /// ring's position during exactly that gap, so the magnet cannot reclaim it and
 /// collect sees it out at its arc rather than on top of the knocked-back body.
 ///
-/// ONE member. `apply_player_heal_requests` is chained after and is a
+/// ONE member. `apply_body_heal_requests` is chained after and is a
 /// CONSUMER of what collection produced, not part of claiming it.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PickupCollect;
@@ -191,7 +191,7 @@ pub fn collect_ecs_pickups(
         // could still be collected on overlap.
         (With<FeatureSimEntity>, Without<PickupCollectLock>),
     >,
-    mut heals: MessageWriter<ambition_damage::healing::PlayerHealRequested>,
+    mut heals: MessageWriter<ambition_damage::healing::BodyHealRequested>,
     mut wallets: Query<&mut ambition_characters::actor::BodyWallet>,
     mut sfx: SfxWriter,
     mut vfx: VfxWriter,
@@ -234,7 +234,7 @@ pub fn collect_ecs_pickups(
         // ⭐ NEAREST-CENTRE IS A RULE A PLAYER CAN SEE, and `SimId` is what makes
         // the answer the same on both peers when two bodies are equidistant. The
         // heal is still routed to that specific body via
-        // `PlayerHealRequested::target`, so single-player behaviour is unchanged:
+        // `BodyHealRequested::target`, so single-player behaviour is unchanged:
         // one candidate wins by being the only one.
         let Some((collector_entity, ..)) = winner_by(
             collectors
@@ -337,7 +337,7 @@ pub fn collect_ecs_pickups(
 pub fn grant_pickup(
     kind: &ambition_interaction::PickupKind,
     collector: bevy::prelude::Entity,
-    heals: &mut MessageWriter<ambition_damage::healing::PlayerHealRequested>,
+    heals: &mut MessageWriter<ambition_damage::healing::BodyHealRequested>,
     wallets: &mut Query<&mut ambition_characters::actor::BodyWallet>,
     set_flag: &mut MessageWriter<SetFlagRequested>,
     mut owned: Option<&mut ambition_items::OwnedItems>,
@@ -346,7 +346,7 @@ pub fn grant_pickup(
     let mut granted = crate::pickup::PickupGranted::default();
     match kind {
         ambition_interaction::PickupKind::Health { amount } => {
-            heals.write(ambition_damage::healing::PlayerHealRequested::for_target(
+            heals.write(ambition_damage::healing::BodyHealRequested::new(
                 *amount, collector,
             ));
         }

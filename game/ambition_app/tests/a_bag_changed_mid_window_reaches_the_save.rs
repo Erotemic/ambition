@@ -3115,14 +3115,15 @@ const PLAYER_HEAL_TICK: u64 = 100;
 const PLAYER_HEAL_AMOUNT: i32 = 10;
 
 fn heal_the_player_from_inside_the_sim(
+    primary: bevy::prelude::Query<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>,
     tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
     mut heals: bevy::prelude::MessageWriter<
-        ambition_platformer2d::damage::healing::PlayerHealRequested,
+        ambition_platformer2d::damage::healing::BodyHealRequested,
     >,
 ) {
     if tick.0 == PLAYER_HEAL_TICK {
-        heals.write(ambition_platformer2d::damage::healing::PlayerHealRequested::new(
-            PLAYER_HEAL_AMOUNT,
+        heals.write(ambition_platformer2d::damage::healing::BodyHealRequested::new(
+            PLAYER_HEAL_AMOUNT, primary.single().expect("the heal fixture has one primary body"),
         ));
     }
 }
@@ -3241,7 +3242,7 @@ fn damage_the_player_and_reassert_local_maintainer(
 /// A REWIND.
 ///
 /// The menu used to take the cell out of `OwnedItems` and write
-/// `PlayerHealRequested` from `Update`. Measured 2026-09-18: the heal landed
+/// `BodyHealRequested` from `Update`. Measured 2026-09-18: the heal landed
 /// for about two frames and GGRS's first correction revoked it, because the
 /// rewind restored `BodyHealth` and nothing raised the heal again. The menu now
 /// writes one `ItemUseRequested` host intent, and `apply_item_uses` spends the
@@ -3261,7 +3262,7 @@ fn a_health_cell_used_from_the_menu_heals_once_and_spends_one_cell() {
     assert_eq!(
         player_health(&mut inside),
         inside_before + PLAYER_HEAL_AMOUNT,
-        "the in-sim control did not heal the player, so `apply_player_heal_requests` \
+        "the in-sim control did not heal the player, so `apply_body_heal_requests` \
          is not reached in this composition"
     );
 
@@ -3279,7 +3280,7 @@ fn a_health_cell_used_from_the_menu_heals_once_and_spends_one_cell() {
     assert!(cells_before >= 1, "the starter bag holds no Health Cell to use");
     ambition_platformer2d::platformer::host_intents::write_host_intent(
         outside.world_mut(),
-        ambition_platformer2d::items::ItemUseRequested {
+        ambition_platformer2d::items::ItemUseRequested { participant: ambition_platformer2d::characters::control::PlayerSlot(0),
             item: ambition_platformer2d::items::Item::HealthCell,
         },
     );
@@ -4090,7 +4091,7 @@ fn a_host_intent_acts_on_the_tick_it_is_stamped_for() {
 
     ambition_platformer2d::platformer::host_intents::write_host_intent(
         sim.world_mut(),
-        ambition_platformer2d::items::ItemUseRequested { item: Item::HealthCell },
+        ambition_platformer2d::items::ItemUseRequested { participant: ambition_platformer2d::characters::control::PlayerSlot(0), item: Item::HealthCell },
     );
     assert_eq!(cells(&sim), before, "control: the host spent the item itself");
 

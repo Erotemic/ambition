@@ -211,7 +211,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// 404 -> 405: decisions and movement share the same entry-state body contacts.
 /// 405 -> 406: body hits name resolved recipients; shells retain kick credit.
 /// Strikes carry explicit per-body exclusions independently of hit history.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 406;
+/// 406 -> 407: all health restoration requests name one body.
+/// Item use and ability equipment requests name their acting participant.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 407;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

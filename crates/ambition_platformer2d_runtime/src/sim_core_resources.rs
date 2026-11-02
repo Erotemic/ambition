@@ -93,7 +93,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .add_message::<ambition_combat::events::ActorStimulus>()
             .add_message::<ambition_combat::RoomReplayAdmitted>()
             .add_message::<ambition_combat::GameplayBannerRequested>()
-            .add_message::<ambition_damage::healing::PlayerHealRequested>()
+            .add_message::<ambition_damage::healing::BodyHealRequested>()
             // Staging fact: a room's contents finished spawning (JD4).
             .add_message::<ambition_platformer2d_world::rooms::RoomLoaded>()
             // ADR 0010 — time-control vocabulary. Gameplay code writes

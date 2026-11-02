@@ -140,7 +140,7 @@ fn play_ambition(
     items: ambition_items::ItemCatalogRead,
     autopilot: Option<Res<Autopilot>>,
     rooms: Option<LiveRoomSpecs>,
-    players: Query<(Entity, &ae::BodyKinematics, Option<&ae::SweepSample>, Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>), With<PrimaryPlayer>>,
+    players: Query<(Entity, &ae::BodyKinematics, Option<&ae::SweepSample>, Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>, &ambition_characters::control::DrivingParticipant), With<PrimaryPlayer>>,
     cutscene: Option<Res<ambition_cutscene::ActiveCutscene>>,
     mut gates: GateTravel,
     collision: ambition_platformer2d_world::collision::CollisionWorld,
@@ -154,7 +154,7 @@ fn play_ambition(
         Option<&ambition_boss_encounter::BossEncounter>,
         &ambition_platformer2d_shared_tangle::sim_id::SimId)>,
 ) {
-    let Ok((entity, kin, sweep, in_room)) = players.single() else {
+    let Ok((entity, kin, sweep, in_room, driver)) = players.single() else {
         *order = AutopilotOrder::Idle;
         return;
     };
@@ -176,7 +176,7 @@ fn play_ambition(
     if !it.equipped {
         if let Some(id) = &profile.equip {
             if let Some(item) = items.get().item_by_dialog_id(id) {
-                equips.write(ambition_items::ItemEquipRequested { item });
+                equips.write(ambition_items::ItemEquipRequested { participant: driver.0, item });
             } else { error!("autoplay {} requests missing equipment {id}", mode.0); }
         }
         it.equipped = true;

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v406
+ggrs-rollback-schema-v407
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -348,6 +348,7 @@ message.actor_stimulus	message-clear	ActorStimulus	clear abandoned-future messag
 message.ambient_gravity_request	message-clear	AmbientGravityRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.attacks_clanked	message-clear	AttacksClanked	clear abandoned-future message buffer in LoadWorld::Mapping
 message.blocked_body_hit	message-clear	BlockedBodyHit	clear abandoned-future message buffer in LoadWorld::Mapping
+message.body_heal_requested	message-clear	BodyHealRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.body_knocked_out	message-clear	BodyKnockedOut	clear abandoned-future message buffer in LoadWorld::Mapping
 message.body_teleported	message-clear	BodyTeleported	clear abandoned-future message buffer in LoadWorld::Mapping
 message.boss_defeat_retracted	message-clear	BossDefeatRetracted	clear abandoned-future message buffer in LoadWorld::Mapping
@@ -400,7 +401,6 @@ message.parried_body_hit	message-clear	ParriedBodyHit	clear abandoned-future mes
 message.payload_released	message-clear	PayloadReleased	clear abandoned-future message buffer in LoadWorld::Mapping
 message.pet_requested	message-clear	PetRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.pick_up_portal_gun	message-clear	PickUpPortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
-message.player_heal_requested	message-clear	PlayerHealRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.portal_body_entered	message-clear	PortalBodyEntered	clear abandoned-future message buffer in LoadWorld::Mapping
 message.portal_body_transited	message-clear	PortalBodyTransited	clear abandoned-future message buffer in LoadWorld::Mapping
 message.portal_fire_intent	message-clear	PortalFireIntent	clear abandoned-future message buffer in LoadWorld::Mapping

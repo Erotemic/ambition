@@ -199,7 +199,7 @@ pub fn drop_currency_coin(
 
 /// Spawn a collectible health heart at `pos` (a sometimes-drop on enemy defeat),
 /// same pickup path as the coin so `collect_ecs_pickups` heals the player on
-/// overlap via `PlayerHealRequested`.
+/// overlap via `BodyHealRequested`.
 pub fn drop_health_pickup(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,

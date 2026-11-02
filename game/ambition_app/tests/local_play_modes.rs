@@ -775,3 +775,47 @@ fn two_pads_damage_each_other_in_the_rendered_game() {
 fn two_pads_spare_each_other_in_the_rendered_game() {
     rendered_pad_combat(false);
 }
+
+#[test]
+fn item_requests_restore_and_equip_the_joined_participant() {
+    use ambition_platformer2d::actor::{BodyHealth, Health};
+    use ambition_platformer2d::abilities::mana::{MANA, ManaRegen};
+    use ambition_platformer2d::characters::equipment::WornEquipment;
+    use ambition_platformer2d::engine_core::resources::ActorResources;
+    use ambition_platformer2d::items::{Item, ItemEquipRequested, ItemUseRequested, OwnedItems};
+    use ambition_platformer2d::platformer::host_intents::write_host_intent;
+
+    for slot in [PlayerSlot(0), PlayerSlot(1)] {
+        let (mut app, pads) = session(2, true);
+        tap(&mut app, pads[1], GamepadButton::Start);
+        for _ in 0..6 { app.update(); }
+        let bodies = [the_primary(&mut app), seat_one_bodies(&mut app)[0]];
+        app.insert_resource(ManaRegen(0.0));
+        for body in bodies {
+            app.world_mut().entity_mut(body).insert(BodyHealth::new(Health {
+                current: 40, max: 100, invulnerable: Default::default(),
+            }));
+            let mut resources = app.world_mut().get_mut::<ActorResources>(body).expect("a joined home body has its resource bank");
+            let mana = resources.level_of_mut(&MANA).expect("the home body declares mana");
+            mana.drain(mana.current);
+        }
+        let catalog = ambition_platformer2d::items::item_catalog(app.world()).clone();
+        for item in [Item::HealthCell, Item::ManaCell, Item::EyeLaser] {
+            app.world_mut().resource_mut::<OwnedItems>().grant(&catalog, item, 1);
+        }
+        write_host_intent(app.world_mut(), ItemUseRequested { participant: slot, item: Item::HealthCell });
+        write_host_intent(app.world_mut(), ItemUseRequested { participant: slot, item: Item::ManaCell });
+        write_host_intent(app.world_mut(), ItemEquipRequested { participant: slot, item: Item::EyeLaser });
+        for _ in 0..6 { app.update(); }
+        for (seat, body) in bodies.into_iter().enumerate() {
+            let requested = seat == slot.0 as usize;
+            assert_eq!(app.world().get::<BodyHealth>(body).unwrap().current() > 40, requested,
+                "health cell reached the wrong body for {slot:?}");
+            assert_eq!(app.world().get::<ActorResources>(body).unwrap().level_of(&MANA).unwrap().current > 0.0, requested,
+                "mana cell reached the wrong body for {slot:?}");
+            let laser = app.world().get::<WornEquipment>(body)
+                .is_some_and(|worn| worn.rows.iter().any(|row| row.id == "eye_laser"));
+            assert_eq!(laser, requested, "ability equip reached the wrong body for {slot:?}");
+        }
+    }
+}

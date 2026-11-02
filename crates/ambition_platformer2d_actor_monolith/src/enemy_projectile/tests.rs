@@ -110,7 +110,7 @@ fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<ambition_vfx::vfx::FxRequest>();
-    app.add_message::<ambition_damage::healing::PlayerHealRequested>();
+    app.add_message::<ambition_damage::healing::BodyHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<CapturedHits>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default(),
@@ -182,7 +182,7 @@ fn arena_projectile_app(relations: ambition_combat::targeting::FactionRelations)
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<ambition_vfx::vfx::FxRequest>();
-    app.add_message::<ambition_damage::healing::PlayerHealRequested>();
+    app.add_message::<ambition_damage::healing::BodyHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<CapturedHits>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default(),
@@ -949,7 +949,7 @@ fn parry_ready_player_app() -> (App, Entity) {
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<ambition_vfx::vfx::FxRequest>();
-    app.add_message::<ambition_damage::healing::PlayerHealRequested>();
+    app.add_message::<ambition_damage::healing::BodyHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default(),
     );
@@ -1163,7 +1163,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
     app.add_message::<VfxInRoom>();
     app.add_message::<ambition_vfx::vfx::FxRequest>();
     app.add_message::<ProjectileSpawnRequest>();
-    app.add_message::<ambition_damage::healing::PlayerHealRequested>();
+    app.add_message::<ambition_damage::healing::BodyHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<CapturedHits>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default(),
@@ -1442,7 +1442,7 @@ fn player_shot_overlapping_enemy() -> (App, Entity) {
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<ambition_vfx::vfx::FxRequest>();
-    app.add_message::<ambition_damage::healing::PlayerHealRequested>();
+    app.add_message::<ambition_damage::healing::BodyHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<CapturedHits>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default(),

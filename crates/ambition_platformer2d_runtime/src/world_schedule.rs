@@ -82,8 +82,8 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // uses (above). A heal written after its apply waits a tick,
                 // and a rewind to that tick clears the message, so the
                 // resimulation loses the heal.
-                ambition_damage::healing::apply_player_heal_requests
-                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_damage::healing::PlayerHealRequested>),
+                ambition_damage::healing::apply_body_heal_requests
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_damage::healing::BodyHealRequested>),
                 crate::effect_bus::apply_flag_effects.run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::events::SetFlagRequested>),
                 crate::effect_bus::apply_quest_effects
                     .run_if(ambition_platformer2d_core::a_message_waits::<ambition_persistence::quest::QuestAdvanceRequested>),

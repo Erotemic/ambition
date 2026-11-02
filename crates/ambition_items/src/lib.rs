@@ -497,13 +497,13 @@ pub struct ItemGrantRequested {
     pub count: u32,
 }
 
-/// Simulation-side request to equip an owned ability: the primary player
-/// wears its row.
+/// Simulation request to equip an owned ability on a participant's body.
 ///
 /// A menu asks for this; the simulation changes the worn set on one stamped
 /// tick, so a rewind across the equip replays it.
 #[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ItemEquipRequested {
+    pub participant: ambition_characters::control::PlayerSlot,
     pub item: Item,
 }
 
@@ -514,6 +514,7 @@ pub struct ItemEquipRequested {
 /// or revoke the effect.
 #[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ItemUseRequested {
+    pub participant: ambition_characters::control::PlayerSlot,
     pub item: Item,
 }
 

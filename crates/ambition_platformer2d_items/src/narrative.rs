@@ -17,6 +17,7 @@
 use bevy::prelude::*;
 
 use ambition_characters::actor::BodyWallet;
+use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_items::{shop::ShopTransactionRequested, ItemGrantRequested, OwnedItems};
 
 /// Grant what a conversation gave. (sim)
@@ -73,25 +74,22 @@ pub const MANA_CELL_RESTORE: f32 = 40.0;
 pub fn apply_item_uses(
     mut requests: MessageReader<ambition_items::ItemUseRequested>,
     mut owned: ResMut<OwnedItems>,
-    mut heals: MessageWriter<ambition_damage::healing::PlayerHealRequested>,
-    mut banks: Query<
-        &mut ambition_platformer2d_core::resources::ActorResources,
-        (
-            With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-            With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
-        ),
-    >,
+    mut heals: MessageWriter<ambition_damage::healing::BodyHealRequested>,
+    drivers: Query<(Entity, &DrivingParticipant)>,
+    health: Query<(), With<ambition_characters::actor::BodyHealth>>,
+    mut banks: Query<&mut ambition_platformer2d_core::resources::ActorResources>,
 ) {
     use ambition_items::Item;
     for request in requests.read() {
+        let Some(body) = driven_body(request.participant, &drivers) else { continue; };
         match request.item {
             Item::HealthCell => {
-                if owned.take(Item::HealthCell, 1) > 0 {
-                    heals.write(ambition_damage::healing::PlayerHealRequested::new(HEALTH_CELL_HEAL));
+                if health.contains(body) && owned.take(Item::HealthCell, 1) > 0 {
+                    heals.write(ambition_damage::healing::BodyHealRequested::new(HEALTH_CELL_HEAL, body));
                 }
             }
             Item::ManaCell => {
-                let Ok(mut bank) = banks.single_mut() else {
+                let Ok(mut bank) = banks.get_mut(body) else {
                     continue;
                 };
                 if let Some(mana) = bank.level_of_mut(&ambition_abilities::mana::MANA) {
@@ -112,7 +110,7 @@ pub fn apply_item_uses(
 
 /// Equip what a menu asked to equip. (sim)
 ///
-/// The primary player wears the ability's row. A row that names an exclusive
+/// The participant's controlled body wears the ability row. An exclusive
 /// slot replaces the variant that held the slot ([`WornEquipment::equip`]),
 /// so one variant of a slot is worn at a time. The action scheme and the
 /// repertoire read the worn set, so the slot changes with no other write.
@@ -126,16 +124,12 @@ pub fn apply_item_equips(
     mut requests: MessageReader<ambition_items::ItemEquipRequested>,
     owned: Res<OwnedItems>,
     items: ambition_items::ItemCatalogRead,
-    mut bodies: Query<
-        (Entity, Option<&mut ambition_characters::equipment::WornEquipment>),
-        (
-            With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-            With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
-        ),
-    >,
+    drivers: Query<(Entity, &DrivingParticipant)>,
+    mut bodies: Query<Option<&mut ambition_characters::equipment::WornEquipment>>,
 ) {
-    let mut rows = Vec::new();
+    let mut rows = std::collections::BTreeMap::<Entity, Vec<_>>::new();
     for request in requests.read() {
+        let Some(body) = driven_body(request.participant, &drivers) else { continue; };
         let Some(row) = items.get().wears(request.item) else {
             warn!(
                 target: "crate::narrative",
@@ -147,20 +141,29 @@ pub fn apply_item_equips(
             warn!(target: "crate::narrative", "an equip of {:?} was asked for, and it is not owned", request.item);
             continue;
         }
-        rows.push(row.clone());
+        rows.entry(body).or_default().push(row.clone());
     }
-    let Ok((body, worn)) = bodies.single_mut() else {
-        return;
-    };
-    match worn {
-        Some(mut worn) => rows.into_iter().for_each(|row| worn.equip(row)),
-        None if !rows.is_empty() => {
-            let mut fresh = ambition_characters::equipment::WornEquipment::default();
-            rows.into_iter().for_each(|row| fresh.equip(row));
-            commands.entity(body).insert(fresh);
+    for (body, rows) in rows {
+        let Ok(worn) = bodies.get_mut(body) else { continue; };
+        match worn {
+            Some(mut worn) => rows.into_iter().for_each(|row| worn.equip(row)),
+            None => {
+                let mut fresh = ambition_characters::equipment::WornEquipment::default();
+                rows.into_iter().for_each(|row| fresh.equip(row));
+                commands.entity(body).insert(fresh);
+            }
         }
-        None => {}
     }
+}
+
+fn driven_body(participant: PlayerSlot, drivers: &Query<(Entity, &DrivingParticipant)>) -> Option<Entity> {
+    let mut candidates = drivers.iter().filter(|(_, driver)| driver.0 == participant);
+    let (body, _) = candidates.next()?;
+    if candidates.next().is_some() {
+        warn!("item request refused: multiple bodies drive participant {participant:?}");
+        return None;
+    }
+    Some(body)
 }
 
 #[cfg(test)]
@@ -238,42 +241,78 @@ mod tests {
         );
     }
 
-    /// The menu's equip reaches the body through the simulation. Equipping the
-    /// laser takes the projectile slot from the fireball; equipping the
-    /// fireball takes it back; a variant the bag does not hold is refused.
     #[test]
-    fn an_equipped_ability_takes_its_slot_on_the_primary_body() {
+    fn an_equipped_ability_reaches_either_participants_body() {
         use ambition_characters::equipment::WornEquipment;
-        use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
-        let catalog = ambition_items::test_item_catalog();
-        let mut app = App::new();
-        app.insert_resource(catalog.clone());
-        let mut owned = OwnedItems::default();
-        owned.grant(catalog, Item::EyeLaser, 1);
-        owned.grant(catalog, Item::Fireball, 1);
-        app.insert_resource(owned);
-        app.add_message::<ambition_items::ItemEquipRequested>();
-        app.add_systems(Update, apply_item_equips);
-        let body = app.world_mut().spawn((PlayerEntity, PrimaryPlayer)).id();
-        // A second seat is not the menu's body.
-        let other = app.world_mut().spawn(PlayerEntity).id();
-        let worn_ids = |app: &App, entity| {
-            app.world()
-                .get::<WornEquipment>(entity)
-                .map(|worn| worn.rows.iter().map(|row| row.id.clone()).collect::<Vec<_>>())
-        };
+        for participant in [PlayerSlot(0), PlayerSlot(1)] {
+            let catalog = ambition_items::test_item_catalog();
+            let mut app = App::new();
+            app.insert_resource(catalog.clone());
+            let mut owned = OwnedItems::default();
+            owned.grant(catalog, Item::EyeLaser, 1);
+            owned.grant(catalog, Item::Fireball, 1);
+            app.insert_resource(owned);
+            app.add_message::<ambition_items::ItemEquipRequested>();
+            app.add_systems(Update, apply_item_equips);
+            let body = app.world_mut().spawn(DrivingParticipant(participant)).id();
+            let other = app.world_mut().spawn(DrivingParticipant(PlayerSlot(1 - participant.0))).id();
+            let worn_ids = |app: &App, entity| {
+                app.world().get::<WornEquipment>(entity)
+                    .map(|worn| worn.rows.iter().map(|row| row.id.clone()).collect::<Vec<_>>())
+            };
+            for item in [Item::EyeLaser, Item::Fireball] {
+                app.world_mut().write_message(ambition_items::ItemEquipRequested { participant, item });
+            }
+            app.update();
+            assert_eq!(worn_ids(&app, body), Some(vec!["fireball".into()]), "same-tick requests must retain their order");
+            assert_eq!(worn_ids(&app, other), None);
+            app.world_mut().write_message(ambition_items::ItemEquipRequested { participant, item: Item::SwordStance });
+            app.update();
+            assert_eq!(worn_ids(&app, body), Some(vec!["fireball".into()]), "an unowned variant must be refused");
+        }
+    }
 
-        app.world_mut().write_message(ambition_items::ItemEquipRequested { item: Item::EyeLaser });
-        app.update();
-        assert_eq!(worn_ids(&app, body), Some(vec!["eye_laser".to_string()]));
-        assert_eq!(worn_ids(&app, other), None, "another seat wears nothing");
-
-        app.world_mut().write_message(ambition_items::ItemEquipRequested { item: Item::Fireball });
-        app.update();
-        assert_eq!(worn_ids(&app, body), Some(vec!["fireball".to_string()]), "one variant per slot");
-
-        app.world_mut().write_message(ambition_items::ItemEquipRequested { item: Item::SwordStance });
-        app.update();
-        assert_eq!(worn_ids(&app, body), Some(vec!["fireball".to_string()]), "an unowned variant is refused");
+    #[test]
+    fn cells_restore_only_the_requesting_participants_body() {
+        use ambition_characters::actor::{BodyHealth, Health};
+        use ambition_platformer2d_core::resources::ActorResources;
+        use ambition_abilities::mana::{bank, MANA};
+        for participant in [PlayerSlot(0), PlayerSlot(1)] {
+            let catalog = ambition_items::test_item_catalog();
+            let mut app = App::new();
+            let mut owned = OwnedItems::default();
+            owned.grant(catalog, Item::HealthCell, 2);
+            owned.grant(catalog, Item::ManaCell, 2);
+            app.insert_resource(owned);
+            app.add_message::<ambition_items::ItemUseRequested>();
+            app.add_message::<ambition_damage::healing::BodyHealRequested>();
+            app.add_systems(Update, (apply_item_uses, ambition_damage::healing::apply_body_heal_requests).chain());
+            let mut bodies = Vec::new();
+            for slot in 0..2 {
+                let mut mana = bank();
+                mana.level_of_mut(&MANA).unwrap().drain(80.0);
+                bodies.push(app.world_mut().spawn((DrivingParticipant(PlayerSlot(slot)),
+                    BodyHealth::new(Health { current: 1, max: 10, invulnerable: Default::default() }), mana)).id());
+            }
+            for item in [Item::HealthCell, Item::ManaCell] {
+                app.world_mut().write_message(ambition_items::ItemUseRequested { participant, item });
+            }
+            app.update();
+            for (slot, &body) in bodies.iter().enumerate() {
+                let requested = slot == participant.0 as usize;
+                assert_eq!(app.world().get::<BodyHealth>(body).unwrap().current(), if requested { 5 } else { 1 });
+                assert_eq!(app.world().get::<ActorResources>(body).unwrap().level_of(&MANA).unwrap().current,
+                    if requested { 60.0 } else { 20.0 });
+            }
+            assert_eq!(app.world().resource::<OwnedItems>().count(Item::HealthCell), 1);
+            assert_eq!(app.world().resource::<OwnedItems>().count(Item::ManaCell), 1);
+            app.world_mut().entity_mut(bodies[participant.0 as usize]).remove::<DrivingParticipant>();
+            for item in [Item::HealthCell, Item::ManaCell] {
+                app.world_mut().write_message(ambition_items::ItemUseRequested { participant, item });
+            }
+            app.update();
+            assert_eq!(app.world().resource::<OwnedItems>().count(Item::HealthCell), 1, "an absent body must not spend inventory");
+            assert_eq!(app.world().resource::<OwnedItems>().count(Item::ManaCell), 1);
+        }
     }
 }

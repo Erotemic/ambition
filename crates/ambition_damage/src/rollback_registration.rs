@@ -20,8 +20,8 @@ pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {
         OWNER,
         "message.wallet_shield_spent",
     );
-    registrar.clear_message_on_rollback::<crate::healing::PlayerHealRequested>(
+    registrar.clear_message_on_rollback::<crate::healing::BodyHealRequested>(
         OWNER,
-        "message.player_heal_requested",
+        "message.body_heal_requested",
     );
 }

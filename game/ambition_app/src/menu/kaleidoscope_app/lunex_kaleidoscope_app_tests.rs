@@ -102,6 +102,7 @@ fn spawn_kaleidoscope_test_player(app: &mut App) -> Entity {
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
+        ambition_platformer2d::characters::control::DrivingParticipant(ambition_platformer2d::characters::control::PlayerSlot(0)),
             ActionSet::default(),
             ambition_platformer2d::characters::brain::action_set::IdentityKit::default(),
             ambition_platformer2d::combat::moveset::ActorMoveset::default(),
@@ -967,6 +968,7 @@ fn real_input_cube_app(
         PlayerVisual,
         PlayerEntity,
         PrimaryPlayer,
+        ambition_platformer2d::characters::control::DrivingParticipant(ambition_platformer2d::characters::control::PlayerSlot(0)),
         ActionSet::default(),
         ambition_platformer2d::characters::brain::action_set::IdentityKit::default(),
         ambition_platformer2d::combat::moveset::ActorMoveset::default(),

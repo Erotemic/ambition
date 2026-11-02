@@ -25,7 +25,7 @@ fn primary(sim: &mut Platformer2dSimHarness) -> Entity {
 }
 
 fn equip(sim: &mut Platformer2dSimHarness, item: Item) {
-    ambition_platformer2d::platformer::host_intents::write_host_intent(sim.world_mut(), ItemEquipRequested { item });
+    ambition_platformer2d::platformer::host_intents::write_host_intent(sim.world_mut(), ItemEquipRequested { participant: ambition_platformer2d::characters::control::PlayerSlot(0), item });
     sim.step_n(base(), 3);
 }
 

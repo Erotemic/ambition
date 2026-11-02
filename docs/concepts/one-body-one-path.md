@@ -66,6 +66,16 @@ Ordinary bodies may publish `PogoTargetVolumes` for affordance, but they are
 never flattened into collision-world `PogoOrb` blocks. Only an explicit
 `PogoTargetContributor` opts an ECS feature into world rebound geometry.
 
+**Health restoration names one body.** `BodyHealRequested` requires a target
+entity. The consumer changes `BodyHealth` directly. It does not select a home
+body or require a controller marker. Pickups and projectile parries name the
+body that receives their effect.
+
+Item use and ability equipment requests name the acting participant. Simulation
+resolves that participant's controlled body on the apply tick. A request with
+no controlled body spends no inventory. Health and mana requirements belong to
+the receiving body, not to its controller kind.
+
 **Non-body recipients.** `HitTarget` (`ambition_combat::events`) has:
 
 - `Body(Entity)`: one pre-resolved body victim;

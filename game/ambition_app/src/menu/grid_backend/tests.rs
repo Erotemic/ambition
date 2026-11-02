@@ -74,6 +74,7 @@ fn grid_app() -> App {
     app.world_mut().spawn((
         PlayerEntity,
         PrimaryPlayer,
+        ambition_platformer2d::characters::control::DrivingParticipant(ambition_platformer2d::characters::control::PlayerSlot(0)),
         ActionSet::default(),
         ambition_platformer2d::characters::brain::action_set::IdentityKit::default(),
         ambition_platformer2d::combat::moveset::ActorMoveset::default(),

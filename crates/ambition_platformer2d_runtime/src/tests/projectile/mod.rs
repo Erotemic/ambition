@@ -132,7 +132,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     app.add_message::<ambition_combat::RangedFireRefused>();
     // The unified stepper can heal the player on a parry, so the message must be
     // registered even though player projectiles never trigger it.
-    app.add_message::<ambition_damage::healing::PlayerHealRequested>();
+    app.add_message::<ambition_damage::healing::BodyHealRequested>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default());
     app.add_plugins(ambition_characters::brain::BrainPlugin);
     app.add_systems(

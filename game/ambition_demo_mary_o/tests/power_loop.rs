@@ -688,7 +688,7 @@ use ambition_platformer2d::actor::spawn_encounter_mob;
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
     app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
-    app.add_message::<ambition_platformer2d::damage::healing::PlayerHealRequested>();
+    app.add_message::<ambition_platformer2d::damage::healing::BodyHealRequested>();
 
     // Every Mary-O enemy is a character of her cast, built as the game builds it.
     ambition_demo_mary_o::register_mary_o_cast(&mut app);

@@ -70,7 +70,7 @@ pub fn open_ecs_chests(
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     // The grant, routed to the body that opened it — the same three writers the
     // walk-over pickup hands to `grant_pickup`.
-    mut heals: MessageWriter<ambition_damage::healing::PlayerHealRequested>,
+    mut heals: MessageWriter<ambition_damage::healing::BodyHealRequested>,
     mut wallets: Query<&mut ambition_characters::actor::BodyWallet>,
     (mut owned, items): (
         Option<ResMut<ambition_items::OwnedItems>>,

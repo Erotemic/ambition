@@ -1,6 +1,6 @@
 use super::*;
 use ambition_combat::components::FeatureId;
-use ambition_damage::healing::PlayerHealRequested;
+use ambition_damage::healing::BodyHealRequested;
 use ambition_platformer2d_core::BodyBaseSize;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
@@ -43,7 +43,7 @@ fn health_pickup_at(app: &mut App, id: &str, pos: ae::Vec2) -> bevy::prelude::En
 fn collect_marks_only_the_overlapping_pickup() {
     let mut app = App::new();
     app.insert_resource(GameplayBanner::default());
-    app.add_message::<PlayerHealRequested>();
+    app.add_message::<BodyHealRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<SetFlagRequested>();
@@ -71,7 +71,7 @@ fn collect_marks_only_the_overlapping_pickup() {
 fn currency_pickup_credits_the_player_wallet() {
     let mut app = App::new();
     app.insert_resource(GameplayBanner::default());
-    app.add_message::<PlayerHealRequested>();
+    app.add_message::<BodyHealRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<SetFlagRequested>();
@@ -124,7 +124,7 @@ fn collecting_an_ability_pickup_grants_it_to_the_catalog() {
     // The pickup's ability id names an item through the App's item catalog.
     app.insert_resource(ambition_items::test_item_catalog().clone());
     app.insert_resource(ambition_items::OwnedItems::default());
-    app.add_message::<PlayerHealRequested>();
+    app.add_message::<BodyHealRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<SetFlagRequested>();
@@ -171,7 +171,7 @@ fn collecting_an_ability_pickup_grants_it_to_the_catalog() {
 fn collect_is_a_noop_with_no_player() {
     let mut app = App::new();
     app.insert_resource(GameplayBanner::default());
-    app.add_message::<PlayerHealRequested>();
+    app.add_message::<BodyHealRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<SetFlagRequested>();
@@ -343,7 +343,7 @@ mod who_gets_it {
     fn winner_with_spawn_order(order: [u8; 2]) -> SimId {
         let mut app = App::new();
         app.insert_resource(GameplayBanner::default());
-        app.add_message::<PlayerHealRequested>();
+        app.add_message::<BodyHealRequested>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<VfxInRoom>();
         app.add_message::<SetFlagRequested>();
@@ -370,12 +370,12 @@ mod who_gets_it {
              nothing about who won"
         );
         let world = app.world_mut();
-        let heals = world.resource_mut::<bevy::prelude::Messages<PlayerHealRequested>>();
+        let heals = world.resource_mut::<bevy::prelude::Messages<BodyHealRequested>>();
         let mut cursor = heals.get_cursor();
         let target = cursor
             .read(&heals)
             .next()
-            .and_then(|heal| heal.target)
+            .map(|heal| heal.target)
             .expect("the heal is routed to the specific body that collected it");
         let world = app.world();
         world
@@ -412,7 +412,7 @@ mod who_gets_it {
     fn the_nearer_body_wins_even_with_the_higher_identity() {
         let mut app = App::new();
         app.insert_resource(GameplayBanner::default());
-        app.add_message::<PlayerHealRequested>();
+        app.add_message::<BodyHealRequested>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<VfxInRoom>();
         app.add_message::<SetFlagRequested>();
@@ -427,12 +427,12 @@ mod who_gets_it {
         app.update();
 
         let world = app.world_mut();
-        let heals = world.resource::<bevy::prelude::Messages<PlayerHealRequested>>();
+        let heals = world.resource::<bevy::prelude::Messages<BodyHealRequested>>();
         let mut cursor = heals.get_cursor();
         let target = cursor
             .read(heals)
             .next()
-            .and_then(|heal| heal.target)
+            .map(|heal| heal.target)
             .expect("a heal was routed");
         assert_eq!(
             app.world().get::<SimId>(target).cloned(),
@@ -582,7 +582,7 @@ fn a_restore_takes_the_dying_participant_out_of_each_consumed_record() {
 fn a_body_in_sideways_gravity_collects_the_pickup_its_own_box_touches() {
     let mut app = App::new();
     app.insert_resource(GameplayBanner::default());
-    app.add_message::<PlayerHealRequested>();
+    app.add_message::<BodyHealRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<SetFlagRequested>();
@@ -625,7 +625,7 @@ fn a_body_in_sideways_gravity_collects_the_pickup_its_own_box_touches() {
 fn a_collected_pickup_reports_its_id_to_the_quests() {
     let mut app = App::new();
     app.insert_resource(GameplayBanner::default());
-    app.add_message::<PlayerHealRequested>();
+    app.add_message::<BodyHealRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<SetFlagRequested>();

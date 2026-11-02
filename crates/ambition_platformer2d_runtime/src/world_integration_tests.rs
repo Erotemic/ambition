@@ -241,7 +241,7 @@ fn interact_buffered_opens_adjacent_chest() {
     app.add_message::<SetFlagRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
-    app.add_message::<ambition_damage::healing::PlayerHealRequested>();
+    app.add_message::<ambition_damage::healing::BodyHealRequested>();
 
     spawn_interaction_player(&mut app, center);
 
@@ -284,7 +284,7 @@ fn interact_buffered_does_not_open_distant_chest() {
     app.add_message::<SetFlagRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
-    app.add_message::<ambition_damage::healing::PlayerHealRequested>();
+    app.add_message::<ambition_damage::healing::BodyHealRequested>();
 
     spawn_interaction_player(&mut app, player_pos);
 
@@ -318,7 +318,7 @@ fn interact_does_not_reopen_already_opened_chest() {
     app.add_message::<SetFlagRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
-    app.add_message::<ambition_damage::healing::PlayerHealRequested>();
+    app.add_message::<ambition_damage::healing::BodyHealRequested>();
 
     spawn_interaction_player(&mut app, center);
 

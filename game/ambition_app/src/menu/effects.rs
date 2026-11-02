@@ -105,6 +105,8 @@ pub(crate) type MenuEffectPlayers<'w, 's> = Query<
 pub(crate) struct PrimaryHand<'w, 's> {
     // The catalog that names the item in the hand.
     items: ambition_platformer2d::items::ItemCatalogRead<'w>,
+    drivers: Query<'w, 's, &'static ambition_platformer2d::characters::control::DrivingParticipant,
+        (With<PlayerEntity>, With<PrimaryPlayer>)>,
     held: Query<'w, 's, Option<&'static HeldItem>, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     // The abilities it wears.
     worn: Query<
@@ -123,6 +125,10 @@ pub(crate) struct PrimaryHand<'w, 's> {
 }
 
 impl PrimaryHand<'_, '_> {
+    pub(crate) fn participant(&self) -> Option<ambition_platformer2d::characters::control::PlayerSlot> {
+        self.drivers.single().ok().map(|driver| driver.0)
+    }
+
     /// The catalog item in the primary player's hand, or `None` for an empty
     /// hand, an item the catalog has no row for, or no primary player at all.
     pub(crate) fn in_hand(&self) -> Option<Item> {
@@ -217,13 +223,15 @@ pub(crate) fn dispatch_item_confirm(
 ) -> MenuAction {
     let items = hand.items();
     let action = decide(items, item, &Inventory::new(owned, hand.in_hand()), hand.equipped());
-    apply_menu_action(items, action, commands, players, requests);
+    let Some(participant) = hand.participant() else { return MenuAction::Inspect(item); };
+    apply_menu_action(items, participant, action, commands, players, requests);
     action
 }
 
 /// Turn a decided [`MenuAction`] into its ECS side effects.
 pub(crate) fn apply_menu_action(
     items: &ItemCatalog,
+    participant: ambition_platformer2d::characters::control::PlayerSlot,
     action: MenuAction,
     commands: &mut Commands,
     players: &mut MenuEffectPlayers<'_, '_>,
@@ -232,7 +240,7 @@ pub(crate) fn apply_menu_action(
     match action {
         // An ability is worn by the simulation, on its own tick.
         MenuAction::Equip(item) if items.category(item) == Some(ItemCategory::Ability) => {
-            requests.equips.write(ambition_platformer2d::items::ItemEquipRequested { item });
+            requests.equips.write(ambition_platformer2d::items::ItemEquipRequested { participant, item });
         }
         MenuAction::Equip(item) => {
             // The portal gun equips via its own component; other weapons via a
@@ -285,7 +293,7 @@ pub(crate) fn apply_menu_action(
             }
         }
         MenuAction::UseConsumable(item @ (Item::HealthCell | Item::ManaCell)) => {
-            requests.uses.write(ambition_platformer2d::items::ItemUseRequested { item });
+            requests.uses.write(ambition_platformer2d::items::ItemUseRequested { participant, item });
         }
         MenuAction::UseConsumable(_) | MenuAction::Inspect(_) | MenuAction::NotOwned(_) => {}
     }

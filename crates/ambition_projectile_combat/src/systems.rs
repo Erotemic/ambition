@@ -742,7 +742,7 @@ pub fn step_projectiles(
     >,
     mut sfx: SfxWriter,
     mut vfx: VfxWriter,
-    mut heals: MessageWriter<ambition_damage::healing::PlayerHealRequested>,
+    mut heals: MessageWriter<ambition_damage::healing::BodyHealRequested>,
     mut trace: ResMut<GameplayTraceBuffer>,
     // Damage authority comes from the firer's faction/grudge/team. Match team outranks
     // faction for whether a shot may land; bosses use the authored catalog below.
@@ -1358,10 +1358,7 @@ pub fn step_projectiles(
                         AttackAllegiance::from_body(*victim.faction, victim.team, victim.driver),
                         &super::intercept::ProjectileInterception::Consume,
                     );
-                    if victim.is_player {
-                        heals.write(ambition_damage::healing::PlayerHealRequested::new(PARRY_HEAL,
-                        ));
-                    }
+                    heals.write(ambition_damage::healing::BodyHealRequested::new(PARRY_HEAL, victim.entity));
                     // ⛔⛔ A SWALLOWED SHOT IS GONE, AND THIS USED TO `continue`
                     // THE VICTIM LOOP. `intercept_projectile` returns whether the
                     // projectile SURVIVED precisely so a caller can tell "it is
@@ -1398,10 +1395,7 @@ pub fn step_projectiles(
                         &mut sfx,
                         &mut vfx,
                     );
-                    if victim.is_player {
-                        heals.write(ambition_damage::healing::PlayerHealRequested::new(PARRY_HEAL,
-                        ));
-                    }
+                    heals.write(ambition_damage::healing::BodyHealRequested::new(PARRY_HEAL, victim.entity));
                     reflected = true;
                     break;
                 }

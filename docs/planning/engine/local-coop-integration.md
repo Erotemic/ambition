@@ -736,9 +736,7 @@ Touch drags also reach the primary seat's menu frame. Guard:
 `two_seats_open_navigate_and_close_their_own_menus_with_one_pause` covers both
 backends and release of the last pause claim. The production capture still
 draws the equipment menu. Do not restore a global input fallback.
-Surface creation, prompts, raw rebind capture, pointer and wheel targets, render
-layers and viewport isolation remain open. Keep a joining seat's Start press distinct
-from opening its menu when the second frontend is enabled.
+Keep a joining seat's Start press distinct from opening its menu.
 
 Cube folds, material fades, camera gates and scrims follow each menu owner
 (`10541009d`). Animation changes only that ring's faces. Material fades resolve
@@ -758,6 +756,20 @@ menu root. Narrow regions change field of view, not camera position. Guards:
 The GPU guard `two_menu_cameras_draw_only_their_own_scene_into_their_regions`
 (`--ignored`) checks pixels from two four-face scenes. The production equipment
 capture also passes visual review. Do not restore world-layer cube scenes or
-camera-distance fitting. Main-game menu admission and retirement, Grid tree
-publication, prompts, rebind capture and remaining pointer/wheel routing still
-need the full two-pad playthrough.
+camera-distance fitting.
+
+Grid publication now rebuilds and closes only the owning menu's tree
+(`71ac19417`). Late menus receive scrims. Grid roots, scrims and Cube cameras
+share a linked lifetime with their menu. Guards:
+`grid_trees_rebuild_close_and_retire_with_only_their_own_menu` and
+`late_menus_get_scrims_and_retire_without_removing_the_display_camera`.
+The production equipment capture passes visual review. Do not restore global
+Grid teardown or startup-only scrims.
+
+Wheel input now targets the visible menu under the mouse in its display window
+(`e9600e15f`). Both backend readers use each menu's state. The guard
+`wheel_scrolls_only_the_visible_menu_under_the_mouse` covers both backends,
+adjacent region edges and hidden menus. The Cube guard also covers a second
+participant's drag. Do not restore a global wheel target or a primary-menu
+fallback. Main-game menu admission and retirement, prompts, rebind capture and
+remaining pointer routing still need the full two-pad playthrough.

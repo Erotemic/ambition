@@ -736,6 +736,17 @@ Touch drags also reach the primary seat's menu frame. Guard:
 `two_seats_open_navigate_and_close_their_own_menus_with_one_pause` covers both
 backends and release of the last pause claim. The production capture still
 draws the equipment menu. Do not restore a global input fallback.
-Surface creation, prompts, raw rebind capture, pointer and wheel targets, fold
-and viewport isolation remain open. Keep a joining seat's Start press distinct
+Surface creation, prompts, raw rebind capture, pointer and wheel targets, render
+layers and viewport isolation remain open. Keep a joining seat's Start press distinct
 from opening its menu when the second frontend is enabled.
+
+Cube folds, material fades, camera gates and scrims follow each menu owner
+(`10541009d`). Animation changes only that ring's faces. Material fades resolve
+ownership through the scene tree and retain the settled fast path. Picking
+checks each active camera and its owner's controls inside its viewport.
+Guards: `a_settled_ring_does_not_stop_another_menus_fold`,
+`each_menu_fades_only_its_own_descendants` and
+`each_cubes_camera_and_scrim_follow_its_own_fold`. The production equipment
+capture also passes visual review. Do not restore a global fold state.
+Dynamic surface creation, render layers, viewport layout, prompts, raw rebind
+capture and remaining pointer/wheel routing still need two-pad acceptance.

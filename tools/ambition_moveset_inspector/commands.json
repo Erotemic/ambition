@@ -2,6 +2,7 @@
   "commands": [
     {
       "id": "moveset",
+      "url": "http://127.0.0.1:8777/",
       "title": "Tune a move and inspect moveset balance",
       "owner": "tools/ambition_moveset_inspector",
       "command": "bash tools/ambition_moveset_inspector/serve_inspector.sh --no-export",

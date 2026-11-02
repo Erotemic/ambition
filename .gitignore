@@ -194,7 +194,7 @@ crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_0
 crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_0_25x/
 crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_potato/
 # Which generator made each generated art file: written by the publishes,
-# read by the art inspector (`tools/asset_inspector`). Not a runtime root.
+# read by the art inspector (`tools/ambition_editor`). Not a runtime root.
 crates/ambition_platformer2d_actor_monolith/asset_provenance/
 
 # Agent/worktree scratch (must never be committed)

@@ -366,7 +366,7 @@ uses selected publications. Python packaging and Rust also differ on missing
 publications and stale generation identities.
 
 **Owner:** `ambition_asset_manager::content_library`,
-`scripts/lib/content_libraries.py`, `tools/asset_inspector/asset_index`, and
+`scripts/lib/content_libraries.py`, `tools/ambition_editor/asset_index`, and
 provider library installation.
 Design: [asset library review, A and E](engine/asset-library-implementation-review.md#a-selection-is-correct-in-the-runtime-but-not-uniform-in-the-tools).
 
@@ -474,7 +474,7 @@ No tool or submodule move is part of this slice.
 **Failure:** the Asset Inspector and specialist tools have separate entry
 points, with no common navigation for existing inspection workflows.
 
-**Owner:** the existing `tools/asset_inspector` implementation and its CLI.
+**Owner:** the existing `tools/ambition_editor` implementation and its CLI.
 Design: [tooling layout, T2](engine/tooling-layout-and-editor-consolidation.md).
 
 **Depends on:** TOOL-DISCOVERY and its path-consumer inventory.

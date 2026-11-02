@@ -174,6 +174,8 @@ def build(
     partial.replace(out / "catalog.js")
     for name in ("index.html", "app.js", "app.css", "inventory.js", "characters.js", "reviews.js", "items.js"):
         shutil.copyfile(WEB / name, out / name)
+    from .workbench import write_tools
+    write_tools(repo, out)
     step(f"wrote {out / 'index.html'} ({len(assets)} assets, {len(products)} files, {len(found)} findings)")
     return catalog
 

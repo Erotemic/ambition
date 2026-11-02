@@ -74,7 +74,7 @@ The implementation already separates several concerns:
 | Selected runtime files | `ContentLibrary::files()` and `LibrarySnapshot` | The selected publication owns managed generated roots. |
 | Immutable products | Python `publication_store.Store` | Acceptance, selection and deep audit currently overlap. |
 | Runtime bytes | Bevy `AssetSource` and `AssetServer` | Do not copy this loader into the inspector. |
-| Editor read model | `tools/asset_inspector/asset_index/` | Some media paths do not yet use publication selection. |
+| Editor read model | `tools/ambition_editor/asset_index/` | Some media paths do not yet use publication selection. |
 | Audio products | `music` and `sfx` producers in `library.json` | Music uses cue-level output; SFX exposes a bank. |
 | Packaging | `scripts/package_asset_guard.py` | The complete game release is a separate concern. |
 | Freshness reports | `scripts/content_status.py` | Its normal mode is advisory; strict mode is opt-in. |

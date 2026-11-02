@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Build the offline asset inspector: every art file, the generator that made it
-and where the game uses it (`tools/asset_inspector/README.md`).
+and where the game uses it (`tools/ambition_editor/README.md`).
 
     python3 scripts/asset_inspector.py build [--open] [--jobs N] [--no-previews] [--prune]
 
@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TOOL = ROOT / "tools" / "asset_inspector"
+TOOL = ROOT / "tools" / "ambition_editor"
 
 
 def _has_dependencies() -> bool:

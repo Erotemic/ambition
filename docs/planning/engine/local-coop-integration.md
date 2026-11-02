@@ -342,7 +342,7 @@ The current product rules are in
 | Reported symptom | Source finding | Confidence and limit |
 |---|---|---|
 | Player 2 cannot drive dialogue that Player 2 opened | `InputOwner` projects from the conversation to `DialogState` and `DialogView`; input reads the accepted owner frame from `SeatMenuFrames`. | **Fixed in `94d8822f9`**; real controller tests cover same-room and separate-room dialogue, including navigation and close ownership. |
-| Dialogue covers the entire display | Both presenters use `DialogSurface` to resolve the owner view and clip the root. `DialogPointerRegion` uses the same rectangle. | **Fixed in `94d8822f9`**; split/merge tests and a real GPU capture check bounds. This does not close other UI or transition surfaces. |
+| Dialogue covers the entire display | Both presenters use `ParticipantSurface` to resolve the owner view and clip the root. `DialogPointerRegion` uses the same rectangle. | **Fixed in `94d8822f9`**; split/merge tests and a real GPU capture check bounds. This does not close other UI or transition surfaces. |
 | Always-split view mode | `VideoSettings::local_view_layout` selects `Adaptive` or `AlwaysSplit` through the shared settings menu. The existing view and camera owners apply it. | **Built 2026-11-01** (`751ad0b34`). Controller and GPU tests cover live switching, retained session/body identity, separate rectangles and drawn panes. |
 | Player 2 stays in blink state | Every `PlayerBlinkCameraState` advances on wall time. Every preview reads committed seat controls through the driven body. | **Fixed in `0754ed273`**; the two-seat simulation test covers press, hold, release and completed cooldown. A separate paused-clock test covers presentation decay. |
 | Player strikes do not hurt the other player | `FriendlyFire::default().enabled` is false. Both driven bodies resolve to `ActorFaction::Player`; `damage_lands_between` allows same-faction damage only when friendly fire is enabled (unless another relation overrides). | **Confirmed default rule explains allied damage rejection**. Prove Ambition's actual resolved room rule and all attack families. The explicit `friendly_fire: false` in `game/ambition_app/assets/data/room_rules.ron` is a **Versus** stage declaration, not the general Ambition room default. |
@@ -748,5 +748,16 @@ Guards: `a_settled_ring_does_not_stop_another_menus_fold`,
 `each_menu_fades_only_its_own_descendants` and
 `each_cubes_camera_and_scrim_follow_its_own_fold`. The production equipment
 capture also passes visual review. Do not restore a global fold state.
-Dynamic surface creation, render layers, viewport layout, prompts, raw rebind
-capture and remaining pointer/wheel routing still need two-pad acceptance.
+
+Menu scenes now have private render layers and participant regions
+(`c6c696a66`). Dialogue and menus share the `ParticipantSurface` resolver.
+Late cube scenes inherit their own layers and release their cameras with the
+menu root. Narrow regions change field of view, not camera position. Guards:
+`late_menu_scenes_inherit_private_layers_and_release_their_cameras` and
+`adjacent_menu_viewports_share_one_rounded_edge_at_fractional_scale`.
+The GPU guard `two_menu_cameras_draw_only_their_own_scene_into_their_regions`
+(`--ignored`) checks pixels from two four-face scenes. The production equipment
+capture also passes visual review. Do not restore world-layer cube scenes or
+camera-distance fitting. Main-game menu admission and retirement, Grid tree
+publication, prompts, rebind capture and remaining pointer/wheel routing still
+need the full two-pad playthrough.

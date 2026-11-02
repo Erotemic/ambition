@@ -781,8 +781,19 @@ Guards: `a_settled_ring_does_not_stop_another_menus_fold`,
 `each_menu_fades_only_its_own_descendants` and
 `each_cubes_camera_and_scrim_follow_its_own_fold`. The production equipment
 capture also passes visual review. Do not restore a global fold state.
-Dynamic surface creation, render layers, viewport layout, prompts, raw rebind
-capture and remaining pointer/wheel routing still need two-pad acceptance.
+
+Menu scenes now have private render layers and participant regions
+(`c6c696a66`). Dialogue and menus share the `ParticipantSurface` resolver.
+Late cube scenes inherit their own layers and release their cameras with the
+menu root. Narrow regions change field of view, not camera position. Guards:
+`late_menu_scenes_inherit_private_layers_and_release_their_cameras` and
+`adjacent_menu_viewports_share_one_rounded_edge_at_fractional_scale`.
+The GPU guard `two_menu_cameras_draw_only_their_own_scene_into_their_regions`
+(`--ignored`) checks pixels from two four-face scenes. The production equipment
+capture also passes visual review. Do not restore world-layer cube scenes or
+camera-distance fitting. Main-game menu admission and retirement, Grid tree
+publication, prompts, rebind capture and remaining pointer/wheel routing still
+need the full two-pad playthrough.
 
 **Next action (ordered slices; complete each behavior gate before moving):**
 
@@ -790,6 +801,9 @@ capture and remaining pointer/wheel routing still need two-pad acceptance.
    inventory, and viewport UI for Grid and Kaleidoscope. Use the shared offline
    pause arbiter; each seat must still control its own menu. A local menu on
    a remote timeline captures its participant's input without pausing peers.
+   Reconcile menu entities with admitted local participants. Finish Grid tree
+   publication, scrim lifecycle, prompts, rebind capture and pointer/wheel
+   routing. Keep the joining Start press distinct from opening a new menu.
    Prove the full menu path with two pads before closing this slice.
 5. **Per-view presentation isolation:** a room transition cover follows only
    its affected participant/view; the other viewport renders and accepts

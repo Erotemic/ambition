@@ -62,124 +62,74 @@ pub(crate) fn kaleidoscope_pointer_move(
         &AmbitionMenuControl<MenuPageAction>,
         &ambition_platformer2d::menu::MenuSurface,
     )>,
-    pages: Single<(Entity, &ActiveMenuPages<MenuPage, MenuPageAction>)>,
-    system_nav: Res<KaleidoscopeSystemNav>,
+    mut menus: Query<(
+        &ambition_platformer2d::inventory_ui::InventoryUiState,
+        &ActiveMenuPages<MenuPage, MenuPageAction>,
+        &KaleidoscopeSystemNav,
+        &VisualQualityConfirmState,
+        &mut KaleidoscopeCursor,
+        &CachedSystemMenu,
+    )>,
     settings: Res<UserSettings>,
-    quality_confirm: Res<VisualQualityConfirmState>,
     devices: Res<ambition_platformer2d::input::SeatActiveDevices>,
     snapshot: SystemMenuSnapshotParams,
-    mut cursor: ResMut<KaleidoscopeCursor>,
-    // The rows `cache_system_menu` already built this frame. See the hover path
-    // below for why a hover may use them and a press may not.
-    cache: Res<CachedSystemMenu>,
-    // Feature E: a press in flight is cancelled (no click) once the pointer drags
-    // past the tap threshold from its press origin.
     mut interactions: Query<&mut ambition_platformer2d::menu::MenuInteraction<MenuPageAction>>,
     mut sfx: SfxWriter,
-    // ⛔⛤ THE GATE ITS TWO SIBLINGS ALREADY HAD — added 2026-09-18. The backend
-    // is read from `snapshot`, which already holds it, rather than taken as a
-    // second `Res`.
-    ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
 ) {
-    // Feature E: if a press is active and the pointer has now travelled past the tap
-    // threshold, this is a DRAG — the arm marks itself cancelled so the eventual
-    // release does not activate the control. (This drag-cancel runs regardless of the
-    // active-input gate below: a touch/pen drag must still cancel a tap.)
-    let (menu_entity, pages) = pages.into_inner();
+    // A drag must cancel its press even if the backend or focus source changed.
     for mut interaction in &mut interactions {
         interaction.move_pointer(move_.pointer_id, move_.pointer_location.position);
     }
-    // ⛔⛤ **THIS BACKEND, AND ONLY WHILE ITS MENU IS OPEN — 2026-09-18.** An
-    // observer takes no `run_if`, so `kaleidoscope_pointer_press` and
-    // `kaleidoscope_pointer_release` each open with this exact test and this one
-    // did not. That mattered because the cursor below is SHARED: `grid_backend.rs`
-    // says the *"shared cursor and drill state stay on `KaleidoscopeCursor` /
-    // `KaleidoscopeSystemNav`"*, these observers are installed whenever the cube
-    // feature is COMPILED rather than when the cube is selected, and a grid menu
-    // control carries the same `AmbitionMenuControl<MenuPageAction>` this query
-    // matches. ⇒ With the flat backend active, a mouse move over a GRID row
-    // reached here and wrote the shared cursor with `owner = Pointer`. (A grid
-    // hover moves no cursor at all: hover is a presentation state, Q70.)
-    //
-    // ⚠ BELOW THE DRAG-CANCEL ABOVE, DELIBERATELY. A press can only have been
-    // armed while this backend was active and open (the press observer's own
-    // gate), and cancelling one is not a cursor write; the comment above says a
-    // touch/pen drag must still cancel a tap.
-    let open = ui_state.map(|state| state.visible).unwrap_or(false);
-    if snapshot.backend.effective() != InventoryUiBackend::LunexKaleidoscope || !open {
+    if snapshot.backend.effective() != InventoryUiBackend::LunexKaleidoscope
+        || devices.machine() != ambition_platformer2d::input::ActiveDevice::Mouse
+    {
         return;
     }
-    // Hover-select is gated on a GENUINE mouse being the active source. A cube
-    // republish respawns controls under a stationary mouse and fires `Pointer<Move>`
-    // for the new control; without this gate the cursor snaps back to the mouse on
-    // every keyboard/gamepad/touch directional move. A real mouse move sets
-    // active=Mouse (see `update_active_input_kind`) so hovering still works; clicks
-    // are unaffected (separate press/release observers).
-    if devices.machine() != ambition_platformer2d::input::ActiveDevice::Mouse {
+    let Ok((control, surface)) = controls.get(move_.entity) else {
+        return;
+    };
+    let Ok((state, pages, system_nav, quality_confirm, mut cursor, cache)) =
+        menus.get_mut(surface.0)
+    else {
+        return;
+    };
+    if !state.visible {
         return;
     }
     let Some(active_page) = pages.active else {
         return;
     };
-    if let Ok((control, surface)) = controls.get(move_.entity) {
-        if surface.0 != menu_entity {
-            return;
+    let Some(action) = control.action else {
+        return;
+    };
+    let next = match focus_without_system_model(action, active_page) {
+        Some(focus) => focus,
+        None if cache.rows_are_current_for(system_nav.open_entry) => {
+            focus_for_action(action, active_page, &cache.rows)
         }
-        if let Some(action) = control.action {
-            // A hover fires on EVERY mouse move across a control, so the settings IR
-            // is built only for the actions that actually read it (a System row's
-            // index). Hovering the Items/Map/Quest faces now costs nothing:
-            // `SystemMenuModel::build` walks the whole settings IR and allocates a
-            // `String` per label, description and value, and both snapshots clone
-            // their lists.
-            let next = match focus_without_system_model(action, active_page) {
-                Some(focus) => focus,
-                // ⭐⭐ THE ROWS THIS FRAME ALREADY BUILT. A hover fires on every
-                // mouse move across a control and this used to rebuild the WHOLE
-                // settings IR — a `String` per label, description and value, plus
-                // both snapshots — to resolve one row index. D-CUBE-CHURN closed
-                // around it and recorded it as larger than either allocation the
-                // row had named.
-                //
-                // ⛔ AND IT IS NOT A BARE CACHE SWAP, which is why the row left it.
-                // `cache.rows` is populated ONLY while the System face is active,
-                // and a System action stays reachable off it
-                // (`focus_without_system_model` answers only for
-                // Equip/Use/ChangePage) — so substituting an empty `cache.rows`
-                // would resolve every such hover to `MenuFocus::System(0)`.
-                // `rows_are_current_for` is that guard plus the one staleness an
-                // OBSERVER can hit: this fires whenever a `Pointer<Move>` arrives,
-                // which may precede this frame's `cache_system_menu`, and the
-                // drill-down is the only input a press can move underneath it.
-                None if cache.rows_are_current_for(system_nav.open_entry) => {
-                    focus_for_action(action, active_page, &cache.rows)
-                }
-                None => {
-                    // Off the System face, or the drill state moved since the
-                    // cache ran: build the model, as this path always did.
-                    let model = SystemMenuModel::build(
-                        &settings,
-                        &snapshot.radio_snapshot(),
-                        &snapshot.dev_snapshot(),
-                    );
-                    let rows = system_rows_with_quality_prompt(
-                        &model,
-                        system_nav.open_entry,
-                        quality_confirm.pending(),
-                    );
-                    focus_for_action(action, active_page, &rows)
-                }
-            };
-            if cursor.last_pointer_focus == Some(next) {
-                return;
-            }
-            cursor.last_pointer_focus = Some(next);
-            if cursor.focus != next {
-                cursor.focus = next;
-                cursor.owner = FocusSource::Pointer;
-                play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_MOVE);
-            }
+        None => {
+            // An observer can run before the cache sees a changed drill-down.
+            let model = SystemMenuModel::build(
+                &settings,
+                &snapshot.radio_snapshot(),
+                &snapshot.dev_snapshot(),
+            );
+            let rows = system_rows_with_quality_prompt(
+                &model,
+                system_nav.open_entry,
+                quality_confirm.pending(),
+            );
+            focus_for_action(action, active_page, &rows)
         }
+    };
+    if cursor.last_pointer_focus == Some(next) {
+        return;
+    }
+    cursor.last_pointer_focus = Some(next);
+    if cursor.focus != next {
+        cursor.focus = next;
+        cursor.owner = FocusSource::Pointer;
+        play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_MOVE);
     }
 }
 
@@ -196,11 +146,11 @@ pub(crate) fn kaleidoscope_pointer_release(
         &ambition_platformer2d::inventory_ui::InventoryUiState,
         &ActiveMenuPages<MenuPage, MenuPageAction>,
         &mut ambition_platformer2d::menu::MenuInteraction<MenuPageAction>,
+        &mut KaleidoscopeCursor,
+        &KaleidoscopeSystemNav,
+        &VisualQualityConfirmState,
     )>,
-    mut cursor: ResMut<KaleidoscopeCursor>,
-    system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
-    quality_confirm: Res<VisualQualityConfirmState>,
     mut activated: MessageWriter<MenuActionActivated<MenuPageAction>>,
     // Still needed for the focus resolve below (`system.model`), not for dispatch.
     system: SystemMenuParams,
@@ -208,7 +158,8 @@ pub(crate) fn kaleidoscope_pointer_release(
     if system.backend() != InventoryUiBackend::LunexKaleidoscope {
         return;
     }
-    for (menu, state, pages, mut interaction) in &mut menus {
+    for (menu, state, pages, mut interaction, mut cursor, system_nav, quality_confirm) in &mut menus
+    {
         let Some(action) = interaction.release_pointer(release.pointer_id) else {
             continue;
         };

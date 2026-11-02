@@ -361,9 +361,9 @@ mod dispatch_parity {
         install_bevy_ui_menu_actions, BevyUiMenuInteractionSet,
     };
 
-    use crate::menu::grid_backend::{grid_menu_action_activated, GridMenuTabState};
+    use crate::menu::grid_backend::{grid_menu_action_activated};
     use crate::menu::kaleidoscope_app::{
-        kaleidoscope_pointer_press, kaleidoscope_pointer_release, KaleidoscopeCursor,
+        kaleidoscope_pointer_press, kaleidoscope_pointer_release,
         KaleidoscopeSystemNav,
     };
     use crate::menu::model::{MenuPage, MenuPageAction};
@@ -382,14 +382,11 @@ mod dispatch_parity {
     /// `dispatch_menu_action`.
     fn menu_app(backend: InventoryUiBackend) -> App {
         let mut app = App::new();
-        app.init_resource::<crate::menu::quality_confirm::VisualQualityConfirmState>();
+
         app.add_plugins(bevy::state::app::StatesPlugin);
         app.init_state::<GameMode>();
         app.init_resource::<InventoryUiBackend>();
-        app.init_resource::<KaleidoscopeCursor>();
-        app.init_resource::<KaleidoscopeSystemNav>();
-        app.init_resource::<crate::menu::kaleidoscope_app::RebindCapture>();
-        app.init_resource::<GridMenuTabState>();
+
         app.insert_resource(ambition_platformer2d::items::test_item_catalog().clone());
         app.init_resource::<OwnedItems>();
         app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>();
@@ -663,11 +660,11 @@ mod dispatch_parity {
 
         let mut grid = menu_app(InventoryUiBackend::Grid);
         activate(&mut grid, InventoryUiBackend::Grid, action);
-        let grid_open = grid.world().resource::<KaleidoscopeSystemNav>().open_entry;
+        let grid_open = crate::menu::test_support::menu_component::<KaleidoscopeSystemNav>(grid.world()).open_entry;
 
         let mut cube = menu_app(InventoryUiBackend::LunexKaleidoscope);
         activate(&mut cube, InventoryUiBackend::LunexKaleidoscope, action);
-        let cube_open = cube.world().resource::<KaleidoscopeSystemNav>().open_entry;
+        let cube_open = crate::menu::test_support::menu_component::<KaleidoscopeSystemNav>(cube.world()).open_entry;
 
         assert_eq!(grid_open, Some(SystemMenuEntryId::Audio));
         assert_eq!(
@@ -675,4 +672,49 @@ mod dispatch_parity {
             "both backends drill into the same System entry through dispatch_menu_action"
         );
     }
+    #[test]
+    fn two_menus_dispatch_drill_quality_rebind_and_close_independently() {
+        use crate::menu::quality_confirm::VisualQualityConfirmState;
+        use crate::menu::kaleidoscope_app::RebindCapture;
+        use ambition_platformer2d::inventory_ui::{InventoryMenu, InventoryUiState};
+        use ambition_platformer2d::input::ParticipantId;
+        use ambition_platformer2d::menu::MenuActionActivated;
+        use ambition_platformer2d::settings_menu::system::SystemOptionId;
+        for backend in [InventoryUiBackend::Grid, InventoryUiBackend::LunexKaleidoscope] {
+            let mut app = menu_app(backend);
+            let first = crate::menu::test_support::menu_id(app.world());
+            app.world_mut().get_mut::<InventoryUiState>(first).unwrap().visible = true;
+            let second = app.world_mut().spawn((crate::menu::MenuInstance,
+                InventoryMenu { owner: ParticipantId::SECONDARY },
+                InventoryUiState { visible: true, ..Default::default() },
+                ambition_platformer2d::menu::ActiveMenuPages::<MenuPage, MenuPageAction>::default(),
+            )).id();
+            let send = |app: &mut App, menu, action| {
+                app.world_mut().write_message(MenuActionActivated { menu, action });
+            };
+            send(&mut app, first, MenuPageAction::OpenSystemEntry(SystemMenuEntryId::Video));
+            send(&mut app, second, MenuPageAction::OpenSystemEntry(SystemMenuEntryId::Audio));
+            send(&mut app, first, MenuPageAction::SystemStep(SettingsOptionId::VisualQuality, 1));
+            send(&mut app, second, MenuPageAction::SystemOption(SystemOptionId::Rebind(2)));
+            app.update();
+            assert_eq!(app.world().get::<KaleidoscopeSystemNav>(first).unwrap().open_entry, Some(SystemMenuEntryId::Video));
+            assert_eq!(app.world().get::<KaleidoscopeSystemNav>(second).unwrap().open_entry, Some(SystemMenuEntryId::Audio));
+            assert!(app.world().get::<VisualQualityConfirmState>(first).unwrap().pending().is_some());
+            assert!(app.world().get::<VisualQualityConfirmState>(second).unwrap().pending().is_none());
+            assert_eq!(app.world().get::<RebindCapture>(first).unwrap().armed(), None);
+            assert_eq!(app.world().get::<RebindCapture>(second).unwrap().armed(), Some(2));
+            let quality = app.world().resource::<UserSettings>().video.quality.profile;
+            send(&mut app, second, MenuPageAction::ConfirmVisualQuality);
+            app.update();
+            assert_eq!(app.world().resource::<UserSettings>().video.quality.profile, quality);
+            assert!(app.world().get::<VisualQualityConfirmState>(first).unwrap().pending().is_some());
+            send(&mut app, first, MenuPageAction::CloseMenu);
+            send(&mut app, second, MenuPageAction::OpenSystemEntry(SystemMenuEntryId::Video));
+            app.update();
+            assert!(!app.world().get::<InventoryUiState>(first).unwrap().visible);
+            assert!(app.world().get::<InventoryUiState>(second).unwrap().visible);
+            assert_eq!(app.world().get::<KaleidoscopeSystemNav>(second).unwrap().open_entry, Some(SystemMenuEntryId::Video));
+        }
+    }
+
 }

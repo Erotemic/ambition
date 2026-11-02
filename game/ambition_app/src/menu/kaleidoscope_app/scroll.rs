@@ -36,16 +36,20 @@ fn system_row_count(
 pub(crate) fn kaleidoscope_scroll_wheel(
     backend: Res<InventoryUiBackend>,
     ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
-    pages: Single<&ActiveMenuPages<MenuPage, MenuPageAction>>,
-    system_nav: Res<KaleidoscopeSystemNav>,
+    pages: Single<(
+        &ActiveMenuPages<MenuPage, MenuPageAction>,
+        &KaleidoscopeSystemNav,
+        &VisualQualityConfirmState,
+        &KaleidoscopeCursor,
+        &mut KaleidoscopeScroll,
+    )>,
     settings: Res<UserSettings>,
     snapshot: SystemMenuSnapshotParams,
-    quality_confirm: Res<VisualQualityConfirmState>,
-    cursor: Res<KaleidoscopeCursor>,
-    mut scroll: ResMut<KaleidoscopeScroll>,
     mut wheel: MessageReader<bevy::input::mouse::MouseWheel>,
     menu_frame: Res<MenuControlFrame>,
 ) {
+    let (pages, system_nav, quality_confirm, cursor, mut scroll) = pages.into_inner();
+
     let open = ui_state.map(|s| s.visible).unwrap_or(false);
     if backend.effective() != InventoryUiBackend::LunexKaleidoscope || !open {
         wheel.clear();
@@ -97,39 +101,38 @@ pub(crate) fn kaleidoscope_scroll_wheel(
 /// host System-menu window. Selection is unchanged; only the visible rows move.
 pub(crate) fn kaleidoscope_apply_scroll_drag(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
-    pages: Single<(Entity, &ActiveMenuPages<MenuPage, MenuPageAction>)>,
-    system_nav: Res<KaleidoscopeSystemNav>,
+    mut menus: Query<(
+        &ambition_platformer2d::inventory_ui::InventoryUiState,
+        &ActiveMenuPages<MenuPage, MenuPageAction>,
+        &KaleidoscopeSystemNav,
+        &VisualQualityConfirmState,
+        &mut KaleidoscopeScroll,
+    )>,
     settings: Res<UserSettings>,
     snapshot: SystemMenuSnapshotParams,
-    quality_confirm: Res<VisualQualityConfirmState>,
-    mut scroll: ResMut<KaleidoscopeScroll>,
     mut dragged: MessageReader<ambition_platformer2d::menu::MenuScrollDragged>,
 ) {
-    let (menu_entity, pages) = pages.into_inner();
-    let open = ui_state.map(|s| s.visible).unwrap_or(false);
-    if backend.effective() != InventoryUiBackend::LunexKaleidoscope || !open {
+    if backend.effective() != InventoryUiBackend::LunexKaleidoscope {
         dragged.clear();
         return;
     }
-    // Use the LAST drag fraction this frame (the freshest pointer position).
-    let Some(fraction) = dragged
-        .read()
-        .filter(|drag| drag.menu == menu_entity)
-        .last()
-        .map(|d| d.fraction.clamp(0.0, 1.0))
-    else {
-        return;
-    };
-    let total = system_row_count(
-        &pages,
-        &system_nav,
-        &settings,
-        &snapshot,
-        quality_confirm.pending(),
-    );
-    let result = scroll_fraction_to_window_start(total, fraction);
-    if let Some(start) = result {
-        scroll.system_window_start = Some(start);
+    for drag in dragged.read() {
+        let Ok((state, pages, system_nav, quality_confirm, mut scroll)) = menus.get_mut(drag.menu)
+        else {
+            continue;
+        };
+        if !state.visible {
+            continue;
+        }
+        let total = system_row_count(
+            pages,
+            system_nav,
+            &settings,
+            &snapshot,
+            quality_confirm.pending(),
+        );
+        if let Some(start) = scroll_fraction_to_window_start(total, drag.fraction.clamp(0.0, 1.0)) {
+            scroll.system_window_start = Some(start);
+        }
     }
 }

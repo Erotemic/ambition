@@ -9,7 +9,7 @@ use super::*;
 /// [`kaleidoscope_sync_focus_visuals`], and [`kaleidoscope_sync_detail_text`]. They
 /// run back-to-back in one chain with identical inputs, so [`cache_system_menu`]
 /// builds them once and the three consumers read this.
-#[derive(Resource, Default)]
+#[derive(Component, Default)]
 pub(crate) struct CachedSystemMenu {
     /// The System model for the live face, or `None` when another face is active.
     pub(crate) model: Option<SystemMenuModel>,
@@ -54,46 +54,51 @@ impl CachedSystemMenu {
 /// face is active; the snapshots are always refreshed (the republish key carries them
 /// on every face). See [`CachedSystemMenu`] for why.
 pub(crate) fn cache_system_menu(
-    pages: Single<&ActiveMenuPages<MenuPage, MenuPageAction>>,
+    mut menus: Query<(
+        &ActiveMenuPages<MenuPage, MenuPageAction>,
+        &KaleidoscopeSystemNav,
+        &VisualQualityConfirmState,
+        &mut CachedSystemMenu,
+    )>,
     settings: Res<UserSettings>,
-    system_nav: Res<KaleidoscopeSystemNav>,
     snapshot: SystemMenuSnapshotParams,
-    quality_confirm: Res<VisualQualityConfirmState>,
-    mut cache: ResMut<CachedSystemMenu>,
 ) {
     let radio = snapshot.radio_snapshot();
     let dev = snapshot.dev_snapshot();
-    let quality = quality_confirm.pending();
-    if pages.active == Some(MenuPage::System) {
-        // Rebuild only when an INPUT'S VALUE moved. The model is the full
-        // settings IR plus a string per row, and this system runs every visible
-        // frame; before this gate it was built ~60 times a second on a face
-        // nobody was touching (D-CUBE-CHURN). Values, not change ticks — see
-        // `republish_kaleidoscope_pages` for the tick cliff.
-        let stale = cache.model.is_none()
-            || cache.settings.as_ref() != Some(&*settings)
-            || cache.radio != radio
-            || cache.dev != dev
-            || cache.quality != quality
-            || cache.open_entry != system_nav.open_entry;
-        if stale {
-            let model = crate::menu::model::system_menu_model_with_pending_quality(
-                &settings, &radio, &dev, quality,
-            );
-            cache.rows = system_rows_with_quality_prompt(&model, system_nav.open_entry, quality);
-            cache.model = Some(model);
-            cache.settings = Some(settings.clone());
-            cache.open_entry = system_nav.open_entry;
-            cache.model_builds += 1;
+    for (pages, system_nav, quality_confirm, mut cache) in &mut menus {
+        let quality = quality_confirm.pending();
+        if pages.active == Some(MenuPage::System) {
+            // Rebuild only when an INPUT'S VALUE moved. The model is the full
+            // settings IR plus a string per row, and this system runs every visible
+            // frame; before this gate it was built ~60 times a second on a face
+            // nobody was touching (D-CUBE-CHURN). Values, not change ticks — see
+            // `republish_kaleidoscope_pages` for the tick cliff.
+            let stale = cache.model.is_none()
+                || cache.settings.as_ref() != Some(&*settings)
+                || cache.radio != radio
+                || cache.dev != dev
+                || cache.quality != quality
+                || cache.open_entry != system_nav.open_entry;
+            if stale {
+                let model = crate::menu::model::system_menu_model_with_pending_quality(
+                    &settings, &radio, &dev, quality,
+                );
+                cache.rows =
+                    system_rows_with_quality_prompt(&model, system_nav.open_entry, quality);
+                cache.model = Some(model);
+                cache.settings = Some(settings.clone());
+                cache.open_entry = system_nav.open_entry;
+                cache.model_builds += 1;
+            }
+        } else {
+            cache.model = None;
+            cache.rows.clear();
+            cache.settings = None;
         }
-    } else {
-        cache.model = None;
-        cache.rows.clear();
-        cache.settings = None;
+        cache.radio = radio.clone();
+        cache.dev = dev.clone();
+        cache.quality = quality;
     }
-    cache.radio = radio;
-    cache.dev = dev;
-    cache.quality = quality;
 }
 
 /// Republish the cube's faces from our live inventory + the focus cursor (the
@@ -105,126 +110,131 @@ pub(crate) fn cache_system_menu(
 /// only when something it depends on actually changed: the inventory, the focus
 /// cursor, the active page, the just-opened edge, or the very first publish.
 pub(crate) fn republish_kaleidoscope_pages(
-    ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
+    settings: Res<UserSettings>,
     owned: Option<Res<OwnedItems>>,
     // The menu owner supplies the hand and worn abilities shown as equipped.
     body_source: MenuBodySource,
-    // Read-only here. The mutators (`kaleidoscope_focus_nav`, `kaleidoscope_pointer_release`) take
-    // `ResMut<UserSettings>` in SEPARATE systems, so this `Res` is not a B0002
-    // conflict; `UserSettings` is inserted at startup so the `Res` never panics.
-    settings: Res<UserSettings>,
-    cursor: Res<KaleidoscopeCursor>,
-    // Read-only here; the mutators (`kaleidoscope_focus_nav`, `kaleidoscope_pointer_release`) take
-    // `ResMut<KaleidoscopeSystemNav>` in SEPARATE systems/observers, so this `Res` is not a
-    // B0002 conflict. Inserted at startup (`init_resource`) so it never panics.
-    system_nav: Res<KaleidoscopeSystemNav>,
-    // The System model + radio/dev snapshots, built ONCE this frame by
-    // `cache_system_menu` (runs just before us in the chain with identical inputs),
-    // so the dirty-key + rebuild reuse them instead of rebuilding a third time.
-    cache: Res<CachedSystemMenu>,
-    // Read-only here; the mutators (`kaleidoscope_focus_nav`, `kaleidoscope_scroll_wheel`,
-    // `kaleidoscope_apply_scroll_drag`) take `ResMut<KaleidoscopeScroll>` in separate
-    // systems, so this `Res` is not a B0002 conflict. Inserted at startup so it never panics.
-    scroll: Res<KaleidoscopeScroll>,
-    pages: Single<(&ambition_platformer2d::inventory_ui::InventoryMenu, &mut ActiveMenuPages<MenuPage, MenuPageAction>)>,
+    mut menus: Query<(
+        &ambition_platformer2d::inventory_ui::InventoryMenu,
+        &mut ActiveMenuPages<MenuPage, MenuPageAction>,
+        &KaleidoscopeCursor,
+        &KaleidoscopeSystemNav,
+        &CachedSystemMenu,
+        &KaleidoscopeScroll,
+        &mut MenuPublication,
+        &ambition_platformer2d::inventory_ui::InventoryUiState,
+    )>,
     map_page: crate::menu::map_page::MapPageSource,
-    mut was_open: Local<bool>,
-    mut last: Local<Option<RebuildKey>>,
 ) {
-    let (menu_owner, mut pages) = pages.into_inner();
     let Some(owned) = owned else {
         return;
     };
-    let body = body_source.read(menu_owner.owner);
-    let inventory = ambition_platformer2d::items::Inventory::new(&owned, body.and_then(|body| body.in_hand));
-    let open = ui_state.map(|s| s.visible).unwrap_or(false);
-    let just_opened = open && !*was_open;
-    *was_open = open;
+    for (menu_owner, mut pages, cursor, system_nav, cache, scroll, mut publication, ui_state) in
+        &mut menus
+    {
+        let MenuPublication { was_open, last } = &mut *publication;
+        let body = body_source.read(menu_owner.owner);
+        let inventory = ambition_platformer2d::items::Inventory::new(
+            &owned,
+            body.and_then(|body| body.in_hand),
+        );
+        let open = ui_state.visible;
+        let just_opened = open && !*was_open;
+        *was_open = open;
 
-    // A cursor-only move (mouse OR keyboard) no longer rebuilds the face — the highlight
-    // (`kaleidoscope_sync_focus_visuals`) and the detail text (`kaleidoscope_sync_detail_text`)
-    // update IN PLACE. Without this, a `Pointer<Move>` between a press and release despawned
-    // the hovered control and Bevy dropped the `Pointer<Click>`. Only a focus change that
-    // SHIFTS the System scroll window changes the rendered rows, so only that needs a rebuild;
-    // the drill-down state is also keyed so drilling in/out republishes the new rows.
-    let window_start = if pages.active == Some(MenuPage::System) {
-        // The EFFECTIVE window start: an explicit drag/wheel override wins (Features
-        // C/D), otherwise it follows the cursor. Keying the rebuild off this means a
-        // wheel/drag scroll rebuilds the windowed rows, while a cursor-only move
-        // inside the window still does not (preserving A's click fix). Rows come from
-        // the shared per-frame cache.
-        system_effective_window_start(&cache.rows, cursor.focus, scroll.system_window_start)
-    } else {
-        0
-    };
-    let key = RebuildKey {
-        window_start,
-        active: pages.active,
-        open_entry: system_nav.open_entry,
-        owned_counts: Item::ALL.map(|item| inventory.count(item)),
-        equipped: body.map(|body| body.equipped).unwrap_or_default(),
-        settings: settings.clone(),
-        radio: cache.radio.clone(),
-        dev: cache.dev.clone(),
-        quality: cache.quality,
-        // Only while the menu is open: the map is not built behind gameplay.
-        map: if open { map_page.view(body.map(|body| body.entity)) } else { None },
-    };
-    // Republish on first publish, menu-open (textures that loaded after the initial
-    // build get picked up), or an actual VALUE change in anything rendered by the
-    // cube: inventory counts/equipment, user settings, page/drill/scroll state, radio
-    // and developer snapshots, or pending quality confirmation.
-    //
-    // PERF: never use Bevy change ticks as the rebuild oracle here. Systems that take
-    // `ResMut<OwnedItems>` / `ResMut<UserSettings>` can dirty those ticks while
-    // handling navigation even when their values remain identical. OR-ing
-    // `is_changed()` into this gate recreated the historical rebuild-every-frame
-    // cliff: every cube face was despawned and respawned on every visible frame. The
-    // complete value key below makes those false-positive ticks harmless while still
-    // rebuilding immediately for real inventory or settings changes.
-    let pages_empty = pages.pages.is_empty();
-    let key_changed = last.as_ref() != Some(&key);
-    // A content reload that publishes a new item catalog changes the names
-    // and verbs on the faces; the value key cannot see that, nor a game's new
-    // Map page presentation (set at startup, so this does not tick per frame).
-    let dirty = pages_empty || just_opened || key_changed || body_source.items_changed() || map_page.presentation_changed();
-    if !dirty {
-        return;
+        // A cursor-only move (mouse OR keyboard) no longer rebuilds the face — the highlight
+        // (`kaleidoscope_sync_focus_visuals`) and the detail text (`kaleidoscope_sync_detail_text`)
+        // update IN PLACE. Without this, a `Pointer<Move>` between a press and release despawned
+        // the hovered control and Bevy dropped the `Pointer<Click>`. Only a focus change that
+        // SHIFTS the System scroll window changes the rendered rows, so only that needs a rebuild;
+        // the drill-down state is also keyed so drilling in/out republishes the new rows.
+        let window_start = if pages.active == Some(MenuPage::System) {
+            // The EFFECTIVE window start: an explicit drag/wheel override wins (Features
+            // C/D), otherwise it follows the cursor. Keying the rebuild off this means a
+            // wheel/drag scroll rebuilds the windowed rows, while a cursor-only move
+            // inside the window still does not (preserving A's click fix). Rows come from
+            // the shared per-frame cache.
+            system_effective_window_start(&cache.rows, cursor.focus, scroll.system_window_start)
+        } else {
+            0
+        };
+        let key = RebuildKey {
+            window_start,
+            active: pages.active,
+            open_entry: system_nav.open_entry,
+            owned_counts: Item::ALL.map(|item| inventory.count(item)),
+            equipped: body.map(|body| body.equipped).unwrap_or_default(),
+            settings: settings.clone(),
+            radio: cache.radio.clone(),
+            dev: cache.dev.clone(),
+            quality: cache.quality,
+            // Only while the menu is open: the map is not built behind gameplay.
+            map: if open {
+                map_page.view(body.map(|body| body.entity))
+            } else {
+                None
+            },
+        };
+        // Republish on first publish, menu-open (textures that loaded after the initial
+        // build get picked up), or an actual VALUE change in anything rendered by the
+        // cube: inventory counts/equipment, user settings, page/drill/scroll state, radio
+        // and developer snapshots, or pending quality confirmation.
+        //
+        // PERF: never use Bevy change ticks as the rebuild oracle here. Systems that take
+        // `ResMut<OwnedItems>` / `ResMut<UserSettings>` can dirty those ticks while
+        // handling navigation even when their values remain identical. OR-ing
+        // `is_changed()` into this gate recreated the historical rebuild-every-frame
+        // cliff: every cube face was despawned and respawned on every visible frame. The
+        // complete value key below makes those false-positive ticks harmless while still
+        // rebuilding immediately for real inventory or settings changes.
+        let pages_empty = pages.pages.is_empty();
+        let key_changed = last.as_ref() != Some(&key);
+        // A content reload that publishes a new item catalog changes the names
+        // and verbs on the faces; the value key cannot see that, nor a game's new
+        // Map page presentation (set at startup, so this does not tick per frame).
+        let dirty = pages_empty
+            || just_opened
+            || key_changed
+            || body_source.items_changed()
+            || map_page.presentation_changed();
+        if !dirty {
+            continue;
+        }
+        let changed_fields = last
+            .as_ref()
+            .map(|previous| previous.changed_fields(&key))
+            .unwrap_or_else(|| vec!["initial"]);
+        debug!(
+            target: "ambition_platformer2d::kaleidoscope_rebuild",
+            "republishing cube pages pages_empty={} just_opened={} changed_fields={:?}",
+            pages_empty,
+            just_opened,
+            changed_fields,
+        );
+
+        let active = pages.active.unwrap_or(MenuPage::Items);
+        // `replace_pages` bumps `version` — the renderer's ONLY content-invalidation
+        // signal. `rebuild_cube_faces` deliberately ignores Bevy change ticks (see its
+        // gate) and rebuilds solely on a `version` or `active` change, so a republish
+        // that assigns `pages.pages` directly without the bump renders NOTHING: the
+        // drill-down/scroll/inventory change this republish just baked never reaches
+        // the cube faces.
+        let built = build_inventory_pages_with_quality_prompt(
+            &inventory,
+            body_source.items(),
+            key.equipped,
+            cursor.focus,
+            &settings,
+            &key.radio,
+            &key.dev,
+            window_start,
+            system_nav.open_entry,
+            key.quality,
+            map_page.page(key.map.as_ref()),
+        );
+        pages.replace_pages(built, active);
+        *last = Some(key);
     }
-    let changed_fields = last
-        .as_ref()
-        .map(|previous| previous.changed_fields(&key))
-        .unwrap_or_else(|| vec!["initial"]);
-    debug!(
-        target: "ambition_platformer2d::kaleidoscope_rebuild",
-        "republishing cube pages pages_empty={} just_opened={} changed_fields={:?}",
-        pages_empty,
-        just_opened,
-        changed_fields,
-    );
-
-    let active = pages.active.unwrap_or(MenuPage::Items);
-    // `replace_pages` bumps `version` — the renderer's ONLY content-invalidation
-    // signal. `rebuild_cube_faces` deliberately ignores Bevy change ticks (see its
-    // gate) and rebuilds solely on a `version` or `active` change, so a republish
-    // that assigns `pages.pages` directly without the bump renders NOTHING: the
-    // drill-down/scroll/inventory change this republish just baked never reaches
-    // the cube faces.
-    let built = build_inventory_pages_with_quality_prompt(
-        &inventory,
-        body_source.items(),
-        key.equipped,
-        cursor.focus,
-        &settings,
-        &key.radio,
-        &key.dev,
-        window_start,
-        system_nav.open_entry,
-        key.quality,
-        map_page.page(key.map.as_ref()),
-    );
-    pages.replace_pages(built, active);
-    *last = Some(key);
 }
 
 /// The value-equality key that gates a cube republish. Two frames with an equal
@@ -294,4 +304,11 @@ impl RebuildKey {
         }
         changed
     }
+}
+
+/// The last content published for one menu and its open edge.
+#[derive(Component, Default)]
+pub(crate) struct MenuPublication {
+    was_open: bool,
+    last: Option<RebuildKey>,
 }

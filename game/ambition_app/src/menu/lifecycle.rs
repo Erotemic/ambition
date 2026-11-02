@@ -72,27 +72,37 @@ pub(crate) fn aggregate_menu_pause(
 pub(crate) fn route_menu_lifecycle(
     mut input: ResMut<MenuControlFrame>,
     backend: Res<InventoryUiBackend>,
-    mut overlay: Single<&mut InventoryUiState>,
+    menu: Single<(
+        Entity,
+        &mut InventoryUiState,
+        &mut ActiveMenuPages<MenuPage, MenuPageAction>,
+        &mut KaleidoscopeCursor,
+        &mut KaleidoscopeSystemNav,
+        &mut VisualQualityConfirmState,
+    )>,
     mode: Res<State<GameMode>>,
-    mut pages: Single<&mut ActiveMenuPages<MenuPage, MenuPageAction>>,
-    mut cursor: ResMut<KaleidoscopeCursor>,
-    mut system: ResMut<KaleidoscopeSystemNav>,
-    mut quality: ResMut<VisualQualityConfirmState>,
     mut map: ResMut<MapMenuState>,
     mut sfx: SfxWriter,
     mut last_start: Local<bool>,
     mut pause: MessageReader<PauseRequested>,
-    #[cfg(feature = "bevy_ui_menu")]
-    mut grid: Option<ResMut<super::grid_backend::GridMenuTabState>>,
+    #[cfg(feature = "bevy_ui_menu")] mut grid: Query<&mut super::grid_backend::GridMenuTabState>,
 ) {
-    if !backend.effective().is_available() { return; }
+    let (menu_entity, mut overlay, mut pages, mut cursor, mut system, mut quality) =
+        menu.into_inner();
+    if !backend.effective().is_available() {
+        return;
+    }
     let platform_pause = pause.read().count() > 0;
     let start = input.start && !*last_start;
     *last_start = input.start;
-    if start { input.back = false; }
+    if start {
+        input.back = false;
+    }
 
     let page = if platform_pause {
-        if overlay.visible { return; }
+        if overlay.visible {
+            return;
+        }
         MenuPage::System
     } else if start {
         if overlay.visible {
@@ -101,7 +111,9 @@ pub(crate) fn route_menu_lifecycle(
                 close_system_entry(&mut system, &mut cursor);
                 play_ui(&mut sfx, ids::UI_MENU_BACK);
                 #[cfg(feature = "bevy_ui_menu")]
-                if let Some(grid) = grid.as_mut() { grid.reset_navigation(); }
+                if let Ok(mut grid) = grid.get_mut(menu_entity) {
+                    grid.reset_navigation();
+                }
             } else {
                 overlay.close();
                 play_ui(&mut sfx, ids::UI_MENU_CLOSE);
@@ -113,7 +125,9 @@ pub(crate) fn route_menu_lifecycle(
         MenuPage::Items
     } else if input.map {
         MenuPage::Map
-    } else { return; };
+    } else {
+        return;
+    };
 
     if overlay.visible {
         if super::model::open_overlay_key(page, pages.active) == OpenOverlayKey::Close {
@@ -123,7 +137,9 @@ pub(crate) fn route_menu_lifecycle(
             return;
         }
     } else {
-        if !super::model::primary_overlay_may_open(*mode.get()) { return; }
+        if !super::model::primary_overlay_may_open(*mode.get()) {
+            return;
+        }
         overlay.visible = true;
         play_ui(&mut sfx, ids::UI_MENU_OPEN);
     }
@@ -137,7 +153,9 @@ pub(crate) fn route_menu_lifecycle(
     });
     map.open = false;
     #[cfg(feature = "bevy_ui_menu")]
-    if let Some(grid) = grid.as_mut() { grid.reset_navigation(); }
+    if let Ok(mut grid) = grid.get_mut(menu_entity) {
+        grid.reset_navigation();
+    }
 }
 
 #[cfg(test)]

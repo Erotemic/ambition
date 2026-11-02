@@ -5,12 +5,12 @@
 //! profile outside `UserSettings` so browsing quality choices cannot dirty or
 //! persist settings until the user explicitly confirms.
 
-use bevy::prelude::Resource;
+use bevy::prelude::Component;
 
 use ambition_platformer2d::persistence::settings::VisualQualityProfile;
 
-/// App-local state for an in-flight visual-quality profile confirmation.
-#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+/// A visual-quality choice that awaits confirmation in one menu.
+#[derive(Component, Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct VisualQualityConfirmState {
     pending: Option<VisualQualityProfile>,
 }

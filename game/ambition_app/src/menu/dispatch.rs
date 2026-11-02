@@ -31,6 +31,7 @@ use ambition_platformer2d::sfx::SfxWriter;
 /// the active page so the lib rotates that face to the camera.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn dispatch_menu_action(
+    menu: Entity,
     owner: ambition_platformer2d::input::ParticipantId,
     action: MenuPageAction,
     pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
@@ -94,7 +95,7 @@ pub(crate) fn dispatch_menu_action(
             // Radio / Language / Developer screen options apply against their live
             // resource (radio auditions + keeps the menu open; dev toggles mutate
             // DeveloperTools). The menu never closes from these.
-            let id = system.apply_option(opt);
+            let id = system.apply_option(menu, opt);
             play_ui(sfx, id);
             info!("cube system option: {:?}", opt);
         }

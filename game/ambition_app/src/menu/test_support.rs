@@ -133,10 +133,23 @@ pub(crate) fn inventory_state_mut(world: &mut World) -> Mut<'_, ambition_platfor
     world.get_mut(entity).unwrap()
 }
 
-pub(crate) fn spawn_inventory_menu(app: &mut App, state: ambition_platformer2d::inventory_ui::InventoryUiState) {
-    app.world_mut().spawn((ambition_platformer2d::inventory_ui::InventoryMenu {
-        owner: ambition_platformer2d::input::ParticipantId::PRIMARY,
-    }, state, ambition_platformer2d::menu::ActiveMenuPages::<crate::menu::model::MenuPage, MenuPageAction>::default()));
+pub(crate) fn spawn_inventory_menu(
+    app: &mut App,
+    state: ambition_platformer2d::inventory_ui::InventoryUiState,
+) {
+    app.world_mut().spawn(
+        (
+            crate::menu::MenuInstance,
+            ambition_platformer2d::inventory_ui::InventoryMenu {
+                owner: ambition_platformer2d::input::ParticipantId::PRIMARY,
+            },
+            state,
+            ambition_platformer2d::menu::ActiveMenuPages::<
+                crate::menu::model::MenuPage,
+                MenuPageAction,
+            >::default(),
+        ),
+    );
 }
 
 type Pages = ambition_platformer2d::menu::ActiveMenuPages<crate::menu::model::MenuPage, MenuPageAction>;
@@ -188,4 +201,13 @@ pub(crate) fn two_room_map(app: &mut App) -> [ambition_platformer2d::platformer:
     }).collect();
     app.insert_resource(map);
     rooms
+}
+
+pub(crate) fn menu_component<T: Component>(world: &World) -> &T {
+    world.get::<T>(menu_id(world)).expect("fixture menu component")
+}
+
+pub(crate) fn menu_component_mut<T: Component<Mutability = bevy::ecs::component::Mutable>>(world: &mut World) -> Mut<'_, T> {
+    let menu = menu_id(world);
+    world.get_mut::<T>(menu).expect("fixture menu component")
 }

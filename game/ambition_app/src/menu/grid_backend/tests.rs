@@ -33,29 +33,33 @@ fn equipped_in_hand(app: &mut App) -> Option<Item> {
 /// two backends exercise the same machinery.
 fn grid_app() -> App {
     let mut app = App::new();
-    app.init_resource::<VisualQualityConfirmState>();
+
     app.add_plugins(bevy::state::app::StatesPlugin);
     app.init_state::<GameMode>();
     app.init_resource::<InventoryUiBackend>();
-    app.init_resource::<KaleidoscopeCursor>();
-    app.init_resource::<KaleidoscopeSystemNav>();
+
     app.insert_resource(ambition_platformer2d::items::test_item_catalog().clone());
     app.init_resource::<OwnedItems>();
     app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>();
     app.init_resource::<ambition_platformer2d::dev_tools::DeveloperRuntimeState>();
     app.init_resource::<ambition_platformer2d::dev_tools::WorldSourceHotReload>();
-        app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning>();
+    app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
     crate::menu::test_support::spawn_inventory_menu(&mut app, Default::default());
     app.add_systems(PostUpdate, crate::menu::lifecycle::aggregate_menu_pause);
     app.init_resource::<ambition_platformer2d::menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
-    app.init_resource::<GridMenuTabState>();
-    app.init_resource::<crate::menu::kaleidoscope_app::RebindCapture>();
+
     app.init_resource::<ambition_platformer2d::input::SeatActiveDevices>();
-    app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::items::ItemUseRequested>>();
-    app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::items::ItemEquipRequested>>();
-    app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::session::reset::NewGameRequested>>();
+    app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<
+        ambition_platformer2d::items::ItemUseRequested,
+    >>();
+    app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<
+        ambition_platformer2d::items::ItemEquipRequested,
+    >>();
+    app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<
+        ambition_platformer2d::session::reset::NewGameRequested,
+    >>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<bevy::app::AppExit>();
     app.add_message::<ambition_platformer2d::game_shell::PauseRequested>();
@@ -64,7 +68,10 @@ fn grid_app() -> App {
     // failure the one-event convergence exists to make impossible. Chained, so
     // an activation published this frame is dispatched this frame.
     app.add_message::<ambition_platformer2d::menu::MenuActionActivated<MenuPageAction>>();
-    app.add_systems(Update, (crate::menu::lifecycle::route_menu_lifecycle, grid_menu_nav).chain());
+    app.add_systems(
+        Update,
+        (crate::menu::lifecycle::route_menu_lifecycle, grid_menu_nav).chain(),
+    );
     // registered ONCE, here, and pinned by ORDER rather than by chaining —
     // `render_app` builds on this harness, and re-registering the consumer there
     // gave the message two independent readers. Both dispatched, so a pointer
@@ -74,7 +81,9 @@ fn grid_app() -> App {
     app.world_mut().spawn((
         PlayerEntity,
         PrimaryPlayer,
-        ambition_platformer2d::characters::control::DrivingParticipant(ambition_platformer2d::characters::control::PlayerSlot(0)),
+        ambition_platformer2d::characters::control::DrivingParticipant(
+            ambition_platformer2d::characters::control::PlayerSlot(0),
+        ),
         ActionSet::default(),
         ambition_platformer2d::characters::brain::action_set::IdentityKit::default(),
         ambition_platformer2d::combat::moveset::ActorMoveset::default(),
@@ -168,8 +177,7 @@ fn system_tab_left_right_never_turns_the_page() {
         app.update();
     }
     assert_eq!(active_tab(&app), MenuPage::System);
-    let page_before = crate::menu::test_support::active_pages(app.world())
-        .active;
+    let page_before = crate::menu::test_support::active_pages(app.world()).active;
 
     // Hammer LEFT then RIGHT many times — enough to reach an edge under the old
     // (leaky) behaviour and then "turn the page" on the following press.
@@ -183,7 +191,8 @@ fn system_tab_left_right_never_turns_the_page() {
             }
         });
         app.update();
-        let focus = app.world().resource::<KaleidoscopeCursor>().focus();
+        let focus =
+            crate::menu::test_support::menu_component::<KaleidoscopeCursor>(app.world()).focus();
         assert!(
             !matches!(focus, MenuFocus::EdgeLeft | MenuFocus::EdgeRight),
             "step {i}: Grid System nav must not land on a page-turn edge, got {focus:?}",
@@ -194,8 +203,7 @@ fn system_tab_left_right_never_turns_the_page() {
             "step {i}: the Grid tab must stay on System",
         );
         assert_eq!(
-            crate::menu::test_support::active_pages(app.world())
-                .active,
+            crate::menu::test_support::active_pages(app.world()).active,
             page_before,
             "step {i}: the shared page must not turn under Grid LEFT/RIGHT",
         );
@@ -208,14 +216,21 @@ fn selecting_an_item_dispatches_equip() {
     let mut app = grid_app();
     // Own an equippable item (the Axe has a held_item_id).
     let gun_sword = Item::GunSword;
-    assert!(ambition_platformer2d::items::test_item_catalog().held_item_id(gun_sword).is_some());
-    app.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::test_item_catalog(), gun_sword, 1);
+    assert!(
+        ambition_platformer2d::items::test_item_catalog()
+            .held_item_id(gun_sword)
+            .is_some()
+    );
+    app.world_mut().resource_mut::<OwnedItems>().grant(
+        ambition_platformer2d::items::test_item_catalog(),
+        gun_sword,
+        1,
+    );
     // Open + focus item 1.
     set_frame(&mut app, |f| f.inventory = true);
     app.update();
     assert_eq!(active_tab(&app), MenuPage::Items);
-    app.world_mut()
-        .resource_mut::<KaleidoscopeCursor>()
+    crate::menu::test_support::menu_component_mut::<KaleidoscopeCursor>(app.world_mut())
         .mark_keyboard(MenuFocus::Item(Item::GunSword.index()));
     set_frame(&mut app, |f| f.select = true);
     app.update();
@@ -237,11 +252,14 @@ fn a_keyboard_select_publishes_the_same_activation_a_tap_does() {
 
     let mut app = grid_app();
     let gun_sword = Item::GunSword;
-    app.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::test_item_catalog(), gun_sword, 1);
+    app.world_mut().resource_mut::<OwnedItems>().grant(
+        ambition_platformer2d::items::test_item_catalog(),
+        gun_sword,
+        1,
+    );
     set_frame(&mut app, |f| f.inventory = true);
     app.update();
-    app.world_mut()
-        .resource_mut::<KaleidoscopeCursor>()
+    crate::menu::test_support::menu_component_mut::<KaleidoscopeCursor>(app.world_mut())
         .mark_keyboard(MenuFocus::Item(Item::GunSword.index()));
     set_frame(&mut app, |f| f.select = true);
     app.update();
@@ -285,13 +303,13 @@ fn system_select_drills_and_dispatches() {
         .iter()
         .position(|r| matches!(r, SystemRow::Entry(SystemMenuEntryId::Audio)));
     if let Some(idx) = audio_row {
-        app.world_mut()
-            .resource_mut::<KaleidoscopeCursor>()
+        crate::menu::test_support::menu_component_mut::<KaleidoscopeCursor>(app.world_mut())
             .mark_keyboard(MenuFocus::System(idx));
         set_frame(&mut app, |f| f.select = true);
         app.update();
         assert_eq!(
-            app.world().resource::<KaleidoscopeSystemNav>().open_entry,
+            crate::menu::test_support::menu_component::<KaleidoscopeSystemNav>(app.world())
+                .open_entry,
             Some(SystemMenuEntryId::Audio),
             "selecting the Audio entry drilled into it (System dispatch path)"
         );
@@ -313,8 +331,7 @@ fn system_quit_dispatches_app_exit() {
         .iter()
         .position(|r| matches!(r, SystemRow::Entry(SystemMenuEntryId::Quit)))
         .expect("Quit entry present in the System IR");
-    app.world_mut()
-        .resource_mut::<KaleidoscopeCursor>()
+    crate::menu::test_support::menu_component_mut::<KaleidoscopeCursor>(app.world_mut())
         .mark_keyboard(MenuFocus::System(quit_idx));
     set_frame(&mut app, |f| f.select = true);
     app.update();
@@ -503,7 +520,7 @@ fn a_pending_quality_choice_inserts_two_rows_after_the_quality_option() {
 }
 
 fn focus_zone(app: &App) -> GridFocusZone {
-    app.world().resource::<GridMenuTabState>().focus_zone
+    crate::menu::test_support::menu_component::<GridMenuTabState>(app.world()).focus_zone
 }
 
 /// Fix 4: UP from the top body row moves focus onto the TAB BAR; LEFT/RIGHT then
@@ -578,8 +595,7 @@ fn up_from_non_top_row_stays_in_body() {
     set_frame(&mut app, |_| {});
     app.update();
     // Park the cursor on the second row.
-    app.world_mut()
-        .resource_mut::<KaleidoscopeCursor>()
+    crate::menu::test_support::menu_component_mut::<KaleidoscopeCursor>(app.world_mut())
         .mark_keyboard(MenuFocus::Item(ITEM_GRID_COLS));
     set_frame(&mut app, |f| f.up = true);
     app.update();
@@ -589,7 +605,7 @@ fn up_from_non_top_row_stays_in_body() {
         "UP from row 2 stays in the body"
     );
     assert_eq!(
-        app.world().resource::<KaleidoscopeCursor>().focus(),
+        crate::menu::test_support::menu_component::<KaleidoscopeCursor>(app.world()).focus(),
         MenuFocus::Item(0),
         "UP moved the cursor up one row instead of escaping to tabs"
     );
@@ -675,7 +691,11 @@ fn switch_to_tab(app: &mut App, page: MenuPage) {
 fn select_forces_republish_so_view_refreshes_immediately() {
     let mut app = render_app();
     let gun_sword = Item::GunSword;
-    app.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::test_item_catalog(), gun_sword, 1);
+    app.world_mut().resource_mut::<OwnedItems>().grant(
+        ambition_platformer2d::items::test_item_catalog(),
+        gun_sword,
+        1,
+    );
     set_frame(&mut app, |f| f.inventory = true);
     app.update();
     set_frame(&mut app, |_| {});
@@ -683,8 +703,7 @@ fn select_forces_republish_so_view_refreshes_immediately() {
     // Let republish settle so `last_key` is Some(..) before the select.
     app.update();
     assert!(
-        app.world()
-            .resource::<GridMenuTabState>()
+        crate::menu::test_support::menu_component::<GridMenuTabState>(app.world())
             .last_key
             .is_some(),
         "republish recorded a key before the select"
@@ -692,8 +711,7 @@ fn select_forces_republish_so_view_refreshes_immediately() {
     // Focus the Axe and SELECT it (equips via dispatch_menu_action). The nav
     // system clears `last_key` so the republish is forced even though the cursor
     // did not move.
-    app.world_mut()
-        .resource_mut::<KaleidoscopeCursor>()
+    crate::menu::test_support::menu_component_mut::<KaleidoscopeCursor>(app.world_mut())
         .mark_keyboard(MenuFocus::Item(Item::GunSword.index()));
     set_frame(&mut app, |f| f.select = true);
     app.update();
@@ -709,8 +727,7 @@ fn select_forces_republish_so_view_refreshes_immediately() {
     set_frame(&mut app, |_| {});
     app.update();
     assert!(
-        app.world()
-            .resource::<GridMenuTabState>()
+        crate::menu::test_support::menu_component::<GridMenuTabState>(app.world())
             .last_key
             .is_some(),
         "the forced republish rebuilt the view and re-recorded a key"
@@ -907,14 +924,19 @@ fn a_hover_over_a_grid_row_leaves_the_cursor_and_a_press_still_activates_it() {
 
     let mut app = render_app();
     let gun_sword = Item::GunSword;
-    app.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::test_item_catalog(), gun_sword, 1);
+    app.world_mut().resource_mut::<OwnedItems>().grant(
+        ambition_platformer2d::items::test_item_catalog(),
+        gun_sword,
+        1,
+    );
     set_frame(&mut app, |f| f.inventory = true);
     app.update();
     set_frame(&mut app, |_| {});
     app.update();
     app.update();
     let parked = MenuFocus::Item(Item::ALL[0].index());
-    app.world_mut().resource_mut::<KaleidoscopeCursor>().mark_keyboard(parked);
+    crate::menu::test_support::menu_component_mut::<KaleidoscopeCursor>(app.world_mut())
+        .mark_keyboard(parked);
     app.world_mut()
         .resource_mut::<SeatActiveDevices>()
         .mark_primary(ActiveDevice::Mouse);
@@ -927,20 +949,30 @@ fn a_hover_over_a_grid_row_leaves_the_cursor_and_a_press_still_activates_it() {
             .map(|(e, _)| e)
             .expect("Axe equip control spawned")
     };
-    assert_ne!(parked, MenuFocus::Item(gun_sword.index()), "premise: the hover is over another row");
+    assert_ne!(
+        parked,
+        MenuFocus::Item(gun_sword.index()),
+        "premise: the hover is over another row"
+    );
 
     trigger_over(&mut app, axe_ctrl);
-    app.world_mut().entity_mut(axe_ctrl).insert(Interaction::Hovered);
+    app.world_mut()
+        .entity_mut(axe_ctrl)
+        .insert(Interaction::Hovered);
     app.update();
     assert_eq!(
-        app.world().resource::<KaleidoscopeCursor>().focus(),
+        crate::menu::test_support::menu_component::<KaleidoscopeCursor>(app.world()).focus(),
         parked,
         "a hover moved the Grid cursor"
     );
 
     press_interaction(&mut app, axe_ctrl);
     app.update();
-    assert_eq!(equipped_in_hand(&mut app), Some(gun_sword), "control: a press on the row still activates it");
+    assert_eq!(
+        equipped_in_hand(&mut app),
+        Some(gun_sword),
+        "control: a press on the row still activates it"
+    );
 }
 
 // ---- Features C/D: Grid independent scroll (mouse wheel + scrollbar drag) ----
@@ -957,20 +989,16 @@ fn scroll_grid_app() -> App {
         (grid_menu_scroll_wheel, grid_menu_apply_scroll_drag).before(grid_menu_nav),
     );
     // Open on the System tab, drilled into Developer (the long, scrollable list).
-    crate::menu::test_support::inventory_state_mut(app.world_mut())
-        .visible = true;
+    crate::menu::test_support::inventory_state_mut(app.world_mut()).visible = true;
     {
-        crate::menu::test_support::active_pages_mut(app.world_mut())
-            .active = Some(MenuPage::System);
-        app.world_mut()
-            .resource_mut::<GridMenuTabState>()
+        crate::menu::test_support::active_pages_mut(app.world_mut()).active =
+            Some(MenuPage::System);
+        crate::menu::test_support::menu_component_mut::<GridMenuTabState>(app.world_mut())
             .system_window_start = None;
     }
-    app.world_mut()
-        .resource_mut::<KaleidoscopeSystemNav>()
+    crate::menu::test_support::menu_component_mut::<KaleidoscopeSystemNav>(app.world_mut())
         .open_entry = Some(SystemMenuEntryId::Developer);
-    app.world_mut()
-        .resource_mut::<KaleidoscopeCursor>()
+    crate::menu::test_support::menu_component_mut::<KaleidoscopeCursor>(app.world_mut())
         .mark_keyboard(MenuFocus::System(0));
     app.update();
     app
@@ -983,7 +1011,7 @@ fn grid_scroll_total_rows(app: &mut App) -> usize {
     app.world_mut()
         .run_system_once(
             |settings: Res<UserSettings>,
-             system_nav: Res<KaleidoscopeSystemNav>,
+             system_nav: Single<&KaleidoscopeSystemNav>,
              system: SystemMenuParams| {
                 let model = system.model(&settings);
                 grid_system_row_count(MenuPage::System, &system_nav, &model, None)
@@ -993,9 +1021,7 @@ fn grid_scroll_total_rows(app: &mut App) -> usize {
 }
 
 fn grid_window_start(app: &App) -> Option<usize> {
-    app.world()
-        .resource::<GridMenuTabState>()
-        .system_window_start
+    crate::menu::test_support::menu_component::<GridMenuTabState>(app.world()).system_window_start
 }
 
 /// Feature D: a `MouseWheel` down over the System tab advances the scroll override
@@ -1010,7 +1036,8 @@ fn grid_mouse_wheel_scrolls_window_not_selection() {
     );
     let max = system_max_window_start(total);
 
-    let cursor_before = app.world().resource::<KaleidoscopeCursor>().focus();
+    let cursor_before =
+        crate::menu::test_support::menu_component::<KaleidoscopeCursor>(app.world()).focus();
     assert_eq!(grid_window_start(&app), None, "starts following the cursor");
 
     // Three wheel-down notches → window_start == 3, cursor unchanged.
@@ -1033,7 +1060,7 @@ fn grid_mouse_wheel_scrolls_window_not_selection() {
         "three wheel-down notches scroll the window to row 3"
     );
     assert_eq!(
-        app.world().resource::<KaleidoscopeCursor>().focus(),
+        crate::menu::test_support::menu_component::<KaleidoscopeCursor>(app.world()).focus(),
         cursor_before,
         "the wheel must NOT move the selection cursor (Feature D)"
     );
@@ -1085,8 +1112,7 @@ fn grid_override_survives_hover_and_clears_on_keyboard() {
     app.world_mut()
         .resource_mut::<ambition_platformer2d::input::SeatActiveDevices>()
         .mark_primary(ambition_platformer2d::input::ActiveDevice::Mouse);
-    app.world_mut()
-        .resource_mut::<KaleidoscopeCursor>()
+    crate::menu::test_support::menu_component_mut::<KaleidoscopeCursor>(app.world_mut())
         .mark_keyboard(MenuFocus::System(0));
     app.update();
     assert_eq!(
@@ -1115,7 +1141,8 @@ fn grid_scrollbar_drag_fraction_sets_window_start_proportionally() {
     let max = system_max_window_start(total);
     assert!(max > 0, "fixture must be scrollable");
 
-    let cursor_before = app.world().resource::<KaleidoscopeCursor>().focus();
+    let cursor_before =
+        crate::menu::test_support::menu_component::<KaleidoscopeCursor>(app.world()).focus();
 
     // Drag to the BOTTOM of the track (fraction 1.0) → window_start == max.
     crate::menu::test_support::scroll_drag(&mut app, 1.0);
@@ -1135,7 +1162,7 @@ fn grid_scrollbar_drag_fraction_sets_window_start_proportionally() {
         "fraction 0.5 maps to the middle of the range"
     );
     assert_eq!(
-        app.world().resource::<KaleidoscopeCursor>().focus(),
+        crate::menu::test_support::menu_component::<KaleidoscopeCursor>(app.world()).focus(),
         cursor_before,
         "a scrollbar drag does not move the selection cursor"
     );
@@ -1201,7 +1228,6 @@ fn a_face_key_turns_the_open_menu_to_its_tab_and_closes_it_from_there() {
     assert!(!is_open(&app), "the map key on its own tab closes the menu");
 }
 
-
 #[test]
 fn a_platform_pause_opens_the_grid_and_keeps_it_open() {
     let mut app = grid_app();
@@ -1239,7 +1265,7 @@ fn foreign_menu_messages_cannot_drill_turn_or_scroll_this_menu() {
     app.update();
     assert_eq!(active_tab(&app), MenuPage::System);
     assert_eq!(
-        app.world().resource::<KaleidoscopeSystemNav>().open_entry,
+        crate::menu::test_support::menu_component::<KaleidoscopeSystemNav>(app.world()).open_entry,
         Some(SystemMenuEntryId::Developer)
     );
     assert_eq!(grid_window_start(&app), None);
@@ -1260,7 +1286,7 @@ fn foreign_menu_messages_cannot_drill_turn_or_scroll_this_menu() {
     });
     app.update();
     assert_eq!(
-        app.world().resource::<KaleidoscopeSystemNav>().open_entry,
+        crate::menu::test_support::menu_component::<KaleidoscopeSystemNav>(app.world()).open_entry,
         Some(SystemMenuEntryId::Video)
     );
 }

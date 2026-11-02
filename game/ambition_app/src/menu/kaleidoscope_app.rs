@@ -73,51 +73,40 @@ pub(crate) fn play_ui(sfx: &mut SfxWriter, id: ambition_platformer2d::sfx::SfxId
     });
 }
 
-/// Install backend-agnostic menu resources/plugins shared by the flat Grid and
+/// Install the shared menu plugins used by the flat Grid and
 /// the optional 3D cube backend. Keep this separate from cube installation so a
 /// Grid-only build does not spawn the cube camera/ring or register Lunex systems.
 pub fn install_unified_menu_shared(app: &mut App) {
     app.init_resource::<InventoryUiBackend>()
-        .init_resource::<KaleidoscopeCursor>()
         // The pointer-hover handlers read `SeatActiveDevices`. The input plugin
         // also inits it; init here too so the menu remains self-sufficient
         // (`init_resource` is idempotent).
         .init_resource::<ambition_platformer2d::input::SeatActiveDevices>()
-        .init_resource::<KaleidoscopeSystemNav>()
-        // So any build without the cube composed a grid menu whose nav system required a resource
-        // nothing had inserted, and Bevy killed the app on the first menu tick: `Parameter
-        // MenuDispatchParams::system failed validation: Resource does not exist`.
-        //
-        // that is a BLANK SCREEN, and it is what the browser was showing. Startup completes and
-        // assets begin loading — which is why the server log looked healthy — and then the first
-        // `Update` panics and the app is dead. Nothing about it is web-specific; the web persona
-        // was simply the only shipped build with the cube feature off.
-        .init_resource::<RebindCapture>()
-        .init_resource::<VisualQualityConfirmState>()
         .add_plugins(AmbitionInventoryUiPlugin);
     #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
     if !app.is_plugin_added::<super::build_label::PauseBuildLabelPlugin>() {
         app.add_plugins(super::build_label::PauseBuildLabelPlugin);
     }
-    // The System-model cache belongs to the cube — the grid backend builds and
-    // dirties its own page model — so it is initialised with the renderer that
-    // reads it rather than in the backend-neutral chain above.
-    #[cfg(feature = "kaleidoscope_menu")]
-    app.init_resource::<CachedSystemMenu>();
     // Publish the focused item's verb (Equip/Use) as the inventory's UiCue so
     // the on-screen menu-confirm control reads the real action. Backend-
     // agnostic (reads the shared KaleidoscopeCursor), and self-gates on the
     // overlay being open, so it lives with the shared resources rather than
     // either backend. Registered in the SIM schedule, strictly before its
     // reader — see `install_menu_confirm_provider`.
-    #[cfg(all(feature = "input", any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")))]
+    #[cfg(all(
+        feature = "input",
+        any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")
+    ))]
     app.add_message::<ambition_platformer2d::game_shell::PauseRequested>()
-        .add_systems(Update, crate::menu::lifecycle::route_menu_lifecycle
-            .run_if(ambition_platformer2d::platformer::lifecycle::simulation_authorized)
-            .run_if(ambition_platformer2d::runtime::in_base_mode)
-            .in_set(ambition_platformer2d::input::MenuNavConsume)
-            .before(crate::menu::GridMenuNav)
-            .before(crate::menu::KaleidoscopeMenuNav));
+        .add_systems(
+            Update,
+            crate::menu::lifecycle::route_menu_lifecycle
+                .run_if(ambition_platformer2d::platformer::lifecycle::simulation_authorized)
+                .run_if(ambition_platformer2d::runtime::in_base_mode)
+                .in_set(ambition_platformer2d::input::MenuNavConsume)
+                .before(crate::menu::GridMenuNav)
+                .before(crate::menu::KaleidoscopeMenuNav),
+        );
     #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
     app.add_systems(PostUpdate, crate::menu::lifecycle::aggregate_menu_pause);
     install_menu_confirm_provider(app);
@@ -160,11 +149,11 @@ pub(crate) fn install_menu_confirm_provider(app: &mut App) {
 /// they must run while closed so they can open the menu and keep the camera off.
 fn kaleidoscope_menu_visible(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
+    ui_state: Query<&ambition_platformer2d::inventory_ui::InventoryUiState>,
 ) -> bool {
     KALEIDOSCOPE_MENU_BACKEND_ENABLED
         && backend.effective() == InventoryUiBackend::LunexKaleidoscope
-        && ui_state.map(|s| s.visible).unwrap_or(false)
+        && ui_state.iter().any(|s| s.visible)
 }
 
 /// The cube renderer needs to tick while open and briefly while folding closed.
@@ -175,7 +164,7 @@ fn kaleidoscope_menu_visible(
 #[cfg(feature = "kaleidoscope_menu")]
 fn kaleidoscope_render_needed(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
+    ui_state: Query<&ambition_platformer2d::inventory_ui::InventoryUiState>,
     open_state: Option<Res<ambition_menu_kaleidoscope::KaleidoscopeOpenState>>,
 ) -> bool {
     let (target, amount) = open_state
@@ -184,7 +173,7 @@ fn kaleidoscope_render_needed(
     cube_render_needed(
         KALEIDOSCOPE_MENU_BACKEND_ENABLED,
         backend.effective() == InventoryUiBackend::LunexKaleidoscope,
-        ui_state.map(|s| s.visible).unwrap_or(false),
+        ui_state.iter().any(|s| s.visible),
         target,
         amount,
     )
@@ -292,11 +281,7 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
     if !app.world().contains_resource::<KaleidoscopeMenuConfig>() {
         app.insert_resource(game_kaleidoscope_config());
     }
-    // `RebindCapture` is initialised by `install_unified_menu_shared`: the grid
-    // backend reads it too, and initialising it here left it absent whenever the
-    // cube was compiled out.
-    app.init_resource::<KaleidoscopeScroll>()
-        .add_plugins(KaleidoscopeMenuPlugin::<MenuPage, MenuPageAction>::default());
+    app.add_plugins(KaleidoscopeMenuPlugin::<MenuPage, MenuPageAction>::default());
     // Gate only the cube's render sets: closed menus can still open and manage
     // camera routing, while face rendering stops when it is not visible/animating.
     app.configure_sets(
@@ -374,7 +359,9 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                 kaleidoscope_sync_focus_visuals.run_if(kaleidoscope_menu_visible),
                 kaleidoscope_sync_detail_text.run_if(kaleidoscope_menu_visible),
                 gate_kaleidoscope_menu,
-                cycle_dev_gravity.run_if(bevy::input::common_conditions::input_just_pressed(KeyCode::Backslash)),
+                cycle_dev_gravity.run_if(bevy::input::common_conditions::input_just_pressed(
+                    KeyCode::Backslash,
+                )),
                 // The readability dim-scrim is cube-only; the Startup node stays
                 // transparent when the cube backend is inactive.
                 retarget_kaleidoscope_scrim.run_if(kaleidoscope_render_needed),
@@ -405,7 +392,7 @@ enum FocusSource {
 /// (`MockDemo::selected`). [`kaleidoscope_focus_nav`] moves it with `move_spatial`-style
 /// rules; [`republish_kaleidoscope_pages`] republishes the page model whenever its
 /// SEMANTIC focus changes so the highlight + detail panel follow it.
-#[derive(Resource, Default)]
+#[derive(Component, Default)]
 pub(crate) struct KaleidoscopeCursor {
     focus: MenuFocus,
     /// Which input source last moved the cursor (keyboard nav vs pointer hover).
@@ -434,14 +421,8 @@ impl KaleidoscopeCursor {
     }
 }
 
-/// Drill-down state for the System face. `None` = the top-level category list is
-/// shown (Video / Audio / Controls / Gameplay + Close Menu); `Some(category)` = the
-/// open category's option rows + a Back row are shown. Mirrors the Bevy-UI pause
-/// menu's settings page stack. `republish_kaleidoscope_pages` feeds this into
-/// `build_system_page`, and changing it republishes (the System cursor resets to
-/// row 0). B0002-safe: only `kaleidoscope_focus_nav` / `kaleidoscope_pointer_release` mutate it (both
-/// `ResMut`); `republish_kaleidoscope_pages` reads it as `Res`.
-#[derive(Resource, Default)]
+/// The System entry open on this menu. No entry means the category list.
+#[derive(Component, Default)]
 pub(crate) struct KaleidoscopeSystemNav {
     pub(crate) open_entry: Option<SystemMenuEntryId>,
 }
@@ -458,7 +439,7 @@ pub(crate) struct KaleidoscopeSystemNav {
 /// same row identity `ambition_ui_nav::PressArm` documents: a windowed list can
 /// rebuild between the arm and the press, and an index into a canonically
 /// ordered list survives that where an entity would not.
-#[derive(Resource, Default)]
+#[derive(Component, Default)]
 pub(crate) struct RebindCapture {
     armed_row: Option<usize>,
     /// the frame that ARMED it must not also capture it. Selecting a row
@@ -519,12 +500,17 @@ impl RebindCapture {
 /// behaviour, glyphs and the touch overlay follow in the same frame.
 #[cfg(feature = "input")]
 pub(crate) fn capture_armed_rebind(
-    mut capture: ResMut<RebindCapture>,
+    menu_state: Single<(
+        &ambition_platformer2d::inventory_ui::InventoryMenu,
+        &mut RebindCapture,
+    )>,
     keys: Option<Res<bevy::input::ButtonInput<bevy::prelude::KeyCode>>>,
     pads: Query<&bevy::prelude::Gamepad>,
     bindings: Option<Res<ambition_platformer2d::input::SeatBindings>>,
     mut settings: ResMut<UserSettings>,
 ) {
+    let (menu_owner, mut capture) = menu_state.into_inner();
+
     let Some(row) = capture.armed() else {
         return;
     };
@@ -547,7 +533,7 @@ pub(crate) fn capture_armed_rebind(
     if pressed.is_empty() {
         return;
     }
-    let seat = ambition_platformer2d::input::ParticipantId::PRIMARY.slot();
+    let seat = menu_owner.owner.slot();
     let Some(action) = bindings
         .for_seat(seat)
         .all()
@@ -574,7 +560,7 @@ pub(crate) fn capture_armed_rebind(
 /// signal) or the MOUSE WHEEL (Feature D). Keyboard navigation clears the override so
 /// the window resumes following the cursor. This is the host-side meaning of the
 /// lib's backend-agnostic scroll signal — the lib never knows about rows/window_start.
-#[derive(Resource, Default)]
+#[derive(Component, Default)]
 pub(crate) struct KaleidoscopeScroll {
     /// Explicit System scroll-window start, or `None` to follow the cursor.
     system_window_start: Option<usize>,
@@ -626,7 +612,7 @@ pub(crate) struct SystemMenuParams<'w, 's> {
         ambition_platformer2d::session::reset::NewGameRequested,
     >,
     // Selecting a rebind row ARMS this; the capture system reads it.
-    rebind_capture: ResMut<'w, RebindCapture>,
+    rebind_capture: Query<'w, 's, &'static mut RebindCapture>,
     // Movement tuning is derived from the active movement profile, so a
     // Reset All Settings must restore it to match the reset DeveloperTools
     // defaults (mirrors the pause menu's `ResetAllSettings`).
@@ -662,6 +648,7 @@ impl SystemMenuParams<'_, '_> {
     /// Returns the SFX id to play for feedback.
     pub(crate) fn apply_option(
         &mut self,
+        menu: Entity,
         opt: SystemOptionId,
     ) -> ambition_platformer2d::sfx::SfxId {
         match opt {
@@ -728,7 +715,10 @@ impl SystemMenuParams<'_, '_> {
             // of the capture is to see a control the menu's own bindings do not
             // route. `RebindCapture` is the state the capture system reads.
             SystemOptionId::Rebind(index) => {
-                self.rebind_capture.arm(index);
+                let Ok(mut capture) = self.rebind_capture.get_mut(menu) else {
+                    return ambition_platformer2d::sfx::ids::UI_MENU_ERROR;
+                };
+                capture.arm(index);
                 ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT
             }
         }
@@ -923,7 +913,7 @@ pub(crate) use scrim::*;
 /// demo's `MockDemo::move_spatial` (`ambition_mock_demo`, a crate that no longer
 /// has a tracked file — the name is kept because the sentence is about where this
 /// came FROM).
-/// The cursor lives on the [`KaleidoscopeCursor`] resource as a [`MenuFocus`], and the
+/// The cursor lives on the menu entity as a [`MenuFocus`], and the
 /// 6×4 item grid is flanked by two edge (page-turn) buttons. The exact rules
 /// (user spec) honoured here:
 ///
@@ -939,12 +929,17 @@ pub(crate) use scrim::*;
 #[allow(clippy::too_many_arguments)]
 fn kaleidoscope_focus_nav(
     mut menu_frame: ResMut<MenuControlFrame>,
-    mut cursor: ResMut<KaleidoscopeCursor>,
-    mut system_nav: ResMut<KaleidoscopeSystemNav>,
     // Features C/D: keyboard navigation CLEARS the explicit scroll override so the
     // System window resumes following the selection cursor (the wheel/drag set it).
-    mut scroll: ResMut<KaleidoscopeScroll>,
-    pages: Single<(Entity, &ambition_platformer2d::inventory_ui::InventoryMenu, &mut ActiveMenuPages<MenuPage, MenuPageAction>)>,
+    pages: Single<(
+        Entity,
+        &ambition_platformer2d::inventory_ui::InventoryMenu,
+        &mut ActiveMenuPages<MenuPage, MenuPageAction>,
+        &mut KaleidoscopeCursor,
+        &mut KaleidoscopeSystemNav,
+        &mut KaleidoscopeScroll,
+        &mut VisualQualityConfirmState,
+    )>,
     // Navigation emits CloseMenu. The action consumer closes the surface;
     // the shared pause arbiter applies its released claim.
     overlay: Single<&ambition_platformer2d::inventory_ui::InventoryUiState>,
@@ -955,7 +950,6 @@ fn kaleidoscope_focus_nav(
     owned: Res<OwnedItems>,
     body_source: MenuBodySource,
     mut settings: ResMut<UserSettings>,
-    mut quality_confirm: ResMut<VisualQualityConfirmState>,
     // The ONE activation event. Nav announces the chosen action; the consumer
     // dispatches it. That is what let this signature shed `commands`, `players`,
     // `mana_q` and `heals` — every parameter it held only in order to dispatch.
@@ -963,7 +957,15 @@ fn kaleidoscope_focus_nav(
     mut sfx: SfxWriter,
     mut system: SystemMenuParams,
 ) {
-    let (menu_entity, menu_owner, mut pages) = pages.into_inner();
+    let (
+        menu_entity,
+        menu_owner,
+        mut pages,
+        mut cursor,
+        mut system_nav,
+        mut scroll,
+        mut quality_confirm,
+    ) = pages.into_inner();
     // Read the backend from `system` (the bundle owns it); a separate `Res` here
     // would be a B0002 conflict with that `ResMut`.
     if system.backend() != InventoryUiBackend::LunexKaleidoscope || !overlay.visible {
@@ -1119,7 +1121,16 @@ fn kaleidoscope_focus_nav(
         let action = match cursor.focus {
             MenuFocus::EdgeLeft => Some(MenuPageAction::ChangePage(active_page.on_viewer_left())),
             MenuFocus::EdgeRight => Some(MenuPageAction::ChangePage(active_page.on_viewer_right())),
-            MenuFocus::Item(idx) => owned_item_action(&ambition_platformer2d::items::Inventory::new(&owned, body_source.read(menu_owner.owner).and_then(|body| body.in_hand)), body_source.items(), idx),
+            MenuFocus::Item(idx) => owned_item_action(
+                &ambition_platformer2d::items::Inventory::new(
+                    &owned,
+                    body_source
+                        .read(menu_owner.owner)
+                        .and_then(|body| body.in_hand),
+                ),
+                body_source.items(),
+                idx,
+            ),
             // System focus is handled by the System branch above; never reached here.
             MenuFocus::System(_) => None,
         };
@@ -1164,33 +1175,49 @@ fn kaleidoscope_focus_nav(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn kaleidoscope_menu_action_activated(
     mut activated: MessageReader<MenuActionActivated<MenuPageAction>>,
-    mut cursor: ResMut<KaleidoscopeCursor>,
-    mut system_nav: ResMut<KaleidoscopeSystemNav>,
-    pages: Single<(Entity, &ambition_platformer2d::inventory_ui::InventoryMenu, &mut ActiveMenuPages<MenuPage, MenuPageAction>)>,
-    mut overlay: Single<&mut ambition_platformer2d::inventory_ui::InventoryUiState>,
+    mut menus: Query<(
+        Entity,
+        &ambition_platformer2d::inventory_ui::InventoryMenu,
+        &mut ActiveMenuPages<MenuPage, MenuPageAction>,
+        &mut KaleidoscopeCursor,
+        &mut KaleidoscopeSystemNav,
+        &mut VisualQualityConfirmState,
+        &mut ambition_platformer2d::inventory_ui::InventoryUiState,
+    )>,
     owned: Res<OwnedItems>,
     body_source: MenuBodySource,
     mut settings: ResMut<UserSettings>,
-    mut quality_confirm: ResMut<VisualQualityConfirmState>,
     mut commands: Commands,
     mut players: MenuEffectBodies,
     mut requests: MenuItemRequests,
     mut sfx: SfxWriter,
     mut system: SystemMenuParams,
 ) {
-    let (menu_entity, menu_owner, mut pages) = pages.into_inner();
     // Backend read from `system` (the bundle owns it); a separate `Res` would
     // B0002-conflict with that `ResMut`.
-    if system.backend() != InventoryUiBackend::LunexKaleidoscope || !overlay.visible {
+    if system.backend() != InventoryUiBackend::LunexKaleidoscope {
         activated.clear();
         return;
     }
     for activation in activated.read() {
-        if activation.menu != menu_entity {
+        let Ok((
+            menu_entity,
+            menu_owner,
+            mut pages,
+            mut cursor,
+            mut system_nav,
+            mut quality_confirm,
+            mut overlay,
+        )) = menus.get_mut(activation.menu)
+        else {
+            continue;
+        };
+        if !overlay.visible {
             continue;
         }
         let mut close_menu = false;
         crate::menu::dispatch::dispatch_menu_action(
+            menu_entity,
             menu_owner.owner,
             activation.action,
             &mut pages,
@@ -1209,7 +1236,6 @@ pub(crate) fn kaleidoscope_menu_action_activated(
         );
         if close_menu {
             overlay.close();
-            break;
         }
     }
 }
@@ -1582,17 +1608,34 @@ pub(crate) const INVENTORY_CUE_CONTEXT: ambition_platformer2d::input::InputConte
 /// Self-gates on the inventory overlay being open (backend-agnostic
 /// `InventoryUiState.visible`), so a closed menu retracts the cue.
 fn publish_menu_confirm_prompt(
-    ui_state: Option<Single<(&ambition_platformer2d::inventory_ui::InventoryMenu, &ambition_platformer2d::inventory_ui::InventoryUiState)>>,
-    cursor: Res<KaleidoscopeCursor>,
+    menu_state: Single<(&KaleidoscopeCursor,)>,
+    ui_state: Option<
+        Single<(
+            &ambition_platformer2d::inventory_ui::InventoryMenu,
+            &ambition_platformer2d::inventory_ui::InventoryUiState,
+        )>,
+    >,
     owned: Option<Res<OwnedItems>>,
     body_source: MenuBodySource,
     mut cues: ResMut<ambition_platformer2d::input::ActiveUiCues>,
 ) {
+    let (cursor,) = menu_state.into_inner();
+
     let state = ui_state.map(Single::into_inner);
     let owner = state.map(|(menu, _)| menu.owner);
     let menu_open = state.is_some_and(|(_, state)| state.visible);
-    let inventory = owned.as_deref().map(|bag| ambition_platformer2d::items::Inventory::new(bag, owner.and_then(|owner| body_source.read(owner).and_then(|body| body.in_hand))));
-    let label = menu_confirm_label(menu_open, cursor.focus(), inventory.as_ref(), body_source.items());
+    let inventory = owned.as_deref().map(|bag| {
+        ambition_platformer2d::items::Inventory::new(
+            bag,
+            owner.and_then(|owner| body_source.read(owner).and_then(|body| body.in_hand)),
+        )
+    });
+    let label = menu_confirm_label(
+        menu_open,
+        cursor.focus(),
+        inventory.as_ref(),
+        body_source.items(),
+    );
     let cue = ambition_platformer2d::input::UiCue {
         context: INVENTORY_CUE_CONTEXT,
         priority: 150,
@@ -1957,9 +2000,11 @@ fn gate_kaleidoscope_menu(
 /// keeps working identically.
 #[cfg(feature = "kaleidoscope_menu")]
 fn kaleidoscope_sync_focus_visuals(
-    cursor: Res<KaleidoscopeCursor>,
-    pages: Single<&ActiveMenuPages<MenuPage, MenuPageAction>>,
-    cache: Res<CachedSystemMenu>,
+    menus: Query<(
+        &ActiveMenuPages<MenuPage, MenuPageAction>,
+        &KaleidoscopeCursor,
+        &CachedSystemMenu,
+    )>,
     // Every control across every face, plus whether it sits on the ACTIVE face. The
     // cube spawns all faces at once and a focus key (an edge `>`/`<` button, a row
     // index) collides across faces, so only the active face may carry the cursor
@@ -1968,18 +2013,19 @@ fn kaleidoscope_sync_focus_visuals(
     // pre-set, so skipping inactive faces left those stuck-lit when rotated away.
     mut controls: Query<(
         &AmbitionMenuControl<MenuPageAction>,
+        &ambition_platformer2d::menu::MenuSurface,
         Has<KaleidoscopeActiveFaceControl>,
         &mut MenuVisualState,
     )>,
 ) {
-    let Some(active_page) = pages.active else {
-        return;
-    };
-    // The System row list is built by `cache_system_menu` when its inputs
-    // change and held in the cache (empty off the System face, where no System
-    // action is ever matched); read it per control rather than rebuilding it.
-    let rows = cache.rows.as_slice();
-    for (control, on_active_face, mut vis) in &mut controls {
+    for (control, surface, on_active_face, mut vis) in &mut controls {
+        let Ok((pages, cursor, cache)) = menus.get(surface.0) else {
+            continue;
+        };
+        let Some(active_page) = pages.active else {
+            continue;
+        };
+        let rows = cache.rows.as_slice();
         let Some(action) = control.action else {
             continue;
         };
@@ -2006,44 +2052,62 @@ fn kaleidoscope_sync_focus_visuals(
 fn kaleidoscope_sync_detail_text(
     owned: Option<Res<OwnedItems>>,
     body_source: MenuBodySource,
-    cursor: Res<KaleidoscopeCursor>,
-    pages: Single<(&ambition_platformer2d::inventory_ui::InventoryMenu, &ActiveMenuPages<MenuPage, MenuPageAction>)>,
-    cache: Res<CachedSystemMenu>,
-    mut texts: Query<(&MenuDynamicText, &mut MenuDynamicTextContent)>,
+    menus: Query<(
+        Entity,
+        &ambition_platformer2d::inventory_ui::InventoryMenu,
+        &ActiveMenuPages<MenuPage, MenuPageAction>,
+        &KaleidoscopeCursor,
+        &CachedSystemMenu,
+    )>,
+    mut texts: Query<(
+        &ambition_platformer2d::menu::MenuSurface,
+        &MenuDynamicText,
+        &mut MenuDynamicTextContent,
+    )>,
 ) {
-    let (menu_owner, pages) = pages.into_inner();
     let Some(owned) = owned else {
         return;
     };
-    let body = body_source.read(menu_owner.owner);
-    let inventory = ambition_platformer2d::items::Inventory::new(&owned, body.and_then(|body| body.in_hand));
-    let Some(active_page) = pages.active else {
-        return;
-    };
-    // Build the slot→string map for whichever face's detail panel is live. Only the
-    // active page carries dynamic-text slots, so a single map covers the panel.
-    let slot_text: Vec<(u32, String)> = match active_page {
-        MenuPage::Items => {
-            items_detail_slot_text(&inventory, body_source.items(), body.map(|body| body.equipped).unwrap_or_default(), cursor.focus)
-        }
-        MenuPage::System => match cache.model.as_ref() {
-            Some(model) => {
-                let focused = match cursor.focus {
-                    MenuFocus::System(idx) => idx.min(cache.rows.len().saturating_sub(1)),
-                    _ => 0,
-                };
-                system_detail_slot_text(model, &cache.rows, focused)
+    for (menu, menu_owner, pages, cursor, cache) in &menus {
+        let body = body_source.read(menu_owner.owner);
+        let inventory = ambition_platformer2d::items::Inventory::new(
+            &owned,
+            body.and_then(|body| body.in_hand),
+        );
+        let Some(active_page) = pages.active else {
+            continue;
+        };
+        // Build the slot→string map for whichever face's detail panel is live. Only the
+        // active page carries dynamic-text slots, so a single map covers the panel.
+        let slot_text: Vec<(u32, String)> = match active_page {
+            MenuPage::Items => items_detail_slot_text(
+                &inventory,
+                body_source.items(),
+                body.map(|body| body.equipped).unwrap_or_default(),
+                cursor.focus,
+            ),
+            MenuPage::System => match cache.model.as_ref() {
+                Some(model) => {
+                    let focused = match cursor.focus {
+                        MenuFocus::System(idx) => idx.min(cache.rows.len().saturating_sub(1)),
+                        _ => 0,
+                    };
+                    system_detail_slot_text(model, &cache.rows, focused)
+                }
+                None => Vec::new(),
+            },
+            // Placeholder faces (Map / Quest) have no dynamic detail panel.
+            _ => Vec::new(),
+        };
+        for (surface, dynamic, mut content) in &mut texts {
+            if surface.0 != menu {
+                continue;
             }
-            None => Vec::new(),
-        },
-        // Placeholder faces (Map / Quest) have no dynamic detail panel.
-        _ => Vec::new(),
-    };
-    for (dynamic, mut content) in &mut texts {
-        if let Some((_, text)) = slot_text.iter().find(|(slot, _)| *slot == dynamic.slot) {
-            // Change-detection friendly: only rewrite when the string differs.
-            if content.0 != *text {
-                content.0 = text.clone();
+            if let Some((_, text)) = slot_text.iter().find(|(slot, _)| *slot == dynamic.slot) {
+                // Change-detection friendly: only rewrite when the string differs.
+                if content.0 != *text {
+                    content.0 = text.clone();
+                }
             }
         }
     }

@@ -54,3 +54,12 @@ mod test_support;
 
 #[cfg(all(test, feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
 mod parity_tests;
+
+/// State owned by one inventory menu. Both backends use these components.
+#[derive(bevy::prelude::Component, Default)]
+#[require(kaleidoscope_app::KaleidoscopeCursor, kaleidoscope_app::KaleidoscopeSystemNav,
+    kaleidoscope_app::RebindCapture, quality_confirm::VisualQualityConfirmState)]
+#[cfg_attr(feature = "bevy_ui_menu", require(grid_backend::GridMenuTabState))]
+#[cfg_attr(feature = "kaleidoscope_menu", require(kaleidoscope_app::KaleidoscopeScroll,
+    kaleidoscope_app::CachedSystemMenu, kaleidoscope_app::MenuPublication))]
+pub(crate) struct MenuInstance;

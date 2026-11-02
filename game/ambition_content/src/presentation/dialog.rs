@@ -21,8 +21,9 @@ use ambition_content_schemas::rules::DialogLook;
 use ambition_content_schemas::text::lowered_ambition_text;
 use ambition_platformer2d::content::{hole, ShownText};
 use ambition_render::dialog_ui::{
-    claim_dialog_presentation, dialog_owner_label, DialogOverlayRoot, DialogPresentationSet, DialogSurface,
+    claim_dialog_presentation, dialog_owner_label, DialogOverlayRoot, DialogPresentationSet,
 };
+use ambition_render::ui_surface::ParticipantSurface;
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_sim_view::DialogView;
 use ambition_sprite_sheet::{
@@ -393,11 +394,12 @@ impl DialogChoiceWindow {
     }
 }
 
-fn sync_ambition_dialog_ui(sprite_content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
+fn sync_ambition_dialog_ui(
+    sprite_content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
     mut commands: Commands,
     dialogue: Res<DialogView>,
     overlays: Query<Entity, With<DialogOverlayRoot>>,
-    surface: DialogSurface,
+    surface: ParticipantSurface,
     mut layout_cache: ResMut<AmbitionDialogLayoutCache>,
     ui_fonts: Option<Res<UiFonts>>,
     character_catalog: Res<CharacterCatalog>,
@@ -424,8 +426,9 @@ fn sync_ambition_dialog_ui(sprite_content: bevy::prelude::Res<ambition_platforme
     tuning: Res<crate::tuning::AmbitionTuning>,
     pack: Res<crate::pack::SelectedContentPack>,
 ) {
-    let portrait_registry = ambition_platformer2d::sprite_sheet::baked_sheet_rons::current(&sprite_content).portraits();
-    let rect = surface.rect(&dialogue);
+    let portrait_registry =
+        ambition_platformer2d::sprite_sheet::baked_sheet_rons::current(&sprite_content).portraits();
+    let rect = surface.rect(dialogue.input_owner);
     let layout_changed = layout_cache.viewport != rect;
     if layout_changed {
         layout_cache.viewport = rect;
@@ -455,7 +458,8 @@ fn sync_ambition_dialog_ui(sprite_content: bevy::prelude::Res<ambition_platforme
     let rect = rect.unwrap();
     let profile = DialogLayoutProfile::for_viewport(rect.size());
     let look = &tuning.0.dialog_look;
-    let text = lowered_ambition_text(pack.get()).expect("Ambition's pack states its dialogue words (`data/ambition_text.ron`)");
+    let text = lowered_ambition_text(pack.get())
+        .expect("Ambition's pack states its dialogue words (`data/ambition_text.ron`)");
     // the window used to RECENTER on every selection change, which on a phone is a moving
     // target: touching a row selects it, the list rebuilds around it, and the row you touched
     // is now somewhere else — so the second press Android's tap-mode needs lands on a
@@ -500,11 +504,10 @@ fn sync_ambition_dialog_ui(sprite_content: bevy::prelude::Res<ambition_platforme
         &portrait_catalog,
         &portrait_registry,
         declared_characters.get(),
-        quality
-            .as_deref()
-            .map_or(ambition_persistence::settings::TextureResolutionScale::Full, |quality| {
-                quality.budget.sprites.effective_scale()
-            }),
+        quality.as_deref().map_or(
+            ambition_persistence::settings::TextureResolutionScale::Full,
+            |quality| quality.budget.sprites.effective_scale(),
+        ),
     );
     let portrait_image_path = resolved_portrait
         .as_ref()
@@ -521,7 +524,12 @@ fn sync_ambition_dialog_ui(sprite_content: bevy::prelude::Res<ambition_platforme
     let portrait_image = portrait_image_path
         .zip(asset_server.as_deref())
         .map(|(path, server)| {
-            ambition_sprite_sheet::game_assets::load_sheet_image(Some(&sprite_content), server, "portrait", path)
+            ambition_sprite_sheet::game_assets::load_sheet_image(
+                Some(&sprite_content),
+                server,
+                "portrait",
+                path,
+            )
         });
 
     let selected_marker = ui_fonts
@@ -541,30 +549,30 @@ fn sync_ambition_dialog_ui(sprite_content: bevy::prelude::Res<ambition_platforme
     commands
         .spawn((
             {
-            let mut node = Node {
-                position_type: PositionType::Absolute,
-                left: Val::Px(0.0),
-                right: Val::Px(0.0),
-                top: Val::Px(0.0),
-                bottom: Val::Px(0.0),
-                padding: UiRect {
-                    left: Val::Px(10.0),
-                    right: Val::Px(10.0),
-                    top: Val::Px(profile.panel_top_inset),
-                    bottom: Val::Px(10.0),
-                },
-                // The root is a column so the main axis is vertical:
-                // `FlexStart` anchors the panel near the top, while the cross-axis
-                // `Center` actually centers it horizontally. With Bevy's default
-                // row direction these same values left-align the panel and center
-                // it vertically.
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::FlexStart,
-                align_items: AlignItems::Center,
-                ..default()
-            };
-            surface.place(&mut node, rect);
-            node
+                let mut node = Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(0.0),
+                    right: Val::Px(0.0),
+                    top: Val::Px(0.0),
+                    bottom: Val::Px(0.0),
+                    padding: UiRect {
+                        left: Val::Px(10.0),
+                        right: Val::Px(10.0),
+                        top: Val::Px(profile.panel_top_inset),
+                        bottom: Val::Px(10.0),
+                    },
+                    // The root is a column so the main axis is vertical:
+                    // `FlexStart` anchors the panel near the top, while the cross-axis
+                    // `Center` actually centers it horizontally. With Bevy's default
+                    // row direction these same values left-align the panel and center
+                    // it vertically.
+                    flex_direction: FlexDirection::Column,
+                    justify_content: JustifyContent::FlexStart,
+                    align_items: AlignItems::Center,
+                    ..default()
+                };
+                surface.place(&mut node, rect);
+                node
             },
             ZIndex(45),
             DialogOverlayRoot,
@@ -600,7 +608,11 @@ fn sync_ambition_dialog_ui(sprite_content: bevy::prelude::Res<ambition_platforme
                     portrait_source_rect,
                     &monogram,
                     accent,
-                    &format!("{} · {}", speaker_label, dialog_owner_label(dialogue.input_owner)),
+                    &format!(
+                        "{} · {}",
+                        speaker_label,
+                        dialog_owner_label(dialogue.input_owner)
+                    ),
                     &profile,
                     &dialog_font,
                     look,

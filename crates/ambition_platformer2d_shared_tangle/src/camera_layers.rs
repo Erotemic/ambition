@@ -49,8 +49,8 @@ pub const PORTAL_CARRY_LAYERS: usize = 16;
 /// Base of the render-layer band reserved for isolated local-view projections.
 ///
 /// Lower ranges are reserved for world/HUD/parallax/portal/overlay layers. The
-/// band grows upward with the live-view ordinal; `RenderLayers` imposes no fixed
-/// semantic limit on the number of local views.
+/// even slots hold local views and odd slots hold menu scenes. Both namespaces
+/// grow with their own dense ordinals; neither has a fixed semantic limit.
 pub const LOCAL_VIEW_RENDER_LAYER_BASE: usize = 1024;
 
 /// Base of the render-layer band for live rooms. While two or more rooms are
@@ -119,7 +119,12 @@ pub fn live_room_band(
 /// Callers sort views by id and pass the dense ordinal so render-layer allocation
 /// remains private to presentation.
 pub fn local_view_render_layer(ordinal: usize) -> usize {
-    LOCAL_VIEW_RENDER_LAYER_BASE + ordinal
+    LOCAL_VIEW_RENDER_LAYER_BASE + 2 * ordinal
+}
+
+/// Render layer for a menu scene ordinal, separate from all local-view slots.
+pub fn menu_scene_render_layer(ordinal: usize) -> usize {
+    LOCAL_VIEW_RENDER_LAYER_BASE + 2 * ordinal + 1
 }
 
 /// Marks a gameplay camera for one local view; this marker is not a singleton.

@@ -110,6 +110,19 @@ pub fn install_unified_menu_shared(app: &mut App) {
         );
     #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
     app.add_systems(PostUpdate, crate::menu::lifecycle::aggregate_menu_pause);
+    #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
+    app.add_systems(
+        PostUpdate,
+        (
+            super::regions::resolve_menu_regions,
+            super::regions::place_menu_nodes,
+            #[cfg(feature = "kaleidoscope_menu")]
+            super::regions::place_cube_regions,
+        )
+            .chain()
+            .in_set(ambition_platformer2d::menu::render::MenuSurfaceLayout)
+            .before(bevy::camera::CameraUpdateSystems),
+    );
     install_menu_confirm_provider(app);
 }
 

@@ -27,9 +27,10 @@
 | [`spirit_field`](src/spirit_field.rs) | The field of a spirit: near each spirit the picture ripples, as air over a fire does, and takes the spirit's colour. |
 | [`texture_mips`](src/texture_mips.rs) | Prepare repeating RGBA textures for filtered minification. |
 | [`ui_fonts`](src/ui_fonts.rs) | UI font loading for the presentation layer. |
+| [`ui_surface`](src/ui_surface.rs) | Participant-owned UI regions resolved from the live view layout. |
 | [`void_field`](src/void_field.rs) | The field of the void: the picture loses its colour, and a part of its light, near each void thing. |
 
-_22 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_23 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

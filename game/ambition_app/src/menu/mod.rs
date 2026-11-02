@@ -16,6 +16,8 @@ pub struct KaleidoscopeMenuNav;
 #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
 mod build_label;
 #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
+mod regions;
+#[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
 pub(crate) mod lifecycle;
 pub mod dispatch;
 pub mod effects;
@@ -45,6 +47,7 @@ mod parity_tests;
 #[require(kaleidoscope_app::KaleidoscopeCursor, kaleidoscope_app::KaleidoscopeSystemNav,
     kaleidoscope_app::RebindCapture, quality_confirm::VisualQualityConfirmState)]
 #[cfg_attr(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"), require(lifecycle::MenuLifecycleState))]
+#[cfg_attr(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"), require(regions::MenuRegion))]
 #[cfg_attr(feature = "bevy_ui_menu", require(grid_backend::GridMenuTabState))]
 #[cfg_attr(feature = "kaleidoscope_menu", require(kaleidoscope_app::KaleidoscopeScroll,
     kaleidoscope_app::CachedSystemMenu, kaleidoscope_app::MenuPublication, ambition_menu_kaleidoscope::KaleidoscopeOpenState))]

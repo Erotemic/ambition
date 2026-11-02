@@ -409,7 +409,8 @@ fn view_layer(
 fn without_view_layers(layers: &RenderLayers) -> RenderLayers {
     let mut base = layers.clone();
     for layer in layers.iter() {
-        if layer >= LOCAL_VIEW_RENDER_LAYER_BASE {
+        if layer >= LOCAL_VIEW_RENDER_LAYER_BASE && (layer - LOCAL_VIEW_RENDER_LAYER_BASE) % 2 == 0
+        {
             base = base.without(layer);
         }
     }

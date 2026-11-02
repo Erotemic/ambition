@@ -15,8 +15,10 @@ use bevy::log::info;
 use bevy::prelude::*;
 
 use crate::ui_fonts::{UiFontWeight, UiFonts};
-use ambition_platformer2d_shared_tangle::gameplay_presentation::ResolvedGameplayPresentation;
-use ambition_sim_view::{DialogView, LocalView, LocalViewId, ViewParticipant, ViewPlacement, SharedViewHudFacts, ViewHudSeat, ViewSubject};
+use ambition_sim_view::DialogView;
+#[cfg(test)]
+use ambition_sim_view::{LocalView, LocalViewId, ViewParticipant, ViewPlacement};
+use crate::ui_surface::ParticipantSurface;
 use ambition_ui_nav::DialogChoiceSlot;
 
 const DEFAULT_CONTINUE_HINT: &str = "Confirm / Interact: continue    Back: close";
@@ -43,71 +45,35 @@ pub fn dialog_owner_label(owner: Option<ambition_input::InputOwner>) -> String {
     }
 }
 
-/// Resolve the dialogue surface from its participant and the current view layout.
-#[derive(bevy::ecs::system::SystemParam)]
-pub struct DialogSurface<'w, 's> {
-    views: Query<'w, 's, (&'static LocalViewId, Option<&'static ViewParticipant>, Option<&'static ViewPlacement>, Option<&'static SharedViewHudFacts>, Option<&'static ViewHudSeat>, Has<ViewSubject>), With<LocalView>>,
-    presentation: Option<Res<'w, ResolvedGameplayPresentation>>,
-    windows: Query<'w, 's, &'static Window, With<bevy::window::PrimaryWindow>>,
-}
-
-impl DialogSurface<'_, '_> {
-    pub fn rect(&self, dialogue: &DialogView) -> Option<Rect> {
-        use ambition_input::InputOwner;
-        let display = self.presentation.as_deref().map(|p| Rect::from_corners(p.display_rect.min, p.display_rect.max))
-            .unwrap_or_else(|| Rect::from_corners(Vec2::ZERO, self.windows.single().map_or(Vec2::new(1280.0, 720.0), |window| Vec2::new(window.width(), window.height()))));
-        let reading = self.presentation.as_deref().map_or(display, |p| {
-            let rect = p.reading_rect();
-            Rect::from_corners(rect.min, rect.max)
-        });
-        if dialogue.input_owner == Some(InputOwner::AllParticipants) || self.views.is_empty() {
-            return Some(reading);
-        }
-        dialogue.input_owner?;
-        let shared = self.views.iter().count() == 1;
-        let (_, _, placement, _, _, _) = self.views.iter().filter(|(_, participant, _, seats, seat, subject)| {
-            participant.is_some_and(|participant| dialogue.controls_seat(participant.0))
-                || seat.and_then(|seat| seat.0).is_some_and(|seat| dialogue.controls_seat(seat))
-                || seats.is_some_and(|seats| seats.0.iter().any(|(seat, _)| dialogue.controls_seat(*seat)))
-                || (shared && participant.is_none() && !subject && seat.is_none())
-        }).min_by_key(|(id, ..)| **id)?;
-        let gameplay = self.presentation.as_deref().map_or(display, |p| Rect::from_corners(p.gameplay_rect.min, p.gameplay_rect.max));
-        let (origin, size) = placement.copied().unwrap_or_default().carve(gameplay.min, gameplay.size());
-        let min = origin.max(reading.min);
-        let max = (origin + size).min(reading.max);
-        (max.cmpgt(min).all()).then(|| Rect::from_corners(min, max))
-    }
-
-    pub fn place(&self, node: &mut Node, rect: Rect) {
-        let display_origin = self.presentation.as_deref().map_or(Vec2::ZERO, |p| p.display_rect.min);
-        node.position_type = PositionType::Absolute;
-        node.left = Val::Px(rect.min.x - display_origin.x);
-        node.top = Val::Px(rect.min.y - display_origin.y);
-        node.width = Val::Px(rect.width());
-        node.height = Val::Px(rect.height());
-        node.right = Val::Auto;
-        node.bottom = Val::Auto;
-        node.overflow = Overflow::clip();
-    }
-}
 
 fn fit_dialog_surface(
-    surface: DialogSurface,
+    surface: ParticipantSurface,
     dialogue: Res<DialogView>,
     mut pointer_region: ResMut<ambition_ui_nav::DialogPointerRegion>,
     mut roots: Query<(&mut Node, &mut Visibility), With<DialogOverlayRoot>>,
 ) {
-    let rect = dialogue.active.then(|| surface.rect(&dialogue)).flatten();
+    let rect = dialogue
+        .active
+        .then(|| surface.rect(dialogue.input_owner))
+        .flatten();
     if pointer_region.0 != rect {
         pointer_region.0 = rect;
     }
     for (mut node, mut visibility) in &mut roots {
-        let next_visibility = if rect.is_some() { Visibility::Inherited } else { Visibility::Hidden };
-        if *visibility != next_visibility { *visibility = next_visibility; }
+        let next_visibility = if rect.is_some() {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+        if *visibility != next_visibility {
+            *visibility = next_visibility;
+        }
         if let Some(rect) = rect {
             let mut next = node.clone();
             surface.place(&mut next, rect);
-            if *node != next { *node = next; }
+            if *node != next {
+                *node = next;
+            }
         }
     }
 }
@@ -176,12 +142,12 @@ pub fn sync_default_dialog_ui(
     dialogue: Res<DialogView>,
     overlays: Query<Entity, With<DialogOverlayRoot>>,
     ui_fonts: Option<Res<UiFonts>>,
-    surface: DialogSurface,
+    surface: ParticipantSurface,
     mut previous_rect: Local<Option<Rect>>,
     mut logged_font_state: Local<bool>,
 ) {
     let fonts_changed = ui_fonts.as_ref().is_some_and(|fonts| fonts.is_changed());
-    let rect = surface.rect(&dialogue);
+    let rect = surface.rect(dialogue.input_owner);
     let layout_changed = *previous_rect != rect;
     *previous_rect = rect;
     if !dialogue.is_changed() && !fonts_changed && !layout_changed {
@@ -195,7 +161,11 @@ pub fn sync_default_dialog_ui(
         return;
     }
 
-    let title = format!("{} · {}", default_title(&dialogue), dialog_owner_label(dialogue.input_owner));
+    let title = format!(
+        "{} · {}",
+        default_title(&dialogue),
+        dialog_owner_label(dialogue.input_owner)
+    );
     let options = &dialogue.option_labels;
     let selected = dialogue.selected_option;
 

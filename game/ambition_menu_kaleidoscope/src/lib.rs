@@ -59,6 +59,14 @@ const DEPTH_TEXT_TOP: f32 = -0.96;
 const DEPTH_SELECTION: f32 = -1.12;
 const FONT_FAMILY: &str = "DejaVu Sans";
 
+#[derive(Component)]
+#[relationship(relationship_target = MenuCameras)]
+struct MenuCameraOf(Entity);
+
+#[derive(Component)]
+#[relationship_target(relationship = MenuCameraOf, linked_spawn)]
+struct MenuCameras(Vec<Entity>);
+
 /// Marks the rotating ring root that holds the cube faces.
 #[derive(Component)]
 #[require(KaleidoscopeOpenState)]
@@ -488,11 +496,18 @@ where
         // recolors a control's material in place this frame) so the fade always lands
         // the alpha on top of it; ordered after the animate step (Update) that advances
         // `amount`. Cheap: it only mutates the base-color alpha on existing assets.
+        app.add_systems(PostUpdate,
+            (assign_scene_layers, bind_scene_layers).chain()
+                .before(bevy::camera::visibility::VisibilitySystems::CheckVisibility));
+        app.add_systems(PostUpdate, fit_cube_camera_regions
+            .after(ambition_menu::render::MenuSurfaceLayout)
+            .before(bevy::transform::TransformSystems::Propagate)
+            .before(bevy::camera::CameraUpdateSystems));
         app.add_systems(
             PostUpdate,
             fade_kaleidoscope_materials.in_set(KaleidoscopeRender),
         );
-        app.add_systems(Startup, setup_cube::<PageId, Action>)
+        app.add_systems(Update, setup_cube::<PageId, Action>.before(KaleidoscopeRender))
             .add_systems(
                 Update,
                 (
@@ -518,13 +533,14 @@ where
 fn setup_cube<PageId: Send + Sync + 'static, Action: Send + Sync + 'static>(
     mut commands: Commands,
     config: Res<KaleidoscopeMenuConfig>,
-    menus: Query<Entity, With<ActiveMenuPages<PageId, Action>>>,
+    menus: Query<Entity, (With<ActiveMenuPages<PageId, Action>>, Without<MenuRing>)>,
 ) {
     let geo = config.geometry;
     for menu in &menus {
         commands.spawn((
             Name::new("Cube pause camera"),
             KaleidoscopePauseCamera,
+            MenuCameraOf(menu),
             ambition_menu::MenuSurface(menu),
             Camera3d::default(),
             // The cube is an unlit UI scene, not an HDR-lit world. Opt out of the
@@ -1527,5 +1543,103 @@ fn scene_menu(
             return Some(surface.0);
         }
         entity = parents.get(entity).ok()?.parent();
+    }
+}
+
+fn assign_scene_layers(
+    mut roots: Query<(Entity, &mut RenderLayers), With<MenuRing>>,
+    mut ordered: Local<Vec<Entity>>,
+) {
+    ordered.clear();
+    ordered.extend(roots.iter().map(|(entity, _)| entity));
+    ordered.sort_unstable();
+    for (ordinal, &entity) in ordered.iter().enumerate() {
+        let (_, mut current) = roots.get_mut(entity).unwrap();
+        let wanted =
+            RenderLayers::from_layers(&[ambition_menu::render::menu_scene_render_layer(ordinal)]);
+        if *current != wanted {
+            *current = wanted;
+        }
+    }
+}
+
+fn bind_scene_layers(
+    mut commands: Commands,
+    roots: Query<(Entity, Ref<RenderLayers>), (With<MenuRing>, Without<KaleidoscopePauseCamera>)>,
+    mut cameras: Query<
+        (&ambition_menu::MenuSurface, &mut RenderLayers),
+        (With<KaleidoscopePauseCamera>, Without<MenuRing>),
+    >,
+    nodes: Query<(Option<&RenderLayers>, Option<&Children>), Without<KaleidoscopePauseCamera>>,
+    attached: Query<Entity, Changed<ChildOf>>,
+    surfaces: Query<&ambition_menu::MenuSurface>,
+    parents: Query<&ChildOf>,
+) {
+    for (owner, mut current) in &mut cameras {
+        let Ok((_, wanted)) = roots.get(owner.0) else {
+            continue;
+        };
+        if *current != *wanted {
+            *current = (*wanted).clone();
+        }
+    }
+    let mut apply = |start: Entity, wanted: &RenderLayers| {
+        let mut pending = vec![start];
+        while let Some(entity) = pending.pop() {
+            let Ok((current, children)) = nodes.get(entity) else {
+                continue;
+            };
+            if current != Some(wanted) {
+                commands.entity(entity).insert(wanted.clone());
+            }
+            if let Some(children) = children {
+                pending.extend(children.iter());
+            }
+        }
+    };
+    for (root, layers) in &roots {
+        if layers.is_changed() {
+            apply(root, &layers);
+        }
+    }
+    for entity in &attached {
+        let Some(menu) = scene_menu(entity, &surfaces, &parents) else {
+            continue;
+        };
+        let Ok((_, layers)) = roots.get(menu) else {
+            continue;
+        };
+        if !layers.is_changed() {
+            apply(entity, &layers);
+        }
+    }
+}
+
+fn fit_cube_camera_regions(
+    config: Res<KaleidoscopeMenuConfig>,
+    mut cameras: Query<(&Camera, &mut Projection), With<KaleidoscopePauseCamera>>,
+) {
+    let geometry = config.geometry;
+    for (camera, mut projection) in &mut cameras {
+        let size = camera
+            .viewport
+            .as_ref()
+            .map(|viewport| viewport.physical_size.as_vec2())
+            .or_else(|| camera.logical_viewport_size());
+        let Some(size) = size.filter(|size| size.cmpgt(Vec2::ZERO).all()) else {
+            continue;
+        };
+        let ratio = (geometry.page_width / geometry.page_height / (size.x / size.y)).max(1.0);
+        let fov = 2.0
+            * ((ambition_menu::MenuCubeGeometry::CAMERA_FOV_RADIANS * 0.5).tan() * ratio).atan();
+        // Keep the camera at the cube's viewing point. Moving back exposes the rear face.
+        let Projection::Perspective(current) = &*projection else {
+            continue;
+        };
+        if current.fov != fov {
+            if let Projection::Perspective(current) = &mut *projection {
+                current.fov = fov;
+            }
+        }
     }
 }

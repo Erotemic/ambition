@@ -142,6 +142,7 @@
         (path: "data/worn_gear.ron", schema: "worn_gear", version: 1),
         // Ambition's own tuning: the idle bark cadence, the GNU-ton duel.
         (path: "data/ambition_rules.ron", schema: "ambition_rules", version: 1),
+        (path: "data/autoplay.ron", schema: "ambition_autoplay", version: 1),
         // The lines it shows: its launcher row and the cover at start.
         (path: "data/ambition_text.ron", schema: "ambition_text", version: 1),
         // Save flags that set other save flags: the intro route's consequences.

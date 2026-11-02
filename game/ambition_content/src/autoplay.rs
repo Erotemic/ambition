@@ -17,8 +17,8 @@
 //! the body until its lines are dismissed: the policy presses Confirm, as a
 //! person would.
 //!
-//! What it does not do: talk (a conversation reads the menu input, which no
-//! script drives), fight, or pick up. It is a load, not a playthrough.
+//! The default route does not fight or collect items. `castle_godwin` selects
+//! a combat route through the castle's gate, halls, muster, and boss fight.
 
 use bevy::prelude::*;
 
@@ -38,30 +38,22 @@ use bevy::ecs::system::SystemParam;
 /// This game's id in the hub, the value of `AMBITION_AUTOPLAY` that selects
 /// this policy.
 pub const AUTOPLAY_GAME: &str = "ambition";
+pub const CASTLE_AUTOPLAY: &str = "castle_godwin";
 
-/// How the body goes on its way to a stop.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Way {
-    Walk,
-    Fly,
+use ambition_content_schemas::autoplay::{Stop, Way};
+
+#[derive(Resource)]
+pub(crate) struct Profiles(pub ambition_content_schemas::autoplay::Profiles);
+
+pub(super) fn register(app: &mut App) {
+    let pack = crate::pack::select(app.world_mut());
+    let profiles = ambition_content_schemas::autoplay::lowered_profiles(&pack).cloned().unwrap_or_default();
+    app.insert_resource(Profiles(profiles)).init_resource::<Itinerary>()
+        .add_systems(Update, play_ambition
+            .in_set(ambition_platformer2d::scripted_input::AutoplayPolicy)
+            .run_if(|mode: Option<Res<ambition_platformer2d::scripted_input::Autoplay>>, profiles: Res<Profiles>|
+                mode.is_some_and(|mode| profiles.0.contains_key(&mode.0))));
 }
-
-/// One stop of the itinerary: a room, how the body goes there, and whether it
-/// crosses the room before it goes on.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Stop {
-    pub room: &'static str,
-    pub way: Way,
-    pub cross: bool,
-}
-
-/// The itinerary, in order, and again from the first.
-pub const ITINERARY: [Stop; 4] = [
-    Stop { room: "hall_of_characters", way: Way::Walk, cross: true },
-    Stop { room: "primeval_trailhead", way: Way::Walk, cross: false },
-    Stop { room: "primeval_tyrant_hall", way: Way::Fly, cross: true },
-    Stop { room: "central_hub_complex", way: Way::Fly, cross: false },
-];
 
 /// Frames between two presses of Interact at a door, or of Confirm in a
 /// cutscene.
@@ -74,7 +66,7 @@ const CROSS_INSET: f32 = 96.0;
 const CROSS_LIFT: f32 = 64.0;
 
 /// Where the itinerary is.
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct Itinerary {
     stop: usize,
     /// The room the body is in, as far as this policy has seen.
@@ -86,6 +78,9 @@ pub struct Itinerary {
     frames_in_room: u32,
     frames_since_press: u32,
     pending_dial: Option<(String, u64)>,
+    pub completed: bool,
+    frames: u64,
+    equipped: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -137,16 +132,29 @@ impl GateTravel<'_, '_> {
 }
 
 /// The policy: this frame's order to the autopilot.
-pub fn play_ambition(
+fn play_ambition(
     mut order: ResMut<AutopilotOrder>,
-    mut itinerary: Local<Itinerary>,
+    mut itinerary: ResMut<Itinerary>,
+    mode: Res<ambition_platformer2d::scripted_input::Autoplay>,
+    profiles: Res<Profiles>,
+    items: ambition_items::ItemCatalogRead,
     autopilot: Option<Res<Autopilot>>,
     rooms: Option<LiveRoomSpecs>,
-    players: Query<(Entity, &ae::BodyKinematics, Option<&ae::SweepSample>), With<PrimaryPlayer>>,
+    players: Query<(Entity, &ae::BodyKinematics, Option<&ae::SweepSample>, Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>), With<PrimaryPlayer>>,
     cutscene: Option<Res<ambition_cutscene::ActiveCutscene>>,
     mut gates: GateTravel,
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
+    boss_records: Query<(&ambition_boss_encounter::BossConfig, Option<&ambition_extension_host::BodyRecords>)>,
+    mut equips: HostIntentWriter<ambition_items::ItemEquipRequested>,
+    encounters: Query<(Entity, &ambition_platformer2d::encounter::Encounter,
+        &ambition_platformer2d::encounter::EncounterLifecycle)>,
+    actors: Query<(Entity, &ae::BodyKinematics,
+        &ambition_platformer2d::characters::actor::BodyHealth,
+        &ambition_platformer2d::characters::actor::ActorFaction,
+        Option<&ambition_boss_encounter::BossEncounter>,
+        &ambition_platformer2d_shared_tangle::sim_id::SimId)>,
 ) {
-    let Ok((entity, kin, sweep)) = players.single() else {
+    let Ok((entity, kin, sweep, in_room)) = players.single() else {
         *order = AutopilotOrder::Idle;
         return;
     };
@@ -160,6 +168,23 @@ pub fn play_ambition(
     };
     let rooms = specs.rooms();
     let it = &mut *itinerary;
+    let Some(profile) = profiles.0.get(&mode.0) else { return; };
+    if profiles.is_changed() || mode.is_changed() { *it = Itinerary::default(); }
+    let stops = &profile.stops;
+    let combat = profile.fight_at_stops;
+    it.frames += 1;
+    if !it.equipped {
+        if let Some(id) = &profile.equip {
+            if let Some(item) = items.get().item_by_dialog_id(id) {
+                equips.write(ambition_items::ItemEquipRequested { item });
+            } else { error!("autoplay {} requests missing equipment {id}", mode.0); }
+        }
+        it.equipped = true;
+    }
+    if it.completed {
+        *order = AutopilotOrder::Idle;
+        return;
+    }
     if specs.set_is_changed() || gates.catalog.is_changed() {
         it.goal = None;
     }
@@ -193,18 +218,93 @@ pub fn play_ambition(
         it.goal = None;
         it.pending_dial = None;
     }
+    if combat && stops.iter().any(|stop| stop.room == room.id) {
+        let target = actors.iter().filter(|(actor, target, health, faction, boss, _)|
+            specs.live().of(*actor) == specs.live().of(entity)
+                && health.alive() && faction.is_hostile_side()
+                && target.pos.x >= 0.0 && target.pos.x < room.world.size.x
+                && target.pos.y >= 0.0 && target.pos.y < room.world.size.y
+                && boss.is_none_or(|boss| boss.encounter_phase() != ambition_boss_encounter::BossEncounterPhase::Dormant
+                    || boss_records.get(*actor).is_ok_and(|(config, _)| config.wakes_after.is_none())))
+            .min_by(|(_, ka, _, _, _, a), (_, kb, _, _, _, b)| kin.pos.distance_squared(ka.pos)
+                .total_cmp(&kin.pos.distance_squared(kb.pos)).then_with(|| a.cmp(b)));
+        if let Some((target_entity, target, ..)) = target {
+            if let Ok((config, records)) = boss_records.get(target_entity) {
+                use ambition_content_modules::inugami::{Conductor, INUGAMI_ID};
+                if config.behavior.id == INUGAMI_ID && records.and_then(|records| records.get(&Conductor::KEY))
+                    .and_then(|record| Conductor::from_record(record).ok()).is_some_and(|c| c.warded()) {
+                    if let Some(zone) = room.camera_zones.iter().find(|zone| zone.id == "castle_godwin_throne_final_camera") {
+                        *order = go_to(zone.aabb.center(), Way::Fly);
+                        return;
+                    }
+                }
+            }
+            let delta = target.pos - kin.pos;
+            let clear = collision.room(in_room).and_then(|room| room.solids())
+                .is_some_and(|walls| ae::cast::raycast_solids(&*walls, kin.pos, delta.normalize_or_zero(), delta.length(), false).is_none());
+            if delta.length() <= 110.0 && clear {
+                let aim = delta.normalize_or_zero();
+                let fire = it.frames % 90 == 0;
+                *order = AutopilotOrder::Press(ControlFrame {
+                    axis_x: if delta.x.abs() > 50.0 { delta.x.signum() * 0.5 } else { delta.x.signum() * 0.05 },
+                    axis_y: (delta.y / 80.0).clamp(-1.0, 1.0),
+                    aim_x: aim.x, aim_y: aim.y,
+                    projectile_pressed: fire, projectile_held: it.frames % 90 < 60,
+                    projectile_released: it.frames % 90 == 60,
+                    attack_pressed: delta.length() < 95.0 && it.frames % 24 == 0,
+                    attack_from_aim_stick: true, attack_aim_x: aim.x, attack_aim_y: aim.y,
+                    ..default()
+                });
+            } else {
+                *order = go_to(target.pos, Way::Fly);
+            }
+            return;
+        }
+        for trigger in &room.encounter_triggers {
+            let phase = encounters.iter().find(|(encounter, id, _)| id.id == trigger.id
+                && specs.live().of(*encounter) == specs.live().of(entity)).map(|(_, _, life)| life.phase());
+            use ambition_platformer2d::encounter::EncounterPhase;
+            match phase {
+                Some(EncounterPhase::Inactive | EncounterPhase::Failed) => {
+                    *order = go_to(trigger.min + trigger.size * 0.5, Way::Fly);
+                    return;
+                }
+                Some(EncounterPhase::Starting { .. } | EncounterPhase::Active) => {
+                    *order = AutopilotOrder::Idle;
+                    return;
+                }
+                _ => {}
+            }
+        }
+        if !profile.repeat && stops.last().is_some_and(|stop| stop.room == room.id) {
+            let bosses: Vec<_> = actors.iter().filter(|(actor, _, _, _, boss, _)|
+                boss.is_some() && specs.live().of(*actor) == specs.live().of(entity)).collect();
+            if !bosses.is_empty() && bosses.iter().all(|(_, _, health, _, _, _)| !health.alive()) {
+                it.completed = true;
+                info!("[autoplay] {} complete frames={}", mode.0, it.frames);
+                *order = AutopilotOrder::Idle;
+                return;
+            }
+        }
+    }
     let status = autopilot.as_deref().map(Autopilot::status);
     if it.goal == Some(Goal::Waiting) && it.frames_in_room % RETRY_ROUTE_FRAMES == 0 {
         it.goal = None;
     }
     if it.goal == Some(Goal::Done) || (matches!(it.goal, Some(Goal::Cross(_))) && status == Some(AutopilotStatus::Arrived)) {
-        it.advance();
+        if profile.repeat || it.stop + 1 < stops.len() {
+            it.advance(stops.len());
+        } else if !combat {
+            it.completed = true;
+            *order = AutopilotOrder::Idle;
+            return;
+        }
     }
     if it.goal.is_none() {
-        it.goal = Some(goal_in(rooms, room, ITINERARY[it.stop], it.arrival, &gates));
-        eprintln!("[autoplay] room={} stop={} goal={:?}", room.id, ITINERARY[it.stop].room, it.goal);
+        it.goal = Some(goal_in(rooms, room, &stops[it.stop], it.arrival, &gates));
+        eprintln!("[autoplay] room={} stop={} goal={:?}", room.id, stops[it.stop].room, it.goal);
     }
-    let way = ITINERARY[it.stop].way;
+    let way = stops[it.stop].way;
     *order = match it.goal.clone() {
         Some(Goal::Leave(hop)) => {
             let Some(zone) = room.loading_zones.iter().find(|zone| zone.id == hop.zone) else {
@@ -229,7 +329,7 @@ pub fn play_ambition(
                     }
                     let terminal = gates.catalog.ring(&zone.id).and_then(|ring| ring.terminal.as_deref());
                     let at = gates.terminals.iter().find(|(switch, feature, _)| {
-                        Some(feature.activation.id.as_str()) == terminal && specs.definition_of(*switch) == specs.definition_of(entity)
+                        Some(feature.activation.id.as_str()) == terminal && specs.live().of(*switch) == specs.live().of(entity)
                     }).map(|(_, _, at)| *at);
                     *order = match at {
                         Some(at) if body.strict_intersects(at.aabb()) => press_interact(it),
@@ -258,8 +358,8 @@ pub fn play_ambition(
 
 impl Itinerary {
     /// On to the next stop, from this room.
-    fn advance(&mut self) {
-        self.stop = (self.stop + 1) % ITINERARY.len();
+    fn advance(&mut self, stops: usize) {
+        self.stop = (self.stop + 1) % stops;
         self.goal = None;
         self.frames_in_room = 0;
     }
@@ -267,13 +367,13 @@ impl Itinerary {
 
 /// What the body goes to in `room` on its way to `stop`, having come in at
 /// `arrival`.
-fn goal_in(rooms: &RoomSet, room: &RoomSpec, stop: Stop, arrival: ae::Vec2, gates: &GateTravel) -> Goal {
+fn goal_in(rooms: &RoomSet, room: &RoomSpec, stop: &Stop, arrival: ae::Vec2, gates: &GateTravel) -> Goal {
     if room.id == stop.room {
         return if stop.cross { Goal::Cross(cross_point(room.world.size, arrival, stop.way)) } else { Goal::Done };
     }
     let first_hop = rooms
         .room_index_by_id(&room.id)
-        .zip(rooms.room_index_by_id(stop.room))
+        .zip(rooms.room_index_by_id(&stop.room))
         .and_then(|(from, to)| gates.route(rooms, from, to))
         .and_then(|hops| hops.into_iter().next());
     match first_hop {

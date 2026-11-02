@@ -4,10 +4,11 @@
 # launches and records.
 #
 #   scripts/autoprofile_android.sh                 # Ambition (the hall of characters, then a flight through the primeval trail)
+#   scripts/autoprofile_android.sh castle_godwin   # Castle Godwin combat route
 #   scripts/autoprofile_android.sh mary_o          # Mary-O (the cosmic form, to each goal)
 #   scripts/autoprofile_android.sh ambition --duration 60 --warmup 40
 #
-# GAME is a hub game with an autoplay policy (`AMBITION_AUTOPLAY`). Every
+# PROFILE names an autoplay policy (`AMBITION_AUTOPLAY`). Every
 # other argument goes to `profile_android.sh` and overrides the defaults
 # below. The APK installs every game and bakes in nothing: the game and the
 # boot route are this one launch's environment (`--launch-env`), which the
@@ -27,25 +28,26 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     exit 0
 fi
 
-game="ambition"
+autoplay_profile="ambition"
 if [[ $# -gt 0 && "$1" != -* ]]; then
-    game="$1"
+    autoplay_profile="$1"
     shift
 fi
 
-case "$game" in
-    ambition) route="ambition_gameplay" ;;
-    mary_o) route="mary_o_gameplay" ;;
+case "$autoplay_profile" in
+    ambition) game="ambition"; route="ambition_gameplay" ;;
+    castle_godwin) game="ambition"; route="ambition_gameplay" ;;
+    mary_o) game="mary_o"; route="mary_o_gameplay" ;;
     *)
-        echo "autoprofile_android.sh: no autoplay policy for '$game' (ambition, mary_o)" >&2
+        echo "autoprofile_android.sh: no autoplay policy for '$autoplay_profile' (ambition, castle_godwin, mary_o)" >&2
         exit 2
         ;;
 esac
 
-name="all-${game}-auto-$(date -u +%Y%m%dT%H%M%SZ)"
-echo "[autoprofile] game=$game boot_route=$route name=$name"
+name="all-${autoplay_profile}-auto-$(date -u +%Y%m%dT%H%M%SZ)"
+echo "[autoprofile] game=$game autoplay=$autoplay_profile boot_route=$route name=$name"
 # Unset, so a build made here bakes in no autoplay (`option_env!`).
 unset AMBITION_BOOT_ROUTE AMBITION_AUTOPLAY
 exec "$repo_root/scripts/profile_android.sh" all \
-    --profile-build --launch --launch-env "AMBITION_BOOT_ROUTE=$route" --launch-env "AMBITION_AUTOPLAY=$game" \
+    --profile-build --launch --launch-env "AMBITION_BOOT_ROUTE=$route" --launch-env "AMBITION_AUTOPLAY=$autoplay_profile" \
     --warmup 25 --duration 30 --name "$name" "$@"

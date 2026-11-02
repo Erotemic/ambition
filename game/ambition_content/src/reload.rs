@@ -768,6 +768,10 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
         publish: publish_projectile_looks,
     },
     PackDerivedFamily {
+        domain: ambition_content_schemas::autoplay::AUTOPLAY_SCHEMA,
+        publish: publish_autoplay_profiles,
+    },
+    PackDerivedFamily {
         domain: ambition_content_schemas::rules::AMBITION_RULES_SCHEMA,
         publish: publish_ambition_tuning,
     },
@@ -1198,6 +1202,24 @@ fn publish_motion_techniques(
     match restated {
         Ok(ids) => world.insert_resource(crate::input_techniques::AmbitionMotionTechniques(ids)),
         Err(problem) => bevy::log::error!("the reload keeps Ambition's motion techniques: {problem}"),
+    }
+}
+
+fn publish_autoplay_profiles(
+    world: &mut bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) {
+    let profiles = ambition_content_schemas::autoplay::lowered_profiles(pack).cloned().unwrap_or_default();
+    let withdrawn = world.get_resource::<ambition_platformer2d::scripted_input::Autoplay>()
+        .is_some_and(|mode| !profiles.contains_key(&mode.0) && world.get_resource::<crate::autoplay::Profiles>()
+            .is_some_and(|current| current.0.contains_key(&mode.0)));
+    if withdrawn {
+        if let Some(mut order) = world.get_resource_mut::<ambition_platformer2d::autopilot::AutopilotOrder>() {
+            *order = ambition_platformer2d::autopilot::AutopilotOrder::Idle;
+        }
+    }
+    if world.get_resource::<crate::autoplay::Profiles>().is_none_or(|current| current.0 != profiles) {
+        world.insert_resource(crate::autoplay::Profiles(profiles));
     }
 }
 

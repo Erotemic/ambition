@@ -893,14 +893,31 @@ scripts/profile_desktop.sh --autoplay --duration 120   # a bundle, scenario `amb
 
 `--autoplay` sets `AMBITION_AUTOPLAY=ambition` and
 `AMBITION_BOOT_ROUTE=ambition_gameplay` (an explicit value wins). The
-itinerary is `ITINERARY` in `game/ambition_content/src/autoplay.rs`.
+routes are validated content in `game/ambition_content/assets/data/autoplay.ron`.
 An unavailable route waits and retries; it does not count the stop as reached.
+
+**Castle Godwin combat and music.** This route dials the gate, travels through
+all four castle halls, clears the muster, and fights Wolfenstein. It uses flight,
+normal attacks, and the authored starting equipment. Normal combat and encounter
+rules govern health, enemy life, and locked grilles. It can die and retry.
+
+```bash
+AMBITION_AUTOPLAY=castle_godwin ./run_game.sh --autoplay
+cargo test -p ambition_app --test app_it -- a_route_over_rooms::autoplay_fights_through_castle_godwin_and_reaches_wolfenstein --ignored --nocapture
+```
+
+The headless test checks the whole route and a hit on the awakened boss. It does
+not prove victory over both boss forms. A visible run continues to fight.
+The [music observer](../systems/music-playback-diagnostics.md) logs the request,
+backend output, and unexplained gaps. Headless recording does not prove sound
+output; use a visible device run for that evidence.
 
 **An unattended phone profile of one game in the hub.** One command:
 
 ```bash
 scripts/autoprofile_android.sh            # Ambition: the hall of characters, then a flight through the primeval trail
 scripts/autoprofile_android.sh mary_o     # Mary-O: the cosmic form, to each goal
+scripts/autoprofile_android.sh castle_godwin --duration 300 --warmup 10
 ```
 
 It is the recipe below with the game's boot route and autoplay set; any

@@ -1,0 +1,22 @@
+{
+    "ambition": (
+        fight_at_stops: false, repeat: true, equip: None,
+        stops: [
+            (room: "hall_of_characters", way: Walk, cross: true),
+            (room: "primeval_trailhead", way: Walk, cross: false),
+            (room: "primeval_tyrant_hall", way: Fly, cross: true),
+            (room: "central_hub_complex", way: Fly, cross: false),
+        ],
+    ),
+    "castle_godwin": (
+        fight_at_stops: true, repeat: false, equip: Some("fireball"),
+        stops: [
+            (room: "evil_gate_forest", way: Fly, cross: false),
+            (room: "castle_godwin_gatehouse", way: Fly, cross: false),
+            (room: "castle_godwin_barracks", way: Fly, cross: false),
+            (room: "castle_godwin_tower", way: Fly, cross: false),
+            (room: "castle_godwin_great_hall", way: Fly, cross: true),
+            (room: "castle_godwin_throne", way: Fly, cross: true),
+        ],
+    ),
+}

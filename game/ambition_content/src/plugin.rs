@@ -211,12 +211,7 @@ impl Plugin for AmbitionContentPlugin {
         app.add_plugins(crate::day_cycle::AmbitionDayPlugin);
         // `AMBITION_AUTOPLAY=ambition`: this game's policy, run only when a
         // host selected it (`scripted_input::install_autoplay`).
-        app.add_systems(
-            Update,
-            crate::autoplay::play_ambition
-                .in_set(ambition_platformer2d::scripted_input::AutoplayPolicy)
-                .run_if(ambition_platformer2d::scripted_input::autoplay_is(crate::autoplay::AUTOPLAY_GAME)),
-        );
+        crate::autoplay::register(app);
 
         // Ambition-specific portal adapters; the reusable portal core is installed
         // separately in `add_simulation_plugins`.

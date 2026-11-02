@@ -10,6 +10,48 @@ use ambition_platformer2d::world::rooms::RoomSet;
 
 use crate::common::{base, fixed_60hz_room_sim};
 
+#[test]
+#[ignore = "full Castle Godwin playthrough through the gauntlet and into the boss fight"]
+fn autoplay_fights_through_castle_godwin_and_reaches_wolfenstein() {
+    use ambition_app::{AmbitionSim as _, Platformer2dSimHarness};
+    use ambition_platformer2d::scripted_input::install_autoplay;
+    use crate::common::fixed_60hz_room_options;
+
+    let mut sim = Platformer2dSimHarness::new_with_options(fixed_60hz_room_options("central_hub_complex")).expect("the hub builds");
+    install_autoplay(sim.app_mut(), ambition_content::autoplay::CASTLE_AUTOPLAY);
+    let mut visits = Vec::new();
+    for frame in 0..60 * 600 {
+        sim.app_mut().update();
+        let seen = sim.observation();
+        if visits.last() != Some(&seen.active_room) {
+            eprintln!("[castle autoplay] frame={frame} room={}", seen.active_room);
+            visits.push(seen.active_room.clone());
+        }
+        if frame % 600 == 0 {
+            eprintln!("[castle autoplay] frame={frame} room={} pos={:?} hp={} mana={} resets={}",
+                seen.active_room, seen.player_pos, seen.hp, seen.mana, seen.resets);
+        }
+        let fighting_wolfenstein = if seen.active_room == "castle_godwin_throne" && frame % 30 == 0 {
+            let world = sim.world_mut();
+            world.query::<(&ambition_platformer2d::boss_encounter::BossConfig,
+                &ambition_platformer2d::boss_encounter::BossEncounter,
+                &ambition_platformer2d::characters::actor::BodyHealth)>().iter(world)
+                .any(|(config, encounter, health)| config.behavior.id == "wolfenstein_boss"
+                    && encounter.encounter_phase() != ambition_platformer2d::boss_encounter::BossEncounterPhase::Dormant
+                    && health.current() < health.max())
+        } else { false };
+        if fighting_wolfenstein {
+            for room in ["evil_gate_forest", "castle_godwin_gatehouse", "castle_godwin_barracks",
+                "castle_godwin_tower", "castle_godwin_great_hall", "castle_godwin_throne"] {
+                assert!(visits.iter().any(|visited| visited == room), "the run skipped {room}: {visits:?}");
+            }
+            return;
+        }
+        std::thread::yield_now();
+    }
+    panic!("Castle Godwin autoplay did not finish: {visits:?}; last={:?}", sim.observation());
+}
+
 fn shipped_rooms() -> RoomSet {
     let mut sim = fixed_60hz_room_sim("central_hub_complex");
     sim.step_n(base(), 2);

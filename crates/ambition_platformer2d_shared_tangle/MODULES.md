@@ -1,6 +1,6 @@
 # `ambition_platformer2d_shared_tangle` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_platformer2d_shared_tangle** — Reusable, content-free platformer runtime primitives.
 
@@ -46,7 +46,7 @@
 | [`world_log`](src/world_log.rs) | Coarse `[game-mode]` / `[world-event]` logging. |
 | [`worn_gear`](src/worn_gear.rs) | Provider-contributed declarations of worn gear: an item a body wears on an anchor of its art (a space helmet on its head). |
 
-_39 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_39 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

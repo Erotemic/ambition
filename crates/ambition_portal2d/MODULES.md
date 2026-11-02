@@ -1,6 +1,6 @@
 # `ambition_portal2d` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_portal2d** — Reusable, content-free portal mechanic.
 
@@ -30,7 +30,7 @@
 | [`types`](src/types.rs) | Shared portal types, geometry constants, and small helpers used across the portal submodules (placement, transit, presentation, …). |
 | [`view`](src/view.rs) | Pure through-portal view geometry. |
 
-_23 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_23 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

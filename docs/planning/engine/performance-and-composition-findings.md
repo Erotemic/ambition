@@ -43,7 +43,7 @@ says what they bought in frame time; and Jon's three calls in F48 (developer too
 | Smash's select screen sleeps off its routes (`shell_scope_is_on_screen_or_routing`, `5c6846a02`) | done | Smash 14 → 0 systems a frame on the hub's Mary-O route |
 | Sanic's dressers and readout, same condition (`c26e34cb4`) | done | Sanic 4 → 1 |
 | Boss overlays (sauce, flames, space sky, Inugami aura) run only with a boss visual or an overlay (`41c22de78`) | done | Ambition content 54 → 46; all three slices: 1,320 → 1,295 systems a frame |
-| The Mockingbird's space is authored parts posed as sprites (`backgrounds/sky_parts.py`, `presentation/mockingbird_sky.rs`); the full-room `mockingbird_space.wgsl` pass (noise, three star layers, planet, moon and its craters for each pixel, each frame) and its material type are deleted (2026-10-24) | done | MEASURED (`scripts/room_raster_cpu_ab.py`), llvmpipe, `mockingbird_sky` held in phase 3 (`capture_scene --boss-hp 0.2`, 1280x720, rollback on), shader binary against parts binary built from one tree, interleaved, census window 14-44 s: rasterizer CPU a frame lower in 7 of 7 pairs, median 271.6 → 255.1 ms at `high` (-6%), 241.9 → 218.4 ms at `low` (-10%). Frame wall time did not resolve it (load 9-16, ±50% between runs). REASONED: Ambition registers one material type fewer (8); the phone's gain is not measured |
+| The Mockingbird's space is authored parts posed as sprites (`backgrounds/sky_parts.py`, `presentation/mockingbird_sky.rs`); the full-room `mockingbird_space.wgsl` pass (noise, three star layers, planet, moon and its craters for each pixel, each frame) and its material type are deleted (2026-10-24) | done | MEASURED (`scripts/measure/room_raster_cpu_ab.py`), llvmpipe, `mockingbird_sky` held in phase 3 (`capture_scene --boss-hp 0.2`, 1280x720, rollback on), shader binary against parts binary built from one tree, interleaved, census window 14-44 s: rasterizer CPU a frame lower in 7 of 7 pairs, median 271.6 → 255.1 ms at `high` (-6%), 241.9 → 218.4 ms at `low` (-10%). Frame wall time did not resolve it (load 9-16, ±50% between runs). REASONED: Ambition registers one material type fewer (8); the phone's gain is not measured |
 | Portal presentation in `CapabilityPresentationSet(Portals)`: asleep where no live room uses portals, one clean-up frame after (`f40a9ba7a`) | done | not yet re-measured |
 | The touch joystick's UI stage runs only with work (`93238b9e3`): its two `Node`s were written each frame, so the UI was laid out each frame | done | not yet re-measured; `ui_layout_system` was ~2.4% of the phone's main thread |
 | Conversation effects (challenge, pet, wear, talker spacing) in `CapabilitySet(Dialogue)`; boss volumes and limbs in `BossEncounters`; new `Capability::MatchStocks` (`70657f415`) | done | not yet re-measured; 15 systems a tick in Mary-O's rooms by the census list |
@@ -1060,7 +1060,7 @@ shows it). MEASURED (same capture, idle box, frames 24-26 ms in both):
 Asked by Jon ("my game is running slow, even on my 3090"), on the autoplay
 route (hub, hall of characters, the primeval trail).
 
-MEASURED (VM, same commit, same route, `scripts/profile_desktop.sh
+MEASURED (VM, same commit, same route, `scripts/measure/profile_desktop.sh
 --autoplay`): the Tracy build made the tick ~5× dearer. With `--features
 profile` the simulation sets cost 21 ms a tick; with `--no-tracy` 3.85 ms
 (the GGRS driver 5.68 ms). A span for each of ~560 systems a tick is the
@@ -1068,7 +1068,7 @@ cost, and with no client connected Tracy also buffers. ⇒ Rank systems with
 Tracy; take milliseconds from a `--no-tracy` run. Jon's host profile (Tracy
 on): the driver 12-21 ms a frame, the simulation sets ~7 ms a tick.
 
-MEASURED (headless hall, `scripts/headless_system_shares.sh`, cycles): the
+MEASURED (headless hall, `scripts/measure/headless_system_shares.sh`, cycles): the
 per-system cost of running systems at all (executor, parameter fetch,
 `update_archetypes`, deferred application) is ~35% of the main thread at
 ~800 systems a tick; then `integrate_sim_bodies` 8%, `tick_actor_brains`
@@ -1076,7 +1076,7 @@ per-system cost of running systems at all (executor, parameter fetch,
 nothing (ggrs skips `SaveWorld` there), so this is not snapshot cost.
 
 Done (one change each, no behaviour change; the hall, `headless --bench`,
-`scripts/sim_tick_instructions.sh`, interleaved A/B of only these changes):
+`scripts/measure/sim_tick_instructions.sh`, interleaved A/B of only these changes):
 **10.0 → 8.5-8.8 M instructions a tick (−13%).**
 
 - The prepared cast is hashed by id, with an ordered id list for walks:
@@ -1209,9 +1209,9 @@ Updated 2026-10-17. Each one helps every game, not only Mary-O.
 
 | Question | Tool |
 | --- | --- |
-| Which systems run in a frame, by crate? | `AMBITION_PROFILE_CENSUS=1` + `AMBITION_SYSTEM_LIST=PATH`; `scripts/system_census_table.py` |
-| Which Bevy system takes the time (desktop)? | `scripts/profile_desktop.sh` → `tracy_summary.md` |
-| Where does the phone spend its CPU? | `scripts/profile_android.sh all ...`, then `scripts/symbolize_android_profile.py DIR` |
+| Which systems run in a frame, by crate? | `AMBITION_PROFILE_CENSUS=1` + `AMBITION_SYSTEM_LIST=PATH`; `scripts/measure/system_census_table.py` |
+| Which Bevy system takes the time (desktop)? | `scripts/measure/profile_desktop.sh` → `tracy_summary.md` |
+| Where does the phone spend its CPU? | `scripts/measure/profile_android.sh all ...`, then `scripts/measure/symbolize_android_profile.py DIR` |
 | Which line of OURS caused framework time (phone)? | `symbolize_android_profile.py DIR --ours` (needs `simpleperf-device-samples.txt`, which a profile made after 2026-10-16 has) |
 | Which functions of ours cost the most, framework time under them included (phone)? | `symbolize_android_profile.py DIR --inclusive [--thread TID]` |
 | How much phone CPU passes through one function (inclusive)? | `symbolize_android_profile.py DIR --under NAME` (repeatable; with `--thread TID`) |

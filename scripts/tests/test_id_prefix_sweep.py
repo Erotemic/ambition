@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-SCRIPT = REPO / "scripts" / "measure_id_prefixes_spelled_twice.py"
+SCRIPT = REPO / "scripts" / "measure/measure_id_prefixes_spelled_twice.py"
 
 
 def _module():

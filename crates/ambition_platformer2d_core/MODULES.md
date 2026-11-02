@@ -1,6 +1,6 @@
 # `ambition_platformer2d_core` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_platformer2d_core** — Content-free deterministic movement and body-state foundation.
 
@@ -39,7 +39,7 @@
 | [`walkable_lines`](src/walkable_lines.rs) | A body that walks stands on a slope: the room's surface lines are ground for the ordinary (axis-swept) body too, as one-way floors. |
 | [`world`](src/world.rs) | Generated sandbox room data. |
 
-_32 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_32 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

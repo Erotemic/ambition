@@ -292,11 +292,11 @@ Two nested SCCs persist in `ambition_platformer2d_actor_monolith`: `features::{e
 
 ## Method and limits
 
-The accompanying `scripts/audit_internal_module_cycles.py` has no dependencies beyond Python 3.11+. It reads `[workspace].members` from the root `Cargo.toml`, traces `mod foo;` declarations from `src/lib.rs` or `src/main.rs`, ignores undeclared source files and `#[cfg(test)]` modules/functions, masks comments and quoted literals, and resolves explicit qualified paths to current modules. `use crate::{a, b}` trees and unambiguous crate-root `pub use` aliases are expanded. Tarjan SCC decomposition identifies cycles; re-running after deletion of each individual directed edge finds high-leverage cut candidates. A second pass resolves qualified references to the deepest file modules and computes sibling-level SCCs.
+The accompanying `scripts/measure/audit_internal_module_cycles.py` has no dependencies beyond Python 3.11+. It reads `[workspace].members` from the root `Cargo.toml`, traces `mod foo;` declarations from `src/lib.rs` or `src/main.rs`, ignores undeclared source files and `#[cfg(test)]` modules/functions, masks comments and quoted literals, and resolves explicit qualified paths to current modules. `use crate::{a, b}` trees and unambiguous crate-root `pub use` aliases are expanded. Tarjan SCC decomposition identifies cycles; re-running after deletion of each individual directed edge finds high-leverage cut candidates. A second pass resolves qualified references to the deepest file modules and computes sibling-level SCCs.
 
 **Limitations that can change the numbers:** this is static **qualified-path** evidence, not `rustc` name resolution. Unqualified paths, glob reexports, macros generating modules/references, inline `mod foo { ... }` module bodies, custom `#[path]` module layouts, and feature-gated code are not modeled completely. The scan is effectively the union of feature branches visible in source, so some inferred edges may never coexist in one compiled configuration. A root `lib.rs` that itself owns business logic is not modeled as a cyclic top-level sibling. Generated/indirect crate modules require targeted review. References that happen to be present in expanded macros require semantic inspection before making changes.
 
-This is intentionally different from the existing `scripts/module_graph.py` explorer: that tool models `use` declarations; the audit also counts explicit qualified paths in production source and filters test-only items. The two counts should not be compared as if they were identical graph definitions.
+This is intentionally different from the existing `scripts/measure/module_graph.py` explorer: that tool models `use` declarations; the audit also counts explicit qualified paths in production source and filters test-only items. The two counts should not be compared as if they were identical graph definitions.
 
 Reference counts are occurrences of syntactically qualified paths, **not** performance measures or degrees of runtime coupling. Removing one graph edge means *eliminating all references in that direction*, not deleting one line or necessarily moving one type.
 
@@ -306,9 +306,9 @@ Reference counts are occurrences of syntactically qualified paths, **not** perfo
 
 ```bash
 cd ~/code/ambition
-python3 scripts/audit_internal_module_cycles.py --top 30
-python3 scripts/audit_internal_module_cycles.py --crate ambition_platformer2d_shared_tangle --details
-python3 scripts/audit_internal_module_cycles.py --json .agent/reports/module-cycles.json
+python3 scripts/measure/audit_internal_module_cycles.py --top 30
+python3 scripts/measure/audit_internal_module_cycles.py --crate ambition_platformer2d_shared_tangle --details
+python3 scripts/measure/audit_internal_module_cycles.py --json .agent/reports/module-cycles.json
 python3 -m unittest scripts.tests.test_audit_internal_module_cycles -v
 ```
 

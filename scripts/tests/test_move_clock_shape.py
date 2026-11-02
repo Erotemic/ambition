@@ -20,7 +20,7 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
-import measure_move_clock_shape as clock  # noqa: E402
+from scripts.measure import measure_move_clock_shape as clock  # noqa: E402
 
 
 def _move(verb: str, *, active=4.0, startup=5.0, endlag=9.0):

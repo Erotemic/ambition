@@ -121,7 +121,7 @@ Where P2 stands:
 
 - **Body/item capability gating.** The engine publishes route-facing conditions,
   and a route gate (`gated_by`) can read any of them. Run
-  `scripts/authored_route_gates.py` for the current list; do not copy it here.
+  `scripts/measure/authored_route_gates.py` for the current list; do not copy it here.
   What is missing is facts, not predicates: soft systemic pressure,
   social/knowledge state and broken world mechanisms have no durable
   route-facing record. A smashed breakable is session state restored by

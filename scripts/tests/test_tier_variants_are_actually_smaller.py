@@ -81,7 +81,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-SCRIPT = REPO / "scripts/measure_tier_variant_scaling.py"
+SCRIPT = REPO / "scripts/measure/measure_tier_variant_scaling.py"
 
 # ⛔⛔ EMPTIED 2026-09-02, WITH THE REASON, AFTER TWO BOXES DISAGREED.
 #

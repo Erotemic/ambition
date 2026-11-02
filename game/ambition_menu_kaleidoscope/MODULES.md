@@ -1,6 +1,6 @@
 # `ambition_menu_kaleidoscope` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_menu_kaleidoscope** — The ONE canonical bevy_lunex 3D-cube inventory renderer (#31).
 
@@ -9,7 +9,7 @@
 | [`page`](src/page.rs) | Build one menu page's 3D scene: the panels, text, controls and scrollbar a `MenuPageModel` describes, spawned as children under the page's own root. |
 | [`reconcile`](src/reconcile.rs) | Rewrite a live face in place so it draws a newly published page model. |
 
-_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

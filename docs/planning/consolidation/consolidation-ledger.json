@@ -2979,8 +2979,8 @@
     "commit": "7b662e3b4b3170e602a3ab7cb512bd747076a259",
     "date": "2026-09-19",
     "scope": "STATIC MEASUREMENTS ONLY. The semantic items were read at source_commit and have not been re-read; a refreshed count is not a refreshed claim.",
-    "added_2026_10_01": "Six crate rows added at their creation (the procedural extension tier, fast-iteration I4), measured by scripts/architecture_census.py on 2026-10-01.",
-    "added_2026_10_15": "One crate row added at its creation: ambition_content_schemas (2026-10-14), measured by scripts/architecture_census.py on 2026-10-15. The other rows are still the 2026-09-19 refresh."
+    "added_2026_10_01": "Six crate rows added at their creation (the procedural extension tier, fast-iteration I4), measured by scripts/measure/architecture_census.py on 2026-10-01.",
+    "added_2026_10_15": "One crate row added at its creation: ambition_content_schemas (2026-10-14), measured by scripts/measure/architecture_census.py on 2026-10-15. The other rows are still the 2026-09-19 refresh."
   },
   "duplicate_authority_states": {
     "OPEN_PRESSURE": "two owners of one CURRENT fact, or a supported road that creates a second source; carries the `suspect_duplicate_authority` metric tag",
@@ -5722,7 +5722,7 @@
       "complexity": "UNCERTAIN",
       "current_truth": "SEMANTIC REVIEW DONE 2026-09-18, and it moved the AXIS rather than the number. The row asked for per-TYPE classification before any change; the unit is the CALL SITE. `SimTick` is a hard COMPOSITION fact in `ambition_conversation/ledger.rs` and, at `durable_horizon.rs:480`, an `Option` guarding tooling compositions beside the comment \"every shipped composition has the clock\" \u2014 one type, two boundaries. \u26a0 AND THERE IS A THIRD SHAPE THE COUNT BURIES: `ParallaxThemeAttempts` is TEMPORAL, \"the difference between 'not yet' and 'never'\", which is neither composition nor defence. No clean pure-defensive example survived tracing \u2014 every candidate resolved to a composition or a temporal reason once its own call-site comment was read, which is itself the finding: the cheap classification READS those comments rather than re-deriving intent from types. \u26d4 The count is still a discovery surface and still not a defect metric, and it has now crossed THREE counting rules \u2014 732/196 under the tail cut, 820/206 under the per-item strip, 806/203 today under the comment strip. `campaign-metrics.md` carries the rule-by-rule table; do not subtract across it.",
       "source_paths": [
-        "scripts/architecture_census.py",
+        "scripts/measure/architecture_census.py",
         "crates/ambition_conversation/src/ledger.rs",
         "crates/ambition_platformer2d_session/src/durable_horizon.rs",
         "docs/planning/engine/capability-and-runtime-composition.md"
@@ -6077,7 +6077,7 @@
       "current_truth": "Large and multi-responsibility, but durable architecture explicitly says it is not awaiting size-driven carving. Extract only proven owner boundaries that remove dependency/change fanout. \u2b50 MEASURED 2026-09-18, with a correction: the durable architecture says decomposition is not SIZE-driven, and in the same paragraph says this crate is not the desired permanent boundary and the target is a small residual actor kernel. The row carried only the qualifier. The measurement is the `CRATE-ACTOR-MONOLITH` row of `docs/planning/consolidation/architecture-census.md`.",
       "source_paths": [
         "docs/architecture/engine-architecture.md",
-        "scripts/architecture_census.py"
+        "scripts/measure/architecture_census.py"
       ],
       "evidence": [
         {
@@ -6085,13 +6085,13 @@
           "claim": "Large and multi-responsibility, but durable architecture explicitly says it is not awaiting size-driven carving. Extract only proven owner boundaries that remove dependency/change fanout. \u2b50 MEASURED 2026-09-18, with a correction: the durable architecture says decomposition is not SIZE-driven, and in the same paragraph says this crate is not the desired permanent boundary and the target is a small residual actor kernel. The row carried only the qualifier. The measurement is the `CRATE-ACTOR-MONOLITH` row of `docs/planning/consolidation/architecture-census.md`.",
           "sources": [
             "docs/architecture/engine-architecture.md",
-            "scripts/architecture_census.py"
+            "scripts/measure/architecture_census.py"
           ]
         }
       ],
       "classification": "multiple domain services and remaining migration hub",
       "consolidation_hypothesis": "Use dependency closure, ownership, public API meaning, and change fanout. Do not merge or split from size alone.",
-      "verification_needed": "Refresh crate table with scripts/architecture_census.py --crate-table. Compile-cost conclusions need compiler measurements and are outside this no-compiler census."
+      "verification_needed": "Refresh crate table with scripts/measure/architecture_census.py --crate-table. Compile-cost conclusions need compiler measurements and are outside this no-compiler census."
     },
     {
       "id": "CRATE-RUNTIME",
@@ -6102,20 +6102,20 @@
       "complexity": "ESSENTIAL_COMPLEXITY",
       "current_truth": "High fan-in composition/service crate. Review lifecycle coordinator versus provider/host assembly boundaries, not LOC alone. \u2b50 MEASURED 2026-09-18, with a correction: \"high fan-in\" is the wrong direction. Six crates depend on this one; it depends on 37, which is the high number and makes it an assembler. The measurement is the `CRATE-RUNTIME` row of `docs/planning/consolidation/architecture-census.md`.",
       "source_paths": [
-        "scripts/architecture_census.py"
+        "scripts/measure/architecture_census.py"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
           "claim": "High fan-in composition/service crate. Review lifecycle coordinator versus provider/host assembly boundaries, not LOC alone. \u2b50 MEASURED 2026-09-18, with a correction: \"high fan-in\" is the wrong direction. Six crates depend on this one; it depends on 37, which is the high number and makes it an assembler. The measurement is the `CRATE-RUNTIME` row of `docs/planning/consolidation/architecture-census.md`.",
           "sources": [
-            "scripts/architecture_census.py"
+            "scripts/measure/architecture_census.py"
           ]
         }
       ],
       "classification": "runtime/session/transition/rollback coordination",
       "consolidation_hypothesis": "Use dependency closure, ownership, public API meaning, and change fanout. Do not merge or split from size alone.",
-      "verification_needed": "Refresh crate table with scripts/architecture_census.py --crate-table. Compile-cost conclusions need compiler measurements and are outside this no-compiler census."
+      "verification_needed": "Refresh crate table with scripts/measure/architecture_census.py --crate-table. Compile-cost conclusions need compiler measurements and are outside this no-compiler census."
     },
     {
       "id": "CRATE-SHARED-TANGLE",
@@ -6126,20 +6126,20 @@
       "complexity": "UNCERTAIN",
       "current_truth": "The responsibility map treats this as a warning label. Keep proven neutral protocols such as construction/lifecycle/SimId; move domain ownership out when a concrete owner exists. \u2b50 MEASURED 2026-09-18: the responsibility map does call it a warning label (`:413`, \"until their exits are met\"), and this is the genuinely high-fan-in crate \u2014 35 incoming, 4 outgoing. The measurement is the `CRATE-SHARED-TANGLE` row of `docs/planning/consolidation/architecture-census.md`.",
       "source_paths": [
-        "scripts/architecture_census.py"
+        "scripts/measure/architecture_census.py"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
           "claim": "The responsibility map treats this as a warning label. Keep proven neutral protocols such as construction/lifecycle/SimId; move domain ownership out when a concrete owner exists. \u2b50 MEASURED 2026-09-18: the responsibility map does call it a warning label (`:413`, \"until their exits are met\"), and this is the genuinely high-fan-in crate \u2014 35 incoming, 4 outgoing. The measurement is the `CRATE-SHARED-TANGLE` row of `docs/planning/consolidation/architecture-census.md`.",
           "sources": [
-            "scripts/architecture_census.py"
+            "scripts/measure/architecture_census.py"
           ]
         }
       ],
       "classification": "cross-domain neutral protocols and residual shared vocabulary",
       "consolidation_hypothesis": "Use dependency closure, ownership, public API meaning, and change fanout. Do not merge or split from size alone.",
-      "verification_needed": "Refresh crate table with scripts/architecture_census.py --crate-table. Compile-cost conclusions need compiler measurements and are outside this no-compiler census."
+      "verification_needed": "Refresh crate table with scripts/measure/architecture_census.py --crate-table. Compile-cost conclusions need compiler measurements and are outside this no-compiler census."
     },
     {
       "id": "CRATE-FACADE",
@@ -6151,7 +6151,7 @@
       "current_truth": "A facade can be useful, but compatibility mirrors can hide ownership. Review forwarding surface separately from the public SDK role. \u26d4 COLLAPSED 2026-09-18 onto `BEVY-FACADE-REEXPORTS`, which asks the same question about the same crate and answered it by parsing every `pub use` in `ambition_platformer2d`. This row states no separate fact; the measurement is the `BEVY-FACADE-REEXPORTS` row of `docs/planning/consolidation/architecture-census.md`.",
       "source_paths": [
         "docs/architecture/engine-architecture.md",
-        "scripts/architecture_census.py"
+        "scripts/measure/architecture_census.py"
       ],
       "evidence": [
         {
@@ -6159,13 +6159,13 @@
           "claim": "A facade can be useful, but compatibility mirrors can hide ownership. Review forwarding surface separately from the public SDK role. \u26d4 COLLAPSED 2026-09-18 onto `BEVY-FACADE-REEXPORTS`, which asks the same question about the same crate and answered it by parsing every `pub use` in `ambition_platformer2d`. This row states no separate fact; the measurement is the `BEVY-FACADE-REEXPORTS` row of `docs/planning/consolidation/architecture-census.md`.",
           "sources": [
             "docs/architecture/engine-architecture.md",
-            "scripts/architecture_census.py"
+            "scripts/measure/architecture_census.py"
           ]
         }
       ],
       "classification": "public facade/re-export composition surface",
       "consolidation_hypothesis": "Use dependency closure, ownership, public API meaning, and change fanout. Do not merge or split from size alone.",
-      "verification_needed": "Refresh crate table with scripts/architecture_census.py --crate-table. Compile-cost conclusions need compiler measurements and are outside this no-compiler census."
+      "verification_needed": "Refresh crate table with scripts/measure/architecture_census.py --crate-table. Compile-cost conclusions need compiler measurements and are outside this no-compiler census."
     },
     {
       "id": "CRATE-GAME-SHELL",
@@ -6177,7 +6177,7 @@
       "current_truth": "The shell owns a semantic lifecycle not supplied by Bevy: route activation, transaction correlation, session bridge, and publication gates. \u2b50 CONFIRMED 2026-09-18: the measurement and its source citations are the `CRATE-GAME-SHELL` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
       "source_paths": [
         "crates/ambition_game_shell/src/session.rs",
-        "scripts/architecture_census.py"
+        "scripts/measure/architecture_census.py"
       ],
       "evidence": [
         {
@@ -6185,13 +6185,13 @@
           "claim": "The shell owns a semantic lifecycle not supplied by Bevy: route activation, transaction correlation, session bridge, and publication gates. \u2b50 CONFIRMED 2026-09-18: the measurement and its source citations are the `CRATE-GAME-SHELL` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
           "sources": [
             "crates/ambition_game_shell/src/session.rs",
-            "scripts/architecture_census.py"
+            "scripts/measure/architecture_census.py"
           ]
         }
       ],
       "classification": "route/session lifecycle and activation transaction owner",
       "consolidation_hypothesis": "Use dependency closure, ownership, public API meaning, and change fanout. Do not merge or split from size alone.",
-      "verification_needed": "Refresh crate table with scripts/architecture_census.py --crate-table. Compile-cost conclusions need compiler measurements and are outside this no-compiler census."
+      "verification_needed": "Refresh crate table with scripts/measure/architecture_census.py --crate-table. Compile-cost conclusions need compiler measurements and are outside this no-compiler census."
     },
     {
       "id": "CRATE-ROLLBACK-GGRS",
@@ -6203,7 +6203,7 @@
       "current_truth": "The crate adapts external rollback hosting to engine authority, mutation admission, and lifecycle commit. This is a useful independent capability boundary. \u2b50 CONFIRMED 2026-09-18: the measurement and its source citations are the `CRATE-ROLLBACK-GGRS` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
       "source_paths": [
         "crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs",
-        "scripts/architecture_census.py"
+        "scripts/measure/architecture_census.py"
       ],
       "evidence": [
         {
@@ -6211,13 +6211,13 @@
           "claim": "The crate adapts external rollback hosting to engine authority, mutation admission, and lifecycle commit. This is a useful independent capability boundary. \u2b50 CONFIRMED 2026-09-18: the measurement and its source citations are the `CRATE-ROLLBACK-GGRS` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
           "sources": [
             "crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs",
-            "scripts/architecture_census.py"
+            "scripts/measure/architecture_census.py"
           ]
         }
       ],
       "classification": "GGRS adapter and rollback timeline owner",
       "consolidation_hypothesis": "Use dependency closure, ownership, public API meaning, and change fanout. Do not merge or split from size alone.",
-      "verification_needed": "Refresh crate table with scripts/architecture_census.py --crate-table. Compile-cost conclusions need compiler measurements and are outside this no-compiler census."
+      "verification_needed": "Refresh crate table with scripts/measure/architecture_census.py --crate-table. Compile-cost conclusions need compiler measurements and are outside this no-compiler census."
     },
     {
       "id": "CRATE-REGISTRY-CORE",
@@ -6229,7 +6229,7 @@
       "current_truth": "Planning/source use it to make silent replacement impossible. Small size alone is not a merge reason. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and the two written refusals are the `CRATE-REGISTRY-CORE` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
       "source_paths": [
         "docs/planning/triage/ambition-registry-core.md",
-        "scripts/architecture_census.py"
+        "scripts/measure/architecture_census.py"
       ],
       "evidence": [
         {
@@ -6237,13 +6237,13 @@
           "claim": "Planning/source use it to make silent replacement impossible. Small size alone is not a merge reason. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and the two written refusals are the `CRATE-REGISTRY-CORE` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
           "sources": [
             "docs/planning/triage/ambition-registry-core.md",
-            "scripts/architecture_census.py"
+            "scripts/measure/architecture_census.py"
           ]
         }
       ],
       "classification": "generic registry conflict classification utility",
       "consolidation_hypothesis": "Use dependency closure, ownership, public API meaning, and change fanout. Do not merge or split from size alone.",
-      "verification_needed": "Refresh crate table with scripts/architecture_census.py --crate-table. Compile-cost conclusions need compiler measurements and are outside this no-compiler census."
+      "verification_needed": "Refresh crate table with scripts/measure/architecture_census.py --crate-table. Compile-cost conclusions need compiler measurements and are outside this no-compiler census."
     },
     {
       "id": "CRATE-BINDING",
@@ -6255,7 +6255,7 @@
       "current_truth": "Static package size alone does not establish whether this crate is a useful semantic unit or forwarding residue. Manual API/consumer review is needed before a merge decision. \u2b50 REVIEWED 2026-09-18 and the answer is SEMANTIC UNIT, not forwarding residue: zero `pub use`, ten original declarations, sole dependency `tracing`. The measurement and its citations are the `CRATE-BINDING` row of `docs/planning/consolidation/architecture-census.md`.",
       "source_paths": [
         "crates/ambition_binding/Cargo.toml",
-        "scripts/architecture_census.py"
+        "scripts/measure/architecture_census.py"
       ],
       "evidence": [
         {
@@ -6263,13 +6263,13 @@
           "claim": "Static package size alone does not establish whether this crate is a useful semantic unit or forwarding residue. Manual API/consumer review is needed before a merge decision. \u2b50 REVIEWED 2026-09-18 and the answer is SEMANTIC UNIT, not forwarding residue: zero `pub use`, ten original declarations, sole dependency `tracing`. The measurement and its citations are the `CRATE-BINDING` row of `docs/planning/consolidation/architecture-census.md`.",
           "sources": [
             "crates/ambition_binding/Cargo.toml",
-            "scripts/architecture_census.py"
+            "scripts/measure/architecture_census.py"
           ]
         }
       ],
       "classification": "small binding/protocol boundary",
       "consolidation_hypothesis": "Use dependency closure, ownership, public API meaning, and change fanout. Do not merge or split from size alone.",
-      "verification_needed": "Refresh crate table with scripts/architecture_census.py --crate-table. Compile-cost conclusions need compiler measurements and are outside this no-compiler census."
+      "verification_needed": "Refresh crate table with scripts/measure/architecture_census.py --crate-table. Compile-cost conclusions need compiler measurements and are outside this no-compiler census."
     },
     {
       "id": "CRATE-BODY-SEED",
@@ -6281,7 +6281,7 @@
       "current_truth": "Static package size and dependency fanout are evidence only. Review whether the crate owns one reusable body-construction concept before any merge decision. \u2b50 REVIEWED 2026-09-18: it DOES own one concept (the values a body is built from), and it is NOT reusable \u2014 8 workspace dependencies. The measurement is the `CRATE-BODY-SEED` row of `docs/planning/consolidation/architecture-census.md`.",
       "source_paths": [
         "crates/ambition_body_seed/Cargo.toml",
-        "scripts/architecture_census.py"
+        "scripts/measure/architecture_census.py"
       ],
       "evidence": [
         {
@@ -6289,13 +6289,13 @@
           "claim": "Static package size and dependency fanout are evidence only. Review whether the crate owns one reusable body-construction concept before any merge decision. \u2b50 REVIEWED 2026-09-18: it DOES own one concept (the values a body is built from), and it is NOT reusable \u2014 8 workspace dependencies. The measurement is the `CRATE-BODY-SEED` row of `docs/planning/consolidation/architecture-census.md`.",
           "sources": [
             "crates/ambition_body_seed/Cargo.toml",
-            "scripts/architecture_census.py"
+            "scripts/measure/architecture_census.py"
           ]
         }
       ],
       "classification": "body-seeding capability boundary",
       "consolidation_hypothesis": "Use dependency closure, ownership, public API meaning, and change fanout. Do not merge or split from size alone.",
-      "verification_needed": "Refresh crate table with scripts/architecture_census.py --crate-table. Compile-cost conclusions need compiler measurements and are outside this no-compiler census."
+      "verification_needed": "Refresh crate table with scripts/measure/architecture_census.py --crate-table. Compile-cost conclusions need compiler measurements and are outside this no-compiler census."
     },
     {
       "id": "CRATE-MOUNT",
@@ -6307,7 +6307,7 @@
       "current_truth": "The architecture plan uses mount as a model of a capability that owns its plugin/system installation and publishes ordering vocabulary rather than exposing foreign system names. \u2b50 CONFIRMED 2026-09-18: the measurement and its source citations are the `CRATE-MOUNT` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
       "source_paths": [
         "docs/planning/engine/capability-and-runtime-composition.md",
-        "scripts/architecture_census.py"
+        "scripts/measure/architecture_census.py"
       ],
       "evidence": [
         {
@@ -6315,13 +6315,13 @@
           "claim": "The architecture plan uses mount as a model of a capability that owns its plugin/system installation and publishes ordering vocabulary rather than exposing foreign system names. \u2b50 CONFIRMED 2026-09-18: the measurement and its source citations are the `CRATE-MOUNT` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
           "sources": [
             "docs/planning/engine/capability-and-runtime-composition.md",
-            "scripts/architecture_census.py"
+            "scripts/measure/architecture_census.py"
           ]
         }
       ],
       "classification": "mount capability",
       "consolidation_hypothesis": "Use dependency closure, ownership, public API meaning, and change fanout. Do not merge or split from size alone.",
-      "verification_needed": "Refresh crate table with scripts/architecture_census.py --crate-table. Compile-cost conclusions need compiler measurements and are outside this no-compiler census."
+      "verification_needed": "Refresh crate table with scripts/measure/architecture_census.py --crate-table. Compile-cost conclusions need compiler measurements and are outside this no-compiler census."
     },
     {
       "id": "BEVY-SESSION-ROOT",
@@ -6565,7 +6565,7 @@
       "current_truth": "Tests such as sim_phase_pins and scripts such as measure_foreign_system_ordering inspect declared schedule ownership/order. They establish graph shape, not runtime outcome by themselves.",
       "source_paths": [
         "game/ambition_app/tests/sim_phase_pins.rs",
-        "scripts/measure_foreign_system_ordering.py"
+        "scripts/measure/measure_foreign_system_ordering.py"
       ],
       "evidence": [
         {
@@ -6573,7 +6573,7 @@
           "claim": "Tests such as sim_phase_pins and scripts such as measure_foreign_system_ordering inspect declared schedule ownership/order. They establish graph shape, not runtime outcome by themselves.",
           "sources": [
             "game/ambition_app/tests/sim_phase_pins.rs",
-            "scripts/measure_foreign_system_ordering.py"
+            "scripts/measure/measure_foreign_system_ordering.py"
           ]
         }
       ],

@@ -1,6 +1,6 @@
 # `ambition_touch_input` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_touch_input** — Touch input adapter and on-screen controls.
 
@@ -13,7 +13,7 @@
 | [`state`](src/state.rs) | Pure touch input state types — the raw virtual-device state the Bevy collect systems fill and the leafwing input kinds (`crate::virtual_device`) publish through the participant's bindings. |
 | [`virtual_device`](src/virtual_device.rs) | The touch overlay as a virtual device: leafwing input kinds computed from [`MobileTouchState`], so touch resolves through the participant's `InputMap` bindings and the active input context like a keyboard or gamepad, never as a second system that writes gameplay or menu resources. |
 
-_6 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_6 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

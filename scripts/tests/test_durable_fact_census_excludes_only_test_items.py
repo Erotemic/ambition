@@ -1,7 +1,7 @@
 """`#[cfg(test)]` must skip the ITEM, not the rest of the file.
 
 ⛔⛔ THE BUG THIS PINS WAS LIVE AND IT MADE THE CENSUS FALSE.
-`scripts/durable_fact_writers.py` originally truncated each file at its first
+`scripts/measure/durable_fact_writers.py` originally truncated each file at its first
 `#[cfg(test)]`. `crates/ambition_encounter/src/switches.rs` opens an inline
 `mod queue_checksum_tests` at line 123 and then continues with real systems —
 `drain_switch_activations` holds the canonical persisted switch writes at :401,
@@ -19,7 +19,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent
 _spec = importlib.util.spec_from_file_location(
-    "durable_fact_writers", REPO / "scripts/durable_fact_writers.py"
+    "durable_fact_writers", REPO / "scripts/measure/durable_fact_writers.py"
 )
 _mod = importlib.util.module_from_spec(_spec)
 sys.modules["durable_fact_writers"] = _mod
@@ -137,7 +137,7 @@ def test_the_census_runs_clean_against_the_live_tree():
     import subprocess
 
     proc = subprocess.run(
-        [sys.executable, str(REPO / "scripts/durable_fact_writers.py")],
+        [sys.executable, str(REPO / "scripts/measure/durable_fact_writers.py")],
         capture_output=True,
         text=True,
         cwd=REPO,

@@ -1,6 +1,6 @@
 # `ambition_match` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_match** — The versus match, prepared: a roster of participants, the stage rules, and the immutable plan a kernel activates without a lookup.
 
@@ -16,7 +16,7 @@
 | [`snapshot_impls`](src/snapshot_impls.rs) | Rollback wire format for the match receipt and the per-body seat. |
 | [`staging`](src/staging.rs) | Three ways to stage a cast, one projection. |
 
-_9 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_9 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

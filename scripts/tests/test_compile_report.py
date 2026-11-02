@@ -1,4 +1,4 @@
-"""The aggregation math behind `scripts/compile_report.py`.
+"""The aggregation math behind `scripts/measure/compile_report.py`.
 
 ⛔ **this tests the arithmetic, not the HTML.** Asserting on rendered bytes
 would pin the layout and catch nothing; every case below is a way the reader
@@ -20,7 +20,7 @@ pytestmark = pytest.mark.detached_tool
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
-import compile_report as report  # noqa: E402
+from scripts.measure import compile_report as report  # noqa: E402
 
 
 def unit(**over):

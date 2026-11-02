@@ -391,7 +391,7 @@ pub fn sync_visuals(
             // offset for animated bodies: that routes them to the baseline
             // branch, which has its own anchor rule. The error shows most where
             // a sheet's body sits far from its frame centre (Mary-O; see
-            // `scripts/measure_sheet_body_offsets.py`).
+            // `scripts/measure/measure_sheet_body_offsets.py`).
             if let Some(offset) = pose.authored_offset {
                 transform.translation.x += offset.x;
                 transform.translation.y -= offset.y;

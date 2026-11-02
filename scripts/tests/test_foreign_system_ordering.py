@@ -21,7 +21,7 @@ and the classifier stays pinned separately. **A floor protects the population it
 names, and the population it names can be fixed out from under it.**
 
 ⚠ THE MEASURE ITSELF TOOK FOUR CORRECTIONS AND EACH ONE MATTERED, recorded in
-`scripts/measure_foreign_system_ordering.py` so the next reader inherits them
+`scripts/measure/measure_foreign_system_ordering.py` so the next reader inherits them
 rather than the conclusions:
 
 * a bare module path (`actors::sync_visuals`) is INTRA-crate, not foreign — the
@@ -43,7 +43,7 @@ import pathlib
 import tempfile
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
-MEASURE = REPO / "scripts" / "measure_foreign_system_ordering.py"
+MEASURE = REPO / "scripts" / "measure/measure_foreign_system_ordering.py"
 
 #  measured 2026-09-06. Both may fall; neither may rise.
 #

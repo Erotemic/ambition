@@ -25,7 +25,7 @@ because from the cache's point of view nothing happened.
 
 ## The instance (2026-08-08)
 
-`scripts/audio_levels.py` carries a Python port of
+`scripts/measure/audio_levels.py` carries a Python port of
 `ambition_audio::render::audio_source_from_sfx_spec` so procedural SFX — which
 exist nowhere on disk — can be measured on the same axis as packed clips. Ledger
 row D38 changed that synthesizer: `SfxSpec::volume` stopped meaning peak
@@ -73,7 +73,7 @@ thing to read** — before the report, before the verdict. `0 fresh, N cached` o
 a run that was supposed to re-measure is the whole bug, printed.
 
 ```sh
-python3 scripts/audio_levels.py | tail -3     # "(N fresh, 0 cached)" or it lied
+python3 scripts/measure/audio_levels.py | tail -3     # "(N fresh, 0 cached)" or it lied
 ```
 
 Generalised: **an instrument that reports no work done after you changed the

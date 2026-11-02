@@ -411,7 +411,7 @@ Standing prohibitions:
   `Entity` index).
 - `id_peer_audit` censuses type names, so it cannot see a provenance defect.
   Hold provenance with value-level arms in the crate that mints the identity.
-  `scripts/one_owner_per_canonical_identity.py` keeps each constant identity to
+  `scripts/measure/one_owner_per_canonical_identity.py` keeps each constant identity to
   one production mint.
 
 ## What GGRS actually folds into the peer checksum

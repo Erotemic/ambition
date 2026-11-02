@@ -1,6 +1,6 @@
 # `ambition_extension_host` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_extension_host** — The Bevy host for procedural extension modules (fast-iteration I4).
 
@@ -13,7 +13,7 @@
 | [`save`](src/save.rs) | The records a save road keeps, as save rows, and their adoption on a load. |
 | [`store`](src/store.rs) | The host-owned stores for module state. |
 
-_6 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_6 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

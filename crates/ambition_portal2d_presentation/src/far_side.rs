@@ -25,7 +25,7 @@
 //! Only one covering pane is subtracted. Two apertures would need more than
 //! the three clip half-planes that [`PortalClipMaterial`] carries. In the
 //! shipped worlds two panes are never close enough to both cover one body
-//! (see `scripts/portal_pane_separation.py`). When more than one pane covers a
+//! (see `scripts/measure/portal_pane_separation.py`). When more than one pane covers a
 //! body, the first by [`ambition_portal2d::stable_portal_order`] is used, so the
 //! result does not depend on query order.
 

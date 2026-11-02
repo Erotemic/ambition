@@ -31,7 +31,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-SCRIPT = REPO / "scripts/measure_pack_reachability.py"
+SCRIPT = REPO / "scripts/measure/measure_pack_reachability.py"
 
 
 def load():

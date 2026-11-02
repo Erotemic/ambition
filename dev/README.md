@@ -130,7 +130,7 @@ dev/               -> long-running engineering memory (you are here)
   compile_ratchet_baseline.json -> the ratchet's frozen input; NOT in the submodule
   compile_telemetry_schema.md   -> the ledgers' field-by-field contract
   audio_loudness_report.md      -> every sound's level, ranked; REWRITTEN by
-                                   `scripts/audio_levels.py`, not appended
+                                   `scripts/measure/audio_levels.py`, not appended
 ```
 
 ## Cost ledgers — `dev/ambition_dev_measurements/` (a submodule)
@@ -168,8 +168,8 @@ too: one frozen snapshot, rewritten rather than appended.
 | ledger (under `dev/ambition_dev_measurements/`) | `kind` | written by | measures |
 |---|---|---|---|
 | `run_tests_cost.jsonl` | `job` | `scripts/run_tests.py` | wall + per-job cost of the suite |
-| `compile_cost.jsonl` | `scenario` | `scripts/compile_cost.py` | what an EDIT costs to rebuild |
-| `compile_units.jsonl` | `unit` | `scripts/compile_collect.py` | seconds, frontend/codegen split and LOC per compile unit |
+| `compile_cost.jsonl` | `scenario` | `scripts/measure/compile_cost.py` | what an EDIT costs to rebuild |
+| `compile_units.jsonl` | `unit` | `scripts/measure/compile_collect.py` | seconds, frontend/codegen split and LOC per compile unit |
 | `compile_graph.jsonl` | `graph` | `scripts/compile_ratchet.py --update` | the deterministic build-shape numbers the gate guards |
 | `carve_lineage.jsonl` | `carve` | `scripts/compile_ratchet.py --record-carve` | what a module split from, and why |
 
@@ -190,10 +190,10 @@ exactly that reason. ⛔ **never run two of these at once** — two builds shari
 target dir made a warm no-op read 222s, which looks like a slow machine rather
 than a mistake.
 
-`python3 scripts/compile_collect.py --analyze` reads the ledgers back and builds
+`python3 scripts/measure/compile_collect.py --analyze` reads the ledgers back and builds
 nothing.
 
-`python3 scripts/compile_report.py` is the other reader: it renders all five
+`python3 scripts/measure/compile_report.py` is the other reader: it renders all five
 ledgers into one self-contained HTML page at `dev/compile_report.html` (gitignored
 — it regenerates in under a second and would otherwise churn a 236 KB diff on
 every append), and `--print-summary` gives the same digest as text. It runs no

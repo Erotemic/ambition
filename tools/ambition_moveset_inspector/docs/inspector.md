@@ -430,7 +430,7 @@ offscreen capture likely
 ```
 
 ```bash
-python3 scripts/render_capability_doctor.py          # or --json
+python3 scripts/measure/render_capability_doctor.py          # or --json
 ```
 
 ⛔⛔ **IT EXISTS BECAUSE THE QUESTION WAS ANSWERED WRONG.** `/api/render` returns
@@ -627,7 +627,7 @@ Two paths, one command, and the pick is stated on stdout and in `index.json`:
 
 The sheets are drawn either way because they are free; the pixels are drawn when
 an adapter exists. `--no-gpu` forces the second path. The verdict comes from
-`scripts/render_capability_doctor.py`, which the Status page already uses — one
+`scripts/measure/render_capability_doctor.py`, which the Status page already uses — one
 detector, not two.
 
 ⛔ IT DOES NOT RECORD TAKES. The diagnostic path reads a `takes.json` and

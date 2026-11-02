@@ -1,6 +1,6 @@
 # `ambition_platformer2d_items` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_platformer2d_items** — Item adapters that compose actor simulation with item capabilities.
 
@@ -22,7 +22,7 @@
 | [`starting_bag`](src/starting_bag.rs) | The bag that a session begins with. |
 | [`wallet_conditions`](src/wallet_conditions.rs) | Authored WALLET conditions — "can the player pay for this?" |
 
-_15 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_15 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

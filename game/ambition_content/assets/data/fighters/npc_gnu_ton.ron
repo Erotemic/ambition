@@ -14,7 +14,7 @@
     // Moves like a light fencer: quick feet, a long dash, a floaty jump.
     // Shaped like Ultimate's Marth at 0.60 strength: each number is Smash's
     // default fighter's, scaled by how that fighter differs from Ultimate's
-    // roster median (`scripts/smash_fighter_shape.py "Marth" --strength 0.6`).
+    // roster median (`scripts/measure/smash_fighter_shape.py "Marth" --strength 0.6`).
     body: Some((
         max_run_speed: Some(342.0),
         initial_dash_speed: Some(381.3),

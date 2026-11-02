@@ -1,6 +1,6 @@
 # `ambition_sprite_sheet` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_sprite_sheet** — Runtime sprite-sheet metadata registry.
 
@@ -34,7 +34,7 @@
 | [`surfaces`](src/surfaces.rs) | The standing surfaces a sheet publishes, as the simulation reads them ([`ambition_characters::actor::SurfaceTable`]). |
 | [`test_support`](src/test_support.rs) | An explicit shared-library fixture for corpus tests. |
 
-_27 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_27 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

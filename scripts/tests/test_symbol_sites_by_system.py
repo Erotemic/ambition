@@ -14,7 +14,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-SCRIPT = Path(__file__).resolve().parents[1] / "measure_symbol_sites_by_system.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "measure/measure_symbol_sites_by_system.py"
 
 FIXTURE = '''\
 pub struct Thing {

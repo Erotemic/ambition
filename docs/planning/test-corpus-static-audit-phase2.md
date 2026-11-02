@@ -25,8 +25,8 @@ Source examined: public `Erotemic/ambition` `main` at `8e27113c7ec79b8c628d3d0a4
 From the repo root:
 
 ```bash
-python3 scripts/audit_test_corpus.py --root . --scope game/ambition_app --out /tmp/ambition-app-test-audit
-python3 scripts/audit_test_corpus.py --root . --scope . --out /tmp/ambition-workspace-test-audit
+python3 scripts/measure/audit_test_corpus.py --root . --scope game/ambition_app --out /tmp/ambition-app-test-audit
+python3 scripts/measure/audit_test_corpus.py --root . --scope . --out /tmp/ambition-workspace-test-audit
 ```
 
 Read `audit.md` for examples and `audit.json` for the complete structured inventory. No Rust source or test files are edited. The analyzer uses conservative line normalization and symbol-sequence comparisons, so evaluate findings as candidates, not instructions to delete. Its parser does not replace `syn` or tree-sitter for full Rust syntax. The full workspace scan may take longer; start with the app subset.

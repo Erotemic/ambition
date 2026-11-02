@@ -53,7 +53,7 @@ def strict(a: Image.Image, b: Image.Image) -> tuple[int, float]:
 
 
 def capture(law: str, composed: bool, scale: float, targets: list[str], out: Path, jobs: int) -> None:
-    command = [sys.executable, str(REPO / "scripts" / "measure_rigged_parity.py"), "--scale", str(scale), "--out", str(out), "--jobs", str(jobs)]
+    command = [sys.executable, str(REPO / "scripts" / "measure/measure_rigged_parity.py"), "--scale", str(scale), "--out", str(out), "--jobs", str(jobs)]
     for target in targets:
         command += ["--target", target]
     if composed:

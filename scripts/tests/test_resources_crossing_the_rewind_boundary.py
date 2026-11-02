@@ -37,7 +37,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-SCRIPT = REPO / "scripts/resources_crossing_the_rewind_boundary.py"
+SCRIPT = REPO / "scripts/measure/resources_crossing_the_rewind_boundary.py"
 
 # Resource -> the system whose `Update`-side write makes it a crossing. Naming
 # the SITE and not just the type is what makes a regression readable: if the
@@ -99,7 +99,7 @@ def test_a_stale_harmless_entry_fails(monkeypatch, capsys):
     stale entry has to be injected into the module the assertion reads.
     """
     module = load()
-    monkeypatch.setattr(sys, "argv", ["resources_crossing_the_rewind_boundary.py"])
+    monkeypatch.setattr(sys, "argv", ["measure/resources_crossing_the_rewind_boundary.py"])
     monkeypatch.setitem(
         module.CROSSING_IS_HARMLESS, "AResourceThatNeverCrossed", "invented by a test"
     )
@@ -116,7 +116,7 @@ def test_a_stale_filed_entry_fails(monkeypatch, capsys):
     direction of asking a maintainer for a decision nobody needs.
     """
     module = load()
-    monkeypatch.setattr(sys, "argv", ["resources_crossing_the_rewind_boundary.py"])
+    monkeypatch.setattr(sys, "argv", ["measure/resources_crossing_the_rewind_boundary.py"])
     monkeypatch.setitem(module.FILED, "AResourceThatNeverCrossed", "Q000 — invented")
     assert module.main() == 1
     assert "AResourceThatNeverCrossed" in capsys.readouterr().out

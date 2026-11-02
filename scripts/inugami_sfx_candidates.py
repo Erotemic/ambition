@@ -59,7 +59,7 @@ def cand(cid, dur, layers, seed, note, room=None, peak=-4.0):
 # Round 4 copied the reference's pitch track (23 points) and loudness. Here a
 # howl is its DESCRIPTION, a dozen named numbers (the SFX renderer's `howl`
 # mode, `howl:` block): a yelp, a rise, a sagging hold, a fall that darkens,
-# a droop. The reference is a check (scripts/howl_measure.py), and nothing of
+# a droop. The reference is a check (scripts/measure/howl_measure.py), and nothing of
 # it is in a recipe. What came from it is the shape and a few round numbers a
 # person could say: a held note near 650 Hz, a fall of about three and a half
 # semitones, a second harmonic that grows from -35 to -7 dB as it falls.

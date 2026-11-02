@@ -58,7 +58,7 @@ pub enum CameraRole {
 
 impl CameraRole {
     /// Stable token for the CSV column; do not rename without updating
-    /// `scripts/profile_desktop.sh`'s summary.
+    /// `scripts/measure/profile_desktop.sh`'s summary.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::MainGameplay => "main_gameplay",

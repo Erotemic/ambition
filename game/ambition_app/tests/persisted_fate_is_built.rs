@@ -350,7 +350,7 @@ fn a_challenge_made_through_a_possessed_body_names_that_body_and_is_remembered()
 /// A placement that authors NO respawn policy takes `UNDESCRIBED_BODY_RESPAWN`,
 /// which is `OnRoomReenter` — a policy that writes no flag on death and reads
 /// none on load. MEASURED 2026-09-07 over every shipped `.ldtk`
-/// (`scripts/measure_persisting_enemy_placements.py`): exactly two rooms author a
+/// (`scripts/measure/measure_persisting_enemy_placements.py`): exactly two rooms author a
 /// persisting policy, `pirate_sky_lookout` (4) and `pirate_sky_arena` (3), all of
 /// them `OnRest`. RE-MEASURED 2026-09-26: ONE room, `pirate_sky_arena` (3) — the
 /// lookout's enemy zone now authors `enemy_respawn: OnRoomReenter` (Jon: its

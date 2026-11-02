@@ -19,7 +19,7 @@ REPO = pathlib.Path(__file__).resolve().parents[2]
 
 def _load():
     name = "one_owner_per_canonical_identity"
-    spec = importlib.util.spec_from_file_location(name, REPO / "scripts" / f"{name}.py")
+    spec = importlib.util.spec_from_file_location(name, REPO / "scripts" / "measure" / f"{name}.py")
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
     spec.loader.exec_module(module)

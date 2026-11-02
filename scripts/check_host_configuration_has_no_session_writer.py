@@ -51,6 +51,10 @@ configured value another home, and remove its row here.
 
 from __future__ import annotations
 
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import pathlib
 import re
 import sys
@@ -58,7 +62,7 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "lib"))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
-import multi_writer_resource_census as census  # noqa: E402
+from scripts.measure import multi_writer_resource_census as census  # noqa: E402
 from rust_source import strip_comments  # noqa: E402
 from test_paths import strip_test_modules  # noqa: E402
 

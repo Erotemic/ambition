@@ -33,7 +33,7 @@ pub fn audio_source_from_sfx_clip(clip: sfx::SfxClip) -> Result<KiraAudioSource,
 /// ceiling between -6 and -11 dBFS.
 ///
 /// Calibrated so the median procedural cue matches the median banked clip.
-/// `python3 scripts/audio_levels.py` measures both and prints the gap; use it
+/// `python3 scripts/measure/audio_levels.py` measures both and prints the gap; use it
 /// to re-derive this value if the corpus changes.
 pub const PROCEDURAL_CUE_REFERENCE_RMS_DBFS: f32 = -11.0;
 
@@ -510,7 +510,7 @@ mod tests {
             loud - quiet
         );
         // The absolute anchor: an unenveloped cue at volume 1.0 is the
-        // reference level. `scripts/audio_levels.py` ports this synthesizer
+        // reference level. `scripts/measure/audio_levels.py` ports this synthesizer
         // and constant, so the two must agree.
         let mut full = cue(WaveformSpec::Saw, 1.0, 0.4);
         full.attack = 0.0;

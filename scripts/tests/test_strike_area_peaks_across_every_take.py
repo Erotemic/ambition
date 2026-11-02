@@ -26,7 +26,7 @@ import pathlib
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
 _spec = importlib.util.spec_from_file_location(
     "measure_strike_area_over_body",
-    REPO / "scripts" / "measure_strike_area_over_body.py",
+    REPO / "scripts" / "measure/measure_strike_area_over_body.py",
 )
 census = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(census)

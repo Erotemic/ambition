@@ -10,7 +10,7 @@ import pytest
 
 pytestmark = pytest.mark.detached_tool
 
-SCRIPT = Path(__file__).resolve().parents[1] / "monomorphization_report.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "measure/monomorphization_report.py"
 spec = importlib.util.spec_from_file_location("monomorphization_report", SCRIPT)
 assert spec and spec.loader
 report = importlib.util.module_from_spec(spec)

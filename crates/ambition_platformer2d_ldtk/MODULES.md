@@ -1,6 +1,6 @@
 # `ambition_platformer2d_ldtk` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_platformer2d_ldtk** — LDtk authoring adapter for the platformer world IR.
 
@@ -16,7 +16,7 @@
 | [`surfaces`](src/surfaces.rs) | Typed `Surface` authoring primitive: parse, then compile to engine collision. |
 | [`terrain`](src/terrain.rs) | Painted terrain: the `Terrain` IntGrid layer lowered to rideable surface chains. |
 
-_9 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_9 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

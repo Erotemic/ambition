@@ -1,6 +1,6 @@
 # `ambition_demo_smash` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_demo_smash** — Standalone stocks-based platform-fighter demo.
 
@@ -26,7 +26,7 @@
 | [`tether`](src/tether.rs) | The tether reel, end to end in this game. |
 | [`text`](src/text.rs) | The lines Smash shows, as data in its pack (`assets/data/smash_text.ron`): the match's cards, the select screen, the pause offer and the launcher row. |
 
-_19 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_19 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

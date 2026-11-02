@@ -5,7 +5,7 @@
     // Jon, 2026-10-18: the pointed polygon feels like Lucina.
     // Shaped like Ultimate's Lucina at 0.60 strength: each number is Smash's
     // default fighter's, scaled by how that fighter differs from Ultimate's
-    // roster median (`scripts/smash_fighter_shape.py "Lucina" --strength 0.6`).
+    // roster median (`scripts/measure/smash_fighter_shape.py "Lucina" --strength 0.6`).
     knockback_weight: Some(0.94),
     body: Some((
         max_run_speed: Some(342.0),

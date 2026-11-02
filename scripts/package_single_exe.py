@@ -47,6 +47,10 @@ verification; 2 a prerequisite is missing; 3 a build failed.
 
 from __future__ import annotations
 
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
 import hashlib
 import json
@@ -62,7 +66,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts"))
 
-import measure_pack_reachability  # noqa: E402
+from scripts.measure import measure_pack_reachability  # noqa: E402
 import package_asset_guard  # noqa: E402
 
 PACKAGE = "ambition_app"

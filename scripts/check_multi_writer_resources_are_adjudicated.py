@@ -100,7 +100,7 @@ the earlier parse was narrower. ⇒ Re-derive rather than quote, with:
     EOF Joining the writers' WRITE TARGETS narrows it again — which field or
 method do two of a type's writer files both reach for:
 
-    python3 scripts/multi_writer_resource_census.py --shared-targets
+    python3 scripts/measure/multi_writer_resource_census.py --shared-targets
 
 ⛔⛤ **THAT COMMAND EXISTS BECAUSE THE HAND-WRITTEN VERSION OF THIS TABLE WAS
 WRONG IN FOUR PLACES, DISCOVERED 2026-09-17 WHILE CITING IT.** It read
@@ -162,12 +162,16 @@ the writer is how the number keeps meaning something.
 
 from __future__ import annotations
 
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import pathlib
 import re
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-import multi_writer_resource_census as census  # noqa: E402
+from scripts.measure import multi_writer_resource_census as census  # noqa: E402
 
 #: `{type: how many production files write it}`, MEASURED 2026-09-17 at
 #: `fb2cde38f` with the corrected test-region cut. The count is part of the baseline because a set alone cannot see

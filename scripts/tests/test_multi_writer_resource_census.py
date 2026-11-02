@@ -1,11 +1,11 @@
-"""Unit tests for `scripts/multi_writer_resource_census.py` — hand-built corpus."""
+"""Unit tests for `scripts/measure/multi_writer_resource_census.py` — hand-built corpus."""
 
 from __future__ import annotations
 
 import importlib.util
 import pathlib
 
-_SCRIPT = pathlib.Path(__file__).resolve().parents[1] / "multi_writer_resource_census.py"
+_SCRIPT = pathlib.Path(__file__).resolve().parents[1] / "measure/multi_writer_resource_census.py"
 _spec = importlib.util.spec_from_file_location("multi_writer_resource_census", _SCRIPT)
 mod = importlib.util.module_from_spec(_spec)
 assert _spec.loader is not None

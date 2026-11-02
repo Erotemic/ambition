@@ -1,6 +1,6 @@
 # `ambition_projectiles` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_projectiles** — Reusable, content-free projectile vocabulary and materialization.
 
@@ -20,7 +20,7 @@
 | [`state`](src/state.rs) | Per-player projectile controller state: charge machine, motion-input buffer, and tracked unlocks. |
 | [`visual`](src/visual.rs) | Projectile visual identity — an open, content-owned art registry. |
 
-_13 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_13 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

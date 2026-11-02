@@ -394,7 +394,7 @@ impl Plugin for EmbeddedPackReloadPlugin {
 }
 
 /// The host's acknowledgment of a generation, one line on stdout, for a
-/// person and for `scripts/iteration_record.py`, which times an edit to the
+/// person and for `scripts/measure/iteration_record.py`, which times an edit to the
 /// acknowledgment of the generation it made (fast-iteration I0). The line
 /// names the generation by its fingerprint, so a recorder can refuse an old
 /// acknowledgment as the answer to a new edit.

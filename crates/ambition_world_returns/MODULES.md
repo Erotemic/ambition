@@ -1,6 +1,6 @@
 # `ambition_world_returns` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_world_returns** — Return times and checkpoint ownership for authored world occurrences.
 
@@ -9,7 +9,7 @@
 | [`lifecycle`](src/lifecycle.rs) | Apply admitted replay and restore boundaries to return records. |
 | [`rollback_registration`](src/rollback_registration.rs) | Register domain state for rollback. |
 
-_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

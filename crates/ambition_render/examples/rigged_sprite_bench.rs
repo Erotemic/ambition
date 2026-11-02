@@ -27,7 +27,7 @@
 //! Each measured frame of `--render` waits for the GPU to finish the frame, so
 //! on a hardware GPU the time includes the GPU work, not only its submission.
 //! The first render run prints the adapter (`adapter name=…`), so a report
-//! states which rasterizer made it. `scripts/rig_packet8_gpu_bench.py` runs the
+//! states which rasterizer made it. `scripts/measure/rig_packet8_gpu_bench.py` runs the
 //! Packet 8 matrix on a hardware GPU and writes the report.
 //!
 //! ```sh

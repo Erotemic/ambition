@@ -141,7 +141,7 @@ for target in "${targets[@]}"; do
     elapsed="$(( $(date +%s) - started ))"
 
     if [ -f "$lprof" ]; then
-        "$python_bin" "$repo_root/scripts/render_line_profiles.py" "$lprof" || true
+        "$python_bin" "$repo_root/scripts/measure/render_line_profiles.py" "$lprof" || true
     fi
     if [ "$status" -ne 0 ]; then
         echo "profile failed for $target after ${elapsed}s; preserved $log and any $lprof" >&2
@@ -150,5 +150,5 @@ for target in "${targets[@]}"; do
     echo "    completed in ${elapsed}s"
 done
 
-"$python_bin" "$repo_root/scripts/render_line_profiles.py" "$output_dir" || true
+"$python_bin" "$repo_root/scripts/measure/render_line_profiles.py" "$output_dir" || true
 printf '\n==> profile reports ready: %s\n' "$output_dir"

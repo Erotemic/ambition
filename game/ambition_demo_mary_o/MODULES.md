@@ -1,6 +1,6 @@
 # `ambition_demo_mary_o` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_demo_mary_o** — Super Mary-O demo content home — the M-track's world half.
 
@@ -41,7 +41,7 @@
 | [`void_look`](src/void_look.rs) | The field of the void about each void thing of Mary-O: the Void Star, the Void Lizard, and the orb the Void Lizard throws. |
 | [`void_star`](src/void_star.rs) | The Void Star: the enemy that no stomp can hurt. |
 
-_34 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_34 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

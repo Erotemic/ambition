@@ -36,7 +36,7 @@ DEFAULT_TAKES = REPO / "tools/ambition_moveset_inspector/data/takes/takes.json"
 def gpu_verdict() -> dict:
     """Ask the doctor that already exists, rather than probing a second way."""
     spec = importlib.util.spec_from_file_location(
-        "render_capability_doctor", REPO / "scripts/render_capability_doctor.py"
+        "render_capability_doctor", REPO / "scripts/measure/render_capability_doctor.py"
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

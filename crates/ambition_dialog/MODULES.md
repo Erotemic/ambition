@@ -1,6 +1,6 @@
 # `ambition_dialog` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_dialog** — Reusable, content-free dialogue runtime.
 
@@ -15,7 +15,7 @@
 | [`speech_sfx`](src/speech_sfx.rs) | Dialogue typewriter SFX selection and throttling. |
 | [`systems`](src/systems.rs) | Dialogue Bevy systems: input translation + the typewriter reveal tick. |
 
-_8 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_8 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

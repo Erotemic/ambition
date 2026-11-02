@@ -1614,7 +1614,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // `apply_feature_hit_events` each held `Res<UserSettings>` — the whole
     // persisted, menu-mutable resource — inside the simulation schedule. They now
     // read TWO f32s. With this and `SeatControlFrameModes`,
-    // `scripts/measure_user_settings_in_simulation.py` reports ZERO simulation
+    // `scripts/measure/measure_user_settings_in_simulation.py` reports ZERO simulation
     // readers of `UserSettings`.
     //
     // The two f32s change only through the mechanical-edit chain (`Q120`): the

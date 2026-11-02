@@ -9,7 +9,8 @@ from pathlib import Path
 
 def commands(repo: Path) -> list[dict]:
     rows = []
-    descriptors = [repo / 'scripts/commands.json', *sorted((repo / 'tools').glob('*/commands.json')),
+    descriptors = [repo / 'scripts/commands.json', *sorted((repo / 'scripts').glob('*/commands.json')),
+                   *sorted((repo / 'tools').glob('*/commands.json')),
                    repo / 'game/ambition_app_tools/commands.json']
     for descriptor in descriptors:
         if not descriptor.is_file():
@@ -29,19 +30,19 @@ def inventory(repo: Path) -> dict:
     """List command candidates and path consumers before a physical move."""
     supported = commands(repo)
     scripts = []
-    for path in sorted((repo / 'scripts').glob('*')):
-        if path.suffix not in {'.py', '.sh'}:
+    for path in sorted((repo / 'scripts').rglob('*')):
+        if path.suffix not in {'.py', '.sh', '.cjs'} or any(part in {'tests', 'lib', '__pycache__'} for part in path.relative_to(repo / 'scripts').parts):
             continue
         relative = path.relative_to(repo).as_posix()
         text = path.read_text(errors='replace')
-        scripts.append({'path': relative, 'status': 'active' if any(relative in row['requires'] for row in supported) else 'unknown',
+        scripts.append({'path': relative, 'status': 'active' if any(relative in row['requires'] for row in supported) else ('experimental' if 'experimental' in path.parts else 'internal'),
                         'path_risks': [token for token in ('__file__', 'sys.path', 'scripts/lib', 'Path.cwd()', 'os.getcwd') if token in text]})
     manifest = repo / 'game/ambition_app_tools/Cargo.toml'
     bins = tomllib.loads(manifest.read_text()).get('bin', []) if manifest.is_file() else []
-    candidates = ['tools/ambition_editor', 'scripts/art_inspector.py', 'tools/ecs_architecture_browser/ecs_browser.py',
-                  'tools/ambition_moveset_inspector/moveset_report.py', 'tools/ambition_moveset_inspector/moveset_visualizations.py', 'tools/ambition_moveset_inspector/render_take_diagnostic.py']
-    result = subprocess.run(['git', 'grep', '-n', '-F', *[arg for path in candidates for arg in ('-e', path)],
-                             '--', '.', ':!docs/brainstorms', ':!dev/journals'], cwd=repo, text=True, capture_output=True)
-    return {'commands': supported, 'root_scripts': scripts,
+    candidates = sorted({row['path'] for row in scripts} | {path for row in supported for path in row['requires']})
+    result = subprocess.run(['git', 'grep', '-n', '-F', '-f', '-',
+                             '--', '.', ':!docs/brainstorms', ':!dev/journals'], input='\n'.join(candidates),
+                            cwd=repo, text=True, capture_output=True)
+    return {'commands': supported, 'scripts': scripts,
             'cargo_bins': [dict(row, status='active' if any(command.get('binary') == row['name'] for command in supported) else 'unknown') for row in bins],
             'path_consumers': result.stdout.splitlines(), 'consumer_scan_available': result.returncode in (0, 1)}

@@ -1,6 +1,6 @@
 # `ambition_load_presentation` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_load_presentation** — Replaceable, contributor-neutral presentation for unresolved load barriers.
 
@@ -12,7 +12,7 @@
 | [`plugin`](src/plugin.rs) | Contributor-neutral hidden-grace, ready-hold, activity, and cleanup lifecycle. |
 | [`shell_adapter`](src/shell_adapter.rs) | Thin adapter from shell-route lifecycle to contributor-neutral load presentation. |
 
-_5 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_5 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

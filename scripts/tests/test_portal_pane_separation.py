@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-SCRIPT = REPO / "scripts" / "portal_pane_separation.py"
+SCRIPT = REPO / "scripts" / "measure/portal_pane_separation.py"
 
 
 def _module():

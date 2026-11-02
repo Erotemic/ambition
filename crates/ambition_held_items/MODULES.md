@@ -1,6 +1,6 @@
 # `ambition_held_items` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_held_items** — The PRESSED collectible: pick up / use / throw held items.
 
@@ -9,7 +9,7 @@
 | [`conditions`](src/conditions.rs) | What the item domain lets authored content ask about custody. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declarations for state owned by this crate. |
 
-_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -1,6 +1,6 @@
 # `ambition_input` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_input** — Device -> engine-owned `ControlFrame` input adapter layer for the sandbox.
 
@@ -26,7 +26,7 @@
 | [`settings`](src/settings.rs) | Controls / input settings. |
 | [`sources`](src/sources.rs) | Physical input-source identity and participant assignment policy. |
 
-_19 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_19 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

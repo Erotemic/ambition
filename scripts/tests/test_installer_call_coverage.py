@@ -48,7 +48,7 @@ def _no_mutation(*args, **kwargs):
 def _runner():
     spec = importlib.util.spec_from_file_location(
         "measure_installer_call_coverage",
-        REPO / "scripts" / "measure_installer_call_coverage.py",
+        REPO / "scripts" / "measure/measure_installer_call_coverage.py",
     )
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
@@ -59,7 +59,7 @@ def _runner():
 def test_list_is_source_only_and_needs_no_bound_target(monkeypatch, capsys):
     """`--list` must work on a checkout whose target is not bound at all."""
     monkeypatch.setattr(guard, "_bindmount_check_exit_code", lambda: None)
-    monkeypatch.setattr(sys, "argv", ["measure_installer_call_coverage.py", "--list"])
+    monkeypatch.setattr(sys, "argv", ["measure/measure_installer_call_coverage.py", "--list"])
     assert _runner().main() == 0
     assert "subject(s)" in capsys.readouterr().out
 
@@ -73,7 +73,7 @@ def test_run_refuses_on_an_unbound_target_before_mutating_anything(monkeypatch, 
     monkeypatch.setattr(runner, "SIDECAR", sidecar)
     monkeypatch.setattr(runner.subprocess, "run", _no_cargo)
     monkeypatch.setattr(runner, "_write_line", _no_mutation)
-    monkeypatch.setattr(sys, "argv", ["measure_installer_call_coverage.py", "--run"])
+    monkeypatch.setattr(sys, "argv", ["measure/measure_installer_call_coverage.py", "--run"])
     with pytest.raises(SystemExit) as exit_info:
         runner.main()
     assert exit_info.value.code == 2
@@ -89,7 +89,7 @@ def test_run_refuses_below_the_disk_floor_before_mutating_anything(monkeypatch, 
     monkeypatch.setattr(runner, "SIDECAR", sidecar)
     monkeypatch.setattr(runner.subprocess, "run", _no_cargo)
     monkeypatch.setattr(runner, "_write_line", _no_mutation)
-    monkeypatch.setattr(sys, "argv", ["measure_installer_call_coverage.py", "--run"])
+    monkeypatch.setattr(sys, "argv", ["measure/measure_installer_call_coverage.py", "--run"])
     with pytest.raises(SystemExit) as exit_info:
         runner.main()
     assert exit_info.value.code == 2

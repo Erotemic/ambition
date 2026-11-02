@@ -111,7 +111,7 @@ here.
 
 - ▢ **Deterministic world facts + observations/memory.** Keep simulation truth
   separate from what a character observed or believes. Use
-  `scripts/authored_route_gates.py` for route-condition measurements instead of
+  `scripts/measure/authored_route_gates.py` for route-condition measurements instead of
   copying counts into planning. Owner:
   [`engine/world-facts-observations-and-memory.md`](engine/world-facts-observations-and-memory.md).
 - ▢ **Agentic character runtime.** Typed actions/dialogue should consume world

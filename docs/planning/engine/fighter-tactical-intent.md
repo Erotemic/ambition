@@ -49,7 +49,7 @@ capability.
    scripted whiff. Only then: an opponent that attacks conditionally on
    range and sometimes refuses — a predictable dummy missing is not bait.
 
-## 3. Feasibility (MEASURED, `scripts/smash_punish_windows.py`)
+## 3. Feasibility (MEASURED, `scripts/measure/smash_punish_windows.py`)
 
 A whiff at the attacker's maximum reach, answered by a defender standing
 just outside it: reaction delay + one decision interval + travel at run

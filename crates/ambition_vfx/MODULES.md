@@ -1,6 +1,6 @@
 # `ambition_vfx` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_vfx** — Shared visual-effect vocabulary.
 
@@ -11,7 +11,7 @@
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_vfx`. |
 | [`vfx`](src/vfx.rs) | The visual-effects MESSAGE vocabulary — the presentation-neutral data a simulation system emits to ask for a cue, with NO renderer attached. |
 
-_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

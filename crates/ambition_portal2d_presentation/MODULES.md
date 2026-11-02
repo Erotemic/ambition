@@ -1,6 +1,6 @@
 # `ambition_portal2d_presentation` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_portal2d_presentation** — Default renderer for the headless [`ambition_portal2d`] mechanic.
 
@@ -21,7 +21,7 @@
 | [`viewpoints`](src/viewpoints.rs) | Host viewpoints shared by portal presentation passes. |
 | [`visuals`](src/visuals.rs) | Default portal-seam visuals: portal labels and the disorientation indicator. |
 
-_14 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_14 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -29,7 +29,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-SCRIPT = REPO / "scripts/measure_ldtk_tileset_usage.py"
+SCRIPT = REPO / "scripts/measure/measure_ldtk_tileset_usage.py"
 
 
 def load():

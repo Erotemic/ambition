@@ -521,7 +521,7 @@ fn joint_binding_measures_pixel_error_after_joint_scale() {
 /// in the joint's frame, within a pixel and a degree), and the rig's own frame
 /// of each clip, through those bindings, puts every draw where the flipbook
 /// drew it. The flipbook's transform table is then a cache of the rig's pose,
-/// not a second authority (`scripts/measure_track_joints.py` measures every
+/// not a second authority (`scripts/measure/measure_track_joints.py` measures every
 /// character that publishes both; the pirates do not agree yet).
 #[test]
 fn mary_os_parts_are_placed_by_her_body_rigs_pose() {

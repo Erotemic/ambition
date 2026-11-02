@@ -64,7 +64,7 @@ forced it: a re-export of systems defined in `ambition_platformer2d_actor_monoli
 which is another session's lane, so the mislabel was a lane violation waiting to happen
 rather than a cosmetic one.
 
-⚠ Cross-check a target against `scripts/measure_foreign_system_ordering.py` anyway; its
+⚠ Cross-check a target against `scripts/measure/measure_foreign_system_ordering.py` anyway; its
 `defining_crate()` is the more thorough resolver and its author reports it dropped 31
 false rows when added.
 

@@ -224,7 +224,7 @@ ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
 ambition_conversation = { path = "../ambition_conversation" }
 ambition_interaction = { path = "../ambition_interaction" }
 # ⛔⛔ THE EIGHT BELOW ARE NOT OPTIONAL AND ADVERTISING THEM WAS THE DEFECT (A9).
-# Measured by `scripts/measure_minimum_profile_parentage.py`: each is linked by a
+# Measured by `scripts/measure/measure_minimum_profile_parentage.py`: each is linked by a
 # NON-OPTIONAL dependency of this facade -- every one of them by
 # `ambition_platformer2d_actor_monolith` and/or `ambition_platformer2d_runtime`,
 # which are the engine and can never be optional. So no feature a consumer

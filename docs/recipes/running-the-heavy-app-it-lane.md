@@ -43,7 +43,7 @@ the machine went down. Guard:
 
 ## Operational rules
 
-- `scripts/measure_test_arm_rss.py` bounds a runaway: one process per arm,
+- `scripts/measure/measure_test_arm_rss.py` bounds a runaway: one process per arm,
   `RssAnon` (not `VmRSS` or cgroup `memory.current`), kill by process group at a
   hard cap. It refuses a row where libtest ran zero tests.
 - ⛔ **`pkill -f <pattern>` is not a safe cleanup.** The shell that runs it has

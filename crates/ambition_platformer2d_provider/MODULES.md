@@ -1,6 +1,6 @@
 # `ambition_platformer2d_provider` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_platformer2d_provider** — Experience-provider boundary between shell loading and platformer runtime state.
 
@@ -15,7 +15,7 @@
 | [`world_identity`](src/world_identity.rs) | Canonical identity sections for a prepared world and its session rules. |
 | [`world_source`](src/world_source.rs) | A provider's world source and its refusal: what the shared lifecycle runs when the shell asks an experience to prepare, and how a world that cannot be built fails that preparation. |
 
-_8 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_8 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

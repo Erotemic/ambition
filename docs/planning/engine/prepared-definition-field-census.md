@@ -13,7 +13,7 @@ Prepared beat sounds and nameplate policy now have consumers through
 ## Instrument
 
 ```bash
-python3 scripts/measure_field_readers_by_seal.py PreparedCharacterDefinition \
+python3 scripts/measure/measure_field_readers_by_seal.py PreparedCharacterDefinition \
     --diff dev/prepared_definition_members.json
 ```
 
@@ -34,7 +34,7 @@ Limits the script prints on every run: a consumer carrying `#[allow(deprecated)]
 a `derive` on the struct warns inside the owning crate; a consumer behind a
 feature this build does not enable; a workspace already red for an unrelated
 reason. The seal does not distinguish a read from a write (use
-`scripts/measure_state_writers.py` for writers). It tags only `pub` fields:
+`scripts/measure/measure_state_writers.py` for writers). It tags only `pub` fields:
 `PreparedCharacterDefinition` has 32 fields, and `voice`, `cue_dependencies`,
 `vfx_dependencies`, `checked` and `unresolved` are private and never counted.
 

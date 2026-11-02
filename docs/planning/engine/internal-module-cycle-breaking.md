@@ -57,10 +57,10 @@ checks for the different questions they answer.
 Run from the repository root:
 
 ```bash
-python3 scripts/audit_internal_module_cycles.py --top 30
-python3 scripts/audit_internal_module_cycles.py --crate ambition_platformer2d_shared_tangle --details
-python3 scripts/audit_internal_module_cycles.py --crate ambition_platformer2d_actor_monolith --details
-python3 scripts/audit_internal_module_cycles.py --json /tmp/ambition-module-cycles.json
+python3 scripts/measure/audit_internal_module_cycles.py --top 30
+python3 scripts/measure/audit_internal_module_cycles.py --crate ambition_platformer2d_shared_tangle --details
+python3 scripts/measure/audit_internal_module_cycles.py --crate ambition_platformer2d_actor_monolith --details
+python3 scripts/measure/audit_internal_module_cycles.py --json /tmp/ambition-module-cycles.json
 python3 -m unittest scripts.tests.test_audit_internal_module_cycles -v
 ```
 

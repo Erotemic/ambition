@@ -15,7 +15,7 @@ Re-run these before you quote a number. Do not copy counts into other pages.
 - `AMBITION_PROFILE_CENSUS=1` on any composition prints `[census] systems_ran`:
   the systems that ran in one frame against those registered, by schedule and
   by crate. `AMBITION_SYSTEM_LIST=PATH` writes the full list.
-- `scripts/system_census_table.py A.txt B.txt ...` compares lists crate by
+- `scripts/measure/system_census_table.py A.txt B.txt ...` compares lists crate by
   crate. The recipe is in its docstring and in `docs/recipes/profiling.md`.
 - `dev/bevy_idle_systems` measures what an idle system costs on each executor.
 
@@ -537,7 +537,7 @@ Mary-O 1-1, Mary-O 1-2, Ambition hub, Smash, and standalone Mary-O. Include
 Sanic when its capability path changes. Record a separate count for each
 executed schedule, and separate **simulation ticks per frame** from
 **rendered frames**. Tag each record with commit, app profile, device, build
-mode and active room. `scripts/system_census_table.py` compares the lists.
+mode and active room. `scripts/measure/system_census_table.py` compares the lists.
 
 On the Android device, measure frame-time median and tail, fixed-tick cost,
 executor and parameter-setup time, and system-body time. Warm each scene;

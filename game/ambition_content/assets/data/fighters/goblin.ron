@@ -6,7 +6,7 @@
     // Moves like small and quick, scrambling rather than sprinting.
     // Shaped like Ultimate's Diddy Kong at 0.60 strength: each number is Smash's
     // default fighter's, scaled by how that fighter differs from Ultimate's
-    // roster median (`scripts/smash_fighter_shape.py "Diddy Kong" --strength 0.6`).
+    // roster median (`scripts/measure/smash_fighter_shape.py "Diddy Kong" --strength 0.6`).
     body: Some((
         max_run_speed: Some(346.4),
         initial_dash_speed: Some(364.3),

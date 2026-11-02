@@ -242,7 +242,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
 /// `--bench`: exactly one fixed 60 Hz simulation tick per step, idle input,
 /// nothing recorded. The same tick count does the same work on every run, so
 /// `perf stat -e instructions:u` of two counts, subtracted, is the cost of the
-/// ticks between them (`scripts/sim_tick_instructions.sh`).
+/// ticks between them (`scripts/measure/sim_tick_instructions.sh`).
 fn run_bench(max_ticks: u32, start_room: Option<String>) -> i32 {
     let mut options =
         Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());

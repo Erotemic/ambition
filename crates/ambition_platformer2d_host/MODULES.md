@@ -1,6 +1,6 @@
 # `ambition_platformer2d_host` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_platformer2d_host** — Windowed host composition for the platformer runtime.
 
@@ -10,7 +10,7 @@
 | [`gameplay_presentation`](src/gameplay_presentation.rs) | Visible-host integration for gameplay presentation profiles. |
 | [`portal`](src/portal.rs) | Ambition-specific host glue for the reusable portal mechanic and renderer. |
 
-_3 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_3 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

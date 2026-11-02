@@ -16,7 +16,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 _spec = importlib.util.spec_from_file_location(
-    "render_capability_doctor", REPO / "scripts/render_capability_doctor.py"
+    "render_capability_doctor", REPO / "scripts/measure/render_capability_doctor.py"
 )
 doctor = importlib.util.module_from_spec(_spec)
 sys.modules["render_capability_doctor"] = doctor

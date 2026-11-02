@@ -1,6 +1,6 @@
 # `ambition_platformer2d_assets` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_platformer2d_assets** — Asset catalog assembly and character materialization.
 
@@ -11,7 +11,7 @@
 | [`materialization`](src/materialization/mod.rs) | Engine-owned character loading and materialization. |
 | [`platformer_assets`](src/platformer_assets/mod.rs) | Build asset catalog inputs from the selected content registries. |
 
-_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

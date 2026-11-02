@@ -4,7 +4,7 @@
       "id": "ecs",
       "title": "Inspect ECS systems and architecture diagnostics",
       "owner": "tools/ecs_architecture_browser",
-      "command": "python3 tools/ecs_architecture_browser/ecs_browser.py",
+      "command": "python3 tools/ecs_architecture_browser/ecs_browser.py --allow-stale",
       "help": "python3 tools/ecs_architecture_browser/ecs_browser.py --help",
       "requires": [
         "tools/ecs_architecture_browser/ecs_browser.py",

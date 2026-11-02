@@ -118,7 +118,7 @@ is derived from rollback state every tick and is not itself rollback state.
 ## Measurement
 
 ```bash
-scripts/measure_perception_density.sh
+scripts/measure/measure_perception_density.sh
 ```
 
 The census row reports `offered`, `visible` (density before the cut) and `kept`
@@ -144,7 +144,7 @@ engine must support, not a customer made up to justify this architecture. The
 room is a development/stress room, not polished game content. It exercises
 crowd interaction, targeting, collision, AI, VFX, camera framing, presentation
 capacity, rig/impostor scaling and combat readability, so each owner can
-measure there. `scripts/measure_perception_density.sh` widens the viewport over
+measure there. `scripts/measure/measure_perception_density.sh` widens the viewport over
 the Hall instead; keep it as a control, not as the dense room.
 
 ## Forbidden regressions

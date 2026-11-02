@@ -1134,7 +1134,7 @@ pub fn sync_portal_view_cones(
             convention,
         );
         // A measurement trace (`RUST_LOG=ambition_portal::cone_trace=debug`,
-        // read by `scripts/portal_cone_trace.py`): each window's drawn area,
+        // read by `scripts/measure/portal_cone_trace.py`): each window's drawn area,
         // as a fraction of the view, and where it is, each frame.
         if bevy::log::tracing::enabled!(target: "ambition_portal::cone_trace", bevy::log::Level::DEBUG) {
             let view_area = ((clip_max.x - clip_min.x) * (clip_max.y - clip_min.y)).max(1.0);

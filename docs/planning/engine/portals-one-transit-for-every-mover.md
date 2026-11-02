@@ -34,7 +34,7 @@ Jon, 2026-10-15:
   - **`capture_scene` flags:**
     - one that launches the player at a velocity;
     - one that spawns an item at a point with a velocity.
-  - **A scenario matrix** (`scripts/portal_seam_lab.py`, not in the default suite):
+  - **A scenario matrix** (`scripts/measure/portal_seam_lab.py`, not in the default suite):
     - movers: the robot, the gauge, a projectile;
     - pairs: floor↔floor, floor↔wall, wall↔wall, slope↔wall, a moving plank, a spinning plank;
     - speeds: slow, medium, fast.
@@ -57,7 +57,7 @@ Jon, 2026-10-15:
 ## What landed (2026-10-16)
 
 - **The seam lab.**
-  - `scripts/portal_seam_lab.py` throws the gauge (renderer target `seam_gauge`, a
+  - `scripts/measure/portal_seam_lab.py` throws the gauge (renderer target `seam_gauge`, a
     magenta and blue grid) into each `portal_lab` pair at three speeds. The throw is aimed
     ballistically into the opening.
   - The films are made with `capture_scene --tick-per-frame`: one sim tick per shot, with the

@@ -1,6 +1,6 @@
 # `ambition_cutscene` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_cutscene** — Cutscene scripting primitives.
 
@@ -9,7 +9,7 @@
 | [`content_schema`](src/content_schema.rs) | The `cutscene_library` authored-content schema, owned by the cutscene capability. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_cutscene`. |
 
-_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

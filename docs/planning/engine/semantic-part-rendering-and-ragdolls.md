@@ -177,7 +177,7 @@ All numbers MEASURED on this host (llvmpipe) unless marked.
 
 Drawing the parts directly with the main camera first failed parity badly:
 anti-aliased outlines over other parts made blobs of 11 to 18 px, and a
-translucent blink made 559 px (`scripts/measure_rigged_parity.py`, robot, sybil,
+translucent blink made 559 px (`scripts/measure/measure_rigged_parity.py`, robot, sybil,
 ninja_shadow_oni_leader, alice: 99 frames). The art is composited in **gamma
 space** (the renderer's PIL compositing over stored sRGB values), and a Bevy
 camera with no `CompositingSpace` blends in linear light. The impostor had been
@@ -319,7 +319,7 @@ player in sideways gravity:
 
 ### Phase 1 measured: one decomposition for Mary-O, two for the pirates
 
-`scripts/measure_track_joints.py` asks the shipped files whether each part track
+`scripts/measure/measure_track_joints.py` asks the shipped files whether each part track
 rides a body-rig joint: its pivot and angle, taken in the joint's frame, constant
 over every frame both files share. Mary-O's three forms: every track turns with
 its joint exactly (0 degrees), and 17 of 20 hold their place within 0.75 px; the

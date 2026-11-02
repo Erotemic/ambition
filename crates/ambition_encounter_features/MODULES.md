@@ -1,6 +1,6 @@
 # `ambition_encounter_features` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_encounter_features** — Generic, reusable enemy-WAVE / arena-lockdown system (data-driven, not scripted) — distinct from `ambition_boss_encounter`, which is one specific scripted boss fight with hand-authored phases.
 
@@ -15,7 +15,7 @@
 | [`switch_index`](src/switch_index.rs) | The switch INDEX rebuild, which stayed behind when the switch types left. |
 | [`systems`](src/systems.rs) | The Bevy adapters around the generic encounter lifecycle (E8/E9). |
 
-_8 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_8 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

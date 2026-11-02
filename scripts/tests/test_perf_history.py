@@ -34,7 +34,7 @@ sys.path.insert(0, str(SCRIPTS / "lib"))
 
 import profile_bundle_to_history as hist  # noqa: E402
 
-PERF_HISTORY = SCRIPTS / "perf_history.py"
+PERF_HISTORY = SCRIPTS / "measure/perf_history.py"
 
 METADATA = {
     "mode": "timeline-run",
@@ -56,7 +56,7 @@ METADATA = {
     "census_enabled": "yes",
     "census_hz": "1",
     "run_command": "/somewhere/run_game.sh profiling --features profile ",
-    "script_command": "./scripts/profile_desktop.sh --headless ",
+    "script_command": "./scripts/measure/profile_desktop.sh --headless ",
     "hostname": "testbox",
     "uname": "Linux testbox 6.8.0-110-generic #110-Ubuntu SMP x86_64 GNU/Linux",
     "rust_target": "x86_64-unknown-linux-gnu",
@@ -429,7 +429,7 @@ def test_a_software_renderer_never_groups_with_a_hardware_one(tmp_path: Path):
         "device: 8708, device_type: DiscreteGpu, driver: \"NVIDIA\", "
         "driver_info: \"595.84\", backend: Vulkan }\n" + GAME_LOG
     )
-    windowed = {"headless": "no", "script_command": "./scripts/profile_desktop.sh "}
+    windowed = {"headless": "no", "script_command": "./scripts/measure/profile_desktop.sh "}
     lavapipe = hist.build_record(
         str(write_bundle(tmp_path, "lavapipe", metadata=windowed,
                          files={"game-stderr-stamped.txt": software}))

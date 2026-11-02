@@ -297,7 +297,7 @@ production domain has one proposer and one publisher.
 `MechanicalEditAdmission` is intentionally optional in a host that has no rollback
 history to protect. That is a capability distinction, not a fail-open bug.
 
-⚠ `scripts/architecture_census.py` now finds a seventh production domain,
+⚠ `scripts/measure/architecture_census.py` now finds a seventh production domain,
 `ExtensionModuleCode` in `crates/ambition_platformer2d_runtime/src/extension_composition.rs`
 (behind the `wasm_modules` feature). It has no ledger row yet. Add one with its
 stage map. Do not add a second admission protocol.
@@ -337,7 +337,7 @@ A raw `Option<Res<T>>` is not evidence of a defect.
 | CAP-MECHANICAL-ADMISSION-OPTIONAL | Optional MechanicalEditAdmission in non-rollback compositions | capability legitimately absent | Editor publishers treat absent MechanicalEditAdmission as Publish. Source states this is intentional because a composition with no rollback host has no history to protect; a host that can refuse installs the resource. | — | SOURCE_CONFIRMED |
 | CAP-INITIAL-READINESS | Optional InitialGameplayReadiness | optional presentation/startup capability | Visible direct-entry hosts can install a closed startup readiness gate. Apps that omit it keep the normal behavior. | — | SOURCE_CONFIRMED |
 | CAP-LDTK-INDEX | Optional LDtk session-world index | capability legitimately absent | PreparedPlatformerSource carries an installed LDtk index only when an authoring format installs one. RON-authored sessions legitimately carry none. | — | SOURCE_CONFIRMED |
-| CAP-OPTIONAL-RES-CENSUS | Repository optional Res/ResMut surface | discovery index, classified per call site | `python3 scripts/architecture_census.py` reads 745 occurrences over 200 type spellings (2026-10-02), with test items and comments stripped. | Classify per call site, not per type. One type can be a hard composition fact at one site and a tooling guard at another (`SimTick`), and some absences are temporal ("not yet" versus "never"). Most sites state their reason at the parameter; read it first. | SOURCE_CONFIRMED |
+| CAP-OPTIONAL-RES-CENSUS | Repository optional Res/ResMut surface | discovery index, classified per call site | `python3 scripts/measure/architecture_census.py` reads 745 occurrences over 200 type spellings (2026-10-02), with test items and comments stripped. | Classify per call site, not per type. One type can be a hard composition fact at one site and a tooling guard at another (`SimTick`), and some absences are temporal ("not yet" versus "never"). Most sites state their reason at the parameter; read it first. | SOURCE_CONFIRMED |
 
 The useful pattern is explicit composition semantics:
 
@@ -386,7 +386,7 @@ discriminators with a refusing shell side, not compatibility roads.
 ## 11. Crate and package architecture
 
 Size is a navigation signal, not a merge or split rule. For the whole package
-graph run `python3 scripts/architecture_census.py --crate-table`, or read
+graph run `python3 scripts/measure/architecture_census.py --crate-table`, or read
 `workspace_crates` in the ledger. The size clues below were measured on
 2026-10-02.
 

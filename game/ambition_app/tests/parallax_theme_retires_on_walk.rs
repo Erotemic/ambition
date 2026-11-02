@@ -26,7 +26,7 @@
 //! every file under `tests/` is a module of `app_it` sharing a process, and cargo
 //! runs them as parallel threads. A sibling booting its own app would populate
 //! `Assets<Image>` underneath this one's assertions. Driven by
-//! `scripts/measure_parallax_retire.sh` with an exact filter.
+//! `scripts/measure/measure_parallax_retire.sh` with an exact filter.
 
 use bevy::prelude::*;
 
@@ -79,7 +79,7 @@ fn layer_asset_ids(app: &App, themes: &[ParallaxTheme]) -> Vec<(ParallaxTheme, A
 // sibling's `Assets<Image>`, so the dangerous outcome is a GREEN result that
 // measured nothing. Recorded as member #12 in
 // `docs/recipes/checks-that-did-not-run.md`.
-#[ignore = "boots a real app and reads Assets<Image>: valid only when run alone, via scripts/measure_parallax_retire.sh"]
+#[ignore = "boots a real app and reads Assets<Image>: valid only when run alone, via scripts/measure/measure_parallax_retire.sh"]
 fn a_theme_the_player_walked_away_from_leaves_assets_image() {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(

@@ -1,6 +1,6 @@
 # `ambition_extension_sdk` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_extension_sdk** — The portable procedural extension contract.
 
@@ -15,7 +15,7 @@
 | [`typed`](src/typed.rs) | Typed records: a Rust struct for a state schema, with no handwritten codec. |
 | [`wire`](src/wire.rs) | The portable wire encoding: little-endian, length-prefixed, no type tags. |
 
-_8 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_8 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

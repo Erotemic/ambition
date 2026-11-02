@@ -111,7 +111,7 @@ For a browser capture:
 ```bash
 npm install --prefix /tmp/ambition-web-tools playwright
 npx --prefix /tmp/ambition-web-tools playwright install chromium
-NODE_PATH=/tmp/ambition-web-tools/node_modules node scripts/measure_web.cjs http://localhost:8000/ target/mary-o-web
+NODE_PATH=/tmp/ambition-web-tools/node_modules node scripts/measure/measure_web.cjs http://localhost:8000/ target/mary-o-web
 ```
 
 The capture uses a fresh temporary browser profile for both visits. It records

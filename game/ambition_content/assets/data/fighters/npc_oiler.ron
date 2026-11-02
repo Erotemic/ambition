@@ -6,7 +6,7 @@
     // Moves like a sturdy floater: middling ground speed, long hang time.
     // Shaped like Ultimate's Samus at 0.60 strength: each number is Smash's
     // default fighter's, scaled by how that fighter differs from Ultimate's
-    // roster median (`scripts/smash_fighter_shape.py "Samus" --strength 0.6`).
+    // roster median (`scripts/measure/smash_fighter_shape.py "Samus" --strength 0.6`).
     body: Some((
         max_run_speed: Some(308.5),
         initial_dash_speed: Some(340.8),

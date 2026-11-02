@@ -23,7 +23,7 @@ clip keep their phase of the swing.
     python3 scripts/smash_retime.py --fighter goblin --apply
 
 The archetype of each fighter is in ARCHETYPES below, from the Ultimate anchor
-its `smash_fighter` facet names (`scripts/smash_fighter_shape.py`). Templates
+its `smash_fighter` facet names (`scripts/measure/smash_fighter_shape.py`). Templates
 are first cuts to play, not rulings: frames from Ultimate Frame Data's Mario
 (mid), Sheik/Fox (fast), King Dedede/Bowser (heavy), Marth (sword), Captain
 Falcon (falcon) and a Yoshi/Samus/Toon Link blend (zoner), rounded; Ultimate

@@ -1,6 +1,6 @@
 # `ambition_relativity2d` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_relativity2d** — Opt-in 2D spacetime integration.
 
@@ -11,7 +11,7 @@
 | [`targeting`](src/targeting.rs) | Causal targeting read models for constant-velocity compact targets. |
 | [`telemetry`](src/telemetry.rs) | Bounded rollback-aware worldline telemetry for relativity instruments. |
 
-_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

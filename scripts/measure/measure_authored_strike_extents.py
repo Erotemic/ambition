@@ -16,7 +16,7 @@ edit changes, and NOT as "what the player's box is" for manifest-road fighters.
 
 ⚠ AND IT SAYS NOTHING ABOUT THE BODY. The ratio that decides whether a swing
 feels like it connects is strike-area-over-BODY-area, and a body's extents come
-from its sprite, not from its move table. `scripts/measure_strike_area_over_body.py`
+from its sprite, not from its move table. `scripts/measure/measure_strike_area_over_body.py`
 is the instrument for that and still needs a recording; this one answers the
 cheaper half — "which authored boxes are small in absolute terms, and where".
 

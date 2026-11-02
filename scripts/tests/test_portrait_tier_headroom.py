@@ -31,7 +31,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-SCRIPT = REPO / "scripts/measure_portrait_tier_headroom.py"
+SCRIPT = REPO / "scripts/measure/measure_portrait_tier_headroom.py"
 
 
 def load():

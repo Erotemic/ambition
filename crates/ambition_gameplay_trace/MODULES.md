@@ -1,6 +1,6 @@
 # `ambition_gameplay_trace` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_gameplay_trace** — Gameplay flight-recorder format — the reusable, content-free core of the trace recorder.
 
@@ -12,7 +12,7 @@
 | [`model`](src/model.rs) | Serializable trace data shapes: the per-frame `GameplayTraceFrame` (player + platform + control state) and the discrete `GameplayTraceEvent` / `DumpReason` / `OobReason` enums, plus serde-friendly geometry mirrors (`TracePoint`, `TraceAabb`) that avoid leaking `bevy_math`/engine types into the JSON shape. |
 | [`policy`](src/policy.rs) | Policy controlling whether gameplay traces may write files. |
 
-_5 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_5 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

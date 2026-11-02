@@ -297,7 +297,7 @@ mandatory internal dependency closure of the facade (normal, non-optional,
 `path` dependencies) and the fact that `ambition_render` is outside it. Do not
 copy the number here. Count other packages, not the facade itself; a number that
 does not say which it counts cannot be quoted. See also
-`scripts/measure_minimum_profile_parentage.py`. This is a lower bound, not
+`scripts/measure/measure_minimum_profile_parentage.py`. This is a lower bound, not
 Cargo's final feature resolution: `default-features = false` on one edge does
 not prove another path cannot enable the feature.
 

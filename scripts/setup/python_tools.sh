@@ -268,7 +268,7 @@ install_scripts_env() {
     # ⚠ EVERY ONE OF THESE IS A COLLECTION ERROR WHEN ABSENT, NOT A SKIPPED TEST.
     # `scripts/tests` imports the scripts it tests at module scope, so one
     # missing third-party module takes the whole detached-tools job down at
-    # import time: `numpy` and `soundfile` are `scripts/audio_levels.py`, and
+    # import time: `numpy` and `soundfile` are `scripts/measure/audio_levels.py`, and
     # `rich` is the repository's clickable-`file://` output convention, which
     # `scripts/agent_query.py` — step 2 of the AGENTS.md cold start — needs to
     # print anything at all.

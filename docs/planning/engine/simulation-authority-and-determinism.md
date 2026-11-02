@@ -225,7 +225,7 @@ or diagnostic-only state; a mechanically relevant value with no peer-comparison
 projection needs review.
 
 Do not preserve a copied count of these rows here. Recompute the population with
-`python3 scripts/measure_unchecksummed_rollback_rows.py` (it reads
+`python3 scripts/measure/measure_unchecksummed_rollback_rows.py` (it reads
 `game/ambition_app/tests/rollback_schema_baseline.txt`). This page owns the
 argument; the script owns the cardinalities. Classify each row by:
 

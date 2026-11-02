@@ -6,7 +6,7 @@
     // Moves like slow on the ground, light and floaty in the air.
     // Shaped like Ultimate's Zelda at 0.60 strength: each number is Smash's
     // default fighter's, scaled by how that fighter differs from Ultimate's
-    // roster median (`scripts/smash_fighter_shape.py "Zelda" --strength 0.6`).
+    // roster median (`scripts/measure/smash_fighter_shape.py "Zelda" --strength 0.6`).
     body: Some((
         max_run_speed: Some(282.7),
         initial_dash_speed: Some(350.3),

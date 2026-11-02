@@ -1,6 +1,6 @@
 # `ambition_audio` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_audio** — Content-free audio data/runtime layer.
 
@@ -21,7 +21,7 @@
 | [`spec`](src/spec.rs) | Audio data schema: the authored (RON) shapes for procedural SFX and pre-rendered music. |
 | [`web_unlock`](src/web_unlock.rs) | Cross-platform audio-start readiness. |
 
-_14 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_14 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

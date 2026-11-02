@@ -1134,7 +1134,7 @@ def build_detached_tool_jobs(pytest_filter: str | None = None) -> list[Job]:
         return [Job("detached repo developer tools", argv)]
 
     ldtk = REPO / "tools" / "ambition_ldtk_tools"
-    inspector = REPO / "tools" / "asset_inspector"
+    inspector = REPO / "tools" / "ambition_editor"
     return [
         Job("detached repo developer tools", argv),
         Job(
@@ -1145,10 +1145,18 @@ def build_detached_tool_jobs(pytest_filter: str | None = None) -> list[Job]:
             ],
             cwd=str(ldtk),
         ),
+        Job(
+            "ECS architecture browser tests",
+            [sys.executable, "-m", "pytest", "tools/ecs_architecture_browser/tests", "-q", *PYTEST_TIMING_ARGS],
+        ),
+        Job(
+            "moveset inspection tool tests",
+            [sys.executable, "-m", "pytest", "tools/ambition_moveset_inspector/tests", "-q", *PYTEST_TIMING_ARGS],
+        ),
         # The art inspector's indexer needs Pillow and PyYAML: the sprite
         # renderer's interpreter has both.
         Job(
-            "art inspector tests",
+            "Ambition Editor tests",
             [
                 tool_python(REPO / "tools" / "ambition_sprite2d_renderer", "AMBITION_SPRITE_PYTHON"),
                 "-m", "pytest", "tests", "-q", *PYTEST_TIMING_ARGS,
@@ -1343,7 +1351,7 @@ def build_maintenance_jobs() -> list[Job]:
         # `check_planning_citations.py` verifies the path resolves and the line
         # is not past the end of the file, never that line NN still holds what
         # the sentence says, and
-        # `scripts/citation_line_content_feasibility.py` records why the obvious
+        # `scripts/measure/citation_line_content_feasibility.py` records why the obvious
         # repair fails (prose proximity recovers 23% at +/-30 lines).
         # `check_planning_line_citations.py` reads `git blame` for the commit
         # that wrote the DOC line and `git show <sha>:<path>` for the file the
@@ -2522,14 +2530,14 @@ def coverage_notice(
         notices.append(
             f"\n  ⚠ this was {scope}, which does NOT cover:\n"
             "      - tests behind an OPT-IN #[cfg(feature = \"...\")] — MEASURED\n"
-            "        2026-10-23 by `scripts/feature_gated_tests.py`, 572 tests\n"
+            "        2026-10-23 by `scripts/measure/feature_gated_tests.py`, 572 tests\n"
             "        across 34 crates, the largest single omission this\n"
             "        footer names — though the scanner counts `#[cfg(feature)]`\n"
             "        STATICALLY, and a feature another workspace member turns on\n"
             "        IS unified into `--workspace`, so some of them do run\n"
             "        here (MEASURED 2026-09-12: `ambition_characters`'\n"
             "        content_pack arms execute, via `game/ambition_content`).\n"
-            "        footer names. `python3 scripts/feature_gated_tests.py` prints\n"
+            "        footer names. `python3 scripts/measure/feature_gated_tests.py` prints\n"
             "        the current figure per crate (it says itself that the count is\n"
             "        approximate); `--verify <crate>` asks cargo for the exact pair.\n"
             "        ⛔ A GREEN DEFAULT RUN IS SILENT ABOUT ALL OF THEM: the union\n"
@@ -2666,7 +2674,7 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     # — measured 2026-09-05 on a peer's VM, where it cost an hour.
     #
     # ⭐ `setdefault`, and it is safe here for a reason worth stating: this lane
-    # RUNS TESTS, it does not measure time. `scripts/profile_desktop.sh` sets the
+    # RUNS TESTS, it does not measure time. `scripts/measure/profile_desktop.sh` sets the
     # same variable and records the caveat that matters where it does matter —
     # zone RATIOS stay sound, absolute microseconds do not. A test suite reads
     # neither.

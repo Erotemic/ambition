@@ -1,6 +1,6 @@
 # `ambition_demo_smash_app` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_demo_smash_app** — The runnable smash demo.
 
@@ -9,7 +9,7 @@
 | [`stage_diagram`](src/stage_diagram.rs) | Draw the stage, including the thing that kills you. |
 | [`tools`](src/tools/mod.rs) | The tools behind `smash_tool`, one module per subcommand. |
 
-_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

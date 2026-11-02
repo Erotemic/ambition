@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-SCRIPT = REPO / "scripts" / "per_attempt_resource_census.py"
+SCRIPT = REPO / "scripts" / "measure/per_attempt_resource_census.py"
 
 
 def _module():

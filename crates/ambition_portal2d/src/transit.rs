@@ -524,7 +524,7 @@ pub fn portal_transit(
             &tuning,
         );
         // A measurement trace (`RUST_LOG=ambition_portal::transit_trace=debug`,
-        // read by `scripts/portal_seam_lab.py`), as a free body's.
+        // read by `scripts/measure/portal_seam_lab.py`), as a free body's.
         bevy::log::debug!(
             target: "ambition_portal::transit_trace",
             "tick={tick} kernel body={entity:?} at={:.1},{:.1} vel={:.1},{:.1} step={step:?}",

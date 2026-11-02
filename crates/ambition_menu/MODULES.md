@@ -1,6 +1,6 @@
 # `ambition_menu` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_menu** — Engine-side unified menu: the renderer-agnostic content model plus two interchangeable presentations of it.
 
@@ -10,7 +10,7 @@
 | [`map`](src/map/mod.rs) | Map / minimap state AND the Map tab that renders it. |
 | [`render`](src/render/mod.rs) | Renderers for a [`crate::MenuPageModel`]. |
 
-_3 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_3 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

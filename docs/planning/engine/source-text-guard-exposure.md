@@ -14,9 +14,9 @@ would this test still pass?**
 ## Instrument
 
 ```bash
-python3 scripts/measure_source_text_guard_exposure.py               # Python guards
-python3 scripts/measure_source_text_guard_exposure.py --exposed-only
-python3 scripts/measure_source_text_guard_exposure.py --rust        # Rust guards
+python3 scripts/measure/measure_source_text_guard_exposure.py               # Python guards
+python3 scripts/measure/measure_source_text_guard_exposure.py --exposed-only
+python3 scripts/measure/measure_source_text_guard_exposure.py --rust        # Rust guards
 ```
 
 Verdicts: `exposed` (a ceiling or emptiness check with no floor), `equality`

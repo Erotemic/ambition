@@ -567,7 +567,7 @@ impl FrontField {
 
 /// `AMBITION_ROOM_FRONT_FIELD=off` makes no field: each pixel works its front
 /// out, as before the field. For an A/B of what the field buys on a device
-/// (`scripts/profile_android.sh --launch-env AMBITION_ROOM_FRONT_FIELD=off`).
+/// (`scripts/measure/profile_android.sh --launch-env AMBITION_ROOM_FRONT_FIELD=off`).
 fn front_fields_are_on() -> bool {
     static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     *ON.get_or_init(|| std::env::var("AMBITION_ROOM_FRONT_FIELD").as_deref() != Ok("off"))

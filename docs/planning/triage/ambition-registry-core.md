@@ -70,7 +70,7 @@ kind from its name or return type.
 ## Evidence command
 
 ```bash
-python3 scripts/measure_registry_core_adoption.py
+python3 scripts/measure/measure_registry_core_adoption.py
 ```
 
 ADOPTED/JUSTIFIED/UNREFERENCED measure references, not policy. JUSTIFIED does

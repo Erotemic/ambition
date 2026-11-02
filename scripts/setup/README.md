@@ -47,7 +47,7 @@ compile-only machine deliberately, and know that it cannot regenerate music.
 | script | when you need it |
 |---|---|
 | `target_bindmount.sh` | ⛔ **first, every session, on a virtiofs checkout.** `--status` says whether `target/` is bound to local disk. An unbound session builds through the shared mount — minutes per check, and a second full copy of every artifact. See AGENTS.md. |
-| `profile_deps.sh` | before the first `scripts/profile_desktop.sh` on a machine. Asks whether the profiling toolchain WORKS rather than whether it is installed — `--check` reports without changing anything. |
+| `profile_deps.sh` | before the first `scripts/measure/profile_desktop.sh` on a machine. Asks whether the profiling toolchain WORKS rather than whether it is installed — `--check` reports without changing anything. |
 | `android_prereqs.sh` | Android SDK/NDK for `build_for_android.sh`. |
 | `web_prereq.sh` | wasm target and bindgen for `build_for_web.sh`. |
 

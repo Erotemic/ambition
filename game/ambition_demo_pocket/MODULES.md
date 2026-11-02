@@ -1,6 +1,6 @@
 # `ambition_demo_pocket` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_demo_pocket** — Tiny fourth-provider acceptance fixture.
 
@@ -8,7 +8,7 @@
 |---|---|
 | [`pack`](src/pack.rs) | The Pocket demo's content pack. |
 
-_1 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_1 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -6,7 +6,7 @@
     // Moves like fast on the ground and in the air, a quick short initial dash, light.
     // Shaped like Ultimate's Sheik at 0.60 strength: each number is Smash's
     // default fighter's, scaled by how that fighter differs from Ultimate's
-    // roster median (`scripts/smash_fighter_shape.py "Sheik" --strength 0.6`).
+    // roster median (`scripts/measure/smash_fighter_shape.py "Sheik" --strength 0.6`).
     body: Some((
         max_run_speed: Some(387.6),
         initial_dash_speed: Some(373.5),

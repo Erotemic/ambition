@@ -74,7 +74,7 @@ without using the same classification rule.
 
 ## Step 0: establish an accurate, repeatable inventory
 
-The analyzer is `scripts/audit_test_corpus.py`. The companion tests are
+The analyzer is `scripts/measure/audit_test_corpus.py`. The companion tests are
 `scripts/tests/test_audit_test_corpus_worktrees.py`. This campaign fixes the
 original traversal: it now prunes `.worktrees/`, `worktrees/`, nested Git
 checkouts, symlinked directories, `target/`, and Git metadata before visiting
@@ -90,9 +90,9 @@ git status --short
 git rev-parse HEAD
 
 python3 -m unittest discover -s scripts/tests -p 'test_audit_test_corpus_worktrees.py' -v
-python3 scripts/audit_test_corpus.py \
+python3 scripts/measure/audit_test_corpus.py \
   --scope game/ambition_app --out /tmp/ambition-app-test-audit
-python3 scripts/audit_test_corpus.py \
+python3 scripts/measure/audit_test_corpus.py \
   --scope . --out /tmp/ambition-workspace-test-audit
 ```
 

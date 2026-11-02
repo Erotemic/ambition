@@ -67,6 +67,10 @@ Usage:
 
 from __future__ import annotations
 
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
 import functools
 import re
@@ -81,7 +85,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "scripts"))
 
 from rust_source import strip_comments  # noqa: E402
-import measure_user_settings_in_simulation as _settings  # noqa: E402
+from scripts.measure import measure_user_settings_in_simulation as _settings  # noqa: E402
 from check_engine_systems_are_engine_installed import (  # noqa: E402
     add_systems_bodies,
     strip_run_conditions,

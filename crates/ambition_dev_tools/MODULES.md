@@ -1,6 +1,6 @@
 # `ambition_dev_tools` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_dev_tools** — Reusable developer-tooling state and simulation-side logic.
 
@@ -17,7 +17,7 @@
 | [`runtime_census`](src/runtime_census.rs) | Profiling-only workload census: what Ambition asked the engine to do. |
 | [`sim_plugin`](src/sim_plugin.rs) | `DevToolsSimPlugin` — the dev-tools domain plugin for the simulation App. |
 
-_10 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_10 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

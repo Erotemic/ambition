@@ -355,7 +355,7 @@ Open questions belong in
 ### The census numbers the 2026-09-19 ingress rulings were sized against
 
 These markers are transcription checks for the Q136 ruling.
-`scripts/resources_crossing_the_rewind_boundary.py` checks `crossing-census`,
+`scripts/measure/resources_crossing_the_rewind_boundary.py` checks `crossing-census`,
 and `scripts/check_host_produced_sim_consumed_requests.py` checks
 `ingress-census`. Each script owns its own classification; when a number moves,
 update the marker in the same change and name what moved in the commit message.

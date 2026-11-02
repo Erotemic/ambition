@@ -1,6 +1,6 @@
 # `ambition_damage` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_damage** — ⛔ AND IT RE-EXPORTS NOTHING. Three `pub use` lines forwarded `ambition_combat::util` and `_core::hit_response` items from here, which is the same facade shape that hid this module's real coupling for months.
 
@@ -9,7 +9,7 @@
 | [`healing`](src/healing.rs) | Health restoration requests and their application to bodies. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declarations for health effects. |
 
-_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

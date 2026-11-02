@@ -1,6 +1,6 @@
 # `ambition_render` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_render** — Ambition's Bevy presentation layer: the sandbox's default renderer.
 
@@ -30,7 +30,7 @@
 | [`ui_surface`](src/ui_surface.rs) | Participant-owned UI regions resolved from the live view layout. |
 | [`void_field`](src/void_field.rs) | The field of the void: the picture loses its colour, and a part of its light, near each void thing. |
 
-_23 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_23 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

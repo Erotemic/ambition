@@ -1,6 +1,6 @@
 # `ambition_platformer2d_session` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_platformer2d_session** — Session construction, admitted lifecycle operations, restoration, and retirement.
 
@@ -21,7 +21,7 @@
 | [`snapshot_impls`](src/snapshot_impls.rs) | The lifecycle snapshot encoding. |
 | [`teardown`](src/teardown.rs) | Re-establish the process-global mirrors of live-session state at BOTH edges of a gameplay session. |
 
-_14 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_14 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

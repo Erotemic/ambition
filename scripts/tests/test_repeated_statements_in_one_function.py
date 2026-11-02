@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-SCRIPT = REPO / "scripts" / "repeated_statements_in_one_function.py"
+SCRIPT = REPO / "scripts" / "measure/repeated_statements_in_one_function.py"
 
 DUPLICATED = """
 pub fn end_two_ways(active: &mut Active, save: &mut Save) {

@@ -1,6 +1,6 @@
 # `ambition_items` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_items** — Canonical 24-slot item catalog and owned-item state.
 
@@ -10,7 +10,7 @@
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_items`. |
 | [`shop`](src/shop.rs) | Merchant economy primitives: buy/sell transactions over the player's [`BodyWallet`] and the 24-item [`OwnedItems`] catalog. |
 
-_3 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_3 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

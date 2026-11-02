@@ -27,7 +27,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-import orphaned_symbols as orph  # noqa: E402
+from scripts.measure import orphaned_symbols as orph  # noqa: E402
 
 
 def _repo(tmp_path: Path, files: dict[str, str]) -> Path:

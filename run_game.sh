@@ -177,7 +177,7 @@ Common commands:
 
   ./run_game.sh profiling --features profile
       Run the optimized profiling build with Tracy instrumentation on. The
-      same launch scripts/profile_desktop.sh wraps.
+      same launch scripts/measure/profile_desktop.sh wraps.
 
   ./run_game.sh hot
   ./run_game.sh --hot-reload
@@ -208,7 +208,7 @@ Common commands:
   ./run_game.sh smash-match
   ./run_game.sh profiling --features profile smash-match -- --seconds 90
       Play a real Smash match in a window. The second form is what
-      scripts/profile_desktop.sh --smash launches, and quits itself after 90
+      scripts/measure/profile_desktop.sh --smash launches, and quits itself after 90
       seconds of LIVE match (the clock starts at the opening bell, not at
       process start).
 
@@ -255,7 +255,7 @@ Options and mode aliases:
   --profiling, profiling  Use the `profiling` cargo profile: release
                           optimization with DWARF and symbols left in, so perf
                           and Tracy can attribute a frame. This is what
-                          scripts/profile_desktop.sh builds by default.
+                          scripts/measure/profile_desktop.sh builds by default.
   --cov, coverage         Run through cargo llvm-cov run --no-report.
   --dev, --debug, dev     Use the dev cargo profile: unoptimized and
                           incremental; the fast edit loop.
@@ -277,7 +277,7 @@ Options and mode aliases:
                           features, and the cargo build argv) and exit without
                           building or running. Machine-readable `key=value`
                           lines; `build_arg=` repeats once per cargo argument.
-                          scripts/profile_desktop.sh reads this rather than
+                          scripts/measure/profile_desktop.sh reads this rather than
                           re-deriving which executable it is about to launch.
   --sweep                 Report what a sweep would reclaim, keeping ONLY the
                           graph this invocation builds, then run.
@@ -709,7 +709,7 @@ if [[ "$print_plan" -eq 1 ]]; then
     # of this graph's cargo FINGERPRINT, so a build without it produces
     # artifacts the launch below will not accept and rebuilds from scratch.
     #
-    # ⭐ THE COST WAS MEASURED, NOT IMAGINED. `scripts/profile_desktop.sh` warm-
+    # ⭐ THE COST WAS MEASURED, NOT IMAGINED. `scripts/measure/profile_desktop.sh` warm-
     # built with a bare `cargo build` and then perf-recorded `run_game.sh`; the
     # three bundles of 2026-08-31 all show `rustc`, `ld.mold` and twenty
     # `lto cgu.NN` threads inside the capture, and in the worst one the game's

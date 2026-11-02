@@ -12,7 +12,7 @@
     // Moves like a tactician: slow on the ground, ordinary in the air.
     // Shaped like Ultimate's Robin at 0.60 strength: each number is Smash's
     // default fighter's, scaled by how that fighter differs from Ultimate's
-    // roster median (`scripts/smash_fighter_shape.py "Robin" --strength 0.6`).
+    // roster median (`scripts/measure/smash_fighter_shape.py "Robin" --strength 0.6`).
     body: Some((
         max_run_speed: Some(262.7),
         initial_dash_speed: Some(334.8),

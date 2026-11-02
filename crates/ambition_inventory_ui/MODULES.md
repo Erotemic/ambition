@@ -1,6 +1,6 @@
 # `ambition_inventory_ui` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_inventory_ui** — Inventory menu-navigation state.
 
@@ -9,7 +9,7 @@
 | [`context`](src/context.rs) | Inventory input claims for each surface's participant. |
 | [`model`](src/model.rs) | Inventory-screen UI state model: [`InventoryUiState`] (visible/selected/tab/ scroll/focus) + the [`InventoryTab`] enum (Items / Map / Quests). |
 
-_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

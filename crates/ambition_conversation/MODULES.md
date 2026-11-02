@@ -1,6 +1,6 @@
 # `ambition_conversation` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_conversation** — Conversation continuity and rollback authority.
 
@@ -18,7 +18,7 @@
 | [`rules`](src/rules.rs) | Conversation continuity rules and cut notifications. |
 | [`ui_bridge`](src/ui_bridge.rs) | Bridge conversation simulation authority and the presentation text runner. |
 
-_11 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_11 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

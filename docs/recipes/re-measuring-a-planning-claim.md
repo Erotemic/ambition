@@ -128,7 +128,7 @@ suspicious. Check the instrument.
 
 ### The row names its instrument. Run that one.
 
-If a row cites a script (for example `scripts/architecture_census.py`), run that
+If a row cites a script (for example `scripts/measure/architecture_census.py`), run that
 script. A hand-rolled scan makes different scoping decisions (test boundary,
 roots) without knowing it. A large unexplained change in a population that
 nobody was adding to points at the instrument first.

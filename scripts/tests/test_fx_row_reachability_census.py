@@ -28,7 +28,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-SCRIPT = REPO / "scripts/measure_fx_row_reachability.py"
+SCRIPT = REPO / "scripts/measure/measure_fx_row_reachability.py"
 
 TOTALS = re.compile(r"(\d+) sheets, (\d+) rows, (\d+) named, (\d+) named by nothing")
 PER_SHEET = re.compile(r"^(\S+)\s+(\d+)\s+(\d+)\s+(\d+)\s*$", re.M)

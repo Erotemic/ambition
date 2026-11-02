@@ -1,6 +1,6 @@
 # `ambition_persistence` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_persistence** — Saved game, quest, and settings shapes for Ambition.
 
@@ -15,7 +15,7 @@
 | [`settings`](src/settings/mod.rs) | User-facing persisted settings data. |
 | [`store`](src/store.rs) | Where a persisted file's bytes go, per platform. |
 
-_8 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_8 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

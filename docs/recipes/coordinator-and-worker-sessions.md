@@ -27,7 +27,7 @@ marker file you wrote for the filesystem, `cargo`'s own lock for a shared
 `target/`. Until concrete evidence shows a shared checkout, treat another agent
 as remote: coordinate through commits and pushes (see
 [submodules](submodules.md) for the pin rule), not through assumptions about
-where it runs. The same rule is why `scripts/profile_desktop.sh` keys perf
+where it runs. The same rule is why `scripts/measure/profile_desktop.sh` keys perf
 history on the machine id and not the hostname.
 
 ## Workers do not run `cargo` by default

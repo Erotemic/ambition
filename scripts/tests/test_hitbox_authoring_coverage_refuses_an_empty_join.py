@@ -28,7 +28,7 @@ import pytest
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
 _loader = importlib.util.spec_from_file_location(
     "measure_hitbox_authoring_coverage",
-    REPO / "scripts" / "measure_hitbox_authoring_coverage.py",
+    REPO / "scripts" / "measure/measure_hitbox_authoring_coverage.py",
 )
 cov = importlib.util.module_from_spec(_loader)
 _loader.loader.exec_module(cov)

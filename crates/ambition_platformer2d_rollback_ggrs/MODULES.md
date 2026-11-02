@@ -1,6 +1,6 @@
 # `ambition_platformer2d_rollback_ggrs` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_platformer2d_rollback_ggrs** — GGRS rollback host for Ambition's platformer simulation.
 
@@ -17,7 +17,7 @@
 | [`registration`](src/registration.rs) | GGRS-backed implementation of Ambition's typed rollback registration vocabulary. |
 | [`session`](src/session.rs) | GGRS session/input bridge shared by the harness and future network hosts. |
 
-_10 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_10 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

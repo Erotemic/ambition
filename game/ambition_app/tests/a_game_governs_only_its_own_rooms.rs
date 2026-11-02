@@ -697,7 +697,7 @@ fn yarn_sleeps_in_rooms_whose_game_uses_no_dialogue() {
 
 /// The crate a system was made for: for a generic system, the crate of its
 /// innermost type argument (`forget_attempts_on_activation<mary_o::Bricks>`
-/// is Mary-O's), as `scripts/system_census_table.py` counts it.
+/// is Mary-O's), as `scripts/measure/system_census_table.py` counts it.
 fn owning_crate(name: &str) -> &str {
     let inner = name.rfind('<').map_or(name, |at| &name[at + 1..]);
     let inner = inner.trim_start_matches(['&', '(', ' ']);

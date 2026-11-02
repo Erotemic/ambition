@@ -170,7 +170,7 @@ The census page lists the member names. The guard counts the optional
 ### Measured facts that shape the campaign
 
 - **There is no reset-only subset.** Every `SessionScopedResources` member has a
-  reader outside its reset (`scripts/measure_session_scoped_resource_readers.py`).
+  reader outside its reset (`scripts/measure/measure_session_scoped_resource_readers.py`).
   The campaign is a migration, not a move.
 - **The two reset lists are a partition.** Their intersection is empty. Merging
   them removes a struct, not a truth.
@@ -249,7 +249,7 @@ for lifecycle code that sees both sides of a handoff. Guards:
 
 Do not begin by moving all 30 values. Work owner by owner:
 
-1. Re-run `python3 scripts/architecture_census.py` and confirm the list.
+1. Re-run `python3 scripts/measure/architecture_census.py` and confirm the list.
 2. For each family, state whether the value must exist before `SessionRoot`, only
    during a live session, or only for presentation.
 3. For rollback-registered values, record the registration key and restore

@@ -294,7 +294,7 @@ def native_profile_trust_lines(
             "Absolute per-frame costs are not. For an honest frame time, re-run:",
             "",
             "```bash",
-            "scripts/profile_desktop.sh --no-tracy" + (" --headless" if headless else ""),
+            "scripts/measure/profile_desktop.sh --no-tracy" + (" --headless" if headless else ""),
             "```",
             "",
             "which drops `--features profile` (and with it the per-system zones), and",
@@ -401,7 +401,7 @@ def _first_room_parser():
     """The boot-population parser, IMPORTED rather than reimplemented.
 
     ⛔⛔ TWO IMPLEMENTATIONS OF ONE QUESTION EVENTUALLY PRINT TWO ANSWERS. This
-    section asks exactly what `scripts/measure_first_room_manifest.py` asks, and
+    section asks exactly what `scripts/measure/measure_first_room_manifest.py` asks, and
     that script already carries the three things a second copy would get wrong:
     it orders by FRAME (the census runs in `Last`, so its clock can read after a
     `room-loaded` the same frame's `PreUpdate` preceded), it knows `[image]`
@@ -413,7 +413,7 @@ def _first_room_parser():
     """
     import importlib.util
 
-    script = Path(__file__).resolve().parents[1] / "measure_first_room_manifest.py"
+    script = Path(__file__).resolve().parents[1] / "measure/measure_first_room_manifest.py"
     if not script.exists():
         return None
     spec = importlib.util.spec_from_file_location("first_room_manifest", script)

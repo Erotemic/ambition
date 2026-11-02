@@ -1,6 +1,6 @@
 # `ambition_sfx` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_sfx** — SFX runtime contract for Ambition.
 
@@ -11,7 +11,7 @@
 | [`spatial`](src/spatial.rs) | Sound-emitter geometry and distance attenuation in world units. |
 | [`voice`](src/voice.rs) | Which voice a speaker speaks with: the dialogue blip a speaker label or a dialogue id resolves to. |
 
-_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -11,7 +11,7 @@ import tempfile
 import unittest
 
 
-SCRIPT = Path(__file__).resolve().parents[1] / 'audit_test_corpus.py'
+SCRIPT = Path(__file__).resolve().parents[1] / 'measure/audit_test_corpus.py'
 spec = importlib.util.spec_from_file_location('audit_test_corpus', SCRIPT)
 assert spec is not None and spec.loader is not None
 scan = importlib.util.module_from_spec(spec)

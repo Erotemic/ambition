@@ -1,6 +1,6 @@
 # `ambition_causal` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_causal** — Typed observer-only facts for explaining why simulation state changed.
 
@@ -13,7 +13,7 @@
 | [`unclaimed`](src/unclaimed.rs) | Detect velocity steps larger than the caller's integrator can produce when no operation on that tick claims the change. |
 | [`velocity`](src/velocity.rs) | Who wrote this body's velocity. |
 
-_6 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_6 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

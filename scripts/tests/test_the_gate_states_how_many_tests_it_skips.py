@@ -36,7 +36,7 @@ REPO = Path(
     ).stdout.strip()
 )
 GATE = REPO / "scripts/run_tests.py"
-SCANNER = REPO / "scripts/feature_gated_tests.py"
+SCANNER = REPO / "scripts/measure/feature_gated_tests.py"
 
 
 def load(path: Path, name: str):
@@ -80,7 +80,7 @@ def test_the_stated_count_matches_the_scanner_it_names(footer, measured):
     stated = (int(m.group(1)), int(m.group(2)))
     assert stated == (tests, crates), (
         f"the footer says {stated[0]} tests across {stated[1]} crates; "
-        f"`scripts/feature_gated_tests.py` now measures {tests} across {crates}.\n"
+        f"`scripts/measure/feature_gated_tests.py` now measures {tests} across {crates}.\n"
         "⇒ If you ADDED a feature-gated test, that test does NOT run in the "
         "default gate plan — only under --run-everything-you-probably-dont-need-this. "
         "Update the number in `coverage_notice` and say so in your commit."

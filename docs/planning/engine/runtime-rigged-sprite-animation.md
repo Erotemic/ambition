@@ -122,7 +122,7 @@ her): [`mary-o-part-realization.md`](mary-o-part-realization.md).
 
 Bench: `crates/ambition_render/examples/rigged_sprite_bench.rs` (`--render`,
 `--views 2`, `--tiny`). Matrix on real hardware:
-`python3 scripts/rig_packet8_gpu_bench.py` (refuses a software adapter, writes
+`python3 scripts/measure/rig_packet8_gpu_bench.py` (refuses a software adapter, writes
 `target/rig_packet8/<host>_<UTC>/report.md`).
 
 ## Architectural rules
@@ -331,7 +331,7 @@ render transforms.
 
 | Item | Work | Acceptance |
 | --- | --- | --- |
-| Hardware GPU run | Run `scripts/rig_packet8_gpu_bench.py` on a machine with a hardware GPU | `report.md` returned; the decision below continues |
+| Hardware GPU run | Run `scripts/measure/rig_packet8_gpu_bench.py` on a machine with a hardware GPU | `report.md` returned; the decision below continues |
 | Root batch split | If batches matter on hardware, stop drawing the zero-alpha root. The root must stay the portal candidate, so its size and frame need another road to the portal | One batch per part page across actors |
 | Instance buffer | Only if sprite count is too expensive on hardware, replace the slot realization with an instance buffer. Keep `RiggedSpriteAsset`, `BodyRigDefinition` and semantic animation unchanged | Measured gain on hardware |
 | Sheet residency | The saving needs the baked sheet page to retire while parts draw, and the portal to draw parts first | Rigged character resident bytes below baked |

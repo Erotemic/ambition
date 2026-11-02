@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Turn one profiling bundle into one appendable row of runtime history.
 
-`scripts/profile_desktop.sh` writes a bundle that answers "why was THIS run
+`scripts/measure/profile_desktop.sh` writes a bundle that answers "why was THIS run
 slow". It cannot answer "is the frame slower than it was last week", because the
 bundle is hundreds of megabytes of trace that gets deleted. This module reads
 the small artifacts the bundle already derived — `metadata.json`, the census
@@ -21,7 +21,7 @@ Two contracts hold the whole design up:
    Frame time is not a property of a commit; it is a property of a commit *on a
    scenario, on a machine, at a renderer, under a set of instruments*. Those
    dimensions are hashed into `comparable_key`, stored expanded next to it in
-   `comparable_fields`, and `scripts/perf_history.py` refuses across a
+   `comparable_fields`, and `scripts/measure/perf_history.py` refuses across a
    mismatch and names the field. A lavapipe run and a hardware-GPU run get
    different keys; so do a Tracy run and an unprofiled one, which on this
    project differ by ~9x.
@@ -64,7 +64,7 @@ SCENARIO_VERSIONS = {
     "ambition-autoplay": 2,
     # The Smash match family, one id per ROSTER SIZE. A four-fighter round is
     # not a two-fighter round with noise on it, so they are different workloads
-    # and `scripts/profile_desktop.sh` gives them different ids; bump one of
+    # and `scripts/measure/profile_desktop.sh` gives them different ids; bump one of
     # these when that roster's authored content moves.
     "smash-match-2p": 1,
     "smash-match-3p": 1,
@@ -1030,7 +1030,7 @@ def main(argv: list[str] | None = None) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("bundle", help="a directory written by scripts/profile_desktop.sh")
+    parser.add_argument("bundle", help="a directory written by scripts/measure/profile_desktop.sh")
     parser.add_argument("--label", default="", help="free text tag, e.g. 'after set-gating'")
     parser.add_argument(
         "--scenario-version",

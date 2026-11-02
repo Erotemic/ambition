@@ -76,7 +76,7 @@ the program: a file found there is a file the player does not have.
 
 | Choice | Contents |
 | --- | --- |
-| `full` (default) | The full-resolution art. The smaller quality tiers stay out, and the game falls back to the full-resolution file when a tier is absent. The shared sprite pack keeps only the pages a consumer reaches (`scripts/measure_pack_reachability.py`). |
+| `full` (default) | The full-resolution art. The smaller quality tiers stay out, and the game falls back to the full-resolution file when a tier is absent. The shared sprite pack keeps only the pages a consumer reaches (`scripts/measure/measure_pack_reachability.py`). |
 | `all` | Each file of each tier, as the Steam Deck package has. |
 
 With `full`, a machine with a weak GPU selects a lower quality and gets

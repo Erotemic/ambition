@@ -12,13 +12,13 @@ every rig-document character follows the same road.
 | P0 offline gate | DONE | renderer `tests/test_mary_o_part_flipbook.py`: strict parity + `largest_wrong_blob`, census from the sheet's rows, four poisons |
 | P1 one composition rule | DONE, two deviations noted below | `a23d30620` (renderer bump) |
 | P2 every row from parts | DONE | `a23d30620`; `mary_os_flipbooks_draw_every_row_from_parts` (Rust) |
-| P3 in-engine parity | DONE | `scripts/measure_rigged_parity.py` + `crates/ambition_render/examples/rigged_sprite_parity.rs`; both facings inside A ≤ 1%, B ≤ 10 px |
+| P3 in-engine parity | DONE | `scripts/measure/measure_rigged_parity.py` + `crates/ambition_render/examples/rigged_sprite_parity.rs`; both facings inside A ≤ 1%, B ≤ 10 px |
 | P4 interpolation | DONE | schema 2 (tracks, per-clip `tween`); `RiggedSpriteAsset::tween_into` + `CharacterAnimator::frame_phase`; renderer `tween_draws` |
 | P5a body-riding effects on parts (D4) | DONE | shared impostor atlas: `actors::rigged` (`RiggedImpostorAtlas`, `ImpostorUnpremultiply`); `PortalPieceTint` removed |
 | P5b baked residency | DONE | parts-only realization (`NO_BAKED_IMAGE`, `CharacterSpriteAsset::parts_only`); the reveal barrier and the binders wait on the part pages |
 | P5c stop shipping the baked PNG | open | exclude a parts-only character's `_spritesheet.png` from packaging; keep it generated as the offline oracle |
 | P6a player robot v3 from parts | DONE | schema 3 (placement, draw and frame opacity); continuous placement for supersampled rigs; mirror rows; gamma-space impostor; renderer `tests/test_player_robot_v3_part_flipbook.py`; in engine all 1,888 frames ≤ 0.04%, blob ≤ 1 |
-| P6b the largest sheets: noether, PCA, patent clerk, the swing fighters | DONE | published from parts; `scripts/measure_published_flipbooks.py` redraws every published flipbook against its published sheet (all inside D6); in engine noether and patent clerk blob ≤ 1, PCA inside D6 after snapped parts gained their border; runtime cell classes 288 / 576 / 896 |
+| P6b the largest sheets: noether, PCA, patent clerk, the swing fighters | DONE | published from parts; `scripts/measure/measure_published_flipbooks.py` redraws every published flipbook against its published sheet (all inside D6); in engine noether and patent clerk blob ≤ 1, PCA inside D6 after snapped parts gained their border; runtime cell classes 288 / 576 / 896 |
 | P6b' the remaining rig characters: oiler, paradox_barber, data_lovelace, neil_ongras_turfson, hunny_horror_boss, companion_dog, m_leblanc, charley_beagle_svg | DONE | `publish_rig_flipbook`; every frame inside D6 offline and in engine; a continuous replay skips the frame's clipped edge band (`EDGE_BAND`) |
 | P6c procedural painters and every remaining character (about 120) | DONE offline, publishing | the shape recorder (`blending_draw` reports each ink op; `text` by its pixel change), reduction on the frame's own grid or sample positions, and stacked-edge merging; config generators publish through `publish_generator_flipbook`; every target's frames hash identical before and after its seams; every frame replays inside D6 (nearly all at 0 wrong pixels) |
 
@@ -34,7 +34,7 @@ orphaned `.1`–`.5` pages from August; the live sheets are page 0 alone.
 | noether | 48 MB, 7 pages, 875 frames at 496 × 528 | `RigDocument`, supersample 2 at render scale 2; a breathing blurred "hum" behind every frame | recorded: all 875 frames replay with 0 wrong pixels. The hum is painted at 1/8 resolution and drawn enlarged (`composite_scaled_layer`, a draw's `scale`): against the full-resolution hum no pixel moves more than 16 levels. One 5.1 MB part page at 1/4 (smaller at 1/8). Takes a 576 px cell (cell classes) |
 | perfect_cellular_automaton | 26 MB, 7 pages, 913 frames at 654 × 846 | `RigDocument` at frame resolution (snapped, parts turned bilinear: `rotation_filter`); effects through `compose_rig_frame` | recorded: all 913 frames replay exactly; one 399 KB part page. Takes an 896 px cell |
 | player_robot_v3 | 9.1 MB, 1,888 frames at 256 × 256 | `RigDocument`, supersample 4 | DONE, below |
-| pointed / pugnacious / projectile polygon, carl_stargan, director, officer, performer, medic | 3.7 to 5.8 MB each (live pages) | `RigDocument`, supersample 2 to 4; authored strike effects (`swing_effects.composite_authored_effect`), drawn from the frames before them, so a clip renders at once and is cached | published: `composite_authored_effect` goes through the seams and each clip is recorded whole from the UNCACHED clip function (`render_clip`). All frames redraw their sheets at most 0.09%, blob 3 (`scripts/measure_published_flipbooks.py`). carl_stargan 564 KB of parts for 4.3 MB, director 161 KB for 4.4 MB, officer 185 KB for 4.0 MB |
+| pointed / pugnacious / projectile polygon, carl_stargan, director, officer, performer, medic | 3.7 to 5.8 MB each (live pages) | `RigDocument`, supersample 2 to 4; authored strike effects (`swing_effects.composite_authored_effect`), drawn from the frames before them, so a clip renders at once and is cached | published: `composite_authored_effect` goes through the seams and each clip is recorded whole from the UNCACHED clip function (`render_clip`). All frames redraw their sheets at most 0.09%, blob 3 (`scripts/measure/measure_published_flipbooks.py`). carl_stargan 564 KB of parts for 4.3 MB, director 161 KB for 4.4 MB, officer 185 KB for 4.0 MB |
 | niels_boar | 3.5 MB | procedural `ImageDraw` body, squashed and rotated as one raster | recorded (P6c): the turned or squashed body rides as one picture, the rest as shapes; 290 frames, worst blob 1 |
 | patent_clerk | 4.8 MB, 875 frames at 224 × 224 | `RigDocument`, supersample 4; effects through `compose_rig_frame` | recorded: all frames replay (≤ 0.02%, blob ≤ 1); one 341 KB part page |
 | flying_spaghetti_monster_boss | 7 MB, 79 frames | procedural `ImageDraw`; tentacles are splines that deform every frame | recorded (P6c): reduced 4.6x, so each shape is sampled where the frame's resize samples it; 79 frames at 0 wrong pixels, 0.22 of full-frame texels; the sauce reveal map stays a data sheet |
@@ -92,7 +92,7 @@ texels than their own baked sheet or took over 64 draws a frame (the goblins
   the sheet's pages or a frame takes more than 64 draws. The flipbook records it
   (`realize: parts | baked`); `rigged_pages_in` honours it. The capability and
   the flipbook stay; only the road changes. Census and ledger:
-  `scripts/measure_part_flipbook_cost.py`,
+  `scripts/measure/measure_part_flipbook_cost.py`,
   `dev/ambition_dev_measurements/part_flipbook_cost.jsonl`.
 * **The old painters are rebuilt as rigs** (Jon: exact pixels not required for
   the old characters, fix how they are constructed). `authoring/shape_rig.py`:
@@ -108,9 +108,9 @@ published flipbooks draw from parts and only fsm_noodling is drawn baked. Their
 part pages hold 58.0 MTexel against the sheets' 532.1 (0.109x; 26.2 against
 262.7 MiB), and the tiers come to about 0.11x. The median character's worst
 frame takes 21 draws, and the worst character (georg_canter) 50. Every
-flipbook redraws its sheet inside D6 (`scripts/measure_published_flipbooks.py`).
+flipbook redraws its sheet inside D6 (`scripts/measure/measure_published_flipbooks.py`).
 In-engine parity covered all 142 part-drawn characters in both facings
-(45,516 frames, `scripts/measure_rigged_parity.py`). It found one game defect:
+(45,516 frames, `scripts/measure/measure_rigged_parity.py`). It found one game defect:
 the impostor ignored a mirror row's mirrored feet anchor, so the player robot
 drew 3 to 5 px off in all 944 of its left-facing frames. That is fixed, and the
 robot's 3,776 frames now pass. One residual is explained and not gated:
@@ -169,7 +169,7 @@ on its draw. A colour variant is one sheet with an engine colour shift. An
 affine or projective warp resamples pixels, so it is a judgement per case, not
 a rule.
 
-* **Census of the waste:** `scripts/measure_part_waste.py` (ledger kind
+* **Census of the waste:** `scripts/measure/measure_part_waste.py` (ledger kind
   `part_flipbook_waste`). Baseline, 47.9 MTexel of parts:
   * effect layers recorded whole each frame: 33.7%
   * shapes painted already posed: 29.0%
@@ -311,7 +311,7 @@ head drawn a pixel off. Measured over all 1,888 frames: worst parity 0.15%,
 largest blob 6 (two frames, `ledge_getup`[3] and its mirror), at D6's bound. A
 visible part a pixel off makes a blob of 15 to 174.
 
-In engine (`scripts/measure_rigged_parity.py --target player_robot_v3
+In engine (`scripts/measure/measure_rigged_parity.py --target player_robot_v3
 --centre-anchored`, llvmpipe): every one of the 1,888 frames within 0.04% and a
 blob of 1. That needed one more fix, general to every character:
 

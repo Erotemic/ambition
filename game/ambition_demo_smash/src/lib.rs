@@ -1084,7 +1084,7 @@ fn respawn_platform_id(seat: usize) -> String {
 /// The builder and the reader must share it (D-ID-CONVENTION-DRIFT). If they
 /// drift, `hold_the_respawn_platforms` keeps no platform and rebuilds every
 /// block each tick. Only `the_respawn_platform_lives_exactly_as_long_as_the_grant`
-/// catches that, indirectly. `scripts/measure_id_prefixes_spelled_twice.py`
+/// catches that, indirectly. `scripts/measure/measure_id_prefixes_spelled_twice.py`
 /// reports the drift.
 const RESPAWN_PLATFORM_PREFIX: &str = "respawn_platform_";
 

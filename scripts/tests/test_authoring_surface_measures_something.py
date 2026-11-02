@@ -1,4 +1,4 @@
-"""`scripts/authoring_surface.py` still finds the techniques it claims to measure.
+"""`scripts/measure/authoring_surface.py` still finds the techniques it claims to measure.
 
 The campaign page quotes this script's output as the answer to Jon's acceptance
 test — *"EASE OF AUTHORING is the acceptance test"* — so the number crosses a
@@ -24,7 +24,7 @@ import subprocess
 import sys
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
-SCRIPT = REPO / "scripts/authoring_surface.py"
+SCRIPT = REPO / "scripts/measure/authoring_surface.py"
 
 
 def test_the_authoring_surface_census_still_finds_the_techniques():

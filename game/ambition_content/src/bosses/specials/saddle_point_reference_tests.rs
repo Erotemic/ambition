@@ -139,7 +139,7 @@ pub fn spawn_saddle_point_from_special_messages(
                     lifetime_s: period * 2.0,
                     name: None,
                 },
-            ).expect("the emitting boss is live")
+            ).expect("the emitting boss is live").id()
         };
 
         if !state.strike_active {

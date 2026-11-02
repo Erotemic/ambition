@@ -699,7 +699,7 @@ fn land(
                 lifetime_s: 4.0,
                 name: Some("fsm_dive_shock"),
             },
-        ).expect("the emitting god is live");
+        ).expect("the emitting god is live").id();
         if let Some(old) = conductor.waves[slot].take() {
             commands.entity(old.hitbox).try_despawn();
         }

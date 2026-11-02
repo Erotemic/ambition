@@ -392,7 +392,7 @@ pub(super) fn recovery_refresh(
 ///
 /// ⛔ THE HAZARD/OOB GATE RUNS ON `Completed` AND `LedgeHeld` ONLY, AND THAT IS
 /// A POPULATION DECISION, not a detail. `update_body_simulation_inner` has
-/// short-circuits for a zero-dt tick, drowning, or a held developer placement.
+/// short-circuits for a zero-dt tick or drowning.
 /// An active ledge grab has its own return. A frozen frame must not judge a body nothing
 /// stepped, and a drowning has its own end. A body held on a ledge is in the
 /// world, and a hazard beats a ledge hang (Q43, 2026-10-04): spikes under a
@@ -458,9 +458,6 @@ fn update_body_simulation_inner(
         return (events, SimPhaseReach::ShortCircuited);
     }
     let dt = raw_dt.min(1.0 / 30.0);
-    let holds_placement = blink::holds_unrestricted_placement(
-        world, clusters.kinematics.aabb_oriented(frame.down()), &clusters.abilities.abilities,
-    );
 
     // Ledge carry on moving geometry, BEFORE anything reads the body's pose.
     //
@@ -518,7 +515,7 @@ fn update_body_simulation_inner(
     }
 
     // Drowning gate — body flags the cause; the owner applies its policy.
-    if !holds_placement && clusters.env_contact.water.is_some() && !clusters.abilities.abilities.swim {
+    if clusters.env_contact.water.is_some() && !clusters.abilities.abilities.swim {
         events.reset = Some(ResetCause::Drowned);
         return (events, SimPhaseReach::ShortCircuited);
     }
@@ -697,11 +694,6 @@ fn update_body_simulation_inner(
                 recovery_refresh(recovery_commitment_outstanding),
             );
         }
-    }
-
-    // Cooldowns still age while a developer placement suspends collision recovery.
-    if holds_placement {
-        return (events, SimPhaseReach::ShortCircuited);
     }
 
     // The floor game already ran in the control phase; the simulation half only

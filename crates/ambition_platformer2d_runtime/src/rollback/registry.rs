@@ -205,7 +205,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// A doorway animation cannot leave a body inside the next platform.
 /// Swept collision keeps every positive impact time, including near faces.
 /// 401 -> 402: developer blink can hold an unrestricted placement.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 402;
+/// 402 -> 403: God Blink changes destination selection only; normal physics follows.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 403;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

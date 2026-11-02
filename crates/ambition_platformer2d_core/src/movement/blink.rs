@@ -254,16 +254,3 @@ fn abilities_can_blink_through(
         BlinkWallTier::Hard => abilities.blink_through_hard_walls,
     }
 }
-
-/// Keep an unrestricted placement until the body blinks out or loses the override.
-pub(super) fn holds_unrestricted_placement(
-    world: &World,
-    body: Aabb,
-    abilities: &crate::abilities::AbilitySet,
-) -> bool {
-    abilities.unrestricted_blink && (
-        body.min.x < 0.0 || body.min.y < 0.0
-        || body.max.x > world.size.x || body.max.y > world.size.y
-        || blink_collision_abilities(world, &crate::abilities::AbilitySet::NONE, body) != BlinkCollision::Free
-    )
-}

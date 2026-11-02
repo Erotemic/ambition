@@ -32,8 +32,8 @@ action request
 
 - The source body is one ordinary actor body, not a player-only teleport type.
 - Collision and authored blocker semantics decide validity.
-- Normal blink never finishes inside blocking geometry. The developer override
-  can hold a body there until another blink or until the override is removed.
+- Normal blink never finishes inside blocking geometry. Developer God Blink
+  accepts that placement, then normal body physics continues.
 - Failed placement leaves authoritative position unchanged.
 - Search order and tie-breaking are deterministic.
 - Gravity rotation transforms intent and geometry consistently.
@@ -60,9 +60,11 @@ surface is blink-soft/hard, and visual/audio treatment.
 Open the pause menu, then System → Developer → God Blink. This grants blink,
 precision aim, and passage through solid walls, blink walls, and encounter
 barriers to controlled bodies. The cursor has no range or room limit. Any
-requested destination is allowed, including inside solid geometry. Collision
-recovery pauses at a blocked or out-of-room placement. Cooldowns still run, so
-the body can blink out again. Remove the override to resume normal physics.
+requested destination is allowed, including inside solid geometry. Normal body
+physics continues after arrival. The override does not freeze the body, suppress
+collision recovery, or change flight, ledges and one-way platforms. An invalid
+placement can oscillate or cause a normal reset. Do not add a placement hold or
+other support for developer God Blink.
 
 The toggle uses mechanical-edit admission and a temporary ability contribution.
 It does not set progression flags, award encounter rewards, or change the

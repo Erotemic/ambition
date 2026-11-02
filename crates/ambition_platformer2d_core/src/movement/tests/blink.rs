@@ -421,59 +421,6 @@ fn god_blink_cursor_can_move_beyond_normal_range() {
 }
 
 #[test]
-fn an_unrestricted_blink_stays_embedded_and_can_blink_out_again() {
-    let mut world = test_world();
-    world.blocks.clear();
-    world.chains.push(crate::world::SurfaceChain::solid("wall", vec![
-        Vec2::new(220.0, 0.0), Vec2::new(300.0, 0.0),
-        Vec2::new(300.0, 400.0), Vec2::new(220.0, 400.0),
-    ]));
-    for target in [Vec2::new(260.0, 140.0), Vec2::new(5000.0, 5000.0)] {
-        let mut body = scratch_with(crate::AbilityGrant::GodBlink.to_set(), Vec2::new(140.0, 140.0));
-        body.axis_mut().blink_hold_active = true;
-        body.axis_mut().blink_aiming = true;
-        body.axis_mut().blink_aim_offset = target - body.kinematics.pos;
-        let release = InputState {
-            movement: crate::ActionEdges::EMPTY.with(crate::MovementAction::Blink,
-                crate::Edge { released: true, ..Default::default() }),
-            ..Default::default()
-        };
-        let event = step_scratch(&world, &mut body, release);
-        assert_eq!(event.blinks.len(), 1);
-        assert_eq!(body.kinematics.pos, target);
-        for _ in 0..120 {
-            let event = step_scratch(&world, &mut body, InputState::default());
-            assert_eq!(body.kinematics.pos, target);
-            assert!(event.reset.is_none());
-        }
-        assert_eq!(body.blink.cooldown, 0.0, "the override must not trap the body behind a frozen cooldown");
-        let outside = Vec2::new(400.0, 140.0);
-        body.axis_mut().blink_hold_active = true;
-        body.axis_mut().blink_aiming = true;
-        body.axis_mut().blink_aim_offset = outside - target;
-        let event = step_scratch(&world, &mut body, release);
-        assert_eq!(event.blinks.len(), 1);
-        assert!((body.kinematics.pos - outside).length() < 0.01);
-    }
-}
-
-#[test]
-fn leaving_god_blink_resumes_collision_recovery() {
-    let mut world = test_world();
-    world.blocks.clear();
-    world.chains.push(crate::world::SurfaceChain::solid("wall", vec![
-        Vec2::new(220.0, 0.0), Vec2::new(300.0, 0.0),
-        Vec2::new(300.0, 400.0), Vec2::new(220.0, 400.0),
-    ]));
-    let mut body = scratch_with(crate::AbilityGrant::GodBlink.to_set(), Vec2::new(260.0, 140.0));
-    step_scratch(&world, &mut body, InputState::default());
-    assert_eq!(body.kinematics.pos, Vec2::new(260.0, 140.0));
-    body.abilities.abilities.unrestricted_blink = false;
-    step_scratch(&world, &mut body, InputState::default());
-    assert!(crate::solid_lines::put_out_of_solid_lines(&world, body.kinematics.aabb_oriented(Vec2::new(0.0, 1.0))).is_none());
-}
-
-#[test]
 fn leaving_god_blink_restores_the_range_before_a_stationary_hold_or_release() {
     let mut world = test_world();
     world.blocks.clear();
@@ -494,5 +441,41 @@ fn leaving_god_blink_restores_the_range_before_a_stationary_hold_or_release() {
             assert_eq!(event.blinks.len(), 1);
             assert!((body.kinematics.pos - from).length() <= TEST_TUNING.precision_blink_distance + 0.001);
         }
+    }
+}
+
+#[test]
+fn god_blink_does_not_freeze_one_way_drops_flight_or_collision_recovery() {
+    use crate::world::{Block, BlockKind};
+    for scenario in 0..3 {
+        let mut world = test_world();
+        world.blocks.clear();
+        let mut block = Block::solid("surface", Vec2::new(220.0, 200.0), Vec2::new(180.0, 16.0));
+        if scenario != 2 { block.kind = BlockKind::OneWay; }
+        world.blocks.push(block);
+        let run = |unrestricted| {
+            let mut set = AbilitySet::sandbox_all();
+            set.unrestricted_blink = unrestricted;
+            let mut body = scratch_with(set, Vec2::new(260.0, 200.0));
+            if scenario == 0 {
+                body.kinematics.pos.y = 200.0 - body.kinematics.size.y * 0.5;
+                body.ground.on_ground = true;
+                body.axis_mut().drop_through_timer = 1.0;
+            }
+            if scenario == 1 { body.flight.fly_enabled = true; }
+            let mut seen = vec![(body.kinematics.pos, body.kinematics.vel, body.ground.on_ground)];
+            for _ in 0..40 {
+                step_scratch(&world, &mut body, InputState {
+                    axes: crate::LocalAxes::new(if scenario == 1 { 1.0 } else { 0.0 }, 1.0),
+                    ..Default::default()
+                });
+                seen.push((body.kinematics.pos, body.kinematics.vel, body.ground.on_ground));
+            }
+            seen
+        };
+        let normal = run(false);
+        let god = run(true);
+        assert_eq!(god, normal, "God Blink changed ordinary movement in scenario {scenario}");
+        assert!(normal.windows(2).any(|frames| frames[0].0 != frames[1].0), "the control must move");
     }
 }

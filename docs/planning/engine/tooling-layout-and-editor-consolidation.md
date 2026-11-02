@@ -32,7 +32,7 @@ The source snapshot has:
 - Gitlink submodules at `tools/ambition_sprite2d_renderer`, `tools/ambition_music_renderer`, and `tools/ambition_sfx_renderer`. Their location is a fixed requirement. An empty checkout in a source export does not mean the tool is absent.
 - The Asset Inspector implementation in `tools/ambition_editor/{asset_index,web,reviews,tests}`. `scripts/asset_inspector.py` is its supported CLI, with `build`, `serve`, `status`, `inspect`, `coverage`, `list`, and review-note workflows. The legacy art-inspector alias has been removed. Review notes are authored data; generated inspector pages are not.
 - The moveset inspector as a separate Python/web tool under `tools/ambition_moveset_inspector/`, launched by `serve_inspector.sh`. `game/ambition_app_tools` owns Rust binaries for capture, headless execution, moveset takes and rendering, trace replay, and room geometry rendering. The editor should reuse them.
-- `scripts/ecs_browser.py` builds the web output whose frontend lives in `tools/ecs_architecture_browser/web/`. `scripts/moveset_report.py`, `scripts/moveset_visualizations.py`, and `scripts/render_take_diagnostic.py` are candidates for review alongside the moveset tool, not automatic moves.
+- `tools/ecs_architecture_browser/ecs_browser.py` builds the web output whose frontend lives in `tools/ecs_architecture_browser/web/`. `tools/ambition_moveset_inspector/moveset_report.py`, `tools/ambition_moveset_inspector/moveset_visualizations.py`, and `tools/ambition_moveset_inspector/render_take_diagnostic.py` are candidates for review alongside the moveset tool, not automatic moves.
 - `scripts/generate_agent_index.py::build_tool_index` scans immediate `tools/` directories and records README and Python-project presence. It does **not** inventory supported commands in `scripts/` or Cargo binaries. `scripts/agent_query.py` is already the agent discovery front door.
 - Several scripts derive the repository root from `__file__` and import `scripts/lib` helpers. Moving a script changes its relative path assumptions. `scripts/run_tests.py`, required checks, GitHub workflows, documentation, build scripts, and shell launchers may also name old paths.
 
@@ -144,9 +144,11 @@ Start with the existing inspector implementation. Retain the asset browsing and 
 
 ### T3. Move package-owned tool implementations, one owner at a time
 
-**Depends on:** T0 and the relevant owners' tests. **Status:** proposed.
+**Depends on:** T0 and the relevant owners' tests. **Status:** implemented.
+The ECS browser and three moveset commands now live with their tool owners.
+Their tests moved with them. The focused suite passes 109 tests.
 
-Evaluate `scripts/ecs_browser.py` for relocation beside `tools/ecs_architecture_browser`. Evaluate the three named moveset scripts against the moveset inspector and Rust take-rendering binaries. Move a script only if the destination can own its tests, entry point, and documentation. Update all direct consumers as part of the same move. Avoid creating a second backend in the editor.
+Evaluate `tools/ecs_architecture_browser/ecs_browser.py` for relocation beside `tools/ecs_architecture_browser`. Evaluate the three named moveset scripts against the moveset inspector and Rust take-rendering binaries. Move a script only if the destination can own its tests, entry point, and documentation. Update all direct consumers as part of the same move. Avoid creating a second backend in the editor.
 
 **Done when:** each migrated tool passes its focused smoke path and its command is found through T1. A script left at the root has a documented ownership reason, not simply an incomplete migration.
 

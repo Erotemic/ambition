@@ -38,8 +38,8 @@ def inventory(repo: Path) -> dict:
                         'path_risks': [token for token in ('__file__', 'sys.path', 'scripts/lib', 'Path.cwd()', 'os.getcwd') if token in text]})
     manifest = repo / 'game/ambition_app_tools/Cargo.toml'
     bins = tomllib.loads(manifest.read_text()).get('bin', []) if manifest.is_file() else []
-    candidates = ['tools/ambition_editor', 'scripts/art_inspector.py', 'scripts/ecs_browser.py',
-                  'scripts/moveset_report.py', 'scripts/moveset_visualizations.py', 'scripts/render_take_diagnostic.py']
+    candidates = ['tools/ambition_editor', 'scripts/art_inspector.py', 'tools/ecs_architecture_browser/ecs_browser.py',
+                  'tools/ambition_moveset_inspector/moveset_report.py', 'tools/ambition_moveset_inspector/moveset_visualizations.py', 'tools/ambition_moveset_inspector/render_take_diagnostic.py']
     result = subprocess.run(['git', 'grep', '-n', '-F', *[arg for path in candidates for arg in ('-e', path)],
                              '--', '.', ':!docs/brainstorms', ':!dev/journals'], cwd=repo, text=True, capture_output=True)
     return {'commands': supported, 'root_scripts': scripts,

@@ -14,10 +14,10 @@ place. They differ whenever the victim was intangible, shielded, on the same
 team, or already struck by that strike — and a report that reported one number
 would be wrong in exactly the cases somebody is investigating.
 
-    python3 scripts/moveset_report.py --takes data/takes/takes.json \\
+    python3 tools/ambition_moveset_inspector/moveset_report.py --takes data/takes/takes.json \\
         --character npc_pirate_admiral --verb special_up --out /tmp/inspection
 
-    python3 scripts/moveset_report.py --takes new.json --against old.json \\
+    python3 tools/ambition_moveset_inspector/moveset_report.py --takes new.json --against old.json \\
         --character npc_pirate_admiral --verb special_up
 """
 

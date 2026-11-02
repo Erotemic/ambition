@@ -14,9 +14,9 @@ import json
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[3]
 _spec = importlib.util.spec_from_file_location(
-    "moveset_report", REPO / "scripts/moveset_report.py"
+    "moveset_report", REPO / "tools/ambition_moveset_inspector/moveset_report.py"
 )
 tool = importlib.util.module_from_spec(_spec)
 sys.modules["moveset_report"] = tool

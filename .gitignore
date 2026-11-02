@@ -125,7 +125,7 @@ tools/ambition_sprite2d_renderer/.parity-baseline/
 .agent/README.md
 .agent/index/
 .agent/dirstats*
-# The generated offline pages (`scripts/asset_inspector.py`, `scripts/ecs_browser.py`).
+# The generated offline pages (`scripts/asset_inspector.py`, `tools/ecs_architecture_browser/ecs_browser.py`).
 .agent/asset_inspector/
 .agent/ecs_browser/
 

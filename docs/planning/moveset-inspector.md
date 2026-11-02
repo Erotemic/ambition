@@ -76,8 +76,8 @@ Do not mutate playback state ad hoc from a tool.
 | take recorder | `game/ambition_app_tools/src/bin/moveset_takes.rs` | cheap full-tick recorder over the real Smash host, `NoWindow` |
 | geometry read model | `crates/ambition_sim_view/src/combat_geometry_view.rs` (`CombatGeometryView`) | the only source of attack and damageable geometry |
 | GPU renderer | `game/ambition_app_tools/src/bin/moveset_render.rs`, `crates/ambition_render/src/capture.rs`, `crates/ambition_render/src/rendering/debug_viz.rs` | real art with the production combat overlay, from the same execution |
-| report | `scripts/moveset_report.py` | measurements, consequence chain, bundle, `--against` diff |
-| diagnostic sheet | `scripts/render_take_diagnostic.py` | key-frame filmstrip |
+| report | `tools/ambition_moveset_inspector/moveset_report.py` | measurements, consequence chain, bundle, `--against` diff |
+| diagnostic sheet | `tools/ambition_moveset_inspector/render_take_diagnostic.py` | key-frame filmstrip |
 | inspector | `tools/ambition_moveset_inspector/` (server `ambition_moveset_inspector/server.py`, browser `web/app.js`) | draws recorded observations; derives no geometry |
 
 Artifact identity (`SimId`, `MatchSeat`, `WornCharacter`) may be joined at the

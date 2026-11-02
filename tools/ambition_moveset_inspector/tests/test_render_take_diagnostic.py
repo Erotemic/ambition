@@ -11,9 +11,9 @@ import importlib.util
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[3]
 _spec = importlib.util.spec_from_file_location(
-    "render_take_diagnostic", REPO / "scripts/render_take_diagnostic.py"
+    "render_take_diagnostic", REPO / "tools/ambition_moveset_inspector/render_take_diagnostic.py"
 )
 tool = importlib.util.module_from_spec(_spec)
 sys.modules["render_take_diagnostic"] = tool

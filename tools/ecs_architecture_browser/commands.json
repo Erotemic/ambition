@@ -1,0 +1,23 @@
+{
+  "commands": [
+    {
+      "id": "ecs",
+      "title": "Inspect ECS systems and architecture diagnostics",
+      "owner": "tools/ecs_architecture_browser",
+      "command": "python3 tools/ecs_architecture_browser/ecs_browser.py",
+      "help": "python3 tools/ecs_architecture_browser/ecs_browser.py --help",
+      "requires": [
+        "tools/ecs_architecture_browser/ecs_browser.py",
+        "tools/ecs_architecture_browser/web/index.html"
+      ],
+      "docs": "tools/ecs_architecture_browser/README.md",
+      "inputs": "Generated .agent ECS inventory.",
+      "outputs": "Offline .agent/ecs_browser/index.html.",
+      "mutation": "Writes derived pages.",
+      "build": "No Cargo build. Use the owner Python environment.",
+      "status": "active",
+      "cwd": "repository root",
+      "url": "../ecs_browser/index.html"
+    }
+  ]
+}

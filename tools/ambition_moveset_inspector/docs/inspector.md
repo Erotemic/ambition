@@ -226,7 +226,7 @@ target/debug/moveset_render --character projectile_polygon --verb attack \
 ## Numbers, without reading 150 ticks of geometry
 
 ```bash
-python3 scripts/moveset_report.py --takes tools/ambition_moveset_inspector/data/takes/takes.json \
+python3 tools/ambition_moveset_inspector/moveset_report.py --takes tools/ambition_moveset_inspector/data/takes/takes.json \
     --character npc_pirate_admiral --verb attack --out /tmp/inspection
 ```
 
@@ -329,7 +329,7 @@ scenario is about.
 Before and after, for a tuning change:
 
 ```bash
-python3 scripts/moveset_report.py --takes after.json --against before.json \
+python3 tools/ambition_moveset_inspector/moveset_report.py --takes after.json --against before.json \
     --character npc_pirate_admiral --verb attack
 ```
 
@@ -345,7 +345,7 @@ says so at the top instead of presenting the mixture as a change in the move.
 ## A picture with no rasterizer at all
 
 ```bash
-python3 scripts/render_take_diagnostic.py \
+python3 tools/ambition_moveset_inspector/render_take_diagnostic.py \
     --takes tools/ambition_moveset_inspector/data/takes/takes.json \
     --out /tmp/sheets --character npc_pirate_admiral
 ```
@@ -615,7 +615,7 @@ do not shrink the picker to two.
 ## Generating the whole corpus, with or without a GPU
 
 ```bash
-python3 scripts/moveset_visualizations.py --out /tmp/moveset_viz
+python3 tools/ambition_moveset_inspector/moveset_visualizations.py --out /tmp/moveset_viz
 ```
 
 Two paths, one command, and the pick is stated on stdout and in `index.json`:
@@ -673,7 +673,7 @@ already caches by — and each manifest stamps the binary that drew it
 stale honestly when the renderer moves on:
 
 ```bash
-python3 scripts/moveset_visualizations.py \
+python3 tools/ambition_moveset_inspector/moveset_visualizations.py \
     --out tools/ambition_moveset_inspector/data
 ```
 

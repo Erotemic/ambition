@@ -375,7 +375,7 @@ def _report_for_take(take: dict, sim_hz: float, source_doc: dict | None = None) 
     if _REPORT_MODULE is None:
         import importlib.util
 
-        path = REPO / "scripts" / "moveset_report.py"
+        path = REPO / "tools/ambition_moveset_inspector" / "moveset_report.py"
         spec = importlib.util.spec_from_file_location("ambition_moveset_report", path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)

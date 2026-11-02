@@ -10,9 +10,9 @@ machines this project runs on.
 ⛔ IT NEVER PRETENDS. The index says which path ran and why, so a directory of
 SVGs is legible as "this machine had no adapter" rather than as a broken render.
 
-    python3 scripts/moveset_visualizations.py --out /tmp/moveset_viz
-    python3 scripts/moveset_visualizations.py --out DIR --characters npc_pirate_admiral
-    python3 scripts/moveset_visualizations.py --out DIR --no-gpu   # force the SVG path
+    python3 tools/ambition_moveset_inspector/moveset_visualizations.py --out /tmp/moveset_viz
+    python3 tools/ambition_moveset_inspector/moveset_visualizations.py --out DIR --characters npc_pirate_admiral
+    python3 tools/ambition_moveset_inspector/moveset_visualizations.py --out DIR --no-gpu   # force the SVG path
 
 ⛔ IT DOES NOT RECORD TAKES. The diagnostic path reads a `takes.json`, and
 recording the grid is a ~27 minute job of its own — so a missing recording is
@@ -29,7 +29,7 @@ import sys
 import time
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
+REPO = Path(__file__).resolve().parents[2]
 DEFAULT_TAKES = REPO / "tools/ambition_moveset_inspector/data/takes/takes.json"
 
 
@@ -127,7 +127,7 @@ def diagnostic_corpus(out: Path, takes: Path, character: str | None) -> dict:
     if character:
         argv += ["--character", character]
     result = subprocess.run(
-        [sys.executable, str(REPO / "scripts/render_take_diagnostic.py"), *argv],
+        [sys.executable, str(REPO / "tools/ambition_moveset_inspector/render_take_diagnostic.py"), *argv],
         cwd=str(REPO),
         capture_output=True,
         text=True,

@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from scripts import ecs_browser
+from tools.ecs_architecture_browser import ecs_browser
 
 
 class BrowserFixture(unittest.TestCase):

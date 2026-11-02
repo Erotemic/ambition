@@ -18,8 +18,8 @@ it to pixels would need the sprite sheets decoded and a compositor, which is the
 work this tool exists to avoid. An SVG is diffable, scalable, and readable in the
 same terminal that produced it.
 
-    python3 scripts/render_take_diagnostic.py --takes <takes.json> --out <dir>
-    python3 scripts/render_take_diagnostic.py --takes … --character npc_pirate_admiral
+    python3 tools/ambition_moveset_inspector/render_take_diagnostic.py --takes <takes.json> --out <dir>
+    python3 tools/ambition_moveset_inspector/render_take_diagnostic.py --takes … --character npc_pirate_admiral
 """
 
 from __future__ import annotations

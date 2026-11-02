@@ -12,13 +12,13 @@ source excerpts to the generated data.
 From the Ambition repository root:
 
 ```bash
-python3 scripts/ecs_browser.py --open
+python3 tools/ecs_architecture_browser/ecs_browser.py --open
 ```
 
 Or build the file without opening a browser:
 
 ```bash
-python3 scripts/ecs_browser.py
+python3 tools/ecs_architecture_browser/ecs_browser.py
 ```
 
 Open `.agent/ecs_browser/index.html`. The page has all data, CSS, and JavaScript
@@ -39,7 +39,7 @@ Regenerate the normal agent index:
 
 ```bash
 python3 scripts/generate_agent_index.py
-python3 scripts/ecs_browser.py --open
+python3 tools/ecs_architecture_browser/ecs_browser.py --open
 ```
 
 Index generation uses the existing ECS inventory generator and its documented
@@ -50,7 +50,7 @@ for those requirements.
 To inspect an older generated snapshot on purpose:
 
 ```bash
-python3 scripts/ecs_browser.py --allow-stale --open
+python3 tools/ecs_architecture_browser/ecs_browser.py --allow-stale --open
 ```
 
 The page shows a warning when the checkout and index commits differ.
@@ -104,9 +104,9 @@ Do not treat raw Bevy entity handles as durable identity.
 ## Tests
 
 ```bash
-python3 -m unittest scripts.tests.test_ecs_browser -v
+python3 -m unittest tools.ecs_architecture_browser.tests.test_ecs_browser -v
 node --check tools/ecs_architecture_browser/web/app.js
-python3 scripts/ecs_browser.py
+python3 tools/ecs_architecture_browser/ecs_browser.py
 ```
 
 Node is needed only for the optional JavaScript syntax check, not for normal

@@ -28,6 +28,8 @@ const RESIZED: ae::Vec2 = ae::Vec2::new(1600.0, 1200.0);
 
 fn mary_o_app(display: ae::Vec2) -> App {
     let mut app = build_windowed_demo_app(RenderMode::Headless);
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_secs_f64(1.0 / 60.0)));
     // `RenderMode::Headless` builds with `primary_window: None`. The presentation
     // host reads the window as plain ECS data, so a synthetic one is a faithful
     // stand-in for a winit surface and lets this run with no display.
@@ -46,9 +48,14 @@ fn window_at(display: ae::Vec2) -> Window {
 }
 
 fn settle(app: &mut App) {
-    for _ in 0..12 {
+    for _ in 0..120 {
         app.update();
+        if player_exists(app) {
+            app.update();
+            return;
+        }
     }
+    panic!("the layout fixture must publish its gameplay session");
 }
 
 fn resize(app: &mut App, display: ae::Vec2) {

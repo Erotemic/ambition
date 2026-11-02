@@ -33,9 +33,18 @@ fn windowed_app() -> App {
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
-    for _ in 0..12 {
+    let mut ready = false;
+    for _ in 0..120 {
         app.update();
+        let mut bodies = app.world_mut().query_filtered::<Entity,
+            With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
+        if bodies.iter(app.world()).next().is_some() {
+            ready = true;
+            break;
+        }
     }
+    assert!(ready, "the HUD fixture must publish its gameplay session");
+    app.update();
     app
 }
 

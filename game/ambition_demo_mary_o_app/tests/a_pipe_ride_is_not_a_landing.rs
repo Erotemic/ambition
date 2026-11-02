@@ -7,7 +7,6 @@
 //! not in the air between two of those ticks: it is carried. A landing cue is
 //! for a body that fell and touched down.
 
-use bevy::ecs::message::{MessageCursor, Messages};
 use bevy::prelude::*;
 
 use ambition_demo_mary_o::ldtk_vocabulary::MaryOPipeMouth;
@@ -47,24 +46,41 @@ fn place_player(app: &mut App, pos: Vec2) {
     ae::movement::transit_body(&mut motion_model, &mut clusters, pos, ae::movement::TransitVelocity::Zero);
 }
 
-/// A cue or a puff this near her is hers: the other bodies of the room land
-/// and die in their own places while she rides.
-const HERS: f32 = 96.0;
-
-/// Her landing cues since the cursor last read.
-fn landings(app: &App, cursor: &mut MessageCursor<OwnedSfxMessage>, at: Vec2) -> usize {
-    cursor
-        .read(app.world().resource::<Messages<OwnedSfxMessage>>())
-        .filter(|message| matches!(message.request, SfxMessage::Land { pos, .. } if pos.distance(at) < HERS))
-        .count()
+/// Effects emitted while the simulation holds the body in a pipe.
+#[derive(Resource, Default)]
+struct TransitEffects {
+    ticks: usize,
+    landings: usize,
+    puffs: usize,
 }
 
-/// The puffs of dust at her since the cursor last read.
-fn dust(app: &App, cursor: &mut MessageCursor<VfxInRoom>, at: Vec2) -> usize {
-    cursor
-        .read(app.world().resource::<Messages<VfxInRoom>>())
-        .filter(|message| matches!(message.vfx, VfxMessage::Dust { pos, .. } if pos.distance(at) < HERS))
-        .count()
+fn observe_transit_effects(
+    mut effects: ResMut<TransitEffects>,
+    mut sound: MessageReader<OwnedSfxMessage>,
+    mut visuals: MessageReader<VfxInRoom>,
+    player: Query<(&ae::BodyKinematics, Option<&PipeTransit>), With<PrimaryPlayer>>,
+) {
+    let at = player.single().ok()
+        .and_then(|(kin, transit)| transit.map(|_| kin.pos));
+    effects.ticks += usize::from(at.is_some());
+    effects.landings += sound.read().filter(|message| {
+        matches!(message.request, SfxMessage::Land { pos, .. }
+            if at.is_some_and(|at| pos.distance(at) < 96.0))
+    }).count();
+    effects.puffs += visuals.read().filter(|message| {
+        matches!(message.vfx, VfxMessage::Dust { pos, .. }
+            if at.is_some_and(|at| pos.distance(at) < 96.0))
+    }).count();
+}
+
+fn observe_each_simulation_tick(app: &mut App) {
+    use ambition_platformer2d::platformer::schedule::{SimScheduleExt, Platformer2dSimulationPhase};
+    let sim = app.sim_schedule();
+    app.init_resource::<TransitEffects>();
+    // Read movement effects before gameplay starts or ends a pipe transit.
+    app.add_systems(sim, observe_transit_effects
+        .after(Platformer2dSimulationPhase::CoreSimulation)
+        .before(Platformer2dSimulationPhase::GameplayEffects));
 }
 
 /// What one ride through `tube` wrote: the ticks of the transit, her landing
@@ -96,26 +112,26 @@ fn ride(app: &mut App, tube: &PipeTube) -> Ride {
     if tube.entrance.mouth == MaryOPipeMouth::Up {
         step(app, ControlFrame::default());
     }
-    let mut cursor = MessageCursor::<OwnedSfxMessage>::default();
-    let mut dust_cursor = MessageCursor::<VfxInRoom>::default();
-    let _ = (landings(app, &mut cursor, at), dust(app, &mut dust_cursor, at));
+    *app.world_mut().resource_mut::<TransitEffects>() = TransitEffects::default();
     let mut ride = Ride { ticks: 0, landings: 0, puffs: 0 };
     for _ in 0..600 {
         step(app, up_or_down(tube.entrance.mouth));
         if in_a_pipe(app) {
-            let (at, _) = player_body(app);
             ride.ticks += 1;
-            ride.landings += landings(app, &mut cursor, at);
-            ride.puffs += dust(app, &mut dust_cursor, at);
         } else if ride.ticks > 0 {
             break;
         }
     }
+    let effects = app.world().resource::<TransitEffects>();
+    assert!(effects.ticks > 0, "the observer must see the body in transit");
+    ride.landings = effects.landings;
+    ride.puffs = effects.puffs;
     ride
 }
 
 fn boot() -> App {
     let mut app = build_demo_app();
+    observe_each_simulation_tick(&mut app);
     ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
     for _ in 0..90 {
         app.update();
@@ -166,6 +182,7 @@ fn the_ride_down_is_quiet_when_a_frame_is_not_a_tick() {
 #[test]
 fn a_ride_is_quiet_with_body_rigs() {
     let mut app = ambition_demo_mary_o_app::build_demo_app_with_body_rigs();
+    observe_each_simulation_tick(&mut app);
     ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
     for _ in 0..90 {
         app.update();

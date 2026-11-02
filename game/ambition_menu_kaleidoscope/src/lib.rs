@@ -63,6 +63,13 @@ const FONT_FAMILY: &str = "DejaVu Sans";
 #[derive(Component)]
 pub struct MenuRing;
 
+/// The publication applied to one ring. The renderer owns this cache.
+#[derive(Component)]
+pub struct RenderedMenuPages<PageId> {
+    version: u64,
+    active: Option<PageId>,
+}
+
 /// System set for the lib's in-place focus-visual readers
 /// ([`sync_control_focus_visuals`] + [`sync_selection_corner_visuals`]), both gated on
 /// `Changed<MenuVisualState>`.
@@ -487,7 +494,7 @@ where
             PostUpdate,
             fade_kaleidoscope_materials.in_set(KaleidoscopeRender),
         );
-        app.add_systems(Startup, setup_cube)
+        app.add_systems(Startup, setup_cube::<PageId, Action>)
             .add_systems(
                 Update,
                 (
@@ -510,7 +517,11 @@ where
     }
 }
 
-fn setup_cube(mut commands: Commands, config: Res<KaleidoscopeMenuConfig>) {
+fn setup_cube<PageId: Send + Sync + 'static, Action: Send + Sync + 'static>(
+    mut commands: Commands,
+    config: Res<KaleidoscopeMenuConfig>,
+    menu: Single<Entity, With<ActiveMenuPages<PageId, Action>>>,
+) {
     let geo = config.geometry;
     commands.spawn((
         Name::new("Cube pause camera"),
@@ -553,7 +564,7 @@ fn setup_cube(mut commands: Commands, config: Res<KaleidoscopeMenuConfig>) {
         Transform::from_translation(Vec3::new(0.0, geo.camera_y, -geo.camera_distance))
             .looking_at(Vec3::new(0.0, geo.look_y, 0.0), Vec3::Y),
     ));
-    commands.spawn((
+    commands.entity(*menu).insert((
         Name::new("Cube menu ring"),
         AmbitionMenuRoot,
         MenuRing,
@@ -813,164 +824,153 @@ pub fn rebuild_cube_faces<PageId, Action>(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
     config: Res<KaleidoscopeMenuConfig>,
-    pages: Option<Res<ActiveMenuPages<PageId, Action>>>,
-    ring_query: Query<Entity, With<MenuRing>>,
-    faces: Query<(Entity, Option<&RenderedFace<PageId, Action>>), With<AmbitionMenuPage<PageId>>>,
+    rings: Query<(Entity, &ActiveMenuPages<PageId, Action>, Option<&RenderedMenuPages<PageId>>), With<MenuRing>>,
+    faces: Query<(Entity, &ChildOf, Option<&RenderedFace<PageId, Action>>), With<AmbitionMenuPage<PageId>>>,
     live: reconcile::LiveFaceNodes<Action>,
-    mut last_version: Local<Option<u64>>,
-    mut last_active: Local<Option<PageId>>,
-    mut dirty: Local<bool>,
 ) where
     PageId: Clone + PartialEq + Send + Sync + 'static,
     Action: Clone + PartialEq + Send + Sync + 'static,
 {
-    let Some(pages) = pages else {
-        return;
-    };
-    // Act only when the renderer-visible page identity changes. The host uses
-    // `version` as the explicit content-generation counter; `active` changes which
-    // face receives active depth/control markers. Do NOT use `pages.is_changed()`:
-    // several host systems legitimately borrow this resource mutably every frame,
-    // which dirties Bevy's broad resource change tick even when neither rendered
-    // value changed.
-    if !*dirty && !renderer_page_identity_changed(*last_version, last_active.as_ref(), &pages) {
-        return;
-    }
-    let Ok(ring) = ring_query.single() else {
-        warn!("cube: ring entity not found yet — deferring face rebuild");
-        *dirty = true;
-        return;
-    };
-    *dirty = false;
-    *last_version = Some(pages.version);
-    *last_active = pages.active.clone();
-
-    let geo = config.geometry;
-    let page_count = pages.pages.len();
-    let n = page_count.max(1) as f32;
-    let flip = config.inside_x_flip;
-    // Every face's geometry and styling is read out of the config at spawn time, so
-    // a config change invalidates all of them at once. This is the rare path, and
-    // paying for it wholesale keeps reconciliation to the page's own content.
     let config_changed = config.is_changed();
+    for (ring, pages, rendered) in &rings {
+        // Publication identity is local to this ring. Broad component change
+        // ticks do not invalidate content whose values remain the same.
+        if !config_changed && !renderer_page_identity_changed(
+            rendered.map(|previous| previous.version),
+            rendered.and_then(|previous| previous.active.as_ref()),
+            pages,
+        ) { continue; }
+        let geo = config.geometry;
+        let page_count = pages.pages.len();
+        let n = page_count.max(1) as f32;
+        let flip = config.inside_x_flip;
+        // Every face's geometry and styling is read out of the config at spawn time, so
+        // a config change invalidates all of them at once. This is the rare path, and
+        // paying for it wholesale keeps reconciliation to the page's own content.
 
-    // Decide, per PUBLISHED page, whether a live face can be brought to draw it in
-    // place: the same page, in the same ring slot, on the same background. What
-    // differs beyond that — its nodes, whether it is the active face — is
-    // reconciled on the entities already standing.
-    let mut kept: Vec<Option<Entity>> = vec![None; page_count];
-    let mut retired: Vec<Entity> = Vec::new();
-    for (entity, rendered) in &faces {
-        let keep = match (config_changed, rendered) {
-            (false, Some(rendered)) => pages
-                .pages
-                .iter()
-                .position(|model| model.id == rendered.model.id)
-                .filter(|&i| {
-                    rendered.index == i
-                        && rendered.page_count == page_count
-                        && rendered.model.background == pages.pages[i].background
-                }),
-            // A face with no `RenderedFace` cannot be proven current, so it is
-            // retired and rebuilt rather than trusted.
-            _ => None,
-        };
-        match keep {
-            // `is_none()` also retires a duplicate face claiming a page another
-            // face already holds; the ring must never carry two of one page.
-            Some(i) if kept[i].is_none() => {
-                let model = &pages.pages[i];
-                let active = pages.active.as_ref() == Some(&model.id);
-                let rendered = rendered.expect("a kept face carries its RenderedFace");
-                if rendered.model != *model || rendered.active != active {
-                    let mut out = reconcile::FaceWriter {
-                        commands: &mut commands,
-                        materials: &mut materials,
-                        asset_server: &asset_server,
-                        config: &config,
-                    };
-                    reconcile::reconcile_face(&mut out, &live, entity, rendered, model, active);
-                    commands.entity(entity).insert((
-                        AmbitionMenuPage {
-                            id: model.id.clone(),
-                            active,
-                        },
-                        RenderedFace {
-                            model: model.clone(),
-                            active,
-                            index: i,
-                            page_count,
-                        },
-                    ));
+        // Decide, per PUBLISHED page, whether a live face can be brought to draw it in
+        // place: the same page, in the same ring slot, on the same background. What
+        // differs beyond that — its nodes, whether it is the active face — is
+        // reconciled on the entities already standing.
+        let mut kept: Vec<Option<Entity>> = vec![None; page_count];
+        let mut retired: Vec<Entity> = Vec::new();
+        for (entity, parent, rendered) in &faces {
+            if parent.parent() != ring { continue; }
+            let keep = match (config_changed, rendered) {
+                (false, Some(rendered)) => pages
+                    .pages
+                    .iter()
+                    .position(|model| model.id == rendered.model.id)
+                    .filter(|&i| {
+                        rendered.index == i
+                            && rendered.page_count == page_count
+                            && rendered.model.background == pages.pages[i].background
+                    }),
+                // A face with no `RenderedFace` cannot be proven current, so it is
+                // retired and rebuilt rather than trusted.
+                _ => None,
+            };
+            match keep {
+                // `is_none()` also retires a duplicate face claiming a page another
+                // face already holds; the ring must never carry two of one page.
+                Some(i) if kept[i].is_none() => {
+                    let model = &pages.pages[i];
+                    let active = pages.active.as_ref() == Some(&model.id);
+                    let rendered = rendered.expect("a kept face carries its RenderedFace");
+                    if rendered.model != *model || rendered.active != active {
+                        let mut out = reconcile::FaceWriter {
+                            commands: &mut commands,
+                            materials: &mut materials,
+                            asset_server: &asset_server,
+                            config: &config,
+                        };
+                        reconcile::reconcile_face(&mut out, &live, entity, rendered, model, active);
+                        commands.entity(entity).insert((
+                            AmbitionMenuPage {
+                                id: model.id.clone(),
+                                active,
+                            },
+                            RenderedFace {
+                                model: model.clone(),
+                                active,
+                                index: i,
+                                page_count,
+                            },
+                        ));
+                    }
+                    kept[i] = Some(entity);
                 }
-                kept[i] = Some(entity);
+                _ => retired.push(entity),
             }
-            _ => retired.push(entity),
         }
-    }
-    for face in &retired {
-        commands.entity(*face).despawn();
-    }
-    debug!(
-        target: "ambition_platformer2d::kaleidoscope_rebuild",
-        "cube faces version={} page_count={} spawned={} kept={} config_changed={}",
-        pages.version,
-        page_count,
-        page_count - kept.iter().filter(|slot| slot.is_some()).count(),
-        kept.iter().filter(|slot| slot.is_some()).count(),
-        config_changed,
-    );
+        for face in &retired {
+            commands.entity(*face).despawn();
+        }
+        debug!(
+            target: "ambition_platformer2d::kaleidoscope_rebuild",
+            "cube faces version={} page_count={} spawned={} kept={} config_changed={}",
+            pages.version,
+            page_count,
+            page_count - kept.iter().filter(|slot| slot.is_some()).count(),
+            kept.iter().filter(|slot| slot.is_some()).count(),
+            config_changed,
+        );
 
-    commands.entity(ring).with_children(|ring| {
-        for (i, model) in pages.pages.iter().enumerate() {
-            if kept[i].is_some() {
-                continue;
+        commands.entity(ring).with_children(|ring| {
+            for (i, model) in pages.pages.iter().enumerate() {
+                if kept[i].is_some() {
+                    continue;
+                }
+                let active = pages.active.as_ref() == Some(&model.id);
+                let angle = (i as f32) * std::f32::consts::TAU / n;
+                let pos = Vec3::new(
+                    angle.sin() * geo.page_radius,
+                    0.0,
+                    angle.cos() * geo.page_radius,
+                );
+                let rot = Quat::from_rotation_y(angle);
+                let scale = Vec3::new(flip, 1.0, 1.0);
+                let mut face = ring.spawn((
+                    Name::new("Cube face"),
+                    AmbitionMenuPage {
+                        id: model.id.clone(),
+                        active,
+                    },
+                    RenderedFace {
+                        model: model.clone(),
+                        active,
+                        index: i,
+                        page_count,
+                    },
+                    CubeFace {
+                        index: i,
+                        angle,
+                        base_translation: pos,
+                        base_rotation: rot,
+                        base_scale: scale,
+                        half_height: geo.page_height * 0.5,
+                    },
+                    UiRoot3d,
+                    // bevy_lunex needs a layout root + a Dimension on each face for the
+                    // child UiLayout::window() planes to resolve their Rl/Rh sizes.
+                    UiLayoutRoot::new_3d(),
+                    Dimension::from((geo.page_width, geo.page_height)),
+                    Transform::from_translation(pos)
+                        .with_rotation(rot)
+                        .with_scale(scale),
+                    Visibility::Visible,
+                    RenderLayers::layer(0),
+                ));
+                face.with_children(|ui| {
+                    render_page_model(ui, &mut materials, &asset_server, &config, model, active)
+                });
             }
-            let active = pages.active.as_ref() == Some(&model.id);
-            let angle = (i as f32) * std::f32::consts::TAU / n;
-            let pos = Vec3::new(
-                angle.sin() * geo.page_radius,
-                0.0,
-                angle.cos() * geo.page_radius,
-            );
-            let rot = Quat::from_rotation_y(angle);
-            let scale = Vec3::new(flip, 1.0, 1.0);
-            let mut face = ring.spawn((
-                Name::new("Cube face"),
-                AmbitionMenuPage {
-                    id: model.id.clone(),
-                    active,
-                },
-                RenderedFace {
-                    model: model.clone(),
-                    active,
-                    index: i,
-                    page_count,
-                },
-                CubeFace {
-                    index: i,
-                    angle,
-                    base_translation: pos,
-                    base_rotation: rot,
-                    base_scale: scale,
-                    half_height: geo.page_height * 0.5,
-                },
-                UiRoot3d,
-                // bevy_lunex needs a layout root + a Dimension on each face for the
-                // child UiLayout::window() planes to resolve their Rl/Rh sizes.
-                UiLayoutRoot::new_3d(),
-                Dimension::from((geo.page_width, geo.page_height)),
-                Transform::from_translation(pos)
-                    .with_rotation(rot)
-                    .with_scale(scale),
-                Visibility::Visible,
-                RenderLayers::layer(0),
-            ));
-            face.with_children(|ui| {
-                render_page_model(ui, &mut materials, &asset_server, &config, model, active)
-            });
-        }
-    });
+        });
+        commands.entity(ring).insert(RenderedMenuPages {
+            version: pages.version,
+            active: pages.active.clone(),
+        });
+    }
 }
 
 /// Drive the whole ring per frame: ease the open amount, snap the ring rotation
@@ -983,7 +983,7 @@ fn animate_cube_ring<PageId, Action>(
     time: Res<Time>,
     config: Res<KaleidoscopeMenuConfig>,
     mut state: ResMut<KaleidoscopeOpenState>,
-    pages: Option<Res<ActiveMenuPages<PageId, Action>>>,
+    pages: Option<Single<&ActiveMenuPages<PageId, Action>>>,
     mut ring: Query<&mut Transform, (With<MenuRing>, Without<CubeFace>)>,
     mut faces: Query<(&CubeFace, &mut Transform), Without<MenuRing>>,
 ) where

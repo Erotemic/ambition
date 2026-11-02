@@ -76,6 +76,12 @@ fn system_page(start: usize, detail_on: Option<usize>) -> MenuPageModel<Page, Ac
     model
 }
 
+fn publication(world: &mut World) -> Mut<'_, ActiveMenuPages<Page, Action>> {
+    let owner = world.query_filtered::<Entity, With<ActiveMenuPages<Page, Action>>>()
+        .single(world).expect("one fixture menu");
+    world.get_mut(owner).unwrap()
+}
+
 fn test_app(model: MenuPageModel<Page, Action>) -> App {
     let mut app = App::new();
     app.add_plugins(AssetPlugin::default());
@@ -83,21 +89,19 @@ fn test_app(model: MenuPageModel<Page, Action>) -> App {
     app.init_asset::<Mesh>();
     app.init_asset::<Image>();
     app.insert_resource(KaleidoscopeMenuConfig::default());
-    app.insert_resource(ActiveMenuPages::<Page, Action> {
+    app.world_mut().spawn((ActiveMenuPages::<Page, Action> {
         pages: vec![model],
         active: Some(Page::System),
         visible: true,
         version: 1,
-    });
-    app.world_mut().spawn(MenuRing);
+    }, MenuRing));
     app.add_systems(Update, rebuild_cube_faces::<Page, Action>);
     app.update();
     app
 }
 
 fn publish(app: &mut App, model: MenuPageModel<Page, Action>) {
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<Page, Action>>()
+    publication(app.world_mut())
         .replace_pages(vec![model], Page::System);
     app.update();
 }

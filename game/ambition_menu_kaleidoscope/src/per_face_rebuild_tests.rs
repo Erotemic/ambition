@@ -47,6 +47,12 @@ fn all_pages(tag: f32) -> Vec<MenuPageModel<Page, Action>> {
     PAGES.iter().map(|id| page(*id, tag)).collect()
 }
 
+fn publication(world: &mut World) -> Mut<'_, ActiveMenuPages<Page, Action>> {
+    let owner = world.query_filtered::<Entity, With<ActiveMenuPages<Page, Action>>>()
+        .single(world).expect("one fixture menu");
+    world.get_mut(owner).unwrap()
+}
+
 fn test_app() -> App {
     let mut app = App::new();
     app.add_plugins(AssetPlugin::default());
@@ -54,13 +60,12 @@ fn test_app() -> App {
     app.init_asset::<Mesh>();
     app.init_asset::<Image>();
     app.insert_resource(KaleidoscopeMenuConfig::default());
-    app.insert_resource(ActiveMenuPages::<Page, Action> {
+    app.world_mut().spawn((ActiveMenuPages::<Page, Action> {
         pages: all_pages(0.5),
         active: Some(Page::Items),
         visible: true,
         version: 1,
-    });
-    app.world_mut().spawn(MenuRing);
+    }, MenuRing));
     app.add_systems(Update, rebuild_cube_faces::<Page, Action>);
     app.update();
     app
@@ -108,9 +113,7 @@ fn an_equal_republish_rebuilds_no_face() {
     let before = faces(&mut app);
     assert_eq!(before.len(), 4, "four pages published, four faces expected");
 
-    let mut pages = app
-        .world_mut()
-        .resource_mut::<ActiveMenuPages<Page, Action>>();
+    let mut pages = publication(app.world_mut());
     pages.replace_pages(all_pages(0.5), Page::Items);
     app.update();
 
@@ -132,9 +135,7 @@ fn a_content_change_keeps_every_face_and_its_nodes() {
 
     let mut published = all_pages(0.5);
     published[2] = page(Page::Quest, 0.9);
-    let mut pages = app
-        .world_mut()
-        .resource_mut::<ActiveMenuPages<Page, Action>>();
+    let mut pages = publication(app.world_mut());
     pages.replace_pages(published, Page::Items);
     app.update();
 
@@ -158,9 +159,7 @@ fn a_page_turn_moves_the_active_face_in_place() {
     let before = faces(&mut app);
     let planes_before = descendants(&mut app);
 
-    let mut pages = app
-        .world_mut()
-        .resource_mut::<ActiveMenuPages<Page, Action>>();
+    let mut pages = publication(app.world_mut());
     pages.replace_pages(all_pages(0.5), Page::Map);
     app.update();
 
@@ -193,10 +192,6 @@ fn a_config_change_rebuilds_every_face() {
 
     let mut config = app.world_mut().resource_mut::<KaleidoscopeMenuConfig>();
     config.inside_x_flip = -config.inside_x_flip;
-    let mut pages = app
-        .world_mut()
-        .resource_mut::<ActiveMenuPages<Page, Action>>();
-    pages.replace_pages(all_pages(0.5), Page::Items);
     app.update();
 
     let after = faces(&mut app);
@@ -215,9 +210,7 @@ fn a_page_leaving_the_publication_retires_its_face() {
         .into_iter()
         .filter(|model| model.id != Page::Quest)
         .collect();
-    let mut pages = app
-        .world_mut()
-        .resource_mut::<ActiveMenuPages<Page, Action>>();
+    let mut pages = publication(app.world_mut());
     pages.replace_pages(published, Page::Items);
     app.update();
 
@@ -310,13 +303,12 @@ fn the_cube_draws_the_look_its_config_states() {
     app.init_asset::<Mesh>();
     app.init_asset::<Image>();
     app.insert_resource(KaleidoscopeMenuConfig { look: look.clone(), ..Default::default() });
-    app.insert_resource(ActiveMenuPages::<Page, Action> {
+    app.world_mut().spawn((ActiveMenuPages::<Page, Action> {
         pages: vec![page],
         active: Some(Page::Items),
         visible: true,
         version: 1,
-    });
-    app.world_mut().spawn(MenuRing);
+    }, MenuRing));
     app.add_systems(Update, (rebuild_cube_faces::<Page, Action>, super::sync_control_focus_visuals).chain());
     app.update();
 
@@ -414,13 +406,12 @@ fn a_greyed_out_cell_on_the_cube_draws_the_cursor_when_it_has_it() {
     app.init_asset::<Mesh>();
     app.init_asset::<Image>();
     app.insert_resource(KaleidoscopeMenuConfig { look: look.clone(), ..Default::default() });
-    app.insert_resource(ActiveMenuPages::<Page, Action> {
+    app.world_mut().spawn((ActiveMenuPages::<Page, Action> {
         pages: vec![page],
         active: Some(Page::Items),
         visible: true,
         version: 1,
-    });
-    app.world_mut().spawn(MenuRing);
+    }, MenuRing));
     app.add_systems(
         Update,
         (rebuild_cube_faces::<Page, Action>, super::sync_control_focus_visuals, super::sync_selection_corner_visuals)
@@ -458,4 +449,64 @@ fn a_greyed_out_cell_on_the_cube_draws_the_cursor_when_it_has_it() {
     assert_eq!(colour_of(&app), look.selected, "a greyed-out cell under the cursor");
     let under = corners(&mut app);
     assert!(under.iter().all(|v| *v == Visibility::Visible), "corners hidden under the cursor: {under:?}");
+}
+
+fn owned_faces(app: &mut App, owner: Entity) -> Vec<(Entity, MenuPageModel<Page, Action>, bool)> {
+    let world = app.world_mut();
+    let mut faces = world.query::<(Entity, &ChildOf, &super::RenderedFace<Page, Action>)>();
+    let mut found: Vec<_> = faces.iter(world)
+        .filter(|(_, parent, _)| parent.parent() == owner)
+        .map(|(entity, _, face)| (entity, face.model.clone(), face.active)).collect();
+    found.sort_by_key(|(_, model, _)| PAGES.iter().position(|page| *page == model.id).unwrap());
+    found
+}
+
+#[test]
+fn each_menu_reconciles_only_its_own_published_faces() {
+    let mut app = test_app();
+    let first = app.world_mut().query_filtered::<Entity, With<MenuRing>>()
+        .single(app.world()).unwrap();
+    let second = app.world_mut().spawn((MenuRing, ActiveMenuPages::<Page, Action> {
+        pages: all_pages(0.75), active: Some(Page::Map), visible: true, version: 1,
+    })).id();
+    app.update();
+    let first_before = owned_faces(&mut app, first);
+    let second_before = owned_faces(&mut app, second);
+    assert_eq!(first_before.len(), PAGES.len());
+    assert_eq!(second_before.len(), PAGES.len());
+    assert_eq!(first_before.iter().map(|(_, page, _)| page.clone()).collect::<Vec<_>>(), all_pages(0.5));
+    assert_eq!(second_before.iter().map(|(_, page, _)| page.clone()).collect::<Vec<_>>(), all_pages(0.75));
+    app.world_mut().get_mut::<ActiveMenuPages<Page, Action>>(second).unwrap()
+        .replace_pages(vec![page(Page::System, 0.9)], Page::System);
+    app.update();
+    assert_eq!(owned_faces(&mut app, first), first_before, "another menu's publish must not change these faces");
+    let second_after = owned_faces(&mut app, second);
+    assert_eq!(second_after.len(), 1);
+    assert_eq!(second_after[0].1, page(Page::System, 0.9));
+    assert!(second_after[0].2);
+    app.world_mut().entity_mut(first).despawn();
+    app.update();
+    assert_eq!(owned_faces(&mut app, second), second_after, "another menu's removal must not change these faces");
+}
+
+#[test]
+fn a_delayed_ring_renders_its_latest_publication_without_rebuilding_another_menu() {
+    let mut app = test_app();
+    let first = app.world_mut().query_filtered::<Entity, With<MenuRing>>()
+        .single(app.world()).unwrap();
+    let before = owned_faces(&mut app, first);
+    let second = app.world_mut().spawn(ActiveMenuPages::<Page, Action> {
+        pages: all_pages(0.75), active: Some(Page::Map), visible: true, version: 1,
+    }).id();
+    app.update();
+    assert!(owned_faces(&mut app, second).is_empty());
+    app.world_mut().get_mut::<ActiveMenuPages<Page, Action>>(second).unwrap()
+        .replace_pages(vec![page(Page::Quest, 0.8)], Page::Quest);
+    app.world_mut().entity_mut(second).insert(MenuRing);
+    app.update();
+    assert_eq!(owned_faces(&mut app, first), before);
+    let rendered = owned_faces(&mut app, second);
+    assert_eq!(rendered.len(), 1);
+    assert_eq!(rendered[0].1, page(Page::Quest, 0.8));
+    assert!(rendered[0].2);
 }

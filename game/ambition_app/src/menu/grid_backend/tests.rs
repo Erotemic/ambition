@@ -37,7 +37,6 @@ fn grid_app() -> App {
     app.add_plugins(bevy::state::app::StatesPlugin);
     app.init_state::<GameMode>();
     app.init_resource::<InventoryUiBackend>();
-    app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
     app.init_resource::<KaleidoscopeCursor>();
     app.init_resource::<KaleidoscopeSystemNav>();
     app.insert_resource(ambition_platformer2d::items::test_item_catalog().clone());
@@ -95,8 +94,7 @@ fn set_frame(app: &mut App, f: impl FnOnce(&mut MenuControlFrame)) {
 /// what made the collapse safe: the behaviour arms ask which tab the user sees,
 /// not which field holds it.
 fn active_tab(app: &App) -> MenuPage {
-    app.world()
-        .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages(app.world())
         .active
         .unwrap_or(MenuPage::Items)
 }
@@ -170,9 +168,7 @@ fn system_tab_left_right_never_turns_the_page() {
         app.update();
     }
     assert_eq!(active_tab(&app), MenuPage::System);
-    let page_before = app
-        .world()
-        .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    let page_before = crate::menu::test_support::active_pages(app.world())
         .active;
 
     // Hammer LEFT then RIGHT many times — enough to reach an edge under the old
@@ -198,8 +194,7 @@ fn system_tab_left_right_never_turns_the_page() {
             "step {i}: the Grid tab must stay on System",
         );
         assert_eq!(
-            app.world()
-                .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+            crate::menu::test_support::active_pages(app.world())
                 .active,
             page_before,
             "step {i}: the shared page must not turn under Grid LEFT/RIGHT",
@@ -665,8 +660,7 @@ fn switch_to_tab(app: &mut App, page: MenuPage) {
     // Clear any held input bits so the open/nav systems don't re-toggle / re-nav
     // the menu while we settle the tab (the real app rebuilds the frame each tick).
     set_frame(app, |_| {});
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(page);
     // republish builds the tree via `commands.queue`, so it materializes one
     // update later; two updates guarantees the spawn applied.
@@ -966,8 +960,7 @@ fn scroll_grid_app() -> App {
     crate::menu::test_support::inventory_state_mut(app.world_mut())
         .visible = true;
     {
-        app.world_mut()
-            .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+        crate::menu::test_support::active_pages_mut(app.world_mut())
             .active = Some(MenuPage::System);
         app.world_mut()
             .resource_mut::<GridMenuTabState>()

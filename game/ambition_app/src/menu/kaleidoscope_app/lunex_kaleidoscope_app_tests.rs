@@ -50,7 +50,6 @@ fn base_kaleidoscope_test_app() -> App {
     app.add_plugins(bevy::state::app::StatesPlugin);
     app.init_state::<GameMode>();
     app.init_resource::<InventoryUiBackend>();
-    app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
     app.init_resource::<KaleidoscopeCursor>();
     app.init_resource::<ambition_platformer2d::input::SeatActiveDevices>();
     app.init_resource::<KaleidoscopeSystemNav>();
@@ -375,8 +374,7 @@ fn nav_app() -> App {
     let mut app = base_kaleidoscope_test_app();
     app.add_systems(Update, kaleidoscope_focus_nav);
     set_kaleidoscope_visible(&mut app, true);
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::Items);
     spawn_kaleidoscope_test_player(&mut app);
     app.update();
@@ -387,8 +385,7 @@ fn system_nav_app(focus: MenuFocus) -> App {
     let mut app = base_kaleidoscope_test_app();
     app.add_systems(Update, kaleidoscope_focus_nav);
     set_kaleidoscope_visible(&mut app, true);
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::System);
     app.world_mut().resource_mut::<KaleidoscopeCursor>().focus = focus;
     spawn_kaleidoscope_test_player(&mut app);
@@ -446,8 +443,7 @@ fn placeholder_nav_app(page: MenuPage, focus: MenuFocus) -> App {
     let mut app = base_kaleidoscope_test_app();
     app.add_systems(Update, kaleidoscope_focus_nav);
     set_kaleidoscope_visible(&mut app, true);
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(page);
     app.world_mut().resource_mut::<KaleidoscopeCursor>().focus = focus;
     spawn_kaleidoscope_test_player(&mut app);
@@ -456,8 +452,7 @@ fn placeholder_nav_app(page: MenuPage, focus: MenuFocus) -> App {
 }
 
 fn active_page(app: &App) -> Option<MenuPage> {
-    app.world()
-        .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages(app.world())
         .active
 }
 
@@ -537,9 +532,7 @@ fn select_on_system_edge_button_turns_the_page() {
     let mut right = system_nav_app(MenuFocus::EdgeRight);
     press_select(&mut right);
     assert_eq!(
-        right
-            .world()
-            .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+        crate::menu::test_support::active_pages(right.world())
             .active,
         Some(MenuPage::System.on_viewer_right()),
         "SELECT on the right edge rotates to the viewer-right page"
@@ -548,8 +541,7 @@ fn select_on_system_edge_button_turns_the_page() {
     let mut left = system_nav_app(MenuFocus::EdgeLeft);
     press_select(&mut left);
     assert_eq!(
-        left.world()
-            .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+        crate::menu::test_support::active_pages(left.world())
             .active,
         Some(MenuPage::System.on_viewer_left()),
         "SELECT on the left edge rotates to the viewer-left page"
@@ -561,8 +553,7 @@ fn right_bumper_turns_to_the_viewer_right_page() {
     let mut app = nav_app();
     press_bumper(&mut app, true);
     assert_eq!(
-        app.world()
-            .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+        crate::menu::test_support::active_pages(app.world())
             .active,
         Some(MenuPage::Items.on_viewer_right()),
         "right bumper rotates to the viewer-right page (Fix 2)"
@@ -581,8 +572,7 @@ fn left_bumper_turns_to_the_viewer_left_page() {
     let mut app = nav_app();
     press_bumper(&mut app, false);
     assert_eq!(
-        app.world()
-            .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+        crate::menu::test_support::active_pages(app.world())
             .active,
         Some(MenuPage::Items.on_viewer_left()),
         "left bumper rotates to the viewer-left page (Fix 2)"
@@ -597,8 +587,7 @@ fn left_bumper_turns_to_the_viewer_left_page() {
 #[test]
 fn clicking_a_system_entry_drills_in() {
     let (mut app, _player) = click_app();
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::System);
     assert!(app
         .world()
@@ -619,8 +608,7 @@ fn clicking_a_system_entry_drills_in() {
 #[test]
 fn clicking_a_system_setting_applies_it() {
     let (mut app, _player) = click_app();
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::System);
     app.world_mut()
         .resource_mut::<KaleidoscopeSystemNav>()
@@ -634,8 +622,7 @@ fn clicking_a_system_setting_applies_it() {
 #[test]
 fn clicking_back_drills_out_to_the_entry_list() {
     let (mut app, _player) = click_app();
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::System);
     app.world_mut()
         .resource_mut::<KaleidoscopeSystemNav>()
@@ -656,8 +643,7 @@ fn clicking_a_radio_station_keeps_the_menu_open() {
     // user can keep browsing. Audio is absent in this minimal fixture, so the
     // apply no-ops, but the menu must still stay open.
     let (mut app, _player) = click_app();
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::System);
     app.world_mut()
         .resource_mut::<KaleidoscopeSystemNav>()
@@ -680,8 +666,7 @@ fn reset_sandbox_action_closes_and_unpauses() {
     // restore `GameMode::Playing` — exactly like a normal Esc-close — instead of leaving the
     // sim paused with the menu hidden.
     let (mut app, _player) = click_app();
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::System);
     // Open the menu from gameplay: paused, but NOT nested under the pause menu.
     app.world_mut()
@@ -720,8 +705,7 @@ fn reset_all_settings_action_resets_settings_and_closes() {
     // defaults (the same set the pause menu's ResetAllSettings restores) and
     // folds the menu shut (close, which also unpauses).
     let (mut app, _player) = click_app();
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::System);
 
     // The IR surfaces Reset All Settings as an always-present Action entry.
@@ -776,8 +760,7 @@ fn quit_action_writes_app_exit_and_closes() {
     // entry; dispatching it writes `AppExit::Success` and folds the menu shut.
     let (mut app, _player) = click_app();
     app.add_message::<bevy::app::AppExit>();
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::System);
 
     // The IR surfaces Quit as an always-present Action entry.
@@ -830,8 +813,7 @@ fn system_edge_left_moves_inward_to_the_row_list() {
         "moving right from the < Items button enters the System row list instead of rotating"
     );
     assert_eq!(
-        app.world()
-            .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+        crate::menu::test_support::active_pages(app.world())
             .active,
         Some(MenuPage::System),
         "the cube stays on the System face while moving into the rows"
@@ -858,8 +840,7 @@ fn pointer_motion_selects_a_kaleidoscope_control() {
     let mut app = open_app();
     crate::menu::test_support::inventory_state_mut(app.world_mut())
         .visible = true;
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::Items);
     app.world_mut().resource_mut::<KaleidoscopeCursor>().focus = MenuFocus::EdgeRight;
 
@@ -901,7 +882,6 @@ fn real_input_cube_app(
     app.add_plugins(InputManagerPlugin::<Platformer2dInputActionMonolith>::default());
     app.init_state::<GameMode>();
     app.init_resource::<InventoryUiBackend>();
-    app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
     app.init_resource::<KaleidoscopeCursor>();
     app.init_resource::<ambition_platformer2d::input::SeatActiveDevices>();
     app.init_resource::<KaleidoscopeSystemNav>();
@@ -1018,8 +998,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     // a category Esc must BACK OUT one level (not close), and that drill-out is
     // owned by the start branch (we consume the co-firing `menu.back` so the nav
     // systems never see this Esc).
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::System);
     app.world_mut()
         .resource_mut::<KaleidoscopeSystemNav>()
@@ -1087,8 +1066,7 @@ fn back_closes_the_kaleidoscope_and_resumes_play_via_real_input() {
         tap(&mut app, KeyCode::Escape);
         assert!(visible(&app), "round {round}: Esc opens the cube");
         assert_eq!(mode(&app), GameMode::Paused, "round {round}: the open cube pauses");
-        app.world_mut()
-            .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+        crate::menu::test_support::active_pages_mut(app.world_mut())
             .active = Some(page);
         tap(&mut app, KeyCode::Backspace);
         app.update();
@@ -1117,8 +1095,7 @@ fn back_closes_the_kaleidoscope_and_resumes_play_via_real_input() {
 #[test]
 fn a_pointer_move_with_the_cube_closed_does_not_move_the_shared_cursor() {
     let mut app = open_app();
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::Items);
     app.world_mut().resource_mut::<KaleidoscopeCursor>().focus = MenuFocus::EdgeRight;
 
@@ -1167,7 +1144,7 @@ fn opening_the_kaleidoscope_clears_stale_pointer_hover_state() {
 struct PageRepublishCount(u32);
 
 fn count_page_republishes(
-    pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    pages: Single<Ref<ActiveMenuPages<MenuPage, MenuPageAction>>>,
     mut count: ResMut<PageRepublishCount>,
 ) {
     if pages.is_changed() {
@@ -1189,8 +1166,7 @@ fn dirty_resource_ticks_without_value_changes_do_not_republish_cube_pages() {
             .chain(),
     );
     set_kaleidoscope_visible(&mut app, true);
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::Items);
 
     app.update();
@@ -1229,8 +1205,7 @@ fn real_inventory_and_settings_value_changes_republish_cube_pages() {
             .chain(),
     );
     set_kaleidoscope_visible(&mut app, true);
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::Items);
 
     app.update();
@@ -1280,7 +1255,7 @@ fn real_inventory_and_settings_value_changes_republish_cube_pages() {
 /// The per-face narrowing has its own tests in `ambition_menu_kaleidoscope`.
 fn fake_rebuild_cube_faces(
     mut commands: Commands,
-    pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    pages: Single<&ActiveMenuPages<MenuPage, MenuPageAction>>,
     existing: Query<Entity, With<AmbitionMenuControl<MenuPageAction>>>,
     mut last_version: Local<Option<u64>>,
     mut last_active: Local<Option<MenuPage>>,
@@ -1332,8 +1307,7 @@ fn bug2_app(active: MenuPage) -> App {
     app.add_observer(kaleidoscope_pointer_move);
     app.add_observer(kaleidoscope_pointer_release);
     set_kaleidoscope_visible(&mut app, true);
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(active);
     spawn_kaleidoscope_test_player(&mut app);
     // First update: republish builds the page data, fake_rebuild spawns controls.
@@ -1438,8 +1412,7 @@ fn bug2_page_turn_click_survives_a_hover_republish() {
         MenuPageAction::ChangePage(target_page),
     );
     assert_eq!(
-        app.world()
-            .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+        crate::menu::test_support::active_pages(app.world())
             .active,
         Some(target_page),
         "clicking a page-turn edge after a hover-move must still turn the page (Bug 2)"
@@ -1476,9 +1449,7 @@ fn bug2_system_row_click_survives_a_hover_republish() {
 fn drilling_into_a_system_entry_republishes_and_rebuilds_the_face() {
     let mut app = bug2_app(MenuPage::System);
     app.update();
-    let version_before = app
-        .world()
-        .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    let version_before = crate::menu::test_support::active_pages(app.world())
         .version;
 
     click_control(
@@ -1486,9 +1457,7 @@ fn drilling_into_a_system_entry_republishes_and_rebuilds_the_face() {
         MenuPageAction::OpenSystemEntry(SystemMenuEntryId::Audio),
     );
 
-    let pages = app
-        .world()
-        .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
+    let pages = crate::menu::test_support::active_pages(app.world());
     assert_ne!(
         pages.version, version_before,
         "a drill-in republish must bump the published version — it is the \
@@ -1521,8 +1490,7 @@ fn scroll_app() -> App {
             .chain(),
     );
     set_kaleidoscope_visible(&mut app, true);
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::System);
     app.world_mut()
         .resource_mut::<KaleidoscopeSystemNav>()
@@ -1806,8 +1774,7 @@ fn tap_activates_drag_away_cancels() {
     let (mut app, _player) = click_app();
     // The control's drill-in action needs an active System page for the click
     // dispatch to resolve OpenSystemEntry against the live model.
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::System);
     press_move_click(&mut app, Vec2::new(10.0, 10.0), Vec2::new(12.0, 11.0));
     assert_eq!(
@@ -1818,8 +1785,7 @@ fn tap_activates_drag_away_cancels() {
 
     // Drag away: a large move past the threshold -> NO activation.
     let (mut app, _player) = click_app();
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::System);
     press_move_click(&mut app, Vec2::new(10.0, 10.0), Vec2::new(200.0, 200.0));
     assert_eq!(
@@ -1853,8 +1819,7 @@ fn release_dispatch_survives_a_control_rebuild_between_press_and_release() {
         let mut owned = app.world_mut().resource_mut::<OwnedItems>();
         owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::Grapple, 1);
     }
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::Items);
     app.update();
     assert!(
@@ -1916,8 +1881,7 @@ fn press_then_release_equips_an_item() {
         let mut owned = app.world_mut().resource_mut::<OwnedItems>();
         owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::Grapple, 1);
     }
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::Items);
     app.update();
     let entity = arm_press(&mut app, MenuPageAction::Equip(Item::Grapple));
@@ -1956,7 +1920,6 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
     app.init_state::<GameMode>();
     // Resources the host systems read.
     app.init_resource::<InventoryUiBackend>();
-    app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
     app.init_resource::<KaleidoscopeCursor>();
     app.init_resource::<ambition_platformer2d::input::SeatActiveDevices>();
     app.init_resource::<KaleidoscopeSystemNav>();
@@ -1982,7 +1945,9 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
     // The lib's ring root that `rebuild_cube_faces` parents faces under. We spawn
     // it directly (the plugin's `setup_cube` would also add a Camera3d we don't
     // need headlessly).
-    app.world_mut().spawn((
+    let menu = app.world_mut().query_filtered::<Entity, With<ActiveMenuPages<MenuPage, MenuPageAction>>>()
+        .single(app.world()).expect("one menu");
+    app.world_mut().entity_mut(menu).insert((
         ambition_platformer2d::menu::AmbitionMenuRoot,
         ambition_menu_kaleidoscope::MenuRing,
         Transform::default(),
@@ -2039,8 +2004,7 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
     }
 
     // Publish the Items page (one frame to spawn the controls/corners).
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::Items);
     let pages = build_inventory_pages(
         &app.world().resource::<OwnedItems>().clone(),
@@ -2053,8 +2017,7 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
         0,
         None,
     );
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .replace_pages(pages, MenuPage::Items);
     app.update();
     app
@@ -2072,8 +2035,7 @@ fn highlight_resets_inactive_face_controls() {
         Update,
         (cache_system_menu, kaleidoscope_sync_focus_visuals).chain(),
     );
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::Items);
     app.world_mut().resource_mut::<KaleidoscopeCursor>().focus = MenuFocus::Item(item.index());
 
@@ -2680,8 +2642,7 @@ fn an_idle_system_face_builds_its_model_once() {
         (cache_system_menu, republish_kaleidoscope_pages).chain(),
     );
     set_kaleidoscope_visible(&mut app, true);
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::System);
 
     for _ in 0..30 {
@@ -2731,8 +2692,7 @@ fn the_cached_rows_resolve_a_system_action_exactly_as_a_fresh_model_does() {
     let mut app = base_kaleidoscope_test_app();
     app.add_systems(Update, cache_system_menu);
     set_kaleidoscope_visible(&mut app, true);
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::System);
     app.update();
 
@@ -2797,8 +2757,7 @@ fn the_cached_rows_resolve_a_system_action_exactly_as_a_fresh_model_does() {
     // ⛔ THE OTHER ARM: off the System face the cache is EMPTY, and the guard
     // must say so — otherwise the hover path substitutes an empty list and every
     // System action reachable off-face resolves to row zero.
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+    crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::Items);
     app.update();
     let cache = app.world().resource::<CachedSystemMenu>();

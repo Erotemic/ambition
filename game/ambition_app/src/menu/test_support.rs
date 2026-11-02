@@ -134,5 +134,17 @@ pub(crate) fn inventory_state_mut(world: &mut World) -> Mut<'_, ambition_platfor
 pub(crate) fn spawn_inventory_menu(app: &mut App, state: ambition_platformer2d::inventory_ui::InventoryUiState) {
     app.world_mut().spawn((ambition_platformer2d::inventory_ui::InventoryMenu {
         owner: ambition_platformer2d::input::ParticipantId::PRIMARY,
-    }, state));
+    }, state, ambition_platformer2d::menu::ActiveMenuPages::<crate::menu::model::MenuPage, MenuPageAction>::default()));
+}
+
+type Pages = ambition_platformer2d::menu::ActiveMenuPages<crate::menu::model::MenuPage, MenuPageAction>;
+
+pub(crate) fn active_pages(world: &World) -> &Pages {
+    world.try_query::<&Pages>().expect("fixture page model")
+        .single(world).expect("one fixture menu")
+}
+
+pub(crate) fn active_pages_mut(world: &mut World) -> Mut<'_, Pages> {
+    let entity = world.query_filtered::<Entity, With<Pages>>().single(world).expect("one fixture menu");
+    world.get_mut(entity).unwrap()
 }

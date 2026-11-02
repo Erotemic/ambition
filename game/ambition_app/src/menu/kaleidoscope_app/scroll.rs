@@ -36,7 +36,7 @@ fn system_row_count(
 pub(crate) fn kaleidoscope_scroll_wheel(
     backend: Res<InventoryUiBackend>,
     ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
-    pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    pages: Single<&ActiveMenuPages<MenuPage, MenuPageAction>>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
     snapshot: SystemMenuSnapshotParams,
@@ -98,7 +98,7 @@ pub(crate) fn kaleidoscope_scroll_wheel(
 pub(crate) fn kaleidoscope_apply_scroll_drag(
     backend: Res<InventoryUiBackend>,
     ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
-    pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    pages: Single<&ActiveMenuPages<MenuPage, MenuPageAction>>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
     snapshot: SystemMenuSnapshotParams,

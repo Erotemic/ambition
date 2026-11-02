@@ -54,7 +54,7 @@ impl CachedSystemMenu {
 /// face is active; the snapshots are always refreshed (the republish key carries them
 /// on every face). See [`CachedSystemMenu`] for why.
 pub(crate) fn cache_system_menu(
-    pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    pages: Single<&ActiveMenuPages<MenuPage, MenuPageAction>>,
     settings: Res<UserSettings>,
     system_nav: Res<KaleidoscopeSystemNav>,
     snapshot: SystemMenuSnapshotParams,
@@ -101,7 +101,7 @@ pub(crate) fn cache_system_menu(
 ///
 /// Runs after [`kaleidoscope_focus_nav`] in the chain so this frame's cursor move is
 /// reflected in the rebuilt page (highlight + detail panel). To avoid an infinite
-/// rebuild loop (writing `pages.pages` marks the resource changed), it republishes
+/// rebuild loop (writing `pages.pages` marks the component changed), it republishes
 /// only when something it depends on actually changed: the inventory, the focus
 /// cursor, the active page, the just-opened edge, or the very first publish.
 pub(crate) fn republish_kaleidoscope_pages(
@@ -126,7 +126,7 @@ pub(crate) fn republish_kaleidoscope_pages(
     // `kaleidoscope_apply_scroll_drag`) take `ResMut<KaleidoscopeScroll>` in separate
     // systems, so this `Res` is not a B0002 conflict. Inserted at startup so it never panics.
     scroll: Res<KaleidoscopeScroll>,
-    mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    mut pages: Single<&mut ActiveMenuPages<MenuPage, MenuPageAction>>,
     map_page: crate::menu::map_page::MapPageSource,
     mut was_open: Local<bool>,
     mut last: Local<Option<RebuildKey>>,

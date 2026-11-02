@@ -9,7 +9,8 @@ use bevy::prelude::*;
 fn kaleidoscope_camera_uses_the_cheap_unlit_render_contract() {
     let mut app = App::new();
     app.insert_resource(KaleidoscopeMenuConfig::default());
-    app.add_systems(Startup, setup_cube);
+    app.world_mut().spawn(ambition_menu::ActiveMenuPages::<(), ()>::default());
+    app.add_systems(Startup, setup_cube::<(), ()>);
     app.update();
 
     let world = app.world_mut();

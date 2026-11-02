@@ -317,7 +317,7 @@ pub(crate) fn grid_menu_nav(
     mut tab_state: ResMut<GridMenuTabState>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
-    mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    mut pages: Single<&mut ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut overlay: Single<&mut ambition_platformer2d::inventory_ui::InventoryUiState>,
     // The ONE activation event. A controller/keyboard submit publishes the same
     // message the renderer's pointer bridge does, so `grid_menu_action_activated`
@@ -535,7 +535,7 @@ fn a_menu_is_open_or_a_grid_tree_was(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn grid_menu_republish_view(
     overlay: Single<&ambition_platformer2d::inventory_ui::InventoryUiState>,
-    pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    pages: Single<&ActiveMenuPages<MenuPage, MenuPageAction>>,
     owned: Res<OwnedItems>,
     hand: PrimaryHand,
     cursor: Res<KaleidoscopeCursor>,
@@ -721,7 +721,7 @@ fn grid_system_row_count(
 #[cfg(feature = "input")]
 pub(crate) fn grid_menu_scroll_wheel(
     overlay: Single<&ambition_platformer2d::inventory_ui::InventoryUiState>,
-    pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    pages: Single<&ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut tab_state: ResMut<GridMenuTabState>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
@@ -778,7 +778,7 @@ pub(crate) fn grid_menu_scroll_wheel(
 #[cfg(feature = "input")]
 pub(crate) fn grid_menu_apply_scroll_drag(
     overlay: Single<&ambition_platformer2d::inventory_ui::InventoryUiState>,
-    pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    pages: Single<&ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut tab_state: ResMut<GridMenuTabState>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
@@ -815,7 +815,7 @@ pub(crate) fn grid_menu_action_activated(
     mut tab_state: ResMut<GridMenuTabState>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
-    mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    mut pages: Single<&mut ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut overlay: Single<&mut ambition_platformer2d::inventory_ui::InventoryUiState>,
     mut fx: MenuDispatchParams,
 ) {
@@ -879,7 +879,7 @@ pub(crate) fn grid_menu_tab_activated(
     mut tab_state: ResMut<GridMenuTabState>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
-    mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    mut pages: Single<&mut ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut quality_confirm: ResMut<VisualQualityConfirmState>,
     mut sfx: SfxWriter,
 ) {

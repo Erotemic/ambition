@@ -43,9 +43,8 @@ fn menu_open(app: &App) -> bool {
 }
 
 fn menu_page(app: &App) -> Option<MenuPage> {
-    app.world()
-        .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
-        .active
+    app.world().try_query::<&ActiveMenuPages<MenuPage, MenuPageAction>>()
+        .expect("menu page model").single(app.world()).expect("one menu").active
 }
 
 /// Dialogue boxes that would draw: a root that is not hidden by visibility.

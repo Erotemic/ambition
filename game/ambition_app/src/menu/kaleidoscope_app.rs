@@ -77,7 +77,6 @@ pub(crate) fn play_ui(sfx: &mut SfxWriter, id: ambition_platformer2d::sfx::SfxId
 /// Grid-only build does not spawn the cube camera/ring or register Lunex systems.
 pub fn install_unified_menu_shared(app: &mut App) {
     app.init_resource::<InventoryUiBackend>()
-        .init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
         .init_resource::<KaleidoscopeCursor>()
         // The pointer-hover handlers read `SeatActiveDevices`. The input plugin
         // also inits it; init here too so the menu remains self-sufficient
@@ -960,9 +959,9 @@ fn kaleidoscope_focus_nav(
     // Features C/D: keyboard navigation CLEARS the explicit scroll override so the
     // System window resumes following the selection cursor (the wheel/drag set it).
     mut scroll: ResMut<KaleidoscopeScroll>,
-    mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
-    // Read-only: nav never closes the overlay. A close is the `CloseMenu` action,
-    // which the consumer applies through `crate::menu::lifecycle::close_menu`.
+    mut pages: Single<&mut ActiveMenuPages<MenuPage, MenuPageAction>>,
+    // Navigation emits CloseMenu. The action consumer closes the surface;
+    // the shared pause arbiter applies its released claim.
     overlay: Single<&ambition_platformer2d::inventory_ui::InventoryUiState>,
     // the game mode is GONE from nav. It was here only so a close-via-action
     // (Reset Sandbox) could unpause exactly like an Esc-close — and that close
@@ -1171,7 +1170,7 @@ pub(crate) fn kaleidoscope_menu_action_activated(
     mut activated: MessageReader<MenuActionActivated<MenuPageAction>>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
-    mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    mut pages: Single<&mut ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut overlay: Single<&mut ambition_platformer2d::inventory_ui::InventoryUiState>,
     owned: Res<OwnedItems>,
     hand: PrimaryHand,
@@ -1948,7 +1947,7 @@ fn gate_kaleidoscope_menu(
 #[cfg(feature = "kaleidoscope_menu")]
 fn kaleidoscope_sync_focus_visuals(
     cursor: Res<KaleidoscopeCursor>,
-    pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    pages: Single<&ActiveMenuPages<MenuPage, MenuPageAction>>,
     cache: Res<CachedSystemMenu>,
     // Every control across every face, plus whether it sits on the ACTIVE face. The
     // cube spawns all faces at once and a focus key (an edge `>`/`<` button, a row
@@ -1997,7 +1996,7 @@ fn kaleidoscope_sync_detail_text(
     owned: Option<Res<OwnedItems>>,
     hand: PrimaryHand,
     cursor: Res<KaleidoscopeCursor>,
-    pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    pages: Single<&ActiveMenuPages<MenuPage, MenuPageAction>>,
     cache: Res<CachedSystemMenu>,
     mut texts: Query<(&MenuDynamicText, &mut MenuDynamicTextContent)>,
 ) {

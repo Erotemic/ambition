@@ -47,7 +47,7 @@ pub(crate) fn kaleidoscope_pointer_press(
 pub(crate) fn kaleidoscope_pointer_move(
     move_: On<Pointer<Move>>,
     controls: Query<&AmbitionMenuControl<MenuPageAction>>,
-    pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    pages: Single<&ActiveMenuPages<MenuPage, MenuPageAction>>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
     quality_confirm: Res<VisualQualityConfirmState>,
@@ -171,7 +171,7 @@ pub(crate) fn kaleidoscope_pointer_move(
 pub(crate) fn kaleidoscope_pointer_release(
     _release: On<Pointer<Release>>,
     ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
-    pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    pages: Single<&ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,

@@ -74,7 +74,7 @@ pub(crate) fn route_menu_lifecycle(
     backend: Res<InventoryUiBackend>,
     mut overlay: Single<&mut InventoryUiState>,
     mode: Res<State<GameMode>>,
-    mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    mut pages: Single<&mut ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system: ResMut<KaleidoscopeSystemNav>,
     mut quality: ResMut<VisualQualityConfirmState>,

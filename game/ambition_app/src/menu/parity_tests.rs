@@ -360,7 +360,6 @@ mod dispatch_parity {
     use ambition_platformer2d::menu::render::bevy_ui::{
         install_bevy_ui_menu_actions, BevyUiMenuInteractionSet,
     };
-    use ambition_platformer2d::menu::ActiveMenuPages;
 
     use crate::menu::grid_backend::{grid_menu_action_activated, GridMenuTabState};
     use crate::menu::kaleidoscope_app::{
@@ -387,7 +386,6 @@ mod dispatch_parity {
         app.add_plugins(bevy::state::app::StatesPlugin);
         app.init_state::<GameMode>();
         app.init_resource::<InventoryUiBackend>();
-        app.init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>();
         app.init_resource::<KaleidoscopeCursor>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<KaleidoscopePointerPress>();
@@ -534,9 +532,7 @@ mod dispatch_parity {
             InventoryUiBackend::LunexKaleidoscope,
             MenuPageAction::ChangePage(MenuPage::System),
         );
-        let cube_page = cube
-            .world()
-            .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+        let cube_page = crate::menu::test_support::active_pages(cube.world())
             .active;
         assert_eq!(
             cube_page,
@@ -558,17 +554,14 @@ mod dispatch_parity {
         // Seeding the page first makes it assert a genuine NO-OP: the value is
         // unchanged because nothing touched it.
         let mut grid = menu_app(InventoryUiBackend::Grid);
-        grid.world_mut()
-            .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+        crate::menu::test_support::active_pages_mut(grid.world_mut())
             .active = Some(MenuPage::Items);
         activate(
             &mut grid,
             InventoryUiBackend::Grid,
             MenuPageAction::ChangePage(MenuPage::System),
         );
-        let grid_page = grid
-            .world()
-            .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+        let grid_page = crate::menu::test_support::active_pages(grid.world())
             .active;
         assert_eq!(
             grid_page,

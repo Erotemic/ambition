@@ -639,9 +639,9 @@ pub struct MenuScrollPane {
 
 /// Renderer-independent active page set.
 ///
-/// Hosts may maintain this directly, or rebuild it only when the menu opens or
-/// item data changes. Renderers treat it as read-only.
-#[derive(Resource, Clone, Debug)]
+/// Attach this component to the menu entity. The host publishes page data;
+/// renderers read it without changing the model.
+#[derive(Component, Clone, Debug)]
 pub struct ActiveMenuPages<PageId, Action> {
     pub pages: Vec<MenuPageModel<PageId, Action>>,
     pub active: Option<PageId>,

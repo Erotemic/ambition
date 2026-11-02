@@ -35,7 +35,7 @@ The per-fighter table is
 [`data/smash_ultimate_fighter_stats.csv`](data/smash_ultimate_fighter_stats.csv):
 90 fighters × 42 columns, in Ultimate's own units, spelled exactly as the
 sources spell them (`??`, `**`, `20/25` and `(2) 6` included). It is written
-by [`scripts/fetch_smash_ultimate_reference.py`](../../scripts/fetch_smash_ultimate_reference.py);
+by [`tools/ambition_moveset_inspector/fetch_smash_ultimate_reference.py`](../../tools/ambition_moveset_inspector/fetch_smash_ultimate_reference.py);
 re-run it to refresh the table and diff the result. Its columns are named after the source columns in the
 script's `UFD_TABLES`. Distances are units; times are frames at 60 Hz; speeds
 are units per frame; gravity and acceleration are units per frame².
@@ -196,7 +196,7 @@ The per-hitbox table is
 [`data/smash_ultimate_move_hitboxes.csv`](data/smash_ultimate_move_hitboxes.csv):
 one row per hitbox of twelve moves (the tilts, dash attack, smash attacks and
 aerials) of the archetype anchors, copied from SmashWiki's move pages by
-[`scripts/fetch_smash_ultimate_moves.py`](../../scripts/fetch_smash_ultimate_moves.py)
+[`tools/ambition_moveset_inspector/fetch_smash_ultimate_moves.py`](../../tools/ambition_moveset_inspector/fetch_smash_ultimate_moves.py)
 (add a fighter with `--fighter`). Columns are the pages' own: `damage` (%),
 `angle` (degrees, 361 = the Sakurai angle), `bk` (base knockback), `ks`
 (knockback scaling), `fkv` (set knockback, 0 = none); `section` names the hit

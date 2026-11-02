@@ -16,8 +16,8 @@ is stated in the page.
 
 Usage::
 
-    python3 scripts/fetch_smash_ultimate_reference.py            # fetch + write
-    python3 scripts/fetch_smash_ultimate_reference.py --html F    # parse a saved stats page
+    python3 tools/ambition_moveset_inspector/fetch_smash_ultimate_reference.py            # fetch + write
+    python3 tools/ambition_moveset_inspector/fetch_smash_ultimate_reference.py --html F    # parse a saved stats page
 """
 import argparse
 import csv
@@ -31,7 +31,7 @@ UFD_URL = "https://ultimateframedata.com/stats.php"
 ROLL_URL = "https://www.ssbwiki.com/index.php?title=Roll&action=raw"
 TRACTION_URL = "https://www.ssbwiki.com/index.php?title=Traction&action=raw"
 AIR_FRICTION_URL = "https://www.ssbwiki.com/index.php?title=Air_friction&action=raw"
-OUT = Path(__file__).resolve().parent.parent / "docs/related-work/data/smash_ultimate_fighter_stats.csv"
+OUT = Path(__file__).resolve().parent.parent.parent / "docs/related-work/data/smash_ultimate_fighter_stats.csv"
 
 # The roster is the "Dash and Run Speed" table's: one row per fighter. Other
 # tables spell some fighters differently, or merge echoes ("Marth/Lucina"); a

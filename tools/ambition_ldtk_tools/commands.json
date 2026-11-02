@@ -16,6 +16,23 @@
       "build": "No Cargo build. Use the owner Python environment.",
       "status": "active",
       "cwd": "repository root"
+    },
+    {
+      "id": "propose_ldtk_tileset_retarget",
+      "title": "Propose an LDtk tileset retarget",
+      "owner": "tools/ambition_ldtk_tools",
+      "command": "python3 tools/ambition_ldtk_tools/propose_ldtk_tileset_retarget.py --out /tmp/tileset-retarget.patch",
+      "help": "python3 tools/ambition_ldtk_tools/propose_ldtk_tileset_retarget.py --help",
+      "requires": [
+        "tools/ambition_ldtk_tools/propose_ldtk_tileset_retarget.py"
+      ],
+      "docs": "tools/ambition_ldtk_tools/README.md",
+      "inputs": "LDtk worlds and a selected published sprite image.",
+      "outputs": "Unified diff with image-based coordinate conversion.",
+      "mutation": "Default writes a proposal. --apply writes changed worlds.",
+      "build": "No Cargo build. Retarget needs an existing selected sprite publication.",
+      "status": "active",
+      "cwd": "repository root"
     }
   ]
 }

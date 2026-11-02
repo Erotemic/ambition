@@ -68,6 +68,23 @@
       "build": "Reuses recorded takes. GPU rendering reuses moveset_render. No implicit Cargo build.",
       "status": "active",
       "cwd": "repository root"
+    },
+    {
+      "id": "smash_retime",
+      "title": "Retime authored fighter moves",
+      "owner": "tools/ambition_moveset_inspector",
+      "command": "python3 tools/ambition_moveset_inspector/smash_retime.py --fighter npc_pirate_admiral",
+      "help": "python3 tools/ambition_moveset_inspector/smash_retime.py --help",
+      "requires": [
+        "tools/ambition_moveset_inspector/smash_retime.py"
+      ],
+      "docs": "tools/ambition_moveset_inspector/docs/inspector.md",
+      "inputs": "Authored fighter facets and move files.",
+      "outputs": "Timing proposal or updated authored files.",
+      "mutation": "Default reports proposals. --apply writes authored timing.",
+      "build": "No Cargo build. Retarget needs an existing selected sprite publication.",
+      "status": "active",
+      "cwd": "repository root"
     }
   ]
 }

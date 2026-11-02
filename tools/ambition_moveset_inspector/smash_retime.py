@@ -18,9 +18,9 @@ preparation (`ambition_characters::move_damage::move_timing_over`), a
 piecewise-linear map of the move's own clock, so hit volumes, events and the
 clip keep their phase of the swing.
 
-    python3 scripts/smash_retime.py                 # report every roster fighter
-    python3 scripts/smash_retime.py --apply         # write the facets
-    python3 scripts/smash_retime.py --fighter goblin --apply
+    python3 tools/ambition_moveset_inspector/smash_retime.py                 # report every roster fighter
+    python3 tools/ambition_moveset_inspector/smash_retime.py --apply         # write the facets
+    python3 tools/ambition_moveset_inspector/smash_retime.py --fighter goblin --apply
 
 The archetype of each fighter is in ARCHETYPES below, from the Ultimate anchor
 its `smash_fighter` facet names (`scripts/measure/smash_fighter_shape.py`). Templates
@@ -38,7 +38,7 @@ import re
 import sys
 
 HZ = 60.0
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # verb -> (first active, last active, total, landing lag or None), in frames.
 TEMPLATES = {
@@ -294,7 +294,7 @@ def facet_block(rows: list[tuple[str, str, tuple[int, int, int, int | None]]]) -
         "",
         "    // SMASH-STAGE MOVE CLOCKS: first strike, last strike, total and landing",
         "    // lag, in seconds, and the swing cue. Written by",
-        "    // `scripts/smash_retime.py` from an archetype template; the moveset keeps",
+        "    // `tools/ambition_moveset_inspector/smash_retime.py` from an archetype template; the moveset keeps",
         "    // the home game's pace. Frames at 60 Hz are in the trailing comment.",
         "    move_timing: {",
     ]
@@ -314,7 +314,7 @@ def facet_block(rows: list[tuple[str, str, tuple[int, int, int, int | None]]]) -
         lines += [
             "    // SMASH-STAGE BASE KNOCKBACK: the factor each move's base launch is",
             "    // scaled by here, so a tilt or an aerial at 0% stuns past its own",
-            "    // swing. Written by `scripts/smash_retime.py`.",
+            "    // swing. Written by `tools/ambition_moveset_inspector/smash_retime.py`.",
             "    move_knockback: {",
         ]
         for verb, move_id in kb:

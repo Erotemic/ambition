@@ -31,7 +31,7 @@ use ambition_menu_kaleidoscope::{
 use bevy::prelude::*;
 
 #[cfg(feature = "kaleidoscope_menu")]
-use crate::menu::effects::{MenuEffectPlayers, MenuItemRequests, PrimaryHand};
+use crate::menu::effects::{MenuEffectBodies, MenuItemRequests, PrimaryHand};
 #[cfg(feature = "kaleidoscope_menu")]
 use crate::menu::model::{
     build_inventory_pages_with_quality_prompt, scroll_fraction_to_window_start,
@@ -1191,7 +1191,7 @@ pub(crate) fn kaleidoscope_menu_action_activated(
     mut settings: ResMut<UserSettings>,
     mut quality_confirm: ResMut<VisualQualityConfirmState>,
     mut commands: Commands,
-    mut players: MenuEffectPlayers,
+    mut players: MenuEffectBodies,
     mut requests: MenuItemRequests,
     mut sfx: SfxWriter,
     mut system: SystemMenuParams,

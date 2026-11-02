@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use ambition_platformer2d::menu::ActiveMenuPages;
 
 use crate::menu::effects::{
-    dispatch_item_confirm, MenuAction, MenuEffectPlayers, MenuItemRequests, PrimaryHand,
+    dispatch_item_confirm, MenuAction, MenuEffectBodies, MenuItemRequests, PrimaryHand,
 };
 use crate::menu::kaleidoscope_app::{
     back_edge_focus, close_system_entry, play_ui, rotate_sfx, KaleidoscopeCursor,
@@ -41,7 +41,7 @@ pub(crate) fn dispatch_menu_action(
     quality_confirm: &mut VisualQualityConfirmState,
     close_menu: &mut bool,
     commands: &mut Commands,
-    players: &mut MenuEffectPlayers,
+    players: &mut MenuEffectBodies,
     requests: &mut MenuItemRequests,
     sfx: &mut SfxWriter,
     system: &mut SystemMenuParams,

@@ -22,7 +22,7 @@ use ambition_platformer2d::menu::{
     MenuTabActivated,
 };
 
-use crate::menu::effects::{MenuEffectPlayers, MenuItemRequests, PrimaryHand};
+use crate::menu::effects::{MenuEffectBodies, MenuItemRequests, PrimaryHand};
 use crate::menu::kaleidoscope_app::{
     focus_for_action, owned_item_action, play_ui, system_focus_nav, KaleidoscopeCursor,
     KaleidoscopeSystemNav, SystemMenuParams,
@@ -50,7 +50,7 @@ pub(crate) struct MenuDispatchParams<'w, 's> {
     settings: ResMut<'w, UserSettings>,
     quality_confirm: ResMut<'w, VisualQualityConfirmState>,
     commands: Commands<'w, 's>,
-    players: MenuEffectPlayers<'w, 's>,
+    players: MenuEffectBodies<'w, 's>,
     requests: MenuItemRequests<'w, 's>,
     sfx: SfxWriter<'w>,
     system: SystemMenuParams<'w, 's>,

@@ -11,6 +11,7 @@ use bevy::prelude::*;
 use ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog;
 #[cfg(feature = "audio")]
 use ambition_platformer2d::audio::library::AudioLibrary;
+#[cfg(feature = "audio")]
 use ambition_platformer2d::content::MusicRegistry;
 use ambition_platformer2d::render::rendering::{HudText, QuestPanelText};
 use ambition_platformer2d::render::ui_fonts::{UiFontWeight, UiFonts};

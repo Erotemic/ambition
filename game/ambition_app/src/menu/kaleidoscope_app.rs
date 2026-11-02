@@ -43,14 +43,17 @@ use crate::menu::model::{
     system_rows_with_quality_prompt, MenuFocus, MenuPage, MenuPageAction, SystemRow,
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
-#[cfg(feature = "kaleidoscope_menu")]
 use ambition_platformer2d::input::MenuControlFrame;
-use ambition_platformer2d::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
+use ambition_platformer2d::items::{Item, OwnedItems};
+#[cfg(feature = "kaleidoscope_menu")]
+use ambition_platformer2d::items::{ITEM_GRID_COLS, ITEM_GRID_ROWS};
 // ⚠ NOT gated on `kaleidoscope_menu`. `SystemMenuBinding::model`,
 // `reset_all_settings`, `is_value_setting` and `apply_system_option_step` are
 // compiled without that feature and all name these types; the narrower gate
 // made every one of them unresolvable in the web composition.
-use ambition_platformer2d::persistence::settings::{UserSettings, VisualQualityProfile};
+use ambition_platformer2d::persistence::settings::UserSettings;
+#[cfg(feature = "kaleidoscope_menu")]
+use ambition_platformer2d::persistence::settings::VisualQualityProfile;
 use ambition_platformer2d::settings_menu::settings::{
     apply_settings_option, settings_menu_model, SettingsOptionId, SettingsOptionKind,
 };
@@ -107,6 +110,14 @@ pub fn install_unified_menu_shared(app: &mut App) {
     // overlay being open, so it lives with the shared resources rather than
     // either backend. Registered in the SIM schedule, strictly before its
     // reader — see `install_menu_confirm_provider`.
+    #[cfg(all(feature = "input", any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")))]
+    app.add_message::<ambition_platformer2d::game_shell::PauseRequested>()
+        .add_systems(Update, crate::menu::lifecycle::route_menu_lifecycle
+            .run_if(ambition_platformer2d::platformer::lifecycle::simulation_authorized)
+            .run_if(ambition_platformer2d::runtime::in_base_mode)
+            .in_set(ambition_platformer2d::input::MenuNavConsume)
+            .before(crate::menu::GridMenuNav)
+            .before(crate::menu::KaleidoscopeMenuNav));
     install_menu_confirm_provider(app);
 }
 
@@ -137,18 +148,6 @@ pub(crate) fn install_menu_confirm_provider(app: &mut App) {
             .in_set(Platformer2dSimulationPhase::FeatureViewSync)
             .before(ambition_platformer2d::sim_view::ControlPromptRebuilt),
     );
-}
-
-#[cfg(feature = "kaleidoscope_menu")]
-/// The menu BACKEND SEAM as a single run-condition: gate a system on
-/// "the 3D kaleidoscope backend is installed and active." Systems whose only
-/// backend handling was a bare `if *backend != LunexKaleidoscope { return; }`
-/// early-return are now registered `.run_if(kaleidoscope_backend_active)`
-/// instead, so "which backend is active" is expressed in ONE place rather than
-/// scattered across each system body.
-fn kaleidoscope_backend_active(backend: Res<InventoryUiBackend>) -> bool {
-    KALEIDOSCOPE_MENU_BACKEND_ENABLED
-        && backend.effective() == InventoryUiBackend::LunexKaleidoscope
 }
 
 #[cfg(feature = "kaleidoscope_menu")]
@@ -325,19 +324,6 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
         .add_systems(
             Update,
             (
-                // Route pause/Esc, inventory, and map into the cube backend on the matching
-                // page before navigation consumes the frame.
-                kaleidoscope_menu_open_routing
-                    .run_if(kaleidoscope_backend_active)
-                    // Gate the pause/inventory toggle on a LIVE Ambition session
-                    // (session exists AND it is Ambition's own mode), the mirror of
-                    // the Grid backend gate — so the menu cannot open on the title
-                    // screen or inside a hosted Sanic/Mary-O session.
-                    .run_if(ambition_platformer2d::platformer::lifecycle::simulation_authorized)
-                    .run_if(ambition_platformer2d::runtime::in_base_mode)
-                    .in_set(ambition_platformer2d::input::MenuNavConsume)
-                    // ORDERED against the grid backend's nav; see `menu::GridMenuNav`.
-                    .in_set(crate::menu::KaleidoscopeMenuNav),
                 // Nav first (mutates the cursor), then republish (reads the cursor +
                 // inventory) so the highlight + detail panel reflect this frame's move.
                 // Also in `MenuNavConsume` for the same fold-ordering reason above.
@@ -428,6 +414,11 @@ pub(crate) struct KaleidoscopeCursor {
 }
 
 impl KaleidoscopeCursor {
+    pub(crate) fn reset_pointer(&mut self) {
+        #[cfg(feature = "kaleidoscope_menu")]
+        { self.last_pointer_focus = None; }
+    }
+
     /// Keyboard/gamepad nav took the cursor to `focus` (claims ownership).
     pub(crate) fn mark_keyboard(&mut self, focus: MenuFocus) {
         self.focus = focus;
@@ -852,7 +843,7 @@ impl SystemMenuParams<'_, '_> {
 /// Read the current game mode + queue the next one, bundled into ONE [`SystemParam`]
 /// so the nav system / pointer observer that need to UNPAUSE on a close-via-action
 /// (e.g. Reset Sandbox) stay within Bevy's 16-param ceiling. Threaded into
-/// [`close_kaleidoscope_menu`] via [`Self::mode`] + [`Self::next_mode`].
+/// [`crate::menu::lifecycle::close_menu`] via [`Self::mode`] + [`Self::next_mode`].
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct GameModeIo<'w> {
     state: Res<'w, State<ambition_platformer2d::platformer::schedule::GameMode>>,
@@ -980,7 +971,7 @@ fn kaleidoscope_focus_nav(
     mut scroll: ResMut<KaleidoscopeScroll>,
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
     // Read-only: nav never closes the overlay. A close is the `CloseMenu` action,
-    // which the consumer applies through `close_kaleidoscope_menu`.
+    // which the consumer applies through `crate::menu::lifecycle::close_menu`.
     overlay: Res<ambition_platformer2d::inventory_ui::InventoryUiState>,
     // the game mode is GONE from nav. It was here only so a close-via-action
     // (Reset Sandbox) could unpause exactly like an Esc-close — and that close
@@ -1009,7 +1000,7 @@ fn kaleidoscope_focus_nav(
     // `InventoryUiBackend` mid-frame (the cause of the unreliable in-menu toggle).
     let menu = *menu_frame;
     menu_frame.consume_nav_edges();
-    // The Esc/pause toggle (`menu.start`) is owned ENTIRELY by `kaleidoscope_menu_open_routing`
+    // The Esc/pause toggle (`menu.start`) is owned ENTIRELY by `route_menu_lifecycle`
     // (close the cube / drill out of a System category / restore GameMode).
     if menu.start {
         return;
@@ -1231,7 +1222,7 @@ pub(crate) fn kaleidoscope_menu_action_activated(
         );
         if close_menu {
             // A close-via-action must unpause exactly like the canonical Esc-close.
-            close_kaleidoscope_menu(&mut overlay, mode_io.state.get(), &mut mode_io.next);
+            crate::menu::lifecycle::close_menu(&mut overlay, mode_io.state.get(), &mut mode_io.next);
             break;
         }
     }
@@ -1880,234 +1871,6 @@ pub(crate) fn focus_for_action(
 mod pointer;
 #[cfg(feature = "kaleidoscope_menu")]
 pub(crate) use pointer::*;
-
-#[cfg(feature = "kaleidoscope_menu")]
-/// Fix 3: route the game's menu-open inputs to the CUBE when it is the active
-/// backend, opening it on the page that matches the requested menu:
-///
-/// * pause / `Esc` (`menu.start`) → open on [`MenuPage::System`] (replacing the old
-///   pause/system menu); pressing it again while the cube is open CLOSES the cube.
-/// * inventory key (`menu.inventory`) → open on [`MenuPage::Items`].
-/// * map key (`menu.map`) → open on [`MenuPage::Map`].
-///
-/// Opening pauses the sim (`GameMode::Paused`) and raises `InventoryUiState.visible`,
-/// exactly like the inventory open path — which makes the existing pause-menu UI
-/// auto-suppress (`Paused && !inventory.visible`). The old `pause_menu_toggle` and
-/// `handle_map_menu_hotkeys` are gated to no-op under the Cube backend (see their
-/// `kaleidoscope_backend_active` guards), so nothing double-fires the `GameMode` toggle and
-/// the map panel never opens behind the cube.
-///
-/// `Esc`-to-close is owned HERE (not by `kaleidoscope_focus_nav`'s `menu.back`) so the close
-/// also restores `GameMode::Playing`; the routing runs before `kaleidoscope_focus_nav`, and
-/// consuming the open/close intent keeps the two from fighting over the same frame.
-#[cfg(feature = "input")]
-#[allow(clippy::too_many_arguments)]
-fn kaleidoscope_menu_open_routing(
-    mut menu: ResMut<MenuControlFrame>,
-    mut overlay: ResMut<ambition_platformer2d::inventory_ui::InventoryUiState>,
-    mode: Res<State<ambition_platformer2d::platformer::schedule::GameMode>>,
-    mut next_mode: ResMut<NextState<ambition_platformer2d::platformer::schedule::GameMode>>,
-    mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
-    mut cursor: ResMut<KaleidoscopeCursor>,
-    mut system_nav: ResMut<KaleidoscopeSystemNav>,
-    mut quality_confirm: ResMut<VisualQualityConfirmState>,
-    mut map: ResMut<ambition_platformer2d::menu::map::MapMenuState>,
-    mut sfx: SfxWriter,
-    // Tracks last frame's `menu.start` so we only act on its RISING edge (below).
-    mut last_start: Local<bool>,
-    mut pause_requests: MessageReader<ambition_platformer2d::game_shell::PauseRequested>,
-) {
-    // The platform's pause (the app went to the background) opens the cube on
-    // the System page, as Start does; an open cube stays open.
-    if pause_requests.read().count() > 0
-        && !overlay.visible
-        && crate::menu::model::primary_overlay_may_open(*mode.get())
-    {
-        open_kaleidoscope_menu(
-            MenuPage::System,
-            &mut overlay,
-            mode.get(),
-            &mut next_mode,
-            &mut pages,
-            &mut cursor,
-            &mut system_nav,
-            &mut map,
-        );
-        return;
-    }
-
-    // pause / Esc: toggle the cube on the System page.
-    //
-    // Rising-edge debounce: `menu.start` is `just_pressed(Start)`, but it can be observed on
-    // MORE THAN ONE consecutive frame (e.g. when the Update schedule ticks more than once per
-    // leafwing input update). Acting only on the rising edge guarantees one open/close per
-    // physical press.
-    let start_edge = menu.start && !*last_start;
-    *last_start = menu.start;
-    if start_edge {
-        // Esc binds to BOTH `pause` (→ `menu.start`) AND `MenuBack` (→ `menu.back`),
-        // so a single Esc sets both bits. This system OWNS the Esc open/close toggle;
-        // consume the duplicate `back` so the later `kaleidoscope_focus_nav` / `system_focus_nav`
-        // in the chain can't act on the same Esc (e.g. immediately re-close what we just
-        // opened, or drill out of a System category instead of closing). `back` from a
-        // NON-Esc source (Backspace / gamepad East) never co-occurs with `start`, so it
-        // still reaches the nav systems for its own close / drill-out handling.
-        menu.back = false;
-        if overlay.visible {
-            // Fix 1: while the menu is open, Esc BACKS OUT one level when the cursor is inside a
-            // nested System screen (a drilled-in category / Radio / Developer entry, i.e.
-            // `open_entry.is_some()`); only at the top level does Esc CLOSE the whole menu. Owning
-            // the drill-out HERE (instead of leaving it to `system_focus_nav`'s `menu.back`) is
-            // required because we consume the co-firing `menu.back` just above, so the nav systems
-            // can't see this Esc at all.
-            if system_nav.open_entry.is_some() {
-                play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_BACK);
-                quality_confirm.cancel();
-                close_system_entry(&mut system_nav, &mut cursor);
-            } else {
-                play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_CLOSE);
-                quality_confirm.cancel();
-                close_kaleidoscope_menu(&mut overlay, mode.get(), &mut next_mode);
-            }
-        } else if crate::menu::model::primary_overlay_may_open(*mode.get()) {
-            play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_OPEN);
-            // SHARED entry→tab mapping: Esc/Start lands on the System face.
-            // Keep this mapping local to the backend-agnostic menu vocabulary so
-            // the cube can compile without the Bevy-UI/Grid backend feature.
-            open_kaleidoscope_menu(
-                MenuPage::System,
-                &mut overlay,
-                mode.get(),
-                &mut next_mode,
-                &mut pages,
-                &mut cursor,
-                &mut system_nav,
-                &mut map,
-            );
-        }
-        return;
-    }
-
-    // Inventory key: on the Items face it closes the cube; on another face it
-    // turns the cube to Items (`open_overlay_key`, the rule the map key obeys).
-    if menu.inventory {
-        if overlay.visible {
-            match crate::menu::model::open_overlay_key(MenuPage::Items, pages.active) {
-                crate::menu::model::OpenOverlayKey::Close => {
-                    // Closing: leave the active page alone so the fold-close
-                    // animation plays out from the face that was shown.
-                    play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_CLOSE);
-                    quality_confirm.cancel();
-                    close_kaleidoscope_menu(&mut overlay, mode.get(), &mut next_mode);
-                }
-                crate::menu::model::OpenOverlayKey::TurnTo(page) => {
-                    pages.active = Some(page);
-                    system_nav.open_entry = None;
-                    cursor.mark_keyboard(MenuFocus::Item(0));
-                }
-            }
-        } else if crate::menu::model::primary_overlay_may_open(*mode.get()) {
-            // Opening on the Items page (shared entry→tab mapping) + seed the cursor.
-            play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_OPEN);
-            open_kaleidoscope_menu(
-                MenuPage::Items,
-                &mut overlay,
-                mode.get(),
-                &mut next_mode,
-                &mut pages,
-                &mut cursor,
-                &mut system_nav,
-                &mut map,
-            );
-        }
-        return;
-    }
-
-    // map key: open on the Map page (suppressing the standalone map panel). On
-    // the Map face it closes the cube; on another face it turns the cube to Map.
-    if menu.map {
-        let map_page = MenuPage::Map;
-        if overlay.visible {
-            match crate::menu::model::open_overlay_key(map_page, pages.active) {
-                crate::menu::model::OpenOverlayKey::Close => {
-                    play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_CLOSE);
-                    quality_confirm.cancel();
-                    close_kaleidoscope_menu(&mut overlay, mode.get(), &mut next_mode);
-                }
-                crate::menu::model::OpenOverlayKey::TurnTo(page) => {
-                    pages.active = Some(page);
-                    system_nav.open_entry = None;
-                    cursor.mark_keyboard(MenuFocus::EdgeLeft);
-                }
-            }
-        } else if crate::menu::model::primary_overlay_may_open(*mode.get()) {
-            play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_OPEN);
-            open_kaleidoscope_menu(
-                map_page,
-                &mut overlay,
-                mode.get(),
-                &mut next_mode,
-                &mut pages,
-                &mut cursor,
-                &mut system_nav,
-                &mut map,
-            );
-        }
-    }
-}
-
-#[cfg(feature = "kaleidoscope_menu")]
-/// Open the cube overlay on `page`, pausing the sim and seeding the cursor: raise
-/// `visible`, switch to
-/// `GameMode::Paused` when coming from gameplay, and make sure the standalone map
-/// panel stays shut so it can't render behind the cube.
-#[cfg(feature = "input")]
-#[allow(clippy::too_many_arguments)]
-fn open_kaleidoscope_menu(
-    page: MenuPage,
-    overlay: &mut ambition_platformer2d::inventory_ui::InventoryUiState,
-    mode: &ambition_platformer2d::platformer::schedule::GameMode,
-    next_mode: &mut NextState<ambition_platformer2d::platformer::schedule::GameMode>,
-    pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
-    cursor: &mut KaleidoscopeCursor,
-    system_nav: &mut KaleidoscopeSystemNav,
-    map: &mut ambition_platformer2d::menu::map::MapMenuState,
-) {
-    overlay.visible = true;
-    let request = crate::menu::model::mode_on_overlay_open(overlay, *mode);
-    pages.active = Some(page);
-    // Seed a sensible cursor for the opening page.
-    system_nav.open_entry = None;
-    cursor.last_pointer_focus = None;
-    cursor.mark_keyboard(match page {
-        MenuPage::Items => MenuFocus::Item(0),
-        MenuPage::System => MenuFocus::System(0),
-        MenuPage::Map | MenuPage::Quest => MenuFocus::EdgeLeft,
-    });
-    // Never leave the standalone map panel open underneath the cube.
-    map.open = false;
-    if let Some(request) = request {
-        ambition_platformer2d::platformer::world_log::note_game_mode_request(request, "menu_cube_open");
-        next_mode.set(request);
-    }
-}
-
-#[cfg(feature = "kaleidoscope_menu")]
-/// Close the cube overlay (Esc while open), restoring `GameMode::Playing` when the
-/// cube was opened directly from gameplay (matching `close_grid_menu`). Also used by the
-/// close-via-action paths (`kaleidoscope_focus_nav` / `system_focus_nav` /
-/// `kaleidoscope_pointer_release`) so an action-triggered close unpauses identically.
-fn close_kaleidoscope_menu(
-    overlay: &mut ambition_platformer2d::inventory_ui::InventoryUiState,
-    mode: &ambition_platformer2d::platformer::schedule::GameMode,
-    next_mode: &mut NextState<ambition_platformer2d::platformer::schedule::GameMode>,
-) {
-    overlay.visible = false;
-    if let Some(request) = crate::menu::model::mode_on_overlay_close(overlay, *mode) {
-        ambition_platformer2d::platformer::world_log::note_game_mode_request(request, "menu_cube_close");
-        next_mode.set(request);
-    }
-}
 
 #[cfg(feature = "kaleidoscope_menu")]
 /// Dev hotkey: `\` cycles the room's ambient gravity through the four cardinal directions — down →

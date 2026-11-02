@@ -58,12 +58,13 @@ fn grid_app() -> App {
     app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::session::reset::NewGameRequested>>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<bevy::app::AppExit>();
+    app.add_message::<ambition_platformer2d::game_shell::PauseRequested>();
     // nav PUBLISHES activations now, so a harness that registers nav without
     // the consumer would silently swallow every keyboard select — the exact
     // failure the one-event convergence exists to make impossible. Chained, so
     // an activation published this frame is dispatched this frame.
     app.add_message::<ambition_platformer2d::menu::MenuActionActivated<MenuPageAction>>();
-    app.add_systems(Update, (grid_menu_open_routing, grid_menu_nav).chain());
+    app.add_systems(Update, (crate::menu::lifecycle::route_menu_lifecycle, grid_menu_nav).chain());
     // registered ONCE, here, and pinned by ORDER rather than by chaining —
     // `render_app` builds on this harness, and re-registering the consumer there
     // gave the message two independent readers. Both dispatched, so a pointer
@@ -860,20 +861,6 @@ fn esc_open_then_close_is_one_toggle() {
     assert!(!is_open(&app), "second Esc closes and does NOT reopen");
 }
 
-/// BUG 6: the entry→tab mapping is one place and maps each open key correctly.
-#[test]
-fn pause_entry_target_maps_each_source() {
-    assert_eq!(
-        pause_entry_target(PauseEntrySource::Inventory),
-        MenuPage::Items
-    );
-    assert_eq!(
-        pause_entry_target(PauseEntrySource::Pause),
-        MenuPage::System
-    );
-    assert_eq!(pause_entry_target(PauseEntrySource::Map), MenuPage::Map);
-}
-
 /// BUG 6 (routing): the entry key sets the active tab per the mapping —
 /// inventory→Items, Esc→System, map→Map.
 #[test]
@@ -1230,4 +1217,19 @@ fn a_face_key_turns_the_open_menu_to_its_tab_and_closes_it_from_there() {
     assert_eq!(active_tab(&app), MenuPage::Map);
     press(&mut app, |f| f.map = true);
     assert!(!is_open(&app), "the map key on its own tab closes the menu");
+}
+
+
+#[test]
+fn a_platform_pause_opens_the_grid_and_keeps_it_open() {
+    let mut app = grid_app();
+    app.world_mut().write_message(ambition_platformer2d::game_shell::PauseRequested);
+    app.update();
+    app.update();
+    assert!(is_open(&app));
+    assert_eq!(active_tab(&app), MenuPage::System);
+    assert_eq!(*app.world().resource::<State<GameMode>>().get(), GameMode::Paused);
+    app.world_mut().write_message(ambition_platformer2d::game_shell::PauseRequested);
+    app.update();
+    assert!(is_open(&app), "a platform pause request must not close the menu");
 }

@@ -5,7 +5,6 @@
 //! presentation differs: a flat tab bar and body instead of cube faces.
 //!
 //! Owned systems, gated to `backend == Grid`:
-//! - open/close routing for Esc/Start, inventory, and Back;
 //! - tab switching and remembered active tab;
 //! - keyboard/gamepad focus navigation and action dispatch;
 //! - dirty republish of the active page model through the Bevy-UI renderer;
@@ -118,6 +117,13 @@ pub(crate) enum GridFocusZone {
     Tabs,
 }
 
+impl GridMenuTabState {
+    pub(crate) fn reset_navigation(&mut self) {
+        self.focus_zone = GridFocusZone::Body;
+        self.system_window_start = None;
+    }
+}
+
 impl Default for GridMenuTabState {
     fn default() -> Self {
         Self {
@@ -172,7 +178,6 @@ mod grid_sfx {
     use ambition_platformer2d::sfx::ids;
     use ambition_platformer2d::sfx::SfxId;
 
-    pub const OPEN: SfxId = ids::UI_PAUSE_OPEN;
     pub const CLOSE: SfxId = ids::UI_PAUSE_CLOSE;
     pub const ACCEPT: SfxId = ids::UI_ACCEPT;
     pub const BACK: SfxId = ids::UI_BACK;
@@ -199,33 +204,6 @@ fn active_tab_index(pages: &ActiveMenuPages<MenuPage, MenuPageAction>) -> usize 
 
 fn tab_page(active_tab: usize) -> MenuPage {
     MenuPage::ALL[active_tab.min(MenuPage::ALL.len() - 1)]
-}
-
-/// Which menu-open input fired, so BOTH backends route the SAME entry key to the
-/// SAME landing tab/page. See [`pause_entry_target`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum PauseEntrySource {
-    /// Esc / Start (the pause button) → the System face.
-    Pause,
-    /// The dedicated inventory key → the Items (Inventory) tab.
-    Inventory,
-    /// The dedicated map key → the Map tab.
-    Map,
-}
-
-/// THE single mapping from a menu-open input to the page/tab it should land on.
-/// Used by both the Grid backend ([`grid_menu_open_routing`]) and the cube
-/// (`kaleidoscope_menu_open_routing`) so the entry key sets the SAME target tab in
-/// either presentation: Esc/Start → System, inventory key → Items, map key → Map.
-///
-/// Note: this governs only the ENTRY key's target. In-menu bumper switches still
-/// "remember last tab" independently (the entry key overrides that on open).
-pub(crate) fn pause_entry_target(source: PauseEntrySource) -> MenuPage {
-    match source {
-        PauseEntrySource::Pause => MenuPage::System,
-        PauseEntrySource::Inventory => MenuPage::Items,
-        PauseEntrySource::Map => MenuPage::Map,
-    }
 }
 
 /// The [`MenuPage::ALL`] index of a page (for seeding `active_tab`).
@@ -318,177 +296,6 @@ fn cursor_focus_key(
     None
 }
 
-/// Open/close routing for the Grid backend — the flat analog of
-/// `kaleidoscope_menu_open_routing`. Owns the Esc/Start toggle + the inventory/map
-/// keys; consumes the co-firing `menu.back` on an Esc so [`grid_menu_nav`] can't
-/// double-act on the same press. Opening pauses + raises `InventoryUiState.visible`;
-/// Back inside a System drill pops one level, else closes (restoring `GameMode`).
-#[cfg(feature = "input")]
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn grid_menu_open_routing(
-    mut menu: ResMut<MenuControlFrame>,
-    // ⭐ THE OWNER OF THE ACTIVE PAGE. This system chooses the landing tab, which
-    // used to mean writing the grid's own index; the page is one fact now.
-    mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
-    mut overlay: ResMut<ambition_platformer2d::inventory_ui::InventoryUiState>,
-    mode: Res<State<ambition_platformer2d::platformer::schedule::GameMode>>,
-    mut next_mode: ResMut<NextState<ambition_platformer2d::platformer::schedule::GameMode>>,
-    mut tab_state: ResMut<GridMenuTabState>,
-    mut cursor: ResMut<KaleidoscopeCursor>,
-    mut system_nav: ResMut<KaleidoscopeSystemNav>,
-    mut sfx: SfxWriter,
-    mut last_start: Local<bool>,
-) {
-
-    // Esc / Start: rising-edge toggle (debounced like the cube to avoid the
-    // close-then-reopen on a multi-frame `just_pressed`).
-    let start_edge = menu.start && !*last_start;
-    *last_start = menu.start;
-    if start_edge {
-        // Esc co-fires `menu.back`; this system OWNS the Esc toggle, so consume the
-        // duplicate `back` to keep `grid_menu_nav` from acting on the same Esc.
-        menu.back = false;
-        if overlay.visible {
-            if system_nav.open_entry.is_some() {
-                play_ui(&mut sfx, grid_sfx::BACK);
-                system_nav.open_entry = None;
-                // Drilling out changes the row set; drop the scroll override so the
-                // window snaps to the (re-seeded) cursor rather than a stale offset.
-                tab_state.system_window_start = None;
-                cursor.mark_keyboard(MenuFocus::System(0));
-            } else {
-                play_ui(&mut sfx, grid_sfx::CLOSE);
-                close_grid_unified_menu(&mut overlay, mode.get(), &mut next_mode);
-            }
-        } else if crate::menu::model::primary_overlay_may_open(*mode.get()) {
-            // Esc/Start opens on the System face (the shared entry→tab mapping),
-            // NOT the remembered tab — the pause button targets System.
-            play_ui(&mut sfx, grid_sfx::OPEN);
-            pages.active = Some(pause_entry_target(PauseEntrySource::Pause));
-            tab_state.focus_zone = GridFocusZone::Body;
-            open_grid_unified_menu(
-                active_tab_index(&pages),
-                &mut overlay,
-                mode.get(),
-                &mut next_mode,
-                &mut cursor,
-                &mut system_nav,
-            );
-        }
-        return;
-    }
-
-    // Inventory key: open ON the Inventory tab (the shared entry→tab mapping). While
-    // open, it turns to that tab, or closes from it (`open_overlay_key`).
-    if menu.inventory {
-        if overlay.visible {
-            overlay_face_key(
-                pause_entry_target(PauseEntrySource::Inventory),
-                &mut overlay,
-                mode.get(),
-                &mut next_mode,
-                &mut pages,
-                &mut tab_state,
-                &mut cursor,
-                &mut system_nav,
-                &mut sfx,
-            );
-        } else if crate::menu::model::primary_overlay_may_open(*mode.get()) {
-            play_ui(&mut sfx, grid_sfx::OPEN);
-            pages.active = Some(pause_entry_target(PauseEntrySource::Inventory));
-            tab_state.focus_zone = GridFocusZone::Body;
-            open_grid_unified_menu(
-                active_tab_index(&pages),
-                &mut overlay,
-                mode.get(),
-                &mut next_mode,
-                &mut cursor,
-                &mut system_nav,
-            );
-        }
-        return;
-    }
-
-    // Map key: open on the Map tab (the shared entry→tab mapping). While open, it
-    // turns to that tab, or closes from it (`open_overlay_key`).
-    if menu.map && overlay.visible {
-        overlay_face_key(
-            pause_entry_target(PauseEntrySource::Map),
-            &mut overlay,
-            mode.get(),
-            &mut next_mode,
-            &mut pages,
-            &mut tab_state,
-            &mut cursor,
-            &mut system_nav,
-            &mut sfx,
-        );
-    } else if menu.map && crate::menu::model::primary_overlay_may_open(*mode.get()) {
-        play_ui(&mut sfx, grid_sfx::OPEN);
-        pages.active = Some(pause_entry_target(PauseEntrySource::Map));
-        tab_state.focus_zone = GridFocusZone::Body;
-        open_grid_unified_menu(
-            active_tab_index(&pages),
-            &mut overlay,
-            mode.get(),
-            &mut next_mode,
-            &mut cursor,
-            &mut system_nav,
-        );
-    }
-}
-
-/// A face key (inventory or map) pressed while the unified menu is open: turn to
-/// its tab, or close from it (`open_overlay_key`, the rule the cube obeys).
-#[cfg(feature = "input")]
-#[allow(clippy::too_many_arguments)]
-fn overlay_face_key(
-    target: MenuPage,
-    overlay: &mut ambition_platformer2d::inventory_ui::InventoryUiState,
-    mode: &ambition_platformer2d::platformer::schedule::GameMode,
-    next_mode: &mut NextState<ambition_platformer2d::platformer::schedule::GameMode>,
-    pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
-    tab_state: &mut GridMenuTabState,
-    cursor: &mut KaleidoscopeCursor,
-    system_nav: &mut KaleidoscopeSystemNav,
-    sfx: &mut SfxWriter,
-) {
-    match crate::menu::model::open_overlay_key(target, pages.active) {
-        crate::menu::model::OpenOverlayKey::Close => {
-            play_ui(sfx, grid_sfx::CLOSE);
-            close_grid_unified_menu(overlay, mode, next_mode);
-        }
-        crate::menu::model::OpenOverlayKey::TurnTo(page) => {
-            pages.active = Some(page);
-            system_nav.open_entry = None;
-            tab_state.focus_zone = GridFocusZone::Body;
-            seed_cursor_for_tab(active_tab_index(pages), cursor);
-        }
-    }
-}
-
-/// Open the unified menu on `active_tab`, pausing the sim + seeding the cursor.
-/// Mirrors `open_kaleidoscope_menu`: raise `visible`, record `opened_from_pause`,
-/// switch to `Paused` when coming from gameplay.
-#[cfg(feature = "input")]
-fn open_grid_unified_menu(
-    active_tab: usize,
-    overlay: &mut ambition_platformer2d::inventory_ui::InventoryUiState,
-    mode: &ambition_platformer2d::platformer::schedule::GameMode,
-    next_mode: &mut NextState<ambition_platformer2d::platformer::schedule::GameMode>,
-    cursor: &mut KaleidoscopeCursor,
-    system_nav: &mut KaleidoscopeSystemNav,
-) {
-    overlay.visible = true;
-    let request = crate::menu::model::mode_on_overlay_open(overlay, *mode);
-    system_nav.open_entry = None;
-    seed_cursor_for_tab(active_tab, cursor);
-    if let Some(request) = request {
-        ambition_platformer2d::platformer::world_log::note_game_mode_request(request, "menu_grid_open");
-        next_mode.set(request);
-    }
-}
-
 /// Seed a sensible cursor for the tab being shown.
 fn seed_cursor_for_tab(active_tab: usize, cursor: &mut KaleidoscopeCursor) {
     cursor.mark_keyboard(match tab_page(active_tab) {
@@ -498,25 +305,10 @@ fn seed_cursor_for_tab(active_tab: usize, cursor: &mut KaleidoscopeCursor) {
     });
 }
 
-/// Close the unified menu, restoring `GameMode::Playing` when it was opened directly
-/// from gameplay (respecting `opened_from_pause`). Same contract as
-/// `close_kaleidoscope_menu`.
-pub(crate) fn close_grid_unified_menu(
-    overlay: &mut ambition_platformer2d::inventory_ui::InventoryUiState,
-    mode: &ambition_platformer2d::platformer::schedule::GameMode,
-    next_mode: &mut NextState<ambition_platformer2d::platformer::schedule::GameMode>,
-) {
-    overlay.visible = false;
-    if let Some(request) = crate::menu::model::mode_on_overlay_close(overlay, *mode) {
-        ambition_platformer2d::platformer::world_log::note_game_mode_request(request, "menu_grid_close");
-        next_mode.set(request);
-    }
-}
-
 /// Keyboard / gamepad navigation for the Grid backend. Bumpers switch tabs
 /// (wraparound); up/down/left/right move the focus cursor over the active page;
 /// `select` dispatches the focused control's action; `back` pops a System drill
-/// else closes. The Esc toggle is owned by [`grid_menu_open_routing`] (it bails on
+/// else closes. The Esc toggle is owned by [`crate::menu::lifecycle::route_menu_lifecycle`] (it bails on
 /// `menu.start`), so this never fights it.
 #[cfg(feature = "input")]
 #[allow(clippy::too_many_arguments)]
@@ -547,7 +339,7 @@ pub(crate) fn grid_menu_nav(
     // `InventoryUiBackend` mid-frame.
     let menu = *menu_frame;
     menu_frame.consume_nav_edges();
-    // The Esc/Start toggle is owned by `grid_menu_open_routing`; bail so a single Esc
+    // The Esc/Start toggle is owned by `route_menu_lifecycle`; bail so a single Esc
     // can't both close here and reopen there (the cube's Esc-Esc reopen guard).
     if menu.start {
         return;
@@ -626,7 +418,7 @@ pub(crate) fn grid_menu_nav(
             if menu.back {
                 play_ui(&mut fx.sfx, grid_sfx::CLOSE);
                 fx.quality_confirm.cancel();
-                close_grid_unified_menu(&mut overlay, mode.get(), &mut next_mode);
+                crate::menu::lifecycle::close_menu(&mut overlay, mode.get(), &mut next_mode);
                 return;
             }
             if menu.select {
@@ -689,7 +481,7 @@ pub(crate) fn grid_menu_nav(
             if menu.back {
                 play_ui(&mut fx.sfx, grid_sfx::CLOSE);
                 fx.quality_confirm.cancel();
-                close_grid_unified_menu(&mut overlay, mode.get(), &mut next_mode);
+                crate::menu::lifecycle::close_menu(&mut overlay, mode.get(), &mut next_mode);
             }
         }
     }
@@ -1076,7 +868,7 @@ pub(crate) fn grid_menu_action_activated(
         tab_state.last_key = None;
         if close_menu {
             fx.quality_confirm.cancel();
-            close_grid_unified_menu(&mut overlay, mode.get(), &mut next_mode);
+            crate::menu::lifecycle::close_menu(&mut overlay, mode.get(), &mut next_mode);
             break;
         }
     }
@@ -1132,17 +924,6 @@ pub fn install_grid_unified_menu(app: &mut App) {
     app.add_systems(
         Update,
         (
-            // Open/close routing owns the pause + inventory keys, so it is gated on
-            // a LIVE Ambition session, not just the backend selection: a live
-            // session exists (`simulation_authorized`) AND it is Ambition's own
-            // mode (`in_base_mode` — the active room carries no hosted-demo mode
-            // tag). Without this the inventory/pause toggle leaks onto the title
-            // screen (no session, but `GameMode` defaults to `Playing`) and into a
-            // hosted Sanic/Mary-O session (whose chrome is the demo's, not this).
-            grid_menu_open_routing
-                .run_if(grid_backend_active)
-                .run_if(ambition_platformer2d::platformer::lifecycle::simulation_authorized)
-                .run_if(ambition_platformer2d::runtime::in_base_mode),
             grid_menu_nav
                 .run_if(grid_backend_active)
                 // Join the shared menu-nav consume set so the touch-joystick

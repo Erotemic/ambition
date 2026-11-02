@@ -30,6 +30,8 @@ pub struct KaleidoscopeMenuNav;
 
 #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
 mod build_label;
+#[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
+pub(crate) mod lifecycle;
 pub mod dispatch;
 pub mod effects;
 #[cfg(feature = "bevy_ui_menu")]

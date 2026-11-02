@@ -137,6 +137,7 @@ pub(crate) fn setup_host_presentation_system(sprite_content: bevy::prelude::Res<
 
 #[cfg(not(feature = "audio"))]
 pub(crate) fn setup_host_presentation_system(
+    sprite_content: Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
     mut commands: Commands,
     // Absent in a hub without Ambition (`hub_games`).
     prepared_world: Option<Res<ambition_content::provider::AmbitionPreparedWorld>>,
@@ -168,6 +169,7 @@ pub(crate) fn setup_host_presentation_system(
         &catalogs.assets;
     let asset_catalog = rebuilt_catalog.as_ref().unwrap_or(frozen_catalog);
     let game_assets = actor_game_assets::load_game_assets(
+        &sprite_content,
         &asset_config,
         &catalogs.characters,
         &catalogs.sheets,

@@ -349,7 +349,7 @@ fn click_app() -> (App, Entity) {
 
 fn open_app() -> App {
     let mut app = base_kaleidoscope_test_app();
-    app.add_systems(Update, kaleidoscope_menu_open_routing);
+    app.add_systems(Update, crate::menu::lifecycle::route_menu_lifecycle);
     app.add_observer(kaleidoscope_pointer_move);
     set_kaleidoscope_visible(&mut app, false);
     spawn_kaleidoscope_test_player(&mut app);
@@ -950,7 +950,7 @@ fn real_input_cube_app(
         Update,
         (
             ambition_platformer2d::runtime::input::populate_menu_control_frame_from_actions,
-            kaleidoscope_menu_open_routing,
+            crate::menu::lifecycle::route_menu_lifecycle,
             kaleidoscope_focus_nav,
         )
             .chain(),

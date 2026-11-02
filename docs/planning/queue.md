@@ -3396,11 +3396,43 @@ flicker without another dissolve or another render of the source parts. The
 tracking glow uses standing body geometry and ignores actor shader tints.
 Render, effect and art checks pass, with a rendered sequence.
 
-`c77acdf8f` lets developer God Blink accept any point, including solid geometry
-and points outside the room. Cooldowns run while the placement is held. Turning
-the override off restores normal collision and range. Movement and contribution
-checks cover placement, exit, withdrawal and acquired tiers. Keep developer
-contributions separate from acquired and equipped ability data.
+`d1813bb5a` keeps developer God Blink limited to destination selection. The
+cursor has no range or surface limit. Normal physics follows, including collision
+recovery and invalid-placement oscillation. The overlap hold that stalled one-way
+drops, ledges and flight is removed. Movement checks compare God Blink on and off.
+Keep developer contributions separate from acquired and equipped ability data.
+Do not add special handling after a God Blink placement.
+
+### Music playback gaps — diagnosis ready; death gap cause open
+
+`534a92549` compares music requests with Kira instance playback and logs gap
+warnings, source load state, and recovery duration. `b170a9238` warns when an
+authorized game loses its audio context. Explicit silence, mute, initial reveal,
+suspension, and completed one-shots have separate states. Published CPAL replaces
+the Web Audio fork. Keep the observer independent of playback repair.
+
+Next: inspect a visible death/respawn run with the
+[music diagnostics](../systems/music-playback-diagnostics.md). The backend state
+does not prove speaker output or non-silent source samples.
+
+`0f5b40487` adds missing adaptive bindings for Dinosaur treetops and tar pits.
+Their continuous-song check passes against the authored room music requests.
+
+### Castle Godwin autoplay — ✅ DONE 2026-11-01
+
+`5c2864108` adds a validated, reloadable route through the gate, castle halls,
+gauntlet, and Wolfenstein. The headless test reaches every stop, clears the
+muster, and damages the awakened boss through normal controls and host intents.
+Both this route and the existing hub/primeval route pass. Full victory over
+both boss forms remains outside this test's acceptance.
+
+### Held ray spawn ordering — ✅ DONE 2026-11-01
+
+`5aa8a04bb` returns the damage-box factory's entity builder. Ray metadata and
+launch direction use its spawn queue. A second queue attached them before birth
+and caused the Eye Laser and Wolfenstein panics. The Eye Laser test reproduced
+the panic before the fix and passes after it; all ten Wolfenstein fight checks
+pass. Configure birth components through the returned builder.
 
 ### Gap Run doorway exit — ✅ DONE 2026-11-01
 

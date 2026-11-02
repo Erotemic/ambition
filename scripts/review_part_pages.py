@@ -20,6 +20,10 @@ list`). Nothing under `crates/` is written.
 
 from __future__ import annotations
 
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
 import html
 import json
@@ -66,7 +70,7 @@ def render(target: str, out: Path) -> tuple[str, int, str]:
 
 def stats(ron: Path) -> dict:
     from ambition_sprite2d_renderer.authoring.part_flipbook import PartFlipbook
-    from measure_part_waste import waste
+    from scripts.measure.measure_part_waste import waste
 
     flipbook = PartFlipbook.from_published(ron)
     result = waste(flipbook)

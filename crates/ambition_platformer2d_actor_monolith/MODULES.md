@@ -1,6 +1,6 @@
 # `ambition_platformer2d_actor_monolith` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_platformer2d_actor_monolith** — The body, control, and action kernel.
 
@@ -18,7 +18,7 @@
 | [`participant_seat`](src/participant_seat.rs) | Central conversion between [`ParticipantId`] and [`PlayerSlot`]. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by the actor runtime. |
 
-_11 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_11 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 
@@ -63,6 +63,6 @@ Read each seat's control through the control module. Body execution consumes
 ### Maintaining this file
 
 The table above is generated from each module's own `//!` header:
-`python scripts/modules_md.py --write`. `python scripts/modules_md.py` checks for
+`python scripts/measure/modules_md.py --write`. `python scripts/measure/modules_md.py` checks for
 drift and exits non-zero. Everything under `## Notes` is hand-written and survives
 regeneration.

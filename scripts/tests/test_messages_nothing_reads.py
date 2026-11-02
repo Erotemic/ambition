@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-SCRIPT = REPO / "scripts" / "messages_nothing_reads.py"
+SCRIPT = REPO / "scripts" / "measure/messages_nothing_reads.py"
 
 
 def _module():

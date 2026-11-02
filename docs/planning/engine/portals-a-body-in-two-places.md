@@ -569,7 +569,7 @@ the opening (more than 40 px) or nothing comes out of the exit. MEASURED
 (low): carry on 3/3, 0 px behind; `--carry off` 0/3 (slash up to 1955 px
 behind, fireball 190, worn helmet 320).
 
-Cost: `scripts/measure_portal_carry_cost.sh` (a body in a space helmet
+Cost: `scripts/measure/measure_portal_carry_cost.sh` (a body in a space helmet
 falls through portal_lab's D pair again and again, windows on).
 
 MEASURED 2026-10-25 on the agent VM: llvmpipe (the GPU's work is done on

@@ -6,7 +6,7 @@
     // Moves like a heavy who commands rather than chases: slow run, slow drift, falls hard.
     // Shaped like Ultimate's King Dedede at 0.60 strength: each number is Smash's
     // default fighter's, scaled by how that fighter differs from Ultimate's
-    // roster median (`scripts/smash_fighter_shape.py "King Dedede" --strength 0.6`).
+    // roster median (`scripts/measure/smash_fighter_shape.py "King Dedede" --strength 0.6`).
     body: Some((
         max_run_speed: Some(290.5),
         initial_dash_speed: Some(334.8),

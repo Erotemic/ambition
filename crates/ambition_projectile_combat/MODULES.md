@@ -1,6 +1,6 @@
 # `ambition_projectile_combat` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_projectile_combat** — Projectile combat execution above the reusable projectile model.
 
@@ -11,7 +11,7 @@
 | [`intercept`](src/intercept.rs) | INTERCEPTING A SHOT IN FLIGHT, as one named operation. |
 | [`systems`](src/systems.rs) | The Bevy gameplay system that ticks projectiles, samples motion input, and routes hits through ECS-native feature damage messages. |
 
-_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

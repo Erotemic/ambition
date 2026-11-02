@@ -129,7 +129,7 @@ A sprite request reports its target count and each accepted target. Current
 accepted bundles can be reused, including bundles from an unpublished request.
 `LINE_PROFILE=1 ./scripts/regen/sprites.sh --force` writes worker `.lprof`
 databases under the renderer's `.profiles/regen-*` directory. Use
-`scripts/render_line_profiles.py` to make text reports.
+`scripts/measure/render_line_profiles.py` to make text reports.
 
 ### Fast sprite profiling and readable reports
 
@@ -152,6 +152,6 @@ For an existing profile directory:
 
 ```bash
 tools/ambition_sprite2d_renderer/.venv/bin/python \
-    scripts/render_line_profiles.py \
+    scripts/measure/render_line_profiles.py \
     tools/ambition_sprite2d_renderer/.profiles/<profile-directory>
 ```

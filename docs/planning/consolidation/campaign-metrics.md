@@ -1,6 +1,6 @@
 # Consolidation campaign metrics
 
-**Instrument:** `python3 scripts/architecture_census.py` (add `--json` for the
+**Instrument:** `python3 scripts/measure/architecture_census.py` (add `--json` for the
 full record, `--crate-table` for the package graph).
 **Current reading:** 2026-10-02, at `eff03ab7ad27`.
 

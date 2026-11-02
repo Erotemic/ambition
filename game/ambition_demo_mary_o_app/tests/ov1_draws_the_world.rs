@@ -310,7 +310,7 @@ fn the_windowed_demo_selects_its_libraries_part_pages() {
 /// part page stayed `Loading` for 900 frames and 10 s). So this asks the asset
 /// server which paths have a live handle. That her body then draws its impostor
 /// cell is witnessed where images do load: `rendering::actors::rigged::tests`
-/// and `scripts/measure_rigged_parity.py`.
+/// and `scripts/measure/measure_rigged_parity.py`.
 #[test]
 fn mary_o_is_realized_from_her_parts_with_no_baked_page_requested() {
     use ambition_platformer2d::characters::actor::WornCharacter;

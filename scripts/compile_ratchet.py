@@ -338,7 +338,7 @@ def unit_weights(rows: list[dict] | None = None) -> dict:
 
     All of a crate's units are summed before dividing — lib, test, bin and build
     script are one crate's contribution to one build, which is also how
-    `scripts/compile_report.py` counts so the two readers of this ledger cannot
+    `scripts/measure/compile_report.py` counts so the two readers of this ledger cannot
     disagree. Across builds the per-crate rate is the MEDIAN, so a single odd
     build cannot carry the table.
     """
@@ -721,7 +721,7 @@ def evaluate(current: dict, frozen: dict) -> list[tuple[str, str]]:
                 f"PLACEHOLDER — size predicts a crate's compile cost with R^2 = "
                 f"0.12, so the seconds numbers above under- or over-state these "
                 f"crates by an unknown factor. Run `python3 "
-                f"scripts/compile_collect.py` to measure them and re-freeze, or "
+                f"scripts/measure/compile_collect.py` to measure them and re-freeze, or "
                 f"say in the commit that the guess is accepted for now.",
             )
         )

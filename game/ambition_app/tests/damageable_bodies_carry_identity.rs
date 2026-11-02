@@ -36,7 +36,7 @@
 //! appears nowhere in that file. It is post-boss content this sandbox never
 //! reaches, so this test is green WITH that body in the tree. ⇒ The stronger
 //! instrument for this row today is the static one,
-//! `scripts/measure_damageable_bundles_without_identity.py`; this is the arm
+//! `scripts/measure/measure_damageable_bundles_without_identity.py`; this is the arm
 //! that stops the roads we DO exercise from regressing.
 
 #![cfg(feature = "rl_sim")]

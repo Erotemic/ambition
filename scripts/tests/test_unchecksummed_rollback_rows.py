@@ -6,7 +6,7 @@ import importlib.util
 import pathlib
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
-SCRIPT = REPO / "scripts/measure_unchecksummed_rollback_rows.py"
+SCRIPT = REPO / "scripts/measure/measure_unchecksummed_rollback_rows.py"
 
 
 def _module():

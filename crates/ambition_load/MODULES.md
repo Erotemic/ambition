@@ -1,6 +1,6 @@
 # `ambition_load` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_load** — Headless, contributor-neutral loading coordination.
 
@@ -11,7 +11,7 @@
 | [`model`](src/model.rs) | Contributor-neutral load plans, work states, forecasts, and snapshots. |
 | [`plugin`](src/plugin.rs) | Bevy message adapter for the load coordinator. |
 
-_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

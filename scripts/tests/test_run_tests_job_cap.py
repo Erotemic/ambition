@@ -92,7 +92,7 @@ def _why(code, out):
             f"{free_gb:.1f} GB free on {run_tests.target_dir()} against a "
             f"{run_tests.MIN_FREE_GB:.0f} "
             "GB floor.\n  This test is not about disk; free space and re-run "
-            "(`scripts/clean_workspace_crates.sh`, or sweep `debug/incremental`).\n"
+            "(`scripts/maintenance/clean_workspace_crates.sh`, or sweep `debug/incremental`).\n"
             f"  Captured output follows and may be a PREVIOUS case's:\n{out}"
         )
     return out

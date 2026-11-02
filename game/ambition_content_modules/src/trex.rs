@@ -32,7 +32,7 @@
 //! bird do not look alike, the pair is a cock and a hen. Enraged, raptors run
 //! in at the walls too. He calls only while their number is below `MINION_CAP`.
 //!
-//! Every volume is measured from his art (`scripts/measure_part_track_boxes.py
+//! Every volume is measured from his art (`scripts/measure/measure_part_track_boxes.py
 //! trex_enemy`), in sheet pixels from the frame's top left, and carried into
 //! the world by [`PX`] about the frame's centre, which is his position (the
 //! boss placement law, `BossSheetSpec::drawn_anchor`).

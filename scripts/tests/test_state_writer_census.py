@@ -20,7 +20,7 @@ import importlib.util
 import pathlib
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
-SCRIPT = REPO / "scripts/measure_state_writers.py"
+SCRIPT = REPO / "scripts/measure/measure_state_writers.py"
 
 
 def _module():

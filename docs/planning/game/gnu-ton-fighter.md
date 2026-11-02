@@ -127,7 +127,7 @@ To photograph a blow with no player that swings: `capture_scene
 ## Combat feel: what was measured
 
 **A move must hit when its picture hits.** A row is slaved to its move
-(frame = progress x frames). `scripts/measure_move_art_sync.py` compares the
+(frame = progress x frames). `scripts/measure/measure_move_art_sync.py` compares the
 live part of each move with the part of its row where the limb is out.
 
 - First measure: 10 of his 18 strikes were live BEFORE the picture's limb

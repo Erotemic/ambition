@@ -5,7 +5,7 @@ last_verified: 2026-10-09
 
 # One file to give a player
 
-`scripts/package_single_exe.py` builds the game as one executable file with
+`scripts/package/package_single_exe.py` builds the game as one executable file with
 its asset tree inside, for Linux and for Windows. The player needs no other
 file and no directory beside it. The script's `--help` is the authority for
 its options.
@@ -32,17 +32,17 @@ from the file, and the game then draws a placeholder or plays no track.
 
 ```bash
 # Build both files and verify them.
-python3 scripts/package_single_exe.py
+python3 scripts/package/package_single_exe.py
 
 # One platform.
-python3 scripts/package_single_exe.py --platform linux
-python3 scripts/package_single_exe.py --platform windows
+python3 scripts/package/package_single_exe.py --platform linux
+python3 scripts/package/package_single_exe.py --platform windows
 
 # Package the programs the last build wrote (no cargo).
-python3 scripts/package_single_exe.py --skip-build
+python3 scripts/package/package_single_exe.py --skip-build
 
 # Each quality tier, as the Steam Deck package has.
-python3 scripts/package_single_exe.py --assets all
+python3 scripts/package/package_single_exe.py --assets all
 ```
 
 The files are `target/single_exe/ambition-linux-x86_64` and
@@ -76,7 +76,7 @@ the program: a file found there is a file the player does not have.
 
 | Choice | Contents |
 | --- | --- |
-| `full` (default) | The full-resolution art. The smaller quality tiers stay out, and the game falls back to the full-resolution file when a tier is absent. The shared sprite pack keeps only the pages a consumer reaches (`scripts/measure_pack_reachability.py`). |
+| `full` (default) | The full-resolution art. The smaller quality tiers stay out, and the game falls back to the full-resolution file when a tier is absent. The shared sprite pack keeps only the pages a consumer reaches (`scripts/measure/measure_pack_reachability.py`). |
 | `all` | Each file of each tier, as the Steam Deck package has. |
 
 With `full`, a machine with a weak GPU selects a lower quality and gets
@@ -136,7 +136,7 @@ game writes its log there.
 - Saves and settings go to the data directory of the player's account
   (`%APPDATA%` on Windows, the XDG data directory on Linux), not beside the
   file.
-- `scripts/package_asset_guard.py compose` did not pass on the checkout that
+- `scripts/package/package_asset_guard.py compose` did not pass on the checkout that
   wrote this page (2026-10-09). Its scan reads the section paths of
   `audio/music_cues.ron` as paths from the asset root (they are paths from
   the cue's `asset_root`), and `data/vanity_card.ron` names the frames of the

@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-SCRIPT = REPO / "scripts" / "message_reader_pairs.py"
+SCRIPT = REPO / "scripts" / "measure/message_reader_pairs.py"
 
 HAND_WRITTEN_UNION = """
 pub fn rearm_bricks_for_a_fresh_attempt(

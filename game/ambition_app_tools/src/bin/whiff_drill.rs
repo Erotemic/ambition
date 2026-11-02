@@ -16,7 +16,7 @@
 //!
 //! The question it answers is the tactical-intent experiment's fixture A
 //! (`docs/planning/engine/fighter-tactical-intent.md`): with the window
-//! there (`scripts/smash_punish_windows.py`), does the CPU take it?
+//! there (`scripts/measure/smash_punish_windows.py`), does the CPU take it?
 //!
 //! ```bash
 //! cargo run -p ambition_app_tools --bin whiff_drill -- \

@@ -73,7 +73,7 @@ def binary_candidates(name: str) -> list[Path]:
     ⛔⛔ NOT JUST `target/debug`. `CARGO_TARGET_DIR` relocates the whole directory
     (this repo ships `scripts/setup/target_bindmount.sh` for exactly that) and a
     release build lands in `target/release`. Either produced "not built" against
-    a tree where it plainly was. Same convention `scripts/profile_desktop.sh`
+    a tree where it plainly was. Same convention `scripts/measure/profile_desktop.sh`
     uses.
     """
     configured = os.environ.get("CARGO_TARGET_DIR")
@@ -375,7 +375,7 @@ def _report_for_take(take: dict, sim_hz: float, source_doc: dict | None = None) 
     if _REPORT_MODULE is None:
         import importlib.util
 
-        path = REPO / "scripts" / "moveset_report.py"
+        path = REPO / "tools/ambition_moveset_inspector" / "moveset_report.py"
         spec = importlib.util.spec_from_file_location("ambition_moveset_report", path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -982,7 +982,7 @@ def _render_capability() -> dict:
         import importlib.util
 
         spec = importlib.util.spec_from_file_location(
-            "render_capability_doctor", REPO / "scripts/render_capability_doctor.py"
+            "render_capability_doctor", REPO / "scripts/measure/render_capability_doctor.py"
         )
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)

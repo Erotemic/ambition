@@ -31,7 +31,7 @@ import pathlib
 
 MEASURE = (
     pathlib.Path(__file__).resolve().parent.parent
-    / "measure_damageable_bundles_without_identity.py"
+    / "measure/measure_damageable_bundles_without_identity.py"
 )
 
 # ⛔⛔ ZERO, AND IT CAME DOWN BY RE-DERIVING RATHER THAN BY AN EDIT. Both former
@@ -119,6 +119,6 @@ def test_the_scan_still_matches_damageable_bundles_at_all() -> None:
         f"{DAMAGEABLE_BUNDLE_FLOOR} when the floor was set. Fewer means the "
         "matcher stopped seeing the population, not that the population shrank — "
         "check `DAMAGEABLE` / `FACTION` in "
-        "`scripts/measure_damageable_bundles_without_identity.py` against the "
+        "`scripts/measure/measure_damageable_bundles_without_identity.py` against the "
         "bundle types that exist now"
     )

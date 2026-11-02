@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-SCRIPT = REPO / "scripts" / "demo_resources_inserted_at_plugin_build.py"
+SCRIPT = REPO / "scripts" / "measure/demo_resources_inserted_at_plugin_build.py"
 
 
 def _module():

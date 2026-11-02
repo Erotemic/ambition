@@ -22,7 +22,7 @@ import importlib.util
 import pathlib
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
-SCRIPT = REPO / "scripts/measure_source_text_guard_exposure.py"
+SCRIPT = REPO / "scripts/measure/measure_source_text_guard_exposure.py"
 
 
 def _module():
@@ -98,7 +98,7 @@ def test_the_sweep_refuses_an_empty_corpus(monkeypatch, tmp_path):
     # ⚠ `main()` PARSES sys.argv, which under pytest is pytest's own command
     # line. Point it at an empty argument list so the arm exercises the corpus
     # refusal rather than argparse.
-    monkeypatch.setattr("sys.argv", ["measure_source_text_guard_exposure.py"])
+    monkeypatch.setattr("sys.argv", ["measure/measure_source_text_guard_exposure.py"])
     try:
         module.main()
     except AssertionError as error:

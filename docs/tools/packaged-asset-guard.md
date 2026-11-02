@@ -9,7 +9,7 @@ related_docs:
 
 # Packaged asset guard
 
-`scripts/package_asset_guard.py` is the package boundary for installed asset
+`scripts/package/package_asset_guard.py` is the package boundary for installed asset
 trees. It reads the game's own files and each library declared by its content
 pack. A library's logical files are packaged under `__libraries/<id>/`.
 The runtime uses the same selected inventory and refuses implicit overrides.
@@ -68,14 +68,14 @@ instead, which a release wants.
 The platform scripts invoke this automatically. For focused diagnosis:
 
 ```bash
-python3 scripts/package_asset_guard.py compose \
+python3 scripts/package/package_asset_guard.py compose \
     --repo . \
     --profile android \
     --output target/package-assets/manual/assets \
     --contract target/package-assets/manual/contract.json \
     --hash-manifest target/package-assets/manual/contract.sha256
 
-python3 scripts/package_asset_guard.py audit-tree \
+python3 scripts/package/package_asset_guard.py audit-tree \
     --contract target/package-assets/manual/contract.json \
     --asset-root target/package-assets/manual/assets \
     --reject-extras

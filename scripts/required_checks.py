@@ -29,6 +29,10 @@ What a certificate does NOT say:
 
 from __future__ import annotations
 
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
 import fnmatch
 import shlex
@@ -256,7 +260,7 @@ def holds_gated_test(path: str, members: dict[str, str], repo: Path) -> bool:
     """Whether `path` holds a test that a default-feature run of its crate does
     not run: the test is behind an opt-in feature, in the file or through a
     gated `mod` declaration (`feature_gated_tests.py` decides both)."""
-    import feature_gated_tests as census
+    from scripts.measure import feature_gated_tests as census
 
     file = repo / path
     if not path.endswith(".rs") or not file.is_file():
@@ -359,7 +363,7 @@ def deferred_union_job(paths: list[str], members: dict[str, str], repo: Path) ->
     whose dependents hide tests behind features. Returns the paths of that
     change and the dependents (the members changed included) that hide a
     test, sorted. Both are empty when the change has no such dependent."""
-    import feature_gated_tests as census
+    from scripts.measure import feature_gated_tests as census
 
     touched: dict[str, list[str]] = {}
     for path in paths:

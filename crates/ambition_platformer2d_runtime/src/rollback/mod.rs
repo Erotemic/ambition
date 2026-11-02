@@ -204,7 +204,7 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
         // `ambition_portal2d::register_rollback_state`; the carve moved the code
         // and left the reason, which then read as these two lines' justification.
         // Both are bevy engine types, so they are also the only two rows of 175 in
-        // `scripts/measure_unchecksummed_rollback_rows.py` that this repository
+        // `scripts/measure/measure_unchecksummed_rollback_rows.py` that this repository
         // does not define — its type index cannot see them either.
         .rollback_component_clone::<bevy::prelude::Name>(ENGINE, "entity.name")
         .rollback_component_clone::<bevy::prelude::Transform>(ENGINE, "entity.transform");

@@ -12,7 +12,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
-import prune_generated_music as pruner  # noqa: E402
+from scripts.maintenance import prune_generated_music as pruner  # noqa: E402
 
 DAY = 86400.0
 NOW = 1_000 * DAY

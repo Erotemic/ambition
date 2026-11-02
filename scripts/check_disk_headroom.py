@@ -215,7 +215,7 @@ def main() -> int:
             "     measured) and rebuilds Ambition only; bound, `cargo clean`\n"
             "     with no flag reclaims everything (~80 GB), Bevy included.\n"
             "  2a. Space now, with nothing rebuilt:\n"
-            "     ./scripts/clean_workspace_crates.sh --incremental-only\n"
+            "     ./scripts/maintenance/clean_workspace_crates.sh --incremental-only\n"
             "     (add --apply). It deletes the incremental CACHE, not\n"
             "     artifacts, so no fingerprint is invalidated: a crate that was\n"
             "     fresh stays fresh and is skipped. Measured 82 GB across 985\n"

@@ -219,7 +219,7 @@ Minimum competitive proof:
 One-click GUI export is not an acceptance requirement.
 
 **One external desktop artifact (2026-10-09):** `python3
-scripts/package_outlander.py` produces the release artifact of Outlander
+scripts/package/package_outlander.py` produces the release artifact of Outlander
 (`fixtures/external_consumer`, the SDK game) and checks that it reads every
 asset from inside itself. The exit code tells a missing prerequisite (2) from a
 failed build (3) and a failed artifact (1). Linux only. Outlander carries its own assets and selects no shared library.
@@ -297,7 +297,7 @@ mandatory internal dependency closure of the facade (normal, non-optional,
 `path` dependencies) and the fact that `ambition_render` is outside it. Do not
 copy the number here. Count other packages, not the facade itself; a number that
 does not say which it counts cannot be quoted. See also
-`scripts/measure_minimum_profile_parentage.py`. This is a lower bound, not
+`scripts/measure/measure_minimum_profile_parentage.py`. This is a lower bound, not
 Cargo's final feature resolution: `default-features = false` on one edge does
 not prove another path cannot enable the feature.
 

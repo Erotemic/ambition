@@ -17,6 +17,57 @@
       "build": "Reuses bundle and existing binaries. --build opts into Cargo builds.",
       "status": "active",
       "cwd": "repository root"
+    },
+    {
+      "id": "moveset_report",
+      "title": "Measure and compare recorded move takes",
+      "owner": "tools/ambition_moveset_inspector",
+      "command": "python3 tools/ambition_moveset_inspector/moveset_report.py --takes tools/ambition_moveset_inspector/data/takes/takes.json --out /tmp/move-report",
+      "help": "python3 tools/ambition_moveset_inspector/moveset_report.py --help",
+      "requires": [
+        "tools/ambition_moveset_inspector/moveset_report.py"
+      ],
+      "docs": "tools/ambition_moveset_inspector/docs/inspector.md",
+      "inputs": "Recorded simulation takes.",
+      "outputs": "Reports or diagnostic images under the requested output directory.",
+      "mutation": "Writes derived reports and images.",
+      "build": "Reuses recorded takes. GPU rendering reuses moveset_render. No implicit Cargo build.",
+      "status": "active",
+      "cwd": "repository root"
+    },
+    {
+      "id": "render_take_diagnostic",
+      "title": "Draw diagnostic SVG sheets from move takes",
+      "owner": "tools/ambition_moveset_inspector",
+      "command": "python3 tools/ambition_moveset_inspector/render_take_diagnostic.py --takes tools/ambition_moveset_inspector/data/takes/takes.json --out /tmp/move-sheets",
+      "help": "python3 tools/ambition_moveset_inspector/render_take_diagnostic.py --help",
+      "requires": [
+        "tools/ambition_moveset_inspector/render_take_diagnostic.py"
+      ],
+      "docs": "tools/ambition_moveset_inspector/docs/inspector.md",
+      "inputs": "Recorded simulation takes.",
+      "outputs": "Reports or diagnostic images under the requested output directory.",
+      "mutation": "Writes derived reports and images.",
+      "build": "Reuses recorded takes. GPU rendering reuses moveset_render. No implicit Cargo build.",
+      "status": "active",
+      "cwd": "repository root"
+    },
+    {
+      "id": "moveset_visualizations",
+      "title": "Render moveset visualizations with GPU or diagnostic sheets",
+      "owner": "tools/ambition_moveset_inspector",
+      "command": "python3 tools/ambition_moveset_inspector/moveset_visualizations.py --out /tmp/move-visualizations --no-gpu",
+      "help": "python3 tools/ambition_moveset_inspector/moveset_visualizations.py --help",
+      "requires": [
+        "tools/ambition_moveset_inspector/moveset_visualizations.py"
+      ],
+      "docs": "tools/ambition_moveset_inspector/docs/inspector.md",
+      "inputs": "Recorded simulation takes.",
+      "outputs": "Reports or diagnostic images under the requested output directory.",
+      "mutation": "Writes derived reports and images.",
+      "build": "Reuses recorded takes. GPU rendering reuses moveset_render. No implicit Cargo build.",
+      "status": "active",
+      "cwd": "repository root"
     }
   ]
 }

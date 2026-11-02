@@ -41,5 +41,5 @@ def test_inventory_reports_path_risks(tmp_path):
     (tmp_path / 'scripts').mkdir()
     (tmp_path / 'scripts/leaf.py').write_text('root = Path(__file__).parents[1]')
     report = inventory(tmp_path)
-    assert report['root_scripts'] == [{'path': 'scripts/leaf.py', 'status': 'unknown', 'path_risks': ['__file__']}]
+    assert report['scripts'] == [{'path': 'scripts/leaf.py', 'status': 'internal', 'path_risks': ['__file__']}]
     assert not report['consumer_scan_available']

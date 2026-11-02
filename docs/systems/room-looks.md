@@ -164,7 +164,7 @@ To measure a flicker, film a still scene and count the pixels that change:
 ```bash
 capture_scene central_hub_complex player /tmp/t.png 1280x720 --warmup 100 \
     --flag look.central_hub_complex.pure --frames 3 --stride 1
-python scripts/measure_capture_frame_delta.py /tmp/t.0001.png /tmp/t.0002.png
+python scripts/measure/measure_capture_frame_delta.py /tmp/t.0001.png /tmp/t.0002.png
 ```
 
 A capture shows that the shaders compile and what they draw. It does not show

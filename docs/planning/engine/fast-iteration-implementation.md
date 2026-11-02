@@ -41,7 +41,7 @@ I5 -> M2 -> I8 measured runtime/snapshot optimizations -> I9 cost evidence
 
 | Packet | State |
 | --- | --- |
-| I0 | Recorder for the pack-data loop (`scripts/iteration_record.py`, 2026-10-16); Rust-edit loops are `compile_cost.py`'s |
+| I0 | Recorder for the pack-data loop (`scripts/measure/iteration_record.py`, 2026-10-16); Rust-edit loops are `compile_cost.py`'s |
 | I1 | Pure authoring moved; independent fixture `fixtures/content_builder` |
 | I2 | Every data source of the Ambition pack and the demo packs is read off disk |
 | I3 | Data reload is implemented for the participating families; open items below |
@@ -88,7 +88,7 @@ unavailable.
 **Built 2026-10-16 for the pack-data loop:** a host that reloads a pack
 prints one acknowledgment line per event with the generation's fingerprint
 (`content::live_reload`: watching, staged with the compile time, published
-after the restaters, refused). `scripts/iteration_record.py` starts a named,
+after the restaters, refused). `scripts/measure/iteration_record.py` starts a named,
 already built host, writes a real edit, and times it to the published
 acknowledgment of a new generation; each revert must give back the starting
 generation, and a save with no change must publish nothing. It writes M0 rows

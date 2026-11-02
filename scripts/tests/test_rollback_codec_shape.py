@@ -12,7 +12,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / 'scripts'))
 
-import rollback_codec_shape as shape  # noqa: E402
+from scripts.measure import rollback_codec_shape as shape  # noqa: E402
 
 
 def test_the_scan_still_finds_the_codecs():
@@ -37,7 +37,7 @@ def test_the_baseline_matches_the_tree():
     assert rows == expected, (
         'a rollback codec changed shape. If the bytes a peer encodes changed, bump '
         'GGRS_ROLLBACK_SCHEMA_VERSION and describe it in the version log, then '
-        're-record: python3 scripts/rollback_codec_shape.py --record'
+        're-record: python3 scripts/measure/rollback_codec_shape.py --record'
     )
 
 

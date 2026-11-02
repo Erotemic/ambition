@@ -1,6 +1,6 @@
 # `ambition_combat` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_combat** — Combat helpers and reusable damage volumes.
 
@@ -64,7 +64,7 @@
 | [`vitality`](src/vitality.rs) | A move that pays or repays its own mover's health. |
 | [`worn_kit`](src/worn_kit.rs) | The kit a body wears: what a character id resolves to when a body puts it on. |
 
-_57 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_57 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

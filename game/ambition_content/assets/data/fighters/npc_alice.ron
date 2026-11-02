@@ -6,7 +6,7 @@
     // Alice is shaped like Palutena.
     // Shaped like Ultimate's Palutena at 0.60 strength: each number is Smash's
     // default fighter's, scaled by how that fighter differs from Ultimate's
-    // roster median (`scripts/smash_fighter_shape.py "Palutena" --strength 0.6`).
+    // roster median (`scripts/measure/smash_fighter_shape.py "Palutena" --strength 0.6`).
     knockback_weight: Some(0.94),
     body: Some((
         max_run_speed: Some(353.7),

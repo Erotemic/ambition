@@ -76,7 +76,7 @@ The implementation already separates several concerns:
 | Runtime bytes | Bevy `AssetSource` and `AssetServer` | Do not copy this loader into the inspector. |
 | Editor read model | `tools/ambition_editor/asset_index/` | Some media paths do not yet use publication selection. |
 | Audio products | `music` and `sfx` producers in `library.json` | Music uses cue-level output; SFX exposes a bank. |
-| Packaging | `scripts/package_asset_guard.py` | The complete game release is a separate concern. |
+| Packaging | `scripts/package/package_asset_guard.py` | The complete game release is a separate concern. |
 | Freshness reports | `scripts/content_status.py` | Its normal mode is advisory; strict mode is opt-in. |
 
 The store has accepted bundles and one `published.json` selection. Runtime

@@ -26,7 +26,7 @@ their owners. The residual crate is not the only mixed container: `combat`,
 Measure the intra-crate module graph with:
 
 ```bash
-python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
+python3 scripts/measure/measure_kernel_module_graph.py --scc --cuts --edges 80
 ```
 
 The module graph is a DAG after the October 24 vocabulary and ability cuts.
@@ -43,7 +43,7 @@ on a lower domain is valid when the kernel needs that domain's facts.
 The instrument counts textual `crate::<module>` paths inside one crate. It
 misses many imported names, cross-crate dependencies, shared writers, message
 timing, plugin prerequisites, macros and re-exports. Use
-`scripts/module_graph.py --crate ambition_platformer2d_actor_monolith` to
+`scripts/measure/module_graph.py --crate ambition_platformer2d_actor_monolith` to
 inspect `use` edges as a second view. The generated ECS and Cargo indexes
 show system registrations and declared/resolved crate dependencies, but the
 resolved Cargo graph is feature-unified across the workspace. A consumer's
@@ -887,7 +887,7 @@ Android numbers if a hot system moved. See the
 
 The October 20 index is enough to select K1 and K2 and identify likely
 owners for K3/K4. It does not yet prove the reason for each source dependency.
-Extend the existing `scripts/module_graph.py` / agent index when a packet
+Extend the existing `scripts/measure/module_graph.py` / agent index when a packet
 needs it. A useful edge record has source and target module and symbol,
 file and line, reference kind (`use`, type, function call, registration),
 Cargo feature or cfg condition, and the active schedule/set for installed

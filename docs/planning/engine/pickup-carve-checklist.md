@@ -79,7 +79,7 @@ Read each rewritten line.
 
 ## 4. The tail
 
-- `scripts/modules_md.py --write` regenerates MODULES.md.
+- `scripts/measure/modules_md.py --write` regenerates MODULES.md.
 - Every sub-workspace lockfile that resolves the facade (`fixtures/*/Cargo.lock`,
   `examples/*/Cargo.lock`). `fixtures/minimal_game/Cargo.lock` feeds the
   footprint ratchet; `test_sub_workspace_lockfiles_are_current` checks the rest.
@@ -111,7 +111,7 @@ Read each rewritten line.
 
   Re-read the sentence around a repointed path. A list of neighbours in the same
   sentence may not all have moved.
-- **Run the orphan census before and after.** `scripts/orphaned_symbols.py
+- **Run the orphan census before and after.** `scripts/measure/orphaned_symbols.py
   --json` finds public functions whose only callers are tests. The total is
   noise; the delta is the signal. A delta of domain functions means callers were
   left behind.

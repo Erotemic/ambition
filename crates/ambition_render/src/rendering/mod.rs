@@ -53,7 +53,7 @@ pub const WORLD_COMPOSITING: bevy::camera::CompositingSpace = bevy::camera::Comp
 
 /// The colour space the impostor atlas composites a body in: the world's,
 /// [`WORLD_COMPOSITING`], so a body looks the same drawn directly and
-/// composited. MEASURED (`scripts/measure_composition_switch.py`, robot, alice,
+/// composited. MEASURED (`scripts/measure/measure_composition_switch.py`, robot, alice,
 /// ninja_shadow_oni_leader, 623 frames, one texel a pixel, 2026-10-05): the
 /// same frame on the two roads differed by more than 8 levels on a median 100
 /// and up to 1,088 pixels (peaking at 68 levels) with the atlas in the art's

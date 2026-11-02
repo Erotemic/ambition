@@ -20,9 +20,9 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
-SCRIPT = REPO / "scripts" / "measure_system_sets_without_members.py"
+SCRIPT = REPO / "scripts" / "measure/measure_system_sets_without_members.py"
 
-import measure_system_sets_without_members as census  # noqa: E402
+from scripts.measure import measure_system_sets_without_members as census  # noqa: E402
 
 
 def _fake_git(returncode: int, stdout: str = "", stderr: str = ""):

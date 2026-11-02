@@ -240,7 +240,7 @@ hitstop authority. They can share tests but not a duplicate rate source.
 - `game/ambition_demo_smash_app/src/tools/{ladder_probe,ladder_rig,capture_probe}.rs`: convert ticks to seconds with 60; the demo profile scripts assume 60.
 - `crates/ambition_combat/src/brain/fighter/evaluation.rs`: intentionally fixed 60 Hz evaluator.
 - `crates/ambition_boss_encounter/src/pattern/{validator,content_schema}.rs` and `game/ambition_content/assets/data/boss_validator_bands.ron`: an authored tick-rate conversion for fight validation.
-- `scripts/moveset_report.py`, replay fixture names, capture/report metadata, and profiling exports.
+- `tools/ambition_moveset_inspector/moveset_report.py`, replay fixture names, capture/report metadata, and profiling exports.
 
 **Change:** tools that run the **shipping host** must report the actual rate and derive seconds from it. Tools that intentionally model a 60 Hz reference must name that reference and must not claim to measure the 40 Hz shipping game. Decide whether boss validator bands are a fixed 60 Hz *design reference* or a validation of the target runtime rate; make that contract explicit. Keep existing 60 Hz golden traces as named reference fixtures. Add independent rate-specific evidence rather than overwriting them.
 

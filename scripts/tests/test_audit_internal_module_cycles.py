@@ -10,7 +10,7 @@ import textwrap
 import unittest
 
 
-SCRIPT = Path(__file__).resolve().parents[1] / 'audit_internal_module_cycles.py'
+SCRIPT = Path(__file__).resolve().parents[1] / 'measure/audit_internal_module_cycles.py'
 spec = importlib.util.spec_from_file_location('audit_internal_module_cycles', SCRIPT)
 audit = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = audit

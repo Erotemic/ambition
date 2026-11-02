@@ -1,6 +1,6 @@
 # `ambition_demo_twintrack` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_demo_twintrack** — TwinTrack — a character-driven 2D special-relativity plaza.
 
@@ -15,7 +15,7 @@
 | [`spacetime_3d`](src/spacetime_3d.rs) | Real perspective 2+1D spacetime presentation for TwinTrack. |
 | [`split_screen`](src/split_screen.rs) | Side-by-side observer panes resolved in separate reference frames. |
 
-_8 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_8 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

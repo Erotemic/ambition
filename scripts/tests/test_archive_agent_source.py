@@ -11,7 +11,7 @@ import pytest
 
 pytestmark = pytest.mark.detached_tool
 
-_ARCHIVER_PATH = Path(__file__).resolve().parent.parent / "archive_agent_source.py"
+_ARCHIVER_PATH = Path(__file__).resolve().parent.parent / "maintenance/archive_agent_source.py"
 
 
 def _load_archiver():

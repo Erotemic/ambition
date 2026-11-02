@@ -56,7 +56,7 @@ def ledger_with(rows: list[dict]) -> Path:
 
 def run(*args: str) -> str:
     proc = subprocess.run(
-        [sys.executable, str(REPO / "scripts/perf_history.py"), *args],
+        [sys.executable, str(REPO / "scripts/measure/perf_history.py"), *args],
         capture_output=True,
         text=True,
     )

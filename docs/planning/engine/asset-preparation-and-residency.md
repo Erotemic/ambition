@@ -136,7 +136,7 @@ runtime boundary is what splits.
   (unverified); classify it before you move it.
 - The ultrapack (`sprite_packs/`, 449 MB over four tiers, 183 targets) has one
   reader (`intro_cart`, `packed: true` in Ambition's `data/prop_sheets.ron`), and
-  `scripts/measure_pack_reachability.py` finds 444 MB (98.8%) unreachable.
+  `scripts/measure/measure_pack_reachability.py` finds 444 MB (98.8%) unreachable.
   The runtime already loads only the pages a target's frames use
   (`load_sprite_pages`, `used_pages`); it is the PACKAGE that carries all of
   it, because the game selects the whole library. Split the runtime product by

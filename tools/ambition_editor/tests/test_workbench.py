@@ -12,6 +12,6 @@ def test_tools_page_links_owner_commands(tmp_path):
     page = (tmp_path / 'tools.html').read_text()
     assert 'bash tools/ambition_moveset_inspector/serve_inspector.sh --no-export' in page
     assert 'http://127.0.0.1:8777/' in page
-    assert 'scripts/ecs_browser.py' in page
+    assert 'tools/ecs_architecture_browser/ecs_browser.py' in page
     assert 'target/debug/capture_scene' in page
     assert 'Source presence does not prove runtime readiness' in page

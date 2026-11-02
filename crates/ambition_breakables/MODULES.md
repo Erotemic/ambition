@@ -1,6 +1,6 @@
 # `ambition_breakables` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_breakables** — Destructible state, accepted damage, respawn, and collision publication.
 
@@ -12,7 +12,7 @@
 | [`simulation`](src/simulation.rs) | Per-frame tick for breakable feature entities: respawn countdown and the stand-to-break collapse trigger. |
 | [`volumes`](src/volumes.rs) | Publish the damage volume of each live breakable. |
 
-_5 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_5 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

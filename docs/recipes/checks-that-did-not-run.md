@@ -67,7 +67,7 @@ The numbers are stable. Code and scripts cite them (for example "member 11").
 | 6 | "web persona BOOTS" | Runs the web composition natively (`--features visible_web_base`), so it compiles the `not(wasm32)` branch. It is also in the exhaustive plan only. | Structurally live, twice. |
 | 7 | the coverage footer | Said the wasm CHECK ran when the target was missing and the job was not planned. | Fixed. The footer derives from the planned jobs. |
 | 8 | the Android font path | Bevy `system_font_discovery` under `android_platform` is type-checked and never run. A desktop green says nothing about fonts the host does not have. | Structurally live. Closing it needs a device. |
-| 9 | feature-gated tests | Tests behind non-default features (for example `ambition_asset_manager`'s `image_stages` under `--features bevy`) run only in the feature-union job, which is in the exhaustive plan only. `scripts/feature_gated_tests.py` counts them (several hundred across many crates). | Structurally live. The gate footer states the count; `scripts/tests/test_the_gate_states_how_many_tests_it_skips.py` ratchets it. |
+| 9 | feature-gated tests | Tests behind non-default features (for example `ambition_asset_manager`'s `image_stages` under `--features bevy`) run only in the feature-union job, which is in the exhaustive plan only. `scripts/measure/feature_gated_tests.py` counts them (several hundred across many crates). | Structurally live. The gate footer states the count; `scripts/tests/test_the_gate_states_how_many_tests_it_skips.py` ratchets it. |
 | 10 | `[census] owners` / `owners_in` | Printed a top 20 under `crates=82`. Absence from the row looked authoritative and meant nothing. | Fixed. Both rows print every owner. |
 | 11 | `./run_tests.sh --rust` with no `tree_sitter_rust` | Exits 2 having run nothing. The message reads like a normal preamble. | Fixed by `scripts/setup/python_tools.sh` on a provisioned host. Live on any host without the tool: check `$?`. Advice that names a tool (`python3`) and not a path inherits the reader's environment, so the runner prints `sys.executable`. |
 | 12 | CI-only ratchets (`check_doc_link_ratchet`, `check_zone_name_ratchet`) | Only CI invoked them, so local work never saw their regressions. | Fixed. Both run in `./run_tests.sh --maintenance`. Every `scripts/check_*.py` must be reachable from a lane, CI, or a pytest arm that aims at the real tree. |
@@ -177,7 +177,7 @@ assert!(presses.iter().any(|p| *p), "the fixture produced no press, so the
 ```
 
 A test that builds both sides of a comparison from one source measures its own
-fixture. `scripts/measure_floorless_equality_tests.py` screens for the shape. A
+fixture. `scripts/measure/measure_floorless_equality_tests.py` screens for the shape. A
 hit is a shape, not a verdict: comparison against a non-empty constant carries
 its own floor. Read the hits; do not report the count.
 
@@ -396,7 +396,7 @@ backticked symbol beside it occurs only in tests. A correct row that names a
 test on purpose has the same shape as a row that mis-cites a test as
 production. Only prose separates them. `check_planning_citations.py --roles`
 narrows the reading to a short report and does not gate. Reproduce the
-measurement with `python3 scripts/measure_citation_symbol_roles.py [--adjacent]`.
+measurement with `python3 scripts/measure/measure_citation_symbol_roles.py [--adjacent]`.
 
 General rule: ask whether a CORRECT case also matches before you ask how many
 cases match.

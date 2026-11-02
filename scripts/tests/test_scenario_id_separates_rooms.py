@@ -1,6 +1,6 @@
 """Two headless captures of DIFFERENT rooms must not share a comparability key.
 
-⛔⛔ **THEY DID.** `scripts/profile_desktop.sh` set `headless_scenario` to the
+⛔⛔ **THEY DID.** `scripts/measure/profile_desktop.sh` set `headless_scenario` to the
 literal string `caller-specified` for every headless run with custom arguments,
 and `scenario.id` is one of `COMPARABILITY_FIELDS`. So a
 `--start-room hall_of_characters` capture and a `--start-room goblin_encounter`

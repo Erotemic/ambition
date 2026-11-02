@@ -1,6 +1,6 @@
 # `ambition_asset_manager` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_asset_manager** — Ambition asset catalog + source/profile policy.
 
@@ -23,7 +23,7 @@
 | [`profile`](src/profile.rs) | [`AssetProfile`] — the active platform/runtime persona that drives which [`crate::location::AssetLocation`] the resolver returns for a given [`crate::AssetId`]. |
 | [`resolver`](src/resolver.rs) | Resolve `(AssetId, AssetProfile)` into a runtime asset location. |
 
-_16 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_16 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

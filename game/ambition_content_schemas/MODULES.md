@@ -1,6 +1,6 @@
 # `ambition_content_schemas` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_content_schemas** — The schemas Ambition's own pack names beside the engine's.
 
@@ -12,7 +12,7 @@
 | [`text`](src/text.rs) | The lines Ambition shows, as data in its pack (`data/ambition_text.ron`): its launcher row and the words of its dialogue box. |
 | [`yarn_dialogue`](src/yarn_dialogue.rs) | The `yarn_dialogue` schema: each Yarn file of the game's dialogue is a source of the pack (`(path: "dialogue/sandbox/intro.yarn", schema: "yarn_dialogue", version: 1)`). |
 
-_5 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_5 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

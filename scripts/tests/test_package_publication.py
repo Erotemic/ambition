@@ -3,7 +3,7 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import package_asset_guard as guard
+from scripts.package import package_asset_guard as guard
 from lib.art_publication import Store
 
 

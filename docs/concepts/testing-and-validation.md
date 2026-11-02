@@ -29,7 +29,7 @@ feature sets.
 ⛔ **The default run does not cover feature-hidden tests.** Tests behind
 `#[cfg(feature = "...")]` run only in the feature-union job of the exhaustive
 plan. The runner's coverage footer states the count.
-`python3 scripts/feature_gated_tests.py` prints the per-crate figure, and
+`python3 scripts/measure/feature_gated_tests.py` prints the per-crate figure, and
 `--verify <crate>` asks cargo for the exact pair.
 
 Useful modes:

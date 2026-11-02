@@ -11,7 +11,7 @@
 //! [census] <kind> t=<seconds> key=value key=value ...
 //! ```
 //!
-//! `scripts/profile_desktop.sh` turns those rows into one CSV per kind.
+//! `scripts/measure/profile_desktop.sh` turns those rows into one CSV per kind.
 //!
 //! **Off unless asked for.** [`RuntimeCensus::from_env`] reads
 //! `AMBITION_PROFILE_CENSUS` once at startup. When it is unset, each census

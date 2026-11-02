@@ -1,6 +1,6 @@
 # `ambition_platformer2d_world` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_platformer2d_world** — Authored room data and live world geometry.
 
@@ -19,7 +19,7 @@
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`world_manifest`](src/world_manifest.rs) | Which authored world documents a game ships, and where play starts. |
 
-_12 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_12 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

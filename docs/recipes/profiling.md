@@ -5,7 +5,7 @@
 These tools are not interchangeable, and reaching for the wrong one wastes
 hours. Pick by the question you are actually asking:
 
-**Start here.** `./scripts/profile_desktop.sh`, play, quit. It builds the
+**Start here.** `./scripts/measure/profile_desktop.sh`, play, quit. It builds the
 optimized `profiling` profile with tracing on, captures perf + Tracy + the
 in-process workload censuses for the whole session, and writes one bundle whose
 `summary.md` answers most of the table below at once. Reach past it only when
@@ -13,7 +13,7 @@ that summary points somewhere specific.
 
 | Question | Instrument | Reads as |
 |---|---|---|
-| Anything, first pass | `scripts/profile_desktop.sh` → `summary.md` | text, agent-readable |
+| Anything, first pass | `scripts/measure/profile_desktop.sh` → `summary.md` | text, agent-readable |
 | Which machine layer owns the CPU — game code, GPU driver, or a software rasterizer? | same bundle, "Where the native time went" | text, agent-readable |
 | Where did startup time go? | `[startup]` phase logger (always on) | text, agent-readable |
 | Which native function is hot, and during which part of my session? | same bundle, `timeline.md` + `perf_windows/` | text, agent-readable |
@@ -21,7 +21,7 @@ that summary points somewhere specific.
 | Which system/span allocates, how often, how many bytes per frame? | `profile_desktop.sh --perf-probe` → `alloc_by_span.csv` (§1d) | CSV, agent-readable |
 | Which code causes archetype churn (spawn, despawn, insert, remove)? | `profile_desktop.sh --perf-probe` → `churn_by_site.csv` (§1d) | CSV, agent-readable |
 | Which code marks a component or resource changed every frame (wakes `Changed<T>` readers)? | `profile_desktop.sh --perf-probe` → `changes_by_site.csv` (§1d) | CSV, agent-readable |
-| Phone: which thread is saturated, and what does it do? | `scripts/profile_android.sh`, then `scripts/symbolize_android_profile.py DIR` (thread table by id) and `--ours --thread TID` | text, agent-readable |
+| Phone: which thread is saturated, and what does it do? | `scripts/measure/profile_android.sh`, then `scripts/measure/symbolize_android_profile.py DIR` (thread table by id) and `--ours --thread TID` | text, agent-readable |
 | Phone: which functions of ours cost the most, framework and allocator time under them included? | `symbolize_android_profile.py DIR --inclusive [--thread TID]` | text, agent-readable |
 | Phone: how much CPU passes through one function? | `symbolize_android_profile.py DIR --under NAME` (repeatable) | text, agent-readable |
 | Which *phase of the frame* owns the time — with no profiler, on any platform? | `[census] phases` → `schedule_phases.csv` | CSV, agent-readable |
@@ -272,7 +272,7 @@ and [`ambition_render::asset_census`](../../crates/ambition_render/src/asset_cen
 The four above are always on and cheap. A second set answers the question a
 native profile structurally cannot — *what did Ambition ask Bevy to do* — and
 runs only when `AMBITION_PROFILE_CENSUS` is set, which
-`scripts/profile_desktop.sh` does for you:
+`scripts/measure/profile_desktop.sh` does for you:
 
 ```text
 [census] frame          t=12.000 frames=60 mean=16.71 p50=16.70 p95=18.20 p99=24.00 min=15.90 max=41.20
@@ -305,7 +305,7 @@ own archetypes, systems and query states (Mary-O, 2026-10-14: 571, flat in
 play).
 
 **Who makes Bevy match query states, with no phone**:
-`scripts/attribute_archetype_matching.py` reads a desktop `perf` profile with
+`scripts/measure/attribute_archetype_matching.py` reads a desktop `perf` profile with
 DWARF stacks and names the frame that called the matching (its docstring has
 the recording recipe; `perf` needs `sudo` here). Mary-O, 2026-10-14, on a VM
 whose GPU is software: archetype matching was 1.5% of all samples, about 11%
@@ -326,7 +326,7 @@ Ambition types (223 `GgrsSnapshots`, one per rollback registration; 157
 **`[census] systems_ran` says which registered systems ran in one frame**, by
 schedule and by crate (`ran/registered`), from each system's last-run tick: no
 trace build. Set `AMBITION_SYSTEM_LIST=PATH` to write every system, and compare
-games with `scripts/system_census_table.py` (a standalone demo needs
+games with `scripts/measure/system_census_table.py` (a standalone demo needs
 `--features bevy/debug` for system names). The per-game audit and its plan are
 in `docs/planning/engine/system-composition-audit.md`.
 
@@ -403,7 +403,7 @@ count an owner:
   value or such a write; the site tells which.
 
 ```bash
-./scripts/profile_desktop.sh --perf-probe --headless          # the shared host
+./scripts/measure/profile_desktop.sh --perf-probe --headless          # the shared host
 AMBITION_PROFILE_CENSUS=1 AMBITION_PERF_PROBE_DIR=/tmp/probe \
   cargo run --profile profiling -p ambition_demo_mary_o_app \
   --features capture,perf_probe --bin capture_mary_o -- /tmp/probe/shot.png --warmup 600
@@ -507,7 +507,7 @@ function name.
 
 For per-frame regressions during play, run the game under `cargo flamegraph`
 and keep playing for ~30 seconds. For a narrower window, prefer
-`scripts/profile_desktop.sh`, whose `timeline.md` slices perf by time.
+`scripts/measure/profile_desktop.sh`, whose `timeline.md` slices perf by time.
 
 ## 2b. Bevy + Tracy per-system profiling
 
@@ -527,7 +527,7 @@ without if the GUI isn't running — your build, your call).
 
 ### Collect a profile
 
-Use `scripts/profile_desktop.sh`. It starts `tracy-capture` before the game and
+Use `scripts/measure/profile_desktop.sh`. It starts `tracy-capture` before the game and
 finalizes the trace when the game exits, then exports
 `tracy_zones.csv` + `tracy_summary.md` — a ranked table of zones by total time,
 count, mean, and max. No GUI, no connect button, no timing on your part.
@@ -563,7 +563,7 @@ since `profile` is opt-in.
 ### The one-command workflow
 
 ```bash
-./scripts/profile_desktop.sh
+./scripts/measure/profile_desktop.sh
 ```
 
 Play normally, reproduce the slowdown, quit the game normally. There is no
@@ -592,7 +592,7 @@ artifact, records why, and the rest of the run is still collected.
 ### Profiling a real Smash MATCH (the GPU machine)
 
 ```bash
-./scripts/profile_desktop.sh --smash
+./scripts/measure/profile_desktop.sh --smash
 ```
 
 Play the match. Quit the game when you are done. Read the `summary.md` whose
@@ -607,8 +607,8 @@ python3 scripts/lib/profile_bundle_to_history.py \
 Unattended variants:
 
 ```bash
-./scripts/profile_desktop.sh --smash --smash-seconds 90     # quits itself
-./scripts/profile_desktop.sh --smash --smash-fighters 4     # a full roster
+./scripts/measure/profile_desktop.sh --smash --smash-seconds 90     # quits itself
+./scripts/measure/profile_desktop.sh --smash --smash-fighters 4     # a full roster
 ```
 
 ⛔ **`--smash` is not `-- smash`.** `run_game.sh smash` builds the standalone
@@ -655,13 +655,13 @@ What the bundle carries beyond an ordinary one:
 
 ⛔ **A hardware run and a headless one are different experiments.**
 `gpu.rendering` is in the comparability key and takes `hardware`, `software` or
-`headless`, so `scripts/perf_history.py` refuses across them and names the field.
+`headless`, so `scripts/measure/perf_history.py` refuses across them and names the field.
 That is the guard; do not work around it by quoting the numbers side by side.
 
 The windowless arm of the same match exists for this VM:
 
 ```bash
-./scripts/profile_desktop.sh --smash --headless
+./scripts/measure/profile_desktop.sh --smash --headless
 ```
 
 It composes no renderer (`backends: None`: no adapter, no render app), so it
@@ -677,7 +677,7 @@ a Smash label over a measurement of the launcher.
 ### The no-GPU / VM workflow
 
 ```bash
-./scripts/profile_desktop.sh --headless
+./scripts/measure/profile_desktop.sh --headless
 ```
 
 This runs the game's own supported headless path (`--headless
@@ -695,8 +695,8 @@ profiling-only setup; the profiler adds the word and changes nothing else. Name
 your own and it is used instead:
 
 ```bash
-./scripts/profile_desktop.sh --headless -- smash
-./scripts/profile_desktop.sh --headless -- -- --start-room goblin_encounter
+./scripts/measure/profile_desktop.sh --headless -- smash
+./scripts/measure/profile_desktop.sh --headless -- -- --start-room goblin_encounter
 ```
 
 `summary.md` records which scenario ran, in the `scenario` row of its first
@@ -725,7 +725,7 @@ makes the frame time meaningless. Label which question you were asking — the
 the whole render composition run on this VM:
 
 ```bash
-xvfb-run -a -s "-screen 0 1280x720x24" ./scripts/profile_desktop.sh --duration 60
+xvfb-run -a -s "-screen 0 1280x720x24" ./scripts/measure/profile_desktop.sh --duration 60
 ```
 
 The bundle then carries real camera resolutions and a populated
@@ -753,8 +753,8 @@ RATIOS stay sound; treat the absolute microseconds as approximate.
 These are two different questions and the bundle names which one it answered:
 
 ```bash
-./scripts/profile_desktop.sh              # why is the optimized runtime slow?
-./scripts/profile_desktop.sh --dev-build  # why is my edit/play build slow?
+./scripts/measure/profile_desktop.sh              # why is the optimized runtime slow?
+./scripts/measure/profile_desktop.sh --dev-build  # why is my edit/play build slow?
 ```
 
 `[profile.dev]` deliberately builds `ambition_app`, `ambition_render`, and
@@ -768,11 +768,11 @@ strips symbols and fat-LTOs everything into one unattributable blob.
 ### Other modes
 
 ```bash
-scripts/profile_desktop.sh perf-run --duration 30 --report-preset full
-scripts/profile_desktop.sh perf-attach --duration 30
-scripts/profile_desktop.sh stat-run --duration 30
-scripts/profile_desktop.sh asset-run --duration 30
-scripts/profile_desktop.sh --no-tracy --build-profile release -- sandbox
+scripts/measure/profile_desktop.sh perf-run --duration 30 --report-preset full
+scripts/measure/profile_desktop.sh perf-attach --duration 30
+scripts/measure/profile_desktop.sh stat-run --duration 30
+scripts/measure/profile_desktop.sh asset-run --duration 30
+scripts/measure/profile_desktop.sh --no-tracy --build-profile release -- sandbox
 ```
 
 The default open-ended capture records without call graphs (~15 KB/s of
@@ -843,10 +843,10 @@ Android profile script:
 
 ```bash
 # Build/install a symbol-friendly APK if needed.
-scripts/profile_android.sh prepare --profile-build
+scripts/measure/profile_android.sh prepare --profile-build
 
 # Open the game on the phone, navigate to the slow state, then attach.
-scripts/profile_android.sh heap --no-launch --duration 30
+scripts/measure/profile_android.sh heap --no-launch --duration 30
 ```
 
 The output directory contains `heap.perfetto-trace`. Open that file in
@@ -871,7 +871,7 @@ If the capture reports heapprofd buffer overruns, rerun with a coarser
 sample interval:
 
 ```bash
-scripts/profile_android.sh heap --no-launch --duration 30 --heap-sampling-interval 16384
+scripts/measure/profile_android.sh heap --no-launch --duration 30 --heap-sampling-interval 16384
 ```
 
 ## Quick recipes
@@ -887,7 +887,7 @@ route is planned again at each room and when the room set or catalog changes.
 New side rooms are not stops unless the itinerary names them.
 
 ```bash
-scripts/profile_desktop.sh --autoplay --duration 120   # a bundle, scenario `ambition-autoplay`
+scripts/measure/profile_desktop.sh --autoplay --duration 120   # a bundle, scenario `ambition-autoplay`
 ./run_game.sh --autoplay profiling                     # just watch it
 ```
 
@@ -915,9 +915,9 @@ output; use a visible device run for that evidence.
 **An unattended phone profile of one game in the hub.** One command:
 
 ```bash
-scripts/autoprofile_android.sh            # Ambition: the hall of characters, then a flight through the primeval trail
-scripts/autoprofile_android.sh mary_o     # Mary-O: the cosmic form, to each goal
-scripts/autoprofile_android.sh castle_godwin --duration 300 --warmup 10
+scripts/measure/autoprofile_android.sh            # Ambition: the hall of characters, then a flight through the primeval trail
+scripts/measure/autoprofile_android.sh mary_o     # Mary-O: the cosmic form, to each goal
+scripts/measure/autoprofile_android.sh castle_godwin --duration 300 --warmup 10
 ```
 
 It is the recipe below with the game's boot route and autoplay set; any
@@ -927,7 +927,7 @@ APK):
 
 ```bash
 AMBITION_BOOT_ROUTE=mary_o_gameplay AMBITION_AUTOPLAY=mary_o \
-  scripts/profile_android.sh all --profile-build --launch --warmup 25 --duration 30 --name all-maryo-auto
+  scripts/measure/profile_android.sh all --profile-build --launch --warmup 25 --duration 30 --name all-maryo-auto
 ```
 
 The startup cards play first (about 6 s), then the hub goes to the boot route.
@@ -939,7 +939,7 @@ not the main thread): read the main thread with `--thread`.
 lines in stderr. If a single phase dominates, add finer phase marks
 inside it.
 
-**"Why did frame time get worse?"** `./scripts/profile_desktop.sh`, reproduce
+**"Why did frame time get worse?"** `./scripts/measure/profile_desktop.sh`, reproduce
 it, quit. Read `summary.md`: worst frames first, then the camera/view counts
 and render-pass times at the same second, then the Tracy zone table.
 
@@ -953,7 +953,7 @@ and render-pass times at the same second, then the Tracy zone table.
 whether that second stuttered, and `timeline.md` says which room you were
 entering.
 
-**"I only have the VM."** `./scripts/profile_desktop.sh --headless`. You lose
+**"I only have the VM."** `./scripts/measure/profile_desktop.sh --headless`. You lose
 GPU and render-pass numbers (the report says so) and keep everything about the
 simulation, the schedule, the entity population, and asset CPU work.
 

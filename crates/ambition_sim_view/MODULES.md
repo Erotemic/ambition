@@ -1,6 +1,6 @@
 # `ambition_sim_view` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_sim_view** — Plain-data observation boundary over simulation state.
 
@@ -23,7 +23,7 @@
 | [`trail_snapshot`](src/trail_snapshot.rs) | Trail geometry captured on the presentation clock. |
 | [`view_index`](src/view_index.rs) | `FeatureViewIndex` resource and the per-frame rebuild pass. |
 
-_16 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_16 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

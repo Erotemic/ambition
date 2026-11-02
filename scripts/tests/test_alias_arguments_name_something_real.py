@@ -161,7 +161,7 @@ def test_the_route_gate_census_runs_clean_against_the_live_tree():
     import sys as _sys
 
     proc = subprocess.run(
-        [_sys.executable, str(REPO / "scripts/authored_route_gates.py")],
+        [_sys.executable, str(REPO / "scripts/measure/authored_route_gates.py")],
         capture_output=True,
         text=True,
         cwd=REPO,

@@ -21,10 +21,10 @@ boundary is ready does not certify another.
 Re-run these before you quote a number. Do not copy counts into other pages.
 
 ```bash
-python3 scripts/measure_foreign_system_ordering.py
-python3 scripts/measure_carveable_installations.py
+python3 scripts/measure/measure_foreign_system_ordering.py
+python3 scripts/measure/measure_carveable_installations.py
 python3 scripts/check_facade_dependency_closure.py
-python3 scripts/measure_minimum_profile_closure.py --minimum
+python3 scripts/measure/measure_minimum_profile_closure.py --minimum
 ```
 
 - `measure_foreign_system_ordering.py` is a syntactic inventory of foreign

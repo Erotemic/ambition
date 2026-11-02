@@ -1,6 +1,6 @@
 # `ambition_platformer2d` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_platformer2d** — Public facade for Ambition-derived platformer games.
 
@@ -16,7 +16,7 @@
 | [`session`](src/session.rs) | Canonical live session-world surface. |
 | [`world_flow`](src/world_flow/mod.rs) | Prepare room assets and covers for visible platformer hosts. |
 
-_9 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_9 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

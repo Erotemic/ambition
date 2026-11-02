@@ -36,7 +36,7 @@
 //! brackets only this test's own window, so tests that ran earlier in the
 //! process cannot inflate it. What the delta cannot handle is a test running
 //! CONCURRENTLY, which is why this is `#[ignore]`d and driven by
-//! `scripts/measure_hall_redecodes.sh` with an exact filter — one test, alone.
+//! `scripts/measure/measure_hall_redecodes.sh` with an exact filter — one test, alone.
 //!
 //! ⚠ A second `[[test]]` target would give it a private process for free, and
 //! was rejected on cost: it relinks the whole app, and this repository has
@@ -125,7 +125,7 @@ fn settle_cast_or_fail(app: &mut App, secs: u64, what: &str) {
 }
 
 #[test]
-#[ignore = "reads the process-global image ledger: valid only when run alone, via scripts/measure_hall_redecodes.sh"]
+#[ignore = "reads the process-global image ledger: valid only when run alone, via scripts/measure/measure_hall_redecodes.sh"]
 fn the_halls_entry_is_counted_for_art_it_decodes_twice() {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(

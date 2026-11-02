@@ -85,7 +85,7 @@ static rankings and navigation links. It does not change the ECS inventory
 schema or the runtime.
 
 ```bash
-python3 scripts/ecs_browser.py --open
+python3 tools/ecs_architecture_browser/ecs_browser.py --open
 ```
 
 See [`tools/ecs_architecture_browser/README.md`](../../tools/ecs_architecture_browser/README.md).

@@ -1,6 +1,6 @@
 # `ambition_platformer2d_actor_spawn` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_platformer2d_actor_spawn** — Actor spawn/construction capability extracted from the platformer actor monolith.
 
@@ -11,7 +11,7 @@
 | [`character_body`](src/character_body.rs) | Complete prepared-character body construction. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declarations for state owned by this crate. |
 
-_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

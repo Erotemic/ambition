@@ -21,7 +21,7 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
-import measure_strike_area_over_body as census  # noqa: E402
+from scripts.measure import measure_strike_area_over_body as census  # noqa: E402
 
 
 def _take(frames):

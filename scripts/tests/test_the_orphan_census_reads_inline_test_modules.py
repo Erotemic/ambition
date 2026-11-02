@@ -31,7 +31,7 @@ REPO = Path(__file__).resolve().parent.parent.parent
 
 
 def _census():
-    path = REPO / "scripts/orphaned_symbols.py"
+    path = REPO / "scripts/measure/orphaned_symbols.py"
     spec = importlib.util.spec_from_file_location("orphaned_symbols", path)
     module = importlib.util.module_from_spec(spec)
     sys.modules["orphaned_symbols"] = module

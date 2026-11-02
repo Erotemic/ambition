@@ -1,6 +1,6 @@
 # `ambition_entity_catalog` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_entity_catalog** — Entity-contract + moveset vocabulary — the gameplay-truth schema.
 
@@ -35,7 +35,7 @@
 | [`smash_trapdoor`](src/smash_trapdoor.rs) | Authored payload for entering and leaving the submerged body mode. |
 | [`smash_vitality`](src/smash_vitality.rs) | Authored payload for changing the mover's own health. |
 
-_28 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_28 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

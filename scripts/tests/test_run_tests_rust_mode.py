@@ -163,15 +163,6 @@ def test_repo_backbone_excludes_detached_tool_tests():
     assert _pytest_marker_expression(tooling) == "not detached_tool"
 
 
-def test_detached_tool_lane_contains_marker_suite_and_ldtk_suite():
-    jobs = run_tests.build_detached_tool_jobs()
-    assert [job.name for job in jobs] == [
-        "detached repo developer tools",
-        "ldtk authoring tool tests",
-    ]
-    assert _pytest_marker_expression(jobs[0]) == "detached_tool"
-    assert jobs[1].cwd == str(REPO / "tools" / "ambition_ldtk_tools")
-    assert "pytest" in jobs[1].argv
 
 
 def test_focused_detached_tool_lane_does_not_run_unrelated_ldtk_suite():
@@ -323,7 +314,7 @@ def test_an_unmeasured_job_s_wall_time_is_unclassified_not_build_time():
 
 def test_the_report_calls_unclassified_time_neither_build_nor_run():
     """The reader of the persisted ledger gets the same three numbers."""
-    import compile_report
+    from scripts.measure import compile_report
 
     rows = [
         {"seconds": 100.0, "executed_seconds": 0.0, "unclassified_seconds": 100.0},

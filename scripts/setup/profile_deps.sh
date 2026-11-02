@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Preflight for `scripts/profile_desktop.sh` on a machine that has never
+# Preflight for `scripts/measure/profile_desktop.sh` on a machine that has never
 # profiled Ambition.
 #
 # ⭐ WHY THIS IS SEPARATE FROM `run_developer_setup.sh --profile`. That script
@@ -26,7 +26,7 @@ usage() {
     cat <<'USAGE'
 Usage: scripts/setup/profile_deps.sh [--check]
 
-Preflight for `scripts/profile_desktop.sh` on a machine that has never profiled
+Preflight for `scripts/measure/profile_desktop.sh` on a machine that has never profiled
 Ambition. Asks whether the profiling toolchain WORKS, which is a different
 question from whether it is installed — and the one that has cost real time.
 
@@ -294,9 +294,9 @@ if ((${#todo[@]})); then
     printf '    %s\n' "${todo[@]}"
 fi
 if ((fail == 0)); then
-    printf '\n  Ready: ./scripts/profile_desktop.sh\n'
+    printf '\n  Ready: ./scripts/measure/profile_desktop.sh\n'
     printf '  Without Tracy (faster, and the arm to size an optimization against):\n'
-    printf '    ./scripts/profile_desktop.sh --no-tracy\n'
+    printf '    ./scripts/measure/profile_desktop.sh --no-tracy\n'
     exit 0
 fi
 printf '\n  Fix the ✗ items above, then re-run this script.\n'

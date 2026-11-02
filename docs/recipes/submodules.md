@@ -203,7 +203,7 @@ expired key does not stop it (see `tools/ambition_music_renderer/apt_helpers.sh`
 ## Checking state
 
 ```bash
-scripts/sync_status.sh     # every submodule against its recorded pin
+scripts/maintenance/sync_status.sh     # every submodule against its recorded pin
 git submodule status
 ```
 

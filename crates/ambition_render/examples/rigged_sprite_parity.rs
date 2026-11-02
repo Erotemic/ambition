@@ -13,7 +13,7 @@
 //! game's own frame code (`draw_held_frame`) and the real rigged systems, into
 //! an offscreen image with a transparent clear, and read back. The run writes
 //! `<out>/<target>/<row>_<frame>_{baked,parts}.png` and an `index.tsv`;
-//! `scripts/measure_rigged_parity.py` runs this and does the diff.
+//! `scripts/measure/measure_rigged_parity.py` runs this and does the diff.
 //!
 //! ```sh
 //! cargo run -p ambition_render --example rigged_sprite_parity -- \

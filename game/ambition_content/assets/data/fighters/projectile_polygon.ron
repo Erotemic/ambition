@@ -6,7 +6,7 @@
     // Jon, 2026-10-29: the projectile polygon is Yoshi's body with some of Samus's and Toon Link's moves (was Charizard).
     // Shaped like Ultimate's Yoshi at 0.60 strength: each number is Smash's
     // default fighter's, scaled by how that fighter differs from Ultimate's
-    // roster median (`scripts/smash_fighter_shape.py "Yoshi" --strength 0.6`).
+    // roster median (`scripts/measure/smash_fighter_shape.py "Yoshi" --strength 0.6`).
     knockback_weight: Some(1.02),
     body: Some((
         max_run_speed: Some(350.5),

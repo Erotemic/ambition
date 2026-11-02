@@ -738,7 +738,7 @@ pub fn session_world_component_mut<T: Component<Mutability = Mutable>>(
 ///
 /// ⛔⛤ **IT ALSO EXISTS SO THE WRITE IS VISIBLE TO THE CENSUS, AND THAT IS NOT
 /// COSMETIC.** `world.get_mut::<T>(root)` is the same three tokens as any other
-/// component write, so `scripts/multi_writer_resource_census.py` could not see
+/// component write, so `scripts/measure/multi_writer_resource_census.py` could not see
 /// the room publication at all — and the cost was paid in the wrong place:
 /// `handle_ldtk_hot_reload` kept `SessionWorldMut<RoomSet>` on a parameter it
 /// only READS, with a comment saying so, because demoting it would have taken

@@ -22,8 +22,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import compile_cost  # noqa: E402
-from compile_cost import (  # noqa: E402
+from scripts.measure import compile_cost  # noqa: E402
+from scripts.measure.compile_cost import (  # noqa: E402
     LINK_COUNT_FLAG,
     count_host_links,
     count_rebuilt_units,

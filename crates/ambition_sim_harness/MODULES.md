@@ -1,6 +1,6 @@
 # `ambition_sim_harness` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_sim_harness** — Programmatic harness for driving a platformer simulation headlessly.
 
@@ -16,7 +16,7 @@
 | [`reward`](src/reward.rs) | Example reward-shaping functions for the headless RL sim (TODO #198). |
 | [`runtime`](src/runtime.rs) | Programmatic Ambition simulation runtime, including direct and GGRS-driven stepping. |
 
-_9 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_9 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

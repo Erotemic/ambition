@@ -1,6 +1,6 @@
 # `ambition_abilities` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_abilities** — The wielded ability kit, split from the actor kernel (D33).
 
@@ -18,7 +18,7 @@
 | [`thrown`](src/thrown/mod.rs) | Thrown abilities: the gravity grenade and the puppy-slug gun. |
 | [`traversal`](src/traversal/mod.rs) | Traversal rules a held item uses through its ports: the blink rule and the mark, which the blink, dive and mark/recall modules use. |
 
-_11 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_11 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

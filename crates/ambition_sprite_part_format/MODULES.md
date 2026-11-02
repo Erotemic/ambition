@@ -1,6 +1,6 @@
 # `ambition_sprite_part_format` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_sprite_part_format** — Compile sprite-part metadata before application startup.
 
@@ -8,7 +8,7 @@
 |---|---|
 | [`parts`](src/parts.rs) | The published sprite-part wire format. |
 
-_1 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_1 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

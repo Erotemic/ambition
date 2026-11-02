@@ -6,7 +6,7 @@
     // Moves like cosmic and floaty: a long drift and a slow fall.
     // Shaped like Ultimate's Rosalina & Luma at 0.60 strength: each number is Smash's
     // default fighter's, scaled by how that fighter differs from Ultimate's
-    // roster median (`scripts/smash_fighter_shape.py "Rosalina & Luma" --strength 0.6`).
+    // roster median (`scripts/measure/smash_fighter_shape.py "Rosalina & Luma" --strength 0.6`).
     body: Some((
         max_run_speed: Some(324.0),
         initial_dash_speed: Some(358.5),

@@ -41,7 +41,7 @@ def test_the_worktree_budget_of_main(tmp_path: Path) -> None:
 
 
 def test_the_audio_level_pool() -> None:
-    tree = ast.parse((REPO / "scripts/audio_levels.py").read_text())
+    tree = ast.parse((REPO / "scripts/measure/audio_levels.py").read_text())
     defaults = [
         kw.value
         for node in ast.walk(tree)

@@ -793,7 +793,7 @@ becomes game content. Neither is an AI architecture question.
 A persistent spacing objective plus an armed punish, tested against this
 reactive policy on identical fixtures: `fighter-tactical-intent.md`. The
 groundwork (nearest-hostile spacing, commitment measured from now) and the
-punish-window census (`scripts/smash_punish_windows.py`) are in.
+punish-window census (`scripts/measure/smash_punish_windows.py`) are in.
 
 ### F1 — the brain on the new fighter body (2026-10-18, open)
 

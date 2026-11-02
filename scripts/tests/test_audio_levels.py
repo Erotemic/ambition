@@ -1,4 +1,4 @@
-"""What `scripts/audio_levels.py` must not silently get wrong.
+"""What `scripts/measure/audio_levels.py` must not silently get wrong.
 
 Only three things are pinned, and each one is a way the instrument could report
 a confident number that is false:
@@ -29,7 +29,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / 'scripts'))
 
-import audio_levels as al  # noqa: E402
+from scripts.measure import audio_levels as al  # noqa: E402
 
 
 def _soundfile():

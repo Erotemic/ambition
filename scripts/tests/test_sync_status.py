@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-SYNC_STATUS = REPO / "scripts/sync_status.sh"
+SYNC_STATUS = REPO / "scripts/maintenance/sync_status.sh"
 
 
 def _git(cwd: Path, *args: str) -> str:

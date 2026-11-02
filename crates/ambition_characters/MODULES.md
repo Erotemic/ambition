@@ -1,6 +1,6 @@
 # `ambition_characters` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_characters** — Content-free character identity, control, behavior, and authoring vocabulary.
 
@@ -30,7 +30,7 @@
 | [`summon`](src/summon.rs) | Requests and data for constructing a summoned character. |
 | [`technique`](src/technique.rs) | THE AUTHORED SCHEMAS OF ENGINE TECHNIQUES — the params an `on_hit` effect carries, and nothing that executes one. |
 
-_23 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_23 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

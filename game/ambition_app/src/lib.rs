@@ -66,7 +66,7 @@ fn main() {
     app::run_visible();
 }
 
-/// An APK has no environment. `scripts/profile_android.sh --launch-env` gives
+/// An APK has no environment. `scripts/measure/profile_android.sh --launch-env` gives
 /// ONE launch one: `KEY=VALUE` lines in `launch_env` in the app's external
 /// files directory, set here as this process's environment, before the app
 /// reads any of it, and the file deleted. So a profile launch plays itself

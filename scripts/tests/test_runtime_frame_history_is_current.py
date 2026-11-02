@@ -3,7 +3,7 @@
 ⛔⛔ **IT DID NOT EXIST AT ALL** until 2026-09-01, while `perf_history.py`'s own
 usage line had named it since the tool was written:
 
-    scripts/perf_history.py report -o docs/planning/engine/runtime-frame-history.md
+    scripts/measure/perf_history.py report -o docs/planning/engine/runtime-frame-history.md
 
 A generated document that is never generated is worse than a missing one: the
 command in the header tells a reader it is authoritative, and there was nothing
@@ -47,12 +47,12 @@ def normalise(text: str) -> list[str]:
 def test_the_committed_report_matches_a_fresh_generation():
     assert REPORT.exists(), (
         f"{REPORT.relative_to(REPO)} is missing. Generate it with "
-        f"`python3 scripts/perf_history.py report -o {REPORT.relative_to(REPO)}`"
+        f"`python3 scripts/measure/perf_history.py report -o {REPORT.relative_to(REPO)}`"
     )
     with tempfile.TemporaryDirectory() as tmp:
         fresh = Path(tmp) / "fresh.md"
         result = subprocess.run(
-            [sys.executable, "scripts/perf_history.py", "report", "-o", str(fresh)],
+            [sys.executable, "scripts/measure/perf_history.py", "report", "-o", str(fresh)],
             cwd=REPO,
             capture_output=True,
             text=True,
@@ -66,7 +66,7 @@ def test_the_committed_report_matches_a_fresh_generation():
     assert got == want, (
         "the committed runtime-frame-history is stale. A bundle was ingested "
         "without regenerating it, and the file says `⛔ Do not hand-edit`. Run:\n"
-        "  python3 scripts/perf_history.py report -o "
+        "  python3 scripts/measure/perf_history.py report -o "
         "docs/planning/engine/runtime-frame-history.md"
     )
 

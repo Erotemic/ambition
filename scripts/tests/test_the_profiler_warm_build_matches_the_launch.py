@@ -1,7 +1,7 @@
 """The profiler's warm build must produce artifacts the profiled launch accepts.
 
 ⛔⛔ **THE DEFECT THIS PINS PUT THE COMPILER INSIDE THE PROFILE.**
-`scripts/profile_desktop.sh` warm-builds before `perf record` so the capture is
+`scripts/measure/profile_desktop.sh` warm-builds before `perf record` so the capture is
 about the game, then perf-records `run_game.sh`. But the warm build replayed the
 plan's `build_arg` list with a bare `cargo build`, while `run_game.sh` exports
 `CARGO_INCREMENTAL=0` for every release-level profile — deliberately, because
@@ -72,7 +72,7 @@ def test_a_dev_plan_carries_no_incremental_override():
 
 
 def test_the_profiler_applies_the_plans_build_environment():
-    source = (REPO / "scripts" / "profile_desktop.sh").read_text(encoding="utf-8")
+    source = (REPO / "scripts" / "measure/profile_desktop.sh").read_text(encoding="utf-8")
     assert "build_env) plan_build_env+=" in source, (
         "profile_desktop.sh must PARSE the build_env rows out of the plan"
     )

@@ -112,7 +112,7 @@ Current shape:
 - Parallax has an eviction counterpart: `ParallaxLayerSet::retain_themes` (API)
   and `retire_departed_parallax_themes` (policy: keep the active room's theme
   and its one-hop neighbours', the same set the prefetch loads).
-  `scripts/measure_parallax_retire.sh` verifies that retired images leave
+  `scripts/measure/measure_parallax_retire.sh` verifies that retired images leave
   `Assets<Image>`.
 
 Open: character pages, FX sheets and boss sheets have no retire. One stated

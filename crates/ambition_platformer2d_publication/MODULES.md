@@ -1,6 +1,6 @@
 # `ambition_platformer2d_publication` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_platformer2d_publication** — Room publication: prepare a hidden candidate room, check its construction receipt, and publish it into the live world or refuse it, as one operation.
 
@@ -12,7 +12,7 @@
 | [`stage`](src/stage.rs) | Canonical prepared room construction. |
 | [`transaction`](src/transaction.rs) | Room construction transaction boundary. |
 
-_5 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_5 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

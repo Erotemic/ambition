@@ -5,7 +5,7 @@ a page left under `assets/sprites*/` ships whether or not any road reaches it.
 It costs package size and nothing else — no decode, no residency — which is why
 every runtime measurement calls the tree healthy.
 
-Measured 2026-09-02 by `scripts/measure_orphan_shipped_pages.py`: **44 stranded
+Measured 2026-09-02 by `scripts/measure/measure_orphan_shipped_pages.py`: **44 stranded
 pages, 92.0 MB**, from four sheets whose manifests are single-page (`image:
 "x.png"`) while `x_spritesheet.1.png` … `.5.png` sit beside them — pages from a
 time the sheet was multi-page. A sheet's pages resolve ONLY through its
@@ -69,7 +69,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-SCRIPT = REPO / "scripts/measure_orphan_shipped_pages.py"
+SCRIPT = REPO / "scripts/measure/measure_orphan_shipped_pages.py"
 
 # ⛔ KNOWN, MEASURED 2026-09-02, AND NOT A LICENCE. Each names a single-page
 # manifest with numbered siblings left beside it. Remove a name when its tree is

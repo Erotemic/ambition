@@ -50,7 +50,7 @@ PYTHONPATH="$REPO/tools/ambition_ldtk_tools" \
     game/ambition_content/assets/worlds/sandbox.ldtk
 
 # Compose the exact installed asset tree before building.
-python3 "$REPO/scripts/package_asset_guard.py" compose \
+python3 "$REPO/scripts/package/package_asset_guard.py" compose \
     --repo "$REPO" \
     --profile steamdeck \
     --output "$PACKAGE_ASSETS" \
@@ -166,7 +166,7 @@ EOF_STEAM
     STEAM_LAUNCHER="$APPDIR/ambition-steam.desktop"
     GAME_ID=""
     for _ in 1 2 3 4 5; do
-        GAME_ID="$(ssh "$DECK" "python3 - '$STEAM_NAME'" < "$REPO/scripts/steam_shortcut_gameid.py" || true)"
+        GAME_ID="$(ssh "$DECK" "python3 - '$STEAM_NAME'" < "$REPO/scripts/package/steam_shortcut_gameid.py" || true)"
         [[ -n "$GAME_ID" ]] && break
         sleep 2
     done

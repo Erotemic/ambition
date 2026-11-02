@@ -1,4 +1,4 @@
-"""Unit tests for `scripts/citation_line_content_feasibility.py`.
+"""Unit tests for `scripts/measure/citation_line_content_feasibility.py`.
 
 ⚠ This script records a NEGATIVE result, so its tests guard the two things that
 would quietly turn that negative into a fabrication: a resolver that silently finds
@@ -10,7 +10,7 @@ from __future__ import annotations
 import importlib.util
 import pathlib
 
-_SCRIPT = pathlib.Path(__file__).resolve().parents[1] / "citation_line_content_feasibility.py"
+_SCRIPT = pathlib.Path(__file__).resolve().parents[1] / "measure/citation_line_content_feasibility.py"
 _spec = importlib.util.spec_from_file_location("citation_line_content_feasibility", _SCRIPT)
 mod = importlib.util.module_from_spec(_spec)
 assert _spec.loader is not None

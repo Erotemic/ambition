@@ -198,7 +198,7 @@ impl PreparedContentPack {
     /// What a package must hold for this pack to load, one tab-separated line
     /// each: `source <path>` for each source the manifest lists, and
     /// `asset <path> <content id>...` for each asset a schema required and the
-    /// identities that required it. `scripts/package_asset_guard.py` reads
+    /// identities that required it. `scripts/package/package_asset_guard.py` reads
     /// this, so the packager asks the schema how an asset path resolves and
     /// holds no second copy of the rule.
     pub fn package_inputs(&self) -> String {

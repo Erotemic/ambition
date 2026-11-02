@@ -1,6 +1,6 @@
 # `ambition_boss_encounter` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_boss_encounter** — Boss encounter domain.
 
@@ -35,7 +35,7 @@
 | [`specs`](src/specs.rs) | App-local boss-encounter spec access. |
 | [`systems`](src/systems.rs) | Boss-encounter Bevy systems: the per-frame driver. |
 
-_28 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_28 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

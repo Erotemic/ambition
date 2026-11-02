@@ -1,6 +1,6 @@
 # `ambition_encounter` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_encounter** — Generic encounter orchestration: the ONE lifecycle authority, command ingress, objectives, participants, timeline, and wave policy.
 
@@ -26,7 +26,7 @@
 | [`timeline`](src/timeline.rs) | Generic encounter TIMELINE (§6): ordered beats `{ when: Trigger, then: [Effect] }` that advance as triggers fire. |
 | [`waves`](src/waves.rs) | Wave POLICY: the spawn-cadence director for wave/arena encounters. |
 
-_19 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_19 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

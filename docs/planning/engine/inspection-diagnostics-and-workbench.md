@@ -71,7 +71,7 @@ render passes, phase costs) and the world:
   split may be read.
 
 Tooling entry points: `scripts/agent_query.py`, `scripts/ecs_inventory.py`,
-`scripts/non_ecs_inventory.py`, `scripts/core_import_census.py`. A future GUI
+`scripts/measure/non_ecs_inventory.py`, `scripts/measure/core_import_census.py`. A future GUI
 workbench consumes these surfaces.
 
 ### Structured why-not (M5)

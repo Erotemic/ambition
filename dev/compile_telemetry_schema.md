@@ -34,7 +34,7 @@ discriminator that lets the four files be read as one table.
 read the row correctly — **not** when a nullable column is added. The rule at the
 top of this file ("the columns land BEFORE the collector") only works if a new
 column is a non-event for readers, and it is: the one reader that consults this
-field, `scripts/compile_report.py:428`, tests it for TRUTH (*"does this row state
+field, `scripts/measure/compile_report.py:428`, tests it for TRUTH (*"does this row state
 its own dimensions?"*), never for a value. Bumping on an additive column would
 also strand the four writers that emit the literal `1`, for no reader's benefit.
 
@@ -210,7 +210,7 @@ one.**
 
 ### ⛔ `opt_level` is READ OFF THE RUSTC COMMAND LINE, not modelled
 
-`scripts/compile_collect.py` passes `-v`, so cargo prints every rustc
+`scripts/measure/compile_collect.py` passes `-v`, so cargo prints every rustc
 invocation, and the collector takes `-C opt-level=`, `-C codegen-units=` and the
 presence of `-C incremental=` from the line cargo actually issued. That is the
 answer to a defect this repo has already shipped once —
@@ -252,11 +252,11 @@ of different questions: this one prioritises ("what does it cost the build I
 run"), that one diagnoses ("what does it intrinsically cost"). The ratchet weights
 use this one on purpose. Do not compare them.
 
-### The collector — `scripts/compile_collect.py`, landed 2026-08-08
+### The collector — `scripts/measure/compile_collect.py`, landed 2026-08-08
 
 ```
-python3 scripts/compile_collect.py --config dev --config release
-python3 scripts/compile_collect.py --analyze      # builds nothing
+python3 scripts/measure/compile_collect.py --config dev --config release
+python3 scripts/measure/compile_collect.py --analyze      # builds nothing
 ```
 
 It does the three things this section used to ask for. Each named configuration
@@ -294,7 +294,7 @@ comparison is warm.
 
 ## 4. `dev/ambition_dev_measurements/compile_cost.jsonl` — `kind: "scenario"`
 
-**The edit→rebuild stopwatch.** Written by `scripts/compile_cost.py`. 4 rows
+**The edit→rebuild stopwatch.** Written by `scripts/measure/compile_cost.py`. 4 rows
 today; the grain is one *scenario* (warm, edit, rebuild, revert), not one unit.
 
 | field | source | populated |
@@ -504,7 +504,7 @@ link OOMs, which is why it is here. It does **not** answer *"what did this build
 cost the machine"*, and reading it as though it does will understate a parallel
 build by roughly the job count. See §7.
 
-⛔ **AND IT IS NOT COMPARABLE TO `scripts/measure_test_arm_rss.py`'s
+⛔ **AND IT IS NOT COMPARABLE TO `scripts/measure/measure_test_arm_rss.py`'s
 `peak_anon_mb`, DESPITE BOTH BEING "PEAK RSS".** That script tracks **`RssAnon`**
 and deliberately refuses `VmRSS` and the cgroup's `memory.current`, because page
 cache dominates both and is reclaimable. `ru_maxrss` here INCLUDES file-backed

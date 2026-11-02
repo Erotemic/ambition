@@ -1,6 +1,6 @@
 # `ambition_content_modules` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_content_modules** — Ambition's procedural extension modules.
 
@@ -38,7 +38,7 @@
 | [`wielded`](src/wielded.rs) | What the wielded abilities share: the descriptor of a stateless entry on the `wielded_use` trigger, and the payment rule. |
 | [`wolfenstein`](src/wolfenstein.rs) | Wolfenstein's conductor: it walks the monster and performs his moves. |
 
-_31 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_31 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

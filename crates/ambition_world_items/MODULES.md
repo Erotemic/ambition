@@ -1,6 +1,6 @@
 # `ambition_world_items` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_world_items** — The physical life of a collectible in the world.
 
@@ -11,7 +11,7 @@
 | [`rollback_registration`](src/rollback_registration.rs) | Register physical container state for rollback. |
 | [`world_item`](src/world_item.rs) | `WorldItem` — a walk-into collectible that grants EQUIPMENT. |
 
-_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

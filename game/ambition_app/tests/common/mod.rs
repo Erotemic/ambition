@@ -671,7 +671,7 @@ pub fn strengthen_the_sharp_rows(world: &mut bevy::prelude::World) -> Vec<&'stat
 
 /// Give each row of S7's float census a value probe: outside the peer
 /// checksum, no value projection, read by an unfiltered per-tick query and
-/// float-bearing (`scripts/measure_unchecksummed_rollback_rows.py`, 23 rows on
+/// float-bearing (`scripts/measure/measure_unchecksummed_rollback_rows.py`, 23 rows on
 /// 2026-10-03). The sharp rows are the eleven of them that production also
 /// writes. See [`strengthen_the_sharp_rows`]. 22 here: `lifecycle.room_visual`
 /// (`RoomVisual`) is a unit marker, so its presence is its whole value and its

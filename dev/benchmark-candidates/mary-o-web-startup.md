@@ -7,7 +7,7 @@ simulation for the native and browser hosts.
 ## Method
 
 Build with `./build_for_web.sh --game mary-o --copy-assets`. Serve with
-`scripts/web_bundle.py serve`. Run `scripts/measure_web.cjs` against that URL.
+`scripts/package/web_bundle.py serve`. Run `scripts/measure/measure_web.cjs` against that URL.
 The [web recipe](../../docs/recipes/web-build.md#standalone-mary-o) has the commands.
 
 Tools: Rust 1.98.1, wasm-bindgen 0.2.127, Chromium 151.0.0.0, WebGL2 through

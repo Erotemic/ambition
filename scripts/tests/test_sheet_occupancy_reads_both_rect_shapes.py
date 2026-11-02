@@ -43,7 +43,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 )
-SCRIPT = REPO / "scripts/measure_sheet_occupancy.py"
+SCRIPT = REPO / "scripts/measure/measure_sheet_occupancy.py"
 
 
 def load():

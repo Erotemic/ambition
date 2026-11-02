@@ -1,7 +1,7 @@
 //! The asset tree inside the executable: one file to give a player.
 //!
 //! A packaged game is its executable with the asset tree written after it
-//! (`scripts/package_single_exe.py`). The operating system loads the program
+//! (`scripts/package/package_single_exe.py`). The operating system loads the program
 //! from the front of the file and ignores what follows, on Linux and on
 //! Windows. The game opens its own file, reads the footer at its end, and
 //! serves each asset from the bytes between.
@@ -16,7 +16,7 @@
 //! ```
 //!
 //! Each number is little-endian. The tree is the one flat `assets/` tree a
-//! packaged build has (`scripts/package_asset_guard.py compose`), so the
+//! packaged build has (`scripts/package/package_asset_guard.py compose`), so the
 //! default source and the `game://` source are the same reader.
 //!
 //! A file with no footer is a development build: [`ExeBundle::open`] answers
@@ -172,7 +172,7 @@ impl ExeBundle {
     ///
     /// Android: true. Its APK is composed from the same two asset roots as
     /// every package and audited against the finished zip
-    /// (`scripts/package_asset_guard.py`), so it holds each shipped file. The
+    /// (`scripts/package/package_asset_guard.py`), so it holds each shipped file. The
     /// web reads no directory: false.
     pub fn running_program_tree_holds(path: &str) -> bool {
         if let Some(bundle) = Self::of_running_exe() {
@@ -307,7 +307,7 @@ pub use source::exe_bundle_asset_source;
 
 /// Write `files` after the bytes of `program` as a bundle, to `out`.
 ///
-/// `scripts/package_single_exe.py` writes a real package: it copies each file
+/// `scripts/package/package_single_exe.py` writes a real package: it copies each file
 /// as a stream, and this function holds the whole bundle in memory. This one
 /// is for a test that needs a small bundle, in this crate or in another.
 pub fn write_bundle(program: &[u8], files: &[(&str, &[u8])], out: &Path) -> std::io::Result<()> {
@@ -352,7 +352,7 @@ mod tests {
         (dir, bundle)
     }
 
-    /// The packager (`scripts/package_single_exe.py`) writes the layout and
+    /// The packager (`scripts/package/package_single_exe.py`) writes the layout and
     /// this module reads it: two programs, one layout. This file is the bytes
     /// the packager writes for a small tree, and the Python arm
     /// `test_the_writer_makes_the_bytes_the_game_reads` proves that it is. A

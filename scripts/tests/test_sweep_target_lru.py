@@ -11,7 +11,7 @@ import sys
 import time
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
-SCRIPT = REPO / "scripts/sweep_target_lru.py"
+SCRIPT = REPO / "scripts/maintenance/sweep_target_lru.py"
 
 OLD = "0123456789abcdef"
 LIVE = "fedcba9876543210"

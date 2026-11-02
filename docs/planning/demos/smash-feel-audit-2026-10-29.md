@@ -65,7 +65,7 @@ roster median:
 Deviations that are not the base body: the robot's gravity is 1.22× Mario's and
 fall 1.15× (inside p90, but it reads heavier than Mario); the admiral falls at
 1.21× the median; alice's air acceleration is 1.37× the median. These are the
-per-fighter shapes from `scripts/smash_fighter_shape.py`, a first pass awaiting
+per-fighter shapes from `scripts/measure/smash_fighter_shape.py`, a first pass awaiting
 Jon. The jump squat is 2 frames measured against 3 authored; check
 `jump_squat_time: 0.05` against the tick rounding.
 
@@ -112,7 +112,7 @@ shake keyed to the same quantity), so the fix is the number, not a system.
 ### 3 and 4. Frame data (AUTHORED)
 
 Startup/active/recovery windows from each moveset, converted at 60 Hz
-(`scripts/smash_frame_data.py`). Ultimate column: Mario, UFD, from
+(`scripts/measure/smash_frame_data.py`). Ultimate column: Mario, UFD, from
 memory `(verify)`. "total" = first actionable frame; "LL" = landing lag.
 
 | move | robot v3 | admiral | goblin | Mario (verify) |
@@ -315,8 +315,8 @@ One pass, one shape per archetype, measured against the UFD anchors
   dash grab slower, pivot grab faster.
 - Give the three archetypes (fast/light, mid, heavy) distinct tables; stop
   copying `3/24` and `6/33` across the roster.
-- Instrument: `scripts/smash_move_sheet.py` + `smash_hitbox_census.py` for
-  the pictures; `scripts/smash_frame_data.py` for the numbers beside UFD's.
+- Instrument: `scripts/measure/smash_move_sheet.py` + `smash_hitbox_census.py` for
+  the pictures; `scripts/measure/smash_frame_data.py` for the numbers beside UFD's.
 
 ### R4. Walk / dash / crouch (engine, E1, M)
 

@@ -1,6 +1,6 @@
 # `ambition_body_seed` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_body_seed** — The actor BODY SEED: the prepared body facts a construction path spawns from.
 
@@ -11,7 +11,7 @@
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declarations for state owned by this crate. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | Rollback wire encoders for the seed's own components. |
 
-_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

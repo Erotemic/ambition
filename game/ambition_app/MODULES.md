@@ -1,6 +1,6 @@
 # `ambition_app` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_app** — Ambition app shell (Stage 20 / A3 bisection).
 
@@ -13,7 +13,7 @@
 | [`menu`](src/menu/mod.rs) | Game-side menu host stack: backend-agnostic page model, dispatcher, item effects, and the flat-grid / 3D-cube presentation hosts. |
 | [`rl_sim`](src/rl_sim/mod.rs) | Ambition's binding of the reusable [`ambition_sim_harness`] to its own content. |
 
-_6 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_6 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

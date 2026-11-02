@@ -1,0 +1,72 @@
+{
+  "commands": [
+    {
+      "id": "compile_cost",
+      "title": "Measure rebuild and compile cost",
+      "owner": "scripts/measure",
+      "command": "python3 scripts/measure/compile_cost.py --help",
+      "help": "python3 scripts/measure/compile_cost.py --help",
+      "requires": [
+        "scripts/measure/compile_cost.py"
+      ],
+      "docs": "scripts/measure/README.md",
+      "inputs": "A clean source file and a Cargo scenario.",
+      "outputs": "Compile timing rows and reports.",
+      "mutation": "Temporarily edits the selected source and restores it. Writes measurement data.",
+      "build": "Needs Cargo and the required target bind. Builds run serially.",
+      "status": "active",
+      "cwd": "repository root"
+    },
+    {
+      "id": "profile_desktop",
+      "title": "Profile desktop or headless simulation",
+      "owner": "scripts/measure",
+      "command": "bash scripts/measure/profile_desktop.sh --help",
+      "help": "bash scripts/measure/profile_desktop.sh --help",
+      "requires": [
+        "scripts/measure/profile_desktop.sh"
+      ],
+      "docs": "scripts/measure/README.md",
+      "inputs": "Host options and a profiling scenario.",
+      "outputs": "Profile bundle with traces and summaries.",
+      "mutation": "Runs the host and writes profiling artifacts.",
+      "build": "Needs the target bind and profile tools. Reuses binaries when requested.",
+      "status": "active",
+      "cwd": "repository root"
+    },
+    {
+      "id": "architecture_census",
+      "title": "Measure engine architecture and source ownership",
+      "owner": "scripts/measure",
+      "command": "python3 scripts/measure/architecture_census.py --help",
+      "help": "python3 scripts/measure/architecture_census.py --help",
+      "requires": [
+        "scripts/measure/architecture_census.py"
+      ],
+      "docs": "scripts/measure/README.md",
+      "inputs": "Workspace source and the consolidation ledger.",
+      "outputs": "Source ownership report.",
+      "mutation": "Reads source and writes requested reports.",
+      "build": "Uses Python only.",
+      "status": "active",
+      "cwd": "repository root"
+    },
+    {
+      "id": "render_capability_doctor",
+      "title": "Check offscreen render prerequisites",
+      "owner": "scripts/measure",
+      "command": "python3 scripts/measure/render_capability_doctor.py --json",
+      "help": "python3 scripts/measure/render_capability_doctor.py --help",
+      "requires": [
+        "scripts/measure/render_capability_doctor.py"
+      ],
+      "docs": "scripts/measure/README.md",
+      "inputs": "Host Vulkan loader and driver paths.",
+      "outputs": "JSON prerequisite report.",
+      "mutation": "Reads host capabilities. Does not launch the game.",
+      "build": "Uses Python only; an actual capture proves render support.",
+      "status": "active",
+      "cwd": "repository root"
+    }
+  ]
+}

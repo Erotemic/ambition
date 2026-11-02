@@ -47,7 +47,7 @@ it a runner:
 
 * mark it `#[ignore]` with a reason naming the isolation requirement, not
   "slow" — e.g. `parallax_theme_retires_on_walk`, `hall_redecode_census`;
-* drive it from a script with an exact filter (`scripts/measure_parallax_retire.sh`);
+* drive it from a script with an exact filter (`scripts/measure/measure_parallax_retire.sh`);
 * and know that `./run_tests.sh --heavy` re-enables ignored tests, which is why
   that plan runs `--test-threads=1`.
 

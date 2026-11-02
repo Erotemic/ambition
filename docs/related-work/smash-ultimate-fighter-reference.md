@@ -219,7 +219,7 @@ Two shapes the table shows:
 - **Ratios travel; absolute values do not.** Ambition's launch law has no
   damage term and its stage, gravity and blast zones are its own, so a move is
   placed by its anchor's ratio to a move that is already calibrated, not by its
-  knockback number. [`scripts/smash_move_fit.py`](../../scripts/smash_move_fit.py)
+  knockback number. [`scripts/measure/smash_move_fit.py`](../../scripts/measure/smash_move_fit.py)
   does that against the moveset it names.
 
 ## Known limits of this data

@@ -13,7 +13,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import iteration_record  # noqa: E402
+from scripts.measure import iteration_record  # noqa: E402
 
 # A host that watches one file and names each generation by the file's bytes,
 # as `content::live_reload` names it by the pack's fingerprint. `mode` is the

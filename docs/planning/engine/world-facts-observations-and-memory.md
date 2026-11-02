@@ -27,7 +27,7 @@ key-value map. Its fields are `pub(crate)` behind readers and named setters, so
 no other crate writes a durable fact by assignment. Paired setters keep one
 fact whole: `set_inventory` also sets `inventory_saved`, and
 `set_durable_horizon` writes occurrences with custody.
-`scripts/durable_fact_writers.py` lists who writes each family.
+`scripts/measure/durable_fact_writers.py` lists who writes each family.
 
 Authored rules read facts through the condition catalog. Each domain publishes
 its own conditions beside the systems that write the fact:
@@ -46,7 +46,7 @@ its own conditions beside the systems that write the fact:
 The save is the durable mirror of the rule-readable surface, not the surface
 itself. A rule asking "does the player hold X" wants the live hand. The facts
 read from the save are the ones with no live form between sessions (a cleared
-boss, a set flag). `scripts/authored_route_gates.py` counts which families
+boss, a set flag). `scripts/measure/authored_route_gates.py` counts which families
 conditions read.
 
 `wallet.can_afford` reads the price through `ambition_items::shop::authored_price`,

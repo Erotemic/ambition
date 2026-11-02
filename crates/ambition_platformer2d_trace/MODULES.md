@@ -1,6 +1,6 @@
 # `ambition_platformer2d_trace` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_platformer2d_trace** — Gameplay flight recorder / OOB debug logging.
 
@@ -11,7 +11,7 @@
 | [`plugin`](src/plugin.rs) | Module-local Bevy [`Plugin`] for the gameplay trace recorder. |
 | [`systems`](src/systems.rs) | Trace recorder Bevy systems + the headless entry point. |
 
-_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

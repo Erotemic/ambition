@@ -1,6 +1,6 @@
 # `ambition_platformer2d_audio` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_platformer2d_audio** — The platformer's audio runtime: the Kira install and channels, the acoustic environment, and the music direction ([`music`]) that turns encounter, boss, room, conversation and radio state into a music intent.
 
@@ -10,7 +10,7 @@
 | [`music`](src/music/mod.rs) | Ambition-game music adapters over the `ambition_audio` music core. |
 | [`plugin`](src/plugin.rs) | The Bevy plugin for the platformer's audio. |
 
-_3 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_3 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

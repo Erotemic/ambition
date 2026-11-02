@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Turn one Android profile bundle into one row of play-cost history.
 
-`scripts/profile_android.sh` writes a bundle that answers "why was THIS run on
+`scripts/measure/profile_android.sh` writes a bundle that answers "why was THIS run on
 the phone slow". It cannot answer "does the game play better on the phone than
 it did last week", because the bundle is untracked and local to one machine.
 This module reads the small text files the bundle already has — `metadata.txt`,

@@ -94,7 +94,7 @@ URL.
 To serve an existing output without a Cargo build:
 
 ```bash
-python3 scripts/web_bundle.py serve --root game/ambition_demo_mary_o_app/web --port 8000 --host all
+python3 scripts/package/web_bundle.py serve --root game/ambition_demo_mary_o_app/web --port 8000 --host all
 ```
 
 ## Measure transfer size
@@ -111,7 +111,7 @@ For a browser capture:
 ```bash
 npm install --prefix /tmp/ambition-web-tools playwright
 npx --prefix /tmp/ambition-web-tools playwright install chromium
-NODE_PATH=/tmp/ambition-web-tools/node_modules node scripts/measure_web.cjs http://localhost:8000/ target/mary-o-web
+NODE_PATH=/tmp/ambition-web-tools/node_modules node scripts/measure/measure_web.cjs http://localhost:8000/ target/mary-o-web
 ```
 
 The capture uses a fresh temporary browser profile for both visits. It records

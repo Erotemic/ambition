@@ -3,7 +3,7 @@
 //!
 //! Native profile symbols name the PNG decoder but not the asset. This census
 //! prints which sheets were decoded, how many megapixels, and when. It writes
-//! to stderr, so `scripts/profile_desktop.sh` puts each line in the timeline
+//! to stderr, so `scripts/measure/profile_desktop.sh` puts each line in the timeline
 //! chunk where the decode happened.
 
 use ambition_sprite_sheet::game_assets::image_stages;

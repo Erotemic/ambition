@@ -1,4 +1,4 @@
-"""Unit tests for `scripts/pose_body_box_distinctness.py` -- on a HAND-BUILT corpus.
+"""Unit tests for `scripts/measure/pose_body_box_distinctness.py` -- on a HAND-BUILT corpus.
 
 ⛔ The instrument's whole job is to tell "one box repeated" apart from "no box at
 all", because those two want different fixes and the original report conflated
@@ -11,7 +11,7 @@ from __future__ import annotations
 import importlib.util
 import pathlib
 
-_SCRIPT = pathlib.Path(__file__).resolve().parents[1] / "pose_body_box_distinctness.py"
+_SCRIPT = pathlib.Path(__file__).resolve().parents[1] / "measure/pose_body_box_distinctness.py"
 _spec = importlib.util.spec_from_file_location("pose_body_box_distinctness", _SCRIPT)
 mod = importlib.util.module_from_spec(_spec)
 assert _spec.loader is not None

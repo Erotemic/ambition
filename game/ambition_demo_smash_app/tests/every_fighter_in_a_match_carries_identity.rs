@@ -11,7 +11,7 @@
 //! (`character_runtime/match_activation.rs`), and that road is the whole
 //! Smash roster. A static scan cannot settle it, because `CenteredAabb` and
 //! `ActorFaction` arrive from separate inserts
-//! (`scripts/measure_damageable_bundles_without_identity.py` is a lower
+//! (`scripts/measure/measure_damageable_bundles_without_identity.py` is a lower
 //! bound). This test checks the live world.
 
 use ambition_demo_smash_app::build_demo_app;

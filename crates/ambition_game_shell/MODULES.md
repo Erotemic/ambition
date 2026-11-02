@@ -1,6 +1,6 @@
 # `ambition_game_shell` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_game_shell** — Top-level game-shell routing without game-specific route names or rendering.
 
@@ -23,7 +23,7 @@
 | [`sequence`](src/sequence.rs) | Neutral ordered presentation-sequence data and runtime. |
 | [`session`](src/session.rs) | Shell-to-gameplay-session lifecycle bridge. |
 
-_16 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_16 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

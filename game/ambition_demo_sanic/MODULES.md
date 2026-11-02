@@ -1,6 +1,6 @@
 # `ambition_demo_sanic` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_demo_sanic** — Sanic-style demo content home.
 
@@ -16,7 +16,7 @@
 | [`text`](src/text.rs) | The lines Sanic shows, as data in his pack (`assets/data/sanic_text.ron`): the HUD labels, the act cards, the signs and the launcher row. |
 | [`trail`](src/trail.rs) | Dust where Sanic's speed shows: a puff at his feet while he runs, a spray of it when he skids. |
 
-_9 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_9 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

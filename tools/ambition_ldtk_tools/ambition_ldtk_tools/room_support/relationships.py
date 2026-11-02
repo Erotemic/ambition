@@ -301,7 +301,7 @@ def format_report_text(report: dict, *, world: str, detail: bool = True) -> str:
 
 
 def file_link(path: Path) -> str:
-    """A clickable ``file://`` URI, matching ``scripts/git_debloat.py``."""
+    """A clickable ``file://`` URI, matching ``scripts/maintenance/git_debloat.py``."""
     import urllib.parse
 
     return "file://" + urllib.parse.quote(str(Path(path).expanduser().resolve()))

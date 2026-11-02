@@ -170,7 +170,7 @@ superlinear behavior from a single before/after population point.
 ### P1 — Android CPU (Mary O, measured 2026-10-13)
 
 Three device profiles (`dev/ambition_dev_measurements/profiles/android-*`,
-read with `scripts/symbolize_android_profile.py`). Shares are of all CPU of
+read with `scripts/measure/symbolize_android_profile.py`). Shares are of all CPU of
 the app:
 
 - The simulation (`GgrsSchedule`) is 26-35%, rendering about 10%. The

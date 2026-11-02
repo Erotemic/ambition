@@ -189,7 +189,7 @@ EOF
 check_python_version
 
 echo "Regenerating module maps..."
-run_python scripts/modules_md.py --write
+run_python scripts/measure/modules_md.py --write
 
 if ((skip_ecs)); then
     echo "Skipping ECS inventory."

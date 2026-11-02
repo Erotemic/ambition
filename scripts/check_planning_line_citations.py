@@ -9,7 +9,7 @@ form that rots in total silence: the file grows above the cited line and the
 coordinate now addresses a different statement, with every check still green.
 
 ⛔ **AND THE OBVIOUS INSTRUMENT WAS MEASURED AND REJECTED FIRST.**
-`scripts/citation_line_content_feasibility.py` records the NEGATIVE: pairing a
+`scripts/measure/citation_line_content_feasibility.py` records the NEGATIVE: pairing a
 `file:line` with the prose tokens around it recovers the content check for only
 23% of citations at +/-30 lines, and a clause-bound, uniquely-defined-name
 narrowing was WORSE (32% miss at +/-20). Guessing the intended content from prose

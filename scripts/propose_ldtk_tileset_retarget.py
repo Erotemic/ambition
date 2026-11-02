@@ -5,7 +5,7 @@ Five `.ldtk` worlds declare `sprite_player_robot_v3` with
 `relPath=../sprites/player_robot_v3_spritesheet.png` — 3072x2468, 7.6 MP —
 purely so the LDtk editor can draw a `PlayerStart` entity preview. No level
 layer in any of the five uses the tileset
-(`scripts/measure_ldtk_tileset_usage.py` establishes that), so the runtime
+(`scripts/measure/measure_ldtk_tileset_usage.py` establishes that), so the runtime
 decodes 7.6 MP at every boot and never draws it.
 
 ⛔⛔ THE RETARGET IS NOT A relPath SWAP. `tileRect` / `uiTileRect` /

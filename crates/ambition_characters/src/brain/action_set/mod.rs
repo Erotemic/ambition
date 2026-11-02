@@ -547,7 +547,7 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
             },
         );
         // The seam gauge: a plate of a measured grid, thrown through portals
-        // to measure how seamless they are (`scripts/portal_seam_lab.py`).
+        // to measure how seamless they are (`scripts/measure/portal_seam_lab.py`).
         items.insert(
             "seam_gauge",
             HeldItemSpec {

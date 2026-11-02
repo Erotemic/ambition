@@ -67,24 +67,24 @@ the source behind a row before you cost work from it.
 
 ## Helper instruments
 
-- `python3 scripts/architecture_census.py` measures packages, LOC, optional
+- `python3 scripts/measure/architecture_census.py` measures packages, LOC, optional
   resources, editor domains and ledger tags. Use it instead of a hand-written
   scan. It strips `#[cfg(test)]` items and comments with the shared helpers in
   `scripts/lib/`.
-- `python3 scripts/multi_writer_resource_census.py` lists resources written from
+- `python3 scripts/measure/multi_writer_resource_census.py` lists resources written from
   more than one production file. It is a shortlist, not a finding list.
 - `python3 scripts/check_multi_writer_resources_are_adjudicated.py` ratchets that
   population and prints the types that still have no written verdict. Quote its
   output, not a copy of it.
-- `python3 scripts/measure_session_scoped_resource_readers.py` counts the readers
+- `python3 scripts/measure/measure_session_scoped_resource_readers.py` counts the readers
   of each `SessionScopedResources` member. Its counts are a floor.
 
 ## Refresh rule
 
 ```bash
-python3 scripts/architecture_census.py
-python3 scripts/architecture_census.py --crate-table
-python3 scripts/architecture_census.py --json > /tmp/architecture-census.json
+python3 scripts/measure/architecture_census.py
+python3 scripts/measure/architecture_census.py --crate-table
+python3 scripts/measure/architecture_census.py --json > /tmp/architecture-census.json
 ```
 
 Then re-read the source behind any semantic ledger item that changed. Do not

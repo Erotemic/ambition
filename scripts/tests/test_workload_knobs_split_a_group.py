@@ -97,7 +97,7 @@ def test_the_label_names_the_knob_when_set_and_is_unchanged_when_not():
 # ⛔⛔ **THE FIELDS ABOVE WERE DERIVED FROM THE CENSUS, AND THE PROFILER HAS A
 # `--no-census` FLAG.** So this was reachable:
 #
-#     AMBITION_ACTOR_POPULATION_CAP=16 scripts/profile_desktop.sh --no-census ...
+#     AMBITION_ACTOR_POPULATION_CAP=16 scripts/measure/profile_desktop.sh --no-census ...
 #
 # No `census_sim_phases.csv` exists, every knob reads `None`, and the modified
 # workload hashes straight back into the ordinary uncapped group — exactly the

@@ -58,6 +58,10 @@ passed. Bundle expansion comes from the same sibling module.
 
 from __future__ import annotations
 
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import functools
 import re
 import sys
@@ -66,7 +70,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import check_rollback_mutators_run_in_sim as sim  # noqa: E402
-import measure_user_settings_in_simulation as settings  # noqa: E402
+from scripts.measure import measure_user_settings_in_simulation as settings  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
 

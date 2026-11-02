@@ -4,7 +4,7 @@ The hall reveal is fixed and the same host run says the remaining hitch is
 STARTUP, so a walk should answer "what decoded before the first room?" without a
 second command. This section does that inside the bundle summary.
 
-⛔⛔ IT DELEGATES TO `scripts/measure_first_room_manifest.py` ON PURPOSE. Two
+⛔⛔ IT DELEGATES TO `scripts/measure/measure_first_room_manifest.py` ON PURPOSE. Two
 implementations of one question eventually print two answers — that already
 happened tonight with the orphan census — and the parser being reused carries
 three things a fresh copy gets wrong: ordering by FRAME rather than clock, the

@@ -87,7 +87,7 @@ particular physical manifestation being indestructible.
 ## Writer census (A7)
 
 ```bash
-python3 scripts/measure_state_writers.py --domain item --sites
+python3 scripts/measure/measure_state_writers.py --domain item --sites
 ```
 
 Every number is a lower bound. A text scan cannot see a rollback codec, a

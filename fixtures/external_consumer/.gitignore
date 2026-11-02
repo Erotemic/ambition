@@ -7,5 +7,5 @@ Cargo.lock
 # fixture can exercise instead of a claim about plumbing.
 /assets/sprites/outlander_spritesheet.png
 
-# The release artifact, built by scripts/package_outlander.py.
+# The release artifact, built by scripts/package/package_outlander.py.
 /dist

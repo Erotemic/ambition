@@ -1,0 +1,38 @@
+{
+  "commands": [
+    {
+      "id": "archive_agent_source",
+      "title": "Archive repository source for agent review",
+      "owner": "scripts/maintenance",
+      "command": "python3 scripts/maintenance/archive_agent_source.py . --output /tmp/ambition-source.tar.gz",
+      "help": "python3 scripts/maintenance/archive_agent_source.py --help",
+      "requires": [
+        "scripts/maintenance/archive_agent_source.py"
+      ],
+      "docs": "scripts/maintenance/README.md",
+      "inputs": "Repository path and archive options.",
+      "outputs": "Source archive with optional navigation and Git history.",
+      "mutation": "Writes an archive and temporary staging files.",
+      "build": "No Cargo build. Archive navigation uses its documented Python dependencies.",
+      "status": "active",
+      "cwd": "repository root"
+    },
+    {
+      "id": "prune_profile_bundles",
+      "title": "Preview pruning of raw profile bundles",
+      "owner": "scripts/maintenance",
+      "command": "python3 scripts/maintenance/prune_profile_bundles.py --help",
+      "help": "python3 scripts/maintenance/prune_profile_bundles.py --help",
+      "requires": [
+        "scripts/maintenance/prune_profile_bundles.py"
+      ],
+      "docs": "scripts/maintenance/README.md",
+      "inputs": "Existing profiling bundles.",
+      "outputs": "Pruning help and dry-run report.",
+      "mutation": "Default dry run. --apply removes selected raw profiling files.",
+      "build": "No Cargo build. Archive navigation uses its documented Python dependencies.",
+      "status": "active",
+      "cwd": "repository root"
+    }
+  ]
+}

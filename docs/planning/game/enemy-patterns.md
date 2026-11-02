@@ -47,7 +47,7 @@ The catalog row's `cues` (`CharacterCues`, `sfx_registry` ids), so a telegraph i
 
 The strike sounds are folded onto its moves when its kit is prepared (`moveset_prefabs::voice_moveset`), its moveset file's moves too. A move keeps a sound it authored. The beats are played by `body::play_beat_cues`, off the brain's beat edges (`Brain::beat`).
 
-The primeval trail and Castle Godwin rows state their cues (2026-10-30, the `enemy.<creature>.notice|tell|swing|hit` recipes). `scripts/enemy_cue_reels.py` plays each row's cues in their timing, to judge by ear. Brutes, flyers and fighter engagement can emit notice beats. Skirmisher timing and the remaining authored profiles are tracked by ENEMY-NOTICE.
+The primeval trail and Castle Godwin rows state their cues (2026-10-30, the `enemy.<creature>.notice|tell|swing|hit` recipes). `scripts/measure/enemy_cue_reels.py` plays each row's cues in their timing, to judge by ear. Brutes, flyers and fighter engagement can emit notice beats. Skirmisher timing and the remaining authored profiles are tracked by ENEMY-NOTICE.
 
 ## What the art gives a character
 

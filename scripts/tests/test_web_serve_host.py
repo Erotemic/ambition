@@ -52,7 +52,7 @@ def probe_server(command, cwd, env, log_path):
 def test_web_bundle_serve_host(tmp_path, host, expected_bind):
     (tmp_path / "index.html").write_text("host test")
     command = [
-        sys.executable, str(REPO_ROOT / "scripts/web_bundle.py"),
+        sys.executable, str(REPO_ROOT / "scripts/package/web_bundle.py"),
         "serve", "--root", str(tmp_path), "--port", "0", "--host", host,
     ]
     assert probe_server(command, tmp_path, os.environ, tmp_path / "server.log") == expected_bind
@@ -72,8 +72,9 @@ def test_build_script_host_and_environment_precedence(tmp_path, env_host, flag_h
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     scripts = tmp_path / "scripts"
     scripts.mkdir()
+    (scripts / "package").mkdir()
     shutil.copy2(REPO_ROOT / "build_for_web.sh", tmp_path / "build_for_web.sh")
-    shutil.copy2(REPO_ROOT / "scripts/web_bundle.py", scripts / "web_bundle.py")
+    shutil.copy2(REPO_ROOT / "scripts/package/web_bundle.py", scripts / "package/web_bundle.py")
 
     web_dir = tmp_path / "game/ambition_app/web"
     web_dir.mkdir(parents=True)

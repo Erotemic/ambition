@@ -27,7 +27,7 @@ Diagnostic reports are artifacts. Do not commit large generated reports unless a
 
 ## Rust monomorphization and target-footprint census
 
-Location: `scripts/monomorphization_report.py`
+Location: `scripts/measure/monomorphization_report.py`
 
 Use this when compile/codegen cost or `target/` size looks disproportionate to
 source size. The tool keeps four different questions separate rather than
@@ -36,7 +36,7 @@ turning "large Rust build" into one metric.
 ### 1. Retained Cargo artifacts — stable, read-only
 
 ```bash
-python3 scripts/monomorphization_report.py target
+python3 scripts/measure/monomorphization_report.py target
 ```
 
 This inventories the Cargo target directory that the checkout actually resolves,
@@ -54,7 +54,7 @@ GNU `nm` (or `llvm-nm`) can read an already-built Rust executable, shared librar
 or rlib and report the size of each defined text symbol. For example:
 
 ```bash
-python3 scripts/monomorphization_report.py symbols \
+python3 scripts/measure/monomorphization_report.py symbols \
     --find app_it \
     --find libambition_platformer2d_runtime \
     --top 80
@@ -82,7 +82,7 @@ When an artifact is far larger than its named text, inspect what the remaining
 bytes actually are before blaming monomorphized machine code:
 
 ```bash
-python3 scripts/monomorphization_report.py sections \
+python3 scripts/measure/monomorphization_report.py sections \
     --find app_it \
     --find libambition_platformer2d_actor_monolith \
     --find libambition_platformer2d_runtime
@@ -108,7 +108,7 @@ actually being instantiated by rustc rather than merely looking repetitive in a
 linked binary.
 
 ```bash
-python3 scripts/monomorphization_report.py capture \
+python3 scripts/measure/monomorphization_report.py capture \
     --package ambition_platformer2d_runtime \
     --lib
 ```
@@ -122,7 +122,7 @@ scratch volume.
 If a mono-item log was captured some other way, parsing it performs no build:
 
 ```bash
-python3 scripts/monomorphization_report.py mono-log rustc-mono.log
+python3 scripts/measure/monomorphization_report.py mono-log rustc-mono.log
 ```
 
 ### Reading the result

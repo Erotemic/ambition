@@ -106,7 +106,7 @@ produce an image.
 `capture_scene` runs on a host with no `/dev/dri` and no display. Mesa's
 lavapipe presents a CPU Vulkan device (`llvmpipe`), and the tool renders
 offscreen, so no window or `Xvfb` is needed. This run exercises the GPU and
-first-draw stages of the image ledger, which `scripts/headless_room_frame.sh`
+first-draw stages of the image ledger, which `scripts/measure/headless_room_frame.sh`
 cannot reach.
 
 ⛔ Never quote llvmpipe timings as hardware numbers. A software rasterizer

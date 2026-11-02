@@ -1,13 +1,13 @@
 # `ambition_engine_schemas` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_engine_schemas** — Canonical registry of schemas owned by the engine.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 
-_0 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_0 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

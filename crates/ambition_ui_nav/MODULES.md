@@ -1,6 +1,6 @@
 # `ambition_ui_nav` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_ui_nav** — Shared UI/menu navigation helpers.
 
@@ -10,7 +10,7 @@
 | [`list`](src/list.rs) | Windowed-list math: visible-window start computation and converting discrete scroll steps into up/down menu edges on a `MenuInputFrame` (from `ambition_input`, behind the `input` feature). |
 | [`pointer`](src/pointer.rs) | Pointer/touch row activation: `MenuFocusOwner` / `MenuFocusState` track which source owns focus, and `resolve_selectable_row_interaction` applies the host's `MenuTapMode` (from `ambition_input::settings`) to a Bevy `Interaction` to decide hover-vs-select-vs-activate. |
 
-_3 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_3 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

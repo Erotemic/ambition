@@ -74,7 +74,7 @@ The package tool reads pack declarations and the selected library inventories.
 It stores each library under `__libraries/<id>/`. Check the composition with:
 
 ```bash
-python3 scripts/package_asset_guard.py compose --help
+python3 scripts/package/package_asset_guard.py compose --help
 cargo check -p ambition_app
 cargo test -p ambition_app --test app_it -- declared_art_resolves
 cargo test -p ambition_app --test app_it -- registered_character_art

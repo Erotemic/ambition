@@ -1,6 +1,6 @@
 # `ambition_content_pack` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_content_pack** — Content-pack compiler.
 
@@ -18,7 +18,7 @@
 | [`schema`](src/schema.rs) | Schema registration — how a capability contributes an authored content family WITHOUT editing one central closed enum. |
 | [`shown_text`](src/shown_text.rs) | A schema for a game's shown text: each line the game shows (a banner, a label, a card), by key, as data in its pack. |
 
-_11 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_11 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -35,7 +35,8 @@ show relative root and import assumptions. Review each consumer before a move.
 The inventory is a navigation aid. Source and owner documentation remain the
 authority.
 
-Keep the ECS builder at `scripts/ecs_browser.py` for this packet: it consumes
-the repository navigation indexes. Keep the moveset report and diagnostic
-scripts in place until their owner and test scope have been reviewed. A bulk
-move is not required for command discovery.
+The ECS browser owns its builder and tests under
+`tools/ecs_architecture_browser/`. The moveset inspector owns the take report,
+diagnostic SVG renderer, and visualization coordinator under
+`tools/ambition_moveset_inspector/`. Their commands remain independent of the
+editor server and do not build Rust by default.

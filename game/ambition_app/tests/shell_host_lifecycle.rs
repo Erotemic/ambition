@@ -1793,7 +1793,7 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
         // ⭐ TWELVE UNTIL 2026-09-19, AND THE NUMBER CAME FROM S7 RATHER THAN
         // FROM THIS LIST. `Q137` deleted `gravity.flip_switch`'s whole
         // vertical, so the census was RE-RUN there
-        // (`scripts/measure_unchecksummed_rollback_rows.py`, 24 rows where it
+        // (`scripts/measure/measure_unchecksummed_rollback_rows.py`, 24 rows where it
         // printed 25) and the new number was carried here — which is the order
         // the message below demands of the next person.
         assert_eq!(

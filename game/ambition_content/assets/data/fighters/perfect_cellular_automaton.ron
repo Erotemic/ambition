@@ -13,7 +13,7 @@
     // A fast dash, a floaty jump, a very high second jump, quick air drift.
     // Shaped like Ultimate's Mewtwo at 0.80 strength: each number is Smash's
     // default fighter's, scaled by how that fighter differs from Ultimate's
-    // roster median (`scripts/smash_fighter_shape.py "Mewtwo" --strength 0.8`).
+    // roster median (`scripts/measure/smash_fighter_shape.py "Mewtwo" --strength 0.8`).
     body: Some((
         max_run_speed: Some(392.6),
         initial_dash_speed: Some(394.3),

@@ -55,7 +55,7 @@ numbers are locators; re-read the symbols on the working head.
 ```bash
 git rev-parse HEAD
 git status --short
-python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
+python3 scripts/measure/measure_kernel_module_graph.py --scc --cuts --edges 80
 ```
 
 A regex search is not a compiler dependency graph. Widen a query before you
@@ -316,7 +316,7 @@ checkpoint state, as it does `items`'.
 second live instance of one prepared room is refused at publication
 (`DefinitionAlreadyLive`, OW3). `GeoSource::TileLayer { layer }` is
 level-scoped only by a string convention. Run
-`scripts/measure_identity_instance_scope.py` for the per-constructor table.
+`scripts/measure/measure_identity_instance_scope.py` for the per-constructor table.
 
 **Open:**
 
@@ -339,7 +339,7 @@ one-room profile is the same implementation with one instance.
 plugins sit behind its `render` feature; the world map is the runtime's `map`
 feature). `the-featureless-facade-links-none-of-these` ratchets this.
 `fixtures/headless_profile` is the headless consumer; `fixtures/minimal_game` is
-the windowed sentinel. `scripts/measure_minimum_profile_closure.py --minimum`
+the windowed sentinel. `scripts/measure/measure_minimum_profile_closure.py --minimum`
 prices a profile; cutting one edge saves little because the hubs reach the same
 crates.
 

@@ -1,6 +1,6 @@
 # `ambition_time` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_time** — Reusable time vocabulary + Bevy producer for the named-clock dt model (ADR 0010 / 0011).
 
@@ -12,7 +12,7 @@
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`time_control`](src/time_control/mod.rs) | Time-control authority as data. |
 
-_5 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_5 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

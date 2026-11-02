@@ -24,7 +24,7 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
-import package_asset_guard as guard  # noqa: E402
+from scripts.package import package_asset_guard as guard  # noqa: E402
 
 PRESENT = "audio/music/generated/siege/adaptive/loop/loop.full.ogg"
 ABSENT = "audio/music/generated/unrendered/full.ogg"

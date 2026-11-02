@@ -3,7 +3,7 @@
 
 The command is intentionally dependency-free and works inside source archives.
 Run ``python scripts/agent_query.py build-catalog`` after regenerating the raw
-indexes and ECS inventory. ``scripts/archive_agent_source.py`` does this
+indexes and ECS inventory. ``scripts/maintenance/archive_agent_source.py`` does this
 automatically for packaged agent archives.
 
 Examples:

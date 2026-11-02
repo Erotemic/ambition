@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-SCRIPT = REPO / "scripts" / "room_replay_reader_slots.py"
+SCRIPT = REPO / "scripts" / "measure/room_replay_reader_slots.py"
 
 
 def _module():

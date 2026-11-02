@@ -23,7 +23,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / 'scripts'))
 
-import feature_gated_tests as fgt  # noqa: E402
+from scripts.measure import feature_gated_tests as fgt  # noqa: E402
 
 
 def test_a_gate_on_the_test_itself_is_seen(tmp_path):

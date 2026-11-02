@@ -83,7 +83,7 @@ install_system_packages() {
         sox
         timgm6mb-soundfont
     )
-    # The profiling toolchain. `scripts/profile_desktop.sh` already requires
+    # The profiling toolchain. `scripts/measure/profile_desktop.sh` already requires
     # perf and strace and reads vulkaninfo/glxinfo for its host-environment
     # report; nothing installed them, so a fresh clone could not profile at
     # all. cmake builds Tracy below. hotspot/heaptrack are the GUI companions

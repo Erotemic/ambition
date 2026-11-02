@@ -1,0 +1,38 @@
+{
+  "commands": [
+    {
+      "id": "package_single_exe",
+      "title": "Package a single executable from existing build artifacts",
+      "owner": "scripts/package",
+      "command": "python3 scripts/package/package_single_exe.py --skip-build",
+      "help": "python3 scripts/package/package_single_exe.py --help",
+      "requires": [
+        "scripts/package/package_single_exe.py"
+      ],
+      "docs": "scripts/package/README.md",
+      "inputs": "Built game binary and selected content library.",
+      "outputs": "Single executable distribution under target/single_exe.",
+      "mutation": "Writes distribution files and validates packaged inputs.",
+      "build": "Needs an existing ship binary and published content. A build needs the target bind.",
+      "status": "active",
+      "cwd": "repository root"
+    },
+    {
+      "id": "web_bundle",
+      "title": "Serve or compress a prepared web distribution",
+      "owner": "scripts/package",
+      "command": "python3 scripts/package/web_bundle.py serve --root target/web --host localhost",
+      "help": "python3 scripts/package/web_bundle.py --help",
+      "requires": [
+        "scripts/package/web_bundle.py"
+      ],
+      "docs": "scripts/package/README.md",
+      "inputs": "Prepared browser code and packaged assets.",
+      "outputs": "HTTP server or compressed code and bundle report.",
+      "mutation": "Serve reads files. Prepare writes compressed code and a report.",
+      "build": "No Cargo build; prepare consumes existing application output.",
+      "status": "active",
+      "cwd": "repository root"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 //! Every per-attempt resource a shipped demo holds is ON the retraction slot.
 //!
-//! ⛔⛔ THE GUARD THAT WAS HERE READ THE WRONG HALF. `scripts/per_attempt_resource_census.py`
+//! ⛔⛔ THE GUARD THAT WAS HERE READ THE WRONG HALF. `scripts/measure/per_attempt_resource_census.py`
 //! certifies that the three known per-attempt resources "retract through `AttemptScoped`"
 //! by finding `impl AttemptScoped for T` — the DECLARATION. What retracts them is a
 //! registration in [`ContentRoomReplayResetSet`] — the MECHANISM. MEASURED 2026-09-07:

@@ -1,6 +1,6 @@
 # `ambition_geometry` — module map
 
-<!-- BEGIN generated module map (scripts/modules_md.py) -->
+<!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
 **ambition_geometry** — General geometry and reference-frame primitives.
 
@@ -12,7 +12,7 @@
 | [`swing_shape`](src/swing_shape.rs) | `SwingShape`: the oriented shape of a swing, as presentation needs it. |
 | [`volume_shape`](src/volume_shape.rs) | `VolumeShape`: an authored hit/hurt shape in local space. |
 
-_5 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_5 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

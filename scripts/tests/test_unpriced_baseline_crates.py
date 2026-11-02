@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-SCRIPT = REPO / "scripts" / "unpriced_baseline_crates.py"
+SCRIPT = REPO / "scripts" / "measure/unpriced_baseline_crates.py"
 
 
 def _module():

@@ -127,7 +127,7 @@ pub fn apply_item_equips(
     drivers: Query<(Entity, &DrivingParticipant)>,
     mut bodies: Query<Option<&mut ambition_characters::equipment::WornEquipment>>,
 ) {
-    let mut rows = std::collections::BTreeMap::<Entity, Vec<_>>::new();
+    let mut rows = std::collections::BTreeMap::<PlayerSlot, (Entity, Vec<_>)>::new();
     for request in requests.read() {
         let Some(body) = driven_body(request.participant, &drivers) else { continue; };
         let Some(row) = items.get().wears(request.item) else {
@@ -141,9 +141,9 @@ pub fn apply_item_equips(
             warn!(target: "crate::narrative", "an equip of {:?} was asked for, and it is not owned", request.item);
             continue;
         }
-        rows.entry(body).or_default().push(row.clone());
+        rows.entry(request.participant).or_insert_with(|| (body, Vec::new())).1.push(row.clone());
     }
-    for (body, rows) in rows {
+    for (_, (body, rows)) in rows {
         let Ok(worn) = bodies.get_mut(body) else { continue; };
         match worn {
             Some(mut worn) => rows.into_iter().for_each(|row| worn.equip(row)),

@@ -668,8 +668,17 @@ and clears claims on session retirement. Guards:
 and retirement cases. The host dialogue-under-menu test also passes.
 Pending mode requests survive the pause step (`7711a82cc`); guard:
 `a_mode_request_in_the_open_frame_is_not_replaced_by_menu_pause`.
-The app still creates one surface; page, cursor, pointer, cache and renderer
-state still require menu-instance ownership. Do not add a resource mirror.
+The app still creates one surface. Cursor, pointer, system-model cache, fold
+and viewport state still require menu-instance ownership. Do not add a resource mirror.
+
+Page models now live on their menu entity (`b972851eb`). The Cube ring uses
+that entity and stores its own publication cache. It reconciles only its child
+faces. Guards: `each_menu_reconciles_only_its_own_published_faces` and
+`a_delayed_ring_renders_its_latest_publication_without_rebuilding_another_menu`.
+The production open-menu capture also draws the faces, controls and highlight.
+The frontend still has one input and shared navigation, pointer, system-model
+cache, fold and camera state. Full two-pad menu acceptance remains open.
+
 
 **Next action (ordered slices; complete each behavior gate before moving):**
 

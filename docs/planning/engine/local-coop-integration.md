@@ -583,8 +583,17 @@ and clears claims on session retirement. Guards:
 and retirement cases. The host dialogue-under-menu test also passes.
 Pending mode requests survive the pause step (`7711a82cc`); guard:
 `a_mode_request_in_the_open_frame_is_not_replaced_by_menu_pause`.
-The app still creates one surface; page, cursor, pointer, cache and renderer
-state still require menu-instance ownership. Do not add a resource mirror.
+The app still creates one surface. Cursor, pointer, system-model cache, fold
+and viewport state still require menu-instance ownership. Do not add a resource mirror.
+
+Page models now live on their menu entity (`b972851eb`). The Cube ring uses
+that entity and stores its own publication cache. It reconciles only its child
+faces. Guards: `each_menu_reconciles_only_its_own_published_faces` and
+`a_delayed_ring_renders_its_latest_publication_without_rebuilding_another_menu`.
+The production open-menu capture also draws the faces, controls and highlight.
+The frontend still has one input and shared navigation, pointer, system-model
+cache, fold and camera state. Full two-pad menu acceptance remains open.
+
 
 The mode tests prove claim aggregation. Full two-menu navigation and rendering
 still need host acceptance with two pads, a dialogue, and a room transition.
@@ -592,8 +601,8 @@ still need host acceptance with two pads, a dialogue, and a room transition.
 Ambition's kaleidoscope menu has a special 3D camera and full-window gate;
 viewport-scoped menus need a per-view presentation design, render target, or
 clipped alternative without one whole-window cube drawing over both panes.
-The grid backend must obey the same menu-instance contract. Refactor the
-shared menu *model* before duplicating render cameras.
+The grid backend must obey the same menu-instance contract. Keep the remaining
+navigation and interaction state on the menu entity before adding cameras.
 
 **Netplay menu policy:** a local menu does not pause a remote timeline
 (`a27074b3f`). Its input context captures only its participant, so the existing

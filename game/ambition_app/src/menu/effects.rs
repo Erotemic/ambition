@@ -9,6 +9,7 @@ use ambition_platformer2d::held_items::{empty_hand, equip_held_spec, held_spec_f
 use ambition_platformer2d::combat::held_items::HeldItem;
 use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_platformer2d::items::{EquippedItems, Inventory, Item, ItemCatalog, ItemCategory, OwnedItems};
+#[cfg(test)]
 use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
 
 /// What pressing confirm on a slot should do, given current ownership/equip state.
@@ -30,7 +31,7 @@ pub enum MenuAction {
 }
 
 /// Decide the action for confirming `item`, against the bag and what the
-/// primary body has `equipped` (its hand and its worn abilities).
+/// body has equipped in its hand and worn abilities.
 pub fn decide(items: &ItemCatalog, item: Item, owned: &Inventory<'_>, equipped: EquippedItems) -> MenuAction {
     if !owned.has(item) {
         return MenuAction::NotOwned(item);
@@ -99,68 +100,49 @@ pub(crate) struct MenuEffectBodies<'w, 's> {
     hands: HandBodies<'w, 's>,
 }
 
-/// The primary player's HAND, read where it lives (I1): what the menu calls
-/// "equipped". Every menu reader of that fact goes through [`Self::in_hand`];
-/// there is no catalog slot mirroring it any more.
+/// Read the body controlled by a menu's participant, without a controller-kind filter.
 #[derive(bevy::ecs::system::SystemParam)]
-pub(crate) struct PrimaryHand<'w, 's> {
-    // The catalog that names the item in the hand.
+pub(crate) struct MenuBodySource<'w, 's> {
     items: ambition_platformer2d::items::ItemCatalogRead<'w>,
-    drivers: Query<'w, 's, &'static ambition_platformer2d::characters::control::DrivingParticipant,
-        (With<PlayerEntity>, With<PrimaryPlayer>)>,
-    held: Query<'w, 's, Option<&'static HeldItem>, (With<PlayerEntity>, With<PrimaryPlayer>)>,
-    // The abilities it wears.
-    worn: Query<
-        'w,
-        's,
-        Option<&'static ambition_platformer2d::characters::equipment::WornEquipment>,
-        (With<PlayerEntity>, With<PrimaryPlayer>),
-    >,
+    drivers: Query<'w, 's, (Entity, &'static DrivingParticipant)>,
+    held: Query<'w, 's, Option<&'static HeldItem>>,
+    worn: Query<'w, 's, Option<&'static ambition_platformer2d::characters::equipment::WornEquipment>>,
     #[cfg(feature = "portal")]
-    guns: Query<
-        'w,
-        's,
-        Option<&'static ambition_platformer2d::portal::PortalGun>,
-        (With<PlayerEntity>, With<PrimaryPlayer>),
-    >,
+    guns: Query<'w, 's, Option<&'static ambition_platformer2d::portal::PortalGun>>,
 }
 
-impl PrimaryHand<'_, '_> {
-    pub(crate) fn participant(&self) -> Option<ambition_platformer2d::characters::control::PlayerSlot> {
-        self.drivers.single().ok().map(|driver| driver.0)
-    }
+fn body_for_slot(drivers: &Query<(Entity, &DrivingParticipant)>, participant: PlayerSlot) -> Option<Entity> {
+    let mut candidates = drivers.iter().filter(|(_, driver)| driver.0 == participant);
+    let body = candidates.next().map(|(entity, _)| entity);
+    if candidates.next().is_none() { body } else { None }
+}
 
-    /// The catalog item in the primary player's hand, or `None` for an empty
-    /// hand, an item the catalog has no row for, or no primary player at all.
-    pub(crate) fn in_hand(&self) -> Option<Item> {
-        let held = self.held.single().ok().flatten();
+/// The equipment and identity read from one controlled body at this boundary.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct MenuBodyFacts {
+    pub entity: Entity,
+    pub participant: PlayerSlot,
+    pub in_hand: Option<Item>,
+    pub equipped: EquippedItems,
+}
+
+impl MenuBodySource<'_, '_> {
+    /// An absent or ambiguous binding has no body. It cannot select another seat.
+    pub(crate) fn read(&self, owner: ambition_platformer2d::input::ParticipantId) -> Option<MenuBodyFacts> {
+        let participant = ambition_platformer2d::actors::participant_seat::player_slot_of(owner);
+        let entity = body_for_slot(&self.drivers, participant)?;
+        let held = self.held.get(entity).ok().flatten();
         #[cfg(feature = "portal")]
-        let gun = self.guns.single().ok().flatten();
-        item_in_hand(
-            self.items.get(),
-            held,
-            #[cfg(feature = "portal")]
-            gun,
-        )
+        let gun = self.guns.get(entity).ok().flatten();
+        let in_hand = item_in_hand(self.items.get(), held, #[cfg(feature = "portal")] gun);
+        Some(MenuBodyFacts {
+            entity, participant, in_hand,
+            equipped: EquippedItems::of(self.items(), in_hand, self.worn.get(entity).ok().flatten()),
+        })
     }
 
-    /// What the primary player has equipped: the item in its hand and each
-    /// ability in effect on its slot.
-    pub(crate) fn equipped(&self) -> EquippedItems {
-        EquippedItems::of(self.items(), self.in_hand(), self.worn.single().ok().flatten())
-    }
-
-    /// The item catalog the menu names items with: the same one
-    /// [`Self::in_hand`] reads.
-    pub(crate) fn items(&self) -> &ItemCatalog {
-        self.items.get()
-    }
-
-    /// Did a content reload publish a new item catalog since this system last
-    /// ran? A menu face that names items must then be built again.
-    pub(crate) fn items_changed(&self) -> bool {
-        self.items.is_changed()
-    }
+    pub(crate) fn items(&self) -> &ItemCatalog { self.items.get() }
+    pub(crate) fn items_changed(&self) -> bool { self.items.is_changed() }
 }
 
 /// Where a menu asks the simulation to use a consumable or to equip an
@@ -215,17 +197,18 @@ pub(crate) fn hand_of_primary_player(world: &mut World) -> Option<Item> {
 /// side effects — neither duplicates the portal/equip/heal logic. Returns the
 /// decided [`MenuAction`] so callers can surface its status.
 pub(crate) fn dispatch_item_confirm(
+    owner: ambition_platformer2d::input::ParticipantId,
     item: Item,
     owned: &OwnedItems,
-    hand: &PrimaryHand<'_, '_>,
+    body_source: &MenuBodySource<'_, '_>,
     commands: &mut Commands,
     players: &mut MenuEffectBodies<'_, '_>,
     requests: &mut MenuItemRequests<'_, '_>,
 ) -> MenuAction {
-    let items = hand.items();
-    let action = decide(items, item, &Inventory::new(owned, hand.in_hand()), hand.equipped());
-    let Some(participant) = hand.participant() else { return MenuAction::Inspect(item); };
-    apply_menu_action(items, participant, action, commands, players, requests);
+    let Some(body) = body_source.read(owner) else { return MenuAction::Inspect(item); };
+    let items = body_source.items();
+    let action = decide(items, item, &Inventory::new(owned, body.in_hand), body.equipped);
+    apply_menu_action(items, body.participant, action, commands, players, requests);
     action
 }
 
@@ -238,11 +221,7 @@ pub(crate) fn apply_menu_action(
     players: &mut MenuEffectBodies<'_, '_>,
     requests: &mut MenuItemRequests<'_, '_>,
 ) {
-    let body = {
-        let mut candidates = players.drivers.iter().filter(|(_, driver)| driver.0 == participant);
-        let body = candidates.next().map(|parts| parts.0);
-        if candidates.next().is_none() { body } else { None }
-    };
+    let body = body_for_slot(&players.drivers, participant);
     match action {
         // An ability is worn by the simulation, on its own tick.
         MenuAction::Equip(item) if items.category(item) == Some(ItemCategory::Ability) => {
@@ -413,15 +392,14 @@ mod tests {
 
     /// THE DEFECT THE MIRROR HAD: a second seat picking up a gun-sword marked
     /// it equipped in the first seat's menu, because one process-global slot
-    /// was written by every equip road. `PrimaryHand` reads the primary body
-    /// and nobody else's.
+    /// was written by every equip road. Each read names its participant.
     #[test]
     fn another_seats_weapon_is_not_the_primary_players_equipped_item() {
         use ambition_platformer2d::characters::brain::held_item_by_id;
         #[derive(Resource, Default)]
         struct Seen(Option<Option<Item>>);
-        fn read(hand: PrimaryHand, mut seen: ResMut<Seen>) {
-            seen.0 = Some(hand.in_hand());
+        fn read(body_source: MenuBodySource, mut seen: ResMut<Seen>) {
+            seen.0 = Some(body_source.read(ambition_platformer2d::input::ParticipantId::PRIMARY).and_then(|body| body.in_hand));
         }
         let mut app = App::new();
         app.init_resource::<Seen>();
@@ -430,9 +408,9 @@ mod tests {
         let sword = held_item_by_id("gun_sword").unwrap();
         // Seat two, wielding.
         app.world_mut()
-            .spawn((PlayerEntity, HeldItem::new(sword.clone())));
+            .spawn((DrivingParticipant(PlayerSlot(1)), HeldItem::new(sword.clone())));
         // The primary player, empty-handed.
-        let primary = app.world_mut().spawn((PlayerEntity, PrimaryPlayer)).id();
+        let primary = app.world_mut().spawn((PlayerEntity, PrimaryPlayer, DrivingParticipant(PlayerSlot(0)))).id();
         app.update();
         assert_eq!(
             app.world().resource::<Seen>().0,

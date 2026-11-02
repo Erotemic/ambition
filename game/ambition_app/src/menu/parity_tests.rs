@@ -287,7 +287,7 @@ fn grid_and_cube_render_the_same_non_edge_controls_per_page() {
     let gun_sword = Item::GunSword;
     owned.grant(ambition_platformer2d::items::test_item_catalog(), gun_sword, 1);
     let pages = build_inventory_pages(
-        &owned,
+        &ambition_platformer2d::items::Inventory::new(&owned, None),
         ambition_platformer2d::items::test_item_catalog(),
         ambition_platformer2d::items::EquippedItems::of(ambition_platformer2d::items::test_item_catalog(), Some(gun_sword), None),
         MenuFocus::Item(Item::GunSword.index()),
@@ -499,6 +499,51 @@ mod dispatch_parity {
             grid_equipped, cube_equipped,
             "both backends equip the same item through dispatch_menu_action"
         );
+    }
+
+    #[test]
+    fn either_backend_uses_the_menu_owners_current_body_and_hand() {
+        use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
+        use ambition_platformer2d::combat::held_items::HeldItem;
+        use ambition_platformer2d::input::ParticipantId;
+        use ambition_platformer2d::inventory_ui::InventoryMenu;
+        let sword = ambition_platformer2d::characters::brain::held_item_by_id("gun_sword").unwrap();
+        for backend in [InventoryUiBackend::Grid, InventoryUiBackend::LunexKaleidoscope] {
+            let mut app = menu_app(backend);
+            let menu = crate::menu::test_support::menu_id(app.world());
+            app.world_mut().get_mut::<InventoryMenu>(menu).unwrap().owner = ParticipantId(1);
+            let primary = app.world_mut().query_filtered::<Entity, With<PrimaryPlayer>>().single(app.world()).unwrap();
+            let spawn = |app: &mut App| app.world_mut().spawn((
+                DrivingParticipant(PlayerSlot(1)), ActionSet::default(),
+                ambition_platformer2d::characters::brain::action_set::IdentityKit::default(),
+                ambition_platformer2d::combat::moveset::ActorMoveset::default(),
+            )).id();
+            let first_body = spawn(&mut app);
+            app.world_mut().entity_mut(first_body).insert(HeldItem::new(sword.clone()));
+            assert!(!app.world().resource::<OwnedItems>().has(Item::GunSword));
+            activate(&mut app, backend, MenuPageAction::Equip(Item::GunSword));
+            assert!(app.world().get::<HeldItem>(first_body).is_none(), "the owner's held weapon is stowable without a stored copy: {backend:?}");
+            assert!(app.world().get::<HeldItem>(primary).is_none());
+
+            app.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::test_item_catalog(), Item::GunSword, 1);
+            activate(&mut app, backend, MenuPageAction::Equip(Item::GunSword));
+            assert!(app.world().get::<HeldItem>(first_body).is_some());
+            app.world_mut().entity_mut(first_body).remove::<DrivingParticipant>();
+            let next_body = spawn(&mut app);
+            activate(&mut app, backend, MenuPageAction::Equip(Item::GunSword));
+            assert!(app.world().get::<HeldItem>(next_body).is_some(), "the menu follows control transfer: {backend:?}");
+            assert!(app.world().get::<HeldItem>(first_body).is_some(), "the released body keeps its own hand");
+            assert!(app.world().get::<HeldItem>(primary).is_none());
+
+            let duplicate = spawn(&mut app);
+            activate(&mut app, backend, MenuPageAction::Equip(Item::GunSword));
+            assert!(app.world().get::<HeldItem>(next_body).is_some(), "an ambiguous owner cannot stow either body");
+            assert!(app.world().get::<HeldItem>(duplicate).is_none());
+            app.world_mut().entity_mut(next_body).remove::<DrivingParticipant>();
+            app.world_mut().entity_mut(duplicate).remove::<DrivingParticipant>();
+            activate(&mut app, backend, MenuPageAction::Equip(Item::GunSword));
+            assert!(app.world().get::<HeldItem>(primary).is_none(), "a missing owner cannot fall back to the primary body");
+        }
     }
 
     /// Dispatch parity: a ChangePage action sets the same active page on both

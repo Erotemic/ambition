@@ -30,8 +30,9 @@ use ambition_menu_kaleidoscope::{
 };
 use bevy::prelude::*;
 
+use crate::menu::effects::MenuBodySource;
 #[cfg(feature = "kaleidoscope_menu")]
-use crate::menu::effects::{MenuEffectBodies, MenuItemRequests, PrimaryHand};
+use crate::menu::effects::{MenuEffectBodies, MenuItemRequests};
 #[cfg(feature = "kaleidoscope_menu")]
 use crate::menu::model::{
     build_inventory_pages_with_quality_prompt, scroll_fraction_to_window_start,
@@ -943,7 +944,7 @@ fn kaleidoscope_focus_nav(
     // Features C/D: keyboard navigation CLEARS the explicit scroll override so the
     // System window resumes following the selection cursor (the wheel/drag set it).
     mut scroll: ResMut<KaleidoscopeScroll>,
-    pages: Single<(Entity, &mut ActiveMenuPages<MenuPage, MenuPageAction>)>,
+    pages: Single<(Entity, &ambition_platformer2d::inventory_ui::InventoryMenu, &mut ActiveMenuPages<MenuPage, MenuPageAction>)>,
     // Navigation emits CloseMenu. The action consumer closes the surface;
     // the shared pause arbiter applies its released claim.
     overlay: Single<&ambition_platformer2d::inventory_ui::InventoryUiState>,
@@ -952,7 +953,7 @@ fn kaleidoscope_focus_nav(
     // travels with the dispatch, into `kaleidoscope_menu_action_activated`. Nav
     // announces; it does not act.
     owned: Res<OwnedItems>,
-    items: ambition_platformer2d::items::ItemCatalogRead,
+    body_source: MenuBodySource,
     mut settings: ResMut<UserSettings>,
     mut quality_confirm: ResMut<VisualQualityConfirmState>,
     // The ONE activation event. Nav announces the chosen action; the consumer
@@ -962,7 +963,7 @@ fn kaleidoscope_focus_nav(
     mut sfx: SfxWriter,
     mut system: SystemMenuParams,
 ) {
-    let (menu_entity, mut pages) = pages.into_inner();
+    let (menu_entity, menu_owner, mut pages) = pages.into_inner();
     // Read the backend from `system` (the bundle owns it); a separate `Res` here
     // would be a B0002 conflict with that `ResMut`.
     if system.backend() != InventoryUiBackend::LunexKaleidoscope || !overlay.visible {
@@ -1118,7 +1119,7 @@ fn kaleidoscope_focus_nav(
         let action = match cursor.focus {
             MenuFocus::EdgeLeft => Some(MenuPageAction::ChangePage(active_page.on_viewer_left())),
             MenuFocus::EdgeRight => Some(MenuPageAction::ChangePage(active_page.on_viewer_right())),
-            MenuFocus::Item(idx) => owned_item_action(&owned, items.get(), idx),
+            MenuFocus::Item(idx) => owned_item_action(&ambition_platformer2d::items::Inventory::new(&owned, body_source.read(menu_owner.owner).and_then(|body| body.in_hand)), body_source.items(), idx),
             // System focus is handled by the System branch above; never reached here.
             MenuFocus::System(_) => None,
         };
@@ -1165,10 +1166,10 @@ pub(crate) fn kaleidoscope_menu_action_activated(
     mut activated: MessageReader<MenuActionActivated<MenuPageAction>>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
-    pages: Single<(Entity, &mut ActiveMenuPages<MenuPage, MenuPageAction>)>,
+    pages: Single<(Entity, &ambition_platformer2d::inventory_ui::InventoryMenu, &mut ActiveMenuPages<MenuPage, MenuPageAction>)>,
     mut overlay: Single<&mut ambition_platformer2d::inventory_ui::InventoryUiState>,
     owned: Res<OwnedItems>,
-    hand: PrimaryHand,
+    body_source: MenuBodySource,
     mut settings: ResMut<UserSettings>,
     mut quality_confirm: ResMut<VisualQualityConfirmState>,
     mut commands: Commands,
@@ -1177,7 +1178,7 @@ pub(crate) fn kaleidoscope_menu_action_activated(
     mut sfx: SfxWriter,
     mut system: SystemMenuParams,
 ) {
-    let (menu_entity, mut pages) = pages.into_inner();
+    let (menu_entity, menu_owner, mut pages) = pages.into_inner();
     // Backend read from `system` (the bundle owns it); a separate `Res` would
     // B0002-conflict with that `ResMut`.
     if system.backend() != InventoryUiBackend::LunexKaleidoscope || !overlay.visible {
@@ -1190,12 +1191,13 @@ pub(crate) fn kaleidoscope_menu_action_activated(
         }
         let mut close_menu = false;
         crate::menu::dispatch::dispatch_menu_action(
+            menu_owner.owner,
             activation.action,
             &mut pages,
             &mut system_nav,
             &mut cursor,
             &owned,
-            &hand,
+            &body_source,
             &mut settings,
             &mut quality_confirm,
             &mut close_menu,
@@ -1517,7 +1519,7 @@ fn move_spatial(focus: MenuFocus, dx: i32, dy: i32, _page: MenuPage) -> SpatialM
 /// The `MenuPageAction` for an owned item slot, or `None` if the slot is empty/unowned
 /// (so confirming an empty cell is a no-op, matching the grid backend).
 pub(crate) fn owned_item_action(
-    owned: &OwnedItems,
+    owned: &ambition_platformer2d::items::Inventory<'_>,
     items: &ambition_platformer2d::items::ItemCatalog,
     idx: usize,
 ) -> Option<MenuPageAction> {
@@ -1544,7 +1546,7 @@ pub(crate) fn owned_item_action(
 pub(crate) fn menu_confirm_label(
     menu_open: bool,
     focus: MenuFocus,
-    owned: Option<&OwnedItems>,
+    owned: Option<&ambition_platformer2d::items::Inventory<'_>>,
     items: &ambition_platformer2d::items::ItemCatalog,
 ) -> Option<String> {
     if !menu_open {
@@ -1580,14 +1582,17 @@ pub(crate) const INVENTORY_CUE_CONTEXT: ambition_platformer2d::input::InputConte
 /// Self-gates on the inventory overlay being open (backend-agnostic
 /// `InventoryUiState.visible`), so a closed menu retracts the cue.
 fn publish_menu_confirm_prompt(
-    ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
+    ui_state: Option<Single<(&ambition_platformer2d::inventory_ui::InventoryMenu, &ambition_platformer2d::inventory_ui::InventoryUiState)>>,
     cursor: Res<KaleidoscopeCursor>,
     owned: Option<Res<OwnedItems>>,
-    items: ambition_platformer2d::items::ItemCatalogRead,
+    body_source: MenuBodySource,
     mut cues: ResMut<ambition_platformer2d::input::ActiveUiCues>,
 ) {
-    let menu_open = ui_state.map(|s| s.visible).unwrap_or(false);
-    let label = menu_confirm_label(menu_open, cursor.focus(), owned.as_deref(), items.get());
+    let state = ui_state.map(Single::into_inner);
+    let owner = state.map(|(menu, _)| menu.owner);
+    let menu_open = state.is_some_and(|(_, state)| state.visible);
+    let inventory = owned.as_deref().map(|bag| ambition_platformer2d::items::Inventory::new(bag, owner.and_then(|owner| body_source.read(owner).and_then(|body| body.in_hand))));
+    let label = menu_confirm_label(menu_open, cursor.focus(), inventory.as_ref(), body_source.items());
     let cue = ambition_platformer2d::input::UiCue {
         context: INVENTORY_CUE_CONTEXT,
         priority: 150,
@@ -2000,15 +2005,18 @@ fn kaleidoscope_sync_focus_visuals(
 #[cfg(feature = "kaleidoscope_menu")]
 fn kaleidoscope_sync_detail_text(
     owned: Option<Res<OwnedItems>>,
-    hand: PrimaryHand,
+    body_source: MenuBodySource,
     cursor: Res<KaleidoscopeCursor>,
-    pages: Single<&ActiveMenuPages<MenuPage, MenuPageAction>>,
+    pages: Single<(&ambition_platformer2d::inventory_ui::InventoryMenu, &ActiveMenuPages<MenuPage, MenuPageAction>)>,
     cache: Res<CachedSystemMenu>,
     mut texts: Query<(&MenuDynamicText, &mut MenuDynamicTextContent)>,
 ) {
+    let (menu_owner, pages) = pages.into_inner();
     let Some(owned) = owned else {
         return;
     };
+    let body = body_source.read(menu_owner.owner);
+    let inventory = ambition_platformer2d::items::Inventory::new(&owned, body.and_then(|body| body.in_hand));
     let Some(active_page) = pages.active else {
         return;
     };
@@ -2016,7 +2024,7 @@ fn kaleidoscope_sync_detail_text(
     // active page carries dynamic-text slots, so a single map covers the panel.
     let slot_text: Vec<(u32, String)> = match active_page {
         MenuPage::Items => {
-            items_detail_slot_text(&owned, hand.items(), hand.equipped(), cursor.focus)
+            items_detail_slot_text(&inventory, body_source.items(), body.map(|body| body.equipped).unwrap_or_default(), cursor.focus)
         }
         MenuPage::System => match cache.model.as_ref() {
             Some(model) => {

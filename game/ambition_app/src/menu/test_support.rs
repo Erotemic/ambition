@@ -164,3 +164,28 @@ pub(crate) fn scroll_drag(app: &mut App, fraction: f32) {
     app.world_mut()
         .write_message(ambition_platformer2d::menu::MenuScrollDragged { menu, fraction });
 }
+
+pub(crate) fn two_room_map(app: &mut App) -> [ambition_platformer2d::platformer::lifecycle::LiveRoomInstance; 2] {
+    use ambition_platformer2d::engine_core as ae;
+    use ambition_platformer2d::platformer::lifecycle::{insert_session_world_component, spawn_live_room, LiveRoomInstance};
+    use ambition_platformer2d::world::rooms::{LiveRoomDefinition, RoomSet, RoomSpec};
+    use ambition_platformer2d::menu::map::{MapMenuState, MapRoomNode};
+    let definitions: Vec<_> = ["alpha", "beta"].into_iter().map(|id| RoomSpec::new(id, ae::World::new(
+        id, ae::Vec2::splat(400.0), ae::Vec2::splat(50.0), Vec::new(),
+    ))).collect();
+    insert_session_world_component(app.world_mut(), RoomSet::from_parts_or_panic("alpha", definitions, Vec::new()));
+    let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+    for (index, room) in rooms.into_iter().enumerate() {
+        spawn_live_room(app.world_mut(), room, LiveRoomDefinition::from_index(index));
+    }
+    let mut map = MapMenuState::default();
+    map.visited.extend(["alpha".into(), "beta".into()]);
+    map.rooms = ["alpha", "beta"].into_iter().enumerate().map(|(index, id)| MapRoomNode {
+        id: id.into(), title: id.to_uppercase(), world: "fixture".into(),
+        world_min: ae::Vec2::new(index as f32 * 400.0, 0.0), world_size: ae::Vec2::splat(400.0),
+        edge_exits: vec![if index == 0 { "beta" } else { "alpha" }.into()],
+        ..Default::default()
+    }).collect();
+    app.insert_resource(map);
+    rooms
+}

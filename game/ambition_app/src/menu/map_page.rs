@@ -73,14 +73,19 @@ pub(crate) struct MapPageSource<'w, 's> {
     presentation: Option<Res<'w, MapPagePresentation>>,
     // Optional: a menu in an app with no rooms (a menu test, a shell with no
     // session) still draws its other pages; the Map page then shows no map.
-    room: Option<ambition_platformer2d::world::rooms::PrimaryLiveRoomSpec<'w, 's>>,
+    room: Option<ambition_platformer2d::world::rooms::LiveRoomSpecs<'w, 's>>,
 }
 
 impl MapPageSource<'_, '_> {
-    /// The map of the player's region, or `None` off the map.
-    pub(crate) fn view(&self) -> Option<MapView> {
+    /// The live room of the supplied body, without a primary-body fallback.
+    pub(crate) fn room(&self, body: Option<Entity>) -> Option<ambition_platformer2d::platformer::lifecycle::LiveRoomInstance> {
+        self.room.as_ref()?.live().of(body?)
+    }
+
+    /// The map of the supplied body's region, or `None` off the map.
+    pub(crate) fn view(&self, body: Option<Entity>) -> Option<MapView> {
         let map = self.map.as_ref()?;
-        let current = self.room.as_ref()?.spec()?.id.clone();
+        let current = self.room.as_ref()?.spec_of(body?)?.id.clone();
         map_view(map, &current, MAP_FRAME_ASPECT)
     }
 
@@ -96,6 +101,7 @@ impl MapPageSource<'_, '_> {
     /// this frame.
     pub(crate) fn changed(&self) -> bool {
         self.map.as_ref().is_some_and(|map| map.is_changed()) || self.presentation_changed()
+            || self.room.as_ref().is_some_and(|rooms| rooms.set_is_changed())
     }
 
     /// Whether the game's presentation was inserted or replaced this frame:
@@ -229,5 +235,39 @@ mod tests {
         let cut = short_title("THE WRECKERS' REEF AND ITS LONG SHOAL", 9.0);
         assert!(cut.ends_with('…'), "{cut}");
         assert!(cut.chars().count() <= 12, "{cut}");
+    }
+}
+
+#[cfg(test)]
+mod owner_tests {
+    use super::*;
+    use bevy::ecs::system::RunSystemOnce;
+    use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
+    use ambition_platformer2d::input::ParticipantId;
+    use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
+
+    fn titles(app: &mut App) -> [Option<String>; 2] {
+        app.world_mut().run_system_once(|source: MapPageSource, bodies: crate::menu::effects::MenuBodySource| {
+            [ParticipantId(0), ParticipantId(1)].map(|owner| source.view(bodies.read(owner).map(|body| body.entity)).map(|view| view.here_title))
+        }).unwrap()
+    }
+
+    #[test]
+    fn each_menu_map_follows_its_controlled_body_between_live_rooms() {
+        let mut app = App::new();
+        let rooms = crate::menu::test_support::two_room_map(&mut app);
+        app.world_mut().spawn((DrivingParticipant(PlayerSlot(0)), InRoomInstance(rooms[0])));
+        let second = app.world_mut().spawn((DrivingParticipant(PlayerSlot(1)), InRoomInstance(rooms[1]))).id();
+        assert_eq!(titles(&mut app), [Some("ALPHA".into()), Some("BETA".into())]);
+        app.world_mut().entity_mut(second).insert(InRoomInstance(rooms[0]));
+        assert_eq!(titles(&mut app), [Some("ALPHA".into()), Some("ALPHA".into())]);
+        app.world_mut().entity_mut(second).remove::<DrivingParticipant>();
+        let next = app.world_mut().spawn((DrivingParticipant(PlayerSlot(1)), InRoomInstance(rooms[1]))).id();
+        assert_eq!(titles(&mut app), [Some("ALPHA".into()), Some("BETA".into())]);
+        let duplicate = app.world_mut().spawn((DrivingParticipant(PlayerSlot(1)), InRoomInstance(rooms[0]))).id();
+        assert_eq!(titles(&mut app), [Some("ALPHA".into()), None]);
+        app.world_mut().despawn(next);
+        app.world_mut().despawn(duplicate);
+        assert_eq!(titles(&mut app), [Some("ALPHA".into()), None]);
     }
 }

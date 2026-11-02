@@ -1987,7 +1987,7 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
     crate::menu::test_support::active_pages_mut(app.world_mut())
         .active = Some(MenuPage::Items);
     let pages = build_inventory_pages(
-        &app.world().resource::<OwnedItems>().clone(),
+        &ambition_platformer2d::items::Inventory::new(&app.world().resource::<OwnedItems>().clone(), None),
         ambition_platformer2d::items::test_item_catalog(),
         ambition_platformer2d::items::EquippedItems::default(),
         MenuFocus::Item(owned_item.index()),
@@ -2305,21 +2305,21 @@ fn menu_confirm_label_resolves_the_focused_item_verb() {
     owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::HealthCell, 1);
 
     assert_eq!(
-        menu_confirm_label(true, MenuFocus::Item(gun_sword_idx), Some(&owned), ambition_platformer2d::items::test_item_catalog()).as_deref(),
+        menu_confirm_label(true, MenuFocus::Item(gun_sword_idx), Some(&ambition_platformer2d::items::Inventory::new(&owned, None)), ambition_platformer2d::items::test_item_catalog()).as_deref(),
         Some("Equip")
     );
     assert_eq!(
-        menu_confirm_label(true, MenuFocus::Item(cell_idx), Some(&owned), ambition_platformer2d::items::test_item_catalog()).as_deref(),
+        menu_confirm_label(true, MenuFocus::Item(cell_idx), Some(&ambition_platformer2d::items::Inventory::new(&owned, None)), ambition_platformer2d::items::test_item_catalog()).as_deref(),
         Some("Use")
     );
     // A page-turn focus carries no item verb (must NOT mislabel slot 0).
     assert_eq!(
-        menu_confirm_label(true, MenuFocus::EdgeLeft, Some(&owned), ambition_platformer2d::items::test_item_catalog()),
+        menu_confirm_label(true, MenuFocus::EdgeLeft, Some(&ambition_platformer2d::items::Inventory::new(&owned, None)), ambition_platformer2d::items::test_item_catalog()),
         None
     );
     // Closed menu / absent roster / unowned slot -> None.
     assert_eq!(
-        menu_confirm_label(false, MenuFocus::Item(gun_sword_idx), Some(&owned), ambition_platformer2d::items::test_item_catalog()),
+        menu_confirm_label(false, MenuFocus::Item(gun_sword_idx), Some(&ambition_platformer2d::items::Inventory::new(&owned, None)), ambition_platformer2d::items::test_item_catalog()),
         None
     );
     assert_eq!(
@@ -2330,7 +2330,7 @@ fn menu_confirm_label_resolves_the_focused_item_verb() {
         menu_confirm_label(
             true,
             MenuFocus::Item(cell_idx),
-            Some(&OwnedItems::default()),
+            Some(&ambition_platformer2d::items::Inventory::new(&OwnedItems::default(), None)),
             ambition_platformer2d::items::test_item_catalog()
         ),
         None,

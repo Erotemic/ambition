@@ -407,7 +407,7 @@ fn cursor_focus_key_matches_a_rendered_control() {
     owned.grant(ambition_platformer2d::items::test_item_catalog(), gun_sword, 1);
     let settings = UserSettings::default();
     let pages = build_inventory_pages(
-        &owned,
+        &ambition_platformer2d::items::Inventory::new(&owned, None),
         ambition_platformer2d::items::test_item_catalog(),
         ambition_platformer2d::items::EquippedItems::default(),
         MenuFocus::Item(Item::GunSword.index()),
@@ -1263,4 +1263,26 @@ fn foreign_menu_messages_cannot_drill_turn_or_scroll_this_menu() {
         app.world().resource::<KaleidoscopeSystemNav>().open_entry,
         Some(SystemMenuEntryId::Video)
     );
+}
+
+#[test]
+fn an_open_grid_map_follows_the_owner_without_a_map_resource_change() {
+    use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
+    let mut app = render_app();
+    let rooms = crate::menu::test_support::two_room_map(&mut app);
+    // Settle the session boundary before opening its menu.
+    app.update();
+    let body = app.world_mut().query_filtered::<Entity, With<PrimaryPlayer>>().single(app.world()).unwrap();
+    app.world_mut().entity_mut(body).insert(InRoomInstance(rooms[0]));
+    crate::menu::test_support::inventory_state_mut(app.world_mut()).visible = true;
+    crate::menu::test_support::active_pages_mut(app.world_mut()).active = Some(MenuPage::Map);
+    app.update();
+    let text = |app: &mut App| app.world_mut().query::<&Text>().iter(app.world()).map(|text| text.0.clone()).collect::<Vec<_>>();
+    let before = text(&mut app);
+    let count = |words: &[String], title: &str| words.iter().filter(|word| word.as_str() == title).count();
+    assert!(count(&before, "ALPHA") > count(&before, "BETA"));
+    app.world_mut().entity_mut(body).insert(InRoomInstance(rooms[1]));
+    app.update();
+    let shown = text(&mut app);
+    assert!(count(&shown, "BETA") > count(&shown, "ALPHA"), "shown={shown:?}");
 }

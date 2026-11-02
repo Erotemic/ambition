@@ -22,7 +22,7 @@ use ambition_platformer2d::menu::{
     MenuTabActivated,
 };
 
-use crate::menu::effects::{MenuEffectBodies, MenuItemRequests, PrimaryHand};
+use crate::menu::effects::{MenuEffectBodies, MenuItemRequests, MenuBodySource};
 use crate::menu::kaleidoscope_app::{
     focus_for_action, owned_item_action, play_ui, system_focus_nav, KaleidoscopeCursor,
     KaleidoscopeSystemNav, SystemMenuParams,
@@ -46,7 +46,7 @@ use ambition_platformer2d::sfx::SfxWriter;
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct MenuDispatchParams<'w, 's> {
     owned: Res<'w, OwnedItems>,
-    hand: PrimaryHand<'w, 's>,
+    body_source: MenuBodySource<'w, 's>,
     settings: ResMut<'w, UserSettings>,
     quality_confirm: ResMut<'w, VisualQualityConfirmState>,
     commands: Commands<'w, 's>,
@@ -154,10 +154,11 @@ struct ViewKey {
     /// still does not (preserving the click-drop fix), mirroring the cube's republish.
     window_start: usize,
     pending_quality: Option<VisualQualityProfile>,
-    /// What the primary body has equipped (its hand and worn abilities): an
+    /// What the menu owner has equipped: an
     /// equip changes a body component, not the bag, so the bag's change tick
     /// cannot stand in for it.
     equipped: ambition_platformer2d::items::EquippedItems,
+    room: Option<ambition_platformer2d::platformer::lifecycle::LiveRoomInstance>,
 }
 
 /// Flat Grid backend SFX ids. The cube keeps kaleidoscope-specific `ui.menu.*`
@@ -317,7 +318,7 @@ pub(crate) fn grid_menu_nav(
     mut tab_state: ResMut<GridMenuTabState>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
-    pages: Single<(Entity, &mut ActiveMenuPages<MenuPage, MenuPageAction>)>,
+    pages: Single<(Entity, &ambition_platformer2d::inventory_ui::InventoryMenu, &mut ActiveMenuPages<MenuPage, MenuPageAction>)>,
     mut overlay: Single<&mut ambition_platformer2d::inventory_ui::InventoryUiState>,
     // The ONE activation event. A controller/keyboard submit publishes the same
     // message the renderer's pointer bridge does, so `grid_menu_action_activated`
@@ -325,7 +326,7 @@ pub(crate) fn grid_menu_nav(
     mut activated: MessageWriter<MenuActionActivated<MenuPageAction>>,
     mut fx: MenuDispatchParams,
 ) {
-    let (menu_entity, mut pages) = pages.into_inner();
+    let (menu_entity, menu_owner, mut pages) = pages.into_inner();
     // Read the backend from `fx.system` (it owns the resource); a separate `Res`
     // here would be a B0002 conflict with that `ResMut`.
     if fx.system.backend() != InventoryUiBackend::Grid || !overlay.visible {
@@ -425,7 +426,7 @@ pub(crate) fn grid_menu_nav(
                 // an empty cell has no action to publish, and the consumer
                 // could not tell "nothing there" from "nobody pressed".
                 let idx = cursor.focus().item_index();
-                match owned_item_action(&fx.owned, fx.hand.items(), idx) {
+                match owned_item_action(&ambition_platformer2d::items::Inventory::new(&fx.owned, fx.body_source.read(menu_owner.owner).and_then(|body| body.in_hand)), fx.body_source.items(), idx) {
                     Some(action) => {
                         activated.write(MenuActionActivated {
                             menu: menu_entity,
@@ -540,9 +541,9 @@ fn a_menu_is_open_or_a_grid_tree_was(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn grid_menu_republish_view(
     overlay: Single<&ambition_platformer2d::inventory_ui::InventoryUiState>,
-    pages: Single<(Entity, &ActiveMenuPages<MenuPage, MenuPageAction>)>,
+    pages: Single<(Entity, &ambition_platformer2d::inventory_ui::InventoryMenu, &ActiveMenuPages<MenuPage, MenuPageAction>)>,
     owned: Res<OwnedItems>,
-    hand: PrimaryHand,
+    body_source: MenuBodySource,
     cursor: Res<KaleidoscopeCursor>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
@@ -554,7 +555,7 @@ pub(crate) fn grid_menu_republish_view(
     assets: Option<Res<AssetServer>>,
     mut commands: Commands,
 ) {
-    let (menu_entity, pages) = pages.into_inner();
+    let (menu_entity, menu_owner, pages) = pages.into_inner();
     // Read the backend from `system` (it owns the resource); a separate `Res` here
     // would be a B0002 conflict with that `ResMut`.
     let active = system.backend() == InventoryUiBackend::Grid && overlay.visible;
@@ -571,6 +572,8 @@ pub(crate) fn grid_menu_republish_view(
         return;
     }
     tab_state.was_open = true;
+    let body = body_source.read(menu_owner.owner);
+    let inventory = ambition_platformer2d::items::Inventory::new(&owned, body.and_then(|body| body.in_hand));
 
     // RENDER THE GRID'S TAB, not the shared `pages.active` (which the cube drives).
     // The grid builds the active tab's `MenuPageModel` from the SAME backend-agnostic
@@ -607,12 +610,13 @@ pub(crate) fn grid_menu_republish_view(
         zone: tab_state.focus_zone,
         window_start,
         pending_quality: quality_confirm.pending(),
-        equipped: hand.equipped(),
+        room: if active_page == MenuPage::Map { map_page.room(body.map(|body| body.entity)) } else { None },
+        equipped: body.map(|body| body.equipped).unwrap_or_default(),
     };
     // The dispatch paths ALSO clear `last_key` directly (the belt-and-braces force-republish),
     // so even a state change this key can't see (e.g. a dev snapshot) still re-renders.
     let state_changed = owned.is_changed()
-        || hand.items_changed()
+        || body_source.items_changed()
         || settings.is_changed()
         || quality_confirm.is_changed()
         || map_page.changed();
@@ -622,8 +626,8 @@ pub(crate) fn grid_menu_republish_view(
     tab_state.last_key = Some(key);
 
     let built = build_inventory_pages_with_quality_prompt(
-        &owned,
-        hand.items(),
+        &inventory,
+        body_source.items(),
         key.equipped,
         cursor.focus(),
         &settings,
@@ -632,7 +636,7 @@ pub(crate) fn grid_menu_republish_view(
         window_start,
         system_nav.open_entry,
         quality_confirm.pending(),
-        map_page.page(map_page.view().as_ref()),
+        map_page.page(map_page.view(body.map(|body| body.entity)).as_ref()),
     );
     let Some(page) = built
         .iter()
@@ -785,7 +789,7 @@ pub(crate) fn grid_menu_scroll_wheel(
 #[cfg(feature = "input")]
 pub(crate) fn grid_menu_apply_scroll_drag(
     overlay: Single<&ambition_platformer2d::inventory_ui::InventoryUiState>,
-    pages: Single<(Entity, &ActiveMenuPages<MenuPage, MenuPageAction>)>,
+    pages: Single<(Entity, &ambition_platformer2d::inventory_ui::InventoryMenu, &ActiveMenuPages<MenuPage, MenuPageAction>)>,
     mut tab_state: ResMut<GridMenuTabState>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
@@ -793,7 +797,7 @@ pub(crate) fn grid_menu_apply_scroll_drag(
     system: SystemMenuParams,
     mut dragged: MessageReader<ambition_platformer2d::menu::MenuScrollDragged>,
 ) {
-    let (menu_entity, pages) = pages.into_inner();
+    let (menu_entity, _menu_owner, pages) = pages.into_inner();
     // Backend read from `system` (it owns the resource); a separate `Res` would
     // B0002-conflict with that `ResMut`.
     if system.backend() != InventoryUiBackend::Grid || !overlay.visible {
@@ -828,11 +832,11 @@ pub(crate) fn grid_menu_action_activated(
     mut tab_state: ResMut<GridMenuTabState>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
-    pages: Single<(Entity, &mut ActiveMenuPages<MenuPage, MenuPageAction>)>,
+    pages: Single<(Entity, &ambition_platformer2d::inventory_ui::InventoryMenu, &mut ActiveMenuPages<MenuPage, MenuPageAction>)>,
     mut overlay: Single<&mut ambition_platformer2d::inventory_ui::InventoryUiState>,
     mut fx: MenuDispatchParams,
 ) {
-    let (menu_entity, mut pages) = pages.into_inner();
+    let (menu_entity, menu_owner, mut pages) = pages.into_inner();
     // Backend read from `fx.system` (it owns the resource); a separate `Res` would
     // B0002-conflict with that `ResMut`.
     if fx.system.backend() != InventoryUiBackend::Grid || !overlay.visible {
@@ -861,12 +865,13 @@ pub(crate) fn grid_menu_action_activated(
         }
         let mut close_menu = false;
         crate::menu::dispatch::dispatch_menu_action(
+            menu_owner.owner,
             activation.action,
             &mut pages,
             &mut system_nav,
             &mut cursor,
             &fx.owned,
-            &fx.hand,
+            &fx.body_source,
             &mut fx.settings,
             &mut fx.quality_confirm,
             &mut close_menu,
@@ -896,11 +901,11 @@ pub(crate) fn grid_menu_tab_activated(
     mut tab_state: ResMut<GridMenuTabState>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
-    pages: Single<(Entity, &mut ActiveMenuPages<MenuPage, MenuPageAction>)>,
+    pages: Single<(Entity, &ambition_platformer2d::inventory_ui::InventoryMenu, &mut ActiveMenuPages<MenuPage, MenuPageAction>)>,
     mut quality_confirm: ResMut<VisualQualityConfirmState>,
     mut sfx: SfxWriter,
 ) {
-    let (menu_entity, mut pages) = pages.into_inner();
+    let (menu_entity, _menu_owner, mut pages) = pages.into_inner();
     if backend.effective() != InventoryUiBackend::Grid || !overlay.visible {
         activated.clear();
         return;

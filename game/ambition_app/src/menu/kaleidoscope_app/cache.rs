@@ -107,8 +107,8 @@ pub(crate) fn cache_system_menu(
 pub(crate) fn republish_kaleidoscope_pages(
     ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
     owned: Option<Res<OwnedItems>>,
-    // The primary hand and worn abilities (I1): what the cube shows as equipped.
-    hand: PrimaryHand,
+    // The menu owner supplies the hand and worn abilities shown as equipped.
+    body_source: MenuBodySource,
     // Read-only here. The mutators (`kaleidoscope_focus_nav`, `kaleidoscope_pointer_release`) take
     // `ResMut<UserSettings>` in SEPARATE systems, so this `Res` is not a B0002
     // conflict; `UserSettings` is inserted at startup so the `Res` never panics.
@@ -126,14 +126,17 @@ pub(crate) fn republish_kaleidoscope_pages(
     // `kaleidoscope_apply_scroll_drag`) take `ResMut<KaleidoscopeScroll>` in separate
     // systems, so this `Res` is not a B0002 conflict. Inserted at startup so it never panics.
     scroll: Res<KaleidoscopeScroll>,
-    mut pages: Single<&mut ActiveMenuPages<MenuPage, MenuPageAction>>,
+    pages: Single<(&ambition_platformer2d::inventory_ui::InventoryMenu, &mut ActiveMenuPages<MenuPage, MenuPageAction>)>,
     map_page: crate::menu::map_page::MapPageSource,
     mut was_open: Local<bool>,
     mut last: Local<Option<RebuildKey>>,
 ) {
+    let (menu_owner, mut pages) = pages.into_inner();
     let Some(owned) = owned else {
         return;
     };
+    let body = body_source.read(menu_owner.owner);
+    let inventory = ambition_platformer2d::items::Inventory::new(&owned, body.and_then(|body| body.in_hand));
     let open = ui_state.map(|s| s.visible).unwrap_or(false);
     let just_opened = open && !*was_open;
     *was_open = open;
@@ -158,14 +161,14 @@ pub(crate) fn republish_kaleidoscope_pages(
         window_start,
         active: pages.active,
         open_entry: system_nav.open_entry,
-        owned_counts: Item::ALL.map(|item| owned.count(item)),
-        equipped: hand.equipped(),
+        owned_counts: Item::ALL.map(|item| inventory.count(item)),
+        equipped: body.map(|body| body.equipped).unwrap_or_default(),
         settings: settings.clone(),
         radio: cache.radio.clone(),
         dev: cache.dev.clone(),
         quality: cache.quality,
         // Only while the menu is open: the map is not built behind gameplay.
-        map: if open { map_page.view() } else { None },
+        map: if open { map_page.view(body.map(|body| body.entity)) } else { None },
     };
     // Republish on first publish, menu-open (textures that loaded after the initial
     // build get picked up), or an actual VALUE change in anything rendered by the
@@ -184,7 +187,7 @@ pub(crate) fn republish_kaleidoscope_pages(
     // A content reload that publishes a new item catalog changes the names
     // and verbs on the faces; the value key cannot see that, nor a game's new
     // Map page presentation (set at startup, so this does not tick per frame).
-    let dirty = pages_empty || just_opened || key_changed || hand.items_changed() || map_page.presentation_changed();
+    let dirty = pages_empty || just_opened || key_changed || body_source.items_changed() || map_page.presentation_changed();
     if !dirty {
         return;
     }
@@ -208,8 +211,8 @@ pub(crate) fn republish_kaleidoscope_pages(
     // drill-down/scroll/inventory change this republish just baked never reaches
     // the cube faces.
     let built = build_inventory_pages_with_quality_prompt(
-        &owned,
-        hand.items(),
+        &inventory,
+        body_source.items(),
         key.equipped,
         cursor.focus,
         &settings,

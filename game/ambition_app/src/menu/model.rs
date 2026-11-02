@@ -24,7 +24,9 @@ use ambition_platformer2d::menu::{
     MenuTextAlign,
 };
 
-use ambition_platformer2d::items::{EquippedItems, Item, ItemCatalog, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
+#[cfg(test)]
+use ambition_platformer2d::items::OwnedItems;
+use ambition_platformer2d::items::{EquippedItems, Item, ItemCatalog, Inventory, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition_platformer2d::persistence::settings::{UserSettings, VisualQualityProfile};
 use ambition_platformer2d::settings_menu::settings::{SettingsOption, SettingsOptionId, SettingsOptionKind};
 use ambition_platformer2d::settings_menu::system::{
@@ -411,7 +413,7 @@ pub enum MenuPageAction {
 /// One statement for each fact: an equipped cell has no hint, because the
 /// library writes "equipped" for it (`InventoryItemNode::equipped`), and an
 /// unowned cell has none, because the library writes "not owned".
-fn cell_hint(owned: &OwnedItems, items: &ItemCatalog, equipped: EquippedItems, item: Item) -> Option<&'static str> {
+fn cell_hint(owned: &Inventory<'_>, items: &ItemCatalog, equipped: EquippedItems, item: Item) -> Option<&'static str> {
     if !owned.has(item) || equipped.contains(item) {
         None
     } else if items.equips(item) {
@@ -447,7 +449,7 @@ pub fn is_equipment(items: &ItemCatalog, item: Item) -> bool {
 /// demo's grid). The full description is NOT placed per-cell; it goes in the
 /// detail panel (see [`build_items_page`]).
 pub fn items_spec(
-    owned: &OwnedItems,
+    owned: &Inventory<'_>,
     items: &ItemCatalog,
     equipped: EquippedItems,
 ) -> ItemsOnlyPageSpec<MenuPage, MenuPageAction> {
@@ -518,7 +520,7 @@ pub fn items_spec(
 /// right-hand detail panel for the [`MenuFocus`]ed item, and the flanking
 /// page-turn buttons — matching the demo's `add_items_page` structure.
 pub fn build_items_page(
-    owned: &OwnedItems,
+    owned: &Inventory<'_>,
     items: &ItemCatalog,
     equipped: EquippedItems,
 ) -> MenuPageModel<MenuPage, MenuPageAction> {
@@ -562,7 +564,7 @@ fn add_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>) {
 /// The Items detail-panel text keyed by dynamic-text slot, for the focused item. This is the
 /// in-place equivalent of the old baked detail panel.
 pub fn items_detail_slot_text(
-    owned: &OwnedItems,
+    owned: &Inventory<'_>,
     items: &ItemCatalog,
     equipped: EquippedItems,
     focus: MenuFocus,
@@ -582,7 +584,7 @@ pub fn items_detail_slot_text(
 /// description, and a one-line status. Mirrors the demo's `detail_lines`.
 /// A blank cell (no equipment in it) has a blank panel.
 fn detail_lines(
-    owned: &OwnedItems,
+    owned: &Inventory<'_>,
     items: &ItemCatalog,
     equipped: EquippedItems,
     item: Item,
@@ -617,7 +619,7 @@ fn detail_lines(
 /// cursor and selects the detail-panel item.
 #[allow(clippy::too_many_arguments)]
 pub fn build_inventory_pages(
-    owned: &OwnedItems,
+    owned: &Inventory<'_>,
     items: &ItemCatalog,
     equipped: EquippedItems,
     focus: MenuFocus,
@@ -646,7 +648,7 @@ pub fn build_inventory_pages(
 
 #[allow(clippy::too_many_arguments)]
 pub fn build_inventory_pages_with_quality_prompt(
-    owned: &OwnedItems,
+    owned: &Inventory<'_>,
     items: &ItemCatalog,
     equipped: EquippedItems,
     focus: MenuFocus,
@@ -1347,7 +1349,7 @@ pub fn system_detail_slot_text(
 /// ([`is_equipment`]), each with its description. These are the key items
 /// (the sealed note, the field survey, the spare battery). The page has no
 /// cursor stops of its own: only its edge buttons.
-pub fn build_quest_page(owned: &OwnedItems, items: &ItemCatalog) -> MenuPageModel<MenuPage, MenuPageAction> {
+pub fn build_quest_page(owned: &Inventory<'_>, items: &ItemCatalog) -> MenuPageModel<MenuPage, MenuPageAction> {
     let title = line("menu.quest.title");
     let mut model = MenuPageModel::new(MenuPage::Quest, title.as_str(), colour(menu_look().page));
     model.text(50.0, 20.0, 4.0, title, MenuTextAlign::Center, colour(menu_look().heading));

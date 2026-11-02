@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use ambition_platformer2d::menu::ActiveMenuPages;
 
 use crate::menu::effects::{
-    dispatch_item_confirm, MenuAction, MenuEffectBodies, MenuItemRequests, PrimaryHand,
+    dispatch_item_confirm, MenuAction, MenuEffectBodies, MenuItemRequests, MenuBodySource,
 };
 use crate::menu::kaleidoscope_app::{
     back_edge_focus, close_system_entry, play_ui, rotate_sfx, KaleidoscopeCursor,
@@ -31,12 +31,13 @@ use ambition_platformer2d::sfx::SfxWriter;
 /// the active page so the lib rotates that face to the camera.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn dispatch_menu_action(
+    owner: ambition_platformer2d::input::ParticipantId,
     action: MenuPageAction,
     pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
     system_nav: &mut KaleidoscopeSystemNav,
     cursor: &mut KaleidoscopeCursor,
     owned: &OwnedItems,
-    hand: &PrimaryHand,
+    body_source: &MenuBodySource,
     settings: &mut UserSettings,
     quality_confirm: &mut VisualQualityConfirmState,
     close_menu: &mut bool,
@@ -49,7 +50,7 @@ pub(crate) fn dispatch_menu_action(
     match action {
         MenuPageAction::Equip(item) | MenuPageAction::Use(item) => {
             let decided =
-                dispatch_item_confirm(item, owned, hand, commands, players, requests);
+                dispatch_item_confirm(owner, item, owned, body_source, commands, players, requests);
             // Pick the confirm sound from the RESOLVED action so equip/unequip/use
             // are distinct, and a no-op (not owned / nothing to do) gives error feedback.
             let id = match decided {

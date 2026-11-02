@@ -9,7 +9,7 @@ for candidate in python python3; do
     if ! command -v "$candidate" >/dev/null 2>&1; then
         continue
     fi
-    exec "$candidate" scripts/archive_agent_source.py "$@"
+    exec "$candidate" scripts/maintenance/archive_agent_source.py "$@"
 done
 
 cat >&2 <<'EOF'

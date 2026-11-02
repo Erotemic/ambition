@@ -116,9 +116,9 @@ non-zero when anything has drifted, so it works as a pipeline check.
 orchestral render can exceed 700 MB. Nothing prunes them automatically.
 
 ```bash
-python3 scripts/prune_generated_music.py            # dry run, items older than 2 days
-python3 scripts/prune_generated_music.py --apply
-python3 scripts/prune_generated_music.py --days 0 --cue my_cue --apply   # the drafts of one cue, now
+python3 scripts/maintenance/prune_generated_music.py            # dry run, items older than 2 days
+python3 scripts/maintenance/prune_generated_music.py --apply
+python3 scripts/maintenance/prune_generated_music.py --days 0 --cue my_cue --apply   # the drafts of one cue, now
 ```
 
 An item goes when it is older than `--days` and it is one of these:

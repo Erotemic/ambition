@@ -26,10 +26,10 @@ only less precise.
 
 Usage::
 
-    scripts/sweep_target_lru.py                      # report only
-    scripts/sweep_target_lru.py --apply              # remove units unused 7+ days
-    scripts/sweep_target_lru.py --days 3 --apply
-    scripts/sweep_target_lru.py --apply --ensure-free 40
+    scripts/maintenance/sweep_target_lru.py                      # report only
+    scripts/maintenance/sweep_target_lru.py --apply              # remove units unused 7+ days
+    scripts/maintenance/sweep_target_lru.py --days 3 --apply
+    scripts/maintenance/sweep_target_lru.py --apply --ensure-free 40
         # ...and if the disk still has under 40 GiB free, empty every profile
 
 ⛔ SAFETY, each a rule this repository learned before this script existed
@@ -62,7 +62,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
+REPO = Path(__file__).resolve().parent.parent.parent
 
 # Cargo's own per-unit directories under a profile, grouped by unit hash.
 # Anything else there — top-level hardlinked binaries, captures, logs — is not

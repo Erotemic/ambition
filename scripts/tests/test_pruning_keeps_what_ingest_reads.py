@@ -22,7 +22,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
-import prune_profile_bundles as pruner  # noqa: E402
+from scripts.maintenance import prune_profile_bundles as pruner  # noqa: E402
 
 CONSUMERS = (
     REPO / "scripts/lib/profile_bundle_to_history.py",

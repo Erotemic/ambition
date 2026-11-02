@@ -21,23 +21,23 @@
 # whole instead of incrementally.
 #
 # Contrast with the other sweepers, which cut along a different axis:
-#   scripts/sweep_target_lru.py      delete units unused for N days; runs no
+#   scripts/maintenance/sweep_target_lru.py      delete units unused for N days; runs no
 #                                    cargo, so it is safe on a full disk.
-#   scripts/sweep_target.py          mark-and-sweep: keep named live graphs,
-#   scripts/sweep_cargo_target.sh    delete what is unreachable (deps included).
+#   scripts/maintenance/sweep_target.py          mark-and-sweep: keep named live graphs,
+#   scripts/maintenance/sweep_cargo_target.sh    delete what is unreachable (deps included).
 # Use those to reclaim without disturbing the graph you are building. Use this
 # one when you want your own crates rebuilt from source and the dependency wall
 # left standing.
 #
 # Examples:
-#   ./scripts/clean_workspace_crates.sh                     # dry run, all profiles
-#   ./scripts/clean_workspace_crates.sh --apply
-#   ./scripts/clean_workspace_crates.sh --incremental-only --apply
-#   ./scripts/clean_workspace_crates.sh --profile debug --apply
+#   ./scripts/maintenance/clean_workspace_crates.sh                     # dry run, all profiles
+#   ./scripts/maintenance/clean_workspace_crates.sh --apply
+#   ./scripts/maintenance/clean_workspace_crates.sh --incremental-only --apply
+#   ./scripts/maintenance/clean_workspace_crates.sh --profile debug --apply
 #
 set -euo pipefail
 
-repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
 apply=0

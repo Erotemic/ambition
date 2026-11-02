@@ -933,7 +933,7 @@ def write_manifests(
     yaml_lines = [
         'schema_version: 3',
         f'generated_at_utc: {yaml_scalar(generated_at)}',
-        f'generator: {yaml_scalar("scripts/archive_agent_source.py")}',
+        f'generator: {yaml_scalar("scripts/maintenance/archive_agent_source.py")}',
         f'repo_name: {yaml_scalar(CONFIG["repo_name"])}',
         f'source_repo_root: {yaml_scalar(source_display_path)}',
         f'archive_prefix: {yaml_scalar(context.archive_root_name)}',

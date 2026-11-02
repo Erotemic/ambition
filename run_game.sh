@@ -747,7 +747,7 @@ if [[ "$sweep" -eq 1 ]]; then
     sweep_args=(--runs-only --cmd "${sweep_cmd[*]#build }")
     [[ "$sweep_apply" -eq 1 ]] && sweep_args+=(--apply)
     printf '⚠ --sweep keeps ONLY this graph; the test graph and other demos will be swept.\n' >&2
-    python3 "$repo_root/scripts/sweep_target.py" "${sweep_args[@]}" || fail "the sweep failed; nothing was run"
+    python3 "$repo_root/scripts/maintenance/sweep_target.py" "${sweep_args[@]}" || fail "the sweep failed; nothing was run"
 fi
 
 export RUST_BACKTRACE="${RUST_BACKTRACE:-full}"

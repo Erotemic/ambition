@@ -9,16 +9,16 @@
 #   - preserve the host, common windowed demos, and backbone Rust test graph
 #
 # Examples:
-#   ./scripts/sweep_cargo_target.sh
-#   ./scripts/sweep_cargo_target.sh --apply
-#   ./scripts/sweep_cargo_target.sh --apply --deep
-#   ./scripts/sweep_cargo_target.sh --full
-#   ./scripts/sweep_cargo_target.sh --keep-cmd \
+#   ./scripts/maintenance/sweep_cargo_target.sh
+#   ./scripts/maintenance/sweep_cargo_target.sh --apply
+#   ./scripts/maintenance/sweep_cargo_target.sh --apply --deep
+#   ./scripts/maintenance/sweep_cargo_target.sh --full
+#   ./scripts/maintenance/sweep_cargo_target.sh --keep-cmd \
 #       'build -p ambition_app --bin ambition_game_bin --features causal'
 #
 set -euo pipefail
 
-repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 apply=0
 deep=0
@@ -29,7 +29,7 @@ extra_mark_commands=()
 usage() {
     cat <<'USAGE'
 Usage:
-  ./scripts/sweep_cargo_target.sh [OPTIONS]
+  ./scripts/maintenance/sweep_cargo_target.sh [OPTIONS]
 
 Options:
   --apply         Actually delete unreachable artifacts.
@@ -53,14 +53,14 @@ Options:
   -h, --help      Show this help.
 
 Typical use:
-  ./scripts/sweep_cargo_target.sh
-  ./scripts/sweep_cargo_target.sh --apply
+  ./scripts/maintenance/sweep_cargo_target.sh
+  ./scripts/maintenance/sweep_cargo_target.sh --apply
 
 Maximum reclamation while keeping the normal game/test graphs:
-  ./scripts/sweep_cargo_target.sh --apply --deep
+  ./scripts/maintenance/sweep_cargo_target.sh --apply --deep
 
 Keep every standard demo shape as well:
-  ./scripts/sweep_cargo_target.sh --apply --full
+  ./scripts/maintenance/sweep_cargo_target.sh --apply --full
 USAGE
 }
 

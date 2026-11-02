@@ -174,9 +174,9 @@ parallel run cannot go below its longest test; suspect one long pole before a lo
    `cargo clean -p <crate>`). The volume is shared: delete only what is yours.
    If the bind is absent, delete nothing; report the numbers and stop. See
    `AGENTS.md`.
-3. On a short volume, run `./scripts/clean_workspace_crates.sh --incremental-only
+3. On a short volume, run `./scripts/maintenance/clean_workspace_crates.sh --incremental-only
    --apply` first. It reclaims the incremental directories and rebuilds nothing.
-4. Then `scripts/sweep_target.py` can sweep precisely. Its mark step is a build,
+4. Then `scripts/maintenance/sweep_target.py` can sweep precisely. Its mark step is a build,
    so it needs headroom to run.
 
 `fixtures/external_consumer` has its own `.cargo/config.toml` and target. Only

@@ -67,7 +67,7 @@ ensure_rust() {
     # single largest block of a default run — cargo-modules alone compiles the
     # rust-analyzer crate graph. Each is reachable without them:
     #   cargo-llvm-cov    only `run_game.sh --cov`
-    #   cargo-mark-sweep  only `scripts/sweep_cargo_target.sh`, which already
+    #   cargo-mark-sweep  only `scripts/maintenance/sweep_cargo_target.sh`, which already
     #                     prints its own install line when it is missing
     #   cargo-modules     no caller in the repo
     #   cargo-sweep       no caller in the repo

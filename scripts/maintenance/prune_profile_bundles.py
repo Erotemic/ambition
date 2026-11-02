@@ -23,7 +23,7 @@ import argparse
 import shutil
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
+REPO = Path(__file__).resolve().parents[2]
 PROFILES = REPO / "dev/ambition_dev_measurements/profiles"
 
 # Everything `profile_bundle_to_history.py` or `profile_bundle_summary.py`

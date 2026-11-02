@@ -78,7 +78,7 @@ def main() -> None:
     parser.add_argument(
         "--repo-root",
         type=Path,
-        default=Path(__file__).resolve().parent.parent,
+        default=Path(__file__).resolve().parent.parent.parent,
         help="Repository root (default: two levels up from this script).",
     )
     parser.add_argument(

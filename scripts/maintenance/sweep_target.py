@@ -24,11 +24,11 @@ shares one environment and therefore cannot express this.
 
 Usage::
 
-    scripts/sweep_target.py                       # both modes, dry run
-    scripts/sweep_target.py --apply
-    scripts/sweep_target.py --runs-only --apply   # keep the edit loop only
-    scripts/sweep_target.py --cmd 'build -p ambition_app --bin ambition_game_bin' --apply
-    scripts/sweep_target.py --drop-incremental --apply
+    scripts/maintenance/sweep_target.py                       # both modes, dry run
+    scripts/maintenance/sweep_target.py --apply
+    scripts/maintenance/sweep_target.py --runs-only --apply   # keep the edit loop only
+    scripts/maintenance/sweep_target.py --cmd 'build -p ambition_app --bin ambition_game_bin' --apply
+    scripts/maintenance/sweep_target.py --drop-incremental --apply
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
+REPO = Path(__file__).resolve().parent.parent.parent
 
 # The graphs each mode protects. `--cmd` REPLACES the run set, which is what
 # `run_game.sh --sweep` uses to name the one shape it was asked for.

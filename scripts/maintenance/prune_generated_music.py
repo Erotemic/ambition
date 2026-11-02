@@ -173,7 +173,7 @@ def main(argv: list[str] | None = None) -> int:
                         help='delete all renders of a cue that has no score; this cannot be undone')
     parser.add_argument('--apply', action='store_true',
                         help='actually delete; without it this only reports')
-    parser.add_argument('--repo', type=Path, default=Path(__file__).resolve().parent.parent)
+    parser.add_argument('--repo', type=Path, default=Path(__file__).resolve().parent.parent.parent)
     args = parser.parse_args(argv)
 
     repo = args.repo.resolve()

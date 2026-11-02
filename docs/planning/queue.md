@@ -647,6 +647,12 @@ with the existing menu and dialogue cases. Grid-only/no-audio composition also
 compiles on the native host. Do not restore backend-specific game-mode writes.
 Menu state and pause claims still need participant ownership.
 
+Item use and ability equipment requests name their acting participant
+(`5549b8402`, schema 407). Simulation resolves its current body before it spends
+inventory. Healing requires one named body, including pickup and parry rewards.
+Guard: `item_requests_restore_and_equip_the_joined_participant`, with the
+consumable rewind and projectile parry cases. Shared menu state remains open.
+
 **Next action (ordered slices; complete each behavior gate before moving):**
 
 4. **Independent local menus:** separate per-seat open state, focus, page,

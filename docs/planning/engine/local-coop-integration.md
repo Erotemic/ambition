@@ -559,6 +559,14 @@ entry, close and platform pause. Guard:
 and dialogue cases. The state is still shared; participant-owned instances
 and pause claims remain open. Do not restore backend-specific game-mode writes.
 
+Item use and ability equipment requests name the acting participant
+(`5549b8402`, schema 407). Simulation resolves its current controlled body.
+An absent body cannot spend inventory. `BodyHealRequested` requires a target;
+pickups and parries cannot fall back to the primary body. Guard:
+`item_requests_restore_and_equip_the_joined_participant`, with consumable
+rewind and projectile parry cases. These host intents remain local ingress;
+peer agreement still needs the session input protocol.
+
 An explicit session pause aggregator should own the final local `GameMode`
 request. Menu instances only assert or release their individual pause claim.
 Also test a dialogue under one menu and a room transition under another, so

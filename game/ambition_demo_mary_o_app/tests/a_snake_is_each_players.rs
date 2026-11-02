@@ -113,3 +113,108 @@ fn a_stomp_plays_the_burst_its_rules_state() {
     let played = &app.world().resource::<crate::the_switch_ends_the_castle::Played>().bursts;
     assert!(played.contains(&stated), "the stomp did not play the file's burst {stated:?}: played {played:?}");
 }
+
+fn joined_shell_party() -> (App, Entity, [Entity; 2]) {
+    use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
+    use ambition_platformer2d::actor::Health;
+    let mut app = ambition_demo_mary_o_app::build_demo_app();
+    app.insert_resource(ambition_demo_mary_o::provider::MaryOEntryRoom(
+        ambition_demo_mary_o::test_course::TEST_COURSE_ROOM_ID.into()));
+    for _ in 0..120 { app.update(); }
+    let mut snakes = app.world_mut().query_filtered::<Entity, With<SnakeShell>>();
+    let snake = snakes.single(app.world()).expect("the fixture course has one snake");
+    let alice = her(&mut app);
+    let mut bob = None;
+    for _ in 0..60 {
+        ambition_platformer2d::rollback::drive_slot_frame(app.world_mut(), PlayerSlot(1),
+            ae::ControlFrame { start_pressed: true, ..Default::default() });
+        app.update();
+        let mut query = app.world_mut().query_filtered::<(Entity, &DrivingParticipant), With<PlayerEntity>>();
+        bob = query.iter(app.world()).find(|(_, seat)| seat.0 == PlayerSlot(1)).map(|(body, _)| body);
+        if bob.is_some() { break; }
+    }
+    let bob = bob.expect("the second participant joins through committed Start input");
+    ambition_platformer2d::rollback::drive_slot_frame(app.world_mut(), PlayerSlot(1), ae::ControlFrame::default());
+    for body in [alice, bob, snake] {
+        app.world_mut().entity_mut(body).insert(BodyHealth::new(Health::new(100)));
+        let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(body).unwrap();
+        kin.pos = Vec2::new(350.0, 416.0 - kin.size.y * 0.5);
+        kin.vel = Vec2::ZERO;
+    }
+    app.world_mut().entity_mut(snake).insert(
+        ambition_platformer2d::characters::control::ControlHolds::only(
+            ambition_platformer2d::characters::control::ControlHold::Sequence));
+    (app, snake, [alice, bob])
+}
+
+fn shell_contacts(app: &mut App, snake: Entity, bodies: [Entity; 2]) -> Vec<ambition_platformer2d::combat::events::HitEvent> {
+    use ambition_platformer2d::combat::events::{HitEvent, HitSource};
+    let mut cursor = app.world().resource::<Messages<HitEvent>>().get_cursor_current();
+    let mut hits = Vec::new();
+    for _ in 0..3 {
+        app.update();
+        hits.extend(cursor.read(app.world().resource::<Messages<HitEvent>>())
+            .filter(|hit| hit.source == HitSource::Contact && hit.attacker
+                .is_some_and(|owner| owner == snake || bodies.contains(&owner))).cloned());
+    }
+    hits
+}
+
+#[test]
+fn a_sliding_shell_uses_body_contacts_for_both_local_participants() {
+    use ambition_platformer2d::combat::events::HitTarget;
+    let (mut app, snake, bodies) = joined_shell_party();
+    app.world_mut().entity_mut(snake).insert(SnakeShell::Sliding { dir: 1.0, grace: 0.0 });
+    let hits = shell_contacts(&mut app, snake, bodies);
+    for body in bodies {
+        assert_eq!(app.world().get::<BodyHealth>(body).unwrap().current(), 99,
+            "the shell must deal one impact to participant body {body:?}");
+        assert!(hits.iter().any(|hit| hit.target == HitTarget::Body(body)),
+            "the shell did not resolve participant body {body:?}");
+    }
+    assert!(hits.iter().all(|hit| hit.room.is_some()), "the shell lost its emission room");
+    assert_eq!(app.world().get::<BodyHealth>(snake).unwrap().current(), 100,
+        "the shell struck its own body");
+}
+
+#[test]
+fn a_fresh_shell_kick_protects_only_the_body_that_kicked_it() {
+    use ambition_demo_mary_o::snake::ShellKickCredit;
+    use ambition_platformer2d::combat::events::HitTarget;
+    let (mut app, snake, bodies) = joined_shell_party();
+    app.world_mut().entity_mut(snake).insert(SnakeShell::Boxed(100.0));
+    let hits = shell_contacts(&mut app, snake, bodies);
+    let kicker = app.world().get::<ShellKickCredit>(snake).unwrap().0.expect("the kick names its body");
+    assert!(bodies.contains(&kicker));
+    for body in bodies {
+        let expected = if body == kicker { 100 } else { 99 };
+        assert_eq!(app.world().get::<BodyHealth>(body).unwrap().current(), expected,
+            "kick grace must protect only {kicker:?}, body={body:?}");
+        assert_eq!(hits.iter().any(|hit| hit.target == HitTarget::Body(body)), body != kicker);
+    }
+    assert!(hits.iter().all(|hit| hit.attacker == Some(kicker)), "the kick lost its credit");
+}
+
+#[test]
+fn a_shell_stays_in_its_emission_room_when_its_kicker_is_in_another_room() {
+    use ambition_demo_mary_o::snake::ShellKickCredit;
+    use ambition_platformer2d::combat::events::HitTarget;
+    use ambition_platformer2d::world::rooms::LiveRoomDefinition;
+    let (mut app, snake, bodies @ [alice, bob]) = joined_shell_party();
+    let emission = app.world().get::<InRoomInstance>(snake).unwrap().0;
+    let other = emission.next();
+    let mut roots = app.world_mut().query_filtered::<(&LiveRoomInstance, &ae::RoomGeometry, &LiveRoomDefinition), With<RoomInstanceRoot>>();
+    let (_, geometry, definition) = roots.iter(app.world()).find(|(room, ..)| **room == emission).unwrap();
+    let (geometry, definition) = (geometry.clone(), *definition);
+    app.world_mut().spawn((RoomInstanceRoot, other, geometry, definition));
+    app.world_mut().entity_mut(alice).insert(InRoomInstance(other));
+    app.world_mut().entity_mut(snake).insert((
+        SnakeShell::Sliding { dir: 1.0, grace: 0.0 }, ShellKickCredit(Some(alice))));
+    let hits = shell_contacts(&mut app, snake, bodies);
+    assert_eq!(app.world().get::<BodyHealth>(alice).unwrap().current(), 100);
+    assert_eq!(app.world().get::<BodyHealth>(bob).unwrap().current(), 99);
+    assert!(!hits.iter().any(|hit| hit.target == HitTarget::Body(alice)));
+    assert!(hits.iter().any(|hit| hit.target == HitTarget::Body(bob)));
+    assert!(hits.iter().all(|hit| hit.room == Some(emission) && hit.attacker == Some(alice)),
+        "the shell must keep its emission room and remote kick credit");
+}

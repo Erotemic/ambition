@@ -13,8 +13,9 @@ use ambition_platformer2d::characters::control::{
     claim_control_hold, release_control_hold, ControlHold, ControlHolds,
 };
 use ambition_platformer2d::combat::actor_tuning::ContactThreatWithdrawn;
-use ambition_platformer2d::combat::components::FeatureId;
-use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
+use ambition_platformer2d::combat::events::HitSource;
+use ambition_platformer2d::combat::damage_box::DamageBoxSpawner;
+use ambition_platformer2d::combat::strike::{DamageBox, HitSide, HitboxExclusions, HitboxKnockback};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
@@ -37,7 +38,7 @@ pub const SNAKE_BRAIN_KEY: &str = "mary_o_snake";
 /// re-derives from it, so every road that makes a snake (construction, a
 /// fixture, a rollback restore) gives the writer something to write.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
-#[require(ContactThreatWithdrawn)]
+#[require(ContactThreatWithdrawn, ShellKickCredit)]
 pub enum SnakeShell {
     #[default]
     Walking,
@@ -47,17 +48,24 @@ pub enum SnakeShell {
     Sliding {
         /// Travel direction: `-1.0` is leftward, `1.0` rightward.
         dir: f32,
-        /// Seconds left of the post-kick grace, during which this shell cannot
-        /// hurt the PLAYER (it is still inside the person who kicked it). Enemies
-        /// it runs down are hit from the first tick.
-        ///
-        /// Spent immediately by a wall bounce, not only by the clock: a shell
-        /// that turns around is coming back at the player, and that is a hit
-        /// however recently they kicked it.
+        /// Seconds left of immunity for the body that kicked the shell.
+        /// A wall bounce ends the immunity.
         grace: f32,
     },
     Peeking(f32),
     Emerging(f32),
+}
+
+/// The body credited for the current shell kick.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ShellKickCredit(pub Option<Entity>);
+
+impl bevy::ecs::entity::MapEntities for ShellKickCredit {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        if let Some(body) = self.0.as_mut() {
+            *body = mapper.get_mapped(*body);
+        }
+    }
 }
 
 /// What the pure step wants the ECS to reflect for one snake this tick.
@@ -346,17 +354,17 @@ pub fn run_snake_shells(
     // The squash burst is drawn in the snake's own live room.
     rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
-    mut hits: MessageWriter<HitEvent>,
+    mut strikes: DamageBoxSpawner,
     mut players: Query<(Entity, &mut ae::BodyKinematics), With<PlayerEntity>>,
     mut snakes: Query<
         (
             Entity,
-            &FeatureId,
             &ambition_platformer2d::characters::actor::BodyHealth,
             &mut ae::BodyKinematics,
             Option<&mut ControlHolds>,
             &mut ContactThreatWithdrawn,
             &mut SnakeShell,
+            &mut ShellKickCredit,
         ),
         (Without<PrimaryPlayer>, Without<PlayerEntity>),
     >,
@@ -371,12 +379,7 @@ pub fn run_snake_shells(
     let everyone: Vec<(Entity, Option<ambition_platformer2d::platformer::lifecycle::LiveRoomInstance>, ae::Aabb, ae::Vec2, ae::Vec2)> =
         players.iter().map(|(player, kin)| (player, rooms.of(player), kin.aabb(), kin.pos, kin.vel)).collect();
 
-    // First pass: advance every snake's phase and apply presentation/physics.
-    // Collect each sliding shell's (entity, AABB, own-id, whether it is
-    // side-hitting the player) so the shared-pipeline hits below retain causal
-    // attribution after the mutable query borrow ends.
-    let mut sliding: Vec<(Entity, ae::Aabb, String, Option<Entity>)> = Vec::new();
-    for (entity, feature_id, health, mut kin, mut holds, mut withdrawn, mut shell) in &mut snakes {
+    for (entity, health, mut kin, mut holds, mut withdrawn, mut shell, mut credit) in &mut snakes {
         if !health.alive() {
             // A corpse is out of the mechanic: it stops sliding, advances no phase,
             // and deals no hits. Its shell state is left as-is so a respawned body
@@ -393,13 +396,21 @@ pub fn run_snake_shells(
             .filter(|(_, player_room, ..)| *player_room == room)
             .map(|(player, _, aabb, pos, vel)| (*player, *pos, player_touch(kin.aabb(), *aabb, *vel)))
             .min_by(|a, b| {
-                (a.2.is_none(), a.1.distance_squared(kin.pos), a.0)
-                    .partial_cmp(&(b.2.is_none(), b.1.distance_squared(kin.pos), b.0))
+                let rank = |touch| match touch {
+                    Some(PlayerTouch::Top) => 0, Some(PlayerTouch::Side) => 1, None => 2,
+                };
+                (rank(a.2), a.1.distance_squared(kin.pos), a.0)
+                    .partial_cmp(&(rank(b.2), b.1.distance_squared(kin.pos), b.0))
                     .unwrap_or(std::cmp::Ordering::Equal)
             });
         let touch = player.and_then(|(_, _, touch)| touch);
         let inputs = shell_inputs_for(*shell, &kin, player.map(|(_, pos, _)| pos), touch);
         let fx = step_snake_shell(*shell, dt, inputs);
+        if fx.just_kicked {
+            credit.0 = player.map(|(body, ..)| body);
+        } else if !matches!(fx.phase, SnakeShell::Sliding { .. }) {
+            credit.0 = None;
+        }
 
         // The stomp bounce is applied to the PLAYER (a fresh stomp on a walker OR a
         // stomp from above onto a moving shell — both stop the threat and bounce).
@@ -482,59 +493,26 @@ pub fn run_snake_shells(
         }
 
         if let SnakeShell::Sliding { grace, .. } = fx.phase {
-            // The player is hurt only by a SIDE contact with an ARMED shell. From
-            // the top it is a stomp (the pre-emption above already turned this shell
-            // Boxed, so it is not even here), and during the post-kick grace the
-            // shell is still inside whoever kicked it.
-            let side_hit = grace <= 0.0 && touch == Some(PlayerTouch::Side);
-            sliding.push((
-                entity,
-                kin.aabb(),
-                feature_id.as_str().to_string(),
-                player.filter(|_| side_hit).map(|(player, ..)| player),
-            ));
-        }
-        *shell = fx.phase;
-    }
-
-    // Second pass: every sliding shell deals its damage through the ONE shared hit
-    // pipeline. The enemy broadcast (Volume) reaches every actor in the volume EXCEPT
-    // the player (the drain's actor query is `Without<PlayerEntity>`) and EXCEPT the
-    // shell itself (ignored by both disposition prefixes); the side-hit player event
-    // is the only thing that can hurt the player.
-    for (shell_entity, aabb, self_id, hit_player) in sliding {
-        hits.write(HitEvent {
-            pieces: Vec::new(),
-            strike_sfx: None,
-            volume: aabb.into(),
-            damage: crate::rules::mary_o_rules().shell.enemy_damage,
-            source: HitSource::Contact,
-            attacker: Some(shell_entity),
-            room: None,
-            target: HitTarget::Volume,
-            mode: HitMode::Knockback,
-            knockback: None,
-            ignored_targets: vec![format!("enemy:{self_id}"), format!("npc:{self_id}")],
-                    attacker_move_instance: None,
-        });
-        if let Some(player_entity) = hit_player {
-            {
-                hits.write(HitEvent {
-                    pieces: Vec::new(),
-                    strike_sfx: None,
-                    volume: aabb.into(),
-                    damage: crate::rules::mary_o_rules().shell.player_damage,
-                    source: HitSource::Contact,
-                    attacker: Some(shell_entity),
-                    room: None,
-                    target: HitTarget::Body(player_entity),
-                    mode: HitMode::Knockback,
-                    knockback: None,
-                    ignored_targets: Vec::new(),
-                                    attacker_move_instance: None,
-                });
+            let mut excluded = HitboxExclusions::default();
+            excluded.bodies.insert(entity);
+            if grace > 0.0 {
+                excluded.bodies.extend(credit.0);
+            }
+            let owner = credit.0.unwrap_or(entity);
+            if let Some(mut strike) = strikes.spawn(entity, owner, HitSide::Environment, kin.pos, DamageBox {
+                cause: HitSource::Contact,
+                move_instance: None,
+                half_extent: kin.size * 0.5,
+                shape: None,
+                damage: crate::rules::mary_o_rules().shell.damage,
+                knockback: HitboxKnockback::FeelScale(1.0),
+                lifetime_s: 0.0,
+                name: Some("sliding shell"),
+            }) {
+                strike.insert(excluded);
             }
         }
+        *shell = fx.phase;
     }
 }
 

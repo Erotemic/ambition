@@ -257,8 +257,7 @@ pub struct Pipe {
 #[serde(deny_unknown_fields)]
 pub struct Shell {
     pub slide_speed: f32,
-    pub enemy_damage: i32,
-    pub player_damage: i32,
+    pub damage: i32,
     pub kick_grace_seconds: f32,
     pub retreat_seconds: f32,
     pub boxed_seconds: f32,
@@ -405,8 +404,7 @@ impl MaryORules {
             }
         }
         for (field, value) in [
-            ("shell.enemy_damage", shell.enemy_damage),
-            ("shell.player_damage", shell.player_damage),
+            ("shell.damage", shell.damage),
             ("coins_per_block", self.coins_per_block),
         ] {
             if value < 0 {

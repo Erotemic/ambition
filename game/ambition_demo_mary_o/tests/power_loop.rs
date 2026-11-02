@@ -974,159 +974,15 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
     );
 }
 
-/// A moving shell is a kinetic hazard through the SHARED hit pipeline.
-///
-/// A sliding shell that overlaps the player from the SIDE (not a stomp) emits, in
-/// one `run_snake_shells` tick, TWO `HitEvent`s: a broadcast `Volume` kill over its
-/// own AABB (which the shared drain applies to every ENEMY it overlaps — snakes, AI
-/// Slop — but never the player, whose query the drain excludes), and a single
-/// `Player`-targeted hurt for the side contact. This is the whole point of routing
-/// through the pipeline: the shell kills real enemies and hurts the player without
-/// any bespoke damage code. (A stomp from ABOVE is the other branch — it stops the
-/// shell and bounces you, proven in the pure state-machine tests.)
-#[test]
-fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
-    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    use ambition_demo_mary_o::snake::{run_snake_shells, SnakeShell};
-    use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
-    use ambition_platformer2d::combat::components::ActorIdentity;
-    use ambition_platformer2d::combat::events::{GameplayBanner, HitEvent, HitSource, HitTarget};
-    use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
-    use ambition_platformer2d::platformer::lifecycle::SessionSpawnScope;
-
-    const SNAKE_POS: ae::Vec2 = ae::Vec2::new(400.0, 300.0);
-
-    let mut app = App::new();
-    app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 1.0 / 60.0));
-    ambition_platformer2d::platformer::lifecycle::insert_live_room_component(
-        app.world_mut(),
-        ae::RoomGeometry(ae::World::new(
-            "shell_range",
-            ae::Vec2::new(2000.0, 2000.0),
-            ae::Vec2::new(200.0, 200.0),
-            Vec::new(),
-        )),
-    );
-    app.insert_resource(CharacterCatalog::empty());
-    // The damage path sizes split offspring from their sheets (U1 stage B), so
-    // the authored registry is required authority here too. This fixture
-    // authors none.
-    app.init_resource::<ambition_platformer2d::character::AuthoredSheets>();
-    app.insert_resource(GameplayBanner::default());
-    app.init_resource::<ambition_platformer2d::boss_encounter::BossCatalog>();
-    ambition_platformer2d::session::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay::default());
-    app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
-    app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
-    app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
-    app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
-    app.add_message::<HitEvent>();
-
-    // Every Mary-O enemy is a character of her cast, built as the game builds it.
-    ambition_demo_mary_o::register_mary_o_cast(&mut app);
-    ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
-    app.add_systems(Update, run_snake_shells);
-
-    // The player overlaps the snake from the SIDE, at rest (vel.y == 0), so it is a
-    // side contact — NOT a stomp (which needs falling feet on the head).
-    let player = app
-        .world_mut()
-        .spawn((
-            PrimaryPlayer,
-            ambition_platformer2d::platformer::markers::PlayerEntity,
-            ae::BodyKinematics {
-                pos: ae::Vec2::new(410.0, 300.0),
-                vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(30.0, 48.0),
-                facing: 1.0,
-            },
-        ))
-        .id();
-
-    {
-        let world = app.world_mut();
-        let catalog = world.resource::<CharacterCatalog>().clone();
-        // The prepared cast this demo registers. Its two enemies are CHARACTERS
-        // now, so a mob that names one is built from it rather than from a
-        // roster row — the row is gone.
-        let world_prepared = world
-            .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>(
-            )
-            .cloned()
-            .unwrap_or_default();
-        let mut commands = world.commands();
-        spawn_encounter_mob(&sprite_content,
-            &mut commands,
-            &catalog,
-            &Default::default(),
-            &world_prepared,
-            SessionSpawnScope::UNSCOPED,
-            "mary_o_shell_range",
-            EncounterMobSeed {
-                id: "sliding_snake".into(),
-                // Production names the character on the placement; a fixture
-                // that named none would exercise a spawn shape the game no
-                // longer has.
-                character: Some(ambition_demo_mary_o::snake::SNAKE_SHEET_TARGET),
-                brain: CharacterBrain::Custom("mary_o_snake".into()),
-                pos: SNAKE_POS,
-                size: ae::Vec2::new(28.0, 32.0),
-            },
-        );
-    }
-    app.update(); // flush the spawn
-
-    let snake = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &ActorIdentity)>();
-        q.iter(world)
-            .find(|(_, id)| id.id() == "sliding_snake")
-            .map(|(e, _)| e)
-            .expect("the snake spawned")
-    };
-    // Kick it into a slide directly (the kick geometry is covered elsewhere).
-    app.world_mut()
-        .entity_mut(snake)
-        .insert(SnakeShell::Sliding {
-            dir: 1.0,
-            grace: 0.0,
-        });
-
-    app.update(); // the sliding shell deals its damage
-
-    let hits: Vec<HitEvent> = app
-        .world_mut()
-        .resource_mut::<bevy::ecs::message::Messages<HitEvent>>()
-        .drain()
-        .collect();
-
-    let enemy_kill = hits
-        .iter()
-        .find(|h| matches!(h.target, HitTarget::Volume) && matches!(h.source, HitSource::Contact));
-    assert!(
-        enemy_kill.is_some_and(|h| h.damage >= 2 && h.attacker == Some(snake)),
-        "a sliding shell broadcasts a lethal Volume hit attributed to the shell entity"
-    );
-
-    let player_hit = hits.iter().find(|h| {
-        matches!(h.target, HitTarget::Body(e) if e == player)
-            && matches!(h.source, HitSource::Contact)
-    });
-    assert!(
-        player_hit.is_some_and(|h| h.attacker == Some(snake)),
-        "and a SIDE hit against the player retains the same shell attribution (a stomp \
-         from above would instead stop the shell and bounce)"
-    );
-}
-
 /// A DEAD snake leaves the shell machine — no invisible hits.
 #[test]
-fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
+fn a_dead_snake_stops_and_emits_no_strikes() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use ambition_demo_mary_o::snake::{run_snake_shells, SnakeShell};
     use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
     use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::combat::components::ActorIdentity;
-    use ambition_platformer2d::combat::events::{GameplayBanner, HitEvent};
+    use ambition_platformer2d::combat::events::GameplayBanner;
     use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
     use ambition_platformer2d::platformer::lifecycle::SessionSpawnScope;
 
@@ -1155,7 +1011,6 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
     app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
-    app.add_message::<HitEvent>();
 
     // Every Mary-O enemy is a character of her cast, built as the game builds it.
     ambition_demo_mary_o::register_mary_o_cast(&mut app);
@@ -1226,18 +1081,8 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
         e.get_mut::<BodyHealth>().unwrap().health.current = 0;
         e.get_mut::<ae::BodyKinematics>().unwrap().vel.x = 300.0;
     }
-    app.world_mut()
-        .resource_mut::<bevy::ecs::message::Messages<HitEvent>>()
-        .drain()
-        .for_each(drop);
-
     app.update();
 
-    let hits: Vec<HitEvent> = app
-        .world_mut()
-        .resource_mut::<bevy::ecs::message::Messages<HitEvent>>()
-        .drain()
-        .collect();
     assert!(
         !app.world()
             .entity(snake)
@@ -1246,11 +1091,8 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
             .alive(),
         "the fixture really is a corpse"
     );
-    assert!(
-        hits.is_empty(),
-        "a dead snake is out of the mechanic: an invisible corpse must not keep \
-         hitting anything (got {hits:?})"
-    );
+    let mut strikes = app.world_mut().query::<&ambition_platformer2d::combat::strike::Hitbox>();
+    assert!(strikes.iter(app.world()).next().is_none(), "a corpse emitted a strike");
     assert_eq!(
         app.world()
             .entity(snake)

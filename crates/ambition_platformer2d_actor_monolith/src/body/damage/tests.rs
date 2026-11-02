@@ -72,7 +72,7 @@ fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
 }
 
 #[test]
-fn victim_side_enemy_body_hit_does_not_damage_features() {
+fn a_feature_remainder_never_damages_bodies() {
     let mut app = App::new();
     app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.insert_resource(GameplayBanner::default());
@@ -82,6 +82,7 @@ fn victim_side_enemy_body_hit_does_not_damage_features() {
     app.add_systems(Update, apply_feature_hit_events);
 
     let actor_entity = spawn_hostile_actor(&mut app);
+    let neighbor = spawn_hostile_actor(&mut app);
     let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
     app.world_mut().write_message(HitEvent {
         pieces: Vec::new(),
@@ -93,7 +94,7 @@ fn victim_side_enemy_body_hit_does_not_damage_features() {
         // attacker has no self to exclude, so the fixture was describing a contact nobody made.
         attacker: Some(actor_entity),
         room: None,
-        target: HitTarget::Volume,
+        target: HitTarget::UnresolvedFeatures,
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
@@ -101,6 +102,7 @@ fn victim_side_enemy_body_hit_does_not_damage_features() {
     });
 
     app.update();
+    assert_eq!(app.world().get::<BodyHealth>(neighbor).unwrap().current(), 5);
 
     let health = app
         .world()
@@ -393,7 +395,7 @@ fn enemy_charge_crash_with_an_explicit_attacker_never_credits_the_primary_player
         source: HitSource::Contact,
         attacker: Some(shell),
         room: None,
-        target: HitTarget::Volume,
+        target: HitTarget::Body(victim),
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
@@ -471,7 +473,7 @@ fn an_outcome_naming_another_occurrence_credits_no_move() {
         source: HitSource::Melee,
         attacker: Some(attacker),
         room: None,
-        target: HitTarget::Volume,
+        target: HitTarget::Body(victim),
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
@@ -551,7 +553,7 @@ fn an_unclaimed_outcome_credits_no_move() {
         source: HitSource::Melee,
         attacker: Some(attacker),
         room: None,
-        target: HitTarget::Volume,
+        target: HitTarget::Body(victim),
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
@@ -600,7 +602,7 @@ fn a_hit_with_no_generation_is_not_resolved() {
         source: HitSource::Melee,
         attacker: None,
         room: None,
-        target: HitTarget::Volume,
+        target: HitTarget::Body(actor_entity),
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
@@ -644,7 +646,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
         source: HitSource::Melee,
         attacker: None,
         room: None,
-        target: HitTarget::Volume,
+        target: HitTarget::Body(actor_entity),
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
@@ -679,7 +681,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
         source: HitSource::Melee,
         attacker: None,
         room: None,
-        target: HitTarget::Volume,
+        target: HitTarget::Body(actor_entity),
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
@@ -731,7 +733,7 @@ fn a_killed_body_plays_the_death_cue_its_character_authors() {
             source: HitSource::Melee,
             attacker: None,
             room: None,
-            target: HitTarget::Volume,
+            target: HitTarget::Body(actor_entity),
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
@@ -775,48 +777,6 @@ fn a_killed_body_plays_the_death_cue_its_character_authors() {
 /// attacker in #0, with live rooms #0 and #1 both live. The control puts the
 /// enemy in #0 and it takes the 2 damage. The subject puts the same enemy, in
 /// the same place, in #1, and it takes none.
-#[test]
-fn a_broadcast_hit_does_not_reach_a_body_in_another_live_room() {
-    use ambition_platformer2d_shared_tangle::lifecycle::{
-        InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
-    };
-    let first = LiveRoomInstance::ACTIVATION;
-    let health_after_a_slash = |enemy_room: LiveRoomInstance| {
-        let mut app = App::new();
-        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
-        app.insert_resource(GameplayBanner::default());
-        app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-        );
-        app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
-        install_hit_reaction_consumers(&mut app);
-        app.add_systems(Update, apply_feature_hit_events);
-        for room in [first, first.next()] {
-            app.world_mut().spawn((RoomInstanceRoot, room));
-        }
-        let attacker = app.world_mut().spawn(InRoomInstance(first)).id();
-        let enemy = spawn_hostile_actor(&mut app); // HP 5
-        app.world_mut().entity_mut(enemy).insert(InRoomInstance(enemy_room));
-        app.world_mut().write_message(HitEvent {
-            pieces: Vec::new(),
-            strike_sfx: None,
-            volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
-            damage: 2,
-            source: HitSource::Melee,
-            attacker: Some(attacker),
-            room: None,
-            target: HitTarget::Volume,
-            mode: HitMode::Knockback,
-            knockback: None,
-            ignored_targets: Vec::new(),
-            attacker_move_instance: None,
-        });
-        app.update();
-        app.world().get::<BodyHealth>(enemy).unwrap().health.current
-    };
-    assert_eq!(health_after_a_slash(first), 3, "control: the slash lands in its own room");
-    assert_eq!(health_after_a_slash(first.next()), 5, "a slash reached a body in another live room");
-}
-
 /// The debris of a killed body is thrown in the body's own live room. Two
 /// rooms are live. An enemy in the second room takes a lethal slash from an
 /// attacker in that room. The ragdoll debris row names the second room: two
@@ -873,7 +833,7 @@ fn debris_rooms_of_a_kill_in_the_second_room(
         source: HitSource::Melee,
         attacker: Some(attacker),
         room: None,
-        target: HitTarget::Volume,
+        target: HitTarget::Body(enemy),
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
@@ -1081,7 +1041,7 @@ fn a_struck_peaceful_corpse_is_silent_but_a_living_one_barks() {
         app.init_resource::<CapturedBubbles>();
         app.add_systems(Update, (apply_feature_hit_events, capture_bubbles).chain());
 
-        spawn_talkable_npc(&mut app, hp);
+        let body = spawn_talkable_npc(&mut app, hp);
         let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
         app.world_mut().write_message(HitEvent {
             pieces: Vec::new(),
@@ -1091,7 +1051,7 @@ fn a_struck_peaceful_corpse_is_silent_but_a_living_one_barks() {
             source: HitSource::Melee,
             attacker: None,
             room: None,
-            target: HitTarget::Volume,
+            target: HitTarget::Body(body),
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
@@ -1159,7 +1119,7 @@ fn a_peaceful_body_in_a_fight_takes_damage_instead_of_barking() {
             source: HitSource::Melee,
             attacker: None,
             room: None,
-            target: HitTarget::Volume,
+            target: HitTarget::Body(body),
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
@@ -1225,7 +1185,7 @@ fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
         source: HitSource::Melee,
         attacker: None,
         room: None,
-        target: HitTarget::Volume,
+        target: HitTarget::Body(actor_entity),
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
@@ -1309,7 +1269,7 @@ fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude:
         source: HitSource::Melee,
         attacker: None,
         room: None,
-        target: HitTarget::Volume,
+        target: HitTarget::Body(actor),
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
@@ -1417,7 +1377,7 @@ fn player_slash_shatters_a_breakable() {
         source: HitSource::Melee,
         attacker: None,
         room: None,
-        target: HitTarget::Volume,
+        target: HitTarget::Feature(breakable),
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
@@ -1750,7 +1710,7 @@ fn slash_knockback(center: ae::Vec2, dir: f32) -> ambition_combat::events::HitKn
     }
 }
 
-fn slash_at(center: ae::Vec2, damage: i32) -> HitEvent {
+fn slash_at(victim: bevy::prelude::Entity, center: ae::Vec2, damage: i32) -> HitEvent {
     HitEvent {
         pieces: Vec::new(),
         strike_sfx: None,
@@ -1759,7 +1719,7 @@ fn slash_at(center: ae::Vec2, damage: i32) -> HitEvent {
         source: HitSource::Melee,
         attacker: None,
         room: None,
-        target: HitTarget::Volume,
+        target: HitTarget::Body(victim),
         mode: HitMode::Knockback,
         // Same resolution as before: side +1, standard feel strength.
         knockback: Some(slash_knockback(center, 1.0)),
@@ -1783,7 +1743,7 @@ fn raised_shield_negates_a_hit_from_the_faced_side() {
     // Body faces +x; the slash comes from the front (+x). The hitbox is wide
     // enough to overlap the body at the origin while its center sits forward.
     app.world_mut()
-        .write_message(slash_at(ae::Vec2::new(14.0, 0.0), 2));
+        .write_message(slash_at(actor, ae::Vec2::new(14.0, 0.0), 2));
     app.update();
     assert_eq!(
         actor_hp(&app, actor),
@@ -1797,7 +1757,7 @@ fn a_lowered_shield_does_not_block() {
     let mut app = shield_test_app();
     let actor = spawn_shielding_actor(&mut app, false);
     app.world_mut()
-        .write_message(slash_at(ae::Vec2::new(14.0, 0.0), 2));
+        .write_message(slash_at(actor, ae::Vec2::new(14.0, 0.0), 2));
     app.update();
     assert_eq!(
         actor_hp(&app, actor),
@@ -1812,7 +1772,7 @@ fn a_raised_shield_does_not_guard_the_back() {
     let actor = spawn_shielding_actor(&mut app, true);
     // Body faces +x; this hit comes from BEHIND (-x). You can't guard your back.
     app.world_mut()
-        .write_message(slash_at(ae::Vec2::new(-14.0, 0.0), 2));
+        .write_message(slash_at(actor, ae::Vec2::new(-14.0, 0.0), 2));
     app.update();
     assert_eq!(
         actor_hp(&app, actor),
@@ -1858,7 +1818,7 @@ fn a_blocked_hit_publishes_no_resolved_connect_and_a_landed_one_names_its_attack
     let mut app = shield_test_app();
     let open = spawn_shielding_actor(&mut app, false);
     let attacker = app.world_mut().spawn_empty().id();
-    let mut hit = slash_at(ae::Vec2::new(14.0, 0.0), 2);
+    let mut hit = slash_at(open, ae::Vec2::new(14.0, 0.0), 2);
     hit.attacker = Some(attacker);
     app.world_mut().write_message(hit.clone());
     app.update();
@@ -1878,6 +1838,7 @@ fn a_blocked_hit_publishes_no_resolved_connect_and_a_landed_one_names_its_attack
     // AND THE BLOCK. Same hit, same side, guard up.
     let mut app = shield_test_app();
     let guarded = spawn_shielding_actor(&mut app, true);
+    hit.target = HitTarget::Body(guarded);
     app.world_mut().write_message(hit);
     app.update();
     assert_eq!(
@@ -1920,7 +1881,7 @@ fn a_blocked_strike_says_so_on_its_own_channel_and_names_who_swung() {
     let mut app = shield_test_app();
     let open = spawn_shielding_actor(&mut app, false);
     let attacker = app.world_mut().spawn_empty().id();
-    let mut hit = slash_at(ae::Vec2::new(14.0, 0.0), 2);
+    let mut hit = slash_at(open, ae::Vec2::new(14.0, 0.0), 2);
     hit.attacker = Some(attacker);
     app.world_mut().write_message(hit.clone());
     app.update();
@@ -1941,6 +1902,7 @@ fn a_blocked_strike_says_so_on_its_own_channel_and_names_who_swung() {
 
     let mut app = shield_test_app();
     let guarded = spawn_shielding_actor(&mut app, true);
+    hit.target = HitTarget::Body(guarded);
     app.world_mut().write_message(hit);
     app.update();
     assert_eq!(
@@ -2340,7 +2302,7 @@ fn a_slash_knockback_rides_the_shared_resolution() {
     // Slash volume centered on the victim (side derivation degenerates) with a
     // -x impulse: the stored dir carries the launch side.
     app.world_mut()
-        .write_message(slash_at(ae::Vec2::new(0.0, 0.0), 1));
+        .write_message(slash_at(victim, ae::Vec2::new(0.0, 0.0), 1));
     app.update();
     let kin = app
         .world()
@@ -2438,7 +2400,7 @@ fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
         source: HitSource::Melee,
         attacker: Some(attacker),
         room: None,
-        target: HitTarget::Volume,
+        target: HitTarget::Body(enemy),
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
@@ -2629,7 +2591,7 @@ fn a_lethal_hit_kills_without_speaking_a_hit_bark() {
             source: HitSource::Melee,
             attacker: None,
             room: None,
-            target: HitTarget::Volume,
+            target: HitTarget::Body(e),
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
@@ -2666,7 +2628,7 @@ fn a_peaceful_actor_owns_one_victim_side_hit_sound() {
     install_hit_reaction_consumers(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
-    spawn_talkable_npc(&mut app, 1);
+    let body = spawn_talkable_npc(&mut app, 1);
     app.world_mut().write_message(HitEvent {
         pieces: Vec::new(),
         strike_sfx: None,
@@ -2675,7 +2637,7 @@ fn a_peaceful_actor_owns_one_victim_side_hit_sound() {
         source: HitSource::Melee,
         attacker: None,
         room: None,
-        target: HitTarget::Volume,
+        target: HitTarget::Body(body),
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
@@ -3088,7 +3050,7 @@ fn the_hostile_turn_follows_the_per_body_threshold_not_the_spawn_default() {
                 source: HitSource::Melee,
                 attacker: None,
                 room: None,
-                target: HitTarget::Volume,
+                target: HitTarget::Body(body),
                 mode: HitMode::Knockback,
                 knockback: None,
                 ignored_targets: Vec::new(),
@@ -3188,7 +3150,7 @@ fn a_struck_body_barks_as_the_character_it_is_wearing() {
             source: HitSource::Melee,
             attacker: None,
             room: None,
-            target: HitTarget::Volume,
+            target: HitTarget::Body(e),
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
@@ -3252,14 +3214,14 @@ fn a_struck_boss_speaks_the_hit_lines_of_its_voice() {
         if !voiced {
             boss.config.seed.encounter.voice = None;
         }
-        app.world_mut().spawn((
+        let boss_entity = app.world_mut().spawn((
             FeatureSimEntity,
             FeatureId::new("gnu_ton"),
             CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
             ambition_combat::components::DamageableVolumes::single(aabb),
             ambition_characters::actor::BodyCombat::default(),
             boss.into_components(),
-        ));
+        )).id();
         app.world_mut().write_message(HitEvent {
             pieces: Vec::new(),
             strike_sfx: None,
@@ -3268,7 +3230,7 @@ fn a_struck_boss_speaks_the_hit_lines_of_its_voice() {
             source: HitSource::Melee,
             attacker: None,
             room: None,
-            target: HitTarget::Volume,
+            target: HitTarget::Feature(boss_entity),
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),

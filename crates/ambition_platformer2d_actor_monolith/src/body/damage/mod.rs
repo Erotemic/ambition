@@ -405,18 +405,13 @@ pub fn apply_feature_hit_events(sprite_content: bevy::prelude::Res<ambition_spri
     // ceiling, so a second by-entity victim read rides with the first rather
     // than becoming a seventeenth parameter that does not compile.
     //
-    // `victim_volumes` answers WHAT geometry a strike must reach;
     // `victim_motion` answers whether the body it reached is inside an evade —
     // one term of the shared eligibility gate, which the actor cluster query
     // has no column left to carry.
     // `victim_held` answers whether another authority owns where it is.
-    // `passages` answers WHERE that geometry is: a body a portal pair cuts (a
-    // limb a conductor holds in one) is reached at each of its pieces.
-    (victim_volumes, victim_motion, victim_held, passages): (
-        Query<&ambition_combat::components::DamageableVolumes>,
+    (victim_motion, victim_held): (
         Query<&ambition_platformer2d_core::BodyMotionFacts>,
         Query<(), bevy::prelude::With<ambition_platformer2d_core::PoseOwnedExternally>>,
-        Option<Res<ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>>,
     ),
     mut banner: ResMut<GameplayBanner>,
     // Knockback feel for struck actors (§A2 step 6). `Option` so minimal
@@ -449,7 +444,6 @@ pub fn apply_feature_hit_events(sprite_content: bevy::prelude::Res<ambition_spri
         (
             Entity,
             &FeatureId,
-            &CenteredAabb,
             &ActorDisposition,
             &mut BodyCombat,
             // The actor's held locomotion, for directional influence (CM2). The
@@ -538,24 +532,13 @@ pub fn apply_feature_hit_events(sprite_content: bevy::prelude::Res<ambition_spri
             Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
         ),
     >,
-    // Iterates every player and uses `HitEvent::attacker` (now stamped by every player-attacker
-    // emit site — slash, pogo, and player projectile). Events with `attacker = None` remain
-    // unattributed unless the source is one of the legacy player-originated variants whose producer
-    // predates explicit attacker stamping. Enemy/environmental hits never borrow the primary
-    // player's identity.
+    // Damage credit follows the event's explicit attacker.
     mut player_combat_q: Query<
         (
             bevy::prelude::Entity,
             &mut ambition_characters::actor::BodyCombat,
         ),
         bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-    >,
-    primary_q: bevy::prelude::Query<
-        bevy::prelude::Entity,
-        (
-            bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-            bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
-        ),
     >,
     mut writers: FeatureHitWriters,
     mut attacker_moves: Query<&mut ambition_combat::moveset::MovePlayback>,
@@ -716,14 +699,6 @@ pub fn apply_feature_hit_events(sprite_content: bevy::prelude::Res<ambition_spri
             ambition_combat::events::HitTarget::Feature(entity) => Some(entity),
             _ => None,
         };
-        // Body victims are already resolved by entity. `UnresolvedFeatures` is
-        // only for targets such as breakables or boss encounters that the body
-        // resolver cannot name, so do not rescan actors for it.
-        let bodies_already_resolved = matches!(
-            event.target,
-            ambition_combat::events::HitTarget::UnresolvedFeatures
-                | ambition_combat::events::HitTarget::Feature(_)
-        );
         // Is the attacker a HEAVY body? — asked of the attacker entity, which
         // the event already names, rather than pattern-matched out of the cause
         // vocabulary. A boss launches harder and stuns longer; that is a fact
@@ -733,29 +708,15 @@ pub fn apply_feature_hit_events(sprite_content: bevy::prelude::Res<ambition_spri
         let heavy_attacker = event
             .attacker
             .is_some_and(|attacker| heavy_attackers.contains(attacker));
-        // Victim-side sources (enemy touch, enemy swings, boss body
-        // contact, hazards) are consumed by the player-damage path.
-        // The feature drain only applies attacker-side player hits
-        // here (plus the pre-resolved actor-vs-actor hits above);
-        // otherwise an `EnemyBody` event would damage the same enemy
-        // that emitted it when the volume overlaps its own AABB.
-        //
-        // `UnresolvedFeatures` passes on its TARGET, not on its source word: the
-        // target already says this is a strike hunting for what it could not
-        // name. Asking `seeks_victims` as well would drop every enemy swing's
-        // unresolved half, since the direction words file those victim-side.
-        if actor_target.is_none() && !bodies_already_resolved && !event.source.seeks_victims() {
-            continue;
-        }
         // Ignore-keys (`prefix:id`) of every target struck by THIS event, folded
         // back into the attacker's per-swing `hit_targets` below so a slash that
         // emits on every active frame only damages each target once.
         let mut landed_keys: Vec<String> = Vec::new();
         let mut actor_hit_this_event = false;
-        for (
+        let mut body_targets = actors.iter_many_mut(actor_target);
+        while let Some((
             actor_entity,
             id,
-            aabb,
             disposition,
             mut combat,
             control,
@@ -763,37 +724,13 @@ pub fn apply_feature_hit_events(sprite_content: bevy::prelude::Res<ambition_spri
             wallet_shield,
             mut cq,
             (combat_tuning, ruleset_owns_death, active_combatant, (out_of_play, plane)),
-        ) in actors.iter_mut().filter(|_| !bodies_already_resolved)
-        {
-            // Pre-resolved actor victim: apply ONLY to that entity.
-            match actor_target {
-                Some(target_entity) if actor_entity != target_entity => continue,
-                None if rooms.of(actor_entity) != event_room => continue,
-                _ => {}
-            }
-            // A resolved body hit carries the resolver's self-damage decision.
-            // Unresolved contacts must still exclude their own emitter.
-            if actor_target.is_none() && event.attacker == Some(actor_entity) {
-                continue;
-            }
+        )) = body_targets.fetch_next() {
+            // The producer resolved identity, geometry and damage permission.
             let prefix = if disposition.is_hostile() {
                 "enemy"
             } else {
                 "npc"
             };
-            if target_is_ignored(&event.ignored_targets, prefix, id.as_str()) {
-                continue;
-            }
-            if !ambition_combat::hitbox::hit_reaches_victim_through(
-                &event,
-                victim_volumes.get(actor_entity).ok(),
-                aabb,
-                actor_entity,
-                passages.as_deref(),
-                rooms.of(actor_entity),
-            ) {
-                continue;
-            }
             // The victim's held locomotion (local frame) drives DI (CM2).
             let di_input_local = control.map(|c| c.0.locomotion.vec()).unwrap_or_default();
             let mut em = cq.as_actor_mut();
@@ -944,37 +881,9 @@ pub fn apply_feature_hit_events(sprite_content: bevy::prelude::Res<ambition_spri
             }
         }
 
-        // WHO STRUCK, asked ONCE per event (AC7, probe B). The rule
-        // below stood here and again 150 lines down, and the two copies did not
-        // agree: this one refuses to guess unless the event is an unresolved
-        // BROADCAST from a victim-seeking source, and the breakable fold simply
-        // wrote `event.attacker.or_else(|| primary_q.single().ok())` — any melee
-        // with no attacker credited whichever body happens to be the home avatar.
-        //
-        // the reasoning is this copy's own and it is the correct one: *"We do not know who
-        // did this" is true of a broadcast and of nothing else.
-        let unresolved_broadcast = matches!(
-            event.target,
-            ambition_combat::events::HitTarget::Volume
-                | ambition_combat::events::HitTarget::UnresolvedFeatures
-                | ambition_combat::events::HitTarget::OrbMatch
-        );
-        let target_attacker = event.attacker.or_else(|| {
-            (unresolved_broadcast && event.source.seeks_victims())
-                .then(|| primary_q.single().ok())
-                .flatten()
-        });
+        let target_attacker = event.attacker;
         if actor_hit_this_event || boss_hit_this_event {
-            // an UNRESOLVED broadcast may fall back to the primary; a hit
-            // that named its victim may not. This used to ask
-            // `source.defaults_to_primary_attacker()` — a list of the
-            // player-spelled causes — which is the same question asked through
-            // the vocabulary, and it gives the wrong answer the moment one
-            // `Melee` covers every swing: an enemy shot that named its victim
-            // and carries no entity owner would credit the player with the
-            // confirm, the hitstop and the per-swing bookkeeping.
-            //
-            // "We do not know who did this" is true of a broadcast and of nothing else.
+            // Only an explicit attacker receives hit credit.
             if let Some(attacker) = target_attacker {
                 let record_dedup = matches!(event.source, HitSource::Melee);
                 // CM4: the strike connected — the attacker's playing move

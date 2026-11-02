@@ -757,13 +757,14 @@ fn boxes_touch(a: ae::Aabb, b: ae::Aabb) -> bool {
 
 /// A volume of a ranked move, placed once a tick: who owns it, its rank, its
 /// pieces, where it strikes from, and whether a guard can turn it.
-struct RankedStrike {
+struct RankedStrike<'a> {
     entity: Entity,
     owner: Entity,
     rank: crate::moveset::StrikeRank,
     pieces: Vec<ae::frame::thread::VolumePiece>,
     source: ae::Vec2,
     meets_guard: bool,
+    exclusions: Option<&'a crate::strike::HitboxExclusions>,
 }
 
 /// A guard of a body and its pieces, cut by the body's own room and transit.
@@ -851,6 +852,7 @@ pub fn apply_hitbox_damage(
         Option<&crate::moveset::AttackerMoveInstance>,
         Option<&crate::allegiance::AttackAllegiance>,
         &mut crate::strike::FixedStrikeFeaturePulse,
+        Option<&crate::strike::HitboxExclusions>,
     )>,
     owners: Query<&super::components::CenteredAabb>,
     // Owner-position fallback when the owner carries no `CenteredAabb`
@@ -883,7 +885,7 @@ pub fn apply_hitbox_damage(
     //
     // This is the whole of the sweetspot rule's input: which other volumes one
     // move has live right now, and which of them the author wrote first.
-    strike_ranks: Query<(Entity, &Hitbox, &crate::moveset::StrikeRank)>,
+    strike_ranks: Query<(Entity, &Hitbox, &crate::moveset::StrikeRank, Option<&crate::strike::HitboxExclusions>)>,
     // EVERY VICTIM'S GUARD, taken mutably and looked up by entity like the
     // attacker rows below. This is where a perfect shield CATCHES a strike, so
     // the guard is written, not read — see the parry arm in the victim loop.
@@ -986,9 +988,9 @@ pub fn apply_hitbox_damage(
     let mut victim_reach: std::collections::BTreeMap<Entity, VictimReach> = std::collections::BTreeMap::new();
     // The ranked volumes live this tick, each placed once: a victim loop asks
     // about each sibling for each body.
-    let ranked: Vec<RankedStrike> = strike_ranks
+    let ranked: Vec<RankedStrike<'_>> = strike_ranks
         .iter()
-        .filter_map(|(entity, hitbox, rank)| {
+        .filter_map(|(entity, hitbox, rank, exclusions)| {
             let owner_pos = owner_position(hitbox)?;
             Some(RankedStrike {
                 entity,
@@ -997,10 +999,11 @@ pub fn apply_hitbox_damage(
                 pieces: place(entity, hitbox, owner_pos).1,
                 source: spatial_source_of(hitbox, owner_pos),
                 meets_guard: hitbox.meets_guard(),
+                exclusions,
             })
         })
         .collect();
-    for (hitbox_entity, hitbox, cause, mut hits, move_instance, captured, mut feature_pulse) in &mut hitboxes {
+    for (hitbox_entity, hitbox, cause, mut hits, move_instance, captured, mut feature_pulse, exclusions) in &mut hitboxes {
         let Some(owner_pos) = owner_position(hitbox) else {
             continue;
         };
@@ -1087,6 +1090,9 @@ pub fn apply_hitbox_damage(
                 // the same thing one layer down: it damages Player, Enemy and
                 // Neutral, with no exception carved for whoever spawned it.
                 if victim.entity == hitbox.owner && hitbox.source != HitSide::Environment {
+                    continue;
+                }
+                if exclusions.is_some_and(|excluded| excluded.bodies.contains(&victim.entity)) {
                     continue;
                 }
                 // THE BROAD PHASE: a strike that reaches none of a body's
@@ -1222,6 +1228,7 @@ pub fn apply_hitbox_damage(
                     let outranked = ranked.iter().any(|sibling| {
                         sibling.owner == hitbox.owner
                             && sibling.rank < me.rank
+                            && !sibling.exclusions.is_some_and(|excluded| excluded.bodies.contains(&victim.entity))
                             && (sibling.pieces.iter().any(|sp| hurt.iter().any(|vp| sp.meets(vp)))
                                 || (sibling.meets_guard
                                     && turned_aside(&sibling.pieces, sibling.source, guards_here, down).is_some()))
@@ -1445,7 +1452,7 @@ pub fn apply_hitbox_damage(
                     damage: staled_damage(hitbox.damage, stale),
                     source: source_kind.clone(),
                     attacker: Some(hitbox.owner),
-                    room: None,
+                    room: strike_room,
                     target: HitTarget::Body(victim.entity),
                     mode: HitMode::Knockback,
                     knockback,
@@ -1491,7 +1498,7 @@ pub fn apply_hitbox_damage(
                     damage: hitbox.damage.max(damage_floor(hitbox.damage)),
                     source: source_kind,
                     attacker: Some(hitbox.owner),
-                    room: None,
+                    room: strike_room,
                     target: HitTarget::UnresolvedFeatures,
                     mode: HitMode::Knockback,
                     knockback: None,
@@ -1517,14 +1524,14 @@ pub fn apply_hitbox_damage(
     // grants.
     let siblings: Vec<(Entity, Entity)> = strike_ranks
         .iter()
-        .map(|(entity, hitbox, _)| (entity, hitbox.owner))
+        .map(|(entity, hitbox, _, _)| (entity, hitbox.owner))
         .collect();
     for (striker, owner, victim) in pulse_records {
         for (sibling, sibling_owner) in &siblings {
             if *sibling_owner != owner || *sibling == striker {
                 continue;
             }
-            if let Ok((_, _, _, mut hits, _, _, _)) = hitboxes.get_mut(*sibling) {
+            if let Ok((_, _, _, mut hits, _, _, _, _)) = hitboxes.get_mut(*sibling) {
                 hits.hit.insert(victim);
             }
         }

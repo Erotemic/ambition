@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v405
+ggrs-rollback-schema-v406
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -126,6 +126,7 @@ combat.depicted_by_owner	component-clone	DepictedByOwner	bevy_ggrs clone snapsho
 combat.fixed_strike_feature_pulse	component-canonical	FixedStrikeFeaturePulse	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 combat.held_damage_boxes	component-clone-cursor	HeldDamageBoxes	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 combat.hitbox	component-clone	Hitbox	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
+combat.hitbox_exclusions	component-clone	HitboxExclusions	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 combat.hitbox_hits	component-clone	HitboxHits	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 combat.hitbox_lifetime	component-clone	HitboxLifetime	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 combat.hitbox_on_hit	component-clone-custom-checksum	HitboxOnHit	bevy_ggrs clone snapshot + entity-less world-contact fired-state checksum projection
@@ -144,6 +145,7 @@ content.mary_o_flag_sequence	component-clone	FlagSequence	bevy_ggrs clone snapsh
 content.mary_o_level_state	component-clone	MaryOLevelState	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_pipe_entry_latch	component-clone	PipeEntryLatch	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_pipe_transit	component-clone	PipeTransit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.mary_o_shell_kick_credit	component-clone	ShellKickCredit	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 content.mary_o_snake_plant_out	component-clone	SnakePlantOut	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_snake_shell	component-clone	SnakeShell	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_spent_power_blocks	resource-clone-custom-checksum	SpentPowerBlocks	bevy_ggrs clone snapshot + an order-independent checksum over the spent ids
@@ -313,10 +315,12 @@ map.combat.held_damage_boxes	entity-mapping	HeldDamageBoxes	bevy_ggrs LoadWorld 
 map.encounter_participants	entity-mapping	EncounterParticipants	bevy_ggrs LoadWorld entity-reference remapping
 map.falling_hazard	entity-mapping	FallingHazard	bevy_ggrs LoadWorld entity-reference remapping
 map.hitbox	entity-mapping	Hitbox	bevy_ggrs LoadWorld entity-reference remapping
+map.hitbox_exclusions	entity-mapping	HitboxExclusions	bevy_ggrs LoadWorld entity-reference remapping
 map.hitbox_hits	entity-mapping	HitboxHits	bevy_ggrs LoadWorld entity-reference remapping
 map.item_custody	entity-mapping	ItemCustody	bevy_ggrs LoadWorld entity-reference remapping
 map.limb_member	entity-mapping	Limb	bevy_ggrs LoadWorld entity-reference remapping
 map.limb_rig	entity-mapping	LimbRig	bevy_ggrs LoadWorld entity-reference remapping
+map.mary_o_shell_kick_credit	entity-mapping	ShellKickCredit	bevy_ggrs LoadWorld entity-reference remapping
 map.mount_reserved_for	entity-mapping	MountReservedFor	bevy_ggrs LoadWorld entity-reference remapping
 map.mount_slot	entity-mapping	MountSlot	bevy_ggrs LoadWorld entity-reference remapping
 map.move_playback	entity-mapping	MovePlayback	bevy_ggrs LoadWorld entity-reference remapping

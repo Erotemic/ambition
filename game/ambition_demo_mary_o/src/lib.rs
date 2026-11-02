@@ -1247,6 +1247,13 @@ pub fn install_mary_o_content(app: &mut App) {
                 "content.mary_o_snake_shell",
                 rollback_probes::snake_shell,
             )
+            .rollback_component_clone_entity_set::<snake::ShellKickCredit>(
+                "ambition_demo_mary_o", "content.mary_o_shell_kick_credit",
+                |credit| credit.0.into_iter().collect(),
+            )
+            .rollback_map_entities::<snake::ShellKickCredit>(
+                "ambition_demo_mary_o", "map.mary_o_shell_kick_credit",
+            )
             // A burning star is authoritative sim state by the strictest reading
             // of it: while it runs, hits do not land, and anything that can make
             // a hit be IGNORED has to survive a rewind or the two sims disagree

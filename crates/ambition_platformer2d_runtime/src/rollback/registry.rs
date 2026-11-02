@@ -209,7 +209,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// 403 -> 404: transformation requests retain named clips and their wall clocks.
 /// Replacing a beat releases its previous clock and invulnerability claims.
 /// 404 -> 405: decisions and movement share the same entry-state body contacts.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 405;
+/// 405 -> 406: body hits name resolved recipients; shells retain kick credit.
+/// Strikes carry explicit per-body exclusions independently of hit history.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 406;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

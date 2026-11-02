@@ -226,6 +226,19 @@ pub struct HitboxHits {
     pub hit: std::collections::BTreeSet<Entity>,
 }
 
+/// Bodies that this strike must exclude, independently of damage history.
+#[derive(Component, Default, Debug, Clone)]
+pub struct HitboxExclusions {
+    pub bodies: std::collections::BTreeSet<Entity>,
+}
+
+impl bevy::ecs::entity::MapEntities for HitboxExclusions {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        self.bodies = std::mem::take(&mut self.bodies)
+            .into_iter().map(|body| mapper.get_mapped(body)).collect();
+    }
+}
+
 /// A fixed strike publishes one feature pulse. Body contacts have their own ledger.
 #[derive(Component, Default, Clone, Copy, Debug)]
 pub struct FixedStrikeFeaturePulse {

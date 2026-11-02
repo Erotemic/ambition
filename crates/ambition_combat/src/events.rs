@@ -467,15 +467,9 @@ impl HitSource {
 
 }
 
-/// How a hit event resolves its victim.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// The resolved recipient of a hit, or its non-body feature remainder.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HitTarget {
-    /// Broadcast: any feature / actor / boss whose AABB intersects
-    /// `volume` takes the hit. Default for attacker-side broadcast
-    /// hits (player slash, player projectile, hazard areas in
-    /// authoring zones).
-    #[default]
-    Volume,
     /// One pre-resolved body victim. Explicit victim identity is the complete routing answer.
     Body(bevy::prelude::Entity),
     /// Orb-AABB match (pogo). Only the breakable whose AABB

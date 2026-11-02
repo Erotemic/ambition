@@ -48,10 +48,10 @@ VFX (`emit_melee_slash` in `ambition_combat::util`), the strike spawn and body
 contact resolution are shared by every body. `trigger_moveset_moves` and
 `advance_move_playback` (`ambition_combat::moveset`) spawn one gravity-resolved
 volume that drives the damage `Hitbox` and the slash.
-`ambition_combat::hitbox::apply_hitbox_damage` resolves every `FollowOwner`
-strike through one victim loop: owner exclusion, relationship policy, published
-hurtbox geometry, per-hitbox dedup and victim-specific knockback. `Player` +
-`World` hitboxes are a separate world-AOE primitive, not a second melee path.
+`ambition_combat::hitbox::apply_hitbox_damage` resolves body-following and
+world-anchored strikes through one victim loop. It applies self-damage policy,
+explicit body exclusions, relationships, hurtbox geometry, hit history and
+victim-specific knockback.
 
 ⛔ Do not reintroduce a `PlayerAttackState` / `ActorAttackState` split, a second
 slash emit, or a per-frame player damage loop. Every melee is an
@@ -74,18 +74,19 @@ never flattened into collision-world `PogoOrb` blocks. Only an explicit
 - `UnresolvedFeatures`: the remainder of a melee or area strike after body
   victims were resolved. Consumers scan only non-body targets. It is scaffolding
   that goes away when bosses and breakables are directly resolvable victims;
-- `Volume`: scan everything; the world-AOE primitive;
 - `OrbMatch`: pogo orb matching.
 
-⛔ Do not treat `UnresolvedFeatures` as `Volume`. A consumer that conflates them
-damages every body twice.
+Do not scan bodies for `UnresolvedFeatures`. Body recipients are already
+resolved, and another scan can apply the same hit twice.
 
 **A hit says what KIND it was, never WHO.** `HitSource` is a cause: `Melee`,
 `Projectile`, `Contact`, `Hazard`, `LeftTheWorld`, `Pogo`. Whose swing it is,
 whether it hits heavy, and whether a damage slider applies are questions for the
-attacker or the victim, which the event names. ⛔ Do not put a faction or
-controller word into the cause vocabulary. Identity (self-exclusion) beats every
-relationship rule, in both resolvers.
+attacker or the victim, which the event names. Do not put a faction or
+controller word into the cause vocabulary. Credit and self-damage permission
+are separate. An environmental strike can hurt its credit body. A producer can
+exclude physical bodies with `HitboxExclusions`; `HitboxHits` records damage
+history only.
 
 **Who may fight whom is one policy.** `combat_relation`
 (`ambition_combat::targeting`) answers `Foe` / `Neutral` / `Ally` with precedence

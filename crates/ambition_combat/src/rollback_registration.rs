@@ -555,6 +555,10 @@ where
         |hits| hits.hit.iter().copied().collect(),
     );
     registrar.rollback_map_entities::<crate::strike::HitboxHits>(OWNER, "map.hitbox_hits");
+    registrar.rollback_component_clone_entity_set::<crate::strike::HitboxExclusions>(
+        OWNER, "combat.hitbox_exclusions", |excluded| excluded.bodies.iter().copied().collect(),
+    );
+    registrar.rollback_map_entities::<crate::strike::HitboxExclusions>(OWNER, "map.hitbox_exclusions");
     // Presentation, but it rides the strike entity family: a volume restored
     // without it would grow the unauthored stand-in over its owner's own art.
     registrar.rollback_component_clone::<crate::strike::DepictedByOwner>(OWNER, "combat.depicted_by_owner",
@@ -689,16 +693,10 @@ fn pending_player_hits_checksum(pending: &crate::events::PendingPlayerHitEvents)
         put_u8(
             &mut bytes,
             match event.target {
-                HitTarget::Volume => 0,
                 HitTarget::Body(_) => 1,
                 HitTarget::OrbMatch => 3,
                 HitTarget::UnresolvedFeatures => 4,
-                // ⚠ A NEW TAG, NOT A REUSED ONE. Two peers holding a targeted
-                // feature hit and an unresolved broadcast must not agree; the
-                // discriminant is what tells them apart, exactly as `Body` is
-                // distinguished from `Volume` above. The ENTITY is deliberately
-                // not hashed, for the same reason `Body`'s is not — an allocation
-                // index is not stable across a rewind.
+                // Wire tag 0 is retired. Raw entity indices are not stable across restore.
                 HitTarget::Feature(_) => 5,
             },
         );
@@ -816,7 +814,7 @@ mod pending_hit_checksum_tests {
                 source: HitSource::Melee,
                 attacker: None,
                 room: None,
-                target: HitTarget::Volume,
+                target: HitTarget::UnresolvedFeatures,
                 mode: HitMode::Knockback,
                 knockback: Some(crate::HitKnockback {
                     reaction,

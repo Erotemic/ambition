@@ -48,7 +48,6 @@ use ambition_characters::equipment::WornEquipment;
 use ambition_combat::death_rules::ActorDiedMessage;
 use ambition_combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent, HitTarget};
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
-use ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly;
 use ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState;
 use ambition_platformer2d_shared_tangle::safe_position::{
     remember_safe_player_position, RoomTransitionCooldown, SafePositionContext,
@@ -1279,22 +1278,9 @@ pub fn incoming_player_damage_multiplier(
 // reported "the local player's attempt ended", which is that module's concern.
 // It was the last monolith-owned type this module named.
 
-/// Stage this frame's hits that belong to the controlled-body victim resolver
-/// into its rollback-registered FIFO.
-///
-/// A `HitTarget::Body(entity)` is already victim-resolved and wins over the legacy
-/// source-direction partition. That is what lets body-owned melee stay controller-independent:
-/// a `PlayerSlash` produced by one fighter can target another human-controlled body without
-/// being thrown away as an attacker-side broadcast.
-///
-/// It is one variant now, so the question is answered where the answer actually lives: is that
-/// entity in the human-controlled population? without the check the FIFO would stage every body's
-/// hit — including hits the actor consumer owns — into rollback-registered state that then has to
-/// be snapshotted and checksummed every frame.
-///
-/// Runs at the END of the Combat phase, after every `HitEvent` writer, so the
-/// hand-off from message channel to snapshot state happens same-frame; only
-/// the FIFO — restored exactly by GGRS — crosses the frame boundary.
+/// Stage resolved hits for controlled bodies in the rollback FIFO.
+/// Recipient identity determines routing, independently of the hit cause.
+/// This runs at the end of Combat; the FIFO crosses the frame boundary.
 pub fn stage_player_victim_hit_events(
     mut hit_events: MessageReader<FeatureHitEvent>,
     mut pending: ResMut<ambition_combat::events::PendingPlayerHitEvents>,
@@ -1312,19 +1298,7 @@ pub fn stage_player_victim_hit_events(
     for event in hit_events.read() {
         let mine = match event.target {
             HitTarget::Body(victim) => controlled_bodies.contains(victim),
-            // NAMES NO BODY, so it can never be a hit on one. This is the
-            // half of a strike aimed at the things a body resolver could not
-            // name — a crate, a boss encounter. It fell into the arm below and
-            // was staged into this rollback-registered FIFO, because the arm
-            // reads `!seeks_victims()` and an enemy swing's cause is filed
-            // victim-side by the direction words.
-            //
-            // ⛔ that is what desynces the rollback suite once every body can
-            // broadcast, and the divergence lives in THIS resource rather than in
-            // the boss encounter that looks like the cause —
-            // `which_component_does_the_lifecycle_reset_divergence_live_in` names it.
-            HitTarget::UnresolvedFeatures | HitTarget::Feature(_) => false,
-            _ => !event.source.seeks_victims(),
+            HitTarget::OrbMatch | HitTarget::UnresolvedFeatures | HitTarget::Feature(_) => false,
         };
         if mine {
             pending.0.push(ambition_combat::events::StagedPlayerHit {
@@ -1394,8 +1368,7 @@ pub fn apply_player_hit_events(
         // Which bodies hit HEAVY. Filter-only, so it reads no components and
         // conflicts with nothing; bundled for the same ceiling reason.
         Query<(), bevy::prelude::With<ambition_boss_encounter::BossConfig>>,
-        // A broadcast reaches the primary player only in the attacker's live
-        // room (OW1 cut 4); bundled for the same ceiling reason.
+        // The live room of each damaged body.
         ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     ),
     active_tuning: Res<ae::ActiveMovementTuning>,
@@ -1434,25 +1407,9 @@ pub fn apply_player_hit_events(
     mut death_writers: BodyDeathWriters,
     mut sfx_writer: SfxWriter,
     mut vfx_writer: VfxWriter,
-    // The legacy unresolved-area route still needs the primary body.
-    primary_q: Query<Entity, PrimaryPlayerOnly>,
-    // Friendly-fire policy (the DAMAGE side) + a faction lookup for the hit's
-    // attacker: damage is physical, so any DIFFERENT-faction attacker's hit lands
-    // on the player — including a duel's stray that the observer walked into. Only
-    // a same-faction attacker (co-op ally) is spared, unless friendly fire is on.
-    // Whether an actor AIMS at the player is the separate targeting concern.
-    // AE6: the rules THIS MATCH plays under, resolved from its declaration
-    // folded over the world's baseline. Never `FriendlyFire` directly — a
-    // reader that consults the baseline is how a stage's rules and the
-    // world's rules got to disagree. The rules of each struck player's own
-    // live room (OW1).
+    // The struck body's rules supply reaction and feel.
     room_rules: ambition_combat::rules::CombatTuningOf,
-    combat_sides: Query<(
-        &ambition_characters::actor::ActorFaction,
-        Option<&ambition_characters::control::DrivingParticipant>,
-        Option<&ambition_combat::targeting::MatchTeam>,
-        Option<&ambition_combat::components::ActorAggression>,
-    )>,
+    drivers: Query<&ambition_characters::control::DrivingParticipant>,
     mut player_q: Query<
         (
             Entity,
@@ -1493,53 +1450,17 @@ pub fn apply_player_hit_events(
         ),
     >,
 ) {
-    let primary = primary_q.single().ok();
-    // Drain the staged victim-side hits — attacker-side hits flow to
-    // `apply_feature_hit_events` off the message channel directly (same-frame).
-    let events: Vec<FeatureHitEvent> = std::mem::take(&mut pending_hits.0)
-        .into_iter()
-        // ⭐ THE ENTITIES ARE STILL THE ROUTING ANSWER. The stable ids beside
-        // them on the staged row are the FINGERPRINT's — see `StagedPlayerHit`
-        // — so routing keeps exactly one authority and this drain is unchanged.
-        .map(|staged| staged.event)
-        .collect();
-
     let difficulty_multiplier = damage_policy.incoming;
     let tuning = active_tuning.0;
     let base_feel = *feel_tuning;
-
-    // Resolve every event to a concrete target entity once: events
-    // with `HitTarget::Body(e)` route to that player; events with
-    // `HitTarget::Volume` (legacy "iterates-and-takes-primary") fall
-    // back to the primary player. Events that never resolve (no
-    // primary, e.g. headless pre-spawn) are silently dropped.
-    let resolved: Vec<(Entity, FeatureHitEvent)> = events
-        .into_iter()
-        .filter_map(|e| {
-            let target = match e.target {
-                HitTarget::Body(entity) => Some(entity),
-                HitTarget::Volume => {
-                    primary.filter(|&primary| rooms.of(primary) == e.live_room(&rooms))
-                }
-                // Pre-resolved non-player actor victim + orb-match are not player
-                // hits — the actor / breakable consumers own them.
-                //
-                // `UnresolvedFeatures` is not one either, and for a stronger
-                // reason: it is the half of a strike whose targets are NOT bodies.
-                // Falling back to the primary player the way `Volume` does would
-                // hand a player the hit its own swing failed to resolve.
-                // A pogo orb, a broadcast remainder, and a named FEATURE are
-                // all "not a player victim". The last is spelled beside the
-                // others rather than folded into a catch-all: a boss or a
-                // breakable is a recipient this road does not serve, which is a
-                // different fact from having no recipient at all.
-                HitTarget::OrbMatch
-                | HitTarget::UnresolvedFeatures
-                | HitTarget::Feature(_) => None,
-            };
-            target.map(|t| (t, e))
-        })
-        .collect();
+    // Lookup does not set processing order; the body query does.
+    let mut resolved = std::collections::HashMap::<Entity, Vec<FeatureHitEvent>>::new();
+    for staged in pending_hits.0.drain(..) {
+        let event = staged.event;
+        if let HitTarget::Body(target) = event.target {
+            resolved.entry(target).or_default().push(event);
+        }
+    }
 
     for (
         player_entity,
@@ -1575,35 +1496,9 @@ pub fn apply_player_hit_events(
         };
         // The rules of this player's own live room.
         let combat_rules = room_rules.of(player_entity).unwrap_or_default();
-        let friendly_fire = combat_rules.damage_policy();
         let mut feel = base_feel;
         combat_rules.fold_into_feel(&mut feel);
-        let target_events: Vec<FeatureHitEvent> = resolved
-            .iter()
-            .filter(|(t, _)| *t == player_entity)
-            .map(|(_, e)| e)
-            // A resolved body contact carries its producer's damage decision.
-            // An unresolved volume asks the live relation here.
-            .filter(|event| {
-                if !matches!(event.target, HitTarget::Volume) { return true; }
-                let Some((source_faction, source_driver, source_team, aggression)) =
-                    event.attacker.and_then(|source| combat_sides.get(source).ok())
-                else { return true; };
-                let Ok((victim_faction, victim_driver, victim_team, _)) = combat_sides.get(player_entity)
-                else { return false; };
-                ambition_combat::targeting::damage_lands_between(
-                    room_rules.relations(),
-                    ambition_combat::targeting::Combatant {
-                        faction: *source_faction, driver: source_driver, team: source_team,
-                    },
-                    ambition_combat::targeting::Combatant {
-                        faction: *victim_faction, driver: victim_driver, team: victim_team,
-                    },
-                    friendly_fire, aggression.and_then(|a| a.grudge), player_entity,
-                )
-            })
-            .cloned()
-            .collect();
+        let target_events = resolved.remove(&player_entity).unwrap_or_default();
         let damaged_this_frame = !target_events.is_empty();
         // The victim's held locomotion (local frame) drives DI (CM2).
         let di_input_local = control
@@ -1685,8 +1580,7 @@ pub fn apply_player_hit_events(
             in_hitstun: combat.hitstun_timer > 0.0,
             feature_requested_reset: false,
             blink_grace_active: facts.blink_grace,
-            room_transitioning: combat_sides.get(player_entity).ok()
-                .and_then(|(_, driver, _, _)| driver)
+            room_transitioning: drivers.get(player_entity).ok()
                 .is_some_and(|driver| sim_state.holds(driver.0.0 as usize)),
         };
         remember_safe_player_position(&mut safety, &clusters, &safe_world, ctx);

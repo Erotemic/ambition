@@ -318,7 +318,6 @@ fn scripted_strikes_use_body_contacts_for_either_participant() {
         let events = sim.world().resource::<Messages<combat::events::HitEvent>>();
         let strikes: Vec<_> = events.get_cursor().read(events)
             .filter(|event| event.attacker == Some(source)).cloned().collect();
-        assert!(!strikes.iter().any(|event| matches!(event.target, combat::events::HitTarget::Volume)), "a scripted strike left an unresolved body area");
         assert_eq!(strikes.iter().any(|event| event.target == combat::events::HitTarget::Body(victim)), lands,
             "slot {source_slot}, friendly fire={enabled}: {strikes:?}");
         for _ in 0..3 { sim.step(base()); }

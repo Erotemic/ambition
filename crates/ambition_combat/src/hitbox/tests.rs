@@ -375,15 +375,7 @@ impl CapturedHits {
             .collect()
     }
 
-    /// A body-owned melee must never emit one; the wielded world-AOE primitive is a different
-    /// anchor and has its own tests.
-    fn assert_no_body_scanning_broadcast(&self) {
-        assert!(
-            !self.0.iter().any(|e| matches!(e.target, HitTarget::Volume)),
-            "a body-owned melee must not broadcast a body-scanning Volume hit — \
-             bodies are resolved by identity and would be damaged twice"
-        );
-    }
+
 }
 
 #[derive(Resource, Default)]
@@ -1284,7 +1276,6 @@ fn player_melee_never_targets_its_owner() {
     // itself can still smash a crate — but that half is barred from scanning
     // bodies, which is the route by which it used to come back around to its
     // owner. Both facts, or the regression re-enters through the other door.
-    cap.assert_no_body_scanning_broadcast();
     assert!(
         app.world().resource::<CapturedLandedHits>().0.is_empty(),
         "self-exclusion must happen before the authoritative landed-hit fact is published"
@@ -1363,7 +1354,6 @@ fn player_melee_resolves_a_targeted_victim_with_authored_knockback() {
     let cap = app.world().resource::<CapturedHits>();
     let body_hits = cap.body_hits();
     assert_eq!(body_hits.len(), 1, "the strike resolves exactly one victim");
-    cap.assert_no_body_scanning_broadcast();
     let hit = body_hits[0];
     assert!(matches!(hit.source, HitSource::Melee));
     assert_eq!(hit.target, HitTarget::Body(victim));
@@ -1674,7 +1664,6 @@ fn player_melee_targets_a_player_marked_opponent_on_another_match_team() {
     assert_eq!(body_hits.len(), 1, "the other match team is a legal victim");
     assert_eq!(body_hits[0].target, HitTarget::Body(victim));
     assert!(body_hits[0].knockback.is_some());
-    cap.assert_no_body_scanning_broadcast();
 
     let landed = app.world().resource::<CapturedLandedHits>();
     assert_eq!(
@@ -1771,7 +1760,6 @@ fn player_followowner_strike_does_not_require_a_body_melee_projection() {
         "the live strike itself is sufficient authority"
     );
     assert_eq!(body_hits[0].target, HitTarget::Body(victim));
-    cap.assert_no_body_scanning_broadcast();
 }
 
 /// A boss keeps its HP and phase on an encounter and a breakable is a feature; neither matches
@@ -1793,10 +1781,16 @@ fn a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hi
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
 
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    let emission = LiveRoomInstance::ACTIVATION.next();
+    let remote = emission.next();
+    app.world_mut().spawn((RoomInstanceRoot, emission));
+    app.world_mut().spawn((RoomInstanceRoot, remote));
     let owner = app
         .world_mut()
         .spawn((
             ActorFaction::Player,
+            InRoomInstance(remote),
             ae::CenteredAabb::from_center_size(
                 ae::Vec2::new(100.0, 100.0),
                 ae::Vec2::new(20.0, 40.0),
@@ -1816,6 +1810,7 @@ fn a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hi
         .world_mut()
         .spawn((
             ActorFaction::Enemy,
+            InRoomInstance(emission),
             ae::CenteredAabb::from_center_size(
                 ae::Vec2::new(130.0, 100.0),
                 ae::Vec2::new(20.0, 40.0),
@@ -1830,9 +1825,7 @@ fn a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hi
             strike_sfx: None,
             owner,
             source: HitSide::Player,
-            anchor: HitboxAnchor::FollowOwner {
-                local_offset: ae::Vec2::new(20.0, 0.0),
-            },
+            anchor: HitboxAnchor::World { center: ae::Vec2::new(120.0, 100.0) },
             half_extent: ae::Vec2::new(30.0, 30.0),
             shape: None,
             facing: 1.0,
@@ -1848,6 +1841,7 @@ fn a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hi
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
+        InRoomInstance(emission),
     ));
 
     app.update();
@@ -1856,6 +1850,7 @@ fn a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hi
     let body_hits = cap.body_hits();
     assert_eq!(body_hits.len(), 1, "the body is still resolved by identity");
     assert_eq!(body_hits[0].target, HitTarget::Body(victim));
+    assert_eq!(body_hits[0].room, Some(emission));
 
     let unresolved = cap.unresolved_feature_hits();
     assert_eq!(
@@ -1865,6 +1860,7 @@ fn a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hi
          resolver can name — this is the reach whose loss broke three app tests"
     );
     assert_eq!(unresolved[0].attacker, Some(owner));
+    assert_eq!(unresolved[0].room, Some(emission));
     assert_eq!(unresolved[0].volume, body_hits[0].volume);
     assert_eq!(
         unresolved[0].ignored_targets,
@@ -1873,7 +1869,6 @@ fn a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hi
          multi-tick active window smashes each crate once"
     );
 
-    cap.assert_no_body_scanning_broadcast();
 }
 
 /// CM8: an authored strike sound on a hitbox rides the overlap onto the emitted
@@ -2314,6 +2309,26 @@ mod strike_rank {
         }
         app.update();
         app
+    }
+
+    #[test]
+    fn an_excluded_sweetspot_cannot_suppress_an_allowed_sibling() {
+        let mut app = two_ranked_volumes(160.0, 7, false);
+        assert_eq!(hits(&app).iter().map(|hit| hit.damage).collect::<Vec<_>>(), vec![14]);
+        let mut bodies = app.world_mut().query_filtered::<Entity,
+            With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>();
+        let victim = bodies.single(app.world()).unwrap();
+        let mut volumes = app.world_mut().query::<(Entity, &StrikeRank)>();
+        let tip = volumes.iter(app.world()).find(|(_, rank)| rank.volume == 0).unwrap().0;
+        app.world_mut().entity_mut(tip).insert(crate::strike::HitboxExclusions {
+            bodies: [victim].into_iter().collect(),
+        });
+        // Start a new contact window with the same geometry.
+        let mut history = app.world_mut().query::<&mut HitboxHits>();
+        for mut history in history.iter_mut(app.world_mut()) { history.hit.clear(); }
+        app.world_mut().resource_mut::<CapturedHits>().0.clear();
+        app.update();
+        assert_eq!(hits(&app).iter().map(|hit| hit.damage).collect::<Vec<_>>(), vec![7]);
     }
 
     /// Review finding #10 (2026-10-19): the broad phase asks where a body

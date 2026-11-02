@@ -1068,8 +1068,7 @@ pub fn dress_power_blocks(
         // a HIDDEN block wears nothing until it has paid. It is drawn
         // transparent at room build (`dress_authored_blocks`), and the only art
         // it ever gets is the spent tile — so striking one reveals it, which is
-        // exactly the beat. A `Brick` is still not dressed at all: its look is
-        // the room's, not this dresser's.
+        // exactly the beat. A brick has its own art until it pays or breaks.
         let want = match look {
             Some(MaryOBlockLook::Question) => Some(EntityArt(if is_spent {
                 EntitySprite::SpentBlockTile
@@ -1079,13 +1078,11 @@ pub fn dress_power_blocks(
             Some(MaryOBlockLook::Hidden) if is_spent => {
                 Some(EntityArt(EntitySprite::SpentBlockTile))
             }
-            // Unspent bricks keep room-authored art/color so they remain visually
-            // indistinguishable from masonry. Once a brick pays out, give it the
-            // spent-block texture; empty bricks shatter instead of reaching `spent`.
+            // A brick that pays becomes a spent block. An empty brick breaks.
             Some(MaryOBlockLook::Brick) if is_spent => {
                 Some(EntityArt(EntitySprite::SpentBlockTile))
             }
-            Some(MaryOBlockLook::Brick) => None,
+            Some(MaryOBlockLook::Brick) => Some(EntityArt(EntitySprite::BrickBlockTile)),
             // A plank of a bridge is not the masonry of its room: a bridge
             // that looks like the floor is not read as a bridge.
             Some(MaryOBlockLook::Plank) => Some(EntityArt(EntitySprite::BridgePlankTile)),
@@ -2819,7 +2816,7 @@ mod block_dressing_tests {
     }
 
     #[test]
-    fn every_look_wears_the_spent_plate_once_it_has_paid_and_a_brick_hides_until_then() {
+    fn bricks_have_distinct_art_and_spent_blocks_wear_the_used_plate() {
         let mut app = App::new();
         app.insert_resource(ambition_platformer2d::sprite_sheet::test_support::shared_sprites());
         app.init_resource::<SpentPowerBlocks>();
@@ -2899,9 +2896,8 @@ mod block_dressing_tests {
         );
         assert_eq!(
             art(&app, brick_unspent),
-            None,
-            "a brick that has NOT paid named art, which strips the level's authored \
-             paint and announces the secret it exists to keep"
+            Some(EntitySprite::BrickBlockTile),
+            "breakable bricks must differ from permanent terrain without revealing their contents"
         );
         assert_eq!(
             art(&app, brick_spent),

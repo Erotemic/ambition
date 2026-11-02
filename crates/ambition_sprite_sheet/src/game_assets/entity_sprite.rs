@@ -56,6 +56,8 @@ pub enum EntitySprite {
     /// Not reachable from `BlockKind`: bonus blocks are `BlockKind::Solid` like
     /// every wall, so a game names this through the `EntityArt` component.
     BonusBlockTile,
+    /// Loose red bricks with open joints. Games use this for breakable blocks.
+    BrickBlockTile,
     /// A used bonus block: the same plate and rivets, drained and glyphless.
     ///
     /// A spent block does not use `SolidTile`. A used block that looks like a
@@ -105,6 +107,7 @@ impl EntitySprite {
             Self::ProjectileEnergy => "entities/projectile_energy.png",
             Self::FireOrb => "entities/fire_orb.png",
             Self::BonusBlockTile => "entities/bonus_block_tile.png",
+            Self::BrickBlockTile => "entities/brick_block_tile.png",
             Self::SpentBlockTile => "entities/spent_block_tile.png",
             Self::BridgePlankTile => "entities/bridge_plank_tile.png",
             Self::SolidTile => "entities/solid_tile.png",
@@ -142,6 +145,7 @@ impl EntitySprite {
         Self::ProjectileEnergy,
         Self::FireOrb,
         Self::BonusBlockTile,
+        Self::BrickBlockTile,
         Self::SpentBlockTile,
         Self::BridgePlankTile,
         Self::SolidTile,
@@ -186,6 +190,7 @@ pub fn entity_sprite_asset_id(key: EntitySprite) -> AssetId {
         EntitySprite::ProjectileEnergy => "projectile_energy",
         EntitySprite::FireOrb => "fire_orb",
         EntitySprite::BonusBlockTile => "bonus_block_tile",
+        EntitySprite::BrickBlockTile => "brick_block_tile",
         EntitySprite::SpentBlockTile => "spent_block_tile",
         EntitySprite::BridgePlankTile => "bridge_plank_tile",
         EntitySprite::SolidTile => "solid_tile",

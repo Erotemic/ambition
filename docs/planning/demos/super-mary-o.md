@@ -39,8 +39,9 @@ User request, 2026-11-01:
   behavior tests and all six native captures pass. Art producer: `c29ced8`.
 - [ ] Let walkers block each other and turn at contact. Use the shared body
   path. Refuse overlapping authored starts and check head-on encounters.
-- [ ] Give breakable bricks a clear visual difference from permanent blocks,
-  platforms and ground. Inspect the result in the game.
+- [x] Breakable bricks use red masonry with open joints and cracks. Permanent
+  terrain keeps its own art. The catalog includes all quality variants; two
+  dressing tests and a native World 1-1 capture pass. Art producer: `15ba06f`.
 - [x] `3c6be8856`: the tracking glow uses standing body geometry and ignores
   actor tints. The passage fade is separate. Compositing and tint checks pass.
 

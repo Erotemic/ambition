@@ -2782,16 +2782,8 @@ mod multi_coin_counter_tests {
 
 #[cfg(test)]
 mod block_dressing_tests {
-    //! WHAT EACH LOOK WEARS, BEFORE AND AFTER IT HAS PAID.
-    //!
-    //! blocks (or question mark blocks which currently work correctly) need to change their tile
-    //! sprite to spent blocks.
-    //!
-    //! the unspent BRICK row is the load-bearing one. It is the reason the
-    //! fix is guarded on `is_spent` rather than unconditional: a brick that has
-    //! not paid must still name NO art, because naming art strips the level's
-    //! authored paint and a camouflaged block that announces itself before it
-    //! pays is the secret given away.
+    //! Fresh bricks use breakable masonry in their room's palette. A block
+    //! that pays uses the spent plate. Hidden blocks stay hidden until they pay.
 
     use super::*;
     use crate::ldtk_vocabulary::{MaryOBlock, MaryOBlockContents, MaryOBlockLook, MaryOPickup};

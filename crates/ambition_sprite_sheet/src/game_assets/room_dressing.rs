@@ -27,6 +27,8 @@ use super::{load_sheet_image, ParallaxTheme};
 pub enum RoomDressingPart {
     /// The inside of a solid block. It repeats each way.
     Fill,
+    /// Loose masonry with open joints and cracks. It repeats each way.
+    BreakableBrick,
     /// A top edge that nothing covers. It repeats along the edge.
     Cap,
     /// A bottom edge that nothing covers. It repeats along the edge.
@@ -114,7 +116,7 @@ pub const MOTE_CELL_PX: u32 = 32;
 
 impl RoomDressingPart {
     pub const ALL: &'static [Self] =
-        &[Self::Fill, Self::Cap, Self::Under, Self::Side, Self::OneWay, Self::Motes, Self::Decor, Self::Door,
+        &[Self::Fill, Self::BreakableBrick, Self::Cap, Self::Under, Self::Side, Self::OneWay, Self::Motes, Self::Decor, Self::Door,
             Self::Shadow, Self::Ladder, Self::WaterClear, Self::WaterMurky, Self::WaterSurface, Self::WaterBackdrop,
             Self::BlinkSoft, Self::BlinkHard, Self::BlinkEdge, Self::HazardFill, Self::HazardEdge,
             Self::DecorGlow, Self::Pillar, Self::Arch, Self::Banner, Self::Ivy, Self::IvyStrands,
@@ -123,6 +125,7 @@ impl RoomDressingPart {
     pub const fn key(self) -> &'static str {
         match self {
             Self::Fill => "fill",
+            Self::BreakableBrick => "breakable_brick",
             Self::Cap => "cap",
             Self::Under => "under",
             Self::Side => "side",

@@ -1001,6 +1001,20 @@ impl BoundEntitySprite {
     }
 }
 
+fn entity_image<'a>(
+    assets: &'a GameAssets,
+    key: game_assets::EntitySprite,
+    surface: Option<&super::terrain_skin::TerrainSurface>,
+) -> Option<&'a Handle<Image>> {
+    let themed = match key {
+        game_assets::EntitySprite::BrickBlockTile => surface.and_then(|surface| {
+            assets.room_dressing.get(surface.theme, game_assets::RoomDressingPart::BreakableBrick)
+        }),
+        _ => None,
+    };
+    themed.or_else(|| assets.entities.get(key))
+}
+
 /// Apply game-authored [`EntityArt`] over the kind-derived presentation of a
 /// block or a door.
 ///
@@ -1015,6 +1029,7 @@ pub fn apply_entity_art(
         (
             Entity,
             &EntityArt,
+            Option<&super::terrain_skin::TerrainSurface>,
             Option<&mut BoundEntitySprite>,
             &mut Sprite,
         ),
@@ -1024,7 +1039,7 @@ pub fn apply_entity_art(
     let Some(assets) = assets else {
         return;
     };
-    for (entity, EntityArt(art), bound, mut sprite) in &mut blocks {
+    for (entity, EntityArt(art), surface, bound, mut sprite) in &mut blocks {
         match bound {
             Some(mut bound) => {
                 if bound.key != *art {
@@ -1042,7 +1057,7 @@ pub fn apply_entity_art(
         }
         // Warn on a missing handle. A per-block override means somebody asked
         // for specific art, so its absence must be reported, not silent.
-        let Some(handle) = assets.entities.get(*art) else {
+        let Some(handle) = entity_image(&assets, *art, surface) else {
             warn!(
                 "EntityArt names {art:?}, which is not in `GameAssets.entities` — \
                  the block keeps its BlockKind's texture. The sprite is declared \
@@ -1065,7 +1080,7 @@ pub fn apply_entity_art(
 pub fn refresh_entity_sprite_handles_on_game_assets_change(
     assets: Option<Res<GameAssets>>,
     mut sprites: Query<
-        (&BoundEntitySprite, &mut Sprite),
+        (&BoundEntitySprite, Option<&super::terrain_skin::TerrainSurface>, &mut Sprite),
         (
             Without<CharacterAnimator>,
             Without<ambition_sprite_sheet::boss::BossAnimator>,
@@ -1078,8 +1093,8 @@ pub fn refresh_entity_sprite_handles_on_game_assets_change(
     if !assets.is_changed() {
         return;
     }
-    for (bound, mut sprite) in &mut sprites {
-        if let Some(handle) = assets.entities.get(bound.key) {
+    for (bound, surface, mut sprite) in &mut sprites {
+        if let Some(handle) = entity_image(&assets, bound.key, surface) {
             if sprite.image != *handle {
                 sprite.image = handle.clone();
             }
@@ -2810,5 +2825,44 @@ mod door_z_tests {
     fn a_door_draws_over_the_scenery_and_under_the_cast() {
         assert!(DOOR_Z > SCENERY_Z_FRONT, "a door under the scenery is hidden by a room's art");
         assert!(DOOR_Z < super::super::primitives::feature_z(FeatureVisualKind::Actor), "a door over the cast hides who walks through it");
+    }
+}
+
+#[cfg(test)]
+mod themed_brick_tests {
+    use super::*;
+    use super::super::terrain_skin::{TerrainSurface, TerrainSurfaceKind};
+    use game_assets::{EntitySprite, ParallaxTheme, RoomDressingPart};
+
+    #[test]
+    fn brick_art_uses_each_rooms_theme_and_keeps_it_after_asset_refresh() {
+        let mut app = App::new();
+        app.add_systems(Update, (apply_entity_art, refresh_entity_sprite_handles_on_game_assets_change).chain());
+        let mut assets = GameAssets::default();
+        let mut images = Assets::<Image>::default();
+        let themes = [ParallaxTheme::new("starlight"), ParallaxTheme::new("starless")];
+        let handles = themes.map(|theme| {
+            let image = images.add(Image::default());
+            assets.room_dressing.insert(theme, RoomDressingPart::BreakableBrick, image.clone());
+            image
+        });
+        app.insert_resource(assets);
+        let bricks = themes.map(|theme| app.world_mut().spawn((
+            EntityArt(EntitySprite::BrickBlockTile), Sprite::default(),
+            TerrainSurface { theme, kind: TerrainSurfaceKind::Solid, min: Vec2::ZERO, size: Vec2::splat(32.0) },
+        )).id());
+        app.update();
+        for (brick, expected) in bricks.iter().zip(&handles) {
+            assert_eq!(&app.world().get::<Sprite>(*brick).unwrap().image, expected);
+        }
+        let replacement = themes.map(|theme| {
+            let image = images.add(Image::default());
+            app.world_mut().resource_mut::<GameAssets>().room_dressing.insert(theme, RoomDressingPart::BreakableBrick, image.clone());
+            image
+        });
+        app.update();
+        for (brick, expected) in bricks.into_iter().zip(replacement) {
+            assert_eq!(app.world().get::<Sprite>(brick).unwrap().image, expected);
+        }
     }
 }

@@ -56,7 +56,7 @@ pub enum EntitySprite {
     /// Not reachable from `BlockKind`: bonus blocks are `BlockKind::Solid` like
     /// every wall, so a game names this through the `EntityArt` component.
     BonusBlockTile,
-    /// Loose red bricks with open joints. Games use this for breakable blocks.
+    /// Loose masonry with open joints. A room can supply art in its own palette.
     BrickBlockTile,
     /// A used bonus block: the same plate and rivets, drained and glyphless.
     ///

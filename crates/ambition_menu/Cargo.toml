@@ -60,3 +60,7 @@ ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-f
 # The bevy_lunex cube renderer moved to the `ambition_menu_kaleidoscope`
 # extension crate (E1e); this crate is now bevy_lunex-free (the flat bevy_ui
 # grid renderer + the renderer-agnostic page model).
+
+[dev-dependencies]
+# Use the embedded font for text measurements in renderer tests.
+bevy = { version = "0.19.1", default-features = false, features = ["default_font"] }

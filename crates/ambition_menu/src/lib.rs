@@ -121,7 +121,7 @@ pub enum MenuNode<Action> {
     Text {
         x: f32,
         y: f32,
-        /// Percent of viewport height, not pixels (`5.6` is 60px at 1080p).
+        /// Maximum font size as a percent of viewport height.
         /// Both backends read it that way: the kaleidoscope as Lunex `Rh`, the
         /// flat backend as `FontSize::Vh`.
         size: f32,
@@ -136,7 +136,7 @@ pub enum MenuNode<Action> {
         slot: u32,
         x: f32,
         y: f32,
-        /// Percent of viewport height, as in [`MenuNode::Text`].
+        /// Maximum size as in [`MenuNode::Text`].
         size: f32,
         align: MenuTextAlign,
         color: MenuColor,

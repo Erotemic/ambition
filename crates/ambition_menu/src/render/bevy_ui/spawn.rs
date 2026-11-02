@@ -39,20 +39,7 @@ pub(super) fn spawn_node<Action>(
             align,
             color,
         } => {
-            body.spawn((
-                text_node(*x, *y, *align),
-                Text::new(text.clone()),
-                TextColor(to_color(*color)),
-                TextFont {
-                    // `size` is percent of viewport height; `Vh` is that unit.
-                    font_size: FontSize::Vh(*size),
-                    font: font.cloned().unwrap_or_default(),
-                    ..default()
-                },
-                TextLayout::justify(to_justify(*align)),
-                ZIndex(LAYER_TEXT),
-                Name::new("text"),
-            ));
+            spawn_text_line(body, menu, *x, *y, *size, text, *align, *color, font, None);
         }
         MenuNode::DynamicText {
             slot,
@@ -62,24 +49,18 @@ pub(super) fn spawn_node<Action>(
             align,
             color,
         } => {
-            // Spawned empty; the host fills it in place by `slot`, like the
-            // cube renderer (cursor-dependent text needs no body rebuild).
-            body.spawn((
-                text_node(*x, *y, *align),
-                Text::new(String::new()),
-                TextColor(to_color(*color)),
-                TextFont {
-                    // `size` is percent of viewport height; `Vh` is that unit.
-                    font_size: FontSize::Vh(*size),
-                    font: font.cloned().unwrap_or_default(),
-                    ..default()
-                },
-                TextLayout::justify(to_justify(*align)),
-                crate::MenuDynamicText { slot: *slot },
-                crate::MenuDynamicTextContent(String::new()),
-                ZIndex(LAYER_TEXT),
-                Name::new("dynamic text"),
-            ));
+            spawn_text_line(
+                body,
+                menu,
+                *x,
+                *y,
+                *size,
+                "",
+                *align,
+                *color,
+                font,
+                Some(*slot),
+            );
         }
         MenuNode::Control {
             rect,
@@ -114,14 +95,58 @@ pub(super) fn spawn_node<Action>(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 /// Place an absolutely positioned text node so its alignment is honored. A
 /// centered line spans its container and centers in it, and a right-aligned
 /// line spans up to its anchor. Only `Left` treats `x` as a left edge.
+#[allow(clippy::too_many_arguments)]
+fn spawn_text_line(
+    body: &mut RelatedSpawnerCommands<ChildOf>,
+    menu: Entity,
+    x: f32,
+    y: f32,
+    size: f32,
+    text: &str,
+    align: MenuTextAlign,
+    color: MenuColor,
+    font: Option<&bevy::text::FontSource>,
+    slot: Option<u32>,
+) {
+    body.spawn((text_node(x, y, align), ZIndex(LAYER_TEXT), Pickable::IGNORE))
+        .with_children(|line| {
+            let mut entity = line.spawn((
+                crate::MenuSurface(menu),
+                Text::new(text),
+                Node {
+                    min_width: Val::Px(0.0),
+                    max_width: Val::Percent(100.0),
+                    ..default()
+                },
+                TextColor(to_color(color)),
+                TextFont {
+                    font_size: FontSize::Vh(size),
+                    font: font.cloned().unwrap_or_default(),
+                    ..default()
+                },
+                super::text::MenuTextFit::line(FontSize::Vh(size)),
+                TextLayout::new(to_justify(align), bevy::text::LineBreak::NoWrap),
+                Pickable::IGNORE,
+            ));
+            if let Some(slot) = slot {
+                entity.insert((
+                    crate::MenuDynamicText { slot },
+                    crate::MenuDynamicTextContent(String::new()),
+                ));
+            }
+        });
+}
+
 pub(super) fn text_node(x: f32, y: f32, align: MenuTextAlign) -> Node {
     let (left, width) = match align {
-        MenuTextAlign::Left => (Val::Percent(x), Val::Auto),
-        MenuTextAlign::Center => (Val::Percent(0.0), Val::Percent(100.0)),
+        MenuTextAlign::Left => (Val::Percent(x), Val::Percent(100.0 - x)),
+        MenuTextAlign::Center => (
+            Val::Percent((2.0 * x - 100.0).max(0.0)),
+            Val::Percent(2.0 * x.min(100.0 - x)),
+        ),
         MenuTextAlign::Right => (Val::Percent(0.0), Val::Percent(x)),
     };
     Node {
@@ -129,6 +154,11 @@ pub(super) fn text_node(x: f32, y: f32, align: MenuTextAlign) -> Node {
         left,
         width,
         top: Val::Percent(y),
+        justify_content: match align {
+            MenuTextAlign::Left => JustifyContent::Start,
+            MenuTextAlign::Center => JustifyContent::Center,
+            MenuTextAlign::Right => JustifyContent::End,
+        },
         ..default()
     }
 }
@@ -184,10 +214,15 @@ fn spawn_control<Action>(
     };
     let label_color = control_text_color(focused);
 
+    let stacked = kind == MenuControlKind::Item;
+    let mut control_node = node_from_rect(rect);
+    if stacked {
+        control_node.flex_direction = FlexDirection::Column;
+    }
     let mut control = body.spawn((
         crate::MenuSurface(menu),
         Button,
-        node_from_rect(rect),
+        control_node,
         BackgroundColor(bg),
         ZIndex(LAYER_CONTROL),
         AmbitionMenuControl {
@@ -232,44 +267,21 @@ fn spawn_control<Action>(
                 Node {
                     width: Val::Percent(78.0),
                     height: Val::Percent(78.0),
+                    flex_shrink: 0.0,
                     ..default()
                 },
                 Name::new("item icon"),
+                Pickable::IGNORE,
             ));
         });
     } else if !label.is_empty() {
         control.with_children(|c| {
-            c.spawn((
-                Text::new(label.to_string()),
-                // A `Text` without `TextFont` gets Bevy's default as a
-                // required component: the ASCII-only `FiraMono-subset.ttf`.
-                TextFont {
-                    font: font.cloned().unwrap_or_default(),
-                    font_size: FontSize::Vh(CONTROL_TEXT_VH),
-                    ..default()
-                },
-                TextColor(label_color),
-            ));
+            spawn_caption(c, label, label_color, font, false, stacked);
         });
     }
-
-    // The value, beside the label. Only when present, so rows without a
-    // detail keep their layout.
-    if let Some(detail) = detail.filter(|d| !d.is_empty()) {
+    if let Some(detail) = detail.filter(|detail| !detail.is_empty()) {
         control.with_children(|c| {
-            c.spawn((
-                Node {
-                    margin: UiRect::left(Val::Vh(12.0 / 7.2)),
-                    ..default()
-                },
-                Text::new(detail.to_string()),
-                TextFont {
-                    font: font.cloned().unwrap_or_default(),
-                    font_size: FontSize::Vh(CONTROL_TEXT_VH),
-                    ..default()
-                },
-                TextColor(label_color),
-            ));
+            spawn_caption(c, detail, label_color, font, true, stacked);
         });
     }
 
@@ -309,4 +321,61 @@ fn spawn_control<Action>(
             });
         }
     }
+}
+
+fn spawn_caption(
+    parent: &mut RelatedSpawnerCommands<ChildOf>,
+    text: &str,
+    color: Color,
+    font: Option<&bevy::text::FontSource>,
+    detail: bool,
+    stacked: bool,
+) {
+    parent
+        .spawn((
+            Node {
+                flex_basis: Val::Px(0.0),
+                flex_grow: if stacked && !detail { 2.0 } else { 1.0 },
+                min_width: Val::Px(0.0),
+                min_height: Val::Px(0.0),
+                width: if stacked {
+                    Val::Percent(100.0)
+                } else {
+                    Val::Auto
+                },
+                height: if stacked {
+                    Val::Auto
+                } else {
+                    Val::Percent(100.0)
+                },
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                margin: if detail && !stacked {
+                    UiRect::left(Val::Vh(12.0 / 7.2))
+                } else {
+                    UiRect::ZERO
+                },
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .with_children(|caption| {
+            caption.spawn((
+                Text::new(text),
+                Node {
+                    min_width: Val::Px(0.0),
+                    max_width: Val::Percent(100.0),
+                    ..default()
+                },
+                TextFont {
+                    font: font.cloned().unwrap_or_default(),
+                    font_size: FontSize::Vh(CONTROL_TEXT_VH),
+                    ..default()
+                },
+                TextColor(color),
+                TextLayout::new(Justify::Center, bevy::text::LineBreak::NoWrap),
+                super::text::MenuTextFit::box_size(FontSize::Vh(CONTROL_TEXT_VH)),
+                Pickable::IGNORE,
+            ));
+        });
 }

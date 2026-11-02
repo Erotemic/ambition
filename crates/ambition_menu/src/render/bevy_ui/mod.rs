@@ -374,6 +374,8 @@ where
                             Button,
                             Node {
                                 flex_grow: 1.0,
+                                flex_basis: Val::Px(0.0),
+                                min_width: Val::Px(0.0),
                                 height: Val::Percent(100.0),
                                 justify_content: JustifyContent::Center,
                                 align_items: AlignItems::Center,
@@ -393,6 +395,10 @@ where
                         .with_children(|btn| {
                             btn.spawn((
                                 Text::new(tab.label.clone()),
+                                Node { max_width: Val::Percent(100.0), min_width: Val::Px(0.0), ..default() },
+                                TextLayout::new(Justify::Center, bevy::text::LineBreak::NoWrap),
+                                text::MenuTextFit::box_size(FontSize::Vh(CONTROL_TEXT_VH)),
+                                Pickable::IGNORE,
                                 // Tab labels are game-authored strings (see the
                                 // row-label note in `spawn.rs`). A `Text`
                                 // without `TextFont` gets the default one,
@@ -438,7 +444,7 @@ where
 // Draw-order layers that mirror the cube's depth bands. Without them, bevy_ui
 // sibling order paints a later background panel over earlier text. A per-node
 // `ZIndex` gives back-to-front order: panels, then controls, then text.
-/// The size of a control's label, its value and a tab's label, as a percent
+/// The maximum size of control and tab labels, as a percent
 /// of viewport height: 20 px on a 720 px viewport.
 ///
 /// A control's box is a percent of the viewport ([`crate::MenuRect`]). Text in
@@ -791,8 +797,6 @@ pub fn install_bevy_ui_menu_actions<Action>(app: &mut App)
 where
     Action: Clone + PartialEq + Send + Sync + 'static,
 {
-    // No text-size installer: menu text is spawned as `FontSize::Vh`, which the
-    // engine resolves against the live UI target.
     install_bevy_ui_menu_restyle(app);
     app.add_message::<crate::MenuActionActivated<Action>>()
         .add_message::<crate::MenuActionPreviewed<Action>>()
@@ -852,21 +856,22 @@ pub fn restyle_bevy_ui_menu_tabs(
 pub fn restyle_bevy_ui_menu_controls(
     mut controls: Query<
         (
+            Entity,
             &MenuVisualState,
             &mut BackgroundColor,
             &AmbitionMenuControlKind,
-            Option<&Children>,
         ),
         Changed<MenuVisualState>,
     >,
+    children: Query<&Children>,
     mut texts: Query<&mut TextColor>,
 ) {
-    for (state, mut background, kind, children) in &mut controls {
+    for (entity, state, mut background, kind) in &mut controls {
         // The text follows the background: dark on the gold of a focus that
         // came after the spawn, light again when the focus goes.
         let text = spawn::control_text_color(state.focused && !state.disabled);
-        for child in children.into_iter().flatten() {
-            if let Ok(mut color) = texts.get_mut(*child) {
+        for child in children.iter_descendants(entity) {
+            if let Ok(mut color) = texts.get_mut(child) {
                 if color.0 != text {
                     color.0 = text;
                 }
@@ -915,6 +920,9 @@ pub struct BevyUiMenuRestylePlugin;
 
 impl bevy::prelude::Plugin for BevyUiMenuRestylePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
+        app.init_resource::<bevy::text::RemSize>()
+            .add_systems(PostUpdate, text::apply_dynamic_text.before(bevy::ui::UiSystems::Content))
+            .add_systems(PostUpdate, text::fit_menu_text.after(bevy::ui::widget::text_system));
         // Every member acts on menu controls and tabs: with none (each menu
         // closed, in play) there is nothing to read or restyle.
         // Every installer of the set installs this plugin, once.
@@ -990,4 +998,5 @@ pub fn install_bevy_ui_menu_scroll(app: &mut App) {
 mod tests;
 
 mod spawn;
+mod text;
 use spawn::spawn_node;

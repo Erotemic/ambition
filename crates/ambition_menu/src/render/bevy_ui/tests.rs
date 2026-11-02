@@ -1210,11 +1210,12 @@ fn hover_keeps_the_four_control_styles_apart() {
 
 /// The colour of the text of a control.
 fn text_color(app: &App, control: Entity) -> Color {
-    let children = app.world().get::<Children>(control).expect("a control has its label");
-    children
-        .iter()
-        .find_map(|child| app.world().get::<TextColor>(child).map(|color| color.0))
-        .expect("a control has text")
+    let mut pending = vec![control];
+    while let Some(entity) = pending.pop() {
+        if let Some(color) = app.world().get::<TextColor>(entity) { return color.0; }
+        if let Some(children) = app.world().get::<Children>(entity) { pending.extend(children.iter()); }
+    }
+    panic!("the control has no label")
 }
 
 /// A host can move the focus without a respawn (the launcher's cursor does):

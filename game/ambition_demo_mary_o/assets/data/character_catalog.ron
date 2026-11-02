@@ -299,7 +299,7 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["enemy"],
-            locomotion: Some((run_speed: 46.0, move_style: Walk)),
+            locomotion: Some((run_speed: 46.0, move_style: Walk, body_contact: Some((resistance: 1.0)))),
             // Its whole offense is the body it walks into you with. The shell
             // withdraws the contact while shelled (`ContactThreatWithdrawn`),
             // never this authored value.
@@ -337,7 +337,7 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["enemy"],
-            locomotion: Some((run_speed: 42.0, move_style: Walk)),
+            locomotion: Some((run_speed: 42.0, move_style: Walk, body_contact: Some((resistance: 1.0)))),
             contact_damage: Some((strength: 0.5, amount: 1)),
             autonomous_profile: Some((template: Wanderer, patrol_effort: 1.0)),
             max_health: Some(1),

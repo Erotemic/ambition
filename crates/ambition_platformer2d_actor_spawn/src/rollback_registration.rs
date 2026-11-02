@@ -14,6 +14,7 @@ pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {
             projected.id.hash(&mut hasher);
             projected.granted.hurtboxes.hash(&mut hasher);
             projected.granted.movement_tuning.hash(&mut hasher);
+            projected.granted.body_contact.map(|contact| contact.map(|contact| contact.resistance.to_bits())).hash(&mut hasher);
             projected.granted.unmirrored.hash(&mut hasher);
             projected.granted.drawn_quad.hash(&mut hasher);
             projected

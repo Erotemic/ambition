@@ -40,6 +40,8 @@ pub struct GrantedBodyFacts {
     /// so a body gets it when it has either.
     pub pose_clock: bool,
     pub movement_tuning: bool,
+    /// The contact value replaced by this character. Inner absence removes it.
+    pub body_contact: Option<Option<ambition_platformer2d_core::movement::BodyContact>>,
     /// A sprite-authored body: the posed-body marker AND the standing geometry
     /// granted with it, carrying what that geometry displaced.
     pub posed_body: Option<DisplacedGeometry>,
@@ -97,6 +99,7 @@ impl GrantedBodyFacts {
             body_rig: prepared.body_rig.is_some(),
             pose_clock: reads_the_pose_clock(prepared),
             movement_tuning: movement_tuning.is_some(),
+            body_contact: prepared.locomotion.and_then(|motion| motion.body_contact).map(|_| None),
             // Filled by the grant's capture edit, which reads the body.
             posed_body: posed_body_for(&sprite_content, prepared).map(|_| DisplacedGeometry::default()),
             sheet_body: sheet_body_for(&sprite_content, prepared).map(|_| DisplacedGeometry::default()),
@@ -137,6 +140,7 @@ impl GrantedBodyFacts {
             body_rig,
             pose_clock,
             movement_tuning,
+            body_contact,
             posed_body,
             sheet_body,
             drawn_quad,
@@ -157,6 +161,12 @@ impl GrantedBodyFacts {
         }
         if pose_clock {
             scope.remove::<ambition_combat::hurtbox_resolution::BodyPoseClock>();
+        }
+        if let Some(contact) = body_contact {
+            match contact {
+                Some(contact) => { scope.insert(contact); }
+                None => { scope.remove::<ambition_platformer2d_core::movement::BodyContact>(); }
+            }
         }
         if movement_tuning {
             scope.remove::<ambition_platformer2d_core::AuthoredMovementTuning>();
@@ -592,6 +602,15 @@ pub fn grant_prepared_character_body(sprite_content: &ambition_sprite_sheet::Spr
         // policy against an OPTIONAL character catalog — and requiring it
         // broke three fixtures that deliberately run character demand with NO
         // catalog, which is a state another test exists to name.
+        if let Some(contact) = prepared.locomotion.and_then(|motion| motion.body_contact) {
+            scope.queue_entity_edit(|mut body| {
+                let displaced = body.get::<ambition_platformer2d_core::movement::BodyContact>().copied();
+                if let Some(mut kit) = body.get_mut::<ProjectedCharacterKit>() {
+                    kit.granted.body_contact = Some(displaced);
+                }
+            });
+            scope.insert(contact);
+        }
         if let Some(tuning) = movement_tuning {
             scope.insert(ambition_platformer2d_core::AuthoredMovementTuning(tuning));
         }

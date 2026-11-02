@@ -1282,6 +1282,7 @@ pub fn snapshot_body_contact(
         &ae::BodyGroundState,
         &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         Option<&ambition_platformer2d_core::movement::BodyContact>,
+        Option<&ambition_characters::actor::BodyHealth>,
     )>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     // Last tick's pairs and straddlers: where each body is as this tick begins.
@@ -1293,8 +1294,8 @@ pub fn snapshot_body_contact(
     let mut boxes: Vec<(bevy::prelude::Entity, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, ae::Aabb, ae::Vec2,
     )> =
         Vec::new();
-    for (entity, kinematics, ground, frame, contact) in &bodies {
-        if !ground.on_ground {
+    for (entity, kinematics, ground, frame, contact, health) in &bodies {
+        if !ground.on_ground || health.is_some_and(|health| !health.alive()) {
             continue;
         }
         let Some(contact) = contact.or_else(|| rules.of(entity)) else { continue; };

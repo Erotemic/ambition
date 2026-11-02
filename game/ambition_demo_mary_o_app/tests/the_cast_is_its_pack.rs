@@ -94,6 +94,7 @@ fn the_mary_o_cast_is_prepared_from_its_pack_as_the_rust_registration_built_it()
                 run_speed,
                 move_style: MoveStyleSpec::Walk,
                 baseline_free_flight: Some(false),
+                body_contact: Some(ambition_platformer2d::engine_core::movement::BodyContact { resistance: 1.0 }),
                 ..Default::default()
             }),
             Some(ContactDamage {

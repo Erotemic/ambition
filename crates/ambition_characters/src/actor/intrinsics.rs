@@ -51,6 +51,9 @@ pub struct CharacterLocomotion {
     /// says `Some`, so it does not stand on a sliver of its box.
     #[serde(default)]
     pub balance: Option<ambition_platformer2d_core::Balance>,
+    /// Resistance to walking through other bodies that have this capability.
+    #[serde(default)]
+    pub body_contact: Option<ambition_platformer2d_core::movement::BodyContact>,
 }
 
 impl Default for CharacterLocomotion {
@@ -68,6 +71,7 @@ impl Default for CharacterLocomotion {
             // SILENT, not grounded — see the field.
             baseline_free_flight: None,
             balance: None,
+            body_contact: None,
         }
     }
 }

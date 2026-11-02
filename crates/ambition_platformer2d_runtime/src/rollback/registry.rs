@@ -213,7 +213,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// Strikes carry explicit per-body exclusions independently of hit history.
 /// 406 -> 407: all health restoration requests name one body.
 /// Item use and ability equipment requests name their acting participant.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 407;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 408;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

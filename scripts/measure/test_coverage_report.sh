@@ -12,11 +12,11 @@
 # coverage.
 #
 # Usage:
-# ./tools/test_coverage_report.sh           # all three domains
-# ./tools/test_coverage_report.sh all       # same as the default
-# ./tools/test_coverage_report.sh engine    # crates/
-# ./tools/test_coverage_report.sh game      # game/
-# ./tools/test_coverage_report.sh tests     # tests/
+# ./scripts/measure/test_coverage_report.sh           # all three domains
+# ./scripts/measure/test_coverage_report.sh all       # same as the default
+# ./scripts/measure/test_coverage_report.sh engine    # crates/
+# ./scripts/measure/test_coverage_report.sh game      # game/
+# ./scripts/measure/test_coverage_report.sh tests     # tests/
 #
 # Output contains:
 #   1. a detailed Rust file list sorted by test count and line count;
@@ -30,12 +30,12 @@
 
 set -Eeuo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MODE="${1:-all}"
 
 usage() {
   cat <<'USAGE'
-usage: ./tools/test_coverage_report.sh [all|engine|game|tests]
+usage: ./scripts/measure/test_coverage_report.sh [all|engine|game|tests]
 
   all      scan crates/, game/, and tests/ (default)
   engine   scan reusable engine/support crates under crates/

@@ -33,7 +33,7 @@ def test_font_replacement_retires_old_paths_and_a_failure_keeps_accepted_bytes(t
         "publication": "generated/publication", "provenance": "generated/provenance",
         "producers": {"fonts": {"policy": "authored/fonts.json", "roots": ["fonts"]}}}))
     env = dict(os.environ, AMBITION_CONTENT_LIBRARY=str(manifest))
-    command = [sys.executable, str(ROOT / "scripts/grab_font_assets.py"), "--cache-dir", str(tmp_path / "cache")]
+    command = [sys.executable, str(ROOT / "scripts/regen/grab_font_assets.py"), "--cache-dir", str(tmp_path / "cache")]
     def run():
         return subprocess.run(command, env=env, cwd=ROOT, text=True, capture_output=True)
     first = run()
@@ -89,7 +89,7 @@ def test_all_media_check_refuses_a_source_only_sprite_library():
         manifest.write_text(json.dumps({"schema": "ambition.content_library.v1", "id": "probe", "version": "1",
             "asset_roots": {"generated": "generated/runtime/full"}, "publication": "generated/art_publication",
             "producers": {"sprites": {"collection": "runtime", "policy": "authored/sprites.yaml", "sources": ["authored/sprites.yaml"]}}}))
-        result = subprocess.run([sys.executable, str(ROOT / "scripts/generate_library_content.py"), "--check"],
+        result = subprocess.run([sys.executable, str(ROOT / "scripts/regen/generate_library_content.py"), "--check"],
             cwd=ROOT, env=dict(os.environ, AMBITION_CONTENT_LIBRARY=str(manifest)), capture_output=True, text=True)
         assert result.returncode == 1, result.stdout + result.stderr
         assert "target:goblin: missing" in result.stdout, result.stdout + result.stderr
@@ -117,7 +117,7 @@ def test_music_plan_and_registry_write_work_outside_the_checkout(tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
     assert not (tmp_path / "generated").exists()
     written = subprocess.run(
-        [sys.executable, str(ROOT / "scripts/regen_music_registry.py")],
+        [sys.executable, str(ROOT / "scripts/regen/regen_music_registry.py")],
         cwd=ROOT, env=dict(os.environ, AMBITION_CONTENT_LIBRARY=str(manifest)),
         capture_output=True, text=True,
     )

@@ -11,8 +11,8 @@ target through its own publish path (`render_sheet`, the CLI's `sheet`) into
 per character, the shipped part page and the new one side by side, with parts,
 part texels, packed page texels and draws a frame for each.
 
-    scripts/review_part_pages.py weird_hermit carl_stargan sybil
-    scripts/review_part_pages.py --jobs 2 --out untracked/part_review alice bob
+    scripts/measure/review_part_pages.py weird_hermit carl_stargan sybil
+    scripts/measure/review_part_pages.py --jobs 2 --out untracked/part_review alice bob
 
 Names are the renderer's target names (`python -m ambition_sprite2d_renderer
 list`). Nothing under `crates/` is written.
@@ -22,7 +22,8 @@ from __future__ import annotations
 
 import sys as _sys
 from pathlib import Path as _Path
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[2] / "scripts"))
 
 import argparse
 import html
@@ -34,7 +35,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
+REPO = Path(__file__).resolve().parents[2]
 RENDERER = REPO / "tools" / "ambition_sprite2d_renderer"
 SPRITES = REPO / "game" / "ambition_content_library" / "generated" / "runtime" / "sprites"
 sys.path.insert(0, str(REPO / "scripts"))
@@ -146,7 +147,7 @@ def main() -> int:
         ".pair{display:flex;gap:16px;flex-wrap:wrap}figure{margin:0;flex:1;min-width:320px}"
         "img{max-width:100%;background:#444;image-rendering:pixelated}.bad{color:#f66}.stamp{color:#999;margin:2px 0 8px}</style>"
         "<h1>Part pages: shipped vs current renderer code</h1>"
-        f"<p>Rendered by scripts/review_part_pages.py at renderer {html.escape(commit)}; nothing here is installed in the game until a sprite regen.</p>"
+        f"<p>Rendered by scripts/measure/review_part_pages.py at renderer {html.escape(commit)}; nothing here is installed in the game until a sprite regen.</p>"
         + "".join(cells)
     )
     print(f"wrote {out / 'index.html'}")

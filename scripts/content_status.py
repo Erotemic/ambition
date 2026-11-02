@@ -21,7 +21,7 @@ stop the game. Use `--require-complete` to get status 1 when a family is
 missing or stale.
 
 This is the fast question. The exact producer check is
-`python3 scripts/generate_library_content.py --check`, which needs each
+`python3 scripts/regen/generate_library_content.py --check`, which needs each
 renderer toolchain. To make what is missing, run
 `scripts/setup/generated_content.sh`.
 

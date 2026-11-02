@@ -1,7 +1,7 @@
 //! The Smash demo's procedural extension modules: what its specials do.
 //!
 //! A module here is linked into the Smash game (`StaticNative`) and is also a
-//! loaded module file (`scripts/build_extension_modules.sh
+//! loaded module file (`scripts/regen/build_extension_modules.sh
 //! ambition_demo_smash_modules`). A developer who changes a special builds
 //! this crate alone, and the running game replaces the linked module with the
 //! file. The Smash crate does not compile again.

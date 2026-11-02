@@ -48,7 +48,7 @@ Read the log for the result. Each reload writes one line:
    save a module source, in about 1 to 2 s, and does not compile the engine:
 
    ```bash
-   scripts/build_extension_modules.sh --watch
+   scripts/regen/build_extension_modules.sh --watch
    ```
 
 2. Start the game once with the loaded modules, and leave it running:
@@ -68,7 +68,7 @@ Super Mary-O (0.57 s for one edit, measured 2026-10-11; a change to the same
 rule in the Mary-O crate compiled the crate and its app, 23.7 s):
 
 ```bash
-scripts/build_extension_modules.sh --watch ambition_demo_mary_o_modules
+scripts/regen/build_extension_modules.sh --watch ambition_demo_mary_o_modules
 AMBITION_EXTENSION_MODULES=target/extension-modules/wasm32-unknown-unknown/release/ambition_demo_mary_o_modules.wasm \
     cargo run -p ambition_demo_mary_o_app
 ```

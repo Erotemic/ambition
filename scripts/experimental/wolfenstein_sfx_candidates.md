@@ -1,6 +1,6 @@
 # Wolfenstein fight SFX auditions
 
-Written by `scripts/wolfenstein_sfx_candidates.py` (2026-10-17). Audio in
+Written by `scripts/experimental/wolfenstein_sfx_candidates.py` (2026-10-17). Audio in
 `untracked/sfx-candidates/wolfenstein/` (`solo/`, `reel/`). Each candidate is matched to the cue in use
 (loudest 400 ms RMS). A sound's solos share one headroom gain, so a peaky candidate set can sit
 a little under the `__current` solo; in a reel the cue in use and the candidates share one gain,

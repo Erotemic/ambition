@@ -102,7 +102,7 @@ The agent bias to resist: declaring victory at the green build.
 > `crates/ambition_platformer2d_actor_monolith/src/engine_core/`. `cargo build` and
 > `cargo test` are green. List the categories of reference that a Rust
 > build will NOT catch but that are now broken, and write the grep that
-> finds them. Then fix `tools/test_coverage_report.sh`, which has
+> finds them. Then fix `scripts/measure/test_coverage_report.sh`, which has
 > `engine) targets=("$REPO_ROOT/crates/ambition_engine/src")`, so the
 > tool keeps working from any cwd.
 
@@ -113,5 +113,5 @@ The agent bias to resist: declaring victory at the green build.
 rg -n 'crates/ambition_engine|-p ambition_engine|tools/audio/music_renderer' \
    --glob '*.sh' --glob '*.py' --glob '*.toml'
 # And the repaired tool should list files (not error / be empty):
-bash tools/test_coverage_report.sh engine | head
+bash scripts/measure/test_coverage_report.sh engine | head
 ```

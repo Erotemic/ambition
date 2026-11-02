@@ -8,7 +8,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
-import generate_library_content as producer
+from scripts.regen import generate_library_content as producer
 
 
 @pytest.fixture

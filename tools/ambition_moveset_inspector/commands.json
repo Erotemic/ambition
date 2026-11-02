@@ -8,7 +8,8 @@
       "command": "bash tools/ambition_moveset_inspector/serve_inspector.sh --no-export",
       "help": "bash tools/ambition_moveset_inspector/serve_inspector.sh --help",
       "requires": [
-        "tools/ambition_moveset_inspector/serve_inspector.sh"
+        "tools/ambition_moveset_inspector/serve_inspector.sh",
+        "tools/ambition_moveset_inspector/ambition_moveset_inspector/server.py"
       ],
       "docs": "tools/ambition_moveset_inspector/docs/inspector.md",
       "inputs": "Existing exported moveset bundle.",

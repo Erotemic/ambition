@@ -11,7 +11,7 @@ PNG layers later.
 From the repository root:
 
 ```bash
-python scripts/generate_background_assets.py
+python scripts/regen/generate_background_assets.py
 ```
 
 Generated files are written to:

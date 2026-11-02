@@ -17,7 +17,7 @@ Outputs go under `target/optimization_reports/<timestamp>/` and include an LLM-o
 
 ## Coverage helper
 
-Location: `tools/test_coverage_report.sh`
+Location: `scripts/measure/test_coverage_report.sh`
 
 Use when evaluating test coverage, not as a default validation step for every patch.
 

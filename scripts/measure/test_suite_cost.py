@@ -21,7 +21,7 @@ Why a cost model instead of just counting tests:
   change to what is tested -- usually the single biggest available win.
 
 This is reconnaissance, not coverage: for executable line/branch coverage use
-`cargo llvm-cov`; for per-file line/test tallies use tools/test_coverage_report.sh.
+`cargo llvm-cov`; for per-file line/test tallies use scripts/measure/test_coverage_report.sh.
 
 Usage:
   scripts/measure/test_suite_cost.py                 # static cost model, human report

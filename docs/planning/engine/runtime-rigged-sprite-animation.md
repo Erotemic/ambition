@@ -81,7 +81,7 @@ her): [`mary-o-part-realization.md`](mary-o-part-realization.md).
   deformation runs in the game. Each quality tier has its own table
   (`<target>.<tier>`) with its own part rects and `texel_scale`; a part keeps
   its full-resolution size and pivot at every tier.
-  `scripts/generate_visual_quality_variants.py` publishes tier atlases by
+  `scripts/regen/generate_visual_quality_variants.py` publishes tier atlases by
   cropping and downsampling each part, never by resizing a packed page.
 - A flipbook states each sheet row as a part clip (`clips`) or a baked clip
   (`baked_clips`). `check_rows` refuses a flipbook that states a row as neither,

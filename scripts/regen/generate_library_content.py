@@ -2,6 +2,11 @@
 """Stage and publish the selected library's generated media."""
 from __future__ import annotations
 
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[2] / "scripts"))
+
 from concurrent.futures import ProcessPoolExecutor
 import json
 import os
@@ -13,7 +18,7 @@ import tempfile
 
 from lib.content_libraries import selected_manifest, read_libraries, relative
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools/ambition_sprite2d_renderer"))
 from ambition_sprite2d_renderer.publication_store import Store
 from ambition_sprite2d_renderer.products import Digests, generation
@@ -22,7 +27,7 @@ OWNER = "ambition.library_producer.v1"
 TOOLS = {"backgrounds": "ambition_sprite2d_renderer", "variants": "ambition_sprite2d_renderer",
          "music": "ambition_music_renderer", "sfx": "ambition_sfx_renderer"}
 SCRIPTS = {"backgrounds": "scripts/regen/backgrounds.sh", "variants": "scripts/regen/quality_variants.sh",
-           "music": "scripts/regen/music.sh", "sfx": "scripts/regen/sfx.sh", "fonts": "scripts/grab_font_assets.py"}
+           "music": "scripts/regen/music.sh", "sfx": "scripts/regen/sfx.sh", "fonts": "scripts/regen/grab_font_assets.py"}
 _INPUTS = {}
 _DEPENDENCIES = {}
 IGNORED = {"__pycache__", ".cache", ".venv", "build", ".profiles", ".git"}
@@ -71,14 +76,14 @@ def input_files(family: str, selected) -> list[Path]:
     elif family == "backgrounds":
         roots.append(ROOT / "tools/ambition_background_renderer/ambition_background_renderer")
     elif family == "music":
-        import regen_music_registry as registry
+        from scripts.regen import regen_music_registry as registry
         from ambition_music_renderer.cli import find_score
         for cue in registry.generation_cues():
             path = find_score(cue)
             if path is None:
                 raise ValueError(f"Music cue has no authored score: {cue}")
             files.add(path)
-        files.add(ROOT / "scripts/regen_music_registry.py")
+        files.add(ROOT / "scripts/regen/regen_music_registry.py")
     elif family == "sfx":
         roots.append(ROOT / "tools/ambition_sfx_renderer/sounds" / config["collection"])
         files.update([ROOT / "tools/ambition_sfx_renderer/sounds/public_samples.yaml", ROOT / "tools/ambition_sfx_pack/pack.py"])
@@ -109,7 +114,7 @@ def owner_dependencies(family: str, cues=None) -> dict:
     if key not in _DEPENDENCIES:
         dependencies = {}
         if family == "music":
-            import regen_music_registry as registry
+            from scripts.regen import regen_music_registry as registry
             backend = os.environ.get("AMBITION_MUSIC_BACKEND", "pretty-midi")
             cues = registry.generation_cues() if cues is None else cues
             if not cues:
@@ -154,7 +159,7 @@ def current(key: str, family: str, selected, store: Store, hashes: Digests, sele
 
 
 def selected_music_cues(arguments: list[str]) -> list[str]:
-    import regen_music_registry as registry
+    from scripts.regen import regen_music_registry as registry
     requested = []
     for index, argument in enumerate(arguments):
         if argument == "--cue":
@@ -313,9 +318,9 @@ def run(family: str, arguments: list[str]) -> int:
     hashes = Digests(store.root / "producer-inputs.json")
     if family == "variants":
         if "--asset-root" in arguments or any(arg.startswith("--asset-root=") for arg in arguments):
-            return subprocess.call([interpreter(family), str(ROOT / "scripts/generate_visual_quality_variants.py"), *arguments], cwd=ROOT)
+            return subprocess.call([interpreter(family), str(ROOT / "scripts/regen/generate_visual_quality_variants.py"), *arguments], cwd=ROOT)
         if "--backgrounds-only" not in arguments and "sprites" in selected.manifest["producers"]:
-            status = subprocess.call([interpreter(family), str(ROOT / "scripts/generate_visual_quality_variants.py"), "--sprites-only", *arguments], cwd=ROOT)
+            status = subprocess.call([interpreter(family), str(ROOT / "scripts/regen/generate_visual_quality_variants.py"), "--sprites-only", *arguments], cwd=ROOT)
             if status:
                 return status
         if "--sprites-only" in arguments or "backgrounds" not in selected.manifest["producers"]:

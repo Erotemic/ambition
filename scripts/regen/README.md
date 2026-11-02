@@ -28,7 +28,7 @@ planning, generation, exact membership, and unmanaged files.
 |---|---|
 | one list naming EVERY move: *"no shipped FX spritesheet has a row by that name"* | `./scripts/regen/sprites.sh` |
 | `expect("its manifest is baked")` on a portrait | `./scripts/regen/sprites.sh` |
-| `error: couldn't read …/assets/fonts/bundled/InterDisplay-Regular.otf` | `python3 scripts/grab_font_assets.py` |
+| `error: couldn't read …/assets/fonts/bundled/InterDisplay-Regular.otf` | `python3 scripts/regen/grab_font_assets.py` |
 | art draws at a stale tier | `./scripts/regen/quality_variants.sh` |
 
 Read the selected sprite products with `./scripts/regen/sprites.sh --check`.
@@ -62,8 +62,8 @@ readers and packages use that selection. Old loose outputs do not define runtime
 membership within a published producer's declared roots.
 
 ```bash
-python3 scripts/generate_library_content.py --check        # all declared media
-python3 scripts/generate_library_content.py --check music  # one family
+python3 scripts/regen/generate_library_content.py --check        # all declared media
+python3 scripts/regen/generate_library_content.py --check music  # one family
 ./scripts/regen/sprites.sh --check                         # sprite bundles
 python3 scripts/checks/check_quality_variants_are_fresh.py        # quality products
 ```
@@ -145,3 +145,12 @@ Keep the shape the others have, because it is what makes them composable:
 3. Be incremental by default and offer `--force`.
 4. Register it in `assets.sh`'s category list if a fresh machine needs it, and
    in the table above either way.
+
+## Python coordination commands
+
+`generate_library_content.py` stages and publishes the selected library's
+producer families. `generate_background_assets.py`,
+`generate_visual_quality_variants.py`, `grab_font_assets.py`, and
+`regen_music_registry.py` coordinate the existing producer owners.
+`build_extension_modules.sh` compiles authored extension modules. These drivers
+own repository coordination. Renderer algorithms remain in their tool packages.

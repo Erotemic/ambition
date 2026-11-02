@@ -12,7 +12,7 @@ use super::super::MusicCatalogRow;
 /// pre-rendered OGG path (the explicit `asset_path` override, else the game's
 /// generated `audio/music/generated/<id>/full.ogg` convention). A missing OGG
 /// degrades to a placeholder at load time. Author cues with
-/// `tools/ambition_music_renderer`; `scripts/regen_music_registry.py`
+/// `tools/ambition_music_renderer`; `scripts/regen/regen_music_registry.py`
 /// generates `music_registry.ron`.
 pub(in super::super) fn extend_with_music_entries(
     manifest: &mut AssetManifest,

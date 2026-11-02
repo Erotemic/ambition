@@ -1,6 +1,6 @@
 # The Inugami's howl: auditions
 
-Written by `scripts/inugami_sfx_candidates.py` (2026-10-21). Audio in
+Written by `scripts/experimental/inugami_sfx_candidates.py` (2026-10-21). Audio in
 `untracked/sfx-candidates/inugami/` (`solo/`, `reel/`). Each candidate is matched to the cue in use
 (loudest 400 ms RMS).
 

@@ -3,7 +3,7 @@
 
 Run from any directory:
 
-    python scripts/generate_background_assets.py
+    python scripts/regen/generate_background_assets.py
 
 The script writes PNG layers into the runtime package's `assets/backgrounds` tree.
 """
@@ -15,7 +15,7 @@ from pathlib import Path
 
 
 def repo_root() -> Path:
-    return Path(__file__).resolve().parents[1]
+    return Path(__file__).resolve().parents[2]
 
 
 def main() -> int:

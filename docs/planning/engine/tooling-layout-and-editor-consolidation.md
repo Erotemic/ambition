@@ -1,42 +1,50 @@
 # Tooling layout, discovery, and Ambition Editor consolidation
 
-**State:** T0-T2 implemented. [TOOL-DISCOVERY](../queue.md#tool-discovery--find-supported-commands-by-developer-intent)
-selects T0-T1. [EDITOR-SHELL](../queue.md#editor-shell--promote-the-existing-inspector-without-a-second-authority)
-selects T2 after discovery. T3-T5 remain conditional on the inventory. The queue
-owns execution; this document does not approve bulk file moves.
+**State:** T0-T5 implemented. Final verification is in progress.
+The user selected all packets on 2026-11-02. The shared queue was not reorganized.
 **Source snapshot:** `19c66394` (2026-11-02 archive).
 **Scope:** Repository development and authoring tools, their paths, entry points, and discovery. No game or engine behavior change is intended.
 
-**Receipts:** command discovery and path inventory: `3e3bb72a27`; editor promotion: `61a8189823`.
-Intent queries now find owner commands. The editor reuses that catalog and keeps
-asset review as its first area. The 70 focused tests cover retrieval, missing
-source, asset inspection, review notes, and tool navigation. T3-T5 remain
-conditional. Renderer submodule paths must stay fixed.
+**Receipts:** discovery and editor shell: `3e3bb72a27`, `61a8189823`;
+package-owned inspection: `e0fac3518b`, `6820d91348`;
+measurements: `0ee9e6ab2d`, `3318d174bf`; maintenance: `8c9d8fd92f`;
+packaging: `c169ff5a37`; checks: `4309a73549`.
+Root scripts now have one operational category or a documented stable launcher
+role. Owner tests, intent retrieval, CLI smoke checks, and a path-consumer audit
+cover the moves. Renderer submodule paths must stay fixed.
 
-## Decision to make
+## Layout decision
 
 Use `tools/` for substantial author-time applications and packages. Keep all existing Git submodules in `tools/` at their existing paths. Grow the current Asset Inspector into one human-facing **Ambition Editor** under `tools/ambition_editor/`. Keep other specialized tool implementations independent. Use `scripts/` for small repository operations, grouped by purpose, with a few stable root entry points.
 
 The editor must also serve LLM development. The same functions must be discoverable and callable without clicking through the editor. Do not build a second authoring authority, a universal tool runtime, or a new gameplay mutation service as part of this migration.
 
-The selected packets follow the current multiplayer, asset-contract and
-A9/AP14 ownership work. Check each path and consumer on current main before a
-move. Keep implementation in small patches.
+The implementation uses separate commits for tool ownership, measurements,
+maintenance, packaging, checks, and final driver cleanup. Future moves must
+check current consumers before a file is moved.
 
-## Current evidence and concrete paths
+## Current ownership
 
-The source snapshot has:
+The baseline had 257 direct files under scripts/. The implemented layout keeps
+13 root launchers. The [script guide](../../../scripts/README.md) records their
+roles and the operational categories.
 
-- **257 direct files** in `scripts/`. This includes **65 `check_*`** and **63 `measure_*`** files. `scripts/tests/` contains **234 direct test files**. `scripts/regen/` already groups regeneration drivers such as `assets.sh`, `sprites.sh`, `music.sh`, `sfx.sh`, and `backgrounds.sh`.
-- Tool packages and applications under `tools/`, including `asset_inspector`, `ambition_moveset_inspector`, `ambition_ldtk_tools`, `ecs_architecture_browser`, `optimization_report`, and `vanity_card_prep`.
-- Gitlink submodules at `tools/ambition_sprite2d_renderer`, `tools/ambition_music_renderer`, and `tools/ambition_sfx_renderer`. Their location is a fixed requirement. An empty checkout in a source export does not mean the tool is absent.
-- The Asset Inspector implementation in `tools/ambition_editor/{asset_index,web,reviews,tests}`. `scripts/asset_inspector.py` is its supported CLI, with `build`, `serve`, `status`, `inspect`, `coverage`, `list`, and review-note workflows. The legacy art-inspector alias has been removed. Review notes are authored data; generated inspector pages are not.
-- The moveset inspector as a separate Python/web tool under `tools/ambition_moveset_inspector/`, launched by `serve_inspector.sh`. `game/ambition_app_tools` owns Rust binaries for capture, headless execution, moveset takes and rendering, trace replay, and room geometry rendering. The editor should reuse them.
-- `tools/ecs_architecture_browser/ecs_browser.py` builds the web output whose frontend lives in `tools/ecs_architecture_browser/web/`. `tools/ambition_moveset_inspector/moveset_report.py`, `tools/ambition_moveset_inspector/moveset_visualizations.py`, and `tools/ambition_moveset_inspector/render_take_diagnostic.py` are candidates for review alongside the moveset tool, not automatic moves.
-- `scripts/generate_agent_index.py::build_tool_index` scans immediate `tools/` directories and records README and Python-project presence. It does **not** inventory supported commands in `scripts/` or Cargo binaries. `scripts/agent_query.py` is already the agent discovery front door.
-- Several scripts derive the repository root from `__file__` and import `scripts/lib` helpers. Moving a script changes its relative path assumptions. `scripts/run_tests.py`, required checks, GitHub workflows, documentation, build scripts, and shell launchers may also name old paths.
-
-These observations are a snapshot inventory, not proof that each candidate should move. Reinspect current main before implementation.
+- Ambition Editor owns asset inspection, previews, lineage, and authored review
+  notes under tools/ambition_editor. The supported CLI remains
+  scripts/asset_inspector.py. Generated pages remain under .agent/asset_inspector.
+- The ECS browser owns its builder and tests under tools/ecs_architecture_browser.
+- The moveset tool owns its server, reports, diagnostic images, timing proposals,
+  and comparison-data fetch commands. Rust capture and simulation binaries remain
+  in game/ambition_app_tools.
+- The LDtk tool owns semantic world operations and tileset retarget proposals.
+- Renderer submodule paths stay fixed. One sprite-renderer guide now names the
+  new parent quality-check path. No renderer code or authored art changed.
+- Owner command descriptions, README status, package entry points, script path
+  risks and consumers, and explicit and implicit Cargo binaries appear in
+  .agent/index/tool_index.json. The catalog is not execution authority.
+- Completed schema migrations are removed. Audio experiments keep their source
+  and review artifacts under scripts/experimental. Asset attribution and
+  historical patch bytes stay unchanged.
 
 ## Rules for the target architecture
 
@@ -52,7 +60,7 @@ These observations are a snapshot inventory, not proof that each candidate shoul
 
 Governing documents: [agent-native authoring](../../concepts/agent-native-authoring.md), [authoring and tools](authoring-and-tools.md), [inspection and workbench](inspection-diagnostics-and-workbench.md), [asset library, editor, and delivery](asset-library-editor-and-delivery.md), and [tool authoring policy](../../tools/tool-authoring-policy.md).
 
-## Proposed layout
+## Implemented layout
 
 ```text
 tools/
@@ -101,7 +109,7 @@ This is a direction, not a command to create empty folders. Decide which scripts
 
 Ambition Editor stores authored notes under `tools/ambition_editor/reviews/notes/`. A physical package move must preserve all notes, stable note IDs, provenance, internal links, and any scripts that look them up. Its generated `.agent/asset_inspector` outputs can remain under their current path until there is a demonstrated need to change that path. Do not require a generated-output rename merely to rename the tool.
 
-## Script ownership candidates (triage, not preapproved moves)
+## Operational ownership
 
 | Candidate destination | Current examples | Ownership test |
 | --- | --- | --- |
@@ -109,12 +117,12 @@ Ambition Editor stores authored notes under `tools/ambition_editor/reviews/notes
 | `scripts/measure/` | `measure_kernel_module_graph.py`, `compile_cost.py`, `profile_desktop.sh`, `architecture_census.py` | Does it produce measurements or reports for the repository? |
 | `scripts/maintenance/` | `git_debloat.py`, `prune_profile_bundles.py`, `sweep_target.py` | Is it an infrequent cleanup or repair action with explicit safety checks? |
 | `scripts/package/` | `package_single_exe.py`, `package_outlander.py`, `web_bundle.py` | Does it assemble or deliver an application artifact? |
-| `scripts/regen/` | Existing scripts, possibly `generate_library_content.py` if it is only a repository-wide driver | Does it orchestrate producers without owning their generation algorithms? |
+| `scripts/regen/` | Repository producer coordination, including `generate_library_content.py` | Does it orchestrate producers without owning their generation algorithms? |
 | Existing tool packages | `ecs_browser.py`, `moveset_report.py`, `moveset_visualizations.py`, `render_take_diagnostic.py` | Does it implement a tool-specific operation better owned and tested beside that tool? |
 
 Do not move a check into `regen` solely because regeneration calls it. A producer implementation belongs with its owning tool; a repository-level generation coordinator may remain in `scripts/regen`. Review root-level one-off migrations under `tools/` separately: the top level of `tools/` should not become another dumping ground.
 
-## Implementation packets for another agent to triage
+## Implementation packets
 
 ### T0. Produce a command and path-consumer inventory
 
@@ -146,7 +154,9 @@ Start with the existing inspector implementation. Retain the asset browsing and 
 
 **Depends on:** T0 and the relevant owners' tests. **Status:** implemented.
 The ECS browser and three moveset commands now live with their tool owners.
-Their tests moved with them. The focused suite passes 109 tests.
+Their tests moved with them. The focused inspection suite passes 109 tests.
+The remaining fighter and LDtk command move passes 60 tests; three tests need
+published art that is absent from this checkout.
 
 Evaluate `tools/ecs_architecture_browser/ecs_browser.py` for relocation beside `tools/ecs_architecture_browser`. Evaluate the three named moveset scripts against the moveset inspector and Rust take-rendering binaries. Move a script only if the destination can own its tests, entry point, and documentation. Update all direct consumers as part of the same move. Avoid creating a second backend in the editor.
 
@@ -154,7 +164,9 @@ Evaluate `tools/ecs_architecture_browser/ecs_browser.py` for relocation beside `
 
 ### T4. Split root scripts into small operational batches
 
-**Depends on:** T0; T1 recommended. **Status:** proposed.
+**Depends on:** T0; T1 recommended. **Status:** implemented.
+Repository operations now use checks, measure, maintenance, package, and regen.
+The [script guide](../../../scripts/README.md) records all 13 stable root roles.
 
 Start with low-risk leaf scripts and one category at a time. Suggested order: a small group of measurement scripts, then isolated maintenance utilities, then packaging drivers, then checks with many references. Treat the order as a hypothesis to verify against T0. Keep `scripts/regen/`, `scripts/setup/`, `scripts/lib/`, and `scripts/tests/` intact during the first batches. Keep a short list of discoverable root commands, especially `agent_query.py`, `generate_agent_index.py`, `run_tests.py`, and `required_checks.py`.
 
@@ -164,7 +176,11 @@ For each moved script, update repo-root path resolution, imports, test expectati
 
 ### T5. Remove obsolete and duplicate launch paths
 
-**Depends on:** T2-T4 as applicable. **Status:** proposed.
+**Depends on:** T2-T4 as applicable. **Status:** implemented.
+The redundant inspector alias and three completed schema migrations are removed.
+Audio experiments retain their source and review files under scripts/experimental.
+Historical producer references inside asset files stay unchanged to preserve
+asset bytes and content hashes.
 
 Review unowned one-shot migrations, duplicate aliases, stale documentation, experimental scripts, and wrappers. Check active references before deletion. Keep unique development capabilities even when use is infrequent. Do not delete a tool only because a usage count is zero. Remove an alias when the canonical path is established and its consumers have moved.
 
@@ -182,9 +198,13 @@ For every implementation packet, use the smallest relevant tests. A file move sh
 - Verify moved commands work independently of the current shell directory and do not assume old `__file__` depth. Inspect error reporting and exit codes, not just a success screenshot.
 - Do not change physics, content publication rules, game state, or asset bytes as part of directory moves.
 
-## Triage decisions and non-goals
+## Decisions and non-goals
 
-The triage agent should answer these questions before scheduling implementation:
+The implementation keeps the proposed defaults: Ambition Editor is the product
+name; the internal asset_index package remains; command descriptions cover
+supported workflows; the script guide names stable root paths; tool packages own
+their operations and tests; and editor integration uses navigation and commands.
+The design questions below remain criteria for future changes:
 
 1. Is `ambition_editor` the right final product/package name, with the current Asset Inspector promoted into it, or should the existing Python package name remain internal for now? Default recommendation: new top-level tool name, minimal internal renaming.
 2. Which tool workflows deserve first-class command descriptors, and which are internal diagnostics? Default: curate supported workflows first; do not catalog every experimental script as public.

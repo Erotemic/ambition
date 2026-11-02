@@ -269,7 +269,7 @@ mod tests {
 
 /// M1 measurement, not a check: what one call of the game's module file
 /// costs, split into instantiation and the call. Needs the file built
-/// (`scripts/build_extension_modules.sh`).
+/// (`scripts/regen/build_extension_modules.sh`).
 ///
 /// `cargo test -p ambition_extension_wasm --release -- --ignored --nocapture m1_`
 #[cfg(test)]

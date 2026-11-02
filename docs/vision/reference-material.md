@@ -24,7 +24,7 @@ External reference links are inspiration and research context. They do not overr
 - JetBrains Mono — monospace/debug HUD candidate under the SIL Open Font License.
 - Atkinson Hyperlegible / Atkinson Hyperlegible Mono — accessibility-focused UI/debug candidates.
 
-Use `scripts/grab_font_assets.py` to download the current bundled-font set into the ignored sandbox asset tree before force-adding or IPFS-tracking accepted font assets.
+Use `scripts/regen/grab_font_assets.py` to download the current bundled-font set into the ignored sandbox asset tree before force-adding or IPFS-tracking accepted font assets.
 
 
 This is a very cool way to implement visuals for 2d portals:

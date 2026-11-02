@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SPEC = importlib.util.spec_from_file_location("regen_music_registry", ROOT / "scripts/regen_music_registry.py")
+SPEC = importlib.util.spec_from_file_location("regen_music_registry", ROOT / "scripts/regen/regen_music_registry.py")
 registry = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(registry)
 

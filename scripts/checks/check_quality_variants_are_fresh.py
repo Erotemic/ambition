@@ -72,7 +72,7 @@ def main() -> int:
                         failures.append(f"{unit}: missing {tier}")
     if "backgrounds" in producers and not override:
         checked += 1
-        result = subprocess.call([sys.executable, str(ROOT / "scripts/generate_library_content.py"), "--check", "variants"])
+        result = subprocess.call([sys.executable, str(ROOT / "scripts/regen/generate_library_content.py"), "--check", "variants"])
         if result:
             failures.append("Background quality publications are missing or stale")
     for source, tier_names in (((args.asset_root / 'backgrounds/parallax_layers', PARALLAX_TIERS),) if 'backgrounds' in producers and override else ()):

@@ -146,7 +146,7 @@ new laptop. Anyone testing the fresh-clone contract says which half they test.
 
 Current shape:
 
-- `scripts/setup/generated_content.sh` runs `scripts/grab_font_assets.py`. The
+- `scripts/setup/generated_content.sh` runs `scripts/regen/grab_font_assets.py`. The
   `ambition_render` typography test `include_bytes!`s the bundled faces, as the
   app's `embed_core_assets!` does, so missing fonts fail `cargo check
   --all-targets`. Keep the test mirroring the app's path.

@@ -17,7 +17,7 @@ cd "$repo_root"
 
 # shellcheck disable=SC1091
 if [ "${AMBITION_PRODUCER_WORKER:-}" != "backgrounds" ] && [ "${1:-}" != "--help" ] && [ "${1:-}" != "-h" ]; then
-    exec python3 "$repo_root/scripts/generate_library_content.py" backgrounds "$@"
+    exec python3 "$repo_root/scripts/regen/generate_library_content.py" backgrounds "$@"
 fi
 
 source "$repo_root/scripts/lib/tool_python.sh"

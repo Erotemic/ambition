@@ -23,17 +23,17 @@ and the loaded road after it).
 ## The loop
 
 ```bash
-scripts/build_extension_modules.sh          # builds target/extension-modules/.../ambition_content_modules.wasm
+scripts/regen/build_extension_modules.sh          # builds target/extension-modules/.../ambition_content_modules.wasm
 AMBITION_EXTENSION_MODULES=target/extension-modules/wasm32-unknown-unknown/release \
     cargo run -p ambition_app               # once; leave it running
 # edit game/ambition_content_modules/src/<technique>.rs
-scripts/build_extension_modules.sh          # the game reloads the file within ~20 frames
+scripts/regen/build_extension_modules.sh          # the game reloads the file within ~20 frames
 ```
 
 Or leave a watcher running instead of the second build:
 
 ```bash
-scripts/build_extension_modules.sh --watch  # rebuilds on every save; a failed build keeps the last good one
+scripts/regen/build_extension_modules.sh --watch  # rebuilds on every save; a failed build keeps the last good one
 ```
 
 With the watcher, save to rebuilt `.wasm` is about half a second (build plus the

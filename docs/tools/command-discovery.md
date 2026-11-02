@@ -30,7 +30,10 @@ python3 scripts/generate_agent_index.py --tools-only
 
 The output is `.agent/index/tool_index.json`. It includes source revision,
 commands, root script candidates, Cargo binaries, and consumers of proposed
-move paths. Unclassified candidates have status `unknown`. Path risk fields
+move paths. Repository operations have status `internal` unless a supported descriptor
+selects them. Experiments have status `experimental`. Tool README status and
+package entry points are included without declaring that their dependencies
+are available. Path risk fields
 show relative root and import assumptions. Review each consumer before a move.
 The inventory is a navigation aid. Source and owner documentation remain the
 authority.
@@ -40,3 +43,8 @@ The ECS browser owns its builder and tests under
 diagnostic SVG renderer, and visualization coordinator under
 `tools/ambition_moveset_inspector/`. Their commands remain independent of the
 editor server and do not build Rust by default.
+
+The [script guide](../../scripts/README.md) explains the operational categories
+and each stable root entry point. The catalog reuses an existing debug or
+release binary when present and reports that it can be stale. Command queries
+read current descriptors and do not need a current generated source index.

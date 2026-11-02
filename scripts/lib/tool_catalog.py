@@ -22,6 +22,13 @@ def commands(repo: Path) -> list[dict]:
             if row.get('binary'):
                 row['existing_binaries'] = [f'target/{profile}/{row["binary"]}' for profile in ('debug', 'release')
                                             if (repo / 'target' / profile / row['binary']).is_file()]
+                if row['existing_binaries']:
+                    binary = max(row['existing_binaries'], key=lambda path: (repo / path).stat().st_mtime_ns)
+                    for key in ('command', 'help'):
+                        row[key] = row[key].replace(f'target/debug/{row["binary"]}', binary)
+                    row['availability'] += '; existing binary may be stale'
+                else:
+                    row['availability'] += '; no existing binary; build explicitly'
             rows.append(row)
     return rows
 
@@ -30,15 +37,27 @@ def inventory(repo: Path) -> dict:
     """List command candidates and path consumers before a physical move."""
     supported = commands(repo)
     scripts = []
-    for path in sorted((repo / 'scripts').rglob('*')):
-        if path.suffix not in {'.py', '.sh', '.cjs'} or any(part in {'tests', 'lib', '__pycache__'} for part in path.relative_to(repo / 'scripts').parts):
+    tracked = subprocess.run(['git', 'ls-files', '--cached', '--others', '--exclude-standard', '--', 'scripts/'],
+                             cwd=repo, text=True, capture_output=True)
+    paths = {repo / path for path in tracked.stdout.splitlines()} if tracked.returncode == 0 else set((repo / 'scripts').rglob('*'))
+    for path in sorted(paths):
+        if not path.is_file() or path.suffix not in {'.py', '.sh', '.cjs'} or any(part in {'tests', 'lib', '__pycache__'} for part in path.relative_to(repo / 'scripts').parts):
             continue
         relative = path.relative_to(repo).as_posix()
         text = path.read_text(errors='replace')
-        scripts.append({'path': relative, 'status': 'active' if any(relative in row['requires'] for row in supported) else ('experimental' if 'experimental' in path.parts else 'internal'),
+        scripts.append({'path': relative, 'status': 'active' if any(relative in row['requires'] for row in supported) else ('experimental' if 'experimental' in path.relative_to(repo / 'scripts').parts else 'internal'),
                         'path_risks': [token for token in ('__file__', 'sys.path', 'scripts/lib', 'Path.cwd()', 'os.getcwd') if token in text]})
     manifest = repo / 'game/ambition_app_tools/Cargo.toml'
-    bins = tomllib.loads(manifest.read_text()).get('bin', []) if manifest.is_file() else []
+    config = tomllib.loads(manifest.read_text()) if manifest.is_file() else {}
+    bins = list(config.get('bin', []))
+    if config.get('package', {}).get('autobins', True):
+        named = {row['name'] for row in bins}
+        bin_dir = manifest.parent / 'src/bin'
+        for source in sorted([*bin_dir.glob('*.rs'), *bin_dir.glob('*/main.rs')]):
+            name = source.parent.name if source.name == 'main.rs' else source.stem
+            if name not in named:
+                bins.append({'name': name, 'path': source.relative_to(manifest.parent).as_posix()})
+
     candidates = sorted({row['path'] for row in scripts} | {path for row in supported for path in row['requires']})
     result = subprocess.run(['git', 'grep', '-n', '-F', '-f', '-',
                              '--', '.', ':!docs/brainstorms', ':!dev/journals'], input='\n'.join(candidates),

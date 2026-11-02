@@ -12,7 +12,7 @@
     // Moves like a tactician: slow on the ground, ordinary in the air.
     // Shaped like Ultimate's Robin at 0.60 strength: each number is Smash's
     // default fighter's, scaled by how that fighter differs from Ultimate's
-    // roster median (`scripts/measure/smash_fighter_shape.py "Robin" --strength 0.6`).
+    // roster median (`scripts/smash_fighter_shape.py "Robin" --strength 0.6`).
     body: Some((
         max_run_speed: Some(262.7),
         initial_dash_speed: Some(334.8),
@@ -30,7 +30,7 @@
 
     // SMASH-STAGE MOVE CLOCKS: first strike, last strike, total and landing
     // lag, in seconds, and the swing cue. Written by
-    // `tools/ambition_moveset_inspector/smash_retime.py` from an archetype template; the moveset keeps
+    // `scripts/smash_retime.py` from an archetype template; the moveset keeps
     // the home game's pace. Frames at 60 Hz are in the trailing comment.
     move_timing: {
         // attack: 3/5/17
@@ -66,7 +66,7 @@
     },
     // SMASH-STAGE BASE KNOCKBACK: the factor each move's base launch is
     // scaled by here, so a tilt or an aerial at 0% stuns past its own
-    // swing. Written by `tools/ambition_moveset_inspector/smash_retime.py`.
+    // swing. Written by `scripts/smash_retime.py`.
     move_knockback: {
         "tilt_forward": 1.6,
         "tilt_down": 1.6,

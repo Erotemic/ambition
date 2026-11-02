@@ -7,7 +7,7 @@
     // FLUDD. Mario is her template, taken whole.
     // Shaped like Ultimate's Mario: each number is Smash's
     // default fighter's, scaled by how that fighter differs from Ultimate's
-    // roster median (`scripts/measure/smash_fighter_shape.py "Mario"`).
+    // roster median (`scripts/smash_fighter_shape.py "Mario"`).
     knockback_weight: Some(0.98),
     body: Some((
         max_run_speed: Some(323.7),

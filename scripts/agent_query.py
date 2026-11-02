@@ -1506,7 +1506,8 @@ def normalize_argv(argv: Sequence[str]) -> list[str]:
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(normalize_argv(list(argv if argv is not None else sys.argv[1:])))
     limit = max(1, args.limit)
-    warn_if_index_stale()
+    if args.command != "tools":
+        warn_if_index_stale()
     if args.command == "overview":
         command_overview()
     elif args.command == "task":

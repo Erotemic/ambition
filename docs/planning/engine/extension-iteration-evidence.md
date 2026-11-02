@@ -80,7 +80,7 @@ stale or cancelled attempts and the active generation.
 | Measurement | Result | Limits |
 | --- | --- | --- |
 | Graph position (`scripts/measure/compile_cost.py --scenario check` against `--scenario check-leaf`: one file edited in `actor_monolith` or in `platformer2d_core`, then `cargo check -p ambition_app`) | about 2x: 2.14x on a 30-core host capped at `-j2`; 1.91x on a 6-core VM | Two hosts that differ in cap and core count; one edit class (`append-private-fn`); consistent with a property of the dependency graph, not established |
-| Module road (an edit to a loadable `.wasm` with `scripts/build_extension_modules.sh`) | 1.36 s for the first edit after a cold module build; 0.34 s for a warm one-constant edit | Agent machine |
+| Module road (an edit to a loadable `.wasm` with `scripts/regen/build_extension_modules.sh`) | 1.36 s for the first edit after a cold module build; 0.34 s for a warm one-constant edit | Agent machine |
 | The same constant in a technique still in `game/ambition_content` | 7.05 s to relink `ambition_app`, plus a restart | Agent machine |
 | A data source read off disk (`boss_profiles.ron`, `sfx_registry.ron`, a demo move table) | about 0.4-0.5 s, no crate compiled; the same files embedded cost 5.8-7.2 s | Agent machine, warm |
 | A game's own shader (`content_asset!`: `room_plate.wgsl` in `ambition_content`, `shimmer.wgsl` in Mary-O), then that crate's tests | 1.0 s, no crate compiled; the same shader compiled in (`embedded_asset!`) cost a build of `ambition_content` (58 s for its tests, under `app_it` load) and a relink | 2026-10-18, agent machine, debug build. A restart, not a live reload: the file is read when the app starts |

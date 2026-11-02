@@ -200,7 +200,7 @@ def serve(repo: Path, out: Path, *, port=8767, open_browser=False, build=None, r
     signal.signal(signal.SIGTERM, stop)
     with ThreadingHTTPServer(("127.0.0.1", port), make_handler(repo, current_catalog, status)) as server:
         url = f"http://127.0.0.1:{server.server_port}/{(out / 'index.html').relative_to(repo).as_posix()}#overview"
-        print(f"Asset inspector: {url}", flush=True)
+        print(f"Ambition Editor: {url}", flush=True)
         print("Review notes: tools/ambition_editor/reviews/notes/", flush=True)
         if open_browser:
             webbrowser.open(url)
@@ -224,7 +224,7 @@ def serve(repo: Path, out: Path, *, port=8767, open_browser=False, build=None, r
                     status["state"] = "done"
                 except Exception as error:  # the open page stays usable; say why it did not refresh
                     status.update(state="failed", step=f"{type(error).__name__}: {str(error).splitlines()[-1] if str(error) else ''}")
-                    print(f"Asset inspector: the refresh failed; the page shows the previous index.\n{error}", flush=True)
+                    print(f"Ambition Editor: the refresh failed; the page shows the previous index.\n{error}", flush=True)
             print("Showing the previous index while it refreshes.", flush=True)
             threading.Thread(target=refresh, daemon=True).start()
         try:

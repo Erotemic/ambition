@@ -8,7 +8,7 @@ description = "Super Mary-O's procedural extension modules (its enemy brains), b
 
 # ⛔ NO BEVY ECS, NO HOST, NO GAME RUNTIME, as `ambition_content_modules`: a
 # module names the SDK and the pure values of the ports it uses. So an edit
-# here compiles this crate alone (`scripts/build_extension_modules.sh
+# here compiles this crate alone (`scripts/regen/build_extension_modules.sh
 # ambition_demo_mary_o_modules`), and a running game loads the file. The
 # workspace policy `game.ambition_demo_mary_o_modules-portable-closure` keeps
 # this list closed.

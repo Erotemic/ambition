@@ -216,7 +216,7 @@ Narrower commands:
 ./scripts/regen/assets.sh
 ./scripts/regen/sprites.sh --list
 ./scripts/regen/sprites.sh --target <target>
-python3 scripts/grab_font_assets.py
+python3 scripts/regen/grab_font_assets.py
 ```
 
 Asset generation needs no Cargo build and can run beside one.

@@ -93,7 +93,7 @@ def check_sprites(read_product: ProductReader, sources, plans_only: bool) -> lis
 
 
 def check_music(read_product: ProductReader, plans_only: bool, selected_cues: str | None = None) -> list[str]:
-    import regen_music_registry as music_registry
+    from scripts.regen import regen_music_registry as music_registry
     cues = music_registry.generation_cues()
     if not cues:
         raise ValueError("music discovery returned no cues")

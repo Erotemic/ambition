@@ -10,9 +10,9 @@ by Git. The library keeps shared SFX definitions and music naming policy in
 ./scripts/regen/music.sh
 ./scripts/regen/music.sh --cue support_theme,embedded_theme
 ./scripts/regen/sfx.sh
-python3 scripts/generate_library_content.py --check music
-python3 scripts/generate_library_content.py --check music --cue support_theme,embedded_theme
-python3 scripts/generate_library_content.py --check sfx
+python3 scripts/regen/generate_library_content.py --check music
+python3 scripts/regen/generate_library_content.py --check music --cue support_theme,embedded_theme
+python3 scripts/regen/generate_library_content.py --check sfx
 ```
 
 Music has one accepted bundle per cue. A full run also publishes the library

@@ -121,7 +121,7 @@ python3 scripts/content_status.py --require-complete   # status 1 when incomplet
 It reads `library.json`, `published.json`, the manifest of each selected
 bundle, and the library sources that each game pack declares. It is fast and
 it always exits 0 unless `--require-complete` is given. The exact check of
-each producer is `python3 scripts/generate_library_content.py --check` (it
+each producer is `python3 scripts/regen/generate_library_content.py --check` (it
 needs the renderer toolchains).
 
 `--audit` reports old loose files as unmanaged. It compares their logical names

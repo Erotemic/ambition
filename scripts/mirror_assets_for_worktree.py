@@ -45,7 +45,7 @@ bug was first met. The full census of publishers into `MIRRORED_TREES`:
 
 | publisher | writes | state |
 |---|---|---|
-| `scripts/generate_visual_quality_variants.py` | `Image.save`, `write_text` (3 sites) | ✔ guarded, tested |
+| `scripts/regen/generate_visual_quality_variants.py` | `Image.save`, `write_text` (3 sites) | ✔ guarded, tested |
 | `tools/ambition_sfx_pack/pack.py` | `open("wb")` (bank), `write_text` (dump) | ✔ guarded 2026-09-03, tested — **was writing straight through** |
 | `tools/ambition_sprite2d_renderer` `_copy_sheet_files` | `shutil.copy2` | ✔ guarded (submodule, already correct) |
 | `tools/ambition_music_renderer` `cli.py:364, 371, 399` | `publish_safely.publish_copy` ×3 | ✔ guarded 2026-09-04 (submodule, gitlink at `4e5695c`) |

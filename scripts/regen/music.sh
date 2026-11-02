@@ -31,7 +31,7 @@ renderer_dir="$repo_root/tools/ambition_music_renderer"
 
 # shellcheck disable=SC1091
 if [ "${AMBITION_PRODUCER_WORKER:-}" != "music" ] && [ "${1:-}" != "--help" ] && [ "${1:-}" != "-h" ]; then
-    exec python3 "$repo_root/scripts/generate_library_content.py" music "$@"
+    exec python3 "$repo_root/scripts/regen/generate_library_content.py" music "$@"
 fi
 
 source "$repo_root/scripts/lib/tool_python.sh"
@@ -114,7 +114,7 @@ else
 fi
 
 if [ -z "$cue_selection" ]; then
-    cue_selection="$("$renderer_py" "$repo_root/scripts/regen_music_registry.py" --list-cues |
+    cue_selection="$("$renderer_py" "$repo_root/scripts/regen/regen_music_registry.py" --list-cues |
         "$renderer_py" -c 'import json, sys; print(",".join(json.load(sys.stdin)))')"
 fi
 radio_args+=(--cue "$cue_selection")
@@ -128,7 +128,7 @@ fi
 # Project every published OGG into the in-game music registry so newly
 # rendered cues are registered automatically (stdlib-only; no venv needed).
 echo "==> music registry (music_registry.ron)"
-"$renderer_py" "$repo_root/scripts/regen_music_registry.py" \
+"$renderer_py" "$repo_root/scripts/regen/regen_music_registry.py" \
     --generated-dir "$AMBITION_MUSIC_PUBLISH_ROOT"
 
 "$renderer_py" "$repo_root/scripts/checks/check_regeneration_coverage.py" --family music --cue "$cue_selection"

@@ -14,7 +14,7 @@ import pathlib
 import sys
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
-BASELINE = REPO / "scripts" / "authored_levels_baseline.json"
+BASELINE = REPO / "scripts/baselines" / "baselines/authored_levels_baseline.json"
 
 # a world reachable by several paths (a submodule, the symlink into it, and a
 # packaged web copy) is ONE world. Keying on the file's own `iid` would be

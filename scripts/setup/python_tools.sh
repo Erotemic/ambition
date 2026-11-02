@@ -274,7 +274,7 @@ install_scripts_env() {
     # print anything at all.
     # ⛔ `pillow` JOINED THE LIST 2026-09-03, AND IT IS THE SAME STORY THE
     # PARAGRAPH ABOVE TELLS. `scripts/tests/test_asset_writes_do_not_follow_worktree_symlinks.py`
-    # loads `scripts/generate_visual_quality_variants.py` to reach ONE guard
+    # loads `scripts/regen/generate_visual_quality_variants.py` to reach ONE guard
     # function, and that script's `from PIL import Image` is at module scope —
     # so with no Pillow the import raises and three repo-coupled tests go red at
     # collection on any machine this script set up. The tests never mention

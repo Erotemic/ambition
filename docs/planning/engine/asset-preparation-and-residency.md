@@ -166,7 +166,7 @@ in a dialogue box, so its reduced tiers are sized from its draw size
 (`DialogLayoutProfile`, `game/ambition_content/src/presentation/dialog.rs`:
 56×62, 82×94 or 104×120 px), not from the 1/16 sprite rule.
 
-Built 2026-10-12. `scripts/generate_visual_quality_variants.py` publishes each
+Built 2026-10-12. `scripts/regen/generate_visual_quality_variants.py` publishes each
 tier of a portrait sheet as its own product: each frame cell resized on its
 own, at the tier's factor floored so a frame covers the largest box
 (`PORTRAIT_BOX_PX`, 104×120; a test holds it to the layout profiles), with a

@@ -176,7 +176,7 @@ fn a_loaded_graph_module_closes_a_loop_the_same_way_through_rollback() {
 
 /// ⭐ THE NO-COMPILE LOOP, END TO END, IN THE SHIPPED COMPOSITION: the game
 /// runs a loaded module file; the file is replaced while the game runs (as
-/// `scripts/build_extension_modules.sh --watch` does); the app sees the new
+/// `scripts/regen/build_extension_modules.sh --watch` does); the app sees the new
 /// file, proposes the reload through the mechanical-edit protocol, and the
 /// new file's module takes over at publication. Here the new file adds a
 /// module the running game did not have (the fixture crate's), and the

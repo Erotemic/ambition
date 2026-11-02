@@ -137,7 +137,7 @@ one-time audit before distribution.
 **Scope caution:** the music publisher checks cue dependencies and renders
 per-cue units, while SFX currently produces an audio bank. It can refuse to
 *certify a new render* when required inputs are not current
-(`scripts/generate_library_content.py:223-240`). That must not turn into a
+(`scripts/regen/generate_library_content.py:223-240`). That must not turn into a
 refusal to run the last usable published version.
 
 ### C. Startup scans the library and prepares sheet data
@@ -192,7 +192,7 @@ path separately from native launch and static compilation.
 ### E. The audio publication is integrated; inspector resolution lags
 
 The library manifest declares `music`, `sfx`, `fonts`, `backgrounds`, `sprites`
-and quality variants. `scripts/generate_library_content.py` publishes them.
+and quality variants. `scripts/regen/generate_library_content.py` publishes them.
 Music uses per-cue bundle units and a registry; SFX currently ships a bank.
 At runtime, music handles load through Bevy on first use
 (`crates/ambition_audio/src/library.rs:341-365`); SFX banks load through Bevy

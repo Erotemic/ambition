@@ -183,7 +183,7 @@ fn every_declared_music_track_path_names_a_file_that_exists() {
         missing.is_empty(),
         "{} declared music track path(s) name no file:\n{}\n\n\
          The id resolves, the load finds nothing, and the station is silent — \
-         which sounds exactly like a quiet moment. `scripts/regen_music_registry.py` \
+         which sounds exactly like a quiet moment. `scripts/regen/regen_music_registry.py` \
          generates this registry; a path in it with no OGG behind it means the \
          render step was skipped.",
         missing.len(),

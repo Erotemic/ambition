@@ -46,7 +46,7 @@ The script exits 0 unless `--require-complete` is given. It reads
 `library.json`, the selection, each selected bundle manifest, and the library
 sources of each game pack. Stale means that an input that the bundle recipe
 records changed after the bundle was accepted. The exact producer check is
-`python3 scripts/generate_library_content.py --check`, which needs the
+`python3 scripts/regen/generate_library_content.py --check`, which needs the
 renderer toolchains.
 
 ## Commands
@@ -58,7 +58,7 @@ python3 scripts/content_status.py
 scripts/setup/generated_content.sh
 ./scripts/regen/sprites.sh --plan --json
 ./scripts/regen/sprites.sh --check --json
-python3 scripts/generate_library_content.py --check
+python3 scripts/regen/generate_library_content.py --check
 ./scripts/regen/sprites.sh --audit --json
 ./scripts/regen/sprites.sh --target hand_saint
 ```

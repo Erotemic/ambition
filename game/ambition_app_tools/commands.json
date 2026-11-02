@@ -31,7 +31,7 @@
       "inputs": "Tick count and room options.",
       "outputs": "Simulation summary; optional trace.",
       "mutation": "Runs an isolated simulation; writes requested output files.",
-      "build": "Reuse target/debug/headless or target/release/headless. If absent, enable the target bind, then cargo build -p ambition_app_tools --bin headless. Capture needs graphics support.",
+      "build": "Reuse target/debug/headless or target/release/headless. If absent, enable the target bind, then cargo build -p ambition_app_tools --bin headless.",
       "status": "active",
       "cwd": "repository root",
       "binary": "headless"
@@ -49,7 +49,7 @@
       "inputs": "Recorded simulation trace.",
       "outputs": "Replay comparison diagnostics.",
       "mutation": "Runs an isolated simulation; writes requested output files.",
-      "build": "Reuse target/debug/trace_replay or target/release/trace_replay. If absent, enable the target bind, then cargo build -p ambition_app_tools --bin trace_replay. Capture needs graphics support.",
+      "build": "Reuse target/debug/trace_replay or target/release/trace_replay. If absent, enable the target bind, then cargo build -p ambition_app_tools --bin trace_replay.",
       "status": "active",
       "cwd": "repository root",
       "binary": "trace_replay"
@@ -67,7 +67,7 @@
       "inputs": "Fighter and move options.",
       "outputs": "JSON simulation takes.",
       "mutation": "Runs an isolated simulation; writes requested output files.",
-      "build": "Reuse target/debug/moveset_takes or target/release/moveset_takes. If absent, enable the target bind, then cargo build -p ambition_app_tools --bin moveset_takes. Capture needs graphics support.",
+      "build": "Reuse target/debug/moveset_takes or target/release/moveset_takes. If absent, enable the target bind, then cargo build -p ambition_app_tools --bin moveset_takes.",
       "status": "active",
       "cwd": "repository root",
       "binary": "moveset_takes"
@@ -103,7 +103,7 @@
       "inputs": "Room geometry options.",
       "outputs": "Room geometry render.",
       "mutation": "Runs an isolated simulation; writes requested output files.",
-      "build": "Reuse target/debug/render_room_geometry or target/release/render_room_geometry. If absent, enable the target bind, then cargo build -p ambition_app_tools --bin render_room_geometry. Capture needs graphics support.",
+      "build": "Reuse target/debug/render_room_geometry or target/release/render_room_geometry. If absent, enable the target bind, then cargo build -p ambition_app_tools --bin render_room_geometry.",
       "status": "active",
       "cwd": "repository root",
       "binary": "render_room_geometry"

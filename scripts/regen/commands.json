@@ -1,0 +1,38 @@
+{
+  "commands": [
+    {
+      "id": "generate_library_content",
+      "title": "Generate library fonts, backgrounds, music, SFX and quality variants",
+      "owner": "scripts/regen",
+      "command": "python3 scripts/regen/generate_library_content.py fonts",
+      "help": "python3 scripts/regen/generate_library_content.py --help",
+      "requires": [
+        "scripts/regen/generate_library_content.py"
+      ],
+      "docs": "scripts/regen/README.md",
+      "inputs": "Selected library manifest, fonts/backgrounds/variants/music/sfx family, and authored sources.",
+      "outputs": "Accepted generated bundles and publication manifest.",
+      "mutation": "Stages and publishes requested content. --check validates without publication.",
+      "build": "No Cargo build. Each producer uses its separate Python environment.",
+      "status": "active",
+      "cwd": "repository root"
+    },
+    {
+      "id": "grab_font_assets",
+      "title": "Preview font asset downloads",
+      "owner": "scripts/regen",
+      "command": "python3 scripts/regen/grab_font_assets.py --dry-run",
+      "help": "python3 scripts/regen/grab_font_assets.py --help",
+      "requires": [
+        "scripts/regen/grab_font_assets.py"
+      ],
+      "docs": "scripts/regen/README.md",
+      "inputs": "Authored font download definitions and cache location.",
+      "outputs": "Download plan; explicit generation produces font files.",
+      "mutation": "--dry-run prints a plan without writing. Normal generation uses the publication owner.",
+      "build": "No Cargo build. Each producer uses its separate Python environment.",
+      "status": "active",
+      "cwd": "repository root"
+    }
+  ]
+}

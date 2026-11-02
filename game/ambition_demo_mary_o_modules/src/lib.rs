@@ -2,7 +2,7 @@
 //! what a touch on them does.
 //!
 //! A module here is linked into the Mary-O game (`StaticNative`) and is also
-//! a loaded module file (`scripts/build_extension_modules.sh
+//! a loaded module file (`scripts/regen/build_extension_modules.sh
 //! ambition_demo_mary_o_modules`). A developer who changes an enemy builds
 //! this crate alone, and the running game replaces the linked module with the
 //! file. The Mary-O crate does not compile again.

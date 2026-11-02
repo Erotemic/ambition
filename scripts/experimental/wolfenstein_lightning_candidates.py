@@ -15,7 +15,7 @@ pair them.
 
 Run with the SFX renderer's venv, from the repo root:
 
-    ~/.cache/ambition-tool-venvs/ambition_sfx_renderer/bin/python scripts/wolfenstein_lightning_candidates.py
+    ~/.cache/ambition-tool-venvs/ambition_sfx_renderer/bin/python scripts/experimental/wolfenstein_lightning_candidates.py
 
 Writes `untracked/sfx-candidates/wolfenstein/` (`solo/zap__*`,
 `solo/strike__*`, `reel/intro__*`) and `LIGHTNING.md` there (copied beside
@@ -26,6 +26,11 @@ pieces and the render, load and level-match of
 
 from __future__ import annotations
 
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[2] / "scripts"))
+
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -33,9 +38,9 @@ from pathlib import Path
 import soundfile as sf
 import yaml
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import wolfenstein_sfx_candidates as W  # noqa: E402
-from wolfenstein_sfx_candidates import env, grains, hp, lp, bp, noise, sweep, tone  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from scripts.experimental import wolfenstein_sfx_candidates as W  # noqa: E402
+from scripts.experimental.wolfenstein_sfx_candidates import env, grains, hp, lp, bp, noise, sweep, tone  # noqa: E402
 
 C: dict[tuple[str, str], dict] = {}
 
@@ -135,7 +140,7 @@ def main():
         sf.write(W.HERE / "reel" / f"{name}.wav", a * gain, W.SR)
 
     index = ["# Wolfenstein's lightning: the zap and the strike", "",
-             "Written by `scripts/wolfenstein_lightning_candidates.py` (2026-10-18). Audio in",
+             "Written by `scripts/experimental/wolfenstein_lightning_candidates.py` (2026-10-18). Audio in",
              "`untracked/sfx-candidates/wolfenstein/`. Matched to the cue in use (loudest 400 ms RMS).", "",
              "The ZAP is an arc that hits nothing; the STRIKE is a zap with a thunderclap, for effect and",
              "for an impact.", ""]

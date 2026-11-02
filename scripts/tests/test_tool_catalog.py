@@ -43,3 +43,19 @@ def test_inventory_reports_path_risks(tmp_path):
     report = inventory(tmp_path)
     assert report['scripts'] == [{'path': 'scripts/leaf.py', 'status': 'internal', 'path_risks': ['__file__']}]
     assert not report['consumer_scan_available']
+
+
+def test_a_release_binary_is_reused_when_debug_is_absent(tmp_path):
+    (tmp_path / 'scripts').mkdir()
+    (tmp_path / 'scripts/commands.json').write_text(json.dumps({'commands': [{
+        'id': 'capture', 'binary': 'capture_scene', 'requires': [],
+        'command': 'target/debug/capture_scene room player /tmp/scene.png',
+        'help': 'target/debug/capture_scene --help',
+    }]}))
+    binary = tmp_path / 'target/release/capture_scene'
+    binary.parent.mkdir(parents=True)
+    binary.write_bytes(b'')
+    command = commands(tmp_path)[0]
+    assert command['command'].startswith('target/release/capture_scene ')
+    assert command['help'] == 'target/release/capture_scene --help'
+    assert 'may be stale' in command['availability']

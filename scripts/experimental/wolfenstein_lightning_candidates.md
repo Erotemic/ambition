@@ -1,6 +1,6 @@
 # Wolfenstein's lightning: the zap and the strike
 
-Written by `scripts/wolfenstein_lightning_candidates.py` (2026-10-18). Audio in
+Written by `scripts/experimental/wolfenstein_lightning_candidates.py` (2026-10-18). Audio in
 `untracked/sfx-candidates/wolfenstein/`. Matched to the cue in use (loudest 400 ms RMS).
 
 The ZAP is an arc that hits nothing; the STRIKE is a zap with a thunderclap, for effect and

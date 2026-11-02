@@ -11,8 +11,8 @@ is ported later as a recipe with the same layers and seed (the loop of
 
 Run with the SFX renderer's venv, from the repo root:
 
-    ~/.cache/ambition-tool-venvs/ambition_sfx_renderer/bin/python scripts/wolfenstein_sfx_candidates.py
-    ... scripts/wolfenstein_sfx_candidates.py measure   # only the table of the cues in use
+    ~/.cache/ambition-tool-venvs/ambition_sfx_renderer/bin/python scripts/experimental/wolfenstein_sfx_candidates.py
+    ... scripts/experimental/wolfenstein_sfx_candidates.py measure   # only the table of the cues in use
 
 Writes `untracked/sfx-candidates/wolfenstein/` (untracked): `recipes/`,
 `out/`, `solo/<sound>__<candidate>.wav`, `reel/<reel>.wav` and `INDEX.md`
@@ -38,7 +38,7 @@ import numpy as np
 import soundfile as sf
 import yaml
 
-REPO = Path(__file__).resolve().parents[1]
+REPO = Path(__file__).resolve().parents[2]
 RENDERER = REPO / "tools/ambition_sfx_renderer"
 SHIPPED = RENDERER / "output"
 HERE = REPO / "untracked/sfx-candidates/wolfenstein"
@@ -502,7 +502,7 @@ def main(only_measure=False):
     HERE.mkdir(parents=True, exist_ok=True)
     current = {sound: load(SHIPPED / cue) for sound, cue in IN_USE.items()}
     index = ["# Wolfenstein fight SFX auditions", "",
-             "Written by `scripts/wolfenstein_sfx_candidates.py` (2026-10-17). Audio in",
+             "Written by `scripts/experimental/wolfenstein_sfx_candidates.py` (2026-10-17). Audio in",
              "`untracked/sfx-candidates/wolfenstein/` (`solo/`, `reel/`). Each candidate is matched to the cue in use",
              "(loudest 400 ms RMS). A sound's solos share one headroom gain, so a peaky candidate set can sit",
              "a little under the `__current` solo; in a reel the cue in use and the candidates share one gain,",

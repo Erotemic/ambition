@@ -21,7 +21,7 @@ renderer_dir="$repo_root/tools/ambition_sprite2d_renderer"
 
 # shellcheck disable=SC1091
 if [ "${AMBITION_PRODUCER_WORKER:-}" != "variants" ] && [ "${1:-}" != "--help" ] && [ "${1:-}" != "-h" ]; then
-    exec python3 "$repo_root/scripts/generate_library_content.py" variants "$@"
+    exec python3 "$repo_root/scripts/regen/generate_library_content.py" variants "$@"
 fi
 
 source "$repo_root/scripts/lib/tool_python.sh"
@@ -63,5 +63,5 @@ ambition_require_python_module \
     "$python_bin" ambition_sprite2d_renderer \
     "run ./run_developer_setup.sh or set AMBITION_SPRITE_PYTHON=/path/to/python"
 
-exec "$python_bin" "$repo_root/scripts/generate_visual_quality_variants.py" \
+exec "$python_bin" "$repo_root/scripts/regen/generate_visual_quality_variants.py" \
     ${args[@]+"${args[@]}"}

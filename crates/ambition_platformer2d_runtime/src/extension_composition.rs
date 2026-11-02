@@ -284,7 +284,7 @@ pub struct ExtensionModuleFiles(pub Vec<std::path::PathBuf>);
 /// of `.wasm` files or directories of them. Each file's modules are declared
 /// as EXPLICIT replacements of the modules the game links under the same key,
 /// so a developer edits a module, rebuilds only the module crate
-/// (`scripts/build_extension_modules.sh`), and runs the same game binary.
+/// (`scripts/regen/build_extension_modules.sh`), and runs the same game binary.
 ///
 /// ⛔ A file that does not load stops the run. The developer asked for this
 /// file; running the linked module instead would show them behaviour they did

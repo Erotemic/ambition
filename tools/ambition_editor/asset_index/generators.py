@@ -7,7 +7,7 @@ The evidence, strongest first:
 * `declared`: a generator's record or registry claims the file, but nothing
   vouches for its bytes (a `plan` record, or a digest that has since changed).
 * `derived`: a reduced-quality copy of another product, made by
-  `scripts/generate_visual_quality_variants.py`; its generator is the source's.
+  `scripts/regen/generate_visual_quality_variants.py`; its generator is the source's.
 * `inferred`: only a name points at a generator (an actor sidecar's
   `renderer_target`, or a file stem equal to a registered target).
 * `reference`: authored or imported art that no generator makes (`assets/`).
@@ -33,7 +33,7 @@ FIXED = {
     "script:quality_variants": {
         "family": "quality_variants",
         "id": "quality_variants",
-        "source": "scripts/generate_visual_quality_variants.py",
+        "source": "scripts/regen/generate_visual_quality_variants.py",
         "command": "./scripts/regen/quality_variants.sh",
         "note": "Downsamples each frame of the full-quality product and repacks it.",
     },

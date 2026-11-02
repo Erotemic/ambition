@@ -8,7 +8,8 @@
       "help": "bash scripts/regen/sprites.sh --help",
       "requires": [
         "scripts/regen/sprites.sh",
-        "tools/ambition_sprite2d_renderer/README.md"
+        "tools/ambition_sprite2d_renderer/README.md",
+        "tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/publication.py"
       ],
       "inputs": "Authored character sources and publication selection.",
       "outputs": "Generation plan and sprite products.",
@@ -25,7 +26,8 @@
       "command": "bash tools/ambition_music_renderer/review_music.sh",
       "help": "bash tools/ambition_music_renderer/review_music.sh --help",
       "requires": [
-        "tools/ambition_music_renderer/review_music.sh"
+        "tools/ambition_music_renderer/review_music.sh",
+        "tools/ambition_music_renderer/ambition_music_renderer/music_review_gui.py"
       ],
       "inputs": "MusicIR scores and existing audio.",
       "outputs": "Music review window and diagnostics.",

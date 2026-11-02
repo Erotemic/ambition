@@ -234,7 +234,7 @@ impl UiFontsPlugin {
 /// and the ASCII selector. The catalog uses
 /// `MissingAssetPolicy::WarnAndPlaceholder` (canonical) and
 /// `SilentPlaceholder` (legacy), so the warning below is the only noise on a
-/// checkout that has not run `scripts/grab_font_assets.py`.
+/// checkout that has not run `scripts/regen/grab_font_assets.py`.
 pub fn load_ui_fonts(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -283,7 +283,7 @@ pub fn load_ui_fonts(
     if regular.is_none() {
         warn!(
             "No bundled dialogue UI font found; falling back to Bevy default font and ASCII selector. \
-             Generate the selected library fonts with scripts/grab_font_assets.py."
+             Generate the selected library fonts with scripts/regen/grab_font_assets.py."
         );
     }
 

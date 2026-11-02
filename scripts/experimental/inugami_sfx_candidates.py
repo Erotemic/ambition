@@ -14,7 +14,7 @@ few of the numbers.
 
 Run with the SFX renderer's venv, from the repo root:
 
-    ~/.cache/ambition-tool-venvs/ambition_sfx_renderer/bin/python scripts/inugami_sfx_candidates.py
+    ~/.cache/ambition-tool-venvs/ambition_sfx_renderer/bin/python scripts/experimental/inugami_sfx_candidates.py
 
 Writes `untracked/sfx-candidates/inugami/` (untracked): `recipes/`, `out/`,
 `solo/howl__<candidate>.wav`, `reel/howl__all.wav` and `INDEX.md` (a copy
@@ -22,6 +22,11 @@ is committed beside this script as `inugami_sfx_candidates.md`).
 """
 
 from __future__ import annotations
+
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[2] / "scripts"))
 
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -31,8 +36,8 @@ import numpy as np
 import soundfile as sf
 import yaml
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import wolfenstein_sfx_candidates as W  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from scripts.experimental import wolfenstein_sfx_candidates as W  # noqa: E402
 
 HERE = W.REPO / "untracked/sfx-candidates/inugami"
 IN_USE = "boss.generic.intro_roar"
@@ -144,7 +149,7 @@ def main():
     sf.write(HERE / "reel" / "howl__all.wav", reel * (0.89 / float(np.abs(reel).max())), W.SR)
 
     index = ["# The Inugami's howl: auditions", "",
-             "Written by `scripts/inugami_sfx_candidates.py` (2026-10-21). Audio in",
+             "Written by `scripts/experimental/inugami_sfx_candidates.py` (2026-10-21). Audio in",
              "`untracked/sfx-candidates/inugami/` (`solo/`, `reel/`). Each candidate is matched to the cue in use",
              "(loudest 400 ms RMS).", "",
              "## The candidates", ""]

@@ -3,6 +3,11 @@
 
 from __future__ import annotations
 
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[2] / "scripts"))
+
 import argparse
 import hashlib
 import json
@@ -22,7 +27,7 @@ except Exception:  # pragma: no cover - convenience fallback for fresh systems
     rich_print = None
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 from lib.content_libraries import generated_root
 DEFAULT_OUT_DIR = generated_root(REPO_ROOT) / "fonts/bundled"
 DEFAULT_CACHE_DIR = REPO_ROOT / "target" / "font_download_cache"
@@ -145,7 +150,7 @@ def copy_license(
 def grab_fonts(out_dir: Path, cache_dir: Path, *, force: bool, dry_run: bool) -> int:
     manifest: dict[str, object] = {
         "version": 1,
-        "generated_by": "scripts/grab_font_assets.py",
+        "generated_by": "scripts/regen/grab_font_assets.py",
         "output_dir": str(out_dir),
         "sources": [],
     }
@@ -209,8 +214,8 @@ def main(argv: list[str] | None = None) -> int:
     import os
     import subprocess
     arguments = list(sys.argv[1:] if argv is None else argv)
-    if not os.environ.get("AMBITION_PRODUCER_WORKER") and not any(arg == "--dry-run" or arg.startswith("--out-dir") for arg in arguments):
-        return subprocess.call([sys.executable, str(REPO_ROOT / "scripts/generate_library_content.py"), "fonts", *arguments])
+    if not os.environ.get("AMBITION_PRODUCER_WORKER") and not any(arg in {"--help", "-h", "--dry-run"} or arg.startswith("--out-dir") for arg in arguments):
+        return subprocess.call([sys.executable, str(REPO_ROOT / "scripts/regen/generate_library_content.py"), "fonts", *arguments])
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     parser.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE_DIR)

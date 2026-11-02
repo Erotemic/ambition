@@ -1,5 +1,7 @@
 # Ambition Editor
 
+Status: active.
+
 Ambition Editor starts with asset inspection and review. The Tools page links
 to independent inspection and authoring tools. It shows the same owner commands
 as `python3 scripts/agent_query.py tools "<task>"`. Start each service with its

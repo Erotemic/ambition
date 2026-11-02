@@ -509,7 +509,7 @@ before you add a port.
     through `ambition.motion.velocity`, now offered in `actor_think`); the
     native `run_void_lizard` is deleted, and `sim_phase_pins` lost that row.
     The Mary-O app has `wasm_modules`, so a developer run loads the file:
-    an edit is 0.57 s (`scripts/build_extension_modules.sh
+    an edit is 0.57 s (`scripts/regen/build_extension_modules.sh
     ambition_demo_mary_o_modules`) against 23.7 s. The hop is one tick
     earlier than the native rule's: the module asks before the body
     integrates, the native rule asked after. Witnesses
@@ -635,7 +635,7 @@ before you add a port.
     one more in the wasm build only, red at "the loaded cut lands as the
     linked one does" (12 for 11); the nested loop skipped, both admission
     tests red. Cost: an edit to the cut builds the module file in 0.55 s
-    (`scripts/build_extension_modules.sh ambition_demo_smash_modules`), and
+    (`scripts/regen/build_extension_modules.sh ambition_demo_smash_modules`), and
     the Ambition app, whose polygons, Gnu-ton and Ramen answer with the
     riposte, loads it with no relink (`AMBITION_EXTENSION_MODULES`). The
     Smash demo app does not load module files: none of its fighters
@@ -1102,7 +1102,7 @@ for Bevy internals or several production language bindings.
 | Loaded runner; loaded output checked like native output; explicit replacement | `ambition_extension_host` (`DeclaredModule`, `ModuleBackend`, `Admitted::replaced`) | `a_loaded_module_replaces_a_native_one_only_when_it_says_so` |
 | Hot reload in the shipped composition: a changed file is polled, proposed through the mechanical-edit protocol and published; last-good by construction | `ambition_platformer2d_runtime::extension_composition` (`load_developer_modules`, `propose_module_reload`, `publish_module_reload`) | `a_module_file_that_changes_while_the_game_runs_is_reloaded`; `a_module_file_replaced_while_the_game_runs_takes_over` |
 | A file is the unit of replacement; one poll gives one candidate; a departed schema takes its records; a stored record of another shape faults (`Fault::StaleRecord`) | `ambition_extension_host::reload` (`stage_loaded_replacements`), `exec::read_state` | `a_module_a_rebuilt_file_no_longer_exports_leaves_with_it`; `two_files_changed_before_one_publication_both_take_over`; `a_departed_schemas_records_go_and_do_not_come_back`; `a_stored_record_of_another_shape_faults_the_invocation` |
-| Developer road | `AMBITION_EXTENSION_MODULES` or `ExtensionModuleFiles`; runtime feature `wasm_modules`; `scripts/build_extension_modules.sh` | `a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game` |
+| Developer road | `AMBITION_EXTENSION_MODULES` or `ExtensionModuleFiles`; runtime feature `wasm_modules`; `scripts/regen/build_extension_modules.sh` | `a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game` |
 | Graph fixture: `trail_loop` keeps a bounded graph in a body record and closes a cycle with existing ports | `fixtures/extension_fixture_modules` | `a_loaded_graph_module_closes_a_loop_the_same_way_through_rollback` |
 
 **Open:**

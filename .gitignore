@@ -175,7 +175,7 @@ crates/ambition_platformer2d_actor_monolith/assets/sprite_packs/
 # FILE on purpose, because "directory links would send that write straight into
 # main's assets, which is exactly the accident this exists to prevent."
 #
-# ⇒ REBUILD, per tree: fonts `python3 scripts/grab_font_assets.py`; audio and
+# ⇒ REBUILD, per tree: fonts `python3 scripts/regen/grab_font_assets.py`; audio and
 # art `./scripts/regen/assets.sh`; everything including fonts
 # `scripts/setup/generated_content.sh`.
 # ⛔ `assets/fonts/bundled` is a COMPILE-TIME dependency, not a loaded asset:

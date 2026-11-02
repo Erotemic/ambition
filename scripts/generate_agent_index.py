@@ -7,10 +7,12 @@ not source-of-truth replacements for code, ADRs, or concept pages.
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
 import subprocess
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -270,12 +272,19 @@ def build_tool_index() -> dict[str, object]:
                 continue
             readme = path / "README.md"
             pyproject = path / "pyproject.toml"
+            readme_text = readme.read_text(encoding="utf-8", errors="replace") if readme.exists() else ""
+            status = re.search(r"(?im)^status:\s*(active|experimental|archived|unknown)\b", readme_text.replace("*", ""))
+            project = tomllib.loads(pyproject.read_text(encoding="utf-8")) if pyproject.exists() else {}
+
             tools.append(
                 {
                     "name": path.name,
                     "path": rel(path),
                     "has_readme": readme.exists(),
                     "has_pyproject": pyproject.exists(),
+                    "readme": rel(readme) if readme.exists() else None,
+                    "status": status.group(1).lower() if status else "unknown",
+                    "package_entry_points": project.get("project", {}).get("scripts", {}),
                     "heading": first_heading(
                         readme.read_text(encoding="utf-8", errors="replace")
                     )
@@ -285,7 +294,8 @@ def build_tool_index() -> dict[str, object]:
             )
     from lib.tool_catalog import inventory
 
-    return {**generated_meta(), "tools": tools, **inventory(ROOT)}
+    return {**generated_meta(), "worktree_dirty": bool(_git(["status", "--porcelain"])) if _git(["rev-parse", "--is-inside-work-tree"]) == "true" else None,
+            "tools": tools, **inventory(ROOT)}
 
 
 def build_archive_index() -> dict[str, object]:
@@ -626,7 +636,10 @@ def write_generation_stamp(indexed_files: int | None = None) -> None:
 
 
 def main() -> int:
-    if "--tools-only" in __import__("sys").argv:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--tools-only", action="store_true", help="generate only the command and path-consumer inventory")
+    args = parser.parse_args()
+    if args.tools_only:
         INDEX_DIR.mkdir(parents=True, exist_ok=True)
         write_json(INDEX_DIR / "tool_index.json", build_tool_index())
         print("generated .agent/index/tool_index.json")

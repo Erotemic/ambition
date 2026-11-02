@@ -4,7 +4,7 @@
 # This compiles ONLY the module crate and the pure port values it uses; the
 # engine is not compiled or linked. Run the game with the result:
 #
-#   scripts/build_extension_modules.sh
+#   scripts/regen/build_extension_modules.sh
 #   AMBITION_EXTENSION_MODULES=target/extension-modules/wasm32-unknown-unknown/release \
 #       cargo run -p ambition_app
 #
@@ -17,9 +17,9 @@
 # change in the game. A build that fails prints its errors and keeps watching;
 # the game keeps the last good build.
 #
-#   scripts/build_extension_modules.sh --watch
+#   scripts/regen/build_extension_modules.sh --watch
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 scripts/setup/target_bindmount.sh --check >/dev/null
 watch=0
 if [ "${1:-}" = "--watch" ]; then

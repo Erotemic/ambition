@@ -46,7 +46,7 @@ run_category() {
     local category="$1"
     case "$category" in
         fonts)
-            python3 "$repo_root/scripts/grab_font_assets.py"
+            python3 "$repo_root/scripts/regen/grab_font_assets.py"
             ;;
         backgrounds|background)
             bash "$repo_root/scripts/regen/backgrounds.sh"

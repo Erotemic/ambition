@@ -577,10 +577,7 @@ impl ControlSettings {
     /// Keep one override per (action, class), so the winner never depends on
     /// insertion order.
     pub fn set_binding_override(&mut self, over: BindingOverride) {
-        let class = over.control.device_class();
-        self.binding_overrides
-            .retain(|held| held.action != over.action || held.control.device_class() != class);
-        self.binding_overrides.push(over);
+        set_binding_override(&mut self.binding_overrides, over);
     }
 
     /// Drop the override for one action and device class, returning that
@@ -987,4 +984,11 @@ mod tests {
              override layer would apply them in file order"
         );
     }
+}
+
+
+pub(crate) fn set_binding_override(overrides: &mut Vec<BindingOverride>, over: BindingOverride) {
+    let class = over.control.device_class();
+    overrides.retain(|held| held.action != over.action || held.control.device_class() != class);
+    overrides.push(over);
 }

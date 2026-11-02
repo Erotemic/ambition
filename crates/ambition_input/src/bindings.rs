@@ -127,6 +127,11 @@ impl BindingRecipe {
         self
     }
 
+    /// Replace the override for this action and device class.
+    pub fn set_binding_override(&mut self, over: crate::BindingOverride) {
+        crate::settings::set_binding_override(&mut self.overrides, over);
+    }
+
     /// The map this recipe declares. Pure, so spawn sites and the rebuild
     /// system give the same result.
     ///

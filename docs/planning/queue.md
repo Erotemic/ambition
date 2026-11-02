@@ -48,15 +48,6 @@ engine crates, and developer setup generates and checks every media family.
 An independent game runs without the shared library. Keep generated assets
 ignored and do not restore an implicit engine art tree.
 
-## Mary-O polish (user interrupt, 2026-11-01)
-
-The current user request takes priority over the remaining multiplayer slices.
-[Track M](demos/super-mary-o.md#current-user-work) owns four changes: quiet stair
-landings, cosmic transitions for each base form, walker body contact with an
-initial-overlap check, and clear art for breakable blocks versus permanent terrain.
-Also keep the shared player glow subtle through door passages.
-Finish the behavior and visual checks before returning to MULTIPLAYER-SEAMS.
-
 ## Recent plan triage (2026-11-01)
 
 This review covers planning documents added since 2026-10-26.

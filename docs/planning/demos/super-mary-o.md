@@ -41,10 +41,11 @@ User request, 2026-11-01:
   at contact; contact damage and shell kicks still work. Eight real-host
   contact and placement tests pass. Map producer `08c8d69` separates enemy
   starts; the guard checks constructed spawn boxes in every authored room.
-- [ ] Finish the visible Mary-O acceptance checks. The full run has 127 passes,
-  seven failures and three ignored tests. Resolve pipe cues at low frame rates,
-  HUD and session setup, brick skin setup, classic-sheet fall resolution and
-  warp-label alpha. Do not close this interrupt from the contact tests alone.
+- [x] Acceptance repairs: `3fe627ff5` observes pipe cues per simulation tick;
+  `ff12b3073` waits for session publication; `a41000226` checks brick art and
+  label RGB; `e09c11093` restores classic Fall art and the shared move contract.
+  All seven failed cases pass in focused runs. Nine producer tests pass, and
+  the classic publication includes all quality tiers. Producer: `4fce800`.
 - [x] Breakable bricks use red masonry with open joints and cracks. Permanent
   terrain keeps its own art. The catalog includes all quality variants; two
   dressing tests and a native World 1-1 capture pass. Art producer: `15ba06f`.

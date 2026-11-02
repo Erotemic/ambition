@@ -553,6 +553,12 @@ The immediate couch-co-op product rule is:
   through the typed action/intent authority. Participant-specific inventory,
   leave, and settings actions cannot use `PrimaryPlayer` as a fallback.
 
+Grid and Cube use one menu lifecycle (`47da81062`). The shared route owns
+entry, close and platform pause. Guard:
+`a_platform_pause_opens_the_grid_and_keeps_it_open`, with the existing menu
+and dialogue cases. The state is still shared; participant-owned instances
+and pause claims remain open. Do not restore backend-specific game-mode writes.
+
 An explicit session pause aggregator should own the final local `GameMode`
 request. Menu instances only assert or release their individual pause claim.
 Also test a dialogue under one menu and a room transition under another, so

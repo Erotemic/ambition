@@ -641,6 +641,12 @@ Jump and combat input now consume the current Up interaction gesture until relea
 (`69f705d8c`). Guards: `recorded_up_and_jump_sequence_does_not_interact` and
 `holding_up_for_air_attacks_does_not_open_a_door`. Explicit Interact still works.
 
+Menu lifecycle is shared by Grid and Cube (`47da81062`). Entry, close and
+platform pause use one route. Guard: `a_platform_pause_opens_the_grid_and_keeps_it_open`,
+with the existing menu and dialogue cases. Grid-only/no-audio composition also
+compiles on the native host. Do not restore backend-specific game-mode writes.
+Menu state and pause claims still need participant ownership.
+
 **Next action (ordered slices; complete each behavior gate before moving):**
 
 4. **Independent local menus:** separate per-seat open state, focus, page,

@@ -815,8 +815,16 @@ frontends use one cached System model and one action consumer. Guards:
 `a_backend_change_applies_once_and_the_next_action_uses_the_new_frontend`.
 Production captures reach Rebind in Cube and Grid. Do not restore global
 capture or per-backend action consumers. Main-game menu admission and retirement,
-prompts, remaining pointer routing and long Grid heading fitting still need the
-full two-pad playthrough.
+prompts and remaining pointer routing still need the full two-pad playthrough.
+
+Grid text now fits its own layout region (`c10ff5c21`). Native text measurements
+cover independent resize, size recovery, centered anchors and idle stability in
+`text_fits_its_menu_region_and_recovers_without_changing_another_menu`.
+Grid uses the host font, and both renderers receive the owning menu's detail
+text (`72af9be68`). Production Rebind and equipment captures pass visual review.
+Do not restore fixed text sizes or a Cube-only detail provider. The capture
+image cannot exercise Grid's native window-only `Interaction` path. Replace
+that path with pointer events as part of the remaining pointer routing work.
 
 **Next action (ordered slices; complete each behavior gate before moving):**
 
@@ -825,7 +833,7 @@ full two-pad playthrough.
    pause arbiter; each seat must still control its own menu. A local menu on
    a remote timeline captures its participant's input without pausing peers.
    Reconcile menu entities with admitted local participants. Finish prompts,
-   remaining pointer routing and long Grid heading fitting. Keep the joining
+   remaining pointer routing. Keep the joining
    Start press distinct from opening a new menu.
    Prove the full menu path with two pads before closing this slice.
 5. **Per-view presentation isolation:** a room transition cover follows only

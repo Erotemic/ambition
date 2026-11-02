@@ -30,25 +30,31 @@ and its fighter clips. Both forms use the shared body and animation paths.
 
 ## Current user work
 
-User request, 2026-11-01:
+User work, 2026-11-01 and 2026-11-02:
 
 - [x] `c4270a259`: landing cues scale with impact. Small drops are silent, and
   stair drops stay quiet as the listener moves. Audio and movement checks pass.
 - [x] Cosmic entry and return use the small, classic tall or fire rows named
   by the form data. The shared beat retains the row and clock. Eight Mary-O
   behavior tests and all six native captures pass. Art producer: `c29ced8`.
-- [x] `c471257e5`: room rules use shared body contact. Walkers stop and turn
-  at contact; contact damage and shell kicks still work. Eight real-host
-  contact and placement tests pass. Map producer `08c8d69` separates enemy
-  starts; the guard checks constructed spawn boxes in every authored room.
+- [x] `c41430bbb`: only living opted-in walkers share solid walking contact.
+  Mary-O does not turn walkers away; cosmic and quasar contact kills them.
+  Guards: `a_dead_walker_does_not_block_or_turn_a_live_walker`,
+  `cosmic_and_quasar_contact_kill_walkers_that_approach_or_walk_away`, and
+  the ordinary contact and two-walker cases. Map producer `08c8d69` keeps
+  authored enemy starts apart; the guard checks constructed boxes in each room.
+  Do not restore the room-wide walking-contact rule in Mary-O.
 - [x] Acceptance repairs: `3fe627ff5` observes pipe cues per simulation tick;
   `ff12b3073` waits for session publication; `a41000226` checks brick art and
   label RGB; `e09c11093` restores classic Fall art and the shared move contract.
   All seven failed cases pass in focused runs. Nine producer tests pass, and
   the classic publication includes all quality tiers. Producer: `4fce800`.
-- [x] Breakable bricks use red masonry with open joints and cracks. Permanent
-  terrain keeps its own art. The catalog includes all quality variants; two
-  dressing tests and a native World 1-1 capture pass. Art producer: `15ba06f`.
+- [x] `261400af7`: breakable masonry uses its room's palette and keeps open
+  joints and cracks. Art refresh retains the theme. Guard:
+  `brick_art_uses_each_rooms_theme_and_keeps_it_after_asset_refresh`.
+  Native World 1-1 and 1-2 captures show the distinct pink and violet bricks.
+  Background and quality publications pass their focused checks. Art producer:
+  `c0af5e4`. The broad quality audit still reports stale character publications.
 - [x] `3c6be8856`: the tracking glow uses standing body geometry and ignores
   actor tints. The passage fade is separate. Compositing and tint checks pass.
 

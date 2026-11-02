@@ -1159,10 +1159,7 @@ mod tests {
         };
 
         let pressed = row(&mut app);
-        app.world_mut()
-            .entity_mut(pressed)
-            .insert(Interaction::Pressed);
-        app.update();
+        crate::basic_presentation::pointer_press(&mut app, pressed);
         assert!(
             app.world_mut()
                 .resource_mut::<Messages<ShellCommand>>()
@@ -1177,15 +1174,9 @@ mod tests {
         // the row. Only the second tap sends `QuitToHome`.
         let tap = |app: &mut App| {
             let pressed = row(app);
-            app.world_mut()
-                .entity_mut(pressed)
-                .insert(Interaction::Pressed);
-            app.update();
+            crate::basic_presentation::pointer_press(app, pressed);
             let released = row(app);
-            app.world_mut()
-                .entity_mut(released)
-                .insert(Interaction::Hovered);
-            app.update();
+            crate::basic_presentation::pointer_release(app, released);
             app.world_mut()
                 .resource_mut::<Messages<ShellCommand>>()
                 .drain()

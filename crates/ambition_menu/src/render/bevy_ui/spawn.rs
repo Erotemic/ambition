@@ -222,6 +222,7 @@ fn spawn_control<Action>(
     let mut control = body.spawn((
         crate::MenuSurface(menu),
         Button,
+        PickingInteraction::None,
         control_node,
         BackgroundColor(bg),
         ZIndex(LAYER_CONTROL),

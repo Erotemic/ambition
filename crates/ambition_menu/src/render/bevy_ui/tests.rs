@@ -201,8 +201,49 @@ fn equip_row(app: &mut App) -> Entity {
         .expect("sample page has an Equip row")
 }
 
-fn set_interaction(app: &mut App, entity: Entity, interaction: Interaction) {
+fn set_interaction(app: &mut App, entity: Entity, interaction: PickingInteraction) {
     app.world_mut().entity_mut(entity).insert(interaction);
+    app.update();
+}
+
+fn pointer_location() -> bevy::picking::pointer::Location {
+    bevy::picking::pointer::Location {
+        target: bevy::camera::NormalizedRenderTarget::None { width: 1280, height: 720 },
+        position: Vec2::ZERO,
+    }
+}
+
+fn press(app: &mut App, entity: Entity) {
+    press_with(app, entity, bevy::picking::pointer::PointerId::Mouse);
+}
+
+fn press_with(app: &mut App, entity: Entity, id: bevy::picking::pointer::PointerId) {
+    use bevy::picking::{backend::HitData, events::Press, pointer::PointerButton};
+    app.world_mut().trigger(Pointer::new(id, pointer_location(), Press {
+        button: PointerButton::Primary,
+        hit: HitData::new(entity, 0.0, None, None),
+        count: 1,
+    }, entity));
+    app.update();
+}
+
+fn release(app: &mut App, entity: Entity) {
+    release_with(app, entity, bevy::picking::pointer::PointerId::Mouse);
+}
+
+fn release_with(app: &mut App, entity: Entity, id: bevy::picking::pointer::PointerId) {
+    use bevy::picking::{backend::HitData, events::Release, pointer::{PointerButton, PointerInput, PointerAction}};
+    app.world_mut().trigger(Pointer::new(id, pointer_location(), Release {
+        button: PointerButton::Primary,
+        hit: HitData::new(entity, 0.0, None, None),
+    }, entity));
+    app.world_mut().write_message(PointerInput::new(id, pointer_location(), PointerAction::Release(PointerButton::Primary)));
+    app.update();
+}
+
+fn cancel(app: &mut App) {
+    use bevy::picking::pointer::{PointerId, PointerInput, PointerAction};
+    app.world_mut().write_message(PointerInput::new(PointerId::Mouse, pointer_location(), PointerAction::Cancel));
     app.update();
 }
 
@@ -220,7 +261,7 @@ fn a_row_activates_when_the_pointer_comes_up_on_it_not_when_it_goes_down() {
     spawn_view(&mut app, 0, None);
     let entity = equip_row(&mut app);
 
-    set_interaction(&mut app, entity, Interaction::Pressed);
+    press(&mut app, entity);
     assert!(
         drain_activations(&mut app).is_empty(),
         "going down on a row is not choosing it"
@@ -230,8 +271,8 @@ fn a_row_activates_when_the_pointer_comes_up_on_it_not_when_it_goes_down() {
     app.update();
     assert!(drain_activations(&mut app).is_empty());
 
-    // Bevy reports a release OVER the control as a return to `Hovered`.
-    set_interaction(&mut app, entity, Interaction::Hovered);
+    // A release names the control under the pointer.
+    release(&mut app, entity);
     assert_eq!(
         drain_activations(&mut app),
         vec![crate::MenuActionActivated {
@@ -248,29 +289,28 @@ fn a_row_activates_when_the_pointer_comes_up_on_it_not_when_it_goes_down() {
     );
 
     // The next press arms again.
-    set_interaction(&mut app, entity, Interaction::Pressed);
-    set_interaction(&mut app, entity, Interaction::Hovered);
+    press(&mut app, entity);
+    release(&mut app, entity);
     assert_eq!(drain_activations(&mut app).len(), 1);
 }
 
 #[test]
 fn a_press_that_leaves_the_row_activates_nothing() {
-    // A leave and a release are both `Interaction::None`. The bridge must not
-    // treat a leave as a release, or dragging on a list activates rows.
+    // A canceled pointer must not activate a row when it returns.
     let mut app = build_app();
     install_bevy_ui_menu_actions::<Action>(&mut app);
     spawn_view(&mut app, 0, None);
     let entity = equip_row(&mut app);
 
-    set_interaction(&mut app, entity, Interaction::Pressed);
-    set_interaction(&mut app, entity, Interaction::None);
+    press(&mut app, entity);
+    cancel(&mut app);
     assert!(
         drain_activations(&mut app).is_empty(),
         "the pointer left the row; it chose nothing"
     );
 
     // And the abandoned arm does not fire later when the pointer wanders back.
-    set_interaction(&mut app, entity, Interaction::Hovered);
+    release(&mut app, entity);
     assert!(drain_activations(&mut app).is_empty());
 }
 
@@ -282,7 +322,7 @@ fn an_arm_survives_the_page_respawning_under_the_finger() {
     install_bevy_ui_menu_actions::<Action>(&mut app);
     spawn_view(&mut app, 0, None);
     let entity = equip_row(&mut app);
-    set_interaction(&mut app, entity, Interaction::Pressed);
+    press(&mut app, entity);
 
     // The page respawns: every control is a new entity, and for a frame the
     // armed one is not in the world at all.
@@ -304,7 +344,7 @@ fn an_arm_survives_the_page_respawning_under_the_finger() {
     spawn_view(&mut app, 0, None);
     let respawned = equip_row(&mut app);
     assert_ne!(respawned, entity, "the rebuild really did move the entity");
-    set_interaction(&mut app, respawned, Interaction::Hovered);
+    release(&mut app, respawned);
     assert_eq!(
         drain_activations(&mut app),
         vec![crate::MenuActionActivated {
@@ -316,7 +356,7 @@ fn an_arm_survives_the_page_respawning_under_the_finger() {
 }
 
 #[test]
-fn interaction_pressed_ignores_disabled_rows() {
+fn picking_ignores_controls_without_an_action() {
     let mut app = build_app();
     install_bevy_ui_menu_actions::<Action>(&mut app);
     spawn_view(&mut app, 0, None);
@@ -329,10 +369,7 @@ fn interaction_pressed_ignores_disabled_rows() {
             .find_map(|(entity, control)| control.action.is_none().then_some(entity))
             .expect("sample page has a disabled decoration row")
     };
-    app.world_mut()
-        .entity_mut(entity)
-        .insert(Interaction::Pressed);
-    app.update();
+    press(&mut app, entity);
 
     assert!(
         app.world_mut()
@@ -365,16 +402,10 @@ fn a_tab_activates_on_the_way_up_like_every_other_control() {
             .collect()
     };
 
-    app.world_mut()
-        .entity_mut(entity)
-        .insert(Interaction::Pressed);
-    app.update();
+    press(&mut app, entity);
     assert!(drain(&mut app).is_empty(), "down is not a tab change");
 
-    app.world_mut()
-        .entity_mut(entity)
-        .insert(Interaction::Hovered);
-    app.update();
+    release(&mut app, entity);
     assert_eq!(
         drain(&mut app),
         vec![crate::MenuTabActivated {
@@ -384,12 +415,8 @@ fn a_tab_activates_on_the_way_up_like_every_other_control() {
     );
 
     // A press that slides off the tab changes nothing.
-    app.world_mut()
-        .entity_mut(entity)
-        .insert(Interaction::Pressed);
-    app.update();
-    app.world_mut().entity_mut(entity).insert(Interaction::None);
-    app.update();
+    press(&mut app, entity);
+    cancel(&mut app);
     assert!(drain(&mut app).is_empty(), "the finger left the tab");
 }
 
@@ -744,8 +771,8 @@ fn setting_row(app: &mut App) -> Entity {
 
 /// One tap: press, then release over the same row.
 fn tap(app: &mut App, entity: Entity) -> Vec<crate::MenuActionActivated<Action>> {
-    set_interaction(app, entity, Interaction::Pressed);
-    set_interaction(app, entity, Interaction::Hovered);
+    press(app, entity);
+    release(app, entity);
     drain_activations(app)
 }
 
@@ -926,10 +953,7 @@ fn a_press_that_survives_a_tab_bar_republish_still_activates() {
     };
 
     let pressed = tab_of(&mut app, 2);
-    app.world_mut()
-        .entity_mut(pressed)
-        .insert(Interaction::Pressed);
-    app.update();
+    press(&mut app, pressed);
     assert!(drain(&mut app).is_empty(), "premise: down is not a tab change");
 
     // The republish: this tab's node is despawned and rebuilt, so the release
@@ -941,7 +965,7 @@ fn a_press_that_survives_a_tab_bar_republish_still_activates() {
         .spawn((
             crate::MenuSurface(menu),
             Button,
-            Interaction::None,
+            PickingInteraction::None,
             BevyUiMenuTab {
                 index: 2,
                 active: false,
@@ -952,8 +976,7 @@ fn a_press_that_survives_a_tab_bar_republish_still_activates() {
     app.update();
     assert_ne!(fresh, pressed, "premise: the republish produced a new entity");
 
-    app.world_mut().entity_mut(fresh).insert(Interaction::Hovered);
-    app.update();
+    release(&mut app, fresh);
     assert_eq!(
         drain(&mut app).into_iter().map(|m| m.index).collect::<Vec<_>>(),
         vec![2],
@@ -963,9 +986,9 @@ fn a_press_that_survives_a_tab_bar_republish_still_activates() {
 
 // --- Hover is a third state (Q70) -------------------------------------------
 //
-// These tests set `Interaction` directly. That is reliable only in this
+// These tests set `PickingInteraction` directly. That is reliable only in this
 // crate-level harness: a full Bevy host runs the UI focus system, which
-// rewrites `Interaction` from the real pointer.
+// rewrites `PickingInteraction` from the real pointer.
 
 /// The spawned tab with `index`.
 fn tab_entity(app: &mut App, index: usize) -> Entity {
@@ -1023,7 +1046,7 @@ fn a_hovered_tab_draws_the_hover_style() {
     let resting = background(&app, tab);
     assert_eq!(resting, tab_bg(false, false));
 
-    set_interaction(&mut app, tab, Interaction::Hovered);
+    set_interaction(&mut app, tab, PickingInteraction::Hovered);
     let hovered = background(&app, tab);
     assert_eq!(hovered, tab_bg(false, true), "the hover restyle ran");
     assert_ne!(hovered, resting, "hover differs from resting");
@@ -1038,7 +1061,7 @@ fn a_hovered_tab_draws_the_hover_style() {
         "hover draws no focus ring"
     );
 
-    set_interaction(&mut app, tab, Interaction::None);
+    set_interaction(&mut app, tab, PickingInteraction::None);
     assert_eq!(
         background(&app, tab),
         resting,
@@ -1055,7 +1078,7 @@ fn hovering_a_tab_does_not_move_focus_or_selection() {
     let focus_ring = border(&app, focused);
     let active_fill = background(&app, active);
 
-    set_interaction(&mut app, other, Interaction::Hovered);
+    set_interaction(&mut app, other, PickingInteraction::Hovered);
 
     let flags = |app: &mut App| {
         let mut q = app.world_mut().query::<&BevyUiMenuTab>();
@@ -1096,7 +1119,7 @@ fn a_hovered_selected_or_focused_tab_keeps_its_own_style() {
     assert_eq!(focus_ring.0, UiRect::all(Val::Px(TAB_FOCUS_RING_PX)));
     assert_eq!(focus_ring.1, TAB_FOCUS_RING);
 
-    set_interaction(&mut app, active, Interaction::Hovered);
+    set_interaction(&mut app, active, PickingInteraction::Hovered);
     let hovered_active = background(&app, active);
     assert_eq!(hovered_active, tab_bg(true, true));
     assert_ne!(
@@ -1105,8 +1128,8 @@ fn a_hovered_selected_or_focused_tab_keeps_its_own_style() {
         "a hovered active tab still reads as the active tab, not as a hovered plain one"
     );
 
-    set_interaction(&mut app, active, Interaction::None);
-    set_interaction(&mut app, focused, Interaction::Hovered);
+    set_interaction(&mut app, active, PickingInteraction::None);
+    set_interaction(&mut app, focused, PickingInteraction::Hovered);
     assert_eq!(
         border(&app, focused),
         focus_ring,
@@ -1143,7 +1166,7 @@ fn a_hovered_row_is_hovered_not_focused() {
     let b_resting = background(&app, b);
     let a_focused = background(&app, a);
 
-    set_interaction(&mut app, b, Interaction::Hovered);
+    set_interaction(&mut app, b, PickingInteraction::Hovered);
 
     let (va, vb) = (visual(&app, a), visual(&app, b));
     assert!(va.focused && !va.hovered, "A keeps focus: {va:?}");
@@ -1166,7 +1189,7 @@ fn a_hovered_row_is_hovered_not_focused() {
         "hover does not reuse the focus color"
     );
 
-    set_interaction(&mut app, b, Interaction::None);
+    set_interaction(&mut app, b, PickingInteraction::None);
     assert!(!visual(&app, b).hovered);
     assert_eq!(background(&app, b), b_resting);
 }
@@ -1287,7 +1310,7 @@ fn hovering_a_selected_row_does_not_move_the_selection() {
     );
     assert!(!visual(&app, selected).focused, "selected is not focus");
 
-    set_interaction(&mut app, other, Interaction::Hovered);
+    set_interaction(&mut app, other, PickingInteraction::Hovered);
     assert!(visual(&app, selected).selected, "the selection stayed");
     assert!(!visual(&app, other).selected, "the hover did not select");
     assert_eq!(
@@ -1297,8 +1320,8 @@ fn hovering_a_selected_row_does_not_move_the_selection() {
     );
 
     // Hovering the selected row itself keeps it recognizably selected.
-    set_interaction(&mut app, other, Interaction::None);
-    set_interaction(&mut app, selected, Interaction::Hovered);
+    set_interaction(&mut app, other, PickingInteraction::None);
+    set_interaction(&mut app, selected, PickingInteraction::Hovered);
     assert_eq!(
         background(&app, selected),
         control_bg(MenuControlKind::Item, false, true, true, false),
@@ -1321,7 +1344,7 @@ fn a_menu_reopened_under_a_resting_pointer_previews_its_row_again() {
     install_bevy_ui_menu_actions::<Action>(&mut app);
     spawn_view(&mut app, 0, None);
     let row = equip_row(&mut app);
-    set_interaction(&mut app, row, Interaction::Hovered);
+    set_interaction(&mut app, row, PickingInteraction::Hovered);
     assert_eq!(drain_previews(&mut app).len(), 1);
 
     let roots: Vec<Entity> = app
@@ -1355,7 +1378,7 @@ fn a_menu_reopened_under_a_resting_pointer_previews_its_row_again() {
             .iter(world)
             .find_map(|(entity, control)| (control.action == Some(Action::Equip)).then_some(entity))
             .expect("sample page has an Equip row");
-        world.entity_mut(row).insert(Interaction::Hovered);
+        world.entity_mut(row).insert(PickingInteraction::Hovered);
     });
     app.update();
     assert_eq!(
@@ -1448,7 +1471,7 @@ fn equal_row_keys_in_two_menus_keep_independent_press_arms() {
         app.world_mut()
             .spawn((
                 Button,
-                Interaction::Pressed,
+                AmbitionMenuControlKind(MenuControlKind::Action),
                 crate::MenuSurface(menu),
                 AmbitionMenuControl {
                     kind: MenuControlKind::Action,
@@ -1458,7 +1481,9 @@ fn equal_row_keys_in_two_menus_keep_independent_press_arms() {
             ))
             .id()
     });
-    app.update();
+    for (index, row) in rows.iter().enumerate() {
+        press_with(&mut app, *row, bevy::picking::pointer::PointerId::Touch(index as u64));
+    }
     assert!(app
         .world_mut()
         .resource_mut::<Messages<crate::MenuActionActivated<Action>>>()
@@ -1466,8 +1491,7 @@ fn equal_row_keys_in_two_menus_keep_independent_press_arms() {
         .next()
         .is_none());
     for (index, row) in rows.into_iter().enumerate() {
-        *app.world_mut().get_mut::<Interaction>(row).unwrap() = Interaction::Hovered;
-        app.update();
+        release_with(&mut app, row, bevy::picking::pointer::PointerId::Touch(index as u64));
         let emitted: Vec<_> = app
             .world_mut()
             .resource_mut::<Messages<crate::MenuActionActivated<Action>>>()
@@ -1497,7 +1521,7 @@ fn a_destructive_confirmation_in_one_menu_cannot_confirm_another_menu() {
         app.world_mut()
             .spawn((
                 Button,
-                Interaction::None,
+                AmbitionMenuControlKind(MenuControlKind::Action),
                 crate::MenuSurface(menu),
                 AmbitionMenuControl {
                     kind: MenuControlKind::Action,
@@ -1508,10 +1532,8 @@ fn a_destructive_confirmation_in_one_menu_cannot_confirm_another_menu() {
             .id()
     });
     for (index, should_confirm) in [(0, false), (1, false), (0, true), (1, true)] {
-        *app.world_mut().get_mut::<Interaction>(rows[index]).unwrap() = Interaction::Pressed;
-        app.update();
-        *app.world_mut().get_mut::<Interaction>(rows[index]).unwrap() = Interaction::Hovered;
-        app.update();
+        press(&mut app, rows[index]);
+        release(&mut app, rows[index]);
         let emitted: Vec<_> = app
             .world_mut()
             .resource_mut::<Messages<crate::MenuActionActivated<Action>>>()
@@ -1526,7 +1548,126 @@ fn a_destructive_confirmation_in_one_menu_cannot_confirm_another_menu() {
             vec![]
         };
         assert_eq!(emitted, expected);
-        *app.world_mut().get_mut::<Interaction>(rows[index]).unwrap() = Interaction::None;
-        app.update();
+
     }
+}
+
+#[test]
+fn motion_and_release_follow_the_finger_that_armed_each_menu() {
+    use bevy::picking::pointer::{PointerAction, PointerButton, PointerId, PointerInput};
+    let mut app = build_app();
+    install_bevy_ui_menu_actions::<Action>(&mut app);
+    let menus = [menu_id(app.world()), app.world_mut().spawn(crate::MenuInteraction::<Action>::default()).id()];
+    let rows = menus.map(|menu| app.world_mut().spawn((
+        crate::MenuSurface(menu),
+        Button,
+                AmbitionMenuControlKind(MenuControlKind::Action),
+        AmbitionMenuControl { kind: MenuControlKind::Action, action: Some(Action::Equip), focus: MenuFocusKey::default() },
+    )).id());
+    press_with(&mut app, rows[0], PointerId::Touch(1));
+    press_with(&mut app, rows[1], PointerId::Touch(2));
+    let mut far = pointer_location();
+    far.position = Vec2::splat(100.0);
+    for id in [PointerId::Touch(99), PointerId::Touch(1)] {
+        app.world_mut().write_message(PointerInput::new(id, far.clone(), PointerAction::Move { delta: Vec2::splat(100.0) }));
+    }
+    app.update();
+    // A round trip outside all widgets still cancels the first finger's tap.
+    release_with(&mut app, rows[0], PointerId::Touch(1));
+    assert!(drain_activations(&mut app).is_empty());
+    release_with(&mut app, rows[1], PointerId::Touch(2));
+    assert_eq!(drain_activations(&mut app), vec![crate::MenuActionActivated { menu: menus[1], action: Action::Equip }]);
+
+    press_with(&mut app, rows[0], PointerId::Touch(1));
+    // A release over empty space produces no control event.
+    app.world_mut().write_message(PointerInput::new(PointerId::Touch(1), pointer_location(), PointerAction::Release(PointerButton::Primary)));
+    app.update();
+    release_with(&mut app, rows[0], PointerId::Touch(1));
+    assert!(drain_activations(&mut app).is_empty(), "an old arm cannot activate on a later release");
+}
+
+#[test]
+fn two_taps_in_one_frame_keep_their_event_order() {
+    use bevy::picking::{backend::HitData, events::{Press, Release}, pointer::{PointerButton, PointerId}};
+    let mut app = build_app();
+    install_bevy_ui_menu_actions::<Action>(&mut app);
+    spawn_view(&mut app, 0, None);
+    let rows = [equip_row(&mut app), setting_row(&mut app)];
+    for row in rows {
+        app.world_mut().trigger(Pointer::new(PointerId::Mouse, pointer_location(), Press {
+            button: PointerButton::Primary, hit: HitData::new(row, 0.0, None, None), count: 1,
+        }, row));
+        app.world_mut().trigger(Pointer::new(PointerId::Mouse, pointer_location(), Release {
+            button: PointerButton::Primary, hit: HitData::new(row, 0.0, None, None),
+        }, row));
+    }
+    let menu = menu_id(app.world());
+    assert_eq!(drain_activations(&mut app), vec![
+        crate::MenuActionActivated { menu, action: Action::Equip },
+        crate::MenuActionActivated { menu, action: Action::Setting },
+    ]);
+}
+
+#[test]
+fn tab_gestures_follow_their_own_pointer_across_menus() {
+    use bevy::picking::pointer::{PointerAction, PointerId, PointerInput};
+    let mut app = build_app();
+    install_bevy_ui_menu_tabs(&mut app);
+    let menus = [menu_id(app.world()), app.world_mut().spawn(crate::MenuInteraction::<Action>::default()).id()];
+    let rows = menus.map(|menu| app.world_mut().spawn((
+        crate::MenuSurface(menu),
+        BevyUiMenuTab { index: 2, active: false, focused: false },
+    )).id());
+    press_with(&mut app, rows[0], PointerId::Touch(1));
+    press_with(&mut app, rows[1], PointerId::Touch(2));
+    release_with(&mut app, rows[0], PointerId::Touch(99));
+    assert!(app.world_mut().resource_mut::<Messages<crate::MenuTabActivated>>().drain().next().is_none());
+    release_with(&mut app, rows[1], PointerId::Touch(2));
+    assert_eq!(app.world_mut().resource_mut::<Messages<crate::MenuTabActivated>>().drain().collect::<Vec<_>>(),
+        vec![crate::MenuTabActivated { menu: menus[1], index: 2 }]);
+    let mut far = pointer_location();
+    far.position = Vec2::splat(100.0);
+    app.world_mut().write_message(PointerInput::new(PointerId::Touch(1), far, PointerAction::Move { delta: Vec2::splat(100.0) }));
+    app.update();
+    release_with(&mut app, rows[0], PointerId::Touch(1));
+    assert!(app.world_mut().resource_mut::<Messages<crate::MenuTabActivated>>().drain().next().is_none());
+}
+
+#[test]
+fn a_raw_release_uses_the_pressed_bounds_after_a_widget_rebuild() {
+    use bevy::picking::pointer::{PointerAction, PointerButton, PointerId, PointerInput};
+    for (release_x, rebuild, expected) in [(0.0, true, 1), (11.0, true, 0), (0.0, false, 0)] {
+        let mut app = build_app();
+        install_bevy_ui_menu_actions::<Action>(&mut app);
+        spawn_view(&mut app, 0, None);
+        let row = equip_row(&mut app);
+        press(&mut app, row);
+        let menu = menu_id(app.world());
+        app.world_mut().get_mut::<crate::MenuInteraction<Action>>(menu).unwrap().bounds = Some(crate::PointerTapBounds {
+            rect: Rect::from_center_size(Vec2::ZERO, Vec2::splat(20.0)),
+            target: pointer_location().target,
+        });
+        let roots: Vec<_> = app.world_mut().query_filtered::<Entity, With<BevyUiMenuRoot>>().iter(app.world()).collect();
+        for root in roots { app.world_mut().despawn(root); }
+        for _ in 0..3 { app.update(); }
+        if rebuild { spawn_view(&mut app, 0, None); }
+        let mut location = pointer_location();
+        location.position.x = release_x;
+        app.world_mut().write_message(PointerInput::new(PointerId::Mouse, location, PointerAction::Release(PointerButton::Primary)));
+        app.update();
+        assert_eq!(drain_activations(&mut app).len(), expected);
+        assert!(!app.world().get::<crate::MenuInteraction<Action>>(menu).unwrap().arm.is_armed());
+    }
+}
+
+#[test]
+fn changing_a_controls_action_cancels_its_old_press() {
+    let mut app = build_app();
+    install_bevy_ui_menu_actions::<Action>(&mut app);
+    spawn_view(&mut app, 0, None);
+    let row = equip_row(&mut app);
+    press(&mut app, row);
+    app.world_mut().get_mut::<AmbitionMenuControl<Action>>(row).unwrap().action = Some(Action::Setting);
+    release(&mut app, row);
+    assert!(drain_activations(&mut app).is_empty());
 }

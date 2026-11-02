@@ -617,20 +617,11 @@ use crate::menu::test_support::trigger_over;
 use ambition_platformer2d::menu::render::bevy_ui::BevyUiMenuTab;
 use ambition_platformer2d::menu::AmbitionMenuControl;
 
-/// A complete TAP: down, then up still over the control.
-///
-/// two steps because the bevy_ui bridges activate on the way UP. Bevy reports
-/// a pointer that comes up still over a control as a return to
-/// `Interaction::Hovered`, which is what makes a release distinguishable from
-/// the pointer wandering off (`Interaction::None`).
+/// A tap follows the picking press and release paths.
 fn press_interaction(app: &mut App, entity: Entity) {
-    app.world_mut()
-        .entity_mut(entity)
-        .insert(Interaction::Pressed);
+    crate::menu::test_support::trigger_press(app, entity);
     app.update();
-    app.world_mut()
-        .entity_mut(entity)
-        .insert(Interaction::Hovered);
+    crate::menu::test_support::trigger_release(app, entity);
     app.update();
 }
 
@@ -800,8 +791,7 @@ fn flat_renderer_skips_page_turn_edge_controls() {
     }
 }
 
-/// BUG 4 (pointer/touch): Bevy UI `Interaction::Pressed` on a tab switches the
-/// active tab; on an item row it dispatches the row's semantic action (equip).
+/// A picking tap selects its tab or activates its item row.
 #[test]
 fn interaction_press_switches_tab_and_dispatches_item() {
     let mut app = render_app();
@@ -919,7 +909,7 @@ fn the_grid_install_observes_no_pointer_hover() {
 ///
 /// A genuine mouse hovers a row other than the one the cursor is on: the
 /// cursor stays where it was (the renderer draws the hover itself, from
-/// `Interaction`). The control is the same row pressed: it still equips.
+/// `PickingInteraction`). A tap on the row still equips its item.
 #[test]
 fn a_hover_over_a_grid_row_leaves_the_cursor_and_a_press_still_activates_it() {
     use ambition_platformer2d::input::{ActiveDevice, SeatActiveDevices};
@@ -960,7 +950,7 @@ fn a_hover_over_a_grid_row_leaves_the_cursor_and_a_press_still_activates_it() {
     trigger_over(&mut app, axe_ctrl);
     app.world_mut()
         .entity_mut(axe_ctrl)
-        .insert(Interaction::Hovered);
+        .insert(bevy::picking::hover::PickingInteraction::Hovered);
     app.update();
     assert_eq!(
         crate::menu::test_support::menu_component::<KaleidoscopeCursor>(app.world()).focus(),

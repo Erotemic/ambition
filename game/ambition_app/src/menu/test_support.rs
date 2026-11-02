@@ -1,30 +1,7 @@
-//! Shared menu pointer fixtures used by backend tests.
+//! Backend fixtures send picking events to explicit entities.
 //!
-//! ⛔⛔ **THESE HELPERS BYPASS HIT-TESTING, AND EVERY MENU POINTER TEST IN THIS
-//! REPO IS BUILT ON THEM.** `trigger_press` / `trigger_release` construct a
-//! `Pointer<Press>` with a `HitData` naming the target entity and trigger it
-//! DIRECTLY on that entity. Nothing asks whether a pointer at those coordinates
-//! would actually have hit it.
-//!
-//! ⇒ So a green menu-pointer suite certifies **"the observer does the right
-//! thing when it fires"** and says NOTHING about **"a click at these pixels
-//! reaches this entity."** A button that is covered by another node, outside its
-//! camera's render target, sized to zero, or opted out of picking passes every
-//! test here.
-//!
-//! ⚠ **AND IT IS NOT LAZINESS — the fixture CANNOT do better.** Measured
-//! 2026-09-06: the shipped rendered app fixture settles with **no window at
-//! all** (`window=None`), and hit-testing needs a render target. Direct
-//! triggering is the only thing available, which is exactly why the gap is
-//! invisible: there is no version of these tests that would have exposed it.
-//!
-//! ⭐ **WHAT THAT MEANS FOR A BUG REPORT.** When a control is reported as
-//! unclickable and every test is green, the tests have not cleared the control —
-//! they have not looked. Ask for the one observation this fixture cannot make:
-//! **does the control respond to HOVER on a real window?** Hover proves picking
-//! reaches it, which splits "downstream of `Interaction`" (testable here) from
-//! "upstream in picking" (not testable here at all). Hover feedback is
-//! required UI (Q70 in `docs/planning/maintainer-decisions.md`).
+//! These helpers do not run hit testing. Use a rendered capture with touch
+//! input or a real window to check that the visible control receives a tap.
 
 use bevy::camera::NormalizedRenderTarget;
 use bevy::picking::backend::HitData;
@@ -54,7 +31,6 @@ pub(crate) fn spawn_control(app: &mut App, action: MenuPageAction) -> Entity {
     let menu = menu_id(app.world());
     app.world_mut()
         .spawn((
-            Button,
             ambition_platformer2d::menu::MenuSurface(menu),
             AmbitionMenuControl::<MenuPageAction> {
                 kind: MenuControlKind::OptionToggle,
@@ -66,7 +42,7 @@ pub(crate) fn spawn_control(app: &mut App, action: MenuPageAction) -> Entity {
 }
 
 pub(crate) fn trigger_press(app: &mut App, entity: Entity) {
-    app.world_mut().trigger(Pointer::new(
+    let event = Pointer::new(
         PointerId::Mouse,
         pointer_location(),
         Press {
@@ -76,11 +52,15 @@ pub(crate) fn trigger_press(app: &mut App, entity: Entity) {
             count: 1,
         },
         entity,
-    ));
+    );
+    if let Some(mut messages) = app.world_mut().get_resource_mut::<Messages<_>>() {
+        messages.write(event.clone());
+    }
+    app.world_mut().trigger(event);
 }
 
 pub(crate) fn trigger_release(app: &mut App, entity: Entity) {
-    app.world_mut().trigger(Pointer::new(
+    let event = Pointer::new(
         PointerId::Mouse,
         pointer_location(),
         Release {
@@ -88,7 +68,18 @@ pub(crate) fn trigger_release(app: &mut App, entity: Entity) {
             hit: HitData::new(entity, 0.0, None, None),
         },
         entity,
-    ));
+    );
+    if let Some(mut messages) = app.world_mut().get_resource_mut::<Messages<_>>() {
+        messages.write(event.clone());
+    }
+    if let Some(mut messages) = app.world_mut().get_resource_mut::<Messages<bevy::picking::pointer::PointerInput>>() {
+        messages.write(bevy::picking::pointer::PointerInput::new(
+            PointerId::Mouse,
+            pointer_location(),
+            bevy::picking::pointer::PointerAction::Release(PointerButton::Primary),
+        ));
+    }
+    app.world_mut().trigger(event);
 }
 
 pub(crate) fn trigger_over(app: &mut App, entity: Entity) {

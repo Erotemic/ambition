@@ -643,9 +643,10 @@ pub struct MenuSurface(pub Entity);
 #[require(ScrollbarDragState, MenuTabInteraction)]
 pub struct MenuInteraction<Action> {
     pub(crate) arm: ambition_ui_nav::PressArm<MenuFocusKey>,
-    pub(crate) armed: Option<(Action, Entity)>,
+    pub(crate) armed: Option<Action>,
     pub(crate) confirm_armed: Option<MenuFocusKey>,
     pub(crate) preview: Option<Action>,
+    pub(crate) bounds: Option<PointerTapBounds>,
     pointer: Option<bevy::picking::pointer::PointerId>,
 }
 
@@ -656,6 +657,7 @@ impl<Action> Default for MenuInteraction<Action> {
             armed: None,
             confirm_armed: None,
             preview: None,
+            bounds: None,
             pointer: None,
         }
     }
@@ -668,12 +670,15 @@ impl<Action> MenuInteraction<Action> {
         pointer: bevy::picking::pointer::PointerId,
         focus: MenuFocusKey,
         action: Action,
-        entity: Entity,
         position: Vec2,
     ) {
+        if self.confirm_armed != Some(focus) {
+            self.confirm_armed = None;
+        }
+        self.bounds = None;
         self.pointer = Some(pointer);
         self.arm.press(focus, Some(position));
-        self.armed = Some((action, entity));
+        self.armed = Some(action);
     }
 
     /// Motion from another pointer cannot cancel this gesture.
@@ -692,16 +697,41 @@ impl<Action> MenuInteraction<Action> {
             return None;
         }
         self.pointer = None;
+        self.bounds = None;
         let released = self.arm.release_anywhere();
         let armed = self.armed.take();
-        released.and(armed).map(|(action, _)| action)
+        released.and(armed)
+    }
+
+    /// Cancel only the gesture that belongs to this pointer.
+    pub(crate) fn cancel_pointer(&mut self, pointer: bevy::picking::pointer::PointerId) {
+        if self.pointer == Some(pointer) {
+            self.pointer = None;
+            self.bounds = None;
+            self.arm.clear();
+            self.armed = None;
+        }
     }
 }
 
 #[derive(Component, Default)]
 pub(crate) struct MenuTabInteraction {
     pub(crate) arm: ambition_ui_nav::RowPress,
-    pub(crate) armed_entity: Option<Entity>,
+    pub(crate) pointer: Option<bevy::picking::pointer::PointerId>,
+    pub(crate) bounds: Option<PointerTapBounds>,
+}
+
+/// The pressed control's display bounds, independent of its entity lifetime.
+#[derive(Clone)]
+pub(crate) struct PointerTapBounds {
+    pub rect: bevy::math::Rect,
+    pub target: bevy::camera::NormalizedRenderTarget,
+}
+
+impl PointerTapBounds {
+    pub(crate) fn contains(&self, location: &bevy::picking::pointer::Location) -> bool {
+        self.target == location.target && self.rect.contains(location.position)
+    }
 }
 
 /// ECS component attached to a rendered menu page/face.
@@ -766,7 +796,7 @@ pub struct MenuDynamicText {
 }
 
 /// The live string for a [`MenuDynamicText`] line. The host writes a plain
-/// `String`; a lib system copies it into the entity's `Text3d` on change.
+/// `String`; each renderer copies it into its text component on change.
 #[derive(Component, Clone, Debug, Default, PartialEq, Eq)]
 pub struct MenuDynamicTextContent(pub String);
 

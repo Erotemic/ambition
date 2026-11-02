@@ -196,7 +196,7 @@ fn publish_shell_ui_cues(
 }
 
 /// Pointer/touch activation for launcher rows. The shared menu renderer turns
-/// `Interaction::Pressed` into [`MenuActionActivated`]; this adapter routes the
+/// picking input into [`MenuActionActivated`]; this adapter routes the
 /// pointed row through the same [`ShellLauncherCommand`] processor used by
 /// keyboard/controller confirmation.
 ///
@@ -974,6 +974,26 @@ fn active_sequence_frame(sequence: &ActiveShellSequence) -> Option<(usize, usize
 }
 
 #[cfg(test)]
+pub(super) fn pointer_press(app: &mut App, entity: Entity) {
+    use bevy::picking::{backend::HitData, events::{Pointer, Press}, pointer::{PointerId, PointerButton, Location}};
+    app.world_mut().trigger(Pointer::new(PointerId::Mouse, Location {
+        target: bevy::camera::NormalizedRenderTarget::None { width: 1280, height: 720 },
+        position: Vec2::ZERO,
+    }, Press { button: PointerButton::Primary, hit: HitData::new(entity, 0.0, None, None), count: 1 }, entity));
+    app.update();
+}
+
+#[cfg(test)]
+pub(super) fn pointer_release(app: &mut App, entity: Entity) {
+    use bevy::picking::{backend::HitData, events::{Pointer, Release}, pointer::{PointerId, PointerButton, Location}};
+    app.world_mut().trigger(Pointer::new(PointerId::Mouse, Location {
+        target: bevy::camera::NormalizedRenderTarget::None { width: 1280, height: 720 },
+        position: Vec2::ZERO,
+    }, Release { button: PointerButton::Primary, hit: HitData::new(entity, 0.0, None, None) }, entity));
+    app.update();
+}
+
+#[cfg(test)]
 mod fade_tests {
     use super::card_alpha;
 
@@ -1229,7 +1249,7 @@ mod semantic_input_tests {
         );
 
         // The tap path must give the same command. The bridge activates on
-        // release, so a tap is `Pressed` and then `Hovered`.
+        // release, after a picking press event.
         with_active_card(&mut app);
         install_bevy_ui_menu_actions::<ShellCardAction>(&mut app);
         app.add_systems(Update, basic_shell_card_tap.after(BevyUiMenuInteractionSet));
@@ -1237,7 +1257,6 @@ mod semantic_input_tests {
             .world_mut()
             .spawn((
                 Button,
-                Interaction::Pressed,
                 AmbitionMenuControl::<ShellCardAction> {
                     kind: MenuControlKind::Action,
                     action: Some(ShellCardAction),
@@ -1254,15 +1273,12 @@ mod semantic_input_tests {
             ambition_menu::MenuSurface(card),
             ambition_menu::MenuInteraction::<ShellCardAction>::default(),
         ));
-        app.update();
+        pointer_press(&mut app, card);
         assert!(
             drained_sequence(&mut app).is_empty(),
             "the finger going down on a card has not advanced it yet"
         );
-        app.world_mut()
-            .entity_mut(card)
-            .insert(Interaction::Hovered);
-        app.update();
+        pointer_release(&mut app, card);
         let tapped = drained_sequence(&mut app);
         assert_eq!(
             tapped, confirmed,
@@ -1458,8 +1474,7 @@ mod pointer_hover_tests {
     /// pointer bridge and the launcher's pointer adapter. The cursor
     /// (`ShellLauncherState::selected`) is on row 0. Returns the row entities.
     ///
-    /// The test sets `Interaction` directly. That works in this harness only:
-    /// a full Bevy host's UI focus system rewrites it from the real pointer.
+    /// This fixture supplies picking state and events without hit testing.
     fn launcher_with_rows() -> (App, Vec<Entity>) {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
@@ -1516,7 +1531,7 @@ mod pointer_hover_tests {
         (app, rows.into_iter().map(|(_, entity)| entity).collect())
     }
 
-    fn set_interaction(app: &mut App, entity: Entity, interaction: bevy::ui::Interaction) {
+    fn set_interaction(app: &mut App, entity: Entity, interaction: bevy::picking::hover::PickingInteraction) {
         app.world_mut().entity_mut(entity).insert(interaction);
         app.update();
     }
@@ -1532,7 +1547,7 @@ mod pointer_hover_tests {
         let (mut app, rows) = launcher_with_rows();
         let resting = app.world().get::<BackgroundColor>(rows[2]).unwrap().0;
 
-        set_interaction(&mut app, rows[2], bevy::ui::Interaction::Hovered);
+        set_interaction(&mut app, rows[2], bevy::picking::hover::PickingInteraction::Hovered);
 
         assert!(visual(&app, rows[2]).hovered, "the pointed row is hovered");
         assert!(!visual(&app, rows[2]).selected && !visual(&app, rows[2]).focused);
@@ -1555,12 +1570,12 @@ mod pointer_hover_tests {
     #[test]
     fn clicking_a_hovered_launcher_row_activates_the_pointed_row() {
         let (mut app, rows) = launcher_with_rows();
-        set_interaction(&mut app, rows[2], bevy::ui::Interaction::Hovered);
+        set_interaction(&mut app, rows[2], bevy::picking::hover::PickingInteraction::Hovered);
         drained(&mut app);
 
-        set_interaction(&mut app, rows[2], bevy::ui::Interaction::Pressed);
+        pointer_press(&mut app, rows[2]);
         assert!(drained(&mut app).is_empty(), "down is not a launch");
-        set_interaction(&mut app, rows[2], bevy::ui::Interaction::Hovered);
+        pointer_release(&mut app, rows[2]);
         assert_eq!(drained(&mut app), vec![ShellLauncherCommand::Activate(2)]);
     }
 

@@ -8,7 +8,7 @@
 //! - tab switching and remembered active tab;
 //! - keyboard/gamepad focus navigation and action dispatch;
 //! - dirty republish of the active page model through the Bevy-UI renderer;
-//! - shared Bevy-UI `Interaction` activation for touch/mouse rows and tabs;
+//! - shared Bevy picking activation for touch/mouse rows and tabs;
 //! - pointer hover handling for mouse focus ownership.
 
 use bevy::prelude::*;

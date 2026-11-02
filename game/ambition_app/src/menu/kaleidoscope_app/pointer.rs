@@ -3,11 +3,7 @@
 
 use super::*;
 
-/// Feature E: record the start of a pointer press on a cube control so a
-/// press-then-drag-away can be CANCELLED (no activation). Stores the pressed entity
-/// + the press origin; `kaleidoscope_pointer_move` marks it cancelled once the
-/// pointer drags past the tap threshold, and `kaleidoscope_pointer_release` honours
-/// that. Mouse OR touch (same `Pointer<Press>` path).
+/// Arm the owning menu from a mouse or touch press on its control.
 pub(crate) fn kaleidoscope_pointer_press(
     press: On<Pointer<Press>>,
     backend: Res<InventoryUiBackend>,
@@ -37,7 +33,6 @@ pub(crate) fn kaleidoscope_pointer_press(
             press.pointer_id,
             control.focus,
             action,
-            press.entity,
             press.pointer_location.position,
         );
     }

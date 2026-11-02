@@ -7,9 +7,9 @@
 //! generic over page/action ids and shares the backend-agnostic model with
 //! other menu presentations.
 
-use crate::MenuFocusKey;
 use bevy::ecs::relationship::RelatedSpawnerCommands;
 use bevy::prelude::*;
+use bevy::picking::hover::PickingInteraction;
 use bevy::ui::UiGlobalTransform;
 
 use crate::{
@@ -237,8 +237,8 @@ fn tab_bg(active: bool, hovered: bool) -> Color {
 
 /// The pointer is over a control or tab. `Pressed` also means "under the
 /// pointer".
-fn pointer_over(interaction: Interaction) -> bool {
-    interaction != Interaction::None
+fn pointer_over(interaction: PickingInteraction) -> bool {
+    interaction != PickingInteraction::None
 }
 
 /// The font source for all menu surfaces.
@@ -372,6 +372,7 @@ where
                         };
                         bar.spawn((
                             Button,
+                            PickingInteraction::None,
                             Node {
                                 flex_grow: 1.0,
                                 flex_basis: Val::Px(0.0),
@@ -543,135 +544,13 @@ fn bevy_ui_scrollbar_drag(
     }
 }
 
-/// Translate Bevy [`Interaction`] state into semantic menu activation.
-///
-/// Controls activate on release (`Pressed` -> `Hovered`), not on press. A
-/// change to `None` on the same entity cancels. If a rebuild replaces the
-/// entity for the same action, the arm holds through the rebuild frame,
-/// because the new node stays `Interaction::None` until the next `PreUpdate`
-/// focus pass.
-fn publish_bevy_ui_menu_actions<Action>(
-    rows: Query<
-        (
-            Entity,
-            &Interaction,
-            &AmbitionMenuControl<Action>,
-            &crate::MenuSurface,
-        ),
-        With<Button>,
-    >,
-    mut menus: Query<(Entity, &mut crate::MenuInteraction<Action>)>,
-    pointers: Query<&bevy::picking::pointer::PointerLocation>,
-    mut activated: MessageWriter<crate::MenuActionActivated<Action>>,
-    risk: Option<Res<crate::MenuDestructiveActions<Action>>>,
-    settings: Option<Res<ambition_persistence::settings::UserSettings>>,
-) where
-    Action: Clone + Send + Sync + 'static,
-{
-    // Pointer position for the drag test. Multi-touch uses the first located
-    // pointer. `PressArm` treats a missing position as no drag and still
-    // activates: a missed drag costs a stray activation, but a phantom drag
-    // would block every tap on a device with no position. Scanned only when
-    // something is pressed, because there are usually no menu rows.
-    let locate = || {
-        pointers
-            .iter()
-            .find_map(|p| p.location())
-            .map(|l| l.position)
-    };
-
-    for (menu, mut state) in &mut menus {
-        let crate::MenuInteraction {
-            arm,
-            armed,
-            confirm_armed,
-            ..
-        } = &mut *state;
-        let mut pressed: Option<(MenuFocusKey, Action, Entity)> = None;
-        let mut armed_now: Option<(Entity, Interaction)> = None;
-        for (entity, interaction, control, surface) in &rows {
-            if surface.0 != menu {
-                continue;
-            }
-            let Some(action) = control.action.clone() else {
-                continue;
-            };
-            if arm.armed() == Some(&control.focus) {
-                armed_now = Some((entity, *interaction));
-            }
-            if *interaction == Interaction::Pressed && pressed.is_none() {
-                pressed = Some((control.focus, action, entity));
-            }
-        }
-
-        match pressed {
-            // Held. A press on a different control replaces the arm; the later
-            // finger is the live one.
-            Some((focus, action, entity)) => {
-                if arm.armed() == Some(&focus) {
-                    arm.moved(locate());
-                    // Re-anchor: a rebuild while held moves the control, and the
-                    // leave test compares against its current place.
-                    *armed = Some((action, entity));
-                } else {
-                    // Pressing a different row cancels a pending confirm. Compared
-                    // by control, so a row with the same action is still a
-                    // different row.
-                    if confirm_armed.as_ref() != Some(&focus) {
-                        *confirm_armed = None;
-                    }
-                    arm.press(focus, locate());
-                    *armed = Some((action, entity));
-                }
-            }
-            None if arm.is_armed() => {
-                let pressed_at = armed.as_ref().map(|(_, entity)| *entity);
-                match armed_now {
-                    // Came up ON the armed control.
-                    Some((_, Interaction::Hovered)) => {
-                        let released = arm.release_anywhere();
-                        if let (Some(focus), Some((action, _))) = (released, armed.take()) {
-                            // Whether a release activates is the tap policy in
-                            // `ambition_input`. This bridge supplies only which row
-                            // was released on and whether it is destructive.
-                            let destructive = risk
-                                .as_deref()
-                                .is_some_and(|risk| (risk.is_destructive)(&action));
-                            let tap_mode = settings
-                                .as_deref()
-                                .map(|settings| settings.controls.menu_tap_mode)
-                                .unwrap_or_default();
-                            // A release is the selection here, so the guard only
-                            // asks whether this row was already armed.
-                            let press =
-                                tap_mode.resolve_press(focus, &focus, destructive, confirm_armed);
-                            if press == ambition_input::settings::MenuPointerPress::Confirm {
-                                activated.write(crate::MenuActionActivated { menu, action });
-                            }
-                        }
-                    }
-                    // Same entity, no longer under the pointer: it was left.
-                    Some((entity, Interaction::None)) if Some(entity) == pressed_at => {
-                        arm.clear();
-                        *armed = None;
-                    }
-                    // Absent, or at a new entity: mid-rebuild. Hold the arm; the
-                    // release finds the control again.
-                    _ => {}
-                }
-            }
-            None => {}
-        }
-    }
-}
-
 /// Publish hover as a preview, distinct from activation. Only the first hovered
 /// row is emitted; overlapping pickable rows are treated as a layout error rather
 /// than exposing query order to the host.
 fn publish_bevy_ui_menu_previews<Action>(
     rows: Query<
         (
-            &Interaction,
+            &PickingInteraction,
             &AmbitionMenuControl<Action>,
             &crate::MenuSurface,
         ),
@@ -687,7 +566,7 @@ fn publish_bevy_ui_menu_previews<Action>(
         let hovered = rows
             .iter()
             .find(|(interaction, _, surface)| {
-                surface.0 == menu && **interaction == Interaction::Hovered
+                surface.0 == menu && **interaction == PickingInteraction::Hovered
             })
             .and_then(|(_, control, _)| control.action.clone());
 
@@ -700,71 +579,6 @@ fn publish_bevy_ui_menu_previews<Action>(
         *last = hovered.clone();
         if let Some(action) = hovered {
             previewed.write(crate::MenuActionPreviewed { menu, action });
-        }
-    }
-}
-
-/// Translate flat-menu tab taps into a renderer-neutral tab message.
-///
-/// Same release rule as [`publish_bevy_ui_menu_actions`]: a tab bar sits on a
-/// scrollable page, so a finger that lands and slides is scrolling, not
-/// changing tabs.
-///
-/// Keyed by row index ([`ambition_ui_nav::RowPress`]), because a tab's
-/// `index` is stable across the republishes that move its entities.
-fn publish_bevy_ui_menu_tabs(
-    tabs: Query<(Entity, &Interaction, &BevyUiMenuTab, &crate::MenuSurface), With<Button>>,
-    mut menus: Query<(Entity, &mut crate::MenuTabInteraction)>,
-    pointers: Query<&bevy::picking::pointer::PointerLocation>,
-    mut activated: MessageWriter<crate::MenuTabActivated>,
-) {
-    let at = pointers
-        .iter()
-        .find_map(|p| p.location())
-        .map(|l| l.position);
-
-    for (menu, mut state) in &mut menus {
-        let crate::MenuTabInteraction { arm, armed_entity } = &mut *state;
-        let mut pressed: Option<(usize, Entity)> = None;
-        let mut armed_now: Option<(Entity, Interaction)> = None;
-        for (entity, interaction, tab, surface) in &tabs {
-            if surface.0 != menu {
-                continue;
-            }
-            if arm.armed() == Some(&tab.index) {
-                armed_now = Some((entity, *interaction));
-            }
-            if *interaction == Interaction::Pressed && pressed.is_none() {
-                pressed = Some((tab.index, entity));
-            }
-        }
-
-        match pressed {
-            Some((index, entity)) => {
-                if arm.armed() == Some(&index) {
-                    arm.moved(at);
-                    *armed_entity = Some(entity);
-                } else {
-                    arm.press(index, at);
-                    *armed_entity = Some(entity);
-                }
-            }
-            None if arm.is_armed() => match armed_now {
-                Some((_, Interaction::Hovered)) => {
-                    if let Some(index) = arm.release_anywhere() {
-                        activated.write(crate::MenuTabActivated { menu, index });
-                    }
-                    *armed_entity = None;
-                }
-                // A different entity (or none) means the tab bar is mid-republish;
-                // new nodes read `None` until the next focus pass.
-                Some((entity, Interaction::None)) if Some(entity) == *armed_entity => {
-                    arm.clear();
-                    *armed_entity = None;
-                }
-                _ => {}
-            },
-            None => {}
         }
     }
 }
@@ -798,16 +612,18 @@ where
     Action: Clone + PartialEq + Send + Sync + 'static,
 {
     install_bevy_ui_menu_restyle(app);
+    pointer::install_messages(app);
+    app.add_observer(pointer::press_actions::<Action>)
+        .add_observer(pointer::release_actions::<Action>)
+        .add_systems(PreUpdate, pointer::track_action_motion::<Action>
+            .after(bevy::picking::PickingSystems::ProcessInput)
+            .before(bevy::picking::events::pointer_events));
     app.add_message::<crate::MenuActionActivated<Action>>()
         .add_message::<crate::MenuActionPreviewed<Action>>()
+        .add_systems(Update, pointer::finish_actions::<Action>.before(BevyUiMenuInteractionSet))
         .add_systems(
             Update,
-            (
-                publish_bevy_ui_menu_actions::<Action>,
-                publish_bevy_ui_menu_previews::<Action>,
-            )
-                .chain()
-                .in_set(BevyUiMenuInteractionSet),
+            publish_bevy_ui_menu_previews::<Action>.in_set(BevyUiMenuInteractionSet),
         );
 }
 
@@ -815,12 +631,12 @@ where
 ///
 /// This system is the only writer of `hovered` on flat controls. Hosts write
 /// `focused` and `selected`; a hover never changes them (Q70). Filtered on
-/// `Changed<Interaction>` and written only on a real change, so a resting
+/// `Changed<PickingInteraction>` and written only on a real change, so a resting
 /// pointer costs nothing and the restyle below runs once per edge.
 pub fn sync_bevy_ui_menu_hover(
     mut controls: Query<
-        (&Interaction, &mut MenuVisualState),
-        (Changed<Interaction>, With<AmbitionMenuControlKind>),
+        (&PickingInteraction, &mut MenuVisualState),
+        (Changed<PickingInteraction>, With<AmbitionMenuControlKind>),
     >,
 ) {
     for (interaction, mut state) in &mut controls {
@@ -835,8 +651,8 @@ pub fn sync_bevy_ui_menu_hover(
 /// rule as the controls; the active fill and the focus ring are unchanged.
 pub fn restyle_bevy_ui_menu_tabs(
     mut tabs: Query<
-        (&BevyUiMenuTab, &Interaction, &mut BackgroundColor),
-        Or<(Changed<Interaction>, Changed<BevyUiMenuTab>)>,
+        (&BevyUiMenuTab, &PickingInteraction, &mut BackgroundColor),
+        Or<(Changed<PickingInteraction>, Changed<BevyUiMenuTab>)>,
     >,
 ) {
     for (tab, interaction, mut background) in &mut tabs {
@@ -953,7 +769,7 @@ impl bevy::prelude::Plugin for BevyUiMenuRestylePlugin {
 /// render several action types, while the shared tab component/message must be
 /// installed exactly once.
 pub fn install_bevy_ui_menu_tabs(app: &mut App) {
-    // Idempotent: a second call would add `publish_bevy_ui_menu_tabs` twice,
+    // A second installation would publish every tab gesture twice,
     // so one click would change tab and change back. Several compositions
     // call this (kaleidoscope menu, shell title screen). Keyed on a marker
     // for the system, because `add_message` is already idempotent and cannot
@@ -964,9 +780,15 @@ pub fn install_bevy_ui_menu_tabs(app: &mut App) {
     app.init_resource::<BevyUiMenuTabsInstalled>();
     // The tab hover restyle lives in the shared restyle plugin (idempotent).
     install_bevy_ui_menu_restyle(app);
+    pointer::install_messages(app);
+    app.add_observer(pointer::press_tabs)
+        .add_observer(pointer::release_tabs)
+        .add_systems(PreUpdate, pointer::track_tab_motion
+            .after(bevy::picking::PickingSystems::ProcessInput)
+            .before(bevy::picking::events::pointer_events));
     app.add_message::<crate::MenuTabActivated>().add_systems(
         Update,
-        publish_bevy_ui_menu_tabs.in_set(BevyUiMenuInteractionSet),
+        pointer::finish_tabs.before(BevyUiMenuInteractionSet),
     );
 }
 
@@ -999,4 +821,5 @@ mod tests;
 
 mod spawn;
 mod text;
+mod pointer;
 use spawn::spawn_node;

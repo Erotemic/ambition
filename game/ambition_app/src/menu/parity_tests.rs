@@ -405,13 +405,7 @@ mod dispatch_parity {
     app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::session::reset::NewGameRequested>>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.add_message::<bevy::app::AppExit>();
-        // both backends now dispatch from the SAME message, which is what
-        // makes this a parity harness rather than two harnesses in a trench coat:
-        // the cube's 3D press/release observers and the flat Grid's `Interaction`
-        // bridge both publish `MenuActionActivated`, and each backend's consumer
-        // dispatches it. They stay separate consumers because the close and
-        // page-re-pin rules genuinely differ — which is exactly what the
-        // deliberate `ChangePage` asymmetry below pins.
+        // Both picking paths publish the same menu action message.
         app.add_observer(kaleidoscope_pointer_press);
         app.add_observer(kaleidoscope_pointer_release);
         install_bevy_ui_menu_actions::<MenuPageAction>(&mut app);
@@ -437,27 +431,15 @@ mod dispatch_parity {
         app
     }
 
-    /// Both backends activate on the pointer coming UP, so both arms are two
-    /// steps. They differ only in the signal that carries them: the grid rides
-    /// Bevy's `Interaction` (a release over the control reads as `Hovered`
-    /// again), the cube its own pointer observers.
+    /// Each frontend receives the same picking press and release.
     fn activate(app: &mut App, backend: InventoryUiBackend, action: MenuPageAction) {
         let entity = spawn_control(app, action);
-        match backend {
-            InventoryUiBackend::Grid => {
-                app.world_mut()
-                    .entity_mut(entity)
-                    .insert(Interaction::Pressed);
-                app.update();
-                app.world_mut()
-                    .entity_mut(entity)
-                    .insert(Interaction::Hovered);
-            }
-            InventoryUiBackend::LunexKaleidoscope => {
-                trigger_press(app, entity);
-                trigger_release(app, entity);
-            }
+        if backend == InventoryUiBackend::Grid {
+            app.world_mut().entity_mut(entity).insert(Button);
         }
+        trigger_press(app, entity);
+        app.update();
+        trigger_release(app, entity);
         app.update();
     }
 

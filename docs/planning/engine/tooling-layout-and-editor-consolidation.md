@@ -7,6 +7,12 @@ owns execution; this document does not approve bulk file moves.
 **Source snapshot:** `19c66394` (2026-11-02 archive).
 **Scope:** Repository development and authoring tools, their paths, entry points, and discovery. No game or engine behavior change is intended.
 
+**Receipts:** command discovery and path inventory: `3e3bb72a27`; editor promotion: `61a8189823`.
+Intent queries now find owner commands. The editor reuses that catalog and keeps
+asset review as its first area. The 70 focused tests cover retrieval, missing
+source, asset inspection, review notes, and tool navigation. T3-T5 remain
+conditional. Renderer submodule paths must stay fixed.
+
 ## Decision to make
 
 Use `tools/` for substantial author-time applications and packages. Keep all existing Git submodules in `tools/` at their existing paths. Grow the current Asset Inspector into one human-facing **Ambition Editor** under `tools/ambition_editor/`. Keep other specialized tool implementations independent. Use `scripts/` for small repository operations, grouped by purpose, with a few stable root entry points.

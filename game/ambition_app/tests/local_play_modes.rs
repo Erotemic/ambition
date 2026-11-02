@@ -217,7 +217,7 @@ fn player_two_dialogue_draws_in_its_own_view() {
         "the rendered dialogue extends outside its input region");
 }
 
-fn gpu_session(name: &str) -> (App, Vec<Entity>) {
+fn gpu_app(name: &str) -> App {
     use ambition_platformer2d::render::capture::{
         CaptureProgress, CaptureSettings, install_capture_cameras, setup_capture_target,
     };
@@ -227,7 +227,11 @@ fn gpu_session(name: &str) -> (App, Vec<Entity>) {
     app.init_resource::<CaptureProgress>();
     app.add_systems(Startup, setup_capture_target);
     install_capture_cameras(&mut app);
-    session_in(app, 2, true)
+    app
+}
+
+fn gpu_session(name: &str) -> (App, Vec<Entity>) {
+    session_in(gpu_app(name), 2, true)
 }
 
 fn capture_frame(app: &mut App) {
@@ -689,4 +693,85 @@ fn turning_joins_on_mid_session_lets_a_pad_join_without_a_restart() {
         "the session restarted"
     );
     assert_eq!(the_primary(&mut app), primary, "player one's body was rebuilt");
+}
+
+
+fn rendered_pad_combat(enabled: bool) {
+    use ambition_platformer2d::actor::{BodyHealth, Health};
+    use ambition_platformer2d::combat::{events::{HitEvent, HitSource, HitTarget}, strike::Hitbox};
+    use ambition_platformer2d::persistence::settings::UserSettings;
+    use ambition_platformer2d::projectiles::ProjectileSpawnRequest;
+    use ambition_platformer2d::settings_menu::settings::{apply_settings_option, SettingsOptionId};
+    use crate::neighbor_prefetch_prepares_rooms::cross;
+    use crate::the_note_travels_from_alice_to_bob::put_body_at;
+
+    let mut app = gpu_app(if enabled { "ambition-pad-combat-on.png" } else { "ambition-pad-combat-off.png" });
+    settle(&mut app);
+    app.world_mut().resource_mut::<UserSettings>().gameplay.coop_friendly_fire = enabled;
+    let (mut app, pads) = session_in(app, 2, true);
+    apply_settings_option(SettingsOptionId::LocalViewLayout, 1,
+        &mut app.world_mut().resource_mut::<UserSettings>());
+    tap(&mut app, pads[1], GamepadButton::Start);
+    for _ in 0..30 { app.update(); }
+    let bodies = [the_primary(&mut app), seat_one_bodies(&mut app)[0]];
+    for (seat, body) in bodies.into_iter().enumerate() {
+        cross(&mut app, body, PlayerSlot(seat as u8), "switch_lab");
+    }
+    assert_eq!(camera_views(&mut app), vec![(0, false), (1, true)]);
+
+    for projectile in [false, true] {
+        for source_seat in 0..2 {
+            for _ in 0..90 { app.update(); }
+            let source = bodies[source_seat];
+            let victim = bodies[1 - source_seat];
+            for (seat, body) in bodies.into_iter().enumerate() {
+                app.world_mut().entity_mut(body).insert(BodyHealth::new(Health::new(100)));
+                let half_height = app.world().get::<BodyKinematics>(body).unwrap().size.y * 0.5;
+                let separation = if projectile { 120.0 } else { 40.0 };
+                put_body_at(&mut app, body, Vec2::new(220.0 + seat as f32 * separation, 352.0 - half_height));
+                app.world_mut().get_mut::<BodyKinematics>(body).unwrap().facing = if seat == 0 { 1.0 } else { -1.0 };
+            }
+            for _ in 0..6 { app.update(); }
+            let mut shots = app.world().resource::<Messages<ProjectileSpawnRequest>>().get_cursor_current();
+            let mut hits = app.world().resource::<Messages<HitEvent>>().get_cursor_current();
+            let mut emitted = false;
+            let mut hit_victim = false;
+            let button = if projectile { GamepadButton::North } else { GamepadButton::West };
+            pad_button(&mut app, pads[source_seat], button, 1.0);
+            for frame in 0..60 {
+                if frame == 2 { pad_button(&mut app, pads[source_seat], button, 0.0); }
+                app.update();
+                if projectile {
+                    emitted |= shots.read(app.world().resource::<Messages<ProjectileSpawnRequest>>())
+                        .any(|shot| shot.owner == source);
+                } else {
+                    let world = app.world_mut();
+                    emitted |= world.query::<(&Hitbox, &HitSource)>().iter(world)
+                        .any(|(hitbox, cause)| hitbox.owner == source && *cause == HitSource::Melee);
+                }
+                hit_victim |= hits.read(app.world().resource::<Messages<HitEvent>>())
+                    .any(|hit| hit.attacker == Some(source) && hit.target == HitTarget::Body(victim));
+            }
+            let damage = app.world().get::<BodyHealth>(victim).unwrap().damage_taken();
+            eprintln!("pad combat: friendly_fire={enabled}, projectile={projectile}, source_seat={source_seat}, emitted={emitted}, hit_victim={hit_victim}, damage={damage}");
+            assert!(emitted, "pad {source_seat} did not emit its attack; projectile={projectile}");
+            assert_eq!(hit_victim, enabled, "wrong contact policy for pad {source_seat}; projectile={projectile}");
+            assert_eq!(damage > 0, enabled, "wrong damage policy for pad {source_seat}; projectile={projectile}");
+            assert_eq!(app.world().get::<BodyHealth>(source).unwrap().damage_taken(), 0,
+                "the attack damaged its own source");
+        }
+    }
+    capture_frame(&mut app);
+}
+
+#[test]
+#[ignore = "needs a wgpu adapter; captures two-pad combat with friendly fire on"]
+fn two_pads_damage_each_other_in_the_rendered_game() {
+    rendered_pad_combat(true);
+}
+
+#[test]
+#[ignore = "needs a wgpu adapter; captures two-pad combat with friendly fire off"]
+fn two_pads_spare_each_other_in_the_rendered_game() {
+    rendered_pad_combat(false);
 }

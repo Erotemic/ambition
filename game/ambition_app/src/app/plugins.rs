@@ -309,8 +309,10 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     // keyboard from being handed a keyboard system.
     ambition_platformer2d::menu::map::install_map_menu_systems(app);
     app.init_resource::<ambition_platformer2d::game_assets::PropSheets>();
-    app.insert_resource(inventory_ui::InventoryUiState::default())
-        .add_systems(
+    app.world_mut().spawn(inventory_ui::InventoryMenu {
+        owner: ambition_platformer2d::input::ParticipantId::PRIMARY,
+    });
+    app.add_systems(
             Startup,
             (
                 ambition_platformer2d::dev_tools::profiling::phase_mark(

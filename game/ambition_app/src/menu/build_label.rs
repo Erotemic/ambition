@@ -19,7 +19,7 @@ struct PauseBuildLabel;
 
 fn sync_build_label(
     mut commands: Commands,
-    menu: Res<InventoryUiState>,
+    menu: Single<&InventoryUiState>,
     cameras: Query<Entity, With<IsDefaultUiCamera>>,
     mut label: Query<&mut Node, With<PauseBuildLabel>>,
 ) {

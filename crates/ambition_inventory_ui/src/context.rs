@@ -1,31 +1,18 @@
-//! Inventory input-context ownership.
-//!
-//! While [`InventoryUiState::visible`] is true, this module declares the shared
-//! inventory context for participants. Ownership comes from the backend-neutral
-//! inventory model rather than game mode or renderer-specific state, so all
-//! inventory frontends route input consistently.
+//! Inventory input claims for each surface's participant.
 
 use bevy::prelude::*;
-
 use ambition_input::participant::{
     context_priority, ContextClaim, InputParticipant, ParticipantContexts, INVENTORY_CONTEXT,
 };
+use crate::{InventoryMenu, InventoryUiState};
 
-use crate::InventoryUiState;
-
-/// Declare [`INVENTORY_CONTEXT`] while the inventory surface is open, and
-/// retract it when it closes.
-///
-/// The current inventory surface is global, so the claim is declared for every
-/// participant. A future per-seat inventory can narrow the claim here.
+/// Claim inventory input only for the owner of an open surface.
 pub fn declare_inventory_input_context(
-    overlay: Option<Res<InventoryUiState>>,
-    mut participants: Query<&mut ParticipantContexts, With<InputParticipant>>,
+    menus: Query<(&InventoryMenu, &InventoryUiState)>,
+    mut participants: Query<(&InputParticipant, &mut ParticipantContexts)>,
 ) {
-    let open = overlay.is_some_and(|state| state.visible);
-    for mut contexts in &mut participants {
-        // Touch the component only when the claim actually moves, so a quiet
-        // frame is not a change-detection event for every reader downstream.
+    for (participant, mut contexts) in &mut participants {
+        let open = menus.iter().any(|(menu, state)| menu.owner == participant.id && state.visible);
         if contexts.is_declared(INVENTORY_CONTEXT) != open {
             contexts.sync(
                 ContextClaim::capturing(INVENTORY_CONTEXT, context_priority::INVENTORY),
@@ -40,10 +27,8 @@ pub struct InventoryInputContextPlugin;
 
 impl Plugin for InventoryInputContextPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            declare_inventory_input_context.in_set(ambition_input::InputSet::ResolveContext),
-        );
+        app.add_systems(Update,
+            declare_inventory_input_context.in_set(ambition_input::InputSet::ResolveContext));
     }
 }
 
@@ -54,59 +39,35 @@ mod tests {
         resolve_active_input_context, ParticipantId, SeatInputContexts, GAMEPLAY_CONTEXT,
     };
 
-    /// The property `GameMode` could not express: with no game mode ANYWHERE,
-    /// an open inventory still takes gameplay away from the seat.
     #[test]
-    fn an_open_inventory_takes_gameplay_routing_without_a_game_mode() {
+    fn each_inventory_claims_only_its_owner_without_a_game_mode() {
         let mut app = App::new();
-        app.init_resource::<InventoryUiState>();
         app.init_resource::<SeatInputContexts>();
-        app.add_systems(
-            Update,
-            (
-                declare_inventory_input_context,
-                resolve_active_input_context,
-            )
-                .chain(),
-        );
-        let mut playing = ParticipantContexts::default();
-        playing.declare(ContextClaim::capturing(
-            GAMEPLAY_CONTEXT,
-            context_priority::GAMEPLAY,
-        ));
-        app.world_mut()
-            .spawn((InputParticipant::with_id(ParticipantId::PRIMARY), playing));
-
+        app.add_systems(Update, (declare_inventory_input_context, resolve_active_input_context).chain());
+        let menus = [ParticipantId::PRIMARY, ParticipantId::SECONDARY].map(|owner| {
+            let mut playing = ParticipantContexts::default();
+            playing.declare(ContextClaim::capturing(GAMEPLAY_CONTEXT, context_priority::GAMEPLAY));
+            app.world_mut().spawn((InputParticipant::with_id(owner), playing));
+            app.world_mut().spawn(InventoryMenu { owner }).id()
+        });
         app.update();
-        assert!(
-            app.world()
-                .resource::<SeatInputContexts>()
-                .gameplay_owned(0),
-            "a closed inventory claims nothing"
-        );
-
-        app.world_mut()
-            .resource_mut::<InventoryUiState>()
-            .reset_for_open(false);
+        for slot in 0..2 { assert!(app.world().resource::<SeatInputContexts>().gameplay_owned(slot)); }
+        for slot in 0..2 {
+            app.world_mut().get_mut::<InventoryUiState>(menus[slot]).unwrap().reset_for_open();
+            app.update();
+            let seats = app.world().resource::<SeatInputContexts>();
+            assert_eq!(seats.for_seat(slot as u8).owner(), Some(INVENTORY_CONTEXT));
+            assert!(seats.gameplay_owned(1 - slot as u8), "another participant retains input");
+            app.world_mut().get_mut::<InventoryUiState>(menus[slot]).unwrap().close();
+            app.update();
+            assert!(app.world().resource::<SeatInputContexts>().gameplay_owned(slot as u8));
+        }
+        for menu in menus { app.world_mut().get_mut::<InventoryUiState>(menu).unwrap().reset_for_open(); }
+        app.update();
+        app.world_mut().entity_mut(menus[0]).despawn();
         app.update();
         let seats = app.world().resource::<SeatInputContexts>();
-        assert_eq!(
-            seats.for_seat(0).owner(),
-            Some(INVENTORY_CONTEXT),
-            "the open surface owns the seat's input"
-        );
-        assert!(
-            !seats.gameplay_owned(0),
-            "and the actor underneath stops being driven by the keys navigating the menu"
-        );
-
-        app.world_mut().resource_mut::<InventoryUiState>().close();
-        app.update();
-        assert!(
-            app.world()
-                .resource::<SeatInputContexts>()
-                .gameplay_owned(0),
-            "closing hands the seat back rather than leaving it captured"
-        );
+        assert!(seats.gameplay_owned(0), "a removed menu releases its claim");
+        assert_eq!(seats.for_seat(1).owner(), Some(INVENTORY_CONTEXT));
     }
 }

@@ -118,3 +118,21 @@ pub(crate) fn click_control(app: &mut App, action: MenuPageAction) {
     trigger_release(app, entity);
     app.update();
 }
+
+/// The single inventory surface used by these backend fixtures.
+pub(crate) fn inventory_state(world: &World) -> &ambition_platformer2d::inventory_ui::InventoryUiState {
+    world.try_query::<&ambition_platformer2d::inventory_ui::InventoryUiState>()
+        .expect("the fixture has inventory state").single(world).expect("one fixture menu")
+}
+
+pub(crate) fn inventory_state_mut(world: &mut World) -> Mut<'_, ambition_platformer2d::inventory_ui::InventoryUiState> {
+    let entity = world.query_filtered::<Entity, With<ambition_platformer2d::inventory_ui::InventoryUiState>>()
+        .single(world).expect("one fixture menu");
+    world.get_mut(entity).unwrap()
+}
+
+pub(crate) fn spawn_inventory_menu(app: &mut App, state: ambition_platformer2d::inventory_ui::InventoryUiState) {
+    app.world_mut().spawn((ambition_platformer2d::inventory_ui::InventoryMenu {
+        owner: ambition_platformer2d::input::ParticipantId::PRIMARY,
+    }, state));
+}

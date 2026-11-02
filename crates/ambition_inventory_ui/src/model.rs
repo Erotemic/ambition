@@ -55,7 +55,14 @@ impl InventoryTab {
     }
 }
 
-#[derive(Resource, Default)]
+/// The input participant that owns this inventory surface.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+#[require(InventoryUiState)]
+pub struct InventoryMenu {
+    pub owner: ambition_input::participant::ParticipantId,
+}
+
+#[derive(Component, Default)]
 pub struct InventoryUiState {
     pub visible: bool,
     pub selected: usize,
@@ -63,12 +70,6 @@ pub struct InventoryUiState {
     /// Scroll offset for non-item text tabs. Items are short enough to remain
     /// fully visible for now; map/quest pages can grow as the world grows.
     pub content_scroll: usize,
-    /// True when the inventory was opened from the pause menu (vs. directly
-    /// from gameplay). Determines what mode to return to when it closes.
-    pub opened_from_pause: bool,
-    /// True when the overlay was opened over a conversation. It closes back to
-    /// the conversation, not to gameplay.
-    pub opened_from_dialogue: bool,
     /// Set by the pointer system when a tap should activate the currently
     /// selected row. Consumed by `inventory_input` on the same frame and
     /// treated like a confirm press.
@@ -82,12 +83,11 @@ pub struct InventoryUiState {
 }
 
 impl InventoryUiState {
-    pub fn reset_for_open(&mut self, opened_from_pause: bool) {
+    pub fn reset_for_open(&mut self) {
         self.visible = true;
         self.selected = 0;
         self.tab = InventoryTab::Items;
         self.content_scroll = 0;
-        self.opened_from_pause = opened_from_pause;
         self.pointer_confirm = false;
         self.pointer_armed = None;
         self.focus = MenuFocusState::default();

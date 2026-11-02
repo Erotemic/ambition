@@ -38,9 +38,8 @@ fn mode(app: &App) -> GameMode {
 }
 
 fn menu_open(app: &App) -> bool {
-    app.world()
-        .resource::<ambition_platformer2d::inventory_ui::InventoryUiState>()
-        .visible
+    app.world().try_query::<&ambition_platformer2d::inventory_ui::InventoryUiState>()
+        .expect("inventory state").single(app.world()).expect("one menu").visible
 }
 
 fn menu_page(app: &App) -> Option<MenuPage> {

@@ -756,10 +756,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/body/death_beat.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
-    "InventoryUiState": (
-        "game/ambition_app/src/menu/grid_backend.rs",
-        "game/ambition_app/src/menu/kaleidoscope_app.rs",
-    ),
+
     "KaleidoscopeOpenState": (
         "game/ambition_app/src/menu/kaleidoscope_app.rs",
         "game/ambition_menu_kaleidoscope/src/lib.rs",
@@ -1453,24 +1450,12 @@ ADJUDICATED: dict[str, str] = {
     # the cube's and grid's pointer observers carry the same test in their
     # bodies instead. A writer that carries neither is the way this verdict
     # fails, which is why `KaleidoscopeCursor` is a separate row.
-    "InventoryUiState": (
-        "`route_menu_lifecycle` owns open and close requests for both menu "
-        "backends. It runs before their navigation systems and requires a "
-        "live Ambition session. `grid_menu_action_activated` and "
-        "`grid_menu_nav` use the Grid backend gate. "
-        "`kaleidoscope_focus_nav` and `kaleidoscope_menu_action_activated` "
-        "use the Cube visibility gate. The effective backend selects one "
-        "presentation in each frame."
-    ),
+
     "KaleidoscopeSystemNav": (
-        "CORRECT — the same selector and the same four/three writers as "
-        "`InventoryUiState`, plus `grid_menu_tab_activated` on the grid side "
-        "(also `.run_if(grid_backend_active)`). ⛔ THE NAME IS A LIE ABOUT "
-        "OWNERSHIP AND THE SOURCE SAYS SO: `grid_backend.rs` documents that the "
-        "*\"shared cursor and drill state stay on `KaleidoscopeCursor` / "
-        "`KaleidoscopeSystemNav`\"* — the `Kaleidoscope` prefix is where the "
-        "state was born, not who owns it. A reader who takes the prefix for the "
-        "owner will misread every row in this family."
+        "`route_menu_lifecycle` resets navigation when a surface opens. "
+        "Grid and Cube navigation and action dispatch use the effective "
+        "backend selector, so only one presentation handles a frame. "
+        "The shared navigation state still requires menu-instance ownership."
     ),
     "VisualQualityConfirmState": (
         "CORRECT — the same selector. On the cube side the three gated writers "

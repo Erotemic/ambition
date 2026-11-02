@@ -6,7 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`context`](src/context.rs) | Inventory input-context ownership. |
+| [`context`](src/context.rs) | Inventory input claims for each surface's participant. |
 | [`model`](src/model.rs) | Inventory-screen UI state model: [`InventoryUiState`] (visible/selected/tab/ scroll/focus) + the [`InventoryTab`] enum (Items / Map / Quests). |
 
 _2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._

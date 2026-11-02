@@ -118,6 +118,8 @@ pub fn install_unified_menu_shared(app: &mut App) {
             .in_set(ambition_platformer2d::input::MenuNavConsume)
             .before(crate::menu::GridMenuNav)
             .before(crate::menu::KaleidoscopeMenuNav));
+    #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
+    app.add_systems(PostUpdate, crate::menu::lifecycle::aggregate_menu_pause);
     install_menu_confirm_provider(app);
 }
 
@@ -158,7 +160,7 @@ pub(crate) fn install_menu_confirm_provider(app: &mut App) {
 /// they must run while closed so they can open the menu and keep the camera off.
 fn kaleidoscope_menu_visible(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<ambition_platformer2d::inventory_ui::InventoryUiState>>,
+    ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
 ) -> bool {
     KALEIDOSCOPE_MENU_BACKEND_ENABLED
         && backend.effective() == InventoryUiBackend::LunexKaleidoscope
@@ -173,7 +175,7 @@ fn kaleidoscope_menu_visible(
 #[cfg(feature = "kaleidoscope_menu")]
 fn kaleidoscope_render_needed(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<ambition_platformer2d::inventory_ui::InventoryUiState>>,
+    ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
     open_state: Option<Res<ambition_menu_kaleidoscope::KaleidoscopeOpenState>>,
 ) -> bool {
     let (target, amount) = open_state
@@ -840,17 +842,6 @@ impl SystemMenuParams<'_, '_> {
 }
 
 #[cfg(feature = "kaleidoscope_menu")]
-/// Read the current game mode + queue the next one, bundled into ONE [`SystemParam`]
-/// so the nav system / pointer observer that need to UNPAUSE on a close-via-action
-/// (e.g. Reset Sandbox) stay within Bevy's 16-param ceiling. Threaded into
-/// [`crate::menu::lifecycle::close_menu`] via [`Self::mode`] + [`Self::next_mode`].
-#[derive(bevy::ecs::system::SystemParam)]
-pub(crate) struct GameModeIo<'w> {
-    state: Res<'w, State<ambition_platformer2d::platformer::schedule::GameMode>>,
-    next: ResMut<'w, NextState<ambition_platformer2d::platformer::schedule::GameMode>>,
-}
-
-#[cfg(feature = "kaleidoscope_menu")]
 /// Resources `republish_kaleidoscope_pages` reads (immutably) to snapshot the radio + dev
 /// state into the SYSTEM IR. Separate `Res` bundle so it never conflicts with the
 /// mutable `SystemMenuParams` (different systems).
@@ -972,7 +963,7 @@ fn kaleidoscope_focus_nav(
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
     // Read-only: nav never closes the overlay. A close is the `CloseMenu` action,
     // which the consumer applies through `crate::menu::lifecycle::close_menu`.
-    overlay: Res<ambition_platformer2d::inventory_ui::InventoryUiState>,
+    overlay: Single<&ambition_platformer2d::inventory_ui::InventoryUiState>,
     // the game mode is GONE from nav. It was here only so a close-via-action
     // (Reset Sandbox) could unpause exactly like an Esc-close — and that close
     // travels with the dispatch, into `kaleidoscope_menu_action_activated`. Nav
@@ -1172,11 +1163,8 @@ fn kaleidoscope_focus_nav(
 /// its keyboard nav, `system_focus_nav`, and the `Pointer<Release>` observer —
 /// each carrying its own copy of the close-after-dispatch, and each needing the
 /// full dispatch parameter set at a call site that had nothing else to do with
-/// it. That is why the release observer needed `GameModeIo` bundled to stay
-/// under Bevy's 16-parameter ceiling.
-///
-/// Now every route announces the action and this dispatches it, so the
-/// unpause-on-close rule exists once.
+/// it. Menu actions change the surface state. The shared pause arbiter
+/// applies the combined claim after the actions finish.
 #[cfg(feature = "input")]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn kaleidoscope_menu_action_activated(
@@ -1184,8 +1172,7 @@ pub(crate) fn kaleidoscope_menu_action_activated(
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
-    mut overlay: ResMut<ambition_platformer2d::inventory_ui::InventoryUiState>,
-    mut mode_io: GameModeIo,
+    mut overlay: Single<&mut ambition_platformer2d::inventory_ui::InventoryUiState>,
     owned: Res<OwnedItems>,
     hand: PrimaryHand,
     mut settings: ResMut<UserSettings>,
@@ -1221,8 +1208,7 @@ pub(crate) fn kaleidoscope_menu_action_activated(
             &mut system,
         );
         if close_menu {
-            // A close-via-action must unpause exactly like the canonical Esc-close.
-            crate::menu::lifecycle::close_menu(&mut overlay, mode_io.state.get(), &mut mode_io.next);
+            overlay.close();
             break;
         }
     }
@@ -1589,7 +1575,7 @@ pub(crate) const INVENTORY_CUE_CONTEXT: ambition_platformer2d::input::InputConte
 /// Self-gates on the inventory overlay being open (backend-agnostic
 /// `InventoryUiState.visible`), so a closed menu retracts the cue.
 fn publish_menu_confirm_prompt(
-    ui_state: Option<Res<ambition_platformer2d::inventory_ui::InventoryUiState>>,
+    ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
     cursor: Res<KaleidoscopeCursor>,
     owned: Option<Res<OwnedItems>>,
     items: ambition_platformer2d::items::ItemCatalogRead,
@@ -1900,7 +1886,7 @@ fn cycle_dev_gravity(
 #[cfg(feature = "kaleidoscope_menu")]
 fn gate_kaleidoscope_menu(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<ambition_platformer2d::inventory_ui::InventoryUiState>>,
+    ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
     mut open_state: ResMut<ambition_menu_kaleidoscope::KaleidoscopeOpenState>,
     mut cube_cameras: Query<&mut Camera, With<ambition_menu_kaleidoscope::KaleidoscopePauseCamera>>,
     mut rings: Query<&mut Visibility, With<ambition_menu_kaleidoscope::MenuRing>>,

@@ -371,7 +371,6 @@ mod dispatch_parity {
     use crate::menu::test_support::{spawn_control, trigger_press, trigger_release};
     use ambition_platformer2d::characters::brain::ActionSet;
     use ambition_platformer2d::input::MenuControlFrame;
-    use ambition_platformer2d::inventory_ui::InventoryUiState;
     use ambition_platformer2d::menu::backend::InventoryUiBackend;
     use ambition_platformer2d::persistence::settings::UserSettings;
     use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
@@ -401,7 +400,8 @@ mod dispatch_parity {
         app.init_resource::<ambition_platformer2d::dev_tools::WorldSourceHotReload>();
                 app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
-        app.init_resource::<InventoryUiState>();
+        crate::menu::test_support::spawn_inventory_menu(&mut app, Default::default());
+    app.add_systems(PostUpdate, crate::menu::lifecycle::aggregate_menu_pause);
         app.init_resource::<ambition_platformer2d::menu::map::MapMenuState>();
         app.init_resource::<MenuControlFrame>();
         app.init_resource::<ambition_platformer2d::input::SeatActiveDevices>();
@@ -429,7 +429,7 @@ mod dispatch_parity {
                 .after(BevyUiMenuInteractionSet),
         );
         *app.world_mut().resource_mut::<InventoryUiBackend>() = backend;
-        app.world_mut().resource_mut::<InventoryUiState>().visible = true;
+        crate::menu::test_support::inventory_state_mut(app.world_mut()).visible = true;
         // The cube release routes a close through GameMode; start Paused like an
         // open menu so a close (not exercised here) would be well-defined.
         app.world_mut().spawn((

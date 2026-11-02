@@ -47,7 +47,8 @@ fn grid_app() -> App {
     app.init_resource::<ambition_platformer2d::dev_tools::WorldSourceHotReload>();
         app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
-    app.init_resource::<ambition_platformer2d::inventory_ui::InventoryUiState>();
+    crate::menu::test_support::spawn_inventory_menu(&mut app, Default::default());
+    app.add_systems(PostUpdate, crate::menu::lifecycle::aggregate_menu_pause);
     app.init_resource::<ambition_platformer2d::menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<GridMenuTabState>();
@@ -101,8 +102,7 @@ fn active_tab(app: &App) -> MenuPage {
 }
 
 fn is_open(app: &App) -> bool {
-    app.world()
-        .resource::<ambition_platformer2d::inventory_ui::InventoryUiState>()
+    crate::menu::test_support::inventory_state(app.world())
         .visible
 }
 
@@ -331,10 +331,9 @@ fn system_quit_dispatches_app_exit() {
     assert!(exits >= 1, "Quit dispatched an AppExit");
 }
 
-/// Back at a tab's top level closes the menu (→ Playing), and respects
-/// `opened_from_pause` (opened from Paused stays Paused on close).
+/// Back closes the menu and preserves a pause that preceded it.
 #[test]
-fn back_closes_and_respects_opened_from_pause() {
+fn back_closes_and_preserves_an_existing_pause() {
     // Opened from gameplay → Back restores Playing.
     let mut app = grid_app();
     set_frame(&mut app, |f| f.inventory = true);
@@ -374,12 +373,6 @@ fn back_closes_and_respects_opened_from_pause() {
     set_frame(&mut app, |_| {});
     app.update();
     assert!(is_open(&app));
-    assert!(
-        app.world()
-            .resource::<ambition_platformer2d::inventory_ui::InventoryUiState>()
-            .opened_from_pause,
-        "opened while already Paused records opened_from_pause"
-    );
     set_frame(&mut app, |f| f.back = true);
     app.update();
     set_frame(&mut app, |_| {});
@@ -390,7 +383,7 @@ fn back_closes_and_respects_opened_from_pause() {
             app.world().resource::<State<GameMode>>().get(),
             GameMode::Paused
         ),
-        "opened_from_pause → close stays Paused"
+        "a pause that preceded the menu stays in effect"
     );
 }
 
@@ -970,8 +963,7 @@ fn scroll_grid_app() -> App {
         (grid_menu_scroll_wheel, grid_menu_apply_scroll_drag).before(grid_menu_nav),
     );
     // Open on the System tab, drilled into Developer (the long, scrollable list).
-    app.world_mut()
-        .resource_mut::<ambition_platformer2d::inventory_ui::InventoryUiState>()
+    crate::menu::test_support::inventory_state_mut(app.world_mut())
         .visible = true;
     {
         app.world_mut()

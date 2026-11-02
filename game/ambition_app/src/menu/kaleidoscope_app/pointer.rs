@@ -11,7 +11,7 @@ use super::*;
 pub(crate) fn kaleidoscope_pointer_press(
     press: On<Pointer<Press>>,
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<ambition_platformer2d::inventory_ui::InventoryUiState>>,
+    ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
     controls: Query<&AmbitionMenuControl<MenuPageAction>>,
     mut state: ResMut<KaleidoscopePointerPress>,
 ) {
@@ -64,7 +64,7 @@ pub(crate) fn kaleidoscope_pointer_move(
     // ⛔⛤ THE GATE ITS TWO SIBLINGS ALREADY HAD — added 2026-09-18. The backend
     // is read from `snapshot`, which already holds it, rather than taken as a
     // second `Res`.
-    ui_state: Option<Res<ambition_platformer2d::inventory_ui::InventoryUiState>>,
+    ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
 ) {
     // Feature E: if a press is active and the pointer has now travelled past the tap
     // threshold, this is a DRAG — the arm marks itself cancelled so the eventual
@@ -170,7 +170,7 @@ pub(crate) fn kaleidoscope_pointer_move(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn kaleidoscope_pointer_release(
     _release: On<Pointer<Release>>,
-    ui_state: Option<Res<ambition_platformer2d::inventory_ui::InventoryUiState>>,
+    ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     system_nav: Res<KaleidoscopeSystemNav>,

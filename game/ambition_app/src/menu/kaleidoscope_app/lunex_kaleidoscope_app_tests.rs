@@ -65,7 +65,8 @@ fn base_kaleidoscope_test_app() -> App {
     app.init_resource::<ambition_platformer2d::dev_tools::WorldSourceHotReload>();
         app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
-    app.init_resource::<ambition_platformer2d::inventory_ui::InventoryUiState>();
+    crate::menu::test_support::spawn_inventory_menu(&mut app, Default::default());
+    app.add_systems(PostUpdate, crate::menu::lifecycle::aggregate_menu_pause);
     app.init_resource::<ambition_platformer2d::menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::items::ItemUseRequested>>();
@@ -92,8 +93,7 @@ fn base_kaleidoscope_test_app() -> App {
 }
 
 fn set_kaleidoscope_visible(app: &mut App, visible: bool) {
-    app.world_mut()
-        .resource_mut::<ambition_platformer2d::inventory_ui::InventoryUiState>()
+    crate::menu::test_support::inventory_state_mut(app.world_mut())
         .visible = visible;
 }
 
@@ -667,8 +667,7 @@ fn clicking_a_radio_station_keeps_the_menu_open() {
         MenuPageAction::SystemOption(SystemOptionId::Radio(0)),
     );
     assert!(
-        app.world()
-            .resource::<ambition_platformer2d::inventory_ui::InventoryUiState>()
+        crate::menu::test_support::inventory_state(app.world())
             .visible,
         "auditioning a station keeps the cube open"
     );
@@ -686,9 +685,6 @@ fn reset_sandbox_action_closes_and_unpauses() {
         .active = Some(MenuPage::System);
     // Open the menu from gameplay: paused, but NOT nested under the pause menu.
     app.world_mut()
-        .resource_mut::<ambition_platformer2d::inventory_ui::InventoryUiState>()
-        .opened_from_pause = false;
-    app.world_mut()
         .resource_mut::<NextState<GameMode>>()
         .set(GameMode::Paused);
     app.update();
@@ -705,8 +701,7 @@ fn reset_sandbox_action_closes_and_unpauses() {
     );
 
     assert!(
-        !app.world()
-            .resource::<ambition_platformer2d::inventory_ui::InventoryUiState>()
+        !crate::menu::test_support::inventory_state(app.world())
             .visible,
         "Reset Sandbox hides the cube"
     );
@@ -769,8 +764,7 @@ fn reset_all_settings_action_resets_settings_and_closes() {
     );
     // The cube folds shut (same close as Reset Sandbox).
     assert!(
-        !app.world()
-            .resource::<ambition_platformer2d::inventory_ui::InventoryUiState>()
+        !crate::menu::test_support::inventory_state(app.world())
             .visible,
         "Reset All Settings closes the cube"
     );
@@ -816,8 +810,7 @@ fn quit_action_writes_app_exit_and_closes() {
 
     // The cube folds shut (same close as the other immediate actions).
     assert!(
-        !app.world()
-            .resource::<ambition_platformer2d::inventory_ui::InventoryUiState>()
+        !crate::menu::test_support::inventory_state(app.world())
             .visible,
         "Quit closes the cube"
     );
@@ -863,8 +856,7 @@ fn system_row_horizontal_moves_to_the_edge_buttons() {
 #[test]
 fn pointer_motion_selects_a_kaleidoscope_control() {
     let mut app = open_app();
-    app.world_mut()
-        .resource_mut::<ambition_platformer2d::inventory_ui::InventoryUiState>()
+    crate::menu::test_support::inventory_state_mut(app.world_mut())
         .visible = true;
     app.world_mut()
         .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
@@ -924,7 +916,8 @@ fn real_input_cube_app(
     app.init_resource::<ambition_platformer2d::dev_tools::WorldSourceHotReload>();
         app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
-    app.init_resource::<ambition_platformer2d::inventory_ui::InventoryUiState>();
+    crate::menu::test_support::spawn_inventory_menu(&mut app, Default::default());
+    app.add_systems(PostUpdate, crate::menu::lifecycle::aggregate_menu_pause);
     app.init_resource::<ambition_platformer2d::menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<ambition_platformer2d::input::MenuInputState>();
@@ -1010,8 +1003,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
         }
     };
     let visible = |app: &App| {
-        app.world()
-            .resource::<ambition_platformer2d::inventory_ui::InventoryUiState>()
+        crate::menu::test_support::inventory_state(app.world())
             .visible
     };
 
@@ -1083,8 +1075,7 @@ fn back_closes_the_kaleidoscope_and_resumes_play_via_real_input() {
     };
     let mode = |app: &App| *app.world().resource::<State<GameMode>>().get();
     let visible = |app: &App| {
-        app.world()
-            .resource::<ambition_platformer2d::inventory_ui::InventoryUiState>()
+        crate::menu::test_support::inventory_state(app.world())
             .visible
     };
     assert_eq!(mode(&app), GameMode::Playing, "premise: the game is being played");
@@ -1159,8 +1150,7 @@ fn opening_the_kaleidoscope_clears_stale_pointer_hover_state() {
         .resource_mut::<KaleidoscopeCursor>()
         .last_pointer_focus = Some(MenuFocus::Item(7));
     app.world_mut().resource_mut::<MenuControlFrame>().start = true;
-    app.world_mut()
-        .resource_mut::<ambition_platformer2d::inventory_ui::InventoryUiState>()
+    crate::menu::test_support::inventory_state_mut(app.world_mut())
         .visible = false;
     app.update();
 
@@ -1982,11 +1972,11 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
     app.init_resource::<ambition_platformer2d::dev_tools::WorldSourceHotReload>();
         app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
-    app.init_resource::<ambition_platformer2d::inventory_ui::InventoryUiState>();
+    crate::menu::test_support::spawn_inventory_menu(&mut app, Default::default());
+    app.add_systems(PostUpdate, crate::menu::lifecycle::aggregate_menu_pause);
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::LunexKaleidoscope;
-    app.world_mut()
-        .resource_mut::<ambition_platformer2d::inventory_ui::InventoryUiState>()
+    crate::menu::test_support::inventory_state_mut(app.world_mut())
         .visible = true;
 
     // The lib's ring root that `rebuild_cube_faces` parents faces under. We spawn
@@ -2274,7 +2264,7 @@ fn render_set_is_gated_off_under_the_grid_backend() {
         *app.world_mut().resource_mut::<InventoryUiBackend>() = backend;
         let mut ui_state = ambition_platformer2d::inventory_ui::InventoryUiState::default();
         ui_state.visible = menu_visible;
-        app.insert_resource(ui_state);
+        crate::menu::test_support::spawn_inventory_menu(&mut app, ui_state);
         // Exactly the host's gating from `install_kaleidoscope_menu`.
         app.configure_sets(
             Update,
@@ -2335,7 +2325,7 @@ fn lunex_sleeps_while_the_cube_rests() {
         app.insert_resource(InventoryUiBackend::LunexKaleidoscope);
         let mut ui_state = ambition_platformer2d::inventory_ui::InventoryUiState::default();
         ui_state.visible = menu_visible;
-        app.insert_resource(ui_state);
+        crate::menu::test_support::spawn_inventory_menu(&mut app, ui_state);
         for set in [UiSystems::PreCompute, UiSystems::Compute, UiSystems::PostCompute] {
             app.add_systems(Update, count_run.in_set(set.clone()));
             app.add_systems(PostUpdate, count_run.in_set(set));
@@ -2431,7 +2421,7 @@ fn the_provider_publishes_the_focused_item_verb_into_the_control_prompt() {
     let mut owned = OwnedItems::default();
     owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::GunSword, 1);
     app.insert_resource(owned);
-    app.insert_resource(ambition_platformer2d::inventory_ui::InventoryUiState {
+    crate::menu::test_support::spawn_inventory_menu(&mut app, ambition_platformer2d::inventory_ui::InventoryUiState {
         visible: true,
         ..Default::default()
     });
@@ -2486,7 +2476,7 @@ fn overlay_camera_app(amount: f32) -> (App, Entity, Entity, Entity, Entity) {
     let mut app = App::new();
     app.init_resource::<InventoryUiBackend>();
     *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::LunexKaleidoscope;
-    app.insert_resource(ambition_platformer2d::inventory_ui::InventoryUiState {
+    crate::menu::test_support::spawn_inventory_menu(&mut app, ambition_platformer2d::inventory_ui::InventoryUiState {
         visible: true,
         ..Default::default()
     });
@@ -2555,8 +2545,7 @@ fn closing_cube_toggles_only_the_cube_camera() {
     app.update();
     assert!(camera_active(&app, cube));
 
-    app.world_mut()
-        .resource_mut::<ambition_platformer2d::inventory_ui::InventoryUiState>()
+    crate::menu::test_support::inventory_state_mut(app.world_mut())
         .visible = false;
     {
         let mut open = app
@@ -2825,8 +2814,7 @@ fn cube_mode(app: &App) -> GameMode {
 }
 
 fn cube_is_open(app: &App) -> bool {
-    app.world()
-        .resource::<ambition_platformer2d::inventory_ui::InventoryUiState>()
+    crate::menu::test_support::inventory_state(app.world())
         .visible
 }
 

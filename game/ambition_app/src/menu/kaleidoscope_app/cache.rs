@@ -105,7 +105,7 @@ pub(crate) fn cache_system_menu(
 /// only when something it depends on actually changed: the inventory, the focus
 /// cursor, the active page, the just-opened edge, or the very first publish.
 pub(crate) fn republish_kaleidoscope_pages(
-    ui_state: Option<Res<ambition_platformer2d::inventory_ui::InventoryUiState>>,
+    ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
     owned: Option<Res<OwnedItems>>,
     // The primary hand and worn abilities (I1): what the cube shows as equipped.
     hand: PrimaryHand,

@@ -318,9 +318,7 @@ pub(crate) fn grid_menu_nav(
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
-    mut overlay: ResMut<ambition_platformer2d::inventory_ui::InventoryUiState>,
-    mode: Res<State<ambition_platformer2d::platformer::schedule::GameMode>>,
-    mut next_mode: ResMut<NextState<ambition_platformer2d::platformer::schedule::GameMode>>,
+    mut overlay: Single<&mut ambition_platformer2d::inventory_ui::InventoryUiState>,
     // The ONE activation event. A controller/keyboard submit publishes the same
     // message the renderer's pointer bridge does, so `grid_menu_action_activated`
     // is the single place a chosen action is dispatched.
@@ -418,7 +416,7 @@ pub(crate) fn grid_menu_nav(
             if menu.back {
                 play_ui(&mut fx.sfx, grid_sfx::CLOSE);
                 fx.quality_confirm.cancel();
-                crate::menu::lifecycle::close_menu(&mut overlay, mode.get(), &mut next_mode);
+                overlay.close();
                 return;
             }
             if menu.select {
@@ -481,7 +479,7 @@ pub(crate) fn grid_menu_nav(
             if menu.back {
                 play_ui(&mut fx.sfx, grid_sfx::CLOSE);
                 fx.quality_confirm.cancel();
-                crate::menu::lifecycle::close_menu(&mut overlay, mode.get(), &mut next_mode);
+                overlay.close();
             }
         }
     }
@@ -528,7 +526,7 @@ fn move_items_cursor(focus: MenuFocus, dx: i32, dy: i32) -> MenuFocus {
 /// True while the menu overlay is open (whichever backend draws it), or the
 /// grid tree is still up from the last open: the view must come down then.
 fn a_menu_is_open_or_a_grid_tree_was(
-    overlay: Res<ambition_platformer2d::inventory_ui::InventoryUiState>,
+    overlay: Single<&ambition_platformer2d::inventory_ui::InventoryUiState>,
     tab_state: Res<GridMenuTabState>,
 ) -> bool {
     overlay.visible || tab_state.was_open
@@ -536,7 +534,7 @@ fn a_menu_is_open_or_a_grid_tree_was(
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn grid_menu_republish_view(
-    overlay: Res<ambition_platformer2d::inventory_ui::InventoryUiState>,
+    overlay: Single<&ambition_platformer2d::inventory_ui::InventoryUiState>,
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     owned: Res<OwnedItems>,
     hand: PrimaryHand,
@@ -722,7 +720,7 @@ fn grid_system_row_count(
 /// the cursor. Only a scrollable System list reacts; a short list ignores the wheel.
 #[cfg(feature = "input")]
 pub(crate) fn grid_menu_scroll_wheel(
-    overlay: Res<ambition_platformer2d::inventory_ui::InventoryUiState>,
+    overlay: Single<&ambition_platformer2d::inventory_ui::InventoryUiState>,
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut tab_state: ResMut<GridMenuTabState>,
     system_nav: Res<KaleidoscopeSystemNav>,
@@ -779,7 +777,7 @@ pub(crate) fn grid_menu_scroll_wheel(
 /// the scrollable range to a window-start row. Selection-independent, like the wheel.
 #[cfg(feature = "input")]
 pub(crate) fn grid_menu_apply_scroll_drag(
-    overlay: Res<ambition_platformer2d::inventory_ui::InventoryUiState>,
+    overlay: Single<&ambition_platformer2d::inventory_ui::InventoryUiState>,
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut tab_state: ResMut<GridMenuTabState>,
     system_nav: Res<KaleidoscopeSystemNav>,
@@ -818,9 +816,7 @@ pub(crate) fn grid_menu_action_activated(
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
-    mut overlay: ResMut<ambition_platformer2d::inventory_ui::InventoryUiState>,
-    mode: Res<State<ambition_platformer2d::platformer::schedule::GameMode>>,
-    mut next_mode: ResMut<NextState<ambition_platformer2d::platformer::schedule::GameMode>>,
+    mut overlay: Single<&mut ambition_platformer2d::inventory_ui::InventoryUiState>,
     mut fx: MenuDispatchParams,
 ) {
     // Backend read from `fx.system` (it owns the resource); a separate `Res` would
@@ -868,7 +864,7 @@ pub(crate) fn grid_menu_action_activated(
         tab_state.last_key = None;
         if close_menu {
             fx.quality_confirm.cancel();
-            crate::menu::lifecycle::close_menu(&mut overlay, mode.get(), &mut next_mode);
+            overlay.close();
             break;
         }
     }
@@ -879,7 +875,7 @@ pub(crate) fn grid_menu_action_activated(
 pub(crate) fn grid_menu_tab_activated(
     mut activated: MessageReader<MenuTabActivated>,
     backend: Res<InventoryUiBackend>,
-    overlay: Res<ambition_platformer2d::inventory_ui::InventoryUiState>,
+    overlay: Single<&ambition_platformer2d::inventory_ui::InventoryUiState>,
     mut tab_state: ResMut<GridMenuTabState>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,

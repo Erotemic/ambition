@@ -500,16 +500,9 @@ fn live_room(world: &World) -> ambition_platformer2d::platformer::lifecycle::Liv
     *ambition_platformer2d::session::sole_live_room_component(world).expect("the course is one live room")
 }
 
-/// A brick that held coins, in a room whose blocks wear the skin of its
-/// biome, is a used block when its coins are gone.
-///
-/// Jon, 2026-10-12: "multi-hit blocks or hidden blocks don't get the 'spent'
-/// visual correctly after they are used up." The skin of a room is pieces in
-/// front of the sprite of each block. The brick got its used-block art, under
-/// its skin, and looked as it did before. 1-2 was the only room these tests
-/// were in, and its hidden block is painted: it has no skin.
+/// A brick keeps its own art in a room with terrain skin, before and after use.
 #[test]
-fn a_used_up_brick_in_a_skinned_room_wears_the_spent_plate_and_no_skin() {
+fn a_brick_keeps_its_own_art_when_spent_in_a_skinned_room() {
     use ambition_platformer2d::render::rendering::terrain_skin::RoomTerrain;
 
     const SKY_LEVEL: &str = "mary_o_1_3";
@@ -542,10 +535,13 @@ fn a_used_up_brick_in_a_skinned_room_wears_the_spent_plate_and_no_skin() {
         let mut rooms = app.world_mut().query::<&RoomTerrain>();
         rooms.iter(app.world()).map(|terrain| terrain.quads_of(block).count()).sum()
     }
-    assert!(
-        skin_pieces(&mut app, &brick.id) > 0,
-        "the brick has no skin BEFORE it is used up, so this probe can say nothing about what the skin does to its new art",
-    );
+    let mut terrain = app.world_mut().query::<&RoomTerrain>();
+    assert!(terrain.iter(app.world()).any(|terrain| terrain.mesh_count() > 0),
+        "the room must have terrain skin");
+    assert_eq!(drawn_image_opt(&mut app, &brick.id),
+        Some(art(&app, EntitySprite::BrickBlockTile)));
+    assert_eq!(skin_pieces(&mut app, &brick.id), 0,
+        "a breakable brick must keep its own art");
 
     let room = live_room(app.world());
     app.world_mut().resource_mut::<SpentPowerBlocks>().in_room_mut(room).spend(brick.id.clone());

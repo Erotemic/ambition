@@ -205,7 +205,6 @@ fn each_pipe_of_the_warp_room_has_the_name_of_its_level_over_it() {
     // The words and their edge are the colours her rules file states
     // (`pipe_signs`).
     let look = ambition_demo_mary_o::rules::mary_o_rules().pipe_signs;
-    let rgb = |[r, g, b]: [f32; 3]| Color::srgb(r, g, b).to_srgba();
     let mut signs = app.world_mut().query::<(&Text2d, &TextColor, &WorldLabel, &Children)>();
     let mut words = Vec::new();
     for (text, ink, label, edge) in signs.iter(app.world()) {
@@ -215,11 +214,13 @@ fn each_pipe_of_the_warp_room_has_the_name_of_its_level_over_it() {
         words.push(text.0.clone());
         let ink = ink.0.to_srgba();
         assert!(ink.red + ink.green + ink.blue < 1.0, "the words `{}` are not dark: {ink:?}", text.0);
-        assert_eq!(ink, rgb(look.ink), "the words `{}` are not the file's ink", text.0);
+        // World labels can change alpha with view distance.
+        assert_eq!([ink.red, ink.green, ink.blue], look.ink, "the words `{}` are not the file's ink", text.0);
         assert_eq!(edge.len(), 8, "the words `{}` have no edge on each side", text.0);
         for part in edge.iter() {
             let colour = app.world().entity(part).get::<TextColor>().expect("a part of the edge is words").0;
-            assert_eq!(colour.to_srgba(), rgb(look.edge), "the edge of `{}` is not the file's edge", text.0);
+            let edge_ink = colour.to_srgba();
+            assert_eq!([edge_ink.red, edge_ink.green, edge_ink.blue], look.edge, "the edge of `{}` is not the file's edge", text.0);
         }
         // The copies of the edge are the file's distance from the words.
         let farthest = edge

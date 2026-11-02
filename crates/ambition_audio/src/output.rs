@@ -49,11 +49,12 @@ pub struct AudioBackendState {
 pub struct AudioPlaybackConditions {
     pub device_suspended: bool,
     pub initial_presentation_ready: bool,
+    pub music_context_required: bool,
 }
 
 impl Default for AudioPlaybackConditions {
     fn default() -> Self {
-        Self { device_suspended: false, initial_presentation_ready: true }
+        Self { device_suspended: false, initial_presentation_ready: true, music_context_required: false }
     }
 }
 

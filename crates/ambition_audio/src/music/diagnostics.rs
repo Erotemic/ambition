@@ -18,6 +18,7 @@ pub enum MusicPlaybackStatus {
     DeviceSuspended,
     InitialPresentation,
     MissingRequest,
+    MissingContext,
     MissingContent,
     Loading,
     BackendSilent,
@@ -27,7 +28,7 @@ impl MusicPlaybackStatus {
     fn unexpected(&self) -> bool {
         matches!(
             self,
-            Self::MissingRequest | Self::MissingContent | Self::Loading | Self::BackendSilent
+            Self::MissingRequest | Self::MissingContext | Self::MissingContent | Self::Loading | Self::BackendSilent
         )
     }
 }
@@ -322,6 +323,9 @@ pub fn observe_music_playback(
         .is_some_and(|c| !c.initial_presentation_ready)
     {
         MusicPlaybackStatus::InitialPresentation
+    } else if conditions.as_ref().is_some_and(|c| c.music_context_required) && selection.owner().is_none() {
+        report.detail = "gameplay requires an active music context".into();
+        MusicPlaybackStatus::MissingContext
     } else if deliberate {
         MusicPlaybackStatus::DeliberateSilence
     } else if !intent.authority.is_governed() && selection.owner().is_none() {

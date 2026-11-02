@@ -199,9 +199,13 @@ impl Plugin for Platformer2dAudioPlugin {
 
 fn publish_audio_readiness(
     readiness: Option<Res<InitialGameplayReadiness>>,
+    gate: Option<Res<SessionGatedSimulation>>,
+    scope: Option<Res<ActiveSessionScope>>,
+    roots: Query<&ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
     mut conditions: ResMut<ambition_audio::output::AudioPlaybackConditions>,
 ) {
     conditions.initial_presentation_ready = readiness.as_deref().is_none_or(|ready| ready.is_ready());
+    conditions.music_context_required = simulation_authorized(gate, readiness, scope, roots);
 }
 
 #[derive(SystemParam)]

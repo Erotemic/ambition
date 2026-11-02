@@ -109,6 +109,13 @@ fn the_music_watchdog_separates_requests_decoding_backend_gaps_and_explicit_sile
     assert_eq!(report.status, Some(MusicPlaybackStatus::DeliberateSilence));
     assert_eq!(report.gap_seconds, 0.0);
     assert_eq!(report.gap_count, 1);
+    app.insert_resource(crate::output::AudioPlaybackConditions {
+        music_context_required: true, ..default()
+    });
+    step(&mut app, 0.25);
+    let report = app.world().resource::<MusicPlaybackDiagnostics>();
+    assert_eq!(report.status, Some(MusicPlaybackStatus::MissingContext));
+    assert_eq!(report.gap_count, 2);
 }
 
 /// A slow layer must not start the intro clock before the complete cue can play.

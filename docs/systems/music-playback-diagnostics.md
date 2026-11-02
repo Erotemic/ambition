@@ -14,11 +14,12 @@ duration, base playback, active layer count, and source load state when known.
 The observer runs outside gameplay gates and uses real time. It samples four
 times per second. Durations are estimates at that resolution.
 
-The following states permit silence: no active context, an explicitly silent
+The following states permit silence: no active context outside gameplay, an explicitly silent
 provider, zero music volume, the browser gesture gate, the initial presentation
 gate, device suspension, and an observed one-shot that has ended. A recording
 backend reports `Recording`; it does not claim device playback. Loading after
-music is requested, missing content, and a silent backend are faults to inspect.
+music is requested, missing content, a lost gameplay context, and a silent backend
+are faults to inspect.
 The observer does not restart playback or change content to hide a fault.
 
 `MusicPlaybackDiagnostics` holds the current report, the current and longest

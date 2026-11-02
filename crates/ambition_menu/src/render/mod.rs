@@ -12,3 +12,13 @@ pub mod bevy_ui;
 pub struct MenuSurfaceLayout;
 
 pub use ambition_platformer2d_shared_tangle::camera_layers::menu_scene_render_layer;
+
+/// A presentation entity whose lifetime follows its menu without transform inheritance.
+#[derive(bevy::prelude::Component)]
+#[relationship(relationship_target = MenuPresentations)]
+pub struct MenuPresentationOf(pub bevy::prelude::Entity);
+
+/// Presentation roots and cameras owned by one menu.
+#[derive(bevy::prelude::Component)]
+#[relationship_target(relationship = MenuPresentationOf, linked_spawn)]
+pub struct MenuPresentations(Vec<bevy::prelude::Entity>);

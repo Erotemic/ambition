@@ -316,6 +316,7 @@ where
             GlobalZIndex(1000),
             BevyUiMenuRoot,
             crate::MenuSurface(view.menu),
+            super::MenuPresentationOf(view.menu),
             AmbitionMenuRoot,
             Name::new("bevy_ui menu root"),
         ))

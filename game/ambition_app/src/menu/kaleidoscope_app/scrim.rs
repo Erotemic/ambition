@@ -20,49 +20,48 @@ pub(crate) struct KaleidoscopeScrimCamera;
 /// own default (`KaleidoscopeMenuConfig::camera_order`, 8).
 const SCRIM_CAMERA_ORDER_FALLBACK: isize = 7;
 
-/// Spawn the scrim's display camera and the readability dim-scrim node
-/// (full-screen, starts fully transparent).
-///
-/// The scrim is targeted at its own camera HERE rather than from an `Update`
-/// guard, because the camera is spawned in the same call — there is no ordering
-/// question left to defer. [`retarget_kaleidoscope_scrim`] stays as the repair
-/// path for a scrim spawned by anything else.
-///
-/// [`fade_kaleidoscope_scrim`] drives the alpha.
+/// Create a display camera and one scrim for each live menu.
 pub(crate) fn spawn_kaleidoscope_scrim(
     mut commands: Commands,
-    // the cube's order is a knob (`KaleidoscopeMenuConfig::camera_order`), and
-    // "behind the cube" is the whole requirement — so the scrim's order is
-    // DERIVED from it rather than hardcoded next to it and left to drift. The
-    // config is inserted at plugin build time, so it is here by `Startup`;
-    // `Option` keeps a fixture that skips the cube plugin from panicking.
     config: Option<Res<KaleidoscopeMenuConfig>>,
     menus: Query<Entity, With<ambition_platformer2d::inventory_ui::InventoryMenu>>,
+    cameras: Query<Entity, With<KaleidoscopeScrimCamera>>,
+    scrims: Query<&ambition_platformer2d::menu::MenuSurface, With<KaleidoscopeScrim>>,
 ) {
     let order = config
         .map(|config| config.camera_order - 1)
         .unwrap_or(SCRIM_CAMERA_ORDER_FALLBACK);
-    let camera = commands
-        .spawn((
-            KaleidoscopeScrimCamera,
-            Camera2d,
-            Camera {
-                order,
-                // Clearing here would wipe the world the scrim exists to dim.
-                clear_color: ClearColorConfig::None,
-                // never a viewport. The absence is the feature: an
-                // unclipped camera is what makes this the DISPLAY rect rather
-                // than a gameplay pane.
-                ..default()
-            },
-            bevy::camera::visibility::RenderLayers::none(),
-            Name::new("Cube scrim display camera"),
-        ))
-        .id();
+    let camera = if let Ok(camera) = cameras.single() {
+        camera
+    } else if cameras.is_empty() {
+        commands
+            .spawn((
+                KaleidoscopeScrimCamera,
+                Camera2d,
+                Camera {
+                    order,
+                    // Clearing here would wipe the world the scrim exists to dim.
+                    clear_color: ClearColorConfig::None,
+                    // never a viewport. The absence is the feature: an
+                    // unclipped camera is what makes this the DISPLAY rect rather
+                    // than a gameplay pane.
+                    ..default()
+                },
+                bevy::camera::visibility::RenderLayers::none(),
+                Name::new("Cube scrim display camera"),
+            ))
+            .id()
+    } else {
+        return;
+    };
 
     for menu in &menus {
+        if scrims.iter().any(|owner| owner.0 == menu) {
+            continue;
+        }
         commands.spawn((
             ambition_platformer2d::menu::MenuSurface(menu),
+            ambition_platformer2d::menu::render::MenuPresentationOf(menu),
             KaleidoscopeScrim,
             Name::new("Cube readability scrim"),
             Node {
@@ -79,31 +78,6 @@ pub(crate) fn spawn_kaleidoscope_scrim(
             GlobalZIndex(-1),
             Pickable::IGNORE,
         ));
-    }
-}
-
-/// Repair path: give any untargeted scrim the scrim camera.
-///
-/// [`spawn_kaleidoscope_scrim`] already targets the node it spawns, so in the
-/// shipped composition this matches nothing. It stays because the scrim is a
-/// marker anything may spawn (fixtures do), and an untargeted full-screen node
-/// silently inherits the order-9 front HUD camera — which dims the cube instead
-/// of the world, the exact failure this module exists to prevent.
-pub(crate) fn retarget_kaleidoscope_scrim(
-    mut commands: Commands,
-    scrim_camera: Query<Entity, With<KaleidoscopeScrimCamera>>,
-    scrim: Query<Entity, (With<KaleidoscopeScrim>, Without<UiTargetCamera>)>,
-) {
-    if scrim.is_empty() {
-        return;
-    }
-    let Ok(camera) = scrim_camera.single() else {
-        // No camera, or somehow several: targeting an arbitrary one would be the
-        // guess this module replaced.
-        return;
-    };
-    for entity in &scrim {
-        commands.entity(entity).insert(UiTargetCamera(camera));
     }
 }
 
@@ -161,7 +135,7 @@ mod tests {
             .id();
 
         crate::menu::test_support::spawn_inventory_menu(&mut app, Default::default());
-        app.add_systems(Startup, spawn_kaleidoscope_scrim);
+        app.add_systems(Update, spawn_kaleidoscope_scrim);
         app.update();
 
         let scrim = {
@@ -203,5 +177,53 @@ mod tests {
              in front of it, it dims the menu it exists to make readable",
             camera.order
         );
+    }
+
+    #[test]
+    fn late_menus_get_scrims_and_retire_without_removing_the_display_camera() {
+        use ambition_platformer2d::input::ParticipantId;
+        use ambition_platformer2d::inventory_ui::InventoryMenu;
+        use ambition_platformer2d::menu::MenuSurface;
+
+        let mut app = App::new();
+        app.add_systems(Update, spawn_kaleidoscope_scrim);
+        app.update();
+        let camera = app
+            .world_mut()
+            .query_filtered::<Entity, With<KaleidoscopeScrimCamera>>()
+            .single(app.world())
+            .unwrap();
+        let first = app
+            .world_mut()
+            .spawn(InventoryMenu {
+                owner: ParticipantId(0),
+            })
+            .id();
+        app.update();
+        let second = app
+            .world_mut()
+            .spawn(InventoryMenu {
+                owner: ParticipantId(1),
+            })
+            .id();
+        app.update();
+        app.update();
+        let mut query = app
+            .world_mut()
+            .query_filtered::<(Entity, &MenuSurface, &UiTargetCamera), With<KaleidoscopeScrim>>();
+        let scrims: std::collections::HashMap<_, _> = query
+            .iter(app.world())
+            .map(|(entity, owner, target)| {
+                assert_eq!(target.0, camera);
+                (owner.0, entity)
+            })
+            .collect();
+        assert_eq!(scrims.len(), 2);
+        app.world_mut().despawn(second);
+        assert!(app.world().get_entity(scrims[&second]).is_err());
+        assert!(app.world().get_entity(scrims[&first]).is_ok());
+        assert!(app.world().get_entity(camera).is_ok());
+        app.update();
+        assert_eq!(query.iter(app.world()).count(), 1);
     }
 }

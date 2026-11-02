@@ -18,11 +18,10 @@ use ambition_platformer2d::menu::render::bevy_ui::{
     BevyUiMenuRoot, BevyUiMenuTabSpec, BevyUiMenuView,
 };
 use ambition_platformer2d::menu::{
-    ActiveMenuPages, MenuActionActivated, MenuFocusKey, MenuNode, MenuRect,
-    MenuTabActivated,
+    ActiveMenuPages, MenuActionActivated, MenuFocusKey, MenuNode, MenuRect, MenuTabActivated,
 };
 
-use crate::menu::effects::{MenuEffectBodies, MenuItemRequests, MenuBodySource};
+use crate::menu::effects::{MenuBodySource, MenuEffectBodies, MenuItemRequests};
 use crate::menu::kaleidoscope_app::{
     focus_for_action, owned_item_action, play_ui, system_focus_nav, KaleidoscopeCursor,
     KaleidoscopeSystemNav, SystemMenuParams,
@@ -547,25 +546,24 @@ fn move_items_cursor(focus: MenuFocus, dx: i32, dy: i32) -> MenuFocus {
     MenuFocus::Item((row * cols + col) as usize)
 }
 
-/// Re-render the flat bevy_ui tree when the view changes. The active tab's
-/// already-built [`MenuPageModel`] comes from the shared `ActiveMenuPages` (filled by
-/// the cube's `republish_kaleidoscope_pages`, which now runs for BOTH backends), so
-/// the Grid and cube draw the SAME model. Despawn + respawn only on a dirty key.
-/// True while the menu overlay is open (whichever backend draws it), or the
-/// grid tree is still up from the last open: the view must come down then.
+/// Run while any menu is open or still has a Grid tree to remove.
 fn a_menu_is_open_or_a_grid_tree_was(
-    tab_state: Single<&GridMenuTabState>,
-    overlay: Single<&ambition_platformer2d::inventory_ui::InventoryUiState>,
+    menus: Query<(
+        &GridMenuTabState,
+        &ambition_platformer2d::inventory_ui::InventoryUiState,
+    )>,
 ) -> bool {
-    overlay.visible || tab_state.was_open
+    menus
+        .iter()
+        .any(|(tab, overlay)| overlay.visible || tab.was_open)
 }
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn grid_menu_republish_view(
-    overlay: Single<&ambition_platformer2d::inventory_ui::InventoryUiState>,
-    pages: Single<(
+    mut menus: Query<(
         Entity,
         &ambition_platformer2d::inventory_ui::InventoryMenu,
+        &ambition_platformer2d::inventory_ui::InventoryUiState,
         &ActiveMenuPages<MenuPage, MenuPageAction>,
         &KaleidoscopeCursor,
         &KaleidoscopeSystemNav,
@@ -577,161 +575,177 @@ pub(crate) fn grid_menu_republish_view(
     settings: Res<UserSettings>,
     system: SystemMenuParams,
     map_page: crate::menu::map_page::MapPageSource,
-    roots: Query<Entity, (With<BevyUiMenuRoot>, With<GridMenuRoot>)>,
+    roots: Query<
+        (Entity, &ambition_platformer2d::menu::MenuSurface),
+        (With<BevyUiMenuRoot>, With<GridMenuRoot>),
+    >,
     assets: Option<Res<AssetServer>>,
     mut commands: Commands,
 ) {
-    let (menu_entity, menu_owner, pages, cursor, system_nav, quality_confirm, mut tab_state) =
-        pages.into_inner();
-    // Read the backend from `system` (it owns the resource); a separate `Res` here
-    // would be a B0002 conflict with that `ResMut`.
-    let active = system.backend() == InventoryUiBackend::Grid && overlay.visible;
-    if !active {
-        // Tear the tree down when not the active+open backend, and forget the key so
-        // a reopen always rebuilds.
-        if tab_state.was_open || !roots.is_empty() {
-            for e in &roots {
-                commands.entity(e).despawn();
+    for (
+        menu_entity,
+        menu_owner,
+        overlay,
+        pages,
+        cursor,
+        system_nav,
+        quality_confirm,
+        mut tab_state,
+    ) in &mut menus
+    {
+        let has_root = roots.iter().any(|(_, owner)| owner.0 == menu_entity);
+        // Read the backend from `system` (it owns the resource); a separate `Res` here
+        // would be a B0002 conflict with that `ResMut`.
+        let active = system.backend() == InventoryUiBackend::Grid && overlay.visible;
+        if !active {
+            // Tear the tree down when not the active+open backend, and forget the key so
+            // a reopen always rebuilds.
+            if tab_state.was_open || has_root {
+                for (e, _) in roots.iter().filter(|(_, owner)| owner.0 == menu_entity) {
+                    commands.entity(e).despawn();
+                }
+                tab_state.was_open = false;
+                tab_state.last_key = None;
             }
-            tab_state.was_open = false;
-            tab_state.last_key = None;
+            continue;
         }
-        return;
-    }
-    tab_state.was_open = true;
-    let body = body_source.read(menu_owner.owner);
-    let inventory =
-        ambition_platformer2d::items::Inventory::new(&owned, body.and_then(|body| body.in_hand));
+        tab_state.was_open = true;
+        let body = body_source.read(menu_owner.owner);
+        let inventory = ambition_platformer2d::items::Inventory::new(
+            &owned,
+            body.and_then(|body| body.in_hand),
+        );
 
-    // RENDER THE GRID'S TAB, not the shared `pages.active` (which the cube drives).
-    // The grid builds the active tab's `MenuPageModel` from the SAME backend-agnostic
-    // builder the cube uses (`build_inventory_pages`), then renders THE PAGE WHOSE
-    // `id == grid tab` — so switching tabs actually switches the body. Building here
-    // (instead of fishing the cube's `pages.pages` out by id) makes the grid
-    // self-sufficient: it does not depend on the cube's republish ordering/gating,
-    // which was why the body could lag a tab behind / always read Items.
-    let active_page = active_page(&pages);
-    let model = system.model(&settings);
-    // The EFFECTIVE System window start: an explicit wheel/drag override wins
-    // (Features C/D), otherwise it follows the cursor — exactly the cube's rule via
-    // the shared `system_effective_window_start`. Hovering moves the cursor but, with
-    // an override set, does NOT shift the window, so hovering no longer scrolls.
-    let window_start = if active_page == MenuPage::System {
-        let rows = system_rows_with_quality_prompt(
+        // RENDER THE GRID'S TAB, not the shared `pages.active` (which the cube drives).
+        // The grid builds the active tab's `MenuPageModel` from the SAME backend-agnostic
+        // builder the cube uses (`build_inventory_pages`), then renders THE PAGE WHOSE
+        // `id == grid tab` — so switching tabs actually switches the body. Building here
+        // (instead of fishing the cube's `pages.pages` out by id) makes the grid
+        // self-sufficient: it does not depend on the cube's republish ordering/gating,
+        // which was why the body could lag a tab behind / always read Items.
+        let active_page = active_page(&pages);
+        let model = system.model(&settings);
+        // The EFFECTIVE System window start: an explicit wheel/drag override wins
+        // (Features C/D), otherwise it follows the cursor — exactly the cube's rule via
+        // the shared `system_effective_window_start`. Hovering moves the cursor but, with
+        // an override set, does NOT shift the window, so hovering no longer scrolls.
+        let window_start = if active_page == MenuPage::System {
+            let rows = system_rows_with_quality_prompt(
+                &model,
+                system_nav.open_entry,
+                quality_confirm.pending(),
+            );
+            crate::menu::model::system_effective_window_start(
+                &rows,
+                cursor.focus(),
+                tab_state.system_window_start,
+            )
+        } else {
+            0
+        };
+        let key = ViewKey {
+            tab: active_tab_index(&pages),
+            open_entry: system_nav.open_entry,
+            focus: cursor.focus(),
+            version: pages.version,
+            zone: tab_state.focus_zone,
+            window_start,
+            pending_quality: quality_confirm.pending(),
+            room: if active_page == MenuPage::Map {
+                map_page.room(body.map(|body| body.entity))
+            } else {
+                None
+            },
+            equipped: body.map(|body| body.equipped).unwrap_or_default(),
+        };
+        // The dispatch paths ALSO clear `last_key` directly (the belt-and-braces force-republish),
+        // so even a state change this key can't see (e.g. a dev snapshot) still re-renders.
+        let state_changed = owned.is_changed()
+            || body_source.items_changed()
+            || settings.is_changed()
+            || map_page.changed();
+        if tab_state.last_key == Some(key) && has_root && !state_changed {
+            continue;
+        }
+        tab_state.last_key = Some(key);
+
+        let built = build_inventory_pages_with_quality_prompt(
+            &inventory,
+            body_source.items(),
+            key.equipped,
+            cursor.focus(),
+            &settings,
+            &system.radio_snapshot(),
+            &system.dev_snapshot(),
+            window_start,
+            system_nav.open_entry,
+            quality_confirm.pending(),
+            map_page.page(map_page.view(body.map(|body| body.entity)).as_ref()),
+        );
+        let Some(page) = built
+            .iter()
+            .find(|p| p.id == active_page)
+            .or_else(|| built.first())
+        else {
+            continue;
+        };
+
+        // The cursor's focus key, so the renderer highlights the right control.
+        let focused = cursor_focus_key(
+            page,
+            active_page,
+            cursor.focus(),
             &model,
             system_nav.open_entry,
             quality_confirm.pending(),
         );
-        crate::menu::model::system_effective_window_start(
-            &rows,
-            cursor.focus(),
-            tab_state.system_window_start,
-        )
-    } else {
-        0
-    };
-    let key = ViewKey {
-        tab: active_tab_index(&pages),
-        open_entry: system_nav.open_entry,
-        focus: cursor.focus(),
-        version: pages.version,
-        zone: tab_state.focus_zone,
-        window_start,
-        pending_quality: quality_confirm.pending(),
-        room: if active_page == MenuPage::Map {
-            map_page.room(body.map(|body| body.entity))
-        } else {
-            None
-        },
-        equipped: body.map(|body| body.equipped).unwrap_or_default(),
-    };
-    // The dispatch paths ALSO clear `last_key` directly (the belt-and-braces force-republish),
-    // so even a state change this key can't see (e.g. a dev snapshot) still re-renders.
-    let state_changed = owned.is_changed()
-        || body_source.items_changed()
-        || settings.is_changed()
-        || map_page.changed();
-    if tab_state.last_key == Some(key) && !roots.is_empty() && !state_changed {
-        return;
+
+        // The page builders bake `< Prev` / `> Next` edge buttons for the cube; the flat tabbed
+        // renderer replaces them with the tab bar, so they must NOT be drawn (they leaked in as "<
+        // Items" / "> Quest" flashes, and keyboard/gamepad nav could land on them).
+        let mut page = page.clone();
+        page.nodes.retain(|n| {
+            !matches!(
+                n,
+                MenuNode::Control {
+                    action: Some(MenuPageAction::ChangePage(_)),
+                    ..
+                }
+            )
+        });
+
+        // Despawn the previous tree, then respawn ON THE SAME command buffer so both land in the same
+        // flush. Spawning directly with the system's own `Commands` closes that gap.)
+        for (e, _) in roots.iter().filter(|(_, owner)| owner.0 == menu_entity) {
+            commands.entity(e).despawn();
+        }
+        let tabs = tab_specs();
+        // Fix 4: when focus is on the tab bar, tell the renderer which tab to ring; when
+        // in the body, no tab is focused (only the active tab is highlighted).
+        let focused_tab = match tab_state.focus_zone {
+            GridFocusZone::Tabs => Some(active_tab_index(&pages)),
+            GridFocusZone::Body => None,
+        };
+        let view = BevyUiMenuView {
+            menu: menu_entity,
+            tabs: &tabs,
+            active_tab: active_tab_index(&pages),
+            page: &page,
+            focused,
+            focused_tab,
+        };
+        // Fix 3: hand the `AssetServer` to the renderer so the Items tab shows its
+        // sprite ICONS (the model's per-cell icon path), like the cube does.
+        let root = ambition_platformer2d::menu::render::bevy_ui::spawn_bevy_ui_menu_with_assets(
+            &mut commands,
+            &view,
+            assets.as_deref(),
+        );
+        // Identity, not species: the teardown above must only claim the GRID's own
+        // tree. Other `BevyUiMenuRoot` producers (the shell launcher/title screen)
+        // coexist in the same App.
+        commands.entity(root).insert(GridMenuRoot);
     }
-    tab_state.last_key = Some(key);
-
-    let built = build_inventory_pages_with_quality_prompt(
-        &inventory,
-        body_source.items(),
-        key.equipped,
-        cursor.focus(),
-        &settings,
-        &system.radio_snapshot(),
-        &system.dev_snapshot(),
-        window_start,
-        system_nav.open_entry,
-        quality_confirm.pending(),
-        map_page.page(map_page.view(body.map(|body| body.entity)).as_ref()),
-    );
-    let Some(page) = built
-        .iter()
-        .find(|p| p.id == active_page)
-        .or_else(|| built.first())
-    else {
-        return;
-    };
-
-    // The cursor's focus key, so the renderer highlights the right control.
-    let focused = cursor_focus_key(
-        page,
-        active_page,
-        cursor.focus(),
-        &model,
-        system_nav.open_entry,
-        quality_confirm.pending(),
-    );
-
-    // The page builders bake `< Prev` / `> Next` edge buttons for the cube; the flat tabbed
-    // renderer replaces them with the tab bar, so they must NOT be drawn (they leaked in as "<
-    // Items" / "> Quest" flashes, and keyboard/gamepad nav could land on them).
-    let mut page = page.clone();
-    page.nodes.retain(|n| {
-        !matches!(
-            n,
-            MenuNode::Control {
-                action: Some(MenuPageAction::ChangePage(_)),
-                ..
-            }
-        )
-    });
-
-    // Despawn the previous tree, then respawn ON THE SAME command buffer so both land in the same
-    // flush. Spawning directly with the system's own `Commands` closes that gap.)
-    for e in &roots {
-        commands.entity(e).despawn();
-    }
-    let tabs = tab_specs();
-    // Fix 4: when focus is on the tab bar, tell the renderer which tab to ring; when
-    // in the body, no tab is focused (only the active tab is highlighted).
-    let focused_tab = match tab_state.focus_zone {
-        GridFocusZone::Tabs => Some(active_tab_index(&pages)),
-        GridFocusZone::Body => None,
-    };
-    let view = BevyUiMenuView {
-        menu: menu_entity,
-        tabs: &tabs,
-        active_tab: active_tab_index(&pages),
-        page: &page,
-        focused,
-        focused_tab,
-    };
-    // Fix 3: hand the `AssetServer` to the renderer so the Items tab shows its
-    // sprite ICONS (the model's per-cell icon path), like the cube does.
-    let root = ambition_platformer2d::menu::render::bevy_ui::spawn_bevy_ui_menu_with_assets(
-        &mut commands,
-        &view,
-        assets.as_deref(),
-    );
-    // Identity, not species: the teardown above must only claim the GRID's own
-    // tree. Other `BevyUiMenuRoot` producers (the shell launcher/title screen)
-    // coexist in the same App.
-    commands.entity(root).insert(GridMenuRoot);
 }
 
 /// Marker on the grid backend's own menu root, so its open/close teardown

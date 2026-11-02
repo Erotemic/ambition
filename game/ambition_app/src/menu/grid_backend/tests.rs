@@ -1313,3 +1313,47 @@ fn an_open_grid_map_follows_the_owner_without_a_map_resource_change() {
     let shown = text(&mut app);
     assert!(count(&shown, "BETA") > count(&shown, "ALPHA"), "shown={shown:?}");
 }
+
+#[test]
+fn grid_trees_rebuild_close_and_retire_with_only_their_own_menu() {
+    use ambition_platformer2d::inventory_ui::{InventoryMenu, InventoryUiState};
+    use ambition_platformer2d::input::ParticipantId;
+    use ambition_platformer2d::menu::MenuSurface;
+
+    let mut app = render_app();
+    let first = crate::menu::test_support::menu_id(app.world());
+    app.world_mut().get_mut::<InventoryUiState>(first).unwrap().visible = true;
+    let second = app.world_mut().spawn((
+        crate::menu::MenuInstance,
+        InventoryMenu { owner: ParticipantId(1) },
+        InventoryUiState { visible: true, ..default() },
+        ActiveMenuPages::<MenuPage, MenuPageAction>::default(),
+    )).id();
+    let roots = |app: &mut App| {
+        let mut query = app.world_mut().query_filtered::<(Entity, &MenuSurface), With<GridMenuRoot>>();
+        query.iter(app.world()).map(|(entity, owner)| (owner.0, entity)).collect::<std::collections::HashMap<_, _>>()
+    };
+    app.update();
+    app.update();
+    let original = roots(&mut app);
+    assert_eq!(original.len(), 2);
+    let child = app.world().get::<Children>(original[&second]).unwrap()[0];
+    app.world_mut().get_mut::<GridMenuTabState>(second).unwrap().last_key = None;
+    app.update();
+    let rebuilt = roots(&mut app);
+    assert_eq!(rebuilt[&first], original[&first]);
+    assert_ne!(rebuilt[&second], original[&second]);
+    assert!(app.world().get_entity(child).is_err());
+
+    app.world_mut().get_mut::<InventoryUiState>(second).unwrap().visible = false;
+    app.update();
+    assert_eq!(roots(&mut app), std::collections::HashMap::from([(first, original[&first])]));
+    app.world_mut().get_mut::<InventoryUiState>(second).unwrap().visible = true;
+    app.update();
+    let reopened = roots(&mut app)[&second];
+    let child = app.world().get::<Children>(reopened).unwrap()[0];
+    app.world_mut().despawn(second);
+    assert!(app.world().get_entity(reopened).is_err());
+    assert!(app.world().get_entity(child).is_err());
+    assert!(app.world().get_entity(original[&first]).is_ok());
+}

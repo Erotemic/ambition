@@ -59,14 +59,6 @@ const DEPTH_TEXT_TOP: f32 = -0.96;
 const DEPTH_SELECTION: f32 = -1.12;
 const FONT_FAMILY: &str = "DejaVu Sans";
 
-#[derive(Component)]
-#[relationship(relationship_target = MenuCameras)]
-struct MenuCameraOf(Entity);
-
-#[derive(Component)]
-#[relationship_target(relationship = MenuCameraOf, linked_spawn)]
-struct MenuCameras(Vec<Entity>);
-
 /// Marks the rotating ring root that holds the cube faces.
 #[derive(Component)]
 #[require(KaleidoscopeOpenState)]
@@ -540,7 +532,7 @@ fn setup_cube<PageId: Send + Sync + 'static, Action: Send + Sync + 'static>(
         commands.spawn((
             Name::new("Cube pause camera"),
             KaleidoscopePauseCamera,
-            MenuCameraOf(menu),
+            ambition_menu::render::MenuPresentationOf(menu),
             ambition_menu::MenuSurface(menu),
             Camera3d::default(),
             // The cube is an unlit UI scene, not an HDR-lit world. Opt out of the

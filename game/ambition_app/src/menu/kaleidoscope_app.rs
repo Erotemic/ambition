@@ -322,7 +322,7 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
     // question is "who owns registering it". `add_message` is a no-op if present.
     app.add_message::<MenuActionActivated<MenuPageAction>>();
     app.add_message::<ambition_platformer2d::game_shell::PauseRequested>();
-    app.add_systems(Startup, spawn_kaleidoscope_scrim)
+    app.add_systems(Update, spawn_kaleidoscope_scrim.before(gate_kaleidoscope_menu))
         // PHASE 1 — decide this frame's CONTENT, BEFORE the lib rebuild. Nav mutates the cursor;
         // scroll/cache/republish derive the page model + System scroll window from it.
         .add_systems(
@@ -380,9 +380,6 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                 cycle_dev_gravity.run_if(bevy::input::common_conditions::input_just_pressed(
                     KeyCode::Backslash,
                 )),
-                // The readability dim-scrim is cube-only; the Startup node stays
-                // transparent when the cube backend is inactive.
-                retarget_kaleidoscope_scrim.run_if(kaleidoscope_render_needed),
                 fade_kaleidoscope_scrim.run_if(kaleidoscope_render_needed),
             )
                 .chain()

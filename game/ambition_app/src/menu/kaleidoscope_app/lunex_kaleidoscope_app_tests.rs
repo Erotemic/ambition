@@ -1476,6 +1476,7 @@ fn drilling_into_a_system_entry_republishes_and_rebuilds_the_face() {
 fn scroll_app() -> App {
     let mut app = base_kaleidoscope_test_app();
     app.add_message::<bevy::input::mouse::MouseWheel>();
+    crate::menu::test_support::add_scroll_window(&mut app);
     app.add_message::<ambition_platformer2d::menu::MenuScrollDragged>();
     app.add_systems(
         Update,
@@ -1551,16 +1552,7 @@ fn mouse_wheel_scrolls_window_not_selection() {
 
     // Wheel DOWN three notches (negative y = scroll down).
     for _ in 0..3 {
-        app.world_mut()
-            .resource_mut::<Messages<bevy::input::mouse::MouseWheel>>()
-            .write(bevy::input::mouse::MouseWheel {
-                unit: bevy::input::mouse::MouseScrollUnit::Line,
-                x: 0.0,
-                y: -1.0,
-                window: Entity::PLACEHOLDER,
-                // bevy 0.19: a mouse wheel always reports `Moved`.
-                phase: bevy::input::touch::TouchPhase::Moved,
-            });
+        crate::menu::test_support::wheel(&mut app, -1.0);
         app.update();
     }
 
@@ -1668,16 +1660,7 @@ fn scrollbar_drag_fraction_sets_window_start_proportionally() {
 fn keyboard_nav_clears_the_scroll_override() {
     let mut app = scroll_app();
     // Establish an override via a wheel notch.
-    app.world_mut()
-        .resource_mut::<Messages<bevy::input::mouse::MouseWheel>>()
-        .write(bevy::input::mouse::MouseWheel {
-            unit: bevy::input::mouse::MouseScrollUnit::Line,
-            x: 0.0,
-            y: -1.0,
-            window: Entity::PLACEHOLDER,
-            // bevy 0.19: a mouse wheel always reports `Moved`.
-            phase: bevy::input::touch::TouchPhase::Moved,
-        });
+    crate::menu::test_support::wheel(&mut app, -1.0);
     app.update();
     assert!(
         crate::menu::test_support::menu_component::<KaleidoscopeScroll>(app.world())
@@ -3262,4 +3245,50 @@ fn each_cubes_camera_and_scrim_follow_its_own_fold() {
             .target,
         1.0
     );
+}
+
+
+#[test]
+fn wheel_scrolls_only_the_visible_menu_under_the_mouse() {
+    use ambition_platformer2d::input::ParticipantId;
+    use ambition_platformer2d::inventory_ui::{InventoryMenu, InventoryUiState};
+    use crate::menu::regions::MenuRegion;
+    let mut app = scroll_app();
+    let first = crate::menu::test_support::menu_id(app.world());
+    let window = app.world_mut().query_filtered::<Entity, With<bevy::window::PrimaryWindow>>()
+        .single(app.world()).unwrap();
+    app.world_mut().get_mut::<MenuRegion>(first).unwrap().0 =
+        Some(Rect::from_corners(Vec2::ZERO, Vec2::new(640.0, 720.0)));
+    let mut cursor = KaleidoscopeCursor::default();
+    cursor.mark_keyboard(MenuFocus::System(0));
+    let second = app.world_mut().spawn((
+        crate::menu::MenuInstance,
+        InventoryMenu { owner: ParticipantId::SECONDARY },
+        InventoryUiState { visible: true, ..default() },
+        ActiveMenuPages::<MenuPage, MenuPageAction> { active: Some(MenuPage::System), ..default() },
+        KaleidoscopeSystemNav { open_entry: Some(SystemMenuEntryId::Developer) },
+        cursor,
+        MenuRegion(Some(Rect::from_corners(Vec2::new(640.0, 0.0), Vec2::new(1280.0, 720.0)))),
+    )).id();
+    crate::menu::test_support::wheel(&mut app, -1.0);
+    app.update();
+    assert_eq!(app.world().get::<KaleidoscopeScroll>(first).unwrap().system_window_start, Some(1));
+    assert_eq!(app.world().get::<KaleidoscopeScroll>(second).unwrap().system_window_start, None);
+    app.world_mut().get_mut::<Window>(window).unwrap().set_cursor_position(Some(Vec2::new(640.0, 100.0)));
+    crate::menu::test_support::wheel(&mut app, -1.0);
+    app.update();
+    assert_eq!(app.world().get::<KaleidoscopeScroll>(first).unwrap().system_window_start, Some(1));
+    assert_eq!(app.world().get::<KaleidoscopeScroll>(second).unwrap().system_window_start, Some(1));
+    app.world_mut().resource_mut::<ambition_platformer2d::input::SeatMenuFrames>()
+        .for_seat_mut(ParticipantId::SECONDARY.slot()).drag_scroll_y = -1.0;
+    app.update();
+    assert_eq!(app.world().get::<KaleidoscopeScroll>(first).unwrap().system_window_start, Some(1));
+    assert_eq!(app.world().get::<KaleidoscopeScroll>(second).unwrap().system_window_start, Some(2));
+    app.world_mut().resource_mut::<ambition_platformer2d::input::SeatMenuFrames>()
+        .for_seat_mut(ParticipantId::SECONDARY.slot()).drag_scroll_y = 0.0;
+    app.world_mut().get_mut::<InventoryUiState>(second).unwrap().visible = false;
+    crate::menu::test_support::wheel(&mut app, -1.0);
+    app.update();
+    assert_eq!(app.world().get::<KaleidoscopeScroll>(first).unwrap().system_window_start, Some(1));
+    assert_eq!(app.world().get::<KaleidoscopeScroll>(second).unwrap().system_window_start, Some(2));
 }

@@ -35,8 +35,9 @@ fn system_row_count(
 /// steps; the tap it began as is cancelled by the pointer observers.
 pub(crate) fn kaleidoscope_scroll_wheel(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Single<&ambition_platformer2d::inventory_ui::InventoryUiState>>,
-    pages: Single<(
+    mut menus: Query<(
+        Entity,
+        &ambition_platformer2d::inventory_ui::InventoryUiState,
         &ambition_platformer2d::inventory_ui::InventoryMenu,
         &ActiveMenuPages<MenuPage, MenuPageAction>,
         &KaleidoscopeSystemNav,
@@ -46,59 +47,57 @@ pub(crate) fn kaleidoscope_scroll_wheel(
     )>,
     settings: Res<UserSettings>,
     snapshot: SystemMenuSnapshotParams,
-    mut wheel: MessageReader<bevy::input::mouse::MouseWheel>,
+    mut wheel: crate::menu::regions::MenuWheelInput,
     menu_frames: Res<ambition_platformer2d::input::SeatMenuFrames>,
 ) {
-    let (menu_owner, pages, system_nav, quality_confirm, cursor, mut scroll) = pages.into_inner();
-
-    let open = ui_state.map(|s| s.visible).unwrap_or(false);
-    if backend.effective() != InventoryUiBackend::LunexKaleidoscope || !open {
+    if backend.effective() != InventoryUiBackend::LunexKaleidoscope {
         wheel.clear();
         return;
     }
-    // Sum this frame's wheel deltas into integer row steps (wheel up = scroll up).
-    let mut steps = 0i32;
-    for ev in wheel.read() {
-        steps += if ev.y > 0.0 {
-            -1
-        } else if ev.y < 0.0 {
-            1
-        } else {
-            0
-        };
+    wheel.read();
+    for (menu, overlay, menu_owner, pages, system_nav, quality_confirm, cursor, mut scroll) in
+        &mut menus
+    {
+        if !overlay.visible {
+            continue;
+        }
+        let mut steps = wheel.steps_for(menu);
+        // A drag up the screen is negative on the frame and moves the window down.
+        steps -= menu_frames
+            .for_seat(menu_owner.owner.slot())
+            .drag_scroll_y
+            .round() as i32;
+        if steps == 0 {
+            continue;
+        }
+        let total = system_row_count(
+            &pages,
+            &system_nav,
+            &settings,
+            &snapshot,
+            quality_confirm.pending(),
+        );
+        if total <= SYSTEM_VISIBLE_ROWS {
+            continue; // nothing to scroll
+        }
+        let max = system_max_window_start(total) as i32;
+        // Seed from the effective start so the first wheel notch moves relative to what
+        // is currently shown (cursor-derived window) rather than jumping to 0.
+        let model = SystemMenuModel::build(
+            &settings,
+            &snapshot.radio_snapshot(),
+            &snapshot.dev_snapshot(),
+        );
+        let rows = system_rows_with_quality_prompt(
+            &model,
+            system_nav.open_entry,
+            quality_confirm.pending(),
+        );
+        let current =
+            system_effective_window_start(&rows, cursor.focus, scroll.system_window_start) as i32;
+        let next = (current + steps).clamp(0, max) as usize;
+        scroll.system_window_start = Some(next);
     }
-    // A drag up the screen is negative on the frame and moves the window down.
-    steps -= menu_frames
-        .for_seat(menu_owner.owner.slot())
-        .drag_scroll_y
-        .round() as i32;
-    if steps == 0 {
-        return;
-    }
-    let total = system_row_count(
-        &pages,
-        &system_nav,
-        &settings,
-        &snapshot,
-        quality_confirm.pending(),
-    );
-    if total <= SYSTEM_VISIBLE_ROWS {
-        return; // nothing to scroll
-    }
-    let max = system_max_window_start(total) as i32;
-    // Seed from the effective start so the first wheel notch moves relative to what
-    // is currently shown (cursor-derived window) rather than jumping to 0.
-    let model = SystemMenuModel::build(
-        &settings,
-        &snapshot.radio_snapshot(),
-        &snapshot.dev_snapshot(),
-    );
-    let rows =
-        system_rows_with_quality_prompt(&model, system_nav.open_entry, quality_confirm.pending());
-    let current =
-        system_effective_window_start(&rows, cursor.focus, scroll.system_window_start) as i32;
-    let next = (current + steps).clamp(0, max) as usize;
-    scroll.system_window_start = Some(next);
 }
 
 /// Apply the lib's backend-agnostic scrollbar-drag fraction (`0..=1`) to the

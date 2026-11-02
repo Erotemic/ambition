@@ -984,6 +984,7 @@ fn a_hover_over_a_grid_row_leaves_the_cursor_and_a_press_still_activates_it() {
 fn scroll_grid_app() -> App {
     let mut app = grid_app();
     app.add_message::<bevy::input::mouse::MouseWheel>();
+    crate::menu::test_support::add_scroll_window(&mut app);
     app.add_message::<ambition_platformer2d::menu::MenuScrollDragged>();
     app.add_systems(
         Update,
@@ -1043,16 +1044,7 @@ fn grid_mouse_wheel_scrolls_window_not_selection() {
 
     // Three wheel-down notches → window_start == 3, cursor unchanged.
     for _ in 0..3 {
-        app.world_mut()
-            .resource_mut::<Messages<bevy::input::mouse::MouseWheel>>()
-            .write(bevy::input::mouse::MouseWheel {
-                unit: bevy::input::mouse::MouseScrollUnit::Line,
-                x: 0.0,
-                y: -1.0,
-                window: Entity::PLACEHOLDER,
-                // bevy 0.19: a mouse wheel always reports `Moved`.
-                phase: bevy::input::touch::TouchPhase::Moved,
-            });
+        crate::menu::test_support::wheel(&mut app, -1.0);
         app.update();
     }
     assert_eq!(
@@ -1068,16 +1060,7 @@ fn grid_mouse_wheel_scrolls_window_not_selection() {
 
     // Many more notches clamp at the bottom (system_max_window_start).
     for _ in 0..100 {
-        app.world_mut()
-            .resource_mut::<Messages<bevy::input::mouse::MouseWheel>>()
-            .write(bevy::input::mouse::MouseWheel {
-                unit: bevy::input::mouse::MouseScrollUnit::Line,
-                x: 0.0,
-                y: -1.0,
-                window: Entity::PLACEHOLDER,
-                // bevy 0.19: a mouse wheel always reports `Moved`.
-                phase: bevy::input::touch::TouchPhase::Moved,
-            });
+        crate::menu::test_support::wheel(&mut app, -1.0);
         app.update();
     }
     assert_eq!(
@@ -1095,16 +1078,7 @@ fn grid_override_survives_hover_and_clears_on_keyboard() {
     let mut app = scroll_grid_app();
 
     // Establish an override via a wheel notch.
-    app.world_mut()
-        .resource_mut::<Messages<bevy::input::mouse::MouseWheel>>()
-        .write(bevy::input::mouse::MouseWheel {
-            unit: bevy::input::mouse::MouseScrollUnit::Line,
-            x: 0.0,
-            y: -1.0,
-            window: Entity::PLACEHOLDER,
-            // bevy 0.19: a mouse wheel always reports `Moved`.
-            phase: bevy::input::touch::TouchPhase::Moved,
-        });
+    crate::menu::test_support::wheel(&mut app, -1.0);
     app.update();
     assert_eq!(grid_window_start(&app), Some(1), "wheel set an override");
 
@@ -1356,4 +1330,43 @@ fn grid_trees_rebuild_close_and_retire_with_only_their_own_menu() {
     assert!(app.world().get_entity(reopened).is_err());
     assert!(app.world().get_entity(child).is_err());
     assert!(app.world().get_entity(original[&first]).is_ok());
+}
+
+
+#[test]
+fn wheel_scrolls_only_the_visible_menu_under_the_mouse() {
+    use ambition_platformer2d::input::ParticipantId;
+    use ambition_platformer2d::inventory_ui::{InventoryMenu, InventoryUiState};
+    use crate::menu::regions::MenuRegion;
+    let mut app = scroll_grid_app();
+    let first = crate::menu::test_support::menu_id(app.world());
+    let window = app.world_mut().query_filtered::<Entity, With<bevy::window::PrimaryWindow>>()
+        .single(app.world()).unwrap();
+    app.world_mut().get_mut::<MenuRegion>(first).unwrap().0 =
+        Some(Rect::from_corners(Vec2::ZERO, Vec2::new(640.0, 720.0)));
+    let mut cursor = KaleidoscopeCursor::default();
+    cursor.mark_keyboard(MenuFocus::System(0));
+    let second = app.world_mut().spawn((
+        crate::menu::MenuInstance,
+        InventoryMenu { owner: ParticipantId::SECONDARY },
+        InventoryUiState { visible: true, ..default() },
+        ActiveMenuPages::<MenuPage, MenuPageAction> { active: Some(MenuPage::System), ..default() },
+        KaleidoscopeSystemNav { open_entry: Some(SystemMenuEntryId::Developer) },
+        cursor,
+        MenuRegion(Some(Rect::from_corners(Vec2::new(640.0, 0.0), Vec2::new(1280.0, 720.0)))),
+    )).id();
+    crate::menu::test_support::wheel(&mut app, -1.0);
+    app.update();
+    assert_eq!(app.world().get::<GridMenuTabState>(first).unwrap().system_window_start, Some(1));
+    assert_eq!(app.world().get::<GridMenuTabState>(second).unwrap().system_window_start, None);
+    app.world_mut().get_mut::<Window>(window).unwrap().set_cursor_position(Some(Vec2::new(640.0, 100.0)));
+    crate::menu::test_support::wheel(&mut app, -1.0);
+    app.update();
+    assert_eq!(app.world().get::<GridMenuTabState>(first).unwrap().system_window_start, Some(1));
+    assert_eq!(app.world().get::<GridMenuTabState>(second).unwrap().system_window_start, Some(1));
+    app.world_mut().get_mut::<InventoryUiState>(second).unwrap().visible = false;
+    crate::menu::test_support::wheel(&mut app, -1.0);
+    app.update();
+    assert_eq!(app.world().get::<GridMenuTabState>(first).unwrap().system_window_start, Some(1));
+    assert_eq!(app.world().get::<GridMenuTabState>(second).unwrap().system_window_start, Some(1));
 }

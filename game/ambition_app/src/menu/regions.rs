@@ -9,6 +9,78 @@ use bevy::prelude::*;
 #[derive(Component, Clone, Copy, Default, PartialEq)]
 pub(crate) struct MenuRegion(pub Option<Rect>);
 
+/// Wheel input for the visible menu under the mouse in its display window.
+#[cfg(any(feature = "input", feature = "kaleidoscope_menu"))]
+#[derive(bevy::ecs::system::SystemParam)]
+pub(crate) struct MenuWheelInput<'w, 's> {
+    events: MessageReader<'w, 's, bevy::input::mouse::MouseWheel>,
+    windows: Query<'w, 's, &'static Window, With<bevy::window::PrimaryWindow>>,
+    menus: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static MenuRegion,
+            &'static ambition_platformer2d::inventory_ui::InventoryUiState,
+        ),
+        With<InventoryMenu>,
+    >,
+    steps: Local<'s, Vec<(Entity, i32)>>,
+}
+
+#[cfg(any(feature = "input", feature = "kaleidoscope_menu"))]
+impl MenuWheelInput<'_, '_> {
+    pub(crate) fn clear(&mut self) {
+        self.events.clear();
+        self.steps.clear();
+    }
+
+    pub(crate) fn read(&mut self) {
+        self.steps.clear();
+        for event in self.events.read() {
+            let Some(position) = self
+                .windows
+                .get(event.window)
+                .ok()
+                .and_then(Window::cursor_position)
+            else {
+                continue;
+            };
+            let mut targets = self.menus.iter().filter(|(_, region, state)| {
+                state.visible
+                    && region.0.is_some_and(|rect| {
+                        position.cmpge(rect.min).all() && position.cmplt(rect.max).all()
+                    })
+            });
+            let Some((menu, _, _)) = targets.next() else {
+                continue;
+            };
+            if targets.next().is_some() {
+                continue;
+            }
+            let delta = if event.y > 0.0 {
+                -1
+            } else if event.y < 0.0 {
+                1
+            } else {
+                0
+            };
+            if let Some((_, steps)) = self.steps.iter_mut().find(|(owner, _)| *owner == menu) {
+                *steps += delta;
+            } else {
+                self.steps.push((menu, delta));
+            }
+        }
+    }
+
+    pub(crate) fn steps_for(&self, menu: Entity) -> i32 {
+        self.steps
+            .iter()
+            .find(|(owner, _)| *owner == menu)
+            .map_or(0, |(_, steps)| *steps)
+    }
+}
+
 pub(crate) fn resolve_menu_regions(
     surface: ParticipantSurface,
     owners: Query<(Entity, &InventoryMenu)>,

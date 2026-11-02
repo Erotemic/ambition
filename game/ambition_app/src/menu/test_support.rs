@@ -236,3 +236,27 @@ pub(crate) fn menu_frame_mut(
         .resource_mut::<ambition_platformer2d::input::SeatMenuFrames>()
         .map_unchanged(|frames| frames.for_seat_mut(owner.slot()))
 }
+
+
+#[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
+pub(crate) fn add_scroll_window(app: &mut App) -> Entity {
+    let menu = menu_id(app.world());
+    app.world_mut().get_mut::<super::regions::MenuRegion>(menu).unwrap().0 =
+        Some(Rect::from_corners(Vec2::ZERO, Vec2::new(1280.0, 720.0)));
+    let mut window = Window { resolution: (1280, 720).into(), ..default() };
+    window.set_cursor_position(Some(Vec2::new(100.0, 100.0)));
+    app.world_mut().spawn((window, bevy::window::PrimaryWindow)).id()
+}
+
+#[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
+pub(crate) fn wheel(app: &mut App, y: f32) {
+    let window = app.world_mut().query_filtered::<Entity, With<bevy::window::PrimaryWindow>>()
+        .single(app.world()).unwrap();
+    app.world_mut().write_message(bevy::input::mouse::MouseWheel {
+        unit: bevy::input::mouse::MouseScrollUnit::Line,
+        x: 0.0,
+        y,
+        window,
+        phase: bevy::input::touch::TouchPhase::Moved,
+    });
+}

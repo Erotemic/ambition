@@ -776,8 +776,9 @@ fn grid_system_row_count(
 /// the cursor. Only a scrollable System list reacts; a short list ignores the wheel.
 #[cfg(feature = "input")]
 pub(crate) fn grid_menu_scroll_wheel(
-    overlay: Single<&ambition_platformer2d::inventory_ui::InventoryUiState>,
-    pages: Single<(
+    mut menus: Query<(
+        Entity,
+        &ambition_platformer2d::inventory_ui::InventoryUiState,
         &ActiveMenuPages<MenuPage, MenuPageAction>,
         &mut GridMenuTabState,
         &KaleidoscopeSystemNav,
@@ -786,48 +787,46 @@ pub(crate) fn grid_menu_scroll_wheel(
     )>,
     settings: Res<UserSettings>,
     system: SystemMenuParams,
-    mut wheel: MessageReader<bevy::input::mouse::MouseWheel>,
+    mut wheel: super::regions::MenuWheelInput,
 ) {
-    let (pages, mut tab_state, system_nav, quality_confirm, cursor) = pages.into_inner();
-
     // Backend read from `system` (it owns the resource); a separate `Res` would
     // B0002-conflict with that `ResMut`.
-    if system.backend() != InventoryUiBackend::Grid || !overlay.visible {
+    if system.backend() != InventoryUiBackend::Grid {
         wheel.clear();
         return;
     }
-    // Sum this frame's wheel deltas into integer row steps (wheel up = scroll up).
-    let mut steps = 0i32;
-    for ev in wheel.read() {
-        steps += if ev.y > 0.0 {
-            -1
-        } else if ev.y < 0.0 {
-            1
-        } else {
-            0
-        };
+    wheel.read();
+    for (menu, overlay, pages, mut tab_state, system_nav, quality_confirm, cursor) in &mut menus {
+        if !overlay.visible {
+            continue;
+        }
+        let steps = wheel.steps_for(menu);
+        if steps == 0 {
+            continue;
+        }
+        let active_page = active_page(&pages);
+        let model = system.model(&settings);
+        let total =
+            grid_system_row_count(active_page, &system_nav, &model, quality_confirm.pending());
+        if total <= SYSTEM_VISIBLE_ROWS {
+            continue; // nothing to scroll
+        }
+        let max = system_max_window_start(total) as i32;
+        // Seed from the effective start so the first notch moves relative to what is
+        // currently shown (cursor-derived window) rather than jumping to 0.
+        let rows = system_rows_with_quality_prompt(
+            &model,
+            system_nav.open_entry,
+            quality_confirm.pending(),
+        );
+        let current = crate::menu::model::system_effective_window_start(
+            &rows,
+            cursor.focus(),
+            tab_state.system_window_start,
+        ) as i32;
+        let next = (current + steps).clamp(0, max) as usize;
+        tab_state.system_window_start = Some(next);
     }
-    if steps == 0 {
-        return;
-    }
-    let active_page = active_page(&pages);
-    let model = system.model(&settings);
-    let total = grid_system_row_count(active_page, &system_nav, &model, quality_confirm.pending());
-    if total <= SYSTEM_VISIBLE_ROWS {
-        return; // nothing to scroll
-    }
-    let max = system_max_window_start(total) as i32;
-    // Seed from the effective start so the first notch moves relative to what is
-    // currently shown (cursor-derived window) rather than jumping to 0.
-    let rows =
-        system_rows_with_quality_prompt(&model, system_nav.open_entry, quality_confirm.pending());
-    let current = crate::menu::model::system_effective_window_start(
-        &rows,
-        cursor.focus(),
-        tab_state.system_window_start,
-    ) as i32;
-    let next = (current + steps).clamp(0, max) as usize;
-    tab_state.system_window_start = Some(next);
 }
 
 /// Feature C (Grid): apply the engine's backend-agnostic scrollbar-drag signal

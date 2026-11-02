@@ -346,7 +346,7 @@ The current product rules are in
 | Always-split view mode | `VideoSettings::local_view_layout` selects `Adaptive` or `AlwaysSplit` through the shared settings menu. The existing view and camera owners apply it. | **Built 2026-11-01** (`751ad0b34`). Controller and GPU tests cover live switching, retained session/body identity, separate rectangles and drawn panes. |
 | Player 2 stays in blink state | Every `PlayerBlinkCameraState` advances on wall time. Every preview reads committed seat controls through the driven body. | **Fixed in `0754ed273`**; the two-seat simulation test covers press, hold, release and completed cooldown. A separate paused-clock test covers presentation decay. |
 | Player strikes do not hurt the other player | `FriendlyFire::default().enabled` is false. Both driven bodies resolve to `ActorFaction::Player`; `damage_lands_between` allows same-faction damage only when friendly fire is enabled (unless another relation overrides). | **Confirmed default rule explains allied damage rejection**. Prove Ambition's actual resolved room rule and all attack families. The explicit `friendly_fire: false` in `game/ambition_app/assets/data/room_rules.ron` is a **Versus** stage declaration, not the general Ambition room default. |
-| Only one player can use the pause/menu | Ambition's kaleidoscope and grid menu systems read one `MenuControlFrame` and singleton focus/page/cursor state. Inventory open state has an explicit owner, but the frontend still creates one surface. `ShellPauseMenu` supports an owning seat but Ambition suppresses it and supplies its own menu. | **Confirmed singleton Ambition menu**. The shell seat rule is not two independent menus. |
+| Only one player can use the pause/menu | Ambition's kaleidoscope and grid menu systems still read one `MenuControlFrame`. Open, focus, page, scroll and cache state belong to menu entities, but the frontend still creates one surface. `ShellPauseMenu` supports an owning seat but Ambition suppresses it and supplies its own menu. | **Confirmed singleton Ambition menu**. The shell seat rule is not two independent menus. |
 | Either player's door flashes black over both panes | `room_transition_presentation::drive_room_transition_presentation` spawns one 100%-width/height `RoomTransitionCoverRoot` with `GlobalZIndex(900)`. `RoomTransitionLoadState` has one active transaction. | **Confirmed full-window cover**. Test whether sim time stops separately. The eager host already avoids `GameMode::RoomTransition` when another participant has play in progress; the peer host can still hold all simulation for a synchronized commit. |
 | F1 gizmos show the wrong room or offset | `ambition_render::rendering::debug_viz::draw_debug_viz` and `ambition_app::dev::debug_overlay::draw_debug_overlay` select `PrimaryLiveRoom`/`PrimaryLiveRoomSpec`. They use the default gizmo path, which all gameplay cameras can see. App labels also convert through the primary room. | **Confirmed primary-room leak**, consistent with the report. Player trails already use retained `GizmoAsset`s with room `RenderLayers`; reuse that boundary. |
 | Adaptive split/merge feels inconsistent | `AdaptiveSplit` keeps `split_beyond`, `merge_within`, `merge_after`, and a local `DistanceSplit` latch. | **No source defect established**. The maintainer deferred threshold and animation polish. Preserve the current policy and test topology only. |
@@ -556,8 +556,7 @@ The immediate couch-co-op product rule is:
 Grid and Cube use one menu lifecycle (`47da81062`). The shared route owns
 entry, close and platform pause. Guard:
 `a_platform_pause_opens_the_grid_and_keeps_it_open`, with the existing menu
-and dialogue cases. Page, cursor, pointer and renderer state still require
-menu-instance ownership. Do not restore backend-specific game-mode writes.
+and dialogue cases. Rendered views and frontend input still require menu-instance ownership. Do not restore backend-specific game-mode writes.
 
 Item use and ability equipment requests name the acting participant
 (`5549b8402`, schema 407). Simulation resolves its current controlled body.
@@ -583,16 +582,16 @@ and clears claims on session retirement. Guards:
 and retirement cases. The host dialogue-under-menu test also passes.
 Pending mode requests survive the pause step (`7711a82cc`); guard:
 `a_mode_request_in_the_open_frame_is_not_replaced_by_menu_pause`.
-The app still creates one surface. Cursor, pointer, system-model cache, fold
-and viewport state still require menu-instance ownership. Do not add a resource mirror.
+The app still creates one surface. Per-seat frontend input, fold and viewport
+state remain open. Do not add a resource mirror.
 
 Page models now live on their menu entity (`b972851eb`). The Cube ring uses
 that entity and stores its own publication cache. It reconciles only its child
 faces. Guards: `each_menu_reconciles_only_its_own_published_faces` and
 `a_delayed_ring_renders_its_latest_publication_without_rebuilding_another_menu`.
 The production open-menu capture also draws the faces, controls and highlight.
-The frontend still has one input and shared navigation, pointer, system-model
-cache, fold and camera state. Full two-pad menu acceptance remains open.
+The frontend still has one input and shared fold and camera state. Full
+two-pad menu acceptance remains open.
 
 
 The mode tests prove claim aggregation. Full two-menu navigation and rendering
@@ -713,7 +712,7 @@ Guards: `equal_row_keys_in_two_menus_keep_independent_press_arms`,
 `a_destructive_confirmation_in_one_menu_cannot_confirm_another_menu`,
 `two_menu_drags_survive_widget_rebuilds_and_release_independently` and
 `foreign_menu_messages_cannot_drill_turn_or_scroll_this_menu`.
-The app still needs per-menu navigation, cache, fold and viewport state before
+The app still needs per-seat frontend input, fold and viewport state before
 two-pad menu acceptance. Do not restore global gesture state or events with no owner.
 
 Menu equipment, actions and maps use the owning participant's current body
@@ -723,5 +722,15 @@ The Grid map updates when that body changes live rooms. Guards:
 `each_menu_map_follows_its_controlled_body_between_live_rooms` and
 `an_open_grid_map_follows_the_owner_without_a_map_resource_change`.
 Missing or ambiguous bindings have no body; do not select the primary body.
-Navigation, caches, fold, viewport and per-seat frontend input remain open.
+Per-seat frontend input, fold and viewport state remain open.
 Held-item mutations still need stamped intents before peer agreement.
+
+Navigation, quality confirmation, rebind arms, scroll state and caches now
+belong to each menu entity (`d3ea64d9b`). Both backend dispatchers resolve the
+menu named by each event. Cube focus and text use each node's menu owner.
+Each menu has its own publication key. Guards:
+`two_menus_dispatch_drill_quality_rebind_and_close_independently` and
+`each_menu_caches_and_publishes_its_own_system_page_without_idle_churn`.
+The production equipment capture also passes visual review. Do not restore
+resource copies of menu state. Per-seat frontend input, raw rebind-device
+routing, fold and viewport ownership remain open before two-pad acceptance.

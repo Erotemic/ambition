@@ -703,7 +703,7 @@ Menu lifecycle is shared by Grid and Cube (`47da81062`). Entry, close and
 platform pause use one route. Guard: `a_platform_pause_opens_the_grid_and_keeps_it_open`,
 with the existing menu and dialogue cases. Grid-only/no-audio composition also
 compiles on the native host. Do not restore backend-specific game-mode writes.
-Page, cursor, pointer and render state still need menu-instance ownership.
+Rendered views and frontend input still need menu-instance ownership.
 
 Item use and ability equipment requests name their acting participant
 (`5549b8402`, schema 407). Simulation resolves its current body before it spends
@@ -726,16 +726,16 @@ and clears claims on session retirement. Guards:
 and retirement cases. The host dialogue-under-menu test also passes.
 Pending mode requests survive the pause step (`7711a82cc`); guard:
 `a_mode_request_in_the_open_frame_is_not_replaced_by_menu_pause`.
-The app still creates one surface. Cursor, pointer, system-model cache, fold
-and viewport state still require menu-instance ownership. Do not add a resource mirror.
+The app still creates one surface. Per-seat frontend input, fold and viewport
+state remain open. Do not add a resource mirror.
 
 Page models now live on their menu entity (`b972851eb`). The Cube ring uses
 that entity and stores its own publication cache. It reconciles only its child
 faces. Guards: `each_menu_reconciles_only_its_own_published_faces` and
 `a_delayed_ring_renders_its_latest_publication_without_rebuilding_another_menu`.
 The production open-menu capture also draws the faces, controls and highlight.
-The frontend still has one input and shared navigation, pointer, system-model
-cache, fold and camera state. Full two-pad menu acceptance remains open.
+The frontend still has one input and shared fold and camera state. Full
+two-pad menu acceptance remains open.
 
 
 Menu events now name their menu entity (`4d4ddf89c`). Press, confirmation,
@@ -745,7 +745,7 @@ Guards: `equal_row_keys_in_two_menus_keep_independent_press_arms`,
 `a_destructive_confirmation_in_one_menu_cannot_confirm_another_menu`,
 `two_menu_drags_survive_widget_rebuilds_and_release_independently` and
 `foreign_menu_messages_cannot_drill_turn_or_scroll_this_menu`.
-The app still needs per-menu navigation, cache, fold and viewport state before
+The app still needs per-seat frontend input, fold and viewport state before
 two-pad menu acceptance. Do not restore global gesture state or events with no owner.
 
 
@@ -756,8 +756,18 @@ The Grid map updates when that body changes live rooms. Guards:
 `each_menu_map_follows_its_controlled_body_between_live_rooms` and
 `an_open_grid_map_follows_the_owner_without_a_map_resource_change`.
 Missing or ambiguous bindings have no body; do not select the primary body.
-Navigation, caches, fold, viewport and per-seat frontend input remain open.
+Per-seat frontend input, fold and viewport state remain open.
 Held-item mutations still need stamped intents before peer agreement.
+
+Navigation, quality confirmation, rebind arms, scroll state and caches now
+belong to each menu entity (`d3ea64d9b`). Both backend dispatchers resolve the
+menu named by each event. Cube focus and text use each node's menu owner.
+Each menu has its own publication key. Guards:
+`two_menus_dispatch_drill_quality_rebind_and_close_independently` and
+`each_menu_caches_and_publishes_its_own_system_page_without_idle_churn`.
+The production equipment capture also passes visual review. Do not restore
+resource copies of menu state. Per-seat frontend input, raw rebind-device
+routing, fold and viewport ownership remain open before two-pad acceptance.
 
 **Next action (ordered slices; complete each behavior gate before moving):**
 

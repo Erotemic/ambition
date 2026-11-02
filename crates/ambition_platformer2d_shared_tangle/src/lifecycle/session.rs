@@ -600,37 +600,23 @@ pub fn session_world_entity(world: &World) -> Option<Entity> {
 /// condition under a new spelling, so the two-root refusal below counts the
 /// union rather than each marker separately.
 pub fn session_root_for_scope(world: &mut World, scope: SessionScopeId) -> Option<Entity> {
-    // ⛔⛤ **TWO LOOKUPS RATHER THAN ONE `Or`, AND THE REASON IS `try_query`'S
-    // CONTRACT.** `try_query_filtered` answers `None` when ANY component it
-    // names is unregistered in this world, which is the honest "no root" answer
-    // for a single marker and a silent, total blackout for a union: a fixture
-    // that has never built a candidate has never registered
-    // `CandidateSessionRoot`, so one `Or` query would refuse every publication
-    // in every direct-entry composition in the project. MEASURED that way —
-    // `a_room_publishes_into_a_session_root_that_is_still_a_hidden_candidate`
-    // went red with `NoSessionRootToPublishInto` against a fixture whose root
-    // carries a perfectly ordinary `SessionRoot`.
+    // A direct host can have a live root before either candidate type is registered.
+    // Query construction registers the marker types without creating any entities.
     let mut roots: Vec<Entity> = Vec::new();
-    if let Some(mut query) = world.try_query_filtered::<(Entity, &SessionRoot), bevy::ecs::query::Allow<
-        crate::construction::InactiveCandidate,
-    >>() {
+    {
+        let mut query = world.query_filtered::<(Entity, &SessionRoot), bevy::ecs::query::Allow<
+            crate::construction::InactiveCandidate,
+        >>();
         roots.extend(
-            query
-                .iter(world)
-                .filter(|(_, root)| root.0 == scope)
-                .map(|(entity, _)| entity),
+            query.iter(world).filter(|(_, root)| root.0 == scope).map(|(entity, _)| entity),
         );
     }
-    if let Some(mut query) =
-        world.try_query_filtered::<(Entity, &CandidateSessionRoot), bevy::ecs::query::Allow<
-            crate::construction::InactiveCandidate,
-        >>()
     {
+        let mut query = world.query_filtered::<(Entity, &CandidateSessionRoot), bevy::ecs::query::Allow<
+            crate::construction::InactiveCandidate,
+        >>();
         roots.extend(
-            query
-                .iter(world)
-                .filter(|(_, root)| root.0 == scope)
-                .map(|(entity, _)| entity),
+            query.iter(world).filter(|(_, root)| root.0 == scope).map(|(entity, _)| entity),
         );
     }
     let mut found = roots.into_iter();

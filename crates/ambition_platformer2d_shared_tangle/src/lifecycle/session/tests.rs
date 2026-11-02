@@ -20,6 +20,14 @@ fn nested_spawn_helper(commands: &mut Commands, scope: SessionSpawnScope) {
 }
 
 #[test]
+fn a_direct_root_resolves_before_candidate_types_exist() {
+    let mut world = World::new();
+    let scope = SessionScopeId(0);
+    let root = world.spawn(SessionRoot(scope)).id();
+    assert_eq!(session_root_for_scope(&mut world, scope), Some(root));
+}
+
+#[test]
 fn direct_and_nested_spawns_share_the_captured_scope() {
     let mut app = session_app();
     let scope = app.world_mut().resource_mut::<ActiveSessionScope>().begin();

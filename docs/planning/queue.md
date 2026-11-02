@@ -560,7 +560,7 @@ control.
 
 ### MULTIPLAYER-SEAMS — make local multiplayer safe for netplay
 
-**Remaining failure:** some area hits still bypass the common body resolver;
+**Remaining failure:** rendered two-controller combat acceptance is open;
 the Ambition menu has one input, cursor and visible state; room loading covers the other viewport; F1
 gizmos use primary room data. Routine peer room commits still hold the whole
 session. These are separate authority, presentation and gameplay-rule boundaries.
@@ -623,7 +623,13 @@ Inventory bombs use scoped environmental strikes (`3d6651f5a`, schema 400).
 Both seats take blast damage only in its live room; resolved self-hits reach
 both body consumers. Guards: `inventory_bombs_hurt_either_participant_only_in_the_blast_room`
 and `an_environmental_strike_can_hurt_its_credit_body_in_either_seat`.
-Shark charge crashes name only the crashing body. Sliding shells remain open.
+Shark charge crashes name only the crashing body.
+
+Sliding shells use scoped environmental strikes (`c7a8a04c4`, schema 406).
+Kick credit and body exclusions survive rollback. Kick grace protects only the
+kicker. Body events name one recipient; consumers no longer scan body areas.
+Guards: `a_snake_is_each_players`, `an_excluded_sweetspot_cannot_suppress_an_allowed_sibling`,
+and the app rollback and friendly-fire cases. Do not restore unresolved body targets.
 
 Jump and combat input now consume the current Up interaction gesture until release
 (`69f705d8c`). Guards: `recorded_up_and_jump_sequence_does_not_interact` and
@@ -631,12 +637,11 @@ Jump and combat input now consume the current Up interaction gesture until relea
 
 **Next action (ordered slices; complete each behavior gate before moving):**
 
-3. **Finish gameplay-rule coverage:** route the remaining area hits through the
-   common body resolver and remove the unresolved body fallbacks. Audit owned
-   environmental areas against the explicit self-damage policy. Keep NPC target
-   selection and authored match rules separate. The saved ON/OFF choice, frozen
-   session identity, peer refusal, melee and detached attack coverage are built.
-   Complete the rendered two-controller main-game acceptance before closing.
+3. **Finish gameplay-rule acceptance:** complete the rendered two-controller
+   main-game acceptance for both melee and projectiles with friendly fire ON
+   and OFF. Keep NPC target selection and authored match rules separate.
+   Scoped area hits and resolved body routing are complete. Broad verification
+   remains tracked by TEST-LANES; focused passes do not close it.
 4. **Independent local menus:** separate per-seat open state, focus, page,
    inventory, and viewport UI for Grid and Kaleidoscope. An offline session
    pause arbiter pauses while any menu is open, but each seat still controls

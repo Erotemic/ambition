@@ -517,9 +517,14 @@ Resolved self-hits now reach both body consumers. Guards:
 `an_environmental_strike_can_hurt_its_credit_body_in_either_seat`.
 Shark charge crashes name only the crashing body.
 
-**Remaining:** route sliding-shell contact areas through the common body resolver
-and remove the unresolved body fallbacks. Complete the rendered two-controller main-game
-acceptance. Broad verification remains tracked by TEST-LANES; focused passes do not close it.
+Sliding shells use scoped environmental strikes (`c7a8a04c4`, schema 406).
+Kick grace excludes only the kicker; credit does not change the emission room.
+Body targets name one recipient, and body consumers do not scan unresolved areas.
+Guards: `a_snake_is_each_players` and
+`an_excluded_sweetspot_cannot_suppress_an_allowed_sibling`.
+
+**Remaining:** complete the rendered two-controller main-game acceptance.
+Broad verification remains tracked by TEST-LANES; focused passes do not close it.
 
 ### Menus and pause: per-seat focus, explicit global pause aggregation
 

@@ -41,20 +41,27 @@ pub(crate) fn aggregate_menu_pause(
     // captures that participant's controls while the shared simulation runs.
     let remote = ownership.is_some_and(|ownership| ownership.has_remote_peers());
     let open = !remote && menus.iter().any(|menu| menu.visible);
+    let requested = match &*next {
+        NextState::Pending(mode) | NextState::PendingIfNeq(mode) => Some(*mode),
+        NextState::Unchanged => None,
+    };
+    let underlying = requested.unwrap_or(*mode.get());
     if open {
-        match mode.get() {
+        match underlying {
             GameMode::Playing | GameMode::Dialogue => {
-                pause.resume = Some(*mode.get());
+                pause.resume = Some(underlying);
                 ambition_platformer2d::platformer::world_log::note_game_mode_request(GameMode::Paused, "local_menu_pause");
                 next.set(GameMode::Paused);
             }
             GameMode::Paused => {
-                if pause.resume.is_none() { pause.resume = Some(GameMode::Paused); }
+                if requested.is_some() || pause.resume.is_none() {
+                    pause.resume = Some(GameMode::Paused);
+                }
             }
             _ => {}
         }
     } else if let Some(resume) = pause.resume.take() {
-        if *mode.get() == GameMode::Paused && resume != GameMode::Paused {
+        if requested.is_none() && underlying == GameMode::Paused && resume != GameMode::Paused {
             ambition_platformer2d::platformer::world_log::note_game_mode_request(resume, "local_menu_release");
             next.set(resume);
         }
@@ -198,6 +205,31 @@ mod tests {
         visible(&mut app, menus[1], false);
         settle(&mut app);
         assert_eq!(mode(&app), GameMode::Playing, "the transition replaced the old dialogue mode");
+    }
+
+    #[test]
+    fn a_mode_request_in_the_open_frame_is_not_replaced_by_menu_pause() {
+        #[derive(Resource)]
+        struct RequestedMode(Option<GameMode>);
+        for (base, requested) in [
+            (GameMode::Playing, GameMode::RoomTransition),
+            (GameMode::Dialogue, GameMode::Playing),
+            (GameMode::Playing, GameMode::Paused),
+        ] {
+            let (mut app, menus) = pause_app(base);
+            app.insert_resource(RequestedMode(Some(requested)));
+            app.add_systems(Update, |mut request: ResMut<RequestedMode>, mut next: ResMut<NextState<GameMode>>| {
+                if let Some(request) = request.0.take() { next.set(request); }
+            });
+            visible(&mut app, menus[0], true);
+            settle(&mut app);
+            assert_eq!(mode(&app), if requested == GameMode::RoomTransition {
+                GameMode::RoomTransition
+            } else { GameMode::Paused });
+            visible(&mut app, menus[0], false);
+            settle(&mut app);
+            assert_eq!(mode(&app), requested, "closing cannot restore a mode that the other request replaced");
+        }
     }
 
     #[test]

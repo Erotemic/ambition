@@ -1041,6 +1041,14 @@ fn every_component_in_a_live_match_is_registered_derived_or_waived() {
 /// would be meaningless or harmful, with the reason. Crate-prefix waivers from
 /// [`WAIVED`] apply here too; this list holds the resource-specific remainder.
 const RESOURCE_WAIVED: &[(&str, &str)] = &[
+    (
+        "ambition_content::autoplay::Profiles",
+        "authored routes for the local input generator, published outside simulation; replay consumes committed input and does not read these routes",
+    ),
+    (
+        "ambition_content::autoplay::Itinerary",
+        "the host input generator's cursor, advanced in Update; replay consumes committed input without rerunning this controller, so rewinding the cursor would repeat local input",
+    ),
     // ⛔⛤ **THE HOST-SIDE HALF OF `Q120`'s ADMISSION PROTOCOL, AND THE WAIVER IS
     // JUSTIFIED BY A BOUNDARY RATHER THAN BY A CENSUS OF WRITERS.**
     //

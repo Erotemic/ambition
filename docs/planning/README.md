@@ -74,6 +74,8 @@ links to.
   customer.
 - [`game/open-world-roadmap.md`](game/open-world-roadmap.md) — open-world
   milestones.
+- [`game/computational-dimension-design-lab.md`](game/computational-dimension-design-lab.md)
+  — offline research prototype; dimension and topology proposals remain unapproved.
 - [`game/gate-network.md`](game/gate-network.md) — gate-network design and integration questions.
 - [`game/systemic-progression.md`](game/systemic-progression.md) —
   capability-first progression.

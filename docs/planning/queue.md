@@ -59,7 +59,7 @@ Finish the behavior and visual checks before returning to MULTIPLAYER-SEAMS.
 
 ## Recent plan triage (2026-11-01)
 
-This review covers the 19 planning documents added since 2026-10-26.
+This review covers planning documents added since 2026-10-26.
 The order below is the triage recommendation under the existing work order.
 Keep the current multiplayer correctness work first, including LOADOUT-AUTHORITY
 for independent equipment menus. Then take ASSET-SELECTION,
@@ -81,6 +81,7 @@ CHARGEN-SPECIES. TEST-LANES retains the test-consolidation work.
 | [Region composition](game/world-composition.md) | WORLD-LAYERS rechecks remaining region links and secrets against current generators. Completed regions are not requeued. |
 | [World detail run](game/world-detail-24h.md) | Its counts predate many completed rooms. Recheck them within WORLD-LAYERS; do not restart the dated run or repeat its completed art. |
 | [Expressive fighter poses](demos/smash-expressive-fighter-poses.md) | Phases 1 and 2 are built; POSE-CONTINUITY owns the remaining visual work. |
+| [Computational dimension design lab](game/computational-dimension-design-lab.md) | Deferred research prototype. Audit source evidence before expanding the model. It does not approve canon changes or gate topology, and it does not displace the selected correctness and architecture work. |
 | [Fighter tactical intent](engine/fighter-tactical-intent.md) | Deferred: the measured gate failed and the maintainer paused the experiment. Keep the shipped flag off; do not schedule production rollout. |
 | [Ability loadout](game/ability-loadout.md) | LOADOUT-AUTHORITY, ITEM-CONTENT and ABILITY-VARIANTS own the remaining work. A7 owns bomb pocketing and its occurrence/accounting contract. The old branch handoff is obsolete. |
 | [Chargen species and overlays](game/chargen-species-knobs-and-2d-overlays.md) | Overlay loading is built; CHARGEN-SPECIES owns the remaining shape parameters and asymmetric cells. |

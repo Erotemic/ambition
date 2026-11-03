@@ -2338,15 +2338,16 @@ fn record_from_the_activation(
 fn a_session_that_follows_another_starts_as_a_fresh_hosts_does() {
     use ambition_platformer2d::persistence::save::AmbitionGameSave;
     use ambition_platformer2d::persistence::save_data::AmbitionGameSaveData;
-    use ambition_platformer2d::world::rooms::{GatePortalPhase, GatePortalPhases, GatePortalRegistry};
+    use ambition_platformer2d::world::rooms::{
+        GateNetworkCatalog, GateNetworkState, GatePortalCommand, GatePortalPhase, GatePortalPhases, GatePortalRegistry,
+    };
     use std::collections::{BTreeMap, BTreeSet};
 
     /// Rows that differ for a reason another owner has. ⛔ A row here is a
     /// reading, not a waiver, and it must still differ: see the end of the arm.
     const EXPECTED_TO_DIFFER_AT_TICK_ZERO: &[(&str, &str)] = &[];
 
-    /// The ticks compared. The portal of a fresh host opens in 0.64 s, which is
-    /// 39 ticks, so the window is past it.
+    /// The comparison window covers the gate's opening duration and later ticks.
     const TICKS: u64 = 48;
 
     fn host() -> App {
@@ -2369,17 +2370,19 @@ fn a_session_that_follows_another_starts_as_a_fresh_hosts_does() {
             .write_message(ShellCommand::GoTo(route.clone()));
         let first = enter_the_next_session(&mut veteran, None);
         settle(&mut veteran);
-        let (zone, switch) = veteran
-            .world()
-            .resource::<GatePortalRegistry>()
-            .iter()
-            .find_map(|(zone, config)| Some((zone.clone(), config.command.switch_id()?.to_string())))
-            .expect("the Ambition world registers a gate portal");
-        veteran
-            .world_mut()
-            .resource_mut::<AmbitionGameSave>()
-            .data_mut()
-            .set_switch(switch, true);
+        let zone = veteran.world().resource::<GatePortalRegistry>().iter()
+            .find(|(_, config)| matches!(&config.command, GatePortalCommand::Dialed))
+            .map(|(zone, _)| zone.clone())
+            .expect("the live hub registers a dialed gate");
+        let (far_room, far_zone, address) = {
+            let catalog = veteran.world().resource::<GateNetworkCatalog>();
+            let source = catalog.ring(&zone).expect("the gate belongs to the network");
+            let far = catalog.rings.iter().find(|ring| ring.facility != source.facility)
+                .expect("the network has another facility");
+            (far.room.clone(), far.zone.clone(), catalog.address_of(far).expect("the far gate has an address"))
+        };
+        veteran.world_mut().resource_mut::<GateNetworkState>()
+            .open_link(&zone, &far_room, &far_zone, &address);
         for _ in 0..60 {
             veteran.update();
         }
@@ -2400,11 +2403,7 @@ fn a_session_that_follows_another_starts_as_a_fresh_hosts_does() {
             .world()
             .resource::<ambition_platformer2d::time::WorldTime>()
             .sim_dt();
-        assert!(
-            last_step > 0.0 && last_step < 1.0 / 60.0,
-            "{succession:?}: the first session ended with a step of {last_step}, \
-             which is not the slowed step of a hitstop"
-        );
+        assert_eq!(last_step, 0.0, "{succession:?}: hitstop must freeze the first session");
         let save: AmbitionGameSaveData = veteran.world().resource::<AmbitionGameSave>().0.clone();
 
         succession.follow(&mut veteran, &route, first);
@@ -2429,6 +2428,10 @@ fn a_session_that_follows_another_starts_as_a_fresh_hosts_does() {
              activation was missed"
         );
 
+        for app in [&mut fresh, &mut veteran] {
+            app.world_mut().resource_mut::<GateNetworkState>()
+                .open_link(&zone, &far_room, &far_zone, &address);
+        }
         let fresh_readings = record_from_the_activation(&mut fresh, TICKS, peer_census);
         let veteran_readings = record_from_the_activation(&mut veteran, TICKS, peer_census);
 

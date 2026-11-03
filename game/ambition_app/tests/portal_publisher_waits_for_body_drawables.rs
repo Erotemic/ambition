@@ -35,7 +35,7 @@ fn system_key<M>(graph: &ScheduleGraph, f: impl IntoSystem<(), (), M>, what: &st
             .systems
             .iter()
             .take(6)
-            .map(|(_, system, _)| format!("{:?}/{:?}", system.name().as_string(), system.system_type()))
+            .map(|(_, system, _)| format!("{:?}/{:?}", system.name(), system.system_type()))
             .collect();
         panic!(
             "`{what}` is not registered in Update ({} systems; wanted {wanted:?}; e.g. {names:?})",

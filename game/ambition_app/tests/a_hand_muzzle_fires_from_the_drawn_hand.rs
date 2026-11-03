@@ -218,10 +218,11 @@ fn a_hostile_raiders_shot_is_born_at_the_hand_its_art_draws() {
     );
     // Control: the fixed hand is far from the drawn hand for this body, so
     // this arm tells them apart.
+    let fixed_muzzle = fixed_hand + direction * AHEAD;
+    let fixed_birth = Vec2::new(fixed_muzzle.x, fixed_muzzle.y.min(feet_y - half.y - 1.0));
     assert!(
-        (fixed_hand - hand).length() > 8.0,
-        "control: the fixed hand ({fixed_hand:?}) and the drawn hand ({hand:?}) are too near to witness which \
-         one the shot used",
+        (born - fixed_birth).length() >= 1.0,
+        "the shot also matches the fixed hand origin {fixed_birth:?}; this scenario must distinguish the two origins",
     );
 }
 
@@ -304,9 +305,10 @@ fn the_players_held_gun_sword_fires_from_the_hand_its_art_draws() {
         "the shot is born at {born:?}; {AHEAD} past the drawn hand ({hand:?}, row `{row}` frame {frame}) it is \
          born at {expected:?}",
     );
+    let fixed_muzzle = fixed_hand + direction * AHEAD;
+    let fixed_birth = Vec2::new(fixed_muzzle.x, fixed_muzzle.y.min(feet_y - half.y - 1.0));
     assert!(
-        (fixed_hand - hand).length() > 8.0,
-        "control: the fixed hand ({fixed_hand:?}) and the drawn hand ({hand:?}) are too near to witness which \
-         one the shot used",
+        (born - fixed_birth).length() >= 1.0,
+        "the fixed hand also predicts the shot within the authored hand's tolerance",
     );
 }

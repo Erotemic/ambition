@@ -60,7 +60,8 @@ The new protocol must select those inputs from identified simulation state.
 An existing live destination uses its live state; moving actors there must not
 force a new room-construction promise each tick.
 
-Checkpoint restores now carry their key in the pending and withdrawn intents.
+Checkpoint restores now carry their key in the pending and withdrawn intents
+(`ce283f8f0`).
 Admission takes the slot and key together. A refusal spends no sequence.
 Preparation reads the key directly; it does not infer a restore from equal
 intent values. Transaction reuse, authorization, failure, cancellation, and
@@ -79,6 +80,9 @@ The current construction-plan ID includes local content epochs. It is useful
 for local cache and staleness checks. A peer promise needs a projection of the
 same frozen plan with peer content identity in place of local epochs. Do not
 send a hash of the local plan ID as proof that peers prepared the same plan.
+Actor row summaries also omit execution inputs, such as staged positions.
+They are diagnostics. The shared plan projection must cover complete payloads
+and the frozen catalogs that constructors read.
 
 ## Operation identity and preparation
 

@@ -898,8 +898,8 @@ A replaced intent cannot use the old reply. Guards:
 Wire identity 5 rejects the prior input format. Content identity and retained
 preparation promises remain open.
 
-Restore admission now carries the checkpoint key. A refused request spends no
-sequence. Guards: `restore_admission_is_atomic_and_refusal_spends_no_key` and
+Restore admission now carries the checkpoint key (`ce283f8f0`). A refused
+request spends no sequence. Guards: `restore_admission_is_atomic_and_refusal_spends_no_key` and
 `cancelling_a_restore_preserves_an_equal_intent_from_another_admission`.
 Do not infer a checkpoint restore from intent equality.
 

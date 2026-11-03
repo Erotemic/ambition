@@ -780,9 +780,8 @@ frontends use one cached System model and one action consumer. Guards:
 `rebind_capture_follows_the_owners_devices_and_changes_only_that_profile`,
 `each_menu_publishes_and_refreshes_its_owners_rebind_rows` (both backends) and
 `a_backend_change_applies_once_and_the_next_action_uses_the_new_frontend`.
-Production captures reach Rebind in Cube and Grid. Do not restore global
-capture or per-backend action consumers. Main-game menu admission and retirement,
-prompts and remaining pointer routing still need the full two-pad playthrough.
+Do not restore global capture or per-backend action consumers. The current
+two-pad admission and capture guards are below.
 
 Grid text fits its menu region and restores its authored maximum (`c10ff5c21`).
 Guard: `text_fits_its_menu_region_and_recovers_without_changing_another_menu`.
@@ -801,12 +800,25 @@ Session admission now uses `SessionParticipants` (`0d184ce24`). Membership
 survives loss of a body assignment and returns with rollback. Guards:
 `start_does_not_readmit_a_participant_without_a_current_body_assignment` and
 `rewinds_across_a_two_human_activation_and_reconstructs_both_seats`.
-Do not derive admission from offered devices or current bodies. Menu creation
-and retirement still need this record. Seed new menu Start latches from the
-live input so the join press does not also open the menu.
+Do not derive admission from offered devices or current bodies.
 
 The shared touch confirm prompt follows the primary menu (`e5c60f897`).
 Guards: `the_shared_prompt_follows_the_primary_menu_and_clears_when_it_retires`
 and `an_inventory_context_gets_its_verb_without_a_simulation_tick`.
 Cue publication uses the frame clock and the inventory input context.
 Do not let another participant's menu change this prompt.
+
+Local menus now follow session admission and local handles (`a3d838d1c`).
+The join press stays separate from opening a menu. Rebind capture consumes only
+its owner's menu frame, including Inventory and Map shortcuts. Guards:
+`two_pads_join_open_and_close_their_own_menus_on_both_backends` and
+`participant_and_session_retirement_remove_linked_presentations`.
+Do not derive menu lifetime from device or body presence.
+
+Cube hover now uses pointer identity (`499fa1a51`). Guard:
+`another_participants_pad_does_not_block_mouse_focus_in_a_cube_menu`.
+Another participant's pad must not block mouse focus in a menu.
+
+The GPU guard `two_pad_menus_draw_in_their_own_regions` draws Equipment and
+Rebind in separate regions on both backends. Cube text remains too small in
+narrow regions. Slice 4 stays open for canvas and page-layout work.

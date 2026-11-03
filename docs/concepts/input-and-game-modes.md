@@ -56,6 +56,11 @@ the session. Device changes, death and possession do not change membership.
 A surface that needs session membership must read this record, rather than
 count input devices or current body assignments.
 
+Inventory menu lifetime follows session membership and scope. With GGRS,
+`LocalPlayers` selects the surfaces that this process owns. Render roots and
+cameras link to their menu with `MenuPresentationOf`. An armed rebind consumes
+its owner's routed menu frame. Other participants keep their menu input.
+
 ## Invariants
 
 - Gameplay reads semantic actions, never keyboard labels.

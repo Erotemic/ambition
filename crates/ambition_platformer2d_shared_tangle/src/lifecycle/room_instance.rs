@@ -97,11 +97,10 @@ pub struct InRoomInstance(pub LiveRoomInstance);
 /// the candidate. It is a rollback carrier (`root:room_instance`) with the
 /// identity [`Self::sim_id`].
 ///
-/// ⚠ One root per session is re-seated in place by each publication: its
-/// `LiveRoomInstance` advances and its geometry is replaced. A second live
-/// instance needs its own identity (OW1 cut 5); until then the identity is a
-/// constant.
+/// Each root requires a collision overlay buffer. Contribution systems fill
+/// that buffer before collision readers use it, including after rollback.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[require(crate::feature_overlay::FeatureEcsWorldOverlay)]
 pub struct RoomInstanceRoot;
 
 impl RoomInstanceRoot {
@@ -456,7 +455,6 @@ pub fn activation_room_root(scope: SessionScopeId) -> impl bevy::prelude::Bundle
         RoomInstanceRoot::sim_id(),
         LiveRoomInstance::ACTIVATION,
         SessionScopedEntity(scope),
-        crate::feature_overlay::FeatureEcsWorldOverlay::default(),
     )
 }
 

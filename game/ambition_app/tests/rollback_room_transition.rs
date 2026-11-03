@@ -1,10 +1,4 @@
-//! Verify room reconstruction across a forced rollback window.
-//!
-//! Under rollback, transition detection records a confirmed-frame lifecycle
-//! intent rather than running the multi-frame load transaction speculatively.
-//! The test crosses an authored `EdgeExit`, requires the active room and entire
-//! room-scoped roster to be replaced, requires exactly one session rebase, and
-//! keeps the sync-test checksum healthy across the commit.
+//! Room crossings through confirmed host commits and reversible simulation transactions.
 
 #![cfg(feature = "rl_sim")]
 
@@ -13,6 +7,208 @@ use ambition_app::rl_sim::{
 };
 use bevy::prelude::{Entity, With};
 use std::collections::HashSet;
+
+type RoomCensus = std::collections::BTreeMap<&'static str, (usize, u64)>;
+
+#[derive(bevy::prelude::Resource)]
+struct ScheduledRoomCrossing {
+    plan: std::sync::Arc<ambition_platformer2d::publication::RoomConstructionPlan>,
+    subject: ambition_platformer2d::platformer::lifecycle::LiveBodyId,
+    applications: usize,
+    source_census: Option<RoomCensus>,
+    settled_census: std::collections::BTreeMap<i32, RoomCensus>,
+}
+
+fn room_census(world: &mut bevy::prelude::World) -> RoomCensus {
+    let probes = world.resource::<ambition_platformer2d::rollback::RollbackChecksumProbes>().clone();
+    probes.census_all_as_peers_compare(world).into_iter()
+        .map(|(row, reading)| (row, (reading.count, reading.xor))).collect()
+}
+
+fn assert_room_census(expected: &RoomCensus, actual: &RoomCensus, phase: &str) {
+    for row in expected.keys().chain(actual.keys()) {
+        assert_eq!(expected.get(row), actual.get(row), "{phase}: {row}");
+    }
+}
+
+fn record_replayed_room_frame(world: &mut bevy::prelude::World) {
+    let frame = world.resource::<ambition_platformer2d::rollback::RollbackFrameCount>().0;
+    if !(20..=24).contains(&frame) { return; }
+    let actual = room_census(world);
+    let mut crossing = world.resource_mut::<ScheduledRoomCrossing>();
+    if let Some(expected) = crossing.settled_census.get(&frame) {
+        assert_room_census(expected, &actual, "replayed room frame");
+    } else {
+        crossing.settled_census.insert(frame, actual);
+    }
+}
+
+fn cross_inside_the_rollback_schedule(world: &mut bevy::prelude::World) {
+    use ambition_platformer2d::runtime::room_transition::{
+        finalize_room_transition, RoomTransitionApplication,
+    };
+    if world.resource::<ambition_platformer2d::rollback::RollbackFrameCount>().0 != 20 {
+        return;
+    }
+    let stored: std::collections::BTreeSet<_> = world.resource::<ambition_platformer2d::rollback::RollbackRegistry>()
+        .descriptors().filter(|row| row.kind.carries_state()
+            && row.kind != ambition_platformer2d::rollback::RollbackEntryKind::Derived)
+        .map(|row| row.type_name.clone()).collect();
+    let mut census = room_census(world);
+    // Derived values can wait for their normal phase. Each root needs its overlay buffer now.
+    census.retain(|row, _| stored.contains(*row)
+        || *row == std::any::type_name::<ambition_platformer2d::platformer::feature_overlay::FeatureEcsWorldOverlay>());
+    let (plan, subject) = {
+        let mut crossing = world.resource_mut::<ScheduledRoomCrossing>();
+        if let Some(expected) = &crossing.source_census {
+            assert_room_census(expected, &census, "restored source row");
+        } else {
+            crossing.source_census = Some(census);
+        }
+        crossing.applications += 1;
+        (crossing.plan.clone(), crossing.subject.clone())
+    };
+    let mut state = bevy::ecs::system::SystemState::<RoomTransitionApplication>::new(world);
+    let staged = {
+        let mut application = state.get_mut(world).expect("the room application is installed");
+        let body = application.subject_entity(&subject).expect("the source body is restored");
+        application.stage(
+            &plan, Some(body), Some(ambition_platformer2d::characters::control::PlayerSlot(0)),
+            plan.target_index(), Some(plan.spec().world.spawn), false, None, false, None,
+        ).expect("the room crossing stages")
+    };
+    state.apply(world);
+    assert!(finalize_room_transition(world, &staged), "the room crossing publishes");
+}
+
+fn replay_room_crossing(
+    mut sim: Platformer2dSimHarness,
+    source: &str,
+    destination: &str,
+    expected_rooms: &[&str],
+) {
+    use ambition_platformer2d::platformer::lifecycle::LiveBodyId;
+    use ambition_platformer2d::runtime::room_transition::{
+        begin_room_transition_load_system, RoomTransitionLoadState,
+    };
+    use ambition_platformer2d::session::lifecycle_commit::{
+        LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
+    };
+    use bevy::ecs::system::RunSystemOnce;
+    use bevy::prelude::*;
+
+    for _ in 0..8 {
+        sim.step(AgentAction::default());
+    }
+    assert_eq!(sim.observation().active_room, source);
+    crate::common::strengthen_the_float_rows(sim.world_mut());
+    assert!(sim.world_mut().resource_mut::<ambition_platformer2d::rollback::RollbackChecksumProbes>()
+        .strengthen_with::<ambition_platformer2d::engine_core::RoomGeometry>(|geometry| {
+            use std::hash::{Hash, Hasher};
+            let mut hash = std::collections::hash_map::DefaultHasher::new();
+            format!("{:?}", geometry.0).hash(&mut hash);
+            hash.finish()
+        }));
+    let world = sim.world_mut();
+    let target = world.query::<&ambition_platformer2d::world::rooms::RoomSet>()
+        .single(world).unwrap().rooms.iter().find(|room| room.id == destination)
+        .unwrap().clone();
+    let body = world.query_filtered::<Entity, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+        .single(world).unwrap();
+    let subject = LiveBodyId::of_entity(world, body).unwrap();
+    // Prepare outside the saved timeline. Apply the crossing inside it.
+    let confirmed = world.resource::<ambition_platformer2d::engine_core::ConfirmedFrameBoundary>().confirmed;
+    assert!(world.resource_mut::<PendingLifecycleCommit>().record(confirmed,
+        LifecycleIntent::Transition(RoomTransitionIntent {
+            subject: subject.clone(), target_room: destination.into(),
+            arrival: target.world.spawn, edge_exit: false, zone_sfx: None,
+            participant: Some(ambition_platformer2d::characters::control::PlayerSlot(0)),
+        })).admitted());
+    world.run_system_once(begin_room_transition_load_system).expect("the target prepares");
+    let active = world.resource_mut::<RoomTransitionLoadState>().active.take()
+        .expect("the room preparation starts");
+    let plan = active.construction_plan.expect("the destination plan is ready");
+    world.resource_mut::<ambition_platformer2d::load::LoadCoordinator>()
+        .retire(&active.barrier.load_id);
+    world.resource_mut::<PendingLifecycleCommit>().take();
+    world.insert_resource(ScheduledRoomCrossing {
+        plan, subject, applications: 0, source_census: None, settled_census: Default::default(),
+    });
+    sim.app_mut().add_systems(ambition_platformer2d::rollback::SaveWorld, record_replayed_room_frame);
+    sim.app_mut().add_systems(
+        ambition_platformer2d::rollback::GgrsSchedule,
+        cross_inside_the_rollback_schedule
+            .before(ambition_platformer2d::sim::Platformer2dSimulationPhase::CoreSimulation),
+    );
+    sim.rebase_rollback_history().expect("the prepared source is the baseline");
+    let generation = session_generation(&sim);
+    let loads = sim.world().resource::<ambition_platformer2d::rollback::RollbackExecutionStats>()
+        .lifetime_load_runs;
+    for frame in 0..40 {
+        sim.step(AgentAction::default());
+        sim.rollback_health().unwrap_or_else(|error| panic!("frame {frame}: {error}"));
+    }
+    assert_eq!(sim.observation().active_room.as_str(), destination);
+    let mut rooms: Vec<_> = crate::two_players_two_live_rooms::live_rooms(&mut sim)
+        .into_iter().map(|(_, room)| room).collect();
+    rooms.sort();
+    let mut expected = expected_rooms.to_vec();
+    expected.sort();
+    assert_eq!(rooms, expected, "the crossing keeps the correct live rooms");
+    assert_eq!(session_generation(&sim), generation, "the crossing did not rebase");
+    assert!(sim.world().resource::<ScheduledRoomCrossing>().applications > 1,
+        "rollback replays the crossing frame");
+    assert!(sim.world().resource::<ambition_platformer2d::rollback::RollbackExecutionStats>()
+        .lifetime_load_runs > loads, "the real rollback load ran");
+}
+
+#[test]
+fn a_room_publication_can_be_replayed_without_rebasing_the_session() {
+    let sim = Platformer2dSimHarness::new_with_options(
+        crate::common::fixed_60hz_room_options("switch_lab")
+            .with_sync_test_rollback_settings(4, 10),
+    ).expect("the source room boots");
+    replay_room_crossing(sim, "switch_lab", "central_hub_complex", &["central_hub_complex"]);
+}
+
+#[test]
+fn a_room_publication_can_be_replayed_while_another_body_keeps_the_source() {
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        crate::common::fixed_60hz_room_options("switch_lab")
+            .with_sync_test_rollback_settings(4, 10).with_rollback_players(2),
+    ).expect("the source room boots");
+    crate::two_players_two_live_rooms::bob_beside_alice(&mut sim, "switch_lab",
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    replay_room_crossing(sim, "switch_lab", "central_hub_complex", &["switch_lab", "central_hub_complex"]);
+}
+
+#[test]
+fn a_room_publication_can_be_replayed_when_the_destination_is_already_live() {
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        crate::common::fixed_60hz_room_options("switch_lab")
+            .with_sync_test_rollback_settings(4, 10).with_rollback_players(2),
+    ).expect("the source room boots");
+    crate::common::doors_cross_at_once(&mut sim);
+    crate::two_players_two_live_rooms::bob_beside_alice(&mut sim, "switch_lab",
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    assert_eq!(crate::common::walk_through_the_door_to(&mut sim, "central_hub_complex"),
+        "central_hub_complex");
+    replay_room_crossing(sim, "central_hub_complex", "switch_lab", &["switch_lab"]);
+}
+
+#[test]
+fn a_room_publication_can_be_replayed_after_retiring_moving_platforms() {
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        crate::common::fixed_60hz_room_options("mockingbird_arena")
+            .with_sync_test_rollback_settings(4, 10),
+    ).expect("the source room boots");
+    sim.step(AgentAction::default());
+    let platforms = ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<
+        ambition_platformer2d::world::collision::MovingPlatformSet,
+    >(sim.world()).expect("the source room has a platform set");
+    assert!(!platforms.0.is_empty(), "the crossing must retire moving platforms");
+    replay_room_crossing(sim, "mockingbird_arena", "central_hub_complex", &["central_hub_complex"]);
+}
 
 /// Authored adjacent rooms connected by the calibration lab's right `EdgeExit`.
 const SOURCE_ROOM: &str = "combat_calibration_lab";

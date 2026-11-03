@@ -262,7 +262,6 @@ impl PreparedPlatformerSource {
             live_room: LiveRoomInstance::ACTIVATION,
             definition: self.room_set.activation_definition(),
             geometry: self.geometry.clone(),
-            overlay: Default::default(),
         }
     }
 }
@@ -285,8 +284,6 @@ pub struct LiveRoomWorld {
     /// activation room, until a publication replaces it.
     pub definition: ambition_platformer2d_world::rooms::LiveRoomDefinition,
     pub geometry: RoomGeometry,
-    /// The room's collision contributions, rebuilt every tick.
-    pub overlay: ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay,
 }
 
 #[derive(Bundle, Clone, Debug, Default)]

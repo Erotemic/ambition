@@ -1242,12 +1242,9 @@ pub(crate) fn apply_world_replacement(
         root.insert(ambition_platformer2d_world::collision::MovingPlatformSet(
             pending.moving_platforms,
         ));
-        match root.get_mut::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>() {
-            Some(mut overlay) => overlay.retract_for_room_change(),
-            None => {
-                root.insert(ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default());
-            }
-        }
+        root.get_mut::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>()
+            .expect("a room root requires its collision overlay")
+            .retract_for_room_change();
     }
     // ⛔ LAST, AND AFTER THE GEOMETRY. The arrival was validated against the
     // plan's world by the caller, and the body is placed into a world that is

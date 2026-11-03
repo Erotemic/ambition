@@ -20,24 +20,35 @@ use ambition_sprite_sheet::boss::BossSheetSpec;
 /// The state a provider's code keeps on one boss, put on the boss in the batch
 /// that builds it: a content conductor's memory, for example.
 ///
-/// It receives the boss's scope and its body as built. It is code, not
-/// content, so it is not part of the catalog's canonical dump; the code that
-/// reads the state it inserts is not in the dump either.
+/// It receives the boss's scope and its body as built. The catalog binds the
+/// callback's schema and selected sprite mechanics. A function address is local
+/// to one process and must not enter the peer identity.
 pub type BossBirthFn = fn(
     &ambition_sprite_sheet::SpriteContent,
     &mut ambition_platformer2d_shared_tangle::construction::EntityScope,
     &ambition_platformer2d_core::BodyKinematics,
 );
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct BossBirthKit {
+    /// Change this schema when the callback's construction behavior changes.
+    schema_id: String,
+    #[serde(serialize_with = "serialize_birth_sprite_mechanics")]
     content: ambition_sprite_sheet::SpriteContent,
+    #[serde(skip)]
     build: BossBirthFn,
+}
+
+fn serialize_birth_sprite_mechanics<S: serde::Serializer>(
+    content: &ambition_sprite_sheet::SpriteContent,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    serializer.serialize_str(ambition_sprite_sheet::baked_sheet_rons::current(content).mechanics_digest())
 }
 
 impl PartialEq for BossBirthKit {
     fn eq(&self, other: &Self) -> bool {
-        self.content == other.content && std::ptr::fn_addr_eq(self.build, other.build)
+        self.schema_id == other.schema_id && self.content == other.content && std::ptr::fn_addr_eq(self.build, other.build)
     }
 }
 
@@ -59,7 +70,6 @@ pub struct BossCatalog {
     hurtbox_sample_rows: BTreeMap<String, String>,
     fallback_boss_ids: BTreeMap<String, String>,
     fallback_sheet_keys: BTreeMap<String, String>,
-    #[serde(skip)]
     birth_kits: BTreeMap<String, BossBirthKit>,
 }
 
@@ -411,8 +421,8 @@ impl BossCatalogFragment {
 
     /// Give boss `id` a [`BossBirthKit`]. Registration refuses a kit for a
     /// boss this fragment does not define.
-    pub fn with_birth_kit(mut self, id: impl Into<String>, content: &ambition_sprite_sheet::SpriteContent, build: BossBirthFn) -> Self {
-        self.birth_kits.insert(id.into(), BossBirthKit { content: content.clone(), build });
+    pub fn with_birth_kit(mut self, id: impl Into<String>, schema_id: impl Into<String>, content: &ambition_sprite_sheet::SpriteContent, build: BossBirthFn) -> Self {
+        self.birth_kits.insert(id.into(), BossBirthKit { schema_id: schema_id.into(), content: content.clone(), build });
         self
     }
 
@@ -464,6 +474,14 @@ impl BossCatalogFragment {
                 provider_id: self.provider_id.clone(),
                 boss_id: id.clone(),
             });
+        }
+        for (id, kit) in &self.birth_kits {
+            if kit.schema_id.trim().is_empty() {
+                return Err(BossCatalogAssemblyError::EmptyBirthKitSchema {
+                    provider_id: self.provider_id.clone(),
+                    boss_id: id.clone(),
+                });
+            }
         }
         let missing_encounters: BTreeSet<&str> = self
             .behaviors
@@ -754,6 +772,10 @@ pub enum BossCatalogAssemblyError {
         provider_id: String,
         boss_id: String,
     },
+    EmptyBirthKitSchema {
+        provider_id: String,
+        boss_id: String,
+    },
     MissingEncounter {
         provider_id: String,
         boss_id: String,
@@ -846,6 +868,10 @@ impl fmt::Display for BossCatalogAssemblyError {
             Self::BirthKitWithoutBoss { provider_id, boss_id } => write!(
                 f,
                 "boss catalog fragment '{provider_id}' gives a birth kit to '{boss_id}', which it does not define"
+            ),
+            Self::EmptyBirthKitSchema { provider_id, boss_id } => write!(
+                f,
+                "boss catalog fragment '{provider_id}' gives boss '{boss_id}' a birth kit with no schema"
             ),
             Self::MissingEncounter { provider_id, boss_id } => write!(
                 f,
@@ -1053,15 +1079,15 @@ mod tests {
         }
         let mut registry = BossCatalogRegistry::default();
         registry
-            .register(renamed_single_boss_fragment("a", "alpha").with_birth_kit("alpha", &ambition_sprite_sheet::SpriteContent::default(), kit))
+            .register(renamed_single_boss_fragment("a", "alpha").with_birth_kit("alpha", "fixture.birth.v1", &ambition_sprite_sheet::SpriteContent::default(), kit))
             .expect("a kit for the fragment's own boss registers");
-        registry.register(renamed_single_boss_fragment("a", "alpha").with_birth_kit("alpha", &ambition_sprite_sheet::SpriteContent::default(), kit))
+        registry.register(renamed_single_boss_fragment("a", "alpha").with_birth_kit("alpha", "fixture.birth.v1", &ambition_sprite_sheet::SpriteContent::default(), kit))
             .expect("the same callback and metadata selection are idempotent");
         let catalog = registry.assemble().expect("assembles");
         assert!(catalog.birth_kit("alpha").is_some(), "the kit reached the catalog");
         assert!(catalog.birth_kit("beta").is_none());
         let refused = BossCatalogRegistry::default()
-            .register(renamed_single_boss_fragment("b", "beta").with_birth_kit("gamma", &ambition_sprite_sheet::SpriteContent::default(), kit))
+            .register(renamed_single_boss_fragment("b", "beta").with_birth_kit("gamma", "fixture.birth.v1", &ambition_sprite_sheet::SpriteContent::default(), kit))
             .expect_err("a kit for an undefined boss would never run");
         assert_eq!(
             refused,
@@ -1284,4 +1310,74 @@ mod tests {
         assert_eq!(catalog.attack_animation(&profile), None);
         assert_eq!(catalog.hurtbox_sample_row(&profile).as_deref(), Some("floor_slam"));
     }
+#[test]
+fn native_birth_presence_and_schema_reach_catalog_identity() {
+    fn birth(
+        _: &ambition_sprite_sheet::SpriteContent,
+        _: &mut ambition_platformer2d_shared_tangle::construction::EntityScope,
+        _: &ambition_platformer2d_core::BodyKinematics,
+    ) {}
+    let identity = |schema: Option<&str>, content: &ambition_sprite_sheet::SpriteContent| {
+        let mut fragment = renamed_single_boss_fragment("fixture", "alpha");
+        if let Some(schema) = schema {
+            fragment = fragment.with_birth_kit("alpha", schema, content, birth);
+        }
+        let mut registry = BossCatalogRegistry::default();
+        registry.register(fragment).unwrap();
+        registry.assemble().unwrap().deterministic_dump().unwrap()
+    };
+    let content = ambition_sprite_sheet::SpriteContent::default();
+    let absent = identity(None, &content);
+    let present = identity(Some("fixture.birth.v1"), &content);
+    assert_ne!(absent, present);
+    assert_ne!(present, identity(Some("fixture.birth.v2"), &content));
+    let equivalent = ambition_sprite_sheet::SpriteContent::from_texts(
+        ambition_sprite_sheet::baked_sheet_rons::SheetTexts::default(),
+    ).unwrap();
+    assert_ne!(content, equivalent);
+    assert_eq!(present, identity(Some("fixture.birth.v1"), &equivalent));
+}
+
+#[test]
+fn native_birth_identity_includes_its_selected_rig_metadata() {
+    fn birth(
+        _: &ambition_sprite_sheet::SpriteContent,
+        _: &mut ambition_platformer2d_shared_tangle::construction::EntityScope,
+        _: &ambition_platformer2d_core::BodyKinematics,
+    ) {}
+    let identity = |content: &ambition_sprite_sheet::SpriteContent| {
+        let fragment = renamed_single_boss_fragment("fixture", "alpha")
+            .with_birth_kit("alpha", "fixture.birth.v1", content, birth);
+        let mut registry = BossCatalogRegistry::default();
+        registry.register(fragment).unwrap();
+        registry.assemble().unwrap().deterministic_dump().unwrap()
+    };
+    let published = ambition_sprite_sheet::test_support::shared_sprites();
+    let (target, text) = ambition_sprite_sheet::baked_body_rigs::body_rigs(&published)
+        .first().expect("the fixture has a published gameplay rig");
+    let rig_content = ambition_sprite_sheet::SpriteContent::from_texts(
+        ambition_sprite_sheet::baked_sheet_rons::SheetTexts {
+            body_rigs: vec![(*target, text.clone())],
+            ..Default::default()
+        },
+    ).unwrap();
+    assert_ne!(identity(&ambition_sprite_sheet::SpriteContent::default()), identity(&rig_content));
+}
+
+#[test]
+fn an_empty_native_birth_schema_is_refused() {
+    fn birth(
+        _: &ambition_sprite_sheet::SpriteContent,
+        _: &mut ambition_platformer2d_shared_tangle::construction::EntityScope,
+        _: &ambition_platformer2d_core::BodyKinematics,
+    ) {}
+    let fragment = renamed_single_boss_fragment("fixture", "alpha")
+        .with_birth_kit("alpha", "  ", &ambition_sprite_sheet::SpriteContent::default(), birth);
+    let error = BossCatalogRegistry::default().register(fragment).unwrap_err();
+    assert_eq!(error, BossCatalogAssemblyError::EmptyBirthKitSchema {
+        provider_id: "fixture".into(),
+        boss_id: "alpha".into(),
+    });
+}
+
 }

@@ -4844,6 +4844,44 @@ mod mechanical_registries_reach_the_identity {
             "how much a boss HURTS is mechanical and did not reach the identity",
         );
     }
+#[test]
+fn a_native_birth_kit_reaches_the_prepared_content_identity() {
+    fn birth(
+        _: &ambition_sprite_sheet::SpriteContent,
+        _: &mut ambition_platformer2d_shared_tangle::construction::EntityScope,
+        _: &ambition_platformer2d_core::BodyKinematics,
+    ) {}
+    let prepare = |schema: Option<&str>| {
+        identity_of(|app| {
+            use ambition_boss_encounter::BossCatalogAppExt as _;
+            let catalog = ambition_boss_encounter::test_boss_catalog();
+            let profile = ron::to_string(catalog.behavior("clockwork_warden").unwrap()).unwrap();
+            let encounter = ron::to_string(catalog.encounter("clockwork_warden").unwrap()).unwrap();
+            let mut fragment = ambition_boss_encounter::BossCatalogFragment::from_ron(
+                "fixture",
+                None::<String>,
+                None::<String>,
+                &format!("{{\"clockwork_warden\": {profile}}}"),
+                &[encounter.as_str()],
+                "{}",
+                Default::default(),
+            ).unwrap();
+            if let Some(schema) = schema {
+                fragment = fragment.with_birth_kit(
+                    "clockwork_warden", schema,
+                    &ambition_sprite_sheet::SpriteContent::default(), birth,
+                );
+            }
+            app.register_boss_catalog_fragment(fragment);
+        })
+    };
+    let absent = prepare(None);
+    let present = prepare(Some("fixture.birth.v1"));
+    assert_ne!(absent, present);
+    assert_ne!(present, prepare(Some("fixture.birth.v2")));
+    assert_eq!(present, prepare(Some("fixture.birth.v1")));
+}
+
 }
 
 /// True when the shell requested preparation for `experience_id` this frame —

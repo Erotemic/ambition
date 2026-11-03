@@ -347,8 +347,8 @@ The current product rules are in
 | Player 2 stays in blink state | Every `PlayerBlinkCameraState` advances on wall time. Every preview reads committed seat controls through the driven body. | **Fixed in `0754ed273`**; the two-seat simulation test covers press, hold, release and completed cooldown. A separate paused-clock test covers presentation decay. |
 | Player strikes do not hurt the other player | `FriendlyFire::default().enabled` is false. Both driven bodies resolve to `ActorFaction::Player`; `damage_lands_between` allows same-faction damage only when friendly fire is enabled (unless another relation overrides). | **Confirmed default rule explains allied damage rejection**. Prove Ambition's actual resolved room rule and all attack families. The explicit `friendly_fire: false` in `game/ambition_app/assets/data/room_rules.ron` is a **Versus** stage declaration, not the general Ambition room default. |
 | Only one player can use the pause/menu | Inventory opening and navigation read each menu owner's `SeatMenuFrames`. Open, focus, page, scroll and cache state belong to menu entities, but the frontend still creates one surface. `ShellPauseMenu` supports an owning seat but Ambition suppresses it and supplies its own menu. | **Confirmed singleton Ambition menu**. The shell seat rule is not two independent menus. |
-| Either player's door flashes black over both panes | Transition covers and loading foregrounds now use `ParticipantSurface`. Loading input claims name the affected participant. | **Fixed in `e36b067fd`** for both participants in the same-room controller and GPU witnesses. The final separate-room witness remains open. Peer commits still hold the whole timeline. |
-| F1 gizmos show the wrong room or offset | `ambition_render::rendering::debug_viz::draw_debug_viz` and `ambition_app::dev::debug_overlay::draw_debug_overlay` select `PrimaryLiveRoom`/`PrimaryLiveRoomSpec`. They use the default gizmo path, which all gameplay cameras can see. App labels also convert through the primary room. | **Confirmed primary-room leak**, consistent with the report. Player trails already use retained `GizmoAsset`s with room `RenderLayers`; reuse that boundary. |
+| Either player's door flashes black over both panes | Transition covers and loading foregrounds now use `ParticipantSurface`. Loading input claims name the affected participant. | **Fixed in `e36b067fd` and `c89f0b828`**. Both crossing orders and separate-room GPU witnesses pass. Peer commits still hold the whole timeline. |
+| F1 gizmos show the wrong room or offset | Both presenters use `RetainedDrawings` with native room/view ownership. Body queries are read-only. Strikes use their emission room; the primary inspector is labelled and clipped to P1. | **Fixed in `0e0099f0e`**. Shared-room and separate-room GPU guards cover grids, labels, portal diagnostics and private camera frames. Unit guards cover handle reuse, credit retirement and room retirement. |
 | Adaptive split/merge feels inconsistent | `AdaptiveSplit` keeps `split_beyond`, `merge_within`, `merge_after`, and a local `DistanceSplit` latch. | **No source defect established**. The maintainer deferred threshold and animation polish. Preserve the current policy and test topology only. |
 
 ### Architecture contracts for local and remote players
@@ -605,11 +605,10 @@ Opaque regions control the upload budget by their union. Stable body identity
 orders simultaneous passage admission; a second accepted crossing waits until
 the committed destination is presentable. Do not restore global room covers.
 
-Remaining acceptance: show a real crossing with participants in separate live
-rooms. Check both participant orders for queued crossings. Keep the other
-viewport visible, with its camera and gameplay input active. Test layout changes
-and view retirement through the shared surface resolver. The peer hold below
-is a separate simulation protocol.
+Separate-room GPU acceptance and both queued-crossing orders passed in
+`c89f0b828`. The other participant retains its camera and gameplay input.
+Layout changes and view retirement use the shared surface resolver. The peer
+hold below is a separate simulation protocol.
 
 **A distinct online blocker:** the existing peer lifecycle path uses a
 synchronized freeze and `PeerLineage` session rebase for a room commit
@@ -635,24 +634,16 @@ tests pass.
 
 ### Debug view: facts are per room and presentation is per view
 
-Both debug paths currently choose the primary room and issue unscoped gizmos.
-A useful internal precedent exists: `avatar/trail.rs::present_player_trails`
-uses retained `GizmoAsset`s with `TrailDrawing` and room-layer masks. The
-same separation is suitable for view-visible collision shapes, player
-hitboxes, camera frames, text labels, and portal diagnostics.
+Both debug paths now use native room/view ownership (`0e0099f0e`). Trails share
+the same retained drawing path. It reuses entities, handles and vertex buffers.
+Room geometry and labels use their own room; camera frames use their own view.
+Body diagnostics read components without mutation and use each body's presented
+pose. Strike scope follows the live strike, including after credit retirement.
 
-- Build diagnostic read models keyed by room and, where needed, body or view.
-  A body-specific diagnostic must use that body's own `PresentedPose` and
-  room geometry. A per-view camera box uses that view's camera snapshot.
-- Present the facts through the selected local view's render layers. Support
-  two cameras of **one** room (both may show the same room geometry with their
-  own view-specific extras) and cameras of **different** rooms (no leakage).
-- Preserve an explicit primary-seat developer-inspection mode if useful, but
-  label it and draw it only in that seat's viewport. Never label global
-  simulation geometry as P2's just because it appears in P2's camera.
-- Add isolation tests for collision grids, hitboxes, HUD text gizmos, portal
-  diagnostic wedges, and offscreen/retired room geometry, plus a rendered F1
-  witness. Do not let a diagnostic pass modify gameplay or rollback state.
+The primary inspector is labelled and clipped to P1's viewport. Shared-room and
+separate-room GPU guards cover grids, hitboxes, labels, portal diagnostics and
+private camera frames. Unit guards cover room retirement, handle reuse and
+turning the overlay off. Do not restore primary-room or unscoped F1 drawings.
 
 ### Netplay gates and acceptance: catch ownership leaks before transport
 

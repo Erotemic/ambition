@@ -622,9 +622,8 @@ control.
 
 ### MULTIPLAYER-SEAMS — make local multiplayer safe for netplay
 
-**Remaining failure:** F1 gizmos use primary room data. Routine peer room
-commits still hold the whole session. Per-view room loading needs its final
-separate-room acceptance. These are separate presentation and lifecycle boundaries.
+**Remaining failure:** routine peer room commits still hold the whole session.
+Local input and presentation isolation now pass their behavior gates.
 See the [cause and acceptance map](engine/local-coop-integration.md#follow-up-audit-co-op-works-but-participant-and-view-scope-leaks-2026-10-24)
 and [product decisions](game/multiplayer.md#local-co-op-behavior-decided-in-the-2026-10-24-playtest).
 
@@ -869,14 +868,14 @@ and both GPU captures. Stable body identity orders simultaneous passages. The ne
 crossing waits for the first presentable destination frame; guard:
 `a_second_crossing_waits_until_the_first_destinations_frame_is_presentable`.
 
+Slice 5 is complete (`c89f0b828`, `0e0099f0e`). Both crossing orders and
+separate-room loading pass. F1 uses native room/view scopes and read-only body
+queries. Guards: `debug_drawings_follow_visible_rooms_and_retire_without_rebuilding_their_handles`
+and `debug_geometry_and_labels_stay_in_their_rooms_and_camera_frames_stay_in_their_views`.
+Do not restore primary-room geometry or global room covers.
+
 **Next action (ordered slices; complete each behavior gate before moving):**
 
-5. **Per-view presentation isolation:** add a rendered crossing witness with
-   participants in separate live rooms, and check queued crossings in both
-   participant orders. Same-room controller and GPU cases pass in `e36b067fd`.
-   Move F1 debug geometry and labels to per-room/per-view presentation, reusing the
-   room-layered retained-gizmo seam used for trails. Keep joint threshold and
-   merge-animation polish deferred.
 6. **Online no-global-hold lifecycle:** prove a routine peer door crossing
    can commit on an agreed timeline without freezing other rooms and without
    desync. The current peer commit freezes and rebases the whole session
@@ -885,8 +884,8 @@ crossing waits for the first presentable destination frame; guard:
    tests. Track content identity, deterministic operation order, and peer
    readiness explicitly. A full-party reload may use a global barrier.
 
-**Blocked by:** slice 6 depends on a written peer event/commit protocol and
-two-peer rollback witnesses. The earlier slices do not require transport.
+**First step:** write the peer event/commit protocol, then prove it with
+two-peer rollback witnesses. Keep the existing safe hold until those pass.
 The `LOCAL-PLAY-MODES` leave slice and `COOP-RECOVERY` remain separate work
 items; reuse their participant lifecycle and checkpoint rules, not duplicate
 them in this row.

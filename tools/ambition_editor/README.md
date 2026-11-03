@@ -95,6 +95,13 @@ The preflight reads prepared content bindings and producer declarations. It can
 list products before any generated files exist. The CLI and the editor's
 **Tools → Prepare assets** page use the same result.
 
+After you pull engine changes, update the authoring submodules. A pull of the
+parent repository can leave an existing renderer checkout unchanged:
+
+```bash
+scripts/setup/submodules.sh
+```
+
 ```bash
 python3 scripts/asset_inspector.py preflight --world art --missing-only
 python3 scripts/asset_inspector.py preflight --world art --json

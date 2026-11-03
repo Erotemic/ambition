@@ -20,6 +20,7 @@ def renderer_python(repo: Path, python: str | None) -> str:
 
 def products(repo: Path, python: str | None = None, *, deep=False, requested=None, catalog=False) -> dict:
     command = [renderer_python(repo, python), "-m", "ambition_sprite2d_renderer.products"]
+    renderer = repo / "tools/ambition_sprite2d_renderer"
     if deep:
         command.append("--deep")
     if catalog:
@@ -27,12 +28,16 @@ def products(repo: Path, python: str | None = None, *, deep=False, requested=Non
     for uid in requested or ():
         command += ["--unit", uid]
     try:
-        result = subprocess.run(command, cwd=repo / "tools/ambition_sprite2d_renderer", capture_output=True, text=True)
+        result = subprocess.run(command, cwd=renderer, capture_output=True, text=True)
         if result.returncode:
-            raise ValueError(result.stderr[-1500:])
+            details = result.stderr[-1500:]
+            if "unrecognized arguments:" in details:
+                details += "\nThe renderer does not support this request. After pulling engine changes, update authoring submodules from the repository root: scripts/setup/submodules.sh"
+            raise ValueError(details)
         return json.loads(result.stdout)
     except (ValueError, OSError) as error:
-        return {"units": {}, "complete": False, "warnings": [f"Product owner unavailable: {error}"]}
+        return {"units": {}, "complete": False,
+                "warnings": [f"Product owner unavailable in {renderer} (Python: {command[0]}): {error}"]}
 
 
 def _stamp(path: Path):

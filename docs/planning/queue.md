@@ -929,6 +929,18 @@ these in focused engine/host harnesses **and** in one rendered two-controller
 main-game playthrough. No new primary-player fallback is allowed at these
 seams.
 
+### GATE-STARTUP-FLICKER — diagnose the wormhole at startup
+
+**Owner:** [Gate network](game/gate-network.md#startup-rendering).
+**State:** OPEN. Jon reports flicker on desktop and Steam Deck. Warmed High and
+Ultra captures show an opening flare and continuous steady rendering. They do
+not prove that cold startup is correct.
+**Next action:** capture the reported gate from cold startup and locate the
+first incorrect frame. Check sprite readiness, animation ownership and the
+shader layer before changing art.
+**Acceptance:** the gate renders continuously after its opening on desktop and
+Steam Deck. Keep intended opening animation separate from missing frames.
+
 ### MORPH-BALL-VISIBILITY — the standing sprite draws behind the ball
 
 **Owner:** `ambition_render` (`rendering/morph_ball.rs`,

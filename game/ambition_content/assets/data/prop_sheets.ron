@@ -46,6 +46,14 @@
     "art_palette_lift": (),
     "art_giant_crayon": (),
     "art_paint_pots": (),
+    // The machines of the concept sheets (`targets/props/art_studio_props.py`):
+    // the brush seesaw and the crayon rail are platform looks
+    // (`platform_looks.ron`); the scribble is the look of a LockWall that the
+    // eraser rubs out.
+    "art_brush_seesaw": (),
+    "art_crayon_rail": (),
+    "art_scribble_wall": (),
+    "art_eraser": (),
     // game/ambition_content/assets/data/prop_sheets.ron: after "art_paint_pots".
     // The Story Stacks of the Art dimension (`targets/props/art_stacks_props.py`).
     // The doors of the Library of Endings are two covers of a book: the happy

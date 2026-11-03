@@ -666,6 +666,42 @@
             scale: 0.4,
         )),
     ),
+    // The Art dimension's critic throws a tomato; its feedback wail shrieks
+    // rings of sound (`shot_kit`).
+    "tomato": (
+        source: Sheet(
+            target: "shot_kit",
+            animation: "tomato",
+            animate: true,
+        ),
+        size: BodyWidth(
+            scale: 2.05,
+        ),
+        rotation: VelocityAligned,
+        debug_tint: (0.86, 0.16, 0.16, 1.0),
+        label: "tomato",
+        expiry_vfx: Some((
+            fx: "classic_burst",
+            scale: 0.4,
+        )),
+    ),
+    "sound_ring": (
+        source: Sheet(
+            target: "shot_kit",
+            animation: "sound_ring",
+            animate: true,
+        ),
+        size: BodyWidth(
+            scale: 2.05,
+        ),
+        rotation: VelocityAligned,
+        debug_tint: (0.4, 0.9, 1.0, 1.0),
+        label: "sound_ring",
+        expiry_vfx: Some((
+            fx: "classic_burst",
+            scale: 0.4,
+        )),
+    ),
     // The thrown rock of the plain ranged styles: it tumbles in its row and is
     // not turned to its flight.
     "thrown_rock": (

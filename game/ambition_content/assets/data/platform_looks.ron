@@ -13,6 +13,11 @@
     // platform (`targets/props/art_props.py`: `PALETTE_FRAME`,
     // `PALETTE_SPAN`, `PALETTE_TOP`).
     "art_palette_lift": (row: "idle", frame_px: (192.0, 64.0), span_px: (16.0, 176.0), top_px: 20.0),
+    // The art dimension's brush seesaw and crayon rail: the top of the brush,
+    // and of the crayon, is the platform (`targets/props/art_studio_props.py`:
+    // `SEESAW_*`, `CRAYON_*`).
+    "art_brush_seesaw": (row: "idle", frame_px: (384.0, 64.0), span_px: (16.0, 368.0), top_px: 22.0),
+    "art_crayon_rail": (row: "idle", frame_px: (320.0, 64.0), span_px: (16.0, 304.0), top_px: 18.0),
     // Native marble tiles form the haunted wing's floors and ledges.
     "hylbert_floor_strip": (row: "idle", frame_px: (128.0, 32.0), span_px: (0.0, 128.0), top_px: 0.0),
     // The orbital station's spoke tram: its floor IS the platform. The

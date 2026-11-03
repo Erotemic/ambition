@@ -245,6 +245,10 @@ collections:
   - art_palette_lift
   - art_giant_crayon
   - art_paint_pots
+  - art_brush_seesaw
+  - art_crayon_rail
+  - art_scribble_wall
+  - art_eraser
   - bookworm
   - red_herring
   - paper_tiger

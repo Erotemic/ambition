@@ -86,6 +86,8 @@ struct AssetBindRoom(RoomMetadata);
 
 impl Plugin for PlatformerAssetsPlugin {
     fn build(&self, app: &mut App) {
+        // Asset preparation reads the same quality policy as presentation.
+        app.add_plugins(ambition_render::quality::VisualQualityPlugin);
         app.add_plugins(crate::world_flow::RoomLoadingPresentationPlugin);
         let config = app
             .world()

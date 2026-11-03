@@ -16,9 +16,7 @@ pub use ambition_persistence::settings::ResolvedVisualQuality;
 /// `sync_resolved_visual_quality` is the only reader of `UserSettings` into
 /// `ResolvedVisualQuality`, so it must be installed wherever the resource is.
 ///
-/// Idempotent (`is_unique() -> false` plus a marker), because two plugins
-/// need it: `PlatformerPresentationPlugin` for a demo, and
-/// `SessionRoomVisualsPlugin` for the shipped host, which adds only that one.
+/// Idempotent, so asset preparation and visual presentation can share it.
 pub struct VisualQualityPlugin;
 
 /// Present once [`VisualQualityPlugin`] has built.

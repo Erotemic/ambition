@@ -1009,6 +1009,16 @@ fn single_player_cube_draws_with_the_authored_canvas() {
     tap(&mut app, pads[0], GamepadButton::Start);
     assert_eq!(inventory_menus(&mut app).values().filter(|(_, open)| *open).count(), 1);
     for _ in 0..120 { app.update(); }
+    {
+        let world = app.world_mut();
+        let mut cameras = world.query_filtered::<(&Camera, &Projection), With<ambition_menu_kaleidoscope::KaleidoscopePauseCamera>>();
+        let (camera, projection) = cameras.single(world).expect("one single-player menu camera");
+        let viewport = camera.viewport.as_ref().unwrap();
+        assert_eq!(viewport.physical_position, UVec2::ZERO);
+        assert_eq!(viewport.physical_size, UVec2::new(1280, 720));
+        let Projection::Perspective(projection) = projection else { panic!("cube camera needs perspective"); };
+        assert_eq!(projection.fov, ambition_platformer2d::menu::MenuCubeGeometry::CAMERA_FOV_RADIANS);
+    }
     capture_frame(&mut app);
 }
 

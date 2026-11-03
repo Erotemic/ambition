@@ -60,12 +60,24 @@ impl ParticipantSurface<'_, '_> {
             |p| Rect::from_corners(p.gameplay_rect.min, p.gameplay_rect.max))
     }
 
+    /// The participant's part of the display, including gameplay margins.
+    pub fn display_rect_for(&self, owner: Option<ambition_input::InputOwner>) -> Option<Rect> {
+        let display = self.display_rect();
+        if owner == Some(ambition_input::InputOwner::AllParticipants) || self.views.is_empty() {
+            return Some(display);
+        }
+        self.rect_for_view(self.view(owner?)?, display)
+    }
+
+    fn rect_for_view(&self, view: Entity, display: Rect) -> Option<Rect> {
+        let (_, _, _, placement, _, _, _, _) = self.views.get(view).ok()?;
+        let (origin, size) = placement.copied().unwrap_or_default().carve(display.min, display.size());
+        Some(Rect::from_corners(origin, origin + size))
+    }
+
     /// The whole gameplay viewport, including space behind its HUD.
     pub fn gameplay_rect_for_view(&self, view: Entity) -> Option<Rect> {
-        let (_, _, _, placement, _, _, _, _) = self.views.get(view).ok()?;
-        let gameplay = self.gameplay_display();
-        let (origin, size) = placement.copied().unwrap_or_default().carve(gameplay.min, gameplay.size());
-        Some(Rect::from_corners(origin, origin + size))
+        self.rect_for_view(view, self.gameplay_display())
     }
 
     pub fn gameplay_rect(&self, owner: Option<ambition_input::InputOwner>) -> Option<Rect> {

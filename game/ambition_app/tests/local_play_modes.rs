@@ -346,12 +346,17 @@ fn player_two_dialogue_draws_in_its_own_view() {
 }
 
 fn gpu_app(name: &str) -> App {
+    gpu_app_sized(name, UVec2::new(1280, 720))
+}
+
+fn gpu_app_sized(name: &str, size: UVec2) -> App {
     use ambition_platformer2d::render::capture::{
         CaptureProgress, CaptureSettings, CaptureCameraSet, CaptureTarget, install_capture_cameras, setup_capture_target,
     };
     let mut app = crate::shell_host_rendered::rendered_app_with(ambition_app::app::VisibleRenderMode::OffscreenGpu);
     let output = std::env::temp_dir().join(name);
-    app.insert_resource(CaptureSettings { output, size: UVec2::new(1280, 720), include_ui: true });
+    app.insert_resource(CaptureSettings { output, size, include_ui: true });
+    app.insert_resource(ambition_platformer2d::host::gameplay_presentation::HeadlessDisplaySurface(size.as_vec2()));
     app.init_resource::<CaptureProgress>();
     app.add_systems(Startup, setup_capture_target);
     install_capture_cameras(&mut app);
@@ -399,11 +404,12 @@ fn two_pad_menus_draw_in_their_own_regions() {
     use ambition_platformer2d::settings_menu::system::SystemMenuEntryId;
     type Pages = ActiveMenuPages<MenuPage, MenuPageAction>;
 
-    for (backend, output) in [
-        (InventoryUiBackend::Grid, "ambition-two-pad-menus-grid.png"),
-        (InventoryUiBackend::LunexKaleidoscope, "ambition-two-pad-menus-cube.png"),
-    ].into_iter().filter(|(backend, _)| backend.is_available()) {
-        let host = gpu_app(output);
+    for (backend, output, size) in [
+        (InventoryUiBackend::Grid, "ambition-two-pad-menus-grid.png", UVec2::new(1280, 720)),
+        (InventoryUiBackend::LunexKaleidoscope, "ambition-two-pad-menus-cube.png", UVec2::new(1280, 720)),
+        (InventoryUiBackend::LunexKaleidoscope, "ambition-two-pad-menus-cube-16by10.png", UVec2::new(1280, 800)),
+    ].into_iter().filter(|(backend, _, _)| backend.is_available()) {
+        let host = gpu_app_sized(output, size);
         let (mut app, pads) = session_in(host, 2, true);
         *app.world_mut().resource_mut::<InventoryUiBackend>() = backend;
         tap(&mut app, pads[1], GamepadButton::Start);
@@ -426,6 +432,17 @@ fn two_pad_menus_draw_in_their_own_regions() {
         tap(&mut app, pads[1], GamepadButton::South);
         assert_eq!(app.world().get::<Pages>(one).unwrap().active, Some(MenuPage::Items));
         assert_eq!(app.world().get::<Pages>(two).unwrap().active, Some(MenuPage::System));
+        if backend == InventoryUiBackend::LunexKaleidoscope {
+            let world = app.world_mut();
+            let mut query = world.query_filtered::<&Camera, With<ambition_menu_kaleidoscope::KaleidoscopePauseCamera>>();
+            let mut regions: Vec<_> = query.iter(world).map(|camera| {
+                let viewport = camera.viewport.as_ref().unwrap();
+                (viewport.physical_position, viewport.physical_size)
+            }).collect();
+            regions.sort_by_key(|(position, _)| position.x);
+            let half = UVec2::new(size.x / 2, size.y);
+            assert_eq!(regions, vec![(UVec2::ZERO, half), (UVec2::new(half.x, 0), half)]);
+        }
         capture_frame(&mut app);
     }
 }

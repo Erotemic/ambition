@@ -92,13 +92,9 @@ pub(crate) fn resolve_menu_regions(
         (
             menu.owner.slot(),
             entity,
-            surface.rect(Some(InputOwner::Participant(menu.owner))),
+            surface.display_rect_for(Some(InputOwner::Participant(menu.owner))),
         )
     }));
-    // A sole local menu owns the display, including gameplay framing margins.
-    if let [(_, _, region)] = ordered.as_mut_slice() {
-        *region = region.map(|_| surface.display_rect());
-    }
     ordered.sort_by_key(|(owner, entity, _)| (*owner, *entity));
     for (index, (owner, menu, region)) in ordered.iter().enumerate() {
         let Ok(mut target) = regions.get_mut(*menu) else {
@@ -215,7 +211,7 @@ mod tests {
     use ambition_platformer2d::sim_view::{LocalView, LocalViewId, ViewParticipant, ViewPlacement};
 
     #[test]
-    fn menu_regions_share_the_dialogue_view_rule_and_split_a_shared_view() {
+    fn menus_follow_view_placements_and_split_a_shared_view() {
         let mut app = App::new();
         app.add_systems(Update, resolve_menu_regions);
         let menus = [ParticipantId::PRIMARY, ParticipantId::SECONDARY].map(|owner| {
@@ -260,7 +256,7 @@ mod tests {
         );
     }
     #[test]
-    fn a_sole_menu_uses_the_display_and_shared_menus_keep_their_reading_regions() {
+    fn menus_use_the_full_display_and_split_shared_views() {
         use ambition_platformer2d::presentation::gameplay_presentation::{
             ResolvedGameplayPresentation, ScreenRect,
         };
@@ -284,9 +280,9 @@ mod tests {
         app.update();
         let left = app.world().get::<MenuRegion>(first).unwrap().0.unwrap();
         let right = app.world().get::<MenuRegion>(second).unwrap().0.unwrap();
-        assert_eq!(left.min, reading.min);
+        assert_eq!(left.min, display.min);
         assert_eq!(left.max.x, right.min.x);
-        assert_eq!(right.max, reading.max);
+        assert_eq!(right.max, display.max);
         app.world_mut().despawn(second);
         app.update();
         assert_eq!(app.world().get::<MenuRegion>(first).unwrap().0, Some(display));

@@ -11,6 +11,7 @@ pub struct SheetGeneration {
     rons: Vec<(&'static str, Arc<str>)>,
     /// `(target, ron_text)` sorted by target.
     body_rigs: Vec<(&'static str, Arc<str>)>,
+    body_rig_aliases: std::collections::HashMap<String, String>,
     part_tables: crate::baked_part_flipbooks::PartTables,
     /// `(asset path, ron_text)` sorted by path.
     portrait_rons: Vec<(&'static str, Arc<str>)>,
@@ -47,6 +48,7 @@ impl SheetGeneration {
         Self {
             id,
             rons: texts.sheets,
+            body_rig_aliases: crate::library_aliases(texts.body_rigs.iter().map(|(key, _)| *key)),
             body_rigs: texts.body_rigs,
             part_tables,
             portrait_rons: texts.portraits,
@@ -70,6 +72,7 @@ impl SheetGeneration {
         Self {
             id,
             rons: prepared.texts.sheets,
+            body_rig_aliases: crate::library_aliases(prepared.texts.body_rigs.iter().map(|(key, _)| *key)),
             body_rigs: prepared.texts.body_rigs,
             part_tables: prepared.part_tables,
             portrait_rons: prepared.texts.portraits,
@@ -116,6 +119,12 @@ impl SheetGeneration {
     /// Every body rig, as `(target, ron_text)` sorted by target.
     pub fn body_rigs(&self) -> &[(&'static str, Arc<str>)] {
         &self.body_rigs
+    }
+
+    pub(crate) fn body_rig(&self, target: &str) -> Option<&str> {
+        let key = self.body_rig_aliases.get(target).map(String::as_str).unwrap_or(target);
+        self.body_rigs.binary_search_by(|(name, _)| (*name).cmp(key)).ok()
+            .map(|index| self.body_rigs[index].1.as_ref())
     }
 
     /// Every portrait manifest, as `(asset path, ron_text)` sorted by path.

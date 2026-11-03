@@ -19,7 +19,8 @@ Renderer source files remain in their authoring tool repositories.
 
 Missing presentation content does not stop the game. Gameplay metadata can be
 required to prepare a room. For example, the T-rex needs its published body rig;
-`./scripts/regen/sprites.sh --target trex_enemy` builds that target.
+`./scripts/regen/sprites.sh --target trex_enemy_gameplay` builds that metadata
+without sheet or image payloads.
 
 On a fresh checkout,
 `generated/` is absent until `scripts/setup/generated_content.sh` completes.

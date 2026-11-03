@@ -172,3 +172,17 @@ fn a_rotated_rect_is_bounded_not_shrunk() {
     assert!((min - Vec2::new(-1.0, -2.0)).length() < 1e-4);
     assert!((max - Vec2::new(1.0, 2.0)).length() < 1e-4);
 }
+
+#[test]
+fn a_published_rig_carries_its_origin_without_a_sheet() {
+    let text = r#"(
+        schema_version: 1, target: "body",
+        origin_from_centre: (3.0, 8.0),
+        joints: [(name: "root", parent: None)],
+        clips: {},
+    )"#;
+    let (rig, origin) = BodyRigDefinition::from_published_ron_with_origin(text).unwrap();
+    assert_eq!(origin, Vec2::new(3.0, 8.0));
+    assert_eq!(rig.joints.len(), 1);
+    assert!(BodyRigDefinition::from_published_ron_with_origin(&text.replace("3.0", "NaN")).is_err());
+}

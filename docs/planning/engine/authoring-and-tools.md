@@ -145,37 +145,23 @@ establish the same simulation behavior.
 
 ### A5.1 - prepare only the generated products a scenario needs
 
-**State:** open. The European swallow sequence in `primeval_run` is the customer.
-The targeted sprite command builds `european_swallow`, `african_swallow`, and
-`coconut` without a full library build. The wider trail tests also load the
-T-rex hall and require `trex_enemy_body_rig.ron`. The missing rig was reported
-only when the room started. A visual capture also needs the starting character.
+**State:** done in `2c5d0a722e`; renderer `5a055ff`.
+Missing gameplay rigs previously failed when a room started. The shared CLI and
+editor preflight now derives product requirements from prepared rooms, character
+bindings, and producer declarations. It resolves semantic effects before it reads
+generated files. It lists missing, partial, and stale products separately.
 
-Add a scoped preflight for a prepared room, character, or scenario. Derive its
-requirements from content references and capability declarations. A fixture that
-loads several rooms must state those prepared units. Do not parse Rust test
-source or keep a second list of per-test asset names.
+Missing-only repair keeps accepted products and unrelated selections. It builds
+selected sprites and scenery without Cargo or a full library build. The T-rex
+has a separate gameplay product from the same source rig. It needs no sheet or
+image payloads. Each sprite request builds all supported quality tiers.
 
-The CLI and editor must use the same result. Report each required logical path,
-its use, owning library and producer target, availability, and exact repair
-command. Resolve semantic names before generation: for example, the effect
-`sonic_boom` belongs to the `generic_exotic_fx` producer. Distinguish missing
-products from stale accepted products. Report all missing requirements together
-before an expensive test or
-capture starts. Separate gameplay metadata from presentation requests and
-optional media. Use the renderer's existing target plan and publisher.
-
-The current target publisher builds all supported quality tiers for a target.
-Report this limit. Where an owner can compile gameplay metadata without image
-payloads, expose that product through the same producer. Keep one geometry
-source. Do not use simpler fallback geometry to avoid a required build.
-
-**Done when:** from an empty publication store, an agent can prepare the swallow
-scenario, the wider trail test population, and its visual capture with separate
-plans. Each plan names only its required products and producer dependencies.
-It can check or repair that selection without full-library generation or a new
-Cargo build. Repeat setup reuses current products. Existing unrelated products
-remain selected, and a partial setup does not claim full-library readiness.
+**Guard:** source-only scope tests, publication tests, empty-store repair and
+repeat reuse, the standalone geometry test, and all seven trail integration
+tests pass. The Art world plan resolves all room references. See the
+[workflow](../../../tools/ambition_editor/README.md#prepare-assets-for-a-scenario).
+Do not parse Rust test source, keep per-test asset lists, use fallback geometry,
+or claim full-library readiness from a partial setup.
 
 ## A6 - concise review artifacts
 

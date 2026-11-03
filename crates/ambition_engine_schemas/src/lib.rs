@@ -52,6 +52,7 @@ pub fn engine_schemas_without(omitted: &[&str]) -> SchemaRegistry {
         ambition_boss_encounter::pattern::content_schema::boss_seed_library_schema(),
         ambition_boss_encounter::pattern::content_schema::boss_validator_bands_schema(),
         ambition_boss_encounter::pattern::content_schema::boss_profiles_schema(),
+        ambition_boss_encounter::pattern::content_schema::boss_art_keys_schema(),
         ambition_boss_encounter::pattern::content_schema::boss_encounter_schema(),
         ambition_audio::content_schema::music_registry_schema(),
         ambition_audio::content_schema::sfx_registry_schema(),

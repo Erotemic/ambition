@@ -292,6 +292,8 @@ pub struct BodyRigDefinition {
 #[serde(deny_unknown_fields)]
 struct PublishedBodyRig {
     schema_version: u32,
+    #[serde(default)]
+    origin_from_centre: (f32, f32),
     #[allow(dead_code)]
     target: String,
     joints: Vec<RigJoint>,
@@ -306,6 +308,11 @@ impl BodyRigDefinition {
     /// Read a published `<target>_body_rig.ron`, in the sheet pixels it was
     /// written in.
     pub fn from_published_ron(text: &str) -> Result<Self, String> {
+        Self::from_published_ron_with_origin(text).map(|(rig, _)| rig)
+    }
+
+    /// Read the rig and its origin relative to the body centre, in source pixels.
+    pub fn from_published_ron_with_origin(text: &str) -> Result<(Self, Vec2), String> {
         let published: PublishedBodyRig =
             ron::from_str(text).map_err(|error| format!("body rig does not parse: {error}"))?;
         if published.schema_version != BODY_RIG_SCHEMA_VERSION {
@@ -314,12 +321,16 @@ impl BodyRigDefinition {
                 published.schema_version
             ));
         }
-        Ok(Self {
+        let origin = Vec2::new(published.origin_from_centre.0, published.origin_from_centre.1);
+        if !origin.is_finite() {
+            return Err("body rig origin must be finite".into());
+        }
+        Ok((Self {
             joints: published.joints,
             attachments: published.attachments,
             hurt_parts: published.hurt_parts,
             clips: published.clips,
-        })
+        }, origin))
     }
 
     /// The same rig with every length multiplied by `k` (sheet pixels to world

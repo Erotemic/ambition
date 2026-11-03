@@ -196,7 +196,7 @@ pub fn landmark_table(baked: BakedLandmarks) -> BodyLandmarkTable {
 pub fn body_landmarks(content: &crate::SpriteContent, target: &str) -> Option<Arc<BodyLandmarkTable>> {
     // The tables and their decode slots of one generation.
     let parts = crate::baked_sheet_rons::current(&content).part_tables();
-    let target = crate::shared_baked_sheet_registry(content).canonical_key(target).unwrap_or(target);
+    let target = parts.canonical_key(target);
     let tables = &parts.landmarks().0;
     let index = tables.binary_search_by(|(name, _)| (*name).cmp(target)).ok()?;
     let decoded = parts.decoded_landmarks();

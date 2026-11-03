@@ -8,6 +8,7 @@
 
 use std::path::PathBuf;
 pub mod art;
+mod asset_scope;
 mod library_assets;
 
 use ambition_content_pack::{

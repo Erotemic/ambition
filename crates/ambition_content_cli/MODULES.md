@@ -7,9 +7,10 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`art`](src/art.rs) | Export prepared identities, dependencies and loose sheet resolution for authoring tools. |
+| [`asset_scope`](src/asset_scope.rs) | Export room and art bindings from the same lowered values the runtime reads. |
 | [`library_assets`](src/library_assets.rs) | Resolve checked pack assets from the pack's selected libraries. |
 
-_2 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_3 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

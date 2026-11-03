@@ -30,6 +30,7 @@ def write_tools(repo: Path, out: Path) -> None:
         '<header class="top"><a class="brand" href="index.html#overview">Ambition Editor</a>'
         '<nav class="tabs"><a href="index.html#overview">Assets and reviews</a></nav></header>'
         '<main><h1>Authoring and inspection tools</h1>'
+        '<p><a href="preflight.html">Prepare assets for a world, room, or character</a></p>'
         '<p>Run commands from the repository root. Start a service before opening its link. '
         'ECS pages need an existing browser build. Source presence does not prove runtime readiness.</p>'
         + ''.join(cards) + '</main></html>', encoding='utf-8')

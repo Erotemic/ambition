@@ -15,6 +15,18 @@ set -euo pipefail
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
+scoped_request=false
+for arg in "$@"; do
+    case "$arg" in --theme|--theme=*|--skin|--skin=*) scoped_request=true ;; esac
+done
+if "$scoped_request"; then
+        source "$repo_root/scripts/lib/tool_python.sh"
+        scene_renderer_dir="$repo_root/tools/ambition_sprite2d_renderer"
+        scene_python="$(ambition_select_tool_python "$scene_renderer_dir" AMBITION_SPRITE_PYTHON)"
+        cd "$scene_renderer_dir"
+        exec "$scene_python" -m ambition_sprite2d_renderer.scenery_publication "$@"
+fi
+
 # shellcheck disable=SC1091
 if [ "${AMBITION_PRODUCER_WORKER:-}" != "backgrounds" ] && [ "${1:-}" != "--help" ] && [ "${1:-}" != "-h" ]; then
     exec python3 "$repo_root/scripts/regen/generate_library_content.py" backgrounds "$@"

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ambition Editor · Prepare assets</title>
+<link rel="stylesheet" href="app.css">
+<header class="top"><a class="brand" href="index.html#overview">Ambition Editor</a></header>
+<main>
+<h1>Prepare assets</h1>
+<p>Select worlds, rooms, or characters. Separate names with commas. The plan includes their authored dependencies.</p>
+<form id="selection">
+<p><label>Worlds <input name="worlds" placeholder="art"></label></p>
+<p><label>Rooms <input name="rooms" placeholder="primeval_run"></label></p>
+<p><label>Characters <input name="characters"></label></p>
+<p><label>Effects <input name="effects" placeholder="sonic_boom"></label></p>
+<p><label>Use <select name="purpose"><option value="play">Play</option><option value="capture">Capture</option><option value="headless">Simulation without images</option></select></label></p>
+<p><label><input id="missing" type="checkbox" checked> Show only completely missing products</label></p>
+<button type="submit">Show plan</button> <button id="generate" type="button">Generate missing products</button>
+</form>
+<p>Generation keeps existing products, including stale and partial products. Optional audio is listed separately.</p>
+<p id="status" role="status"></p>
+<table><thead><tr><th>Product</th><th>Availability</th><th>Use</th><th>Repair command</th></tr></thead><tbody id="products"></tbody></table>
+<details><summary>Full plan and diagnostics</summary><pre id="details"></pre></details>
+</main>
+<script>
+const form = document.querySelector('#selection'), status = document.querySelector('#status');
+let report;
+function render() {
+  const rows = document.querySelector('#products'); rows.replaceChildren();
+  for (const unit of Object.values(report.units)) {
+    if (document.querySelector('#missing').checked && !report.missing.includes(unit.id)) continue;
+    const tr = document.createElement('tr');
+    for (const value of [unit.id, unit.availability, unit.uses.join(', '), unit.repair]) {
+      const td = document.createElement('td'); td.textContent = value; tr.append(td);
+    }
+    rows.append(tr);
+  }
+  status.textContent = `${report.missing.length} completely missing; ${report.partial.length} partial; ${report.stale.length} stale. ${report.ready ? 'Ready.' : 'See the plan for required work.'}`;
+  document.querySelector('#details').textContent = JSON.stringify(report, null, 2);
+}
+async function request(generate_missing) {
+  const data = Object.fromEntries(new FormData(form));
+  for (const key of ['worlds', 'rooms', 'characters', 'effects']) data[key] = data[key].split(',').map(s => s.trim()).filter(Boolean);
+  data.generate_missing = generate_missing;
+  for (const button of form.querySelectorAll('button')) button.disabled = true;
+  status.textContent = generate_missing ? 'Generating missing products…' : 'Preparing the plan…';
+  try {
+    const response = await fetch('/api/asset-preflight', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)});
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || response.statusText);
+    report = result; render();
+  } catch (error) { status.textContent = error.message + (location.protocol === 'file:' ? ' Open this page through the local editor server.' : ''); }
+  finally { for (const button of form.querySelectorAll('button')) button.disabled = false; }
+}
+form.addEventListener('submit', event => {event.preventDefault(); request(false);});
+document.querySelector('#generate').addEventListener('click', () => request(true));
+document.querySelector('#missing').addEventListener('change', () => {if (report) render();});
+</script>
+</html>

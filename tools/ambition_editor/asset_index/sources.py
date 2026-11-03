@@ -18,10 +18,14 @@ def renderer_python(repo: Path, python: str | None) -> str:
     return result.stdout.strip() or "python3"
 
 
-def products(repo: Path, python: str | None = None, *, deep=False) -> dict:
+def products(repo: Path, python: str | None = None, *, deep=False, requested=None, catalog=False) -> dict:
     command = [renderer_python(repo, python), "-m", "ambition_sprite2d_renderer.products"]
     if deep:
         command.append("--deep")
+    if catalog:
+        command.append("--catalog")
+    for uid in requested or ():
+        command += ["--unit", uid]
     try:
         result = subprocess.run(command, cwd=repo / "tools/ambition_sprite2d_renderer", capture_output=True, text=True)
         if result.returncode:

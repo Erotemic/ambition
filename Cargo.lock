@@ -458,9 +458,14 @@ name = "ambition_content_cli"
 version = "0.1.0"
 dependencies = [
  "ambition_asset_manager",
+ "ambition_audio",
+ "ambition_boss_encounter",
  "ambition_characters",
  "ambition_content_pack",
+ "ambition_encounter",
  "ambition_engine_schemas",
+ "ambition_items",
+ "ambition_platformer2d_ldtk",
  "ambition_platformer2d_world",
  "ambition_sprite_sheet",
  "serde_json",

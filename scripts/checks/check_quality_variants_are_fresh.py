@@ -34,6 +34,7 @@ def main() -> int:
     parser.add_argument('--library', type=Path, help='selected content library manifest')
     parser.add_argument('--asset-root', type=Path, default=None, help='override background conversion root')
     parser.add_argument('--require-evidence', action='store_true', help='fail if a conversion has no accepted receipt')
+    parser.add_argument('--target', action='append', default=[], help='check only these sprite targets and their declared dependencies')
     args = parser.parse_args()
     from ambition_sprite2d_renderer.content_library import runtime_root, quality_root, read
     if args.library:
@@ -49,9 +50,17 @@ def main() -> int:
         from ambition_sprite2d_renderer.publication import source_files, toolchain, recipe_state
         sources, chain = source_files(), toolchain()
         selected = store.selected()
+        requested = None
+        if args.target:
+            from ambition_sprite2d_renderer.publication import names_in
+            names, _ = names_in(None, args.target)
+            requested = {'target:' + name for name in names}
+            failures += [unit + ': no accepted publication' for unit in sorted(requested - selected['bundles'].keys())]
         if not selected["generation"]:
             failures.append("No accepted art publication. Run scripts/regen/sprites.sh.")
         for unit, key in selected["bundles"].items():
+            if requested is not None and unit not in requested:
+                continue
             if not unit.startswith(("target:", "atlas:")):
                 continue
             manifest = store.bundle(key)
@@ -70,7 +79,7 @@ def main() -> int:
                 for tier in SPRITE_TIERS if len(supported) > 1 else ():
                     if not any(path.startswith(tier + "/") for path in manifest["files"]):
                         failures.append(f"{unit}: missing {tier}")
-    if "backgrounds" in producers and not override:
+    if "backgrounds" in producers and not override and not args.target:
         checked += 1
         result = subprocess.call([sys.executable, str(ROOT / "scripts/regen/generate_library_content.py"), "--check", "variants"])
         if result:

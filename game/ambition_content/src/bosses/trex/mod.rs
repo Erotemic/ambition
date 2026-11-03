@@ -21,7 +21,7 @@ pub use ambition_content_modules::trex as conductor_module;
 /// facing; his module chooses it from then on) and his drawn row. See
 /// [`ambition_boss_encounter::BossBirthKit`].
 ///
-/// And his BODY RIG (`trex_enemy_body_rig.ron`, published from the rig that
+/// And his BODY RIG (`trex_enemy_gameplay_body_rig.ron`, published from the rig that
 /// draws him): the parts you can hit him through, head, jaw, neck, torso,
 /// tail and legs, posed every tick from the row his module pins, so they are
 /// where his art is. His sheet's frame centre is his position (the boss
@@ -43,32 +43,23 @@ pub fn birth(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent
 /// The sheet his body rig is published beside.
 pub const SHEET: &str = "trex_enemy";
 
-/// His prepared body rig in world units, and where its origin (his feet) is
-/// from his position.
+/// Read the gameplay rig and its origin in world units.
 ///
 /// # Panics
 ///
-/// When the sheet or its rig is not published, or does not parse: a T-rex
-/// with no hurt parts would be hit through nothing, or fall back to a box the
-/// rework exists to replace, and say nothing.
+/// The gameplay product must exist and parse. A missing rig must not give the
+/// T-rex a simpler hurt shape.
 pub fn body_rig(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> (ambition_characters::actor::body_rig::PreparedBodyRig, Vec2) {
     let px = conductor_module::PX;
-    let text = ambition_sprite_sheet::baked_body_rigs::baked_body_rig(&sprite_content, SHEET)
-        .unwrap_or_else(|| panic!("`{SHEET}_body_rig.ron` is not published; run ./scripts/regen/sprites.sh --target trex_enemy"));
-    let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(text)
-        .unwrap_or_else(|error| panic!("`{SHEET}_body_rig.ron`: {error}"))
-        .scaled(px)
+    let gameplay = format!("{SHEET}_gameplay");
+    let text = ambition_sprite_sheet::baked_body_rigs::baked_body_rig(&sprite_content, &gameplay)
+        .unwrap_or_else(|| panic!("`{gameplay}_body_rig.ron` is not published; run ./scripts/regen/sprites.sh --target {gameplay}"));
+    let (definition, origin) = ambition_characters::actor::BodyRigDefinition::from_published_ron_with_origin(text)
+        .unwrap_or_else(|error| panic!("`{gameplay}_body_rig.ron`: {error}"));
+    let rig = definition.scaled(px)
         .prepare()
-        .unwrap_or_else(|error| panic!("`{SHEET}_body_rig.ron` does not prepare: {error:?}"));
-    let record = ambition_sprite_sheet::character::sheets::record_for_sheet_key(&sprite_content, SHEET)
-        .unwrap_or_else(|| panic!("`{SHEET}` has no sheet record; run ./scripts/regen/sprites.sh --target trex_enemy"));
-    let feet = record
-        .body_metrics
-        .as_ref()
-        .and_then(|metrics| metrics.feet_pixel)
-        .unwrap_or_else(|| panic!("`{SHEET}` publishes no feet pixel"));
-    let centre = Vec2::new(record.frame_width as f32, record.frame_height as f32) * 0.5;
-    (rig, (Vec2::new(feet.x as f32, feet.y as f32) - centre) * px)
+        .unwrap_or_else(|error| panic!("`{gameplay}_body_rig.ron` does not prepare: {error:?}"));
+    (rig, origin * px)
 }
 
 /// What his conductor is doing, read from its module's record.
@@ -108,4 +99,29 @@ pub fn conductor_of(world: &World, rex: Entity) -> Option<TrexView> {
         rearing: c.rearing(),
         hall: c.hall_known.then_some(Hall { floor: c.hall_floor, left: c.hall_left, right: c.hall_right }),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gameplay_geometry_does_not_need_a_sheet_or_images() {
+        let text = r#"(
+            schema_version: 1, target: "trex_enemy_gameplay",
+            origin_from_centre: (3.0, 8.0),
+            joints: [(name: "root", parent: None)],
+            clips: {"idle": (looping: true, frame_duration_s: 0.1,
+                frames: [[(translation: (0.0, 0.0), rotation: 0.0, scale: (1.0, 1.0))]])},
+        )"#;
+        let content = ambition_sprite_sheet::SpriteContent::from_texts(
+            ambition_sprite_sheet::baked_sheet_rons::SheetTexts {
+                body_rigs: vec![("content://fixture/sprites/trex_enemy_gameplay", std::sync::Arc::from(text))],
+                ..Default::default()
+            },
+        ).unwrap();
+        let (rig, origin) = body_rig(&content);
+        assert_eq!(origin, Vec2::new(3.0, 8.0) * conductor_module::PX);
+        assert!(rig.solve("idle", 0, &mut Vec::new()));
+    }
 }

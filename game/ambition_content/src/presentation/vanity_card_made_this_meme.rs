@@ -87,7 +87,7 @@ struct Bubble {
 fn read_card(snapshot: &ambition_platformer2d::asset_manager::content_library::LibrarySnapshot) -> RigCard {
     let files = &snapshot.files;
     let logical = format!("content://ambition_shared/{MADE_THIS_MEME_SOURCE_PATH}");
-    let file = files.get(&logical).expect("The director card is selected");
+    let file = files.get(&logical).expect("The director card is not selected; run ./scripts/regen/sprites.sh --target director_vanity_card");
     let bytes = file.read().expect("The director card metadata is readable");
     let mut card: RigCard = ron::de::from_bytes(&bytes).expect("The director card metadata must parse");
     let image = files.get(&format!("content://{}/{}", file.library, card.sheet)).expect("The director card atlas is selected");
@@ -122,24 +122,25 @@ pub struct MadeThisMemeCardPlugin;
 
 impl Plugin for MadeThisMemeCardPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, install_card_metadata);
         // The card exists only inside a shell sequence. Gate all of its systems so
         // shell-less compositions do not require shell resources or message types,
         // and so they sleep in play, when no sequence runs and no card remains.
         app.add_systems(
             Update,
-            (spawn_vanity_card, animate_vanity_card, fit_card_to_display)
+            (install_card_metadata, spawn_vanity_card, animate_vanity_card, fit_card_to_display)
+                .chain()
                 .run_if(resource_exists::<ActiveShellSequence>)
-                .run_if(a_sequence_runs_or_a_card_remains),
+                .run_if(the_card_is_requested_or_remains),
         );
     }
 }
 
-fn a_sequence_runs_or_a_card_remains(
+fn the_card_is_requested_or_remains(
     active: Res<ActiveShellSequence>,
     roots: Query<(), With<VanityCardRoot>>,
 ) -> bool {
-    active.runtime.is_some() || !roots.is_empty()
+    active.registered_segment().is_some_and(|(_, _, kind)| kind.as_str() == MADE_THIS_MEME_CARD_SEGMENT_KIND)
+        || !roots.is_empty()
 }
 
 #[derive(Component)]
@@ -507,6 +508,26 @@ fn animate_vanity_card(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unrelated_routes_do_not_require_the_director_card() {
+        use ambition_platformer2d::game_shell::{ShellSequenceRuntime, ShellSequenceSpec, ShellSegmentSpec, ShellSegmentRole};
+        for segment in [
+            None,
+            Some(ShellSegmentSpec::text("text", "A text card")),
+            Some(ShellSegmentSpec::registered("other", ShellSegmentRole::Vanity, "another_card")),
+        ] {
+            let mut app = App::new();
+            app.insert_resource(ActiveShellSequence {
+                activation_id: Some(ShellActivationId(1)),
+                runtime: segment.map(|segment| ShellSequenceRuntime::new(ShellSequenceSpec { segments: vec![segment] })),
+            });
+            app.add_plugins(MadeThisMemeCardPlugin);
+            app.update();
+            app.update();
+            assert!(!app.world().contains_resource::<RigCard>());
+        }
+    }
 
     /// The card's look is the renderer's: each colour and the margin in the
     /// baked table are the constants of `render_director_vanity_dialog.py`.

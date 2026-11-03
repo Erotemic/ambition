@@ -54,14 +54,14 @@ pub const SHEET: &str = "trex_enemy";
 pub fn body_rig(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> (ambition_characters::actor::body_rig::PreparedBodyRig, Vec2) {
     let px = conductor_module::PX;
     let text = ambition_sprite_sheet::baked_body_rigs::baked_body_rig(&sprite_content, SHEET)
-        .unwrap_or_else(|| panic!("`{SHEET}_body_rig.ron` is not published: regenerate the T-rex sheet"));
+        .unwrap_or_else(|| panic!("`{SHEET}_body_rig.ron` is not published; run ./scripts/regen/sprites.sh --target trex_enemy"));
     let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(text)
         .unwrap_or_else(|error| panic!("`{SHEET}_body_rig.ron`: {error}"))
         .scaled(px)
         .prepare()
         .unwrap_or_else(|error| panic!("`{SHEET}_body_rig.ron` does not prepare: {error:?}"));
     let record = ambition_sprite_sheet::character::sheets::record_for_sheet_key(&sprite_content, SHEET)
-        .unwrap_or_else(|| panic!("`{SHEET}` has no sheet record"));
+        .unwrap_or_else(|| panic!("`{SHEET}` has no sheet record; run ./scripts/regen/sprites.sh --target trex_enemy"));
     let feet = record
         .body_metrics
         .as_ref()

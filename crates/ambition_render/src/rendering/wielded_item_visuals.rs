@@ -202,7 +202,7 @@ pub fn sync_wielded_item_visuals(sprite_content: bevy::prelude::Res<ambition_spr
 
         let width = spec.width_per_wielder_height * fact.wielder_height;
         let render_size = Vec2::new(width, width * frame_size.y / frame_size.x);
-        let hand_world = fact.hand_world;
+        let hand_world = fact.support.as_ref().map_or(fact.hand_world, |support| support.geometry.anchor);
         let mut bevy_angle = dy_world_to_bevy_angle(
             fact.aim_world.x - hand_world.x,
             fact.aim_world.y - hand_world.y,
@@ -215,7 +215,7 @@ pub fn sync_wielded_item_visuals(sprite_content: bevy::prelude::Res<ambition_spr
         // The art's own hand, in the frame that is drawn: the item is in it.
         // An item that fires still points at its target; one that does not
         // turns as the hand part turns, so a swing is the wielder's own row.
-        if let Some(posed) = hands.of(&fact.holder) {
+        if let Some(posed) = fact.support.is_none().then(|| hands.of(&fact.holder)).flatten() {
             translation.x = posed.at.x;
             translation.y = posed.at.y;
             if !fact.ranged {

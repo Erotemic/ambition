@@ -13,7 +13,7 @@ pub const AMBITION_RULES_SCHEMA: &str = "ambition_rules";
 pub struct AmbitionRules {
     pub boss_idle_bark: IdleBark,
     pub gnu_ton_duel: GnuTonDuelRules,
-    pub african_swallow: SwallowFetch,
+    pub swallow_fetch: SwallowFetch,
     /// The thrown items that hurt the body they strike, by held-item id. An
     /// item with no row lands and hurts nobody.
     pub thrown_impacts: std::collections::BTreeMap<String, ThrownImpact>,
@@ -362,11 +362,24 @@ pub struct ThrownImpact {
     pub rebound_cap: f32,
 }
 
-/// What an African swallow does with a coconut (`primeval`): it fetches one
-/// at rest, carries it over its target, and lets it go there.
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+/// Swallows fetch a coconut, carry it over their target, and release it.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SwallowFetch {
+    /// Lift capacity by character id. A coconut needs a total capacity of one.
+    pub capacity: std::collections::BTreeMap<String, f32>,
+    /// Time for a failed lift, a partner wait, and a rest before retry (s).
+    pub attempt_seconds: f32,
+    pub wait_seconds: f32,
+    pub retry_seconds: f32,
+    /// Partners commit to one coconut within this distance (px).
+    pub partner_reach: f32,
+    /// Both birds must reach the coconut within this distance (px).
+    pub join_radius: f32,
+    /// Distance between each bird and the centre of the sling (px).
+    pub half_span: f32,
+    /// Formation correction rate (1/s).
+    pub formation_gain: f32,
     /// It goes for a coconut at rest no farther from it than this (px).
     pub fetch_reach: f32,
     /// How fast it flies to a coconut (px/s).
@@ -635,8 +648,15 @@ impl AmbitionRules {
         if day.daylight.is_empty() {
             problems.push("`day.daylight` is empty; a sunlit room has a veil at every hour".to_string());
         }
-        let bird = self.african_swallow;
+        let bird = &self.swallow_fetch;
         for (field, value) in [
+            ("attempt_seconds", bird.attempt_seconds),
+            ("wait_seconds", bird.wait_seconds),
+            ("retry_seconds", bird.retry_seconds),
+            ("partner_reach", bird.partner_reach),
+            ("join_radius", bird.join_radius),
+            ("half_span", bird.half_span),
+            ("formation_gain", bird.formation_gain),
             ("fetch_reach", bird.fetch_reach),
             ("fetch_speed", bird.fetch_speed),
             ("laden_speed", bird.laden_speed),
@@ -646,12 +666,20 @@ impl AmbitionRules {
             ("lead_seconds", bird.lead_seconds),
         ] {
             if !(value.is_finite() && value >= 0.0) {
-                problems.push(format!("`african_swallow.{field}` is {value}; it is finite and not negative"));
+                problems.push(format!("`swallow_fetch.{field}` is {value}; it is finite and not negative"));
             }
+        }
+        for (id, capacity) in &bird.capacity {
+            if id.is_empty() || !capacity.is_finite() || *capacity <= 0.0 {
+                problems.push(format!("`swallow_fetch.capacity.{id}` must have a name and a finite positive lift capacity"));
+            }
+        }
+        if bird.join_radius <= 0.0 || bird.half_span <= 0.0 || bird.formation_gain <= 0.0 {
+            problems.push("`swallow_fetch` needs positive join radius, half span, and formation gain".into());
         }
         if bird.let_go_over > bird.carry_over {
             problems.push(format!(
-                "`african_swallow.let_go_over` {} is more than `carry_over` {}: the bird carries the coconut \
+                "`swallow_fetch.let_go_over` {} is more than `carry_over` {}: the bird carries the coconut \
                  lower than it may let go, so it never lets go",
                 bird.let_go_over, bird.carry_over
             ));
@@ -708,7 +736,10 @@ mod tests {
                 overhead_grow: 1.5,
                 book: DuelVolume { offset: (42.0, -4.0), half_extents: (30.0, 24.0) },
             },
-            african_swallow: SwallowFetch {
+            swallow_fetch: SwallowFetch {
+                capacity: [("european_swallow".into(), 0.5), ("african_swallow".into(), 1.0)].into(),
+                attempt_seconds: 0.8, wait_seconds: 4.0, retry_seconds: 3.0,
+                partner_reach: 600.0, join_radius: 24.0, half_span: 24.0, formation_gain: 4.0,
                 fetch_reach: 900.0,
                 fetch_speed: 250.0,
                 laden_speed: 185.0,

@@ -125,12 +125,12 @@ fn each_room_places_its_cast_and_its_coconuts() {
 /// high enough to hurt.
 #[test]
 fn an_african_swallow_takes_a_coconut_and_lets_it_go_over_the_player() {
-    use ambition_content::primeval::{COCONUT, COCONUT_CARRIER};
+    use ambition_content::primeval::COCONUT;
     use ambition_platformer2d::held_items::{GroundItem, ItemCustody};
 
     let mut sim = room("primeval_rookery");
     // The tuning this App plays: the bird lets go no lower than this.
-    let least_over = sim.world().resource::<ambition_content::tuning::AmbitionTuning>().0.african_swallow.let_go_over;
+    let least_over = sim.world().resource::<ambition_content::tuning::AmbitionTuning>().0.swallow_fetch.let_go_over;
     // Each coconut a swallow holds now, and how far over the player the first
     // one to be let go was when it left the bird.
     let mut in_its_feet: Vec<Entity> = Vec::new();
@@ -147,7 +147,7 @@ fn an_african_swallow_takes_a_coconut_and_lets_it_go_over_the_player() {
         let mut held_now = Vec::new();
         for (coconut, y, custody) in coconuts {
             match custody {
-                ItemCustody::Held { holder } if worn.get(world, holder).is_ok_and(|worn| worn.id() == COCONUT_CARRIER) => {
+                ItemCustody::Held { holder } if worn.get(world, holder).is_ok_and(|worn| worn.id() == "african_swallow") => {
                     carried = true;
                     held_now.push(coconut);
                 }
@@ -198,4 +198,99 @@ fn the_tyrant_is_in_his_hall_at_the_end_of_the_trail() {
         .expect("the T-rex is in the hall, alive");
     let view = conductor_of(world, rex).expect("his conductor has a record");
     assert!(view.hall.is_some(), "his conductor has measured the hall: {view:?}");
+}
+
+/// The authored pair uses the real movement, custody, and falling-item systems.
+#[test]
+fn european_swallows_carry_one_coconut_together_and_drop_it_over_the_player() {
+    use ambition_platformer2d::held_items::{GroundItem, ItemCustody, SupportedCarry};
+    use ambition_platformer2d::combat::held_items::HeldItem;
+    let mut sim = room("primeval_run");
+    bring_player_into_swallow_range(&mut sim);
+    let mut load = None;
+    let mut airborne = false;
+    let mut dropped = false;
+    for _ in 0..60 * 35 {
+        sim.step(AgentAction::default());
+        let prey = player(&mut sim);
+        let world = sim.world_mut();
+        if let Some((item, leader, supporter, pickup_y)) = load {
+            let custody = *world.get::<ItemCustody>(item).expect("the same coconut instance stays alive");
+            if custody.in_world() {
+                let ground = world.get::<GroundItem>(item).unwrap();
+                assert!(prey.y - ground.pos.y >= 75.0, "release is above the target: {ground:?}, prey={prey:?}");
+                assert!(world.get::<SupportedCarry>(leader).is_none());
+                assert!(world.get::<HeldItem>(supporter).is_none());
+                assert!(ground.vel.y >= 0.0);
+                dropped = true;
+                break;
+            }
+            let a = world.get::<ae::BodyKinematics>(leader).unwrap();
+            let b = world.get::<ae::BodyKinematics>(supporter).unwrap();
+            let anchor = SupportedCarry::anchor(a, b, ae::Vec2::Y);
+            airborne |= pickup_y - anchor.y > 40.0;
+        } else {
+            let mut pairs = world.query::<(Entity, &WornCharacter, &SupportedCarry)>();
+            let pair = pairs.iter(world).find(|(_, worn, _)| worn.id() == "european_swallow").map(|(e, _, link)| (e, link.supporter));
+            if let Some((leader, supporter)) = pair {
+                assert_eq!(world.get::<WornCharacter>(supporter).unwrap().id(), "european_swallow");
+                let mut items = world.query::<(Entity, &GroundItem, &ItemCustody)>();
+                let (item, ground, _) = items.iter(world).find(|(_, ground, custody)| ground.spec.id == "coconut" && custody.held_by(leader)).unwrap();
+                load = Some((item, leader, supporter, ground.pos.y));
+            }
+        }
+    }
+    assert!(load.is_some(), "the authored European pair did not join a load");
+    assert!(airborne, "the pair did not lift the load");
+    assert!(dropped, "the pair did not release the load over the player");
+}
+
+fn bring_player_into_swallow_range(sim: &mut Platformer2dSimHarness) {
+    let world = sim.world_mut();
+    let mut player = world.query_filtered::<(&mut ae::BodyKinematics, &mut BodyHealth), PrimaryPlayerOnly>();
+    let (mut kin, mut health) = player.single_mut(world).unwrap();
+    kin.pos.x = 800.0;
+    *health = BodyHealth::new(ambition_platformer2d::characters::actor::Health::new(10000));
+}
+
+/// The same pair and coconut survive GGRS save, load, and replay.
+#[test]
+fn rollback_european_sling_replays_pickup_and_release() {
+    use ambition_platformer2d::held_items::{GroundItem, ItemCustody, SupportedCarry};
+    use ambition_platformer2d::platformer::sim_id::SimId;
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        fixed_60hz_room_options("primeval_run").with_sync_test_rollback_settings(4, 10),
+    ).expect("the trail builds under the sync-test host");
+    for _ in 0..30 { sim.step(AgentAction::default()); }
+    bring_player_into_swallow_range(&mut sim);
+    sim.rebase_rollback_history().expect("the room fixture becomes the baseline");
+    let before = sim.rollback_execution_stats().unwrap().lifetime_load_runs;
+    let mut carried = None;
+    let mut released = false;
+    for _ in 0..360 {
+        sim.step(AgentAction::default());
+        sim.rollback_health().expect("the swallow sequence replays without a checksum mismatch");
+        let world = sim.world_mut();
+        let mut query = world.query::<(&SimId, &GroundItem, &ItemCustody)>();
+        let nuts: Vec<_> = query.iter(world).filter(|(_, item, _)| item.spec.id == "coconut")
+            .map(|(id, _, custody)| (id.as_str().to_owned(), *custody)).collect();
+        for (id, custody) in nuts {
+            match custody {
+                ItemCustody::Held { holder } => {
+                    if let Some(link) = world.get::<SupportedCarry>(holder) {
+                        assert_eq!(world.get::<WornCharacter>(holder).unwrap().id(), "european_swallow");
+                        assert_eq!(world.get::<WornCharacter>(link.supporter).unwrap().id(), "european_swallow");
+                        assert_ne!(holder, link.supporter);
+                        carried = Some(id);
+                    }
+                }
+                ItemCustody::InWorld if carried.as_ref() == Some(&id) => released = true,
+                _ => {}
+            }
+        }
+        if released { break; }
+    }
+    assert!(carried.is_some(), "the pair must take custody during the replay window");
+    assert!(released, "the same coconut must return to world custody");
+    assert!(sim.rollback_execution_stats().unwrap().lifetime_load_runs > before, "LoadWorld must run");
 }

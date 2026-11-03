@@ -152,6 +152,7 @@ mod emitted_trails;
 mod unauthored_volumes;
 pub mod view_isolation;
 mod wielded_item_visuals;
+mod supported_carry;
 pub mod worn_gear_visuals;
 mod world;
 
@@ -429,6 +430,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                         .after(actors::rigged::drive_rigged_presentations)
                         .in_set(posed_hand::HeldItemPresentationSet),
                     posed_hand::ask_holders_for_their_hands.in_set(posed_hand::HeldItemPresentationSet),
+                    supported_carry::sync_strings.after(actors::rigged::drive_rigged_presentations).in_set(BodyOwnedDrawableSync),
                     shrine_visuals::sync_shrine_visual
                         .run_if(ambition_sim_view::rows_or_drawn::<ambition_sim_view::ShrinesView, shrine_visuals::ShrineVisualKey>)
                         .after(actors::sync_visuals),

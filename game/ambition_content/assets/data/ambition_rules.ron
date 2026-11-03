@@ -41,7 +41,15 @@
     ),
     // What an African swallow does with a coconut: it fetches one at rest,
     // carries it over what it hunts, and lets it go there.
-    african_swallow: (
+    swallow_fetch: (
+        capacity: {"european_swallow": 0.5, "african_swallow": 1.0},
+        attempt_seconds: 0.8,
+        wait_seconds: 4.0,
+        retry_seconds: 3.0,
+        partner_reach: 600.0,
+        join_radius: 24.0,
+        half_span: 24.0,
+        formation_gain: 4.0,
         // It goes for a coconut at rest no farther from it than this (px).
         fetch_reach: 900.0,
         // How fast it flies to a coconut, and how fast with one: it is a five

@@ -225,6 +225,34 @@ pub enum ItemCustody {
     Held { holder: Entity },
 }
 
+/// A second body supports the item in this body's custody.
+/// The load hangs below the midpoint of the two bodies.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SupportedCarry {
+    pub supporter: Entity,
+}
+
+/// Derived sling geometry in world coordinates. This is not simulation state.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SupportedCarryGeometry {
+    pub bodies: [Entity; 2],
+    pub anchor: Vec2,
+    pub attachments: [Vec2; 2],
+}
+
+impl SupportedCarry {
+    pub fn anchor(primary: &BodyKinematics, supporter: &BodyKinematics, down: Vec2) -> Vec2 {
+        (primary.pos + supporter.pos) * 0.5
+            + down * (primary.size.y.max(supporter.size.y) * 0.5 + 8.0)
+    }
+}
+
+impl bevy::ecs::entity::MapEntities for SupportedCarry {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        self.supporter = mapper.get_mapped(self.supporter);
+    }
+}
+
 impl ItemCustody {
     /// True while the item is a thing in the world — the condition every
     /// world-facing reader (physics, pickup, the drawn view, the harness's
@@ -255,13 +283,13 @@ impl ItemCustody {
 /// pickup road exists precisely to have one. The position of a held thing is a
 /// DERIVED fact about its holder, so it is derived.
 ///
-/// ⭐ AND THE HELD ANSWER IS THE HAND, not the body centre: the same
-/// [`holding_hand_world`] the wielded-item presentation draws with. A blast
-/// that goes off at the sprite's midriff while the bomb is drawn in the fist
-/// is a disagreement a player can see.
+/// A supported load uses the two bodies. Other held items use the holding hand.
+/// Simulation effects and presentation read the same derived position.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct ItemWorldPos<'w, 's> {
     holders: Query<'w, 's, &'static ae::BodyKinematics>,
+    supports: Query<'w, 's, &'static SupportedCarry>,
+    rooms: LiveRooms<'w, 's>,
     landmarks: ambition_combat::body_landmarks::BodyLandmarks<'w, 's>,
 }
 
@@ -293,6 +321,31 @@ fn hand_or_fixed(hand: Option<Vec2>, kin: &ae::BodyKinematics, down: Vec2) -> Ve
 }
 
 impl ItemWorldPos<'_, '_> {
+    /// The shared load position, when both bodies are present.
+    pub fn supported_anchor(&self, holder: Entity, down: Vec2) -> Option<Vec2> {
+        self.supported_geometry(holder, down).map(|geometry| geometry.anchor)
+    }
+
+    pub fn supported_geometry(&self, holder: Entity, down: Vec2) -> Option<SupportedCarryGeometry> {
+        let link = self.supports.get(holder).ok()?;
+        if self.rooms.of(holder) != self.rooms.of(link.supporter) { return None; }
+        let primary = self.holders.get(holder).ok()?;
+        let supporter = self.holders.get(link.supporter).ok()?;
+        Some(SupportedCarryGeometry {
+            bodies: [holder, link.supporter],
+            anchor: SupportedCarry::anchor(primary, supporter, down),
+            attachments: [self.support_attachment(holder, primary, down), self.support_attachment(link.supporter, supporter, down)],
+        })
+    }
+
+    fn support_attachment(&self, body: Entity, kin: &BodyKinematics, down: Vec2) -> Vec2 {
+        use ambition_characters::actor::Landmark;
+        use ambition_combat::body_landmarks::{feet_of, LandmarkPose};
+        [Landmark::FootNear, Landmark::FootFar].into_iter()
+            .find_map(|foot| self.landmarks.in_world(body, foot, LandmarkPose::ThisTick, kin, down))
+            .unwrap_or_else(|| feet_of(kin, down))
+    }
+
     /// Where this item is right now.
     ///
     /// Falls back to `GroundItem::pos` when the holder cannot be read — a holder
@@ -304,7 +357,8 @@ impl ItemWorldPos<'_, '_> {
             ItemCustody::Held { holder } => self
                 .holders
                 .get(*holder)
-                .map(|kin| holding_hand_world(&self.landmarks, *holder, kin, Vec2::Y))
+                .map(|kin| self.supported_anchor(*holder, Vec2::Y)
+                    .unwrap_or_else(|| holding_hand_world(&self.landmarks, *holder, kin, Vec2::Y)))
                 .unwrap_or(item.pos),
         }
     }
@@ -964,6 +1018,7 @@ pub fn return_released_items(
     holders: Query<(
         &BodyKinematics,
         Option<&HeldItem>,
+        Option<&SupportedCarry>,
         Option<&ambition_combat::held_items::MoveBrandishedItem>,
     )>,
     mut carried: Query<(Entity, &mut GroundItem, &mut ItemCustody)>,
@@ -974,7 +1029,7 @@ pub fn return_released_items(
         };
         // A holder that no longer exists is the death-drop resolver's question,
         // not this one's — see the above.
-        let Ok((kin, held, brandished)) = holders.get(holder) else {
+        let Ok((kin, held, support, brandished)) = holders.get(holder) else {
             continue;
         };
         // Still the object in that hand — nothing to do. Compared by SPEC ID
@@ -994,7 +1049,9 @@ pub fn return_released_items(
             continue;
         }
         // The body let go: the object lands where that body is standing.
-        item.pos = kin.pos;
+        item.pos = support.and_then(|support| holders.get(support.supporter).ok())
+            .map_or(kin.pos, |(partner, ..)| SupportedCarry::anchor(kin, partner, Vec2::Y));
+        commands.entity(holder).remove::<SupportedCarry>();
         // A released object is at rest, not mid-throw.
         item.vel = Vec2::ZERO;
         *custody = ItemCustody::InWorld;
@@ -1341,7 +1398,7 @@ pub fn empty_hand(
     repertoire: &mut RepertoireQueryItem<'_, '_>,
 ) {
     repertoire.refold(ambition_characters::repertoire::Hand::Empty);
-    commands.entity(player).remove::<HeldItem>();
+    commands.entity(player).remove::<(HeldItem, SupportedCarry)>();
     #[cfg(feature = "portal")]
     commands.entity(player).remove::<PortalGun>();
 }
@@ -1378,7 +1435,7 @@ pub fn unequip_held(
     repertoire: &mut RepertoireQueryItem<'_, '_>,
 ) {
     repertoire.refold_with_held(None);
-    commands.entity(player).remove::<HeldItem>();
+    commands.entity(player).remove::<(HeldItem, SupportedCarry)>();
 }
 
 /// TAKE custody of the portal gun — the portal-gun twin of

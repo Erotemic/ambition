@@ -891,6 +891,13 @@ Initial replay witnesses pass (`79826e053`): new and existing destinations,
 source retention, and moving-platform retirement. A required collision overlay
 now returns with a restored room root. Do not add a second rollback constructor.
 
+Peer replies now bind the recording frame and intent checksum (`b2120db9d`).
+A replaced intent cannot use the old reply. Guards:
+`verdicts_for_a_replaced_intent_do_not_prepare_or_fail_its_replacement` and
+`a_peer_waits_for_the_replacement_intent_even_when_its_frame_is_unchanged`.
+Wire identity 5 rejects the prior input format. Content identity and retained
+preparation promises remain open.
+
 **First step:** bind preparation inputs and operation kind to shared simulation
 state. Then add the peer inputs and two-peer witnesses, including an occurrence
 that changes during preparation. Keep the existing safe hold until those pass.

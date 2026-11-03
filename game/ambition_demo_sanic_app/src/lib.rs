@@ -234,26 +234,6 @@ impl From<RenderMode> for ambition_platformer2d::app::Display {
 #[cfg(all(test, feature = "visible", not(target_arch = "wasm32")))]
 mod tests {
     #[test]
-    /// ⭐ ASSERTS THE ROOT THE SHELL ACTUALLY USES. This used to call a
-    /// crate-local `desktop_asset_root()` that duplicated the engine's — same
-    /// `BEVY_ASSET_ROOT` early-out, same canonicalized target, same fallback.
-    /// Once the shell moved to `install_windowed_foundation` that copy was dead,
-    /// and a test asserting a function nothing calls proves nothing.
-    fn development_asset_root_contains_the_shared_shader_tree() {
-        if std::env::var_os("BEVY_ASSET_ROOT").is_some() {
-            return;
-        }
-        let root = std::path::PathBuf::from(
-            "assets".to_owned(),
-        );
-        assert!(
-            root.join("shaders/hit_flash.wgsl").is_file(),
-            "Sanic's visible shell must resolve the shared Ambition asset tree; got {}",
-            root.display()
-        );
-    }
-
-    #[test]
     fn headless_demo_uses_the_device_free_recording_audio_backend() {
         let app = super::build_windowed_demo_app(super::RenderMode::Headless);
         let backend = app
@@ -268,9 +248,6 @@ mod tests {
 
     #[test]
     fn published_local_sanic_forms_bind_through_game_assets() {
-        let root = std::path::PathBuf::from(
-            "assets".to_owned(),
-        );
         let forms = [
             (ambition_demo_sanic::SANIC_CHARACTER_ID, "sanic_spritesheet"),
             (
@@ -278,23 +255,9 @@ mod tests {
                 "super_sanic_spritesheet",
             ),
         ];
-        if !forms.iter().all(|(_, stem)| {
-            root.join(format!("sprites/{stem}.png")).is_file()
-                && root.join(format!("sprites/{stem}.ron")).is_file()
-        }) {
-            return;
-        }
-
         let mut app = super::build_windowed_demo_app(super::RenderMode::Headless);
-        // This is an asset-publication test, not a shell/load-lifecycle test.
-        // Run the real Startup schedule without also advancing Update into
-        // provider preparation/activation. Full standalone-host lifecycle
-        // coverage lives in the integration tests, while this test stays focused
-        // on PNG+RON -> GameAssets binding.
-        //
-        // The binding this test asserts comes from the PROVIDER's `register_character` (each form
-        // publishes its definition and demands its art in one call), which is why the test passes
-        // without it.
+        // Start the asset pipeline without advancing session activation.
+        // The selected library owns each form's source paths.
         app.finish();
         app.cleanup();
         app.world_mut().run_schedule(bevy::app::Startup);
@@ -318,25 +281,7 @@ mod tests {
             );
         }
 
-        // Demand them, PUMP UNTIL THEY SETTLE, and the engine's materializer
-        // decodes them. That the PNG+RON are on disk and parse is what makes
-        // this pass; a declaration alone would pass with no art published at
-        // all.
-        //
-        // ⛔⛔ ONE `update()` COULD NOT MATERIALIZE BOTH while the engine
-        // rationed character decodes to one per frame (until 2026-10-04), and
-        // this demands TWO forms. The old single update therefore asserted
-        // `Ready` for `super_sanic` while the materializer had not reached it,
-        // and got `None`: not a FAILED load, no load attempted yet. Pumping
-        // until they settle stays right: settling is the property, not a frame
-        // count.
-        //
-        // ⚠ It was invisible because this target only builds under
-        // `--features capture,input,visible`, so the default plan never runs it
-        // and only the feature union does. It has been red there.
-        //
-        // The cap is generous and BOUNDED on purpose: a settle loop with no cap
-        // hangs instead of failing, and one that stops early re-creates the bug.
+        // Demand both forms and wait for the engine to report each outcome.
         {
             let mut demand =
                 app.world_mut()

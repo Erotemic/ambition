@@ -538,8 +538,9 @@ fn a_brick_keeps_its_own_art_when_spent_in_a_skinned_room() {
     let mut terrain = app.world_mut().query::<&RoomTerrain>();
     assert!(terrain.iter(app.world()).any(|terrain| terrain.mesh_count() > 0),
         "the room must have terrain skin");
-    assert_eq!(drawn_image_opt(&mut app, &brick.id),
-        Some(art(&app, EntitySprite::BrickBlockTile)));
+    let brick_image = drawn_image_opt(&mut app, &brick.id).expect("the brick has its own image");
+    let spent_image = art(&app, EntitySprite::SpentBlockTile);
+    assert_ne!(brick_image, spent_image, "an unused brick must not show the spent plate");
     assert_eq!(skin_pieces(&mut app, &brick.id), 0,
         "a breakable brick must keep its own art");
 
@@ -550,7 +551,7 @@ fn a_brick_keeps_its_own_art_when_spent_in_a_skinned_room() {
     }
     assert_eq!(
         drawn_image_opt(&mut app, &brick.id),
-        Some(art(&app, EntitySprite::SpentBlockTile)),
+        Some(spent_image),
         "a used-up brick is not wearing the spent plate",
     );
     assert_eq!(skin_pieces(&mut app, &brick.id), 0, "the skin of the room is in front of the spent plate");

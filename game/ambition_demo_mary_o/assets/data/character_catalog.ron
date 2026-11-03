@@ -218,6 +218,11 @@
             axis_tuning_preset: Some("classic"),
             max_health: Some(1),
             tags: ["player"],
+            fallback_dialogue: [
+                "One mushroom. That's the whole story.",
+                "Taller, yes. Braver, unclear.",
+                "I can see the top of the flagpole from here.",
+            ],
             form_of: Some("mary_o"),
         ),
         // The cinder beacon (fire flower) form: a second power-up above the

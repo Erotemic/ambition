@@ -6,12 +6,12 @@
 //! death paths rather than mutating baseline resources directly.
 
 use ambition_app::{AgentAction, Platformer2dSimHarness};
-use ambition_platformer2d::engine_core::{AabbExt, ControlFrame};
+use ambition_platformer2d::engine_core::ControlFrame;
 use ambition_platformer2d::platformer::construction::SpawnOrigin;
 use ambition_platformer2d::platformer::sim_id::SimId;
 use bevy::prelude::Entity;
 
-use crate::common::{base, fixed_60hz_room_sim};
+use crate::common::{base, fixed_60hz_room_sim, walk_through_the_door_to};
 
 /// The hub authors several `GroundItem`s on one shelf, which is what lets this
 /// fixture name TWO objects and hold them at different horizons in one life.
@@ -349,81 +349,6 @@ fn a_death_returns_what_was_not_banked_and_keeps_what_was() {
 /// The room next door, used only to take an object somewhere and leave it there.
 pub(crate) const NEIGHBOUR: &str = "duel_arena";
 
-/// Stand in the `Door` zone of the active room that leads to `target` and hold
-/// Interact until the room actually changes.
-///
-/// The door is chosen by asking the room graph where each zone GOES —
-/// `transition_for_player` is the same resolver the crossing itself uses —
-/// because this room authors eighteen of them and "the first one" is a coin flip.
-pub(crate) fn walk_to(sim: &mut Platformer2dSimHarness, target: &str) {
-    let before = sim.observation().active_room.clone();
-    let zone = {
-        let world = sim.world_mut();
-        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
-            .expect("the session has a live room");
-        let mut query = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
-        let room_set = query
-            .iter(world)
-            .next()
-            .expect("the session has an active room set");
-        room_set
-            .spec(live_definition).loading_zones
-            .iter()
-            .find(|zone| {
-                room_set
-                    .transition_for_player(
-                        live_definition,
-                        zone.aabb,
-                        ambition_platformer2d::engine_core::Vec2::ZERO,
-                        true,
-                    )
-                    .and_then(|t| room_set.rooms.get(t.target_room))
-                    .is_some_and(|destination| destination.id == target)
-            })
-            .cloned()
-            .unwrap_or_else(|| panic!("'{before}' has no door to '{target}'"))
-    };
-    let center = zone.aabb.center();
-    // STEP OUT OF THE ZONE FIRST. Arriving through a door leaves the body
-    // standing INSIDE the return zone, and a transition that fired the moment
-    // you landed in it would ping-pong; so the crossing wants the player to
-    // enter the zone rather than to already be in it. Without this the return
-    // trip held Interact for ninety frames and never fired — measured
-    // and it is why every earlier test only ever walked OUTWARD.
-    let away = zone.aabb.center() + ambition_platformer2d::engine_core::Vec2::new(0.0, -400.0);
-    sim.teleport_player((away.x, away.y));
-    sim.step_n(base(), 10);
-    sim.teleport_player((center.x, center.y));
-    for frame in 0..90 {
-        // RE-PLACED EVERY FRAME, because gravity takes the body straight
-        // back out of the zone. A single teleport plus ninety frames of
-        // Interact never fired the return crossing and produced no diagnostic
-        // either — the system's own `warn_once` is for a body TOUCHING a zone,
-        // and this body was not touching it after the first frame. Standing
-        // still in the zone is also the discrete case the swept test preserves
-        // exactly: a zero-length delta degrades to the overlap it always was.
-        sim.teleport_player((center.x, center.y));
-        // the press is an EDGE, so it is released between attempts.
-        // `wants_interact` reads `slot_gestures.primary().buffered()`; holding
-        // Interact down forever arms the gesture once and never again, which is
-        // why ninety frames of a held button crossed nothing while the body was
-        // demonstrably standing in the zone.
-        let pressed = frame % 2 == 0;
-        let room = sim
-            .step(AgentAction {
-                interact: pressed,
-                interact_held: pressed,
-                ..base()
-            })
-            .active_room;
-        if room != before {
-            sim.step_n(base(), 30);
-            return;
-        }
-    }
-    panic!("held Interact in the '{before}' door to '{target}' for 90 frames and never crossed");
-}
-
 /// A BANKED OBJECT WHOSE ENTITY THE WORLD DESTROYED COMES BACK INTO THE HAND
 /// THAT BANKED IT — the same occurrence, MATERIALIZED, not re-authored.
 ///
@@ -458,7 +383,7 @@ fn a_banked_object_whose_room_unloaded_returns_to_the_hand_that_banked_it() {
 
     // Carried next door and put down there. Custody crosses rooms, so it
     // arrives still held.
-    walk_to(&mut sim, NEIGHBOUR);
+    walk_through_the_door_to(&mut sim, NEIGHBOUR);
     assert_still_held(
         &mut sim,
         &reward,
@@ -473,7 +398,7 @@ fn a_banked_object_whose_room_unloaded_returns_to_the_hand_that_banked_it() {
 
     // Back out again. The neighbour unloads and takes the object's ENTITY with
     // it; only the ledger's `Placed` row remembers where it lies.
-    walk_to(&mut sim, ROOM);
+    walk_through_the_door_to(&mut sim, ROOM);
     // THE NON-VACUITY GUARD. Everything below is about an occurrence with no
     // entity behind it; if one is still resident here, the reset's ordinary
     // re-assignment arm answers the whole scenario and this test proves nothing
@@ -930,7 +855,7 @@ fn a_banked_runtime_mint_returns_to_the_hand_that_banked_it() {
     commit_a_checkpoint(&mut sim);
 
     // Carried next door and put down there.
-    walk_to(&mut sim, NEIGHBOUR);
+    walk_through_the_door_to(&mut sim, NEIGHBOUR);
     assert_still_held(
         &mut sim,
         &minted,
@@ -952,7 +877,7 @@ fn a_banked_runtime_mint_returns_to_the_hand_that_banked_it() {
     );
 
     // Back out again. The neighbour unloads and takes the entity with it.
-    walk_to(&mut sim, ROOM);
+    walk_through_the_door_to(&mut sim, ROOM);
     // THE NON-VACUITY GUARD. Everything below is about an occurrence with no
     // entity behind it; if one were still resident, the ordinary re-assignment
     // arm would answer the scenario and this would prove nothing.
@@ -1012,7 +937,7 @@ fn a_runtime_mint_acquired_after_the_checkpoint_is_gone_after_a_death() {
     sim.step_n(base(), 8);
 
     // ── the checkpoint FIRST, with empty hands ──────────────────────────────
-    commit_a_checkpoint(&mut sim);
+    commit_a_hub_checkpoint(&mut sim);
 
     // ── and only THEN the mint ──────────────────────────────────────────────
     let minted = mint_a_dynamic_item(&mut sim);
@@ -1066,21 +991,21 @@ fn a_runtime_mint_the_checkpoint_never_saw_is_not_resurrected_by_a_death() {
 
     // THE ONE MOVED LINE. In fixture A this rest happens with the mint
     // already in hand.
-    commit_a_checkpoint(&mut sim);
+    commit_a_hub_checkpoint(&mut sim);
 
     let minted = mint_a_dynamic_item(&mut sim);
     let landed = resting_place(&mut sim, &minted);
     pick_up(&mut sim, landed, &minted);
 
     // Carried next door and left there, exactly as in fixture A.
-    walk_to(&mut sim, NEIGHBOUR);
+    walk_through_the_door_to(&mut sim, NEIGHBOUR);
     sim.step_frame(ControlFrame {
         attack_pressed: true,
         shield_held: true,
         ..ControlFrame::default()
     });
     sim.step_n(base(), 30);
-    walk_to(&mut sim, ROOM);
+    walk_through_the_door_to(&mut sim, ROOM);
 
     // THE NON-VACUITY GUARD, and it is the same one fixture A needs: the
     // entity really is gone before the death, so what happens next is a decision
@@ -1268,7 +1193,7 @@ fn a_death_puts_back_the_entitlement_its_mint_spent() {
     });
     sim.step_n(base(), 4);
 
-    commit_a_checkpoint(&mut sim);
+    commit_a_hub_checkpoint(&mut sim);
     assert!(
         sim.world().resource::<OwnedItems>().has(MINTED_ITEM),
         "the checkpoint must see the entitlement, or this measures nothing"
@@ -1539,7 +1464,7 @@ fn a_refused_reset_changes_no_domain_state_and_is_not_lost() {
     // no-op wearing a restore's clothes.
     const STACKABLE: ambition_platformer2d::item::Item =
         ambition_platformer2d::item::Item::HealthCell;
-    commit_a_checkpoint(&mut sim);
+    commit_a_hub_checkpoint(&mut sim);
     let banked = sim.world().resource::<OwnedItems>().count(STACKABLE);
 
     // ── AFTER THE CHECKPOINT: one more of it, and the reward in hand ─────────
@@ -1675,7 +1600,7 @@ fn a_reset_restores_a_whereabouts_row_about_a_room_it_is_not_rebuilding() {
     // ── CARRY IT NEXT DOOR AND LEAVE IT THERE ────────────────────────────────
     let pedestal = resting_place(&mut sim, &reward);
     pick_up(&mut sim, pedestal, &reward);
-    walk_to(&mut sim, NEIGHBOUR);
+    walk_through_the_door_to(&mut sim, NEIGHBOUR);
     // Shield+Attack is the only input that puts a held item back in the world.
     sim.step_frame(ControlFrame {
         attack_pressed: true,
@@ -1683,7 +1608,7 @@ fn a_reset_restores_a_whereabouts_row_about_a_room_it_is_not_rebuilding() {
         ..ControlFrame::default()
     });
     sim.step_n(base(), 30);
-    walk_to(&mut sim, ROOM);
+    walk_through_the_door_to(&mut sim, ROOM);
 
     let elsewhere = |sim: &Platformer2dSimHarness| {
         sim.world()
@@ -1707,10 +1632,10 @@ fn a_reset_restores_a_whereabouts_row_about_a_room_it_is_not_rebuilding() {
     commit_a_checkpoint(&mut sim);
 
     // ── AFTER THE CHECKPOINT: fetch it back, so the row moves ────────────────
-    walk_to(&mut sim, NEIGHBOUR);
+    walk_through_the_door_to(&mut sim, NEIGHBOUR);
     let dropped_at = resting_place(&mut sim, &reward);
     pick_up(&mut sim, dropped_at, &reward);
-    walk_to(&mut sim, ROOM);
+    walk_through_the_door_to(&mut sim, ROOM);
     assert_ne!(
         elsewhere(&sim),
         banked_row,
@@ -2444,7 +2369,7 @@ fn a_death_with_bob_holding_an_object_in_the_room_keeps_one_copy() {
     for arm in [BobWith::CarriedOut, BobWith::PutDownNextDoor, BobWith::DiedHolding] {
         let mut sim = fixed_60hz_room_sim(ROOM);
         sim.step_n(base(), 10);
-        commit_a_checkpoint(&mut sim);
+        commit_a_hub_checkpoint(&mut sim);
         let (bob, _) = join(&mut sim, 4).expect("seat 1 pressed Jump and no body was built");
         sim.drive_seat(1, ControlFrame::default());
         sim.step_n(base(), 5);

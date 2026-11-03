@@ -712,9 +712,15 @@ pub fn init_engine_states(app: &mut App) {
 /// image registries (bevy_ecs_ldtk touches `Image` handles even with no
 /// renderer), transforms, states, and the engine states.
 pub fn add_headless_foundation(app: &mut App) {
+    use bevy::asset::AssetApp;
+    ambition_asset_manager::library_source::register_sources(app, "assets");
     app.add_plugins(bevy::MinimalPlugins);
     app.add_plugins(bevy::asset::AssetPlugin::default());
     app.add_plugins(bevy::image::ImagePlugin::default());
+    // A headless host has no texture-render plugin to install the CPU decoder.
+    app.register_asset_loader(bevy::image::ImageLoader::new(
+        bevy::image::CompressedImageFormats::NONE,
+    ));
     app.add_plugins(bevy::transform::TransformPlugin);
     app.add_plugins(bevy::state::app::StatesPlugin);
     serialize_main_schedules(app);

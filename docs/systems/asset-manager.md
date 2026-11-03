@@ -5,6 +5,11 @@
 
 It does **not** replace Bevy's `AssetServer`, handles, load states, dependencies, hot reload, or `AssetReader` infrastructure. Bevy remains the runtime loader.
 
+`library_source::register_sources` installs the default and `content://` readers
+before Bevy starts its asset server. Both headless and windowed foundations use
+this function. The headless foundation also installs the CPU image decoder, so
+asset readiness does not require a renderer.
+
 ## Current policy
 
 - Runtime code should refer to stable Ambition asset IDs rather than hard-coded platform paths when the asset is part of the game catalog.

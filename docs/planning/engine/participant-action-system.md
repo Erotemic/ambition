@@ -145,6 +145,25 @@ the same stray-touch failure mode.
 Treat extending destructive double-confirm behavior to gamepads as a product
 feel decision, not unfinished plumbing.
 
+## Controller routing debug view — OPEN
+
+Jon requested a PipeWire-style connection view on 2026-11-03. Defer it until
+the current menu-region and gate fixes are complete.
+
+Provide a developer menu that shows connected controllers, input participants,
+and the connections between them. Include the keyboard, shared sources,
+claimable channels, retained claims for disconnected pads, local and remote
+ownership, and each participant's current body and active input context.
+Show an unconnected device or participant without a connection. State why a
+Start press will join or pause. Keep the view live through connection changes,
+a join, a leave, and a new gameplay session.
+
+Read the existing device order, source plan, claims, participant contexts and
+body assignments. Do not create another routing table. The first version is
+read-only; manual reassignment is separate work. Check the real host with a
+primary controller, an unused controller, a disconnected claim and two joined
+participants. The graph must agree with which body and menu receive input.
+
 ## Test requirement
 
 Input/menu tests are feature-sensitive. A plain per-crate `cargo test` may omit

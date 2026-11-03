@@ -1020,6 +1020,19 @@ damage kept; back to the robot restores the robot's geometry. A skin change
 moves no collider, hurtbox or movement value. A possession leaves the original
 body in the world, and the possessed body keeps its geometry and state.
 
+### CONTROLLER-ROUTING-VIEW — inspect devices and participant connections
+
+**State:** OPEN, deferred until the current menu-region and gate fixes are complete.
+Jon requested a developer connection view on 2026-11-03. Show available
+controllers, participants, connections, unassigned devices and disconnected
+claims. Explain the active context and whether Start joins or pauses. Read the
+current routing state; do not create a second assignment authority.
+
+**Owner:** [Participant action system](engine/participant-action-system.md#controller-routing-debug-view--open).
+**Next action:** build the read-only view from device order, channel plans,
+claims, participant contexts and body assignments. Verify its connections
+against actual controller input in the real host.
+
 ### COOP-RECOVERY — independent respawn and a full-party wipe
 
 **Owner:** `session/death.rs`, `sandbox_reset.rs`, the checkpoint restore

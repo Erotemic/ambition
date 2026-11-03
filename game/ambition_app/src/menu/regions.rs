@@ -92,7 +92,7 @@ pub(crate) fn resolve_menu_regions(
         (
             menu.owner.slot(),
             entity,
-            surface.rect(Some(InputOwner::Participant(menu.owner))),
+            surface.display_rect_for(Some(InputOwner::Participant(menu.owner))),
         )
     }));
     ordered.sort_by_key(|(owner, entity, _)| (*owner, *entity));
@@ -211,7 +211,7 @@ mod tests {
     use ambition_platformer2d::sim_view::{LocalView, LocalViewId, ViewParticipant, ViewPlacement};
 
     #[test]
-    fn menu_regions_share_the_dialogue_view_rule_and_split_a_shared_view() {
+    fn menus_follow_view_placements_and_split_a_shared_view() {
         let mut app = App::new();
         app.add_systems(Update, resolve_menu_regions);
         let menus = [ParticipantId::PRIMARY, ParticipantId::SECONDARY].map(|owner| {
@@ -255,6 +255,39 @@ mod tests {
             split[0].width() + split[1].width()
         );
     }
+    #[test]
+    fn menus_use_the_full_display_and_split_shared_views() {
+        use ambition_platformer2d::presentation::gameplay_presentation::{
+            ResolvedGameplayPresentation, ScreenRect,
+        };
+        let mut app = App::new();
+        app.add_systems(Update, resolve_menu_regions);
+        let display = Rect::from_corners(Vec2::ZERO, Vec2::new(1280.0, 720.0));
+        let reading = Rect::from_corners(Vec2::new(222.0, 0.0), Vec2::new(1035.0, 720.0));
+        app.insert_resource(ResolvedGameplayPresentation {
+            display_rect: ScreenRect::from_corners(display.min, display.max),
+            display_safe_rect: ScreenRect::from_corners(reading.min, reading.max),
+            gameplay_rect: ScreenRect::from_corners(display.min, display.max),
+            ..default()
+        });
+        app.world_mut().spawn((LocalView, LocalViewId(0), ViewPlacement::default()));
+        let first = app.world_mut().spawn((super::super::MenuInstance,
+            InventoryMenu { owner: ParticipantId::PRIMARY })).id();
+        app.update();
+        assert_eq!(app.world().get::<MenuRegion>(first).unwrap().0, Some(display));
+        let second = app.world_mut().spawn((super::super::MenuInstance,
+            InventoryMenu { owner: ParticipantId::SECONDARY })).id();
+        app.update();
+        let left = app.world().get::<MenuRegion>(first).unwrap().0.unwrap();
+        let right = app.world().get::<MenuRegion>(second).unwrap().0.unwrap();
+        assert_eq!(left.min, display.min);
+        assert_eq!(left.max.x, right.min.x);
+        assert_eq!(right.max, display.max);
+        app.world_mut().despawn(second);
+        app.update();
+        assert_eq!(app.world().get::<MenuRegion>(first).unwrap().0, Some(display));
+    }
+
     #[cfg(feature = "kaleidoscope_menu")]
     #[test]
     fn adjacent_menu_viewports_share_one_rounded_edge_at_fractional_scale() {

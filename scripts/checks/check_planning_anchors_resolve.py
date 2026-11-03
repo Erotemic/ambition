@@ -124,7 +124,7 @@ def orphans() -> list[pathlib.Path]:
 
 
 def main() -> int:
-    by_name: dict[str, set[str]] = {}
+    by_path: dict[pathlib.Path, set[str]] = {}
     files = sorted(PLANNING.rglob("*.md"))
     # ⛔ ANTI-VACUITY. An empty scan root reports clean, which is also what a
     # healthy corpus reports.
@@ -132,12 +132,12 @@ def main() -> int:
         print(f"⛔⛔ only {len(files)} planning document(s) found; the scan is broken")
         return 1
     for path in files:
-        by_name.setdefault(path.name, set()).update(anchors(path))
+        by_path[path.resolve()] = anchors(path)
 
     checked = same_file = 0
     findings: list[str] = []
     for path in files:
-        own = by_name[path.name]
+        own = by_path[path.resolve()]
         for number, line in enumerate(path.read_text(encoding="utf-8").split("\n"), 1):
             for match in SAME_FILE_LINK.finditer(line):
                 same_file += 1
@@ -148,17 +148,17 @@ def main() -> int:
                         f"     -> #{match.group(1)}  (no such heading in this file)"
                     )
             for match in LINK.finditer(line):
-                target = pathlib.Path(match.group(1)).name
-                if target not in by_name:
+                target = (path.parent / match.group(1)).resolve()
+                if target not in by_path:
                     continue  # out of this tree; another checker's population
                 checked += 1
                 anchor = urllib.parse.unquote(match.group(2))
                 # ⚠ Compare on the SLUG of the decoded anchor, so a link written
                 # with percent-escaped emoji matches a heading that contains one.
-                if anchor not in by_name[target] and slug(anchor) not in by_name[target]:
+                if anchor not in by_path[target] and slug(anchor) not in by_path[target]:
                     findings.append(
                         f"  {path.relative_to(ROOT)}:{number}\n"
-                        f"     -> {target}#{match.group(2)}  (no such heading)"
+                        f"     -> {target.relative_to(ROOT)}#{match.group(2)}  (no such heading)"
                     )
 
     if same_file < MIN_SAME_FILE_LINKS:

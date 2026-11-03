@@ -65,8 +65,8 @@ fn effects_draw_from_engine_shipped_sheets_with_no_game_registering_them() {
     );
 
     for (name, sheet) in [
-        ("classic_burst", "generic_explosions"),
-        ("sonic_boom", "generic_exotic_fx"),
+        ("classic_burst", "content://ambition_shared/sprites/generic_explosions"),
+        ("sonic_boom", "content://ambition_shared/sprites/generic_exotic_fx"),
     ] {
         let (effect, _asset, slot) = resolve_drawable(&sprite_content, Some(assets), FxId::new(name))
             .unwrap_or_else(|| panic!("`{name}` must resolve to sheet art, not a particle burst"));
@@ -98,7 +98,7 @@ fn a_characters_own_effect_sheet_follows_its_realization() {
     let fx = |app: &App| {
         let assets = app.world().resource::<GameAssets>();
         (
-            assets.fx.contains("pca_vfx"),
+            assets.fx.contains("content://ambition_shared/sprites/pca_vfx"),
             resolve_drawable(&sprite_content, Some(assets), FxId::new("cell_birth")).is_some(),
         )
     };
@@ -107,9 +107,8 @@ fn a_characters_own_effect_sheet_follows_its_realization() {
     app.world_mut()
         .resource_mut::<CharacterLoadDemand>()
         .request("perfect_cellular_automaton");
-    // The drain realizes one character per frame at most and the sheet's
-    // handle exists the frame the realization lands; the decode itself is
-    // asynchronous and the reveal barrier (not this test) waits on it.
+    // The sheet handle exists when the character is realized. The reveal
+    // barrier waits for the asynchronous image decode.
     for _ in 0..8 {
         app.update();
         if fx(&app).0 {

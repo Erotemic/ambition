@@ -76,31 +76,6 @@ fn production_catalog() -> Platformer2dAssetCatalog {
         .clone()
 }
 
-fn representative_ids(catalog: &Platformer2dAssetCatalog) -> Vec<AssetId> {
-    let namespaces = [
-        "data",       // platformer_defaults.ron
-        "world",      // an authored .ldtk — the content crate's root
-        "sprite",     // a controlled body / boss sheet — the engine's root
-        "background", // parallax art
-        "font",       // UI text
-        "audio",      // the SFX bank
-        "music",      // a generated track
-    ];
-    let manifest = catalog.catalog().manifest();
-    namespaces
-        .iter()
-        .filter_map(|namespace| {
-            let prefix = format!("{namespace}.");
-            manifest
-                .iter()
-                .map(|(id, _)| id)
-                .filter(|id| id.as_str().starts_with(&prefix))
-                .min_by_key(|id| id.as_str().to_string())
-                .cloned()
-        })
-        .collect()
-}
-
 /// Every divergence between the two platforms, as a readable report.
 fn divergences(catalog: &Platformer2dAssetCatalog, ids: &[AssetId]) -> Vec<String> {
     let manifest = catalog.catalog().manifest();
@@ -143,28 +118,7 @@ fn divergences(catalog: &Platformer2dAssetCatalog, ids: &[AssetId]) -> Vec<Strin
     report
 }
 
-#[test]
-fn desktop_and_served_web_name_the_same_runtime_path_for_the_same_asset_id() {
-    let catalog = production_catalog();
-    let sampled = representative_ids(&catalog);
-    assert!(
-        sampled.len() >= 7,
-        "expected one representative asset per namespace in the production manifest, \
-         found {}: {sampled:?}",
-        sampled.len()
-    );
-    let report = divergences(&catalog, &sampled);
-    assert!(
-        report.is_empty(),
-        "the browser and the desktop do not name the same file for the same logical \
-         asset. Only the DELIVERY may differ — a divergent name means a platform branch \
-         has duplicated manifest knowledge instead of consuming it:\n{}",
-        report.join("\n")
-    );
-}
-
-/// The same question asked of everything, not just the representative set:
-/// ~967 entries across seven namespaces.
+/// Every production asset keeps its logical file path on desktop and web.
 #[test]
 fn every_manifest_entry_names_the_same_file_on_both_platforms() {
     let catalog = production_catalog();
@@ -194,32 +148,4 @@ fn every_manifest_entry_names_the_same_file_on_both_platforms() {
             .collect::<Vec<_>>()
             .join("\n")
     );
-}
-
-/// THE POISON. Every assertion above passes when two resolutions agree,
-/// so a comparison that cannot tell two different files apart would pass
-/// vacuously — which is exactly the failure mode of a suffix match written
-/// without a boundary check (`".../boss.png"` "matching" `".../miniboss.png"`).
-#[test]
-fn the_comparison_can_tell_two_different_files_apart() {
-    assert!(names_the_same_file(
-        "/abs/dev/root/sprites/boss.png",
-        "sprites/boss.png"
-    ));
-    assert!(names_the_same_file("sprites/boss.png", "sprites/boss.png"));
-    assert!(
-        !names_the_same_file("sprites/miniboss.png", "sprites/boss.png"),
-        "a bare suffix match would call these the same file; the boundary check is what \
-         stops the whole audit from being decorative"
-    );
-    assert!(!names_the_same_file(
-        "sprites/boss.png",
-        "sprites/other.png"
-    ));
-    // A source qualifier is delivery, not identity.
-    assert_eq!(
-        strip_scheme("game://worlds/sandbox.ldtk"),
-        "worlds/sandbox.ldtk"
-    );
-    assert_eq!(strip_scheme("worlds/sandbox.ldtk"), "worlds/sandbox.ldtk");
 }

@@ -69,6 +69,7 @@ CHARGEN-SPECIES. TEST-LANES retains the test-consolidation work.
 | [Asset implementation review](engine/asset-library-implementation-review.md) | Evidence for the same three asset rows; no duplicate tasks. Cost traces are part of those slices. |
 | [World layers and travel](game/world-layers-and-travel.md) | Portal mechanics are built; WORLD-LAYERS owns the remaining authored topology. |
 | [Art dimension](game/art-dimension.md) | The first region is built. WORLD-LAYERS rechecks the remaining art publication, region cues and places before selecting more content. Do not rebuild the completed region. |
+| [History dimension](game/history-dimension.md) | The first pass is committed in `5d7fa1d1b`. WORLD-LAYERS owns selection of the next eras. |
 | [Enemy patterns](game/enemy-patterns.md) | ENEMY-NOTICE owns the remaining skirmisher/profile gap; do not repeat built fighter engagement or completed variants. |
 | [Region composition](game/world-composition.md) | WORLD-LAYERS rechecks remaining region links and secrets against current generators. Completed regions are not requeued. |
 | [World detail run](game/world-detail-24h.md) | Its counts predate many completed rooms. Recheck them within WORLD-LAYERS; do not restart the dated run or repeat its completed art. |
@@ -526,8 +527,9 @@ reach checks and same-dimension rules already landed in `c818c0801`.
 **Owner:** `tools/ambition_ldtk_tools/specs` generators and
 `game/ambition_map_assets`. Design: [world layers](game/world-layers-and-travel.md),
 [region composition](game/world-composition.md),
-[remaining room detail](game/world-detail-24h.md), and
-[Art dimension follow-up](game/art-dimension.md#open-work).
+[remaining room detail](game/world-detail-24h.md),
+[Art dimension follow-up](game/art-dimension.md#ideas-for-later), and
+[History dimension follow-up](game/history-dimension.md#next-passes).
 
 **Next action:** fold Jungle into surface, underground and canopy regions,
 then add Magical's sky and local arch network. Reuse the existing portal and

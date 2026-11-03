@@ -622,9 +622,9 @@ control.
 
 ### MULTIPLAYER-SEAMS — make local multiplayer safe for netplay
 
-**Remaining failure:** the Ambition menu presentation has one input, cursor and page model; room loading covers the other viewport; F1
-gizmos use primary room data. Routine peer room commits still hold the whole
-session. These are separate authority, presentation and gameplay-rule boundaries.
+**Remaining failure:** F1 gizmos use primary room data. Routine peer room
+commits still hold the whole session. Per-view room loading needs its final
+separate-room acceptance. These are separate presentation and lifecycle boundaries.
 See the [cause and acceptance map](engine/local-coop-integration.md#follow-up-audit-co-op-works-but-participant-and-view-scope-leaks-2026-10-24)
 and [product decisions](game/multiplayer.md#local-co-op-behavior-decided-in-the-2026-10-24-playtest).
 
@@ -859,14 +859,22 @@ canvas, shared inventory layout, and page-relative text. Item details fit the
 panel. Guards: `each_layout_publishes_its_item_details_inside_the_panel` and
 `two_pad_menus_draw_in_their_own_regions`, with both captures reviewed.
 Do not restore window-relative page text or fixed navigation dimensions.
+Single-player Cube dimensions are restored (`33df26cd6`). Only multiple local
+menus adapt the canvas. Guard: `a_single_menu_keeps_its_authored_shape_when_the_viewport_is_narrow`,
+with the single-player and two-pad GPU captures.
+
+Room loading now scopes covers, foregrounds, activities and input to their owner
+(`e36b067fd`). Guards: `a_room_transition_keeps_the_other_participants_input_and_view`
+and both GPU captures. Stable body identity orders simultaneous passages. The next
+crossing waits for the first presentable destination frame; guard:
+`a_second_crossing_waits_until_the_first_destinations_frame_is_presentable`.
 
 **Next action (ordered slices; complete each behavior gate before moving):**
 
-5. **Per-view presentation isolation:** a room transition cover follows only
-   its affected participant/view; the other viewport renders and accepts
-   gameplay. Define a deterministic policy for concurrent transition requests
-   because `RoomTransitionLoadState` has one active transaction. Move F1
-   debug geometry and labels to per-room/per-view presentation, reusing the
+5. **Per-view presentation isolation:** add a rendered crossing witness with
+   participants in separate live rooms, and check queued crossings in both
+   participant orders. Same-room controller and GPU cases pass in `e36b067fd`.
+   Move F1 debug geometry and labels to per-room/per-view presentation, reusing the
    room-layered retained-gizmo seam used for trails. Keep joint threshold and
    merge-animation polish deferred.
 6. **Online no-global-hold lifecycle:** prove a routine peer door crossing

@@ -347,7 +347,7 @@ The current product rules are in
 | Player 2 stays in blink state | Every `PlayerBlinkCameraState` advances on wall time. Every preview reads committed seat controls through the driven body. | **Fixed in `0754ed273`**; the two-seat simulation test covers press, hold, release and completed cooldown. A separate paused-clock test covers presentation decay. |
 | Player strikes do not hurt the other player | `FriendlyFire::default().enabled` is false. Both driven bodies resolve to `ActorFaction::Player`; `damage_lands_between` allows same-faction damage only when friendly fire is enabled (unless another relation overrides). | **Confirmed default rule explains allied damage rejection**. Prove Ambition's actual resolved room rule and all attack families. The explicit `friendly_fire: false` in `game/ambition_app/assets/data/room_rules.ron` is a **Versus** stage declaration, not the general Ambition room default. |
 | Only one player can use the pause/menu | Inventory opening and navigation read each menu owner's `SeatMenuFrames`. Open, focus, page, scroll and cache state belong to menu entities, but the frontend still creates one surface. `ShellPauseMenu` supports an owning seat but Ambition suppresses it and supplies its own menu. | **Confirmed singleton Ambition menu**. The shell seat rule is not two independent menus. |
-| Either player's door flashes black over both panes | `room_transition_presentation::drive_room_transition_presentation` spawns one 100%-width/height `RoomTransitionCoverRoot` with `GlobalZIndex(900)`. `RoomTransitionLoadState` has one active transaction. | **Confirmed full-window cover**. Test whether sim time stops separately. The eager host already avoids `GameMode::RoomTransition` when another participant has play in progress; the peer host can still hold all simulation for a synchronized commit. |
+| Either player's door flashes black over both panes | Transition covers and loading foregrounds now use `ParticipantSurface`. Loading input claims name the affected participant. | **Fixed in `e36b067fd`** for both participants in the same-room controller and GPU witnesses. The final separate-room witness remains open. Peer commits still hold the whole timeline. |
 | F1 gizmos show the wrong room or offset | `ambition_render::rendering::debug_viz::draw_debug_viz` and `ambition_app::dev::debug_overlay::draw_debug_overlay` select `PrimaryLiveRoom`/`PrimaryLiveRoomSpec`. They use the default gizmo path, which all gameplay cameras can see. App labels also convert through the primary room. | **Confirmed primary-room leak**, consistent with the report. Player trails already use retained `GizmoAsset`s with room `RenderLayers`; reuse that boundary. |
 | Adaptive split/merge feels inconsistent | `AdaptiveSplit` keeps `split_beyond`, `merge_within`, `merge_after`, and a local `DistanceSplit` latch. | **No source defect established**. The maintainer deferred threshold and animation polish. Preserve the current policy and test topology only. |
 
@@ -599,29 +599,17 @@ it does not prove peer agreement for inventory mutations or lifecycle changes.
 
 ### Room crossing: isolate cover and eliminate unrelated simulation stalls
 
-The eager transition host currently avoids entering `GameMode::RoomTransition`
-when another driven participant still plays, but the full-window black cover
-remains. Therefore visual disturbance is source-confirmed even where the
-simulation continues. Do not infer an actual sim stall only from a black pane.
+Per-view covers, loading foregrounds, activities and input claims landed in
+`e36b067fd`. Both participant orders pass the same-room input and GPU guards.
+Opaque regions control the upload budget by their union. Stable body identity
+orders simultaneous passage admission; a second accepted crossing waits until
+the committed destination is presentable. Do not restore global room covers.
 
-- Give the transition presentation a subject/participant and target-view set.
-  Scope its loading cover, loading text, fade, and readiness indication to
-  the local viewport(s) following the crossing body. Preserve the other
-  viewport's pixels and its camera. Rebind correctly if the view layout
-  changes or the two players briefly share a view.
-- Keep readiness room-specific (`PresentationSettling::pending_for` already
-  accepts target rooms). Track which view waits for which room. Do not make
-  one room wait for unrelated assets. The current `RoomTransitionLoadState`
-  holds only one active transaction, so simultaneous independent crossings
-  need an explicit queuing/parallelism policy rather than accidental override.
-- Separate presentation cover lifetime, asynchronous host preparation, and
-  committed simulation lifecycle. A player who waits for a door must not
-  cause a scene-wide UI or `GameMode::Playing` request to override another
-  player's pause/menu state.
-- Test an actor crossing while another fights in a different live room:
-  render two successive frames of the uninvolved viewport and assert it has
-  no cover/fade, no camera reset, no black flash, and no control interruption.
-  Test the same-room case and two near-simultaneous crossings in both orders.
+Remaining acceptance: show a real crossing with participants in separate live
+rooms. Check both participant orders for queued crossings. Keep the other
+viewport visible, with its camera and gameplay input active. Test layout changes
+and view retirement through the shared surface resolver. The peer hold below
+is a separate simulation protocol.
 
 **A distinct online blocker:** the existing peer lifecycle path uses a
 synchronized freeze and `PeerLineage` session rebase for a room commit

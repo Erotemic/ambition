@@ -857,10 +857,11 @@ pub fn rebuild_cube_faces<PageId, Action>(
     Action: Clone + PartialEq + Send + Sync + 'static,
 {
     let config_changed = config.is_changed();
+    let shared_display = rings.iter().nth(1).is_some();
     for (ring, pages, rendered) in &rings {
         let viewport = cameras.iter().find(|(_, owner)| owner.0 == ring)
             .and_then(|(camera, _)| cube_viewport_size(camera));
-        let geo = geometry_for_viewport(config.geometry, viewport);
+        let geo = geometry_for_viewport(config.geometry, viewport.filter(|_| shared_display));
         let geometry_changed = rendered.is_none_or(|rendered| rendered.geometry != geo);
         // Publication identity is local to this ring. Broad component change
         // ticks do not invalidate content whose values remain the same.
@@ -1622,7 +1623,7 @@ fn cube_viewport_size(camera: &Camera) -> Option<Vec2> {
         .filter(|size| size.is_finite() && size.cmpgt(Vec2::ZERO).all())
 }
 
-/// Narrow viewports add page height without moving the viewing point.
+/// Shared-menu viewports can add page height without moving the viewing point.
 fn geometry_for_viewport(base: MenuCubeGeometry, size: Option<Vec2>) -> MenuCubeGeometry {
     let Some(size) = size else { return base; };
     MenuCubeGeometry {
@@ -1639,8 +1640,8 @@ fn fit_cube_camera_regions(
         let Some(size) = cube_viewport_size(camera) else {
             continue;
         };
-        let geometry = geometry_for_viewport(config.geometry, Some(size));
-        let ratio = geometry.page_height / config.geometry.page_height;
+        let geometry = config.geometry;
+        let ratio = (geometry.page_width / geometry.page_height / (size.x / size.y)).max(1.0);
         let fov = 2.0
             * ((ambition_menu::MenuCubeGeometry::CAMERA_FOV_RADIANS * 0.5).tan() * ratio).atan();
         // Keep the camera at the cube's viewing point. Moving back exposes the rear face.

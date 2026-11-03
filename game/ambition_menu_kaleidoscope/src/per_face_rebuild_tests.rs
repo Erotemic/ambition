@@ -547,3 +547,36 @@ fn resizing_one_viewport_rebuilds_only_its_canvas_and_restores_its_shape() {
     assert_eq!(app.world().get::<RenderedMenuPages<Page>>(first).unwrap().geometry, original);
     assert_eq!(owned_faces(&mut app, second), second_before);
 }
+
+#[test]
+fn a_single_menu_keeps_its_authored_shape_when_the_viewport_is_narrow() {
+    use super::{KaleidoscopePauseCamera, RenderedMenuPages};
+    use ambition_menu::MenuSurface;
+    let mut app = test_app();
+    let menu = app.world_mut().query_filtered::<Entity, With<MenuRing>>()
+        .single(app.world()).unwrap();
+    let base = app.world().resource::<KaleidoscopeMenuConfig>().geometry;
+    let camera = app.world_mut().spawn((KaleidoscopePauseCamera, MenuSurface(menu), Camera {
+        viewport: Some(bevy::camera::Viewport { physical_size: UVec2::new(400, 720), ..default() }),
+        ..default()
+    })).id();
+    app.update();
+    assert_eq!(app.world().get::<RenderedMenuPages<Page>>(menu).unwrap().geometry, base);
+    let before = owned_faces(&mut app, menu);
+    for (face, _, _) in &before {
+        let dimension = app.world().get::<bevy_lunex::Dimension>(*face).unwrap();
+        assert_eq!(dimension.x, base.page_width);
+        assert_eq!(dimension.y, base.page_height);
+    }
+    app.world_mut().get_mut::<Camera>(camera).unwrap().viewport.as_mut().unwrap().physical_size = UVec2::new(320, 720);
+    app.update();
+    assert_eq!(owned_faces(&mut app, menu), before);
+    let partner = app.world_mut().spawn((MenuRing, ActiveMenuPages::<Page, Action> {
+        pages: all_pages(0.75), active: Some(Page::Map), visible: true, version: 1,
+    })).id();
+    app.update();
+    assert!(app.world().get::<RenderedMenuPages<Page>>(menu).unwrap().geometry.page_height > base.page_height);
+    app.world_mut().entity_mut(partner).despawn();
+    app.update();
+    assert_eq!(app.world().get::<RenderedMenuPages<Page>>(menu).unwrap().geometry, base);
+}

@@ -347,7 +347,7 @@ fn player_two_dialogue_draws_in_its_own_view() {
 
 fn gpu_app(name: &str) -> App {
     use ambition_platformer2d::render::capture::{
-        CaptureProgress, CaptureSettings, install_capture_cameras, setup_capture_target,
+        CaptureProgress, CaptureSettings, CaptureCameraSet, CaptureTarget, install_capture_cameras, setup_capture_target,
     };
     let mut app = crate::shell_host_rendered::rendered_app_with(ambition_app::app::VisibleRenderMode::OffscreenGpu);
     let output = std::env::temp_dir().join(name);
@@ -355,6 +355,18 @@ fn gpu_app(name: &str) -> App {
     app.init_resource::<CaptureProgress>();
     app.add_systems(Startup, setup_capture_target);
     install_capture_cameras(&mut app);
+    app.add_systems(Update, (
+            |mut commands: Commands, target: Option<Res<CaptureTarget>>,
+             cameras: Query<(Entity, &bevy::camera::RenderTarget), (With<Camera3d>, With<ambition_platformer2d::menu::render::MenuPresentationOf>)>| {
+                let Some(target) = target else { return; };
+                let destination = bevy::camera::RenderTarget::Image(target.image.clone().into());
+                for (entity, current) in &cameras {
+                    if !matches!(current, bevy::camera::RenderTarget::Image(image) if image.handle == target.image) {
+                        commands.entity(entity).insert((destination.clone(), Msaa::Off));
+                    }
+                }
+            }
+        ).after(CaptureCameraSet));
     app
 }
 
@@ -383,8 +395,7 @@ fn capture_frame(app: &mut App) {
 #[ignore = "needs a wgpu adapter; captures the two participants' menus on both backends"]
 fn two_pad_menus_draw_in_their_own_regions() {
     use ambition_app::menu::model::{MenuPage, MenuPageAction};
-    use ambition_platformer2d::menu::{ActiveMenuPages, backend::InventoryUiBackend, render::MenuPresentationOf};
-    use ambition_platformer2d::render::capture::{CaptureCameraSet, CaptureTarget};
+    use ambition_platformer2d::menu::{ActiveMenuPages, backend::InventoryUiBackend};
     use ambition_platformer2d::settings_menu::system::SystemMenuEntryId;
     type Pages = ActiveMenuPages<MenuPage, MenuPageAction>;
 
@@ -392,19 +403,7 @@ fn two_pad_menus_draw_in_their_own_regions() {
         (InventoryUiBackend::Grid, "ambition-two-pad-menus-grid.png"),
         (InventoryUiBackend::LunexKaleidoscope, "ambition-two-pad-menus-cube.png"),
     ].into_iter().filter(|(backend, _)| backend.is_available()) {
-        let mut host = gpu_app(output);
-        host.add_systems(Update, (
-            |mut commands: Commands, target: Option<Res<CaptureTarget>>,
-             cameras: Query<(Entity, &bevy::camera::RenderTarget), (With<Camera3d>, With<MenuPresentationOf>)>| {
-                let Some(target) = target else { return; };
-                let destination = bevy::camera::RenderTarget::Image(target.image.clone().into());
-                for (entity, current) in &cameras {
-                    if !matches!(current, bevy::camera::RenderTarget::Image(image) if image.handle == target.image) {
-                        commands.entity(entity).insert((destination.clone(), Msaa::Off));
-                    }
-                }
-            }
-        ).after(CaptureCameraSet));
+        let host = gpu_app(output);
         let (mut app, pads) = session_in(host, 2, true);
         *app.world_mut().resource_mut::<InventoryUiBackend>() = backend;
         tap(&mut app, pads[1], GamepadButton::Start);
@@ -998,4 +997,17 @@ fn item_requests_restore_and_equip_the_joined_participant() {
             assert_eq!(laser, requested, "ability equip reached the wrong body for {slot:?}");
         }
     }
+}
+
+#[test]
+#[ignore = "needs a wgpu adapter; writes /tmp/ambition-single-player-cube.png"]
+fn single_player_cube_draws_with_the_authored_canvas() {
+    use ambition_platformer2d::menu::backend::InventoryUiBackend;
+    if !InventoryUiBackend::LunexKaleidoscope.is_available() { return; }
+    let (mut app, pads) = session_in(gpu_app("ambition-single-player-cube.png"), 1, false);
+    *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::LunexKaleidoscope;
+    tap(&mut app, pads[0], GamepadButton::Start);
+    assert_eq!(inventory_menus(&mut app).values().filter(|(_, open)| *open).count(), 1);
+    for _ in 0..120 { app.update(); }
+    capture_frame(&mut app);
 }

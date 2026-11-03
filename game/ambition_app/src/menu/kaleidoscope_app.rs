@@ -2051,6 +2051,7 @@ fn kaleidoscope_sync_focus_visuals(
 /// Publish the owning menu's detail text for either renderer.
 #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
 fn sync_menu_detail_text(
+    regions: Query<&super::regions::MenuRegion>,
     owned: Option<Res<OwnedItems>>,
     body_source: MenuBodySource,
     menus: Query<(
@@ -2086,6 +2087,7 @@ fn sync_menu_detail_text(
                 body_source.items(),
                 body.map(|body| body.equipped).unwrap_or_default(),
                 cursor.focus,
+                crate::menu::model::InventoryLayout::for_region(regions.get(menu).ok()),
             ),
             MenuPage::System => match cache.model.as_ref() {
                 Some(model) => {

@@ -68,6 +68,7 @@ CHARGEN-SPECIES. TEST-LANES retains the test-consolidation work.
 | [Asset editor and delivery](engine/asset-library-editor-and-delivery.md) | ASSET-SELECTION, ASSET-PUBLISH and ASSET-PREVIEW are selected. GC, content-only delivery and editor mutations retain their customer triggers in `tracks.md`. |
 | [Asset implementation review](engine/asset-library-implementation-review.md) | Evidence for the same three asset rows; no duplicate tasks. Cost traces are part of those slices. |
 | [World layers and travel](game/world-layers-and-travel.md) | Portal mechanics are built; WORLD-LAYERS owns the remaining authored topology. |
+| [Art dimension](game/art-dimension.md) | The first region is built. WORLD-LAYERS rechecks the remaining art publication, region cues and places before selecting more content. Do not rebuild the completed region. |
 | [Enemy patterns](game/enemy-patterns.md) | ENEMY-NOTICE owns the remaining skirmisher/profile gap; do not repeat built fighter engagement or completed variants. |
 | [Region composition](game/world-composition.md) | WORLD-LAYERS rechecks remaining region links and secrets against current generators. Completed regions are not requeued. |
 | [World detail run](game/world-detail-24h.md) | Its counts predate many completed rooms. Recheck them within WORLD-LAYERS; do not restart the dated run or repeat its completed art. |
@@ -524,13 +525,16 @@ reach checks and same-dimension rules already landed in `c818c0801`.
 
 **Owner:** `tools/ambition_ldtk_tools/specs` generators and
 `game/ambition_map_assets`. Design: [world layers](game/world-layers-and-travel.md),
-[region composition](game/world-composition.md), and
-[remaining room detail](game/world-detail-24h.md).
+[region composition](game/world-composition.md),
+[remaining room detail](game/world-detail-24h.md), and
+[Art dimension follow-up](game/art-dimension.md#open-work).
 
 **Next action:** fold Jungle into surface, underground and canopy regions,
 then add Magical's sky and local arch network. Reuse the existing portal and
 gate machinery. Keep authored rooms editable in LDtk. Recheck old room-detail
-counts before selecting missing props, secrets or region links.
+counts before selecting missing props, secrets or region links. Then recheck
+Art's remaining publication, cues and places against the live assets. Keep its
+completed first region.
 
 **Acceptance:** the flat map matches room placement; neighboring regions have
 loops and distinct vertical connections. Real movement reaches their exits,
@@ -850,27 +854,14 @@ Cube hover now uses pointer identity (`499fa1a51`). Guard:
 `another_participants_pad_does_not_block_mouse_focus_in_a_cube_menu`.
 Another participant's pad must not block mouse focus in a menu.
 
-Narrow menu regions now use a taller Cube canvas and a three-column item
-grid with details below it (`57462d561`). Both backends use the same layout
-for publication and navigation. Text fits its container and recovers its size
-when space returns. Guards:
-`resizing_one_viewport_rebuilds_only_its_canvas_and_restores_its_shape`,
-`portrait_navigation_follows_the_published_columns_after_resize` and
-`spatial_navigation_uses_the_current_inventory_layout`.
-Do not restore fixed inventory dimensions in either navigation path.
-
-The GPU guard `two_pad_menus_draw_in_their_own_regions` draws Equipment and
-Rebind in separate regions on both backends. The captures show no overlapping
-labels. Some item captions and detail text remain too small in narrow regions.
-Slice 4 stays open for text readability.
+Slice 4 is complete (`57462d561`, `1861a88b3`): narrow menus use their own
+canvas, shared inventory layout, and page-relative text. Item details fit the
+panel. Guards: `each_layout_publishes_its_item_details_inside_the_panel` and
+`two_pad_menus_draw_in_their_own_regions`, with both captures reviewed.
+Do not restore window-relative page text or fixed navigation dimensions.
 
 **Next action (ordered slices; complete each behavior gate before moving):**
 
-4. **Independent local menus:** make item captions and detail text readable
-   in narrow regions on both backends. Canvas sizing, shared layout dimensions,
-   navigation and resize isolation have behavior guards. Rerun the two-pad
-   flow and GPU captures before closing this slice. Admission, retirement,
-   input ownership and the shared offline pause arbiter have behavior guards.
 5. **Per-view presentation isolation:** a room transition cover follows only
    its affected participant/view; the other viewport renders and accepts
    gameplay. Define a deterministic policy for concurrent transition requests

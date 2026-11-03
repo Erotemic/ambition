@@ -390,7 +390,7 @@ where
                 children,
                 materials,
                 50.0,
-                CONTROL_LABEL_Y,
+                if kind == MenuControlKind::Item { 34.0 } else { CONTROL_LABEL_Y },
                 control_label_size(kind),
                 label,
                 TextAlign::Center,
@@ -405,8 +405,8 @@ where
                 children,
                 materials,
                 50.0,
-                control_detail_y(icon.is_some()),
-                10.5,
+                if kind == MenuControlKind::Item { 88.0 } else { control_detail_y(icon.is_some()) },
+                if kind == MenuControlKind::Item { 22.0 } else { 10.5 },
                 detail,
                 TextAlign::Center,
                 CONTROL_DETAIL_COLOR,
@@ -740,7 +740,7 @@ pub(super) fn control_detail_y(has_icon: bool) -> f32 {
 
 pub(super) fn control_label_size(kind: MenuControlKind) -> f32 {
     match kind {
-        MenuControlKind::Item => 20.0,
+        MenuControlKind::Item => 30.0,
         // System option rows want a noticeably bigger label than a generic
         // action button: the System face shows few, tall rows, so a larger
         // Rh-relative font keeps them readable and centered.

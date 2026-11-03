@@ -123,11 +123,11 @@ fn spawn_text_line(
                 },
                 TextColor(to_color(color)),
                 TextFont {
-                    font_size: FontSize::Vh(size),
+                    font_size: FontSize::Px(size),
                     font: font.cloned().unwrap_or_default(),
                     ..default()
                 },
-                super::text::MenuTextFit::line(FontSize::Vh(size)),
+                super::text::MenuTextFit::line(size),
                 TextLayout::new(to_justify(align), bevy::text::LineBreak::NoWrap),
                 Pickable::IGNORE,
             ));

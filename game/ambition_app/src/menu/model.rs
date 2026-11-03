@@ -72,22 +72,16 @@ const DETAIL_PANEL_RECT: MenuRect = MenuRect {
 /// Description wrap width for the detail panel, matching the demo's
 /// `DETAIL_WRAP_COLS`.
 const DETAIL_WRAP_COLS: usize = 18;
-/// Max description lines shown in the detail panel (demo's `DETAIL_VISIBLE_LINES`).
-const DETAIL_VISIBLE_LINES: usize = 7;
 /// Wrap width for an item NAME inside its grid cell, so long names like
 /// "Puppy-Slug Gun" don't bleed across neighbouring cells (Text3d does not clip).
 const LABEL_WRAP_COLS: usize = 10;
 /// Max lines of a wrapped item name shown in a cell.
 const LABEL_MAX_LINES: usize = 2;
 
-/// Detail-panel dynamic-text slots.
-///
-/// Items face: slot 0 is the "SELECTED" header, slots `1..=DETAIL_VISIBLE_TOTAL`
-/// are the wrapped name/description/status lines.
+/// First dynamic slot for the item name, description, and status.
 pub const ITEMS_DETAIL_BODY_SLOT0: u32 = 1;
-/// Total body lines reserved on the Items detail panel (name + blank + desc +
-/// blank + status, capped by [`DETAIL_VISIBLE_LINES`]).
-pub const ITEMS_DETAIL_BODY_LINES: u32 = 12;
+/// The detail panel has one slot for each visible line.
+pub const ITEMS_DETAIL_BODY_LINES: u32 = 8;
 /// System face bottom panel: slot 100 is the focused row's label, slots
 /// `101..` are its wrapped description lines.
 pub const SYSTEM_DETAIL_LABEL_SLOT: u32 = 100;
@@ -592,8 +586,8 @@ fn add_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>, layout:
         model.dynamic_text(
             ITEMS_DETAIL_BODY_SLOT0 + line_idx,
             center,
-            rect.y + rect.h * (0.22 + line_idx as f32 * 0.063),
-            (rect.h / 20.0).min(1.55),
+            rect.y + rect.h * (0.22 + line_idx as f32 * 0.095),
+            if layout.cols == ITEM_GRID_COLS { 1.55 } else { 2.2 },
             MenuTextAlign::Center,
             colour(menu_look().body),
         );
@@ -607,9 +601,10 @@ pub fn items_detail_slot_text(
     items: &ItemCatalog,
     equipped: EquippedItems,
     focus: MenuFocus,
+    layout: InventoryLayout,
 ) -> Vec<(u32, String)> {
     let item = Item::from_index(focus.item_index()).unwrap_or(Item::ALL[0]);
-    let lines = detail_lines(owned, items, equipped, item);
+    let lines = detail_lines(owned, items, equipped, item, layout);
     (0..ITEMS_DETAIL_BODY_LINES)
         .map(|i| {
             let slot = ITEMS_DETAIL_BODY_SLOT0 + i;
@@ -619,26 +614,22 @@ pub fn items_detail_slot_text(
         .collect()
 }
 
-/// The wrapped detail-panel lines for an item: its name, a blank, the wrapped
-/// description, and a one-line status. Mirrors the demo's `detail_lines`.
-/// A blank cell (no equipment in it) has a blank panel.
+/// Format the item name, description, and status for the current layout.
+/// A blank equipment cell has a blank detail panel.
 fn detail_lines(
     owned: &Inventory<'_>,
     items: &ItemCatalog,
     equipped: EquippedItems,
     item: Item,
+    layout: InventoryLayout,
 ) -> Vec<String> {
     let mut lines = Vec::new();
     if !is_equipment(items, item) {
         return lines;
     }
-    lines.extend(wrap_text(items.display_name(item).unwrap_or(crate::menu::effects::UNNAMED_SLOT), DETAIL_WRAP_COLS));
-    lines.push(String::new());
-    lines.extend(wrap_text(items.description(item).unwrap_or(""), DETAIL_WRAP_COLS));
-    // Cap the description so it stays inside the fixed panel (Text3d does not clip
-    // to its parent rect — the demo wraps + caps for the same reason).
-    lines.truncate(DETAIL_VISIBLE_LINES);
-    lines.push(String::new());
+    let wrap_cols = if layout.cols == ITEM_GRID_COLS { DETAIL_WRAP_COLS } else { 32 };
+    lines.extend(wrap_text(items.display_name(item).unwrap_or(crate::menu::effects::UNNAMED_SLOT), wrap_cols));
+    lines.extend(wrap_text(items.description(item).unwrap_or(""), wrap_cols));
     let status = if !owned.has(item) {
         line("menu.items.not_owned")
     } else if equipped.contains(item) {
@@ -648,7 +639,9 @@ fn detail_lines(
     } else {
         line("menu.items.activate_to_use")
     };
-    lines.extend(wrap_text(&status, DETAIL_WRAP_COLS));
+    let status = wrap_text(&status, wrap_cols);
+    lines.truncate((ITEMS_DETAIL_BODY_LINES as usize).saturating_sub(status.len()));
+    lines.extend(status);
     lines
 }
 

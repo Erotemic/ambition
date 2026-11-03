@@ -5,20 +5,26 @@ use bevy::ui::ComputedUiRenderTargetInfo;
 /// The authored maximum size. The visible text can shrink to its layout box.
 #[derive(Component, Clone, Copy)]
 pub(super) struct MenuTextFit {
-    maximum: FontSize,
+    maximum: TextMaximum,
     fit_height: bool,
 }
 
+#[derive(Clone, Copy)]
+enum TextMaximum {
+    Target(FontSize),
+    PageHeight(f32),
+}
+
 impl MenuTextFit {
-    pub(super) fn line(maximum: FontSize) -> Self {
+    pub(super) fn line(percent: f32) -> Self {
         Self {
-            maximum,
+            maximum: TextMaximum::PageHeight(percent),
             fit_height: false,
         }
     }
     pub(super) fn box_size(maximum: FontSize) -> Self {
         Self {
-            maximum,
+            maximum: TextMaximum::Target(maximum),
             fit_height: true,
         }
     }
@@ -40,7 +46,7 @@ pub(super) fn apply_dynamic_text(
 /// Use Bevy's measured width. Keep the authored size when the text fits.
 pub(super) fn fit_menu_text(
     rem: Res<RemSize>,
-    boxes: Query<Ref<ComputedNode>>,
+    boxes: Query<(Ref<ComputedNode>, Option<&ChildOf>)>,
     mut texts: Query<(
         &ChildOf,
         Ref<TextLayoutInfo>,
@@ -50,10 +56,15 @@ pub(super) fn fit_menu_text(
     )>,
 ) {
     for (parent, layout, target, fit, mut font) in &mut texts {
-        let Ok(node) = boxes.get(parent.parent()) else {
+        let Ok((node, page_parent)) = boxes.get(parent.parent()) else {
             continue;
         };
+        let page = match fit.maximum {
+            TextMaximum::PageHeight(_) => page_parent.and_then(|parent| boxes.get(parent.parent()).ok()),
+            TextMaximum::Target(_) => None,
+        };
         if !node.is_changed()
+            && !page.as_ref().is_some_and(|(page, _)| page.is_changed())
             && !layout.is_changed()
             && !target.is_changed()
             && !fit.is_changed()
@@ -61,12 +72,21 @@ pub(super) fn fit_menu_text(
         {
             continue;
         }
+        let maximum_font = match fit.maximum {
+            TextMaximum::Target(size) => size,
+            TextMaximum::PageHeight(percent) => {
+                let Some((page, _)) = page else { continue; };
+                FontSize::Px(page.content_box().size().y * page.inverse_scale_factor() * percent / 100.0)
+            }
+        };
         let available = node.content_box().size().x * node.inverse_scale_factor();
         let measured = layout.size.x;
-        if available <= 0.0 || measured <= 0.0 {
+        if available <= 0.0 { continue; }
+        if measured <= 0.0 {
+            if font.font_size != maximum_font { font.font_size = maximum_font; }
             continue;
         }
-        let maximum = fit.maximum.eval(target.logical_size(), rem.0);
+        let maximum = maximum_font.eval(target.logical_size(), rem.0);
         let current = font.font_size.eval(target.logical_size(), rem.0);
         let mut ratio = available / measured;
         if fit.fit_height && layout.size.y > 0.0 {
@@ -78,7 +98,7 @@ pub(super) fn fit_menu_text(
         }
         let fitted = current * ratio;
         let wanted = if fitted >= maximum {
-            fit.maximum
+            maximum_font
         } else {
             FontSize::Px(fitted.floor().max(1.0))
         };
@@ -140,6 +160,8 @@ mod tests {
             MenuTextAlign::Center,
             MenuColor::WHITE,
         );
+        page.text(50.0, 50.0, 4.0, "First detail line", MenuTextAlign::Center, MenuColor::WHITE);
+        page.text(50.0, 55.0, 4.0, "Second detail line", MenuTextAlign::Center, MenuColor::WHITE);
         page.control(
             crate::MenuRect::new(12.0, 25.0, 44.0, 8.0),
             crate::MenuControlKind::Item,
@@ -218,6 +240,19 @@ mod tests {
             }
         }
 
+        let detail_lines = |app: &mut App, menu| {
+            let mut query = app.world_mut().query::<(&crate::MenuSurface, &Text, &ComputedNode, &UiGlobalTransform)>();
+            let mut bounds = |label: &str| {
+                let (_, _, node, transform) = query.iter(app.world())
+                    .find(|(owner, text, _, _)| owner.0 == menu && text.0 == label).unwrap();
+                (transform.translation.y, node.size().y)
+            };
+            let first = bounds("First detail line");
+            let second = bounds("Second detail line");
+            assert!(second.0 - first.0 >= (first.1 + second.1) * 0.5,
+                "page text must fit between its authored line positions");
+        };
+        for menu in menus { detail_lines(&mut app, menu); }
         let first_size = app.world().get::<TextFont>(headings[0]).unwrap().font_size;
         let other_tick = app
             .world()
@@ -230,6 +265,7 @@ mod tests {
             app.update();
         }
         fits(&app, headings[0]);
+        for menu in menus { detail_lines(&mut app, menu); }
         assert_ne!(
             app.world().get::<TextFont>(headings[0]).unwrap().font_size,
             first_size
@@ -264,10 +300,18 @@ mod tests {
             app.update();
         }
         fits(&app, headings[0]);
-        assert_eq!(
-            app.world().get::<TextFont>(headings[0]).unwrap().font_size,
-            FontSize::Vh(5.0)
-        );
+        let line = app.world().get::<ChildOf>(headings[0]).unwrap().parent();
+        let body = app.world().get::<ChildOf>(line).unwrap().parent();
+        let page = app.world().get::<ComputedNode>(body).unwrap();
+        let maximum = page.content_box().size().y * page.inverse_scale_factor() * 0.05;
+        assert_eq!(app.world().get::<TextFont>(headings[0]).unwrap().font_size, FontSize::Px(maximum));
+
+        let before_height_resize = app.world().get::<TextFont>(headings[0]).unwrap().font_size;
+        app.world_mut().get_mut::<Node>(roots[0]).unwrap().height = Val::Px(360.0);
+        for _ in 0..8 { app.update(); }
+        for menu in menus { detail_lines(&mut app, menu); }
+        assert_ne!(app.world().get::<TextFont>(headings[0]).unwrap().font_size, before_height_resize);
+        assert_eq!(app.world().entity(headings[1]).get_ref::<TextFont>().unwrap().last_changed(), other_tick);
 
         let dynamic = app
             .world_mut()

@@ -107,7 +107,7 @@ fn a_carried_key_item_is_on_the_quest_page_not_the_equipment_grid() {
             "{item:?} has a blank cell on the equipment grid"
         );
         assert!(cell.action.is_some(), "the cursor passes the blank cell of {item:?}");
-        let panel = items_detail_slot_text(&ambition_platformer2d::items::Inventory::new(&owned, None), catalog, EquippedItems::default(), MenuFocus::Item(item.index()));
+        let panel = items_detail_slot_text(&ambition_platformer2d::items::Inventory::new(&owned, None), catalog, EquippedItems::default(), MenuFocus::Item(item.index()), InventoryLayout::default());
         assert!(panel.iter().all(|(_, text)| text.is_empty()), "the detail panel names {item:?}: {panel:?}");
     }
 
@@ -276,7 +276,7 @@ fn items_page_has_one_detail_panel_not_per_cell_descriptions() {
     );
     // The in-place text for a focused item renders its description (this is what
     // `kaleidoscope_sync_detail_text` writes into the dynamic slots each move).
-    let slot_text = items_detail_slot_text(&ambition_platformer2d::items::Inventory::new(&owned, None), ambition_platformer2d::items::test_item_catalog(), EquippedItems::default(), MenuFocus::Item(Item::Grapple.index()));
+    let slot_text = items_detail_slot_text(&ambition_platformer2d::items::Inventory::new(&owned, None), ambition_platformer2d::items::test_item_catalog(), EquippedItems::default(), MenuFocus::Item(Item::Grapple.index()), InventoryLayout::default());
     let joined: String = slot_text
         .iter()
         .map(|(_, s)| s.as_str())
@@ -887,6 +887,37 @@ fn a_held_weapon_is_owned_in_its_owners_cells_and_detail_panel() {
     let spec = items_spec(&inventory, items, equipped, crate::menu::model::InventoryLayout::default());
     assert!(spec.cells[Item::GunSword.index()].owned);
     assert!(spec.cells[Item::GunSword.index()].equipped);
-    let detail = items_detail_slot_text(&inventory, items, equipped, MenuFocus::Item(Item::GunSword.index()));
+    let detail = items_detail_slot_text(&inventory, items, equipped, MenuFocus::Item(Item::GunSword.index()), InventoryLayout::default());
     assert!(!detail.iter().any(|(_, text)| text.contains(&line("menu.items.not_owned"))));
+}
+
+#[test]
+fn each_layout_publishes_its_item_details_inside_the_panel() {
+    let portrait = crate::menu::regions::MenuRegion(Some(bevy::math::Rect::from_corners(
+        bevy::math::Vec2::ZERO, bevy::math::Vec2::new(400.0, 720.0))));
+    let owned = OwnedItems::default();
+    let inventory = ambition_platformer2d::items::Inventory::new(&owned, None);
+    let catalog = ambition_platformer2d::items::test_item_catalog();
+    for layout in [InventoryLayout::default(), InventoryLayout::for_region(Some(&portrait))] {
+        let page = build_items_page(&inventory, catalog, Default::default(), layout);
+        let bounds = layout.detail_rect();
+        let slots: Vec<_> = page.nodes.iter().filter_map(|node| match node {
+            MenuNode::DynamicText { slot, y, size, .. } => Some((*slot, *y, *size)),
+            _ => None,
+        }).collect();
+        for (index, (_, y, size)) in slots.iter().enumerate() {
+            assert!(*y >= bounds.y && *y + size <= bounds.y + bounds.h);
+            if let Some((_, next_y, _)) = slots.get(index + 1) {
+                assert!(*y + size <= *next_y, "detail lines must have separate space");
+            }
+        }
+        for item in Item::ALL.into_iter().filter(|item| is_equipment(catalog, *item)) {
+            let text = items_detail_slot_text(&inventory, catalog, Default::default(), MenuFocus::Item(item.index()), layout);
+            assert_eq!(slots.iter().map(|(slot, _, _)| *slot).collect::<Vec<_>>(),
+                text.iter().map(|(slot, _)| *slot).collect::<Vec<_>>());
+            let joined = text.iter().map(|(_, text)| text.as_str()).collect::<Vec<_>>().join(" ");
+            assert!(joined.starts_with(catalog.display_name(item).unwrap()));
+            assert!(joined.contains(&line("menu.items.not_owned")));
+        }
+    }
 }

@@ -12,6 +12,11 @@ title: art_context
 // pigments (the flags `art_pigment_cyan`, `art_pigment_magenta`,
 // `art_pigment_yellow`), and says so; nothing here sets a flag.
 //
+// The four quarters (fiction, performance, music, teknis) have their own
+// people below. The Author is the one writer of a flag here: the ending the
+// player chooses (`art_ending_happy`, `art_ending_sad`) opens its door in the
+// library of endings.
+//
 // Never played. No placement names this node; it declares the zone.
 ===
 
@@ -26,6 +31,10 @@ The Curator: Welcome to the Painter's Plaza. Mind the easel. It is the gate, and
 -> What is this place?
     The Curator: The Art dimension. Here a thing that somebody makes keeps going after they stop. Doodles walk. Statues think about it. Ink has opinions.
     The Curator: Up is the sketchbook. Down is the ink. East is the garden, where the statues are not finished. None of it is.
+-> Is it all paint?
+    The Curator: Paint is only the part you can hang on a wall. West are the Story Stacks, where the books are. Over them is the Amphitheatre, where people pretend for a living.
+    The Curator: East of the cliffs is the Resonant Reach. Music lives there, and it is loud about it. Under everything, past the ink, the makers work in the Deeps.
+    The Curator: A song, a play, a story, a well-made chair. Each is somebody telling somebody else a thing that does not fit in words. That is all art is.
 -> Why does everybody glare at the gate?
     The Curator: Because of what comes through it. Strangers who make a thousand pictures before lunch and sign none of them.
     The Curator: Here a mark means somebody meant it. They are afraid that a mark will stop meaning anything.
@@ -87,4 +96,134 @@ Frida Collage: Stand still. You have a piece I want: a bolt, there, by your ear.
     Frida Collage: I would use them if I knew whose they were. A scrap with no name is a stranger in my face.
 -> Goodbye.
     Frida Collage: Go on. I have your bolt in my head now. It will be in a picture by Thursday.
+===
+
+title: art_edgar_allan_crow
+---
+Edgar Allan Crow: Once upon a midnight dreary... no. It is noon. It is always noon when I start, and midnight when I finish.
+-> What are you writing?
+    Edgar Allan Crow: A poem about a bird who says one word. Over and over. To a man who keeps asking him questions.
+    Edgar Allan Crow: It is not about me. Everybody thinks it is about me.
+-> Will you ever finish it?
+    Edgar Allan Crow: Nevermore.
+    Edgar Allan Crow: That is not an answer. It is the only word I have left this week.
+-> What do you think of the gate?
+    Edgar Allan Crow: It opens on dark places, and things come through that nobody asked for. I approve of the atmosphere. I do not approve of the guests.
+-> Goodbye.
+    Edgar Allan Crow: Nevermore. That means "see you soon." Context is everything.
+===
+
+title: art_agatha_christly
+---
+Agatha Christly: Stop there. Where were you at a quarter past four?
+-> I just got here.
+    Agatha Christly: That is exactly what the murderer said in my last book. And in the one before that.
+-> Who was murdered?
+    Agatha Christly: Nobody yet. I like to have the suspect ready first. It saves a great deal of time.
+    Agatha Christly: Mark my words: it will be the bookworm, in the stacks, with a page.
+-> What do you think of the gate?
+    Agatha Christly: Every gate is a locked room with a way in. I have written eleven books about less.
+-> Goodbye.
+    Agatha Christly: Do not leave the dimension. You are not under suspicion. Yet.
+===
+
+title: art_the_author
+---
+The Author: Ah. A character. You walked in without a plot. Everybody does.
+-> Who are you?
+    The Author: I keep the endings. Every story in the stacks comes here at the end to be finished. Most of them do not want to be.
+-> Write me an ending.
+    The Author: Which kind? Think before you say. An ending changes what came before it.
+    -> A happy one.
+        <<command "world.set_flag" "art_ending_happy" true>>
+        The Author: Easy to write, hard to believe. There. The gold door is yours. Everyone is paid and nobody learns anything.
+    -> A sad one.
+        <<command "world.set_flag" "art_ending_sad" true>>
+        The Author: Hard to write, easy to believe. There. The blue door, up on the balcony. It is worth more. They always are.
+    -> Not yet.
+        The Author: Good. A story that knows its ending too early is only a list.
+-> Why does everybody here hate the gate?
+    The Author: Because what comes through it has read everything and meant none of it. A story needs somebody who meant it.
+-> Goodbye.
+    The Author: Go on, then. I will see you at the end.
+===
+
+title: art_ludwig_van_beathoven
+---
+Ludwig van Beathoven: WHAT?
+-> I said hello.
+    Ludwig van Beathoven: I CANNOT HEAR YOU. I CAN HEAR THE MUSIC. THAT IS THE IMPORTANT PART.
+-> What are the chimes for?
+    Ludwig van Beathoven: THREE CHIMES. DO, MI, SOL. STRIKE ALL THREE AND THE HALL OPENS ITS STAGE. A CHORD IS A DOOR, BOY. ROBOT. WHATEVER YOU ARE.
+-> What do you think of the gate?
+    Ludwig van Beathoven: IT HUMS IN B FLAT. NOTHING GOOD WAS EVER WRITTEN IN THE KEY OF A DOOR.
+-> Goodbye.
+    Ludwig van Beathoven: DA DA DA DUMMM. THAT MEANS GOODBYE.
+===
+
+title: art_johann_sebastian_batch
+---
+Johann Sebastian Batch: Shh. The fugue is running. Four voices, one theme, no voice waits for another. It is very efficient.
+-> What is a fugue?
+    Johann Sebastian Batch: A theme, then the same theme a little later, then again, until they all run together and nobody is in charge. Very like a good workshop.
+-> Why are the bars of the stage shut?
+    Johann Sebastian Batch: They wait for the chord. The three chimes of the reach. Do, mi, sol. I would strike them myself, but I am in the middle of a process.
+-> What do you think of the gate?
+    Johann Sebastian Batch: It brings strangers who make a thousand tunes an hour. I make one a week, for every week of my life. In the end mine add up to more.
+-> Goodbye.
+    Johann Sebastian Batch: Go well. Come back for the next run. It is the same fugue. That is the point.
+===
+
+title: art_marcel_mimeau
+---
+Marcel Mimeau: (He bows. He holds up one finger: wait. He takes a key out of the air and opens a door that is not there.)
+-> What are you doing?
+    Marcel Mimeau: (He points at you, then at the stage, then mimes a crowd that claps. He wipes a tear.)
+-> Do you ever talk?
+    Marcel Mimeau: (He opens his mouth. He thinks about it. He shuts it again, very slowly, and shrugs a huge shrug.)
+-> What do you think of the gate?
+    Marcel Mimeau: (He walks into a wall that is not there. He feels along it. He finds no door in it. He is sad about this for a long time.)
+-> Goodbye.
+    Marcel Mimeau: (He waves. He keeps waving after you leave. You can feel it.)
+===
+
+title: art_will_shakesbeard
+---
+Will Shakesbeard: Good morrow, metal friend. What brings thee here, to stand upon the boards where players die?
+-> Is that a real beard?
+    Will Shakesbeard: The beard is real; the rest is all a play. I grew it for a part. The part is gone.
+-> What is the audition?
+    Will Shakesbeard: Step on the stage, and they will test thy nerve. The critics throw, the stagehands lift and shove. Survive the scene: the curtain will be drawn.
+-> What do you think of the gate?
+    Will Shakesbeard: A door that every stranger may come through, and none of them can say a line by heart.
+-> Goodbye.
+    Will Shakesbeard: Parting is such sweet sorrow. Go. Exit, pursued by nobody in particular.
+===
+
+title: art_leonardo_da_vinchy
+---
+Leonardo da Vinchy: Hold still. No, keep moving. I am drawing how you move.
+-> What are you making?
+    Leonardo da Vinchy: A flying machine, a diving suit, a better bridge, and a portrait of a woman who will not stop smiling. All at once. None of them finished.
+-> Why do you write backward?
+    Leonardo da Vinchy: So that nobody can read my notebooks over my shoulder. Also, I am left-handed, and the ink does not smudge this way. Mostly the second one.
+-> The pit of fire.
+    Leonardo da Vinchy: The bridge is mine. Pull the lever by the crane and it swings in. I tested it many times. With sandbags. Mostly.
+-> What do you think of the gate?
+    Leonardo da Vinchy: I would like to take it apart. I would like very much to take it apart.
+-> Goodbye.
+    Leonardo da Vinchy: Go. If you see a bird, look at its wings for me. I am behind on birds.
+===
+
+title: art_antoni_gaudy
+---
+Antoni Gaudy: Do not look for a straight line. There are none in nature, and there are none in my work. Nature and I agree.
+-> What are you building?
+    Antoni Gaudy: A cathedral. I started it a long time ago. It will be finished. Not by me. That is how a cathedral works.
+-> Is anything here finished?
+    Antoni Gaudy: The loom hall has a tapestry that is done, they say. I have not seen it. I do not trust a thing that is done.
+-> What do you think of the gate?
+    Antoni Gaudy: Three straight sides. Three. I would have let it melt a little.
+-> Goodbye.
+    Antoni Gaudy: Go slowly. Everything worth making takes longer than a life.
 ===

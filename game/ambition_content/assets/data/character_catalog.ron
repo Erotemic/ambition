@@ -403,6 +403,76 @@
             move_style: WalkHeavy,
             melee: Some(Lunge(windup_s: 0.9, active_s: 0.3, recover_s: 1.2, damage: 4, reach_px: 104.0, step_px: 0.0, rush_px: 40.0)),
         ),
+        // The Story Stacks (the fiction quarter of the Art dimension). A
+        // bookworm rears back with its mouth open (its windup row) and chomps;
+        // a red herring bends back into a curve and darts at you mouth first;
+        // a paper tiger crouches with its tail lashing, then pounces a long
+        // way, paws first, and needs a moment to stand up again.
+        "bookworm_chomp": (
+            move_style: Walk,
+            melee: Some(Bite(windup_s: 0.35, active_s: 0.1, recover_s: 0.4, damage: 1, reach_px: 28.0)),
+        ),
+        "red_herring_dart": (
+            move_style: Float,
+            melee: Some(Lunge(windup_s: 0.3, active_s: 0.2, recover_s: 0.5, damage: 1, reach_px: 30.0, step_px: 0.0, rush_px: 150.0)),
+        ),
+        "paper_tiger_pounce": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.6, active_s: 0.3, recover_s: 0.8, damage: 2, reach_px: 60.0, step_px: 0.0, rush_px: 200.0)),
+        ),
+        // The Amphitheatre (the performance quarter of the Art dimension). A
+        // stagehand swings its sandbag over its head and down in front; a
+        // critic keeps his distance and throws tomatoes, and swats with his
+        // notepad when you come close; a mime leans on an invisible wall (its
+        // windup row), pulls an invisible rope, then shoves you for real.
+        "stagehand_sandbag": (
+            move_style: Walk,
+            melee: Some(Slam(windup_s: 0.35, active_s: 0.12, recover_s: 0.4, damage: 2, reach_px: 40.0)),
+        ),
+        "critic_tomato": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.25, active_s: 0.08, recover_s: 0.35, damage: 1, reach_px: 26.0)),
+            ranged: Some(Rock(speed: 340.0, damage: 1)),
+        ),
+        "mime_shove": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.6, active_s: 0.2, recover_s: 0.6, damage: 2, reach_px: 36.0, step_px: 16.0, rush_px: 0.0)),
+        ),
+        // The Resonant Reach (the music quarter of the Art dimension). A
+        // discord note dives in and claps its two heads together; a feedback
+        // wail breathes in (its windup row) and shrieks a ring of sound from a
+        // distance; a war drum lifts both mallets high and slams the ground in
+        // front of it.
+        "discord_note_clash": (
+            move_style: Float,
+            melee: Some(Lunge(windup_s: 0.30, active_s: 0.12, recover_s: 0.45, damage: 1, reach_px: 30.0, step_px: 0.0, rush_px: 150.0)),
+        ),
+        "feedback_wail_shriek": (
+            move_style: Float,
+            melee: Some(Bite(windup_s: 0.2, active_s: 0.08, recover_s: 0.3, damage: 1, reach_px: 30.0)),
+            ranged: Some(Bolt(speed: 440.0, damage: 1)),
+        ),
+        "war_drum_slam": (
+            move_style: WalkHeavy,
+            melee: Some(Slam(windup_s: 0.8, active_s: 0.2, recover_s: 1.0, damage: 3, reach_px: 72.0)),
+        ),
+        // The Workshop Deeps. A clay golem lifts both fists over its head and
+        // slams them onto the floor in front of it (its arms stretch to reach);
+        // a loom spider rears, then darts in and stabs with its front needles;
+        // a kiln sprite breathes in until its pot glows and spits a coal.
+        "clay_golem_slam": (
+            move_style: WalkHeavy,
+            melee: Some(Lunge(windup_s: 0.85, active_s: 0.3, recover_s: 1.1, damage: 3, reach_px: 64.0, step_px: 0.0, rush_px: 30.0)),
+        ),
+        "loom_spider_stab": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.35, active_s: 0.12, recover_s: 0.45, damage: 1, reach_px: 30.0, step_px: 0.0, rush_px: 160.0)),
+        ),
+        "kiln_sprite_spit": (
+            move_style: Float,
+            melee: Some(Bite(windup_s: 0.2, active_s: 0.08, recover_s: 0.3, damage: 1, reach_px: 28.0)),
+            ranged: Some(Rock(speed: 340.0, damage: 1)),
+        ),
         // The Bad Apple's chomp: it rears back with its maw wide (its windup
         // row), then rolls at you jaws first, and sits a beat after, dizzy. Its
         // `attack_side` row is drawn to these times (`BAD_CHOMP_S` in the
@@ -6092,6 +6162,398 @@
             hall: ["My sculptor stopped at the back of my head. I have had a long time to think about why.", "They call us the living statues. We call ourselves the work in progress."],
         ),
         ),
+        // ===== THE STORY STACKS: the creatures of the fiction quarter are
+        // idioms made literal.
+        // The bookworm: a fat green worm in spectacles that eats books. It
+        // humps along, rears up, and chomps.
+        "bookworm": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Bookworm",
+            manifest: "sprites/bookworm_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(30.0),
+            composition: None,
+            default_action_set: "bookworm_chomp",
+            locomotion: Some((run_speed: 120.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 420.0,
+                attack_range: 26.0,
+                patrol_effort: 0.5,
+                chase_effort: 0.8,
+                // It rears up, chomps, and goes back to its page.
+                attack_cooldown_s: 0.7,
+                tactics: (notice_s: 0.45),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "art", "stacks", "book"],
+        barks: (
+            on_hit: ["Ow! My spectacles!", "You creased my page!"],
+            provoked: ["Shh! This is a library!"],
+            idle: ["*munch* *munch*", "Chapter twelve. Delicious.", "A little dry. It needs more footnotes."],
+            hall: ["I have read every book in the Stacks. Well. Eaten. It is the same thing if you chew slowly.", "I wear spectacles to see the words before I eat them. It is only polite."],
+        ),
+        ),
+        // The red herring: a bright red fish that swims through the air, too
+        // obvious to trust. It floats, and it darts at you mouth first (its
+        // windup row bends it back). It has no spit: a floater that strikes
+        // in melee dives, so it is `Aerial` (a `Skirmisher` keeps its distance
+        // and only fires, and this fish has nothing to fire).
+        "red_herring": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Red Herring",
+            manifest: "sprites/red_herring_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(26.0),
+            composition: None,
+            default_action_set: "red_herring_dart",
+            locomotion: Some((run_speed: 150.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 520.0,
+                attack_range: 120.0,
+                shares_sightings: false,
+                tactics: (dive_tell_s: 0.3, notice_s: 0.4),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "art", "stacks", "fish"],
+        barks: (
+            on_hit: ["That was not a clue!", "Blub! Misdirection!"],
+            provoked: ["Look over there!"],
+            idle: ["*it glints, suspiciously*", "Nothing to see here. Except me. Look at me.", "I am very important to the plot."],
+            hall: ["Every mystery needs me. No mystery needs me twice.", "The butler did it. Trust me. I am a fish."],
+        ),
+        ),
+        // The paper tiger: a big tiger of folded newspaper with ROAR printed on
+        // its side. It looks fierce: it crouches (its windup row) and pounces a
+        // long way. It is not: two hits crumple it into a ball.
+        "paper_tiger": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Paper Tiger",
+            manifest: "sprites/paper_tiger_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(64.0),
+            composition: None,
+            default_action_set: "paper_tiger_pounce",
+            locomotion: Some((run_speed: 170.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 540.0,
+                attack_range: 110.0,
+                patrol_effort: 0.5,
+                chase_effort: 0.9,
+                // It keeps a pounce away, crouches, and leaps.
+                attack_cooldown_s: 1.0,
+                tactics: (notice_s: 0.5, footsies: Some((hold_px: 140.0, wait_s: 0.6))),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "art", "stacks", "paper"],
+        barks: (
+            on_hit: ["Crrrinkle!", "Mind the folds!"],
+            provoked: ["ROAR. It says so right here."],
+            idle: ["*rustle*", "Rawr. Ahem. ROAR.", "*it reads its own side*"],
+            hall: ["I am very fierce. It says so in the headline.", "Yesterday's news, they call me. I am today's tiger. Until somebody sits on me."],
+        ),
+        ),
+        // ===== THE AMPHITHEATRE (the performance quarter of the Art
+        // dimension): the people of the theatre, and the people who watch it.
+        // The stagehand: crew in black with a headset and a sandbag. Fast and
+        // low; the bag goes back over its shoulder (its windup row), then over
+        // its head and down in front.
+        "stagehand": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Stagehand",
+            manifest: "sprites/stagehand_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(56.0),
+            composition: None,
+            default_action_set: "stagehand_sandbag",
+            locomotion: Some((run_speed: 260.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 500.0,
+                attack_range: 36.0,
+                patrol_effort: 0.6,
+                chase_effort: 1.0,
+                // In, one swing, and out of the light again before you see it.
+                retreat_after_swing_s: 0.45,
+                attack_cooldown_s: 0.5,
+                tactics: (notice_s: 0.3, waits_its_turn: true, footsies: Some((hold_px: 72.0, wait_s: 0.45)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "art", "stage"],
+        barks: (
+            on_hit: ["Ow! Hold the fly!", "That was not on the cue sheet!"],
+            provoked: ["Stand by... and GO."],
+            idle: ["Standing by.", "*into the headset* Copy that.", "Go on the cue. Not before."],
+            hall: ["You never see us. That is the job. The scene changes, and nobody asks who changed it.", "Every sandbag up there holds something heavy over somebody's head. Mind your mark."],
+        ),
+        ),
+        // The critic: a portly man in an opera cape who throws tomatoes. He
+        // keeps his distance and throws (the `shoot` of a skirmisher): the
+        // tomato goes back over his shoulder first (his windup row). It flies
+        // as a thrown `Rock` does, and looks like a red fruit (`ranged_vfx`).
+        "critic": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Critic",
+            manifest: "sprites/critic_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(60.0),
+            composition: None,
+            default_action_set: "critic_tomato",
+            ranged_vfx: Some("apple"),
+            locomotion: Some((run_speed: 110.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: Skirmisher,
+                aggro_radius: 600.0,
+                attack_range: 320.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.7,
+                // The tomato goes back, he takes aim with his nose, and throws.
+                ranged_volley: Some((windup_s: 0.55, firing_s: 0.2, recovery_s: 1.2)),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "art", "stage"],
+        barks: (
+            on_hit: ["How DARE you. Two stars, and falling.", "My monocle!"],
+            provoked: ["I have seen better performances from the scenery."],
+            idle: ["Derivative.", "*scribbles* 'Wooden.'", "One star. I am being generous."],
+            hall: ["I do not make art. I make art nervous. It is a calling.", "Everyone is a critic. I am the only one who brought tomatoes."],
+        ),
+        ),
+        // The mime: whiteface, stripes and braces. It leans on an invisible
+        // wall (its windup row), pulls an invisible rope hand over hand (the
+        // first frames of its attack row), and then shoves you with both hands.
+        "mime": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Mime",
+            manifest: "sprites/mime_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(60.0),
+            composition: None,
+            default_action_set: "mime_shove",
+            locomotion: Some((run_speed: 160.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 480.0,
+                attack_range: 34.0,
+                patrol_effort: 0.5,
+                chase_effort: 0.9,
+                // A long, clear act before the shove: the wall, the rope, the push.
+                attack_cooldown_s: 0.8,
+                tactics: (notice_s: 0.5, footsies: Some((hold_px: 70.0, wait_s: 0.6))),
+            )),
+            max_health: Some(4),
+            tags: ["enemy", "art", "stage"],
+        barks: (
+            on_hit: ["[A silent scream.]", "[He staggers, as if struck by a very large invisible piano.]"],
+            provoked: ["[He rolls up his sleeves. Slowly. Meaningfully.]"],
+            idle: ["[He feels along a wall that is not there.]", "[He leans on nothing. It holds.]", "[He tips an invisible hat.]"],
+            hall: ["[He mimes a box. Then a bigger box round the first. Then he climbs out of both, and bows.]", "[He points at you, then at the stage, then pulls an invisible rope between the two.]"],
+        ),
+        ),
+        // ===== THE RESONANT REACH: the music quarter of the Art dimension. Its
+        // sheets are in the renderer (`targets/characters/_art_cast_kit.py`).
+        // The discord note: two eighth notes one sour step apart, joined by a
+        // beam. It floats in, pulls its heads apart (its windup row) and dives
+        // to clap them together on you.
+        "discord_note": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Discord Note",
+            manifest: "sprites/discord_note_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(44.0),
+            composition: None,
+            default_action_set: "discord_note_clash",
+            locomotion: Some((run_speed: 160.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 520.0,
+                attack_range: 140.0,
+                shares_sightings: false,
+                tactics: (dive_tell_s: 0.3, notice_s: 0.35),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "art", "music"],
+        barks: (
+            on_hit: ["Ow! Flat!", "That was SHARP."],
+            provoked: ["We disagree! With YOU!"],
+            idle: ["No. Me.", "*a sour buzz*", "You are a semitone off. No, YOU are."],
+            hall: ["We are a minor second. We have been arguing since the first bar.", "Somebody wrote us side by side and never resolved us. Rude."],
+        ),
+        ),
+        // The feedback wail: the ghost of a loudspeaker with a cable for a tail.
+        // It floats, keeps its distance and shrieks (the `shoot` of a
+        // skirmisher): it draws a breath first (its windup row). There is no
+        // look for a ring of sound yet, so its shot is the default bolt.
+        "feedback_wail": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Feedback Wail",
+            manifest: "sprites/feedback_wail_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(52.0),
+            composition: None,
+            default_action_set: "feedback_wail_shriek",
+            locomotion: Some((run_speed: 120.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Skirmisher,
+                aggro_radius: 600.0,
+                attack_range: 320.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.8,
+                ranged_volley: Some((windup_s: 0.6, firing_s: 0.25, recovery_s: 1.2)),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "art", "music", "ghost"],
+        barks: (
+            on_hit: ["*KRZZT*", "Check one. Check. Ow."],
+            provoked: ["EEEEEEEEEEEEEEE!"],
+            idle: ["*a low hum*", "Is this thing on?", "*crackle*"],
+            hall: ["I was a speaker once. Somebody stood too close with a microphone, and I have been screaming ever since.", "Unplug me. I dare you. The plug is right there. I am not attached to anything."],
+        ),
+        ),
+        // The war drum: a kettle drum on two stubby legs with mallets for arms.
+        // It keeps time as it walks; it crouches with both mallets high (its
+        // windup row), beats its skin with one and slams the ground in front
+        // with the other.
+        "war_drum": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "War Drum",
+            manifest: "sprites/war_drum_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(72.0),
+            composition: None,
+            default_action_set: "war_drum_slam",
+            locomotion: Some((run_speed: 90.0, move_style: WalkHeavy)),
+            contact_damage: Some((strength: 0.6, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 540.0,
+                attack_range: 70.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.8,
+                // Both mallets up for a long beat: the gap after the slam is the opening.
+                attack_cooldown_s: 1.2,
+                tactics: (notice_s: 0.6, footsies: Some((hold_px: 100.0, wait_s: 0.9))),
+            )),
+            max_health: Some(10),
+            mass: Some(6.0),
+            tags: ["enemy", "art", "music", "drum"],
+        barks: (
+            on_hit: ["BOOM!", "Mind the skin!"],
+            provoked: ["*BA-DUM*"],
+            idle: ["Boom. Boom. Boom.", "*it keeps time*", "Left. Left. Left, right, left."],
+            hall: ["I keep the time of the Reach. If you are early, I am louder. If you are late, I am much louder.", "Every march needs a drum. I have looked for a march for a long time. You will do."],
+        ),
+        ),
+        // The clay golem: a figure of wet clay, a pot thrown on a wheel for
+        // its belly and coils for its arms. Slow, heavy, and it hits hard: both
+        // fists go up over its head (its windup row), then down onto the floor.
+        "clay_golem": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Clay Golem",
+            manifest: "sprites/clay_golem_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(90.0),
+            composition: None,
+            default_action_set: "clay_golem_slam",
+            locomotion: Some((run_speed: 90.0, move_style: WalkHeavy)),
+            contact_damage: Some((strength: 0.6, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 520.0,
+                attack_range: 60.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.8,
+                // The fists stay on the floor a beat after the slam: that is the opening.
+                attack_cooldown_s: 1.2,
+                tactics: (notice_s: 0.6),
+            )),
+            max_health: Some(10),
+            mass: Some(6.0),
+            tags: ["enemy", "art", "clay"],
+        barks: (
+            on_hit: ["*squelch*", "Leave a thumbprint. Everyone does."],
+            provoked: ["*the kiln lights in its eyes*"],
+            idle: ["*drip*", "Still wet.", "Shape... me..."],
+            hall: ["My maker threw my legs on a wheel and made the rest by hand before lunch. Lunch went long.", "I am not finished. Nobody fires a golem. Nobody asks the golem."],
+        ),
+        ),
+        // The loom spider: a spool of thread on eight needle legs, with
+        // scissors for jaws. It weaves a thread behind it as it walks; in a
+        // fight it rears (its windup row), darts in, stabs and snips, and
+        // darts out again.
+        "loom_spider": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Loom Spider",
+            manifest: "sprites/loom_spider_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(34.0),
+            composition: None,
+            default_action_set: "loom_spider_stab",
+            locomotion: Some((run_speed: 230.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 480.0,
+                attack_range: 28.0,
+                patrol_effort: 0.6,
+                chase_effort: 1.0,
+                // In, a stab and a snip, and back out of reach.
+                retreat_after_swing_s: 0.5,
+                attack_cooldown_s: 0.5,
+                tactics: (notice_s: 0.3, footsies: Some((hold_px: 80.0, wait_s: 0.4)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "art", "brass", "thread"],
+        barks: (
+            on_hit: ["*twang*", "You dropped a stitch!"],
+            provoked: ["*snip snip*"],
+            idle: ["*tikka tikka tikka*", "Over, under. Over, under.", "Warp. Weft. Warp."],
+            hall: ["Every thread in the Deeps goes somewhere. Most of them go back to me.", "I have eight legs and one pair of scissors. Guess which I am proud of."],
+        ),
+        ),
+        // The kiln sprite: a spirit of the kiln fire that lives in a glazed
+        // pot. It floats, keeps its distance and spits a coal (the `shoot` of a
+        // skirmisher): it breathes in first, and its pot glows (its windup
+        // row). No `ranged_vfx`: a coal flies as the plain lump of a `Rock`.
+        "kiln_sprite": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Kiln Sprite",
+            manifest: "sprites/kiln_sprite_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(40.0),
+            composition: None,
+            default_action_set: "kiln_sprite_spit",
+            locomotion: Some((run_speed: 130.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Skirmisher,
+                aggro_radius: 560.0,
+                attack_range: 280.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.8,
+                ranged_volley: Some((windup_s: 0.6, firing_s: 0.2, recovery_s: 1.2)),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "art", "fire"],
+        barks: (
+            on_hit: ["Fssst!", "My glaze!"],
+            provoked: ["*it breathes in*"],
+            idle: ["*crackle*", "Warm, isn't it?", "Twelve hundred degrees and rising."],
+            hall: ["Everything in the Deeps passes through a fire on its way to being finished. I am the fire. Say thank you.", "They put me in a pot so I would stay put. I am a pot of fire. I go where I like."],
+        ),
+        ),
         // ===== THE EVIL DIMENSION (Jon, 2026-10-15). Wolfenstein, the boss of
         // Castle Godwin: Frankenstein's monster with the head of Insanity Wolf,
         // and the armband of the regime. His fight is `wolfenstein_boss`
@@ -7873,6 +8335,170 @@
             barks: (
                 idle: ["I paint what I know.", "That one moved. Do not look at it."],
                 hall: ["I make my face out of the scraps of other pictures. The gate brings a great many scraps now.", "The statues are not finished. Neither am I. We get along."],
+            ),
+        ),
+        // The Story Stacks' people: a poet and a crime writer (parodies), and
+        // the Author, who keeps the Library of Endings (original).
+        "npc_art_edgar_allan_crow": (
+            display_name: "Edgar Allan Crow",
+            // Writes by candle light in the Stacks; a parody of Edgar Allan Poe.
+            manifest: "sprites/art_edgar_allan_crow_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 173 cm.
+            standing_height: Some(67.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "art", "stacks", "peaceful"],
+            barks: (
+                idle: ["Nevermore.", "Quoth the crow: nevermore.", "Once upon a midnight dreary... no. Nevermore."],
+                hall: ["They ask me for a happy ending. I tell them: nevermore. They ask me why. Nevermore. It saves a great deal of time.", "A raven is the better bird for a poem. A crow is the cheaper one. Nevermore will I be a raven."],
+            ),
+        ),
+        "npc_art_agatha_christly": (
+            display_name: "Agatha Christly",
+            // Suspects everybody in the Stacks; a parody of Agatha Christie.
+            manifest: "sprites/art_agatha_christly_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "art", "stacks", "peaceful"],
+            barks: (
+                idle: ["I suspect you.", "Where were you at half past nine?", "That fish is lying."],
+                hall: ["Everybody in the Stacks has a motive. The bookworm ate the evidence. Twice.", "It is never the red herring. It is always the one who brought you the tea."],
+            ),
+        ),
+        "npc_art_the_author": (
+            display_name: "The Author",
+            // Keeps the Library of Endings, and offers to write yours.
+            manifest: "sprites/art_the_author_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 198 cm: a tall thin figure in a long coat of manuscript pages.
+            standing_height: Some(76.7),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "art", "stacks", "peaceful"],
+            barks: (
+                idle: ["Every story ends. You may choose how.", "Ink is cheap. Endings are not."],
+                hall: ["I keep the Library of Endings. Tell me which you want, and I will write it. Happy or sad: both doors are real.", "I have written a thousand endings and not one beginning. Somebody else always starts."],
+            ),
+        ),
+        "npc_art_marcel_mimeau": (
+            display_name: "Marcel Mimeau",
+            // Walks against the wind on the stage of the Amphitheatre; a parody of Marcel Marceau.
+            manifest: "sprites/art_marcel_mimeau_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "art", "peaceful"],
+            barks: (
+                idle: ["[He walks against a wind that is not there.]", "[He offers you a flower. There is no flower. He looks hurt that you did not take it.]"],
+                hall: ["[He draws a door in the air, opens it, and bows you through first.]", "[He puts a finger to his lips. Then, very slowly, he takes it away, and says nothing at all.]"],
+            ),
+        ),
+        "npc_art_will_shakesbeard": (
+            display_name: "Will Shakesbeard",
+            // Writes the plays of the Amphitheatre in blank verse; a parody of William Shakespeare.
+            manifest: "sprites/art_will_shakesbeard_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "art", "peaceful"],
+            barks: (
+                idle: ["What light through yonder spotlight's lens doth break?", "A stage! A stage! My kingdom for a stage!"],
+                hall: ["The whole wide world's a stage, and I its clerk; you all are players, and you pay me rent.", "To be, or not to be: I chose to be. It did not suit me, so I grew a beard."],
+            ),
+        ),
+        // The composers of the Resonant Reach, made by chargen; each has
+        // hand-drawn overlay art (`data/overlays/<target>.overlay.svg`): the
+        // tufts of hair and the ear trumpet, the roll of punched paper.
+        "npc_art_ludwig_van_beathoven": (
+            display_name: "Ludwig van Beathoven",
+            // Cannot hear the gate, so it does not bother him; a parody of Beethoven.
+            manifest: "sprites/art_ludwig_van_beathoven_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 163 cm.
+            standing_height: Some(63.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "art", "music", "peaceful"],
+            barks: (
+                on_hit: ["I FELT THAT. I DID NOT HEAR IT, BUT I FELT IT.", "FORTISSIMO!"],
+                idle: ["WHAT?", "DA-DA-DA-DUMMM.", "SPEAK INTO THE TRUMPET. NO. THE OTHER END."],
+                hall: ["THE GATE HUMS, THEY TELL ME. I CANNOT HEAR IT. IT IS THE BEST THING ABOUT IT.", "I WROTE MY BEST MUSIC WHEN I COULD NOT HEAR A NOTE OF IT. THE MUSIC WAS IN HERE. IT STILL IS. LOUDLY."],
+            ),
+        ),
+        "npc_art_johann_sebastian_batch": (
+            display_name: "Johann Sebastian Batch",
+            // Writes his fugues as batches of jobs; a parody of Bach.
+            manifest: "sprites/art_johann_sebastian_batch_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "art", "music", "peaceful"],
+            barks: (
+                on_hit: ["An interruption! Now the whole batch must run again.", "That note was not in the subject."],
+                idle: ["One voice. Now another. Now all four.", "Everything is a fugue, if you schedule it well."],
+                hall: ["I write in batches. Four voices start one after another, and they all finish together. Nobody waits. Nobody is late.", "Twenty-four keys, a prelude and a fugue in each, in order. Forty-eight jobs, and not one failed."],
+            ),
+        ),
+        "npc_art_leonardo_da_vinchy": (
+            display_name: "Leonardo da Vinchy",
+            // Draws machines in the Workshop Deeps; a parody of Leonardo da Vinci.
+            manifest: "sprites/art_leonardo_da_vinchy_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 173 cm.
+            standing_height: Some(67.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "art", "peaceful"],
+            barks: (
+                on_hit: ["Ow! Write that down. Backwards.", "My notebook!"],
+                provoked: ["I have designed a machine for exactly this."],
+                idle: ["Hm. It needs more wing.", "Read it in a mirror. It is clearer that way."],
+                hall: ["I write backwards so that nobody steals my ideas. Nobody can read them. It works very well.", "This one flies. In theory. In the notebook it flies beautifully."],
+            ),
+        ),
+        "npc_art_antoni_gaudy": (
+            display_name: "Antoni Gaudy",
+            // Builds a cathedral that is never finished; a parody of Antoni Gaudi.
+            manifest: "sprites/art_antoni_gaudy_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "art", "peaceful"],
+            barks: (
+                on_hit: ["Careful! That tile was already broken. Properly.", "Not the model!"],
+                provoked: ["There is no straight line in nature, and there will be none in your face."],
+                idle: ["Straight lines belong to men. Curves belong to God.", "Another spire. It will be done soon. Soon."],
+                hall: ["My client is not in a hurry. That is lucky, because neither am I.", "Break the tile, then build with the pieces. It is the only way to make a thing that bends."],
             ),
         ),
         "npc_primeval_twitchell": (

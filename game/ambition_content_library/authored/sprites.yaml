@@ -245,6 +245,38 @@ collections:
   - art_palette_lift
   - art_giant_crayon
   - art_paint_pots
+  - bookworm
+  - red_herring
+  - paper_tiger
+  - art_book_tower
+  - art_lectern
+  - art_quill_lamp
+  - art_ending_door_happy
+  - art_ending_door_sad
+  - stagehand
+  - critic
+  - mime
+  - art_curtain
+  - art_spotlight
+  - art_theatre_masks
+  - art_costume_trunk
+  - discord_note
+  - feedback_wail
+  - war_drum
+  - art_chime
+  - art_chord_bar_do
+  - art_chord_bar_mi
+  - art_chord_bar_sol
+  - art_grand_piano
+  - art_metronome
+  - clay_golem
+  - loom_spider
+  - kiln_sprite
+  - art_bridge_planks
+  - art_kiln
+  - art_potters_wheel
+  - art_great_loom
+  - art_crane
   - eigenghost
   - decomposing_specter
   - spectral_perturbation
@@ -485,6 +517,15 @@ collections:
   - art_rob_boss
   - art_pablo_peckasso
   - art_frida_collage
+  - art_edgar_allan_crow
+  - art_agatha_christly
+  - art_the_author
+  - art_marcel_mimeau
+  - art_will_shakesbeard
+  - art_ludwig_van_beathoven
+  - art_johann_sebastian_batch
+  - art_leonardo_da_vinchy
+  - art_antoni_gaudy
   - station_dobbs
   - station_pippin
   - magical_celeste

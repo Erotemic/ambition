@@ -1,6 +1,6 @@
 //! Menu regions shared by camera and node presentation.
 
-use ambition_platformer2d::input::InputOwner;
+use ambition_platformer2d::input::ParticipantId;
 use ambition_platformer2d::inventory_ui::InventoryMenu;
 use ambition_platformer2d::menu::MenuSurface;
 use ambition_platformer2d::render::ui_surface::ParticipantSurface;
@@ -85,49 +85,16 @@ pub(crate) fn resolve_menu_regions(
     surface: ParticipantSurface,
     owners: Query<(Entity, &InventoryMenu)>,
     mut regions: Query<&mut MenuRegion>,
-    mut ordered: Local<Vec<(u8, Entity, Option<Rect>)>>,
+    mut participants: Local<Vec<ParticipantId>>,
 ) {
-    ordered.clear();
-    ordered.extend(owners.iter().map(|(entity, menu)| {
-        (
-            menu.owner.slot(),
-            entity,
-            surface.display_rect_for(Some(InputOwner::Participant(menu.owner))),
-        )
-    }));
-    ordered.sort_by_key(|(owner, entity, _)| (*owner, *entity));
-    for (index, (owner, menu, region)) in ordered.iter().enumerate() {
-        let Ok(mut target) = regions.get_mut(*menu) else {
-            continue;
-        };
-        let wanted = region.and_then(|region| {
-            if ordered
-                .iter()
-                .filter(|(other, _, _)| other == owner)
-                .count()
-                != 1
-            {
-                return None;
-            }
-            let count = ordered
-                .iter()
-                .filter(|(_, _, other)| *other == Some(region))
-                .count();
-            let ordinal = ordered[..index]
-                .iter()
-                .filter(|(_, _, other)| *other == Some(region))
-                .count();
-            let width = region.width() / count as f32;
-            let min = region.min + Vec2::new(width * ordinal as f32, 0.0);
-            Some(Rect::from_corners(
-                min,
-                Vec2::new(min.x + width, region.max.y),
-            ))
-        });
-        if target.0 != wanted {
-            target.0 = wanted;
-        }
+    participants.clear();
+    participants.extend(owners.iter().map(|(_, menu)| menu.owner));
+    for (entity, menu) in &owners {
+        let Ok(mut target) = regions.get_mut(entity) else { continue; };
+        let wanted = surface.menu_rect(menu.owner, participants.as_slice());
+        if target.0 != wanted { target.0 = wanted; }
     }
+
 }
 
 pub(crate) fn place_menu_nodes(

@@ -696,6 +696,8 @@ pub struct GateLink {
 /// The answer to the latest dial of one terminal.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DialReport {
+    /// The ring whose dial produced this answer.
+    pub ring: String,
     /// Counts each dial of the network, so a reader can tell a new report
     /// from the one it already showed.
     pub serial: u64,
@@ -709,6 +711,8 @@ pub struct DialReport {
 /// simulation on a stamped tick).
 #[derive(Message, Clone, Debug, PartialEq, Eq)]
 pub struct GateTerminalIntent {
+    /// The actor using this terminal.
+    pub subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId,
     /// The ring whose terminal is used.
     pub ring: String,
     pub action: GateTerminalAction,
@@ -725,19 +729,19 @@ pub enum GateTerminalAction {
     Close,
 }
 
-/// The live state of the network: which terminal is in use, each open link,
+/// The live state of the network: each actor's terminal use, each open link,
 /// and the latest answers. Rollback state: the links decide when a ring is
 /// open, and a ring that is open decides a room transition.
 ///
-/// Keyed by ring zone ids in `BTreeMap`s, so each peer iterates in one order.
+/// Actor identities and ring zone ids keep each map in a stable order.
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct GateNetworkState {
-    /// The ring whose terminal is open, if any.
-    pub terminal: Option<String>,
+    /// The ring each actor is using.
+    pub terminals: BTreeMap<ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId, String>,
     /// Each open link, by the ring that dialed it.
     pub links: BTreeMap<String, GateLink>,
-    /// The latest dial answer of each terminal, by its ring.
-    pub reports: BTreeMap<String, DialReport>,
+    /// The latest dial answer for each actor.
+    pub reports: BTreeMap<ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId, DialReport>,
     /// The chevrons of recent links, newest first.
     pub recent: Vec<Vec<Chevron>>,
     /// The serial the next report takes.
@@ -760,11 +764,16 @@ impl GateNetworkState {
         self.links.iter().any(|(from, link)| from != source && (from == ring || link.far == ring))
     }
 
+    /// The latest answer to this actor at this ring.
+    pub fn report_for(&self, subject: &ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId, ring: &str) -> Option<&DialReport> {
+        self.reports.get(subject).filter(|report| report.ring == ring)
+    }
+
     /// Record the answer of a dial from `ring`.
-    pub fn report(&mut self, ring: &str, address: Vec<Chevron>, outcome: Result<String, DialRefusal>) {
+    pub fn report(&mut self, subject: &ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId, ring: &str, address: Vec<Chevron>, outcome: Result<String, DialRefusal>) {
         let serial = self.next_serial;
         self.next_serial += 1;
-        self.reports.insert(ring.to_string(), DialReport { serial, address, outcome });
+        self.reports.insert(subject.clone(), DialReport { ring: ring.to_string(), serial, address, outcome });
     }
 
     /// Open a link from `ring` to the zone `far` of the room `far_room`.
@@ -804,13 +813,17 @@ impl GateNetworkState {
 /// The value projection of [`GateNetworkState`] for the rollback checksum:
 /// every field that decides a ring's phase or a transition.
 pub fn gate_network_state_checksum(state: &GateNetworkState) -> u64 {
-    use ambition_platformer2d_core::snapshot::{checksum_bytes, put_bool, put_f32, put_opt_str, put_str, put_u64};
+    use ambition_platformer2d_core::snapshot::{checksum_bytes, put_bool, put_f32, put_str, put_u64};
     let put_chevrons = |bytes: &mut Vec<u8>, address: &[Chevron]| {
         put_u64(bytes, address.len() as u64);
         bytes.extend_from_slice(address);
     };
     let mut bytes = Vec::new();
-    put_opt_str(&mut bytes, state.terminal.as_deref());
+    put_u64(&mut bytes, state.terminals.len() as u64);
+    for (subject, ring) in &state.terminals {
+        subject.write_peer_stable_into(&mut bytes);
+        put_str(&mut bytes, ring);
+    }
     put_u64(&mut bytes, state.links.len() as u64);
     for (ring, link) in &state.links {
         put_str(&mut bytes, ring);
@@ -821,8 +834,9 @@ pub fn gate_network_state_checksum(state: &GateNetworkState) -> u64 {
         put_bool(&mut bytes, link.crossed);
     }
     put_u64(&mut bytes, state.reports.len() as u64);
-    for (ring, report) in &state.reports {
-        put_str(&mut bytes, ring);
+    for (subject, report) in &state.reports {
+        subject.write_peer_stable_into(&mut bytes);
+        put_str(&mut bytes, &report.ring);
         put_u64(&mut bytes, report.serial);
         put_chevrons(&mut bytes, &report.address);
         match &report.outcome {
@@ -849,7 +863,7 @@ where
     registrar.rollback_resource_clone_checksum::<GateNetworkState>(
         super::GATE_PORTAL_ROLLBACK_OWNER,
         "resource.gate_network_state",
-        "open terminal, links, reports and recent addresses",
+        "actor terminal uses, links, reports and recent addresses",
         gate_network_state_checksum,
     );
     registrar.clear_message_on_rollback::<GateTerminalIntent>(
@@ -1165,6 +1179,28 @@ mod tests {
     }
 
     #[test]
+    fn terminal_uses_and_replies_keep_the_actor_and_its_live_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{LiveBodyId, LiveRoomInstance};
+        use ambition_platformer2d_shared_tangle::sim_id::SimId;
+        let first = LiveBodyId::new(SimId::placement("traveller"), Some(LiveRoomInstance::from_ordinal(1)));
+        let second = LiveBodyId::new(SimId::placement("traveller"), Some(LiveRoomInstance::from_ordinal(2)));
+        let mut state = GateNetworkState::default();
+        state.terminals.insert(first.clone(), "hub".into());
+        state.terminals.insert(second.clone(), "hub".into());
+        state.report(&first, "hub", vec![1], Ok("math".into()));
+        state.report(&second, "hub", vec![2], Err(DialRefusal::Unknown));
+        assert_eq!(state.report_for(&first, "hub").unwrap().outcome, Ok("math".into()));
+        assert_eq!(state.report_for(&second, "hub").unwrap().outcome, Err(DialRefusal::Unknown));
+        assert!(state.report_for(&first, "other").is_none());
+        let mut other = state.clone();
+        other.terminals.remove(&first);
+        assert_ne!(gate_network_state_checksum(&state), gate_network_state_checksum(&other));
+        other = state.clone();
+        other.reports.remove(&second);
+        assert_ne!(gate_network_state_checksum(&state), gate_network_state_checksum(&other));
+    }
+
+    #[test]
     fn the_checksum_sees_a_timer_and_a_report() {
         let mut a = GateNetworkState::default();
         a.open_link("hub", "math_room", "math", &[10, 3, 12]);
@@ -1173,10 +1209,10 @@ mod tests {
         b.tick(1.0 / 60.0);
         assert_ne!(gate_network_state_checksum(&a), gate_network_state_checksum(&b));
         let mut c = a.clone();
-        c.report("hub", vec![9, 3], Err(DialRefusal::Unknown));
+        c.report(&ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::from_snapshot("user".into()), None), "hub", vec![9, 3], Err(DialRefusal::Unknown));
         assert_ne!(gate_network_state_checksum(&a), gate_network_state_checksum(&c));
         let mut d = a.clone();
-        d.report("hub", vec![9, 4], Err(DialRefusal::Unknown));
+        d.report(&ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::from_snapshot("user".into()), None), "hub", vec![9, 4], Err(DialRefusal::Unknown));
         assert_ne!(gate_network_state_checksum(&c), gate_network_state_checksum(&d), "the chevrons themselves count");
     }
 

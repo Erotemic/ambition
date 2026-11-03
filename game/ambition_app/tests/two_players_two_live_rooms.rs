@@ -472,6 +472,7 @@ fn a_gravity_switch_turns_only_the_live_room_it_is_in() {
         .expect("the live session root carries the switch queue")
         .0
         .push(QueuedSwitchActivation {
+        subject: None,
         activation: ambition_platformer2d::encounter::registry::SwitchActivation {
             id: "ow1_bobs_flip".to_string(),
             action: "FlipGravity".to_string(),

@@ -275,8 +275,7 @@ pub fn sync_wormhole_destination_hue(
 /// ring lights them as they are entered.
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct GateDialPreview {
-    pub ring: Option<String>,
-    pub chevrons: Vec<ambition_platformer2d_world::rooms::Chevron>,
+    pub by_ring: std::collections::BTreeMap<String, Vec<ambition_platformer2d_world::rooms::Chevron>>,
 }
 
 /// What lights on a ring's plaque: its glyph, or one cell of its position
@@ -313,7 +312,7 @@ pub fn ring_lit_address(
     preview: Option<&GateDialPreview>,
     network: Option<&ambition_platformer2d_world::rooms::GateNetworkState>,
 ) -> Vec<ambition_platformer2d_world::rooms::Chevron> {
-    let entering = preview.filter(|preview| preview.ring.as_deref() == Some(zone)).map(|preview| &preview.chevrons);
+    let entering = preview.and_then(|preview| preview.by_ring.get(zone));
     let sending = network.and_then(|network| network.route_from(zone)).map(|link| &link.address);
     entering.filter(|chevrons| !chevrons.is_empty()).or(sending).cloned().unwrap_or_default()
 }

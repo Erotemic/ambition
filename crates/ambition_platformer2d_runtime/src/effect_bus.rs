@@ -43,6 +43,7 @@ pub fn apply_switch_effects(
         switch_activations
             .0
             .push(ambition_encounter::switches::QueuedSwitchActivation {
+                subject: effect.subject.clone(),
                 activation: effect.activation.clone(),
                 room: effect.room,
             });
@@ -83,6 +84,7 @@ mod tests {
             ambition_persistence::quest::QuestAdvanceEvent::NpcTalked("guide".into()),
         );
         let switch = SwitchActivated {
+            subject: None,
             activation: ambition_encounter::SwitchActivation {
                 id: "goblin_encounter".into(),
                 action: "ResetEncounter".into(),

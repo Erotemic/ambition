@@ -70,7 +70,7 @@ impl LifecycleIntent {
     /// state (see `AcceptedCheckpointRestore`) owes that state its own legs.
     pub fn checksum(&self) -> u64 {
         use ambition_platformer2d_core::snapshot::{
-            checksum_bytes, put_bool, put_opt_str, put_str, put_u32, put_u8, put_vec2,
+            checksum_bytes, put_bool, put_opt_str, put_str, put_u8, put_vec2,
         };
         let mut bytes = Vec::new();
         match self {
@@ -83,9 +83,7 @@ impl LifecycleIntent {
                 participant,
             }) => {
                 put_u8(&mut bytes, 0);
-                put_str(&mut bytes, subject.sim_id.as_str());
-                put_bool(&mut bytes, subject.room.is_some());
-                put_u32(&mut bytes, subject.room.map_or(0, |room| room.ordinal()));
+                subject.write_peer_stable_into(&mut bytes);
                 put_str(&mut bytes, target_room);
                 put_vec2(&mut bytes, *arrival);
                 put_bool(&mut bytes, *edge_exit);

@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v411",
+    "version": "ggrs-rollback-schema-v412",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -119,7 +119,7 @@
       "resource.custody_baseline\tcomponent-clone-custom-checksum\tCustodyBaseline\tbevy_ggrs clone snapshot + entity-free remembered-custody checksum projection",
       "resource.day_clock\tresource-canonical\tDayClock\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.gameplay_elapsed\tcomponent-canonical\tGameplayElapsed",
-      "resource.gate_network_state\tresource-clone-custom-checksum\tGateNetworkState\tbevy_ggrs clone snapshot + open terminal, links, reports and recent addresses",
+      "resource.gate_network_state\tresource-clone-custom-checksum\tGateNetworkState\tbevy_ggrs clone snapshot + actor terminal uses, links, reports and recent addresses",
       "resource.gate_portal_phases\tresource-clone-custom-checksum\tGatePortalPhases\tbevy_ggrs clone snapshot + key-ordered phase/elapsed checksum projection",
       "resource.impact_hitstop\tresource-clone-custom-checksum\tImpactHitstop\tbevy_ggrs clone snapshot + the freeze's expiry tick, which decides the sim clock",
       "resource.live_match_ticks\tresource-canonical-custom-checksum\tLiveMatchTicks\tbevy_ggrs canonical codec snapshot + checksum over the elapsed micros, counted from the match's own start, and the peer match ordinal, excluding the host-local session and activation-tick stamps",
@@ -146,7 +146,7 @@
       "resource.slot_interaction_state\tresource-canonical\tSlotInteractionState\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.stocks_match_settled\tresource-canonical-custom-checksum\tStocksMatchSettled\tbevy_ggrs canonical codec snapshot + checksum over the verdict and the peer match ordinal, excluding the host-local session and activation-tick stamps",
       "resource.sudden_death_entered\tresource-canonical-custom-checksum\tSuddenDeathEntered\tbevy_ggrs canonical codec snapshot + checksum over whether a match is latched and the peer match ordinal, excluding the host-local session and activation-tick stamps",
-      "resource.switch_activation_queue\tcomponent-clone-custom-checksum\tSwitchActivationQueue\tbevy_ggrs clone snapshot + queued switch activations, in order, by id/action/target",
+      "resource.switch_activation_queue\tcomponent-clone-custom-checksum\tSwitchActivationQueue\tbevy_ggrs clone snapshot + queued switch activations with acting bodies and live rooms, in order",
       "resource.versus_match\tresource-clone-custom-checksum\tVersusMatch\tbevy_ggrs clone snapshot + a checksum over the round, the phase and the per-team wins",
       "resource.world_time\tresource-canonical\tWorldTime\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "root.encounter_music_request\tcomponent-clone-custom-checksum\tEncounterMusicRequest\tbevy_ggrs clone snapshot + each room's music candidates (source, track, tick began) and base track, in key order",

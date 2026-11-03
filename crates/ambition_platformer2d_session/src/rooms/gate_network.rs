@@ -7,7 +7,7 @@
 //! learns. It moves no body: a traveller goes through an open ring by the
 //! room-transition road (`detect_room_transition_system`).
 
-use bevy::prelude::{MessageReader, Res, ResMut};
+use bevy::prelude::{MessageReader, Query, Res, ResMut, With};
 
 use ambition_platformer2d_world::rooms::{
     gate_address_known_flag, resolve_dial, GateFacts, GateNetworkCatalog, GateNetworkState, GateRingPositions,
@@ -24,9 +24,8 @@ use ambition_platformer2d_world::rooms::{
 ///    close leaves the terminal.
 /// 3. Each link's timer runs, and a link that ran out closes.
 ///
-/// A terminal whose ring's room is no longer live closes: nobody stands at
-/// it. The terminal's requests are host intents, so a replayed tick sees the
-/// same requests.
+/// Terminal use ends when its actor leaves play or leaves the ring's room.
+/// Requests are host intents, so a replayed tick sees the same requests.
 #[allow(clippy::too_many_arguments)]
 pub fn run_gate_network(
     catalog: Option<Res<GateNetworkCatalog>>,
@@ -37,6 +36,8 @@ pub fn run_gate_network(
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     world_time: Res<ambition_time::WorldTime>,
     positions: Option<Res<GateRingPositions>>,
+    bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
+    out_of_play: Query<(), With<ambition_combat::death_rules::OutOfPlay>>,
 ) {
     let Some(catalog) = catalog else {
         intents.clear();
@@ -48,7 +49,9 @@ pub fn run_gate_network(
         }
         match catalog.ring_of_terminal(&activation.id) {
             Some(ring) => {
-                state.terminal = Some(ring.zone.clone());
+                if let Some(subject) = activation.subject.as_ref().filter(|subject| bodies.entity_of(subject).is_some()) {
+                    state.terminals.insert(subject.clone(), ring.zone.clone());
+                }
                 if ring.kind == RingKind::Portal {
                     save.data_mut().set_flag(gate_address_known_flag(ring.address_key()), true);
                 }
@@ -59,20 +62,18 @@ pub fn run_gate_network(
             ),
         }
     }
-    let live: Vec<String> = rooms.live_specs().into_iter().map(|(_, spec)| spec.id.clone()).collect();
-    if let Some(open) = state.terminal.clone() {
-        if !catalog.ring(&open).is_some_and(|ring| live.iter().any(|room| *room == ring.room)) {
-            state.terminal = None;
-        }
-    }
+    state.terminals.retain(|subject, zone| {
+        let room = bodies.entity_of(subject).filter(|body| !out_of_play.contains(*body)).and_then(|body| rooms.spec_of(body));
+        catalog.ring(zone).is_some_and(|ring| room.is_some_and(|room| room.id == ring.room))
+    });
     for intent in intents.read() {
         // A request reaches only the terminal that is open: a dial is made at
         // the ring, by a body that stands there.
-        if state.terminal.as_deref() != Some(intent.ring.as_str()) {
+        if state.terminals.get(&intent.subject) != Some(&intent.ring) {
             continue;
         }
         match &intent.action {
-            GateTerminalAction::Close => state.terminal = None,
+            GateTerminalAction::Close => { state.terminals.remove(&intent.subject); },
             GateTerminalAction::Hangup => {
                 state.links.remove(&intent.ring);
             }
@@ -93,11 +94,11 @@ pub fn run_gate_network(
                         let (far_room, far_zone) = (far.room.clone(), far.zone.clone());
                         let known = gate_address_known_flag(far.address_key());
                         state.open_link(&intent.ring, &far_room, &far_zone, address);
-                        state.report(&intent.ring, address.clone(), Ok(far_zone));
+                        state.report(&intent.subject, &intent.ring, address.clone(), Ok(far_zone));
                         // A dial that answers teaches the address.
                         save.data_mut().set_flag(known, true);
                     }
-                    Err(refusal) => state.report(&intent.ring, address.clone(), Err(refusal)),
+                    Err(refusal) => state.report(&intent.subject, &intent.ring, address.clone(), Err(refusal)),
                 }
             }
         }
@@ -124,5 +125,5 @@ pub fn the_gate_network_has_work(
     switches.is_some_and(|switches| !switches.0.is_empty())
         || intents.is_some_and(|intents| !intents.is_empty())
         || !state.links.is_empty()
-        || state.terminal.is_some()
+        || !state.terminals.is_empty()
 }

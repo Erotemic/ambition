@@ -306,6 +306,15 @@ impl LiveBodyId {
         Self { sim_id, room }
     }
 
+    /// Write the body's complete identity for peer comparison.
+    pub fn write_peer_stable_into(&self, out: &mut Vec<u8>) {
+        use ambition_platformer2d_core::snapshot::{put_bool, put_str, put_u32};
+        let Self { sim_id, room } = self;
+        put_str(out, sim_id.as_str());
+        put_bool(out, room.is_some());
+        put_u32(out, room.map_or(0, |room| room.ordinal()));
+    }
+
     /// Whether a body with this `SimId`, stamp and root is this occurrence.
     pub fn is(
         &self,

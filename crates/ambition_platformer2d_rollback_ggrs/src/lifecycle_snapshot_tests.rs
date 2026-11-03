@@ -55,3 +55,28 @@ fn pending_and_withdrawn_restore_keys_survive_the_registered_snapshot_path() {
         assert_eq!(restored_key.unwrap().scope, Some(SessionScopeId(123)));
     }
 }
+
+#[test]
+fn actor_terminal_uses_and_replies_survive_the_registered_snapshot_path() {
+    use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+    use ambition_platformer2d_world::rooms::{DialRefusal, GateNetworkState};
+    let mut app = App::new();
+    app.add_plugins((MinimalPlugins, SnapshotPlugin, ChecksumPlugin));
+    app.insert_resource(SimulationHost::Rollback);
+    ambition_platformer2d_world::rooms::register_gate_network_rollback_state(
+        &mut crate::GgrsRollbackRegistrar::new(&mut app),
+    );
+    let first = LiveBodyId::new(SimId::placement("traveller"), Some(LiveRoomInstance::from_ordinal(1)));
+    let second = LiveBodyId::new(SimId::placement("traveller"), Some(LiveRoomInstance::from_ordinal(2)));
+    let mut expected = GateNetworkState::default();
+    expected.terminals.insert(first.clone(), "west".into());
+    expected.terminals.insert(second.clone(), "east".into());
+    expected.report(&first, "west", vec![1], Ok("east".into()));
+    expected.report(&second, "east", vec![2], Err(DialRefusal::Unknown));
+    app.insert_resource(expected.clone());
+    app.world_mut().resource_mut::<RollbackFrameCount>().0 = 4;
+    app.world_mut().run_schedule(SaveWorld);
+    app.world_mut().remove_resource::<GateNetworkState>();
+    app.world_mut().run_schedule(LoadWorld);
+    assert_eq!(app.world().resource::<GateNetworkState>(), &expected);
+}

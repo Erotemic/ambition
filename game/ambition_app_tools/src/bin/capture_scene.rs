@@ -771,18 +771,22 @@ fn turn_on_switches(
 /// Dial through the network before progression consumes terminal requests.
 fn dial_gates(
     config: Res<SceneCaptureConfig>,
+    subjects: Query<Entity, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>,
+    bodies: ambition_platformer2d::platformer::lifecycle::LiveBodies,
     tick: Res<ambition_platformer2d::time::SimTick>,
     catalog: Res<ambition_platformer2d::world::rooms::GateNetworkCatalog>,
     mut network: ResMut<ambition_platformer2d::world::rooms::GateNetworkState>,
     mut intents: MessageWriter<ambition_platformer2d::world::rooms::GateTerminalIntent>,
 ) {
     use ambition_platformer2d::world::rooms::{GateTerminalAction, GateTerminalIntent};
+    let Ok(entity) = subjects.single() else { return; };
+    let Some(subject) = bodies.id_of(entity) else { return; };
     for (ring, address, at) in &config.gate_dials {
         if tick.get() == *at {
             let address = catalog.spell(address).expect("the gate address must use the catalog inscription");
-            network.terminal = Some(ring.clone());
-            intents.write(GateTerminalIntent { ring: ring.clone(), action: GateTerminalAction::Dial(address) });
-            intents.write(GateTerminalIntent { ring: ring.clone(), action: GateTerminalAction::Close });
+            network.terminals.insert(subject.clone(), ring.clone());
+            intents.write(GateTerminalIntent { subject: subject.clone(), ring: ring.clone(), action: GateTerminalAction::Dial(address) });
+            intents.write(GateTerminalIntent { subject: subject.clone(), ring: ring.clone(), action: GateTerminalAction::Close });
             eprintln!("capture_scene: dialed gate {ring} at tick {at}");
         }
     }

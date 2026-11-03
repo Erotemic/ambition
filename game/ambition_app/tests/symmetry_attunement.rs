@@ -36,6 +36,7 @@ fn attunement_phase(sim: &mut Platformer2dSimHarness) -> EncounterPhase {
 fn flip_kernel_face(sim: &mut Platformer2dSimHarness, switch_id: &str, action: &str) {
     sim.world_mut().write_message(
         ambition_platformer2d::encounter::switches::SwitchActivated {
+            subject: None,
             activation: SwitchActivation {
                 id: switch_id.to_string(),
                 action: action.to_string(),

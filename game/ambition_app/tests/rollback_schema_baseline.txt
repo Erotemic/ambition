@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v411
+ggrs-rollback-schema-v412
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -489,7 +489,7 @@ resource.day_clock	resource-canonical	DayClock	bevy_ggrs canonical codec snapsho
 resource.faction_relations	resource-clone	FactionRelations	bevy_ggrs clone snapshot; not in the session checksum
 resource.friendly_fire	resource-clone	FriendlyFire	bevy_ggrs clone snapshot; not in the session checksum
 resource.gameplay_elapsed	component-canonical	GameplayElapsed	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.gate_network_state	resource-clone-custom-checksum	GateNetworkState	bevy_ggrs clone snapshot + open terminal, links, reports and recent addresses
+resource.gate_network_state	resource-clone-custom-checksum	GateNetworkState	bevy_ggrs clone snapshot + actor terminal uses, links, reports and recent addresses
 resource.gate_portal_phases	resource-clone-custom-checksum	GatePortalPhases	bevy_ggrs clone snapshot + key-ordered phase/elapsed checksum projection
 resource.gravity_field	derived	GravityField	re-derived from the primary body's ResolvedMotionFrame in FrameResolveSet; read only by presentation
 resource.impact_hitstop	resource-clone-custom-checksum	ImpactHitstop	bevy_ggrs clone snapshot + the freeze's expiry tick, which decides the sim clock
@@ -521,7 +521,7 @@ resource.sim_tick	resource-canonical	SimTick	bevy_ggrs canonical codec snapshot 
 resource.slot_interaction_state	resource-canonical	SlotInteractionState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.stocks_match_settled	resource-canonical-custom-checksum	StocksMatchSettled	bevy_ggrs canonical codec snapshot + checksum over the verdict and the peer match ordinal, excluding the host-local session and activation-tick stamps
 resource.sudden_death_entered	resource-canonical-custom-checksum	SuddenDeathEntered	bevy_ggrs canonical codec snapshot + checksum over whether a match is latched and the peer match ordinal, excluding the host-local session and activation-tick stamps
-resource.switch_activation_queue	component-clone-custom-checksum	SwitchActivationQueue	bevy_ggrs clone snapshot + queued switch activations, in order, by id/action/target
+resource.switch_activation_queue	component-clone-custom-checksum	SwitchActivationQueue	bevy_ggrs clone snapshot + queued switch activations with acting bodies and live rooms, in order
 resource.versus_match	resource-clone-custom-checksum	VersusMatch	bevy_ggrs clone snapshot + a checksum over the round, the phase and the per-team wins
 resource.world_time	resource-canonical	WorldTime	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 root.encounter_music_request	component-clone-custom-checksum	EncounterMusicRequest	bevy_ggrs clone snapshot + each room's music candidates (source, track, tick began) and base track, in key order

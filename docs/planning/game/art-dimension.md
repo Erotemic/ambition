@@ -1,6 +1,6 @@
 # The Art dimension
 
-**State:** BUILT (2026-11-03). Fourteen rooms, seven biomes, the cast, the
+**State:** BUILT (2026-11-03). Fifteen rooms, seven biomes, the cast, the
 gate, the four quarters and the machines of the concept sheets are in the
 game, and their art is published. What is at the end of this document is
 ideas for later, not missing work.
@@ -143,6 +143,29 @@ The four things to use from the concept sheets are built:
   caverns.
 
 The art is `targets/props/art_studio_props.py` in the renderer.
+
+## The Picture Palace
+
+Jon (2026-11-03): "In the art dimension I want writers / directors with: T-71
+to parody a T-70 Terminator (with Cameron / Hurd) and NDR-115 to parody a
+NDR-114 Bicentennial Man. Need an Asimov parody. Also need MAL-9000 for
+HAL-9000 parody, with Clarke and Kubrick."
+
+A film studio (`art_picture_palace`) by a door at the east end of the
+Amphitheatre. Its three sound stages each hold the people who made a machine
+and the machine, which keeps going after they stop:
+
+| stage | the makers | the machine |
+| --- | --- | --- |
+| The future war | James Camera-Ron (director), Gale Anne Herd (producer) | T-71, the heavy model before the famous one; it holds a jacket it cannot put on |
+| The positronic man | Isaac Azimuth (the three laws) | NDR-115, a household android who becomes human one part at a time |
+| The space odyssey | Arthur C. Clerk, Stanley Cubrick (and his cube, the monolith) | MAL-9000, a ship's computer in a wall panel |
+
+MAL-9000 will not open the pod bay door (`art_pod_bay_door`, a LockWall). Pull
+its memory module (the lever `art_mal_memory`) and the door opens on a chest
+(`pulling_mals_memory_opens_the_pod_bay_door`). The machines talk and do not
+fight. Their sheets are `targets/characters/art_t71.py`, `art_ndr115.py` and
+`art_mal9000.py`; the props are `targets/props/art_picture_palace_props.py`.
 
 ## The cast
 

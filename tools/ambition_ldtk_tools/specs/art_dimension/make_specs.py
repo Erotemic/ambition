@@ -94,6 +94,9 @@ DEEPS = "art_workshop_deeps"
 LOOM_HALL = "art_loom_hall"
 # The Curator's studio, by a door in the plaza (a place of the concept sheets).
 STUDIO = "art_curators_studio"
+# The Picture Palace, by a door in the amphitheatre: a film studio of writers,
+# directors and the machines they made (Jon, 2026-11-03).
+PALACE = "art_picture_palace"
 
 TOWN_MUSIC = "artists_guild_chiaroscuro"
 CAVE_MUSIC = "mages_guild_arcane_lanterns"
@@ -122,6 +125,7 @@ ROOMS_AT = {
     CONCERT: ((7200, 176), (1600, 640)),
     LOOM_HALL: ((8000, 2224), (1600, 640)),
     STUDIO: ((-2800, 3800), (1600, 640)),
+    PALACE: ((-2800, 4496), (2400, 640)),
 }
 #: The floor of the rooms out in the world: 64 of ground under it.
 FLOOR = 960
@@ -183,6 +187,9 @@ CRANE = "art_bridge_crane"
 ERASER_CLIFFS, ERASER_STUDIO = "art_eraser_cliffs", "art_eraser_studio"
 #: A building's floor.
 INSIDE_FLOOR = 576
+#: The lever that pulls MAL-9000's memory module: it opens the pod bay door.
+MAL_MEMORY = "art_mal_memory"
+PALACE_MUSIC = "eternal_cosmic"
 
 
 def enemy(rid, n, character, x, feet):
@@ -642,6 +649,8 @@ def amphitheatre():
         enemy(rid, 1, "stagehand", 2560, FLOOR),
         sign("amphi_sign", 2200, 140, "THE AMPHITHEATRE: no photography, no heckling, no refunds", 520),
         sign("amphi_sign_gap", (g0 + g1) // 2, FLOOR - 180, "ORCHESTRA PIT (there is no orchestra)", 380),
+        door("amphi_palace_door", "into the picture palace", 2440, FLOOR, PALACE, f"{PALACE}_door"),
+        sign("amphi_sign_palace", 2464, FLOOR - 150, "THE PICTURE PALACE: now showing", 340),
     ]
     return build(rid, e, "THE AMPHITHEATRE", music=STAGE_MUSIC, biome="art_stage", dangerous=True)
 
@@ -817,6 +826,45 @@ def studio():
                     music=TOWN_MUSIC, extra=extra)
 
 
+def picture_palace():
+    """The Picture Palace: three sound stages, each with the people who made
+    a machine and the machine, which keeps going. On the space set MAL-9000
+    will not open the pod bay door; pull its memory module and it opens."""
+    g = INSIDE_FLOOR
+    bay = 2120
+    extra = [
+        # The future war set.
+        prop_at("light_1", "art_studio_light", 260, g, 64, 128),
+        resident("npc_art_james_camera_ron", "art_james_camera_ron", 380, g, h=73),
+        resident("npc_art_gale_anne_herd", "art_gale_anne_herd", 480, g, h=65),
+        resident("npc_art_t71", "art_t71", 620, g, h=74),
+        prop_at("camera", "art_film_camera", 760, g, 96, 128),
+        prop_at("clapper", "art_clapperboard", 870, g, 64, 80),
+        sign("palace_sign_war", 600, 150, "STAGE 1: THE FUTURE WAR (part 1 of many)", 420),
+        # The positronic set.
+        prop_at("chair", "art_directors_chair", 1000, g, 64, 80),
+        resident("npc_art_isaac_azimuth", "art_isaac_azimuth", 1110, g, h=67),
+        resident("npc_art_ndr115", "art_ndr115", 1250, g, h=69),
+        prop_at("light_2", "art_studio_light", 1370, g, 64, 128),
+        sign("palace_sign_robot", 1180, 150, "STAGE 2: THE POSITRONIC MAN (running time: 200 years)", 520),
+        # The space set: the monolith, MAL, its memory, the pod bay door.
+        resident("npc_art_arthur_c_clerk", "art_arthur_c_clerk", 1520, g, h=72),
+        resident("npc_art_stanley_cubrick", "art_stanley_cubrick", 1620, g, h=66),
+        prop_at("monolith", "art_monolith", 1740, g, 64, 192),
+        resident("npc_art_mal9000", "art_mal9000", 1860, g, w=48, h=128),
+        prop_at("memory", "art_memory_module", 1960, g, 48, 64),
+        lever(MAL_MEMORY, "MAL's memory module", "Pull the memory module", 2010, g),
+        solid("bay_lintel", bay, CEILING, DOOR_W, g - DOOR_H - CEILING),
+        lock_wall("art_pod_bay_door", "the pod bay door", bay, g - DOOR_H, DOOR_W, DOOR_H, f"world.switch_on {MAL_MEMORY}",
+                  "art_pod_bay_door"),
+        chest("a black slab (it hums)", 2260, g, "currency:150"),
+        sign("palace_sign_space", 1800, 150, "STAGE 3: THE SPACE ODYSSEY (no talking in the vacuum)", 540),
+        sign("palace_sign", 1200, 90, "THE PICTURE PALACE: everything we made is still running", 520),
+    ]
+    return building(PALACE, AMPHI, "amphi_palace_door", "back out to the amphitheatre", "THE PICTURE PALACE",
+                    biome="art_stage", music=PALACE_MUSIC, extra=extra)
+
+
 #: The ladders (the IntGrid `Climbable` layer): down each hole in a floor,
 #: and up each shaft to it.
 LADDERS = (
@@ -827,7 +875,7 @@ LADDERS = (
 )
 
 ROOMS = (plaza, cliffs, garden, caverns, gallery, stacks, library, amphitheatre, backstage, reach, concert_hall, deeps,
-         loom_hall, studio)
+         loom_hall, studio, picture_palace)
 
 
 def main(argv):

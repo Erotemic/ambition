@@ -1,12 +1,13 @@
 //! The Art dimension: its gate is EASEL.
 //!
-//! Thirteen rooms (`tools/ambition_ldtk_tools/specs/art_dimension/`): the
+//! Fifteen rooms (`tools/ambition_ldtk_tools/specs/art_dimension/`): the
 //! plaza with the ring, the sketchbook cliffs over it, the sculpture garden
 //! east of it, the inkfall caverns under both, the unfinished gallery by a
 //! door in the garden, and four quarters for the arts that are not paint:
 //! fiction (the story stacks, the library of endings), performance (the
 //! amphitheatre, backstage), music (the resonant reach, the concert hall) and
-//! teknis, the art of making (the workshop deeps, the loom hall). This asks the game what the generator takes as given: that the
+//! teknis, the art of making (the workshop deeps, the loom hall), and the
+//! Picture Palace off the amphitheatre (writers, directors and their machines). This asks the game what the generator takes as given: that the
 //! rooms join as the flat map says, that each room places its cast, that a
 //! pigment opens its own door of the colour gate and no other, that the lever
 //! in the caverns opens the plaza's drain, and that the palette lift carries
@@ -77,7 +78,7 @@ fn centre_of<F: bevy::prelude::Component>(sim: &mut Platformer2dSimHarness, what
 /// the garden are a loop, and so are the plaza, the caverns and the garden.
 #[test]
 fn the_rooms_of_the_art_dimension_join_as_the_flat_map_says() {
-    const WAYS: [(&str, &str); 16] = [
+    const WAYS: [(&str, &str); 17] = [
         ("art_painters_plaza", "art_sketchbook_cliffs"),
         ("art_painters_plaza", "art_sculpture_garden"),
         ("art_sketchbook_cliffs", "art_sculpture_garden"),
@@ -96,6 +97,7 @@ fn the_rooms_of_the_art_dimension_join_as_the_flat_map_says() {
         ("art_resonant_reach", "art_concert_hall"),
         ("art_workshop_deeps", "art_loom_hall"),
         ("art_painters_plaza", "art_curators_studio"),
+        ("art_amphitheatre", "art_picture_palace"),
     ];
     let manifest = ambition_content::worlds::world_manifest();
     let project = LdtkProject::load_default_for_dev(&manifest).expect("the world loads");
@@ -126,6 +128,19 @@ const CAST: &[(&str, &[(&str, usize)])] = &[
         &[("discord_note", 3), ("feedback_wail", 2), ("war_drum", 1), ("npc_art_ludwig_van_beathoven", 1)],
     ),
     ("art_concert_hall", &[("npc_art_johann_sebastian_batch", 1)]),
+    (
+        "art_picture_palace",
+        &[
+            ("npc_art_james_camera_ron", 1),
+            ("npc_art_gale_anne_herd", 1),
+            ("npc_art_t71", 1),
+            ("npc_art_isaac_azimuth", 1),
+            ("npc_art_ndr115", 1),
+            ("npc_art_arthur_c_clerk", 1),
+            ("npc_art_stanley_cubrick", 1),
+            ("npc_art_mal9000", 1),
+        ],
+    ),
     (
         "art_workshop_deeps",
         &[("loom_spider", 2), ("kiln_sprite", 2), ("clay_golem", 1), ("npc_art_leonardo_da_vinchy", 1), ("npc_art_antoni_gaudy", 1)],
@@ -352,4 +367,17 @@ fn an_eraser_rubs_out_its_wall_of_scribble() {
         }
         assert!(!stands(&mut sim, wall), "with `{eraser}` pulled, `{wall}` is rubbed out: {:?}", standing(&mut sim));
     }
+}
+
+/// The space set of the Picture Palace: MAL-9000 will not open the pod bay
+/// door, and the door stands until MAL's memory module is pulled.
+#[test]
+fn pulling_mals_memory_opens_the_pod_bay_door() {
+    let mut sim = room("art_picture_palace");
+    assert!(stands(&mut sim, "art_pod_bay_door"), "the pod bay door stands at first: {:?}", standing(&mut sim));
+    press(&mut sim, "art_mal_memory");
+    for _ in 0..10 {
+        sim.step(base());
+    }
+    assert!(!stands(&mut sim, "art_pod_bay_door"), "with MAL's memory pulled, the pod bay door is open: {:?}", standing(&mut sim));
 }

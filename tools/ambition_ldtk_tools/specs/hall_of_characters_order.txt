@@ -220,6 +220,14 @@ npc_art_ludwig_van_beathoven
 npc_art_johann_sebastian_batch
 npc_art_leonardo_da_vinchy
 npc_art_antoni_gaudy
+npc_art_james_camera_ron
+npc_art_gale_anne_herd
+npc_art_isaac_azimuth
+npc_art_arthur_c_clerk
+npc_art_stanley_cubrick
+npc_art_t71
+npc_art_ndr115
+npc_art_mal9000
 
 [The History dimension's people]
 npc_history_clio

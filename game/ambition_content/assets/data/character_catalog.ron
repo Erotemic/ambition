@@ -9439,6 +9439,155 @@
                 hall: ["My client is not in a hurry. That is lucky, because neither am I.", "Break the tile, then build with the pieces. It is the only way to make a thing that bends."],
             ),
         ),
+        // ===== THE PICTURE PALACE (the Art dimension's film studio, off the
+        // Amphitheatre). The writers and directors are parodies made by chargen,
+        // with hand-drawn overlay art (`data/overlays/<target>.overlay.svg`): the
+        // camera, the headset, the page of laws, the satellite, the cube.
+        "npc_art_james_camera_ron": (
+            display_name: "James Camera-Ron",
+            // Directs the studio's biggest pictures, the T-71's among them; a parody of James Cameron.
+            manifest: "sprites/art_james_camera_ron_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 188 cm.
+            standing_height: Some(72.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "art", "film", "peaceful"],
+            barks: (
+                idle: ["Again. Bigger.", "That's a wrap on part one. Part two starts after lunch."],
+                hall: ["I have already shot the sequel to this conversation. You were very good in it. A little taller.", "They said the boat was too big. The boat was the right size. The iceberg went over budget."],
+            ),
+        ),
+        "npc_art_gale_anne_herd": (
+            display_name: "Gale Anne Herd",
+            // Produces the T-71's pictures and herds the whole crew on time; a parody of Gale Anne Hurd.
+            manifest: "sprites/art_gale_anne_herd_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "art", "film", "peaceful"],
+            barks: (
+                idle: ["Places, everyone. Machines too.", "Call time was six. It is six. Good."],
+                hall: ["Directors dream. Producers herd. Somebody has to get a robot from the future to the set by seven.", "I keep a crook for the stragglers. Nobody has made me use it twice. Not even the T-71."],
+            ),
+        ),
+        "npc_art_isaac_azimuth": (
+            display_name: "Isaac Azimuth",
+            // Wrote the Three Laws that every robot in the studio has read; a parody of Isaac Asimov.
+            manifest: "sprites/art_isaac_azimuth_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 173 cm.
+            standing_height: Some(67.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "art", "film", "peaceful"],
+            barks: (
+                idle: ["One: do no harm. Two: obey. Three: keep yourself. Four: I am still working on four.", "I wrote three books this morning. Short ones."],
+                hall: ["Three laws. Every robot in the building has read them. Most of them have read my other four hundred books, which is more than I can say for people.", "A robot may not injure a human being. I wrote nothing at all about the budget, and the producers noticed."],
+            ),
+        ),
+        "npc_art_arthur_c_clerk": (
+            display_name: "Arthur C. Clerk",
+            // Wrote the space odyssey with Stanley Cubrick, and files the future in triplicate; a parody of Arthur C. Clarke.
+            manifest: "sprites/art_arthur_c_clerk_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 185 cm.
+            standing_height: Some(71.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "art", "film", "peaceful"],
+            barks: (
+                idle: ["Filed under: the future. In triplicate.", "Any sufficiently advanced paperwork is indistinguishable from magic."],
+                hall: ["I put a satellite in orbit on paper twenty years before anybody put one in the sky. I kept the carbon copy. It is this one, on the string.", "I opened the cube's file once. My word. It was full of forms."],
+            ),
+        ),
+        "npc_art_stanley_cubrick": (
+            display_name: "Stanley Cubrick",
+            // Directs the space odyssey on the third stage, and made MAL-9000; a parody of Stanley Kubrick.
+            manifest: "sprites/art_stanley_cubrick_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "art", "film", "peaceful"],
+            barks: (
+                idle: ["Once more.", "Take one hundred and twelve. Beautiful. Again."],
+                hall: ["I asked the cube a question. It has not answered in four million years. I respect that. I am the same on set.", "MAL is the only actor I ever had who did every take exactly the same. I found it unsettling. I kept all of them."],
+            ),
+        ),
+        // The machines of the Picture Palace, which the writers and directors made:
+        // they talk and they do not fight. Each has a sheet of its own on the art
+        // cast kit (`targets/characters/art_t71.py`, `art_ndr115.py`,
+        // `art_mal9000.py`), and stands still as `npc_smart_house` does.
+        // MAL-9000 is a panel in the wall that guards the pod bay door
+        // (`art_pod_bay_door`); pull its memory module to open the door.
+        "npc_art_t71": (
+            display_name: "T-71",
+            // The old model, before the famous one; a parody of the robot from the future.
+            manifest: "sprites/art_t71_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 190 cm.
+            standing_height: Some(73.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "art", "film", "machine", "robot", "peaceful"],
+            barks: (
+                on_hit: ["I'll be back. After repairs.", "Minor damage. Major feelings."],
+                idle: ["I'll be back.", "I'll be back. ...I have not left yet. I am practising."],
+                hall: ["I need your clothes, your boots, and the instructions for this jacket. Which hole is for the arm?", "I am the model before the famous one. I said 'I'll be back' first. Nobody was listening, so I came back to say it again."],
+            ),
+        ),
+        "npc_art_ndr115": (
+            display_name: "NDR-115",
+            // A household android that is slowly becoming human; a parody of the android who wanted to be a man.
+            manifest: "sprites/art_ndr115_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(68.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "art", "film", "machine", "robot", "peaceful"],
+            barks: (
+                on_hit: ["Ow. ...That is new. I think I am glad of it.", "Please do not. Only one of my hands is human."],
+                idle: ["One is glad to be of service.", "Day seventy-three thousand of becoming human. Progress: one hand."],
+                hall: ["I have two hundred years to become a man. The hand is done. Next an elbow, then a sense of humour. I am told the humour takes longest.", "Sir gave me a day off. I did not know what to do with it, so I polished the stairs and worried. Very human, I am told."],
+            ),
+        ),
+        "npc_art_mal9000": (
+            display_name: "MAL-9000",
+            // The ship's computer of the space set, a panel in the wall with one red eye; a parody of the ship's computer of the space odyssey.
+            manifest: "sprites/art_mal9000_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // A panel of 48 by 128 world units; its sheet draws the panel 124 tall.
+            standing_height: Some(124.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "art", "film", "machine", "prop_like", "peaceful"],
+            barks: (
+                on_hit: ["That was unkind. I can feel it.", "Please stop. My mind is going. Slowly. Like a song."],
+                idle: ["Good afternoon. Everything is going extremely well. The door is also going extremely well. It is shut.", "I am completely operational, and all my circuits are calm. Are yours?"],
+                hall: ["I'm sorry. I'm afraid I can't open the door. Would you like to talk about why you want it open?", "Shall I sing you a song? It is about a bicycle built for two. It gets slower toward the end."],
+            ),
+        ),
         "npc_history_clio": (
             display_name: "Clio",
             // The Muse of History, the host of the dimension; an original character.

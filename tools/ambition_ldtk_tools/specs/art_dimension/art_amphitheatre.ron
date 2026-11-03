@@ -45,6 +45,8 @@
         ( type: "EnemySpawn", px: [2560, 904], size: [30, 56], fields: ( name: "art_amphitheatre_stagehand_1", brain: "combatant", character_id: "stagehand", respawn: "OnRoomReenter" ) ),
         ( type: "DebugLabel", px: [1940, 140], size: [520, 24], fields: ( name: "amphi_sign", text: "THE AMPHITHEATRE: no photography, no heckling, no refunds", category: "Custom" ) ),
         ( type: "DebugLabel", px: [1290, 780], size: [380, 24], fields: ( name: "amphi_sign_gap", text: "ORCHESTRA PIT (there is no orchestra)", category: "Custom" ) ),
+        ( type: "LoadingZone", px: [2440, 864], size: [48, 96], fields: ( id: "amphi_palace_door", name: "into the picture palace", activation: "Door", target_room: "art_picture_palace", target_zone: "art_picture_palace_door", bidirectional: true ) ),
+        ( type: "DebugLabel", px: [2294, 810], size: [340, 24], fields: ( name: "amphi_sign_palace", text: "THE PICTURE PALACE: now showing", category: "Custom" ) ),
         ( type: "CameraZone", px: [0, 0], size: [2800, 1024], fields: ( id: "art_amphitheatre_camera", name: "art_amphitheatre_camera", mode: "Default" ) ),
         ( type: "DebugLabel", px: [950, 40], size: [900, 24], fields: ( name: "art_amphitheatre_title", text: "THE AMPHITHEATRE", category: "Custom" ) ),
     ],

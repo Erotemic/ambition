@@ -54,6 +54,17 @@
     "art_crayon_rail": (),
     "art_scribble_wall": (),
     "art_eraser": (),
+    // The Picture Palace (`targets/props/art_picture_palace_props.py`). The
+    // pod bay door is the door of the space set: MAL-9000 will not open it;
+    // pulling its memory module (the lever by the rack) does. A door fills
+    // the box of its wall.
+    "art_pod_bay_door": (),
+    "art_memory_module": (),
+    "art_film_camera": (),
+    "art_directors_chair": (),
+    "art_studio_light": (),
+    "art_monolith": (),
+    "art_clapperboard": (),
     // The Fertile Crescent of the History dimension
     // (`targets/props/history_crescent_props.py`). The reed bridge is the
     // LockWall over the canal that the sluice lever (`history_sluice`)

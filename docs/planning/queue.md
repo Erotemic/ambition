@@ -850,15 +850,25 @@ Cube hover now uses pointer identity (`499fa1a51`). Guard:
 `another_participants_pad_does_not_block_mouse_focus_in_a_cube_menu`.
 Another participant's pad must not block mouse focus in a menu.
 
+Narrow menu regions now use a taller Cube canvas and a three-column item
+grid with details below it (`57462d561`). Both backends use the same layout
+for publication and navigation. Text fits its container and recovers its size
+when space returns. Guards:
+`resizing_one_viewport_rebuilds_only_its_canvas_and_restores_its_shape`,
+`portrait_navigation_follows_the_published_columns_after_resize` and
+`spatial_navigation_uses_the_current_inventory_layout`.
+Do not restore fixed inventory dimensions in either navigation path.
+
 The GPU guard `two_pad_menus_draw_in_their_own_regions` draws Equipment and
-Rebind in separate regions on both backends. Cube text remains too small in
-narrow regions. Slice 4 stays open for canvas and page-layout work.
+Rebind in separate regions on both backends. The captures show no overlapping
+labels. Some item captions and detail text remain too small in narrow regions.
+Slice 4 stays open for text readability.
 
 **Next action (ordered slices; complete each behavior gate before moving):**
 
-4. **Independent local menus:** complete narrow-region Cube canvas and page
-   layout so item and Rebind labels remain readable. Use shared layout metrics
-   for navigation and rendering. Check resize behavior and rerun the two-pad
+4. **Independent local menus:** make item captions and detail text readable
+   in narrow regions on both backends. Canvas sizing, shared layout dimensions,
+   navigation and resize isolation have behavior guards. Rerun the two-pad
    flow and GPU captures before closing this slice. Admission, retirement,
    input ownership and the shared offline pause arbiter have behavior guards.
 5. **Per-view presentation isolation:** a room transition cover follows only

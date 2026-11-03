@@ -209,7 +209,7 @@ SIGNS = {
 ENEMIES = (
     (ORCHARD, "bad_apple", 1784, 704, 40, 40),
     (ORCHARD, "gravity_apple", 2560, 520, 44, 44),
-    (APPROACH, "gravity_apple", 960, 760, 44, 44),
+    (APPROACH, "gravity_apple", 400, 760, 44, 44),
 )
 
 
@@ -507,6 +507,7 @@ def approach():
     floor, vault = h - 64, 48
     column_x, column_w = 512, 192
     landing_y = 352
+    ring_x = column_x + column_w - 32
     e = [
         solid("floor", 0, floor, w, h - floor),
         solid("vault", 0, 0, w, vault),
@@ -532,7 +533,8 @@ def approach():
         # The military survey ring (hidden address TESLA) on the tower's top:
         # receive only, and only from the military band
         # (`docs/planning/game/gate-network.md`).
-        *gates.as_ron(gates.ring("Trail Survey Gate", "trail_survey_gate", column_x + column_w - 32, landing_y, "the survey ring")),
+        *gates.as_ron(gates.ring("Trail Survey Gate", "trail_survey_gate", ring_x, landing_y, "the survey ring")),
+        *gates.as_ron(gates.terminal("Trail Survey Gate", "trail_survey_gate_terminal", ring_x + gates.RING + 12, landing_y)),
         label("approach_survey_sign", column_x + column_w + 16, landing_y - 232, "SURVEY RING (MILITARY): receive only", 300),
     ]
     return rid, room(rid, e, "THE APPROACH: HE STANDS ON THE SHOULDERS OF A GIANT", title_y=landing_y + 64)

@@ -360,10 +360,17 @@ pub fn draw_following_sprite_effects(
         if !effect.0.needs_material() {
             continue;
         }
+        let colour = source.map_or(sprite.color, |source| source.original_color);
+        // The quad owns the draw even when a binder replaces the sprite.
+        if source.is_some() {
+            let hidden = colour.with_alpha(0.0);
+            if sprite.color != hidden {
+                sprite.color = hidden;
+            }
+        }
         let Some(basis) = sprite_frame_basis(&sprite, &layouts, &images) else {
             continue;
         };
-        let colour = source.map_or(sprite.color, |source| source.original_color);
         let key = MaterialKey::with_colour(effect.0, &basis, &sprite.image, sprite.flip_x, sprite.flip_y, colour);
         let material = cache
             .entry(key)

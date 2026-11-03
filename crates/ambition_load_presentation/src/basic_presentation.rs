@@ -1,6 +1,6 @@
 //! Show load status and the controls needed to continue or recover.
 
-use ambition_game_shell::{shell_action_edges, FrontendOwnedEntity, FrontendPresentationKind};
+use ambition_game_shell::{FrontendOwnedEntity, FrontendPresentationKind};
 use ambition_platformer2d_shared_tangle::developer_hotkeys::{
     DeveloperAction, DeveloperHotkeyBindings,
 };
@@ -37,15 +37,7 @@ impl Plugin for BasicLoadPresentationPlugin {
         app.add_message::<DeveloperAction>()
             .add_systems(
                 Update,
-                // Deliberately NOT in `InputSet::Consume`: the loading
-                // context is unmigrated, and its slot in the load pipeline
-                // (`LoadPresentationSet::Input`, which the shell-adapter
-                // orders BEFORE the shell's route machinery) would cycle
-                // against the context declarations that run after it. The
-                // frame edges it reads are one-frame-tolerant here exactly
-                // as they were before the participant migration; same-frame
-                // delivery arrives when the loading context itself migrates.
-                basic_load_keyboard.in_set(LoadPresentationSet::Input),
+                basic_load_keyboard.in_set(ambition_input::InputSet::Consume),
             )
             .add_systems(
                 Update,
@@ -57,13 +49,7 @@ impl Plugin for BasicLoadPresentationPlugin {
 }
 
 fn basic_load_keyboard(
-    // Retry is the loading context's one remaining raw-device read (R / pad
-    // West): the loading surface is not part of the migrated startup/launcher
-    // contexts yet and no semantic retry intent exists. Everything else below
-    // consumes the participant-populated `MenuControlFrame`.
-    keys: Option<Res<ButtonInput<KeyCode>>>,
-    pads: Query<&bevy::input::gamepad::Gamepad>,
-    menu_frame: Option<Res<ambition_input::MenuControlFrame>>,
+    input: crate::input::LoadInput,
     foreground: Res<LoadForegroundState>,
     model: Res<LoadPresentationModel>,
     mut developer_actions: MessageReader<DeveloperAction>,
@@ -72,25 +58,16 @@ fn basic_load_keyboard(
     let Some(active) = foreground.active.as_ref() else {
         return;
     };
-    let shell_actions = shell_action_edges(menu_frame.as_deref());
-    if active.phase == LoadForegroundPhase::ReadyHold && shell_actions.loading_continue {
-        actions.write(LoadPresentationAction::Continue {
-            owner: active.owner.clone(),
-        });
-    }
-    let retry_pressed = keys
-        .as_deref()
-        .is_some_and(|input| input.just_pressed(KeyCode::KeyR))
-        || pads
-            .iter()
-            .any(|gamepad| gamepad.just_pressed(bevy::input::gamepad::GamepadButton::West));
-    if active.phase == LoadForegroundPhase::Failed
-        && model.failures.iter().any(|failure| failure.retryable)
-        && retry_pressed
-    {
-        actions.write(LoadPresentationAction::Retry {
-            owner: active.owner.clone(),
-        });
+    let controls = input.read(active.spec.input_owner);
+    let confirm = controls.select;
+    let back = controls.back;
+    if !back && confirm {
+        let action = if active.phase == LoadForegroundPhase::ReadyHold {
+            Some(LoadPresentationAction::Continue { owner: active.owner.clone() })
+        } else if active.phase == LoadForegroundPhase::Failed && model.failures.iter().any(|failure| failure.retryable) {
+            Some(LoadPresentationAction::Retry { owner: active.owner.clone() })
+        } else { None };
+        if let Some(action) = action { actions.write(action); }
     }
     let quit_to_home = developer_actions
         .read()
@@ -99,7 +76,7 @@ fn basic_load_keyboard(
         actions.write(LoadPresentationAction::Quit {
             owner: active.owner.clone(),
         });
-    } else if shell_actions.back {
+    } else if back {
         actions.write(LoadPresentationAction::Cancel {
             owner: active.owner.clone(),
         });
@@ -144,6 +121,7 @@ fn render_basic_load(
     commands
         .spawn((
             BasicLoadRoot,
+            ambition_platformer2d_shared_tangle::gameplay_presentation::PresentationCover,
             FrontendOwnedEntity::load(
                 active.barrier.load_id.clone(),
                 FrontendPresentationKind::LoadingRoot,
@@ -158,7 +136,7 @@ fn render_basic_load(
                 align_items: AlignItems::Center,
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.015, 0.02, 0.035, 0.96)),
+            BackgroundColor(Color::srgb(0.015, 0.02, 0.035)),
             GlobalZIndex(1000),
             Name::new("basic load presentation"),
         ))
@@ -204,9 +182,9 @@ fn format_model(model: &LoadPresentationModel, quit_label: &str) -> String {
     }
     if let Some(failure) = model.failures.first() {
         let controls = if failure.retryable {
-            format!("R: retry · Escape: cancel · {quit_label}: quit")
+            format!("Confirm: retry · Back: cancel · {quit_label}: quit")
         } else {
-            format!("Escape: cancel · {quit_label}: quit")
+            format!("Back: cancel · {quit_label}: quit")
         };
         return format!("Load failed\n\n{}\n\n{controls}", failure.player_message);
     }
@@ -229,5 +207,57 @@ fn format_model(model: &LoadPresentationModel, quit_label: &str) -> String {
         "Ready to play\n\nPress Enter to continue".to_owned()
     } else {
         "Loading...\n\nPlease wait".to_owned()
+    }
+}
+
+#[cfg(test)]
+mod input_tests {
+    use super::*;
+    use ambition_input::participant::*;
+    use ambition_input::{MenuControlFrame, SeatMenuFrames};
+
+    #[test]
+    fn recovery_and_continuation_ignore_another_participants_controls() {
+        for phase in [LoadForegroundPhase::ReadyHold, LoadForegroundPhase::Failed] {
+            let mut app = App::new();
+            app.add_message::<DeveloperAction>();
+            app.add_message::<LoadPresentationAction>();
+            app.init_resource::<MenuControlFrame>();
+            app.init_resource::<SeatMenuFrames>();
+            app.init_resource::<SeatInputContexts>();
+            app.init_resource::<LoadPresentationModel>();
+            app.init_resource::<LoadForegroundState>();
+            app.world_mut().resource_mut::<LoadPresentationModel>().failures.push(
+                ambition_load::LoadFailure::new("fixture", "fixture").retryable(true));
+            let owner = crate::LoadPresentationOwnerId::new("fixture");
+            let mut spec = crate::LoadExperienceSpec::basic("fixture");
+            spec.input_owner = Some(InputOwner::Participant(ParticipantId::SECONDARY));
+            app.world_mut().resource_mut::<LoadForegroundState>().active = Some(crate::ActiveLoadForeground {
+                owner: owner.clone(), barrier: ambition_load::LoadBarrierRef::new("fixture", "ready"), spec,
+                phase, elapsed: std::time::Duration::ZERO,
+                activity_activation_id: None, engaged: false, ready_released: false,
+            });
+            for id in [ParticipantId::PRIMARY, ParticipantId::SECONDARY] {
+                let mut contexts = ParticipantContexts::default();
+                contexts.declare(ContextClaim::capturing(if id == ParticipantId::SECONDARY { LOADING_CONTEXT } else { GAMEPLAY_CONTEXT },
+                    context_priority::LOADING));
+                app.world_mut().spawn((InputParticipant::with_id(id), contexts));
+            }
+            app.add_systems(Update, (resolve_active_input_context, basic_load_keyboard).chain());
+            app.world_mut().resource_mut::<MenuControlFrame>().select = true;
+            app.world_mut().resource_mut::<SeatMenuFrames>().set(0, MenuControlFrame { select: true, back: true, ..default() });
+            app.update();
+            assert!(app.world().resource::<Messages<LoadPresentationAction>>().is_empty());
+            app.world_mut().resource_mut::<SeatMenuFrames>().set(1, MenuControlFrame { select: true, ..default() });
+            app.update();
+            let actions: Vec<_> = app.world_mut().resource_mut::<Messages<LoadPresentationAction>>().drain().collect();
+            assert_eq!(actions, vec![if phase == LoadForegroundPhase::ReadyHold {
+                LoadPresentationAction::Continue { owner: owner.clone() }
+            } else { LoadPresentationAction::Retry { owner: owner.clone() } }]);
+            app.world_mut().resource_mut::<SeatMenuFrames>().set(1, MenuControlFrame { select: true, back: true, ..default() });
+            app.update();
+            assert_eq!(app.world_mut().resource_mut::<Messages<LoadPresentationAction>>().drain().collect::<Vec<_>>(),
+                vec![LoadPresentationAction::Cancel { owner }]);
+        }
     }
 }

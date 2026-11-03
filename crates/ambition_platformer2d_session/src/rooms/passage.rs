@@ -499,6 +499,20 @@ pub fn run_zone_passages(
 ) {
     let dt = world_time.sim_dt();
     let now = boundary.as_ref().map_or(0, |boundary| boundary.current);
+    // The admitted operation keeps the slot. Ready passages use stable body
+    // identity to choose the next operation, independent of ECS traversal.
+    let next_crossing = pending_lifecycle.peek().is_none().then(|| {
+        bodies.iter().filter_map(|(entity, _, _, passage, _, _, _, stamp)| {
+            let here = stamp.map(|stamp| stamp.0);
+            (passage.stage == PassageStage::Entering
+                && !passage.recorded
+                && (passage.room.is_none() || passage.room == here)
+                && passage.elapsed + dt >= ZonePassage::entering_s(passage.kind))
+                .then_some(())
+                .and_then(|()| passage.crossing.as_ref())
+                .map(|crossing| (entity, &crossing.subject))
+        }).min_by(|(_, left), (_, right)| left.cmp(right)).map(|(entity, _)| entity)
+    }).flatten();
     for (entity, clusters, mut model, mut passage, mut control_holds, pose_holds, frame, stamp) in &mut bodies {
         let here = stamp.map(|stamp| stamp.0);
         if passage.room.is_none() {
@@ -518,7 +532,7 @@ pub fn run_zone_passages(
             PassageStage::Entering => ZonePassage::entering_s(passage.kind),
             PassageStage::Exiting => ZonePassage::exiting_s(passage.kind),
         };
-        if passage.stage == PassageStage::Entering && passage.elapsed >= stage_s && !passage.recorded {
+        if next_crossing == Some(entity) {
             if let Some(crossing) = passage.crossing.clone() {
                 let admission = pending_lifecycle
                     .record(now, LifecycleIntent::Transition(crossing));
@@ -646,7 +660,12 @@ mod tests {
             zone_sfx: None,
             participant: None,
         };
-        let body = app
+        let body = spawn_passage_body(&mut app, &crossing);
+        (app, body, crossing)
+    }
+
+    fn spawn_passage_body(app: &mut App, crossing: &RoomTransitionIntent) -> Entity {
+        app
             .world_mut()
             .spawn((
                 (
@@ -672,8 +691,54 @@ mod tests {
                 ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
                 ZonePassage { crossing: Some(crossing.clone()), ..passage(PassageKind::Door) },
             ))
-            .id();
-        (app, body, crossing)
+            .id()
+    }
+
+    #[test]
+    fn simultaneous_passages_wait_and_admit_in_stable_body_order() {
+        use ambition_platformer2d_shared_tangle::{lifecycle::{LiveBodyId, LiveRoomInstance}, sim_id::SimId};
+        #[derive(Component)]
+        struct MovedArchetype;
+        for shared_id in [false, true] {
+            for reversed in [false, true] {
+                let (mut app, first, template) = passage_app();
+                let subjects = if shared_id {
+                    [LiveBodyId::new(SimId::placement("traveller"), Some(LiveRoomInstance::from_ordinal(1))),
+                     LiveBodyId::new(SimId::placement("traveller"), Some(LiveRoomInstance::from_ordinal(2)))]
+                } else {
+                    [LiveBodyId::new(SimId::placement("alpha"), None),
+                     LiveBodyId::new(SimId::placement("zeta"), None)]
+                };
+                let crossings = subjects.map(|subject| RoomTransitionIntent { subject, ..template.clone() });
+                let second = spawn_passage_body(&mut app, &crossings[usize::from(!reversed)]);
+                let bodies = if reversed { [second, first] } else { [first, second] };
+                for (body, crossing) in bodies.into_iter().zip(&crossings) {
+                    let mut passage = app.world_mut().get_mut::<ZonePassage>(body).unwrap();
+                    passage.crossing = Some(crossing.clone());
+                    passage.elapsed = ZonePassage::entering_s(PassageKind::Door);
+                    if let Some(room) = crossing.subject.room {
+                        app.world_mut().entity_mut(body).insert(InRoomInstance(room));
+                    }
+                }
+                app.world_mut().entity_mut(bodies[0]).insert(MovedArchetype);
+                let incumbent = LifecycleIntent::Transition(RoomTransitionIntent {
+                    subject: LiveBodyId::new(SimId::placement("incumbent"), None), ..template
+                });
+                assert!(app.world_mut().resource_mut::<PendingLifecycleCommit>().record(0, incumbent.clone()).admitted());
+                app.update();
+                assert_eq!(app.world_mut().resource_mut::<PendingLifecycleCommit>().take().unwrap().kind, incumbent);
+                assert!(bodies.iter().all(|body| !app.world().get::<ZonePassage>(*body).unwrap().recorded));
+                for (index, crossing) in crossings.iter().enumerate() {
+                    app.update();
+                    assert_eq!(app.world_mut().resource_mut::<PendingLifecycleCommit>().take().unwrap().kind,
+                        LifecycleIntent::Transition(crossing.clone()));
+                    assert!(app.world().get::<ZonePassage>(bodies[index]).unwrap().recorded);
+                    if index == 0 {
+                        assert!(!app.world().get::<ZonePassage>(bodies[1]).unwrap().recorded);
+                    }
+                }
+            }
+        }
     }
 
     #[test]

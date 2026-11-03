@@ -332,6 +332,7 @@ pub const ENGINE_CAPABILITY: &str = "engine";
 
 const GAMEPLAY: &[InputContextId] = &[GAMEPLAY_CONTEXT];
 const MENUS: &[InputContextId] = &[
+    crate::participant::LOADING_CONTEXT,
     LAUNCHER_CONTEXT,
     SELECT_CONTEXT,
     INVENTORY_CONTEXT,

@@ -2,7 +2,7 @@
 
 use super::*;
 use ambition_platformer2d::characters::control::PlayerSlot;
-use ambition_platformer2d::input::InputParticipant;
+use ambition_platformer2d::input::{InputParticipant, MenuControlFrame};
 use ambition_platformer2d::inventory_ui::InventoryMenu;
 use ambition_platformer2d::platformer::lifecycle::{SessionRoot, SessionScopeId, SessionScopedEntity};
 use ambition_platformer2d::rollback::LocalPlayers;
@@ -134,4 +134,30 @@ fn rebind_capture_owns_its_menu_shortcuts_and_leaves_the_other_menu_usable() {
     assert_eq!(app.world().get::<ActiveMenuPages<MenuPage, MenuPageAction>>(menus[&1]).unwrap().active, Some(MenuPage::System));
     assert!(app.world().get::<InventoryUiState>(menus[&0]).unwrap().visible);
     assert_eq!(app.world().get::<ActiveMenuPages<MenuPage, MenuPageAction>>(menus[&0]).unwrap().active, Some(MenuPage::Items));
+}
+
+#[test]
+fn another_surface_keeps_its_frames_and_prevents_menu_opening() {
+    use ambition_platformer2d::input::{ContextClaim, LOADING_CONTEXT, ParticipantContexts, participant::context_priority};
+    let (mut app, _) = admission_app(InventoryUiBackend::Grid);
+    let mut contexts = ParticipantContexts::default();
+    contexts.declare(ContextClaim::capturing(LOADING_CONTEXT, context_priority::LOADING));
+    let participant = app.world_mut().spawn((InputParticipant::with_id(ParticipantId::SECONDARY), contexts)).id();
+    app.update();
+    app.world_mut().resource_mut::<SeatMenuFrames>().set(0, MenuControlFrame { start: true, ..default() });
+    let input = MenuControlFrame { start: true, select: true, ..default() };
+    app.world_mut().resource_mut::<SeatMenuFrames>().set(1, input);
+    app.update();
+    let menus = menu_entities(&mut app);
+    assert!(app.world().get::<InventoryUiState>(menus[&0]).unwrap().visible);
+    assert!(!app.world().get::<InventoryUiState>(menus[&1]).unwrap().visible);
+    assert_eq!(app.world().resource::<SeatMenuFrames>().for_seat(1), input);
+    app.world_mut().get_mut::<ParticipantContexts>(participant).unwrap().retract(LOADING_CONTEXT);
+    app.update();
+    assert!(!app.world().get::<InventoryUiState>(menus[&1]).unwrap().visible, "a held Start is not a new press");
+    app.world_mut().resource_mut::<SeatMenuFrames>().set(1, MenuControlFrame::default());
+    app.update();
+    app.world_mut().resource_mut::<SeatMenuFrames>().set(1, input);
+    app.update();
+    assert!(app.world().get::<InventoryUiState>(menus[&1]).unwrap().visible);
 }

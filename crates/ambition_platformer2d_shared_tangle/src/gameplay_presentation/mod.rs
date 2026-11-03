@@ -52,6 +52,10 @@ pub use hud::{
 pub use presets::profiles;
 pub use resolve::{resolve_gameplay_presentation, GameplayPresentationInput};
 
+/// This UI region hides the gameplay behind it with an opaque cover.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct PresentationCover;
+
 // ---------------------------------------------------------------------------
 // Normalized screen geometry
 // ---------------------------------------------------------------------------

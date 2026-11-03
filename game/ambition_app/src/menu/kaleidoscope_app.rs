@@ -523,6 +523,7 @@ impl RebindCapture {
     any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")
 ))]
 pub(crate) fn capture_armed_rebind(
+    access: ambition_platformer2d::input::ParticipantContextAccess,
     mut menus: Query<(
         &ambition_platformer2d::inventory_ui::InventoryMenu,
         &ambition_platformer2d::inventory_ui::InventoryUiState,
@@ -548,6 +549,7 @@ pub(crate) fn capture_armed_rebind(
             capture.take();
             continue;
         }
+        if !super::inventory_input_allowed(&access, owner.owner) { continue; }
         if capture.settle() {
             continue;
         }
@@ -1040,6 +1042,7 @@ pub(crate) use scrim::*;
 /// page; `back` closes the menu. The republish runs after this in the chain.
 #[allow(clippy::too_many_arguments)]
 fn kaleidoscope_focus_nav(
+    access: ambition_platformer2d::input::ParticipantContextAccess,
     regions: Query<&super::regions::MenuRegion>,
     mut menu_frames: ResMut<ambition_platformer2d::input::SeatMenuFrames>,
     // Features C/D: keyboard navigation CLEARS the explicit scroll override so the
@@ -1087,6 +1090,7 @@ fn kaleidoscope_focus_nav(
             // Not the active backend — leave the frame for whichever nav owns it.
             continue;
         }
+        if !super::inventory_input_allowed(&access, menu_owner.owner) { continue; }
         // Consume only this seat's edges before a backend switch can expose them again.
         let menu = menu_frames.for_seat(menu_owner.owner.slot());
         menu_frames.consume_nav_edges(menu_owner.owner.slot());

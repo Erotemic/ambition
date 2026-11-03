@@ -295,7 +295,7 @@ fn spawn_direct_startup_loading_screen(mut commands: Commands) {
             BackgroundColor(rgb(look.backdrop)),
             GlobalZIndex(10_000),
             DirectStartupLoadingRoot,
-            ambition_platformer2d::render::rendering::presentation_settling::PresentationCover,
+            ambition_platformer2d::presentation::gameplay_presentation::PresentationCover,
             Name::new("Ambition Direct Startup Loading Cover"),
         ))
         .with_children(|root| {

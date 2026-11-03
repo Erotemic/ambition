@@ -31,6 +31,7 @@ impl ReadyTransitionPolicy {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LoadExperienceSpec {
+    pub input_owner: Option<ambition_input::InputOwner>,
     pub id: LoadExperienceId,
     pub reveal_after: Duration,
     pub ready_policy: ReadyTransitionPolicy,
@@ -41,6 +42,7 @@ pub struct LoadExperienceSpec {
 impl LoadExperienceSpec {
     pub fn basic(id: impl Into<String>) -> Self {
         Self {
+            input_owner: Some(ambition_input::InputOwner::AllParticipants),
             id: LoadExperienceId::new(id),
             reveal_after: Duration::from_millis(250),
             ready_policy: ReadyTransitionPolicy::AutoUnlessEngaged,
@@ -190,6 +192,7 @@ impl LoadPresentationModel {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ActiveLoadActivity {
+    pub input_owner: Option<ambition_input::InputOwner>,
     pub activation_id: u64,
     pub activity_id: LoadActivityId,
     pub owner: LoadPresentationOwnerId,

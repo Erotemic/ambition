@@ -85,6 +85,8 @@ impl InputParticipant {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct InputContextId(pub &'static str);
 
+/// A visible loading foreground owns recovery and continuation input.
+pub const LOADING_CONTEXT: InputContextId = InputContextId("loading");
 /// The startup acknowledgement surface (vanity/startup cards): one
 /// semantic "continue" action, tap-anywhere friendly.
 pub const STARTUP_ACKNOWLEDGE_CONTEXT: InputContextId = InputContextId("shell.startup_acknowledge");
@@ -126,6 +128,7 @@ pub const PAUSE_CONTEXT: InputContextId = InputContextId("pause");
 /// Shell overlays outrank gameplay so a transient session/launcher overlap
 /// (teardown, quit-to-title) resolves to the visible surface.
 pub mod context_priority {
+    pub const LOADING: i32 = 310;
     pub const STARTUP_ACKNOWLEDGE: i32 = 300;
     pub const LAUNCHER: i32 = 200;
     /// Above the in-session surfaces: a tool opened over a dialogue gets input.
@@ -250,6 +253,19 @@ impl ActiveInputContext {
 /// owns no context (every output neutral). This is not an error: an empty slot
 /// is normal.
 static NO_CONTEXT: ActiveInputContext = ActiveInputContext { open: Vec::new() };
+
+/// Read which existing claims can block a new surface.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct ParticipantContextAccess<'w, 's> {
+    participants: bevy::prelude::Query<'w, 's, (&'static InputParticipant, &'static ParticipantContexts)>,
+}
+
+impl ParticipantContextAccess<'_, '_> {
+    pub fn permits(&self, participant: ParticipantId, claim: ContextClaim) -> bool {
+        !self.participants.iter().any(|(owner, contexts)| owner.id == participant
+            && contexts.claims.iter().any(|existing| existing.capture && existing.priority > claim.priority))
+    }
+}
 
 /// Resolved input context for each participant seat.
 ///

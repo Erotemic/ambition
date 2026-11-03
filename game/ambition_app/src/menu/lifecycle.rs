@@ -134,6 +134,7 @@ pub(crate) struct MenuLifecycleState {
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn route_menu_lifecycle(
+    access: ambition_platformer2d::input::participant::ParticipantContextAccess,
     mut frames: ResMut<SeatMenuFrames>,
     backend: Res<InventoryUiBackend>,
     mut menus: Query<(
@@ -172,6 +173,10 @@ pub(crate) fn route_menu_lifecycle(
         let mut input = frames.for_seat(owner.owner.slot());
         let start = input.start && !latch.last_start;
         latch.last_start = input.start;
+        let platform_pause = platform_pause && owner.owner == ParticipantId::PRIMARY;
+        if !platform_pause && !super::inventory_input_allowed(&access, owner.owner) {
+            continue;
+        }
         if overlay.visible && capture.armed().is_some() {
             // Raw device capture owns this participant's menu input.
             *frames.for_seat_mut(owner.owner.slot()) = Default::default();
@@ -181,7 +186,6 @@ pub(crate) fn route_menu_lifecycle(
             input.back = false;
             frames.for_seat_mut(owner.owner.slot()).back = false;
         }
-        let platform_pause = platform_pause && owner.owner == ParticipantId::PRIMARY;
 
         let page = if platform_pause {
             if overlay.visible {

@@ -1,6 +1,6 @@
 //! Optional deterministic loading activity acceptance fixture.
 
-use ambition_game_shell::{shell_action_edges, FrontendOwnedEntity, FrontendPresentationKind};
+use ambition_game_shell::{FrontendOwnedEntity, FrontendPresentationKind};
 use bevy::prelude::*;
 
 use crate::{
@@ -23,7 +23,7 @@ pub struct DeterministicLoadingActivityPlugin;
 impl Plugin for DeterministicLoadingActivityPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, spawn_activity.in_set(LoadPresentationSet::Activity))
-            .add_systems(Update, drive_activity.in_set(LoadPresentationSet::Input));
+            .add_systems(Update, drive_activity.in_set(ambition_input::InputSet::Consume));
     }
 }
 
@@ -43,38 +43,26 @@ fn spawn_activity(
         return;
     }
     commands.spawn((
-        DeterministicActivityView {
-            activation_id: active.activation_id,
-            edges: 0,
-            engaged: false,
-        },
-        LoadActivityScopedEntity {
-            activation_id: active.activation_id,
-        },
-        FrontendOwnedEntity::load(
-            active.barrier.load_id.clone(),
-            FrontendPresentationKind::LoadingActivity,
-        ),
-        Text::new("Loading practice: tap up/down four times (0/4)"),
-        TextFont {
-            font_size: FontSize::Px(18.0),
-            ..default()
-        },
-        TextColor(Color::srgb(0.78, 0.84, 1.0)),
-        Node {
-            position_type: PositionType::Absolute,
-            bottom: Val::Percent(12.0),
-            width: Val::Percent(100.0),
-            justify_content: JustifyContent::Center,
-            ..default()
-        },
+        LoadActivityScopedEntity { activation_id: active.activation_id },
+        FrontendOwnedEntity::load(active.barrier.load_id.clone(), FrontendPresentationKind::LoadingActivity),
+        Node { position_type: PositionType::Absolute, width: Val::Percent(100.0), height: Val::Percent(100.0),
+            overflow: Overflow::clip(), ..default() },
         GlobalZIndex(1001),
         Name::new("deterministic loading activity"),
-    ));
+    )).with_children(|children| {
+        children.spawn((
+            DeterministicActivityView { activation_id: active.activation_id, edges: 0, engaged: false },
+            Text::new("Loading practice: tap up/down four times (0/4)"),
+            TextFont { font_size: FontSize::Px(18.0), ..default() },
+            TextColor(Color::srgb(0.78, 0.84, 1.0)),
+            Node { position_type: PositionType::Absolute, bottom: Val::Percent(12.0),
+                width: Val::Percent(100.0), justify_content: JustifyContent::Center, ..default() },
+        ));
+    });
 }
 
 fn drive_activity(
-    menu_frame: Option<Res<ambition_input::MenuControlFrame>>,
+    input: crate::input::LoadInput,
     activity: Res<LoadActivityState>,
     mut views: Query<(&mut DeterministicActivityView, &mut Text)>,
     mut signals: MessageWriter<LoadActivitySignal>,
@@ -85,8 +73,8 @@ fn drive_activity(
     if active.activity_id.as_str() != DETERMINISTIC_LOADING_ACTIVITY_ID {
         return;
     }
-    let actions = shell_action_edges(menu_frame.as_deref());
-    if !actions.previous && !actions.next {
+    let actions = input.read(active.input_owner);
+    if !actions.up && !actions.down {
         return;
     }
 
@@ -145,6 +133,7 @@ mod tests {
         app.init_resource::<DestinationFixture>();
         app.add_plugins(DeterministicLoadingActivityPlugin);
         app.world_mut().resource_mut::<LoadActivityState>().active = Some(ActiveLoadActivity {
+            input_owner: Some(ambition_input::InputOwner::AllParticipants),
             activation_id: 7,
             activity_id: LoadActivityId::new(DETERMINISTIC_LOADING_ACTIVITY_ID),
             owner: LoadPresentationOwnerId::new("fixture-owner"),
@@ -176,6 +165,21 @@ mod tests {
             .resource_mut::<Messages<LoadActivitySignal>>()
             .drain()
             .collect()
+    }
+
+    #[test]
+    fn activity_navigation_follows_the_loading_input_owner() {
+        let mut app = app();
+        app.init_resource::<ambition_input::SeatMenuFrames>();
+        app.world_mut().resource_mut::<LoadActivityState>().active.as_mut().unwrap().input_owner =
+            Some(ambition_input::InputOwner::Participant(ambition_input::ParticipantId::SECONDARY));
+        app.update();
+        nav(&mut app, true);
+        assert!(drain(&mut app).is_empty());
+        app.world_mut().resource_mut::<ambition_input::SeatMenuFrames>().set(1,
+            ambition_input::MenuControlFrame { down: true, ..default() });
+        app.update();
+        assert!(matches!(drain(&mut app).as_slice(), [LoadActivitySignal::Engaged { activation_id: 7 }]));
     }
 
     #[test]

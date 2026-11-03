@@ -28,7 +28,7 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 
-use super::presentation_settling::PresentationCover;
+use ambition_platformer2d_shared_tangle::gameplay_presentation::PresentationCover;
 
 /// The z of the cover: over the game and its HUD, under a loading screen's
 /// foreground.
@@ -253,18 +253,30 @@ pub fn spawn_lifting_cover(commands: &mut Commands, style: RoomTransitionStyle) 
     spawn_cover(commands, cover)
 }
 
+/// The animated fill inside a cover container.
+#[derive(Component)]
+pub struct RoomTransitionStroke;
+
 fn spawn_cover(commands: &mut Commands, cover: RoomTransitionCover) -> Entity {
     let sequence = cover.sequence;
     let mut entity = commands.spawn((
         cover,
-        cover_node(&cover),
-        BackgroundColor(cover_colour(&cover)),
+        Node {
+            position_type: PositionType::Absolute,
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            overflow: Overflow::clip(),
+            ..default()
+        },
         GlobalZIndex(ROOM_TRANSITION_COVER_Z),
         Name::new(format!("room transition cover {sequence}")),
     ));
     if cover.is_opaque() {
         entity.insert(PresentationCover);
     }
+    entity.with_children(|children| {
+        children.spawn((RoomTransitionStroke, cover_node(&cover), BackgroundColor(cover_colour(&cover))));
+    });
     entity.id()
 }
 
@@ -319,10 +331,11 @@ fn cover_node(cover: &RoomTransitionCover) -> Node {
 pub fn animate_room_transition_covers(
     mut commands: Commands,
     time: Res<Time<Real>>,
-    mut covers: Query<(Entity, &mut RoomTransitionCover, &mut Node, &mut BackgroundColor, Has<PresentationCover>)>,
+    mut covers: Query<(Entity, &mut RoomTransitionCover, &Children, Has<PresentationCover>)>,
+    mut strokes: Query<(&mut Node, &mut BackgroundColor), With<RoomTransitionStroke>>,
 ) {
     let dt = time.delta_secs();
-    for (entity, mut cover, mut node, mut colour, marked) in &mut covers {
+    for (entity, mut cover, children, marked) in &mut covers {
         let step = |stroke: CoverStroke, t: f32| {
             let secs = stroke.duration().as_secs_f32();
             if secs <= 0.0 { 1.0 } else { (t + dt / secs).min(1.0) }
@@ -346,8 +359,12 @@ pub fn animate_room_transition_covers(
                 commands.entity(entity).remove::<PresentationCover>();
             }
         }
-        *node = cover_node(&cover);
-        colour.0 = cover_colour(&cover);
+        for child in children {
+            if let Ok((mut node, mut colour)) = strokes.get_mut(*child) {
+                *node = cover_node(&cover);
+                colour.0 = cover_colour(&cover);
+            }
+        }
     }
 }
 
@@ -373,6 +390,41 @@ mod tests {
 
     fn cover(style: RoomTransitionStyle) -> RoomTransitionCover {
         RoomTransitionCover { sequence: 1, style, phase: CoverPhase::Covering(0.0) }
+    }
+
+    #[test]
+    fn a_wipe_keeps_its_view_container_through_cover_and_reveal() {
+        let mut app = App::new();
+        let mut time = Time::<Real>::default();
+        time.advance_by(Duration::from_millis(50));
+        app.insert_resource(time);
+        app.add_systems(Update, animate_room_transition_covers);
+        let root = {
+            let mut commands = app.world_mut().commands();
+            spawn_room_transition_cover(&mut commands, 1,
+                RoomTransitionStyle::wipe(Color::BLACK, WipeSide::Left, 100), 0.0)
+        };
+        app.world_mut().flush();
+        let region = Node { left: Val::Px(400.0), top: Val::Px(20.0),
+            width: Val::Px(400.0), height: Val::Px(700.0), overflow: Overflow::clip(),
+            ..default() };
+        app.world_mut().entity_mut(root).insert(region.clone());
+        app.update();
+        assert_eq!(app.world().get::<Node>(root).unwrap(), &region);
+        let stroke = app.world().get::<Children>(root).unwrap()[0];
+        assert!(matches!(app.world().get::<Node>(stroke).unwrap().width,
+            Val::Percent(width) if width > 0.0 && width < 100.0));
+        app.update();
+        assert!(app.world().get::<RoomTransitionCover>(root).unwrap().is_opaque());
+        app.world_mut().get_mut::<RoomTransitionCover>(root).unwrap().lift();
+        app.update();
+        assert_eq!(app.world().get::<Node>(root).unwrap(), &region);
+        assert!(matches!(app.world().get::<Node>(stroke).unwrap().width,
+            Val::Percent(width) if width > 0.0 && width < 100.0));
+        app.update();
+        app.update();
+        assert!(app.world().get_entity(root).is_err());
+        assert!(app.world().get_entity(stroke).is_err());
     }
 
     #[test]

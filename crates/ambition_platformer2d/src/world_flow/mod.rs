@@ -5,6 +5,7 @@ mod first_room_cover;
 mod parallax_residency;
 mod room_transition_assets;
 mod room_transition_presentation;
+mod transition_surfaces;
 
 pub use room_transition_assets::{
     build_loaded_room_asset_manifest, demand_room_character_sheets, inspect_demanded_characters,

@@ -33,9 +33,8 @@ fn drawn_demo() -> App {
 }
 
 fn settle(app: &mut App) {
-    use ambition_platformer2d::render::rendering::{
-        presentation_settling::PresentationCover, room_transition_cover::RoomTransitionCover,
-    };
+    use ambition_platformer2d::presentation::gameplay_presentation::PresentationCover;
+    use ambition_platformer2d::render::rendering::room_transition_cover::RoomTransitionCover;
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f64(1.0 / 60.0),
     ));

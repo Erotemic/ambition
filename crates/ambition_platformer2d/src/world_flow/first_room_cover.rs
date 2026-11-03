@@ -59,7 +59,7 @@ pub(crate) fn cover_first_room(
             if preparing {
                 commands.spawn((
                     FirstRoomCoverRoot,
-                    crate::render::rendering::presentation_settling::PresentationCover,
+                    crate::presentation::gameplay_presentation::PresentationCover,
                     Node {
                         position_type: PositionType::Absolute,
                         width: Val::Percent(100.0),

@@ -316,6 +316,7 @@ fn seed_cursor_for_tab(active_tab: usize, cursor: &mut KaleidoscopeCursor) {
 #[cfg(feature = "input")]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn grid_menu_nav(
+    access: ambition_platformer2d::input::ParticipantContextAccess,
     regions: Query<&super::regions::MenuRegion>,
     mut menu_frames: ResMut<ambition_platformer2d::input::SeatMenuFrames>,
     mut menus: Query<(
@@ -351,6 +352,7 @@ pub(crate) fn grid_menu_nav(
             // Not the active backend — leave the frame for whichever nav owns it.
             continue;
         }
+        if !super::inventory_input_allowed(&access, menu_owner.owner) { continue; }
         // Consume only this seat's edges before a backend switch can expose them again.
         let menu = menu_frames.for_seat(menu_owner.owner.slot());
         menu_frames.consume_nav_edges(menu_owner.owner.slot());

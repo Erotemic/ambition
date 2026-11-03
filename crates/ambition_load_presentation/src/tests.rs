@@ -16,6 +16,7 @@ fn foreground(policy: ReadyTransitionPolicy) -> ActiveLoadForeground {
             ready_policy: policy,
             activity: None,
             show_estimated_percentage: true,
+            input_owner: Some(ambition_input::InputOwner::AllParticipants),
         },
         phase: LoadForegroundPhase::Visible,
         elapsed: Duration::from_secs(1),
@@ -168,6 +169,7 @@ fn generic_presentation_runs_without_shell_resources() {
                 ready_policy: ReadyTransitionPolicy::AwaitConfirmation,
                 activity: None,
                 show_estimated_percentage: true,
+            input_owner: Some(ambition_input::InputOwner::AllParticipants),
             },
         });
     app.update();
@@ -263,6 +265,7 @@ fn generic_failure_routes_actions_to_the_exact_owner_and_cleans_up() {
                 ready_policy: ReadyTransitionPolicy::AutoAdvance,
                 activity: None,
                 show_estimated_percentage: true,
+            input_owner: Some(ambition_input::InputOwner::AllParticipants),
             },
         });
     app.update();
@@ -357,6 +360,7 @@ fn composed_app(
                 ready_policy,
                 activity,
                 show_estimated_percentage: true,
+            input_owner: Some(ambition_input::InputOwner::AllParticipants),
             },
         );
     (app, load, barrier)

@@ -114,9 +114,9 @@ pub use menu::{
 };
 pub use participant::{
     resolve_active_input_context, ActiveInputContext, ContextClaim, InputContextId,
-    InputOwner, InputParticipant, ParticipantContexts, ParticipantId, SeatInputContexts, CUTSCENE_CONTEXT,
+    InputOwner, InputParticipant, ParticipantContexts, ParticipantContextAccess, ParticipantId, SeatInputContexts, CUTSCENE_CONTEXT,
     DEBUG_CONTEXT, DIALOGUE_CONTEXT, GAMEPLAY_CONTEXT, INVENTORY_CONTEXT, LAUNCHER_CONTEXT,
-    PAUSE_CONTEXT, SELECT_CONTEXT, STARTUP_ACKNOWLEDGE_CONTEXT,
+    PAUSE_CONTEXT, SELECT_CONTEXT, STARTUP_ACKNOWLEDGE_CONTEXT, LOADING_CONTEXT,
 };
 #[cfg(feature = "input")]
 pub use rebind::{also_bound_to, bindable, capture, pressed_controls_this_frame};

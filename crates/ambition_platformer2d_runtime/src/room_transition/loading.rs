@@ -321,8 +321,8 @@ impl ActiveRoomTransitionLoad {
 /// Host-side transaction authority for one ordinary room transition.
 ///
 /// There is exactly one active transition. Repeated detection from the same
-/// loading zone is ignored while it is in flight; a genuinely different target
-/// supersedes it through the load coordinator's exact supersession path.
+/// loading zone is ignored while it is in flight. A different target can replace
+/// preparation. After commit, the next intent waits for presentation retirement.
 #[derive(Resource, Default, Debug)]
 pub struct RoomTransitionLoadState {
     next_sequence: u64,
@@ -941,6 +941,12 @@ pub fn begin_room_transition_load_system(
             active.same_destination(intent, current_session, content_epoch.get())
         }) {
             // One transaction owns that destination; a still-pending crossing is not a new one.
+            return;
+        }
+
+        // A committed destination keeps its cover until presentation retires it.
+        // The next accepted intent stays in the lifecycle slot until then.
+        if state.active.as_ref().is_some_and(|active| active.phase == RoomTransitionLoadPhase::Committed) {
             return;
         }
 

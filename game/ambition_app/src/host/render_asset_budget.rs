@@ -22,8 +22,8 @@
 use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssetBytesPerFrame;
 
-use ambition_platformer2d::load_presentation::LoadPresentationModel;
-use ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState;
+use ambition_platformer2d::render::rendering::presentation_coverage::PresentationCoverage;
+use ambition_platformer2d::platformer::lifecycle::SessionRoot;
 
 pub const RENDER_ASSET_MB_PER_FRAME_ENV: &str = "AMBITION_RENDER_ASSET_MB_PER_FRAME";
 
@@ -55,23 +55,14 @@ pub fn install_render_asset_budget(app: &mut App) {
         .add_systems(Last, pace_render_asset_uploads);
 }
 
-/// Whether a loading cover hides the frame: a room transition's cover is up,
-/// or a load foreground is showing.
-pub fn frame_is_covered(transitions: Option<&RoomTransitionLoadState>, model: Option<&LoadPresentationModel>) -> bool {
-    transitions
-        .and_then(|transitions| transitions.active.as_ref())
-        .is_some_and(|active| active.cover_required && active.cover_presented)
-        || model.is_some_and(|model| model.visible)
-}
-
 /// Lift the upload budget while a cover hides the frame; restore it when
 /// gameplay is visible again.
 pub fn pace_render_asset_uploads(
-    transitions: Option<Res<RoomTransitionLoadState>>,
-    model: Option<Res<LoadPresentationModel>>,
+    mut coverage: PresentationCoverage,
+    sessions: Query<(), With<SessionRoot>>,
     mut budget: ResMut<RenderAssetBytesPerFrame>,
 ) {
-    let max_bytes = (!frame_is_covered(transitions.as_deref(), model.as_deref())).then(visible_upload_bytes_per_frame);
+    let max_bytes = (!sessions.is_empty() && !coverage.hides_all_gameplay()).then(visible_upload_bytes_per_frame);
     if budget.max_bytes != max_bytes {
         budget.max_bytes = max_bytes;
     }
@@ -80,18 +71,29 @@ pub fn pace_render_asset_uploads(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_platformer2d::platformer::lifecycle::SessionScopeId;
+    use ambition_platformer2d::presentation::gameplay_presentation::PresentationCover;
 
-    /// The budget is lifted only while something covers the frame; visible
-    /// gameplay always has one.
     #[test]
-    fn uploads_are_paced_only_while_gameplay_is_visible() {
-        assert!(!frame_is_covered(None, None));
-        let mut model = LoadPresentationModel::default();
-        assert!(!frame_is_covered(None, Some(&model)), "a load in its hidden grace covers nothing");
-        model.visible = true;
-        assert!(frame_is_covered(None, Some(&model)), "a visible load foreground covers the frame");
-        let transitions = RoomTransitionLoadState::default();
-        assert!(!frame_is_covered(Some(&transitions), None), "no transition, no cover");
-        assert!(VISIBLE_UPLOAD_BYTES_PER_FRAME > 0);
+    fn a_cover_over_one_view_keeps_the_gameplay_upload_budget() {
+        let mut app = App::new();
+        app.insert_resource(RenderAssetBytesPerFrame::new(visible_upload_bytes_per_frame()));
+        app.add_systems(Update, pace_render_asset_uploads);
+        let session = app.world_mut().spawn(SessionRoot(SessionScopeId(1))).id();
+        let cover = app.world_mut().spawn((PresentationCover,
+            ComputedNode { size: Vec2::new(640.0, 720.0), ..default() },
+            UiGlobalTransform::from_xy(320.0, 360.0))).id();
+        app.update();
+        assert_eq!(app.world().resource::<RenderAssetBytesPerFrame>().max_bytes, Some(visible_upload_bytes_per_frame()));
+        app.world_mut().get_mut::<ComputedNode>(cover).unwrap().size.x = 1280.0;
+        *app.world_mut().get_mut::<UiGlobalTransform>(cover).unwrap() = UiGlobalTransform::from_xy(640.0, 360.0);
+        app.update();
+        assert_eq!(app.world().resource::<RenderAssetBytesPerFrame>().max_bytes, None);
+        app.world_mut().entity_mut(cover).despawn();
+        app.update();
+        assert_eq!(app.world().resource::<RenderAssetBytesPerFrame>().max_bytes, Some(visible_upload_bytes_per_frame()));
+        app.world_mut().entity_mut(session).despawn();
+        app.update();
+        assert_eq!(app.world().resource::<RenderAssetBytesPerFrame>().max_bytes, None);
     }
 }

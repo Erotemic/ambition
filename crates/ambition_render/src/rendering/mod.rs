@@ -140,6 +140,7 @@ mod nameplates;
 mod parallax;
 pub mod posed_hand;
 pub mod presentation_settling;
+pub mod presentation_coverage;
 pub mod room_transition_cover;
 mod primitives;
 pub mod terrain_skin;

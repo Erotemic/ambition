@@ -1011,3 +1011,163 @@ fn single_player_cube_draws_with_the_authored_canvas() {
     for _ in 0..120 { app.update(); }
     capture_frame(&mut app);
 }
+
+fn record_crossing(app: &mut App, slot: u8, target: &str) {
+    use ambition_platformer2d::session::lifecycle_commit::{LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent};
+    let world = app.world_mut();
+    let body = world.query::<(Entity, &DrivingParticipant)>().iter(world)
+        .find(|(_, driver)| driver.0 == PlayerSlot(slot)).map(|(body, _)| body).unwrap();
+    let subject = ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(world, body).unwrap();
+    let frame = world.get_resource::<ambition_platformer2d::engine_core::ConfirmedFrameBoundary>().map_or(0, |boundary| boundary.current);
+    assert!(world.resource_mut::<PendingLifecycleCommit>().record(frame, LifecycleIntent::Transition(RoomTransitionIntent {
+        subject, target_room: target.into(), arrival: Vec2::new(200.0, 200.0),
+        edge_exit: false, zone_sfx: None, participant: Some(PlayerSlot(slot)),
+    })).admitted());
+}
+
+fn delayed_crossing(app: &mut App, slot: u8, target: &str) -> (u64, ambition_platformer2d::load::LoadBarrierRef) {
+    use ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState;
+    use ambition_platformer2d::load::{LoadCommand, LoadCoordinator, LoadWorkSpec};
+    record_crossing(app, slot, target);
+    for _ in 0..120 {
+        app.update();
+        if let Some(active) = app.world().resource::<RoomTransitionLoadState>().active.as_ref() {
+            let sequence = active.sequence;
+            let barrier = active.barrier.clone();
+            let _ = app.world_mut().resource_mut::<LoadCoordinator>().apply(LoadCommand::UpsertWork {
+                load_id: barrier.load_id.clone(),
+                spec: LoadWorkSpec::required("fixture.delayed-room-art", "Delayed room art", barrier.barrier_id.clone()),
+            });
+            return (sequence, barrier);
+        }
+    }
+    panic!("the accepted crossing opened no transaction");
+}
+
+fn transition_in_one_view(mut host: App, slot: u8) -> (App, Vec<Entity>, ambition_platformer2d::load::LoadBarrierRef) {
+    use ambition_platformer2d::input::{LOADING_CONTEXT, SeatInputContexts};
+    use ambition_platformer2d::persistence::settings::{UserSettings, video::LocalViewLayout};
+    use ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState;
+    host.insert_resource(ambition_platformer2d::host::gameplay_presentation::HeadlessDisplaySurface(Vec2::new(1280.0, 720.0)));
+    let (mut app, pads) = session_in(host, 2, true);
+    app.world_mut().resource_mut::<UserSettings>().video.local_view_layout = LocalViewLayout::AlwaysSplit;
+    tap(&mut app, pads[1], GamepadButton::Start);
+    for _ in 0..6 { app.update(); }
+    let bodies = [the_primary(&mut app), seat_one_bodies(&mut app)[0]];
+    let (sequence, barrier) = delayed_crossing(&mut app, slot, "switch_lab");
+    for _ in 0..90 { app.update(); }
+    let active = app.world().resource::<RoomTransitionLoadState>().active.as_ref().expect("the crossing must remain pending");
+    assert_eq!(active.sequence, sequence);
+    assert_eq!(active.phase, ambition_platformer2d::runtime::room_transition::RoomTransitionLoadPhase::AwaitingReadiness);
+    assert!(active.failure.is_none(), "the loading fixture must not be a failure foreground");
+    assert!(app.world().resource::<ambition_platformer2d::load_presentation::LoadPresentationModel>().visible);
+    assert_eq!(app.world().resource::<SeatInputContexts>().for_seat(slot).owner(), Some(LOADING_CONTEXT));
+    assert!(app.world().resource::<SeatInputContexts>().gameplay_owned(1 - slot));
+    let moved = push_right(&mut app, Device::Pad(pads[usize::from(1 - slot)]), &[bodies[usize::from(1 - slot)]]);
+    assert!(moved[0] >= MOVED, "the other participant could not move during the crossing");
+    tap(&mut app, pads[usize::from(slot)], GamepadButton::Start);
+    assert!(inventory_menus(&mut app).values().all(|(_, open)| !open), "loading input opened an inventory underneath its foreground");
+    (app, pads, barrier)
+}
+
+fn assert_transition_regions(app: &mut App, slot: u8) {
+    use ambition_platformer2d::game_shell::{FrontendEntityOwner, FrontendOwnedEntity, FrontendPresentationKind};
+    use ambition_platformer2d::render::rendering::room_transition_cover::RoomTransitionCover;
+    use ambition_platformer2d::sim_view::{LocalViewId, camera_snapshot::CameraViewport};
+    let world = app.world_mut();
+    let viewport = world.query::<(&LocalViewId, &CameraViewport)>().iter(world)
+        .find(|(id, _)| id.0 == slot).map(|(_, viewport)| *viewport)
+        .expect("each participant in the fixed split must retain a view");
+    let expected = Rect::from_corners(viewport.origin_px, viewport.origin_px + viewport.px);
+    let active = world.resource::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>().active.as_ref().unwrap();
+    let sequence = active.sequence;
+    let load = active.barrier.load_id.clone();
+    let mut roots = world.query::<(&Node, Option<&RoomTransitionCover>, Option<&FrontendOwnedEntity>)>();
+    let mut found = 0;
+    for (node, cover, owner) in roots.iter(world) {
+        if !cover.is_some_and(|cover| cover.sequence == sequence && cover.is_opaque())
+            && !owner.is_some_and(|owner| owner.owner == FrontendEntityOwner::Load(load.clone()) && owner.kind == FrontendPresentationKind::LoadingRoot) {
+            continue;
+        }
+        let (Val::Px(left), Val::Px(top), Val::Px(width), Val::Px(height)) = (node.left, node.top, node.width, node.height) else {
+            panic!("the transition root has no resolved view bounds: {node:?}");
+        };
+        let actual = Rect::from_corners(Vec2::new(left, top), Vec2::new(left + width, top + height));
+        assert!((actual.min - expected.min).abs().max_element() < 1.0 && (actual.max - expected.max).abs().max_element() < 1.0,
+            "transition {actual:?} extends beyond its view {expected:?}");
+        found += 1;
+    }
+    assert_eq!(found, 2, "the cover and its loading foreground must both have a view");
+}
+
+#[test]
+fn a_room_transition_keeps_the_other_participants_input_and_view() {
+    for slot in [0, 1] {
+        let (mut app, _, _) = transition_in_one_view(rendered_app(), slot);
+        assert_transition_regions(&mut app, slot);
+    }
+}
+
+#[test]
+#[ignore = "needs a wgpu adapter; captures each participant's room loading foreground"]
+fn room_loading_draws_only_in_the_crossing_participants_view() {
+    for slot in [0, 1] {
+        let (mut app, _, _) = transition_in_one_view(gpu_app(&format!("ambition-p{slot}-room-loading.png")), slot);
+        capture_frame(&mut app);
+        assert_transition_regions(&mut app, slot);
+        assert!(app.world().resource::<bevy::render::render_asset::RenderAssetBytesPerFrame>().max_bytes.is_some(),
+            "a visible gameplay viewport must keep the upload budget");
+    }
+}
+
+#[derive(Resource)]
+struct HoldCrossingFrame(bool);
+
+#[test]
+fn a_second_crossing_waits_until_the_first_destinations_frame_is_presentable() {
+    use ambition_platformer2d::load::{LoadCommand, LoadCoordinator, LoadWorkState};
+    use ambition_platformer2d::render::rendering::presentation_settling::{PresentationSettling, PresentationSettlingSet};
+    use ambition_platformer2d::runtime::room_transition::{RoomTransitionLoadPhase, RoomTransitionLoadState};
+    use ambition_platformer2d::world_flow::RoomTransitionCoverSet;
+    let (mut app, _, barrier) = transition_in_one_view(rendered_app(), 0);
+    app.insert_resource(HoldCrossingFrame(true));
+    app.add_systems(Update, (|hold: Res<HoldCrossingFrame>, state: Res<RoomTransitionLoadState>, mut settling: ResMut<PresentationSettling>| {
+        if hold.0 {
+            if let Some(active) = state.active.as_ref().filter(|active| active.phase == RoomTransitionLoadPhase::Committed) {
+                settling.hold_in(active.arrived_in, "fixture target frame");
+            }
+        }
+    }).after(PresentationSettlingSet).before(RoomTransitionCoverSet));
+    let sequence = app.world().resource::<RoomTransitionLoadState>().active.as_ref().unwrap().sequence;
+    let _ = app.world_mut().resource_mut::<LoadCoordinator>().apply(LoadCommand::SetWorkState {
+        load_id: barrier.load_id, work_id: "fixture.delayed-room-art".into(), state: LoadWorkState::Complete,
+    });
+    let mut committed = false;
+    for _ in 0..600 {
+        app.update();
+        let state = app.world().resource::<RoomTransitionLoadState>();
+        let active = state.active.as_ref().expect("the held target frame must keep its transaction");
+        assert!(active.failure.is_none(), "the first crossing failed: {:?}", active.failure);
+        if active.phase == RoomTransitionLoadPhase::Committed { committed = true; break; }
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    }
+    assert!(committed, "the first crossing never committed");
+    record_crossing(&mut app, 1, "portal_lab");
+    for _ in 0..4 {
+        app.update();
+        assert_eq!(app.world().resource::<RoomTransitionLoadState>().active.as_ref().unwrap().sequence, sequence,
+            "the second crossing replaced a committed destination before its first presentable frame");
+        assert!(app.world().resource::<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>().peek().is_some());
+    }
+    app.world_mut().resource_mut::<HoldCrossingFrame>().0 = false;
+    let mut next = None;
+    for _ in 0..600 {
+        app.update();
+        if let Some(active) = app.world().resource::<RoomTransitionLoadState>().active.as_ref().filter(|active| active.sequence != sequence) {
+            next = Some(active.intent.participant());
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    }
+    assert_eq!(next, Some(Some(PlayerSlot(1))), "the queued crossing must start after the first destination is presentable");
+}

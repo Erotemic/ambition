@@ -28,6 +28,10 @@ impl Plugin for AmbitionLoadPresentationPlugin {
             .add_message::<LoadPresentationAction>()
             .add_message::<LoadPresentationEvent>()
             .add_message::<LoadActivitySignal>()
+            .add_systems(Update, declare_loading_context
+                .in_set(ambition_input::InputSet::ResolveContext)
+                .after(LoadPresentationSet::Drive)
+                .before(ambition_input::resolve_active_input_context))
             .configure_sets(
                 Update,
                 (
@@ -35,7 +39,6 @@ impl Plugin for AmbitionLoadPresentationPlugin {
                     LoadPresentationSet::Activity,
                     LoadPresentationSet::ActivitySignals,
                     LoadPresentationSet::Drive,
-                    LoadPresentationSet::Input,
                     LoadPresentationSet::Actions,
                     LoadPresentationSet::Finalize,
                     LoadPresentationSet::Cleanup,
@@ -73,10 +76,24 @@ impl Plugin for AmbitionLoadPresentationPlugin {
 #[derive(SystemSet, Clone, Copy, Debug, Eq, Hash, PartialEq)]
 struct LoadPresentationPass;
 
-/// True while a load is presented: a foreground or an activity is active, a
-/// command, action or activity signal is in flight, or an activity's entities
-/// remain. Also true on the first frame after, so each member sees the load
-/// gone once (a presentation takes its screen down then).
+/// A visible foreground captures only the participants named by its owner.
+fn declare_loading_context(
+    foreground: Res<LoadForegroundState>,
+    mut participants: Query<(&ambition_input::InputParticipant, &mut ambition_input::ParticipantContexts)>,
+) {
+    use ambition_input::participant::{ContextClaim, LOADING_CONTEXT, context_priority};
+    let owner = foreground.active.as_ref()
+        .filter(|active| active.phase != LoadForegroundPhase::HiddenGrace)
+        .and_then(|active| active.spec.input_owner);
+    for (participant, mut contexts) in &mut participants {
+        let capture = owner.is_some_and(|owner| owner.accepts(participant.id));
+        if contexts.is_declared(LOADING_CONTEXT) != capture {
+            contexts.sync(ContextClaim::capturing(LOADING_CONTEXT, context_priority::LOADING), capture);
+        }
+    }
+}
+
+/// Run while a load is present, and once after its retirement for cleanup.
 fn a_load_is_presented_or_was() -> impl FnMut(
     Res<LoadForegroundState>,
     Res<LoadActivityState>,
@@ -164,6 +181,7 @@ fn drive_foreground(
             let activation_id = foreground.next_activity_activation();
             active.activity_activation_id = Some(activation_id);
             activity.active = Some(ActiveLoadActivity {
+                input_owner: active.spec.input_owner,
                 activation_id,
                 activity_id,
                 owner: active.owner.clone(),
@@ -309,5 +327,43 @@ fn cleanup_activity_entities(
         if Some(scope.activation_id) != active_id {
             commands.entity(entity).despawn();
         }
+    }
+}
+
+#[cfg(test)]
+mod context_tests {
+    use super::*;
+    use ambition_input::participant::*;
+
+    #[test]
+    fn the_loading_foreground_claims_only_its_owner_and_releases_on_retirement() {
+        let mut app = App::new();
+        app.init_resource::<LoadForegroundState>();
+        app.init_resource::<SeatInputContexts>();
+        app.add_systems(Update, (declare_loading_context, resolve_active_input_context).chain());
+        for id in [ParticipantId::PRIMARY, ParticipantId::SECONDARY] {
+            let mut contexts = ParticipantContexts::default();
+            contexts.declare(ContextClaim::capturing(GAMEPLAY_CONTEXT, context_priority::GAMEPLAY));
+            app.world_mut().spawn((InputParticipant::with_id(id), contexts));
+        }
+        let mut spec = crate::LoadExperienceSpec::basic("fixture");
+        spec.input_owner = Some(InputOwner::Participant(ParticipantId::SECONDARY));
+        app.world_mut().resource_mut::<LoadForegroundState>().active = Some(ActiveLoadForeground {
+            owner: crate::LoadPresentationOwnerId::new("fixture"),
+            barrier: ambition_load::LoadBarrierRef::new("fixture", "ready"), spec,
+            phase: LoadForegroundPhase::HiddenGrace, elapsed: Duration::ZERO,
+            activity_activation_id: None, engaged: false, ready_released: false,
+        });
+        app.update();
+        assert!(app.world().resource::<SeatInputContexts>().gameplay_owned(0));
+        assert!(app.world().resource::<SeatInputContexts>().gameplay_owned(1));
+        app.world_mut().resource_mut::<LoadForegroundState>().active.as_mut().unwrap().phase = LoadForegroundPhase::Visible;
+        app.update();
+        assert!(app.world().resource::<SeatInputContexts>().gameplay_owned(0));
+        assert_eq!(app.world().resource::<SeatInputContexts>().for_seat(1).owner(), Some(LOADING_CONTEXT));
+        app.world_mut().resource_mut::<LoadForegroundState>().active = None;
+        app.update();
+        assert!(app.world().resource::<SeatInputContexts>().gameplay_owned(0));
+        assert!(app.world().resource::<SeatInputContexts>().gameplay_owned(1));
     }
 }

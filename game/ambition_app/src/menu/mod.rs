@@ -61,3 +61,12 @@ mod parity_tests;
 #[cfg_attr(feature = "kaleidoscope_menu", require(kaleidoscope_app::KaleidoscopeScroll,
     kaleidoscope_app::MenuPublication, ambition_menu_kaleidoscope::KaleidoscopeOpenState))]
 pub(crate) struct MenuInstance;
+
+#[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
+fn inventory_input_allowed(
+    access: &ambition_platformer2d::input::ParticipantContextAccess,
+    participant: ambition_platformer2d::input::ParticipantId,
+) -> bool {
+    use ambition_platformer2d::input::{ContextClaim, INVENTORY_CONTEXT, participant::context_priority};
+    access.permits(participant, ContextClaim::capturing(INVENTORY_CONTEXT, context_priority::INVENTORY))
+}

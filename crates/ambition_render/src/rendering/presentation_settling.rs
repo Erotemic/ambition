@@ -72,11 +72,6 @@ impl PresentationSettling {
     }
 }
 
-/// An opaque cover over the room: while one is up, what is drawn is drawn
-/// under it, not in front of the player (the image census reads it).
-#[derive(Component, Clone, Copy, Debug, Default)]
-pub struct PresentationCover;
-
 /// Where [`PresentationSettling`] is filled. A cover reads it after this set.
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PresentationSettlingSet;

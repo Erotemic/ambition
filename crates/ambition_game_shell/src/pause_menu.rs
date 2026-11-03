@@ -293,6 +293,7 @@ fn declare_pause_context(
 /// the `GameMode` state keeps running behind the menu.
 #[allow(clippy::too_many_arguments)]
 fn drive_shell_pause_menu(
+    access: ambition_input::participant::ParticipantContextAccess,
     // Device-independent menu input (includes the touch "Menu" button).
     // Absent in an app with no host input stack.
     menu_frame: Option<Res<ambition_input::MenuControlFrame>>,
@@ -344,11 +345,16 @@ fn drive_shell_pause_menu(
     // global frame.
     let (edges, presser) = match seat_frames.as_deref() {
         Some(frames) => match menu.owner {
-            Some(owner) => (shell_action_edges(Some(&frames.for_seat(owner))), None),
+            Some(owner) => (if access.permits(ambition_input::ParticipantId(owner),
+                ambition_input::ContextClaim::capturing(ambition_input::PAUSE_CONTEXT, ambition_input::participant::context_priority::PAUSE)) {
+                shell_action_edges(Some(&frames.for_seat(owner)))
+            } else { Default::default() }, None),
             None => {
                 let opener = frames
                     .seats()
-                    .find(|(_, frame)| shell_action_edges(Some(frame)).pause)
+                    .find(|(slot, frame)| shell_action_edges(Some(frame)).pause
+                        && access.permits(ambition_input::ParticipantId(*slot),
+                            ambition_input::ContextClaim::capturing(ambition_input::PAUSE_CONTEXT, ambition_input::participant::context_priority::PAUSE)))
                     .map(|(slot, _)| slot);
                 (
                     opener
@@ -358,7 +364,10 @@ fn drive_shell_pause_menu(
                 )
             }
         },
-        None => (shell_action_edges(menu_frame.as_deref()), None),
+        None => (if access.permits(ambition_input::ParticipantId::PRIMARY,
+            ambition_input::ContextClaim::capturing(ambition_input::PAUSE_CONTEXT, ambition_input::participant::context_priority::PAUSE)) {
+            shell_action_edges(menu_frame.as_deref())
+        } else { Default::default() }, None),
     };
     // The platform's request opens a closed menu over a live session, with no
     // cue: the screen is going off.

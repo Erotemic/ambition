@@ -14,6 +14,8 @@ mod shell_adapter;
 #[cfg(feature = "basic_presentation")]
 mod basic_presentation;
 #[cfg(feature = "basic_presentation")]
+mod input;
+#[cfg(feature = "basic_presentation")]
 mod deterministic_activity;
 
 pub use model::*;
@@ -37,7 +39,6 @@ pub enum LoadPresentationSet {
     Activity,
     ActivitySignals,
     Drive,
-    Input,
     Actions,
     Finalize,
     Cleanup,

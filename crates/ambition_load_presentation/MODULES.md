@@ -8,11 +8,12 @@
 |---|---|
 | [`basic_presentation`](src/basic_presentation.rs) | Show load status and the controls needed to continue or recover. |
 | [`deterministic_activity`](src/deterministic_activity.rs) | Optional deterministic loading activity acceptance fixture. |
+| [`input`](src/input.rs) | Read loading controls from the participants that own the foreground. |
 | [`model`](src/model.rs) | Load-foreground policy, semantic view model, and arbitrary activity protocol. |
 | [`plugin`](src/plugin.rs) | Contributor-neutral hidden-grace, ready-hold, activity, and cleanup lifecycle. |
 | [`shell_adapter`](src/shell_adapter.rs) | Thin adapter from shell-route lifecycle to contributor-neutral load presentation. |
 
-_5 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_6 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

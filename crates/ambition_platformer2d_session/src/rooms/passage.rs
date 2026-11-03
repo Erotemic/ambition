@@ -938,7 +938,7 @@ mod tests {
         }
         let other = LifecycleIntent::Transition(RoomTransitionIntent { target_room: "another room".into(), ..crossing });
         app.world_mut().resource_mut::<PendingLifecycleCommit>().pending =
-            Some(crate::lifecycle_commit::PendingIntent { frame: 7, kind: other.clone() });
+            Some(crate::lifecycle_commit::PendingIntent { frame: 7, checkpoint_operation: None, kind: other.clone() });
         for _ in 0..(CROSSING_GIVE_UP_S * 60.0).ceil() as usize + 1 {
             app.update();
         }

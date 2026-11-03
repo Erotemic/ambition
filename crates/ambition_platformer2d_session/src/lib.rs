@@ -23,7 +23,6 @@ pub mod teardown;
 pub use teardown::{reset_session_scoped_resources_on_retire, SessionTeardownPlugin};
 
 pub mod rooms;
-mod snapshot_impls;
 mod rollback_registration;
 pub use rollback_registration::register_rollback_state;
 #[cfg(test)]

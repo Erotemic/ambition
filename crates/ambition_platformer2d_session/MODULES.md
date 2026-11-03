@@ -19,10 +19,9 @@
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback state owned by the lifecycle coordinator. |
 | [`rooms`](src/rooms/mod.rs) | Data-driven sandbox room-set and loading-zone graph. |
 | [`setup`](src/setup.rs) | Initial session bodies from prepared or live session inputs. |
-| [`snapshot_impls`](src/snapshot_impls.rs) | The lifecycle snapshot encoding. |
 | [`teardown`](src/teardown.rs) | Re-establish the process-global mirrors of live-session state at BOTH edges of a gameplay session. |
 
-_15 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_14 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

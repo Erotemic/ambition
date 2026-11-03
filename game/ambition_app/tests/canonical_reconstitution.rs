@@ -1419,7 +1419,7 @@ fn a_replay_refused_by_the_lifecycle_slot_changes_nothing() {
         .resource_mut::<PendingLifecycleCommit>()
         .pending = Some(
         ambition_platformer2d::session::lifecycle_commit::PendingIntent {
-            frame: 0,
+            frame: 0, checkpoint_operation: None,
             kind: LifecycleIntent::Transition(RoomTransitionIntent {
                 subject: ambition_platformer2d::platformer::lifecycle::LiveBodyId::new(ambition_platformer2d::platformer::sim_id::SimId::placement(
                     "somebody-elses-crossing",

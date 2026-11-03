@@ -1023,7 +1023,7 @@ fn the_accepted_restore_outlives_its_frame_matches_its_intent_and_retires_with_t
     use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
     use crate::lifecycle_commit::{
-        LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
+        PendingLifecycleCommit,
     };
 
     let mut app = App::new();
@@ -1068,7 +1068,7 @@ fn the_accepted_restore_outlives_its_frame_matches_its_intent_and_retires_with_t
         .world()
         .resource::<PendingLifecycleCommit>()
         .peek()
-        .map(|pending| pending.kind.clone())
+        .cloned()
         .expect("the reset took the slot, or nothing below is about an operation");
     // ⛔ THE ADMISSION ANNOUNCES NOTHING. Its replay is pinned with the
     // operation and runs at the room's publication (review 2026-10-05, P1).
@@ -1098,24 +1098,8 @@ fn the_accepted_restore_outlives_its_frame_matches_its_intent_and_retires_with_t
          value; retiring it early sends the load back to the live ledger"
     );
     assert!(
-        accepted.inputs_for(&admitted_intent).is_some(),
+        admitted_intent.checkpoint_operation.and_then(|key| accepted.inputs_for_key(key)).is_some(),
         "the accepted restore does not match the intent it was admitted for"
-    );
-
-    // ⛔ AND IT DOES NOT MATCH SOMEBODY ELSE'S CROSSING. A door recorded while a
-    // restore is outstanding is prepared from LIVE state.
-    let a_door = LifecycleIntent::Transition(RoomTransitionIntent {
-        subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0), None),
-        target_room: "here".into(),
-        arrival: Vec2::new(9.0, 9.0),
-        edge_exit: true,
-        zone_sfx: Some("world.portal.enter".into()),
-        participant: None,
-    });
-    assert!(
-        accepted.inputs_for(&a_door).is_none(),
-        "an unrelated crossing matched the checkpoint's pinned population, so it \
-         would rebuild its destination from a checkpoint that is not about it"
     );
 
     // ── THE SLOT GIVES UP THE INTENT, AND NOTHING COMMITTED IT ───────────────
@@ -1127,6 +1111,8 @@ fn the_accepted_restore_outlives_its_frame_matches_its_intent_and_retires_with_t
     app.world_mut()
         .resource_mut::<PendingLifecycleCommit>()
         .take();
+    assert!(app.world_mut().resource_mut::<PendingLifecycleCommit>()
+        .record(admitted_intent.frame, admitted_intent.kind).admitted());
     app.world_mut().run_schedule(sim);
     assert!(
         held::<super::AcceptedCheckpointRestore>(app.world())
@@ -2390,6 +2376,8 @@ fn world_with_an_abandoned_operation(
         .resource_mut::<crate::lifecycle_commit::PendingLifecycleCommit>()
         .record(accepted.frame, accepted.intent.clone())
         .admitted());
+    world.resource_mut::<crate::lifecycle_commit::PendingLifecycleCommit>()
+        .pending.as_mut().unwrap().checkpoint_operation = Some(accepted.key);
     held_mut::<super::AcceptedCheckpointRestore>(&mut world)
         .accept(accepted);
     held_mut::<super::AbandonedCheckpointOperation>(&mut world)
@@ -2711,4 +2699,24 @@ fn a_checkpoint_operation_key_projects_the_sequence_and_not_the_session_scope() 
         "a standalone operation key and a session-owned one at the same \
          sequence project identically"
     );
+}
+
+#[test]
+fn cancelling_a_restore_preserves_an_equal_intent_from_another_admission() {
+    use crate::lifecycle_commit::PendingLifecycleCommit;
+    let restore = an_operation_at(10, None, "east");
+    for replacement_key in [None, Some(CheckpointOperationKey { scope: None, sequence: 1 })] {
+        let mut accepted = AcceptedCheckpointRestore::default();
+        accepted.accept(restore.clone());
+        let mut pending = PendingLifecycleCommit::default();
+        assert!(pending.record(10, restore.intent.clone()).admitted());
+        pending.pending.as_mut().unwrap().checkpoint_operation = replacement_key;
+        let before = pending.clone();
+        let mut outcomes = SessionCheckpointOutcomes::default();
+        assert!(cancel_accepted_checkpoint_restore(&mut accepted, &mut outcomes, &mut pending,
+            restore.key, RestoreCancellation::NotCommitted));
+        assert_eq!(pending, before);
+        assert!(accepted.accepted().is_none());
+        assert!(outcomes.outcome_for(restore.key).is_some());
+    }
 }

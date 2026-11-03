@@ -47,7 +47,7 @@ pub struct PeerOperation {
 
 impl From<&ambition_platformer2d_session::lifecycle_commit::PendingIntent> for PeerOperation {
     fn from(intent: &ambition_platformer2d_session::lifecycle_commit::PendingIntent) -> Self {
-        Self { recorded_on: intent.frame, intent_checksum: intent.kind.checksum() }
+        Self { recorded_on: intent.frame, intent_checksum: intent.checksum() }
     }
 }
 
@@ -224,7 +224,7 @@ mod the_bytes_two_peers_exchange {
             LifecycleIntent, PendingIntent, RoomReconstitutionIntent,
         };
         let intent = |room: &str| PendingIntent {
-            frame: 30,
+            frame: 30, checkpoint_operation: None,
             kind: LifecycleIntent::ReconstituteRoom(RoomReconstitutionIntent {
                 target_room: room.into(),
             }),

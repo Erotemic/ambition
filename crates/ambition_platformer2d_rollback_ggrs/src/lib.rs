@@ -257,3 +257,6 @@ fn install_rollback_engine(app: &mut App, engine: ambition_platformer2d_runtime:
     app.add_plugins(AmbitionRollbackPlugin);
     app.add_plugins(engine);
 }
+
+#[cfg(test)]
+mod lifecycle_snapshot_tests;

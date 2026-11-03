@@ -286,17 +286,7 @@ pub fn restore_checkpoint_on_session_start(
                 participant: None,
             },
         );
-        let admission = pending.record(frame, intent.clone());
-        if !admission.admitted() {
-            return;
-        }
-        let Some(key) = operations.admit(scope_id) else {
-            bevy::log::error!(
-                target: "ambition_platformer2d::session",
-                "the checkpoint operation sequence was exhausted between the \
-                 capacity check and the admission; the slot is now held by a \
-                 resume with no identity",
-            );
+        let Some(key) = pending.record_restore(frame, intent.clone(), &mut operations, scope_id) else {
             return;
         };
         // ⭐ A STARTUP CROSSING IS A CHECKPOINT RECONSTRUCTION, so it pins the
@@ -615,31 +605,12 @@ pub fn resume_at_checkpoint_on_reset(
             participant: None,
         },
     );
-    let admission = pending.record(frame, intent.clone());
-    if !admission.admitted() {
-        // ⛔ THE REQUEST SURVIVES A REFUSAL. Another lifecycle operation owns the
-        // world right now; this one is asked again next tick, and until then NO
-        // domain has been told anything.
-        return;
-    }
-    // Spent: the operation that serves the request now holds the slot.
-    outstanding.0.take();
-    // ⭐ PINNED HERE AND NOWHERE ELSE. The inputs a reconstruction is prepared
-    // from and applied from are chosen at the moment the slot says yes, so a
-    // later capture, a later pickup or a later ledger write cannot retarget an
-    // operation already in flight.
-    // Capacity was established before the slot was taken, so this cannot be
-    // `None`; the arm exists because a silent `unwrap_or` would turn a future
-    // ordering mistake into a nameless operation instead of a loud one.
-    let Some(key) = operations.admit(scope.and_then(|scope| scope.current())) else {
-        bevy::log::error!(
-            target: "ambition_platformer2d::session",
-            "the checkpoint operation sequence was exhausted between the capacity \
-             check and the admission; the slot is now held by a restore with no \
-             identity",
-        );
+    let Some(key) = pending.record_restore(
+        frame, intent.clone(), &mut operations, scope.and_then(|scope| scope.current()),
+    ) else {
         return;
     };
+    outstanding.0.take();
     let (occurrences, custody, minted, owned, items, consumed, grants, defeats, starting) = baselines;
     let fresh = restore_to == RestoreTo::NewGame;
     // ⭐ A DEATH IS LOCAL TO ITS PARTICIPANT AND ROOM (Q151). The rooms other
@@ -986,19 +957,7 @@ pub struct SessionCheckpointOperations {
 
 impl SessionCheckpointOperations {
     /// Whether this session can still name another operation.
-    ///
-    /// ⛔⛔ **ASKED BEFORE THE LIFECYCLE SLOT IS TAKEN, AND THAT ORDERING IS THE
-    /// WHOLE POINT.** Both admission roads used to record the room intent first
-    /// and mint the key second, so an exhausted counter left a lifecycle
-    /// transition ADMITTED, the request SPENT, and no accepted operation behind
-    /// it — the room would then have been rebuilt as an ordinary crossing, with
-    /// no pinned continuity and no domain restore at all. "Overflow is refused"
-    /// has to mean the operation does not happen, not that it happens without
-    /// its identity.
-    ///
-    /// ⚠ It is remote — at one admission per frame at 60 Hz a `u64` lasts about
-    /// ten billion years — and that is exactly why the failure path needs to be
-    /// correct rather than plausible: nothing will ever exercise it in play.
+    /// An exhausted counter must leave the restore request owed.
     pub fn can_admit(&self) -> bool {
         self.next_sequence != u64::MAX
     }
@@ -1014,16 +973,8 @@ impl SessionCheckpointOperations {
         }
     }
 
-    /// Mint the key for an operation the slot has just admitted.
-    ///
-    /// ⛔ CALLED ONLY ON ADMISSION. Incrementing on a request would make the
-    /// counter a count of asks, and two peers that refused different numbers of
-    /// requests would disagree about the identity of the same operation.
-    ///
-    /// ⚠ OVERFLOW IS REFUSED, NOT RECYCLED — reusing a live identifier is a
-    /// stale load quietly authorized because its integer matched. Callers ask
-    /// [`Self::can_admit`] BEFORE taking the slot; this `None` is the
-    /// belt-and-braces half of that contract.
+    /// Mint a key for an accepted operation. Refused requests must not spend
+    /// a sequence. Overflow refuses admission and never reuses an old key.
     pub fn admit(
         &mut self,
         scope: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
@@ -1078,13 +1029,7 @@ pub struct AcceptedRestore {
     pub key: CheckpointOperationKey,
     /// The sim frame the admission happened on.
     pub frame: i32,
-    /// The room intent this operation was admitted for.
-    ///
-    /// ⭐ THIS IS HOW A LATER PREPARATION KNOWS THE TRANSITION IT IS PREPARING
-    /// IS THIS RESTORE. A checkpoint reset records an ordinary `Transition` —
-    /// indistinguishable from a door by its shape — so the accepted operation
-    /// names the intent it owns rather than letting preparation guess from the
-    /// destination.
+    /// The room intent pinned with this restore admission.
     pub intent: crate::lifecycle_commit::LifecycleIntent,
     /// The lifecycle domain's half: the occurrence population this operation
     /// reconstructs and the custody relation it restores, as they stood when the
@@ -1125,26 +1070,6 @@ impl AcceptedCheckpointRestore {
         self.0.as_ref()
     }
 
-    /// The pinned inputs, but only for `intent`.
-    ///
-    /// ⛔ MATCHED, NOT MERELY PRESENT. A door crossing recorded while a
-    /// checkpoint restore is outstanding must be prepared from LIVE state; a
-    /// preparation that took the pinned population for any transition would
-    /// rebuild the wrong room's population from a checkpoint that is not about
-    /// it.
-    ///
-    /// ⚠ **INTENT EQUALITY IS A WEAKER QUESTION THAN IDENTITY, so this is the
-    /// ONE place allowed to ask it** — when a transaction opens, against the
-    /// operation that is outstanding at that moment. Two crossings to one room
-    /// with one subject and one arrival compare EQUAL, so every later stage
-    /// names [`AcceptedRestore::key`] instead: see [`Self::inputs_for_key`].
-    pub fn inputs_for(
-        &self,
-        intent: &crate::lifecycle_commit::LifecycleIntent,
-    ) -> Option<&AcceptedRestore> {
-        self.0.as_ref().filter(|accepted| &accepted.intent == intent)
-    }
-
     /// The pinned inputs for exactly this operation.
     ///
     /// ⭐ WHAT EVERY STAGE AFTER THE TRANSACTION OPENS ASKS. A key names one
@@ -1179,22 +1104,8 @@ impl AcceptedCheckpointRestore {
 }
 
 impl AcceptedRestore {
-    /// ⭐ EVERY FIELD THAT CAN CHANGE WHAT THIS OPERATION BUILDS.
-    ///
-    /// ⛔⛔ ITS FIRST VERSION COVERED THREE OF FOUR AND WAS WRONG FOR IT. It
-    /// hashed the frame, the pinned ledger and the intent's TARGET ROOM — so two
-    /// accepted restores with different pinned MINT RECIPES agreed, and so did
-    /// two crossings that differ only in subject, arrival, edge or door cue.
-    /// Both halves are consumed: room preparation lowers the fresh plan from the
-    /// ledger AND the mints, and `inputs_for` matches on the whole intent by
-    /// equality. A projection that covers part of a value reports agreement
-    /// between peers holding different operations, which is worse than having
-    /// none. The intent's own leg is exhaustive by destructure.
-    ///
-    /// ⚠ IT IS ALSO WHAT [`AbandonedCheckpointOperation`] REMEMBERS. A key alone
-    /// cannot say whether the operation in front of it is the one a host gave up
-    /// on: the sequence counter rewinds, so a discarded branch's key can be
-    /// minted again for something else.
+    /// Compare all inputs pinned for this restore. Local scope values do not
+    /// take part. The abandoned-operation record uses the same projection.
     pub fn checksum(&self) -> u64 {
         use ambition_platformer2d_core::snapshot::{checksum_bytes, put_i32, put_u8, put_u64};
         let AcceptedRestore {
@@ -1400,7 +1311,8 @@ pub fn retire_accepted_checkpoint_restore(
     let still_pending = accepted.accepted().is_some_and(|accepted| {
         pending
             .peek()
-            .is_some_and(|pending| pending.kind == accepted.intent)
+            .is_some_and(|pending| pending.checkpoint_operation == Some(accepted.key)
+                && pending.frame == accepted.frame && pending.kind == accepted.intent)
     });
     if accepted.accepted().is_some() && !still_pending {
         // ⛔⛔ ONE OPERATION, ONE TERMINAL OUTCOME, ON EVERY ROAD. The commit
@@ -1617,7 +1529,8 @@ pub fn cancel_accepted_checkpoint_restore(
     // else's crossing is not this cancellation's to spend.
     if pending
         .peek()
-        .is_some_and(|slot| slot.kind == operation.intent)
+        .is_some_and(|slot| slot.checkpoint_operation == Some(operation.key)
+            && slot.frame == operation.frame && slot.kind == operation.intent)
     {
         pending.take();
     }

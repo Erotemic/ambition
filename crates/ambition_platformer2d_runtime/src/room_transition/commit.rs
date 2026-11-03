@@ -1109,7 +1109,7 @@ pub fn commit_ready_room_transition_system(
     let intent_still_pending = pending_lifecycle
         .pending
         .as_ref()
-        .is_some_and(|pending| pending.kind == active.intent);
+        .is_some_and(|pending| active.describes(pending));
     if !intent_still_pending {
         cancel_eager_room_transition_transaction(
             &mut transition_state,

@@ -235,11 +235,11 @@ pub fn decide_this_peers_verdict(world: &mut World) {
     let verdict = match pending.filter(|_| peer) {
         None => PeerVerdict::default(),
         Some(intent) => {
-            let said = if matches!(authorized_plan(world, &intent.kind), AuthorizedPlan::Ready(..)) {
+            let said = if matches!(authorized_plan(world, &intent), AuthorizedPlan::Ready(..)) {
                 PreparationVerdict::Prepared
             } else if world
                 .get_resource::<ambition_platformer2d_runtime::room_transition::RoomTransitionLoadState>()
-                .is_some_and(|state| state.failed_to_prepare(&intent.kind))
+                .is_some_and(|state| state.failed_to_prepare(&intent))
             {
                 PreparationVerdict::Failed
             } else {
@@ -299,7 +299,7 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
         );
     }
 
-    let Some(PendingIntent { kind, .. }) = operation_to_commit(world, committer, boundary) else {
+    let Some(operation) = operation_to_commit(world, committer, boundary) else {
         return;
     };
 
@@ -322,13 +322,14 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     // with a room built from its authored spec, and re-preparing here could
     // build against a different content epoch than the transaction checked. A
     // rebuild with nobody in it is not a cheaper operation, only a bodyless one.
-    let authorized = match authorized_plan(world, &kind) {
+    let authorized = match authorized_plan(world, &operation) {
         AuthorizedPlan::Ready(plan, checkpoint_operation) => Some((plan, checkpoint_operation)),
         // Not yet, or no longer valid. Returning is not DROPPING: the intent
         // stays pending and this runs again next frame while the transaction
         // progresses (or is superseded) in `Update`.
         AuthorizedPlan::Wait => return,
     };
+    let kind = operation.kind;
 
     // It touches no world and depends only on `settings`, so if it fails the room is never
     // reconstructed, the intent stays pending, and the timeline is untouched (it retries on a
@@ -489,8 +490,9 @@ enum AuthorizedPlan {
 /// transaction rather than cancelling the still-pending crossing.
 fn authorized_plan(
     world: &mut World,
-    intent: &ambition_platformer2d_session::lifecycle_commit::LifecycleIntent,
+    operation: &PendingIntent,
 ) -> AuthorizedPlan {
+    let intent = &operation.kind;
     // Everything the active transaction is compared against, copied out FIRST:
     // the checks below query the world, and a live borrow of the load state
     // would make that impossible.
@@ -514,7 +516,7 @@ fn authorized_plan(
     {
         return AuthorizedPlan::Wait;
     }
-    if &active.intent != intent {
+    if !active.describes(operation) {
         bevy::log::warn_once!(
             "the authorized room transition describes a different crossing than the \
              pending one ({:?} vs {:?}); waiting for a transaction that matches",
@@ -905,7 +907,7 @@ mod tests {
     fn only_a_peer_session_holds_the_simulation_and_only_from_the_freeze_frame() {
         use crate::session::{SyncTestOwner, SyncTestSettings};
         let recorded_on_30 = PendingIntent {
-            frame: 30,
+            frame: 30, checkpoint_operation: None,
             kind: intent_to("hub", SimId::placement("hero")),
         };
         assert_eq!(freeze_frame(&recorded_on_30), 30 + PEER_COMMIT_FREEZE_DELAY);
@@ -989,7 +991,7 @@ mod tests {
     #[test]
     fn a_peer_waits_for_the_replacement_intent_even_when_its_frame_is_unchanged() {
         use crate::peer_input::{PeerOperation, PeerVerdict, PreparationVerdict};
-        let old = PendingIntent { frame: 30, kind: intent_to("old", SimId::placement("hero")) };
+        let old = PendingIntent { frame: 30, checkpoint_operation: None, kind: intent_to("old", SimId::placement("hero")) };
         let mut pending = PendingLifecycleCommit::default();
         assert!(pending.record(30, intent_to("new", SimId::placement("hero"))).admitted());
         let replacement = PeerOperation::from(pending.peek().unwrap());

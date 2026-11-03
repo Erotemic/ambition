@@ -898,9 +898,14 @@ A replaced intent cannot use the old reply. Guards:
 Wire identity 5 rejects the prior input format. Content identity and retained
 preparation promises remain open.
 
-**First step:** bind preparation inputs and operation kind to shared simulation
-state. Then add the peer inputs and two-peer witnesses, including an occurrence
-that changes during preparation. Keep the existing safe hold until those pass.
+Restore admission now carries the checkpoint key. A refused request spends no
+sequence. Guards: `restore_admission_is_atomic_and_refusal_spends_no_key` and
+`cancelling_a_restore_preserves_an_equal_intent_from_another_admission`.
+Do not infer a checkpoint restore from intent equality.
+
+**First step:** bind mutable preparation inputs to shared simulation state.
+Then add content and plan identity, retained promises, and two-peer witnesses,
+including an occurrence that changes during preparation. Keep the existing safe hold until those pass.
 The `LOCAL-PLAY-MODES` leave slice and `COOP-RECOVERY` remain separate work
 items; reuse their participant lifecycle and checkpoint rules, not duplicate
 them in this row.

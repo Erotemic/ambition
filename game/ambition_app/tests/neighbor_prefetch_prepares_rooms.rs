@@ -339,10 +339,12 @@ fn cross_into_a_cached_neighbour(as_checkpoint_restore: bool) -> bool {
         let scope = world
             .get_resource::<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>()
             .and_then(|scope| scope.current());
-        let key = ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<SessionCheckpointOperations>(world)
-            .expect("the live session root carries the checkpoint coordinator")
-            .admit(scope)
-            .expect("a live session can still mint an operation key");
+        let key = world.resource_scope(|world, mut pending: bevy::prelude::Mut<PendingLifecycleCommit>| {
+            let mut operations = ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<SessionCheckpointOperations>(world)
+                .expect("the live session root carries the checkpoint coordinator");
+            pending.record_restore(0, LifecycleIntent::Transition(intent.clone()), &mut operations, scope)
+                .expect("the restore takes the lifecycle slot")
+        });
         ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<AcceptedCheckpointRestore>(world)
             .expect("the live session root carries the checkpoint coordinator")
             .accept(AcceptedRestore {
@@ -359,13 +361,10 @@ fn cross_into_a_cached_neighbour(as_checkpoint_restore: bool) -> bool {
             });
     }
 
-    assert!(
-        app.world_mut()
-            .resource_mut::<PendingLifecycleCommit>()
-            .record(0, LifecycleIntent::Transition(intent))
-            .admitted(),
-        "the lifecycle slot refused the staged crossing, so no transaction opens"
-    );
+    if !as_checkpoint_restore {
+        assert!(app.world_mut().resource_mut::<PendingLifecycleCommit>()
+            .record(0, LifecycleIntent::Transition(intent)).admitted());
+    }
 
     // `prefetch_hit` is decided when the transaction opens and lives on the load
     // record; read it while the load exists rather than after it retires.
@@ -491,10 +490,12 @@ fn rebuilt_room_holds_its_ground_item(relocated: bool) -> bool {
         let scope = world
             .get_resource::<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>()
             .and_then(|scope| scope.current());
-        let key = ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<SessionCheckpointOperations>(world)
-            .expect("the live session root carries the checkpoint coordinator")
-            .admit(scope)
-            .expect("a live session can still mint an operation key");
+        let key = world.resource_scope(|world, mut pending: bevy::prelude::Mut<PendingLifecycleCommit>| {
+            let mut operations = ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<SessionCheckpointOperations>(world)
+                .expect("the live session root carries the checkpoint coordinator");
+            pending.record_restore(0, intent.clone(), &mut operations, scope)
+                .expect("the restore takes the lifecycle slot")
+        });
         ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<AcceptedCheckpointRestore>(world)
             .expect("the live session root carries the checkpoint coordinator")
             .accept(AcceptedRestore {
@@ -507,13 +508,7 @@ fn rebuilt_room_holds_its_ground_item(relocated: bool) -> bool {
                 replay: None,
             });
     }
-    assert!(
-        app.world_mut()
-            .resource_mut::<PendingLifecycleCommit>()
-            .record(0, intent)
-            .admitted(),
-        "the lifecycle slot refused the staged crossing, so no transaction opens"
-    );
+
 
     let mut opened = false;
     for _ in 0..240 {

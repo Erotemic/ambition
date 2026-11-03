@@ -44,8 +44,8 @@ The room state is partly ready for a reversible commit. The core registers
 that room publication, actor construction, retirement, and their references
 can survive a rollback across a crossing. Prove that behavior first.
 
-`PeerVerdict` identifies an operation by its recording frame and the existing
-value-complete intent checksum. Replies for a replaced intent cannot prepare or
+`PeerVerdict` identifies an operation by its recording frame and the admitted
+intent checksum, which includes its checkpoint key. Replies for a replaced intent cannot prepare or
 fail its replacement, even when both use the same frame. The wire identity is
 5. Guards: `verdicts_for_a_replaced_intent_do_not_prepare_or_fail_its_replacement`
 and `a_peer_waits_for_the_replacement_intent_even_when_its_frame_is_unchanged`.
@@ -60,10 +60,25 @@ The new protocol must select those inputs from identified simulation state.
 An existing live destination uses its live state; moving actors there must not
 force a new room-construction promise each tick.
 
-The checkpoint key currently arrives with the authorized plan. The new
-simulation path must know whether an admitted operation is an ordinary transfer
-or a checkpoint restore before host preparation finishes. Keep the checkpoint
-key authoritative. Do not infer the operation from equal bodies or target rooms.
+Checkpoint restores now carry their key in the pending and withdrawn intents.
+Admission takes the slot and key together. A refusal spends no sequence.
+Preparation reads the key directly; it does not infer a restore from equal
+intent values. Transaction reuse, authorization, failure, cancellation, and
+retirement compare the admission. Guards:
+`restore_admission_is_atomic_and_refusal_spends_no_key` and
+`cancelling_a_restore_preserves_an_equal_intent_from_another_admission`.
+
+Clone snapshots retain the local scope in the key. The shared checksum uses
+its peer-stable projection. Schema 411 records this change. Guard:
+`restore_peer_checksums_compare_admissions_without_local_scope_values` and
+`pending_and_withdrawn_restore_keys_survive_the_registered_snapshot_path`.
+There is no second canonical codec for this local state.
+A checkpoint restore still uses the current peer barrier.
+
+The current construction-plan ID includes local content epochs. It is useful
+for local cache and staleness checks. A peer promise needs a projection of the
+same frozen plan with peer content identity in place of local epochs. Do not
+send a hash of the local plan ID as proof that peers prepared the same plan.
 
 ## Operation identity and preparation
 

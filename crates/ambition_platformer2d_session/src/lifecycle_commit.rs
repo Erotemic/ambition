@@ -224,6 +224,28 @@ pub struct PendingIntent {
     pub frame: i32,
     /// The operation to perform.
     pub kind: LifecycleIntent,
+    /// The admitted restore. `None` means an ordinary room operation.
+    pub checkpoint_operation: Option<crate::checkpoint::CheckpointOperationKey>,
+}
+
+impl PendingIntent {
+    /// Peer identity includes the restore admission, but not its local scope value.
+    pub fn checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_i32, put_u64};
+        let Self { frame, kind, checkpoint_operation } = self;
+        let mut bytes = Vec::new();
+        put_i32(&mut bytes, *frame);
+        put_u64(&mut bytes, kind.checksum());
+        write_checkpoint_operation(&mut bytes, *checkpoint_operation);
+        checksum_bytes(&bytes)
+    }
+}
+
+fn write_checkpoint_operation(out: &mut Vec<u8>, key: Option<crate::checkpoint::CheckpointOperationKey>) {
+    ambition_platformer2d_core::snapshot::put_bool(out, key.is_some());
+    if let Some(key) = key {
+        key.write_peer_stable_into(out);
+    }
 }
 
 /// A lifecycle intent that left the slot without a commit, and the frame it
@@ -241,6 +263,7 @@ pub struct WithdrawnIntent {
     pub withdrawn_on: i32,
     /// The intent that left.
     pub kind: LifecycleIntent,
+    pub checkpoint_operation: Option<crate::checkpoint::CheckpointOperationKey>,
 }
 
 /// The single pending confirmed-frame lifecycle commit (Track B, Piece 1).
@@ -276,9 +299,45 @@ impl PendingLifecycleCommit {
         if self.pending.is_some() {
             return Admission::AlreadyPending;
         }
-        self.pending = Some(PendingIntent { frame, kind });
+        self.pending = Some(PendingIntent { frame, kind, checkpoint_operation: None });
         self.withdrawn = None;
         Admission::Admitted
+    }
+
+    /// Admit the restore and its key together. A refusal spends no sequence.
+    pub fn record_restore(
+        &mut self,
+        frame: i32,
+        kind: LifecycleIntent,
+        operations: &mut crate::checkpoint::SessionCheckpointOperations,
+        scope: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
+    ) -> Option<crate::checkpoint::CheckpointOperationKey> {
+        if self.pending.is_some() {
+            return None;
+        }
+        let key = operations.admit(scope)?;
+        self.pending = Some(PendingIntent { frame, kind, checkpoint_operation: Some(key) });
+        self.withdrawn = None;
+        Some(key)
+    }
+
+    /// Compare shared state while retaining local session keys in clone snapshots.
+    pub fn checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_bool, put_i32, put_u64};
+        let Self { pending, withdrawn } = self;
+        let mut bytes = Vec::new();
+        put_bool(&mut bytes, pending.is_some());
+        if let Some(pending) = pending {
+            put_u64(&mut bytes, pending.checksum());
+        }
+        put_bool(&mut bytes, withdrawn.is_some());
+        if let Some(WithdrawnIntent { recorded_on, withdrawn_on, kind, checkpoint_operation }) = withdrawn {
+            put_i32(&mut bytes, *recorded_on);
+            put_i32(&mut bytes, *withdrawn_on);
+            put_u64(&mut bytes, kind.checksum());
+            write_checkpoint_operation(&mut bytes, *checkpoint_operation);
+        }
+        checksum_bytes(&bytes)
     }
 
     /// The pending intent WHETHER OR NOT it is confirmed — "is anything waiting".
@@ -338,6 +397,7 @@ impl PendingLifecycleCommit {
             recorded_on: pending.frame,
             withdrawn_on: now,
             kind: pending.kind,
+            checkpoint_operation: pending.checkpoint_operation,
         });
         true
     }
@@ -374,6 +434,55 @@ mod tests {
     }
 
     #[test]
+    fn restore_admission_is_atomic_and_refusal_spends_no_key() {
+        use crate::checkpoint::SessionCheckpointOperations;
+        let mut slot = PendingLifecycleCommit::default();
+        let mut operations = SessionCheckpointOperations::default();
+        assert!(slot.record(10, crossing_to("east")).admitted());
+        assert_eq!(slot.record_restore(11, crossing_to("west"), &mut operations, None), None);
+        assert_eq!(operations, SessionCheckpointOperations::default());
+        slot.take();
+        let key = slot.record_restore(12, crossing_to("west"), &mut operations, None).unwrap();
+        assert_eq!(key.sequence, 0);
+        assert_eq!(slot.peek().unwrap().checkpoint_operation, Some(key));
+        assert!(slot.retract_recorded_on(12, 13));
+        assert_eq!(slot.withdrawn.as_ref().unwrap().checkpoint_operation, Some(key));
+
+        let before = slot.clone();
+        let mut exhausted = SessionCheckpointOperations::exhausted_for_test();
+        assert_eq!(slot.record_restore(14, crossing_to("north"), &mut exhausted, None), None);
+        assert_eq!(slot, before);
+    }
+
+    #[test]
+    fn restore_peer_checksums_compare_admissions_without_local_scope_values() {
+        use crate::checkpoint::CheckpointOperationKey;
+        use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
+        let state = |scope, sequence| {
+            let mut slot = PendingLifecycleCommit::default();
+            assert!(slot.record(10, crossing_to("east")).admitted());
+            slot.pending.as_mut().unwrap().checkpoint_operation = Some(CheckpointOperationKey { scope, sequence });
+            slot
+        };
+        let first = state(Some(SessionScopeId(1)), 7);
+        let peer = state(Some(SessionScopeId(99)), 7);
+        assert_ne!(first, peer);
+        assert_eq!(first.checksum(), peer.checksum());
+        for different in [state(Some(SessionScopeId(1)), 8), state(None, 7)] {
+            assert_ne!(first.checksum(), different.checksum());
+            assert_ne!(first.peek().unwrap().checksum(), different.peek().unwrap().checksum());
+        }
+        let mut ordinary = first.clone();
+        ordinary.pending.as_mut().unwrap().checkpoint_operation = None;
+        assert_ne!(first.checksum(), ordinary.checksum());
+        let mut withdrawn = first;
+        assert!(withdrawn.retract_recorded_on(10, 11));
+        let mut withdrawn_peer = peer;
+        assert!(withdrawn_peer.retract_recorded_on(10, 11));
+        assert_eq!(withdrawn.checksum(), withdrawn_peer.checksum());
+    }
+
+    #[test]
     fn record_keeps_the_earliest_intent_and_says_which_happened() {
         let mut slot = PendingLifecycleCommit::default();
         assert_eq!(slot.record(10, crossing_to("east")), Admission::Admitted);
@@ -389,7 +498,7 @@ mod tests {
         assert_eq!(
             slot.pending,
             Some(PendingIntent {
-                frame: 10,
+                frame: 10, checkpoint_operation: None,
                 kind: crossing_to("east")
             })
         );
@@ -418,13 +527,11 @@ mod tests {
     }
 
     /// The participant a crossing was accepted for is part of the pending
-    /// crossing: it moves the checksum, so two peers who disagree about whose
-    /// crossing it is desync, and it survives a rewind. Slot 0 and "no slot"
-    /// are told apart, as the codec writes presence beside the slot.
+    /// crossing: it moves the checksum, so two peers cannot agree about
+    /// different participants. An absent participant differs from slot zero.
     #[test]
-    fn the_participant_of_a_crossing_is_checksummed_and_restored() {
+    fn the_participant_of_a_crossing_is_checksummed() {
         use ambition_characters::control::PlayerSlot;
-        use ambition_platformer2d_core::snapshot::{Reader, SnapshotState as _};
         let by = |participant| match crossing_to("east") {
             LifecycleIntent::Transition(intent) => {
                 LifecycleIntent::Transition(RoomTransitionIntent { participant, ..intent })
@@ -439,18 +546,6 @@ mod tests {
             sums[0] != sums[1] && sums[1] != sums[2] && sums[0] != sums[2],
             "the participant does not move the pending crossing's checksum: {sums:?}"
         );
-        for participant in [None, Some(PlayerSlot(0)), Some(PlayerSlot(1))] {
-            let mut slot = PendingLifecycleCommit::default();
-            let _ = slot.record(4, by(participant));
-            let mut bytes = Vec::new();
-            slot.encode(&mut bytes);
-            let restored = PendingLifecycleCommit::decode(&mut Reader::new(&bytes));
-            assert_eq!(
-                restored.and_then(|restored| restored.pending).map(|pending| pending.kind.participant()),
-                Some(participant),
-                "a rewind lost whose crossing it is"
-            );
-        }
     }
 
     #[test]
@@ -512,7 +607,7 @@ mod tests {
         assert_eq!(slot.withdrawn, None);
 
         assert!(slot.retract(&crossing_to("east"), 14));
-        let withdrawn = WithdrawnIntent { recorded_on: 10, withdrawn_on: 14, kind: crossing_to("east") };
+        let withdrawn = WithdrawnIntent { recorded_on: 10, withdrawn_on: 14, kind: crossing_to("east"), checkpoint_operation: None };
         assert_eq!(slot.withdrawn.as_ref(), Some(&withdrawn));
         assert_eq!(slot.confirmed_withdrawal(13), None, "frame 14 is still speculative");
         assert_eq!(slot.confirmed_withdrawal(14), Some(&withdrawn));
@@ -522,14 +617,6 @@ mod tests {
         assert!(slot.retract_recorded_on(20, 21));
         assert_eq!(slot.withdrawn.as_ref().map(|w| (w.recorded_on, w.withdrawn_on)), Some((20, 21)));
 
-        // The withdrawal is rollback state: a rewind keeps it.
-        use ambition_platformer2d_core::snapshot::{Reader, SnapshotState as _};
-        let _ = slot.record(30, crossing_to("north"));
-        let _ = slot.retract(&crossing_to("north"), 31);
-        let _ = slot.record(32, crossing_to("south"));
-        slot.withdrawn = Some(withdrawn);
-        let mut bytes = Vec::new();
-        slot.encode(&mut bytes);
-        assert_eq!(PendingLifecycleCommit::decode(&mut Reader::new(&bytes)), Some(slot));
+
     }
 }

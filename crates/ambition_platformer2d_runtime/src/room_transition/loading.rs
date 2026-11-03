@@ -19,7 +19,7 @@ use ambition_load::{
 use ambition_platformer2d_publication as publication;
 use ambition_platformer2d_world::rooms as world_rooms;
 
-use ambition_platformer2d_session::lifecycle_commit::LifecycleIntent;
+use ambition_platformer2d_session::lifecycle_commit::{LifecycleIntent, PendingIntent};
 
 const ROOM_READY_BARRIER: &str = "room-transition.ready";
 const TARGET_LOOKUP_WORK: &str = "room-transition.target-lookup";
@@ -280,42 +280,32 @@ impl ActiveRoomTransitionLoad {
         true
     }
 
+    /// Match the full admission before a prepared plan or failure is used.
+    pub fn describes(&self, operation: &PendingIntent) -> bool {
+        self.recorded_on == operation.frame
+            && self.intent == operation.kind
+            && self.checkpoint_operation == operation.checkpoint_operation
+    }
+
+    fn recorded_operation(&self) -> PendingIntent {
+        PendingIntent {
+            frame: self.recorded_on,
+            kind: self.intent.clone(),
+            checkpoint_operation: self.checkpoint_operation,
+        }
+    }
+
     fn same_destination(
         &self,
-        intent: &LifecycleIntent,
+        operation: &ambition_platformer2d_session::lifecycle_commit::PendingIntent,
         session_scope: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
         content_epoch: u64,
     ) -> bool {
-        // the SEMANTIC destination, which is not the zone and not the room.
-        //
-        // This ANDed in `zone.id` while its own caller's comment said *"one transaction owns
-        // that destination; trigger noise is not a new request"* — so two zones into one room
-        // opened two transactions, the comment's opposite.
-        //
-        // So the key is what a crossing IS: who is crossing, where they are
-        // going, where they come out, and by which kind of exit. Repeated
-        // detection from one zone repeats all four and dedupes; two exits into
-        // one room differ in `arrival` and do not; and once a second participant
-        // can transit, two bodies differ in `subject` and do not either — which
-        // is why `subject` is in the KEY and not merely in the payload.
-        //
-        // `arrival` is compared exactly, and that is correct rather than
-        // sloppy: both sides come from the same authored `RoomSpec` field by the
-        // same path, so trigger noise reproduces the same bits. A near-miss here
-        // means a genuinely different destination.
-        //
-        // ⭐ A RECONSTITUTION ANSWERS ALL FOUR TOO: no subject, no arrival, never
-        // an edge exit. So two bodyless rebuilds of one room dedupe with each
-        // other, and a rebuild never dedupes against a crossing into the same
-        // room — the subject differs (`None` vs `Some`), which is the honest
-        // answer, because one places a body there and the other does not.
         self.content_epoch == content_epoch
             && self.session_scope == session_scope
-            && self.intent.subject() == intent.subject()
-            && self.intent.target_room() == intent.target_room()
-            && self.intent.arrival() == intent.arrival()
-            && self.intent.edge_exit() == intent.edge_exit()
+            && self.describes(operation)
     }
+
 }
 
 /// Host-side transaction authority for one ordinary room transition.
@@ -333,18 +323,16 @@ pub struct RoomTransitionLoadState {
     /// next frame opens a new transaction for the same intent, so the failed
     /// one is visible for part of one `Update` only. Cleared when a
     /// transaction for that intent is authorized.
-    pub last_failure: Option<LifecycleIntent>,
+    pub last_failure: Option<PendingIntent>,
 }
 
 impl RoomTransitionLoadState {
-    /// The preparation of `intent` failed, and no later transaction for it
-    /// was authorized: the active transaction is a failure of it, or the last
-    /// retired failure was.
-    pub fn failed_to_prepare(&self, intent: &LifecycleIntent) -> bool {
+    /// The active or last retired transaction failed for this admission.
+    pub fn failed_to_prepare(&self, operation: &PendingIntent) -> bool {
         self.active
             .as_ref()
-            .is_some_and(|active| active.phase == RoomTransitionLoadPhase::Failed && &active.intent == intent)
-            || self.last_failure.as_ref() == Some(intent)
+            .is_some_and(|active| active.phase == RoomTransitionLoadPhase::Failed && active.describes(operation))
+            || self.last_failure.as_ref() == Some(operation)
     }
 
     fn mint_sequence(&mut self) -> u64 {
@@ -871,6 +859,7 @@ pub fn begin_room_transition_load_system(
             active.phase != RoomTransitionLoadPhase::Committed
                 && active.recorded_on == withdrawn.recorded_on
                 && active.intent == withdrawn.kind
+                && active.checkpoint_operation == withdrawn.checkpoint_operation
         });
         if ended {
             if let Some(sequence) = cancel_active_transaction(&mut state, &mut loads, &mut load_events) {
@@ -895,9 +884,10 @@ pub fn begin_room_transition_load_system(
     }
 
     let current_session = active_session.as_deref().and_then(|scope| scope.current());
-    let Some(ambition_platformer2d_session::lifecycle_commit::PendingIntent {
+    let Some(operation @ ambition_platformer2d_session::lifecycle_commit::PendingIntent {
         frame: recorded_on,
         kind: intent,
+        checkpoint_operation,
     }) = pending.get()
     else {
         // On a rollback host, absence in the current simulation can be
@@ -938,7 +928,7 @@ pub fn begin_room_transition_load_system(
     };
     {
         if state.active.as_ref().is_some_and(|active| {
-            active.same_destination(intent, current_session, content_epoch.get())
+            active.same_destination(operation, current_session, content_epoch.get())
         }) {
             // One transaction owns that destination; a still-pending crossing is not a new one.
             return;
@@ -958,7 +948,7 @@ pub fn begin_room_transition_load_system(
         let superseded = state.active.take().map(|active| active.barrier.load_id);
         // A new attempt: the last one's failure is no longer the fact. A peer
         // that kept it would say `Failed` of the new attempt at once.
-        if state.last_failure.as_ref() == Some(intent) {
+        if state.last_failure.as_ref() == Some(operation) {
             state.last_failure = None;
         }
         let sequence = state.mint_sequence();
@@ -1121,21 +1111,7 @@ pub fn begin_room_transition_load_system(
             asset_progress_since: None,
             asset_stall_report: None,
             prefetch_hit: false,
-            // ⛔⛔ **ADOPTED AT OPEN, NOT AT PREFLIGHT, AND THAT IS A REPAIR.**
-            // It used to be resolved further down, inside the construction
-            // preflight — so a transaction that failed BEFORE reaching there
-            // (unknown destination, non-finite arrival, no session scope) carried
-            // no key, `abandon_failed_checkpoint_restore_system` found nothing to
-            // note, and the operation was never ended. Measured, not reasoned: a
-            // confirmed-host fixture aimed at a room no content pack authors
-            // opened 597 transactions for one intent in 600 frames. The earliest
-            // failures are exactly the ones a checkpoint restore's protocol calls
-            // terminal, so the key has to be on the record before any of them can
-            // return.
-            checkpoint_operation: construction_services
-                .8
-                .inputs_for(&intent)
-                .map(|accepted| accepted.key),
+            checkpoint_operation: *checkpoint_operation,
             construction_preflight_duration: None,
             asset_manifest_duration: None,
             requested_at: real_time.as_deref().map(|time| time.elapsed()),
@@ -1294,6 +1270,19 @@ pub fn begin_room_transition_load_system(
         let selected_restore = active
             .checkpoint_operation
             .and_then(|key| construction_services.8.inputs_for_key(key));
+        if active.checkpoint_operation.is_some() && selected_restore.is_none() {
+            let detail = "the admitted checkpoint restore has no pinned inputs".to_string();
+            fail_work(&mut loads, &mut load_events, &load_id, CONSTRUCTION_PREFLIGHT_WORK,
+                "The destination room could not be prepared.", detail.clone());
+            set_room_transition_work_state(&mut loads, &mut load_events, &load_id,
+                asset_work_id.clone(), LoadWorkState::Skipped);
+            close_discovery(&mut loads, &mut load_events, &barrier);
+            active.phase = RoomTransitionLoadPhase::Failed;
+            active.failure = Some(detail.clone());
+            bevy::log::error!(target: "ambition_platformer2d::room_transition", "{detail}");
+            state.active = Some(active);
+            return;
+        }
         // ⛔ A RESTORE WITH NO LIFECYCLE HALF DID NOT REWIND THE LEDGER, so the
         // live ledger stays authoritative for it. The ledger is the held-item
         // domain's (`HeldItemSimulationPlugin`) and exists without the lifecycle
@@ -1559,7 +1548,7 @@ pub fn authorize_ready_room_transition_system(
                         barrier_id: active.barrier.barrier_id.clone(),
                     });
                     active.phase = RoomTransitionLoadPhase::CommitAuthorized;
-                    if state.last_failure.as_ref() == Some(&active.intent) {
+                    if state.last_failure.as_ref().is_some_and(|failed| active.describes(failed)) {
                         state.last_failure = None;
                     }
                 }
@@ -1653,7 +1642,7 @@ pub fn finalize_unpresented_room_transition_failure_system(
         .active
         .take()
         .expect("failed room transition was present above");
-    state.last_failure = Some(active.intent.clone());
+    state.last_failure = Some(active.recorded_operation());
     apply_load_command(
         &mut loads,
         &mut load_events,
@@ -1708,7 +1697,10 @@ mod tests {
 
     #[test]
     fn repeated_zone_detection_is_one_destination() {
-        let active = ActiveRoomTransitionLoad {
+        let recorded = |kind| ambition_platformer2d_session::lifecycle_commit::PendingIntent {
+            frame: 0, kind, checkpoint_operation: None,
+        };
+        let mut active = ActiveRoomTransitionLoad {
             sequence: 1,
             content_epoch: 1,
             session_scope: None,
@@ -1743,13 +1735,21 @@ mod tests {
             committed_at: None,
         };
         // Trigger noise: the same body re-detecting the same crossing.
-        assert!(active.same_destination(&request("b"), None, 1));
+        assert!(active.same_destination(&recorded(request("b")), None, 1));
+        let mut replacement = recorded(request("b"));
+        replacement.frame = 1;
+        assert!(!active.same_destination(&replacement, None, 1));
+        replacement.frame = 0;
+        replacement.checkpoint_operation = Some(ambition_platformer2d_session::checkpoint::CheckpointOperationKey {
+            scope: None, sequence: 0,
+        });
+        assert!(!active.same_destination(&replacement, None, 1));
         // THE POISON, and the reason the key is not just `target_room`.
         // Two exits can lead to the same room at different arrivals. A room-only
         // key collapses them and lands this crossing at the other one's
         // coordinates.
         assert!(!active.same_destination(
-            &request_by("b", ae::Vec2::new(0.0, 64.0), hero()),
+            &recorded(request_by("b", ae::Vec2::new(0.0, 64.0), hero())),
             None,
             1
         ));
@@ -1757,7 +1757,7 @@ mod tests {
         // crossing, not noise. Nothing can trigger this today — one participant
         // transits — which is why it is asserted rather than discovered later.
         assert!(!active.same_destination(
-            &request_by("b", ae::Vec2::ZERO, SimId::placement("other_body")),
+            &recorded(request_by("b", ae::Vec2::ZERO, SimId::placement("other_body"))),
             None,
             1
         ));
@@ -1766,14 +1766,22 @@ mod tests {
         // transaction opened for the crossing must not be reused for the
         // rebuild — the subject differs (`Some` vs `None`), which is the
         // difference that matters.
-        assert!(!active.same_destination(&rebuild("b"), None, 1));
-        assert!(!active.same_destination(&request("c"), None, 1));
-        assert!(!active.same_destination(&request("b"), None, 2));
+        assert!(!active.same_destination(&recorded(rebuild("b")), None, 1));
+        assert!(!active.same_destination(&recorded(request("c")), None, 1));
+        assert!(!active.same_destination(&recorded(request("b")), None, 2));
         assert!(!active.same_destination(
-            &request("b"),
+            &recorded(request("b")),
             Some(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(9)),
             1,
         ));
+        active.phase = RoomTransitionLoadPhase::Failed;
+        let mut state = RoomTransitionLoadState { active: Some(active), ..Default::default() };
+        let ordinary = recorded(request("b"));
+        assert!(state.failed_to_prepare(&ordinary));
+        assert!(!state.failed_to_prepare(&replacement));
+        state.last_failure = Some(state.active.take().unwrap().recorded_operation());
+        assert!(state.failed_to_prepare(&ordinary));
+        assert!(!state.failed_to_prepare(&replacement));
     }
 
     #[test]
@@ -2042,9 +2050,9 @@ mod checkpoint_failure_tests {
         );
         app.init_resource::<PendingLifecycleCommit>();
 
-        let key = SessionCheckpointOperations::default()
-            .admit(None)
-            .expect("a fresh counter mints a key");
+        let key = app.world_mut().resource_mut::<PendingLifecycleCommit>()
+            .record_restore(0, crossing(), &mut SessionCheckpointOperations::default(), None)
+            .expect("the restore takes the lifecycle slot");
         ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<AcceptedCheckpointRestore>(app.world_mut())
             .unwrap()
             .accept(AcceptedRestore {
@@ -2059,11 +2067,7 @@ mod checkpoint_failure_tests {
                 fresh: false,
                 replay: None,
             });
-        assert!(app
-            .world_mut()
-            .resource_mut::<PendingLifecycleCommit>()
-            .record(0, crossing())
-            .admitted());
+
 
         let mut active = ActiveRoomTransitionLoad {
             sequence: 1,

@@ -657,11 +657,12 @@ fn a_failed_preparation_is_ended_by_the_confirmed_host_too() {
         let scope = world
             .get_resource::<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>()
             .and_then(|scope| scope.current());
-        let key = ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<SessionCheckpointOperations,
-        >(world)
-            .expect("the live session root carries the checkpoint coordinator")
-            .admit(scope)
-            .expect("a live session can still mint an operation key");
+        let key = world.resource_scope(|world, mut pending: bevy::prelude::Mut<PendingLifecycleCommit>| {
+            let mut operations = ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<SessionCheckpointOperations>(world)
+                .expect("the live session root carries the checkpoint coordinator");
+            pending.record_restore(0, intent.clone(), &mut operations, scope)
+                .expect("the restore takes the lifecycle slot")
+        });
         ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<AcceptedCheckpointRestore,
         >(world)
             .expect("the live session root carries the checkpoint coordinator")
@@ -678,10 +679,7 @@ fn a_failed_preparation_is_ended_by_the_confirmed_host_too() {
                 fresh: false,
                 replay: None,
             });
-        assert!(world
-            .resource_mut::<PendingLifecycleCommit>()
-            .record(0, intent.clone())
-            .admitted());
+
         key
     };
     // The staged lifecycle state must be part of the baseline, or the first

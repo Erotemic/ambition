@@ -13,11 +13,9 @@ pub fn body_rigs(content: &crate::SpriteContent) -> &[(&'static str, std::sync::
     crate::baked_sheet_rons::current(&content).body_rigs()
 }
 
-/// The published body rig of sheet target `target`, as RON text.
+/// The published body rig of target `target`, as RON text.
 pub fn baked_body_rig<'a>(content: &'a crate::SpriteContent, target: &str) -> Option<&'a str> {
-    let target = crate::shared_baked_sheet_registry(content).canonical_key(target).unwrap_or(target);
-    let rigs = body_rigs(&content);
-    rigs.binary_search_by(|(name, _)| (*name).cmp(target)).ok().map(|index| rigs[index].1.as_ref())
+    crate::baked_sheet_rons::current(content).body_rig(target)
 }
 
 #[cfg(test)]

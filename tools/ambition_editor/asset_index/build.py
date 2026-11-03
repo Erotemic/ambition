@@ -172,7 +172,7 @@ def build(
     partial = out / "catalog.js.partial"
     partial.write_text(f"window.ART_CATALOG = {text};\n")
     partial.replace(out / "catalog.js")
-    for name in ("index.html", "app.js", "app.css", "inventory.js", "characters.js", "reviews.js", "items.js"):
+    for name in ("index.html", "app.js", "app.css", "inventory.js", "characters.js", "reviews.js", "items.js", "preflight.html"):
         shutil.copyfile(WEB / name, out / name)
     from .workbench import write_tools
     write_tools(repo, out)
@@ -327,6 +327,18 @@ def _catalog(repo: Path, out: Path, products, assets, ev, uses, placements, foun
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="asset_index", description=__doc__.split("\n", 1)[0])
     sub = parser.add_subparsers(dest="command", required=True)
+    pre = sub.add_parser("preflight", help="list or prepare the generated products a world, room, or character needs")
+    for selector in ("world", "room", "character", "effect"):
+        pre.add_argument("--" + selector, action="append", default=[])
+    pre.add_argument("--purpose", choices=("play", "capture", "headless"), default="play")
+    pre.add_argument("--missing-only", action="store_true", help="show only completely missing required products")
+    pre.add_argument("--generate-missing", action="store_true", help="generate completely missing products; keep stale and partial products")
+    pre.add_argument("--check", action="store_true", help="exit nonzero when required products are unavailable")
+    pre.add_argument("--json", action="store_true")
+    pre.add_argument("--profile", default="ambition")
+    pre.add_argument("--library", type=Path)
+    pre.add_argument("--content-binary", type=Path)
+    pre.add_argument("--renderer-python")
     b = sub.add_parser("build", help="index the art and write the inspector page")
     s = sub.add_parser("serve", help="build the inspector and serve it with durable review notes")
     s.add_argument("--port", type=int, default=8767)
@@ -380,6 +392,31 @@ def main(argv: list[str] | None = None) -> int:
     if getattr(args, "library", None):
         import os
         os.environ["AMBITION_CONTENT_LIBRARY"] = str((repo / args.library).resolve())
+    if args.command == "preflight":
+        from . import preflight
+        if not any((args.world, args.room, args.character, args.effect)):
+            parser.error("preflight needs --world, --room, --character, or --effect")
+        selection = dict(worlds=args.world, rooms=args.room, characters=args.character, effects=args.effect, purpose=args.purpose)
+        try:
+            result = preflight.collect(repo, profile=args.profile, binary=args.content_binary, python=args.renderer_python, **selection)
+            if args.generate_missing:
+                generated = preflight.generate_missing(repo, result, python=args.renderer_python)
+                result = preflight.collect(repo, profile=args.profile, binary=args.content_binary, python=args.renderer_python, **selection)
+                result["generated"] = generated
+            if args.missing_only:
+                result["units"] = {uid: row for uid, row in result["units"].items() if uid in result["missing"]}
+            if args.json:
+                print(json.dumps(result, indent=2, sort_keys=True))
+            else:
+                for uid, row in result["units"].items():
+                    print(f"{uid}: {row['availability']} | {', '.join(row['uses'])} | {row['repair']}")
+                for diagnostic in result["diagnostics"]:
+                    print(diagnostic['severity'].upper() + ": " + json.dumps(diagnostic, sort_keys=True))
+                print(f"{len(result['missing'])} completely missing; {len(result['partial'])} partial; {len(result['stale'])} stale. Ready: {result['ready']}.")
+            return int(not result["complete"] or (args.check and not result["ready"]))
+        except (ValueError, OSError, subprocess.CalledProcessError) as error:
+            print(f"asset preflight: {error}", file=sys.stderr)
+            return 1
     out = (args.out or repo / ".agent" / "asset_inspector").resolve()
     legacy = repo / ".agent" / "art_inspector"
     if args.out is None and not out.exists() and legacy.is_dir():

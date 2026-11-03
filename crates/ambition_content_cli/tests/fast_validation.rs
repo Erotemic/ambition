@@ -289,3 +289,42 @@ fn package_inputs_are_the_paths_the_schemas_resolved() {
         "one tab-separated line per source and per asset, and nothing else"
     );
 }
+
+#[test]
+fn scoped_art_inspection_reads_world_edits_without_generated_assets_or_a_rebuild() {
+    let sandbox = Sandbox::with_shipped_catalog("world_asset_scope");
+    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../game/ambition_content/assets/worlds/dinosaur.ldtk");
+    let mut world: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(source).unwrap()).unwrap();
+    std::fs::create_dir_all(sandbox.root.join("worlds")).unwrap();
+    let path = sandbox.root.join("worlds/trail.ldtk");
+    std::fs::write(&path, serde_json::to_vec(&world).unwrap()).unwrap();
+    std::fs::write(sandbox.root.join("data/worlds.ron"), r#"(
+        entry_room: "primeval_run", worlds: [(id: "world.trail", file: "trail.ldtk", required: true)],
+    )"#).unwrap();
+    let manifest = sandbox.root.join("pack.ron");
+    let text = std::fs::read_to_string(&manifest).unwrap().replace(
+        "sources: [", "sources: [(path: \"data/worlds.ron\", schema: \"world_manifest\", version: 1),");
+    std::fs::write(manifest, text).unwrap();
+    let inspect = || {
+        let output = Command::new(CLI).arg(&sandbox.root).args(["--inspect-art", "--no-asset-check"])
+            .output().unwrap();
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+        let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(report["scope"]["room_failures"], serde_json::json!([]));
+        report
+    };
+    let before = inspect();
+    assert!(!before["scope"]["rooms"].as_object().unwrap().is_empty());
+    let field = world["levels"].as_array_mut().unwrap().iter_mut()
+        .flat_map(|level| level["layerInstances"].as_array_mut().unwrap())
+        .flat_map(|layer| layer["entityInstances"].as_array_mut().unwrap())
+        .flat_map(|entity| entity["fieldInstances"].as_array_mut().unwrap())
+        .find(|field| field["__identifier"] == "character_id").unwrap();
+    field["__value"] = "scope_probe_character".into();
+    std::fs::write(path, serde_json::to_vec(&world).unwrap()).unwrap();
+    let after = inspect();
+    assert_ne!(before["scope"]["rooms"], after["scope"]["rooms"]);
+    assert!(after["scope"]["rooms"].to_string().contains("scope_probe_character"));
+    assert!(after["sheets"].as_object().unwrap().is_empty());
+}

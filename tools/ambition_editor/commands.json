@@ -17,6 +17,24 @@
       "build": "No Cargo build. Use the owner Python environment.",
       "status": "active",
       "cwd": "repository root"
+    },
+    {
+      "id": "asset-preflight",
+      "title": "Prepare assets for a world, room, or character",
+      "owner": "tools/ambition_editor",
+      "command": "python3 scripts/asset_inspector.py preflight --world art --missing-only --json",
+      "help": "python3 scripts/asset_inspector.py preflight --help",
+      "requires": [
+        "scripts/asset_inspector.py",
+        "tools/ambition_editor/asset_index/preflight.py"
+      ],
+      "docs": "tools/ambition_editor/README.md",
+      "inputs": "Authored world units, prepared content bindings, and producer declarations.",
+      "outputs": "Scoped product requirements, availability, and exact repair commands.",
+      "mutation": "Planning reads data. --generate-missing publishes only completely missing required products.",
+      "build": "Build the content check binary once. Asset repair does not invoke Cargo.",
+      "status": "active",
+      "cwd": "repository root"
     }
   ]
 }

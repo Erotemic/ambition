@@ -107,6 +107,7 @@
         (path: "data/motion_techniques.ron", schema: "motion_techniques", version: 1),
         // The prop sheets its rooms name.
         (path: "data/prop_sheets.ron", schema: "prop_sheets", version: 1),
+        (path: "data/boss_art_keys.ron", schema: "boss_art_keys", version: 1),
         // How a platform drawn as a prop sheet is laid on its platform.
         (path: "data/platform_looks.ron", schema: "platform_looks", version: 1),
         // Its worlds: the room play starts in, and each world file.

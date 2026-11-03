@@ -106,6 +106,7 @@ pub(crate) type Landmarks = (Vec<(&'static str, Vec<u8>)>, String);
 /// them: each decoded full-resolution table and the landmark tables.
 pub struct PartTables {
     rows: Vec<PartFlipbookRow>,
+    aliases: std::collections::HashMap<String, String>,
     /// Each decoded full-resolution table, with the modification time its
     /// file had before it was read.
     parsed: std::sync::Mutex<std::collections::HashMap<String, (RiggedSpriteAsset, Option<std::time::SystemTime>)>>,
@@ -122,12 +123,17 @@ impl PartTables {
     /// Tables decoded when first asked for.
     pub(crate) fn new(rows: Vec<PartFlipbookRow>) -> Self {
         let tiers_seen = rows.iter().filter(|(key, ..)| crate::quality_variant_marker(key).is_some()).map(|(key, table, _)| (*key, modified(table))).collect();
-        Self { rows, parsed: Default::default(), landmarks: Default::default(), tiers_seen, decoded_landmarks: Default::default() }
+        let aliases = crate::library_aliases(rows.iter().map(|(key, ..)| *key));
+        Self { rows, aliases, parsed: Default::default(), landmarks: Default::default(), tiers_seen, decoded_landmarks: Default::default() }
     }
 
     /// Every flipbook, as `(key, table, file)` sorted by key.
     pub fn rows(&self) -> &[PartFlipbookRow] {
         &self.rows
+    }
+
+    pub(crate) fn canonical_key<'a>(&'a self, key: &'a str) -> &'a str {
+        self.aliases.get(key).map(String::as_str).unwrap_or(key)
     }
 
     /// Decode each full-resolution table of `rows`, and project the
@@ -228,7 +234,7 @@ impl PartTables {
 
 /// The published part flipbook under `key` (`<target>` or `<target>.<tier>`).
 pub fn baked_part_flipbook(content: &crate::SpriteContent, key: &str) -> Option<BakedPartFlipbook> {
-    let key = crate::shared_baked_sheet_registry(content).canonical_key(key).unwrap_or(key);
+    let key = crate::baked_sheet_rons::current(content).part_tables().canonical_key(key);
     let tables = part_flipbooks(&content);
     tables.binary_search_by(|(name, _, _)| (*name).cmp(key)).ok().map(|index| tables[index].1.clone())
 }
@@ -238,7 +244,7 @@ pub fn baked_part_flipbook(content: &crate::SpriteContent, key: &str) -> Option<
 /// key is unpublished or the file is gone.
 #[doc(hidden)]
 pub fn published_ron_on_build_host(content: &crate::SpriteContent, key: &str) -> Option<String> {
-    let key = crate::shared_baked_sheet_registry(content).canonical_key(key).unwrap_or(key);
+    let key = crate::baked_sheet_rons::current(content).part_tables().canonical_key(key);
     let tables = part_flipbooks(&content);
     let index = tables.binary_search_by(|(name, _, _)| (*name).cmp(key)).ok()?;
     std::fs::read_to_string(tables[index].2).ok()

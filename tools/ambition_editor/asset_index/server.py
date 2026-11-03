@@ -54,6 +54,25 @@ def make_handler(repo: Path, catalog, status=None):
                 data = json.loads(self.rfile.read(length))
                 path = urlsplit(self.path).path
                 with lock:
+                    if self.command == "POST" and path == "/api/asset-preflight":
+                        from . import preflight
+                        selection = {}
+                        for key in ("worlds", "rooms", "characters", "effects"):
+                            values = data.get(key, [])
+                            if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
+                                raise ValueError(f"{key} must be a list of names")
+                            selection[key] = values
+                        if not any(selection.values()):
+                            raise ValueError("Select a world, room, character, or effect")
+                        selection["purpose"] = data.get("purpose", "play")
+                        if selection["purpose"] not in {"play", "capture", "headless"}:
+                            raise ValueError("Unknown preflight purpose")
+                        result = preflight.collect(repo, **selection)
+                        if data.get("generate_missing"):
+                            generated = preflight.generate_missing(repo, result)
+                            result = preflight.collect(repo, **selection)
+                            result["generated"] = generated
+                        return self.reply(200, result)
                     current = current_catalog()
                     if self.command == "POST" and path == "/api/music-reviews":
                         from . import music_review
@@ -74,7 +93,7 @@ def make_handler(repo: Path, catalog, status=None):
                 self.reply(200, reviews.snapshot(repo, current))
             except reviews.ConflictError as error:
                 self.reply(409, {"error": str(error)})
-            except (ValueError, OSError, KeyError, TypeError, AttributeError) as error:
+            except (ValueError, OSError, KeyError, TypeError, AttributeError, subprocess.CalledProcessError) as error:
                 self.reply(400, {"error": str(error)})
 
         do_POST = mutate

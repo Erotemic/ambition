@@ -44,11 +44,17 @@ Art never needs cargo:
 
 ```bash
 ./scripts/regen/sprites.sh --target hand_saint
+./scripts/regen/sprites.sh --target hand_saint --missing-only
 ./scripts/regen/sprites.sh
 python3 scripts/checks/check_quality_variants_are_fresh.py --require-evidence
 ```
 
 Each build reads a private source snapshot and writes into a clean directory.
+`--missing-only` keeps every selected target, including stale and partial
+products. A targeted request does not build shared atlases or their other
+parents. A full collection request still builds the shared atlas products.
+To derive a selection from a world, use
+`python3 scripts/asset_inspector.py preflight --world art --generate-missing`.
 The publisher checks required members, image data, sheet rows, portraits, part
 tables, body rigs, and referenced pages. When a built game validator is already
 there (`target/debug/ambition_content`, or `$AMBITION_ART_CONTENT_BIN`), it also
@@ -71,11 +77,22 @@ Publication does not refuse concurrent work:
 Accepted bundles can be reused by a later build if their recipes and files are current.
 
 A focused request includes the target's named static props and quality products.
-Shared atlas dependencies are rebuilt when their accepted parent bundles change.
+Full collection requests rebuild shared atlases when their parent bundles change.
 Native source quality rendering remains available for targets that support it.
 Other sheets use frame conversion and packing. Every request builds all tiers
 that its product definition supports. Quality conversion uses the same
 publication contract.
+
+Scenery has scoped requests through the same bundle store:
+
+```bash
+./scripts/regen/backgrounds.sh --theme art --skin art --missing-only
+```
+
+Repeat `--theme` and `--skin` to select several units. These requests keep other
+published scenery. The T-rex's `trex_enemy_gameplay` target publishes gameplay
+geometry without a sheet. The `trex_enemy` presentation target declares it as a
+dependency. Both read the same source rig; gameplay does not read a quality tier.
 
 `AMBITION_ART_CONTENT_BIN` selects a prebuilt validator. `--jobs N` limits render
 workers, to a maximum of six. `--force` rebuilds selected targets.

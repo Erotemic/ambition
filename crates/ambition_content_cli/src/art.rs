@@ -22,7 +22,10 @@ pub fn describe(pack: Option<&PreparedContentPack>, roots: &[PathBuf]) -> Value 
             if let Some(target) = row.manifest_target() {
                 bindings.entry(target.to_string()).or_default().insert(key.clone(), chain.clone());
             }
-            json!({"key": key, "move": action.id, "chain": chain})
+            let effects: Vec<_> = action.effect_refs().into_iter().map(|(site, effect)|
+                json!({"site": format!("{site:?}"), "key": effect.key, "params": effect.params})).collect();
+            json!({"key": key, "move": action.id, "chain": chain, "effects": effects,
+                   "vfx": action.vfx_effects().collect::<Vec<_>>()})
         }).collect();
         json!({"id": id, "provider": pack.map(|pack| pack.namespace.to_string()), "catalog": row,
                "sheet_target": row.manifest_target(), "moves": moves,
@@ -64,7 +67,7 @@ pub fn describe(pack: Option<&PreparedContentPack>, roots: &[PathBuf]) -> Value 
     let worlds = pack.and_then(|pack| ambition_content_pack::lowered_rules::<ambition_platformer2d_world::world_manifest::AuthoredWorldManifest>(
         pack, ambition_platformer2d_world::world_manifest::WORLD_MANIFEST_SCHEMA))
         .map(|manifest| manifest.worlds.iter().map(|world| json!({"id": world.id, "file": world.file, "required": world.required})).collect::<Vec<_>>());
-    json!({"semantics": semantics, "tool_version": env!("CARGO_PKG_VERSION"), "worlds": worlds, "schema": "ambition.art_content.v3", "provider": pack.map(|pack| pack.namespace.to_string()), "pack": pack.map(|pack| pack.id.to_string()),
+    json!({"scope": pack.map(crate::asset_scope::describe), "semantics": semantics, "tool_version": env!("CARGO_PKG_VERSION"), "worlds": worlds, "schema": "ambition.art_content.v3", "provider": pack.map(|pack| pack.namespace.to_string()), "pack": pack.map(|pack| pack.id.to_string()),
         "fingerprint": pack.map(|pack| pack.fingerprint.hex()), "characters": characters, "sheets": sheets, "failures": failures,
         "sources": pack.into_iter().flat_map(|pack| pack.sources.iter()).map(|source| json!({"path": source.declared_path, "schema": source.schema.to_string(),
             "fingerprint": source.content_fingerprint})).collect::<Vec<_>>(),

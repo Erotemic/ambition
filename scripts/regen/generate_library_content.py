@@ -300,6 +300,8 @@ def accept_outputs(family: str, selected, store: Store, staging: Path, before: d
             bundles = {unit: key for unit, key in bundles.items() if not unit.startswith("producer:variants:")}
     if family == "music":
         bundles.pop("producer:music", None)
+    if family == "backgrounds":
+        bundles = {unit: key for unit, key in bundles.items() if not unit.startswith(("theme:", "skin:"))}
     bundles.update(replacements)
     configured = selected.manifest["producers"]
     bundles = {unit: key for unit, key in bundles.items() if not unit.startswith("producer:") or unit.split(":")[1] in configured}

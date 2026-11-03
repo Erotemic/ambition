@@ -1,4 +1,4 @@
-//! Ambition's authored movement, ability, and combat defaults.
+//! Ambition's authored movement and combat defaults.
 
 use ambition_platformer2d::assets::gameplay_defaults::Platformer2dGameplayDefaults;
 

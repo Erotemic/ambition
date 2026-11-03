@@ -762,6 +762,41 @@ fn report_render_world_ecs_census(
     );
 }
 
+/// Report changed sprites, visibility, UI nodes, and text by entity name.
+pub fn report_changed_sprites(
+    census: Res<RuntimeCensus>,
+    sprites: Query<Option<&Name>, Changed<Sprite>>,
+    visibilities: Query<Option<&Name>, Changed<Visibility>>,
+    nodes: Query<Option<&Name>, Changed<Node>>,
+    texts: Query<Option<&Name>, Or<(Changed<Text>, Changed<Text2d>)>>,
+    all: Query<(), With<Sprite>>,
+) {
+    let Some(at) = census.due() else {
+        return;
+    };
+    fn tally<'a>(names: impl Iterator<Item = Option<&'a Name>>) -> (usize, String) {
+        let mut by_label: std::collections::BTreeMap<String, usize> = Default::default();
+        let mut total = 0;
+        for name in names {
+            total += 1;
+            let label = name.map_or_else(|| "<unnamed>".to_owned(), |name| name.as_str().replace(' ', "_"));
+            *by_label.entry(label).or_default() += 1;
+        }
+        let mut by_label: Vec<_> = by_label.into_iter().collect();
+        by_label.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
+        let listed = by_label.iter().take(12).map(|(label, count)| format!(" {label}={count}")).collect();
+        (total, listed)
+    }
+    let (sprite_total, sprite_list) = tally(sprites.iter());
+    let (visibility_total, visibility_list) = tally(visibilities.iter());
+    let (node_total, node_list) = tally(nodes.iter());
+    let (text_total, text_list) = tally(texts.iter());
+    eprintln!(
+        "[census] changed_sprites t={at:.3} sprites={sprite_total} of={} visibility={visibility_total} nodes={node_total} texts={text_total} | sprites:{sprite_list} | visibility:{visibility_list} | nodes:{node_list} | texts:{text_list}",
+        all.iter().len()
+    );
+}
+
 /// Adds `RenderDiagnosticsPlugin` when the render app exists and nothing has
 /// added it. A `--features profile` build gets it from `bevy_render`; this
 /// gives other profiling builds the same per-pass rows.
@@ -783,6 +818,7 @@ impl Plugin for PresentationCensusPlugin {
                     report_render_pass_census,
                     report_asset_census,
                     report_presentation_churn_census,
+                    report_changed_sprites,
                 ),
             );
             #[cfg(feature = "portal_render")]

@@ -1,20 +1,8 @@
-//! A running development build plays a saved movement-defaults edit.
+//! Reload authored movement and combat tuning in development builds.
 //!
-//! `platformer_defaults.ron` is read once at boot
-//! (`Platformer2dGameplayDefaults::load`). In a build that reads it off disk
-//! (no `static_content`), this watch looks at the file while the game runs. When
-//! it changes, the new tuning is written to `EditableMovementTuning`, the same
-//! resource the F3 inspector writes. The developer-edit road then proposes it,
-//! the timeline owner admits or refuses it, and it is published to
-//! `ActiveMovementTuning` in `PreUpdate`, before the advance
-//! (`propose_editable_movement_tuning`). The file's `feel:` values take the
-//! same road through `EditableFeelTuning`. A file that does not parse is
-//! refused and the running tuning stays. Only a value that changed is written,
-//! so a save that changes the feel proposes no movement edit.
-//!
-//! The starting abilities in the same file are NOT applied while the game runs:
-//! they are what a body starts with, and a body that already started keeps its
-//! abilities. A change to them is reported, and a restart takes it.
+//! Source edits use the inspector's developer-edit admission path. The
+//! simulation reads only admitted values. An invalid file leaves the
+//! running tuning unchanged.
 
 use ambition_platformer2d::assets::gameplay_defaults::{
     Platformer2dGameplayDefaults,
@@ -100,12 +88,6 @@ pub fn watch_movement_defaults(
         }
     };
     let last = watch.last.replace(defaults.clone());
-    if last.as_ref().is_none_or(|last| last.abilities != defaults.abilities) {
-        warn!(
-            "{} changed its starting abilities; a running body keeps its own, restart to take them",
-            watch.file.display()
-        );
-    }
     // ⛔ No mirror means no developer-edit road in this composition, and no
     // other road may write the simulation's tuning around the timeline owner.
     if last.as_ref().is_none_or(|last| last.tuning != defaults.tuning) {

@@ -16,6 +16,7 @@ pub mod durable_horizon;
 pub mod join;
 pub mod participants;
 pub mod lifecycle_commit;
+pub mod room_preparation;
 pub mod reset;
 pub mod setup;
 pub mod teardown;

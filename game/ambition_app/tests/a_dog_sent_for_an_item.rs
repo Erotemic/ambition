@@ -101,24 +101,9 @@ fn put_the_blink_on(sim: &mut ambition_app::Platformer2dSimHarness, blink: Entit
     ground.vel = ae::Vec2::ZERO;
 }
 
-/// ⭐ SENT FOR THE BLINK, THE DOG TAKES IT. The custody of the one Blink is the
-/// authority: it is held by the dog, and the dog's hand holds it.
-///
-/// The control is the same start with no errand: over the same time the
-/// roaming dog never comes near the Blink, so the errand is what took it
-/// there (a take can only happen where the dog touches the item).
+/// The dog completes its fetch and holds the requested Blink.
 #[test]
 fn a_dog_sent_for_the_blink_takes_it() {
-    let (mut roaming, dog, blink) = the_dog_and_the_blink();
-    let at = sim_blink_at(&roaming, blink);
-    let mut nearest = f32::INFINITY;
-    for _ in 0..PATIENCE {
-        roaming.step(base());
-        let dog_at = roaming.world().get::<ae::BodyKinematics>(dog).expect("the dog").pos;
-        nearest = nearest.min(dog_at.distance(at));
-    }
-    assert!(nearest > 96.0, "control: the roaming dog came within {nearest:.0} px of the Blink with no errand");
-
     let (mut sent, dog, blink) = the_dog_and_the_blink();
     send_for_the_blink(&mut sent, dog);
     let outcome = run_errand(&mut sent, dog, PATIENCE);

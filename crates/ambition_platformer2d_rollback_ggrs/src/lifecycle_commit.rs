@@ -1040,6 +1040,7 @@ mod tests {
             recorded_on: 0,
             arrived_in: None,
             construction_plan: None,
+            preparation: None,
             barrier: ambition_load::LoadBarrierRef::new("load", "ready"),
             opened_this_pass: false,
             cover_required: false,

@@ -176,6 +176,7 @@ pub struct ActiveRoomTransitionLoad {
     /// room of the target's definition.
     pub arrived_in: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     pub construction_plan: Option<Arc<publication::RoomConstructionPlan>>,
+    pub preparation: Option<ambition_platformer2d_session::room_preparation::RoomPreparation>,
     pub barrier: LoadBarrierRef,
     /// The pass of the readiness set that opened this transaction is not
     /// over.
@@ -629,47 +630,9 @@ pub fn begin_room_transition_load_system(
         // Provider-authored sheets (U1 stage B): room construction sizes bodies
         // from their sheets, so a transition needs it beside the catalog.
         Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
-        // WHAT BECAME OF THE OCCURRENCES THIS ROOM ALREADY MINTED. A
-        // transition is the one road that rebuilds a room the session has been
-        // LIVING in, so it is the road that owes the question an answer: an
-        // authored object carried out of a room and back is still alive, and
-        // re-authoring its `SimId::placement(..)` would put two live things
-        // behind one identity. `Option` — a composition that remembers
-        // nothing carries no ledger, which is the ordinary case.
-        //
-        // it is a seventh tuple member and not a seventeenth param because
-        // a Bevy system stops at sixteen, and it belongs with the other
-        // construction authorities in any case.
-        Option<Res<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
-        // THE SECOND DESCRIBER, for the debts no record can settle. The
-        // ledger above says an occurrence lies here; for a RUNTIME MINT no room
-        // authors a record to rebuild it from, and this is what does. They
-        // travel together for the same reason `remembered` and `world` do —
-        // handing over the memory without the means to act on it deletes the
-        // object.
-        //
-        // It is the save's minted rows, the one record of a dormant mint
-        // (OW3), and not the checkpoint's minted baseline. The baseline
-        // describes only what a checkpoint saw, so a mint put down after the
-        // last checkpoint, or forgotten by a checkpoint taken in another room,
-        // was not rebuilt when its room became live again.
-        Option<Res<ambition_persistence::save::AmbitionGameSave>>,
-        // ⛔⛔ THE PINNED CONTINUITY, AND WHY THE LIVE ONES ABOVE ARE NOT ENOUGH
-        // FOR A CHECKPOINT RESET. The two members above are the LIVE ledger and
-        // the save's minted rows, which are the right inputs for a door. For a
-        // checkpoint reconstruction they were only ever right because
-        // `restore_occurrence_baseline` had overwritten the live ledger with the
-        // checkpoint's earlier in the SAME FRAME — `CheckpointRestore` sits in
-        // `PlayerInput` and this readiness runs after `RoomTransitionSet::Detect`
-        // in `RoomTransition`. The room was therefore prepared from a live
-        // resource swapped to the checkpoint value IN ORDER TO BE READ, and its
-        // correctness rested on a phase order nothing states as a checkpoint
-        // requirement. The accepted operation carries its own population.
-        // Required (C07): every composition with this loader installs the
-        // checkpoint horizon, and "no accepted restore" is the resource's own
-        // `None` (measured 2026-10-03 over app_it, the demo suites and the lib
-        // tests).
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_session::checkpoint::AcceptedCheckpointRestore>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            ambition_platformer2d_session::room_preparation::CapturedRoomPreparation,
+        >,
     ),
     // `Option`, and absence is a legal answer: a composition with no registered characters is
     // the ordinary case, and an empty registry means "no character states a default" — which is
@@ -729,10 +692,9 @@ pub fn begin_room_transition_load_system(
     // a load may set, and the driven bodies that say whether it may set it.
     // And, for the same reason, the occurrences whose custody this crossing
     // ends (Q38): see `CustodyEndingAtCommit`.
-    (mut next_mode, drivers, custody_at_commit): (
+    (mut next_mode, drivers): (
         ResMut<NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
         bevy::prelude::Query<&ambition_characters::control::DrivingParticipant>,
-        super::custody::CustodyEndingAtCommit,
     ),
 ) {
     let (
@@ -926,9 +888,13 @@ pub fn begin_room_transition_load_system(
         }
         return;
     };
+    let Some(preparation) = construction_services.6.for_operation(operation) else {
+        return;
+    };
     {
         if state.active.as_ref().is_some_and(|active| {
             active.same_destination(operation, current_session, content_epoch.get())
+                && active.preparation.as_ref() == Some(preparation)
         }) {
             // One transaction owns that destination; a still-pending crossing is not a new one.
             return;
@@ -1094,6 +1060,7 @@ pub fn begin_room_transition_load_system(
             recorded_on: *recorded_on,
             arrived_in: None,
             construction_plan: None,
+            preparation: Some(preparation.clone()),
             barrier: barrier.clone(),
             // Even when every contributor resolves immediately, the
             // authorization comes on a later pass. This makes readiness and
@@ -1255,83 +1222,24 @@ pub fn begin_room_transition_load_system(
         // sub-frame on both — `Time<Real>` is NOT a substitute here, because it
         // advances once per frame and a within-frame span measures zero.
         let construction_preflight_started = bevy::platform::time::Instant::now();
-        // What this operation reconstructs FROM, read once: it decides both
-        // whether a cached plan still describes it and what a fresh plan must
-        // leave out.
-        // ⭐ ONE SELECTION, FEEDING BOTH THE CACHE KEY AND THE FRESH PLAN. The
-        // outlook validates a prefetched plan and the continuity lowers a fresh
-        // one; redirecting only the second would leave a plan prepared against
-        // the live population free to be promoted for a reconstruction that is
-        // about a different one.
-        // ⭐ RESOLVED ONCE AND REMEMBERED, at the top of this system where the
-        // transaction record is built. Every later stage — this one included —
-        // names the KEY rather than re-asking the accepted operation whether it
-        // owns this intent.
-        let selected_restore = active
-            .checkpoint_operation
-            .and_then(|key| construction_services.8.inputs_for_key(key));
-        if active.checkpoint_operation.is_some() && selected_restore.is_none() {
-            let detail = "the admitted checkpoint restore has no pinned inputs".to_string();
-            fail_work(&mut loads, &mut load_events, &load_id, CONSTRUCTION_PREFLIGHT_WORK,
-                "The destination room could not be prepared.", detail.clone());
-            set_room_transition_work_state(&mut loads, &mut load_events, &load_id,
-                asset_work_id.clone(), LoadWorkState::Skipped);
-            close_discovery(&mut loads, &mut load_events, &barrier);
-            active.phase = RoomTransitionLoadPhase::Failed;
-            active.failure = Some(detail.clone());
-            bevy::log::error!(target: "ambition_platformer2d::room_transition", "{detail}");
-            state.active = Some(active);
-            return;
-        }
-        // ⛔ A RESTORE WITH NO LIFECYCLE HALF DID NOT REWIND THE LEDGER, so the
-        // live ledger stays authoritative for it. The ledger is the held-item
-        // domain's (`HeldItemSimulationPlugin`) and exists without the lifecycle
-        // horizon; building from NO ledger instead would re-author every
-        // occurrence it remembers as carried, relocated or consumed. This is NOT
-        // the mints' rule below: the mint baseline and its restore come from one
-        // plugin, so a restore without them has no mints to rebuild.
-        // ⛔ AS IT WILL BE AT THE COMMIT. The live ledger is from before this
-        // crossing was recorded; an away occurrence in the room the crossing
-        // retires dies with that room, so its custody row is released here and
-        // its home room authors the replacement (Q38).
-        let released = custody_at_commit.released_by(intent);
-        let released_ledger = (!released.is_empty())
-            .then(|| {
-                construction_services
-                    .6
-                    .as_deref()
-                    .map(|live| live.with_custody_released(&released))
-            })
-            .flatten();
-        // ⛔ A RESTORE REWINDS THE ROOM IT REBUILDS, NOT THE ROOMS THAT STAY
-        // LIVE. The checkpoint's ledger is older than an occurrence carried
-        // into another player's room since then, so alone it says "author it
-        // at home" while its body still lives there (Q38). The away
-        // occurrences that live on after the commit are held as carried over
-        // the checkpoint's ledger. The commit restores the pinned ledger
-        // itself; the custody projection holds them again in the residency
-        // step of the next tick, before anything prepares a room.
-        let restored_ledger = selected_restore
-            .and_then(|accepted| accepted.lifecycle.as_ref())
-            .map(|lifecycle| lifecycle.occurrences.remembered());
-        let restored_with_survivors = restored_ledger.and_then(|restored| {
-            let surviving = custody_at_commit.surviving(intent);
-            (!surviving.is_empty()).then(|| restored.with_custody_held(&surviving))
-        });
-        let selected_ledger = restored_with_survivors
-            .as_ref()
-            .or(restored_ledger)
-            .or(released_ledger.as_ref())
-            .or(construction_services.6.as_deref());
-        let door_minted = construction_services.7.as_deref().map(|save| {
-            ambition_platformer2d_items::pickup::minted_horizon::minted_baseline_from_save(
-                save.data(),
-            )
-        });
-        let selected_minted = match selected_restore {
-            Some(accepted) => accepted.item.as_ref().map(|item| &item.minted),
-            None => door_minted.as_ref(),
+        let continuity = match preparation.continuity() {
+            Ok(inputs) => inputs,
+            Err(error) => {
+                let detail = error.to_string();
+                fail_work(&mut loads, &mut load_events, &load_id, CONSTRUCTION_PREFLIGHT_WORK,
+                    "The destination room could not be prepared.", detail.clone());
+                set_room_transition_work_state(&mut loads, &mut load_events, &load_id,
+                    asset_work_id.clone(), LoadWorkState::Skipped);
+                close_discovery(&mut loads, &mut load_events, &barrier);
+                active.phase = RoomTransitionLoadPhase::Failed;
+                active.failure = Some(detail.clone());
+                bevy::log::error!(target: "ambition_platformer2d::room_transition", "{detail}");
+                state.active = Some(active);
+                return;
+            }
         };
+        let selected_ledger = continuity.occurrences.as_ref();
+        let selected_minted = continuity.minted.as_ref();
         // the outlook is ROOM-SCOPED, so it is derived for the room being built
         // and for no other: the same ledger answers differently for two rooms,
         // because an occurrence lying in one of them is reinstated there and is
@@ -1711,6 +1619,7 @@ mod tests {
             recorded_on: 0,
             arrived_in: None,
             construction_plan: None,
+            preparation: None,
             barrier: LoadBarrierRef::new("load", "ready"),
             opened_this_pass: false,
             cover_required: false,
@@ -1927,6 +1836,7 @@ mod tests {
             recorded_on: 0,
             arrived_in: None,
             construction_plan: None,
+            preparation: None,
             barrier: LoadBarrierRef::new("load", "ready"),
             opened_this_pass: false,
             cover_required: false,
@@ -1965,6 +1875,7 @@ mod tests {
             recorded_on: 0,
             arrived_in: None,
             construction_plan: None,
+            preparation: None,
             barrier: LoadBarrierRef::new("load", "ready"),
             opened_this_pass: false,
             cover_required: true,
@@ -2080,6 +1991,7 @@ mod checkpoint_failure_tests {
             recorded_on: 0,
             arrived_in: None,
             construction_plan: None,
+            preparation: None,
             barrier: LoadBarrierRef::new("load", "ready"),
             opened_this_pass: false,
             cover_required: false,
@@ -2198,6 +2110,7 @@ mod checkpoint_failure_tests {
             recorded_on: 0,
             arrived_in: None,
             construction_plan: None,
+            preparation: None,
             barrier: LoadBarrierRef::new("load", "ready"),
             opened_this_pass: false,
             cover_required: false,

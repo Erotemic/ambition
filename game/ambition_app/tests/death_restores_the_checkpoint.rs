@@ -161,6 +161,18 @@ fn pick_up(sim: &mut Platformer2dSimHarness, at: (f32, f32), authored: &SimId) {
     );
 }
 
+/// Commit a checkpoint on the hub's east floor, clear of doors and switches.
+pub(crate) fn commit_a_hub_checkpoint(sim: &mut Platformer2dSimHarness) {
+    let subject = body(sim);
+    let height = sim.world()
+        .get::<ambition_platformer2d::engine_core::BodyKinematics>(subject)
+        .expect("the primary body has kinematics")
+        .size.y;
+    sim.teleport_player((1200.0, 976.0 - height * 0.5));
+    sim.step_n(base(), 2);
+    commit_a_checkpoint(sim);
+}
+
 /// Rest at a shrine: spawn one where the body stands, press Interact, and let
 /// the commit land.
 ///

@@ -1032,47 +1032,6 @@ pub fn report_changed_transforms(
     eprintln!("{row}");
 }
 
-/// `[census] changed_sprites`: entities whose `Sprite`, `Visibility`, UI `Node`
-/// or text was written since the last frame, by name. A written node is laid
-/// out again; a written text is measured again. A sprite written with its own value
-/// is extracted and re-bounded again; a visibility written with its own value
-/// is propagated again.
-pub fn report_changed_sprites(
-    census: Res<RuntimeCensus>,
-    sprites: Query<Option<&Name>, Changed<Sprite>>,
-    visibilities: Query<Option<&Name>, Changed<Visibility>>,
-    nodes: Query<Option<&Name>, Changed<Node>>,
-    texts: Query<Option<&Name>, Or<(Changed<Text>, Changed<Text2d>)>>,
-    all: Query<(), With<Sprite>>,
-) {
-    let Some(at) = census.due() else {
-        return;
-    };
-    fn tally<'a>(names: impl Iterator<Item = Option<&'a Name>>) -> (usize, String) {
-        let mut by_label: Vec<(String, usize)> = Vec::new();
-        let mut total = 0;
-        for name in names {
-            total += 1;
-            let label = name.map_or_else(|| "<unnamed>".to_owned(), |name| name.as_str().replace(' ', "_"));
-            match by_label.iter_mut().find(|(known, _)| *known == label) {
-                Some((_, count)) => *count += 1,
-                None => by_label.push((label, 1)),
-            }
-        }
-        by_label.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
-        let listed = by_label.iter().take(12).map(|(label, count)| format!(" {label}={count}")).collect();
-        (total, listed)
-    }
-    let (sprite_total, sprite_list) = tally(sprites.iter());
-    let (visibility_total, visibility_list) = tally(visibilities.iter());
-    let (node_total, node_list) = tally(nodes.iter());
-    let (text_total, text_list) = tally(texts.iter());
-    eprintln!(
-        "[census] changed_sprites t={at:.3} sprites={sprite_total} of={} visibility={visibility_total} nodes={node_total} texts={text_total} | sprites:{sprite_list} | visibility:{visibility_list} | nodes:{node_list} | texts:{text_list}",
-        all.iter().len()
-    );
-}
-
 /// A component's type name without its path or generics — `Sprite`, not
 /// `bevy_sprite::sprite::Sprite`. The tail is what identifies it to a reader,
 /// and the path would make the row's width depend on crate layout.
@@ -1805,7 +1764,6 @@ impl Plugin for RuntimeCensusPlugin {
                     report_schedule_load_census,
                     report_entity_populations,
                     report_changed_transforms,
-                    report_changed_sprites,
                     // The sim schedule exists only after a session activates, so the
                     // `PreStartup` pass cannot see it. Latches after one report.
                     report_sim_schedule_membership,

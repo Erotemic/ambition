@@ -82,7 +82,8 @@ ring's zone. A dial never moves a body.
 | what | where | kind |
 | --- | --- | --- |
 | the catalog | `GateNetworkCatalog` resource, from the pack | authored; reload replaces it |
-| open terminal, links, reports, recent addresses | `GateNetworkState` (`resource.gate_network_state`) | rollback state, keyed by ring zone ids |
+| terminal use and reports | `GateNetworkState` (`resource.gate_network_state`) | rollback state, keyed by `LiveBodyId` |
+| links and recent addresses | `GateNetworkState` | rollback state; links keyed by ring zone, recent addresses shared |
 | a terminal's dial, hangup, close | `GateTerminalIntent` host intent | stamped tick, released into the sim |
 | what the player knows | save flags `gate.known.*` | persisted |
 | the panel's focus, entered chevrons, pointer, list cursor | `TerminalUi` | host presentation |
@@ -179,6 +180,14 @@ The Kernel Guide (`hub_guide`, the public gate's question) teaches TANGENT,
 GENESIS and CITADEL; the gate janitor of the gate stack teaches TANGENT; the
 General teaches SENTINEL with the clearance. A content test holds every
 address a dialogue teaches to the catalog.
+
+## Startup rendering
+
+Jon reports wormhole flicker on desktop and Steam Deck. Warmed High and Ultra
+captures show one opening flare, then continuous steady rendering. Cold startup
+remains unverified. Capture the first incorrect frame before changing the art
+or shader. [GATE-STARTUP-FLICKER](../queue.md#gate-startup-flicker--diagnose-the-wormhole-at-startup)
+owns this issue.
 
 ## Future expansion
 

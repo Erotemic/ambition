@@ -466,8 +466,18 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
         }
         walker.step(press);
     }
-    let at = walker.world().get::<ae::BodyKinematics>(player).map(|kinematics| kinematics.pos);
-    Err(format!("still in `{from}` after {FRAMES_FOR_A_ROOM} frames, at {at:?}, aiming at {goal:?}"))
+    let world = walker.world();
+    let body = world.get::<ae::BodyKinematics>(player);
+    let ground = world.get::<ae::BodyGroundState>(player);
+    let wall = world.get::<ae::BodyWallState>(player);
+    let flight = world.get::<ae::BodyFlightState>(player);
+    let next = body.map(|body| graph.next(body.pos + graph.frame.down * graph.half.y, goal));
+    Err(format!(
+        "still in `{from}` after {FRAMES_FOR_A_ROOM} frames, aiming at {goal:?}; \
+         body={body:?}, ground={ground:?}, wall={wall:?}, flight={flight:?}, \
+         graph_half={:?}, leg={leg:?}, next={next:?}, into_exit={into_the_exit}",
+        graph.half,
+    ))
 }
 
 /// How near a foe is for the fight to swing at it: its edge within this

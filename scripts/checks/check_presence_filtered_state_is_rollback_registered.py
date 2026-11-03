@@ -120,7 +120,7 @@ WAIVERS = {
         "REMOVES it from a settled item; `tick_bomb_fuses` reads it after the "
         "physics step. No read sees a value from before a rewind"
     ),
-    "GateTerminalRoot": "gate panel layout, read by drive_gate_terminal and draw_gate_terminal in Update",
+    "TerminalUi": "participant gate UI; initialize_terminal_surfaces reads presence in Update, outside rollback",
     "DialBackButton": "gate panel Interaction, read by drive_gate_terminal in Update",
     "RoomLookOverlay": "room-look Visibility, read by spread_room_states in Update",
 

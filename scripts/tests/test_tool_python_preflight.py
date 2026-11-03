@@ -47,7 +47,7 @@ def tool(tmp_path: Path, *deps: str) -> Path:
 def bare_python(tmp_path_factory) -> Path:
     """An interpreter with nothing installed: the stale tool venv."""
     root = tmp_path_factory.mktemp("bare")
-    venv.create(root, with_pip=False)
+    venv.create(root, with_pip=False, symlinks=True)
     return root / "bin" / "python"
 
 

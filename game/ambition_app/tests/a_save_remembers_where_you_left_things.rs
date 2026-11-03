@@ -548,7 +548,7 @@ fn a_gauntlet_the_item_catalog_never_heard_of_is_still_in_your_hands_after_a_loa
     let occurrence = dropped.into_iter().next().expect("one drop");
 
     pick_up(&mut sim, &occurrence);
-    crate::death_restores_the_checkpoint::commit_a_checkpoint(&mut sim);
+    crate::death_restores_the_checkpoint::commit_a_hub_checkpoint(&mut sim);
     let file = the_file(&sim);
 
     let mut fresh = boot_with(TWO_ITEM_ROOM, &file);
@@ -607,7 +607,7 @@ fn a_gauntlet_left_in_a_room_is_rebuilt_when_the_room_is() {
     let occurrence = dropped.into_iter().next().expect("one drop");
 
     pick_up(&mut sim, &occurrence);
-    crate::death_restores_the_checkpoint::commit_a_checkpoint(&mut sim);
+    crate::death_restores_the_checkpoint::commit_a_hub_checkpoint(&mut sim);
     throw_it_down(&mut sim);
     sim.step_n(base(), 120);
     let where_it_fell = resting_place(&mut sim, &occurrence);
@@ -674,7 +674,7 @@ fn a_real_save_holds_the_occurrence_every_minted_row_names() {
     let occurrence = dropped.into_iter().next().expect("one drop");
 
     pick_up(&mut sim, &occurrence);
-    crate::death_restores_the_checkpoint::commit_a_checkpoint(&mut sim);
+    crate::death_restores_the_checkpoint::commit_a_hub_checkpoint(&mut sim);
     sim.step_n(base(), 60);
 
     let file = the_file(&sim);
@@ -729,7 +729,7 @@ fn a_gauntlet_left_in_the_hub(sim: &mut Platformer2dSimHarness, boss: &str, bank
     let occurrence = dropped.into_iter().next().expect("one drop");
     pick_up(sim, &occurrence);
     if bank {
-        crate::death_restores_the_checkpoint::commit_a_checkpoint(sim);
+        crate::death_restores_the_checkpoint::commit_a_hub_checkpoint(sim);
     }
     throw_it_down(sim);
     sim.step_n(base(), 120);

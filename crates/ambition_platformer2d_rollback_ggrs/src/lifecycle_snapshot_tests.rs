@@ -80,3 +80,48 @@ fn actor_terminal_uses_and_replies_survive_the_registered_snapshot_path() {
     app.world_mut().run_schedule(LoadWorld);
     assert_eq!(app.world().resource::<GateNetworkState>(), &expected);
 }
+
+#[test]
+fn room_preparation_inputs_survive_the_registered_snapshot_path() {
+    use bevy::ecs::system::RunSystemOnce;
+    use ambition_platformer2d_session::checkpoint::AcceptedCheckpointRestore;
+    use ambition_platformer2d_session::room_preparation::{
+        capture_room_preparation_inputs, CapturedRoomPreparation,
+    };
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        insert_session_world_component, AuthoredOccurrences,
+    };
+    let mut app = App::new();
+    app.add_plugins((MinimalPlugins, SnapshotPlugin, ChecksumPlugin));
+    app.insert_resource(SimulationHost::Rollback);
+    ambition_platformer2d_session::register_rollback_state(
+        &mut crate::GgrsRollbackRegistrar::new(&mut app),
+    );
+    let root = insert_session_world_component(app.world_mut(), (
+        bevy_ggrs::Rollback, CapturedRoomPreparation::default(), AcceptedCheckpointRestore::default(),
+    ));
+    let mut pending = PendingLifecycleCommit::default();
+    assert!(pending.record(4, LifecycleIntent::Transition(RoomTransitionIntent {
+        subject: LiveBodyId::new(SimId::placement("traveller"), None),
+        target_room: "east".into(), arrival: Vec2::new(20.0, 30.0),
+        edge_exit: false, zone_sfx: None, participant: Some(PlayerSlot(0)),
+    })).admitted());
+    app.insert_resource(pending.clone());
+    let mut ledger = AuthoredOccurrences::default();
+    ledger.consume([SimId::placement("collected-before-admission")]);
+    app.insert_resource(ledger);
+    app.world_mut().run_system_once(capture_room_preparation_inputs).unwrap();
+    let expected = app.world().get::<CapturedRoomPreparation>(root).unwrap().clone();
+    app.world_mut().resource_mut::<RollbackFrameCount>().0 = 4;
+    app.world_mut().run_schedule(SaveWorld);
+    app.world_mut().entity_mut(root).insert(CapturedRoomPreparation::default());
+    app.world_mut().resource_mut::<PendingLifecycleCommit>().take();
+    app.world_mut().resource_mut::<AuthoredOccurrences>().consume([SimId::placement("later")]);
+    app.world_mut().run_schedule(LoadWorld);
+    let restored = app.world().get::<CapturedRoomPreparation>(root).unwrap();
+    assert_eq!(restored, &expected);
+    assert_eq!(restored.checksum(), expected.checksum());
+    assert!(restored.for_operation(pending.peek().unwrap()).is_some());
+    app.world_mut().run_system_once(capture_room_preparation_inputs).unwrap();
+    assert_eq!(app.world().get::<CapturedRoomPreparation>(root).unwrap(), &expected);
+}

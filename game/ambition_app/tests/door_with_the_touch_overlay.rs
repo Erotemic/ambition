@@ -23,12 +23,7 @@
 use ambition_platformer2d::game_shell::ShellCommand;
 use ambition_platformer2d::input::{InputParticipant, Platformer2dInputActionMonolith};
 use ambition_app::app::shell_host;
-use bevy::asset::AssetPlugin;
-use bevy::image::ImagePlugin;
 use bevy::prelude::*;
-use bevy::state::app::StatesPlugin;
-use bevy::transform::TransformPlugin;
-use bevy::MinimalPlugins;
 use leafwing_input_manager::prelude::InputMap;
 
 fn active_room(app: &mut App) -> Option<String> {
@@ -38,24 +33,12 @@ fn active_room(app: &mut App) -> Option<String> {
 #[test]
 fn a_door_still_opens_with_the_touch_overlay_installed() {
     let mut app = App::new();
-    app.add_plugins(MinimalPlugins);
-    app.add_plugins(AssetPlugin::default());
-    app.add_plugins(ImagePlugin::default());
-    app.add_plugins(TransformPlugin);
-    app.add_plugins(StatesPlugin);
-    app.init_state::<ambition_platformer2d::platformer::schedule::GameMode>();
+    ambition_platformer2d::runtime::add_headless_foundation(&mut app);
+    app.add_plugins(bevy::text::TextPlugin);
     app.insert_resource(shell_host::AmbitionShellHosted);
     ambition_app::app::init_sandbox_resources(&mut app);
     ambition_app::app::add_simulation_plugins(&mut app);
     app.add_plugins(ambition_platformer2d::host::PlatformerHostPlugins);
-    // THE DIFFERENCE UNDER TEST. Its HUD spawn orders after the font
-    // load, so the Font asset type has to exist and `load_ui_fonts` has to run,
-    // exactly as the app arranges them.
-    app.init_asset::<bevy::text::Font>();
-    app.add_systems(
-        Startup,
-        ambition_platformer2d::render::ui_fonts::load_ui_fonts,
-    );
     app.add_plugins(ambition_platformer2d::touch_input::TouchControlsPlugin);
     shell_host::compose_ambition_shell_host(&mut app);
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(

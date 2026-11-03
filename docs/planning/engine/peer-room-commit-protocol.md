@@ -54,10 +54,17 @@ preparation transaction. Its presentation tail can
 remain after the commit. Neither a render deadline nor that tail can select
 the simulation frame of the next peer commit.
 
-Room preparation also reads the occurrence ledger when the host runs its
-preflight. That read can select different inputs on peers at different frames.
-The new protocol must select those inputs from identified simulation state.
-An existing live destination uses its live state; moving actors there must not
+Occurrence and mint continuity are now captured on the admitting simulation
+frame, after lifecycle producers and durable mirrors. The session root retains
+`CapturedRoomPreparation` through registered clone snapshots. Host preflight
+requires that exact admission and includes the captured value in cache reuse.
+A missing pinned restore records an error. Schema 413 includes this state.
+Guards: `room_preparation::tests` and
+`lifecycle_snapshot_tests::room_preparation_inputs_survive_the_registered_snapshot_path`.
+
+This capture does not authorize a stale construction plan. Content and plan
+identity, commit dependency checks, and retained promises remain open. An
+existing live destination uses its live state; moving actors there must not
 force a new room-construction promise each tick.
 
 Checkpoint restores now carry their key in the pending and withdrawn intents

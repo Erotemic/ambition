@@ -5,7 +5,6 @@
 //! construction plans; headless hosts may omit the presentation contributors.
 
 mod commit;
-mod custody;
 mod loading;
 mod prefetch;
 
@@ -54,6 +53,20 @@ impl Plugin for RoomTransitionComposerPlugin {
             .init_resource::<RoomTransitionLoadState>()
             .init_resource::<RoomConstructionPlanPrefetch>();
         let sim = app.sim_schedule();
+        use ambition_platformer2d_session::room_preparation::{
+            capture_room_preparation_inputs, CapturedRoomPreparation,
+        };
+        use ambition_platformer2d_shared_tangle::schedule::{
+            GameplaySimulationRoot, Platformer2dSimulationPhase,
+        };
+        ambition_platformer2d_shared_tangle::lifecycle::require_on_session_root::<CapturedRoomPreparation>(app);
+        app.add_systems(
+            sim,
+            capture_room_preparation_inputs
+                .in_set(GameplaySimulationRoot)
+                .after(Platformer2dSimulationPhase::ResetProcessing)
+                .after(ambition_platformer2d_shared_tangle::lifecycle::DurableHorizonSet::SessionMirror),
+        );
         // READINESS IS HOST-SIDE; THE ROOM CHANGE IS SIMULATION.
         //
         // These four ask a question — is the destination prepared, are its assets

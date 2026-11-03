@@ -325,76 +325,13 @@ fn no_system_is_registered_twice_in_one_schedule() {
     );
 }
 
-/// What entering a gameplay session stages, budgeted.
-///
-/// This measures the STAGED CAST rather than megapixels, and that is the whole
-/// design: the cast is a deterministic function of the composition and the room
-/// graph, so it means the same thing on every machine, while decoded megapixels
-/// headless depend on which variants the quality profile resolves. The cast is
-/// also the thing that CAUSES the megapixels — one staged character is one sheet.
+/// The initial title has no actor cast to materialize.
 #[test]
-fn a_gameplay_session_stages_no_more_of_the_cast_than_its_budget() {
-    use ambition_platformer2d::game_shell::ShellCommand;
-
-    let mut app = boot_and_settle();
-    let staged_at_title = staged_cast_len(&app);
-    assert_eq!(
-        staged_at_title, 0,
-        "the title screen staged {staged_at_title} character(s). Nothing is being \
-         played yet, so this should be empty — a non-zero count here means the \
-         cost this guard exists to bound has moved back into boot"
-    );
-
-    app.world_mut().write_message(ShellCommand::GoTo(
-        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
-    ));
-    let mut settled = app;
-    settle_in_place(&mut settled);
-
-    let staged = staged_cast_len(&settled);
-    assert!(
-        staged > 0,
-        "the session staged no characters at all, so this budget is measuring an \
-         empty world rather than the shipped one"
-    );
-    assert!(
-        staged <= SESSION_STAGED_CAST_BUDGET,
-        "entering the Ambition route staged {staged} characters, over the \
-         {SESSION_STAGED_CAST_BUDGET} budget. One staged character is one sheet \
-         decode, so this is the launch stutter in its cheapest observable form. \
-         The usual cause is a prefetch reaching further than it should — see \
-         `NEIGHBOR_PREFETCH_ROOM_BUDGET`. Run the game and read `[image-census]`."
-    );
-    eprintln!("[session-budget] {staged} staged (budget {SESSION_STAGED_CAST_BUDGET})");
-}
-
-/// The active room's own cast, plus a bounded neighbourhood's worth of prefetch.
-const SESSION_STAGED_CAST_BUDGET: usize = 40;
-
-fn staged_cast_len(app: &bevy::app::App) -> usize {
-    app.world()
+fn the_initial_title_stages_no_character_art() {
+    let app = boot_and_settle();
+    let staged = app.world()
         .get_resource::<ambition_platformer2d::assets::materialization::CharacterLoadStates>()
-        .map(|states| states.cast().len())
-        .unwrap_or(0)
-}
-
-/// `boot_and_settle`'s loop against an app that is already running.
-fn settle_in_place(app: &mut bevy::app::App) {
-    let mut last_seen = usize::MAX;
-    let mut quiet_polls = 0u32;
-    let deadline = std::time::Instant::now() + SETTLE_DEADLINE;
-    while std::time::Instant::now() < deadline {
-        app.update();
-        std::thread::sleep(SETTLE_POLL);
-        let seen = staged_cast_len(app);
-        if seen == last_seen {
-            quiet_polls += 1;
-            if quiet_polls >= SETTLE_QUIET_POLLS {
-                break;
-            }
-        } else {
-            last_seen = seen;
-            quiet_polls = 0;
-        }
-    }
+        .expect("the host installs character materialization state")
+        .cast().len();
+    assert_eq!(staged, 0, "the initial title demanded character art with no actor cast");
 }

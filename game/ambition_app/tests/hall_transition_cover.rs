@@ -199,36 +199,27 @@ fn boot_and_record_the_hall_transition() -> (App, usize) {
 
 #[test]
 fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
-    let (mut app, before) = boot_and_record_the_hall_transition();
-    // the loop must not be the assertion. It waits for the cast to grow AT
-    // ALL and then measures that same frame, so a Hall that trickled its
-    // characters in ten at a time still fails the bill below. A loop that waited
-    // for `>= MINIMUM_HALL_CAST` would pass by waiting, which is the shape this
-    // whole file exists to catch.
-    let mut arrived = false;
+    let (mut app, _before) = boot_and_record_the_hall_transition();
+    let hall_ids = hall_character_ids(&mut app);
+    let mut contributed = false;
     for _ in 0..120 {
         step(&mut app);
-        if staged_cast_len(&app) > before {
-            arrived = true;
+        let state = app.world().resource::<
+            ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState,
+        >();
+        if state.active.as_ref().is_some_and(|active| active.asset_manifest_duration.is_some()) {
+            contributed = true;
             break;
         }
     }
+    assert!(contributed, "the Hall transition never contributed its asset manifest");
+    let cast = app.world().resource::<
+        ambition_platformer2d::assets::materialization::CharacterLoadStates,
+    >().cast();
+    let missing: Vec<_> = hall_ids.iter().filter(|id| !cast.contains(id)).collect();
     assert!(
-        arrived,
-        "the Hall transition never demanded a single new character in 120 frames, \
-         so this test measured no bill at all"
-    );
-
-    // ── The bill arrives at once ────────────────────────────────────────────
-    let staged = staged_cast_len(&app);
-    assert!(
-        staged - before >= MINIMUM_HALL_CAST,
-        "the Hall transition staged only {} new character(s) on its first frame \
-         (from {before} to {staged}). The room authors 196 NpcSpawn placements, \
-         so the rest are \
-         being demanded later — after their actors spawn, in frame, uncovered, \
-         which is the defect this file exists to keep closed",
-        staged - before,
+        missing.is_empty(),
+        "the first Hall asset manifest omitted these placed characters: {missing:?}",
     );
 
     // ── And the wait is covered ─────────────────────────────────────────────
@@ -242,7 +233,6 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
     // is correctly never shown for it. The grace is a presentation contract
     // with its own tests; what this test owns is that nothing was revealed
     // while the cast was still arriving.
-    let hall_ids = hall_character_ids(&mut app);
     let mut released_at = None;
     let mut ready_when_released = 0;
     let mut cover_required = false;
@@ -440,13 +430,6 @@ fn the_halls_cast_is_realized_at_the_users_tier_never_lower() {
 
     let (mut app, _before) = boot_and_record_the_hall_transition();
     let ids = hall_character_ids(&mut app);
-    let already_realized: std::collections::BTreeSet<String> = {
-        let assets = app.world().resource::<GameAssets>();
-        ids.iter()
-            .filter(|id| assets.characters.sheet(id).is_some())
-            .cloned()
-            .collect()
-    };
     let setting = app
         .world()
         .resource::<ambition_platformer2d::persistence::settings::UserSettings>()
@@ -459,40 +442,23 @@ fn the_halls_cast_is_realized_at_the_users_tier_never_lower() {
         setting > TextureResolutionScale::Quarter,
         "this test needs a setting ABOVE Quarter, or a gallery cap would be invisible; got {setting:?}"
     );
-    // Let the cast realize behind the cover.
     for _ in 0..200 {
+        let assets = app.world().resource::<GameAssets>();
+        if ids.iter().all(|id| assets.characters.sheet(id).is_some()) {
+            break;
+        }
         step(&mut app);
     }
     let assets = app.world().resource::<GameAssets>();
-    let mut tiers: std::collections::BTreeMap<TextureResolutionScale, usize> = Default::default();
-    let mut kept_as_they_were = 0;
+    assert!(!ids.is_empty(), "the Hall must place a cast");
     for id in &ids {
-        let Some(sheet) = assets.characters.sheet(id) else {
-            continue;
-        };
-        if already_realized.contains(id) {
-            assert_eq!(
-                sheet.requested_tier, setting,
-                "'{id}' was realized at {setting:?} before the door and must be KEPT there"
-            );
-            kept_as_they_were += 1;
-            continue;
-        }
-        *tiers.entry(sheet.requested_tier).or_default() += 1;
+        let sheet = assets.characters.sheet(id)
+            .unwrap_or_else(|| panic!("the Hall character '{id}' has no realized sheet"));
+        assert_eq!(
+            sheet.requested_tier, setting,
+            "the Hall character '{id}' must use the active quality setting",
+        );
     }
-    let realized: usize = tiers.values().sum();
-    assert!(
-        realized >= 100,
-        "only {realized} of {} realized in 200 frames",
-        ids.len()
-    );
-    assert_eq!(
-        tiers.keys().copied().collect::<Vec<_>>(),
-        vec![setting],
-        "the hall's newly realized sheets asked for {tiers:?}; the gallery must draw at the \
-         {setting:?} setting like every other room (Jon, 2026-09-02)"
-    );
-    assert_eq!(kept_as_they_were, already_realized.len());
 }
 
 /// THE EXIT (asset open work 4): leaving the gallery, the characters the hub

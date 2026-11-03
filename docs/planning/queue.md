@@ -69,6 +69,7 @@ CHARGEN-SPECIES. TEST-LANES retains the test-consolidation work.
 | [Asset implementation review](engine/asset-library-implementation-review.md) | Evidence for the same three asset rows; no duplicate tasks. Cost traces are part of those slices. |
 | [World layers and travel](game/world-layers-and-travel.md) | Portal mechanics are built; WORLD-LAYERS owns the remaining authored topology. |
 | [Art dimension](game/art-dimension.md) | The first region is built. WORLD-LAYERS rechecks the remaining art publication, region cues and places before selecting more content. Do not rebuild the completed region. |
+| [History dimension](game/history-dimension.md) | The first pass is committed in `5d7fa1d1b`. WORLD-LAYERS owns selection of the next eras. |
 | [Enemy patterns](game/enemy-patterns.md) | ENEMY-NOTICE owns the remaining skirmisher/profile gap; do not repeat built fighter engagement or completed variants. |
 | [Region composition](game/world-composition.md) | WORLD-LAYERS rechecks remaining region links and secrets against current generators. Completed regions are not requeued. |
 | [World detail run](game/world-detail-24h.md) | Its counts predate many completed rooms. Recheck them within WORLD-LAYERS; do not restart the dated run or repeat its completed art. |
@@ -526,8 +527,9 @@ reach checks and same-dimension rules already landed in `c818c0801`.
 **Owner:** `tools/ambition_ldtk_tools/specs` generators and
 `game/ambition_map_assets`. Design: [world layers](game/world-layers-and-travel.md),
 [region composition](game/world-composition.md),
-[remaining room detail](game/world-detail-24h.md), and
-[Art dimension follow-up](game/art-dimension.md#open-work).
+[remaining room detail](game/world-detail-24h.md),
+[Art dimension follow-up](game/art-dimension.md#ideas-for-later), and
+[History dimension follow-up](game/history-dimension.md#next-passes).
 
 **Next action:** fold Jungle into surface, underground and canopy regions,
 then add Magical's sky and local arch network. Reuse the existing portal and
@@ -903,8 +905,13 @@ request spends no sequence. Guards: `restore_admission_is_atomic_and_refusal_spe
 `cancelling_a_restore_preserves_an_equal_intent_from_another_admission`.
 Do not infer a checkpoint restore from intent equality.
 
-**First step:** bind mutable preparation inputs to shared simulation state.
-Then add content and plan identity, retained promises, and two-peer witnesses,
+The simulation now captures occurrence and mint continuity on the admitting frame.
+`CapturedRoomPreparation` belongs to the session root and uses registered clone
+snapshots. Readiness requires the exact admission; cache reuse compares the
+captured value. Guards: `room_preparation::tests` and
+`room_preparation_inputs_survive_the_registered_snapshot_path`.
+
+**Next step:** add content and plan identity, retained promises, and two-peer witnesses,
 including an occurrence that changes during preparation. Keep the existing safe hold until those pass.
 The `LOCAL-PLAY-MODES` leave slice and `COOP-RECOVERY` remain separate work
 items; reuse their participant lifecycle and checkpoint rules, not duplicate
@@ -921,6 +928,18 @@ or checksum divergence, including delayed and failed room preparation. Test
 these in focused engine/host harnesses **and** in one rendered two-controller
 main-game playthrough. No new primary-player fallback is allowed at these
 seams.
+
+### GATE-STARTUP-FLICKER — diagnose the wormhole at startup
+
+**Owner:** [Gate network](game/gate-network.md#startup-rendering).
+**State:** OPEN. Jon reports flicker on desktop and Steam Deck. Warmed High and
+Ultra captures show an opening flare and continuous steady rendering. They do
+not prove that cold startup is correct.
+**Next action:** capture the reported gate from cold startup and locate the
+first incorrect frame. Check sprite readiness, animation ownership and the
+shader layer before changing art.
+**Acceptance:** the gate renders continuously after its opening on desktop and
+Steam Deck. Keep intended opening animation separate from missing frames.
 
 ### MORPH-BALL-VISIBILITY — the standing sprite draws behind the ball
 

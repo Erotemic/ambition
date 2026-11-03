@@ -607,18 +607,18 @@ fn defeat_a_warden_and_take_its_ability(sim: &mut Platformer2dSimHarness, placem
 /// before dying.
 fn a_warden_defeat_across_a_death(banked: bool, elsewhere: bool) -> (bool, u32, (String, u8), i32) {
     use crate::death_restores_the_checkpoint::{
-        NEIGHBOUR, ROOM, commit_a_checkpoint, die, walk_to,
+        NEIGHBOUR, ROOM, commit_a_hub_checkpoint, die, walk_to,
     };
     let mut sim = crate::common::fixed_60hz_room_sim(ROOM);
     sim.step_n(AgentAction::default(), 2);
     crate::common::begin_without(&mut sim, &[ambition_platformer2d::items::Item::MarkRecall]);
     let before = balance(sim.world_mut());
     if !banked {
-        commit_a_checkpoint(&mut sim);
+        commit_a_hub_checkpoint(&mut sim);
     }
     defeat_a_warden_and_take_its_ability(&mut sim, "warden");
     if banked {
-        commit_a_checkpoint(&mut sim);
+        commit_a_hub_checkpoint(&mut sim);
     }
     if elsewhere {
         walk_to(&mut sim, NEIGHBOUR);

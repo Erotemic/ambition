@@ -1888,21 +1888,10 @@ fn beaten_he_falls_the_giant_holds_him_and_he_wakes_on_its_shoulder() {
     assert!(s.scholar.pos.distance(saddle) < 40.0, "he is back on its shoulder: {:?}, its saddle {saddle:?}", s.scholar.pos);
 }
 
-/// A defeat that is undone gives him his fists back. A replay can return him to
-/// life after he let go; a fist he does not hold falls under gravity between
-/// his poses, and a held body does not.
+/// A room replay rebuilds the defeated rider with both fists held.
 #[test]
 fn alive_again_he_takes_his_fists_back() {
     let mut sim = arena();
-    let set_health = |sim: &mut Platformer2dSimHarness, full: bool| {
-        let world = sim.world_mut();
-        let mut q = world.query::<(&BossConfig, &mut BodyHealth)>();
-        for (config, mut health) in q.iter_mut(world) {
-            if config.behavior.id == "gnu_ton_rider" {
-                health.health.current = if full { health.health.max } else { 0 };
-            }
-        }
-    };
     let held = |sim: &mut Platformer2dSimHarness| -> Vec<bool> {
         let world = sim.world_mut();
         world
@@ -1912,11 +1901,31 @@ fn alive_again_he_takes_his_fists_back() {
             .map(|(held, _)| held)
             .collect()
     };
-    set_health(&mut sim, false);
+    let alive = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world.query::<(&BossConfig, &BodyHealth)>().iter(world)
+            .find(|(config, _)| config.behavior.id == GNU_TON_ID)
+            .is_some_and(|(_, health)| health.alive())
+    };
+    {
+        let world = sim.world_mut();
+        for (config, mut health) in world.query::<(&BossConfig, &mut BodyHealth)>().iter_mut(world) {
+            if config.behavior.id == GNU_TON_ID {
+                health.health.current = 0;
+            }
+        }
+    }
     sim.step(AgentAction::default());
-    assert_eq!(held(&mut sim), vec![false, false], "the premise: defeated, he let both fists go");
-    set_health(&mut sim, true);
-    sim.step(AgentAction::default());
+    assert!(!alive(&mut sim), "the rider is defeated before the replay");
+    assert_eq!(held(&mut sim), vec![false, false], "defeated, he let both fists go");
+    sim.world_mut().write_message(
+        ambition_platformer2d::session::reset::RoomReplayRequested::manual(),
+    );
+    for _ in 0..600 {
+        sim.step(AgentAction::default());
+        if alive(&mut sim) && held(&mut sim) == [true, true] { break; }
+    }
+    assert!(alive(&mut sim), "the replay did not revive the rider");
     assert_eq!(held(&mut sim), vec![true, true], "alive again, he holds both fists");
 }
 

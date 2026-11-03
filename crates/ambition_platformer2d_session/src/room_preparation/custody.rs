@@ -1,14 +1,8 @@
-//! The away occurrences whose custody a pending crossing ends at its commit
-//! (Q38): the transition's reading of the body-whereabouts ledger.
-//!
-//! The ledger and its writer stay with the bodies
-//! (`ambition_platformer2d_construction::whereabouts`); what a crossing
-//! retires is the transition's own rule, so it is read here, beside the loader
-//! that prepares the destination.
+//! Occurrence custody that ends when a room operation commits.
 
 use bevy::prelude::{Entity, Query, Res, With};
 
-use ambition_platformer2d_session::rooms;
+use crate::rooms;
 
 /// The away occurrences whose custody a pending crossing ends at its commit
 /// (Q38).
@@ -38,7 +32,14 @@ pub struct CustodyEndingAtCommit<'w, 's> {
         &'static ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
         With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
     >,
-    drivers: Query<'w, 's, (Entity, &'static ambition_characters::control::DrivingParticipant)>,
+    drivers: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static ambition_characters::control::DrivingParticipant,
+        ),
+    >,
     live_bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies<'w, 's>,
 }
 
@@ -48,13 +49,13 @@ impl CustodyEndingAtCommit<'_, '_> {
     /// leaves, or when nothing lives away from home.
     pub fn released_by(
         &self,
-        intent: &ambition_platformer2d_session::lifecycle_commit::LifecycleIntent,
+        intent: &crate::lifecycle_commit::LifecycleIntent,
     ) -> std::collections::BTreeSet<ambition_platformer2d_shared_tangle::sim_id::SimId> {
         let mut released = std::collections::BTreeSet::new();
         let Some(away) = self.away.as_deref().filter(|away| !away.0.is_empty()) else {
             return released;
         };
-        let ambition_platformer2d_session::lifecycle_commit::LifecycleIntent::Transition(intent) = intent else {
+        let crate::lifecycle_commit::LifecycleIntent::Transition(intent) = intent else {
             return released;
         };
         let stamp = |entity| {
@@ -66,14 +67,19 @@ impl CustodyEndingAtCommit<'_, '_> {
         };
         let subject = self.live_bodies.entity_of(&intent.subject);
         // The commit's own departing room: the subject's, else the sole one.
-        let Some(departing) = subject.and_then(stamp).or_else(|| self.roots.single().ok().copied()) else {
+        let Some(departing) = subject
+            .and_then(stamp)
+            .or_else(|| self.roots.single().ok().copied())
+        else {
             return released;
         };
         if rooms::another_player_stays(
             subject,
             intent.participant,
             departing,
-            self.drivers.iter().map(|(entity, driver)| (entity, driver.0, stamp(entity))),
+            self.drivers
+                .iter()
+                .map(|(entity, driver)| (entity, driver.0, stamp(entity))),
         ) {
             return released;
         }
@@ -91,7 +97,7 @@ impl CustodyEndingAtCommit<'_, '_> {
     /// as carried, because the rooms they live in are not rewound.
     pub fn surviving(
         &self,
-        intent: &ambition_platformer2d_session::lifecycle_commit::LifecycleIntent,
+        intent: &crate::lifecycle_commit::LifecycleIntent,
     ) -> std::collections::BTreeSet<ambition_platformer2d_shared_tangle::sim_id::SimId> {
         let Some(away) = self.away.as_deref().filter(|away| !away.0.is_empty()) else {
             return std::collections::BTreeSet::new();

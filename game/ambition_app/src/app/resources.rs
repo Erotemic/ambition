@@ -116,7 +116,8 @@ fn insert_host_resources(
     sandbox_data: ambition_platformer2d::assets::gameplay_defaults::Platformer2dGameplayDefaults,
 ) {
     let feel: Platformer2dFeelTuningMonolith = sandbox_data.feel;
-    let editable_abilities = EditableAbilitySet::from(sandbox_data.abilities);
+    // The host ceiling permits each game's authored grants.
+    let editable_abilities = EditableAbilitySet::default();
     let editable_tuning = EditableMovementTuning::from(sandbox_data.tuning);
     // The simulation's authority, seeded from the same authored value.
     let active_tuning =

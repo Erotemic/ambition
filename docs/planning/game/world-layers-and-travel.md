@@ -77,6 +77,7 @@ A layer is not a corridor. The rules:
 | dinosaur (Jungle) | planet | 12 | 25792 x 1888 | 13.7 | one line: the trail, a sinkhole to the fossil beds |
 | math | topological | 19 | 16960 x 4144 | 4.1 | free |
 | noodle | topological | 7 | 12960 x 1408 | 9.2 | free |
+| history (2026-11-03) | topological | 14 | 22400 x 1840 | 12.2 | free: a timeline, eight eras in one row from west (earliest) to east; six buildings under it |
 
 ## Remaining authored work (WORLD-LAYERS queue owner)
 

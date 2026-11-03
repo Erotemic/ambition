@@ -54,7 +54,102 @@
     "art_crayon_rail": (),
     "art_scribble_wall": (),
     "art_eraser": (),
-    // game/ambition_content/assets/data/prop_sheets.ron: after "art_paint_pots".
+    // The Fertile Crescent of the History dimension
+    // (`targets/props/history_crescent_props.py`). The reed bridge is the
+    // LockWall over the canal that the sluice lever (`history_sluice`)
+    // raises: three bundles of reeds bound with cord. A door fills the box
+    // of its wall, 224 by 24.
+    "history_reed_bridge": (),
+    // Its scenery: a sheaf of wheat, the black stele of the code with its
+    // relief and its cuneiform, a stepped ziggurat with its stairs, a date
+    // palm, and a stack and a basket of clay tablets.
+    "history_wheat_sheaf": (),
+    "history_code_stele": (),
+    "history_ziggurat": (),
+    "history_date_palm": (),
+    "history_clay_tablets": (),
+    // The Nile of the History dimension (`targets/props/history_nile_props.py`).
+    // The felucca is the look of the boat that carries you over the river:
+    // a platform look (`platform_looks.ron`); the top of its deck is the
+    // platform and its sail rises over the deck.
+    "history_felucca": (),
+    // Its scenery: an obelisk with a gold cap, a clump of papyrus, the four
+    // canopic jars (a man, a baboon, a jackal and a falcon), and a big
+    // seated statue of a pharaoh who has lost his nose.
+    "history_obelisk": (),
+    "history_papyrus": (),
+    "history_canopic_jars": (),
+    "history_pharaoh_statue": (),
+    // The Classical Shore of the History dimension
+    // (`targets/props/history_classical_props.py`). The stoa gate is a bronze
+    // door between two small columns with a question mark on it: the answer
+    // to Socratease's question (`history_knows_nothing`) opens it. A door
+    // fills the box of its wall.
+    "history_stoa_gate": (),
+    // Its scenery: a marble column, a broken column with a fallen drum, an
+    // aqueduct, three amphorae in a stand, and a bust with a painted moustache.
+    "history_marble_column": (),
+    "history_broken_column": (),
+    "history_aqueduct": (),
+    "history_amphorae": (),
+    "history_bust": (),
+    // The Silk Road (`targets/props/history_silk_props.py`). The camel
+    // caravan is a platform look (`platform_looks.ron`); the rest is scenery:
+    // rolls of silk on a rack, a paper lantern on a post, sacks of spice, and
+    // a pagoda of five storeys.
+    "history_camel_caravan": (),
+    "history_silk_bolts": (),
+    "history_paper_lantern": (),
+    "history_spice_sacks": (),
+    "history_pagoda": (),
+    // The Mongol Steppe (`targets/props/history_steppe_props.py`). The gate in
+    // the Wall is a heavy wooden door studded with iron in a stone arch; Genghis
+    // Can opens it (`history_can_says_yes`). The scaffold plank is a plank on
+    // bamboo poles, tied with rope; Genghis Can't builds the scaffold over the
+    // Wall (`history_cant_says_maybe`). A door fills the box of its wall (the
+    // gate 32 by 128, the plank 160 by 24).
+    "history_great_wall_gate": (),
+    "history_scaffold_plank": (),
+    // Its scenery: a felt ger with an orange door and smoke from its pipe, a
+    // stretch of the Wall with a watchtower, an ovoo (a cairn with blue silk
+    // scarves) and a tug (a pole with a plume of horse tail).
+    "history_ger": (),
+    "history_great_wall": (),
+    "history_ovoo": (),
+    "history_horse_standard": (),
+    // Timbuktu and the Monsoon Coast (`targets/props/history_monsoon_props.py`).
+    // The dhow is a platform look (`platform_looks.ron`): its deck carries you
+    // over the sea.
+    "history_dhow": (),
+    // Its scenery: slabs of rock salt tied on a frame, a mudbrick tower with
+    // toron and an ostrich egg on its top, a chest of manuscripts, and a heap
+    // of gold with a glint on it.
+    "history_salt_slabs": (),
+    "history_mud_tower": (),
+    "history_manuscripts": (),
+    "history_gold_pile": (),
+    // The Age of Sail of the History dimension
+    // (`targets/props/history_sail_props.py`). The ship's boom is a platform
+    // look (`platform_looks.ron`): a spar with its sail furled on top.
+    "history_ship_boom": (),
+    // Its scenery: a mast with its yards and rigging, crates of the Columbian
+    // exchange, a brass astrolabe on a stand, and a lighthouse whose beam
+    // turns.
+    "history_mast": (),
+    "history_cargo_crates": (),
+    "history_astrolabe": (),
+    "history_lighthouse": (),
+    // The Industrial Age (`targets/props/history_industrial_props.py`). The
+    // factory gate is the door of the railway: the boiler lever of the Cotton
+    // Mill opens it. A door fills the box of its wall. The rail wagon is a
+    // platform look (`platform_looks.ron`): its bed is the platform.
+    "history_factory_gate": (),
+    "history_rail_wagon": (),
+    // Its scenery: a mill chimney that smokes, a beam engine that runs, and
+    // a gas lamp.
+    "history_chimney": (),
+    "history_steam_engine": (),
+    "history_gas_lamp": (),
     // The Story Stacks of the Art dimension (`targets/props/art_stacks_props.py`).
     // The doors of the Library of Endings are two covers of a book: the happy
     // ending in gold with a sun, the sad ending in deep blue with a moon and

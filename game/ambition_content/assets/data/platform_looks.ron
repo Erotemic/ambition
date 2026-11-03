@@ -18,6 +18,27 @@
     // `SEESAW_*`, `CRAYON_*`).
     "art_brush_seesaw": (row: "idle", frame_px: (384.0, 64.0), span_px: (16.0, 368.0), top_px: 22.0),
     "art_crayon_rail": (row: "idle", frame_px: (320.0, 64.0), span_px: (16.0, 304.0), top_px: 18.0),
+    // The History dimension's felucca: the top of its deck IS the platform;
+    // the sail rises over it (`targets/props/history_nile_props.py`:
+    // `FELUCCA_FRAME`, `FELUCCA_SPAN`, `FELUCCA_TOP`).
+    "history_felucca": (row: "idle", frame_px: (320.0, 192.0), span_px: (16.0, 304.0), top_px: 150.0),
+    // The Silk Road's camel caravan: the top of the roll of carpet across the
+    // two camels' packs is the platform (`targets/props/history_silk_props.py`:
+    // `CARAVAN_FRAME`, `CARAVAN_SPAN`, `CARAVAN_TOP`). Its `idle` row walks
+    // the camels; the carpet stays level.
+    "history_camel_caravan": (row: "idle", frame_px: (320.0, 192.0), span_px: (16.0, 304.0), top_px: 70.0),
+    // The History dimension's dhow on the Monsoon Coast: the top of its deck
+    // IS the platform; its lateen sail rises over the deck
+    // (`targets/props/history_monsoon_props.py`: `DHOW_FRAME`, `DHOW_SPAN`,
+    // `DHOW_TOP`).
+    "history_dhow": (row: "idle", frame_px: (320.0, 192.0), span_px: (16.0, 304.0), top_px: 150.0),
+    // The History dimension's ship's boom and rail wagon: the top of the
+    // furled sail on the boom, and the bed of the wagon, is the platform
+    // (`targets/props/history_sail_props.py`: `BOOM_*`;
+    // `targets/props/history_industrial_props.py`: `WAGON_*`). The boom turns
+    // on its middle, as the brush seesaw does.
+    "history_ship_boom": (row: "idle", frame_px: (384.0, 64.0), span_px: (16.0, 368.0), top_px: 22.0),
+    "history_rail_wagon": (row: "idle", frame_px: (320.0, 96.0), span_px: (16.0, 304.0), top_px: 30.0),
     // Native marble tiles form the haunted wing's floors and ledges.
     "hylbert_floor_strip": (row: "idle", frame_px: (128.0, 32.0), span_px: (0.0, 128.0), top_px: 0.0),
     // The orbital station's spoke tram: its floor IS the platform. The

@@ -25,6 +25,7 @@ mod robot_blade_at_home;
 mod window_cameras_share_one_main_texture;
 mod the_cart_of_the_wake_room;
 mod the_art_dimension;
+mod the_history_dimension;
 mod the_noodly_temple;
 mod the_primeval_trail;
 mod the_session_owns_its_generation;

@@ -135,6 +135,7 @@ from the start.
 | `ALDENTE` | `noodly_narthex_gate` | `noodly_narthex` | the Noodly Temple | yes |
 | `DESTINY` | `magical_gate_zone` | `magical_gate_garden` | east to Starlight Square, down its well to the Starless Hollow, out along the Dune Road | yes |
 | `EASEL` | `art_plaza_gate` | `art_painters_plaza` | east to the Sculpture Garden, west to the Story Stacks, the lift up to the Sketchbook Cliffs (the Amphitheatre west of them, the Resonant Reach east), down to the Inkfall Caverns and on to the Workshop Deeps | yes |
+| `DYNASTIC` | `history_crescent_gate` | `history_fertile_crescent` | east along the timeline: the Nile, the Classical Shore, the Silk Road, the Mongol Steppe, Timbuktu and the Monsoon Coast, the Age of Sail, the Industrial Age | yes |
 | `SENTINEL` | `military_gate_zone` | `military_gate_annex` | back through the General's tower | yes; on foot, the checkpoint wants the clearance or the crawlway |
 | `NEST` (hidden) | `primeval_rookery_gate` | `primeval_rookery` | down the trail to the trailhead ring | yes |
 | `TESLA` (hidden) | `trail_survey_gate` | `gnu_ton_works_approach` | the tower top by GNU-ton's door; the lift down to the spoke | yes |

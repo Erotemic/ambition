@@ -333,6 +333,142 @@
       "twinkle_rate": 1.0,
       "front": 0.4
     },
+    "history_crescent": {
+      "count": 18,
+      "velocity": [
+        14.0,
+        2.0
+      ],
+      "wander": 8.0,
+      "wander_rate": 0.2,
+      "size": [
+        2.6,
+        4.4
+      ],
+      "alpha": 0.6,
+      "twinkle": 0.15,
+      "twinkle_rate": 0.4,
+      "front": 0.35
+    },
+    "history_nile": {
+      "count": 24,
+      "velocity": [
+        8.0,
+        1.0
+      ],
+      "wander": 6.0,
+      "wander_rate": 0.15,
+      "size": [
+        1.4,
+        2.8
+      ],
+      "alpha": 0.6,
+      "twinkle": 0.5,
+      "twinkle_rate": 0.8,
+      "front": 0.35
+    },
+    "history_classical": {
+      "count": 12,
+      "velocity": [
+        6.0,
+        6.0
+      ],
+      "wander": 12.0,
+      "wander_rate": 0.15,
+      "size": [
+        3.0,
+        5.0
+      ],
+      "alpha": 0.7,
+      "twinkle": 0.1,
+      "twinkle_rate": 0.3,
+      "front": 0.3
+    },
+    "history_silk": {
+      "count": 12,
+      "velocity": [
+        18.0,
+        1.0
+      ],
+      "wander": 10.0,
+      "wander_rate": 0.2,
+      "size": [
+        2.6,
+        4.2
+      ],
+      "alpha": 0.6,
+      "twinkle": 0.15,
+      "twinkle_rate": 0.4,
+      "front": 0.3
+    },
+    "history_steppe": {
+      "count": 16,
+      "velocity": [
+        22.0,
+        -2.0
+      ],
+      "wander": 9.0,
+      "wander_rate": 0.25,
+      "size": [
+        2.4,
+        4.0
+      ],
+      "alpha": 0.55,
+      "twinkle": 0.15,
+      "twinkle_rate": 0.4,
+      "front": 0.35
+    },
+    "history_monsoon": {
+      "count": 18,
+      "velocity": [
+        -6.0,
+        -3.0
+      ],
+      "wander": 8.0,
+      "wander_rate": 0.2,
+      "size": [
+        1.6,
+        3.0
+      ],
+      "alpha": 0.7,
+      "twinkle": 0.7,
+      "twinkle_rate": 1.0,
+      "front": 0.35
+    },
+    "history_sail": {
+      "count": 10,
+      "velocity": [
+        5.0,
+        7.0
+      ],
+      "wander": 14.0,
+      "wander_rate": 0.15,
+      "size": [
+        3.0,
+        5.0
+      ],
+      "alpha": 0.7,
+      "twinkle": 0.1,
+      "twinkle_rate": 0.3,
+      "front": 0.3
+    },
+    "history_industrial": {
+      "count": 26,
+      "velocity": [
+        4.0,
+        -5.0
+      ],
+      "wander": 7.0,
+      "wander_rate": 0.15,
+      "size": [
+        1.6,
+        3.4
+      ],
+      "alpha": 0.55,
+      "twinkle": 0.2,
+      "twinkle_rate": 0.5,
+      "front": 0.4
+    },
     "math_town": {
       "count": 16,
       "velocity": [

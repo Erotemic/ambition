@@ -221,6 +221,29 @@ npc_art_johann_sebastian_batch
 npc_art_leonardo_da_vinchy
 npc_art_antoni_gaudy
 
+[The History dimension's people]
+npc_history_clio
+npc_history_hammurabbi
+npc_history_gilgamash
+npc_history_scribe_of_debts
+npc_history_hatshepsut_hats
+npc_history_ramesses_pretty_good
+npc_history_socratease
+npc_history_herodotoss
+npc_history_julius_sneezer
+npc_history_marco_polo_neck
+npc_history_confusius
+npc_history_kublai_khant_wait
+npc_history_mansa_moolah
+npc_history_ibn_batootah
+npc_history_zheng_hey
+npc_history_vasco_da_gamer
+npc_history_christopher_columbust
+npc_history_captain_cookbook
+npc_history_adam_smithy
+npc_history_karl_marks
+npc_history_general_ludd
+
 [Guests from history and the studio]
 npc_genghis_can
 npc_genghis_cant
@@ -341,6 +364,32 @@ war_drum
 clay_golem
 loom_spider
 kiln_sprite
+
+[The History dimension]
+locust_swarm
+aurochs
+scorpion_man
+mummy
+scarab_beetle
+asp
+hoplite
+immortal
+vandal
+terracotta_warrior
+desert_bandit
+silk_moth
+horse_archer
+golden_eagle
+steppe_wolf
+inflated_coin
+coral_crab
+monsoon_squall
+scurvy_ghost
+kraken_arm
+privateer
+steam_automaton
+soot_sprite
+robber_baron
 
 [Mary-O's world]
 mary_o

@@ -702,6 +702,25 @@
             scale: 0.4,
         )),
     ),
+    // The History dimension's robber baron throws coins (`shot_kit`). It
+    // spins in its row, so it is not turned to its flight.
+    "coin": (
+        source: Sheet(
+            target: "shot_kit",
+            animation: "coin",
+            animate: true,
+        ),
+        size: BodyWidth(
+            scale: 2.05,
+        ),
+        rotation: FlipToTravel,
+        debug_tint: (0.95, 0.75, 0.2, 1.0),
+        label: "coin",
+        expiry_vfx: Some((
+            fx: "classic_burst",
+            scale: 0.4,
+        )),
+    ),
     // The thrown rock of the plain ranged styles: it tumbles in its row and is
     // not turned to its flight.
     "thrown_rock": (

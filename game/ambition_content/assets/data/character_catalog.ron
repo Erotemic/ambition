@@ -473,6 +473,147 @@
             melee: Some(Bite(windup_s: 0.2, active_s: 0.08, recover_s: 0.3, damage: 1, reach_px: 28.0)),
             ranged: Some(Rock(speed: 340.0, damage: 1)),
         ),
+        // The Fertile Crescent (`targets/characters/locust_swarm.py`,
+        // `aurochs.py`, `scorpion_man.py`). A locust swarm pulls itself into a
+        // ball (its windup row) and streams at you face first; an aurochs
+        // lowers its horns and paws the ground (its windup row), then charges
+        // a long way and tosses its horns, and needs a long moment to turn its
+        // bulk round; a scorpion man cocks his tail high and back (his windup
+        // row) and stings over his head into the ground in front of him.
+        "locust_swarm_stream": (
+            move_style: Float,
+            melee: Some(Lunge(windup_s: 0.35, active_s: 0.2, recover_s: 0.5, damage: 1, reach_px: 34.0, step_px: 0.0, rush_px: 140.0)),
+        ),
+        "aurochs_charge": (
+            move_style: WalkHeavy,
+            melee: Some(Lunge(windup_s: 0.75, active_s: 0.4, recover_s: 1.0, damage: 3, reach_px: 66.0, step_px: 0.0, rush_px: 260.0)),
+        ),
+        "scorpion_man_sting": (
+            move_style: Walk,
+            melee: Some(Slam(windup_s: 0.55, active_s: 0.12, recover_s: 0.6, damage: 2, reach_px: 58.0)),
+        ),
+        // The Nile (`mummy.py`, `scarab_beetle.py`, `asp.py`). A mummy lifts
+        // both arms high (its windup row) and brings them down in a grab, slow
+        // to start and slow to recover; a scarab backs off and digs in, then
+        // shoves its dung ball at you and runs in behind it; an asp keeps its
+        // distance and spits, and bites what comes close.
+        "mummy_grab": (
+            move_style: Walk,
+            melee: Some(Slam(windup_s: 0.7, active_s: 0.15, recover_s: 0.8, damage: 2, reach_px: 40.0)),
+        ),
+        "scarab_beetle_shove": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.35, active_s: 0.15, recover_s: 0.4, damage: 1, reach_px: 30.0, step_px: 0.0, rush_px: 120.0)),
+        ),
+        "asp_spit": (
+            move_style: Walk,
+            melee: Some(Bite(windup_s: 0.25, active_s: 0.08, recover_s: 0.35, damage: 1, reach_px: 28.0)),
+            ranged: Some(Rock(speed: 360.0, damage: 1)),
+        ),
+        // The History dimension: the Classical Shore. A hoplite draws his spear
+        // back behind his shield (its windup row) and thrusts over the rim with
+        // a step; an Immortal lowers his spear to his hip and thrusts; a vandal
+        // swipes his brush across your face and leaves a moustache of paint.
+        "hoplite_thrust": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.6, active_s: 0.15, recover_s: 0.6, damage: 2, reach_px: 66.0, step_px: 12.0, rush_px: 0.0)),
+        ),
+        "immortal_thrust": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.45, active_s: 0.12, recover_s: 0.5, damage: 2, reach_px: 60.0, step_px: 10.0, rush_px: 0.0)),
+        ),
+        "vandal_daub": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.3, active_s: 0.1, recover_s: 0.35, damage: 1, reach_px: 40.0)),
+        ),
+        // The Silk Road. A terracotta warrior lifts his halberd over his head
+        // (its windup row) and chops it into the ground in front of him, slow
+        // and heavy; a desert bandit coils low and lunges with a wide slash; a
+        // silk moth lifts its nose and wings and dives at you nose first.
+        "terracotta_chop": (
+            move_style: WalkHeavy,
+            melee: Some(Slam(windup_s: 0.9, active_s: 0.2, recover_s: 1.1, damage: 3, reach_px: 80.0)),
+        ),
+        "desert_bandit_slash": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.3, active_s: 0.12, recover_s: 0.35, damage: 1, reach_px: 40.0, step_px: 18.0, rush_px: 0.0)),
+        ),
+        "silk_moth_dive": (
+            move_style: Float,
+            melee: Some(Lunge(windup_s: 0.35, active_s: 0.2, recover_s: 0.5, damage: 1, reach_px: 30.0, step_px: 0.0, rush_px: 150.0)),
+        ),
+
+        // The History dimension: the Mongol Steppe and the Monsoon Coast. A horse
+        // archer keeps its distance and shoots arrows, and swats with its bow when
+        // you come close; a golden eagle lifts its wings high (its windup row) and
+        // dives talons first; a steppe wolf crouches and lunges, jaws open; an
+        // inflated coin blows itself up (its windup row) and rushes at you
+        // spinning; a coral crab lifts its big claw and snaps it shut in front of
+        // it; a monsoon squall swells dark and spits rain from a distance.
+        "horse_archer_shot": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.25, active_s: 0.08, recover_s: 0.35, damage: 1, reach_px: 34.0)),
+            ranged: Some(Arrow(speed: 520.0, damage: 1)),
+        ),
+        "golden_eagle_dive": (
+            move_style: Float,
+            melee: Some(Lunge(windup_s: 0.4, active_s: 0.25, recover_s: 0.5, damage: 1, reach_px: 34.0, step_px: 0.0, rush_px: 170.0)),
+        ),
+        "steppe_wolf_lunge": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.35, active_s: 0.15, recover_s: 0.45, damage: 1, reach_px: 34.0, step_px: 0.0, rush_px: 120.0)),
+        ),
+        "inflated_coin_rush": (
+            move_style: Float,
+            melee: Some(Lunge(windup_s: 0.5, active_s: 0.2, recover_s: 0.5, damage: 1, reach_px: 30.0, step_px: 0.0, rush_px: 130.0)),
+        ),
+        "coral_crab_pinch": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.35, active_s: 0.1, recover_s: 0.4, damage: 1, reach_px: 30.0)),
+        ),
+        "monsoon_squall_rain": (
+            move_style: Float,
+            melee: Some(Bite(windup_s: 0.2, active_s: 0.08, recover_s: 0.3, damage: 1, reach_px: 28.0)),
+            ranged: Some(Rock(speed: 360.0, damage: 1)),
+        ),
+
+        // The Age of Sail (era 7 of the History dimension). A scurvy ghost
+        // lifts its arms and opens its toothless mouth (its windup row), then
+        // dives in and bites with its gums; a kraken arm rears high over its
+        // hatch and slams down flat on the deck in front, slow to start and
+        // slow to rise; a privateer lifts his cutlass back over his head, then
+        // lunges a long way and cuts down in front.
+        "scurvy_ghost_gum": (
+            move_style: Float,
+            melee: Some(Lunge(windup_s: 0.35, active_s: 0.15, recover_s: 0.5, damage: 1, reach_px: 30.0, step_px: 0.0, rush_px: 150.0)),
+        ),
+        "kraken_arm_slam": (
+            move_style: WalkHeavy,
+            melee: Some(Slam(windup_s: 0.9, active_s: 0.25, recover_s: 1.2, damage: 3, reach_px: 60.0)),
+        ),
+        "privateer_cut": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.35, active_s: 0.15, recover_s: 0.45, damage: 2, reach_px: 36.0, step_px: 0.0, rush_px: 140.0)),
+        ),
+        // The Industrial Age (era 8 of the History dimension). A steam
+        // automaton builds pressure (its windup row: the needle goes into the
+        // red) and punches with a piston arm; a soot sprite squashes and lights
+        // its ember, then rushes at you; a robber baron keeps his distance and
+        // throws coins, and swats with his money sack when you come close.
+        "steam_automaton_punch": (
+            move_style: WalkHeavy,
+            melee: Some(Lunge(windup_s: 0.9, active_s: 0.25, recover_s: 1.1, damage: 3, reach_px: 56.0, step_px: 12.0, rush_px: 0.0)),
+        ),
+        "soot_sprite_rush": (
+            move_style: Float,
+            melee: Some(Lunge(windup_s: 0.3, active_s: 0.15, recover_s: 0.45, damage: 1, reach_px: 24.0, step_px: 0.0, rush_px: 160.0)),
+        ),
+        "robber_baron_coin": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.25, active_s: 0.08, recover_s: 0.35, damage: 1, reach_px: 26.0)),
+            ranged: Some(Rock(speed: 360.0, damage: 1)),
+        ),
+
         // The Bad Apple's chomp: it rears back with its maw wide (its windup
         // row), then rolls at you jaws first, and sits a beat after, dizzy. Its
         // `attack_side` row is drawn to these times (`BAD_CHOMP_S` in the
@@ -6555,6 +6696,802 @@
             hall: ["Everything in the Deeps passes through a fire on its way to being finished. I am the fire. Say thank you.", "They put me in a pot so I would stay put. I am a pot of fire. I go where I like."],
         ),
         ),
+        // ===== THE HISTORY DIMENSION (DESIGN.md of the History dimension): a
+        // timeline, west to east. The creatures of each era are its troubles,
+        // made literal. Their sheets are in the renderer
+        // (`targets/characters/_history_ancient_kit.py`).
+        // ===== THE FERTILE CRESCENT: the dawn of farming.
+        // The locust swarm: many locusts that fly as one body and make a face
+        // (Drought and Famine). It floats and wheels; it pulls itself into a
+        // ball (its windup row) and streams at you. It has no spit: a floater
+        // that strikes in melee dives, so it is `Aerial`.
+        "locust_swarm": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Locust Swarm",
+            manifest: "sprites/locust_swarm_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(36.0),
+            composition: None,
+            default_action_set: "locust_swarm_stream",
+            locomotion: Some((run_speed: 150.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 540.0,
+                attack_range: 130.0,
+                shares_sightings: false,
+                tactics: (dive_tell_s: 0.35, notice_s: 0.4),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "history", "crescent", "insect"],
+        barks: (
+            on_hit: ["Bzzt! There are fewer of us now. Slightly.", "You hit one of us. There are a billion of us."],
+            provoked: ["Was that a field of barley? It was."],
+            idle: ["*bzzzzzzzz*", "Crunch.", "Harvest tax. We collect all of it."],
+            hall: ["Farming fed ten times as many people as hunting did. And us. Mostly us.", "The first farmers stored grain against the bad years. We are the bad years."],
+        ),
+        ),
+        // The aurochs: the wild ox before anyone tamed it, a huge black bull
+        // with long ivory horns. A charge (as the triceratops's): it lowers its
+        // horns and paws the ground (its windup row), rushes head down and
+        // tosses its horns, then stands a long moment: the opening.
+        "aurochs": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Aurochs",
+            manifest: "sprites/aurochs_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(70.0),
+            composition: None,
+            default_action_set: "aurochs_charge",
+            locomotion: Some((run_speed: 110.0, move_style: WalkHeavy)),
+            contact_damage: Some((strength: 0.7, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 600.0,
+                attack_range: 66.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.9,
+                // Slow between charges: the gap is the opening.
+                attack_cooldown_s: 1.1,
+                tactics: (notice_s: 0.6, footsies: Some((hold_px: 180.0, wait_s: 0.8))),
+            )),
+            max_health: Some(10),
+            mass: Some(7.0),
+            tags: ["enemy", "history", "crescent", "ox"],
+        barks: (
+            on_hit: ["MRRRAWR!", "Nobody yokes ME."],
+            provoked: ["You want to domesticate THIS?"],
+            idle: ["*snort*", "*it chews, and stares at you*", "Graze. Stare. Graze."],
+            hall: ["My little cousins pull ploughs now. They get hay and a name. I got painted on a cave wall.", "The last of us died in a Polish forest in 1627. I am taking it personally."],
+        ),
+        ),
+        // The scorpion man: the guard of the mountain of the sun in the Epic
+        // of Gilgamesh, a bearded man above and a scorpion below. He holds up
+        // a hand (no one passes), cocks his tail high and back (his windup
+        // row) and stings over his head into the ground in front of him.
+        "scorpion_man": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Scorpion Man",
+            manifest: "sprites/scorpion_man_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(72.0),
+            composition: None,
+            default_action_set: "scorpion_man_sting",
+            locomotion: Some((run_speed: 140.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 520.0,
+                attack_range: 56.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.9,
+                // He guards a gate: he holds his ground, stings, and holds it again.
+                attack_cooldown_s: 0.8,
+                tactics: (notice_s: 0.5, footsies: Some((hold_px: 90.0, wait_s: 0.6))),
+            )),
+            max_health: Some(5),
+            mass: Some(3.0),
+            tags: ["enemy", "history", "crescent", "epic"],
+        barks: (
+            on_hit: ["Ow. Half of me felt that.", "My better half stings!"],
+            provoked: ["Halt! None may pass the mountain of the sun."],
+            idle: ["None may pass.", "*click* *click*", "The sun goes in here. You do not."],
+            hall: ["Gilgamesh came this way to find eternal life. I let him pass. Ask him how that went.", "Twelve double hours of darkness behind me, and I am the cheerful part of the trip."],
+        ),
+        ),
+        // ===== THE NILE: the Pyramid Tomb and its vigil.
+        // The mummy: a body wrapped in old linen, with green eyes in the slit
+        // of its wrap. Slow: it lifts both arms high (its windup row) and
+        // brings them down in a grab.
+        "mummy": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Mummy",
+            manifest: "sprites/mummy_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(62.0),
+            composition: None,
+            default_action_set: "mummy_grab",
+            locomotion: Some((run_speed: 60.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 460.0,
+                attack_range: 38.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.6,
+                // It has had three thousand years to practise patience.
+                attack_cooldown_s: 1.0,
+                tactics: (notice_s: 0.7),
+            )),
+            max_health: Some(4),
+            tags: ["enemy", "history", "nile", "undead"],
+        barks: (
+            on_hit: ["Mmmf! My wrappings!", "That was my good linen."],
+            provoked: ["Mmmmmmmf!"],
+            idle: ["Mmmmm.", "*a long, slow groan*", "*it comes a little unwound*"],
+            hall: ["They took out my brain through my nose and kept my liver in a jar. I am still a little upset about the brain.", "Seventy days of embalming, and I still look like this. Ask for the luxury package."],
+        ),
+        ),
+        // The scarab beetle: a big blue-green scarab that rolls a dung ball,
+        // as the god Khepri rolls the sun. Fast and low: it backs off and digs
+        // in (its windup row), shoves the ball at you and runs in behind it,
+        // and skips back.
+        "scarab_beetle": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Scarab Beetle",
+            manifest: "sprites/scarab_beetle_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(28.0),
+            composition: None,
+            default_action_set: "scarab_beetle_shove",
+            locomotion: Some((run_speed: 240.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 460.0,
+                attack_range: 90.0,
+                patrol_effort: 0.6,
+                chase_effort: 1.0,
+                // A shove, and it scuttles back to its ball's distance.
+                retreat_after_swing_s: 0.4,
+                attack_cooldown_s: 0.45,
+                tactics: (notice_s: 0.35, waits_its_turn: true, footsies: Some((hold_px: 110.0, wait_s: 0.45)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "history", "nile", "beetle"],
+        barks: (
+            on_hit: ["Click! Mind the ball!", "Not the ball!"],
+            provoked: ["This ball is the SUN. Back off."],
+            idle: ["*push* *push*", "Roll. Roll. Roll.", "*it pats its ball, proudly*"],
+            hall: ["The priests say I roll the sun across the sky. I do not correct them. It is good for business.", "Yes, it is dung. It is SACRED dung."],
+        ),
+        ),
+        // The asp: a cobra with its hood out. It keeps its distance and spits
+        // (the `shoot` of a skirmisher): it draws its head back first (its
+        // windup row). The spit flies as a thrown `Rock` does and looks like
+        // spit (`ranged_vfx`).
+        "asp": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Asp",
+            manifest: "sprites/asp_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(40.0),
+            composition: None,
+            default_action_set: "asp_spit",
+            ranged_vfx: Some("spit"),
+            locomotion: Some((run_speed: 90.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: Skirmisher,
+                aggro_radius: 560.0,
+                attack_range: 280.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.7,
+                // The head goes back, the hood goes wide, and it spits.
+                ranged_volley: Some((windup_s: 0.5, firing_s: 0.2, recovery_s: 1.1)),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "history", "nile", "snake"],
+        barks: (
+            on_hit: ["Hssst!", "Mind the hood!"],
+            provoked: ["Sssssay that again."],
+            idle: ["Hsssss.", "*flick* *flick*", "Ssssunny today."],
+            hall: ["They say Cleopatra chose me. Historians argue about it. I do not argue with historians. I spit at them.", "I am on the pharaoh's crown, you know. The uraeus. I am practically royalty."],
+        ),
+        ),
+        // The hoplite: a Greek citizen soldier behind a round bronze shield. He
+        // lifts the shield to his eyes when he sees you (its notice row), holds
+        // just out of reach, and thrusts over its rim. The shield is drawn, not
+        // yet a `guards` part: his sheet publishes no part flipbook.
+        "hoplite": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Hoplite",
+            manifest: "sprites/hoplite_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(64.0),
+            composition: None,
+            default_action_set: "hoplite_thrust",
+            locomotion: Some((run_speed: 120.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 520.0,
+                attack_range: 66.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.8,
+                // The wall: a spear's length away, shield up, then one thrust.
+                attack_cooldown_s: 1.0,
+                tactics: (notice_s: 0.5, waits_its_turn: true, footsies: Some((hold_px: 96.0, wait_s: 0.9))),
+            )),
+            max_health: Some(6),
+            mass: Some(3.0),
+            tags: ["enemy", "history", "classical", "soldier"],
+        barks: (
+            on_hit: ["Clang! The shield holds.", "Molon labe. Come and take it. Ow."],
+            provoked: ["Shields up! Phalanx!"],
+            idle: ["Hold the line.", "*the crest bobs*", "Come back with your shield, or on it. That was my mother's advice."],
+            hall: ["A phalanx is only as strong as the shield of the man on your left. I am the man on the left. There is nobody on mine.", "Three hundred of us at Thermopylae. And a few thousand allies. Nobody ever remembers the allies."],
+        ),
+        ),
+        // The Immortal: a Persian royal guard in a robe of saffron and lapis,
+        // with a wicker shield and a spear with a silver pomegranate at its
+        // butt. They come in numbers and call out to each other: when one
+        // falls, another steps up (its death row).
+        "immortal": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Immortal",
+            manifest: "sprites/immortal_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(64.0),
+            composition: None,
+            default_action_set: "immortal_thrust",
+            locomotion: Some((run_speed: 130.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 520.0,
+                attack_range: 60.0,
+                patrol_effort: 0.5,
+                chase_effort: 0.9,
+                attack_cooldown_s: 0.8,
+                shares_sightings: true,
+                tactics: (notice_s: 0.4, waits_its_turn: true, footsies: Some((hold_px: 84.0, wait_s: 0.6))),
+            )),
+            max_health: Some(4),
+            mass: Some(2.0),
+            tags: ["enemy", "history", "classical", "soldier"],
+        barks: (
+            on_hit: ["Next!", "There are ten thousand of us. Well. Nine thousand, nine hundred and ninety-nine."],
+            provoked: ["For the Great King!"],
+            idle: ["*he stands to attention*", "Ten thousand. Always ten thousand.", "We are called the Immortals. The name is doing a lot of work."],
+            hall: ["When one of us falls, another steps up, and the count never changes. Herodotus wrote that down, so it must be true.", "The silver pomegranate on my spear is not for eating. I asked."],
+        ),
+        ),
+        // The vandal: a barbarian of the Fall of Rome with a horned helmet, a
+        // pot of black paint and a brush. Quick and cheeky: in, one swipe that
+        // paints a moustache on you, and out again.
+        "vandal": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Vandal",
+            manifest: "sprites/vandal_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(60.0),
+            composition: None,
+            default_action_set: "vandal_daub",
+            locomotion: Some((run_speed: 230.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 480.0,
+                attack_range: 40.0,
+                patrol_effort: 0.6,
+                chase_effort: 1.0,
+                // A daub and away before you can wipe it off.
+                retreat_after_swing_s: 0.45,
+                attack_cooldown_s: 0.45,
+                tactics: (notice_s: 0.3, waits_its_turn: true, footsies: Some((hold_px: 60.0, wait_s: 0.4)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "history", "classical", "barbarian"],
+        barks: (
+            on_hit: ["Oi! Wet paint!", "You smudged my masterpiece!"],
+            provoked: ["That face needs a moustache!"],
+            idle: ["*he dips his brush*", "Very nice statue. Needs a moustache.", "We sacked Rome in 455. Mostly we sacked it of its dignity."],
+            hall: ["They named vandalism after us. We only borrowed things. For fourteen days. Without asking.", "Every emperor in this town has a moustache now. You are welcome."],
+        ),
+        ),
+
+        // The terracotta warrior: a clay soldier of the first emperor's army,
+        // cracked and slow. He lifts his halberd over his head (its windup
+        // row) and chops it into the ground in front of him; he falls apart
+        // into shards at his death.
+        "terracotta_warrior": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Terracotta Warrior",
+            manifest: "sprites/terracotta_warrior_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(72.0),
+            composition: None,
+            default_action_set: "terracotta_chop",
+            locomotion: Some((run_speed: 70.0, move_style: WalkHeavy)),
+            contact_damage: Some((strength: 0.7, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 480.0,
+                attack_range: 80.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.7,
+                // Slow to turn, slow to lift, and slow to lift again: the gap is the opening.
+                attack_cooldown_s: 1.4,
+                tactics: (notice_s: 0.9),
+            )),
+            max_health: Some(14),
+            mass: Some(10.0),
+            tags: ["enemy", "history", "silk", "clay"],
+        barks: (
+            on_hit: ["*a chip of clay falls*", "Careful. I have been fired once already."],
+            provoked: ["*the clay head turns, slowly*"],
+            idle: ["...", "*a little dust falls*", "I was painted once. Red, green, violet. It flaked."],
+            hall: ["Eight thousand of us, buried with the first emperor, so that he would have an army after he died. He never once inspected us.", "Every one of us has a different face. Mine has a very good moustache. It was modelled from life."],
+        ),
+        ),
+        // The desert bandit: a quick raider on foot in an indigo face wrap,
+        // with a curved sword. He coils low (its windup row), lunges with a
+        // wide slash, and backs off again.
+        "desert_bandit": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Desert Bandit",
+            manifest: "sprites/desert_bandit_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(58.0),
+            composition: None,
+            default_action_set: "desert_bandit_slash",
+            locomotion: Some((run_speed: 260.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 560.0,
+                attack_range: 40.0,
+                patrol_effort: 0.6,
+                chase_effort: 1.0,
+                // In with the lunge, one slash, and gone into the dunes again.
+                retreat_after_swing_s: 0.5,
+                attack_cooldown_s: 0.4,
+                tactics: (notice_s: 0.3, waits_its_turn: true, footsies: Some((hold_px: 90.0, wait_s: 0.35)), flinch_back_s: 0.35),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "history", "silk", "raider"],
+        barks: (
+            on_hit: ["Hah! Lucky!", "My camel left me for this?"],
+            provoked: ["Your silk or your life!"],
+            idle: ["*he turns his sword over in his hand*", "Nice caravan. Shame if it got lighter.", "The Silk Road is four thousand miles long. I work the middle."],
+            hall: ["Nobody walks the whole Silk Road. The goods go from hand to hand to hand. Sometimes the hand is mine.", "My camel went on without me. Camels have no loyalty. Neither do I. We understood each other."],
+        ),
+        ),
+        // The silk moth: a big pale moth with feathered antennae. It floats,
+        // lifts its nose and wings (its windup row), and dives at you nose
+        // first. It has no spit: a floater that strikes in melee dives, so it
+        // is `Aerial`, as the red herring is.
+        "silk_moth": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Silk Moth",
+            manifest: "sprites/silk_moth_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(34.0),
+            composition: None,
+            default_action_set: "silk_moth_dive",
+            locomotion: Some((run_speed: 120.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 520.0,
+                attack_range: 130.0,
+                shares_sightings: false,
+                tactics: (dive_tell_s: 0.35, notice_s: 0.4),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "history", "silk", "moth"],
+        barks: (
+            on_hit: ["*a puff of pale dust*", "*flutter!*"],
+            provoked: ["*it spreads its wings very wide*"],
+            idle: ["*flutter flutter*", "*its antennae twitch*", "*it bumps into a lantern, on purpose*"],
+            hall: ["*five thousand years of silk farming bred the flying out of its kind. It is trying anyway.*", "*a whole road is named after what its caterpillar spins. It is quietly proud.*"],
+        ),
+        ),
+
+        // The horse archer: a Mongol rider on a small sturdy horse. He keeps his
+        // distance and shoots (the `shoot` of a skirmisher): he draws the bow to
+        // the ear first (his windup row). The arrow flies as an `Arrow` and
+        // looks like one (`ranged_vfx`).
+        "horse_archer": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Horse Archer",
+            manifest: "sprites/horse_archer_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(64.0),
+            composition: None,
+            default_action_set: "horse_archer_shot",
+            ranged_vfx: Some("arrow"),
+            locomotion: Some((run_speed: 210.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: Skirmisher,
+                aggro_radius: 640.0,
+                attack_range: 360.0,
+                patrol_effort: 0.5,
+                chase_effort: 0.9,
+                // The bow comes up, he holds the draw, and looses.
+                ranged_volley: Some((windup_s: 0.6, firing_s: 0.2, recovery_s: 1.3)),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "history", "steppe", "rider"],
+        barks: (
+            on_hit: ["Hyah! That one was a feint.", "Still in the saddle!"],
+            provoked: ["Turn, draw, loose. Then turn again."],
+            idle: ["*the horse snorts*", "Five spare horses, one bow, no hurry.", "We eat in the saddle. We sleep in the saddle. Ask me about the saddle."],
+            hall: ["We ride away, you chase, and we turn round in the saddle and shoot. The Parthians did it first. We did it further.", "A messenger of the Yam crossed the empire in days: at each station he changed horses. Sometimes he changed riders. Never the bow."],
+        ),
+        ),
+        // The golden eagle: a falconer's eagle with its hood pushed back. It
+        // flies, and it dives at you talons first (its windup row lifts its wings
+        // high). It has no shot: a floater that strikes in melee dives, so it is
+        // `Aerial`.
+        "golden_eagle": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Golden Eagle",
+            manifest: "sprites/golden_eagle_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(34.0),
+            composition: None,
+            default_action_set: "golden_eagle_dive",
+            locomotion: Some((run_speed: 170.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 600.0,
+                attack_range: 150.0,
+                shares_sightings: false,
+                tactics: (dive_tell_s: 0.4, notice_s: 0.4),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "history", "steppe", "bird"],
+        barks: (
+            on_hit: ["KREEE!", "Feathers! Those were attached!"],
+            provoked: ["Hood off. Eyes on you."],
+            idle: ["*a long, high whistle*", "*it adjusts its hood, which is not on*"],
+            hall: ["On the steppe the eagle hunters hunt foxes with us, and wolves if the hunter is brave. The hunter is never as brave as I am.", "The hood keeps me calm. It is off now. Draw your own conclusions."],
+        ),
+        ),
+        // The steppe wolf: the blue-grey wolf of the founding story. Fast and
+        // low: it crouches with its hackles up (its windup row), lunges with its
+        // jaws open, and lopes away to come again.
+        "steppe_wolf": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Steppe Wolf",
+            manifest: "sprites/steppe_wolf_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(36.0),
+            composition: None,
+            default_action_set: "steppe_wolf_lunge",
+            locomotion: Some((run_speed: 280.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 560.0,
+                attack_range: 90.0,
+                patrol_effort: 0.6,
+                chase_effort: 1.0,
+                // In with the lunge, and out again before you turn.
+                retreat_after_swing_s: 0.4,
+                attack_cooldown_s: 0.6,
+                tactics: (notice_s: 0.3, waits_its_turn: true, footsies: Some((hold_px: 110.0, wait_s: 0.45)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "history", "steppe", "beast"],
+        barks: (
+            on_hit: ["Yip!", "Grrr. Noted."],
+            provoked: ["*a low growl*"],
+            idle: ["*it sniffs the wind*", "*its ears turn*", "Owoooo."],
+            hall: ["The old story says the first Mongol was born of a blue-grey wolf and a fallow doe. I am the wolf. You may bow.", "A whole people with a wolf for an ancestor, and still they keep sheep. I take it personally."],
+        ),
+        ),
+
+        // The inflated coin: a gold coin that blows itself up, and is worth less
+        // each time. It floats, blows up as big as it can go (its windup row),
+        // and rushes at you spinning. It has no shot, so it is `Aerial`.
+        "inflated_coin": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Inflated Coin",
+            manifest: "sprites/inflated_coin_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(40.0),
+            composition: None,
+            default_action_set: "inflated_coin_rush",
+            locomotion: Some((run_speed: 110.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 480.0,
+                attack_range: 120.0,
+                shares_sightings: false,
+                tactics: (dive_tell_s: 0.5, notice_s: 0.4),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "history", "monsoon", "gold"],
+        barks: (
+            on_hit: ["Pssssss!", "I just lost ten percent!"],
+            provoked: ["I am worth MORE than you! For now!"],
+            idle: ["*it puffs up*", "*it checks its own value. It is lower.*", "Shiny."],
+            hall: ["Mansa Musa came through Cairo in 1324 and gave gold to everybody. Then everybody had gold, and gold was worth less for twelve years. I was there. I was worth a camel. Then half a camel.", "Bigger is not the same as more valuable. I learned this by getting bigger."],
+        ),
+        ),
+        // The coral crab: a crab with a small reef for a shell. It scuttles
+        // sideways, fast; it lifts its big claw (its windup row) and snaps it
+        // shut on what is in front of it.
+        "coral_crab": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Coral Crab",
+            manifest: "sprites/coral_crab_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(30.0),
+            composition: None,
+            default_action_set: "coral_crab_pinch",
+            locomotion: Some((run_speed: 200.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 420.0,
+                attack_range: 30.0,
+                patrol_effort: 0.6,
+                chase_effort: 1.0,
+                // A scuttle in, one snap, and sideways out again.
+                retreat_after_swing_s: 0.35,
+                attack_cooldown_s: 0.45,
+                tactics: (notice_s: 0.35, waits_its_turn: true, footsies: Some((hold_px: 60.0, wait_s: 0.5)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "history", "monsoon", "sea"],
+        barks: (
+            on_hit: ["Not the reef!", "Clack! Clack!"],
+            provoked: ["*it lifts both claws*"],
+            idle: ["*clack clack*", "*it walks sideways, then sideways again*"],
+            hall: ["On this coast they build their houses of coral stone. I built mine of coral too. Mine walks.", "Everybody goes forward. I go to the side. We all get to the same beach."],
+        ),
+        ),
+        // The monsoon squall: a small, cross storm cloud. It floats, keeps its
+        // distance and spits rain (the `shoot` of a skirmisher): it swells dark
+        // with lightning in it first (its windup row). The rain flies as a thrown
+        // `Rock` does, and looks like spit (`ranged_vfx`).
+        "monsoon_squall": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Monsoon Squall",
+            manifest: "sprites/monsoon_squall_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(36.0),
+            composition: None,
+            default_action_set: "monsoon_squall_rain",
+            ranged_vfx: Some("spit"),
+            locomotion: Some((run_speed: 120.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Skirmisher,
+                aggro_radius: 600.0,
+                attack_range: 300.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.8,
+                ranged_volley: Some((windup_s: 0.6, firing_s: 0.25, recovery_s: 1.2)),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "history", "monsoon", "weather"],
+        barks: (
+            on_hit: ["Hey! I was raining there!", "*a sulky rumble*"],
+            provoked: ["You want weather? Here is weather."],
+            idle: ["*rumble*", "Six months east. Six months west. Every year.", "*drip*"],
+            hall: ["The dhow captains plan their whole year round me: east with the summer monsoon, home with the winter one. Nobody asks what I want.", "The word monsoon comes from the Arabic for season. I am not a season. I am a mood."],
+        ),
+        ),
+
+        // ===== THE AGE OF SAIL: era 7 of the History dimension. Its sheets are
+        // in the renderer (`targets/characters/_history_modern_kit.py`).
+        // The scurvy ghost: the pale ghost of a sailor with no teeth, who wants
+        // a lemon. It floats in, lifts its arms with its mouth wide (its windup
+        // row) and dives to bite you with its gums.
+        "scurvy_ghost": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Scurvy Ghost",
+            manifest: "sprites/scurvy_ghost_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(50.0),
+            composition: None,
+            default_action_set: "scurvy_ghost_gum",
+            locomotion: Some((run_speed: 140.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 520.0,
+                attack_range: 140.0,
+                shares_sightings: false,
+                tactics: (dive_tell_s: 0.35, notice_s: 0.4),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "history", "sail", "ghost"],
+        barks: (
+            on_hit: ["Ow! Me gums!", "That went right through me. Most things do."],
+            provoked: ["Have ye... got... a LEMON?"],
+            idle: ["*gums smack*", "Lemon... lemon...", "Ninety days out of port, and not one orange."],
+            hall: ["In 1747 a ship's surgeon gave two of us lemons and they got better. The navy took nearly fifty years to listen. I did not have fifty years.", "I lost my teeth off the Cape of Good Hope. Bad Hope, if you ask me."],
+        ),
+        ),
+        // The kraken arm: one huge tentacle of the monster of the old maps,
+        // up out of a cargo hatch. Slow and heavy: it scoots its hatch along
+        // the deck, rears high over it (its windup row) and slams down flat on
+        // the deck in front. The slam stays down a beat: that is the opening.
+        "kraken_arm": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Kraken Arm",
+            manifest: "sprites/kraken_arm_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(96.0),
+            composition: None,
+            default_action_set: "kraken_arm_slam",
+            locomotion: Some((run_speed: 60.0, move_style: WalkHeavy)),
+            contact_damage: Some((strength: 0.6, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 500.0,
+                attack_range: 64.0,
+                patrol_effort: 0.2,
+                chase_effort: 0.6,
+                // It lies on the deck after the slam: walk over it, or hit it.
+                attack_cooldown_s: 1.3,
+                tactics: (notice_s: 0.6, footsies: Some((hold_px: 100.0, wait_s: 0.9))),
+            )),
+            max_health: Some(10),
+            mass: Some(6.0),
+            tags: ["enemy", "history", "sail", "kraken"],
+        barks: (
+            on_hit: ["*the arm curls up tight*", "*a hiss from the hold*"],
+            provoked: ["*the hatch creaks open*"],
+            idle: ["*drip*", "*something big turns over in the hold*", "*the tip curls, and uncurls, and curls*"],
+            hall: ["*on the hatch, in old ink: HERE BE DRAGONS. Somebody has crossed out DRAGONS.*", "*the old maps drew monsters where nobody had sailed yet. It was a way to say: we do not know. This arm says it louder.*"],
+        ),
+        ),
+        // The privateer: a pirate with a licence, a tricorn and a cutlass. Fast:
+        // he shows you his letter of marque when he sees you, lifts the cutlass
+        // back over his head (his windup row), lunges and cuts.
+        "privateer": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Privateer",
+            manifest: "sprites/privateer_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(60.0),
+            composition: None,
+            default_action_set: "privateer_cut",
+            locomotion: Some((run_speed: 250.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 520.0,
+                attack_range: 40.0,
+                patrol_effort: 0.6,
+                chase_effort: 1.0,
+                // In with the lunge, one cut, and out again to read his licence.
+                retreat_after_swing_s: 0.45,
+                attack_cooldown_s: 0.6,
+                tactics: (notice_s: 0.4, waits_its_turn: true, footsies: Some((hold_px: 80.0, wait_s: 0.5)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "history", "sail", "pirate"],
+        barks: (
+            on_hit: ["Oi! I have a licence!", "That is an act of war, that is. I should know."],
+            provoked: ["Hold! By letter of marque of His Majesty, your cargo is now my cargo."],
+            idle: ["*he polishes the seal on his licence*", "It is not piracy if the King gets a cut.", "Yo ho, yo ho, a legally licensed life for me."],
+            hall: ["A pirate robs ships. A privateer robs the ships of the King's enemies, with a paper that says he may. The ships cannot tell the difference.", "Francis Drake was a privateer. The Queen made him a knight. The Spanish called him the Dragon. Same man, same boat, different paperwork."],
+        ),
+        ),
+        // ===== THE INDUSTRIAL AGE: era 8 of the History dimension.
+        // The steam automaton: a riveted boiler on piston legs, with porthole
+        // eyes and a firebox mouth. Slow and heavy: it builds pressure (its
+        // windup row: the whistle, the needle in the red, steam from the seams)
+        // and punches with a piston arm.
+        "steam_automaton": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Steam Automaton",
+            manifest: "sprites/steam_automaton_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(80.0),
+            composition: None,
+            default_action_set: "steam_automaton_punch",
+            locomotion: Some((run_speed: 80.0, move_style: WalkHeavy)),
+            contact_damage: Some((strength: 0.6, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 520.0,
+                attack_range: 56.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.8,
+                // The pressure is spent after the punch: that is the opening.
+                attack_cooldown_s: 1.2,
+                tactics: (notice_s: 0.6),
+            )),
+            max_health: Some(10),
+            mass: Some(6.0),
+            tags: ["enemy", "history", "industrial", "steam"],
+        barks: (
+            on_hit: ["*CLANK* *hiss*", "PRESSURE. FALLING."],
+            provoked: ["*WHEEEEEEEE!*"],
+            idle: ["*chuff* *chuff* *chuff*", "*the needle twitches*", "COAL. MORE. COAL."],
+            hall: ["James Watt did not invent the steam engine. He made it waste less coal. Everybody remembers an invention. Nobody remembers an efficiency.", "One of me does the work of many horses. Watt called it horsepower so the mill owners would understand. Nobody asked the horses."],
+        ),
+        ),
+        // The soot sprite: a ball of soot from a mill chimney, with big white
+        // eyes and an ember inside. It floats in, squashes and lights its
+        // ember (its windup row), and rushes at you with a trail of soot.
+        "soot_sprite": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Soot Sprite",
+            manifest: "sprites/soot_sprite_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(30.0),
+            composition: None,
+            default_action_set: "soot_sprite_rush",
+            locomotion: Some((run_speed: 160.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 520.0,
+                attack_range: 130.0,
+                shares_sightings: false,
+                tactics: (dive_tell_s: 0.3, notice_s: 0.35),
+            )),
+            max_health: Some(1),
+            tags: ["enemy", "history", "industrial", "soot"],
+        barks: (
+            on_hit: ["*pff!*", "*it scatters, and gathers again*"],
+            provoked: ["*it puffs up, black and furious*"],
+            idle: ["*it drifts*", "*smudge*", "*a small, sooty cough*"],
+            hall: ["In the mill towns we turned the trees black, and the pale moths on them were easy to see and got eaten. The dark moths lived. Evolution, in one city, in fifty years. You are welcome.", "Every chimney in town makes a little of me. Together we make the fog."],
+        ),
+        ),
+        // The robber baron: a tycoon in a top hat and a fur coat, with a cigar
+        // and a sack of money. He keeps his distance and throws coins (the
+        // `shoot` of a skirmisher): the coin comes out of the sack and goes back
+        // over his shoulder first (his windup row). It flies as a thrown `Rock`
+        // does, and looks like a coin (`ranged_vfx`).
+        "robber_baron": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Robber Baron",
+            manifest: "sprites/robber_baron_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(62.0),
+            composition: None,
+            default_action_set: "robber_baron_coin",
+            ranged_vfx: Some("coin"),
+            locomotion: Some((run_speed: 100.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: Skirmisher,
+                aggro_radius: 600.0,
+                attack_range: 320.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.6,
+                // Into the sack, a coin back over the shoulder, and throw.
+                ranged_volley: Some((windup_s: 0.55, firing_s: 0.2, recovery_s: 1.1)),
+            )),
+            max_health: Some(4),
+            tags: ["enemy", "history", "industrial", "tycoon"],
+        barks: (
+            on_hit: ["My hat! That hat cost more than your house!", "Sue him! Sue everybody!"],
+            provoked: ["Here. Have a coin. Have MANY coins. Very fast."],
+            idle: ["*he counts*", "I bought the railroad. Then I bought the other railroad.", "Competition is a sin. I read that somewhere. I own the paper."],
+            hall: ["They call us robber barons. We call ourselves captains of industry. The men in my mills call me something I will not repeat in a gallery.", "I gave a library to every town and put my name over every door. Philanthropy is a long word for a very large sign."],
+        ),
+        ),
+
         // ===== THE EVIL DIMENSION (Jon, 2026-10-15). Wolfenstein, the boss of
         // Castle Godwin: Frankenstein's monster with the head of Insanity Wolf,
         // and the armband of the regime. His fight is `wolfenstein_boss`
@@ -8500,6 +9437,389 @@
                 provoked: ["There is no straight line in nature, and there will be none in your face."],
                 idle: ["Straight lines belong to men. Curves belong to God.", "Another spire. It will be done soon. Soon."],
                 hall: ["My client is not in a hurry. That is lucky, because neither am I.", "Break the tile, then build with the pieces. It is the only way to make a thing that bends."],
+            ),
+        ),
+        "npc_history_clio": (
+            display_name: "Clio",
+            // The Muse of History, the host of the dimension; an original character.
+            manifest: "sprites/history_clio_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "crescent", "peaceful"],
+            barks: (
+                idle: ["Walk east. It gets later.", "Please do not skip to the end. Everybody skips to the end.", "Footnote. Footnote. Oh, that one is good."],
+                hall: ["History is not a list of kings. It is mostly barley, and then somebody writes down who owes the barley.", "I have written down everything that ever happened. Nobody reads the middle."],
+            ),
+        ),
+        "npc_history_hammurabbi": (
+            display_name: "Hammurabbi",
+            // Reads his laws to everybody; a parody of Hammurabi, the king of Babylon.
+            manifest: "sprites/history_hammurabbi_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "crescent", "peaceful"],
+            barks: (
+                idle: ["An eye for an eye. A receipt for a receipt.", "Law two hundred and six: whoever reads this far gets a sticker."],
+                hall: ["I carved the laws in stone so nobody could say they never heard of them. Now nobody can lift them either.", "Two hundred and eighty-two laws, and not one of them about the jumping. I am drafting two hundred and eighty-three."],
+            ),
+        ),
+        "npc_history_gilgamash": (
+            display_name: "Gilgamash",
+            // The first hero of fiction, sad about mortality; a parody of Gilgamesh, king of Uruk.
+            manifest: "sprites/history_gilgamash_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 196 cm.
+            standing_height: Some(75.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "crescent", "peaceful"],
+            barks: (
+                idle: ["I wrestled a lion. Then I wore it. It did not help.", "*a deep and very manly sigh*", "Everybody dies. Even me. ESPECIALLY me, apparently."],
+                hall: ["I went to the end of the world for the plant of eternal life. I put it down for one second to have a bath. A snake ate it. Write THAT down.", "Four thousand years later you still read about me. So I am immortal after all. In a way. It is not the way I wanted."],
+            ),
+        ),
+        "npc_history_scribe_of_debts": (
+            display_name: "The Scribe of Debts",
+            // Counts the barley of the Temple Granary; the first accountant (original).
+            manifest: "sprites/history_scribe_of_debts_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 162 cm.
+            standing_height: Some(62.7),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "crescent", "peaceful"],
+            barks: (
+                idle: ["Name? Barley owed? Sign here. Press hard: it is clay.", "Writing was invented to count barley. Poetry came later. Much later. Too late, if you ask me."],
+                hall: ["The first word anybody ever wrote down was a number, and the number was what somebody owed. You are welcome.", "Debt came before coins. I have the tablets to prove it, and one of them has your name on it."],
+            ),
+        ),
+        "npc_history_hatshepsut_hats": (
+            display_name: "Hat-shepsut",
+            // Wears every crown she ever got at once; a parody of Hatshepsut, a woman who ruled as pharaoh.
+            manifest: "sprites/history_hatshepsut_hats_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 165 cm.
+            standing_height: Some(63.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "nile", "peaceful"],
+            barks: (
+                idle: ["The beard is false. The crown is real. All four of them.", "Mind the hats. The one on top is load-bearing."],
+                hall: ["They said a pharaoh needs a beard. So I tied one on. Twenty years of peace and trade, and all anybody remembers is the beard.", "After I died, somebody chiselled my name off the walls. Badly. Historians found it anyway. Historians always find it."],
+            ),
+        ),
+        "npc_history_ramesses_pretty_good": (
+            display_name: "Ramesses the Pretty Good",
+            // Carries a statue of himself; a parody of Ramesses the Great.
+            manifest: "sprites/history_ramesses_pretty_good_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(68.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "nile", "peaceful"],
+            barks: (
+                idle: ["Have you met me? Here. A smaller me.", "Look on my works, ye mighty. Or on this one. It is portable."],
+                hall: ["Kadesh was a draw. My temple walls say I won it single-handed. Walls do not lie. I pay them very well.", "I built a statue of me for every town, and when I ran out of stone I carved my name on somebody else's. That is not theft. That is an upgrade."],
+            ),
+        ),
+        "npc_history_socratease": (
+            display_name: "Socratease",
+            // Asks the question at the stoa gate; a parody of Socrates.
+            manifest: "sprites/history_socratease_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 165 cm.
+            standing_height: Some(63.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "classical", "peaceful"],
+            barks: (
+                on_hit: ["Why would you do that? No, truly: why?"],
+                idle: ["What is a door, really?", "You wish to pass. But what is passing?", "Is that a question, or an answer that has not made up its mind?"],
+                hall: ["The oracle at Delphi said that nobody is wiser than I am. So I asked it what it meant. Would you believe it did not like that?", "I never wrote a word down. Why would I? Is a book not a question that cannot answer back?"],
+            ),
+        ),
+        "npc_history_herodotoss": (
+            display_name: "Herodotoss",
+            // Writes down every tale he hears; a parody of Herodotus.
+            manifest: "sprites/history_herodotoss_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 176 cm.
+            standing_height: Some(68.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "classical", "peaceful"],
+            barks: (
+                on_hit: ["I shall write that down. Unflatteringly."],
+                idle: ["In India there are ants as big as foxes that dig for gold. A man told me. He had an honest face.", "I call it my Inquiries. You may call it History."],
+                hall: ["The father of history, they call me. The father of lies, they also call me. A good father is a little of both.", "I only write down what people tell me. If they lie, that is their history, not mine."],
+            ),
+        ),
+        "npc_history_julius_sneezer": (
+            display_name: "Julius Sneezer",
+            // Has a cold and trusts nobody; a parody of Julius Caesar.
+            manifest: "sprites/history_julius_sneezer_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "classical", "peaceful"],
+            barks: (
+                on_hit: ["Et tu? No, wait. I do not know you."],
+                idle: ["Veni, vidi... ACHOO.", "Et tu, tissue?", "Beware the Ides of March. And the pollen of April."],
+                hall: ["I came, I saw, I conquered. Then I sneezed on the Senate. They took it very personally.", "Dictator for life, they made me. It was not a long contract."],
+            ),
+        ),
+        "npc_history_marco_polo_neck": (
+            display_name: "Marco Polo-neck",
+            // Tells of the court of the Khan, and nobody believes him; a parody of Marco Polo.
+            manifest: "sprites/history_marco_polo_neck_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(68.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "silk", "peaceful"],
+            barks: (
+                on_hit: ["Ow! That goes in the book. Nobody will believe it."],
+                idle: ["Money made of paper! Black stones that burn! Nobody in Venice believed a word.", "Seventeen years at the court of the Khan. The food was excellent."],
+                hall: ["I told them all of it, and they called my book the Million: a million lies. I have not told you half of what I saw.", "The polo-neck? Warm on the steppe, and very chic in Venice. Nobody believed that either."],
+            ),
+        ),
+        "npc_history_confusius": (
+            display_name: "Confusius",
+            // Reads his own sayings to find out what he thinks; a parody of Confucius.
+            manifest: "sprites/history_confusius_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "silk", "peaceful"],
+            barks: (
+                on_hit: ["Hm? Was that a lesson? What did it teach?"],
+                idle: ["The Master said... hm. Which master? Was it me?", "Is this scroll the right way up? It reads better this way.", "A journey of a thousand miles begins with... no. That one is not mine either."],
+                hall: ["My students wrote my sayings down, so now I must read them to find out what I think. It is very confusing.", "Respect your elders, I am told I said. I am the eldest here, and nobody respects me. I must have said it wrong."],
+            ),
+        ),
+        "npc_history_kublai_khant_wait": (
+            display_name: "Kublai Khan't-Wait",
+            // Runs the Great Ger, the empire's portable office; a parody of Kublai Khan.
+            manifest: "sprites/history_kublai_khant_wait_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "peaceful"],
+            barks: (
+                on_hit: ["Ow! Do you know who my grandfather is? He CAN.", "That will cost you. In paper. I will print it now."],
+                provoked: ["I conquered China in a single lifetime. You are taking up an afternoon."],
+                idle: ["Is it ready yet? Is it ready yet?", "Paper money: you get your gold later. Probably.", "Hurry up and build Xanadu."],
+                hall: ["Grandfather took the world on horseback. I want to run it from a chair, with forms, and I want the forms today.", "A Venetian came to my court, stayed seventeen years and wrote a book. Nobody back home believed a word. I believe every word. It was about me.", "Twice I sent a fleet to Japan. Twice a wind came. I am not a patient man, and the wind is a very patient wind.", "Paper money is simple. You give me gold, I give you a piece of paper that says gold. Everybody is happy. Mostly me."],
+            ),
+        ),
+
+        "npc_history_mansa_moolah": (
+            display_name: "Mansa Moolah",
+            // Gives gold to everybody in the Sahel; a parody of Mansa Musa.
+            manifest: "sprites/history_mansa_moolah_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 182 cm.
+            standing_height: Some(70.5),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "peaceful"],
+            barks: (
+                on_hit: ["Ow! Here, take some gold. Please. Take it.", "You hit me? I will build you a mosque anyway."],
+                provoked: ["I could buy this whole fight. I could buy it twice, and the price would still go down."],
+                idle: ["Gold for you. And for you. And for your camel.", "Have you eaten? Have some gold."],
+                hall: ["In 1324 I went to Mecca through Cairo, and I gave gold to everybody I met. The price of gold in Cairo fell for twelve years. Economists still send me letters.", "I took sixty thousand people and eighty camels of gold on one trip. On the way home I ran out and had to borrow money in Cairo. Nobody tells you that part.", "Timbuktu has scholars, libraries and books from all over the world. The gold was only the bit people remember.", "The richest person ever, they say. I prefer: the most generous person ever. With the side effect of inflation."],
+            ),
+        ),
+        "npc_history_ibn_batootah": (
+            display_name: "Ibn Batootah",
+            // Keeps the Library of Timbuktu's longest book; a parody of Ibn Battuta.
+            manifest: "sprites/history_ibn_batootah_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "peaceful"],
+            barks: (
+                on_hit: ["Ow! That goes in the book. Chapter four hundred.", "I was robbed by pirates near India. You are not as good at it."],
+                provoked: ["I have crossed the Sahara twice. I can certainly cross you."],
+                idle: ["Just one more city. Then home.", "Where was I? Ah. Everywhere."],
+                hall: ["I left Tangier in 1325 to go to Mecca. That took a year and a half. Then I took the long way home. Twenty-nine years, and about a hundred and twenty thousand kilometres.", "I did not write a word of it on the road. When I got home I told it all to a scribe, from memory. Some of it may be a little longer than it was.", "I was a judge in Delhi, and in the Maldives, where they had me marry and then asked me to leave. Every place needs a lawyer until it has one.", "The book is called the Rihla. In full it is called A Gift to Those Who Contemplate the Wonders of Cities and the Marvels of Travelling. Even the title is a journey."],
+            ),
+        ),
+        "npc_history_zheng_hey": (
+            display_name: "Zheng Hey",
+            // Commands the treasure fleet off the Monsoon Coast; a parody of Zheng He.
+            manifest: "sprites/history_zheng_hey_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 190 cm.
+            standing_height: Some(73.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "peaceful"],
+            barks: (
+                on_hit: ["Ow! I have two hundred and fifty ships, you know.", "Hey! Watch the hat. The wings are official."],
+                provoked: ["My flagship is longer than this whole room. Think about that before you try it."],
+                idle: ["Hey. Is that a dhow? Cute.", "Fair wind, full holds."],
+                hall: ["Seven voyages across the Indian Ocean, to Arabia and the coast of Africa. Twenty-eight thousand men. We did not come to conquer. We came to be seen. It worked.", "Envoys from the coast of Africa sent the emperor a giraffe, and I brought it home. The court said it was a qilin, a sign of heaven. I said yes. You do not argue with a giraffe like that.", "My ship is the size of a town. The town has a ship. That is how big it is.", "After me, the court stopped the voyages, and some say it burned the records. All that ocean, and they chose to stay home. Hey. Their loss."],
+            ),
+        ),
+        "npc_history_vasco_da_gamer": (
+            display_name: "Vasco da Gamer",
+            // Speedruns the sea route to India; a parody of Vasco da Gama.
+            manifest: "sprites/history_vasco_da_gamer_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "peaceful"],
+            barks: (
+                on_hit: ["Lag! That was lag!", "That was not my input!"],
+                provoked: ["Do not touch the controller. I am mid-run."],
+                idle: ["Any percent, Lisbon to India. No glitches.", "Round the Cape, catch the monsoon, Calicut. Easy.", "Split: Cape of Good Hope. Ahead of pace."],
+                hall: ["Lisbon to Calicut, 1497 to 1498, ten months and change. World record. Nobody beat it, because nobody else was running.", "The trick is the South Atlantic: you swing out wide, almost to Brazil, and the wind throws you round the Cape. Frame perfect."],
+            ),
+        ),
+        "npc_history_christopher_columbust": (
+            display_name: "Christopher Columbust",
+            // Sure that this is India; a parody of Christopher Columbus.
+            manifest: "sprites/history_christopher_columbust_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(68.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "peaceful"],
+            barks: (
+                on_hit: ["How dare you! I am the Admiral of the Ocean Sea!", "Ow. That felt very... not like India."],
+                provoked: ["I discovered you! You were here already? Irrelevant."],
+                idle: ["India! Right over there. Probably.", "The world is small. I measured it. Wrongly.", "*he turns his map round, then turns it back*"],
+                hall: ["Everybody knew the world was round. I just thought it was much smaller than it is. There were two whole continents in the way, and I never admitted they were there.", "Four voyages, and I died sure I had reached Asia. In my defence, my map was upside down."],
+            ),
+        ),
+        "npc_history_captain_cookbook": (
+            display_name: "Captain Cookbook",
+            // Maps the Pacific and feeds his crew sauerkraut; a parody of Captain James Cook.
+            manifest: "sprites/history_captain_cookbook_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 183 cm.
+            standing_height: Some(70.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "peaceful"],
+            barks: (
+                on_hit: ["Steady! You will spill the sauerkraut.", "Belay that!"],
+                provoked: ["Mind the galley. The galley is the most important part of a ship."],
+                idle: ["Sauerkraut. Every day. No exceptions.", "Latitude, fine. Longitude, fine. Scurvy, none.", "*he writes a recipe in the margin of a chart*"],
+                hall: ["My men would not eat the sauerkraut. So I served it only to the officers. In a week the whole crew demanded it. Never tell a sailor that a thing is good for him.", "I charted New Zealand, the east coast of Australia and half of the Pacific. A map is half of a voyage. The other half is lunch."],
+            ),
+        ),
+        "npc_history_adam_smithy": (
+            display_name: "Adam Smithy",
+            // Divides the labour of the forge; a parody of Adam Smith.
+            manifest: "sprites/history_adam_smithy_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 175 cm.
+            standing_height: Some(67.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "peaceful"],
+            barks: (
+                on_hit: ["Ow! The market will correct for that.", "A blow! An externality!"],
+                provoked: ["Do not mistake this hand for the invisible one. The invisible one hits harder."],
+                idle: ["One man draws the wire, one straightens it, a third cuts it...", "*his empty cuff waves at you*", "It is not from the benevolence of the blacksmith that you get your horseshoe."],
+                hall: ["Ten men in a pin factory, each doing one step, make forty-eight thousand pins a day. One man alone makes perhaps one. That is the division of labour. I am the division of the blacksmith.", "I wrote 'invisible hand' three times in my whole life, and nobody has stopped talking about it since. Has anyone read my book on moral sentiments? Nobody has read my book on moral sentiments."],
+            ),
+        ),
+        "npc_history_karl_marks": (
+            display_name: "Karl Marks",
+            // Gives the whole of history marks out of ten; a parody of Karl Marx.
+            manifest: "sprites/history_karl_marks_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 175 cm.
+            standing_height: Some(67.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "peaceful"],
+            barks: (
+                on_hit: ["Disruptive! Detention!", "Zero out of ten for that."],
+                provoked: ["You. Yes, you. Which class are you in?"],
+                idle: ["Feudalism: four out of ten. Shows promise.", "*he writes a big mark on his slate*", "Show your working. Especially the working class."],
+                hall: ["The history of all society so far is the history of class struggle. Also of homework. Mostly unfinished.", "I spent years in the reading room of the British Museum writing Capital. I finished volume one. Engels finished the other two and gave them seven out of ten."],
+            ),
+        ),
+        "npc_history_general_ludd": (
+            display_name: "General Ludd",
+            // Speaks for the frame-breaking weavers; a parody of the Luddites' General Ludd.
+            manifest: "sprites/history_general_ludd_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "peaceful"],
+            barks: (
+                on_hit: ["We wrote letters first! Nobody answered!", "Hit a weaver, would you? Typical."],
+                provoked: ["Enoch made them, and Enoch shall break them."],
+                idle: ["Fair wages and fair work. Then we can talk about the frames.", "*he weighs his hammer: its name is Enoch*", "I like a good machine. I like my wages more."],
+                hall: ["We were not against machines. We were skilled weavers, and the owners used the new frames to make cheap cloth with cheap hands and cut our pay. We broke the frames that broke us.", "There was no General Ludd. We signed his name to our letters so they could not hang any one of us for them. They hanged some of us anyway."],
             ),
         ),
         "npc_primeval_twitchell": (

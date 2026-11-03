@@ -1,0 +1,327 @@
+title: history_context
+---
+// The History dimension's people (`docs/planning/game/history-dimension.md`):
+// Clio, the Muse of History, who keeps the crescent's gate, and the famous
+// of each era along the road. One node per resident, named after its spec
+// (`history_<resident>`).
+//
+// The dimension is a timeline: east is later. Each person knows their own
+// era well and the eras after it not at all, and they are often wrong about
+// the eras before it. The jokes are on the famous and on how history is
+// told, never on a people.
+//
+// Three choices here set flags: Socratease's answer opens the stoa gate
+// (`history_knows_nothing`); Genghis Can opens the gate in the Great Wall
+// (`history_can_says_yes`); Genghis Can't puts up the scaffold over it
+// (`history_cant_says_maybe`).
+===
+
+title: history_clio
+---
+Clio: Oh good, a visitor. Welcome to the beginning. Well, a beginning. Historians argue about where to start. Historians argue about everything.
+-> Who are you?
+    Clio: Clio. The Muse of History. I keep the record. It is very long and nobody reads the footnotes.
+-> Where am I?
+    Clio: The Fertile Crescent, about ten thousand years before your robot was assembled. People have just started farming. It is going to change everything and make almost everyone shorter.
+    -> Shorter?
+        Clio: Farmers ate worse than foragers for a long time. More food, less variety, more work, more disease. Progress is complicated. Write that down.
+    -> Go on.
+        Clio: Fields mean villages. Villages mean granaries. Granaries mean somebody counting. Counting means writing. Writing means me.
+-> How does this place work?
+    Clio: It is a road through time. Walk east and the centuries go by. Every era has its own famous people, and every one of them thinks they are the main character.
+-> Goodbye.
+    Clio: Mind the canal. And remember: the past is not over. It is just upstream.
+===
+
+title: history_hammurabbi
+---
+Hammurabbi: Halt. Have you read the code?
+-> What code?
+    Hammurabbi: The Code. Two hundred and eighty-two laws, carved in stone so nobody can say they did not see them. An eye for an eye. A tooth for a tooth. A receipt for a receipt.
+-> What happens if I break a law?
+    Hammurabbi: It depends who you are. A noble pays a fine. A commoner pays more. It is very fair, if you are a noble.
+-> How do I cross the canal?
+    Hammurabbi: Open the sluice. The reed bridge rises with the water. Law forty-eight says a farmer who lets his dyke break pays for the flood. So be careful with the sluice.
+-> Goodbye.
+    Hammurabbi: Go in justice. Pay at the granary.
+===
+
+title: history_gilgamash
+---
+Gilgamash: I am Gilgamash, king of Uruk, two thirds god, one third man, and all of me is sad.
+-> Why are you sad?
+    Gilgamash: My friend Enkidu died. So I went to the end of the world to find the plant of eternal life. I found it. Then I took a nap. A snake ate it.
+-> Is that the first story ever?
+    Gilgamash: One of the first ever written down. And look what it is about. A man who cannot stop thinking about dying. Some things do not change.
+-> What should I do with my life?
+    Gilgamash: Eat. Wash. Wear clean clothes. Hold the hand of a friend. The tavern keeper told me that, at the end of the world. She was right. I still went looking for the plant.
+-> Goodbye.
+    Gilgamash: Build a wall. People remember walls.
+===
+
+title: history_scribe_of_debts
+---
+Scribe of Debts: Name? Village? How many sheep?
+-> I do not have any sheep.
+    Scribe of Debts: Then you owe sheep. That is how it works. I write it on the tablet, and then it is true.
+-> Why did people start writing?
+    Scribe of Debts: Poetry, people think. No. Barley. Who gave how much barley to the temple, and who owes how much back. The first writing is a receipt. The second is a reminder that the first is overdue.
+-> What is money?
+    Scribe of Debts: A promise that everyone agrees to believe. Before coins there was credit. Before credit there was a scribe with a very good memory and a very sharp stylus.
+-> Goodbye.
+    Scribe of Debts: Interest is due at the harvest. It is always due at the harvest.
+===
+
+title: history_hatshepsut_hats
+---
+Hat-shepsut: Behold. The pharaoh. Yes, this is the pharaoh's beard. It is on a string. All pharaohs' beards are on a string. Mine just has more string.
+-> Why so many hats?
+    Hat-shepsut: The white crown of Upper Egypt, the red crown of Lower Egypt, the double crown of both, the blue war crown, and a sun hat. A pharaoh must be ready for anything.
+-> Were you a good pharaoh?
+    Hat-shepsut: Twenty years of peace. Trade expeditions to the land of Punt. The best temples in the valley. Then the next pharaoh chiselled my name off the walls. History is written by whoever has the chisel.
+-> How do I cross the Nile?
+    Hat-shepsut: Take the felucca. It goes back and forth all day. The crocodiles go back and forth too, below it. Do not fall in.
+-> Goodbye.
+    Hat-shepsut: Remember my name. Somebody has to.
+===
+
+title: history_ramesses_pretty_good
+---
+Ramesses the Pretty Good: Have you seen my statue? This is a small one. I have bigger ones. I have the biggest ones.
+-> Why do you carry a statue of yourself?
+    Ramesses the Pretty Good: In case I meet someone who has not seen one. It happens less often than you would think. I put them everywhere.
+-> Did you win the battle of Kadesh?
+    Ramesses the Pretty Good: I wrote on every temple wall that I did. The Hittites wrote that they did. Really it was a draw, and then we signed the first peace treaty in history. That part I did not carve as big.
+-> What is in the pyramid?
+    Ramesses the Pretty Good: An old king's tomb. And mummies, who are not happy to be woken. Everything you need for the afterlife is in there. Do not take it. Well. Do not get caught.
+-> Goodbye.
+    Ramesses the Pretty Good: Tell them you met Ramesses. The Great. Pretty great. Okay.
+===
+
+title: history_socratease
+---
+Socratease: Ah, a traveller. Tell me: do you wish to pass through the stoa?
+-> Yes.
+    Socratease: But what is it to pass? And who is the one who passes? Before the gate opens, answer me one question. What do you know?
+    -> Everything.
+        Socratease: Everything? Then tell me what virtue is. No? Then perhaps you do not know everything. Think again.
+    -> How to jump very well.
+        Socratease: A fine skill. But is jumping knowledge, or only a habit of the legs? Think again.
+    -> I know that I know nothing.
+        <<command "world.set_flag" "history_knows_nothing" true>>
+        Socratease: At last. That is the beginning of wisdom. The gate is open. Go and ask somebody else something annoying.
+    -> What do you know?
+        Socratease: Ha. A question for a question. You learn fast. But I asked first. Think again.
+-> Why do you only ask questions?
+    Socratease: Do I? And is a question not also a kind of answer?
+-> What happened to you?
+    Socratease: The city put me on trial for asking too many questions of the young. They gave me hemlock. I asked what was in it. They did not like that question either.
+-> Goodbye.
+    Socratease: Is it goodbye? Or only the end of this conversation?
+===
+
+title: history_herodotoss
+---
+Herodotoss: Greetings! Herodotoss of Halicarnassus. Father of History. Some say also the father of lies. Those people are not invited to my readings.
+-> What is history?
+    Herodotoss: The word means inquiry. I went and asked people what happened. Then I wrote down what they said. Then I wrote down what I thought of what they said. Then I added the bit about the giant gold-digging ants.
+-> Giant ants?
+    Herodotoss: In India, ants the size of foxes dig up gold. A Persian told me. Well, he said it about marmots. Ants, marmots. The gold is the important part.
+-> Who won, the Persians or the Greeks?
+    Herodotoss: The Greeks, at Marathon and Salamis. But the Persians had the largest empire the world had ever seen, with roads and post and tolerance for every god. I try to be fair. It annoys everyone.
+-> Goodbye.
+    Herodotoss: Tell people what you saw. Then tell them a little more.
+===
+
+title: history_julius_sneezer
+---
+Julius Sneezer: Ah... ah... AH-VE! Hail. I came, I saw, I sneezed.
+-> Bless you.
+    Julius Sneezer: Thank you. Nobody else in the senate says it. They just stand behind me. With knives. Et tu, tissue?
+-> Did Rome fall?
+    Julius Sneezer: In the west, slowly, over about two hundred years. In the east it lasted another thousand. Rome did not fall. It wore out unevenly, like a toga.
+-> What is in the colosseum?
+    Julius Sneezer: The games. Soldiers of every age that ever fought for Rome or against it. Win, and you get a seat in the emperor's box. And a thumb. Up, hopefully.
+-> Goodbye.
+    Julius Sneezer: Beware the Ides of March. And the pollen of April.
+===
+
+title: history_marco_polo_neck
+---
+Marco Polo-neck: Marco! You are supposed to say Polo. Nobody ever says Polo.
+-> Polo.
+    Marco Polo-neck: Thank you. Seventeen years at the court of the Great Khan and that is the first time.
+-> Where have you been?
+    Marco Polo-neck: Everywhere on this road. Paper money! Coal that burns like wood! Cities with twelve thousand bridges! I wrote it all in a book. Nobody in Venice believes a word.
+-> What is the Silk Road?
+    Marco Polo-neck: Not one road. Many roads, and many middlemen. Silk went west, silver went east, and ideas, religions and diseases went every way at once. Mostly nobody walked the whole thing. Except me. Allegedly.
+-> Goodbye.
+    Marco Polo-neck: Marco! ... Nothing? Fine.
+===
+
+title: history_confusius
+---
+Confusius: Ah. Young traveller. I am the sage Confusius. I am... honestly not sure about very much.
+-> Teach me something.
+    Confusius: Respect your elders. Your elders should deserve it. Rulers should be good so that the people are good. That is the whole thing. It is harder than it sounds. Most rulers do not get past the first part.
+-> Why are you confused?
+    Confusius: I wrote about order, harmony and proper relationships. Then the next two thousand years of emperors quoted me to explain whatever they were already doing. I find that confusing.
+-> How do I cross the quicksand?
+    Confusius: A wise traveller rides the camel. A foolish traveller walks. A very foolish traveller asks the camel for directions.
+-> Goodbye.
+    Confusius: The journey of a thousand miles begins with... somebody else said that. I forget who.
+===
+
+title: history_genghis_can
+---
+Genghis Can: The Wall. Can I get through it? I can. Can you? With me, you can.
+-> Open the gate.
+    <<command "world.set_flag" "history_can_says_yes" true>>
+    Genghis Can: Yes. Done. The gate is open. The garrison is behind it, and they are not happy about it. That is the short road. Short roads are where the fighting is.
+-> Is there another way?
+    Genghis Can: Probably. My brother will find it. My brother finds every other way. It takes him a while.
+-> How did you build an empire?
+    Genghis Can: Horses. Discipline. Promoting people for being good and not for being cousins. And saying yes before anyone else had finished saying maybe.
+-> Goodbye.
+    Genghis Can: Ride well. Then ride further.
+===
+
+title: history_genghis_cant
+---
+Genghis Can't: Through the Wall? We could. I mean, my brother could. I have concerns. There is a garrison, and they have arrows.
+-> Is there another way?
+    Genghis Can't: Always. I had the men put up a scaffold on the west face. Up, over the top, along the rampart, and down the far side, over their heads. It is longer.
+    -> Put up the scaffold.
+        <<command "world.set_flag" "history_cant_says_maybe" true>>
+        Genghis Can't: There. Up and over. We arrive at the same place, later. Later is underrated.
+    -> I will think about it.
+        Genghis Can't: Good. Thinking about it is my whole method.
+-> Why are you so careful?
+    Genghis Can't: Somebody has to check the map. The Pax Mongolica, the post relay, the trade roads that were safe from one end of Asia to the other: that was planning. Conquering is the easy part. Running it is the hard part.
+-> Goodbye.
+    Genghis Can't: Take water. Take a spare horse. Take a spare spare horse.
+===
+
+title: history_kublai_khant_wait
+---
+Kublai Khan't-Wait: You are late. Everyone is late. I am emperor of China and khan of khans and I have been waiting since breakfast.
+-> What are you waiting for?
+    Kublai Khan't-Wait: The fleet to Japan. Twice it sailed. Twice a storm sank it. The Japanese call the storm the divine wind. I call it the second time I have had to wait for a fleet.
+-> What are those notes in your hands?
+    Kublai Khan't-Wait: Paper money. Much faster than carrying silver. I printed lots of it. Then it was worth less. Nobody warned me. Well, everyone warned me. I did not wait for them to finish.
+-> What is the Yam?
+    Kublai Khan't-Wait: The post. A station every day's ride, with fresh horses. A message crosses the whole empire in weeks. In my opinion, still too slow.
+-> Goodbye.
+    Kublai Khan't-Wait: Go. Quickly. Why are you still here?
+===
+
+title: history_mansa_moolah
+---
+Mansa Moolah: Welcome to Mali! Have some gold. No, take it. Take more. I insist.
+-> Thank you?
+    Mansa Moolah: On my pilgrimage to Mecca I gave away so much gold in Cairo that the price of gold there fell for twelve years. I was trying to be generous. I was also, accidentally, a lesson in economics.
+-> Are you the richest person ever?
+    Mansa Moolah: People say so. It is hard to measure. Half the gold of the known world came through Mali. Also the salt. Salt was worth its weight in gold here, which made the gold confused.
+-> What is in the library?
+    Mansa Moolah: Books. I brought scholars and architects home with me and built schools in Timbuktu. Gold runs out. Books do not. Well, they do, but slower.
+-> Goodbye.
+    Mansa Moolah: Wait! You forgot your gold. Here. Never mind, it is worth less now.
+===
+
+title: history_ibn_batootah
+---
+Ibn Batootah: Peace be upon you, traveller. I am Ibn Batootah. I left home for a pilgrimage. That was twenty-nine years ago.
+-> Where did you go?
+    Ibn Batootah: Mecca, then Persia, then the steppe, then India, where I was a judge, then the Maldives, where I was also a judge, then China, then home, then Mali, then home again. Seventy-five thousand miles. On foot, mostly.
+-> Why so far?
+    Ibn Batootah: Everywhere I went there were people who read the same books and prayed the same prayers, from Morocco to the edge of China. A traveller could go anywhere and still be a guest. That is a world worth seeing.
+-> Did you write it down?
+    Ibn Batootah: When I got home, the sultan made me tell it all to a scribe. It is called The Gift to Those Who Contemplate the Wonders of Cities and the Marvels of Travelling. The short title was taken.
+-> Goodbye.
+    Ibn Batootah: Travel. It makes you speechless, then it makes you a storyteller.
+===
+
+title: history_zheng_hey
+---
+Zheng Hey: Hey! Welcome aboard. Well, welcome to the pier. My ship is over there. All of it. Do you see the end of it? Neither do I.
+-> How big is your ship?
+    Zheng Hey: Four hundred feet, some say. Nine masts. My fleet had three hundred ships and twenty-eight thousand sailors. We sailed to Arabia and East Africa and brought back a giraffe.
+-> Why a giraffe?
+    Zheng Hey: To show the emperor that the world respected him. The giraffe was a hit. Then a new emperor decided the fleets cost too much, burned the records, and China stopped sailing. Hey. What can you do.
+-> What is the monsoon?
+    Zheng Hey: The great wind of the Indian Ocean. It blows one way half the year and the other way the other half. Every trader from Kilwa to Calicut plans their whole life around it. Ride the dhow; it knows the season.
+-> Goodbye.
+    Zheng Hey: Hey! Bring back a giraffe!
+===
+
+title: history_vasco_da_gamer
+---
+Vasco da Gamer: Yo. Vasco da Gamer. Any-percent speedrun, Lisbon to India, around the bottom of Africa. Personal best: ten months.
+-> Why go around Africa?
+    Vasco da Gamer: The Ottomans held the shortcut and the Venetians held the prices. So Portugal found a skip. A very long skip. Half my crew died of scurvy. That is the bad part of speedrunning.
+-> How did it go in India?
+    Vasco da Gamer: I brought gifts: some hats and some honey. The king of Calicut was used to Indian Ocean merchants with gold and silk. He laughed at me. Then I came back with cannons. Not my best moment. Not anyone's.
+-> Goodbye.
+    Vasco da Gamer: GG. Mind the boom.
+===
+
+title: history_christopher_columbust
+---
+Christopher Columbust: Welcome to India!
+-> This is not India.
+    Christopher Columbust: It is India. I calculated it. The world is small and Asia is close. Everyone told me the world was bigger. Everyone was right, but I was lucky there was a continent in the way.
+-> Didn't people already live here?
+    Christopher Columbust: Millions of them, with cities and farms and empires. I did not discover anything. I arrived, and it went very badly for the people who were already here. That part is not funny, and I will not pretend it is.
+-> What is the Columbian exchange?
+    Christopher Columbust: Plants, animals and diseases crossing the ocean in both directions. Potatoes and maize fed Europe and China. Horses and cattle came west. Smallpox came west too, and that was the worst part of all of it.
+-> Goodbye.
+    Christopher Columbust: Next stop: also India!
+===
+
+title: history_captain_cookbook
+---
+Captain Cookbook: Captain James Cookbook, of His Majesty's Navy. Hungry? I have a recipe for that.
+-> What is in the cookbook?
+    Captain Cookbook: Sauerkraut. Pages of it. Sailors hated it, so I served it to the officers first. When the crew saw the officers eating it they demanded some. Nobody on my ships died of scurvy. Well, almost nobody.
+-> Where did you sail?
+    Captain Cookbook: The whole Pacific. Tahiti, New Zealand, the east coast of Australia, Hawaii. I mapped coasts that the people who lived there had known for a thousand years. The maps were new to us, not to them.
+-> How did it end?
+    Captain Cookbook: Badly, in Hawaii, in an argument over a stolen boat that I made much worse. Write down the maps. Write down the mistakes too.
+-> Goodbye.
+    Captain Cookbook: Eat your vegetables. It is an order.
+===
+
+title: history_adam_smithy
+---
+Adam Smithy: Good day! Adam Smithy, blacksmith and economist. This is my hand. And this is my invisible hand.
+-> What does the invisible hand do?
+    Adam Smithy: When everyone works for their own good, the market sometimes adds it up into the good of all. Sometimes. People forget the sometimes. I wrote a whole other book about sympathy and morals. Nobody quotes that one.
+-> What is the division of labour?
+    Adam Smithy: One man makes a whole pin, twenty pins a day. Ten men, each doing one step, make forty-eight thousand. Wonderful for pins. I did also say it was very bad for the men. They left that out too.
+-> Goodbye.
+    Adam Smithy: Buy low. Sell high. Read the whole book.
+===
+
+title: history_karl_marks
+---
+Karl Marks: You. Robot. Your work today: four out of ten. See me after class.
+-> Why so low?
+    Karl Marks: You do all the work and somebody else owns the factory. I give the factory owner a ten for the factory and you a four for the work. That is the problem. That is the whole problem. I wrote three volumes about it.
+-> Were you right?
+    Karl Marks: About how badly the factories treated people in my time, mostly yes. About what would come next, the twentieth century will have a lot of marking to do. I hear it does not go well. Not my department. My department is the marking.
+-> Goodbye.
+    Karl Marks: Workers of the world, hand in your homework.
+===
+
+title: history_general_ludd
+---
+General Ludd: Before you say anything: we are not against machines.
+-> But you broke the looms.
+    General Ludd: We broke the looms that the owners used to cut our pay and hire children to do bad work cheaply. We are weavers. We like looms. We built looms. We object to being starved by them.
+-> What are you fighting for?
+    General Ludd: Fair pay, decent work, and a say in how the new machines are used. The army was sent against us, and breaking a machine was made a hanging crime. And now our name means a fool who fears new things. History is unfair to the people who lose.
+-> How do I open the factory gate?
+    General Ludd: The boiler, in the mill. Stoke it and the engine runs, and the engine opens the gate. Everything here runs on that engine now. Even the gate.
+-> Goodbye.
+    General Ludd: When someone sells you a machine, ask who it is for.
+===

@@ -41,5 +41,8 @@
         // Sculpture Garden, the Sketchbook Cliffs over them, the Inkfall
         // Caverns under them, and the Gallery of the Unfinished.
         (id: "world.art_ldtk", file: "art.ldtk"),
+        // The History dimension, by the gate DYNASTIC: a timeline of eight
+        // eras, from the Fertile Crescent east to the Industrial Age.
+        (id: "world.history_ldtk", file: "history.ldtk"),
     ],
 )

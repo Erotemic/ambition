@@ -95,6 +95,12 @@
         portal_sprite_name: "Plaza Gate Portal",
         ring_sprite_name: "Plaza Gate Ring",
     ),
+    // The History dimension's ring, at the dawn of farming.
+    "history_crescent_gate": (
+        command: Dialed,
+        portal_sprite_name: "Crescent Gate Portal",
+        ring_sprite_name: "Crescent Gate Ring",
+    ),
     // The Noodly Temple's narthex.
     "noodly_narthex_gate": (
         command: Dialed,

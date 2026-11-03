@@ -281,6 +281,73 @@ collections:
   - art_potters_wheel
   - art_great_loom
   - art_crane
+  - locust_swarm
+  - aurochs
+  - scorpion_man
+  - history_wheat_sheaf
+  - history_code_stele
+  - history_ziggurat
+  - history_date_palm
+  - history_reed_bridge
+  - history_clay_tablets
+  - mummy
+  - scarab_beetle
+  - asp
+  - history_felucca
+  - history_obelisk
+  - history_papyrus
+  - history_canopic_jars
+  - history_pharaoh_statue
+  - hoplite
+  - immortal
+  - vandal
+  - history_marble_column
+  - history_broken_column
+  - history_aqueduct
+  - history_amphorae
+  - history_stoa_gate
+  - history_bust
+  - terracotta_warrior
+  - desert_bandit
+  - silk_moth
+  - history_camel_caravan
+  - history_silk_bolts
+  - history_paper_lantern
+  - history_spice_sacks
+  - history_pagoda
+  - horse_archer
+  - golden_eagle
+  - steppe_wolf
+  - history_ger
+  - history_great_wall_gate
+  - history_scaffold_plank
+  - history_great_wall
+  - history_ovoo
+  - history_horse_standard
+  - inflated_coin
+  - coral_crab
+  - monsoon_squall
+  - history_dhow
+  - history_salt_slabs
+  - history_mud_tower
+  - history_manuscripts
+  - history_gold_pile
+  - scurvy_ghost
+  - kraken_arm
+  - privateer
+  - history_ship_boom
+  - history_mast
+  - history_cargo_crates
+  - history_astrolabe
+  - history_lighthouse
+  - steam_automaton
+  - soot_sprite
+  - robber_baron
+  - history_chimney
+  - history_steam_engine
+  - history_rail_wagon
+  - history_factory_gate
+  - history_gas_lamp
   - eigenghost
   - decomposing_specter
   - spectral_perturbation
@@ -530,6 +597,27 @@ collections:
   - art_johann_sebastian_batch
   - art_leonardo_da_vinchy
   - art_antoni_gaudy
+  - history_clio
+  - history_hammurabbi
+  - history_gilgamash
+  - history_scribe_of_debts
+  - history_hatshepsut_hats
+  - history_ramesses_pretty_good
+  - history_socratease
+  - history_herodotoss
+  - history_julius_sneezer
+  - history_marco_polo_neck
+  - history_confusius
+  - history_kublai_khant_wait
+  - history_mansa_moolah
+  - history_ibn_batootah
+  - history_zheng_hey
+  - history_vasco_da_gamer
+  - history_christopher_columbust
+  - history_captain_cookbook
+  - history_adam_smithy
+  - history_karl_marks
+  - history_general_ludd
   - station_dobbs
   - station_pippin
   - magical_celeste

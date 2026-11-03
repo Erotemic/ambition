@@ -52,6 +52,7 @@
         (id: "noodly_temple_narthex", name: "Noodly Temple Narthex", dimension: "noodle"),
         (id: "starlight_gate_garden", name: "Starlight Gate Garden", dimension: "magical"),
         (id: "art_painters_plaza", name: "Painter's Plaza Ring", dimension: "art"),
+        (id: "history_fertile_crescent", name: "Crescent Ring", dimension: "history"),
     ],
     rings: [
         // ── Home ──────────────────────────────────────────────────────────
@@ -259,6 +260,19 @@
             terminal: Some("art_gate_terminal"),
             posted: ["LEGAL"],
             note: "Plaza ring. Do not touch the frame; it is wet.",
+        ),
+        // ── History (the Fertile Crescent) ───────────────────────────────
+        // The crescent's ring, at the dawn of farming: the way to the History
+        // dimension, a timeline that runs east. Clio keeps the gate.
+        (
+            zone: "history_crescent_gate",
+            name: "Crescent Gate",
+            facility: "history_fertile_crescent",
+            room: "history_fertile_crescent",
+            address: Some("DYNASTIC"),
+            terminal: Some("history_gate_terminal"),
+            posted: ["LEGAL"],
+            note: "Crescent ring. Older than writing; please wipe your feet.",
         ),
     ],
 )

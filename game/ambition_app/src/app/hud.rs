@@ -14,6 +14,28 @@ use ambition_platformer2d::render::rendering::HudText;
 use super::feedback::ProgressionResources;
 use crate::host::windowing;
 
+#[derive(Component)]
+pub(super) struct PrimaryInspectionHud;
+
+/// Keep the primary-seat inspector inside that participant's gameplay view.
+pub(super) fn fit_primary_inspection_hud(
+    surface: ambition_platformer2d::render::ui_surface::ParticipantSurface,
+    mut roots: Query<&mut Node, With<PrimaryInspectionHud>>,
+) {
+    use ambition_platformer2d::input::{InputOwner, ParticipantId};
+    let region = surface.gameplay_rect(Some(InputOwner::Participant(ParticipantId::PRIMARY)));
+    for mut node in &mut roots {
+        let mut wanted = node.clone();
+        if let Some(region) = region {
+            surface.place(&mut wanted, region);
+            wanted.display = Display::Flex;
+        } else {
+            wanted.display = Display::None;
+        }
+        if *node != wanted { *node = wanted; }
+    }
+}
+
 #[derive(SystemParam)]
 pub(super) struct HudCameraParams<'w, 's> {
     user_settings: Res<'w, ambition_platformer2d::persistence::settings::UserSettings>,
@@ -55,11 +77,7 @@ pub(super) struct HudCameraParams<'w, 's> {
     >,
 }
 
-/// HUD reads stats from `HudCameraParams`, which now filters on
-/// `PrimaryPlayerOnly` (`With<PlayerEntity> + With<PrimaryPlayer>`).
-/// In a future co-op build, the HUD intentionally tracks the primary
-/// player; per-`PlayerSlot` panels would be a separate UI surface
-/// rather than a generalization of this one.
+/// The developer inspector follows the primary participant in its local view.
 pub(super) fn update_hud(
     dev_state: Res<DeveloperRuntimeState>,
     mode: Res<State<GameMode>>,
@@ -302,7 +320,7 @@ pub(super) fn update_hud(
         let combo_symbols = hud_combo.map_or_else(|| "-".to_string(), |c| c.symbols());
         let preset_name = &preset.name;
         text.set_if_neq(Text(format!(
-            "{world_name} | {mode_label} | room {room_index}/{room_count} | \
+            "P1 inspector: {world_name} | {mode_label} | room {room_index}/{room_count} | \
              hp {player_hp_current}/{player_hp_max} | vel ({vx:+.0},{vy:+.0}) | \
              grounded {player_on_ground} | dash {player_dash_charges} | jumps {player_air_jumps}\n\
              combo: {combo_symbols}\n\
@@ -337,7 +355,7 @@ pub(super) fn update_hud(
     let combo_symbols = hud_combo.map_or_else(|| "-".to_string(), |c| c.symbols());
     let preset_name = &preset.name;
     text.set_if_neq(Text(format!(
-        "{world_name}  mode: {mode_label}  room {room_index}/{room_count}\n\
+        "P1 inspector: {world_name}  mode: {mode_label}  room {room_index}/{room_count}\n\
          hp {player_hp_current}/{player_hp_max}  dash {player_dash_charges}  \
          air_jumps {player_air_jumps}  mana {player_mana_current}  combo: {combo_symbols}\n\
          preset: {preset_name}\n\

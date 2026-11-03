@@ -61,21 +61,17 @@ fn each_trail_is_placed_by_its_own_live_room() {
 }
 
 #[test]
-fn room_bands_use_live_positions_instead_of_instance_ordinals() {
-    let mut one = World::new();
-    room_with_trail(&mut one, 12, Vec2::new(400.0, 300.0));
-    assert_eq!(snapshot(&mut one).0[0].band, None);
-
-    let mut two = World::new();
-    room_with_trail(&mut two, 7, Vec2::new(400.0, 300.0));
-    room_with_trail(&mut two, 12, Vec2::new(800.0, 900.0));
-    let mut bands: Vec<_> = snapshot(&mut two)
-        .0
-        .into_iter()
-        .map(|strip| strip.band)
-        .collect();
-    bands.sort();
-    assert_eq!(bands, vec![Some(0), Some(1)]);
+fn trails_keep_live_room_identity_when_the_room_population_changes() {
+    let mut world = World::new();
+    let first = room_with_trail(&mut world, 12, Vec2::new(400.0, 300.0));
+    let room = LiveRoomInstance::from_ordinal(12);
+    assert_eq!(snapshot(&mut world).0[0].room, room);
+    room_with_trail(&mut world, 7, Vec2::new(800.0, 900.0));
+    let mut rooms: Vec<_> = snapshot(&mut world).0.iter().map(|strip| strip.room).collect();
+    rooms.sort();
+    assert_eq!(rooms, vec![LiveRoomInstance::from_ordinal(7), room]);
+    world.despawn(first);
+    assert_eq!(snapshot(&mut world).0[0].room, LiveRoomInstance::from_ordinal(7));
 }
 
 #[test]

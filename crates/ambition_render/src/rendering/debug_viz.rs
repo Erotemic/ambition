@@ -21,18 +21,22 @@
 //!
 //! This module draws shapes only; it is not a dev HUD.
 
-use ambition_dev_tools::dev_tools::DeveloperTools;
+use super::retained_drawings::{DrawingScope, RetainedDrawings};
 use ambition_dev_tools::DeveloperRuntimeState;
+use ambition_dev_tools::dev_tools::DeveloperTools;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::config::world_to_bevy;
 use ambition_platformer2d_core::{AabbExt, RoomGeometry};
 use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
-use ambition_platformer2d_shared_tangle::lifecycle::session_world_exists;
 use ambition_platformer2d_world::collision::MovingPlatformSet;
 use ambition_platformer2d_world::platforms::MovingPlatformState;
 use ambition_sim_view::{BodyPoseView, CombatGeometryView, FeatureViewIndex};
+use bevy::gizmos::{config::GizmoConfigGroup, gizmos::GizmoBuffer};
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
+
+#[derive(Component, Default)]
+pub struct DebugVizDrawing;
 
 // ───────────────────────────── palette ─────────────────────────────
 
@@ -81,7 +85,12 @@ pub fn engine_delta_to_bevy(delta: ae::Vec2) -> BVec2 {
     BVec2::new(delta.x, -delta.y)
 }
 
-pub fn draw_aabb(gizmos: &mut Gizmos, world: &ae::World, aabb: ae::Aabb, color: Color) {
+pub fn draw_aabb(
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
+    world: &ae::World,
+    aabb: ae::Aabb,
+    color: Color,
+) {
     let min = aabb.min;
     let max = aabb.max;
     let tl = w2(world, ae::Vec2::new(min.x, min.y));
@@ -98,7 +107,7 @@ pub fn draw_aabb(gizmos: &mut Gizmos, world: &ae::World, aabb: ae::Aabb, color: 
 /// current debug view mode instead of being coupled to sprite hiding; choose
 /// Collision/Combat/Triggers when the filled volume view is useful.
 pub fn draw_aabb_styled(
-    gizmos: &mut Gizmos,
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
     world: &ae::World,
     aabb: ae::Aabb,
     color: Color,
@@ -129,12 +138,12 @@ pub fn draw_aabb_styled(
 /// polygon. Shows the actual hitbox shape (for example a blade-arc polygon),
 /// not its bounding box.
 pub fn draw_combat_volume(
-    gizmos: &mut Gizmos,
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
     world: &ae::World,
     vol: &ae::CombatVolume,
     color: Color,
 ) {
-    let outline = |gizmos: &mut Gizmos, pts: &[ae::Vec2]| {
+    let outline = |gizmos: &mut GizmoBuffer<_, ()>, pts: &[ae::Vec2]| {
         let n = pts.len();
         for i in 0..n {
             gizmos.line_2d(w2(world, pts[i]), w2(world, pts[(i + 1) % n]), color);
@@ -182,7 +191,7 @@ pub fn draw_combat_volume(
 /// drawn prominently and the bounding box is a faint broad-phase outline. A
 /// bare `Aabb` volume is its own hull, so it gets the normal styled fill.
 pub fn draw_hitbox_volume(
-    gizmos: &mut Gizmos,
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
     world: &ae::World,
     vol: &ae::CombatVolume,
     color: Color,
@@ -257,7 +266,7 @@ pub fn presentation_deltas(
 /// An empty map draws the authoritative geometry, which is correct for a host
 /// that publishes no presented poses.
 pub fn draw_combat_geometry_view(
-    gizmos: &mut Gizmos,
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
     world: &ae::World,
     combat: &CombatGeometryView,
     developer_tools: &DeveloperTools,
@@ -303,7 +312,11 @@ pub fn draw_combat_geometry_view(
             // its far end, mapped through the pair.
             match &strike.pieces {
                 Some(pieces) => {
-                    let delta = if strike.anchored_to_body { delta_for(strike.owner) } else { ae::Vec2::ZERO };
+                    let delta = if strike.anchored_to_body {
+                        delta_for(strike.owner)
+                    } else {
+                        ae::Vec2::ZERO
+                    };
                     for piece in pieces {
                         draw_volume_piece(gizmos, world, piece, delta, red(), developer_tools);
                     }
@@ -324,7 +337,7 @@ pub fn draw_combat_geometry_view(
 /// the place it is, moved by the owner's presentation `delta` carried through
 /// the pairs the piece went through.
 fn draw_volume_piece(
-    gizmos: &mut Gizmos,
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
     world: &ae::World,
     piece: &ae::frame::thread::VolumePiece,
     delta: ae::Vec2,
@@ -336,7 +349,13 @@ fn draw_volume_piece(
     };
     let delta = piece.carry_dir(delta);
     let region: Vec<ae::Vec2> = region.into_iter().map(|p| p + delta).collect();
-    draw_hitbox_volume(gizmos, world, &ae::CombatVolume::convex(region), color, developer_tools);
+    draw_hitbox_volume(
+        gizmos,
+        world,
+        &ae::CombatVolume::convex(region),
+        color,
+        developer_tools,
+    );
 }
 
 /// The tuning readout: what a designer reads instead of a log.
@@ -357,7 +376,7 @@ fn draw_volume_piece(
 /// No controller, faction, or primary-player check: it draws every combat
 /// body the read model publishes.
 fn draw_combat_tuning_readout(
-    gizmos: &mut Gizmos,
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
     world: &ae::World,
     body: &ambition_sim_view::CombatBodyGeometryView,
     // The readout hangs off the body's box, so it takes the same translation
@@ -455,7 +474,12 @@ fn draw_combat_tuning_readout(
     }
 }
 
-pub fn draw_arrow(gizmos: &mut Gizmos, start: BVec2, end: BVec2, color: Color) {
+pub fn draw_arrow(
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
+    start: BVec2,
+    end: BVec2,
+    color: Color,
+) {
     gizmos.line_2d(start, end, color);
     let delta = end - start;
     let len = delta.length();
@@ -471,7 +495,7 @@ pub fn draw_arrow(gizmos: &mut Gizmos, start: BVec2, end: BVec2, color: Color) {
 
 // ─────────────────────────── world layers ───────────────────────────
 
-pub fn draw_room_bounds(gizmos: &mut Gizmos, world: &ae::World) {
+pub fn draw_room_bounds(gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>, world: &ae::World) {
     let room = ae::aabb_from_min_size(ae::Vec2::ZERO, world.size);
     draw_aabb(gizmos, world, room, white_dim());
 }
@@ -487,7 +511,11 @@ pub fn draw_room_bounds(gizmos: &mut Gizmos, world: &ae::World) {
 /// The fall line is always drawn: every room has one. Side and ceiling lines
 /// appear only when the stage opts in, so a missing line means that direction
 /// does not kill.
-pub fn draw_world_edges(gizmos: &mut Gizmos, world: &ae::World, gravity_dir: ae::Vec2) {
+pub fn draw_world_edges(
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
+    world: &ae::World,
+    gravity_dir: ae::Vec2,
+) {
     // Red: crossing this is death. The opt-in pair is dimmer, so the
     // always-live direction reads as the default.
     let fall = Color::srgba(1.0, 0.25, 0.25, 0.55);
@@ -552,7 +580,12 @@ pub fn world_edge_lines(world: &ae::World, gravity_dir: ae::Vec2) -> Vec<WorldEd
     lines
 }
 
-pub fn draw_micro_grid(gizmos: &mut Gizmos, world: &ae::World, minor: f32, major: f32) {
+pub fn draw_micro_grid(
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
+    world: &ae::World,
+    minor: f32,
+    major: f32,
+) {
     if minor <= 0.0 || major <= 0.0 {
         return;
     }
@@ -585,7 +618,7 @@ pub fn draw_micro_grid(gizmos: &mut Gizmos, world: &ae::World, minor: f32, major
 /// Coarse grid drawn with gizmos. Used when `hide_sprites` removes the
 /// authored sprite grid, so there is still a spatial reference. Spacing is
 /// [`ambition_platformer2d_core::config::GRID_STEP`], like the sprite grid.
-pub fn draw_world_grid(gizmos: &mut Gizmos, world: &ae::World) {
+pub fn draw_world_grid(gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>, world: &ae::World) {
     let step = ambition_platformer2d_core::config::GRID_STEP;
     if step <= 0.0 {
         return;
@@ -611,7 +644,11 @@ pub fn draw_world_grid(gizmos: &mut Gizmos, world: &ae::World) {
     }
 }
 
-pub fn draw_world_blocks(gizmos: &mut Gizmos, world: &ae::World, developer_tools: &DeveloperTools) {
+pub fn draw_world_blocks(
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
+    world: &ae::World,
+    developer_tools: &DeveloperTools,
+) {
     for block in &world.blocks {
         let color = match block.kind {
             ae::BlockKind::Solid => gray(),
@@ -638,7 +675,7 @@ pub fn draw_world_blocks(gizmos: &mut Gizmos, world: &ae::World, developer_tools
 /// segment midpoint its tangent (green, toward increasing arc length) and its
 /// outward normal (yellow, the `+normal` side a body rides). Vertices get a
 /// small dot, so slopes and a loop's winding are readable.
-pub fn draw_surface_chains(gizmos: &mut Gizmos, world: &ae::World) {
+pub fn draw_surface_chains(gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>, world: &ae::World) {
     let seg_color = Color::srgba(0.30, 0.90, 1.00, 0.85); // cyan — the surface line
     let normal_color = Color::srgba(1.00, 0.90, 0.20, 0.85); // yellow — ridden side
     let tangent_color = Color::srgba(0.40, 1.00, 0.55, 0.75); // green — arc direction
@@ -670,7 +707,10 @@ pub fn draw_surface_chains(gizmos: &mut Gizmos, world: &ae::World) {
     }
 }
 
-pub fn draw_rebound_vectors(gizmos: &mut Gizmos, world: &ae::World) {
+pub fn draw_rebound_vectors(
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
+    world: &ae::World,
+) {
     for block in &world.blocks {
         let ae::BlockKind::Rebound { impulse } = block.kind else {
             continue;
@@ -684,7 +724,7 @@ pub fn draw_rebound_vectors(gizmos: &mut Gizmos, world: &ae::World) {
 }
 
 pub fn draw_moving_platform_debug(
-    gizmos: &mut Gizmos,
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
     world: &ae::World,
     moving_platforms: &[MovingPlatformState],
 ) {
@@ -749,16 +789,12 @@ impl Plugin for DebugVizPlugin {
                 toggle_debug_viz,
                 draw_debug_viz
                     .after(ambition_sim_view::PresentedPoseSet)
-                    .run_if(session_world_exists)
-                    // No gizmo stack means a no-op, not a panic. `Gizmos` needs
-                    // `GizmoConfigStore` from `GizmoPlugin`, which comes with a
-                    // renderer. A headless composition that adds this plugin (for
-                    // example `-p ambition_demo_smash_app --features visible`) would
-                    // otherwise fail parameter validation. `avatar::trail.rs` uses
-                    // the same guard.
-                    .run_if(bevy::ecs::schedule::common_conditions::resource_exists::<
-                        bevy::gizmos::config::GizmoConfigStore,
-                    >),
+                    // Simulation-only hosts do not install gizmo assets.
+                    .run_if(
+                        bevy::ecs::schedule::common_conditions::resource_exists::<
+                            bevy::asset::Assets<bevy::gizmos::GizmoAsset>,
+                        >,
+                    ),
             )
                 .chain(),
         );
@@ -781,35 +817,83 @@ pub fn toggle_debug_viz(
     }
 }
 
-/// The live room the debug viz draws, with its geometry: the room of the
-/// primary seat (the primary body's room, and with no primary body the sole
-/// one). `None` when that room cannot be told.
-pub(crate) fn shown_debug_room<'a>(
-    shown: &ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom,
-    worlds: &'a ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<RoomGeometry>,
-) -> Option<(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, &'a RoomGeometry)> {
-    let room = shown.get()?;
-    Some((room, worlds.in_room(room)?))
-}
-
 /// The feature rows whose feature is in live room `room`.
 pub(crate) fn features_in(
     features: &FeatureViewIndex,
     room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
 ) -> impl Iterator<Item = (&str, &ambition_sim_view::FeatureView)> {
-    features.iter().filter(move |(_, view)| view.room == Some(room))
+    features
+        .iter()
+        .filter(move |(_, view)| view.room == Some(room))
 }
 
-/// The combat rows whose body (a strike's owner) is in live room `room`, by
-/// `room_of`.
-pub(crate) fn combat_rows_in(
+/// The bodies and strikes physically in live room `room`.
+pub fn combat_rows_in(
     combat: &CombatGeometryView,
     room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
     room_of: impl Fn(Entity) -> Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 ) -> CombatGeometryView {
     CombatGeometryView {
-        bodies: combat.bodies.iter().filter(|row| room_of(row.body) == Some(room)).cloned().collect(),
-        strikes: combat.strikes.iter().filter(|row| room_of(row.owner) == Some(room)).cloned().collect(),
+        bodies: combat
+            .bodies
+            .iter()
+            .filter(|row| room_of(row.body) == Some(room))
+            .cloned()
+            .collect(),
+        strikes: combat
+            .strikes
+            .iter()
+            .filter(|row| room_of(row.strike) == Some(room))
+            .cloned()
+            .collect(),
+    }
+}
+
+/// Draw one view's requested and visible camera frames.
+pub fn draw_camera_frame(
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
+    world: &ae::World,
+    view: &ambition_sim_view::camera_snapshot::CameraViewState,
+) {
+    let requested = ae::Aabb::new(view.target_world, view.requested_view * 0.5);
+    let visible = ae::Aabb::new(view.center_world, view.visible_view * 0.5);
+    draw_aabb(gizmos, world, visible, Color::srgba(0.20, 0.95, 1.00, 0.22));
+    draw_aabb(
+        gizmos,
+        world,
+        requested,
+        Color::srgba(1.00, 0.95, 0.20, 0.22),
+    );
+}
+
+/// Draw the common F1 world layers with this room's geometry and gravity.
+pub fn draw_world_geometry(
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
+    world: &ae::World,
+    developer_tools: &DeveloperTools,
+    platforms: &[MovingPlatformState],
+    gravity_dir: ae::Vec2,
+) {
+    if developer_tools.show_room_bounds {
+        draw_room_bounds(gizmos, world);
+        draw_world_edges(gizmos, world, gravity_dir);
+    }
+    if developer_tools.show_world_blocks {
+        draw_world_blocks(gizmos, world, developer_tools);
+        // Momentum ride surfaces share the block toggle.
+        draw_surface_chains(gizmos, world);
+    }
+    if developer_tools.show_micro_grid {
+        draw_micro_grid(gizmos, world, 8.0, 16.0);
+    }
+    if developer_tools.hide_sprites {
+        draw_world_grid(gizmos, world);
+    }
+    if developer_tools.show_rebound_vectors {
+        draw_rebound_vectors(gizmos, world);
+    }
+    if developer_tools.show_moving_platform {
+        draw_moving_platform_debug(gizmos, world, platforms);
     }
 }
 
@@ -817,11 +901,15 @@ pub(crate) fn combat_rows_in(
 /// sim-view read models, never live sim clusters.
 #[allow(clippy::too_many_arguments)]
 pub fn draw_debug_viz(
-    mut gizmos: Gizmos,
-    // The viz draws one live room: the room of the primary seat. The rooms
-    // share one space and every camera draws the gizmos, so two rooms drawn
-    // at once would lie on top of each other.
-    shown: ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom,
+    mut drawings: RetainedDrawings<DebugVizDrawing>,
+    views: Query<
+        (
+            Entity,
+            &ambition_sim_view::camera_snapshot::ResolvedCameraSnapshot,
+            &ambition_sim_view::camera_snapshot::CameraViewState,
+        ),
+        With<ambition_sim_view::LocalView>,
+    >,
     worlds: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<RoomGeometry>,
     dev_state: Res<DeveloperRuntimeState>,
     developer_tools: Res<DeveloperTools>,
@@ -834,114 +922,121 @@ pub fn draw_debug_viz(
     // camera and sprite keeps it still; size, shape, and relation to the
     // art are unchanged.
     presented_features: Res<ambition_sim_view::PresentedFeaturePoses>,
-    bodies: Query<(Entity, &BodyPoseView, Option<&ambition_sim_view::PresentedPose>)>,
+    bodies: Query<(
+        Entity,
+        &BodyPoseView,
+        Option<&ambition_sim_view::PresentedPose>,
+    )>,
     // The body presentation translation for every body in the combat view,
     // including bosses and actors, which `bodies` cannot reach
     // (`BodyPoseView` is player-bodied only).
     presented_bodies: Query<&ambition_sim_view::PresentedPose>,
     // Live gravity for the world-edge lines. `Option` because headless and
     // test apps do not insert it; then "down" is used.
-    gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityField>>,
+    gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::BaseGravity>>,
 ) {
     if !dev_state.debug_enabled() || !developer_tools.gizmos_enabled {
+        drawings.finish();
         return;
     }
-    let Some((room, world)) = shown_debug_room(&shown, &worlds) else {
-        return;
-    };
-    let world = &world.0;
-    // Only what is in the shown room is drawn, by that room's geometry.
-    let shown_here = |entity: Entity| worlds.room_of(entity) == Some(room);
-    if developer_tools.show_room_bounds {
-        draw_room_bounds(&mut gizmos, world);
-        draw_world_edges(
-            &mut gizmos,
-            world,
-            ambition_platformer2d_shared_tangle::gravity::gravity_dir_or_default(
-                gravity.as_deref(),
-            ),
-        );
-    }
-    if developer_tools.show_world_blocks {
-        draw_world_blocks(&mut gizmos, world, &developer_tools);
-        // Momentum ride surfaces share the block toggle.
-        draw_surface_chains(&mut gizmos, world);
-    }
-    if developer_tools.show_micro_grid {
-        draw_micro_grid(&mut gizmos, world, 8.0, 16.0);
-    }
-    if developer_tools.hide_sprites {
-        draw_world_grid(&mut gizmos, world);
-    }
-    if developer_tools.show_rebound_vectors {
-        draw_rebound_vectors(&mut gizmos, world);
-    }
-    if developer_tools.show_moving_platform {
-        draw_moving_platform_debug(
-            &mut gizmos,
-            world,
-            platform_sets.in_room(room).map_or(&[][..], |platforms| &platforms.0[..]),
-        );
-    }
-    // Two boxes for one player body, on purpose. This cyan one is the
-    // collision box from the player pose view. `draw_combat_geometry_view`
-    // draws the orange coarse envelope from the combat model. They match for
-    // an ordinary body and differ for a boss, whose envelope is much larger.
-    if developer_tools.show_player_hitbox || developer_tools.show_player_vectors {
-        for (_, pose, presented) in bodies.iter().filter(|(body, _, _)| shown_here(*body)) {
-            let draw_pos = ambition_sim_view::presented_pose::draw_pos(pose, presented);
-            let body = ae::Aabb::new(draw_pos, pose.size * 0.5);
-            if developer_tools.show_player_hitbox {
-                draw_aabb_styled(&mut gizmos, world, body, cyan(), &developer_tools);
+    let shown: std::collections::BTreeSet<_> = views
+        .iter()
+        .filter_map(|(_, view, _)| view.frame().map(|frame| frame.room))
+        .collect();
+    for room in shown {
+        let Some(world) = worlds.in_room(room) else {
+            continue;
+        };
+        let world = &world.0;
+        drawings.draw(DrawingScope::Room(room), |gizmos| {
+            // Only what is in the shown room is drawn, by that room's geometry.
+            let shown_here = |entity: Entity| worlds.room_of(entity) == Some(room);
+            draw_world_geometry(
+                gizmos,
+                world,
+                &developer_tools,
+                platform_sets
+                    .in_room(room)
+                    .map_or(&[][..], |platforms| &platforms.0[..]),
+                gravity
+                    .as_deref()
+                    .map_or(ae::Vec2::Y, |gravity| gravity.dir_in(Some(room))),
+            );
+            // Two boxes for one player body, on purpose. This cyan one is the
+            // collision box from the player pose view. `draw_combat_geometry_view`
+            // draws the orange coarse envelope from the combat model. They match for
+            // an ordinary body and differ for a boss, whose envelope is much larger.
+            if developer_tools.show_player_hitbox || developer_tools.show_player_vectors {
+                for (_, pose, presented) in bodies.iter().filter(|(body, _, _)| shown_here(*body)) {
+                    let draw_pos = ambition_sim_view::presented_pose::draw_pos(pose, presented);
+                    let body = ae::Aabb::new(draw_pos, pose.size * 0.5);
+                    if developer_tools.show_player_hitbox {
+                        draw_aabb_styled(gizmos, world, body, cyan(), &developer_tools);
+                    }
+                    if developer_tools.show_player_vectors {
+                        let start = w2(world, draw_pos);
+                        // Velocity at ~0.15s of travel; facing as a short baseline tick.
+                        draw_arrow(
+                            gizmos,
+                            start,
+                            start + engine_delta_to_bevy(pose.vel * 0.15),
+                            green(),
+                        );
+                        let facing = ae::Vec2::new(pose.facing.signum() * 18.0, 0.0);
+                        draw_arrow(
+                            gizmos,
+                            start,
+                            start + engine_delta_to_bevy(facing),
+                            yellow(),
+                        );
+                    }
+                }
             }
-            if developer_tools.show_player_vectors {
-                let start = w2(world, draw_pos);
-                // Velocity at ~0.15s of travel; facing as a short baseline tick.
-                draw_arrow(
-                    &mut gizmos,
-                    start,
-                    start + engine_delta_to_bevy(pose.vel * 0.15),
-                    green(),
-                );
-                let facing = ae::Vec2::new(pose.facing.signum() * 18.0, 0.0);
-                draw_arrow(
-                    &mut gizmos,
-                    start,
-                    start + engine_delta_to_bevy(facing),
-                    yellow(),
-                );
+            if developer_tools.show_feature_hitboxes {
+                for (id, view) in features_in(&features, room) {
+                    let color = match view.kind {
+                        FeatureVisualKind::Actor if !view.alive => gray(),
+                        FeatureVisualKind::Actor if view.fighting => red(),
+                        FeatureVisualKind::Actor => yellow(),
+                        FeatureVisualKind::Hazard => red(),
+                        FeatureVisualKind::Breakable => orange(),
+                        FeatureVisualKind::Chest => green(),
+                        FeatureVisualKind::Pickup => cyan(),
+                        FeatureVisualKind::Switch if view.switch_on => green(),
+                        FeatureVisualKind::Switch => red(),
+                    };
+                    // Same frame clock as the body box above, so an enemy's gizmo does not
+                    // shake against the camera.
+                    let aabb =
+                        ae::Aabb::new(presented_features.presented(id, view.pos), view.size * 0.5);
+                    draw_aabb_styled(gizmos, world, aabb, color, &developer_tools);
+                }
+            }
+            // A copy of the rows of the shown room. It is made only while the viz is
+            // on, so the cost is a developer's.
+            let combat_here = combat_rows_in(&combat_geometry, room, |body| worlds.room_of(body));
+            draw_combat_geometry_view(
+                gizmos,
+                world,
+                &combat_here,
+                &developer_tools,
+                &presentation_deltas(&combat_here, &presented_bodies),
+            );
+        });
+    }
+    if developer_tools.show_camera_frame {
+        for (view, resolved, camera) in &views {
+            if let Some(world) = resolved
+                .frame()
+                .and_then(|frame| worlds.in_room(frame.room))
+            {
+                drawings.draw(DrawingScope::View(view), |gizmos| {
+                    draw_camera_frame(gizmos, &world.0, camera)
+                });
             }
         }
     }
-    if developer_tools.show_feature_hitboxes {
-        for (id, view) in features_in(&features, room) {
-            let color = match view.kind {
-                FeatureVisualKind::Actor if !view.alive => gray(),
-                FeatureVisualKind::Actor if view.fighting => red(),
-                FeatureVisualKind::Actor => yellow(),
-                FeatureVisualKind::Hazard => red(),
-                FeatureVisualKind::Breakable => orange(),
-                FeatureVisualKind::Chest => green(),
-                FeatureVisualKind::Pickup => cyan(),
-                FeatureVisualKind::Switch if view.switch_on => green(),
-                FeatureVisualKind::Switch => red(),
-            };
-            // Same frame clock as the body box above, so an enemy's gizmo does not
-            // shake against the camera.
-            let aabb = ae::Aabb::new(presented_features.presented(id, view.pos), view.size * 0.5);
-            draw_aabb_styled(&mut gizmos, world, aabb, color, &developer_tools);
-        }
-    }
-    // A copy of the rows of the shown room. It is made only while the viz is
-    // on, so the cost is a developer's.
-    let combat_here = combat_rows_in(&combat_geometry, room, |body| worlds.room_of(body));
-    draw_combat_geometry_view(
-        &mut gizmos,
-        world,
-        &combat_here,
-        &developer_tools,
-        &presentation_deltas(&combat_here, &presented_bodies),
-    );
+    drawings.finish();
 }
 
 #[cfg(test)]
@@ -989,9 +1084,10 @@ mod world_edge_overlay_tests {
             .collect();
         assert_eq!(xs.len(), 2, "two vertical boundaries, one per side");
         // 480 (half width) + 160, either side of the centre.
-        assert!(xs
-            .iter()
-            .any(|x| (*x - (480.0 + 480.0 + 160.0)).abs() < 0.01));
+        assert!(
+            xs.iter()
+                .any(|x| (*x - (480.0 + 480.0 + 160.0)).abs() < 0.01)
+        );
         assert!(xs.iter().any(|x| (*x + 160.0).abs() < 0.01));
     }
 
@@ -1137,136 +1233,160 @@ mod presented_strike_tests {
 }
 
 #[cfg(test)]
-mod shown_room_tests {
+mod room_drawing_tests {
     use super::*;
-    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+    use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
+    use ambition_sim_view::camera_snapshot::{ResolvedCameraFrame, ResolvedCameraSnapshot};
+    use ambition_sim_view::{LocalView, LocalViewId};
+    use bevy::camera::visibility::RenderLayers;
 
-    fn a_view(room: LiveRoomInstance) -> ambition_sim_view::FeatureView {
-        ambition_sim_view::FeatureView {
-            pos: ae::Vec2::new(10.0, 10.0),
-            size: ae::Vec2::new(16.0, 24.0),
-            kind: FeatureVisualKind::Breakable,
-            visible: true,
-            submerged: false,
-            wire_anchor: None,
-            grab_reach: None,
-            line_anchor: None,
-            limb_host: None,
-            depth_plane: Default::default(),
-            flash: false,
-            breakable_state: None,
-            chest_opened: false,
-            fighting: false,
-            switch_on: false,
-            rotation_rad: 0.0,
-            alive: true,
-            hit_flash_secs: 0.0,
-            parry_flash_secs: 0.0,
-            hp_current: 1,
-            hp_max: 1,
-            training_dummy: false,
-            hit_strength: 0.0,
-            unhittable: false,
-            defense_cues: ambition_sim_view::DefenseCueCauses::NONE,
-            sprite_offset: None,
-            room: Some(room),
-        }
-    }
-
-    fn a_combat_row(body: Entity) -> ambition_sim_view::CombatBodyGeometryView {
-        ambition_sim_view::CombatBodyGeometryView {
-            body,
-            collision: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(8.0, 8.0)),
-            hurtboxes: Vec::new(),
-            hurt_pieces: None,
-            hurtbox_source: ambition_sim_view::HurtboxSource::BodyFallback,
-            damage_taken: 0,
-            facing: 1.0,
-            hitstun_s: 0.0,
-            hitlag_s: 0.0,
-            landing_lag_s: 0.0,
-            jump_squat_s: 0.0,
-            velocity: ae::Vec2::ZERO,
-            grounded: true,
-            on_wall: false,
-            wall_normal_x: 0.0,
-            move_state: None,
-        }
-    }
-
-    /// What the viz drew on the last frame: the room's name, the features,
-    /// and the bodies of the combat rows.
-    #[derive(Resource, Default)]
-    struct Drawn(Option<String>, Vec<String>, Vec<Entity>);
-
-    fn record(
-        shown: ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom,
-        worlds: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<RoomGeometry>,
-        features: Res<FeatureViewIndex>,
-        combat: Res<CombatGeometryView>,
-        mut drawn: ResMut<Drawn>,
-    ) {
-        let Some((room, world)) = shown_debug_room(&shown, &worlds) else {
-            *drawn = Drawn::default();
-            return;
-        };
-        let mut ids: Vec<String> = features_in(&features, room).map(|(id, _)| id.to_string()).collect();
-        ids.sort();
-        let rows = combat_rows_in(&combat, room, |body| worlds.room_of(body));
-        *drawn = Drawn(
-            Some(world.0.name.clone()),
-            ids,
-            rows.bodies.iter().map(|row| row.body).collect(),
-        );
-    }
-
-    fn room(name: &str) -> RoomGeometry {
-        RoomGeometry(ae::World::new(name, ae::Vec2::new(320.0, 180.0), ae::Vec2::new(40.0, 40.0), Vec::new()))
-    }
-
-    /// OW1: with two live rooms the debug viz draws the primary body's room:
-    /// its geometry, its features, and its bodies' combat rows, and nothing of
-    /// the other room. Before, it read the sole live room and drew nothing
-    /// while two rooms were live. The control is one live room, which draws
-    /// its own.
     #[test]
-    fn the_debug_viz_draws_the_primary_bodys_room_while_two_rooms_are_live() {
-        let drawn = |two: bool| {
-            let mut app = App::new();
-            ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), room("first"));
-            let second = LiveRoomInstance::ACTIVATION.next();
-            let first_body = app.world_mut().spawn(InRoomInstance(LiveRoomInstance::ACTIVATION)).id();
-            let mut rows = vec![("in_first".to_string(), a_view(LiveRoomInstance::ACTIVATION))];
-            let mut combat = vec![a_combat_row(first_body)];
-            let primary_room = if two {
-                ambition_platformer2d_shared_tangle::lifecycle::spawn_live_room(app.world_mut(), second, room("second"));
-                rows.push(("in_second".to_string(), a_view(second)));
-                second
-            } else {
-                LiveRoomInstance::ACTIVATION
-            };
-            let primary = app
-                .world_mut()
-                .spawn((ambition_platformer2d_shared_tangle::body::PrimaryBody, InRoomInstance(primary_room)))
-                .id();
-            combat.push(a_combat_row(primary));
-            app.insert_resource(FeatureViewIndex::from_rows(rows));
-            app.insert_resource(CombatGeometryView { bodies: combat, strikes: Vec::new() });
-            app.init_resource::<Drawn>();
-            app.add_systems(Update, record);
-            app.update();
-            let drawn = app.world_mut().remove_resource::<Drawn>().unwrap();
-            (drawn.0, drawn.1, drawn.2.len(), drawn.2.contains(&primary), drawn.2.contains(&first_body))
-        };
-        assert_eq!(
-            drawn(false),
-            (Some("first".to_string()), vec!["in_first".to_string()], 2, true, true),
-            "control: one live room draws everything in it"
+    fn debug_drawings_follow_visible_rooms_and_retire_without_rebuilding_their_handles() {
+        let mut app = App::new();
+        app.init_resource::<Assets<bevy::gizmos::GizmoAsset>>();
+        app.init_resource::<FeatureViewIndex>();
+        app.init_resource::<CombatGeometryView>();
+        app.init_resource::<ambition_sim_view::PresentedFeaturePoses>();
+        app.insert_resource(DeveloperRuntimeState {
+            debug: true,
+            ..default()
+        });
+        app.insert_resource(DeveloperTools {
+            gizmos_enabled: true,
+            show_room_bounds: true,
+            ..default()
+        });
+        let rooms = [7, 12].map(LiveRoomInstance::from_ordinal);
+        let roots: Vec<_> = rooms
+            .into_iter()
+            .enumerate()
+            .map(|(index, room)| {
+                app.world_mut()
+                    .spawn((
+                        RoomInstanceRoot,
+                        room,
+                        RoomGeometry(ae::World::new(
+                            "debug room",
+                            ae::Vec2::new(320.0 + 480.0 * index as f32, 180.0),
+                            ae::Vec2::ZERO,
+                            Vec::new(),
+                        )),
+                    ))
+                    .id()
+            })
+            .collect();
+        let credit = app.world_mut().spawn(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(rooms[0])).id();
+        let strike = app.world_mut().spawn(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(rooms[1])).id();
+        app.world_mut().resource_mut::<DeveloperTools>().show_combat_preview = true;
+        app.world_mut().resource_mut::<CombatGeometryView>().strikes.push(ambition_sim_view::CombatStrikeGeometryView {
+            volume: ae::CombatVolume::Aabb(ae::Aabb::new(ae::Vec2::splat(20.0), ae::Vec2::splat(4.0))),
+            pieces: None, strike, owner: credit, damage: 1, anchored_to_body: false,
+            depicted_by_owner: false, ray: None, hit: Vec::new(),
+        });
+        for (index, room) in [rooms[0], rooms[1], rooms[1]].into_iter().enumerate() {
+            app.world_mut().spawn((
+                LocalView,
+                LocalViewId(index as u8),
+                ambition_sim_view::camera_snapshot::CameraViewState::default(),
+                ResolvedCameraSnapshot(Some(ResolvedCameraFrame {
+                    snapshot: Default::default(),
+                    follow_world: ae::Vec2::ZERO,
+                    room,
+                })),
+            ));
+        }
+        app.add_systems(
+            Update,
+            (
+                draw_debug_viz,
+                super::super::view_isolation::isolate_live_rooms,
+            )
+                .chain(),
         );
+        app.update();
+        let drawings = |world: &mut World| {
+            let mut rows: Vec<_> = world
+                .query_filtered::<(
+                    Entity,
+                    &DrawingScope,
+                    &bevy::gizmos::retained::Gizmo,
+                    &RenderLayers,
+                ), With<DebugVizDrawing>>()
+                .iter(world)
+                .map(|(entity, scope, gizmo, layers)| {
+                    (*scope, entity, gizmo.handle.clone(), layers.clone())
+                })
+                .collect();
+            rows.sort_by_key(|(scope, ..)| *scope);
+            rows
+        };
+        let strike_rooms = |world: &mut World| {
+            let drawings: Vec<_> = world.query_filtered::<(&DrawingScope, &bevy::gizmos::retained::Gizmo), With<DebugVizDrawing>>()
+                .iter(world).map(|(scope, gizmo)| (*scope, gizmo.handle.clone())).collect();
+            let assets = world.resource::<Assets<bevy::gizmos::GizmoAsset>>();
+            drawings.into_iter().filter(|(_, handle)| assets.get(handle).unwrap().buffer().list_colors.contains(&red().to_linear()))
+                .map(|(scope, _)| scope).collect::<std::collections::BTreeSet<_>>()
+        };
+        let emission_room = std::collections::BTreeSet::from([DrawingScope::Room(rooms[1])]);
+        assert_eq!(strike_rooms(app.world_mut()), emission_room,
+            "a world strike must use its emission room, not its credit body's room");
+        let first = drawings(app.world_mut());
         assert_eq!(
-            drawn(true),
-            (Some("second".to_string()), vec!["in_second".to_string()], 1, true, false),
-            "two live rooms: (room drawn, features, combat rows, the primary's row, the other room's row)"
+            first.len(),
+            2,
+            "two cameras of one room must share its geometry"
+        );
+        for (index, (scope, _, handle, layers)) in first.iter().enumerate() {
+            assert_eq!(*scope, DrawingScope::Room(rooms[index]));
+            assert_eq!(
+                *layers,
+                RenderLayers::none().with(
+                    ambition_platformer2d_shared_tangle::camera_layers::live_room_render_layer(
+                        index
+                    )
+                )
+            );
+            let picture = app
+                .world()
+                .resource::<Assets<bevy::gizmos::GizmoAsset>>()
+                .get(handle)
+                .unwrap();
+            let extent = 160.0 + 240.0 * index as f32;
+            let bounds: Vec<_> = picture
+                .buffer()
+                .list_positions
+                .iter()
+                .zip(&picture.buffer().list_colors)
+                .filter(|(_, color)| **color == white_dim().to_linear())
+                .map(|(point, _)| point.x)
+                .collect();
+            assert_eq!(
+                bounds.iter().copied().fold(f32::NEG_INFINITY, f32::max),
+                extent
+            );
+            assert_eq!(
+                bounds.iter().copied().fold(f32::INFINITY, f32::min),
+                -extent
+            );
+        }
+        app.world_mut().entity_mut(credit).despawn();
+        app.update();
+        assert_eq!(strike_rooms(app.world_mut()), emission_room, "credit retirement must not hide a live strike");
+        assert_eq!(drawings(app.world_mut()), first);
+        app.world_mut().entity_mut(roots[1]).despawn();
+        app.update();
+        assert_eq!(
+            drawings(app.world_mut()).len(),
+            1,
+            "a retired room must leave no geometry"
+        );
+        app.world_mut()
+            .resource_mut::<DeveloperRuntimeState>()
+            .debug = false;
+        app.update();
+        assert!(
+            drawings(app.world_mut()).is_empty(),
+            "turning F1 off must retire its drawings"
         );
     }
 }

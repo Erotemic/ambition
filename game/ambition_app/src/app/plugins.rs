@@ -433,23 +433,23 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
 }
 
 fn install_camera_and_debug_overlay_systems(app: &mut App) {
+    app.add_systems(PostUpdate, super::hud::fit_primary_inspection_hud.before(bevy::ui::UiSystems::Prepare));
     app.init_resource::<debug_overlay::DebugOverlayLabels>();
     // With portals, the continuity camera tag (registered by HostCameraPlugin)
     // must land before the overlay reads it.
     #[cfg(feature = "portal_render")]
     let overlay = (
-        debug_overlay::draw_debug_overlay.run_if(debug_overlay::the_debug_overlay_is_on),
-        // Materialize the labels the overlay just queued (Text2d). Runs
-        // right after so the labels track this frame's boxes.
-        debug_overlay::render_debug_overlay_labels.run_if(debug_overlay::a_debug_label_is_queued),
+        debug_overlay::draw_debug_overlay,
+        // Labels use the same frame and room as their shapes.
+        debug_overlay::render_debug_overlay_labels,
     )
         .chain()
         .after(camera_follow)
         .after(ambition_platformer2d::host::portal::PortalContinuityCameraTagged);
     #[cfg(not(feature = "portal_render"))]
     let overlay = (
-        debug_overlay::draw_debug_overlay.run_if(debug_overlay::the_debug_overlay_is_on),
-        debug_overlay::render_debug_overlay_labels.run_if(debug_overlay::a_debug_label_is_queued),
+        debug_overlay::draw_debug_overlay,
+        debug_overlay::render_debug_overlay_labels,
     )
         .chain()
         .after(camera_follow);

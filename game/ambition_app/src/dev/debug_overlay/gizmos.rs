@@ -15,7 +15,7 @@ use super::*;
 #[cfg(feature = "input")]
 #[cfg(feature = "portal")]
 pub(crate) fn draw_portals<'a>(
-    gizmos: &mut Gizmos,
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
     world: &ae::World,
     portals: impl Iterator<Item = &'a ambition_platformer2d::portal::PlacedPortal>,
 ) {
@@ -47,10 +47,12 @@ pub(crate) fn draw_portals<'a>(
 #[cfg(feature = "input")]
 #[derive(SystemParam)]
 pub struct FeatureDebugQueries<'w, 's> {
+    pub rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms<'w, 's>,
     pub bosses: Query<
         'w,
         's,
         (
+            Entity,
             ambition_platformer2d::boss_encounter::BossClusterRef,
             &'static ambition_platformer2d::characters::actor::BodyHealth,
             &'static ambition_platformer2d::characters::brain::BossAttackState,
@@ -62,6 +64,7 @@ pub struct FeatureDebugQueries<'w, 's> {
         'w,
         's,
         (
+            Entity,
             &'static ambition_platformer2d::combat::components::ActorDisposition,
             &'static ambition_platformer2d::combat::components::ActorAggression,
             &'static ambition_platformer2d::combat::components::CenteredAabb,
@@ -71,7 +74,7 @@ pub struct FeatureDebugQueries<'w, 's> {
     pub breakables: Query<
         'w,
         's,
-        &'static ambition_platformer2d::combat::components::CenteredAabb,
+        (Entity, &'static ambition_platformer2d::combat::components::CenteredAabb),
         (
             With<ambition_platformer2d::actor::FeatureSimEntity>,
             With<ambition_platformer2d::breakables::BreakableFeature>,
@@ -80,7 +83,7 @@ pub struct FeatureDebugQueries<'w, 's> {
     pub chests: Query<
         'w,
         's,
-        &'static ambition_platformer2d::combat::components::CenteredAabb,
+        (Entity, &'static ambition_platformer2d::combat::components::CenteredAabb),
         (
             With<ambition_platformer2d::actor::FeatureSimEntity>,
             With<ambition_platformer2d::world_items::containers::ChestFeature>,
@@ -89,7 +92,7 @@ pub struct FeatureDebugQueries<'w, 's> {
     pub hazards: Query<
         'w,
         's,
-        &'static ambition_platformer2d::world::HazardFeature,
+        (Entity, &'static ambition_platformer2d::world::HazardFeature),
         With<ambition_platformer2d::actor::FeatureSimEntity>,
     >,
     /// Body-generic combat geometry read-model. Live hitboxes and effective
@@ -107,7 +110,8 @@ pub struct FeatureDebugQueries<'w, 's> {
     /// match its (now gravity-oriented) collision box + sprite. Lives in this
     /// bundle (not a top-level param) to keep `draw_debug_overlay` under Bevy's
     /// 16-system-param ceiling.
-    pub gravity: Option<Res<'w, ambition_platformer2d::world::GravityField>>,
+    pub base_gravity: Option<Res<'w, ambition_platformer2d::world::BaseGravity>>,
+    pub input_contexts: Option<Res<'w, ambition_platformer2d::input::SeatInputContexts>>,
     /// App-local character authority and attack-volume bridge used by the combat
     /// preview. Keeping them in this bundle preserves the top-level system's
     /// parameter budget.
@@ -158,9 +162,17 @@ pub struct FeatureDebugQueries<'w, 's> {
 /// [`BOUNCE_MARK_SECS`]. A bounce is read off the shot's own bounce budget
 /// going down, so it is the engine's bounce and not a guess from the velocity.
 #[derive(Default)]
-pub struct ProjectileBounceTrail {
+pub struct ProjectileBounceTrail(
+    pub  std::collections::BTreeMap<
+        ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+        RoomBounceTrail,
+    >,
+);
+
+#[derive(Default)]
+pub struct RoomBounceTrail {
     budgets: std::collections::HashMap<Entity, u8>,
-    marks: Vec<(ae::Vec2, f32)>,
+    marks: Vec<(ae::Vec2, f64)>,
 }
 
 /// How long a bounce mark stays drawn, seconds.
@@ -171,7 +183,7 @@ const BOUNCE_MARK_SECS: f32 = 1.5;
 /// against the walls and portals it meets.
 #[cfg(feature = "input")]
 pub(crate) fn draw_ground_item_debug(
-    gizmos: &mut Gizmos,
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
     world: &ae::World,
     items: Option<&ambition_platformer2d::sim_view::GroundItemsView>,
     room: ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
@@ -182,24 +194,21 @@ pub(crate) fn draw_ground_item_debug(
         if item.room != Some(room) {
             continue;
         }
-        draw_aabb_styled(gizmos, world, ae::Aabb::new(item.pos, item.half_extent), color, developer_tools,
+        draw_aabb_styled(
+            gizmos,
+            world,
+            ae::Aabb::new(item.pos, item.half_extent),
+            color,
+            developer_tools,
         );
     }
 }
 
-pub(crate) fn draw_camera_frame(gizmos: &mut Gizmos, world: &ae::World, view: &CameraViewState) {
-    let requested = ae::Aabb::new(view.target_world, view.requested_view * 0.5);
-    let visible = ae::Aabb::new(view.center_world, view.visible_view * 0.5);
-    draw_aabb(gizmos, world, visible, Color::srgba(0.20, 0.95, 1.00, 0.22));
-    draw_aabb(
-        gizmos,
-        world,
-        requested,
-        Color::srgba(1.00, 0.95, 0.20, 0.22),
-    );
-}
-
-pub(crate) fn draw_loading_zones(gizmos: &mut Gizmos, world: &ae::World, zones: &[LoadingZone]) {
+pub(crate) fn draw_loading_zones(
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
+    world: &ae::World,
+    zones: &[LoadingZone],
+) {
     for zone in zones {
         let color = match zone.activation {
             LoadingZoneActivation::EdgeExit => cyan(),
@@ -214,7 +223,7 @@ pub(crate) fn draw_loading_zones(gizmos: &mut Gizmos, world: &ae::World, zones: 
 }
 
 pub(crate) fn draw_ldtk_runtime_spine(
-    gizmos: &mut Gizmos,
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
     world: &ae::World,
     spine_index: &ambition_platformer2d::ldtk_map::LdtkRuntimeSpineIndex,
 ) {
@@ -243,14 +252,14 @@ pub(crate) fn draw_ldtk_runtime_spine(
 
 #[cfg(feature = "input")]
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn draw_player_debug(
-    gizmos: &mut Gizmos,
+pub(crate) fn draw_body_debug(
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
     world: &ae::World,
     character_catalog: &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     authored_attack_volumes: &ambition_platformer2d::combat::authored_volumes::AuthoredAttackVolumeResolver,
     worn_character_id: &str,
     drawn_quad: Option<ae::Vec2>,
-    clusters: &ae::BodyClustersMut<'_>,
+    clusters: &ae::body_clusters::BodyClusterQueryDataReadOnlyItem<'_, '_>,
     // Where the body is DRAWN this frame — the frame-clock presented
     // position, not `clusters.kinematics.pos`.
     //
@@ -276,7 +285,7 @@ pub(crate) fn draw_player_debug(
     gameplay_active: bool,
     developer_tools: &DeveloperTools,
     gravity_dir: ae::Vec2,
-    labels: &mut DebugOverlayLabels,
+    labels: &mut RoomLabels,
 ) {
     // Everything this function PLACES rides the frame clock; the facts it
     // reports (velocity, stance, contacts) still come from the clusters.
@@ -306,7 +315,7 @@ pub(crate) fn draw_player_debug(
     );
     if developer_tools.show_player_hitbox {
         draw_aabb_styled(gizmos, world, body, cyan(), developer_tools);
-        label_box(labels, body, "player", cyan(), LabelSpot::TopLeft);
+        label_box(labels, body, "body", cyan(), LabelSpot::TopLeft);
     }
 
     let center = w2(world, pos);
@@ -474,7 +483,7 @@ pub(crate) fn draw_player_debug(
 }
 
 pub(crate) fn draw_health_bars(
-    gizmos: &mut Gizmos,
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
     world: &ae::World,
     player_aabb: ae::Aabb,
     player_health: Option<&ambition_platformer2d::characters::actor::BodyHealth>,
@@ -487,7 +496,7 @@ pub(crate) fn draw_health_bars(
 }
 
 pub(crate) fn draw_health_bar(
-    gizmos: &mut Gizmos,
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
     world: &ae::World,
     aabb: ae::Aabb,
     ratio: f32,
@@ -516,12 +525,13 @@ pub(crate) fn draw_health_bar(
 /// expects when `Hide Sprites` is also on — sprites disappear and the boxes
 /// reveal exactly where each entity lives.
 pub(crate) fn draw_feature_debug(
-    gizmos: &mut Gizmos,
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
     world: &ae::World,
     feature_q: &FeatureDebugQueries,
     developer_tools: &DeveloperTools,
-    labels: &mut DebugOverlayLabels,
+    labels: &mut RoomLabels,
 ) {
+    let room = labels.room;
     // Colors per role — strong enough to read against most backgrounds.
     let npc_color = Color::srgba(0.30, 1.00, 0.45, 0.85); // green
     let enemy_color = Color::srgba(1.00, 0.32, 0.32, 0.88); // red
@@ -534,7 +544,11 @@ pub(crate) fn draw_feature_debug(
     // "fighting" (in a faction feud) is amber — distinct from "hostile" (after a
     // controlled character) red and "peaceful" green.
     let fighting_color = Color::srgba(1.00, 0.78, 0.20, 0.88);
-    for (disposition, aggression, aabb) in feature_q.actors.iter() {
+    for (entity, disposition, aggression, aabb) in feature_q
+        .actors
+        .iter()
+        .filter(|(entity, ..)| feature_q.rooms.of(*entity) == Some(room))
+    {
         // State is DERIVED, not a stored actor TYPE: an actor is "fighting" while it
         // has a combat target (the disposition stands down to peaceful the instant
         // the target is gone — a duel winner, an enemy that lost the player). The
@@ -557,8 +571,13 @@ pub(crate) fn draw_feature_debug(
         // `CenteredAabb` is already oriented to the actor's surface (a clung
         // surface-walker swaps width<->height onto a wall — see
         // `update_ecs_actors`), so the drawn box matches the rotated sprite.
-        draw_aabb_styled(gizmos, world, aabb.aabb(), color, developer_tools);
-        label_box(labels, aabb.aabb(), actor_label, color, LabelSpot::TopLeft);
+        let delta = feature_q
+            .body_deltas
+            .get(entity)
+            .map_or(ae::Vec2::ZERO, |pose| pose.delta());
+        let drawn = aabb.aabb().translated(delta);
+        draw_aabb_styled(gizmos, world, drawn, color, developer_tools);
+        label_box(labels, drawn, actor_label, color, LabelSpot::TopLeft);
         // Actor strike geometry is deliberately NOT reconstructed here. Live
         // body-owned strikes are published by `CombatGeometryView` from the
         // authoritative `Hitbox` entities and drawn by the shared debug layer.
@@ -589,8 +608,17 @@ pub(crate) fn draw_feature_debug(
     // MemorizedVolley, MinionCascade) route damage through World-anchored
     // `Hitbox` entities, drawn by the shared `CombatGeometryView` layer.
     let body_contact_color = Color::srgba(0.95, 0.30, 0.95, 0.85); // magenta
-    for (bf, health, attack_state, animation_frame) in feature_q.bosses.iter() {
+    for (entity, bf, health, attack_state, animation_frame) in feature_q
+        .bosses
+        .iter()
+        .filter(|(entity, ..)| feature_q.rooms.of(*entity) == Some(room))
+    {
         let boss = bf.as_boss_ref();
+        let delta = feature_q
+            .body_deltas
+            .get(entity)
+            .map_or(ae::Vec2::ZERO, |pose| pose.delta());
+        let collision = boss.aabb().translated(delta);
         if !health.alive() {
             continue;
         }
@@ -601,10 +629,10 @@ pub(crate) fn draw_feature_debug(
                 attack_state,
             )
             .with_animation_frame(animation_frame);
-        draw_aabb_styled(gizmos, world, boss.aabb(), boss_color, developer_tools);
+        draw_aabb_styled(gizmos, world, collision, boss_color, developer_tools);
         label_box(
             labels,
-            boss.aabb(),
+            collision,
             "collision",
             boss_color,
             LabelSpot::BottomLeft,
@@ -614,20 +642,20 @@ pub(crate) fn draw_feature_debug(
         // boss (like GNU-ton) doesn't show a misleading magenta
         // outline.
         if boss.config.behavior.body_damage > 0 {
-            // Use `boss.aabb()` directly — that already factors in
+            // Use `collision` directly — that already factors in
             // `combat_offset` so the magenta box lines up with the
             // visible body (and matches the pogo zone, which uses
             // the same call).
             draw_aabb_styled(
                 gizmos,
                 world,
-                boss.aabb(),
+                collision,
                 body_contact_color,
                 developer_tools,
             );
             label_box(
                 labels,
-                boss.aabb(),
+                collision,
                 "contact",
                 body_contact_color,
                 LabelSpot::BottomRight,
@@ -638,21 +666,29 @@ pub(crate) fn draw_feature_debug(
         // guard that decides whether a blow on them lands.
         let turns_blows = boss.status.guarded || boss.config.behavior.environmental_kill_only;
         let (guard_text, guard_color) = if turns_blows {
-            ("GUARD UP: blows and shots turn", Color::srgba(0.55, 0.80, 1.00, 0.95),
+            (
+                "GUARD UP: blows and shots turn",
+                Color::srgba(0.55, 0.80, 1.00, 0.95),
             )
         } else {
             ("guard down: blows land", cyan())
         };
-        label_box(labels, boss.aabb(), guard_text, guard_color, LabelSpot::TopRight,
+        label_box(
+            labels,
+            collision,
+            guard_text,
+            guard_color,
+            LabelSpot::TopRight,
         );
         if turns_blows {
-            let guard = boss.aabb();
+            let guard = collision;
             let ring = ae::Aabb::new(guard.center(), guard.half_size() + ae::Vec2::splat(3.0));
             draw_aabb_styled(gizmos, world, ring, guard_color, developer_tools);
         }
         for vol in
             ambition_platformer2d::boss_encounter::attack_geometry::active_attack_volumes(&ctx)
         {
+            let vol = vol.translated(delta);
             draw_hitbox_volume(gizmos, world, &vol, active_color, developer_tools);
             label_box(
                 labels,
@@ -663,7 +699,11 @@ pub(crate) fn draw_feature_debug(
             );
         }
     }
-    for aabb in feature_q.breakables.iter() {
+    for (_, aabb) in feature_q
+        .breakables
+        .iter()
+        .filter(|(entity, _)| feature_q.rooms.of(*entity) == Some(room))
+    {
         draw_aabb_styled(gizmos, world, aabb.aabb(), breakable_color, developer_tools);
         label_box(
             labels,
@@ -673,7 +713,11 @@ pub(crate) fn draw_feature_debug(
             LabelSpot::TopLeft,
         );
     }
-    for aabb in feature_q.chests.iter() {
+    for (_, aabb) in feature_q
+        .chests
+        .iter()
+        .filter(|(entity, _)| feature_q.rooms.of(*entity) == Some(room))
+    {
         draw_aabb_styled(gizmos, world, aabb.aabb(), chest_color, developer_tools);
         label_box(
             labels,
@@ -683,7 +727,11 @@ pub(crate) fn draw_feature_debug(
             LabelSpot::TopLeft,
         );
     }
-    for hf in feature_q.hazards.iter() {
+    for (_, hf) in feature_q
+        .hazards
+        .iter()
+        .filter(|(entity, _)| feature_q.rooms.of(*entity) == Some(room))
+    {
         draw_aabb_styled(
             gizmos,
             world,
@@ -712,12 +760,13 @@ pub(crate) fn draw_feature_debug(
 /// comes from frozen combat allegiance, never from whether the shot used named
 /// or open-visual presentation.
 pub(crate) fn draw_projectile_debug(
-    gizmos: &mut Gizmos,
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
     world: &ae::World,
     feature_q: &mut FeatureDebugQueries,
     developer_tools: &DeveloperTools,
-    labels: &mut DebugOverlayLabels,
+    labels: &mut RoomLabels,
 ) {
+    let room = labels.room;
     let player_color = Color::srgba(1.00, 0.74, 0.30, 0.92);
     let hostile_color = Color::srgba(1.00, 0.32, 0.32, 0.92);
     // The fainter box a splashing shot (the fireball) bursts with where it
@@ -726,10 +775,14 @@ pub(crate) fn draw_projectile_debug(
     // was this box not being drawn.
     let splash_color = Color::srgba(1.00, 0.55, 0.20, 0.45);
     let bounce_color = Color::srgba(0.45, 1.00, 0.55, 0.95);
-    let dt = feature_q.time.delta_secs();
-    let trail = &mut *feature_q.bounce_trail;
+    let now = feature_q.time.elapsed_secs_f64();
+    let trail = feature_q.bounce_trail.0.entry(room).or_default();
     let mut live = std::collections::HashSet::new();
-    for (entity, kin, allegiance, game) in feature_q.live_projectiles.iter() {
+    for (entity, kin, allegiance, game) in feature_q
+        .live_projectiles
+        .iter()
+        .filter(|(entity, ..)| feature_q.rooms.of(*entity) == Some(room))
+    {
         live.insert(entity);
         let color = if allegiance.is_some_and(|side| {
             side.faction == ambition_platformer2d::characters::actor::ActorFaction::Player
@@ -761,31 +814,41 @@ pub(crate) fn draw_projectile_debug(
         // A bounce spends one of its budget: mark it where the shot is now.
         if let Some(before) = trail.budgets.insert(entity, game.bounces_remaining) {
             if game.bounces_remaining < before {
-                trail.marks.push((kin.pos, BOUNCE_MARK_SECS));
+                trail
+                    .marks
+                    .push((kin.pos, now + f64::from(BOUNCE_MARK_SECS)));
             }
         }
     }
     trail.budgets.retain(|entity, _| live.contains(entity));
-    trail.marks.retain_mut(|(_, left)| {
-        *left -= dt;
-        *left > 0.0
-    });
-    for (pos, left) in &trail.marks {
-        let fade = (*left / BOUNCE_MARK_SECS).clamp(0.0, 1.0);
+    trail.marks.retain(|(_, until)| *until > now);
+    for (pos, until) in &trail.marks {
+        let fade = ((*until - now) as f32 / BOUNCE_MARK_SECS).clamp(0.0, 1.0);
         let c = with_alpha(bounce_color, fade);
         let arm = 5.0;
-        gizmos.line_2d(w2(world, *pos + ae::Vec2::new(-arm, -arm)), w2(world, *pos + ae::Vec2::new(arm, arm)), c,
+        gizmos.line_2d(
+            w2(world, *pos + ae::Vec2::new(-arm, -arm)),
+            w2(world, *pos + ae::Vec2::new(arm, arm)),
+            c,
         );
-        gizmos.line_2d(w2(world, *pos + ae::Vec2::new(-arm, arm)), w2(world, *pos + ae::Vec2::new(arm, -arm)), c,
+        gizmos.line_2d(
+            w2(world, *pos + ae::Vec2::new(-arm, arm)),
+            w2(world, *pos + ae::Vec2::new(arm, -arm)),
+            c,
         );
     }
 }
 
 /// Label each combat body with what decides a blow on it, above its box: its
 /// side, its health, whether it is invulnerable, a boss's guard. And each live hitbox with the damage it deals.
-pub(crate) fn label_combat_properties(feature_q: &FeatureDebugQueries, labels: &mut DebugOverlayLabels,
-) {
-    for body in &feature_q.combat_geometry.bodies {
+pub(crate) fn label_combat_properties(feature_q: &FeatureDebugQueries, labels: &mut RoomLabels) {
+    let room = labels.room;
+    for body in feature_q
+        .combat_geometry
+        .bodies
+        .iter()
+        .filter(|body| feature_q.rooms.of(body.body) == Some(room))
+    {
         let Ok((faction, health, boss, boss_config)) = feature_q.body_props.get(body.body) else {
             continue;
         };
@@ -807,12 +870,38 @@ pub(crate) fn label_combat_properties(feature_q: &FeatureDebugQueries, labels: &
         if parts.is_empty() {
             continue;
         }
-        let top = body.collision.center() - ae::Vec2::new(0.0, body.collision.half_size().y + 6.0);
-        labels.0.push(DebugLabel { world_pos: top, text: parts.join(" "), color: Color::srgba(0.95, 0.95, 0.95, 1.0),
+        let delta = feature_q
+            .body_deltas
+            .get(body.body)
+            .map_or(ae::Vec2::ZERO, |pose| pose.delta());
+        let top = body.collision.center() + delta
+            - ae::Vec2::new(0.0, body.collision.half_size().y + 6.0);
+        labels.labels.push(DebugLabel {
+            room: labels.room,
+            world_pos: top,
+            text: parts.join(" "),
+            color: Color::srgba(0.95, 0.95, 0.95, 1.0),
         });
     }
-    for strike in &feature_q.combat_geometry.strikes {
-        label_box(labels, strike.volume.bounds(), format!("dmg {}", strike.damage), red(), LabelSpot::Center,
+    for strike in feature_q
+        .combat_geometry
+        .strikes
+        .iter()
+        .filter(|strike| feature_q.rooms.of(strike.strike) == Some(room))
+    {
+        let delta = feature_q
+            .body_deltas
+            .get(strike.owner)
+            .map_or(ae::Vec2::ZERO, |pose| pose.delta());
+        label_box(
+            labels,
+            ambition_platformer2d::render::rendering::debug_viz::presented_strike_volume(
+                strike, delta,
+            )
+            .bounds(),
+            format!("dmg {}", strike.damage),
+            red(),
+            LabelSpot::Center,
         );
     }
 }

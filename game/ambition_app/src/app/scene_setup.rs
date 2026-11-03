@@ -172,7 +172,15 @@ pub fn session_gameplay_dressing(
     // player entity. The app owns only the scene composition below (cameras, HUD,
     // audio); character presentation is engine-generic so demos share it.
 
-    let mut hud_entity = commands.spawn((
+    let mut inspector = commands.spawn((
+        super::hud::PrimaryInspectionHud,
+        Node { position_type: PositionType::Absolute, overflow: Overflow::clip(), ..default() },
+        Pickable::IGNORE,
+        Name::new("Primary inspection HUD surface"),
+    ));
+    scope.apply_to(&mut inspector);
+    let inspector = inspector.id();
+    commands.spawn((
         Text::new("Ambition"),
         ui_fonts
             .map(|fonts| fonts.text_font(14.0, UiFontWeight::Monospace))
@@ -185,13 +193,15 @@ pub fn session_gameplay_dressing(
             position_type: PositionType::Absolute,
             left: Val::Px(14.0),
             top: Val::Px(10.0),
+            right: Val::Px(14.0),
             max_width: Val::Px(920.0),
             ..default()
         },
         Name::new("Debug HUD"),
         HudText,
+        Pickable::IGNORE,
+        ChildOf(inspector),
     ));
-    scope.apply_to(&mut hud_entity);
 
     // Quest panel: top-right corner, dedicated text widget. Separated
     // from the debug HUD so the quest log doesn't trail the stats dump.

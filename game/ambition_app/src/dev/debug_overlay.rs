@@ -4,24 +4,25 @@
 //! engine exposes simulation state; this module decides how to visualize that
 //! state for tuning and feel work.
 
-#![allow(unused_imports)]
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::AabbExt;
+use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
+use ambition_platformer2d::render::rendering::retained_drawings::{DrawingScope, RetainedDrawings};
 use bevy::ecs::system::SystemParam;
+use bevy::gizmos::{config::GizmoConfigGroup, gizmos::GizmoBuffer};
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
-use ambition_platformer2d::dev_tools::dev_tools::DeveloperTools;
 use ambition_platformer2d::dev_tools::DeveloperRuntimeState;
-use ambition_platformer2d::engine_core::config::world_to_bevy;
+use ambition_platformer2d::dev_tools::dev_tools::DeveloperTools;
 use ambition_platformer2d::engine_core::RoomGeometry;
+use ambition_platformer2d::engine_core::config::world_to_bevy;
 #[cfg(feature = "input")]
 use ambition_platformer2d::input::Platformer2dInputActionMonolith;
-use ambition_platformer2d::input::{read_gameplay_control_frame, ControlFrame};
+use ambition_platformer2d::input::read_gameplay_control_frame;
 use ambition_platformer2d::platformer::schedule::GameMode;
 use ambition_platformer2d::render::rendering::CameraViewState;
-use ambition_platformer2d::world::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
-#[cfg(feature = "input")]
+use ambition_platformer2d::world::rooms::{LoadingZone, LoadingZoneActivation};
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
 
@@ -34,304 +35,265 @@ pub use prims::*;
 // debug-viz module now (`DebugVizPlugin` gives them to any game); this richer
 // overlay composes them with its game-specific layers below.
 pub(crate) use ambition_platformer2d::render::rendering::debug_viz::{
-    blue, cyan, draw_aabb, draw_aabb_styled, draw_arrow, draw_combat_geometry_view,
-    draw_combat_volume, draw_hitbox_volume, draw_micro_grid, draw_moving_platform_debug,
-    draw_rebound_vectors, draw_room_bounds, draw_surface_chains, draw_world_blocks,
-    draw_world_grid, engine_delta_to_bevy, gray, green, magenta, orange, presentation_deltas, red,
-    w2, white_dim, with_alpha, yellow,
+    blue, cyan, draw_aabb, draw_aabb_styled, draw_arrow, draw_camera_frame,
+    draw_combat_geometry_view, draw_combat_volume, draw_hitbox_volume, draw_world_geometry,
+    engine_delta_to_bevy, gray, green, magenta, presentation_deltas, red, w2, with_alpha,
+    yellow,
 };
 
-/// Draw the per-frame [`DebugOverlayLabels`] buffer as TEXT GIZMOS.
-///
-/// ⛔⛔ THIS USED TO DESPAWN AND RESPAWN AN ENTITY PER LABEL, EVERY FRAME. The
-/// labels are immediate-mode facts — "this box is the hurtbox" — drawn beside
-/// gizmo lines that are already immediate-mode, and the only reason they were
-/// retained `Text2d` entities is that Bevy had no way to draw text without one.
-/// 0.19 does. What goes with the entities: the spawn churn, the despawn sweep,
-/// the `DebugOverlayLabel` marker, the lifetime bookkeeping, and — the one that
-/// mattered — the dependency of F1 world labels on the PRODUCT font stack.
-/// A developer overlay should not be able to fail because a typeface has not
-/// finished loading.
-///
-/// ⭐ THE SIZE CONSTANT SURVIVES UNCHANGED, and that was checked rather than
-/// assumed: `Gizmos::text_2d` takes an `Isometry2d` in WORLD space, so its
-/// `font_size` is world units exactly as `Text2d`'s was. Labels keep scaling
-/// with camera zoom, which is the behaviour the boss-fight zoom was tuned at.
-///
-/// ⭐ The stroke font is ASCII-only, which is correct here — these strings are
-/// `hurtbox`, `contact`, `collision`. Player-facing text stays on the real
-/// typography stack.
-///
-/// Runs while a label is queued ([`a_debug_label_is_queued`]) and drains the
-/// buffer; gizmos last one frame, so toggling the overlay off (no pushes) clears
-/// the labels on the next frame exactly as before.
+#[derive(Component, Default)]
+pub(crate) struct DebugOverlayDrawing;
+
+#[derive(Component, Default)]
+pub(crate) struct DebugLabelDrawing;
+
+/// Draw labels through their room's geometry and native render mask.
 pub(crate) fn render_debug_overlay_labels(
-    mut gizmos: Gizmos,
+    mut drawings: RetainedDrawings<DebugLabelDrawing>,
     worlds: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<RoomGeometry>,
-    room: ambition_platformer2d::platformer::body::PrimaryLiveRoom,
     mut labels: ResMut<DebugOverlayLabels>,
 ) {
-    // The labels are in the room that `draw_debug_overlay` drew: the room of
-    // the primary seat.
-    let Some(world) = room.get().and_then(|live| worlds.in_room(live)) else {
-        return;
-    };
-    for label in labels.0.drain(..) {
-        // ⛔ THE Z IS DISCARDED, AND NOTHING IS LOST. Until the 0.19 move off
-        // `Text2d` these labels were entities at Z=200, picked to clear
-        // gameplay art (player=20, fx=30). A text gizmo takes a 2D position:
-        // `bevy_gizmos_render`'s 2D pipeline queues every gizmo into
-        // `Transparent2d` at `sort_key: FloatOrd(f32::INFINITY)` with
-        // `depth_compare: Always`, so the phase itself puts labels above the art
-        // and the old constant carried nothing. It is gone rather than passed.
-        let at = world_to_bevy(&world.0, label.world_pos, 0.0).truncate();
-        gizmos.text_2d(
-            at,
-            &label.text,
-            DEBUG_LABEL_FONT_PX,
-            // Centred: the anchor the box-corner offsets in `label_box` were
-            // chosen against, so the fan-out for overlapping boxes is preserved.
-            Vec2::ZERO,
-            label.color,
-        );
+    let rooms: std::collections::BTreeSet<_> = labels.0.iter().map(|label| label.room).collect();
+    for room in rooms {
+        let Some(world) = worlds.in_room(room) else {
+            continue;
+        };
+        drawings.draw(DrawingScope::Room(room), |picture| {
+            for label in labels.0.iter().filter(|label| label.room == room) {
+                picture.text_2d(
+                    world_to_bevy(&world.0, label.world_pos, 0.0).truncate(),
+                    &label.text,
+                    DEBUG_LABEL_FONT_PX,
+                    Vec2::ZERO,
+                    label.color,
+                );
+            }
+        });
     }
+    labels.0.clear();
+    drawings.finish();
 }
 
-/// No-op stub for builds without the `input` feature. The full overlay
-/// reads leafwing's `ActionState` to render combat/blink previews; without
-/// leafwing in scope, gizmos for those would have no input source. Sim
-/// gizmos that don't need input are also skipped to keep the chain
-/// signature stable across feature combinations.
 #[cfg(not(feature = "input"))]
 pub(crate) fn draw_debug_overlay() {}
 
-/// Run condition of [`draw_debug_overlay`]: its own first test, as a
-/// condition. Off, it draws nothing and queues no label.
 #[cfg(feature = "input")]
-pub(crate) fn the_debug_overlay_is_on(dev_state: Res<DeveloperRuntimeState>, developer_tools: Res<DeveloperTools>) -> bool {
-    dev_state.debug_enabled() && developer_tools.gizmos_enabled
-}
-
-#[cfg(not(feature = "input"))]
-pub(crate) fn the_debug_overlay_is_on() -> bool {
-    false
-}
-
-/// Run condition of [`render_debug_overlay_labels`]: a label is queued.
-pub(crate) fn a_debug_label_is_queued(labels: Res<DebugOverlayLabels>) -> bool {
-    !labels.0.is_empty()
-}
-
-#[cfg(feature = "input")]
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn draw_debug_overlay(
-    mut gizmos: Gizmos,
+    mut drawings: RetainedDrawings<DebugOverlayDrawing>,
     worlds: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<RoomGeometry>,
     dev_state: Res<DeveloperRuntimeState>,
     platform_sets: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<
         ambition_platformer2d::world::collision::MovingPlatformSet,
     >,
-    // The ONE collision read-API, for the blink preview — the same composition
-    // `step_motion` collides against. See `draw_player_debug`'s `blink_world`.
     collision: ambition_platformer2d::world::collision::CollisionWorld,
     developer_tools: Res<DeveloperTools>,
-    room: ambition_platformer2d::world::rooms::PrimaryLiveRoomSpec,
+    room_specs: ambition_platformer2d::world::rooms::LiveRoomSpecs,
     ldtk_spine_index: Res<ambition_platformer2d::ldtk_map::LdtkRuntimeSpineIndex>,
-    // Was `Res<CameraViewState>`, a process-global describing "the" gameplay view — which is
-    // the one thing a debug overlay must not assume once a split layout draws two.
-    camera_view: ambition_platformer2d::sim_view::PresentedViewState,
-    mode: Res<State<GameMode>>,
-    mut overlay_labels: ResMut<DebugOverlayLabels>,
-    action_query: Query<
-        &ActionState<Platformer2dInputActionMonolith>,
-        With<ambition_platformer2d::input::InputParticipant>,
-    >,
-    mut player_q: Query<
+    views: Query<
         (
             Entity,
-            ae::BodyClusterQueryData,
-            // The movement policy: the overlay is a dev tool and draws the
-            // policy's private internals (ledge anchor, blink aim) directly.
-            &ae::MotionModel,
-            Option<&ambition_platformer2d::characters::actor::BodyHealth>,
-            // The swing, derived from the live move.
-            ambition_platformer2d::combat::moveset::MeleeSwingQuery,
-            &ambition_platformer2d::characters::actor::WornCharacter,
-            // The frame-clock position the sprite is drawn at. The overlay must
-            // sample the SAME clock as the camera it is drawn through, or the box
-            // shakes against a world that looks perfectly stable — see
-            // `draw_player_debug`'s `draw_pos`.
-            Option<&ambition_platformer2d::sim_view::PresentedPose>,
-            // The quad the body is drawn at, which scales its authored blade.
-            Option<&ambition_platformer2d::combat::components::ActorRenderSize>,
+            &ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot,
+            &CameraViewState,
         ),
-        // The primary player never carries `FeatureSimEntity` (player vs
-        // feature-sim entities are mutually exclusive — see the kinematics
-        // unification). Spell that disjointness out with `Without` so Bevy can
-        // prove this `&mut BodyKinematics` (BodyClusterQueryData) query does
-        // not conflict with the `bosses`/`actors` feature queries that read
-        // `BodyKinematics` under `With<FeatureSimEntity>` (B0001).
-        (
-            ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
-            Without<ambition_platformer2d::actor::FeatureSimEntity>,
-        ),
+        With<ambition_platformer2d::sim_view::LocalView>,
     >,
+    mode: Res<State<GameMode>>,
+    mut overlay_labels: ResMut<DebugOverlayLabels>,
+    action_query: Query<(
+        &ambition_platformer2d::input::InputParticipant,
+        &ActionState<Platformer2dInputActionMonolith>,
+    )>,
+    bodies: Query<(
+        Entity,
+        ae::body_clusters::BodyClusterQueryDataReadOnly,
+        &ae::MotionModel,
+        Option<&ambition_platformer2d::characters::actor::BodyHealth>,
+        ambition_platformer2d::combat::moveset::MeleeSwingQuery,
+        &ambition_platformer2d::characters::actor::WornCharacter,
+        Option<&ambition_platformer2d::sim_view::PresentedPose>,
+        Option<&ambition_platformer2d::combat::components::ActorRenderSize>,
+        Option<&ambition_platformer2d::characters::control::DrivingParticipant>,
+        &ambition_platformer2d::platformer::frame_env::ResolvedMotionFrame,
+    )>,
     mut feature_q: FeatureDebugQueries,
-    #[cfg(feature = "portal")] portals: Query<&ambition_platformer2d::portal::PlacedPortal>,
+    #[cfg(feature = "portal")] portals: Query<(
+        Entity,
+        &ambition_platformer2d::portal::PlacedPortal,
+    )>,
 ) {
-    if !dev_state.debug_enabled() || !developer_tools.gizmos_enabled {
-        return;
-    }
-    // Start each frame's label buffer fresh; `render_debug_overlay_labels`
-    // drains it after this system runs.
     overlay_labels.0.clear();
-
-    // The overlay draws the room of the primary seat, whose player it draws.
-    // With two live rooms there is no sole room, and the overlay must not go
-    // dark.
-    let Some(live) = room.room() else {
+    if !dev_state.debug_enabled() || !developer_tools.gizmos_enabled {
+        drawings.finish();
         return;
-    };
-    let (Some(world), Some(room_spec)) = (worlds.in_room(live), room.spec()) else {
-        return;
-    };
-    let world = &world.0;
-    // Mirror the gameplay input gate used by the player tick. Raw Leafwing
-    // action state still records button presses while paused so pause/menu
-    // UI can respond, but debug combat/blink previews are gameplay-facing and
-    // should not light up from those paused-mode inputs.
+    }
+    feature_q
+        .bounce_trail
+        .0
+        .retain(|room, _| worlds.in_room(*room).is_some());
+    let shown: std::collections::BTreeSet<_> = views
+        .iter()
+        .filter_map(|(_, view, _)| view.frame().map(|frame| frame.room))
+        .collect();
     let gameplay_active = mode.get().allows_gameplay();
-    let actions = if gameplay_active {
-        action_query.single().ok()
-    } else {
-        None
-    };
-    // World- and combat-level observability is independent of whether this host
-    // happens to contain a legacy `PrimaryPlayerOnly` body. Smash deliberately
-    // does not; that must not make every other debug layer disappear.
-    if developer_tools.show_room_bounds {
-        draw_room_bounds(&mut gizmos, world);
-    }
-    if developer_tools.show_world_blocks {
-        draw_world_blocks(&mut gizmos, world, &developer_tools);
-        draw_surface_chains(&mut gizmos, world);
-    }
-    if developer_tools.show_micro_grid {
-        draw_micro_grid(&mut gizmos, world, 8.0, 16.0);
-    }
-    if developer_tools.hide_sprites {
-        draw_world_grid(&mut gizmos, world);
+    for live in shown {
+        let (Some(world), Some(definition)) =
+            (worlds.in_room(live), room_specs.definition_in(live))
+        else {
+            continue;
+        };
+        let world = &world.0;
+        let room_spec = room_specs.rooms().spec(definition);
+        let mut labels = RoomLabels {
+            room: live,
+            labels: &mut overlay_labels.0,
+        };
+        drawings.draw(DrawingScope::Room(live), |gizmos| {
+            draw_world_geometry(
+                gizmos,
+                world,
+                &developer_tools,
+                platform_sets
+                    .in_room(live)
+                    .map_or(&[][..], |platforms| &platforms.0[..]),
+                feature_q
+                    .base_gravity
+                    .as_deref()
+                    .map_or(ae::Vec2::Y, |gravity| gravity.dir_in(Some(live))),
+            );
+            if developer_tools.show_loading_zones {
+                draw_loading_zones(gizmos, world, &room_spec.loading_zones);
+                if ldtk_spine_index.active_area == room_spec.id {
+                    draw_ldtk_runtime_spine(gizmos, world, &ldtk_spine_index);
+                }
+            }
+            let combat = ambition_platformer2d::render::rendering::debug_viz::combat_rows_in(
+                &feature_q.combat_geometry,
+                live,
+                |body| worlds.room_of(body),
+            );
+            draw_combat_geometry_view(
+                gizmos,
+                world,
+                &combat,
+                &developer_tools,
+                &presentation_deltas(&combat, &feature_q.body_deltas),
+            );
+            for (
+                entity,
+                clusters,
+                motion_model,
+                health,
+                attack,
+                character,
+                presented,
+                drawn,
+                driver,
+                frame,
+            ) in bodies
+                .iter()
+                .filter(|(entity, ..)| worlds.room_of(*entity) == Some(live))
+            {
+                let body_gameplay = gameplay_active
+                    && driver.is_none_or(|driver| {
+                        feature_q
+                            .input_contexts
+                            .as_deref()
+                            .is_none_or(|contexts| contexts.gameplay_owned(driver.0.0))
+                    });
+                let actions = driver.filter(|_| body_gameplay).and_then(|driver| {
+                    action_query
+                        .iter()
+                        .find(|(participant, _)| participant.id.0 == driver.0.0)
+                        .map(|(_, actions)| actions)
+                });
+                let draw_pos =
+                    presented.map_or(clusters.kinematics.pos, |presented| presented.presented());
+                let solids = collision
+                    .room(Some(&InRoomInstance(live)))
+                    .and_then(|room| room.solids_for(entity));
+                draw_body_debug(
+                    gizmos,
+                    world,
+                    &feature_q.character_catalog,
+                    &feature_q.authored_attack_volumes,
+                    character.id(),
+                    drawn.map(|quad| quad.0),
+                    &clusters,
+                    draw_pos,
+                    motion_model,
+                    solids.as_deref().unwrap_or(world),
+                    attack.swing().as_ref(),
+                    actions,
+                    body_gameplay,
+                    &developer_tools,
+                    frame.down(),
+                    &mut labels,
+                );
+                if developer_tools.show_health_bars {
+                    let delta = presented.map_or(ae::Vec2::ZERO, |presented| presented.delta());
+                    draw_health_bars(
+                        gizmos,
+                        world,
+                        clusters
+                            .kinematics
+                            .collision_box(clusters.sweep)
+                            .translated(delta),
+                        health,
+                    );
+                }
+            }
+            if developer_tools.show_feature_hitboxes {
+                draw_feature_debug(gizmos, world, &feature_q, &developer_tools, &mut labels);
+                #[cfg(feature = "portal")]
+                draw_portals(
+                    gizmos,
+                    world,
+                    portals
+                        .iter()
+                        .filter(|(entity, _)| worlds.room_of(*entity) == Some(live))
+                        .map(|(_, portal)| portal),
+                );
+            }
+            if developer_tools.show_feature_hitboxes
+                || developer_tools.show_player_hitbox
+                || developer_tools.show_combat_preview
+            {
+                draw_projectile_debug(gizmos, world, &mut feature_q, &developer_tools, &mut labels);
+                label_combat_properties(&feature_q, &mut labels);
+            }
+            if developer_tools.show_feature_hitboxes || developer_tools.show_player_hitbox {
+                draw_ground_item_debug(
+                    gizmos,
+                    world,
+                    feature_q.ground_items.as_deref(),
+                    live,
+                    &developer_tools,
+                );
+            }
+        });
     }
     if developer_tools.show_camera_frame {
-        if let Some(camera_view) = camera_view.get() {
-            draw_camera_frame(&mut gizmos, world, camera_view);
+        for (view, resolved, camera) in &views {
+            if let Some(world) = resolved
+                .frame()
+                .and_then(|frame| worlds.in_room(frame.room))
+            {
+                drawings.draw(DrawingScope::View(view), |gizmos| {
+                    draw_camera_frame(gizmos, &world.0, camera)
+                });
+            }
         }
     }
-    if developer_tools.show_loading_zones {
-        draw_loading_zones(&mut gizmos, world, &room_spec.loading_zones);
-        draw_ldtk_runtime_spine(&mut gizmos, world, &ldtk_spine_index);
-    }
-    if developer_tools.show_rebound_vectors {
-        draw_rebound_vectors(&mut gizmos, world);
-    }
-    if developer_tools.show_moving_platform {
-        draw_moving_platform_debug(
-            &mut gizmos,
-            world,
-            platform_sets.in_room(live).map_or(&[][..], |platforms| &platforms.0[..]),
-        );
-    }
-    draw_combat_geometry_view(
-        &mut gizmos,
-        world,
-        &feature_q.combat_geometry,
-        &developer_tools,
-        &presentation_deltas(&feature_q.combat_geometry, &feature_q.body_deltas),
-    );
-
-    // The historical Ambition protagonist still has extra app-specific policy
-    // diagnostics (blink internals, authored preview, health). Treat those as an
-    // optional enrichment instead of the admission ticket for the whole overlay.
-    if let Ok((
-        _player_entity,
-        mut cluster_item,
-        motion_model,
-        player_health,
-        attack,
-        worn_character,
-        presented,
-        drawn,
-    )) = player_q.single_mut()
-    {
-        let clusters = cluster_item.as_clusters_mut();
-        let player_draw_pos =
-            presented.map_or(clusters.kinematics.pos, |presented| presented.presented());
-        let player_gravity =
-            ambition_platformer2d::world::gravity_dir_or_default(feature_q.gravity.as_deref());
-        draw_player_debug(
-            &mut gizmos,
-            world,
-            &feature_q.character_catalog,
-            &feature_q.authored_attack_volumes,
-            worn_character.id(),
-            drawn.map(|quad| quad.0),
-            &clusters,
-            player_draw_pos,
-            motion_model,
-            collision.solids().as_deref().unwrap_or(world),
-            attack.swing().as_ref(),
-            actions,
-            gameplay_active,
-            &developer_tools,
-            player_gravity,
-            &mut overlay_labels,
-        );
-        if developer_tools.show_health_bars {
-            draw_health_bars(
-                &mut gizmos,
-                world,
-                // Over the box the body has, as the overlay draws it.
-                clusters.kinematics.collision_box(clusters.sweep.as_deref()),
-                player_health,
-            );
-        }
-    }
-
-    if developer_tools.show_feature_hitboxes {
-        draw_feature_debug(
-            &mut gizmos,
-            world,
-            &feature_q,
-            &developer_tools,
-            &mut overlay_labels,
-        );
-        #[cfg(feature = "portal")]
-        draw_portals(&mut gizmos, world, portals.iter());
-    }
-    // What decides a blow, with the combat geometry it labels: the shots in
-    // flight and where they bounced, and each body's side, health,
-    // invulnerability and guard.
-    if developer_tools.show_feature_hitboxes || developer_tools.show_player_hitbox || developer_tools.show_combat_preview {
-        draw_projectile_debug(&mut gizmos, world, &mut feature_q, &developer_tools, &mut overlay_labels);
-        label_combat_properties(&feature_q, &mut overlay_labels);
-    }
-    // An item's box is a body's collision box, so either body layer draws it.
-    if developer_tools.show_feature_hitboxes || developer_tools.show_player_hitbox {
-        draw_ground_item_debug(
-            &mut gizmos,
-            world,
-            feature_q.ground_items.as_deref(),
-            live,
-            &developer_tools,
-        );
-    }
+    drawings.finish();
 }
 
 #[cfg(all(test, feature = "input"))]
 mod two_live_rooms_tests {
     use bevy::prelude::*;
 
-    use ambition_platformer2d::dev_tools::dev_tools::DeveloperTools;
     use ambition_platformer2d::dev_tools::DeveloperRuntimeState;
+    use ambition_platformer2d::dev_tools::dev_tools::DeveloperTools;
     use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
     use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance};
     use ambition_platformer2d::world::rooms::{LiveRoomDefinition, RoomSet};
@@ -344,10 +306,13 @@ mod two_live_rooms_tests {
     struct DrawnLabels(bool, usize);
 
     fn record_drawn_labels(labels: Res<super::DebugOverlayLabels>, mut drawn: ResMut<DrawnLabels>) {
-        drawn.0 = labels.0.iter().any(|label| label.text == "player");
+        drawn.0 = labels.0.iter().any(|label| label.text == "body");
     }
 
-    fn record_undrawn_labels(labels: Res<super::DebugOverlayLabels>, mut drawn: ResMut<DrawnLabels>) {
+    fn record_undrawn_labels(
+        labels: Res<super::DebugOverlayLabels>,
+        mut drawn: ResMut<DrawnLabels>,
+    ) {
         drawn.1 = labels.0.len();
     }
 
@@ -381,7 +346,10 @@ mod two_live_rooms_tests {
                 .after(super::draw_debug_overlay)
                 .before(super::render_debug_overlay_labels),
         );
-        app.add_systems(Update, record_undrawn_labels.after(super::render_debug_overlay_labels));
+        app.add_systems(
+            Update,
+            record_undrawn_labels.after(super::render_debug_overlay_labels),
+        );
         app.finish();
         app.update();
         app.world_mut().write_message(ShellCommand::ReplaceWith {
@@ -389,19 +357,37 @@ mod two_live_rooms_tests {
             request: None,
         });
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
-        while app.world_mut().query_filtered::<Entity, With<ambition_platformer2d::render::rendering::HudText>>().iter(app.world()).next().is_none() {
+        while app
+            .world_mut()
+            .query_filtered::<Entity, With<ambition_platformer2d::render::rendering::HudText>>()
+            .iter(app.world())
+            .next()
+            .is_none()
+        {
             if std::time::Instant::now() >= deadline {
-                use ambition_platformer2d::{load::LoadCoordinator, load_presentation::LoadForegroundState};
-                let foreground = app.world().get_resource::<LoadForegroundState>()
+                use ambition_platformer2d::{
+                    load::LoadCoordinator, load_presentation::LoadForegroundState,
+                };
+                let foreground = app
+                    .world()
+                    .get_resource::<LoadForegroundState>()
                     .and_then(|state| state.active.as_ref());
-                let snapshot = foreground.and_then(|active| app.world().get_resource::<LoadCoordinator>()
-                    .and_then(|coordinator| coordinator.snapshot(&active.barrier.load_id, &active.barrier.barrier_id)));
+                let snapshot = foreground.and_then(|active| {
+                    app.world()
+                        .get_resource::<LoadCoordinator>()
+                        .and_then(|coordinator| {
+                            coordinator
+                                .snapshot(&active.barrier.load_id, &active.barrier.barrier_id)
+                        })
+                });
                 panic!("the session did not publish its HUD: {snapshot:#?}");
             }
             app.update();
             std::thread::yield_now();
         }
-        app.world_mut().resource_mut::<DeveloperRuntimeState>().debug = true;
+        app.world_mut()
+            .resource_mut::<DeveloperRuntimeState>()
+            .debug = true;
         {
             let mut tools = app.world_mut().resource_mut::<DeveloperTools>();
             tools.gizmos_enabled = true;
@@ -415,28 +401,36 @@ mod two_live_rooms_tests {
             .debug_hud_visible = true;
 
         let (player_label, undrawn, hud) = shown(&mut app);
-        assert!(player_label, "control: one live room: the overlay drew no player label");
-        assert_eq!(undrawn, 0, "control: one live room: the renderer drew every label");
+        assert!(
+            player_label,
+            "control: one live room: the overlay drew no player label"
+        );
+        assert_eq!(
+            undrawn, 0,
+            "control: one live room: the renderer drew every label"
+        );
         let (definition, geometry) = {
             let world = app.world_mut();
             let mut roots = world.query_filtered::<(
                 &LiveRoomDefinition,
                 &ambition_platformer2d::engine_core::RoomGeometry,
-            ), With<ambition_platformer2d::session::RoomInstanceRoot>>();
-            let (definition, geometry) = roots.single(world).expect("the session has one live room");
+            ), With<ambition_platformer2d::session::RoomInstanceRoot>>(
+            );
+            let (definition, geometry) =
+                roots.single(world).expect("the session has one live room");
             (*definition, geometry.clone())
         };
         assert!(
-            hud.starts_with(&format!("{}  ", geometry.0.name)),
+            hud.starts_with(&format!("P1 inspector: {}  ", geometry.0.name)),
             "control: the HUD names the one live room: {hud:?}"
         );
 
         // A second live room, of another definition and a geometry with its
         // own name. The primary body stands in it.
         let other = {
-            let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomSet>(
-                app.world(),
-            )
+            let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+                RoomSet,
+            >(app.world())
             .expect("the session has a room set");
             let id = &rooms
                 .rooms
@@ -449,22 +443,49 @@ mod two_live_rooms_tests {
         let mut second_geometry = geometry.clone();
         second_geometry.0.name = "the second live room".to_string();
         let second_room = LiveRoomInstance::from_ordinal(1_000);
-        let second = ambition_platformer2d::platformer::lifecycle::spawn_live_room(app.world_mut(), second_room, other);
+        let second = ambition_platformer2d::platformer::lifecycle::spawn_live_room(
+            app.world_mut(),
+            second_room,
+            other,
+        );
         app.world_mut().entity_mut(second).insert(second_geometry);
         let primary = app
             .world_mut()
             .query_filtered::<Entity, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
             .single(app.world())
             .expect("one primary player, whose bundle holds the primary body");
-        app.world_mut().entity_mut(primary).insert(InRoomInstance(second_room));
+        app.world_mut()
+            .entity_mut(primary)
+            .insert(InRoomInstance(second_room));
 
         let (player_label, undrawn, hud) = shown(&mut app);
-        assert!(player_label, "two live rooms: the overlay drew no player label");
-        assert_eq!(undrawn, 0, "two live rooms: the renderer did not draw the labels");
         assert!(
-            hud.starts_with("the second live room  ")
+            player_label,
+            "two live rooms: the overlay drew no player label"
+        );
+        assert_eq!(
+            undrawn, 0,
+            "two live rooms: the renderer did not draw the labels"
+        );
+        assert!(
+            hud.starts_with("P1 inspector: the second live room  ")
                 && hud.contains(&format!(" room {}/", other.index() + 1)),
             "two live rooms: the HUD names the primary body's room: {hud:?}"
+        );
+        app.world_mut()
+            .resource_mut::<DeveloperRuntimeState>()
+            .debug = false;
+        app.update();
+        assert!(
+            app.world_mut()
+                .query_filtered::<Entity, Or<(
+                    With<super::DebugOverlayDrawing>,
+                    With<super::DebugLabelDrawing>
+                )>>()
+                .iter(app.world())
+                .next()
+                .is_none(),
+            "turning F1 off must remove shapes and labels"
         );
     }
 }

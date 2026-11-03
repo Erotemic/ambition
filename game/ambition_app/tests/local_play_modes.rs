@@ -17,7 +17,7 @@ use ambition_platformer2d::characters::control::{
 };
 use ambition_platformer2d::engine_core::BodyKinematics;
 use ambition_platformer2d::game_shell::ShellCommand;
-use ambition_platformer2d::platformer::lifecycle::SessionRoot;
+use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, SessionRoot};
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 
 use crate::shell_host_rendered::{rendered_app, settle};
@@ -1190,27 +1190,9 @@ fn queued_crossing(first: u8) {
 #[test]
 #[ignore = "needs a wgpu adapter; captures room loading with participants in separate live rooms"]
 fn separate_rooms_keep_the_other_participants_view_and_controls_while_loading() {
-    use ambition_platformer2d::load::{LoadCommand, LoadCoordinator, LoadWorkState};
-    use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
-    use ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState;
     for slot in [0, 1] {
         let (mut app, pads) = split_session(gpu_app(&format!("ambition-separated-p{slot}-room-loading.png")));
-        let (_, barrier) = delayed_crossing(&mut app, 1 - slot, "switch_lab");
-        let _ = app.world_mut().resource_mut::<LoadCoordinator>().apply(LoadCommand::SetWorkState {
-            load_id: barrier.load_id, work_id: "fixture.delayed-room-art".into(), state: LoadWorkState::Complete,
-        });
-        let mut finished = false;
-        for _ in 0..1200 {
-            app.update();
-            let state = app.world().resource::<RoomTransitionLoadState>();
-            assert!(state.last_failure.is_none(), "the room separation crossing failed");
-            if state.active.is_none() { finished = true; break; }
-            std::thread::sleep(std::time::Duration::from_millis(2));
-        }
-        assert!(finished, "the room separation crossing did not finish");
-        let bodies = [the_primary(&mut app), seat_one_bodies(&mut app)[0]];
-        let rooms = bodies.map(|body| *app.world().get::<InRoomInstance>(body).unwrap());
-        assert_ne!(rooms[0], rooms[1], "the witness must use two real live rooms");
+        let (bodies, rooms) = separate_participant(&mut app, 1 - slot);
         let (mut app, _, _) = hold_crossing(app, pads, slot, "portal_lab");
         capture_frame(&mut app);
         assert_transition_regions(&mut app, slot);
@@ -1219,4 +1201,137 @@ fn separate_rooms_keep_the_other_participants_view_and_controls_while_loading() 
                 "waiting for the next room changed the residency of a participant");
         }
     }
+}
+
+fn separate_participant(app: &mut App, first: u8) -> ([Entity; 2], [ambition_platformer2d::platformer::lifecycle::InRoomInstance; 2]) {
+    use ambition_platformer2d::load::{LoadCommand, LoadCoordinator, LoadWorkState};
+    use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
+    use ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState;
+    let (_, barrier) = delayed_crossing(app, first, "switch_lab");
+    let _ = app.world_mut().resource_mut::<LoadCoordinator>().apply(LoadCommand::SetWorkState {
+        load_id: barrier.load_id, work_id: "fixture.delayed-room-art".into(), state: LoadWorkState::Complete,
+    });
+    let mut finished = false;
+    for _ in 0..1200 {
+        app.update();
+        let state = app.world().resource::<RoomTransitionLoadState>();
+        assert!(state.last_failure.is_none(), "the room separation crossing failed");
+        if state.active.is_none() { finished = true; break; }
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    }
+    assert!(finished, "the room separation crossing did not finish");
+    let bodies = [the_primary(app), seat_one_bodies(app)[0]];
+    let rooms = bodies.map(|body| *app.world().get::<InRoomInstance>(body).unwrap());
+    assert_ne!(rooms[0], rooms[1], "the witness must use two real live rooms");
+    (bodies, rooms)
+}
+
+#[test]
+#[ignore = "needs a wgpu adapter; captures F1 in two separate live rooms"]
+fn debug_geometry_and_labels_stay_in_their_rooms_and_camera_frames_stay_in_their_views() {
+    for separate in [false, true] { capture_debug_views(separate); }
+}
+
+fn capture_debug_views(separate: bool) {
+    use ambition_platformer2d::dev_tools::{DeveloperRuntimeState, dev_tools::DeveloperTools};
+    use ambition_platformer2d::render::rendering::retained_drawings::DrawingScope;
+    use ambition_platformer2d::sim_view::{LocalView, PresentsView, camera_snapshot::ResolvedCameraSnapshot};
+    use ambition_platformer2d::platformer::camera_layers::MainCamera;
+    use bevy::camera::visibility::RenderLayers;
+    let file = if separate { "ambition-two-room-debug.png" } else { "ambition-shared-room-debug.png" };
+    let (mut app, _) = split_session(gpu_app(file));
+    if separate { separate_participant(&mut app, 1); }
+    let bodies = [the_primary(&mut app), seat_one_bodies(&mut app)[0]];
+    let mut portal_colors = Vec::new();
+    for (index, body) in bodies.into_iter().enumerate() {
+        use ambition_platformer2d::portal::{PlacedPortal, PortalChannel, PortalChannelColor};
+        let room = app.world().get::<InRoomInstance>(body).unwrap().0;
+        let pos = app.world().get::<BodyKinematics>(body).unwrap().pos + Vec2::new(100.0, 0.0);
+        let channel = PortalChannel::Authored(PortalChannelColor::Indexed(240 + 2 * index as u8));
+        portal_colors.push((room, channel.display().0.with_alpha(0.95).to_linear()));
+        app.world_mut().spawn((InRoomInstance(room), PlacedPortal::fixed(channel, pos, Vec2::NEG_X, 30.0)));
+    }
+    app.world_mut().resource_mut::<DeveloperRuntimeState>().debug = true;
+    {
+        let mut tools = app.world_mut().resource_mut::<DeveloperTools>();
+        tools.gizmos_enabled = true;
+        tools.show_world_blocks = true;
+        tools.show_micro_grid = true;
+        tools.show_player_hitbox = true;
+        tools.show_feature_hitboxes = true;
+        tools.show_camera_frame = true;
+        tools.show_loading_zones = true;
+    }
+    capture_frame(&mut app);
+    let world = app.world_mut();
+    let cameras: Vec<_> = world.query_filtered::<(&PresentsView, &RenderLayers), With<MainCamera>>()
+        .iter(world).map(|(view, layers)| (view.0, layers.clone())).collect();
+    assert_eq!(cameras.len(), 2);
+    let visible: std::collections::BTreeMap<_, _> = world.query_filtered::<(Entity, &ResolvedCameraSnapshot), With<LocalView>>()
+        .iter(world).map(|(view, snapshot)| (view, snapshot.frame().unwrap().room)).collect();
+    let mut scopes = std::collections::BTreeSet::new();
+    let mut portal_rooms = vec![std::collections::BTreeSet::new(); portal_colors.len()];
+    for (scope, layers, gizmo) in world.query::<(&DrawingScope, Option<&RenderLayers>, &bevy::gizmos::retained::Gizmo)>().iter(world) {
+        scopes.insert(*scope);
+        let layers = layers.cloned().unwrap_or_default();
+        let picture = world.resource::<Assets<bevy::gizmos::GizmoAsset>>().get(&gizmo.handle).unwrap();
+        assert!(!picture.buffer().list_positions.is_empty() || !picture.buffer().strip_positions.is_empty());
+        if let DrawingScope::Room(room) = scope {
+            for (index, (_, color)) in portal_colors.iter().enumerate() {
+                if picture.buffer().list_colors.contains(color) { portal_rooms[index].insert(*room); }
+            }
+        }
+        for (view, camera_layers) in &cameras {
+            let expected = match scope { DrawingScope::Room(room) => visible[view] == *room, DrawingScope::View(owner) => view == owner };
+            assert_eq!(layers.intersects(camera_layers), expected, "{scope:?} has the wrong camera mask");
+        }
+    }
+    for ((room, _), drawn_in) in portal_colors.into_iter().zip(portal_rooms) {
+        assert_eq!(drawn_in, std::collections::BTreeSet::from([room]), "a portal diagnostic belongs only to its own room");
+    }
+    for (view, room) in visible {
+        assert!(scopes.contains(&DrawingScope::Room(room)));
+        assert!(scopes.contains(&DrawingScope::View(view)));
+    }
+}
+
+#[test]
+#[ignore = "needs a wgpu adapter; captures the launcher's measured typography"]
+fn launcher_text_uses_its_rendered_page_and_keeps_a_visible_hierarchy() {
+    use ambition_platformer2d::game_shell::{BasicShellUiRoot, ShellLauncherPresentation};
+    let mut app = gpu_app("ambition-launcher-menu.png");
+    settle(&mut app);
+    capture_frame(&mut app);
+    let world = app.world_mut();
+    let root = world.query_filtered::<Entity, With<BasicShellUiRoot>>().single(world).unwrap();
+    let presentation = world.resource::<ShellLauncherPresentation>();
+    let title = presentation.title.clone();
+    let footer = presentation.footer.clone();
+    let parents: std::collections::HashMap<_, _> = world.query::<(Entity, &ChildOf)>().iter(world)
+        .map(|(entity, parent)| (entity, parent.parent())).collect();
+    let under_root = |mut entity| {
+        while let Some(parent) = parents.get(&entity) {
+            if *parent == root { return true; }
+            entity = *parent;
+        }
+        false
+    };
+    let rem = world.resource::<bevy::text::RemSize>().0;
+    let texts: Vec<_> = world.query::<(Entity, &Text, &TextFont, &ComputedNode, &bevy::ui::ComputedUiRenderTargetInfo)>()
+        .iter(world).filter(|(entity, ..)| under_root(*entity))
+        .map(|(_, text, font, node, target)| (text.0.clone(), font.font_size.eval(target.logical_size(), rem), node.size()))
+        .collect();
+    let measured = |label: &str| {
+        let matches: Vec<_> = texts.iter().filter(|(text, ..)| text == label).collect();
+        assert_eq!(matches.len(), 1, "the launcher must draw its authored text once");
+        let (_, size, bounds) = matches[0];
+        assert!(bounds.cmpgt(Vec2::ZERO).all(), "the text must have a rendered layout box");
+        *size
+    };
+    let title_size = measured(&title);
+    let footer_size = measured(&footer);
+    let control_size = texts.iter().filter(|(text, ..)| text != &title && text != &footer)
+        .map(|(_, size, _)| *size).fold(0.0f32, f32::max);
+    assert!(title_size > control_size && control_size > 0.0, "the title must lead the control labels: {texts:?}");
+    assert!(footer_size > 0.0 && footer_size < title_size, "the footer must remain subordinate: {texts:?}");
 }

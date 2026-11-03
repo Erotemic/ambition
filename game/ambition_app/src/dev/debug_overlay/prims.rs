@@ -20,7 +20,6 @@ use super::*;
 /// reads well at the usual boss-fight zoom).
 pub const DEBUG_LABEL_FONT_PX: f32 = 7.0;
 
-
 /// Where a box's label sits relative to its rect. Each debug box *type* gets a
 /// distinct spot so the labels for overlapping boxes (a boss's collision +
 /// hurtbox + contact zones all share roughly one center) fan out to different
@@ -37,6 +36,7 @@ pub(crate) enum LabelSpot {
 /// One queued debug-box label: world position + text + color (matched to the
 /// box color so the association is read at a glance).
 pub(crate) struct DebugLabel {
+    pub room: ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
     pub world_pos: ae::Vec2,
     pub text: String,
     pub color: Color,
@@ -47,10 +47,15 @@ pub(crate) struct DebugLabel {
 #[derive(Resource, Default)]
 pub(crate) struct DebugOverlayLabels(pub Vec<DebugLabel>);
 
+pub(crate) struct RoomLabels<'a> {
+    pub room: ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+    pub labels: &'a mut Vec<DebugLabel>,
+}
+
 /// Queue a label for `aabb`, anchored at the `spot` corner (inset a few px so
 /// it sits just inside the line). World y is DOWN, so "top" = the smaller y.
 pub(crate) fn label_box(
-    labels: &mut DebugOverlayLabels,
+    labels: &mut RoomLabels,
     aabb: ae::Aabb,
     text: impl Into<String>,
     color: Color,
@@ -66,7 +71,8 @@ pub(crate) fn label_box(
         LabelSpot::BottomRight => ae::Vec2::new(c.x + h.x - pad, c.y + h.y - pad),
         LabelSpot::Center => c,
     };
-    labels.0.push(DebugLabel {
+    labels.labels.push(DebugLabel {
+        room: labels.room,
         world_pos: pos,
         text: text.into(),
         color: with_alpha(color, 1.0),

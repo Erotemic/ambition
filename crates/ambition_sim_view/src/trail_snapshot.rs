@@ -15,10 +15,10 @@ pub enum TrailStripState {
     CollapsingSelfLoop,
 }
 
-/// One continuous strip in Bevy world coordinates, on its live room's band.
+/// One continuous strip in Bevy world coordinates, in its live room.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TrailStrip {
-    pub band: Option<usize>,
+    pub room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
     pub points: Vec<Vec2>,
     pub state: TrailStripState,
 }
@@ -35,9 +35,7 @@ pub fn snapshot_emitted_trails(
 ) -> TrailSnapshot {
     let mut strips = Vec::new();
     for (entity, trail) in &trails {
-        let band = rooms.room_of(entity).and_then(|room| {
-            ambition_platformer2d_shared_tangle::camera_layers::live_room_band(rooms.instances(), room)
-        }).map(|layer| layer - ambition_platformer2d_shared_tangle::camera_layers::LIVE_ROOM_RENDER_LAYER_BASE);
+        let Some(live) = rooms.room_of(entity) else { continue; };
         let Some(room) = rooms.of(entity) else {
             continue;
         };
@@ -58,7 +56,7 @@ pub fn snapshot_emitted_trails(
         for points in trail.render_polylines() {
             if points.len() >= 2 {
                 strips.push(TrailStrip {
-                    band,
+                    room: live,
                     points: to_bevy(points),
                     state,
                 });
@@ -67,7 +65,7 @@ pub fn snapshot_emitted_trails(
         for points in trail.collapsing_loop_polylines() {
             if points.len() >= 2 {
                 strips.push(TrailStrip {
-                    band,
+                    room: live,
                     points: to_bevy(points),
                     state: TrailStripState::CollapsingSelfLoop,
                 });

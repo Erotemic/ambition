@@ -196,14 +196,7 @@ pub fn compile_pack_with(
             (path, edited)
         })
         .collect();
-    let mut draft = ambition_content_pack::ContentPackDraft::from_sources(manifest, sources)?;
-    draft.warnings = warnings;
-    if EMBEDDED_PACK.is_none() { draft.root = source_root(); }
-    ambition_content_pack::compile(
-        &draft,
-        &pack_schemas(),
-        &ambition_content_pack::AssetsUnchecked,
-    )
+    compile_pack_sources(manifest, sources, warnings)
 }
 
 /// The same compile, with the manifest no longer declaring `omit`.
@@ -244,8 +237,17 @@ pub fn compile_pack_omitting_with(
             (path, text)
         })
         .collect();
+    compile_pack_sources(manifest, sources, warnings)
+}
+
+fn compile_pack_sources(
+    manifest: ContentPackManifest,
+    sources: Vec<(String, String)>,
+    warnings: Vec<Diagnostic>,
+) -> Result<PreparedContentPack, CompileFailure> {
     let mut draft = ambition_content_pack::ContentPackDraft::from_sources(manifest, sources)?;
     draft.warnings = warnings;
+    if EMBEDDED_PACK.is_none() { draft.root = source_root(); }
     ambition_content_pack::compile(
         &draft,
         &pack_schemas(),

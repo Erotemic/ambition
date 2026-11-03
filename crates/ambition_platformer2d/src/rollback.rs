@@ -43,7 +43,7 @@ pub use ambition_platformer2d_rollback_ggrs::session::{
 pub use ambition_platformer2d_rollback_ggrs::{
     AdvanceWorld, AdvanceWorldSystems, AmbitionGgrsSession, AmbitionRollbackApp,
     AmbitionRollbackPlugin, Checksum, ChecksumPart, ConfirmedFrameCount, FirstRunWitness,
-    GgrsRollbackRegistrar, GgrsSchedule, LoadWorld, LoadWorldSystems, Rollback,
+    GgrsRollbackRegistrar, GgrsSchedule, LoadWorld, LoadWorldSystems, LocalPlayers, Rollback,
     RollbackChecksumProbes, RollbackEnginePlugin, RollbackProfilePlugin, RollbackFrameCount, RollbackId, RollbackOrdered,
     RollbackRestoreAudit, RunGgrsSystems, SaveWorld, SaveWorldSystems,
 };

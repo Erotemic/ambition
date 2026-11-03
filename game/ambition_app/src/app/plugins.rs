@@ -309,9 +309,8 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     // keyboard from being handed a keyboard system.
     ambition_platformer2d::menu::map::install_map_menu_systems(app);
     app.init_resource::<ambition_platformer2d::game_assets::PropSheets>();
-    app.world_mut().spawn((crate::menu::MenuInstance, inventory_ui::InventoryMenu {
-        owner: ambition_platformer2d::input::ParticipantId::PRIMARY,
-    }, ambition_platformer2d::menu::ActiveMenuPages::<crate::menu::model::MenuPage, crate::menu::model::MenuPageAction>::default()));
+    #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
+    crate::menu::lifecycle::install_session_menus(app);
     app.add_systems(
             Startup,
             (

@@ -23,7 +23,7 @@ pub use ambition_platformer2d_runtime::{PreparedContentIdentity, SnapshotSchemaF
 
 pub use bevy_ggrs::{
     AdvanceWorld, AdvanceWorldSystems, Checksum, ChecksumPart, ConfirmedFrameCount, GgrsSchedule,
-    LoadWorld, LoadWorldSystems, Rollback, RollbackFrameCount, RollbackId, RollbackOrdered,
+    LoadWorld, LoadWorldSystems, LocalPlayers, Rollback, RollbackFrameCount, RollbackId, RollbackOrdered,
     RunGgrsSystems, SaveWorld, SaveWorldSystems,
 };
 

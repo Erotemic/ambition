@@ -119,6 +119,134 @@ fn seat_one_bodies(app: &mut App) -> Vec<Entity> {
         .collect()
 }
 
+fn inventory_menus(app: &mut App) -> std::collections::BTreeMap<u8, (Entity, bool)> {
+    use ambition_platformer2d::inventory_ui::{InventoryMenu, InventoryUiState};
+    let world = app.world_mut();
+    world.query::<(Entity, &InventoryMenu, &InventoryUiState)>().iter(world)
+        .map(|(entity, menu, state)| (menu.owner.slot(), (entity, state.visible))).collect()
+}
+
+fn focused_menu_action(app: &mut App, menu: Entity) -> Option<ambition_app::menu::model::MenuPageAction> {
+    use ambition_app::menu::model::MenuPageAction;
+    use ambition_platformer2d::menu::{AmbitionMenuControl, MenuSurface, MenuVisualState};
+    let world = app.world_mut();
+    world.query::<(&MenuSurface, &AmbitionMenuControl<MenuPageAction>, &MenuVisualState)>()
+        .iter(world).find(|(owner, _, visual)| owner.0 == menu && visual.focused)
+        .and_then(|(_, control, _)| control.action)
+}
+
+fn menu_output_regions(app: &mut App, grid: bool) -> std::collections::BTreeMap<Entity, Rect> {
+    use ambition_platformer2d::menu::render::{MenuPresentationOf, bevy_ui::BevyUiMenuRoot};
+    let world = app.world_mut();
+    if grid {
+        let pixels = |value| match value { Val::Px(value) => value, _ => panic!("the host places menu roots in display pixels") };
+        world.query_filtered::<(&MenuPresentationOf, &Node), With<BevyUiMenuRoot>>().iter(world)
+            .map(|(owner, node)| {
+                let min = Vec2::new(pixels(node.left), pixels(node.top));
+                (owner.0, Rect::from_corners(min, min + Vec2::new(pixels(node.width), pixels(node.height))))
+            }).collect()
+    } else {
+        world.query::<(&MenuPresentationOf, &Camera)>().iter(world)
+            .filter_map(|(owner, camera)| camera.viewport.as_ref().map(|viewport| {
+                let min = viewport.physical_position.as_vec2();
+                (owner.0, Rect::from_corners(min, min + viewport.physical_size.as_vec2()))
+            })).collect()
+    }
+}
+
+#[test]
+fn two_pads_join_open_and_close_their_own_menus_on_both_backends() {
+    use ambition_platformer2d::input::{SeatInputContexts, INVENTORY_CONTEXT};
+    use ambition_platformer2d::menu::backend::InventoryUiBackend;
+    use ambition_platformer2d::platformer::schedule::GameMode;
+    use ambition_app::menu::model::{MenuPage, MenuPageAction};
+    use ambition_platformer2d::menu::ActiveMenuPages;
+    use ambition_platformer2d::settings_menu::system::{SystemMenuEntryId, SystemOptionId};
+    type Pages = ActiveMenuPages<MenuPage, MenuPageAction>;
+
+    for backend in [InventoryUiBackend::Grid, InventoryUiBackend::LunexKaleidoscope]
+        .into_iter().filter(|backend| backend.is_available())
+    {
+        let mut host = rendered_app();
+        host.insert_resource(ambition_platformer2d::host::gameplay_presentation::HeadlessDisplaySurface(
+            ambition_platformer2d::engine_core::Vec2::new(1280.0, 720.0),
+        ));
+        let (mut app, pads) = session_in(host, 2, true);
+        *app.world_mut().resource_mut::<InventoryUiBackend>() = backend;
+        let initial = inventory_menus(&mut app);
+        assert_eq!(initial.len(), 1);
+        assert!(!initial[&0].1);
+        tap(&mut app, pads[1], GamepadButton::Start);
+        for _ in 0..6 { app.update(); }
+        let joined = inventory_menus(&mut app);
+        assert_eq!(joined.len(), 2, "{backend:?}: joining admits the second menu");
+        assert!(joined.values().all(|(_, visible)| !visible), "the join press does not open a menu");
+        assert_eq!(joined[&0].0, initial[&0].0);
+
+        tap(&mut app, pads[1], GamepadButton::Start);
+        assert!(inventory_menus(&mut app)[&1].1);
+        assert!(!inventory_menus(&mut app)[&0].1);
+        tap(&mut app, pads[0], GamepadButton::Start);
+        assert!(inventory_menus(&mut app).values().all(|(_, visible)| *visible));
+        for slot in [0, 1] {
+            assert_eq!(app.world().resource::<SeatInputContexts>().for_seat(slot).owner(), Some(INVENTORY_CONTEXT));
+        }
+        let one = joined[&0].0;
+        let two = joined[&1].0;
+        let regions = menu_output_regions(&mut app, backend == InventoryUiBackend::Grid);
+        let [one_rect, two_rect] = [regions[&one], regions[&two]];
+        assert!(one_rect.width() > 0.0 && one_rect.height() > 0.0);
+        assert!(two_rect.width() > 0.0 && two_rect.height() > 0.0);
+        assert!(one_rect.max.x <= two_rect.min.x || two_rect.max.x <= one_rect.min.x
+            || one_rect.max.y <= two_rect.min.y || two_rect.max.y <= one_rect.min.y,
+            "{backend:?}: the two menu outputs must not overlap");
+        for _ in 0..MenuPage::ALL.len() {
+            if app.world().get::<Pages>(one).unwrap().active == Some(MenuPage::Items) { break; }
+            tap(&mut app, pads[0], GamepadButton::RightTrigger);
+        }
+        assert_eq!(app.world().get::<Pages>(one).unwrap().active, Some(MenuPage::Items));
+        assert_eq!(app.world().get::<Pages>(two).unwrap().active, Some(MenuPage::System));
+
+        let rebind = MenuPageAction::OpenSystemEntry(SystemMenuEntryId::Rebind);
+        for _ in 0..32 {
+            if focused_menu_action(&mut app, two) == Some(rebind) { break; }
+            tap(&mut app, pads[1], GamepadButton::DPadDown);
+        }
+        assert_eq!(focused_menu_action(&mut app, two), Some(rebind), "{backend:?}: the second pad reaches Rebind");
+        assert_eq!(app.world().get::<Pages>(one).unwrap().active, Some(MenuPage::Items));
+        tap(&mut app, pads[1], GamepadButton::South);
+        assert_eq!(focused_menu_action(&mut app, two), Some(MenuPageAction::SystemOption(SystemOptionId::Rebind(0))));
+        let before = {
+            let bindings = app.world().resource::<ambition_platformer2d::input::SeatBindings>();
+            [bindings.for_seat(0).clone(), bindings.for_seat(1).clone()]
+        };
+        tap(&mut app, pads[1], GamepadButton::South);
+        tap(&mut app, pads[1], GamepadButton::RightThumb);
+        app.update();
+        let bindings = app.world().resource::<ambition_platformer2d::input::SeatBindings>();
+        assert_eq!(bindings.for_seat(0), &before[0], "the first participant keeps its bindings");
+        assert_ne!(bindings.for_seat(1), &before[1], "the second pad changes its own binding profile");
+        assert_eq!(app.world().get::<Pages>(two).unwrap().active, Some(MenuPage::System),
+            "capturing the Inventory button must keep the Rebind page open");
+        tap(&mut app, pads[1], GamepadButton::Start);
+        assert!(inventory_menus(&mut app)[&1].1, "Start first exits the Rebind page");
+        tap(&mut app, pads[1], GamepadButton::Start);
+        assert!(!inventory_menus(&mut app)[&1].1);
+        assert!(inventory_menus(&mut app)[&0].1);
+        assert_eq!(*app.world().resource::<State<GameMode>>().get(), GameMode::Paused);
+        tap(&mut app, pads[0], GamepadButton::Start);
+        assert!(inventory_menus(&mut app).values().all(|(_, visible)| !visible));
+        assert_eq!(*app.world().resource::<State<GameMode>>().get(), GameMode::Playing);
+
+        app.world_mut().entity_mut(pads[1]).despawn();
+        for _ in 0..6 { app.update(); }
+        assert_eq!(inventory_menus(&mut app), joined, "a lost device does not retire admitted menus");
+        app.world_mut().write_message(ShellCommand::QuitToHome);
+        settle(&mut app);
+        assert!(inventory_menus(&mut app).is_empty(), "session retirement removes both menus");
+    }
+}
+
 #[test]
 fn player_two_controls_its_dialogue_while_player_one_keeps_playing() {
     let (app, pads) = session(2, true);
@@ -249,6 +377,58 @@ fn capture_frame(app: &mut App) {
     }
     assert!(!app.world().resource::<CaptureProgress>().failed);
     assert!(app.world().resource::<CaptureSettings>().output.is_file());
+}
+
+#[test]
+#[ignore = "needs a wgpu adapter; captures the two participants' menus on both backends"]
+fn two_pad_menus_draw_in_their_own_regions() {
+    use ambition_app::menu::model::{MenuPage, MenuPageAction};
+    use ambition_platformer2d::menu::{ActiveMenuPages, backend::InventoryUiBackend, render::MenuPresentationOf};
+    use ambition_platformer2d::render::capture::{CaptureCameraSet, CaptureTarget};
+    use ambition_platformer2d::settings_menu::system::SystemMenuEntryId;
+    type Pages = ActiveMenuPages<MenuPage, MenuPageAction>;
+
+    for (backend, output) in [
+        (InventoryUiBackend::Grid, "ambition-two-pad-menus-grid.png"),
+        (InventoryUiBackend::LunexKaleidoscope, "ambition-two-pad-menus-cube.png"),
+    ].into_iter().filter(|(backend, _)| backend.is_available()) {
+        let mut host = gpu_app(output);
+        host.add_systems(Update, (
+            |mut commands: Commands, target: Option<Res<CaptureTarget>>,
+             cameras: Query<(Entity, &bevy::camera::RenderTarget), (With<Camera3d>, With<MenuPresentationOf>)>| {
+                let Some(target) = target else { return; };
+                let destination = bevy::camera::RenderTarget::Image(target.image.clone().into());
+                for (entity, current) in &cameras {
+                    if !matches!(current, bevy::camera::RenderTarget::Image(image) if image.handle == target.image) {
+                        commands.entity(entity).insert((destination.clone(), Msaa::Off));
+                    }
+                }
+            }
+        ).after(CaptureCameraSet));
+        let (mut app, pads) = session_in(host, 2, true);
+        *app.world_mut().resource_mut::<InventoryUiBackend>() = backend;
+        tap(&mut app, pads[1], GamepadButton::Start);
+        for _ in 0..6 { app.update(); }
+        tap(&mut app, pads[0], GamepadButton::Start);
+        tap(&mut app, pads[1], GamepadButton::Start);
+        let menus = inventory_menus(&mut app);
+        let one = menus[&0].0;
+        let two = menus[&1].0;
+        for _ in 0..MenuPage::ALL.len() {
+            if app.world().get::<Pages>(one).unwrap().active == Some(MenuPage::Items) { break; }
+            tap(&mut app, pads[0], GamepadButton::RightTrigger);
+        }
+        let rebind = MenuPageAction::OpenSystemEntry(SystemMenuEntryId::Rebind);
+        for _ in 0..32 {
+            if focused_menu_action(&mut app, two) == Some(rebind) { break; }
+            tap(&mut app, pads[1], GamepadButton::DPadDown);
+        }
+        assert_eq!(focused_menu_action(&mut app, two), Some(rebind));
+        tap(&mut app, pads[1], GamepadButton::South);
+        assert_eq!(app.world().get::<Pages>(one).unwrap().active, Some(MenuPage::Items));
+        assert_eq!(app.world().get::<Pages>(two).unwrap().active, Some(MenuPage::System));
+        capture_frame(&mut app);
+    }
 }
 
 #[test]

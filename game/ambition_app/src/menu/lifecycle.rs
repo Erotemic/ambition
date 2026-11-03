@@ -8,9 +8,67 @@ use ambition_platformer2d::menu::{ActiveMenuPages, backend::InventoryUiBackend, 
 use ambition_platformer2d::platformer::schedule::GameMode;
 use ambition_platformer2d::sfx::{SfxWriter, ids};
 
-use super::kaleidoscope_app::{KaleidoscopeCursor, KaleidoscopeSystemNav, close_system_entry, play_ui};
+use super::kaleidoscope_app::{KaleidoscopeCursor, KaleidoscopeSystemNav, RebindCapture, close_system_entry, play_ui};
 use super::model::{MenuFocus, MenuPage, MenuPageAction, OpenOverlayKey};
 use super::quality_confirm::VisualQualityConfirmState;
+
+pub(crate) fn install_session_menus(app: &mut App) {
+    app.init_resource::<SeatMenuFrames>();
+    app.add_systems(Update, sync_session_menus
+        .after(ambition_platformer2d::input::InputSet::Route)
+        .before(ambition_platformer2d::input::MenuNavConsume));
+}
+
+/// Menu lifetime follows session admission and local input authority.
+fn sync_session_menus(
+    mut commands: Commands,
+    scope: ambition_platformer2d::platformer::lifecycle::LiveSessionScope,
+    roots: Query<(
+        &ambition_platformer2d::platformer::lifecycle::SessionRoot,
+        &ambition_platformer2d::session::participants::SessionParticipants,
+    )>,
+    local: Option<Res<ambition_platformer2d::rollback::LocalPlayers>>,
+    frames: Res<SeatMenuFrames>,
+    menus: Query<(
+        Entity,
+        &ambition_platformer2d::inventory_ui::InventoryMenu,
+        Option<&ambition_platformer2d::platformer::lifecycle::SessionScopedEntity>,
+    ), With<super::MenuInstance>>,
+) {
+    use ambition_platformer2d::characters::control::PlayerSlot;
+    use ambition_platformer2d::platformer::lifecycle::SpawnSessionScopedExt;
+
+    let scope = scope.get();
+    let members = scope.and_then(|scope| {
+        roots.iter().find(|(root, _)| root.0 == scope).map(|(_, members)| members)
+    });
+    let is_local = |slot: PlayerSlot| local.as_ref()
+        .is_none_or(|local| local.0.contains(&usize::from(slot.0)));
+    for (entity, menu, owner) in &menus {
+        let slot = PlayerSlot(menu.owner.slot());
+        if owner.map(|owner| owner.0) != scope
+            || !members.is_some_and(|members| members.contains(slot))
+            || !is_local(slot)
+        {
+            commands.entity(entity).despawn();
+        }
+    }
+    let (Some(scope), Some(members)) = (scope, members) else { return; };
+    for slot in members.iter().filter(|slot| is_local(*slot)) {
+        let owner = ParticipantId(slot.0);
+        if menus.iter().any(|(_, menu, scoped)| {
+            menu.owner == owner && scoped.is_some_and(|scoped| scoped.0 == scope)
+        }) {
+            continue;
+        }
+        commands.spawn_in_session(scope, (
+            super::MenuInstance,
+            ambition_platformer2d::inventory_ui::InventoryMenu { owner },
+            ActiveMenuPages::<MenuPage, MenuPageAction>::default(),
+            MenuLifecycleState { last_start: frames.for_seat(slot.0).start },
+        ));
+    }
+}
 
 #[derive(Default)]
 pub(crate) struct MenuPauseState {
@@ -87,6 +145,7 @@ pub(crate) fn route_menu_lifecycle(
         &mut KaleidoscopeCursor,
         &mut KaleidoscopeSystemNav,
         &mut VisualQualityConfirmState,
+        &RebindCapture,
     )>,
     mode: Res<State<GameMode>>,
     mut map: ResMut<MapMenuState>,
@@ -107,11 +166,17 @@ pub(crate) fn route_menu_lifecycle(
         mut cursor,
         mut system,
         mut quality,
+        capture,
     ) in &mut menus
     {
         let mut input = frames.for_seat(owner.owner.slot());
         let start = input.start && !latch.last_start;
         latch.last_start = input.start;
+        if overlay.visible && capture.armed().is_some() {
+            // Raw device capture owns this participant's menu input.
+            *frames.for_seat_mut(owner.owner.slot()) = Default::default();
+            continue;
+        }
         if start {
             input.back = false;
             frames.for_seat_mut(owner.owner.slot()).back = false;
@@ -308,3 +373,6 @@ mod tests {
         assert!(app.world().get::<InventoryUiState>(menus[0]).unwrap().visible);
     }
 }
+
+#[cfg(test)]
+mod admission_tests;

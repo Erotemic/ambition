@@ -493,7 +493,6 @@ impl RebindCapture {
         waiting
     }
 
-    #[cfg(all(feature = "input", any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")))]
     pub(crate) fn armed(&self) -> Option<usize> {
         self.armed_row
     }

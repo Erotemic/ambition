@@ -48,7 +48,15 @@ fn settle(app: &mut App) {
         if frame >= 4 && active && !covered { return; }
         std::thread::sleep(std::time::Duration::from_millis(2));
     }
-    panic!("the visible route did not finish its loading work");
+    let router = app.world().resource::<ShellRouter>();
+    let barrier = router.pending.as_ref().and_then(|pending| {
+        app.world().resource::<ambition_platformer2d::load::LoadCoordinator>()
+            .snapshot(&pending.barrier.load_id, &pending.barrier.barrier_id)
+    });
+    panic!(
+        "the visible route did not finish its loading work: active={:?}, pending={:?}, barrier={barrier:?}",
+        router.active, router.pending,
+    );
 }
 
 fn room_visual_count(app: &mut App) -> usize {

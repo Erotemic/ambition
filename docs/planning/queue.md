@@ -884,8 +884,12 @@ Do not restore primary-room geometry or global room covers.
    tests. Track content identity, deterministic operation order, and peer
    readiness explicitly. A full-party reload may use a global barrier.
 
-**First step:** write the peer event/commit protocol, then prove it with
-two-peer rollback witnesses. Keep the existing safe hold until those pass.
+**Protocol:** [Peer room commits](engine/peer-room-commit-protocol.md) defines
+operation/content identity, retained preparation promises, and input-driven
+simulation commits. This is a design, not an implemented replacement.
+**First step:** prove room publication and retirement can roll back across a
+crossing, then add the peer inputs and two-peer witnesses. Keep the existing
+safe hold until those pass.
 The `LOCAL-PLAY-MODES` leave slice and `COOP-RECOVERY` remain separate work
 items; reuse their participant lifecycle and checkpoint rules, not duplicate
 them in this row.

@@ -381,6 +381,28 @@
             move_style: WalkHeavy,
             melee: Some(Lunge(windup_s: 0.75, active_s: 0.4, recover_s: 1.0, damage: 4, reach_px: 64.0, step_px: 0.0, rush_px: 260.0)),
         ),
+        // The Art dimension (`docs/planning/game/art-dimension.md`). A doodle
+        // scratches fast and weak; a wisp of ink spits from a distance; a
+        // brush knight sweeps its brush across the ground in front of it, slow
+        // to start and long in reach; a statue falls forward onto what is in
+        // front of it.
+        "doodle_imp_scratch": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.2, active_s: 0.08, recover_s: 0.3, damage: 1, reach_px: 26.0)),
+        ),
+        "ink_wisp_spit": (
+            move_style: Float,
+            melee: Some(Bite(windup_s: 0.2, active_s: 0.08, recover_s: 0.3, damage: 1, reach_px: 30.0)),
+            ranged: Some(Rock(speed: 380.0, damage: 1)),
+        ),
+        "brush_knight_sweep": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.7, active_s: 0.25, recover_s: 0.8, damage: 3, reach_px: 92.0, step_px: 20.0, rush_px: 0.0)),
+        ),
+        "living_statue_slam": (
+            move_style: WalkHeavy,
+            melee: Some(Lunge(windup_s: 0.9, active_s: 0.3, recover_s: 1.2, damage: 4, reach_px: 104.0, step_px: 0.0, rush_px: 40.0)),
+        ),
         // The Bad Apple's chomp: it rears back with its maw wide (its windup
         // row), then rolls at you jaws first, and sits a beat after, dizzy. Its
         // `attack_side` row is drawn to these times (`BAD_CHOMP_S` in the
@@ -5915,6 +5937,161 @@
         ),
         hall_dialogue_id: Some("hall_triceratops"),
         ),
+        // ===== THE ART DIMENSION (`docs/planning/game/art-dimension.md`): the
+        // things that people made there, come alive. Their sheets are in the
+        // renderer (`targets/characters/_art_cast_kit.py`).
+        // The doodle imp: a scribble from the margin of a page. One is a
+        // nuisance; a page places them in threes.
+        "doodle_imp": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Doodle Imp",
+            manifest: "sprites/doodle_imp_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(42.0),
+            composition: None,
+            default_action_set: "doodle_imp_scratch",
+            locomotion: Some((run_speed: 250.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 460.0,
+                attack_range: 24.0,
+                patrol_effort: 0.6,
+                chase_effort: 1.0,
+                // A grin, a crouch, claws first; then it skips back to grin again.
+                retreat_after_swing_s: 0.4,
+                attack_cooldown_s: 0.35,
+                tactics: (notice_s: 0.35, waits_its_turn: true, footsies: Some((hold_px: 64.0, wait_s: 0.5)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(1),
+            tags: ["enemy", "art"],
+        barks: (
+            on_hit: ["Scrrtch!", "You smudged me!"],
+            provoked: ["Hee hee hee!"],
+            idle: ["Scribble.", "Hee.", "I was drawn in a meeting. Nobody was listening."],
+            hall: ["Somebody drew me in a margin and forgot to rub me out. Their mistake.", "I am a first draft. There are three of us. We are all first drafts."],
+        ),
+        ),
+        // The ink wisp: a drop of the living ink of the Inkfall Caverns. It
+        // floats, keeps its distance and spits (the `shoot` of a skirmisher):
+        // it swells first (its windup row).
+        "ink_wisp": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Ink Wisp",
+            manifest: "sprites/ink_wisp_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(44.0),
+            composition: None,
+            default_action_set: "ink_wisp_spit",
+            ranged_vfx: Some("spit"),
+            locomotion: Some((run_speed: 140.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Skirmisher,
+                aggro_radius: 560.0,
+                attack_range: 300.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.8,
+                ranged_volley: Some((windup_s: 0.55, firing_s: 0.2, recovery_s: 1.1)),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "art", "ink"],
+        barks: (
+            on_hit: ["Splt!", "Blot!"],
+            provoked: ["Sssssplash."],
+            idle: ["Drip.", "Drip. Drip.", "*it glows, and then it glows less*"],
+            hall: ["Everything in this dimension was ink before it was anything. Some of us did not want to be anything.", "Drip. That was a word. You missed it."],
+        ),
+        ),
+        // The origami bird: a paper crane that flies. It does not attack: it
+        // patrols and turns at walls (a Wanderer), and it has no contact
+        // damage. It is not an enemy; it is a thing that flies.
+        "origami_bird": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Origami Bird",
+            manifest: "sprites/origami_bird_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(30.0),
+            composition: None,
+            default_action_set: "swallow_dart",
+            locomotion: Some((run_speed: 90.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((template: Wanderer)),
+            max_health: Some(1),
+            tags: ["art", "paper"],
+        barks: (
+            on_hit: ["Crease!", "I will never lie flat again."],
+            idle: ["*a rustle of paper*", "Fold. Fold. Fold."],
+            hall: ["I am one square of paper and no glue. Nothing was cut. Ask the statue how it was made.", "Some of us carry things. Some of us show the way. I fly in a line and turn at walls. It is a calling."],
+        ),
+        ),
+        // The brush knight: armour that holds a brush as long as a lance. Its
+        // blow is slow and clear: the brush goes back over its head (its
+        // windup row), then sweeps across the ground in front.
+        "brush_knight": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Brush Knight",
+            manifest: "sprites/brush_knight_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(84.0),
+            composition: None,
+            default_action_set: "brush_knight_sweep",
+            locomotion: Some((run_speed: 150.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 520.0,
+                attack_range: 90.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.9,
+                // It keeps the length of its brush away, lifts, and sweeps.
+                attack_cooldown_s: 0.9,
+                tactics: (notice_s: 0.5, footsies: Some((hold_px: 110.0, wait_s: 0.7))),
+            )),
+            max_health: Some(8),
+            mass: Some(3.0),
+            tags: ["enemy", "art", "knight"],
+        barks: (
+            on_hit: ["A blot on my honour!", "Hm. Smudged."],
+            provoked: ["En garde. And en canvas."],
+            idle: ["*the armour creaks*", "The stroke is the thing.", "Wet paint. Do not touch."],
+            hall: ["I guard the garden from the gate, and the gate from the garden. Both are full of strangers.", "One stroke. You do not get to correct it. That is the whole art."],
+        ),
+        ),
+        // The living statue: a marble bust as tall as three robots that
+        // nobody finished. It rocks along on its base, rises (its windup row)
+        // and falls forward onto what is in front of it.
+        "living_statue": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Living Statue",
+            manifest: "sprites/living_statue_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(150.0),
+            composition: None,
+            default_action_set: "living_statue_slam",
+            locomotion: Some((run_speed: 70.0, move_style: WalkHeavy)),
+            contact_damage: Some((strength: 0.7, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 560.0,
+                attack_range: 100.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.8,
+                // Slow to see you, slow to fall, and slow to get up again: the gap is the opening.
+                attack_cooldown_s: 1.4,
+                tactics: (notice_s: 0.8),
+            )),
+            max_health: Some(16),
+            mass: Some(12.0),
+            tags: ["enemy", "art", "statue"],
+        barks: (
+            on_hit: ["*a chip of marble falls*", "Not the face."],
+            provoked: ["*the eyes light*"],
+            idle: ["...", "*grinding stone*", "Unfinished."],
+            hall: ["My sculptor stopped at the back of my head. I have had a long time to think about why.", "They call us the living statues. We call ourselves the work in progress."],
+        ),
+        ),
         // ===== THE EVIL DIMENSION (Jon, 2026-10-15). Wolfenstein, the boss of
         // Castle Godwin: Frankenstein's monster with the head of Insanity Wolf,
         // and the armband of the regime. His fight is `wolfenstein_boss`
@@ -7626,6 +7803,76 @@
             barks: (
                 idle: ["Station to Ridge. Over.", "Don't touch the jars."],
                 hall: ["I know where every walker on the trail is, and what is eating them.", "The compys in the jars bite through the lids. I've stopped labelling them."],
+            ),
+        ),
+        // ===== THE ART DIMENSION'S PEOPLE (`docs/planning/game/art-dimension.md`).
+        // The Curator keeps the Painter's Plaza and its gate; the painters are
+        // parodies (as Kepplar and Fermette are), made by chargen.
+        "npc_art_curator": (
+            display_name: "The Curator",
+            manifest: "sprites/art_curator_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // A small person in a tall hat: the hat is half of it.
+            standing_height: Some(86.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "art", "peaceful"],
+            barks: (
+                idle: ["Look slowly.", "Every door is a frame. Some are open."],
+                hall: ["I keep the gate open because a shut door is also a statement, and I did not want to make that one.", "Nothing here is finished. That is not a complaint."],
+            ),
+        ),
+        "npc_art_rob_boss": (
+            display_name: "Rob Boss",
+            // Paints the plaza's view each morning; a parody of Bob Ross.
+            manifest: "sprites/art_rob_boss_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 188 cm.
+            standing_height: Some(72.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "art", "peaceful"],
+            barks: (
+                idle: ["Happy little cliffs.", "We do not make mistakes here. We make doodle imps."],
+                hall: ["Everybody needs a friend. Even a gate. Especially a gate. Nobody here likes it.", "Beat the devil out of it. The brush, I mean. Not you."],
+            ),
+        ),
+        "npc_art_pablo_peckasso": (
+            display_name: "Pablo Peckasso",
+            // Paints the robot from the front and the side at once; a parody of Picasso.
+            manifest: "sprites/art_pablo_peckasso_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 163 cm.
+            standing_height: Some(63.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "art", "peaceful"],
+            barks: (
+                idle: ["Coo. Turn your head. No, both ways.", "One eye. Now the other eye."],
+                hall: ["I see the front of you with this eye and the side with that one. The canvas must have both. It is only fair.", "Good artists copy. Great artists peck."],
+            ),
+        ),
+        "npc_art_frida_collage": (
+            display_name: "Frida Collage",
+            // Watches the statues of the garden; a parody of Frida Kahlo.
+            manifest: "sprites/art_frida_collage_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(61.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "art", "peaceful"],
+            barks: (
+                idle: ["I paint what I know.", "That one moved. Do not look at it."],
+                hall: ["I make my face out of the scraps of other pictures. The gate brings a great many scraps now.", "The statues are not finished. Neither am I. We get along."],
             ),
         ),
         "npc_primeval_twitchell": (

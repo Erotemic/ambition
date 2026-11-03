@@ -89,6 +89,12 @@
         portal_sprite_name: "Starlight Gate Portal",
         ring_sprite_name: "Starlight Gate Ring",
     ),
+    // The Art dimension's Painter's Plaza (EASEL).
+    "art_plaza_gate": (
+        command: Dialed,
+        portal_sprite_name: "Plaza Gate Portal",
+        ring_sprite_name: "Plaza Gate Ring",
+    ),
     // The Noodly Temple's narthex.
     "noodly_narthex_gate": (
         command: Dialed,

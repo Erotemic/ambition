@@ -228,6 +228,23 @@ collections:
   - snake_plant
   - void_lizard
   - void_star
+  - doodle_imp
+  - ink_wisp
+  - origami_bird
+  - brush_knight
+  - living_statue
+  - art_curator
+  - art_pigment_cyan
+  - art_pigment_magenta
+  - art_pigment_yellow
+  - art_colour_gate_cyan
+  - art_colour_gate_magenta
+  - art_colour_gate_yellow
+  - art_drain_grate
+  - art_easel
+  - art_palette_lift
+  - art_giant_crayon
+  - art_paint_pots
   - eigenghost
   - decomposing_specter
   - spectral_perturbation
@@ -465,6 +482,9 @@ collections:
   - primeval_stratton
   - primeval_tock
   - primeval_twitchell
+  - art_rob_boss
+  - art_pablo_peckasso
+  - art_frida_collage
   - station_dobbs
   - station_pippin
   - magical_celeste

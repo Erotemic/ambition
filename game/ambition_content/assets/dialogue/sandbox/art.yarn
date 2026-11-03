@@ -1,0 +1,90 @@
+title: art_context
+---
+// The Art dimension's people (`docs/planning/game/art-dimension.md`): the
+// Curator who keeps the plaza's gate, and the painters of the plaza and the
+// garden. One node per resident, named `art_<resident>`.
+//
+// The people here make things by hand, and they hate the gates the most:
+// a gate brings strangers who make things fast and do not sign them. The
+// Curator keeps the plaza's ring open anyway.
+//
+// The Curator knows of the colour gate in the garden and of its three
+// pigments (the flags `art_pigment_cyan`, `art_pigment_magenta`,
+// `art_pigment_yellow`), and says so; nothing here sets a flag.
+//
+// Never played. No placement names this node; it declares the zone.
+===
+
+title: art_curator
+---
+<<if condition("world.flag_set", "art_pigment_cyan") and condition("world.flag_set", "art_pigment_magenta") and condition("world.flag_set", "art_pigment_yellow")>>
+The Curator: All three. Cyan, magenta, yellow. Every colour in this world is some of each.
+The Curator: The gate at the end of the garden will know them. Go and see what nobody finished.
+<<else>>
+The Curator: Welcome to the Painter's Plaza. Mind the easel. It is the gate, and it is also an easel. We are not good at one thing at a time.
+<<endif>>
+-> What is this place?
+    The Curator: The Art dimension. Here a thing that somebody makes keeps going after they stop. Doodles walk. Statues think about it. Ink has opinions.
+    The Curator: Up is the sketchbook. Down is the ink. East is the garden, where the statues are not finished. None of it is.
+-> Why does everybody glare at the gate?
+    The Curator: Because of what comes through it. Strangers who make a thousand pictures before lunch and sign none of them.
+    The Curator: Here a mark means somebody meant it. They are afraid that a mark will stop meaning anything.
+    The Curator: I keep the gate open. A shut door is a statement too, and I did not want to make that one.
+-> And you? What do you make?
+    The Curator: Room. A curator makes room for a thing, and then gets out of the way of it. Most of my work is standing still in the right place.
+    The Curator: You are a made thing too. I can tell by the way you look at the frames. You want to know who meant you.
+-> The gate in the garden. The one with the shapes.
+    The Curator: The colour gate. Three doors: a circle, a star, a triangle. Each wants its own pigment.
+    The Curator: Cyan is high, where the pages end. Magenta is low, where the ink falls. Yellow is on the head that nobody finished.
+    The Curator: Bring the three. A painter can make anything out of three.
+-> Goodbye.
+    The Curator: Look slowly on the way out. Things here like to be seen.
+===
+
+title: art_rob_boss
+---
+Rob Boss: Well, hi. Come stand over here. You can see the whole cliff from here, and the cliff can see you.
+-> What are you painting?
+    Rob Boss: A happy little mountain. And over here, he needs a friend. Everybody needs a friend. There, a happy little tree.
+    Rob Boss: Now, in this dimension the tree may get up and walk off. That is all right. We let it go.
+-> Do the doodle imps bother you?
+    Rob Boss: Those are just mistakes that got their legs. We don't make mistakes here. We make doodle imps.
+    Rob Boss: You give them a little room, they run along. You chase them, you get a whole margin of them.
+-> What do you think of the gate?
+    Rob Boss: It brings a lot of folks who paint a thousand mountains a minute. Their mountains are fine. They are all the same fine.
+    Rob Boss: I don't mind. I just keep painting mine, one at a time, and I talk to it while I do. Nobody can take the talking.
+-> I'll let you work.
+    Rob Boss: You go on. And hey: whatever you make today, you made it. That is the whole trick.
+===
+
+title: art_pablo_peckasso
+---
+Pablo Peckasso: Coo. Stop. Turn your head. No, the other way. Now both ways at once.
+-> I can't look both ways at once.
+    Pablo Peckasso: That is your trouble, not mine. I have an eye on each side. I see the front of you and the side of you, and I paint both. It is only fair to you.
+-> Why are you a pigeon?
+    Pablo Peckasso: Why are you a robot? We are what we were made. Then we make something else. That is the order of things.
+-> What do you think of the gate?
+    Pablo Peckasso: Good artists copy. Great artists steal. The things that come through that gate do neither. They average.
+    Pablo Peckasso: An average of every face is no face. I have painted it. It is in my blue period. Everything is blue in it, and nothing looks back.
+-> Can I see the painting of me?
+    Pablo Peckasso: You may. It has three eyes. You have two, but I have been looking at you from two sides, so the third is a gift.
+-> Goodbye.
+    Pablo Peckasso: Coo. Come back when you have another side to show me.
+===
+
+title: art_frida_collage
+---
+Frida Collage: Stand still. You have a piece I want: a bolt, there, by your ear. No? Keep it, then. I will remember it.
+-> What do you make?
+    Frida Collage: My own face, out of the scraps of other pictures. The eyes from a saint, the mouth from a poster, the brows are mine.
+    Frida Collage: A collage is honest. You can see where every piece came from. That is why I am not afraid of it.
+-> The statues here move.
+    Frida Collage: The ones that are not finished. A finished statue has nothing left to want. These want a back for their heads, and a reason.
+    Frida Collage: Do not stand in front of one that is looking at you. Stand behind it. Behind it, it is still a block.
+-> What do you think of the gate?
+    Frida Collage: It brings scraps. A great many scraps, from everywhere, with the names cut off.
+    Frida Collage: I would use them if I knew whose they were. A scrap with no name is a stranger in my face.
+-> Goodbye.
+    Frida Collage: Go on. I have your bolt in my head now. It will be in a picture by Thursday.
+===

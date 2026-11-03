@@ -206,6 +206,12 @@ npc_primeval_dlamini
 npc_primeval_stratton
 npc_tower_brandt
 
+[The Art dimension's people]
+npc_art_curator
+npc_art_rob_boss
+npc_art_pablo_peckasso
+npc_art_frida_collage
+
 [Guests from history and the studio]
 npc_genghis_can
 npc_genghis_cant
@@ -283,6 +289,18 @@ dilophosaurus
 pachycephalosaurus
 triceratops
 
+[GNU-ton's gravity works]
+bad_apple
+gravity_apple
+
+[Hylbert's Hotel]
+eigenghost
+spectral_perturbation
+decomposing_specter
+shift_operator
+quantum_die
+dealers_hand
+
 [Castle Godwin]
 npc_fascist_enforcer
 npc_fascist_swordsman
@@ -295,6 +313,13 @@ npc_evil_zombie
 npc_evil_zombie_crawler
 npc_shock_warden
 npc_searchlight_crawler
+
+[The Art dimension]
+doodle_imp
+ink_wisp
+origami_bird
+brush_knight
+living_statue
 
 [Mary-O's world]
 mary_o

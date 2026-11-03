@@ -134,6 +134,7 @@ from the start.
 | `SILENT` | `ninja_village_gate_arrival` | `ninja_village_gate_shrine` | the village, the forest, the dojo | yes |
 | `ALDENTE` | `noodly_narthex_gate` | `noodly_narthex` | the Noodly Temple | yes |
 | `DESTINY` | `magical_gate_zone` | `magical_gate_garden` | east to Starlight Square, down its well to the Starless Hollow, out along the Dune Road | yes |
+| `EASEL` | `art_plaza_gate` | `art_painters_plaza` | east to the Sculpture Garden, the lift up to the Sketchbook Cliffs, down the garden's ink well to the Inkfall Caverns | yes |
 | `SENTINEL` | `military_gate_zone` | `military_gate_annex` | back through the General's tower | yes; on foot, the checkpoint wants the clearance or the crawlway |
 | `NEST` (hidden) | `primeval_rookery_gate` | `primeval_rookery` | down the trail to the trailhead ring | yes |
 | `TESLA` (hidden) | `trail_survey_gate` | `gnu_ton_works_approach` | the tower top by GNU-ton's door; the lift down to the spoke | yes |

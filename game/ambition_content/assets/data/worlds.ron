@@ -37,5 +37,9 @@
         (id: "world.evil_ldtk", file: "evil.ldtk"),
         // The Magical dimension (Mary-O's), by the gate DESTINY.
         (id: "world.magical_ldtk", file: "magical.ldtk"),
+        // The Art dimension, by the gate EASEL: the Painter's Plaza, the
+        // Sculpture Garden, the Sketchbook Cliffs over them, the Inkfall
+        // Caverns under them, and the Gallery of the Unfinished.
+        (id: "world.art_ldtk", file: "art.ldtk"),
     ],
 )

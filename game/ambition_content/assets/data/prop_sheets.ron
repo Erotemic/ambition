@@ -28,6 +28,24 @@
     "temple_gate_wheel_3": (),
     "temple_gate_wheel_1_shut": (),
     "temple_gate_bell": (),
+    // The Art dimension (`targets/props/art_props.py`). The keys of its
+    // colour gate are jars of the three primaries; each door is a canvas in a
+    // gold frame with the stencil of its jar cut through it.
+    "art_pigment_cyan": (scale: 1.4),
+    "art_pigment_magenta": (scale: 1.4),
+    "art_pigment_yellow": (scale: 1.4),
+    "art_colour_gate_cyan": (),
+    "art_colour_gate_magenta": (),
+    "art_colour_gate_yellow": (),
+    // The plaza's drain: a grate that the lever under it opens.
+    "art_drain_grate": (),
+    // Its scenery: an easel with a canvas that somebody started, a crayon as
+    // tall as a door, and a heap of pots of paint.
+    "art_easel": (),
+    // The look of the palette lifts of the plaza and the cliffs.
+    "art_palette_lift": (),
+    "art_giant_crayon": (),
+    "art_paint_pots": (),
     // The Math town. The cradle is the stand a gate ring sits in: a plinth
     // with stairs at each end (walked on zero-speed one-way platforms the
     // room places) and two pylons that hold the ring. The house fronts

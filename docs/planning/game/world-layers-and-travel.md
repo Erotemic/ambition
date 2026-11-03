@@ -73,6 +73,7 @@ A layer is not a corridor. The rules:
 | evil | planet | 22 | 19280 x 8064 | 2.4 | surface moor/hamlet, castle floors, crypt/catacombs under, ridge over |
 | pvn | planet | 22 | 11136 x 16656 | 0.7 | port/village surface, cellars/tunnel under, sky lookout; boss arenas apart |
 | magical | planet | 14 | 17408 x 2688 | 6.5 | surface row, hollow under, void under the castle; no sky |
+| art (2026-11-02) | planet | 5 | 6800 x 3072 | 2.2 | plaza and garden surface, sketchbook cliffs over, inkfall caverns under; the gallery is a building |
 | dinosaur (Jungle) | planet | 12 | 25792 x 1888 | 13.7 | one line: the trail, a sinkhole to the fossil beds |
 | math | topological | 19 | 16960 x 4144 | 4.1 | free |
 | noodle | topological | 7 | 12960 x 1408 | 9.2 | free |

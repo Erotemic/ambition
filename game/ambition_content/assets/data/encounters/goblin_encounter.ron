@@ -157,4 +157,32 @@
             ],
         ),
     ],
+    // The Art dimension's unfinished gallery (`specs/art_dimension`): the
+    // half-made works keep the gallery. Floor y 576; the room shuts at x 176.
+    "art_gallery_vigil": [
+        (
+            label: "wave 1 — the margins",
+            mobs: [
+                (kind: "skirmisher", character: Some("doodle_imp"), spawn: (620.0, 555.0), size: (32.0, 42.0), delay: 0.0),
+                (kind: "skirmisher", character: Some("doodle_imp"), spawn: (900.0, 555.0), size: (32.0, 42.0), delay: 0.3),
+                (kind: "skirmisher", character: Some("doodle_imp"), spawn: (1160.0, 555.0), size: (32.0, 42.0), delay: 0.6),
+            ],
+        ),
+        (
+            label: "wave 2 — the ink",
+            mobs: [
+                (kind: "combatant", character: Some("ink_wisp"), spawn: (700.0, 360.0), size: (36.0, 44.0), delay: 0.0),
+                (kind: "combatant", character: Some("ink_wisp"), spawn: (1040.0, 320.0), size: (36.0, 44.0), delay: 0.5),
+                (kind: "skirmisher", character: Some("doodle_imp"), spawn: (880.0, 555.0), size: (32.0, 42.0), delay: 1.2),
+            ],
+        ),
+        (
+            label: "wave 3 — the brush",
+            mobs: [
+                (kind: "medium_striker", character: Some("brush_knight"), spawn: (1100.0, 534.0), size: (56.0, 84.0), delay: 0.0),
+                (kind: "combatant", character: Some("ink_wisp"), spawn: (760.0, 340.0), size: (36.0, 44.0), delay: 0.8),
+                (kind: "skirmisher", character: Some("doodle_imp"), spawn: (620.0, 555.0), size: (32.0, 42.0), delay: 1.6),
+            ],
+        ),
+    ],
 }

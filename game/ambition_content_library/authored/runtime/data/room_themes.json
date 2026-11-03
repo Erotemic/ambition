@@ -214,6 +214,57 @@
       "twinkle_rate": 0.6,
       "front": 0.4
     },
+    "art": {
+      "count": 20,
+      "velocity": [
+        6.0,
+        -4.0
+      ],
+      "wander": 10.0,
+      "wander_rate": 0.12,
+      "size": [
+        2.0,
+        4.0
+      ],
+      "alpha": 0.7,
+      "twinkle": 0.2,
+      "twinkle_rate": 0.5,
+      "front": 0.35
+    },
+    "art_sketchbook": {
+      "count": 14,
+      "velocity": [
+        3.0,
+        -2.0
+      ],
+      "wander": 6.0,
+      "wander_rate": 0.1,
+      "size": [
+        1.0,
+        2.0
+      ],
+      "alpha": 0.5,
+      "twinkle": 0.1,
+      "twinkle_rate": 0.4,
+      "front": 0.3
+    },
+    "art_inkfall": {
+      "count": 24,
+      "velocity": [
+        0.5,
+        6.0
+      ],
+      "wander": 8.0,
+      "wander_rate": 0.1,
+      "size": [
+        2.0,
+        4.4
+      ],
+      "alpha": 0.8,
+      "twinkle": 0.7,
+      "twinkle_rate": 0.6,
+      "front": 0.4
+    },
     "math_town": {
       "count": 16,
       "velocity": [

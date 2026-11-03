@@ -66,7 +66,6 @@ pub(crate) fn kaleidoscope_pointer_move(
         &CachedSystemMenu,
     )>,
     settings: Res<UserSettings>,
-    devices: Res<ambition_platformer2d::input::SeatActiveDevices>,
     snapshot: SystemMenuSnapshotParams,
     mut interactions: Query<&mut ambition_platformer2d::menu::MenuInteraction<MenuPageAction>>,
     mut sfx: SfxWriter,
@@ -76,7 +75,7 @@ pub(crate) fn kaleidoscope_pointer_move(
         interaction.move_pointer(move_.pointer_id, move_.pointer_location.position);
     }
     if snapshot.backend.effective() != InventoryUiBackend::LunexKaleidoscope
-        || devices.machine() != ambition_platformer2d::input::ActiveDevice::Mouse
+        || move_.pointer_id != bevy::picking::pointer::PointerId::Mouse
     {
         return;
     }

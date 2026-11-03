@@ -1121,6 +1121,32 @@ fn a_pointer_move_with_the_cube_closed_does_not_move_the_shared_cursor() {
 }
 
 #[test]
+fn another_participants_pad_does_not_block_mouse_focus_in_a_cube_menu() {
+    let (mut app, _) = click_app();
+    let primary = crate::menu::test_support::menu_id(app.world());
+    app.world_mut().get_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>(primary).unwrap()
+        .active = Some(MenuPage::Items);
+    app.world_mut().get_mut::<KaleidoscopeCursor>(primary).unwrap().mark_keyboard(MenuFocus::EdgeRight);
+    let control = spawn_control(&mut app, MenuPageAction::ChangePage(MenuPage::Items.on_viewer_left()));
+    let mut cursor = KaleidoscopeCursor::default();
+    cursor.mark_keyboard(MenuFocus::Item(0));
+    let secondary = app.world_mut().spawn((
+        crate::menu::MenuInstance,
+        ambition_platformer2d::inventory_ui::InventoryMenu {
+            owner: ambition_platformer2d::input::ParticipantId::SECONDARY,
+        },
+        ambition_platformer2d::inventory_ui::InventoryUiState { visible: true, ..default() },
+        ActiveMenuPages::<MenuPage, MenuPageAction>::default(),
+        cursor,
+    )).id();
+    app.world_mut().resource_mut::<ambition_platformer2d::input::SeatActiveDevices>()
+        .mark(1, ambition_platformer2d::input::ActiveDevice::Gamepad(Default::default()));
+    trigger_move(&mut app, control, Vec2::X);
+    assert_eq!(app.world().get::<KaleidoscopeCursor>(primary).unwrap().focus(), MenuFocus::EdgeLeft);
+    assert_eq!(app.world().get::<KaleidoscopeCursor>(secondary).unwrap().focus(), MenuFocus::Item(0));
+}
+
+#[test]
 fn opening_the_kaleidoscope_clears_stale_pointer_hover_state() {
     let mut app = open_app();
     crate::menu::test_support::menu_component_mut::<KaleidoscopeCursor>(app.world_mut())

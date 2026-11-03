@@ -38,6 +38,57 @@ use ambition_app::rl_sim::{
     AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
 };
 
+#[test]
+fn god_blink_in_ambition_does_not_grant_blink_to_maryo() {
+    use ambition_platformer2d::characters::control::DrivingParticipant;
+    use ambition_platformer2d::dev_tools::dev_tools::EditableAbilitySet;
+    use ambition_platformer2d::engine_core::body_clusters::BodyAbilities;
+    use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId, ShellRouter};
+    use bevy::prelude::*;
+
+    fn enter(app: &mut App, route: &str) -> Entity {
+        app.world_mut().write_message(ShellCommand::GoTo(ShellRouteId::new(route)));
+        for _ in 0..600 {
+            app.update();
+            if !app.world().resource::<ShellRouter>().active.as_ref()
+                .is_some_and(|active| active.route_id.as_str() == route)
+            {
+                continue;
+            }
+            let world = app.world_mut();
+            let mut bodies = world.query::<(Entity, &DrivingParticipant, &BodyAbilities)>();
+            if let Some((body, ..)) = bodies.iter(world).find(|(_, driver, _)| driver.0.0 == 0) {
+                return body;
+            }
+        }
+        panic!("route {route} did not activate a controlled body");
+    }
+
+    let mut app = ambition_app::app::build_visible_app(
+        ambition_app::app::VisibleRenderMode::NoWindow, false,
+    );
+    ambition_platformer2d::app::enable_manual_stepping(&mut app);
+    ambition_platformer2d::app::finish_stepped_app(&mut app);
+    let robot = enter(&mut app, ambition_content::provider::AMBITION_GAMEPLAY_ROUTE);
+    app.world_mut().resource_mut::<EditableAbilitySet>().unrestricted_blink = true;
+    for _ in 0..120 {
+        app.update();
+        if app.world().get::<BodyAbilities>(robot).unwrap().abilities.unrestricted_blink {
+            break;
+        }
+    }
+    assert!(app.world().get::<BodyAbilities>(robot).unwrap().abilities.unrestricted_blink);
+
+    let maryo = enter(&mut app, ambition_demo_mary_o::provider::MARY_O_GAMEPLAY_ROUTE);
+    for _ in 0..8 {
+        app.update();
+    }
+    let abilities = app.world().get::<BodyAbilities>(maryo).unwrap().abilities;
+    assert!(!abilities.blink && !abilities.precision_blink && !abilities.unrestricted_blink,
+        "Maryo inherited a developer blink grant from the prior game: {abilities:?}");
+    assert!(!app.world().resource::<EditableAbilitySet>().unrestricted_blink);
+}
+
 /// The sync-test canary: save every frame, rewind `4`, resimulate with the same
 /// inputs, compare checksums. A mismatch is reported by `rollback_health`.
 fn rollback_sim() -> Platformer2dSimHarness {

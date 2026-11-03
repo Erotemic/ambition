@@ -61,6 +61,7 @@ pub fn ability_set_domain() -> ambition_platformer2d_core::MechanicalDomain {
 /// value to body state that a rewind had just restored.
 pub fn propose_editable_abilities(
     editable: Res<EditableAbilitySet>,
+    active: Res<dev_tools::ActiveEditableAbilityMask>,
     mut pending: ResMut<ambition_platformer2d_core::PendingMechanicalEdits>,
 ) {
     // Exclude `is_added`: Bevy counts insertion as a change, and the mirror is
@@ -69,7 +70,26 @@ pub fn propose_editable_abilities(
     if !editable.is_changed() || editable.is_added() {
         return;
     }
+    if active.0 == Some(editable.as_engine()) {
+        pending.take(ability_set_domain());
+        return;
+    }
     pending.propose(ability_set_domain());
+}
+
+/// A new session starts with its authored abilities and no developer grants.
+pub fn reset_editable_abilities_on_activation(
+    mut activated: MessageReader<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>,
+    mut editable: ResMut<EditableAbilitySet>,
+    mut active: ResMut<dev_tools::ActiveEditableAbilityMask>,
+    mut pending: ResMut<ambition_platformer2d_core::PendingMechanicalEdits>,
+) {
+    if activated.read().count() == 0 {
+        return;
+    }
+    *editable = EditableAbilitySet::default();
+    active.0 = Some(editable.as_engine());
+    pending.take(ability_set_domain());
 }
 
 /// Admit a developer ability selection. It touches no body.
@@ -285,6 +305,60 @@ pub fn force_combat_overlay(
 #[cfg(test)]
 mod ability_admission_tests {
     use super::*;
+
+    #[test]
+    fn developer_ability_overrides_end_at_the_next_session() {
+        use ambition_characters::control::PlayerSlot;
+        use ambition_platformer2d_core::{AbilityContributions, AbilitySet};
+        use ambition_platformer2d_shared_tangle::lifecycle::{SessionScopeActivated, SessionScopeId};
+
+        let mut app = App::new();
+        app.init_resource::<EditableAbilitySet>();
+        app.init_resource::<dev_tools::ActiveEditableAbilityMask>();
+        app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
+        app.add_message::<SessionScopeActivated>();
+        app.add_systems(
+            PreUpdate,
+            (propose_editable_abilities, admit_editable_abilities, contribute_editable_ability_mask).chain(),
+        );
+        app.add_systems(Update, reset_editable_abilities_on_activation);
+        let body = app.world_mut().spawn((
+            DrivingParticipant(PlayerSlot(0)), AbilityContributions::default(),
+        )).id();
+        app.update();
+        {
+            let mut editable = app.world_mut().resource_mut::<EditableAbilitySet>();
+            editable.unrestricted_blink = true;
+            editable.jump = false;
+        }
+        app.update();
+        let base = AbilitySet::basic();
+        let effective = |app: &App, entity| {
+            app.world().get::<AbilityContributions>(entity).unwrap().apply(base)
+        };
+        assert!(effective(&app, body).unrestricted_blink);
+        assert!(!effective(&app, body).jump);
+
+        // A new body within the session keeps the admitted override.
+        let rebuilt = app.world_mut().spawn((
+            DrivingParticipant(PlayerSlot(1)), AbilityContributions::default(),
+        )).id();
+        app.update();
+        assert!(effective(&app, rebuilt).unrestricted_blink);
+
+        app.world_mut().write_message(SessionScopeActivated(SessionScopeId(2)));
+        app.update();
+        let next = app.world_mut().spawn((
+            DrivingParticipant(PlayerSlot(0)), AbilityContributions::default(),
+        )).id();
+        app.update();
+        for entity in [body, rebuilt, next] {
+            assert_eq!(effective(&app, entity), base);
+        }
+        assert!(!app.world().resource::<EditableAbilitySet>().unrestricted_blink);
+        assert!(!app.world().resource::<ambition_platformer2d_core::PendingMechanicalEdits>()
+            .is_pending(ability_set_domain()));
+    }
 
     /// Admission must not depend on a body existing. Otherwise an edit proposed
     /// while the primary player is absent stays pending and re-enters the

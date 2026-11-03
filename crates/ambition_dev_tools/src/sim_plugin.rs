@@ -68,6 +68,15 @@ impl Plugin for DevToolsSimPlugin {
         // The same admitted stage for the ability domain. See
         // `ActiveEditableAbilityMask`.
         app.init_resource::<crate::dev_tools::ActiveEditableAbilityMask>();
+        app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>()
+            .add_systems(
+                bevy::app::Update,
+                crate::reset_editable_abilities_on_activation
+                    .in_set(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate)
+                    .run_if(ambition_platformer2d_core::a_message_waits::<
+                        ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated,
+                    >),
+            );
         ambition_platformer2d_shared_tangle::schedule::configure_mechanical_edit_sets(app);
         app.add_systems(
             bevy::app::PreUpdate,

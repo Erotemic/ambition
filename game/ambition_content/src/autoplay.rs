@@ -120,13 +120,13 @@ impl GateTravel<'_, '_> {
         })
     }
 
-    fn ask(&mut self, ring: &str, action: GateTerminalAction, it: &mut Itinerary) {
+    fn ask(&mut self, subject: &ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId, ring: &str, action: GateTerminalAction, it: &mut Itinerary) {
         if action == GateTerminalAction::Close || it.frames_since_press >= PRESS_EVERY {
             it.frames_since_press = 0;
             if matches!(action, GateTerminalAction::Dial(_)) {
                 it.pending_dial = Some((ring.to_owned(), self.state.next_serial));
             }
-            self.intents.write(GateTerminalIntent { ring: ring.to_owned(), action });
+            self.intents.write(GateTerminalIntent { subject: subject.clone(), ring: ring.to_owned(), action });
         }
     }
 }
@@ -140,7 +140,7 @@ fn play_ambition(
     items: ambition_items::ItemCatalogRead,
     autopilot: Option<Res<Autopilot>>,
     rooms: Option<LiveRoomSpecs>,
-    players: Query<(Entity, &ae::BodyKinematics, Option<&ae::SweepSample>, Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>, &ambition_characters::control::DrivingParticipant), With<PrimaryPlayer>>,
+    players: Query<(Entity, &ae::BodyKinematics, Option<&ae::SweepSample>, Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>, &ambition_characters::control::DrivingParticipant, &ambition_platformer2d_shared_tangle::sim_id::SimId), With<PrimaryPlayer>>,
     cutscene: Option<Res<ambition_cutscene::ActiveCutscene>>,
     mut gates: GateTravel,
     collision: ambition_platformer2d_world::collision::CollisionWorld,
@@ -154,10 +154,11 @@ fn play_ambition(
         Option<&ambition_boss_encounter::BossEncounter>,
         &ambition_platformer2d_shared_tangle::sim_id::SimId)>,
 ) {
-    let Ok((entity, kin, sweep, in_room, driver)) = players.single() else {
+    let Ok((entity, kin, sweep, in_room, driver, subject)) = players.single() else {
         *order = AutopilotOrder::Idle;
         return;
     };
+    let subject = ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(subject.clone(), in_room.map(|room| room.0));
     let Some(specs) = rooms.as_ref() else {
         *order = AutopilotOrder::Idle;
         return;
@@ -190,11 +191,11 @@ fn play_ambition(
     }
     it.frames_since_press = it.frames_since_press.saturating_add(1);
     if let Some((ring, serial)) = it.pending_dial.clone() {
-        if let Some(report) = gates.state.reports.get(&ring).filter(|report| report.serial >= serial) {
+        if let Some(report) = gates.state.report_for(&subject, &ring).filter(|report| report.serial >= serial) {
             it.pending_dial = None;
             if report.outcome.is_err() {
                 eprintln!("[autoplay] dial refused ring={ring} outcome={:?}; planning again", report.outcome);
-                gates.ask(&ring, GateTerminalAction::Close, it);
+                gates.ask(&subject, &ring, GateTerminalAction::Close, it);
                 it.goal = None;
                 *order = AutopilotOrder::Idle;
                 return;
@@ -315,15 +316,15 @@ fn play_ambition(
             let body = kin.collision_box(sweep);
             if let Some(address) = &hop.dial {
                 let linked = gates.state.route_from(&zone.id).is_some_and(|link| link.address == *address);
-                if gates.state.terminal.as_deref() == Some(&zone.id) {
+                if gates.state.terminals.get(&subject).map(String::as_str) == Some(&zone.id) {
                     let action = if linked { GateTerminalAction::Close } else { GateTerminalAction::Dial(address.clone()) };
-                    gates.ask(&zone.id, action, it);
+                    gates.ask(&subject, &zone.id, action, it);
                     *order = AutopilotOrder::Idle;
                     return;
                 }
                 if !linked {
-                    if let Some(open) = gates.state.terminal.clone() {
-                        gates.ask(&open, GateTerminalAction::Close, it);
+                    if let Some(open) = gates.state.terminals.get(&subject).cloned() {
+                        gates.ask(&subject, &open, GateTerminalAction::Close, it);
                         *order = AutopilotOrder::Idle;
                         return;
                     }

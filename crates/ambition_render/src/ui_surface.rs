@@ -69,6 +69,25 @@ impl ParticipantSurface<'_, '_> {
         self.rect_for_view(self.view(owner?)?, display)
     }
 
+    /// A participant's menu region. Participants in one view share its width.
+    pub fn menu_rect(&self, owner: ambition_input::ParticipantId,
+        peers: &[ambition_input::ParticipantId]) -> Option<Rect> {
+        let region = self.display_rect_for(Some(ambition_input::InputOwner::Participant(owner)))?;
+        let (mut count, mut ordinal, mut found) = (0, 0, false);
+        for (index, peer) in peers.iter().enumerate() {
+            if peers[..index].contains(peer) { return None; }
+            if self.display_rect_for(Some(ambition_input::InputOwner::Participant(*peer))) == Some(region) {
+                count += 1;
+                ordinal += usize::from(peer.slot() < owner.slot());
+                found |= *peer == owner;
+            }
+        }
+        if !found { return None; }
+        let width = region.width() / count as f32;
+        let min = region.min + Vec2::new(width * ordinal as f32, 0.0);
+        Some(Rect::from_corners(min, Vec2::new(min.x + width, region.max.y)))
+    }
+
     fn rect_for_view(&self, view: Entity, display: Rect) -> Option<Rect> {
         let (_, _, _, placement, _, _, _, _) = self.views.get(view).ok()?;
         let (origin, size) = placement.copied().unwrap_or_default().carve(display.min, display.size());

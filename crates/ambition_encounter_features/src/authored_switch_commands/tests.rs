@@ -216,6 +216,7 @@ fn press_in(
 ) {
     app.world_mut()
         .write_message(ambition_encounter::switches::SwitchActivated {
+            subject: None,
             activation: ambition_encounter::SwitchActivation {
                 id: switch_id.to_string(),
                 action: "SetGravityDown".to_string(),

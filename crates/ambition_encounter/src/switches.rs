@@ -99,7 +99,7 @@ pub struct SwitchActivationQueue(pub Vec<QueuedSwitchActivation>);
 impl From<SwitchActivation> for QueuedSwitchActivation {
     /// A press in the sole live room.
     fn from(activation: SwitchActivation) -> Self {
-        Self { activation, room: None }
+        Self { activation, room: None, subject: None }
     }
 }
 
@@ -108,6 +108,8 @@ impl From<SwitchActivation> for QueuedSwitchActivation {
 /// encounter targets its own room's, so the room must reach the drain.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct QueuedSwitchActivation {
+    /// The actor that activated the switch. None for an automatic activation.
+    pub subject: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId>,
     pub activation: SwitchActivation,
     /// `None`: the sole live room.
     pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
@@ -135,7 +137,10 @@ impl SwitchActivationQueue {
                         target_encounter,
                     },
                 room,
+                subject,
             } = entry;
+            ambition_platformer2d_core::snapshot::put_bool(&mut bytes, subject.is_some());
+            if let Some(subject) = subject { subject.write_peer_stable_into(&mut bytes); }
             put_str(&mut bytes, id);
             put_str(&mut bytes, action);
             put_str(&mut bytes, target_encounter);
@@ -322,6 +327,8 @@ impl SwitchFeature {
 /// string lives only at the engine `InteractionKind::Custom` boundary.
 #[derive(Message, Clone, Debug, PartialEq)]
 pub struct SwitchActivated {
+    /// The actor that activated the switch. None for an automatic activation.
+    pub subject: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId>,
     pub activation: SwitchActivation,
     pub pos: ae::Vec2,
     /// The live room the switch is in (OW1 cut 7b). Two live rooms can hold
@@ -448,6 +455,8 @@ pub fn boss_life_switch_on(
 /// kinds that toggle — the switch's value AFTER the toggle.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ResolvedSwitchActivation {
+    /// The actor that activated the switch. None for an automatic activation.
+    pub subject: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId>,
     /// The switch's authored id.
     pub id: String,
     /// What it asks for, parsed once.
@@ -528,7 +537,7 @@ pub fn drain_switch_activations(
     if queue.0.is_empty() {
         return;
     }
-    for QueuedSwitchActivation { activation, room } in std::mem::take(&mut queue.0) {
+    for QueuedSwitchActivation { activation, room, subject } in std::mem::take(&mut queue.0) {
         let action = SwitchAction::parse(&activation.action);
         // THIS ROAD'S persisted write, in its one place: three arms of one
         // match, so an action's meaning and its durable consequence cannot
@@ -569,6 +578,7 @@ pub fn drain_switch_activations(
             SwitchAction::GateTerminal | SwitchAction::Unhandled(_) => save.data().switch(&activation.id),
         };
         resolved.0.push(ResolvedSwitchActivation {
+            subject,
             id: activation.id,
             action,
             target_encounter: activation.target_encounter,
@@ -817,6 +827,7 @@ mod switch_target_tests {
 
     fn reset(target: &str) -> ResolvedSwitchActivation {
         ResolvedSwitchActivation {
+            subject: None,
             id: "gate".into(),
             action: SwitchAction::ResetEncounter,
             target_encounter: target.into(),

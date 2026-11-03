@@ -98,7 +98,7 @@ where
     registrar.rollback_component_clone_checksum::<crate::switches::SwitchActivationQueue>(
         OWNER,
         "resource.switch_activation_queue",
-        "queued switch activations, in order, by id/action/target",
+        "queued switch activations with acting bodies and live rooms, in order",
         crate::switches::SwitchActivationQueue::checksum,
     );
     registrar.rollback_component_clone::<crate::switches::SwitchFeature>(OWNER, "feature.switch");

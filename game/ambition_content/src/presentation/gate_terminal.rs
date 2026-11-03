@@ -30,6 +30,7 @@ use ambition_platformer2d::world::rooms::{
     position_grid, Chevron, GateNetworkCatalog, GateNetworkState, GateRingPositions, GateTerminalIntent, GRID_BITS,
 };
 use ambition_platformer2d_shared_tangle::host_intents::HostIntentWriter;
+use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 use bevy::prelude::*;
 
@@ -78,7 +79,7 @@ const ROW_HOVERED: Color = Color::srgb(0.14, 0.20, 0.25);
 
 /// The panel's root. Rebuilt whole when the model changes.
 #[derive(Component)]
-struct GateTerminalRoot;
+struct GateTerminalRoot { owner: Entity }
 
 /// A place of the wheel, as a button.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
@@ -104,8 +105,8 @@ const COMPACT_CHROME: f32 = 120.0;
 const COMPACT_BELOW: f32 = 560.0;
 
 /// The model the panel shows now, to rebuild only on a change.
-#[derive(Resource, Default)]
-struct ShownTerminal(Option<TerminalModel>);
+#[derive(Component, Default)]
+struct ShownTerminal(Option<(TerminalModel, Rect)>);
 
 /// The glyph picture and its cells.
 #[derive(Resource)]
@@ -119,26 +120,75 @@ pub(super) fn install(app: &mut App) {
     // Both sleep while no terminal is open. Each runs once more after a
     // terminal closes: the drive to forget its state, the draw to take its
     // panel down.
-    app.init_resource::<ShownTerminal>()
-        .init_resource::<GateDialPreview>()
+    app.init_resource::<GateDialPreview>()
+        .init_resource::<ambition_input::SeatMenuFrames>()
+        .init_resource::<ambition_input::participant::SeatInputContexts>()
         .add_systems(Startup, load_glyph_icons)
-        .add_systems(
-            Update,
-            (
-                drive_gate_terminal.run_if(|state: Option<Res<GateNetworkState>>, ui: Res<TerminalUi>| {
-                    state.is_some_and(|state| state.terminal.is_some()) || ui.ring.is_some()
+        .add_systems(Update,
+            (initialize_terminal_surfaces,
+                drive_gate_terminal.run_if(|state: Option<Res<GateNetworkState>>, users: Query<&TerminalUi>, preview: Res<GateDialPreview>| {
+                    state.is_some_and(|state| !state.terminals.is_empty()) || users.iter().any(|ui| ui.ring.is_some()) || !preview.by_ring.is_empty()
                 }),
-                draw_gate_terminal.run_if(|state: Option<Res<GateNetworkState>>, shown: Res<ShownTerminal>| {
-                    state.is_some_and(|state| state.terminal.is_some()) || shown.0.is_some()
-                }),
-            )
+                draw_gate_terminal.run_if(|state: Option<Res<GateNetworkState>>, users: Query<&ShownTerminal>| {
+                    state.is_some_and(|state| !state.terminals.is_empty()) || users.iter().any(|shown| shown.0.is_some())
+                }))
                 .chain()
                 .after(ambition_input::InputSet::ResolveContext)
-                // A READER of the menu frame, after every surface that writes
-                // or consumes it: the frame is whole when the terminal reads
-                // it, and no other surface's order depends on the terminal's.
-                .after(ambition_platformer2d::input::MenuFrameConsume),
-        );
+                .after(ambition_platformer2d::input::MenuFrameConsume));
+}
+
+#[derive(bevy::ecs::system::SystemParam)]
+struct TerminalParticipants<'w, 's> {
+    inputs: Query<'w, 's, (Entity, &'static ambition_input::participant::InputParticipant)>,
+    roots: Query<'w, 's, (&'static ambition_platformer2d_shared_tangle::lifecycle::SessionRoot,
+        &'static ambition_platformer2d::session::participants::SessionParticipants)>,
+    scope: ambition_platformer2d_shared_tangle::lifecycle::LiveSessionScope<'w, 's>,
+    local: Option<Res<'w, ambition_platformer2d::rollback::LocalPlayers>>,
+}
+
+impl TerminalParticipants<'_, '_> {
+    fn contains(&self, owner: Entity) -> bool {
+        let Ok((_, participant)) = self.inputs.get(owner) else { return false; };
+        let slot = ambition_platformer2d::characters::control::PlayerSlot(participant.id.slot());
+        self.local.as_ref().is_none_or(|local| local.0.contains(&usize::from(slot.0)))
+            && self.scope.get().is_some_and(|scope| self.roots.iter().any(|(root, members)| root.0 == scope && members.contains(slot)))
+    }
+}
+
+fn initialize_terminal_surfaces(
+    mut commands: Commands,
+    participants: TerminalParticipants,
+    initialized: Query<(), With<TerminalUi>>,
+    roots: Query<(Entity, &GateTerminalRoot)>,
+) {
+    for (entity, _) in &participants.inputs {
+        match (participants.contains(entity), initialized.contains(entity)) {
+            (true, false) => { commands.entity(entity).insert((TerminalUi::default(), ShownTerminal::default())); }
+            (false, true) => { commands.entity(entity).remove::<(TerminalUi, ShownTerminal)>(); }
+            _ => {}
+        }
+    }
+    for (entity, root) in &roots {
+        if !participants.contains(root.owner) { commands.entity(entity).despawn(); }
+    }
+}
+
+#[derive(bevy::ecs::system::SystemParam)]
+struct TerminalWidgets<'w, 's> {
+    wheel: Query<'w, 's, (Entity, &'static Interaction, &'static WheelButton), Changed<Interaction>>,
+    list: Query<'w, 's, (Entity, &'static Interaction, &'static ListButton), Changed<Interaction>>,
+    back: Query<'w, 's, (Entity, &'static Interaction), (Changed<Interaction>, With<DialBackButton>)>,
+    roots: Query<'w, 's, (Entity, &'static GateTerminalRoot, &'static ComputedNode)>,
+    parents: Query<'w, 's, &'static ChildOf>,
+}
+
+impl TerminalWidgets<'_, '_> {
+    fn owner(&self, mut entity: Entity) -> Option<Entity> {
+        loop {
+            if let Ok((_, root, _)) = self.roots.get(entity) { return Some(root.owner); }
+            entity = self.parents.get(entity).ok()?.parent();
+        }
+    }
 }
 
 fn load_glyph_icons(sprite_content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>, mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -147,22 +197,6 @@ fn load_glyph_icons(sprite_content: bevy::prelude::Res<ambition_platformer2d::sp
         image: load_sheet_image(Some(&sprite_content), &asset_server, "gate-terminal", GLYPH_ICONS),
         layout: None,
     });
-}
-
-/// Whether the terminal owns the primary seat's input this frame.
-fn terminal_owns_input(seats: Option<&ambition_input::participant::SeatInputContexts>) -> bool {
-    seats.is_none_or(|seats| seats.for_seat(0).owner() == Some(GATE_TERMINAL_CONTEXT))
-}
-
-/// The direction the most leaned stick points, as an angle of the wheel
-/// (degrees clockwise from 3 o'clock, y down), when one leans far enough.
-fn stick_angle(gamepads: &Query<&Gamepad>) -> Option<f32> {
-    gamepads
-        .iter()
-        .map(|gamepad| gamepad.left_stick())
-        .filter(|stick| stick.length() >= STICK_POINTS)
-        .max_by(|a, b| a.length().total_cmp(&b.length()))
-        .map(|stick| (-stick.y).atan2(stick.x).to_degrees())
 }
 
 /// The pointer's state for one frame: where it is, what came up, how it
@@ -185,15 +219,16 @@ fn drive_gate_terminal(
     positions: Option<Res<GateRingPositions>>,
     state: Option<Res<GateNetworkState>>,
     save: Option<Res<ambition_platformer2d::persistence::save::AmbitionGameSave>>,
-    mut ui: ResMut<TerminalUi>,
+    mut users: Query<(Entity, &ambition_input::participant::InputParticipant, &mut TerminalUi)>,
+    drivers: Query<(Entity, &ambition_platformer2d::characters::control::DrivingParticipant)>,
+    bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
     mut preview: ResMut<GateDialPreview>,
-    menu: Option<Res<ambition_input::MenuControlFrame>>,
-    seats: Option<Res<ambition_input::participant::SeatInputContexts>>,
-    gamepads: Query<&Gamepad>,
-    wheel: Query<(&Interaction, &WheelButton), Changed<Interaction>>,
-    list: Query<(&Interaction, &ListButton), Changed<Interaction>>,
-    dial_back: Query<&Interaction, (Changed<Interaction>, With<DialBackButton>)>,
-    roots: Query<&ComputedNode, With<GateTerminalRoot>>,
+    frames: Res<ambition_input::SeatMenuFrames>,
+    seats: Res<ambition_input::participant::SeatInputContexts>,
+    widgets: TerminalWidgets,
+    participants: TerminalParticipants,
+    surface: ambition_render::ui_surface::ParticipantSurface,
+    pointer_frame: Option<Res<ambition_input::MenuControlFrame>>,
     mut pointer: PointerInputs,
     mut intents: HostIntentWriter<GateTerminalIntent>,
 ) {
@@ -201,195 +236,208 @@ fn drive_gate_terminal(
     // `Interaction` changes to `Hovered` although nothing moved: only a
     // pointer that moved this frame points the wheel.
     let pointer_moved = pointer.moves.read().count() > 0;
-    let scrolled: i32 = pointer.scrolls.read().map(|wheel| -wheel.y.signum() as i32).sum();
+    let wheel_steps: i32 = pointer.scrolls.read().map(|wheel| -wheel.y.signum() as i32).sum();
     let windows = &pointer.windows;
     let (touches, mouse_buttons) = (pointer.touches.as_deref(), pointer.mouse_buttons.as_deref());
     let (Some(catalog), Some(state)) = (catalog, state) else {
         return;
     };
-    let Some(ring) = state.terminal.clone() else {
-        if ui.ring.is_some() {
+    let mut previews = std::collections::BTreeMap::new();
+    let owners: Vec<_> = participants.inputs.iter().filter(|(entity, _)| participants.contains(*entity)).map(|(_, participant)| participant.id).collect();
+    let pointer_position = ambition_ui_nav::pointer_position(touches, windows.single().ok().and_then(Window::cursor_position));
+    let mut ordered: Vec<_> = users.iter_mut().collect();
+    ordered.sort_by_key(|(_, participant, _)| participant.id.slot());
+    for (owner, participant, mut ui) in ordered {
+        let subject = crate::gate_terminal::terminal_subject(participant.id, &drivers, &bodies);
+        let ring = subject.as_ref().and_then(|subject| state.terminals.get(subject)).cloned();
+        let Some((subject, ring)) = subject.zip(ring) else {
             *ui = TerminalUi::default();
-        }
-        if *preview != GateDialPreview::default() {
-            *preview = GateDialPreview::default();
-        }
-        return;
-    };
-    if ui.ring.as_deref() != Some(ring.as_str()) {
-        let seen = state.reports.get(&ring).map(|report| report.serial);
-        ui.open(&ring, seen);
-        // A portal arch is a list of places, not an address to spell: it opens
-        // on its list.
-        if catalog.ring(&ring).is_some_and(|ring| ring.kind == ambition_platformer2d::world::rooms::RingKind::Portal) {
-            ui.focus = crate::gate_terminal::TerminalFocus::List;
-        }
-    }
-    // A dial that answered with a link leaves the terminal, so the traveller
-    // can walk into the ring.
-    if let Some(report) = state.reports.get(&ring) {
-        if ui.seen_serial != Some(report.serial) {
-            ui.seen_serial = Some(report.serial);
-            if report.outcome.is_ok() {
-                intents.write(intent(&ring, ambition_platformer2d::world::rooms::GateTerminalAction::Close));
-                return;
-            }
-        }
-    }
-    if terminal_owns_input(seats.as_deref()) {
-        let knows = |flag: &str| save.as_ref().is_some_and(|save| save.data().flag(flag));
-        let none = GateRingPositions::default();
-        let known = known_addresses(&catalog, positions.as_deref().unwrap_or(&none), &ring, knows);
-        let rows = ui.list(&catalog, &state, &known);
-        let count = catalog.chevrons();
-        let mut effects = Vec::new();
-        // Mouse and touch: on the wheel a moving pointer points and a press
-        // presses. On the list a hover is drawn and never moves the cursor
-        // (Q70: it would undo every arrow key, since the list is rebuilt
-        // under the pointer); a press selects and activates.
-        for (interaction, button) in &wheel {
-            match interaction {
-                Interaction::Hovered if pointer_moved => ui.point(button.0),
-                Interaction::Pressed => effects.push(ui.press_slot(button.0)),
-                _ => {}
-            }
-        }
-        // As many rows as the screen holds: a phone shows fewer, and scrolls.
-        // The screen is the size the panel's root was laid out at (not the
-        // window's, which an offscreen target or a UI scale does not share).
-        if let Some(height) = roots.iter().next().map(|root| root.size().y * root.inverse_scale_factor()) {
-            let compact = height < COMPACT_BELOW;
-            let chrome = if compact { COMPACT_CHROME } else { LIST_CHROME };
-            let fit = (((height - chrome) / ROW_PITCH).floor() as usize).clamp(2, 12);
-            if ui.list_rows != fit || ui.compact != compact {
-                ui.list_rows = fit;
-                ui.compact = compact;
-                ui.list_window = ambition_ui_nav::scroll_into_view(ui.list_window, ui.list_cursor, rows.len(), fit);
-            }
-        }
-        // A row activates when the pointer comes up on the row it went down
-        // on, unless it travelled (a finger scrolling the list): the shared
-        // press guard of the menus' flat lists (`ambition_ui_nav::RowPress`).
-        let cursor = windows.single().ok().and_then(Window::cursor_position);
-        let position = ambition_ui_nav::pointer_position(touches, cursor);
-        let pointer_up = ambition_ui_nav::pointer_up(touches, mouse_buttons);
-        if ui.row_press.is_armed() {
-            ui.row_press.moved(position);
-        }
-        let mut tapped = None;
-        for (interaction, button) in &list {
-            let index = button.0;
-            if index >= rows.len() {
-                continue;
-            }
-            match interaction {
-                Interaction::Hovered => {
-                    ui.list_hover = Some(index);
-                    // A mouse released over the row it pressed reports `Hovered`.
-                    if pointer_up.came_up() && ui.row_press.release(index, position) == Some(index) {
-                        tapped = Some(index);
-                    }
-                }
-                Interaction::Pressed => {
-                    ui.row_press.press(index, position);
-                    // A whole tap can fit in one frame.
-                    if pointer_up.came_up() {
-                        ui.row_press.clear();
-                        tapped = Some(index);
-                    }
-                }
-                // `None` is a finger lifting AND a pointer leaving the row: only
-                // a touch that came up this frame is a release.
-                Interaction::None => {
-                    if ui.list_hover == Some(index) {
-                        ui.list_hover = None;
-                    }
-                    if pointer_up != ambition_ui_nav::PointerUp::Touch {
-                        if ui.row_press.armed() == Some(&index) {
-                            ui.row_press.left(index);
-                        }
-                    } else if ui.row_press.release(index, position) == Some(index) {
-                        tapped = Some(index);
-                    }
-                }
-            }
-        }
-        if let Some(row) = tapped.and_then(|index| rows.get(index).cloned()) {
-            ui.focus = TerminalFocus::List;
-            ui.list_cursor = tapped.unwrap_or_default();
-            effects.push(ui.press_row(&row));
-        }
-        for interaction in &dial_back {
-            if *interaction == Interaction::Pressed {
-                ui.focus = TerminalFocus::List;
-            }
-        }
-        // A mouse wheel or a drag over the screen scrolls the list's window,
-        // not its cursor.
-        let drag = menu.as_deref().map_or(0, |menu| -(menu.drag_scroll_y.round() as i32));
-        if scrolled + drag != 0 {
-            ui.scroll_list(scrolled + drag, rows.len());
-        }
-        // The stick points the wheel while the wheel has the focus.
-        let leaning = ui.focus == TerminalFocus::Wheel && {
-            let angle = stick_angle(&gamepads);
-            if let Some(angle) = angle {
-                ui.point(WheelSlot::at_angle(angle, count));
-            }
-            angle.is_some()
+            continue;
         };
-        if let Some(menu) = menu.as_deref() {
-            if menu.page_left || menu.page_right {
-                ui.swap_focus();
-            } else {
-                match ui.focus {
-                    TerminalFocus::Wheel => {
-                        if !leaning {
-                            if menu.left {
-                                ui.step_wheel(-1, count);
-                            }
-                            if menu.right {
-                                ui.step_wheel(1, count);
-                            }
-                            if menu.up {
-                                ui.point(WheelSlot::at_angle(270.0, count));
-                            }
-                            if menu.down {
-                                ui.point(WheelSlot::Engage);
-                            }
-                        }
-                        if menu.select {
-                            let slot = ui.pointed.unwrap_or(WheelSlot::at_angle(270.0, count));
-                            effects.push(ui.press_slot(slot));
+        if ui.subject.as_ref() != Some(&subject) {
+            *ui = TerminalUi { subject: Some(subject.clone()), ..default() };
+        }
+        let menu = Some(frames.for_seat(participant.id.slot()));
+        let over_surface = pointer_position.is_some_and(|position| surface.menu_rect(participant.id, &owners).is_some_and(|region| region.contains(position)));
+        let scrolled = if over_surface { wheel_steps } else { 0 };
+        if ui.ring.as_deref() != Some(ring.as_str()) {
+            let seen = state.report_for(&subject, &ring).map(|report| report.serial);
+            ui.open(&ring, seen);
+            // A portal arch is a list of places, not an address to spell: it opens
+            // on its list.
+            if catalog.ring(&ring).is_some_and(|ring| ring.kind == ambition_platformer2d::world::rooms::RingKind::Portal) {
+                ui.focus = crate::gate_terminal::TerminalFocus::List;
+            }
+        }
+        // A dial that answered with a link leaves the terminal, so the traveller
+        // can walk into the ring.
+        if let Some(report) = state.report_for(&subject, &ring) {
+            if ui.seen_serial != Some(report.serial) {
+                ui.seen_serial = Some(report.serial);
+                if report.outcome.is_ok() {
+                    intents.write(intent(&subject, &ring, ambition_platformer2d::world::rooms::GateTerminalAction::Close));
+                    continue;
+                }
+            }
+        }
+        if seats.for_seat(participant.id.slot()).owner() == Some(GATE_TERMINAL_CONTEXT) {
+            let knows = |flag: &str| save.as_ref().is_some_and(|save| save.data().flag(flag));
+            let none = GateRingPositions::default();
+            let known = known_addresses(&catalog, positions.as_deref().unwrap_or(&none), &ring, knows);
+            let rows = ui.list(&catalog, &state, &known);
+            let count = catalog.chevrons();
+            let mut effects = Vec::new();
+            // Mouse and touch: on the wheel a moving pointer points and a press
+            // presses. On the list a hover is drawn and never moves the cursor
+            // (Q70: it would undo every arrow key, since the list is rebuilt
+            // under the pointer); a press selects and activates.
+            for (entity, interaction, button) in &widgets.wheel {
+                if widgets.owner(entity) != Some(owner) { continue; }
+                match interaction {
+                    Interaction::Hovered if pointer_moved => ui.point(button.0),
+                    Interaction::Pressed => effects.push(ui.press_slot(button.0)),
+                    _ => {}
+                }
+            }
+            // As many rows as the screen holds: a phone shows fewer, and scrolls.
+            // The screen is the size the panel's root was laid out at (not the
+            // window's, which an offscreen target or a UI scale does not share).
+            if let Some(height) = widgets.roots.iter().find(|(_, root, _)| root.owner == owner).map(|(_, _, node)| node.size().y * node.inverse_scale_factor()) {
+                let compact = height < COMPACT_BELOW;
+                let chrome = if compact { COMPACT_CHROME } else { LIST_CHROME };
+                let fit = (((height - chrome) / ROW_PITCH).floor() as usize).clamp(2, 12);
+                if ui.list_rows != fit || ui.compact != compact {
+                    ui.list_rows = fit;
+                    ui.compact = compact;
+                    ui.list_window = ambition_ui_nav::scroll_into_view(ui.list_window, ui.list_cursor, rows.len(), fit);
+                }
+            }
+            // A row activates when the pointer comes up on the row it went down
+            // on, unless it travelled (a finger scrolling the list): the shared
+            // press guard of the menus' flat lists (`ambition_ui_nav::RowPress`).
+            let cursor = windows.single().ok().and_then(Window::cursor_position);
+            let position = ambition_ui_nav::pointer_position(touches, cursor);
+            let pointer_up = ambition_ui_nav::pointer_up(touches, mouse_buttons);
+            if ui.row_press.is_armed() {
+                ui.row_press.moved(position);
+            }
+            let mut tapped = None;
+            for (entity, interaction, button) in &widgets.list {
+                if widgets.owner(entity) != Some(owner) { continue; }
+                let index = button.0;
+                if index >= rows.len() {
+                    continue;
+                }
+                match interaction {
+                    Interaction::Hovered => {
+                        ui.list_hover = Some(index);
+                        // A mouse released over the row it pressed reports `Hovered`.
+                        if pointer_up.came_up() && ui.row_press.release(index, position) == Some(index) {
+                            tapped = Some(index);
                         }
                     }
-                    TerminalFocus::List => {
-                        let step = i32::from(menu.down) - i32::from(menu.up);
-                        if step != 0 {
-                            ui.step_list(step, rows.len());
+                    Interaction::Pressed => {
+                        ui.row_press.press(index, position);
+                        // A whole tap can fit in one frame.
+                        if pointer_up.came_up() {
+                            ui.row_press.clear();
+                            tapped = Some(index);
                         }
-                        if menu.select {
-                            if let Some(row) = rows.get(ui.list_cursor).cloned() {
-                                effects.push(ui.press_row(&row));
+                    }
+                    // `None` is a finger lifting AND a pointer leaving the row: only
+                    // a touch that came up this frame is a release.
+                    Interaction::None => {
+                        if ui.list_hover == Some(index) {
+                            ui.list_hover = None;
+                        }
+                        if pointer_up != ambition_ui_nav::PointerUp::Touch {
+                            if ui.row_press.armed() == Some(&index) {
+                                ui.row_press.left(index);
                             }
+                        } else if ui.row_press.release(index, position) == Some(index) {
+                            tapped = Some(index);
                         }
                     }
                 }
             }
-            if menu.back {
-                effects.push(ui.back());
+            if let Some(row) = tapped.and_then(|index| rows.get(index).cloned()) {
+                ui.focus = TerminalFocus::List;
+                ui.list_cursor = tapped.unwrap_or_default();
+                effects.push(ui.press_row(&row));
+            }
+            for (entity, interaction) in &widgets.back {
+                if widgets.owner(entity) != Some(owner) { continue; }
+                if *interaction == Interaction::Pressed {
+                    ui.focus = TerminalFocus::List;
+                }
+            }
+            // A mouse wheel or a drag over the screen scrolls the list's window,
+            // not its cursor.
+            let drag = if over_surface { pointer_frame.as_ref().map_or(0, |menu| -(menu.drag_scroll_y.round() as i32)) } else { 0 };
+            if scrolled + drag != 0 {
+                ui.scroll_list(scrolled + drag, rows.len());
+            }
+            // The stick points the wheel while the wheel has the focus.
+            let leaning = ui.focus == TerminalFocus::Wheel && {
+                let stick = menu.as_ref().map_or(Vec2::ZERO, |menu| menu.analog);
+                let angle = (stick.length() >= STICK_POINTS).then(|| stick.y.atan2(stick.x).to_degrees());
+                if let Some(angle) = angle {
+                    ui.point(WheelSlot::at_angle(angle, count));
+                }
+                angle.is_some()
+            };
+            if let Some(menu) = menu.as_ref() {
+                if menu.page_left || menu.page_right {
+                    ui.swap_focus();
+                } else {
+                    match ui.focus {
+                        TerminalFocus::Wheel => {
+                            if !leaning {
+                                if menu.left {
+                                    ui.step_wheel(-1, count);
+                                }
+                                if menu.right {
+                                    ui.step_wheel(1, count);
+                                }
+                                if menu.up {
+                                    ui.point(WheelSlot::at_angle(270.0, count));
+                                }
+                                if menu.down {
+                                    ui.point(WheelSlot::Engage);
+                                }
+                            }
+                            if menu.select {
+                                let slot = ui.pointed.unwrap_or(WheelSlot::at_angle(270.0, count));
+                                effects.push(ui.press_slot(slot));
+                            }
+                        }
+                        TerminalFocus::List => {
+                            let step = i32::from(menu.down) - i32::from(menu.up);
+                            if step != 0 {
+                                ui.step_list(step, rows.len());
+                            }
+                            if menu.select {
+                                if let Some(row) = rows.get(ui.list_cursor).cloned() {
+                                    effects.push(ui.press_row(&row));
+                                }
+                            }
+                        }
+                    }
+                }
+                if menu.back {
+                    effects.push(ui.back());
+                }
+            }
+            for effect in effects {
+                if let TerminalEffect::Send(action) = effect {
+                    intents.write(intent(&subject, &ring, action));
+                }
             }
         }
-        for effect in effects {
-            if let TerminalEffect::Send(action) = effect {
-                intents.write(intent(&ring, action));
-            }
-        }
+        previews.entry(ring).or_insert_with(|| ui.entered.clone());
     }
-    let shown = GateDialPreview { ring: Some(ring), chevrons: ui.entered.clone() };
-    if *preview != shown {
-        *preview = shown;
-    }
+    if preview.by_ring != previews { preview.by_ring = previews; }
+
 }
 
 /// Draw the terminal panel from the model, rebuilt only when it changed.
@@ -400,97 +448,99 @@ fn draw_gate_terminal(
     positions: Option<Res<GateRingPositions>>,
     state: Option<Res<GateNetworkState>>,
     save: Option<Res<ambition_platformer2d::persistence::save::AmbitionGameSave>>,
-    ui: Res<TerminalUi>,
-    mut shown: ResMut<ShownTerminal>,
-    roots: Query<(Entity, &ComputedNode), With<GateTerminalRoot>>,
+    mut users: Query<(Entity, &ambition_input::participant::InputParticipant, &TerminalUi, &mut ShownTerminal)>,
+    participants: TerminalParticipants,
+    surface: ambition_render::ui_surface::ParticipantSurface,
+    roots: Query<(Entity, &GateTerminalRoot, &ComputedNode)>,
     ui_fonts: Option<Res<UiFonts>>,
-    icons: Option<ResMut<GlyphIcons>>,
+    mut icons: Option<ResMut<GlyphIcons>>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    let model = match (catalog.as_deref(), state, ui.ring.as_deref()) {
-        (Some(catalog), Some(state), Some(ring)) if state.terminal.as_deref() == Some(ring) => {
-            let knows = |flag: &str| save.as_ref().is_some_and(|save| save.data().flag(flag));
-            let none = GateRingPositions::default();
-            let known = known_addresses(catalog, positions.as_deref().unwrap_or(&none), ring, knows);
-            Some(ui.model(catalog, &state, &known))
+    let Some(scope) = participants.scope.get() else { return; };
+    let owners: Vec<_> = participants.inputs.iter().filter(|(entity, _)| participants.contains(*entity)).map(|(_, participant)| participant.id).collect();
+    for (owner, participant, ui, mut shown) in &mut users {
+        let region = surface.menu_rect(participant.id, &owners);
+        let model = match (catalog.as_deref(), state.as_deref(), ui.ring.as_deref()) {
+            (Some(catalog), Some(state), Some(ring)) if ui.subject.as_ref().and_then(|subject| state.terminals.get(subject)).map(String::as_str) == Some(ring) => {
+                let knows = |flag: &str| save.as_ref().is_some_and(|save| save.data().flag(flag));
+                let none = GateRingPositions::default();
+                let known = known_addresses(catalog, positions.as_deref().unwrap_or(&none), ring, knows);
+                Some(ui.model(catalog, &state, &known))
+            }
+            _ => None,
+        };
+        let wanted = model.clone().zip(region);
+        if shown.0 == wanted { continue; }
+        // The height the last panel was laid out at, to fit the wheel.
+        let height = region.map_or(0.0, |region| region.height());
+        let width = region.map_or(0.0, |region| region.width());
+        let stacked = model.as_ref().is_some_and(|model| model.focus == TerminalFocus::Wheel) && width < WHEEL + 360.0;
+        for (entity, root, _) in &roots {
+            if root.owner == owner { commands.entity(entity).despawn(); }
         }
-        _ => None,
-    };
-    if shown.0 == model {
-        return;
-    }
-    // The height the last panel was laid out at, to fit the wheel.
-    let height = roots.iter().next().map_or(f32::MAX, |(_, root)| root.size().y * root.inverse_scale_factor());
-    for (root, _) in &roots {
-        commands.entity(root).despawn();
-    }
-    shown.0 = model.clone();
-    let (Some(model), Some(mut icons)) = (model, icons) else {
-        return;
-    };
-    let count = model.inscription.len();
-    let layout = icons
-        .layout
-        .get_or_insert_with(|| {
-            layouts.add(TextureAtlasLayout::from_grid(UVec2::splat(GLYPH_ICON_PX), count as u32, 1, None, None))
-        })
-        .clone();
-    let glyphs = Glyphs { image: icons.image.clone(), layout };
-    let font = |size: f32, weight: UiFontWeight| {
-        ui_fonts.as_deref().map(|fonts| fonts.text_font(size, weight)).unwrap_or(TextFont {
-            font_size: FontSize::Px(size),
-            ..default()
-        })
-    };
-    commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                left: Val::Px(0.0),
-                right: Val::Px(0.0),
-                top: Val::Px(0.0),
-                bottom: Val::Px(0.0),
-                padding: UiRect::all(Val::Px(if model.compact { 4.0 } else { 12.0 })),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
+        shown.0 = wanted;
+        let (Some(model), Some(region), Some(icons)) = (model, region, icons.as_mut()) else { continue; };
+        let count = model.inscription.len();
+        let layout = icons
+            .layout
+            .get_or_insert_with(|| {
+                layouts.add(TextureAtlasLayout::from_grid(UVec2::splat(GLYPH_ICON_PX), count as u32, 1, None, None))
+            })
+            .clone();
+        let glyphs = Glyphs { image: icons.image.clone(), layout };
+        let font = |size: f32, weight: UiFontWeight| {
+            ui_fonts.as_deref().map(|fonts| fonts.text_font(size, weight)).unwrap_or(TextFont {
+                font_size: FontSize::Px(size),
                 ..default()
-            },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.45)),
-            ZIndex(46),
-            GateTerminalRoot,
-            Name::new("Gate Terminal Root"),
-        ))
-        .with_children(|root| {
-            root.spawn((
-                Node {
-                    max_width: Val::Percent(100.0),
-                    max_height: Val::Percent(100.0),
-                    // A misfit clips the bottom, never the heading.
-                    overflow: Overflow::clip(),
-                    padding: UiRect::all(Val::Px(if model.compact { 8.0 } else { 14.0 })),
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    column_gap: Val::Px(20.0),
-                    border: UiRect::all(Val::Px(4.0)),
-                    border_radius: BorderRadius::all(Val::Px(8.0)),
-                    ..default()
-                },
-                BackgroundColor(PANEL),
-                BorderColor::all(PANEL_EDGE),
-                Name::new("Gate Terminal Panel"),
+            })
+        };
+        let mut node = Node {
+            padding: UiRect::all(Val::Px(if model.compact { 4.0 } else { 12.0 })),
+            justify_content: JustifyContent::Center, align_items: AlignItems::Center,
+            ..default()
+        };
+        surface.place(&mut node, region);
+        commands
+            .spawn_in_session(scope, (
+                node,
+                BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.45)),
+                ZIndex(46),
+                GateTerminalRoot { owner },
+                Name::new("Gate Terminal Root"),
             ))
-            .with_children(|panel| match model.focus {
-                TerminalFocus::List => spawn_list(panel, &model, &glyphs, &font),
-                TerminalFocus::Wheel => {
-                    // The wheel shrinks to fit a short screen (a phone held
-                    // sideways); its layout stays the ring's.
-                    let scale = ((height - 60.0) / WHEEL).clamp(0.4, 1.0);
-                    spawn_wheel(panel, &model, &glyphs, &font, scale);
-                    spawn_dial_side(panel, &model, &font);
-                }
+            .with_children(|root| {
+                root.spawn((
+                    Node {
+                        max_width: Val::Percent(100.0),
+                        max_height: Val::Percent(100.0),
+                        // A misfit clips the bottom, never the heading.
+                        overflow: Overflow::clip(),
+                        padding: UiRect::all(Val::Px(if model.compact { 8.0 } else { 14.0 })),
+                        flex_direction: if stacked { FlexDirection::Column } else { FlexDirection::Row },
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
+                        column_gap: Val::Px(20.0),
+                        border: UiRect::all(Val::Px(4.0)),
+                        border_radius: BorderRadius::all(Val::Px(8.0)),
+                        ..default()
+                    },
+                    BackgroundColor(PANEL),
+                    BorderColor::all(PANEL_EDGE),
+                    Name::new("Gate Terminal Panel"),
+                ))
+                .with_children(|panel| match model.focus {
+                    TerminalFocus::List => spawn_list(panel, &model, &glyphs, &font),
+                    TerminalFocus::Wheel => {
+                        // The wheel shrinks to fit a short screen (a phone held
+                        // sideways); its layout stays the ring's.
+                        let available_height = height - if stacked { 300.0 } else { 60.0 };
+                        let scale = (available_height.min(width - 60.0) / WHEEL).clamp(0.2, 1.0);
+                        spawn_wheel(panel, &model, &glyphs, &font, scale);
+                        spawn_dial_side(panel, &model, &font);
+                    }
+                });
             });
-        });
+    }
 }
 
 /// The glyph picture and its cells, for one rebuild.

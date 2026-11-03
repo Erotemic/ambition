@@ -96,13 +96,21 @@ fn press_switch(sim: &mut Platformer2dSimHarness, id: &str) {
     }
 }
 
+fn terminal_subject(sim: &mut Platformer2dSimHarness) -> ambition_platformer2d::platformer::lifecycle::LiveBodyId {
+    let world = sim.world_mut();
+    let entity = world.query_filtered::<bevy::prelude::Entity,
+        bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+        .single(world).unwrap();
+    ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(world, entity).unwrap()
+}
+
 /// Walk to the terminal `id` and open it: the network names its ring open.
 /// A press that a blow takes (the wildlife at the primeval trailhead bites)
 /// is pressed again, as a player does.
 fn open_terminal(sim: &mut Platformer2dSimHarness, id: &str, ring: &str) {
     for _ in 0..6 {
         press_switch(sim, id);
-        if network(sim).terminal.as_deref() == Some(ring) {
+        if network(sim).terminals.get(&terminal_subject(sim)).map(String::as_str) == Some(ring) {
             return;
         }
         for _ in 0..20 {
@@ -115,9 +123,10 @@ fn open_terminal(sim: &mut Platformer2dSimHarness, id: &str, ring: &str) {
 /// Send one request to the open terminal of `ring`, as its panel does, and let
 /// the simulation take it.
 fn ask(sim: &mut Platformer2dSimHarness, ring: &str, action: GateTerminalAction) {
+    let subject = terminal_subject(sim);
     ambition_platformer2d::platformer::host_intents::write_host_intent(
         sim.world_mut(),
-        GateTerminalIntent { ring: ring.to_string(), action },
+        GateTerminalIntent { subject, ring: ring.to_string(), action },
     );
     for _ in 0..3 {
         sim.step(base());
@@ -140,7 +149,7 @@ fn dial(sim: &mut Platformer2dSimHarness, ring: &str, address: &str) -> String {
 /// Dial the chevrons `address` at the open terminal of `ring`.
 fn dial_chevrons(sim: &mut Platformer2dSimHarness, ring: &str, address: &[u8]) -> String {
     ask(sim, ring, GateTerminalAction::Dial(address.to_vec()));
-    let report = network(sim).reports.get(ring).cloned().expect("the dial is answered");
+    let report = network(sim).report_for(&terminal_subject(sim), ring).cloned().expect("the dial is answered");
     match report.outcome {
         Ok(_) => "link".to_string(),
         Err(refusal) => refusal.kind().to_string(),
@@ -312,7 +321,7 @@ fn a_terminal_can_be_left_hung_up_and_dialed_again() {
     let mut sim = room(HUB);
     open_terminal(&mut sim, HUB_TERMINAL, HUB_RING);
     ask(&mut sim, HUB_RING, GateTerminalAction::Close);
-    assert!(network(&mut sim).terminal.is_none() && network(&mut sim).links.is_empty());
+    assert!(network(&mut sim).terminals.is_empty() && network(&mut sim).links.is_empty());
     open_terminal(&mut sim, HUB_TERMINAL, HUB_RING);
     assert_eq!(dial(&mut sim, HUB_RING, "SAND"), "unknown");
     assert_eq!(dial(&mut sim, HUB_RING, "TANGENT"), "link");
@@ -382,8 +391,7 @@ fn ring_seven_answers_by_its_power_and_its_facility() {
     assert_eq!(dial_chevrons(&mut sim, RING7, &ring1), "same_facility");
     assert_eq!(dial(&mut sim, RING7, "TANGENT"), "link");
     // The Math ring is in ring 7's link: the public gate finds it busy.
-    let mut state = network(&mut sim);
-    state.terminal = Some(HUB_RING.to_string());
+    let state = network(&mut sim);
     let catalog = sim.world().resource::<ambition_platformer2d::world::rooms::GateNetworkCatalog>().clone();
     let facts = ambition_platformer2d::world::rooms::GateFacts {
         switch_on: &|_: &str| true,

@@ -1362,3 +1362,117 @@ fn launcher_text_uses_its_rendered_page_and_keeps_a_visible_hierarchy() {
     assert!(title_size > control_size && control_size > 0.0, "the title must lead the control labels: {texts:?}");
     assert!(footer_size > 0.0 && footer_size < title_size, "the footer must remain subordinate: {texts:?}");
 }
+
+
+#[test]
+fn gate_terminals_capture_and_close_only_their_own_participants() {
+    use ambition_content::gate_terminal::{TerminalUi, GATE_TERMINAL_CONTEXT};
+    use ambition_platformer2d::input::participant::{InputParticipant, SeatInputContexts};
+    use ambition_platformer2d::platformer::lifecycle::LiveBodyId;
+    use ambition_platformer2d::world::rooms::GateNetworkState;
+    let (mut app, pads) = session(2, true);
+    tap(&mut app, pads[0], GamepadButton::South);
+    tap(&mut app, pads[1], GamepadButton::Start);
+    for _ in 0..6 { app.update(); }
+    let first_body = the_primary(&mut app);
+    let second = seat_one_bodies(&mut app)[0];
+    let first = LiveBodyId::of_entity(app.world(), first_body).unwrap();
+    let second = LiveBodyId::of_entity(app.world(), second).unwrap();
+    let ring = "hub_public_gate_zone";
+    app.world_mut().resource_mut::<GateNetworkState>().terminals.insert(second.clone(), ring.into());
+    for _ in 0..8 { app.update(); }
+    let contexts = app.world().resource::<SeatInputContexts>();
+    assert_eq!(contexts.for_seat(1).owner(), Some(GATE_TERMINAL_CONTEXT));
+    assert_ne!(contexts.for_seat(0).owner(), Some(GATE_TERMINAL_CONTEXT));
+    app.world_mut().resource_mut::<GateNetworkState>().terminals.insert(first.clone(), ring.into());
+    for _ in 0..8 { app.update(); }
+    let cursors = |app: &mut App| {
+        let world = app.world_mut();
+        world.query::<(&InputParticipant, &TerminalUi)>().iter(world)
+            .map(|(participant, ui)| (participant.id.slot(), ui.list_cursor)).collect::<std::collections::BTreeMap<_, _>>()
+    };
+    let before = cursors(&mut app);
+    tap(&mut app, pads[1], GamepadButton::DPadDown);
+    let after = cursors(&mut app);
+    assert_eq!(after[&0], before[&0]);
+    assert_eq!(after[&1], before[&1] + 1);
+    tap(&mut app, pads[1], GamepadButton::East);
+    for _ in 0..8 { app.update(); }
+    let network = app.world().resource::<GateNetworkState>();
+    assert_eq!(network.terminals.get(&first).map(String::as_str), Some(ring));
+    assert!(!network.terminals.contains_key(&second));
+    let contexts = app.world().resource::<SeatInputContexts>();
+    assert_eq!(contexts.for_seat(0).owner(), Some(GATE_TERMINAL_CONTEXT));
+    assert_ne!(contexts.for_seat(1).owner(), Some(GATE_TERMINAL_CONTEXT));
+    app.world_mut().resource_mut::<GateNetworkState>().terminals.insert(second.clone(), ring.into());
+    for _ in 0..4 { app.update(); }
+    let address = app.world().resource::<ambition_platformer2d::world::rooms::GateNetworkCatalog>().spell("TANGENT").unwrap();
+    ambition_platformer2d::platformer::host_intents::write_host_intent(app.world_mut(),
+        ambition_platformer2d::world::rooms::GateTerminalIntent {
+            subject: second.clone(), ring: ring.into(),
+            action: ambition_platformer2d::world::rooms::GateTerminalAction::Dial(address),
+        });
+    for _ in 0..10 { app.update(); }
+    let network = app.world().resource::<GateNetworkState>();
+    assert!(network.report_for(&second, ring).unwrap().outcome.is_ok());
+    assert_eq!(network.terminals.get(&first).map(String::as_str), Some(ring));
+    assert!(!network.terminals.contains_key(&second));
+    app.world_mut().entity_mut(first_body).insert(ambition_platformer2d::combat::death_rules::OutOfPlay);
+    for _ in 0..4 { app.update(); }
+    assert!(!app.world().resource::<GateNetworkState>().terminals.contains_key(&first));
+
+}
+
+#[test]
+#[ignore = "needs a wgpu adapter; writes /tmp/ambition-two-gate-terminals.png"]
+fn two_gate_terminals_draw_in_their_participants_regions() {
+    use ambition_content::gate_terminal::{TerminalFocus, TerminalUi};
+    use ambition_platformer2d::input::participant::InputParticipant;
+    use ambition_platformer2d::platformer::lifecycle::LiveBodyId;
+    use ambition_platformer2d::world::rooms::GateNetworkState;
+    let (mut app, pads) = session_in(gpu_app("ambition-two-gate-terminals.png"), 2, true);
+    tap(&mut app, pads[0], GamepadButton::South);
+    tap(&mut app, pads[1], GamepadButton::Start);
+    for _ in 0..6 { app.update(); }
+    let bodies = [the_primary(&mut app), seat_one_bodies(&mut app)[0]];
+    for body in bodies {
+        let subject = LiveBodyId::of_entity(app.world(), body).unwrap();
+        app.world_mut().resource_mut::<GateNetworkState>().terminals.insert(subject, "hub_public_gate_zone".into());
+    }
+    for _ in 0..8 { app.update(); }
+    {
+        let world = app.world_mut();
+        for (participant, mut ui) in world.query::<(&InputParticipant, &mut TerminalUi)>().iter_mut(world) {
+            if participant.id.slot() == 1 { ui.focus = TerminalFocus::Wheel; }
+        }
+    }
+    for _ in 0..8 { app.update(); }
+    capture_frame(&mut app);
+}
+
+
+#[test]
+fn terminal_presentation_retires_with_its_gameplay_session() {
+    use ambition_content::gate_terminal::TerminalUi;
+    use ambition_platformer2d::platformer::lifecycle::LiveBodyId;
+    use ambition_platformer2d::render::rendering::gate_portal_visuals::GateDialPreview;
+    use ambition_platformer2d::world::rooms::GateNetworkState;
+    let (mut app, _) = session(0, false);
+    let body = the_primary(&mut app);
+    let subject = LiveBodyId::of_entity(app.world(), body).unwrap();
+    app.world_mut().resource_mut::<GateNetworkState>().terminals.insert(subject, "hub_public_gate_zone".into());
+    for _ in 0..8 { app.update(); }
+    {
+        let world = app.world_mut();
+        let mut ui = world.query::<&mut TerminalUi>().single_mut(world).unwrap();
+        ui.entered = vec![1, 2];
+    }
+    app.update();
+    assert!(!app.world().resource::<GateDialPreview>().by_ring.is_empty());
+    app.world_mut().write_message(ShellCommand::QuitToHome);
+    settle(&mut app);
+    for _ in 0..4 { app.update(); }
+    let world = app.world_mut();
+    assert_eq!(world.query::<&TerminalUi>().iter(world).count(), 0);
+    assert!(world.resource::<GateDialPreview>().by_ring.is_empty());
+}

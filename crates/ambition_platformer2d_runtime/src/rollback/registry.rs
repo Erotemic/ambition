@@ -217,7 +217,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// 409 -> 410: shared item support and committed swallow fetch attempts.
 /// 410 -> 411: pending and withdrawn lifecycle intents retain restore keys.
 /// Clone snapshots keep local scopes; peer checksums use the shared projection.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 411;
+/// 411 -> 412: switches retain acting bodies; terminal uses and replies belong to those bodies.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 412;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

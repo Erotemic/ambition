@@ -123,8 +123,10 @@ pub enum TerminalEffect {
 }
 
 /// The terminal's local state, for the ring whose terminal is open.
-#[derive(Resource, Clone, Debug, Default, PartialEq)]
+#[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct TerminalUi {
+    /// The actor whose terminal this participant controls.
+    pub subject: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId>,
     /// The ring the state belongs to. A different ring starts a fresh state.
     pub ring: Option<String>,
     pub focus: TerminalFocus,
@@ -245,7 +247,7 @@ fn address_row(catalog: &GateNetworkCatalog, address: Vec<Chevron>, recent: bool
 impl TerminalUi {
     /// Start a fresh state for `ring`, on the wheel, pointing at nothing.
     pub fn open(&mut self, ring: &str, seen_serial: Option<u64>) {
-        *self = Self { ring: Some(ring.to_string()), seen_serial, ..default() };
+        *self = Self { subject: self.subject.clone(), ring: Some(ring.to_string()), seen_serial, ..default() };
     }
 
     /// The list: the known addresses (by word), the recent
@@ -369,7 +371,7 @@ impl TerminalUi {
             (format!("LINK OPEN to {}. Walk into the ring.", far_name(&link.far)), false)
         } else if state.holds_open(ring_id) {
             ("INCOMING: the ring is receiving.".to_string(), false)
-        } else if let Some(report) = state.reports.get(ring_id) {
+        } else if let Some(report) = self.subject.as_ref().and_then(|subject| state.report_for(subject, ring_id)) {
             match &report.outcome {
                 Ok(far) => (format!("The link to {} has closed.", far_name(far)), false),
                 Err(refusal) => (refusal.message(), true),
@@ -401,18 +403,29 @@ impl TerminalUi {
     }
 }
 
-/// Declare [`GATE_TERMINAL_CONTEXT`] while a terminal is open, for every
-/// participant (the terminal is one shared surface, as the inventory is).
+/// The unique actor controlled by a participant at this boundary.
+pub(super) fn terminal_subject(
+    participant: ambition_input::ParticipantId,
+    drivers: &Query<(Entity, &ambition_platformer2d::characters::control::DrivingParticipant)>,
+    bodies: &ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
+) -> Option<ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId> {
+    let mut matches = drivers.iter().filter(|(_, driver)| driver.0.0 == participant.slot());
+    let subject = matches.next().and_then(|(entity, _)| bodies.id_of(entity));
+    matches.next().is_none().then_some(subject).flatten()
+}
+
+/// Capture only the input of a participant whose actor uses a terminal.
 pub fn declare_gate_terminal_context(
     state: Option<Res<GateNetworkState>>,
-    mut participants: Query<
-        &mut ambition_input::participant::ParticipantContexts,
-        With<ambition_input::participant::InputParticipant>,
-    >,
+    drivers: Query<(Entity, &ambition_platformer2d::characters::control::DrivingParticipant)>,
+    bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
+    mut participants: Query<(&ambition_input::participant::InputParticipant,
+        &mut ambition_input::participant::ParticipantContexts)>,
 ) {
     use ambition_input::participant::ContextClaim;
-    let open = state.is_some_and(|state| state.terminal.is_some());
-    for mut contexts in &mut participants {
+    for (participant, mut contexts) in &mut participants {
+        let open = terminal_subject(participant.id, &drivers, &bodies)
+            .is_some_and(|subject| state.as_ref().is_some_and(|state| state.terminals.contains_key(&subject)));
         if contexts.is_declared(GATE_TERMINAL_CONTEXT) != open {
             contexts.sync(ContextClaim::capturing(GATE_TERMINAL_CONTEXT, GATE_TERMINAL_PRIORITY), open);
         }
@@ -421,13 +434,13 @@ pub fn declare_gate_terminal_context(
 
 /// Whether a gate terminal is open now.
 pub fn a_gate_terminal_is_open(state: Option<Res<GateNetworkState>>) -> bool {
-    state.is_some_and(|state| state.terminal.is_some())
+    state.is_some_and(|state| !state.terminals.is_empty())
 }
 
 /// The run condition of [`declare_gate_terminal_context`]: a terminal is
 /// open, or was open on the last frame (the claim is taken back once).
 pub fn a_gate_terminal_is_or_was_open(state: Option<Res<GateNetworkState>>, mut was: Local<bool>) -> bool {
-    let open = state.is_some_and(|state| state.terminal.is_some());
+    let open = state.is_some_and(|state| !state.terminals.is_empty());
     let run = open || *was;
     *was = open;
     run
@@ -435,7 +448,7 @@ pub fn a_gate_terminal_is_or_was_open(state: Option<Res<GateNetworkState>>, mut 
 
 /// Install the terminal's input claim and its local state.
 pub(super) fn register(app: &mut App) {
-    app.init_resource::<TerminalUi>().add_systems(
+    app.add_systems(
         Update,
         declare_gate_terminal_context
             .run_if(a_gate_terminal_is_or_was_open)
@@ -444,8 +457,8 @@ pub(super) fn register(app: &mut App) {
 }
 
 /// A request the terminal sends, as the host intent it is.
-pub fn intent(ring: &str, action: GateTerminalAction) -> GateTerminalIntent {
-    GateTerminalIntent { ring: ring.to_string(), action }
+pub fn intent(subject: &ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId, ring: &str, action: GateTerminalAction) -> GateTerminalIntent {
+    GateTerminalIntent { subject: subject.clone(), ring: ring.to_string(), action }
 }
 
 #[cfg(test)]
@@ -569,8 +582,11 @@ mod tests {
         assert!(model.status.starts_with("LINK OPEN to Math Town gate hall"), "{}", model.status);
         assert!(model.list.contains(&ListRow::Hangup));
         state.links.clear();
+        let subject = ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
+            ambition_platformer2d_shared_tangle::sim_id::SimId::from_snapshot("terminal_user".into()), None);
+        ui.subject = Some(subject.clone());
         state.report(
-            "hub_public_gate_zone",
+            &subject, "hub_public_gate_zone",
             catalog.spell("SILENT").unwrap(),
             Err(DialRefusal::Offline("The far ring is not yet built.".into())),
         );

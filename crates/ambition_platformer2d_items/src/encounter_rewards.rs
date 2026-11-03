@@ -331,6 +331,7 @@ mod retire_on_rearm_tests {
 
     fn rearm(on: bool) -> ResolvedSwitchActivation {
         ResolvedSwitchActivation {
+            subject: None,
             id: "gate".into(),
             action: SwitchAction::ResetEncounter,
             target_encounter: "goblin_encounter".into(),
@@ -357,6 +358,7 @@ mod retire_on_rearm_tests {
         };
         let second = LiveRoomInstance::ACTIVATION.next();
         let (mut app, _) = chest_app(vec![ResolvedSwitchActivation {
+            subject: None,
             id: "gate".into(),
             action: SwitchAction::ResetEncounter,
             target_encounter: String::new(),
@@ -470,6 +472,7 @@ mod retire_on_rearm_tests {
     #[test]
     fn a_gravity_switch_never_retires_a_reward() {
         let (mut app, chest) = chest_app(vec![ResolvedSwitchActivation {
+            subject: None,
             id: "gate".into(),
             action: SwitchAction::FlipGravity,
             target_encounter: "goblin_encounter".into(),

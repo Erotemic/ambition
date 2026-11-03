@@ -127,6 +127,7 @@ pub fn interact_ecs_actors_and_switches(
         &ambition_platformer2d_core::BodyKinematics,
         Option<&ambition_platformer2d_core::SweepSample>,
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+        Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
     )>,
     // The driven body's identity + interaction payload, when it has them (a
     // possessed actor). The home avatar has neither and speaks as its worn
@@ -200,7 +201,7 @@ pub fn interact_ecs_actors_and_switches(
         if !acting.buffered_interact(subject) {
             continue;
         }
-        let Ok((subject_kin, subject_step, subject_frame)) = bodies.get(subject) else {
+        let Ok((subject_kin, subject_step, subject_frame, subject_id)) = bodies.get(subject) else {
             continue;
         };
         // A body reaches an NPC or a switch only in its own live room (OW1
@@ -341,6 +342,7 @@ pub fn interact_ecs_actors_and_switches(
             pose_interact(&mut anims, subject, INTERACT_ANIM_HOLD_SECS);
             banner.show(format!("activated {}", name.0.as_str()), 2.6);
             switch_activated.write(SwitchActivated {
+                subject: subject_id.map(|id| ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(id.clone(), subject_room)),
                 activation: switch.activation.clone(),
                 pos: aabb.center,
                 room,

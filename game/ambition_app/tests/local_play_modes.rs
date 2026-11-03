@@ -1018,9 +1018,11 @@ fn record_crossing(app: &mut App, slot: u8, target: &str) {
     let body = world.query::<(Entity, &DrivingParticipant)>().iter(world)
         .find(|(_, driver)| driver.0 == PlayerSlot(slot)).map(|(body, _)| body).unwrap();
     let subject = ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(world, body).unwrap();
+    let rooms = world.query::<&ambition_platformer2d::world::rooms::RoomSet>().single(world).unwrap();
+    let arrival = rooms.rooms[rooms.room_index_by_id(target).unwrap()].world.spawn;
     let frame = world.get_resource::<ambition_platformer2d::engine_core::ConfirmedFrameBoundary>().map_or(0, |boundary| boundary.current);
     assert!(world.resource_mut::<PendingLifecycleCommit>().record(frame, LifecycleIntent::Transition(RoomTransitionIntent {
-        subject, target_room: target.into(), arrival: Vec2::new(200.0, 200.0),
+        subject, target_room: target.into(), arrival,
         edge_exit: false, zone_sfx: None, participant: Some(PlayerSlot(slot)),
     })).admitted());
 }
@@ -1044,17 +1046,26 @@ fn delayed_crossing(app: &mut App, slot: u8, target: &str) -> (u64, ambition_pla
     panic!("the accepted crossing opened no transaction");
 }
 
-fn transition_in_one_view(mut host: App, slot: u8) -> (App, Vec<Entity>, ambition_platformer2d::load::LoadBarrierRef) {
-    use ambition_platformer2d::input::{LOADING_CONTEXT, SeatInputContexts};
+fn split_session(mut host: App) -> (App, Vec<Entity>) {
     use ambition_platformer2d::persistence::settings::{UserSettings, video::LocalViewLayout};
-    use ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState;
     host.insert_resource(ambition_platformer2d::host::gameplay_presentation::HeadlessDisplaySurface(Vec2::new(1280.0, 720.0)));
     let (mut app, pads) = session_in(host, 2, true);
     app.world_mut().resource_mut::<UserSettings>().video.local_view_layout = LocalViewLayout::AlwaysSplit;
     tap(&mut app, pads[1], GamepadButton::Start);
     for _ in 0..6 { app.update(); }
+    (app, pads)
+}
+
+fn transition_in_one_view(host: App, slot: u8) -> (App, Vec<Entity>, ambition_platformer2d::load::LoadBarrierRef) {
+    let (app, pads) = split_session(host);
+    hold_crossing(app, pads, slot, "switch_lab")
+}
+
+fn hold_crossing(mut app: App, pads: Vec<Entity>, slot: u8, target: &str) -> (App, Vec<Entity>, ambition_platformer2d::load::LoadBarrierRef) {
+    use ambition_platformer2d::input::{LOADING_CONTEXT, SeatInputContexts};
+    use ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState;
     let bodies = [the_primary(&mut app), seat_one_bodies(&mut app)[0]];
-    let (sequence, barrier) = delayed_crossing(&mut app, slot, "switch_lab");
+    let (sequence, barrier) = delayed_crossing(&mut app, slot, target);
     for _ in 0..90 { app.update(); }
     let active = app.world().resource::<RoomTransitionLoadState>().active.as_ref().expect("the crossing must remain pending");
     assert_eq!(active.sequence, sequence);
@@ -1125,11 +1136,15 @@ struct HoldCrossingFrame(bool);
 
 #[test]
 fn a_second_crossing_waits_until_the_first_destinations_frame_is_presentable() {
+    for first in [0, 1] { queued_crossing(first); }
+}
+
+fn queued_crossing(first: u8) {
     use ambition_platformer2d::load::{LoadCommand, LoadCoordinator, LoadWorkState};
     use ambition_platformer2d::render::rendering::presentation_settling::{PresentationSettling, PresentationSettlingSet};
     use ambition_platformer2d::runtime::room_transition::{RoomTransitionLoadPhase, RoomTransitionLoadState};
     use ambition_platformer2d::world_flow::RoomTransitionCoverSet;
-    let (mut app, _, barrier) = transition_in_one_view(rendered_app(), 0);
+    let (mut app, _, barrier) = transition_in_one_view(rendered_app(), first);
     app.insert_resource(HoldCrossingFrame(true));
     app.add_systems(Update, (|hold: Res<HoldCrossingFrame>, state: Res<RoomTransitionLoadState>, mut settling: ResMut<PresentationSettling>| {
         if hold.0 {
@@ -1152,7 +1167,7 @@ fn a_second_crossing_waits_until_the_first_destinations_frame_is_presentable() {
         std::thread::sleep(std::time::Duration::from_millis(2));
     }
     assert!(committed, "the first crossing never committed");
-    record_crossing(&mut app, 1, "portal_lab");
+    record_crossing(&mut app, 1 - first, "portal_lab");
     for _ in 0..4 {
         app.update();
         assert_eq!(app.world().resource::<RoomTransitionLoadState>().active.as_ref().unwrap().sequence, sequence,
@@ -1169,5 +1184,39 @@ fn a_second_crossing_waits_until_the_first_destinations_frame_is_presentable() {
         }
         std::thread::sleep(std::time::Duration::from_millis(2));
     }
-    assert_eq!(next, Some(Some(PlayerSlot(1))), "the queued crossing must start after the first destination is presentable");
+    assert_eq!(next, Some(Some(PlayerSlot(1 - first))), "the queued crossing must start after the first destination is presentable");
+}
+
+#[test]
+#[ignore = "needs a wgpu adapter; captures room loading with participants in separate live rooms"]
+fn separate_rooms_keep_the_other_participants_view_and_controls_while_loading() {
+    use ambition_platformer2d::load::{LoadCommand, LoadCoordinator, LoadWorkState};
+    use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
+    use ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState;
+    for slot in [0, 1] {
+        let (mut app, pads) = split_session(gpu_app(&format!("ambition-separated-p{slot}-room-loading.png")));
+        let (_, barrier) = delayed_crossing(&mut app, 1 - slot, "switch_lab");
+        let _ = app.world_mut().resource_mut::<LoadCoordinator>().apply(LoadCommand::SetWorkState {
+            load_id: barrier.load_id, work_id: "fixture.delayed-room-art".into(), state: LoadWorkState::Complete,
+        });
+        let mut finished = false;
+        for _ in 0..1200 {
+            app.update();
+            let state = app.world().resource::<RoomTransitionLoadState>();
+            assert!(state.last_failure.is_none(), "the room separation crossing failed");
+            if state.active.is_none() { finished = true; break; }
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        assert!(finished, "the room separation crossing did not finish");
+        let bodies = [the_primary(&mut app), seat_one_bodies(&mut app)[0]];
+        let rooms = bodies.map(|body| *app.world().get::<InRoomInstance>(body).unwrap());
+        assert_ne!(rooms[0], rooms[1], "the witness must use two real live rooms");
+        let (mut app, _, _) = hold_crossing(app, pads, slot, "portal_lab");
+        capture_frame(&mut app);
+        assert_transition_regions(&mut app, slot);
+        for (body, room) in bodies.into_iter().zip(rooms) {
+            assert_eq!(app.world().get::<InRoomInstance>(body), Some(&room),
+                "waiting for the next room changed the residency of a participant");
+        }
+    }
 }

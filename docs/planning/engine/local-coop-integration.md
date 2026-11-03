@@ -591,15 +591,6 @@ faces. Guards: `each_menu_reconciles_only_its_own_published_faces` and
 The production open-menu capture also draws the faces, controls and highlight.
 
 
-The mode tests prove claim aggregation. Full two-menu navigation and rendering
-still need host acceptance with two pads, a dialogue, and a room transition.
-
-Ambition's kaleidoscope menu has a special 3D camera and full-window gate;
-viewport-scoped menus need a per-view presentation design, render target, or
-clipped alternative without one whole-window cube drawing over both panes.
-The grid backend must obey the same menu-instance contract. Keep the remaining
-navigation and interaction state on the menu entity before adding cameras.
-
 **Netplay menu policy:** a local menu does not pause a remote timeline
 (`a27074b3f`). Its input context captures only its participant, so the existing
 router submits neutral gameplay controls for that participant. Guard:
@@ -819,16 +810,8 @@ Cube hover now uses pointer identity (`499fa1a51`). Guard:
 `another_participants_pad_does_not_block_mouse_focus_in_a_cube_menu`.
 Another participant's pad must not block mouse focus in a menu.
 
-Narrow menu regions now use a taller Cube canvas and a three-column item
-grid with details below it (`57462d561`). Both backends use the same layout
-for publication and navigation. Text fits its container and recovers its size
-when space returns. Guards:
-`resizing_one_viewport_rebuilds_only_its_canvas_and_restores_its_shape`,
-`portrait_navigation_follows_the_published_columns_after_resize` and
-`spatial_navigation_uses_the_current_inventory_layout`.
-Do not restore fixed inventory dimensions in either navigation path.
-
-The GPU guard `two_pad_menus_draw_in_their_own_regions` draws Equipment and
-Rebind in separate regions on both backends. The captures show no overlapping
-labels. Some item captions and detail text remain too small in narrow regions.
-Slice 4 stays open for text readability.
+Slice 4 is complete (`57462d561`, `1861a88b3`): narrow menus use their own
+canvas, shared inventory layout, and page-relative text. Item details fit the
+panel. Guards: `each_layout_publishes_its_item_details_inside_the_panel` and
+`two_pad_menus_draw_in_their_own_regions`, with both captures reviewed.
+Do not restore window-relative page text or fixed navigation dimensions.

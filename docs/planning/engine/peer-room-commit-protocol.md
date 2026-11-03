@@ -44,8 +44,13 @@ The room state is partly ready for a reversible commit. The core registers
 that room publication, actor construction, retirement, and their references
 can survive a rollback across a crossing. Prove that behavior first.
 
-`PeerVerdict` currently identifies an operation by its recording frame. The
-host keeps one current preparation transaction. Its presentation tail can
+`PeerVerdict` identifies an operation by its recording frame and the existing
+value-complete intent checksum. Replies for a replaced intent cannot prepare or
+fail its replacement, even when both use the same frame. The wire identity is
+5. Guards: `verdicts_for_a_replaced_intent_do_not_prepare_or_fail_its_replacement`
+and `a_peer_waits_for_the_replacement_intent_even_when_its_frame_is_unchanged`.
+Content identity and preparation inputs remain open. The host keeps one current
+preparation transaction. Its presentation tail can
 remain after the commit. Neither a render deadline nor that tail can select
 the simulation frame of the next peer commit.
 

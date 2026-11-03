@@ -154,7 +154,8 @@ fn each_peer_prepared(world: &World, intent: &PendingIntent) -> bool {
     let Some(verdicts) = world.get_resource::<crate::PeerVerdicts>() else {
         return false;
     };
-    let failed = verdicts.failed(intent.frame);
+    let operation = crate::PeerOperation::from(intent);
+    let failed = verdicts.failed(operation);
     if !failed.is_empty() {
         bevy::log::error_once!(
             "the peer(s) of handle(s) {failed:?} could not prepare the lifecycle \
@@ -162,7 +163,7 @@ fn each_peer_prepared(world: &World, intent: &PendingIntent) -> bool {
             intent.frame
         );
     }
-    verdicts.each_prepared(intent.frame)
+    verdicts.each_prepared(operation)
 }
 
 /// A PEER THAT COULD NOT PREPARE THE OPERATION ENDS IT ON EACH PEER.
@@ -195,17 +196,18 @@ pub fn end_an_operation_a_peer_could_not_prepare(
     let (Some(inputs), Some(mut pending)) = (inputs, pending) else {
         return;
     };
-    let Some(recorded_on) = pending.peek().map(|intent| intent.frame) else {
+    let Some(operation) = pending.peek().map(crate::PeerOperation::from) else {
         return;
     };
     let failed: Vec<usize> = inputs
         .iter()
         .enumerate()
         .filter(|(_, (input, _))| {
-            input.verdict.operation == recorded_on && input.verdict.said == PreparationVerdict::Failed
+            input.verdict.operation == operation && input.verdict.said == PreparationVerdict::Failed
         })
         .map(|(handle, _)| handle)
         .collect();
+    let recorded_on = operation.recorded_on;
     let now = boundary.map_or(recorded_on, |boundary| boundary.current);
     if !failed.is_empty() && pending.retract_recorded_on(recorded_on, now) {
         bevy::log::warn!(
@@ -243,7 +245,7 @@ pub fn decide_this_peers_verdict(world: &mut World) {
             } else {
                 PreparationVerdict::NotYet
             };
-            PeerVerdict { operation: intent.frame, said }
+            PeerVerdict { operation: crate::PeerOperation::from(&intent), said }
         }
     };
     world.insert_resource(crate::ThisPeersVerdict(verdict));
@@ -966,8 +968,9 @@ mod tests {
             world.insert_resource(pending);
             world.insert_resource(crate::RollbackFrameCount(frame));
             let mut verdicts = crate::PeerVerdicts::for_handles(2);
+            let operation = crate::PeerOperation::from(world.resource::<PendingLifecycleCommit>().peek().unwrap());
             for (handle, said) in said.into_iter().enumerate() {
-                verdicts.record(handle, confirmed, PeerVerdict { operation: recorded_on, said });
+                verdicts.record(handle, confirmed, PeerVerdict { operation, said });
             }
             world.insert_resource(verdicts);
             let boundary = ConfirmedFrameBoundary {
@@ -981,6 +984,36 @@ mod tests {
                 "confirmed {confirmed}, at frame {frame}: {why}"
             );
         }
+    }
+
+    #[test]
+    fn a_peer_waits_for_the_replacement_intent_even_when_its_frame_is_unchanged() {
+        use crate::peer_input::{PeerOperation, PeerVerdict, PreparationVerdict};
+        let old = PendingIntent { frame: 30, kind: intent_to("old", SimId::placement("hero")) };
+        let mut pending = PendingLifecycleCommit::default();
+        assert!(pending.record(30, intent_to("new", SimId::placement("hero"))).admitted());
+        let replacement = PeerOperation::from(pending.peek().unwrap());
+        let mut world = World::new();
+        world.insert_resource(pending);
+        world.insert_resource(crate::RollbackFrameCount(40));
+        let mut verdicts = crate::PeerVerdicts::for_handles(2);
+        for handle in 0..2 {
+            verdicts.record(handle, 40, PeerVerdict {
+                operation: PeerOperation::from(&old), said: PreparationVerdict::Prepared,
+            });
+        }
+        world.insert_resource(verdicts);
+        let boundary = ConfirmedFrameBoundary { current: 40, confirmed: 40, session: 1 };
+        assert!(operation_to_commit(&world, Committer::BehindThePeerBarrier, boundary).is_none());
+        for handle in 0..2 {
+            world.resource_mut::<crate::PeerVerdicts>().record(handle, 41, PeerVerdict {
+                operation: replacement, said: PreparationVerdict::Prepared,
+            });
+        }
+        world.insert_resource(crate::RollbackFrameCount(41));
+        let boundary = ConfirmedFrameBoundary { current: 41, confirmed: 41, session: 1 };
+        assert_eq!(operation_to_commit(&world, Committer::BehindThePeerBarrier, boundary)
+            .unwrap().kind, intent_to("new", SimId::placement("hero")));
     }
 
     /// The bodyless shape: a room rebuilt with nobody in it (v146).

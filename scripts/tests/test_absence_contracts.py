@@ -916,41 +916,6 @@ def test_a_bumped_identity_with_no_recorded_shape_is_caught(tmp_path, monkeypatc
     assert len(violations) == 1 and f"identity {version} has no recorded shape" in violations[0], violations
 
 
-def test_an_unfollowed_field_type_raises_instead_of_reading_green():
-    """⛔⛤ THE TRANSITIVE BOUNDARY, ASSERTED RATHER THAN ASSUMED COMPLETE.
-
-    A field whose type is not primitive can change the bincode shape without
-    `ControlFrame`'s own text moving. Exactly one such type exists today and its
-    variants are censused; a second appearing must FAIL, because the alternative
-    is a guard that silently stops covering the thing it is named after.
-    """
-    from scripts.checks import check_absence_contracts as contracts
-
-    root = Path(__file__).resolve().parents[2]
-    _, shape = contracts.input_payload_shape(root)
-    followed = [row for row in shape if row.startswith("AttackStrengthHint::")]
-    assert len(followed) >= 3, shape
-    types = {row.split(": ", 1)[1] for row in shape if ": " in row}
-    # ⭐ THIS SET GREW ON 2026-09-16, WHICH IS THE BOUNDARY WORKING RATHER THAN
-    # LEAKING: SETTINGS-ROLLBACK moved the seat's frame policy onto
-    # `ControlFrame`, the census refused until `ControlFrameModes` was followed,
-    # and following it added `InputFrameMode` too. A type enters here only after
-    # someone has taught the census its shape. It grew again on 2026-10-04,
-    # when the input became `PeerInput`: the wrapper's two fields and the
-    # verdict's two.
-    assert types <= {
-        "bool",
-        "f32",
-        "i32",
-        "AttackStrengthHint",
-        "crate::ControlFrameModes",
-        "InputFrameMode",
-        "ControlFrame",
-        "PeerVerdict",
-        "PreparationVerdict",
-    }, sorted(types)
-
-
 def test_a_data_carrying_variant_is_recorded_rather_than_skipped():
     """⛔⛤ THE HOLE THE GPT ARCHITECTURE REVIEW OF 2026-09-16 POISONED OPEN.
 

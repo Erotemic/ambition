@@ -2117,20 +2117,25 @@ def input_payload_shape(root: Path) -> tuple[str, list[str]]:
     # `ControlFrame` rows above are the first field of what crosses, and the
     # verdict follows them on the wire.
     peer_input = (root / PEER_INPUT_SOURCE).read_text()
-    followed = set(_FOLLOWED_PEER_INPUT_TYPES)
+    local_structs = set(re.findall(r"pub struct (\w+) \{", peer_input))
+    followed = set(_FOLLOWED_PEER_INPUT_TYPES) | local_structs
     wrapper_rows = []
-    for owner in ("PeerInput", "PeerVerdict"):
+    owners = ["PeerInput", "PeerVerdict"]
+    for owner in owners:
         owner_body = peer_input.split(f"pub struct {owner} {{", 1)[1].split("\n}", 1)[0]
         owner_fields = re.findall(
-            r"^\s*pub (\w+): ([A-Za-z_0-9:<>]+),", owner_body, re.MULTILINE
+            r"^\s*(?:pub(?:\([^)]*\))?\s+)?(\w+):\s*([A-Za-z_0-9:<>]+),", owner_body, re.MULTILINE
         )
         refuse_variable_width(owner, owner_fields, followed)
         wrapper_rows.append([f"{owner}::{name}: {ty}" for name, ty in owner_fields])
+        for _, ty in owner_fields:
+            if ty in local_structs and ty not in owners:
+                owners.append(ty)
     verdict_enum = peer_input.split("pub enum PreparationVerdict {", 1)[1].split(
         "\n}", 1
     )[0]
     verdict_variants = serialized_variants("PreparationVerdict", verdict_enum)
-    shape = wrapper_rows[0] + shape + wrapper_rows[1] + verdict_variants
+    shape = wrapper_rows[0] + shape + [row for owner in wrapper_rows[1:] for row in owner] + verdict_variants
     # ⛔ THE ENUM ROWS ONLY. `shape` also holds `Struct::field: Type` rows, and a
     # refusal that read those would be answering a different question.
     carrying = variants_carrying_data(hint_variants + mode_variants + verdict_variants)

@@ -38,14 +38,25 @@ pub enum PreparationVerdict {
     Failed,
 }
 
+/// The input identity of a recorded lifecycle intent.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct PeerOperation {
+    pub recorded_on: i32,
+    pub intent_checksum: u64,
+}
+
+impl From<&ambition_platformer2d_session::lifecycle_commit::PendingIntent> for PeerOperation {
+    fn from(intent: &ambition_platformer2d_session::lifecycle_commit::PendingIntent) -> Self {
+        Self { recorded_on: intent.frame, intent_checksum: intent.kind.checksum() }
+    }
+}
+
 /// One peer's verdict on one operation.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PeerVerdict {
-    /// The frame that recorded the operation (`PendingIntent::frame`). In one
-    /// session, one frame records no more than one operation, so the frame
-    /// names it. A new session starts at frame zero, so a rebase forgets each
-    /// verdict ([`PeerVerdicts`]).
-    pub operation: i32,
+    /// The frame and intent must match. A rollback can replace an intent
+    /// without changing its recording frame.
+    pub operation: PeerOperation,
     pub said: PreparationVerdict,
 }
 
@@ -99,7 +110,7 @@ impl PeerVerdicts {
 
     /// What `handle` last said of `operation`. `NotYet` when its last verdict
     /// is of another operation, or when nothing of it is confirmed.
-    pub fn said(&self, handle: usize, operation: i32) -> PreparationVerdict {
+    pub fn said(&self, handle: usize, operation: PeerOperation) -> PreparationVerdict {
         match self.said.get(handle).copied().flatten() {
             Some((_, verdict)) if verdict.operation == operation => verdict.said,
             _ => PreparationVerdict::NotYet,
@@ -108,13 +119,13 @@ impl PeerVerdicts {
 
     /// Each handle of the session said `Prepared` for `operation`. False with
     /// no handles: a session that is not a peer session has no peer to say it.
-    pub fn each_prepared(&self, operation: i32) -> bool {
+    pub fn each_prepared(&self, operation: PeerOperation) -> bool {
         self.handles > 0
             && (0..self.handles).all(|handle| self.said(handle, operation) == PreparationVerdict::Prepared)
     }
 
     /// The handles whose preparation of `operation` failed.
-    pub fn failed(&self, operation: i32) -> Vec<usize> {
+    pub fn failed(&self, operation: PeerOperation) -> Vec<usize> {
         (0..self.handles)
             .filter(|handle| self.said(*handle, operation) == PreparationVerdict::Failed)
             .collect()
@@ -139,17 +150,20 @@ mod the_bytes_two_peers_exchange {
                 ..ControlFrame::default()
             },
             verdict: PeerVerdict {
-                operation: 0x0102_0304,
+                operation: PeerOperation {
+                    recorded_on: 0x0102_0304,
+                    intent_checksum: 0x0102_0304_0506_0708,
+                },
                 said: PreparationVerdict::Failed,
             },
         }
     }
 
     /// The control part (70 bytes), then `operation` as a little-endian
-    /// `i32`, then `Failed` as a `u32` variant index.
-    const RECORDED: &str = "000040bf0000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000403020102000000";
+    /// `i32`, the intent checksum as a `u64`, and `Failed` as a `u32` variant index.
+    const RECORDED: &str = "000040bf00000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004030201080706050403020102000000";
 
-    const RECORDED_WIRE_BYTES: u64 = 78;
+    const RECORDED_WIRE_BYTES: u64 = 86;
 
     fn hex(bytes: &[u8]) -> String {
         bytes.iter().map(|byte| format!("{byte:02x}")).collect()
@@ -185,21 +199,45 @@ mod the_bytes_two_peers_exchange {
 
     #[test]
     fn a_verdict_is_of_one_operation_and_the_newest_confirmed_frame_wins() {
-        let prepared = |operation| PeerVerdict { operation, said: PreparationVerdict::Prepared };
-        let failed = |operation| PeerVerdict { operation, said: PreparationVerdict::Failed };
+        let key = |recorded_on| PeerOperation { recorded_on, intent_checksum: 7 };
+        let prepared = |frame| PeerVerdict { operation: key(frame), said: PreparationVerdict::Prepared };
+        let failed = |frame| PeerVerdict { operation: key(frame), said: PreparationVerdict::Failed };
         let mut not_a_peer_session = PeerVerdicts::default();
         not_a_peer_session.record(0, 40, prepared(30));
-        assert!(!not_a_peer_session.each_prepared(30), "a session with no handles");
+        assert!(!not_a_peer_session.each_prepared(key(30)), "a session with no handles");
         let mut verdicts = PeerVerdicts::for_handles(2);
         verdicts.record(0, 40, prepared(30));
-        assert!(!verdicts.each_prepared(30), "handle 1 said nothing yet");
+        assert!(!verdicts.each_prepared(key(30)), "handle 1 said nothing yet");
         verdicts.record(1, 38, failed(30));
-        assert_eq!(verdicts.failed(30), vec![1]);
+        assert_eq!(verdicts.failed(key(30)), vec![1]);
         verdicts.record(1, 41, prepared(30));
-        assert!(verdicts.each_prepared(30));
-        assert!(!verdicts.each_prepared(31), "a verdict names its operation");
+        assert!(verdicts.each_prepared(key(30)));
+        assert!(!verdicts.each_prepared(key(31)), "a verdict names its operation");
         // A rollback runs an older confirmed frame again after a newer one.
         verdicts.record(1, 39, failed(30));
-        assert!(verdicts.each_prepared(30), "an older frame does not replace a newer one");
+        assert!(verdicts.each_prepared(key(30)), "an older frame does not replace a newer one");
+    }
+
+    #[test]
+    fn verdicts_for_a_replaced_intent_do_not_prepare_or_fail_its_replacement() {
+        use ambition_platformer2d_session::lifecycle_commit::{
+            LifecycleIntent, PendingIntent, RoomReconstitutionIntent,
+        };
+        let intent = |room: &str| PendingIntent {
+            frame: 30,
+            kind: LifecycleIntent::ReconstituteRoom(RoomReconstitutionIntent {
+                target_room: room.into(),
+            }),
+        };
+        let old = PeerOperation::from(&intent("old"));
+        let replacement = PeerOperation::from(&intent("replacement"));
+        let mut verdicts = PeerVerdicts::for_handles(2);
+        verdicts.record(0, 40, PeerVerdict { operation: old, said: PreparationVerdict::Prepared });
+        verdicts.record(1, 40, PeerVerdict { operation: old, said: PreparationVerdict::Failed });
+        assert!(!verdicts.each_prepared(replacement));
+        assert!(verdicts.failed(replacement).is_empty());
+        verdicts.record(1, 41, PeerVerdict { operation: old, said: PreparationVerdict::Prepared });
+        assert!(verdicts.each_prepared(old));
+        assert!(!verdicts.each_prepared(replacement));
     }
 }

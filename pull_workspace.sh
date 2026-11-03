@@ -34,8 +34,10 @@ Usage:
   ./$script_name [options] [PATH_PREFIX ...]
 
 Default behavior:
-  Pull the superproject with 'git pull --ff-only', then update selected root
+  Fetch and fast-forward the superproject, then update selected root
   submodules recursively to the commits recorded by the superproject.
+  Unrelated local files and edits do not block updates. Git reports paths
+  that prevent an update.
 
 Path filters:
   Positional arguments are include prefixes relative to the repository root.
@@ -270,10 +272,6 @@ is_worktree() {
     [ "$actual" = "$top" ]
 }
 
-is_dirty_repo() {
-    [ -n "$(git -C "$1" status --porcelain 2>/dev/null)" ]
-}
-
 is_dir_empty() {
     local path="$1"
     [ -d "$path" ] || return 1
@@ -468,7 +466,7 @@ print_plan() {
         printf '  dry-run  no\n'
     fi
     if [ "$PULL_PARENT" -eq 1 ]; then
-        printf '  parent   pull if clean and attached\n'
+        printf '  parent   pull if attached\n'
     else
         printf '  parent   disabled\n'
     fi
@@ -495,18 +493,20 @@ print_plan() {
     fi
 }
 
+fast_forward_repo() {
+    local path="$1"
+    status_line "run" "git fetch --recurse-submodules=no"
+    git -C "$path" fetch --recurse-submodules=no || return 1
+    status_line "run" "git merge --ff-only --no-overwrite-ignore @{upstream}"
+    git -C "$path" -c submodule.recurse=false merge --ff-only --no-overwrite-ignore '@{upstream}'
+}
+
 pull_parent_repo() {
     section "Superproject"
 
     if [ "$PULL_PARENT" -eq 0 ]; then
         status_line "skip" "disabled by --submodules-only"
         record "SKIP" "." "superproject pull disabled"
-        return 0
-    fi
-
-    if is_dirty_repo "."; then
-        status_line "skip" "local changes present"
-        record "SKIP" "." "superproject has local changes"
         return 0
     fi
 
@@ -519,13 +519,12 @@ pull_parent_repo() {
     fi
 
     if [ "$DRY_RUN" -eq 1 ]; then
-        status_line "dry" "would run: $(format_command git pull --ff-only --recurse-submodules=no)"
+        status_line "dry" "would fetch and merge upstream with --ff-only --no-overwrite-ignore"
         record "DRY" "." "would pull superproject branch $branch"
         return 0
     fi
 
-    status_line "run" "git pull --ff-only --recurse-submodules=no"
-    if git pull --ff-only --recurse-submodules=no; then
+    if fast_forward_repo "."; then
         status_line "ok" "superproject is up to date on $branch"
         record "OK" "." "pulled superproject branch $branch"
     else
@@ -586,12 +585,6 @@ pull_current_branch_repo() {
         return 0
     fi
 
-    if is_dirty_repo "$path"; then
-        status_line "skip" "local changes present"
-        record "SKIP" "$label" "local changes"
-        return 0
-    fi
-
     if [ "$DRY_RUN" -eq 1 ]; then
         status_line "dry" "would fetch and fast-forward current branch if attached"
         record "DRY" "$label" "would fetch/pull current branch"
@@ -612,8 +605,7 @@ pull_current_branch_repo() {
         return 0
     fi
 
-    status_line "run" "git pull --ff-only --recurse-submodules=no"
-    if git -C "$path" pull --ff-only --recurse-submodules=no; then
+    if fast_forward_repo "$path"; then
         status_line "ok" "branch $branch is up to date"
         record "OK" "$label" "fast-forwarded branch $branch"
     else
@@ -631,11 +623,6 @@ update_one_submodule() {
 
     if is_worktree "$sub_path"; then
         initialized=1
-        if is_dirty_repo "$sub_path"; then
-            status_line "skip" "local changes present"
-            record "SKIP" "$sub_path" "local changes before update"
-            return 0
-        fi
     elif [ -d "$sub_path" ]; then
         if is_dir_empty "$sub_path"; then
             status_line "note" "empty placeholder directory; submodule is not cloned"

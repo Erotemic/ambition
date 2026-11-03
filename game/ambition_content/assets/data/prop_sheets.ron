@@ -161,6 +161,74 @@
     "history_chimney": (),
     "history_steam_engine": (),
     "history_gas_lamp": (),
+    // Africa, the Levant and Sumer in the History dimension, second pass
+    // (`targets/props/history_africa_props.py`). The thorn boma is a LockWall:
+    // a wall of cut thorn branches piled high, as herders build round their
+    // cattle at night. A door fills the box of its wall (32 by 128). The reed
+    // boat is a platform look (`platform_looks.ron`): the top of its deck is
+    // the platform.
+    "history_thorn_boma": (),
+    "history_reed_boat": (),
+    // Its scenery: a campfire in a ring of stones, an umbrella thorn acacia, a
+    // rock face painted with cattle and herders, a stele of Aksum carved as a
+    // tower, and the Laetoli footprints in a slab of volcanic ash.
+    "history_campfire": (),
+    "history_acacia": (),
+    "history_rock_art": (),
+    "history_aksum_stele": (),
+    "history_laetoli_footprints": (),
+    // The History dimension's Europe, second pass
+    // (`targets/props/history_europe_props.py`). The trilithon gate is a
+    // LockWall: two standing stones and a lintel, with a slab of bluestone
+    // in the gap. A door fills the box of its wall, 32 by 128.
+    "history_trilithon_gate": (),
+    // The longship is a platform look (`platform_looks.ron`): its deck
+    // carries you over the fjord.
+    "history_longship": (),
+    // Its scenery: a dome hut of mammoth bones and hides with smoke from its
+    // top, a cave wall with hand stencils and a painted horse, a longhouse of
+    // the first farmers with smoke through its thatch, a standing stone, the
+    // palisade of a hillfort, and a rune stone with a red serpent of runes.
+    "history_mammoth_bone_hut": (),
+    "history_hand_stencils": (),
+    "history_longhouse": (),
+    "history_standing_stone": (),
+    "history_palisade": (),
+    "history_rune_stone": (),
+    // South Asia. The key is a small square seal of white steatite with the
+    // one-horned bull cut in it; a key is drawn a little larger than its box,
+    // as a pickup is. The door it opens is a gate in a citadel wall of red
+    // brick, with the ten-sign board of Dholavira over it and the unicorn seal
+    // on its door. A door fills the box of its wall (32 by 128).
+    "history_unicorn_seal": (scale: 1.4),
+    "history_seal_gate": (),
+    // Its scenery: the Great Bath of Mohenjo-daro with its steps and its row
+    // of pillars, and a mud-brick house of Mehrgarh with smoke from its roof.
+    "history_great_bath": (),
+    "history_mud_hut": (),
+    // East Asia. The bronze gate is a door of green bronze with a taotie face,
+    // in a wall of rammed earth (32 by 128).
+    "history_bronze_gate": (),
+    // Its scenery: oracle bones (an ox shoulder blade and a turtle shell,
+    // cracked and written on), a great square bronze ding with steam, and a
+    // sheaf of rice.
+    "history_oracle_bones": (),
+    "history_bronze_ding": (),
+    "history_rice_sheaf": (),
+    // The Americas and Oceania of the History dimension
+    // (`targets/props/history_americas_oceania_props.py`). The bamboo raft is
+    // a platform look (`platform_looks.ron`): the top of its deck.
+    "history_bamboo_raft": (),
+    // Its scenery: fluted Clovis points on a hide, teosinte beside tall maize
+    // (it sways), a stone terrace of the Andes with potatoes, a tree fern of
+    // the highlands (it sways), a boab tree, and a rock shelter with hand
+    // stencils and the mark of old fires.
+    "history_clovis_points": (),
+    "history_maize_plants": (),
+    "history_andean_terrace": (),
+    "history_tree_fern": (),
+    "history_boab_tree": (),
+    "history_rock_shelter": (),
     // The Story Stacks of the Art dimension (`targets/props/art_stacks_props.py`).
     // The doors of the Library of Endings are two covers of a book: the happy
     // ending in gold with a sun, the sad ending in deep blue with a moon and

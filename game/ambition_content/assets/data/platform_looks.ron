@@ -39,6 +39,18 @@
     // on its middle, as the brush seesaw does.
     "history_ship_boom": (row: "idle", frame_px: (384.0, 64.0), span_px: (16.0, 368.0), top_px: 22.0),
     "history_rail_wagon": (row: "idle", frame_px: (320.0, 96.0), span_px: (16.0, 304.0), top_px: 30.0),
+    // The History dimension's reed boat (second pass): the top of its deck of
+    // bound reed bundles IS the platform; the curled prow and stern rise over
+    // it (`targets/props/history_africa_props.py`: `REED_BOAT_FRAME`,
+    // `REED_BOAT_SPAN`, `REED_BOAT_TOP`).
+    "history_reed_boat": (row: "idle", frame_px: (320.0, 192.0), span_px: (16.0, 304.0), top_px: 150.0),
+    // The History dimension's longship: the top of its deck IS the platform;
+    // the striped sail rises over it (`targets/props/history_europe_props.py`:
+    // `LONGSHIP_FRAME`, `LONGSHIP_SPAN`, `LONGSHIP_TOP`).
+    "history_longship": (row: "idle", frame_px: (384.0, 192.0), span_px: (16.0, 368.0), top_px: 150.0),
+    // The History dimension's bamboo raft: the top of its deck is the
+    // platform (`targets/props/history_americas_oceania_props.py`: `RAFT_*`).
+    "history_bamboo_raft": (row: "idle", frame_px: (320.0, 96.0), span_px: (16.0, 304.0), top_px: 40.0),
     // Native marble tiles form the haunted wing's floors and ledges.
     "hylbert_floor_strip": (row: "idle", frame_px: (128.0, 32.0), span_px: (0.0, 128.0), top_px: 0.0),
     // The orbital station's spoke tram: its floor IS the platform. The

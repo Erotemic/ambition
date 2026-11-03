@@ -3,7 +3,7 @@
     id: "history_cotton_mill",
     level_id: "history_cotton_mill",
     world_x: 8960,
-    world_y: 2400,
+    world_y: 7568,
     px_wid: 1600,
     px_hei: 640,
     fill_collision: "empty",

@@ -1,9 +1,10 @@
 # The History dimension
 
-**State:** FIRST PASS BUILT (2026-11-03). Eight eras, six buildings, eight
-biomes, the cast and the gate are in the game. The topics after the
-Industrial Age are in "Next passes" at the end of this document: they are
-the plan for the dimension, not missing work of the first pass.
+**State:** SECOND PASS BUILT (2026-11-03). The first pass was one road of
+eight eras. The second pass makes it a grid of 29 rooms (7 regions, 8 ages)
+and 7 buildings, with the start in Africa. The topics that are not built yet
+are in "Next passes" at the end of this document: they are the plan for the
+dimension, not missing work of this pass.
 
 Jon (2026-11-03): "Add a history dimension. This will be a great use for
 Genghis Can and Genghis Cant. We will need to add other historical figures.
@@ -11,31 +12,43 @@ I want to go world history angle with this. So this is a big dimension.
 Think Crash Course World History: the game. We don't need to get it all in
 the first pass, but this is the idea I'm going for."
 
+Jon (2026-11-03, the second pass): "History is nonlinear, so I want different
+floors / heights to be different contemporaneous eras. We need to start in
+Africa with nomadic history and branch to effectively every major land mass,
+and that's before we get to the crescent. I think we can do quite a lot with
+a 2d grid layout here."
+
 ## What it is
 
-A timeline. You walk east and you walk forward in time. The gate (DYNASTIC,
-`data/gate_network.ron`) is at the far west, at the dawn of farming. The eras
-stand side by side on one long road; each is an outdoor room with its own
-biome, three creatures and its famous people, and most have a building by a
-door. The east end of the first pass is the Industrial Age, with a sign "TO
-BE CONTINUED".
+A grid. East is later: each column is an age. Each floor is a region of the
+world, so the rooms of one column are contemporaneous. Ladders join two
+floors of one column only where the two regions were in contact at that
+time. The gate (DYNASTIC, `data/gate_network.ron`) is in the Cradle, the
+Great Rift Valley 300,000 years ago, at the bottom left. Everyone starts in
+Africa. The way out is the great dispersal: up the ladders of column 1, from
+the southern coast through the Levant to Europe, South Asia, Sahul, the
+mammoth steppe and Beringia. Only after that do the rooms of farming begin.
 
-It is a world-history dimension, not a European one. The road goes from
-Mesopotamia and the Nile through the Mediterranean, along the Silk Road,
-over the steppe, to Mali and the Indian Ocean, and only then to the ships
-and the mills.
+Each room is an outdoor room with its own biome, two or three kinds of
+creature and its people; some have a building by a door. The east end of
+Europe is the Industrial Age, with a sign "TO BE CONTINUED".
+
+It is a world-history dimension, not a European one. Farming is invented
+five times in the grid (the Crescent, the Yellow River, the New Guinea
+highlands, the first maize, and the Green Sahara's cattle), and each time by
+the people who were there.
 
 The host is Clio, the Muse of History (an original character). She keeps
 the record and sighs about the footnotes.
 
 | | |
 | --- | --- |
-| Gate | `DYNASTIC`, ring `history_crescent_gate` in `history_fertile_crescent`, terminal `history_gate_terminal` |
+| Gate | `DYNASTIC`, ring `history_cradle_gate` in `history_cradle`, terminal `history_gate_terminal` |
 | World | `history.ldtk` (`data/worlds.ron`: `world.history_ldtk`) |
 | Generator | `tools/ambition_ldtk_tools/specs/history_dimension/make_specs.py` |
 | Dialogue | `dialogue/sandbox/history.yarn`, one node per resident, named after its spec |
 | Test | `game/ambition_app/tests/the_history_dimension.rs` |
-| Art | the sprite tools: `backgrounds/history_eras.py`, `targets/characters/` (the creatures), `data/townsfolk/history_*.chargen.yaml` (the residents), `targets/props/history_*_props.py` |
+| Art | the sprite tools: `backgrounds/history_eras.py` and `backgrounds/history_origins.py` (the biomes), `targets/characters/` (the creatures), `data/townsfolk/history_*.chargen.yaml` (the residents), `targets/props/history_*_props.py` |
 
 ## Tone
 
@@ -45,32 +58,79 @@ the record and sighs about the footnotes.
 - Each resident knows their own era well and is often wrong about the
   others. Many lines end on the real lesson of the topic (farming made people
   shorter; the first writing is a receipt; the Silk Road was many roads).
+- Prehistory has no famous names. Its people are original (the first
+  painters, farmers and navigators) and are told with respect, with a few
+  scientists who dug them up as parodies. The Aboriginal and Native American
+  rooms show skill and age, with no sacred designs.
 - Serious things are not jokes. The Middle Passage has a plain sign in the
   harbour. Columbust says out loud that what happened to the people already
   in the Americas is not funny. The Luddites are told fairly.
 - No religious founder is a character.
 
-## The road
+## The grid
 
-    [crescent][nile][classical][silk road][steppe][timbuktu][sail][industrial]
-       door     door   door                 door     door           door
-    [granary] [tomb] [colosseum]           [ger]   [library]       [mill]
+             C0       C1            C2              C3           C4          C5          C6     C7
+    R0 Americas       beringia      maize
+    R1 East Asia      mammoth st.   yellow river    shang        silk road   steppe
+    R2 Oceania        sahul         highlands
+    R3 South Asia     south. route  mehrgarh        indus
+    R4 Europe         ice age       first farmers   megaliths    celts       vikings     sail   industrial
+    R5 Med./SW Asia   levant        crescent        uruk         classical
+    R6 Africa cradle  south. coast  green sahara    nile         aksum       timbuktu
 
-| era | room | biome | people | creatures | the way through |
-| --- | --- | --- | --- | --- | --- |
-| The Fertile Crescent: the Agricultural Revolution, Mesopotamia, Debt & Money | `history_fertile_crescent` | `history_crescent` | Clio, Hammurabbi, Gilgamash | locust swarm, aurochs, scorpion man | the sluice (`history_sluice`) raises the reed bridge over the canal |
-| The Nile: Egypt | `history_nile_valley` | `history_nile` | Hat-shepsut, Ramesses the Pretty Good | mummy, scarab beetle, asp | a felucca carries you over the river |
-| The Classical Shore: Persians & Greeks, Rome, the Fall of Rome, Water & Classical Civilizations | `history_classical_shore` | `history_classical` | Socratease, Herodotoss, Julius Sneezer | hoplite, immortal, vandal | the stoa gate opens when you know that you know nothing (`history_knows_nothing`); the aqueduct is a high road |
-| The Silk Road: the Silk Road, China | `history_silk_road` | `history_silk` | Marco Polo-neck, Confusius | terracotta warrior, desert bandit, silk moth | a camel caravan carries you over the quicksand |
-| The Mongol Steppe: the Mongols | `history_mongol_steppe` | `history_steppe` | Genghis Can, Genghis Can't | horse archer, golden eagle, steppe wolf | two roads through the Great Wall (below) |
-| Timbuktu and the Monsoon Coast: Mansa Musa, Indian Ocean Trade | `history_timbuktu_coast` | `history_monsoon` | Mansa Moolah, Zheng Hey | inflated coin, coral crab, monsoon squall | a dhow carries you over the sea |
-| The Age of Sail: 15th-century mariners, the Columbian Exchange, the Atlantic Slave Trade, Captain Cook | `history_age_of_sail` | `history_sail` | Vasco da Gamer, Christopher Columbust, Captain Cookbook | privateer, scurvy ghost, kraken arm | ships' booms rock over the harbour |
-| The Industrial Age: the Industrial Revolution, Capitalism, Railroads | `history_industrial_age` | `history_industrial` | Adam Smithy, Karl Marks, General Ludd | steam automaton, soot sprite, robber baron | the boiler in the mill (`history_boiler`) opens the factory gate; a rail wagon carries you over the cutting |
+The columns: C0 origins (300,000 years ago), C1 the great dispersal (70,000
+to 12,000 years ago), C2 the first farmers (10,000 to 3,000 BCE), C3 the
+first cities and the Bronze Age, C4 the classical age, C5 the middle ages,
+C6 the age of sail, C7 the industrial age.
 
-The buildings:
+The ladders (each is a hole with a one-way hatch in the upper room's floor):
+
+| column | floors | why |
+| --- | --- | --- |
+| C1 | Africa and the Levant, the Levant and Europe, Europe and South Asia, South Asia and Sahul, Sahul and the mammoth steppe, the mammoth steppe and Beringia | the great dispersal: one road out of Africa to every land mass |
+| C2 | the Green Sahara and the Crescent, the Crescent and Europe | cattle and wheat go both ways; farming walks into Europe |
+| C3 | the Nile and Uruk, Uruk and the megalith builders | Egypt and Sumer trade; tin comes south from the north |
+| C4 | Aksum and Rome, Rome and the Celts | the Red Sea trade; the frontier |
+
+The rooms:
+
+| room | biome | people | creatures | the way through |
+| --- | --- | --- | --- | --- |
+| `history_cradle` | `history_savanna` | Clio, Lucy, Mary Leaky | hyena | the fire drill (`history_first_fire`) opens the thorn boma |
+| `history_southern_coast` | `history_savanna` | the ochre artist | hyena, cave lion | the ladder up: out of Africa |
+| `history_green_sahara` | `history_green_sahara` | the cattle herder | hippo, locust swarm | a reed boat carries you over the lake |
+| `history_nile_valley` | `history_nile` | Hat-shepsut, Ramesses the Pretty Good | mummy, scarab beetle, asp | a felucca carries you over the river |
+| `history_aksum_and_kush` | `history_nile` | Kandake Can-Do | asp, mummy, scarab beetle | the ladder up: the Red Sea road to Rome |
+| `history_timbuktu_coast` | `history_monsoon` | Mansa Moolah, Zheng Hey | inflated coin, coral crab, monsoon squall | a dhow carries you over the sea |
+| `history_levant` | `history_crescent` | Neville the Neanderthal | aurochs, cave lion | the ladders: down to Africa, up to Europe |
+| `history_fertile_crescent` | `history_crescent` | Hammurabbi, Gilgamash | locust swarm, aurochs, scorpion man | the sluice (`history_sluice`) raises the reed bridge over the canal |
+| `history_uruk` | `history_crescent` | Enheduanna | scorpion man, sea raider | the Bronze Age collapse: three Sea Peoples raiders |
+| `history_classical_shore` | `history_classical` | Socratease, Herodotoss, Julius Sneezer | hoplite, immortal, vandal | the stoa gate opens when you know that you know nothing (`history_knows_nothing`); the aqueduct is a high road |
+| `history_ice_age_europe` | `history_ice_age` | (the cave painter, inside) | cave bear, woolly mammoth, cave lion | the door to the painted cave |
+| `history_first_farmers_of_europe` | `history_megalith` | Ötzi the Nice-man | aurochs, steppe wolf | the ladder down: where the wheat came from |
+| `history_megalith_builders` | `history_megalith` | Not-a-Druid | aurochs, steppe wolf | the sun stone (`history_solstice`) opens the trilithon |
+| `history_celtic_frontier` | `history_northwoods` | Boudic-car | vandal, steppe wolf | the hillfort's ledges |
+| `history_viking_north` | `history_northwoods` | Leif Errandson | viking raider | a longship carries you over the fjord |
+| `history_age_of_sail` | `history_sail` | Vasco da Gamer, Christopher Columbust, Captain Cookbook | privateer, scurvy ghost, kraken arm | ships' booms rock over the harbour |
+| `history_industrial_age` | `history_industrial` | Adam Smithy, Karl Marks, General Ludd | steam automaton, soot sprite, robber baron | the boiler in the mill (`history_boiler`) opens the factory gate; a rail wagon carries you over the cutting |
+| `history_southern_route` | `history_indus` | the coast walker | coral crab, tiger | the ladders: up to Sahul, down to Europe |
+| `history_mehrgarh` | `history_indus` | the dentist of Mehrgarh | locust swarm, tiger | the terraces |
+| `history_indus_cities` | `history_indus` | the Priest-King (Probably) | indus unicorn, tiger | the unicorn seal on the granary roof (`history_unicorn_seal`, a pickup) opens the citadel gate |
+| `history_sahul` | `history_sahul` | the raft builder | diprotodon, megalania | a bamboo raft carries you over the strait |
+| `history_new_guinea_highlands` | `history_highlands` | the Kuk gardener | cassowary | the garden terraces |
+| `history_mammoth_steppe` | `history_ice_age` | Denny the Denisovan | woolly mammoth, cave bear, steppe wolf | the ladders: up to Beringia, down to Sahul |
+| `history_yellow_river` | `history_yellow_river` | Leizu | silk moth, coral crab | a reed boat carries you over the river |
+| `history_shang_court` | `history_yellow_river` | Lady Fu Hao | taotie spirit, steppe wolf | the oracle bone (`history_oracle_bone`) opens the bronze gate |
+| `history_silk_road` | `history_silk` | Marco Polo-neck, Confusius | terracotta warrior, desert bandit, silk moth | a camel caravan carries you over the quicksand |
+| `history_mongol_steppe` | `history_steppe` | Genghis Can, Genghis Can't | horse archer, golden eagle, steppe wolf | two roads through the Great Wall (below) |
+| `history_beringia` | `history_ice_age` | Dr. Clovis-First | woolly mammoth, smilodon | the ladder down: back to Asia |
+| `history_first_maize` | `history_maize` | the teosinte breeder | llama, jaguar | the Andean terrace |
+
+The buildings, in a row under the grid:
 
 | building | off | in it |
 | --- | --- | --- |
+| `history_painted_cave` | Ice Age Europe | the cave painter; hand stencils; chest "the first signature" |
 | `history_temple_granary` | the crescent | the Scribe of Debts; writing was made here to count barley; chest "the first receipt" |
 | `history_pyramid_tomb` | the Nile | a vigil (`history_tomb_vigil`: scarabs, asps, mummies) shuts the room; when it is over, the treasure room's grille opens |
 | `history_colosseum` | the Classical Shore | the games (`history_the_games`: hoplites, immortals, vandals); the emperor's box opens after |
@@ -97,21 +157,28 @@ Each flag opens its own road and not the other's
 ## Next passes
 
 The rest of Jon's list (Crash Course World History, both seasons), grouped by
-where it goes on the road. Each group is a room, or a building, or a mechanic.
+where it goes in the grid. Each group is a room, or a building, or a mechanic.
+
+Empty cells of the grid (each is a room to add; the generator's `GRID`
+and `LINKS` take a new room and its ladders):
+- The Americas after the first maize: the Olmecs, the Maya, the Aztecs and
+  the Inca (C3 to C5).
+- Oceania after the highlands: Lapita and the Polynesian voyages (C3 to C5).
+- South Asia after the Indus: the Mauryas, Ashoka, the Guptas, the Mughals.
+- Africa and Europe in C6 and C7, the Americas in C6 (the Columbian Exchange
+  from the other side), East Asia in C6 and C7.
 
 Between the eras that exist:
-- The Indus Valley (a quarter of the crescent: Mohenjo-daro's drains and
-  seals that nobody can read yet).
 - Buddha and Ashoka (Ashoka's pillars and his turn to non-violence after
   Kalinga; no founder as a character).
 - Alexander (a room between the Classical Shore and the Silk Road: the
   empire that ran east; "Alexander the Late").
 - Christianity and Islam, Islam and Politics (as history of states and
   scholarship: the House of Wisdom, the libraries; no founders).
-- The Dark Ages, the Crusades, Vikings, Venice and the Ottomans, Russia, the
+- The Dark Ages, the Crusades, Venice and the Ottomans, Russia, the
   Heian aristocracy, the Mughals.
-- The Bronze Age Collapse (a ruin room: the Sea Peoples, a collapse you can
-  feel as falling platforms).
+- The Bronze Age Collapse as a mechanic in Uruk (the Sea Peoples are
+  there; a collapse you can feel as falling platforms is not).
 - The Little Ice Age, Drought & Famine, Disease (mechanics more than rooms:
   a frozen canal, a failed harvest).
 
@@ -133,7 +200,7 @@ After the Industrial Age (the road goes on east):
   collects the accounts and Clio reads them side by side.
 
 Ideas for mechanics:
-- A second ring at the east end, so the road need not be walked back.
+- A second ring at the east end, so the grid need not be walked back.
 - The Yam relay as fast travel along the steppe (a horse at each station).
 - Herodotoss's tall tales as false signs (a sign that lies, as in the Art
   dimension's stacks).

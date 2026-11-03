@@ -13,6 +13,8 @@
 # product, and keeps every one that has, stale or partial ones too (the same
 # rule as `sprites.sh --missing-only`). With `--theme` or `--skin` it looks
 # only at those. It does not draw the placeholder profiles.
+# The scoped modes draw `--jobs` products at a time (each in its own
+# process; the default is half the CPUs, at most 6) and publish them at once.
 #
 # The default interpreters are the two tool-local virtualenvs created by
 # run_developer_setup.sh. PYTHON remains a legacy override for both tools.

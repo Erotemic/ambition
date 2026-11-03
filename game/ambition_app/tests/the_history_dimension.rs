@@ -1,14 +1,16 @@
 //! The History dimension: its gate is DYNASTIC.
 //!
-//! Fourteen rooms (`tools/ambition_ldtk_tools/specs/history_dimension/`): a
-//! timeline of eight eras side by side, earliest in the west, and six
-//! buildings by doors in them. This asks the game what the generator takes as
-//! given: that the eras join in order and each building opens off its era,
-//! that each room places its cast, that the sluice raises the reed bridge,
-//! that Socratease's answer opens the stoa gate, that each of the brothers at
-//! the Great Wall opens his own road through it and not the other's, that the
-//! mill's boiler opens the factory gate, and that the two vigils keep their
-//! store rooms shut until they are over.
+//! Thirty-six rooms (`tools/ambition_ldtk_tools/specs/history_dimension/`):
+//! a grid of twenty-nine outdoor rooms, where east is later and each floor is
+//! a region of the world, and seven buildings by doors. The gate is in the
+//! Cradle, in Africa, at the bottom left. This asks the game what the
+//! generator takes as given: that the rooms of a floor join in order, that the
+//! ladders join the floors where the regions met, that each building opens off
+//! its room, that each room places its cast, that each way through opens for
+//! its key (the first fire, the sluice, the solstice, the oracle bone, the
+//! unicorn seal, Socratease's answer, each brother at the Great Wall, the
+//! mill's boiler), and that the two vigils keep their store rooms shut until
+//! they are over.
 
 use std::collections::BTreeSet;
 
@@ -83,56 +85,111 @@ fn settle(sim: &mut Platformer2dSimHarness) {
     }
 }
 
-/// The road from the earliest era to the latest, and each building off it.
+/// The ways of the grid: along each floor (later to the east), up and down
+/// the ladders, and into each building.
+const WAYS: &[(&str, &str)] = &[
+    // The Americas.
+    ("history_beringia", "history_first_maize"),
+    // East Asia and the steppe.
+    ("history_mammoth_steppe", "history_yellow_river"),
+    ("history_yellow_river", "history_shang_court"),
+    ("history_shang_court", "history_silk_road"),
+    ("history_silk_road", "history_mongol_steppe"),
+    // Oceania.
+    ("history_sahul", "history_new_guinea_highlands"),
+    // South Asia.
+    ("history_southern_route", "history_mehrgarh"),
+    ("history_mehrgarh", "history_indus_cities"),
+    // Europe.
+    ("history_ice_age_europe", "history_first_farmers_of_europe"),
+    ("history_first_farmers_of_europe", "history_megalith_builders"),
+    ("history_megalith_builders", "history_celtic_frontier"),
+    ("history_celtic_frontier", "history_viking_north"),
+    ("history_viking_north", "history_age_of_sail"),
+    ("history_age_of_sail", "history_industrial_age"),
+    // The Mediterranean and Southwest Asia.
+    ("history_levant", "history_fertile_crescent"),
+    ("history_fertile_crescent", "history_uruk"),
+    ("history_uruk", "history_classical_shore"),
+    // Africa.
+    ("history_cradle", "history_southern_coast"),
+    ("history_southern_coast", "history_green_sahara"),
+    ("history_green_sahara", "history_nile_valley"),
+    ("history_nile_valley", "history_aksum_and_kush"),
+    ("history_aksum_and_kush", "history_timbuktu_coast"),
+    // The ladders: the great dispersal, out of Africa to every land mass.
+    ("history_southern_coast", "history_levant"),
+    ("history_levant", "history_ice_age_europe"),
+    ("history_ice_age_europe", "history_southern_route"),
+    ("history_southern_route", "history_sahul"),
+    ("history_sahul", "history_mammoth_steppe"),
+    ("history_mammoth_steppe", "history_beringia"),
+    // Farming spreads from the crescent; the first cities trade; Rome.
+    ("history_green_sahara", "history_fertile_crescent"),
+    ("history_fertile_crescent", "history_first_farmers_of_europe"),
+    ("history_nile_valley", "history_uruk"),
+    ("history_uruk", "history_megalith_builders"),
+    ("history_aksum_and_kush", "history_classical_shore"),
+    ("history_classical_shore", "history_celtic_frontier"),
+    // The buildings.
+    ("history_ice_age_europe", "history_painted_cave"),
+    ("history_fertile_crescent", "history_temple_granary"),
+    ("history_nile_valley", "history_pyramid_tomb"),
+    ("history_classical_shore", "history_colosseum"),
+    ("history_mongol_steppe", "history_great_ger"),
+    ("history_timbuktu_coast", "history_timbuktu_library"),
+    ("history_industrial_age", "history_cotton_mill"),
+];
+
 #[test]
-fn the_eras_of_the_history_dimension_join_in_order() {
-    const WAYS: [(&str, &str); 13] = [
-        ("history_fertile_crescent", "history_nile_valley"),
-        ("history_nile_valley", "history_classical_shore"),
-        ("history_classical_shore", "history_silk_road"),
-        ("history_silk_road", "history_mongol_steppe"),
-        ("history_mongol_steppe", "history_timbuktu_coast"),
-        ("history_timbuktu_coast", "history_age_of_sail"),
-        ("history_age_of_sail", "history_industrial_age"),
-        ("history_fertile_crescent", "history_temple_granary"),
-        ("history_nile_valley", "history_pyramid_tomb"),
-        ("history_classical_shore", "history_colosseum"),
-        ("history_mongol_steppe", "history_great_ger"),
-        ("history_timbuktu_coast", "history_timbuktu_library"),
-        ("history_industrial_age", "history_cotton_mill"),
-    ];
+fn the_rooms_of_the_history_grid_join_where_history_did() {
     let manifest = ambition_content::worlds::world_manifest();
     let project = LdtkProject::load_default_for_dev(&manifest).expect("the world loads");
     let rooms = project.to_room_set(&manifest, &ambition_app::composed_ldtk_vocabulary()).expect("the world composes");
     let index = |id: &str| rooms.room_index_by_id(id).unwrap_or_else(|| panic!("the world has no room `{id}`"));
-    for (a, b) in WAYS {
+    for &(a, b) in WAYS {
         let (from, to) = (index(a), index(b));
         assert!(rooms.neighboring_room_indices_of(from).contains(&to), "`{a}` has no way to `{b}`");
         assert!(rooms.neighboring_room_indices_of(to).contains(&from), "`{b}` has no way back to `{a}`");
     }
-    // The start of the road: nothing is before the crescent but its granary.
-    let crescent = index("history_fertile_crescent");
-    assert_eq!(rooms.neighboring_room_indices_of(crescent).len(), 2, "the crescent joins only the nile and its granary");
+    // Everyone starts in Africa: nothing is before the Cradle, and its one
+    // way on is the southern coast.
+    let cradle = index("history_cradle");
+    assert_eq!(rooms.neighboring_room_indices_of(cradle).len(), 1, "the Cradle joins only the southern coast");
+    // The ways name all thirty-six rooms, and the gate reaches every one.
+    let named: BTreeSet<&str> = WAYS.iter().flat_map(|&(a, b)| [a, b]).collect();
+    assert_eq!(named.len(), 36, "the ways name every room of the dimension: {named:?}");
+    let mut reached = BTreeSet::from(["history_cradle"]);
+    while let Some(&(a, b)) = WAYS.iter().find(|&&(a, b)| reached.contains(a) != reached.contains(b)) {
+        reached.extend([a, b]);
+    }
+    assert_eq!(reached, named, "from the Cradle the ways reach every room");
 }
 
 /// The cast each room places: the kinds, and how many of each.
 const CAST: &[(&str, &[(&str, usize)])] = &[
-    (
-        "history_fertile_crescent",
-        &[
-            ("npc_history_clio", 1),
-            ("npc_history_hammurabbi", 1),
-            ("npc_history_gilgamash", 1),
-            ("locust_swarm", 2),
-            ("aurochs", 1),
-            ("scorpion_man", 1),
-        ],
-    ),
-    ("history_temple_granary", &[("npc_history_scribe_of_debts", 1)]),
+    // Africa.
+    ("history_cradle", &[("npc_history_clio", 1), ("npc_history_lucy", 1), ("npc_history_mary_leaky", 1), ("hyena", 2)]),
+    ("history_southern_coast", &[("npc_history_ochre_artist", 1), ("hyena", 2), ("cave_lion", 1)]),
+    ("history_green_sahara", &[("npc_history_cattle_herder", 1), ("hippo", 2), ("locust_swarm", 1)]),
     (
         "history_nile_valley",
         &[("npc_history_hatshepsut_hats", 1), ("npc_history_ramesses_pretty_good", 1), ("scarab_beetle", 2), ("asp", 2), ("mummy", 1)],
     ),
+    ("history_aksum_and_kush", &[("npc_history_kandake_can_do", 1), ("asp", 2), ("mummy", 1), ("scarab_beetle", 1)]),
+    (
+        "history_timbuktu_coast",
+        &[("npc_history_mansa_moolah", 1), ("npc_history_zheng_hey", 1), ("inflated_coin", 2), ("coral_crab", 2), ("monsoon_squall", 2)],
+    ),
+    ("history_timbuktu_library", &[("npc_history_ibn_batootah", 1)]),
+    // The Mediterranean and Southwest Asia.
+    ("history_levant", &[("npc_history_neville_neanderthal", 1), ("aurochs", 2), ("cave_lion", 1)]),
+    (
+        "history_fertile_crescent",
+        &[("npc_history_hammurabbi", 1), ("npc_history_gilgamash", 1), ("locust_swarm", 2), ("aurochs", 1), ("scorpion_man", 1)],
+    ),
+    ("history_temple_granary", &[("npc_history_scribe_of_debts", 1)]),
+    ("history_uruk", &[("npc_history_enheduanna", 1), ("scorpion_man", 1), ("sea_raider", 3)]),
     (
         "history_classical_shore",
         &[
@@ -144,20 +201,13 @@ const CAST: &[(&str, &[(&str, usize)])] = &[
             ("vandal", 1),
         ],
     ),
-    (
-        "history_silk_road",
-        &[("npc_history_marco_polo_neck", 1), ("npc_history_confusius", 1), ("desert_bandit", 2), ("silk_moth", 2), ("terracotta_warrior", 2)],
-    ),
-    (
-        "history_mongol_steppe",
-        &[("npc_genghis_can", 1), ("npc_genghis_cant", 1), ("horse_archer", 2), ("steppe_wolf", 2), ("golden_eagle", 2)],
-    ),
-    ("history_great_ger", &[("npc_history_kublai_khant_wait", 1)]),
-    (
-        "history_timbuktu_coast",
-        &[("npc_history_mansa_moolah", 1), ("npc_history_zheng_hey", 1), ("inflated_coin", 2), ("coral_crab", 2), ("monsoon_squall", 2)],
-    ),
-    ("history_timbuktu_library", &[("npc_history_ibn_batootah", 1)]),
+    // Europe.
+    ("history_ice_age_europe", &[("cave_bear", 1), ("woolly_mammoth", 1), ("cave_lion", 1)]),
+    ("history_painted_cave", &[("npc_history_cave_painter", 1)]),
+    ("history_first_farmers_of_europe", &[("npc_history_otzi_nice_man", 1), ("aurochs", 1), ("steppe_wolf", 2)]),
+    ("history_megalith_builders", &[("npc_history_not_a_druid", 1), ("aurochs", 2), ("steppe_wolf", 1)]),
+    ("history_celtic_frontier", &[("npc_history_boudic_car", 1), ("vandal", 2), ("steppe_wolf", 1)]),
+    ("history_viking_north", &[("npc_history_leif_errandson", 1), ("viking_raider", 3)]),
     (
         "history_age_of_sail",
         &[
@@ -180,6 +230,29 @@ const CAST: &[(&str, &[(&str, usize)])] = &[
             ("robber_baron", 2),
         ],
     ),
+    // South Asia.
+    ("history_southern_route", &[("npc_history_coast_walker", 1), ("coral_crab", 2), ("tiger", 1)]),
+    ("history_mehrgarh", &[("npc_history_dentist_of_mehrgarh", 1), ("locust_swarm", 1), ("tiger", 2)]),
+    ("history_indus_cities", &[("npc_history_priest_king_probably", 1), ("indus_unicorn", 2), ("tiger", 1)]),
+    // Oceania.
+    ("history_sahul", &[("npc_history_raft_builder", 1), ("diprotodon", 1), ("megalania", 1)]),
+    ("history_new_guinea_highlands", &[("npc_history_kuk_gardener", 1), ("cassowary_history", 3)]),
+    // East Asia and the steppe.
+    ("history_mammoth_steppe", &[("npc_history_denny_denisovan", 1), ("woolly_mammoth", 1), ("cave_bear", 1), ("steppe_wolf", 1)]),
+    ("history_yellow_river", &[("npc_history_leizu", 1), ("silk_moth", 2), ("coral_crab", 2)]),
+    ("history_shang_court", &[("npc_history_fu_hao", 1), ("taotie_spirit", 2), ("steppe_wolf", 1)]),
+    (
+        "history_silk_road",
+        &[("npc_history_marco_polo_neck", 1), ("npc_history_confusius", 1), ("desert_bandit", 2), ("silk_moth", 2), ("terracotta_warrior", 2)],
+    ),
+    (
+        "history_mongol_steppe",
+        &[("npc_genghis_can", 1), ("npc_genghis_cant", 1), ("horse_archer", 2), ("steppe_wolf", 2), ("golden_eagle", 2)],
+    ),
+    ("history_great_ger", &[("npc_history_kublai_khant_wait", 1)]),
+    // The Americas.
+    ("history_beringia", &[("npc_history_dr_clovis_first", 1), ("woolly_mammoth", 1), ("smilodon", 2)]),
+    ("history_first_maize", &[("npc_history_teosinte_breeder", 1), ("llama", 2), ("jaguar", 2)]),
 ];
 
 #[test]
@@ -217,6 +290,35 @@ fn knowing_nothing_opens_the_stoa_gate() {
     set_flag(&mut sim, "history_knows_nothing");
     settle(&mut sim);
     assert!(!stands(&mut sim, "history_stoa_gate"), "knowing nothing, the stoa gate is open: {:?}", standing(&mut sim));
+}
+
+/// Each lever gate stands until its lever is pulled: the thorn boma in the
+/// Cradle (the first fire), the trilithon (the solstice) and the bronze gate
+/// of the Shang court (the oracle bone).
+#[test]
+fn each_lever_opens_its_gate() {
+    for (id, lever, gate) in [
+        ("history_cradle", "history_first_fire", "history_thorn_boma"),
+        ("history_megalith_builders", "history_solstice", "history_trilithon_gate"),
+        ("history_shang_court", "history_oracle_bone", "history_bronze_gate"),
+    ] {
+        let mut sim = room(id);
+        assert!(stands(&mut sim, gate), "`{gate}` stands at first: {:?}", standing(&mut sim));
+        press(&mut sim, lever);
+        settle(&mut sim);
+        assert!(!stands(&mut sim, gate), "after `{lever}`, `{gate}` is open: {:?}", standing(&mut sim));
+    }
+}
+
+/// The citadel gate of the Indus cities stands until the traveller has the
+/// unicorn seal (the flag of the pickup on the granary roof).
+#[test]
+fn the_unicorn_seal_opens_the_citadel() {
+    let mut sim = room("history_indus_cities");
+    assert!(stands(&mut sim, "history_seal_gate"), "the citadel gate stands at first: {:?}", standing(&mut sim));
+    set_flag(&mut sim, "history_unicorn_seal");
+    settle(&mut sim);
+    assert!(!stands(&mut sim, "history_seal_gate"), "with the seal, the citadel gate is open: {:?}", standing(&mut sim));
 }
 
 /// The two roads through the Great Wall. At first the gate stands and there

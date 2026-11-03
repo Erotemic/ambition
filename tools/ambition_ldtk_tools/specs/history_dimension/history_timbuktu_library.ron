@@ -3,7 +3,7 @@
     id: "history_timbuktu_library",
     level_id: "history_timbuktu_library",
     world_x: 7168,
-    world_y: 2400,
+    world_y: 7568,
     px_wid: 1600,
     px_hei: 640,
     fill_collision: "empty",

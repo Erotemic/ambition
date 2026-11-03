@@ -3,7 +3,7 @@
     id: "history_pyramid_tomb",
     level_id: "history_pyramid_tomb",
     world_x: 1792,
-    world_y: 2400,
+    world_y: 7568,
     px_wid: 1600,
     px_hei: 640,
     fill_collision: "empty",

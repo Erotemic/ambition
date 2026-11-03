@@ -348,6 +348,52 @@ collections:
   - history_rail_wagon
   - history_factory_gate
   - history_gas_lamp
+  - hyena
+  - cave_lion
+  - hippo
+  - sea_raider
+  - history_thorn_boma
+  - history_campfire
+  - history_acacia
+  - history_rock_art
+  - history_reed_boat
+  - history_aksum_stele
+  - history_laetoli_footprints
+  - woolly_mammoth
+  - cave_bear
+  - viking_raider
+  - history_mammoth_bone_hut
+  - history_hand_stencils
+  - history_longhouse
+  - history_trilithon_gate
+  - history_standing_stone
+  - history_palisade
+  - history_longship
+  - history_rune_stone
+  - tiger
+  - indus_unicorn
+  - taotie_spirit
+  - history_great_bath
+  - history_unicorn_seal
+  - history_seal_gate
+  - history_mud_hut
+  - history_oracle_bones
+  - history_bronze_gate
+  - history_bronze_ding
+  - history_rice_sheaf
+  - smilodon
+  - jaguar
+  - llama
+  - diprotodon
+  - megalania
+  - cassowary_history
+  - history_bamboo_raft
+  - history_clovis_points
+  - history_maize_plants
+  - history_andean_terrace
+  - history_tree_fern
+  - history_boab_tree
+  - history_rock_shelter
   - eigenghost
   - decomposing_specter
   - spectral_perturbation
@@ -633,6 +679,28 @@ collections:
   - history_adam_smithy
   - history_karl_marks
   - history_general_ludd
+  - history_mary_leaky
+  - history_lucy
+  - history_ochre_artist
+  - history_cattle_herder
+  - history_kandake_can_do
+  - history_neville_neanderthal
+  - history_enheduanna
+  - history_cave_painter
+  - history_otzi_nice_man
+  - history_not_a_druid
+  - history_boudic_car
+  - history_leif_errandson
+  - history_coast_walker
+  - history_dentist_of_mehrgarh
+  - history_priest_king_probably
+  - history_denny_denisovan
+  - history_leizu
+  - history_fu_hao
+  - history_dr_clovis_first
+  - history_teosinte_breeder
+  - history_raft_builder
+  - history_kuk_gardener
   - station_dobbs
   - station_pippin
   - magical_celeste

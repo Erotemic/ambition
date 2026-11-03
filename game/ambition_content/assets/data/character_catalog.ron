@@ -613,6 +613,104 @@
             melee: Some(Swipe(windup_s: 0.25, active_s: 0.08, recover_s: 0.35, damage: 1, reach_px: 26.0)),
             ranged: Some(Rock(speed: 360.0, damage: 1)),
         ),
+        // The History dimension, second pass: Africa, the Levant and Sumer
+        // (`targets/characters/hyena.py`, `cave_lion.py`, `hippo.py`,
+        // `sea_raider.py`). A hyena crouches with its mane up and its jaws wide
+        // (its windup row) and lunges in a bite; a cave lion crouches with its
+        // hips wiggling (its windup row) and pounces a long way, claws out; a
+        // hippo yawns its jaws as wide as they go (its windup row), charges a
+        // short heavy way and bites down, and needs a long moment after; a sea
+        // raider draws his sword back over his head (its windup row), runs in
+        // and cuts down in front.
+        "hyena_bite": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.35, active_s: 0.15, recover_s: 0.45, damage: 1, reach_px: 32.0, step_px: 0.0, rush_px: 130.0)),
+        ),
+        "cave_lion_pounce": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.6, active_s: 0.3, recover_s: 0.7, damage: 2, reach_px: 50.0, step_px: 0.0, rush_px: 200.0)),
+        ),
+        "hippo_chomp": (
+            move_style: WalkHeavy,
+            melee: Some(Lunge(windup_s: 0.85, active_s: 0.3, recover_s: 1.1, damage: 3, reach_px: 64.0, step_px: 0.0, rush_px: 140.0)),
+        ),
+        "sea_raider_cut": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.35, active_s: 0.15, recover_s: 0.45, damage: 2, reach_px: 36.0, step_px: 0.0, rush_px: 140.0)),
+        ),
+        // The History dimension's Europe (`targets/characters/woolly_mammoth.py`,
+        // `cave_bear.py`, `viking_raider.py`). A woolly mammoth puts its head
+        // down with its tusks at you and stamps (its windup row), then charges
+        // a long way and sweeps its tusks up, and needs a long moment to turn;
+        // a cave bear rears up on its hind legs with its claws out (its windup
+        // row) and comes down on you with both paws, slow to start and slow to
+        // rise; a Viking raider lifts his axe high behind his head (his windup
+        // row) and chops down in front of him with a step.
+        "woolly_mammoth_charge": (
+            move_style: WalkHeavy,
+            melee: Some(Lunge(windup_s: 0.85, active_s: 0.45, recover_s: 1.2, damage: 3, reach_px: 80.0, step_px: 0.0, rush_px: 280.0)),
+        ),
+        "cave_bear_maul": (
+            move_style: WalkHeavy,
+            melee: Some(Slam(windup_s: 0.8, active_s: 0.2, recover_s: 1.0, damage: 3, reach_px: 64.0)),
+        ),
+        "viking_raider_chop": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.45, active_s: 0.15, recover_s: 0.5, damage: 2, reach_px: 44.0, step_px: 14.0, rush_px: 0.0)),
+        ),
+        // The History grid: South Asia and East Asia (`targets/characters/tiger.py`,
+        // `indus_unicorn.py`, `taotie_spirit.py`). A tiger crouches with its
+        // tail lashing (its windup row) and pounces a long way, paws first; an
+        // Indus unicorn lowers its one horn and paws the ground (its windup row),
+        // then charges and tosses its horn; a taotie spirit swells with its mouth
+        // aglow and spits molten bronze from a distance.
+        "tiger_pounce": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.6, active_s: 0.3, recover_s: 0.8, damage: 2, reach_px: 60.0, step_px: 0.0, rush_px: 220.0)),
+        ),
+        "indus_unicorn_charge": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.65, active_s: 0.35, recover_s: 0.9, damage: 2, reach_px: 52.0, step_px: 0.0, rush_px: 220.0)),
+        ),
+        "taotie_spirit_spit": (
+            move_style: Float,
+            melee: Some(Bite(windup_s: 0.2, active_s: 0.08, recover_s: 0.3, damage: 1, reach_px: 28.0)),
+            ranged: Some(Rock(speed: 340.0, damage: 1)),
+        ),
+        // The Americas and Oceania of the History dimension (agent D of the
+        // grid). A smilodon crouches low with its rump wiggling (its windup
+        // row), then pounces a long way with its jaw wide, and needs a moment
+        // to get up; a jaguar does the same, quicker and shorter; a llama keeps
+        // its distance and spits, and nips what comes close; a diprotodon rocks
+        // back with its head low (its windup row), then shoves forward and
+        // butts; a megalania lifts its front and opens its jaws, then lunges
+        // low and snaps; a cassowary draws one leg up high and kicks forward
+        // with its dagger claw.
+        "smilodon_pounce": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.6, active_s: 0.3, recover_s: 0.9, damage: 2, reach_px: 64.0, step_px: 0.0, rush_px: 210.0)),
+        ),
+        "jaguar_pounce": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.45, active_s: 0.25, recover_s: 0.6, damage: 2, reach_px: 56.0, step_px: 0.0, rush_px: 190.0)),
+        ),
+        "llama_spit": (
+            move_style: Walk,
+            melee: Some(Bite(windup_s: 0.25, active_s: 0.08, recover_s: 0.35, damage: 1, reach_px: 26.0)),
+            ranged: Some(Rock(speed: 340.0, damage: 1)),
+        ),
+        "diprotodon_shove": (
+            move_style: WalkHeavy,
+            melee: Some(Lunge(windup_s: 0.8, active_s: 0.35, recover_s: 1.1, damage: 3, reach_px: 70.0, step_px: 0.0, rush_px: 200.0)),
+        ),
+        "megalania_lunge": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.5, active_s: 0.2, recover_s: 0.7, damage: 2, reach_px: 70.0, step_px: 0.0, rush_px: 120.0)),
+        ),
+        "cassowary_history_kick": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.35, active_s: 0.12, recover_s: 0.45, damage: 2, reach_px: 44.0, step_px: 14.0, rush_px: 0.0)),
+        ),
 
         // The Bad Apple's chomp: it rears back with its maw wide (its windup
         // row), then rolls at you jaws first, and sits a beat after, dizzy. Its
@@ -7491,6 +7589,565 @@
             hall: ["They call us robber barons. We call ourselves captains of industry. The men in my mills call me something I will not repeat in a gallery.", "I gave a library to every town and put my name over every door. Philanthropy is a long word for a very large sign."],
         ),
         ),
+        // Their sheets are in the renderer (`targets/characters/hyena.py`,
+        // `cave_lion.py`, `hippo.py`, `sea_raider.py`, on `_art_cast_kit.py` and
+        // `_history_africa_kit.py`). The heights are the heights of the boxes
+        // of the grid (`GRID.md`).
+        // The hyena: a spotted hyena of the Cradle, laughing. Fast and low: it
+        // crouches with its mane up (its windup row), lunges and bites, and
+        // lopes away to come again.
+        "hyena": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Hyena",
+            manifest: "sprites/hyena_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(40.0),
+            composition: None,
+            default_action_set: "hyena_bite",
+            locomotion: Some((run_speed: 270.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 560.0,
+                attack_range: 80.0,
+                patrol_effort: 0.6,
+                chase_effort: 1.0,
+                // In with the bite, and out again, laughing.
+                retreat_after_swing_s: 0.4,
+                attack_cooldown_s: 0.6,
+                tactics: (notice_s: 0.3, waits_its_turn: true, footsies: Some((hold_px: 110.0, wait_s: 0.45)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "history", "cradle", "beast"],
+        barks: (
+            on_hit: ["Hee hee! Ow. Hee.", "That is not funny. It is a LITTLE funny."],
+            provoked: ["Hee hee hee hee!"],
+            idle: ["Hee hee.", "*it giggles at nothing*", "Ha! Ha. Ha... I forget why."],
+            hall: ["Everyone thinks we only steal. We hunt most of what we eat. We just laugh about it, and that gives us a reputation.", "The first humans came down out of the trees right here. We were waiting. We have been laughing about it ever since."],
+        ),
+        ),
+        // The cave lion: the maneless lion of the Ice Age that the painters of
+        // the caves drew. It crouches with its hips wiggling (its windup row),
+        // pounces a long way with its claws out, and lands.
+        "cave_lion": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Cave Lion",
+            manifest: "sprites/cave_lion_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(50.0),
+            composition: None,
+            default_action_set: "cave_lion_pounce",
+            locomotion: Some((run_speed: 200.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.5, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 600.0,
+                attack_range: 120.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.9,
+                // It stalks to a pounce's length, crouches, and leaps.
+                attack_cooldown_s: 0.9,
+                tactics: (notice_s: 0.5, footsies: Some((hold_px: 160.0, wait_s: 0.7)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(6),
+            mass: Some(4.0),
+            tags: ["enemy", "history", "ice_age", "beast"],
+        barks: (
+            on_hit: ["RRAWR!", "Hsss. Noted."],
+            provoked: ["*the tail tip twitches*"],
+            idle: ["*a deep purr*", "*it licks a paw*", "Grrrumph."],
+            hall: ["Every painter in every cave drew me. Not one of them drew me a mane. I did not have one. I am fine about it.", "Bigger than a lion of today, and the painters still put me on the back wall. Behind a horse."],
+        ),
+        ),
+        // The hippo: a hippopotamus of the lakes of the Green Sahara, very
+        // angry, its mouth always a little open. It yawns its jaws wide (its
+        // windup row), charges a short heavy way and bites down, then stands a
+        // long moment: the opening.
+        "hippo": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Hippo",
+            manifest: "sprites/hippo_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(64.0),
+            composition: None,
+            default_action_set: "hippo_chomp",
+            locomotion: Some((run_speed: 120.0, move_style: WalkHeavy)),
+            contact_damage: Some((strength: 0.8, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 520.0,
+                attack_range: 64.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.9,
+                // Slow between bites: the gap is the opening.
+                attack_cooldown_s: 1.2,
+                tactics: (notice_s: 0.7, footsies: Some((hold_px: 150.0, wait_s: 0.9))),
+            )),
+            max_health: Some(12),
+            mass: Some(8.0),
+            tags: ["enemy", "history", "green_sahara", "beast"],
+        barks: (
+            on_hit: ["HRRUMPH!", "You will regret that. I already regret you."],
+            provoked: ["*the jaws open. And open. And keep opening.*"],
+            idle: ["*an angry snort*", "*glug*", "Hmph."],
+            hall: ["When the Sahara was green there were lakes all the way across it, and hippos in all of them. Then it dried up. I blame you.", "People say I look sleepy. I am not sleepy. I am waiting for someone to come close enough."],
+        ),
+        ),
+        // The sea raider: one of the Sea Peoples of the Bronze Age collapse, as
+        // the reliefs of Medinet Habu show them: a headdress of feathers, a
+        // round shield and a long bronze sword. He draws the sword back over
+        // his head (its windup row), runs in and cuts down.
+        "sea_raider": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Sea Raider",
+            manifest: "sprites/sea_raider_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(60.0),
+            composition: None,
+            default_action_set: "sea_raider_cut",
+            locomotion: Some((run_speed: 240.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 560.0,
+                attack_range: 90.0,
+                patrol_effort: 0.6,
+                chase_effort: 1.0,
+                // In fast with the cut, and back behind the shield.
+                retreat_after_swing_s: 0.35,
+                attack_cooldown_s: 0.7,
+                tactics: (notice_s: 0.4, waits_its_turn: true, footsies: Some((hold_px: 120.0, wait_s: 0.5)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(4),
+            mass: Some(2.5),
+            tags: ["enemy", "history", "bronze_age", "raider"],
+        barks: (
+            on_hit: ["My feathers!", "Ow. Write that on a wall, then."],
+            provoked: ["From the sea! Nobody expects the sea!"],
+            idle: ["*the feathers nod*", "Which kingdom is next?", "We came by boat. We do not talk about why."],
+            hall: ["In 1177 BCE every great kingdom of the Bronze Age fell at once, and the Egyptians carved us on a temple wall as the reason. Drought, famine and earthquakes helped. Nobody carved them.", "Historians still argue about who we were. We would tell them, but nobody wrote it down. Least of all us."],
+        ),
+        ),
+        // ===== THE HISTORY DIMENSION'S EUROPE: the Ice Age and the Viking north.
+        // Their sheets are in the renderer
+        // (`targets/characters/_history_europe_kit.py`).
+        // The woolly mammoth: the great beast of the Ice Age, in a coat of long
+        // red-brown hair, with long curved tusks. A charge (as the aurochs's):
+        // it trumpets with its trunk up when it sees you, puts its head down and
+        // stamps (its windup row), charges head low and sweeps its tusks up,
+        // then stands a long moment: the opening.
+        "woolly_mammoth": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Woolly Mammoth",
+            manifest: "sprites/woolly_mammoth_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(110.0),
+            composition: None,
+            default_action_set: "woolly_mammoth_charge",
+            locomotion: Some((run_speed: 100.0, move_style: WalkHeavy)),
+            contact_damage: Some((strength: 0.8, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 640.0,
+                attack_range: 80.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.9,
+                // Very slow between charges: the gap is the opening.
+                attack_cooldown_s: 1.3,
+                tactics: (notice_s: 0.7, footsies: Some((hold_px: 200.0, wait_s: 0.9))),
+            )),
+            max_health: Some(14),
+            mass: Some(10.0),
+            tags: ["enemy", "history", "ice_age", "mammoth"],
+        barks: (
+            on_hit: ["HRRRUMPH!", "That was my good tusk."],
+            provoked: ["*a trumpet that shakes the snow off the pines*"],
+            idle: ["*the crunch of frozen grass*", "*it swings its trunk*", "Cold today. Cold every day. For a hundred thousand years."],
+            hall: ["The last of us lived on Wrangel Island until about four thousand years ago. The Great Pyramid was already built. We were the late guests of history.", "They built their houses out of our bones. Very cosy. I have opinions."],
+        ),
+        ),
+        // The cave bear: the huge bear of the caves, dark brown with a grizzled
+        // hump and a steep forehead. Heavy: it roars when it sees you, rears up
+        // on its hind legs with its claws out (its windup row) and comes down on
+        // you with both paws, then needs a moment to get up again.
+        "cave_bear": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Cave Bear",
+            manifest: "sprites/cave_bear_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(64.0),
+            composition: None,
+            default_action_set: "cave_bear_maul",
+            locomotion: Some((run_speed: 130.0, move_style: WalkHeavy)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 520.0,
+                attack_range: 60.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.8,
+                // Up, down, and a long moment on all fours: the opening.
+                attack_cooldown_s: 1.0,
+                tactics: (notice_s: 0.6, footsies: Some((hold_px: 120.0, wait_s: 0.8))),
+            )),
+            max_health: Some(8),
+            mass: Some(6.0),
+            tags: ["enemy", "history", "ice_age", "bear"],
+        barks: (
+            on_hit: ["GRAWR!", "I was having a nap. For the winter."],
+            provoked: ["*a roar that fills the cave*"],
+            idle: ["*sniff* *sniff*", "*it scratches its back on the rock*", "Mmm. Roots."],
+            hall: ["This was MY cave first. Then people came in with lamps and painted a hundred horses on my walls, and hardly any bears.", "Mostly I ate plants. Look at the size of me, and I ate plants. Nobody believes it."],
+        ),
+        ),
+        // The Viking raider: a ginger beard in braids, a conical helmet with a
+        // nose guard and NO horns, a red and white shield and a bearded axe. He
+        // bangs his axe on his shield when he sees you, lifts it high behind his
+        // head (his windup row), steps in and chops, and steps back again.
+        "viking_raider": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Viking Raider",
+            manifest: "sprites/viking_raider_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(62.0),
+            composition: None,
+            default_action_set: "viking_raider_chop",
+            locomotion: Some((run_speed: 170.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 520.0,
+                attack_range: 44.0,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+                // In with the chop, and out behind the shield again.
+                retreat_after_swing_s: 0.3,
+                attack_cooldown_s: 0.7,
+                tactics: (notice_s: 0.5, waits_its_turn: true, footsies: Some((hold_px: 70.0, wait_s: 0.6)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(4),
+            mass: Some(2.5),
+            tags: ["enemy", "history", "viking", "soldier"],
+        barks: (
+            on_hit: ["Oof! Good hit. Odin saw that.", "My shield! I painted that!"],
+            provoked: ["To the boats! No, wait. You are here. To YOU!"],
+            idle: ["*he checks his helmet for horns. None. Good.*", "Raid in the summer, farm in the winter.", "Row. Row. Row. Are we there yet?"],
+            hall: ["Horns on a helmet? In a fight? Somebody would grab them. The horns came from an opera costume in 1876. Put that on the sign.", "We went to Baghdad, to Constantinople, to America. And we are remembered for hats we never wore."],
+        ),
+        ),
+        // The tiger: a Bengal tiger, orange with black stripes. It stalks low,
+        // crouches with its tail lashing (its windup row), pounces a long way
+        // with its forepaws out, and needs a moment to gather itself again.
+        "tiger": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Tiger",
+            manifest: "sprites/tiger_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(48.0),
+            composition: None,
+            default_action_set: "tiger_pounce",
+            locomotion: Some((run_speed: 180.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 600.0,
+                attack_range: 120.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.9,
+                // It keeps a pounce away, crouches, and leaps.
+                attack_cooldown_s: 1.0,
+                tactics: (notice_s: 0.5, footsies: Some((hold_px: 160.0, wait_s: 0.7))),
+            )),
+            max_health: Some(6),
+            mass: Some(4.0),
+            tags: ["enemy", "history", "south_asia", "cat"],
+        barks: (
+            on_hit: ["RRRAOWR!", "*a flat-eared snarl*"],
+            provoked: ["*the tail stops moving*"],
+            idle: ["*a low chuff*", "*it licks a paw, and watches you over it*", "*the stripes vanish into the reeds*"],
+            hall: ["My stripes are on my skin too. Shave me and you would still see them. Please do not try.", "Every stripe is different. I counted mine once. I lost count at the tail."],
+        ),
+        ),
+        // The Indus unicorn: the one-horned bull of the Indus seals, stepped off
+        // a seal in pale carved steatite. It lowers its horn and paws the ground
+        // (its windup row), charges horn first and tosses it; at its death it
+        // falls back into a flat seal.
+        "indus_unicorn": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Indus Unicorn",
+            manifest: "sprites/indus_unicorn_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(52.0),
+            composition: None,
+            default_action_set: "indus_unicorn_charge",
+            locomotion: Some((run_speed: 130.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.6, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 560.0,
+                attack_range: 60.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.8,
+                // Stiff to turn after a charge: the gap is the opening.
+                attack_cooldown_s: 1.1,
+                tactics: (notice_s: 0.6, footsies: Some((hold_px: 170.0, wait_s: 0.8))),
+            )),
+            max_health: Some(5),
+            mass: Some(4.0),
+            tags: ["enemy", "history", "south_asia", "seal"],
+        barks: (
+            on_hit: ["*a chip of steatite flies off*", "*clack!*"],
+            provoked: ["*it lowers its one horn at you*"],
+            idle: ["*a stiff stone snort*", "*it tries out its legs. It is new to legs.*", "*the signs on its side shift, as if to say something*"],
+            hall: ["*thousands of seals show it, and the signs over it. Nobody can read them yet. It would tell you, but it cannot read them either.*", "*it was one inch tall for four thousand years. It is enjoying the size.*"],
+        ),
+        ),
+        // The taotie spirit: the mask of the Shang bronzes, a floating face of
+        // green bronze. It keeps its distance and spits (the `shoot` of a
+        // skirmisher): its horns curl back and its mouth glows first (its windup
+        // row). The bronze flies as a thrown `Rock` does, and looks like spit
+        // (`ranged_vfx`).
+        "taotie_spirit": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Taotie Spirit",
+            manifest: "sprites/taotie_spirit_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(48.0),
+            composition: None,
+            default_action_set: "taotie_spirit_spit",
+            ranged_vfx: Some("spit"),
+            locomotion: Some((run_speed: 110.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Skirmisher,
+                aggro_radius: 600.0,
+                attack_range: 300.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.7,
+                ranged_volley: Some((windup_s: 0.7, firing_s: 0.25, recovery_s: 1.3)),
+            )),
+            max_health: Some(4),
+            tags: ["enemy", "history", "east_asia", "bronze"],
+        barks: (
+            on_hit: ["*CLANG*", "*verdigris flakes off it*"],
+            provoked: ["*its eyes swivel round to you. Only its eyes.*"],
+            idle: ["*it stares*", "*it stares harder*", "*a faint smell of hot metal*"],
+            hall: ["*it was cast on the side of a cauldron, to stare at whoever ate from it. Three thousand years on, it is still staring. It is very good at it.*", "*scholars argue about what it means. It has heard every argument. It is not telling.*"],
+        ),
+        ),
+        // ===== THE AMERICAS AND OCEANIA: two floors of the History dimension's
+        // grid. Their sheets are in the renderer
+        // (`targets/characters/_history_americas_kit.py`, `_history_felid.py`).
+        // The smilodon: the sabre-toothed cat of Beringia, heavy, tawny, with
+        // two long sabres. A pouncer: it crouches low with its rump wiggling
+        // (its windup row), leaps a long way with its jaw wide open, then
+        // needs a moment to get up: the opening.
+        "smilodon": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Smilodon",
+            manifest: "sprites/smilodon_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(50.0),
+            composition: None,
+            default_action_set: "smilodon_pounce",
+            locomotion: Some((run_speed: 190.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 560.0,
+                attack_range: 120.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.9,
+                // It keeps a pounce away, crouches, and leaps.
+                attack_cooldown_s: 1.1,
+                tactics: (notice_s: 0.5, footsies: Some((hold_px: 150.0, wait_s: 0.7))),
+            )),
+            max_health: Some(6),
+            mass: Some(4.0),
+            tags: ["enemy", "history", "beringia", "cat"],
+        barks: (
+            on_hit: ["RRRAWR!", "Mind the teeth. They break, you know."],
+            provoked: ["*it opens its jaw wider than a jaw should go*"],
+            idle: ["*a deep purr*", "*it licks one sabre, carefully*", "Big teeth. Small brain. Great life."],
+            hall: ["Thousands of us fell into the tar pits of La Brea, chasing things that had fallen in first. It was a whole bad afternoon, for about forty thousand years.", "Sabre-toothed TIGER? I am not a tiger. Nobody in my family is a tiger. Write it down."],
+        ),
+        ),
+        // The jaguar: the great cat of the forests of the Americas, gold with
+        // black rosettes. A pouncer, quicker and lighter than the smilodon: a
+        // low crouch with the tail lashing (its windup row), a leap, and a
+        // short moment to stand.
+        "jaguar": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Jaguar",
+            manifest: "sprites/jaguar_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(42.0),
+            composition: None,
+            default_action_set: "jaguar_pounce",
+            locomotion: Some((run_speed: 230.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 560.0,
+                attack_range: 110.0,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+                // In with the pounce, and away into the maize again.
+                retreat_after_swing_s: 0.4,
+                attack_cooldown_s: 0.8,
+                tactics: (notice_s: 0.4, footsies: Some((hold_px: 130.0, wait_s: 0.5)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(4),
+            mass: Some(2.5),
+            tags: ["enemy", "history", "first_maize", "cat"],
+        barks: (
+            on_hit: ["Hrrff!", "Not the spots!"],
+            provoked: ["*a low, sawing roar*"],
+            idle: ["*it washes a paw*", "*its tail twitches in the maize*", "Mmrr."],
+            hall: ["I swim, I climb, and I bite through a turtle's shell. The other big cats find me exhausting.", "Every spot on me is a rosette with a dot in the middle. Leopards have no dot. I like to mention it."],
+        ),
+        ),
+        // The llama: the pack animal of the Andes, with yarn tassels on its
+        // ears, and it is not impressed. It keeps its distance and spits (the
+        // `shoot` of a skirmisher): it pulls its head back and fills its cheeks
+        // first (its windup row). The spit flies as a thrown `Rock` does and
+        // looks like spit (`ranged_vfx`).
+        "llama": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Llama",
+            manifest: "sprites/llama_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(64.0),
+            composition: None,
+            default_action_set: "llama_spit",
+            ranged_vfx: Some("spit"),
+            locomotion: Some((run_speed: 110.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: Skirmisher,
+                aggro_radius: 540.0,
+                attack_range: 260.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.6,
+                // The head goes back, the cheeks fill, and it spits.
+                ranged_volley: Some((windup_s: 0.6, firing_s: 0.2, recovery_s: 1.2)),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "history", "first_maize", "llama"],
+        barks: (
+            on_hit: ["*an offended hum*", "Rude."],
+            provoked: ["*it looks at you down its whole long nose*"],
+            idle: ["*chew* *chew* *chew*", "Hmmmm.", "*it stares at nothing, unimpressed*"],
+            hall: ["The Inca road ran for forty thousand kilometres through the Andes, and we carried most of it. Nobody built us a road.", "I carry thirty kilos and not one gram more. Put a thirty-first on me and I lie down. That is not stubborn. That is a union."],
+        ),
+        ),
+        // The diprotodon: the giant wombat of Sahul, as big as a hippo. Heavy
+        // and slow: it rocks back with its head low (its windup row), shoves
+        // forward a long way and butts, then stands a long moment: the opening.
+        "diprotodon": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Diprotodon",
+            manifest: "sprites/diprotodon_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(70.0),
+            composition: None,
+            default_action_set: "diprotodon_shove",
+            locomotion: Some((run_speed: 90.0, move_style: WalkHeavy)),
+            contact_damage: Some((strength: 0.7, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 520.0,
+                attack_range: 70.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.7,
+                // Slow between shoves: the gap is the opening.
+                attack_cooldown_s: 1.2,
+                tactics: (notice_s: 0.7, footsies: Some((hold_px: 170.0, wait_s: 0.9))),
+            )),
+            max_health: Some(10),
+            mass: Some(7.0),
+            tags: ["enemy", "history", "sahul", "marsupial"],
+        barks: (
+            on_hit: ["HUFF.", "*a deep, offended grunt*"],
+            provoked: ["*it lowers its great head*"],
+            idle: ["*snuffle* *snuffle*", "*munch*", "*it scratches its side on nothing*"],
+            hall: ["I am the biggest marsupial that ever lived. I had a pouch. You do not want to know how big the pouch was.", "Wombats are my little cousins. They have cube-shaped droppings. We do not talk about it at reunions."],
+        ),
+        ),
+        // The megalania: the giant monitor lizard of Sahul, long and low. It
+        // lifts the front of its body and opens its jaws (its windup row),
+        // then lunges low and snaps. Its long body is a long hurtbox.
+        "megalania": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Megalania",
+            manifest: "sprites/megalania_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(40.0),
+            composition: None,
+            default_action_set: "megalania_lunge",
+            locomotion: Some((run_speed: 130.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.5, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 520.0,
+                attack_range: 80.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.8,
+                // A lunge, and a long moment to pull its length back.
+                attack_cooldown_s: 0.9,
+                tactics: (notice_s: 0.5, footsies: Some((hold_px: 120.0, wait_s: 0.6))),
+            )),
+            max_health: Some(6),
+            mass: Some(4.0),
+            tags: ["enemy", "history", "sahul", "lizard"],
+        barks: (
+            on_hit: ["HSSSSS!", "*its tail thrashes*"],
+            provoked: ["*flick* *flick* ...you taste like trouble."],
+            idle: ["*flick*", "*it basks*", "*a long, slow blink*"],
+            hall: ["I was the biggest lizard on land that ever lived. The Komodo dragon is my small, famous cousin. It does not return my calls.", "Seven metres, nose to tail. Most of that is tail. Most of the trouble is the other end."],
+        ),
+        ),
+        // The cassowary of the History cast: the great bird of the New Guinea
+        // highlands, with a blue neck and a casque. (The constraint solver
+        // `cassowary` is another target.) Fast: it draws one leg up high (its
+        // windup row) and kicks forward with its dagger claw, and steps back.
+        "cassowary_history": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Cassowary",
+            manifest: "sprites/cassowary_history_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(70.0),
+            composition: None,
+            default_action_set: "cassowary_history_kick",
+            locomotion: Some((run_speed: 250.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 520.0,
+                attack_range: 46.0,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+                // A kick, and a quick step back to look at you with one eye.
+                retreat_after_swing_s: 0.4,
+                attack_cooldown_s: 0.7,
+                tactics: (notice_s: 0.4, waits_its_turn: true, footsies: Some((hold_px: 90.0, wait_s: 0.5)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(4),
+            mass: Some(2.0),
+            tags: ["enemy", "history", "highlands", "bird"],
+        barks: (
+            on_hit: ["*BOOM*", "*it ruffles every feather at once*"],
+            provoked: ["*a boom so low you feel it in your ribs*"],
+            idle: ["*it pecks at a fallen fruit*", "*bob* *bob*", "*a low rumble*"],
+            hall: ["The people of the highlands raise my chicks, and they have a very healthy respect for my feet. So should you.", "I plant the forest. I eat the fruit, I walk a long way, and the seeds come out somewhere new. You are welcome."],
+        ),
+        ),
 
         // ===== THE EVIL DIMENSION (Jon, 2026-10-15). Wolfenstein, the boss of
         // Castle Godwin: Frankenstein's monster with the head of Insanity Wolf,
@@ -9969,6 +10626,389 @@
                 provoked: ["Enoch made them, and Enoch shall break them."],
                 idle: ["Fair wages and fair work. Then we can talk about the frames.", "*he weighs his hammer: its name is Enoch*", "I like a good machine. I like my wages more."],
                 hall: ["We were not against machines. We were skilled weavers, and the owners used the new frames to make cheap cloth with cheap hands and cut our pay. We broke the frames that broke us.", "There was no General Ludd. We signed his name to our letters so they could not hang any one of us for them. They hanged some of us anyway."],
+            ),
+        ),
+        // Made by chargen with hand-drawn overlay art
+        // (`data/townsfolk/<target>.chargen.yaml`,
+        // `data/overlays/<target>.overlay.svg`). Prehistory has no famous names:
+        // its residents are original people, and the scientists are parodies.
+        "npc_history_mary_leaky": (
+            display_name: "Mary Leaky",
+            // A paleoanthropologist with a brush and a bucket that leaks; a parody of Mary Leakey, who found the Laetoli footprints.
+            manifest: "sprites/history_mary_leaky_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(62.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "cradle", "peaceful"],
+            barks: (
+                idle: ["Mind where you step. Someone stepped here 3.7 million years ago and we are still measuring it.", "Brush, brush, brush. Never a spade.", "Has anyone seen my water? It was in this bucket."],
+                hall: ["Two people walked through wet volcanic ash, side by side, and it set like plaster. Footprints are the only fossil of a moment.", "Forty years of digging. The bucket has leaked for thirty-nine of them. I have stopped mentioning it."],
+            ),
+        ),
+        "npc_history_lucy": (
+            display_name: "Lucy",
+            // The oldest guest: an Australopithecus afarensis of 3.2 million years ago, small, upright, shy and curious.
+            manifest: "sprites/history_lucy_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 110 cm (her sheet is drawn at 145 cm; the game draws her at this height).
+            standing_height: Some(42.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "cradle", "peaceful"],
+            barks: (
+                idle: ["*she looks at the stone in her hand, then at you, then at the stone*", "*she stands up very straight, to show you she can*", "Hm?"],
+                hall: ["*She points at her feet. She walks on two of them. She would like this noticed.*", "*They named her after a song that was playing in the camp the night they found her. She hums it, a little wrong.*"],
+            ),
+        ),
+        "npc_history_ochre_artist": (
+            display_name: "The Ochre Artist",
+            // An original woman of the southern coast 75,000 years ago, with a block of engraved red ochre and shell beads.
+            manifest: "sprites/history_ochre_artist_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 162 cm.
+            standing_height: Some(62.7),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "southern_coast", "peaceful"],
+            barks: (
+                idle: ["Look at it properly. No, properly.", "Each bead is one shell, with one hole, made by hand. Count them later.", "The sea is good to us here. Fish, shells, and time to think."],
+                hall: ["Cross-hatching. Lines across, lines back, a line above and a line below. It does not mean anything you would know. It means I was here.", "People will call this the start of art. I called it Tuesday."],
+            ),
+        ),
+        "npc_history_cattle_herder": (
+            display_name: "The Cattle Herder",
+            // An original herder of the Green Sahara with a staff, a painted cow's horn and a leather cape.
+            manifest: "sprites/history_cattle_herder_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 175 cm.
+            standing_height: Some(67.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "green_sahara", "peaceful"],
+            barks: (
+                idle: ["That one is Spotted Moon. That one is Spotted Moon Also. We ran out of names.", "Grass to the horizon, lakes in the hollows. Remember this.", "*he counts the herd, and frowns, and counts again*"],
+                hall: ["We painted our cattle on the rocks, every patch on every hide. When the rains moved south, the paintings stayed.", "The Sahara was green for thousands of years. Then the rains left, and we left with them, to the Nile and beyond. The cows insisted."],
+            ),
+        ),
+        "npc_history_kandake_can_do": (
+            display_name: "Kandake Can-Do",
+            // A queen of Kush in a lion crown with a bow; a parody of the kandakes, who fought Rome to a draw.
+            manifest: "sprites/history_kandake_can_do_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "aksum_kush", "peaceful"],
+            barks: (
+                idle: ["Can it be done? Yes. Next question.", "Kush had more pyramids than Egypt. Count them. I did.", "*she tests the bow string, and nods*"],
+                hall: ["Rome sent an army south. We sent it back. Then Augustus signed a treaty and cancelled our tribute. Ask me how often Rome did that.", "Kandake was a title, not a name. Queen after queen held it. We all said yes to the same things: the bow, the crown and the hard job."],
+            ),
+        ),
+        "npc_history_neville_neanderthal": (
+            display_name: "Neville the Neanderthal",
+            // A broad, kind Neanderthal with a big nose, a fur cloak, an eagle-talon necklace and a bone flute (original).
+            manifest: "sprites/history_neville_neanderthal_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 165 cm.
+            standing_height: Some(63.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "levant", "peaceful"],
+            barks: (
+                idle: ["Hello! Mind the fire. Mind the brow. Mind everything, really.", "*he plays three notes on the bone flute, very pleased with all three*", "We buried our dead with flowers. Write that down instead of the club thing."],
+                hall: ["My brain was bigger than yours. I do not make a point of it. I am making a point of it now, but only the once.", "We met your people here in the Levant, more than once. If you have roots outside Africa, a little of you is a little of me. Hello, cousin."],
+            ),
+        ),
+        "npc_history_enheduanna": (
+            display_name: "Enheduanna",
+            // A priestess of Ur in a flounced robe and a round cap with a tablet: the first author known by name.
+            manifest: "sprites/history_enheduanna_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(62.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "uruk", "peaceful"],
+            barks: (
+                idle: ["Sign your work. Every time.", "A hymn to the moon, a hymn to the temple, a hymn to the other temple. It is a busy job.", "*she corrects a wedge on the tablet with her thumb*"],
+                hall: ["Before me, the words had no names on them. I put mine on, and four thousand three hundred years later you still know it.", "My father was Sargon, who made the first empire. People ask about him first. They are wrong to, and I wrote it down."],
+            ),
+        ),
+        // The History dimension's people of Europe: the Ice Age, the first
+        // farmers, the megalith builders, the Celtic frontier and the Viking
+        // north. An original painter, and parodies (Ötzi, the druids, Boudica,
+        // Leif Erikson), made by chargen with hand-drawn overlay art
+        // (`data/overlays/<target>.overlay.svg`).
+        "npc_history_cave_painter": (
+            display_name: "The Cave Painter",
+            // Paints the horses of the cave and blows ochre round her hand; an original character.
+            manifest: "sprites/history_cave_painter_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(62.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "ice_age", "peaceful"],
+            barks: (
+                idle: ["Hold still. No, not you. The horse.", "Red from the earth, black from the fire. That is all the colours there are.", "*she blows ochre round her hand*"],
+                hall: ["We paint where the rock already looks like a horse. The rock does half the work. Do not tell the rock.", "Put your hand on the wall and blow the red round it. Now the wall knows you were here. In twenty thousand years somebody will count your fingers."],
+            ),
+        ),
+        "npc_history_otzi_nice_man": (
+            display_name: "Ötzi the Nice-man",
+            // Very cheerful for someone found in a glacier; a parody of Ötzi the Iceman.
+            manifest: "sprites/history_otzi_nice_man_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(62.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "first_farmers", "peaceful"],
+            barks: (
+                idle: ["Lovely day! Bit chilly.", "Copper axe! Very modern. Very shiny.", "*he checks his grass cape for holes*"],
+                hall: ["I was in the ice for five thousand three hundred years. They found me in 1991. I still had my lunch with me. Ibex. Still good.", "Sixty-one tattoos, all little lines, all on the places that ached. Ancient medicine. Did it work? I was in a glacier. You tell me."],
+            ),
+        ),
+        "npc_history_not_a_druid": (
+            display_name: "Not-a-Druid",
+            // Insists that he built Stonehenge, 2,000 years too late; a parody of the druids.
+            manifest: "sprites/history_not_a_druid_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 175 cm.
+            standing_height: Some(67.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "megalith", "peaceful"],
+            barks: (
+                idle: ["I built Stonehenge. Mostly. In spirit.", "Mistletoe. Golden sickle. Very druid. Totally a druid.", "Do not look at the dates. Look at my beard."],
+                hall: ["Stonehenge was finished about two thousand years before the first druid. I say I was early for it. Very early. Negative early.", "The Romans wrote that we cut mistletoe with a golden sickle. The Romans wrote a lot of things about us. We wrote nothing down. Big mistake."],
+            ),
+        ),
+        "npc_history_boudic_car": (
+            display_name: "Boudic-car",
+            // Would like you to ask about her chariot; a parody of Boudica, queen of the Iceni.
+            manifest: "sprites/history_boudic_car_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 180 cm.
+            standing_height: Some(69.7),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "celtic", "peaceful"],
+            barks: (
+                idle: ["Ask me about my chariot.", "Vroom. That is a chariot noise. I invented it.", "*she flicks her hair, which is most of her*"],
+                hall: ["A Roman wrote that I was very tall, with a great mass of red hair to my hips and a gold torc. He meant it as a warning. I read it as a review.", "The Romans won in the end. They were also the ones who wrote it down. Funny how that works."],
+            ),
+        ),
+        "npc_history_leif_errandson": (
+            display_name: "Leif Errandson",
+            // Got to America first and went home; a parody of Leif Erikson.
+            manifest: "sprites/history_leif_errandson_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 185 cm.
+            standing_height: Some(71.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "viking", "peaceful"],
+            barks: (
+                idle: ["Vinland! Grapes! Well, berries. Grape-ish.", "Got there first. Came home. Told almost nobody.", "*he turns the map the right way up*"],
+                hall: ["I reached America five hundred years before Columbus. Then I went home for dinner. That is the trouble with being first: you have to tell people.", "My father found Greenland and called it green so that people would come. I called Vinland after the grapes. Naming things is the family business."],
+            ),
+        ),
+        "npc_history_coast_walker": (
+            display_name: "The Coast Walker",
+            // An original traveller of the southern route out of Africa, 60,000 years ago.
+            manifest: "sprites/history_coast_walker_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 165 cm.
+            standing_height: Some(63.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "south_asia", "peaceful"],
+            barks: (
+                idle: ["Beach. Shellfish. Next beach.", "Mind the tide. It does not mind you.", "*she taps a rock with her stick, and a limpet comes off*"],
+                hall: ["We did not set out to cross the world. We set out for the next beach. There was always a next beach.", "Our grandchildren's grandchildren will reach the far end. I hope they like shellfish."],
+            ),
+        ),
+        "npc_history_dentist_of_mehrgarh": (
+            display_name: "The Dentist of Mehrgarh",
+            // An original dentist of 7,000 BCE: the oldest drilled teeth were found at Mehrgarh.
+            manifest: "sprites/history_dentist_of_mehrgarh_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "south_asia", "peaceful"],
+            barks: (
+                idle: ["Open wide!", "This will not hurt a bit. Well. A bit.", "*bzzzzzt* goes the bow-drill"],
+                hall: ["Nine thousand years from now they will find my work and say: very neat holes. I will take that.", "Flint bit, bow, steady hand. The steady hand is the hard part. The patient's, mostly."],
+            ),
+        ),
+        "npc_history_priest_king_probably": (
+            display_name: "The Priest-King (Probably)",
+            // The famous bust of Mohenjo-daro come to life; nobody knows who he was.
+            manifest: "sprites/history_priest_king_probably_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "south_asia", "peaceful"],
+            barks: (
+                idle: ["I am a priest. Or a king. Or both. Probably.", "*he squints, as if to read the signs over the gate*", "Lovely drains, though. Have you seen our drains?"],
+                hall: ["The diggers gave me my name. I have tried it on. It fits, more or less.", "My name is written on a seal somewhere. If anyone could read it, I would know who I am. No pressure."],
+            ),
+        ),
+        "npc_history_denny_denisovan": (
+            display_name: "Denny the Denisovan",
+            // A Denisovan, known to science from one finger bone and some teeth.
+            manifest: "sprites/history_denny_denisovan_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "east_asia", "peaceful"],
+            barks: (
+                idle: ["Have you seen my finger? Here it is.", "*he polishes the finger bone with his sleeve*", "Do not touch the finger."],
+                hall: ["A whole people, and science knew us from one little finger. It is a VERY good finger.", "Some of my genes are in people living today. Say hello to your cousin."],
+            ),
+        ),
+        "npc_history_leizu": (
+            display_name: "Leizu",
+            // The legendary empress who found silk when a cocoon fell into her tea.
+            manifest: "sprites/history_leizu_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(62.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "east_asia", "peaceful"],
+            barks: (
+                idle: ["Tea? Mind the cocoons.", "*she pulls a long shining thread out of her cup*", "Feed the worms the mulberry leaves. Only the mulberry."],
+                hall: ["A cocoon fell into my tea and came apart in one long thread. Most people would make a fuss. I made a dress.", "One cocoon is one thread a kilometre long. Do not ask me how I measured it."],
+            ),
+        ),
+        "npc_history_fu_hao": (
+            display_name: "Lady Fu Hao",
+            // A Shang queen and general; her tomb held two great bronze axes with her name.
+            manifest: "sprites/history_fu_hao_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 165 cm.
+            standing_height: Some(63.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "east_asia", "peaceful"],
+            barks: (
+                idle: ["The shell says we march at dawn.", "*she tests the edge of her axe with a thumb*", "The diviners crack the bones. I crack the enemy."],
+                hall: ["The king asked the oracle bones if I would win. Three times. I won three times. He kept asking.", "Thirteen thousand soldiers under one general. The general was me. Write that on a bone."],
+            ),
+        ),
+        "npc_history_dr_clovis_first": (
+            display_name: "Dr. Clovis-First",
+            // Insists nobody reached the Americas before Clovis; a parody of the "Clovis first" archaeologists of the 1950s.
+            manifest: "sprites/history_dr_clovis_first_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(68.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "beringia", "peaceful"],
+            barks: (
+                idle: ["Clovis. First. Next question.", "That site is older? Then the site is WRONG.", "Fluted points, young person. Nobody fluted before Clovis."],
+                hall: ["Monte Verde, in Chile, is a thousand years older than Clovis. I have decided not to have heard of Chile.", "They found human footprints at White Sands, twenty-three thousand years old. I say somebody walked there very recently, in very old shoes."],
+            ),
+        ),
+        "npc_history_teosinte_breeder": (
+            display_name: "Teosinte Breeder",
+            // An original farmer of the Balsas valley, who bred maize from the wild grass teosinte.
+            manifest: "sprites/history_teosinte_breeder_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 158 cm.
+            standing_height: Some(61.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "first_maize", "peaceful"],
+            barks: (
+                idle: ["This little one is my grandmother's grandmother's corn.", "Keep the biggest seeds. Plant them. Wait. Repeat for a few thousand years.", "Maize, beans and squash: three sisters in one field."],
+                hall: ["Teosinte has a few hard seeds in a little case. My people chose and chose and chose, and now it is this. Nobody else could have done it in a weekend either.", "Maize cannot plant itself any more. It needs us. We need it. That is what a farm is."],
+            ),
+        ),
+        "npc_history_raft_builder": (
+            display_name: "Raft Builder",
+            // An original seafarer of the first crossing to Sahul, more than 50,000 years ago.
+            manifest: "sprites/history_raft_builder_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "sahul", "peaceful"],
+            barks: (
+                idle: ["Bamboo floats. Bamboo bends. Bamboo is the answer.", "Check the lashings. Then check them again.", "The smoke of fires on the far shore: somebody is there, or something burns."],
+                hall: ["We crossed the open sea out of sight of land, with our children and our grandmothers aboard. Nobody does that by accident.", "When the sea was low there was still water between the islands and Sahul. Every crossing was a choice."],
+            ),
+        ),
+        "npc_history_kuk_gardener": (
+            display_name: "Kuk Gardener",
+            // An original gardener of the Kuk swamp in the New Guinea highlands, where farming began on its own.
+            manifest: "sprites/history_kuk_gardener_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(62.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "highlands", "peaceful"],
+            barks: (
+                idle: ["Dig the drain, build the mound, plant the taro.", "Bananas: we grew them first. You may thank us.", "The swamp gives if you ask it right."],
+                hall: ["Farming began in only a few places in the world, on its own. This swamp is one of them. We did not copy anybody.", "Our drains are seven thousand years old and the archaeologists still find them. Good drains last."],
             ),
         ),
         "npc_primeval_twitchell": (

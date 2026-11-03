@@ -3,7 +3,7 @@
     id: "history_great_ger",
     level_id: "history_great_ger",
     world_x: 5376,
-    world_y: 2400,
+    world_y: 7568,
     px_wid: 1600,
     px_hei: 640,
     fill_collision: "empty",

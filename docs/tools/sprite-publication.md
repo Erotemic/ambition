@@ -50,8 +50,11 @@ python3 scripts/checks/check_quality_variants_are_fresh.py --require-evidence
 ```
 
 Each build reads a private source snapshot and writes into a clean directory.
-`--missing-only` keeps every selected target, including stale and partial
-products. A targeted request does not build shared atlases or their other
+Repeat `--target` to build several targets in one run: the run builds
+`--jobs` targets at a time (default half the CPUs, at most 6) and publishes
+once. A shell loop of one target per run builds them one at a time and
+publishes the whole set again for each one. `--missing-only` keeps every
+selected target, including stale and partial products. A targeted request does not build shared atlases or their other
 parents. A full collection request still builds the shared atlas products.
 To derive a selection from a world, use
 `python3 scripts/asset_inspector.py preflight --world art --generate-missing`.
@@ -90,8 +93,9 @@ Scenery has scoped requests through the same bundle store:
 ./scripts/regen/backgrounds.sh --missing-only
 ```
 
-Repeat `--theme` and `--skin` to select several units. These requests keep other
-published scenery. `--missing-only` alone selects every scene, skin and sky
+Repeat `--theme` and `--skin` to select several units; the run draws `--jobs`
+units at a time and publishes once. These requests keep other published
+scenery. `--missing-only` alone selects every scene, skin and sky
 part, and builds only the ones that have no published product (the rule of
 `sprites.sh --missing-only`). It does not draw the placeholder profiles.
 

@@ -251,6 +251,28 @@ npc_history_captain_cookbook
 npc_history_adam_smithy
 npc_history_karl_marks
 npc_history_general_ludd
+npc_history_mary_leaky
+npc_history_lucy
+npc_history_ochre_artist
+npc_history_cattle_herder
+npc_history_kandake_can_do
+npc_history_neville_neanderthal
+npc_history_enheduanna
+npc_history_cave_painter
+npc_history_otzi_nice_man
+npc_history_not_a_druid
+npc_history_boudic_car
+npc_history_leif_errandson
+npc_history_coast_walker
+npc_history_dentist_of_mehrgarh
+npc_history_priest_king_probably
+npc_history_denny_denisovan
+npc_history_leizu
+npc_history_fu_hao
+npc_history_dr_clovis_first
+npc_history_teosinte_breeder
+npc_history_raft_builder
+npc_history_kuk_gardener
 
 [Guests from history and the studio]
 npc_genghis_can
@@ -398,6 +420,22 @@ privateer
 steam_automaton
 soot_sprite
 robber_baron
+hyena
+cave_lion
+hippo
+sea_raider
+woolly_mammoth
+cave_bear
+viking_raider
+tiger
+indus_unicorn
+taotie_spirit
+smilodon
+jaguar
+llama
+diprotodon
+megalania
+cassowary_history
 
 [Mary-O's world]
 mary_o

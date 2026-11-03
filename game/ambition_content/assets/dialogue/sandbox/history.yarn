@@ -1,14 +1,15 @@
 title: history_context
 ---
 // The History dimension's people (`docs/planning/game/history-dimension.md`):
-// Clio, the Muse of History, who keeps the crescent's gate, and the famous
-// of each era along the road. One node per resident, named after its spec
+// Clio, the Muse of History, who keeps the gate in the Cradle, and the people
+// of each room of the grid. One node per resident, named after its spec
 // (`history_<resident>`).
 //
-// The dimension is a timeline: east is later. Each person knows their own
-// era well and the eras after it not at all, and they are often wrong about
-// the eras before it. The jokes are on the famous and on how history is
-// told, never on a people.
+// The dimension is a grid: east is later, and each floor is a region of the
+// world, so the people of one column lived at the same time. Each person
+// knows their own time and place well and is often wrong about the others.
+// The jokes are on the famous and on how history is told, never on a people.
+// The people of prehistory are original, and they are told with respect.
 //
 // Three choices here set flags: Socratease's answer opens the stoa gate
 // (`history_knows_nothing`); Genghis Can opens the gate in the Great Wall
@@ -22,15 +23,15 @@ Clio: Oh good, a visitor. Welcome to the beginning. Well, a beginning. Historian
 -> Who are you?
     Clio: Clio. The Muse of History. I keep the record. It is very long and nobody reads the footnotes.
 -> Where am I?
-    Clio: The Fertile Crescent, about ten thousand years before your robot was assembled. People have just started farming. It is going to change everything and make almost everyone shorter.
-    -> Shorter?
-        Clio: Farmers ate worse than foragers for a long time. More food, less variety, more work, more disease. Progress is complicated. Write that down.
+    Clio: The Great Rift Valley, in Africa, about three hundred thousand years ago. Everyone you will meet in this dimension has ancestors who stood about where you are standing.
+    -> Everyone?
+        Clio: Everyone. People walked out of Africa and kept walking, to every land there is. That is the first story, and it is the same story for all of them.
     -> Go on.
-        Clio: Fields mean villages. Villages mean granaries. Granaries mean somebody counting. Counting means writing. Writing means me.
+        Clio: Fire first. Then the long walk. Then, in many places at once, farming. Then cities, and then the trouble starts. Writing comes in around the trouble. Then me.
 -> How does this place work?
-    Clio: It is a road through time. Walk east and the centuries go by. Every era has its own famous people, and every one of them thinks they are the main character.
+    Clio: East is later. Every floor is a different part of the world, and the rooms one above the other happened at the same time. Ladders join them where people met. History is not a line. It is a lot of lines that keep running into each other.
 -> Goodbye.
-    Clio: Mind the canal. And remember: the past is not over. It is just upstream.
+    Clio: Light the fire before the hyenas come. And remember: the past is not over. It is just upstream.
 ===
 
 title: history_hammurabbi
@@ -324,4 +325,294 @@ General Ludd: Before you say anything: we are not against machines.
     General Ludd: The boiler, in the mill. Stoke it and the engine runs, and the engine opens the gate. Everything here runs on that engine now. Even the gate.
 -> Goodbye.
     General Ludd: When someone sells you a machine, ask who it is for.
+===
+
+title: history_lucy
+---
+Lucy: (She looks up at you, then at your feet. She stands up very straight, to show you she can.)
+-> Hello.
+    Lucy: (She tilts her head. She has seen a lot of visitors. Three point two million years of them, counting the scientists.)
+-> Are you the first person?
+    Mary Leaky: She is not a person like us. She is an Australopithecus. But she walked on two legs, like us, more than three million years ago. She is family. A very old cousin.
+-> Why "Lucy"?
+    Mary Leaky: The team that found her bones played a song all night in the camp. The song had a Lucy in it. In Ethiopia she has another name: Dinkinesh. It means "you are marvellous".
+-> Goodbye.
+    Lucy: (She waves. Or she reaches for a fig. It is hard to tell.)
+===
+
+title: history_mary_leaky
+---
+Mary Leaky: Mind the footprints. Mind the footprints! Thank you.
+-> What are they?
+    Mary Leaky: Laetoli. Two, maybe three people walked through wet volcanic ash three point six million years ago. The ash set like cement. They walked upright, just like you. Well, not like you. You are a robot.
+-> Why is your bucket leaking?
+    Mary Leaky: It is a dig bucket. They all leak. I have been brushing dirt in this valley for thirty years and I have never once had a dry boot.
+-> How do you know how old things are?
+    Mary Leaky: The layers. Ash falls, then soil, then ash. Each volcanic layer has a date in it, if you know how to read it. The ground is a book. The bottom pages are the oldest.
+-> Goodbye.
+    Mary Leaky: If you find a tooth, do not pick it up. Shout.
+===
+
+title: history_ochre_artist
+---
+Ochre Artist: Look. Look at this line, and this one, and how they cross.
+-> What is it?
+    Ochre Artist: A pattern. On ochre, the red stone. Nobody needs a pattern. That is why I made it. A thing you make when you do not need to is how you know a person was here.
+-> Is it the first art?
+    Ochre Artist: People keep finding older ones. Good. I hope they never stop. It means we were not the first to think of it.
+-> What do you eat here?
+    Ochre Artist: Shellfish. The sea is a larder that fills itself twice a day. People who live by the sea get clever. Ask anyone who has opened a mussel without a knife.
+-> Goodbye.
+    Ochre Artist: Take a bead. Shells, on a cord. Everyone who walks north takes one.
+===
+
+title: history_cattle_herder
+---
+Cattle Herder: Welcome to the lake. Yes, a lake. Yes, here. Do not tell me about the desert. It is not a desert yet.
+-> The Sahara was green?
+    Cattle Herder: Grass to the horizon, lakes full of fish and hippos, and my cows on all of it. The rains will move south one day. Then my grandchildren's grandchildren will move with them.
+-> Who painted the rocks?
+    Cattle Herder: We did. Cattle, mostly. People dancing. People with cattle. You paint what matters to you.
+-> How do I cross the lake?
+    Cattle Herder: The reed boat. It goes back and forth. Wait for it. Do not swim. The hippos are not friendly, whatever the paintings say.
+-> Goodbye.
+    Cattle Herder: The Crescent is up the ladder. We trade them cows. They trade us opinions about wheat.
+===
+
+title: history_kandake_can_do
+---
+Kandake Can-Do: Kneel or do not. Kush does not wait for you to decide.
+-> Who are you?
+    Kandake Can-Do: A kandake. A queen of Kush, up the Nile from Egypt. We ruled Egypt once, you know. The twenty-fifth dynasty. Egypt does not like to mention it.
+-> Did you fight Rome?
+    Kandake Can-Do: Rome came south. I lost an eye and kept the war. In the end Rome signed a treaty and stopped asking us for taxes. Rome does not like to mention that either.
+-> Why are your pyramids so small?
+    Kandake Can-Do: They are not small. They are steep. And there are more of them than in Egypt. Count them, if you have a week.
+-> Goodbye.
+    Kandake Can-Do: Can do. Will do. Did.
+===
+
+title: history_neville_neanderthal
+---
+Neville the Neanderthal: Oh, hello! Come in, come in, sit by the fire. Mind the nose. Everybody minds the nose.
+-> Are you a caveman?
+    Neville the Neanderthal: I live in a cave, I suppose. So do bats. I also make glue from birch tar, bury my friends with flowers and play the flute. Badly. But I play it.
+-> What happened to the Neanderthals?
+    Neville the Neanderthal: Some of us met your lot here, and got on rather well. Very well, in fact. If your ancestors left Africa, a little bit of you is me. You are welcome.
+-> Were you stupid?
+    Neville the Neanderthal: My brain is bigger than yours. I do not like to bring it up. But you brought it up.
+-> Goodbye.
+    Neville the Neanderthal: Off to Europe? Take a coat. Take two coats.
+===
+
+title: history_enheduanna
+---
+Enheduanna: Read this. No, out loud. Yes. That is mine.
+-> Who are you?
+    Enheduanna: High priestess of the moon at Ur, daughter of Sargon, and the first author whose name anybody knows. Before me there were stories. After me there were writers.
+-> What did you write?
+    Enheduanna: Hymns, to the goddess Inanna. Forty-two of them for the temples. I wrote that I was writing them, too. Nobody had thought to do that before.
+-> What is it like in Uruk?
+    Enheduanna: The first real city. Walls, temples, crowds, beer rations, and more paperwork than anybody can bear. It is wonderful. It is going to fall to pieces eventually. Everything here does.
+-> Goodbye.
+    Enheduanna: Sign your work. Somebody in four thousand years will want to know.
+===
+
+title: history_cave_painter
+---
+Cave Painter: Hold the lamp up. Higher. There. Now look at the horse.
+-> It moves.
+    Cave Painter: In the flicker, yes. I paint them on the bumps of the rock, so the rock gives them muscles. The lamp does the rest.
+-> Whose hands are those?
+    Cave Painter: Ours. You put your hand on the wall and blow the paint around it. Some are children. Some are mine. It means "I was here", and it says it better than words.
+-> Why paint in the dark?
+    Cave Painter: People ask that for forty thousand years. I do not know what to tell them. Where else would you keep something important?
+-> Goodbye.
+    Cave Painter: Take the lamp out with you. The cave does not need it. The horses can see in the dark.
+===
+
+title: history_otzi_nice_man
+---
+Ötzi the Nice-man: Hello! Lovely day. Bit cold. I spent five thousand years in a glacier, so I have a low bar.
+-> What happened to you?
+    Ötzi the Nice-man: Arrow in the back, up on the pass. Somebody did not like me. I was very nice. I have no idea why. It is the oldest cold case in Europe.
+-> What are the tattoos?
+    Ötzi the Nice-man: Sixty-one little lines, on my sore joints. Medicine, probably. I had bad knees. You walk over the Alps in grass shoes and see how your knees are.
+-> What are you carrying?
+    Ötzi the Nice-man: A copper axe, a bow I had not finished, a pouch of mushrooms for a fire, a kit for repairs. I was ready for everything except the arrow.
+-> Goodbye.
+    Ötzi the Nice-man: Stay warm! Stay out of glaciers! It worked out for me in the end, but I do not recommend it.
+===
+
+title: history_not_a_druid
+---
+Not-a-Druid: Ah. You have come to admire my stones.
+-> Did you build them?
+    Not-a-Druid: Yes. Well. My people. Well. The stones were here when my people got here. About two thousand years before. But I have looked after them very carefully since.
+-> Then who built them?
+    Not-a-Druid: Farmers, with ropes and sledges and a great deal of beer. They hauled some of the stones from Wales. Wales! I cannot get my neighbour to haul a log.
+-> What are they for?
+    Not-a-Druid: Midsummer sunrise comes up over the heel stone. Midwinter sunset goes down between the big ones. It is a calendar, a temple and a party, all at once. Pull the sun stone and see.
+-> Goodbye.
+    Not-a-Druid: Tell everyone I built it. They will believe you. They always do.
+===
+
+title: history_boudic_car
+---
+Boudic-car: Get in. We are going to Londinium.
+-> Who are you?
+    Boudic-car: Queen of the Iceni. Rome took my kingdom when my husband died and treated my family worse. So I took three Roman towns. That is how sums work.
+-> What happened?
+    Boudic-car: We burned Londinium to the ground. There is still a red layer of ash under the city. Then the legions met us on a field of their own choosing. The Romans wrote the story. They always write the story.
+-> Why the chariot?
+    Boudic-car: Speed. Noise. Fear. Also there are no knives on the wheels, whatever the statues say. Those would cut my own horses.
+-> Goodbye.
+    Boudic-car: Rome is down the ladder. Tell them I am coming. They know.
+===
+
+title: history_leif_errandson
+---
+Leif Errandson: Ho! You look like someone who has been somewhere. So have I. Everywhere, nearly.
+-> Where have you been?
+    Leif Errandson: West of Greenland, there is a land with grapes and big trees. I called it Vinland. I built some houses, had a look round, and came home. The Spaniards will make a big fuss about it five hundred years later.
+-> Why did you leave?
+    Leif Errandson: The people who already lived there did not want us. Fair enough. Also it was a long way to go for timber.
+-> Were the Vikings just raiders?
+    Leif Errandson: Some of us raided. Most of us farmed, fished, traded and argued about law in a field every summer. Raiding is what people write about. Nobody writes a song about a good barley year.
+-> Goodbye.
+    Leif Errandson: And no horns on the helmet. Who would wear horns into a fight? Think about it.
+===
+
+title: history_coast_walker
+---
+Coast Walker: Keep the sea on your right and you will not get lost. That is all the map we have.
+-> Where are you going?
+    Coast Walker: East. Along the beach. Then the next beach. Each one is only a little further than the last. My great-grandmother started this. My great-granddaughter will finish it, somewhere I will never see.
+-> How fast is the walk?
+    Coast Walker: A few miles a generation. Slow, for one person. But from Africa to Australia in a few thousand years. Fast, for everyone.
+-> Is it dangerous?
+    Coast Walker: Tigers. Crabs that pinch. Tides that do not wait. Also, it is beautiful. Both are true.
+-> Goodbye.
+    Coast Walker: Up the ladder is the sea crossing. Down is the long way round to the cold places. Choose the warm way.
+===
+
+title: history_dentist_of_mehrgarh
+---
+Dentist of Mehrgarh: Open wide. Wider. Hm. Hm. That will need a drill.
+-> You have a drill?
+    Dentist of Mehrgarh: A bow drill with a flint tip. I drill a hole in the bad tooth, and the pain goes. Mostly. It is nine thousand years before anaesthetic. Bite this stick.
+-> Why do people need a dentist?
+    Dentist of Mehrgarh: Farming. Foragers had good teeth. Now everyone eats barley porridge all day and their teeth fall to pieces. Every new thing makes a new job.
+-> What else is in Mehrgarh?
+    Dentist of Mehrgarh: Barley, wheat, cotton, cattle and mud-brick houses. The village grows and grows. One day there will be great cities down the river. They will need dentists too.
+-> Goodbye.
+    Dentist of Mehrgarh: Rinse. Spit. Come back in six months. Or nine thousand years.
+===
+
+title: history_priest_king_probably
+---
+The Priest-King (Probably): Greetings. I am the Priest-King. Probably.
+-> Probably?
+    The Priest-King (Probably): Somebody made a statue of me and called it "Priest-King". Nobody can read our writing, so nobody knows who I am. Including me. I have decided to believe the label.
+-> What is this city?
+    The Priest-King (Probably): Mohenjo-daro. Straight streets, baked bricks all the same size, a covered drain under every street and a bathroom in every house. Nobody else in the world has drains this good. Nobody will, for thousands of years.
+-> Who rules here?
+    The Priest-King (Probably): That is the odd thing. We find no great palaces and no big tombs of kings. Maybe nobody ruled very much. Maybe we just agreed about bricks.
+-> How do I get into the citadel?
+    The Priest-King (Probably): Show the seal. The one with the unicorn. It is on the granary roof. Everything important is on the granary roof.
+-> Goodbye.
+    The Priest-King (Probably): If you ever read our script, tell me what it says. I have wondered.
+===
+
+title: history_raft_builder
+---
+Raft Builder: Hold this. Now this. Now tie them. Good. You are a raft builder now.
+-> Where are you going?
+    Raft Builder: Over there. You cannot see it. That is the point. The smoke of fires on the other side tells us there is land. So we go.
+-> Is it far?
+    Raft Builder: Out of sight of land, for days. Sixty-five thousand years ago, this is the longest sea crossing anybody has ever made. Somebody has to be first. Today it is my cousin.
+-> What is on the other side?
+    Raft Builder: Sahul. The land that will be Australia and New Guinea, one land while the sea is low. Big animals. Very big. My people will live there longer than anyone has lived anywhere, and look after it the whole time.
+-> Goodbye.
+    Raft Builder: Ride the raft over the strait. Do not stand up. Never stand up on a raft.
+===
+
+title: history_kuk_gardener
+---
+Kuk Gardener: Mind the ditch. We dug them all by hand, to drain the swamp.
+-> What are you growing?
+    Kuk Gardener: Taro, bananas, sugar cane, yams. We started gardening here nearly ten thousand years ago. On our own. Nobody taught us.
+-> On your own?
+    Kuk Gardener: People think farming was invented once and spread. No. In the Crescent, in China, in the Americas, in Africa, and here, people worked it out on their own. Clever people are everywhere.
+-> What are those birds?
+    Kuk Gardener: Cassowaries. Very big. Very fast. One kick from them and you will have a long rest. Walk round them.
+-> Goodbye.
+    Kuk Gardener: Take a banana. Ours was one of the first. You can thank us whenever you like.
+===
+
+title: history_denny_denisovan
+---
+Denny the Denisovan: Have you seen my finger? Not this one. The famous one.
+-> Your famous finger?
+    Denny the Denisovan: Scientists found a little finger bone in a cave in Siberia. They read the DNA and found a whole new kind of people. Us! From one finger! Plus some teeth. And half a jaw, later. We are the best-known people that nobody has ever seen.
+-> What are Denisovans like?
+    Denny the Denisovan: Strong. Good in the cold and very good in the mountains. If your family is from Tibet, you can breathe thin air thanks to us. If your family is from New Guinea, you carry a lot of us too. You are welcome.
+-> Goodbye.
+    Denny the Denisovan: If you find the rest of me, bring it back. I would like to know what my face looks like.
+===
+
+title: history_leizu
+---
+Leizu: Careful. That is my tea.
+-> What is in it?
+    Leizu: A cocoon. It fell in from the mulberry tree. When I took it out, it unwound into one long, fine thread. That is silk. That is how it started, the story says.
+-> Is that true?
+    Leizu: It is a story. The silk is true. People along this river have kept silk worms for five thousand years. For a very long time it was a secret, and anyone who took the worms out of China was in very big trouble.
+-> What grows here?
+    Leizu: Millet in the north, rice in the south, mulberries for the worms. The yellow river floods, and moves, and floods again. They call it China's sorrow. It is also the reason everyone lives here.
+-> Goodbye.
+    Leizu: Mind the moths. They are very proud of themselves.
+===
+
+title: history_fu_hao
+---
+Lady Fu Hao: Stand straight. You are in the presence of a general.
+-> Who are you?
+    Lady Fu Hao: A queen of the Shang king, and the commander of his armies. Thirteen thousand soldiers. I won every war he sent me to. He sent me to many.
+-> What are the bones for?
+    Lady Fu Hao: We ask the ancestors questions. Will it rain? Will the king's tooth stop hurting? Will Fu Hao win? We carve the question in a bone, heat it, and read the cracks. Then we write down the answer. It is the oldest Chinese writing there is.
+-> How do I open the bronze gate?
+    Lady Fu Hao: Ask the ancestors. Crack the oracle bone. They usually say yes to visitors. They are very old, and they like company.
+-> Goodbye.
+    Lady Fu Hao: My tomb has a hundred and thirty bronze weapons in it. I liked to be ready.
+===
+
+title: history_dr_clovis_first
+---
+Dr. Clovis-First: Stop right there. This is the first site in the Americas. Nobody was here before Clovis.
+-> Are you sure?
+    Dr. Clovis-First: Absolutely. Thirteen thousand years ago, the first people came over the land bridge, through the ice, and made these fine fluted points. Nothing is older.
+-> Somebody found an older site.
+    Dr. Clovis-First: A mistake. Bad dating. Contamination.
+    -> Somebody found another one.
+        Dr. Clovis-First: ...a coincidence.
+    -> And footprints in New Mexico, twenty-three thousand years old.
+        Dr. Clovis-First: I am not listening. I have a pith helmet and a theory, and I am keeping both.
+-> Who really came first?
+    Dr. Clovis-First: The people who came first. Their great-grandchildren are still here. Ask them. That is more than an archaeologist can tell you.
+-> Goodbye.
+    Dr. Clovis-First: First! Clovis! First! ...Probably.
+===
+
+title: history_teosinte_breeder
+---
+Teosinte Breeder: Look at this. A teosinte ear. It is the size of my thumb, with a few hard seeds. And this is what it turns into.
+-> That is corn?
+    Teosinte Breeder: Maize. It took my people thousands of years. Every year, keep the seeds of the best plant. Plant them. Keep the best again. No plant has ever changed so much because people looked after it.
+-> Was farming invented here?
+    Teosinte Breeder: Yes, here, on our own. Maize, beans, squash, chilli, cacao. Up the mountains, potatoes, on the terraces. Half the food in the world comes from the Americas. Tomatoes, too. Tell Italy.
+-> What are the llamas for?
+    Teosinte Breeder: Wool, carrying, and judging you. They are very good at the last one.
+-> Goodbye.
+    Teosinte Breeder: Plant the best seed. Always the best seed. Your grandchildren will thank you.
 ===

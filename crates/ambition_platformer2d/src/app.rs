@@ -1727,8 +1727,7 @@ pub fn default_plugins() -> bevy::app::PluginGroupBuilder {
 pub fn install_windowed_foundation(app: &mut App, title: &str, display: Display) {
     use bevy::window::{ExitCondition, Window, WindowPlugin};
 
-    #[cfg(feature = "content_pack")]
-    crate::content::libraries::register_sources(app, "assets");
+    ambition_asset_manager::library_source::register_sources(app, "assets");
     let window = matches!(display, Display::Window);
     let plugins = default_plugins()
         .set(bevy::asset::AssetPlugin {

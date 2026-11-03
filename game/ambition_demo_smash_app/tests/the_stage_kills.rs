@@ -1350,18 +1350,15 @@ fn a_second_match_on_the_same_stage_counts_in_and_ends() {
         let mut launched = false;
         let mut travelled_after_the_end = 0.0f32;
         let mut standing: Option<Vec<(usize, ambition_platformer2d::engine_core::Vec2)>> = None;
-        for tick in 0..(countdown + 600) {
+        for _ in 0..(countdown + 600) {
             app.update();
-            // Put the fighter out of play once, as soon as the ceremony releases
-            // the cast: past the side blast line and still flying outward, so on
-            // one stock the match ends. A claim about the card's wording must not
-            // depend on combat tuning — nor on how slow the CPU is to see its own
-            // body. ⛔ A 2400 px/s launch from the stage USED to be enough because
-            // the brain saw itself 300 ms late; it sees its body now (Q167), and
-            // 11 ticks after the launch the fighter went from x 867 to x 653 with
-            // no speed in one tick and fell back toward the stage, so the first
-            // match never ended.
-            if !launched && tick > countdown + 2 {
+            // Asset loading can delay activation. Launch only after the live
+            // match displays GO, so this test cannot end the countdown early.
+            let go_is_visible = app.world()
+                .get_resource::<ambition_platformer2d::presentation::HudReadouts>()
+                .and_then(|readouts| readouts.get(&slot))
+                .is_some_and(|readout| readout.text() == "GO!");
+            if !launched && go_is_visible {
                 let world = app.world_mut();
                 let mut query = world.query::<(&MatchSeat, &mut BodyKinematics)>();
                 for (seat, mut kin) in query.iter_mut(world) {

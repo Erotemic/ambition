@@ -52,6 +52,18 @@ impl LibraryAssets {
     }
 }
 
+/// Register the selected content before Bevy creates its asset readers.
+pub fn register_sources(app: &mut bevy::prelude::App, game_root: &str) {
+    use bevy::asset::{io::AssetSourceId, AssetApp};
+    app.init_resource::<LibraryAssets>();
+    let assets = app.world().resource::<LibraryAssets>().clone();
+    app.register_asset_source(
+        AssetSourceId::Default,
+        library_asset_source(game_root, assets.clone(), false),
+    );
+    app.register_asset_source("content", library_asset_source("assets", assets, true));
+}
+
 /// Register a game source with its selected library imports.
 pub fn register_game_source(app: &mut bevy::prelude::App, name: impl Into<bevy::asset::io::AssetSourceId<'static>>, root: &str) {
     use bevy::asset::AssetApp;

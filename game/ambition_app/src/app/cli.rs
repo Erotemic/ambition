@@ -924,11 +924,11 @@ pub fn build_visible_app_with(
     // of a packaged build, so the default source and `game://` are the same
     // reader, and no root on the disk is read. `file_path` below is then not
     // used: the default source is registered here first.
-    ambition_platformer2d::content::libraries::register_sources(&mut app, &asset_root);
+    ambition_platformer2d::asset_manager::library_source::register_sources(&mut app, &asset_root);
     let game_root = if ambition_platformer2d::asset_manager::exe_bundle::ExeBundle::of_running_exe().is_some() {
         "assets".to_owned()
     } else { game_asset_root() };
-    ambition_platformer2d::content::libraries::register_game_source(&mut app, "game", &game_root);
+    ambition_platformer2d::asset_manager::library_source::register_game_source(&mut app, "game", &game_root);
     let plugins = ambition_platformer2d::app::default_plugins()
         .set(ambition_log_plugin())
         .set(ambition_task_pool_plugin())
@@ -1158,7 +1158,7 @@ fn cli_direct_entry() -> bool {
 #[cfg(all(target_arch = "wasm32", feature = "web_platform"))]
 pub fn run_web() {
     let mut app = App::new();
-    ambition_platformer2d::content::libraries::register_sources(&mut app, "assets");
+    ambition_platformer2d::asset_manager::library_source::register_sources(&mut app, "assets");
     // THE `game://` SOURCE WAS NEVER REGISTERED HERE. The world manifest
     // addresses every `.ldtk` file as `game://worlds/<file>` (and the vanity card
     // its own art the same way), so on the browser those loads resolved through
@@ -1182,7 +1182,7 @@ pub fn run_web() {
     // only the half of it that needs a filesystem is absent here.
     //
     // Must register before DefaultPlugins builds AssetPlugin.
-    ambition_platformer2d::content::libraries::register_game_source(&mut app, "game", "assets");
+    ambition_platformer2d::asset_manager::library_source::register_game_source(&mut app, "game", "assets");
     app.add_plugins(
         ambition_platformer2d::app::default_plugins()
             .set(ambition_log_plugin())

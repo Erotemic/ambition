@@ -161,7 +161,7 @@ fn wait_for_imported_image(app: &mut App, handle: &Handle<ImportedImage>, expect
 
 #[test]
 fn game_relative_media_use_and_reload_their_selected_library() {
-    use ambition_platformer2d::content::libraries::{register_game_source, register_sources};
+    use ambition_asset_manager::library_source::{register_game_source, register_sources};
     use bevy::asset::AssetApp;
     let owner = std::env::temp_dir().join(format!("game_library_reload_{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&owner);

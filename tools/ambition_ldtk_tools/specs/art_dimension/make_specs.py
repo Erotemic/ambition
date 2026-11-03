@@ -92,6 +92,8 @@ REACH = "art_resonant_reach"
 CONCERT = "art_concert_hall"
 DEEPS = "art_workshop_deeps"
 LOOM_HALL = "art_loom_hall"
+# The Curator's studio, by a door in the plaza (a place of the concept sheets).
+STUDIO = "art_curators_studio"
 
 TOWN_MUSIC = "artists_guild_chiaroscuro"
 CAVE_MUSIC = "mages_guild_arcane_lanterns"
@@ -119,6 +121,7 @@ ROOMS_AT = {
     BACKSTAGE: ((-2800, 3100), (1600, 640)),
     CONCERT: ((7200, 176), (1600, 640)),
     LOOM_HALL: ((8000, 2224), (1600, 640)),
+    STUDIO: ((-2800, 3800), (1600, 640)),
 }
 #: The floor of the rooms out in the world: 64 of ground under it.
 FLOOR = 960
@@ -176,6 +179,8 @@ CHIMES = (("art_chime_do", "do", 860, 736), ("art_chime_mi", "mi", 1370, 608), (
 PIT = (1200, 1872)
 BRIDGE_W = 224
 CRANE = "art_bridge_crane"
+#: The eraser switches (the concept sheets): each rubs out a wall of scribble.
+ERASER_CLIFFS, ERASER_STUDIO = "art_eraser_cliffs", "art_eraser_studio"
 #: A building's floor.
 INSIDE_FLOOR = 576
 
@@ -275,7 +280,8 @@ def plaza():
                name="the palette lift", speed=LIFT_SPEED, lift_dy=float(-(FLOOR - LIFT_HOP + 60)), one_way=True,
                visual="art_palette_lift"),
         sign("plaza_sign_lift", (s0 + s1) // 2, FLOOR - 220, "STAND ON THE PALETTE TO GO UP", 340),
-        crayon(2, 1900, FLOOR),
+        door("plaza_studio_door", "into the Curator's studio", 1880, FLOOR, STUDIO, f"{STUDIO}_door"),
+        crayon(2, 2300, FLOOR),
         pots(2, 2040, FLOOR),
         ledge("plaza_stage", 1960, FLOOR - 96, 240),
         sign("plaza_sign_gate", 256, FLOOR - 340, "EASEL: the gate is also an easel", 360),
@@ -322,15 +328,24 @@ def cliffs():
         ledge("page_e", 1900, FLOOR - 320, 192),
         ledge("page_f", 2140, FLOOR - 384, 160),
         enemy(rid, 3, "origami_bird", 2200, FLOOR - 560),
-        ledge("page_g", 2380, FLOOR - 448, 192),
+        # The crayon rail (the concept sheets): a crayon on its side that
+        # rides to and fro under the last page.
+        entity("MovingPlatform", 2160, FLOOR - 448, 160, 16, id="art_cliffs_crayon_rail", name="the crayon rail",
+               speed=90.0, sweep_dx=260.0, one_way=True, visual="art_crayon_rail"),
         ledge("page_h", 2600, FLOOR - 512, 184),
+        # A scribble over the end of the page: the eraser on the floor under
+        # it rubs it out.
+        lock_wall("art_cliffs_scribble", "a wall of scribble", 2600, FLOOR - 512 - DOOR_H, DOOR_W, DOOR_H,
+                  f"world.switch_on {ERASER_CLIFFS}", "art_scribble_wall"),
+        prop_at("eraser", "art_eraser", 2680, FLOOR, 64, 64),
+        lever(ERASER_CLIFFS, "the eraser", "Rub out the scribble", 2724, FLOOR),
         # The second margin, by the gap.
         enemy(rid, 5, "doodle_imp", 2160, FLOOR),
         enemy(rid, 6, "doodle_imp", 2220, FLOOR),
         enemy(rid, 7, "doodle_imp", 2280, FLOOR),
         # Cyan is high, where the pages end.
         pigment("cyan", 2700, FLOOR - 512 - 40),
-        crayon(1, 2650, FLOOR),
+        crayon(1, 2340, FLOOR),
     ]
     return build(rid, e, "THE SKETCHBOOK CLIFFS", biome="art_sketchbook", dangerous=True)
 
@@ -405,7 +420,9 @@ def caverns():
         ledge("stone_a", 1600, FLOOR - 96, 160),
         enemy(rid, 1, "ink_wisp", 1900, FLOOR - 160),
         ink("ink_pool_b", 2160, 224),
-        ledge("stone_b", 2160, FLOOR - 112, 96),
+        # The brush seesaws (the concept sheets): brushes that rock on their
+        # middle over the ink.
+        seesaw("art_caverns_seesaw_1", 2176, FLOOR - 96),
         ledge("stone_c", 2300, FLOOR - 176, 96),
         # Magenta is low, where the ink falls.
         ledge("magenta_shelf", 2440, FLOOR - 240, 160),
@@ -416,6 +433,7 @@ def caverns():
         enemy(rid, 3, "ink_wisp", 3200, FLOOR - 140),
         enemy(rid, 1, "doodle_imp", 3400, FLOOR),
         ink("ink_pool_d", 3560, 128),
+        seesaw("art_caverns_seesaw_2", 3528, FLOOR - 96),
         enemy(rid, 4, "ink_wisp", 3700, FLOOR - 300),
         enemy(rid, 1, "brush_knight", 600, FLOOR),
         sign("caverns_sign_well", (k0 + k1) // 2, FLOOR - 200, "UP: the garden. DOWN: you are down.", 380),
@@ -463,6 +481,12 @@ def gallery():
 def prop_at(name, kind, x, floor, w, h):
     """A prop of `w` x `h` with its foot in the middle of its bottom, at `x` on `floor`."""
     return prop(name, kind, x - w // 2, floor - h, w, h)
+
+
+def seesaw(sid, x, y):
+    """A brush that lies flat with its top at `y` and rocks on its middle."""
+    return entity("MovingPlatform", x, y, 192, 16, id=sid, name="a brush seesaw", speed=0.0, line=True, swing=18.0,
+                  swing_period=3.0, visual="art_brush_seesaw")
 
 
 def chest(name, x, floor, reward):
@@ -767,6 +791,32 @@ def loom_hall():
                  music=LOOM_MUSIC, extra=extra)
 
 
+def studio():
+    """The Curator's studio (the concept sheets), by a door in the plaza:
+    canvases that nobody finished, the map of the quarters, and a storeroom
+    behind a wall of scribble that the eraser rubs out."""
+    g = INSIDE_FLOOR
+    wall = 1120
+    extra = [
+        easel(1, 300, g),
+        easel(2, 480, g),
+        pots(1, 640, g),
+        sign("studio_sign_map", 800, 140, "WEST: STORIES. UP: THE STAGE. EAST: MUSIC. DOWN: THE MAKERS.", 600),
+        sign("studio_sign", 800, 90, "THE CURATOR'S STUDIO: work in progress, all of it", 460),
+        ledge("shelf", 700, g - 112, 200),
+        prop_at("eraser", "art_eraser", 960, g, 64, 64),
+        lever(ERASER_STUDIO, "the eraser", "Rub out the scribble", 1004, g),
+        solid("store_lintel", wall, CEILING, DOOR_W, g - DOOR_H - CEILING),
+        lock_wall("art_studio_scribble", "a wall of scribble", wall, g - DOOR_H, DOOR_W, DOOR_H,
+                  f"world.switch_on {ERASER_STUDIO}", "art_scribble_wall"),
+        easel(3, 1300, g),
+        chest("the Curator's first picture", 1460, g, "currency:150"),
+        sign("studio_sign_store", 1380, g - 200, "MY FIRST PICTURE (do not look)", 320),
+    ]
+    return building(STUDIO, PLAZA, "plaza_studio_door", "out to the plaza", "THE CURATOR'S STUDIO", biome="art",
+                    music=TOWN_MUSIC, extra=extra)
+
+
 #: The ladders (the IntGrid `Climbable` layer): down each hole in a floor,
 #: and up each shaft to it.
 LADDERS = (
@@ -777,7 +827,7 @@ LADDERS = (
 )
 
 ROOMS = (plaza, cliffs, garden, caverns, gallery, stacks, library, amphitheatre, backstage, reach, concert_hall, deeps,
-         loom_hall)
+         loom_hall, studio)
 
 
 def main(argv):

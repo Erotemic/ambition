@@ -12,7 +12,8 @@
 //! in the caverns opens the plaza's drain, and that the palette lift carries
 //! a rider up to the cliffs, that the Curator by the ring talks, that the
 //! three chimes of the reach open the concert hall's stage, and that the
-//! crane's lever swings the bridge over the deeps' pit.
+//! crane's lever swings the bridge over the deeps' pit, and that an eraser
+//! rubs out its wall of scribble.
 
 use std::collections::BTreeSet;
 
@@ -76,7 +77,7 @@ fn centre_of<F: bevy::prelude::Component>(sim: &mut Platformer2dSimHarness, what
 /// the garden are a loop, and so are the plaza, the caverns and the garden.
 #[test]
 fn the_rooms_of_the_art_dimension_join_as_the_flat_map_says() {
-    const WAYS: [(&str, &str); 15] = [
+    const WAYS: [(&str, &str); 16] = [
         ("art_painters_plaza", "art_sketchbook_cliffs"),
         ("art_painters_plaza", "art_sculpture_garden"),
         ("art_sketchbook_cliffs", "art_sculpture_garden"),
@@ -94,6 +95,7 @@ fn the_rooms_of_the_art_dimension_join_as_the_flat_map_says() {
         ("art_amphitheatre", "art_backstage"),
         ("art_resonant_reach", "art_concert_hall"),
         ("art_workshop_deeps", "art_loom_hall"),
+        ("art_painters_plaza", "art_curators_studio"),
     ];
     let manifest = ambition_content::worlds::world_manifest();
     let project = LdtkProject::load_default_for_dev(&manifest).expect("the world loads");
@@ -332,4 +334,22 @@ fn the_endings_and_the_curtain_wait_for_their_story() {
     }
     let mut stage = room("art_amphitheatre");
     assert!(stands(&mut stage, "art_amphi_curtain"), "the curtain is down before the audition: {:?}", standing(&mut stage));
+}
+
+/// The eraser switches of the concept sheets: in the cliffs and in the
+/// studio, a wall of scribble stands until its eraser is pulled.
+#[test]
+fn an_eraser_rubs_out_its_wall_of_scribble() {
+    for (room_id, eraser, wall) in [
+        ("art_sketchbook_cliffs", "art_eraser_cliffs", "art_cliffs_scribble"),
+        ("art_curators_studio", "art_eraser_studio", "art_studio_scribble"),
+    ] {
+        let mut sim = room(room_id);
+        assert!(stands(&mut sim, wall), "`{wall}` stands before the eraser: {:?}", standing(&mut sim));
+        press(&mut sim, eraser);
+        for _ in 0..10 {
+            sim.step(base());
+        }
+        assert!(!stands(&mut sim, wall), "with `{eraser}` pulled, `{wall}` is rubbed out: {:?}", standing(&mut sim));
+    }
 }

@@ -6306,7 +6306,7 @@
             standing_height: Some(60.0),
             composition: None,
             default_action_set: "critic_tomato",
-            ranged_vfx: Some("apple"),
+            ranged_vfx: Some("tomato"),
             locomotion: Some((run_speed: 110.0, move_style: Walk)),
             autonomous_profile: Some((
                 template: Skirmisher,
@@ -6402,6 +6402,7 @@
             standing_height: Some(52.0),
             composition: None,
             default_action_set: "feedback_wail_shriek",
+            ranged_vfx: Some("sound_ring"),
             locomotion: Some((run_speed: 120.0, move_style: Float, baseline_free_flight: Some(true))),
             autonomous_profile: Some((
                 template: Skirmisher,

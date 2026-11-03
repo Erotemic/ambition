@@ -1,7 +1,9 @@
 # The Art dimension
 
-**State:** BUILT — first region. The rooms, the biome, the cast and the gate
-are in the game. The open work is at the end of this document.
+**State:** BUILT (2026-11-03). Fourteen rooms, seven biomes, the cast, the
+gate, the four quarters and the machines of the concept sheets are in the
+game, and their art is published. What is at the end of this document is
+ideas for later, not missing work.
 
 Jon, in the original brainstorm: "The art dimension is also seriously
 underdeveloped, and its very important. It's how humans communicate with each
@@ -123,6 +125,25 @@ The art of each quarter is in the renderer: `backgrounds/art_quarters.py`
 each creature in `targets/characters/`, and a chargen spec for each person in
 `data/townsfolk/`.
 
+## The concept sheets' machines
+
+The four things to use from the concept sheets are built:
+
+- **The Curator's studio** (`art_curators_studio`), by a door in the plaza:
+  canvases that nobody finished, a map of the quarters, and a storeroom
+  behind a wall of scribble.
+- **The eraser switches**: a lever drawn as a big eraser (`art_eraser`) rubs
+  out a wall of pencil scribble (a LockWall drawn as `art_scribble_wall`,
+  gated by `world.switch_on art_eraser_<place>`). One guards the cyan
+  pigment at the end of the cliffs; one guards the studio's storeroom.
+- **The crayon rail**: a crayon on its side (`art_crayon_rail`, a platform
+  look) rides to and fro under the last page of the cliffs.
+- **The brush seesaws**: brushes that rock on their middle
+  (`art_brush_seesaw`, a swinging line plank) over two pools of ink in the
+  caverns.
+
+The art is `targets/props/art_studio_props.py` in the renderer.
+
 ## The cast
 
 All of them are rows of `character_catalog.ron` and targets of the sprite
@@ -176,14 +197,9 @@ The plaza, the cliffs, the garden and the gallery play
 `artists_guild_chiaroscuro` (the Artists Guild theme, a 6/8 gallery waltz).
 The caverns play `mages_guild_arcane_lanterns`.
 
-## Open work
+## Ideas for later
 
-- A cue of its own for the caverns and the gallery (the music renderer).
-- The sprites and backgrounds of the dimension are in the renderer and in
-  `sprites.yaml`, but not yet published to the content store: publish
-  them (`scripts/regen/sprites.sh --target <name>`, then the backgrounds).
-- The other places of the concept sheets that are not built: the Curator's
-  studio, the crayon rails, the brush seesaws, the eraser switches.
+- A score of its own for each quarter and for the caverns: each plays a cue
+  of the music renderer that fits it now (the table of the quarters).
 - More arts with their own idea, not a list of references: film, dance,
   architecture as a place of its own, games.
-- A score of its own for each quarter (each borrows a cue now).

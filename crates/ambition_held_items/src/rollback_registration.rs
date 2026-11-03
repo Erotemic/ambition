@@ -10,6 +10,11 @@ pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {
         "derived.item_body",
         "item capability properties installed before the item's physics step",
     );
+    registrar.require_rollback::<crate::SupportedCarry>(OWNER, "entity:supported_carry");
+    registrar.rollback_component_clone_entity_ref::<crate::SupportedCarry>(
+        OWNER, "item.supported_carry", |carry| carry.supporter,
+    );
+    registrar.rollback_map_entities::<crate::SupportedCarry>(OWNER, "map.supported_carry");
     registrar.require_rollback::<crate::GroundItem>(OWNER, "entity:ground_item");
     registrar.require_rollback::<crate::SettledItem>(OWNER, "entity:settled_item");
     registrar

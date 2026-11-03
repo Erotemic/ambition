@@ -232,6 +232,7 @@ pub struct HeldItemView(pub Vec<HeldItemFact>);
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct HeldItemFact {
+    pub support: Option<SupportedCarryFact>,
     pub pos: ae::Vec2,
     pub size: ae::Vec2,
     pub facing: f32,
@@ -247,6 +248,29 @@ pub struct HeldItemFact {
     /// Who holds it, for the presentation: it draws the item in the hand of
     /// the pose that body draws, when the body's art has one.
     pub holder: ItemHolder,
+}
+
+/// The load geometry and both bodies whose drawn feet support it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SupportedCarryFact {
+    pub geometry: ambition_held_items::SupportedCarryGeometry,
+    pub holders: [ItemHolder; 2],
+}
+
+fn supported_carry_fact(
+    positions: &ambition_held_items::ItemWorldPos,
+    landmarks: &ambition_combat::body_landmarks::BodyLandmarks,
+    features: &Query<&ambition_combat::components::FeatureId>,
+    body: Entity,
+    down: ae::Vec2,
+) -> Option<SupportedCarryFact> {
+    let geometry = positions.supported_geometry(body, down)?;
+    let holders = geometry.bodies.map(|body| ItemHolder {
+        body,
+        feature: features.get(body).ok().map(|feature| feature.as_str().to_owned()),
+        hand: landmarks.stated_gesture_hand(body),
+    });
+    Some(SupportedCarryFact { geometry, holders })
 }
 
 /// Who holds an item, as the presentation finds the body's drawn pose.
@@ -340,6 +364,8 @@ pub fn rebuild_held_item_view(
         Option<&ambition_combat::components::FeatureId>,
     )>,
     landmarks: ambition_combat::body_landmarks::BodyLandmarks,
+    positions: ambition_held_items::ItemWorldPos,
+    features: Query<&ambition_combat::components::FeatureId>,
 ) {
     // Include every eligible holder, not only a controlled participant.
     // Over-hand presentation owns its separate partition. Sort rows by
@@ -357,6 +383,7 @@ pub fn rebuild_held_item_view(
             (
                 id.clone(),
                 HeldItemFact {
+                    support: supported_carry_fact(&positions, &landmarks, &features, body, basis.down),
                     pos: kin.pos,
                     size: kin.size,
                     facing: kin.facing,
@@ -743,6 +770,7 @@ pub struct HostileWieldedItemsView(pub Vec<HostileWieldedItemFact>);
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct HostileWieldedItemFact {
+    pub support: Option<SupportedCarryFact>,
     pub item_id: String,
     pub hand_world: ae::Vec2,
     pub aim_world: ae::Vec2,
@@ -778,6 +806,8 @@ pub fn rebuild_hostile_wielded_items_view(
     // muzzle of a hand weapon also reads, so the prop is drawn where the shot
     // leaves.
     landmarks: ambition_combat::body_landmarks::BodyLandmarks,
+    positions: ambition_held_items::ItemWorldPos,
+    features: Query<&ambition_combat::components::FeatureId>,
 ) {
     view.0.clear();
     for (entity, disposition, held_item, control, kin, motion_frame, health, feature) in &wielders {
@@ -797,6 +827,7 @@ pub fn rebuild_hostile_wielded_items_view(
             + held_item_world_aim(control.map(|control| &control.0), kin.facing, basis)
                 * wielder_height;
         view.0.push(HostileWieldedItemFact {
+            support: supported_carry_fact(&positions, &landmarks, &features, entity, down),
             item_id: held_item.id().to_owned(),
             hand_world,
             aim_world,

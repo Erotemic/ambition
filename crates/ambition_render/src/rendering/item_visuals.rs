@@ -634,6 +634,7 @@ pub fn item_swing_angle(swing: Option<ambition_sim_view::ItemSwingFact>) -> f32 
 
 /// One item to draw in a hand, from either view of the holders.
 struct InHand<'a> {
+    supported: bool,
     item_id: &'a str,
     /// The hand when the body's art has none: a fixed place on its box.
     hand: Vec2,
@@ -715,9 +716,10 @@ pub fn sync_held_item_visual(
     let in_hand = held_view.0.iter().map(|held| {
         let facing = if held.facing >= 0.0 { 1.0 } else { -1.0 };
         InHand {
+            supported: held.support.is_some(),
             item_id: held.item_id.as_str(),
             // In the hand: just in front, at hand height (y-down, so small +y).
-            hand: held.pos + Vec2::new(facing * (held.size.x * 0.45 + 4.0), held.size.y * 0.06),
+            hand: held.support.as_ref().map_or(held.pos + Vec2::new(facing * (held.size.x * 0.45 + 4.0), held.size.y * 0.06), |support| support.geometry.anchor),
             facing: held.facing,
             ranged: held.ranged,
             aim: held.aim,
@@ -733,8 +735,9 @@ pub fn sync_held_item_visual(
         .map(|fact| {
             let aim = fact.aim_world - fact.hand_world;
             InHand {
+                supported: fact.support.is_some(),
                 item_id: fact.item_id.as_str(),
-                hand: fact.hand_world,
+                hand: fact.support.as_ref().map_or(fact.hand_world, |support| support.geometry.anchor),
                 facing: if aim.x >= 0.0 { 1.0 } else { -1.0 },
                 ranged: fact.ranged,
                 aim,
@@ -752,7 +755,7 @@ pub fn sync_held_item_visual(
         let mut translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, hand, 12.0);
         // The art's own hand, when the body is drawn from parts that have
         // one: the item is in it, in the frame that is drawn.
-        let posed = hands.of(held.holder);
+        let posed = (!held.supported).then(|| hands.of(held.holder)).flatten();
         if let Some(posed) = posed {
             translation.x = posed.at.x;
             translation.y = posed.at.y;
@@ -1183,6 +1186,7 @@ mod tests {
         ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), geometry);
         let body = app.world_mut().spawn_empty().id();
         let row = |facing: f32| ambition_sim_view::HeldItemFact {
+            support: None,
             pos: ambition_platformer2d_core::Vec2::new(100.0, 200.0),
             size: ambition_platformer2d_core::Vec2::new(16.0, 32.0),
             facing,

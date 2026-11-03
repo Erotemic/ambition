@@ -32,7 +32,7 @@
 | [`plugin`](src/plugin.rs) | Ambition game-content registration. |
 | [`portal`](src/portal/mod.rs) | Ambition-specific portal adapters. |
 | [`presentation`](src/presentation/mod.rs) | Content-owned presentation plugins — named Ambition looks layered onto the reusable renderer's PUBLIC seams. |
-| [`primeval`](src/primeval.rs) | The primeval trail: the level of the dinosaurs. |
+| [`primeval`](src/primeval.rs) | Swallows fetch coconuts from the primeval trail and release them over prey. |
 | [`projectiles`](src/projectiles.rs) | Ambition's projectile looks: the pack's `data/projectile_visuals.ron`. |
 | [`prop_sheets`](src/prop_sheets.rs) | Ambition's prop sheets (the pack's `data/prop_sheets.ron`) and its platform looks (`data/platform_looks.ron`). |
 | [`provider`](src/provider.rs) | Reusable Ambition gameplay provider. |

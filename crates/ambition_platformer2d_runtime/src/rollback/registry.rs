@@ -214,7 +214,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// 406 -> 407: all health restoration requests name one body.
 /// Item use and ability equipment requests name their acting participant.
 /// 408 -> 409: session membership is independent of devices and body control.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 409;
+/// 409 -> 410: shared item support and committed swallow fetch attempts.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 410;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

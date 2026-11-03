@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v409
+ggrs-rollback-schema-v410
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -157,6 +157,7 @@ content.sanic_rolling	component-clone	Rolling	bevy_ggrs clone snapshot; not in t
 content.sanic_scattered_ring	component-clone	ScatteredRing	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.sanic_spent_monitors	resource-clone-custom-checksum	SpentMonitors	bevy_ggrs clone snapshot + an order-independent checksum over the spent names
 content.sanic_super_form_latch	component-clone	SuperFormLatch	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.swallow_fetch	component-clone-custom-checksum	FetchFlight	bevy_ggrs clone snapshot + goal, phase, elapsed
 cutscene.last_room	component-canonical	LastCutsceneRoom	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 cutscene.playback	resource-canonical	ActiveCutscene	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 cutscene.skip_hold	resource-canonical	CutsceneSkipHold	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
@@ -262,6 +263,8 @@ entity:portal_shot	required-rollback	PortalShot	component presence automatically
 entity:respawn_grace	component-canonical	RespawnGrace	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 entity:sanic_mode_owner	required-rollback	SanicActState	component presence automatically installs bevy_ggrs::Rollback
 entity:settled_item	required-rollback	SettledItem	component presence automatically installs bevy_ggrs::Rollback
+entity:supported_carry	required-rollback	SupportedCarry	component presence automatically installs bevy_ggrs::Rollback
+entity:swallow_fetch	required-rollback	FetchFlight	component presence automatically installs bevy_ggrs::Rollback
 entity:temporary_zone	required-rollback	TemporaryZone	component presence automatically installs bevy_ggrs::Rollback
 entity:transform_beat	required-rollback	TransformBeat	component presence automatically installs bevy_ggrs::Rollback
 entity:world_item	required-rollback	WorldItem	component presence automatically installs bevy_ggrs::Rollback
@@ -299,6 +302,7 @@ item.motion	component-clone	ItemMotion	bevy_ggrs clone snapshot; value-probed fo
 item.pickup_magnet	component-clone	PickupMagnet	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 item.released_as	component-clone	ReleasedAs	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 item.settled_item	component-clone	SettledItem	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+item.supported_carry	component-clone	SupportedCarry	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 item.world_item	component-clone	WorldItem	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 lifecycle.player_visual	component-clone	PlayerVisual	bevy_ggrs clone snapshot; not in the session checksum
 lifecycle.room_visual	component-clone	RoomVisual	bevy_ggrs clone snapshot; not in the session checksum
@@ -334,6 +338,7 @@ map.resource.pending_player_hit_events	resource-entity-mapping	PendingPlayerHitE
 map.resource.possession_state	resource-entity-mapping	PossessionState	bevy_ggrs LoadWorld resource entity-reference remapping
 map.riding_on	entity-mapping	RidingOn	bevy_ggrs LoadWorld entity-reference remapping
 map.strike_volume	entity-mapping	StrikeVolume	bevy_ggrs LoadWorld entity-reference remapping
+map.supported_carry	entity-mapping	SupportedCarry	bevy_ggrs LoadWorld entity-reference remapping
 marker.feature_sim_entity	component-clone	FeatureSimEntity	bevy_ggrs clone snapshot; not in the session checksum
 marker.player_entity	component-clone	PlayerEntity	bevy_ggrs clone snapshot; not in the session checksum
 marker.posed_body	component-clone	PosedBody	bevy_ggrs clone snapshot; not in the session checksum

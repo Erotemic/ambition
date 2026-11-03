@@ -203,4 +203,5 @@ pub fn register_rollback_state(
     registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar,
 ) {
     bosses::register_rollback_state(registrar);
+    primeval::register_rollback_state(registrar);
 }

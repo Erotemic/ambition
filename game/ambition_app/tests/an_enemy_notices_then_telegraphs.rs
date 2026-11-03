@@ -89,11 +89,12 @@ fn the_pachycephalosaurus_stands_through_its_windup_then_charges() {
     );
     let mut windup_speeds = Vec::new();
     let mut strike_speeds = Vec::new();
+    let mut recovered = false;
     for _ in 0..900 {
         sim.step(AgentAction::default());
         let world = sim.world_mut();
-        let mut q = world.query::<(&FeatureId, &BodyKinematics, Option<&PinnedRow>, MeleeSwingQuery)>();
-        let Some((_, kin, pin, swing)) = q.iter(world).find(|(id, ..)| id.as_str() == PACHY) else { continue };
+        let mut q = world.query::<(&FeatureId, &BodyKinematics, &ambition_platformer2d::engine_core::MotionModel, Option<&PinnedRow>, MeleeSwingQuery)>();
+        let Some((_, kin, motion, pin, swing)) = q.iter(world).find(|(id, ..)| id.as_str() == PACHY) else { continue };
         let Some(swing) = swing.swing() else {
             if !strike_speeds.is_empty() {
                 break;
@@ -109,6 +110,14 @@ fn the_pachycephalosaurus_stands_through_its_windup_then_charges() {
                 windup_speeds.push(kin.vel.x.abs());
             }
             Some(ambition_platformer2d::combat::AttackPhase::Active) => strike_speeds.push(kin.vel.x.abs()),
+            Some(ambition_platformer2d::combat::AttackPhase::Recovery) => {
+                recovered = true;
+                let ambition_platformer2d::engine_core::MotionModel::AxisSwept(axis) = motion else {
+                    panic!("the charger must have its authored axis-swept motion");
+                };
+                assert!(kin.vel.x.abs() <= axis.params.locomotion.max_run_speed + 1e-3,
+                    "the charge carried its rush into recovery: {:?}", kin.vel);
+            }
             _ => {}
         }
     }
@@ -117,6 +126,7 @@ fn the_pachycephalosaurus_stands_through_its_windup_then_charges() {
     let rush = strike_speeds.iter().cloned().fold(0.0, f32::max);
     assert!(still < 40.0, "it stands still through its windup: {still}");
     assert!(rush > 400.0, "it rushes over its strike: {rush}");
+    assert!(recovered, "the charge never reached recovery");
 }
 
 /// The raptor pounces: coming in at a run from far out, its attack is its

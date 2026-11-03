@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v412",
+    "version": "ggrs-rollback-schema-v414",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -159,6 +159,7 @@
       "scope.room\tcomponent-canonical\tRoomScopedEntity",
       "scope.room_instance\tcomponent-canonical\tInRoomInstance",
       "session.participants\tcomponent-canonical\tSessionParticipants",
+      "session.room_preparation\tcomponent-clone-custom-checksum\tCapturedRoomPreparation\tbevy_ggrs clone snapshot + the admitted room operation and its immutable continuity inputs",
       "smash.hold_state\tcomponent-canonical\tSmashHoldState"
     ]
   },

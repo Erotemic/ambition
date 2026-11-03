@@ -131,6 +131,15 @@ pub fn attack_move_from_melee(spec: &MeleeActionSpec) -> MoveSpec {
             at_s: 0.0,
             kind: MoveEventKind::HoldVelocity { seconds: windup },
         });
+        if spec.strike_rush_px().is_none_or(|rush| rush == 0.0) {
+            attack.events.push(MoveEvent {
+                at_s: windup,
+                kind: MoveEventKind::Impulse {
+                    local: (0.0, 0.0),
+                    mode: ambition_entity_catalog::ImpulseMode::SetSide,
+                },
+            });
+        }
     }
     // A charge rushes forward over its strike: the authored distance over the
     // active window, from the end of a windup it stood still through.
@@ -155,6 +164,14 @@ pub fn attack_move_from_melee(spec: &MeleeActionSpec) -> MoveSpec {
             },
         });
         attack.events.push(MoveEvent { at_s: windup, kind: MoveEventKind::HoldVelocity { seconds: active } });
+        // The rush owns a bounded step. Recovery keeps the body's fall.
+        attack.events.push(MoveEvent {
+            at_s: windup + active,
+            kind: MoveEventKind::Impulse {
+                local: (0.0, 0.0),
+                mode: ambition_entity_catalog::ImpulseMode::SetSide,
+            },
+        });
     }
     attack
 }

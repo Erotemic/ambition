@@ -166,27 +166,6 @@ fn pick_up(sim: &mut Platformer2dSimHarness, at: (f32, f32), id: &SimId) {
     );
 }
 
-/// Rest at a shrine: spawn one where the body stands, press Interact, let the
-/// commit land, then take the prop away again.
-fn commit_a_checkpoint(sim: &mut Platformer2dSimHarness) {
-    let (x, y) = body_pos(sim);
-    let shrine = sim
-        .world_mut()
-        .spawn(ambition_platformer2d::shrine::HealShrine {
-            pos: ambition_platformer2d::engine_core::Vec2::new(x, y),
-            half_extent: ambition_platformer2d::engine_core::Vec2::new(48.0, 48.0),
-        })
-        .id();
-    for _ in 0..8 {
-        sim.step(AgentAction {
-            interact: true,
-            ..base()
-        });
-        sim.step(base());
-    }
-    sim.world_mut().entity_mut(shrine).despawn();
-}
-
 /// Kill the primary body through the ordinary death report and run out the
 /// interlude, so the consequence the roster decides actually fires.
 fn die(sim: &mut Platformer2dSimHarness) {
@@ -356,7 +335,7 @@ fn a_saved_count_becomes_an_instance_and_the_two_authorities_are_compared() {
     let after_pickup = catalog_count(&mut sim, COUNTED_ITEM);
 
     // ── BANK IT, then DIE ────────────────────────────────────────────────────
-    commit_a_checkpoint(&mut sim);
+    crate::death_restores_the_checkpoint::commit_a_hub_checkpoint(&mut sim);
     die(&mut sim);
 
     let live = occurrences(&mut sim, &minted);
@@ -461,7 +440,7 @@ fn a_death_that_returns_the_object_leaves_nothing_in_the_catalog_claiming_it() {
     );
 
     // ── the checkpoint FIRST, with empty hands ───────────────────────────────
-    commit_a_checkpoint(&mut sim);
+    crate::death_restores_the_checkpoint::commit_a_hub_checkpoint(&mut sim);
 
     // ── and only THEN the acquisition ────────────────────────────────────────
     let pedestal = resting_place(&mut sim, &reward);
@@ -560,7 +539,7 @@ fn a_granted_quantity_survives_the_death_that_retracts_the_instance_minted_from_
     );
 
     // ── the checkpoint sees the quantity and no object ───────────────────────
-    commit_a_checkpoint(&mut sim);
+    crate::death_restores_the_checkpoint::commit_a_hub_checkpoint(&mut sim);
 
     // ── and only THEN the quantity becomes an instance ───────────────────────
     let before_mint = dynamic_occurrences(&mut sim);

@@ -15,7 +15,7 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition_app::{AgentAction, AmbitionSim as _, Platformer2dSimHarness, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness};
 use ambition_platformer2d::session::checkpoint::{CheckpointRestoreOutcome, SessionCheckpointOutcomes};
 use bevy::prelude::*;
 
@@ -118,7 +118,7 @@ type Verification = ambition_platformer2d::publication::LastConstructionVerifica
 fn a_restore_after_a_boss(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
     road: Road,
 ) -> (Facts, Facts, Option<CheckpointRestoreOutcome>, Verification, Platformer2dSimHarness) {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = crate::common::fixed_60hz_room_sim("combat_calibration_lab");
     sim.step_n(AgentAction::default(), 15);
     {
         let world = sim.world_mut();

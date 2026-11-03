@@ -183,7 +183,7 @@ fn the_recipe_builds_the_body_of_a_second_seat_that_is_not_primary() {
 #[test]
 fn a_room_replay_keeps_the_home_body_of_a_second_seat() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = crate::common::fixed_60hz_room_sim("combat_calibration_lab");
     sim.step_n(AgentAction::default(), 15);
     commit_a_checkpoint(&mut sim);
     let primary = the_primary(&mut sim);
@@ -192,7 +192,7 @@ fn a_room_replay_keeps_the_home_body_of_a_second_seat() {
     let health = sim.world().get::<BodyHealth>(second).map(|health| health.health.current);
 
     let (x, y) = place_of(&sim, primary);
-    sim.teleport_player((x as f32 - 2.0 * APART, y as f32));
+    sim.teleport_player((x as f32 + 2.0 * APART, y as f32));
     sim.step_n(AgentAction::default(), 30);
     let away = place_of(&sim, primary);
 

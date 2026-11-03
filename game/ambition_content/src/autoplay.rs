@@ -51,6 +51,8 @@ pub(super) fn register(app: &mut App) {
     app.insert_resource(Profiles(profiles)).init_resource::<Itinerary>()
         .add_systems(Update, play_ambition
             .in_set(ambition_platformer2d::scripted_input::AutoplayPolicy)
+            // Read the completed frame before the next simulation advance.
+            .before(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::CoreSimulation)
             .run_if(|mode: Option<Res<ambition_platformer2d::scripted_input::Autoplay>>, profiles: Res<Profiles>|
                 mode.is_some_and(|mode| profiles.0.contains_key(&mode.0))));
 }

@@ -510,3 +510,40 @@ fn a_delayed_ring_renders_its_latest_publication_without_rebuilding_another_menu
     assert_eq!(rendered[0].1, page(Page::Quest, 0.8));
     assert!(rendered[0].2);
 }
+
+#[test]
+fn resizing_one_viewport_rebuilds_only_its_canvas_and_restores_its_shape() {
+    use super::{KaleidoscopePauseCamera, RenderedMenuPages};
+    use ambition_menu::MenuSurface;
+    let mut app = test_app();
+    let first = app.world_mut().query_filtered::<Entity, With<MenuRing>>()
+        .single(app.world()).unwrap();
+    let second = app.world_mut().spawn((MenuRing, ActiveMenuPages::<Page, Action> {
+        pages: all_pages(0.75), active: Some(Page::Map), visible: true, version: 1,
+    })).id();
+    let camera = app.world_mut().spawn((KaleidoscopePauseCamera, MenuSurface(first), Camera {
+        viewport: Some(bevy::camera::Viewport { physical_size: UVec2::new(1280, 720), ..default() }),
+        ..default()
+    })).id();
+    app.update();
+    let original = app.world().get::<RenderedMenuPages<Page>>(first).unwrap().geometry;
+    let first_before = owned_faces(&mut app, first);
+    let second_before = owned_faces(&mut app, second);
+    app.world_mut().get_mut::<Camera>(camera).unwrap().viewport.as_mut().unwrap()
+        .physical_size = UVec2::new(400, 720);
+    app.update();
+    let portrait = app.world().get::<RenderedMenuPages<Page>>(first).unwrap().geometry;
+    assert!(portrait.page_height > original.page_height);
+    assert_eq!(portrait.page_width, original.page_width);
+    assert_eq!(portrait.camera_distance, original.camera_distance);
+    assert_ne!(owned_faces(&mut app, first), first_before);
+    assert_eq!(owned_faces(&mut app, second), second_before);
+    let stable = owned_faces(&mut app, first);
+    app.update();
+    assert_eq!(owned_faces(&mut app, first), stable);
+    app.world_mut().get_mut::<Camera>(camera).unwrap().viewport.as_mut().unwrap()
+        .physical_size = UVec2::new(1280, 720);
+    app.update();
+    assert_eq!(app.world().get::<RenderedMenuPages<Page>>(first).unwrap().geometry, original);
+    assert_eq!(owned_faces(&mut app, second), second_before);
+}

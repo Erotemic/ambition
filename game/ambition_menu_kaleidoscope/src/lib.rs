@@ -69,6 +69,7 @@ pub struct MenuRing;
 pub struct RenderedMenuPages<PageId> {
     version: u64,
     active: Option<PageId>,
+    geometry: MenuCubeGeometry,
 }
 
 /// System set for the lib's in-place focus-visual readers
@@ -420,6 +421,9 @@ where
             seed_text3d_android_fonts.run_if(resource_added::<TextRenderer>),
         );
         app.add_systems(Update, redraw_text3d_when_the_atlas_is_rebuilt);
+        app.add_systems(PostUpdate, page::fit_text_width
+            .after(bevy_lunex::system_text_3d_size_from_dimension)
+            .in_set(bevy_lunex::UiSystems::PostCompute));
         if !app.world().contains_resource::<KaleidoscopeMenuConfig>() {
             app.insert_resource(KaleidoscopeMenuConfig::default());
         }
@@ -845,6 +849,7 @@ pub fn rebuild_cube_faces<PageId, Action>(
     asset_server: Res<AssetServer>,
     config: Res<KaleidoscopeMenuConfig>,
     rings: Query<(Entity, &ActiveMenuPages<PageId, Action>, Option<&RenderedMenuPages<PageId>>), With<MenuRing>>,
+    cameras: Query<(&Camera, &ambition_menu::MenuSurface), With<KaleidoscopePauseCamera>>,
     faces: Query<(Entity, &ChildOf, Option<&RenderedFace<PageId, Action>>), With<AmbitionMenuPage<PageId>>>,
     live: reconcile::LiveFaceNodes<Action>,
 ) where
@@ -853,14 +858,17 @@ pub fn rebuild_cube_faces<PageId, Action>(
 {
     let config_changed = config.is_changed();
     for (ring, pages, rendered) in &rings {
+        let viewport = cameras.iter().find(|(_, owner)| owner.0 == ring)
+            .and_then(|(camera, _)| cube_viewport_size(camera));
+        let geo = geometry_for_viewport(config.geometry, viewport);
+        let geometry_changed = rendered.is_none_or(|rendered| rendered.geometry != geo);
         // Publication identity is local to this ring. Broad component change
         // ticks do not invalidate content whose values remain the same.
-        if !config_changed && !renderer_page_identity_changed(
+        if !config_changed && !geometry_changed && !renderer_page_identity_changed(
             rendered.map(|previous| previous.version),
             rendered.and_then(|previous| previous.active.as_ref()),
             pages,
         ) { continue; }
-        let geo = config.geometry;
         let page_count = pages.pages.len();
         let n = page_count.max(1) as f32;
         let flip = config.inside_x_flip;
@@ -876,7 +884,7 @@ pub fn rebuild_cube_faces<PageId, Action>(
         let mut retired: Vec<Entity> = Vec::new();
         for (entity, parent, rendered) in &faces {
             if parent.parent() != ring { continue; }
-            let keep = match (config_changed, rendered) {
+            let keep = match (config_changed || geometry_changed, rendered) {
                 (false, Some(rendered)) => pages
                     .pages
                     .iter()
@@ -1000,6 +1008,7 @@ pub fn rebuild_cube_faces<PageId, Action>(
         commands.entity(ring).insert(RenderedMenuPages {
             version: pages.version,
             active: pages.active.clone(),
+            geometry: geo,
         });
     }
 }
@@ -1607,21 +1616,31 @@ fn bind_scene_layers(
     }
 }
 
+fn cube_viewport_size(camera: &Camera) -> Option<Vec2> {
+    camera.viewport.as_ref().map(|viewport| viewport.physical_size.as_vec2())
+        .or_else(|| camera.logical_viewport_size())
+        .filter(|size| size.is_finite() && size.cmpgt(Vec2::ZERO).all())
+}
+
+/// Narrow viewports add page height without moving the viewing point.
+fn geometry_for_viewport(base: MenuCubeGeometry, size: Option<Vec2>) -> MenuCubeGeometry {
+    let Some(size) = size else { return base; };
+    MenuCubeGeometry {
+        page_height: base.page_height.max(base.page_width * size.y / size.x),
+        ..base
+    }
+}
+
 fn fit_cube_camera_regions(
     config: Res<KaleidoscopeMenuConfig>,
     mut cameras: Query<(&Camera, &mut Projection), With<KaleidoscopePauseCamera>>,
 ) {
-    let geometry = config.geometry;
     for (camera, mut projection) in &mut cameras {
-        let size = camera
-            .viewport
-            .as_ref()
-            .map(|viewport| viewport.physical_size.as_vec2())
-            .or_else(|| camera.logical_viewport_size());
-        let Some(size) = size.filter(|size| size.cmpgt(Vec2::ZERO).all()) else {
+        let Some(size) = cube_viewport_size(camera) else {
             continue;
         };
-        let ratio = (geometry.page_width / geometry.page_height / (size.x / size.y)).max(1.0);
+        let geometry = geometry_for_viewport(config.geometry, Some(size));
+        let ratio = geometry.page_height / config.geometry.page_height;
         let fov = 2.0
             * ((ambition_menu::MenuCubeGeometry::CAMERA_FOV_RADIANS * 0.5).tan() * ratio).atan();
         // Keep the camera at the cube's viewing point. Moving back exposes the rear face.

@@ -813,9 +813,8 @@ frontends use one cached System model and one action consumer. Guards:
 `rebind_capture_follows_the_owners_devices_and_changes_only_that_profile`,
 `each_menu_publishes_and_refreshes_its_owners_rebind_rows` (both backends) and
 `a_backend_change_applies_once_and_the_next_action_uses_the_new_frontend`.
-Production captures reach Rebind in Cube and Grid. Do not restore global
-capture or per-backend action consumers. Main-game menu admission and retirement,
-prompts and remaining pointer routing still need the full two-pad playthrough.
+Do not restore global capture or per-backend action consumers. The current
+two-pad admission and capture guards are below.
 
 Grid text fits its menu region and restores its authored maximum (`c10ff5c21`).
 Guard: `text_fits_its_menu_region_and_recovers_without_changing_another_menu`.
@@ -840,16 +839,38 @@ and `an_inventory_context_gets_its_verb_without_a_simulation_tick`.
 Cue publication uses the frame clock and the inventory input context.
 Do not let another participant's menu change this prompt.
 
+Local menus now follow session admission and local handles (`a3d838d1c`).
+The join press stays separate from opening a menu. Rebind capture consumes only
+its owner's menu frame, including Inventory and Map shortcuts. Guards:
+`two_pads_join_open_and_close_their_own_menus_on_both_backends` and
+`participant_and_session_retirement_remove_linked_presentations`.
+Do not derive menu lifetime from device or body presence.
+
+Cube hover now uses pointer identity (`499fa1a51`). Guard:
+`another_participants_pad_does_not_block_mouse_focus_in_a_cube_menu`.
+Another participant's pad must not block mouse focus in a menu.
+
+Narrow menu regions now use a taller Cube canvas and a three-column item
+grid with details below it (`57462d561`). Both backends use the same layout
+for publication and navigation. Text fits its container and recovers its size
+when space returns. Guards:
+`resizing_one_viewport_rebuilds_only_its_canvas_and_restores_its_shape`,
+`portrait_navigation_follows_the_published_columns_after_resize` and
+`spatial_navigation_uses_the_current_inventory_layout`.
+Do not restore fixed inventory dimensions in either navigation path.
+
+The GPU guard `two_pad_menus_draw_in_their_own_regions` draws Equipment and
+Rebind in separate regions on both backends. The captures show no overlapping
+labels. Some item captions and detail text remain too small in narrow regions.
+Slice 4 stays open for text readability.
+
 **Next action (ordered slices; complete each behavior gate before moving):**
 
-4. **Independent local menus:** separate per-seat open state, focus, page,
-   inventory, and viewport UI for Grid and Kaleidoscope. Use the shared offline
-   pause arbiter; each seat must still control its own menu. A local menu on
-   a remote timeline captures its participant's input without pausing peers.
-   Use session membership for menu creation and retirement. Finish the
-   remaining pointer routing. Keep the joining Start press distinct from
-   opening a new menu.
-   Prove the full menu path with two pads before closing this slice.
+4. **Independent local menus:** make item captions and detail text readable
+   in narrow regions on both backends. Canvas sizing, shared layout dimensions,
+   navigation and resize isolation have behavior guards. Rerun the two-pad
+   flow and GPU captures before closing this slice. Admission, retirement,
+   input ownership and the shared offline pause arbiter have behavior guards.
 5. **Per-view presentation isolation:** a room transition cover follows only
    its affected participant/view; the other viewport renders and accepts
    gameplay. Define a deterministic policy for concurrent transition requests

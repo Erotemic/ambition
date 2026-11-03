@@ -16,7 +16,7 @@ use bevy::ecs::system::SystemParam;
 use super::page::{
     active_depth, control_disabled, control_focus_key, control_icon_tint, control_plane_depth,
     control_visual_state, icon_material, plane_depth, rect_layout, solid_material, spawn_node,
-    text_depth, text_layout, text_styling, thumb_layout, ControlParts, PlaneDepth, RenderedNode,
+    text_depth, text_layout, text_styling, thumb_layout, ControlParts, PlaneDepth, RenderedNode, TextWidthLimit,
 };
 use super::*;
 
@@ -414,7 +414,7 @@ fn patch_text_placement(
 ) {
     let mut text = commands.entity(entity);
     if (old_x, old_y) != (x, y) {
-        text.insert(text_layout(x, y));
+        text.insert((text_layout(x, y), TextWidthLimit::at(x)));
         if text_depth(old_y) != text_depth(y) {
             text.insert(plane_depth(text_depth(y), active));
         }

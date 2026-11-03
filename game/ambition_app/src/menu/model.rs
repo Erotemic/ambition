@@ -26,7 +26,7 @@ use ambition_platformer2d::menu::{
 
 #[cfg(test)]
 use ambition_platformer2d::items::OwnedItems;
-use ambition_platformer2d::items::{EquippedItems, Item, ItemCatalog, Inventory, ITEM_GRID_COLS, ITEM_GRID_ROWS};
+use ambition_platformer2d::items::{EquippedItems, Item, ItemCatalog, Inventory, ITEM_GRID_COLS};
 use ambition_platformer2d::persistence::settings::{UserSettings, VisualQualityProfile};
 use ambition_platformer2d::settings_menu::settings::{SettingsOption, SettingsOptionId, SettingsOptionKind};
 use ambition_platformer2d::settings_menu::system::{
@@ -94,6 +94,38 @@ pub const SYSTEM_DETAIL_LABEL_SLOT: u32 = 100;
 pub const SYSTEM_DETAIL_BODY_SLOT0: u32 = 101;
 /// Description lines reserved on the System bottom panel.
 pub const SYSTEM_DETAIL_BODY_LINES: u32 = 3;
+
+/// Inventory layout shared by page publication and cursor movement.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct InventoryLayout {
+    pub(crate) cols: usize,
+}
+
+impl InventoryLayout {
+    pub(crate) fn for_region(region: Option<&super::regions::MenuRegion>) -> Self {
+        let portrait = region.and_then(|region| region.0)
+            .is_some_and(|rect| rect.height() > rect.width());
+        Self { cols: if portrait { 3 } else { ITEM_GRID_COLS } }
+    }
+
+    pub(crate) fn rows(self) -> usize {
+        ambition_platformer2d::items::ITEM_COUNT.div_ceil(self.cols)
+    }
+
+    fn grid_rect(self) -> MenuRect {
+        if self.cols == ITEM_GRID_COLS { GRID_RECT }
+        else { MenuRect::new(11.0, 15.0, 78.0, 55.0) }
+    }
+
+    fn detail_rect(self) -> MenuRect {
+        if self.cols == ITEM_GRID_COLS { DETAIL_PANEL_RECT }
+        else { MenuRect::new(11.0, 72.0, 78.0, 26.0) }
+    }
+}
+
+impl Default for InventoryLayout {
+    fn default() -> Self { Self { cols: ITEM_GRID_COLS } }
+}
 
 impl MenuPage {
     /// The neighbouring page when turning the ring left/right (wraps), matching
@@ -455,10 +487,11 @@ pub fn items_spec(
     owned: &Inventory<'_>,
     items: &ItemCatalog,
     equipped: EquippedItems,
+    layout: InventoryLayout,
 ) -> ItemsOnlyPageSpec<MenuPage, MenuPageAction> {
     let mut spec = ItemsOnlyPageSpec::new(MenuPage::Items, line("menu.items.title"))
-        .with_grid(ITEM_GRID_ROWS, ITEM_GRID_COLS)
-        .with_grid_rect(GRID_RECT);
+        .with_grid(layout.rows(), layout.cols)
+        .with_grid_rect(layout.grid_rect());
     // No baked `selected_slot`: the focus highlight is applied IN PLACE from the
     // live cursor (`kaleidoscope_sync_focus_visuals`), so a hover does not rebuild
     // the items face (which would drop a `Pointer<Click>`).
@@ -526,9 +559,10 @@ pub fn build_items_page(
     owned: &Inventory<'_>,
     items: &ItemCatalog,
     equipped: EquippedItems,
+    layout: InventoryLayout,
 ) -> MenuPageModel<MenuPage, MenuPageAction> {
-    let mut model = items_spec(owned, items, equipped).into_page_model();
-    add_detail_panel(&mut model);
+    let mut model = items_spec(owned, items, equipped, layout).into_page_model();
+    add_detail_panel(&mut model, layout);
     add_edge_buttons(&mut model, MenuPage::Items);
     model
 }
@@ -538,15 +572,17 @@ pub fn build_items_page(
 /// region for the whole page, not one per cell.
 ///
 /// See [`items_detail_slot_text`] for the slot→string mapping.
-fn add_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>) {
+fn add_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>, layout: InventoryLayout) {
+    let rect = layout.detail_rect();
+    let center = rect.x + rect.w * 0.5;
     model.panel(
-        DETAIL_PANEL_RECT,
+        rect,
         colour(menu_look().panel),
         None,
     );
     model.text(
-        79.6,
-        23.0,
+        center,
+        rect.y + rect.h * 0.073,
         2.6,
         line("menu.items.selected"),
         MenuTextAlign::Center,
@@ -555,9 +591,9 @@ fn add_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>) {
     for line_idx in 0..ITEMS_DETAIL_BODY_LINES {
         model.dynamic_text(
             ITEMS_DETAIL_BODY_SLOT0 + line_idx,
-            79.6,
-            28.5 + line_idx as f32 * 3.2,
-            1.55,
+            center,
+            rect.y + rect.h * (0.22 + line_idx as f32 * 0.063),
+            (rect.h / 20.0).min(1.55),
             MenuTextAlign::Center,
             colour(menu_look().body),
         );
@@ -633,6 +669,7 @@ pub fn build_inventory_pages(
     // rows render + the scrollbar thumb position.
     system_window_start: usize,
     open_entry: Option<SystemMenuEntryId>,
+    layout: InventoryLayout,
 ) -> Vec<MenuPageModel<MenuPage, MenuPageAction>> {
     build_inventory_pages_with_quality_prompt(
         owned,
@@ -645,6 +682,7 @@ pub fn build_inventory_pages(
         open_entry,
         None,
         crate::menu::map_page::build_map_page(None),
+        layout,
     )
 }
 
@@ -663,9 +701,10 @@ pub fn build_inventory_pages_with_quality_prompt(
     pending_quality: Option<VisualQualityProfile>,
     // The Map page, as the game draws it (`map_page::MapPageSource::page`).
     map_page: MenuPageModel<MenuPage, MenuPageAction>,
+    layout: InventoryLayout,
 ) -> Vec<MenuPageModel<MenuPage, MenuPageAction>> {
     vec![
-        build_items_page(owned, items, equipped),
+        build_items_page(owned, items, equipped, layout),
         map_page,
         build_quest_page(owned, items),
         build_system_page_with_quality_prompt(

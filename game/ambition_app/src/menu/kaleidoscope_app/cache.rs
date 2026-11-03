@@ -10,11 +10,13 @@ use super::*;
 /// only when something it depends on actually changed: the inventory, the focus
 /// cursor, the active page, the just-opened edge, or the very first publish.
 pub(crate) fn republish_kaleidoscope_pages(
+    regions: Query<&crate::menu::regions::MenuRegion>,
     settings: Res<UserSettings>,
     owned: Option<Res<OwnedItems>>,
     // The menu owner supplies the hand and worn abilities shown as equipped.
     body_source: MenuBodySource,
     mut menus: Query<(
+        Entity,
         &ambition_platformer2d::inventory_ui::InventoryMenu,
         &mut ActiveMenuPages<MenuPage, MenuPageAction>,
         &KaleidoscopeCursor,
@@ -29,7 +31,7 @@ pub(crate) fn republish_kaleidoscope_pages(
     let Some(owned) = owned else {
         return;
     };
-    for (menu_owner, mut pages, cursor, system_nav, cache, scroll, mut publication, ui_state) in
+    for (menu_entity, menu_owner, mut pages, cursor, system_nav, cache, scroll, mut publication, ui_state) in
         &mut menus
     {
         let MenuPublication { was_open, last } = &mut *publication;
@@ -62,6 +64,7 @@ pub(crate) fn republish_kaleidoscope_pages(
             continue;
         };
         let key = RebuildKey {
+            layout: crate::menu::model::InventoryLayout::for_region(regions.get(menu_entity).ok()),
             system_revision: cache.model_builds,
             window_start,
             active: pages.active,
@@ -134,6 +137,7 @@ pub(crate) fn republish_kaleidoscope_pages(
             system_nav.open_entry,
             key.quality,
             map_page.page(key.map.as_ref()),
+            key.layout,
         );
         pages.replace_pages(built, active);
         *last = Some(key);
@@ -147,6 +151,7 @@ pub(crate) fn republish_kaleidoscope_pages(
 /// forces a rebuild — see `republish_kaleidoscope_pages`.
 #[derive(PartialEq)]
 pub(crate) struct RebuildKey {
+    layout: crate::menu::model::InventoryLayout,
     system_revision: u64,
     window_start: usize,
     active: Option<MenuPage>,
@@ -167,6 +172,9 @@ pub(crate) struct RebuildKey {
 impl RebuildKey {
     fn changed_fields(&self, next: &Self) -> Vec<&'static str> {
         let mut changed = Vec::new();
+        if self.layout != next.layout {
+            changed.push("layout");
+        }
         if self.system_revision != next.system_revision {
             changed.push("system_revision");
         }

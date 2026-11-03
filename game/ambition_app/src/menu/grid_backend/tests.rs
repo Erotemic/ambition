@@ -2,7 +2,7 @@ use crate::menu::dispatch::menu_action_activated;
 use super::*;
 use crate::menu::model::{build_inventory_pages, system_rows, SystemRow};
 use ambition_platformer2d::characters::brain::ActionSet;
-use ambition_platformer2d::items::Item;
+use ambition_platformer2d::items::{Item, ITEM_GRID_COLS};
 use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d::platformer::schedule::GameMode;
 use ambition_platformer2d::settings_menu::settings::SettingsOptionId;
@@ -435,7 +435,7 @@ fn cursor_focus_key_matches_a_rendered_control() {
         &Default::default(),
         0,
         None,
-    );
+     crate::menu::model::InventoryLayout::default());
     let items = pages.iter().find(|p| p.id == MenuPage::Items).unwrap();
     let model = SystemMenuModel::build(&settings, &Default::default(), &Default::default());
     let key = cursor_focus_key(
@@ -1409,4 +1409,38 @@ fn each_menu_publishes_and_refreshes_its_owners_rebind_rows() {
     assert_ne!(changed[&second], initial[&second]);
     for _ in 0..4 { app.update(); }
     assert_eq!(roots(&mut app), changed);
+}
+
+#[test]
+fn portrait_navigation_follows_the_published_columns_after_resize() {
+    let mut app = grid_app();
+    set_frame(&mut app, |frame| frame.inventory = true);
+    app.update();
+    let menu = crate::menu::test_support::menu_id(app.world());
+    app.world_mut().get_mut::<crate::menu::regions::MenuRegion>(menu).unwrap().0 =
+        Some(Rect::from_corners(Vec2::ZERO, Vec2::new(400.0, 720.0)));
+    let layout = crate::menu::model::InventoryLayout::for_region(
+        app.world().get::<crate::menu::regions::MenuRegion>(menu));
+    let owned = OwnedItems::default();
+    let catalog = ambition_platformer2d::items::test_item_catalog();
+    let page = crate::menu::model::build_items_page(
+        &ambition_platformer2d::items::Inventory::new(&owned, None), catalog,
+        Default::default(), layout);
+    let cell = |index| page.nodes.iter().find_map(|node| match node {
+        MenuNode::Control { rect, action: Some(MenuPageAction::Use(item)), .. }
+            if item.index() == index => Some(*rect),
+        _ => None,
+    }).unwrap();
+    set_frame(&mut app, |frame| frame.down = true);
+    app.update();
+    let focus = crate::menu::test_support::menu_component::<KaleidoscopeCursor>(app.world()).focus();
+    let MenuFocus::Item(index) = focus else { panic!("cursor left the grid") };
+    assert_eq!(cell(index).x, cell(0).x);
+    assert!(cell(index).y > cell(0).y);
+    app.world_mut().get_mut::<crate::menu::regions::MenuRegion>(menu).unwrap().0 =
+        Some(Rect::from_corners(Vec2::ZERO, Vec2::new(1280.0, 720.0)));
+    set_frame(&mut app, |frame| frame.down = true);
+    app.update();
+    assert_eq!(crate::menu::test_support::menu_component::<KaleidoscopeCursor>(app.world()).focus(),
+        MenuFocus::Item(index + ITEM_GRID_COLS));
 }

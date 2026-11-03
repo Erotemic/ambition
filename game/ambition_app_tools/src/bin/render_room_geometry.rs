@@ -277,6 +277,7 @@ fn render_room_projected(
         // boss whose hurtbox is a small head inside a big body envelope
         // reads correctly.
         for hb in boss_encounter::ecs::boss_spawn_hurtboxes(
+            sprite_content(),
             boss_catalog,
             &b.id,
             &b.name,
@@ -519,6 +520,22 @@ fn run_anomaly_report(room_set: &world::rooms::RoomSet) {
     }
 }
 
+/// The sprite metrics of the shared content library
+/// (`game/ambition_content_library/library.json`), loaded once: the boss
+/// catalog and the rest-pose hurtboxes are derived from them.
+fn sprite_content() -> &'static ambition_platformer2d::sprite_sheet::SpriteContent {
+    use ambition_platformer2d::asset_manager::content_library::{ContentLibraries, ContentLibrary};
+    use ambition_platformer2d::sprite_sheet::{baked_sheet_rons::SheetTexts, SpriteContent};
+    static CONTENT: std::sync::OnceLock<SpriteContent> = std::sync::OnceLock::new();
+    CONTENT.get_or_init(|| {
+        let mut libraries = ContentLibraries::default();
+        let library = concat!(env!("CARGO_MANIFEST_DIR"), "/../ambition_content_library/library.json");
+        libraries.insert(ContentLibrary::read(library).expect("read the shared content library")).unwrap();
+        SpriteContent::from_texts(SheetTexts::from_libraries(&libraries).expect("publish the shared art first"))
+            .expect("admit the shared sprite metadata")
+    })
+}
+
 fn main() {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
 
@@ -533,7 +550,7 @@ fn main() {
     let room_set = project
         .to_room_set(&manifest, &vocabulary)
         .expect("room_set should build");
-    let boss_catalog = ambition_content::bosses::shipped_boss_catalog();
+    let boss_catalog = ambition_content::bosses::shipped_boss_catalog(sprite_content());
 
     // `report` mode: scan every room's RUNTIME projection for spatial
     // anomalies the LDtk validator can't see (it validates LDtk-level

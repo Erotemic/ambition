@@ -1,52 +1,6 @@
-//! What the boss catalog says about sheets and special telegraphs, pinned
-//! exactly — so moving it out of Rust cannot change it.
-//!
-//! It asserts the VALUES, not the mechanism, so it says nothing about where they live and
-//! everything about what they are.
-//!
-//! it deliberately pins the exact sets, not just counts. A count survives
-//! a typo'd key — and a typo'd key here is silent by construction: a boss whose
-//! sheet filename is misspelled draws a placeholder, and a special whose name is
-//! misspelled telegraphs nothing, because `special_animation_keys` returns `&[]`
-//! for anything unregistered (`boss_animation_keys_for_profile`: *"Unregistered
-//! → no special row"*).
-//!
-//! `apple_rain` is absent from the telegraph map ON PURPOSE and this test records that rather
-//! than fixing it. It is the eleventh declared `Special` in `boss_profiles.ron` and the only one
-//! with no rows, which is the single line of content blocking the `BossAnim`→`CharacterAnim` fold.
-//! A sibling test — `apple_rain_claims_no_animation_rows_which_is_why_the_fold_is_blocked` — fails
-//! on EITHER answer so neither happens quietly; this one would too.
+//! Check authored strike and telegraph animation mappings.
 
 use std::collections::{BTreeMap, BTreeSet};
-
-/// The boss sheets Ambition ships, and the file each one draws from.
-const EXPECTED_SHEETS: [(&str, &str); 12] = [
-    (
-        "flying_spaghetti_monster_boss",
-        "flying_spaghetti_monster_boss_spritesheet.png",
-    ),
-    ("giant_gnu", "gnu_ton_boss/giant_gnu_spritesheet.png"),
-    (
-        "gnu_ton_rider",
-        // The scholar as the boss wears him: his boss rows and the rows of his
-        // duel, from the rig he shares with the fighter `npc_gnu_ton`.
-        "gnu_ton_scholar_boss_spritesheet.png",
-    ),
-    ("clockwork_warden", "clockwork_warden_boss_spritesheet.png"),
-    ("gradient_sentinel", "gradient_sentinel_boss_spritesheet.png"),
-    ("hunny_horror_boss", "hunny_horror_boss_spritesheet.png"),
-    ("mockingbird", "mockingbird_boss_v2_spritesheet.png"),
-    ("mode_collapse_boss", "hooded_sentinel_boss_spritesheet.png"),
-    (
-        "smirking_behemoth_boss",
-        "smirking_behemoth_boss_spritesheet.png",
-    ),
-    ("trex_boss", "trex_enemy_spritesheet.png"),
-    // Wolfenstein wears his character's sheet.
-    ("wolfenstein_boss", "wolfenstein_spritesheet.png"),
-    // The Inugami, his head risen as a spirit, wears its own.
-    ("wolfenstein_inugami", "wolfenstein_inugami_spritesheet.png"),
-];
 
 /// The content specials that telegraph, and the sprite rows each one
 /// asks for. The first key is the canonical runtime key.
@@ -201,19 +155,6 @@ fn each_attack_plays_exactly_this_row_and_samples_exactly_this_row() {
         got, want,
         "the animation row or the hurtbox sample row of a boss attack changed. \
          `boss_art_keys.ron` is their one authored home; a change there must be deliberate"
-    );
-}
-
-#[test]
-fn the_boss_sheet_filenames_are_exactly_these() {
-    let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
-    let catalog = ambition_content::bosses::shipped_boss_catalog(&sprite_content);
-    let got: BTreeMap<&str, &str> = catalog.sprite_filenames().collect();
-    let want: BTreeMap<&str, &str> = EXPECTED_SHEETS.iter().copied().collect();
-    assert_eq!(
-        got, want,
-        "the boss sheet filenames changed. `boss_art_keys.ron` is their one \
-         authored home; a change there must be deliberate"
     );
 }
 

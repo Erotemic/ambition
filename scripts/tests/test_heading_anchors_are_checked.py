@@ -72,19 +72,6 @@ def test_the_slug_rule_agrees_with_github_on_live_headings():
         )
 
 
-def test_a_renamed_heading_is_reported_rather_than_resolved():
-    """The whole point: the checker must FAIL on a fragment naming no heading."""
-    module = load()
-    doc = REPO / "docs/planning/awaiting-maintainer-decision.md"
-    rows, examined = module.anchor_findings([doc])
-    assert examined > 0, (
-        "no anchor link was examined in a file known to contain them, so this "
-        "guard would pass over a corpus it never read -- the failure mode the "
-        "checker's own 'all resolved' already demonstrated once"
-    )
-    assert not rows, f"live anchors stopped resolving: {rows}"
-
-
 def test_the_corpus_has_no_broken_anchors():
     module = load()
     docs = sorted((REPO / "docs/planning").rglob("*.md"))

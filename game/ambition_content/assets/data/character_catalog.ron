@@ -10655,7 +10655,8 @@
             manifest: "sprites/history_lucy_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
-            // 110 cm (her sheet is drawn at 145 cm; the game draws her at this height).
+            // 110 cm. Her sheet is her own drawing (`targets/characters/history_lucy.py`):
+            // the character generator draws only modern people.
             standing_height: Some(42.6),
             composition: None,
             default_brain: "stand_still",

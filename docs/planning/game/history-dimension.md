@@ -48,7 +48,7 @@ the record and sighs about the footnotes.
 | Generator | `tools/ambition_ldtk_tools/specs/history_dimension/make_specs.py` |
 | Dialogue | `dialogue/sandbox/history.yarn`, one node per resident, named after its spec |
 | Test | `game/ambition_app/tests/the_history_dimension.rs` |
-| Art | the sprite tools: `backgrounds/history_eras.py` and `backgrounds/history_origins.py` (the biomes), `targets/characters/` (the creatures), `data/townsfolk/history_*.chargen.yaml` (the residents), `targets/props/history_*_props.py` |
+| Art | the sprite tools: `backgrounds/history_eras.py` and `backgrounds/history_origins.py` (the biomes), `targets/characters/` (the creatures), `data/townsfolk/history_*.chargen.yaml` (the residents; Lucy, who is not a modern human, is her own drawing, `targets/characters/history_lucy.py`), `targets/props/history_*_props.py` |
 
 ## Tone
 

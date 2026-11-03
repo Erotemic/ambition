@@ -167,7 +167,7 @@ impl From<ae::AbilitySet> for EditableAbilitySet {
 
 impl Default for EditableAbilitySet {
     fn default() -> Self {
-        ae::AbilitySet::sandbox_all().into()
+        ae::AbilitySet { unrestricted_blink: false, ..ae::AbilitySet::ALL }.into()
     }
 }
 

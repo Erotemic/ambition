@@ -22,13 +22,8 @@
 //! whose value is ~0, so poking `digital_mut()` alone silently produces
 //! nothing — the event path fills both halves exactly like a physical pad.
 
-use bevy::asset::AssetPlugin;
-use bevy::image::ImagePlugin;
 use bevy::input::gamepad::{RawGamepadButtonChangedEvent, RawGamepadEvent};
 use bevy::prelude::*;
-use bevy::state::app::StatesPlugin;
-use bevy::transform::TransformPlugin;
-use bevy::MinimalPlugins;
 
 use ambition_app::app::shell_host;
 use ambition_platformer2d::game_shell::{ActiveShellSequence, ShellLauncherState, ShellRouter};
@@ -46,26 +41,17 @@ use leafwing_input_manager::prelude::{ActionState, Buttonlike};
 /// (the same `compose_ambition_startup_sequence` the visible binary runs).
 fn shell_input_app(with_startup_cards: bool) -> App {
     let mut app = App::new();
-    app.add_plugins(MinimalPlugins);
-    app.add_plugins(AssetPlugin::default());
-    app.add_plugins(ImagePlugin::default());
-    app.add_plugins(TransformPlugin);
-    app.add_plugins(StatesPlugin);
-    app.init_state::<ambition_platformer2d::platformer::schedule::GameMode>();
+    ambition_platformer2d::runtime::add_headless_foundation(&mut app);
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_secs_f64(1.0 / 60.0),
+    ));
+    app.add_plugins(bevy::text::TextPlugin);
     app.insert_resource(shell_host::AmbitionShellHosted);
     ambition_app::app::init_sandbox_resources(&mut app);
     ambition_app::app::add_simulation_plugins(&mut app);
     // The host input face: leafwing + the participant spawn + the context
     // resolver + the populate chain (self-sufficient headless).
     app.add_plugins(ambition_platformer2d::host::PlatformerHostPlugins);
-    // The touch virtual device. Its HUD spawn orders after the app's font
-    // load, so register that Startup system exactly as the app does (the
-    // Font asset type must exist for it headless; no TextPlugin runs here).
-    app.init_asset::<bevy::text::Font>();
-    app.add_systems(
-        Startup,
-        ambition_platformer2d::render::ui_fonts::load_ui_fonts,
-    );
     app.add_plugins(TouchControlsPlugin);
     shell_host::compose_ambition_shell_host(&mut app);
     if with_startup_cards {
@@ -189,8 +175,7 @@ fn startup_cards_and_launcher_run_on_the_participant_with_no_actor() {
     //
     // a tap is down THEN up. The menu bridge activates on the way up, so a
     // finger that lands on the card and slides away has not chosen anything —
-    // Bevy reports a pointer that comes up still over the control as a return
-    // to `Interaction::Hovered`.
+    // Picking reports the press and release on the same control.
     let first_segment = current_segment(&app).expect("a card is up");
     let card_surface = {
         let mut q = app
@@ -202,18 +187,31 @@ fn startup_cards_and_launcher_run_on_the_participant_with_no_actor() {
             })
             .expect("the card root is a pressable tap-anywhere surface")
     };
-    app.world_mut()
-        .entity_mut(card_surface)
-        .insert(Interaction::Pressed);
+    use bevy::picking::{
+        backend::HitData,
+        events::{Pointer, Press, Release},
+        pointer::{Location, PointerButton, PointerId},
+    };
+    let location = Location {
+        target: bevy::camera::NormalizedRenderTarget::None { width: 1280, height: 720 },
+        position: Vec2::ZERO,
+    };
+    app.world_mut().trigger(Pointer::new(
+        PointerId::Mouse, location.clone(),
+        Press { button: PointerButton::Primary, hit: HitData::new(card_surface, 0.0, None, None), count: 1 },
+        card_surface,
+    ));
     app.update();
     assert_eq!(
         current_segment(&app).as_ref(),
         Some(&first_segment),
         "a finger resting on the card has not advanced it"
     );
-    app.world_mut()
-        .entity_mut(card_surface)
-        .insert(Interaction::Hovered);
+    app.world_mut().trigger(Pointer::new(
+        PointerId::Mouse, location,
+        Release { button: PointerButton::Primary, hit: HitData::new(card_surface, 0.0, None, None) },
+        card_surface,
+    ));
     app.update();
     app.update();
     let second_segment = current_segment(&app).expect("the next card is up");

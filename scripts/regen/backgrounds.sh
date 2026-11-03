@@ -4,8 +4,15 @@
 #
 # Usage:
 # ./scripts/regen/backgrounds.sh
+# ./scripts/regen/backgrounds.sh --theme art --skin art   # only these products
+# ./scripts/regen/backgrounds.sh --missing-only           # only what is not published
 #   AMBITION_BACKGROUND_PYTHON=/path/to/python ./scripts/regen/backgrounds.sh
 #   AMBITION_SPRITE_PYTHON=/path/to/python ./scripts/regen/backgrounds.sh
+#
+# `--missing-only` builds each scene, skin and sky part that has no published
+# product, and keeps every one that has, stale or partial ones too (the same
+# rule as `sprites.sh --missing-only`). With `--theme` or `--skin` it looks
+# only at those. It does not draw the placeholder profiles.
 #
 # The default interpreters are the two tool-local virtualenvs created by
 # run_developer_setup.sh. PYTHON remains a legacy override for both tools.
@@ -17,7 +24,7 @@ cd "$repo_root"
 
 scoped_request=false
 for arg in "$@"; do
-    case "$arg" in --theme|--theme=*|--skin|--skin=*) scoped_request=true ;; esac
+    case "$arg" in --theme|--theme=*|--skin|--skin=*|--missing-only) scoped_request=true ;; esac
 done
 if "$scoped_request"; then
         source "$repo_root/scripts/lib/tool_python.sh"

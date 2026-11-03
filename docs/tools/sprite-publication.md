@@ -87,10 +87,23 @@ Scenery has scoped requests through the same bundle store:
 
 ```bash
 ./scripts/regen/backgrounds.sh --theme art --skin art --missing-only
+./scripts/regen/backgrounds.sh --missing-only
 ```
 
 Repeat `--theme` and `--skin` to select several units. These requests keep other
-published scenery. The T-rex's `trex_enemy_gameplay` target publishes gameplay
+published scenery. `--missing-only` alone selects every scene, skin and sky
+part, and builds only the ones that have no published product (the rule of
+`sprites.sh --missing-only`). It does not draw the placeholder profiles.
+
+The umbrella passes the flag to both bundle publishers:
+
+```bash
+./scripts/regen/assets.sh --missing-only                     # every category
+./scripts/regen/assets.sh --missing-only backgrounds sprites
+```
+
+Music, SFX and the quality variants are incremental already, so they run as
+they do without the flag. The T-rex's `trex_enemy_gameplay` target publishes gameplay
 geometry without a sheet. The `trex_enemy` presentation target declares it as a
 dependency. Both read the same source rig; gameplay does not read a quality tier.
 

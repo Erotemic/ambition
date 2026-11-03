@@ -4,6 +4,14 @@
 # Usage:
 # ./scripts/regen/assets.sh                    # backgrounds, sprites, quality variants, music, sfx
 # ./scripts/regen/assets.sh sprites music      # selected categories, in the given order
+# ./scripts/regen/assets.sh --missing-only     # only the art that is not published
+# ./scripts/regen/assets.sh --missing-only backgrounds sprites
+#
+# `--missing-only` is passed to the categories that publish bundles
+# (backgrounds, sprites): each builds only the products that have nothing
+# published, and keeps the others even when they are stale. The other
+# categories are incremental already (each rebuilds only what changed), so
+# they run as they do without it.
 #
 # Category-specific options live on the category scripts:
 # ./scripts/regen/backgrounds.sh --help
@@ -32,6 +40,21 @@ if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
     exit 0
 fi
 
+missing_only=false
+requested=()
+for arg in "$@"; do
+    case "$arg" in
+        --missing-only) missing_only=true ;;
+        -*) echo "unknown option: $arg (see --help)" >&2; exit 2 ;;
+        *) requested+=("$arg") ;;
+    esac
+done
+set -- ${requested[@]+"${requested[@]}"}
+missing_args=()
+if "$missing_only"; then
+    missing_args=(--missing-only)
+fi
+
 if [ "$#" -eq 0 ]; then
     producer_list="$(ambition_library_producer --list)"
     categories=()
@@ -49,10 +72,10 @@ run_category() {
             python3 "$repo_root/scripts/regen/grab_font_assets.py"
             ;;
         backgrounds|background)
-            bash "$repo_root/scripts/regen/backgrounds.sh"
+            bash "$repo_root/scripts/regen/backgrounds.sh" ${missing_args[@]+"${missing_args[@]}"}
             ;;
         sprites|sprite)
-            bash "$repo_root/scripts/regen/sprites.sh"
+            bash "$repo_root/scripts/regen/sprites.sh" ${missing_args[@]+"${missing_args[@]}"}
             ;;
         variants|quality-variants|visual-quality)
             bash "$repo_root/scripts/regen/quality_variants.sh"

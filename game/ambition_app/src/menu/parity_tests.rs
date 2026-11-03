@@ -296,7 +296,7 @@ fn grid_and_cube_render_the_same_non_edge_controls_per_page() {
         &DevSnapshot::default(),
         0,
         None,
-    );
+     crate::menu::model::InventoryLayout::default());
 
     // `MenuPageAction` is `Eq` but not `Hash`/`Ord`, so compare action SETS as a
     // sorted, deduped list of their debug strings (order-independent membership).

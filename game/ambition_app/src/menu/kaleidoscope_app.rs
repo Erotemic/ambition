@@ -45,8 +45,6 @@ use crate::menu::model::{
 use crate::menu::quality_confirm::VisualQualityConfirmState;
 use ambition_platformer2d::input::MenuControlFrame;
 use ambition_platformer2d::items::{Item, OwnedItems};
-#[cfg(feature = "kaleidoscope_menu")]
-use ambition_platformer2d::items::{ITEM_GRID_COLS, ITEM_GRID_ROWS};
 // ⚠ NOT gated on `kaleidoscope_menu`. `SystemMenuBinding::model`,
 // `reset_all_settings`, `is_value_setting` and `apply_system_option_step` are
 // compiled without that feature and all name these types; the narrower gate
@@ -1042,6 +1040,7 @@ pub(crate) use scrim::*;
 /// page; `back` closes the menu. The republish runs after this in the chain.
 #[allow(clippy::too_many_arguments)]
 fn kaleidoscope_focus_nav(
+    regions: Query<&super::regions::MenuRegion>,
     mut menu_frames: ResMut<ambition_platformer2d::input::SeatMenuFrames>,
     // Features C/D: keyboard navigation CLEARS the explicit scroll override so the
     // System window resumes following the selection cursor (the wheel/drag set it).
@@ -1207,7 +1206,7 @@ fn kaleidoscope_focus_nav(
         }
 
         if dx != 0 || dy != 0 {
-            match move_spatial(cursor.focus, dx, dy, active_page) {
+            match move_spatial(cursor.focus, dx, dy, crate::menu::model::InventoryLayout::for_region(regions.get(menu_entity).ok())) {
                 SpatialMove::Focus(next) => cursor.mark_keyboard(next),
                 SpatialMove::TurnLeft => {
                     turn_page(&mut pages, active_page.on_viewer_left(), &mut sfx);
@@ -1533,9 +1532,9 @@ enum SpatialMove {
 /// Port of the demo's `MockDemo::move_spatial` for the items grid + flanking
 /// arrows. Pure (no ECS) so it's unit-testable and easy to reason about. See
 /// [`kaleidoscope_focus_nav`] for the rule list.
-fn move_spatial(focus: MenuFocus, dx: i32, dy: i32, _page: MenuPage) -> SpatialMove {
-    let cols = ITEM_GRID_COLS as i32;
-    let rows = ITEM_GRID_ROWS as i32;
+fn move_spatial(focus: MenuFocus, dx: i32, dy: i32, layout: crate::menu::model::InventoryLayout) -> SpatialMove {
+    let cols = layout.cols as i32;
+    let rows = layout.rows() as i32;
 
     // Rule 3: on an arrow, moving further OUTWARD rotates the page; UP/DOWN never
     // reach/leave an arrow (rule 2); moving INWARD enters the adjacent column.

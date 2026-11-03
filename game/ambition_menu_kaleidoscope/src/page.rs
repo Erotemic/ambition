@@ -253,6 +253,7 @@ fn spawn_text(
         text_layout(x, y),
         plane_depth(text_depth(y), active),
         UiTextSize::from(Rh(size)),
+        TextWidthLimit::at(x),
         Text3d::new(text.to_string()),
         text_styling(color, align),
         MeshMaterial3d(material),
@@ -886,5 +887,59 @@ pub(super) fn icon_material(image: Handle<Image>, tint: Color) -> StandardMateri
         cull_mode: None,
         unlit: true,
         ..default()
+    }
+}
+
+/// Text must fit inside the horizontal space around its anchor.
+#[derive(Component)]
+pub(super) struct TextWidthLimit(f32);
+
+impl TextWidthLimit {
+    pub(super) fn at(x: f32) -> Self {
+        Self((x.min(100.0 - x) * 0.018).max(0.0))
+    }
+}
+
+pub(super) fn fit_text_width(
+    parents: Query<&Dimension>,
+    mut texts: Query<(&ChildOf, &TextWidthLimit, &Dimension, &Text3dDimensionOut, &mut Transform)>,
+) {
+    for (parent, limit, dimension, shaped, mut transform) in &mut texts {
+        let Ok(container) = parents.get(parent.parent()) else { continue };
+        if shaped.dimension.x <= 0.0 { continue; }
+        let width = dimension.x.min(container.x * limit.0);
+        let scale = width / shaped.dimension.x;
+        if transform.scale.x != scale || transform.scale.y != scale {
+            transform.scale.x = scale;
+            transform.scale.y = scale;
+        }
+    }
+}
+
+#[cfg(test)]
+mod text_fit_tests {
+    use super::*;
+
+    #[test]
+    fn text_recovers_its_requested_size_without_changing_another_container() {
+        let mut app = App::new();
+        app.add_systems(Update, fit_text_width);
+        let parent = app.world_mut().spawn(Dimension::from(Vec2::new(100.0, 100.0))).id();
+        let other = app.world_mut().spawn(Dimension::from(Vec2::new(300.0, 100.0))).id();
+        let mut shaped = Text3dDimensionOut::default();
+        shaped.dimension = Vec2::new(200.0, 20.0);
+        let text = app.world_mut().spawn((ChildOf(parent), TextWidthLimit::at(50.0),
+            Dimension::from(Vec2::new(200.0, 20.0)), shaped, Transform::default())).id();
+        let mut shaped = Text3dDimensionOut::default();
+        shaped.dimension = Vec2::new(200.0, 20.0);
+        let second = app.world_mut().spawn((ChildOf(other), TextWidthLimit::at(50.0),
+            Dimension::from(Vec2::new(200.0, 20.0)), shaped, Transform::default())).id();
+        app.update();
+        assert!(app.world().get::<Transform>(text).unwrap().scale.x < 1.0);
+        assert_eq!(app.world().get::<Transform>(second).unwrap().scale, Vec3::ONE);
+        *app.world_mut().get_mut::<Dimension>(parent).unwrap() = Dimension::from(Vec2::new(400.0, 100.0));
+        app.update();
+        assert_eq!(app.world().get::<Transform>(text).unwrap().scale, Vec3::ONE);
+        assert_eq!(app.world().get::<Transform>(second).unwrap().scale, Vec3::ONE);
     }
 }

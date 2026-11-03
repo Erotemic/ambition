@@ -4,7 +4,7 @@ use ambition_platformer2d::menu::MenuNode;
 #[test]
 fn items_face_wires_all_24_slots_from_our_catalog() {
     let owned = OwnedItems::default();
-    let spec = items_spec(&ambition_platformer2d::items::Inventory::new(&owned, None), ambition_platformer2d::items::test_item_catalog(), EquippedItems::default());
+    let spec = items_spec(&ambition_platformer2d::items::Inventory::new(&owned, None), ambition_platformer2d::items::test_item_catalog(), EquippedItems::default(), crate::menu::model::InventoryLayout::default());
     assert_eq!(
         spec.cells.len(),
         ambition_platformer2d::items::ITEM_COUNT,
@@ -32,7 +32,7 @@ fn items_face_wires_all_24_slots_from_our_catalog() {
 fn owned_and_equipped_flags_reflect_inventory_state() {
     let mut owned = OwnedItems::default();
     owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::Grapple, 1);
-    let spec = items_spec(&ambition_platformer2d::items::Inventory::new(&owned, None), ambition_platformer2d::items::test_item_catalog(), EquippedItems::of(ambition_platformer2d::items::test_item_catalog(), Some(Item::Grapple), None));
+    let spec = items_spec(&ambition_platformer2d::items::Inventory::new(&owned, None), ambition_platformer2d::items::test_item_catalog(), EquippedItems::of(ambition_platformer2d::items::test_item_catalog(), Some(Item::Grapple), None), crate::menu::model::InventoryLayout::default());
     let blink = &spec.cells[Item::Grapple.index()];
     assert!(blink.owned, "granted item reads owned");
     assert!(blink.equipped, "equipped item reads equipped");
@@ -54,7 +54,7 @@ fn owned_and_equipped_flags_reflect_inventory_state() {
 #[test]
 fn every_slot_of_the_grid_can_carry_the_cursor() {
     let catalog = ambition_platformer2d::items::test_item_catalog();
-    let page = build_items_page(&ambition_platformer2d::items::Inventory::new(&OwnedItems::default(), None), catalog, EquippedItems::default());
+    let page = build_items_page(&ambition_platformer2d::items::Inventory::new(&OwnedItems::default(), None), catalog, EquippedItems::default(), crate::menu::model::InventoryLayout::default());
     let slots: Vec<Item> = page
         .nodes
         .iter()
@@ -98,7 +98,7 @@ fn a_carried_key_item_is_on_the_quest_page_not_the_equipment_grid() {
         assert!(is_equipment(catalog, item), "{item:?} is equipment");
     }
 
-    let spec = items_spec(&ambition_platformer2d::items::Inventory::new(&owned, None), catalog, EquippedItems::default());
+    let spec = items_spec(&ambition_platformer2d::items::Inventory::new(&owned, None), catalog, EquippedItems::default(), crate::menu::model::InventoryLayout::default());
     for item in carried {
         let cell = &spec.cells[item.index()];
         assert_eq!(
@@ -138,7 +138,7 @@ fn a_carried_key_item_is_on_the_quest_page_not_the_equipment_grid() {
 fn a_cell_states_each_fact_once() {
     let catalog = ambition_platformer2d::items::test_item_catalog();
     let owned = OwnedItems::starter(catalog);
-    let page = build_items_page(&ambition_platformer2d::items::Inventory::new(&owned, None), catalog, EquippedItems::of(catalog, Some(Item::GunSword), None));
+    let page = build_items_page(&ambition_platformer2d::items::Inventory::new(&owned, None), catalog, EquippedItems::of(catalog, Some(Item::GunSword), None), crate::menu::model::InventoryLayout::default());
     let details: Vec<String> = page
         .nodes
         .iter()
@@ -178,7 +178,7 @@ fn a_stock_of_bombs_shows_its_count_and_a_unique_item_does_not() {
     let mut owned = OwnedItems::default();
     owned.grant(catalog, Item::Bomb, 4);
     owned.grant(catalog, Item::Grapple, 1);
-    let spec = items_spec(&ambition_platformer2d::items::Inventory::new(&owned, None), catalog, EquippedItems::default());
+    let spec = items_spec(&ambition_platformer2d::items::Inventory::new(&owned, None), catalog, EquippedItems::default(), crate::menu::model::InventoryLayout::default());
     assert_eq!(spec.cells[Item::Bomb.index()].count, Some(4));
     assert_eq!(spec.cells[Item::Grapple.index()].count, None);
 }
@@ -207,7 +207,7 @@ fn item_cells_carry_a_sprite_icon_when_one_exists_else_fall_back_to_text() {
     // without art carry `None` (the lib then renders the text label).
     // The demo's bag: every real item is owned, and a placeholder is locked.
     let owned = OwnedItems::starter(ambition_platformer2d::items::test_item_catalog());
-    let page = build_items_page(&ambition_platformer2d::items::Inventory::new(&owned, None), ambition_platformer2d::items::test_item_catalog(), EquippedItems::default());
+    let page = build_items_page(&ambition_platformer2d::items::Inventory::new(&owned, None), ambition_platformer2d::items::test_item_catalog(), EquippedItems::default(), crate::menu::model::InventoryLayout::default());
     // Item-grid controls are emitted in catalog slot order, so the icon list
     // lines up 1:1 with `Item::ALL`.
     let icons: Vec<Option<String>> = page
@@ -245,7 +245,7 @@ fn item_cells_carry_a_sprite_icon_when_one_exists_else_fall_back_to_text() {
 #[test]
 fn items_page_has_one_detail_panel_not_per_cell_descriptions() {
     let owned = OwnedItems::default();
-    let page = build_items_page(&ambition_platformer2d::items::Inventory::new(&owned, None), ambition_platformer2d::items::test_item_catalog(), EquippedItems::default());
+    let page = build_items_page(&ambition_platformer2d::items::Inventory::new(&owned, None), ambition_platformer2d::items::test_item_catalog(), EquippedItems::default(), crate::menu::model::InventoryLayout::default());
     for node in &page.nodes {
         if let ambition_platformer2d::menu::MenuNode::Control {
             detail: Some(d),
@@ -792,7 +792,7 @@ fn viewer_left_button_turns_to_the_right_neighbor() {
     assert_eq!(MenuPage::Items.on_viewer_left(), MenuPage::Map);
     assert_eq!(MenuPage::Items.on_viewer_right(), MenuPage::System);
     let owned = OwnedItems::default();
-    let page = build_items_page(&ambition_platformer2d::items::Inventory::new(&owned, None), ambition_platformer2d::items::test_item_catalog(), EquippedItems::default());
+    let page = build_items_page(&ambition_platformer2d::items::Inventory::new(&owned, None), ambition_platformer2d::items::test_item_catalog(), EquippedItems::default(), crate::menu::model::InventoryLayout::default());
     let left = page.nodes.iter().find_map(|n| match n {
         ambition_platformer2d::menu::MenuNode::Control {
             action: Some(MenuPageAction::ChangePage(p)),
@@ -842,7 +842,7 @@ fn the_radio_screen_says_what_is_playing() {
 #[test]
 fn the_menu_wears_what_the_host_file_states() {
     let look = menu_look();
-    let items = build_items_page(&ambition_platformer2d::items::Inventory::new(&OwnedItems::default(), None), ambition_platformer2d::items::test_item_catalog(), EquippedItems::default());
+    let items = build_items_page(&ambition_platformer2d::items::Inventory::new(&OwnedItems::default(), None), ambition_platformer2d::items::test_item_catalog(), EquippedItems::default(), crate::menu::model::InventoryLayout::default());
     let panel = items.nodes.iter().find_map(|node| match node {
         MenuNode::Panel { rect, color, .. } if *rect == DETAIL_PANEL_RECT => Some(*color),
         _ => None,
@@ -884,7 +884,7 @@ fn a_held_weapon_is_owned_in_its_owners_cells_and_detail_panel() {
     let items = ambition_platformer2d::items::test_item_catalog();
     let inventory = Inventory::new(&bag, Some(Item::GunSword));
     let equipped = EquippedItems::of(items, inventory.in_hand, None);
-    let spec = items_spec(&inventory, items, equipped);
+    let spec = items_spec(&inventory, items, equipped, crate::menu::model::InventoryLayout::default());
     assert!(spec.cells[Item::GunSword.index()].owned);
     assert!(spec.cells[Item::GunSword.index()].equipped);
     let detail = items_detail_slot_text(&inventory, items, equipped, MenuFocus::Item(Item::GunSword.index()));

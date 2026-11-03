@@ -2003,7 +2003,7 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
         &DevSnapshot::default(),
         0,
         None,
-    );
+     crate::menu::model::InventoryLayout::default());
     crate::menu::test_support::active_pages_mut(app.world_mut())
         .replace_pages(pages, MenuPage::Items);
     app.update();
@@ -3295,4 +3295,20 @@ fn each_menu_publishes_and_refreshes_its_owners_rebind_rows() {
     for _ in 0..4 { app.update(); }
     assert_eq!(app.world().get::<ActiveMenuPages<MenuPage, MenuPageAction>>(second).unwrap().version, updated);
     assert_eq!([first, second].map(|menu| app.world().get::<CachedSystemMenu>(menu).unwrap().model_builds), builds);
+}
+
+#[test]
+fn spatial_navigation_uses_the_current_inventory_layout() {
+    let region = crate::menu::regions::MenuRegion(Some(Rect::from_corners(
+        Vec2::ZERO, Vec2::new(400.0, 720.0))));
+    for layout in [crate::menu::model::InventoryLayout::for_region(Some(&region)),
+        crate::menu::model::InventoryLayout::default()] {
+        let right = layout.cols - 1;
+        assert!(matches!(move_spatial(MenuFocus::Item(right), 1, 0, layout),
+            SpatialMove::Focus(MenuFocus::EdgeRight)));
+        assert!(matches!(move_spatial(MenuFocus::Item(0), 0, 1, layout),
+            SpatialMove::Focus(MenuFocus::Item(index)) if index == layout.cols));
+        assert!(matches!(move_spatial(MenuFocus::EdgeRight, -1, 0, layout),
+            SpatialMove::Focus(MenuFocus::Item(index)) if index == right));
+    }
 }

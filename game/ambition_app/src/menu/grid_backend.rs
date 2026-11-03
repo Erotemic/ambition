@@ -34,7 +34,7 @@ use crate::menu::model::{
 use crate::menu::quality_confirm::VisualQualityConfirmState;
 #[cfg(test)]
 use ambition_platformer2d::input::MenuControlFrame;
-use ambition_platformer2d::items::{OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
+use ambition_platformer2d::items::OwnedItems;
 use ambition_platformer2d::menu::backend::{InventoryUiBackend, BEVY_UI_MENU_BACKEND_ENABLED};
 use ambition_platformer2d::persistence::settings::{UserSettings, VisualQualityProfile};
 use ambition_platformer2d::settings_menu::system::{SystemMenuEntryId, SystemMenuModel};
@@ -141,6 +141,7 @@ impl Default for GridMenuTabState {
 /// change — re-renders). Mirrors the cube's `last` republish key, flat.
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct ViewKey {
+    layout: crate::menu::model::InventoryLayout,
     system_revision: u64,
     tab: usize,
     open_entry: Option<SystemMenuEntryId>,
@@ -315,6 +316,7 @@ fn seed_cursor_for_tab(active_tab: usize, cursor: &mut KaleidoscopeCursor) {
 #[cfg(feature = "input")]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn grid_menu_nav(
+    regions: Query<&super::regions::MenuRegion>,
     mut menu_frames: ResMut<ambition_platformer2d::input::SeatMenuFrames>,
     mut menus: Query<(
         Entity,
@@ -416,7 +418,7 @@ pub(crate) fn grid_menu_nav(
         }
 
         // Fix 4: UP from the TOP body row moves focus onto the tab bar.
-        if dy < 0 && cursor_on_top_row(active_page, cursor.focus(), system_nav.open_entry) {
+        if dy < 0 && cursor_on_top_row(active_page, cursor.focus(), system_nav.open_entry, crate::menu::model::InventoryLayout::for_region(regions.get(menu_entity).ok()).cols) {
             tab_state.focus_zone = GridFocusZone::Tabs;
             play_ui(&mut fx.sfx, grid_sfx::TAB_CHANGE);
             continue;
@@ -425,7 +427,7 @@ pub(crate) fn grid_menu_nav(
         match active_page {
             MenuPage::Items => {
                 if dx != 0 || dy != 0 {
-                    let next = move_items_cursor(cursor.focus(), dx, dy);
+                    let next = move_items_cursor(cursor.focus(), dx, dy, crate::menu::model::InventoryLayout::for_region(regions.get(menu_entity).ok()));
                     cursor.mark_keyboard(next);
                 }
                 if menu.back {
@@ -523,10 +525,11 @@ fn cursor_on_top_row(
     page: MenuPage,
     focus: MenuFocus,
     open_entry: Option<SystemMenuEntryId>,
+    cols: usize,
 ) -> bool {
     match page {
         MenuPage::Items => match focus {
-            MenuFocus::Item(i) => i < ITEM_GRID_COLS,
+            MenuFocus::Item(i) => i < cols,
             _ => true,
         },
         MenuPage::System => open_entry.is_none() && matches!(focus, MenuFocus::System(0)),
@@ -534,11 +537,10 @@ fn cursor_on_top_row(
     }
 }
 
-/// Move the 6×4 Items grid cursor by one step, clamped (no wraparound, no edges —
-/// the flat grid has no page-turn arrows). Non-Item focuses re-enter at slot 0.
-fn move_items_cursor(focus: MenuFocus, dx: i32, dy: i32) -> MenuFocus {
-    let cols = ITEM_GRID_COLS as i32;
-    let rows = ITEM_GRID_ROWS as i32;
+/// Move within the current grid dimensions. Non-item focus starts at slot zero.
+fn move_items_cursor(focus: MenuFocus, dx: i32, dy: i32, layout: crate::menu::model::InventoryLayout) -> MenuFocus {
+    let cols = layout.cols as i32;
+    let rows = layout.rows() as i32;
     let idx = match focus {
         MenuFocus::Item(i) => i as i32,
         _ => 0,
@@ -562,6 +564,7 @@ fn a_menu_is_open_or_a_grid_tree_was(
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn grid_menu_republish_view(
+    regions: Query<&super::regions::MenuRegion>,
     mut menus: Query<(
         Entity,
         &ambition_platformer2d::inventory_ui::InventoryMenu,
@@ -637,6 +640,7 @@ pub(crate) fn grid_menu_republish_view(
             0
         };
         let key = ViewKey {
+            layout: crate::menu::model::InventoryLayout::for_region(regions.get(menu_entity).ok()),
             system_revision: cache.model_builds,
             tab: active_tab_index(&pages),
             open_entry: system_nav.open_entry,
@@ -675,6 +679,7 @@ pub(crate) fn grid_menu_republish_view(
             system_nav.open_entry,
             quality_confirm.pending(),
             map_page.page(map_page.view(body.map(|body| body.entity)).as_ref()),
+            key.layout,
         );
         let Some(page) = built
             .iter()

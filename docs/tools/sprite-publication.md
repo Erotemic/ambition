@@ -18,6 +18,10 @@ Use `--library <manifest>` or `AMBITION_CONTENT_LIBRARY` to select another libra
 python3 scripts/asset_inspector.py status --needs-generation --json
 ```
 
+Use `--check --target <name>` to check only the requested targets. Repeat
+`--target` for several targets. This check does not require library-wide shared
+atlases. A full collection check also reports the shared atlas products.
+
 The default scope is the selected library's collection in
 `game/ambition_content_library/authored/sprites.yaml`. `--scope all` includes other
 registered targets. Registration, publication selection, and known game use are

@@ -17,7 +17,11 @@ Renderer source files remain in their authoring tool repositories.
 
 ## Missing generated content
 
-Missing generated content does not stop the game. On a fresh checkout,
+Missing presentation content does not stop the game. Gameplay metadata can be
+required to prepare a room. For example, the T-rex needs its published body rig;
+`./scripts/regen/sprites.sh --target trex_enemy` builds that target.
+
+On a fresh checkout,
 `generated/` is absent until `scripts/setup/generated_content.sh` completes.
 The game then runs with these results:
 

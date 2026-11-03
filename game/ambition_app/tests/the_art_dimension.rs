@@ -107,7 +107,7 @@ fn the_rooms_of_the_art_dimension_join_as_the_flat_map_says() {
 }
 
 /// The cast each room places: the kinds, and how many of each.
-const CAST: [(&str, &[(&str, usize)]); 10] = [
+const CAST: &[(&str, &[(&str, usize)])] = &[
     ("art_painters_plaza", &[("npc_art_curator", 1), ("npc_art_pablo_peckasso", 1), ("npc_art_rob_boss", 1)]),
     ("art_sketchbook_cliffs", &[("doodle_imp", 7), ("origami_bird", 3)]),
     ("art_sculpture_garden", &[("npc_art_frida_collage", 1), ("living_statue", 2), ("brush_knight", 1)]),
@@ -132,7 +132,7 @@ const CAST: [(&str, &[(&str, usize)]); 10] = [
 
 #[test]
 fn each_room_of_the_art_dimension_places_its_cast() {
-    for (id, cast) in CAST {
+    for &(id, cast) in CAST {
         let mut sim = room(id);
         for (kind, count) in cast {
             assert_eq!(wearing(&mut sim, kind), *count, "`{id}` places {count} `{kind}`");

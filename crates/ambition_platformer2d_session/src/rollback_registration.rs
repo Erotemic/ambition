@@ -5,6 +5,12 @@ use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 const OWNER: &str = env!("CARGO_PKG_NAME");
 
 pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {
+    registrar.rollback_component_clone_checksum::<crate::room_preparation::CapturedRoomPreparation>(
+        OWNER,
+        "session.room_preparation",
+        "the admitted room operation and its immutable continuity inputs",
+        crate::room_preparation::CapturedRoomPreparation::checksum,
+    );
     registrar.rollback_component_canonical::<crate::participants::SessionParticipants>(
         OWNER,
         "session.participants",

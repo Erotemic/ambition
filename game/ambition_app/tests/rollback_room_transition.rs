@@ -116,14 +116,15 @@ fn replay_room_crossing(
     let body = world.query_filtered::<Entity, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
         .single(world).unwrap();
     let subject = LiveBodyId::of_entity(world, body).unwrap();
-    // Prepare outside the saved timeline. Apply the crossing inside it.
-    let confirmed = world.resource::<ambition_platformer2d::engine_core::ConfirmedFrameBoundary>().confirmed;
-    assert!(world.resource_mut::<PendingLifecycleCommit>().record(confirmed,
+    // Prepare in a setup frame. Apply the plan on the replayed timeline.
+    assert!(world.resource_mut::<PendingLifecycleCommit>().record(0,
         LifecycleIntent::Transition(RoomTransitionIntent {
             subject: subject.clone(), target_room: destination.into(),
             arrival: target.world.spawn, edge_exit: false, zone_sfx: None,
             participant: Some(ambition_platformer2d::characters::control::PlayerSlot(0)),
         })).admitted());
+    sim.run_rollback_setup_frame().expect("the simulation captures preparation inputs");
+    let world = sim.world_mut();
     world.run_system_once(begin_room_transition_load_system).expect("the target prepares");
     let active = world.resource_mut::<RoomTransitionLoadState>().active.take()
         .expect("the room preparation starts");

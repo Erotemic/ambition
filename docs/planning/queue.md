@@ -905,8 +905,13 @@ request spends no sequence. Guards: `restore_admission_is_atomic_and_refusal_spe
 `cancelling_a_restore_preserves_an_equal_intent_from_another_admission`.
 Do not infer a checkpoint restore from intent equality.
 
-**First step:** bind mutable preparation inputs to shared simulation state.
-Then add content and plan identity, retained promises, and two-peer witnesses,
+The simulation now captures occurrence and mint continuity on the admitting frame.
+`CapturedRoomPreparation` belongs to the session root and uses registered clone
+snapshots. Readiness requires the exact admission; cache reuse compares the
+captured value. Guards: `room_preparation::tests` and
+`room_preparation_inputs_survive_the_registered_snapshot_path`.
+
+**Next step:** add content and plan identity, retained promises, and two-peer witnesses,
 including an occurrence that changes during preparation. Keep the existing safe hold until those pass.
 The `LOCAL-PLAY-MODES` leave slice and `COOP-RECOVERY` remain separate work
 items; reuse their participant lifecycle and checkpoint rules, not duplicate

@@ -167,6 +167,7 @@ const HOST_LOCAL_IDENTITIES: &[&str] = &[
     // four-member list survives a count of four.
     "CheckpointOperationKey", "SessionStartupResume", "AcceptedCheckpointRestore",
     "SessionCheckpointOutcomes",
+    "CapturedRoomPreparation",
     "MatchInstance",
     "StocksMatchSettled",
     "SuddenDeathEntered",
@@ -224,6 +225,7 @@ const PEER_STABLE_PROJECTION: &[&str] = &[
     "ambition_platformer2d_session::checkpoint::SessionStartupResume",
     "ambition_platformer2d_session::checkpoint::AcceptedCheckpointRestore",
     "ambition_platformer2d_session::checkpoint::SessionCheckpointOutcomes",
+    "ambition_platformer2d_session::room_preparation::CapturedRoomPreparation",
     // `SessionMatchOrdinal::peer_stable_checksum` projects the count of matches
     // the session has activated, excluding its `SessionScopeId` owner tag.
     // `the_peer_projection_ignores_the_local_session_id_once_a_match_has_activated`

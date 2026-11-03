@@ -218,7 +218,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// 410 -> 411: pending and withdrawn lifecycle intents retain restore keys.
 /// Clone snapshots keep local scopes; peer checksums use the shared projection.
 /// 411 -> 412: switches retain acting bodies; terminal uses and replies belong to those bodies.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 412;
+/// 412 -> 413: room preparation continuity is captured on the simulation timeline.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 413;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

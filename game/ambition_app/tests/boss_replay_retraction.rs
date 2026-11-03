@@ -606,8 +606,9 @@ fn defeat_a_warden_and_take_its_ability(sim: &mut Platformer2dSimHarness, placem
 /// defeat instead of before it; `elsewhere` walks into the neighbour room
 /// before dying.
 fn a_warden_defeat_across_a_death(banked: bool, elsewhere: bool) -> (bool, u32, (String, u8), i32) {
+    use crate::common::walk_through_the_door_to;
     use crate::death_restores_the_checkpoint::{
-        NEIGHBOUR, ROOM, commit_a_hub_checkpoint, die, walk_to,
+        NEIGHBOUR, ROOM, commit_a_hub_checkpoint, die,
     };
     let mut sim = crate::common::fixed_60hz_room_sim(ROOM);
     sim.step_n(AgentAction::default(), 2);
@@ -621,7 +622,7 @@ fn a_warden_defeat_across_a_death(banked: bool, elsewhere: bool) -> (bool, u32, 
         commit_a_hub_checkpoint(&mut sim);
     }
     if elsewhere {
-        walk_to(&mut sim, NEIGHBOUR);
+        walk_through_the_door_to(&mut sim, NEIGHBOUR);
     }
     die(&mut sim);
     (

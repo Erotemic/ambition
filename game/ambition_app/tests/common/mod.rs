@@ -585,10 +585,10 @@ pub fn walk_through_the_door_to(sim: &mut Platformer2dSimHarness, target: &str) 
     let door = door_to(sim, target);
     let center = door.aabb.center();
     sim.teleport_player((center.x, center.y));
-    for _ in 0..120 {
+    for frame in 0..120 {
         let room = sim
             .step(AgentAction {
-                interact: true,
+                interact: frame == 0,
                 interact_held: true,
                 ..base()
             })

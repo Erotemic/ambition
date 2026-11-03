@@ -607,3 +607,45 @@ fn a_following_effect_is_placed_before_transforms_are_propagated() {
         assert_eq!(global.to_scale_rotation_translation().0, size.extend(1.0));
     }
 }
+
+
+#[test]
+fn a_rebound_sprite_stays_hidden_under_its_following_quad() {
+    for missing_frame_basis in [false, true] {
+        let mut app = App::new();
+        app.init_resource::<Assets<SpriteFxMaterial>>()
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<TextureAtlasLayout>>()
+            .init_resource::<Assets<Image>>();
+        app.add_systems(
+            Update,
+            (restore_sprites_without_following_effects, draw_following_sprite_effects).chain(),
+        );
+        let colour = Color::srgba(0.9, 0.7, 0.3, 0.8);
+        let sprite = Sprite { color: colour, ..a_32x16_sprite(&mut app) };
+        let entity = app.world_mut().spawn((
+            FollowingSpriteEffect(SpriteEffect::HueShift { degrees: 120.0 }),
+            sprite.clone(), Transform::default(),
+        )).id();
+        app.update();
+        let quad = app.world().get::<FollowingFxSource>(entity).unwrap().quad;
+        assert_eq!(app.world().get::<Sprite>(entity).unwrap().color.alpha(), 0.0);
+
+        let mut rebound = sprite;
+        if missing_frame_basis {
+            rebound.texture_atlas = Some(TextureAtlas { layout: Handle::default(), index: 0 });
+        }
+        app.world_mut().entity_mut(entity).insert(rebound);
+        app.update();
+        assert_eq!(app.world().get::<Sprite>(entity).unwrap().color.alpha(), 0.0,
+            "a rebind drew the base sprite beneath its effect; missing frame basis: {missing_frame_basis}");
+        assert_eq!(app.world().get::<FollowingFxSource>(entity).unwrap().quad, quad);
+        assert_eq!(app.world_mut().query_filtered::<Entity, With<FollowingFxQuad>>().iter(app.world()).count(), 1);
+
+        app.world_mut().entity_mut(entity).remove::<FollowingSpriteEffect>();
+        app.update();
+        assert_eq!(app.world().get::<Sprite>(entity).unwrap().color, colour);
+        assert!(app.world().get_entity(quad).is_err());
+        assert!(app.world().get::<FollowingFxSource>(entity).is_none());
+    }
+}

@@ -148,7 +148,7 @@ pub fn validate_content_graph(sprite_content: &ambition_platformer2d::sprite_she
         validate_room_music_tracks(project, music, &mut not_generated);
     }
     validate_room_phase_tracks(pack, &rooms, music, &mut report, &mut not_generated);
-    validate_npc_dialogue_ids(project, &mut report);
+    validate_npc_dialogue_ids(pack, project, &mut report);
     validate_npc_brain_overrides(project, character_catalog, &mut report);
     validate_quest_conditions(&sprite_content, pack, &rooms, music, &mut report, &mut not_generated);
     validate_cutscene_bindings(pack, project, &mut report);
@@ -244,11 +244,16 @@ fn validate_room_phase_tracks(
     }
 }
 
-fn validate_npc_dialogue_ids(project: &LdtkProject, report: &mut ContentValidationReport) {
-    let known_ids = crate::dialogue::known_dialogue_ids();
-    let known = known_ids
-        .iter()
-        .map(String::as_str)
+fn validate_npc_dialogue_ids(
+    pack: &ambition_content_pack::PreparedContentPack,
+    project: &LdtkProject,
+    report: &mut ContentValidationReport,
+) {
+    use ambition_content_schemas::yarn_dialogue::{YarnFiles, YARN_DIALOGUE_SCHEMA};
+    let known = ambition_content_pack::lowered_rules::<YarnFiles>(pack, YARN_DIALOGUE_SCHEMA)
+        .into_iter()
+        .flatten()
+        .flat_map(|file| file.titles.iter().map(String::as_str))
         .collect::<BTreeSet<_>>();
     for level in &project.levels {
         for entity in level.all_entity_instances() {
@@ -682,6 +687,41 @@ fn composed_quest_ids(
 mod tests {
     use super::*;
     use ambition_platformer2d_ldtk::field_string;
+
+    #[test]
+    fn npc_dialogue_is_validated_against_the_selected_pack() {
+        let make_pack = |title: &str| {
+            crate::pack::compile_pack_with(|path, text| {
+                if path.ends_with("dialogue/sandbox/history.yarn") {
+                    format!("{text}\ntitle: {title}\n---\nA selected pack line.\n===\n")
+                } else {
+                    text
+                }
+            }).expect("the selected dialogue pack compiles")
+        };
+        let first = make_pack("selected_pack_validation_alice");
+        let second = make_pack("selected_pack_validation_bob");
+        let mut project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
+            .expect("the authored project loads");
+        let spawn = project.levels.iter_mut()
+            .flat_map(|level| level.layer_instances.iter_mut())
+            .flat_map(|layer| layer.entity_instances.iter_mut())
+            .find(|entity| entity.identifier == "NpcSpawn"
+                && field_string(entity, "dialogue_id").is_some_and(|id| !id.trim().is_empty()))
+            .expect("the project has an NPC with dialogue");
+        let iid = spawn.iid.clone();
+        set_field(&mut spawn.field_instances, "dialogue_id",
+            serde_json::Value::String("selected_pack_validation_alice".into()));
+        let mut accepted = ContentValidationReport::default();
+        validate_npc_dialogue_ids(&first, &project, &mut accepted);
+        assert!(accepted.errors.is_empty(), "the selected pack's node was refused: {:?}", accepted.errors);
+        let mut refused = ContentValidationReport::default();
+        validate_npc_dialogue_ids(&second, &project, &mut refused);
+        assert_eq!(refused.errors.len(), 1);
+        assert!(refused.errors[0].contains(&iid)
+            && refused.errors[0].contains("selected_pack_validation_alice"));
+    }
+
 
     /// The embedded project, with one zone that another zone arrives through
     /// re-authored by `edit`. Returns the content report's errors about that

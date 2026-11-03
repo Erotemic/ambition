@@ -11,6 +11,24 @@ current GGRS host. It does not provide independent rollback histories for
 separate regions. The requirements for those histories remain in
 [architecture reassessment](architecture-reassessment-and-composable-multiplayer.md).
 
+## Replay witnesses
+
+`79826e053` adds four single-host witnesses. They apply the shared room
+transaction inside the rollback schedule without a session rebase. They cover
+a new destination, source retention, an existing destination, and moving-platform
+retirement. All four pass in the default and combined-feature app binaries.
+Guard: `rollback_room_transition::a_room_publication_can_be_replayed_without_rebasing_the_session`
+and its three companion cases.
+
+The witnesses found a missing collision overlay after root restoration.
+`RoomInstanceRoot` now requires that buffer. Normal contribution systems fill
+it before actor targeting. Do not snapshot derived collision arrays or add a
+second room constructor to repair this case.
+
+These are room-application witnesses. The peer input, delayed-preparation,
+failure, and corrected-input gates below remain open. Keep the current peer
+hold until they pass.
+
 ## Source findings
 
 The current `lifecycle_commit` in `ambition_platformer2d_rollback_ggrs` applies
@@ -31,6 +49,17 @@ host keeps one current preparation transaction. Its presentation tail can
 remain after the commit. Neither a render deadline nor that tail can select
 the simulation frame of the next peer commit.
 
+Room preparation also reads the occurrence ledger when the host runs its
+preflight. That read can select different inputs on peers at different frames.
+The new protocol must select those inputs from identified simulation state.
+An existing live destination uses its live state; moving actors there must not
+force a new room-construction promise each tick.
+
+The checkpoint key currently arrives with the authorized plan. The new
+simulation path must know whether an admitted operation is an ordinary transfer
+or a checkpoint restore before host preparation finishes. Keep the checkpoint
+key authoritative. Do not infer the operation from equal bodies or target rooms.
+
 ## Operation identity and preparation
 
 The simulation admits an intent and assigns its operation key. Use the session
@@ -45,6 +74,12 @@ Each preparation offer binds that operation to the same admitted content
 identity and immutable construction plan. A local content epoch is not a peer
 content identity. A mismatched content identity fails preparation. It must not
 cause either peer to build a different destination under the same operation.
+
+Bind mutable construction prerequisites to identified simulation state. If
+those facts change before a new room is built, validate or select them again on
+the shared timeline. Local preparation time must not select an occurrence's
+position, custody, or presence. Cover this with a peer witness that changes an
+occurrence while the other peer prepares the destination.
 
 The host prepares and retains the exact plan before it sends `Prepared` in
 the ordinary input stream. That promise lasts while any retained rollback

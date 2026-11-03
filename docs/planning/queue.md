@@ -887,9 +887,13 @@ Do not restore primary-room geometry or global room covers.
 **Protocol:** [Peer room commits](engine/peer-room-commit-protocol.md) defines
 operation/content identity, retained preparation promises, and input-driven
 simulation commits. This is a design, not an implemented replacement.
-**First step:** prove room publication and retirement can roll back across a
-crossing, then add the peer inputs and two-peer witnesses. Keep the existing
-safe hold until those pass.
+Initial replay witnesses pass (`79826e053`): new and existing destinations,
+source retention, and moving-platform retirement. A required collision overlay
+now returns with a restored room root. Do not add a second rollback constructor.
+
+**First step:** bind preparation inputs and operation kind to shared simulation
+state. Then add the peer inputs and two-peer witnesses, including an occurrence
+that changes during preparation. Keep the existing safe hold until those pass.
 The `LOCAL-PLAY-MODES` leave slice and `COOP-RECOVERY` remain separate work
 items; reuse their participant lifecycle and checkpoint rules, not duplicate
 them in this row.

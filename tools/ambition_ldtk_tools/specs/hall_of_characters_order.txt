@@ -211,6 +211,15 @@ npc_art_curator
 npc_art_rob_boss
 npc_art_pablo_peckasso
 npc_art_frida_collage
+npc_art_edgar_allan_crow
+npc_art_agatha_christly
+npc_art_the_author
+npc_art_marcel_mimeau
+npc_art_will_shakesbeard
+npc_art_ludwig_van_beathoven
+npc_art_johann_sebastian_batch
+npc_art_leonardo_da_vinchy
+npc_art_antoni_gaudy
 
 [Guests from history and the studio]
 npc_genghis_can
@@ -320,6 +329,18 @@ ink_wisp
 origami_bird
 brush_knight
 living_statue
+bookworm
+red_herring
+paper_tiger
+stagehand
+critic
+mime
+discord_note
+feedback_wail
+war_drum
+clay_golem
+loom_spider
+kiln_sprite
 
 [Mary-O's world]
 mary_o

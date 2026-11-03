@@ -185,4 +185,32 @@
             ],
         ),
     ],
+    // The Art dimension's amphitheatre: the audition on its stage. The stage
+    // top is y 864; it runs from the curtain (x 224) to the safety curtain
+    // (x 968).
+    "art_audition": [
+        (
+            label: "wave 1 — the stagehands set the scene",
+            mobs: [
+                (kind: "skirmisher", character: Some("stagehand"), spawn: (320.0, 836.0), size: (30.0, 56.0), delay: 0.0),
+                (kind: "skirmisher", character: Some("stagehand"), spawn: (900.0, 836.0), size: (30.0, 56.0), delay: 0.4),
+            ],
+        ),
+        (
+            label: "wave 2 — the mimes",
+            mobs: [
+                (kind: "medium_striker", character: Some("mime"), spawn: (420.0, 834.0), size: (30.0, 60.0), delay: 0.0),
+                (kind: "medium_striker", character: Some("mime"), spawn: (820.0, 834.0), size: (30.0, 60.0), delay: 0.6),
+                (kind: "skirmisher", character: Some("stagehand"), spawn: (620.0, 836.0), size: (30.0, 56.0), delay: 1.2),
+            ],
+        ),
+        (
+            label: "wave 3 — the reviews",
+            mobs: [
+                (kind: "skirmisher", character: Some("critic"), spawn: (300.0, 834.0), size: (34.0, 60.0), delay: 0.0),
+                (kind: "skirmisher", character: Some("critic"), spawn: (920.0, 834.0), size: (34.0, 60.0), delay: 0.0),
+                (kind: "medium_striker", character: Some("mime"), spawn: (620.0, 834.0), size: (30.0, 60.0), delay: 1.0),
+            ],
+        ),
+    ],
 }

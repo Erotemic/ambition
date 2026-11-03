@@ -1,13 +1,18 @@
 //! The Art dimension: its gate is EASEL.
 //!
-//! Five rooms (`tools/ambition_ldtk_tools/specs/art_dimension/`): the plaza
-//! with the ring, the sketchbook cliffs over it, the sculpture garden east of
-//! it, the inkfall caverns under both, and the unfinished gallery by a door in
-//! the garden. This asks the game what the generator takes as given: that the
+//! Thirteen rooms (`tools/ambition_ldtk_tools/specs/art_dimension/`): the
+//! plaza with the ring, the sketchbook cliffs over it, the sculpture garden
+//! east of it, the inkfall caverns under both, the unfinished gallery by a
+//! door in the garden, and four quarters for the arts that are not paint:
+//! fiction (the story stacks, the library of endings), performance (the
+//! amphitheatre, backstage), music (the resonant reach, the concert hall) and
+//! teknis, the art of making (the workshop deeps, the loom hall). This asks the game what the generator takes as given: that the
 //! rooms join as the flat map says, that each room places its cast, that a
 //! pigment opens its own door of the colour gate and no other, that the lever
 //! in the caverns opens the plaza's drain, and that the palette lift carries
-//! a rider up to the cliffs, and that the Curator by the ring talks.
+//! a rider up to the cliffs, that the Curator by the ring talks, that the
+//! three chimes of the reach open the concert hall's stage, and that the
+//! crane's lever swings the bridge over the deeps' pit.
 
 use std::collections::BTreeSet;
 
@@ -71,13 +76,24 @@ fn centre_of<F: bevy::prelude::Component>(sim: &mut Platformer2dSimHarness, what
 /// the garden are a loop, and so are the plaza, the caverns and the garden.
 #[test]
 fn the_rooms_of_the_art_dimension_join_as_the_flat_map_says() {
-    const WAYS: [(&str, &str); 6] = [
+    const WAYS: [(&str, &str); 15] = [
         ("art_painters_plaza", "art_sketchbook_cliffs"),
         ("art_painters_plaza", "art_sculpture_garden"),
         ("art_sketchbook_cliffs", "art_sculpture_garden"),
         ("art_painters_plaza", "art_inkfall_caverns"),
         ("art_sculpture_garden", "art_inkfall_caverns"),
         ("art_sculpture_garden", "art_gallery_unfinished"),
+        // The quarters: the stacks, the amphitheatre and the cliffs close a
+        // loop over the plaza; the reach and the deeps are branches.
+        ("art_painters_plaza", "art_story_stacks"),
+        ("art_amphitheatre", "art_story_stacks"),
+        ("art_sketchbook_cliffs", "art_amphitheatre"),
+        ("art_sketchbook_cliffs", "art_resonant_reach"),
+        ("art_inkfall_caverns", "art_workshop_deeps"),
+        ("art_story_stacks", "art_library_of_endings"),
+        ("art_amphitheatre", "art_backstage"),
+        ("art_resonant_reach", "art_concert_hall"),
+        ("art_workshop_deeps", "art_loom_hall"),
     ];
     let manifest = ambition_content::worlds::world_manifest();
     let project = LdtkProject::load_default_for_dev(&manifest).expect("the world loads");
@@ -91,11 +107,27 @@ fn the_rooms_of_the_art_dimension_join_as_the_flat_map_says() {
 }
 
 /// The cast each room places: the kinds, and how many of each.
-const CAST: [(&str, &[(&str, usize)]); 4] = [
+const CAST: [(&str, &[(&str, usize)]); 10] = [
     ("art_painters_plaza", &[("npc_art_curator", 1), ("npc_art_pablo_peckasso", 1), ("npc_art_rob_boss", 1)]),
     ("art_sketchbook_cliffs", &[("doodle_imp", 7), ("origami_bird", 3)]),
     ("art_sculpture_garden", &[("npc_art_frida_collage", 1), ("living_statue", 2), ("brush_knight", 1)]),
     ("art_inkfall_caverns", &[("ink_wisp", 4), ("doodle_imp", 1), ("brush_knight", 1)]),
+    (
+        "art_story_stacks",
+        &[("bookworm", 3), ("red_herring", 2), ("paper_tiger", 1), ("npc_art_edgar_allan_crow", 1), ("npc_art_agatha_christly", 1)],
+    ),
+    ("art_library_of_endings", &[("npc_art_the_author", 1)]),
+    ("art_amphitheatre", &[("mime", 1), ("critic", 2), ("stagehand", 1), ("npc_art_will_shakesbeard", 1)]),
+    ("art_backstage", &[("npc_art_marcel_mimeau", 1)]),
+    (
+        "art_resonant_reach",
+        &[("discord_note", 3), ("feedback_wail", 2), ("war_drum", 1), ("npc_art_ludwig_van_beathoven", 1)],
+    ),
+    ("art_concert_hall", &[("npc_art_johann_sebastian_batch", 1)]),
+    (
+        "art_workshop_deeps",
+        &[("loom_spider", 2), ("kiln_sprite", 2), ("clay_golem", 1), ("npc_art_leonardo_da_vinchy", 1), ("npc_art_antoni_gaudy", 1)],
+    ),
 ];
 
 #[test]
@@ -224,4 +256,80 @@ fn the_palette_lift_carries_a_rider_up_to_the_cliffs() {
 fn the_curator_by_the_ring_talks() {
     let mut app = a_session_in("art_painters_plaza");
     assert_eq!(talk(&mut app, "npc_art_curator", "What is this place?"), "What is this place?");
+}
+
+/// Stand on the lever `id` in the live room and press Interact once.
+fn press(sim: &mut Platformer2dSimHarness, id: &str) {
+    use ambition_platformer2d::encounter::switches::SwitchFeature;
+    let at = centre_of::<SwitchFeature>(sim, id, |feature| feature.activation.id == id);
+    sim.teleport_player(at);
+    sim.step(base());
+    sim.step(AgentAction { interact: true, ..base() });
+    for _ in 0..5 {
+        sim.step(base());
+    }
+}
+
+/// The concert hall's stage is shut by three bars, one for each chime of the
+/// reach. Two chimes leave the third bar up; the third opens the stage.
+#[test]
+fn the_three_chimes_of_the_reach_open_the_concert_halls_stage() {
+    const BARS: [&str; 3] = ["art_chord_bar_do", "art_chord_bar_mi", "art_chord_bar_sol"];
+    // The control: a hall whose chimes were never struck has all its bars.
+    let mut hall = room("art_concert_hall");
+    for bar in BARS {
+        assert!(stands(&mut hall, bar), "`{bar}` stands at first: {:?}", standing(&mut hall));
+    }
+
+    let mut sim = room("art_resonant_reach");
+    press(&mut sim, "art_chime_do");
+    press(&mut sim, "art_chime_mi");
+    assert_eq!(crate::common::walk_through_the_door_to(&mut sim, "art_concert_hall"), "art_concert_hall");
+    for _ in 0..10 {
+        sim.step(base());
+    }
+    for (bar, open) in [("art_chord_bar_do", true), ("art_chord_bar_mi", true), ("art_chord_bar_sol", false)] {
+        assert_eq!(stands(&mut sim, bar), !open, "after do and mi, `{bar}`: {:?}", standing(&mut sim));
+    }
+
+    assert_eq!(crate::common::walk_through_the_door_to(&mut sim, "art_resonant_reach"), "art_resonant_reach");
+    press(&mut sim, "art_chime_sol");
+    assert_eq!(crate::common::walk_through_the_door_to(&mut sim, "art_concert_hall"), "art_concert_hall");
+    for _ in 0..10 {
+        sim.step(base());
+    }
+    for bar in BARS {
+        assert!(!stands(&mut sim, bar), "with the chord struck, `{bar}` is open: {:?}", standing(&mut sim));
+    }
+}
+
+/// The deeps' pit has no bridge until the crane's lever is pulled; then its
+/// three planks stand over the fire.
+#[test]
+fn the_cranes_lever_swings_the_bridge_over_the_pit() {
+    const PLANKS: [&str; 3] = ["art_deeps_bridge_0", "art_deeps_bridge_1", "art_deeps_bridge_2"];
+    let mut sim = room("art_workshop_deeps");
+    // The control: before the lever, nothing spans the pit.
+    for plank in PLANKS {
+        assert!(!stands(&mut sim, plank), "`{plank}` is not there before the lever: {:?}", standing(&mut sim));
+    }
+    press(&mut sim, "art_bridge_crane");
+    for _ in 0..10 {
+        sim.step(base());
+    }
+    for plank in PLANKS {
+        assert!(stands(&mut sim, plank), "with the lever pulled, `{plank}` spans the pit: {:?}", standing(&mut sim));
+    }
+}
+
+/// The endings of the library: both doors stand until the Author writes one,
+/// and the curtain of the amphitheatre stands until the audition is over.
+#[test]
+fn the_endings_and_the_curtain_wait_for_their_story() {
+    let mut library = room("art_library_of_endings");
+    for door in ["art_library_door_happy", "art_library_door_sad"] {
+        assert!(stands(&mut library, door), "`{door}` stands before an ending is written: {:?}", standing(&mut library));
+    }
+    let mut stage = room("art_amphitheatre");
+    assert!(stands(&mut stage, "art_amphi_curtain"), "the curtain is down before the audition: {:?}", standing(&mut stage));
 }

@@ -32,7 +32,7 @@ statement.
 | gate address | `EASEL`, the ring of the Painter's Plaza (`data/gate_network.ron`) |
 | generator | `tools/ambition_ldtk_tools/specs/art_dimension/make_specs.py` |
 | dialogue | `dialogue/sandbox/art.yarn` |
-| encounter | `art_gallery_vigil` (`data/encounters/goblin_encounter.ron`) |
+| encounters | `art_gallery_vigil`, `art_audition` (`data/encounters/goblin_encounter.ron`) |
 | test | `game/ambition_app/tests/the_art_dimension.rs` |
 
 There is no Rust content module. The rooms, the cast, the props and the
@@ -79,6 +79,49 @@ plaza (up the drain once the lever is pulled).
 
 The pigments are keys: a `PickupSpawn` with `flag:art_pigment_<colour>`,
 taken once, drawn as `art_pigment_<colour>`.
+
+## The four quarters
+
+Jon (2026-11-02): "Expand it out: art is more than paintings. Music,
+performance, fiction, teknis." Teknis is techne, the art of making: craft,
+design and engineering done as an art. Each quarter is a room out in the
+world, a building by a door in it, a biome, three creatures and its people.
+
+```
+ [ the amphitheatre      ][ the sketchbook cliffs ][ the resonant reach   ]-door->[ concert hall ]
+   stage door v   gap v      ^ lift          gap v
+ [ the story stacks ][ the painter's plaza ][ the sculpture garden ]
+   door v                    drain v              well v
+ [ library of endings ]   [ the inkfall caverns                      ][ the workshop deeps ]-door->[ loom hall ]
+ [ backstage ]
+```
+
+The stacks, the amphitheatre, the cliffs and the plaza are a third loop:
+up the lift, west along the cliffs to the amphitheatre, down its gap into
+the stacks, and east to the plaza. The reach and the deeps are branches.
+
+| quarter | rooms | biome | music | what it asks of you |
+| --- | --- | --- | --- | --- |
+| fiction | `art_story_stacks`, `art_library_of_endings` | `art_stacks` | `graphite_and_rain` | the Author writes you an ending: a choice in dialogue sets `art_ending_happy` or `art_ending_sad`, and that ending's door opens (the sad one pays more) |
+| performance | `art_amphitheatre`, `art_backstage` | `art_stage` | `everything_is_fine_please_dance` | the audition: step onto the stage and the stage shuts (`art_audition`: stagehands, mimes, critics); when it is over, the curtain opens on the stage door |
+| music | `art_resonant_reach`, `art_concert_hall` | `art_resonance` | `liszt_hungarian_rhapsody_no2_orchestra`, `..._piano` | the chord: three chimes on the staves of the reach (`art_chime_do`, `_mi`, `_sol`); each opens one bar of the hall's stage |
+| teknis | `art_workshop_deeps`, `art_loom_hall` | `art_forge` | `something_worth_building`, `luddites_guild_loom_and_liberty` | the bridge builders: a pit of kiln fire; the crane's lever (`art_bridge_crane`) swings in a bridge (LockWalls gated by `not world.switch_on`) |
+
+The stacks' signs do not agree with each other: the narrator is not
+reliable.
+
+| quarter | creatures | people (parodies, unless said) |
+| --- | --- | --- |
+| fiction | `bookworm`, `red_herring`, `paper_tiger` (all idioms) | Edgar Allan Crow (Poe, as a raven), Agatha Christly (Christie), the Author (original) |
+| performance | `stagehand`, `critic`, `mime` | Marcel Mimeau (Marceau: speaks only in stage directions), Will Shakesbeard (Shakespeare: blank verse) |
+| music | `discord_note`, `feedback_wail`, `war_drum` | Ludwig van Beathoven (Beethoven: very loud), Johann Sebastian Batch (Bach: fugues as processes) |
+| teknis | `clay_golem`, `loom_spider`, `kiln_sprite` | Leonardo da Vinchy (da Vinci), Antoni Gaudy (Gaudi: nothing straight) |
+
+The art of each quarter is in the renderer: `backgrounds/art_quarters.py`
+(the four scenes), the terrain rows of the four biomes,
+`targets/props/art_{stacks,resonance,stage,forge}_props.py`, a target for
+each creature in `targets/characters/`, and a chargen spec for each person in
+`data/townsfolk/`.
 
 ## The cast
 
@@ -141,5 +184,6 @@ The caverns play `mages_guild_arcane_lanterns`.
   them (`scripts/regen/sprites.sh --target <name>`, then the backgrounds).
 - The other places of the concept sheets that are not built: the Curator's
   studio, the crayon rails, the brush seesaws, the eraser switches.
-- The conceptual part of the dimension (literature, theatre): more rooms,
-  each with its own idea, not a list of references.
+- More arts with their own idea, not a list of references: film, dance,
+  architecture as a place of its own, games.
+- A score of its own for each quarter (each borrows a cue now).

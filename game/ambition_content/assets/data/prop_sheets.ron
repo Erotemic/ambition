@@ -46,6 +46,50 @@
     "art_palette_lift": (),
     "art_giant_crayon": (),
     "art_paint_pots": (),
+    // game/ambition_content/assets/data/prop_sheets.ron: after "art_paint_pots".
+    // The Story Stacks of the Art dimension (`targets/props/art_stacks_props.py`).
+    // The doors of the Library of Endings are two covers of a book: the happy
+    // ending in gold with a sun, the sad ending in deep blue with a moon and
+    // rain. A door fills the box of its wall.
+    "art_ending_door_happy": (),
+    "art_ending_door_sad": (),
+    // Its scenery: a teetering stack of giant books, a lectern with a book that
+    // glows, and a street lamp whose post is a quill in a pot of ink.
+    "art_book_tower": (),
+    "art_lectern": (),
+    "art_quill_lamp": (),
+    // The Amphitheatre (`targets/props/art_stage_props.py`). Its curtain is
+    // the door of the stage: the audition (`art_audition`) opens it. A door
+    // fills the box of its wall.
+    "art_curtain": (),
+    // Its scenery: a spotlight on a tripod, the masks of comedy and tragedy
+    // on a pole, and a trunk that spills costumes.
+    "art_spotlight": (),
+    "art_theatre_masks": (),
+    "art_costume_trunk": (),
+    // The Resonant Reach (`targets/props/art_resonance_props.py`). Each of its
+    // three chimes is a brass tube on a stand; each door of the Concert Hall's
+    // stage is a golden organ pipe with its note on it, and the chime of the
+    // same note opens it.
+    "art_chime": (),
+    "art_chord_bar_do": (),
+    "art_chord_bar_mi": (),
+    "art_chord_bar_sol": (),
+    // Its scenery: a grand piano with its lid up, and a tall metronome that
+    // ticks.
+    "art_grand_piano": (),
+    "art_metronome": (),
+    // The Workshop Deeps (`targets/props/art_forge_props.py`). The bridge the
+    // crane swings in over the kiln fire: a row of planks on two ropes (a
+    // door: it fills the box of its wall, 224 by 24).
+    "art_bridge_planks": (),
+    // Its scenery: a bottle kiln with the fire in its mouth, a potter's
+    // wheel with a pot half thrown, a great loom with a tapestry half woven,
+    // and a wooden crane with a hook.
+    "art_kiln": (),
+    "art_potters_wheel": (),
+    "art_great_loom": (),
+    "art_crane": (),
     // The Math town. The cradle is the stand a gate ring sits in: a plinth
     // with stairs at each end (walked on zero-speed one-way platforms the
     // room places) and two pylons that hold the ring. The house fronts

@@ -308,7 +308,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     // decides that it wants them at all, which is what keeps a host without a
     // keyboard from being handed a keyboard system.
     ambition_platformer2d::menu::map::install_map_menu_systems(app);
-    app.init_resource::<ambition_platformer2d::game_assets::PropSheets>();
+    app.init_resource::<ambition_platformer2d::sprite_sheet::prop_sheets::PropSheets>();
     #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
     crate::menu::lifecycle::install_session_menus(app);
     app.add_systems(
@@ -544,8 +544,8 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     // PropVisual-named sprites + hide the redundant debug
     // door-zone visual for portal-mode LoadingZones. Render-side
     // systems (E4 slices 10+20): they consume the sim's phase
-    // registry and never live in the sim crate. Runs after
-    // sync_visuals so the sprite entities exist this frame.
+    // registry and never live in the sim crate. Room visuals must exist before
+    // these passes select their visibility and animation for the first draw.
     .add_systems(
         Update,
         (
@@ -559,6 +559,7 @@ fn install_misc_visual_sync_systems(app: &mut App) {
             // Each open wormhole in its destination's colour.
             ambition_platformer2d::render::rendering::gate_portal_visuals::sync_wormhole_destination_hue,
         )
+            .after(ambition_platformer2d::render::rendering::present_live_room_visuals)
             .after(sync_visuals)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     )

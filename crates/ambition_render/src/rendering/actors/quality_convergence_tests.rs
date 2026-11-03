@@ -579,6 +579,69 @@ fn an_actor_without_a_character_id_does_not_bind_by_its_display_name() {
     );
 }
 
+/// A registered prop waits for its image without drawing the unknown-kind marker.
+#[test]
+fn a_declared_prop_waits_for_its_sheet_then_binds_on_the_same_entity() {
+    use ambition_platformer2d_core as ae;
+    use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
+    use ambition_platformer2d_world::rooms::{PropDraw, PropSpec};
+    use ambition_sprite_sheet::prop_sheets::{PropSheetSource, PropSheets};
+    use crate::rendering::primitives::PropVisual;
+
+    let mut app = asset_app();
+    app.add_systems(Update, super::refresh_prop_sprites_on_game_assets_change);
+    let mut declarations = PropSheets::default();
+    declarations.register("declared_gate", PropSheetSource {
+        target: "robot".into(),
+        tuning: ambition_sprite_sheet::character::SheetTuning::new(1.0, 1),
+        packed: false,
+    });
+    let room = ae::World::new("prop_probe", ae::Vec2::new(640.0, 480.0), ae::Vec2::ZERO, vec![]);
+    let spawn = |app: &mut App, kind: &str, assets: Option<&GameAssets>, declared: Option<&PropSheets>| {
+        let prop = PropSpec {
+            id: kind.into(), name: kind.into(), kind: kind.into(),
+            pos: ae::Vec2::new(64.0, 64.0), size: ae::Vec2::new(32.0, 64.0),
+            flip_y: false, draw: PropDraw::default(),
+        };
+        crate::rendering::world::spawn_room_prop(
+            &mut app.world_mut().commands(), SessionSpawnScope::UNSCOPED,
+            &room, &prop, 0, assets, declared,
+        );
+        app.world_mut().flush();
+        let world = app.world_mut();
+        let mut props = world.query::<(Entity, &PropVisual)>();
+        props.iter(world).find(|(_, visual)| visual.id == kind).unwrap().0
+    };
+    let waiting = spawn(&mut app, "declared_gate", None, Some(&declarations));
+    let unknown = spawn(&mut app, "unknown_gate", None, Some(&declarations));
+    let undeclared = spawn(&mut app, "no_registry", None, None);
+    assert!(app.world().get::<Sprite>(waiting).is_none());
+    *app.world_mut().get_mut::<Visibility>(waiting).expect("a prop has visibility before its sprite arrives") = Visibility::Hidden;
+    for entity in [unknown, undeclared] {
+        assert!(app.world().get::<Sprite>(entity).is_some(), "unknown content lost its marker");
+    }
+
+    let pending = a_pending_realization(&mut app, TextureResolutionScale::Half);
+    let image = pending.texture.id();
+    let mut assets = GameAssets::default();
+    assets.characters.props.insert("declared_gate".into(), pending.clone());
+    app.insert_resource(assets.clone());
+    app.update();
+    assert!(app.world().get::<Sprite>(waiting).is_none(), "pending pixels became a marker");
+    the_image_lands(&mut app, &pending);
+    app.update();
+    assert_eq!(app.world().get::<Sprite>(waiting).unwrap().image.id(), image);
+    assert_eq!(*app.world().get::<Visibility>(waiting).unwrap(), Visibility::Hidden);
+    assert!(app.world().get::<BoundSpriteQuality>(waiting).is_some());
+    assert!(app.world().get::<PropVisual>(waiting).is_some());
+
+    assets.characters.props.insert("ready_gate".into(), pending);
+    let ready = spawn(&mut app, "ready_gate", Some(&assets), Some(&declarations));
+    assert_eq!(app.world().get::<Sprite>(ready).unwrap().image.id(), image);
+    let world = app.world_mut();
+    assert_eq!(world.query::<&PropVisual>().iter(world).count(), 4);
+}
+
 /// A prop's quality stamp is the tier of the asset it was built from, not the
 /// requested tier.
 ///

@@ -4,6 +4,7 @@
 //! `entity_sprite_for_kind` resolver.
 
 use super::*;
+use ambition_sprite_sheet::prop_sheets::PropSheetsAppExt;
 use ambition_asset_manager::AssetProfile;
 use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
 use ambition_sprite_sheet::game_assets::ParallaxLayerAsset;
@@ -257,19 +258,6 @@ fn registered_prop_sheets_load_with_the_first_game_assets() {
         build(&registered).characters.props.contains_key(KIND),
         "a registered prop kind is missing from the first `GameAssets`"
     );
-}
-
-#[test]
-#[should_panic(expected = "has two sheets registered")]
-fn a_prop_kind_has_one_sheet() {
-    let source = || PropSheetSource {
-        target: "a".to_string(),
-        tuning: ambition_sprite_sheet::character::SheetTuning::new(1.0, 0),
-        packed: false,
-    };
-    let mut sheets = PropSheets::default();
-    sheets.register("a", source());
-    sheets.register("a", source());
 }
 
 /// A prop row draws the record it names from that record's own page (the

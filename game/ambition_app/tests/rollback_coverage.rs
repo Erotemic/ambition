@@ -2004,6 +2004,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the character-select screen's per-seat choices. All three readers are the          screen itself — present it, drive it, and hand off — and what the MATCH          reads is the `MatchParticipantRoster` it publishes, which is a different          resource with its own owner. Frontend state, decided before a session          exists. ⚠ read to its readers rather than waived by category: this repo          has been bitten repeatedly around rosters and seats, so \"it is only the          menu\" is a claim that has to be checked",
     ),
     (
+        "ambition_platformer2d_rollback_ggrs::room_promises::PromisedRoomPlans",
+        "host-owned preparation plans retained for the rollback window; replay must keep the plans promised by the original inputs",
+    ),
+    (
         "ambition_platformer2d_rollback_ggrs::peer_input::PeerVerdicts",
         "the newest CONFIRMED verdict that each handle of the peer session sent in \
          its input. A confirmed input does not change, so a rewind has nothing to \

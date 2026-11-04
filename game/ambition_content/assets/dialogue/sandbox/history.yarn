@@ -659,6 +659,8 @@ title: history_cacica_of_boriken
 Cacica of Boriken: Welcome to Boriken. You are a guest of my yucayeque, my village. Sit in the shade of the bohio.
 -> You are the chief?
     Cacica of Boriken: Cacica. Among the Taino a woman can lead, and I do. I speak for the village, I host the areito, our songs and dances of our history, and I settle the quarrels about the batey.
+-> Where is Boriken?
+    Cacica of Boriken: Here! You will hear it called Puerto Rico, "rich port": the Spanish name of a harbour town that, in time, became the name of the whole island. Its people still call themselves boricua. That island to the west is Ayiti, land of mountains, which you call Haiti and the Dominican Republic. Cuba is Cuba; that name is ours too. And south, Xaymaca, land of wood and water. You say Jamaica.
 -> What is a batey?
     Cacica of Boriken: The plaza and the ball court, edged with carved stones. Two teams, one rubber ball, and no hands. The ball is older than any of us. It came up the islands from the land in the west.
 -> What do you eat?
@@ -727,7 +729,7 @@ Thor Hey-I'm-Right-Dahl: Ahoy! In 1947 I sailed a balsa raft from Peru to Polyne
 -> Was it?
     Thor Hey-I'm-Right-Dahl: Obviously. Well. The languages come from the west. The pots come from the west. The DNA comes from the west. The chickens, the pigs and the canoes come from the west. But apart from that, obviously.
 -> So you were wrong?
-    Thor Hey-I'm-Right-Dahl: I was a little right! The sweet potato came from South America. And some Polynesians have South American ancestors, from around 1200. So someone went there and came back. It just was not my raft, and it was not that way round.
+    Thor Hey-I'm-Right-Dahl: I was a little right! The sweet potato came from South America. And some Polynesians have South American ancestors, from around 1200 CE. So someone went there and came back. It just was not my raft, and it was not that way round.
 -> Who went?
     Thor Hey-I'm-Right-Dahl: The Polynesians, probably. Into the wind, on purpose, and home again. Rather better sailors than a man on a raft who drifted. Do not tell my publisher.
 -> Goodbye.
@@ -850,4 +852,66 @@ Castle Guide: Welcome. Please walk slowly here. My family has fished from the be
     Castle Guide: The last place they stood in Africa. It goes one way. If you go through, you come out on the far side of the ocean, in Saint-Domingue. Today the sea side of a door like this has a second sign: the Door of Return. Their descendants come back through it as guests.
 -> Goodbye.
     Castle Guide: Thank you for walking slowly.
+===
+
+title: history_potato_farmer
+---
+Potato Farmer: Mind the rows. Every one of these is a different potato, and I know them all by name.
+-> Where did potatoes come from?
+    Potato Farmer: From here. The wild ones are small and bitter, and some will make you sick. Our grandmothers' grandmothers kept the ones that did not, year after year, until the potato was this. When a bitter one is all we have, we eat it with a sauce of clay. The clay takes the poison.
+-> What is on the high plain?
+    Potato Farmer: Chuno. Up there it freezes every night and the sun is hard every day. We lay the potatoes out, let them freeze, let them thaw, and stamp the water out with our feet. Then they keep for years. A bad harvest does not kill us.
+-> And those animals?
+    Potato Farmer: Guanacos, wild and rude, and they spit. One day our children's children will tame their cousins into llamas and alpacas, and then we will have wool, and something to carry the potatoes. Today, I carry the potatoes.
+-> What happens next?
+    Potato Farmer: In a few thousand years, men from Spain will come, take the silver, and take a few potatoes as an afterthought. Some will say the potatoes were worth more than all the silver. They may be right.
+-> Goodbye.
+    Potato Farmer: Take one. Take a purple one. You have never had a purple one.
+===
+
+title: history_antoine_parmen_tater
+---
+Antoine Parmen-tater: Antoine Parmen-tater, pharmacist, of Paris! I am the man who taught France to love the potato. Bon appe-tater!
+-> You taught France?
+    Antoine Parmen-tater: I was a prisoner of war in Prussia, and they fed me nothing but potatoes. I lived! Back in France, people said potatoes caused leprosy. So I made it my life's work to prove them wrong. With science. And with marketing.
+-> What marketing?
+    Antoine Parmen-tater: I planted a field of potatoes outside Paris and put soldiers round it all day. At night I sent the soldiers home. The people thought: anything guarded must be precious. They stole every plant. Some historians say this story is too good to be true. I say it is exactly as good as it needs to be.
+-> The flowers?
+    Antoine Parmen-tater: I gave the King a bouquet of potato flowers, and he wore one in his buttonhole. The court copied him. Purple is very fashionable when the King does it.
+-> But people farmed them here for thousands of years.
+    Antoine Parmen-tater: Yes, yes, for eight thousand years, before anyone in Paris had heard of them. I did not invent the potato. I merely gave it a French accent. Now every potato and minced-beef pie in France is named after me: hachis Parmentier. Look it up. Mash it up.
+-> Goodbye.
+    Antoine Parmen-tater: Au revoir! Remember: a potato a day keeps the famine away. Mostly. Do not plant only one kind.
+===
+
+title: history_caral_flautist
+---
+Caral Flautist: Welcome to Caral! Mind the steps. There are a lot of them, and I carried some.
+-> How old is Caral?
+    Caral Flautist: Old. While the Egyptians stack their first pyramids of stone, we are stacking ours. Nobody in Egypt has heard of us, and nobody here has heard of them, and we are both very proud.
+-> What is the flute made of?
+    Caral Flautist: A pelican's wing bone. In one of our plazas you will find thirty-two flutes, of pelican and of condor bone. We were not a quiet city.
+-> Where are your walls?
+    Caral Flautist: We have none, and no weapons of war. People come here to trade, to build and to play music. That is how it looks from up here, and from down in the digging, so far.
+-> And that knotted cord?
+    Caral Flautist: Records, maybe. Counts of cotton, of fish, of debts. If I told you what it says, the archaeologists would be out of a job.
+-> What happens next?
+    Caral Flautist: One day, about 1800 BCE, people will leave Caral. A drought, maybe; the sea changed, maybe. Nobody is sure. The pyramids will wait under the sand for four thousand years for somebody to look.
+-> Goodbye.
+    Caral Flautist: Come back when the plaza is full. It is louder then.
+===
+
+title: history_net_maker
+---
+Net Maker of Aspero: From the coast, are you? No? You smell of mountains.
+-> What do you trade?
+    Net Maker of Aspero: Up the valley they grow the cotton. Down here we make it into nets. The sea fills the nets with anchovies, and the anchovies go up the valley. Everybody wins except the anchovies.
+-> The Supe valley?
+    Net Maker of Aspero: Supe. Yes, like soup. It is mostly anchovy soup, so the name is fair.
+-> Do you cook in pots?
+    Net Maker of Aspero: Pots? Nobody here makes pots yet. We have gourds. A gourd is a pot that grows on a vine. Why would you bake one?
+-> Who fed the first cities?
+    Net Maker of Aspero: Some archaeologists say the sea fed the first cities of the Andes, before the farms could. I say: obviously. Others say the farms. They have not tasted my anchovies.
+-> Goodbye.
+    Net Maker of Aspero: Take a net. You will catch something. Possibly a fish.
 ===

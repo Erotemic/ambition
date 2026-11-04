@@ -21,11 +21,16 @@ a 2d grid layout here."
 ## What it is
 
 A grid. East is later: each column is an age. Each floor is a region of the
-world, so the rooms of one column are contemporaneous. Ladders join two
-floors of one column only where the two regions were in contact at that
-time. The gate (DYNASTIC, `data/gate_network.ron`) is in the Cradle, the
+world, so the rooms of one column are contemporaneous. A way up and down
+joins two floors of one column only where the two regions were in contact
+at that time: a hole with a one-way hatch in the upper room's floor, over a
+tower of ledges in the lower room (no ladders: Jon, 2026-11-04, "Ladders
+should be used very sparingly in the game. Platforms and 'leveled' level
+designs are what we want"). A cell is 2800 by 640: a level to cross, not a
+shaft to climb. Each room has a development blurb under its title, where
+and when and one checked fact (`blurbs.py`), and dates are BCE and CE. The gate (DYNASTIC, `data/gate_network.ron`) is in the Cradle, the
 Great Rift Valley 300,000 years ago, at the bottom left. Everyone starts in
-Africa. The way out is the great dispersal: up the ladders of column 1, from
+Africa. The way out is the great dispersal: up column 1, from
 the southern coast through the Levant to Europe, South Asia, Sahul, the
 mammoth steppe and Beringia. Only after that do the rooms of farming begin.
 
@@ -71,6 +76,7 @@ the record and sighs about the footnotes.
 
              C0       C1            C2              C3           C4          C5          C6     C7
     R0 Americas       beringia      maize           olmecs       maya        taino       haiti
+    R½ S. America                   andes           caral
     R1 East Asia      mammoth st.   yellow river    shang        silk road   steppe
     R2 Oceania        sahul         highlands       lapita       wayfinders  rapa nui
     R3 South Asia     south. route  mehrgarh        indus
@@ -83,7 +89,8 @@ to 12,000 years ago), C2 the first farmers (10,000 to 3,000 BCE), C3 the
 first cities and the Bronze Age, C4 the classical age, C5 the middle ages,
 C6 the age of sail, C7 the industrial age.
 
-The ladders (each is a hole with a one-way hatch in the upper room's floor):
+The ways up and down (each is a hole with a one-way hatch in the upper room's
+floor, over a tower of ledges in the lower room):
 
 | column | floors | why |
 | --- | --- | --- |
@@ -98,41 +105,43 @@ The rooms:
 | room | biome | people | creatures | the way through |
 | --- | --- | --- | --- | --- |
 | `history_cradle` | `history_savanna` | Clio, Lucy, Mary Leaky | hyena | the fire drill (`history_first_fire`) opens the thorn boma |
-| `history_southern_coast` | `history_savanna` | the ochre artist | hyena, cave lion | the ladder up: out of Africa |
+| `history_southern_coast` | `history_savanna` | the ochre artist | hyena, cave lion | the way up: out of Africa |
 | `history_green_sahara` | `history_green_sahara` | the cattle herder | hippo, locust swarm | a reed boat carries you over the lake |
 | `history_nile_valley` | `history_nile` | Hat-shepsut, Ramesses the Pretty Good | mummy, scarab beetle, asp | a felucca carries you over the river |
-| `history_aksum_and_kush` | `history_nile` | Kandake Can-Do | asp, mummy, scarab beetle | the ladder up: the Red Sea road to Rome |
+| `history_aksum_and_kush` | `history_nile` | Kandake Can-Do | asp, mummy, scarab beetle | the way up: the Red Sea road to Rome |
 | `history_timbuktu_coast` | `history_monsoon` | Mansa Moolah, Zheng Hey | inflated coin, coral crab, monsoon squall | a dhow carries you over the sea |
 | `history_benin_city` | `history_benin` | the brass caster of Igun Street, Iyoba Idia, Lord Finders-Keepers | driver ants, asp | over the bank of the city walls (the iya); a plain sign for 1897 |
 | `history_door_of_no_return` | `history_gold_coast` | Ottobah Cugoano, the castle guide | (none: a sober room) | through the castle gate and the low dungeon to the Door of No Return, which goes one way, to Saint-Domingue; the way home from there is the ring ANTILLES in Haiti |
-| `history_levant` | `history_crescent` | Neville the Neanderthal | aurochs, cave lion | the ladders: down to Africa, up to Europe |
+| `history_levant` | `history_crescent` | Neville the Neanderthal | aurochs, cave lion | the ways: down to Africa, up to Europe |
 | `history_fertile_crescent` | `history_crescent` | Hammurabbi, Gilgamash | locust swarm, aurochs, scorpion man | the sluice (`history_sluice`) raises the reed bridge over the canal |
 | `history_uruk` | `history_crescent` | Enheduanna | scorpion man, sea raider | the Bronze Age collapse: three Sea Peoples raiders |
 | `history_classical_shore` | `history_classical` | Socratease, Herodotoss, Julius Sneezer | hoplite, immortal, vandal | the stoa gate opens when you know that you know nothing (`history_knows_nothing`); the aqueduct is a high road |
 | `history_ice_age_europe` | `history_ice_age` | (the cave painter, inside) | cave bear, woolly mammoth, cave lion | the door to the painted cave |
-| `history_first_farmers_of_europe` | `history_megalith` | Ötzi the Nice-man | aurochs, steppe wolf | the ladder down: where the wheat came from |
+| `history_first_farmers_of_europe` | `history_megalith` | Ötzi the Nice-man | aurochs, steppe wolf | the way down: where the wheat came from |
 | `history_megalith_builders` | `history_megalith` | Not-a-Druid | aurochs, steppe wolf | the sun stone (`history_solstice`) opens the trilithon |
 | `history_celtic_frontier` | `history_northwoods` | Boudic-car | vandal, steppe wolf | the hillfort's ledges |
 | `history_viking_north` | `history_northwoods` | Leif Errandson | viking raider | a longship carries you over the fjord |
 | `history_age_of_sail` | `history_sail` | Vasco da Gamer, Christopher Columbust, Captain Cookbook | privateer, scurvy ghost, kraken arm | ships' booms rock over the harbour |
 | `history_industrial_age` | `history_industrial` | Adam Smithy, Karl Marks, General Ludd | steam automaton, soot sprite, robber baron | the boiler in the mill (`history_boiler`) opens the factory gate; a rail wagon carries you over the cutting |
-| `history_southern_route` | `history_indus` | the coast walker | coral crab, tiger | the ladders: up to Sahul, down to Europe |
+| `history_southern_route` | `history_indus` | the coast walker | coral crab, tiger | the ways: up to Sahul, down to Europe |
 | `history_mehrgarh` | `history_indus` | the dentist of Mehrgarh | locust swarm, tiger | the terraces |
 | `history_indus_cities` | `history_indus` | the Priest-King (Probably) | indus unicorn, tiger | the unicorn seal on the granary roof (`history_unicorn_seal`, a pickup) opens the citadel gate |
 | `history_sahul` | `history_sahul` | the raft builder | diprotodon, megalania | a bamboo raft carries you over the strait |
 | `history_new_guinea_highlands` | `history_highlands` | the Kuk gardener | cassowary | the garden terraces |
-| `history_mammoth_steppe` | `history_ice_age` | Denny the Denisovan | woolly mammoth, cave bear, steppe wolf | the ladders: up to Beringia, down to Sahul |
+| `history_mammoth_steppe` | `history_ice_age` | Denny the Denisovan | woolly mammoth, cave bear, steppe wolf | the ways: up to Beringia, down to Sahul |
 | `history_yellow_river` | `history_yellow_river` | Leizu | silk moth, coral crab | a reed boat carries you over the river |
 | `history_shang_court` | `history_yellow_river` | Lady Fu Hao | taotie spirit, steppe wolf | the oracle bone (`history_oracle_bone`) opens the bronze gate |
 | `history_silk_road` | `history_silk` | Marco Polo-neck, Confusius | terracotta warrior, desert bandit, silk moth | a camel caravan carries you over the quicksand |
 | `history_mongol_steppe` | `history_steppe` | Genghis Can, Genghis Can't | horse archer, golden eagle, steppe wolf | two roads through the Great Wall (below) |
-| `history_beringia` | `history_ice_age` | Dr. Clovis-First | woolly mammoth, smilodon | the ladder down: back to Asia |
-| `history_first_maize` | `history_maize` | the teosinte breeder | llama, jaguar | the Andean terrace |
+| `history_beringia` | `history_ice_age` | Dr. Clovis-First | woolly mammoth, smilodon | the way down: back to Asia |
+| `history_first_maize` | `history_maize` | the teosinte breeder | green iguana, howler monkey, jaguar | the way down: maize goes south to the Andes |
+| `history_andean_highlands` | `history_andes` | the potato farmer, Antoine Parmen-tater | llama, Andean condor | up the rock steps to the high plain and its chuno; a plain sign for the Irish famine |
+| `history_caral` | `history_supe` | the Caral flautist, the net maker of Aspero | (none: no signs of war are found there) | up the stepped platform pyramid; the quipu that may be the oldest |
 | `history_olmec_heartland` | `history_olmec` | the head sculptor | jaguar, howler monkey | a pad of rubber throws you up to the terrace (a jade earspool) |
 | `history_maya_city` | `history_maya` | the Zero Hero, Lady Six Sky-High | howler monkey, jaguar, green iguana | the stone ring (`history_ballcourt_ring`) opens the ballcourt gate |
 | `history_taino_islands` | `history_caribbean` | the Cacica of Boriken, the canoe maker | coral crab | the hammock throws you into the ceiba; a dugout canoe crosses the sea; a plain sign for 1492 |
 | `history_haitian_revolution` | `history_saint_domingue` | Toussaint Louverture, Catherine Flon, the soup joumou cook | grenadier of Leclerc's army | from the cane of the northern plain up and over the mornes, where Napoleon's army lost; the first flag; 1 January 1804; a plain sign for 1825-1947 |
-| `history_lapita_voyagers` | `history_lapita` | the Lapita potter | coconut crab, coral crab | an outrigger canoe crosses the lagoon; the ladder up to the Shang court |
+| `history_lapita_voyagers` | `history_lapita` | the Lapita potter | coconut crab, coral crab | an outrigger canoe crosses the lagoon; the way up to the Shang court |
 | `history_wayfinders` | `history_open_ocean` | the wayfinder | frigatebird, coconut crab | a voyaging canoe crosses the open sea |
 | `history_rapa_nui` | `history_rapa_nui` | the moai carver, Thor Hey-I'm-Right-Dahl | Pacific rat | ride a walking moai over the quarry ditch; a plain sign for 1862 |
 
@@ -223,8 +232,14 @@ figure it's easy to start there." And: "let's do this slowly."
 4. Nothing contrived (Jon, 2026-11-03: "try to avoid things that are
    contrived"). The place gives the way through: a wall of earth, the
    mountains, a sea. No lever that needs a story to say why it opens a
-   gate, no pun for its own sake, no symbolic door. A real person, told with
-   respect, before an invented one.
+   gate, and no symbolic door.
+5. Faithful and entertaining (Jon, 2026-11-04: "Don't be afraid of puns.
+   Puns are good. Just make them good puns. History is messy. We are going
+   to do our best to be faithful and entertaining. ... We can be bolder and
+   confront reality. We just need to be careful to observe reality, and not
+   define it."). Good puns on the famous; hard facts said plainly, with who
+   did what; evidence with its limits ("may be the oldest quipu"), and a
+   legend called a legend.
 
 ### Not a perfect grid
 
@@ -233,8 +248,14 @@ The generator (`make_specs.py`) reads the grid as a start, not a rule:
   long road (the maize road north, the Qhapaq Nan).
 - A row can go in between two others (its key sorts there): Southeast Asia
   between Oceania and South Asia.
-- `EXTRA_LADDERS` joins rooms that are not one above the other.
-Still to build: tall rooms (a climb up the Andes, the hill of Great
+- `EXTRA_WAYS` joins rooms that are not one above the other.
+- A room can take cells of two rows: Beringia is the land bridge at its
+  foot (down to Asia), so it touches the mammoth steppe under South
+  America's row, and it has the two ways south that are argued over: along
+  its floor, the Pacific coast under the ice, east to the Andes (Monte Verde
+  is older than Clovis); up the ice, the inland way, east at the top to the
+  maize.
+Still to build: more rooms in levels (a climb up the Andes, the hill of Great
 Zimbabwe), pockets that hang off one room, narrow rooms and rooms of other
 heights, and doors that join far places (the Door of No Return opens on
 Saint-Domingue).
@@ -250,7 +271,9 @@ Saint-Domingue).
   (ANTILLES) is the way home. Gates are the dimension's fast travel (Jon,
   2026-11-03: "You can add gates for fast travel"): a far region can have
   its own ring.
-- B. South America, up the Andes (a tall room from the first maize):
+- B. South America, a new floor under the Americas (row ½, so the way
+  down from the first maize goes to it): the Andean highlands (C2: the
+  potato, quinoa, the llama) and Caral (C3) are BUILT. Then:
   Caral, the oldest city of the Americas (C3); Nazca and the Moche (C4);
   Tiwanaku and the Wari (C5); the Inca and the Qhapaq Nan (C6). The Aztecs
   and Tenochtitlan (C5, the Americas: a row of its own, or a pocket of the

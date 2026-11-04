@@ -437,6 +437,12 @@ collections:
   - history_first_flag
   - history_fante_canoe
   - history_fort_cannon
+  - andean_condor
+  - history_potatoes
+  - history_chuno
+  - history_quipu
+  - history_shicra_bags
+  - history_cotton_nets
   - eigenghost
   - decomposing_specter
   - spectral_perturbation
@@ -761,6 +767,10 @@ collections:
   - history_soup_joumou_cook
   - history_ottobah_cugoano
   - history_castle_guide
+  - history_potato_farmer
+  - history_antoine_parmen_tater
+  - history_caral_flautist
+  - history_net_maker
   - station_dobbs
   - station_pippin
   - magical_celeste

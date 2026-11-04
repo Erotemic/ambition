@@ -644,6 +644,7 @@ fn a_failed_preparation_is_ended_by_the_confirmed_host_too() {
     // any host. The wedge this guards is precisely "an invalid definition that is
     // retried forever".
     let intent = LifecycleIntent::Transition(RoomTransitionIntent {
+        source_zone: None,
         subject: subject.clone(),
         target_room: "a_room_no_content_pack_authors".into(),
         arrival: ambition_platformer2d::engine_core::Vec2::ZERO,

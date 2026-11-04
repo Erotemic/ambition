@@ -1049,6 +1049,7 @@ fn record_crossing(app: &mut App, slot: u8, target: &str) {
     let arrival = rooms.rooms[rooms.room_index_by_id(target).unwrap()].world.spawn;
     let frame = world.get_resource::<ambition_platformer2d::engine_core::ConfirmedFrameBoundary>().map_or(0, |boundary| boundary.current);
     assert!(world.resource_mut::<PendingLifecycleCommit>().record(frame, LifecycleIntent::Transition(RoomTransitionIntent {
+        source_zone: None,
         subject, target_room: target.into(), arrival,
         edge_exit: false, zone_sfx: None, participant: Some(PlayerSlot(slot)),
     })).admitted());

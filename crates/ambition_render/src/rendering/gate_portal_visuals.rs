@@ -227,8 +227,7 @@ pub fn wormhole_hue_degrees(catalog: &ambition_platformer2d_world::rooms::GateNe
 }
 
 /// Draw each open wormhole in its destination's colour: the membrane of a
-/// ring that sends a link and of the ring that receives it both turn by
-/// [`wormhole_hue_degrees`] of the link's far ring (a hue shift of the
+/// ring at either end turns by [`wormhole_hue_degrees`] of its destination (a hue shift of the
 /// authored membrane, following its frames: `FollowingSpriteEffect`). A ring
 /// with no link keeps the colour it had, so its closing row fades in it.
 pub fn sync_wormhole_destination_hue(
@@ -242,11 +241,9 @@ pub fn sync_wormhole_destination_hue(
         return;
     };
     for (zone_id, config) in portals.iter() {
-        let receives = network.links.values().any(|link| &link.far == zone_id);
         let Some(far) = network
             .route_from(zone_id)
-            .map(|link| link.far.as_str())
-            .or(receives.then_some(zone_id))
+            .map(|link| link.far)
         else {
             continue;
         };
@@ -313,8 +310,8 @@ pub fn ring_lit_address(
     network: Option<&ambition_platformer2d_world::rooms::GateNetworkState>,
 ) -> Vec<ambition_platformer2d_world::rooms::Chevron> {
     let entering = preview.and_then(|preview| preview.by_ring.get(zone));
-    let sending = network.and_then(|network| network.route_from(zone)).map(|link| &link.address);
-    entering.filter(|chevrons| !chevrons.is_empty()).or(sending).cloned().unwrap_or_default()
+    let sending = network.and_then(|network| network.route_from(zone)).map(|link| link.address);
+    entering.map(Vec::as_slice).filter(|chevrons| !chevrons.is_empty()).or(sending).unwrap_or_default().to_vec()
 }
 
 /// The marks `address` lights: each chevron it uses once, and each cell of
@@ -436,15 +433,17 @@ mod tests {
     fn catalog_of(zones: &[&str]) -> ambition_platformer2d_world::rooms::GateNetworkCatalog {
         use ambition_platformer2d_world::rooms::{GateNetworkCatalog, GateRing};
         GateNetworkCatalog {
+            inscription: "LEGALLYDISTINCT".into(),
+            idle_timeout_secs: 30,
             rings: zones
-                .iter()
-                .map(|zone| GateRing {
+                .iter().enumerate()
+                .map(|(index, zone)| GateRing {
                     zone: (*zone).into(),
                     name: (*zone).into(),
                     facility: "facility".into(),
                     room: "room".into(),
                     address: None,
-                    glyphs: None,
+                    glyphs: Some(vec![(index % 15) as u8, (index / 15) as u8]),
                     hidden: false,
                     terminal: None,
                     status: Default::default(),
@@ -477,11 +476,10 @@ mod tests {
         }
     }
 
-    /// Both ends of a link draw it in its far ring's colour; a closed ring
-    /// keeps the colour it had.
+    /// Each end shows its own destination. Closing keeps its last colour.
     #[test]
-    fn both_ends_of_a_link_wear_its_destinations_colour() {
-        use ambition_platformer2d_world::rooms::{GateLink, GateNetworkState};
+    fn each_end_of_a_link_uses_its_destinations_colour() {
+        use ambition_platformer2d_world::rooms::{GateNetworkCatalog, GateNetworkState};
         let mut app = App::new();
         let mut portals = GatePortalRegistry::default();
         portals.try_register("near", "near_switch", "near membrane", "near ring").expect("registers");
@@ -489,10 +487,7 @@ mod tests {
         app.insert_resource(portals);
         app.insert_resource(catalog_of(&["home", "near", "far"]));
         let mut network = GateNetworkState::default();
-        network.links.insert(
-            "near".into(),
-            GateLink { far: "far".into(), far_room: "room".into(), address: vec![1, 2, 3], remaining: 10.0, crossed: false },
-        );
+        network.open_link(app.world().resource::<GateNetworkCatalog>(), "near", "far").unwrap();
         app.insert_resource(network);
         app.add_systems(Update, sync_wormhole_destination_hue);
         let membrane = |app: &mut App, name: &str| {
@@ -515,7 +510,9 @@ mod tests {
             degrees: wormhole_hue_degrees(&catalog_of(&["home", "near", "far"]), "far"),
         }));
         assert_eq!(hue(&app, near), expected);
-        assert_eq!(hue(&app, far), expected, "the receiving end matches the sending end");
+        assert_eq!(hue(&app, far), Some(ambition_sprite_fx::FollowingSpriteEffect(ambition_sprite_fx::SpriteEffect::HueShift {
+            degrees: wormhole_hue_degrees(&catalog_of(&["home", "near", "far"]), "near"),
+        })));
 
         app.world_mut().resource_mut::<GateNetworkState>().links.clear();
         app.update();

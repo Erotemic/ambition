@@ -326,6 +326,7 @@ fn the_recorded_subject_transits_rather_than_whoever_is_controlled() {
             0,
             ambition_platformer2d::session::lifecycle_commit::LifecycleIntent::Transition(
                 ambition_platformer2d::session::lifecycle_commit::RoomTransitionIntent {
+                    source_zone: None,
                     subject: subject.clone(),
                     target_room,
                     arrival,

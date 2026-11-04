@@ -276,6 +276,7 @@ pub fn restore_checkpoint_on_session_start(
         let frame = boundary.map_or(0, |boundary| boundary.current);
         let intent = crate::lifecycle_commit::LifecycleIntent::Transition(
             crate::lifecycle_commit::RoomTransitionIntent {
+                source_zone: None,
                 subject,
                 target_room: checkpoint.room_id.clone(),
                 arrival: ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32),
@@ -595,6 +596,7 @@ pub fn resume_at_checkpoint_on_reset(
     // a later preparation can tell this reconstruction from an ordinary door.
     let intent = crate::lifecycle_commit::LifecycleIntent::Transition(
         crate::lifecycle_commit::RoomTransitionIntent {
+            source_zone: None,
             subject: subject.clone(),
             target_room,
             arrival,

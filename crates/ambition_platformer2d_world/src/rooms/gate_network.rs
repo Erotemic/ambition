@@ -20,10 +20,10 @@
 //! No rule of a faction refuses a dial: a dial fails when no ring answers,
 //! when a ring is down or busy, or when the far ring is in the same facility.
 //!
-//! A dial never moves a body. A dial that succeeds opens a LINK: the source
-//! ring boots (its portal phase follows the link) and the far ring shows the
-//! incoming wormhole. The traveller then goes through the source ring, and the
-//! ordinary room-transition road takes it to the far ring's zone.
+//! A successful dial opens one connection between two rings. Either ring
+//! reaches the other through the shared room transition. Use restarts its
+//! idle timer. An active passage or pending crossing keeps both ends open.
+//! Either terminal can close the connection. A dial never moves a body.
 //!
 //! Knowledge of an address is convenience only. [`resolve_dial`] never reads
 //! what the player knows.
@@ -47,14 +47,9 @@ use bevy_ecs::prelude::{Message, Resource};
 /// registry registers it (the world crate does not link the content pack).
 pub const GATE_NETWORK_SCHEMA: &str = "gate_network";
 
-/// How long a link stays open after a dial, in simulation seconds, when no
-/// traveller goes through. A link closes by itself so that a gate is never
-/// left open.
-pub const GATE_LINK_OPEN_SECS: f32 = 30.0;
-
-/// How long a link stays open after a traveller goes in: enough for the
-/// passage into the ring to finish while the wormhole is still visible.
-pub const GATE_LINK_LINGER_SECS: f32 = 1.5;
+fn default_gate_idle_timeout_secs() -> u32 {
+    30
+}
 
 /// How many recent addresses the network remembers for a terminal's Recent
 /// view.
@@ -144,9 +139,12 @@ pub fn gate_address_known_flag(address: &str) -> String {
 }
 
 /// A game's gate network, as authored.
-#[derive(Resource, Clone, Debug, Default, PartialEq, Eq, serde::Deserialize)]
+#[derive(Resource, Clone, Debug, PartialEq, Eq, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GateNetworkCatalog {
+    /// Idle simulation seconds before an unused connection closes.
+    #[serde(default = "default_gate_idle_timeout_secs")]
+    pub idle_timeout_secs: u32,
     /// The letters on a ring's chevrons, one per chevron, in order: the
     /// chevrons a terminal shows. A letter may stand on several chevrons;
     /// each chevron is its own symbol.
@@ -160,6 +158,13 @@ pub struct GateNetworkCatalog {
     /// decides what a terminal lists; a dial never reads it.
     #[serde(default)]
     pub start_known: GateStartKnowledge,
+}
+
+impl Default for GateNetworkCatalog {
+    fn default() -> Self {
+        Self { idle_timeout_secs: default_gate_idle_timeout_secs(), inscription: String::new(),
+            facilities: Vec::new(), rings: Vec::new(), start_known: Default::default() }
+    }
 }
 
 /// Which addresses a traveller knows before learning any.
@@ -553,6 +558,9 @@ pub fn resolve_dial<'a>(
 /// files is checked against the world, not here.
 pub fn gate_network_problems(catalog: &GateNetworkCatalog) -> Vec<String> {
     let mut problems = Vec::new();
+    if catalog.idle_timeout_secs == 0 {
+        problems.push("the gate idle timeout must be greater than zero".into());
+    }
     for letter in catalog.inscription.chars() {
         if !letter.is_ascii_uppercase() {
             problems.push(format!("the inscription letter '{letter}' is not an upper-case letter"));
@@ -678,19 +686,28 @@ pub fn gate_network_problems(catalog: &GateNetworkCatalog) -> Vec<String> {
     problems
 }
 
-/// One open link: the ring that dialed it sends, and the far ring receives.
+/// One end of an open connection, with its address fixed at dial time.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct GateEndpoint {
+    pub zone: String,
+    pub room: String,
+    pub address: Vec<Chevron>,
+}
+
+/// One connection. Its dialing endpoint is the map key; its other end is here.
 #[derive(Clone, Debug, PartialEq)]
 pub struct GateLink {
-    /// The far ring's zone.
-    pub far: String,
-    /// The room that holds the far ring's zone.
-    pub far_room: String,
-    /// The chevrons that were dialed.
-    pub address: Vec<Chevron>,
-    /// Simulation seconds before the link closes.
+    pub far: GateEndpoint,
     pub remaining: f32,
-    /// A traveller has gone in.
-    pub crossed: bool,
+    pub idle_timeout_secs: u32,
+}
+
+/// The route from either end of a connection.
+#[derive(Clone, Copy, Debug)]
+pub struct GateRoute<'a> {
+    pub far: &'a str,
+    pub far_room: &'a str,
+    pub address: &'a [Chevron],
 }
 
 /// The answer to the latest dial of one terminal.
@@ -738,8 +755,8 @@ pub enum GateTerminalAction {
 pub struct GateNetworkState {
     /// The ring each actor is using.
     pub terminals: BTreeMap<ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId, String>,
-    /// Each open link, by the ring that dialed it.
-    pub links: BTreeMap<String, GateLink>,
+    /// Each connection, keyed by its dialing endpoint.
+    pub links: BTreeMap<GateEndpoint, GateLink>,
     /// The latest dial answer for each actor.
     pub reports: BTreeMap<ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId, DialReport>,
     /// The chevrons of recent links, newest first.
@@ -749,19 +766,31 @@ pub struct GateNetworkState {
 }
 
 impl GateNetworkState {
-    /// The far ring's zone of the link `ring` sends, if any.
-    pub fn route_from(&self, ring: &str) -> Option<&GateLink> {
-        self.links.get(ring)
+    /// The destination and address reached through `ring` in either direction.
+    pub fn route_from(&self, ring: &str) -> Option<GateRoute<'_>> {
+        self.links.iter().find_map(|(source, link)| {
+            let far = if source.zone == ring { &link.far }
+                else if link.far.zone == ring { source } else { return None };
+            Some(GateRoute { far: &far.zone, far_room: &far.room, address: &far.address })
+        })
     }
 
-    /// Whether a link holds `ring` open, as its sender or its receiver.
     pub fn holds_open(&self, ring: &str) -> bool {
-        self.links.contains_key(ring) || self.links.values().any(|link| link.far == ring)
+        self.route_from(ring).is_some()
     }
 
-    /// Whether `ring` is in a link that `source` did not open.
+    pub fn connected_rooms(&self) -> impl Iterator<Item = &str> {
+        self.links.iter().flat_map(|(source, link)| [source.room.as_str(), link.far.room.as_str()])
+    }
+
     fn engaged_elsewhere(&self, ring: &str, source: &str) -> bool {
-        self.links.iter().any(|(from, link)| from != source && (from == ring || link.far == ring))
+        self.links.iter().any(|(from, link)| from.zone != source && link.far.zone != source
+            && (from.zone == ring || link.far.zone == ring))
+    }
+
+    /// Closing either endpoint closes the one connection.
+    pub fn close_link(&mut self, ring: &str) {
+        self.links.retain(|source, link| source.zone != ring && link.far.zone != ring);
     }
 
     /// The latest answer to this actor at this ring.
@@ -776,44 +805,55 @@ impl GateNetworkState {
         self.reports.insert(subject.clone(), DialReport { ring: ring.to_string(), serial, address, outcome });
     }
 
-    /// Open a link from `ring` to the zone `far` of the room `far_room`.
-    pub fn open_link(&mut self, ring: &str, far_room: &str, far: &str, address: &[Chevron]) {
-        self.links.insert(
-            ring.to_string(),
-            GateLink {
-                far: far.to_string(),
-                far_room: far_room.to_string(),
-                address: address.to_vec(),
-                remaining: GATE_LINK_OPEN_SECS,
-                crossed: false,
-            },
-        );
-        self.recent.retain(|recent| recent != address);
-        self.recent.insert(0, address.to_vec());
+    /// Connect two rings after the dial rules accept their addresses.
+    pub fn open_link(&mut self, catalog: &GateNetworkCatalog, ring: &str, far: &str) -> Result<(), DialRefusal> {
+        let endpoint = |zone: &str| {
+            let ring = catalog.ring(zone)?;
+            Some(GateEndpoint { zone: ring.zone.clone(), room: ring.room.clone(), address: catalog.address_of(ring)? })
+        };
+        let source = endpoint(ring).ok_or(DialRefusal::Unknown)?;
+        let far = endpoint(far).ok_or(DialRefusal::Unknown)?;
+        if source.zone == far.zone { return Err(DialRefusal::SameFacility); }
+        if self.engaged_elsewhere(&far.zone, &source.zone) {
+            return Err(DialRefusal::Busy("the ring already has a connection".into()));
+        }
+        self.close_link(ring);
+        self.recent.retain(|recent| *recent != far.address);
+        self.recent.insert(0, far.address.clone());
         self.recent.truncate(GATE_RECENT_LEN);
+        self.links.insert(source, GateLink {
+            far, remaining: catalog.idle_timeout_secs as f32, idle_timeout_secs: catalog.idle_timeout_secs,
+        });
+        Ok(())
     }
 
-    /// A traveller went in through `ring`: its link closes soon.
-    pub fn crossed(&mut self, ring: &str) {
-        if let Some(link) = self.links.get_mut(ring) {
-            link.crossed = true;
-            link.remaining = link.remaining.min(GATE_LINK_LINGER_SECS);
+    /// An admitted traversal restarts the shared idle timer.
+    pub fn used(&mut self, ring: &str) {
+        for (source, link) in &mut self.links {
+            if source.zone == ring || link.far.zone == ring {
+                link.remaining = link.idle_timeout_secs as f32;
+            }
         }
     }
 
-    /// Advance each link's timer by `dt`, and close the links that ran out.
-    pub fn tick(&mut self, dt: f32) {
-        for link in self.links.values_mut() {
-            link.remaining -= dt;
+    /// Active passages and pending crossings keep both ends open.
+    pub fn tick(&mut self, dt: f32, in_use: impl Fn(&str) -> bool) {
+        for (source, link) in &mut self.links {
+            if in_use(&source.zone) || in_use(&link.far.zone) {
+                link.remaining = link.idle_timeout_secs as f32;
+            } else {
+                link.remaining -= dt.max(0.0);
+            }
         }
         self.links.retain(|_, link| link.remaining > 0.0);
     }
+
 }
 
 /// The value projection of [`GateNetworkState`] for the rollback checksum:
 /// every field that decides a ring's phase or a transition.
 pub fn gate_network_state_checksum(state: &GateNetworkState) -> u64 {
-    use ambition_platformer2d_core::snapshot::{checksum_bytes, put_bool, put_f32, put_str, put_u64};
+    use ambition_platformer2d_core::snapshot::{checksum_bytes, put_f32, put_str, put_u64};
     let put_chevrons = |bytes: &mut Vec<u8>, address: &[Chevron]| {
         put_u64(bytes, address.len() as u64);
         bytes.extend_from_slice(address);
@@ -825,13 +865,14 @@ pub fn gate_network_state_checksum(state: &GateNetworkState) -> u64 {
         put_str(&mut bytes, ring);
     }
     put_u64(&mut bytes, state.links.len() as u64);
-    for (ring, link) in &state.links {
-        put_str(&mut bytes, ring);
-        put_str(&mut bytes, &link.far);
-        put_str(&mut bytes, &link.far_room);
-        put_chevrons(&mut bytes, &link.address);
+    for (source, link) in &state.links {
+        for endpoint in [source, &link.far] {
+            put_str(&mut bytes, &endpoint.zone);
+            put_str(&mut bytes, &endpoint.room);
+            put_chevrons(&mut bytes, &endpoint.address);
+        }
         put_f32(&mut bytes, link.remaining);
-        put_bool(&mut bytes, link.crossed);
+        put_u64(&mut bytes, u64::from(link.idle_timeout_secs));
     }
     put_u64(&mut bytes, state.reports.len() as u64);
     for (subject, report) in &state.reports {
@@ -908,6 +949,7 @@ mod tests {
         let mut station = ring("station", "station", Some("GALACTIC"));
         station.status = GateStatusRule::BusyWhile { flag: "convoy".into(), reason: "a freight convoy".into() };
         GateNetworkCatalog {
+            idle_timeout_secs: 30,
             inscription: "LEGALLYDISTINCT".into(),
             facilities: vec![
                 facility("home", "home"),
@@ -1086,7 +1128,7 @@ mod tests {
         assert_eq!(kind(dial(&catalog, &state, "hub", &spelled(&catalog, "SILENT"), &[])), "offline");
         assert_eq!(kind(dial(&catalog, &state, "hub", &spelled(&catalog, "GALACTIC"), &["convoy"])), "busy");
         let tangent = spelled(&catalog, "TANGENT");
-        state.open_link("trail", "math_room", "math", &tangent);
+        state.open_link(&catalog, "trail", "math").unwrap();
         assert_eq!(kind(dial(&catalog, &state, "hub", &tangent, &[])), "busy");
         assert_eq!(kind(dial(&catalog, &state, "hub", &spelled(&catalog, "ASCENT"), &[])), "busy", "a sending ring is engaged too");
     }
@@ -1160,22 +1202,44 @@ mod tests {
     }
 
     #[test]
-    fn a_link_opens_holds_both_rings_and_closes_after_its_traveller() {
+    fn a_connection_routes_both_ways_and_counts_idle_time_after_use() {
+        let mut catalog = catalog();
+        catalog.idle_timeout_secs = 5;
         let mut state = GateNetworkState::default();
-        let tangent = spelled(&catalog(), "TANGENT");
-        state.open_link("hub", "math_room", "math", &tangent);
-        assert!(state.holds_open("hub") && state.holds_open("math") && !state.holds_open("trail"));
-        assert_eq!(state.route_from("hub").map(|link| link.far.as_str()), Some("math"));
-        assert!(state.route_from("math").is_none(), "a receiving ring sends nobody back");
-        state.tick(1.0);
+        state.open_link(&catalog, "hub", "math").unwrap();
+        assert_eq!(state.links.len(), 1);
+        assert_eq!(state.route_from("hub").unwrap().far, "math");
+        let back = state.route_from("math").unwrap();
+        assert_eq!(back.far, "hub");
+        assert_eq!(back.far_room, catalog.ring("hub").unwrap().room);
+        assert_eq!(back.address, catalog.address_of(catalog.ring("hub").unwrap()).unwrap());
+        state.tick(4.0, |_| false);
+        state.used("hub");
+        state.tick(4.0, |_| false);
+        assert!(state.holds_open("hub") && state.holds_open("math"));
+        state.used("math");
+        state.tick(4.0, |_| false);
         assert!(state.holds_open("hub"));
-        state.crossed("hub");
-        state.tick(GATE_LINK_LINGER_SECS + 0.01);
+        state.tick(1.1, |_| false);
         assert!(!state.holds_open("hub") && !state.holds_open("math"));
-        state.open_link("hub", "math_room", "math", &tangent);
-        state.tick(GATE_LINK_OPEN_SECS + 0.01);
-        assert!(state.links.is_empty(), "an unused link closes by itself");
-        assert_eq!(state.recent, [tangent]);
+    }
+
+    #[test]
+    fn an_active_crossing_holds_the_connection_and_either_terminal_can_close_it() {
+        let catalog = catalog();
+        let mut state = GateNetworkState::default();
+        for active in ["hub", "math"] {
+            state.open_link(&catalog, "hub", "math").unwrap();
+            state.tick(100.0, |ring| ring == active);
+            assert!(state.holds_open("hub") && state.holds_open("math"));
+            state.close_link(active);
+            assert!(state.links.is_empty());
+        }
+        state.open_link(&catalog, "hub", "math").unwrap();
+        state.open_link(&catalog, "math", "trail").unwrap();
+        assert!(!state.holds_open("hub"));
+        assert_eq!(state.route_from("trail").unwrap().far, "math");
+        assert_eq!(state.links.len(), 1);
     }
 
     #[test]
@@ -1203,10 +1267,10 @@ mod tests {
     #[test]
     fn the_checksum_sees_a_timer_and_a_report() {
         let mut a = GateNetworkState::default();
-        a.open_link("hub", "math_room", "math", &[10, 3, 12]);
+        a.open_link(&catalog(), "hub", "math").unwrap();
         let mut b = a.clone();
         assert_eq!(gate_network_state_checksum(&a), gate_network_state_checksum(&b));
-        b.tick(1.0 / 60.0);
+        b.tick(1.0 / 60.0, |_| false);
         assert_ne!(gate_network_state_checksum(&a), gate_network_state_checksum(&b));
         let mut c = a.clone();
         c.report(&ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::from_snapshot("user".into()), None), "hub", vec![9, 3], Err(DialRefusal::Unknown));
@@ -1220,6 +1284,7 @@ mod tests {
     fn a_catalog_problem_is_named_by_its_ring_and_field() {
         assert!(gate_network_problems(&catalog()).is_empty(), "{:?}", gate_network_problems(&catalog()));
         let mut bad = catalog();
+        bad.idle_timeout_secs = 0;
         bad.rings[2].address = Some("LEGAL".into());
         bad.rings[3].address = Some("SILENTO".into());
         bad.rings[4].facility = "nowhere".into();
@@ -1231,6 +1296,7 @@ mod tests {
         bad.rings.push(twin);
         let problems = gate_network_problems(&bad);
         for expected in [
+            "the gate idle timeout must be greater than zero",
             "the address `LEGAL` reaches both `hub` and `math`",
             "`ninja.address` `SILENTO` has 'O', which is on no chevron",
             "`fort.facility` `nowhere` is not a facility",

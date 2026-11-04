@@ -181,6 +181,7 @@ pub fn drive_departures(
         let _ = pending.record(
             boundary.as_deref().map_or(0, |boundary| boundary.current),
             LifecycleIntent::Transition(RoomTransitionIntent {
+                source_zone: None,
                 subject,
                 target_room: target,
                 arrival,
@@ -308,6 +309,7 @@ mod tests {
         );
         // Another lifecycle operation owns the earliest-sticky slot.
         let competing = LifecycleIntent::Transition(RoomTransitionIntent {
+            source_zone: None,
             subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::player_slot(0), None),
             target_room: "second".into(),
             arrival: ae::Vec2::ZERO,

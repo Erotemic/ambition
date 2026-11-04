@@ -314,6 +314,7 @@ fn cross_into_a_cached_neighbour(as_checkpoint_restore: bool) -> bool {
         ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(world, entity).expect("the subject has a SimId")
     };
     let intent = RoomTransitionIntent {
+        source_zone: None,
         subject: subject.clone(),
         target_room: neighbour.clone(),
         arrival: ambition_platformer2d::engine_core::Vec2::ZERO,
@@ -478,6 +479,7 @@ fn rebuilt_room_holds_its_ground_item(relocated: bool) -> bool {
         ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(world, entity).expect("the subject has a SimId")
     };
     let intent = LifecycleIntent::Transition(RoomTransitionIntent {
+        source_zone: None,
         subject: subject.clone(),
         target_room: target.clone(),
         arrival: ambition_platformer2d::engine_core::Vec2::ZERO,
@@ -619,6 +621,7 @@ pub(crate) fn cross(
 
     let subject = LiveBodyId::of_entity(app.world(), body).expect("the body has a SimId");
     let intent = LifecycleIntent::Transition(RoomTransitionIntent {
+        source_zone: None,
         subject,
         target_room: target.to_owned(),
         arrival: ambition_platformer2d::engine_core::Vec2::new(200.0, 200.0),

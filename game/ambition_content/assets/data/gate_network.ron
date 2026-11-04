@@ -4,7 +4,7 @@
 // `docs/planning/game/gate-network.md`; the engine's rules are
 // `ambition_platformer2d_world::rooms::gate_network`.
 //
-// - An address reaches one ring. A ring with no address only sends. An
+// - An address reaches one ring. Every ring has an address. An
 //   address is written as a word; a dial enters its chevrons, which the word
 //   spells by the inscription's rule (the k-th L of a word is the k-th Λ).
 // - No faction refuses a dial: a dial fails only when no ring answers, a
@@ -24,6 +24,7 @@
 // the world files. An edit here is played at the next start, and a content
 // reload restates it, with no Rust build.
 (
+    idle_timeout_secs: 30,
     // The ring's inscription, ΛΕΓΑΛΛΥ ΔΙΣΤΙΝΧΤ, as the letters it spells: one
     // letter per chevron, fifteen chevrons, each its own glyph.
     inscription: "LEGALLYDISTINCT",

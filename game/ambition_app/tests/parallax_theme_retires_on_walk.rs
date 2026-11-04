@@ -171,6 +171,7 @@ fn a_theme_the_player_walked_away_from_leaves_assets_image() {
             0,
             ambition_platformer2d::session::lifecycle_commit::LifecycleIntent::Transition(
                 ambition_platformer2d::session::lifecycle_commit::RoomTransitionIntent {
+                    source_zone: None,
                     subject: subject.clone(),
                     target_room,
                     arrival,

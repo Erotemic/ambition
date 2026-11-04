@@ -220,7 +220,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// 411 -> 412: switches retain acting bodies; terminal uses and replies belong to those bodies.
 /// 412 -> 413: room preparation continuity is captured on the simulation timeline.
 /// 413 -> 414: bounded melee steps end their side motion without changing fall speed.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 414;
+/// Gate connections route both ways; travel intents retain their source zone.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 415;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

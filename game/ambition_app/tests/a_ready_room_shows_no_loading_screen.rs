@@ -72,6 +72,7 @@ fn cross(app: &mut bevy::prelude::App, target: &str) -> Crossing {
     let body = alice(app);
     let subject = LiveBodyId::of_entity(app.world(), body).expect("the body has a SimId");
     let intent = LifecycleIntent::Transition(RoomTransitionIntent {
+        source_zone: None,
         subject,
         target_room: target.to_owned(),
         arrival: ambition_platformer2d::engine_core::Vec2::new(200.0, 200.0),

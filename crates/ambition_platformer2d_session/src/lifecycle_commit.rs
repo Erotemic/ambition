@@ -80,6 +80,7 @@ impl LifecycleIntent {
                 arrival,
                 edge_exit,
                 zone_sfx,
+                source_zone,
                 participant,
             }) => {
                 put_u8(&mut bytes, 0);
@@ -88,6 +89,7 @@ impl LifecycleIntent {
                 put_vec2(&mut bytes, *arrival);
                 put_bool(&mut bytes, *edge_exit);
                 put_opt_str(&mut bytes, zone_sfx.as_deref());
+                put_opt_str(&mut bytes, source_zone.as_deref());
                 put_bool(&mut bytes, participant.is_some());
                 put_u8(&mut bytes, participant.map_or(0, |slot| slot.0));
             }
@@ -143,6 +145,13 @@ impl LifecycleIntent {
         }
     }
 
+    pub fn source_zone(&self) -> Option<&str> {
+        match self {
+            Self::Transition(intent) => intent.source_zone.as_deref(),
+            Self::ReconstituteRoom(_) => None,
+        }
+    }
+
     /// Whether this is an edge crossing, which selects the cooldown and feel.
     /// A rebuild nobody walks into is never one.
     pub fn edge_exit(&self) -> bool {
@@ -158,6 +167,8 @@ impl LifecycleIntent {
 /// room ids and [`LiveBodyId`] rather than transient entities or query positions.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RoomTransitionIntent {
+    /// The source zone, when a loading zone admitted this operation.
+    pub source_zone: Option<String>,
     /// The body that CROSSED. Never re-resolved from live control at commit
     /// time: possession may have changed, ended, or the body may have died during
     /// the wait. A body without stable identity cannot produce a transition.
@@ -422,6 +433,7 @@ mod tests {
 
     fn crossing_to(room: &str) -> LifecycleIntent {
         LifecycleIntent::Transition(RoomTransitionIntent {
+            source_zone: None,
             subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("hero"), None),
             target_room: room.into(),
             arrival: Vec2::new(1.0, 2.0),
@@ -450,6 +462,15 @@ mod tests {
         let mut exhausted = SessionCheckpointOperations::exhausted_for_test();
         assert_eq!(slot.record_restore(14, crossing_to("north"), &mut exhausted, None), None);
         assert_eq!(slot, before);
+    }
+
+    #[test]
+    fn different_source_zones_do_not_identify_the_same_crossing() {
+        let LifecycleIntent::Transition(mut first) = crossing_to("east") else { unreachable!() };
+        first.source_zone = Some("first-ring".into());
+        let mut second = first.clone();
+        second.source_zone = Some("second-ring".into());
+        assert_ne!(LifecycleIntent::Transition(first).checksum(), LifecycleIntent::Transition(second).checksum());
     }
 
     #[test]
@@ -508,6 +529,7 @@ mod tests {
         let _ = slot.record(
             10,
             LifecycleIntent::Transition(RoomTransitionIntent {
+                source_zone: None,
                 subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("hero"), None),
                 target_room: "east".into(),
                 arrival: Vec2::new(1.0, 2.0),
@@ -562,6 +584,7 @@ mod tests {
         let hero = LiveBodyId::new(SimId::placement("hero"), Some(LiveRoomInstance::ACTIVATION.next()));
         let other = LiveBodyId::new(SimId::placement("hero"), Some(LiveRoomInstance::ACTIVATION));
         let transition = LifecycleIntent::Transition(RoomTransitionIntent {
+            source_zone: None,
             subject: hero.clone(),
             target_room: "east".into(),
             arrival: Vec2::new(1.0, 2.0),
@@ -582,6 +605,7 @@ mod tests {
         let _ = slot.record(
             9,
             LifecycleIntent::Transition(RoomTransitionIntent {
+                source_zone: None,
                 subject: other.clone(),
                 target_room: "west".into(),
                 arrival: Vec2::ZERO,

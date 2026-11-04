@@ -142,6 +142,15 @@ peer confirmation preserve the same group, room state, and item ownership.
 
 The work is [PARTY-TRAVEL-POLICIES](../queue.md#party-travel-policies--configurable-group-crossings-and-a-leader-view).
 
+### Gate connection lifetime
+
+Maintainer request, 2026-11-03. A dialed gate connection must work in both
+directions. A traveller must not close it behind the next participant. Close
+both ends only through a dial-device hangup or after the shared idle timeout.
+Active passages and pending crossings keep the connection open. This rule also
+applies in single-player. The default idle timeout is 30 simulation seconds;
+the gate catalog can set another positive duration.
+
 ## Room and world consequences
 
 Different-room play means Ambition cannot assume one globally active room.

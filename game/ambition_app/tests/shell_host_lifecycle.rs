@@ -2374,15 +2374,15 @@ fn a_session_that_follows_another_starts_as_a_fresh_hosts_does() {
             .find(|(_, config)| matches!(&config.command, GatePortalCommand::Dialed))
             .map(|(zone, _)| zone.clone())
             .expect("the live hub registers a dialed gate");
-        let (far_room, far_zone, address) = {
-            let catalog = veteran.world().resource::<GateNetworkCatalog>();
+        let catalog = veteran.world().resource::<GateNetworkCatalog>().clone();
+        let far_zone = {
             let source = catalog.ring(&zone).expect("the gate belongs to the network");
             let far = catalog.rings.iter().find(|ring| ring.facility != source.facility)
                 .expect("the network has another facility");
-            (far.room.clone(), far.zone.clone(), catalog.address_of(far).expect("the far gate has an address"))
+            far.zone.clone()
         };
         veteran.world_mut().resource_mut::<GateNetworkState>()
-            .open_link(&zone, &far_room, &far_zone, &address);
+            .open_link(&catalog, &zone, &far_zone).unwrap();
         for _ in 0..60 {
             veteran.update();
         }
@@ -2430,7 +2430,7 @@ fn a_session_that_follows_another_starts_as_a_fresh_hosts_does() {
 
         for app in [&mut fresh, &mut veteran] {
             app.world_mut().resource_mut::<GateNetworkState>()
-                .open_link(&zone, &far_room, &far_zone, &address);
+                .open_link(&catalog, &zone, &far_zone).unwrap();
         }
         let fresh_readings = record_from_the_activation(&mut fresh, TICKS, peer_census);
         let veteran_readings = record_from_the_activation(&mut veteran, TICKS, peer_census);

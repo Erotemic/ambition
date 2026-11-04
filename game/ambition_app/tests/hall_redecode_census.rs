@@ -201,6 +201,7 @@ fn the_halls_entry_is_counted_for_art_it_decodes_twice() {
             0,
             ambition_platformer2d::session::lifecycle_commit::LifecycleIntent::Transition(
                 ambition_platformer2d::session::lifecycle_commit::RoomTransitionIntent {
+                    source_zone: None,
                     subject: subject.clone(),
                     target_room,
                     arrival,

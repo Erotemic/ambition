@@ -104,8 +104,9 @@ slices.
 
 The 2026-11-03 request adds
 [PARTY-TRAVEL-POLICIES](#party-travel-policies--configurable-group-crossings-and-a-leader-view).
-Finish the current retained-plan commit, then implement this policy before the
-next online no-hold slice. Independent adaptive play remains the default.
+The retained-plan slice is committed in `48cb138c9`. Gate connections now work
+both ways and share an idle timer. Implement party travel before the next
+online no-hold slice. Independent adaptive play remains the default.
 
 ## Work order from the additional maintainer rulings of 2026-10-19
 
@@ -632,6 +633,10 @@ control.
 **Owner:** session passage admission and shared room application; settings and
 input owners; local view composition. Requirements and acceptance:
 [configurable party travel](game/multiplayer.md#configurable-party-travel).
+
+**Gate follow-up:** [connection lifetime](game/gate-network.md#the-rules)
+keeps both directions available for following and return. Both ends share an
+idle timeout, and either terminal can close the connection.
 
 **Next action:** add explicit group travel rules and atomic multi-body room
 transfers. Add the optional leader view, a Select return action, and settings.

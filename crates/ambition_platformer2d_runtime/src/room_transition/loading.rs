@@ -1585,6 +1585,7 @@ mod tests {
 
     fn request_by(target_room: &str, arrival: ae::Vec2, subject: SimId) -> LifecycleIntent {
         LifecycleIntent::Transition(RoomTransitionIntent {
+            source_zone: None,
             subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(subject, None),
             target_room: target_room.to_string(),
             arrival,
@@ -1921,6 +1922,7 @@ mod checkpoint_failure_tests {
 
     fn crossing() -> LifecycleIntent {
         LifecycleIntent::Transition(RoomTransitionIntent {
+            source_zone: None,
             subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("hero"), None),
             target_room: "a_room_that_cannot_be_prepared".into(),
             arrival: ambition_platformer2d_core::Vec2::ZERO,

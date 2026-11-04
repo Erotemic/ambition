@@ -577,11 +577,17 @@ mod tests {
         let mut state = GateNetworkState::default();
         let mut ui = TerminalUi::default();
         ui.open("hub_public_gate_zone", None);
-        state.open_link("hub_public_gate_zone", "math_gate_hall", "math_gate_return_zone", &catalog.spell("TANGENT").unwrap());
+        state.open_link(&catalog, "hub_public_gate_zone", "math_gate_return_zone").unwrap();
         let model = ui.model(&catalog, &state, &[]);
         assert!(model.status.starts_with("LINK OPEN to Math Town gate hall"), "{}", model.status);
         assert!(model.list.contains(&ListRow::Hangup));
-        state.links.clear();
+        ui.open("math_gate_return_zone", None);
+        let returning = ui.model(&catalog, &state, &[]);
+        assert!(returning.status.contains(&catalog.ring("hub_public_gate_zone").unwrap().name));
+        assert!(returning.list.contains(&ListRow::Hangup));
+        state.close_link("math_gate_return_zone");
+        assert!(!ui.model(&catalog, &state, &[]).list.contains(&ListRow::Hangup));
+        ui.open("hub_public_gate_zone", None);
         let subject = ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
             ambition_platformer2d_shared_tangle::sim_id::SimId::from_snapshot("terminal_user".into()), None);
         ui.subject = Some(subject.clone());

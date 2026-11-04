@@ -316,6 +316,7 @@ pub fn detect_room_transition_system(
                 continue;
             };
             let crossing = crate::lifecycle_commit::RoomTransitionIntent {
+                source_zone: Some(zone.zone.id.clone()),
                 subject: subject.clone(),
                 target_room: target_spec.id.clone(),
                 arrival: zone.arrival,
@@ -335,7 +336,7 @@ pub fn detect_room_transition_system(
                 foot: far.aabb.center() + ae::Vec2::new(0.0, far.aabb.half_size().y),
                 heart: far.aabb.center(),
             };
-            network.crossed(&zone.zone.id);
+            network.used(&zone.zone.id);
             commands.entity(subject_entity).try_insert(super::passage::ZonePassage::enter(
                 kind,
                 &zone.zone.id,
@@ -381,6 +382,7 @@ pub fn detect_room_transition_system(
             boundary.map_or(0, |boundary| boundary.current),
             crate::lifecycle_commit::LifecycleIntent::Transition(
                 crate::lifecycle_commit::RoomTransitionIntent {
+                    source_zone: Some(zone.zone.id.clone()),
                     subject: subject.clone(),
                     target_room: target_spec.id.clone(),
                     arrival: zone.arrival,
@@ -400,7 +402,7 @@ pub fn detect_room_transition_system(
             // anything, which is now true of the whole function.
             return;
         }
-        network.crossed(&zone.zone.id);
+        network.used(&zone.zone.id);
         // Consume the gesture only once the crossing is ADMITTED — not merely
         // describable. Every invariant needed to describe it was checked above; the
         // slot is the one that decides whether it happens.

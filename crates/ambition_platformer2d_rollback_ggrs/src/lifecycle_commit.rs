@@ -934,6 +934,7 @@ mod tests {
 
     fn intent_to(target_room: &str, subject: SimId) -> LifecycleIntent {
         LifecycleIntent::Transition(RoomTransitionIntent {
+            source_zone: None,
             subject: LiveBodyId::new(subject, None),
             target_room: target_room.to_string(),
             arrival: ae::Vec2::ZERO,

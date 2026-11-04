@@ -650,6 +650,7 @@ mod tests {
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_systems(Update, run_zone_passages);
         let crossing = RoomTransitionIntent {
+            source_zone: None,
             subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
                 ambition_platformer2d_shared_tangle::sim_id::SimId::placement("hero"),
                 None,
@@ -872,6 +873,7 @@ mod tests {
     fn each_field_of_a_passage_moves_its_checksum() {
         let base = ZonePassage {
             crossing: Some(RoomTransitionIntent {
+                source_zone: None,
                 subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
                     ambition_platformer2d_shared_tangle::sim_id::SimId::placement("hero"),
                     None,

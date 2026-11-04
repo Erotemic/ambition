@@ -206,6 +206,7 @@ fn capture_releases_retiring_custody_but_keeps_it_when_another_participant_stays
             .as_mut()
             .unwrap()
             .kind = LifecycleIntent::Transition(RoomTransitionIntent {
+            source_zone: None,
             subject: LiveBodyId::new(traveller, Some(room)),
             target_room: "east".into(),
             arrival: Vec2::ZERO,

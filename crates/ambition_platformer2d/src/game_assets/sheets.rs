@@ -88,7 +88,7 @@ pub fn load_the_prop_sheets_in_reach(sprite_content: bevy::prelude::Res<ambition
     reach.dedup();
     let mut far: Vec<String> = network
         .iter()
-        .flat_map(|network| network.links.values().map(|link| link.far_room.clone()))
+        .flat_map(|network| network.connected_rooms().map(str::to_owned))
         .collect();
     far.sort();
     far.dedup();

@@ -317,7 +317,7 @@ fn play_ambition(
             };
             let body = kin.collision_box(sweep);
             if let Some(address) = &hop.dial {
-                let linked = gates.state.route_from(&zone.id).is_some_and(|link| link.address == *address);
+                let linked = gates.state.route_from(&zone.id).is_some_and(|link| link.address == address.as_slice());
                 if gates.state.terminals.get(&subject).map(String::as_str) == Some(&zone.id) {
                     let action = if linked { GateTerminalAction::Close } else { GateTerminalAction::Dial(address.clone()) };
                     gates.ask(&subject, &zone.id, action, it);

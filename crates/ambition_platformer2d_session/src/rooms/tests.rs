@@ -1229,6 +1229,7 @@ fn a_door_refused_the_lifecycle_slot_keeps_the_press_it_could_not_spend() {
     // that was honoured.
     let incumbent = crate::lifecycle_commit::LifecycleIntent::Transition(
         crate::lifecycle_commit::RoomTransitionIntent {
+            source_zone: None,
             subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("somebody_else"), None),
             target_room: "b".into(),
             arrival: ae::Vec2::new(7.0, 9.0),

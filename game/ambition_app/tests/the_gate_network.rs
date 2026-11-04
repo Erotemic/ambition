@@ -333,13 +333,13 @@ fn a_terminal_can_be_left_hung_up_and_dialed_again() {
     assert!(!portal_on(&mut sim, HUB_RING), "the ring is shut after a hangup");
     assert_eq!(dial(&mut sim, HUB_RING, "CITADEL"), "link");
     assert_eq!(dial(&mut sim, HUB_RING, "TANGENT"), "link", "a redial replaces the ring's own link");
-    let links = network(&mut sim).links;
-    assert_eq!(links.len(), 1);
-    assert_eq!(links[HUB_RING].far, MATH_RING);
+    let network = network(&mut sim);
+    assert_eq!(network.links.len(), 1);
+    assert_eq!(network.route_from(HUB_RING).unwrap().far, MATH_RING);
 }
 
 /// Acceptance 5: an opening ring takes nobody; the traveller crosses once,
-/// by one confirmed transition, and the link closes after.
+/// by one confirmed transition, and the connection stays open for a return.
 #[test]
 fn an_opening_ring_takes_nobody_and_an_open_one_takes_the_traveller_once() {
     let mut sim = room(HUB);
@@ -362,6 +362,7 @@ fn an_opening_ring_takes_nobody_and_an_open_one_takes_the_traveller_once() {
         let now = room_id(&mut sim);
         if rooms.last() != Some(&now) {
             rooms.push(now);
+            break;
         }
     }
     finish_passages(&mut sim);
@@ -369,7 +370,56 @@ fn an_opening_ring_takes_nobody_and_an_open_one_takes_the_traveller_once() {
     for _ in 0..120 {
         sim.step(base());
     }
-    assert!(network(&mut sim).links.is_empty(), "the link closes after its traveller");
+    assert!(network(&mut sim).holds_open(MATH_RING), "the connection stays open after arrival");
+    assert_eq!(go_through(&mut sim, MATH_RING), HUB, "the return needs no dial");
+}
+
+#[test]
+fn a_second_participant_can_follow_the_connection_and_return_without_a_dial() {
+    use ambition_platformer2d::characters::control::PlayerSlot;
+    use crate::two_players_two_live_rooms::{bob_beside_alice, put_bob_at, where_they_are, live_rooms};
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        fixed_60hz_room_options(HUB).with_rollback_players(2),
+    ).unwrap();
+    let first = bob_beside_alice(&mut sim, HUB, Some(PlayerSlot(1)));
+    let opening = zone(&mut sim, HUB_RING);
+    open_terminal(&mut sim, HUB_TERMINAL, HUB_RING);
+    assert_eq!(dial(&mut sim, HUB_RING, "TANGENT"), "link");
+    ask(&mut sim, HUB_RING, GateTerminalAction::Close);
+    assert_eq!(go_through(&mut sim, HUB_RING), MATH);
+    let (alice, bob) = where_they_are(&mut sim);
+    let destination = alice.unwrap();
+    assert_ne!(destination, first);
+    assert_eq!(bob, Some(Some(first)));
+    sim.step_n(base(), 120);
+    assert!(network(&mut sim).holds_open(HUB_RING));
+    put_bob_at(&mut sim, ae::Vec2::new(opening.center().x, opening.max.y - 16.0));
+    sim.rebase_rollback_history().unwrap();
+    for frame in 0..240 {
+        let press = frame % 10 < 2;
+        sim.drive_seat(1, ae::ControlFrame {
+            interact_pressed: press, interact_held: press, ..Default::default()
+        });
+        sim.step(base());
+        if where_they_are(&mut sim).1 == Some(Some(destination)) { break; }
+    }
+    sim.drive_seat(1, Default::default());
+    finish_passages(&mut sim);
+    assert_eq!(where_they_are(&mut sim), (Some(destination), Some(Some(destination))));
+    assert_eq!(live_rooms(&mut sim).len(), 1);
+    assert_eq!(go_through(&mut sim, MATH_RING), HUB);
+    let (alice, _) = where_they_are(&mut sim);
+    assert_ne!(alice, Some(destination));
+    // A rebuilt room can contain another instance of an authored spawn.
+    // The participant identifies the body that must stay in Math.
+    let world = sim.world_mut();
+    let followers: Vec<_> = world.query::<(
+        &ambition_platformer2d::characters::control::DrivingParticipant,
+        &ambition_platformer2d::platformer::lifecycle::InRoomInstance,
+    )>().iter(world).filter(|(driver, _)| driver.0 == PlayerSlot(1)).map(|(_, room)| room.0).collect();
+    assert_eq!(followers, [destination]);
+    assert!(network(&mut sim).holds_open(HUB_RING));
+    assert!(sim.rollback_health().is_ok());
 }
 
 /// Acceptance 4: a source ring answers by its own rules. Ring 7 of the gate

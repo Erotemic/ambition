@@ -60,11 +60,13 @@ ring's zone. A dial never moves a body.
    `PoweredBy { switch }` (offline until the save switch is on) or
    `BusyWhile { flag }`. Live links make a ring busy for another link. No
    status reads chance.
-8. **A link** holds both rings open: the sender's portal boots (the existing
-   opening animation) and the receiver shows the incoming wormhole. Only the
-   sender leads anywhere: a receiving ring sends nobody back. A link closes
-   1.5 s after its traveller goes in, or 30 s after the dial when nobody does.
-   A hangup shuts it; a redial replaces it.
+8. **A connection works both ways.** Both rings open, and either one reaches
+   the other without another dial. Each end shows its own destination colour
+   and address. A traveller does not close the connection. It closes after
+   `idle_timeout_secs` without use (30 simulation seconds by default). A passage
+   or pending crossing keeps it open. Use from either end restarts the shared
+   timer. A hangup from either terminal closes both ends; a redial replaces the
+   whole connection. Leaving the terminal panel keeps the connection open.
 9. **Every terminal away from home posts a way home** (`posted`, here
    `LEGAL`). Its Known view always lists it, so no destination needs a known
    address to leave.
@@ -77,13 +79,20 @@ ring's zone. A dial never moves a body.
     with everything unlocked). To release with discovery, write
     `start_known: Discovered` in `gate_network.ron`; nothing else changes.
 
+The connection lifetime guards are
+`a_connection_routes_both_ways_and_counts_idle_time_after_use`,
+`an_active_crossing_holds_the_connection_and_either_terminal_can_close_it`, and
+`a_second_participant_can_follow_the_connection_and_return_without_a_dial`.
+Travel intents retain the source zone while a crossing is pending. Schema 415
+includes that field and both connection endpoints.
+
 ## State and ownership
 
 | what | where | kind |
 | --- | --- | --- |
 | the catalog | `GateNetworkCatalog` resource, from the pack | authored; reload replaces it |
 | terminal use and reports | `GateNetworkState` (`resource.gate_network_state`) | rollback state, keyed by `LiveBodyId` |
-| links and recent addresses | `GateNetworkState` | rollback state; links keyed by ring zone, recent addresses shared |
+| links and recent addresses | `GateNetworkState` | rollback state; one connection keyed by its dialing endpoint; recent addresses shared |
 | a terminal's dial, hangup, close | `GateTerminalIntent` host intent | stamped tick, released into the sim |
 | what the player knows | save flags `gate.known.*` | persisted |
 | the panel's focus, entered chevrons, pointer, list cursor | `TerminalUi` | host presentation |

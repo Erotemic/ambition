@@ -203,6 +203,7 @@ pub fn admit_room_replay(
         Some(subject) => pending.record(
             boundary.map_or(0, |boundary| boundary.current),
             LifecycleIntent::Transition(RoomTransitionIntent {
+                source_zone: None,
                 subject,
                 target_room: active.id.clone(),
                 arrival: active.world.spawn,
@@ -467,6 +468,7 @@ pub fn bring_a_fallen_seat_back_beside_the_primary(
                         boundary.as_deref().map_or(0, |boundary| boundary.current),
                         ambition_platformer2d_session::lifecycle_commit::LifecycleIntent::Transition(
                             ambition_platformer2d_session::lifecycle_commit::RoomTransitionIntent {
+                                source_zone: None,
                                 subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
                                     sim_id.clone(),
                                     Some(room.0),

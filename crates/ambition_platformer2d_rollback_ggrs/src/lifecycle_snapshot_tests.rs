@@ -25,6 +25,7 @@ fn pending_and_withdrawn_restore_keys_survive_the_registered_snapshot_path() {
         let key = pending.record_restore(
             4,
             LifecycleIntent::Transition(RoomTransitionIntent {
+                source_zone: None,
                 subject: LiveBodyId::new(SimId::placement("traveller"), None),
                 target_room: "east".into(),
                 arrival: Vec2::new(20.0, 30.0),
@@ -102,6 +103,7 @@ fn room_preparation_inputs_survive_the_registered_snapshot_path() {
     ));
     let mut pending = PendingLifecycleCommit::default();
     assert!(pending.record(4, LifecycleIntent::Transition(RoomTransitionIntent {
+        source_zone: None,
         subject: LiveBodyId::new(SimId::placement("traveller"), None),
         target_room: "east".into(), arrival: Vec2::new(20.0, 30.0),
         edge_exit: false, zone_sfx: None, participant: Some(PlayerSlot(0)),

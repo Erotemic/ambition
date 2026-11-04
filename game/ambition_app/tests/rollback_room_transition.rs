@@ -119,6 +119,7 @@ fn replay_room_crossing(
     // Prepare in a setup frame. Apply the plan on the replayed timeline.
     assert!(world.resource_mut::<PendingLifecycleCommit>().record(0,
         LifecycleIntent::Transition(RoomTransitionIntent {
+            source_zone: None,
             subject: subject.clone(), target_room: destination.into(),
             arrival: target.world.spawn, edge_exit: false, zone_sfx: None,
             participant: Some(ambition_platformer2d::characters::control::PlayerSlot(0)),

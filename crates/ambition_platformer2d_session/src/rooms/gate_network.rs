@@ -7,7 +7,7 @@
 //! learns. It moves no body: a traveller goes through an open ring by the
 //! room-transition road (`detect_room_transition_system`).
 
-use bevy::prelude::{MessageReader, Query, Res, ResMut, With};
+use bevy::prelude::{MessageReader, Query, Res, ResMut, With, Without};
 
 use ambition_platformer2d_world::rooms::{
     gate_address_known_flag, resolve_dial, GateFacts, GateNetworkCatalog, GateNetworkState, GateRingPositions,
@@ -38,6 +38,8 @@ pub fn run_gate_network(
     positions: Option<Res<GateRingPositions>>,
     bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
     out_of_play: Query<(), With<ambition_combat::death_rules::OutOfPlay>>,
+    passages: Query<&super::passage::ZonePassage, Without<ambition_combat::death_rules::OutOfPlay>>,
+    pending: Option<Res<crate::lifecycle_commit::PendingLifecycleCommit>>,
 ) {
     let Some(catalog) = catalog else {
         intents.clear();
@@ -75,13 +77,13 @@ pub fn run_gate_network(
         match &intent.action {
             GateTerminalAction::Close => { state.terminals.remove(&intent.subject); },
             GateTerminalAction::Hangup => {
-                state.links.remove(&intent.ring);
+                state.close_link(&intent.ring);
             }
             GateTerminalAction::Dial(address) => {
                 // A redial replaces this ring's own link: the old link shuts
                 // first, so it neither blocks the new one as busy nor stays
                 // open beside it.
-                state.links.remove(&intent.ring);
+                state.close_link(&intent.ring);
                 let data = save.data();
                 let switch_on = |id: &str| data.switch(id);
                 let flag = |id: &str| data.flag(id);
@@ -91,9 +93,12 @@ pub fn run_gate_network(
                     GateFacts { switch_on: &switch_on, flag: &flag, zone_exists: &zone_exists, distance: &distance };
                 match resolve_dial(&catalog, &state, &intent.ring, address, &facts) {
                     Ok(far) => {
-                        let (far_room, far_zone) = (far.room.clone(), far.zone.clone());
+                        let far_zone = far.zone.clone();
                         let known = gate_address_known_flag(far.address_key());
-                        state.open_link(&intent.ring, &far_room, &far_zone, address);
+                        if let Err(refusal) = state.open_link(&catalog, &intent.ring, &far_zone) {
+                            state.report(&intent.subject, &intent.ring, address.clone(), Err(refusal));
+                            continue;
+                        }
                         state.report(&intent.subject, &intent.ring, address.clone(), Ok(far_zone));
                         // A dial that answers teaches the address.
                         save.data_mut().set_flag(known, true);
@@ -105,7 +110,10 @@ pub fn run_gate_network(
     }
     let dt = world_time.sim_dt();
     if dt > 0.0 && !state.links.is_empty() {
-        state.tick(dt);
+        let pending_zone = pending.as_deref().and_then(|pending| pending.peek())
+            .and_then(|operation| operation.kind.source_zone());
+        state.tick(dt, |ring| pending_zone == Some(ring) || passages.iter().any(|passage|
+            passage.kind == super::passage::PassageKind::Gate && passage.zone == ring));
     }
 }
 

@@ -86,7 +86,12 @@ construction plan. Schema 420 records the change. Guards:
 `continuity_rechecks_the_recipe_of_a_reinstated_runtime_mint`,
 `a_changed_destination_continuity_refuses_before_retiring_any_live_room`, and
 `a_live_destination_uses_live_occurrences_instead_of_the_unused_construction_plan`.
-A two-peer witness for an occurrence change during preparation remains open.
+The delayed-peer witness now covers a real destination pickup consumed after
+admission capture (`438be9428`). Both peers refuse the stale plan and keep the
+source room and both bodies. Guard:
+`peers_refuse_a_destination_occurrence_changed_after_preparation_capture`.
+This witness uses the existing hold. Gate 4 must still cover occurrence changes
+while unrelated rooms continue to simulate.
 
 Checkpoint restores now carry their key in the pending and withdrawn intents
 (`ce283f8f0`).
@@ -117,6 +122,12 @@ and excludes local activation counters. Local plan IDs add those counters for
 cache use. Peer replies carry this identity and the captured preparation
 checksum. Do not send the local plan ID as
 proof of peer preparation.
+
+Ordinary travel now preserves current and requested session time scale
+(`199313527`). An explicit rebuild can reset the clock only when no unrelated
+rooms remain live. Both hosts use the shared finalizer. Schema 421 records the
+change. Guard:
+`travel_keeps_the_shared_clock_scale_and_a_full_rebuild_resets_it`.
 
 ## Retained plan lifetime
 

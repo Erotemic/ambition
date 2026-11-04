@@ -972,8 +972,16 @@ Construction plans now expose an identity for their exact frozen data and both
 stated content identities. Local activation counters remain in the local cache key.
 Guard: `peer_plan_identity_binds_retained_services_without_local_history`.
 
-**Next step:** add an occurrence that changes during peer preparation. Then use
-each frame's input verdicts for the ordinary crossing inside the simulation.
+The delayed-peer occurrence witness passes (`438be9428`). A target pickup
+consumed after admission capture refuses the crossing on both peers and keeps
+the source intact. Guard:
+`peers_refuse_a_destination_occurrence_changed_after_preparation_capture`.
+This still uses the existing hold. Ordinary travel now preserves session time
+scale through the shared finalizer (`199313527`); full rebuilds retain their
+reset. Guard: `travel_keeps_the_shared_clock_scale_and_a_full_rebuild_resets_it`.
+
+**Next step:** use each frame's input verdicts for the ordinary crossing inside
+the simulation. Then exercise occurrence changes while unrelated rooms advance.
 Keep the existing safe hold until those pass.
 The `LOCAL-PLAY-MODES` leave slice and `COOP-RECOVERY` remain separate work
 items; reuse their participant lifecycle and checkpoint rules, not duplicate

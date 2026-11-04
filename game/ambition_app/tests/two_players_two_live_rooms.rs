@@ -4303,3 +4303,28 @@ fn a_live_destination_uses_live_occurrences_instead_of_the_unused_construction_p
     assert_eq!(sim.world().get::<InRoomInstance>(alice).unwrap().0, target);
     assert_eq!(sim.world().get::<InRoomInstance>(bob).unwrap().0, target);
 }
+
+#[test]
+fn travel_keeps_the_shared_clock_scale_and_a_full_rebuild_resets_it() {
+    use ambition_platformer2d::session::lifecycle_commit::{LifecycleIntent, RoomTransitionDisposition};
+    use ambition_platformer2d::time::{ClockState, time_control::{ClockResetRequest, RequestedClockScale, apply_clock_reset_requests}};
+    use bevy::{prelude::Messages, ecs::system::RunSystemOnce};
+    for rebuild in [false, true] {
+        let (mut sim, plan, mut intent, _) = prepared_new_destination();
+        if rebuild {
+            let LifecycleIntent::Transition(transition) = &mut intent else { unreachable!() };
+            transition.disposition = RoomTransitionDisposition::RebuildSource;
+        }
+        let world = sim.world_mut();
+        world.resource_mut::<Messages<ClockResetRequest>>().clear();
+        world.resource_mut::<ClockState>().time_scale = 0.37;
+        world.resource_mut::<RequestedClockScale>().sim_clock = 0.63;
+        let staged = stage_room_transfer(world, &plan, &intent).unwrap();
+        assert!(!staged.scope.other_rooms_stay, "the source is the last live room");
+        assert!(ambition_platformer2d::runtime::room_transition::finalize_room_transition(world, &staged));
+        world.run_system_once(apply_clock_reset_requests).unwrap();
+        let scales = (world.resource::<ClockState>().time_scale,
+            world.resource::<RequestedClockScale>().sim_clock);
+        assert_eq!(scales, if rebuild { (1.0, 1.0) } else { (0.37, 0.63) });
+    }
+}

@@ -492,6 +492,7 @@ impl RoomTransitionApplication<'_, '_> {
             publication, scope: CrossingScope { retiring: retiring.into_iter().collect(), other_rooms_stay },
             members, target_room, edge_exit: intent.edge_exit(), door_sfx,
             target_world: plan.spec().world.clone(),
+            resets_clock: intent.rebuilds_source_room(),
         })
     }
 
@@ -517,6 +518,7 @@ pub struct StagedRoomTransition {
     /// the transit.
     pub door_sfx: Option<(String, ae::Vec2)>,
     pub target_world: ae::World,
+    resets_clock: bool,
 }
 
 /// Per-body facts frozen before the destination publishes.
@@ -576,7 +578,8 @@ impl RoomTransitionFinalize<'_, '_> {
                 id: ambition_sfx::SfxId::new(cue), emitter: (*pos).into(),
             });
         }
-        if !staged.scope.other_rooms_stay {
+        // A normal crossing does not reset session time control.
+        if staged.resets_clock && !staged.scope.other_rooms_stay {
             self.clock.clock_resets.write(ClockResetRequest::sim_clock(
                 ambition_time::time_control::ClockRequester::Engine, "room_transition",
             ));

@@ -55,7 +55,6 @@ lists).
 | `scripts/checks/check_session_owner_census_matches_source.py` | the `session-owner-census` marker in the plan, the census name lists and every restated count match `teardown.rs` and `checkpoint.rs` |
 | `scripts/checks/check_engine_profiles.py` | A9: the profile registry and its `profile-contract:` markers agree, the witness still iterates the registry with its control arm, and the headless/windowed dependency closures say what the contract says |
 | `scripts/checks/check_session_authority_none_arms.py` | every function that reads a canonical session authority optionally has a `none-arm:` row in `session-authority-none-arms.md` with a class from the closed vocabulary and a reason; no row is stale |
-| `scripts/checks/check_alias_census_agrees_with_source.py` | the `alias-census` marker in the census and the `alias-split` marker in the plan match a live count |
 | `scripts/checks/check_collapsed_authorities_stay_collapsed.py` | deleted second owners stay deleted in code |
 | `scripts/checks/check_separated_authorities_stay_separated.py` | the `LEGITIMATE_SEPARATION` families keep their separating shape |
 | `scripts/checks/check_discharged_holds_are_rewritten.py` | no `**DO NOT START BEFORE:**` line names a finished campaign |

@@ -107,8 +107,9 @@ The 2026-11-03 request adds
 The retained-plan slice is committed in `48cb138c9`. Party travel is complete
 in `4cb723b8c` and `5ed9bb73a`. Gate connections work both ways and share an
 idle timer. Independent adaptive play remains the default. Ordinary online
-travel now runs without a session-wide hold. The next slice must complete
-rendered play witnesses, timing measurements, and the broader peer-room checks.
+travel now runs without a session-wide hold. Rendered combat and timing
+witnesses now pass. The next slice must complete the broader feature and
+tooling checks.
 
 ## Work order from the additional maintainer rulings of 2026-10-19
 
@@ -661,22 +662,11 @@ and same-room retention. The view tests cover focus release and live bindings.
 **Standing rule:** camera geometry must not decide mechanical travel. Use the
 native body-transfer path. Do not add a separate party transport or reset path.
 
-### PROVOKED-SOURCE-WITNESS — diagnose a source change in the rollback witness
-
-The broad rollback run and an isolated run both fail
-`rollback_provoked_actor::a_provoked_wounded_body_survives_the_real_rollback_window`.
-After the simulated window, the source is `CatalogDefault`; the arm expects
-`ProvokedProfile`. This result does not yet identify the writer or prove a codec
-failure.
-
-**Next action:** record source writes and body lifecycle changes in this arm.
-Fix the state owner or the fixture from that evidence. Keep the Hall generated;
-do not change its level or relax the assertion to hide the result.
-
 ### MULTIPLAYER-SEAMS — make local multiplayer safe for netplay
 
-**Remaining failure:** routine peer room commits still hold the whole session.
-Local input and presentation isolation now pass their behavior gates.
+**Remaining work:** complete broader feature and tooling verification for
+input-driven peer room commits. Local input and presentation isolation pass
+their behavior gates; ordinary crossings no longer hold the whole session.
 See the [cause and acceptance map](engine/local-coop-integration.md#follow-up-audit-co-op-works-but-participant-and-view-scope-leaks-2026-10-24)
 and [product decisions](game/multiplayer.md#local-co-op-behavior-decided-in-the-2026-10-24-playtest).
 
@@ -934,7 +924,8 @@ Do not restore primary-room geometry or global room covers.
 
 6. **Online no-global-hold lifecycle:** prove a routine peer door crossing
    commits on the shared input timeline without a whole-session hold or
-   rebase. Finish the rendered combat witness and timing measurements.
+   rebase. Rendered combat and timing witnesses pass (`dc303e611`).
+   Complete the broader feature and tooling checks.
    Track content identity, deterministic operation order, and peer readiness
    explicitly. Full-party reloads retain their global barrier.
 
@@ -1002,10 +993,15 @@ held (`dbc8f0cf2`). Each peer receives one arrival reset per crossing. Guard:
 `an_old_cover_does_not_block_the_next_peers_preparation_or_commit`.
 GPU captures also show concurrent loading UI in the two separate views.
 
-**Next step:** complete the rendered simultaneous-combat witness. Report input
-latency and commit cost apart from preparation and presentation time. Complete
-the broader feature and tooling checks before marking this slice complete.
-The broad rollback run still fails `PROVOKED-SOURCE-WITNESS`.
+Rendered combat and timing pass in both participant orders (`dc303e611`).
+Guards: `another_rooms_loading_does_not_block_gamepad_combat` and
+`another_rooms_loading_keeps_combat_visible`. Each crossing releases one arrival
+reset. [Measurements](../../dev/ambition_dev_measurements/summaries/2026-11-04-independent-room-loading-combat.md)
+separate raw-event response, commit cost, preparation, and cover retirement.
+
+**Next step:** complete the broader feature and tooling checks before marking
+this slice complete.
+The provoked-source fixture is corrected; its four rollback arms pass.
 The `LOCAL-PLAY-MODES` leave slice and `COOP-RECOVERY` remain separate work
 items; reuse their participant lifecycle and checkpoint rules, not duplicate
 them in this row.
@@ -2308,29 +2304,25 @@ setup while retaining distinct behavior and phase boundaries. Retire only
 obsolete diagnostics. Apply the current AGENTS.md rule against new meta-test
 machinery; do not turn source counts or test counts into acceptance gates.
 
-**Correctness repair (2026-11-01):** `4cea7026d` settles hit memory in the damage tick and declares four derived inputs at their owners.
-`dfe0d768b` makes camera fixtures supply complete samples; no policy waiver was added.
-Guards: `app_it -- rollback_` passes 79 tests (6 ignored); the component localizer passes 595 restore comparisons.
-Policy: 35 passed; camera: 3 passed; Smash: 18 unit and 53 integration passed (6 ignored); app check and 53 absence contracts passed.
-Full verification remains open. On `3fd235b7d`, the broad Rust checks pass:
-79 rollback tests (6 ignored), 18 Smash unit tests and 53 integration tests
-(6 ignored), 10 Mary-O power-loop tests, 108 Sanic tests, and 35 policy tests.
-The Grid-only, no-audio app check also passes on the native host.
-The latest Python sweep reported 1895 passed, 71 failed and 30 skipped.
-Two additional failures came from stale module-map and menu-router references;
-`1ec2aea38` repairs them, and both focused checks pass. The other 69 failures
-also occurred in the prior sweep. These focused repairs do not prove a green matrix.
-The latest feature-union build stopped at the 6 GiB free-space floor before
-tests ran. That gate is unverified. Earlier content failures remain open.
-The minimal headless app without portals also fails: shell UI/Winit feature
-imports and a feature-dependent held-item helper signature need repair.
-The focused content suite still reports four failures also present in the
-earlier feature-union run: Void fighter damage, Performer contact windows,
-Pugnacious uppercut gravity, and the boot-pack scan of a world-flow fixture.
-These remain open at their owners.
-Module maps are current for all 105 crates; their focused check passes.
-Documentation checks also remain open: five broken local links and 55 unresolved
-planning citations were reported on 2026-11-01. Planning anchors resolve.
+**Built:** `4cea7026d` settles hit memory in the damage tick and declares derived
+inputs at their owners. `dfe0d768b` supplies complete camera samples. The glow
+now follows its shared presentation owner (`15ade26ea`); its unit tests,
+two-view GPU witness, assembled app check, and workspace policy checks pass.
+No policy waiver was added.
+
+**Verification frontier (2026-11-04):** the focused Python repairs pass. The
+broader diagnostic stops on five failures: two ledger/workspace-copy checks,
+the demand-road documentation list, the zero-hold population check, and broken
+documentation links. Finish that suite before claiming a green tooling lane.
+Source-count and test-count floors are not acceptance criteria.
+
+The full feature job needs its 40 GB disk preflight and remains unverified.
+Recheck the earlier minimal-headless failures in shell UI/Winit imports and
+the feature-dependent held-item helper before clearing them. The earlier
+content failures also need fresh checks: Void fighter damage, Performer
+contact windows, Pugnacious uppercut gravity, and the boot-pack world-flow
+fixture scan. Documentation citations and links still need repair; planning
+anchors resolve. Earlier broad test totals do not prove the current matrix.
 
 **Owner:** test runner / app integration lane. Operational rules and what a
 green lane does not clear:

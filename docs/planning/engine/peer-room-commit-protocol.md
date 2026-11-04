@@ -5,8 +5,9 @@
 The ordinary-travel simulation path is implemented (`1b1baf65a`). Gates 1–3
 pass in the focused default-feature checks. Delayed peers apply on the same
 input frame, keep one generation, and replay through an application frame.
-Another-room combat, broader feature checks, and rendered view isolation remain
-open. Full-party checkpoint restores and explicit rebuilds retain their barrier.
+Rendered combat and view isolation pass in both participant orders. Broader
+feature and tooling checks remain open. Full-party checkpoint restores and
+explicit rebuilds retain their barrier.
 
 This change removes the lifecycle hold from an ordinary door crossing in the
 current GGRS host. It does not provide independent rollback histories for
@@ -56,10 +57,19 @@ while the first destination remains covered. Guard:
 GPU captures pass for both participants and separate rooms. Guard:
 `another_participants_load_draws_beside_a_cover_that_is_still_settling`.
 
-Gate 5 still needs a rendered simultaneous-combat witness and separate input
-latency, commit-cost, preparation, and settling measurements. Broader feature
-and tooling checks remain open. The earlier broad rollback run still fails
-the tracked provoked-source witness.
+Gate 5's rendered combat and timing witness passes (`dc303e611`) in both participant orders, with damage and one arrival reset.
+Guards: `another_rooms_loading_does_not_block_gamepad_combat` and
+`another_rooms_loading_keeps_combat_visible`.
+[Measurements](../../../dev/ambition_dev_measurements/summaries/2026-11-04-independent-room-loading-combat.md)
+separate raw-event response, commit cost, preparation, and cover retirement.
+
+The provoked-source fixture now stages hostile policy before its rebase
+(`72419da35`); its four module arms pass. Guard:
+`a_provoked_wounded_body_survives_the_real_rollback_window`.
+Keep the Hall generated. Target-derived standing can change when no foe exists.
+
+Broader feature and tooling checks remain open. The full feature job must pass
+its 40 GB disk preflight before it can run.
 
 ## Source findings
 

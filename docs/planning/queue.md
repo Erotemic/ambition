@@ -104,9 +104,10 @@ slices.
 
 The 2026-11-03 request adds
 [PARTY-TRAVEL-POLICIES](#party-travel-policies--configurable-group-crossings-and-a-leader-view).
-The retained-plan slice is committed in `48cb138c9`. Gate connections now work
-both ways and share an idle timer. Implement party travel before the next
-online no-hold slice. Independent adaptive play remains the default.
+The retained-plan slice is committed in `48cb138c9`. Party travel is complete
+in `4cb723b8c` and `5ed9bb73a`. Gate connections work both ways and share an
+idle timer. Independent adaptive play remains the default. The next online
+slice must remove the session-wide hold.
 
 ## Work order from the additional maintainer rulings of 2026-10-19
 
@@ -630,49 +631,46 @@ control.
 
 ### PARTY-TRAVEL-POLICIES — configurable group crossings and a leader view
 
-**Owner:** session passage admission and shared room application; settings and
-input owners; local view composition. Requirements and acceptance:
+**Status:** ✅ DONE 2026-11-04. Requirements:
 [configurable party travel](game/multiplayer.md#configurable-party-travel).
 
-**Gate follow-up:** [connection lifetime](game/gate-network.md#the-rules)
-keeps both directions available for following and return. Both ends share an
-idle timeout, and either terminal can close the connection.
+Gate connections work both ways and share a 30-second simulation idle timer.
+An active or pending crossing keeps them open (`2bfe149e6`). Session rules
+support independent, leader, any-member, and all-member travel (`23bf6a680`).
+Departure, possession, and route changes cancel an agreement. Forbidden walk
+and edge exits use body-specific walls.
 
-**Transfer foundation:** the shared room publication accepts an arrival batch.
-It checks every body before retirement and moves each body's custody to the
-destination. A held publication checks the batch again before release.
-`bodies_from_two_rooms_arrive_together_with_their_custody` and
-`a_held_batch_rechecks_every_member_before_it_publishes` guard this boundary.
+`4cb723b8c` carries the leader's preferences in replayed input. Games opt in at
+session construction. Return uses the native `NearBody` transfer for the driven
+body and keeps its items and capabilities. Same-room travel joins the current
+live room; an explicit rebuild still retires it. Return suppresses Reset.
+Input wire identity is 8; rollback state schema is 419.
 
-Native admission now retains an initiating transfer and companions. Each body,
-arrival, and participant is part of the rollback checksum (schema 418). Both
-hosts use the same application and finalization for the full roster.
-`one_native_admission_carries_two_bodies_from_separate_rooms` covers the app path.
-Preparation and publication share `room_transfer_plan`. A room rebuild has an
-explicit disposition; an absent participant no longer selects room fate.
+`5ed9bb73a` adds the full leader view, live return-binding prompts, and settings.
+Independent adaptive play remains the default. The co-op preset sets existing
+fields; view and travel choices remain separate. Authored views and cast framing
+keep their ownership. Followers keep their HUDs and menu regions across rooms.
 
-An arrival can name a point or a live body. A body reference resolves at the
-commit with current body sizes and destination walls. Transferred references
-use their destination position. A missing reference, a cycle, or no clear space
-refuses the whole operation. `a_relative_arrival_resolves_a_later_members_destination`
-and the `a_relative_arrival_*` app tests cover this path.
+**Guards:** `rooms::party_tests`, `two_players_two_live_rooms::party_*`,
+`two_peers::a_remote_leaders_party_preferences_agree_after_late_input_and_rollback`,
+and the `local_view` leader-view tests. The peer test uses a late link and
+conflicting local preferences. The return test checks the existing body, wallet,
+and same-room retention. The view tests cover focus release and live bindings.
 
-Zone admission supports independent, leader, any-member, and all-member
-travel through session rules. Agreement names the current body and exact exit
-route. Departure, possession, and route changes cancel it. Entry waits for the
-group. A lost participant cancels an entry before or after its pending record.
-Forbidden follower exits lower into body-specific walls. Arrival clearance uses
-the same walls. `rooms::party_tests`,
-`party_all_members_cross_once_after_agreeing_under_rollback`, and
-`party_follower_hits_an_exit_wall_and_can_cross_after_the_policy_changes` cover
-these rules. The default remains independent. Commit: `23bf6a680`.
+**Standing rule:** camera geometry must not decide mechanical travel. Use the
+native body-transfer path. Do not add a separate party transport or reset path.
 
-**Next action:** add the optional leader view, a Select return action, settings,
-and participant-scoped prompts. Keep view choice and mechanical rules separate.
-Return must use the native transfer path, preserve body and item ownership, and
-join the current live room when the leader is already there. Keep the independent
-adaptive preset as the default. Verify peer agreement for policy changes before
-declaring the feature complete.
+### PROVOKED-SOURCE-WITNESS — diagnose a source change in the rollback witness
+
+The broad rollback run and an isolated run both fail
+`rollback_provoked_actor::a_provoked_wounded_body_survives_the_real_rollback_window`.
+After the simulated window, the source is `CatalogDefault`; the arm expects
+`ProvokedProfile`. This result does not yet identify the writer or prove a codec
+failure.
+
+**Next action:** record source writes and body lifecycle changes in this arm.
+Fix the state owner or the fixture from that evidence. Keep the Hall generated;
+do not change its level or relax the assertion to hide the result.
 
 ### MULTIPLAYER-SEAMS — make local multiplayer safe for netplay
 

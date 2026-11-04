@@ -87,8 +87,10 @@ def unreferenced(values: range) -> list[int]:
     if not values or len(values) > MAX_RECLAIMABLE:
         return []
     pattern = "|".join(str(v) for v in values)
+    # `-w`: a uid is a whole number. Without it, the digits inside a hash (a
+    # package URL in a uv.lock) count as a mention and block the reclaim.
     found = subprocess.run(
-        ["git", "grep", "-hoE", pattern], capture_output=True, text=True
+        ["git", "grep", "-hoEw", pattern], capture_output=True, text=True
     )
     seen = {int(line) for line in found.stdout.split("\n") if line.strip().isdigit()}
     return [v for v in values if v not in seen]

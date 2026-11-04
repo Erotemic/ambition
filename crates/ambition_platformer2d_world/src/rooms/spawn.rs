@@ -132,7 +132,9 @@ pub fn validated_spawn(world: &ae::World, desired: ae::Vec2, body_size: ae::Vec2
     let mut nearest: Option<(ae::Vec2, f32)> = None;
     for radius in 1..=96 {
         let reach = radius as f32 * STEP;
-        if nearest.is_some_and(|(_, distance)| reach * reach > distance) {
+        // Clamping can add a closer boundary point in the next shell.
+        let searched_reach = reach - STEP;
+        if nearest.is_some_and(|(_, distance)| searched_reach * searched_reach > distance) {
             break;
         }
         // Each shell adds only its top and sides. A small vertical repair must
@@ -238,6 +240,22 @@ mod spawn_tests {
             got, desired,
             "an already-clear in-bounds spawn is unchanged"
         );
+    }
+
+    #[test]
+    fn a_clamped_boundary_point_can_be_closer_than_the_first_clear_shell() {
+        let world = world_with(vec![
+            ae::Block::solid("floor", ae::Vec2::new(5.5, 98.0), ae::Vec2::new(394.5, 302.0)),
+            ae::Block::solid("upper_wall", ae::Vec2::new(8.0, 0.0), ae::Vec2::new(392.0, 93.0)),
+        ]);
+        let size = ae::Vec2::splat(2.0);
+        let desired = ae::Vec2::new(14.0, 100.0);
+        let diagonal = desired + ae::Vec2::new(-8.0, -8.0);
+        let boundary = ae::Vec2::new(4.0, 100.0);
+        assert!(body_clear(&world, diagonal, size * 0.5, None));
+        assert!(body_clear(&world, boundary, size * 0.5, None));
+        assert!(boundary.distance_squared(desired) < diagonal.distance_squared(desired));
+        assert_eq!(validated_spawn(&world, desired, size), boundary);
     }
 
     #[test]

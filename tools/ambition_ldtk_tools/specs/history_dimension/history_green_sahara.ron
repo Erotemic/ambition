@@ -10,7 +10,7 @@
     bg_color: "#3A2A1C",
     biome: "history_green_sahara",
     parallax_theme: "history_green_sahara",
-    music_track: "the_sun_is_a_group_project",
+    music_track: "history_africa_first_footsteps",
     dangerous: true,
     entities: [
         ( type: "LoadingZone", px: [200, 0], size: [96, 16], fields: ( id: "history_green_sahara_up", name: "up the ladder", activation: "EdgeExit", target_room: "history_fertile_crescent", target_zone: "history_fertile_crescent_down", bidirectional: true ) ),

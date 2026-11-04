@@ -10,7 +10,7 @@
     bg_color: "#3A2A1C",
     biome: "history_monsoon",
     parallax_theme: "history_monsoon",
-    music_track: "pulse_drift_voyage",
+    music_track: "history_africa_first_footsteps",
     dangerous: true,
     entities: [
         ( type: "Solid", px: [0, 960], size: [1500, 64], fields: ( name: "ground_0" ) ),

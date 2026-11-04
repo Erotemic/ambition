@@ -10,7 +10,7 @@
     bg_color: "#3A2A1C",
     biome: "history_ice_age",
     parallax_theme: "history_ice_age",
-    music_track: "the_last_lantern",
+    music_track: "history_europe_solstice_stones",
     dangerous: true,
     entities: [
         ( type: "LoadingZone", px: [2100, 0], size: [96, 16], fields: ( id: "history_ice_age_europe_up", name: "up the ladder", activation: "EdgeExit", target_room: "history_southern_route", target_zone: "history_southern_route_down", bidirectional: true ) ),

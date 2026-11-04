@@ -10,7 +10,7 @@
     bg_color: "#3A2A1C",
     biome: "history_yellow_river",
     parallax_theme: "history_yellow_river",
-    music_track: "tritone_decree",
+    music_track: "history_east_asia_yellow_earth",
     dangerous: true,
     entities: [
         ( type: "Solid", px: [0, 960], size: [2800, 64], fields: ( name: "ground_end" ) ),

@@ -10,7 +10,7 @@
     bg_color: "#3A2A1C",
     biome: "history_monsoon",
     parallax_theme: "history_monsoon",
-    music_track: "the_last_lantern",
+    music_track: "history_africa_first_footsteps",
     entities: [
         ( type: "Solid", px: [0, 576], size: [1600, 64], fields: ( name: "floor" ) ),
         ( type: "Solid", px: [0, 0], size: [1600, 32], fields: ( name: "ceiling" ) ),

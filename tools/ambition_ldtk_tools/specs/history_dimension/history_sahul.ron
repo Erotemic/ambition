@@ -10,7 +10,7 @@
     bg_color: "#3A2A1C",
     biome: "history_sahul",
     parallax_theme: "history_sahul",
-    music_track: "long_lofi_drift",
+    music_track: "history_oceania_sahul",
     dangerous: true,
     entities: [
         ( type: "LoadingZone", px: [2100, 0], size: [96, 16], fields: ( id: "history_sahul_up", name: "up the ladder", activation: "EdgeExit", target_room: "history_mammoth_steppe", target_zone: "history_mammoth_steppe_down", bidirectional: true ) ),

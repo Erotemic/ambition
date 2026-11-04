@@ -10,7 +10,7 @@
     bg_color: "#3A2A1C",
     biome: "history_nile",
     parallax_theme: "history_nile",
-    music_track: "salt_steel_and_starlight",
+    music_track: "history_africa_first_footsteps",
     dangerous: true,
     entities: [
         ( type: "LoadingZone", px: [1180, 0], size: [96, 16], fields: ( id: "history_aksum_and_kush_up", name: "up the ladder", activation: "EdgeExit", target_room: "history_classical_shore", target_zone: "history_classical_shore_down", bidirectional: true ) ),

@@ -10,7 +10,7 @@
     bg_color: "#3A2A1C",
     biome: "history_megalith",
     parallax_theme: "history_megalith",
-    music_track: "cedar_light_guitar_study",
+    music_track: "history_europe_solstice_stones",
     dangerous: true,
     entities: [
         ( type: "OneWayPlatform", px: [400, 960], size: [96, 16], fields: ( name: "hatch" ) ),

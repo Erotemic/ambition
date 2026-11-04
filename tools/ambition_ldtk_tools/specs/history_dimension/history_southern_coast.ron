@@ -10,7 +10,7 @@
     bg_color: "#3A2A1C",
     biome: "history_savanna",
     parallax_theme: "history_savanna",
-    music_track: "morning_on_the_eaves",
+    music_track: "history_africa_first_footsteps",
     dangerous: true,
     entities: [
         ( type: "LoadingZone", px: [2100, 0], size: [96, 16], fields: ( id: "history_southern_coast_up", name: "up the ladder", activation: "EdgeExit", target_room: "history_levant", target_zone: "history_levant_down", bidirectional: true ) ),

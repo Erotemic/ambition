@@ -10,7 +10,7 @@
     bg_color: "#3A2A1C",
     biome: "history_steppe",
     parallax_theme: "history_steppe",
-    music_track: "hawks_of_the_high_aerie",
+    music_track: "history_east_asia_yellow_earth",
     dangerous: true,
     entities: [
         ( type: "Solid", px: [0, 960], size: [2800, 64], fields: ( name: "ground_end" ) ),

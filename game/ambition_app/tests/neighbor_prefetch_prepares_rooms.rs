@@ -318,7 +318,7 @@ fn cross_into_a_cached_neighbour(as_checkpoint_restore: bool) -> bool {
         source_zone: None,
                 initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
                     subject: subject.clone(),
-                    arrival: ambition_platformer2d::engine_core::Vec2::ZERO,
+                    arrival: ambition_platformer2d::session::lifecycle_commit::RoomArrival::At(ambition_platformer2d::engine_core::Vec2::ZERO),
                     participant: None,
                 },
                 companions: Vec::new(),
@@ -487,7 +487,7 @@ fn rebuilt_room_holds_its_ground_item(relocated: bool) -> bool {
         source_zone: None,
                 initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
                     subject: subject.clone(),
-                    arrival: ambition_platformer2d::engine_core::Vec2::ZERO,
+                    arrival: ambition_platformer2d::session::lifecycle_commit::RoomArrival::At(ambition_platformer2d::engine_core::Vec2::ZERO),
                     participant: None,
                 },
                 companions: Vec::new(),
@@ -633,7 +633,7 @@ pub(crate) fn cross(
         source_zone: None,
                 initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
                     subject: subject,
-                    arrival: ambition_platformer2d::engine_core::Vec2::new(200.0, 200.0),
+                    arrival: ambition_platformer2d::session::lifecycle_commit::RoomArrival::At(ambition_platformer2d::engine_core::Vec2::new(200.0, 200.0)),
                     participant: Some(slot),
                 },
                 companions: Vec::new(),

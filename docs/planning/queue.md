@@ -645,11 +645,17 @@ destination. A held publication checks the batch again before release.
 `a_held_batch_rechecks_every_member_before_it_publishes` guard this boundary.
 
 Native admission now retains an initiating transfer and companions. Each body,
-arrival, and participant is part of the rollback checksum (schema 416). Both
+arrival, and participant is part of the rollback checksum (schema 417). Both
 hosts use the same application and finalization for the full roster.
 `one_native_admission_carries_two_bodies_from_separate_rooms` covers the app path.
 Preparation and publication share `room_transfer_plan`. A room rebuild has an
 explicit disposition; an absent participant no longer selects room fate.
+
+An arrival can name a point or a live body. A body reference resolves at the
+commit with current body sizes and destination walls. Transferred references
+use their destination position. A missing reference, a cycle, or no clear space
+refuses the whole operation. `a_relative_arrival_resolves_a_later_members_destination`
+and the `a_relative_arrival_*` app tests cover this path.
 
 **Next action:** select the group through explicit travel rules at zone
 admission. Add the optional leader view, a Select return action, and settings.

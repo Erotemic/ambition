@@ -328,7 +328,7 @@ fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
          commit would transit whoever happens to be controlled several frames later"
     );
     assert_eq!(
-        (transition.initiator.arrival.x, transition.initiator.arrival.y),
+        (transition.initiator.arrival.point().unwrap().x, transition.initiator.arrival.point().unwrap().y),
         (512.0, 300.0),
         "the transition must arrive AT the checkpoint, not at the room's own spawn"
     );
@@ -411,7 +411,7 @@ fn a_refused_slot_leaves_the_checkpoint_resume_retryable() {
         source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
                     subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::placement("someone_else"), None),
-                    arrival: Vec2::new(1.0, 2.0),
+                    arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::new(1.0, 2.0)),
                     participant: None,
                 },
                 companions: Vec::new(),
@@ -465,7 +465,7 @@ fn a_refused_slot_leaves_the_checkpoint_resume_retryable() {
     };
     assert_eq!(transition.target_room, "rest_room");
     assert_eq!(
-        (transition.initiator.arrival.x, transition.initiator.arrival.y),
+        (transition.initiator.arrival.point().unwrap().x, transition.initiator.arrival.point().unwrap().y),
         (512.0, 300.0)
     );
 
@@ -877,7 +877,7 @@ fn the_commit_applies_the_operation_it_was_opened_for_and_always_removes_its_inp
             source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
                     subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0), None),
-                    arrival: Vec2::new(1.0, 2.0),
+                    arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::new(1.0, 2.0)),
                     participant: None,
                 },
                 companions: Vec::new(),
@@ -1227,7 +1227,7 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
             source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
                     subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::player_slot(0), None),
-                    arrival: Vec2::new(1.0, 2.0),
+                    arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::new(1.0, 2.0)),
                     participant: None,
                 },
                 companions: Vec::new(),
@@ -1327,7 +1327,7 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
             AcceptedRestore {
                 intent: LifecycleIntent::Transition(RoomTransitionIntent {
                     initiator: crate::lifecycle_commit::RoomBodyTransfer {
-                        arrival: Vec2::new(9.0, 9.0), ..crossing().initiator
+                        arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::new(9.0, 9.0)), ..crossing().initiator
                     },
                     ..crossing()
                 }),
@@ -2214,7 +2214,7 @@ fn a_new_game_is_admitted_as_a_fresh_restore_at_the_start_room() {
         let pinned = accepted.lifecycle.expect("the lifecycle horizon is installed");
         if new_game {
             assert_eq!(accepted.intent.target_room(), "here", "a New Game kept the old run's room");
-            assert_eq!(accepted.intent.arrival(), Some(start_spawn));
+            assert_eq!(accepted.intent.arrival(), Some(&crate::lifecycle_commit::RoomArrival::At(start_spawn)));
             assert_eq!(
                 pinned.occurrences,
                 OccurrenceBaseline::default(),
@@ -2222,7 +2222,7 @@ fn a_new_game_is_admitted_as_a_fresh_restore_at_the_start_room() {
             );
         } else {
             assert_eq!(accepted.intent.target_room(), "rest_room");
-            assert_eq!(accepted.intent.arrival(), Some(Vec2::new(512.0, 300.0)));
+            assert_eq!(accepted.intent.arrival(), Some(&crate::lifecycle_commit::RoomArrival::At(Vec2::new(512.0, 300.0))));
             assert_ne!(pinned.occurrences, OccurrenceBaseline::default());
         }
     }
@@ -2421,7 +2421,7 @@ fn an_operation_at(
                 source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
                     subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::placement("hero"), None),
-                    arrival: Vec2::ZERO,
+                    arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::ZERO),
                     participant: None,
                 },
                 companions: Vec::new(),

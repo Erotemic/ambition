@@ -1053,7 +1053,7 @@ fn record_crossing(app: &mut App, slot: u8, target: &str) {
         source_zone: None,
                 initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
                     subject: subject,
-                    arrival: arrival,
+                    arrival: ambition_platformer2d::session::lifecycle_commit::RoomArrival::At(arrival),
                     participant: Some(PlayerSlot(slot)),
                 },
                 companions: Vec::new(), target_room: target.into(),

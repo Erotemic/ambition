@@ -897,7 +897,7 @@ mod tests {
             source_zone: None,
                 initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
                     subject: LiveBodyId::new(subject, None),
-                    arrival: ae::Vec2::ZERO,
+                    arrival: ambition_platformer2d_session::lifecycle_commit::RoomArrival::At(ae::Vec2::ZERO),
                     participant: None,
                 },
                 companions: Vec::new(),

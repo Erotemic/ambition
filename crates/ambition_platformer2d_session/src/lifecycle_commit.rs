@@ -87,7 +87,10 @@ impl LifecycleIntent {
                 ambition_platformer2d_core::snapshot::put_u64(&mut bytes, (1 + intent.companions.len()) as u64);
                 for transfer in intent.transfers() {
                     transfer.subject.write_peer_stable_into(&mut bytes);
-                    put_vec2(&mut bytes, transfer.arrival);
+                    match &transfer.arrival {
+                        RoomArrival::At(at) => { put_u8(&mut bytes, 0); put_vec2(&mut bytes, *at); }
+                        RoomArrival::NearBody(body) => { put_u8(&mut bytes, 1); body.write_peer_stable_into(&mut bytes); }
+                    }
                     put_bool(&mut bytes, transfer.participant.is_some());
                     put_u8(&mut bytes, transfer.participant.map_or(0, |slot| slot.0));
                 }
@@ -131,9 +134,9 @@ impl LifecycleIntent {
     /// Where the subject comes out. `None` when there is no subject to place —
     /// which is why this is not a `Vec2` with a default: a reconstitution has no
     /// arrival, and `Vec2::ZERO` would be a position somebody could validate.
-    pub fn arrival(&self) -> Option<Vec2> {
+    pub fn arrival(&self) -> Option<&RoomArrival> {
         match self {
-            Self::Transition(intent) => Some(intent.initiator.arrival),
+            Self::Transition(intent) => Some(&intent.initiator.arrival),
             Self::ReconstituteRoom(_) => None,
         }
     }
@@ -201,8 +204,25 @@ pub enum RoomTransitionDisposition {
 #[derive(Clone, Debug, PartialEq)]
 pub struct RoomBodyTransfer {
     pub subject: LiveBodyId,
-    pub arrival: Vec2,
+    pub arrival: RoomArrival,
     pub participant: Option<ambition_characters::control::PlayerSlot>,
+}
+
+/// Resolve a point or a live-body reference on the room commit frame.
+#[derive(Clone, Debug, PartialEq)]
+pub enum RoomArrival {
+    At(Vec2),
+    NearBody(LiveBodyId),
+}
+
+impl RoomArrival {
+    pub fn point(&self) -> Option<Vec2> {
+        match self { Self::At(at) => Some(*at), Self::NearBody(_) => None }
+    }
+
+    pub fn is_finite(&self) -> bool {
+        match self { Self::At(at) => at.is_finite(), Self::NearBody(_) => true }
+    }
 }
 
 impl RoomTransitionIntent {
@@ -447,7 +467,7 @@ mod tests {
             source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
                     subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("hero"), None),
-                    arrival: Vec2::new(1.0, 2.0),
+                    arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::new(1.0, 2.0)),
                     participant: None,
                 },
                 companions: Vec::new(),
@@ -483,7 +503,7 @@ mod tests {
         let LifecycleIntent::Transition(mut crossing) = crossing_to("east") else { unreachable!() };
         let companion = RoomBodyTransfer {
             subject: LiveBodyId::new(SimId::placement("companion"), None),
-            arrival: Vec2::new(20.0, 40.0), participant: Some(ambition_characters::control::PlayerSlot(1)),
+            arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::new(20.0, 40.0)), participant: Some(ambition_characters::control::PlayerSlot(1)),
         };
         let single = LifecycleIntent::Transition(crossing.clone()).checksum();
         crossing.disposition = RoomTransitionDisposition::RebuildSource;
@@ -492,7 +512,7 @@ mod tests {
         crossing.companions.push(companion.clone());
         let checksum = LifecycleIntent::Transition(crossing.clone()).checksum();
         assert_ne!(single, checksum);
-        crossing.companions[0].arrival.x += 1.0;
+        crossing.companions[0].arrival = RoomArrival::At(Vec2::new(21.0, 40.0));
         assert_ne!(checksum, LifecycleIntent::Transition(crossing.clone()).checksum());
         crossing.companions[0] = companion.clone();
         crossing.companions[0].participant = None;
@@ -501,6 +521,18 @@ mod tests {
         assert!(pending.record(10, LifecycleIntent::Transition(crossing)).admitted());
         assert!(pending.retract_transition_for_subject(&companion.subject, 11));
         assert!(pending.peek().is_none());
+    }
+
+    #[test]
+    fn relative_arrivals_checksum_the_reference_instead_of_a_point() {
+        let LifecycleIntent::Transition(crossing) = crossing_to("east") else { unreachable!() };
+        let point = LifecycleIntent::Transition(crossing.clone()).checksum();
+        let mut relative = crossing.clone();
+        relative.initiator.arrival = RoomArrival::NearBody(crossing.initiator.subject.clone());
+        let checksum = LifecycleIntent::Transition(relative.clone()).checksum();
+        assert_ne!(point, checksum);
+        relative.initiator.arrival = RoomArrival::NearBody(LiveBodyId::new(SimId::placement("other"), None));
+        assert_ne!(checksum, LifecycleIntent::Transition(relative).checksum());
     }
 
     #[test]
@@ -572,7 +604,7 @@ mod tests {
                 source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
                     subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("hero"), None),
-                    arrival: Vec2::new(1.0, 2.0),
+                    arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::new(1.0, 2.0)),
                     participant: None,
                 },
                 companions: Vec::new(),
@@ -632,7 +664,7 @@ mod tests {
             source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
                     subject: hero.clone(),
-                    arrival: Vec2::new(1.0, 2.0),
+                    arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::new(1.0, 2.0)),
                     participant: None,
                 },
                 companions: Vec::new(),
@@ -657,7 +689,7 @@ mod tests {
                 source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
                     subject: other.clone(),
-                    arrival: Vec2::ZERO,
+                    arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::ZERO),
                     participant: None,
                 },
                 companions: Vec::new(),

@@ -330,7 +330,7 @@ fn the_recorded_subject_transits_rather_than_whoever_is_controlled() {
                     source_zone: None,
                 initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
                     subject: subject.clone(),
-                    arrival: arrival,
+                    arrival: ambition_platformer2d::session::lifecycle_commit::RoomArrival::At(arrival),
                     participant: None,
                 },
                 companions: Vec::new(),

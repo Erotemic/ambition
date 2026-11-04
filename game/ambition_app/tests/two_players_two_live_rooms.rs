@@ -3767,8 +3767,8 @@ fn two_live_rooms_hold_under_a_sync_test() {
 }
 
 
-#[test]
-fn one_native_admission_carries_two_bodies_from_separate_rooms() {
+fn native_roster_arrival(relative: bool) {
+    use ambition_platformer2d::engine_core::AabbExt as _;
     use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
     use ambition_platformer2d::platformer::lifecycle::LiveBodyId;
     use ambition_platformer2d::session::lifecycle_commit::{
@@ -3789,12 +3789,18 @@ fn one_native_admission_carries_two_bodies_from_separate_rooms() {
         bodies.sort_by_key(|(slot, _)| slot.0);
         let transfers: Vec<_> = bodies.into_iter().map(|(slot, entity)| RoomBodyTransfer {
             subject: LiveBodyId::of_entity(world, entity).unwrap(), participant: Some(slot),
-            arrival: spawn + ambition_platformer2d::engine_core::Vec2::new(slot.0 as f32 * 40.0, 0.0),
+            arrival: ambition_platformer2d::session::lifecycle_commit::RoomArrival::At(spawn + ambition_platformer2d::engine_core::Vec2::new(slot.0 as f32 * 40.0, 0.0)),
         }).collect();
         (transfers, next)
     };
     assert_eq!(transfers.len(), 2);
     let identities: Vec<_> = transfers.iter().map(|transfer| transfer.subject.sim_id.clone()).collect();
+    let mut transfers = transfers;
+    if relative {
+        transfers[1].arrival = ambition_platformer2d::session::lifecycle_commit::RoomArrival::NearBody(
+            transfers[0].subject.clone());
+        transfers.reverse();
+    }
     let intent = RoomTransitionIntent {
         disposition: Default::default(),
         source_zone: None, initiator: transfers[0].clone(), companions: transfers[1..].to_vec(),
@@ -3814,6 +3820,174 @@ fn one_native_admission_carries_two_bodies_from_separate_rooms() {
     )>().iter(world).map(|(driver, id, room)| (driver.0.0, id.clone(), room.0)).collect();
     arrived.sort_by_key(|row| row.0);
     assert_eq!(arrived, vec![(0, identities[0].clone(), before_next), (1, identities[1].clone(), before_next)]);
+    if relative {
+        let boxes: Vec<_> = world.query::<(&DrivingParticipant, &ambition_platformer2d::engine_core::BodyKinematics)>()
+            .iter(world).map(|(_, body)| ambition_platformer2d::engine_core::Aabb::new(body.pos, body.size * 0.5)).collect();
+        assert_eq!(boxes.len(), 2);
+        assert!(!boxes[0].strict_intersects(boxes[1]));
+        assert!((boxes[0].center() - boxes[1].center()).length() < 200.0);
+    }
     assert_ne!(before_next, first);
     assert!(sim.rollback_health().is_ok());
+}
+
+#[test]
+fn one_native_admission_carries_two_bodies_from_separate_rooms() {
+    native_roster_arrival(false);
+}
+
+#[test]
+fn a_relative_arrival_resolves_a_later_members_destination() {
+    native_roster_arrival(true);
+}
+fn prepared_relative_return() -> (
+    Platformer2dSimHarness,
+    std::sync::Arc<ambition_platformer2d::publication::RoomConstructionPlan>,
+    ambition_platformer2d::session::lifecycle_commit::LifecycleIntent,
+    bevy::prelude::Entity,
+    bevy::prelude::Entity,
+) {
+    use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
+    use ambition_platformer2d::platformer::lifecycle::LiveBodyId;
+    use ambition_platformer2d::session::lifecycle_commit::{
+        LifecycleIntent, PendingLifecycleCommit, RoomArrival, RoomBodyTransfer, RoomTransitionIntent,
+    };
+    use ambition_platformer2d::runtime::room_transition::{begin_room_transition_load_system, RoomTransitionLoadState};
+    use bevy::ecs::system::RunSystemOnce;
+    let (mut sim, _) = alice_leaves_bob(Some(PlayerSlot(1)));
+    let (alice, bob, intent) = {
+        let world = sim.world_mut();
+        let bodies: Vec<_> = world.query::<(bevy::prelude::Entity, &DrivingParticipant)>()
+            .iter(world).map(|(entity, driver)| (driver.0, entity)).collect();
+        let alice = bodies.iter().find(|(slot, _)| slot.0 == 0).unwrap().1;
+        let bob = bodies.iter().find(|(slot, _)| slot.0 == 1).unwrap().1;
+        let intent = LifecycleIntent::Transition(RoomTransitionIntent {
+            disposition: Default::default(), source_zone: None,
+            initiator: RoomBodyTransfer {
+                subject: LiveBodyId::of_entity(world, alice).unwrap(),
+                arrival: RoomArrival::NearBody(LiveBodyId::of_entity(world, bob).unwrap()),
+                participant: Some(PlayerSlot(0)),
+            },
+            companions: Vec::new(), target_room: ROOM.into(), edge_exit: false, zone_sfx: None,
+        });
+        assert!(world.resource_mut::<PendingLifecycleCommit>().record(0, intent.clone()).admitted());
+        (alice, bob, intent)
+    };
+    sim.run_rollback_setup_frame().unwrap();
+    let world = sim.world_mut();
+    world.run_system_once(begin_room_transition_load_system).unwrap();
+    let active = world.resource_mut::<RoomTransitionLoadState>().active.take().unwrap();
+    let plan = active.construction_plan.unwrap();
+    world.resource_mut::<ambition_platformer2d::load::LoadCoordinator>().retire(&active.barrier.load_id);
+    world.resource_mut::<PendingLifecycleCommit>().take();
+    (sim, plan, intent, alice, bob)
+}
+
+fn stage_relative_return(
+    world: &mut bevy::prelude::World,
+    plan: &ambition_platformer2d::publication::RoomConstructionPlan,
+    intent: &ambition_platformer2d::session::lifecycle_commit::LifecycleIntent,
+) -> Result<ambition_platformer2d::runtime::room_transition::StagedRoomTransition,
+    ambition_platformer2d::runtime::room_transition::RoomTransitionApplyError>
+{
+    use ambition_platformer2d::runtime::room_transition::RoomTransitionApplication;
+    let mut state = bevy::ecs::system::SystemState::<RoomTransitionApplication>::new(world);
+    let result = state.get_mut(world).unwrap().stage(plan, intent, plan.target_index(), false, None);
+    state.apply(world);
+    result
+}
+
+#[test]
+fn a_relative_arrival_uses_the_reference_position_and_body_size_at_commit() {
+    use ambition_platformer2d::engine_core as ae;
+    use ae::AabbExt as _;
+    let (mut sim, plan, intent, alice, bob) = prepared_relative_return();
+    let before = where_they_are(&mut sim);
+    let world = sim.world_mut();
+    let old_bob = world.get::<ae::BodyKinematics>(bob).unwrap().pos;
+    let size = world.get::<ae::BodyKinematics>(bob).unwrap().size;
+    let moved = ambition_platformer2d::world::rooms::validated_spawn(
+        &plan.spec().world, old_bob + ae::Vec2::new(300.0, -100.0), size);
+    world.get_mut::<ae::BodyKinematics>(bob).unwrap().pos = moved;
+    let grown = world.get::<ae::BodyKinematics>(alice).unwrap().size * 2.0;
+    world.get_mut::<ae::BodyKinematics>(alice).unwrap().size = grown;
+    world.get_mut::<ae::BodyBaseSize>(alice).unwrap().base_size = grown;
+    let staged = stage_relative_return(world, &plan, &intent).expect("the live reference has clear space");
+    assert_eq!(staged.members.len(), 1);
+    let member = &staged.members[0];
+    let arrived = ae::Aabb::new(member.arrival_pos, member.size * 0.5);
+    let reference = ae::Aabb::new(moved, size * 0.5);
+    assert!(!arrived.strict_intersects(reference));
+    assert!((arrived.center() - reference.center()).length() < 200.0);
+    assert!((member.arrival_pos - moved).length() < (member.arrival_pos - old_bob).length(),
+        "arrival {:?}, old reference {:?}, current reference {:?}", member.arrival_pos, old_bob, moved);
+    assert_eq!(member.size, grown);
+    assert!(ambition_platformer2d::runtime::room_transition::finalize_room_transition(world, &staged));
+    let after = where_they_are(&mut sim);
+    assert_ne!(before.0, after.0);
+    assert_eq!(after.0, after.1.flatten());
+    assert_eq!(before.1, after.1);
+}
+
+#[test]
+fn a_relative_arrival_with_a_missing_reference_leaves_the_transfer_unpublished() {
+    let (mut sim, plan, intent, alice, bob) = prepared_relative_return();
+    let rooms = live_rooms(&mut sim);
+    let world = sim.world_mut();
+    let before = world.get::<InRoomInstance>(alice).unwrap().0;
+    world.despawn(bob);
+    assert!(stage_relative_return(world, &plan, &intent).is_err());
+    assert_eq!(world.get::<InRoomInstance>(alice).unwrap().0, before);
+    assert_eq!(live_rooms(&mut sim), rooms);
+}
+
+#[test]
+fn a_relative_arrival_rejects_a_reference_that_moved_to_another_room() {
+    let (mut sim, plan, intent, alice, bob) = prepared_relative_return();
+    let rooms = live_rooms(&mut sim);
+    let world = sim.world_mut();
+    let before = world.get::<InRoomInstance>(alice).unwrap().0;
+    world.entity_mut(bob).insert(InRoomInstance(before));
+    assert!(stage_relative_return(world, &plan, &intent).is_err());
+    assert_eq!(world.get::<InRoomInstance>(alice).unwrap().0, before);
+    assert_eq!(live_rooms(&mut sim), rooms);
+}
+
+#[test]
+fn a_relative_arrival_respects_live_destination_walls_and_refuses_a_blocked_landing() {
+    use ambition_platformer2d::engine_core as ae;
+    use ambition_platformer2d::platformer::feature_overlay::FeatureEcsWorldOverlay;
+    let (mut sim, plan, intent, alice, bob) = prepared_relative_return();
+    let rooms = live_rooms(&mut sim);
+    let world = sim.world_mut();
+    let before = world.get::<InRoomInstance>(alice).unwrap().0;
+    let destination = world.get::<InRoomInstance>(bob).unwrap().0;
+    let mut overlays = world.query::<(&LiveRoomInstance, &mut FeatureEcsWorldOverlay)>();
+    let (_, mut overlay) = overlays.iter_mut(world).find(|(room, _)| **room == destination).unwrap();
+    overlay.blocks.push(ae::Block::solid("arrival-obstruction", ae::Vec2::ZERO, plan.spec().world.size));
+    let error = stage_relative_return(world, &plan, &intent).err().expect("there is no clear space");
+    assert!(matches!(error, ambition_platformer2d::runtime::room_transition::RoomTransitionApplyError::SubjectCannotTransit {
+        missing: "clear arrival space", ..
+    }));
+    assert_eq!(world.get::<InRoomInstance>(alice).unwrap().0, before);
+    assert_eq!(live_rooms(&mut sim), rooms);
+}
+
+#[test]
+fn a_cycle_of_relative_arrivals_moves_no_member() {
+    use ambition_platformer2d::platformer::lifecycle::LiveBodyId;
+    use ambition_platformer2d::session::lifecycle_commit::{LifecycleIntent, RoomArrival, RoomBodyTransfer};
+    let (mut sim, plan, mut intent, alice, bob) = prepared_relative_return();
+    let rooms = live_rooms(&mut sim);
+    let before = where_they_are(&mut sim);
+    let world = sim.world_mut();
+    let LifecycleIntent::Transition(crossing) = &mut intent else { unreachable!() };
+    crossing.companions.push(RoomBodyTransfer {
+        subject: LiveBodyId::of_entity(world, bob).unwrap(),
+        arrival: RoomArrival::NearBody(LiveBodyId::of_entity(world, alice).unwrap()),
+        participant: Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+    });
+    assert!(stage_relative_return(world, &plan, &intent).is_err());
+    assert_eq!(where_they_are(&mut sim), before);
+    assert_eq!(live_rooms(&mut sim), rooms);
 }

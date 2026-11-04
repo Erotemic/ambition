@@ -648,7 +648,7 @@ fn a_failed_preparation_is_ended_by_the_confirmed_host_too() {
         source_zone: None,
                 initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
                     subject: subject.clone(),
-                    arrival: ambition_platformer2d::engine_core::Vec2::ZERO,
+                    arrival: ambition_platformer2d::session::lifecycle_commit::RoomArrival::At(ambition_platformer2d::engine_core::Vec2::ZERO),
                     participant: None,
                 },
                 companions: Vec::new(),

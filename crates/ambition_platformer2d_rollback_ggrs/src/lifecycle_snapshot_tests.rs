@@ -29,7 +29,7 @@ fn pending_and_withdrawn_restore_keys_survive_the_registered_snapshot_path() {
                 source_zone: None,
                 initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
                     subject: LiveBodyId::new(SimId::placement("traveller"), None),
-                    arrival: Vec2::new(20.0, 30.0),
+                    arrival: ambition_platformer2d_session::lifecycle_commit::RoomArrival::At(Vec2::new(20.0, 30.0)),
                     participant: Some(PlayerSlot(2)),
                 },
                 companions: Vec::new(),
@@ -111,7 +111,7 @@ fn room_preparation_inputs_survive_the_registered_snapshot_path() {
         source_zone: None,
                 initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
                     subject: LiveBodyId::new(SimId::placement("traveller"), None),
-                    arrival: Vec2::new(20.0, 30.0),
+                    arrival: ambition_platformer2d_session::lifecycle_commit::RoomArrival::At(Vec2::new(20.0, 30.0)),
                     participant: Some(PlayerSlot(0)),
                 },
                 companions: Vec::new(),

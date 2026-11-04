@@ -320,7 +320,7 @@ pub fn detect_room_transition_system(
                 source_zone: Some(zone.zone.id.clone()),
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
                     subject: subject.clone(),
-                    arrival: zone.arrival,
+                    arrival: crate::lifecycle_commit::RoomArrival::At(zone.arrival),
                     participant: driver.map(|driver| driver.0),
                 },
                 companions: Vec::new(),
@@ -390,7 +390,7 @@ pub fn detect_room_transition_system(
                     source_zone: Some(zone.zone.id.clone()),
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
                     subject: subject.clone(),
-                    arrival: zone.arrival,
+                    arrival: crate::lifecycle_commit::RoomArrival::At(zone.arrival),
                     participant: driver.map(|driver| driver.0),
                 },
                 companions: Vec::new(),

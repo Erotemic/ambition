@@ -252,7 +252,7 @@ fn cross_observing_with(
                     source_zone: None,
                 initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
                     subject: subject.clone(),
-                    arrival: arrival,
+                    arrival: ambition_platformer2d::session::lifecycle_commit::RoomArrival::At(arrival),
                     participant: None,
                 },
                 companions: Vec::new(),

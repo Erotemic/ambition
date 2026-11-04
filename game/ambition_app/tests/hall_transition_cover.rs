@@ -189,7 +189,7 @@ fn boot_and_record_the_hall_transition() -> (App, usize) {
                     source_zone: None,
                 initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
                     subject: subject.clone(),
-                    arrival: arrival,
+                    arrival: ambition_platformer2d::session::lifecycle_commit::RoomArrival::At(arrival),
                     participant: None,
                 },
                 companions: Vec::new(),
@@ -664,7 +664,7 @@ fn leaving_the_gallery_keeps_the_shared_cast_and_retires_the_rest() {
                     source_zone: None,
                 initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
                     subject: subject.clone(),
-                    arrival: arrival,
+                    arrival: ambition_platformer2d::session::lifecycle_commit::RoomArrival::At(arrival),
                     participant: None,
                 },
                 companions: Vec::new(),
@@ -907,7 +907,7 @@ fn transit_through(app: &mut App, zone_id: &str, max: usize) -> usize {
                     source_zone: None,
                 initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
                     subject: subject.clone(),
-                    arrival: arrival,
+                    arrival: ambition_platformer2d::session::lifecycle_commit::RoomArrival::At(arrival),
                     participant: None,
                 },
                 companions: Vec::new(),

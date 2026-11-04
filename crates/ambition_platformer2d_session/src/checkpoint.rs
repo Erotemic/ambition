@@ -280,7 +280,7 @@ pub fn restore_checkpoint_on_session_start(
                 source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
                     subject: subject,
-                    arrival: ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32),
+                    arrival: crate::lifecycle_commit::RoomArrival::At(ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32)),
                     participant: None,
                 },
                 companions: Vec::new(),
@@ -604,7 +604,7 @@ pub fn resume_at_checkpoint_on_reset(
             source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
                     subject: subject.clone(),
-                    arrival: arrival,
+                    arrival: crate::lifecycle_commit::RoomArrival::At(arrival),
                     participant: None,
                 },
                 companions: Vec::new(),

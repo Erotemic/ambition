@@ -207,7 +207,7 @@ pub fn admit_room_replay(
                 source_zone: None,
                 initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
                     subject: subject,
-                    arrival: active.world.spawn,
+                    arrival: ambition_platformer2d_session::lifecycle_commit::RoomArrival::At(active.world.spawn),
                     participant: None,
                 },
                 companions: Vec::new(),
@@ -479,7 +479,7 @@ pub fn bring_a_fallen_seat_back_beside_the_primary(
                                     sim_id.clone(),
                                     Some(room.0),
                                 ),
-                    arrival: at,
+                    arrival: ambition_platformer2d_session::lifecycle_commit::RoomArrival::At(at),
                     participant: Some(driver.0),
                 },
                 companions: Vec::new(),

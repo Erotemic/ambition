@@ -1,0 +1,839 @@
+# The places of the History atlas: each node is a place in a time.
+#
+# id        - unique; a built node's room id is in `room`.
+# title     - the place, as a sign would say it.
+# region    - a region of `frame.yaml`.
+# years     - [from, to]; negative is BCE (deep time: years before now,
+#             written as negative years, near enough at that scale).
+# status    - built (a room of history.ldtk), planned (in the waves of
+#             docs/planning/game/history-dimension.md), candidate (the pool).
+# countries - the modern countries whose players find their history here.
+# peoples   - peoples of `peoples.yaml` whose history this is.
+# topics    - topics of `topics.yaml` this place shows.
+# mode      - grounded (default), parody (the famous, comically), sober
+#             (a catastrophe told plainly), archive (Clio compares sources).
+# shape     - room (default), corridor, hub, pocket, tall (`frame.yaml`).
+# note      - what the room must get right, or what is wrong now.
+
+nodes:
+  # =========================================================================
+  # AFRICA
+  # =========================================================================
+  - {id: cradle, title: "The Cradle (the Great Rift Valley)", region: east_africa, years: [-300000, -200000], status: built, room: history_cradle,
+     countries: [ETH, KEN, TZA], topics: [human_origins, first_art], note: "Lucy (3.2 million years) is deep time, not a neighbour; fire was tended long before: say carried, not first"}
+  - {id: many_cradles, title: "Many cradles (Jebel Irhoud, Omo, Florisbad)", region: maghreb, years: [-315000, -200000], status: planned, shape: corridor,
+     countries: [MAR, ETH, ZAF], peoples: [amazigh], topics: [human_origins], mode: archive,
+     note: "the oldest Homo sapiens are from Morocco: Africa as a whole is the cradle, not one valley"}
+  - {id: southern_coast, title: "The southern coast (Blombos)", region: southern_africa, years: [-100000, -70000], status: built, room: history_southern_coast,
+     countries: [ZAF], topics: [first_art, dispersal]}
+  - {id: kalahari_san, title: "The San of the Kalahari and Tsodilo", region: southern_africa, years: [-40000, 1900], status: planned,
+     countries: [BWA, NAM, ZAF], peoples: [san], topics: [first_art, indigenous_resistance], note: "the oldest continuous way of life in the atlas; their own rock art, not sacred designs"}
+  - {id: ishango, title: "Ishango and the counting bone", region: central_africa, years: [-25000, -18000], status: planned,
+     countries: [COD, UGA], topics: [mathematics, first_art]}
+  - {id: green_sahara, title: "The Green Sahara", region: sahel, years: [-9000, -3500], status: built, room: history_green_sahara,
+     countries: [TCD, NER, LBY, DZA, MLI, MRT, SDN, EGY], peoples: [amazigh, tuareg], topics: [herding, climate_and_collapse, first_art],
+     note: "herding is not crop farming: say so"}
+  - {id: nile_valley, title: "The Nile", region: nile, years: [-3100, -30], status: built, room: history_nile_valley,
+     countries: [EGY], topics: [egypt, first_cities, writing, monumental_building]}
+  - {id: pyramid_tomb, title: "The pyramid tomb", region: nile, years: [-2600, -2500], status: built, room: history_pyramid_tomb, shape: pocket,
+     countries: [EGY], topics: [egypt, monumental_building]}
+  - {id: punt, title: "The land of Punt", region: horn, years: [-2500, -1100], status: planned,
+     countries: [ERI, DJI, SOM, ETH, EGY], topics: [indian_ocean_trade, women_rulers], note: "Hatshepsut's expedition; where Punt was is still argued"}
+  - {id: kerma_kush, title: "Kerma and Kush", region: nile, years: [-2500, 350], status: planned,
+     countries: [SDN, SSD, EGY], topics: [african_kingdoms, women_rulers, bronze_and_iron]}
+  - {id: aksum_and_kush, title: "Aksum and Kush", region: horn, years: [-300, 600], status: built, room: history_aksum_and_kush,
+     countries: [ETH, ERI, SDN], topics: [african_kingdoms, money, spread_of_religions], note: "two states and two eras: split later"}
+  - {id: garamantes, title: "The Garamantes and the foggaras", region: maghreb, years: [-500, 700], status: candidate,
+     countries: [LBY, NER, TCD], peoples: [amazigh, tuareg], topics: [trans_saharan_trade, climate_and_collapse]}
+  - {id: carthage, title: "Carthage", region: maghreb, years: [-814, -146], status: planned,
+     countries: [TUN, LBN, DZA, ESP, ITA], peoples: [amazigh], topics: [alphabet, rome, age_of_sail], note: "Phoenician colony, Punic Wars, Hannibal: a pun waits"}
+  - {id: nok, title: "Nok and the first iron of West Africa", region: west_africa_coast, years: [-1500, 500], status: planned,
+     countries: [NGA], topics: [bronze_and_iron, first_art, african_kingdoms]}
+  - {id: bantu_expansion, title: "The Bantu expansion", region: central_africa, years: [-2000, 1000], status: planned, shape: corridor,
+     countries: [CMR, NGA, GAB, COG, COD, GNQ, CAF, AGO, ZMB, MWI, KEN, TZA, UGA, MOZ], peoples: [baaka],
+     topics: [farming_origins, bronze_and_iron, dispersal], note: "a language family and a slow spread over 3,000 years, not one march"}
+  - {id: forest_peoples, title: "The forest of the Congo basin", region: central_africa, years: [-20000, 2000], status: candidate,
+     countries: [CAF, COG, CMR, COD, GAB], peoples: [baaka], topics: [indigenous_resistance]}
+  - {id: senegambia_circles, title: "The stone circles of Senegambia", region: west_africa_coast, years: [-300, 1600], status: candidate,
+     countries: [SEN, GMB], topics: [monumental_building]}
+  - {id: ghana_wagadu, title: "Wagadu (old Ghana) and Koumbi Saleh", region: sahel, years: [300, 1100], status: planned,
+     countries: [MRT, MLI, GHA], topics: [african_kingdoms, trans_saharan_trade, money]}
+  - {id: timbuktu_coast, title: "Timbuktu and the monsoon coast", region: sahel, years: [1300, 1450], status: built, room: history_timbuktu_coast,
+     countries: [MLI, KEN, TZA], topics: [african_kingdoms, trans_saharan_trade, indian_ocean_trade, money],
+     note: "Timbuktu is inland; the dhow and Zheng He belong at Kilwa: split when Kilwa is built"}
+  - {id: timbuktu_library, title: "The libraries of Timbuktu", region: sahel, years: [1400, 2013], status: built, room: history_timbuktu_library, shape: pocket,
+     countries: [MLI], topics: [universities, islamic_golden_age]}
+  - {id: kanem_bornu, title: "Kanem-Bornu at Lake Chad", region: sahel, years: [700, 1893], status: candidate,
+     countries: [TCD, NER, NGA, CMR], topics: [african_kingdoms, trans_saharan_trade]}
+  - {id: ife_igbo_ukwu, title: "Ife and Igbo-Ukwu", region: west_africa_coast, years: [900, 1400], status: planned,
+     countries: [NGA], topics: [african_kingdoms, first_art, bronze_and_iron], note: "the Ife heads; Igbo-Ukwu's bronzes of the 800s"}
+  - {id: benin_city, title: "Benin City", region: west_africa_coast, years: [1200, 1897], status: built, room: history_benin_city,
+     countries: [NGA, BEN], topics: [african_kingdoms, colonialism, women_rulers]}
+  - {id: hausa_kano, title: "Kano and the Hausa cities", region: sahel, years: [1000, 1804], status: candidate,
+     countries: [NGA, NER], topics: [african_kingdoms, trans_saharan_trade]}
+  - {id: songhai_gao, title: "Gao and Songhai", region: sahel, years: [1430, 1591], status: candidate,
+     countries: [MLI, NER, BFA], topics: [african_kingdoms]}
+  - {id: mossi, title: "The Mossi kingdoms", region: sahel, years: [1100, 1896], status: candidate,
+     countries: [BFA, GHA, TGO], topics: [african_kingdoms]}
+  - {id: lalibela, title: "Lalibela, cut from the rock", region: horn, years: [1150, 1270], status: planned,
+     countries: [ETH, ERI], topics: [monumental_building, spread_of_religions]}
+  - {id: makuria, title: "Makuria, the Christian Nubia", region: nile, years: [500, 1400], status: candidate,
+     countries: [SDN, EGY], topics: [african_kingdoms, spread_of_religions]}
+  - {id: fez_qarawiyyin, title: "Fez and al-Qarawiyyin", region: maghreb, years: [859, 1350], status: planned,
+     countries: [MAR, TUN, DZA], peoples: [amazigh], topics: [universities, women_rulers, islamic_golden_age],
+     note: "founded by Fatima al-Fihri in 859"}
+  - {id: kilwa, title: "Kilwa and the Swahili coast", region: swahili_coast, years: [1100, 1505], status: planned, shape: hub,
+     countries: [TZA, KEN, MOZ, COM, SOM], topics: [indian_ocean_trade, african_kingdoms, money]}
+  - {id: mogadishu, title: "Mogadishu and the Horn's ports", region: horn, years: [900, 1500], status: candidate,
+     countries: [SOM, DJI], topics: [indian_ocean_trade]}
+  - {id: mapungubwe, title: "Mapungubwe", region: southern_africa, years: [1075, 1220], status: candidate,
+     countries: [ZAF, BWA, ZWE], topics: [african_kingdoms, money]}
+  - {id: great_zimbabwe, title: "Great Zimbabwe", region: southern_africa, years: [1100, 1450], status: planned, shape: tall,
+     countries: [ZWE, MOZ, ZAF], topics: [african_kingdoms, monumental_building, indian_ocean_trade],
+     note: "built by the ancestors of the Shona; colonial writers denied it, say so"}
+  - {id: mutapa_maravi, title: "Mutapa and Maravi", region: southern_africa, years: [1430, 1760], status: candidate,
+     countries: [ZWE, MOZ, MWI, ZMB], topics: [african_kingdoms]}
+  - {id: great_lakes_kingdoms, title: "Buganda, Rwanda and the kingdoms of the lakes", region: great_lakes, years: [1300, 1900], status: planned,
+     countries: [UGA, RWA, BDI, TZA, KEN], topics: [african_kingdoms]}
+  - {id: madagascar, title: "Madagascar, where Borneo met Africa", region: madagascar, years: [500, 1897], status: planned,
+     countries: [MDG, COM], topics: [peopling_of_pacific, seafaring, african_kingdoms], note: "Malagasy is an Austronesian language"}
+  - {id: kongo, title: "The kingdom of Kongo", region: central_africa, years: [1390, 1665], status: planned,
+     countries: [AGO, COD, COG], topics: [african_kingdoms, atlantic_slave_trade, slavery_and_resistance],
+     note: "Afonso I wrote to Portugal against the trade in 1526"}
+  - {id: nzinga, title: "Ndongo and Matamba, Queen Nzinga's war", region: central_africa, years: [1620, 1663], status: planned,
+     countries: [AGO], topics: [women_rulers, slavery_and_resistance, colonialism]}
+  - {id: plantation_islands, title: "São Tomé and Cabo Verde, the first plantation islands", region: atlantic_islands, years: [1460, 1600], status: planned,
+     countries: [STP, CPV], topics: [atlantic_slave_trade, crops], mode: sober}
+  - {id: door_of_no_return, title: "The fort of the Door of No Return", region: west_africa_coast, years: [1700, 1800], status: built, room: history_door_of_no_return,
+     countries: [GHA, SEN, GMB, BEN, NGA], peoples: [african_americans, afro_caribbeans, afro_latin_americans], topics: [atlantic_slave_trade], mode: sober}
+  - {id: asante_dahomey, title: "Asante and Dahomey", region: west_africa_coast, years: [1670, 1900], status: planned,
+     countries: [GHA, BEN, TGO, CIV], topics: [african_kingdoms, women_rulers, colonialism],
+     note: "the golden stool and Yaa Asantewaa; the Agojie of Dahomey; both took part in the slave trade: say so"}
+  - {id: sokoto, title: "The Sokoto Caliphate", region: sahel, years: [1804, 1903], status: candidate,
+     countries: [NGA, NER, CMR], topics: [african_kingdoms, women_rulers], note: "Nana Asma'u, poet and teacher"}
+  - {id: freetown_liberia, title: "Freetown and Monrovia", region: west_africa_coast, years: [1787, 1900], status: planned,
+     countries: [SLE, LBR, GIN, GNB], peoples: [african_americans, black_british], topics: [abolition, migration, colonialism]}
+  - {id: samori, title: "Samori Ture's resistance", region: west_africa_coast, years: [1878, 1898], status: candidate,
+     countries: [GIN, MLI, CIV], topics: [indigenous_resistance, scramble_for_africa]}
+  - {id: zulu_moshoeshoe, title: "The Zulu kingdom and Moshoeshoe's mountain", region: southern_africa, years: [1816, 1879], status: planned, shape: tall,
+     countries: [ZAF, LSO, SWZ], topics: [african_kingdoms, indigenous_resistance]}
+  - {id: oman_zanzibar, title: "Zanzibar, the cloves and the Omani sultans", region: swahili_coast, years: [1698, 1964], status: candidate,
+     countries: [TZA, OMN, KEN], topics: [indian_ocean_trade, slavery_and_resistance, crops]}
+  - {id: mauritius, title: "Mauritius, the dodo and the indenture", region: madagascar, years: [1598, 1920], status: planned,
+     countries: [MUS, SYC, MDG], peoples: [indian_diaspora], topics: [indentured_labour, climate_and_collapse, slavery_and_resistance]}
+  - {id: scramble, title: "The Berlin table, 1884", region: central_africa, years: [1884, 1914], status: planned, mode: archive,
+     countries: [COD, NAM, TZA, CMR, TGO, KEN, UGA, NGA, SEN, DZA], topics: [scramble_for_africa, colonialism]}
+  - {id: congo_free_state, title: "The Congo Free State", region: central_africa, years: [1885, 1908], status: planned, mode: sober,
+     countries: [COD, BEL], topics: [colonialism, genocide], note: "rubber, the hands; the campaigners who exposed it"}
+  - {id: herero_nama, title: "The Herero and Nama genocide", region: southern_africa, years: [1904, 1908], status: candidate, mode: sober, shape: pocket,
+     countries: [NAM, DEU], topics: [genocide, colonialism]}
+  - {id: adwa, title: "Adwa, 1896", region: horn, years: [1889, 1896], status: planned,
+     countries: [ETH, ERI, ITA], topics: [indigenous_resistance, scramble_for_africa, women_rulers], note: "Empress Taytu at Adwa"}
+  - {id: maji_maji, title: "Maji Maji", region: swahili_coast, years: [1905, 1907], status: candidate,
+     countries: [TZA], topics: [indigenous_resistance, colonialism]}
+  - {id: year_of_africa, title: "The year of Africa", region: west_africa_coast, years: [1957, 1965], status: planned, shape: hub,
+     countries: [GHA, NGA, SEN, CIV, CMR, TGO, BEN, NER, BFA, MLI, MRT, TCD, CAF, COG, GAB, COD, MDG, SOM, GIN, SLE, TZA, UGA, KEN, ZMB, MWI, BDI, RWA, DZA, TUN, MAR, SDN, GMB, BWA, LSO],
+     topics: [decolonization, nationalism]}
+  - {id: liberation_wars, title: "The liberation wars of Guinea-Bissau, Angola and Mozambique", region: atlantic_islands, years: [1961, 1975], status: candidate,
+     countries: [GNB, CPV, AGO, MOZ, STP], topics: [decolonization], note: "Amílcar Cabral"}
+  - {id: algiers, title: "The Battle of Algiers", region: maghreb, years: [1954, 1962], status: candidate,
+     countries: [DZA, FRA], topics: [decolonization]}
+  - {id: mau_mau, title: "Kenya and the Mau Mau war", region: great_lakes, years: [1952, 1963], status: candidate, mode: sober,
+     countries: [KEN, GBR], topics: [decolonization]}
+  - {id: suez, title: "Suez, 1956", region: nile, years: [1952, 1970], status: candidate,
+     countries: [EGY], topics: [decolonization, cold_war]}
+  - {id: apartheid, title: "Soweto, 1976, and the end of apartheid", region: southern_africa, years: [1948, 1994], status: planned,
+     countries: [ZAF, NAM, BWA, SWZ, LSO], topics: [civil_rights, nonviolence, decolonization]}
+  - {id: rwanda_1994, title: "Rwanda, 1994", region: great_lakes, years: [1994, 1994], status: candidate, mode: sober, shape: pocket,
+     countries: [RWA, BDI], topics: [genocide], note: "the genocide against the Tutsi; the rebuilding"}
+  - {id: sahrawi, title: "Western Sahara", region: maghreb, years: [1975, 2024], status: planned, mode: archive,
+     countries: [ESH, MAR, MRT], topics: [decolonization], note: "contested: state both claims and the UN's status"}
+  - {id: south_sudan, title: "South Sudan, the newest state", region: nile, years: [2005, 2011], status: candidate,
+     countries: [SSD, SDN], topics: [nationalism]}
+  - {id: lagos_nairobi_now, title: "Lagos and Nairobi now", region: west_africa_coast, years: [2000, 2025], status: planned, shape: hub,
+     countries: [NGA, KEN, GHA, ETH, RWA, CIV, SEN, ZAF, EGY], topics: [internet, globalization, migration],
+     note: "Nollywood, Afrobeats, M-Pesa (2007): Africa's present as the start, not the end"}
+  - {id: arab_spring, title: "The Arab Spring", region: maghreb, years: [2010, 2012], status: candidate, mode: archive,
+     countries: [TUN, EGY, LBY, SYR, YEM, BHR], topics: [nonviolence, internet]}
+
+  - {id: ethiopia_1935, title: "Ethiopia, 1935: the emperor at the League", region: horn, years: [1935, 1941], status: planned,
+     countries: [ETH, ERI, SOM, ITA], topics: [world_war_two, colonialism, indigenous_resistance], note: "Haile Selassie's speech, 1936; the patriots; poison gas"}
+  - {id: african_soldiers, title: "The tirailleurs, the askari and Thiaroye", region: west_africa_coast, years: [1914, 1945], status: planned, mode: sober,
+     countries: [SEN, MLI, BFA, CIV, GIN, GHA, NGA, KEN, TZA, MAR, DZA], topics: [world_war_one, world_war_two, colonialism], note: "Africa's soldiers of both wars; the massacre at Thiaroye, 1944"}
+
+  # =========================================================================
+  # SOUTHWEST ASIA
+  # =========================================================================
+  - {id: levant, title: "The Levant", region: levant, years: [-70000, -45000], status: built, room: history_levant,
+     countries: [ISR, PSE, LBN, SYR, JOR], topics: [dispersal, other_humans]}
+  - {id: gobekli_tepe, title: "Göbekli Tepe", region: anatolia, years: [-9500, -8000], status: planned,
+     countries: [TUR], topics: [monumental_building, farming_origins], note: "monuments before farms"}
+  - {id: fertile_crescent, title: "The Fertile Crescent", region: mesopotamia, years: [-9500, -7000], status: built, room: history_fertile_crescent,
+     countries: [IRQ, SYR, TUR, IRN], peoples: [kurds, assyrians], topics: [farming_origins, herding, law]}
+  - {id: jericho_catalhoyuk, title: "Jericho and Çatalhöyük", region: anatolia, years: [-9000, -6000], status: candidate,
+     countries: [PSE, TUR], topics: [first_cities, farming_origins]}
+  - {id: georgian_wine, title: "The first wine", region: caucasus, years: [-6000, -4000], status: candidate,
+     countries: [GEO, ARM, AZE], topics: [crops]}
+  - {id: temple_granary, title: "The temple granary", region: mesopotamia, years: [-3300, -3000], status: built, room: history_temple_granary, shape: pocket,
+     countries: [IRQ], topics: [writing, money, mesopotamia]}
+  - {id: uruk, title: "Uruk", region: mesopotamia, years: [-3500, -3000], status: built, room: history_uruk,
+     countries: [IRQ, KWT], topics: [first_cities, writing, mesopotamia, bronze_age_collapse],
+     note: "the Sea Peoples came 2,000 years after Uruk's peak: a later layer, say so"}
+  - {id: dilmun_magan, title: "Dilmun and Magan", region: arabia, years: [-2500, -1500], status: planned,
+     countries: [BHR, OMN, ARE, KWT, SAU, QAT], topics: [indian_ocean_trade, bronze_and_iron],
+     note: "Gulf trade between Sumer and the Indus; Magan's copper"}
+  - {id: hittites_ugarit, title: "Hattusa and Ugarit", region: anatolia, years: [-1600, -1185], status: planned,
+     countries: [TUR, SYR, CYP], topics: [alphabet, bronze_age_collapse, law, bronze_and_iron]}
+  - {id: phoenicia, title: "Tyre, Byblos and the purple", region: levant, years: [-1200, -332], status: planned,
+     countries: [LBN, SYR, CYP], topics: [alphabet, age_of_sail, money]}
+  - {id: israel_judah, title: "Israel, Judah and the exile", region: levant, years: [-1000, -400], status: candidate, mode: archive,
+     countries: [ISR, PSE, JOR, IRQ], peoples: [jewish_people], topics: [jewish_history, writing], note: "archaeology and text side by side; no founder"}
+  - {id: saba, title: "Saba and the Marib dam", region: arabia, years: [-1000, 575], status: planned,
+     countries: [YEM, ETH, ERI, SAU], topics: [indian_ocean_trade, crops, climate_and_collapse], note: "frankincense"}
+  - {id: assyria_babylon, title: "Nineveh and Babylon", region: mesopotamia, years: [-900, -539], status: candidate,
+     countries: [IRQ, SYR], peoples: [assyrians], topics: [mesopotamia, law, universities], note: "Ashurbanipal's library"}
+  - {id: achaemenids, title: "Persepolis and the Royal Road", region: iran, years: [-550, -330], status: planned, shape: corridor,
+     countries: [IRN, IRQ, TUR, AFG, EGY], topics: [persia, law, money]}
+  - {id: petra_nabataeans, title: "Petra and the incense road", region: arabia, years: [-300, 106], status: planned, shape: corridor,
+     countries: [JOR, SAU, YEM, OMN], topics: [indian_ocean_trade, crops, monumental_building]}
+  - {id: palmyra_zenobia, title: "Palmyra, Queen Zenobia's city", region: levant, years: [260, 273], status: candidate,
+     countries: [SYR], topics: [women_rulers, rome]}
+  - {id: armenia_first, title: "Armenia and its alphabet", region: caucasus, years: [301, 1045], status: planned,
+     countries: [ARM, GEO, AZE, TUR, IRN], peoples: [armenians], topics: [scripts, spread_of_religions]}
+  - {id: sasanian, title: "Ctesiphon and the Sasanians", region: iran, years: [224, 651], status: candidate,
+     countries: [IRN, IRQ], topics: [persia]}
+  - {id: house_of_wisdom, title: "Baghdad and the House of Wisdom", region: mesopotamia, years: [762, 1258], status: planned, shape: hub,
+     countries: [IRQ, IRN, SYR, UZB, SAU], peoples: [assyrians, kurds], topics: [islamic_golden_age, mathematics, astronomy, medicine, universities],
+     note: "al-Khwarizmi, the translators; the sack of 1258"}
+  - {id: crusades, title: "The Crusades from both sides", region: levant, years: [1095, 1291], status: planned, mode: archive,
+     countries: [ISR, PSE, LBN, SYR, JOR, TUR, EGY, FRA, DEU, ITA, GBR], peoples: [kurds, jewish_people], topics: [crusades, spread_of_religions],
+     note: "Saladin was a Kurd; Arab accounts beside Frankish ones"}
+  - {id: queen_tamar, title: "Georgia under Queen Tamar", region: caucasus, years: [1184, 1213], status: candidate,
+     countries: [GEO], topics: [women_rulers]}
+  - {id: istanbul_1453, title: "Istanbul and the coffee house", region: anatolia, years: [1453, 1700], status: planned, shape: hub,
+     countries: [TUR, GRC, BGR, EGY, SYR, IRQ, SAU, YEM, BIH], topics: [ottomans, byzantium, crops]}
+  - {id: isfahan, title: "Isfahan, half the world", region: iran, years: [1501, 1736], status: candidate,
+     countries: [IRN, AZE, ARM, GEO], topics: [persia, monumental_building]}
+  - {id: mocha_coffee, title: "Mocha and the coffee trade", region: arabia, years: [1450, 1720], status: candidate,
+     countries: [YEM, ETH], topics: [crops, indian_ocean_trade]}
+  - {id: gulf_pearls, title: "The pearling coast", region: arabia, years: [1800, 1932], status: candidate,
+     countries: [BHR, QAT, KWT, ARE, OMN], topics: [indian_ocean_trade, labour_movements]}
+  - {id: armenian_genocide, title: "1915", region: anatolia, years: [1915, 1923], status: planned, mode: sober, shape: pocket,
+     countries: [ARM, TUR, SYR, LBN], peoples: [armenians, assyrians], topics: [genocide, world_war_one]}
+  - {id: ataturk_republic, title: "The republic of 1923", region: anatolia, years: [1923, 1938], status: candidate,
+     countries: [TUR], topics: [nationalism, womens_suffrage]}
+  - {id: baku_oil, title: "Baku and the oil", region: caucasus, years: [1870, 1945], status: candidate,
+     countries: [AZE, RUS], topics: [industrial_revolution, labour_movements]}
+  - {id: oil_age, title: "The oil age", region: arabia, years: [1932, 1979], status: planned,
+     countries: [SAU, KWT, ARE, QAT, BHR, OMN, IRQ, IRN, LBY, VEN], topics: [globalization, cold_war, climate_change]}
+  - {id: mossadegh_1979, title: "Tehran, 1953 and 1979", region: iran, years: [1951, 1979], status: candidate, mode: archive,
+     countries: [IRN], topics: [cold_war, nationalism]}
+  - {id: palestine_israel_1948, title: "1948, two names for one year", region: levant, years: [1947, 1949], status: planned, mode: archive,
+     countries: [ISR, PSE, JOR, LBN, SYR, EGY], peoples: [jewish_people, palestinians], topics: [partition, migration, jewish_history, decolonization],
+     note: "Independence and the Nakba, each told by its own people, side by side; observe, do not adjudicate"}
+  - {id: kurdistan_halabja, title: "Halabja, 1988", region: mesopotamia, years: [1988, 1988], status: candidate, mode: sober, shape: pocket,
+     countries: [IRQ], peoples: [kurds], topics: [genocide]}
+  - {id: cyprus_copper, title: "Cyprus, the copper island", region: levant, years: [-2500, 1974], status: candidate,
+     countries: [CYP, GRC, TUR], topics: [bronze_and_iron, partition]}
+  - {id: beirut_now, title: "Beirut, the diaspora at home", region: levant, years: [1975, 2020], status: planned,
+     countries: [LBN], peoples: [lebanese_diaspora], topics: [migration]}
+
+  # =========================================================================
+  # EUROPE
+  # =========================================================================
+  - {id: ice_age_europe, title: "Ice Age Europe", region: western_europe, years: [-40000, -15000], status: built, room: history_ice_age_europe,
+     countries: [FRA, ESP, DEU, CZE], topics: [ice_age, other_humans]}
+  - {id: painted_cave, title: "The painted cave", region: western_europe, years: [-36000, -17000], status: built, room: history_painted_cave, shape: pocket,
+     countries: [FRA, ESP], topics: [first_art]}
+  - {id: first_farmers_of_europe, title: "The first farmers of Europe", region: balkans, years: [-6500, -5000], status: built, room: history_first_farmers_of_europe,
+     countries: [GRC, BGR, SRB, HUN, DEU, AUT, ITA], topics: [farming_origins, migration]}
+  - {id: malta_temples, title: "The temples of Malta", region: italy, years: [-3600, -2500], status: planned,
+     countries: [MLT], topics: [monumental_building], note: "older than Stonehenge and the pyramids"}
+  - {id: megalith_builders, title: "The megalith builders", region: british_isles, years: [-4500, -1500], status: built, room: history_megalith_builders,
+     countries: [GBR, IRL, FRA, ESP, PRT, DNK], topics: [monumental_building, astronomy]}
+  - {id: minoans_mycenae, title: "Knossos and Mycenae", region: aegean, years: [-2000, -1100], status: planned,
+     countries: [GRC], topics: [bronze_age_collapse, writing, sport_and_play], note: "Linear B is Greek; Linear A is still unread"}
+  - {id: steppe_herders_yamnaya, title: "The Yamnaya and the horse", region: eastern_europe, years: [-3300, -2600], status: planned, shape: corridor,
+     countries: [UKR, RUS, KAZ, MDA, ROU], topics: [herding, migration, steppe_empires],
+     note: "a steppe migration whose genes are in most Europeans; where the horse was first ridden is still argued"}
+  - {id: classical_shore, title: "The classical shore", region: aegean, years: [-500, 400], status: built, room: history_classical_shore,
+     countries: [GRC, ITA, TUR, CYP, ALB, MKD], topics: [greece, rome, persia, law], mode: parody,
+     note: "Confucius and others visit across centuries: mark it as Clio's guest list"}
+  - {id: colosseum, title: "The Colosseum", region: italy, years: [80, 404], status: built, room: history_colosseum, shape: pocket,
+     countries: [ITA], topics: [rome, sport_and_play, monumental_building]}
+  - {id: dacia, title: "Dacia and Trajan's column", region: balkans, years: [-82, 271], status: candidate,
+     countries: [ROU, MDA, BGR], topics: [rome]}
+  - {id: celtic_frontier, title: "The Celtic frontier", region: british_isles, years: [-300, 150], status: built, room: history_celtic_frontier,
+     countries: [GBR, IRL, FRA, BEL, CHE, ESP, DEU, AUT, CZE], topics: [rome, women_rulers, bronze_and_iron]}
+  - {id: constantinople, title: "Constantinople", region: balkans, years: [330, 1453], status: planned, shape: hub,
+     countries: [TUR, GRC, BGR, SRB, MKD, ALB], topics: [byzantium, law, spread_of_religions], note: "Theodora; the walls; Hagia Sophia"}
+  - {id: first_bulgaria_cyrillic, title: "Preslav and the Cyrillic script", region: balkans, years: [681, 1018], status: planned,
+     countries: [BGR, MKD, SRB, RUS, UKR, BLR, MNE], topics: [scripts, spread_of_religions]}
+  - {id: al_andalus, title: "Córdoba and al-Andalus", region: iberia, years: [711, 1492], status: planned, shape: hub,
+     countries: [ESP, PRT, MAR, AND], peoples: [jewish_people, amazigh], topics: [islamic_golden_age, universities, jewish_history, mathematics],
+     note: "coexistence and its limits, both said"}
+  - {id: viking_north, title: "The Viking north", region: nordic, years: [793, 1066], status: built, room: history_viking_north,
+     countries: [NOR, SWE, DNK, ISL, GBR, IRL, RUS, UKR], topics: [age_of_sail, migration, steppe_empires]}
+  - {id: althing, title: "The Althing", region: nordic, years: [930, 1262], status: candidate,
+     countries: [ISL, NOR], topics: [law], note: "one of the oldest parliaments"}
+  - {id: kyivan_rus_novgorod, title: "Kyiv and Novgorod's birch-bark letters", region: eastern_europe, years: [882, 1240], status: planned,
+     countries: [UKR, RUS, BLR], topics: [writing, spread_of_religions, mongols], note: "ordinary people's letters, a boy's homework"}
+  - {id: medieval_village, title: "A medieval village and its lord", region: western_europe, years: [1000, 1350], status: planned,
+     countries: [FRA, DEU, GBR, BEL, NLD, LUX, CHE, AUT, CZE, POL], topics: [feudalism, labour_movements]}
+  - {id: alpine_passes, title: "The Alpine passes and the Swiss oath", region: central_europe, years: [1291, 1499], status: planned, shape: corridor,
+     countries: [CHE, LIE, AUT, ITA], topics: [law]}
+  - {id: monaco_andorra_sanmarino, title: "The small states that lasted", region: italy, years: [301, 1419], status: planned, shape: corridor, mode: parody,
+     countries: [SMR, MCO, AND, LIE, VAT, LUX], topics: [law, nationalism],
+     note: "San Marino (301); a Grimaldi dressed as a friar takes Monaco (1297); Andorra's two co-princes (1278)"}
+  - {id: hansa, title: "The Hanseatic towns", region: baltic, years: [1250, 1600], status: candidate, shape: corridor,
+     countries: [DEU, POL, EST, LVA, LTU, SWE, NOR, RUS], topics: [money, age_of_sail]}
+  - {id: grand_duchy_lithuania, title: "Vilnius and the Grand Duchy", region: baltic, years: [1236, 1795], status: candidate,
+     countries: [LTU, POL, BLR, UKR, LVA], peoples: [jewish_people], topics: [law, jewish_history], note: "the last pagan state of Europe; the 1791 constitution"}
+  - {id: black_death, title: "1348", region: italy, years: [1346, 1353], status: planned, mode: sober,
+     countries: [ITA, FRA, GBR, ESP, DEU, EGY, SYR, UKR, NOR], peoples: [jewish_people], topics: [black_death, medicine, climate_and_collapse],
+     note: "from Caffa in Crimea; the massacres of Jews blamed for it; who was left got better pay"}
+  - {id: venice, title: "Venice", region: italy, years: [1100, 1500], status: candidate, shape: hub,
+     countries: [ITA, HRV, GRC, CYP], topics: [money, age_of_sail, renaissance]}
+  - {id: florence_mainz, title: "Florence and Mainz", region: italy, years: [1400, 1520], status: planned, shape: hub,
+     countries: [ITA, DEU, NLD], topics: [renaissance, printing, money]}
+  - {id: hussites_prague, title: "Prague", region: central_europe, years: [1348, 1620], status: candidate,
+     countries: [CZE, SVK], topics: [reformation, universities]}
+  - {id: reformation_print, title: "Print and the Reformation", region: central_europe, years: [1517, 1648], status: planned, mode: archive,
+     countries: [DEU, CHE, NLD, CZE, SWE, DNK, HUN, FRA, GBR], topics: [reformation, printing], note: "the history of print and states; no founder is a character"}
+  - {id: reconquista_1492, title: "Granada, 1492", region: iberia, years: [1492, 1609], status: planned, mode: sober,
+     countries: [ESP, PRT, MAR, TUR], peoples: [jewish_people], topics: [jewish_history, migration, spread_of_religions],
+     note: "the expulsions of Jews and Muslims; the Sephardic diaspora"}
+  - {id: age_of_sail, title: "The age of sail", region: iberia, years: [1450, 1800], status: built, room: history_age_of_sail,
+     countries: [PRT, ESP, GBR, NLD, FRA], topics: [age_of_sail, colonialism], mode: parody}
+  - {id: amsterdam_voc, title: "Amsterdam and the VOC", region: western_europe, years: [1602, 1799], status: planned,
+     countries: [NLD, IDN, ZAF, LKA], topics: [money, colonialism, globalization], note: "the first big joint-stock company, a boss: the robber baron's ancestor"}
+  - {id: commonwealth_poland, title: "The Commonwealth of the Two Nations", region: eastern_europe, years: [1569, 1795], status: candidate,
+     countries: [POL, LTU, UKR, BLR, LVA], peoples: [jewish_people], topics: [law, jewish_history]}
+  - {id: habsburg_vienna, title: "Vienna, 1683", region: central_europe, years: [1529, 1699], status: candidate,
+     countries: [AUT, HUN, CZE, SVK, HRV, SVN, TUR], topics: [ottomans]}
+  - {id: ottoman_balkans, title: "The Ottoman Balkans", region: balkans, years: [1389, 1878], status: planned,
+     countries: [SRB, XKX, BIH, MKD, ALB, MNE, BGR, GRC, ROU, HRV], peoples: [roma], topics: [ottomans, nationalism],
+     note: "Kosovo 1389 as each side tells it; Skanderbeg"}
+  - {id: scientific_revolution, title: "The telescope and the apple", region: italy, years: [1543, 1727], status: planned, mode: parody,
+     countries: [ITA, GBR, POL, DEU, DNK, NLD], topics: [scientific_revolution, astronomy]}
+  - {id: enlightenment_revolution, title: "Paris, 1789", region: western_europe, years: [1750, 1815], status: planned, shape: hub,
+     countries: [FRA, BEL, CHE, DEU], topics: [enlightenment, french_revolution, womens_suffrage],
+     note: "Olympe de Gouges; Napoleon is already Haiti's enemy"}
+  - {id: industrial_age, title: "The Industrial Age", region: british_isles, years: [1760, 1900], status: built, room: history_industrial_age,
+     countries: [GBR, BEL, DEU], topics: [industrial_revolution, labour_movements], mode: parody}
+  - {id: cotton_mill, title: "The cotton mill", region: british_isles, years: [1800, 1850], status: built, room: history_cotton_mill, shape: pocket,
+     countries: [GBR, IND, USA], topics: [industrial_revolution, labour_movements, slavery_and_resistance]}
+  - {id: irish_famine, title: "The Great Hunger", region: british_isles, years: [1845, 1852], status: planned, mode: sober,
+     countries: [IRL, GBR, USA, CAN, AUS], peoples: [irish_diaspora], topics: [famine, migration, colonialism]}
+  - {id: russian_serfs_1861, title: "Serfdom and its end", region: eastern_europe, years: [1649, 1861], status: candidate,
+     countries: [RUS, UKR, BLR], topics: [feudalism, abolition]}
+  - {id: nations_1848, title: "1848, the springtime of nations", region: central_europe, years: [1848, 1871], status: candidate,
+     countries: [DEU, ITA, HUN, AUT, CZE, POL, FRA, ROU], topics: [nationalism, labour_movements]}
+  - {id: suffragettes, title: "Votes for women", region: british_isles, years: [1893, 1928], status: planned,
+     countries: [GBR, NZL, FIN, NOR, AUS, USA], topics: [womens_suffrage, nonviolence], note: "New Zealand first (1893); Finland first in Europe (1906)"}
+  - {id: western_front, title: "The Western Front", region: western_europe, years: [1914, 1918], status: planned, mode: sober, shape: corridor,
+     countries: [FRA, BEL, DEU, GBR, CAN, AUS, NZL, IND, SEN, USA, ITA, AUT, TUR, SRB, BIH], topics: [world_war_one],
+     note: "Sarajevo to the Somme; the colonial soldiers; Gallipoli is its own memory for Australia, New Zealand and Türkiye"}
+  - {id: petrograd_1917, title: "Petrograd, 1917", region: eastern_europe, years: [1917, 1924], status: planned,
+     countries: [RUS, UKR, BLR, GEO, ARM, AZE, KAZ, UZB, EST, LVA, LTU, FIN], topics: [russian_revolution, labour_movements]}
+  - {id: holodomor, title: "The famines of 1932-1933", region: eastern_europe, years: [1932, 1933], status: candidate, mode: sober, shape: pocket,
+     countries: [UKR, KAZ, RUS], topics: [famine, genocide]}
+  - {id: holocaust, title: "The Holocaust", region: central_europe, years: [1933, 1945], status: planned, mode: sober, shape: pocket,
+     countries: [DEU, POL, AUT, CZE, HUN, NLD, FRA, LTU, LVA, UKR, BLR, GRC, ITA, ROU, HRV, SRB], peoples: [jewish_people, roma],
+     topics: [holocaust, genocide, world_war_two], note: "its own memorial room; the resisters and rescuers; the Porajmos of the Roma"}
+  - {id: world_war_two_europe, title: "The Second World War in Europe", region: eastern_europe, years: [1939, 1945], status: planned, mode: sober, shape: corridor,
+     countries: [POL, DEU, RUS, UKR, BLR, GBR, FRA, ITA, NOR, DNK, NLD, BEL, GRC, SRB, FIN, USA, CAN], topics: [world_war_two]}
+  - {id: berlin_wall, title: "The Wall", region: central_europe, years: [1961, 1989], status: planned,
+     countries: [DEU, POL, CZE, HUN, ROU, BGR, SVK, EST, LVA, LTU], topics: [cold_war, nonviolence],
+     note: "Solidarity, the Baltic Way, the Velvet Revolution"}
+  - {id: singing_revolution, title: "The Baltic Way", region: baltic, years: [1987, 1991], status: candidate,
+     countries: [EST, LVA, LTU], topics: [nonviolence, nationalism]}
+  - {id: european_union, title: "Coal, steel and a union", region: western_europe, years: [1951, 2004], status: candidate, mode: parody,
+     countries: [BEL, LUX, NLD, FRA, DEU, ITA, IRL, DNK, PRT, ESP, AUT, FIN, SWE, MLT, CYP, SVN, SVK, CZE, HUN, POL, EST, LVA, LTU, BGR, ROU, HRV, GRC],
+     topics: [globalization, nationalism]}
+  - {id: yugoslav_wars, title: "Sarajevo and Srebrenica", region: balkans, years: [1991, 2008], status: candidate, mode: sober,
+     countries: [BIH, SRB, HRV, SVN, MKD, MNE, XKX], topics: [genocide, nationalism]}
+  - {id: sami, title: "Sápmi", region: nordic, years: [500, 2000], status: planned,
+     countries: [NOR, SWE, FIN, RUS], peoples: [sami], topics: [herding, indigenous_resistance]}
+  - {id: roma_arrival, title: "The road of the Roma", region: balkans, years: [1000, 1856], status: candidate, shape: corridor,
+     countries: [ROU, BGR, HUN, SVK, SRB, ESP, TUR, IND], peoples: [roma], topics: [migration, slavery_and_resistance],
+     note: "from India; enslaved in Wallachia and Moldavia until 1856"}
+  - {id: chernobyl_ukraine, title: "Chernobyl", region: eastern_europe, years: [1986, 1991], status: candidate,
+     countries: [UKR, BLR, RUS], topics: [nuclear_age, cold_war]}
+  - {id: finland_winter_war, title: "The Winter War", region: nordic, years: [1939, 1940], status: candidate,
+     countries: [FIN, RUS], topics: [world_war_two]}
+
+  # =========================================================================
+  # CENTRAL ASIA AND THE STEPPE
+  # =========================================================================
+  - {id: mammoth_steppe, title: "The mammoth steppe", region: siberia, years: [-45000, -15000], status: built, room: history_mammoth_steppe,
+     countries: [RUS, MNG, KAZ, UKR], peoples: [siberian_peoples], topics: [ice_age, other_humans]}
+  - {id: scythians_saka, title: "The Scythians and the Saka", region: central_asia, years: [-900, -200], status: planned,
+     countries: [KAZ, UKR, RUS, KGZ, UZB, TJK, MNG], topics: [steppe_empires, women_rulers, first_art], note: "graves of women with weapons"}
+  - {id: bactria_gandhara, title: "Bactria and Gandhara", region: central_asia, years: [-250, 400], status: candidate,
+     countries: [AFG, PAK, TJK, UZB], topics: [spread_of_religions, silk_roads, greece]}
+  - {id: silk_road, title: "The Silk Road", region: silk_roads, years: [-130, 1450], status: built, room: history_silk_road, shape: corridor,
+     countries: [CHN, KAZ, KGZ, UZB, TJK, TKM, AFG, IRN], peoples: [uyghurs], topics: [silk_roads], mode: parody,
+     note: "Marco Polo and Confucius are centuries apart: Clio's guests"}
+  - {id: sogdiana_samarkand, title: "Samarkand, the Sogdian merchants", region: central_asia, years: [500, 1420], status: planned, shape: hub,
+     countries: [UZB, TJK, KAZ, KGZ, TKM, AFG], topics: [silk_roads, astronomy, money], note: "Ulugh Beg's observatory (1420s)"}
+  - {id: xiongnu_turks, title: "The Xiongnu and the first Turks", region: mongolia, years: [-209, 744], status: candidate,
+     countries: [MNG, CHN, KAZ, KGZ, TUR], topics: [steppe_empires, scripts], note: "the Orkhon inscriptions"}
+  - {id: mongol_steppe, title: "The Mongol steppe", region: mongolia, years: [1206, 1368], status: built, room: history_mongol_steppe,
+     countries: [MNG, CHN, KAZ, RUS], topics: [mongols, steppe_empires], mode: parody}
+  - {id: great_ger, title: "The great ger", region: mongolia, years: [1206, 1294], status: built, room: history_great_ger, shape: pocket,
+     countries: [MNG], topics: [mongols, law]}
+  - {id: siberia_conquest, title: "Siberia and the fur road", region: siberia, years: [1580, 1900], status: candidate, shape: corridor,
+     countries: [RUS, MNG], peoples: [siberian_peoples, inuit], topics: [colonialism, indigenous_resistance]}
+  - {id: gulag, title: "The Gulag", region: siberia, years: [1930, 1956], status: candidate, mode: sober, shape: pocket,
+     countries: [RUS, KAZ, UKR, POL, EST, LVA, LTU], topics: [genocide, labour_movements]}
+  - {id: baikonur, title: "Baikonur, 1961", region: central_asia, years: [1955, 1975], status: planned,
+     countries: [KAZ, RUS, USA], topics: [space_race, cold_war], note: "Gagarin, Tereshkova"}
+  - {id: aral_sea, title: "The Aral Sea", region: central_asia, years: [1960, 2020], status: candidate,
+     countries: [KAZ, UZB, TKM], topics: [climate_and_collapse, cold_war]}
+  - {id: afghanistan_crossroads, title: "Bamiyan and Herat", region: central_asia, years: [500, 2001], status: candidate,
+     countries: [AFG, IRN, PAK, TJK], topics: [spread_of_religions, silk_roads, cold_war]}
+
+  - {id: bukhara_khanates, title: "Bukhara and Khiva", region: central_asia, years: [1500, 1868], status: planned,
+     countries: [UZB, TKM, TJK, KAZ], topics: [silk_roads, slavery_and_resistance]}
+  - {id: great_game, title: "The Great Game", region: central_asia, years: [1830, 1907], status: planned, mode: parody,
+     countries: [AFG, UZB, TKM, KAZ, TJK, KGZ, IND, PAK, RUS, GBR], topics: [colonialism, steppe_empires], note: "two empires play chess on someone else's board"}
+  - {id: central_asia_now, title: "The new Silk Roads", region: central_asia, years: [1991, 2025], status: planned,
+     countries: [KAZ, UZB, KGZ, TJK, TKM, MNG], topics: [globalization]}
+
+  - {id: jeitun, title: "Jeitun, the first farmers of Central Asia", region: central_asia, years: [-6200, -4500], status: planned,
+     countries: [TKM, IRN, UZB], topics: [farming_origins, herding]}
+  - {id: oxus_bmac, title: "The Oxus civilization", region: central_asia, years: [-2300, -1700], status: planned, shape: hub,
+     countries: [TKM, UZB, AFG, TJK], topics: [first_cities, bronze_and_iron, monumental_building], note: "Gonur Depe: a Bronze Age civilization few have heard of"}
+
+  # =========================================================================
+  # SOUTH ASIA
+  # =========================================================================
+  - {id: southern_route, title: "The southern route", region: south_india, years: [-70000, -50000], status: built, room: history_southern_route,
+     countries: [IND, LKA, PAK, YEM, OMN], topics: [dispersal, seafaring]}
+  - {id: mehrgarh, title: "Mehrgarh", region: indus, years: [-7000, -2500], status: built, room: history_mehrgarh,
+     countries: [PAK], topics: [farming_origins, medicine]}
+  - {id: indus_cities, title: "The Indus cities", region: indus, years: [-2600, -1900], status: built, room: history_indus_cities,
+     countries: [PAK, IND, AFG], topics: [first_cities, writing, climate_and_collapse, indian_ocean_trade]}
+  - {id: vedic_ganges, title: "The Ganges and the sixteen states", region: north_india, years: [-1500, -320], status: candidate, mode: archive,
+     countries: [IND, NPL, BGD], topics: [india_empires, spread_of_religions], note: "texts and their dates are argued: show the argument"}
+  - {id: ashoka, title: "Ashoka's pillars", region: north_india, years: [-322, -185], status: planned,
+     countries: [IND, NPL, PAK, BGD, AFG, LKA], topics: [india_empires, spread_of_religions, law, nonviolence]}
+  - {id: anuradhapura, title: "Anuradhapura and the tanks", region: south_india, years: [-377, 1017], status: planned,
+     countries: [LKA, MDV], peoples: [tamils], topics: [spread_of_religions, farming_origins, universities]}
+  - {id: gupta_zero, title: "Ujjain, chess and zero", region: north_india, years: [320, 650], status: planned,
+     countries: [IND, PAK, BGD, NPL], topics: [mathematics, astronomy, sport_and_play, india_empires],
+     note: "Aryabhata, Brahmagupta's zero (628); chess from chaturanga"}
+  - {id: nalanda, title: "Nalanda", region: north_india, years: [427, 1193], status: planned, shape: pocket,
+     countries: [IND, CHN, KOR, IDN, NPL, BTN], peoples: [tibetans], topics: [universities, spread_of_religions]}
+  - {id: chola_sea, title: "The Chola fleets", region: south_india, years: [848, 1279], status: planned,
+     countries: [IND, LKA, MDV, IDN, MYS], peoples: [tamils], topics: [indian_ocean_trade, india_empires, monumental_building]}
+  - {id: maldives_cowries, title: "The cowrie islands", region: south_india, years: [500, 1800], status: candidate,
+     countries: [MDV, IND, BGD, NGA, BEN, GHA], topics: [money, indian_ocean_trade], note: "Maldive cowries were money from Bengal to West Africa"}
+  - {id: tibetan_empire, title: "The Tibetan empire", region: himalaya, years: [618, 842], status: candidate,
+     countries: [CHN, NPL, BTN, IND], peoples: [tibetans], topics: [steppe_empires, spread_of_religions, scripts]}
+  - {id: kathmandu_valley, title: "The Kathmandu valley", region: himalaya, years: [400, 1769], status: candidate,
+     countries: [NPL, BTN], topics: [monumental_building, spread_of_religions]}
+  - {id: delhi_sultanate, title: "Delhi, the sultanate", region: north_india, years: [1206, 1526], status: candidate,
+     countries: [IND, PAK, BGD], topics: [india_empires, women_rulers, mongols], note: "Razia Sultana"}
+  - {id: vijayanagara, title: "Hampi, the city of victory", region: south_india, years: [1336, 1646], status: planned, shape: tall,
+     countries: [IND], peoples: [tamils], topics: [india_empires, monumental_building]}
+  - {id: mughal_agra, title: "Agra and the Mughals", region: north_india, years: [1526, 1707], status: planned, shape: hub,
+     countries: [IND, PAK, BGD, AFG], peoples: [punjabis, bengalis], topics: [mughals, monumental_building, crops]}
+  - {id: bengal_muslin, title: "Dhaka muslin", region: north_india, years: [1600, 1850], status: planned,
+     countries: [BGD, IND, GBR], peoples: [bengalis], topics: [industrial_revolution, colonialism, crops],
+     note: "the cloth Britain copied and then undercut: the other end of the cotton mill"}
+  - {id: company_raj_1857, title: "The Company and 1857", region: north_india, years: [1757, 1858], status: planned, mode: archive,
+     countries: [IND, PAK, BGD, GBR], topics: [colonialism, indigenous_resistance, women_rulers], note: "Rani Lakshmibai; 'mutiny' or 'first war of independence'"}
+  - {id: indenture_ships, title: "The indenture ships", region: indian_ocean, years: [1834, 1920], status: planned, shape: corridor,
+     countries: [IND, MUS, TTO, GUY, SUR, FJI, ZAF, JAM], peoples: [indian_diaspora], topics: [indentured_labour, migration]}
+  - {id: salt_march, title: "The salt march", region: north_india, years: [1915, 1947], status: planned, shape: corridor,
+     countries: [IND, PAK, BGD, ZAF], topics: [nonviolence, decolonization]}
+  - {id: partition_1947, title: "1947", region: north_india, years: [1947, 1948], status: planned, mode: sober,
+     countries: [IND, PAK, BGD], peoples: [punjabis, bengalis], topics: [partition, migration]}
+  - {id: bangladesh_language, title: "The language movement and 1971", region: north_india, years: [1952, 1971], status: planned,
+     countries: [BGD, PAK, IND], peoples: [bengalis], topics: [nationalism, scripts, genocide], note: "21 February, Mother Language Day"}
+  - {id: everest_1953, title: "Everest, 1953", region: himalaya, years: [1953, 1953], status: candidate,
+     countries: [NPL, NZL, IND, CHN], topics: [sport_and_play], note: "Tenzing Norgay and Edmund Hillary"}
+  - {id: bangalore_now, title: "Bengaluru now", region: south_india, years: [1991, 2025], status: candidate,
+     countries: [IND], topics: [internet, globalization, space_race], note: "Chandrayaan-3 (2023)"}
+  - {id: green_revolution_punjab, title: "The Green Revolution", region: indus, years: [1960, 1990], status: planned,
+     countries: [IND, PAK, MEX, PHL], peoples: [punjabis], topics: [green_revolution, famine]}
+  - {id: sri_lanka_war, title: "Sri Lanka's war", region: south_india, years: [1983, 2009], status: candidate, mode: sober,
+     countries: [LKA], peoples: [tamils], topics: [nationalism]}
+
+  # =========================================================================
+  # EAST ASIA
+  # =========================================================================
+  - {id: jomon, title: "Jōmon, the first pots", region: japan, years: [-14000, -300], status: planned,
+     countries: [JPN], peoples: [ainu, ryukyuans], topics: [first_art, aquaculture], note: "some of the oldest pottery on Earth, made by foragers"}
+  - {id: yangtze_rice, title: "The Yangtze rice fields", region: china, years: [-8000, -3000], status: planned,
+     countries: [CHN, KOR, JPN, VNM], topics: [farming_origins, crops]}
+  - {id: yellow_river, title: "The Yellow River", region: china, years: [-7000, -2000], status: built, room: history_yellow_river,
+     countries: [CHN], topics: [farming_origins, crops]}
+  - {id: taiwan_homeland, title: "Taiwan, the Austronesian homeland", region: taiwan, years: [-4000, -1500], status: planned,
+     countries: [TWN, PHL, IDN], peoples: [taiwanese_indigenous], topics: [peopling_of_pacific, seafaring]}
+  - {id: shang_court, title: "The Shang court", region: china, years: [-1250, -1046], status: built, room: history_shang_court,
+     countries: [CHN], topics: [writing, bronze_and_iron, china_dynasties, women_rulers]}
+  - {id: sanxingdui, title: "Sanxingdui", region: china, years: [-1200, -1000], status: candidate,
+     countries: [CHN], topics: [first_art, bronze_and_iron]}
+  - {id: qin_han, title: "The first emperor and the Han", region: china, years: [-221, 220], status: planned, shape: corridor,
+     countries: [CHN, VNM, KOR], topics: [china_dynasties, printing, law, monumental_building], note: "paper (105 CE); the walls of many dynasties"}
+  - {id: gojoseon_three_kingdoms, title: "Silla and Gyeongju", region: korea, years: [57, 935], status: planned,
+     countries: [KOR, PRK], topics: [astronomy, women_rulers, monumental_building], note: "Queen Seondeok's star tower"}
+  - {id: yamato_nara, title: "Nara", region: japan, years: [538, 794], status: candidate,
+     countries: [JPN], topics: [spread_of_religions, monumental_building]}
+  - {id: tang_changan, title: "Chang'an", region: china, years: [618, 907], status: planned, shape: hub,
+     countries: [CHN, JPN, KOR, UZB, IRN], topics: [china_dynasties, silk_roads, women_rulers], note: "Wu Zetian; the city of a million"}
+  - {id: heian, title: "Heian-kyō", region: japan, years: [794, 1185], status: planned,
+     countries: [JPN], topics: [writing, women_rulers], note: "Murasaki Shikibu, The Tale of Genji"}
+  - {id: song_kaifeng, title: "Kaifeng and Hangzhou", region: china, years: [960, 1279], status: planned, shape: hub,
+     countries: [CHN], topics: [printing, money, china_dynasties, mathematics], note: "movable type, paper money, the compass, gunpowder"}
+  - {id: goryeo_jikji, title: "Goryeo and the metal type", region: korea, years: [918, 1392], status: planned,
+     countries: [KOR, PRK], topics: [printing, mongols], note: "Jikji (1377)"}
+  - {id: kamakura_mongols, title: "The kamikaze, 1274 and 1281", region: japan, years: [1185, 1333], status: candidate,
+     countries: [JPN, KOR, MNG, CHN], topics: [mongols, feudalism]}
+  - {id: ming_fleets, title: "The treasure fleets", region: indian_ocean, years: [1405, 1433], status: planned, shape: corridor,
+     countries: [CHN, IDN, MYS, LKA, IND, OMN, KEN, SOM], topics: [age_of_sail, indian_ocean_trade, china_dynasties],
+     note: "Zheng He: moves here from Timbuktu"}
+  - {id: joseon_hangul, title: "King Sejong's letters", region: korea, years: [1418, 1450], status: planned,
+     countries: [KOR, PRK], topics: [scripts, astronomy]}
+  - {id: ryukyu, title: "The Ryukyu kingdom", region: japan, years: [1429, 1879], status: candidate,
+     countries: [JPN], peoples: [ryukyuans], topics: [indian_ocean_trade, colonialism]}
+  - {id: ainu_mosir, title: "Ainu Mosir", region: japan, years: [1200, 1899], status: candidate,
+     countries: [JPN, RUS], peoples: [ainu], topics: [indigenous_resistance]}
+  - {id: edo, title: "Edo", region: japan, years: [1603, 1868], status: candidate, shape: hub,
+     countries: [JPN], topics: [feudalism, first_art]}
+  - {id: qing_canton, title: "Canton, tea and opium", region: china, years: [1757, 1860], status: planned, mode: archive,
+     countries: [CHN, GBR, IND, HKG, MAC], topics: [opium_wars, crops, colonialism]}
+  - {id: taiping, title: "The Taiping war", region: china, years: [1850, 1864], status: candidate, mode: sober,
+     countries: [CHN], topics: [famine]}
+  - {id: meiji, title: "Meiji", region: japan, years: [1868, 1912], status: planned,
+     countries: [JPN, KOR, TWN], topics: [meiji, industrial_revolution, colonialism]}
+  - {id: xinhai_1911, title: "1911 and 1919", region: china, years: [1911, 1937], status: candidate,
+     countries: [CHN, TWN], topics: [nationalism]}
+  - {id: pacific_war, title: "The war in Asia and the Pacific", region: china, years: [1931, 1945], status: planned, mode: sober, shape: corridor,
+     countries: [CHN, JPN, KOR, PHL, IDN, MYS, SGP, MMR, VNM, PNG, SLB, AUS, USA, IND], topics: [world_war_two],
+     note: "Nanjing; the forced labour and the 'comfort women'; the Burma railway"}
+  - {id: hiroshima, title: "Hiroshima and Nagasaki", region: japan, years: [1945, 1945], status: planned, mode: sober, shape: pocket,
+     countries: [JPN, KOR, USA], topics: [nuclear_age, world_war_two], note: "Korean workers died there too"}
+  - {id: korean_war, title: "The Korean War", region: korea, years: [1950, 1953], status: planned, mode: sober,
+     countries: [KOR, PRK, CHN, USA], topics: [cold_war, partition]}
+  - {id: great_leap, title: "The Great Leap and its famine", region: china, years: [1958, 1962], status: candidate, mode: sober, shape: pocket,
+     countries: [CHN], topics: [famine, cold_war]}
+  - {id: shenzhen_now, title: "Shenzhen now", region: china, years: [1978, 2025], status: planned, shape: hub,
+     countries: [CHN, HKG, TWN], topics: [globalization, internet]}
+  - {id: seoul_now, title: "Seoul now", region: korea, years: [1987, 2025], status: candidate,
+     countries: [KOR], topics: [globalization, internet], note: "democracy (1987) and the Korean wave"}
+  - {id: shinkansen, title: "The bullet train", region: japan, years: [1945, 1990], status: candidate,
+     countries: [JPN], topics: [globalization]}
+
+  # =========================================================================
+  # SOUTHEAST ASIA
+  # =========================================================================
+  - {id: sulawesi_art, title: "Sulawesi, the oldest painted story", region: island_southeast_asia, years: [-52000, -40000], status: planned,
+     countries: [IDN], topics: [first_art, other_humans], note: "a hunting scene at least 51,200 years old"}
+  - {id: flores_luzon, title: "The small humans of Flores and Luzon", region: island_southeast_asia, years: [-100000, -50000], status: candidate, shape: pocket,
+     countries: [IDN, PHL], topics: [other_humans]}
+  - {id: niah_cave, title: "Niah cave", region: island_southeast_asia, years: [-50000, -2000], status: candidate,
+     countries: [MYS, BRN], topics: [dispersal]}
+  - {id: ban_chiang, title: "Ban Chiang", region: mainland_southeast_asia, years: [-2000, 200], status: candidate,
+     countries: [THA, LAO], topics: [bronze_and_iron, farming_origins]}
+  - {id: dong_son, title: "Dong Son and the drums", region: mainland_southeast_asia, years: [-1000, 43], status: planned,
+     countries: [VNM, LAO, THA, IDN, MYS], topics: [bronze_and_iron, women_rulers], note: "the Trưng sisters' rising, 40 CE"}
+  - {id: funan_oc_eo, title: "Funan and Óc Eo", region: mainland_southeast_asia, years: [100, 550], status: candidate,
+     countries: [KHM, VNM], topics: [indian_ocean_trade]}
+  - {id: srivijaya, title: "Srivijaya and the strait", region: island_southeast_asia, years: [650, 1290], status: planned, shape: corridor,
+     countries: [IDN, MYS, SGP, THA, BRN], topics: [maritime_southeast_asia, indian_ocean_trade, spread_of_religions]}
+  - {id: borobudur, title: "Borobudur", region: island_southeast_asia, years: [780, 850], status: planned, shape: tall,
+     countries: [IDN], topics: [monumental_building, spread_of_religions]}
+  - {id: angkor, title: "Angkor", region: mainland_southeast_asia, years: [802, 1431], status: planned, shape: hub,
+     countries: [KHM, THA, LAO, VNM], topics: [monumental_building, climate_and_collapse, farming_origins], note: "a city of water: the barays"}
+  - {id: bagan, title: "Bagan", region: mainland_southeast_asia, years: [849, 1297], status: candidate,
+     countries: [MMR], topics: [monumental_building, spread_of_religions]}
+  - {id: champa_dai_viet, title: "Champa and Đại Việt", region: mainland_southeast_asia, years: [192, 1471], status: candidate,
+     countries: [VNM, KHM], topics: [indian_ocean_trade]}
+  - {id: majapahit, title: "Majapahit", region: island_southeast_asia, years: [1293, 1527], status: candidate,
+     countries: [IDN, MYS, SGP, BRN, PHL, TLS], topics: [maritime_southeast_asia]}
+  - {id: malacca, title: "Melaka", region: island_southeast_asia, years: [1400, 1641], status: planned, shape: hub,
+     countries: [MYS, SGP, IDN, BRN, THA], peoples: [chinese_diaspora, tamils], topics: [maritime_southeast_asia, indian_ocean_trade, colonialism]}
+  - {id: ayutthaya_lan_xang, title: "Ayutthaya and Lan Xang", region: mainland_southeast_asia, years: [1351, 1767], status: candidate,
+     countries: [THA, LAO, MMR, KHM], topics: [indian_ocean_trade]}
+  - {id: spice_islands, title: "The Banda islands and the nutmeg", region: island_southeast_asia, years: [1512, 1667], status: planned, mode: sober,
+     countries: [IDN, NLD, PRT, GBR], topics: [crops, colonialism, genocide], note: "the VOC's massacre of 1621; Run traded for Manhattan"}
+  - {id: manila_galleons, title: "The Manila galleons", region: pacific, years: [1565, 1815], status: planned, shape: corridor,
+     countries: [PHL, MEX, CHN, PER, BOL], peoples: [chinese_diaspora, filipino_diaspora], topics: [manila_galleons, money, globalization],
+     note: "Potosí silver to China: the first trade round the world"}
+  - {id: brunei_sulu, title: "Brunei and Sulu", region: island_southeast_asia, years: [1400, 1900], status: candidate,
+     countries: [BRN, PHL, MYS], topics: [maritime_southeast_asia]}
+  - {id: philippine_revolution, title: "Manila, 1896", region: island_southeast_asia, years: [1872, 1946], status: planned,
+     countries: [PHL, ESP, USA], peoples: [filipino_diaspora], topics: [nationalism, colonialism], note: "Rizal's novels, the Katipunan, then the Americans"}
+  - {id: siam_chulalongkorn, title: "Siam keeps its throne", region: mainland_southeast_asia, years: [1851, 1910], status: candidate,
+     countries: [THA, LAO, KHM], topics: [colonialism, nationalism]}
+  - {id: indonesia_1945, title: "Merdeka, 1945", region: island_southeast_asia, years: [1945, 1955], status: candidate,
+     countries: [IDN, NLD], topics: [decolonization], note: "Bandung, 1955: the meeting of the new nations"}
+  - {id: vietnam_war, title: "The Vietnam War", region: mainland_southeast_asia, years: [1945, 1975], status: planned, mode: sober,
+     countries: [VNM, LAO, KHM, USA, FRA], peoples: [hmong], topics: [cold_war, decolonization]}
+  - {id: khmer_rouge, title: "Year Zero", region: mainland_southeast_asia, years: [1975, 1979], status: candidate, mode: sober, shape: pocket,
+     countries: [KHM], topics: [genocide]}
+  - {id: singapore_now, title: "Singapore now", region: island_southeast_asia, years: [1965, 2025], status: candidate,
+     countries: [SGP, MYS], peoples: [chinese_diaspora, tamils], topics: [globalization]}
+  - {id: timor_2002, title: "Timor-Leste, 2002", region: island_southeast_asia, years: [1975, 2002], status: planned,
+     countries: [TLS, IDN, PRT], topics: [decolonization, genocide]}
+  - {id: rohingya_myanmar, title: "Myanmar and the Rohingya", region: mainland_southeast_asia, years: [1948, 2017], status: planned, mode: sober,
+     countries: [MMR, BGD], peoples: [rohingya], topics: [genocide, migration]}
+
+  - {id: austronesian_islands, title: "The Austronesians come to the islands", region: island_southeast_asia, years: [-2500, -500], status: planned,
+     countries: [PHL, IDN, MYS, BRN, TLS], topics: [peopling_of_pacific, seafaring, farming_origins]}
+
+  # =========================================================================
+  # OCEANIA
+  # =========================================================================
+  - {id: sahul, title: "Sahul", region: australia, years: [-65000, -45000], status: built, room: history_sahul,
+     countries: [AUS, PNG], peoples: [aboriginal_australians, torres_strait_islanders], topics: [seafaring, dispersal]}
+  - {id: lake_mungo, title: "Lake Mungo", region: australia, years: [-42000, -20000], status: planned,
+     countries: [AUS], peoples: [aboriginal_australians], topics: [ice_age, first_art], note: "Mungo Lady, the oldest known cremation; returned to country in 2017 and 2022"}
+  - {id: murujuga, title: "Murujuga", region: australia, years: [-40000, 1800], status: candidate,
+     countries: [AUS], peoples: [aboriginal_australians], topics: [first_art], note: "a million petroglyphs; show skill and age, no sacred designs"}
+  - {id: budj_bim, title: "Budj Bim and the eel traps", region: australia, years: [-4600, 1840], status: planned, shape: tall,
+     countries: [AUS], peoples: [aboriginal_australians], topics: [aquaculture, farming_origins, indigenous_resistance],
+     note: "Gunditjmara channels, at least 6,600 years old; stone houses"}
+  - {id: new_guinea_highlands, title: "The New Guinea highlands", region: melanesia, years: [-7000, -4000], status: built, room: history_new_guinea_highlands,
+     countries: [PNG], topics: [farming_origins, crops]}
+  - {id: lapita_voyagers, title: "The Lapita voyagers", region: melanesia, years: [-1500, -500], status: built, room: history_lapita_voyagers,
+     countries: [PNG, SLB, VUT, NCL, FJI, TON, WSM], peoples: [pasifika], topics: [peopling_of_pacific, seafaring]}
+  - {id: wayfinders, title: "The wayfinders", region: polynesia, years: [1000, 1300], status: built, room: history_wayfinders,
+     countries: [PYF, COK, WSM, TON, NZL, USA, FJI], peoples: [pasifika, native_hawaiians, maori], topics: [pacific_navigation, peopling_of_pacific]}
+  - {id: rapa_nui, title: "Rapa Nui", region: polynesia, years: [1200, 1862], status: built, room: history_rapa_nui,
+     countries: [CHL], peoples: [pasifika], topics: [pacific_navigation, monumental_building, climate_and_collapse, slavery_and_resistance]}
+  - {id: tonga_samoa, title: "The Tuʻi Tonga and Samoa", region: polynesia, years: [950, 1865], status: planned, shape: hub,
+     countries: [TON, WSM, FJI, COK, TUV], peoples: [pasifika], topics: [pacific_navigation, monumental_building],
+     note: "a sea empire of chiefly marriages; Tonga was never a colony (a British protectorate only)"}
+  - {id: nan_madol_yap, title: "Nan Madol and the stone money of Yap", region: micronesia, years: [1180, 1628], status: planned,
+     countries: [FSM, PLW, GUM, MHL, KIR], peoples: [chamorro], topics: [monumental_building, money, pacific_navigation]}
+  - {id: marshall_stick_charts, title: "The stick charts", region: micronesia, years: [1500, 1900], status: candidate,
+     countries: [MHL, KIR, NRU], topics: [pacific_navigation]}
+  - {id: aotearoa_arrival, title: "Aotearoa", region: aotearoa, years: [1250, 1769], status: planned, shape: tall,
+     countries: [NZL], peoples: [maori], topics: [peopling_of_pacific, pacific_navigation, climate_and_collapse], note: "the moa; the pā on its hill"}
+  - {id: hawaii_kingdom, title: "The Hawaiian kingdom", region: polynesia, years: [1795, 1898], status: planned,
+     countries: [USA], peoples: [native_hawaiians], topics: [women_rulers, colonialism, indigenous_resistance], note: "Liliʻuokalani, overthrown 1893"}
+  - {id: tupaia, title: "Tupaia's map", region: polynesia, years: [1760, 1770], status: candidate, mode: archive,
+     countries: [PYF, NZL, AUS], peoples: [pasifika, maori], topics: [pacific_navigation, age_of_sail], note: "the navigator who guided Cook"}
+  - {id: waitangi, title: "Waitangi, 1840: two texts", region: aotearoa, years: [1840, 1872], status: planned, mode: archive,
+     countries: [NZL], peoples: [maori], topics: [colonialism, indigenous_resistance, law], note: "the English and Māori texts say different things"}
+  - {id: australian_frontier, title: "Sydney Cove, 1788, and the frontier", region: australia, years: [1788, 1928], status: planned, mode: sober,
+     countries: [AUS, GBR, IRL], peoples: [aboriginal_australians, irish_diaspora], topics: [colonialism, indigenous_resistance, genocide]}
+  - {id: blackbirding, title: "Blackbirding", region: melanesia, years: [1863, 1904], status: candidate, mode: sober,
+     countries: [VUT, SLB, FJI, AUS, PNG, KIR], peoples: [pasifika], topics: [indentured_labour, slavery_and_resistance]}
+  - {id: samoa_mau, title: "The Mau", region: polynesia, years: [1908, 1962], status: candidate,
+     countries: [WSM, NZL], peoples: [pasifika], topics: [nonviolence, decolonization]}
+  - {id: nauru_phosphate, title: "Nauru and the phosphate", region: micronesia, years: [1906, 1999], status: planned,
+     countries: [NRU, AUS, NZL, GBR], topics: [colonialism, climate_and_collapse]}
+  - {id: bikini_moruroa, title: "Bikini and Moruroa", region: micronesia, years: [1946, 1996], status: planned, mode: sober,
+     countries: [MHL, PYF, KIR, USA, FRA, GBR, AUS], topics: [nuclear_age, colonialism]}
+  - {id: kanaky, title: "Kanaky and New Caledonia", region: melanesia, years: [1853, 2021], status: candidate, mode: archive,
+     countries: [NCL, FRA], topics: [decolonization, indigenous_resistance]}
+  - {id: mabo_1992, title: "Mabo, 1992", region: australia, years: [1967, 1992], status: planned,
+     countries: [AUS], peoples: [torres_strait_islanders, aboriginal_australians], topics: [civil_rights, indigenous_resistance, law],
+     note: "terra nullius overturned; the 1967 referendum; the Freedom Ride of 1965"}
+  - {id: rising_seas, title: "The rising sea", region: polynesia, years: [1990, 2025], status: planned,
+     countries: [TUV, KIR, MHL, FJI, MDV], peoples: [pasifika], topics: [climate_change], note: "Tuvalu: a country moving itself online"}
+  - {id: png_first_contact, title: "The highlands, 1933", region: melanesia, years: [1930, 1975], status: candidate,
+     countries: [PNG], topics: [colonialism, decolonization]}
+
+  # =========================================================================
+  # NORTH AMERICA
+  # =========================================================================
+  - {id: beringia, title: "Beringia", region: beringia, years: [-25000, -15000], status: built, room: history_beringia, shape: tall,
+     countries: [USA, RUS, CAN], peoples: [native_americans, first_nations, inuit], topics: [peopling_of_americas, ice_age]}
+  - {id: white_sands, title: "White Sands, the footprints", region: southwest, years: [-23000, -21000], status: candidate,
+     countries: [USA], topics: [peopling_of_americas]}
+  - {id: pacific_northwest, title: "The cedar coast", region: pacific_northwest, years: [500, 1880], status: planned,
+     countries: [CAN, USA], peoples: [first_nations, native_americans], topics: [aquaculture, law, first_art], note: "the potlatch, banned 1884-1951"}
+  - {id: thule_inuit, title: "The Thule and the Inuit", region: arctic, years: [1000, 1500], status: planned,
+     countries: [CAN, GRL, USA, DNK], peoples: [inuit], topics: [peopling_of_americas, climate_and_collapse], note: "they met the Norse of Greenland"}
+  - {id: cahokia, title: "Cahokia", region: north_america_east, years: [1050, 1350], status: planned, shape: tall,
+     countries: [USA], peoples: [native_americans], topics: [american_civilizations, first_cities, monumental_building]}
+  - {id: chaco_mesa_verde, title: "Chaco and Mesa Verde", region: southwest, years: [850, 1300], status: planned, shape: tall,
+     countries: [USA], peoples: [native_americans], topics: [american_civilizations, astronomy, climate_and_collapse]}
+  - {id: haudenosaunee, title: "The Great Law of Peace", region: north_america_east, years: [1142, 1779], status: planned,
+     countries: [USA, CAN], peoples: [haudenosaunee, native_americans, first_nations], topics: [law, women_rulers], note: "clan mothers choose the chiefs; the founding date is argued"}
+  - {id: new_france_new_england, title: "Quebec and the fur trade", region: north_america_east, years: [1608, 1763], status: candidate,
+     countries: [CAN, USA, FRA], peoples: [first_nations], topics: [colonialism, crops]}
+  - {id: jamestown_1619, title: "Virginia, 1619", region: north_america_east, years: [1607, 1676], status: planned, mode: sober,
+     countries: [USA, AGO, GBR], peoples: [african_americans, native_americans], topics: [atlantic_slave_trade, colonialism],
+     note: "the first enslaved Africans in Virginia came from Ndongo, in Angola"}
+  - {id: american_revolution, title: "Philadelphia, 1776", region: north_america_east, years: [1765, 1791], status: planned, mode: parody,
+     countries: [USA, GBR, FRA], peoples: [african_americans, haudenosaunee], topics: [american_revolution, enlightenment],
+     note: "liberty for whom: the enslaved and the Haudenosaunee each chose sides"}
+  - {id: plains_horse, title: "The horse nations of the Plains", region: plains, years: [1680, 1890], status: planned,
+     countries: [USA, CAN], peoples: [lakota, native_americans], topics: [herding, indigenous_resistance, columbian_exchange]}
+  - {id: sequoyah, title: "Sequoyah's syllabary and the Trail of Tears", region: north_america_east, years: [1821, 1839], status: planned,
+     countries: [USA], peoples: [cherokee, native_americans], topics: [scripts, genocide, indigenous_resistance]}
+  - {id: underground_railroad, title: "The Underground Railroad", region: north_america_east, years: [1830, 1865], status: planned, shape: corridor,
+     countries: [USA, CAN], peoples: [african_americans], topics: [slavery_and_resistance, abolition], note: "Harriet Tubman"}
+  - {id: civil_war_reconstruction, title: "The Civil War and Reconstruction", region: north_america_east, years: [1861, 1877], status: planned, mode: sober,
+     countries: [USA], peoples: [african_americans], topics: [abolition, civil_rights]}
+  - {id: metis_riel, title: "The Red River and Louis Riel", region: plains, years: [1869, 1885], status: candidate,
+     countries: [CAN], peoples: [first_nations], topics: [indigenous_resistance]}
+  - {id: ellis_island, title: "Ellis Island and Angel Island", region: north_america_east, years: [1892, 1924], status: candidate,
+     countries: [USA, ITA, IRL, POL, CHN, JPN, RUS, MEX], peoples: [jewish_people, chinese_diaspora, irish_diaspora], topics: [migration]}
+  - {id: dust_bowl_depression, title: "The Dust Bowl", region: plains, years: [1929, 1939], status: candidate,
+     countries: [USA, CAN], topics: [great_depression, climate_and_collapse]}
+  - {id: residential_schools, title: "The residential schools", region: north_america_east, years: [1879, 1996], status: candidate, mode: sober, shape: pocket,
+     countries: [CAN, USA], peoples: [first_nations, native_americans, inuit], topics: [colonialism, genocide]}
+  - {id: civil_rights_usa, title: "Montgomery, Selma, Washington", region: north_america_east, years: [1954, 1968], status: planned, shape: corridor,
+     countries: [USA], peoples: [african_americans], topics: [civil_rights, nonviolence]}
+  - {id: apollo_silicon, title: "The Moon and the chip", region: north_america_east, years: [1957, 2000], status: planned,
+     countries: [USA, KAZ, RUS], topics: [space_race, internet, cold_war], note: "Katherine Johnson's sums"}
+
+  - {id: poverty_point, title: "Watson Brake and Poverty Point", region: north_america_east, years: [-3500, -1100], status: planned, shape: tall,
+     countries: [USA], peoples: [native_americans], topics: [monumental_building, american_civilizations], note: "earthworks built by foragers, before farming"}
+  - {id: hopewell, title: "The Hopewell roads", region: north_america_east, years: [-100, 500], status: candidate,
+     countries: [USA], peoples: [native_americans], topics: [american_civilizations, astronomy]}
+  - {id: code_talkers, title: "The code talkers", region: southwest, years: [1918, 1945], status: planned,
+     countries: [USA], peoples: [native_americans], topics: [world_war_two, scripts], note: "Navajo, Choctaw and Comanche; their languages had been punished in the schools"}
+  - {id: basque_whalers, title: "The Basque whalers of Red Bay", region: north_america_east, years: [1530, 1600], status: planned,
+     countries: [ESP, FRA, CAN], peoples: [basques, first_nations], topics: [age_of_sail]}
+  - {id: native_nations_now, title: "Sovereign nations now", region: plains, years: [1968, 2025], status: candidate,
+     countries: [USA, CAN], peoples: [native_americans, lakota, first_nations], topics: [indigenous_resistance, civil_rights], note: "the Red Power movement; Standing Rock, 2016"}
+
+  # =========================================================================
+  # MESOAMERICA AND THE CARIBBEAN
+  # =========================================================================
+  - {id: hoyo_negro, title: "Hoyo Negro: Naia", region: mesoamerica, years: [-11000, -10000], status: planned, shape: pocket,
+     countries: [MEX], topics: [peopling_of_americas], note: "a girl of about 13,000 years ago, in a cave the sea later filled"}
+  - {id: paso_de_la_amada, title: "Paso de la Amada, the first ballcourt", region: mesoamerica, years: [-1900, -1400], status: planned,
+     countries: [MEX, GTM], topics: [sport_and_play, american_civilizations]}
+  - {id: first_maize, title: "The first maize", region: mesoamerica, years: [-7000, -5000], status: built, room: history_first_maize,
+     countries: [MEX], peoples: [nahua], topics: [farming_origins, crops]}
+  - {id: olmec_heartland, title: "The Olmec heartland", region: mesoamerica, years: [-1500, -400], status: built, room: history_olmec_heartland,
+     countries: [MEX], topics: [american_civilizations, sport_and_play, crops]}
+  - {id: monte_alban, title: "Monte Albán", region: mesoamerica, years: [-500, 800], status: candidate,
+     countries: [MEX], peoples: [nahua], topics: [writing, american_civilizations]}
+  - {id: teotihuacan, title: "Teotihuacan", region: mesoamerica, years: [-100, 550], status: planned, shape: hub,
+     countries: [MEX, GTM], peoples: [nahua], topics: [first_cities, american_civilizations, monumental_building]}
+  - {id: maya_city, title: "The Maya city", region: mesoamerica, years: [250, 900], status: built, room: history_maya_city,
+     countries: [MEX, GTM, BLZ, HND, SLV], peoples: [maya_peoples], topics: [mathematics, astronomy, writing, sport_and_play, women_rulers, climate_and_collapse]}
+  - {id: copan_central_america, title: "Copán and the isthmus", region: central_america, years: [400, 1500], status: planned,
+     countries: [HND, SLV, NIC, CRI, PAN], peoples: [maya_peoples], topics: [american_civilizations], note: "the stone spheres of the Diquís (Costa Rica)"}
+  - {id: taino_islands, title: "The Taíno islands", region: caribbean, years: [1000, 1492], status: built, room: history_taino_islands,
+     countries: [PRI, DOM, HTI, CUB, JAM, BHS], peoples: [taino_descendants], topics: [epidemics_in_americas, sport_and_play, indigenous_resistance]}
+  - {id: kalinago, title: "The Kalinago and the Garifuna", region: caribbean, years: [1200, 1797], status: planned,
+     countries: [DMA, VCT, LCA, GRD, HND, BLZ, GTM, NIC], peoples: [garifuna], topics: [indigenous_resistance, migration]}
+  - {id: tenochtitlan, title: "Tenochtitlan", region: mesoamerica, years: [1325, 1521], status: planned, shape: hub,
+     countries: [MEX], peoples: [nahua], topics: [american_civilizations, first_cities, epidemics_in_americas], note: "a city on a lake, bigger than any in Spain"}
+  - {id: barbados_sugar, title: "Barbados and sugar", region: caribbean, years: [1627, 1834], status: planned, mode: sober,
+     countries: [BRB, JAM, ATG, KNA, GLP, MTQ, GBR], peoples: [afro_caribbeans], topics: [atlantic_slave_trade, crops, slavery_and_resistance]}
+  - {id: jamaica_maroons, title: "Nanny Town and the Maroons", region: caribbean, years: [1655, 1796], status: planned, shape: tall,
+     countries: [JAM, SUR, BRA, COL], peoples: [maroons, afro_caribbeans], topics: [slavery_and_resistance, women_rulers], note: "Queen Nanny"}
+  - {id: haitian_revolution, title: "The Haitian Revolution", region: caribbean, years: [1791, 1804], status: built, room: history_haitian_revolution,
+     countries: [HTI, DOM, FRA], peoples: [afro_caribbeans], topics: [haitian_revolution, abolition, slavery_and_resistance]}
+  - {id: mexico_1810_1910, title: "Dolores, 1810, and the revolution of 1910", region: mesoamerica, years: [1810, 1920], status: planned,
+     countries: [MEX], peoples: [nahua], topics: [latin_american_independence, labour_movements], note: "Zapata: land and liberty"}
+  - {id: mexico_oil_1938, title: "Mexico takes back its oil, 1938", region: mesoamerica, years: [1934, 1940], status: planned,
+     countries: [MEX], topics: [nationalism, great_depression]}
+  - {id: panama_canal, title: "The Panama Canal", region: central_america, years: [1881, 1914], status: candidate, shape: corridor,
+     countries: [PAN, USA, JAM, BRB, COL], peoples: [afro_caribbeans], topics: [globalization, labour_movements], note: "dug by West Indian workers"}
+  - {id: trinidad_carnival, title: "Port of Spain, carnival and steelpan", region: caribbean, years: [1838, 1962], status: planned,
+     countries: [TTO, GRD, LCA, VCT, DMA, BRB, GUY], peoples: [afro_caribbeans, indian_diaspora], topics: [sport_and_play, indentured_labour, decolonization]}
+  - {id: cuba_1959, title: "Havana, 1959", region: caribbean, years: [1953, 1991], status: candidate, mode: archive,
+     countries: [CUB, USA], topics: [cold_war]}
+  - {id: windrush, title: "Windrush, 1948", region: atlantic, years: [1948, 2018], status: planned, shape: corridor,
+     countries: [JAM, TTO, BRB, GBR, GUY], peoples: [black_british, afro_caribbeans], topics: [migration, civil_rights]}
+  - {id: caribbean_independence, title: "The islands go free", region: caribbean, years: [1962, 1983], status: planned,
+     countries: [JAM, TTO, BRB, BHS, GRD, DMA, LCA, VCT, ATG, KNA, GUY, SUR, BLZ], topics: [decolonization]}
+  - {id: costa_rica_1948, title: "The country that gave up its army", region: central_america, years: [1948, 1987], status: candidate,
+     countries: [CRI], topics: [nonviolence]}
+  - {id: central_american_wars, title: "The wars of Central America", region: central_america, years: [1960, 1996], status: planned, mode: sober,
+     countries: [GTM, SLV, NIC, HND], peoples: [maya_peoples], topics: [cold_war, genocide]}
+
+  - {id: curacao_tula, title: "Willemstad and Tula's revolt", region: caribbean, years: [1634, 1863], status: planned,
+     countries: [CUW, SUR, NLD], peoples: [afro_caribbeans, maroons], topics: [slavery_and_resistance, atlantic_slave_trade], note: "Tula's rising, 1795; Papiamentu"}
+  - {id: zapatistas_border, title: "Chiapas, 1994, and the border", region: mesoamerica, years: [1994, 2025], status: planned,
+     countries: [MEX, USA, GTM], peoples: [maya_peoples], topics: [indigenous_resistance, migration, globalization]}
+
+  # =========================================================================
+  # SOUTH AMERICA
+  # =========================================================================
+  - {id: monte_verde, title: "Monte Verde", region: southern_cone, years: [-14500, -14000], status: planned,
+     countries: [CHL], peoples: [mapuche], topics: [peopling_of_americas]}
+  - {id: andean_highlands, title: "The Andean highlands", region: andes, years: [-8000, -5000], status: built, room: history_andean_highlands,
+     countries: [PER, BOL, ECU], peoples: [quechua_aymara], topics: [farming_origins, crops, herding, famine]}
+  - {id: valdivia, title: "Valdivia, the first pots of the Americas", region: andes, years: [-3800, -1500], status: candidate,
+     countries: [ECU], topics: [first_art]}
+  - {id: caral, title: "Caral", region: andes, years: [-3000, -1800], status: built, room: history_caral,
+     countries: [PER], peoples: [quechua_aymara], topics: [first_cities, american_civilizations, writing]}
+  - {id: chavin, title: "Chavín de Huántar", region: andes, years: [-900, -200], status: candidate,
+     countries: [PER], topics: [american_civilizations, monumental_building]}
+  - {id: nazca_moche, title: "Nazca and the Moche", region: andes, years: [-100, 800], status: planned,
+     countries: [PER], topics: [american_civilizations, first_art, women_rulers], note: "the Lady of Cao"}
+  - {id: amazonian_earthworks, title: "The garden cities of the Amazon", region: amazonia, years: [-500, 1500], status: planned, shape: tall,
+     countries: [BRA, BOL, ECU, PER, COL, GUY, SUR, GUF, VEN], peoples: [amazonian_peoples],
+     topics: [american_civilizations, farming_origins, climate_and_collapse], note: "terra preta, the geoglyphs, the Casarabe towns: the forest was a garden"}
+  - {id: tiwanaku_wari, title: "Tiwanaku and Wari", region: andes, years: [500, 1000], status: planned, shape: tall,
+     countries: [BOL, PER, CHL], peoples: [quechua_aymara], topics: [american_civilizations, farming_origins]}
+  - {id: muisca, title: "The Muisca and the legend of El Dorado", region: andes, years: [800, 1537], status: candidate, mode: parody,
+     countries: [COL, VEN], topics: [american_civilizations, money], note: "the ceremony was real, the city of gold was not"}
+  - {id: chan_chan, title: "Chan Chan", region: andes, years: [900, 1470], status: candidate,
+     countries: [PER], topics: [first_cities, american_civilizations]}
+  - {id: qhapaq_nan, title: "The Qhapaq Ñan", region: andes, years: [1438, 1533], status: planned, shape: corridor,
+     countries: [PER, BOL, ECU, CHL, ARG, COL], peoples: [quechua_aymara], topics: [american_civilizations, writing, epidemics_in_americas],
+     note: "the Inca road, 30,000 km; the chasquis; the quipu"}
+  - {id: mapuche_frontier, title: "The Mapuche frontier", region: southern_cone, years: [1541, 1883], status: planned,
+     countries: [CHL, ARG], peoples: [mapuche], topics: [indigenous_resistance]}
+  - {id: guarani_missions, title: "The Guaraní missions", region: southern_cone, years: [1609, 1768], status: planned,
+     countries: [PRY, ARG, BRA, URY], peoples: [guarani], topics: [colonialism, spread_of_religions]}
+  - {id: potosi, title: "Potosí, the mountain of silver", region: andes, years: [1545, 1825], status: planned, mode: sober, shape: tall,
+     countries: [BOL, PER, ESP], peoples: [quechua_aymara], topics: [money, colonialism, labour_movements], note: "the mita"}
+  - {id: palmares, title: "Palmares", region: amazonia, years: [1605, 1694], status: planned,
+     countries: [BRA, AGO], peoples: [afro_latin_americans, maroons], topics: [slavery_and_resistance], note: "Zumbi and Dandara"}
+  - {id: tupac_amaru, title: "The rising of Túpac Amaru II and Micaela Bastidas", region: andes, years: [1780, 1783], status: candidate,
+     countries: [PER, BOL], peoples: [quechua_aymara], topics: [indigenous_resistance, women_rulers]}
+  - {id: bolivar_san_martin, title: "The liberators", region: andes, years: [1808, 1826], status: planned, mode: parody, shape: corridor,
+     countries: [VEN, COL, ECU, PER, BOL, ARG, CHL, URY, PRY, PAN], topics: [latin_american_independence], note: "Manuela Sáenz too"}
+  - {id: galapagos_darwin, title: "The Galápagos, 1835", region: andes, years: [1835, 1859], status: candidate, mode: parody,
+     countries: [ECU], topics: [scientific_revolution]}
+  - {id: triple_alliance, title: "The War of the Triple Alliance", region: southern_cone, years: [1864, 1870], status: candidate, mode: sober,
+     countries: [PRY, BRA, ARG, URY], peoples: [guarani], topics: [nationalism]}
+  - {id: brazil_1888, title: "Rio, 1888", region: amazonia, years: [1850, 1888], status: planned,
+     countries: [BRA], peoples: [afro_latin_americans], topics: [abolition, migration], note: "the last abolition in the Americas"}
+  - {id: rubber_boom, title: "Manaus and the rubber", region: amazonia, years: [1879, 1912], status: candidate, mode: sober,
+     countries: [BRA, PER, COL, BOL], peoples: [amazonian_peoples], topics: [colonialism, globalization]}
+  - {id: buenos_aires_migrants, title: "Buenos Aires, the port of migrants", region: southern_cone, years: [1880, 1930], status: candidate,
+     countries: [ARG, URY, ITA, ESP], peoples: [lebanese_diaspora, jewish_people], topics: [migration, sport_and_play], note: "the tango"}
+  - {id: dirty_wars, title: "The Mothers of the Plaza de Mayo", region: southern_cone, years: [1973, 1990], status: planned, mode: sober,
+     countries: [ARG, CHL, URY, PRY, BOL, BRA], topics: [cold_war, nonviolence, women_rulers]}
+  - {id: amazon_now, title: "The Amazon now", region: amazonia, years: [1988, 2025], status: candidate,
+     countries: [BRA, PER, COL, BOL, ECU, VEN, GUY, SUR], peoples: [amazonian_peoples], topics: [climate_change, indigenous_resistance], note: "Chico Mendes"}
+
+  - {id: chaco_war, title: "The Chaco War", region: southern_cone, years: [1932, 1935], status: candidate, mode: sober,
+     countries: [BOL, PRY], peoples: [guarani], topics: [nationalism]}
+  - {id: bolivia_now, title: "La Paz, the water war and after", region: andes, years: [2000, 2025], status: candidate,
+     countries: [BOL], peoples: [quechua_aymara], topics: [indigenous_resistance, globalization]}
+  - {id: ljubljana_wheel, title: "The oldest wheel", region: central_europe, years: [-3200, -3100], status: planned, shape: pocket,
+     countries: [SVN, HRV, AUT], topics: [bronze_and_iron, herding], note: "the Ljubljana Marshes wheel and axle, about 5,150 years old"}
+  - {id: nahda, title: "Cairo and Beirut: the awakening", region: levant, years: [1850, 1914], status: candidate,
+     countries: [EGY, LBN, SYR], topics: [printing, nationalism, womens_suffrage]}
+
+  # =========================================================================
+  # THE SEAS AND THE WHOLE WORLD
+  # =========================================================================
+  - {id: middle_passage, title: "The Middle Passage", region: atlantic, years: [1501, 1866], status: candidate, mode: sober, shape: corridor,
+     countries: [GHA, NGA, AGO, SEN, BEN, BRA, HTI, JAM, USA, CUB], peoples: [african_americans, afro_caribbeans, afro_latin_americans],
+     topics: [atlantic_slave_trade], note: "if ever built: no ship of chained people to walk through; a sea and the names"}
+  - {id: columbian_exchange_market, title: "The market of the Columbian exchange", region: atlantic, years: [1492, 1700], status: planned, shape: hub,
+     countries: [MEX, PER, ESP, ITA, IND, CHN, NGA, IRL], topics: [columbian_exchange, crops, epidemics_in_americas],
+     note: "tomatoes in Italy, chillies in India, cassava in Nigeria, potatoes in Ireland"}
+  - {id: monsoon_sea, title: "The monsoon sea", region: indian_ocean, years: [-100, 1500], status: planned, shape: corridor,
+     countries: [KEN, TZA, SOM, OMN, YEM, IND, LKA, IDN, MDV], topics: [indian_ocean_trade, seafaring], note: "the dhow sails east in summer and west in winter"}
+  - {id: smallpox_1980, title: "The last case of smallpox", region: world, years: [1967, 1980], status: planned, shape: pocket,
+     countries: [SOM, BGD, IND, ETH, USA, RUS], topics: [smallpox_eradication, medicine], note: "Ali Maow Maalin, Merca, 1977; eradicated 1980"}
+  - {id: united_nations_1945, title: "San Francisco, 1945", region: world, years: [1945, 1948], status: candidate, mode: archive,
+     countries: [USA, GBR, CHN, RUS, FRA, IND, BRA, MEX, EGY], topics: [decolonization, law], note: "the Universal Declaration (1948)"}
+  - {id: great_depression_world, title: "1929", region: world, years: [1929, 1939], status: planned, mode: archive,
+     countries: [USA, DEU, GBR, ARG, BRA, AUS], topics: [great_depression]}
+  - {id: internet_now, title: "The network", region: world, years: [1969, 2025], status: planned, shape: hub,
+     countries: [USA, CHN, IND, KOR, KEN, BRA, NGA, EST], topics: [internet, globalization], note: "every region's present meets here"}
+  - {id: climate_now, title: "The warming world", region: world, years: [1958, 2025], status: planned, mode: archive,
+     countries: [USA, CHN, IND, TUV, KIR, BGD, NLD, BRA], topics: [climate_change], note: "the Keeling curve and who pays first"}

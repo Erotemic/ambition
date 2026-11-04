@@ -1,0 +1,49 @@
+# The frame of the History atlas: its clusters, regions and time horizons.
+#
+# A CLUSTER is a part of the world that can be one connected part of the
+# map: its rooms touch each other. A REGION is a place inside a cluster; a
+# node (a place in a time) has one region. Countries name a region too
+# (`countries.yaml`).
+#
+# The horizons are the roadmap's time bands
+# (`docs/planning/game/history-dimension-long-range-roadmap.md`, section 4).
+# Years: negative is BCE, positive is CE. They overlap on purpose; a node
+# takes the horizon of the middle of its dates unless it names one.
+
+clusters:
+  africa: {name: Africa, regions: [east_africa, southern_africa, nile, horn, sahel, west_africa_coast, central_africa, great_lakes, swahili_coast, madagascar, atlantic_islands, maghreb]}
+  swasia: {name: Southwest Asia, regions: [levant, mesopotamia, anatolia, iran, arabia, caucasus]}
+  europe: {name: Europe, regions: [aegean, italy, iberia, western_europe, british_isles, central_europe, nordic, baltic, eastern_europe, balkans]}
+  steppe: {name: Central Asia and the steppe, regions: [central_asia, mongolia, siberia]}
+  south_asia: {name: South Asia, regions: [indus, north_india, south_india, himalaya]}
+  east_asia: {name: East Asia, regions: [china, korea, japan, taiwan]}
+  southeast_asia: {name: Southeast Asia, regions: [mainland_southeast_asia, island_southeast_asia]}
+  oceania: {name: Oceania, regions: [australia, melanesia, micronesia, polynesia, aotearoa]}
+  north_america: {name: North America, regions: [beringia, arctic, north_america_east, plains, southwest, pacific_northwest]}
+  mesoamerica: {name: Mesoamerica and the Caribbean, regions: [mesoamerica, central_america, caribbean]}
+  south_america: {name: South America, regions: [andes, amazonia, southern_cone]}
+  # Not a place: the oceans and the networks that join the clusters. A node
+  # here is a crossing (a corridor or a ship), not a homeland.
+  seas: {name: The seas and the networks, regions: [atlantic, indian_ocean, pacific, silk_roads, world]}
+
+horizons:
+  - {id: H0, name: Human origins, from: -320000, to: -50000}
+  - {id: H1, name: Dispersals and foragers, from: -70000, to: -10000}
+  - {id: H2, name: Many food revolutions, from: -10000, to: -3000}
+  - {id: H3, name: Cities, writing and the Bronze Age, from: -3500, to: -1150}
+  - {id: H4, name: Classical and regional empires, from: -1200, to: 500}
+  - {id: H5, name: Postclassical networks, from: 500, to: 1450}
+  - {id: H6, name: Oceans and the early modern world, from: 1400, to: 1750}
+  - {id: H7, name: Revolutions and industry, from: 1750, to: 1914}
+  - {id: H8, name: The world wars and mass politics, from: 1914, to: 1945}
+  - {id: H9, name: Decolonization and the Cold War, from: 1945, to: 1991}
+  - {id: H10, name: The connected present, from: 1991, to: 2030}
+
+# A node's shape is what kind of room it asks for. Jon, 2026-11-04: "not
+# every room needs to be big and open, we can have corridors".
+shapes:
+  room: a room of the world, a level to cross
+  corridor: a narrow way between two places (a road, a strait, a crossing); it can join clusters that do not touch
+  hub: a town with doors off it; several ways meet here
+  pocket: a small room off another one, by a door (a building, a cave, a memorial)
+  tall: a room in levels, of two or more floors

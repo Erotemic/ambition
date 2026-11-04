@@ -1,10 +1,11 @@
 # The History dimension
 
-**State:** SECOND PASS BUILT (2026-11-03). The first pass was one road of
-eight eras. The second pass makes it a grid of 29 rooms (7 regions, 8 ages)
-and 7 buildings, with the start in Africa. The topics that are not built yet
-are in "Next passes" at the end of this document: they are the plan for the
-dimension, not missing work of this pass.
+**State:** THIRD PASS BUILT, ATLAS PLANNED (2026-11-04). Built: 47 rooms (40
+outdoor rooms on a grid of regions and ages, 7 buildings), with the start in
+Africa, waves A (the Atlantic world) and B (the Andes, Caral) included. The
+plan for the rest is the History atlas, an ideal graph of world history in
+the worldbuilding lab, and "The road ahead" below. The rooms that are not
+built yet are the plan for the dimension, not missing work of a pass.
 
 Jon (2026-11-03): "Add a history dimension. This will be a great use for
 Genghis Can and Genghis Cant. We will need to add other historical figures.
@@ -208,21 +209,187 @@ almost silent. `cue tuning-audit <cue>` measures them.
 
 ## The road ahead
 
-The long-range plan (the atlas idea, coverage, the review notes on the
-built rooms) is [`history-dimension-long-range-roadmap.md`](history-dimension-long-range-roadmap.md).
-This section is the order of the build.
-
 Jon, 2026-11-03: "Let's make this dimension stupidly comprehensive. Let's
 make sure we prioritize representation and impact. We don't have to have
-this be a perfect grid either, in fact, we should bias away from that. But I
-figure it's easy to start there." And: "let's do this slowly."
+this be a perfect grid either, in fact, we should bias away from that."
+
+Jon, 2026-11-04: "Polish the history dimension, make it much more
+interesting, fun, expansive, immersive, accurate, authentic, aesthetic. Are
+we giving proper representation to the different populations? ... Imagine
+different players around the world playing and then asking themselves:
+where's my history? Do we have an answer? Let's make sure there is an answer
+and it is a good one. ... build something open and sprawling. That will
+require a very good plan so we aren't going into it blind." And: "not every
+room needs to be big and open, we can have corridors."
+
+The long-range ideas (the atlas as terrain, the kinds of link, the source
+rules, the tone) are in
+[`history-dimension-long-range-roadmap.md`](history-dimension-long-range-roadmap.md).
+This section is the plan: what the world will be, and the order to build it.
+
+### The atlas: the reference for what is missing
+
+The History atlas is an ideal graph of world history, kept beside the game
+in the worldbuilding lab:
+
+| | |
+| --- | --- |
+| Tool | `tools/experimental/ambition_worldbuilding_lab/history_atlas.py` (`check`, `report`, `plot`, `where`) |
+| Data | `tools/experimental/ambition_worldbuilding_lab/data/history_atlas/`: `frame.yaml` (clusters, regions, horizons, room shapes), `countries.yaml`, `peoples.yaml`, `topics.yaml`, `nodes.yaml`, `edges.yaml` |
+| Report | [`history-atlas-report.md`](history-atlas-report.md), generated: do not edit it by hand |
+| Tests | `tools/experimental/ambition_worldbuilding_lab/tests/test_history_atlas.py` |
+
+A node is a place in a time (Kilwa, 1100-1505 CE), with its region, the
+modern countries and the peoples whose history it is, its topics, its mode
+(grounded, parody, sober, archive) and its shape (room, corridor, hub,
+pocket, tall). It is built (a room of the game), planned (in the build order
+below) or a candidate (the pool). An edge is a historical link: succession,
+contact, diffusion, comparison, or an atlas shortcut (a way of the game that
+is not history, and must say so).
+
+The tests hold these promises, so that a new room cannot quietly break them:
+
+- The data is whole, and its built part is the game: every room of
+  `make_specs.py` is a built node, and the ways of `history.ldtk` are exactly
+  the built edges.
+- Every country (the UN members, the observer states and the territories
+  with large histories: 210) has at least a planned place. So do the 53
+  peoples that a passport does not answer for (Aboriginal Australians,
+  Māori, Pacific Islanders, Inuit, the Roma, the Kurds, the African, Indian,
+  Chinese, Filipino, Lebanese and Irish diasporas, and others).
+- Every topic, obvious or neglected, has at least a planned place.
+- The built and planned places are one connected world.
+- Each part of the world reaches at least 7 of the 11 horizons, from human
+  origins to the present.
+- No parody touches a sober topic.
+
+`history_atlas.py where <country or people>` answers one player:
+`where "Puerto Rico"` gives the Taíno islands (BUILT), and what is planned.
+
+What the atlas says now (2026-11-04: 362 places, 47 built, 188 planned):
+
+- **28% of the world's people have no built room.** The biggest unanswered
+  audiences: Indonesia, Brazil, Bangladesh, Japan, the Philippines, DR Congo,
+  Vietnam, Thailand, Myanmar, Colombia, South Korea, Uganda. Southeast Asia
+  alone is about 680 million people and has no room.
+- **The modern world is almost empty.** Only Haiti and the Industrial Age
+  are built after 1750. The revolutions, both world wars, the Holocaust,
+  decolonization, the Cold War, civil rights, space flight and the internet
+  are planned but not built: the "obvious non-neglected topics that we are
+  neglecting".
+- **Many peoples are planned but not built:** the Indigenous nations of North
+  America, the Sámi, the Roma, Jewish history, the Armenians, the diasporas.
+- **Five ways of the game are not history** (atlas shortcuts): Aksum to
+  Timbuktu, Uruk to the classical shore, Ice Age Europe to the southern
+  route, Sahul to the mammoth steppe, the Shang court to the Lapita. Each gets
+  a sign that says it is the atlas's road, until the real link is built.
+
+### The shape of the map: clusters, corridors, hubs
+
+The grid stays as the spine: the dispersal out of Africa, column by column.
+Around it the world becomes eleven **clusters**, one per part of the world
+(Africa, Southwest Asia, Europe, Central Asia and the steppe, South Asia,
+East Asia, Southeast Asia, Oceania, North America, Mesoamerica and the
+Caribbean, South America), plus the seas and networks that join them. Inside
+a cluster, time still runs east, and its regions are its floors.
+
+The atlas finds the order of the clusters as floors that makes the most
+historical links walkable (`report`, "Can it be one map?"): Oceania / South
+Asia / Southeast Asia / East Asia / Central Asia / Europe / Southwest Asia /
+Africa / Mesoamerica / North America / South America. That order walks 51
+of the 96 links between clusters. The rest are long contacts (Africa and
+Europe across the Mediterranean, Europe and North America across the
+Atlantic), and they become:
+
+- **Corridors** (`shape: corridor`). Jon: "not every room needs to be big and
+  open, we can have corridors." A narrow, low room (2800 by 320 to 480) that
+  is quick to cross and is a journey in itself: the Royal Road, the Silk Road
+  (built), the Qhapaq Ñan, the monsoon sea, the strait of Srivijaya, the
+  Manila galleons, the indenture ships, Windrush, the Underground Railroad,
+  the Western Front's trench. A corridor can join two clusters that do not
+  touch, so the flat map stays faithful where it can and honest where it
+  cannot.
+- **Ships** (the `crossing` mechanic: a felucca, a dhow, a reed boat).
+- **Gates.** One ring per cluster for fast travel (Jon, 2026-11-03: "You
+  can add gates for fast travel"); Haiti's ANTILLES is the first.
+- **Doors**, for a one-way passage with a reason (the Door of No Return).
+
+The other room shapes:
+
+- **Hubs** (`shape: hub`): a town with doors and several ways out; the loops
+  and return paths of a cluster meet there (Baghdad, Istanbul, Malacca,
+  Kilwa, Tenochtitlan, Chang'an, Lagos and Nairobi now).
+- **Tall rooms** (`shape: tall`): a room in levels, of two or more floors
+  joined by terrain, never by a ladder (Beringia is the first; Great
+  Zimbabwe, Borobudur, Cahokia, Potosí, Hampi, a pā of Aotearoa, the
+  Cockpit Country of the Jamaican Maroons, Moshoeshoe's mountain).
+- **Pockets** (`shape: pocket`): a small room by a door. The buildings are
+  pockets, and so are the memorials: the Holocaust, Hiroshima, 1915,
+  Rwanda, the residential schools. A memorial is a pocket so that the player
+  chooses to go in, and it is never on the only road.
+
+What the generator (`make_specs.py`) already does beyond a grid: a wide
+room takes several cells of one row (an age that lasted, a long road); a row
+can go in between two others (its key sorts there: South America under the
+Americas); `EXTRA_WAYS` joins rooms that are not one above the other; and a
+room can take cells of two rows (Beringia: the land bridge at its foot, down
+to Asia; along its floor the Pacific coast under the ice, east to the Andes;
+up the ice, the inland way, east at the top to the maize).
+
+The generator becomes data, one module per cluster, when Southeast Asia is
+built (the first cluster that is not a grid row): a room table (id, cluster,
+place in the cluster, size, shape) and a link table (side, hole, door,
+corridor, gate) that the atlas can be checked against.
+
+### The accuracy pass on what is built (first)
+
+Cheap, and it makes the built rooms trustworthy before they are copied:
+
+1. The Cradle: Lucy is deep time (3.2 million years), a guest of Clio's,
+   not a neighbour; the fire is carried and tended, not the first fire.
+2. The Green Sahara: herding cattle is not farming grain; say which it is.
+3. Uruk: the Sea Peoples came 2,000 years after Uruk's height; the raiders'
+   sign says it is a later layer of the same ground.
+4. The classical shore and the Silk Road: a sign for Clio's guest list
+   (Confucius, Marco Polo and the others did not meet).
+5. A sign at each of the five atlas shortcuts.
+6. Timbuktu: the dhow and Zheng He move to Kilwa when it is built; until
+   then, a sign says the coast is the Swahili coast, far to the east.
+
+### The build order
+
+A wave is a few connected rooms, each one finished: its biome, its people,
+its music, its blurb, and its test. The order comes from the atlas: the
+most players without a built room, then the most obvious topics without a
+built room, then the links that make the world one. Each wave starts with
+`history_atlas.py report` and ends with its nodes marked built.
+
+| wave | rooms | why now |
+| --- | --- | --- |
+| A, B | the Atlantic world; the Andes and Caral | BUILT |
+| C | **Southeast Asia**, the first cluster off the grid: Sulawesi's painted story (51,200 years), the Austronesians come to the islands, Dong Son and its drums (the Trưng sisters), the strait of Srivijaya (a corridor), Angkor (a hub), Borobudur (tall) | 680 million players with no room; it also replaces the Shang-to-Lapita shortcut with Taiwan, the true homeland |
+| D | **East Asia's other half**: Taiwan, the Austronesian homeland; Jōmon, the first pots; Silla and Queen Seondeok's star tower; Heian-kyō; Kaifeng and Hangzhou (printing, paper money, the compass); King Sejong's letters | Japan and the two Koreas have no room; printing is an obvious topic |
+| E | **Bengal and the cotton**: Dhaka muslin (the other end of the cotton mill), the Company and 1857, the language movement and 1971 | Bangladesh (174 million); colonialism in South Asia |
+| F | **Brazil and Amazonia**: the garden cities of the Amazon, Palmares (Zumbi and Dandara), Rio 1888 | Brazil (212 million); Afro-Brazilian and Amazonian peoples |
+| G | **Central Africa**: Ishango's counting bone, the kingdom of Kongo, Queen Nzinga, the Congo Free State (sober) | DR Congo (109 million), Angola; the Scramble |
+| H | **The revolutions** (a new column, H7): Philadelphia 1776, Paris 1789, the liberators (a corridor), Mexico 1810, Manila 1896, the Underground Railroad | four obvious topics at once, on four continents |
+| I | **The world wars** (H8, sober, care first): the Western Front (a corridor; the colonial soldiers), Ethiopia 1935, the war in Asia and the Pacific, the code talkers, the Holocaust (a pocket), Hiroshima (a pocket) | the most obvious gap of all; needs the tone rules and sources ready |
+| J | **Decolonization and the Cold War** (H9): the year of Africa, 1947 (sober), the salt march, the Wall, the Korean War, Montgomery to Selma, Baikonur and the Moon, Mabo | civil rights, decolonization, space flight |
+| K | **The present** (H10): Lagos and Nairobi now, Shenzhen now, Bengaluru now, the rising sea, the network, the warming world | every cluster's story reaches today |
+| L | **Oceania and the Pacific**: Lake Mungo, Budj Bim's eel traps (tall), Aotearoa (tall), Waitangi's two texts, Tonga and Samoa, Nan Madol and Yap's stone money, the Hawaiian kingdom | Australia, New Zealand and the island nations have only deep time now |
+| M | **North America's nations**: Watson Brake and Poverty Point, Cahokia (tall), Chaco, the Great Law of Peace, the cedar coast, the Thule and the Inuit, Sequoyah and the Trail of Tears | the Indigenous nations of North America |
+| N | **The rest of each cluster**, in the atlas's order: Persia and Baghdad (wave C of the old list), the Indian Ocean (Kilwa, the monsoon sea, the Chola fleets), Great Zimbabwe, Europe's middle (1348, Florence and Mainz, Constantinople), the steppe and Central Asia (the Oxus civilization, Samarkand, the Great Game) | the candidates become planned as the clusters fill |
+
+Waves C to G are representation first; H to K are the obvious topics; L
+and M are both. They need not go in this order: a wave can be built when its
+art helper and its sources are ready. The atlas's tests say when the plan has
+a hole; its report says how big.
 
 ### How a room earns its place (in order)
 
 1. Representation: a people or a region the dimension does not show yet,
-   or shows only through someone else's eyes. Southeast Asia, South America,
-   North America, southern and eastern Africa, Persia, Korea and Japan have
-   no room yet; the Islamic world has one building's worth of scholars.
+   or shows only through someone else's eyes (the atlas's "Where's my
+   history?").
 2. Impact: what still shapes the world now. Zero and algebra, paper and
    printing, the plough and the potato, the Atlantic slave trade and its
    abolition, empires and their ends, revolutions, the world wars.
@@ -240,83 +407,26 @@ figure it's easy to start there." And: "let's do this slowly."
    define it."). Good puns on the famous; hard facts said plainly, with who
    did what; evidence with its limits ("may be the oldest quipu"), and a
    legend called a legend.
+6. Levels, not shafts (Jon, 2026-11-04): platforms and rooms in levels;
+   ladders only where nothing else will do. A new room uses the shapes
+   above, and a room of the grid is 2800 by 640.
+7. Names a player knows. A native name gets the familiar one beside it the
+   first time it appears (Boriken, Puerto Rico; Ayiti, Haiti and the
+   Dominican Republic). Each room has its blurb: where, when, one fact.
 
-### Not a perfect grid
+### Ideas for mechanics
 
-The generator (`make_specs.py`) reads the grid as a start, not a rule:
-- A wide room takes several cells of one row: an age that lasted, or a
-  long road (the maize road north, the Qhapaq Nan).
-- A row can go in between two others (its key sorts there): Southeast Asia
-  between Oceania and South Asia.
-- `EXTRA_WAYS` joins rooms that are not one above the other.
-- A room can take cells of two rows: Beringia is the land bridge at its
-  foot (down to Asia), so it touches the mammoth steppe under South
-  America's row, and it has the two ways south that are argued over: along
-  its floor, the Pacific coast under the ice, east to the Andes (Monte Verde
-  is older than Clovis); up the ice, the inland way, east at the top to the
-  maize.
-Still to build: more rooms in levels (a climb up the Andes, the hill of Great
-Zimbabwe), pockets that hang off one room, narrow rooms and rooms of other
-heights, and doors that join far places (the Door of No Return opens on
-Saint-Domingue).
-
-### The waves (slowly: a few rooms at a time, each one finished)
-
-- A. The Atlantic world: Benin City and its bronzes (C6, Africa: BUILT);
-  the Haitian Revolution (C6, the Americas, beside the Taino room: Ayiti is
-  the same island, and Haiti took back its Taino name): the people who freed
-  themselves (BUILT); the Door of No Return, a sober room of the Atlantic
-  slave trade (C7, Africa), a fort whose door goes one way only, to
-  Saint-Domingue (BUILT). Nothing brings you back that way; Haiti's ring
-  (ANTILLES) is the way home. Gates are the dimension's fast travel (Jon,
-  2026-11-03: "You can add gates for fast travel"): a far region can have
-  its own ring.
-- B. South America, a new floor under the Americas (row ½, so the way
-  down from the first maize goes to it): the Andean highlands (C2: the
-  potato, quinoa, the llama) and Caral (C3) are BUILT. Then:
-  Caral, the oldest city of the Americas (C3); Nazca and the Moche (C4);
-  Tiwanaku and the Wari (C5); the Inca and the Qhapaq Nan (C6). The Aztecs
-  and Tenochtitlan (C5, the Americas: a row of its own, or a pocket of the
-  Maya city; Haiti has C6 of the Americas floor).
-- C. The Islamic Golden Age and Persia: the House of Wisdom in Baghdad
-  (C5: al-Khwarizmi's algebra, the translators; no founders); the
-  Achaemenids and the Royal Road (C4); the Ottomans and the coffee house
-  (C6).
-- D. South and Southeast Asia: Ashoka and his pillars (C4; no founder as a
-  character); Nalanda (C5); the Cholas at sea (C5); the Mughals (C6). A new
-  row: Dong Son and its drums (C4), Srivijaya (C5), Angkor (C5).
-- E. East Asia: the Tang and the Song (printing, gunpowder, the compass);
-  Heian Japan (Murasaki Shikibu, the first novel); Sejong and Hangul; the
-  Meiji.
-- F. Africa south and east, and North America: Great Zimbabwe and Kilwa
-  (C5 and C6); Lalibela; Kongo. Cahokia, the Haudenosaunee and the Great Law
-  of Peace, the Ancestral Puebloans (a new row).
-- G. Oceania: Aotearoa and the Maori, Hawaii, Tonga.
-- H. Europe and the revolutions: printing and the Renaissance, the
-  Reformation as history of states and print (no founders), the
-  Enlightenment, the American, French and Latin American revolutions,
-  abolition.
-- I. A new column, the twentieth century: the world wars, decolonization
-  (the year of Africa, 1960), partition, the Cold War, civil rights. These
-  need the most care: sober rooms, people and choices, few or no jokes.
-
-The rest of Jon's list (Crash Course World History, both seasons) is the
-pool these waves take from: the Bronze Age collapse as a mechanic in Uruk;
-the Little Ice Age, drought, famine and disease as mechanics (a frozen
-canal, a failed harvest); Alexander ("Alexander the Late", the empire that
-ran east); Venice; Russia; Charles V and the Spanish Empire; the V.O.C. (the
-first corporation as a boss: the robber baron's ancestor); nationalism and
-imperialism; the Congo; Iran's and China's revolutions; Israel and
-Palestine; non-violence; globalization, population, energy, water, debt;
-the West and historical method, and Clio's own quest (each era's people
-disagree about what happened; Clio reads the accounts side by side).
-
-Ideas for mechanics:
-- A second ring at the east end, so the grid need not be walked back.
 - The Yam relay as fast travel along the steppe (a horse at each station).
 - Herodotoss's tall tales as false signs (a sign that lies, as in the Art
-  dimension's stacks).
+  dimension's stacks), and Clio's archive: three accounts of one event, side
+  by side (the Crusades, 1948, 1857, Waitangi).
 - Mansa Moolah's gold: give it away and the price of things in the shops
   falls.
 - The monsoon as a switch of the season: the dhow sails one way in summer
   and the other way in winter.
+- A crop, a coin or a script that travels: the player meets the same thing
+  in several rooms (the potato in the Andes, Ireland and the market of the
+  Columbian exchange; cowries in the Maldives and Benin; the alphabet at
+  Ugarit, Tyre and the classical shore).
+- The ballgame's rubber ball, the stone money of Yap, the cowrie and the
+  silver of Potosí as the dimension's currencies, each in its own place.

@@ -745,6 +745,12 @@
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.25, active_s: 0.1, recover_s: 0.3, damage: 1, reach_px: 22.0, step_px: 0.0, rush_px: 110.0)),
         ),
+        // The driver ants' bite: the front of the column bunches up (its
+        // windup row), surges forward and the soldiers' jaws snap.
+        "driver_ants_bite": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.5, active_s: 0.2, recover_s: 0.5, damage: 1, reach_px: 36.0, step_px: 0.0, rush_px: 80.0)),
+        ),
 
         // The Bad Apple's chomp: it rears back with its maw wide (its windup
         // row), then rolls at you jaws first, and sits a beat after, dizzy. Its
@@ -8357,6 +8363,41 @@
             hall: ["I crossed the Pacific on the canoes with the people, island after island. Some say as food, some say as a stowaway. I say: first class.", "On Rapa Nui they say we ate the nuts of the great palms, so no new palms grew. ...We did eat a lot of nuts. They were very good nuts."],
         ),
         ),
+        // The driver ants (siafu) of the West African forest: a marching
+        // column that moves as one low body, big-jawed soldiers at its front.
+        // Slow, low and hard to jump over: it bunches up and surges.
+        "driver_ants": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Driver Ants",
+            manifest: "sprites/driver_ants_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(24.0),
+            composition: None,
+            default_action_set: "driver_ants_bite",
+            locomotion: Some((run_speed: 110.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.5, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 360.0,
+                attack_range: 48.0,
+                patrol_effort: 0.6,
+                chase_effort: 0.8,
+                // The column surges, then takes its time to form up again.
+                retreat_after_swing_s: 0.3,
+                attack_cooldown_s: 0.9,
+                tactics: (notice_s: 0.5, waits_its_turn: true, footsies: Some((hold_px: 60.0, wait_s: 0.5)), flinch_back_s: 0.2),
+            )),
+            max_health: Some(4),
+            mass: Some(2.0),
+            tags: ["enemy", "history", "benin_city", "insect"],
+        barks: (
+            on_hit: ["*the column breaks, and closes again*", "*a hundred jaws turn to you*"],
+            provoked: ["*the soldiers rear up, jaws wide*"],
+            idle: ["*a rustle like rain on leaves*", "*the column goes on, and on*", "*march*"],
+            hall: ["We are one column of millions, and we do not stop for a city, a wall or an Oba. People step aside. Then they come back, and the house has no cockroaches.", "Our soldiers' jaws hold so hard that healers close a wound with them: let one bite across the cut, then pinch off the body. We are stitches with legs."],
+        ),
+        ),
 
         // ===== THE EVIL DIMENSION (Jon, 2026-10-15). Wolfenstein, the boss of
         // Castle Godwin: Frankenstein's monster with the head of Insanity Wolf,
@@ -11381,6 +11422,62 @@
             barks: (
                 idle: ["Hey! I'm right!", "Balsa floats. Therefore, Peru. Next question.", "*he polishes the little raft with his sleeve*"],
                 hall: ["In 1947 I sailed a raft from Peru to Polynesia to prove the Polynesians came from South America. It worked! Well, the raft worked. The Polynesians came from the west. Details.", "The sweet potato came from South America, so SOMEBODY sailed there and back. ...The Polynesians did. Sailing east, in better boats. Hey, I'm still a LITTLE right!"],
+            ),
+        ),
+        // Benin City (wave A, the Atlantic world). The brass caster is an
+        // original man of the casters' guild; Iyoba Idia is the real first
+        // queen mother of Benin, told with respect; Lord Finders-Keepers is a
+        // parody of the looters of 1897 and of the museums that keep the loot.
+        "npc_history_brass_caster": (
+            display_name: "Brass Caster of Igun Street",
+            // An original Edo brass caster of the Igun Eronmwon guild, with a wax model and a crucible in tongs.
+            manifest: "sprites/history_brass_caster_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm.
+            standing_height: Some(64.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "benin_city", "peaceful"],
+            barks: (
+                idle: ["Wax, clay, fire, brass. In that order. Never any other order.", "This one is a horn player. Listen closely and you can almost hear him.", "*he squints into the furnace, and judges the heat by its colour*"],
+                hall: ["Only our guild may cast brass in Benin, and only for the Oba. The plaques on the palace pillars are ours: the history of the court, in metal.", "The Portuguese bring brass rings by the shipload. We melt them and make them worth something."],
+            ),
+        ),
+        "npc_history_iyoba_idia": (
+            display_name: "Iyoba Idia",
+            // Idia, the first queen mother (Iyoba) of Benin, early 1500s, in a crown and collar of coral beads, with an eben sword.
+            manifest: "sprites/history_iyoba_idia_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 163 cm.
+            standing_height: Some(63.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "benin_city", "peaceful"],
+            barks: (
+                idle: ["The court of Benin keeps its history in brass and in memory. Remember that when the strangers come.", "*she lifts the eben, and the court falls quiet*", "Coral beads are for the Oba and those he honours. These are mine."],
+                hall: ["When the Igala came against my son, the Oba Esigie, I raised an army and went to war with it. We won, and he made me the first Iyoba, the queen mother.", "My face is carved in ivory, and the Oba wears it at the great ceremonies. In 1897 the British took it. It is still in their museum."],
+            ),
+        ),
+        "npc_history_lord_finders_keepers": (
+            display_name: "Lord Finders-Keepers",
+            // A parody of the officers who looted Benin City in 1897 and the museums that keep the loot: a pith helmet, a monocle, a plaque under his arm.
+            manifest: "sprites/history_lord_finders_keepers_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 180 cm.
+            standing_height: Some(69.7),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "benin_city", "peaceful"],
+            barks: (
+                on_hit: ["I say! That is assault. Unlike 1897, which was an expedition.", "Ow! Mind the plaque!"],
+                idle: ["Do not touch the glass. Do not touch anything. Except when I do it.", "ON LOAN. Indefinitely. Which is a kind of loan.", "*he polishes his monocle, and does not look at the card*"],
+                hall: ["In 1897 we burned Benin City and took its brass and ivory home. Thousands of pieces. We call it a collection.", "Some museums have begun to give them back. I am against it in principle, and in practice, and in the gift shop."],
             ),
         ),
         "npc_primeval_twitchell": (

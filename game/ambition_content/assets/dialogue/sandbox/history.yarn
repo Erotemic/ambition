@@ -733,3 +733,48 @@ Thor Hey-I'm-Right-Dahl: Ahoy! In 1947 I sailed a balsa raft from Peru to Polyne
 -> Goodbye.
     Thor Hey-I'm-Right-Dahl: Kon-Tiki! Still a great book! Mostly wrong! Great book!
 ===
+
+title: history_brass_caster
+---
+Brass Caster: Stand back from the furnace. The brass in that crucible is hotter than anything you have ever touched, and it will be a plaque for the Oba by tonight.
+-> How do you make it?
+    Brass Caster: Lost wax. I shape the figure in beeswax over a core of clay. I coat it in more clay. I heat it, and the wax runs out: that is the "lost". Into the empty space I pour the brass. Then I break the mould. Every piece is the only one.
+-> Who do you make it for?
+    Brass Caster: The Oba. Only our guild, the Igun Eronmwon, may cast brass in Benin, and only for the court. We live on Igun Street. Our grandchildren's grandchildren will still be casting on Igun Street. You can go and watch them.
+-> Where does the brass come from?
+    Brass Caster: Those rings. Manillas. The Portuguese ships bring them by the thousand, made far away in Europe, and trade them for pepper, ivory, cloth, and people. We melt them down and make history out of them.
+-> Pull the bellows?
+    Brass Caster: Go on, work them. When the plaque is cast, the guild carries it to the palace, and the palace gate opens for us. It always opens for the brass.
+-> Goodbye.
+    Brass Caster: Mind the ants on the road. They march for no Oba.
+===
+
+title: history_iyoba_idia
+---
+Iyoba Idia: You stand in the court of Benin. I am Idia, mother of the Oba Esigie.
+-> What is an Iyoba?
+    Iyoba Idia: The queen mother. There was none before me. When the Igala of Idah came against my son, I raised an army of my own and went with it to war. We won. My son made the title for me, and gave me my own palace at Uselu.
+-> You went to war?
+    Iyoba Idia: With counsel, with medicine and with soldiers. A mother does not wait at home to hear how her son's war went.
+-> Those brass plaques...
+    Iyoba Idia: The history of this court, in brass, nailed to the pillars: who fought, who ruled, who came to trade. The Oba wears my face in ivory, on his belt, at the great ceremonies. So I am in the history too.
+-> What happens next?
+    Iyoba Idia: In 1897 a British force will come, burn this city, send the Oba Ovonramwen into exile and carry off the brass and ivory of the court, thousands of pieces, my face among them. When Nigeria asks to borrow my face back for a festival in 1977, the museum will say it is too fragile to travel. It travelled here, did it not?
+-> Goodbye.
+    Iyoba Idia: Go with the blessing of the court. And walk around the ants.
+===
+
+title: history_lord_finders_keepers
+---
+Lord Finders-Keepers: Ah! A visitor! Don't touch the glass. These are being kept safe.
+-> Safe from whom?
+    Lord Finders-Keepers: From... well, from the people who made them, I suppose. It sounds worse when you say it out loud.
+-> How did you get them?
+    Lord Finders-Keepers: 1897. A punitive expedition. We punished the city by burning it, and we punished the art by taking it home. Thousands of pieces. Auctioned some to pay for the trip. Very efficient.
+-> What does the card say?
+    Lord Finders-Keepers: "ON LOAN". From Benin. We simply have not decided when the loan ends. These things take time. About a hundred and twenty years, so far.
+-> Give them back.
+    Lord Finders-Keepers: Out of the question! Well. Germany gave back more than a thousand. A college in Cambridge gave back a brass cockerel. A museum in London gave back seventy-two. Others are thinking about it very hard. I am thinking about it extremely slowly.
+-> Goodbye.
+    Lord Finders-Keepers: Finders keepers! That is the law. Well, it is a saying. Well, it is a thing children say.
+===

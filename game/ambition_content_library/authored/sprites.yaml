@@ -423,6 +423,13 @@ collections:
   - history_walking_moai
   - history_rongorongo_tablet
   - history_kumara
+  - driver_ants
+  - history_brass_furnace
+  - history_manillas
+  - history_benin_plaque
+  - history_benin_palace
+  - history_benin_palace_gate
+  - history_museum_case
   - eigenghost
   - decomposing_specter
   - spectral_perturbation
@@ -739,6 +746,9 @@ collections:
   - history_wayfinder
   - history_moai_carver
   - history_thor_hey_im_right_dahl
+  - history_brass_caster
+  - history_iyoba_idia
+  - history_lord_finders_keepers
   - station_dobbs
   - station_pippin
   - magical_celeste

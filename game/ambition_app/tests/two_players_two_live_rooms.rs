@@ -3788,6 +3788,7 @@ fn native_roster_arrival(relative: bool) {
             .iter(world).map(|(entity, driver)| (driver.0, entity)).collect();
         bodies.sort_by_key(|(slot, _)| slot.0);
         let transfers: Vec<_> = bodies.into_iter().map(|(slot, entity)| RoomBodyTransfer {
+            requirement: ambition_platformer2d::session::lifecycle_commit::BodyTransferRequirement::InPlay,
             subject: LiveBodyId::of_entity(world, entity).unwrap(), participant: Some(slot),
             arrival: ambition_platformer2d::session::lifecycle_commit::RoomArrival::At(spawn + ambition_platformer2d::engine_core::Vec2::new(slot.0 as f32 * 40.0, 0.0)),
         }).collect();
@@ -3881,6 +3882,7 @@ use ambition_platformer2d::session::party_travel::{PartyTravel, PartyTravelRules
         let intent = LifecycleIntent::Transition(RoomTransitionIntent {
             disposition: Default::default(), source_zone: None,
             initiator: RoomBodyTransfer {
+                requirement: ambition_platformer2d::session::lifecycle_commit::BodyTransferRequirement::InPlay,
                 subject: LiveBodyId::of_entity(world, alice).unwrap(),
                 arrival: RoomArrival::NearBody(LiveBodyId::of_entity(world, bob).unwrap()),
                 participant: Some(PlayerSlot(0)),
@@ -4008,6 +4010,7 @@ fn a_cycle_of_relative_arrivals_moves_no_member() {
     let world = sim.world_mut();
     let LifecycleIntent::Transition(crossing) = &mut intent else { unreachable!() };
     crossing.companions.push(RoomBodyTransfer {
+        requirement: ambition_platformer2d::session::lifecycle_commit::BodyTransferRequirement::InPlay,
         subject: LiveBodyId::of_entity(world, bob).unwrap(),
         arrival: RoomArrival::NearBody(LiveBodyId::of_entity(world, alice).unwrap()),
         participant: Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
@@ -4246,7 +4249,7 @@ fn prepared_new_destination() -> (
         let destination = rooms.spec(rooms.definition_by_id(HUB).unwrap());
         let intent = LifecycleIntent::Transition(RoomTransitionIntent {
             disposition: Default::default(), source_zone: None,
-            initiator: RoomBodyTransfer { subject: LiveBodyId::of_entity(world, body).unwrap(),
+            initiator: RoomBodyTransfer { requirement: ambition_platformer2d::session::lifecycle_commit::BodyTransferRequirement::InPlay, subject: LiveBodyId::of_entity(world, body).unwrap(),
                 arrival: RoomArrival::At(destination.world.spawn), participant: Some(PlayerSlot(0)) },
             companions: Vec::new(), target_room: HUB.into(), edge_exit: false, zone_sfx: None,
         });

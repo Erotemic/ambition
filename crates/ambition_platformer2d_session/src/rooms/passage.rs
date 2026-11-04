@@ -669,6 +669,7 @@ mod tests {
             disposition: Default::default(),
             source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    requirement: crate::lifecycle_commit::BodyTransferRequirement::InPlay,
                     subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
                 ambition_platformer2d_shared_tangle::sim_id::SimId::placement("hero"),
                 None,
@@ -775,6 +776,7 @@ mod tests {
             let id = LiveBodyId::of_entity(app.world(), companion).unwrap();
             let mut passage = app.world_mut().get_mut::<ZonePassage>(body).unwrap();
             passage.crossing.as_mut().unwrap().companions.push(crate::lifecycle_commit::RoomBodyTransfer {
+                requirement: crate::lifecycle_commit::BodyTransferRequirement::InPlay,
                 subject: id, arrival: crate::lifecycle_commit::RoomArrival::At(ae::Vec2::ZERO),
                 participant: Some(ambition_characters::control::PlayerSlot(1)),
             });
@@ -921,6 +923,7 @@ mod tests {
                 disposition: Default::default(),
                 source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    requirement: crate::lifecycle_commit::BodyTransferRequirement::InPlay,
                     subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
                     ambition_platformer2d_shared_tangle::sim_id::SimId::placement("hero"),
                     None,

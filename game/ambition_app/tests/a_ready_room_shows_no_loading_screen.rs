@@ -75,6 +75,7 @@ fn cross(app: &mut bevy::prelude::App, target: &str) -> Crossing {
         disposition: Default::default(),
         source_zone: None,
                 initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
+                    requirement: ambition_platformer2d::session::lifecycle_commit::BodyTransferRequirement::InPlay,
                     subject: subject,
                     arrival: ambition_platformer2d::session::lifecycle_commit::RoomArrival::At(ambition_platformer2d::engine_core::Vec2::new(200.0, 200.0)),
                     participant: Some(PlayerSlot(0)),

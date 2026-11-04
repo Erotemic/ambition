@@ -1232,6 +1232,7 @@ fn a_door_refused_the_lifecycle_slot_keeps_the_press_it_could_not_spend() {
             disposition: Default::default(),
             source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    requirement: crate::lifecycle_commit::BodyTransferRequirement::InPlay,
                     subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("somebody_else"), None),
                     arrival: crate::lifecycle_commit::RoomArrival::At(ae::Vec2::new(7.0, 9.0)),
                     participant: None,

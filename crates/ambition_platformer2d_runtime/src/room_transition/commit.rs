@@ -375,8 +375,7 @@ impl RoomTransitionApplication<'_, '_> {
                 return Err(RoomTransitionApplyError::SubjectCannotTransit { subject, missing: "unique transfer membership" });
             }
             let member = self.prepare_member(subject, transfer.participant)?;
-            // A rebuild can carry a dead body into its restore.
-            if restore.is_none() && !intent.rebuilds_source_room()
+            if transfer.requirement == ambition_platformer2d_session::lifecycle_commit::BodyTransferRequirement::InPlay
                 && !self.bodies.living.get(subject).is_ok_and(|(health, out_of_play)| health.alive() && out_of_play.is_none()) {
                 return Err(RoomTransitionApplyError::SubjectCannotTransit { subject, missing: "available living body" });
             }

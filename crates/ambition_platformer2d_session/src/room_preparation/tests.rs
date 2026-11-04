@@ -209,6 +209,7 @@ fn capture_releases_retiring_custody_but_keeps_it_when_another_participant_stays
             disposition: Default::default(),
             source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    requirement: crate::lifecycle_commit::BodyTransferRequirement::InPlay,
                     subject: LiveBodyId::new(traveller, Some(room)),
                     arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::ZERO),
                     participant: Some(PlayerSlot(0)),

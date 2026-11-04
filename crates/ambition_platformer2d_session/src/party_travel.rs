@@ -235,7 +235,7 @@ pub fn request_party_return(
         if busy(entity, &subject) { continue; }
         let intent = LifecycleIntent::Transition(RoomTransitionIntent {
             disposition: Default::default(), source_zone: None,
-            initiator: RoomBodyTransfer { subject, arrival: RoomArrival::NearBody(reference.clone()), participant: Some(slot) },
+            initiator: RoomBodyTransfer { requirement: crate::lifecycle_commit::BodyTransferRequirement::InPlay, subject, arrival: RoomArrival::NearBody(reference.clone()), participant: Some(slot) },
             companions: Vec::new(), target_room: target_room.clone(), edge_exit: false, zone_sfx: None,
         });
         if pending.record(boundary.as_ref().map_or(0, |boundary| boundary.current), intent).admitted() { return; }

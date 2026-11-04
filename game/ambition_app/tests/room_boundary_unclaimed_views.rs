@@ -251,6 +251,7 @@ fn cross_observing_with(
                     disposition: Default::default(),
                     source_zone: None,
                 initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
+                    requirement: ambition_platformer2d::session::lifecycle_commit::BodyTransferRequirement::InPlay,
                     subject: subject.clone(),
                     arrival: ambition_platformer2d::session::lifecycle_commit::RoomArrival::At(arrival),
                     participant: None,

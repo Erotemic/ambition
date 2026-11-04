@@ -75,7 +75,7 @@ fn cross_inside_the_rollback_schedule(world: &mut bevy::prelude::World) {
         let intent = LifecycleIntent::Transition(RoomTransitionIntent {
             disposition: Default::default(),
             source_zone: None,
-            initiator: RoomBodyTransfer { subject, arrival: ambition_platformer2d::session::lifecycle_commit::RoomArrival::At(plan.spec().world.spawn),
+            initiator: RoomBodyTransfer { requirement: ambition_platformer2d::session::lifecycle_commit::BodyTransferRequirement::InPlay, subject, arrival: ambition_platformer2d::session::lifecycle_commit::RoomArrival::At(plan.spec().world.spawn),
                 participant: Some(ambition_platformer2d::characters::control::PlayerSlot(0)) },
             companions: Vec::new(), target_room: plan.spec().id.clone(), edge_exit: false, zone_sfx: None,
         });
@@ -127,6 +127,7 @@ fn replay_room_crossing(
             disposition: Default::default(),
             source_zone: None,
                 initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
+                    requirement: ambition_platformer2d::session::lifecycle_commit::BodyTransferRequirement::InPlay,
                     subject: subject.clone(),
                     arrival: ambition_platformer2d::session::lifecycle_commit::RoomArrival::At(target.world.spawn),
                     participant: Some(ambition_platformer2d::characters::control::PlayerSlot(0)),

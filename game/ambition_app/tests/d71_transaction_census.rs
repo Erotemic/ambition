@@ -329,6 +329,7 @@ fn the_recorded_subject_transits_rather_than_whoever_is_controlled() {
                     disposition: Default::default(),
                     source_zone: None,
                 initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
+                    requirement: ambition_platformer2d::session::lifecycle_commit::BodyTransferRequirement::InPlay,
                     subject: subject.clone(),
                     arrival: ambition_platformer2d::session::lifecycle_commit::RoomArrival::At(arrival),
                     participant: None,

@@ -1630,6 +1630,7 @@ mod tests {
             disposition: Default::default(),
             source_zone: None,
                 initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
+                    requirement: ambition_platformer2d_session::lifecycle_commit::BodyTransferRequirement::InPlay,
                     subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(subject, None),
                     arrival: ambition_platformer2d_session::lifecycle_commit::RoomArrival::At(arrival),
                     participant: None,
@@ -1971,6 +1972,7 @@ mod checkpoint_failure_tests {
             disposition: Default::default(),
             source_zone: None,
                 initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
+                    requirement: ambition_platformer2d_session::lifecycle_commit::BodyTransferRequirement::InPlay,
                     subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("hero"), None),
                     arrival: ambition_platformer2d_session::lifecycle_commit::RoomArrival::At(ambition_platformer2d_core::Vec2::ZERO),
                     participant: None,

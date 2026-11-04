@@ -364,6 +364,7 @@ use crate::party_travel::{PartyAdmission, PartyExit, PartyVote};
                 let Some(body) = sim_ids.id_of(entity) else { available = false; break; };
                 if *slot != seat {
                     companions.push(crate::lifecycle_commit::RoomBodyTransfer {
+                        requirement: crate::lifecycle_commit::BodyTransferRequirement::InPlay,
                         subject: body, participant: Some(*slot),
                         arrival: crate::lifecycle_commit::RoomArrival::NearBody(subject.clone()),
                     });
@@ -374,6 +375,7 @@ use crate::party_travel::{PartyAdmission, PartyExit, PartyVote};
         let mut crossing = crate::lifecycle_commit::RoomTransitionIntent {
             disposition: Default::default(), source_zone: Some(zone.zone.id.clone()),
             initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                requirement: crate::lifecycle_commit::BodyTransferRequirement::InPlay,
                 subject: subject.clone(), arrival: crate::lifecycle_commit::RoomArrival::At(zone.arrival),
                 participant: driver.map(|driver| driver.0),
             },

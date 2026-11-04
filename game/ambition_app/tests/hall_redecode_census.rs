@@ -204,6 +204,7 @@ fn the_halls_entry_is_counted_for_art_it_decodes_twice() {
                     disposition: Default::default(),
                     source_zone: None,
                 initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
+                    requirement: ambition_platformer2d::session::lifecycle_commit::BodyTransferRequirement::InPlay,
                     subject: subject.clone(),
                     arrival: ambition_platformer2d::session::lifecycle_commit::RoomArrival::At(arrival),
                     participant: None,

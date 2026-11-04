@@ -906,6 +906,7 @@ mod tests {
             disposition: Default::default(),
             source_zone: None,
                 initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
+                    requirement: ambition_platformer2d_session::lifecycle_commit::BodyTransferRequirement::InPlay,
                     subject: LiveBodyId::new(subject, None),
                     arrival: ambition_platformer2d_session::lifecycle_commit::RoomArrival::At(ae::Vec2::ZERO),
                     participant: None,

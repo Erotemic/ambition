@@ -206,6 +206,7 @@ pub fn admit_room_replay(
                 disposition: ambition_platformer2d_session::lifecycle_commit::RoomTransitionDisposition::RebuildSource,
                 source_zone: None,
                 initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
+                    requirement: ambition_platformer2d_session::lifecycle_commit::BodyTransferRequirement::Present,
                     subject: subject,
                     arrival: ambition_platformer2d_session::lifecycle_commit::RoomArrival::At(active.world.spawn),
                     participant: None,
@@ -475,6 +476,7 @@ pub fn bring_a_fallen_seat_back_beside_the_primary(
                                 disposition: Default::default(),
                                 source_zone: None,
                 initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
+                    requirement: ambition_platformer2d_session::lifecycle_commit::BodyTransferRequirement::Present,
                     subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
                                     sim_id.clone(),
                                     Some(room.0),

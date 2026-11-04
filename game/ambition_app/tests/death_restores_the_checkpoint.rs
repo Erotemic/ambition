@@ -1499,6 +1499,7 @@ fn a_refused_reset_changes_no_domain_state_and_is_not_lost() {
         disposition: Default::default(),
         source_zone: None,
                 initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
+                    requirement: ambition_platformer2d::session::lifecycle_commit::BodyTransferRequirement::InPlay,
                     subject: ambition_platformer2d::platformer::lifecycle::LiveBodyId::new(SimId::placement("an_operation_that_is_not_this_reset"), None),
                     arrival: ambition_platformer2d::session::lifecycle_commit::RoomArrival::At(ambition_platformer2d::engine_core::Vec2::new(64.0, 64.0)),
                     participant: None,

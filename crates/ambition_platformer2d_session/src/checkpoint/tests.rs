@@ -410,6 +410,7 @@ fn a_refused_slot_leaves_the_checkpoint_resume_retryable() {
         disposition: Default::default(),
         source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    requirement: crate::lifecycle_commit::BodyTransferRequirement::InPlay,
                     subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::placement("someone_else"), None),
                     arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::new(1.0, 2.0)),
                     participant: None,
@@ -876,6 +877,7 @@ fn the_commit_applies_the_operation_it_was_opened_for_and_always_removes_its_inp
             disposition: Default::default(),
             source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    requirement: crate::lifecycle_commit::BodyTransferRequirement::InPlay,
                     subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0), None),
                     arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::new(1.0, 2.0)),
                     participant: None,
@@ -1226,6 +1228,7 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
             disposition: Default::default(),
             source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    requirement: crate::lifecycle_commit::BodyTransferRequirement::InPlay,
                     subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::player_slot(0), None),
                     arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::new(1.0, 2.0)),
                     participant: None,
@@ -2420,6 +2423,7 @@ fn an_operation_at(
                 disposition: Default::default(),
                 source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    requirement: crate::lifecycle_commit::BodyTransferRequirement::InPlay,
                     subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::placement("hero"), None),
                     arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::ZERO),
                     participant: None,

@@ -1424,6 +1424,7 @@ fn a_replay_refused_by_the_lifecycle_slot_changes_nothing() {
                 disposition: Default::default(),
                 source_zone: None,
                 initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
+                    requirement: ambition_platformer2d::session::lifecycle_commit::BodyTransferRequirement::InPlay,
                     subject: ambition_platformer2d::platformer::lifecycle::LiveBodyId::new(ambition_platformer2d::platformer::sim_id::SimId::placement(
                     "somebody-elses-crossing",
                 ), None,

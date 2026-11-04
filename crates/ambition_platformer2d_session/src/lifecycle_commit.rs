@@ -72,25 +72,32 @@ impl LifecycleIntent {
         };
         let mut bytes = Vec::new();
         match self {
-            Self::Transition(intent) => {
+            Self::Transition(RoomTransitionIntent {
+                disposition, source_zone, initiator, companions, target_room, edge_exit, zone_sfx,
+            }) => {
                 put_u8(&mut bytes, 0);
-                put_u8(&mut bytes, match intent.disposition {
+                put_u8(&mut bytes, match disposition {
                     RoomTransitionDisposition::Travel => 0,
                     RoomTransitionDisposition::RebuildSource => 1,
                 });
-                put_str(&mut bytes, &intent.target_room);
-                put_bool(&mut bytes, intent.edge_exit);
-                put_opt_str(&mut bytes, intent.zone_sfx.as_deref());
-                put_opt_str(&mut bytes, intent.source_zone.as_deref());
-                ambition_platformer2d_core::snapshot::put_u64(&mut bytes, (1 + intent.companions.len()) as u64);
-                for transfer in intent.transfers() {
-                    transfer.subject.write_peer_stable_into(&mut bytes);
-                    match &transfer.arrival {
+                put_str(&mut bytes, target_room);
+                put_bool(&mut bytes, *edge_exit);
+                put_opt_str(&mut bytes, zone_sfx.as_deref());
+                put_opt_str(&mut bytes, source_zone.as_deref());
+                ambition_platformer2d_core::snapshot::put_u64(&mut bytes, (1 + companions.len()) as u64);
+                for transfer in std::iter::once(initiator).chain(companions) {
+                    let RoomBodyTransfer { requirement, subject, arrival, participant } = transfer;
+                    put_u8(&mut bytes, match requirement {
+                        BodyTransferRequirement::InPlay => 0,
+                        BodyTransferRequirement::Present => 1,
+                    });
+                    subject.write_peer_stable_into(&mut bytes);
+                    match arrival {
                         RoomArrival::At(at) => { put_u8(&mut bytes, 0); put_vec2(&mut bytes, *at); }
                         RoomArrival::NearBody(body) => { put_u8(&mut bytes, 1); body.write_peer_stable_into(&mut bytes); }
                     }
-                    put_bool(&mut bytes, transfer.participant.is_some());
-                    put_u8(&mut bytes, transfer.participant.map_or(0, |slot| slot.0));
+                    put_bool(&mut bytes, participant.is_some());
+                    put_u8(&mut bytes, participant.map_or(0, |slot| slot.0));
                 }
             }
             Self::ReconstituteRoom(RoomReconstitutionIntent { target_room }) => {
@@ -198,9 +205,19 @@ pub enum RoomTransitionDisposition {
     RebuildSource,
 }
 
+/// Required body state when the transfer is published.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BodyTransferRequirement {
+    /// The body must be alive and in play.
+    InPlay,
+    /// The body can be out of play. Recovery and restoration use this condition.
+    Present,
+}
+
 /// One body selected for a room transfer. Control changes do not replace it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RoomBodyTransfer {
+    pub requirement: BodyTransferRequirement,
     pub subject: LiveBodyId,
     pub arrival: RoomArrival,
     pub participant: Option<ambition_characters::control::PlayerSlot>,
@@ -491,6 +508,7 @@ mod tests {
             disposition: Default::default(),
             source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    requirement: crate::lifecycle_commit::BodyTransferRequirement::InPlay,
                     subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("hero"), None),
                     arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::new(1.0, 2.0)),
                     participant: None,
@@ -527,10 +545,14 @@ mod tests {
     fn every_transfer_is_part_of_the_admission_checksum_and_cancellation() {
         let LifecycleIntent::Transition(mut crossing) = crossing_to("east") else { unreachable!() };
         let companion = RoomBodyTransfer {
+            requirement: crate::lifecycle_commit::BodyTransferRequirement::InPlay,
             subject: LiveBodyId::new(SimId::placement("companion"), None),
             arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::new(20.0, 40.0)), participant: Some(ambition_characters::control::PlayerSlot(1)),
         };
         let single = LifecycleIntent::Transition(crossing.clone()).checksum();
+        crossing.initiator.requirement = BodyTransferRequirement::Present;
+        assert_ne!(single, LifecycleIntent::Transition(crossing.clone()).checksum());
+        crossing.initiator.requirement = BodyTransferRequirement::InPlay;
         crossing.disposition = RoomTransitionDisposition::RebuildSource;
         assert_ne!(single, LifecycleIntent::Transition(crossing.clone()).checksum());
         crossing.disposition = RoomTransitionDisposition::Travel;
@@ -538,6 +560,9 @@ mod tests {
         let checksum = LifecycleIntent::Transition(crossing.clone()).checksum();
         assert_ne!(single, checksum);
         crossing.companions[0].arrival = RoomArrival::At(Vec2::new(21.0, 40.0));
+        assert_ne!(checksum, LifecycleIntent::Transition(crossing.clone()).checksum());
+        crossing.companions[0] = companion.clone();
+        crossing.companions[0].requirement = BodyTransferRequirement::Present;
         assert_ne!(checksum, LifecycleIntent::Transition(crossing.clone()).checksum());
         crossing.companions[0] = companion.clone();
         crossing.companions[0].participant = None;
@@ -628,6 +653,7 @@ mod tests {
                 disposition: Default::default(),
                 source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    requirement: crate::lifecycle_commit::BodyTransferRequirement::InPlay,
                     subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("hero"), None),
                     arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::new(1.0, 2.0)),
                     participant: None,
@@ -688,6 +714,7 @@ mod tests {
             disposition: Default::default(),
             source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    requirement: crate::lifecycle_commit::BodyTransferRequirement::InPlay,
                     subject: hero.clone(),
                     arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::new(1.0, 2.0)),
                     participant: None,
@@ -713,6 +740,7 @@ mod tests {
                 disposition: Default::default(),
                 source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    requirement: crate::lifecycle_commit::BodyTransferRequirement::InPlay,
                     subject: other.clone(),
                     arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::ZERO),
                     participant: None,

@@ -244,7 +244,7 @@ fn a_death_withdraws_its_crossing_on_the_current_rollback_frame() {
         assert!(app.world_mut().resource_mut::<PendingLifecycleCommit>().record(10,
             LifecycleIntent::Transition(RoomTransitionIntent {
                 disposition: Default::default(), source_zone: None,
-                initiator: RoomBodyTransfer { subject: LiveBodyId::new(id, Some(LiveRoomInstance::ACTIVATION)),
+                initiator: RoomBodyTransfer { requirement: crate::lifecycle_commit::BodyTransferRequirement::InPlay, subject: LiveBodyId::new(id, Some(LiveRoomInstance::ACTIVATION)),
                     arrival: RoomArrival::At(ambition_platformer2d_core::Vec2::ZERO), participant: None },
                 companions: Vec::new(), target_room: "east".into(), edge_exit: false, zone_sfx: None,
             })).admitted());

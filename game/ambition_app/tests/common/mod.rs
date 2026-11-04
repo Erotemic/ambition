@@ -579,8 +579,8 @@ fn loading_zone_to(
     })
 }
 
-/// Walk through the door to `target`: stand in it, hold interact, and return
-/// the room the player arrives in (120 frames at most).
+/// Stand in the door to `target` and retry Interact until the actor crosses.
+/// Return the arrival room within 120 frames.
 pub fn walk_through_the_door_to(sim: &mut Platformer2dSimHarness, target: &str) -> String {
     use ambition_platformer2d::engine_core::AabbExt as _;
     let before = sim.observation().active_room.clone();
@@ -590,8 +590,8 @@ pub fn walk_through_the_door_to(sim: &mut Platformer2dSimHarness, target: &str) 
     for frame in 0..120 {
         let room = sim
             .step(AgentAction {
-                interact: frame == 0,
-                interact_held: true,
+                interact: frame % 2 == 0,
+                interact_held: frame % 2 == 0,
                 ..base()
             })
             .active_room;
@@ -602,7 +602,11 @@ pub fn walk_through_the_door_to(sim: &mut Platformer2dSimHarness, target: &str) 
             return room;
         }
     }
-    panic!("held interact inside the '{}' door of '{before}' for 120 frames and the room never changed", door.name);
+    let observed = sim.observation();
+    panic!(
+        "Interact did not cross the '{}' door of '{before}': position {:?}, hitstun {}, room {}",
+        door.name, observed.player_pos, observed.in_hitstun, observed.active_room,
+    );
 }
 
 /// S7's sharp rows: outside the peer checksum, float-bearing, read by an

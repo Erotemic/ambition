@@ -39,11 +39,13 @@ reset; the control releases one reset. Guards:
 `a_peer_keeps_moving_and_fighting_in_a_live_destination_while_another_peer_prepares`
 and `corrected_combat_removes_a_speculative_crossing_and_its_arrival_effect`.
 
-Death now withdraws the exact body's crossing on the current rollback frame.
-Ordinary application rejects dead or out-of-play members before publication;
-explicit restores can still recover them. Schema 423 records this change.
-Guards: `a_death_withdraws_its_crossing_on_the_current_rollback_frame` and
-`ordinary_travel_refuses_dead_or_out_of_play_bodies_before_publication`.
+Death withdraws the exact body's crossing on the current rollback frame.
+Each transfer states its required body state. Ordinary travel requires a living
+body in play; recovery and restoration require a present body. The admitted
+intent checksum includes this condition (schema 424).
+Guards: `a_death_withdraws_its_crossing_on_the_current_rollback_frame`,
+`ordinary_travel_refuses_dead_or_out_of_play_bodies_before_publication`, and
+`a_second_seat_that_dies_in_another_room_comes_back_in_the_primarys_room`.
 Preparation no longer waits for a committed cover (`dbc8f0cf2`). Both hosts
 move the committed payload out of the preparation slot. `LoadPresentations`
 holds each owner's foreground, activity, result, and input scope. Each cover

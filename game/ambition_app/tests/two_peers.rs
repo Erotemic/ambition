@@ -832,6 +832,52 @@ fn doors_under_a_peer_session_with(
     }
 }
 
+const PREPARATION_ITEM: &str = "peer-continuity-pickup";
+
+fn destination_with_a_continuity_item(app: &mut App) {
+    use ambition_platformer2d::platformer::lifecycle::session_world_component_mut;
+    let mut rooms = session_world_component_mut::<ambition_platformer2d::world::rooms::RoomSet>(app.world_mut()).unwrap();
+    let destination = rooms.rooms.iter_mut().find(|room| room.id == HUB).unwrap();
+    destination.ground_items.push(ambition_platformer2d::world::rooms::GroundItemSpec {
+        id: PREPARATION_ITEM.into(), name: "Preparation item".into(), held_item: "gun_sword".into(),
+        pos: destination.world.spawn, half_extent: ambition_platformer2d::engine_core::Vec2::splat(8.0),
+    });
+}
+
+fn consume_destination_item_after_capture(
+    frame: Res<RollbackFrameCount>,
+    pending: Res<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>,
+    mut ledger: ResMut<ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences>,
+) {
+    if pending.peek().is_some_and(|operation| operation.frame == frame.0) {
+        ledger.consume([ambition_platformer2d::platformer::sim_id::SimId::placement(PREPARATION_ITEM)]);
+    }
+}
+
+#[test]
+fn peers_refuse_a_destination_occurrence_changed_after_preparation_capture() {
+    let control = doors_under_a_peer_session_with(1, 30, SimulatesWhileFrozen::Never,
+        destination_with_a_continuity_item);
+    assert_eq!(control.healths, [Ok(()), Ok(())]);
+    for crossings in &control.crossings {
+        assert_eq!(crossings[&0].after.as_ref().unwrap().1.0, Some(control.first.next()));
+    }
+    let changed = doors_under_a_peer_session_with(1, 30, SimulatesWhileFrozen::Never, |app| {
+        destination_with_a_continuity_item(app);
+        app.add_systems(GgrsSchedule, consume_destination_item_after_capture.after(
+            ambition_platformer2d::platformer::schedule::GameplaySimulationRoot));
+    });
+    assert_eq!(changed.healths, [Ok(()), Ok(())]);
+    assert!(changed.differing.is_empty(), "confirmed room state differs: {:?}", changed.differing);
+    assert!(changed.rollbacks > 0, "the delayed link did not exercise prediction");
+    let intact = (vec![(changed.first, ROOM.to_owned())],
+        (Some(changed.first), Some(Some(changed.first))));
+    for crossings in &changed.crossings {
+        assert_eq!(crossings[&0].after.as_ref(), Some(&intact));
+        assert_eq!(crossings[&0].slot_free_after, Some(true));
+    }
+}
+
 #[derive(Resource, Default)]
 struct RetiredPromiseReceipts(usize);
 

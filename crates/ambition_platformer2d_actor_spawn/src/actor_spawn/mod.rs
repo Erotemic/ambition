@@ -93,7 +93,7 @@ use bevy::prelude::{Message, Name};
 /// [`ambition_interaction::Interactable`] payload, so they stay room-authored
 /// until a programmatic use case lands (the "add knobs when use cases land"
 /// rule).
-#[derive(Message, Clone, Debug)]
+#[derive(Message, Clone, Debug, serde::Serialize)]
 pub struct SpawnActorRequest {
     /// Stable feature id. Must be unique per live spawn so per-entity systems
     /// (targeting, encounter bookkeeping, save sync) don't collide on identity.
@@ -127,7 +127,7 @@ pub struct SpawnActorRequest {
 }
 
 /// The actor family a [`SpawnActorRequest`] materializes.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub enum SpawnActorKind {
     /// A boss, resolved through the same behavior-profile lookup as a room
     /// `BossSpawn`. `brain` pins the encounter (`PhaseScript { script_id }`) or

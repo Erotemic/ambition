@@ -11,7 +11,7 @@ use bevy::prelude::Component;
 /// Ordering gives snapshots a canonical entity sequence. Every `SimId` also
 /// requires a [`SimIdCounter`], so any identified entity can mint deterministic
 /// descendants. Required components do not overwrite restored counter values.
-#[derive(Component, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Component, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize)]
 #[require(SimIdCounter)]
 pub struct SimId(String);
 

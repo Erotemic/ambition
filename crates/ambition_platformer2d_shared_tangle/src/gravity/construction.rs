@@ -32,7 +32,7 @@ const OWNER: &str = env!("CARGO_PKG_NAME");
 const SCHEMA: &str = "gravity-zone-construction-v1";
 
 /// Fully resolved facts needed to construct one authored gravity zone.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
 pub struct GravityZoneConstructionParams {
     pub name: String,
     /// World-space centre of the region.
@@ -50,7 +50,7 @@ pub struct GravityZoneConstructionParams {
 }
 
 /// A gravity zone stands alone: it has no inter-root relation vocabulary.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize)]
 pub enum GravityZoneConstructionRelation {}
 
 /// Closed construction domain for gravity-owned authoritative roots.

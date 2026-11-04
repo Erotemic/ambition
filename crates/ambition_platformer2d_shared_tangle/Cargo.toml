@@ -12,6 +12,7 @@ description = "Reusable, content-free platformer runtime primitives (lifecycle v
 crate-type = ["rlib"]
 
 [dependencies]
+serde = { workspace = true }
 # Authored projectile intent lives on a lower floor than projectile physics.
 # This crate re-exports it for compatibility; authoritative spawn requests are
 # owned by `ambition_projectiles`, not by the VFX domain.

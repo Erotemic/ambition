@@ -52,7 +52,7 @@ pub struct SummonSpec {
 /// A summon names its calling instead of its aggression or a marker type: the
 /// emitter states intent and the executor, which builds the body, decides what
 /// that intent is made of.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize)]
 pub enum SummonCalling {
     /// Called into its summoner's fight (a boss's minion, a ride). It fights
     /// along faction lines and knows where its quarry is.

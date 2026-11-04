@@ -1147,6 +1147,7 @@ dependencies = [
  "ambition_sprite_sheet",
  "ambition_vfx",
  "bevy",
+ "serde",
 ]
 
 [[package]]
@@ -1213,6 +1214,7 @@ dependencies = [
  "ambition_shrine",
  "ambition_sprite_sheet",
  "bevy",
+ "serde",
 ]
 
 [[package]]
@@ -1536,6 +1538,7 @@ dependencies = [
  "ambition_sim_schedule",
  "ambition_time",
  "bevy",
+ "serde",
  "tracing",
 ]
 

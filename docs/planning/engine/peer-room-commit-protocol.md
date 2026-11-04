@@ -83,13 +83,16 @@ its peer-stable projection. Schema 411 records this change. Guard:
 There is no second canonical codec for this local state.
 A checkpoint restore still uses the current peer barrier.
 
-The current construction-plan ID includes local content epochs. It is useful
-for local cache and staleness checks. A peer promise needs a projection of the
-same frozen plan with peer content identity in place of local epochs. Do not
-send a hash of the local plan ID as proof that peers prepared the same plan.
-Actor row summaries also omit execution inputs, such as staged positions.
-They are diagnostics. The shared plan projection must cover complete payloads
-and the frozen catalogs that constructors read.
+Local construction-plan IDs bind the authored room and complete resolved
+parameters and relations from the actor, gravity, and optional portal lanes.
+They also include local content bindings, so they remain local cache keys.
+The raw data projection excludes activation counters; inspection summaries
+are not fingerprint input. Guards include staged position/health, limb relations,
+portal-pair selection, map order, and equal data under different local histories.
+
+A peer promise must bind this data to the exact frozen services and constructor
+schemas. That agreement, commit dependency checks, and retained promises remain
+open. Do not send the local plan ID as proof of peer preparation.
 
 ## Operation identity and preparation
 

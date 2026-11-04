@@ -147,7 +147,7 @@ impl BossEncounter {
 /// `update_boss_encounters` (hp / size / phase triggers) and by
 /// `sync_boss_encounter_entities` (the encounter opt-out). `Default` is no
 /// tweaks (use the archetype profile).
-#[derive(bevy::prelude::Component, Clone, Debug, Default)]
+#[derive(bevy::prelude::Component, Clone, Debug, Default, serde::Serialize)]
 pub struct BossOverrides {
     /// Override max HP (also the starting HP). `None`  the profile's `max_hp`.
     pub max_hp: Option<i32>,

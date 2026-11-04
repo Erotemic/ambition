@@ -7,6 +7,7 @@ authors.workspace = true
 description = "Actor construction planning: lower a room's placements and staged actors into a checked construction plan, with the recipes and relations that build them."
 
 [dependencies]
+serde = { workspace = true }
 ambition_body_seed = { path = "../ambition_body_seed" }
 ambition_boss_encounter = { path = "../ambition_boss_encounter" }
 ambition_characters = { path = "../ambition_characters" }

@@ -22,7 +22,7 @@ const OWNER: &str = env!("CARGO_PKG_NAME");
 const SCHEMA: &str = "portal-gun-construction-v1";
 
 /// Fully resolved facts needed to construct one authored portal-gun pickup.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
 pub struct PortalGunConstructionParams {
     pub name: String,
     pub pos: Vec2,
@@ -33,7 +33,7 @@ pub struct PortalGunConstructionParams {
 }
 
 /// Portal-gun pickup construction has no inter-root relation vocabulary.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize)]
 pub enum PortalGunConstructionRelation {}
 
 /// Closed construction domain for portal-gun-owned authoritative roots.
@@ -191,4 +191,25 @@ mod tests {
         assert_eq!(pickup.arm_timer, 0.0);
         assert_eq!(plan.lane().as_str(), PORTAL_GUN_CONSTRUCTION_DOMAIN);
     }
+    #[test]
+    fn a_guns_pair_is_part_of_its_complete_payload() {
+        let build = |pair| PortalGunConstructionPlan::prepare_in_lane(
+            ConstructionScope::in_generation(ContentBinding::content_unstated(Default::default()), Some("room".into())),
+            ConstructionLane::named(PORTAL_GUN_CONSTRUCTION_DOMAIN),
+            [PortalGunConstructionRequest {
+                sim_id: SimId::placement("gun"),
+                origin: SpawnOrigin::Authored { source: "room".into(), instance: "gun".into() },
+                parameters: PortalGunConstructionParams {
+                    name: "gun".into(), pos: Vec2::new(10.0, 20.0),
+                    half_extent: Vec2::splat(8.0), pair,
+                },
+                relations: vec![],
+            }], &BTreeSet::new(), &portal_gun_construction_registry(),
+        ).unwrap();
+        let first = build(0);
+        let other = build(1);
+        assert_eq!(first.deterministic_dump(), other.deterministic_dump());
+        assert_ne!(first.payload_bytes().unwrap(), other.payload_bytes().unwrap());
+    }
+
 }

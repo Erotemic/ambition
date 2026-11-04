@@ -112,7 +112,7 @@ pub fn relation_mount() -> RelationKind {
 /// the variant now, so `kind: ambition.limb` beside `payload: Grudge` — which
 /// passed preparation and blew up inside the wiring function mid-commit — is no
 /// longer expressible.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
 pub enum ActorRelation {
     /// A grudge is fully described by who resents whom.
     Grudge,
@@ -133,7 +133,7 @@ pub enum ActorRelation {
 /// item's `HeldItemSpec`, not its registry id; the minion's faction, not the
 /// `HitSide` it was authored as. Resolution belongs to planning, so execution
 /// has no lookup that can fail.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub enum ActorConstructionParams {
     GroundItem {
         spec: ambition_platformer2d_world::rooms::GroundItemSpec,
@@ -193,6 +193,7 @@ pub enum ActorConstructionParams {
     Placement {
         record: ambition_platformer2d_world::placements::PlacementRecord,
         paths: Vec<(String, ambition_platformer2d_core::KinematicPath)>,
+        #[serde(skip)]
         lower: crate::placements::LoweringFn,
     },
     /// Now it is a plan row like everything else in the room.
@@ -204,7 +205,7 @@ pub enum ActorConstructionParams {
 pub use ambition_characters::summon::SummonCalling;
 
 /// A minion resolved from `SummonRequest`.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct SummonedMinionParams {
     /// Stable feature id, which is what per-entity systems (targeting,
     /// encounter bookkeeping) join on. Distinct from the row's `SimId`, which

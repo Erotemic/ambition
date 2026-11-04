@@ -4,6 +4,10 @@
 //! on the rollback backend. Backend-specific storage strategies remain above
 //! this foundation.
 
+/// Canonical projection of immutable prepared data. Rollback state uses
+/// [`SnapshotState`] and its existing domain codecs.
+pub mod canonical;
+
 /// A deterministic, process-stable FNV-1a 64-bit hash.
 #[derive(Clone, Copy, Debug)]
 pub struct StateHasher(u64);

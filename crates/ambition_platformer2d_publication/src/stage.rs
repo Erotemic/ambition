@@ -11,7 +11,6 @@
 //! is not a second construction authority.
 
 use std::collections::BTreeSet;
-use std::hash::{Hash, Hasher};
 
 use bevy::ecs::entity::Entity;
 use bevy::prelude::{Commands, Resource};
@@ -655,30 +654,26 @@ impl RoomConstructionPlan {
 
 }
 
-/// Identity of one prepared room-construction artifact, from EVERY frozen
-/// world-defining preparation product — not just the authored source.
-///
-/// `deterministic_dump()` is the canonical rendering of exactly that derived surface (schema
-/// version, content binding/epoch, every plan row with recipe + origin + parameter summary,
-/// every relation with its canonical payload), so folding it in makes the id a function of the
-/// complete frozen plan.
-///
-/// Moving platforms and kinematic paths are pure functions of the spec, so the spec JSON
-/// already covers them. Deliberately EXCLUDED: `SessionSpawnScope` / `TransactionId`
-/// (commit-time, not frozen-plan), `Entity` values, and anything process-local.
+/// Identity of the authored room, resolved payloads, and local content bindings.
+/// Session ownership is supplied at commit and does not enter this cache key.
 fn construction_plan_id(
     spec: &RoomSpec,
     features: &RoomFeatureConstructionPlan,
 ) -> RoomConstructionPlanId {
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    spec.id.hash(&mut hasher);
-    // RoomSpec is the canonical authored room artifact; JSON avoids depending
-    // on map insertion order because its fields are vectors/ordered values.
-    serde_json::to_vec(spec)
-        .expect("RoomSpec serialization must succeed for construction identity")
-        .hash(&mut hasher);
-    features.construction_deterministic_dump().hash(&mut hasher);
-    RoomConstructionPlanId(format!("room-plan:{:016x}", hasher.finish()))
+    let scope = features.construction().scope();
+    let binding = |binding: ambition_platformer2d_shared_tangle::construction::ContentBinding| (
+        binding.content_epoch().map(|epoch| epoch.0),
+        binding.peer_content().map(|content| *content.as_bytes()),
+    );
+    let authored = ambition_platformer2d_core::snapshot::canonical::encode(&(
+        "room-construction-id-v2", spec,
+        binding(scope.incoming()), binding(scope.expected_live()),
+    )).expect("room construction data must serialize");
+    let payload = features.construction_payload_bytes()
+        .expect("resolved construction parameters must serialize");
+    let hash = ambition_platformer2d_core::snapshot::PeerDigest::in_domain("room-construction-plan-v2")
+        .bytes(&authored).bytes(&payload).finish();
+    RoomConstructionPlanId(format!("room-plan:{hash:016x}"))
 }
 
 #[cfg(test)]
@@ -761,6 +756,66 @@ mod tests {
             a.predicted_authoritative_ids(),
             b.predicted_authoritative_ids()
         );
+    }
+
+    #[test]
+    fn staged_position_and_health_change_identity_with_the_same_room_and_summary() {
+        let sprites = ambition_sprite_sheet::test_support::shared_sprites();
+        let spec = empty_spec("staged-payload");
+        let recipes = ambition_platformer2d_construction::engine_construction_registry();
+        let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
+        let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
+        let bosses = ambition_boss_encounter::test_boss_catalog();
+        let prepare = |pos, health| {
+            let mut staging = features::RoomContentStagingRegistry::default();
+            staging.register("staged-payload", "fixture", "boss", "fixture.boss.v1", move |_| {
+                vec![ambition_platformer2d_actor_spawn::SpawnActorRequest {
+                    id: "boss".into(), name: "clockwork_warden".into(), pos,
+                    half_size: ae::Vec2::splat(24.0),
+                    faction: ambition_characters::actor::ActorFaction::Enemy,
+                    grudge_against: None,
+                    kind: ambition_platformer2d_actor_spawn::SpawnActorKind::Boss {
+                        brain: ambition_entity_catalog::placements::BossBrain::Dormant,
+                        overrides: ambition_boss_encounter::BossOverrides {
+                            max_hp: Some(health), ..Default::default()
+                        },
+                    },
+                }]
+            }).unwrap();
+            RoomConstructionPlan::prepare_spec(
+                0, spec.clone(), &PlacementLoweringRegistry::default(), &staging,
+                &bosses, SessionSpawnScope::UNSCOPED,
+                features::ActorConstructionContext::new(
+                    &sprites, &recipes, &catalog, &sheets,
+                    ContentBinding::content_unstated(Default::default()),
+                ).with_prepared(fixture_cast()),
+            ).unwrap()
+        };
+        let first = prepare(ae::Vec2::new(20.0, 30.0), 40);
+        let equal = prepare(ae::Vec2::new(20.0, 30.0), 40);
+        assert_eq!(first.id(), equal.id());
+        for changed in [prepare(ae::Vec2::new(70.0, 30.0), 40), prepare(ae::Vec2::new(20.0, 30.0), 80)] {
+            assert_eq!(serde_json::to_value(first.features.room()).unwrap(), serde_json::to_value(changed.features.room()).unwrap());
+            assert_eq!(first.features.construction_deterministic_dump(), changed.features.construction_deterministic_dump());
+            assert_ne!(first.id(), changed.id(), "resolved execution inputs did not reach the plan key");
+        }
+    }
+
+    #[test]
+    fn capability_payloads_are_part_of_room_identity() {
+        let sprites = ambition_sprite_sheet::test_support::shared_sprites();
+        let mut spec = empty_spec("gravity-payload");
+        spec.gravity_zones.push(ambition_platformer2d_world::rooms::GravityZoneSpec {
+            id: "gravity".into(), name: "gravity".into(),
+            center: ae::Vec2::new(80.0, 80.0), half_extent: ae::Vec2::splat(20.0),
+            dir: ae::Vec2::Y, oscillate_amplitude: 0.0, oscillate_freq: 0.0,
+        });
+        let first = prepare(&sprites, spec.clone()).unwrap();
+        spec.gravity_zones[0].dir = ae::Vec2::X;
+        let other = prepare(&sprites, spec).unwrap();
+        assert_eq!(first.features.construction().payload_bytes().unwrap(), other.features.construction().payload_bytes().unwrap());
+        assert_ne!(first.features.construction_payload_bytes().unwrap(), other.features.construction_payload_bytes().unwrap());
+        assert_ne!(first.id(), other.id());
     }
 
     #[cfg(feature = "portal")]
@@ -917,31 +972,26 @@ mod tests {
         giant_spec_sized(id, 60.0)
     }
 
-    /// The plan id tracks the DERIVED construction surface, not just the
-    /// authored spec. Two rosters that differ only in the giant's body size
-    /// produce byte-identical `RoomSpec`s but different hand `home_offset`
-    /// relation payloads — materially different prepared worlds. The previous id
-    /// (spec JSON + authored id set) collided them.
+    /// The same authored room can have different resolved limb positions.
     #[test]
     fn the_plan_id_tracks_the_derived_relation_payloads() {
-    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
-        let small = prepare_with(&sprite_content,
-            giant_spec_sized("arena", 60.0),
-            &giant_cast(Some("giant")),
-            ae::ContentEpoch(4),
-        )
-        .expect("small-giant plan");
-        let large = prepare_with(&sprite_content,
-            giant_spec_sized("arena", 70.0),
-            &giant_cast(Some("giant")),
-            ae::ContentEpoch(4),
-        )
-        .expect("large-giant plan");
-        assert_ne!(
-            small.id(),
-            large.id(),
-            "different hand offsets are different prepared worlds"
-        );
+        let sprites = ambition_sprite_sheet::test_support::shared_sprites();
+        let original = giant_cast(Some("giant"));
+        let mut changed = original.clone();
+        let mut giant = changed.get("giant_gnu").unwrap().clone();
+        giant.hands.as_mut().unwrap().rest = Some((90.0, 20.0));
+        changed.insert_prepared(giant);
+        let first = prepare_with(&sprites, giant_spec("arena"), &original, ae::ContentEpoch(4)).unwrap();
+        let other = prepare_with(&sprites, giant_spec("arena"), &changed, ae::ContentEpoch(4)).unwrap();
+        assert_eq!(serde_json::to_value(first.features.room()).unwrap(), serde_json::to_value(other.features.room()).unwrap());
+        let relations = |plan: &RoomConstructionPlan| {
+            plan.features.construction().relations().iter()
+                .map(|row| ambition_platformer2d_core::snapshot::canonical::encode(row.relation()).unwrap())
+                .collect::<Vec<_>>()
+        };
+        assert_ne!(relations(&first), relations(&other));
+        assert_ne!(first.features.construction_payload_bytes().unwrap(), other.features.construction_payload_bytes().unwrap());
+        assert_ne!(first.id(), other.id());
     }
 
     /// The id also tracks the giant-vs-ordinary shape of the plan itself: the

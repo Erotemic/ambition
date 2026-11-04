@@ -968,8 +968,20 @@ impl RoomFeatureConstructionPlan {
         self.capability_lanes.gravity()
     }
 
-    /// Canonical construction fingerprint material for every lane this room
-    /// prepared. The actor lane remains primary; optional capabilities append
+    /// Complete resolved data for all construction lanes.
+    pub fn construction_payload_bytes(&self) -> Result<Vec<u8>, ambition_platformer2d_core::snapshot::canonical::Error> {
+        let mut lanes = vec![self.construction.payload_bytes()?];
+        self.capability_lanes.append_payloads(&mut lanes)?;
+        let mut out = Vec::new();
+        ambition_platformer2d_core::snapshot::put_u64(&mut out, lanes.len() as u64);
+        for lane in lanes {
+            ambition_platformer2d_core::snapshot::put_u64(&mut out, lane.len() as u64);
+            out.extend_from_slice(&lane);
+        }
+        Ok(out)
+    }
+
+    /// Diagnostic construction summaries for every lane this room prepared. The actor lane remains primary; optional capabilities append
     /// independently typed named lanes without entering the actor enum.
     pub fn construction_deterministic_dump(&self) -> String {
         use std::fmt::Write as _;

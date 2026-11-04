@@ -59,7 +59,7 @@ impl std::fmt::Display for RecipeId {
 /// `RecipeId` inside two of the variants, but the planned row already names the
 /// recipe; storing it twice creates a state where the two can disagree and
 /// nothing says which wins.
-#[derive(Component, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Component, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize)]
 pub enum SpawnOrigin {
     /// An authored declaration: `source` is the authored artifact it was
     /// declared in (a room id), `instance` the stable declaration within it (an
@@ -129,7 +129,7 @@ impl SpawnOrigin {
 /// executed against the wrong world.
 pub trait ConstructionDomain: Send + Sync + 'static + Sized {
     /// What one planned row carries into its recipe.
-    type Parameters: Clone + Send + Sync + 'static;
+    type Parameters: Clone + serde::Serialize + Send + Sync + 'static;
     /// What one declared RELATION is — its kind and everything the pairing
     /// carries, as ONE value.
     ///
@@ -143,7 +143,7 @@ pub trait ConstructionDomain: Send + Sync + 'static + Sized {
     ///
     /// The kind is now DERIVED from this value by [`ConstructionDomain::dispatch_relation`], so
     /// the mismatch is not a state that can be written down.
-    type Relation: Clone + Send + Sync + 'static;
+    type Relation: Clone + serde::Serialize + Send + Sync + 'static;
     /// Frozen services recipes read at execution time. Whatever a domain puts
     /// here is captured before the plan commits, so execution has no fallible
     /// lookup left.
@@ -189,18 +189,12 @@ pub trait ConstructionDomain: Send + Sync + 'static + Sized {
     /// resolved in the request builder.
     fn dispatch_relation(relation: &Self::Relation) -> RelationDispatch<Self>;
 
-    /// Byte-stable one-line rendering of a row's parameters for the plan dump.
+    /// One-line inspection text for a row's parameters.
     /// Must not include tabs or newlines.
     fn canonical_summary(parameters: &Self::Parameters) -> String;
 
-    /// Byte-stable rendering of a relation's carried facts for the plan dump.
-    /// Must not include tabs or newlines.
-    ///
-    /// In the dump because it is content: two plans whose limbs fill different
-    /// slots describe different worlds, and a dump that rendered them
-    /// identically would call them the same plan. The KIND is dumped separately
-    /// from [`RelationDispatch::kind`], so this renders only what the kind does
-    /// not already say.
+    /// One-line inspection text for a relation's carried facts.
+    /// Complete identity uses serialized data through [`ConstructionPlan::payload_bytes`].
     fn canonical_relation_summary(relation: &Self::Relation) -> String;
 }
 
@@ -2209,6 +2203,21 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         };
         (planned.construct)(&planned.parameters, &mut root_ctx);
         root
+    }
+
+    /// Complete resolved data, independent of local activation counters.
+    /// The caller binds the selected content and constructor schemas separately.
+    /// Diagnostic summaries do not participate in this projection.
+    pub fn payload_bytes(&self) -> Result<Vec<u8>, ambition_platformer2d_core::snapshot::canonical::Error> {
+        let entities: Vec<_> = self.entities.iter().map(|entity| (
+            entity.sim_id.as_str(), entity.recipe.as_str(), &entity.origin, &entity.parameters,
+        )).collect();
+        let relations: Vec<_> = self.relations.iter().map(|relation| (
+            relation.from.as_str(), relation.kind.as_str(), relation.to.as_str(), &relation.relation,
+        )).collect();
+        ambition_platformer2d_core::snapshot::canonical::encode(&(
+            "construction-payload-v1", self.scope.room.as_deref(), self.lane.as_str(), entities, relations,
+        ))
     }
 
     /// Byte-stable inspection surface, in the same tab-delimited shape as

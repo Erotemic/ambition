@@ -17,7 +17,7 @@ use bevy::prelude::Component;
 /// multiplayer-aware targeting (#17.8) and the unified projectile
 /// faction merge (#17.7) can move off type-pattern-matching onto a
 /// uniform query filter.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize)]
 pub enum ActorFaction {
     /// Local or remote player-controlled actor.
     #[default]

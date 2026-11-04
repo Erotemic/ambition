@@ -241,6 +241,22 @@ impl CapabilityLanes {
         out.extend(portal.planned_ids());
     }
 
+    /// Append each complete payload in the same lane order as construction.
+    pub(crate) fn append_payloads(
+        &self,
+        out: &mut Vec<Vec<u8>>,
+    ) -> Result<(), ambition_platformer2d_core::snapshot::canonical::Error> {
+        let Self {
+            gravity,
+            #[cfg(feature = "portal")]
+            portal,
+        } = self;
+        out.push(gravity.payload_bytes()?);
+        #[cfg(feature = "portal")]
+        out.push(portal.payload_bytes()?);
+        Ok(())
+    }
+
     /// Append every lane to the room's canonical dump, in field order.
     pub(crate) fn write_deterministic_dump(&self, out: &mut String) {
         use ambition_platformer2d_shared_tangle::gravity::construction as gravity_domain;

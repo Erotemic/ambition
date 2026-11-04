@@ -23,7 +23,7 @@ struct Built(String);
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 struct Grudge(Entity);
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 struct Params {
     label: String,
 }
@@ -77,7 +77,7 @@ impl ConstructionDomain for Toy {
 /// What one toy relation IS. A one-variant enum is still the right shape: the
 /// KIND is derived from it, so a request cannot name a kind that disagrees with
 /// what it carries.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 enum ToyRelation {
     Grudge,
 }
@@ -4152,4 +4152,19 @@ fn a_derived_insert_reads_what_the_same_batch_wrote_before_it() {
         "the derived value is of the box the batch had written when the command landed",
     );
     assert_eq!(world.get::<Quad>(absent), None, "a derivation with no answer inserted a component");
+}
+
+#[test]
+fn payload_identity_has_no_local_activation_history() {
+    let build = |epoch, rows| ConstructionPlan::prepare(
+        ConstructionScope::in_generation(
+            ContentBinding::content_unstated(ambition_platformer2d_core::ContentEpoch(epoch)),
+            Some("room_a".into()),
+        ), rows, &nothing_live(), &registry(),
+    ).unwrap();
+    let a = build(7, vec![request("a"), request("b")]);
+    let b = build(90, vec![request("b"), request("a")]);
+    assert_ne!(a.deterministic_dump(), b.deterministic_dump());
+    assert_eq!(a.payload_bytes().unwrap(), b.payload_bytes().unwrap());
+    assert_ne!(a.payload_bytes().unwrap(), a.emptied().payload_bytes().unwrap());
 }

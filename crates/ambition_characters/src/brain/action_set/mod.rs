@@ -111,7 +111,7 @@ impl ActionSet {
 /// instead of a hardcoded id-chain in `item_pickup::throw_held_item_system`
 /// (Refactor 5). The narrow vocabulary the "Pick-up / throw held items" item
 /// named; not a generic plugin system.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum HeldUseBehavior {
     /// Derive from the verbs: an item WITH a melee/ranged verb keeps on use
     /// (swing/fire); a verb-LESS item throws on use (the legacy
@@ -136,7 +136,7 @@ pub enum HeldUseBehavior {
 /// actor's `ActionSet`. The item id is intentionally data-authored so future
 /// item rows (axe, sword, thrown bomb, bow, etc.) can be added to RON without
 /// adding a Rust enum variant for each item.
-#[derive(Clone, Debug, Default, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct HeldItemSpec {
     /// Stable authored id used by visuals / projectile routing / future drops.
     pub id: String,

@@ -10,6 +10,7 @@ description = "Actor construction and spawn realization for Ambition platformer 
 crate-type = ["rlib"]
 
 [dependencies]
+serde = { workspace = true }
 ambition_body_seed = { path = "../ambition_body_seed" }
 ambition_boss_encounter = { path = "../ambition_boss_encounter" }
 ambition_characters = { path = "../ambition_characters" }

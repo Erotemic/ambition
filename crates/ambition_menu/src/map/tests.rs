@@ -524,6 +524,8 @@ mod view_tests {
                 node("tavern", 5000.0, 5000.0, 80.0, 40.0, &[], &[("street", 10.0)]),
             ],
             visited: visited.iter().map(|v| v.to_string()).collect(),
+            // These tests are about the player's map, with its fog of war.
+            reveal_all: false,
             ..Default::default()
         }
     }
@@ -590,6 +592,41 @@ mod view_tests {
         assert_eq!(view.beyond, MapBeyond::default(), "a region that fits shows whole");
     }
 
+    #[test]
+    fn the_developer_map_shows_the_whole_dimension_unlocked() {
+        let mut map = town(&[]);
+        map.rooms[1].secret_exits.push("street".to_string());
+        map.rooms[0].secret_exits.push("field".to_string());
+        // A room of another dimension (world) is not drawn.
+        let mut elsewhere = node("elsewhere", 0.0, 0.0, 100.0, 100.0, &[], &[]);
+        elsewhere.world = "other".to_string();
+        map.rooms.push(elsewhere);
+        map.reveal_all = true;
+        let view = map_view(&map, "street", 1.5).expect("the street is on the map");
+        let mut shown: Vec<(&str, bool)> = view.rooms.iter().map(|r| (r.id.as_str(), r.visited)).collect();
+        shown.sort();
+        // Every room of the dimension, the far one, the secret one and the
+        // tavern behind its door too, all as visited; nothing from the other world.
+        assert_eq!(
+            shown,
+            [("far", true), ("field", true), ("moor", true), ("street", true), ("tavern", true)]
+        );
+        assert_eq!(view.pins.len(), 5, "every room's pins");
+        // Control: the same map with fog shows less.
+        map.reveal_all = false;
+        assert!(map_view(&map, "street", 1.5).unwrap().rooms.len() < 5);
+    }
+
+    #[test]
+    fn the_developer_map_is_the_default_and_fits_the_whole_dimension() {
+        assert_eq!(MapMenuState::default().reveal_all, super::super::DEVELOPER_MAP_BY_DEFAULT);
+        let mut map = corridor();
+        map.reveal_all = true;
+        let view = map_view(&map, "r15", 1.5).unwrap();
+        assert_eq!(view.rooms.len(), 30, "no window: the whole corridor");
+        assert_eq!(view.beyond, MapBeyond::default());
+    }
+
     /// A corridor of 30 rooms, each 1600 wide, all visited.
     fn corridor() -> MapMenuState {
         let ids: Vec<String> = (0..30).map(|i| format!("r{i}")).collect();
@@ -601,6 +638,7 @@ mod view_tests {
                 })
                 .collect(),
             visited: ids.iter().cloned().collect(),
+            reveal_all: false,
             ..Default::default()
         }
     }

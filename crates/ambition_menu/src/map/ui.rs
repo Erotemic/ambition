@@ -233,7 +233,7 @@ pub fn sync_map_menu(
     }
     if let Ok(mut text) = status.single_mut() {
         text.set_if_neq(Text(format!(
-            "{} of {} rooms visited — {} active   |   zoom {:.2}x   (+ / − adjust, 0 reset)",
+            "{} of {} rooms visited — {} active   |   zoom {:.2}x   (+ / − adjust, 0 reset)   |   {}",
             rooms
                 .iter()
                 .filter(|node| map.visited.contains(&node.id))
@@ -241,6 +241,7 @@ pub fn sync_map_menu(
             rooms.len(),
             active_id,
             map.zoom,
+            if map.reveal_all { "developer map: all rooms (F: fog of war)" } else { "fog of war (F: developer map)" },
         )));
     }
 

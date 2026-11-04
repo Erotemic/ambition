@@ -118,6 +118,8 @@ fn a_false_wall_in_the_kitchens_hides_the_guild_room() {
         let map = MapMenuState {
             rooms: project.0.levels.iter().map(map_room_node).collect(),
             visited: visited.iter().map(|v| v.to_string()).collect(),
+            // The player's map: a secret room is hidden by its fog of war.
+            reveal_all: false,
             ..Default::default()
         };
         map_view(&map, KITCHENS, 1.7).expect("the kitchens are on the map").rooms.iter().map(|r| r.id.clone()).collect()

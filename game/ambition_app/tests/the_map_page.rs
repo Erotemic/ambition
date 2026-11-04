@@ -15,7 +15,8 @@ use crate::the_pirate_port::a_session_in;
 fn authored_map() -> MapMenuState {
     let app = a_session_in("pirate_port_waterfront");
     let project = app.world().resource::<ActiveLdtkProject>();
-    MapMenuState { rooms: project.0.levels.iter().map(map_room_node).collect(), ..Default::default() }
+    // The player's map, with its fog of war (the developer map shows all).
+    MapMenuState { rooms: project.0.levels.iter().map(map_room_node).collect(), reveal_all: false, ..Default::default() }
 }
 
 fn region_of(map: &MapMenuState, room: &str) -> Vec<String> {

@@ -45,7 +45,16 @@ pub struct MapMenuState {
     pub visited: BTreeSet<String>,
     pub rooms: Vec<MapRoomNode>,
     pub zoom: f32,
+    /// The developer map: the whole dimension, every room shown as visited,
+    /// with no fog of war (`view::map_view`). `F` on the open map toggles it.
+    pub reveal_all: bool,
 }
+
+/// Whether a new map starts as the developer map. Jon, 2026-11-03: "while
+/// developing the game, I want the map view to show the entire dimension and
+/// be fully unlocked by default." Set it to `false` to give players the fog
+/// of war again.
+pub const DEVELOPER_MAP_BY_DEFAULT: bool = true;
 
 impl Default for MapMenuState {
     fn default() -> Self {
@@ -55,6 +64,7 @@ impl Default for MapMenuState {
             visited: BTreeSet::new(),
             rooms: Vec::new(),
             zoom: 1.0,
+            reveal_all: DEVELOPER_MAP_BY_DEFAULT,
         }
     }
 }
@@ -70,6 +80,10 @@ impl MapMenuState {
 
     pub fn toggle_minimap(&mut self) {
         self.minimap_enabled = !self.minimap_enabled;
+    }
+
+    pub fn toggle_reveal_all(&mut self) {
+        self.reveal_all = !self.reveal_all;
     }
 
     pub fn zoom_in(&mut self) {

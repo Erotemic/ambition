@@ -129,16 +129,26 @@ pub fn region(rooms: &[MapRoomNode], start: usize) -> Vec<usize> {
 /// to from a visited one is drawn as not yet visited, unless the only ways to
 /// it are secret (`MapRoomNode::secret_exits`); the rest of the region is not
 /// drawn. The current room counts as visited.
+///
+/// The developer map (`MapMenuState::reveal_all`) has no fog: it draws every
+/// room of the dimension (the world file), buildings and secret rooms too, all
+/// as visited, and the whole dimension fits the frame.
 pub fn map_view(state: &MapMenuState, current: &str, aspect: f32) -> Option<MapView> {
     let rooms = &state.rooms;
     let here = find(rooms, current)?;
     let here_title = rooms[here].title.clone();
-    let mut region_rooms = region(rooms, here);
+    let reveal_all = state.reveal_all;
+    let mut region_rooms = if reveal_all {
+        (0..rooms.len()).filter(|&i| rooms[i].world == rooms[here].world).collect()
+    } else {
+        region(rooms, here)
+    };
     let mut anchor = here;
     let mut inside = None;
     let mut door_at = None;
-    // Inside a building of one room: the region outside, by its door.
-    if region_rooms.len() == 1 {
+    // Inside a building of one room: the region outside, by its door. The
+    // developer map draws the building itself, so it needs no stand-in.
+    if !reveal_all && region_rooms.len() == 1 {
         let outside = rooms.iter().enumerate().find_map(|(i, room)| {
             (i != here).then_some(())?;
             let door = room.doors.iter().find(|door| door.target_room == rooms[here].id || door.target_room == rooms[here].area)?;
@@ -151,7 +161,9 @@ pub fn map_view(state: &MapMenuState, current: &str, aspect: f32) -> Option<MapV
             door_at = Some(rooms[outside].world_min + at);
         }
     }
-    let visited = |i: usize| i == here || i == anchor || state.visited.contains(&rooms[i].id) || state.visited.contains(&rooms[i].area);
+    let visited = |i: usize| {
+        reveal_all || i == here || i == anchor || state.visited.contains(&rooms[i].id) || state.visited.contains(&rooms[i].area)
+    };
     // An edge exit joins both ways, whichever side names it. An open way is
     // one that is not secret.
     let is = |t: &String, to: usize| *t == rooms[to].id || *t == rooms[to].area;
@@ -169,7 +181,7 @@ pub fn map_view(state: &MapMenuState, current: &str, aspect: f32) -> Option<MapV
     let centre = door_at.unwrap_or(rooms[anchor].world_min + rooms[anchor].world_size * 0.5);
     let span = Vec2::new(MAP_MAX_SPAN, MAP_MAX_SPAN / aspect);
     let window = |lo: f32, hi: f32, centre: f32, span: f32| {
-        if hi - lo <= span {
+        if reveal_all || hi - lo <= span {
             return (lo, hi);
         }
         let c = centre.clamp(lo + span * 0.5, hi - span * 0.5);

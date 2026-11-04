@@ -11574,6 +11574,43 @@
                 hall: ["We cooked soup joumou for the masters and were not allowed to taste it. On the first of January 1804, all of Haiti ate it.", "Every first of January since, in every Haitian home in the world. UNESCO wrote it down in 2021. We never forgot."],
             ),
         ),
+        // The fort of the Door of No Return (wave A, the Atlantic world): a
+        // sober room. Ottobah Cugoano is real, taken from this coast at
+        // thirteen, later an author against the trade; the guide is original.
+        "npc_history_ottobah_cugoano": (
+            display_name: "Ottobah Cugoano",
+            // A Fante man (about 1757-after 1791) kidnapped at thirteen and shipped from this coast; free in London, he published a book against the slave trade in 1787.
+            manifest: "sprites/history_ottobah_cugoano_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "door_of_no_return", "peaceful"],
+            barks: (
+                idle: ["If there were no buyers, there would be no sellers.", "*he holds his book closed, one hand flat on the cover*", "I was thirteen."],
+                hall: ["I was taken from the Gold Coast at thirteen and shipped to Grenada. In London I was free, and in 1787 I published a book that said the trade must end, and every enslaved person be freed, now.", "We called ourselves the Sons of Africa: free Black men in London who wrote, petitioned and pulled people off the ships."],
+            ),
+        ),
+        "npc_history_castle_guide": (
+            display_name: "Castle Guide",
+            // An original guide of today at a trading castle on the Gold Coast; her family has fished from the beach outside for generations.
+            manifest: "sprites/history_castle_guide_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm.
+            standing_height: Some(64.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "door_of_no_return", "peaceful"],
+            barks: (
+                idle: ["Please walk slowly here.", "*she waits at the door until you are ready*", "Every number on these papers was a person."],
+                hall: ["From 1501 to 1866, about twelve and a half million people were forced onto ships for the Americas. About ten point seven million lived to land.", "The door goes one way. Today its sea side has a second sign: the Door of Return. The descendants come back through it as guests."],
+            ),
+        ),
         "npc_primeval_twitchell": (
             display_name: "Mildred Twitchell",
             // Watches the birds of the rookery from her hide.

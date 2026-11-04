@@ -101,6 +101,12 @@
         portal_sprite_name: "Cradle Gate Portal",
         ring_sprite_name: "Cradle Gate Ring",
     ),
+    // The History dimension's second ring, in Haiti (ANTILLES).
+    "history_ayiti_gate": (
+        command: Dialed,
+        portal_sprite_name: "Ayiti Gate Portal",
+        ring_sprite_name: "Ayiti Gate Ring",
+    ),
     // The Noodly Temple's narthex.
     "noodly_narthex_gate": (
         command: Dialed,

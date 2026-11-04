@@ -288,6 +288,8 @@ npc_history_lord_finders_keepers
 npc_history_toussaint_louverture
 npc_history_catherine_flon
 npc_history_soup_joumou_cook
+npc_history_ottobah_cugoano
+npc_history_castle_guide
 
 [Guests from history and the studio]
 npc_genghis_can

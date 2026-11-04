@@ -76,7 +76,7 @@ the record and sighs about the footnotes.
     R3 South Asia     south. route  mehrgarh        indus
     R4 Europe         ice age       first farmers   megaliths    celts       vikings     sail   industrial
     R5 Med./SW Asia   levant        crescent        uruk         classical
-    R6 Africa cradle  south. coast  green sahara    nile         aksum       timbuktu    benin
+    R6 Africa cradle  south. coast  green sahara    nile         aksum       timbuktu    benin  the fort
 
 The columns: C0 origins (300,000 years ago), C1 the great dispersal (70,000
 to 12,000 years ago), C2 the first farmers (10,000 to 3,000 BCE), C3 the
@@ -104,6 +104,7 @@ The rooms:
 | `history_aksum_and_kush` | `history_nile` | Kandake Can-Do | asp, mummy, scarab beetle | the ladder up: the Red Sea road to Rome |
 | `history_timbuktu_coast` | `history_monsoon` | Mansa Moolah, Zheng Hey | inflated coin, coral crab, monsoon squall | a dhow carries you over the sea |
 | `history_benin_city` | `history_benin` | the brass caster of Igun Street, Iyoba Idia, Lord Finders-Keepers | driver ants, asp | over the bank of the city walls (the iya); a plain sign for 1897 |
+| `history_door_of_no_return` | `history_gold_coast` | Ottobah Cugoano, the castle guide | (none: a sober room) | through the castle gate and the low dungeon to the Door of No Return, which goes one way, to Saint-Domingue; the way home from there is the ring ANTILLES in Haiti |
 | `history_levant` | `history_crescent` | Neville the Neanderthal | aurochs, cave lion | the ladders: down to Africa, up to Europe |
 | `history_fertile_crescent` | `history_crescent` | Hammurabbi, Gilgamash | locust swarm, aurochs, scorpion man | the sluice (`history_sluice`) raises the reed bridge over the canal |
 | `history_uruk` | `history_crescent` | Enheduanna | scorpion man, sea raider | the Bronze Age collapse: three Sea Peoples raiders |
@@ -245,7 +246,10 @@ Saint-Domingue).
   the same island, and Haiti took back its Taino name): the people who freed
   themselves (BUILT); the Door of No Return, a sober room of the Atlantic
   slave trade (C7, Africa), a fort whose door goes one way only, to
-  Saint-Domingue. Nothing brings you back that way.
+  Saint-Domingue (BUILT). Nothing brings you back that way; Haiti's ring
+  (ANTILLES) is the way home. Gates are the dimension's fast travel (Jon,
+  2026-11-03: "You can add gates for fast travel"): a far region can have
+  its own ring.
 - B. South America, up the Andes (a tall room from the first maize):
   Caral, the oldest city of the Americas (C3); Nazca and the Moche (C4);
   Tiwanaku and the Wari (C5); the Inca and the Qhapaq Nan (C6). The Aztecs

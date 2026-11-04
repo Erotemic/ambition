@@ -741,6 +741,23 @@
       "twinkle_rate": 0.6,
       "front": 0.3
     },
+    "history_gold_coast": {
+      "count": 10,
+      "velocity": [
+        -8.0,
+        -3.0
+      ],
+      "wander": 8.0,
+      "wander_rate": 0.25,
+      "size": [
+        1.0,
+        2.0
+      ],
+      "alpha": 0.4,
+      "twinkle": 0.3,
+      "twinkle_rate": 0.8,
+      "front": 0.3
+    },
     "history_lapita": {
       "count": 10,
       "velocity": [

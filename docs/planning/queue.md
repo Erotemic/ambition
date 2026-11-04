@@ -107,8 +107,9 @@ The 2026-11-03 request adds
 The retained-plan slice is committed in `48cb138c9`. Party travel is complete
 in `4cb723b8c` and `5ed9bb73a`. Gate connections work both ways and share an
 idle timer. Independent adaptive play remains the default. Ordinary online
-travel now runs without a session-wide hold. The next slice must complete
-rendered play witnesses, timing measurements, and the broader peer-room checks.
+travel now runs without a session-wide hold. Rendered combat and timing
+witnesses now pass. The next slice must complete the broader feature and
+tooling checks.
 
 ## Work order from the additional maintainer rulings of 2026-10-19
 
@@ -661,22 +662,11 @@ and same-room retention. The view tests cover focus release and live bindings.
 **Standing rule:** camera geometry must not decide mechanical travel. Use the
 native body-transfer path. Do not add a separate party transport or reset path.
 
-### PROVOKED-SOURCE-WITNESS — diagnose a source change in the rollback witness
-
-The broad rollback run and an isolated run both fail
-`rollback_provoked_actor::a_provoked_wounded_body_survives_the_real_rollback_window`.
-After the simulated window, the source is `CatalogDefault`; the arm expects
-`ProvokedProfile`. This result does not yet identify the writer or prove a codec
-failure.
-
-**Next action:** record source writes and body lifecycle changes in this arm.
-Fix the state owner or the fixture from that evidence. Keep the Hall generated;
-do not change its level or relax the assertion to hide the result.
-
 ### MULTIPLAYER-SEAMS — make local multiplayer safe for netplay
 
-**Remaining failure:** routine peer room commits still hold the whole session.
-Local input and presentation isolation now pass their behavior gates.
+**Remaining work:** complete broader feature and tooling verification for
+input-driven peer room commits. Local input and presentation isolation pass
+their behavior gates; ordinary crossings no longer hold the whole session.
 See the [cause and acceptance map](engine/local-coop-integration.md#follow-up-audit-co-op-works-but-participant-and-view-scope-leaks-2026-10-24)
 and [product decisions](game/multiplayer.md#local-co-op-behavior-decided-in-the-2026-10-24-playtest).
 
@@ -934,7 +924,8 @@ Do not restore primary-room geometry or global room covers.
 
 6. **Online no-global-hold lifecycle:** prove a routine peer door crossing
    commits on the shared input timeline without a whole-session hold or
-   rebase. Finish the rendered combat witness and timing measurements.
+   rebase. Rendered combat and timing witnesses pass (`dc303e611`).
+   Complete the broader feature and tooling checks.
    Track content identity, deterministic operation order, and peer readiness
    explicitly. Full-party reloads retain their global barrier.
 
@@ -1002,10 +993,15 @@ held (`dbc8f0cf2`). Each peer receives one arrival reset per crossing. Guard:
 `an_old_cover_does_not_block_the_next_peers_preparation_or_commit`.
 GPU captures also show concurrent loading UI in the two separate views.
 
-**Next step:** complete the rendered simultaneous-combat witness. Report input
-latency and commit cost apart from preparation and presentation time. Complete
-the broader feature and tooling checks before marking this slice complete.
-The broad rollback run still fails `PROVOKED-SOURCE-WITNESS`.
+Rendered combat and timing pass in both participant orders (`dc303e611`).
+Guards: `another_rooms_loading_does_not_block_gamepad_combat` and
+`another_rooms_loading_keeps_combat_visible`. Each crossing releases one arrival
+reset. [Measurements](../../dev/ambition_dev_measurements/summaries/2026-11-04-independent-room-loading-combat.md)
+separate raw-event response, commit cost, preparation, and cover retirement.
+
+**Next step:** complete the broader feature and tooling checks before marking
+this slice complete.
+The provoked-source fixture is corrected; its four rollback arms pass.
 The `LOCAL-PLAY-MODES` leave slice and `COOP-RECOVERY` remain separate work
 items; reuse their participant lifecycle and checkpoint rules, not duplicate
 them in this row.

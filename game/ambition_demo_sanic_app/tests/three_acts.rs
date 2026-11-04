@@ -304,7 +304,9 @@ fn the_three_acts_connect_and_clear() {
     );
     assert!(
         body(&mut app).0.pos.x < 400.0,
-        "Act 3 starts at its west end"
+        "Act 3 starts at its west end: body={:?}, spawn={:?}",
+        body(&mut app),
+        ambition_platformer2d::world::rooms::sole_live_room_spec(app.world()).unwrap().world.spawn
     );
     let mut portals = app
         .world_mut()

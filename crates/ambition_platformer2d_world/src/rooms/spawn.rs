@@ -119,39 +119,41 @@ pub fn spawn_near_body(
         })
 }
 
-/// Clamp and repair a proposed player spawn so transitions never place the
-/// player outside the room or embedded in solids.
-pub fn validated_spawn(world: &ae::World, desired: ae::Vec2, player_size: ae::Vec2) -> ae::Vec2 {
-    let half = player_size * 0.5;
+/// Clamp an arrival to the room and find the nearest clear point on the search grid.
+/// Search above and beside a blocked point.
+pub fn validated_spawn(world: &ae::World, desired: ae::Vec2, body_size: ae::Vec2) -> ae::Vec2 {
+    let half = body_size * 0.5;
     let base = clamp_spawn_to_room(world, desired, half);
     if body_clear(world, base, half, None) {
         return base;
     }
 
     const STEP: f32 = 8.0;
-    for y_step in 0..=96 {
-        let dy = -(y_step as f32) * STEP;
-        for x_step in 0..=96 {
-            if x_step == 0 {
-                let candidate =
-                    clamp_spawn_to_room(world, ae::Vec2::new(base.x, base.y + dy), half);
-                if body_clear(world, candidate, half, None) {
-                    return candidate;
-                }
-            } else {
-                for sign in [-1.0_f32, 1.0] {
-                    let dx = sign * x_step as f32 * STEP;
-                    let candidate =
-                        clamp_spawn_to_room(world, ae::Vec2::new(base.x + dx, base.y + dy), half);
-                    if body_clear(world, candidate, half, None) {
-                        return candidate;
+    let mut nearest: Option<(ae::Vec2, f32)> = None;
+    for radius in 1..=96 {
+        let reach = radius as f32 * STEP;
+        if nearest.is_some_and(|(_, distance)| reach * reach > distance) {
+            break;
+        }
+        // Each shell adds only its top and sides. A small vertical repair must
+        // be considered before a distant horizontal gap.
+        for y_step in (0..=radius).rev() {
+            let first_x = if y_step == radius { 0 } else { radius };
+            for x_step in first_x..=radius {
+                let dx = x_step as f32 * STEP;
+                for dx in [-dx, dx].into_iter().take(if x_step == 0 { 1 } else { 2 }) {
+                    let candidate = clamp_spawn_to_room(world,
+                        base + ae::Vec2::new(dx, -(y_step as f32) * STEP), half);
+                    let distance = (candidate - base).length_squared();
+                    if nearest.is_none_or(|(_, best)| distance < best)
+                        && body_clear(world, candidate, half, None) {
+                        nearest = Some((candidate, distance));
                     }
                 }
             }
         }
     }
-
-    base
+    nearest.map_or(base, |(point, _)| point)
 }
 
 fn clamp_spawn_to_room(world: &ae::World, pos: ae::Vec2, half: ae::Vec2) -> ae::Vec2 {
@@ -236,6 +238,20 @@ mod spawn_tests {
             got, desired,
             "an already-clear in-bounds spawn is unchanged"
         );
+    }
+
+    #[test]
+    fn a_floor_overlap_is_repaired_above_the_same_spawn_column() {
+        let world = world_with(vec![ae::Block::solid("floor",
+            ae::Vec2::new(100.0, 300.0), ae::Vec2::new(300.0, 100.0))]);
+        let size = ae::Vec2::new(28.0, 46.0);
+        let desired = ae::Vec2::new(160.0, 282.0);
+        assert!(!body_clear(&world, desired, size * 0.5, None));
+        let repaired = validated_spawn(&world, desired, size);
+        assert!(body_clear(&world, repaired, size * 0.5, None));
+        assert_eq!(repaired.x, desired.x,
+            "a nearby point above the floor is closer than its distant edge");
+        assert!(repaired.y < desired.y);
     }
 
     #[test]

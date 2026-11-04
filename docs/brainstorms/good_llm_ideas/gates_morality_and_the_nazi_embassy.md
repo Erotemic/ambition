@@ -137,4 +137,4 @@ Keep dialogue concrete. People ask for records, plead for a relative, argue over
 - [After-intro brainstorm](../after_intro_brainstorm.md): town, Nazi fortress, routes, consequences, and alternative progressions.
 - [Fia arc](../the_fia_arc.md): friendship, proof, and the misapplication of claimed authority.
 - [Primary AI agency](../primary_ai_agency.md): agency and ethical responsibility of the protagonist.
-- [Anti-LLMism style guide](../../concepts/anti-llmism-style-guide.md): constraints for believable player-facing dialogue.
+- [Anti-LLMism style guide](../../authoring/anti-llmism-style-guide.md): constraints for believable player-facing dialogue.

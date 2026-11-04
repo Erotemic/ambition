@@ -1,6 +1,6 @@
 //! The History dimension: its gate is DYNASTIC.
 //!
-//! Fifty rooms (`tools/ambition_ldtk_tools/specs/history_dimension/`):
+//! Fifty rooms (`game/ambition_map_assets/ambition_content/generators/history/`):
 //! a grid of forty-three outdoor rooms, where east is later and each floor is
 //! a region of the world, and seven buildings by doors. The gate is in the
 //! Cradle, in Africa, at the bottom left. This asks the game what the

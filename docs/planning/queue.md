@@ -553,6 +553,34 @@ shortcuts and arches. Hidden rooms and permanent breaks survive save/load.
 Review the semantic LDtk diff and capture the changed places. Do not add a
 second travel implementation or turn the target aspect ratio into a test.
 
+### LEVEL-TRUTH — authored level data in the map submodule, one owner per room
+
+Jon, 2026-11-04: "we should avoid putting the specs for levels and dimensions
+in the main repo... I also want to avoid the issue of having more than one
+source of truth for level data... we should likely be putting the authored
+content into that submodule."
+
+**Done:** a generator no longer overwrites a room edited in LDtk
+(`<world>.generated.json`, `level ownership status|adopt|release`,
+[region composition](game/world-composition.md#contents-one-owner-per-room)).
+The History generator moved to
+`game/ambition_map_assets/ambition_content/generators/history/`, and its
+area specs are no longer committed.
+
+**Failure:** every other generator (`tools/ambition_ldtk_tools/specs/*/make_specs.py`:
+art, castle, eureka, evil moor, magical, ninja village, pirate port,
+primeval, gate network and the rest) and its committed area specs are still
+in the main repo, about 2.5 MB with 238 commits of history. Their worlds have
+no record yet, so the guard is inert for them until their next apply.
+
+**Next action:** move each generator to `generators/<dimension>/` as History
+did (its specs to the temp folder; `district_kit` stays in tools). Apply each
+once so its rooms are recorded. Hand-written one-off specs (`*_area.ron`,
+`*.yaml` edits) that already ran become LDtk-owned and are deleted.
+
+**Acceptance:** `tools/ambition_ldtk_tools/specs/` holds only shared code and
+checks; `level ownership status` names an owner for every room of every world.
+
 ### POSE-CONTINUITY — one visual transition path after the completed base poses
 
 **State:** the foundational Smash art and wiring gates are complete. Phase 3

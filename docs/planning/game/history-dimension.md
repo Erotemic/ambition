@@ -51,7 +51,7 @@ the record and sighs about the footnotes.
 | --- | --- |
 | Gate | `DYNASTIC`, ring `history_cradle_gate` in `history_cradle`, terminal `history_gate_terminal` |
 | World | `history.ldtk` (`data/worlds.ron`: `world.history_ldtk`) |
-| Generator | `tools/ambition_ldtk_tools/specs/history_dimension/make_specs.py` |
+| Generator | `game/ambition_map_assets/ambition_content/generators/history/make_specs.py` (the map submodule; it writes its area specs to the temp folder) |
 | Dialogue | `dialogue/sandbox/history.yarn`, one node per resident, named after its spec |
 | Test | `game/ambition_app/tests/the_history_dimension.rs` |
 | Art | the sprite tools: `backgrounds/history_eras.py` and `backgrounds/history_origins.py` (the biomes), `targets/characters/` (the creatures), `data/townsfolk/history_*.chargen.yaml` (the residents; Lucy, who is not a modern human, is her own drawing, `targets/characters/history_lucy.py`), `targets/props/history_*_props.py` |
@@ -184,7 +184,7 @@ Each flag opens its own road and not the other's
 Jon, 2026-11-03: "I also think we will want new music for different
 locations in the history dimension." Each floor (region) has its own cue, so
 the music stays with the player who walks east through the ages
-(`MUSIC` in `specs/history_dimension/make_specs.py`). Each cue is a
+(`MUSIC` in the generator, `generators/history/make_specs.py`). Each cue is a
 composer script, `tools/ambition_music_renderer/dev/compose_<cue>.py`, which
 writes `scores/active/<cue>.music.yaml`. All melodies are original. The
 instruments are real samples, most of them from the Versilian VCSL library.

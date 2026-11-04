@@ -120,11 +120,11 @@
         ${attention.length ? table(attention.slice(0, 200), true) : '<p class="empty">Every music, sound, font and world item is present.</p>'}</section>`;
   }
 
-  function table(rows, withKind) {
-    return `<table class="tbl"><thead><tr><th></th>${withKind ? "<th>Kind</th>" : ""}<th>Name</th><th>State</th><th>Uses</th><th>Review</th><th>Notes</th></tr></thead><tbody>
+  function table(rows, withKind, withAdded = false) {
+    return `<table class="tbl"><thead><tr><th></th>${withKind ? "<th>Kind</th>" : ""}<th>Name</th>${withAdded ? '<th title="First score commit in available Git history">Added (Git)</th>' : ""}<th>State</th><th>Uses</th><th>Review</th><th>Notes</th></tr></thead><tbody>
       ${rows.map(i => `<tr><td>${i.media?.type === "audio" ? `<button type="button" class="ghost" data-play="${esc(i.id)}" title="Play ${esc(i.display)}">▶</button>` : ""}</td>
         ${withKind ? `<td>${esc(KINDS[i.kind] || i.kind)}</td>` : ""}
-        <td>${itemLink(i.id)}<br><small><code>${esc(i.name)}</code></small></td><td>${chip(i.state)}</td><td>${i.uses.length || ""}</td>
+        <td>${itemLink(i.id)}<br><small><code>${esc(i.name)}</code></small></td>${withAdded ? `<td>${i.added_at ? `<time datetime="${esc(i.added_at)}" title="${esc(i.added_at)}">${esc(i.added_at.slice(0, 10))}</time>` : '<small>Unknown</small>'}</td>` : ""}<td>${chip(i.state)}</td><td>${i.uses.length || ""}</td>
         <td>${i.reviews ? `${esc(i.reviews.score)} ${esc(i.reviews.label || "")}${i.reviews.score_changed ? " ⚠" : ""}` : ""}</td>
         <td>${notes(i.id) ? `${notes(i.id)} open` : ""}${i.reasons.length ? `<small>${esc(i.reasons[0])}</small>` : ""}</td></tr>`).join("")}</tbody></table>`;
   }
@@ -134,19 +134,30 @@
     const all = Object.values(items).filter(i => i.kind === kind);
     const k = C.kinds?.[kind] || {notices: [], states: {}};
     const terms = query().split(/\s+/).filter(Boolean);
-    const f = filters[kind] || (filters[kind] = {state: "", used: ""});
+    const f = filters[kind] || (filters[kind] = {state: "", used: "", sort: "name"});
     let rows = all.filter(i => terms.every(t => (i.id + " " + i.display + " " + i.tags.join(" ") + " " + (i.score?.description || "")).toLowerCase().includes(t)));
     if (f.state) rows = rows.filter(i => i.state === f.state);
     if (f.used) rows = rows.filter(i => f.used === "used" ? i.uses.length : f.used === "unused" ? !i.uses.length : f.used === "reviewed" ? i.reviews : !i.reviews);
+    rows.sort((a, b) => {
+      if (f.sort !== "name") {
+        const at = Date.parse(a.added_at) || 0, bt = Date.parse(b.added_at) || 0;
+        if (!at !== !bt) return at ? -1 : 1;
+        if (at !== bt) return f.sort === "newest" ? bt - at : at - bt;
+      }
+      return a.display.localeCompare(b.display) || a.id.localeCompare(b.id);
+    });
     const facet = (group, key, label) => `<button type="button" class="ghost${f[group] === key ? " on" : ""}" data-filter="${group}" data-key="${esc(key)}">${esc(label)}</button>`;
     app().innerHTML = `<h1>${esc(KINDS[kind])} <small>${rows.length} of ${all.length}</small></h1>
       ${k.notices.map(n => `<p class="stamp stale">${esc(n)}</p>`).join("")}
       <p class="controls">${facet("state", "", "all")}${Object.entries(k.states).map(([s, n]) => facet("state", s, `${s} (${n})`)).join("")}
         · ${facet("used", "", "any use")}${facet("used", "used", "used in game text")}${facet("used", "unused", "no use found")}
         ${kind === "music" ? facet("used", "reviewed", "reviewed") + facet("used", "unreviewed", "never reviewed") : ""}
+        ${kind === "music" ? `<label> · Sort <select id="music-sort">${[["name", "Name"], ["newest", "Newest added"], ["oldest", "Oldest added"]].map(([key, label]) => `<option value="${key}"${f.sort === key ? " selected" : ""}>${label}</option>`).join("")}</select></label>` : ""}
         · make: <code>${esc(k.fix || "")}</code></p>
-      ${rows.length ? table(rows.slice(0, 1000), false) : '<p class="empty">Nothing matches.</p>'}`;
+      ${rows.length ? table(rows.slice(0, 1000), false, kind === "music") : '<p class="empty">Nothing matches.</p>'}`;
     app().querySelectorAll("[data-filter]").forEach(b => b.onclick = () => { f[b.dataset.filter] = b.dataset.key; list(kind); });
+    const sort = app().querySelector("#music-sort");
+    if (sort) sort.onchange = () => { f.sort = sort.value; list(kind); };
     sync();
   }
 

@@ -206,3 +206,47 @@ def test_a_world_page_has_a_map_and_room_previews(tmp_path, monkeypatch):
     assert (out / preview["rooms"]["lobby"]).is_file()
     assert preview["bounds"][2] == 320 + 2 * kinds._MARGIN
     assert world["details"]["rooms"][0]["at"] == [0, 0]
+
+
+def test_music_added_dates_follow_score_history_in_its_own_repository(tmp_path):
+    import os
+    import subprocess
+
+    pack = game(tmp_path)
+    tool = tmp_path / "tools/music_tool"
+    def git(*args, date=None):
+        env = dict(os.environ, GIT_AUTHOR_NAME="Fixture", GIT_AUTHOR_EMAIL="fixture@example.com",
+                   GIT_COMMITTER_NAME="Fixture", GIT_COMMITTER_EMAIL="fixture@example.com")
+        if date:
+            env.update(GIT_AUTHOR_DATE=date, GIT_COMMITTER_DATE=date)
+        return subprocess.run(["git", "-C", str(tool), *args], env=env, check=True, capture_output=True, text=True)
+
+    git("init")
+    old = tool / "scores/archive/theme.music.yaml"
+    old.parent.mkdir()
+    (tool / "scores/active/theme.music.yaml").rename(old)
+    git("add", "scores/archive/theme.music.yaml")
+    git("commit", "-m", "Add theme", date="2025-02-01T10:00:00+00:00")
+    git("add", "scores/active/sketch.music.yaml")
+    git("commit", "-m", "Add sketch", date="2025-03-01T10:00:00+00:00")
+    git("mv", "scores/archive/theme.music.yaml", "scores/active/theme.music.yaml")
+    git("commit", "-m", "Activate theme", date="2025-04-01T10:00:00+00:00")
+    theme = tool / "scores/active/theme.music.yaml"
+    theme.write_text(theme.read_text() + "# A later edit.\n")
+    git("add", "scores/active/theme.music.yaml")
+    git("commit", "-m", "Edit theme", date="2025-05-01T10:00:00+00:00")
+    (tool / "scores/active/uncommitted.music.yaml").write_text("title: New idea\n")
+    out = tmp_path / "out"
+    indexed = kinds.collect(tmp_path, out, HashCache(out / "hashes.json"), pack=pack, log=lambda _m: None)["items"]
+    assert indexed["music:theme"]["added_at"] == "2025-02-01T10:00:00+00:00"
+    assert indexed["music:sketch"]["added_at"] == "2025-03-01T10:00:00+00:00"
+    assert indexed["music:uncommitted"]["added_at"] is None
+    assert indexed["music:gone"]["added_at"] is None
+
+
+def test_music_without_git_history_still_indexes_with_unknown_added_dates(tmp_path):
+    pack = game(tmp_path)
+    out = tmp_path / "out"
+    result = kinds.collect(tmp_path, out, HashCache(out / "hashes.json"), pack=pack, log=lambda _m: None)
+    assert result["items"]["music:theme"]["added_at"] is None
+    assert result["items"]["music:theme"]["score"]["title"] == "Main Theme"

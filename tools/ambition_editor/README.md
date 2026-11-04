@@ -54,7 +54,9 @@ pack, so another engine game is inspected the same way (`--profile`,
   notes, key, tempo, meter and sections, and each instrument with the sound that
   plays it: an SFZ or SoundFont sample library, a Surge XT patch, procedural FM,
   or a General MIDI program. A registered track the game lacks is missing;
-  a score no registry names is unregistered. A music review made before the
+  a score no registry names is unregistered. Sort by name, newest added or
+  oldest added. The Added column uses the first score commit in available Git
+  history, through detected renames. Unknown dates sort last. A music review made before the
   score last changed is marked.
 - **Sound** reads the sound bank and the sound tool's sources. The page plays
   each clip, extracted from the bank.

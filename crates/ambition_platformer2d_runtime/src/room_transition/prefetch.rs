@@ -206,9 +206,8 @@ impl RoomConstructionPlanPrefetch {
         self.plans.retain(keep);
     }
 
-    /// Promote only when session identity, target spec, and world outlook still
-    /// match the prepared plan. A hot reload, session change, or custody/disposition
-    /// change is a miss and must re-prepare against the current outlook.
+    /// Promote only when session identity, target spec, and consumed continuity
+    /// inputs still match. Changes in other rooms do not invalidate this plan.
     ///
     /// The plan is the one prepared for a neighbour of the source room of
     /// `identity`. The plans of a different source room stay.
@@ -217,11 +216,12 @@ impl RoomConstructionPlanPrefetch {
         identity: &PrefetchIdentity,
         target: &RoomSpec,
         outlook: &RoomOccurrenceOutlook,
+        minted: Option<&ambition_platformer2d_items::pickup::minted_horizon::MintedItemBaseline>,
     ) -> Option<Arc<RoomConstructionPlan>> {
         let plan = self.plans.get(identity, &target.id)?;
         if !plan.matches_room_spec(target)
             || plan.session_scope().id() != identity.session_scope()
-            || plan.occurrence_outlook() != outlook
+            || !plan.matches_continuity(outlook, minted)
         {
             return None;
         }

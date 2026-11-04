@@ -75,6 +75,8 @@ pub struct ControlFrameTrace {
     pub fly_toggle_pressed: bool,
     pub interact_pressed: bool,
     pub reset_pressed: bool,
+    pub return_to_leader_pressed: bool,
+    pub party_preference: ambition_platformer2d_core::party_controls::PartyControlPreference,
     pub start_pressed: bool,
 }
 
@@ -106,6 +108,8 @@ impl From<ControlFrame> for ControlFrameTrace {
             fly_toggle_pressed: c.fly_toggle_pressed,
             interact_pressed: c.interact_pressed,
             reset_pressed: c.reset_pressed,
+            return_to_leader_pressed: c.return_to_leader_pressed,
+            party_preference: c.party_preference,
             start_pressed: c.start_pressed,
         }
     }

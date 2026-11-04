@@ -1,41 +1,9 @@
-//! Confirmed-frame lifecycle commit (Track B, Piece 2).
+//! Peer input-driven crossings and confirmed lifecycle barriers.
 //!
-//! The sim side records a [`PendingLifecycleCommit`] instead of executing a
-//! room-lifecycle op on a speculative frame (Piece 1, in `ambition_platformer2d_actor_monolith`).
-//! This module is the host-side other half: once the recording frame is
-//! confirmed, it executes the reconstruction in the EXCLUSIVE world — outside
-//! `GgrsSchedule`, so it is never rolled back — and then rebases the session
-//! so no earlier snapshot can restore the pre-op room.
-//!
-//! Placement: `PreUpdate`, `.after(RunGgrsSystems)` (installed by
-//! `rollback::session::install_session_bridge`). By that point the whole GGRS
-//! advance batch for this rendered frame is done. The committer is an exclusive
-//! `fn(&mut World)`, the same shape as `enforce_session_contract`.
-//!
-//! Ownership gate: a [`RollbackSessionOwnership::LocalSyncTest`] session is
-//! rebased unilaterally. A [`RollbackSessionOwnership::Peer`] session commits
-//! behind the peer barrier below. An `External` session has no barrier, so this
-//! is inert there.
-//!
-//! THE PEER BARRIER, in three parts:
-//!
-//! 1. The freeze ([`a_peer_commit_holds_the_simulation`]). From frame `C` the
-//!    simulation does not run while an operation waits, so each frame from
-//!    `C` on has one state, on each peer.
-//! 2. The commit, here. Each peer commits alone, when ITS confirmed frame
-//!    reaches `C`, ITS plan is authorized, and each handle of the session said
-//!    in its input that it prepared the operation ([`crate::peer_input`]).
-//!    The peers are at different frames then, and they hold the same world:
-//!    the frozen one.
-//! 3. The rebase. Each peer starts the next generation of its peer session at
-//!    frame zero ([`crate::peer::PeerLineage`]). A session does not advance
-//!    until its own handshake is complete, and then it runs no more than its
-//!    prediction window with no confirmed input. So a peer that committed
-//!    first waits there for the other.
-//!
-//! The cost, measured 2026-10-04 (`two_peers`, a link latency of 3 updates):
-//! the simulation of a peer is held for 23 to 43 updates for one crossing,
-//! and 21 to 36 of them are the handshake.
+//! Ordinary peer travel applies inside the simulation from that frame's input
+//! verdicts and retained plans. Presentation receives a confirmed receipt.
+//! Checkpoint restores, room rebuilds, and local sync-test operations retain
+//! the confirmed host barrier and timeline rebase.
 
 use bevy::prelude::*;
 
@@ -65,22 +33,8 @@ pub fn freeze_frame(intent: &PendingIntent) -> i32 {
     intent.frame.saturating_add(PEER_COMMIT_FREEZE_DELAY)
 }
 
-/// THE FREEZE: under a peer session, the gameplay simulation does not run from
-/// [`freeze_frame`] on while a lifecycle operation waits.
-///
-/// Measured 2026-10-04 (`two_peers`): when the recording frame of a crossing
-/// was confirmed, the two peers were at different frames (36 and 31). The
-/// sync-test rule runs the operation on the current world, and here that is
-/// two different worlds. With the freeze, each frame from `C` on has one
-/// state, so a peer at frame 36 and a peer at frame 31 hold the same world.
-///
-/// It reads the pending operation, which is rollback state, and the frame of
-/// this advance. So a rewind to a frame before `C` gives the same freeze when
-/// the frames run again. The ownership is constant while the session lives.
-///
-/// ⛔ A SYNC TEST DOES NOT FREEZE. It commits alone when the recording frame
-/// is confirmed, and its simulation runs on each frame of that wait
-/// (`two_peers::a_host_that_commits_alone_simulates_while_its_crossing_waits`).
+/// Hold peer simulation only for an operation that requires a timeline rebase.
+/// Ordinary travel commits from frame inputs and does not enter this barrier.
 pub fn a_peer_commit_holds_the_simulation(
     ownership: Option<Res<RollbackSessionOwnership>>,
     pending: Option<Res<PendingLifecycleCommit>>,
@@ -98,7 +52,7 @@ fn holds_the_simulation(
     frame: i32,
 ) -> bool {
     matches!(ownership, RollbackSessionOwnership::Peer)
-        && pending.is_some_and(|intent| freeze_frame(intent) <= frame)
+        && pending.is_some_and(|intent| !ordinary_crossing(intent) && freeze_frame(intent) <= frame)
 }
 
 /// Who commits, which decides when the operation is confirmed and which
@@ -125,7 +79,7 @@ fn operation_to_commit(
     match committer {
         Committer::Alone { .. } => pending.confirmed(boundary.confirmed).cloned(),
         Committer::BehindThePeerBarrier => {
-            let intent = pending.peek()?;
+            let intent = pending.peek().filter(|intent| !ordinary_crossing(intent))?;
             let frozen_from = freeze_frame(intent);
             // The confirmed frame says that no input can change the frozen
             // state: each input of a frame that simulated is in, and the
@@ -186,6 +140,7 @@ fn each_peer_prepared(world: &World, intent: &PendingIntent) -> bool {
 /// simulation would start again on two different frames. What follows from
 /// the slot is the same as for any intent that leaves it: the transaction is
 /// cancelled, and a checkpoint restore publishes `Cancelled`.
+/// A disconnected required handle also refuses the pending operation.
 pub fn end_an_operation_a_peer_could_not_prepare(
     ownership: Option<Res<RollbackSessionOwnership>>,
     inputs: Option<Res<bevy_ggrs::PlayerInputs<crate::AmbitionGgrsConfig>>>,
@@ -208,8 +163,9 @@ pub fn end_an_operation_a_peer_could_not_prepare(
     let failed: Vec<usize> = inputs
         .iter()
         .enumerate()
-        .filter(|(_, (input, _))| {
-            input.verdict.operation == operation && input.verdict.said == PreparationVerdict::Failed
+        .filter(|(_, (input, status))| {
+            *status == bevy_ggrs::ggrs::InputStatus::Disconnected
+                || (input.verdict.operation == operation && input.verdict.said == PreparationVerdict::Failed)
         })
         .map(|(handle, _)| handle)
         .collect();
@@ -220,6 +176,67 @@ pub fn end_an_operation_a_peer_could_not_prepare(
             "the peer(s) of handle(s) {failed:?} could not prepare the lifecycle \
              operation recorded on frame {recorded_on}, so it ends on each peer (Q156)"
         );
+    }
+}
+
+fn ordinary_crossing(operation: &PendingIntent) -> bool {
+    operation.checkpoint_operation.is_none()
+        && matches!(&operation.kind, LifecycleIntent::Transition(intent)
+            if intent.disposition == ambition_platformer2d_session::lifecycle_commit::RoomTransitionDisposition::Travel)
+}
+
+#[derive(Message, Clone)]
+pub(crate) struct PeerRoomCommit {
+    applied: ambition_platformer2d_session::lifecycle_commit::AppliedIntent,
+    duration: std::time::Duration,
+}
+
+/// Apply only the agreement carried by this simulation frame's inputs.
+pub(crate) fn commit_peer_crossing(world: &mut World) {
+    if !matches!(world.get_resource::<RollbackSessionOwnership>(), Some(RollbackSessionOwnership::Peer)) {
+        return;
+    }
+    let Some(operation) = world.get_resource::<PendingLifecycleCommit>().and_then(|pending| pending.peek())
+        .filter(|operation| ordinary_crossing(operation)).cloned() else { return };
+    let Some(preparation) = selected_preparation(world, &operation) else { return };
+    let peer_operation = crate::PeerOperation::from(&preparation);
+    let Some(plan_identity) = world.get_resource::<bevy_ggrs::PlayerInputs<crate::AmbitionGgrsConfig>>()
+        .and_then(|inputs| crate::peer_input::agreed_plan(peer_operation,
+            inputs.iter().map(|(input, status)| (*status != bevy_ggrs::ggrs::InputStatus::Disconnected).then_some(input.verdict)))) else { return };
+    let authorization = world.resource::<crate::room_promises::PromisedRoomPlans>()
+        .get(&preparation).cloned().expect("a prepared input must retain its exact room plan through replay");
+    assert_eq!(authorization.peer_identity(), Some(plan_identity), "the retained plan differs from the input agreement");
+    assert!(authorization.matches_world(world), "the retained room promise no longer matches its admission");
+    let frame = world.resource::<crate::RollbackFrameCount>().0;
+    let started = bevy::platform::time::Instant::now();
+    match commit_transition(world, &authorization.plan, None, &operation.kind) {
+        CommitOutcome::Committed(arrived_in) => {
+            let applied = world.resource_mut::<PendingLifecycleCommit>()
+                .complete(frame, preparation.checksum(), arrived_in).expect("the applied admission is pending");
+            world.write_message(PeerRoomCommit { applied, duration: started.elapsed() });
+        }
+        CommitOutcome::Cancelled => {
+            world.resource_mut::<PendingLifecycleCommit>().retract_recorded_on(operation.frame, frame);
+        }
+        CommitOutcome::Retry => panic!("a retained and agreed room plan cannot require host preparation during simulation"),
+    }
+}
+
+/// Retire presentation only after the crossing's frame is confirmed.
+pub(crate) fn observe_peer_room_commits(world: &mut World,
+    mut cursor: Local<bevy::ecs::message::MessageCursor<PeerRoomCommit>>,
+) {
+    let commits: Vec<_> = cursor.read(world.resource::<Messages<PeerRoomCommit>>()).cloned().collect();
+    for commit in commits {
+        let matches = world.get_resource::<ambition_platformer2d_runtime::room_transition::RoomTransitionLoadState>()
+            .and_then(|state| state.active.as_ref()).is_some_and(|active|
+                active.describes(&commit.applied.operation)
+                && active.preparation.as_ref().is_some_and(|preparation| preparation.checksum() == commit.applied.preparation_checksum));
+        if matches {
+            world.resource_mut::<ambition_platformer2d_runtime::room_transition::RoomTransitionLoadState>()
+                .active.as_mut().unwrap().arrived_in = commit.applied.arrived_in;
+            retire_committed_room_transition(world, commit.duration);
+        }
     }
 }
 
@@ -367,7 +384,7 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
         // progresses (or is superseded) in `Update`.
         AuthorizedPlan::Wait | AuthorizedPlan::InvalidPromise => return,
     };
-    let kind = operation.kind;
+    let kind = operation.kind.clone();
 
     // It touches no world and depends only on `settings`, so if it fails the room is never
     // reconstructed, the intent stays pending, and the timeline is untouched (it retries on a
@@ -464,7 +481,12 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
             }
             return;
         }
-        CommitOutcome::Committed => {}
+        CommitOutcome::Committed(arrived_in) => {
+            if let Some(active) = world.get_resource_mut::<ambition_platformer2d_runtime::room_transition::RoomTransitionLoadState>()
+                .and_then(|state| state.into_inner().active.as_mut()).filter(|active| active.describes(&operation)) {
+                active.arrived_in = arrived_in;
+            }
+        }
     }
 
     // From here NOTHING may fail. Clear the slot so the post-op world (the new
@@ -622,6 +644,7 @@ fn retire_committed_room_transition(world: &mut World, commit_duration: std::tim
                 active.committed_at = now;
                 active.phase = ambition_platformer2d_runtime::room_transition::RoomTransitionLoadPhase::Committed;
             }
+            state.begin_settling();
         }
         // Rollback hosts never enter `GameMode::RoomTransition`; presentation restores its own
         // mode when it retires the cover.
@@ -684,24 +707,11 @@ fn retire_cancelled_room_transition(
     }
 }
 
-/// What a commit attempt resolved to. The three outcomes differ in what happens
-/// to the pending intent and the session, so a bool cannot express them:
-///
-/// * [`Committed`](CommitOutcome::Committed) — reconstruction happened; clear the
-///   intent and rebase the session.
-/// * [`Retry`](CommitOutcome::Retry) — a TRANSIENT failure (the target room could
-///   not prepare yet); keep the intent pending and try again on a later confirmed
-///   frame. Nothing was mutated.
-/// * [`Cancelled`](CommitOutcome::Cancelled) — the intent is VOID and can never
-///   succeed (the crossing body is gone or fails the transit contract); DROP
-///   the intent
-///   without reconstructing or rebasing, leaving the source room authoritative.
-///   The distinction from `Retry` is what stops a dead-subject transition from
-///   either retrying forever or laundering itself into a home-player teleport
-/// .
+/// A successful application carries its arrival room. A retry leaves the
+/// operation pending. A cancellation leaves the live rooms intact.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum CommitOutcome {
-    Committed,
+    Committed(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>),
     Retry,
     Cancelled,
 }
@@ -731,7 +741,7 @@ fn execute_lifecycle_commit(
     }
 }
 
-/// Apply an authorized transition from the exclusive world on a confirmed frame.
+/// Apply a retained transition through the shared room application.
 ///
 /// Shared room-transition application stays in the common application path. This
 /// wrapper bridges `&mut World` through `SystemState`, applies deferred commands
@@ -857,7 +867,7 @@ fn commit_transition(
         );
     }
 
-    CommitOutcome::Committed
+    CommitOutcome::Committed(staged.arrived_in(world))
 }
 
 #[cfg(test)]
@@ -897,7 +907,7 @@ mod tests {
             source_zone: None,
                 initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
                     subject: LiveBodyId::new(subject, None),
-                    arrival: ae::Vec2::ZERO,
+                    arrival: ambition_platformer2d_session::lifecycle_commit::RoomArrival::At(ae::Vec2::ZERO),
                     participant: None,
                 },
                 companions: Vec::new(),
@@ -909,13 +919,16 @@ mod tests {
 
     /// The freeze, as a table: who holds the simulation, and from which frame.
     #[test]
-    fn only_a_peer_session_holds_the_simulation_and_only_from_the_freeze_frame() {
+    fn only_a_peer_rebuild_holds_the_simulation_from_the_freeze_frame() {
         use crate::session::{SyncTestOwner, SyncTestSettings};
         let recorded_on_30 = PendingIntent {
             frame: 30, checkpoint_operation: None,
-            kind: intent_to("hub", SimId::placement("hero")),
+            kind: rebuild_of("hub"),
         };
         assert_eq!(freeze_frame(&recorded_on_30), 30 + PEER_COMMIT_FREEZE_DELAY);
+        let travel = PendingIntent { frame: 30, checkpoint_operation: None,
+            kind: intent_to("hub", SimId::placement("hero")) };
+        assert!(!holds_the_simulation(RollbackSessionOwnership::Peer, Some(&travel), 400));
         let sync_test = RollbackSessionOwnership::LocalSyncTest {
             settings: SyncTestSettings::for_players(2),
             owner: SyncTestOwner::Caller,
@@ -945,7 +958,7 @@ mod tests {
     /// its world is at a frozen frame, AND each handle said it prepared the
     /// operation.
     #[test]
-    fn a_peer_commits_at_the_freeze_frame_and_a_sync_test_at_the_recording_frame() {
+    fn a_peer_rebuild_commits_at_the_freeze_frame_and_a_sync_test_at_the_recording_frame() {
         use crate::peer_input::{PeerVerdict, PreparationVerdict::*};
         use crate::session::{SyncTestOwner, SyncTestSettings};
         let alone = Committer::Alone {
@@ -970,7 +983,7 @@ mod tests {
             let mut world = World::new();
             let mut pending = PendingLifecycleCommit::default();
             assert!(pending
-                .record(recorded_on, intent_to("hub", SimId::placement("hero")))
+                .record(recorded_on, rebuild_of("hub"))
                 .admitted());
             world.insert_resource(pending);
             world.insert_resource(crate::RollbackFrameCount(frame));
@@ -996,9 +1009,9 @@ mod tests {
     #[test]
     fn a_peer_waits_for_the_replacement_intent_even_when_its_frame_is_unchanged() {
         use crate::peer_input::{PeerOperation, PeerVerdict, PreparationVerdict};
-        let old = PendingIntent { frame: 30, checkpoint_operation: None, kind: intent_to("old", SimId::placement("hero")) };
+        let old = PendingIntent { frame: 30, checkpoint_operation: None, kind: rebuild_of("old") };
         let mut pending = PendingLifecycleCommit::default();
-        assert!(pending.record(30, intent_to("new", SimId::placement("hero"))).admitted());
+        assert!(pending.record(30, rebuild_of("new")).admitted());
         let mut world = World::new();
         world.insert_resource(pending);
         let replacement = capture_pending(&mut world);
@@ -1020,7 +1033,7 @@ mod tests {
         world.insert_resource(crate::RollbackFrameCount(41));
         let boundary = ConfirmedFrameBoundary { current: 41, confirmed: 41, session: 1 };
         assert_eq!(operation_to_commit(&world, Committer::BehindThePeerBarrier, boundary)
-            .unwrap().kind, intent_to("new", SimId::placement("hero")));
+            .unwrap().kind, rebuild_of("new"));
     }
 
     /// The bodyless shape: a room rebuilt with nobody in it (v146).
@@ -1122,10 +1135,10 @@ mod tests {
 
         retire_committed_room_transition(&mut covered, std::time::Duration::from_millis(7));
 
+        assert!(covered.resource::<RoomTransitionLoadState>().active.is_none());
         let handed_over = covered
             .resource::<RoomTransitionLoadState>()
-            .active
-            .as_ref()
+            .presentations().next()
             .expect(
                 "the covered confirmed commit dropped its own transaction, so the \
                  presentation adapter never sees a Committed phase: the cover retires \

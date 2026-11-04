@@ -1,10 +1,8 @@
-//! Confirmed-frame lifecycle commitment.
+//! Room lifecycle admission and application receipts.
 //!
-//! Room resets and transitions rebuild authoritative world state and therefore
-//! cannot execute on speculative rollback frames. Simulation records a
-//! rollback-registered [`PendingLifecycleCommit`]; host code executes it only
-//! after its originating frame is confirmed, then rebases the rollback session.
-//! Eager and rollback hosts share the same intent and differ only in confirmation.
+//! Simulation records an admitted operation in rollback state. Ordinary peer
+//! crossings apply from shared frame inputs. Restores and local sync-test
+//! operations use the confirmed host barrier.
 
 use bevy::prelude::*;
 
@@ -87,7 +85,10 @@ impl LifecycleIntent {
                 ambition_platformer2d_core::snapshot::put_u64(&mut bytes, (1 + intent.companions.len()) as u64);
                 for transfer in intent.transfers() {
                     transfer.subject.write_peer_stable_into(&mut bytes);
-                    put_vec2(&mut bytes, transfer.arrival);
+                    match &transfer.arrival {
+                        RoomArrival::At(at) => { put_u8(&mut bytes, 0); put_vec2(&mut bytes, *at); }
+                        RoomArrival::NearBody(body) => { put_u8(&mut bytes, 1); body.write_peer_stable_into(&mut bytes); }
+                    }
                     put_bool(&mut bytes, transfer.participant.is_some());
                     put_u8(&mut bytes, transfer.participant.map_or(0, |slot| slot.0));
                 }
@@ -131,9 +132,9 @@ impl LifecycleIntent {
     /// Where the subject comes out. `None` when there is no subject to place —
     /// which is why this is not a `Vec2` with a default: a reconstitution has no
     /// arrival, and `Vec2::ZERO` would be a position somebody could validate.
-    pub fn arrival(&self) -> Option<Vec2> {
+    pub fn arrival(&self) -> Option<&RoomArrival> {
         match self {
-            Self::Transition(intent) => Some(intent.initiator.arrival),
+            Self::Transition(intent) => Some(&intent.initiator.arrival),
             Self::ReconstituteRoom(_) => None,
         }
     }
@@ -201,8 +202,25 @@ pub enum RoomTransitionDisposition {
 #[derive(Clone, Debug, PartialEq)]
 pub struct RoomBodyTransfer {
     pub subject: LiveBodyId,
-    pub arrival: Vec2,
+    pub arrival: RoomArrival,
     pub participant: Option<ambition_characters::control::PlayerSlot>,
+}
+
+/// Resolve a point or a live-body reference on the room commit frame.
+#[derive(Clone, Debug, PartialEq)]
+pub enum RoomArrival {
+    At(Vec2),
+    NearBody(LiveBodyId),
+}
+
+impl RoomArrival {
+    pub fn point(&self) -> Option<Vec2> {
+        match self { Self::At(at) => Some(*at), Self::NearBody(_) => None }
+    }
+
+    pub fn is_finite(&self) -> bool {
+        match self { Self::At(at) => at.is_finite(), Self::NearBody(_) => true }
+    }
 }
 
 impl RoomTransitionIntent {
@@ -285,7 +303,16 @@ pub struct WithdrawnIntent {
     pub checkpoint_operation: Option<crate::checkpoint::CheckpointOperationKey>,
 }
 
-/// The single pending confirmed-frame lifecycle commit (Track B, Piece 1).
+/// A room crossing applied on one simulation frame.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AppliedIntent {
+    pub operation: PendingIntent,
+    pub applied_on: i32,
+    pub preparation_checksum: u64,
+    pub arrived_in: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+}
+
+/// One pending lifecycle admission and the latest applied crossing.
 ///
 /// Rollback-registered (`rollback/mod.rs`), so the intent rewinds with the world. One slot,
 /// earliest-sticky: a consumer records only via [`Self::record`], which keeps the intent
@@ -298,6 +325,8 @@ pub struct PendingLifecycleCommit {
     /// intent. An admitted record clears it: the host replaces or reuses its
     /// transaction for the new intent, so the old withdrawal names nothing.
     pub withdrawn: Option<WithdrawnIntent>,
+    /// The most recent application on this rollback branch.
+    pub applied: Option<AppliedIntent>,
 }
 
 impl PendingLifecycleCommit {
@@ -343,7 +372,7 @@ impl PendingLifecycleCommit {
     /// Compare shared state while retaining local session keys in clone snapshots.
     pub fn checksum(&self) -> u64 {
         use ambition_platformer2d_core::snapshot::{checksum_bytes, put_bool, put_i32, put_u64};
-        let Self { pending, withdrawn } = self;
+        let Self { pending, withdrawn, applied } = self;
         let mut bytes = Vec::new();
         put_bool(&mut bytes, pending.is_some());
         if let Some(pending) = pending {
@@ -356,15 +385,21 @@ impl PendingLifecycleCommit {
             put_u64(&mut bytes, kind.checksum());
             write_checkpoint_operation(&mut bytes, *checkpoint_operation);
         }
+        put_bool(&mut bytes, applied.is_some());
+        if let Some(applied) = applied {
+            put_u64(&mut bytes, applied.operation.checksum());
+            put_i32(&mut bytes, applied.applied_on);
+            put_u64(&mut bytes, applied.preparation_checksum);
+            put_bool(&mut bytes, applied.arrived_in.is_some());
+            if let Some(room) = applied.arrived_in {
+                ambition_platformer2d_core::snapshot::put_u32(&mut bytes, room.ordinal());
+            }
+        }
         checksum_bytes(&bytes)
     }
 
-    /// The pending intent WHETHER OR NOT it is confirmed — "is anything waiting".
-    ///
-    /// ⛔ For REPORTING only. Every consumer that acts on an intent must go
-    /// through [`Self::confirmed`]; this exists so a host that is refusing to
-    /// promote intents can say whether it is refusing anything, which is the
-    /// difference between a stalled game and an idle one.
+    /// Inspect the current branch's pending admission. Application requires
+    /// frame input agreement or the confirmed lifecycle barrier.
     pub fn peek(&self) -> Option<&PendingIntent> {
         self.pending.as_ref()
     }
@@ -429,6 +464,16 @@ impl PendingLifecycleCommit {
             .filter(|withdrawn| withdrawn.withdrawn_on <= confirmed_frame)
     }
 
+    /// Spend the slot and retain the applied operation in rollback state.
+    pub fn complete(&mut self, applied_on: i32, preparation_checksum: u64,
+        arrived_in: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    ) -> Option<AppliedIntent> {
+        let receipt = AppliedIntent { operation: self.pending.take()?, applied_on,
+            preparation_checksum, arrived_in };
+        self.applied = Some(receipt.clone());
+        Some(receipt)
+    }
+
     /// Clear the slot after the host commits the op.
     pub fn take(&mut self) -> Option<PendingIntent> {
         self.pending.take()
@@ -447,7 +492,7 @@ mod tests {
             source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
                     subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("hero"), None),
-                    arrival: Vec2::new(1.0, 2.0),
+                    arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::new(1.0, 2.0)),
                     participant: None,
                 },
                 companions: Vec::new(),
@@ -483,7 +528,7 @@ mod tests {
         let LifecycleIntent::Transition(mut crossing) = crossing_to("east") else { unreachable!() };
         let companion = RoomBodyTransfer {
             subject: LiveBodyId::new(SimId::placement("companion"), None),
-            arrival: Vec2::new(20.0, 40.0), participant: Some(ambition_characters::control::PlayerSlot(1)),
+            arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::new(20.0, 40.0)), participant: Some(ambition_characters::control::PlayerSlot(1)),
         };
         let single = LifecycleIntent::Transition(crossing.clone()).checksum();
         crossing.disposition = RoomTransitionDisposition::RebuildSource;
@@ -492,7 +537,7 @@ mod tests {
         crossing.companions.push(companion.clone());
         let checksum = LifecycleIntent::Transition(crossing.clone()).checksum();
         assert_ne!(single, checksum);
-        crossing.companions[0].arrival.x += 1.0;
+        crossing.companions[0].arrival = RoomArrival::At(Vec2::new(21.0, 40.0));
         assert_ne!(checksum, LifecycleIntent::Transition(crossing.clone()).checksum());
         crossing.companions[0] = companion.clone();
         crossing.companions[0].participant = None;
@@ -501,6 +546,18 @@ mod tests {
         assert!(pending.record(10, LifecycleIntent::Transition(crossing)).admitted());
         assert!(pending.retract_transition_for_subject(&companion.subject, 11));
         assert!(pending.peek().is_none());
+    }
+
+    #[test]
+    fn relative_arrivals_checksum_the_reference_instead_of_a_point() {
+        let LifecycleIntent::Transition(crossing) = crossing_to("east") else { unreachable!() };
+        let point = LifecycleIntent::Transition(crossing.clone()).checksum();
+        let mut relative = crossing.clone();
+        relative.initiator.arrival = RoomArrival::NearBody(crossing.initiator.subject.clone());
+        let checksum = LifecycleIntent::Transition(relative.clone()).checksum();
+        assert_ne!(point, checksum);
+        relative.initiator.arrival = RoomArrival::NearBody(LiveBodyId::new(SimId::placement("other"), None));
+        assert_ne!(checksum, LifecycleIntent::Transition(relative).checksum());
     }
 
     #[test]
@@ -572,7 +629,7 @@ mod tests {
                 source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
                     subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("hero"), None),
-                    arrival: Vec2::new(1.0, 2.0),
+                    arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::new(1.0, 2.0)),
                     participant: None,
                 },
                 companions: Vec::new(),
@@ -632,7 +689,7 @@ mod tests {
             source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
                     subject: hero.clone(),
-                    arrival: Vec2::new(1.0, 2.0),
+                    arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::new(1.0, 2.0)),
                     participant: None,
                 },
                 companions: Vec::new(),
@@ -657,7 +714,7 @@ mod tests {
                 source_zone: None,
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
                     subject: other.clone(),
-                    arrival: Vec2::ZERO,
+                    arrival: crate::lifecycle_commit::RoomArrival::At(Vec2::ZERO),
                     participant: None,
                 },
                 companions: Vec::new(),

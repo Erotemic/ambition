@@ -161,16 +161,23 @@ fn ground_gap_below_feet(
 #[derive(SystemParam)]
 pub struct RoomTransitionApplication<'w, 's> {
     commands: Commands<'w, 's>,
+    continuity: ambition_platformer2d_session::room_preparation::RoomContinuity<'w, 's>,
     bodies: TransitBodies<'w, 's>,
     /// Room authority, held on the session root: the set that names which
     /// room is active. The geometry is on the live room's own root.
     session: Query<
         'w,
         's,
-        &'static mut world_rooms::RoomSet,
+        &'static world_rooms::RoomSet,
         With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
     >,
-    subject_room: Query<'w, 's, &'static ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+    parties: Query<'w, 's, (
+        &'static ambition_platformer2d_session::party_travel::PartyTravel,
+        &'static ambition_platformer2d_session::participants::SessionParticipants,
+    ), With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>>,
+    network: Res<'w, world_rooms::GateNetworkState>,
+    subject_room: Query<'w, 's, (Entity, &'static ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance)>,
+    collision: ambition_platformer2d_world::collision::CollisionWorld<'w, 's>,
     /// The bodies players drive, and the live room each is in: a room a
     /// crossing leaves stays live while another player's body is in it (OW1
     /// cut 6c).
@@ -224,6 +231,8 @@ pub struct RoomTransitionApplication<'w, 's> {
 pub enum RoomTransitionApplyError {
     /// No session root carries room authority — there is no world to transition.
     NoSessionWorld,
+    /// A consumed occurrence or mint recipe changed after preparation.
+    StaleContinuity,
     /// The body that crossed no longer exists. A VOID crossing: the transition
     /// fails rather than substituting whoever happens to be driving now.
     SubjectGone,
@@ -237,6 +246,7 @@ pub enum RoomTransitionApplyError {
 impl std::fmt::Display for RoomTransitionApplyError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::StaleContinuity => write!(f, "the prepared destination no longer matches its occurrence continuity"),
             Self::NoSessionWorld => {
                 write!(f, "no session root carries a RoomSet")
             }
@@ -295,9 +305,7 @@ impl RoomTransitionApplication<'_, '_> {
     fn prepare_member(
         &self,
         subject: Entity,
-        arrival: Option<ae::Vec2>,
         participant: Option<ambition_characters::control::PlayerSlot>,
-        world: &ae::World,
     ) -> Result<StagedRoomMember, RoomTransitionApplyError> {
         for (missing, present) in [
             ("MotionModel", self.bodies.motion_models.contains(subject)),
@@ -308,10 +316,39 @@ impl RoomTransitionApplication<'_, '_> {
         }
         let body = self.bodies.clusters.get(subject).expect("the complete body was checked");
         let size = body.kinematics.size;
-        let arrival_pos = world_rooms::validated_spawn(world, arrival.unwrap_or(body.kinematics.pos), size);
+        let arrival_pos = body.kinematics.pos;
         let gravity_dir = self.bodies.motion_frames.get(subject).map(|frame| frame.down())
             .unwrap_or(ae::Vec2::new(0.0, 1.0));
         Ok(StagedRoomMember { subject, participant, arrival_pos, size, gravity_dir })
+    }
+
+    fn arrival_world<'a>(
+        &'a self,
+        plan: &'a publication::RoomConstructionPlan,
+        live: Option<world_rooms::LiveRoomInstance>,
+        subject: Entity,
+    ) -> std::borrow::Cow<'a, ae::World> {
+        let stamp = live.map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
+        let base = stamp.as_ref().and_then(|stamp| self.collision.room(Some(stamp)))
+            .and_then(|room| room.solids_for(subject))
+            .unwrap_or(std::borrow::Cow::Borrowed(&plan.spec().world));
+        let rooms = self.room_set().expect("staging checked the session room set");
+        let (Ok((party, admitted)), Ok((_, driver, _)), Some(definition)) = (
+            self.parties.single(), self.drivers.get(subject), rooms.definition(plan.target_index()),
+        ) else { return base; };
+        // Incoming bodies may have no wall contribution in an already-live room.
+        let mut walls = ambition_platformer2d_session::rooms::party_exit_walls(party, admitted, driver.0, rooms, definition, &self.network);
+        walls.retain(|block| !base.blocks.iter().any(|existing| existing.id == block.id));
+        if walls.is_empty() { return base; }
+        let mut result = base.into_owned();
+        result.blocks.add_all(walls);
+        std::borrow::Cow::Owned(result)
+    }
+
+    fn member_box(&self, member: &StagedRoomMember) -> ae::Aabb {
+        let shape = self.bodies.motion_models.get(member.subject).expect("the movement model was checked")
+            .spec().spawn_shape(member.size, member.gravity_dir);
+        ae::Aabb::new(member.arrival_pos, shape.body_half)
     }
 
     /// Stage every selected body through one destination publication.
@@ -337,15 +374,88 @@ impl RoomTransitionApplication<'_, '_> {
             if !seen.insert(subject) {
                 return Err(RoomTransitionApplyError::SubjectCannotTransit { subject, missing: "unique transfer membership" });
             }
-            members.push(self.prepare_member(subject, Some(transfer.arrival), transfer.participant, &plan.spec().world)?);
+            let member = self.prepare_member(subject, transfer.participant)?;
+            // A rebuild can carry a dead body into its restore.
+            if restore.is_none() && !intent.rebuilds_source_room()
+                && !self.bodies.living.get(subject).is_ok_and(|(health, out_of_play)| health.alive() && out_of_play.is_none()) {
+                return Err(RoomTransitionApplyError::SubjectCannotTransit { subject, missing: "available living body" });
+            }
+            members.push(member);
         }
         let room_plan = ambition_platformer2d_session::rooms::room_transfer_plan(
             members.iter().map(|member| (Some(member.subject), member.participant,
-                self.subject_room.get(member.subject).ok().map(|room| room.0))),
+                self.subject_room.get(member.subject).ok().map(|(_, room)| room.0))),
             self.drivers.iter().map(|(entity, driver, room)| (entity, driver.0, room.map(|room| room.0))),
             self.definitions.iter().map(|(live, definition)| (*live, Some(*definition))),
             target, intent.rebuilds_source_room(), restart,
         );
+        if room_plan.joins.is_none() {
+            let continuity = self.continuity.select(intent, restore)
+                .map_err(|_| RoomTransitionApplyError::StaleContinuity)?;
+            let outlook = continuity.occurrences.as_ref().map(|ledger| ledger.outlook_for(plan.room_id())).unwrap_or_default();
+            if !plan.matches_continuity(&outlook, continuity.minted.as_ref()) {
+                return Err(RoomTransitionApplyError::StaleContinuity);
+            }
+        }
+        let transfers: Vec<_> = intent.transfers().collect();
+        let mut resolved = vec![false; members.len()];
+        for (index, transfer) in transfers.iter().enumerate() {
+            if let ambition_platformer2d_session::lifecycle_commit::RoomArrival::At(at) = transfer.arrival {
+                if !at.is_finite() {
+                    return Err(RoomTransitionApplyError::SubjectCannotTransit {
+                        subject: members[index].subject, missing: "finite arrival point",
+                    });
+                }
+                let walls = self.arrival_world(plan, room_plan.joins, members[index].subject);
+                members[index].arrival_pos = world_rooms::validated_spawn(&walls, at, members[index].size);
+                resolved[index] = true;
+            }
+        }
+        while resolved.iter().any(|done| !done) {
+            let mut progress = false;
+            for (index, transfer) in transfers.iter().enumerate() {
+                if resolved[index] { continue; }
+                let ambition_platformer2d_session::lifecycle_commit::RoomArrival::NearBody(reference) = &transfer.arrival
+                    else { unreachable!("point arrivals were resolved"); };
+                let anchor = self.subject_entity(reference).ok_or(RoomTransitionApplyError::SubjectGone)?;
+                let reference = if let Some(anchor_index) = members.iter().position(|member| member.subject == anchor) {
+                    if !resolved[anchor_index] { continue; }
+                    self.member_box(&members[anchor_index])
+                } else {
+                    if room_plan.joins.is_none() || self.subject_room.get(anchor).ok().map(|(_, room)| room.0) != room_plan.joins {
+                        return Err(RoomTransitionApplyError::SubjectCannotTransit {
+                            subject: anchor, missing: "arrival reference in the destination room",
+                        });
+                    }
+                    self.member_box(&self.prepare_member(anchor, None)?)
+                };
+                let mut occupied: Vec<_> = members.iter().zip(&resolved)
+                    .filter(|(_, done)| **done).map(|(member, _)| self.member_box(member)).collect();
+                if let Some(target) = room_plan.joins {
+                    occupied.extend(self.subject_room.iter()
+                        .filter(|(entity, room)| room.0 == target && !seen.contains(entity))
+                        .filter_map(|(entity, _)| self.prepare_member(entity, None).ok())
+                        .map(|member| self.member_box(&member)));
+                }
+                let member = &mut members[index];
+                let frame = ae::AccelerationFrame::new(member.gravity_dir);
+                let shape = self.bodies.motion_models.get(member.subject).expect("the movement model was checked")
+                    .spec().spawn_shape(member.size, member.gravity_dir);
+                let walls = self.arrival_world(plan, room_plan.joins, member.subject);
+                member.arrival_pos = world_rooms::spawn_near_body(&walls, reference, frame, shape, &occupied)
+                    .ok_or(RoomTransitionApplyError::SubjectCannotTransit {
+                        subject: member.subject, missing: "clear arrival space",
+                    })?;
+                resolved[index] = true;
+                progress = true;
+            }
+            if !progress {
+                return Err(RoomTransitionApplyError::SubjectCannotTransit {
+                    subject: members[resolved.iter().position(|done| !done).unwrap()].subject,
+                    missing: "resolved arrival reference",
+                });
+            }
+        }
         let departing = room_plan.departing;
         if intent.rebuilds_source_room() && !restart {
             let mut survivors: Vec<_> = self.drivers.iter()
@@ -355,7 +465,10 @@ impl RoomTransitionApplication<'_, '_> {
             survivors.sort_by(|(a, ..), (b, ..)| a.sim_id.as_str().cmp(b.sim_id.as_str()));
             for (_, subject, participant) in survivors {
                 seen.insert(subject);
-                members.push(self.prepare_member(subject, None, Some(participant), &plan.spec().world)?);
+                let mut member = self.prepare_member(subject, Some(participant))?;
+                let walls = self.arrival_world(plan, room_plan.joins, member.subject);
+                member.arrival_pos = world_rooms::validated_spawn(&walls, member.arrival_pos, member.size);
+                members.push(member);
             }
         }
         let retiring = room_plan.retiring;
@@ -385,6 +498,7 @@ impl RoomTransitionApplication<'_, '_> {
             publication, scope: CrossingScope { retiring: retiring.into_iter().collect(), other_rooms_stay },
             members, target_room, edge_exit: intent.edge_exit(), door_sfx,
             target_world: plan.spec().world.clone(),
+            resets_clock: intent.rebuilds_source_room(),
         })
     }
 
@@ -410,6 +524,19 @@ pub struct StagedRoomTransition {
     /// the transit.
     pub door_sfx: Option<(String, ae::Vec2)>,
     pub target_world: ae::World,
+    resets_clock: bool,
+}
+
+impl StagedRoomTransition {
+    /// Read the arrival room after publication.
+    pub fn arrived_in(&self, world: &mut bevy::prelude::World)
+        -> Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> {
+        match self.members.first() {
+            Some(member) => world.get::<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>(member.subject).map(|room| room.0),
+            None => ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<
+                ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>(world).copied(),
+        }
+    }
 }
 
 /// Per-body facts frozen before the destination publishes.
@@ -455,13 +582,11 @@ pub struct RoomTransitionFinalize<'w, 's> {
 }
 
 impl RoomTransitionFinalize<'_, '_> {
-    /// Apply what a published crossing means, and say the live room it
-    /// arrived in: the subject's, or for a rebuild with nobody in it, the sole
-    /// live room.
+    /// Apply the consequences of a published crossing.
     fn apply_crossing(
         &mut self,
         staged: &StagedRoomTransition,
-    ) -> Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> {
+    ) {
         let feel = *self.feel;
         self.carryover.clear_carryover(&staged.scope);
         if let Some((cue, pos)) = &staged.door_sfx {
@@ -469,7 +594,8 @@ impl RoomTransitionFinalize<'_, '_> {
                 id: ambition_sfx::SfxId::new(cue), emitter: (*pos).into(),
             });
         }
-        if !staged.scope.other_rooms_stay {
+        // A normal crossing does not reset session time control.
+        if staged.resets_clock && !staged.scope.other_rooms_stay {
             self.clock.clock_resets.write(ClockResetRequest::sim_clock(
                 ambition_time::time_control::ClockRequester::Engine, "room_transition",
             ));
@@ -523,10 +649,6 @@ impl RoomTransitionFinalize<'_, '_> {
         }
         if let Some(dialogue) = self.dialogue.as_deref_mut() { dialogue.close(); }
         if let Some(conversation) = self.conversation.as_deref_mut() { conversation.close(); }
-        match staged.members.first() {
-            Some(member) => self.rooms.of(member.subject),
-            None => self.rooms.sole(),
-        }
     }
 
 }
@@ -562,16 +684,8 @@ pub fn finalize_room_transition(
                 let mut finalize = state.get_mut(world).expect(
                     "RoomTransitionFinalize params are the ones RoomTransitionPlugin installs",
                 );
-                let arrived_in = finalize.apply_crossing(staged);
-                // The transaction keeps the live room it arrived in, so its
-                // cover waits on that room: two live rooms can be of one
-                // definition.
-                if let Some(active) = world
-                    .get_resource_mut::<super::loading::RoomTransitionLoadState>()
-                    .and_then(|state| state.into_inner().active.as_mut())
-                {
-                    active.arrived_in = arrived_in;
-                }
+                finalize.apply_crossing(staged);
+
             }
             state.apply(world);
         },
@@ -599,6 +713,8 @@ pub struct TransitBodies<'w, 's> {
     /// TRANSIT (ADR 0024 authority) and must reconcile model-private attachment.
     motion_models: Query<'w, 's, &'static mut ambition_platformer2d_core::movement::MotionModel>,
     combat: Query<'w, 's, &'static mut ambition_characters::actor::BodyCombat>,
+    living: Query<'w, 's, (&'static ambition_characters::actor::BodyHealth,
+        Option<&'static ambition_combat::death_rules::OutOfPlay>)>,
     /// The transiting body's resolved gravity frame — read (before the mutable
     /// cluster borrow) so the landing diagnostic probes along the body's own
     /// gravity, not world-down.
@@ -931,11 +1047,11 @@ pub fn commit_ready_room_transition_system(
         Ok(staged) => staged,
         Err(error) => {
             match error {
-                terminal @ RoomTransitionApplyError::SubjectGone
+                terminal @ RoomTransitionApplyError::StaleContinuity
+                | terminal @ RoomTransitionApplyError::SubjectGone
                 | terminal @ RoomTransitionApplyError::SubjectCannotTransit { .. } => {
-                    // The body cannot become eligible later without some other
-                    // lifecycle operation replacing this crossing. This exact intent
-                    // is therefore spent as a cancellation, not retained as a retry.
+                    // A missing body or a changed construction input ends this
+                    // prepared crossing. A later attempt must prepare again.
                     pending_lifecycle.take();
                     cancel_eager_room_transition_transaction(
                         &mut transition_state,
@@ -943,7 +1059,9 @@ pub fn commit_ready_room_transition_system(
                         &mut load_events,
                         &mut next_mode,
                         &active,
-                        "room_commit_subject_unavailable",
+                        if matches!(&terminal, RoomTransitionApplyError::StaleContinuity) {
+                            "room_commit_continuity_changed"
+                        } else { "room_commit_subject_unavailable" },
                     );
                     bevy::log::warn!(
                         target: "ambition_platformer2d::room_transition",
@@ -1037,6 +1155,7 @@ pub fn finalize_committed_room_transition(world: &mut bevy::prelude::World) {
     // that means the crossing happened if it published, and consumes the receipt
     // either way.
     let published = finalize_room_transition(world, &crossing.staged);
+    let arrived_in = published.then(|| crossing.staged.arrived_in(world)).flatten();
 
     let mut state: bevy::ecs::system::SystemState<(
         ResMut<super::loading::RoomTransitionLoadState>,
@@ -1094,6 +1213,7 @@ pub fn finalize_committed_room_transition(world: &mut bevy::prelude::World) {
                 .as_mut()
                 .filter(|current| current.sequence == active.sequence)
             {
+                current.arrived_in = arrived_in;
                 current.commit_duration = commit_duration;
                 current.committed_at = real_time.as_deref().map(|time| time.elapsed());
             }
@@ -1115,6 +1235,7 @@ pub fn finalize_committed_room_transition(world: &mut bevy::prelude::World) {
                 {
                     current.phase = super::loading::RoomTransitionLoadPhase::Committed;
                 }
+                transition_state.begin_settling();
             } else {
                 loads.retire(&active.barrier.load_id);
                 transition_state.active = None;

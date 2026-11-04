@@ -169,6 +169,7 @@ impl CapabilityLanes {
         scope: &ConstructionScope,
         room: &ambition_platformer2d_world::rooms::RoomSpec,
         outlook: &ambition_platformer2d_shared_tangle::lifecycle::RoomOccurrenceOutlook,
+        dependencies: &mut super::continuity::ContinuityDependencies,
         suppressed: &BTreeSet<SimId>,
     ) -> Result<Self, ambition_platformer2d_shared_tangle::construction::ConstructionError> {
         use ambition_platformer2d_shared_tangle::gravity::construction as gravity;
@@ -176,7 +177,7 @@ impl CapabilityLanes {
         let gravity = prepare_lane(
             scope.clone(),
             gravity::GRAVITY_ZONE_CONSTRUCTION_DOMAIN,
-            super::gravity_construction::authored_requests(room, outlook),
+            super::gravity_construction::authored_requests(room, outlook, dependencies),
             suppressed,
             &gravity::gravity_zone_construction_registry(),
         )?;
@@ -184,7 +185,7 @@ impl CapabilityLanes {
         let portal = prepare_lane(
             scope.clone(),
             ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN,
-            super::portal_construction::authored_requests(room, outlook),
+            super::portal_construction::authored_requests(room, outlook, dependencies),
             suppressed,
             &ambition_portal2d::portal_gun_construction_registry(),
         )?;

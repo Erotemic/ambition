@@ -2,9 +2,11 @@
 
 ## Status and scope
 
-Design for MULTIPLAYER-SEAMS slice 6. This protocol is not implemented.
-Keep the current peer hold and timeline rebase until the behavior gates below
-pass. A full-party checkpoint restore can keep that barrier.
+The ordinary-travel simulation path is implemented (`1b1baf65a`). Gates 1–3
+pass in the focused default-feature checks. Delayed peers apply on the same
+input frame, keep one generation, and replay through an application frame.
+Another-room combat, broader feature checks, and rendered view isolation remain
+open. Full-party checkpoint restores and explicit rebuilds retain their barrier.
 
 This change removes the lifecycle hold from an ordinary door crossing in the
 current GGRS host. It does not provide independent rollback histories for
@@ -25,29 +27,64 @@ The witnesses found a missing collision overlay after root restoration.
 it before actor targeting. Do not snapshot derived collision arrays or add a
 second room constructor to repair this case.
 
-These are room-application witnesses. The peer input, delayed-preparation,
-failure, and corrected-input gates below remain open. Keep the current peer
-hold until they pass.
+The delayed-peer tests now add frame-input agreement, both crossing orders,
+preparation failure, changed occurrences, and retained-plan lifetime. Guard:
+`ordinary_peer_crossings_apply_on_shared_input_frames_without_holding_or_rebasing`.
+They require a real rollback across an application frame and matching confirmed
+state. Gate 4's focused default witnesses now pass (`b2e6ad940`). A participant
+moves and kills an actor in another live room while preparation waits. A late
+attack removes an observed speculative crossing and suppresses its arrival
+reset; the control releases one reset. Guards:
+`a_peer_keeps_moving_and_fighting_in_a_live_destination_while_another_peer_prepares`
+and `corrected_combat_removes_a_speculative_crossing_and_its_arrival_effect`.
+
+Death now withdraws the exact body's crossing on the current rollback frame.
+Ordinary application rejects dead or out-of-play members before publication;
+explicit restores can still recover them. Schema 423 records this change.
+Guards: `a_death_withdraws_its_crossing_on_the_current_rollback_frame` and
+`ordinary_travel_refuses_dead_or_out_of_play_bodies_before_publication`.
+Preparation no longer waits for a committed cover (`dbc8f0cf2`). Both hosts
+move the committed payload out of the preparation slot. `LoadPresentations`
+holds each owner's foreground, activity, result, and input scope. Each cover
+has its own clock and view. Session retirement clears its derived loads.
+Delayed peers commit both crossings while both receipts remain held, with
+one arrival reset per crossing. Guard:
+`an_old_cover_does_not_block_the_next_peers_preparation_or_commit`.
+The visible host also prepares and commits another participant's crossing
+while the first destination remains covered. Guard:
+`a_second_crossing_prepares_while_the_first_destinations_frame_is_not_presentable`.
+GPU captures pass for both participants and separate rooms. Guard:
+`another_participants_load_draws_beside_a_cover_that_is_still_settling`.
+
+Gate 5 still needs a rendered simultaneous-combat witness and separate input
+latency, commit-cost, preparation, and settling measurements. Broader feature
+and tooling checks remain open. The earlier broad rollback run still fails
+the tracked provoked-source witness.
 
 ## Source findings
 
-The current `lifecycle_commit` in `ambition_platformer2d_rollback_ggrs` applies
-the room transaction outside `GgrsSchedule`. It holds the simulation from the
-frame after the intent, waits for confirmed preparation verdicts, and starts a
-new timeline after the commit. These steps give both peers the same baseline.
-Removing only the hold is unsafe. The existing
-`a_peer_commit_with_no_freeze_runs_on_two_worlds` witness detects that failure.
+Ordinary peer travel applies in `GgrsSchedule`, before gameplay. It reads that
+frame's verdicts, not the latest confirmed host summary. Every handle must state
+the same admission, captured preparation, content identities, and frozen plan.
+The exact retained plan uses the shared room application. A missing or changed
+promise is a protocol error. A matching failure or disconnected required handle
+ends the operation on the shared input timeline.
 
-The room state is partly ready for a reversible commit. The core registers
-`RoomGeometry`; the world registers `RoomSet`, `LiveRoomInstance`,
-`LiveRoomDefinition`, and `MovingPlatformSet`. Those declarations do not prove
-that room publication, actor construction, retirement, and their references
-can survive a rollback across a crossing. Prove that behavior first.
+`PendingLifecycleCommit::applied` retains the admission, application frame,
+preparation checksum, and arrival room in clone snapshots. The peer sends a
+presentation receipt through the existing confirmed-effect journal. Replay
+replaces speculative batches. Confirmed delivery retires only the matching
+loading presentation. Shared publication does not write host loading state.
+Schema 422 includes the applied receipt.
+
+Checkpoint restores and explicit room rebuilds retain the confirmed hold and
+rebase. Ordinary travel does not enter that barrier. Both use the same room
+constructor and transaction.
 
 `PeerVerdict` identifies an operation by its recording frame, admitted intent
 checksum, and captured preparation checksum. The intent includes its checkpoint key. Replies for a replaced intent cannot prepare or
 fail its replacement, even when both use the same frame. The wire identity is
-7. Guards: `verdicts_for_a_replaced_intent_do_not_prepare_or_fail_its_replacement`
+8. Guards: `verdicts_for_a_replaced_intent_do_not_prepare_or_fail_its_replacement`
 and `a_peer_waits_for_the_replacement_intent_even_when_its_frame_is_unchanged`.
 An older capture cannot prepare or fail its replacement. Guards:
 `verdicts_for_an_older_capture_do_not_prepare_or_fail_the_current_capture` and
@@ -55,12 +92,13 @@ An older capture cannot prepare or fail its replacement. Guards:
 Replies also carry both content identities and the frozen plan digest. Agreement
 requires stated content and equal plan data on every handle. The commit checks
 its local plan against that agreement. A mismatch publishes `Failed` through
-the input stream. Wire identity 7 carries 166 bytes, including the captured preparation checksum. Guards:
+the input stream. Wire identity 8 carries 168 bytes, including the captured preparation checksum. Guards:
 `preparation_requires_the_same_content_and_frozen_plan` and
 `peers_refuse_different_room_plans_under_the_same_content_identity`.
 The host retains each offered plan and its exact captured preparation outside
 that transaction. Commit checks the current content binding, session, source
-room, and captured preparation. Target occurrence dependency checks remain open.
+room, and captured preparation. Publication also checks the consumed occurrence
+and mint inputs before it builds a destination.
 The loading transaction's presentation tail can remain after the commit.
 Neither a render deadline nor that tail can select
 the simulation frame of the next peer commit.
@@ -73,10 +111,24 @@ A missing pinned restore records an error. Schema 413 includes this state.
 Guards: `room_preparation::tests` and
 `lifecycle_snapshot_tests::room_preparation_inputs_survive_the_registered_snapshot_path`.
 
-This capture does not authorize a stale construction plan. Target dependency
-checks remain open. An
-existing live destination uses its live state; moving actors there must not
-force a new room-construction promise each tick.
+Publication and prefetch reuse now check the same consumed continuity inputs
+(`69929efb2`). The plan records queried authored identities, including suppressed
+records, all destination reinstatements, and the mint recipes it used. Plan
+identity and reuse use the same canonical encoding. A relevant change refuses
+publication before room retirement. Unrelated occurrences permit reuse.
+An existing live destination uses its live state and does not validate an unused
+construction plan. Schema 420 records the change. Guards:
+`continuity_rechecks_authored_and_suppressed_records_without_other_room_dependencies`,
+`continuity_rechecks_foreign_arrivals_and_their_positions`,
+`continuity_rechecks_the_recipe_of_a_reinstated_runtime_mint`,
+`a_changed_destination_continuity_refuses_before_retiring_any_live_room`, and
+`a_live_destination_uses_live_occurrences_instead_of_the_unused_construction_plan`.
+The delayed-peer witness now covers a real destination pickup consumed after
+admission capture (`438be9428`). Both peers refuse the stale plan and keep the
+source room and both bodies. Guard:
+`peers_refuse_a_destination_occurrence_changed_after_preparation_capture`.
+This witness uses the ordinary shared timeline without a rebase. The live-room
+combat witness also changes its destination population before arrival.
 
 Checkpoint restores now carry their key in the pending and withdrawn intents
 (`ce283f8f0`).
@@ -90,13 +142,13 @@ retirement compare the admission. Guards:
 Clone snapshots retain the local scope in the key. The shared checksum uses
 its peer-stable projection. Schema 411 records this change. Guard:
 `restore_peer_checksums_compare_admissions_without_local_scope_values` and
-`pending_and_withdrawn_restore_keys_survive_the_registered_snapshot_path`.
+`pending_withdrawn_and_applied_restore_keys_survive_the_registered_snapshot_path`.
 There is no second canonical codec for this local state.
 A checkpoint restore still uses the current peer barrier.
 
 Construction-plan identities bind the complete resolved rows and relations,
 constructor and placement schemas, retained character and catalog services,
-occurrence outlook, and resolved moving-platform starts. Character publications
+consumed continuity inputs, and resolved moving-platform starts. Character publications
 share immutable data versions; a later edit cannot change a retained plan.
 Guards: `peer_plan_identity_binds_retained_services_without_local_history`,
 `a_retained_cast_keeps_its_definitions_after_a_new_publication`, and
@@ -105,8 +157,14 @@ Guards: `peer_plan_identity_binds_retained_services_without_local_history`,
 `RoomConstructionPlan::peer_identity` requires both stated content identities
 and excludes local activation counters. Local plan IDs add those counters for
 cache use. Peer replies carry this identity and the captured preparation
-checksum. Target dependency checks remain open. Do not send the local plan ID as
+checksum. Do not send the local plan ID as
 proof of peer preparation.
+
+Ordinary travel now preserves current and requested session time scale
+(`199313527`). An explicit rebuild can reset the clock only when no unrelated
+rooms remain live. Both hosts use the shared finalizer. Schema 421 records the
+change. Guard:
+`travel_keeps_the_shared_clock_scale_and_a_full_rebuild_resets_it`.
 
 ## Retained plan lifetime
 

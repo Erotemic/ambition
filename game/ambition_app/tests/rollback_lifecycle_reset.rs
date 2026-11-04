@@ -601,9 +601,8 @@ fn a_confirmed_death_restores_the_entitlement_bag_the_checkpoint_banked() {
 /// there, because `PendingLifecycleCommit` and `AcceptedCheckpointRestore` are
 /// rollback-registered and `Update` never rewinds. The retraction happens at a
 /// commit boundary — and on THIS host that boundary is an inline call inside
-/// `commit_confirmed_lifecycle`, not a registered system. The runtime crate's
-/// two membership counts are blind to it: delete the call and both stay green
-/// while a rollback session wedges on the first unpreparable definition.
+/// `commit_confirmed_lifecycle`, not a registered system. A failed preparation
+/// must receive a terminal answer through that host's confirmed commit path.
 ///
 /// ⭐ END TO END, NOT STAGED HALFWAY. Nothing here writes
 /// `AbandonedCheckpointOperation`: the accepted operation names an intent whose
@@ -648,7 +647,7 @@ fn a_failed_preparation_is_ended_by_the_confirmed_host_too() {
         source_zone: None,
                 initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
                     subject: subject.clone(),
-                    arrival: ambition_platformer2d::engine_core::Vec2::ZERO,
+                    arrival: ambition_platformer2d::session::lifecycle_commit::RoomArrival::At(ambition_platformer2d::engine_core::Vec2::ZERO),
                     participant: None,
                 },
                 companions: Vec::new(),

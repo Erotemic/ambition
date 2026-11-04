@@ -28,15 +28,17 @@ pub enum LocalViewLayout {
     #[default]
     Adaptive,
     AlwaysSplit,
+    FollowLeader,
 }
 
 impl LocalViewLayout {
-    pub const ALL: [Self; 2] = [Self::Adaptive, Self::AlwaysSplit];
+    pub const ALL: [Self; 3] = [Self::Adaptive, Self::AlwaysSplit, Self::FollowLeader];
 
     pub fn label(self) -> &'static str {
         match self {
             Self::Adaptive => "Adaptive",
             Self::AlwaysSplit => "Always split",
+            Self::FollowLeader => "Follow leader",
         }
     }
 

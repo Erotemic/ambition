@@ -62,6 +62,14 @@ impl Plugin for RoomTransitionComposerPlugin {
         ambition_platformer2d_shared_tangle::lifecycle::require_on_session_root::<CapturedRoomPreparation>(app);
         app.add_systems(
             sim,
+            ambition_platformer2d_session::death::withdraw_crossings_on_actor_death
+                .in_set(Platformer2dSimulationPhase::Combat)
+                .after(ambition_platformer2d_shared_tangle::schedule::CombatSet::ContentFlavor)
+                .before(ambition_platformer2d_shared_tangle::schedule::CombatSet::Settle)
+                .run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::death_rules::ActorDiedMessage>),
+        );
+        app.add_systems(
+            sim,
             capture_room_preparation_inputs
                 .in_set(GameplaySimulationRoot)
                 .after(Platformer2dSimulationPhase::ResetProcessing)
@@ -69,7 +77,7 @@ impl Plugin for RoomTransitionComposerPlugin {
         );
         // READINESS IS HOST-SIDE; THE ROOM CHANGE IS SIMULATION.
         //
-        // These four ask a question — is the destination prepared, are its assets
+        // These systems ask a question — is the destination prepared, are its assets
         // accounted for, is the cover up, may this commit — and answering it
         // mutates no sim state. None of them is rollback-registered, and running
         // them inside a rewound schedule is what kept the whole transaction off
@@ -84,6 +92,7 @@ impl Plugin for RoomTransitionComposerPlugin {
         app.add_systems(
             Update,
             (
+                loading::retire_departed_room_presentations_system,
                 begin_room_transition_load_system,
                 authorize_ready_room_transition_system
                     .run_if(loading::a_transition_is_in(loading::RoomTransitionLoadPhase::AwaitingReadiness)),

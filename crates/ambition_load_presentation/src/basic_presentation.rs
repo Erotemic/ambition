@@ -7,12 +7,15 @@ use ambition_platformer2d_shared_tangle::developer_hotkeys::{
 use bevy::prelude::*;
 
 use crate::{
-    LoadForegroundPhase, LoadForegroundState, LoadPresentationAction, LoadPresentationModel,
+    LoadForegroundPhase, LoadPresentations, LoadPresentationAction, LoadPresentationModel, LoadPresentationOwnerId,
     LoadPresentationSet,
 };
 
 #[derive(Component)]
 pub struct BasicLoadRoot;
+
+#[derive(Component)]
+struct BasicLoadOwner(LoadPresentationOwnerId);
 
 /// The loading screen's sign of life: a glyph that turns while the game
 /// works, so a slow machine is never mistaken for a frozen one (Jon,
@@ -50,77 +53,58 @@ impl Plugin for BasicLoadPresentationPlugin {
 
 fn basic_load_keyboard(
     input: crate::input::LoadInput,
-    foreground: Res<LoadForegroundState>,
-    model: Res<LoadPresentationModel>,
+    presentations: Res<LoadPresentations>,
     mut developer_actions: MessageReader<DeveloperAction>,
     mut actions: MessageWriter<LoadPresentationAction>,
 ) {
-    let Some(active) = foreground.active.as_ref() else {
-        return;
-    };
-    let controls = input.read(active.spec.input_owner);
-    let confirm = controls.select;
-    let back = controls.back;
-    if !back && confirm {
-        let action = if active.phase == LoadForegroundPhase::ReadyHold {
-            Some(LoadPresentationAction::Continue { owner: active.owner.clone() })
-        } else if active.phase == LoadForegroundPhase::Failed && model.failures.iter().any(|failure| failure.retryable) {
-            Some(LoadPresentationAction::Retry { owner: active.owner.clone() })
-        } else { None };
-        if let Some(action) = action { actions.write(action); }
-    }
-    let quit_to_home = developer_actions
-        .read()
-        .any(|action| *action == DeveloperAction::QuitToHome);
-    if quit_to_home {
-        actions.write(LoadPresentationAction::Quit {
-            owner: active.owner.clone(),
-        });
-    } else if back {
-        actions.write(LoadPresentationAction::Cancel {
-            owner: active.owner.clone(),
-        });
+    let quit_to_home = developer_actions.read().any(|action| *action == DeveloperAction::QuitToHome);
+    for entry in presentations.iter() {
+        let active = &entry.foreground;
+        let controls = input.read(active.spec.input_owner);
+        if !controls.back && controls.select {
+            let action = if active.phase == LoadForegroundPhase::ReadyHold {
+                Some(LoadPresentationAction::Continue { owner: active.owner.clone() })
+            } else if active.phase == LoadForegroundPhase::Failed && entry.model.failures.iter().any(|failure| failure.retryable) {
+                Some(LoadPresentationAction::Retry { owner: active.owner.clone() })
+            } else { None };
+            if let Some(action) = action { actions.write(action); }
+        }
+        if quit_to_home {
+            actions.write(LoadPresentationAction::Quit { owner: active.owner.clone() });
+        } else if controls.back {
+            actions.write(LoadPresentationAction::Cancel { owner: active.owner.clone() });
+        }
     }
 }
 
 fn render_basic_load(
     mut commands: Commands,
-    model: Res<LoadPresentationModel>,
-    foreground: Res<LoadForegroundState>,
+    presentations: Res<LoadPresentations>,
     hotkeys: Option<Res<DeveloperHotkeyBindings>>,
-    roots: Query<Entity, With<BasicLoadRoot>>,
-    mut prior: Local<String>,
+    roots: Query<(Entity, &BasicLoadOwner), With<BasicLoadRoot>>,
+    mut prior: Local<std::collections::BTreeMap<LoadPresentationOwnerId, String>>,
 ) {
-    let quit_label = hotkeys
-        .as_deref()
+    let quit_label = hotkeys.as_deref()
         .and_then(|bindings| bindings.label_for(DeveloperAction::QuitToHome))
         .unwrap_or_else(|| "Quit to home".to_owned());
-    let text = format_model(&model, &quit_label);
-    let key = format!(
-        "{}:{text}",
-        foreground
-            .active
-            .as_ref()
-            .map(|active| active.barrier.load_id.as_str())
-            .unwrap_or("none")
-    );
-    if *prior == key {
-        return;
+    for (entity, owner) in &roots {
+        if presentations.get(&owner.0).is_none() { commands.entity(entity).despawn(); }
     }
-    *prior = key;
-    for entity in &roots {
-        commands.entity(entity).despawn();
-    }
-    if text.is_empty() {
-        return;
-    }
-    let active = foreground
-        .active
-        .as_ref()
-        .expect("visible load presentation has an exact active foreground");
+    prior.retain(|owner, _| presentations.get(owner).is_some());
+    for entry in presentations.iter() {
+        let active = &entry.foreground;
+        let text = format_model(&entry.model, &quit_label);
+        let key = format!("{}:{text}", active.barrier.load_id.as_str());
+        if prior.get(&active.owner) == Some(&key) { continue; }
+        prior.insert(active.owner.clone(), key);
+        for (entity, owner) in &roots {
+            if owner.0 == active.owner { commands.entity(entity).despawn(); }
+        }
+        if text.is_empty() { continue; }
     commands
         .spawn((
             BasicLoadRoot,
+            BasicLoadOwner(active.owner.clone()),
             ambition_platformer2d_shared_tangle::gameplay_presentation::PresentationCover,
             FrontendOwnedEntity::load(
                 active.barrier.load_id.clone(),
@@ -160,6 +144,7 @@ fn render_basic_load(
                 TextLayout::justify(Justify::Center),
             ));
         });
+    }
 }
 
 /// Turn the spinner on real time, which advances while the game waits on
@@ -225,18 +210,15 @@ mod input_tests {
             app.init_resource::<MenuControlFrame>();
             app.init_resource::<SeatMenuFrames>();
             app.init_resource::<SeatInputContexts>();
-            app.init_resource::<LoadPresentationModel>();
-            app.init_resource::<LoadForegroundState>();
-            app.world_mut().resource_mut::<LoadPresentationModel>().failures.push(
-                ambition_load::LoadFailure::new("fixture", "fixture").retryable(true));
+            app.init_resource::<LoadPresentations>();
             let owner = crate::LoadPresentationOwnerId::new("fixture");
             let mut spec = crate::LoadExperienceSpec::basic("fixture");
             spec.input_owner = Some(InputOwner::Participant(ParticipantId::SECONDARY));
-            app.world_mut().resource_mut::<LoadForegroundState>().active = Some(crate::ActiveLoadForeground {
+            app.world_mut().resource_mut::<LoadPresentations>().begin(crate::ActiveLoadForeground {
                 owner: owner.clone(), barrier: ambition_load::LoadBarrierRef::new("fixture", "ready"), spec,
                 phase, elapsed: std::time::Duration::ZERO,
                 activity_activation_id: None, engaged: false, ready_released: false,
-            });
+            }).model.failures.push(ambition_load::LoadFailure::new("fixture", "fixture").retryable(true));
             for id in [ParticipantId::PRIMARY, ParticipantId::SECONDARY] {
                 let mut contexts = ParticipantContexts::default();
                 contexts.declare(ContextClaim::capturing(if id == ParticipantId::SECONDARY { LOADING_CONTEXT } else { GAMEPLAY_CONTEXT },

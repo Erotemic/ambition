@@ -223,6 +223,8 @@ pub fn read_gameplay_control_frame_with_settings(
         interact_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Interact),
         interact_held: actions.pressed(&Platformer2dInputActionMonolith::Interact),
         reset_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Reset),
+        return_to_leader_pressed: false,
+        party_preference: Default::default(),
         start_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Start),
         projectile_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Projectile),
         projectile_held: actions.pressed(&Platformer2dInputActionMonolith::Projectile),

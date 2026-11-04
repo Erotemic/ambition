@@ -930,6 +930,10 @@ pub(crate) fn install_session_bridge(app: &mut App) {
         RunGgrsSystems.run_if(crate::peer::peer_agreement_is_ready),
     );
     app.add_systems(Update, report_input_written_to_the_wrong_seam);
+    app.add_plugins(ambition_platformer2d_runtime::external_effects::ExternalEffectQuarantinePlugin::<
+        crate::lifecycle_commit::PeerRoomCommit>::default());
+    ambition_platformer2d_runtime::external_effects::quarantine_discard_on_load::<
+        crate::lifecycle_commit::PeerRoomCommit>(app, LoadWorld);
     app.init_resource::<InputSeamMisuse>()
         .init_resource::<PendingSeatInputs>()
         .init_resource::<ThisPeersVerdict>()
@@ -972,13 +976,14 @@ pub(crate) fn install_session_bridge(app: &mut App) {
         // before the freeze reads the slot on this frame.
         .add_systems(
             GgrsSchedule,
-            crate::lifecycle_commit::end_an_operation_a_peer_could_not_prepare
+            (crate::lifecycle_commit::end_an_operation_a_peer_could_not_prepare,
+                crate::lifecycle_commit::commit_peer_crossing).chain()
+                .after(ambition_platformer2d_runtime::external_effects::ExternalEffectSet::OpenOutbox)
                 .after(record_confirmed_verdicts)
                 .before(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot),
         )
-        // THE FREEZE, declared here and nowhere else. A lifecycle operation
-        // that waits under a peer session holds the whole gameplay simulation,
-        // the tick included. See `a_peer_commit_holds_the_simulation`.
+        // Rebuilds and checkpoint restores keep the session barrier.
+        // Ordinary travel does not enter it.
         .configure_sets(
             GgrsSchedule,
             ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot
@@ -1002,6 +1007,9 @@ pub(crate) fn install_session_bridge(app: &mut App) {
                 crate::room_promises::collect_without_snapshots.after(RunGgrsSystems)
                     .before(crate::lifecycle_commit::commit_confirmed_lifecycle),
                 record_peer_events.after(RunGgrsSystems),
+                crate::lifecycle_commit::observe_peer_room_commits
+                    .after(ambition_platformer2d_runtime::external_effects::ExternalEffectSet::Release)
+                    .before(crate::lifecycle_commit::commit_confirmed_lifecycle),
                 // The state the first run left, before a confirmed lifecycle
                 // operation rebuilds the timeline over it.
                 crate::first_run_witness::take_the_first_run_witness

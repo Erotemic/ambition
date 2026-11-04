@@ -13,7 +13,7 @@ use bevy::prelude::{
 };
 
 use crate::{
-    LoadExperienceSpec, LoadForegroundPhase, LoadForegroundState, LoadPresentationCommand,
+    LoadExperienceSpec, LoadForegroundPhase, LoadPresentations, LoadPresentationCommand,
     LoadPresentationEvent, LoadPresentationOwnerId, LoadPresentationSet,
 };
 
@@ -149,19 +149,15 @@ fn observe_shell_waits(
 
 fn sync_shell_hold(
     state: Res<ShellLoadPresentationState>,
-    foreground: Res<LoadForegroundState>,
+    presentations: Res<LoadPresentations>,
     mut holds: ResMut<ShellRouteHolds>,
 ) {
     let Some(shell_active) = state.active.as_ref() else {
         return;
     };
-    let should_hold = foreground
-        .active
-        .as_ref()
-        .filter(|active| active.owner == shell_active.owner)
-        .is_some_and(|active| {
-            active.should_hold_ready() || active.phase == LoadForegroundPhase::Failed
-        });
+    let should_hold = presentations.get(&shell_active.owner).is_some_and(|entry| {
+        entry.foreground.should_hold_ready() || entry.foreground.phase == LoadForegroundPhase::Failed
+    });
     let hold_id = ShellHoldId::new(LOAD_PRESENTATION_HOLD);
     if should_hold {
         holds.hold(shell_active.route_id.clone(), hold_id);

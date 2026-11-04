@@ -71,6 +71,18 @@ const _: () = assert!(
         == ambition_characters::control::SlotControls::MAX_SLOTS
 );
 
+fn route_zone(
+    rooms: &RoomSet,
+    definition: ambition_platformer2d_world::rooms::LiveRoomDefinition,
+    zone: &str,
+    network: &ambition_platformer2d_world::rooms::GateNetworkState,
+) -> Option<ambition_platformer2d_world::rooms::RoomTransition> {
+    match network.route_from(zone) {
+        Some(link) => rooms.transition_into(definition, zone, &link.far_room, &link.far),
+        None => rooms.transition_through(definition, zone),
+    }
+}
+
 /// Detect a loading-zone overlap and RECORD the crossing it describes. The host
 /// opens a readiness transaction from that record while the current room remains
 /// authoritative; the actual room load (despawn old, spawn new, place the
@@ -93,8 +105,7 @@ pub fn detect_room_transition_system(
     >,
     portals: Res<GatePortalRegistry>,
     phases: Res<GatePortalPhases>,
-    // A gate ring's live link: where the ring leads now, and the record that
-    // a traveller went in, which lets the link close.
+    // Each ring supplies its current route. A crossing resets its idle timer.
     mut network: ResMut<ambition_platformer2d_world::rooms::GateNetworkState>,
     // The transition subjects are the DRIVEN bodies, one per seat: if a driven
     // body (home avatar or possessed actor) enters an exit/door, THAT body
@@ -134,7 +145,36 @@ pub fn detect_room_transition_system(
     passage_rules: ambition_combat::governing_rules::RulesOf<super::passage::ZonePassageRules>,
     mut commands: bevy::prelude::Commands,
     mut sfx: ambition_sfx::SfxWriter,
+    mut parties: Query<
+        (&mut crate::party_travel::PartyTravel, &crate::participants::SessionParticipants),
+        bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
+    >,
 ) {
+    use ambition_platformer2d_core::party_controls::PartyTravelMode;
+use crate::party_travel::{PartyAdmission, PartyExit, PartyVote};
+    let mut party = parties.single_mut().ok();
+    let members = party.as_ref().filter(|(party, _)| party.rules().mode != PartyTravelMode::Independent)
+        .map(|(party, admitted)| party.members(admitted)).unwrap_or_default();
+    if let Some((party, _)) = party.as_mut() {
+        if party.has_votes() { party.retain_votes(|slot, vote| {
+            use ae::AabbExt as _;
+            if !members.contains(&slot) { return false; }
+            let Some(entity) = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, slot)
+                else { return false; };
+            if sim_ids.id_of(entity).as_ref() != Some(&vote.body)
+                || rooms.live().of(entity) != vote.body.room { return false; }
+            let Ok((kin, sweep, _, _, in_passage)) = bodies.get(entity) else { return false; };
+            if in_passage { return false; }
+            let Some(definition) = rooms.definition_of(entity) else { return false; };
+            let Some(zone) = rooms.rooms().spec(definition).loading_zones.iter()
+                .find(|zone| zone.id == vote.exit.zone) else { return false; };
+            if !kin.collision_box(sweep).strict_intersects(zone.aabb)
+                || !portals.lets_through(&phases, &zone.id) { return false; }
+            route_zone(rooms.rooms(), definition, &zone.id, &network).is_some_and(|route|
+                route.target_zone == vote.exit.target_zone
+                    && rooms.rooms().spec_at(route.target_room).is_some_and(|target| target.id == vote.exit.target_room))
+        }); }
+    }
     // Each seat's driven body crosses the doors of its own live room, in slot
     // order (OW1). The intent slot holds one crossing, so the first crossing
     // admitted is this tick's, and another seat asks again on a later tick.
@@ -169,19 +209,16 @@ pub fn detect_room_transition_system(
             .map_or((kin.collision_box(sweep), ae::Vec2::ZERO), |path| {
                 (path.end_aabb(), path.delta())
             });
-        let wants_interact = slot_gestures.get(seat).buffered();
+        let voted_zone = party.as_ref().and_then(|(party, _)| party.vote(seat)).map(|vote| vote.exit.zone.as_str());
+        let wants_interact = slot_gestures.get(seat).buffered() || voted_zone.is_some();
         // A zone's edge is its authored link, or, for a gate ring, its live
         // link: the far ring a terminal dialed. A ring with no link has no
         // edge, and its portal is shut.
-        let routed = rooms
-            .rooms()
-            .zone_for_player(definition, path_end, delta, wants_interact)
-            .and_then(|zone| match network.route_from(&zone.id) {
-                Some(link) => {
-                    rooms.rooms().transition_into(definition, &zone.id, &link.far_room, &link.far)
-                }
-                None => rooms.rooms().transition_through(definition, &zone.id),
-            });
+        let source_zone = match voted_zone {
+            Some(id) => rooms.rooms().spec(definition).loading_zones.iter().find(|zone| zone.id == id),
+            None => rooms.rooms().zone_for_player(definition, path_end, delta, wants_interact),
+        };
+        let routed = source_zone.and_then(|zone| route_zone(rooms.rooms(), definition, &zone.id, &network));
         let Some(zone) = routed else {
             // `warn_once`: a stuck body re-enters this branch every tick, and the
             // situation is a standing one — the first report is the whole message.
@@ -238,7 +275,7 @@ pub fn detect_room_transition_system(
         // NPC standing in front of a door is talked to, and the door is used from
         // its own side. The conversation opens later this tick, in the feature
         // interaction phase.
-        if matches!(zone.zone.activation, LoadingZoneActivation::Door) {
+        if voted_zone.is_none() && matches!(zone.zone.activation, LoadingZoneActivation::Door) {
             let door = ae::AabbExt::center(zone.zone.aabb).distance(kin.pos);
             let reach = ambition_platformer2d_interaction::InteractReach::of(kin, sweep, frame, rooms.live().of(subject_entity),
             );
@@ -295,6 +332,55 @@ pub fn detect_room_transition_system(
             );
             continue;
         };
+        let selection = if members.contains(&seat) {
+            if subject.room.is_none() { continue; }
+            if party.as_ref().unwrap().0.rules().mode == PartyTravelMode::AllMembers {
+                use ae::AabbExt as _;
+                if !kin.collision_box(sweep).strict_intersects(zone.zone.aabb) { continue; }
+            }
+            let vote = PartyVote { body: subject.clone(), exit: PartyExit {
+                zone: zone.zone.id.clone(), target_room: target_spec.id.clone(), target_zone: zone.target_zone.clone(),
+            }};
+            party.as_mut().expect("a group has session rules").0.consider(seat, vote, &members)
+        } else { PartyAdmission::Independent };
+        let group = match selection {
+            PartyAdmission::Denied => continue,
+            PartyAdmission::Waiting => {
+                if let Some(gesture) = slot_gestures.get_mut(seat) { gesture.clear(); }
+                continue;
+            }
+            PartyAdmission::Together(group) => group,
+            PartyAdmission::Independent => Vec::new(),
+        };
+        let mut companions = Vec::new();
+        if !group.is_empty() {
+            if pending_lifecycle.peek().is_some() { continue; }
+            let mut available = true;
+            for slot in &group {
+                let Some(entity) = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, *slot)
+                    else { available = false; break; };
+                if bodies.get(entity).map_or(true, |(_, _, _, _, in_passage)| in_passage)
+                    || sim_state.holds(slot.0 as usize) { available = false; break; }
+                let Some(body) = sim_ids.id_of(entity) else { available = false; break; };
+                if *slot != seat {
+                    companions.push(crate::lifecycle_commit::RoomBodyTransfer {
+                        subject: body, participant: Some(*slot),
+                        arrival: crate::lifecycle_commit::RoomArrival::NearBody(subject.clone()),
+                    });
+                }
+            }
+            if !available { continue; }
+        }
+        let mut crossing = crate::lifecycle_commit::RoomTransitionIntent {
+            disposition: Default::default(), source_zone: Some(zone.zone.id.clone()),
+            initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                subject: subject.clone(), arrival: crate::lifecycle_commit::RoomArrival::At(zone.arrival),
+                participant: driver.map(|driver| driver.0),
+            },
+            companions, target_room: target_spec.id.clone(),
+            edge_exit: matches!(zone.zone.activation, LoadingZoneActivation::EdgeExit),
+            zone_sfx: zone_sfx.as_ref().map(|id| id.as_str().to_string()),
+        };
         // A door or a gate in a room whose game plays passages: the body goes
         // in by its passage, which records this crossing when it has gone in.
         // Its sound is the passage's, now, not the commit's.
@@ -315,19 +401,7 @@ pub fn detect_room_transition_system(
                 );
                 continue;
             };
-            let crossing = crate::lifecycle_commit::RoomTransitionIntent {
-                disposition: Default::default(),
-                source_zone: Some(zone.zone.id.clone()),
-                initiator: crate::lifecycle_commit::RoomBodyTransfer {
-                    subject: subject.clone(),
-                    arrival: zone.arrival,
-                    participant: driver.map(|driver| driver.0),
-                },
-                companions: Vec::new(),
-                target_room: target_spec.id.clone(),
-                edge_exit: false,
-                zone_sfx: None,
-            };
+            crossing.zone_sfx = None;
             let arrival = super::passage::PassageArrival {
                 kind: if portals.is_portal(&far.id) {
                     Some(super::passage::PassageKind::Gate)
@@ -358,8 +432,12 @@ pub fn detect_room_transition_system(
                 },
                 emitter: (kin.pos).into(),
             });
-            if let Some(gestures) = slot_gestures.get_mut(seat) {
-                gestures.clear();
+            if group.is_empty() {
+                if let Some(gestures) = slot_gestures.get_mut(seat) { gestures.clear(); }
+            } else {
+                party.as_mut().unwrap().0.clear_votes();
+                for slot in &group { if let Some(gesture) = slot_gestures.get_mut(*slot) { gesture.clear(); } }
+                return;
             }
             continue;
         }
@@ -384,38 +462,76 @@ pub fn detect_room_transition_system(
             // so the intent is confirmed the instant it is recorded, which is what
             // `ConfirmedRoomTransitionIntent` reads it as.
             boundary.map_or(0, |boundary| boundary.current),
-            crate::lifecycle_commit::LifecycleIntent::Transition(
-                crate::lifecycle_commit::RoomTransitionIntent {
-                    disposition: Default::default(),
-                    source_zone: Some(zone.zone.id.clone()),
-                initiator: crate::lifecycle_commit::RoomBodyTransfer {
-                    subject: subject.clone(),
-                    arrival: zone.arrival,
-                    participant: driver.map(|driver| driver.0),
-                },
-                companions: Vec::new(),
-                    target_room: target_spec.id.clone(),
-                    edge_exit: matches!(zone.zone.activation, LoadingZoneActivation::EdgeExit),
-                    // Carried because the commit happens far from the zone that
-                    // named it.
-                    zone_sfx: zone_sfx.as_ref().map(|id| id.as_str().to_string()),
-                },
-            ),
+            crate::lifecycle_commit::LifecycleIntent::Transition(crossing),
         );
         if !admission.admitted() {
             // The zone re-emits every tick the body overlaps it, so a HELD press
             // asks again next frame; a tap keeps its buffer for the rest of the
-            // window and can ask again then. Either way nothing here has mutated
-            // anything, which is now true of the whole function.
+            // window and can ask again then. A group keeps its admitted agreements.
             return;
         }
         network.used(&zone.zone.id);
         // Consume the gesture only once the crossing is ADMITTED — not merely
         // describable. Every invariant needed to describe it was checked above; the
         // slot is the one that decides whether it happens.
-        if let Some(gestures) = slot_gestures.get_mut(seat) {
-            gestures.clear();
+        if group.is_empty() {
+            if let Some(gestures) = slot_gestures.get_mut(seat) { gestures.clear(); }
+        } else {
+            party.as_mut().unwrap().0.clear_votes();
+            for slot in &group { if let Some(gesture) = slot_gestures.get_mut(*slot) { gesture.clear(); } }
+            return;
         }
         return;
     }
+}
+
+/// Denied exits contribute walls only for the bodies that cannot use them.
+pub fn contribute_party_exit_barriers(
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    parties: Query<
+        (&crate::party_travel::PartyTravel, &crate::participants::SessionParticipants),
+        bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
+    >,
+    drivers: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
+    network: Res<ambition_platformer2d_world::rooms::GateNetworkState>,
+    mut overlays: ambition_platformer2d_shared_tangle::feature_overlay::RoomOverlays,
+) {
+    let Ok((party, admitted)) = parties.single() else { return; };
+    if party.rules().mode != ambition_platformer2d_core::party_controls::PartyTravelMode::Leader { return; }
+    for slot in party.members(admitted) {
+        if slot == party.rules().leader { continue; }
+        let Some(entity) = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, slot)
+            else { continue; };
+        let Some(definition) = rooms.definition_of(entity) else { continue; };
+        let stamp = rooms.live().of(entity).map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
+        let Some(mut overlay) = overlays.for_room(stamp.as_ref()) else { continue; };
+        for block in party_exit_walls(party, admitted, slot, rooms.rooms(), definition, &network) {
+            overlay.body_barriers.push(ambition_platformer2d_shared_tangle::feature_overlay::BodyBarrier {
+                block, bodies: vec![entity],
+            });
+        }
+    }
+}
+
+/// The same exit walls apply to live movement and destination arrival clearance.
+pub fn party_exit_walls(
+    party: &crate::party_travel::PartyTravel,
+    admitted: &crate::participants::SessionParticipants,
+    slot: ambition_characters::control::PlayerSlot,
+    rooms: &RoomSet,
+    definition: ambition_platformer2d_world::rooms::LiveRoomDefinition,
+    network: &ambition_platformer2d_world::rooms::GateNetworkState,
+) -> Vec<ae::Block> {
+    use ae::AabbExt as _;
+    if party.rules().mode != ambition_platformer2d_core::party_controls::PartyTravelMode::Leader
+        || slot == party.rules().leader || !party.members(admitted).contains(&slot) { return Vec::new(); }
+    rooms.spec(definition).loading_zones.iter().filter(|zone|
+        zone.activation != LoadingZoneActivation::Door && route_zone(rooms, definition, &zone.id, network).is_some())
+        .map(|zone| {
+            let name = format!("party-exit:{}", zone.id);
+            let mut block = ae::Block::solid(&name, zone.aabb.min, zone.aabb.half_size() * 2.0);
+            block.kind = ae::BlockKind::Barrier;
+            block.id = ae::GeoId::placement(ae::PlacementId::new(name), 0);
+            block
+        }).collect()
 }

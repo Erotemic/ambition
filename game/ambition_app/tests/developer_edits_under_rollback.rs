@@ -87,6 +87,13 @@ fn god_blink_in_ambition_does_not_grant_blink_to_maryo() {
     assert!(!abilities.blink && !abilities.precision_blink && !abilities.unrestricted_blink,
         "Maryo inherited a developer blink grant from the prior game: {abilities:?}");
     assert!(!app.world().resource::<EditableAbilitySet>().unrestricted_blink);
+    let robot = enter(&mut app, ambition_content::provider::AMBITION_GAMEPLAY_ROUTE);
+    for _ in 0..120 {
+        app.update();
+        if app.world().get::<BodyAbilities>(robot).unwrap().abilities.unrestricted_blink { break; }
+    }
+    assert!(app.world().get::<BodyAbilities>(robot).unwrap().abilities.unrestricted_blink,
+        "returning to Ambition lost its stored God Blink preference");
 }
 
 /// The sync-test canary: save every frame, rewind `4`, resimulate with the same

@@ -63,8 +63,8 @@ diagnostic history is evidence only and cannot gate gameplay.
 - runtime-created rollback entity recreation for covered families;
 - external/presentation effects quarantined to the confirmed host-side boundary
   where implemented;
-- a confirmed room transition waits for the authorized construction plan and
-  rebases to a new frame-zero baseline;
+- ordinary peer travel applies from shared frame inputs without a rebase;
+- checkpoint restores and explicit rebuilds use the confirmed lifecycle barrier;
 - cross-game shell lifecycle acceptance: one retired game's rollback health
   cannot block another game's room transition, including misordered retirement
   (`shell_host_lifecycle.rs`);
@@ -78,7 +78,7 @@ diagnostic history is evidence only and cannot gate gameplay.
 - **Region-specific rollback:** a research option requiring isolated causal state and a correct entry/exit handoff, not simply per-room `Rollback` markers.
 - **Connectivity:** direct/LAN joining cannot depend on external infrastructure; optional relay/discovery may be installed without being required.
 
-Do not unilaterally remove GGRS's currently safe lifecycle barrier. First establish a test proving unchanged peers/checksums and a separately implemented replacement. The N1-N5 material below remains the historical and current **GGRS-specific** implementation frontier; it is not a fixed program order for all games.
+Ordinary peer travel now uses the shared frame-input protocol. Checkpoint restores and explicit rebuilds retain the lifecycle barrier. The N1-N5 material below remains the historical and current **GGRS-specific** implementation frontier; it is not a fixed program order for all games.
 
 ## Remaining netcode work
 
@@ -127,99 +127,36 @@ its control `the_same_parcel_is_delivered_to_the_session_it_was_sent_to`, and
 the same rule: a generation number in its envelope, or a channel for each
 generation.
 
-N2 was the only instrument for two open questions:
+N2 checks two peers at each confirmed frame, including the float rows in eight
+rooms. Ordinary travel now applies inside the shared simulation without a
+session hold or rebase (`1b1baf65a`). Each frame requires matching preparation
+verdicts for the exact admission and immutable plan. The constructor is the
+shared native room transaction. Applied receipts rewind with lifecycle state;
+presentation receives them through the confirmed-effect journal.
 
-- the unchecksummed float rows (S7 in
-  [`simulation-authority-and-determinism.md`](simulation-authority-and-determinism.md)).
-  Measured 2026-10-03 by `game/ambition_app/tests/two_peers.rs` over the
-  in-memory link: two peers agree on every probed row at every confirmed frame,
-  the float rows by value, in eight rooms that together carry every float row
-  with a production writer.
-- whether the session rebase at a room crossing fits a remote peer's rollback
-  window. Answered 2026-10-04: it does not have to fit. Under a peer session a
-  crossing freezes the simulation, each peer commits alone on the frozen world,
-  and each peer starts the next generation of its session at frame zero, so no
-  rollback crosses the commit. The cost is the hold: 23 to 43 updates measured
-  at a link latency of 3 updates, most of it the GGRS handshake (Q155, 2026-10-19: a performance issue to revisit, not a product policy). See the
-  "Remote peers" row of
-  [`open-world-runtime-and-residency.md`](open-world-runtime-and-residency.md).
+Guards:
+`ordinary_peer_crossings_apply_on_shared_input_frames_without_holding_or_rebasing`,
+`a_peer_keeps_its_promised_room_plan_after_the_load_receipt_retires`,
+`a_peer_does_not_commit_a_crossing_the_other_peer_could_not_prepare`, and
+`peers_refuse_different_room_plans_under_the_same_content_identity`.
+Both crossing orders, delayed preparation, matching confirmed state, and replay
+through an application frame pass the focused checks. Another-room movement
+and combat also pass (`b2e6ad940`). Corrected combat removes an observed
+speculative crossing and suppresses its arrival reset. Guards:
+`a_peer_keeps_moving_and_fighting_in_a_live_destination_while_another_peer_prepares`
+and `corrected_combat_removes_a_speculative_crossing_and_its_arrival_effect`.
+Preparation also proceeds while prior covers settle (`dbc8f0cf2`). Both
+crossings commit, confirmed state agrees, and each arrival reset is delivered
+once. The loading UI holds independent owner entries, and per-view GPU captures
+pass. Guard: `an_old_cover_does_not_block_the_next_peers_preparation_or_commit`.
+The rendered simultaneous-combat witness, separate latency/cost measurements,
+and broader checks remain open. See [the peer room protocol](peer-room-commit-protocol.md).
 
-**2026-10-24 netplay readiness gate:** the maintainer now requires an
-unrelated player to keep playing while another crosses an ordinary door,
-including players in different live rooms. The peer freeze described above
-halts the whole simulation; isolating the local loading UI does not remove
-that halt. This is an **open lifecycle protocol task** under
-[`MULTIPLAYER-SEAMS`](../queue.md#multiplayer-seams--make-local-multiplayer-safe-for-netplay),
-with cause, design constraints, and tests in
-[`local-coop-integration.md`](local-coop-integration.md#room-crossing-isolate-cover-and-eliminate-unrelated-simulation-stalls).
-
-Do not disable `a_peer_commit_holds_the_simulation` in isolation. The
-existing poison tests show that commit without a shared state diverges.
-Investigate a normal room lifecycle event that peers authorize on one
-confirmed timeline without resetting the whole GGRS session. Prove stable
-content identity, event ordering, exact rollback/replay behavior, preparation
-success and failure, and concurrent crossings before production transport.
-Retain the existing safe peer barrier until the replacement passes two-peer
-consistency and gameplay-liveness tests. Whole-session reloads may still
-need a separately authorized global barrier.
-
-**A preparation that fails on one peer had no rule (measured 2026-10-04,
-Q156; the default below now ends it).** Each peer prepares the room of an operation on its own machine, in
-`Update`, and commits alone. When one machine's preparation fails, the other
-commits and waits in the handshake of a session that never starts, and the
-machine that failed stays held. No error is reported. When each machine fails,
-both stay held. Q156 was closed 2026-10-19 with invariants, not UX: peers
-never commit divergent worlds, publication is atomic, a failed door or
-respawn never strands a session without a recovery or an explicit failure
-path, and presentation-only preparation does not hold a valid deterministic
-transition. Retry and disconnect UX wait for online play.
-
-The engineering half is built (2026-10-05): **the verdict of each peer
-travels in the peer input.** `PeerInput` is a `ControlFrame` and a
-`PeerVerdict` (the frame that recorded the operation, and `NotYet`,
-`Prepared` or `Failed`). `decide_this_peers_verdict` writes it in
-`ReadInputs`: `Prepared` is the commit's own test (`authorized_plan`), and
-`Failed` comes from `RoomTransitionLoadState::failed_to_prepare`: a host
-with no loading screen retires a failed transaction at once, so the state
-keeps its intent (`last_failure`) until a transaction for it is authorized.
-`record_confirmed_verdicts` (in `GgrsSchedule`, outside the frozen root)
-keeps the newest CONFIRMED verdict of each handle in `PeerVerdicts`, which
-frame zero of each session resets. The peer arm of the commit then also needs
-each handle to have said `Prepared` for the operation. The reasons for the
-input: it keeps one protocol (a second message beside GGRS is a second
-ordering to reason about), and an input is confirmed with its frame. The
-price is one more link delay inside the freeze, and 8 more bytes for each
-handle and frame. Witness:
-`two_peers::a_peer_does_not_commit_a_crossing_the_other_peer_could_not_prepare`
-(poison: the commit with no verdict check commits alone, generation 1 on one
-peer and 0 on the other).
-
-**A `Failed` ends the operation on each peer (2026-10-05; it meets the Q156 invariants, and
-the UX beyond it is deferred).** `end_an_operation_a_peer_could_not_prepare` (in
-`GgrsSchedule`, before the gameplay root) retracts the waiting operation when
-a handle's input of the frame says `Failed` for it. It reads the frame's
-inputs, not the confirmed record: each peer reads the same input for a frame
-(a wrong prediction is corrected by a rollback), so each peer ends the
-operation on the same frame and simulates again from it. Ended from the
-confirmed record, which arrives at a different frame on each peer, the
-peers desynced from frame 69 (the poison of the witness). The rest follows
-from the slot: the transaction is cancelled, and a checkpoint restore
-publishes `Cancelled`. A door a peer could not prepare does not open; a new
-attempt clears the last failure, so a press of the door tries again.
-
-⚠ The verdict made two equal machines commit at ONE frame (measured: 36 and
-36), because each waits one link delay for the other's verdict. The freeze is
-still needed when one machine prepares later than the other: then the faster
-peer commits a link delay after the slower one's verdict arrives, and the
-slower peer commits at once. The door tests of `two_peers.rs` run with Bob's
-machine 6 updates slower (`bobs_machine_is_slower`) so that the no-freeze
-poison still starts two worlds.
-
-A plan must also be lowered from a durable horizon that the peers agree on.
-Today `begin_room_transition_load_system` lowers the mints of a door from this
-machine's save (`minted_baseline_from_save`), so two peers with different
-saves build different plans, and no check sees it. That is a divergence, not a
-policy question (read 2026-10-04, not measured).
+Q156 requires atomic publication, no divergent worlds, and recovery or an
+explicit failure path for a refused crossing or respawn. Presentation-only
+preparation must not hold a valid deterministic transition. A matching `Failed`
+input or disconnected required handle ends the pending operation on the shared
+input timeline. Retry and reconnect UX remain online-play work.
 
 **The start is a new timeline, and that choice is made.** Each peer calls
 `start_peer_session` at the same point of the same world, so the world is frame
@@ -300,10 +237,9 @@ explicit requirement; it does not block local data iteration.
 
 ### N4 — coordinated lifecycle barrier
 
-The local rollback host commits a confirmed room transition and rebases at once,
-because it has no remote corrected-input frontier. A real external host needs a
-peer-coordinated barrier around the same construction/rebase seam. The barrier
-answers:
+Ordinary peer travel uses frame-input agreement and keeps its timeline. The
+local sync-test host, full-party checkpoint restores, and explicit rebuilds
+retain the construction/rebase barrier. That barrier must establish:
 
 - which lifecycle intent/frame is committed;
 - that every peer confirms the required input/content horizon;
@@ -314,9 +250,8 @@ answers:
   installed.
 
 This is an authorization protocol around canonical construction, not a second
-room constructor. With several live rooms, a crossing in one room rebases the
-whole session; the barrier must preserve other rooms' state under that
-baseline.
+room constructor. A whole-session rebuild must preserve the required state of
+all live rooms under its new baseline.
 
 ### N5 — disconnect/reconnect/spectator/deployment policy
 
@@ -326,8 +261,8 @@ product and network-service concerns.
 ## The input payload two peers exchange
 
 `AmbitionGgrsConfig = GgrsConfig<PeerInput>`, and `PeerInput` is a
-`ControlFrame` followed by the peer's verdict (78 bytes for each handle at wire
-identity 4). `ControlFrame` is `derived` (rebuilt from the input stream, not snapshotted), so the
+`ControlFrame` followed by the peer's verdict (168 bytes for each handle at wire
+identity 8). `ControlFrame` is `derived` (rebuilt from the input stream, not snapshotted), so the
 rollback dump, the fingerprint and `rollback_codec_shape.txt` do not describe its
 fields. `INPUT_STREAM_VERSION` versions recorded replay files and exempts added
 fields by design; it does not cover the peer payload.
@@ -363,9 +298,8 @@ fields by design; it does not cover the peer payload.
   an exhaustive literal and each field declares LEVEL or EDGE). A reorder, a
   width change, or an enum gaining a variant ahead of an existing one compiles
   and moves the bytes; the ratchet catches those.
-- Not established: whether a mismatched field set fails loudly or decodes into
-  garbage. No layer compares two builds' input shape yet. A negotiated input
-  version is not owed until N2.
+- The session handshake compares `CONTROL_FRAME_WIRE_IDENTITY` before
+  simulation advances. Different input identities refuse the session.
 
 ## Identity rules
 

@@ -342,12 +342,12 @@ impl<'a> ComposedRooms<'a> {
         room: Option<&InRoomInstance>,
         subject: bevy_ecs::entity::Entity,
     ) -> Option<Cow<'_, ae::World>> {
-        let (open, holes, glues) = collision
+        let (open, holes, glues, barriers) = collision
             .room(room)
-            .map(|room| (room.gates_open_for(subject), room.holes_open_for(subject), room.glues_open_for(subject)))
+            .map(|room| (room.gates_open_for(subject), room.holes_open_for(subject), room.glues_open_for(subject), room.barriers_for(subject)))
             .unwrap_or_default();
         let walls = self.solids(collision, room)?;
-        Some(as_met_by(walls, &open, &holes, &glues))
+        Some(as_met_by(walls, &open, &holes, &glues, &barriers))
     }
 
     /// The walls of the live room `room` names, as [`CollisionWorld::room`]
@@ -384,16 +384,17 @@ pub struct RoomCollision<'a> {
 
 /// `walls` as a body meets them: without the gate solids named in `open`
 /// ([`RoomCollision::gates_open_for`]) and with `holes` cut
-/// ([`RoomCollision::holes_open_for`]). With neither, which is the common case,
-/// these are `walls`, borrowed.
+/// ([`RoomCollision::holes_open_for`]), with portal glues and body barriers.
+/// With no contribution, these are `walls`, borrowed.
 pub fn as_met_by<'w>(
     walls: &'w ae::World,
     open: &[&str],
     holes: &[&ae::frame::FaceRect],
     glues: &[&PortalGlue],
+    barriers: &[&ae::Block],
 ) -> Cow<'w, ae::World> {
     let walls = without_gates(walls, open);
-    if holes.is_empty() && glues.is_empty() {
+    if holes.is_empty() && glues.is_empty() && barriers.is_empty() {
         return walls;
     }
     let mut walls = walls.into_owned();
@@ -401,6 +402,7 @@ pub fn as_met_by<'w>(
     for glue in glues {
         glue_portal_pair(&mut walls, glue);
     }
+    walls.blocks.add_all(barriers.iter().map(|block| (*block).clone()));
     Cow::Owned(walls)
 }
 
@@ -677,10 +679,17 @@ impl<'a> RoomCollision<'a> {
     pub fn solids_for(self, subject: bevy_ecs::entity::Entity) -> Option<Cow<'a, ae::World>> {
         let walls = self.solids()?;
         let (open, holes, glues) = (self.gates_open_for(subject), self.holes_open_for(subject), self.glues_open_for(subject));
-        if open.is_empty() && holes.is_empty() && glues.is_empty() {
+        let barriers = self.barriers_for(subject);
+        if open.is_empty() && holes.is_empty() && glues.is_empty() && barriers.is_empty() {
             return Some(walls);
         }
-        Some(Cow::Owned(as_met_by(&walls, &open, &holes, &glues).into_owned()))
+        Some(Cow::Owned(as_met_by(&walls, &open, &holes, &glues, &barriers).into_owned()))
+    }
+
+    pub fn barriers_for(&self, subject: bevy_ecs::entity::Entity) -> Vec<&'a ae::Block> {
+        self.overlay.map(|overlay| overlay.body_barriers.iter()
+            .filter(|barrier| barrier.bodies.contains(&subject)).map(|barrier| &barrier.block).collect())
+            .unwrap_or_default()
     }
 
     /// The portal pairs `subject` is in this tick ([`PortalGluePass`]): it
@@ -1332,6 +1341,36 @@ mod collision_world_tests {
         ));
     }
 
+    #[test]
+    fn a_body_barrier_blocks_only_its_named_body_and_retracts_with_the_overlay() {
+        #[derive(Resource, Default)]
+        struct Probe(Vec<usize>);
+        #[derive(Resource)]
+        struct Bodies([bevy_ecs::entity::Entity; 2]);
+        fn probe(world: CollisionWorld, bodies: Res<Bodies>, mut out: ResMut<Probe>) {
+            let mut composed = ComposedRooms::default();
+            let mut counts: Vec<_> = bodies.0.iter().map(|body|
+                composed.solids_for(&world, None, *body).unwrap().blocks.len()).collect();
+            counts.extend(bodies.0.iter().map(|body| world.room(None).unwrap().solids_for(*body).unwrap().blocks.len()));
+            counts.push(world.solids().unwrap().blocks.len());
+            out.0 = counts;
+        }
+        let mut app = App::new();
+        app.init_resource::<Probe>();
+        a_live_room(&mut app, LiveRoomInstance::ACTIVATION, vec![ecs_solid("floor")]);
+        let bodies = [app.world_mut().spawn_empty().id(), app.world_mut().spawn_empty().id()];
+        app.insert_resource(Bodies(bodies));
+        app.add_systems(Update, probe);
+        let mut overlays = app.world_mut().query::<&mut FeatureEcsWorldOverlay>();
+        overlays.single_mut(app.world_mut()).unwrap().body_barriers.push(
+            ambition_platformer2d_shared_tangle::feature_overlay::BodyBarrier { block: gate_wall(), bodies: vec![bodies[1]] });
+        app.update();
+        assert_eq!(app.world().resource::<Probe>().0, vec![1, 2, 1, 2, 1]);
+        overlays.single_mut(app.world_mut()).unwrap().clear_engine_contributions();
+        app.update();
+        assert_eq!(app.world().resource::<Probe>().0, vec![1; 5]);
+    }
+
     /// GATE-PER-ACTOR (Q54): a gate solid open for one body is absent from the
     /// walls that body meets, and present in the walls every other body and
     /// every reader with no body meets. The control: with no pass, every body
@@ -1456,7 +1495,7 @@ mod collision_world_tests {
             let probe = ae::Aabb::new(ae::Vec2::new(x, y), ae::Vec2::splat(1.0));
             world.blocks.iter().any(|block| block.aabb.strict_intersects(probe))
         };
-        let met = as_met_by(&walls, &[], &[], &[&glue]);
+        let met = as_met_by(&walls, &[], &[], &[&glue], &[]);
         // The ledge is under the floor portal, where it is from the far end:
         // 20 into the opening, 10 to 30 along it.
         assert!(solid_at(&met, 90.0, 330.0), "the far side's ledge is not met");
@@ -1482,14 +1521,14 @@ mod collision_world_tests {
         let floor = PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(100.0, 300.0), ae::Vec2::new(0.0, -1.0)), half_length: 30.0 };
         let ceiling = PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(500.0, 170.0), ae::Vec2::new(0.0, 1.0)), half_length: 30.0 };
         let glue = PortalGlue { enter: floor, exit: ceiling, convention: MapConvention::Reflection, depth: 60.0, dt: 0.0 };
-        let met = as_met_by(&walls, &[], &[], &[&glue]);
+        let met = as_met_by(&walls, &[], &[], &[&glue], &[]);
         let probe = ae::Aabb::new(ae::Vec2::new(100.0, 312.0), ae::Vec2::splat(2.0));
         assert!(met.water_at(probe).is_some(), "the far side's water is not met");
         assert!(met.climbable_at(probe).is_some(), "the far side's ladder is not met");
         assert!(walls.water_at(probe).is_none());
         // A wall portal to the same ceiling lays the ladder on its side.
         let wall = PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(100.0, 300.0), ae::Vec2::new(1.0, 0.0)), half_length: 30.0 };
-        let turned = as_met_by(&walls, &[], &[], &[&PortalGlue { enter: wall, ..glue }]);
+        let turned = as_met_by(&walls, &[], &[], &[&PortalGlue { enter: wall, ..glue }], &[]);
         let probe = ae::Aabb::new(ae::Vec2::new(88.0, 300.0), ae::Vec2::splat(2.0));
         assert!(turned.water_at(probe).is_some(), "water is carried turned");
         assert!(turned.climbable_at(probe).is_none(), "a ladder on its side is no ladder");
@@ -1519,7 +1558,7 @@ mod collision_world_tests {
         // In the box that bounds the turned region, out of the region.
         let corner = ae::Block::solid("corner", ae::Vec2::new(578.0, 228.0), ae::Vec2::splat(4.0));
         let walls = ae::World::new("glue", ae::Vec2::new(800.0, 600.0), ae::Vec2::ZERO, vec![square.clone(), corner]);
-        let met = as_met_by(&walls, &[], &[], &[&glue]);
+        let met = as_met_by(&walls, &[], &[], &[&glue], &[]);
         let carried: Vec<&ae::SurfaceChain> =
             met.chains.iter().filter(|c| c.name == "square" && c.kind == ae::SurfaceKind::Solid).collect();
         let [outline] = carried[..] else { panic!("the square is carried once as an outline: {carried:?}") };
@@ -1557,7 +1596,7 @@ mod collision_world_tests {
         let mut ledge = ae::Block::solid("ledge", ledge_at - ae::Vec2::new(20.0, 0.0), ae::Vec2::new(40.0, 6.0));
         ledge.kind = ae::BlockKind::OneWay;
         let walls = ae::World::new("glue", ae::Vec2::new(800.0, 600.0), ae::Vec2::ZERO, vec![ledge]);
-        let met = as_met_by(&walls, &[], &[], &[&glue]);
+        let met = as_met_by(&walls, &[], &[], &[&glue], &[]);
         let line = met.chains.iter().find(|c| c.name == "ledge").expect("the ledge's top is carried");
         assert_eq!(line.kind, ae::SurfaceKind::Ground);
         let (a, b) = (line.points[0], line.points[1]);
@@ -1583,7 +1622,7 @@ mod collision_world_tests {
         let walls = ae::World::new("glue", ae::Vec2::new(800.0, 600.0), ae::Vec2::ZERO, vec![crate_]);
         let carried = |dt: f32| {
             let glue = PortalGlue { enter, exit, convention: MapConvention::Rotation, depth: 60.0, dt };
-            let met = as_met_by(&walls, &[], &[], &[&glue]);
+            let met = as_met_by(&walls, &[], &[], &[&glue], &[]);
             met.blocks.iter().filter(|b| b.name == "crate").map(|b| b.velocity).last().expect("carried")
         };
         assert!((carried(1.0 / 60.0) - ae::Vec2::new(0.0, 1.0)).length() < 1e-4, "{:?}", carried(1.0 / 60.0));
@@ -1613,20 +1652,20 @@ mod collision_world_tests {
             };
             let reps = 200;
             // The room's index is made once, the first time it is asked.
-            as_met_by(&walls, &[], &[], &[&glue]);
+            as_met_by(&walls, &[], &[], &[&glue], &[]);
             // AMBITION_REVIEW(determinism): a cost measurement reads the wall
             // clock; no simulated value comes from it.
             let start = std::time::Instant::now();
             let mut kept = 0;
             for _ in 0..reps {
-                kept += as_met_by(&walls, &[], &[], &[&glue]).blocks.len();
+                kept += as_met_by(&walls, &[], &[], &[&glue], &[]).blocks.len();
             }
             let glued = start.elapsed() / reps;
             // AMBITION_REVIEW(determinism): a cost measurement reads the wall
             // clock; no simulated value comes from it.
             let start = std::time::Instant::now();
             for _ in 0..reps {
-                kept += as_met_by(&walls, &[], &[], &[]).blocks.len();
+                kept += as_met_by(&walls, &[], &[], &[], &[]).blocks.len();
             }
             let plain = start.elapsed() / reps;
             // AMBITION_REVIEW(determinism): a cost measurement reads the wall

@@ -6,6 +6,10 @@ use ambition_load::{
 
 use crate::*;
 
+fn only_presentation(app: &bevy::prelude::App) -> &LoadPresentation {
+    app.world().resource::<LoadPresentations>().iter().next().expect("one fixture load")
+}
+
 fn foreground(policy: ReadyTransitionPolicy) -> ActiveLoadForeground {
     ActiveLoadForeground {
         owner: LoadPresentationOwnerId::new("fixture-owner"),
@@ -173,13 +177,13 @@ fn generic_presentation_runs_without_shell_resources() {
             },
         });
     app.update();
-    assert!(!app.world().resource::<LoadPresentationModel>().visible);
+    assert!(!(&only_presentation(&app).model).visible);
 
     app.world_mut()
         .resource_mut::<Time>()
         .advance_by(Duration::from_millis(125));
     app.update();
-    assert!(app.world().resource::<LoadPresentationModel>().visible);
+    assert!((&only_presentation(&app).model).visible);
 
     {
         let mut loads = app
@@ -198,23 +202,19 @@ fn generic_presentation_runs_without_shell_resources() {
         });
     }
     app.update();
-    assert!(app.world().resource::<LoadPresentationModel>().ready_hold);
+    assert!((&only_presentation(&app).model).ready_hold);
 
     app.world_mut()
         .write_message(LoadPresentationAction::Continue {
             owner: owner.clone(),
         });
     app.update();
-    assert!(!app.world().resource::<LoadPresentationModel>().ready_hold);
+    assert!(!(&only_presentation(&app).model).ready_hold);
 
     app.world_mut()
         .write_message(LoadPresentationCommand::Finish { owner });
     app.update();
-    assert!(app
-        .world()
-        .resource::<LoadForegroundState>()
-        .active
-        .is_none());
+    assert!(app.world().resource::<LoadPresentations>().is_empty());
 }
 
 #[test]
@@ -270,7 +270,7 @@ fn generic_failure_routes_actions_to_the_exact_owner_and_cleans_up() {
         });
     app.update();
 
-    let model = app.world().resource::<LoadPresentationModel>();
+    let model = &only_presentation(&app).model;
     assert!(model.visible);
     assert_eq!(model.readiness, Some(BarrierReadiness::Failed));
     assert_eq!(model.failures, vec![failure]);
@@ -296,15 +296,7 @@ fn generic_failure_routes_actions_to_the_exact_owner_and_cleans_up() {
     app.world_mut()
         .write_message(LoadPresentationCommand::Cancel { owner });
     app.update();
-    assert!(app
-        .world()
-        .resource::<LoadForegroundState>()
-        .active
-        .is_none());
-    assert_eq!(
-        app.world().resource::<LoadPresentationModel>(),
-        &LoadPresentationModel::default(),
-    );
+    assert!(app.world().resource::<LoadPresentations>().is_empty());
 }
 
 fn composed_app(
@@ -398,18 +390,13 @@ fn composed_fast_load_activates_without_visible_foreground() {
             .map(|active| active.route_id.as_str()),
         Some("game"),
     );
-    assert!(app
-        .world()
-        .resource::<LoadForegroundState>()
-        .active
-        .is_none());
-    assert!(!app.world().resource::<LoadPresentationModel>().visible);
+    assert!(app.world().resource::<LoadPresentations>().is_empty());
 
     // In play the pass sleeps: nothing rewrites the empty model each frame.
     let last_changed = |app: &bevy::prelude::App| {
         app.world()
-            .get_resource_change_ticks::<LoadPresentationModel>()
-            .expect("the model is a resource")
+            .get_resource_change_ticks::<LoadPresentations>()
+            .expect("the presentations have one owner resource")
             .changed
     };
     // The last commands outlive their frame by one, and the pass runs one
@@ -440,18 +427,10 @@ fn engaged_activity_holds_ready_until_continue_and_cleans_scope() {
     );
     app.update();
 
-    let activation_id = app
-        .world()
-        .resource::<LoadActivityState>()
-        .active
-        .as_ref()
+    let activation_id = app.world().resource::<LoadPresentations>().iter().find_map(|entry| entry.activity.as_ref())
         .expect("zero-grace activity starts while load is pending")
         .activation_id;
-    let owner = app
-        .world()
-        .resource::<LoadForegroundState>()
-        .active
-        .as_ref()
+    let owner = app.world().resource::<LoadPresentations>().iter().next().map(|entry| &entry.foreground)
         .unwrap()
         .owner
         .clone();
@@ -474,10 +453,7 @@ fn engaged_activity_holds_ready_until_continue_and_cleans_scope() {
 
     assert!(app.world().resource::<ShellRouter>().active.is_none());
     assert_eq!(
-        app.world()
-            .resource::<LoadForegroundState>()
-            .active
-            .as_ref()
+        app.world().resource::<LoadPresentations>().iter().next().map(|entry| &entry.foreground)
             .map(|active| active.phase),
         Some(LoadForegroundPhase::ReadyHold),
     );
@@ -534,13 +510,13 @@ fn slow_required_work_reveals_exact_facts() {
     }
 
     app.update();
-    assert!(!app.world().resource::<LoadPresentationModel>().visible);
+    assert!(!(&only_presentation(&app).model).visible);
 
     app.world_mut()
         .resource_mut::<Time>()
         .advance_by(Duration::from_millis(250));
     app.update();
-    let model = app.world().resource::<LoadPresentationModel>();
+    let model = &only_presentation(&app).model;
     assert!(model.visible);
     assert_eq!(
         (
@@ -562,4 +538,70 @@ fn the_loading_spinner_turns_with_time() {
     let frames: std::collections::BTreeSet<&str> = (0..8).map(|i| spinner_frame(i as f32 / 8.0)).collect();
     assert_eq!(frames.len(), 4, "every frame of the spinner is reached within half a second: {frames:?}");
     assert_ne!(spinner_frame(0.0), spinner_frame(0.125), "it moves eight times a second");
+}
+
+#[cfg(feature = "basic_presentation")]
+#[test]
+fn two_loading_owners_keep_their_roots_and_release_only_their_own_input() {
+    use ambition_load::{LoadBarrierSpec, LoadCommand, LoadPlanSpec};
+    use ambition_input::participant::*;
+    use bevy::prelude::*;
+    let mut app = App::new();
+    app.add_plugins((ambition_load::AmbitionLoadPlugin, AmbitionLoadPresentationPlugin,
+        BasicLoadPresentationPlugin));
+    for slot in [0, 1] {
+        app.world_mut().spawn((InputParticipant::with_id(ParticipantId(slot)), ParticipantContexts::default()));
+        let load = format!("room-{slot}");
+        let mut loads = app.world_mut().resource_mut::<ambition_load::LoadCoordinator>();
+        loads.apply(LoadCommand::Begin(LoadPlanSpec::new(load.clone(), load.clone())));
+        loads.apply(LoadCommand::DeclareBarrier { load_id: load.clone().into(),
+            spec: LoadBarrierSpec::new("ready", "Prepare room") });
+        let mut spec = LoadExperienceSpec::basic("fixture");
+        spec.reveal_after = Duration::ZERO;
+        spec.activity = Some(LoadActivityId::new("fixture-activity"));
+        spec.input_owner = Some(InputOwner::Participant(ParticipantId(slot)));
+        app.world_mut().write_message(LoadPresentationCommand::Begin {
+            owner: LoadPresentationOwnerId::new(load.clone()), barrier: LoadBarrierRef::new(load, "ready"), spec });
+    }
+    app.update();
+    let world = app.world_mut();
+    assert_eq!(world.query_filtered::<Entity, With<BasicLoadRoot>>().iter(world).count(), 2);
+    for (_, contexts) in world.query::<(&InputParticipant, &ParticipantContexts)>().iter(world) {
+        assert!(contexts.is_declared(LOADING_CONTEXT));
+    }
+    let activations = [0, 1].map(|slot| world.resource::<LoadPresentations>()
+        .get(&LoadPresentationOwnerId::new(format!("room-{slot}"))).unwrap().activity.as_ref().unwrap().activation_id);
+    let scoped = activations.map(|activation_id| world.spawn(LoadActivityScopedEntity { activation_id }).id());
+    world.write_message(LoadActivitySignal::Engaged { activation_id: activations[1] });
+    world.write_message(LoadActivitySignal::Finished { activation_id: activations[0], outcome: LoadActivityOutcome::default() });
+    app.update();
+    let world = app.world_mut();
+    assert!(world.get_entity(scoped[0]).is_err());
+    assert!(world.get_entity(scoped[1]).is_ok());
+    let entries = world.resource::<LoadPresentations>();
+    assert!(entries.get(&LoadPresentationOwnerId::new("room-0")).unwrap().last_outcome.is_some());
+    assert!(entries.get(&LoadPresentationOwnerId::new("room-1")).unwrap().foreground.engaged);
+    world.write_message(LoadPresentationCommand::Finish { owner: LoadPresentationOwnerId::new("room-0") });
+    app.update();
+    let world = app.world_mut();
+    let roots: Vec<_> = world.query_filtered::<&ambition_game_shell::FrontendOwnedEntity, With<BasicLoadRoot>>()
+        .iter(world).collect();
+    assert_eq!(roots.len(), 1);
+    assert_eq!(roots[0].owner, ambition_game_shell::FrontendEntityOwner::Load("room-1".into()));
+    for (participant, contexts) in world.query::<(&InputParticipant, &ParticipantContexts)>().iter(world) {
+        assert_eq!(contexts.is_declared(LOADING_CONTEXT), participant.id == ParticipantId(1));
+    }    world.write_message(LoadPresentationCommand::Finish { owner: LoadPresentationOwnerId::new("room-1") });
+    let mut spec = LoadExperienceSpec::basic("fixture");
+    spec.reveal_after = Duration::ZERO;
+    spec.activity = Some(LoadActivityId::new("fixture-activity"));
+    spec.input_owner = Some(InputOwner::Participant(ParticipantId(1)));
+    world.write_message(LoadPresentationCommand::Begin { owner: LoadPresentationOwnerId::new("room-1"),
+        barrier: LoadBarrierRef::new("room-1", "ready"), spec });
+    app.update();
+    let world = app.world();
+    assert!(world.get_entity(scoped[1]).is_err());
+    let restarted = world.resource::<LoadPresentations>().get(&LoadPresentationOwnerId::new("room-1")).unwrap();
+    assert!(restarted.activity.as_ref().unwrap().activation_id > activations[1]);
+    assert!(!restarted.foreground.engaged);
+
 }

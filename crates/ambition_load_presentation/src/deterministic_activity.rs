@@ -4,7 +4,7 @@ use ambition_game_shell::{FrontendOwnedEntity, FrontendPresentationKind};
 use bevy::prelude::*;
 
 use crate::{
-    LoadActivityOutcome, LoadActivityScopedEntity, LoadActivitySignal, LoadActivityState,
+    LoadActivityOutcome, LoadActivityScopedEntity, LoadActivitySignal, LoadPresentations,
     LoadPresentationSet, DETERMINISTIC_LOADING_ACTIVITY_ID,
 };
 
@@ -29,18 +29,16 @@ impl Plugin for DeterministicLoadingActivityPlugin {
 
 fn spawn_activity(
     mut commands: Commands,
-    activity: Res<LoadActivityState>,
+    presentations: Res<LoadPresentations>,
     existing: Query<&DeterministicActivityView>,
 ) {
-    let Some(active) = activity.active.as_ref() else {
-        return;
-    };
+    for active in presentations.iter().filter_map(|entry| entry.activity.as_ref()) {
     if active.activity_id.as_str() != DETERMINISTIC_LOADING_ACTIVITY_ID
         || existing
             .iter()
             .any(|view| view.activation_id == active.activation_id)
     {
-        return;
+        continue;
     }
     commands.spawn((
         LoadActivityScopedEntity { activation_id: active.activation_id },
@@ -59,24 +57,21 @@ fn spawn_activity(
                 width: Val::Percent(100.0), justify_content: JustifyContent::Center, ..default() },
         ));
     });
+    }
 }
 
 fn drive_activity(
     input: crate::input::LoadInput,
-    activity: Res<LoadActivityState>,
+    presentations: Res<LoadPresentations>,
     mut views: Query<(&mut DeterministicActivityView, &mut Text)>,
     mut signals: MessageWriter<LoadActivitySignal>,
 ) {
-    let Some(active) = activity.active.as_ref() else {
-        return;
-    };
+    for active in presentations.iter().filter_map(|entry| entry.activity.as_ref()) {
     if active.activity_id.as_str() != DETERMINISTIC_LOADING_ACTIVITY_ID {
-        return;
+        continue;
     }
     let actions = input.read(active.input_owner);
-    if !actions.up && !actions.down {
-        return;
-    }
+    if !actions.up && !actions.down { continue; }
 
     for (mut view, mut text) in &mut views {
         if view.activation_id != active.activation_id || view.edges >= TARGET_EDGES {
@@ -111,6 +106,7 @@ fn drive_activity(
             );
         }
     }
+    }
 }
 
 #[cfg(test)]
@@ -128,11 +124,11 @@ mod tests {
     fn app() -> App {
         let mut app = App::new();
         app.add_message::<LoadActivitySignal>();
-        app.init_resource::<LoadActivityState>();
+        app.init_resource::<LoadPresentations>();
         app.init_resource::<MenuControlFrame>();
         app.init_resource::<DestinationFixture>();
         app.add_plugins(DeterministicLoadingActivityPlugin);
-        app.world_mut().resource_mut::<LoadActivityState>().active = Some(ActiveLoadActivity {
+        let active = ActiveLoadActivity {
             input_owner: Some(ambition_input::InputOwner::AllParticipants),
             activation_id: 7,
             activity_id: LoadActivityId::new(DETERMINISTIC_LOADING_ACTIVITY_ID),
@@ -141,7 +137,14 @@ mod tests {
                 load_id: LoadId::new("load-7"),
                 barrier_id: LoadBarrierId::new("ready"),
             },
-        });
+        };
+        let foreground = crate::ActiveLoadForeground {
+            owner: active.owner.clone(), barrier: active.barrier.clone(), spec: crate::LoadExperienceSpec::basic("fixture"),
+            phase: crate::LoadForegroundPhase::Visible, elapsed: std::time::Duration::ZERO,
+            activity_activation_id: Some(active.activation_id), engaged: false, ready_released: false,
+        };
+        app.world_mut().resource_mut::<LoadPresentations>().begin(foreground).activity = Some(active);
+
         app
     }
 
@@ -171,7 +174,7 @@ mod tests {
     fn activity_navigation_follows_the_loading_input_owner() {
         let mut app = app();
         app.init_resource::<ambition_input::SeatMenuFrames>();
-        app.world_mut().resource_mut::<LoadActivityState>().active.as_mut().unwrap().input_owner =
+        app.world_mut().resource_mut::<LoadPresentations>().entries.values_mut().next().unwrap().activity.as_mut().unwrap().input_owner =
             Some(ambition_input::InputOwner::Participant(ambition_input::ParticipantId::SECONDARY));
         app.update();
         nav(&mut app, true);

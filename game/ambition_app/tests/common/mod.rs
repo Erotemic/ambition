@@ -49,6 +49,8 @@ pub fn base() -> AgentAction {
         projectile_released: false,
         fly_toggle: false,
         reset: false,
+        return_to_leader: false,
+        party_preference: Default::default(),
         start: false,
         modifier: false,
         modifier_held: false,

@@ -11,6 +11,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 use bevy::prelude::Commands;
 use std::collections::BTreeSet;
 
+mod continuity;
 mod capability_lanes;
 mod gravity_construction;
 #[cfg(feature = "portal")]
@@ -106,6 +107,7 @@ pub struct RoomFeatureConstructionPlan {
     /// somewhere other than where the record puts them. See
     /// [`Self::occurrence_outlook`].
     outlook: ambition_platformer2d_shared_tangle::lifecycle::RoomOccurrenceOutlook,
+    continuity_dependencies: continuity::ContinuityDependencies,
 }
 
 /// What the world remembers about its occurrences, and the definitions a room
@@ -625,9 +627,10 @@ impl RoomFeatureConstructionPlan {
             .map(|continuity| continuity.remembered.outlook_for(&room.id))
             .unwrap_or_default();
         let suppressed = outlook.suppressed();
-        if !outlook.is_empty() {
+        let mut continuity_dependencies = continuity::ContinuityDependencies::default();
+        {
             requests.retain_mut(|request| {
-                match outlook.disposition(&request.sim_id) {
+                match continuity_dependencies.disposition(&outlook, &request.sim_id) {
                     ambition_platformer2d_shared_tangle::lifecycle::OccurrenceDisposition::Authored => true,
                     ambition_platformer2d_shared_tangle::lifecycle::OccurrenceDisposition::Reinstated { at } => {
                         // A family with no position to move REFUSES to pretend it
@@ -754,6 +757,7 @@ impl RoomFeatureConstructionPlan {
                 let described = continuity
                     .minted
                     .and_then(|minted| minted.description_of(&sim_id));
+                continuity_dependencies.mint(&sim_id, described);
                 if let Some(description) = described {
                     // ⚠ THE TWO LOOKUPS ARE ONE LOOKUP SINCE 2026-09-05 --
                     // `held_spec_by_id` is a pass-through to
@@ -870,6 +874,7 @@ impl RoomFeatureConstructionPlan {
             &construction_scope,
             room,
             &outlook,
+            &mut continuity_dependencies,
             &suppressed,
         )
         .map_err(RoomFeatureConstructionError::Construction)?;
@@ -913,21 +918,19 @@ impl RoomFeatureConstructionPlan {
             expected_authoritative_ids,
             binding_report,
             outlook,
+            continuity_dependencies,
         })
     }
 
-    /// The dispositions this plan was prepared against.
-    ///
-    /// A frozen plan is only valid for the world that produced it: a plan
-    /// prepared while an authored object was being carried OMITS that object,
-    /// and committing it into a world where the object has since been put down
-    /// would leave the room permanently missing it. Stated on the artifact so a
-    /// cache can compare rather than guess — see the prefetch promotion check.
-    ///
-    /// the whole outlook, not just the suppressed ids. A plan prepared
-    /// while a relocated object rested at one position is not the plan this
-    /// world wants once it rests at another, and a set of identities cannot tell
-    /// those two apart.
+    pub fn matches_continuity(&self,
+        outlook: &ambition_platformer2d_shared_tangle::lifecycle::RoomOccurrenceOutlook,
+        minted: Option<&ambition_platformer2d_items::pickup::minted_horizon::MintedItemBaseline>,
+    ) -> bool {
+        self.continuity_dependencies.matches(&self.outlook, outlook, minted)
+    }
+
+    /// The occurrence outlook read during preparation, for inspection.
+    /// Reuse checks the consumed dependencies with `matches_continuity`.
     pub fn occurrence_outlook(
         &self,
     ) -> &ambition_platformer2d_shared_tangle::lifecycle::RoomOccurrenceOutlook {
@@ -980,7 +983,7 @@ impl RoomFeatureConstructionPlan {
     /// Complete immutable constructor inputs, separate from commit-time world facts.
     pub(crate) fn semantics_digest(&self) -> Result<u64, ambition_platformer2d_core::snapshot::canonical::Error> {
         let declarations = ambition_platformer2d_core::snapshot::canonical::encode(&(
-            &self.placement_schemas, self.construction_services.mechanics_digest()?, &self.outlook,
+            &self.placement_schemas, self.construction_services.mechanics_digest()?, self.continuity_dependencies.digest(&self.outlook)?,
         ))?;
         Ok(ambition_platformer2d_core::snapshot::PeerDigest::in_domain("room-feature-data-v1")
             .bytes(&self.construction_payload_bytes()?).bytes(&declarations).finish())
@@ -1123,6 +1126,7 @@ impl RoomFeatureConstructionPlan {
             expected_authoritative_ids: BTreeSet::new(),
             binding_report: self.binding_report.clone(),
             outlook: self.outlook.clone(),
+            continuity_dependencies: self.continuity_dependencies.clone(),
         }
     }
 

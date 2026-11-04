@@ -84,6 +84,8 @@ pub struct AgentAction {
     pub projectile_released: bool,
     pub fly_toggle: bool,
     pub reset: bool,
+    pub return_to_leader: bool,
+    pub party_preference: ambition_platformer2d::sim::PartyControlPreference,
     pub start: bool,
     /// Rising edge of the participant's confirm, which dismisses a cutscene's
     /// dialogue beat. See `ControlFrame::confirm_pressed`.
@@ -197,7 +199,9 @@ impl From<AgentAction> for ControlFrame {
             fly_toggle_pressed: a.fly_toggle,
             interact_pressed: a.interact,
             interact_held: a.interact_held,
-            reset_pressed: a.reset,
+            reset_pressed: a.reset && !a.return_to_leader,
+            return_to_leader_pressed: a.return_to_leader,
+            party_preference: a.party_preference,
             start_pressed: a.start,
             projectile_pressed: a.projectile,
             projectile_held: a.projectile_held,

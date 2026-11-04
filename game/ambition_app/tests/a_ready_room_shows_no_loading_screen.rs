@@ -14,7 +14,7 @@
 //!   never see a loading screen would pass the first arm.
 
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
-use ambition_platformer2d::load_presentation::LoadPresentationModel;
+use ambition_platformer2d::load_presentation::LoadPresentations;
 use ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState;
 
 use crate::neighbor_prefetch_prepares_rooms::{alice, neighbours_of};
@@ -76,7 +76,7 @@ fn cross(app: &mut bevy::prelude::App, target: &str) -> Crossing {
         source_zone: None,
                 initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
                     subject: subject,
-                    arrival: ambition_platformer2d::engine_core::Vec2::new(200.0, 200.0),
+                    arrival: ambition_platformer2d::session::lifecycle_commit::RoomArrival::At(ambition_platformer2d::engine_core::Vec2::new(200.0, 200.0)),
                     participant: Some(PlayerSlot(0)),
                 },
                 companions: Vec::new(),
@@ -93,9 +93,9 @@ fn cross(app: &mut bevy::prelude::App, target: &str) -> Crossing {
     for _ in 0..1200 {
         step(app);
         crossing.frames += 1;
-        let visible = app.world().resource::<LoadPresentationModel>().visible;
+        let visible = app.world().resource::<LoadPresentations>().iter().any(|entry| entry.model.visible);
         let state = app.world().resource::<RoomTransitionLoadState>();
-        match state.active.as_ref() {
+        match state.presentations().next() {
             Some(active) => {
                 began = true;
                 crossing.prefetch_hit = active.prefetch_hit;

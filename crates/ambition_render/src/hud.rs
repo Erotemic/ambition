@@ -374,6 +374,7 @@ pub fn toggle_builtin_hud_for_declared_games(
 /// (`present == false`) holds its last drawn state.
 #[allow(clippy::type_complexity)]
 pub fn update_player_hud(
+    returns: Option<Res<ambition_sim_view::PartyReturnPrompts>>,
     views: Query<(&ViewHudFacts, Option<&SharedViewHudFacts>, Option<&ViewHudSeat>)>,
     roots: Query<(), With<PlayerHudRoot>>,
     mut fills: ParamSet<(
@@ -454,7 +455,9 @@ pub fn update_player_hud(
         };
         let shown = match slot.filter(|_| stacked) {
             Some(slot) => {
-                set_text_if_changed(&mut text, format!("P{}", u16::from(slot.0) + 1));
+                let prompt = returns.as_deref().and_then(|returns| returns.0.get(&slot));
+                let label = format!("P{}", u16::from(slot.0) + 1);
+                set_text_if_changed(&mut text, prompt.map_or_else(|| label.clone(), |prompt| format!("{label}  {prompt}")));
                 Visibility::Inherited
             }
             None => Visibility::Hidden,

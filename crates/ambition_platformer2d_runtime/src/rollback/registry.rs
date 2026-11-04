@@ -222,7 +222,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// 413 -> 414: bounded melee steps end their side motion without changing fall speed.
 /// Gate connections route both ways; travel intents retain their source zone.
 /// Room transfers retain all selected bodies and their individual arrivals.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 416;
+/// Relative arrivals retain a live body reference until the commit frame.
+/// Party travel rules and exact exit agreements belong to session rollback state.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 423;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

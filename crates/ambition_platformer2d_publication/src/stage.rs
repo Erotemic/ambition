@@ -344,19 +344,16 @@ impl RoomConstructionPlan {
         self.features.expected_authoritative_ids()
     }
 
-    /// The occurrence dispositions this plan was prepared against.
-    ///
-    /// A plan is frozen against a world that remembered exactly this much. A
-    /// cached plan prepared while an authored object was in somebody's hands
-    /// left that object out; committing it into a world where the object has
-    /// since been put down and destroyed would leave the room permanently
-    /// short. Anything that holds a plan across frames compares this before
-    /// promoting it.
-    ///
-    /// it is the whole outlook, not a set of suppressed identities. A plan
-    /// that placed a relocated object at one position is not the plan a world
-    /// wants once that object rests at another, and an identity set cannot tell
-    /// those two apart.
+    /// Check the mutable inputs used to construct this destination.
+    pub fn matches_continuity(&self,
+        outlook: &ambition_platformer2d_shared_tangle::lifecycle::RoomOccurrenceOutlook,
+        minted: Option<&ambition_platformer2d_items::pickup::minted_horizon::MintedItemBaseline>,
+    ) -> bool {
+        self.features.matches_continuity(outlook, minted)
+    }
+
+    /// The occurrence outlook read during preparation, for inspection.
+    /// Reuse checks the consumed dependencies with `matches_continuity`.
     pub fn occurrence_outlook(
         &self,
     ) -> &ambition_platformer2d_shared_tangle::lifecycle::RoomOccurrenceOutlook {
@@ -3198,6 +3195,14 @@ mod tests {
         index: usize,
         remembered: &ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences,
     ) -> Result<RoomConstructionPlan, RoomConstructionError> {
+        prepare_in_world_with_minted(sprite_content, world, index, remembered, None)
+    }
+
+    fn prepare_in_world_with_minted(sprite_content: &ambition_sprite_sheet::SpriteContent,
+        world: &[RoomSpec], index: usize,
+        remembered: &ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences,
+        minted: Option<&ambition_platformer2d_items::pickup::minted_horizon::MintedItemBaseline>,
+    ) -> Result<RoomConstructionPlan, RoomConstructionError> {
         let recipes = ambition_platformer2d_construction::engine_construction_registry();
         let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
         let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
@@ -3208,10 +3213,7 @@ mod tests {
         construction.continuity = Some(features::OccurrenceContinuity {
             remembered,
             world,
-            // no checkpoint behind this planner: it prepares a spec from the
-            // world's own records, and `None` is the honest answer for a
-            // composition that has taken none.
-            minted: None,
+            minted,
         });
         RoomConstructionPlan::prepare_spec(
             index,
@@ -3335,6 +3337,93 @@ mod tests {
              first one is lying in 'portal_bridge'"
         );
     }
+    #[test]
+    fn continuity_rechecks_authored_and_suppressed_records_without_other_room_dependencies() {
+        use ambition_platformer2d_shared_tangle::{lifecycle::AuthoredOccurrences, sim_id::SimId};
+        let sprites = ambition_sprite_sheet::test_support::shared_sprites();
+        let mut spec = empty_spec("east");
+        spec.ground_items.push(ambition_platformer2d_world::rooms::GroundItemSpec {
+            id: "axe".into(), name: "Axe".into(), held_item: "gun_sword".into(),
+            pos: ae::Vec2::new(80.0, 80.0), half_extent: ae::Vec2::splat(8.0),
+        });
+        spec.gravity_zones.push(ambition_platformer2d_world::rooms::GravityZoneSpec {
+            id: "gravity".into(), name: "gravity".into(), center: ae::Vec2::splat(80.0),
+            half_extent: ae::Vec2::splat(20.0), dir: ae::Vec2::Y,
+            oscillate_amplitude: 0.0, oscillate_freq: 0.0,
+        });
+        let world = vec![spec];
+        let initial = AuthoredOccurrences::default();
+        let plan = prepare_in_world(&sprites, &world, 0, &initial).unwrap();
+        let mut unrelated = initial.clone();
+        unrelated.consume([SimId::placement("another-room")]);
+        assert!(plan.matches_continuity(&unrelated.outlook_for("east"), None));
+        let replanned = prepare_in_world(&sprites, &world, 0, &unrelated).unwrap();
+        assert_eq!(plan.id(), replanned.id(), "cache history must not change an equivalent plan identity");
+        for id in ["axe", "gravity"] {
+            let mut taken = unrelated.clone(); taken.consume([SimId::placement(id)]);
+            assert!(!plan.matches_continuity(&taken.outlook_for("east"), None));
+            let suppressed = prepare_in_world(&sprites, &world, 0, &taken).unwrap();
+            assert!(suppressed.matches_continuity(&taken.outlook_for("east"), None));
+            assert!(!suppressed.matches_continuity(&initial.outlook_for("east"), None),
+                "a record omitted from the plan remains a dependency");
+        }
+    }
+
+    #[test]
+    fn continuity_rechecks_foreign_arrivals_and_their_positions() {
+        use ambition_platformer2d_shared_tangle::{lifecycle::AuthoredOccurrences, sim_id::SimId};
+        let sprites = ambition_sprite_sheet::test_support::shared_sprites();
+        let mut home = empty_spec("west");
+        home.ground_items.push(ambition_platformer2d_world::rooms::GroundItemSpec {
+            id: "axe".into(), name: "Axe".into(), held_item: "gun_sword".into(),
+            pos: ae::Vec2::splat(80.0), half_extent: ae::Vec2::splat(8.0),
+        });
+        let world = vec![home, empty_spec("east")];
+        let initial = AuthoredOccurrences::default();
+        let empty = prepare_in_world(&sprites, &world, 1, &initial).unwrap();
+        let mut arrived = initial.clone();
+        assert!(arrived.admit_crossing(SimId::placement("axe"), "east", ae::Vec2::splat(120.0)));
+        assert!(!empty.matches_continuity(&arrived.outlook_for("east"), None));
+        let planned = prepare_in_world(&sprites, &world, 1, &arrived).unwrap();
+        assert!(planned.matches_continuity(&arrived.outlook_for("east"), None));
+        assert!(arrived.admit_crossing(SimId::placement("axe"), "east", ae::Vec2::splat(160.0)));
+        assert!(!planned.matches_continuity(&arrived.outlook_for("east"), None));
+        assert!(arrived.admit_crossing(SimId::placement("axe"), "west", ae::Vec2::splat(160.0)));
+        assert!(!planned.matches_continuity(&arrived.outlook_for("east"), None));
+        assert!(arrived.admit_crossing(SimId::placement("axe"), "east", ae::Vec2::new(0.0, 80.0)));
+        let positive_zero = prepare_in_world(&sprites, &world, 1, &arrived).unwrap();
+        assert!(arrived.admit_crossing(SimId::placement("axe"), "east", ae::Vec2::new(-0.0, 80.0)));
+        let negative_zero = prepare_in_world(&sprites, &world, 1, &arrived).unwrap();
+        assert_ne!(positive_zero.id(), negative_zero.id());
+        assert!(!positive_zero.matches_continuity(&arrived.outlook_for("east"), None),
+            "cache equivalence must use the same float policy as peer identity");
+    }
+
+    #[test]
+    fn continuity_rechecks_the_recipe_of_a_reinstated_runtime_mint() {
+        use ambition_platformer2d_shared_tangle::{lifecycle::AuthoredOccurrences, sim_id::SimId};
+        use ambition_platformer2d_items::pickup::minted_horizon::{MintedItemBaseline, MintedItemDescription};
+        let sprites = ambition_sprite_sheet::test_support::shared_sprites();
+        let world = vec![empty_spec("east")];
+        let id = SimId::placement("mint");
+        let mut ledger = AuthoredOccurrences::default();
+        ledger.admit_mints("east", [(id.clone(), ae::Vec2::splat(80.0))].into_iter().collect());
+        let mut minted = MintedItemBaseline::default();
+        minted.adopt([(id.clone(), MintedItemDescription {
+            origin: ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Dynamic {
+                parent: SimId::placement("maker"), sequence: 1 }, held_item: "gun_sword".into(),
+        })].into_iter().collect());
+        let plan = prepare_in_world_with_minted(&sprites, &world, 0, &ledger, Some(&minted)).unwrap();
+        let outlook = ledger.outlook_for("east");
+        assert!(plan.matches_continuity(&outlook, Some(&minted)));
+        assert!(!plan.matches_continuity(&outlook, None));
+        let mut description = minted.description_of(&id).unwrap().clone();
+        description.origin = ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Dynamic {
+            parent: SimId::placement("maker"), sequence: 2 };
+        minted.adopt([(id, description)].into_iter().collect());
+        assert!(!plan.matches_continuity(&outlook, Some(&minted)));
+    }
+
     mod batch_arrivals {
         use super::*;
         use super::super::transaction::{LiveRoomSuccession, StagedArrival, StagedWorldViolation};

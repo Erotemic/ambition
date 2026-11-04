@@ -461,6 +461,9 @@ pub struct SeatBurstTriggerState(pub ambition_persistence::settings::GameplayEdg
 /// site. Found by the exhaustive plan 2026-09-03; nothing but that lane builds
 /// this crate without its defaults.
 pub fn populate_seat_control_frames(
+    parties: Query<(&ambition_platformer2d_session::party_travel::PartyTravel,
+        &ambition_platformer2d_session::participants::SessionParticipants),
+        With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>>,
     mode: Res<State<GameMode>>,
     // Whether a conversation stops the world for everybody. Default `false`
     // ; an experience that wants the modal beat sets it.
@@ -519,6 +522,16 @@ pub fn populate_seat_control_frames(
         // source to read yet; the three readers each asked the one global
         // setting. So this is the same answer in a per-seat table, and the table
         // is the seam a per-seat (or per-peer) source plugs into.
+        let party = parties.single().ok();
+        let preference = party.filter(|(party, admitted)|
+            party.rules().accept_preferences && party.rules().leader == slot
+                && party.contains(admitted, slot))
+            .map(|_| ambition_platformer2d_core::party_controls::PartyControlPreference::new(
+                user_settings.gameplay.party_travel, user_settings.gameplay.party_return))
+            .unwrap_or_default();
+        let can_return = party.is_some_and(|(party, admitted)|
+            party.rules().return_to_leader && party.rules().leader != slot
+                && party.contains(admitted, slot));
         let modes = user_settings.gameplay.control_frame_modes();
         seat_modes.set(slot, modes);
         if !gameplay {
@@ -543,6 +556,7 @@ pub fn populate_seat_control_frames(
                 ControlFrame::default()
             };
             paused_frame.control_frame_modes = modes;
+            paused_frame.party_preference = preference;
             raw.set(slot, paused_frame);
             // The latch is CLEARED rather than drained: a seat that has stopped
             // being driven must not hand a held direction to the tick after the
@@ -566,6 +580,11 @@ pub fn populate_seat_control_frames(
         // the input GGRS replays, so a resimulation of frame N cannot read a
         // preference the settings screen changed since.
         next_frame.control_frame_modes = modes;
+        next_frame.party_preference = preference;
+        if can_return {
+            next_frame.return_to_leader_pressed = next_frame.reset_pressed;
+            next_frame.reset_pressed = false;
+        }
         // THE ASYMMETRY IS GONE: every seat's raw frame lands in one table, and the shaping
         // stages run over it before anything is committed.
         raw.set(slot, next_frame);

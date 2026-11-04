@@ -27,6 +27,7 @@
 | [`motion_quality`](src/motion_quality.rs) | Numeric diagnostics for the shape of an authoritative per-tick trajectory. |
 | [`movement`](src/movement/mod.rs) | One trusted, frame-aware movement kernel with swappable physics policies. |
 | [`navigation`](src/navigation.rs) | The navigation contract: one leg of a route, and the rule that follows it. |
+| [`party_controls`](src/party_controls.rs) | Fixed-width participant requests for party travel preferences. |
 | [`player_state`](src/player_state.rs) | Reusable player-state vocabulary. |
 | [`resources`](src/resources.rs) | The per-actor resource bank: the one mutable authority for every resource a body holds. |
 | [`rollback_kind`](src/rollback_kind.rs) | What a rollback registration IS, and the sentence that describes it. |
@@ -39,7 +40,7 @@
 | [`walkable_lines`](src/walkable_lines.rs) | A body that walks stands on a slope: the room's surface lines are ground for the ordinary (axis-swept) body too, as one-way floors. |
 | [`world`](src/world.rs) | Generated sandbox room data. |
 
-_32 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_33 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

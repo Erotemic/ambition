@@ -106,6 +106,8 @@ pub fn tick_player_brain_from_control(
         // Shell-level, not body verbs: pause and reset belong to the session,
         // and a body that could read them could act on somebody else's menu.
         reset_pressed: _,
+        return_to_leader_pressed: _,
+        party_preference: _,
         start_pressed: _,
         // Shell-level too: a cutscene reads the seat's confirm and cancel, and
         // no body verb does.

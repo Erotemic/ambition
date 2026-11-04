@@ -27,6 +27,16 @@ impl Plugin for RoomTransitionSchedulePlugin {
         app.add_systems(
             sim,
             (
+                ambition_platformer2d_session::party_travel::apply_party_preferences
+                    .in_set(GameplayGated)
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::CharacterProjection),
+                ambition_platformer2d_session::party_travel::request_party_return
+                    .in_set(GameplayGated)
+                    .in_set(RoomTransitionSet::Detect)
+                    .after(ambition_platformer2d_session::rooms::passage::run_zone_passages),
+                ambition_platformer2d_session::rooms::contribute_party_exit_barriers
+                    .in_set(GameplayGated)
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlayContributions),
                 ambition_platformer2d_session::rooms::detect_room_transition_system
                     .in_set(GameplayGated)
                     .in_set(RoomTransitionSet::Detect),

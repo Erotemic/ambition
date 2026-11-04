@@ -205,7 +205,7 @@ fn the_halls_entry_is_counted_for_art_it_decodes_twice() {
                     source_zone: None,
                 initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
                     subject: subject.clone(),
-                    arrival: arrival,
+                    arrival: ambition_platformer2d::session::lifecycle_commit::RoomArrival::At(arrival),
                     participant: None,
                 },
                 companions: Vec::new(),

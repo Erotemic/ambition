@@ -185,7 +185,7 @@ pub fn drive_departures(
                 source_zone: None,
                 initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
                     subject: subject,
-                    arrival: arrival,
+                    arrival: ambition_platformer2d_session::lifecycle_commit::RoomArrival::At(arrival),
                     participant: driver.map(|driver| driver.0),
                 },
                 companions: Vec::new(),
@@ -317,7 +317,7 @@ mod tests {
             source_zone: None,
                 initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
                     subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::player_slot(0), None),
-                    arrival: ae::Vec2::ZERO,
+                    arrival: ambition_platformer2d_session::lifecycle_commit::RoomArrival::At(ae::Vec2::ZERO),
                     participant: None,
                 },
                 companions: Vec::new(),

@@ -104,9 +104,11 @@ slices.
 
 The 2026-11-03 request adds
 [PARTY-TRAVEL-POLICIES](#party-travel-policies--configurable-group-crossings-and-a-leader-view).
-The retained-plan slice is committed in `48cb138c9`. Gate connections now work
-both ways and share an idle timer. Implement party travel before the next
-online no-hold slice. Independent adaptive play remains the default.
+The retained-plan slice is committed in `48cb138c9`. Party travel is complete
+in `4cb723b8c` and `5ed9bb73a`. Gate connections work both ways and share an
+idle timer. Independent adaptive play remains the default. Ordinary online
+travel now runs without a session-wide hold. The next slice must complete
+rendered play witnesses, timing measurements, and the broader peer-room checks.
 
 ## Work order from the additional maintainer rulings of 2026-10-19
 
@@ -630,34 +632,46 @@ control.
 
 ### PARTY-TRAVEL-POLICIES — configurable group crossings and a leader view
 
-**Owner:** session passage admission and shared room application; settings and
-input owners; local view composition. Requirements and acceptance:
+**Status:** ✅ DONE 2026-11-04. Requirements:
 [configurable party travel](game/multiplayer.md#configurable-party-travel).
 
-**Gate follow-up:** [connection lifetime](game/gate-network.md#the-rules)
-keeps both directions available for following and return. Both ends share an
-idle timeout, and either terminal can close the connection.
+Gate connections work both ways and share a 30-second simulation idle timer.
+An active or pending crossing keeps them open (`2bfe149e6`). Session rules
+support independent, leader, any-member, and all-member travel (`23bf6a680`).
+Departure, possession, and route changes cancel an agreement. Forbidden walk
+and edge exits use body-specific walls.
 
-**Transfer foundation:** the shared room publication accepts an arrival batch.
-It checks every body before retirement and moves each body's custody to the
-destination. A held publication checks the batch again before release.
-`bodies_from_two_rooms_arrive_together_with_their_custody` and
-`a_held_batch_rechecks_every_member_before_it_publishes` guard this boundary.
+`4cb723b8c` carries the leader's preferences in replayed input. Games opt in at
+session construction. Return uses the native `NearBody` transfer for the driven
+body and keeps its items and capabilities. Same-room travel joins the current
+live room; an explicit rebuild still retires it. Return suppresses Reset.
+Input wire identity is 8; rollback state schema is 419.
 
-Native admission now retains an initiating transfer and companions. Each body,
-arrival, and participant is part of the rollback checksum (schema 416). Both
-hosts use the same application and finalization for the full roster.
-`one_native_admission_carries_two_bodies_from_separate_rooms` covers the app path.
-Preparation and publication share `room_transfer_plan`. A room rebuild has an
-explicit disposition; an absent participant no longer selects room fate.
+`5ed9bb73a` adds the full leader view, live return-binding prompts, and settings.
+Independent adaptive play remains the default. The co-op preset sets existing
+fields; view and travel choices remain separate. Authored views and cast framing
+keep their ownership. Followers keep their HUDs and menu regions across rooms.
 
-**Next action:** select the group through explicit travel rules at zone
-admission. Add the optional leader view, a Select return action, and settings.
-Support independent, leader, any-member, and all-member travel. In all-member
-mode, moving away cancels agreement. A forbidden follower edge acts as a wall.
-Use one room constructor and one body transfer path. Keep the independent
-adaptive preset as the default. Verify ownership, cancellation, arrival safety,
-replay, and participant-scoped prompts before declaring the feature complete.
+**Guards:** `rooms::party_tests`, `two_players_two_live_rooms::party_*`,
+`two_peers::a_remote_leaders_party_preferences_agree_after_late_input_and_rollback`,
+and the `local_view` leader-view tests. The peer test uses a late link and
+conflicting local preferences. The return test checks the existing body, wallet,
+and same-room retention. The view tests cover focus release and live bindings.
+
+**Standing rule:** camera geometry must not decide mechanical travel. Use the
+native body-transfer path. Do not add a separate party transport or reset path.
+
+### PROVOKED-SOURCE-WITNESS — diagnose a source change in the rollback witness
+
+The broad rollback run and an isolated run both fail
+`rollback_provoked_actor::a_provoked_wounded_body_survives_the_real_rollback_window`.
+After the simulated window, the source is `CatalogDefault`; the arm expects
+`ProvokedProfile`. This result does not yet identify the writer or prove a codec
+failure.
+
+**Next action:** record source writes and body lifecycle changes in this arm.
+Fix the state owner or the fixture from that evidence. Keep the Hall generated;
+do not change its level or relax the assertion to hide the result.
 
 ### MULTIPLAYER-SEAMS — make local multiplayer safe for netplay
 
@@ -903,9 +917,12 @@ with the single-player and two-pad GPU captures.
 
 Room loading now scopes covers, foregrounds, activities and input to their owner
 (`e36b067fd`). Guards: `a_room_transition_keeps_the_other_participants_input_and_view`
-and both GPU captures. Stable body identity orders simultaneous passages. The next
-crossing waits for the first presentable destination frame; guard:
-`a_second_crossing_waits_until_the_first_destinations_frame_is_presentable`.
+and both GPU captures. Stable body identity orders simultaneous passages.
+A committed cover now settles outside preparation (`dbc8f0cf2`). Another
+participant can prepare and commit its crossing while that cover remains.
+The generic loading UI holds one entry per owner. Guards:
+`a_second_crossing_prepares_while_the_first_destinations_frame_is_not_presentable`
+and `another_participants_load_draws_beside_a_cover_that_is_still_settling`.
 
 Slice 5 is complete (`c89f0b828`, `0e0099f0e`). Both crossing orders and
 separate-room loading pass. F1 uses native room/view scopes and read-only body
@@ -916,16 +933,15 @@ Do not restore primary-room geometry or global room covers.
 **Next action (ordered slices; complete each behavior gate before moving):**
 
 6. **Online no-global-hold lifecycle:** prove a routine peer door crossing
-   can commit on an agreed timeline without freezing other rooms and without
-   desync. The current peer commit freezes and rebases the whole session
-   (23-43 held updates in the existing witness). Preserve that safe protocol
-   until a replacement passes two-peer confirmed/rollback/failed-preparation
-   tests. Track content identity, deterministic operation order, and peer
-   readiness explicitly. A full-party reload may use a global barrier.
+   commits on the shared input timeline without a whole-session hold or
+   rebase. Finish the rendered combat witness and timing measurements.
+   Track content identity, deterministic operation order, and peer readiness
+   explicitly. Full-party reloads retain their global barrier.
 
 **Protocol:** [Peer room commits](engine/peer-room-commit-protocol.md) defines
 operation/content identity, retained preparation promises, and input-driven
-simulation commits. This is a design, not an implemented replacement.
+simulation commits. Ordinary travel now uses this path; the remaining behavior
+gates are open.
 Initial replay witnesses pass (`79826e053`): new and existing destinations,
 source retention, and moving-platform retirement. A required collision overlay
 now returns with a restored room root. Do not add a second rollback constructor.
@@ -934,11 +950,15 @@ Peer replies now bind the recording frame and intent checksum (`b2120db9d`).
 A replaced intent cannot use the old reply. Guards:
 `verdicts_for_a_replaced_intent_do_not_prepare_or_fail_its_replacement` and
 `a_peer_waits_for_the_replacement_intent_even_when_its_frame_is_unchanged`.
-Wire identity 7 binds replies to both stated content identities, the frozen
+Wire identity 8 binds replies to both stated content identities, the frozen
 plan digest, and captured preparation checksum. Different plans refuse the crossing on both peers. Guard:
 `peers_refuse_different_room_plans_under_the_same_content_identity`.
 Offered plans now survive loading receipt retirement and remain through the
-native snapshot and delayed-input horizon. Target dependency checks remain open.
+native snapshot and delayed-input horizon. Publication and prefetch reuse now
+check the consumed occurrence and mint inputs (`69929efb2`). A relevant change refuses
+before room retirement; unrelated records permit reuse. An already live target
+uses its current state. Guard:
+`a_changed_destination_continuity_refuses_before_retiring_any_live_room`.
 
 Restore admission now carries the checkpoint key (`ce283f8f0`). A refused
 request spends no sequence. Guards: `restore_admission_is_atomic_and_refusal_spends_no_key` and
@@ -955,10 +975,37 @@ Construction plans now expose an identity for their exact frozen data and both
 stated content identities. Local activation counters remain in the local cache key.
 Guard: `peer_plan_identity_binds_retained_services_without_local_history`.
 
-**Next step:** check target dependencies at commit and add an occurrence that
-changes during peer preparation. Then use each frame's input verdicts for the
-ordinary crossing inside the simulation.
-Keep the existing safe hold until those pass.
+The delayed-peer occurrence witness passes (`438be9428`). A target pickup
+consumed after admission capture refuses the crossing on both peers and keeps
+the source intact. Guard:
+`peers_refuse_a_destination_occurrence_changed_after_preparation_capture`.
+Ordinary travel also preserves session time
+scale through the shared finalizer (`199313527`); full rebuilds retain their
+reset. Guard: `travel_keeps_the_shared_clock_scale_and_a_full_rebuild_resets_it`.
+
+Ordinary peer travel now applies from each frame's inputs (`1b1baf65a`). Both
+crossing orders keep generation zero, agree on application frames, and replay
+through an application. The simulation advances during preparation. Applied
+receipts use clone snapshots; presentation uses the confirmed-effect journal.
+Checkpoint restores and explicit rebuilds retain their barrier. Guard:
+`ordinary_peer_crossings_apply_on_shared_input_frames_without_holding_or_rebasing`.
+
+Another-room movement and combat now pass with delayed peers (`b2e6ad940`).
+Corrected combat removes an observed speculative crossing and suppresses its
+arrival reset; the control releases one. Guards:
+`a_peer_keeps_moving_and_fighting_in_a_live_destination_while_another_peer_prepares`
+and `corrected_combat_removes_a_speculative_crossing_and_its_arrival_effect`.
+Death withdrawal is one actor rule on the simulation timeline.
+
+Delayed peers now commit both crossings while both presentation receipts stay
+held (`dbc8f0cf2`). Each peer receives one arrival reset per crossing. Guard:
+`an_old_cover_does_not_block_the_next_peers_preparation_or_commit`.
+GPU captures also show concurrent loading UI in the two separate views.
+
+**Next step:** complete the rendered simultaneous-combat witness. Report input
+latency and commit cost apart from preparation and presentation time. Complete
+the broader feature and tooling checks before marking this slice complete.
+The broad rollback run still fails `PROVOKED-SOURCE-WITNESS`.
 The `LOCAL-PLAY-MODES` leave slice and `COOP-RECOVERY` remain separate work
 items; reuse their participant lifecycle and checkpoint rules, not duplicate
 them in this row.

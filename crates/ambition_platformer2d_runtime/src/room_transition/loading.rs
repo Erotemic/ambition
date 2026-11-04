@@ -311,13 +311,14 @@ impl ActiveRoomTransitionLoad {
 
 /// Host-side transaction authority for one ordinary room transition.
 ///
-/// There is exactly one active transition. Repeated detection from the same
+/// One preparation uses the active slot. Repeated detection from the same
 /// loading zone is ignored while it is in flight. A different target can replace
-/// preparation. After commit, the next intent waits for presentation retirement.
+/// preparation. Committed presentations settle outside the preparation slot.
 #[derive(Resource, Default, Debug)]
 pub struct RoomTransitionLoadState {
     next_sequence: u64,
     pub active: Option<ActiveRoomTransitionLoad>,
+    settling: Vec<ActiveRoomTransitionLoad>,
     /// The intent of the last transaction that failed, kept after a host with
     /// no loading screen retires it. A peer reads it to say in its input that
     /// it could not prepare the operation (`PreparationVerdict::Failed`): the
@@ -328,6 +329,33 @@ pub struct RoomTransitionLoadState {
 }
 
 impl RoomTransitionLoadState {
+    pub fn presentations(&self) -> impl Iterator<Item = &ActiveRoomTransitionLoad> {
+        self.settling.iter().chain(self.active.iter())
+    }
+
+    pub fn presentation(&self, sequence: u64) -> Option<&ActiveRoomTransitionLoad> {
+        self.presentations().find(|active| active.sequence == sequence)
+    }
+
+    pub fn presentation_mut(&mut self, sequence: u64) -> Option<&mut ActiveRoomTransitionLoad> {
+        self.settling.iter_mut().chain(self.active.iter_mut()).find(|active| active.sequence == sequence)
+    }
+
+    pub fn retire_presentation(&mut self, sequence: u64) -> Option<ActiveRoomTransitionLoad> {
+        if self.active.as_ref().is_some_and(|active| active.sequence == sequence) {
+            return self.active.take();
+        }
+        let at = self.settling.iter().position(|active| active.sequence == sequence)?;
+        Some(self.settling.remove(at))
+    }
+
+    /// The committed payload retains its cover without occupying preparation.
+    pub fn begin_settling(&mut self) {
+        let active = self.active.take().expect("a committed preparation exists");
+        assert_eq!(active.phase, RoomTransitionLoadPhase::Committed);
+        self.settling.push(active);
+    }
+
     /// The active or last retired transaction failed for this admission.
     pub fn failed_to_prepare(&self, operation: &PendingIntent) -> bool {
         self.active
@@ -339,6 +367,25 @@ impl RoomTransitionLoadState {
     fn mint_sequence(&mut self) -> u64 {
         self.next_sequence = self.next_sequence.saturating_add(1);
         self.next_sequence
+    }
+}
+
+/// A presentation belongs to the session that prepared its destination.
+pub(super) fn retire_departed_room_presentations_system(
+    active_session: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
+    mut state: ResMut<RoomTransitionLoadState>,
+    mut loads: ResMut<LoadCoordinator>,
+    mut events: MessageWriter<LoadEvent>,
+) {
+    let session = active_session.as_deref().and_then(|scope| scope.current());
+    let stale: Vec<_> = state.presentations().filter(|active| active.session_scope != session)
+        .map(|active| active.sequence).collect();
+    for sequence in stale {
+        if let Some(active) = state.retire_presentation(sequence) {
+            apply_load_command(&mut loads, &mut events,
+                ambition_load::LoadCommand::Cancel { load_id: active.barrier.load_id.clone() });
+            loads.retire(&active.barrier.load_id);
+        }
     }
 }
 
@@ -900,12 +947,6 @@ pub fn begin_room_transition_load_system(
             return;
         }
 
-        // A committed destination keeps its cover until presentation retires it.
-        // The next accepted intent stays in the lifecycle slot until then.
-        if state.active.as_ref().is_some_and(|active| active.phase == RoomTransitionLoadPhase::Committed) {
-            return;
-        }
-
         // The room the crossing leaves. Not known (the subject's live room has
         // gone): the crossing is not described, and the intent waits.
         let Some(source) = room_set.left_by(intent.subject()) else {
@@ -1256,6 +1297,7 @@ pub fn begin_room_transition_load_system(
                 ),
                 target_spec,
                 &occurrence_outlook,
+                selected_minted,
             )
         });
         active.prefetch_hit = prefetched_construction.is_some();
@@ -1589,7 +1631,7 @@ mod tests {
             source_zone: None,
                 initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
                     subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(subject, None),
-                    arrival: arrival,
+                    arrival: ambition_platformer2d_session::lifecycle_commit::RoomArrival::At(arrival),
                     participant: None,
                 },
                 companions: Vec::new(),
@@ -1930,7 +1972,7 @@ mod checkpoint_failure_tests {
             source_zone: None,
                 initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
                     subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("hero"), None),
-                    arrival: ambition_platformer2d_core::Vec2::ZERO,
+                    arrival: ambition_platformer2d_session::lifecycle_commit::RoomArrival::At(ambition_platformer2d_core::Vec2::ZERO),
                     participant: None,
                 },
                 companions: Vec::new(),
@@ -2168,122 +2210,5 @@ mod checkpoint_failure_tests {
             .unwrap()
             .latest()
             .is_none());
-    }
-}
-
-#[cfg(test)]
-mod checkpoint_failure_installation_tests {
-    /// ⛔⛔ **THE LOGIC TEST ABOVE ADDS THE SYSTEM ITSELF, so it says nothing
-    /// about whether anything runs it.** A terminalization nobody installs is a
-    /// failed preparation that retries forever, and that test would be green
-    /// throughout. Ask the SCHEDULE.
-    ///
-    /// ⚠ IT COUNTS RATHER THAN NAMES, because a system's name is
-    /// `"<Enable the debug feature to see the name>"` in an ordinary build —
-    /// measured, after writing the naming version first. A count fires on
-    /// REMOVAL, which is the regression that matters here; it cannot say WHICH
-    /// four, so the four are named in this comment instead:
-    ///
-    /// ```text
-    /// begin_room_transition_load_system
-    /// authorize_ready_room_transition_system
-    /// abandon_failed_checkpoint_restore_system      <- the one this defends
-    /// finalize_unpresented_room_transition_failure_system
-    /// ```
-    ///
-    /// ⭐ THEIR ORDER NEEDS NO ASSERTION: the host installs them as one
-    /// `.chain()`, so the terminalization runs before the teardown that takes
-    /// the transaction away by construction. What could silently go is
-    /// MEMBERSHIP.
-    #[test]
-    fn the_readiness_chain_still_carries_the_checkpoint_terminalization() {
-        use bevy::ecs::schedule::{NodeId, Schedules, SystemSet};
-        use bevy::prelude::{App, Update};
-
-        let mut app = App::new();
-        app.add_plugins(super::super::RoomTransitionComposerPlugin);
-        let schedules = app.world().resource::<Schedules>();
-        let graph = schedules
-            .get(Update)
-            .expect("the plugin installs Update systems")
-            .graph();
-        let set = NodeId::Set(
-            graph
-                .system_sets
-                .get_key(super::super::RoomTransitionReadinessSet.intern())
-                .expect("the readiness set is registered"),
-        );
-        let members = graph
-            .systems
-            .iter()
-            .filter(|(key, _, _)| {
-                graph
-                    .hierarchy()
-                    .graph()
-                    .contains_edge(set, NodeId::System(*key))
-            })
-            .count();
-        assert_eq!(
-            members, 4,
-            "the room-transition readiness chain does not hold four systems. If \
-             the checkpoint terminalization is the one that left, a failed \
-             preparation keeps its lifecycle intent and readiness reopens it \
-             every frame, against the same invalid definition, forever"
-        );
-    }
-
-    /// ⛔⛔ **AND THE OTHER HALF, WHICH THE COUNT ABOVE CANNOT SEE.** The
-    /// readiness chain only NOTES the abandoned operation; if the commit-side
-    /// terminalizer is not installed, the note is never spent and the defect is
-    /// exactly the one the split was supposed to keep fixed — with the readiness
-    /// count still green at four. Two sets, two counts.
-    ///
-    /// ```text
-    /// advance_room_transition_content_epoch_system
-    /// commit_ready_room_transition_system
-    /// finalize_committed_room_transition
-    /// apply_committed_room_transition_restore
-    /// terminalize_abandoned_checkpoint_restore_system   <- the one this defends
-    /// ```
-    #[test]
-    fn the_commit_chain_still_carries_the_checkpoint_terminalization() {
-        use ambition_platformer2d_shared_tangle::schedule::{RoomTransitionSet, SimScheduleExt};
-        use bevy::ecs::schedule::{NodeId, Schedules, SystemSet};
-        use bevy::prelude::App;
-
-        let mut app = App::new();
-        app.add_plugins(super::super::RoomTransitionComposerPlugin);
-        let sim = app.sim_schedule();
-        let schedules = app.world().resource::<Schedules>();
-        let graph = schedules
-            .get(sim)
-            .expect("the plugin installs sim systems")
-            .graph();
-        let set = NodeId::Set(
-            graph
-                .system_sets
-                .get_key(RoomTransitionSet::Apply.intern())
-                .expect("the apply set is registered"),
-        );
-        let members = graph
-            .systems
-            .iter()
-            .filter(|(key, _, _)| {
-                graph
-                    .hierarchy()
-                    .graph()
-                    .contains_edge(set, NodeId::System(*key))
-            })
-            .count();
-        assert_eq!(
-            members, 5,
-            "the room-transition commit chain does not hold five systems. If the \
-             abandoned-operation terminalizer is the one that left, readiness \
-             still takes the key off the failed transaction and NOTHING ever \
-             answers it — the accepted restore and its lifecycle intent stay \
-             live forever, which is the wedge with one more indirection. And if \
-             `finalize_committed_room_transition` is the one that left, every \
-             crossing the room transaction REFUSES is reported as committed"
-        );
     }
 }

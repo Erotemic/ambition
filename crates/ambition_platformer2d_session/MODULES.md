@@ -15,6 +15,7 @@
 | [`match_activation`](src/match_activation.rs) | Build, bind, and release the cast of an admitted match. |
 | [`match_lifecycle`](src/match_lifecycle.rs) | Installation of match construction and lifecycle systems. |
 | [`participants`](src/participants.rs) | Admitted session participants, independent of devices and controlled bodies. |
+| [`party_travel`](src/party_travel.rs) | Group selection and agreement for native room admission. |
 | [`reset`](src/reset/mod.rs) | New Game and the room-replay vocabulary. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback state owned by the lifecycle coordinator. |
 | [`room_preparation`](src/room_preparation.rs) | Immutable room preparation inputs selected on the simulation timeline. |
@@ -22,7 +23,7 @@
 | [`setup`](src/setup.rs) | Initial session bodies from prepared or live session inputs. |
 | [`teardown`](src/teardown.rs) | Re-establish the process-global mirrors of live-session state at BOTH edges of a gameplay session. |
 
-_15 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_16 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

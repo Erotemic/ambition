@@ -160,6 +160,7 @@ impl Plugin for AmbitionExperiencePlugin {
         // The first bag of an Ambition session: the starter set. Its save
         // replaces it when the save holds an inventory.
         .with_initial_inventory(ambition_items::OwnedItems::starter)
+        .with_session_contents(ambition_party_contents)
         .install(app, ambition_session_world);
         // Ambition's cast authors fighter specials (a counter, a placed
         // spring, a portal pair, ...): install them here, so a hub without the
@@ -503,4 +504,12 @@ mod tests {
         assert_eq!(seated(2, true, false), couch, "setting on: a reserved claimable seat");
         assert_eq!(seated(2, false, true), couch, "setting off with a standing claim");
     }
+}
+
+fn ambition_party_contents(contents: &mut ambition_platformer2d::provider::session_contents::SessionContents) {
+    use ambition_platformer2d::session::party_travel::{PartyTravel, PartyTravelRules};
+    let mut party = PartyTravel::default();
+    party.configure(PartyTravelRules { accept_preferences: true, ..Default::default() })
+        .expect("the session leader is a party member");
+    contents.root().insert(party);
 }

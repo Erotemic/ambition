@@ -1,4 +1,4 @@
-//! Participant death interlude and level-reset policy.
+//! Actor death withdrawal and participant death consequences.
 //!
 //! Death opens [`DeathInterlude`] and marks the participant [`OutOfPlay`]; the
 //! interlude advances on simulation time, then the death rules that govern the
@@ -18,6 +18,25 @@ use ambition_combat::death_rules::ActorDiedMessage;
 #[cfg(test)]
 mod tests;
 
+/// A death withdraws the crossing of that exact body on this frame.
+/// Read before settlement can remove the victim's stable identity.
+pub fn withdraw_crossings_on_actor_death(
+    mut deaths: MessageReader<ActorDiedMessage>,
+    identities: Query<(&SimId,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>)>,
+    boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
+    mut pending: ResMut<crate::lifecycle_commit::PendingLifecycleCommit>,
+) {
+    if pending.peek().is_none() { deaths.clear(); return; }
+    let now = boundary.map_or(0, |boundary| boundary.current);
+    for death in deaths.read() {
+        let Ok((id, stamp, root)) = identities.get(death.victim) else { continue };
+        pending.retract_transition_for_subject(&ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
+            id.clone(), ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root)), now);
+    }
+}
+
 /// A participant died: mark it out of play and open its window.
 ///
 /// scoped to PARTICIPANT bodies. An enemy's death is answered by the
@@ -32,43 +51,15 @@ pub fn open_death_interlude(
     // The victim's own room's rules (OW1): with two rooms live, THE live
     // room's rules were the rules of no room.
     rules: ambition_combat::governing_rules::RulesOf<DeathRules>,
-    participants: Query<
-        (
-            Entity,
-            Option<&SimId>,
-            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
-            Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
-        ),
-        (With<PlayerEntity>, Without<OutOfPlay>),
-    >,
-    confirmed_boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
-    mut pending_lifecycle: ResMut<crate::lifecycle_commit::PendingLifecycleCommit>,
+    participants: Query<Entity, (With<PlayerEntity>, Without<OutOfPlay>)>,
 ) {
     // Drained unconditionally so a death reported during a load cannot be
     // re-read later and charged to the next attempt — the same rule every other
     // reader of this channel follows.
     let victims: Vec<Entity> = deaths.read().map(|death| death.victim).collect();
     for victim in victims {
-        let Ok((_, sim_id, stamp, root)) = participants.get(victim) else {
-            continue;
-        };
+        let Ok(victim) = participants.get(victim) else { continue };
         let interlude = rules.of(victim).copied().unwrap_or_default().interlude;
-
-        // A rollback host is deliberately different. Absence from rollback state
-        // is not confirmed merely because the current prediction contains a death,
-        // so its confirmed lifecycle path remains the authority for retiring an
-        // already-open transaction. Bodies without a stable `SimId` cannot have
-        // recorded a transition in the first place.
-        if confirmed_boundary.is_none() {
-            if let Some(sim_id) = sim_id {
-                // An eager host has no frame boundary, and each of its
-                // frames is confirmed, so the withdrawal is on frame 0.
-                pending_lifecycle.retract_transition_for_subject(&ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
-                    sim_id.clone(),
-                    ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root),
-                ), 0);
-            }
-        }
 
         commands.entity(victim).try_insert((
             OutOfPlay,

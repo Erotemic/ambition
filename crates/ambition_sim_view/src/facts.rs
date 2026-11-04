@@ -124,6 +124,7 @@ pub fn rebuild_view_hud_facts(
             &crate::local_view::ResolvedViewSubject,
             Option<&crate::local_view::ViewSubject>,
             Option<&crate::local_view::ViewParticipant>,
+            Option<&crate::local_view::PartyLeaderFocus>,
         ),
         With<crate::local_view::LocalView>,
     >,
@@ -140,7 +141,9 @@ pub fn rebuild_view_hud_facts(
     let mut followed_seats = Vec::new();
     let mut followed_bodies = Vec::new();
     let mut merged = None;
-    for (view, id, _, _, _, _, subject, participant) in views.iter() {
+    let mut leader_view = None;
+    for (view, id, _, _, _, resolved, subject, participant, leader) in views.iter() {
+        if leader.is_some() { leader_view = Some((view, resolved.0)); }
         match (subject, participant) {
             (Some(subject), _) => followed_bodies.push(subject.0),
             (None, Some(participant)) => followed_seats.push(participant.0),
@@ -151,7 +154,8 @@ pub fn rebuild_view_hud_facts(
             }
         }
     }
-    let merged = merged.map(|(_, view)| view);
+    let merged = leader_view.map(|(view, _)| view).or_else(|| merged.map(|(_, view)| view));
+    let controlled = leader_view.map_or(controlled, |(_, subject)| subject);
     let shared: Vec<(ambition_characters::control::PlayerSlot, PlayerHudFacts)> = match controlled {
         Some(subject) if merged.is_some() => {
             let room = live.of(subject);
@@ -167,14 +171,14 @@ pub fn rebuild_view_hud_facts(
                     )?;
                     let shares = body != subject
                         && !followed_bodies.contains(&body)
-                        && live.of(body) == room;
+                        && (leader_view.is_some() || live.of(body) == room);
                     shares.then(|| meters_of(body, &bodies).map(|meters| (slot, meters)))?
                 })
                 .collect()
         }
         _ => Vec::new(),
     };
-    for (view, _, mut facts, shared_facts, seat, resolved, subject, participant) in &mut views {
+    for (view, _, mut facts, shared_facts, seat, resolved, subject, participant, _) in &mut views {
         let subject = if subject.is_some() || participant.is_some() {
             resolved.0
         } else {
@@ -2118,4 +2122,46 @@ mod worn_gear_tests {
         app.update();
         assert!(app.world().resource::<WornGearView>().0.is_empty());
     }
+}
+
+
+#[derive(Resource, Default)]
+pub struct PartyReturnPrompts(pub std::collections::BTreeMap<ambition_characters::control::PlayerSlot, String>);
+
+pub fn rebuild_party_return_prompts(
+    parties: Query<(&ambition_platformer2d_session::party_travel::PartyTravel,
+        &ambition_platformer2d_session::participants::SessionParticipants),
+        With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>>,
+    views: Query<&crate::camera_snapshot::ResolvedCameraSnapshot, With<crate::local_view::PartyLeaderFocus>>,
+    drivers: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
+    bodies: Query<&BodyKinematics, Without<ambition_combat::death_rules::OutOfPlay>>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    bindings: Option<Res<ambition_input::SeatBindings>>,
+    devices: Option<Res<ambition_input::SeatActiveDevices>>,
+    mut prompts: ResMut<PartyReturnPrompts>,
+) {
+    let mut next = std::collections::BTreeMap::new();
+    if let Ok((party, admitted)) = parties.single() {
+        let leader = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, party.rules().leader);
+        if party.rules().return_to_leader && leader.is_some_and(|body| bodies.contains(body)) {
+            let frame = views.iter().find_map(|view| view.frame());
+            for slot in party.members(admitted) {
+                if slot == party.rules().leader { continue; }
+                let Some(body) = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, slot) else { continue; };
+                let Ok(kin) = bodies.get(body) else { continue; };
+                let Some(frame) = frame else { continue; };
+                let delta = kin.pos - frame.snapshot.center_world;
+                let (sin, cos) = frame.snapshot.rotation_radians.sin_cos();
+                let offset = ae::Vec2::new(cos * delta.x - sin * delta.y, sin * delta.x + cos * delta.y).abs();
+                let half = frame.snapshot.visible_view * 0.5;
+                if live.of(body) == Some(frame.room) && offset.x <= half.x && offset.y <= half.y { continue; }
+                let device = devices.as_deref().map_or_else(Default::default, |devices| devices.for_seat(slot.0));
+                if let Some(binding) = bindings.as_deref().and_then(|bindings| bindings.for_seat(slot.0)
+                    .label_for(&ambition_input::Platformer2dInputActionMonolith::Reset, device)) {
+                    next.insert(slot, format!("{binding}: Return to leader"));
+                }
+            }
+        }
+    }
+    if prompts.0 != next { prompts.0 = next; }
 }

@@ -379,7 +379,9 @@ impl Plugin for GameplaySessionBridgePlugin {
                 Update,
                 hand_the_save_to_the_activating_experience
                     .run_if(crate::a_message_waits::<GameplaySessionEvent>)
-                    .in_set(SessionScopeSet::Activate)
+                    // Activation readers must see the new experience's owner.
+                    .in_set(GameplaySessionSet::Bridge)
+                    .after(translate_shell_session_lifecycle)
                     .run_if(resource_exists::<ambition_persistence::save::AmbitionGameSave>),
             );
     }

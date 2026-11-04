@@ -74,7 +74,7 @@ fn a_committed_crossing_names_the_live_room_it_arrived_in() {
     let mut at_commit = None;
     for _ in 0..900 {
         app.update();
-        let Some(active) = app.world().resource::<RoomTransitionLoadState>().active.clone() else {
+        let Some(active) = app.world().resource::<RoomTransitionLoadState>().presentations().next().cloned() else {
             continue;
         };
         if active.phase == RoomTransitionLoadPhase::Committed {

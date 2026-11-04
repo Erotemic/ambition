@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v416
+ggrs-rollback-schema-v423
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -499,7 +499,7 @@ resource.occurrence_baseline	component-clone-custom-checksum	OccurrenceBaseline	
 resource.outstanding_checkpoint_request	component-clone-custom-checksum	OutstandingCheckpointRequest	bevy_ggrs clone snapshot + whether the session is still owed a checkpoint restore
 resource.owned_items	resource-clone-custom-checksum	OwnedItems	bevy_ggrs clone snapshot + each item's stored count, in catalog order (Q129: the bag is compared)
 resource.owned_items_baseline	component-clone-custom-checksum	OwnedItemsBaseline	bevy_ggrs clone snapshot + entity-free stored-quantity and checkpoint purse checksum projection
-resource.pending_lifecycle_commit	resource-clone-custom-checksum	PendingLifecycleCommit	bevy_ggrs clone snapshot + the pending and withdrawn intents with their restore admissions
+resource.pending_lifecycle_commit	resource-clone-custom-checksum	PendingLifecycleCommit	bevy_ggrs clone snapshot + the pending, withdrawn, and applied intents with their restore admissions
 resource.pending_player_hit_events	resource-clone-custom-checksum	PendingPlayerHitEvents	bevy_ggrs clone snapshot + entity-free staged-hit and room checksum projection
 resource.placement_continuity	resource-clone-custom-checksum	AuthoredOccurrences	bevy_ggrs clone snapshot + authoritative occurrence whereabouts; domain-separated fold over (SimId, whereabouts)
 resource.portal_frame_history	resource-clone	PortalFrameHistory	bevy_ggrs clone snapshot; not in the session checksum
@@ -539,6 +539,7 @@ scope.room_instance	component-canonical	InRoomInstance	bevy_ggrs canonical codec
 scope.session	component-clone	SessionScopedEntity	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 session.mode_visit	component-clone	ModeVisit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 session.participants	component-canonical	SessionParticipants	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+session.party_travel	component-clone-custom-checksum	PartyTravel	bevy_ggrs clone snapshot + party travel rules and pending zone agreements
 session.room_departure	component-clone	Departure	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 session.room_preparation	component-clone-custom-checksum	CapturedRoomPreparation	bevy_ggrs clone snapshot + the admitted room operation and its immutable continuity inputs
 smash.hold_state	component-canonical	SmashHoldState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

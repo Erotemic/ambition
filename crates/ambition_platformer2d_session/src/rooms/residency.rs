@@ -115,7 +115,7 @@ pub fn room_transfer_plan(
         members.iter().map(|(body, slot, _)| (*body, *slot)), drivers);
     if rebuild_source { retiring.extend(departing); }
     let joins = (!restart && !members.is_empty()).then(|| rooms.iter()
-        .find(|(room, definition)| Some(*room) != departing && target.is_some() && *definition == target)
+        .find(|(room, definition)| (!rebuild_source || Some(*room) != departing) && target.is_some() && *definition == target)
         .map(|(room, _)| *room)).flatten();
     if let Some(joins) = joins { retiring.remove(&joins); }
     if restart { retiring.extend(rooms.iter().map(|(room, _)| *room)); }
@@ -159,4 +159,17 @@ mod transfer_tests {
         assert_eq!(plan.joins, None);
         assert!(plan.other_rooms_stay);
     }
+    #[test]
+    fn ordinary_same_room_travel_joins_but_an_explicit_rebuild_retires_it() {
+        let room = LiveRoomInstance::ACTIVATION;
+        let definition = ambition_platformer2d_world::rooms::LiveRoomDefinition::from_index(0);
+        let body = Entity::from_raw_u32(1).unwrap();
+        for rebuild in [false, true] {
+            let plan = room_transfer_plan([(Some(body), Some(PlayerSlot(0)), Some(room))],
+                [(body, PlayerSlot(0), Some(room))], [(room, Some(definition))], Some(definition), rebuild, false);
+            assert_eq!(plan.joins, if rebuild { None } else { Some(room) });
+            assert_eq!(plan.retiring.contains(&room), rebuild);
+        }
+    }
+
 }

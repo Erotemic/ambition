@@ -96,6 +96,9 @@ pub struct ViewSubject(pub Entity);
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ViewParticipant(pub ambition_characters::control::PlayerSlot);
 
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PartyLeaderFocus(ambition_characters::control::PlayerSlot);
+
 /// THE BODY THIS VIEW IS LOOKING AT, resolved once per frame from whichever
 /// way the view declared it.
 ///
@@ -302,6 +305,8 @@ pub fn split_views_by_live_room(
         Option<&ViewPlacement>,
     )>,
     mut distance: bevy::prelude::Local<DistanceSplit>,
+    parties: bevy::prelude::Query<&ambition_platformer2d_session::party_travel::PartyTravel,
+        bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>>,
     views: bevy::prelude::Query<
         (
             Entity,
@@ -311,6 +316,7 @@ pub fn split_views_by_live_room(
             Option<&ViewPlacement>,
             bevy::prelude::Has<SplitForLiveRoom>,
             Option<&PlacedByLiveRoomSplit>,
+            Option<&PartyLeaderFocus>,
         ),
         bevy::prelude::With<LocalView>,
     >,
@@ -330,10 +336,10 @@ pub fn split_views_by_live_room(
     rooms.sort_unstable();
     rooms.dedup();
 
-    let laid_out_here = views.iter().all(|(_, id, subject, participant, placement, opened, mark)| {
+    let laid_out_here = views.iter().all(|(_, id, subject, participant, placement, opened, mark, focus)| {
         *id == LocalViewId::FIRST
             && subject.is_none()
-            && participant.is_none()
+            && (participant.is_none() || focus.is_some_and(|focus| participant == Some(&ViewParticipant(focus.0))))
             && PlacementOwner::of(placement, mark).split_places()
             || opened
     });
@@ -342,6 +348,21 @@ pub fn split_views_by_live_room(
         .map(|policy| *policy);
     use ambition_persistence::settings::video::LocalViewLayout;
     let layout = settings.as_deref().map_or_else(Default::default, |settings| settings.video.local_view_layout);
+    let leader = parties.single().ok().filter(|party| party.rules().accept_preferences)
+        .filter(|_| laid_out_here && cast.as_ref().is_none_or(|cast| cast.0.is_empty())
+            && layout == LocalViewLayout::FollowLeader).map(|party| party.rules().leader);
+    for (view, id, subject, participant, _, opened, _, focus) in &views {
+        if opened || *id != LocalViewId::FIRST { continue; }
+        let ours = focus.is_some_and(|focus| participant == Some(&ViewParticipant(focus.0)));
+        if let Some(leader) = leader.filter(|_| subject.is_none() && (participant.is_none() || ours)) {
+            if participant != Some(&ViewParticipant(leader)) {
+                commands.entity(view).try_insert((ViewParticipant(leader), PartyLeaderFocus(leader)));
+            }
+        } else if focus.is_some() {
+            commands.entity(view).try_remove::<PartyLeaderFocus>();
+            if ours { commands.entity(view).try_remove::<ViewParticipant>(); }
+        }
+    }
     // Distance uses the shared viewport even when the current layout is split.
     let shown = adaptive.filter(|_| distance.open_at.is_none()).and_then(|_| {
         let (_, resolved, viewport, placement) = framed.iter().find(|(id, ..)| **id == LocalViewId::FIRST)?;
@@ -355,6 +376,7 @@ pub fn split_views_by_live_room(
         Some(crate::camera_snapshot::fit_camera_view(snapshot.requested_view, whole, aspect).0 * 0.5)
     });
     let apart = match adaptive {
+        _ if leader.is_some() => { *distance = DistanceSplit::default(); false }
         Some(_) if layout == LocalViewLayout::AlwaysSplit => {
             if seats.len() > 1 {
                 distance.open_at = distance.open_at.or(shown);
@@ -412,8 +434,8 @@ pub fn split_views_by_live_room(
         }
     };
 
-    if rooms.len() < 2 && !apart {
-        for (view, _, _, _, placement, opened, mark) in &views {
+    if leader.is_some() || (rooms.len() < 2 && !apart) {
+        for (view, _, _, _, placement, opened, mark, _) in &views {
             if opened {
                 commands.entity(view).try_despawn();
                 continue;
@@ -440,7 +462,9 @@ pub fn split_views_by_live_room(
     // resolve uses.
     let shows = |slot: PlayerSlot| {
         let body = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, slot);
-        views.iter().any(|(_, _, subject, participant, ..)| {
+        views.iter().any(|(_, _, subject, participant, _, _, _, focus)| {
+            let participant = participant.filter(|participant| !(leader.is_none()
+                && focus.is_some_and(|focus| **participant == ViewParticipant(focus.0))));
             if subject.is_none() && participant.is_none() {
                 return slot == PlayerSlot::PRIMARY;
             }
@@ -454,7 +478,7 @@ pub fn split_views_by_live_room(
         .collect();
     let mut ids: Vec<(LocalViewId, Entity, Option<&ViewPlacement>, Option<&PlacedByLiveRoomSplit>)> = views
         .iter()
-        .map(|(view, id, _, _, placement, _, mark)| (*id, view, placement, mark))
+        .map(|(view, id, _, _, placement, _, mark, _)| (*id, view, placement, mark))
         .collect();
     ids.sort_by_key(|(id, view, ..)| (*id, *view));
     let columns = ids.len() + unshown.len();
@@ -1403,4 +1427,71 @@ mod tests {
             "closed: the split removed a placement it did not write"
         );
     }
+    #[test]
+    fn a_leader_view_uses_the_declared_leader_across_rooms_and_releases_its_focus() {
+        use bevy::ecs::system::RunSystemOnce as _;
+        use ambition_platformer2d_session::party_travel::{PartyTravel, PartyTravelRules};
+        use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
+        use ambition_persistence::settings::{UserSettings, video::LocalViewLayout};
+        use ambition_characters::control::PlayerSlot;
+        let mut couch = ownership::Couch::together();
+        let mut party = PartyTravel::default();
+        party.configure(PartyTravelRules { accept_preferences: true, leader: PlayerSlot(1), ..Default::default() }).unwrap();
+        couch.world.spawn((SessionRoot(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(1)), party));
+        let mut settings = UserSettings::default(); settings.video.local_view_layout = LocalViewLayout::FollowLeader;
+        couch.world.insert_resource(settings);
+        let view = couch.world.spawn((LocalView, LocalViewId::FIRST, ResolvedViewSubject::default())).id();
+        couch.alice_leaves(true); couch.pass();
+        assert_eq!(couch.view_count(), 1);
+        assert_eq!(couch.world.get::<ViewParticipant>(view), Some(&ViewParticipant(PlayerSlot(1))));
+        assert!(couch.world.get::<ViewPlacement>(view).is_none());
+        couch.world.run_system_once(resolve_view_subjects).unwrap();
+        assert_eq!(couch.world.get::<ResolvedViewSubject>(view).unwrap().0, Some(couch.bob));
+        couch.world.resource_mut::<UserSettings>().video.local_view_layout = LocalViewLayout::Adaptive;
+        couch.pass();
+        assert_eq!(couch.view_count(), 2);
+        assert!(couch.world.get::<PartyLeaderFocus>(view).is_none());
+        assert!(couch.world.get::<ViewParticipant>(view).is_none());
+    }
+
+    #[test]
+    fn a_leader_view_keeps_the_followers_hud_and_names_their_return_binding() {
+        use bevy::ecs::system::RunSystemOnce as _;
+        use ambition_characters::{actor::{BodyHealth, BodyWallet, Health}, control::{DrivingParticipant, PlayerSlot}};
+        use ambition_platformer2d_session::{party_travel::{PartyTravel, PartyTravelRules}, participants::SessionParticipants};
+        use ambition_platformer2d_shared_tangle::lifecycle::{SessionRoot, InRoomInstance, LiveRoomInstance};
+        use crate::facts::{rebuild_view_hud_facts, rebuild_party_return_prompts, ViewHudFacts, ViewHudSeat, SharedViewHudFacts, PartyReturnPrompts};
+        use crate::camera_snapshot::{ResolvedCameraFrame, CameraSnapshot2d};
+        let mut app = App::new();
+        app.init_resource::<ambition_input::SeatBindings>().init_resource::<PartyReturnPrompts>();
+        let mut party = PartyTravel::default();
+        party.configure(PartyTravelRules { return_to_leader: true, ..Default::default() }).unwrap();
+        let mut admitted = SessionParticipants::default(); admitted.admit(PlayerSlot(0)); admitted.admit(PlayerSlot(1));
+        app.world_mut().spawn((SessionRoot(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(1)), party, admitted));
+        app.world_mut().spawn((ambition_input::InputParticipant::with_id(ambition_input::ParticipantId(1)),
+            ambition_input::KeyboardPreset::arrows_zxc().input_map()));
+        let room = LiveRoomInstance::ACTIVATION;
+        let leader = app.world_mut().spawn((DrivingParticipant(PlayerSlot(0)), InRoomInstance(room),
+            BodyWallet { balance: 7 }, BodyHealth::new(Health::new(5)),
+            ae::BodyKinematics { pos: ae::Vec2::ZERO, vel: ae::Vec2::ZERO, size: ae::Vec2::splat(20.0), facing: 1.0 })).id();
+        let follower = app.world_mut().spawn((DrivingParticipant(PlayerSlot(1)), InRoomInstance(room.next()),
+            BodyWallet { balance: 9 }, BodyHealth::new(Health::new(5)),
+            ae::BodyKinematics { pos: ae::Vec2::ZERO, vel: ae::Vec2::ZERO, size: ae::Vec2::splat(20.0), facing: 1.0 })).id();
+        let view = app.world_mut().spawn((LocalView, LocalViewId::FIRST, PartyLeaderFocus(PlayerSlot(0)),
+            ViewParticipant(PlayerSlot(0)), ResolvedViewSubject(Some(leader)), ViewHudFacts::default(), ViewHudSeat::default(),
+            SharedViewHudFacts::default(), ResolvedCameraSnapshot(Some(ResolvedCameraFrame {
+                snapshot: CameraSnapshot2d::default(), follow_world: ae::Vec2::ZERO, room,
+            })))).id();
+        app.world_mut().run_system_once(ambition_input::publish_seat_bindings).unwrap();
+        app.world_mut().run_system_once(rebuild_view_hud_facts).unwrap();
+        assert_eq!(app.world().get::<SharedViewHudFacts>(view).unwrap().0.iter().map(|(slot, facts)| (*slot, facts.balance)).collect::<Vec<_>>(),
+            vec![(PlayerSlot(1), 9)]);
+        app.world_mut().run_system_once(rebuild_party_return_prompts).unwrap();
+        let expected = app.world().resource::<ambition_input::SeatBindings>().label(1, &ambition_input::Platformer2dInputActionMonolith::Reset).unwrap();
+        assert_eq!(app.world().resource::<PartyReturnPrompts>().0.get(&PlayerSlot(1)), Some(&format!("{expected}: Return to leader")));
+        app.world_mut().entity_mut(follower).insert(InRoomInstance(room));
+        app.world_mut().run_system_once(rebuild_party_return_prompts).unwrap();
+        assert!(app.world().resource::<PartyReturnPrompts>().0.is_empty());
+    }
+
 }

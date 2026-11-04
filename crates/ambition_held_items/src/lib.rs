@@ -991,7 +991,7 @@ impl<'a> SolidsByRoom<'a> {
             .room(room.map(InRoomInstance).as_ref())
             .map(|room| (room.holes_open_for(item), room.glues_open_for(item)))
             .unwrap_or_default();
-        Some(ambition_platformer2d_world::collision::as_met_by(walls, &[], &holes, &glues))
+        Some(ambition_platformer2d_world::collision::as_met_by(walls, &[], &holes, &glues, &[]))
     }
 }
 

@@ -1428,7 +1428,7 @@ fn a_replay_refused_by_the_lifecycle_slot_changes_nothing() {
                     "somebody-elses-crossing",
                 ), None,
                 ),
-                    arrival: Vec2::ZERO,
+                    arrival: ambition_platformer2d::session::lifecycle_commit::RoomArrival::At(Vec2::ZERO),
                     participant: None,
                 },
                 companions: Vec::new(),

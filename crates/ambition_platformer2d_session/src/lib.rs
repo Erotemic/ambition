@@ -15,6 +15,7 @@ pub mod durable_horizon;
 /// A second seat joins the session (Q153 default).
 pub mod join;
 pub mod participants;
+pub mod party_travel;
 pub mod lifecycle_commit;
 pub mod room_preparation;
 pub mod reset;

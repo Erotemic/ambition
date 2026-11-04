@@ -757,6 +757,12 @@
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.45, active_s: 0.15, recover_s: 0.5, damage: 1, reach_px: 40.0, step_px: 0.0, rush_px: 90.0)),
         ),
+        // The Andean condor's swoop: wings up and talons forward (its windup
+        // row), then a long glide down at you.
+        "andean_condor_swoop": (
+            move_style: Float,
+            melee: Some(Lunge(windup_s: 0.5, active_s: 0.3, recover_s: 0.6, damage: 1, reach_px: 44.0, step_px: 0.0, rush_px: 220.0)),
+        ),
 
         // The Bad Apple's chomp: it rears back with its maw wide (its windup
         // row), then rolls at you jaws first, and sits a beat after, dizzy. Its
@@ -8438,6 +8444,35 @@
             hall: ["They told us it would be a short campaign. Of the tens of thousands they sent, most never went home: the war took many, and yellow fever took more.", "We came to take an island back. The island had other plans."],
         ),
         ),
+        // The Andean condor: the largest flying land bird of the Americas,
+        // black with a white ruff, soaring on flat wings with the tips spread
+        // like fingers. It rarely flaps; it swoops.
+        "andean_condor": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Andean Condor",
+            manifest: "sprites/andean_condor_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(40.0),
+            composition: None,
+            default_action_set: "andean_condor_swoop",
+            locomotion: Some((run_speed: 150.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 620.0,
+                attack_range: 170.0,
+                shares_sightings: false,
+                tactics: (dive_tell_s: 0.5, notice_s: 0.5),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "history", "andean_highlands", "bird"],
+        barks: (
+            on_hit: ["*a hiss: condors have no voice to scream with*", "*it wobbles, and finds the wind again*"],
+            provoked: ["*it tips one wing and turns, without a flap*"],
+            idle: ["*it has not flapped in an hour*", "*a shadow three metres wide crosses the ground*"],
+            hall: ["My wings are three metres across, and I can soar for hours without one flap. I let the mountains do the work. Smart birds do.", "I eat what is already dead. Look on the bright side: I am not hunting you. I am waiting."],
+        ),
+        ),
 
         // ===== THE EVIL DIMENSION (Jon, 2026-10-15). Wolfenstein, the boss of
         // Castle Godwin: Frankenstein's monster with the head of Insanity Wolf,
@@ -11609,6 +11644,78 @@
             barks: (
                 idle: ["Please walk slowly here.", "*she waits at the door until you are ready*", "Every number on these papers was a person."],
                 hall: ["From 1501 to 1866, about twelve and a half million people were forced onto ships for the Americas. About ten point seven million lived to land.", "The door goes one way. Today its sea side has a second sign: the Door of Return. The descendants come back through it as guests."],
+            ),
+        ),
+        // South America (wave B). The potato farmer, the flautist and the net
+        // maker are original people; Antoine Parmen-tater is a parody of
+        // Antoine-Augustin Parmentier, who promoted the potato in France.
+        "npc_history_potato_farmer": (
+            display_name: "Potato Farmer",
+            // An original Andean farmer of about 5,000 BCE with a digging stick and a bag of potatoes of many colours.
+            manifest: "sprites/history_potato_farmer_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 156 cm.
+            standing_height: Some(60.4),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "andean_highlands", "peaceful"],
+            barks: (
+                idle: ["This one is for boiling. This one is for chuno. This one is for showing off.", "*she turns a potato in her hand, checks its eyes, and nods*", "Cold nights, hard sun. Good for chuno."],
+                hall: ["The potato was a bitter wild thing until our grandmothers' grandmothers chose the good ones, year after year, up here near the lake.", "We freeze-dry them into chuno, which keeps for years. A bad harvest does not kill us."],
+            ),
+        ),
+        "npc_history_antoine_parmen_tater": (
+            display_name: "Antoine Parmen-tater",
+            // A parody of Antoine-Augustin Parmentier (1737-1813), who promoted the potato in France: a powdered wig, potato flowers in his buttonhole.
+            manifest: "sprites/history_antoine_parmen_tater_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "andean_highlands", "peaceful"],
+            barks: (
+                on_hit: ["Ow! Is that how you treat a man of science?", "Mon dieu! Mind the flowers!"],
+                idle: ["Bon appe-tater!", "*he holds up a potato to the light, like a diamond*", "Eight thousand years they farmed it here, and still it needed a Frenchman to explain it."],
+                hall: ["I put soldiers round my potato field by day and sent them home at night. Paris stole every plant. Some historians say that story is too good to be true. I disagree, professionally.", "Every potato and minced-beef pie in France carries my name: hachis Parmentier. That is immortality, with gravy."],
+            ),
+        ),
+        "npc_history_caral_flautist": (
+            display_name: "Caral Flautist",
+            // An original musician of Caral, about 2600 BCE, with a flute of pelican wing bone.
+            manifest: "sprites/history_caral_flautist_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm.
+            standing_height: Some(64.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "caral", "peaceful"],
+            barks: (
+                idle: ["*a few high notes, bright as the sun on the stones*", "Thirty-two flutes in one plaza. We were not a quiet city.", "Mind the steps."],
+                hall: ["Caral was a city when the pyramids of Egypt were new. We built ours at the same time, and neither of us knew.", "No walls, no weapons of war have been found here. People came to trade, to build and to play."],
+            ),
+        ),
+        "npc_history_net_maker": (
+            display_name: "Net Maker of Aspero",
+            // An original net maker of Aspero on the coast, about 2600 BCE, with a cotton fishing net and a basket of anchovies.
+            manifest: "sprites/history_net_maker_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 154 cm.
+            standing_height: Some(59.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "caral", "peaceful"],
+            barks: (
+                idle: ["Supe. Like soup. Mostly anchovy.", "*her fingers tie a knot without her looking*", "Cotton up, anchovies down. That is the whole economy."],
+                hall: ["The valley grows the cotton; we make the nets; the sea gives the anchovies. Everybody wins except the anchovies.", "Pots? Nobody here makes pots yet. A gourd is a pot that grows on a vine."],
             ),
         ),
         "npc_primeval_twitchell": (

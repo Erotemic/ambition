@@ -297,6 +297,14 @@
     // a Fante fishing canoe on the beach and a cannon of the castle.
     "history_fante_canoe": (),
     "history_fort_cannon": (),
+    // South America (wave B, `targets/props/history_south_america_props.py`):
+    // potatoes and chuno of the Andes; the quipu, the shicra bags and the
+    // cotton nets of Caral.
+    "history_potatoes": (),
+    "history_chuno": (),
+    "history_quipu": (),
+    "history_shicra_bags": (),
+    "history_cotton_nets": (),
     // The Story Stacks of the Art dimension (`targets/props/art_stacks_props.py`).
     // The doors of the Library of Endings are two covers of a book: the happy
     // ending in gold with a sun, the sad ending in deep blue with a moon and

@@ -290,6 +290,10 @@ npc_history_catherine_flon
 npc_history_soup_joumou_cook
 npc_history_ottobah_cugoano
 npc_history_castle_guide
+npc_history_potato_farmer
+npc_history_antoine_parmen_tater
+npc_history_caral_flautist
+npc_history_net_maker
 
 [Guests from history and the studio]
 npc_genghis_can
@@ -460,6 +464,7 @@ frigatebird
 pacific_rat
 driver_ants
 napoleonic_grenadier
+andean_condor
 
 [Mary-O's world]
 mary_o

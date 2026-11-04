@@ -7,13 +7,16 @@
 Run it from `tools/ambition_ldtk_tools`.
 
 A grid. East is later: each column is an age. Each floor is a region of the
-world, so the rooms of one column are contemporaneous. Ladders join two floors
-of one column only where the two regions were in contact then. The gate
-(DYNASTIC, `data/gate_network.ron`) is in the Cradle, at the bottom left:
+world, so the rooms of one column are contemporaneous. A way up and down (a
+hole in the upper room's floor, over a tower of ledges in the lower room)
+joins two floors of one column only where the two regions were in contact
+then. There are no ladders: Jon (2026-11-04) asked for platforms and rooms
+in levels, and a ladder is slow. The gate (DYNASTIC, `data/gate_network.ron`) is in the Cradle, at the bottom left:
 everyone starts in Africa (`specs/check_flat_map.py history.ldtk`).
 
              C0       C1            C2              C3           C4          C5          C6     C7
-    R0 Americas       beringia      maize           olmecs       maya        taino       haiti
+    R0 Americas       beringia ┐    maize           olmecs       maya        taino       haiti
+    R½ S. America     beringia ┘    andes           caral
     R1 East Asia      mammoth st.   yellow river    shang        silk road   steppe
     R2 Oceania        sahul         highlands       lapita       wayfinders  rapa nui
     R3 South Asia     south. route  mehrgarh        indus
@@ -28,6 +31,7 @@ prop sheet that is 2 frame px to a world unit is placed at half its frame.
 """
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -35,15 +39,17 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 sys.path.insert(0, str(HERE.parent / "gate_network"))
 
-from district_kit import WALL, WORLDS, edge, ensure_world, entity, door, ledge, make_rooms, pad, paint, prop, resident, room, run, sign, solid, start  # noqa: E402
+from district_kit import WALL, WORLDS, edge, ensure_world, entity, door, ledge, make_rooms, pad, prop, resident, room, run, sign, solid, start  # noqa: E402
 
 import gates  # noqa: E402
+from blurbs import BLURB  # noqa: E402
 
 WORLD = WORLDS / "history.ldtk"
 GENERATOR = "specs/history_dimension/make_specs.py"
 UID_OFFSET = 1200000
-#: The size of one cell of the grid.
-W, H = 2800, 1024
+#: The size of one cell of the grid. A cell is one screen and a bit high, so
+#: that a room is a level to cross, not a shaft to climb.
+W, H = 2800, 640
 
 # ---- The grid ----------------------------------------------------------------
 
@@ -52,6 +58,10 @@ W, H = 2800, 1024
 GRID = {
     (0, 6): "history_cradle",
     (1, 0): "history_beringia",
+    # Beringia takes two floors: the land bridge from Asia at the foot, the
+    # way south into the Americas at the top. So it touches the mammoth
+    # steppe under South America's row.
+    (1, 0.5): "history_beringia",
     (1, 1): "history_mammoth_steppe",
     (1, 2): "history_sahul",
     (1, 3): "history_southern_route",
@@ -59,6 +69,7 @@ GRID = {
     (1, 5): "history_levant",
     (1, 6): "history_southern_coast",
     (2, 0): "history_first_maize",
+    (2, 0.5): "history_andean_highlands",
     (2, 1): "history_yellow_river",
     (2, 2): "history_new_guinea_highlands",
     (2, 3): "history_mehrgarh",
@@ -66,6 +77,7 @@ GRID = {
     (2, 5): "history_fertile_crescent",
     (2, 6): "history_green_sahara",
     (3, 0): "history_olmec_heartland",
+    (3, 0.5): "history_caral",
     (3, 1): "history_shang_court",
     (3, 2): "history_lapita_voyagers",
     (3, 3): "history_indus_cities",
@@ -93,15 +105,19 @@ GRID = {
 #: The grid is where the dimension starts, not a rule. A room may take
 #: several cells of one row (a wide room: an age that lasted), a row may be
 #: put in between two others (its key is any number that sorts there), and
-#: `EXTRA_LADDERS` joins two rooms that are not one above the other in the
+#: `EXTRA_WAYS` joins two rooms that are not one above the other in the
 #: grid. The rows are drawn in the order of their keys, one under the next.
 ROW_ORDER = sorted({r for _, r in GRID})
 
 
-def row_below(r):
-    """The next row down, or None."""
-    i = ROW_ORDER.index(r)
-    return ROW_ORDER[i + 1] if i + 1 < len(ROW_ORDER) else None
+def row_below(c, r):
+    """The next row down that has another room in column `c`, or None. A
+    row put in between (South America under the Americas) does not cut a
+    way down of a column where it has no room."""
+    for lower in ROW_ORDER[ROW_ORDER.index(r) + 1:]:
+        if (c, lower) in GRID and GRID[(c, lower)] != GRID[(c, r)]:
+            return lower
+    return None
 
 
 #: Each room's cells: its columns (one row).
@@ -111,15 +127,18 @@ for _cell, _rid in GRID.items():
 
 
 def span(rid):
-    """The first and last column of a room, and its row."""
-    cols = sorted(c for c, _ in CELLS[rid])
-    rows = {r for _, r in CELLS[rid]}
-    assert len(rows) == 1 and cols == list(range(cols[0], cols[-1] + 1)), f"{rid} takes cells of one row, side by side"
-    return cols[0], cols[-1], rows.pop()
+    """The first and last column of a room, and its rows, top first."""
+    cols = sorted({c for c, _ in CELLS[rid]})
+    rows = sorted({r for _, r in CELLS[rid]})
+    i = ROW_ORDER.index(rows[0])
+    assert cols == list(range(cols[0], cols[-1] + 1)) and rows == ROW_ORDER[i:i + len(rows)] \
+        and len(CELLS[rid]) == len(cols) * len(rows), f"{rid} takes a rectangle of cells"
+    return cols[0], cols[-1], rows
 
-#: The ladders between floors: (column, upper row) -> the left of the hole, in
+#: The ways between floors: (column, upper row) -> the left of the hole, in
 #: room px. The hole is in the upper room's floor and the lower room's
-#: ceiling, at the same x. A ladder is only where the two regions met then.
+#: ceiling, at the same x; a tower of ledges climbs to it in the lower room.
+#: A way is only where the two regions met then.
 LINKS = {
     # The great dispersal: out of Africa through the Levant, then to every
     # land mass.
@@ -132,6 +151,10 @@ LINKS = {
     # The first farmers: farming goes from the Crescent to Europe and Africa.
     (2, 4): 400,
     (2, 5): 200,
+    # Maize goes south from Mexico to the Andes, where the potato was first
+    # farmed. (The way goes to the next floor down with a room in the
+    # column: here, South America.)
+    (2, 0): 2200,
     # The Austronesians: the Lapita's ancestors sailed from Taiwan.
     (3, 1): 1800,
     # The first cities: tin from the north to Uruk; Uruk and Egypt trade.
@@ -149,24 +172,24 @@ def _local_x(rid, c, x):
     return x + (c - span(rid)[0]) * W
 
 
-#: Every ladder: (upper room, lower room, x of the hole in the upper room,
-#: x of the ladder in the lower room). The grid's come from `LINKS`;
-#: `EXTRA_LADDERS` adds more in the same shape.
-EXTRA_LADDERS = []
-LADDERS = [(GRID[(c, r)], GRID[(c, row_below(r))], _local_x(GRID[(c, r)], c, x), _local_x(GRID[(c, row_below(r))], c, x))
-           for (c, r), x in LINKS.items()] + EXTRA_LADDERS
+#: Every way up and down: (upper room, lower room, x of the hole in the
+#: upper room, x of the hole in the lower room's ceiling). The grid's come
+#: from `LINKS`; `EXTRA_WAYS` adds more in the same shape.
+EXTRA_WAYS = []
+WAYS = [(GRID[(c, r)], GRID[(c, row_below(c, r))], _local_x(GRID[(c, r)], c, x), _local_x(GRID[(c, row_below(c, r))], c, x))
+           for (c, r), x in LINKS.items()] + EXTRA_WAYS
 
 
 def _ups(rid):
-    return [(upper, xl) for upper, lower, _xu, xl in LADDERS if lower == rid]
+    return [(upper, xl) for upper, lower, _xu, xl in WAYS if lower == rid]
 
 
 def _downs(rid):
-    return [(lower, xu) for upper, lower, xu, _xl in LADDERS if upper == rid]
+    return [(lower, xu) for upper, lower, xu, _xl in WAYS if upper == rid]
 
 
 def up_zone(lower, upper):
-    """The zone at the top of `lower`'s ladder to `upper`."""
+    """The zone in `lower`'s ceiling, up to `upper`."""
     return f"{lower}_up" if len(_ups(lower)) == 1 else f"{lower}_up_to_{upper}"
 
 
@@ -186,15 +209,16 @@ BUILDINGS = (GRANARY, TOMB, COLOSSEUM, GER, LIBRARY, MILL, CAVE)
 
 BG = "#3A2A1C"
 #: A room of the grid (`W`, `H`, at the top of the file); the floor has 64 of
-#: ground under it.
-FLOOR = 960
+#: ground under it. In a room of two floors, `FLOOR` is the walk line of the
+#: top one and `FLOOR + H` the ground.
+FLOOR = H - 64
 CEILING = 32
 ROW_Y = {r: i * H for i, r in enumerate(ROW_ORDER)}
 
 ROOMS_AT = {}
 for _rid in CELLS:
-    _c0, _c1, _r = span(_rid)
-    ROOMS_AT[_rid] = ((_c0 * W, ROW_Y[_r]), ((_c1 - _c0 + 1) * W, H))
+    _c0, _c1, _rows = span(_rid)
+    ROOMS_AT[_rid] = ((_c0 * W, ROW_Y[_rows[0]]), ((_c1 - _c0 + 1) * W, len(_rows) * H))
 ROOMS_AT.update({rid: ((n * 1792, len(ROW_ORDER) * H + 400), (1600, 640)) for n, rid in enumerate(BUILDINGS)})
 
 #: One cue for each floor (region), so the music stays with the player who
@@ -244,6 +268,8 @@ MUSIC = {
     "history_mongol_steppe": EAST_ASIA,
     "history_beringia": AMERICAS,
     "history_first_maize": AMERICAS,
+    "history_andean_highlands": AMERICAS,
+    "history_caral": AMERICAS,
     "history_olmec_heartland": AMERICAS,
     "history_maya_city": AMERICAS,
     "history_taino_islands": AMERICAS,
@@ -282,6 +308,7 @@ BIOME = {
     "history_silk_road": "history_silk",
     "history_mongol_steppe": "history_steppe", GER: "history_steppe",
     "history_first_maize": "history_maize",
+    "history_andean_highlands": "history_andes", "history_caral": "history_supe",
     "history_olmec_heartland": "history_olmec", "history_maya_city": "history_maya",
     "history_taino_islands": "history_caribbean",
     "history_haitian_revolution": "history_saint_domingue",
@@ -311,6 +338,8 @@ BOX = {
     "frigatebird": (64, 40), "pacific_rat": (32, 20),
     # Wave A: the Atlantic world.
     "driver_ants": (72, 24), "napoleonic_grenadier": (34, 64),
+    # Wave B: South America.
+    "andean_condor": (80, 40),
 }
 
 DOOR_W, DOOR_H = 48, 192
@@ -328,7 +357,7 @@ UNICORN_SEAL = "history_unicorn_seal"
 BALLCOURT_RING = "history_ballcourt_ring"
 #: The Great Wall in the steppe (x0, x1), its top, and the gate in it.
 WALL_X = (928, 1024)
-WALL_TOP = 640
+WALL_TOP = FLOOR - 320
 WALL_GATE = (952, 1000)
 #: The two vigils.
 TOMB_VIGIL = "history_tomb_vigil"
@@ -411,45 +440,108 @@ def vertical_edge(zone, name, x0, x1, y, to_room, to_zone):
                   target_zone=to_zone, bidirectional=True)
 
 
-def grid_room(rid, title, entities, gaps=()):
-    """A room of the grid: its floor (open at `gaps`, and at each ladder down
-    under a one-way hatch), its ceiling (open at each ladder up), its walls,
-    the side exits to the ages before and after it on its row, the ladders
-    to the rows above and below, and `entities`."""
-    c0, c1, r = span(rid)
-    w = ROOMS_AT[rid][1][0]
-    west, east = GRID.get((c0 - 1, r)), GRID.get((c1 + 1, r))
+#: The tower of ledges under a hole in a ceiling. A jump rises about 88, so
+#: the ledges are `TOWER_RISE` apart. A jump from the top ledge puts the head
+#: (48 over the feet) into the edge in the ceiling (0 to 16): 144 - 48 - 88 is
+#: under 16. A player who comes down arrives with the feet at 115 (the edge
+#: arrival is 92 under the top) and falls onto it.
+TOWER_RISE = 72
+TOWER_TOP = 144
+TOWER_LEDGE = 128
+TOWER_STEP = 56
+
+
+def tower(name, hole_x, ground, w):
+    """The ledges up from `ground` to a hole in the ceiling at `hole_x`: the
+    top one under the hole, the ones under it to the right and the left in
+    turn, so the way up is a zig-zag of jumps and not a ladder."""
+    mid = hole_x + HOLE // 2
+    lo, hi = WALL + TOWER_LEDGE // 2 + 8, w - WALL - TOWER_LEDGE // 2 - 8
+    out = []
+    for n, y in enumerate(range(TOWER_TOP, ground - TOWER_RISE + 1, TOWER_RISE)):
+        x = mid if n == 0 else mid + (TOWER_STEP if n % 2 else -TOWER_STEP)
+        x = min(max(x, lo), hi)
+        out.append(ledge(f"{name}_{n}", x - TOWER_LEDGE // 2, y, TOWER_LEDGE))
+    return out
+
+
+def blurb(rid, x):
+    """The development blurb (`blurbs.py`): two lines at the top of the room,
+    over `x`, under the room's title (`district_kit.room`, at 40): where and
+    when, and a fact."""
+    out = []
+    for n, text in enumerate(BLURB[rid]):
+        w = len(text) * 9 + 24
+        out.append(entity("DebugLabel", x - w // 2, 64 + n * 24, w, 24, name=f"{rid}_blurb_{n}", text=text,
+                          category="Room"))
+    return out
+
+
+def grid_room(rid, title, entities, gaps=(), blurb_x=None):
+    """A room of the grid: its ground (open at `gaps`, and at each way down
+    under a one-way hatch), its ceiling (open at each way up, over a tower
+    of ledges), its walls, the side exits to the ages before and after it on
+    each of its rows, the ways to the rows above and below, its blurb, and
+    `entities`. A room of two rows has a side exit at the walk line of each
+    row that has a neighbour; the room's own terrain must reach it."""
+    c0, c1, rows = span(rid)
+    w, h = ROOMS_AT[rid][1]
+    ground = h - 64
     floor_gaps = list(gaps)
     ceiling_gaps = []
     e = []
     for upper, x in _ups(rid):
         ceiling_gaps.append((x, x + HOLE))
-        e.append(vertical_edge(up_zone(rid, upper), "up the ladder", x, x + HOLE, 0, upper, down_zone(upper, rid)))
+        e.append(vertical_edge(up_zone(rid, upper), "up", x, x + HOLE, 0, upper, down_zone(upper, rid)))
+        e += tower(f"tower_to_{upper}", x, ground, w)
     for lower, x in _downs(rid):
         floor_gaps.append((x, x + HOLE))
         # A hatch over the hole: walk over it, or drop through it.
-        e.append(ledge("hatch", x, FLOOR, HOLE))
-        e.append(vertical_edge(down_zone(rid, lower), "down the ladder", x, x + HOLE, H - 16, lower, up_zone(lower, rid)))
-    e += solids_beside("ground", floor_gaps, FLOOR, H - FLOOR, w)
+        e.append(ledge("hatch", x, ground, HOLE))
+        e.append(vertical_edge(down_zone(rid, lower), "down through the hatch", x, x + HOLE, h - 16, lower,
+                               up_zone(lower, rid)))
+    e += solids_beside("ground", floor_gaps, ground, h - ground, w)
     e += solids_beside("ceiling", ceiling_gaps, 0, CEILING, w)
-    if west:
-        e += [solid("west_wall", 0, CEILING, WALL, FLOOR - 112 - CEILING),
-              edge(f"{rid}_west", "back in time", 0, FLOOR, west, f"{west}_east")]
-    else:
-        e.append(solid("west_wall", 0, CEILING, WALL, FLOOR - CEILING))
-    if east:
-        e += [solid("east_wall", w - WALL, CEILING, WALL, FLOOR - 112 - CEILING),
-              edge(f"{rid}_east", "forward in time", w - WALL, FLOOR, east, f"{east}_west")]
-    else:
-        e.append(solid("east_wall", w - WALL, CEILING, WALL, FLOOR - CEILING))
+    for side, col, x, after in (("west", c0 - 1, 0, "east"), ("east", c1 + 1, w - WALL, "west")):
+        openings = []
+        for i, r in enumerate(rows):
+            other = GRID.get((col, r))
+            if other is None or other == rid:
+                continue
+            walk = i * H + FLOOR
+            openings.append((walk - 112, walk))
+            word = "back in time" if side == "west" else "forward in time"
+            e.append(edge(side_zone(rid, side, r), word, x, walk, other, side_zone(other, after, r)))
+        e += [solid(f"{side}_wall_{n}", x, y0, WALL, y1 - y0)
+              for n, (y0, y1) in enumerate(_beside(CEILING, ground, openings)) if y1 > y0]
+    e += blurb(rid, w // 2 if blurb_x is None else blurb_x)
     at, size = ROOMS_AT[rid]
     return rid, room(rid, e + entities, at=at, size=size, biome=BIOME[rid], music=MUSIC[rid], bg=BG, title=title,
                      generator=GENERATOR, dangerous=True)
 
 
+def side_zone(rid, side, r):
+    """The id of `rid`'s side exit on `side` at row `r`: `<rid>_<side>`, or,
+    when that side has an exit on more than one row, `<rid>_<side>_<row>`."""
+    c0, c1, rows = span(rid)
+    col = c0 - 1 if side == "west" else c1 + 1
+    exits = [row for row in rows if GRID.get((col, row)) not in (None, rid)]
+    return f"{rid}_{side}" if len(exits) <= 1 else f"{rid}_{side}_{rows.index(r)}"
+
+
+def _beside(y0, y1, holes):
+    """The spans from `y0` to `y1` that `holes` (top, bottom) leave."""
+    out, y = [], y0
+    for top, bottom in sorted(holes):
+        out.append((y, top))
+        y = max(y, bottom)
+    out.append((y, y1))
+    return out
+
+
 def building(rid, back_to, back_zone, title, extra):
     """A building by a door: its floor, ceiling and walls, the door back out
-    at its west end, and `extra`."""
+    at its west end, its blurb, and `extra`."""
     w, h = ROOMS_AT[rid][1]
     g = INSIDE_FLOOR
     e = [
@@ -459,6 +551,7 @@ def building(rid, back_to, back_zone, title, extra):
         solid("east_wall", w - WALL, CEILING, WALL, g - CEILING),
         door(f"{rid}_door", "back out", 40, g, back_to, back_zone),
         start(rid, 140, g),
+        *blurb(rid, w // 2),
         *extra,
     ]
     at, size = ROOMS_AT[rid]
@@ -522,7 +615,7 @@ def cradle():
 
 def southern_coast():
     """The southern coast, 75,000 years ago: shellfish, ochre and the first
-    art. The ladder up is the way out of Africa, into the Levant."""
+    art. The way up is the way out of Africa, into the Levant."""
     rid = "history_southern_coast"
     up = LINKS[(1, 5)]
     e = [
@@ -605,14 +698,14 @@ def tomb():
                      prop_at("jars", "history_canopic_jars", 640, g, 80, 48),
                      ledge("sarcophagus_ledge", 820, g - 96, 200),
                      prop_at("statue", "history_pharaoh_statue", 1120, g, 128, 224),
-                     sign("tomb_sign", 800, 90, "THE PYRAMID TOMB: everything you need for the afterlife, packed", 560),
+                     sign("tomb_sign", 800, 124, "THE PYRAMID TOMB: everything you need for the afterlife, packed", 560),
                      sign("tomb_sign_curse", 1440, g - 200, "THE CURSE: mostly a rumour", 300),
                  ])
 
 
 def aksum():
     """Aksum and Kush, 300 BCE to 600 CE: the pyramids of Meroë, the
-    kandakes who fought Rome to a draw, the stelae of Aksum. The ladder up is
+    kandakes who fought Rome to a draw, the stelae of Aksum. The way up is
     the Red Sea road to Rome."""
     rid = "history_aksum_and_kush"
     up = LINKS[(4, 5)]
@@ -675,7 +768,7 @@ def library():
         ledge("shelf_b", 900, g - 176, 200),
         prop_at("gold", "history_gold_pile", 1160, g, 64, 32),
         chest("a manuscript worth more than gold", 1420, g, "currency:150"),
-        sign("library_sign", 800, 90, "THE LIBRARY OF TIMBUKTU: astronomy, law, medicine, poems", 520),
+        sign("library_sign", 800, 124, "THE LIBRARY OF TIMBUKTU: astronomy, law, medicine, poems", 520),
         sign("library_sign_gold", 1160, g - 120, "GOLD (worth less than the books)", 340),
     ]
     return building(LIBRARY, "history_timbuktu_coast", "timbuktu_library_door", "THE LIBRARY OF TIMBUKTU", extra)
@@ -701,8 +794,8 @@ def benin_city():
         prop_at("manillas", "history_manillas", 1060, FLOOR, 64, 32),
         sign("benin_sign_manillas", 1040, FLOOR - 120, "MANILLAS: Portuguese brass, melted down for art", 440),
         enemy(rid, 1, "driver_ants", 1160, FLOOR),
-        sign("benin_sign", 1400, 140, "BENIN CITY: the walls, the brass casters and the court of the Oba, 1200-1897", 700),
-        sign("benin_sign_palace", 1600, FLOOR - 420, "THE OBA'S PALACE: walls of red earth, a brass bird on every turret", 600),
+        sign("benin_sign", 1400, 140, "BENIN CITY: the walls, the brass casters and the court of the Oba, 1200-1897 CE", 700),
+        sign("benin_sign_palace", 1600, FLOOR - 340, "THE OBA'S PALACE: walls of red earth, a brass bird on every turret", 600),
         prop_at("palace", "history_benin_palace", 1560, FLOOR, 256, 192),
         ledge("palace_roof_a", 1460, FLOOR - 112, 192),
         ledge("palace_roof_b", 1560, FLOOR - 224, 128),
@@ -729,7 +822,7 @@ def benin_city():
 
 def levant():
     """The Levant, 70,000 years ago: the door out of Africa, where people met
-    the Neanderthals (and stayed a while). Ladders down to Africa and up to
+    the Neanderthals (and stayed a while). Ways down to Africa and up to
     Europe."""
     rid = "history_levant"
     up, down = LINKS[(1, 4)], LINKS[(1, 5)]
@@ -797,7 +890,7 @@ def granary():
         ledge("granary_loft", 880, g - 112, 240),
         prop_at("tablets_2", "history_clay_tablets", 1000, g - 112, 64, 48),
         chest("the first receipt", 1400, g, "currency:120"),
-        sign("granary_sign", 800, 90, "THE TEMPLE GRANARY: writing was made here, to count barley", 520),
+        sign("granary_sign", 800, 124, "THE TEMPLE GRANARY: writing was made here, to count barley", 520),
         sign("granary_sign_debt", 1400, g - 150, "YOU OWE: 3 sheep (with interest)", 340),
     ]
     return building(GRANARY, "history_fertile_crescent", "crescent_granary_door", "THE TEMPLE GRANARY", extra)
@@ -806,7 +899,7 @@ def granary():
 def uruk():
     """Uruk and the Bronze Age, 3,000 to 1,100 BCE: the first city, the
     first author with a name, and the Sea Peoples who ended it all at once.
-    Ladders up to the tin road and down to Egypt."""
+    Ways up to the tin road and down to Egypt."""
     rid = "history_uruk"
     up, down = LINKS[(3, 4)], LINKS[(3, 5)]
     e = [
@@ -874,7 +967,7 @@ def colosseum():
                      ledge("tier_a", 700, g - 96, 200),
                      ledge("tier_b", 960, g - 160, 200),
                      prop_at("column_2", "history_marble_column", 1200, g, 48, 192),
-                     sign("colosseum_sign", 800, 90, "THE COLOSSEUM: bread and circuses, mostly circuses", 520),
+                     sign("colosseum_sign", 800, 124, "THE COLOSSEUM: bread and circuses, mostly circuses", 520),
                      sign("colosseum_sign_box", 1440, g - 200, "THE EMPEROR'S BOX", 260),
                  ])
 
@@ -884,7 +977,7 @@ def colosseum():
 
 def ice_age_europe():
     """Ice Age Europe, 40,000 years ago: mammoths, cave bears, and the
-    painted cave by a door. Ladders down to the Levant and up the long road
+    painted cave by a door. Ways down to the Levant and up the long road
     to the southern route."""
     rid = "history_ice_age_europe"
     up, down = LINKS[(1, 3)], LINKS[(1, 4)]
@@ -916,14 +1009,14 @@ def painted_cave():
         ledge("cave_shelf_b", 1000, g - 176, 200),
         prop_at("stencils_3", "history_hand_stencils", 1220, g, 128, 128),
         chest("the first signature (a handprint)", 1420, g, "currency:150"),
-        sign("cave_sign", 800, 90, "THE PAINTED CAVE: lions, horses, and somebody's hand", 520),
+        sign("cave_sign", 800, 124, "THE PAINTED CAVE: lions, horses, and somebody's hand", 520),
     ]
     return building(CAVE, "history_ice_age_europe", "ice_cave_door", "THE PAINTED CAVE", extra)
 
 
 def first_farmers_of_europe():
     """The first farmers of Europe, 6,000 to 3,000 BCE: wheat came up from
-    the Crescent (the ladder down), and Ötzi walked into a glacier."""
+    the Crescent (the way down), and Ötzi walked into a glacier."""
     rid = "history_first_farmers_of_europe"
     down = LINKS[(2, 4)]
     e = [
@@ -946,7 +1039,7 @@ def first_farmers_of_europe():
 def megalith_builders():
     """The megalith builders, 2,500 BCE: the stones line up with the sun.
     Pull the solstice lever and the trilithon lets you through
-    (`history_solstice`). The ladder down is the tin road to Uruk."""
+    (`history_solstice`). The way down is the tin road to Uruk."""
     rid = "history_megalith_builders"
     down = LINKS[(3, 4)]
     gate_x = 1500
@@ -971,7 +1064,7 @@ def megalith_builders():
 
 def celtic_frontier():
     """The Celtic frontier, 100 CE: hillforts and the edge of Rome. The
-    ladder down at the east end goes to Rome."""
+    way down at the east end goes to Rome."""
     rid = "history_celtic_frontier"
     e = [
         start(rid, 160, FLOOR),
@@ -1088,7 +1181,7 @@ def mill():
         ledge("catwalk_b", 1040, g - 176, 200),
         prop_at("chimney", "history_chimney", 1220, g, 64, 256),
         chest("a share in the mill", 1440, g, "currency:150"),
-        sign("mill_sign", 800, 90, "THE COTTON MILL: 14 hours a day, 6 days a week", 480),
+        sign("mill_sign", 800, 124, "THE COTTON MILL: 14 hours a day, 6 days a week", 480),
     ]
     return building(MILL, "history_industrial_age", "industrial_mill_door", "THE COTTON MILL", extra)
 
@@ -1098,7 +1191,7 @@ def mill():
 
 def southern_route():
     """The southern route, 65,000 years ago: along the coast of India, the
-    fastest migration in prehistory. Ladders up to Sahul (by sea) and down
+    fastest migration in prehistory. Ways up to Sahul (by sea) and down
     to Europe (the long way round)."""
     rid = "history_southern_route"
     up, down = LINKS[(1, 2)], LINKS[(1, 3)]
@@ -1207,7 +1300,7 @@ def new_guinea_highlands():
         ledge("garden_c", 1520, FLOOR - 240, 192),
         prop_at("fern_2", "history_tree_fern", 1400, FLOOR, 96, 192),
         enemy(rid, 2, "cassowary_history", 1800, FLOOR),
-        sign("guinea_sign", 1400, 140, "THE NEW GUINEA HIGHLANDS: farming, invented again, 10,000 years ago", 620),
+        sign("guinea_sign", 1400, 140, "THE NEW GUINEA HIGHLANDS: farming, invented again, by 8000 BCE", 620),
         sign("guinea_sign_kuk", 560, FLOOR - 200, "KUK SWAMP: drained by hand, gardened ever since", 440),
         prop_at("fern_3", "history_tree_fern", 2300, FLOOR, 96, 192),
         enemy(rid, 3, "cassowary_history", 2500, FLOOR),
@@ -1218,7 +1311,7 @@ def new_guinea_highlands():
 def lapita_voyagers():
     """The Lapita voyagers, 1,500 BCE: stamped pots, stilt houses over the
     lagoon, and the first people to sail out of sight of land into the
-    remote Pacific. Their ancestors came from Taiwan: the ladder up is the
+    remote Pacific. Their ancestors came from Taiwan: the way up is the
     way back to East Asia. An outrigger canoe crosses the lagoon."""
     rid = "history_lapita_voyagers"
     up = LINKS[(3, 1)]
@@ -1255,7 +1348,7 @@ def wayfinders():
         sign("wayfinders_sign_compass", 460, FLOOR - 160, "THE STAR COMPASS: where each star rises and sets (in the navigator's head)", 680),
         npc("history_wayfinder", 680, FLOOR, 67),
         prop_at("breadfruit", "history_breadfruit_tree", 860, FLOOR, 128, 160),
-        sign("wayfinders_sign_birds", 1500, FLOOR - 420, "AT DUSK THE TERNS FLY HOME TO LAND: follow them", 480),
+        sign("wayfinders_sign_birds", 1500, FLOOR - 340, "AT DUSK THE TERNS FLY HOME TO LAND: follow them", 480),
         enemy(rid, 1, "frigatebird", 1350, FLOOR - 300),
         enemy(rid, 2, "frigatebird", 1800, FLOOR - 360),
         enemy(rid, 3, "frigatebird", 2150, FLOOR - 280),
@@ -1307,7 +1400,7 @@ def rapa_nui():
 
 def mammoth_steppe():
     """The mammoth steppe, 40,000 years ago: Denisovans, mammoths and the
-    road north-east. Ladders up to Beringia and down to Sahul."""
+    road north-east. Ways up to Beringia and down to Sahul."""
     rid = "history_mammoth_steppe"
     up, down = LINKS[(1, 0)], LINKS[(1, 1)]
     e = [
@@ -1425,20 +1518,20 @@ def steppe():
         # Genghis Can't's scaffold up the west face: it stands while his flag
         # is set.
         *[lock_wall(f"history_wall_scaffold_{n}", "the scaffold", x, y, 160, 24, f"not world.flag_set {CANT_ROAD}",
-                    "history_scaffold_plank") for n, (x, y) in enumerate(((744, 880), (568, 800), (744, 720)))],
+                    "history_scaffold_plank") for n, (x, y) in enumerate(((744, FLOOR - 80), (568, FLOOR - 160), (744, FLOOR - 240)))],
         sign("steppe_sign_wall", (w0 + w1) // 2, WALL_TOP - 120, "THE GREAT WALL: through it, or over it?", 400),
         # Over it: the rampart walk east, and the steps down.
         ledge("rampart", w1, WALL_TOP, 480),
-        ledge("rampart_step_a", 1520, 720, 160),
-        ledge("rampart_step_b", 1720, 800, 160),
-        ledge("rampart_step_c", 1920, 880, 160),
+        ledge("rampart_step_a", 1520, FLOOR - 240, 160),
+        ledge("rampart_step_b", 1720, FLOOR - 160, 160),
+        ledge("rampart_step_c", 1920, FLOOR - 80, 160),
         # Through it: the garrison waits at the foot.
         enemy(rid, 1, "horse_archer", 1160, FLOOR),
         enemy(rid, 1, "steppe_wolf", 1300, FLOOR),
         enemy(rid, 2, "steppe_wolf", 1380, FLOOR),
         enemy(rid, 2, "horse_archer", 1600, FLOOR),
         enemy(rid, 1, "golden_eagle", 1800, FLOOR - 400),
-        sign("steppe_sign", 1400, 140, "THE MONGOL STEPPE: the largest land empire, on horseback", 500),
+        sign("steppe_sign", 1560, 140, "THE MONGOL STEPPE: the largest land empire, on horseback", 500),
         prop_at("ovoo", "history_ovoo", 2160, FLOOR, 64, 96),
         enemy(rid, 2, "golden_eagle", 2300, FLOOR - 300),
         prop_at("ger_2", "history_ger", 2420, FLOOR, 160, 128),
@@ -1457,7 +1550,7 @@ def great_ger():
         ledge("ger_bench", 900, g - 96, 200),
         prop_at("ovoo", "history_ovoo", 1180, g, 64, 96),
         chest("a paiza (a passport of gold)", 1420, g, "currency:150"),
-        sign("ger_sign", 800, 90, "THE GREAT GER: the empire's office, portable", 460),
+        sign("ger_sign", 800, 124, "THE GREAT GER: the empire's office, portable", 460),
     ]
     return building(GER, "history_mongol_steppe", "steppe_ger_door", "THE GREAT GER", extra)
 
@@ -1466,46 +1559,125 @@ def great_ger():
 
 
 def beringia():
-    """Beringia, 20,000 years ago: the land bridge into the Americas, and
-    the ice-free corridor south. The ladder down is the way back to Asia."""
+    """Beringia, 25,000 to 15,000 years ago, in two floors. The way down at
+    the west is the land bridge back to Asia, where people may have lived for
+    thousands of years, cut off by the ice. Then two ways south, both real,
+    and which came first is still argued: along the floor, the Pacific coast
+    under the ice, east to South America (Monte Verde, older than Clovis);
+    up the ice, the inland way, east at the top to the first maize."""
     rid = "history_beringia"
     down = LINKS[(1, 0)]
+    g = FLOOR + H
+    shelf = 2140
     e = [
-        start(rid, 200, FLOOR),
-        sign("beringia_sign_down", down + HOLE // 2, FLOOR - 260, "DOWN: Asia, across the land bridge", 360),
-        npc("history_dr_clovis_first", 900, FLOOR, 69),
-        prop_at("points", "history_clovis_points", 1040, FLOOR, 64, 32),
-        sign("beringia_sign_points", 1040, FLOOR - 160, "CLOVIS POINTS: 13,000 years old. Not the first. Sorry.", 520),
-        enemy(rid, 1, "woolly_mammoth", 1400, FLOOR),
-        ledge("ice_a", 1560, FLOOR - 80, 192),
-        ledge("ice_b", 1780, FLOOR - 160, 192),
-        enemy(rid, 1, "smilodon", 1900, FLOOR),
-        sign("beringia_sign", 1400, 140, "BERINGIA: a land bridge where the sea is now, 20,000 years ago", 600),
-        enemy(rid, 2, "smilodon", 2400, FLOOR),
+        start(rid, 200, g),
+        sign("beringia_sign_down", down + HOLE // 2, g - 260, "DOWN: Asia, across the land bridge", 360),
+        enemy(rid, 1, "woolly_mammoth", 1000, g),
+        sign("beringia_sign_standstill_a", 1160, g - 300, "THE BERINGIAN STANDSTILL: their DNA suggests people lived here", 600),
+        sign("beringia_sign_standstill_b", 1160, g - 272, "for thousands of years, cut off from Asia and the south by ice.", 600),
+        enemy(rid, 1, "smilodon", 1400, g),
+        # Up the face of the ice: shelves, back and forth, a jump apart; the
+        # top one beside the top of the ice.
+        *[ledge(f"ice_{n}", 1960 if n % 2 else 1760, g - 72 * (n + 1), 176) for n in range(8)],
+        # The top of the ice: the inland way south. Under it, the coast.
+        solid("ice_top", shelf, FLOOR, W - shelf, 48),
+        sign("beringia_sign_inland", 2440, FLOOR - 280, "INLAND: south between two sheets of ice, to Mexico", 480),
+        npc("history_dr_clovis_first", 2300, FLOOR, 69),
+        prop_at("points", "history_clovis_points", 2440, FLOOR, 64, 32),
+        sign("beringia_sign_points", 2440, FLOOR - 160, "CLOVIS POINTS: 13,000 years old. Not the first. Sorry.", 520),
+        sign("beringia_sign_coast_a", 2440, g - 300, "THE COAST: south along the shore, under the ice, to South America.", 620),
+        sign("beringia_sign_coast_b", 2440, g - 272, "At Monte Verde, Chile, people were living 14,500 years ago: before Clovis.", 660),
+        enemy(rid, 2, "smilodon", 2500, g),
+        sign("beringia_sign", 1000, 300, "BERINGIA: a land bridge where the sea is now, 20,000 years ago", 600),
     ]
     return grid_room(rid, "BERINGIA", e)
 
 
 def first_maize():
-    """The first maize, 7,000 BCE: a grass called teosinte, bred over
-    thousands of years into corn. Andean terraces on the far mountains."""
+    """The first maize, 7,000 BCE, in the Balsas valley of Mexico: a grass
+    called teosinte, bred over thousands of years into corn. The way down
+    is maize going south to the Andes."""
     rid = "history_first_maize"
     e = [
         start(rid, 160, FLOOR),
         prop_at("maize_1", "history_maize_plants", 380, FLOOR, 96, 128),
         npc("history_teosinte_breeder", 560, FLOOR, 61),
         sign("maize_sign_cob", 560, FLOOR - 200, "TEOSINTE TO MAIZE: an ear the size of your thumb, then this", 520),
-        enemy(rid, 1, "llama", 900, FLOOR),
-        prop_at("terrace", "history_andean_terrace", 1300, FLOOR, 192, 96),
-        ledge("terrace_a", 1204, FLOOR - 64, 192),
-        ledge("terrace_b", 1252, FLOOR - 128, 96),
+        enemy(rid, 1, "green_iguana", 900, FLOOR),
+        enemy(rid, 1, "howler_monkey", 1300, FLOOR),
         enemy(rid, 1, "jaguar", 1700, FLOOR),
         sign("maize_sign", 1400, 140, "THE FIRST MAIZE: farming, invented again, in the Americas", 560),
         prop_at("maize_2", "history_maize_plants", 2000, FLOOR, 96, 128),
-        enemy(rid, 2, "llama", 2300, FLOOR),
+        sign("maize_sign_down", 2248, FLOOR - 220, "DOWN: maize goes south, to the Andes", 340),
         enemy(rid, 2, "jaguar", 2500, FLOOR),
     ]
     return grid_room(rid, "THE FIRST MAIZE", e)
+
+
+# ---- R½: South America -------------------------------------------------------
+
+
+def andean_highlands():
+    """The Andean highlands near Lake Titicaca, 8,000-2,000 BCE: where people
+    first farmed the potato and quinoa, and later tamed the llama and the
+    alpaca. Up the rock steps to the cold high plain, where potatoes are
+    freeze-dried into chuno. The way up is maize, which came south. Antoine
+    Parmen-tater is a guest from France, 1785, who takes the credit."""
+    rid = "history_andean_highlands"
+    e = [
+        start(rid, 160, FLOOR),
+        npc("history_potato_farmer", 300, FLOOR, 60),
+        prop_at("potatoes_1", "history_potatoes", 420, FLOOR, 64, 32),
+        sign("andes_sign_kinds", 380, FLOOR - 200, "THE POTATO: first farmed here. Peru grows about 4,000 kinds of it", 600),
+        # Up to the high plain.
+        solid("slope_1", 560, FLOOR - 80, 1140, 80),
+        solid("slope_2", 680, FLOOR - 160, 900, 80),
+        solid("slope_3", 800, FLOOR - 240, 660, 80),
+        solid("puna", 920, FLOOR - 320, 420, 80),
+        prop_at("chuno", "history_chuno", 1080, FLOOR - 320, 96, 32),
+        sign("andes_sign_chuno", 1130, FLOOR - 360, "CHUNO: freeze them at night, dry them in the sun, stamp out the water. They keep for years.", 800),
+        enemy(rid, 1, "andean_condor", 1500, FLOOR - 400),
+        sign("andes_sign", 1400, 140, "THE ANDES: the potato, quinoa and the llama, 8,000-2,000 BCE", 560),
+        enemy(rid, 1, "llama", 1800, FLOOR),
+        enemy(rid, 2, "llama", 1980, FLOOR),
+        sign("andes_sign_up", 2248, FLOOR - 220, "UP: the first maize", 220),
+        npc("history_antoine_parmen_tater", 2440, FLOOR, 66),
+        prop_at("potatoes_2", "history_potatoes", 2560, FLOOR, 64, 32),
+        sign("andes_sign_world", 1860, FLOOR - 160, "THE POTATO went round the world and fed Europe's growing towns.", 580),
+        sign("andes_sign_ireland_a", 2470, FLOOR - 440, "1845-1852, IRELAND: blight killed the potato crop.", 480),
+        sign("andes_sign_ireland_b", 2470, FLOOR - 412, "About a million people died and a million more left,", 500),
+        sign("andes_sign_ireland_c", 2470, FLOOR - 384, "while grain and cattle were still shipped out to Britain.", 540),
+    ]
+    return grid_room(rid, "THE ANDES", e)
+
+
+def caral():
+    """Caral in the Supe valley of Peru, about 2600 BCE: the oldest city of
+    the Americas, as old as the pyramids of Egypt. Cotton from the valley
+    went to the coast as fishing nets, and anchovies came back. Up the
+    stepped platform pyramid; no enemies, as no signs of war have been found
+    here."""
+    rid = "history_caral"
+    e = [
+        start(rid, 160, FLOOR),
+        npc("history_net_maker", 320, FLOOR, 60),
+        prop_at("nets", "history_cotton_nets", 460, FLOOR, 96, 80),
+        sign("caral_sign_nets", 420, FLOOR - 220, "ASPERO, ON THE COAST: cotton nets for anchovies, anchovies for cotton", 640),
+        # The pyramid: up its steps to the top.
+        solid("pyramid_1", 800, FLOOR - 80, 1040, 80),
+        solid("pyramid_2", 900, FLOOR - 160, 840, 80),
+        solid("pyramid_3", 1000, FLOOR - 240, 640, 80),
+        solid("pyramid_4", 1100, FLOOR - 320, 440, 80),
+        solid("pyramid_top", 1200, FLOOR - 400, 240, 80),
+        prop_at("quipu", "history_quipu", 1250, FLOOR - 400, 48, 64),
+        npc("history_caral_flautist", 1380, FLOOR - 400, 64),
+        sign("caral_sign_quipu", 1320, FLOOR - 360, "A KNOTTED CORD found here may be the oldest quipu. Archaeologists are still untying that one.", 820),
+        sign("caral_sign", 1400, 140, "CARAL, 2600 BCE: a city of the Americas as old as the pyramids of Egypt", 640),
+        prop_at("shicra", "history_shicra_bags", 2000, FLOOR, 64, 48),
+        sign("caral_sign_shicra", 2140, FLOOR - 150, "SHICRA: bags of stones in the walls, so the pyramids shake in an earthquake and stand", 760),
+        sign("caral_sign_war", 2400, FLOOR - 300, "NO WALLS, NO WEAPONS: no signs of war have been found at Caral.", 580),
+    ]
+    return grid_room(rid, "CARAL", e)
 
 
 def olmec_heartland():
@@ -1520,7 +1692,7 @@ def olmec_heartland():
         npc("history_head_sculptor", 760, FLOOR, 63),
         prop_at("balls", "history_rubber_balls", 900, FLOOR, 64, 32),
         entity("ReboundPad", 1036, FLOOR - 16, 128, 16, name="the rubber", impulseX=0, impulseY=-900),
-        sign("olmec_sign_rubber", 1100, FLOOR - 160, "RUBBER: latex and morning-glory juice, 3,600 years ago. Bounce.", 580),
+        sign("olmec_sign_rubber", 1100, FLOOR - 160, "RUBBER: latex and morning-glory juice, by 1600 BCE. Bounce.", 580),
         ledge("rubber_terrace", 1240, FLOOR - 240, 192),
         chest("a jade earspool", 1336, FLOOR - 240, "currency:100"),
         prop_at("cacao_1", "history_cacao_tree", 1560, FLOOR, 96, 128),
@@ -1556,7 +1728,7 @@ def maya_city():
         ledge("court_ring", 1280, FLOOR - 240, 128),
         prop_at("ring", "history_ballcourt_ring", 1380, FLOOR - 240, 64, 96),
         lever(BALLCOURT_RING, "the stone ring", "Put the ball through the ring", 1310, FLOOR - 240),
-        sign("maya_sign_ring", 1300, FLOOR - 420, "THE BALLCOURT: through the ring, hips only", 400),
+        sign("maya_sign_ring", 1300, FLOOR - 360, "THE BALLCOURT: through the ring, hips only", 400),
         *gate("history_ballcourt_gate", "the ballcourt gate", gate_x, f"world.switch_on {BALLCOURT_RING}",
               "history_ballcourt_gate"),
         sign("maya_sign", 1400, 140, "THE MAYA CITY: zero, the calendar and the tallest buildings in the Americas, 250-900 CE", 760),
@@ -1594,7 +1766,11 @@ def taino_islands():
         chest("a guanin (gold and copper)", 1196, FLOOR - 220, "currency:100"),
         npc("history_canoe_maker", 1380, FLOOR, 65),
         sign("taino_sign_sea", 1850, FLOOR - 260, "CANOES: one tree each, up to a hundred paddlers", 460),
-        sign("taino_sign", 1400, 140, "THE TAINO ISLANDS: Boriken, Ayiti and Cuba, 1000-1492", 560),
+        sign("taino_sign", 1400, 140, "THE TAINO ISLANDS: Boriken, Ayiti and Cuba, 1000-1492 CE", 580),
+        # The Taino names beside the names a player knows, so that the
+        # names in the rest of the room (and in Haiti) are easy to place.
+        sign("taino_sign_names_a", 420, FLOOR - 260, "BORIKEN is Puerto Rico (Puerto Ricans still call themselves boricua).", 660),
+        sign("taino_sign_names_b", 420, FLOOR - 232, "AYITI is the island of Haiti and the Dominican Republic. CUBA kept its name.", 700),
         enemy(rid, 1, "coral_crab", 2320, FLOOR),
         enemy(rid, 2, "coral_crab", 2450, FLOOR),
         prop_at("bohio_2", "history_bohio", 2560, FLOOR, 128, 128),
@@ -1634,9 +1810,9 @@ def haitian_revolution():
         enemy(rid, 1, "napoleonic_grenadier", 1160, FLOOR - 80),
         enemy(rid, 2, "napoleonic_grenadier", 1500, FLOOR - 240),
         sign("haiti_sign_mornes", 1500, FLOOR - 340, "DEYE MON, GEN MON: beyond the mountains, more mountains", 520),
-        sign("haiti_sign_1802_a", 1500, FLOOR - 480, "1802: Napoleon sent an army to take the colony back. In Guadeloupe, slavery came back.", 780),
-        sign("haiti_sign_1802_b", 1500, FLOOR - 452, "Here the army lost, to the war in the mountains and to yellow fever.", 620),
-        sign("haiti_sign", 1400, 140, "HAITI: the revolution of the enslaved, 1791-1804", 460),
+        sign("haiti_sign_1802_a", 1500, FLOOR - 400, "1802: Napoleon sent an army to take the colony back. In Guadeloupe, slavery came back.", 780),
+        sign("haiti_sign_1802_b", 1500, FLOOR - 372, "Here the army lost, to the war in the mountains and to yellow fever.", 620),
+        sign("haiti_sign", 1400, 140, "HAITI: the revolution of the enslaved, 1791-1804 CE", 460),
         enemy(rid, 3, "napoleonic_grenadier", 1940, FLOOR),
         npc("history_catherine_flon", 2030, FLOOR, 62),
         prop_at("flag", "history_first_flag", 2120, FLOOR, 64, 160),
@@ -1676,7 +1852,7 @@ def door_of_no_return():
         prop_at("cannon_1", "history_fort_cannon", 1120, FLOOR - 200, 80, 48),
         prop_at("cannon_2", "history_fort_cannon", 1300, FLOOR - 200, 80, 48),
         npc("history_ottobah_cugoano", 1360, FLOOR, 66),
-        sign("fort_sign", 1400, 140, "A FORT ON THE GOLD COAST: the Atlantic slave trade, 1501-1866", 580),
+        sign("fort_sign", 1400, 140, "A FORT ON THE GOLD COAST: the Atlantic slave trade, 1501-1866 CE", 580),
         # The dungeon: a low, dark passage.
         solid("dungeon_roof", dungeon[0], CEILING, dungeon[1] - dungeon[0], FLOOR - 120 - CEILING),
         sign("fort_sign_dungeon_a", 1700, FLOOR - 104, "THE DUNGEON: hundreds of people at a time,", 380),
@@ -1701,16 +1877,8 @@ ROOMS = (cradle, southern_coast, green_sahara, nile, tomb, aksum, timbuktu, libr
          southern_route, mehrgarh, indus_cities,
          sahul, new_guinea_highlands, lapita_voyagers, wayfinders, rapa_nui,
          mammoth_steppe, yellow_river, shang_court, silk, steppe, great_ger,
-         beringia, first_maize, olmec_heartland, maya_city, taino_islands, haitian_revolution)
-
-
-def ladders():
-    """The ladders (the IntGrid `Climbable` layer): in each link's hole in the
-    upper room's floor, and up the lower room to its ceiling."""
-    out = []
-    for upper, lower, xu, xl in LADDERS:
-        out += [(upper, xu + 32, FLOOR - 64, H - FLOOR + 64), (lower, xl + 32, 0, FLOOR)]
-    return out
+         beringia, first_maize, olmec_heartland, maya_city, taino_islands, haitian_revolution,
+         andean_highlands, caral)
 
 
 def main(argv):
@@ -1732,11 +1900,18 @@ def main(argv):
                   str(WORLD), "--in-place")
     if code:
         return code
+    if "--relayout" in argv:
+        # A room may not land on one that has not moved yet. The rooms that
+        # go up move first, the top one first; then the rooms that go down,
+        # the bottom one first.
+        was = {level["identifier"]: level["worldY"] for level in json.loads(WORLD.read_text())["levels"]}
+
+        def order(path):
+            y = ROOMS_AT[path.stem][0][1]
+            return (0, y) if y <= was.get(path.stem, y) else (1, -y)
+        paths.sort(key=order)
     if code := make_rooms(WORLD, paths, keep_position="--relayout" not in argv):
         return code
-    for rid, x, y, h in ladders():
-        if code := paint(WORLD, rid, "Climbable", 1, x, y, 32, h):
-            return code
     code, _ = run("validate", str(WORLD))
     return code
 

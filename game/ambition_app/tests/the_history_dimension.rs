@@ -1,11 +1,11 @@
 //! The History dimension: its gate is DYNASTIC.
 //!
-//! Forty-five rooms (`tools/ambition_ldtk_tools/specs/history_dimension/`):
-//! a grid of thirty-eight outdoor rooms, where east is later and each floor is
+//! Forty-seven rooms (`tools/ambition_ldtk_tools/specs/history_dimension/`):
+//! a grid of forty outdoor rooms, where east is later and each floor is
 //! a region of the world, and seven buildings by doors. The gate is in the
 //! Cradle, in Africa, at the bottom left. This asks the game what the
 //! generator takes as given: that the rooms of a floor join in order, that the
-//! ladders join the floors where the regions met, that each building opens off
+//! ways up and down join the floors where the regions met, that each building opens off
 //! its room, that each room places its cast, that each way through opens for
 //! its key (the first fire, the sluice, the solstice, the oracle bone, the
 //! unicorn seal, the ballcourt ring, Socratease's answer, each brother at the Great Wall, the
@@ -86,14 +86,18 @@ fn settle(sim: &mut Platformer2dSimHarness) {
 }
 
 /// The ways of the grid: along each floor (later to the east), up and down
-/// the ladders, and into each building.
+/// (a hatch in a floor, a tower of ledges under it), and into each building.
 const WAYS: &[(&str, &str)] = &[
     // The Americas.
     ("history_beringia", "history_first_maize"),
+    // Beringia's two ways south: inland at its top, along the coast at its foot.
+    ("history_beringia", "history_andean_highlands"),
     ("history_first_maize", "history_olmec_heartland"),
     ("history_olmec_heartland", "history_maya_city"),
     ("history_maya_city", "history_taino_islands"),
     ("history_taino_islands", "history_haitian_revolution"),
+    // South America.
+    ("history_andean_highlands", "history_caral"),
     // East Asia and the steppe.
     ("history_mammoth_steppe", "history_yellow_river"),
     ("history_yellow_river", "history_shang_court"),
@@ -126,13 +130,15 @@ const WAYS: &[(&str, &str)] = &[
     ("history_aksum_and_kush", "history_timbuktu_coast"),
     ("history_timbuktu_coast", "history_benin_city"),
     ("history_benin_city", "history_door_of_no_return"),
-    // The ladders: the great dispersal, out of Africa to every land mass.
+    // Up and down: the great dispersal, out of Africa to every land mass.
     ("history_southern_coast", "history_levant"),
     ("history_levant", "history_ice_age_europe"),
     ("history_ice_age_europe", "history_southern_route"),
     ("history_southern_route", "history_sahul"),
     ("history_sahul", "history_mammoth_steppe"),
     ("history_mammoth_steppe", "history_beringia"),
+    // Maize goes south to the Andes.
+    ("history_first_maize", "history_andean_highlands"),
     // The Austronesians sail from Taiwan into the Pacific.
     ("history_shang_court", "history_lapita_voyagers"),
     // Farming spreads from the crescent; the first cities trade; Rome.
@@ -167,9 +173,9 @@ fn the_rooms_of_the_history_grid_join_where_history_did() {
     // way on is the southern coast.
     let cradle = index("history_cradle");
     assert_eq!(rooms.neighboring_room_indices_of(cradle).len(), 1, "the Cradle joins only the southern coast");
-    // The ways name all forty-five rooms, and the gate reaches every one.
+    // The ways name all forty-seven rooms, and the gate reaches every one.
     let named: BTreeSet<&str> = WAYS.iter().flat_map(|&(a, b)| [a, b]).collect();
-    assert_eq!(named.len(), 45, "the ways name every room of the dimension: {named:?}");
+    assert_eq!(named.len(), 47, "the ways name every room of the dimension: {named:?}");
     let mut reached = BTreeSet::from(["history_cradle"]);
     while let Some(&(a, b)) = WAYS.iter().find(|&&(a, b)| reached.contains(a) != reached.contains(b)) {
         reached.extend([a, b]);
@@ -291,7 +297,13 @@ const CAST: &[(&str, &[(&str, usize)])] = &[
     ("history_great_ger", &[("npc_history_kublai_khant_wait", 1)]),
     // The Americas.
     ("history_beringia", &[("npc_history_dr_clovis_first", 1), ("woolly_mammoth", 1), ("smilodon", 2)]),
-    ("history_first_maize", &[("npc_history_teosinte_breeder", 1), ("llama", 2), ("jaguar", 2)]),
+    ("history_first_maize", &[("npc_history_teosinte_breeder", 1), ("green_iguana", 1), ("howler_monkey", 1), ("jaguar", 2)]),
+    // South America.
+    (
+        "history_andean_highlands",
+        &[("npc_history_potato_farmer", 1), ("npc_history_antoine_parmen_tater", 1), ("llama", 2), ("andean_condor", 1)],
+    ),
+    ("history_caral", &[("npc_history_caral_flautist", 1), ("npc_history_net_maker", 1)]),
     ("history_olmec_heartland", &[("npc_history_head_sculptor", 1), ("jaguar", 2), ("howler_monkey", 1)]),
     (
         "history_maya_city",

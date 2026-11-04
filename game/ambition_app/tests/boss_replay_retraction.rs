@@ -848,15 +848,29 @@ fn spawn_mockingbird_beside_bob(sim: &mut Platformer2dSimHarness, id: &str, room
             script_id: "mockingbird".to_string(),
         },
     );
-    sim.step(crate::common::base());
     let world = sim.world_mut();
-    let entity = world
-        .query::<(bevy::prelude::Entity, &BossConfig)>()
-        .iter(world)
-        .find(|(_, config)| config.id == id)
-        .map(|(entity, _)| entity)
-        .expect("the boss reached the world");
-    world.entity_mut(entity).insert(InRoomInstance(room));
+    let request = {
+        let home = world.query_filtered::<bevy::prelude::Entity,
+            ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>()
+            .single(world).unwrap();
+        let spec = ambition_platformer2d::world::rooms::live_room_spec_of(world, home).unwrap();
+        world.resource::<ambition_platformer2d::actor::RoomContentStagingRegistry>()
+            .try_requests_for(spec).unwrap().into_iter().find(|request| request.id == id).unwrap()
+    };
+    let destination = crate::two_players_two_live_rooms::live_rooms(sim).into_iter()
+        .find(|(live, _)| *live == room).expect("Bob's room is live").1;
+    sim.world_mut().resource_mut::<ambition_platformer2d::actor::RoomContentStagingRegistry>()
+        .restate(destination, "sim-harness", format!("scenario:{id}"),
+            "sim-harness/scenario-actor/v1", move |_| vec![request.clone()]).unwrap();
+    let world = sim.world_mut();
+    let bodies: Vec<_> = world.query::<(bevy::prelude::Entity, &BossConfig)>()
+        .iter(world).filter(|(_, config)| config.id == id).map(|(entity, _)| entity).collect();
+    let wraps: Vec<_> = world.query::<(bevy::prelude::Entity, &ambition_platformer2d::encounter::Encounter)>()
+        .iter(world).filter(|(_, encounter)| encounter.id == id).map(|(entity, _)| entity).collect();
+    assert_eq!(bodies.len(), 1, "the fixture creates one boss body");
+    for entity in bodies.into_iter().chain(wraps) {
+        world.entity_mut(entity).insert(InRoomInstance(room));
+    }
 }
 
 /// What Alice's and Bob's bosses leave standing, and where Bob is.

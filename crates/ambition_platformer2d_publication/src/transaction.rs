@@ -1937,7 +1937,7 @@ fn verify_and_publish(
     let record = |world: &mut World, published: bool| {
         record_verdict(world, publication, retention, published);
     };
-    let refuse = |world: &mut World, room_id: String| {
+    let refuse = |world: &mut World, room_id: String, reason: &str| {
         record(world, false);
         // ⛔⛤ **AN EARLY REFUSAL RETIRES WHAT THE ROAD ALREADY QUEUED —
         // 2026-09-15 REVIEW, FINDING 4.** `spawn_contents_for` queues
@@ -1967,7 +1967,7 @@ fn verify_and_publish(
         // built is still a refusal, and without this line it reached only
         // `bevy::log`, which a bare App does not print.
         ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
-            "room-refused {room_id} (early refusal, {dropped} roots dropped)"
+            "room-refused {room_id} ({reason}; early refusal, {dropped} roots dropped)"
         ));
         // ⛔ A REFUSED PUBLICATION DESPAWNED NOTHING, so the hands its recorded
         // handoffs describe are still correct — draining them would strip an item
@@ -2015,7 +2015,7 @@ fn verify_and_publish(
                 target: "ambition_platformer2d::construction",
                 "room `{room_id}` cannot be verified: its opening baseline was invalid: {error}"
             );
-            refuse(world, room_id);
+            refuse(world, room_id, &error.to_string());
             return;
         }
         None => {
@@ -2026,7 +2026,7 @@ fn verify_and_publish(
                 target: "ambition_platformer2d::construction",
                 "room `{room_id}` reached verification without an opening baseline"
             );
-            refuse(world, room_id);
+            refuse(world, room_id, "missing opening baseline");
             return;
         }
     };
@@ -2046,7 +2046,7 @@ fn verify_and_publish(
             "room `{room_id}` reached verification with an opened baseline and no \
              construction receipt, so nothing was built for it to verify"
         );
-        refuse(world, room_id);
+        refuse(world, room_id, "missing construction receipt");
         return;
     };
     let receipt = &receipt;
@@ -2120,7 +2120,7 @@ fn verify_and_publish(
              into, so every write through the root would silently do nothing",
             session.id()
         );
-        refuse(world, room_id);
+        refuse(world, room_id, "missing session root");
         return;
     }
 
@@ -2168,7 +2168,7 @@ fn verify_and_publish(
                  canonical authority of the session root the room publishes into, \
                  and it is absent"
             );
-            refuse(world, room_id);
+            refuse(world, room_id, "missing active content binding");
             return;
         }
         // A direct-entry fixture with no session root states no binding and

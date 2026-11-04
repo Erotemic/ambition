@@ -1067,6 +1067,9 @@ pub fn commit_ready_room_transition_system(
                         "room transition {} cancelled: {terminal}",
                         active.sequence,
                     );
+                    ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+                        "room-transition {} cancelled: {terminal}", active.sequence,
+                    ));
                 }
                 transient @ RoomTransitionApplyError::NoSessionWorld => {
                     super::loading::fail_room_transition_commit_precondition(

@@ -18,6 +18,31 @@ use crate::common::{base, door_to, fixed_60hz_room_sim, possess_the_authored_ene
 const SOURCE_ROOM: &str = "blink_run";
 const TARGET_ROOM: &str = "portal_bridge";
 
+fn body_room(sim: &Platformer2dSimHarness, body: Entity) -> String {
+    ambition_platformer2d::world::rooms::live_room_spec_of(sim.world(), body)
+        .expect("the recorded body is in a live room").id.clone()
+}
+
+fn door_for_body(
+    sim: &Platformer2dSimHarness,
+    body: Entity,
+    target: &str,
+) -> ambition_platformer2d::world::rooms::LoadingZone {
+    let world = sim.world();
+    let room = ambition_platformer2d::world::rooms::live_room_spec_of(world, body)
+        .expect("the recorded body is in a live room");
+    let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        ambition_platformer2d::world::rooms::RoomSet,
+    >(world).expect("the session has a room set");
+    let index = rooms.rooms.iter().position(|spec| spec.id == room.id).unwrap();
+    room.loading_zones.iter().find(|zone| {
+        zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door
+            && rooms.transition_for_player(rooms.definition(index).unwrap(), zone.aabb,
+                ambition_platformer2d::engine_core::Vec2::ZERO, true)
+                .is_some_and(|transition| rooms.rooms[transition.target_room].id == target)
+    }).cloned().expect("the body's room has a door to the requested room")
+}
+
 /// The source room's single authored ground item and identity.
 fn authored_item(sim: &mut Platformer2dSimHarness) -> (Entity, SimId) {
     let mut query = sim.world_mut().query::<(
@@ -979,6 +1004,11 @@ fn an_authored_actor_carried_out_of_its_room_and_back_does_not_meet_a_copy() {
         "setup: exactly one occurrence of the authored actor before anything happens"
     );
 
+    {
+        let mut health = sim.world_mut().get_mut::<ambition_platformer2d::actor::BodyHealth>(actor).unwrap();
+        assert!(health.alive(), "the travelling fixture starts with a living actor");
+        health.health.invulnerable.set(ambition_platformer2d::characters::actor::Invulnerability::SCRIPTED, true);
+    }
     let mut possessed = false;
     for i in 0..900 {
         if let Some(here) = sim
@@ -1006,19 +1036,18 @@ fn an_authored_actor_carried_out_of_its_room_and_back_does_not_meet_a_copy() {
     );
 
     for (target, leg) in [(AWAY, "out"), (HOME, "back")] {
-        let before = sim.observation().active_room.clone();
-        let door = door_to(&mut sim, target);
+        let before = body_room(&sim, actor);
+        let door = door_for_body(&sim, actor, target);
         let centre = door.aabb.center();
         place_body(&mut sim, actor, (centre.x, centre.y));
         let mut arrived = None;
         for _ in 0..90 {
-            let room = sim
-                .step(AgentAction {
+            sim.step(AgentAction {
                     interact: true,
                     interact_held: true,
                     ..base()
-                })
-                .active_room;
+                });
+            let room = body_room(&sim, actor);
             if room != before {
                 arrived = Some(room);
                 break;
@@ -1766,6 +1795,11 @@ fn an_actor_released_in_a_foreign_room_leaves_one_of_it_and_a_body_to_drive() {
             .expect("setup: one player body to begin with")
     };
 
+    {
+        let mut health = sim.world_mut().get_mut::<ambition_platformer2d::actor::BodyHealth>(actor).unwrap();
+        assert!(health.alive(), "the travelling fixture starts with a living actor");
+        health.health.invulnerable.set(ambition_platformer2d::characters::actor::Invulnerability::SCRIPTED, true);
+    }
     let mut possessed = false;
     for i in 0..900 {
         if let Some(here) = sim
@@ -1797,19 +1831,18 @@ fn an_actor_released_in_a_foreign_room_leaves_one_of_it_and_a_body_to_drive() {
          is no vacated avatar and the question below is not being asked"
     );
 
-    let before = sim.observation().active_room.clone();
-    let door = door_to(&mut sim, AWAY);
+    let before = body_room(&sim, actor);
+    let door = door_for_body(&sim, actor, AWAY);
     let centre = door.aabb.center();
     place_body(&mut sim, actor, (centre.x, centre.y));
     let mut arrived = None;
     for _ in 0..90 {
-        let room = sim
-            .step(AgentAction {
+        sim.step(AgentAction {
                 interact: true,
                 interact_held: true,
                 ..base()
-            })
-            .active_room;
+            });
+        let room = body_room(&sim, actor);
         if room != before {
             arrived = Some(room);
             break;

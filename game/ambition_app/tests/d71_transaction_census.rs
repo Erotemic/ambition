@@ -276,7 +276,10 @@ fn the_recorded_subject_transits_rather_than_whoever_is_controlled() {
             .map(|(_, id)| id.clone())
             .expect("the summoned body reached the world with an identity")
     };
-    // The subject's live identity: its id in the live room it is in.
+    let source_rooms = crate::two_players_two_live_rooms::live_rooms(&mut sim);
+    assert_eq!(source_rooms.len(), 1, "the fixture starts in one live room");
+    let source_room = source_rooms[0].0;
+    // The fixture places the staged body in its source room.
     let subject = {
         let world = sim.world_mut();
         let mut q = world.query::<(bevy::prelude::Entity, &ambition_platformer2d::platformer::sim_id::SimId)>();
@@ -285,6 +288,8 @@ fn the_recorded_subject_transits_rather_than_whoever_is_controlled() {
             .find(|(_, id)| **id == subject)
             .map(|(entity, _)| entity)
             .expect("the subject is a live body");
+        world.entity_mut(entity).insert(
+            ambition_platformer2d::platformer::lifecycle::InRoomInstance(source_room));
         ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(world, entity).expect("the subject has a SimId")
     };
 
@@ -318,12 +323,14 @@ fn the_recorded_subject_transits_rather_than_whoever_is_controlled() {
             transition.arrival,
         )
     };
-    let avatar_before = primary_pos(&mut sim);
 
+    assert!(subject.room.is_some(), "the spawned crossing body has a live room");
+    let frame = sim.world().get_resource::<ambition_platformer2d::engine_core::ConfirmedFrameBoundary>()
+        .map_or(0, |boundary| boundary.current);
     let _ = sim.world_mut()
         .resource_mut::<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>()
         .record(
-            0,
+            frame,
             ambition_platformer2d::session::lifecycle_commit::LifecycleIntent::Transition(
                 ambition_platformer2d::session::lifecycle_commit::RoomTransitionIntent {
                     disposition: Default::default(),
@@ -335,70 +342,47 @@ fn the_recorded_subject_transits_rather_than_whoever_is_controlled() {
                     participant: None,
                 },
                 companions: Vec::new(),
-                    target_room,
+                    target_room: target_room.clone(),
                     edge_exit: false,
                     zone_sfx: None,
                 },
             ),
         );
 
-    let mut room = start_room.clone();
-    for _ in 0..600 {
-        sim.step(base());
-        room = active_room(&mut sim);
-        if room != start_room {
-            break;
-        }
-    }
-    assert_ne!(
-        room, start_room,
-        "the transition never committed, so this test says nothing about WHICH \
-         body it moved"
-    );
-
-    let summoned_pos = {
+    let subject_state = |sim: &mut Platformer2dSimHarness| {
         let world = sim.world_mut();
         let mut query = world.query::<(
             &ambition_platformer2d::combat::components::FeatureId,
             &ambition_platformer2d::engine_core::BodyKinematics,
+            Option<&ambition_platformer2d::platformer::lifecycle::InRoomInstance>,
         )>();
-        query
-            .iter(world)
-            .find(|(feature, _)| feature.0 == SUMMONED)
-            .map(|(_, kin)| kin.pos)
-            .expect(
-                "the recorded subject did not survive its own crossing — a carried \
-                 body must arrive, not be swept with the source room",
-            )
+        let bodies: Vec<_> = query.iter(world)
+            .filter(|(feature, ..)| feature.0 == SUMMONED)
+            .map(|(_, kin, room)| (kin.pos, room.map(|room| room.0)))
+            .collect();
+        assert_eq!(bodies.len(), 1, "the fixture must keep its one recorded body");
+        bodies[0]
     };
+    let mut crossed = false;
+    for _ in 0..600 {
+        sim.step(base());
+        let (_, room) = subject_state(&mut sim);
+        if room.is_some() && room != subject.room {
+            crossed = true;
+            break;
+        }
+    }
+    assert!(crossed, "the recorded body never left its source room");
+    let (summoned_pos, arrived_room) = subject_state(&mut sim);
+    assert!(crate::two_players_two_live_rooms::live_rooms(&mut sim).iter()
+        .any(|(live, id)| Some(*live) == arrived_room && id == &target_room),
+        "the recorded body did not arrive in its requested room");
     assert!(
         summoned_pos.distance(arrival) < 32.0,
         "the transition named the summoned body but landed it at {summoned_pos:?} \
          instead of the arrival {arrival:?}. The commit is still deciding who \
          transits from who is CONTROLLED rather than from who the request recorded"
     );
-    let avatar_after = primary_pos(&mut sim);
-    assert!(
-        avatar_after.distance(arrival) > 32.0,
-        "the AVATAR was transited to {arrival:?} by a request that named another \
-         body ({avatar_before:?} -> {avatar_after:?}). That is the
-         `ControlledSubject`-at-commit-time fallback, and it moves whichever body \
-         happens to be driven when readiness finishes rather than the one that \
-         crossed"
-    );
-}
-
-/// The primary avatar's position — read the same way in both halves of the
-/// assertion above so a change of frame cannot flatter it.
-fn primary_pos(sim: &mut Platformer2dSimHarness) -> ambition_platformer2d::engine_core::Vec2 {
-    let world = sim.world_mut();
-    let mut query = world.query_filtered::<
-        &ambition_platformer2d::engine_core::BodyKinematics,
-        bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
-    >();
-    query
-        .iter(world)
-        .next()
-        .expect("gameplay has a primary avatar")
-        .pos
+    assert_eq!(active_room(&mut sim), start_room,
+        "the controlled body's observation followed another body's crossing");
 }

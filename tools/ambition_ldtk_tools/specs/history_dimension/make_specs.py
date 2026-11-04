@@ -124,41 +124,53 @@ ROWS = 7
 ROOMS_AT = {rid: ((c * W, r * H), (W, H)) for (c, r), rid in GRID.items()}
 ROOMS_AT.update({rid: ((n * 1792, ROWS * H + 400), (1600, 640)) for n, rid in enumerate(BUILDINGS)})
 
+#: One cue for each floor (region), so the music stays with the player who
+#: walks east through the ages. A building takes the cue of its region,
+#: except where its own place has its own mood (the tomb, the arena, the
+#: mill, the cave). The Age of Sail and the Industrial Age are not one
+#: region's music any more; they keep the cues of their eras.
+AFRICA = "history_africa_first_footsteps"
+CRESCENT = "history_crescent_between_the_rivers"
+EUROPE = "history_europe_solstice_stones"
+SOUTH_ASIA = "history_south_asia_monsoon_road"
+EAST_ASIA = "history_east_asia_yellow_earth"
+AMERICAS = "history_americas_land_bridge"
+OCEANIA = "history_oceania_sahul"
 MUSIC = {
-    "history_cradle": "a_possible_morning",
-    "history_southern_coast": "morning_on_the_eaves",
-    "history_green_sahara": "the_sun_is_a_group_project",
-    "history_nile_valley": "salt_steel_and_starlight",
-    "history_aksum_and_kush": "salt_steel_and_starlight",
-    "history_timbuktu_coast": "pulse_drift_voyage",
-    "history_levant": "a_possible_morning",
-    "history_fertile_crescent": "the_sun_is_a_group_project",
-    "history_uruk": "carry_the_one",
-    "history_classical_shore": "standing_on_shoulders",
-    "history_ice_age_europe": "the_last_lantern",
-    "history_first_farmers_of_europe": "cedar_light_guitar_study",
-    "history_megalith_builders": "cedar_light_many_rooms",
-    "history_celtic_frontier": "fighters_guild_oath_of_steel",
-    "history_viking_north": "ten_fathoms_and_a_grudge",
+    "history_cradle": AFRICA,
+    "history_southern_coast": AFRICA,
+    "history_green_sahara": AFRICA,
+    "history_nile_valley": AFRICA,
+    "history_aksum_and_kush": AFRICA,
+    "history_timbuktu_coast": AFRICA,
+    "history_levant": CRESCENT,
+    "history_fertile_crescent": CRESCENT,
+    "history_uruk": CRESCENT,
+    "history_classical_shore": CRESCENT,
+    "history_ice_age_europe": EUROPE,
+    "history_first_farmers_of_europe": EUROPE,
+    "history_megalith_builders": EUROPE,
+    "history_celtic_frontier": EUROPE,
+    "history_viking_north": EUROPE,
     "history_age_of_sail": "pirates_guild_black_flag_jig",
     "history_industrial_age": "galvanic_march",
-    "history_southern_route": "pulse_drift_voyage",
-    "history_mehrgarh": "carry_the_one",
-    "history_indus_cities": "salt_steel_and_starlight",
-    "history_sahul": "long_lofi_drift",
-    "history_new_guinea_highlands": "birds_in_the_rafters",
-    "history_mammoth_steppe": "hawks_of_the_high_aerie",
-    "history_yellow_river": "shoulders_at_rest",
-    "history_shang_court": "tritone_decree",
-    "history_silk_road": "spaghetti_western",
-    "history_mongol_steppe": "hawks_of_the_high_aerie",
-    "history_beringia": "the_last_lantern",
-    "history_first_maize": "the_sun_is_a_group_project",
-    GRANARY: "carry_the_one",
+    "history_southern_route": SOUTH_ASIA,
+    "history_mehrgarh": SOUTH_ASIA,
+    "history_indus_cities": SOUTH_ASIA,
+    "history_sahul": OCEANIA,
+    "history_new_guinea_highlands": OCEANIA,
+    "history_mammoth_steppe": EAST_ASIA,
+    "history_yellow_river": EAST_ASIA,
+    "history_shang_court": EAST_ASIA,
+    "history_silk_road": EAST_ASIA,
+    "history_mongol_steppe": EAST_ASIA,
+    "history_beringia": AMERICAS,
+    "history_first_maize": AMERICAS,
+    GRANARY: CRESCENT,
     TOMB: "vault_in_the_dark",
     COLOSSEUM: "fighters_guild_oath_of_steel",
-    GER: "hawks_of_the_high_aerie",
-    LIBRARY: "the_last_lantern",
+    GER: EAST_ASIA,
+    LIBRARY: AFRICA,
     MILL: "luddites_guild_loom_and_liberty",
     CAVE: "vault_in_the_dark",
 }

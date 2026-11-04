@@ -10,7 +10,7 @@
     bg_color: "#3A2A1C",
     biome: "history_savanna",
     parallax_theme: "history_savanna",
-    music_track: "a_possible_morning",
+    music_track: "history_africa_first_footsteps",
     dangerous: true,
     entities: [
         ( type: "Solid", px: [0, 960], size: [2800, 64], fields: ( name: "ground_end" ) ),

@@ -10,7 +10,7 @@
     bg_color: "#3A2A1C",
     biome: "history_crescent",
     parallax_theme: "history_crescent",
-    music_track: "carry_the_one",
+    music_track: "history_crescent_between_the_rivers",
     dangerous: true,
     entities: [
         ( type: "LoadingZone", px: [2100, 0], size: [96, 16], fields: ( id: "history_uruk_up", name: "up the ladder", activation: "EdgeExit", target_room: "history_megalith_builders", target_zone: "history_megalith_builders_down", bidirectional: true ) ),

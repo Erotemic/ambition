@@ -154,6 +154,39 @@ built before this dimension) stand at the west face of the Wall.
 Each flag opens its own road and not the other's
 (`each_brother_at_the_great_wall_opens_his_own_road`).
 
+## Music
+
+Jon, 2026-11-03: "I also think we will want new music for different
+locations in the history dimension." Each floor (region) has its own cue, so
+the music stays with the player who walks east through the ages
+(`MUSIC` in `specs/history_dimension/make_specs.py`). Each cue is a
+composer script, `tools/ambition_music_renderer/dev/compose_<cue>.py`, which
+writes `scores/active/<cue>.music.yaml`. All melodies are original. The
+instruments are real samples, most of them from the Versilian VCSL library.
+
+| floor | cue | title | colour |
+| --- | --- | --- | --- |
+| Africa | `history_africa_first_footsteps` | First Footsteps | G Mixolydian, 12 pulses felt as 4×3 and 3×4; mbira dzaVadzimu and nyunga nyunga interlock, balafon and kalimba call and answer, wordless choir |
+| Mediterranean / SW Asia | `history_crescent_between_the_rivers` | Between the Rivers | D Dorian; a plucked lyre (folk harp), oboe as the reed, darbuka and frame drum; the Uruk hymn on male choir |
+| Europe | `history_europe_solstice_stones` | Solstice Stones | E Dorian in 6/8; recorder as the bone flute, plucked tagelharpa, frame drum; a sunrise to E major among the stones |
+| South Asia | `history_south_asia_monsoon_road` | The Monsoon Road | D Lydian in 7/4 (3+2+2) over a drone; bowed psaltery and flute; a "grid" section for the Indus streets |
+| East Asia | `history_east_asia_yellow_earth` | Yellow Earth, Long Sky | G# minor pentatonic; đàn tranh zither, ocarina as the xun, bronze bells for the Shang court, a gallop for the steppe |
+| Oceania | `history_oceania_sahul` | Sahul | C# minor (the key of the didgeridoo samples), clapsticks, slit drum; E major marimba for the highlands |
+| Americas | `history_americas_land_bridge` | Over the Land Bridge | A minor to A major; ocarina, slit drum, wine-glass ice for Beringia |
+
+The buildings take the cue of their region (the Granary, the Great Ger,
+the Timbuktu Library), except where the place has its own mood: the
+tomb and the painted cave (`vault_in_the_dark`), the Colosseum
+(`fighters_guild_oath_of_steel`), the cotton mill
+(`luddites_guild_loom_and_liberty`). The Age of Sail and the Industrial Age
+are not one region's music any more; they keep the cues of their eras.
+
+Samples to measure before you use them again (the composer scripts correct
+them per note with `tuning_correction`): the Horse Pulse tagelharpa is up to
+70 cents out on some keys; the VCSL đàn tranh, mbira, kalimba, nyunga nyunga
+and balafon are 20 to 45 cents out in places; VCSL Frame Drum key 60 is
+almost silent. `cue tuning-audit <cue>` measures them.
+
 ## Next passes
 
 The rest of Jon's list (Crash Course World History, both seasons), grouped by

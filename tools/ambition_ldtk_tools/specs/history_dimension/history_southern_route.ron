@@ -10,7 +10,7 @@
     bg_color: "#3A2A1C",
     biome: "history_indus",
     parallax_theme: "history_indus",
-    music_track: "pulse_drift_voyage",
+    music_track: "history_south_asia_monsoon_road",
     dangerous: true,
     entities: [
         ( type: "LoadingZone", px: [600, 0], size: [96, 16], fields: ( id: "history_southern_route_up", name: "up the ladder", activation: "EdgeExit", target_room: "history_sahul", target_zone: "history_sahul_down", bidirectional: true ) ),

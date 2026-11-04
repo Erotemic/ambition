@@ -10,7 +10,7 @@
     bg_color: "#3A2A1C",
     biome: "history_ice_age",
     parallax_theme: "history_ice_age",
-    music_track: "hawks_of_the_high_aerie",
+    music_track: "history_east_asia_yellow_earth",
     dangerous: true,
     entities: [
         ( type: "LoadingZone", px: [600, 0], size: [96, 16], fields: ( id: "history_mammoth_steppe_up", name: "up the ladder", activation: "EdgeExit", target_room: "history_beringia", target_zone: "history_beringia_down", bidirectional: true ) ),

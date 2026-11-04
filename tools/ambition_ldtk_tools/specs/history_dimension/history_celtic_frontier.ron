@@ -10,7 +10,7 @@
     bg_color: "#3A2A1C",
     biome: "history_northwoods",
     parallax_theme: "history_northwoods",
-    music_track: "fighters_guild_oath_of_steel",
+    music_track: "history_europe_solstice_stones",
     dangerous: true,
     entities: [
         ( type: "OneWayPlatform", px: [2680, 960], size: [96, 16], fields: ( name: "hatch" ) ),

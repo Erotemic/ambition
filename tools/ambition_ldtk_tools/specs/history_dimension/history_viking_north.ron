@@ -10,7 +10,7 @@
     bg_color: "#3A2A1C",
     biome: "history_northwoods",
     parallax_theme: "history_northwoods",
-    music_track: "ten_fathoms_and_a_grudge",
+    music_track: "history_europe_solstice_stones",
     dangerous: true,
     entities: [
         ( type: "Solid", px: [0, 960], size: [1100, 64], fields: ( name: "ground_0" ) ),

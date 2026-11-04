@@ -10,7 +10,7 @@
     bg_color: "#3A2A1C",
     biome: "history_steppe",
     parallax_theme: "history_steppe",
-    music_track: "hawks_of_the_high_aerie",
+    music_track: "history_east_asia_yellow_earth",
     entities: [
         ( type: "Solid", px: [0, 576], size: [1600, 64], fields: ( name: "floor" ) ),
         ( type: "Solid", px: [0, 0], size: [1600, 32], fields: ( name: "ceiling" ) ),

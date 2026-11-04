@@ -198,29 +198,8 @@ fn every_prefetched_plan_carries_an_empty_occurrence_outlook() {
     }
 }
 
-/// ⛔⛔ **THE ACCEPTANCE ROW ITSELF, END TO END, AGAINST THE SHIPPED HOST.**
-///
-/// The checkpoint protocol's *"same room, different checkpoint occurrence
-/// outlook"* row asks that a plan prepared against the LIVE population cannot be
-/// promoted for a reconstruction that is about a different one. Until now that
-/// was argued structurally — the prefetch supplies no continuity, so every cached
-/// plan carries the default outlook, so `promote` can only ever hand one to a
-/// reconstruction whose outlook is also empty. The argument is sound and it is
-/// still recorded above. It is not a witness.
-///
-/// ⛔ **AND A STRUCTURAL CLOSE HAS ALREADY BEEN WRONG ONCE IN THIS PACKET.** The
-/// prepare-failure row was closed on "nothing destructive runs before the
-/// commit", which is true and covers half the row; terminalization and
-/// no-permanent-retry were both broken behind it. That is the reason this one
-/// gets a fixture.
-///
-/// ⭐ WHAT MAKES IT A WITNESS RATHER THAN A RESTATEMENT: it never calls
-/// `promote`, never fabricates a cache identity, and asserts nothing about the
-/// outlook comparison. It walks the shipped `begin_room_transition_load_system`
-/// twice into the SAME room from the SAME cache, changing one thing — whether an
-/// accepted checkpoint operation pins a population — and reads the host's own
-/// `prefetch_hit`. The control arm is the anti-vacuity floor: without it, a cache
-/// that never promotes anything would pass.
+/// A checkpoint that places a foreign occurrence in the destination must reject
+/// the live plan. The ordinary crossing checks that this cache can still promote it.
 #[test]
 fn a_checkpoint_outlook_refuses_a_plan_prepared_without_one() {
     let promoted_for_an_ordinary_crossing = cross_into_a_cached_neighbour(false);
@@ -236,14 +215,8 @@ fn a_checkpoint_outlook_refuses_a_plan_prepared_without_one() {
     let promoted_for_a_checkpoint_restore = cross_into_a_cached_neighbour(true);
     assert!(
         !promoted_for_a_checkpoint_restore,
-        "a room transition that IS a checkpoint restore promoted a plan the \
-         prefetch prepared against the live population, while the operation's \
-         pinned ledger says an occurrence is in custody. That plan authors the \
-         object the checkpoint remembers in a hand, so committing it puts a \
-         second copy in the room — or, with the ledger the other way round, \
-         leaves the room permanently short of a thing it authors. The plan a \
-         reconstruction uses must be prepared against the population that \
-         reconstruction is about"
+        "a checkpoint restore reused a live-world plan that omits the foreign \
+         occurrence placed in its destination by the pinned checkpoint ledger"
     );
 }
 
@@ -251,9 +224,7 @@ fn a_checkpoint_outlook_refuses_a_plan_prepared_without_one() {
 /// whether the host promoted the cached plan.
 ///
 /// `as_checkpoint_restore` accepts a checkpoint operation for the very same
-/// crossing, whose pinned ledger remembers one occurrence in custody — the
-/// smallest population a checkpoint can disagree with the live world about, and
-/// enough to give every room a non-default outlook.
+/// crossing, whose pinned ledger places one foreign occurrence in the destination.
 fn cross_into_a_cached_neighbour(as_checkpoint_restore: bool) -> bool {
     use ambition_platformer2d::session::checkpoint::{
         AcceptedCheckpointRestore, AcceptedRestore, SessionCheckpointOperations,
@@ -276,7 +247,7 @@ fn cross_into_a_cached_neighbour(as_checkpoint_restore: bool) -> bool {
         app.update();
     }
 
-    let neighbour = {
+    let (neighbour, checkpoint_occurrence) = {
         let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
             .expect("the session has a live room");
         let room_set = ambition_platformer2d::platformer::lifecycle::session_world_component::<
@@ -289,12 +260,16 @@ fn cross_into_a_cached_neighbour(as_checkpoint_restore: bool) -> bool {
             .neighboring_room_indices_of(live_definition.index())
             .iter()
             .filter_map(|&index| room_set.rooms.get(index))
-            .map(|room| room.id.clone())
-            .find(|id| held.holds(source, id))
-            .expect(
-                "the prefetch holds no neighbour of the starting room, so there is \
-                 no cached plan for a crossing to promote or refuse",
-            )
+            .filter(|room| held.holds(source, &room.id))
+            .next()
+            .map(|room| {
+                let foreign = room_set.rooms.iter()
+                    .filter(|origin| origin.id != room.id)
+                    .find_map(|origin| origin.ground_items.first())
+                    .expect("the world has a foreign ground item to place at the destination");
+                (room.id.clone(), SimId::placement(&foreign.id))
+            })
+            .expect("the prefetch holds a neighbour of the starting room")
     };
 
     let subject = {
@@ -331,8 +306,11 @@ fn cross_into_a_cached_neighbour(as_checkpoint_restore: bool) -> bool {
         let mut pinned = AuthoredOccurrences::default();
         pinned.adopt_rows(
             [(
-                SimId::placement("an_occurrence_the_checkpoint_remembers_in_a_hand"),
-                OccurrenceWhereabouts::InCustody,
+                checkpoint_occurrence,
+                OccurrenceWhereabouts::Placed {
+                    room: neighbour.clone(),
+                    at: ambition_platformer2d::engine_core::Vec2::ZERO,
+                },
             )]
             .into_iter()
             .collect(),

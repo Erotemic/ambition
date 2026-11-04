@@ -26,12 +26,13 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 pub(super) fn authored_requests(
     room: &ambition_platformer2d_world::rooms::RoomSpec,
     outlook: &RoomOccurrenceOutlook,
+    dependencies: &mut super::continuity::ContinuityDependencies,
 ) -> Vec<GravityZoneConstructionRequest> {
     room.gravity_zones
         .iter()
         .filter_map(|zone| {
             let sim_id = SimId::placement(&zone.id);
-            match outlook.disposition(&sim_id) {
+            match dependencies.disposition(outlook, &sim_id) {
                 OccurrenceDisposition::Suppressed => return None,
                 OccurrenceDisposition::Reinstated { at } => {
                     bevy::log::warn!(

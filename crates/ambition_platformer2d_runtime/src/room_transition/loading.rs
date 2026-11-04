@@ -1256,6 +1256,7 @@ pub fn begin_room_transition_load_system(
                 ),
                 target_spec,
                 &occurrence_outlook,
+                selected_minted,
             )
         });
         active.prefetch_hit = prefetched_construction.is_some();

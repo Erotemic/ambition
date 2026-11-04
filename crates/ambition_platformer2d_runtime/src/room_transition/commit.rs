@@ -161,6 +161,7 @@ fn ground_gap_below_feet(
 #[derive(SystemParam)]
 pub struct RoomTransitionApplication<'w, 's> {
     commands: Commands<'w, 's>,
+    continuity: ambition_platformer2d_session::room_preparation::RoomContinuity<'w, 's>,
     bodies: TransitBodies<'w, 's>,
     /// Room authority, held on the session root: the set that names which
     /// room is active. The geometry is on the live room's own root.
@@ -230,6 +231,8 @@ pub struct RoomTransitionApplication<'w, 's> {
 pub enum RoomTransitionApplyError {
     /// No session root carries room authority — there is no world to transition.
     NoSessionWorld,
+    /// A consumed occurrence or mint recipe changed after preparation.
+    StaleContinuity,
     /// The body that crossed no longer exists. A VOID crossing: the transition
     /// fails rather than substituting whoever happens to be driving now.
     SubjectGone,
@@ -243,6 +246,7 @@ pub enum RoomTransitionApplyError {
 impl std::fmt::Display for RoomTransitionApplyError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::StaleContinuity => write!(f, "the prepared destination no longer matches its occurrence continuity"),
             Self::NoSessionWorld => {
                 write!(f, "no session root carries a RoomSet")
             }
@@ -379,6 +383,14 @@ impl RoomTransitionApplication<'_, '_> {
             self.definitions.iter().map(|(live, definition)| (*live, Some(*definition))),
             target, intent.rebuilds_source_room(), restart,
         );
+        if room_plan.joins.is_none() {
+            let continuity = self.continuity.select(intent, restore)
+                .map_err(|_| RoomTransitionApplyError::StaleContinuity)?;
+            let outlook = continuity.occurrences.as_ref().map(|ledger| ledger.outlook_for(plan.room_id())).unwrap_or_default();
+            if !plan.matches_continuity(&outlook, continuity.minted.as_ref()) {
+                return Err(RoomTransitionApplyError::StaleContinuity);
+            }
+        }
         let transfers: Vec<_> = intent.transfers().collect();
         let mut resolved = vec![false; members.len()];
         for (index, transfer) in transfers.iter().enumerate() {
@@ -1026,11 +1038,11 @@ pub fn commit_ready_room_transition_system(
         Ok(staged) => staged,
         Err(error) => {
             match error {
-                terminal @ RoomTransitionApplyError::SubjectGone
+                terminal @ RoomTransitionApplyError::StaleContinuity
+                | terminal @ RoomTransitionApplyError::SubjectGone
                 | terminal @ RoomTransitionApplyError::SubjectCannotTransit { .. } => {
-                    // The body cannot become eligible later without some other
-                    // lifecycle operation replacing this crossing. This exact intent
-                    // is therefore spent as a cancellation, not retained as a retry.
+                    // A missing body or a changed construction input ends this
+                    // prepared crossing. A later attempt must prepare again.
                     pending_lifecycle.take();
                     cancel_eager_room_transition_transaction(
                         &mut transition_state,
@@ -1038,7 +1050,9 @@ pub fn commit_ready_room_transition_system(
                         &mut load_events,
                         &mut next_mode,
                         &active,
-                        "room_commit_subject_unavailable",
+                        if matches!(&terminal, RoomTransitionApplyError::StaleContinuity) {
+                            "room_commit_continuity_changed"
+                        } else { "room_commit_subject_unavailable" },
                     );
                     bevy::log::warn!(
                         target: "ambition_platformer2d::room_transition",

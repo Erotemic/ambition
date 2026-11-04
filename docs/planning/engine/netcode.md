@@ -140,9 +140,13 @@ Guards:
 `a_peer_does_not_commit_a_crossing_the_other_peer_could_not_prepare`, and
 `peers_refuse_different_room_plans_under_the_same_content_identity`.
 Both crossing orders, delayed preparation, matching confirmed state, and replay
-through an application frame pass the focused checks. Another-room combat,
-correction that removes a speculative crossing, broader feature checks, and
-rendered view isolation remain open. See [the peer room protocol](peer-room-commit-protocol.md).
+through an application frame pass the focused checks. Another-room movement
+and combat also pass (`b2e6ad940`). Corrected combat removes an observed
+speculative crossing and suppresses its arrival reset. Guards:
+`a_peer_keeps_moving_and_fighting_in_a_live_destination_while_another_peer_prepares`
+and `corrected_combat_removes_a_speculative_crossing_and_its_arrival_effect`.
+Preparation blocked by a prior presentation tail, broader checks, and rendered
+view isolation remain open. See [the peer room protocol](peer-room-commit-protocol.md).
 
 Q156 requires atomic publication, no divergent worlds, and recovery or an
 explicit failure path for a refused crossing or respawn. Presentation-only

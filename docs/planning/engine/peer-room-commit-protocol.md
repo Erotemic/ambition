@@ -31,8 +31,21 @@ The delayed-peer tests now add frame-input agreement, both crossing orders,
 preparation failure, changed occurrences, and retained-plan lifetime. Guard:
 `ordinary_peer_crossings_apply_on_shared_input_frames_without_holding_or_rebasing`.
 They require a real rollback across an application frame and matching confirmed
-state. Gate 4 still needs movement and combat in another room and explicit
-correction that removes a speculative application.
+state. Gate 4's focused default witnesses now pass (`b2e6ad940`). A participant
+moves and kills an actor in another live room while preparation waits. A late
+attack removes an observed speculative crossing and suppresses its arrival
+reset; the control releases one reset. Guards:
+`a_peer_keeps_moving_and_fighting_in_a_live_destination_while_another_peer_prepares`
+and `corrected_combat_removes_a_speculative_crossing_and_its_arrival_effect`.
+
+Death now withdraws the exact body's crossing on the current rollback frame.
+Ordinary application rejects dead or out-of-play members before publication;
+explicit restores can still recover them. Schema 423 records this change.
+Guards: `a_death_withdraws_its_crossing_on_the_current_rollback_frame` and
+`ordinary_travel_refuses_dead_or_out_of_play_bodies_before_publication`.
+The old presentation tail and gate 5 remain open. The broader rollback run
+still fails the tracked provoked-source witness. The tooling sweep is incomplete;
+the union-feature gate has not run for this change.
 
 ## Source findings
 
@@ -100,8 +113,8 @@ The delayed-peer witness now covers a real destination pickup consumed after
 admission capture (`438be9428`). Both peers refuse the stale plan and keep the
 source room and both bodies. Guard:
 `peers_refuse_a_destination_occurrence_changed_after_preparation_capture`.
-This witness now uses the ordinary shared timeline without a rebase. Gate 4
-still needs occurrence changes during movement and combat in another room.
+This witness uses the ordinary shared timeline without a rebase. The live-room
+combat witness also changes its destination population before arrival.
 
 Checkpoint restores now carry their key in the pending and withdrawn intents
 (`ce283f8f0`).

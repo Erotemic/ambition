@@ -106,8 +106,9 @@ The 2026-11-03 request adds
 [PARTY-TRAVEL-POLICIES](#party-travel-policies--configurable-group-crossings-and-a-leader-view).
 The retained-plan slice is committed in `48cb138c9`. Party travel is complete
 in `4cb723b8c` and `5ed9bb73a`. Gate connections work both ways and share an
-idle timer. Independent adaptive play remains the default. The next online
-slice must remove the session-wide hold.
+idle timer. Independent adaptive play remains the default. Ordinary online
+travel now runs without a session-wide hold. The next slice must complete
+presentation isolation and the broader peer-room checks.
 
 ## Work order from the additional maintainer rulings of 2026-10-19
 
@@ -930,7 +931,7 @@ Do not restore primary-room geometry or global room covers.
 
 6. **Online no-global-hold lifecycle:** prove a routine peer door crossing
    commits on the shared input timeline without a whole-session hold or
-   rebase. Complete the remaining another-room combat and presentation gates.
+   rebase. Finish independent preparation and the remaining presentation gates.
    Track content identity, deterministic operation order, and peer readiness
    explicitly. Full-party reloads retain their global barrier.
 
@@ -986,11 +987,17 @@ receipts use clone snapshots; presentation uses the confirmed-effect journal.
 Checkpoint restores and explicit rebuilds retain their barrier. Guard:
 `ordinary_peer_crossings_apply_on_shared_input_frames_without_holding_or_rebasing`.
 
-**Next step:** exercise movement, combat, and occurrence changes in another
-room during preparation. Cover correction that removes a speculative crossing.
-Then remove preparation waits caused by an old presentation tail and verify
-rendered per-view isolation and exactly-once arrival effects. Complete the
-broader feature checks before marking this slice complete.
+Another-room movement and combat now pass with delayed peers (`b2e6ad940`).
+Corrected combat removes an observed speculative crossing and suppresses its
+arrival reset; the control releases one. Guards:
+`a_peer_keeps_moving_and_fighting_in_a_live_destination_while_another_peer_prepares`
+and `corrected_combat_removes_a_speculative_crossing_and_its_arrival_effect`.
+Death withdrawal is one actor rule on the simulation timeline.
+
+**Next step:** remove preparation waits caused by an old presentation tail.
+Verify rendered per-view isolation and exactly-once arrival effects. Complete
+the broader feature and tooling checks before marking this slice complete.
+The broad rollback run still fails `PROVOKED-SOURCE-WITNESS`.
 The `LOCAL-PLAY-MODES` leave slice and `COOP-RECOVERY` remain separate work
 items; reuse their participant lifecycle and checkpoint rules, not duplicate
 them in this row.

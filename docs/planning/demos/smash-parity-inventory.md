@@ -484,7 +484,7 @@ stage beside the others rather than editing one, and keep the shared envelope
 | Friendly-fire toggle UI | ◐ | S | — | `CombatRules::friendly_fire` exists. |
 | Rules presets | ▢ | M | — | |
 | Handicap / starting damage | ▢ | S/M | E1 | In match preparation. |
-| CPU difficulty selector | ▢ | S/M | — | The brain owns the knobs, Smash owns the ladder (Q88); queue row CPU-LADDER. |
+| CPU difficulty selector | ▢ | S/M | — | The brain and scoped ladder are built (Q88). The selector is separate UI work. |
 | Full results screen and stats | ◐ | M | E1 | Basic winner card; stats from causal combat/stock events. |
 | Victory poses, fanfare, stock cues | ▢ | S/M | — | |
 | Meter + authored super | ▢ | C | E1 | No cinematic Final Smash manager first. |

@@ -70,6 +70,7 @@ CHARGEN-SPECIES. TEST-LANES retains the test-consolidation work.
 | [World layers and travel](game/world-layers-and-travel.md) | Portal mechanics are built; WORLD-LAYERS owns the remaining authored topology. |
 | [Art dimension](game/art-dimension.md) | The first region is built. WORLD-LAYERS rechecks the remaining art publication, region cues and places before selecting more content. Do not rebuild the completed region. |
 | [History dimension](game/history-dimension.md) and [proposed long-range roadmap](game/history-dimension-long-range-roadmap.md) | WORLD-LAYERS selects the next eras. The roadmap is a design reservoir; its proposed rooms are not current defects or selected work. |
+| [History atlas report](game/history-atlas-report.md) | Generated design evidence for WORLD-LAYERS. The atlas does not publish rooms or select every proposed wave. Use it to choose the next small region slice after the current correctness work. |
 | [Enemy patterns](game/enemy-patterns.md) | ENEMY-NOTICE owns the remaining skirmisher/profile gap; do not repeat built fighter engagement or completed variants. |
 | [Region composition](game/world-composition.md) | WORLD-LAYERS rechecks remaining region links and secrets against current generators. Completed regions are not requeued. |
 | [World detail run](game/world-detail-24h.md) | Its counts predate many completed rooms. Recheck them within WORLD-LAYERS; do not restart the dated run or repeat its completed art. |
@@ -235,7 +236,7 @@ a live reload is a second priority. Work in this order:
    of packing.
 3. Pack elegance: admission diagnostics that name the file and the field
    (done 2026-10-15: `FacetSource::parse` gives the field path, ca3bd5d8f);
-   [CPU-LADDER](#cpu-ladder--the-brain-owns-the-knobs-smash-owns-the-ladder)
+   [CPU-LADDER](#cpu-ladder-done)
    steps 2 and 3 (done 2026-10-16: a reaction spread broke the George L5
    resonance; Smash declares its ladder rows from its pack; the engine's
    level curve is one level-free default).
@@ -2310,20 +2311,24 @@ now follows its shared presentation owner (`15ade26ea`); its unit tests,
 two-view GPU witness, assembled app check, and workspace policy checks pass.
 No policy waiver was added.
 
-**Verification frontier (2026-11-04):** focused ledger and hold checks pass.
+**Verification frontier (2026-11-04):** the body-recovery repair passes
+18 focused app cases, 27 lifecycle owner tests, and four schema tests.
+Transfers state their body requirement and checksum it under schema 424.
 Cargo supplies package membership; source callers supply demand-road labels.
-The documentation link check passes after the moved guide and scheduler links
-were repaired. Run the full Python suite before claiming a green tooling lane.
 Source-count and test-count floors are not acceptance criteria.
 
-The full feature job's 40 GB disk preflight now passes after inactive caches
-in the main checkout were removed. The feature job remains unverified.
-Recheck the earlier minimal-headless failures in shell UI/Winit imports and
-the feature-dependent held-item helper before clearing them. The earlier
-content failures also need fresh checks: Void fighter damage, Performer
-contact windows, Pugnacious uppercut gravity, and the boot-pack world-flow
-fixture scan. Documentation citations and links still need repair; planning
-anchors resolve. Earlier broad test totals do not prove the current matrix.
+The final feature run completed with no skipped jobs: 30 failures in five
+targets. After fixture and diagnostic repairs, seven selected app cases pass
+with the same workspace target and feature selection. The spawn owner passes
+14 tests, including the room-edge repair. These focused results do not clear
+the full matrix.
+
+Open findings include the shark ride, temple and tar-pit navigation, crossing
+clock reset, and zero-time capture pump. Each also fails in the cached build
+from before the presentation and spawn repairs. Content, sprite-hitbox, and
+Sanic visible fixtures remain red in the full feature run. Python ownership
+audits, source scans, and stale reports also remain red. Do not replace those
+findings with source-count or test-count floors.
 
 **Owner:** test runner / app integration lane. Operational rules and what a
 green lane does not clear:
@@ -2805,11 +2810,11 @@ responsibility to its owner and keep one body, control, and action path.
 |---|---|---|
 | AP14 | Complete actor-monolith responsibility separation | The kernel module graph is a DAG. Lifecycle, publication, materialization, items, world objects, device input, observation, and global schedules have explicit owners. The public `body` API owns execution; `control` owns accepted control. Room technique grants follow each driven body. Real simulation covers two-seat possession, reaction clocks, controlled-body removal, action continuity, one-step free motion before and after seat releases, and mounted motion through timed dismount under rollback. Audit residual responsibilities and public operations. Keep accepted control and body execution together. Preserve rollback, publication barriers, and the number of active systems. See the [decomposition plan](engine/actor-monolith-decomposition.md#dependency-first-extraction-sequence). |
 
-**Installation finding (2026-11-01):** the engine-installation check reports
-`sync_ring_lit_glyphs` and `crumble_lock_wall_visuals` in the main-game plugin.
-Recheck their capability owners and move reusable installation with its behavior.
-The capture installer now owns its schedule; its old exception was removed.
-Do not add an exception to hide these two findings.
+**Built:** `d541442ba` installs gate and lock-wall effects through
+`SessionRoomVisualsPlugin`. It removes the game-host registrations and their
+obsolete exceptions. The owner tests and installation scan pass; the kernel
+module graph remains a DAG. Do not add host-installation exceptions for these
+effects.
 
 **Acceptance:** each cut moves state, behaviour and installation together and
 deletes the old edge; `python3 scripts/measure/measure_kernel_module_graph.py --scc --cuts --edges 80`
@@ -3478,69 +3483,6 @@ was poisoned alone, and only its own test failed.
   (the brute presses at 63.3 px = 48.4 reach + its target's half width); run
   the duel and the full lane.
 
-### CPU-LADDER — the brain owns the knobs, Smash owns the ladder
-
-**Owner:** `ambition_combat::brain::fighter` (mechanism) and the Smash
-rules/content (ladder tuning).
-
-**Ruling:** Q88 (2026-10-03): the generic fighter brain exposes reusable
-controls (reaction, tactics/aggression, prediction/evaluation, execution/error);
-Smash owns the mapping from "CPU level N" to them. Q90 (2026-10-03): remove the
-inert `read_weight`; a correctly named parameter returns with an implementation
-that gives it meaning.
-
-**Current state:** `fighter_brain_ladder.ron` is in
-`game/ambition_content/assets/data/`, and its schema is registered by
-`ambition_combat`. ✅ Q90 is built (2026-10-08): `read_weight` is deleted from
-the profile, the ladder and every fixture; the habit decay is the constant
-`HABIT_DECAY` (0.9); the rollout reads the habit whenever the read is genuine.
-No ladder rung changes (none rolls out). `for_level` brains at levels 6 to 9
-roll out, so their habit counts now decay at 0.9, not `t × 0.6`.
-
-**Acceptance:** the ladder data and its level vocabulary live with the Smash
-rules/content; another game can build the brain with no ladder; no authored
-ladder field is inert.
-
-**Measured 2026-10-08 (NamekAmbition):** the Smash demo app installs no
-fighter ladder (`the_ladder_the_demo_runs.rs` pins the floor).
-`ambition_content` `plugin.rs` and `reload.rs` (`publish_fighter_ladder`)
-are the only installers. A Smash pack source may name a file outside its
-root, as George's facet does.
-
-**Next (2026-10-08):** the engine still carries a level curve,
-`FighterBrainProfile::for_level` (13 production fallback sites), and the demo
-plays it. The order of the move is in
-[`fighter-brain.md` F1](engine/fighter-brain.md#f1--the-authored-ladder-is-the-authority-q88-2026-10-03):
-the ladder becomes a rule scoped to the rooms it governs (`ambition_app`
-composes Smash, so a second global installer would make two authorities),
-Smash declares its pack's rows for its mode, and then the floor becomes one
-level-free default.
-
-**Built 2026-10-13 (step 1):** the global resource is deleted; the ladder is
-`DeclaredRules<FighterBrainLadder>`, declared by `ambition_content` for every
-room and restated by its reload; each brain reads its own room's ladder.
-Witness `each_fighter_takes_the_rung_of_its_own_rooms_ladder`; grid unchanged.
-**Blocked (step 2):** with Smash's rows declared, the George mirror in the demo
-throws no move at rung 5 (18-tick reaction resonance; 325 ms fights). See F1.
-**Measured 2026-10-15:** the own-motion lead (the live self through
-`Perceived`) was built and does not unblock it: still 0 moves in the mirror.
-The other error is the foe's turn, unseen for the whole approach (turn to
-crossing about 0.37 s, reaction 0.30 s). Next: a brain policy for a foe it
-cannot yet see turning, measured on the rig; it changes every CPU. See F1.
-**Built 2026-10-16 (step 2):** the block is fixed by a reaction spread (each
-decision reacts in the delay ± one sixth of it, drawn from the seat's own
-stream), measured on the seeded rig: the George rung-5 mirror went from 0%
-and 480 s stalemates on all 16 seeds to 54 s bouts, and every rung pair of
-George's ladder is ordered (16:0, 16:0, 14:2, 16:0). Smash's pack names the
-ladder file and the demo declares and restates its rows. **Next (step 3):**
-the floor becomes one level-free default. See F1.
-**Built 2026-10-16 (step 3):** `for_level` is deleted; a room with no ladder
-plays `FighterBrainProfile::engine_default`, one profile at every level. The
-acceptance holds: Smash's content owns the ladder, another game builds the
-brain with no ladder and inherits no curve, and the one inert field
-(`read_weight`) was removed under Q90 on 2026-10-08.
-CPU-LADDER is done.
-
 ### LANDMARK-CLIP-TIME — a published landmark clip loops or holds as the row it describes
 
 **Owner:** `ambition_sprite_sheet` (`baked_landmarks`) and
@@ -3746,6 +3688,14 @@ the game draws the same at each tier.
 ## Receipts
 
 Closed rows that an open row, a script or an inbound link still names.
+
+### CPU-LADDER DONE
+
+`c1254c8e7` declares Smash's authored ladder by room scope; `f1719f650`
+replaces the engine level curve with `FighterBrainProfile::engine_default`.
+Guards: `the_demo_app_runs_its_fighters_on_smashs_ladder`,
+`each_fighter_takes_the_rung_of_its_own_rooms_ladder`, and
+`the_engine_default_is_one_profile_at_every_level`. Keep failed authored loads explicit.
 
 ### Player blink and glow polish — ✅ DONE 2026-11-01
 

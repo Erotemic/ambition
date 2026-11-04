@@ -70,8 +70,11 @@ The provoked-source fixture now stages hostile policy before its rebase
 `a_provoked_wounded_body_survives_the_real_rollback_window`.
 Keep the Hall generated. Target-derived standing can change when no foe exists.
 
-Broader feature and tooling checks remain open. The full feature job must pass
-its 40 GB disk preflight before it can run.
+The full feature run completed and remains red. The crossing-clock witness
+also fails in the cached build from before the presentation and spawn repairs.
+The focused guards above do not clear it. See the
+[verification frontier](../queue.md#test-lanes--keep-required-test-lanes-executable)
+for the remaining feature and tooling findings.
 
 ## Source findings
 

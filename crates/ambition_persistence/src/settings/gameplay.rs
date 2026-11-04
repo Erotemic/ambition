@@ -7,7 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
-pub use ambition_platformer2d_core::{CameraReferenceFrame, InputFrameMode};
+pub use ambition_platformer2d_core::{CameraReferenceFrame, InputFrameMode, party_controls::PartyTravelMode};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Difficulty {
@@ -142,6 +142,10 @@ pub struct GameplaySettings {
     /// Damage between controlled allies in the next Ambition session.
     #[serde(default = "default_coop_friendly_fire")]
     pub coop_friendly_fire: bool,
+    #[serde(default)]
+    pub party_travel: PartyTravelMode,
+    #[serde(default)]
+    pub party_return: bool,
     /// How raw LOCOMOTION input maps onto the controlled body's local frame.
     /// `BodyRelativeAssist` follows the body frame except when upside-down, where
     /// the mapping accommodates screen orientation. `ScreenRelative` (the default)
@@ -204,6 +208,8 @@ impl Default for GameplaySettings {
             portal_reverses_facing: false,
             accept_local_joins: false,
             coop_friendly_fire: default_coop_friendly_fire(),
+            party_travel: Default::default(),
+            party_return: false,
             movement_frame_mode: default_movement_frame_mode(),
             aim_frame_mode: default_aim_frame_mode(),
             camera_reference_frame: CameraReferenceFrame::default(),

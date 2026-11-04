@@ -1,7 +1,8 @@
 use super::systems::detect_room_transition_system;
 use crate::lifecycle_commit::{LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent};
 use crate::participants::SessionParticipants;
-use crate::party_travel::{PartyMembers, PartyTravel, PartyTravelMode, PartyTravelRules};
+use ambition_platformer2d_core::party_controls::PartyTravelMode;
+use crate::party_travel::{PartyMembers, PartyTravel, PartyTravelRules};
 use ambition_characters::control::{DrivingParticipant, PlayerSlot, SlotInteractionState};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::*;
@@ -31,7 +32,7 @@ fn fixture(mode: PartyTravelMode, activation: LoadingZoneActivation) -> (App, [E
     insert_session_world_component(app.world_mut(),
         ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default());
     let mut party = PartyTravel::default();
-    party.configure(PartyTravelRules { mode, leader: PlayerSlot(1), members: PartyMembers::Session }).unwrap();
+    party.configure(PartyTravelRules { mode, leader: PlayerSlot(1), members: PartyMembers::Session, ..Default::default() }).unwrap();
     insert_session_world_component(app.world_mut(), party);
     let mut admitted = SessionParticipants::default();
     admitted.admit(PlayerSlot(0)); admitted.admit(PlayerSlot(1));
@@ -216,4 +217,47 @@ fn a_changed_route_cancels_an_agreement_to_the_old_destination() {
     at(&mut app, bodies[1], 100.0); press(&mut app, 1); app.update();
     assert!(crossing(&app).is_none());
     assert!(party(&app).vote(PlayerSlot(0)).is_none());
+}
+
+#[test]
+fn only_the_admitted_leaders_replayed_preference_changes_the_rules() {
+    use ambition_characters::control::SlotControls;
+    let (mut app, _) = fixture(PartyTravelMode::Independent, LoadingZoneActivation::Door);
+    app.init_resource::<SlotControls>();
+    app.add_systems(Update, crate::party_travel::apply_party_preferences);
+    let mut rules = party(&app).rules().clone();
+    rules.accept_preferences = true;
+    session_world_component_mut::<PartyTravel>(app.world_mut()).unwrap().configure(rules).unwrap();
+    let choice = ae::party_controls::PartyControlPreference::new(PartyTravelMode::Leader, true);
+    app.world_mut().resource_mut::<SlotControls>().set(PlayerSlot(0), ae::ControlFrame {
+        party_preference: choice, ..Default::default()
+    });
+    app.update();
+    assert_eq!(party(&app).rules().mode, PartyTravelMode::Independent);
+    app.world_mut().resource_mut::<SlotControls>().set(PlayerSlot(1), ae::ControlFrame {
+        party_preference: choice, ..Default::default()
+    });
+    app.update();
+    assert_eq!(party(&app).rules().mode, PartyTravelMode::Leader);
+    assert!(party(&app).rules().return_to_leader);
+}
+
+#[test]
+fn a_follower_returns_its_driven_body_without_a_camera_or_reset_ability() {
+    use ambition_characters::control::SlotControls;
+    let (mut app, bodies) = fixture(PartyTravelMode::Independent, LoadingZoneActivation::Door);
+    app.init_resource::<SlotControls>();
+    app.add_systems(Update, crate::party_travel::request_party_return);
+    let mut rules = party(&app).rules().clone(); rules.return_to_leader = true;
+    session_world_component_mut::<PartyTravel>(app.world_mut()).unwrap().configure(rules).unwrap();
+    app.world_mut().resource_mut::<SlotControls>().set(PlayerSlot(0), ae::ControlFrame {
+        return_to_leader_pressed: true, reset_pressed: true, ..Default::default()
+    });
+    assert!(!app.world().resource::<SlotControls>().get(PlayerSlot(0)).reset_pressed);
+    app.update();
+    let intent = crossing(&app).expect("the follower returns");
+    assert_eq!(intent.initiator.subject, LiveBodyId::of_entity(app.world(), bodies[0]).unwrap());
+    assert_eq!(intent.initiator.arrival, crate::lifecycle_commit::RoomArrival::NearBody(
+        LiveBodyId::of_entity(app.world(), bodies[1]).unwrap()));
+    assert!(intent.companions.is_empty());
 }

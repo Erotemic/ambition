@@ -190,6 +190,10 @@ pub struct ControlFrame {
     /// (doors / heal-shrine) use the edge so one press = one action.
     pub interact_held: bool,
     pub reset_pressed: bool,
+    /// Return the driven body through the session travel rules. This edge suppresses Reset.
+    pub return_to_leader_pressed: bool,
+    /// The leader's captured preference. The game decides whether to accept it.
+    pub party_preference: crate::party_controls::PartyControlPreference,
     pub start_pressed: bool,
     /// Player projectile / spell action — newly pressed this frame.
     pub projectile_pressed: bool,
@@ -271,6 +275,7 @@ impl ControlFrame {
             // inside one tick cannot disagree about it in practice, and if they
             // ever did the later one is the one the human just chose.
             control_frame_modes: sample.control_frame_modes,
+            party_preference: sample.party_preference,
             axis_x: sample.axis_x,
             axis_y: sample.axis_y,
             aim_x: sample.aim_x,
@@ -316,7 +321,9 @@ impl ControlFrame {
             pogo_pressed: self.pogo_pressed | sample.pogo_pressed,
             fly_toggle_pressed: self.fly_toggle_pressed | sample.fly_toggle_pressed,
             interact_pressed: self.interact_pressed | sample.interact_pressed,
-            reset_pressed: self.reset_pressed | sample.reset_pressed,
+            reset_pressed: (self.reset_pressed | sample.reset_pressed)
+                && !(self.return_to_leader_pressed | sample.return_to_leader_pressed),
+            return_to_leader_pressed: self.return_to_leader_pressed | sample.return_to_leader_pressed,
             start_pressed: self.start_pressed | sample.start_pressed,
             projectile_pressed: self.projectile_pressed | sample.projectile_pressed,
             projectile_released: self.projectile_released | sample.projectile_released,
@@ -336,6 +343,9 @@ impl ControlFrame {
     #[must_use]
     pub fn levels_only(self) -> ControlFrame {
         ControlFrame {
+            control_frame_modes: self.control_frame_modes,
+            party_preference: self.party_preference,
+            special_held: self.special_held,
             axis_x: self.axis_x,
             axis_y: self.axis_y,
             aim_x: self.aim_x,
@@ -619,7 +629,7 @@ mod the_bytes_two_peers_exchange {
     /// A frame chosen so the ENCODING is legible, because the default one is
     /// not.
     ///
-    /// ⛔ `bincode::serialize(&ControlFrame::default())` is seventy ZERO
+    /// ⛔ `bincode::serialize(&ControlFrame::default())` is seventy-two ZERO
     /// bytes. Pinning that would catch a length change and nothing else: every
     /// falsy field is the same byte as every other, so a reordering among them,
     /// a changed enum discriminant and a swapped float would all leave it
@@ -660,6 +670,8 @@ mod the_bytes_two_peers_exchange {
             interact_pressed: true,
             interact_held: false,
             reset_pressed: true,
+            return_to_leader_pressed: false,
+            party_preference: crate::party_controls::PartyControlPreference::new(crate::party_controls::PartyTravelMode::AllMembers, true),
             start_pressed: false,
             projectile_pressed: true,
             projectile_held: false,
@@ -682,7 +694,7 @@ mod the_bytes_two_peers_exchange {
     /// `0100`/`0001` are the alternating bools, `02000000` is
     /// `AttackStrengthHint::Smash` (bincode writes a unit variant as a `u32`
     /// index), and `01000000 02000000` are the two frame modes.
-    const RECORDED: &str = "000040bf0000003f010001000100010001000100010001000102000000010000803e000080bf010000000200000001000100010001000100010001000000003e0000c0be0100";
+    const RECORDED: &str = "000040bf0000003f010001000100010001000100010001000102000000010000803e000080bf0100000002000000010001000100080001000100010001000000003e0000c0be0100";
 
     /// One frame's bincode encoding, in bytes.
     ///
@@ -693,7 +705,7 @@ mod the_bytes_two_peers_exchange {
     /// divides the received total by the player count. This constant is here so
     /// the width below is compared against a RECORDED number rather than against
     /// itself.
-    const RECORDED_WIRE_BYTES: u64 = 70;
+    const RECORDED_WIRE_BYTES: u64 = 72;
 
     fn hex(bytes: &[u8]) -> String {
         bytes.iter().map(|byte| format!("{byte:02x}")).collect()
@@ -831,4 +843,19 @@ mod the_bytes_two_peers_exchange {
             );
         }
     }
+    #[test]
+    fn a_return_edge_dominates_reset_and_the_latch_keeps_the_party_preference() {
+        let preference = crate::party_controls::PartyControlPreference::new(
+            crate::party_controls::PartyTravelMode::Leader, true);
+        let mut latch = super::ControlFrameLatch::default();
+        latch.accumulate(ControlFrame { reset_pressed: true, ..Default::default() });
+        latch.accumulate(ControlFrame { return_to_leader_pressed: true, party_preference: preference, ..Default::default() });
+        let first = latch.take();
+        assert!(first.return_to_leader_pressed);
+        assert!(!first.reset_pressed);
+        let next = latch.take();
+        assert!(!next.return_to_leader_pressed && !next.reset_pressed);
+        assert_eq!(next.party_preference, preference);
+    }
+
 }

@@ -38,6 +38,8 @@ struct RecordedControls {
     fly_toggle_pressed: bool,
     interact_pressed: bool,
     reset_pressed: bool,
+    return_to_leader_pressed: bool,
+    party_preference: ambition_platformer2d::sim::PartyControlPreference,
     start_pressed: bool,
 }
 
@@ -91,6 +93,8 @@ impl From<RecordedControls> for AgentAction {
             projectile_released: false,
             fly_toggle: c.fly_toggle_pressed,
             reset: c.reset_pressed,
+            return_to_leader: c.return_to_leader_pressed,
+            party_preference: c.party_preference,
             start: c.start_pressed,
             // The trace format predates the cutscene controls; an old
             // recording neither confirms nor cancels.
@@ -155,6 +159,9 @@ fn parse_trace_json(text: &str) -> Result<Vec<RecordedFrame>, String> {
                 fly_toggle_pressed: bool_field(controls, "fly_toggle_pressed"),
                 interact_pressed: bool_field(controls, "interact_pressed"),
                 reset_pressed: bool_field(controls, "reset_pressed"),
+                return_to_leader_pressed: bool_field(controls, "return_to_leader_pressed"),
+                party_preference: controls.get("party_preference").map(|value| serde_json::from_value(value.clone()))
+                    .transpose().map_err(|error| format!("frame {i}: invalid party preference: {error}"))?.unwrap_or_default(),
                 start_pressed: bool_field(controls, "start_pressed"),
             },
             player_pos: RecordedPos {

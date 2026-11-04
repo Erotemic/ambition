@@ -3862,7 +3862,8 @@ fn prepared_relative_return(with_denied_exit: bool) -> (
         let alice = bodies.iter().find(|(slot, _)| slot.0 == 0).unwrap().1;
         let bob = bodies.iter().find(|(slot, _)| slot.0 == 1).unwrap().1;
         if with_denied_exit {
-            use ambition_platformer2d::session::party_travel::{PartyTravel, PartyTravelMode, PartyTravelRules};
+            use ambition_platformer2d::engine_core::party_controls::PartyTravelMode;
+use ambition_platformer2d::session::party_travel::{PartyTravel, PartyTravelRules};
             ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<
                 ambition_platformer2d::session::participants::SessionParticipants>(world).unwrap().admit(PlayerSlot(1));
             ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<PartyTravel>(world).unwrap()
@@ -4010,7 +4011,7 @@ fn a_cycle_of_relative_arrivals_moves_no_member() {
     assert_eq!(live_rooms(&mut sim), rooms);
 }
 
-fn configure_party(sim: &mut Platformer2dSimHarness, mode: ambition_platformer2d::session::party_travel::PartyTravelMode, leader: u8) {
+fn configure_party(sim: &mut Platformer2dSimHarness, mode: ambition_platformer2d::engine_core::party_controls::PartyTravelMode, leader: u8) {
     use ambition_platformer2d::characters::control::PlayerSlot;
     use ambition_platformer2d::session::party_travel::{PartyTravel, PartyTravelRules};
     let world = sim.world_mut();
@@ -4021,9 +4022,9 @@ fn configure_party(sim: &mut Platformer2dSimHarness, mode: ambition_platformer2d
     sim.rebase_rollback_history().unwrap();
 }
 
-fn policy_crossing(mode: ambition_platformer2d::session::party_travel::PartyTravelMode, initiator: u8) {
+fn policy_crossing(mode: ambition_platformer2d::engine_core::party_controls::PartyTravelMode, initiator: u8) {
     use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
-    use ambition_platformer2d::session::party_travel::PartyTravelMode;
+    use ambition_platformer2d::engine_core::party_controls::PartyTravelMode;
     let mut sim = Platformer2dSimHarness::new_with_options(
         fixed_60hz_room_options(ROOM).with_sync_test_rollback_settings(4, 10).with_rollback_players(2)).unwrap();
     let first = bob_beside_alice(&mut sim, ROOM, Some(PlayerSlot(1)));
@@ -4068,21 +4069,21 @@ fn policy_crossing(mode: ambition_platformer2d::session::party_travel::PartyTrav
 
 #[test]
 fn party_any_member_crosses_once_with_the_group_under_rollback() {
-    policy_crossing(ambition_platformer2d::session::party_travel::PartyTravelMode::AnyMember, 0);
+    policy_crossing(ambition_platformer2d::engine_core::party_controls::PartyTravelMode::AnyMember, 0);
 }
 #[test]
 fn party_designated_leader_crosses_once_with_the_group_under_rollback() {
-    policy_crossing(ambition_platformer2d::session::party_travel::PartyTravelMode::Leader, 1);
+    policy_crossing(ambition_platformer2d::engine_core::party_controls::PartyTravelMode::Leader, 1);
 }
 #[test]
 fn party_all_members_cross_once_after_agreeing_under_rollback() {
-    policy_crossing(ambition_platformer2d::session::party_travel::PartyTravelMode::AllMembers, 1);
+    policy_crossing(ambition_platformer2d::engine_core::party_controls::PartyTravelMode::AllMembers, 1);
 }
 
 #[test]
 fn party_follower_hits_an_exit_wall_and_can_cross_after_the_policy_changes() {
     use ambition_platformer2d::engine_core as ae;
-    use ambition_platformer2d::session::party_travel::PartyTravelMode;
+    use ambition_platformer2d::engine_core::party_controls::PartyTravelMode;
     let (mut sim, first) = alice_beside_bob();
     configure_party(&mut sim, PartyTravelMode::Leader, 0);
     let bob = {
@@ -4139,4 +4140,83 @@ fn party_arrival_checks_the_incoming_followers_walls_in_a_live_room() {
     assert!(ambition_platformer2d::runtime::room_transition::finalize_room_transition(world, &staged));
     let (leader, follower) = where_they_are(&mut sim);
     assert_eq!(leader, follower.flatten());
+}
+
+#[test]
+fn party_return_joins_the_leaders_room_and_preserves_the_driven_body() {
+    use ambition_platformer2d::characters::{control::{DrivingParticipant, PlayerSlot}, actor::BodyWallet};
+    use ambition_platformer2d::session::party_travel::PartyTravel;
+    use ambition_platformer2d::platformer::lifecycle::{session_world_component_mut, RoomScopedEntity};
+    let (mut sim, _) = alice_leaves_bob(Some(PlayerSlot(1)));
+    let target = alices_room(&mut sim);
+    configure_party(&mut sim, ambition_platformer2d::engine_core::party_controls::PartyTravelMode::Independent, 0);
+    let bob = {
+        let world = sim.world_mut();
+        let bob = world.query::<(bevy::prelude::Entity, &DrivingParticipant)>().iter(world)
+            .find(|(_, driver)| driver.0 == PlayerSlot(1)).unwrap().0;
+        world.entity_mut(bob).insert(BodyWallet { balance: 123 });
+        let mut party = session_world_component_mut::<PartyTravel>(world).unwrap();
+        let mut rules = party.rules().clone(); rules.return_to_leader = true;
+        party.configure(rules).unwrap();
+        bob
+    };
+    sim.rebase_rollback_history().unwrap();
+    sim.drive_seat(1, ambition_platformer2d::engine_core::ControlFrame {
+        return_to_leader_pressed: true, reset_pressed: true, ..Default::default()
+    });
+    sim.step(base()); sim.drive_seat(1, Default::default());
+    for _ in 0..240 {
+        sim.step(base());
+        if where_they_are(&mut sim) == (Some(target), Some(Some(target))) { break; }
+    }
+    assert_eq!(where_they_are(&mut sim), (Some(target), Some(Some(target))));
+    assert_eq!(sim.world().get::<BodyWallet>(bob).unwrap().balance, 123);
+    let sentinel = sim.world_mut().spawn((RoomScopedEntity, InRoomInstance(target))).id();
+    sim.world_mut().get_mut::<ambition_platformer2d::engine_core::BodyKinematics>(bob).unwrap().pos.x += 300.0;
+
+    sim.drive_seat(1, ambition_platformer2d::engine_core::ControlFrame {
+        return_to_leader_pressed: true, ..Default::default()
+    });
+    sim.step(base()); sim.drive_seat(1, Default::default());
+    sim.step_n(base(), 90);
+    assert_eq!(where_they_are(&mut sim), (Some(target), Some(Some(target))));
+    assert_eq!(live_rooms(&mut sim), vec![(target, HUB.into())]);
+    assert!(sim.world().get_entity(sentinel).is_ok(), "return in one live room must not rebuild it");
+    let world = sim.world_mut();
+    let leader = world.query::<(bevy::prelude::Entity, &DrivingParticipant)>().iter(world)
+        .find(|(_, driver)| driver.0 == PlayerSlot(0)).unwrap().0;
+    let position = |body| world.get::<ambition_platformer2d::engine_core::BodyKinematics>(body).unwrap().pos;
+    assert!((position(bob) - position(leader)).length() < 128.0, "same-room return did not move the follower to the leader");
+
+    assert_eq!(sim.world().get::<BodyWallet>(bob).unwrap().balance, 123);
+}
+
+#[test]
+fn party_preferences_survive_rollback_and_followers_cannot_override_the_leader() {
+    use ambition_platformer2d::characters::control::PlayerSlot;
+    use ambition_platformer2d::engine_core::{ControlFrame, party_controls::{PartyTravelMode, PartyControlPreference}};
+    use ambition_platformer2d::session::party_travel::PartyTravel;
+    use ambition_platformer2d::platformer::lifecycle::{session_world_component, session_world_component_mut};
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        fixed_60hz_room_options(ROOM).with_sync_test_rollback_settings(4, 10).with_rollback_players(2)).unwrap();
+    bob_beside_alice(&mut sim, ROOM, Some(PlayerSlot(1)));
+    configure_party(&mut sim, PartyTravelMode::Independent, 1);
+    {
+        let mut party = session_world_component_mut::<PartyTravel>(sim.world_mut()).unwrap();
+        let mut rules = party.rules().clone(); rules.accept_preferences = true;
+        party.configure(rules).unwrap();
+    }
+    sim.rebase_rollback_history().unwrap();
+    let preference = PartyControlPreference::new(PartyTravelMode::AllMembers, true);
+    sim.drive_seat(1, ControlFrame { party_preference: preference, ..Default::default() });
+    for _ in 0..40 {
+        sim.step(ambition_app::AgentAction {
+            party_preference: PartyControlPreference::new(PartyTravelMode::AnyMember, false), ..base()
+        });
+    }
+    let rules = session_world_component::<PartyTravel>(sim.world()).unwrap().rules();
+    assert_eq!(rules.mode, PartyTravelMode::AllMembers);
+    assert!(rules.return_to_leader);
+    assert!(sim.world().resource::<ambition_platformer2d::rollback::RollbackExecutionStats>().lifetime_load_runs > 0);
+    assert!(sim.rollback_health().is_ok());
 }

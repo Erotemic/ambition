@@ -1927,7 +1927,7 @@ PEER_INPUT_SOURCE = "crates/ambition_platformer2d_rollback_ggrs/src/peer_input.r
 #: `Copy` or small.
 #: The non-primitive types this census FOLLOWS into. A field of any other type
 #: is refused rather than recorded — see `refuse_variable_width`.
-_FOLLOWED_FIELD_TYPES = ("AttackStrengthHint", "crate::ControlFrameModes", "InputFrameMode")
+_FOLLOWED_FIELD_TYPES = ("AttackStrengthHint", "crate::ControlFrameModes", "InputFrameMode", "crate::party_controls::PartyControlPreference")
 #: The same, for the `PeerInput` wrapper and its verdict.
 _FOLLOWED_PEER_INPUT_TYPES = ("ControlFrame", "PeerVerdict", "PreparationVerdict")
 
@@ -2109,6 +2109,7 @@ def input_payload_shape(root: Path) -> tuple[str, list[str]]:
     # types they REACH were not, which is the hole the second review poisoned
     # open with `Option<bool>` on this very struct.
     refuse_variable_width("ControlFrameModes", modes_fields, set(_FOLLOWED_FIELD_TYPES))
+    shape += ["PartyControlPreference: u8"]
     shape += [f"ControlFrameModes::{name}: {ty}" for name, ty in modes_fields]
     mode_enum = frame_modes.split("pub enum InputFrameMode {", 1)[1].split("\n}", 1)[0]
     mode_variants = serialized_variants("InputFrameMode", mode_enum)

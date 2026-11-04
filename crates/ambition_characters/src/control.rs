@@ -64,7 +64,8 @@ impl SlotControls {
     }
 
     /// Publish a slot's controller frame. Out-of-range slots are ignored.
-    pub fn set(&mut self, slot: PlayerSlot, frame: ambition_platformer2d_core::ControlFrame) {
+    pub fn set(&mut self, slot: PlayerSlot, mut frame: ambition_platformer2d_core::ControlFrame) {
+        frame.reset_pressed &= !frame.return_to_leader_pressed;
         if let Some(entry) = self.slots.get_mut(slot.0 as usize) {
             *entry = frame;
         }

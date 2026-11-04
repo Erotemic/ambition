@@ -150,7 +150,8 @@ pub fn detect_room_transition_system(
         bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
     >,
 ) {
-    use crate::party_travel::{PartyAdmission, PartyExit, PartyTravelMode, PartyVote};
+    use ambition_platformer2d_core::party_controls::PartyTravelMode;
+use crate::party_travel::{PartyAdmission, PartyExit, PartyVote};
     let mut party = parties.single_mut().ok();
     let members = party.as_ref().filter(|(party, _)| party.rules().mode != PartyTravelMode::Independent)
         .map(|(party, admitted)| party.members(admitted)).unwrap_or_default();
@@ -496,7 +497,7 @@ pub fn contribute_party_exit_barriers(
     mut overlays: ambition_platformer2d_shared_tangle::feature_overlay::RoomOverlays,
 ) {
     let Ok((party, admitted)) = parties.single() else { return; };
-    if party.rules().mode != crate::party_travel::PartyTravelMode::Leader { return; }
+    if party.rules().mode != ambition_platformer2d_core::party_controls::PartyTravelMode::Leader { return; }
     for slot in party.members(admitted) {
         if slot == party.rules().leader { continue; }
         let Some(entity) = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, slot)
@@ -522,7 +523,7 @@ pub fn party_exit_walls(
     network: &ambition_platformer2d_world::rooms::GateNetworkState,
 ) -> Vec<ae::Block> {
     use ae::AabbExt as _;
-    if party.rules().mode != crate::party_travel::PartyTravelMode::Leader
+    if party.rules().mode != ambition_platformer2d_core::party_controls::PartyTravelMode::Leader
         || slot == party.rules().leader || !party.members(admitted).contains(&slot) { return Vec::new(); }
     rooms.spec(definition).loading_zones.iter().filter(|zone|
         zone.activation != LoadingZoneActivation::Door && route_zone(rooms, definition, &zone.id, network).is_some())

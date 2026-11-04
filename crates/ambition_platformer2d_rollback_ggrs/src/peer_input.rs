@@ -207,12 +207,12 @@ mod the_bytes_two_peers_exchange {
         }
     }
 
-    /// The control part (70 bytes), then `operation` as a little-endian
+    /// The control part (72 bytes), then `operation` as a little-endian
     /// `i32`, the intent and preparation checksums, both content identities, the plan digest,
     /// and `Failed` as a `u32` variant index.
-    const RECORDED: &str = "000040bf000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040302010807060504030201090000000000000001010101010101010101010101010101010101010101010101010101010101010202020202020202020202020202020202020202020202020202020202020202070000000000000002000000";
+    const RECORDED: &str = "000040bf0000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040302010807060504030201090000000000000001010101010101010101010101010101010101010101010101010101010101010202020202020202020202020202020202020202020202020202020202020202070000000000000002000000";
 
-    const RECORDED_WIRE_BYTES: u64 = 166;
+    const RECORDED_WIRE_BYTES: u64 = 168;
 
     fn hex(bytes: &[u8]) -> String {
         bytes.iter().map(|byte| format!("{byte:02x}")).collect()
@@ -242,9 +242,12 @@ mod the_bytes_two_peers_exchange {
                 let mut input = an_input();
                 input.verdict.said = said;
                 input.verdict.plan = plan;
+                for preference in 0..=8 {
+                input.control.party_preference = preference.try_into().unwrap();
                 assert_eq!(bincode::serialized_size(&input).expect("serialized size"), RECORDED_WIRE_BYTES);
                 let bytes = bincode::serialize(&input).unwrap();
                 assert_eq!(bincode::deserialize::<PeerInput>(&bytes).unwrap(), input);
+                }
             }
         }
         assert_eq!(bincode::serialized_size(&PeerInput::default()).unwrap(), RECORDED_WIRE_BYTES);

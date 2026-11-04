@@ -14,6 +14,7 @@ pub mod config;
 pub mod confirmed_frame;
 pub mod content_epoch;
 pub mod control_frame;
+pub mod party_controls;
 pub mod frame;
 pub mod geo_id;
 pub mod hit_response;

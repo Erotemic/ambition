@@ -1337,3 +1337,50 @@ fn peer_contract_mismatch_refuses_simulation_on_both_peers() {
         }
     }
 }
+
+#[test]
+fn a_remote_leaders_party_preferences_agree_after_late_input_and_rollback() {
+    use ambition_platformer2d::sim::{PartyControlPreference, PartyTravelMode};
+    use ambition_platformer2d::characters::control::PlayerSlot;
+    use ambition_platformer2d::session::{party_travel::{PartyTravel, PartyTravelRules}, participants::SessionParticipants};
+    use ambition_platformer2d::platformer::lifecycle::{session_world_component, session_world_component_mut};
+    fn prepare(sim: &mut Platformer2dSimHarness) {
+        session_world_component_mut::<SessionParticipants>(sim.world_mut()).unwrap().admit(PlayerSlot(1));
+        session_world_component_mut::<PartyTravel>(sim.world_mut()).unwrap().configure(PartyTravelRules {
+            accept_preferences: true, leader: PlayerSlot(1), ..Default::default()
+        }).unwrap();
+    }
+    let (a, b) = ("127.0.0.1:7001".parse().unwrap(), "127.0.0.1:7002".parse().unwrap());
+    let (to_bob, to_alice) = loopback_transports(a, b, LATENCY);
+    let (mut alice, _) = peer_prepared_by(ROOM, 0, (1, b), to_bob, Poison::None, prepare);
+    let (mut bob, _) = peer_prepared_by(ROOM, 1, (0, a), to_alice, Poison::None, prepare);
+    alice.world_mut().resource_mut::<ambition_platformer2d::persistence::settings::UserSettings>()
+        .gameplay.party_travel = PartyTravelMode::AnyMember;
+    bob.world_mut().resource_mut::<ambition_platformer2d::persistence::settings::UserSettings>()
+        .gameplay.party_travel = PartyTravelMode::Independent;
+    for _ in 0..20 * CONFIRMED {
+        for (sim, slot) in [(&mut alice, 0), (&mut bob, 1)] {
+            let next = sim.world().resource::<RollbackFrameCount>().0 + 1;
+            let (mode, returns) = if slot == 0 { (PartyTravelMode::AnyMember, false) }
+                else if next < 60 { (PartyTravelMode::Independent, false) }
+                else if next < 120 { (PartyTravelMode::Leader, true) }
+                else if next < 180 { (PartyTravelMode::AnyMember, false) }
+                else { (PartyTravelMode::AllMembers, true) };
+            sim.drive_seat(slot, ControlFrame { party_preference: PartyControlPreference::new(mode, returns), ..Default::default() });
+            sim.app_mut().update();
+        }
+        if confirmed(&alice).min(confirmed(&bob)) >= CONFIRMED { break; }
+        assert!(alice.rollback_health().is_ok() && bob.rollback_health().is_ok(), "the party preference desynchronized the peers");
+    }
+    assert!(confirmed(&alice).min(confirmed(&bob)) >= CONFIRMED);
+    for sim in [&alice, &bob] {
+        let rules = session_world_component::<PartyTravel>(sim.world()).unwrap().rules();
+        assert_eq!((rules.mode, rules.return_to_leader), (PartyTravelMode::AllMembers, true));
+        assert!(sim.rollback_health().is_ok());
+    }
+    assert!([&alice, &bob].iter().any(|sim| sim.rollback_execution_stats().is_some_and(|stats| stats.lifetime_load_runs > 0)),
+        "late changes must exercise a real rewind");
+    let (compared, differing) = compare(&alice, &bob);
+    assert!(compared.values().sum::<usize>() >= CONFIRMED as usize);
+    assert!(differing.is_empty(), "the confirmed peer state differs: {differing:?}");
+}

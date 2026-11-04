@@ -143,14 +143,14 @@ pub fn boss_catalog_fragment_from(sprite_content: &ambition_platformer2d::sprite
     .map_err(|error| error.to_string())?
     // The conducted bosses are built with their conductors, and the behemoth
     // with the payload it frees.
-    .with_birth_kit(gnu_ton::GNU_TON_ID, sprite_content, gnu_ton::birth)
-    .with_birth_kit(fsm::conductor::FSM_ID, sprite_content, fsm::birth)
-    .with_birth_kit(trex::TREX_ID, sprite_content, trex::birth)
-    .with_birth_kit(hunny::HUNNY_ID, sprite_content, hunny::birth)
-    .with_birth_kit(mockingbird::MOCKINGBIRD_ID, sprite_content, mockingbird::birth)
-    .with_birth_kit(wolfenstein::WOLFENSTEIN_ID, sprite_content, wolfenstein::birth)
-    .with_birth_kit(inugami::INUGAMI_ID, sprite_content, inugami::birth)
-    .with_birth_kit(cut_rope::CUT_ROPE_BOSS_ID, sprite_content, cut_rope::birth);
+    .with_birth_kit(gnu_ton::GNU_TON_ID, "ambition.gnu_ton.birth.v1", sprite_content, gnu_ton::birth)
+    .with_birth_kit(fsm::conductor::FSM_ID, "ambition.fsm.birth.v1", sprite_content, fsm::birth)
+    .with_birth_kit(trex::TREX_ID, "ambition.trex.birth.v1", sprite_content, trex::birth)
+    .with_birth_kit(hunny::HUNNY_ID, "ambition.hunny.birth.v1", sprite_content, hunny::birth)
+    .with_birth_kit(mockingbird::MOCKINGBIRD_ID, "ambition.mockingbird.birth.v1", sprite_content, mockingbird::birth)
+    .with_birth_kit(wolfenstein::WOLFENSTEIN_ID, "ambition.wolfenstein.birth.v1", sprite_content, wolfenstein::birth)
+    .with_birth_kit(inugami::INUGAMI_ID, "ambition.inugami.birth.v1", sprite_content, inugami::birth)
+    .with_birth_kit(cut_rope::CUT_ROPE_BOSS_ID, "ambition.cut_rope.birth.v1", sprite_content, cut_rope::birth);
     Ok(fragment)
 }
 

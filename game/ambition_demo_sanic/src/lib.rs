@@ -404,7 +404,7 @@ pub fn install_sanic_content(app: &mut App) {
     // pack's `data/prop_sheets.ron`. Registered here, they load the same way
     // standalone or hosted (both add `SanicExperiencePlugin`).
     {
-        use ambition_platformer2d::game_assets::PropSheetsAppExt;
+        use ambition_platformer2d::sprite_sheet::prop_sheets::PropSheetsAppExt;
         app.register_prop_sheet_rows(
             ambition_platformer2d::sprite_sheet::prop_sheets::lowered_prop_sheets(pack::PACK.prepared(),
             )

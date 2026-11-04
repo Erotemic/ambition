@@ -1646,6 +1646,19 @@ pub enum ImpulseMode {
     /// was falling, which a recovery move needs. It is the only mode a static
     /// reader can price ([`MoveFrameData::lift_speed`]).
     Set,
+    /// Replace side speed in the body's frame and keep its down speed.
+    SetSide,
+}
+
+impl ImpulseMode {
+    /// Resolve an impulse in body-local `(side, down)` coordinates.
+    pub fn apply_local(self, current: (f32, f32), authored: (f32, f32)) -> (f32, f32) {
+        match self {
+            Self::Add => (current.0 + authored.0, current.1 + authored.1),
+            Self::Set => authored,
+            Self::SetSide => (authored.0, current.1),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -1,15 +1,8 @@
-//! Compatibility facade for game-asset resources and loaders.
-//!
-//! It loads the art of every kind (characters, props, effects, bosses) into
-//! `GameAssets`, so it sits above both the asset catalog (`crate::assets`)
-//! and the sheet builders (`crate::character_sprites`), which name neither it
-//! nor each other's loaders.
-//!
-//! TODO(compat-remove): move `load_game_assets` out of the actor monolith, migrate callers to
-//! `ambition_sprite_sheet::game_assets`, then delete this module.
-
+//! Asset loading for character, prop, effect, and boss sheets.
+//! Prop declarations come from the shared sprite-sheet registry.
 
 use bevy::prelude::*;
+use ambition_sprite_sheet::prop_sheets::{PropSheetSource, PropSheets};
 use std::collections::HashMap;
 
 use ambition_sprite_sheet::boss as sprites;
@@ -22,72 +15,6 @@ use ambition_sprite_sheet::game_assets::load_entity_sprites;
 use ambition_sprite_sheet::game_assets::ParallaxTheme;
 use ambition_sprite_sheet::game_assets::load_parallax_layers_for_theme;
 use ambition_sprite_sheet::game_assets::EntitySprite;
-
-/// Where one prop kind's sheet comes from: the sheet record `target` of the
-/// current sheet generation, drawn from its page image in the sprite folder.
-/// A `packed` sheet is drawn from the shared sprite pack first, at the
-/// quality tier of the game.
-#[derive(Clone, Debug)]
-pub struct PropSheetSource {
-    pub target: String,
-    pub tuning: ambition_sprite_sheet::character::SheetTuning,
-    pub packed: bool,
-}
-
-/// The prop sheets a composition's content registers, keyed by the
-/// `PropSpec.kind` its rooms author.
-///
-/// Content adds rows when its plugin builds ([`PropSheetsAppExt`]). A sheet is
-/// decoded on demand, by [`load_the_prop_sheets_in_reach`]: the scenery of a
-/// room when that room is in reach, every other row when a session starts.
-/// [`load_game_assets`] still loads every row it is handed; the compositions
-/// hand it none, so a boot decodes no scenery.
-#[derive(Resource, Clone, Debug, Default)]
-pub struct PropSheets(Vec<(String, PropSheetSource)>);
-
-impl PropSheets {
-    /// Add the sheet for `kind`. A kind has one sheet, so a second row for
-    /// the same kind is a composition error.
-    pub fn register(&mut self, kind: impl Into<String>, source: PropSheetSource) {
-        let kind = kind.into();
-        assert!(
-            self.0.iter().all(|(known, _)| *known != kind),
-            "the prop kind `{kind}` has two sheets registered; a kind has one look"
-        );
-        self.0.push((kind, source));
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = (&str, &PropSheetSource)> {
-        self.0.iter().map(|(kind, source)| (kind.as_str(), source))
-    }
-
-    /// Replace the rows one provider registered from its pack (`previous`,
-    /// the kinds of its last registration) with `rows`, and return the kinds
-    /// it now owns. A kind another provider registered is refused, and
-    /// nothing changes: a reload must not take another provider's look.
-    pub fn restate<'a>(
-        &mut self,
-        previous: impl IntoIterator<Item = &'a str>,
-        rows: &ambition_sprite_sheet::prop_sheets::PropSheetRows,
-    ) -> Result<Vec<String>, String> {
-        let previous: Vec<&str> = previous.into_iter().collect();
-        let taken: Vec<&String> = rows
-            .keys()
-            .filter(|kind| self.0.iter().any(|(known, _)| known == *kind) && !previous.contains(&kind.as_str()))
-            .collect();
-        if !taken.is_empty() {
-            return Err(format!("prop sheet kind(s) {taken:?} belong to another provider"));
-        }
-        self.0.retain(|(kind, _)| !previous.contains(&kind.as_str()));
-        self.0.extend(rows.iter().map(|(kind, row)| (kind.clone(), sprite_folder_row(kind, row))));
-        Ok(rows.keys().cloned().collect())
-    }
-}
-
-/// A pack row's source.
-fn sprite_folder_row(kind: &str, row: &ambition_sprite_sheet::prop_sheets::AuthoredPropSheet) -> PropSheetSource {
-    PropSheetSource { target: row.target(kind).to_string(), tuning: row.tuning(), packed: row.packed }
-}
 
 /// The realization of the prop sheet `source`: from the shared sprite pack
 /// when it is `packed` and the pack has it, else from the record's page.
@@ -200,30 +127,6 @@ pub fn load_the_prop_sheets_in_reach(sprite_content: bevy::prelude::Res<ambition
                 catalog.profile().label(),
             ),
         }
-    }
-}
-
-/// Register prop sheets from a content plugin's `build`.
-pub trait PropSheetsAppExt {
-    fn register_prop_sheet(&mut self, kind: impl Into<String>, source: PropSheetSource) -> &mut Self;
-    /// Register each row of a pack's `prop_sheets`, and return the kinds, for
-    /// a reload to restate ([`PropSheets::restate`]).
-    fn register_prop_sheet_rows(&mut self, rows: &ambition_sprite_sheet::prop_sheets::PropSheetRows) -> Vec<String>;
-}
-
-impl PropSheetsAppExt for App {
-    fn register_prop_sheet(&mut self, kind: impl Into<String>, source: PropSheetSource) -> &mut Self {
-        self.world_mut()
-            .get_resource_or_init::<PropSheets>()
-            .register(kind, source);
-        self
-    }
-
-    fn register_prop_sheet_rows(&mut self, rows: &ambition_sprite_sheet::prop_sheets::PropSheetRows) -> Vec<String> {
-        for (kind, row) in rows {
-            self.register_prop_sheet(kind.clone(), sprite_folder_row(kind, row));
-        }
-        rows.keys().cloned().collect()
     }
 }
 

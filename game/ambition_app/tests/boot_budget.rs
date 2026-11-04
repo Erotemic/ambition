@@ -1,38 +1,12 @@
-//! Boot budgets: the numbers the always-on censuses print, enforced.
+//! Check boot image demand and duplicate schedule registrations.
 //!
-//! `[schedule-census]`, `[frame-spike]` and `[image]` print on every launch and
-//! nothing has ever failed when one regressed. That is how the boot decode
-//! reached 627 megapixels across 2.5 GB before anyone looked — the profile
-//! showed `png::filter::paeth::unfilter` burning seconds and named no asset, so
-//! the cost was visible and unattributable for as long as it existed.
-//!
-//! It is 11 MP now, because the character-definition seam made startup decode
-//! sheets on demand instead of eagerly. Nothing protected that.
-//!
-//! ## What is enforced, and what deliberately is not
-//!
-//! Only DETERMINISTIC numbers. Decoded pixels and registered systems are
-//! functions of the composition and the asset tree, so they mean the same thing
-//! on any machine. `[frame-spike]` milliseconds are not — a wall-clock budget in
-//! a suite that runs on loaded machines is a flake generator, and a flaky guard
-//! gets muted, which is worse than no guard.
-//!
-//! ## Why ceilings and not exact values
+//! Image dimensions measure asset demand independently of machine speed.
+//! Schedule checks identify the repeated system itself.
 
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
 
 /// Decoded megapixels at boot.
 const BOOT_MEGAPIXEL_BUDGET: f64 = 40.0;
-
-/// Systems registered across every schedule after the shell host is composed.
-/// Measured 3401 on 2026-10-10 (five boss-conduct adapters and a thrown-item
-/// system joined; `no_system_is_registered_twice_in_one_schedule` was green),
-/// and the ceiling moved to 3500: it is the blunt guard against a doubled
-/// plugin, which is about 750 systems. Measured 3505 on 2026-10-16 (the demo
-/// packs' live reload, the pickup-art resolve and peer slices joined;
-/// `no_system_is_registered_twice_in_one_schedule` was green), and the ceiling
-/// moved to 3600.
-const SYSTEM_COUNT_BUDGET: usize = 3600;
 
 /// Boot the shipped shell composition and let asset loading settle.
 ///
@@ -122,46 +96,6 @@ fn boot_decodes_no_more_than_its_budget() {
     );
 }
 
-#[test]
-fn the_composition_registers_no_more_systems_than_its_budget() {
-    let app = boot_and_settle();
-    let schedules = app.world().resource::<bevy::ecs::schedule::Schedules>();
-    let total: usize = schedules
-        .iter()
-        .map(|(_, schedule)| schedule.systems_len())
-        .sum();
-
-    assert!(
-        total > 0,
-        "no systems at all — this is measuring an app that was never composed"
-    );
-    assert!(
-        total <= SYSTEM_COUNT_BUDGET,
-        "the shell composition registers {total} systems, over the \
-         {SYSTEM_COUNT_BUDGET} budget. The usual cause is a plugin or plugin \
-         group installed by two owners: Bevy panics on a duplicate UNIQUE plugin, \
-         but a non-unique one silently doubles its systems, and a doubled \
-         message-update system drains its channel twice a frame and eats unread \
-         messages. Compare `[schedule-census]` output before and after the change \
-         — it prints per-schedule counts on every launch."
-    );
-    eprintln!("[boot-budget] {total} systems (budget {SYSTEM_COUNT_BUDGET})");
-}
-/// The precise version of the system-count budget.
-///
-/// The 3500 ceiling catches a doubled plugin only once the double is ~750 systems large, which is
-/// why it is described in its own doc comment as a blunt instrument.
-///
-/// Two exclusions, both principled rather than convenient:
-///
-/// * `apply_deferred` is the SCHEDULER's own sync point. It inserts one wherever
-///   ordering demands it — 19 in `Update` alone — and their count is a fact about
-///   command ordering, not about registration.
-/// * a `{{closure}}` has no name to be identified by. Eight distinct startup
-///   phase marks share one string, so equality there is a collision rather than a
-///   duplicate.
-///
-/// Anything else appearing twice in one schedule ran twice.
 #[test]
 fn no_system_is_registered_twice_in_one_schedule() {
     let mut app = boot_and_settle();

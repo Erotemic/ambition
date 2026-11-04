@@ -4,13 +4,13 @@
 //!
 //! A row is keyed by the `kind` a room's prop names, which is also the sheet
 //! target: the row loads `<sprite folder>/<kind>_spritesheet.png` with the
-//! rest of the art. The loader is the actor layer's `PropSheets`; this crate
-//! owns only the row and its check, so an edit to the file is drawn at the
-//! next start with no Rust build.
+//! rest of the art. This module owns the declarations that loading and rendering
+//! share. The asset loader decodes sheets when a room needs them.
 
 use std::collections::BTreeMap;
 
 use serde::Deserialize;
+use bevy::prelude::{App, Resource};
 
 use crate::character::SheetTuning;
 
@@ -60,6 +60,95 @@ impl AuthoredPropSheet {
 
 /// A game's prop sheets, by prop kind.
 pub type PropSheetRows = BTreeMap<String, AuthoredPropSheet>;
+
+/// Where one prop kind's sheet comes from: the sheet record `target` of the
+/// current sheet generation, drawn from its page image in the sprite folder.
+/// A `packed` sheet is drawn from the shared sprite pack first, at the
+/// quality tier of the game.
+#[derive(Clone, Debug)]
+pub struct PropSheetSource {
+    pub target: String,
+    pub tuning: crate::character::SheetTuning,
+    pub packed: bool,
+}
+
+/// Prop sheet declarations shared by asset loading and presentation.
+/// A registered kind can wait for its image without becoming an unknown kind.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct PropSheets(Vec<(String, PropSheetSource)>);
+
+impl PropSheets {
+    /// Add the sheet for `kind`. A kind has one sheet, so a second row for
+    /// the same kind is a composition error.
+    pub fn register(&mut self, kind: impl Into<String>, source: PropSheetSource) {
+        let kind = kind.into();
+        assert!(
+            self.0.iter().all(|(known, _)| *known != kind),
+            "the prop kind `{kind}` has two sheets registered; a kind has one look"
+        );
+        self.0.push((kind, source));
+    }
+
+    /// True when content declares a sheet for this kind.
+    pub fn contains(&self, kind: &str) -> bool {
+        self.0.iter().any(|(known, _)| known == kind)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &PropSheetSource)> {
+        self.0.iter().map(|(kind, source)| (kind.as_str(), source))
+    }
+
+    /// Replace the rows one provider registered from its pack (`previous`,
+    /// the kinds of its last registration) with `rows`, and return the kinds
+    /// it now owns. A kind another provider registered is refused, and
+    /// nothing changes: a reload must not take another provider's look.
+    pub fn restate<'a>(
+        &mut self,
+        previous: impl IntoIterator<Item = &'a str>,
+        rows: &PropSheetRows,
+    ) -> Result<Vec<String>, String> {
+        let previous: Vec<&str> = previous.into_iter().collect();
+        let taken: Vec<&String> = rows
+            .keys()
+            .filter(|kind| self.0.iter().any(|(known, _)| known == *kind) && !previous.contains(&kind.as_str()))
+            .collect();
+        if !taken.is_empty() {
+            return Err(format!("prop sheet kind(s) {taken:?} belong to another provider"));
+        }
+        self.0.retain(|(kind, _)| !previous.contains(&kind.as_str()));
+        self.0.extend(rows.iter().map(|(kind, row)| (kind.clone(), sprite_folder_row(kind, row))));
+        Ok(rows.keys().cloned().collect())
+    }
+}
+
+/// A pack row's source.
+fn sprite_folder_row(kind: &str, row: &AuthoredPropSheet) -> PropSheetSource {
+    PropSheetSource { target: row.target(kind).to_string(), tuning: row.tuning(), packed: row.packed }
+}
+
+/// Register prop sheets from a content plugin's `build`.
+pub trait PropSheetsAppExt {
+    fn register_prop_sheet(&mut self, kind: impl Into<String>, source: PropSheetSource) -> &mut Self;
+    /// Register each row of a pack's `prop_sheets`, and return the kinds, for
+    /// a reload to restate ([`PropSheets::restate`]).
+    fn register_prop_sheet_rows(&mut self, rows: &PropSheetRows) -> Vec<String>;
+}
+
+impl PropSheetsAppExt for App {
+    fn register_prop_sheet(&mut self, kind: impl Into<String>, source: PropSheetSource) -> &mut Self {
+        self.world_mut()
+            .get_resource_or_init::<PropSheets>()
+            .register(kind, source);
+        self
+    }
+
+    fn register_prop_sheet_rows(&mut self, rows: &PropSheetRows) -> Vec<String> {
+        for (kind, row) in rows {
+            self.register_prop_sheet(kind.clone(), sprite_folder_row(kind, row));
+        }
+        rows.keys().cloned().collect()
+    }
+}
 
 /// Each row the loader cannot draw, named by its kind and field.
 #[cfg(feature = "content_pack")]
@@ -233,4 +322,23 @@ mod tests {
         assert!(problems.iter().any(|problem| problem.starts_with("`low.top_px` is 80")), "{problems:?}");
         assert_eq!(problems.len(), 2, "{problems:?}");
     }
+}
+
+#[cfg(test)]
+mod registration_tests {
+    use super::*;
+
+#[test]
+#[should_panic(expected = "has two sheets registered")]
+fn a_prop_kind_has_one_sheet() {
+    let source = || PropSheetSource {
+        target: "a".to_string(),
+        tuning: crate::character::SheetTuning::new(1.0, 0),
+        packed: false,
+    };
+    let mut sheets = PropSheets::default();
+    sheets.register("a", source());
+    sheets.register("a", source());
+}
+
 }

@@ -64,6 +64,16 @@ read; it surfaced when the pages moved onto `load_sheet_image` (2026-10-05). Der
 without a row here is red there. Menu icons, shell images and prop pngs are
 deliberately not stamped.
 
+Prop loading and rendering share `ambition_sprite_sheet::prop_sheets::PropSheets`.
+A declared prop waits without a sprite until its sheet is available. Only an unknown
+kind uses the diagnostic rectangle. Props have visibility before their sprite
+arrives, so gate phases can hide them. The existing refresh system binds the finished
+image on the same entity. Guard: `a_declared_prop_waits_for_its_sheet_then_binds_on_the_same_entity`.
+
+Gate visual updates follow the room-visual spawner. The generic loading-zone
+door is hidden before the first draw. The visible-app gate test checks this on
+each frame, including the frame that creates the room visuals.
+
 ### Quality has one authority
 
 Every quality-aware materialization road consumes the active shared quality
@@ -172,9 +182,9 @@ own, at the tier's factor floored so a frame covers the largest box
 (`PORTRAIT_BOX_PX`, 104×120; a test holds it to the layout profiles), with a
 manifest in the tier's rects. A 256×320 frame is 128×160 at `0_5x` and 104×130
 at `0_25x` and `potato` (it was 16×20 at `potato`, a whole-image resize with no
-manifest). The sprite tree indexes the tier manifests by their own paths
-(`sprite_tree::portrait_manifests`); a tier manifest is not a second claim on
-its target. The dialogue draws the tier that the sprite budget loads
+manifest). The selected sprite generation retains the tier manifests, and
+`baked_portrait_registry` reads that generation. A tier manifest is not a second
+claim on its target. The dialogue draws the tier that the sprite budget loads
 (`PortraitSheetRegistry::tier_portrait`, `effective_scale()`), and the full
 product when a tier published none, as a character sheet does. Witnesses:
 `each_quality_tier_draws_the_portrait_it_published` (ambition_content),

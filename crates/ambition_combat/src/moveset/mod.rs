@@ -28,7 +28,7 @@ use bevy::prelude::{
 };
 
 use ambition_entity_catalog::{
-    AttackDir, ImpulseMode, MoveEventKind, MoveSpec, MoveWindow, MovesetContract, WindowTag,
+    AttackDir, MoveEventKind, MoveSpec, MoveWindow, MovesetContract, WindowTag,
 };
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
@@ -1536,11 +1536,11 @@ pub fn advance_move_playback(
                     // burst pointed wherever the body happened to be looking
                     // three windows later would not be the move that was
                     // committed to.
-                    let world = body_frame.to_world(ae::Vec2::new(local.0 * pb.facing, local.1));
-                    kin.vel = match mode {
-                        ImpulseMode::Add => kin.vel + world,
-                        ImpulseMode::Set => world,
-                    };
+                    let current = body_frame.to_local(kin.vel);
+                    let resolved = mode.apply_local(
+                        (current.x, current.y), (local.0 * pb.facing, local.1),
+                    );
+                    kin.vel = body_frame.to_world(ae::Vec2::new(resolved.0, resolved.1));
                     continue;
                 }
                 // A `Vfx` says where it happens in the same body-local terms a

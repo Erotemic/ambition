@@ -786,6 +786,32 @@ fn one_tick_sfx_move(cue: &str) -> MoveSpec {
     spec
 }
 
+#[test]
+fn ending_side_motion_preserves_fall_in_the_owners_gravity_frame() {
+    for gravity in [ae::Vec2::Y, ae::Vec2::X, ae::Vec2::new(0.6, 0.8)] {
+        let (mut app, _) = app_with_victim();
+        let mut spec = simple_melee(&SimpleMeleeParams::default());
+        spec.events = vec![MoveEvent {
+            at_s: 0.01,
+            kind: MoveEventKind::Impulse {
+                local: (0.0, 0.0),
+                mode: ambition_entity_catalog::ImpulseMode::SetSide,
+            },
+        }];
+        let body = spawn_attacker(&mut app, ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0), spec);
+        let basis = ae::AccelerationFrame::new(gravity);
+        app.world_mut().get_mut::<ae::BodyKinematics>(body).unwrap().vel =
+            basis.to_world(ae::Vec2::new(800.0, -180.0));
+        let mut frame = ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default();
+        frame.publish_resolved_frame(ae::MotionFrame::from_direction(gravity, 900.0));
+        app.world_mut().entity_mut(body).insert(frame);
+        app.update();
+        let local = basis.to_local(app.world().get::<ae::BodyKinematics>(body).unwrap().vel);
+        assert!(local.x.abs() < 1e-3, "the move kept its rush: {local:?}");
+        assert!((local.y + 180.0).abs() < 1e-3, "the side stop changed its fall: {local:?}");
+    }
+}
+
 /// Authored move events capture their CHARACTER PROVIDER at the move clock,
 /// before the event enters the external-effect quarantine. A crossover match
 /// can therefore play Sanic and Mary-O cues under one session owner without

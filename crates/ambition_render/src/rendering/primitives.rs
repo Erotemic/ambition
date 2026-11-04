@@ -115,6 +115,7 @@ pub struct PropTint(pub Color);
 /// the prop. `Without<PortalSprite>` leaves the gate ring and gate portal to
 /// the portal systems.
 #[derive(Component, Clone, Debug)]
+#[require(Visibility)]
 pub struct PropVisual {
     /// LDtk iid — for debug overlay + future save-key joins.
     #[allow(dead_code)]

@@ -8,6 +8,7 @@ use ambition_platformer2d_core::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
+use ambition_sprite_sheet::prop_sheets::PropSheets;
 
 use super::label_layout::WorldLabelFamily;
 use super::nameplates::DoorNameplateSource;
@@ -48,6 +49,7 @@ pub fn present_live_room_visuals(
         With<PresentedRoomVisuals>,
     >,
     assets: Option<Res<GameAssets>>,
+    prop_sheets: Option<Res<PropSheets>>,
     active_session: Option<Res<ActiveSessionScope>>,
     // The zones a game draws no picture for. Absent: each zone has its picture.
     hidden_zones: Option<Res<super::gate_portal_visuals::HiddenLoadingZones>>,
@@ -67,6 +69,7 @@ pub fn present_live_room_visuals(
             scope,
             rooms.rooms().spec(definition),
             assets.as_deref(),
+            prop_sheets.as_deref(),
             hidden_zones.as_deref(),
         );
         commands.spawn_session_scoped(
@@ -81,6 +84,7 @@ pub fn spawn_room_visuals(
     session_scope: SessionSpawnScope,
     spec: &ambition_platformer2d_world::rooms::RoomSpec,
     assets: Option<&GameAssets>,
+    prop_sheets: Option<&PropSheets>,
     // The loading zones that have no picture and no nameplate
     // (`HiddenLoadingZones`): a place to arrive at, or a zone that is a secret.
     hidden_zones: Option<&super::gate_portal_visuals::HiddenLoadingZones>,
@@ -332,7 +336,7 @@ pub fn spawn_room_visuals(
         }
     }
     for (index, prop) in spec.props.iter().enumerate() {
-        spawn_room_prop(commands, session_scope, world, prop, index, assets);
+        spawn_room_prop(commands, session_scope, world, prop, index, assets, prop_sheets);
     }
 }
 
@@ -466,6 +470,7 @@ pub fn spawn_room_prop(
     prop: &PropSpec,
     index: usize,
     assets: Option<&GameAssets>,
+    prop_sheets: Option<&PropSheets>,
 ) {
     // Built world draws in front, so a body inside it is hidden; scenery sits
     // behind the cast, in the room's order.
@@ -496,9 +501,8 @@ pub fn spawn_room_prop(
 
     if let Some(asset) = assets.and_then(|a| a.characters.prop_asset_for_kind(&prop.kind)) {
         entity.insert(prop_sprite_bundle(prop.draw, prop.flip_y, asset, collision));
-    } else {
-        // Fallback: a translucent placeholder rectangle, so authors see a
-        // marker for unregistered prop kinds.
+    } else if !prop_sheets.is_some_and(|sheets| sheets.contains(&prop.kind)) {
+        // Only unknown kinds use the marker. Declared sheets wait for the loader.
         entity.insert(Sprite::from_color(
             Color::srgba(0.55, 0.45, 0.85, 0.55),
             collision,

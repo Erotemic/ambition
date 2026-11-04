@@ -53,10 +53,8 @@ fn windup_travel(sprite_content: &ambition_sprite_sheet::SpriteContent, melee: M
         match &event.kind {
             ambition_entity_catalog::MoveEventKind::Impulse { local, mode } => {
                 let v = ae::Vec2::new(local.0 * seed.kin.facing, local.1);
-                seed.kin.vel = match mode {
-                    ambition_entity_catalog::ImpulseMode::Add => seed.kin.vel + v,
-                    ambition_entity_catalog::ImpulseMode::Set => v,
-                };
+                let resolved = mode.apply_local((seed.kin.vel.x, seed.kin.vel.y), (v.x, v.y));
+                seed.kin.vel = ae::Vec2::new(resolved.0, resolved.1);
             }
             ambition_entity_catalog::MoveEventKind::HoldVelocity { seconds } => {
                 assert!(model.hold_velocity(*seconds));

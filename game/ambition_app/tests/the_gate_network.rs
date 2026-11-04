@@ -411,6 +411,25 @@ fn ring_seven_answers_by_its_power_and_its_facility() {
 #[test]
 fn the_visible_app_builds_its_update_schedule_with_the_gate_network() {
     let mut app = ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    use bevy::prelude::*;
+    #[derive(Resource, Default)]
+    struct SeenGateVisuals(usize);
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_secs_f64(1.0 / 60.0),
+    ));
+    app.init_resource::<SeenGateVisuals>();
+    app.add_systems(Last, |portals: Option<Res<ambition_platformer2d::world::rooms::GatePortalRegistry>>,
+        visuals: Query<(&ambition_platformer2d::render::rendering::LoadingZoneVisual, &Visibility)>,
+        mut seen: ResMut<SeenGateVisuals>| {
+        let Some(portals) = portals else { return };
+        for (zone, visibility) in &visuals {
+            if portals.is_portal(&zone.id) {
+                seen.0 += 1;
+                assert_eq!(*visibility, Visibility::Hidden,
+                    "gate {} drew its generic door before its gate art", zone.id);
+            }
+        }
+    });
     app.finish();
     app.update();
     app.world_mut().write_message(ambition_platformer2d::game_shell::ShellCommand::ReplaceWith {
@@ -421,6 +440,7 @@ fn the_visible_app_builds_its_update_schedule_with_the_gate_network() {
     for _ in 0..5 {
         app.update();
     }
+    assert!(app.world().resource::<SeenGateVisuals>().0 > 0, "the route drew no gate zones");
     let mut names = Vec::new();
     app.world_mut().resource_scope::<bevy::ecs::schedule::Schedules, _>(|world, mut schedules| {
         let update = schedules.get_mut(bevy::prelude::Update).expect("an Update schedule");

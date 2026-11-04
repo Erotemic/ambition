@@ -908,7 +908,7 @@ mod tests {
     /// rows.
     #[test]
     fn a_pack_restates_only_its_own_rows_of_a_shared_catalog() {
-        use crate::game_assets::{PropSheets, PropSheetsAppExt};
+        use ambition_sprite_sheet::prop_sheets::{PropSheets, PropSheetsAppExt};
         use crate::sprite_sheet::prop_sheets::lowered_prop_sheets;
 
         let rows_of = |pack: &PreparedContentPack| lowered_prop_sheets(pack).cloned().unwrap_or_default();

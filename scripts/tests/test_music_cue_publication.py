@@ -34,8 +34,11 @@ def music(tmp_path, monkeypatch):
     monkeypatch.setattr(producer, "owner_dependencies", lambda family, cues=None: {
         cue: expected[cue] for cue in (expected if cues is None else cues)})
     monkeypatch.setattr(producer, "library", lambda: selected)
-    monkeypatch.setattr(producer, "selected_music_cues", lambda arguments: (
-        [arguments[1]] if arguments else sorted(expected)))
+    def selected_cues(arguments):
+        if "--cue" in arguments:
+            return arguments[arguments.index("--cue") + 1].split(",")
+        return sorted(expected)
+    monkeypatch.setattr(producer, "selected_music_cues", selected_cues)
 
     def publish(cue, data, extra=False):
         cues = [cue] if isinstance(cue, str) else cue
@@ -89,3 +92,85 @@ def test_a_scoped_check_does_not_claim_a_complete_library(music):
     music.expected["beta"] = "changed"
     assert producer.check("music", ["--cue", "alpha"]) == 0
     assert producer.check("music") == 1
+
+
+@pytest.mark.parametrize("concurrent", [False, True])
+@pytest.mark.parametrize("existing_registry", [False, True])
+def test_only_missing_music_keeps_existing_cues_and_updates_the_registry(music, monkeypatch, concurrent, existing_registry):
+    music.publish("alpha", b"accepted alpha")
+    if existing_registry:
+        source = music.cache / "old-registry.ron"
+        source.write_text("old registry")
+        unit = "producer:music:registry"
+        key = music.store.accept(unit, {"audio/music_registry.ron": (source, "runtime", "full")}, {})
+        music.store.publish({unit: key}, music.store.selected())
+    alpha = music.store.paths()["audio/music/generated/alpha/full.ogg"]
+    music.expected["alpha"] = "stale but retained"
+    calls = []
+
+    def generate(command, *, cwd, env):
+        calls.append(command)
+        assert command[command.index("--cue") + 1] == "beta"
+        root = Path(env["AMBITION_GENERATION_ROOT"])
+        folder = root / "audio/music/generated/beta"
+        folder.mkdir(parents=True)
+        (folder / "full.ogg").write_bytes(b"new beta")
+        (folder / "adaptive/intro").mkdir(parents=True)
+        (folder / "adaptive/intro/intro.full.ogg").write_bytes(b"intro")
+        (root / "audio/music_registry.ron").write_text("registry with alpha and beta")
+        if concurrent:
+            music.publish("beta", b"concurrent beta")
+        return 0
+
+    monkeypatch.setattr(producer.subprocess, "call", generate)
+    assert producer.run("music", ["--only-missing"]) == 0
+    paths = music.store.paths()
+    assert paths["audio/music/generated/alpha/full.ogg"] == alpha
+    assert alpha.read_bytes() == b"accepted alpha"
+    assert paths["audio/music/generated/beta/full.ogg"].read_bytes() == (b"concurrent beta" if concurrent else b"new beta")
+    assert paths["audio/music_registry.ron"].read_text() == "registry with alpha and beta"
+    if not concurrent:
+        assert paths["audio/music/generated/beta/adaptive/intro/intro.full.ogg"].read_bytes() == b"intro"
+    assert producer.run("music", ["--only-missing"]) == 0
+    assert len(calls) == 1
+
+
+def test_only_missing_can_restore_just_the_music_registry(music, monkeypatch):
+    music.publish("alpha", b"accepted alpha")
+    music.publish("beta", b"accepted beta")
+    held = music.store.paths().copy()
+    def generate(command, *, cwd, env):
+        assert command[-1].endswith("regen_music_registry.py")
+        root = Path(env["AMBITION_GENERATION_ROOT"])
+        (root / "audio").mkdir(parents=True)
+        (root / "audio/music_registry.ron").write_text("restored registry")
+        return 0
+    monkeypatch.setattr(producer.subprocess, "call", generate)
+    assert producer.run("music", ["--only-missing"]) == 0
+    paths = music.store.paths()
+    assert all(paths[name] == path for name, path in held.items())
+    assert paths["audio/music_registry.ron"].read_text() == "restored registry"
+
+
+@pytest.mark.parametrize("family", ["fonts", "music", "sfx", "variants"])
+def test_only_missing_refuses_forced_replacement(family):
+    with pytest.raises(ValueError, match="cannot be combined"):
+        producer.run(family, ["--only-missing", "--force"])
+
+
+@pytest.mark.parametrize("family", ["fonts", "sfx"])
+def test_only_missing_keeps_an_existing_media_publication(tmp_path, monkeypatch, family):
+    source = tmp_path / "asset"
+    source.write_bytes(b"accepted")
+    selected = SimpleNamespace(path=tmp_path / "library.json", manifest={"publication": "publication", "producers": {family: {}}})
+    store = producer.Store(tmp_path / "publication")
+    unit = "producer:" + family
+    key = store.accept(unit, {family + "/asset": (source, "runtime", "full")}, {})
+    before = store.publish({unit: key}, None)
+    monkeypatch.setattr(producer, "library", lambda: selected)
+    def refuse(*args, **kwargs):
+        raise AssertionError("Existing products must not need a freshness check or a renderer")
+    monkeypatch.setattr(producer, "current", refuse)
+    monkeypatch.setattr(producer.subprocess, "call", refuse)
+    assert producer.run(family, ["--only-missing"]) == 0
+    assert store.selected() == before

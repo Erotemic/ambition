@@ -123,3 +123,46 @@ def test_music_plan_and_registry_write_work_outside_the_checkout(tmp_path):
     )
     assert written.returncode == 0, written.stdout + written.stderr
     assert (tmp_path / "generated/runtime/full/audio/music_registry.ron").is_file()
+
+
+def test_missing_background_tiers_use_the_selected_source_bundle(tmp_path):
+    from PIL import Image
+
+    library = tmp_path / "library"
+    library.mkdir()
+    manifest = library / "library.json"
+    manifest.write_text(json.dumps({
+        "schema": "ambition.content_library.v1", "id": "fixture", "version": "1",
+        "asset_roots": {"generated": "generated/runtime/full", "half": "generated/runtime/half",
+                        "quarter": "generated/runtime/quarter", "potato": "generated/runtime/potato"},
+        "publication": "generated/publication", "provenance": "generated/provenance",
+        "producers": {"backgrounds": {"roots": ["backgrounds"]},
+                      "variants": {"roots": ["backgrounds/parallax_layers_0_5x",
+                                            "backgrounds/parallax_layers_0_25x", "backgrounds/parallax_layers_potato"]}},
+    }))
+    full = tmp_path / "sky.png"
+    half = tmp_path / "native-half.png"
+    Image.new("RGBA", (32, 32), "red").save(full)
+    Image.new("RGBA", (2, 2), "blue").save(half)
+    store = Store(library / "generated/publication")
+    key = store.accept("theme:fixture", {
+        "backgrounds/parallax_layers/sky.png": (full, "runtime", "full"),
+        "backgrounds/parallax_layers_0_5x/sky.png": (half, "runtime", "half"),
+    }, {})
+    store.publish({"theme:fixture": key}, None)
+    held = store.paths()["backgrounds/parallax_layers_0_5x/sky.png"]
+    env = dict(os.environ, AMBITION_CONTENT_LIBRARY=str(manifest), AMBITION_SPRITE_PYTHON=sys.executable,
+               PYTHONPATH=str(ROOT / "tools/ambition_sprite2d_renderer"))
+    command = [sys.executable, str(ROOT / "scripts/regen/generate_library_content.py"), "variants", "--backgrounds-only"]
+    for options in (["--only-missing"], ["--only-missing"], []):
+        before = store.selected()
+        result = subprocess.run([*command, *options], env=env, cwd=ROOT, text=True, capture_output=True)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert store.selected()["bundles"]["theme:fixture"] == key
+        assert "producer:backgrounds" not in store.selected()["bundles"]
+        assert store.paths()["backgrounds/parallax_layers_0_5x/sky.png"] == held
+        assert held.read_bytes() == half.read_bytes()
+        with Image.open(store.paths()["backgrounds/parallax_layers_0_25x/sky.png"]) as image:
+            assert image.size == (8, 8)
+        if options and len(before["bundles"]) > 1:
+            assert store.selected() == before

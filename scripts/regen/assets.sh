@@ -4,14 +4,11 @@
 # Usage:
 # ./scripts/regen/assets.sh                    # backgrounds, sprites, quality variants, music, sfx
 # ./scripts/regen/assets.sh sprites music      # selected categories, in the given order
-# ./scripts/regen/assets.sh --missing-only     # only the art that is not published
-# ./scripts/regen/assets.sh --missing-only backgrounds sprites
+# ./scripts/regen/assets.sh --only-missing     # only the art that is not published
+# ./scripts/regen/assets.sh --only-missing backgrounds sprites
 #
-# `--missing-only` is passed to the categories that publish bundles
-# (backgrounds, sprites): each builds only the products that have nothing
-# published, and keeps the others even when they are stale. The other
-# categories are incremental already (each rebuilds only what changed), so
-# they run as they do without it.
+# `--only-missing` keeps published products, including stale products.
+# `--missing-only` is an alias. Each producer selects its missing units.
 #
 # Category-specific options live on the category scripts:
 # ./scripts/regen/backgrounds.sh --help
@@ -44,7 +41,7 @@ missing_only=false
 requested=()
 for arg in "$@"; do
     case "$arg" in
-        --missing-only) missing_only=true ;;
+        --only-missing|--missing-only) missing_only=true ;;
         -*) echo "unknown option: $arg (see --help)" >&2; exit 2 ;;
         *) requested+=("$arg") ;;
     esac
@@ -52,7 +49,7 @@ done
 set -- ${requested[@]+"${requested[@]}"}
 missing_args=()
 if "$missing_only"; then
-    missing_args=(--missing-only)
+    missing_args=(--only-missing)
 fi
 
 if [ "$#" -eq 0 ]; then
@@ -69,7 +66,7 @@ run_category() {
     local category="$1"
     case "$category" in
         fonts)
-            python3 "$repo_root/scripts/regen/grab_font_assets.py"
+            python3 "$repo_root/scripts/regen/grab_font_assets.py" ${missing_args[@]+"${missing_args[@]}"}
             ;;
         backgrounds|background)
             bash "$repo_root/scripts/regen/backgrounds.sh" ${missing_args[@]+"${missing_args[@]}"}
@@ -78,13 +75,13 @@ run_category() {
             bash "$repo_root/scripts/regen/sprites.sh" ${missing_args[@]+"${missing_args[@]}"}
             ;;
         variants|quality-variants|visual-quality)
-            bash "$repo_root/scripts/regen/quality_variants.sh"
+            bash "$repo_root/scripts/regen/quality_variants.sh" ${missing_args[@]+"${missing_args[@]}"}
             ;;
         music)
-            bash "$repo_root/scripts/regen/music.sh"
+            bash "$repo_root/scripts/regen/music.sh" ${missing_args[@]+"${missing_args[@]}"}
             ;;
         sfx|effects)
-            bash "$repo_root/scripts/regen/sfx.sh"
+            bash "$repo_root/scripts/regen/sfx.sh" ${missing_args[@]+"${missing_args[@]}"}
             ;;
         *)
             echo "unknown asset category: $category" >&2

@@ -10,6 +10,7 @@
 #     into game/ambition_content_library/generated/runtime/audio/music/generated/. No dedicated installer.
 #
 # Usage:
+# ./scripts/regen/music.sh --only-missing     # keep existing published products
 # ./scripts/regen/music.sh                    # render + install everything (default)
 # ./scripts/regen/music.sh --skip-render      # only republish from existing renders
 # ./scripts/regen/music.sh --cue id,id          # only these library cues

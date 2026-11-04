@@ -225,7 +225,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--dry-run", action="store_true", help="print planned downloads without writing"
     )
+    parser.add_argument("--only-missing", "--missing-only", action="store_true", help="keep existing fonts")
     args = parser.parse_args(argv)
+    if args.only_missing and args.force:
+        parser.error("--only-missing cannot be combined with --force")
     return grab_fonts(
         args.out_dir.resolve(),
         args.cache_dir.resolve(),

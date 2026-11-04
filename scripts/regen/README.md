@@ -50,6 +50,25 @@ files. `./scripts/regen/sprites.sh --check-toolchain` checks the renderer setup.
 ⚠ Do not run a regen concurrently with a `static_content` build or with a
 running test: one writes the files the other is reading.
 
+## Generate only missing products
+
+Every asset entry point accepts `--only-missing`. `--missing-only` is an alias.
+The umbrella passes the option to every selected family.
+
+```bash
+./scripts/regen/music.sh --only-missing
+./scripts/regen/assets.sh --only-missing
+./scripts/regen/quality_variants.sh --only-missing
+```
+
+This mode builds units that have no accepted publication. It keeps existing
+units, including stale or partial units. Music selects each cue separately and
+updates the registry when it adds cues. Fonts and the SFX bank are family units.
+Sprite and scenery units include their quality tiers. Background conversions
+keep each existing tier image. Use a normal generation run to repair partial
+units or update stale products. Do not combine this mode with `--force` or
+`--clean`.
+
 ## Selected library and accepted products
 
 The `producers` table in `game/ambition_content_library/library.json` selects

@@ -9,6 +9,7 @@
 #   3. ambition_sfx_pack                 →  game/ambition_content_library/generated/runtime/audio/sfx.bank
 #
 # Usage:
+# ./scripts/regen/sfx.sh --only-missing     # keep existing published products
 # ./scripts/regen/sfx.sh              # render (incremental) + repack (default)
 # ./scripts/regen/sfx.sh --force      # force re-render every cue, then repack
 # ./scripts/regen/sfx.sh --skip-render  # only repack from existing renders

@@ -5,7 +5,7 @@
 # Usage:
 # ./scripts/regen/backgrounds.sh
 # ./scripts/regen/backgrounds.sh --theme art --skin art   # only these products
-# ./scripts/regen/backgrounds.sh --missing-only           # only what is not published
+# ./scripts/regen/backgrounds.sh --only-missing           # only what is not published
 #   AMBITION_BACKGROUND_PYTHON=/path/to/python ./scripts/regen/backgrounds.sh
 #   AMBITION_SPRITE_PYTHON=/path/to/python ./scripts/regen/backgrounds.sh
 #
@@ -26,7 +26,7 @@ cd "$repo_root"
 
 scoped_request=false
 for arg in "$@"; do
-    case "$arg" in --theme|--theme=*|--skin|--skin=*|--missing-only) scoped_request=true ;; esac
+    case "$arg" in --theme|--theme=*|--skin|--skin=*|--missing-only|--only-missing) scoped_request=true ;; esac
 done
 if "$scoped_request"; then
         source "$repo_root/scripts/lib/tool_python.sh"

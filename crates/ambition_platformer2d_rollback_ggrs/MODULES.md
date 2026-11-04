@@ -15,9 +15,10 @@
 | [`probes`](src/probes.rs) | Per-component checksum localization across rollback save/load. |
 | [`registrar`](src/registrar.rs) | The GGRS side of the domain-owned registration seam. |
 | [`registration`](src/registration.rs) | GGRS-backed implementation of Ambition's typed rollback registration vocabulary. |
+| [`room_promises`](src/room_promises.rs) | Frozen peer preparation offers and their native rollback lifetime. |
 | [`session`](src/session.rs) | GGRS session/input bridge shared by the harness and future network hosts. |
 
-_10 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_11 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -154,7 +154,9 @@ fn each_peer_prepared(world: &World, intent: &PendingIntent) -> bool {
     let Some(verdicts) = world.get_resource::<crate::PeerVerdicts>() else {
         return false;
     };
-    let operation = crate::PeerOperation::from(intent);
+    let Some(operation) = selected_preparation(world, intent).as_ref().map(crate::PeerOperation::from) else {
+        return false;
+    };
     let failed = verdicts.failed(operation);
     if !failed.is_empty() {
         bevy::log::error_once!(
@@ -188,6 +190,7 @@ pub fn end_an_operation_a_peer_could_not_prepare(
     inputs: Option<Res<bevy_ggrs::PlayerInputs<crate::AmbitionGgrsConfig>>>,
     pending: Option<ResMut<PendingLifecycleCommit>>,
     boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
+    captured: Query<&ambition_platformer2d_session::room_preparation::CapturedRoomPreparation, With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>>,
 ) {
     use crate::peer_input::PreparationVerdict;
     if !matches!(ownership.as_deref(), Some(RollbackSessionOwnership::Peer)) {
@@ -196,7 +199,9 @@ pub fn end_an_operation_a_peer_could_not_prepare(
     let (Some(inputs), Some(mut pending)) = (inputs, pending) else {
         return;
     };
-    let Some(operation) = pending.peek().map(crate::PeerOperation::from) else {
+    let Some(operation) = pending.peek()
+        .and_then(|intent| captured.single().ok()?.for_operation(intent))
+        .map(crate::PeerOperation::from) else {
         return;
     };
     let failed: Vec<usize> = inputs
@@ -235,14 +240,20 @@ pub fn decide_this_peers_verdict(world: &mut World) {
     let verdict = match pending.filter(|_| peer) {
         None => PeerVerdict::default(),
         Some(intent) => {
-            let operation = crate::PeerOperation::from(&intent);
+            let Some(operation) = selected_preparation(world, &intent).as_ref().map(crate::PeerOperation::from) else {
+                world.insert_resource(crate::ThisPeersVerdict::default());
+                return;
+            };
             let (plan, said) = match authorized_plan(world, &intent) {
-                AuthorizedPlan::Ready(plan, _) => match plan.peer_identity().map(crate::PeerPlanIdentity::from) {
+                AuthorizedPlan::Ready(authorization) => match authorization.peer_identity() {
                     Some(plan) => {
                         let mismatches = world.get_resource::<crate::PeerVerdicts>()
                             .map(|verdicts| verdicts.mismatched_plans(operation, plan)).unwrap_or_default();
                         if !mismatches.is_empty() {
                             bevy::log::error_once!("peer room preparation differs for {operation:?}: handles {mismatches:?}, expected {plan:?}");
+                        }
+                        if mismatches.is_empty() {
+                            world.resource_mut::<crate::room_promises::PromisedRoomPlans>().retain(authorization);
                         }
                         (plan, if mismatches.is_empty() { PreparationVerdict::Prepared } else { PreparationVerdict::Failed })
                     }
@@ -251,6 +262,7 @@ pub fn decide_this_peers_verdict(world: &mut World) {
                         (Default::default(), PreparationVerdict::Failed)
                     }
                 },
+                AuthorizedPlan::InvalidPromise => (Default::default(), PreparationVerdict::Failed),
                 AuthorizedPlan::Wait => {
                     let failed = world.get_resource::<ambition_platformer2d_runtime::room_transition::RoomTransitionLoadState>()
                         .is_some_and(|state| state.failed_to_prepare(&intent));
@@ -335,22 +347,24 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     // build against a different content epoch than the transaction checked. A
     // rebuild with nobody in it is not a cheaper operation, only a bodyless one.
     let authorized = match authorized_plan(world, &operation) {
-        AuthorizedPlan::Ready(plan, checkpoint_operation) => {
+        AuthorizedPlan::Ready(authorization) => {
             if matches!(committer, Committer::BehindThePeerBarrier) {
+                let peer_operation = crate::PeerOperation::from(&authorization.preparation);
                 let Some(agreed) = world.get_resource::<crate::PeerVerdicts>()
-                    .and_then(|verdicts| verdicts.prepared_plan(crate::PeerOperation::from(&operation))) else {
+                    .and_then(|verdicts| verdicts.prepared_plan(peer_operation)) else {
                     return;
                 };
-                if plan.peer_identity().map(crate::PeerPlanIdentity::from) != Some(agreed) {
+                if authorization.peer_identity() != Some(agreed) {
                     return;
                 }
             }
-            Some((plan, checkpoint_operation))
+            let checkpoint_operation = authorization.operation().checkpoint_operation;
+            Some((authorization.plan, checkpoint_operation))
         },
         // Not yet, or no longer valid. Returning is not DROPPING: the intent
         // stays pending and this runs again next frame while the transaction
         // progresses (or is superseded) in `Update`.
-        AuthorizedPlan::Wait => return,
+        AuthorizedPlan::Wait | AuthorizedPlan::InvalidPromise => return,
     };
     let kind = operation.kind;
 
@@ -492,39 +506,43 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     }
 }
 
-/// The authorized plan, or a reason to wait.
+/// The exact plan and admission inputs authorized for a crossing.
 enum AuthorizedPlan {
-    /// The plan, and WHICH checkpoint restore the transaction was opened for.
-    ///
-    /// ⭐ THE KEY TRAVELS WITH THE PLAN because they come from the same
-    /// transaction, and reading either without the other invites re-deriving the
-    /// second by resemblance later.
-    Ready(
-        std::sync::Arc<RoomConstructionPlan>,
-        Option<ambition_platformer2d_session::checkpoint::CheckpointOperationKey>,
-    ),
+    Ready(crate::room_promises::AuthorizedRoomPlan),
+    InvalidPromise,
     Wait,
 }
 
-/// Return the exact construction plan authorized for this crossing.
-///
-/// Intent, content epoch, session scope, and source room must still match the
-/// active transaction. A mismatch waits for readiness to supersede the stale
-/// transaction rather than cancelling the still-pending crossing.
-fn authorized_plan(
-    world: &mut World,
+fn selected_preparation(
+    world: &World,
     operation: &PendingIntent,
-) -> AuthorizedPlan {
-    let intent = &operation.kind;
-    // Everything the active transaction is compared against, copied out FIRST:
-    // the checks below query the world, and a live borrow of the load state
-    // would make that impossible.
-    let epoch = world
-        .get_resource::<ambition_platformer2d_runtime::room_transition::RoomTransitionContentEpoch>(
-        )
+) -> Option<ambition_platformer2d_session::room_preparation::RoomPreparation> {
+    ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+        ambition_platformer2d_session::room_preparation::CapturedRoomPreparation,
+    >(world)?.for_operation(operation).cloned()
+}
+
+/// A peer uses its retained promise even after presentation retires the load.
+fn authorized_plan(world: &mut World, operation: &PendingIntent) -> AuthorizedPlan {
+    if matches!(world.get_resource::<RollbackSessionOwnership>(), Some(RollbackSessionOwnership::Peer)) {
+        if let Some(preparation) = selected_preparation(world, operation) {
+            if let Some(promise) = world.get_resource::<crate::room_promises::PromisedRoomPlans>()
+                .and_then(|plans| plans.get(&preparation)).cloned() {
+                return if promise.matches_world(world) {
+                    AuthorizedPlan::Ready(promise)
+                } else {
+                    AuthorizedPlan::InvalidPromise
+                };
+            }
+        }
+    }
+    authorized_loading_plan(world, operation)
+}
+
+fn authorized_loading_plan(world: &mut World, operation: &PendingIntent) -> AuthorizedPlan {
+    let epoch = world.get_resource::<ambition_platformer2d_runtime::room_transition::RoomTransitionContentEpoch>()
         .map(|epoch| epoch.get());
-    let session_scope = world
-        .get_resource::<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>()
+    let session_scope = world.get_resource::<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>()
         .and_then(|scope| scope.current());
     let Some(state) = world
         .get_resource::<ambition_platformer2d_runtime::room_transition::RoomTransitionLoadState>()
@@ -544,13 +562,13 @@ fn authorized_plan(
             "the authorized room transition describes a different crossing than the \
              pending one ({:?} vs {:?}); waiting for a transaction that matches",
             active.intent,
-            intent
+            operation.kind
         );
         return AuthorizedPlan::Wait;
     }
-    // Taken WITH the plan, from the same transaction, so no later stage has to
-    // re-derive which operation this is by comparing intents.
-    let checkpoint_operation = active.checkpoint_operation;
+    if epoch != Some(active.content_epoch) || session_scope != active.session_scope {
+        return AuthorizedPlan::Wait;
+    }
     let Some(plan) = active.construction_plan.clone() else {
         // Authorized with no prepared plan is not a state the transaction should
         // reach; say so rather than silently preparing one here.
@@ -560,35 +578,20 @@ fn authorized_plan(
         );
         return AuthorizedPlan::Wait;
     };
-    if epoch != Some(active.content_epoch) {
-        bevy::log::warn_once!(
-            "the authorized room transition was prepared under content epoch {} and \
-             the world is now at {:?}; waiting for a transaction prepared against \
-             the current content",
-            active.content_epoch,
-            epoch
-        );
+    let Some(preparation) = active.preparation.clone() else {
+        return AuthorizedPlan::Wait;
+    };
+    if preparation.admission() != operation {
         return AuthorizedPlan::Wait;
     }
-    if session_scope != active.session_scope {
+    let authorization = crate::room_promises::AuthorizedRoomPlan {
+        plan, preparation,
+        source_room: active.source_room,
+    };
+    if !authorization.matches_world(world) {
         return AuthorizedPlan::Wait;
     }
-    // The room a crossing leaves: its subject's live room (OW1 cut 6b).
-    let source_room = ambition_platformer2d_world::rooms::live_room_definition_left_by(
-        world,
-        active.intent.subject(),
-    )
-    .map(|definition| definition.index());
-    if source_room != Some(active.source_room) {
-        bevy::log::warn_once!(
-            "the authorized room transition was prepared from room index {} and the \
-             world is now in {:?}; waiting",
-            active.source_room,
-            source_room
-        );
-        return AuthorizedPlan::Wait;
-    }
-    AuthorizedPlan::Ready(plan, checkpoint_operation)
+    AuthorizedPlan::Ready(authorization)
 }
 
 /// Complete a confirmed room-transition readiness transaction. If presentation owns the
@@ -918,6 +921,17 @@ mod tests {
         ActiveRoomTransitionLoad, RoomTransitionLoadPhase, RoomTransitionLoadState,
     };
 
+    fn capture_pending(world: &mut World) -> crate::PeerOperation {
+        use bevy::ecs::system::RunSystemOnce;
+        use ambition_platformer2d_session::room_preparation::{CapturedRoomPreparation, capture_room_preparation_inputs};
+        use ambition_platformer2d_session::checkpoint::AcceptedCheckpointRestore;
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(world,
+            (CapturedRoomPreparation::default(), AcceptedCheckpointRestore::default()));
+        world.run_system_once(capture_room_preparation_inputs).unwrap();
+        let intent = world.resource::<PendingLifecycleCommit>().peek().unwrap();
+        crate::PeerOperation::from(&selected_preparation(world, intent).unwrap())
+    }
+
     fn intent_to(target_room: &str, subject: SimId) -> LifecycleIntent {
         LifecycleIntent::Transition(RoomTransitionIntent {
             subject: LiveBodyId::new(subject, None),
@@ -997,7 +1011,7 @@ mod tests {
             world.insert_resource(pending);
             world.insert_resource(crate::RollbackFrameCount(frame));
             let mut verdicts = crate::PeerVerdicts::for_handles(2);
-            let operation = crate::PeerOperation::from(world.resource::<PendingLifecycleCommit>().peek().unwrap());
+            let operation = capture_pending(&mut world);
             for (handle, said) in said.into_iter().enumerate() {
                 verdicts.record(handle, confirmed, PeerVerdict { operation, plan: test_plan_identity(), said });
             }
@@ -1021,14 +1035,14 @@ mod tests {
         let old = PendingIntent { frame: 30, checkpoint_operation: None, kind: intent_to("old", SimId::placement("hero")) };
         let mut pending = PendingLifecycleCommit::default();
         assert!(pending.record(30, intent_to("new", SimId::placement("hero"))).admitted());
-        let replacement = PeerOperation::from(pending.peek().unwrap());
         let mut world = World::new();
         world.insert_resource(pending);
+        let replacement = capture_pending(&mut world);
         world.insert_resource(crate::RollbackFrameCount(40));
         let mut verdicts = crate::PeerVerdicts::for_handles(2);
         for handle in 0..2 {
             verdicts.record(handle, 40, PeerVerdict {
-                operation: PeerOperation::from(&old), plan: test_plan_identity(), said: PreparationVerdict::Prepared,
+                operation: PeerOperation { recorded_on: old.frame, intent_checksum: old.checksum(), preparation_checksum: 0 }, plan: test_plan_identity(), said: PreparationVerdict::Prepared,
             });
         }
         world.insert_resource(verdicts);

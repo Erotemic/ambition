@@ -897,10 +897,11 @@ Peer replies now bind the recording frame and intent checksum (`b2120db9d`).
 A replaced intent cannot use the old reply. Guards:
 `verdicts_for_a_replaced_intent_do_not_prepare_or_fail_its_replacement` and
 `a_peer_waits_for_the_replacement_intent_even_when_its_frame_is_unchanged`.
-Wire identity 6 binds replies to both stated content identities and the frozen
-plan digest. Different plans refuse the crossing on both peers. Guard:
+Wire identity 7 binds replies to both stated content identities, the frozen
+plan digest, and captured preparation checksum. Different plans refuse the crossing on both peers. Guard:
 `peers_refuse_different_room_plans_under_the_same_content_identity`.
-Retained promises and commit dependency checks remain open.
+Offered plans now survive loading receipt retirement and remain through the
+native snapshot and delayed-input horizon. Target dependency checks remain open.
 
 Restore admission now carries the checkpoint key (`ce283f8f0`). A refused
 request spends no sequence. Guards: `restore_admission_is_atomic_and_refusal_spends_no_key` and
@@ -917,8 +918,9 @@ Construction plans now expose an identity for their exact frozen data and both
 stated content identities. Local activation counters remain in the local cache key.
 Guard: `peer_plan_identity_binds_retained_services_without_local_history`.
 
-**Next step:** retain promised plans through the rollback horizon, check commit
-dependencies, and add an occurrence that changes during peer preparation.
+**Next step:** check target dependencies at commit and add an occurrence that
+changes during peer preparation. Then use each frame's input verdicts for the
+ordinary crossing inside the simulation.
 Keep the existing safe hold until those pass.
 The `LOCAL-PLAY-MODES` leave slice and `COOP-RECOVERY` remain separate work
 items; reuse their participant lifecycle and checkpoint rules, not duplicate

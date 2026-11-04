@@ -44,20 +44,25 @@ The room state is partly ready for a reversible commit. The core registers
 that room publication, actor construction, retirement, and their references
 can survive a rollback across a crossing. Prove that behavior first.
 
-`PeerVerdict` identifies an operation by its recording frame and the admitted
-intent checksum, which includes its checkpoint key. Replies for a replaced intent cannot prepare or
+`PeerVerdict` identifies an operation by its recording frame, admitted intent
+checksum, and captured preparation checksum. The intent includes its checkpoint key. Replies for a replaced intent cannot prepare or
 fail its replacement, even when both use the same frame. The wire identity is
-6. Guards: `verdicts_for_a_replaced_intent_do_not_prepare_or_fail_its_replacement`
+7. Guards: `verdicts_for_a_replaced_intent_do_not_prepare_or_fail_its_replacement`
 and `a_peer_waits_for_the_replacement_intent_even_when_its_frame_is_unchanged`.
+An older capture cannot prepare or fail its replacement. Guards:
+`verdicts_for_an_older_capture_do_not_prepare_or_fail_the_current_capture` and
+`the_same_intent_on_a_corrected_branch_needs_its_own_preparation`.
 Replies also carry both content identities and the frozen plan digest. Agreement
 requires stated content and equal plan data on every handle. The commit checks
 its local plan against that agreement. A mismatch publishes `Failed` through
-the input stream. Wire identity 6 carries 158 bytes. Guards:
+the input stream. Wire identity 7 carries 166 bytes, including the captured preparation checksum. Guards:
 `preparation_requires_the_same_content_and_frozen_plan` and
 `peers_refuse_different_room_plans_under_the_same_content_identity`.
-Retained promises and commit dependency checks remain open. The host keeps one current
-preparation transaction. Its presentation tail can
-remain after the commit. Neither a render deadline nor that tail can select
+The host retains each offered plan and its exact captured preparation outside
+that transaction. Commit checks the current content binding, session, source
+room, and captured preparation. Target occurrence dependency checks remain open.
+The loading transaction's presentation tail can remain after the commit.
+Neither a render deadline nor that tail can select
 the simulation frame of the next peer commit.
 
 Occurrence and mint continuity are now captured on the admitting simulation
@@ -68,8 +73,8 @@ A missing pinned restore records an error. Schema 413 includes this state.
 Guards: `room_preparation::tests` and
 `lifecycle_snapshot_tests::room_preparation_inputs_survive_the_registered_snapshot_path`.
 
-This capture does not authorize a stale construction plan. Content and plan
-identity, commit dependency checks, and retained promises remain open. An
+This capture does not authorize a stale construction plan. Target dependency
+checks remain open. An
 existing live destination uses its live state; moving actors there must not
 force a new room-construction promise each tick.
 
@@ -99,9 +104,29 @@ Guards: `peer_plan_identity_binds_retained_services_without_local_history`,
 
 `RoomConstructionPlan::peer_identity` requires both stated content identities
 and excludes local activation counters. Local plan IDs add those counters for
-cache use. Peer replies carry this identity. Commit dependency checks and
-retained promises remain open. Do not send the local plan ID as
+cache use. Peer replies carry this identity and the captured preparation
+checksum. Target dependency checks remain open. Do not send the local plan ID as
 proof of peer preparation.
+
+## Retained plan lifetime
+
+`PromisedRoomPlans` owns each offered plan and its captured inputs. The peer
+uses that exact plan after the loading receipt retires. A later readiness pass
+cannot replace a promise for the same admission and preparation. Session reset
+releases the old timeline's promises.
+
+Each published local input records the frame that can reference its plan,
+including input delay. After a real save, the lower bound of retained snapshots
+is at least the smaller of the saved frame and the confirmed frame. The saved
+frame is required for sparse saving. The checksum-only witness does not move
+this bound. A lockstep peer has no saved history.
+
+Release a promise only when it is not the selected pending operation and that
+bound has passed its last input frame. No render deadline or cache policy can
+release it. Guards:
+`a_promise_survives_replay_and_sparse_saves_until_its_last_input_is_unreachable`,
+`a_pending_promise_is_immutable_and_outlives_the_saved_floor`, and
+`a_peer_keeps_its_promised_room_plan_after_the_load_receipt_retires`.
 
 ## Operation identity and preparation
 

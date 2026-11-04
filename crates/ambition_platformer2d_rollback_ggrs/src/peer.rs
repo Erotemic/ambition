@@ -148,6 +148,10 @@ pub struct PeerLineage {
 }
 
 impl PeerLineage {
+    pub(crate) fn input_delay(&self) -> usize {
+        self.settings.input_delay
+    }
+
     /// The generation of the live session.
     pub fn generation(&self) -> u32 {
         self.generation

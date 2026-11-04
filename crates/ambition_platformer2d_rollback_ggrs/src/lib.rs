@@ -40,6 +40,7 @@ pub mod peer_input;
 mod probes;
 mod registrar;
 mod registration;
+mod room_promises;
 pub mod session;
 #[cfg(test)]
 mod session_ownership_tests;
@@ -173,6 +174,12 @@ impl Plugin for GgrsBackendPlugin {
         .configure_sets(
             SaveWorld,
             SaveWorldSystems::Snapshot.run_if(first_run_witness::not_witnessing),
+        )
+        .add_systems(
+            SaveWorld,
+            room_promises::collect_after_save
+                .after(SaveWorldSystems::Snapshot)
+                .run_if(first_run_witness::not_witnessing),
         )
         .add_systems(
             SaveWorld,

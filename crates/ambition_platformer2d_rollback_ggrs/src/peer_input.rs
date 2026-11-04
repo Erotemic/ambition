@@ -43,11 +43,13 @@ pub enum PreparationVerdict {
 pub struct PeerOperation {
     pub recorded_on: i32,
     pub intent_checksum: u64,
+    pub preparation_checksum: u64,
 }
 
-impl From<&ambition_platformer2d_session::lifecycle_commit::PendingIntent> for PeerOperation {
-    fn from(intent: &ambition_platformer2d_session::lifecycle_commit::PendingIntent) -> Self {
-        Self { recorded_on: intent.frame, intent_checksum: intent.checksum() }
+impl From<&ambition_platformer2d_session::room_preparation::RoomPreparation> for PeerOperation {
+    fn from(preparation: &ambition_platformer2d_session::room_preparation::RoomPreparation) -> Self {
+        let intent = preparation.admission();
+        Self { recorded_on: intent.frame, intent_checksum: intent.checksum(), preparation_checksum: preparation.checksum() }
     }
 }
 
@@ -197,6 +199,7 @@ mod the_bytes_two_peers_exchange {
                 operation: PeerOperation {
                     recorded_on: 0x0102_0304,
                     intent_checksum: 0x0102_0304_0506_0708,
+                    preparation_checksum: 9,
                 },
                 plan: plan(),
                 said: PreparationVerdict::Failed,
@@ -205,11 +208,11 @@ mod the_bytes_two_peers_exchange {
     }
 
     /// The control part (70 bytes), then `operation` as a little-endian
-    /// `i32`, the intent checksum, both content identities, the plan digest,
+    /// `i32`, the intent and preparation checksums, both content identities, the plan digest,
     /// and `Failed` as a `u32` variant index.
-    const RECORDED: &str = "000040bf00000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004030201080706050403020101010101010101010101010101010101010101010101010101010101010101010202020202020202020202020202020202020202020202020202020202020202070000000000000002000000";
+    const RECORDED: &str = "000040bf000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040302010807060504030201090000000000000001010101010101010101010101010101010101010101010101010101010101010202020202020202020202020202020202020202020202020202020202020202070000000000000002000000";
 
-    const RECORDED_WIRE_BYTES: u64 = 158;
+    const RECORDED_WIRE_BYTES: u64 = 166;
 
     fn hex(bytes: &[u8]) -> String {
         bytes.iter().map(|byte| format!("{byte:02x}")).collect()
@@ -249,7 +252,7 @@ mod the_bytes_two_peers_exchange {
 
     #[test]
     fn a_verdict_is_of_one_operation_and_the_newest_confirmed_frame_wins() {
-        let key = |recorded_on| PeerOperation { recorded_on, intent_checksum: 7 };
+        let key = |recorded_on| PeerOperation { recorded_on, intent_checksum: 7, preparation_checksum: 9 };
         let prepared = |frame| PeerVerdict { operation: key(frame), plan: plan(), said: PreparationVerdict::Prepared };
         let failed = |frame| PeerVerdict { operation: key(frame), plan: plan(), said: PreparationVerdict::Failed };
         let mut not_a_peer_session = PeerVerdicts::default();
@@ -279,8 +282,9 @@ mod the_bytes_two_peers_exchange {
                 target_room: room.into(),
             }),
         };
-        let old = PeerOperation::from(&intent("old"));
-        let replacement = PeerOperation::from(&intent("replacement"));
+        let key = |intent: PendingIntent| PeerOperation { recorded_on: intent.frame, intent_checksum: intent.checksum(), preparation_checksum: 9 };
+        let old = key(intent("old"));
+        let replacement = key(intent("replacement"));
         let mut verdicts = PeerVerdicts::for_handles(2);
         verdicts.record(0, 40, PeerVerdict { operation: old, plan: plan(), said: PreparationVerdict::Prepared });
         verdicts.record(1, 40, PeerVerdict { operation: old, plan: plan(), said: PreparationVerdict::Failed });
@@ -292,8 +296,27 @@ mod the_bytes_two_peers_exchange {
     }
 
     #[test]
+    fn verdicts_for_an_older_capture_do_not_prepare_or_fail_the_current_capture() {
+        let old = PeerOperation { recorded_on: 30, intent_checksum: 7, preparation_checksum: 9 };
+        let current = PeerOperation { preparation_checksum: 10, ..old };
+        let mut verdicts = PeerVerdicts::for_handles(2);
+        for said in [PreparationVerdict::Prepared, PreparationVerdict::Failed] {
+            for handle in 0..2 {
+                verdicts.record(handle, 40, PeerVerdict { operation: old, plan: plan(), said });
+            }
+            assert!(verdicts.prepared_plan(current).is_none());
+            assert!(verdicts.failed(current).is_empty());
+            assert!(verdicts.mismatched_plans(current, plan()).is_empty());
+        }
+        for handle in 0..2 {
+            verdicts.record(handle, 41, PeerVerdict { operation: current, plan: plan(), said: PreparationVerdict::Prepared });
+        }
+        assert_eq!(verdicts.prepared_plan(current), Some(plan()));
+    }
+
+    #[test]
     fn preparation_requires_the_same_content_and_frozen_plan() {
-        let operation = PeerOperation { recorded_on: 30, intent_checksum: 7 };
+        let operation = PeerOperation { recorded_on: 30, intent_checksum: 7, preparation_checksum: 9 };
         let expected = plan();
         let mut changed_incoming = expected;
         changed_incoming.incoming_content[0] ^= 1;

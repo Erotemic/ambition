@@ -310,6 +310,10 @@ impl RoomConstructionPlan {
         self.target_index
     }
 
+    pub fn content_scope(&self) -> &ambition_platformer2d_shared_tangle::construction::ConstructionScope {
+        self.features.construction().scope()
+    }
+
     pub fn room_id(&self) -> &str {
         &self.features.room().id
     }

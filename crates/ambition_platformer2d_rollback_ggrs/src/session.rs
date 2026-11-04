@@ -264,6 +264,7 @@ fn has_session_world_root(world: &World) -> bool {
 /// function does not become a second authority on which latches exist.
 fn reset_input_authority(world: &mut World) {
     world.insert_resource(PendingSeatInputs::default());
+    world.insert_resource(crate::room_promises::PromisedRoomPlans::default());
     // One table holds every seat's latch, so all seats reset together.
     if world.contains_resource::<ambition_characters::control::SlotControlLatches>() {
         world.insert_resource(ambition_characters::control::SlotControlLatches::default());
@@ -932,6 +933,7 @@ pub(crate) fn install_session_bridge(app: &mut App) {
     app.init_resource::<InputSeamMisuse>()
         .init_resource::<PendingSeatInputs>()
         .init_resource::<ThisPeersVerdict>()
+        .init_resource::<crate::room_promises::PromisedRoomPlans>()
         .init_resource::<PeerVerdicts>()
         .init_resource::<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>()
         .init_resource::<RollbackExecutionStats>()
@@ -997,6 +999,8 @@ pub(crate) fn install_session_bridge(app: &mut App) {
             (
                 enforce_session_contract.before(RunGgrsSystems),
                 clear_historical_replay.after(RunGgrsSystems),
+                crate::room_promises::collect_without_snapshots.after(RunGgrsSystems)
+                    .before(crate::lifecycle_commit::commit_confirmed_lifecycle),
                 record_peer_events.after(RunGgrsSystems),
                 // The state the first run left, before a confirmed lifecycle
                 // operation rebuilds the timeline over it.
@@ -1092,10 +1096,17 @@ fn publish_local_inputs(
     // so this is not the first frame of one.
     frame: Option<Res<RollbackFrameCount>>,
     ownership: Option<Res<RollbackSessionOwnership>>,
+    lineage: Option<Res<crate::peer::PeerLineage>>,
+    promises: Option<ResMut<crate::room_promises::PromisedRoomPlans>>,
     mut commands: Commands,
 ) {
-    let first_peer_frame = frame.is_some_and(|frame| frame.0 == 0)
+    let first_peer_frame = frame.as_ref().is_some_and(|frame| frame.0 == 0)
         && ownership.is_some_and(|ownership| ownership.has_remote_peers());
+    if !first_peer_frame && !local_players.0.is_empty() {
+        if let (Some(mut promises), Some(frame), Some(lineage)) = (promises, frame.as_deref(), lineage) {
+            promises.advertised(verdict.0, frame.0.saturating_add(lineage.input_delay() as i32));
+        }
+    }
     // One table answers for every handle.
     let inputs = local_players
         .0

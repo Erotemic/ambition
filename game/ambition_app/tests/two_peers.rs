@@ -659,6 +659,7 @@ fn pending_recorded_on(sim: &Platformer2dSimHarness) -> Option<i32> {
 }
 
 struct DoorOutcome {
+    retired_receipts: [usize; 2],
     healths: [Result<(), String>; 2],
     /// On each peer, the crossing that ended each session, by generation.
     crossings: [BTreeMap<u32, CrossingOnOnePeer>; 2],
@@ -694,6 +695,12 @@ struct DoorOutcome {
 /// second, Bob does. Each crossing ends its session, and the walk ends when
 /// each peer has confirmed `after` frames of session `generations`.
 fn doors_under_a_peer_session(generations: u32, after: i32, poison: SimulatesWhileFrozen) -> DoorOutcome {
+    doors_under_a_peer_session_with(generations, after, poison, |_| {})
+}
+
+fn doors_under_a_peer_session_with(
+    generations: u32, after: i32, poison: SimulatesWhileFrozen, configure: fn(&mut App),
+) -> DoorOutcome {
     let (a, b) = ("127.0.0.1:7011".parse().unwrap(), "127.0.0.1:7012".parse().unwrap());
     let (to_bob, to_alice) = loopback_transports(a, b, LATENCY);
     let link = to_bob.clone();
@@ -703,6 +710,7 @@ fn doors_under_a_peer_session(generations: u32, after: i32, poison: SimulatesWhi
     for sim in [&mut alice, &mut bob] {
         let app = sim.app_mut();
         app.insert_resource(poison);
+        configure(app);
         app.add_systems(GgrsSchedule, (lift_the_freeze.before(root), put_the_freeze_back.after(root)));
     }
     bob.app_mut().add_systems(
@@ -809,6 +817,7 @@ fn doors_under_a_peer_session(generations: u32, after: i32, poison: SimulatesWhi
         .map(|stats| stats.lifetime_load_runs)
         .sum();
     DoorOutcome {
+        retired_receipts: [&alice, &bob].map(|sim| sim.world().get_resource::<RetiredPromiseReceipts>().map_or(0, |count| count.0)),
         healths: [alice.rollback_health(), bob.rollback_health()],
         crossings,
         compared,
@@ -821,6 +830,36 @@ fn doors_under_a_peer_session(generations: u32, after: i32, poison: SimulatesWhi
         dropped_old_parcels: link.dropped_old_parcels(),
         first,
     }
+}
+
+#[derive(Resource, Default)]
+struct RetiredPromiseReceipts(usize);
+
+fn retire_a_promised_load_receipt(
+    verdict: Res<ambition_platformer2d::rollback::ThisPeersVerdict>,
+    mut loads: ResMut<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>,
+    mut retired: ResMut<RetiredPromiseReceipts>,
+) {
+    if verdict.0.said == ambition_platformer2d::rollback::PreparationVerdict::Prepared
+        && loads.active.as_ref().is_some_and(|active|
+            active.phase == ambition_platformer2d::runtime::room_transition::RoomTransitionLoadPhase::CommitAuthorized)
+    {
+        loads.active = None;
+        retired.0 += 1;
+    }
+}
+
+#[test]
+fn a_peer_keeps_its_promised_room_plan_after_the_load_receipt_retires() {
+    let outcome = doors_under_a_peer_session_with(2, 30, SimulatesWhileFrozen::Never, |app| {
+        app.init_resource::<RetiredPromiseReceipts>();
+        app.add_systems(Update, retire_a_promised_load_receipt
+            .after(ambition_platformer2d::runtime::room_transition::authorize_ready_room_transition_system));
+    });
+    assert!(outcome.retired_receipts.into_iter().sum::<usize>() > 0, "no promised receipt retired");
+    assert_eq!(outcome.healths, [Ok(()), Ok(())]);
+    assert!(outcome.differing.is_empty(), "{:?}", outcome.differing);
+    assert!(outcome.compared.get(&2).is_some_and(|frames| *frames > 30));
 }
 
 /// A PEER SESSION COMMITS A CROSSING BEHIND THE PEER BARRIER, and the next

@@ -51,6 +51,14 @@ impl PartialEq for RoomPreparation {
 }
 
 impl RoomPreparation {
+    pub fn admission(&self) -> &PendingIntent {
+        &self.0.admission
+    }
+
+    pub fn checksum(&self) -> u64 {
+        self.0.checksum
+    }
+
     pub fn continuity(&self) -> Result<&RoomContinuityInputs, RoomPreparationError> {
         self.0.continuity.as_ref().map_err(|error| *error)
     }

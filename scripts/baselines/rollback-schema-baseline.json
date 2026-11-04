@@ -128,7 +128,7 @@
       "resource.outstanding_checkpoint_request\tcomponent-clone-custom-checksum\tOutstandingCheckpointRequest\tbevy_ggrs clone snapshot + whether the session is still owed a checkpoint restore",
       "resource.owned_items\tresource-clone-custom-checksum\tOwnedItems\tbevy_ggrs clone snapshot + each item's stored count, in catalog order (Q129: the bag is compared)",
       "resource.owned_items_baseline\tcomponent-clone-custom-checksum\tOwnedItemsBaseline\tbevy_ggrs clone snapshot + entity-free stored-quantity and checkpoint purse checksum projection",
-      "resource.pending_lifecycle_commit\tresource-clone-custom-checksum\tPendingLifecycleCommit\tbevy_ggrs clone snapshot + the pending and withdrawn intents with their restore admissions",
+      "resource.pending_lifecycle_commit\tresource-clone-custom-checksum\tPendingLifecycleCommit\tbevy_ggrs clone snapshot + the pending, withdrawn, and applied intents with their restore admissions",
       "resource.pending_player_hit_events\tresource-clone-custom-checksum\tPendingPlayerHitEvents\tbevy_ggrs clone snapshot + entity-free staged-hit and room checksum projection",
       "resource.placement_continuity\tresource-clone-custom-checksum\tAuthoredOccurrences\tbevy_ggrs clone snapshot + authoritative occurrence whereabouts; domain-separated fold over (SimId, whereabouts)",
       "resource.projectile_seq_counter\tresource-canonical\tProjectileSeqCounter\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",

@@ -100,6 +100,11 @@ def _without_thread_locals(text: str) -> str:
 #: that the sharing is harmless. Read the uses before adding one.
 ADJUDICATED: dict[tuple[str, str], str] = {
     (
+        "crates/ambition_sprite_sheet/src/test_support.rs",
+        "CONTENT",
+    ): "an immutable shared-library fixture; each caller gets a cloned handle, "
+    "and publishing a generation replaces that caller's handle",
+    (
         "crates/ambition_platformer2d_core/tests/partition_allocations.rs",
         "ALLOCATIONS",
     ): "the counter of a `#[global_allocator]`, which must be a static; the "

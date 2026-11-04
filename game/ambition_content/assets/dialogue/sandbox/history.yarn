@@ -616,3 +616,120 @@ Teosinte Breeder: Look at this. A teosinte ear. It is the size of my thumb, with
 -> Goodbye.
     Teosinte Breeder: Plant the best seed. Always the best seed. Your grandchildren will thank you.
 ===
+
+title: history_head_sculptor
+---
+Head Sculptor: Stand back a little. Basalt dust gets everywhere.
+-> Who is the head?
+    Head Sculptor: A ruler. Each head is one person, with his own face and his own helmet. When he is gone, the stone still looks out.
+-> How did you move it?
+    Head Sculptor: The basalt comes from the mountains, a long way off. No wheels, no oxen. Rafts on the rivers, and many, many people pulling. Then I start with a hammerstone and a lot of patience.
+-> What are the black balls?
+    Head Sculptor: Rubber. Cook the milk of the rubber tree with the juice of the morning glory, and it bounces. We were doing this three thousand years before anyone else. The people who came later called us the rubber people.
+-> Goodbye.
+    Head Sculptor: Try the bouncy part by the trees. Everybody does.
+===
+
+title: history_zero_hero
+---
+The Zero Hero: Count with me. A dot is one. A bar is five. And this shell is...
+-> Nothing?
+    The Zero Hero: Zero! Not nothing. A number for nothing, in its own place. Without it you cannot write twenty, or four hundred, or the date. We use it in the Long Count, every day, and nobody in Europe will have one for a thousand years.
+-> What is the Long Count?
+    The Zero Hero: Our calendar counts days from the start of this world. Every stela says exactly which day it was put up. Archaeologists love us. We even wrote down eclipses ahead of time, in books of bark paper.
+-> What happened to the Maya?
+    The Zero Hero: Some of the great cities emptied, after droughts and wars. The Maya did not. Millions of us still speak Maya languages. Ask them where we went. They will say: nowhere.
+-> Goodbye.
+    The Zero Hero: Remember the shell. Without it, you are nothing. With it, you are zero, which is better.
+===
+
+title: history_lady_six_sky_high
+---
+Lady Six Sky-High: Kneel. No? Very well, stand. I am Lady Six Sky-High, of Naranjo. I came here as a princess and I stayed as the ruler.
+-> You ruled the city?
+    Lady Six Sky-High: For decades. My son was the king, technically. He was five. Somebody had to fight the wars, put up the monuments and be painted standing on a captive. That was me.
+-> What is the ballcourt for?
+    Lady Six Sky-High: The game. A rubber ball, hips only, no hands. Get it through the stone ring and the gate opens. It is the hardest shot in the world. I have never missed. Nobody has ever been allowed to see me try.
+-> Goodbye.
+    Lady Six Sky-High: Look up when you leave. My name is on that stela. Twice.
+===
+
+title: history_cacica_of_boriken
+---
+Cacica of Boriken: Welcome to Boriken. You are a guest of my yucayeque, my village. Sit in the shade of the bohio.
+-> You are the chief?
+    Cacica of Boriken: Cacica. Among the Taino a woman can lead, and I do. I speak for the village, I host the areito, our songs and dances of our history, and I settle the quarrels about the batey.
+-> What is a batey?
+    Cacica of Boriken: The plaza and the ball court, edged with carved stones. Two teams, one rubber ball, and no hands. The ball is older than any of us. It came up the islands from the land in the west.
+-> What do you eat?
+    Cacica of Boriken: Casabe, bread of cassava. Grate the root, squeeze out the bitter juice, bake it flat on the buren. It keeps for months, so a canoe can carry it far. Fish, from the barbacoa. Fruit, from everywhere.
+-> What happens next?
+    Cacica of Boriken: In 1492 strangers will come to these islands. Within a generation most of my people will die of their diseases, their wars and their forced labour. Not all. Our children's children are still in Boriken, in Ayiti, in Cuba. Our words are in your mouth. We are still here.
+-> Goodbye.
+    Cacica of Boriken: Go well. Take casabe for the road.
+===
+
+title: history_canoe_maker
+---
+Canoe Maker: One tree. One canoe. Many, many days with the stone axe and the fire.
+-> How big are they?
+    Canoe Maker: The big ones carry a hundred paddlers. We go from island to island to trade, to visit, to play the ball game against the next village. The sea is our road.
+-> You said canoe.
+    Canoe Maker: Canoa. Your word. You have a lot of ours: hammock, from hamaca, for sleeping off the ground. Hurricane, from hurakan, the great storm. Barbecue, from barbacoa. Savanna, maize, tobacco. You are welcome.
+-> Can I ride one?
+    Canoe Maker: Step in the middle and do not stand up. The sea between the islands is wider than it looks.
+-> Goodbye.
+    Canoe Maker: Sit in the hammock before you go. It throws you up to the ceiba. That is what hammocks are for. Mostly.
+===
+
+title: history_lapita_potter
+---
+Lapita Potter: Mind the pots. Every one is stamped with this, a little toothed comb. Line after line, face after face.
+-> Why stamp them?
+    Lapita Potter: So they are ours. Find a pot like this on any beach from the Bismarck islands to Samoa, and you know we came by. We go where nobody has been, and we leave our pots.
+-> Where nobody has been?
+    Lapita Potter: The islands out there have never had people. We are the first to sail out of sight of land and keep going: to Vanuatu, to Fiji, to Tonga, to Samoa. Our grandparents' grandparents came from far to the north and west, from Taiwan.
+-> What do you bring?
+    Lapita Potter: Pigs, dogs, chickens, taro, breadfruit, and pots. Everything a village needs, in a canoe. We also bring the rats, but nobody invited them.
+-> Goodbye.
+    Lapita Potter: Take the outrigger across the lagoon. The house on stilts is mine. Do not touch the pots.
+===
+
+title: history_wayfinder
+---
+Wayfinder: Quiet a moment. Feel the swell under your feet? It comes from the south-east. It has been coming from there for three days.
+-> How do you find your way?
+    Wayfinder: The stars rise and set at the same places on the horizon all night. I know each one's house. When it is cloudy, the swells. When I am close, the birds: at dusk the terns fly home to land, and I follow them. And the clouds stand still over an island.
+-> No compass? No map?
+    Wayfinder: The compass is in my head. The map is in my head. My teachers put them there, and their teachers put them in theirs. We found every island in the Pacific that way: Hawaii, Aotearoa, Rapa Nui. Thousands of miles, on purpose, there and back.
+-> What are the big birds?
+    Wayfinder: Frigatebirds. Pirates of the sky. They take the fish out of other birds' mouths. If one comes at you, duck.
+-> Goodbye.
+    Wayfinder: Board the canoe. Sit on the deck between the hulls. I will tell you when we are there.
+===
+
+title: history_moai_carver
+---
+Moai Carver: This one is for my grandfather. He will stand on the ahu with his back to the sea and look after the village.
+-> How do you move them?
+    Moai Carver: They walk. Ropes on both sides and one at the back. Rock him left, rock him right, and he walks down the road from the quarry. The stories always said so, and now the scientists have tried it too.
+-> What is on the tablet?
+    Moai Carver: Rongorongo. Writing. Rows of signs, and every second row upside down so you turn the board as you read. Nobody can read it now. Somebody will, one day.
+-> Did your people ruin the island?
+    Moai Carver: That is a story about us that outsiders like to tell. The rats ate the palm seeds, not us. We farmed the island well for hundreds of years. In 1862 slave ships took about fifteen hundred of us, and the sickness after took most of the rest. That is what happened.
+-> Goodbye.
+    Moai Carver: Ride my grandfather over the ditch, if you like. Gently. He is new.
+===
+
+title: history_thor_hey_im_right_dahl
+---
+Thor Hey-I'm-Right-Dahl: Ahoy! In 1947 I sailed a balsa raft from Peru to Polynesia. One hundred and one days! Proof that Polynesia was settled from South America!
+-> Was it?
+    Thor Hey-I'm-Right-Dahl: Obviously. Well. The languages come from the west. The pots come from the west. The DNA comes from the west. The chickens, the pigs and the canoes come from the west. But apart from that, obviously.
+-> So you were wrong?
+    Thor Hey-I'm-Right-Dahl: I was a little right! The sweet potato came from South America. And some Polynesians have South American ancestors, from around 1200. So someone went there and came back. It just was not my raft, and it was not that way round.
+-> Who went?
+    Thor Hey-I'm-Right-Dahl: The Polynesians, probably. Into the wind, on purpose, and home again. Rather better sailors than a man on a raft who drifted. Do not tell my publisher.
+-> Goodbye.
+    Thor Hey-I'm-Right-Dahl: Kon-Tiki! Still a great book! Mostly wrong! Great book!
+===

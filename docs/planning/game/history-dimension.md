@@ -70,9 +70,9 @@ the record and sighs about the footnotes.
 ## The grid
 
              C0       C1            C2              C3           C4          C5          C6     C7
-    R0 Americas       beringia      maize
+    R0 Americas       beringia      maize           olmecs       maya        taino
     R1 East Asia      mammoth st.   yellow river    shang        silk road   steppe
-    R2 Oceania        sahul         highlands
+    R2 Oceania        sahul         highlands       lapita       wayfinders  rapa nui
     R3 South Asia     south. route  mehrgarh        indus
     R4 Europe         ice age       first farmers   megaliths    celts       vikings     sail   industrial
     R5 Med./SW Asia   levant        crescent        uruk         classical
@@ -89,6 +89,7 @@ The ladders (each is a hole with a one-way hatch in the upper room's floor):
 | --- | --- | --- |
 | C1 | Africa and the Levant, the Levant and Europe, Europe and South Asia, South Asia and Sahul, Sahul and the mammoth steppe, the mammoth steppe and Beringia | the great dispersal: one road out of Africa to every land mass |
 | C2 | the Green Sahara and the Crescent, the Crescent and Europe | cattle and wheat go both ways; farming walks into Europe |
+| C3 | the Shang court and the Lapita voyagers | the Austronesians sail from Taiwan into the Pacific |
 | C3 | the Nile and Uruk, Uruk and the megalith builders | Egypt and Sumer trade; tin comes south from the north |
 | C4 | Aksum and Rome, Rome and the Celts | the Red Sea trade; the frontier |
 
@@ -125,6 +126,12 @@ The rooms:
 | `history_mongol_steppe` | `history_steppe` | Genghis Can, Genghis Can't | horse archer, golden eagle, steppe wolf | two roads through the Great Wall (below) |
 | `history_beringia` | `history_ice_age` | Dr. Clovis-First | woolly mammoth, smilodon | the ladder down: back to Asia |
 | `history_first_maize` | `history_maize` | the teosinte breeder | llama, jaguar | the Andean terrace |
+| `history_olmec_heartland` | `history_olmec` | the head sculptor | jaguar, howler monkey | a pad of rubber throws you up to the terrace (a jade earspool) |
+| `history_maya_city` | `history_maya` | the Zero Hero, Lady Six Sky-High | howler monkey, jaguar, green iguana | the stone ring (`history_ballcourt_ring`) opens the ballcourt gate |
+| `history_taino_islands` | `history_caribbean` | the Cacica of Boriken, the canoe maker | coral crab | the hammock throws you into the ceiba; a dugout canoe crosses the sea; a plain sign for 1492 |
+| `history_lapita_voyagers` | `history_lapita` | the Lapita potter | coconut crab, coral crab | an outrigger canoe crosses the lagoon; the ladder up to the Shang court |
+| `history_wayfinders` | `history_open_ocean` | the wayfinder | frigatebird, coconut crab | a voyaging canoe crosses the open sea |
+| `history_rapa_nui` | `history_rapa_nui` | the moai carver, Thor Hey-I'm-Right-Dahl | Pacific rat | ride a walking moai over the quarry ditch; a plain sign for 1862 |
 
 The buildings, in a row under the grid:
 
@@ -194,9 +201,10 @@ where it goes in the grid. Each group is a room, or a building, or a mechanic.
 
 Empty cells of the grid (each is a room to add; the generator's `GRID`
 and `LINKS` take a new room and its ladders):
-- The Americas after the first maize: the Olmecs, the Maya, the Aztecs and
-  the Inca (C3 to C5).
-- Oceania after the highlands: Lapita and the Polynesian voyages (C3 to C5).
+- The Americas: the Aztecs and the Inca (both C5, where the Taino are; a
+  second Americas floor, or buildings), Cahokia and the Mississippians, the
+  Ancestral Puebloans.
+- Oceania: Aotearoa and the Maori, Hawaii.
 - South Asia after the Indus: the Mauryas, Ashoka, the Guptas, the Mughals.
 - Africa and Europe in C6 and C7, the Americas in C6 (the Columbian Exchange
   from the other side), East Asia in C6 and C7.

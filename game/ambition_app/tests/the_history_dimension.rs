@@ -1,14 +1,14 @@
 //! The History dimension: its gate is DYNASTIC.
 //!
-//! Thirty-six rooms (`tools/ambition_ldtk_tools/specs/history_dimension/`):
-//! a grid of twenty-nine outdoor rooms, where east is later and each floor is
+//! Forty-two rooms (`tools/ambition_ldtk_tools/specs/history_dimension/`):
+//! a grid of thirty-five outdoor rooms, where east is later and each floor is
 //! a region of the world, and seven buildings by doors. The gate is in the
 //! Cradle, in Africa, at the bottom left. This asks the game what the
 //! generator takes as given: that the rooms of a floor join in order, that the
 //! ladders join the floors where the regions met, that each building opens off
 //! its room, that each room places its cast, that each way through opens for
 //! its key (the first fire, the sluice, the solstice, the oracle bone, the
-//! unicorn seal, Socratease's answer, each brother at the Great Wall, the
+//! unicorn seal, the ballcourt ring, Socratease's answer, each brother at the Great Wall, the
 //! mill's boiler), and that the two vigils keep their store rooms shut until
 //! they are over.
 
@@ -90,6 +90,9 @@ fn settle(sim: &mut Platformer2dSimHarness) {
 const WAYS: &[(&str, &str)] = &[
     // The Americas.
     ("history_beringia", "history_first_maize"),
+    ("history_first_maize", "history_olmec_heartland"),
+    ("history_olmec_heartland", "history_maya_city"),
+    ("history_maya_city", "history_taino_islands"),
     // East Asia and the steppe.
     ("history_mammoth_steppe", "history_yellow_river"),
     ("history_yellow_river", "history_shang_court"),
@@ -97,6 +100,9 @@ const WAYS: &[(&str, &str)] = &[
     ("history_silk_road", "history_mongol_steppe"),
     // Oceania.
     ("history_sahul", "history_new_guinea_highlands"),
+    ("history_new_guinea_highlands", "history_lapita_voyagers"),
+    ("history_lapita_voyagers", "history_wayfinders"),
+    ("history_wayfinders", "history_rapa_nui"),
     // South Asia.
     ("history_southern_route", "history_mehrgarh"),
     ("history_mehrgarh", "history_indus_cities"),
@@ -124,6 +130,8 @@ const WAYS: &[(&str, &str)] = &[
     ("history_southern_route", "history_sahul"),
     ("history_sahul", "history_mammoth_steppe"),
     ("history_mammoth_steppe", "history_beringia"),
+    // The Austronesians sail from Taiwan into the Pacific.
+    ("history_shang_court", "history_lapita_voyagers"),
     // Farming spreads from the crescent; the first cities trade; Rome.
     ("history_green_sahara", "history_fertile_crescent"),
     ("history_fertile_crescent", "history_first_farmers_of_europe"),
@@ -156,9 +164,9 @@ fn the_rooms_of_the_history_grid_join_where_history_did() {
     // way on is the southern coast.
     let cradle = index("history_cradle");
     assert_eq!(rooms.neighboring_room_indices_of(cradle).len(), 1, "the Cradle joins only the southern coast");
-    // The ways name all thirty-six rooms, and the gate reaches every one.
+    // The ways name all forty-two rooms, and the gate reaches every one.
     let named: BTreeSet<&str> = WAYS.iter().flat_map(|&(a, b)| [a, b]).collect();
-    assert_eq!(named.len(), 36, "the ways name every room of the dimension: {named:?}");
+    assert_eq!(named.len(), 42, "the ways name every room of the dimension: {named:?}");
     let mut reached = BTreeSet::from(["history_cradle"]);
     while let Some(&(a, b)) = WAYS.iter().find(|&&(a, b)| reached.contains(a) != reached.contains(b)) {
         reached.extend([a, b]);
@@ -237,6 +245,9 @@ const CAST: &[(&str, &[(&str, usize)])] = &[
     // Oceania.
     ("history_sahul", &[("npc_history_raft_builder", 1), ("diprotodon", 1), ("megalania", 1)]),
     ("history_new_guinea_highlands", &[("npc_history_kuk_gardener", 1), ("cassowary_history", 3)]),
+    ("history_lapita_voyagers", &[("npc_history_lapita_potter", 1), ("coconut_crab", 2), ("coral_crab", 1)]),
+    ("history_wayfinders", &[("npc_history_wayfinder", 1), ("frigatebird", 3), ("coconut_crab", 1)]),
+    ("history_rapa_nui", &[("npc_history_moai_carver", 1), ("npc_history_thor_hey_im_right_dahl", 1), ("pacific_rat", 3)]),
     // East Asia and the steppe.
     ("history_mammoth_steppe", &[("npc_history_denny_denisovan", 1), ("woolly_mammoth", 1), ("cave_bear", 1), ("steppe_wolf", 1)]),
     ("history_yellow_river", &[("npc_history_leizu", 1), ("silk_moth", 2), ("coral_crab", 2)]),
@@ -253,6 +264,15 @@ const CAST: &[(&str, &[(&str, usize)])] = &[
     // The Americas.
     ("history_beringia", &[("npc_history_dr_clovis_first", 1), ("woolly_mammoth", 1), ("smilodon", 2)]),
     ("history_first_maize", &[("npc_history_teosinte_breeder", 1), ("llama", 2), ("jaguar", 2)]),
+    ("history_olmec_heartland", &[("npc_history_head_sculptor", 1), ("jaguar", 2), ("howler_monkey", 1)]),
+    (
+        "history_maya_city",
+        &[("npc_history_zero_hero", 1), ("npc_history_lady_six_sky_high", 1), ("howler_monkey", 1), ("jaguar", 1), ("green_iguana", 1)],
+    ),
+    (
+        "history_taino_islands",
+        &[("npc_history_cacica_of_boriken", 1), ("npc_history_canoe_maker", 1), ("coral_crab", 3)],
+    ),
 ];
 
 #[test]
@@ -293,14 +313,16 @@ fn knowing_nothing_opens_the_stoa_gate() {
 }
 
 /// Each lever gate stands until its lever is pulled: the thorn boma in the
-/// Cradle (the first fire), the trilithon (the solstice) and the bronze gate
-/// of the Shang court (the oracle bone).
+/// Cradle (the first fire), the trilithon (the solstice), the bronze gate
+/// of the Shang court (the oracle bone) and the ballcourt gate of the Maya
+/// city (the stone ring).
 #[test]
 fn each_lever_opens_its_gate() {
     for (id, lever, gate) in [
         ("history_cradle", "history_first_fire", "history_thorn_boma"),
         ("history_megalith_builders", "history_solstice", "history_trilithon_gate"),
         ("history_shang_court", "history_oracle_bone", "history_bronze_gate"),
+        ("history_maya_city", "history_ballcourt_ring", "history_ballcourt_gate"),
     ] {
         let mut sim = room(id);
         assert!(stands(&mut sim, gate), "`{gate}` stands at first: {:?}", standing(&mut sim));

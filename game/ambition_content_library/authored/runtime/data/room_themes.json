@@ -656,6 +656,108 @@
       "twinkle_rate": 1.0,
       "front": 0.35
     },
+    "history_olmec": {
+      "count": 18,
+      "velocity": [
+        2.0,
+        1.0
+      ],
+      "wander": 8.0,
+      "wander_rate": 0.12,
+      "size": [
+        1.6,
+        3.2
+      ],
+      "alpha": 0.45,
+      "twinkle": 0.3,
+      "twinkle_rate": 0.4,
+      "front": 0.3
+    },
+    "history_maya": {
+      "count": 8,
+      "velocity": [
+        3.0,
+        1.0
+      ],
+      "wander": 22.0,
+      "wander_rate": 0.25,
+      "size": [
+        3.0,
+        5.0
+      ],
+      "alpha": 0.85,
+      "twinkle": 0.2,
+      "twinkle_rate": 1.4,
+      "front": 0.4
+    },
+    "history_caribbean": {
+      "count": 16,
+      "velocity": [
+        10.0,
+        2.0
+      ],
+      "wander": 6.0,
+      "wander_rate": 0.2,
+      "size": [
+        1.4,
+        2.6
+      ],
+      "alpha": 0.5,
+      "twinkle": 0.4,
+      "twinkle_rate": 0.7,
+      "front": 0.35
+    },
+    "history_lapita": {
+      "count": 10,
+      "velocity": [
+        5.0,
+        -4.0
+      ],
+      "wander": 12.0,
+      "wander_rate": 0.15,
+      "size": [
+        2.4,
+        4.0
+      ],
+      "alpha": 0.7,
+      "twinkle": 0.1,
+      "twinkle_rate": 0.3,
+      "front": 0.3
+    },
+    "history_open_ocean": {
+      "count": 28,
+      "velocity": [
+        16.0,
+        3.0
+      ],
+      "wander": 5.0,
+      "wander_rate": 0.25,
+      "size": [
+        1.4,
+        3.0
+      ],
+      "alpha": 0.5,
+      "twinkle": 0.3,
+      "twinkle_rate": 0.8,
+      "front": 0.4
+    },
+    "history_rapa_nui": {
+      "count": 18,
+      "velocity": [
+        18.0,
+        -1.0
+      ],
+      "wander": 8.0,
+      "wander_rate": 0.25,
+      "size": [
+        2.4,
+        4.0
+      ],
+      "alpha": 0.6,
+      "twinkle": 0.15,
+      "twinkle_rate": 0.4,
+      "front": 0.35
+    },
     "math_town": {
       "count": 16,
       "velocity": [

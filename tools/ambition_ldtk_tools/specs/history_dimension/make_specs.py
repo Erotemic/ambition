@@ -13,9 +13,9 @@ of one column only where the two regions were in contact then. The gate
 everyone starts in Africa (`specs/check_flat_map.py history.ldtk`).
 
              C0       C1            C2              C3           C4          C5          C6     C7
-    R0 Americas       beringia      maize
+    R0 Americas       beringia      maize           olmecs       maya        taino
     R1 East Asia      mammoth st.   yellow river    shang        silk road   steppe
-    R2 Oceania        sahul         highlands
+    R2 Oceania        sahul         highlands       lapita       wayfinders  rapa nui
     R3 South Asia     south. route  mehrgarh        indus
     R4 Europe         ice age       first farmers   megaliths    celts       vikings     sail   industrial
     R5 Med./SW Asia   levant        crescent        uruk         classical
@@ -63,16 +63,22 @@ GRID = {
     (2, 4): "history_first_farmers_of_europe",
     (2, 5): "history_fertile_crescent",
     (2, 6): "history_green_sahara",
+    (3, 0): "history_olmec_heartland",
     (3, 1): "history_shang_court",
+    (3, 2): "history_lapita_voyagers",
     (3, 3): "history_indus_cities",
     (3, 4): "history_megalith_builders",
     (3, 5): "history_uruk",
     (3, 6): "history_nile_valley",
+    (4, 0): "history_maya_city",
     (4, 1): "history_silk_road",
+    (4, 2): "history_wayfinders",
     (4, 4): "history_celtic_frontier",
     (4, 5): "history_classical_shore",
     (4, 6): "history_aksum_and_kush",
+    (5, 0): "history_taino_islands",
     (5, 1): "history_mongol_steppe",
+    (5, 2): "history_rapa_nui",
     (5, 4): "history_viking_north",
     (5, 6): "history_timbuktu_coast",
     (6, 4): "history_age_of_sail",
@@ -95,6 +101,8 @@ LINKS = {
     # The first farmers: farming goes from the Crescent to Europe and Africa.
     (2, 4): 400,
     (2, 5): 200,
+    # The Austronesians: the Lapita's ancestors sailed from Taiwan.
+    (3, 1): 1800,
     # The first cities: tin from the north to Uruk; Uruk and Egypt trade.
     (3, 4): 2100,
     (3, 5): 176,
@@ -166,6 +174,12 @@ MUSIC = {
     "history_mongol_steppe": EAST_ASIA,
     "history_beringia": AMERICAS,
     "history_first_maize": AMERICAS,
+    "history_olmec_heartland": AMERICAS,
+    "history_maya_city": AMERICAS,
+    "history_taino_islands": AMERICAS,
+    "history_lapita_voyagers": OCEANIA,
+    "history_wayfinders": OCEANIA,
+    "history_rapa_nui": OCEANIA,
     GRANARY: CRESCENT,
     TOMB: "vault_in_the_dark",
     COLOSSEUM: "fighters_guild_oath_of_steel",
@@ -195,6 +209,10 @@ BIOME = {
     "history_silk_road": "history_silk",
     "history_mongol_steppe": "history_steppe", GER: "history_steppe",
     "history_first_maize": "history_maize",
+    "history_olmec_heartland": "history_olmec", "history_maya_city": "history_maya",
+    "history_taino_islands": "history_caribbean",
+    "history_lapita_voyagers": "history_lapita", "history_wayfinders": "history_open_ocean",
+    "history_rapa_nui": "history_rapa_nui",
     CAVE: "history_painted_cave",
 }
 
@@ -214,6 +232,9 @@ BOX = {
     "tiger": (84, 48), "indus_unicorn": (64, 52), "taotie_spirit": (48, 48),
     "smilodon": (80, 50), "jaguar": (72, 42), "llama": (52, 64),
     "diprotodon": (110, 70), "megalania": (120, 40), "cassowary_history": (44, 70),
+    # The third pass.
+    "howler_monkey": (40, 44), "green_iguana": (72, 32), "coconut_crab": (64, 40),
+    "frigatebird": (64, 40), "pacific_rat": (32, 20),
 }
 
 DOOR_W, DOOR_H = 48, 192
@@ -228,6 +249,7 @@ FIRST_FIRE = "history_first_fire"
 SOLSTICE = "history_solstice"
 ORACLE = "history_oracle_bone"
 UNICORN_SEAL = "history_unicorn_seal"
+BALLCOURT_RING = "history_ballcourt_ring"
 #: The Great Wall in the steppe (x0, x1), its top, and the gate in it.
 WALL_X = (928, 1024)
 WALL_TOP = 640
@@ -1076,6 +1098,93 @@ def new_guinea_highlands():
     return grid_room(rid, "THE NEW GUINEA HIGHLANDS", e)
 
 
+def lapita_voyagers():
+    """The Lapita voyagers, 1,500 BCE: stamped pots, stilt houses over the
+    lagoon, and the first people to sail out of sight of land into the
+    remote Pacific. Their ancestors came from Taiwan: the ladder up is the
+    way back to East Asia. An outrigger canoe crosses the lagoon."""
+    rid = "history_lapita_voyagers"
+    up = LINKS[(3, 1)]
+    stuff, gap = crossing(rid, "the lagoon", (1000, 1600), "history_outrigger_canoe", w=176)
+    e = [
+        *stuff,
+        start(rid, 160, FLOOR),
+        prop_at("house", "history_stilt_house", 400, FLOOR, 128, 160),
+        npc("history_lapita_potter", 620, FLOOR, 63),
+        prop_at("pot", "history_lapita_pot", 740, FLOOR, 48, 48),
+        sign("lapita_sign_pot", 700, FLOOR - 200, "LAPITA POTS: stamped with a toothed comb. Find one, and you know who came by.", 700),
+        prop_at("palm_1", "history_coconut_palm", 880, FLOOR, 96, 192),
+        sign("lapita_sign_lagoon", 1300, FLOOR - 260, "THE LAGOON: houses on stilts, canoes to the reef", 440),
+        sign("lapita_sign_up", up + HOLE // 2, FLOOR - 300, "UP: East Asia (their ancestors sailed from Taiwan)", 480),
+        sign("lapita_sign", 1400, 140, "THE LAPITA VOYAGERS: out of sight of land, into the open Pacific, 1,500 BCE", 720),
+        enemy(rid, 1, "coconut_crab", 2050, FLOOR),
+        prop_at("palm_2", "history_coconut_palm", 2200, FLOOR, 96, 192),
+        enemy(rid, 1, "coral_crab", 2350, FLOOR),
+        enemy(rid, 2, "coconut_crab", 2560, FLOOR),
+    ]
+    return grid_room(rid, "THE LAPITA VOYAGERS", e, gaps=[gap])
+
+
+def wayfinders():
+    """The wayfinders: the Polynesian voyagers who found every island of the
+    Pacific by stars, swells and birds. A double-hulled voyaging canoe
+    crosses the open sea; frigatebirds attack on the way."""
+    rid = "history_wayfinders"
+    stuff, gap = crossing(rid, "the open sea", (1000, 2300), "history_voyaging_canoe", w=208, speed=110.0)
+    e = [
+        *stuff,
+        start(rid, 160, FLOOR),
+        prop_at("compass", "history_star_compass", 460, FLOOR, 128, 32),
+        sign("wayfinders_sign_compass", 460, FLOOR - 160, "THE STAR COMPASS: where each star rises and sets (in the navigator's head)", 680),
+        npc("history_wayfinder", 680, FLOOR, 67),
+        prop_at("breadfruit", "history_breadfruit_tree", 860, FLOOR, 128, 160),
+        sign("wayfinders_sign_birds", 1500, FLOOR - 420, "AT DUSK THE TERNS FLY HOME TO LAND: follow them", 480),
+        enemy(rid, 1, "frigatebird", 1350, FLOOR - 300),
+        enemy(rid, 2, "frigatebird", 1800, FLOOR - 360),
+        enemy(rid, 3, "frigatebird", 2150, FLOOR - 280),
+        sign("wayfinders_sign", 1400, 140, "THE WAYFINDERS: across the Pacific with no instruments but the sky, the swells and the birds", 820),
+        prop_at("palm", "history_coconut_palm", 2480, FLOOR, 96, 192),
+        enemy(rid, 1, "coconut_crab", 2640, FLOOR),
+    ]
+    return grid_room(rid, "THE WAYFINDERS", e, gaps=[gap])
+
+
+def rapa_nui():
+    """Rapa Nui, 1200 CE on: the moai, carved in the crater and walked
+    upright with ropes; rongorongo, which nobody can read; and the sweet
+    potato from South America. Ride a walking moai over the quarry ditch.
+    At the east end, a plain sign says what happened in 1862."""
+    rid = "history_rapa_nui"
+    top = FLOOR - 176
+    stuff, gap = crossing(rid, "the quarry ditch", (1400, 1900), "history_walking_moai", w=40, speed=40.0, top=top)
+    e = [
+        *stuff,
+        start(rid, 160, FLOOR),
+        prop_at("moai_1", "history_moai", 400, FLOOR, 96, 192),
+        prop_at("moai_2", "history_moai", 540, FLOOR, 96, 192),
+        npc("history_moai_carver", 740, FLOOR, 66),
+        prop_at("tablet", "history_rongorongo_tablet", 880, FLOOR, 48, 32),
+        sign("rapa_nui_sign_tablet", 880, FLOOR - 160, "RONGORONGO: a script nobody can read (yet)", 400),
+        prop_at("kumara", "history_kumara", 1020, FLOOR, 64, 48),
+        sign("rapa_nui_sign_kumara", 1020, FLOOR - 260, "KUMARA: the sweet potato, from South America. Somebody went there and came back.", 720),
+        npc("history_thor_hey_im_right_dahl", 1160, FLOOR, 73),
+        # Up to the moai's head, over the ditch on it, and down.
+        ledge("ditch_step_a", 1240, FLOOR - 88, 96),
+        ledge("ditch_step_b", 1304, top, 96),
+        sign("rapa_nui_sign_walk", 1650, top - 160, "THE MOAI WALKED: rocked upright with ropes, as the island's stories say", 600),
+        ledge("ditch_far", 1900, top, 96),
+        ledge("ditch_far_step", 1996, FLOOR - 88, 96),
+        sign("rapa_nui_sign", 1400, 140, "RAPA NUI: the most remote inhabited island, settled about 1200 CE", 620),
+        enemy(rid, 1, "pacific_rat", 2160, FLOOR),
+        enemy(rid, 2, "pacific_rat", 2260, FLOOR),
+        enemy(rid, 3, "pacific_rat", 2360, FLOOR),
+        prop_at("moai_3", "history_moai", 2560, FLOOR, 96, 192),
+        sign("rapa_nui_sign_1862_a", 2400, FLOOR - 340, "1862: slave ships took about 1,500 people; disease took most of the rest.", 680),
+        sign("rapa_nui_sign_1862_b", 2400, FLOOR - 312, "The story that the islanders ruined their own island is mostly wrong.", 640),
+    ]
+    return grid_room(rid, "RAPA NUI", e, gaps=[gap])
+
+
 # ---- R1: East Asia and the steppe ---------------------------------------------
 
 
@@ -1138,6 +1247,7 @@ def shang_court():
         sign("shang_sign_oracle", 1300, FLOOR - 200, "ASK THE ANCESTORS: will the gate open? (crack and see)", 520),
         *gate("history_bronze_gate", "the bronze gate", gate_x, f"world.switch_on {ORACLE}", "history_bronze_gate"),
         sign("shang_sign", 1400, 140, "THE SHANG COURT: bronze, bones and the first Chinese writing", 560),
+        sign("shang_sign_down", LINKS[(3, 1)] + HOLE // 2, FLOOR - 260, "DOWN: the Lapita voyagers, from Taiwan to the Pacific", 520),
         enemy(rid, 2, "taotie_spirit", 1900, FLOOR - 300),
         ledge("hall_a", 2000, FLOOR - 80, 192),
         ledge("hall_b", 2220, FLOOR - 160, 192),
@@ -1281,15 +1391,113 @@ def first_maize():
     return grid_room(rid, "THE FIRST MAIZE", e)
 
 
+def olmec_heartland():
+    """The Olmec heartland, 1,200 BCE, on the Gulf coast of Mexico: colossal
+    basalt heads, the first rubber and the first ballgame balls, and cacao. A
+    pad of rubber throws you up to the terrace in the trees."""
+    rid = "history_olmec_heartland"
+    e = [
+        start(rid, 160, FLOOR),
+        prop_at("head_1", "history_colossal_head", 520, FLOOR, 128, 160),
+        sign("olmec_sign_head", 520, FLOOR - 260, "A COLOSSAL HEAD: tonnes of basalt, moved without wheels or oxen", 580),
+        npc("history_head_sculptor", 760, FLOOR, 63),
+        prop_at("balls", "history_rubber_balls", 900, FLOOR, 64, 32),
+        entity("ReboundPad", 1036, FLOOR - 16, 128, 16, name="the rubber", impulseX=0, impulseY=-900),
+        sign("olmec_sign_rubber", 1100, FLOOR - 160, "RUBBER: latex and morning-glory juice, 3,600 years ago. Bounce.", 580),
+        ledge("rubber_terrace", 1240, FLOOR - 240, 192),
+        chest("a jade earspool", 1336, FLOOR - 240, "currency:100"),
+        prop_at("cacao_1", "history_cacao_tree", 1560, FLOOR, 96, 128),
+        enemy(rid, 1, "jaguar", 1800, FLOOR),
+        enemy(rid, 1, "howler_monkey", 2000, FLOOR),
+        sign("olmec_sign", 1400, 140, "THE OLMEC HEARTLAND: rubber, chocolate and heads the size of a car, 1,200 BCE", 700),
+        prop_at("head_2", "history_colossal_head", 2240, FLOOR, 128, 160),
+        enemy(rid, 2, "jaguar", 2450, FLOOR),
+        prop_at("cacao_2", "history_cacao_tree", 2640, FLOOR, 96, 128),
+    ]
+    return grid_room(rid, "THE OLMEC HEARTLAND", e)
+
+
+def maya_city():
+    """A Maya city, 250-900 CE: temple pyramids over the forest, zero, the
+    calendar and the ballcourt. The ballcourt gate opens when the ball goes
+    through the stone ring (`history_ballcourt_ring`), up on the court's wall."""
+    rid = "history_maya_city"
+    gate_x = 1500
+    e = [
+        start(rid, 160, FLOOR),
+        npc("history_zero_hero", 360, FLOOR, 62),
+        prop_at("pyramid", "history_maya_pyramid", 620, FLOOR, 192, 192),
+        ledge("pyramid_step_a", 524, FLOOR - 64, 192),
+        ledge("pyramid_step_b", 556, FLOOR - 128, 128),
+        ledge("pyramid_temple", 588, FLOOR - 192, 64),
+        npc("history_lady_six_sky_high", 860, FLOOR, 64),
+        prop_at("stela", "history_maya_stela", 1000, FLOOR, 48, 144),
+        sign("maya_sign_stela", 1000, FLOOR - 220, "BAR AND DOT: a dot is one, a bar is five, a shell is ZERO", 520),
+        # The ballcourt: up the court's sloped wall to the ring.
+        ledge("court_a", 1080, FLOOR - 80, 160),
+        ledge("court_b", 1180, FLOOR - 160, 160),
+        ledge("court_ring", 1280, FLOOR - 240, 128),
+        prop_at("ring", "history_ballcourt_ring", 1380, FLOOR - 240, 64, 96),
+        lever(BALLCOURT_RING, "the stone ring", "Put the ball through the ring", 1310, FLOOR - 240),
+        sign("maya_sign_ring", 1300, FLOOR - 420, "THE BALLCOURT: through the ring, hips only", 400),
+        *gate("history_ballcourt_gate", "the ballcourt gate", gate_x, f"world.switch_on {BALLCOURT_RING}",
+              "history_ballcourt_gate"),
+        sign("maya_sign", 1400, 140, "THE MAYA CITY: zero, the calendar and the tallest buildings in the Americas, 250-900 CE", 760),
+        enemy(rid, 1, "howler_monkey", 1800, FLOOR),
+        enemy(rid, 1, "jaguar", 2050, FLOOR),
+        prop_at("cacao", "history_cacao_tree", 2300, FLOOR, 96, 128),
+        # Green iguanas live in the Maya lowlands; on Boriken they came only
+        # in the 20th century, so the Taino islands have none.
+        enemy(rid, 1, "green_iguana", 2500, FLOOR),
+        prop_at("stela_2", "history_maya_stela", 2660, FLOOR, 48, 144),
+    ]
+    return grid_room(rid, "THE MAYA CITY", e)
+
+
+def taino_islands():
+    """The Taino islands, 1000-1492 CE: Boriken, Ayiti and Cuba. A hammock
+    throws you up into the ceiba; a dugout canoe carries you over the sea
+    between the islands. At the east end, a plain sign says what came in
+    1492, and that the Taino are still here."""
+    rid = "history_taino_islands"
+    stuff, gap = crossing(rid, "the sea between the islands", (1500, 2200), "history_dugout_canoe", w=176)
+    e = [
+        *stuff,
+        start(rid, 160, FLOOR),
+        prop_at("bohio_1", "history_bohio", 360, FLOOR, 128, 128),
+        npc("history_cacica_of_boriken", 560, FLOOR, 62),
+        prop_at("buren", "history_buren", 700, FLOOR, 64, 32),
+        prop_at("barbacoa", "history_barbacoa", 820, FLOOR, 80, 64),
+        sign("taino_sign_food", 760, FLOOR - 160, "CASABE: cassava bread, baked on the buren. It keeps for months.", 580),
+        prop_at("hammock", "history_hammock", 1000, FLOOR, 96, 64),
+        entity("ReboundPad", 956, FLOOR - 28, 88, 16, name="the hammock", impulseX=0, impulseY=-900),
+        sign("taino_sign_words", 1000, FLOOR - 300, "WORDS FROM TAINO: canoe, hammock, hurricane, barbecue, savanna, maize, tobacco", 700),
+        prop_at("ceiba", "history_ceiba_tree", 1180, FLOOR, 160, 192),
+        ledge("ceiba_branch", 1100, FLOOR - 220, 192),
+        chest("a guanin (gold and copper)", 1196, FLOOR - 220, "currency:100"),
+        npc("history_canoe_maker", 1380, FLOOR, 65),
+        sign("taino_sign_sea", 1850, FLOOR - 260, "CANOES: one tree each, up to a hundred paddlers", 460),
+        sign("taino_sign", 1400, 140, "THE TAINO ISLANDS: Boriken, Ayiti and Cuba, 1000-1492", 560),
+        enemy(rid, 1, "coral_crab", 2320, FLOOR),
+        enemy(rid, 2, "coral_crab", 2450, FLOOR),
+        prop_at("bohio_2", "history_bohio", 2560, FLOOR, 128, 128),
+        enemy(rid, 3, "coral_crab", 2680, FLOOR),
+        sign("taino_sign_1492_a", 2340, FLOOR - 340, "1492: strangers landed here. Within a generation most Taino had died", 640),
+        sign("taino_sign_1492_b", 2340, FLOOR - 312,
+             "of disease, war and forced labour. Not all: their descendants and words are still here.", 800),
+    ]
+    return grid_room(rid, "THE TAINO ISLANDS", e, gaps=[gap])
+
+
 #: The rooms, by floor from the bottom (Africa) to the top.
 ROOMS = (cradle, southern_coast, green_sahara, nile, tomb, aksum, timbuktu, library,
          levant, crescent, granary, uruk, classical, colosseum,
          ice_age_europe, painted_cave, first_farmers_of_europe, megalith_builders, celtic_frontier, viking_north, sail,
          industrial, mill,
          southern_route, mehrgarh, indus_cities,
-         sahul, new_guinea_highlands,
+         sahul, new_guinea_highlands, lapita_voyagers, wayfinders, rapa_nui,
          mammoth_steppe, yellow_river, shang_court, silk, steppe, great_ger,
-         beringia, first_maize)
+         beringia, first_maize, olmec_heartland, maya_city, taino_islands)
 
 
 def ladders():

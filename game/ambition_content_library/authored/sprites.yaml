@@ -394,6 +394,35 @@ collections:
   - history_tree_fern
   - history_boab_tree
   - history_rock_shelter
+  - howler_monkey
+  - green_iguana
+  - history_colossal_head
+  - history_rubber_balls
+  - history_cacao_tree
+  - history_maya_pyramid
+  - history_maya_stela
+  - history_ballcourt_ring
+  - history_ballcourt_gate
+  - history_bohio
+  - history_dugout_canoe
+  - history_hammock
+  - history_buren
+  - history_barbacoa
+  - history_ceiba_tree
+  - coconut_crab
+  - frigatebird
+  - pacific_rat
+  - history_lapita_pot
+  - history_stilt_house
+  - history_outrigger_canoe
+  - history_coconut_palm
+  - history_voyaging_canoe
+  - history_star_compass
+  - history_breadfruit_tree
+  - history_moai
+  - history_walking_moai
+  - history_rongorongo_tablet
+  - history_kumara
   - eigenghost
   - decomposing_specter
   - spectral_perturbation
@@ -701,6 +730,15 @@ collections:
   - history_teosinte_breeder
   - history_raft_builder
   - history_kuk_gardener
+  - history_head_sculptor
+  - history_zero_hero
+  - history_lady_six_sky_high
+  - history_cacica_of_boriken
+  - history_canoe_maker
+  - history_lapita_potter
+  - history_wayfinder
+  - history_moai_carver
+  - history_thor_hey_im_right_dahl
   - station_dobbs
   - station_pippin
   - magical_celeste

@@ -229,6 +229,53 @@
     "history_tree_fern": (),
     "history_boab_tree": (),
     "history_rock_shelter": (),
+    // The Olmec heartland, the Maya city and the Taino islands of the History
+    // dimension, third pass (`targets/props/history_americas_east_props.py`).
+    // The ballcourt gate is a LockWall: a gate of carved stone with a
+    // ballplayer in relief. A door fills the box of its wall (32 by 128). The
+    // dugout canoe is a platform look (`platform_looks.ron`): the top of its
+    // sides is the platform.
+    "history_ballcourt_gate": (),
+    "history_dugout_canoe": (),
+    // Its scenery: a colossal basalt head in a helmet, a heap of rubber balls
+    // by a bowl of latex, a cacao tree with pods on its trunk, a stepped
+    // temple pyramid with a roof comb, a stela of glyphs and bar-and-dot
+    // numbers, a stone ring in the wall of a ballcourt, a round bohio of cane
+    // and thatch, a cotton hammock between two posts (a rebound pad sits on
+    // it), a buren with cassava bread, a barbacoa over embers (its smoke and
+    // embers move), and a ceiba with buttress roots.
+    "history_colossal_head": (),
+    "history_rubber_balls": (),
+    "history_cacao_tree": (),
+    "history_maya_pyramid": (),
+    "history_maya_stela": (),
+    "history_ballcourt_ring": (),
+    "history_bohio": (),
+    "history_hammock": (),
+    "history_buren": (),
+    "history_barbacoa": (),
+    "history_ceiba_tree": (),
+    // Eastern Oceania in the History dimension, third pass
+    // (`targets/props/history_oceania_east_props.py`). The outrigger canoe,
+    // the voyaging canoe and the walking moai are platform looks
+    // (`platform_looks.ron`): the top of the gunwale, of the deck, and of the
+    // moai's pukao.
+    "history_outrigger_canoe": (),
+    "history_voyaging_canoe": (),
+    "history_walking_moai": (),
+    // Its scenery: a Lapita pot with toothed-stamp patterns, a thatched house
+    // on stilts over the lagoon, a coconut palm (it sways), a star compass of
+    // marker stones on the sand, a breadfruit tree (it sways), a moai on its
+    // ahu with its red pukao, a wooden tablet of rongorongo-like marks (made
+    // up: no real text), and sweet potato plants with a dug tuber.
+    "history_lapita_pot": (),
+    "history_stilt_house": (),
+    "history_coconut_palm": (),
+    "history_star_compass": (),
+    "history_breadfruit_tree": (),
+    "history_moai": (),
+    "history_rongorongo_tablet": (),
+    "history_kumara": (),
     // The Story Stacks of the Art dimension (`targets/props/art_stacks_props.py`).
     // The doors of the Library of Endings are two covers of a book: the happy
     // ending in gold with a sun, the sad ending in deep blue with a moon and

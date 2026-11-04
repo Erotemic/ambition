@@ -711,6 +711,40 @@
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.35, active_s: 0.12, recover_s: 0.45, damage: 2, reach_px: 44.0, step_px: 14.0, rush_px: 0.0)),
         ),
+        // The History dimension, third pass: the Americas grow east
+        // (`targets/characters/howler_monkey.py`, `green_iguana.py`). A howler
+        // monkey keeps its distance and throws fruit, and nips what comes close;
+        // a green iguana stands high, bobs its head and cocks its tail (its
+        // windup row), then whips the tail over its back and down in front of
+        // its nose, and needs a moment to pull it back.
+        "howler_monkey_fruit": (
+            move_style: Walk,
+            melee: Some(Bite(windup_s: 0.25, active_s: 0.08, recover_s: 0.35, damage: 1, reach_px: 24.0)),
+            ranged: Some(Rock(speed: 330.0, damage: 1)),
+        ),
+        "green_iguana_whip": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.5, active_s: 0.15, recover_s: 0.6, damage: 2, reach_px: 52.0)),
+        ),
+        // The History dimension, third pass: Oceania grows east
+        // (`targets/characters/coconut_crab.py`, `frigatebird.py`,
+        // `pacific_rat.py`). A coconut crab lifts its big claw up and open (its
+        // windup row), steps in and pinches it shut in front of it; a
+        // frigatebird lifts its wings high and points its bill down (its windup
+        // row), then swoops hooked bill first; a Pacific rat crouches low with
+        // its tail lashing (its windup row), then darts in and bites.
+        "coconut_crab_pinch": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.5, active_s: 0.12, recover_s: 0.55, damage: 2, reach_px: 40.0)),
+        ),
+        "frigatebird_swoop": (
+            move_style: Float,
+            melee: Some(Lunge(windup_s: 0.4, active_s: 0.25, recover_s: 0.5, damage: 1, reach_px: 36.0, step_px: 0.0, rush_px: 190.0)),
+        ),
+        "pacific_rat_nip": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.25, active_s: 0.1, recover_s: 0.3, damage: 1, reach_px: 22.0, step_px: 0.0, rush_px: 110.0)),
+        ),
 
         // The Bad Apple's chomp: it rears back with its maw wide (its windup
         // row), then rolls at you jaws first, and sits a beat after, dizzy. Its
@@ -8148,6 +8182,181 @@
             hall: ["The people of the highlands raise my chicks, and they have a very healthy respect for my feet. So should you.", "I plant the forest. I eat the fruit, I walk a long way, and the seeds come out somewhere new. You are welcome."],
         ),
         ),
+        // Their sheets are in the renderer (`targets/characters/howler_monkey.py`,
+        // `green_iguana.py`, on `_art_cast_kit.py` and `_history_americas_kit.py`).
+        // The heights are the heights of the boxes of the grid (`GRID3.md`).
+        // The howler monkey: a mantled howler of the Olmec forest, dark with a
+        // golden fringe. It keeps its distance and throws ripe fruit (the
+        // `shoot` of a skirmisher): it stands up on its hind legs with the fruit
+        // back over its shoulder first (its windup row). The fruit flies as a
+        // thrown `Rock` does and looks like a red fruit (`ranged_vfx`).
+        "howler_monkey": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Howler Monkey",
+            manifest: "sprites/howler_monkey_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(44.0),
+            composition: None,
+            default_action_set: "howler_monkey_fruit",
+            ranged_vfx: Some("tomato"),
+            locomotion: Some((run_speed: 150.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: Skirmisher,
+                aggro_radius: 560.0,
+                attack_range: 280.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.6,
+                // Up on its hind legs, the fruit goes back, and it throws.
+                ranged_volley: Some((windup_s: 0.5, firing_s: 0.2, recovery_s: 1.1)),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "history", "olmec_heartland", "monkey"],
+        barks: (
+            on_hit: ["HOO! Hoo. Ow.", "Rude. I was howling."],
+            provoked: ["*a roar that rolls on through the forest for kilometres*"],
+            idle: ["*a long, low howl at dawn*", "*it chews a leaf. Slowly. It has all day.*", "Hooooo."],
+            hall: ["You can hear a howler monkey five kilometres away. That is not shouting. That is telling the next troop where we are, so nobody has to walk over.", "I eat leaves and I sleep most of the day. Leaves are not very nourishing. The howl is the only energetic thing I do, so I do it properly."],
+        ),
+        ),
+        // The green iguana: a big green lizard of the Maya forest, with a
+        // crest of spines and a dewlap. It stands high, bobs its head, spreads
+        // its dewlap and cocks its tail (its windup row), then whips the tail
+        // over its back and down in front of its nose, and stands a moment
+        // after: the opening.
+        "green_iguana": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Green Iguana",
+            manifest: "sprites/green_iguana_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(32.0),
+            composition: None,
+            default_action_set: "green_iguana_whip",
+            locomotion: Some((run_speed: 140.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 480.0,
+                attack_range: 64.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.8,
+                // The display, the whip, and a moment to pull the tail back.
+                attack_cooldown_s: 0.9,
+                tactics: (notice_s: 0.5, footsies: Some((hold_px: 100.0, wait_s: 0.6))),
+            )),
+            max_health: Some(4),
+            mass: Some(2.0),
+            tags: ["enemy", "history", "maya_city", "lizard"],
+        barks: (
+            on_hit: ["HSSSS!", "*it bobs its head at you, very offended*"],
+            provoked: ["*the dewlap opens like a flag*"],
+            idle: ["*it basks*", "*bob* *bob* *bob*", "*a long, slow blink*"],
+            hall: ["I have a third eye on the top of my head. It sees light and shadow, so I know when a hawk is over me. It cannot read. Neither can the other two.", "I can drop from a branch fifteen metres up, land on the forest floor and walk away. Mind the tail on the way down."],
+        ),
+        ),
+        // Their sheets are in the renderer (`targets/characters/coconut_crab.py`,
+        // `frigatebird.py`, `pacific_rat.py`, on `_art_cast_kit.py` and
+        // `_history_americas_kit.py`). The heights are the heights of the boxes
+        // of the grid (`GRID3.md`).
+        // The coconut crab: the robber crab of the islands, the biggest crab
+        // that lives on land. It walks sideways; it lifts its big claw up and
+        // open (its windup row), steps in and pinches, and backs off sideways.
+        "coconut_crab": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Coconut Crab",
+            manifest: "sprites/coconut_crab_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(40.0),
+            composition: None,
+            default_action_set: "coconut_crab_pinch",
+            locomotion: Some((run_speed: 150.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.5, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 440.0,
+                attack_range: 44.0,
+                patrol_effort: 0.5,
+                chase_effort: 0.9,
+                // A pinch, and a slow step back sideways with the claw up.
+                retreat_after_swing_s: 0.45,
+                attack_cooldown_s: 0.8,
+                tactics: (notice_s: 0.45, waits_its_turn: true, footsies: Some((hold_px: 80.0, wait_s: 0.6)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(5),
+            mass: Some(2.5),
+            tags: ["enemy", "history", "lapita_voyagers", "crab"],
+        barks: (
+            on_hit: ["Clack! Not the good claw!", "*it backs off sideways, offended*"],
+            provoked: ["*it lifts the big claw: the one that opens coconuts*"],
+            idle: ["*clack*", "*it drags a coconut across the sand, slowly*", "*it climbs a palm, just to look*"],
+            hall: ["I was a hermit crab once, in a borrowed shell. Then I grew, and no shell fit. Now I am the biggest crab on land, and I borrow nothing.", "They call me the robber crab: I take shiny things from the camp. A spoon, a pot, once a whole kettle. The potters here keep a close eye on me."],
+        ),
+        ),
+        // The frigatebird: the great frigatebird of the open ocean, black, with
+        // long crooked wings, a forked tail and a red throat pouch puffed up.
+        // It glides; it lifts its wings high (its windup row) and swoops at
+        // you hooked bill first. It has no shot: a floater that strikes in
+        // melee swoops, so it is `Aerial`.
+        "frigatebird": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Frigatebird",
+            manifest: "sprites/frigatebird_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(40.0),
+            composition: None,
+            default_action_set: "frigatebird_swoop",
+            locomotion: Some((run_speed: 190.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 620.0,
+                attack_range: 160.0,
+                shares_sightings: false,
+                tactics: (dive_tell_s: 0.4, notice_s: 0.4),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "history", "wayfinders", "bird"],
+        barks: (
+            on_hit: ["KRRAK!", "The pouch! It took twenty minutes to puff that up!"],
+            provoked: ["*the red pouch swells, and swells*"],
+            idle: ["*it hangs on the wind and does not flap once*", "*clack-clack of the long bill*"],
+            hall: ["I cannot land on the sea: my feathers are not waterproof. So at dusk I fly home to land, and every navigator on the ocean watches which way I go.", "Other birds catch fish. I catch the other birds, shake them until they drop the fish, and catch the fish before it hits the water. It is called efficiency."],
+        ),
+        ),
+        // The Pacific rat: the kiore, the small brown rat that crossed the
+        // Pacific on the voyaging canoes. Fast and low: it crouches with its
+        // tail lashing (its windup row), darts in and bites, and runs off.
+        "pacific_rat": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Pacific Rat",
+            manifest: "sprites/pacific_rat_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(20.0),
+            composition: None,
+            default_action_set: "pacific_rat_nip",
+            locomotion: Some((run_speed: 300.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 480.0,
+                attack_range: 60.0,
+                patrol_effort: 0.7,
+                chase_effort: 1.0,
+                // In with the bite, and away again before you turn.
+                retreat_after_swing_s: 0.4,
+                attack_cooldown_s: 0.5,
+                tactics: (notice_s: 0.25, waits_its_turn: true, footsies: Some((hold_px: 70.0, wait_s: 0.35)), flinch_back_s: 0.25),
+            )),
+            max_health: Some(1),
+            tags: ["enemy", "history", "rapa_nui", "rodent"],
+        barks: (
+            on_hit: ["Squeak!", "*it is gone, and back, and gone*"],
+            provoked: ["*whiskers forward*"],
+            idle: ["*sniff sniff*", "*it washes its face, very fast*", "Seeds? Any seeds?"],
+            hall: ["I crossed the Pacific on the canoes with the people, island after island. Some say as food, some say as a stowaway. I say: first class.", "On Rapa Nui they say we ate the nuts of the great palms, so no new palms grew. ...We did eat a lot of nuts. They were very good nuts."],
+        ),
+        ),
 
         // ===== THE EVIL DIMENSION (Jon, 2026-10-15). Wolfenstein, the boss of
         // Castle Godwin: Frankenstein's monster with the head of Insanity Wolf,
@@ -11010,6 +11219,168 @@
             barks: (
                 idle: ["Dig the drain, build the mound, plant the taro.", "Bananas: we grew them first. You may thank us.", "The swamp gives if you ask it right."],
                 hall: ["Farming began in only a few places in the world, on its own. This swamp is one of them. We did not copy anybody.", "Our drains are seven thousand years old and the archaeologists still find them. Good drains last."],
+            ),
+        ),
+        // Made by chargen with hand-drawn overlay art
+        // (`data/townsfolk/<target>.chargen.yaml`,
+        // `data/overlays/<target>.overlay.svg`). The sculptor, the cacica and
+        // the canoe maker are original people; the Zero Hero is an original
+        // scribe, and Lady Six Sky-High is a parody of a real queen.
+        "npc_history_head_sculptor": (
+            display_name: "The Head Sculptor",
+            // An original Olmec sculptor of the colossal heads, with a hammerstone, jade earspools and basalt dust on her arms.
+            manifest: "sprites/history_head_sculptor_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 163 cm.
+            standing_height: Some(63.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "olmec_heartland", "peaceful"],
+            barks: (
+                idle: ["Peck, peck, peck. Stone on harder stone. The face is in there somewhere.", "We brought this basalt down from the Tuxtla mountains with no wheels and no oxen. Rafts, rollers, ropes and a great many cousins.", "*she blows the dust off a cheek and looks at it for a long time*"],
+                hall: ["Every head has its own face and its own helmet. We carved our rulers as they were. Look them in the eye; they were people.", "The first rubber was made here: latex from the tree, juice from the morning glory vine, mixed just right. Then came the ball, and then the game."],
+            ),
+        ),
+        "npc_history_zero_hero": (
+            display_name: "The Zero Hero",
+            // An original Maya astronomer and scribe with a bark-paper codex and a shell, the Maya sign for zero.
+            manifest: "sprites/history_zero_hero_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(62.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "maya_city", "peaceful"],
+            barks: (
+                idle: ["A dot is one, a bar is five, a shell is zero. Count with me.", "This shell means nothing. I mean that as a compliment.", "*he checks Venus, then the book, then Venus again*"],
+                hall: ["We used a zero in a place-value count many centuries before Europe heard of one. Europe had nothing to say about it. We had a sign for that.", "Our long count of days starts in 3114 BCE. In 2012 people said it ended the world. It ended a bak'tun. Then we started the next one."],
+            ),
+        ),
+        "npc_history_lady_six_sky_high": (
+            display_name: "Lady Six Sky-High",
+            // A Maya warrior queen in a very tall quetzal headdress with a shield and a staff; a parody of Lady Six Sky of Naranjo (682-741 CE).
+            manifest: "sprites/history_lady_six_sky_high_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 165 cm.
+            standing_height: Some(63.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "maya_city", "peaceful"],
+            barks: (
+                idle: ["Lady Six Sky. Of Naranjo. And of everywhere near it.", "A taller headdress means more authority. That is simply astronomy.", "*she straightens a posture that was already perfectly straight*"],
+                hall: ["I came to Naranjo when it was beaten and broken. A few years later it was winning war after war, and I had myself carved on a stela, standing on a captive. Modesty is for cities that lose.", "My son was made king at five years old. Who do you think ruled? Read the stelae. Count the feathers."],
+            ),
+        ),
+        "npc_history_cacica_of_boriken": (
+            display_name: "The Cacica of Boriken",
+            // An original Taino woman chief of Boriken (Puerto Rico) before 1492, with a feather crown, a guanin medallion and a carved staff.
+            manifest: "sprites/history_cacica_of_boriken_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(62.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "taino_islands", "peaceful"],
+            barks: (
+                idle: ["Welcome to the batey. Mind the ball; the game is serious here.", "Cassava bread keeps for months. Bake it on the buren, keep it dry, and nobody goes hungry when the storms come.", "*she counts the canoes on the beach, and knows each family by its canoe*"],
+                hall: ["You already speak our words: canoe, hammock, hurricane, barbecue, savanna, maize, tobacco. Keep them. Use them well.", "After 1492 came the Spanish, forced labour and new sicknesses, and most of my people died. Not all. Taino families, our words and our ancestry are still here, in Boriken and in all the islands."],
+            ),
+        ),
+        "npc_history_canoe_maker": (
+            display_name: "The Canoe Maker",
+            // An original Taino canoe maker with a stone axe, a paddle, a cotton loincloth and red bixa paint.
+            manifest: "sprites/history_canoe_maker_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "taino_islands", "peaceful"],
+            barks: (
+                idle: ["Burn a little, chip a little, burn a little more. A canoe is one tree and a great deal of patience.", "This one seats forty. The cacica's seats a hundred, and it does not leak.", "*he runs his thumb along the edge of the stone axe, and nods*"],
+                hall: ["Our canoes carry a hundred paddlers from island to island, with cotton, cassava and gold to trade. Columbus wrote that they went marvellously fast. He was right about that.", "Canoa is our word. English took it, and hammock, and hurricane. That is all right. We have more."],
+            ),
+        ),
+        // Made by chargen with hand-drawn overlay art
+        // (`data/townsfolk/<target>.chargen.yaml`,
+        // `data/overlays/<target>.overlay.svg`). The potter, the wayfinder and
+        // the carver are original people; Thor Hey-I'm-Right-Dahl is a parody.
+        "npc_history_lapita_potter": (
+            display_name: "Lapita Potter",
+            // An original potter of the Lapita people, who sailed into the open Pacific around 1,500 BCE, with a toothed stamp and a stamped pot.
+            manifest: "sprites/history_lapita_potter_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 162 cm.
+            standing_height: Some(62.7),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "lapita_voyagers", "peaceful"],
+            barks: (
+                idle: ["Press the comb in, lift it clean. Again. Again.", "The white in the marks is lime, from burnt coral. It makes the pattern sing.", "Mind the pots. All of the pots."],
+                hall: ["My grandmothers came from islands to the north, and theirs from Taiwan before that. We carried the patterns all the way. You can follow us across the sea by our pots.", "We sailed out past the last island anyone could see, and found Fiji, Tonga and Samoa, where nobody had ever lived. We brought the pigs, the dogs, the chickens and the taro. And the pots."],
+            ),
+        ),
+        "npc_history_wayfinder": (
+            display_name: "Wayfinder",
+            // An original Polynesian navigator who crosses the open ocean by the stars, the swells and the birds, with a steering paddle and a shell lei.
+            manifest: "sprites/history_wayfinder_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "wayfinders", "peaceful"],
+            barks: (
+                idle: ["*he looks up, finds his star, and nods*", "Feel that? A swell from the south, under the one from the east.", "No compass. No chart. Just everything else."],
+                hall: ["Each star rises at the same point on the horizon every night. Learn the points of many stars and the whole sky is a compass. When it is cloudy, read the swells instead.", "At dusk, watch the birds. A tern or a noddy that flies low and straight is going home to land. Follow it. It knows the way."],
+            ),
+        ),
+        "npc_history_moai_carver": (
+            display_name: "Moai Carver",
+            // An original carver of the Rano Raraku quarry on Rapa Nui, with a basalt toki (adze), a feather headband and stone dust.
+            manifest: "sprites/history_moai_carver_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "rapa_nui", "peaceful"],
+            barks: (
+                idle: ["Tuff is soft. Basalt is hard. That is the whole trick, and also the rest of my life.", "*tap, tap, tap with the toki*", "It is not only a head. It has a body. Half of it is in the ground."],
+                hall: ["We did not roll them on logs. We stood them up and rocked them, left, right, left, with ropes on both sides, and they walked. Try it with a fridge.", "People say we cut down every tree for the moai and ruined our island. We lived here for centuries after that. What ruined us came on ships in the 1860s: slave raiders, and the sickness they brought."],
+            ),
+        ),
+        "npc_history_thor_hey_im_right_dahl": (
+            display_name: "Thor Hey-I'm-Right-Dahl",
+            // A parody of Thor Heyerdahl, who sailed a balsa raft from Peru in 1947 to prove Polynesia was settled from South America (it was not).
+            manifest: "sprites/history_thor_hey_im_right_dahl_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 188 cm.
+            standing_height: Some(72.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "rapa_nui", "peaceful"],
+            barks: (
+                idle: ["Hey! I'm right!", "Balsa floats. Therefore, Peru. Next question.", "*he polishes the little raft with his sleeve*"],
+                hall: ["In 1947 I sailed a raft from Peru to Polynesia to prove the Polynesians came from South America. It worked! Well, the raft worked. The Polynesians came from the west. Details.", "The sweet potato came from South America, so SOMEBODY sailed there and back. ...The Polynesians did. Sailing east, in better boats. Hey, I'm still a LITTLE right!"],
             ),
         ),
         "npc_primeval_twitchell": (

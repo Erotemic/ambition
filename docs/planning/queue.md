@@ -69,7 +69,7 @@ CHARGEN-SPECIES. TEST-LANES retains the test-consolidation work.
 | [Asset implementation review](engine/asset-library-implementation-review.md) | Evidence for the same three asset rows; no duplicate tasks. Cost traces are part of those slices. |
 | [World layers and travel](game/world-layers-and-travel.md) | Portal mechanics are built; WORLD-LAYERS owns the remaining authored topology. |
 | [Art dimension](game/art-dimension.md) | The first region is built. WORLD-LAYERS rechecks the remaining art publication, region cues and places before selecting more content. Do not rebuild the completed region. |
-| [History dimension](game/history-dimension.md) | The first pass is committed in `5d7fa1d1b`. WORLD-LAYERS owns selection of the next eras. |
+| [History dimension](game/history-dimension.md) and [proposed long-range roadmap](game/history-dimension-long-range-roadmap.md) | WORLD-LAYERS selects the next eras. The roadmap is a design reservoir; its proposed rooms are not current defects or selected work. |
 | [Enemy patterns](game/enemy-patterns.md) | ENEMY-NOTICE owns the remaining skirmisher/profile gap; do not repeat built fighter engagement or completed variants. |
 | [Region composition](game/world-composition.md) | WORLD-LAYERS rechecks remaining region links and secrets against current generators. Completed regions are not requeued. |
 | [World detail run](game/world-detail-24h.md) | Its counts predate many completed rooms. Recheck them within WORLD-LAYERS; do not restart the dated run or repeat its completed art. |

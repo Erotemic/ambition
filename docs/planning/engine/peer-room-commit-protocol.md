@@ -2,9 +2,11 @@
 
 ## Status and scope
 
-Design for MULTIPLAYER-SEAMS slice 6. This protocol is not implemented.
-Keep the current peer hold and timeline rebase until the behavior gates below
-pass. A full-party checkpoint restore can keep that barrier.
+The ordinary-travel simulation path is implemented (`1b1baf65a`). Gates 1–3
+pass in the focused default-feature checks. Delayed peers apply on the same
+input frame, keep one generation, and replay through an application frame.
+Another-room combat, broader feature checks, and rendered view isolation remain
+open. Full-party checkpoint restores and explicit rebuilds retain their barrier.
 
 This change removes the lifecycle hold from an ordinary door crossing in the
 current GGRS host. It does not provide independent rollback histories for
@@ -25,24 +27,32 @@ The witnesses found a missing collision overlay after root restoration.
 it before actor targeting. Do not snapshot derived collision arrays or add a
 second room constructor to repair this case.
 
-These are room-application witnesses. The peer input, delayed-preparation,
-failure, and corrected-input gates below remain open. Keep the current peer
-hold until they pass.
+The delayed-peer tests now add frame-input agreement, both crossing orders,
+preparation failure, changed occurrences, and retained-plan lifetime. Guard:
+`ordinary_peer_crossings_apply_on_shared_input_frames_without_holding_or_rebasing`.
+They require a real rollback across an application frame and matching confirmed
+state. Gate 4 still needs movement and combat in another room and explicit
+correction that removes a speculative application.
 
 ## Source findings
 
-The current `lifecycle_commit` in `ambition_platformer2d_rollback_ggrs` applies
-the room transaction outside `GgrsSchedule`. It holds the simulation from the
-frame after the intent, waits for confirmed preparation verdicts, and starts a
-new timeline after the commit. These steps give both peers the same baseline.
-Removing only the hold is unsafe. The existing
-`a_peer_commit_with_no_freeze_runs_on_two_worlds` witness detects that failure.
+Ordinary peer travel applies in `GgrsSchedule`, before gameplay. It reads that
+frame's verdicts, not the latest confirmed host summary. Every handle must state
+the same admission, captured preparation, content identities, and frozen plan.
+The exact retained plan uses the shared room application. A missing or changed
+promise is a protocol error. A matching failure or disconnected required handle
+ends the operation on the shared input timeline.
 
-The room state is partly ready for a reversible commit. The core registers
-`RoomGeometry`; the world registers `RoomSet`, `LiveRoomInstance`,
-`LiveRoomDefinition`, and `MovingPlatformSet`. Those declarations do not prove
-that room publication, actor construction, retirement, and their references
-can survive a rollback across a crossing. Prove that behavior first.
+`PendingLifecycleCommit::applied` retains the admission, application frame,
+preparation checksum, and arrival room in clone snapshots. The peer sends a
+presentation receipt through the existing confirmed-effect journal. Replay
+replaces speculative batches. Confirmed delivery retires only the matching
+loading presentation. Shared publication does not write host loading state.
+Schema 422 includes the applied receipt.
+
+Checkpoint restores and explicit room rebuilds retain the confirmed hold and
+rebase. Ordinary travel does not enter that barrier. Both use the same room
+constructor and transaction.
 
 `PeerVerdict` identifies an operation by its recording frame, admitted intent
 checksum, and captured preparation checksum. The intent includes its checkpoint key. Replies for a replaced intent cannot prepare or
@@ -90,8 +100,8 @@ The delayed-peer witness now covers a real destination pickup consumed after
 admission capture (`438be9428`). Both peers refuse the stale plan and keep the
 source room and both bodies. Guard:
 `peers_refuse_a_destination_occurrence_changed_after_preparation_capture`.
-This witness uses the existing hold. Gate 4 must still cover occurrence changes
-while unrelated rooms continue to simulate.
+This witness now uses the ordinary shared timeline without a rebase. Gate 4
+still needs occurrence changes during movement and combat in another room.
 
 Checkpoint restores now carry their key in the pending and withdrawn intents
 (`ce283f8f0`).
@@ -105,7 +115,7 @@ retirement compare the admission. Guards:
 Clone snapshots retain the local scope in the key. The shared checksum uses
 its peer-stable projection. Schema 411 records this change. Guard:
 `restore_peer_checksums_compare_admissions_without_local_scope_values` and
-`pending_and_withdrawn_restore_keys_survive_the_registered_snapshot_path`.
+`pending_withdrawn_and_applied_restore_keys_survive_the_registered_snapshot_path`.
 There is no second canonical codec for this local state.
 A checkpoint restore still uses the current peer barrier.
 

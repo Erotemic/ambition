@@ -929,16 +929,15 @@ Do not restore primary-room geometry or global room covers.
 **Next action (ordered slices; complete each behavior gate before moving):**
 
 6. **Online no-global-hold lifecycle:** prove a routine peer door crossing
-   can commit on an agreed timeline without freezing other rooms and without
-   desync. The current peer commit freezes and rebases the whole session
-   (23-43 held updates in the existing witness). Preserve that safe protocol
-   until a replacement passes two-peer confirmed/rollback/failed-preparation
-   tests. Track content identity, deterministic operation order, and peer
-   readiness explicitly. A full-party reload may use a global barrier.
+   commits on the shared input timeline without a whole-session hold or
+   rebase. Complete the remaining another-room combat and presentation gates.
+   Track content identity, deterministic operation order, and peer readiness
+   explicitly. Full-party reloads retain their global barrier.
 
 **Protocol:** [Peer room commits](engine/peer-room-commit-protocol.md) defines
 operation/content identity, retained preparation promises, and input-driven
-simulation commits. This is a design, not an implemented replacement.
+simulation commits. Ordinary travel now uses this path; the remaining behavior
+gates are open.
 Initial replay witnesses pass (`79826e053`): new and existing destinations,
 source retention, and moving-platform retirement. A required collision overlay
 now returns with a restored room root. Do not add a second rollback constructor.
@@ -976,13 +975,22 @@ The delayed-peer occurrence witness passes (`438be9428`). A target pickup
 consumed after admission capture refuses the crossing on both peers and keeps
 the source intact. Guard:
 `peers_refuse_a_destination_occurrence_changed_after_preparation_capture`.
-This still uses the existing hold. Ordinary travel now preserves session time
+Ordinary travel also preserves session time
 scale through the shared finalizer (`199313527`); full rebuilds retain their
 reset. Guard: `travel_keeps_the_shared_clock_scale_and_a_full_rebuild_resets_it`.
 
-**Next step:** use each frame's input verdicts for the ordinary crossing inside
-the simulation. Then exercise occurrence changes while unrelated rooms advance.
-Keep the existing safe hold until those pass.
+Ordinary peer travel now applies from each frame's inputs (`1b1baf65a`). Both
+crossing orders keep generation zero, agree on application frames, and replay
+through an application. The simulation advances during preparation. Applied
+receipts use clone snapshots; presentation uses the confirmed-effect journal.
+Checkpoint restores and explicit rebuilds retain their barrier. Guard:
+`ordinary_peer_crossings_apply_on_shared_input_frames_without_holding_or_rebasing`.
+
+**Next step:** exercise movement, combat, and occurrence changes in another
+room during preparation. Cover correction that removes a speculative crossing.
+Then remove preparation waits caused by an old presentation tail and verify
+rendered per-view isolation and exactly-once arrival effects. Complete the
+broader feature checks before marking this slice complete.
 The `LOCAL-PLAY-MODES` leave slice and `COOP-RECOVERY` remain separate work
 items; reuse their participant lifecycle and checkpoint rules, not duplicate
 them in this row.

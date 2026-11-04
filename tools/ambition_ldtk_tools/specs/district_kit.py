@@ -137,9 +137,21 @@ def room(rid, entities, *, at, size, biome, music, bg, title=None, generator, zo
 """
 
 
+#: The rooms `make_rooms` made in this run, by the real path of their world.
+_MADE: dict[Path, set[str]] = {}
+
+
 def run(*args) -> tuple[int, str]:
     done = subprocess.run([sys.executable, "-m", "ambition_ldtk_tools", *args], cwd=TOOLS, capture_output=True, text=True)
     print(done.stdout + done.stderr)
+    # A generator paints and adds entities into its rooms after it makes them.
+    # That is still the generator's work, so its record follows it; otherwise
+    # the next run would take the generator's own steps for a hand edit.
+    for arg in args:
+        if str(arg).endswith(".ldtk") and (world := Path(arg).resolve()) in _MADE:
+            from ambition_ldtk_tools import generated_record
+
+            generated_record.record(world, _MADE[world])
     return done.returncode, done.stdout + done.stderr
 
 
@@ -151,16 +163,43 @@ def ensure_world(world: Path, uid_offset: int) -> int:
     return code
 
 
-def make_rooms(world: Path, specs: list[Path], keep_position: bool = False) -> int:
+def make_rooms(world: Path, specs: list[Path], keep_position: bool = False, overwrite_hand_edits: bool = False) -> int:
     """Make each room again from its spec. Each room's doors name the other
     rooms, so the world is whole only after the last one: until then it is
     enough that each was written. `keep_position`: a room that exists stays
-    where the LDtk editor has it (`area create --keep-position`)."""
+    where the LDtk editor has it (`area create --keep-position`).
+
+    A room edited in LDtk since this generator last wrote it is not replaced
+    (`ambition_ldtk_tools.generated_record`): `area create` refuses, and the
+    run stops before it writes another room. A room that is LDtk-owned is
+    skipped. After the last room, each room is recorded as it is now: only
+    then are the doors of the later rooms in it."""
+    from ambition_ldtk_tools import generated_record
+    from ambition_ldtk_tools import ron_parse
+
     keep = ["--keep-position"] if keep_position else []
+    if overwrite_hand_edits:
+        keep.append("--overwrite-hand-edits")
+    owned = set(generated_record.load(world)["ldtk_owned"])
+    made = []
+    level_ids = {path: str(ron_parse.load(path.read_text())["level_id"]) for path in specs}
+    now = dict(generated_record.status(world)) if world.exists() and not overwrite_hand_edits else {}
+    edited = [level_ids[path] for path in specs if now.get(level_ids[path]) == "HAND-EDITED"]
+    if edited:
+        print(f"refused: edited in LDtk since the generator wrote them: {', '.join(edited)}", file=sys.stderr)
+        print("  keep an edit: `python -m ambition_ldtk_tools level ownership adopt <level> --ldtk <world>`", file=sys.stderr)
+        print("  discard it: run the generator with --overwrite-hand-edits", file=sys.stderr)
+        return 1
     for path in specs:
+        if level_ids[path] in owned:
+            print(f"skip {level_ids[path]}: LDtk-owned ({generated_record.record_path(world).name})")
+            continue
         code, out = run("area", "create", str(path), "--ldtk", str(world), "--replace-existing", *keep)
         if code != 0 and "wrote new level" not in out and "replaced level" not in out:
             return code
+        made.append(level_ids[path])
+    _MADE.setdefault(world.resolve(), set()).update(made)
+    generated_record.record(world, made)
     return 0
 
 

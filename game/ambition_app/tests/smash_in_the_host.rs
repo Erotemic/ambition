@@ -8501,10 +8501,7 @@ fn quit_to_title_from_a_smash_match_reaches_the_title_and_stays() {
     // re-aim this at "Quit to Desktop".
     tap(&mut app, KeyCode::Escape);
     settle(&mut app);
-    let quit_row = pause_row_index(&mut app, "Quit to Title");
-    for _ in 0..quit_row {
-        tap(&mut app, KeyCode::ArrowDown);
-    }
+    focus_pause_row(&mut app, "Quit to Title");
 
     // HELD, the way a hand holds it, and released well after the shell has landed.
     Buttonlike::press(&KeyCode::Enter, app.world_mut());
@@ -8532,50 +8529,38 @@ fn quit_to_title_from_a_smash_match_reaches_the_title_and_stays() {
     );
 }
 
-/// How many Downs it takes to reach a labelled row of the open pause menu.
-///
-/// `PauseEntry` is private to `ambition_game_shell`, so the row list is read the
-/// way a player reads it: off the screen. The menu's `Button`s come back in
-/// spawn order, which is the order the cursor walks — but the "Paused" header is
-/// a `Button` too and the cursor does not stop on it, so the count is taken
-/// FROM `Resume`, the row the cursor starts on in a live session. Anchoring on a
-/// named row rather than subtracting one keeps this honest if the chrome grows
-/// another non-stop node.
-fn pause_row_index(app: &mut App, label: &str) -> usize {
-    let world = app.world_mut();
-    let mut rows = world.query_filtered::<&Children, With<Button>>();
-    let children: Vec<Vec<Entity>> = rows
-        .iter(world)
-        .map(|kids| kids.iter().collect::<Vec<_>>())
-        .collect();
-    let mut texts = world.query::<&Text>();
-    // ⛔ THE ROW'S LABEL IS ITS FIRST TEXT CHILD, NOT ALL OF THEM JOINED. A
-    // control now draws its VALUE as a second text when it has one
-    // (`spawn_control`'s `detail`), so joining every child turned "Master Volume"
-    // into "Master Volume 85%" and an exact-match lookup stopped finding rows it
-    // had always found. The label is what this test is about; the value is not.
-    let labels: Vec<String> = children
-        .iter()
-        .map(|kids| {
-            kids.iter()
-                .filter_map(|kid| texts.get(world, *kid).ok().map(|t| t.0.clone()))
-                .next()
-                .unwrap_or_default()
-        })
-        .collect();
-    let position = |wanted: &str| {
-        labels
-            .iter()
-            .position(|row| row == wanted)
-            .unwrap_or_else(|| panic!("no pause row labelled {wanted:?}; rows are {labels:?}"))
-    };
-    let first = position("Resume");
-    let wanted = position(label);
-    assert!(
-        wanted >= first,
-        "{label:?} sits above Resume, so the cursor cannot walk down to it: {labels:?}"
-    );
-    wanted - first
+/// Focus a pause control by its displayed label.
+fn focus_pause_row(app: &mut App, label: &str) {
+    use ambition_platformer2d::menu::{AnyMenuControl, MenuVisualState};
+
+    fn has_label(world: &World, control: Entity, label: &str) -> bool {
+        let mut pending = vec![control];
+        while let Some(entity) = pending.pop() {
+            if world.get::<Text>(entity).is_some_and(|text| text.0 == label) {
+                return true;
+            }
+            if let Some(children) = world.get::<Children>(entity) {
+                pending.extend(children.iter());
+            }
+        }
+        false
+    }
+
+    let limit = app.world_mut().query_filtered::<Entity, With<AnyMenuControl>>()
+        .iter(app.world()).count();
+    for _ in 0..=limit {
+        let world = app.world_mut();
+        let mut query = world.query_filtered::<(Entity, &MenuVisualState), With<AnyMenuControl>>();
+        let controls: Vec<_> = query.iter(world)
+            .map(|(entity, state)| (entity, state.focused || state.selected)).collect();
+        assert!(controls.iter().any(|(entity, _)| has_label(world, *entity, label)),
+            "no pause control labelled {label:?}");
+        if controls.iter().any(|(entity, focused)| *focused && has_label(world, *entity, label)) {
+            return;
+        }
+        tap(app, KeyCode::ArrowDown);
+    }
+    panic!("the pause cursor did not reach {label:?}");
 }
 
 /// ⭐⭐ ONE MOVE, EACH GAME'S DAMAGE. The robot's moveset states Ambition's

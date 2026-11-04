@@ -118,7 +118,7 @@ fn consignment_0447_is_cleared_across_two_dimensions_and_remembered() {
     travel(&mut app, "math_gate_hall");
     go_through(&mut app, "math_town_street");
     go_through(&mut app, "math_surveyors_office");
-    talk_and_choose(&mut app, "npc_georg_canter", "Please count the lenses.");
+    talk_and_choose(&mut app, "npc_georg_canter", "They need you to sign for twelve lenses.");
     assert!(flag(&app, "orbital_manifest_signed"));
     assert_eq!(step_of(&app), Some((2, false)));
 

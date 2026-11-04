@@ -204,10 +204,30 @@ fn hold(app: &mut App, body: Entity, held: bool) {
     }
 }
 
+fn interrupt_for_hit(app: &mut App, body: Entity) {
+    use bevy::ecs::system::RunSystemOnce as _;
+    use ambition_platformer2d::combat::moveset::{cancel_move_playback, MoveEnd, MovePlayback};
+
+    // A hit interrupts the current move and locks control.
+    app.world_mut().run_system_once(move |mut commands: Commands, mut playing: Query<&mut MovePlayback>| {
+        if let Ok(mut playback) = playing.get_mut(body) {
+            cancel_move_playback(&mut commands, body, &mut playback, MoveEnd::Interrupted);
+        }
+    }).expect("the fixture interrupts the body's current move");
+    let lock = app.world().resource::<
+        ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith,
+    >().knockback_recoil_lock_time;
+    {
+        let mut combat = app.world_mut().get_mut::<BodyCombat>(body).unwrap();
+        combat.recoil_lock_timer = combat.recoil_lock_timer.max(lock);
+    }
+}
+
 /// Throw `body` toward the stage's centre at `toward` px/s and `up` px/s,
 /// from `height` px above where it stands, facing the centre or away from it,
 /// through the launch gateway a hit uses.
 fn launch(app: &mut App, body: Entity, centre_x: f32, faces_centre: bool, toward: f32, up: f32, height: f32) {
+    interrupt_for_hit(app, body);
     let mut kinematics = app.world_mut().get_mut::<BodyKinematics>(body).unwrap();
     let to_centre = (centre_x - kinematics.pos.x).signum();
     kinematics.facing = if faces_centre { to_centre } else { -to_centre };
@@ -287,6 +307,7 @@ fn every_reaction_pose_is_drawn_by_human_and_cpu_seats() {
         for _ in 0..30 {
             app.update();
         }
+        interrupt_for_hit(&mut app, human);
         let height = app.world().get::<BodyKinematics>(human).unwrap().size.y;
         let mut combat = app.world_mut().get_mut::<BodyCombat>(human).unwrap();
         combat.hit_flash = 0.2;
@@ -369,6 +390,7 @@ fn every_reaction_pose_is_drawn_by_human_and_cpu_seats() {
             break;
         }
     }
+    interrupt_for_hit(&mut app, cpu);
     let height = app.world().get::<BodyKinematics>(cpu).unwrap().size.y;
     let mut combat = app.world_mut().get_mut::<BodyCombat>(cpu).unwrap();
     combat.hit_flash = 0.2;

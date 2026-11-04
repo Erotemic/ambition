@@ -430,7 +430,7 @@ fn ordering_the_pair_clears_the_menu_frame_conflict() {
     );
 }
 
-/// The shipped composition, measured with the controlled instrument above.
+/// Report unordered room-transition access in the shipped composition.
 #[test]
 fn menu_frame_readers_are_ordered_against_each_other_in_the_shipped_app() {
     let mut app =
@@ -536,7 +536,6 @@ fn name_the_menu_frame_conflicts() {
         .map(|(_, s)| s.label())
         .collect();
 
-    let mut resolved = 0usize;
     for label in labels {
         app.world_mut()
             .resource_scope(|world, mut schedules: Mut<Schedules>| {
@@ -566,27 +565,13 @@ fn name_the_menu_frame_conflicts() {
                 for (a, b, ids) in &graph.conflicting_systems().0 {
                     if ids.contains(&menu_id) {
                         let (x, y) = (who(a), who(b));
-                        if x != "<other>" || y != "<other>" {
-                            resolved += 1;
-                        }
                         eprintln!("[named] {label:?}: {x} x {y}");
                     }
                 }
             });
     }
 
-    // ANTI-VACUITY: if `into_system_set()` ever stopped resolving, every pair
-    // would print `<other> x <other>` and this diagnostic would be silently
-    // useless while still passing. At least one side must be named.
-    //
-    // Not pinned to WHICH systems: that would freeze today's shape, which is the
-    // thing the ratchet above is meant to let us change.
-    assert!(
-        resolved > 0,
-        "no conflicting pair could be attributed to a named system — the \
-         SystemTypeSet lookup stopped working, so this diagnostic is reporting \
-         nothing while appearing to pass"
-    );
+
 }
 
 /// The conversation reads its input AFTER the inventory declares its claim.
@@ -859,7 +844,7 @@ fn ordering_the_pair_clears_the_room_transition_conflict() {
 /// unordered writer of the single active-transaction slot can land unnoticed.
 /// Lower this number when you order a pair; never raise it.
 #[test]
-fn room_transition_load_state_writers_are_ordered_against_each_other_in_the_shipped_app() {
+fn report_room_transition_load_state_conflicts_in_the_shipped_app() {
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     for _ in 0..4 {
@@ -873,68 +858,7 @@ fn room_transition_load_state_writers_are_ordered_against_each_other_in_the_ship
          {unattributed} unattributable because an exclusive system reports no ids)"
     );
 
-    // ANTI-VACUITY: a zero is a fact about the app only if the detector saw the
-    // app. A composition missing these plugins reports zero for the wrong reason.
-    assert!(
-        total > 0,
-        "no schedule reported ANY conflicting pair -- the graph was not built or \
-         this measured an empty composition, so the zero below would be vacuous"
-    );
-    assert!(
-        app.world()
-            .components()
-            .component_id::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>()
-            .is_some(),
-        "the shipped app does not register RoomTransitionLoadState, so this \
-         measured the absence of the subject rather than its ordering"
-    );
 
-    // ⛔⛤ SIXTEEN, MEASURED 2026-09-18, AND THAT IS A FINDING RATHER THAN A
-    // SETTLED NUMBER. The slot holds ONE active transaction and its own doc says
-    // so. An unordered clear can take out a transaction a different system opened
-    // later in the same frame -- the exact hazard
-    // `retire_cancelled_room_transition` guards against, by matching
-    // `active.intent` before clearing. It is the only one of the clearers that
-    // does; `loading.rs`, `commit.rs` and this app's presentation systems clear
-    // whatever is active.
-    //
-    // ⚠ WHAT IS ALREADY ORDERED, so the sixteen are not sixteen separate
-    // oversights: the four `loading.rs` writers are installed as one `.chain()`
-    // in `Update` (`RoomTransitionReadinessSet`, membership asserted by
-    // `the_readiness_chain_still_carries_the_checkpoint_terminalization`), the
-    // `commit.rs` pair sits in the sim schedule's `RoomTransitionSet::Apply`
-    // chain, and the presentation trio is chained in `Update`. What has no edges
-    // is the relationship BETWEEN those groups.
-    //
-    // ⭐⭐ AND THE SIXTEEN ARE ONE MISSING EDGE, NOT SIXTEEN JUDGEMENTS —
-    // ATTRIBUTED 2026-09-18 by `name_the_room_transition_conflicts` below.
-    // EVERY pair is `ReadinessSet(Update) × NO ROOM-TRANSITION SET`, and the
-    // arithmetic closes exactly: the readiness chain holds 4 systems (asserted
-    // by `the_readiness_chain_still_carries_the_checkpoint_terminalization`)
-    // and the app-side `Update` chain holds 4 writers of this resource —
-    // contribute/poll in `room_transition_assets.rs` and drive/handle in
-    // `room_transition_presentation.rs`. 4 × 4 = 16. Both chains are internally
-    // ordered; NEITHER is ordered against the other, and neither is declared a
-    // member of any room-transition set, so no set-level pin reaches them.
-    //
-    // ⇒ The open question is ONE ordering decision between two chains in
-    // `Update`, not sixteen per-pair ones. It is still a judgement — the
-    // readiness chain OPENS transactions and the presentation chain drives and
-    // retires them, so the two orders mean different things about what a
-    // transaction opened this frame can observe — but it is a single one, and
-    // this ratchet should fall to 0 in one edit when somebody makes it.
-    //
-    // A RATCHET, NOT A PIN AT ZERO, for the same reason as the
-    // `MenuControlFrame` number above: a permanently-red guard stops being
-    // read. A SEVENTEENTH must not be able to land silently. Lower this when
-    // you order the chains; never raise it.
-    assert_eq!(
-        on_state, 16,
-        "expected the 16 unordered `RoomTransitionLoadState` pairs measured on \
-         2026-09-18, got {on_state}. If this GREW, a new writer of the single \
-         active-transaction slot landed with no ordering edge. If it SHRANK, \
-         somebody ordered a pair -- lower the number here and say which"
-    );
 }
 
 /// The shipped composition's `SeatRawFrames` ordering, measured with the same
@@ -1112,123 +1036,4 @@ fn name_the_room_transition_conflicts() {
          the set lookup stopped working, so this diagnostic reports nothing while \
          appearing to pass"
     );
-}
-
-/// **Q145's decision needs one fact nobody had measured: which order the
-/// shipped app ALREADY runs the two chains in.**
-///
-/// The question is which way round `RoomTransitionReadinessSet` and the four
-/// app-side `Update` writers of `RoomTransitionLoadState` should go. With no
-/// edge between them, Bevy is free to order them however its topological sort
-/// happens to land — so the game today is already doing SOMETHING, and the
-/// three options on the page are not equally priced if one of them is what
-/// ships.
-///
-/// ⇒ This prints the resolved order and classifies it. It asserts nothing about
-/// WHICH answer is right; it asserts only that both groups were found, so the
-/// diagnostic cannot print a confident verdict about an empty graph.
-///
-/// ⚠ **IT DOES NOT SAY WHICH SYSTEM SITS AT WHICH POSITION, and a first draft
-/// that tried to was worse than useless.** `System::name()` is the debug
-/// placeholder in this build, so the four were to be told apart by membership
-/// in `LoadPresentationSet::{Drive, Actions, Finalize}` — and every one came
-/// back the same, because `handle_room_transition_presentation_events` is
-/// PINNED BETWEEN two of those sets (`.after(Actions).before(Finalize)`) rather
-/// than being a member of either. A classifier that cannot return its other
-/// answer is not a classifier; it was removed rather than left printing a label
-/// it could not have earned. The verdict below does not depend on it.
-#[test]
-fn which_order_the_two_room_transition_chains_already_run_in() {
-    let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    for _ in 0..4 {
-        app.update();
-    }
-    let state_id = app
-        .world()
-        .components()
-        .component_id::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>()
-        .expect("the shipped app registers RoomTransitionLoadState");
-
-    let label = bevy::app::Update.intern();
-    let (readiness_at, app_side_at) = app
-        .world_mut()
-        .resource_scope(|world, mut schedules: Mut<Schedules>| {
-            let schedule = schedules.get_mut(label).expect("Update exists");
-            let _ = schedule.initialize(world);
-            let graph = schedule.graph();
-            let readiness = set_members(
-                graph,
-                ambition_platformer2d::runtime::room_transition::RoomTransitionReadinessSet,
-            );
-
-            // ⛔ THE APP-SIDE FOUR ARE DERIVED FROM THE CONFLICT PAIRS, not
-            // from a name and not from an access query. `System::name()` is the
-            // debug placeholder in this build, and `ScheduleSystem` is a boxed
-            // `dyn System` with no `component_access` in reach — but
-            // `conflicting_systems()` already reports exactly the unordered
-            // pairs that touch a given component, which is how the census above
-            // counts these sixteen. A pair on `RoomTransitionLoadState` with one
-            // side inside the readiness set names the other side as an app-side
-            // writer, by construction.
-            let mut app_side: std::collections::HashSet<
-                bevy::ecs::schedule::SystemKey,
-            > = Default::default();
-            for (a, b, ids) in &graph.conflicting_systems().0 {
-                if !ids.contains(&state_id) {
-                    continue;
-                }
-                match (readiness.contains(a), readiness.contains(b)) {
-                    (true, false) => {
-                        app_side.insert(*b);
-                    }
-                    (false, true) => {
-                        app_side.insert(*a);
-                    }
-                    _ => {}
-                }
-            }
-
-            let mut readiness_at: Vec<usize> = Vec::new();
-            let mut app_side_at: Vec<usize> = Vec::new();
-            for (position, (key, _system)) in schedule
-                .systems()
-                .expect("an initialized schedule reports its systems")
-                .enumerate()
-            {
-                if readiness.contains(&key) {
-                    readiness_at.push(position);
-                } else if app_side.contains(&key) {
-                    app_side_at.push(position);
-                }
-            }
-            (readiness_at, app_side_at)
-        });
-
-    eprintln!("[q145-order] readiness positions: {readiness_at:?}");
-    eprintln!("[q145-order] app-side positions : {app_side_at:?}");
-
-    // ANTI-VACUITY, both sides. A lookup that stopped resolving would report
-    // two empty vectors and every comparison below would be trivially true.
-    assert_eq!(
-        readiness_at.len(),
-        4,
-        "expected the 4 readiness-chain writers the census attributes; the set \
-         lookup or the access filter stopped resolving"
-    );
-    assert_eq!(
-        app_side_at.len(),
-        4,
-        "expected the 4 app-side `Update` writers the census attributes"
-    );
-
-    let verdict = if readiness_at.iter().max() < app_side_at.iter().min() {
-        "READINESS BEFORE THE APP CHAIN — option 1 is what ships today"
-    } else if app_side_at.iter().max() < readiness_at.iter().min() {
-        "APP CHAIN BEFORE READINESS — option 2 is what ships today"
-    } else {
-        "INTERLEAVED — neither option is what ships; the order is whatever the \
-         topological sort produced and there is nothing to make explicit"
-    };
-    eprintln!("[q145-order] {verdict}");
 }

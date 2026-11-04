@@ -19,7 +19,7 @@ everyone starts in Africa (`specs/check_flat_map.py history.ldtk`).
     R3 South Asia     south. route  mehrgarh        indus
     R4 Europe         ice age       first farmers   megaliths    celts       vikings     sail   industrial
     R5 Med./SW Asia   levant        crescent        uruk         classical
-    R6 Africa cradle  south. coast  green sahara    nile         aksum       timbuktu
+    R6 Africa cradle  south. coast  green sahara    nile         aksum       timbuktu    benin
 
 The ways through, room by room, are in each room's function. Buildings are
 under the grid, reached by doors. The art is the sprite tools'
@@ -83,6 +83,7 @@ GRID = {
     (5, 2): "history_rapa_nui",
     (5, 4): "history_viking_north",
     (5, 6): "history_timbuktu_coast",
+    (6, 6): "history_benin_city",
     (6, 4): "history_age_of_sail",
     (7, 4): "history_industrial_age",
 }
@@ -213,6 +214,7 @@ MUSIC = {
     "history_nile_valley": AFRICA,
     "history_aksum_and_kush": AFRICA,
     "history_timbuktu_coast": AFRICA,
+    "history_benin_city": AFRICA,
     "history_levant": CRESCENT,
     "history_fertile_crescent": CRESCENT,
     "history_uruk": CRESCENT,
@@ -255,6 +257,7 @@ BIOME = {
     "history_green_sahara": "history_green_sahara",
     "history_nile_valley": "history_nile", TOMB: "history_nile", "history_aksum_and_kush": "history_nile",
     "history_timbuktu_coast": "history_monsoon", LIBRARY: "history_monsoon",
+    "history_benin_city": "history_benin",
     "history_levant": "history_crescent", "history_fertile_crescent": "history_crescent", GRANARY: "history_crescent",
     "history_uruk": "history_crescent",
     "history_classical_shore": "history_classical", COLOSSEUM: "history_classical",
@@ -297,6 +300,8 @@ BOX = {
     # The third pass.
     "howler_monkey": (40, 44), "green_iguana": (72, 32), "coconut_crab": (64, 40),
     "frigatebird": (64, 40), "pacific_rat": (32, 20),
+    # Wave A: the Atlantic world.
+    "driver_ants": (72, 24),
 }
 
 DOOR_W, DOOR_H = 48, 192
@@ -312,6 +317,7 @@ SOLSTICE = "history_solstice"
 ORACLE = "history_oracle_bone"
 UNICORN_SEAL = "history_unicorn_seal"
 BALLCOURT_RING = "history_ballcourt_ring"
+LOST_WAX = "history_lost_wax"
 #: The Great Wall in the steppe (x0, x1), its top, and the gate in it.
 WALL_X = (928, 1024)
 WALL_TOP = 640
@@ -665,6 +671,53 @@ def library():
         sign("library_sign_gold", 1160, g - 120, "GOLD (worth less than the books)", 340),
     ]
     return building(LIBRARY, "history_timbuktu_coast", "timbuktu_library_door", "THE LIBRARY OF TIMBUKTU", extra)
+
+
+def benin_city():
+    """Benin City, the capital of the kingdom of Benin (the Edo people),
+    about 1200-1897 CE: its walls of earth (the iya), the guild of brass
+    casters, the Oba's palace with its brass plaques, and Iyoba Idia, the
+    first queen mother. The guild's bellows cast a plaque (`history_lost_wax`)
+    and the guild carries it in, so the palace gate opens. At the east end, a
+    plain sign says what came in 1897."""
+    rid = "history_benin_city"
+    gate_x = 1320
+    e = [
+        start(rid, 160, FLOOR),
+        # The iya: a bank of earth. Up the step and over it.
+        ledge("iya_step", 300, FLOOR - 80, 112),
+        solid("iya_bank", 420, FLOOR - 144, 176, 144),
+        sign("benin_sign_walls_a", 508, FLOOR - 340, "THE WALLS OF BENIN: banks and ditches dug by hand over centuries,", 600),
+        sign("benin_sign_walls_b", 508, FLOOR - 312, "thousands of kilometres of them round the city and its villages", 580),
+        npc("history_brass_caster", 720, FLOOR, 64),
+        prop_at("furnace", "history_brass_furnace", 840, FLOOR, 80, 96),
+        lever(LOST_WAX, "the guild's bellows", "Work the bellows", 940, FLOOR),
+        sign("benin_sign_wax", 860, FLOOR - 220, "LOST WAX: shape it in wax, coat it in clay, melt the wax out, pour in brass", 680),
+        prop_at("manillas", "history_manillas", 1060, FLOOR, 64, 32),
+        sign("benin_sign_manillas", 1040, FLOOR - 120, "MANILLAS: Portuguese brass, melted down for art", 440),
+        enemy(rid, 1, "driver_ants", 1160, FLOOR),
+        *gate("history_palace_gate", "the palace gate", gate_x, f"world.switch_on {LOST_WAX}", "history_benin_palace_gate"),
+        sign("benin_sign", 1400, 140, "BENIN CITY: the walls, the brass casters and the court of the Oba, 1200-1897", 700),
+        sign("benin_sign_palace", 1600, FLOOR - 420, "THE OBA'S PALACE: walls of red earth, a brass bird on every turret", 600),
+        prop_at("palace", "history_benin_palace", 1560, FLOOR, 256, 192),
+        ledge("palace_roof_a", 1460, FLOOR - 112, 192),
+        ledge("palace_roof_b", 1560, FLOOR - 224, 128),
+        chest("cowries (the money of Benin)", 1624, FLOOR - 224, "currency:100"),
+        prop_at("plaque_1", "history_benin_plaque", 1760, FLOOR - 48, 48, 64),
+        prop_at("plaque_2", "history_benin_plaque", 1830, FLOOR - 48, 48, 64),
+        prop_at("plaque_3", "history_benin_plaque", 1900, FLOOR - 48, 48, 64),
+        sign("benin_sign_plaques", 1830, FLOOR - 160, "THE PLAQUES: the court's history, in brass", 400),
+        npc("history_iyoba_idia", 2010, FLOOR, 63),
+        sign("benin_sign_idia", 2010, FLOOR - 260, "IYOBA IDIA: she raised an army and won her son's war. The first queen mother.", 700),
+        enemy(rid, 2, "driver_ants", 2160, FLOOR),
+        enemy(rid, 1, "asp", 2280, FLOOR),
+        npc("history_lord_finders_keepers", 2480, FLOOR, 70),
+        prop_at("case", "history_museum_case", 2600, FLOOR, 80, 112),
+        sign("benin_sign_1897_a", 2380, FLOOR - 360, "1897: a British force burned Benin City and carried off its brass and ivory,", 680),
+        sign("benin_sign_1897_b", 2380, FLOOR - 332,
+             "thousands of works. They fill museums in Europe and America. A few have come home.", 750),
+    ]
+    return grid_room(rid, "BENIN CITY", e)
 
 
 # ---- R5: the Mediterranean and Southwest Asia ------------------------------
@@ -1550,7 +1603,7 @@ def taino_islands():
 
 
 #: The rooms, by floor from the bottom (Africa) to the top.
-ROOMS = (cradle, southern_coast, green_sahara, nile, tomb, aksum, timbuktu, library,
+ROOMS = (cradle, southern_coast, green_sahara, nile, tomb, aksum, timbuktu, library, benin_city,
          levant, crescent, granary, uruk, classical, colosseum,
          ice_age_europe, painted_cave, first_farmers_of_europe, megalith_builders, celtic_frontier, viking_north, sail,
          industrial, mill,

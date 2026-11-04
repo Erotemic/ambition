@@ -707,6 +707,23 @@
       "twinkle_rate": 0.7,
       "front": 0.35
     },
+    "history_benin": {
+      "count": 14,
+      "velocity": [
+        3.0,
+        -6.0
+      ],
+      "wander": 10.0,
+      "wander_rate": 0.2,
+      "size": [
+        1.2,
+        2.4
+      ],
+      "alpha": 0.55,
+      "twinkle": 0.5,
+      "twinkle_rate": 1.1,
+      "front": 0.3
+    },
     "history_lapita": {
       "count": 10,
       "velocity": [

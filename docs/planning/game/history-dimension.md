@@ -76,7 +76,7 @@ the record and sighs about the footnotes.
     R3 South Asia     south. route  mehrgarh        indus
     R4 Europe         ice age       first farmers   megaliths    celts       vikings     sail   industrial
     R5 Med./SW Asia   levant        crescent        uruk         classical
-    R6 Africa cradle  south. coast  green sahara    nile         aksum       timbuktu
+    R6 Africa cradle  south. coast  green sahara    nile         aksum       timbuktu    benin
 
 The columns: C0 origins (300,000 years ago), C1 the great dispersal (70,000
 to 12,000 years ago), C2 the first farmers (10,000 to 3,000 BCE), C3 the
@@ -103,6 +103,7 @@ The rooms:
 | `history_nile_valley` | `history_nile` | Hat-shepsut, Ramesses the Pretty Good | mummy, scarab beetle, asp | a felucca carries you over the river |
 | `history_aksum_and_kush` | `history_nile` | Kandake Can-Do | asp, mummy, scarab beetle | the ladder up: the Red Sea road to Rome |
 | `history_timbuktu_coast` | `history_monsoon` | Mansa Moolah, Zheng Hey | inflated coin, coral crab, monsoon squall | a dhow carries you over the sea |
+| `history_benin_city` | `history_benin` | the brass caster of Igun Street, Iyoba Idia, Lord Finders-Keepers | driver ants, asp | over the bank of the city walls; the casters' bellows (`history_lost_wax`) cast a plaque and open the palace gate; a plain sign for 1897 |
 | `history_levant` | `history_crescent` | Neville the Neanderthal | aurochs, cave lion | the ladders: down to Africa, up to Europe |
 | `history_fertile_crescent` | `history_crescent` | Hammurabbi, Gilgamash | locust swarm, aurochs, scorpion man | the sluice (`history_sluice`) raises the reed bridge over the canal |
 | `history_uruk` | `history_crescent` | Enheduanna | scorpion man, sea raider | the Bronze Age collapse: three Sea Peoples raiders |
@@ -229,13 +230,17 @@ Saint-Domingue).
 
 ### The waves (slowly: a few rooms at a time, each one finished)
 
-- A. The Atlantic world: Benin City and its bronzes (C6, Africa); the Door
-  of No Return, a sober room of the Atlantic slave trade (C6 to C7); the
-  Haitian Revolution (C7, the Americas): the people who freed themselves.
+- A. The Atlantic world: Benin City and its bronzes (C6, Africa: BUILT);
+  the Door of No Return, a sober room of the Atlantic slave trade (C7,
+  Africa), a fort whose one-way door opens on Saint-Domingue; the Haitian
+  Revolution (C6, the Americas, beside the Taino room: Ayiti is the same
+  island, and Haiti took back its Taino name): the people who freed
+  themselves. Its Door of Return opens after 1804 and goes back to the fort.
 - B. South America, up the Andes (a tall room from the first maize):
   Caral, the oldest city of the Americas (C3); Nazca and the Moche (C4);
   Tiwanaku and the Wari (C5); the Inca and the Qhapaq Nan (C6). The Aztecs
-  and Tenochtitlan (C6, the Americas).
+  and Tenochtitlan (C5, the Americas: a row of its own, or a pocket of the
+  Maya city; Haiti has C6 of the Americas floor).
 - C. The Islamic Golden Age and Persia: the House of Wisdom in Baghdad
   (C5: al-Khwarizmi's algebra, the translators; no founders); the
   Achaemenids and the Royal Road (C4); the Ottomans and the coffee house

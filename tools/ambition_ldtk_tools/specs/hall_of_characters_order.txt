@@ -282,6 +282,9 @@ npc_history_lapita_potter
 npc_history_wayfinder
 npc_history_moai_carver
 npc_history_thor_hey_im_right_dahl
+npc_history_brass_caster
+npc_history_iyoba_idia
+npc_history_lord_finders_keepers
 
 [Guests from history and the studio]
 npc_genghis_can
@@ -450,6 +453,7 @@ green_iguana
 coconut_crab
 frigatebird
 pacific_rat
+driver_ants
 
 [Mary-O's world]
 mary_o

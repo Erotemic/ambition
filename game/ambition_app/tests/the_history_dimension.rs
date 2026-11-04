@@ -1,14 +1,14 @@
 //! The History dimension: its gate is DYNASTIC.
 //!
-//! Forty-two rooms (`tools/ambition_ldtk_tools/specs/history_dimension/`):
-//! a grid of thirty-five outdoor rooms, where east is later and each floor is
+//! Forty-three rooms (`tools/ambition_ldtk_tools/specs/history_dimension/`):
+//! a grid of thirty-six outdoor rooms, where east is later and each floor is
 //! a region of the world, and seven buildings by doors. The gate is in the
 //! Cradle, in Africa, at the bottom left. This asks the game what the
 //! generator takes as given: that the rooms of a floor join in order, that the
 //! ladders join the floors where the regions met, that each building opens off
 //! its room, that each room places its cast, that each way through opens for
 //! its key (the first fire, the sluice, the solstice, the oracle bone, the
-//! unicorn seal, the ballcourt ring, Socratease's answer, each brother at the Great Wall, the
+//! unicorn seal, the ballcourt ring, the casters' bellows, Socratease's answer, each brother at the Great Wall, the
 //! mill's boiler), and that the two vigils keep their store rooms shut until
 //! they are over.
 
@@ -123,6 +123,7 @@ const WAYS: &[(&str, &str)] = &[
     ("history_green_sahara", "history_nile_valley"),
     ("history_nile_valley", "history_aksum_and_kush"),
     ("history_aksum_and_kush", "history_timbuktu_coast"),
+    ("history_timbuktu_coast", "history_benin_city"),
     // The ladders: the great dispersal, out of Africa to every land mass.
     ("history_southern_coast", "history_levant"),
     ("history_levant", "history_ice_age_europe"),
@@ -164,9 +165,9 @@ fn the_rooms_of_the_history_grid_join_where_history_did() {
     // way on is the southern coast.
     let cradle = index("history_cradle");
     assert_eq!(rooms.neighboring_room_indices_of(cradle).len(), 1, "the Cradle joins only the southern coast");
-    // The ways name all forty-two rooms, and the gate reaches every one.
+    // The ways name all forty-three rooms, and the gate reaches every one.
     let named: BTreeSet<&str> = WAYS.iter().flat_map(|&(a, b)| [a, b]).collect();
-    assert_eq!(named.len(), 42, "the ways name every room of the dimension: {named:?}");
+    assert_eq!(named.len(), 43, "the ways name every room of the dimension: {named:?}");
     let mut reached = BTreeSet::from(["history_cradle"]);
     while let Some(&(a, b)) = WAYS.iter().find(|&&(a, b)| reached.contains(a) != reached.contains(b)) {
         reached.extend([a, b]);
@@ -190,6 +191,16 @@ const CAST: &[(&str, &[(&str, usize)])] = &[
         &[("npc_history_mansa_moolah", 1), ("npc_history_zheng_hey", 1), ("inflated_coin", 2), ("coral_crab", 2), ("monsoon_squall", 2)],
     ),
     ("history_timbuktu_library", &[("npc_history_ibn_batootah", 1)]),
+    (
+        "history_benin_city",
+        &[
+            ("npc_history_brass_caster", 1),
+            ("npc_history_iyoba_idia", 1),
+            ("npc_history_lord_finders_keepers", 1),
+            ("driver_ants", 2),
+            ("asp", 1),
+        ],
+    ),
     // The Mediterranean and Southwest Asia.
     ("history_levant", &[("npc_history_neville_neanderthal", 1), ("aurochs", 2), ("cave_lion", 1)]),
     (
@@ -314,8 +325,9 @@ fn knowing_nothing_opens_the_stoa_gate() {
 
 /// Each lever gate stands until its lever is pulled: the thorn boma in the
 /// Cradle (the first fire), the trilithon (the solstice), the bronze gate
-/// of the Shang court (the oracle bone) and the ballcourt gate of the Maya
-/// city (the stone ring).
+/// of the Shang court (the oracle bone), the ballcourt gate of the Maya
+/// city (the stone ring) and the palace gate of Benin City (the casters'
+/// bellows).
 #[test]
 fn each_lever_opens_its_gate() {
     for (id, lever, gate) in [
@@ -323,6 +335,7 @@ fn each_lever_opens_its_gate() {
         ("history_megalith_builders", "history_solstice", "history_trilithon_gate"),
         ("history_shang_court", "history_oracle_bone", "history_bronze_gate"),
         ("history_maya_city", "history_ballcourt_ring", "history_ballcourt_gate"),
+        ("history_benin_city", "history_lost_wax", "history_palace_gate"),
     ] {
         let mut sim = room(id);
         assert!(stands(&mut sim, gate), "`{gate}` stands at first: {:?}", standing(&mut sim));

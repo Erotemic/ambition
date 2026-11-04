@@ -276,6 +276,16 @@
     "history_moai": (),
     "history_rongorongo_tablet": (),
     "history_kumara": (),
+    // Benin City (wave A, `targets/props/history_benin_props.py`): the casters'
+    // furnace, a heap of brass manillas, a brass plaque of the court, a stretch
+    // of the Oba's palace with its turret, the palace gate (a LockWall look) and
+    // the museum case of 1897's loot.
+    "history_brass_furnace": (),
+    "history_manillas": (),
+    "history_benin_plaque": (),
+    "history_benin_palace": (),
+    "history_benin_palace_gate": (),
+    "history_museum_case": (),
     // The Story Stacks of the Art dimension (`targets/props/art_stacks_props.py`).
     // The doors of the Library of Endings are two covers of a book: the happy
     // ending in gold with a sun, the sad ending in deep blue with a moon and

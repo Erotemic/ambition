@@ -1,17 +1,7 @@
-//! What one peer sends to the other each frame: the controls of a seat, and
-//! what this peer says of its pending lifecycle operation.
+//! Fixed-width peer inputs carry seat controls and room-preparation verdicts.
 //!
-//! The commit of a lifecycle operation under a peer session (the peer barrier
-//! in [`crate::lifecycle_commit`]) needs a fact that only the other peer has:
-//! did it prepare the operation? Room preparation is host-side. One peer can
-//! build the room and the other cannot (a missing asset, a different save). A
-//! peer that commits alone starts its next session, and the other peer stays
-//! in the old one. Then neither session runs again.
-//!
-//! So each peer puts its verdict in its input, and a peer commits only when
-//! each handle of the session said "prepared" for the same operation (Q156).
-//! The input is the one channel that the two peers already exchange and
-//! confirm, so the verdict needs no second protocol.
+//! Ordinary crossings use the verdicts of the simulated frame. Rebuild barriers
+//! use confirmed verdicts. Both require the exact admission and frozen plan.
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -147,16 +137,8 @@ impl PeerVerdicts {
 
     /// The plan every handle prepared for this operation.
     pub fn prepared_plan(&self, operation: PeerOperation) -> Option<PeerPlanIdentity> {
-        if self.handles == 0 {
-            return None;
-        }
-        let first = self.said.first().copied().flatten()?.1;
-        if first.operation != operation || first.said != PreparationVerdict::Prepared || !first.plan.is_stated() {
-            return None;
-        }
-        (0..self.handles).all(|handle| self.said.get(handle).copied().flatten().is_some_and(|(_, verdict)| {
-            verdict.operation == operation && verdict.said == PreparationVerdict::Prepared && verdict.plan == first.plan
-        })).then_some(first.plan)
+        agreed_plan(operation, (0..self.handles).map(|handle|
+            self.said.get(handle).copied().flatten().map(|(_, verdict)| verdict)))
     }
 
     /// Prepared replies that disagree with this host's frozen plan.
@@ -172,6 +154,20 @@ impl PeerVerdicts {
             .filter(|handle| self.said(*handle, operation) == PreparationVerdict::Failed)
             .collect()
     }
+}
+
+/// Check one complete set of input handles without reading host history.
+pub(crate) fn agreed_plan(operation: PeerOperation,
+    verdicts: impl IntoIterator<Item = Option<PeerVerdict>>,
+) -> Option<PeerPlanIdentity> {
+    let mut verdicts = verdicts.into_iter();
+    let first = verdicts.next()??;
+    if first.operation != operation || first.said != PreparationVerdict::Prepared || !first.plan.is_stated() {
+        return None;
+    }
+    verdicts.all(|verdict| verdict.is_some_and(|verdict|
+        verdict.operation == operation && verdict.said == PreparationVerdict::Prepared && verdict.plan == first.plan))
+        .then_some(first.plan)
 }
 
 #[cfg(test)]

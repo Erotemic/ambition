@@ -13,8 +13,8 @@ use ambition_platformer2d_shared_tangle::lifecycle::{LiveBodyId, SessionScopeId}
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
 #[test]
-fn pending_and_withdrawn_restore_keys_survive_the_registered_snapshot_path() {
-    for withdrawn in [false, true] {
+fn pending_withdrawn_and_applied_restore_keys_survive_the_registered_snapshot_path() {
+    for state in [0, 1, 2] {
         let mut app = App::new();
         app.add_plugins((MinimalPlugins, SnapshotPlugin, ChecksumPlugin));
         app.insert_resource(SimulationHost::Rollback);
@@ -40,8 +40,10 @@ fn pending_and_withdrawn_restore_keys_survive_the_registered_snapshot_path() {
             &mut SessionCheckpointOperations::default(),
             Some(SessionScopeId(123)),
         ).unwrap();
-        if withdrawn {
+        if state == 1 {
             assert!(pending.retract_recorded_on(4, 5));
+        } else if state == 2 {
+            assert!(pending.complete(5, 91, Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION)).is_some());
         }
         let expected = pending.clone();
         app.insert_resource(pending);
@@ -51,10 +53,10 @@ fn pending_and_withdrawn_restore_keys_survive_the_registered_snapshot_path() {
         app.world_mut().run_schedule(LoadWorld);
         let restored = app.world().resource::<PendingLifecycleCommit>();
         assert_eq!(restored, &expected);
-        let restored_key = if withdrawn {
-            restored.withdrawn.as_ref().unwrap().checkpoint_operation
-        } else {
-            restored.peek().unwrap().checkpoint_operation
+        let restored_key = match state {
+            0 => restored.peek().unwrap().checkpoint_operation,
+            1 => restored.withdrawn.as_ref().unwrap().checkpoint_operation,
+            _ => restored.applied.as_ref().unwrap().operation.checkpoint_operation,
         };
         assert_eq!(restored_key, Some(key));
         assert_eq!(restored_key.unwrap().scope, Some(SessionScopeId(123)));

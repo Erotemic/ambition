@@ -1,10 +1,8 @@
-//! Confirmed-frame lifecycle commitment.
+//! Room lifecycle admission and application receipts.
 //!
-//! Room resets and transitions rebuild authoritative world state and therefore
-//! cannot execute on speculative rollback frames. Simulation records a
-//! rollback-registered [`PendingLifecycleCommit`]; host code executes it only
-//! after its originating frame is confirmed, then rebases the rollback session.
-//! Eager and rollback hosts share the same intent and differ only in confirmation.
+//! Simulation records an admitted operation in rollback state. Ordinary peer
+//! crossings apply from shared frame inputs. Restores and local sync-test
+//! operations use the confirmed host barrier.
 
 use bevy::prelude::*;
 
@@ -305,7 +303,16 @@ pub struct WithdrawnIntent {
     pub checkpoint_operation: Option<crate::checkpoint::CheckpointOperationKey>,
 }
 
-/// The single pending confirmed-frame lifecycle commit (Track B, Piece 1).
+/// A room crossing applied on one simulation frame.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AppliedIntent {
+    pub operation: PendingIntent,
+    pub applied_on: i32,
+    pub preparation_checksum: u64,
+    pub arrived_in: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+}
+
+/// One pending lifecycle admission and the latest applied crossing.
 ///
 /// Rollback-registered (`rollback/mod.rs`), so the intent rewinds with the world. One slot,
 /// earliest-sticky: a consumer records only via [`Self::record`], which keeps the intent
@@ -318,6 +325,8 @@ pub struct PendingLifecycleCommit {
     /// intent. An admitted record clears it: the host replaces or reuses its
     /// transaction for the new intent, so the old withdrawal names nothing.
     pub withdrawn: Option<WithdrawnIntent>,
+    /// The most recent application on this rollback branch.
+    pub applied: Option<AppliedIntent>,
 }
 
 impl PendingLifecycleCommit {
@@ -363,7 +372,7 @@ impl PendingLifecycleCommit {
     /// Compare shared state while retaining local session keys in clone snapshots.
     pub fn checksum(&self) -> u64 {
         use ambition_platformer2d_core::snapshot::{checksum_bytes, put_bool, put_i32, put_u64};
-        let Self { pending, withdrawn } = self;
+        let Self { pending, withdrawn, applied } = self;
         let mut bytes = Vec::new();
         put_bool(&mut bytes, pending.is_some());
         if let Some(pending) = pending {
@@ -376,15 +385,21 @@ impl PendingLifecycleCommit {
             put_u64(&mut bytes, kind.checksum());
             write_checkpoint_operation(&mut bytes, *checkpoint_operation);
         }
+        put_bool(&mut bytes, applied.is_some());
+        if let Some(applied) = applied {
+            put_u64(&mut bytes, applied.operation.checksum());
+            put_i32(&mut bytes, applied.applied_on);
+            put_u64(&mut bytes, applied.preparation_checksum);
+            put_bool(&mut bytes, applied.arrived_in.is_some());
+            if let Some(room) = applied.arrived_in {
+                ambition_platformer2d_core::snapshot::put_u32(&mut bytes, room.ordinal());
+            }
+        }
         checksum_bytes(&bytes)
     }
 
-    /// The pending intent WHETHER OR NOT it is confirmed — "is anything waiting".
-    ///
-    /// ⛔ For REPORTING only. Every consumer that acts on an intent must go
-    /// through [`Self::confirmed`]; this exists so a host that is refusing to
-    /// promote intents can say whether it is refusing anything, which is the
-    /// difference between a stalled game and an idle one.
+    /// Inspect the current branch's pending admission. Application requires
+    /// frame input agreement or the confirmed lifecycle barrier.
     pub fn peek(&self) -> Option<&PendingIntent> {
         self.pending.as_ref()
     }
@@ -447,6 +462,16 @@ impl PendingLifecycleCommit {
         self.withdrawn
             .as_ref()
             .filter(|withdrawn| withdrawn.withdrawn_on <= confirmed_frame)
+    }
+
+    /// Spend the slot and retain the applied operation in rollback state.
+    pub fn complete(&mut self, applied_on: i32, preparation_checksum: u64,
+        arrived_in: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    ) -> Option<AppliedIntent> {
+        let receipt = AppliedIntent { operation: self.pending.take()?, applied_on,
+            preparation_checksum, arrived_in };
+        self.applied = Some(receipt.clone());
+        Some(receipt)
     }
 
     /// Clear the slot after the host commits the op.

@@ -521,6 +521,18 @@ pub struct StagedRoomTransition {
     resets_clock: bool,
 }
 
+impl StagedRoomTransition {
+    /// Read the arrival room after publication.
+    pub fn arrived_in(&self, world: &mut bevy::prelude::World)
+        -> Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> {
+        match self.members.first() {
+            Some(member) => world.get::<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>(member.subject).map(|room| room.0),
+            None => ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<
+                ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>(world).copied(),
+        }
+    }
+}
+
 /// Per-body facts frozen before the destination publishes.
 pub struct StagedRoomMember {
     pub subject: Entity,
@@ -564,13 +576,11 @@ pub struct RoomTransitionFinalize<'w, 's> {
 }
 
 impl RoomTransitionFinalize<'_, '_> {
-    /// Apply what a published crossing means, and say the live room it
-    /// arrived in: the subject's, or for a rebuild with nobody in it, the sole
-    /// live room.
+    /// Apply the consequences of a published crossing.
     fn apply_crossing(
         &mut self,
         staged: &StagedRoomTransition,
-    ) -> Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> {
+    ) {
         let feel = *self.feel;
         self.carryover.clear_carryover(&staged.scope);
         if let Some((cue, pos)) = &staged.door_sfx {
@@ -633,10 +643,6 @@ impl RoomTransitionFinalize<'_, '_> {
         }
         if let Some(dialogue) = self.dialogue.as_deref_mut() { dialogue.close(); }
         if let Some(conversation) = self.conversation.as_deref_mut() { conversation.close(); }
-        match staged.members.first() {
-            Some(member) => self.rooms.of(member.subject),
-            None => self.rooms.sole(),
-        }
     }
 
 }
@@ -672,16 +678,8 @@ pub fn finalize_room_transition(
                 let mut finalize = state.get_mut(world).expect(
                     "RoomTransitionFinalize params are the ones RoomTransitionPlugin installs",
                 );
-                let arrived_in = finalize.apply_crossing(staged);
-                // The transaction keeps the live room it arrived in, so its
-                // cover waits on that room: two live rooms can be of one
-                // definition.
-                if let Some(active) = world
-                    .get_resource_mut::<super::loading::RoomTransitionLoadState>()
-                    .and_then(|state| state.into_inner().active.as_mut())
-                {
-                    active.arrived_in = arrived_in;
-                }
+                finalize.apply_crossing(staged);
+
             }
             state.apply(world);
         },
@@ -1149,6 +1147,7 @@ pub fn finalize_committed_room_transition(world: &mut bevy::prelude::World) {
     // that means the crossing happened if it published, and consumes the receipt
     // either way.
     let published = finalize_room_transition(world, &crossing.staged);
+    let arrived_in = published.then(|| crossing.staged.arrived_in(world)).flatten();
 
     let mut state: bevy::ecs::system::SystemState<(
         ResMut<super::loading::RoomTransitionLoadState>,
@@ -1206,6 +1205,7 @@ pub fn finalize_committed_room_transition(world: &mut bevy::prelude::World) {
                 .as_mut()
                 .filter(|current| current.sequence == active.sequence)
             {
+                current.arrived_in = arrived_in;
                 current.commit_duration = commit_duration;
                 current.committed_at = real_time.as_deref().map(|time| time.elapsed());
             }

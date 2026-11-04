@@ -23,7 +23,7 @@ pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {
         .rollback_resource_clone_checksum::<crate::lifecycle_commit::PendingLifecycleCommit>(
             OWNER,
             "resource.pending_lifecycle_commit",
-            "the pending and withdrawn intents with their restore admissions",
+            "the pending, withdrawn, and applied intents with their restore admissions",
             crate::lifecycle_commit::PendingLifecycleCommit::checksum,
         );
     registrar.rollback_component_clone_probed::<crate::rooms::passage::ZonePassage>(

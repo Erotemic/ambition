@@ -514,9 +514,7 @@ fn alice_on_the_hub_door(sim: &mut Platformer2dSimHarness) {
 /// Put Alice and Bob on the door to the hub.
 fn each_player_on_the_hub_door(sim: &mut Platformer2dSimHarness) {
     use ambition_platformer2d::engine_core::AabbExt as _;
-    // The crossing is recorded on the press ([`RECORDED_ON`]): the subject is
-    // the peers' freeze on a recorded crossing, which a door's passage only
-    // delays. Both peers make the same declaration.
+    // The passage starts on the scripted press on both peers.
     crate::common::doors_cross_at_once(sim);
     alice_on_the_hub_door(sim);
     let center = door_of(sim, ROOM, HUB).aabb.center();
@@ -526,11 +524,6 @@ fn each_player_on_the_hub_door(sim: &mut Platformer2dSimHarness) {
 /// The frame of a session on which its crossing is recorded (`R`): the first
 /// press of [`opens_the_door`].
 const RECORDED_ON: i32 = 30;
-/// The last frame that simulates while the crossing waits. The state saved
-/// at this frame is the state of each later frame of that session.
-const LAST_LIVE: i32 =
-    RECORDED_ON + ambition_platformer2d::rollback::PEER_COMMIT_FREEZE_DELAY - 1;
-
 /// A seat presses interact from frame 30, as a press and a release.
 fn opens_the_door(frame: i32) -> ControlFrame {
     ControlFrame {
@@ -551,44 +544,13 @@ fn changes_and_stands(frame: i32) -> ControlFrame {
     }
 }
 
-/// THE POISON OF THE FREEZE: frames on which the peer session does not hold
-/// the simulation, so a frame that must be frozen simulates.
-#[derive(Resource, Clone, Copy, PartialEq, Eq)]
-enum SimulatesWhileFrozen {
-    Never,
-    OnFrame(i32),
-    /// No freeze at all. The commit rule stays, so each peer commits on the
-    /// world of the frame it is at.
-    Always,
-}
-
-impl SimulatesWhileFrozen {
-    fn on(self, frame: i32) -> bool {
-        match self {
-            Self::Never => false,
-            Self::OnFrame(poisoned) => poisoned == frame,
-            Self::Always => true,
-        }
-    }
-}
-
-type Ownership = ambition_platformer2d::rollback::RollbackSessionOwnership;
-
 type LoadState = ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState;
 type LoadPhase = ambition_platformer2d::runtime::room_transition::RoomTransitionLoadPhase;
 
 /// Updates Bob's machine takes longer than Alice's to prepare a room.
 const BOBS_MACHINE_IS_SLOWER_BY: u32 = 6;
 
-/// Bob's machine prepares each room [`BOBS_MACHINE_IS_SLOWER_BY`] updates
-/// after Alice's machine.
-///
-/// A peer commits when its own plan is authorized and the other peer said in
-/// its input that it prepared the operation. So Alice's peer commits a link
-/// delay after Bob's verdict arrives, Bob's peer commits at once, and the two
-/// commit at two frames: the case the freeze is for. With two equal machines
-/// each verdict arrives one link delay after the other was sent, and the
-/// peers committed at one frame (measured 2026-10-04: frames 36 and 36).
+/// Hold Bob's host authorization for several updates. Simulation must continue.
 fn bobs_machine_is_slower(mut state: ResMut<LoadState>, mut held: Local<(u64, u32)>) {
     let Some(active) = state.active.as_mut().filter(|active| active.phase == LoadPhase::CommitAuthorized) else {
         return;
@@ -602,54 +564,6 @@ fn bobs_machine_is_slower(mut state: ResMut<LoadState>, mut held: Local<(u64, u3
     }
 }
 
-fn lift_the_freeze(
-    poison: Res<SimulatesWhileFrozen>,
-    frame: Res<RollbackFrameCount>,
-    mut ownership: ResMut<Ownership>,
-) {
-    if poison.on(frame.0) {
-        *ownership = Ownership::External;
-    }
-}
-
-fn put_the_freeze_back(
-    poison: Res<SimulatesWhileFrozen>,
-    frame: Res<RollbackFrameCount>,
-    mut ownership: ResMut<Ownership>,
-) {
-    if poison.on(frame.0) {
-        *ownership = Ownership::Peer;
-    }
-}
-
-/// What one peer saw of the crossing that ended one of its sessions.
-#[derive(Clone, Debug, Default, PartialEq)]
-struct CrossingOnOnePeer {
-    /// The frame the crossing was recorded on.
-    recorded_on: Option<i32>,
-    /// The update whose advance first reached the freeze frame.
-    froze_on_update: Option<u32>,
-    /// The update that committed, and the frame the peer was at before it.
-    committed: Option<(u32, i32)>,
-    /// The update that ran the first frame of the next session.
-    resumed_on_update: Option<u32>,
-    /// The live rooms, and the live room of Alice and of Bob, after the
-    /// commit.
-    after: Option<(Vec<(LiveRoomInstance, String)>, (Option<LiveRoomInstance>, Option<Option<LiveRoomInstance>>))>,
-    /// Whether the lifecycle slot was empty after the commit.
-    slot_free_after: Option<bool>,
-}
-
-impl CrossingOnOnePeer {
-    /// (updates from the freeze to the commit, updates from the commit to the
-    /// first frame of the next session).
-    fn freeze_in_updates(&self) -> Option<(u32, u32)> {
-        let (froze, (committed, _), resumed) =
-            (self.froze_on_update?, self.committed?, self.resumed_on_update?);
-        Some((committed - froze, resumed - committed))
-    }
-}
-
 fn pending_recorded_on(sim: &Platformer2dSimHarness) -> Option<i32> {
     sim.world()
         .resource::<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>()
@@ -658,177 +572,90 @@ fn pending_recorded_on(sim: &Platformer2dSimHarness) -> Option<i32> {
         .map(|intent| intent.frame)
 }
 
-struct DoorOutcome {
-    retired_receipts: [usize; 2],
+struct TimelineDoorOutcome {
     healths: [Result<(), String>; 2],
-    /// On each peer, the crossing that ended each session, by generation.
-    crossings: [BTreeMap<u32, CrossingOnOnePeer>; 2],
-    /// The settled frames of each generation that both peers saved.
-    compared: BTreeMap<u32, usize>,
-    /// Rows whose census differs between the peers, each with the first
-    /// (generation, frame) it differs at.
     differing: RowsThatDiffer,
-    /// Load runs of the two peers, in all sessions.
+    compared: BTreeMap<u32, usize>,
+    applied: [BTreeMap<i32, (i32, Option<LiveRoomInstance>)>; 2],
+    progressed_while_pending: [bool; 2],
     rollbacks: u64,
-    /// On each peer, in generation 0: the first frame after [`LAST_LIVE`]
-    /// whose census is not the census of [`LAST_LIVE`], with the rows that
-    /// moved.
-    moved_after_the_freeze: [Option<(i32, Vec<&'static str>)>; 2],
-    /// On each peer: the frames of generation 0 saved after [`LAST_LIVE`].
-    frozen_frames_saved: [usize; 2],
-    /// On each peer: whether the census of [`LAST_LIVE`] differs from the
-    /// census of the frame before it. The control: the world moved until the
-    /// freeze.
-    moved_before_the_freeze: [bool; 2],
-    /// On each peer: the rewinds of generation 0 from a frozen frame to a
-    /// frame at or before the recording frame, as (the frame saved again,
-    /// the highest frame).
-    rewinds_across_the_freeze: [Vec<(i32, i32)>; 2],
-    /// Parcels of an ended session that the link dropped.
-    dropped_old_parcels: u64,
-    /// The live room both players start in.
+    rooms: [Vec<(LiveRoomInstance, String)>; 2],
+    members: [(Option<LiveRoomInstance>, Option<Option<LiveRoomInstance>>); 2],
     first: LiveRoomInstance,
+    retired_receipts: [usize; 2],
+    replayed_commits: [bool; 2],
 }
 
-/// Alice and Bob stand on the door from `switch_lab` to the hub, on each
-/// peer. In the first session Alice presses interact from frame 30. In the
-/// second, Bob does. Each crossing ends its session, and the walk ends when
-/// each peer has confirmed `after` frames of session `generations`.
-fn doors_under_a_peer_session(generations: u32, after: i32, poison: SimulatesWhileFrozen) -> DoorOutcome {
-    doors_under_a_peer_session_with(generations, after, poison, |_| {})
-}
-
-fn doors_under_a_peer_session_with(
-    generations: u32, after: i32, poison: SimulatesWhileFrozen, configure: fn(&mut App),
-) -> DoorOutcome {
-    let (a, b) = ("127.0.0.1:7011".parse().unwrap(), "127.0.0.1:7012".parse().unwrap());
+fn crossings_on_one_timeline(count: u8, order: [usize; 2], configure: fn(&mut App)) -> TimelineDoorOutcome {
+    let (a, b) = ("127.0.0.1:7051".parse().unwrap(), "127.0.0.1:7052".parse().unwrap());
     let (to_bob, to_alice) = loopback_transports(a, b, LATENCY);
-    let link = to_bob.clone();
     let (mut alice, _) = peer_prepared_by(ROOM, 0, (1, b), to_bob, Poison::None, each_player_on_the_hub_door);
     let (mut bob, _) = peer_prepared_by(ROOM, 1, (0, a), to_alice, Poison::None, each_player_on_the_hub_door);
-    let root = ambition_platformer2d::platformer::schedule::GameplaySimulationRoot;
-    for sim in [&mut alice, &mut bob] {
-        let app = sim.app_mut();
-        app.insert_resource(poison);
-        configure(app);
-        app.add_systems(GgrsSchedule, (lift_the_freeze.before(root), put_the_freeze_back.after(root)));
-    }
-    bob.app_mut().add_systems(
-        Update,
-        bobs_machine_is_slower
-            .after(ambition_platformer2d::runtime::room_transition::authorize_ready_room_transition_system),
-    );
-
-    let first = *ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<LiveRoomInstance>(
-        alice.world_mut(),
-    )
-    .expect("the session has one live room before a crossing");
-
-    let mut crossings: [BTreeMap<u32, CrossingOnOnePeer>; 2] = Default::default();
-    let done = |sim: &Platformer2dSimHarness| generation(sim.world()) >= generations && confirmed(sim) >= after;
+    for sim in [&mut alice, &mut bob] { configure(sim.app_mut()); }
+    bob.app_mut().add_systems(Update, bobs_machine_is_slower
+        .after(ambition_platformer2d::runtime::room_transition::authorize_ready_room_transition_system));
+    let first = *ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<LiveRoomInstance>(alice.world_mut()).unwrap();
+    let mut applied: [BTreeMap<i32, (i32, Option<LiveRoomInstance>)>; 2] = Default::default();
+    let mut progressed_while_pending = [false; 2];
+    let mut pending_tick = [None; 2];
+    let end = if count == 1 { 100 } else { 220 };
     let mut updates = 0;
-    while !(done(&alice) && done(&bob)) {
+    while confirmed(&alice) < end || confirmed(&bob) < end {
         updates += 1;
-        assert!(
-            updates < 400 * (generations + 1) + 20 * after as u32,
-            "after {updates} updates the peers are at generations {} and {}, confirmed to {} and {}; \
-             the crossings: {crossings:#?}",
-            generation(alice.world()),
-            generation(bob.world()),
-            confirmed(&alice),
-            confirmed(&bob)
-        );
+        assert!(updates < 2000, "peers did not confirm travel: {:?}, {:?}", alice.rollback_health(), bob.rollback_health());
         for (index, sim) in [&mut alice, &mut bob].into_iter().enumerate() {
-            let before = generation(sim.world());
-            let frame_before = sim.world().resource::<RollbackFrameCount>().0;
-            let next = frame_before + 1;
-            // Session `g` ends with the crossing of seat `g`. The other seat,
-            // and each seat after its crossing, changes its input and stands.
-            let input = if before as usize == index { opens_the_door(next) } else { changes_and_stands(next) };
-            sim.drive_seat(index as u8, input);
+            let next = sim.world().resource::<RollbackFrameCount>().0 + 1;
+            let press = if index == order[0] { RECORDED_ON } else { 150 };
+            sim.drive_seat(index as u8, ControlFrame {
+                interact_pressed: next == press,
+                interact_held: (press..press + 3).contains(&next),
+                jump_released: next % 2 == 0,
+                ..Default::default()
+            });
             sim.app_mut().update();
-
-            let now = generation(sim.world());
-            let frame = sim.world().resource::<RollbackFrameCount>().0;
-            if now > before {
-                let after_the_commit = (live_rooms(sim), where_they_are(sim));
-                let slot_free = pending_recorded_on(sim).is_none();
-                let crossing = crossings[index].entry(before).or_default();
-                crossing.committed = Some((updates, frame_before));
-                crossing.after = Some(after_the_commit);
-                crossing.slot_free_after = Some(slot_free);
-            } else if let Some(recorded_on) = pending_recorded_on(sim) {
-                let crossing = crossings[index].entry(now).or_default();
-                crossing.recorded_on = Some(recorded_on);
-                let frozen_from = recorded_on + ambition_platformer2d::rollback::PEER_COMMIT_FREEZE_DELAY;
-                if crossing.froze_on_update.is_none() && frame >= frozen_from {
-                    crossing.froze_on_update = Some(updates);
-                }
-            }
-            if now > 0 && frame >= 1 {
-                if let Some(ended) = crossings[index].get_mut(&(now - 1)) {
-                    ended.resumed_on_update.get_or_insert(updates);
-                }
+            assert_eq!(generation(sim.world()), 0, "ordinary travel must keep its peer timeline");
+            let pending = sim.world().resource::<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>();
+            let tick = sim_tick(sim);
+            if pending.peek().is_some() {
+                if pending_tick[index].is_some_and(|previous| tick > previous) { progressed_while_pending[index] = true; }
+                pending_tick[index] = Some(tick);
+            } else { pending_tick[index] = None; }
+            if let Some(receipt) = pending.applied.as_ref().filter(|receipt| receipt.applied_on <= confirmed(sim)) {
+                applied[index].insert(receipt.operation.frame, (receipt.applied_on, receipt.arrived_in));
             }
         }
-        if alice.rollback_health().is_err() || bob.rollback_health().is_err() {
-            break;
-        }
+        if alice.rollback_health().is_err() || bob.rollback_health().is_err() { break; }
     }
-
-    let censuses = [
-        &alice.world().resource::<CensusByFrame>().0,
-        &bob.world().resource::<CensusByFrame>().0,
-    ];
     let (compared, differing) = compare(&alice, &bob);
-    let frozen = |census: &BTreeMap<(u32, i32), BTreeMap<&'static str, (usize, u64)>>| {
-        census
-            .range((0, LAST_LIVE + 1)..=(0, i32::MAX))
-            .map(|((_, frame), now)| (*frame, now.clone()))
-            .collect::<Vec<_>>()
-    };
-    let moved_after_the_freeze = censuses.map(|census| {
-        let held = &census[&(0, LAST_LIVE)];
-        frozen(census).into_iter().find(|(_, now)| now != held).map(|(frame, now)| {
-            let rows = now
-                .iter()
-                .filter(|(row, reading)| held.get(*row) != Some(reading))
-                .map(|(row, _)| *row)
-                .collect();
-            (frame, rows)
-        })
-    });
-    let frozen_frames_saved = censuses.map(|census| frozen(census).len());
-    let moved_before_the_freeze = censuses.map(|census| census[&(0, LAST_LIVE - 1)] != census[&(0, LAST_LIVE)]);
-    let rewinds_across_the_freeze = [&alice, &bob].map(|sim| {
-        sim.world()
-            .resource::<SavedAgain>()
-            .0
-            .iter()
-            .filter(|(generation, frame, highest)| {
-                *generation == 0 && *frame <= RECORDED_ON && *highest > LAST_LIVE
-            })
-            .map(|(_, frame, highest)| (*frame, *highest))
-            .collect()
-    });
-    let rollbacks = [&alice, &bob]
-        .iter()
-        .filter_map(|sim| sim.rollback_execution_stats())
-        .map(|stats| stats.lifetime_load_runs)
-        .sum();
-    DoorOutcome {
+    TimelineDoorOutcome {
+        healths: [alice.rollback_health(), bob.rollback_health()], differing, compared, applied,
+        progressed_while_pending,
+        rollbacks: [&alice, &bob].iter().filter_map(|sim| sim.rollback_execution_stats()).map(|stats| stats.lifetime_load_runs).sum(),
+        rooms: [live_rooms(&mut alice), live_rooms(&mut bob)],
+        members: [where_they_are(&mut alice), where_they_are(&mut bob)], first,
         retired_receipts: [&alice, &bob].map(|sim| sim.world().get_resource::<RetiredPromiseReceipts>().map_or(0, |count| count.0)),
-        healths: [alice.rollback_health(), bob.rollback_health()],
-        crossings,
-        compared,
-        differing,
-        rollbacks,
-        moved_after_the_freeze,
-        frozen_frames_saved,
-        moved_before_the_freeze,
-        rewinds_across_the_freeze,
-        dropped_old_parcels: link.dropped_old_parcels(),
-        first,
+        replayed_commits: [&alice, &bob].map(|sim| sim.world().resource::<SavedAgain>().0.iter().any(|(generation, frame, highest)|
+            *generation == 0 && sim.world().resource::<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>()
+                .applied.as_ref().is_some_and(|receipt| *frame <= receipt.applied_on && *highest >= receipt.applied_on))),
+    }
+}
+
+#[test]
+fn ordinary_peer_crossings_apply_on_shared_input_frames_without_holding_or_rebasing() {
+    for order in [[0, 1], [1, 0]] {
+        let outcome = crossings_on_one_timeline(2, order, |_| {});
+        assert_eq!(outcome.healths, [Ok(()), Ok(())]);
+        assert!(outcome.differing.is_empty(), "confirmed rows differ: {:?}", outcome.differing);
+        assert!(outcome.compared.get(&0).is_some_and(|frames| *frames >= 200));
+        assert!(outcome.rollbacks > 0, "the link did not correct any prediction");
+        assert!(outcome.replayed_commits.into_iter().any(|replayed| replayed), "no rollback crossed an application frame");
+        assert_eq!(outcome.progressed_while_pending, [true; 2]);
+        assert_eq!(outcome.applied[0], outcome.applied[1], "the input frame must select the same applications");
+        assert_eq!(outcome.applied[0].keys().copied().collect::<Vec<_>>(), [RECORDED_ON, 150]);
+        let destination = outcome.first.next();
+        assert!(outcome.applied[0].values().all(|(_, room)| *room == Some(destination)));
+        assert_eq!(outcome.rooms, [vec![(destination, HUB.into())], vec![(destination, HUB.into())]]);
+        assert_eq!(outcome.members, [(Some(destination), Some(Some(destination))); 2]);
     }
 }
 
@@ -856,13 +683,11 @@ fn consume_destination_item_after_capture(
 
 #[test]
 fn peers_refuse_a_destination_occurrence_changed_after_preparation_capture() {
-    let control = doors_under_a_peer_session_with(1, 30, SimulatesWhileFrozen::Never,
-        destination_with_a_continuity_item);
+    let control = crossings_on_one_timeline(1, [0, 1], destination_with_a_continuity_item);
     assert_eq!(control.healths, [Ok(()), Ok(())]);
-    for crossings in &control.crossings {
-        assert_eq!(crossings[&0].after.as_ref().unwrap().1.0, Some(control.first.next()));
-    }
-    let changed = doors_under_a_peer_session_with(1, 30, SimulatesWhileFrozen::Never, |app| {
+    assert!(control.applied.iter().all(|applied| applied.len() == 1));
+    assert!(control.members.iter().all(|members| members.0 == Some(control.first.next())));
+    let changed = crossings_on_one_timeline(1, [0, 1], |app| {
         destination_with_a_continuity_item(app);
         app.add_systems(GgrsSchedule, consume_destination_item_after_capture.after(
             ambition_platformer2d::platformer::schedule::GameplaySimulationRoot));
@@ -870,12 +695,9 @@ fn peers_refuse_a_destination_occurrence_changed_after_preparation_capture() {
     assert_eq!(changed.healths, [Ok(()), Ok(())]);
     assert!(changed.differing.is_empty(), "confirmed room state differs: {:?}", changed.differing);
     assert!(changed.rollbacks > 0, "the delayed link did not exercise prediction");
-    let intact = (vec![(changed.first, ROOM.to_owned())],
-        (Some(changed.first), Some(Some(changed.first))));
-    for crossings in &changed.crossings {
-        assert_eq!(crossings[&0].after.as_ref(), Some(&intact));
-        assert_eq!(crossings[&0].slot_free_after, Some(true));
-    }
+    assert!(changed.applied.iter().all(BTreeMap::is_empty));
+    assert_eq!(changed.rooms, [vec![(changed.first, ROOM.into())], vec![(changed.first, ROOM.into())]]);
+    assert_eq!(changed.members, [(Some(changed.first), Some(Some(changed.first))); 2]);
 }
 
 #[derive(Resource, Default)]
@@ -897,7 +719,7 @@ fn retire_a_promised_load_receipt(
 
 #[test]
 fn a_peer_keeps_its_promised_room_plan_after_the_load_receipt_retires() {
-    let outcome = doors_under_a_peer_session_with(2, 30, SimulatesWhileFrozen::Never, |app| {
+    let outcome = crossings_on_one_timeline(2, [0, 1], |app| {
         app.init_resource::<RetiredPromiseReceipts>();
         app.add_systems(Update, retire_a_promised_load_receipt
             .after(ambition_platformer2d::runtime::room_transition::authorize_ready_room_transition_system));
@@ -905,197 +727,8 @@ fn a_peer_keeps_its_promised_room_plan_after_the_load_receipt_retires() {
     assert!(outcome.retired_receipts.into_iter().sum::<usize>() > 0, "no promised receipt retired");
     assert_eq!(outcome.healths, [Ok(()), Ok(())]);
     assert!(outcome.differing.is_empty(), "{:?}", outcome.differing);
-    assert!(outcome.compared.get(&2).is_some_and(|frames| *frames > 30));
-}
-
-/// A PEER SESSION COMMITS A CROSSING BEHIND THE PEER BARRIER, and the next
-/// crossing too. This is the open-world "Remote peers" row.
-///
-/// Alice and Bob stand on the door from `switch_lab` to the hub, on each
-/// peer. Alice presses interact from frame 30 of the first session, and Bob
-/// from frame 30 of the second.
-///
-/// - Each peer records Alice's crossing on frame 30, and from the next frame
-///   its simulation does not run (`a_peer_commit_holds_the_simulation`).
-/// - Each peer commits alone, on its own update and at its own frame, when
-///   its confirmed frame reaches the freeze frame and its plan is authorized
-///   (`commit_confirmed_lifecycle`). Alice is in the hub on each peer, with
-///   `switch_lab` live for Bob: two live rooms.
-/// - Each peer starts the next generation of its session at frame zero. The
-///   handshake of those sessions is the barrier: a peer that committed first
-///   runs no more than its prediction window before the other peer is there.
-/// - The lifecycle slot is free, so Bob's crossing in the second session is
-///   accepted and commits the same way. He joins Alice's hub, and
-///   `switch_lab`, which nobody holds, retires.
-/// - The peers agree at each frame of the three sessions: no desync, and no
-///   probed row differs.
-///
-/// ⚠ WHY THE FREEZE. The sync-test rule runs the crossing on the current
-/// world when its recording frame is confirmed. On that update the two peers
-/// are at different frames, each with frames the other peer has not
-/// confirmed. With the freeze, those frames hold one state.
-/// `a_peer_commit_with_no_freeze_runs_on_two_worlds` is that rule with no
-/// freeze.
-#[test]
-fn a_door_under_a_peer_session_commits_on_each_peer_and_so_does_the_next() {
-    /// Frames each peer must confirm in the third session.
-    const AFTER: i32 = 60;
-    let outcome = doors_under_a_peer_session(2, AFTER, SimulatesWhileFrozen::Never);
-    // The peers agree, in each session.
-    assert_eq!(
-        (&outcome.healths, &outcome.differing),
-        (&[Ok(()), Ok(())], &BTreeMap::new()),
-        "(the peers' health, the rows that differ and the first (generation, frame) of each)"
-    );
-    assert!(
-        outcome.compared.len() == 3 && outcome.compared[&2] > AFTER as usize,
-        "the frames compared in each session: {:?}",
-        outcome.compared
-    );
-    assert!(outcome.rollbacks > 0, "control: no peer rolled back, so no prediction was tested");
-
-    // THE FREEZE, in the first session. No probed row moves after the last
-    // live frame, on either peer. The controls: frozen frames were saved,
-    // the rows moved until then, and a rewind crossed the freeze.
-    assert!(
-        outcome.frozen_frames_saved.iter().all(|saved| *saved >= 2),
-        "control: the frozen frames each peer saved: {:?}",
-        outcome.frozen_frames_saved
-    );
-    assert_eq!(
-        outcome.moved_before_the_freeze,
-        [true; 2],
-        "control: the census did not move in the frame before the freeze, so a \
-         census that does not move after it shows nothing"
-    );
-    assert_eq!(
-        outcome.moved_after_the_freeze,
-        [None, None],
-        "on each peer: the first frame after frame {LAST_LIVE} whose census moved, and its rows"
-    );
-    assert!(
-        outcome.rewinds_across_the_freeze.iter().any(|rewinds| !rewinds.is_empty()),
-        "control: no peer rewound from a frozen frame to before the recording \
-         frame, so the freeze was not tested under a rewind"
-    );
-
-    // THE COMMITS. Each crossing was recorded on frame 30 of its session on
-    // each peer, and left the same rooms on each peer.
-    let first = outcome.first;
-    let second = first.next();
-    let alices_crossing = (
-        vec![(first, ROOM.to_string()), (second, HUB.to_string())],
-        (Some(second), Some(Some(first))),
-    );
-    let bobs_crossing = (vec![(second, HUB.to_string())], (Some(second), Some(Some(second))));
-    for (peer, crossings) in outcome.crossings.iter().enumerate() {
-        let seen: Vec<_> = crossings
-            .iter()
-            .map(|(generation, crossing)| {
-                (*generation, crossing.recorded_on, crossing.slot_free_after, crossing.after.clone())
-            })
-            .collect();
-        assert_eq!(
-            seen,
-            vec![
-                (0, Some(RECORDED_ON), Some(true), Some(alices_crossing.clone())),
-                (1, Some(RECORDED_ON), Some(true), Some(bobs_crossing.clone())),
-            ],
-            "peer {peer}: each crossing as (generation, the frame it was recorded on, the slot \
-             is free after, (the live rooms, where Alice and Bob are))"
-        );
-    }
-
-    // The peers committed Alice's crossing at different frames: the frozen
-    // world, and not the frame, is what they share.
-    let at: Vec<i32> = outcome.crossings.iter().map(|by| by[&0].committed.expect("asserted above").1).collect();
-    assert!(
-        at[0] != at[1] && at.iter().all(|frame| *frame > RECORDED_ON),
-        "the peers committed at frames {at:?}. If they are equal now, the link \
-         or the loop changed, and this run does not show two peers at two frames"
-    );
-    // A session started while parcels of the one before it were on the link.
-    assert!(
-        outcome.dropped_old_parcels > 0,
-        "control: the link dropped no parcel of an ended session, so the \
-         generation of a socket was not tested here"
-    );
-
-    // THE COST: how long the simulation of a peer is held for one crossing,
-    // in updates of that peer, as (from the first frozen frame to the commit,
-    // from the commit to the first frame of the next session).
-    //
-    // Measured 2026-10-04 at a link latency of 3 updates each way, over four
-    // runs and both crossings: (2..7, 21..36), 23 to 43 updates in all, which
-    // is 0.38 s to 0.72 s at 60 updates a second. The first part is the wait
-    // for the confirmed frame and two updates of readiness. The second part
-    // is the GGRS handshake (five round trips), and it is most of the cost.
-    // GGRS times its handshake retries on the wall clock, so the second part
-    // is not the same in each run; the band holds the measured range with
-    // room, and it fails on a freeze of seconds.
-    //
-    // The first part is not the same on a loaded machine: measured 2026-10-09
-    // in the full lane beside a 30-process render (load average 23),
-    // (10..17, 22..32), and the band of 14 that held the first measurement
-    // failed. The band of the first part is now one second of updates, which
-    // is the claim: a crossing does not hold a peer for seconds.
-    let held: Vec<(u32, u32)> = outcome
-        .crossings
-        .iter()
-        .flat_map(|by| by.values())
-        .map(|crossing| crossing.freeze_in_updates().expect("each crossing committed and resumed"))
-        .collect();
-    assert!(
-        held.iter().all(|(to_commit, handshake)| (1..=60).contains(to_commit) && (10..=70).contains(handshake)),
-        "(updates frozen until the commit, updates of the handshake) of each \
-         crossing on each peer: {held:?}"
-    );
-}
-
-/// The freeze arm can fail: with the simulation run on one frozen frame, the
-/// census moves on that frame, and the arm above names it.
-#[test]
-fn one_frozen_frame_that_simulates_moves_the_census() {
-    /// The first frozen frame. Each peer runs it before it commits, because
-    /// the commit waits for the world to be at a frozen frame.
-    const POISONED: i32 = LAST_LIVE + 1;
-    let outcome = doors_under_a_peer_session(1, 10, SimulatesWhileFrozen::OnFrame(POISONED));
-    let moved_on: Vec<Option<i32>> = outcome
-        .moved_after_the_freeze
-        .iter()
-        .map(|moved| moved.as_ref().map(|(frame, _)| *frame))
-        .collect();
-    assert_eq!(
-        moved_on,
-        vec![Some(POISONED); 2],
-        "on each peer: the first frame after the freeze whose census moved"
-    );
-}
-
-/// THE POISON OF THE PEER COMMIT: the same commit rule with no freeze. Each
-/// peer commits when its confirmed frame reaches the freeze frame, at the
-/// frame it is at then, and the two peers are at different frames. So the
-/// next sessions start from two worlds, and the peers do not agree.
-#[test]
-fn a_peer_commit_with_no_freeze_runs_on_two_worlds() {
-    let outcome = doors_under_a_peer_session(1, 30, SimulatesWhileFrozen::Always);
-    // The two committed worlds ran different numbers of ticks: the tick
-    // differs at frame zero of the next session, and with it each row that
-    // moves with time. Measured 2026-10-04: ten rows differ at (1, 0), and
-    // GGRS reports the desync at frame 1.
-    let tick = std::any::type_name::<ambition_platformer2d::time::SimTick>();
-    assert_eq!(
-        outcome.differing.get(tick),
-        Some(&(1, 0)),
-        "the first (generation, frame) the tick differs at. With no freeze the \
-         peers agree, so the arm above does not show that the freeze is what \
-         makes them agree. All the rows that differ: {:?}",
-        outcome.differing
-    );
-    assert!(
-        outcome.healths.iter().any(Result::is_err),
-        "the next sessions started from two worlds and no peer reported a desync"
-    );
+    assert!(outcome.compared.get(&0).is_some_and(|frames| *frames >= 200));
+    assert!(outcome.applied.iter().all(|applied| applied.len() == 2));
 }
 
 /// Bob's machine cannot prepare a room: each transaction it opens fails, as a

@@ -64,7 +64,7 @@ pub enum OccurrenceWhereabouts {
 /// there are THREE answers, not two. "Author it" and "do not author it"
 /// were enough only while an occurrence could never be anywhere but where its
 /// record put it.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize)]
 pub enum OccurrenceDisposition {
     /// Author it, from the record, as written. The default, and what every
     /// record without a row gets.
@@ -120,7 +120,7 @@ impl OccurrenceDisposition {
 /// it holds only the records whose disposition is not the default, so the
 /// ordinary room's view is empty and comparing two of them is comparing two
 /// empty maps.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize)]
 pub struct RoomOccurrenceOutlook {
     rows: BTreeMap<SimId, OccurrenceDisposition>,
 }

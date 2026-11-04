@@ -210,7 +210,7 @@ def accept_music(selected, store: Store, files: dict, records: dict, before: dic
         scoped = evidence("music", selected, hashes, scope={"cues": [cue]})
         unit = "producer:music:cue:" + cue
         result[unit] = store.accept(unit, members, {"owner": OWNER, "producer": "music", "generation": scoped}, roots=[prefix])
-    if cues == selected_music_cues([]):
+    if cues == selected_music_cues([]) or before["parameters"]["scope"].get("registry"):
         scoped = evidence("music", selected, hashes, scope={"cues": []})
         result["producer:music:registry"] = store.accept("producer:music:registry", registry_files,
             {"owner": OWNER, "producer": "music", "generation": scoped}, roots=[registry])
@@ -306,11 +306,19 @@ def accept_outputs(family: str, selected, store: Store, staging: Path, before: d
     configured = selected.manifest["producers"]
     bundles = {unit: key for unit, key in bundles.items() if not unit.startswith("producer:") or unit.split(":")[1] in configured}
     if bundles != accepted["bundles"]:
-        store.publish(bundles, accepted, replace=True, hashes=hashes)
+        store.publish(bundles, accepted, replace=True, hashes=hashes,
+                      only_missing=any(arg in {"--only-missing", "--missing-only"} for arg in arguments),
+                      refresh_units={"producer:music:registry"} if family == "music" else ())
     print(f"{family}: accepted {len(replacements)} bundle(s)")
 
 
 def run(family: str, arguments: list[str]) -> int:
+    only_missing = any(arg in {"--only-missing", "--missing-only"} for arg in arguments)
+    if only_missing and any(arg in {"--force", "--force-render", "--clean"} for arg in arguments):
+        raise ValueError("--only-missing cannot be combined with --force or --clean")
+    worker_arguments = [arg for arg in arguments if arg not in {"--only-missing", "--missing-only"}]
+    if family == "backgrounds" and only_missing:
+        return subprocess.call([str(ROOT / "scripts/regen/backgrounds.sh"), *arguments], cwd=ROOT)
     selected = library()
     if family not in selected.manifest.get("producers", {}):
         raise ValueError(f"The selected library declares no {family} producer")
@@ -318,6 +326,8 @@ def run(family: str, arguments: list[str]) -> int:
         raise ValueError("A generated content library must declare its publication store")
     store = Store(selected.path.parent / relative(selected.manifest["publication"]))
     hashes = Digests(store.root / "producer-inputs.json")
+    parents = {}
+    source_rows = {}
     if family == "variants":
         if "--asset-root" in arguments or any(arg.startswith("--asset-root=") for arg in arguments):
             return subprocess.call([interpreter(family), str(ROOT / "scripts/regen/generate_visual_quality_variants.py"), *arguments], cwd=ROOT)
@@ -327,24 +337,53 @@ def run(family: str, arguments: list[str]) -> int:
                 return status
         if "--sprites-only" in arguments or "backgrounds" not in selected.manifest["producers"]:
             return 0
-        if "producer:backgrounds" not in store.selected()["bundles"]:
-            status = subprocess.call([str(ROOT / "scripts/regen/backgrounds.sh")], cwd=ROOT,
+        source_rows = {name: item for name, item in store.selected()["files"].items()
+                       if name.startswith("backgrounds/parallax_layers/") and name.endswith(".png")}
+        if not source_rows:
+            status = subprocess.call([str(ROOT / "scripts/regen/backgrounds.sh"), *(["--only-missing"] if only_missing else [])], cwd=ROOT,
                                      env={key: value for key, value in os.environ.items() if key != "AMBITION_PRODUCER_OWNER"})
             if status:
                 return status
+            source_rows = {name: item for name, item in store.selected()["files"].items()
+                           if name.startswith("backgrounds/parallax_layers/") and name.endswith(".png")}
+        if not source_rows:
+            raise ValueError("Background variants require published parallax sources")
+        selection = store.selected()
+        if only_missing and all(name.replace("backgrounds/parallax_layers/", f"backgrounds/parallax_layers_{suffix}/", 1)
+                                in selection["files"] for name in source_rows for suffix in ("0_5x", "0_25x", "potato")):
+            print("variants: no missing background products")
+            return 0
+        parents = {item["unit"]: item["bundle"] for item in source_rows.values()}
     unit = "producer:" + family
     selection = store.selected()
     scope = {"cues": selected_music_cues(arguments)} if family == "music" else None
+    if only_missing and family == "music":
+        scope["cues"] = [cue for cue in scope["cues"] if "producer:music:cue:" + cue not in selection["bundles"]]
+        if not scope["cues"] and "producer:music:registry" in selection["bundles"]:
+            print("music: no missing products")
+            return 0
+        scope["registry"] = True
+        worker_arguments = []
+        skip_value = False
+        for arg in arguments:
+            if skip_value:
+                skip_value = False
+                continue
+            if arg == "--cue":
+                skip_value = True
+            elif not arg.startswith("--cue=") and arg not in {"--only-missing", "--missing-only"}:
+                worker_arguments.append(arg)
+        worker_arguments += ["--cue", ",".join(scope["cues"])]
+    elif only_missing and family in {"fonts", "backgrounds", "sfx"} and unit in selection["bundles"]:
+        print(f"{family}: no missing products")
+        return 0
     force = any(arg in {"--force", "--clean"} for arg in arguments)
     units = music_units(scope["cues"]) if family == "music" else [unit]
-    if family in {"fonts", "backgrounds", "music", "sfx"} and not force and all(
+    if not only_missing and family in {"fonts", "backgrounds", "music", "sfx"} and not force and all(
             selection["bundles"].get(name) and current(selection["bundles"][name], family, selected, store, hashes) for name in units):
         print(f"{family}: accepted products are current")
         hashes.save()
         return 0
-    parents = {}
-    if family == "variants":
-        parents["producer:backgrounds"] = store.selected()["bundles"]["producer:backgrounds"]
     before = evidence(family, selected, hashes, parents, scope)
     with tempfile.TemporaryDirectory(prefix=f"ambition-{family}-") as temporary:
         staging = Path(temporary)
@@ -352,11 +391,17 @@ def run(family: str, arguments: list[str]) -> int:
                    AMBITION_GENERATION_ROOT=str(staging / "runtime/full"),
                    AMBITION_ART_PROVENANCE_ROOT=str(staging / "provenance"))
         env.pop("AMBITION_MUSIC_PUBLISH_ROOT", None)
-        command = [str(ROOT / SCRIPTS[family]), *arguments]
+        command = [str(ROOT / SCRIPTS[family]), *(arguments if family == "variants" else worker_arguments)]
+        if family == "music" and not scope["cues"]:
+            command = [sys.executable, str(ROOT / "scripts/regen/regen_music_registry.py")]
         if family == "fonts":
             command.insert(0, sys.executable)
         if family == "variants":
-            source = store.root / "bundles" / parents["producer:backgrounds"] / "runtime/full"
+            source = staging / "sources"
+            for logical, item in source_rows.items():
+                destination = source / logical
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(store.root / item["path"], destination)
             env["AMBITION_ART_PUBLISHED_PARENTS"] = json.dumps(parents)
             command += ["--backgrounds-only", "--source-root", str(source)]
         status = subprocess.call(command, cwd=ROOT, env=env)
@@ -400,8 +445,13 @@ def check(family: str, arguments=None) -> int:
 def main() -> int:
     arguments = sys.argv[1:]
     if not arguments or arguments == ["--help"]:
-        print("generate_library_content.py <fonts|backgrounds|variants|music|sfx> [options] | --check [family]")
+        print("generate_library_content.py <fonts|backgrounds|variants|music|sfx> [--only-missing] [options] | --check [family]")
         return 0
+    if arguments[0] in SCRIPTS and any(arg in {"--help", "-h"} for arg in arguments[1:]):
+        command = [str(ROOT / SCRIPTS[arguments[0]]), "--help"]
+        if arguments[0] == "fonts":
+            command.insert(0, sys.executable)
+        return subprocess.call(command, cwd=ROOT)
     for index, argument in enumerate(arguments):
         if argument == "--library":
             os.environ["AMBITION_CONTENT_LIBRARY"] = str((ROOT / arguments[index + 1]).resolve())

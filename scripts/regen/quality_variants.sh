@@ -6,7 +6,7 @@
 # Usage:
 #   ./scripts/regen/quality_variants.sh [--sprites-only|--backgrounds-only]
 #       [--target <fnmatch>]... [--tier <0_5x|0_25x|potato>]...
-#       [--force] [--clean] [--jobs N]
+#       [--only-missing] [--force] [--clean] [--jobs N]
 #
 # Environment:
 #   AMBITION_SPRITE_PYTHON=/path/to/python
@@ -38,7 +38,7 @@ print_help() {
 args=()
 while [ "$#" -gt 0 ]; do
     case "$1" in
-        --sprites-only|--backgrounds-only|--force|--clean)
+        --sprites-only|--backgrounds-only|--only-missing|--missing-only|--force|--clean)
             args+=("$1"); shift ;;
         --target|--tier|--library|--asset-root|--source-root|--jobs)
             if [ "$#" -lt 2 ] || [ -z "${2:-}" ]; then

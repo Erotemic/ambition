@@ -911,8 +911,13 @@ snapshots. Readiness requires the exact admission; cache reuse compares the
 captured value. Guards: `room_preparation::tests` and
 `room_preparation_inputs_survive_the_registered_snapshot_path`.
 
-**Next step:** add content and plan identity, retained promises, and two-peer witnesses,
-including an occurrence that changes during preparation. Keep the existing safe hold until those pass.
+Construction plans now expose an identity for their exact frozen data and both
+stated content identities. Local activation counters remain in the local cache key.
+Guard: `peer_plan_identity_binds_retained_services_without_local_history`.
+
+**Next step:** bind peer replies to that identity, retain the promised plans, and
+add two-peer witnesses, including an occurrence that changes during preparation.
+Keep the existing safe hold until those pass.
 The `LOCAL-PLAY-MODES` leave slice and `COOP-RECOVERY` remain separate work
 items; reuse their participant lifecycle and checkpoint rules, not duplicate
 them in this row.

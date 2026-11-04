@@ -147,11 +147,42 @@ def _music_review(path: Path) -> dict:
             "score_sha256": subject.get("score_sha256_at_review"), "version": subject.get("version_id")}
 
 
+def _first_added_dates(tool: Path) -> dict[str, str]:
+    """Read first commit dates in one history pass, through detected renames."""
+    try:
+        done = subprocess.run(
+            ["git", "-C", str(tool), "log", "--reverse", "--topo-order",
+             "--format=%x1e%aI", "--name-status", "-z", "--find-renames",
+             "--diff-filter=AR", "--no-ext-diff", "--no-textconv", "--relative", "--", "."],
+            capture_output=True, text=True, timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return {}
+    if done.returncode:
+        return {}
+    dates: dict[str, str] = {}
+    for commit in done.stdout.split("\x1e")[1:]:
+        date, *fields = commit.split("\0")
+        at = 0
+        while at < len(fields):
+            status = fields[at].lstrip("\n")
+            at += 1
+            if status == "A" and at < len(fields):
+                dates.setdefault(fields[at], date)
+                at += 1
+            elif status.startswith("R") and at + 1 < len(fields):
+                old, new = fields[at:at + 2]
+                dates.setdefault(new, dates.get(old, date))
+                at += 2
+    return dates
+
+
 def music(ctx: dict) -> list[dict]:
     repo, out, config = ctx["repo"], ctx["out"], ctx["config"]
     root = ctx["root"]
     tool = repo / "tools" / config["tool"]
     scores = tool / "scores" / "active"
+    ctx["added_dates"] = _first_added_dates(tool)
     policy = {}
     if config.get("policy"):
         try:
@@ -190,6 +221,7 @@ def _track(ctx, tid, display, audio: Path, folder, scores: Path, tool: Path, *, 
     repo, out = ctx["repo"], ctx["out"]
     item = _item("music", tid, display=display)
     score = scores / f"{folder}.music.yaml"
+    item["added_at"] = ctx["added_dates"].get(score.relative_to(tool).as_posix())
     if score.is_file():
         item["sources"].append(_rel(repo, score))
         try:

@@ -32,6 +32,21 @@ impl RoomConstructionPlanId {
     }
 }
 
+/// A content-bound construction identity with no local activation or session counters.
+/// The operation and commit-time world facts must be checked separately.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PeerRoomConstructionIdentity {
+    incoming: ambition_platformer2d_core::PeerContentIdentity,
+    expected: ambition_platformer2d_core::PeerContentIdentity,
+    data: u64,
+}
+
+impl PeerRoomConstructionIdentity {
+    pub fn incoming_content(self) -> ambition_platformer2d_core::PeerContentIdentity { self.incoming }
+    pub fn expected_content(self) -> ambition_platformer2d_core::PeerContentIdentity { self.expected }
+    pub fn data_digest(self) -> u64 { self.data }
+}
+
 /// Why canonical room construction could not be prepared. Every variant is
 /// detected before any live-room mutation.
 #[derive(Clone, Debug, PartialEq)]
@@ -187,6 +202,7 @@ pub(crate) fn construct_room_candidate(
 #[derive(Clone)]
 pub struct RoomConstructionPlan {
     id: RoomConstructionPlanId,
+    data_digest: u64,
     target_index: usize,
     features: RoomFeatureConstructionPlan,
     platform_states: Vec<MovingPlatformState>,
@@ -266,9 +282,11 @@ impl RoomConstructionPlan {
         })?;
         let platform_states =
             ambition_platformer2d_world::platforms::moving_platforms_for_room(&spec);
-        let id = construction_plan_id(&spec, &feature_plan);
+        let data_digest = construction_data_digest(&spec, &feature_plan, &platform_states);
+        let id = construction_plan_id(&feature_plan, data_digest);
         Ok(Self {
             id,
+            data_digest,
             target_index,
             features: feature_plan,
             platform_states,
@@ -278,6 +296,14 @@ impl RoomConstructionPlan {
 
     pub fn id(&self) -> &RoomConstructionPlanId {
         &self.id
+    }
+
+    /// Bind the retained data to stated content before offering it to a peer.
+    pub fn peer_identity(&self) -> Option<PeerRoomConstructionIdentity> {
+        let scope = self.features.construction().scope();
+        let incoming = scope.incoming().peer_content().filter(|content| content.is_stated())?;
+        let expected = scope.expected_live().peer_content().filter(|content| content.is_stated())?;
+        Some(PeerRoomConstructionIdentity { incoming, expected, data: self.data_digest })
     }
 
     pub fn target_index(&self) -> usize {
@@ -654,25 +680,35 @@ impl RoomConstructionPlan {
 
 }
 
-/// Identity of the authored room, resolved payloads, and local content bindings.
-/// Session ownership is supplied at commit and does not enter this cache key.
-fn construction_plan_id(
+/// Identity of the exact retained data, independent of local activation history.
+fn construction_data_digest(
     spec: &RoomSpec,
     features: &RoomFeatureConstructionPlan,
+    platforms: &[MovingPlatformState],
+) -> u64 {
+    let data = ambition_platformer2d_core::snapshot::canonical::encode(&(spec, platforms))
+        .expect("room construction data must serialize");
+    ambition_platformer2d_core::snapshot::PeerDigest::in_domain("room-construction-data-v1")
+        .bytes(&data)
+        .u64(features.semantics_digest().expect("retained construction services must serialize"))
+        .finish()
+}
+
+/// The local key adds activation bindings to the same retained data identity.
+fn construction_plan_id(
+    features: &RoomFeatureConstructionPlan,
+    data_digest: u64,
 ) -> RoomConstructionPlanId {
     let scope = features.construction().scope();
     let binding = |binding: ambition_platformer2d_shared_tangle::construction::ContentBinding| (
         binding.content_epoch().map(|epoch| epoch.0),
         binding.peer_content().map(|content| *content.as_bytes()),
     );
-    let authored = ambition_platformer2d_core::snapshot::canonical::encode(&(
-        "room-construction-id-v2", spec,
+    let bindings = ambition_platformer2d_core::snapshot::canonical::encode(&(
         binding(scope.incoming()), binding(scope.expected_live()),
-    )).expect("room construction data must serialize");
-    let payload = features.construction_payload_bytes()
-        .expect("resolved construction parameters must serialize");
-    let hash = ambition_platformer2d_core::snapshot::PeerDigest::in_domain("room-construction-plan-v2")
-        .bytes(&authored).bytes(&payload).finish();
+    )).expect("content bindings must serialize");
+    let hash = ambition_platformer2d_core::snapshot::PeerDigest::in_domain("room-construction-plan-v3")
+        .u64(data_digest).bytes(&bindings).finish();
     RoomConstructionPlanId(format!("room-plan:{hash:016x}"))
 }
 
@@ -888,17 +924,20 @@ mod tests {
         );
     }
 
-    /// As [`prepare`], but with an explicit CAST and content epoch — the two
-    /// preparation inputs OUTSIDE the `RoomSpec` that shape the derived plan.
-    ///
-    /// it took a `&CharacterRoster` and the giant tests below handed it
-    /// rows declaring `mount_class: Some("giant")`. A character states its mount
-    /// now (AC6), so the cast is the input that decides whether a placement
-    /// lowers to a limbed host.
+    /// Prepare a room with the selected cast and local content epoch.
     fn prepare_with(sprite_content: &ambition_sprite_sheet::SpriteContent,
         spec: RoomSpec,
         cast: &ambition_characters::prepared::PreparedCharacterRegistry,
         epoch: ae::ContentEpoch,
+    ) -> Result<RoomConstructionPlan, RoomConstructionError> {
+        prepare_with_binding(sprite_content, spec, cast, ContentBinding::content_unstated(epoch))
+    }
+
+    fn prepare_with_binding(
+        sprite_content: &ambition_sprite_sheet::SpriteContent,
+        spec: RoomSpec,
+        cast: &ambition_characters::prepared::PreparedCharacterRegistry,
+        binding: ContentBinding,
     ) -> Result<RoomConstructionPlan, RoomConstructionError> {
         let recipes = ambition_platformer2d_construction::engine_construction_registry();
         let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
@@ -910,9 +949,76 @@ mod tests {
             &features::RoomContentStagingRegistry::default(),
             &ambition_boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,
-            features::ActorConstructionContext::new(&sprite_content, &recipes, &catalog, &sheets, ContentBinding::content_unstated(epoch),
+            features::ActorConstructionContext::new(&sprite_content, &recipes, &catalog, &sheets, binding,
             ).with_prepared(cast),
         )
+    }
+
+    #[test]
+    fn peer_plan_identity_binds_retained_services_without_local_history() {
+        let sprites = ambition_sprite_sheet::test_support::shared_sprites();
+        let mut spec = empty_spec("retained-cast");
+        spec.enemy_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
+            "enemy", "enemy", ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(16.0)),
+            ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
+                ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
+                "combatant",
+            ),
+        ));
+        let binding = |epoch, content| ContentBinding::content(
+            ae::ContentEpoch(epoch), ae::PeerContentIdentity::from_bytes([content; 32]),
+        );
+        let original = fixture_cast().clone();
+        let first = prepare_with_binding(&sprites, spec.clone(), &original, binding(4, 1)).unwrap();
+        let identity = first.peer_identity().expect("stated content");
+        let mut republished = original.clone();
+        republished.insert_prepared(original.get("combatant").unwrap().clone());
+        assert_ne!(original.generation(), republished.generation());
+        let equal = prepare_with_binding(&sprites, spec.clone(), &republished, binding(90, 1)).unwrap();
+        assert_ne!(first.id(), equal.id(), "local activation belongs to the local key");
+        assert_eq!(Some(identity), equal.peer_identity(), "publication history is not peer data");
+        let mut different = original.clone();
+        let mut character = different.get("combatant").unwrap().clone();
+        character.vitals.max_health = Some(80);
+        different.insert_prepared(character);
+        assert_eq!(different.generation(), republished.generation());
+        let changed = prepare_with_binding(&sprites, spec.clone(), &different, binding(4, 1)).unwrap();
+        assert_eq!(first.features.construction_payload_bytes().unwrap(), changed.features.construction_payload_bytes().unwrap(),
+            "the health comes from the frozen service, not a placement override");
+        assert_ne!(first.id(), changed.id());
+        assert_ne!(Some(identity), changed.peer_identity());
+        assert_eq!(Some(identity), first.peer_identity(), "an edited source must not change the retained plan");
+        let constructed_health = |plan: &RoomConstructionPlan| {
+            let mut app = bevy::prelude::App::new();
+            app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
+            app.add_message::<ambition_platformer2d_actor_spawn::SpawnActorRequest>();
+            ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(app.world_mut());
+            plan.spawn_contents(
+                &mut app.world_mut().commands(),
+                transaction::PublicationRetention::UntilTheVerdictIsRecorded,
+                crate::CommitFactsSource::TheWorldAtTheCommit,
+            );
+            app.world_mut().flush();
+            assert!(app.world().resource::<crate::LastConstructionVerification>().published);
+            let world = app.world_mut();
+            let mut bodies = world.query::<(&ambition_platformer2d_shared_tangle::sim_id::SimId, &ambition_characters::actor::BodyHealth)>();
+            bodies.iter(world).find(|(id, _)| **id == ambition_platformer2d_shared_tangle::sim_id::SimId::placement("enemy"))
+                .expect("constructed enemy").1.health.max
+        };
+        assert_eq!(constructed_health(&first), 4);
+        assert_eq!(constructed_health(&changed), 80);
+        let other_content = prepare_with_binding(&sprites, spec.clone(), &original, binding(4, 2)).unwrap();
+        assert_ne!(Some(identity), other_content.peer_identity());
+        assert_eq!(identity.data_digest(), other_content.peer_identity().unwrap().data_digest());
+        assert!(prepare_with(&sprites, spec, &original, ae::ContentEpoch(4)).unwrap().peer_identity().is_none());
+    }
+
+    #[test]
+    fn art_demand_comes_from_resolved_hosts_and_limbs() {
+        let sprites = ambition_sprite_sheet::test_support::shared_sprites();
+        let plan = prepare_with(&sprites, giant_spec("art"), &giant_cast(Some("giant")), ae::ContentEpoch(4)).unwrap();
+        assert_eq!(plan.content_staged_names(), vec!["giant_gnu", "npc_giant_gnu_hands"]);
+        assert!(plan.features.emptied().content_staged_names().is_empty());
     }
 
     /// A cast whose `"giant_gnu"` is a limbed host: a mount of `mount_class`

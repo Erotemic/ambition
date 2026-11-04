@@ -1639,6 +1639,7 @@ impl ConstructionReceipt {
 /// The one prepared artifact for a set of entities and the relations between
 /// them. Immutable once prepared: every fallible decision is already made.
 pub struct ConstructionPlan<D: ConstructionDomain> {
+    schemas: String,
     scope: ConstructionScope,
     lane: ConstructionLane,
     entities: Vec<PlannedEntity<D>>,
@@ -1648,6 +1649,7 @@ pub struct ConstructionPlan<D: ConstructionDomain> {
 impl<D: ConstructionDomain> Clone for ConstructionPlan<D> {
     fn clone(&self) -> Self {
         Self {
+            schemas: self.schemas.clone(),
             scope: self.scope.clone(),
             lane: self.lane.clone(),
             entities: self.entities.clone(),
@@ -1815,6 +1817,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         relations.sort_by(|a, b| (&a.from, &a.kind, &a.to).cmp(&(&b.from, &b.kind, &b.to)));
 
         Ok(Self {
+            schemas: registry.deterministic_dump(),
             scope,
             lane,
             entities,
@@ -1840,6 +1843,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
     /// a live room builds nothing (OW1 cut 6e).
     pub fn emptied(&self) -> Self {
         Self {
+            schemas: self.schemas.clone(),
             scope: self.scope.clone(),
             lane: self.lane.clone(),
             entities: Vec::new(),
@@ -2205,8 +2209,8 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         root
     }
 
-    /// Complete resolved data, independent of local activation counters.
-    /// The caller binds the selected content and constructor schemas separately.
+    /// Complete resolved data and constructor schemas, independent of local activation counters.
+    /// The caller binds the selected content separately.
     /// Diagnostic summaries do not participate in this projection.
     pub fn payload_bytes(&self) -> Result<Vec<u8>, ambition_platformer2d_core::snapshot::canonical::Error> {
         let entities: Vec<_> = self.entities.iter().map(|entity| (
@@ -2216,7 +2220,8 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
             relation.from.as_str(), relation.kind.as_str(), relation.to.as_str(), &relation.relation,
         )).collect();
         ambition_platformer2d_core::snapshot::canonical::encode(&(
-            "construction-payload-v1", self.scope.room.as_deref(), self.lane.as_str(), entities, relations,
+            "construction-payload-v2", CONSTRUCTION_PLAN_SCHEMA_VERSION, &self.schemas,
+            self.scope.room.as_deref(), self.lane.as_str(), entities, relations,
         ))
     }
 
@@ -2226,13 +2231,6 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
     pub fn deterministic_dump(&self) -> String {
         use std::fmt::Write as _;
         let mut out = format!(
-            // ⛔⛤ **BOTH BINDINGS, AND THE SECOND LINE IS WHY THE SCHEMA MOVED
-            // TO 5.** This rendered ONE binding. Two plans that carry the same
-            // incoming generation into DIFFERENT live worlds are different plans
-            // — they will be compared against different boundaries — and a dump
-            // that rendered them identically calls them the same plan, which is
-            // what the prefetch cache keys on. ⚠ For every non-replacement road
-            // the two are equal, so this is a new line rather than a new value.
             "construction-plan-v{CONSTRUCTION_PLAN_SCHEMA_VERSION}\n{}\nexpects\t{}\nroom\t{}\nlane\t{}\n",
             self.scope.incoming.canonical_summary(),
             self.scope.expected_live.canonical_summary(),

@@ -537,14 +537,14 @@ impl std::fmt::Display for BodyRigError {
 
 impl std::error::Error for BodyRigError {}
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct PreparedAttachment {
     pub name: String,
     pub joint: u16,
     pub offset: Vec2,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct PreparedHurtPart {
     pub name: String,
     pub joint: u16,
@@ -555,7 +555,7 @@ pub struct PreparedHurtPart {
 ///
 /// Immutable after preparation. A body holds it behind an `Arc`, so every body
 /// of one character shares one copy.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct PreparedBodyRig {
     joint_names: Vec<String>,
     /// `parents[i] < i` for every joint that has a parent.

@@ -126,6 +126,7 @@ struct PreparedCharacterOverrides {
     /// whether nobody had looked. Those must never read the same — that confusion
     /// is the entire reason the binding boundary exists — and a distinction that
     /// survives only until the value is stored is not a distinction.
+    #[serde(skip)]
     checked: Vec<&'static str>,
     /// References a resolver was supplied for and REJECTED, formatted for a reader.
     ///
@@ -145,7 +146,7 @@ struct PreparedCharacterOverrides {
 /// at finalization instead of re-decided by each construction path. Both
 /// variants resolve to one [`Self::baseline`]; the variant is provenance —
 /// whether an action set was authored — not a decision left to a body.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub enum PreparedKit {
     /// Content decided: this action set, these moves.
     ///
@@ -1140,7 +1141,7 @@ pub struct AuthoredAdmissionRefusals(pub Vec<AdmissionRefusal>);
 /// The catalog facts that size a body from its sheet: the frame is scaled so the
 /// visible body is `standing_height` tall, else by the placement box times the
 /// tuning's `collision_scale`.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize)]
 pub struct SheetSizing {
     pub tuning: Option<crate::actor::character_catalog::SpriteTuningSpec>,
     /// The row's standing height, else its body kind's default.
@@ -1160,7 +1161,7 @@ pub struct SheetSizing {
 /// struct literal in another crate would build a "prepared" definition no
 /// check ever saw; the fields stay readable and a test may still edit a
 /// prepared value's fields, but it cannot conjure one.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 #[non_exhaustive]
 pub struct PreparedCharacterDefinition {
     pub id: ambition_entity_catalog::CharacterId,
@@ -1333,6 +1334,7 @@ pub struct PreparedCharacterDefinition {
     /// Registration still publishes (a placeholder beats a session that refuses to
     /// boot); carrying the failures onto the published value is what lets a guard
     /// be red about them without making the runtime fatal.
+    #[serde(skip)]
     unresolved: Vec<String>,
 }
 
@@ -2520,13 +2522,21 @@ pub fn prepare_cast_for_test(
 /// metadata and remaining catalog tuning stay catalog-owned.
 #[derive(bevy::prelude::Resource, Debug, Clone, Default)]
 pub struct PreparedCharacterRegistry {
-    /// Looked up by id for each body each tick, so hashed: a `BTreeMap` of a
-    /// few hundred ids was a dozen string compares a lookup, ~1.5% of the
-    /// hall's simulation (2026-10-18).
-    by_id: bevy::platform::collections::HashMap<ambition_entity_catalog::CharacterId, PreparedCharacterDefinition>,
-    /// The ids in sorted order: every walk of the cast is in id order.
-    order: Vec<ambition_entity_catalog::CharacterId>,
+    definitions: ambition_platformer2d_core::snapshot::canonical::PreparedValue<CharacterDefinitions>,
     generation: CharacterCatalogGeneration,
+}
+
+#[derive(Debug, Clone, Default)]
+struct CharacterDefinitions {
+    // Body lookups use hash keys; the order cache serves sorted iteration.
+    by_id: bevy::platform::collections::HashMap<ambition_entity_catalog::CharacterId, PreparedCharacterDefinition>,
+    order: Vec<ambition_entity_catalog::CharacterId>,
+}
+
+impl serde::Serialize for CharacterDefinitions {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_map(self.by_id.iter())
+    }
 }
 
 /// Which version of the cast a value was built from.
@@ -2567,17 +2577,22 @@ impl PreparedCharacterRegistry {
         self.generation
     }
 
+    /// Identity of the retained definitions, independent of local publication history.
+    pub fn mechanics_digest(&self) -> Result<u64, ambition_platformer2d_core::snapshot::canonical::Error> {
+        self.definitions.digest()
+    }
+
     pub fn get(&self, id: &str) -> Option<&PreparedCharacterDefinition> {
-        self.by_id.get(id)
+        self.definitions.by_id.get(id)
     }
 
     pub fn ids(&self) -> impl ExactSizeIterator<Item = &str> {
-        self.order.iter().map(ambition_entity_catalog::CharacterId::as_str)
+        self.definitions.order.iter().map(ambition_entity_catalog::CharacterId::as_str)
     }
 
     /// The definitions in id order.
     fn definitions(&self) -> impl Iterator<Item = &PreparedCharacterDefinition> {
-        self.order.iter().map(|id| &self.by_id[id])
+        self.definitions.order.iter().map(|id| &self.definitions.by_id[id])
     }
 
     /// The stable id of the character presented under `display_name`.
@@ -2597,15 +2612,15 @@ impl PreparedCharacterRegistry {
     }
 
     pub fn len(&self) -> usize {
-        self.by_id.len()
+        self.definitions.by_id.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.by_id.is_empty()
+        self.definitions.by_id.is_empty()
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&str, &PreparedCharacterDefinition)> {
-        self.order.iter().map(|id| (id.as_str(), &self.by_id[id]))
+        self.definitions.order.iter().map(|id| (id.as_str(), &self.definitions.by_id[id]))
     }
 
     /// The union of every prepared character's derived cue inventory.
@@ -2665,10 +2680,11 @@ impl PreparedCharacterRegistry {
 
     fn insert(&mut self, prepared: PreparedCharacterDefinition) -> Option<String> {
         let id = prepared.id.clone();
-        if let Err(at) = self.order.binary_search(&id) {
-            self.order.insert(at, id.clone());
+        let definitions = self.definitions.make_mut();
+        if let Err(at) = definitions.order.binary_search(&id) {
+            definitions.order.insert(at, id.clone());
         }
-        match self.by_id.insert(id, prepared) {
+        match definitions.by_id.insert(id, prepared) {
             Some(previous) => Some(previous.provider),
             None => None,
         }

@@ -78,7 +78,6 @@ impl std::error::Error for RoomFeatureConstructionError {}
 #[derive(Clone)]
 pub struct RoomFeatureConstructionPlan {
     room: ambition_platformer2d_world::rooms::RoomSpec,
-    content_requests: Vec<ambition_platformer2d_actor_spawn::SpawnActorRequest>,
     /// The primary actor-domain construction lane. Every actor-owned
     /// authoritative family is planned here; optional capabilities compose
     /// separate typed lanes beside it instead of entering this domain enum.
@@ -94,6 +93,7 @@ pub struct RoomFeatureConstructionPlan {
     /// boss profiles. THE copy: actor recipes read it through
     /// `ConstructionExecCtx`, so a cached plan holds one coherent snapshot.
     construction_services: ambition_platformer2d_construction::ActorConstructionServices,
+    placement_schemas: String,
     expected_authoritative_ids: BTreeSet<String>,
     /// What this room POINTS AT and did not find. Empty for a clean room.
     ///
@@ -553,10 +553,6 @@ impl RoomFeatureConstructionPlan {
         let owned_content_requests = content_staging
             .try_owned_requests_for(room)
             .map_err(RoomFeatureConstructionError::ContentStaging)?;
-        let content_requests: Vec<_> = owned_content_requests
-            .iter()
-            .map(|(_, request)| request.clone())
-            .collect();
         // THE CHARACTER NAMESPACE LEFT THIS SWEEP WITH THE ROSTER (AC6). It resolved each
         // placement's BRAIN KEY against `roster.brain_keys()`, because the lookup behind it
         // could not fail and a misspelling became the generic `combatant` body with the right
@@ -580,7 +576,7 @@ impl RoomFeatureConstructionPlan {
             .chain(room.enemy_spawns.iter().map(|enemy| enemy.id.clone()))
             .chain(room.boss_spawns.iter().map(|boss| boss.id.clone()))
             .chain(room.ground_items.iter().map(|item| item.id.clone()))
-            .chain(content_requests.iter().map(|request| request.id.clone()));
+            .chain(owned_content_requests.iter().map(|(_, request)| request.id.clone()));
         let mut seen_authored_ids = BTreeSet::new();
         for id in authored_ids {
             if !seen_authored_ids.insert(id.clone()) {
@@ -911,7 +907,7 @@ impl RoomFeatureConstructionPlan {
                 context: placement_context,
                 boss_catalog: boss_catalog.clone(),
             },
-            content_requests,
+            placement_schemas: registry.deterministic_dump(),
             construction: construction_plan,
             capability_lanes,
             expected_authoritative_ids,
@@ -979,6 +975,15 @@ impl RoomFeatureConstructionPlan {
             out.extend_from_slice(&lane);
         }
         Ok(out)
+    }
+
+    /// Complete immutable constructor inputs, separate from commit-time world facts.
+    pub(crate) fn semantics_digest(&self) -> Result<u64, ambition_platformer2d_core::snapshot::canonical::Error> {
+        let declarations = ambition_platformer2d_core::snapshot::canonical::encode(&(
+            &self.placement_schemas, self.construction_services.mechanics_digest()?, &self.outlook,
+        ))?;
+        Ok(ambition_platformer2d_core::snapshot::PeerDigest::in_domain("room-feature-data-v1")
+            .bytes(&self.construction_payload_bytes()?).bytes(&declarations).finish())
     }
 
     /// Diagnostic construction summaries for every lane this room prepared. The actor lane remains primary; optional capabilities append
@@ -1111,10 +1116,10 @@ impl RoomFeatureConstructionPlan {
     pub(crate) fn emptied(&self) -> Self {
         Self {
             room: self.room.clone(),
-            content_requests: Vec::new(),
             construction: self.construction.emptied(),
             capability_lanes: self.capability_lanes.emptied(),
             construction_services: self.construction_services.clone(),
+            placement_schemas: self.placement_schemas.clone(),
             expected_authoritative_ids: BTreeSet::new(),
             binding_report: self.binding_report.clone(),
             outlook: self.outlook.clone(),
@@ -1125,45 +1130,11 @@ impl RoomFeatureConstructionPlan {
         &self.expected_authoritative_ids
     }
 
-    /// The character id of every character this room stages: the
-    /// provider-owned content requests AND the actors the placement lowering
-    /// planned (`NpcSpawn`, programmatic enemies).
-    ///
-    /// The second half was added 2026-09-02 while chasing the hall's 111
-    /// placeholder rectangles. ⚠ It was NOT that bug's cause — the room's own
-    /// `Interactable(Npc)` loop already named those ids; the cause was the
-    /// per-frame load ration dropping its remainder (see
-    /// `demand_room_character_sheets`). It stays because a plan-staged actor
-    /// that is not an authored placement (a programmatic spawn) had no other
-    /// road into the reveal barrier's demand.
-    ///
-    /// A request's `name` is a label (a display name, a gallery caption, a
-    /// placement id), not an identity, so it is not given. An enemy names its
-    /// character in its kind. A boss is not given: its art is a boss sheet,
-    /// which the room's boss road demands.
+    /// Character art demanded by the resolved body rows, including generated limbs.
     pub fn content_staged_names(&self) -> Vec<String> {
-        let character_of = |request: &ambition_platformer2d_actor_spawn::SpawnActorRequest| match &request.kind {
-            ambition_platformer2d_actor_spawn::SpawnActorKind::Enemy { character, .. } => {
-                Some(character.to_string())
-            }
-            ambition_platformer2d_actor_spawn::SpawnActorKind::Boss { .. } => None,
-        };
-        let mut names: Vec<String> = self.content_requests.iter().filter_map(character_of).collect();
-        for entity in self.construction.entities() {
-            match entity.parameters() {
-                ambition_platformer2d_construction::ActorConstructionParams::StagedActor(request,
-                ) => {
-                    names.extend(character_of(request));
-                }
-                // A giant's hands are planned from the giant, not placed, so no
-                // authored list names their character: until this arm their
-                // sheet was never demanded and they drew as a flat box.
-                ambition_platformer2d_construction::ActorConstructionParams::GiantHand { authored, .. } => {
-                    names.push(authored.payload.character_id.to_string());
-                }
-                _ => {}
-            }
-        }
+        let mut names: Vec<_> = self.construction.entities().iter()
+            .filter_map(|entity| entity.parameters().character_id().map(str::to_owned))
+            .collect();
         names.sort();
         names.dedup();
         names

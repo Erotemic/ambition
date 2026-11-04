@@ -202,6 +202,13 @@ pub enum ActorConstructionParams {
     },
 }
 
+impl ActorConstructionParams {
+    /// The character this row reads, when it constructs a character body.
+    pub fn character_id(&self) -> Option<&str> {
+        planned_body_character(self).or_else(|| planned_person_character(self))
+    }
+}
+
 pub use ambition_characters::summon::SummonCalling;
 
 /// A minion resolved from `SummonRequest`.
@@ -238,6 +245,22 @@ pub struct ActorConstructionServices {
     /// captures.
     pub context: ActorPlacementContext,
     pub boss_catalog: BossCatalog,
+}
+
+impl ActorConstructionServices {
+    /// Identity of the retained constructor inputs, with no local generation counters.
+    pub fn mechanics_digest(&self) -> Result<u64, ambition_platformer2d_core::snapshot::canonical::Error> {
+        let Self { context, boss_catalog } = self;
+        let ActorPlacementContext { sprite_content, characters, sheets, prepared, brain_profiles, forced_brains } = context;
+        let data = ambition_platformer2d_core::snapshot::canonical::encode(&(
+            "actor-construction-services-v1",
+            ambition_sprite_sheet::baked_sheet_rons::current(sprite_content).mechanics_digest(),
+            characters, sheets.deterministic_dump(), prepared.mechanics_digest()?,
+            brain_profiles, forced_brains, boss_catalog,
+        ))?;
+        Ok(ambition_platformer2d_core::snapshot::PeerDigest::in_domain("actor-construction-services-v1")
+            .bytes(&data).finish())
+    }
 }
 
 /// What the durable save says about the authored bodies a commit builds.

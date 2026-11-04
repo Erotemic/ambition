@@ -11,4 +11,4 @@ Working narrative ideas selected or developed through LLM-assisted brainstorming
 
 The original notes are raw source material. The focused synthesis distinguishes the current direction from earlier candidates, especially the newer decision that AI is established infrastructure and gates are the present disruption. A proposal in either document is not automatically an approved implementation or final plot.
 
-For dialogue, follow the [anti-LLMism style guide](../../concepts/anti-llmism-style-guide.md). See the broader [brainstorms index](../README.md).
+For dialogue, follow the [anti-LLMism style guide](../../authoring/anti-llmism-style-guide.md). See the broader [brainstorms index](../README.md).

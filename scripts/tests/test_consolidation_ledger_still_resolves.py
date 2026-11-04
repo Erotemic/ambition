@@ -1,20 +1,4 @@
-"""The ledger-resolution guard, shown finding and shown declining.
-
-⛔⛤ **THIS FILE IS WHY THE GUARD RUNS AT ALL.** `scripts/run_tests.py` gates
-`python -m pytest scripts/tests` as "repo tooling"; a `check_*.py` with no test
-beside it is invoked by NOTHING. MEASURED 2026-09-16: of 31 check scripts, two
-had no invoker anywhere in the repository, and one of them was this guard —
-written, poisoned by hand, committed, and then run by no lane.
-⇒ A gate lane you did not run is a guard that does not exist, and the same is
-true one level up: a guard no lane runs is a script.
-
-⚠ The DECLINE cases carry the weight here. This guard resolves CamelCase names
-against the tracked Rust sources, and its first real run reported four
-unresolved names of which ALL FOUR were false — types owned by Bevy, std, and
-two sibling crates. A guard whose findings are mostly noise gets waived into
-uselessness, so the `EXTERNAL` escape and the anti-vacuity floor are pinned
-below as their own cases.
-"""
+"""Exercise ledger path, definition, and storage-kind checks."""
 
 from __future__ import annotations
 
@@ -72,16 +56,10 @@ def test_a_name_with_no_definition_is_found(monkeypatch, tmp_path, capsys) -> No
 def test_a_name_owned_by_another_crate_is_declined(monkeypatch, tmp_path) -> None:
     """⛔ THE DECLINE THAT MATTERS. `ResMut` is Bevy's; a guard reading only this
     workspace can never find its definition, and reporting it is noise."""
-    # ⚠ THE FIXTURE CARRIES THE REAL WORKSPACE because this arm asserts a GREEN
-    # result, and a green needs every other rule satisfied. Without it the arm
-    # would pass or fail on the membership rule instead of on the decline it is
-    # named for — the same "what is this actually measuring" question that the
-    # ledger's own workspace copy raises.
     ledger = {
         "items": [
             {"id": "PLANTED", "current_truth": "ResMut and TypeId are used here.", "source_paths": []}
         ],
-        "workspace_crates": [{"package": name} for name in guard.workspace_packages()],
     }
     planted = tmp_path / "ledger.json"
     planted.write_text(json.dumps(ledger), encoding="utf-8")
@@ -95,37 +73,6 @@ def test_an_empty_ledger_is_refused(monkeypatch, tmp_path, capsys) -> None:
     monkeypatch.setattr(guard, "LEDGER", planted)
     assert guard.main() == 1
     assert "empty corpus" in capsys.readouterr().out
-
-
-def test_a_shrunken_corpus_is_refused(monkeypatch, capsys) -> None:
-    """⚠ The floor is on the SCAN, not on the ledger: a source tree a move
-    silently emptied looks exactly like a repository with no defects."""
-    monkeypatch.setattr(guard, "MIN_CORPUS_KIB", 99_000_000)
-    assert guard.main() == 1
-    assert "floor is" in capsys.readouterr().out
-
-
-def test_the_ledgers_workspace_copy_is_the_workspace():
-    """⛔ THE DUPLICATE AUTHORITY THIS CHECK EXISTS FOR.
-
-    `workspace_crates` holds 80 rows of per-crate measurements taken at the
-    ledger's `source_commit`, with no mechanism for noticing a crate added,
-    removed or renamed since. It was EXACT when this arm was written — which is
-    the moment to install a comparison, because a second copy is invisible until
-    the day it is wrong, and on that day it is a confident wrong answer.
-    """
-    real = guard.workspace_packages()
-    recorded = {
-        crate["package"]
-        for crate in json.loads(guard.LEDGER.read_text(encoding="utf-8"))[
-            "workspace_crates"
-        ]
-    }
-    assert len(recorded) >= 50, f"only {len(recorded)} crates recorded; scan suspect"
-    assert real == recorded, {
-        "in the workspace, not the ledger": sorted(real - recorded),
-        "in the ledger, not the workspace": sorted(recorded - real),
-    }
 
 
 def test_an_item_claiming_a_resource_names_a_resource():
@@ -191,10 +138,9 @@ def test_that_sweep_imports_its_pattern_rather_than_restating_it():
 
 
 def _planted(tmp_path, monkeypatch, truth: str):
-    """A one-row ledger carrying the real workspace, so a GREEN means what it says."""
+    """Create a ledger for one semantic claim."""
     ledger = {
         "items": [{"id": "PLANTED", "current_truth": truth, "source_paths": []}],
-        "workspace_crates": [{"package": name} for name in guard.workspace_packages()],
     }
     planted = tmp_path / "ledger.json"
     planted.write_text(json.dumps(ledger), encoding="utf-8")

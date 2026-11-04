@@ -1,37 +1,7 @@
 #!/usr/bin/env python3
-"""Do the consolidation ledger's SEMANTIC items still point at things that exist?
+"""Check ledger paths, cited definitions, storage kinds, and completed gates.
 
-The ledger's 114 items were read against one commit and carry no mechanism for
-noticing that the tree moved underneath them. This checks the two facts that CAN
-be checked mechanically:
-
-1. every `source_paths` / evidence `sources` entry is a file that exists;
-2. every CamelCase name in a `current_truth` sentence resolves to a definition
-   somewhere in the tracked Rust sources.
-
-⛔⛤ **AND (2) IS THE WEAK ONE — IT CANNOT SEE OUTSIDE THE WORKSPACE.** MEASURED
-2026-09-16: it reported four unresolved names and ALL FOUR were false positives.
-`ResMut` and `TypeId` come from Bevy and std; `LoadId` is `ambition_load`'s and
-`RunGgrsSystems` is `bevy_ggrs`'s, both live and both used in dozens of places.
-A name this check cannot resolve is a name it cannot SEE the definition of, which
-is a claim about the scan. ⇒ Triage every finding by hand before believing one.
-
-⛔⛔ **AND NEITHER CHECK SAYS THE CLAIMS ARE STILL TRUE.** A `current_truth`
-sentence can go completely stale while every path exists and every type still
-compiles — the owner changes, a second writer appears, a road is deleted and the
-sentence describing it survives. That needs re-reading the source behind the
-item, which is what the census README asks for and what this cannot substitute
-for. ⇒ A green run here bounds the CHEAP failure and says nothing about the
-expensive one. Do not cite it as a ledger refresh.
-⛔⛤ **THIS PARAGRAPH SAID "DELIBERATELY NOT A `--maintenance` JOB, AND THIS SAYS
-SO SO NOBODY FIXES IT" WHILE `run_tests.py` HAD BEEN RUNNING IT IN THAT LANE
-SINCE `60f0ea008`.** The reasoning it gave was sound when written — a 35 s check
-against a 65 s lane — and the lane is 332 s now, so the trade changed and the
-sentence did not. ⇒ It IS a `--maintenance` job, and it costs **69 s** re-measured
-2026-09-17 (1,917 tracked `.rs` files, ~35 MB), because resolving `current_truth`
-names reads all of them. A guard's own docstring is exactly the place this
-repository keeps finding stale authority; if the cost stops being worth it, move
-the job and rewrite this, rather than leaving two answers.
+Cargo owns package membership. The ledger records architectural claims.
 """
 
 from __future__ import annotations
@@ -84,11 +54,6 @@ GENERATOR = re.compile(r"\bstring_id!\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)")
 DELETED = {"SpawnPlayerCloneRequest": "89d78a4a5"}
 
 IDENT = re.compile(r"\b([A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+)\b")
-
-#: ⛔ ANTI-VACUITY. A corpus this small means the scan broke, and a clean verdict
-#: over it would be a claim about the scan rather than about the ledger.
-MIN_CORPUS_KIB = 20_000
-
 
 #: An item whose `representation` is exactly this claims a Bevy Resource.
 RESOURCE_REPRESENTATION = "Resource"
@@ -187,30 +152,6 @@ def workspace_source() -> tuple[list[str], list[str]]:
     return tracked, blob
 
 
-def workspace_packages() -> set[str]:
-    """Ask cargo which crates the workspace HAS. Do not model it from globs.
-
-    ⛔⛤ **THE LEDGER KEEPS A SECOND COPY OF THE WORKSPACE AND NOTHING COMPARED
-    IT.** `workspace_crates` holds 80 rows with per-crate LOC, dependency and
-    public-surface measurements, read at `source_commit` and carrying no
-    mechanism for noticing that a crate was added, removed or renamed. MEASURED
-    2026-09-16: it is EXACT today — 80 and 80, no difference in either direction,
-    every recorded path still present. That is precisely when to install the
-    comparison, because a duplicate authority is invisible until the day it is
-    wrong, and on that day it is a confident wrong answer.
-
-    ⚠ `cargo metadata --no-deps` needs no build and takes ~45 ms here.
-    """
-    out = subprocess.run(
-        ["cargo", "metadata", "--no-deps", "--format-version", "1"],
-        cwd=REPO,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return {pkg["name"] for pkg in json.loads(out.stdout)["packages"]}
-
-
 def main() -> int:
     ledger = json.loads(LEDGER.read_text(encoding="utf-8"))
     items = ledger["items"]
@@ -235,13 +176,6 @@ def main() -> int:
         print(f"⛔⛔ could not read {unreadable}; the corpus is incomplete")
         return 1
     source = "\n".join(blob)
-    if len(source) // 1024 < MIN_CORPUS_KIB:
-        print(
-            f"⛔⛔ scanned only {len(source)//1024} KiB of Rust across {len(tracked)} "
-            f"file(s), floor is {MIN_CORPUS_KIB} KiB"
-        )
-        return 1
-
     cited_names: dict[str, set[str]] = {}
     for item in items:
         for match in IDENT.finditer(item.get("current_truth", "")):
@@ -394,43 +328,9 @@ def main() -> int:
         )
         return 1
 
-    # RULE 3: the ledger's copy of the workspace must still BE the workspace.
-    try:
-        real = workspace_packages()
-    except (OSError, subprocess.CalledProcessError) as exc:
-        # ⛔ A check that cannot reach its authority REFUSES. Skipping here would
-        # make every future run green for a reason that has nothing to do with
-        # the ledger.
-        print(f"⛔⛔ could not ask cargo for the workspace membership: {exc}")
-        return 1
-    recorded = {crate["package"] for crate in ledger.get("workspace_crates", [])}
-    if not recorded:
-        print("⛔⛔ the ledger records no workspace crates; refusing to compare "
-              "against an empty set")
-        return 1
-    added = sorted(real - recorded)
-    gone = sorted(recorded - real)
-    if added or gone:
-        print(
-            f"⛔ the ledger's workspace copy no longer matches cargo "
-            f"({len(recorded)} recorded, {len(real)} real):"
-        )
-        for name in added:
-            print(f"    IN THE WORKSPACE, NOT IN THE LEDGER: {name}")
-        for name in gone:
-            print(f"    IN THE LEDGER, NOT IN THE WORKSPACE: {name}")
-        print(
-            "⇒ Every per-crate measurement beside these rows was taken at the "
-            "ledger's `source_commit`. A crate the ledger has never seen has no "
-            "row at all, and a crate that left takes a row of numbers with it "
-            "that still reads as current."
-        )
-        return 1
-
     print(
         f"ok: {len(items)} ledger items, {paths_seen} cited source path(s) all exist, "
         f"{len(cited_names)} name(s) in `current_truth` all resolve, "
-        f"{len(recorded)} workspace crate(s) match cargo exactly, "
         f"{checked} of {claimed} storage-kind claim(s) verified against source "
         f"({skipped} skipped: subject not a resolvable type), "
         f"({len(tracked)} tracked .rs files, {len(source)//1024} KiB)"

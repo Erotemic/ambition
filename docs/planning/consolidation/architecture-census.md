@@ -386,9 +386,9 @@ discriminators with a refusing shell side, not compatibility roads.
 ## 11. Crate and package architecture
 
 Size is a navigation signal, not a merge or split rule. For the whole package
-graph run `python3 scripts/measure/architecture_census.py --crate-table`, or read
-`workspace_crates` in the ledger. The size clues below were measured on
-2026-10-02.
+graph run `python3 scripts/measure/architecture_census.py --crate-table`.
+The ledger records architectural claims. The size clues below were measured
+on 2026-10-02.
 
 | ID | Crate | Static size/fanout clue | Boundary classification | Current responsibility | Review direction | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |

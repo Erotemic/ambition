@@ -17,7 +17,7 @@ claims as the main story develops.
 
 The source of truth for playable lines is
 `game/ambition_content/assets/dialogue/sandbox/*.yarn`. The guide for writing
-and reviewing them is `docs/concepts/anti-llmism-style-guide.md`.
+and reviewing them is `docs/authoring/anti-llmism-style-guide.md`.
 
 ## Threads seeded in this pass
 

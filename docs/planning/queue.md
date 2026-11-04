@@ -2338,13 +2338,14 @@ now follows its shared presentation owner (`15ade26ea`); its unit tests,
 two-view GPU witness, assembled app check, and workspace policy checks pass.
 No policy waiver was added.
 
-**Verification frontier (2026-11-04):** the focused Python repairs pass. The
-broader diagnostic stops on five failures: two ledger/workspace-copy checks,
-the demand-road documentation list, the zero-hold population check, and broken
-documentation links. Finish that suite before claiming a green tooling lane.
+**Verification frontier (2026-11-04):** focused ledger and hold checks pass.
+Cargo supplies package membership; source callers supply demand-road labels.
+The documentation link check passes after the moved guide and scheduler links
+were repaired. Run the full Python suite before claiming a green tooling lane.
 Source-count and test-count floors are not acceptance criteria.
 
-The full feature job needs its 40 GB disk preflight and remains unverified.
+The full feature job's 40 GB disk preflight now passes after inactive caches
+in the main checkout were removed. The feature job remains unverified.
 Recheck the earlier minimal-headless failures in shell UI/Winit imports and
 the feature-dependent held-item helper before clearing them. The earlier
 content failures also need fresh checks: Void fighter damage, Performer

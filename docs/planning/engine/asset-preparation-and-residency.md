@@ -44,25 +44,11 @@ resolve those identities to concrete representations.
 
 A room or character should not hand-write filesystem paths in every consumer.
 
-The demand ledger (`ambition_asset_manager::image_stages`) stamps a road name on
-every content-art demand. The vocabulary, every string literal reaching
-`note_demand` / `load_sheet_image` / `load_sprite_pages`:
-
-```text
-asset-manifest   boss-sheet   bubble-shield     character-parts  character-sheet
-entity-sprite    fx-sheet     held-item         parallax         portrait
-projectile-art   room-dressing shrine-sheet     vanity-card
-```
-
-**FOURTEEN live roads.** `bubble-shield` (the shield's field, lattice and
-crack pictures, `ambition_render::rendering::bubble_shield`) is the
-fourteenth, 2026-10-13. `room-dressing` (the terrain skin, motes and decor of
-a room's theme, `RoomDressingSet`) is the thirteenth, 2026-10-10. `character-parts` (a part flipbook's pages,
-`RIGGED_SPRITE_ROAD`) was stamped all along through a constant the scan does not
-read; it surfaced when the pages moved onto `load_sheet_image` (2026-10-05). Derived from the call sites by
-`scripts/tests/test_demand_road_vocabulary_is_derived.py`; a road added in code
-without a row here is red there. Menu icons, shell images and prop pngs are
-deliberately not stamped.
+The [demand ledger](../../../crates/ambition_asset_manager/src/image_stages.rs)
+stamps a road label on each content-art demand. The `[image]` census reports
+that label so a load can be traced to its caller. Examples include
+`character-sheet`, `parallax`, and `gate-terminal`. Read current labels from
+calls to `note_demand`, `load_sheet_image`, and `load_sprite_pages`.
 
 Prop loading and rendering share `ambition_sprite_sheet::prop_sheets::PropSheets`.
 A declared prop waits without a sprite until its sheet is available. Only an unknown

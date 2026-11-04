@@ -13,7 +13,7 @@ of one column only where the two regions were in contact then. The gate
 everyone starts in Africa (`specs/check_flat_map.py history.ldtk`).
 
              C0       C1            C2              C3           C4          C5          C6     C7
-    R0 Americas       beringia      maize           olmecs       maya        taino
+    R0 Americas       beringia      maize           olmecs       maya        taino       haiti
     R1 East Asia      mammoth st.   yellow river    shang        silk road   steppe
     R2 Oceania        sahul         highlands       lapita       wayfinders  rapa nui
     R3 South Asia     south. route  mehrgarh        indus
@@ -79,6 +79,7 @@ GRID = {
     (4, 5): "history_classical_shore",
     (4, 6): "history_aksum_and_kush",
     (5, 0): "history_taino_islands",
+    (6, 0): "history_haitian_revolution",
     (5, 1): "history_mongol_steppe",
     (5, 2): "history_rapa_nui",
     (5, 4): "history_viking_north",
@@ -241,6 +242,7 @@ MUSIC = {
     "history_olmec_heartland": AMERICAS,
     "history_maya_city": AMERICAS,
     "history_taino_islands": AMERICAS,
+    "history_haitian_revolution": AMERICAS,
     "history_lapita_voyagers": OCEANIA,
     "history_wayfinders": OCEANIA,
     "history_rapa_nui": OCEANIA,
@@ -276,6 +278,7 @@ BIOME = {
     "history_first_maize": "history_maize",
     "history_olmec_heartland": "history_olmec", "history_maya_city": "history_maya",
     "history_taino_islands": "history_caribbean",
+    "history_haitian_revolution": "history_saint_domingue",
     "history_lapita_voyagers": "history_lapita", "history_wayfinders": "history_open_ocean",
     "history_rapa_nui": "history_rapa_nui",
     CAVE: "history_painted_cave",
@@ -301,7 +304,7 @@ BOX = {
     "howler_monkey": (40, 44), "green_iguana": (72, 32), "coconut_crab": (64, 40),
     "frigatebird": (64, 40), "pacific_rat": (32, 20),
     # Wave A: the Atlantic world.
-    "driver_ants": (72, 24),
+    "driver_ants": (72, 24), "napoleonic_grenadier": (34, 64),
 }
 
 DOOR_W, DOOR_H = 48, 192
@@ -317,7 +320,6 @@ SOLSTICE = "history_solstice"
 ORACLE = "history_oracle_bone"
 UNICORN_SEAL = "history_unicorn_seal"
 BALLCOURT_RING = "history_ballcourt_ring"
-LOST_WAX = "history_lost_wax"
 #: The Great Wall in the steppe (x0, x1), its top, and the gate in it.
 WALL_X = (928, 1024)
 WALL_TOP = 640
@@ -677,11 +679,9 @@ def benin_city():
     """Benin City, the capital of the kingdom of Benin (the Edo people),
     about 1200-1897 CE: its walls of earth (the iya), the guild of brass
     casters, the Oba's palace with its brass plaques, and Iyoba Idia, the
-    first queen mother. The guild's bellows cast a plaque (`history_lost_wax`)
-    and the guild carries it in, so the palace gate opens. At the east end, a
-    plain sign says what came in 1897."""
+    first queen mother. At the east end, a plain sign says what came in
+    1897."""
     rid = "history_benin_city"
-    gate_x = 1320
     e = [
         start(rid, 160, FLOOR),
         # The iya: a bank of earth. Up the step and over it.
@@ -691,12 +691,10 @@ def benin_city():
         sign("benin_sign_walls_b", 508, FLOOR - 312, "thousands of kilometres of them round the city and its villages", 580),
         npc("history_brass_caster", 720, FLOOR, 64),
         prop_at("furnace", "history_brass_furnace", 840, FLOOR, 80, 96),
-        lever(LOST_WAX, "the guild's bellows", "Work the bellows", 940, FLOOR),
         sign("benin_sign_wax", 860, FLOOR - 220, "LOST WAX: shape it in wax, coat it in clay, melt the wax out, pour in brass", 680),
         prop_at("manillas", "history_manillas", 1060, FLOOR, 64, 32),
         sign("benin_sign_manillas", 1040, FLOOR - 120, "MANILLAS: Portuguese brass, melted down for art", 440),
         enemy(rid, 1, "driver_ants", 1160, FLOOR),
-        *gate("history_palace_gate", "the palace gate", gate_x, f"world.switch_on {LOST_WAX}", "history_benin_palace_gate"),
         sign("benin_sign", 1400, 140, "BENIN CITY: the walls, the brass casters and the court of the Oba, 1200-1897", 700),
         sign("benin_sign_palace", 1600, FLOOR - 420, "THE OBA'S PALACE: walls of red earth, a brass bird on every turret", 600),
         prop_at("palace", "history_benin_palace", 1560, FLOOR, 256, 192),
@@ -1602,6 +1600,48 @@ def taino_islands():
     return grid_room(rid, "THE TAINO ISLANDS", e, gaps=[gap])
 
 
+def haitian_revolution():
+    """Saint-Domingue becomes Haiti, 1791-1804, on Ayiti, the island of the
+    Taino room to the west. The plain of the north, its cane and its sugar
+    works, where the enslaved rose in 1791; the mornes, where Leclerc's army
+    was beaten in 1802-1803 (up and over them); the first flag (1803) and
+    independence (1 January 1804). Toussaint Louverture and Catherine Flon
+    are real people; the cook is original."""
+    rid = "history_haitian_revolution"
+    e = [
+        start(rid, 160, FLOOR),
+        prop_at("cane_1", "history_sugarcane", 340, FLOOR, 96, 128),
+        prop_at("sugar_works", "history_sugar_works", 620, FLOOR, 256, 192),
+        prop_at("cane_2", "history_sugarcane", 860, FLOOR, 96, 128),
+        sign("haiti_sign_1789_a", 560, FLOOR - 340, "SAINT-DOMINGUE, 1789: France's richest colony. Its sugar and coffee", 620),
+        sign("haiti_sign_1789_b", 560, FLOOR - 312, "were grown by about half a million enslaved people.", 480),
+        sign("haiti_sign_1791", 620, FLOOR - 240, "AUGUST 1791: the enslaved of the northern plain rose up", 500),
+        npc("history_toussaint_louverture", 980, FLOOR, 64),
+        sign("haiti_sign_1794", 940, FLOOR - 160, "1793-1794: slavery ended here, then in every French colony", 540),
+        # The mornes: up and over.
+        solid("morne_1", 1100, FLOOR - 80, 800, 80),
+        solid("morne_2", 1240, FLOOR - 160, 520, 80),
+        solid("morne_3", 1380, FLOOR - 240, 240, 80),
+        enemy(rid, 1, "napoleonic_grenadier", 1160, FLOOR - 80),
+        enemy(rid, 2, "napoleonic_grenadier", 1500, FLOOR - 240),
+        sign("haiti_sign_mornes", 1500, FLOOR - 340, "DEYE MON, GEN MON: beyond the mountains, more mountains", 520),
+        sign("haiti_sign_1802_a", 1500, FLOOR - 480, "1802: Napoleon sent an army to take the colony back. In Guadeloupe, slavery came back.", 780),
+        sign("haiti_sign_1802_b", 1500, FLOOR - 452, "Here the army lost, to the war in the mountains and to yellow fever.", 620),
+        sign("haiti_sign", 1400, 140, "HAITI: the revolution of the enslaved, 1791-1804", 460),
+        enemy(rid, 3, "napoleonic_grenadier", 1980, FLOOR),
+        npc("history_catherine_flon", 2140, FLOOR, 62),
+        prop_at("flag", "history_first_flag", 2250, FLOOR, 64, 160),
+        sign("haiti_sign_flag", 2160, FLOOR - 250, "18 MAY 1803: the white torn out of the French flag, the blue and the red sewn together", 780),
+        npc("history_soup_joumou_cook", 2470, FLOOR, 68),
+        prop_at("soup_pot", "history_soup_pot", 2600, FLOOR, 80, 64),
+        sign("haiti_sign_1804_a", 2400, FLOOR - 400, "1 JANUARY 1804: HAITI. The first nation founded by people who freed themselves,", 720),
+        sign("haiti_sign_1804_b", 2400, FLOOR - 372, "named with the Taino name of its island, Ayiti.", 440),
+        sign("haiti_sign_1825_a", 2420, FLOOR - 160, "1825: France made Haiti pay 150 million francs for its lost 'property':", 640),
+        sign("haiti_sign_1825_b", 2420, FLOOR - 132, "the people who had freed themselves. With the loans, Haiti paid until 1947.", 680),
+    ]
+    return grid_room(rid, "HAITI", e)
+
+
 #: The rooms, by floor from the bottom (Africa) to the top.
 ROOMS = (cradle, southern_coast, green_sahara, nile, tomb, aksum, timbuktu, library, benin_city,
          levant, crescent, granary, uruk, classical, colosseum,
@@ -1610,7 +1650,7 @@ ROOMS = (cradle, southern_coast, green_sahara, nile, tomb, aksum, timbuktu, libr
          southern_route, mehrgarh, indus_cities,
          sahul, new_guinea_highlands, lapita_voyagers, wayfinders, rapa_nui,
          mammoth_steppe, yellow_river, shang_court, silk, steppe, great_ger,
-         beringia, first_maize, olmec_heartland, maya_city, taino_islands)
+         beringia, first_maize, olmec_heartland, maya_city, taino_islands, haitian_revolution)
 
 
 def ladders():

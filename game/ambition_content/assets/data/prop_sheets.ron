@@ -286,6 +286,13 @@
     "history_benin_palace": (),
     "history_benin_palace_gate": (),
     "history_museum_case": (),
+    // Haiti (wave A, `targets/props/history_haiti_props.py`): a plantation's
+    // sugar works, a stand of cane, the pot of soup joumou and the first flag
+    // (1803: blue and red, the white torn out).
+    "history_sugar_works": (),
+    "history_sugarcane": (),
+    "history_soup_pot": (),
+    "history_first_flag": (),
     // The Story Stacks of the Art dimension (`targets/props/art_stacks_props.py`).
     // The doors of the Library of Endings are two covers of a book: the happy
     // ending in gold with a sun, the sad ending in deep blue with a moon and

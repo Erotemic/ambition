@@ -70,7 +70,7 @@ the record and sighs about the footnotes.
 ## The grid
 
              C0       C1            C2              C3           C4          C5          C6     C7
-    R0 Americas       beringia      maize           olmecs       maya        taino
+    R0 Americas       beringia      maize           olmecs       maya        taino       haiti
     R1 East Asia      mammoth st.   yellow river    shang        silk road   steppe
     R2 Oceania        sahul         highlands       lapita       wayfinders  rapa nui
     R3 South Asia     south. route  mehrgarh        indus
@@ -103,7 +103,7 @@ The rooms:
 | `history_nile_valley` | `history_nile` | Hat-shepsut, Ramesses the Pretty Good | mummy, scarab beetle, asp | a felucca carries you over the river |
 | `history_aksum_and_kush` | `history_nile` | Kandake Can-Do | asp, mummy, scarab beetle | the ladder up: the Red Sea road to Rome |
 | `history_timbuktu_coast` | `history_monsoon` | Mansa Moolah, Zheng Hey | inflated coin, coral crab, monsoon squall | a dhow carries you over the sea |
-| `history_benin_city` | `history_benin` | the brass caster of Igun Street, Iyoba Idia, Lord Finders-Keepers | driver ants, asp | over the bank of the city walls; the casters' bellows (`history_lost_wax`) cast a plaque and open the palace gate; a plain sign for 1897 |
+| `history_benin_city` | `history_benin` | the brass caster of Igun Street, Iyoba Idia, Lord Finders-Keepers | driver ants, asp | over the bank of the city walls (the iya); a plain sign for 1897 |
 | `history_levant` | `history_crescent` | Neville the Neanderthal | aurochs, cave lion | the ladders: down to Africa, up to Europe |
 | `history_fertile_crescent` | `history_crescent` | Hammurabbi, Gilgamash | locust swarm, aurochs, scorpion man | the sluice (`history_sluice`) raises the reed bridge over the canal |
 | `history_uruk` | `history_crescent` | Enheduanna | scorpion man, sea raider | the Bronze Age collapse: three Sea Peoples raiders |
@@ -130,6 +130,7 @@ The rooms:
 | `history_olmec_heartland` | `history_olmec` | the head sculptor | jaguar, howler monkey | a pad of rubber throws you up to the terrace (a jade earspool) |
 | `history_maya_city` | `history_maya` | the Zero Hero, Lady Six Sky-High | howler monkey, jaguar, green iguana | the stone ring (`history_ballcourt_ring`) opens the ballcourt gate |
 | `history_taino_islands` | `history_caribbean` | the Cacica of Boriken, the canoe maker | coral crab | the hammock throws you into the ceiba; a dugout canoe crosses the sea; a plain sign for 1492 |
+| `history_haitian_revolution` | `history_saint_domingue` | Toussaint Louverture, Catherine Flon, the soup joumou cook | grenadier of Leclerc's army | from the cane of the northern plain up and over the mornes, where Napoleon's army lost; the first flag; 1 January 1804; a plain sign for 1825-1947 |
 | `history_lapita_voyagers` | `history_lapita` | the Lapita potter | coconut crab, coral crab | an outrigger canoe crosses the lagoon; the ladder up to the Shang court |
 | `history_wayfinders` | `history_open_ocean` | the wayfinder | frigatebird, coconut crab | a voyaging canoe crosses the open sea |
 | `history_rapa_nui` | `history_rapa_nui` | the moai carver, Thor Hey-I'm-Right-Dahl | Pacific rat | ride a walking moai over the quarry ditch; a plain sign for 1862 |
@@ -197,6 +198,10 @@ almost silent. `cue tuning-audit <cue>` measures them.
 
 ## The road ahead
 
+The long-range plan (the atlas idea, coverage, the review notes on the
+built rooms) is [`history-dimension-long-range-roadmap.md`](history-dimension-long-range-roadmap.md).
+This section is the order of the build.
+
 Jon, 2026-11-03: "Let's make this dimension stupidly comprehensive. Let's
 make sure we prioritize representation and impact. We don't have to have
 this be a perfect grid either, in fact, we should bias away from that. But I
@@ -214,6 +219,11 @@ figure it's easy to start there." And: "let's do this slowly."
 3. Told from inside: the people it happened to tell it. The Taino room's
    plain sign for 1492 is the model. A catastrophe gets a sober room with
    people and choices, and no joke.
+4. Nothing contrived (Jon, 2026-11-03: "try to avoid things that are
+   contrived"). The place gives the way through: a wall of earth, the
+   mountains, a sea. No lever that needs a story to say why it opens a
+   gate, no pun for its own sake, no symbolic door. A real person, told with
+   respect, before an invented one.
 
 ### Not a perfect grid
 
@@ -231,11 +241,11 @@ Saint-Domingue).
 ### The waves (slowly: a few rooms at a time, each one finished)
 
 - A. The Atlantic world: Benin City and its bronzes (C6, Africa: BUILT);
-  the Door of No Return, a sober room of the Atlantic slave trade (C7,
-  Africa), a fort whose one-way door opens on Saint-Domingue; the Haitian
-  Revolution (C6, the Americas, beside the Taino room: Ayiti is the same
-  island, and Haiti took back its Taino name): the people who freed
-  themselves. Its Door of Return opens after 1804 and goes back to the fort.
+  the Haitian Revolution (C6, the Americas, beside the Taino room: Ayiti is
+  the same island, and Haiti took back its Taino name): the people who freed
+  themselves (BUILT); the Door of No Return, a sober room of the Atlantic
+  slave trade (C7, Africa), a fort whose door goes one way only, to
+  Saint-Domingue. Nothing brings you back that way.
 - B. South America, up the Andes (a tall room from the first maize):
   Caral, the oldest city of the Americas (C3); Nazca and the Moche (C4);
   Tiwanaku and the Wari (C5); the Inca and the Qhapaq Nan (C6). The Aztecs

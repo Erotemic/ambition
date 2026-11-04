@@ -430,6 +430,11 @@ collections:
   - history_benin_palace
   - history_benin_palace_gate
   - history_museum_case
+  - napoleonic_grenadier
+  - history_sugar_works
+  - history_sugarcane
+  - history_soup_pot
+  - history_first_flag
   - eigenghost
   - decomposing_specter
   - spectral_perturbation
@@ -749,6 +754,9 @@ collections:
   - history_brass_caster
   - history_iyoba_idia
   - history_lord_finders_keepers
+  - history_toussaint_louverture
+  - history_catherine_flon
+  - history_soup_joumou_cook
   - station_dobbs
   - station_pippin
   - magical_celeste

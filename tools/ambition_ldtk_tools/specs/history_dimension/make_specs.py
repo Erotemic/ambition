@@ -42,6 +42,8 @@ import gates  # noqa: E402
 WORLD = WORLDS / "history.ldtk"
 GENERATOR = "specs/history_dimension/make_specs.py"
 UID_OFFSET = 1200000
+#: The size of one cell of the grid.
+W, H = 2800, 1024
 
 # ---- The grid ----------------------------------------------------------------
 
@@ -84,7 +86,33 @@ GRID = {
     (6, 4): "history_age_of_sail",
     (7, 4): "history_industrial_age",
 }
-CELL = {rid: cell for cell, rid in GRID.items()}
+
+#: The grid is where the dimension starts, not a rule. A room may take
+#: several cells of one row (a wide room: an age that lasted), a row may be
+#: put in between two others (its key is any number that sorts there), and
+#: `EXTRA_LADDERS` joins two rooms that are not one above the other in the
+#: grid. The rows are drawn in the order of their keys, one under the next.
+ROW_ORDER = sorted({r for _, r in GRID})
+
+
+def row_below(r):
+    """The next row down, or None."""
+    i = ROW_ORDER.index(r)
+    return ROW_ORDER[i + 1] if i + 1 < len(ROW_ORDER) else None
+
+
+#: Each room's cells: its columns (one row).
+CELLS = {}
+for _cell, _rid in GRID.items():
+    CELLS.setdefault(_rid, []).append(_cell)
+
+
+def span(rid):
+    """The first and last column of a room, and its row."""
+    cols = sorted(c for c, _ in CELLS[rid])
+    rows = {r for _, r in CELLS[rid]}
+    assert len(rows) == 1 and cols == list(range(cols[0], cols[-1] + 1)), f"{rid} takes cells of one row, side by side"
+    return cols[0], cols[-1], rows.pop()
 
 #: The ladders between floors: (column, upper row) -> the left of the hole, in
 #: room px. The hole is in the upper room's floor and the lower room's
@@ -112,6 +140,37 @@ LINKS = {
 }
 HOLE = 96
 
+
+def _local_x(rid, c, x):
+    """`x` of cell column `c` in the coordinates of `rid` (a wide room's left)."""
+    return x + (c - span(rid)[0]) * W
+
+
+#: Every ladder: (upper room, lower room, x of the hole in the upper room,
+#: x of the ladder in the lower room). The grid's come from `LINKS`;
+#: `EXTRA_LADDERS` adds more in the same shape.
+EXTRA_LADDERS = []
+LADDERS = [(GRID[(c, r)], GRID[(c, row_below(r))], _local_x(GRID[(c, r)], c, x), _local_x(GRID[(c, row_below(r))], c, x))
+           for (c, r), x in LINKS.items()] + EXTRA_LADDERS
+
+
+def _ups(rid):
+    return [(upper, xl) for upper, lower, _xu, xl in LADDERS if lower == rid]
+
+
+def _downs(rid):
+    return [(lower, xu) for upper, lower, xu, _xl in LADDERS if upper == rid]
+
+
+def up_zone(lower, upper):
+    """The zone at the top of `lower`'s ladder to `upper`."""
+    return f"{lower}_up" if len(_ups(lower)) == 1 else f"{lower}_up_to_{upper}"
+
+
+def down_zone(upper, lower):
+    """The zone at the foot of `upper`'s hole down to `lower`."""
+    return f"{upper}_down" if len(_downs(upper)) == 1 else f"{upper}_down_to_{lower}"
+
 #: The buildings, under the grid, each by a door in its room.
 GRANARY = "history_temple_granary"
 TOMB = "history_pyramid_tomb"
@@ -123,14 +182,17 @@ CAVE = "history_painted_cave"
 BUILDINGS = (GRANARY, TOMB, COLOSSEUM, GER, LIBRARY, MILL, CAVE)
 
 BG = "#3A2A1C"
-#: A room of the grid; the floor has 64 of ground under it.
-W, H = 2800, 1024
+#: A room of the grid (`W`, `H`, at the top of the file); the floor has 64 of
+#: ground under it.
 FLOOR = 960
 CEILING = 32
-ROWS = 7
+ROW_Y = {r: i * H for i, r in enumerate(ROW_ORDER)}
 
-ROOMS_AT = {rid: ((c * W, r * H), (W, H)) for (c, r), rid in GRID.items()}
-ROOMS_AT.update({rid: ((n * 1792, ROWS * H + 400), (1600, 640)) for n, rid in enumerate(BUILDINGS)})
+ROOMS_AT = {}
+for _rid in CELLS:
+    _c0, _c1, _r = span(_rid)
+    ROOMS_AT[_rid] = ((_c0 * W, ROW_Y[_r]), ((_c1 - _c0 + 1) * W, H))
+ROOMS_AT.update({rid: ((n * 1792, len(ROW_ORDER) * H + 400), (1600, 640)) for n, rid in enumerate(BUILDINGS)})
 
 #: One cue for each floor (region), so the music stays with the player who
 #: walks east through the ages. A building takes the cue of its region,
@@ -317,15 +379,15 @@ def crossing(rid, name, span, look, *, w=160, speed=90.0, top=FLOOR - 8):
     ], span
 
 
-def solids_beside(name, gaps, y, h):
-    """Solids from 0 to W at `y`, `h` high, with `gaps` (x0, x1) left open."""
+def solids_beside(name, gaps, y, h, w=W):
+    """Solids from 0 to `w` at `y`, `h` high, with `gaps` (x0, x1) left open."""
     out, x = [], 0
     for n, (g0, g1) in enumerate(sorted(gaps)):
         if g0 > x:
             out.append(solid(f"{name}_{n}", x, y, g0 - x, h))
         x = max(x, g1)
-    if x < W:
-        out.append(solid(f"{name}_end", x, y, W - x, h))
+    if x < w:
+        out.append(solid(f"{name}_end", x, y, w - x, h))
     return out
 
 
@@ -336,38 +398,36 @@ def vertical_edge(zone, name, x0, x1, y, to_room, to_zone):
 
 
 def grid_room(rid, title, entities, gaps=()):
-    """A room of the grid: its floor (open at `gaps`, and at the ladder down
-    under a one-way hatch), its ceiling (open at the ladder up), its walls,
-    the side exits to the ages before and after it on its floor, the ladders
-    to the floors above and below, and `entities`."""
-    c, r = CELL[rid]
-    west, east = GRID.get((c - 1, r)), GRID.get((c + 1, r))
-    up, down = GRID.get((c, r - 1)), GRID.get((c, r + 1))
+    """A room of the grid: its floor (open at `gaps`, and at each ladder down
+    under a one-way hatch), its ceiling (open at each ladder up), its walls,
+    the side exits to the ages before and after it on its row, the ladders
+    to the rows above and below, and `entities`."""
+    c0, c1, r = span(rid)
+    w = ROOMS_AT[rid][1][0]
+    west, east = GRID.get((c0 - 1, r)), GRID.get((c1 + 1, r))
     floor_gaps = list(gaps)
     ceiling_gaps = []
     e = []
-    if up and (c, r - 1) in LINKS:
-        x = LINKS[(c, r - 1)]
+    for upper, x in _ups(rid):
         ceiling_gaps.append((x, x + HOLE))
-        e.append(vertical_edge(f"{rid}_up", "up the ladder", x, x + HOLE, 0, up, f"{up}_down"))
-    if down and (c, r) in LINKS:
-        x = LINKS[(c, r)]
+        e.append(vertical_edge(up_zone(rid, upper), "up the ladder", x, x + HOLE, 0, upper, down_zone(upper, rid)))
+    for lower, x in _downs(rid):
         floor_gaps.append((x, x + HOLE))
         # A hatch over the hole: walk over it, or drop through it.
         e.append(ledge("hatch", x, FLOOR, HOLE))
-        e.append(vertical_edge(f"{rid}_down", "down the ladder", x, x + HOLE, H - 16, down, f"{down}_up"))
-    e += solids_beside("ground", floor_gaps, FLOOR, H - FLOOR)
-    e += solids_beside("ceiling", ceiling_gaps, 0, CEILING)
+        e.append(vertical_edge(down_zone(rid, lower), "down the ladder", x, x + HOLE, H - 16, lower, up_zone(lower, rid)))
+    e += solids_beside("ground", floor_gaps, FLOOR, H - FLOOR, w)
+    e += solids_beside("ceiling", ceiling_gaps, 0, CEILING, w)
     if west:
         e += [solid("west_wall", 0, CEILING, WALL, FLOOR - 112 - CEILING),
               edge(f"{rid}_west", "back in time", 0, FLOOR, west, f"{west}_east")]
     else:
         e.append(solid("west_wall", 0, CEILING, WALL, FLOOR - CEILING))
     if east:
-        e += [solid("east_wall", W - WALL, CEILING, WALL, FLOOR - 112 - CEILING),
-              edge(f"{rid}_east", "forward in time", W - WALL, FLOOR, east, f"{east}_west")]
+        e += [solid("east_wall", w - WALL, CEILING, WALL, FLOOR - 112 - CEILING),
+              edge(f"{rid}_east", "forward in time", w - WALL, FLOOR, east, f"{east}_west")]
     else:
-        e.append(solid("east_wall", W - WALL, CEILING, WALL, FLOOR - CEILING))
+        e.append(solid("east_wall", w - WALL, CEILING, WALL, FLOOR - CEILING))
     at, size = ROOMS_AT[rid]
     return rid, room(rid, e + entities, at=at, size=size, biome=BIOME[rid], music=MUSIC[rid], bg=BG, title=title,
                      generator=GENERATOR, dangerous=True)
@@ -1504,15 +1564,14 @@ def ladders():
     """The ladders (the IntGrid `Climbable` layer): in each link's hole in the
     upper room's floor, and up the lower room to its ceiling."""
     out = []
-    for (c, r), x in LINKS.items():
-        upper, lower = GRID[(c, r)], GRID[(c, r + 1)]
-        out += [(upper, x + 32, FLOOR - 64, H - FLOOR + 64), (lower, x + 32, 0, FLOOR)]
+    for upper, lower, xu, xl in LADDERS:
+        out += [(upper, xu + 32, FLOOR - 64, H - FLOOR + 64), (lower, xl + 32, 0, FLOOR)]
     return out
 
 
 def main(argv):
     made = [make() for make in ROOMS]
-    assert sorted(rid for rid, _ in made) == sorted(list(GRID.values()) + list(BUILDINGS)), "every room is made once"
+    assert sorted(rid for rid, _ in made) == sorted(list(CELLS) + list(BUILDINGS)), "every room is made once"
     paths = []
     for rid, text in made:
         path = HERE / f"{rid}.ron"

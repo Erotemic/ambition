@@ -102,6 +102,11 @@ before changing owners. The older 2026-10-19 queue order remains in force for
 unrelated work; this correctness interrupt can be handled in independent
 slices.
 
+The 2026-11-03 request adds
+[PARTY-TRAVEL-POLICIES](#party-travel-policies--configurable-group-crossings-and-a-leader-view).
+Finish the current retained-plan commit, then implement this policy before the
+next online no-hold slice. Independent adaptive play remains the default.
+
 ## Work order from the additional maintainer rulings of 2026-10-19
 
 These come first. The rulings are the later 2026-10-19 rows in
@@ -529,7 +534,7 @@ reach checks and same-dimension rules already landed in `c818c0801`.
 [region composition](game/world-composition.md),
 [remaining room detail](game/world-detail-24h.md),
 [Art dimension follow-up](game/art-dimension.md#ideas-for-later), and
-[History dimension follow-up](game/history-dimension.md#next-passes).
+[History dimension follow-up](game/history-dimension.md#the-road-ahead).
 
 **Next action:** fold Jungle into surface, underground and canopy regions,
 then add Magical's sky and local arch network. Reuse the existing portal and
@@ -621,6 +626,20 @@ The search has a fixed limit and declines a blocked join. See the guards in
 **Acceptance:** the controller and multiplayer tests of the 2026-10-19
 assignment (section 11), each a simulation-level witness with a negative
 control.
+
+### PARTY-TRAVEL-POLICIES — configurable group crossings and a leader view
+
+**Owner:** session passage admission and shared room application; settings and
+input owners; local view composition. Requirements and acceptance:
+[configurable party travel](game/multiplayer.md#configurable-party-travel).
+
+**Next action:** add explicit group travel rules and atomic multi-body room
+transfers. Add the optional leader view, a Select return action, and settings.
+Support independent, leader, any-member, and all-member travel. In all-member
+mode, moving away cancels agreement. A forbidden follower edge acts as a wall.
+Use one room constructor and one body transfer path. Keep the independent
+adaptive preset as the default. Verify ownership, cancellation, arrival safety,
+replay, and participant-scoped prompts before declaring the feature complete.
 
 ### MULTIPLAYER-SEAMS — make local multiplayer safe for netplay
 

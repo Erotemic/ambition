@@ -97,6 +97,51 @@ These are product rules, not a request for `player2` variants of engine
 systems. The executable work is the `MULTIPLAYER-SEAMS` row in
 [`../queue.md`](../queue.md).
 
+## Configurable party travel
+
+Maintainer request, 2026-11-03. Independent exploration with adaptive split and
+merge remains the default. Keep `Always Split` as a separate view option.
+Add an optional view that follows the designated primary participant. A member
+outside that view gets a return prompt and can return beside the leader with
+the semantic Select control. Use the shared input bindings and platform glyphs.
+A return must preserve the controlled body, its inventory, and its capabilities.
+
+Keep view choice and travel rules separate. A game can configure these travel
+rules for a group:
+
+- **Independent:** each member crosses alone.
+- **Leader:** the designated leader brings the group. Other members cannot
+  activate a loading zone. A forbidden walk or edge exit blocks that member.
+- **Any member:** a member who activates a zone brings the group.
+- **All members:** each required member must agree to the same source zone and
+  destination. Moving away cancels that member's agreement. Conflicting zones
+  do not form an agreement. No member is held in an entry animation while the
+  group is still deciding.
+
+The favored-primary preset selects the leader view and leader travel. Other
+games can select another combination through their own data and rules. A party
+role is explicit. Do not infer it from camera presence or device order.
+
+A group crossing is one admitted operation. Prepare the destination once and
+transfer all selected bodies through the shared room application. Validate the
+complete transfer before applying it. Keep body and item ownership, room
+residency, safe arrival placement, and confirmed effects on the common path.
+Use rollback state for group agreement and cancellation. Peers must agree on
+the mechanical travel policy; local camera geometry must not decide it.
+
+The return action must not also fire the existing reset action on Select.
+Participant-scoped prompts must identify the correct binding. Cover joins,
+leaves, possession, a member in another room, and a blocked arrival. A policy
+change must not recreate bodies or lose held items.
+
+Acceptance: default independent travel still works; the leader view stays
+shared; return moves only its requester; leader and any-member travel move the
+selected group once; a follower cannot cross a forbidden edge; all-member
+agreement cancels on departure; conflicting exits do not commit; replay and
+peer confirmation preserve the same group, room state, and item ownership.
+
+The work is [PARTY-TRAVEL-POLICIES](../queue.md#party-travel-policies--configurable-group-crossings-and-a-leader-view).
+
 ## Room and world consequences
 
 Different-room play means Ambition cannot assume one globally active room.

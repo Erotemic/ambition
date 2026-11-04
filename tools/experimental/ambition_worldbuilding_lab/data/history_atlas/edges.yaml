@@ -63,7 +63,11 @@ built:
   - [first_farmers_of_europe, fertile_crescent, contact, "farmers came from Anatolia"]
   - [fertile_crescent, green_sahara, contact, "cattle and wheat"]
   - [first_maize, andean_highlands, diffusion, "maize went south"]
-  - [shang_court, lapita_voyagers, atlas_shortcut, "the Austronesians came from Taiwan, not the Shang"]
+  - [taiwan_homeland, lapita_voyagers, succession, "out of Taiwan"]
+  - [silk_road, gojoseon_three_kingdoms, contact, "glass from Rome and Persia in Silla's tombs"]
+  - [mammoth_steppe, jomon, contact, "Hokkaido was joined to Siberia when the sea was low"]
+  - [jomon, taiwan_homeland, comparison, "two peoples of East Asia's coasts; no claim that they met"]
+  - [taiwan_homeland, gojoseon_three_kingdoms, comparison, "the coasts' floor goes east in time"]
   - [megalith_builders, uruk, diffusion, "tin from the north"]
   - [uruk, nile_valley, contact]
   - [celtic_frontier, classical_shore, contact]
@@ -336,10 +340,8 @@ links:
   - [roma_arrival, delhi_sultanate, contact, "the Roma left India"]
 
   # ---- East Asia ----
-  - [mammoth_steppe, jomon, contact]
   - [yellow_river, yangtze_rice, comparison]
   - [yangtze_rice, taiwan_homeland, contact]
-  - [taiwan_homeland, lapita_voyagers, succession, "out of Taiwan"]
   - [taiwan_homeland, madagascar, diffusion, "Austronesian sailors reached Madagascar"]
   - [shang_court, sanxingdui, contact]
   - [shang_court, qin_han, succession]

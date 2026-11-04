@@ -304,6 +304,12 @@ npc_history_yijing
 npc_history_relief_carver
 npc_history_baray_engineer
 npc_history_zhou_da_guide
+npc_history_flame_potter
+npc_history_chestnut_keeper
+npc_history_jade_carver
+npc_history_nankuanli_farmer
+npc_history_queen_seondeok
+npc_history_star_watcher
 
 [Guests from history and the studio]
 npc_genghis_can
@@ -479,6 +485,9 @@ sulawesi_warty_pig
 saltwater_crocodile
 king_cobra
 water_monitor
+asian_black_bear
+japanese_macaque
+clouded_leopard
 
 [Mary-O's world]
 mary_o

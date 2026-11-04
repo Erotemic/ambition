@@ -465,13 +465,13 @@ nodes:
   # =========================================================================
   # EAST ASIA
   # =========================================================================
-  - {id: jomon, title: "Jōmon, the first pots", region: japan, years: [-14000, -300], status: planned,
-     countries: [JPN], peoples: [ainu, ryukyuans], topics: [first_art, aquaculture], note: "some of the oldest pottery on Earth, made by foragers"}
+  - {id: jomon, title: "Jōmon, among the first pots", region: japan, years: [-14000, -300], status: built, room: history_jomon,
+     countries: [JPN], peoples: [ainu, ryukyuans], topics: [first_art, aquaculture], note: "among the oldest pottery on Earth (China's is older), made by foragers"}
   - {id: yangtze_rice, title: "The Yangtze rice fields", region: china, years: [-8000, -3000], status: planned,
      countries: [CHN, KOR, JPN, VNM], topics: [farming_origins, crops]}
   - {id: yellow_river, title: "The Yellow River", region: china, years: [-7000, -2000], status: built, room: history_yellow_river,
      countries: [CHN], topics: [farming_origins, crops]}
-  - {id: taiwan_homeland, title: "Taiwan, the Austronesian homeland", region: taiwan, years: [-4000, -1500], status: planned,
+  - {id: taiwan_homeland, title: "Taiwan, the Austronesian homeland", region: taiwan, years: [-4000, -1500], status: built, room: history_taiwan,
      countries: [TWN, PHL, IDN], peoples: [taiwanese_indigenous], topics: [peopling_of_pacific, seafaring]}
   - {id: shang_court, title: "The Shang court", region: china, years: [-1250, -1046], status: built, room: history_shang_court,
      countries: [CHN], topics: [writing, bronze_and_iron, china_dynasties, women_rulers]}
@@ -479,7 +479,7 @@ nodes:
      countries: [CHN], topics: [first_art, bronze_and_iron]}
   - {id: qin_han, title: "The first emperor and the Han", region: china, years: [-221, 220], status: planned, shape: corridor,
      countries: [CHN, VNM, KOR], topics: [china_dynasties, printing, law, monumental_building], note: "paper (105 CE); the walls of many dynasties"}
-  - {id: gojoseon_three_kingdoms, title: "Silla and Gyeongju", region: korea, years: [57, 935], status: planned,
+  - {id: gojoseon_three_kingdoms, title: "Silla and Gyeongju", region: korea, years: [57, 935], status: built, room: history_silla,
      countries: [KOR, PRK], topics: [astronomy, women_rulers, monumental_building], note: "Queen Seondeok's star tower"}
   - {id: yamato_nara, title: "Nara", region: japan, years: [538, 794], status: candidate,
      countries: [JPN], topics: [spread_of_religions, monumental_building]}

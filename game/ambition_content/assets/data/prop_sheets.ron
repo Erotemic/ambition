@@ -323,6 +323,16 @@
     "history_sandstone_blocks": (),
     "history_ox_cart": (),
     "history_trade_goods": (),
+    // East Asia's coasts (wave D1, `targets/props/history_east_asia_coast_props.py`):
+    // the pit houses, flame pots and six posts of Sannai-Maruyama; Fengtian
+    // jade; Cheomseongdae, a royal tomb mound and a gold crown of Silla.
+    "history_pit_dwelling": (),
+    "history_flame_pot": (),
+    "history_six_pillars": (),
+    "history_jade_workshop": (),
+    "history_cheomseongdae": (),
+    "history_royal_tumulus": (),
+    "history_gold_crown": (),
     // The Story Stacks of the Art dimension (`targets/props/art_stacks_props.py`).
     // The doors of the Library of Endings are two covers of a book: the happy
     // ending in gold with a sun, the sad ending in deep blue with a moon and

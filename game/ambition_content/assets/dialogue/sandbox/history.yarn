@@ -1063,3 +1063,85 @@ Zhou Da-Guide: Welcome, welcome! Tour group, this way, keep up! I am Zhou Da-Gui
 -> Goodbye.
     Zhou Da-Guide: The gift shop is on the left. It is a stall of lotus seeds. Highly recommended.
 ===
+
+title: history_flame_potter
+---
+Flame Potter of Sannai-Maruyama: Mind the pot. The clay is easy. The fire is the hard part.
+-> Why the crests?
+    Flame Potter of Sannai-Maruyama: Your people call them flame pots. Flames, waves, I will not say. But look inside: soot on the outside, burnt soup at the bottom. We cook in them. A pot can be beautiful and still make dinner.
+-> Do you farm?
+    Flame Potter of Sannai-Maruyama: No. We tend the chestnuts, gather nuts and shellfish, fish the bay, hunt deer and boar. And we stay: this town is lived in for fifteen hundred years. Your scholars once said people could not live in one place without farms. We did not hear them.
+-> How old are pots like these?
+    Flame Potter of Sannai-Maruyama: Mine are new. But my people have made pots for ten thousand years already, since about 14,500 BCE. Among the oldest anywhere. People in what you call China made them earlier still; we do not mind sharing.
+-> What happens to your people?
+    Flame Potter of Sannai-Maruyama: Rice farmers come from the continent long after me, and our children marry theirs. Everyone in Japan carries a little of us. The Ainu of the north and the Ryukyuans of the south carry the most.
+-> Goodbye.
+    Flame Potter of Sannai-Maruyama: Take the comb if you find it, the red one. That red is lacquer, from the urushi tree. We have used it for thousands of years.
+===
+
+title: history_chestnut_keeper
+---
+Chestnut Keeper: Chestnut? Roasted this morning. Mind, they are hot.
+-> Did you plant them?
+    Chestnut Keeper: We clear the other trees, and we keep the best chestnuts near the town. Now the woods around us are almost all chestnut. Is that farming? You decide. We were too busy eating.
+-> What is the big structure?
+    Chestnut Keeper: Six posts of chestnut, each a metre thick, sunk two metres into the ground. A tower to watch the bay? A stage for the dances? Your people built it again with three floors, but nobody knows what it held. Climb it and have a guess.
+-> How many live here?
+    Chestnut Keeper: Hundreds, in the busiest times, your diggers say. Pit houses, long houses, store houses, a road, a burial ground. A town, without a single field.
+-> Goodbye.
+    Chestnut Keeper: Watch out for the bear. She likes the chestnuts too.
+===
+
+title: history_jade_carver
+---
+Jade Carver of Fengtian: Hold it up to the light. Green as a river.
+-> How do you cut jade?
+    Jade Carver of Fengtian: You do not cut it. You wear it away: a cord, wet sand, back and forth, for days. It is harder than your knife. Patience is harder than jade.
+-> Where does it go?
+    Jade Carver of Fengtian: Later, Fengtian jade from here goes by boat to the Philippines, to Vietnam, to Thailand, to Borneo: rings with a slit, earrings with three points. One of the longest sea roads of any stone in the ancient world.
+-> Who are your people?
+    Jade Carver of Fengtian: Our language is the grandmother of languages from Madagascar to Hawaii. Your scholars sorted them into branches: of the ten oldest, nine grow only here. The grandchildren leave in canoes. The grandmothers stay.
+-> Goodbye.
+    Jade Carver of Fengtian: Mind the sand. It gets everywhere. That is how jade is made.
+===
+
+title: history_nankuanli_farmer
+---
+Farmer of Nankuanli: Mind the dog. She minds you.
+-> What do you grow?
+    Farmer of Nankuanli: Millet on the slope, rice in the wet ground. Both came over the strait from the mainland with our ancestors, long ago. We brought the dogs too.
+-> The dog?
+    Farmer of Nankuanli: At Nankuanli we bury our dogs with care, as we bury people. Your diggers will find them, four thousand eight hundred years from now. She is a good dog. She will be a famous one.
+-> Do you sail?
+    Farmer of Nankuanli: Some of us. My cousin's children went south over the channel to the islands you call the Batanes and Luzon. Every generation, a few more islands. Their grandchildren will reach places we have no names for.
+-> Goodbye.
+    Farmer of Nankuanli: Take some millet for the boat. The dog will see you to the edge of the field.
+===
+
+title: history_queen_seondeok
+---
+Queen Seondeok: You stand in Seorabeol, the capital of Silla. I am Seondeok. Yes, the queen.
+-> The first queen?
+    Queen Seondeok: The first to rule Silla in her own name, from 632 to 647. Two more queens will follow me. The story goes that the Tang emperor sent me a painting of peonies with no bees and no butterflies, to say that a queen without a husband is a flower without scent. I said: then these peonies have no scent. I planted the seeds. I was right.
+-> The tower?
+    Queen Seondeok: Cheomseongdae. Built in my reign to watch the sky. The calendar, the seasons, the eclipses: a kingdom must know when to plant, and when to worry.
+-> Your crown?
+    Queen Seondeok: Gold, cut like trees and antlers, hung with jade. Silla is the golden kingdom. The story goes that Arab geographers will write that gold is so common here even the dogs wear it. They exaggerate. A little.
+-> What comes next?
+    Queen Seondeok: Within thirty years Silla unites most of the peninsula, with Tang help and then against it, by 676. Silla lasts until 935. Not bad for a kingdom some said should not have a queen.
+-> Goodbye.
+    Queen Seondeok: Go well. Smell the peonies on your way out. Or do not. You know the story now.
+===
+
+title: history_star_watcher
+---
+Star Watcher of Cheomseongdae: Quiet, please. The stars are speaking. Slowly.
+-> What do you watch?
+    Star Watcher of Cheomseongdae: The sun's shadow for the seasons, the moon for the calendar, and comets and eclipses for the queen's worries. I write it all down. The court reads it when something goes wrong.
+-> How old is this tower?
+    Star Watcher of Cheomseongdae: New, in my time. Still standing in yours: the oldest standing observatory in East Asia. People count three hundred and sixty-two stones and twenty-seven courses, and argue about what the numbers mean. I just climb it.
+-> How do you get in?
+    Star Watcher of Cheomseongdae: A ladder to the window halfway up, then inside, then another ladder to the top. Very cosy. Bring a coat.
+-> Goodbye.
+    Star Watcher of Cheomseongdae: Clear skies to you.
+===

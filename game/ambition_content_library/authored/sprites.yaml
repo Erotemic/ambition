@@ -459,6 +459,16 @@ collections:
   - history_sandstone_blocks
   - history_ox_cart
   - history_trade_goods
+  - asian_black_bear
+  - japanese_macaque
+  - clouded_leopard
+  - history_pit_dwelling
+  - history_flame_pot
+  - history_six_pillars
+  - history_jade_workshop
+  - history_cheomseongdae
+  - history_royal_tumulus
+  - history_gold_crown
   - eigenghost
   - decomposing_specter
   - spectral_perturbation
@@ -797,6 +807,12 @@ collections:
   - history_relief_carver
   - history_baray_engineer
   - history_zhou_da_guide
+  - history_flame_potter
+  - history_chestnut_keeper
+  - history_jade_carver
+  - history_nankuanli_farmer
+  - history_queen_seondeok
+  - history_star_watcher
   - station_dobbs
   - station_pippin
   - magical_celeste

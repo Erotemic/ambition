@@ -78,7 +78,8 @@ the record and sighs about the footnotes.
              C0       C1            C2              C3           C4          C5          C6     C7
     R0 Americas       beringia      maize           olmecs       maya        taino       haiti
     R½ S. America                   andes           caral
-    R1 East Asia      mammoth st.   yellow river    shang        silk road   steppe
+    R1 East Asia      mammoth st.┐  yellow river    shang        silk road   steppe
+    R1½ E. coasts     mammoth st.┘  jomon           taiwan       silla
     R2 Oceania        sahul         highlands       lapita       wayfinders  rapa nui
     R2½ SE Asia       sulawesi      austronesians   dong son     srivijaya   angkor
     R3 South Asia     south. route  mehrgarh        indus
@@ -99,7 +100,8 @@ floor, over a tower of ledges in the lower room):
 | C1 | Africa and the Levant, the Levant and Europe, Europe and South Asia, South Asia and Sulawesi, Sulawesi and Sahul, Sahul and the mammoth steppe, the mammoth steppe and Beringia | the great dispersal: one road out of Africa to every land mass; every island of Wallacea was reached by sea |
 | C2 | the Austronesian islands and the New Guinea highlands | the newcomers from Taiwan meet the first farmers of New Guinea |
 | C2 | the Green Sahara and the Crescent, the Crescent and Europe | cattle and wheat go both ways; farming walks into Europe |
-| C3 | the Shang court and the Lapita voyagers | the Austronesians sail from Taiwan into the Pacific |
+| C3 | Taiwan and the Lapita voyagers | the Austronesians sail from Taiwan into the Pacific (this way was the atlas's road from the Shang court until Taiwan was built) |
+| C4 | the Silk Road and Silla | glass from Rome and Persia in Silla's tombs |
 | C3 | the Nile and Uruk, Uruk and the megalith builders | Egypt and Sumer trade; tin comes south from the north |
 | C4 | Aksum and Rome, Rome and the Celts | the Red Sea trade; the frontier |
 
@@ -134,9 +136,12 @@ The rooms:
 | `history_angkor` | `history_angkor` | the baray engineer, Zhou Da-Guide | king cobra, saltwater crocodile | the West Baray's dike, the sandstone with its peg holes, the causeway over the moat, and Angkor Wat's three tiers |
 | `history_mehrgarh` | `history_indus` | the dentist of Mehrgarh | locust swarm, tiger | the terraces |
 | `history_indus_cities` | `history_indus` | the Priest-King (Probably) | indus unicorn, tiger | the unicorn seal on the granary roof (`history_unicorn_seal`, a pickup) opens the citadel gate |
+| `history_jomon` | `history_jomon` | the flame potter, the chestnut keeper | Japanese macaque, Asian black bear | up the six chestnut posts of Sannai-Maruyama (a tower? a stage?) and over the shell mound; foragers who never farmed |
+| `history_taiwan` | `history_taiwan` | the jade carver of Fengtian, the farmer of Nankuanli | clouded leopard, coral crab | up the millet terraces; Fengtian jade; nine of the ten first branches of Austronesian; the way down to the Lapita |
+| `history_silla` | `history_gyeongju` | Queen Seondeok, the star watcher | tiger, Asian black bear | over the royal tomb mounds and up Cheomseongdae; the gold crowns; the way up to the Silk Road |
 | `history_sahul` | `history_sahul` | the raft builder | diprotodon, megalania | a bamboo raft carries you over the strait |
 | `history_new_guinea_highlands` | `history_highlands` | the Kuk gardener | cassowary | the garden terraces |
-| `history_mammoth_steppe` | `history_ice_age` | Denny the Denisovan | woolly mammoth, cave bear, steppe wolf | the ways: up to Beringia, down to Sahul |
+| `history_mammoth_steppe` | `history_ice_age` | Denny the Denisovan | woolly mammoth, cave bear, steppe wolf | two floors, as Beringia: the steppe on top (up to Beringia, east to the Yellow River); down the bluff, the peninsula that joined Hokkaido to Siberia (east to the Jōmon, down to Sahul) |
 | `history_yellow_river` | `history_yellow_river` | Leizu | silk moth, coral crab | a reed boat carries you over the river |
 | `history_shang_court` | `history_yellow_river` | Lady Fu Hao | taotie spirit, steppe wolf | the oracle bone (`history_oracle_bone`) opens the bronze gate |
 | `history_silk_road` | `history_silk` | Marco Polo-neck, Confusius | terracotta warrior, desert bandit, silk moth | a camel caravan carries you over the quicksand |
@@ -288,10 +293,11 @@ What the atlas says now (2026-11-04: 362 places, 47 built, 188 planned):
   neglecting".
 - **Many peoples are planned but not built:** the Indigenous nations of North
   America, the Sámi, the Roma, Jewish history, the Armenians, the diasporas.
-- **Five ways of the game are not history** (atlas shortcuts): Aksum to
+- **Four ways of the game are not history** (atlas shortcuts): Aksum to
   Timbuktu, Uruk to the classical shore, Ice Age Europe to the southern
-  route, Sahul to the mammoth steppe, the Shang court to the Lapita. Each gets
-  a sign that says it is the atlas's road, until the real link is built.
+  route, Sahul to the mammoth steppe. Each gets a sign that says it is the
+  atlas's road, until the real link is built. (The Shang court to the
+  Lapita was the fifth; Taiwan, the real homeland, replaced it in wave D1.)
 
 ### The shape of the map: clusters, corridors, hubs
 
@@ -361,7 +367,7 @@ Cheap, and it makes the built rooms trustworthy before they are copied:
    sign says it is a later layer of the same ground.
 4. The classical shore and the Silk Road: a sign for Clio's guest list
    (Confucius, Marco Polo and the others did not meet).
-5. A sign at each of the five atlas shortcuts.
+5. A sign at each of the four atlas shortcuts.
 6. Timbuktu: the dhow and Zheng He move to Kilwa when it is built; until
    then, a sign says the coast is the Swahili coast, far to the east.
 
@@ -377,7 +383,7 @@ built room, then the links that make the world one. Each wave starts with
 | --- | --- | --- |
 | A, B | the Atlantic world; the Andes and Caral | BUILT |
 | C | **Southeast Asia** (C1 BUILT: Sulawesi, the Austronesian islands, Dong Son; C2 BUILT: Srivijaya, Borobudur, Angkor), the first cluster off the grid: Sulawesi's painted story (51,200 years), the Austronesians come to the islands, Dong Son and its drums (the Trưng sisters), the strait of Srivijaya (a corridor), Angkor (a hub), Borobudur (tall) | 680 million players with no room; it also replaces the Shang-to-Lapita shortcut with Taiwan, the true homeland |
-| D | **East Asia's other half**: Taiwan, the Austronesian homeland; Jōmon, the first pots; Silla and Queen Seondeok's star tower; Heian-kyō; Kaifeng and Hangzhou (printing, paper money, the compass); King Sejong's letters | Japan and the two Koreas have no room; printing is an obvious topic |
+| D | **East Asia's other half** (D1 BUILT: Jōmon, Taiwan, Silla; a new floor, East Asia's coasts): Taiwan, the Austronesian homeland; Jōmon, among the first pots; Silla and Queen Seondeok's star tower; Heian-kyō; Kaifeng and Hangzhou (printing, paper money, the compass); King Sejong's letters | Japan and the two Koreas have no room; printing is an obvious topic |
 | E | **Bengal and the cotton**: Dhaka muslin (the other end of the cotton mill), the Company and 1857, the language movement and 1971 | Bangladesh (174 million); colonialism in South Asia |
 | F | **Brazil and Amazonia**: the garden cities of the Amazon, Palmares (Zumbi and Dandara), Rio 1888 | Brazil (212 million); Afro-Brazilian and Amazonian peoples |
 | G | **Central Africa**: Ishango's counting bone, the kingdom of Kongo, Queen Nzinga, the Congo Free State (sober) | DR Congo (109 million), Angola; the Scramble |

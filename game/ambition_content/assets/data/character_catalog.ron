@@ -657,6 +657,21 @@
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.5, active_s: 0.2, recover_s: 0.6, damage: 1, reach_px: 48.0, step_px: 0.0, rush_px: 150.0)),
         ),
+        // The moon bear rears on its hind legs (its windup row) and swipes;
+        // the snow monkey crouches (its windup row) and leaps to grab; the
+        // clouded leopard crouches low (its windup row) and pounces far.
+        "asian_black_bear_swipe": (
+            move_style: WalkHeavy,
+            melee: Some(Lunge(windup_s: 0.6, active_s: 0.25, recover_s: 0.8, damage: 2, reach_px: 56.0, step_px: 0.0, rush_px: 110.0)),
+        ),
+        "japanese_macaque_grab": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.35, active_s: 0.15, recover_s: 0.45, damage: 1, reach_px: 30.0, step_px: 0.0, rush_px: 160.0)),
+        ),
+        "clouded_leopard_pounce": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.55, active_s: 0.3, recover_s: 0.7, damage: 2, reach_px: 48.0, step_px: 0.0, rush_px: 210.0)),
+        ),
         "sea_raider_cut": (
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.35, active_s: 0.15, recover_s: 0.45, damage: 2, reach_px: 36.0, step_px: 0.0, rush_px: 140.0)),
@@ -7828,6 +7843,99 @@
             hall: ["I swim, I climb, and I eat whatever the harbour drops. Palembang suits me fine.", "My cousins on Komodo get all the attention. I am just as long and much better company."],
         ),
         ),
+        // The Asian black bear, the moon bear: a white V on its black chest.
+        // It climbs for acorns and chestnuts in the forests of Japan.
+        "asian_black_bear": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Asian Black Bear",
+            manifest: "sprites/asian_black_bear_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(56.0),
+            composition: None,
+            default_action_set: "asian_black_bear_swipe",
+            locomotion: Some((run_speed: 150.0, move_style: WalkHeavy)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 480.0,
+                attack_range: 72.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.8,
+                attack_cooldown_s: 1.1,
+                tactics: (notice_s: 0.7, footsies: Some((hold_px: 140.0, wait_s: 0.8))),
+            )),
+            max_health: Some(6),
+            mass: Some(5.0),
+            tags: ["enemy", "history", "jomon", "silla", "beast"],
+        barks: (
+            on_hit: ["*a huff and a growl*", "*it stands taller*"],
+            provoked: ["*it rears up and shows the white moon on its chest*"],
+            idle: ["*it sniffs for chestnuts*", "*crunch*"],
+            hall: ["The white V on my chest is a moon. That is why they call me the moon bear.", "I climb trees for acorns and chestnuts. The Jōmon and I liked the same groves."],
+        ),
+        ),
+        // The Japanese macaque, the snow monkey: the most northern monkey in
+        // the world, with a red face and thick grey-brown fur.
+        "japanese_macaque": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Japanese Macaque",
+            manifest: "sprites/japanese_macaque_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(40.0),
+            composition: None,
+            default_action_set: "japanese_macaque_grab",
+            locomotion: Some((run_speed: 240.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 520.0,
+                attack_range: 80.0,
+                patrol_effort: 0.7,
+                chase_effort: 1.0,
+                retreat_after_swing_s: 0.4,
+                attack_cooldown_s: 0.6,
+                tactics: (notice_s: 0.3, waits_its_turn: true, footsies: Some((hold_px: 110.0, wait_s: 0.4)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "history", "jomon", "beast"],
+        barks: (
+            on_hit: ["*SKREE!*", "*it bares its teeth and backs off*"],
+            provoked: ["*it eyes your lunch*"],
+            idle: ["*it grooms a friend who is not there*", "*it washes a chestnut, carefully*"],
+            hall: ["We are the most northern monkeys in the world. In winter we sit in the hot springs. You should try it.", "On the island of Kōjima in 1953 a young monkey called Imo began to wash her sweet potatoes in the sea. Now we all do it. That is culture."],
+        ),
+        ),
+        // The Formosan clouded leopard: cloud-shaped blotches, a very long
+        // tail, and for its size the longest canine teeth of any cat.
+        // Not seen in Taiwan since the 1980s; declared extinct in 2013.
+        "clouded_leopard": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Formosan Clouded Leopard",
+            manifest: "sprites/clouded_leopard_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(40.0),
+            composition: None,
+            default_action_set: "clouded_leopard_pounce",
+            locomotion: Some((run_speed: 260.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 560.0,
+                attack_range: 90.0,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+                attack_cooldown_s: 0.9,
+                tactics: (notice_s: 0.5, footsies: Some((hold_px: 150.0, wait_s: 0.7)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "history", "taiwan", "beast"],
+        barks: (
+            on_hit: ["*a hiss through very long teeth*", "*its tail lashes*"],
+            provoked: ["*it flattens itself along the branch*"],
+            idle: ["*it is not there. Then it is.*", "*a long tail twitches in the grass*"],
+            hall: ["For my size, my canine teeth are the longest of any cat. I do not need to tell you why.", "In Taiwan nobody has seen one of us since the 1980s. In 2013 we were declared extinct. You are talking to a ghost."],
+        ),
+        ),
         // The cave lion: the maneless lion of the Ice Age that the painters of
         // the caves drew. It crouches with its hips wiggling (its windup row),
         // pounces a long way with its claws out, and lands.
@@ -12043,6 +12151,111 @@
             barks: (
                 idle: ["Tour group, this way! Keep up!", "*he holds the little flag higher*", "A guide never exaggerates. A guide enhances."],
                 hall: ["In 1296 I stayed a year at Angkor and wrote down the markets, the bathing, the king's procession and the slaves. Without me nobody would know what was for lunch.", "The markets here are run by women. Any business, ask the wife. I wrote that down; the Khmer had palm leaves, and the damp ate them."],
+            ),
+        ),
+        // East Asia's coasts (wave D1). The flame potter, the chestnut keeper,
+        // the jade carver, the farmer of Nankuanli and the star watcher are
+        // original people; Queen Seondeok ruled Silla from 632 to 647.
+        "npc_history_flame_potter": (
+            display_name: "Flame Potter of Sannai-Maruyama",
+            // An original Jōmon potter of Sannai-Maruyama, about 3000 BCE, with a flame-style pot and a red lacquered comb.
+            manifest: "sprites/history_flame_potter_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 152 cm.
+            standing_height: Some(58.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "jomon", "peaceful"],
+            barks: (
+                idle: ["The clay is easy. The fire is the hard part.", "*she pinches up one more crest of the rim*", "Beautiful, and it still makes soup."],
+                hall: ["We made pottery for ten thousand years before your history books begin, and we never farmed. We stayed in this town for fifteen hundred years.", "Everyone in Japan carries a little of us. The Ainu of the north and the Ryukyuans of the south carry the most."],
+            ),
+        ),
+        "npc_history_chestnut_keeper": (
+            display_name: "Chestnut Keeper",
+            // An original Jōmon forager of Sannai-Maruyama, about 3000 BCE, with a basket of chestnuts and a digging stick.
+            manifest: "sprites/history_chestnut_keeper_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(62.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "jomon", "peaceful"],
+            barks: (
+                idle: ["Chestnut? Roasted this morning.", "*he cracks a burr open with his heel*", "Is it farming? We were too busy eating."],
+                hall: ["We cleared the other trees and kept the best chestnuts near the town, until the woods were almost all chestnut. Call it what you like.", "Six posts, each a metre thick. A tower? A stage? Nobody knows what it held, and we are not telling."],
+            ),
+        ),
+        "npc_history_jade_carver": (
+            display_name: "Jade Carver of Fengtian",
+            // An original jade carver of Taiwan, about 2500 BCE, with a green jade adze and a cord saw.
+            manifest: "sprites/history_jade_carver_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 155 cm.
+            standing_height: Some(60.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "taiwan", "peaceful"],
+            barks: (
+                idle: ["Green as a river.", "*sand, water, the cord: back and forth*", "Patience is harder than jade."],
+                hall: ["Fengtian jade from Taiwan travelled by boat to the Philippines, Vietnam, Thailand and Borneo: one of the longest sea roads of any stone in the ancient world.", "Of the ten oldest branches of the Austronesian languages, nine grow only on Taiwan. The grandchildren left in canoes. The grandmothers stayed."],
+            ),
+        ),
+        "npc_history_nankuanli_farmer": (
+            display_name: "Farmer of Nankuanli",
+            // An original farmer of Nankuanli in southern Taiwan, about 2500 BCE, with a sheaf of millet and a stone knife.
+            manifest: "sprites/history_nankuanli_farmer_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 164 cm.
+            standing_height: Some(63.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "taiwan", "peaceful"],
+            barks: (
+                idle: ["Mind the dog. She minds you.", "*he tests a millet head between his teeth*", "Millet on the slope, rice in the wet."],
+                hall: ["At Nankuanli we buried our dogs with care, as we buried people. Your diggers found them nearly five thousand years later.", "Every generation a few of us sailed south over the channel to the Batanes and Luzon. Their grandchildren reached half the world."],
+            ),
+        ),
+        "npc_history_queen_seondeok": (
+            display_name: "Queen Seondeok",
+            // Queen Seondeok, who ruled Silla from 632 to 647, the first of its three queens, in a gold crown of Silla.
+            manifest: "sprites/history_queen_seondeok_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 158 cm.
+            standing_height: Some(61.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "silla", "peaceful"],
+            barks: (
+                idle: ["Yes, the queen.", "*she closes her fan with a snap*", "A kingdom must know when to plant, and when to worry."],
+                hall: ["I ruled Silla in my own name from 632 to 647, the first of three queens. In my reign Cheomseongdae was built to watch the sky.", "The story goes that the Tang emperor sent me peonies with no bees, to say a queen without a husband has no scent. I said the peonies had none. I planted them. I was right."],
+            ),
+        ),
+        "npc_history_star_watcher": (
+            display_name: "Star Watcher of Cheomseongdae",
+            // An original astronomer of Silla, about 640 CE, with a bamboo sighting tube and a star chart.
+            manifest: "sprites/history_star_watcher_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "silla", "peaceful"],
+            barks: (
+                idle: ["Quiet, please. The stars are speaking.", "*he squints along the bamboo tube*", "Clear skies."],
+                hall: ["Cheomseongdae, built in Queen Seondeok's reign, still stands: the oldest standing observatory in East Asia.", "People count 362 stones and 27 courses in the tower and argue about what the numbers mean. I just climbed it."],
             ),
         ),
         "npc_primeval_twitchell": (

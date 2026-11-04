@@ -495,10 +495,10 @@ impl RoomConstructionPlan {
     /// as the active room — a hot reload rebuilds the set from re-read content; a
     /// transition walks within the set it already has.
     ///
-    /// `arrival` is where the transiting body lands. It is applied with the rest
-    /// of the publication and never before it: see [`transaction::StagedArrival`]
-    /// for the app-level arm that found the body being placed into a room its
-    /// own transaction had refused.
+    /// `arrivals` contains all bodies that enter the destination together.
+    /// The publication checks the complete batch before it retires anything.
+    /// Arrival bodies are excluded from `outgoing`. `carry_bodies` can exempt
+    /// other survivors that do not need an arrival reset.
     ///
     /// `replaces` is the live room this publication replaces: the room the
     /// crossing body is in. Its root receives the new geometry, and the
@@ -513,9 +513,9 @@ impl RoomConstructionPlan {
         &self,
         commands: &mut Commands,
         outgoing: impl IntoIterator<Item = (Entity, bool)> + 'a,
-        carry_body: Option<Entity>,
+        carry_bodies: impl IntoIterator<Item = Entity>,
         next_rooms: Option<RoomSet>,
-        arrival: Option<transaction::StagedArrival>,
+        arrivals: impl IntoIterator<Item = transaction::StagedArrival>,
         succession: Option<transaction::LiveRoomSuccession>,
         // The other live rooms this publication retires whole: a whole-session
         // restart's. Empty for every other publication.
@@ -524,9 +524,9 @@ impl RoomConstructionPlan {
         self.replace_live_world_restoring(
             commands,
             outgoing,
-            carry_body,
+            carry_bodies,
             next_rooms,
-            arrival,
+            arrivals,
             succession,
             retires_beside,
             None,
@@ -545,9 +545,9 @@ impl RoomConstructionPlan {
         &self,
         commands: &mut Commands,
         outgoing: impl IntoIterator<Item = (Entity, bool)> + 'a,
-        carry_body: Option<Entity>,
+        carry_bodies: impl IntoIterator<Item = Entity>,
         next_rooms: Option<RoomSet>,
-        arrival: Option<transaction::StagedArrival>,
+        arrivals: impl IntoIterator<Item = transaction::StagedArrival>,
         succession: Option<transaction::LiveRoomSuccession>,
         retires_beside: Vec<ambition_platformer2d_world::rooms::LiveRoomInstance>,
         restore: Option<ambition_platformer2d_session::checkpoint::CheckpointOperationKey>,
@@ -555,9 +555,9 @@ impl RoomConstructionPlan {
         self.stage_live_world(
             commands,
             outgoing,
-            carry_body,
+            carry_bodies,
             next_rooms,
-            arrival,
+            arrivals,
             succession,
             retires_beside,
             restore,
@@ -575,18 +575,18 @@ impl RoomConstructionPlan {
         &self,
         commands: &mut Commands,
         outgoing: impl IntoIterator<Item = (Entity, bool)> + 'a,
-        carry_body: Option<Entity>,
+        carry_bodies: impl IntoIterator<Item = Entity>,
         next_rooms: Option<RoomSet>,
-        arrival: Option<transaction::StagedArrival>,
+        arrivals: impl IntoIterator<Item = transaction::StagedArrival>,
         succession: Option<transaction::LiveRoomSuccession>,
         retires_beside: Vec<ambition_platformer2d_world::rooms::LiveRoomInstance>,
     ) -> transaction::PublicationHandle {
         self.stage_live_world(
             commands,
             outgoing,
-            carry_body,
+            carry_bodies,
             next_rooms,
-            arrival,
+            arrivals,
             succession,
             retires_beside,
             None,
@@ -599,9 +599,9 @@ impl RoomConstructionPlan {
         &self,
         commands: &mut Commands,
         outgoing: impl IntoIterator<Item = (Entity, bool)> + 'a,
-        carry_body: Option<Entity>,
+        carry_bodies: impl IntoIterator<Item = Entity>,
         next_rooms: Option<RoomSet>,
-        arrival: Option<transaction::StagedArrival>,
+        arrivals: impl IntoIterator<Item = transaction::StagedArrival>,
         succession: Option<transaction::LiveRoomSuccession>,
         retires_beside: Vec<ambition_platformer2d_world::rooms::LiveRoomInstance>,
         restore: Option<ambition_platformer2d_session::checkpoint::CheckpointOperationKey>,
@@ -609,9 +609,12 @@ impl RoomConstructionPlan {
     ) -> transaction::PublicationHandle {
         // Collected HERE rather than inside the staged closure: the roster comes
         // from the caller's own query, which cannot outlive this call.
+        let arrivals: Vec<_> = arrivals.into_iter().collect();
+        let carry_bodies: BTreeSet<_> = carry_bodies.into_iter()
+            .chain(arrivals.iter().map(|arrival| arrival.subject)).collect();
         let outgoing: Vec<(Entity, bool)> = outgoing
             .into_iter()
-            .filter(|(entity, _)| carry_body != Some(*entity))
+            .filter(|(entity, _)| !carry_bodies.contains(entity))
             .collect();
         let mut pending = transaction::PendingWorldReplacement::new(
             outgoing,
@@ -623,9 +626,7 @@ impl RoomConstructionPlan {
         // ⛔ THE ARRIVING BODY IS A PUBLICATION EFFECT LIKE THE REST. A
         // transition that places it before the verdict leaves a refused player
         // standing at the coordinates of a room that does not exist.
-        if let Some(arrival) = arrival {
-            pending = pending.arriving(arrival);
-        }
+        pending = pending.arriving(arrivals);
         pending = pending
             .replacing(succession)
             .retiring_beside(retires_beside)
@@ -3075,7 +3076,7 @@ mod tests {
             .world()
             .resource::<crate::LastConstructionVerification>()
             .clone();
-        assert!(verification.published, "{verification:?}");
+        assert!(verification.published, "{:?}", verification.staged_violations);
         assert_eq!(
             app.world_mut()
                 .resource_mut::<bevy::ecs::message::Messages<
@@ -3334,4 +3335,168 @@ mod tests {
              first one is lying in 'portal_bridge'"
         );
     }
+    mod batch_arrivals {
+        use super::*;
+        use super::super::transaction::{LiveRoomSuccession, StagedArrival, StagedWorldViolation};
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            CustodyDurability, InCustodyOf, InRoomInstance,
+        };
+
+        fn body(world: &mut bevy::prelude::World, room: LiveRoomInstance, id: &str) -> Entity {
+            let sprites = ambition_sprite_sheet::test_support::shared_sprites();
+            let seed = ambition_body_seed::ActorClusterSeed::new(
+                &sprites, id, id,
+                ae::Aabb::new(ae::Vec2::new(20.0, 30.0), ae::Vec2::splat(8.0)),
+                ambition_entity_catalog::placements::CharacterBrain::Passive, &[],
+            );
+            world.spawn((seed.into_components(), ae::MotionModel::default(),
+                ambition_platformer2d_shared_tangle::sim_id::SimId::placement(id),
+                RoomScopedEntity, InRoomInstance(room))).id()
+        }
+
+        fn stage(
+            app: &mut bevy::prelude::App,
+            subjects: [Entity; 2],
+            outgoing: Vec<Entity>,
+            held: bool,
+            succession: LiveRoomSuccession,
+        ) -> transaction::PublicationHandle {
+            let sprites = ambition_sprite_sheet::test_support::shared_sprites();
+            let plan = candidate_plan(&sprites);
+            bevy::ecs::system::RunSystemOnce::run_system_once(app.world_mut(), move |mut commands: Commands| {
+                let arrivals = subjects.into_iter().enumerate().map(|(index, subject)| StagedArrival {
+                    subject, arrival: ae::Vec2::new(100.0 + index as f32 * 40.0, 200.0),
+                    air_jumps: 1, momentum: ae::movement::ArrivalMomentum::Reset,
+                });
+                let succession = Some(succession);
+                if held {
+                    plan.replace_live_world_held(&mut commands,
+                        outgoing.iter().map(|entity| (*entity, false)),
+                        None, None, arrivals, succession, Vec::new())
+                } else {
+                    plan.replace_live_world(&mut commands,
+                        outgoing.iter().map(|entity| (*entity, false)),
+                        None, None, arrivals, succession, Vec::new())
+                }
+            }).expect("the batch staging system runs")
+        }
+
+        #[test]
+        fn bodies_from_two_rooms_arrive_together_with_their_custody() {
+            let first = LiveRoomInstance::ACTIVATION;
+            let (second, third) = (first.next(), first.next().next());
+            let (mut app, outgoing) = two_live_rooms();
+            let a = body(app.world_mut(), first, "member-a");
+            let b = body(app.world_mut(), second, "member-b");
+            let stays = body(app.world_mut(), second, "stays");
+            let carried = app.world_mut().spawn((InRoomInstance(second), InCustodyOf {
+                custodian: b, durability: CustodyDurability::Restored,
+            })).id();
+            let nested = app.world_mut().spawn((InRoomInstance(second), InCustodyOf {
+                custodian: carried, durability: CustodyDurability::Restored,
+            })).id();
+            stage(&mut app, [a, b], vec![a, b], false, LiveRoomSuccession::opening(first, third));
+            let verification = app.world().resource::<crate::LastConstructionVerification>();
+            assert!(verification.published, "{:?}", verification.staged_violations);
+            for (index, member) in [a, b].into_iter().enumerate() {
+                assert_eq!(app.world().get::<InRoomInstance>(member), Some(&InRoomInstance(third)));
+                assert_eq!(app.world().get::<ae::BodyKinematics>(member).unwrap().pos,
+                    ae::Vec2::new(100.0 + index as f32 * 40.0, 200.0));
+            }
+            for item in [carried, nested] {
+                assert_eq!(app.world().get::<InRoomInstance>(item), Some(&InRoomInstance(third)));
+            }
+            assert_eq!(app.world().get::<InCustodyOf>(nested).unwrap().custodian, carried);
+            assert_eq!(app.world().get::<InCustodyOf>(carried).unwrap().custodian, b);
+            assert_eq!(app.world().get::<InRoomInstance>(stays), Some(&InRoomInstance(second)));
+            assert!(outgoing.into_iter().all(|entity| app.world().get_entity(entity).is_ok()));
+            assert_eq!(live_room_definitions(&mut app).len(), 3);
+        }
+
+        #[test]
+        fn a_batch_can_join_a_live_destination_without_rebuilding_it() {
+            use ambition_platformer2d_shared_tangle::lifecycle::{
+                SessionRoot, live_room_root_for, session_world_component,
+            };
+            let first = LiveRoomInstance::ACTIVATION;
+            let second = first.next();
+            let (mut app, mut outgoing) = two_live_rooms();
+            let scope = session_world_component::<SessionRoot>(app.world()).unwrap().0;
+            let target_root = live_room_root_for(app.world(), scope, second).unwrap();
+            let definition = session_world_component::<RoomSet>(app.world()).unwrap()
+                .definition_by_id("candidate").unwrap();
+            app.world_mut().entity_mut(target_root).insert((definition,
+                ae::RoomGeometry(candidate_spec().world.clone())));
+            let a = body(app.world_mut(), first, "member-a");
+            let b = body(app.world_mut(), second, "member-b");
+            let stays = body(app.world_mut(), second, "stays");
+            outgoing.extend([a, b]);
+            stage(&mut app, [a, b], outgoing, false,
+                LiveRoomSuccession::joining(first, second, true));
+            assert!(app.world().resource::<crate::LastConstructionVerification>().published);
+            for member in [a, b, stays] {
+                assert_eq!(app.world().get::<InRoomInstance>(member), Some(&InRoomInstance(second)));
+            }
+            assert!(app.world().get_entity(target_root).is_ok());
+            assert_eq!(live_room_definitions(&mut app), vec![(second, "candidate".into())]);
+            assert_eq!(rooms_of_planned_roots(&mut app), vec![
+                ("placement:member-a".into(), Some(second)),
+                ("placement:member-b".into(), Some(second)),
+                ("placement:stays".into(), Some(second)),
+            ]);
+        }
+
+        #[test]
+        fn a_batch_cannot_place_the_same_body_twice() {
+            let first = LiveRoomInstance::ACTIVATION;
+            let (mut app, outgoing) = two_live_rooms();
+            let a = body(app.world_mut(), first, "member-a");
+            stage(&mut app, [a, a], outgoing.clone(), false,
+                LiveRoomSuccession::opening(first, first.next().next()));
+            let verification = app.world().resource::<crate::LastConstructionVerification>();
+            assert!(!verification.published);
+            assert_eq!(verification.staged_violations,
+                vec![StagedWorldViolation::DuplicateArrival { subject: a }]);
+            assert_eq!(app.world().get::<InRoomInstance>(a), Some(&InRoomInstance(first)));
+            assert!(outgoing.into_iter().all(|entity| app.world().get_entity(entity).is_ok()));
+        }
+
+        #[test]
+        fn one_incomplete_member_refuses_the_whole_batch() {
+            let first = LiveRoomInstance::ACTIVATION;
+            let (mut app, outgoing) = two_live_rooms();
+            let a = body(app.world_mut(), first, "member-a");
+            let b = body(app.world_mut(), first.next(), "member-b");
+            let before = app.world().get::<ae::BodyKinematics>(a).unwrap().pos;
+            app.world_mut().entity_mut(b).remove::<ae::BodyJumpState>();
+            stage(&mut app, [a, b], outgoing.clone(), false,
+                LiveRoomSuccession::opening(first, first.next().next()));
+            let verification = app.world().resource::<crate::LastConstructionVerification>();
+            assert!(!verification.published);
+            assert!(verification.staged_violations.contains(&StagedWorldViolation::SubjectCannotArrive { subject: b }));
+            assert_eq!(app.world().get::<ae::BodyKinematics>(a).unwrap().pos, before);
+            assert_eq!(app.world().get::<InRoomInstance>(a), Some(&InRoomInstance(first)));
+            assert!(outgoing.into_iter().all(|entity| app.world().get_entity(entity).is_ok()));
+            assert_eq!(live_room_definitions(&mut app).len(), 2);
+        }
+
+        #[test]
+        fn a_held_batch_rechecks_every_member_before_it_publishes() {
+            let first = LiveRoomInstance::ACTIVATION;
+            let (mut app, outgoing) = two_live_rooms();
+            let a = body(app.world_mut(), first, "member-a");
+            let b = body(app.world_mut(), first.next(), "member-b");
+            let before = app.world().get::<ae::BodyKinematics>(a).unwrap().pos;
+            let publication = stage(&mut app, [a, b], outgoing.clone(), true,
+                LiveRoomSuccession::opening(first, first.next().next()));
+            app.world_mut().despawn(b);
+            assert!(!transaction::commit_held_publication(app.world_mut(), publication));
+            assert!(!transaction::publication_succeeded(app.world(), publication));
+            assert_eq!(app.world().get::<ae::BodyKinematics>(a).unwrap().pos, before);
+            assert_eq!(app.world().get::<InRoomInstance>(a), Some(&InRoomInstance(first)));
+            assert!(outgoing.into_iter().all(|entity| app.world().get_entity(entity).is_ok()));
+            assert_eq!(live_room_definitions(&mut app).len(), 2);
+        }
+    }
+
 }

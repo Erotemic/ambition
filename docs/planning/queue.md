@@ -638,8 +638,15 @@ input owners; local view composition. Requirements and acceptance:
 keeps both directions available for following and return. Both ends share an
 idle timeout, and either terminal can close the connection.
 
-**Next action:** add explicit group travel rules and atomic multi-body room
-transfers. Add the optional leader view, a Select return action, and settings.
+**Transfer foundation:** the shared room publication accepts an arrival batch.
+It checks every body before retirement and moves each body's custody to the
+destination. A held publication checks the batch again before release.
+`bodies_from_two_rooms_arrive_together_with_their_custody` and
+`a_held_batch_rechecks_every_member_before_it_publishes` guard this boundary.
+
+**Next action:** capture the selected group in the native room admission and
+apply it through the shared room transfer. Add explicit group travel rules,
+the optional leader view, a Select return action, and settings.
 Support independent, leader, any-member, and all-member travel. In all-member
 mode, moving away cancels agreement. A forbidden follower edge acts as a wall.
 Use one room constructor and one body transfer path. Keep the independent

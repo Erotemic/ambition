@@ -245,8 +245,19 @@ pub fn publication_is_held(world: &World, publication: PublicationHandle) -> boo
     world.get::<HeldForOwner>(publication.0).is_some()
 }
 
-/// Promote and finalize a held publication. `false` if it was not held.
+/// Recheck all arrivals, then promote and finalize the held publication.
+/// Return `false` if it was not held or an arrival is no longer valid.
 pub fn commit_held_publication(world: &mut World, publication: PublicationHandle) -> bool {
+    let mut bodies = world.query::<ArrivalBodyData>();
+    let violations = world.get::<PendingWorldReplacement>(publication.0)
+        .map(|pending| arrival_violations(world, &mut bodies, &pending.arrivals)).unwrap_or_default();
+    if !violations.is_empty() {
+        refuse_held_publication(world, publication);
+        if let Some(mut last) = world.get_resource_mut::<LastConstructionVerification>() {
+            last.staged_violations = violations;
+        }
+        return false;
+    }
     let Some(HeldForOwner { supersessions }) = world
         .get_entity_mut(publication.0)
         .ok()
@@ -289,10 +300,8 @@ pub fn commit_held_publication(world: &mut World, publication: PublicationHandle
     true
 }
 
-/// Refuse a held publication because another room of its sequence was
-/// refused. Nothing of it was promoted, so this is the refusal road of a room
-/// that failed its own check: its candidates are dropped and its frozen
-/// effects go with the publication, having done nothing.
+/// Refuse a held publication when its owner cancels or its inputs are invalid.
+/// Drop its candidates and frozen effects. Keep the live world unchanged.
 pub fn refuse_held_publication(world: &mut World, publication: PublicationHandle) {
     let held = world
         .get_entity_mut(publication.0)
@@ -319,8 +328,8 @@ pub fn refuse_held_publication(world: &mut World, publication: PublicationHandle
         })
         .sum();
     ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
-        "room-refused {room_id} (passed its check; another room of its sequence was \
-         refused, {dropped} roots dropped, live world kept)"
+        "room-refused {room_id} (owner refused the held publication, \
+         {dropped} roots dropped, live world kept)"
     ));
     record_verdict(world, publication, retention, false);
     world.insert_resource(LastConstructionVerification {
@@ -404,8 +413,8 @@ pub(crate) struct PendingWorldReplacement {
     geometry: ambition_platformer2d_core::World,
     /// The moving-platform bodies' starting state.
     moving_platforms: Vec<ambition_platformer2d_world::platforms::MovingPlatformState>,
-    /// Where the transiting body lands, if one is crossing.
-    arrival: Option<StagedArrival>,
+    /// The bodies that arrive together if this publication succeeds.
+    arrivals: Vec<StagedArrival>,
     /// The live room this publication mints, and what becomes of the room
     /// the crossing leaves, both pinned when it was staged. A replaced room's
     /// root is the sink for the geometry, and publication seats it as the
@@ -583,7 +592,7 @@ impl PendingWorldReplacement {
             target_index,
             geometry,
             moving_platforms,
-            arrival: None,
+            arrivals: Vec::new(),
             succession: None,
             retires_beside: Vec::new(),
             restore: None,
@@ -629,9 +638,9 @@ impl PendingWorldReplacement {
         self.succession.and_then(LiveRoomSuccession::replaces)
     }
 
-    /// State that a body is crossing into this room, and where it lands.
-    pub(crate) fn arriving(mut self, arrival: StagedArrival) -> Self {
-        self.arrival = Some(arrival);
+    /// State which bodies arrive together if this room publishes.
+    pub(crate) fn arriving(mut self, arrivals: impl IntoIterator<Item = StagedArrival>) -> Self {
+        self.arrivals = arrivals.into_iter().collect();
         self
     }
 
@@ -646,6 +655,10 @@ impl PendingWorldReplacement {
 /// index, and authoritative publication target.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum StagedWorldViolation {
+    /// Every arrival needs a complete movement body before any room is retired.
+    SubjectCannotArrive { subject: bevy::ecs::entity::Entity },
+    /// One publication must place each body once.
+    DuplicateArrival { subject: bevy::ecs::entity::Entity },
     /// The staged room index is outside the room set. Refuse before
     /// retiring the outgoing room; a later clamp is not safe.
     TargetRoomOutOfRange { target: usize, rooms: usize },
@@ -710,6 +723,8 @@ pub enum StagedWorldViolation {
 impl std::fmt::Display for StagedWorldViolation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::SubjectCannotArrive { subject } => write!(f, "arrival body {subject:?} has no complete movement state"),
+            Self::DuplicateArrival { subject } => write!(f, "arrival body {subject:?} occurs more than once"),
             Self::TargetRoomOutOfRange { target, rooms } => write!(
                 f,
                 "this room would become active room {target} of a set holding \
@@ -925,6 +940,33 @@ pub(crate) fn verify_staged_world(
     }
 }
 
+type ArrivalBodyData = (
+    ambition_platformer2d_core::BodyClusterQueryData,
+    &'static ambition_platformer2d_core::MotionModel,
+);
+
+fn arrival_violations(
+    world: &World,
+    bodies: &mut bevy::ecs::query::QueryState<ArrivalBodyData>,
+    arrivals: &[StagedArrival],
+) -> Vec<StagedWorldViolation> {
+    if arrivals.is_empty() {
+        return Vec::new();
+    }
+    let mut seen = BTreeSet::new();
+    let mut violations = Vec::new();
+    for arrival in arrivals {
+        let subject = arrival.subject;
+        if !seen.insert(subject) {
+            violations.push(StagedWorldViolation::DuplicateArrival { subject });
+        }
+        if bodies.get(world, subject).is_err() {
+            violations.push(StagedWorldViolation::SubjectCannotArrive { subject });
+        }
+    }
+    violations
+}
+
 /// Apply an admitted room replacement against the verified target.
 /// Retire outgoing bodies before installing the new room. Preflight all
 /// sinks before destructive work. This call has no scheduled-system
@@ -934,6 +976,13 @@ pub(crate) fn apply_world_replacement(
     mut pending: PendingWorldReplacement,
     target: Option<bevy::ecs::entity::Entity>,
 ) {
+    let mut bodies = world.query::<ArrivalBodyData>();
+    let invalid_arrivals = arrival_violations(world, &mut bodies, &pending.arrivals);
+    if !invalid_arrivals.is_empty() {
+        bevy::log::error!(target: "ambition_platformer2d::construction",
+            ?invalid_arrivals, "arrival batch refused before world replacement");
+        return;
+    }
     // Recheck the target and its sinks before retiring any outgoing body.
     // If validation and application saw different worlds, keep the old one.
     let refusal = match target {
@@ -1159,10 +1208,9 @@ pub(crate) fn apply_world_replacement(
             Some((replaced, *live_room))
         }),
     };
-    // What moves with the crossing out of a room that STAYS LIVE: the
-    // crossing body and its custody closure (what it holds, rides or wears).
-    // The rest of the room it leaves stays there.
-    let moving = minted.is_some_and(LiveRoomSuccession::keeps_left).then(|| {
+    // All arrivals and their custody move to the destination, including
+    // members from other live rooms. Other residents of a retained room stay.
+    let moving = {
         use ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf;
         let custody: Vec<(bevy::ecs::entity::Entity, bevy::ecs::entity::Entity)> = world
             .query::<(bevy::ecs::entity::Entity, &InCustodyOf)>()
@@ -1170,10 +1218,10 @@ pub(crate) fn apply_world_replacement(
             .map(|(entity, custody)| (entity, custody.custodian))
             .collect();
         ambition_platformer2d_shared_tangle::lifecycle::custody_closure(
-            pending.arrival.as_ref().map(|arrival| arrival.subject),
+            pending.arrivals.iter().map(|arrival| arrival.subject),
             &custody,
         )
-    });
+    };
     // ⭐ WHAT THE SWEEP LEFT STANDING IN THE REPLACED ROOM IS NOW IN THE NEW
     // ONE. The outgoing roster is gone; what still carries the replaced
     // instance is what crosses with the publication: the carried body, what it
@@ -1194,8 +1242,9 @@ pub(crate) fn apply_world_replacement(
         )>();
         for (entity, mut room, owner) in residents.iter_mut(world) {
             let ours = owner.map(|owner| owner.0) == session || owner.is_none();
-            let moves = moving.as_ref().is_none_or(|moving| moving.contains(&entity));
-            if ours && room.0 == replaced && moves {
+            let moves = moving.contains(&entity)
+                || (room.0 == replaced && !pending.succession.is_some_and(LiveRoomSuccession::keeps_left));
+            if ours && moves {
                 room.0 = minted;
             }
         }
@@ -1216,7 +1265,7 @@ pub(crate) fn apply_world_replacement(
                 world.despawn(left_root);
             }
         }
-        if let Some(arrival) = pending.arrival {
+        for arrival in pending.arrivals {
             apply_staged_arrival(world, arrival);
         }
         return;
@@ -1249,7 +1298,7 @@ pub(crate) fn apply_world_replacement(
     // ⛔ LAST, AND AFTER THE GEOMETRY. The arrival was validated against the
     // plan's world by the caller, and the body is placed into a world that is
     // already the one it was validated against.
-    if let Some(arrival) = pending.arrival {
+    for arrival in pending.arrivals {
         apply_staged_arrival(world, arrival);
     }
 }
@@ -1333,9 +1382,7 @@ fn scope_of_root(
         .or_else(|| world.get::<CandidateSessionRoot>(root).map(|root| root.0))
 }
 
-/// Place the transiting body. Separate from its caller only so the poison that
-/// proves the staging matters can run THIS and nothing else — a poison that also
-/// moved the room set would redden the same arm for a different reason.
+/// Apply one member of the accepted arrival batch through the shared body path.
 fn apply_staged_arrival(world: &mut World, arrival: StagedArrival) {
     let mut bodies = world.query::<(
         ambition_platformer2d_core::BodyClusterQueryData,
@@ -2144,14 +2191,16 @@ fn verify_and_publish(
     let staged_entity = world
         .get::<PendingWorldReplacement>(publication.0)
         .map(|_| publication.0);
+    let mut bodies = world.query::<ArrivalBodyData>();
     let staged_violations = match staged_entity
         .and_then(|entity| world.get::<PendingWorldReplacement>(entity))
     {
         Some(pending) => {
             // The borrow ends before the verifier reads the world again.
             let pending: &PendingWorldReplacement = pending;
-            let found = verify_staged_world(world, pending, publishing_into);
-            found.err().unwrap_or_default()
+            let mut found = verify_staged_world(world, pending, publishing_into).err().unwrap_or_default();
+            found.extend(arrival_violations(world, &mut bodies, &pending.arrivals));
+            found
         }
         None => Vec::new(),
     };

@@ -144,6 +144,37 @@ fn every_declared_projectile_image_names_a_file_that_exists() {
     );
 }
 
+/// A projectile sheet must contain the animation that its catalog selects.
+#[test]
+fn every_declared_projectile_animation_resolves_to_frames() {
+    use ambition_platformer2d::projectiles::visual::{
+        ProjectileArtSource, ProjectileVisualCatalog,
+    };
+    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let content = app
+        .world()
+        .resource::<ambition_platformer2d::sprite_sheet::SpriteContent>();
+    let sheets = ambition_platformer2d::sprite_sheet::shared_baked_sheet_registry(content);
+    let catalog = app.world().resource::<ProjectileVisualCatalog>();
+    let failures: Vec<_> = catalog
+        .iter()
+        .filter_map(|(id, art)| {
+            let ProjectileArtSource::Sheet {
+                target, animation, ..
+            } = &art.source
+            else {
+                return None;
+            };
+            let frames = sheets
+                .get(target)
+                .and_then(|sheet| sheet.rows.iter().find(|row| row.animation == *animation));
+            (!frames.is_some_and(|row| !row.rects.is_empty()))
+                .then(|| format!("{id}: {target}/{animation}"))
+        })
+        .collect();
+    assert!(failures.is_empty(), "Projectile animations have no frames: {failures:?}. Refresh their sprite targets; --only-missing keeps existing bundles.");
+}
+
 /// The AUDIO half of the same question, and the row from the triage table that
 /// says `mary_o_you_died` — "a cue requested successfully, into silence".
 ///

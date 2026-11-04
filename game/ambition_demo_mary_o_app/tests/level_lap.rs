@@ -44,14 +44,17 @@ fn finish_at_the_pole(app: &mut App, from: &str) -> String {
     {
         let mut q = app
             .world_mut()
-            .query_filtered::<&mut ae::BodyKinematics, With<PrimaryPlayer>>();
+            .query_filtered::<(ae::BodyClusterQueryData,
+                &mut ambition_platformer2d::actor::MotionModel,
+                &mut ambition_platformer2d::characters::actor::BodyHealth), With<PrimaryPlayer>>();
         let world = app.world_mut();
-        let mut body = q
-            .iter_mut(world)
-            .next()
-            .unwrap_or_else(|| panic!("no controlled body in '{from}' to carry to its pole"));
-        body.pos = goal;
-        body.vel = ae::Vec2::ZERO;
+        let (mut body, mut model, mut health) = q.single_mut(world)
+            .unwrap_or_else(|_| panic!("no controlled body in '{from}' to carry to its pole"));
+        assert!(health.alive(), "the departure fixture needs a living body");
+        health.health.invulnerable.set(
+            ambition_platformer2d::characters::actor::Invulnerability::SCRIPTED, true);
+        ae::movement::transit_body(&mut model, &mut body.as_clusters_mut(), goal,
+            ae::movement::TransitVelocity::Zero);
     }
     for _ in 0..COMMIT_CAP {
         app.update();

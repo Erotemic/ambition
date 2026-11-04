@@ -19,9 +19,20 @@ fn room_id(app: &mut App) -> Option<String> {
     ambition_platformer2d::world::rooms::sole_live_room_spec(app.world()).map(|room| room.id.clone())
 }
 
+fn protect_the_travelling_body(app: &mut App) {
+    let mut query = app.world_mut().query_filtered::<
+        &mut ambition_platformer2d::characters::actor::BodyHealth, With<PrimaryPlayer>>();
+    let mut health = query.single_mut(app.world_mut()).expect("one body completes the level");
+    assert!(health.alive(), "the departure fixture needs a living body");
+    health.health.invulnerable.set(
+        ambition_platformer2d::characters::actor::Invulnerability::SCRIPTED, true);
+}
+
 /// Drop a settled tally on the level owner — the state reaching the goal
 /// produces — then run until the room changes.
 fn finish_the_level(app: &mut App, from: &str) -> String {
+    protect_the_travelling_body(app);
+
     {
         let mut q = app.world_mut().query::<&mut FlagSequence>();
         let world = app.world_mut();
@@ -55,13 +66,16 @@ fn grabbing_the_authored_pole_carries_you_out_of_the_level() {
 
     // The pole 1-1 actually authors — not a constant this test carries.
     let pole = ambition_demo_mary_o::pole_for_room(&from);
+    protect_the_travelling_body(&mut app);
     {
         let mut q = app
             .world_mut()
-            .query_filtered::<&mut ae::BodyKinematics, With<PrimaryPlayer>>();
+            .query_filtered::<(ae::BodyClusterQueryData,
+                &mut ambition_platformer2d::actor::MotionModel), With<PrimaryPlayer>>();
         let world = app.world_mut();
-        let mut body = q.iter_mut(world).next().expect("she is in the level");
-        body.pos = ae::Vec2::new(pole.x, pole.base_y - 8.0);
+        let (mut body, mut model) = q.single_mut(world).expect("she is in the level");
+        ae::movement::transit_body(&mut model, &mut body.as_clusters_mut(),
+            ae::Vec2::new(pole.x, pole.base_y - 8.0), ae::movement::TransitVelocity::Zero);
     }
 
     let mut grabbed = false;

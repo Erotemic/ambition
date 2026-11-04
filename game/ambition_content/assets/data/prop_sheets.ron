@@ -333,6 +333,16 @@
     "history_cheomseongdae": (),
     "history_royal_tumulus": (),
     "history_gold_crown": (),
+    // Song China, Joseon and Heian Japan (wave D2, the same module): a West
+    // Lake boat, the paper-money press, the south-pointing fish, a folding
+    // screen, an ox carriage, the rain gauge and the self-striking water clock.
+    "history_lake_boat": (),
+    "history_money_press": (),
+    "history_compass_bowl": (),
+    "history_byobu_screen": (),
+    "history_ox_carriage": (),
+    "history_rain_gauge": (),
+    "history_water_clock": (),
     // The Story Stacks of the Art dimension (`targets/props/art_stacks_props.py`).
     // The doors of the Library of Endings are two covers of a book: the happy
     // ending in gold with a sun, the sad ending in deep blue with a moon and

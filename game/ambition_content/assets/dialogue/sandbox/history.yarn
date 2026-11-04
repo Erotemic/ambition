@@ -1145,3 +1145,89 @@ Star Watcher of Cheomseongdae: Quiet, please. The stars are speaking. Slowly.
 -> Goodbye.
     Star Watcher of Cheomseongdae: Clear skies to you.
 ===
+
+title: history_li_qingzhao
+---
+Li Qingzhao: Searching, seeking. Cold, clear. Forgive me, I am working on a line.
+-> Who are you?
+    Li Qingzhao: A poet. I write ci: songs to old tunes, with new words. The scholars of my day said a woman's poems were a pastime. They read mine anyway, and so do you, nine hundred years later.
+-> Why did you come south?
+    Li Qingzhao: In 1127 the Jurchen took Kaifeng, the capital, and two emperors with it. The court fled south and made Hangzhou its home. My husband and I fled with fifteen carts of books, bronzes and rubbings of old stones. Most were lost on the road. He died two years later.
+-> What did you collect?
+    Li Qingzhao: Inscriptions on bronze and stone, the oldest writing we could find. After dinner we made tea and tested each other: which book, which chapter, which page holds this line? The winner drank first. Once I laughed so hard I spilled the tea down my front.
+-> Goodbye.
+    Li Qingzhao: Go slowly round the lake. It is better than any poem about it.
+===
+
+title: history_money_printer
+---
+Money Printer of Hangzhou: Fresh money! Do not touch it, the ink is wet.
+-> Paper is money?
+    Money Printer of Hangzhou: Copper coins are heavy. Strings of a thousand, carts of them. In Sichuan the merchants began to write notes for their iron coins; in 1023 the state took the printing over. Here in Hangzhou we have printed the huizi since 1160. Paper money printed by a government: we were the first.
+-> How do you stop forgers?
+    Money Printer of Hangzhou: A bronze plate, cut with care. Paper made from mulberry bark. A border of pictures, the text, and red seals in more than one colour. And a sentence printed on the note itself: forgers will be beheaded. That helps.
+-> Any problems?
+    Money Printer of Hangzhou: Wars cost money. When the court needs money, it asks me for more notes. More notes, and each one buys less. By the end of the dynasty we have learned that lesson more than once. So will you.
+-> Goodbye.
+    Money Printer of Hangzhou: Spend it soon. It is worth more today than tomorrow.
+===
+
+title: history_murasaki_shikibu
+---
+Murasaki Shikibu: I see more than I say. It is better for a writer.
+-> What are you writing?
+    Murasaki Shikibu: A long tale of Prince Genji, the Shining One, and the women in his life. Fifty-four chapters, some four hundred people. The court ladies pass the chapters round as I finish them. Some people call it the first novel. I call it unfinished.
+-> Why do you write in kana?
+    Murasaki Shikibu: Men write the official things in Chinese. Kana are our own letters for our own sounds, and in kana a woman may write whatever she sees. I can read Chinese too. When my brother studied the classics I learned them faster, just by listening. My father sighed: if only she had been born a boy.
+-> Is Murasaki your name?
+    Murasaki Shikibu: It is a nickname, perhaps after a lady in my book; Shikibu is from my father's office. My real name? Nobody wrote it down. You will find that a great deal of history is like that.
+-> Do you know Sei Shōnagon?
+    Murasaki Shikibu: I know her book. She served the other empress, Teishi; I serve Empress Shōshi. In my diary I wrote that she is dreadfully conceited, and scatters her Chinese about. I stand by it. Read her anyway. She is good.
+-> Goodbye.
+    Murasaki Shikibu: Mind the pond. The carp are watching.
+===
+
+title: history_sei_shonagon
+---
+Sei Shōnagon: In spring, the dawn. In summer, the night. Do you agree? You should.
+-> What is The Pillow Book?
+    Sei Shōnagon: Notes, kept by my pillow. Lists of things: splendid things, hateful things, things that make the heart beat faster. Little stories of the court. I wrote what I liked. People still read it a thousand years later, so I was right to.
+-> What are hateful things?
+    Sei Shōnagon: A visitor who talks on and on when you are in a hurry. A mosquito's thin little voice when you are falling asleep. A carriage with squeaky wheels. That is going on the list: you, standing there.
+-> And splendid things?
+    Sei Shōnagon: Snow on the roof. A letter that comes just when you wanted it. A clever answer at exactly the right moment. I am known for those.
+-> What about Murasaki?
+    Sei Shōnagon: She called me dreadfully conceited, in her diary. I never mentioned her in my book. That is how you win.
+-> Goodbye.
+    Sei Shōnagon: Go well. Do not be hateful on the way.
+===
+
+title: history_king_sejong
+---
+King Sejong: Welcome to Hanyang. Can you read? Good. Soon everyone here will.
+-> What are the letters?
+    King Sejong: Our speech is not Chinese, so Chinese letters do not fit it, and only a few scholars can spend the years to learn them. Many of my people have something to say and cannot write it. I have made twenty-eight letters, easy to learn, for every day. This year, 1446, I give them to the people: the Hunminjeongeum, the correct sounds to teach the people.
+-> How do they work?
+    King Sejong: Each consonant is a picture of the mouth that says it: the back of the tongue against the throat, the tip of the tongue, the lips, the teeth, the throat itself. The vowels are made of heaven, earth and humankind: a dot, a flat line, a standing line. The letters of a syllable sit together in a block.
+-> Did everyone like them?
+    King Sejong: No. Some scholars wrote to me that only barbarians make their own letters. I disagreed. Today Korea keeps a day for the letters: 9 October in the South, 15 January in the North. Call them Hangul or Chosŏn'gŭl; they are the same letters.
+-> What else have you done?
+    King Sejong: My court has charted the skies, measured the rain in every province, made clocks that ring themselves, and printed books with metal type. I gather clever people and let them work. Jang Yeong-sil, by the water clock, is one of the best.
+-> Goodbye.
+    King Sejong: Learn them by lunch. The wise ones do.
+===
+
+title: history_jang_yeongsil
+---
+Jang Yeong-sil: Measure twice. Then measure again.
+-> Who are you?
+    Jang Yeong-sil: An engineer of the king. I was born a government slave; my mother was of that rank. King Taejong noticed my skill and King Sejong made me an official. Few men of my birth have ever stood in this palace.
+-> What is the water clock?
+    Jang Yeong-sil: Water flows from the high vessels into the tall one at a steady rate. A float rises, and as it rises it drops bronze balls that set wooden figures moving. They strike a bell for the hours, and a drum and a gong for the watches of the night. Nobody has to stay awake to strike them.
+-> And the rain gauge?
+    Jang Yeong-sil: A bronze cylinder on a stone stand, the same size in every province, and a ruler to read the rain. People say I made it. The court record says the crown prince did, in 1441. Either way, every province now measures rain the same way, and sends the numbers to the capital. Some two centuries before Europe does the same.
+-> What happens to you?
+    Jang Yeong-sil: In 1442 a royal sedan chair I built breaks on the road. I am dismissed. After that the records say nothing more about me. Remember the clocks, if you would.
+-> Goodbye.
+    Jang Yeong-sil: Mind the bear on the terrace. It does not care how clever you are.
+===

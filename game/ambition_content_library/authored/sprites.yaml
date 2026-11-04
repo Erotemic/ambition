@@ -469,6 +469,14 @@ collections:
   - history_cheomseongdae
   - history_royal_tumulus
   - history_gold_crown
+  - tanuki
+  - history_lake_boat
+  - history_money_press
+  - history_compass_bowl
+  - history_byobu_screen
+  - history_ox_carriage
+  - history_rain_gauge
+  - history_water_clock
   - eigenghost
   - decomposing_specter
   - spectral_perturbation
@@ -813,6 +821,12 @@ collections:
   - history_nankuanli_farmer
   - history_queen_seondeok
   - history_star_watcher
+  - history_li_qingzhao
+  - history_money_printer
+  - history_murasaki_shikibu
+  - history_sei_shonagon
+  - history_king_sejong
+  - history_jang_yeongsil
   - station_dobbs
   - station_pippin
   - magical_celeste

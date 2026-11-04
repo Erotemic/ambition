@@ -1,7 +1,7 @@
 //! The History dimension: its gate is DYNASTIC.
 //!
-//! Fifty-six rooms (`game/ambition_map_assets/ambition_content/generators/history/`):
-//! a grid of forty-eight outdoor rooms, where east is later and each floor is
+//! Fifty-nine rooms (`game/ambition_map_assets/ambition_content/generators/history/`):
+//! a grid of fifty-one outdoor rooms, where east is later and each floor is
 //! a region of the world, and eight buildings by doors. The gate is in the
 //! Cradle, in Africa, at the bottom left. This asks the game what the
 //! generator takes as given: that the rooms of a floor join in order, that the
@@ -102,7 +102,8 @@ const WAYS: &[(&str, &str)] = &[
     ("history_mammoth_steppe", "history_yellow_river"),
     ("history_yellow_river", "history_shang_court"),
     ("history_shang_court", "history_silk_road"),
-    ("history_silk_road", "history_mongol_steppe"),
+    ("history_silk_road", "history_song"),
+    ("history_song", "history_mongol_steppe"),
     // Oceania.
     ("history_sahul", "history_new_guinea_highlands"),
     ("history_new_guinea_highlands", "history_lapita_voyagers"),
@@ -154,6 +155,10 @@ const WAYS: &[(&str, &str)] = &[
     ("history_mammoth_steppe", "history_jomon"),
     ("history_jomon", "history_taiwan"),
     ("history_taiwan", "history_silla"),
+    ("history_silla", "history_joseon"),
+    ("history_joseon", "history_heian"),
+    // Printing goes from Song China to Korea.
+    ("history_song", "history_joseon"),
     // Farming spreads from the crescent; the first cities trade; Rome.
     ("history_green_sahara", "history_fertile_crescent"),
     ("history_fertile_crescent", "history_first_farmers_of_europe"),
@@ -189,7 +194,7 @@ fn the_rooms_of_the_history_grid_join_where_history_did() {
     assert_eq!(rooms.neighboring_room_indices_of(cradle).len(), 1, "the Cradle joins only the southern coast");
     // The ways name all fifty-six rooms, and the gate reaches every one.
     let named: BTreeSet<&str> = WAYS.iter().flat_map(|&(a, b)| [a, b]).collect();
-    assert_eq!(named.len(), 56, "the ways name every room of the dimension: {named:?}");
+    assert_eq!(named.len(), 59, "the ways name every room of the dimension: {named:?}");
     let mut reached = BTreeSet::from(["history_cradle"]);
     while let Some(&(a, b)) = WAYS.iter().find(|&&(a, b)| reached.contains(a) != reached.contains(b)) {
         reached.extend([a, b]);
@@ -309,6 +314,15 @@ const CAST: &[(&str, &[(&str, usize)])] = &[
     (
         "history_silla",
         &[("npc_history_queen_seondeok", 1), ("npc_history_star_watcher", 1), ("tiger", 1), ("asian_black_bear", 1)],
+    ),
+    ("history_song", &[("npc_history_li_qingzhao", 1), ("npc_history_money_printer", 1), ("silk_moth", 2), ("tiger", 1)]),
+    (
+        "history_joseon",
+        &[("npc_history_king_sejong", 1), ("npc_history_jang_yeongsil", 1), ("tiger", 2), ("asian_black_bear", 1)],
+    ),
+    (
+        "history_heian",
+        &[("npc_history_murasaki_shikibu", 1), ("npc_history_sei_shonagon", 1), ("tanuki", 2), ("japanese_macaque", 1)],
     ),
     // Oceania.
     ("history_sahul", &[("npc_history_raft_builder", 1), ("diprotodon", 1), ("megalania", 1)]),

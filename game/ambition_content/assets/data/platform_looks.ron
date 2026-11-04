@@ -67,6 +67,7 @@
     // platform; the matting sails and the thatched deckhouse rise over it
     // (`targets/props/history_southeast_asia_props.py`: `JONG_SPAN`, `JONG_TOP`).
     "history_jong": (row: "idle", frame_px: (448.0, 224.0), span_px: (24.0, 424.0), top_px: 132.0),
+    "history_lake_boat": (row: "idle", frame_px: (384.0, 160.0), span_px: (24.0, 360.0), top_px: 104.0),
     // The walking moai: the top of its red pukao is the platform
     // (`WALKING_*`). Its `idle` row rocks the moai from side to side on its
     // ropes; the pukao stays level.

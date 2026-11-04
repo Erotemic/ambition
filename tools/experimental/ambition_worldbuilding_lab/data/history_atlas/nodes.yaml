@@ -485,9 +485,9 @@ nodes:
      countries: [JPN], topics: [spread_of_religions, monumental_building]}
   - {id: tang_changan, title: "Chang'an", region: china, years: [618, 907], status: planned, shape: hub,
      countries: [CHN, JPN, KOR, UZB, IRN], topics: [china_dynasties, silk_roads, women_rulers], note: "Wu Zetian; the city of a million"}
-  - {id: heian, title: "Heian-kyō", region: japan, years: [794, 1185], status: planned,
+  - {id: heian, title: "Heian-kyō", region: japan, years: [794, 1185], status: built, room: history_heian,
      countries: [JPN], topics: [writing, women_rulers], note: "Murasaki Shikibu, The Tale of Genji"}
-  - {id: song_kaifeng, title: "Kaifeng and Hangzhou", region: china, years: [960, 1279], status: planned, shape: hub,
+  - {id: song_kaifeng, title: "Kaifeng and Hangzhou", region: china, years: [960, 1279], status: built, room: history_song, shape: hub,
      countries: [CHN], topics: [printing, money, china_dynasties, mathematics], note: "movable type, paper money, the compass, gunpowder"}
   - {id: goryeo_jikji, title: "Goryeo and the metal type", region: korea, years: [918, 1392], status: planned,
      countries: [KOR, PRK], topics: [printing, mongols], note: "Jikji (1377)"}
@@ -496,7 +496,7 @@ nodes:
   - {id: ming_fleets, title: "The treasure fleets", region: indian_ocean, years: [1405, 1433], status: planned, shape: corridor,
      countries: [CHN, IDN, MYS, LKA, IND, OMN, KEN, SOM], topics: [age_of_sail, indian_ocean_trade, china_dynasties],
      note: "Zheng He: moves here from Timbuktu"}
-  - {id: joseon_hangul, title: "King Sejong's letters", region: korea, years: [1418, 1450], status: planned,
+  - {id: joseon_hangul, title: "King Sejong's letters", region: korea, years: [1418, 1450], status: built, room: history_joseon,
      countries: [KOR, PRK], topics: [scripts, astronomy]}
   - {id: ryukyu, title: "The Ryukyu kingdom", region: japan, years: [1429, 1879], status: candidate,
      countries: [JPN], peoples: [ryukyuans], topics: [indian_ocean_trade, colonialism]}

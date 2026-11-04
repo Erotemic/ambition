@@ -672,6 +672,11 @@
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.55, active_s: 0.3, recover_s: 0.7, damage: 2, reach_px: 48.0, step_px: 0.0, rush_px: 210.0)),
         ),
+        // The tanuki puffs itself up (its windup row) and bowls into you.
+        "tanuki_bowl": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.5, active_s: 0.25, recover_s: 0.6, damage: 1, reach_px: 36.0, step_px: 0.0, rush_px: 170.0)),
+        ),
         "sea_raider_cut": (
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.35, active_s: 0.15, recover_s: 0.45, damage: 2, reach_px: 36.0, step_px: 0.0, rush_px: 140.0)),
@@ -7936,6 +7941,36 @@
             hall: ["For my size, my canine teeth are the longest of any cat. I do not need to tell you why.", "In Taiwan nobody has seen one of us since the 1980s. In 2013 we were declared extinct. You are talking to a ghost."],
         ),
         ),
+        // The tanuki, the Japanese raccoon dog: a round wild dog with a dark
+        // mask, not a raccoon. In winter it can sleep through the cold.
+        "tanuki": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Tanuki",
+            manifest: "sprites/tanuki_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(32.0),
+            composition: None,
+            default_action_set: "tanuki_bowl",
+            locomotion: Some((run_speed: 190.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 460.0,
+                attack_range: 80.0,
+                patrol_effort: 0.5,
+                chase_effort: 0.8,
+                attack_cooldown_s: 1.0,
+                tactics: (notice_s: 0.6, footsies: Some((hold_px: 120.0, wait_s: 0.6)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "history", "heian", "beast"],
+        barks: (
+            on_hit: ["*it plays dead. Then it does not.*", "*a huffy little yip*"],
+            provoked: ["*it puffs up to twice its size*"],
+            idle: ["*it waddles off to look for persimmons*", "*sniff sniff*"],
+            hall: ["I am not a raccoon. I am a dog. A round dog.", "In the old stories I change shape: into a teakettle, once, and then I could not get my tail back in."],
+        ),
+        ),
         // The cave lion: the maneless lion of the Ice Age that the painters of
         // the caves drew. It crouches with its hips wiggling (its windup row),
         // pounces a long way with its claws out, and lands.
@@ -12256,6 +12291,111 @@
             barks: (
                 idle: ["Quiet, please. The stars are speaking.", "*he squints along the bamboo tube*", "Clear skies."],
                 hall: ["Cheomseongdae, built in Queen Seondeok's reign, still stands: the oldest standing observatory in East Asia.", "People count 362 stones and 27 courses in the tower and argue about what the numbers mean. I just climbed it."],
+            ),
+        ),
+        // Song China, Joseon and Heian Japan (wave D2). Li Qingzhao, King
+        // Sejong, Jang Yeong-sil, Murasaki Shikibu and Sei Shonagon are real;
+        // the money printer of Hangzhou is original.
+        "npc_history_li_qingzhao": (
+            display_name: "Li Qingzhao",
+            // Li Qingzhao (1084-about 1155), the great poet of the Song, with a folding fan and a scroll of her poems.
+            manifest: "sprites/history_li_qingzhao_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(62.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "song", "peaceful"],
+            barks: (
+                idle: ["Searching, seeking. Cold, clear.", "*she taps her closed fan against the scroll*", "A good line costs a sleepless night."],
+                hall: ["My husband and I collected old bronzes and inscriptions on stone. When the Jurchen took the north we fled south with fifteen carts of books. Most were lost on the road.", "After dinner we made tea and quizzed each other: which book, which chapter, which page holds this line? The winner drank first. Once I laughed so hard I spilled the tea down my front."],
+            ),
+        ),
+        "npc_history_money_printer": (
+            display_name: "Money Printer of Hangzhou",
+            // An original printer of the Song state's paper money in Hangzhou, about 1200 CE, with a bronze plate and a fresh note.
+            manifest: "sprites/history_money_printer_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm.
+            standing_height: Some(64.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "song", "peaceful"],
+            barks: (
+                idle: ["Fresh money! Do not lick it, the ink is wet.", "*he presses the plate, peels the sheet, admires it*", "Copper is heavy. Paper is the future."],
+                hall: ["The merchants of Sichuan printed notes first; in 1023 the state took them over. Our huizi came in 1160. The plate is the government's, not mine. I checked.", "Print too many and each note buys less. By the end of the dynasty we had learned that more than once."],
+            ),
+        ),
+        "npc_history_murasaki_shikibu": (
+            display_name: "Murasaki Shikibu",
+            // Murasaki Shikibu (about 973-about 1014), lady of the Heian court and author of The Tale of Genji, with a brush and a sheet of paper.
+            manifest: "sprites/history_murasaki_shikibu_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 155 cm.
+            standing_height: Some(60.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "heian", "peaceful"],
+            barks: (
+                idle: ["*she writes a line, and crosses it out*", "Shining Genji is a character. Do not fall in love with him.", "I see more than I say."],
+                hall: ["When my brother studied the Chinese classics, I learned them faster just by listening. My father sighed: if only she had been born a boy.", "Murasaki is not my name. It is a nickname, perhaps after a lady in my book. My real name? Nobody wrote it down."],
+            ),
+        ),
+        "npc_history_sei_shonagon": (
+            display_name: "Sei Shōnagon",
+            // Sei Shōnagon (about 966-after 1017), lady-in-waiting to Empress Teishi and author of The Pillow Book, with an open fan.
+            manifest: "sprites/history_sei_shonagon_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 153 cm.
+            standing_height: Some(59.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "heian", "peaceful"],
+            barks: (
+                idle: ["In spring, the dawn.", "*she hides a smile behind her fan*", "That is going on a list."],
+                hall: ["Hateful things: a visitor who talks on and on when you are in a hurry. A mosquito's thin little voice when you are falling asleep. I wrote them all down.", "Murasaki called me dreadfully conceited in her diary. I never answered her in my book. That is how you win."],
+            ),
+        ),
+        "npc_history_king_sejong": (
+            display_name: "King Sejong",
+            // King Sejong the Great (1397-1450), fourth king of Joseon, who made the Korean alphabet, with a bound book.
+            manifest: "sprites/history_king_sejong_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.7),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "joseon", "peaceful"],
+            barks: (
+                idle: ["A king's work is to let his people speak.", "*he turns a page, and nods*", "Twenty-eight letters. Learn them by lunch."],
+                hall: ["Our speech is not Chinese, so Chinese letters do not fit it, and many of my people had something to say and could not write it. So I made twenty-eight letters, easy to learn, for every day.", "Each consonant is a picture of the mouth that says it: the tongue, the lips, the teeth, the throat. Korea keeps a day for the letters: 9 October in the South, 15 January in the North."],
+            ),
+        ),
+        "npc_history_jang_yeongsil": (
+            display_name: "Jang Yeong-sil",
+            // Jang Yeong-sil (about 1390-after 1442), engineer of King Sejong's court, born a government slave, with a rain gauge and a ruler.
+            manifest: "sprites/history_jang_yeongsil_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "joseon", "peaceful"],
+            barks: (
+                idle: ["Measure twice.", "*he reads the water in the gauge, and writes it down*", "The same rain gauge in every province. Now we can compare."],
+                hall: ["I was born a government slave. King Sejong made me an official, and I made him clocks that ring the hours by themselves, and sundials for the streets.", "People say I made the rain gauge. The records say the crown prince did, in 1441. I will settle for the water clock."],
             ),
         ),
         "npc_primeval_twitchell": (

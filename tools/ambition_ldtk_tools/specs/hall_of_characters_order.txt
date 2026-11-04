@@ -310,6 +310,12 @@ npc_history_jade_carver
 npc_history_nankuanli_farmer
 npc_history_queen_seondeok
 npc_history_star_watcher
+npc_history_li_qingzhao
+npc_history_money_printer
+npc_history_murasaki_shikibu
+npc_history_sei_shonagon
+npc_history_king_sejong
+npc_history_jang_yeongsil
 
 [Guests from history and the studio]
 npc_genghis_can
@@ -488,6 +494,7 @@ water_monitor
 asian_black_bear
 japanese_macaque
 clouded_leopard
+tanuki
 
 [Mary-O's world]
 mary_o

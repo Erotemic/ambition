@@ -78,8 +78,8 @@ the record and sighs about the footnotes.
              C0       C1            C2              C3           C4          C5          C6     C7
     R0 Americas       beringia      maize           olmecs       maya        taino       haiti
     R½ S. America                   andes           caral
-    R1 East Asia      mammoth st.┐  yellow river    shang        silk road   steppe
-    R1½ E. coasts     mammoth st.┘  jomon           taiwan       silla
+    R1 East Asia      mammoth st.┐  yellow river    shang        silk road   song        steppe
+    R1½ E. coasts     mammoth st.┘  jomon           taiwan       silla       joseon      heian
     R2 Oceania        sahul         highlands       lapita       wayfinders  rapa nui
     R2½ SE Asia       sulawesi      austronesians   dong son     srivijaya   angkor
     R3 South Asia     south. route  mehrgarh        indus
@@ -102,6 +102,7 @@ floor, over a tower of ledges in the lower room):
 | C2 | the Green Sahara and the Crescent, the Crescent and Europe | cattle and wheat go both ways; farming walks into Europe |
 | C3 | Taiwan and the Lapita voyagers | the Austronesians sail from Taiwan into the Pacific (this way was the atlas's road from the Shang court until Taiwan was built) |
 | C4 | the Silk Road and Silla | glass from Rome and Persia in Silla's tombs |
+| C5 | Song China and Joseon | printing: Song's movable type, then Korea's metal type |
 | C3 | the Nile and Uruk, Uruk and the megalith builders | Egypt and Sumer trade; tin comes south from the north |
 | C4 | Aksum and Rome, Rome and the Celts | the Red Sea trade; the frontier |
 
@@ -139,12 +140,15 @@ The rooms:
 | `history_jomon` | `history_jomon` | the flame potter, the chestnut keeper | Japanese macaque, Asian black bear | up the six chestnut posts of Sannai-Maruyama (a tower? a stage?) and over the shell mound; foragers who never farmed |
 | `history_taiwan` | `history_taiwan` | the jade carver of Fengtian, the farmer of Nankuanli | clouded leopard, coral crab | up the millet terraces; Fengtian jade; nine of the ten first branches of Austronesian; the way down to the Lapita |
 | `history_silla` | `history_gyeongju` | Queen Seondeok, the star watcher | tiger, Asian black bear | over the royal tomb mounds and up Cheomseongdae; the gold crowns; the way up to the Silk Road |
+| `history_joseon` | `history_hanyang` | King Sejong, Jang Yeong-sil | tiger, Asian black bear | the 28 letters of 1446; up the self-striking water clock and the Hall of Worthies; the rain gauge; the way up to Song China (printing) |
+| `history_heian` | `history_heian` | Murasaki Shikibu, Sei Shōnagon | tanuki, Japanese macaque | the ox carriage; over the garden pond by the red bridge; up the veranda and over the mansion's roof; the rivals' two books, in kana |
 | `history_sahul` | `history_sahul` | the raft builder | diprotodon, megalania | a bamboo raft carries you over the strait |
 | `history_new_guinea_highlands` | `history_highlands` | the Kuk gardener | cassowary | the garden terraces |
 | `history_mammoth_steppe` | `history_ice_age` | Denny the Denisovan | woolly mammoth, cave bear, steppe wolf | two floors, as Beringia: the steppe on top (up to Beringia, east to the Yellow River); down the bluff, the peninsula that joined Hokkaido to Siberia (east to the Jōmon, down to Sahul) |
 | `history_yellow_river` | `history_yellow_river` | Leizu | silk moth, coral crab | a reed boat carries you over the river |
 | `history_shang_court` | `history_yellow_river` | Lady Fu Hao | taotie spirit, steppe wolf | the oracle bone (`history_oracle_bone`) opens the bronze gate |
 | `history_silk_road` | `history_silk` | Marco Polo-neck, Confusius | terracotta warrior, desert bandit, silk moth | a camel caravan carries you over the quicksand |
+| `history_song` | `history_hangzhou` | Li Qingzhao, the money printer | silk moth, tiger | a pleasure boat over West Lake; the south-pointing fish; the paper-money press; up the Leifeng pagoda; the way down to Korea |
 | `history_mongol_steppe` | `history_steppe` | Genghis Can, Genghis Can't | horse archer, golden eagle, steppe wolf | two roads through the Great Wall (below) |
 | `history_beringia` | `history_ice_age` | Dr. Clovis-First | woolly mammoth, smilodon | the way down: back to Asia |
 | `history_first_maize` | `history_maize` | the teosinte breeder | green iguana, howler monkey, jaguar | the way down: maize goes south to the Andes |
@@ -204,6 +208,7 @@ instruments are real samples, most of them from the Versilian VCSL library.
 | Europe | `history_europe_solstice_stones` | Solstice Stones | E Dorian in 6/8; recorder as the bone flute, plucked tagelharpa, frame drum; a sunrise to E major among the stones |
 | South Asia | `history_south_asia_monsoon_road` | The Monsoon Road | D Lydian in 7/4 (3+2+2) over a drone; bowed psaltery and flute; a "grid" section for the Indus streets |
 | East Asia | `history_east_asia_yellow_earth` | Yellow Earth, Long Sky | G# minor pentatonic; đàn tranh zither, ocarina as the xun, bronze bells for the Shang court, a gallop for the steppe |
+| East Asia's courts (Song, Joseon, Heian) | `history_east_asia_ink_and_silk` | Ink and Silk | G major pentatonic, 66 BPM; đàn tranh as the guzheng, gayageum and koto, bending into its notes; recorder as the bamboo flute; a bell at each phrase, a woodblock clapper at the seams, as the bak opens Korean court music |
 | Southeast Asia | `history_southeast_asia_bronze_and_rain` | Bronze and Rain | the idea of a gamelan: a gong closes each 16-beat cycle; marimba core melody, two glockenspiel parts that interlock, recorder as the bamboo flute; a pélog-like E F G B C |
 | Oceania | `history_oceania_sahul` | Sahul | C# minor (the key of the didgeridoo samples), clapsticks, slit drum; E major marimba for the highlands |
 | Americas | `history_americas_land_bridge` | Over the Land Bridge | A minor to A major; ocarina, slit drum, wine-glass ice for Beringia |
@@ -383,7 +388,7 @@ built room, then the links that make the world one. Each wave starts with
 | --- | --- | --- |
 | A, B | the Atlantic world; the Andes and Caral | BUILT |
 | C | **Southeast Asia** (C1 BUILT: Sulawesi, the Austronesian islands, Dong Son; C2 BUILT: Srivijaya, Borobudur, Angkor), the first cluster off the grid: Sulawesi's painted story (51,200 years), the Austronesians come to the islands, Dong Son and its drums (the Trưng sisters), the strait of Srivijaya (a corridor), Angkor (a hub), Borobudur (tall) | 680 million players with no room; it also replaces the Shang-to-Lapita shortcut with Taiwan, the true homeland |
-| D | **East Asia's other half** (D1 BUILT: Jōmon, Taiwan, Silla; a new floor, East Asia's coasts): Taiwan, the Austronesian homeland; Jōmon, among the first pots; Silla and Queen Seondeok's star tower; Heian-kyō; Kaifeng and Hangzhou (printing, paper money, the compass); King Sejong's letters | Japan and the two Koreas have no room; printing is an obvious topic |
+| D | **East Asia's other half** (D1 BUILT: Jōmon, Taiwan, Silla; a new floor, East Asia's coasts; D2 BUILT: Song Hangzhou, Joseon, Heian-kyō, with the cue "Ink and Silk"): Taiwan, the Austronesian homeland; Jōmon, among the first pots; Silla and Queen Seondeok's star tower; Heian-kyō; Kaifeng and Hangzhou (printing, paper money, the compass); King Sejong's letters | Japan and the two Koreas have no room; printing is an obvious topic |
 | E | **Bengal and the cotton**: Dhaka muslin (the other end of the cotton mill), the Company and 1857, the language movement and 1971 | Bangladesh (174 million); colonialism in South Asia |
 | F | **Brazil and Amazonia**: the garden cities of the Amazon, Palmares (Zumbi and Dandara), Rio 1888 | Brazil (212 million); Afro-Brazilian and Amazonian peoples |
 | G | **Central Africa**: Ishango's counting bone, the kingdom of Kongo, Queen Nzinga, the Congo Free State (sober) | DR Congo (109 million), Angola; the Scramble |

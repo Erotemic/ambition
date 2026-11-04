@@ -435,6 +435,8 @@ collections:
   - history_sugarcane
   - history_soup_pot
   - history_first_flag
+  - history_fante_canoe
+  - history_fort_cannon
   - eigenghost
   - decomposing_specter
   - spectral_perturbation
@@ -757,6 +759,8 @@ collections:
   - history_toussaint_louverture
   - history_catherine_flon
   - history_soup_joumou_cook
+  - history_ottobah_cugoano
+  - history_castle_guide
   - station_dobbs
   - station_pippin
   - magical_celeste

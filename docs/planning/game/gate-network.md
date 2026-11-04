@@ -146,6 +146,7 @@ from the start.
 | `DESTINY` | `magical_gate_zone` | `magical_gate_garden` | east to Starlight Square, down its well to the Starless Hollow, out along the Dune Road | yes |
 | `EASEL` | `art_plaza_gate` | `art_painters_plaza` | east to the Sculpture Garden, west to the Story Stacks, the lift up to the Sketchbook Cliffs (the Amphitheatre west of them, the Resonant Reach east), down to the Inkfall Caverns and on to the Workshop Deeps | yes |
 | `DYNASTIC` | `history_cradle_gate` | `history_cradle` | the grid of history: east through the ages, ladders between the regions, from the Cradle out of Africa to every land mass | yes |
+| `ANTILLES` | `history_ayiti_gate` | `history_haitian_revolution` | west to the Taino islands and the Americas floor; the far end of the Door of No Return, which goes one way, from the fort on the Gold Coast | yes |
 | `SENTINEL` | `military_gate_zone` | `military_gate_annex` | back through the General's tower | yes; on foot, the checkpoint wants the clearance or the crawlway |
 | `NEST` (hidden) | `primeval_rookery_gate` | `primeval_rookery` | down the trail to the trailhead ring | yes |
 | `TESLA` (hidden) | `trail_survey_gate` | `gnu_ton_works_approach` | the tower top by GNU-ton's door; the lift down to the spoke | yes |

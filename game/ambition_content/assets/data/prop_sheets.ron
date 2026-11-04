@@ -293,6 +293,10 @@
     "history_sugarcane": (),
     "history_soup_pot": (),
     "history_first_flag": (),
+    // The fort on the Gold Coast (wave A, `targets/props/history_gold_coast_props.py`):
+    // a Fante fishing canoe on the beach and a cannon of the castle.
+    "history_fante_canoe": (),
+    "history_fort_cannon": (),
     // The Story Stacks of the Art dimension (`targets/props/art_stacks_props.py`).
     // The doors of the Library of Endings are two covers of a book: the happy
     // ending in gold with a sun, the sad ending in deep blue with a moon and

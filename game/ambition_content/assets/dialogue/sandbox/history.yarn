@@ -821,3 +821,33 @@ Soup Joumou Cook: Sit, sit. First day of the year, first day of Haiti. Everybody
 -> Goodbye.
     Soup Joumou Cook: Take some for the road. It is better the second day.
 ===
+
+title: history_ottobah_cugoano
+---
+Ottobah Cugoano: My name is Ottobah Cugoano. I am Fante, from this coast. I was thirteen when I was brought to a place like this.
+-> What happened?
+    Ottobah Cugoano: I was playing with other children near my home, in 1770. Men I did not fear took us away. On the coast they sold me, and I was shut in a fort like this one, and then put on a ship. I was taken to Grenada, to the plantations.
+-> Who sold you?
+    Ottobah Cugoano: I will not hide it: men of my own colour kidnapped me and sold me. But if there were no buyers, there would be no sellers. The trade was made by the Europeans who bought, and their laws that allowed it.
+-> How did you get out?
+    Ottobah Cugoano: A master took me to England in 1772. There I learned to read and write, and I was free. I used it. With friends I helped free a man who had been kidnapped onto a ship in the Thames. We called ourselves the Sons of Africa.
+-> Your book?
+    Ottobah Cugoano: Thoughts and Sentiments on the Evil and Wicked Traffic of the Slavery and Commerce of the Human Species. London, 1787. It says that the trade must end, and that every enslaved person must be freed, now. Not slowly. Now.
+-> Goodbye.
+    Ottobah Cugoano: Read it. And remember that every number on the guide's papers was a person with a name.
+===
+
+title: history_castle_guide
+---
+Castle Guide: Welcome. Please walk slowly here. My family has fished from the beach outside these walls for as long as anyone remembers. I tell visitors what the walls held.
+-> What was this place?
+    Castle Guide: A trading castle of the European companies. They came for gold, and the coast was called the Gold Coast. Then the trade that paid most was in people. Upstairs the governors lived, with a view of the sea. Below, the dungeons.
+-> The dungeon?
+    Castle Guide: Hundreds of people at a time, men in one dungeon, women in another, for weeks or months, in the dark, until a ship came. In some castles on this coast, the church was built right over the men's dungeon.
+-> How many?
+    Castle Guide: From 1501 to 1866, about twelve and a half million people were forced onto ships for the Americas. About ten point seven million lived to land. They resisted: about one voyage in ten had a revolt on board.
+-> And the door?
+    Castle Guide: The last place they stood in Africa. It goes one way. If you go through, you come out on the far side of the ocean, in Saint-Domingue. Today the sea side of a door like this has a second sign: the Door of Return. Their descendants come back through it as guests.
+-> Goodbye.
+    Castle Guide: Thank you for walking slowly.
+===

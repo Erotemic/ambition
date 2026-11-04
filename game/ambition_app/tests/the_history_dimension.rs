@@ -1,7 +1,7 @@
 //! The History dimension: its gate is DYNASTIC.
 //!
-//! Forty-four rooms (`tools/ambition_ldtk_tools/specs/history_dimension/`):
-//! a grid of thirty-seven outdoor rooms, where east is later and each floor is
+//! Forty-five rooms (`tools/ambition_ldtk_tools/specs/history_dimension/`):
+//! a grid of thirty-eight outdoor rooms, where east is later and each floor is
 //! a region of the world, and seven buildings by doors. The gate is in the
 //! Cradle, in Africa, at the bottom left. This asks the game what the
 //! generator takes as given: that the rooms of a floor join in order, that the
@@ -9,8 +9,8 @@
 //! its room, that each room places its cast, that each way through opens for
 //! its key (the first fire, the sluice, the solstice, the oracle bone, the
 //! unicorn seal, the ballcourt ring, Socratease's answer, each brother at the Great Wall, the
-//! mill's boiler), and that the two vigils keep their store rooms shut until
-//! they are over.
+//! mill's boiler), that the two vigils keep their store rooms shut until
+//! they are over, and that the Door of No Return goes one way.
 
 use std::collections::BTreeSet;
 
@@ -125,6 +125,7 @@ const WAYS: &[(&str, &str)] = &[
     ("history_nile_valley", "history_aksum_and_kush"),
     ("history_aksum_and_kush", "history_timbuktu_coast"),
     ("history_timbuktu_coast", "history_benin_city"),
+    ("history_benin_city", "history_door_of_no_return"),
     // The ladders: the great dispersal, out of Africa to every land mass.
     ("history_southern_coast", "history_levant"),
     ("history_levant", "history_ice_age_europe"),
@@ -166,14 +167,28 @@ fn the_rooms_of_the_history_grid_join_where_history_did() {
     // way on is the southern coast.
     let cradle = index("history_cradle");
     assert_eq!(rooms.neighboring_room_indices_of(cradle).len(), 1, "the Cradle joins only the southern coast");
-    // The ways name all forty-four rooms, and the gate reaches every one.
+    // The ways name all forty-five rooms, and the gate reaches every one.
     let named: BTreeSet<&str> = WAYS.iter().flat_map(|&(a, b)| [a, b]).collect();
-    assert_eq!(named.len(), 44, "the ways name every room of the dimension: {named:?}");
+    assert_eq!(named.len(), 45, "the ways name every room of the dimension: {named:?}");
     let mut reached = BTreeSet::from(["history_cradle"]);
     while let Some(&(a, b)) = WAYS.iter().find(|&&(a, b)| reached.contains(a) != reached.contains(b)) {
         reached.extend([a, b]);
     }
     assert_eq!(reached, named, "from the Cradle the ways reach every room");
+}
+
+/// The Door of No Return, in the fort on the Gold Coast, opens on the plain
+/// of Saint-Domingue, and nothing in Haiti leads back through it: the way
+/// home from there is the ring (ANTILLES, `the_gate_network`).
+#[test]
+fn the_door_of_no_return_goes_one_way() {
+    let manifest = ambition_content::worlds::world_manifest();
+    let project = LdtkProject::load_default_for_dev(&manifest).expect("the world loads");
+    let rooms = project.to_room_set(&manifest, &ambition_app::composed_ldtk_vocabulary()).expect("the world composes");
+    let index = |id: &str| rooms.room_index_by_id(id).unwrap_or_else(|| panic!("the world has no room `{id}`"));
+    let (fort, haiti) = (index("history_door_of_no_return"), index("history_haitian_revolution"));
+    assert!(rooms.neighboring_room_indices_of(fort).contains(&haiti), "the door leads to Saint-Domingue");
+    assert!(!rooms.neighboring_room_indices_of(haiti).contains(&fort), "nothing in Haiti leads back through the door");
 }
 
 /// The cast each room places: the kinds, and how many of each.
@@ -202,6 +217,7 @@ const CAST: &[(&str, &[(&str, usize)])] = &[
             ("asp", 1),
         ],
     ),
+    ("history_door_of_no_return", &[("npc_history_ottobah_cugoano", 1), ("npc_history_castle_guide", 1)]),
     // The Mediterranean and Southwest Asia.
     ("history_levant", &[("npc_history_neville_neanderthal", 1), ("aurochs", 2), ("cave_lion", 1)]),
     (

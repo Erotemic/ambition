@@ -54,6 +54,8 @@
         (id: "starlight_gate_garden", name: "Starlight Gate Garden", dimension: "magical"),
         (id: "art_painters_plaza", name: "Painter's Plaza Ring", dimension: "art"),
         (id: "history_cradle", name: "Cradle Ring", dimension: "history"),
+        // Haiti's ring, its own facility so it can dial the Cradle.
+        (id: "history_ayiti", name: "Ayiti Ring", dimension: "history"),
     ],
     rings: [
         // ── Home ──────────────────────────────────────────────────────────
@@ -275,6 +277,19 @@
             terminal: Some("history_gate_terminal"),
             posted: ["LEGAL"],
             note: "Cradle ring. Older than everyone; please wipe your feet.",
+        ),
+        // Haiti's ring, at the east end of the room: the way back from the
+        // far side of the Atlantic. The Door of No Return in the fort on the
+        // Gold Coast goes one way, to Haiti; this ring dials home.
+        (
+            zone: "history_ayiti_gate",
+            name: "Ayiti Gate",
+            facility: "history_ayiti",
+            room: "history_haitian_revolution",
+            address: Some("ANTILLES"),
+            terminal: Some("history_ayiti_terminal"),
+            posted: ["LEGAL", "DYNASTIC"],
+            note: "Ayiti ring. Land of mountains; the ring is at the foot of them.",
         ),
     ],
 )

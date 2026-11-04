@@ -19,7 +19,7 @@ everyone starts in Africa (`specs/check_flat_map.py history.ldtk`).
     R3 South Asia     south. route  mehrgarh        indus
     R4 Europe         ice age       first farmers   megaliths    celts       vikings     sail   industrial
     R5 Med./SW Asia   levant        crescent        uruk         classical
-    R6 Africa cradle  south. coast  green sahara    nile         aksum       timbuktu    benin
+    R6 Africa cradle  south. coast  green sahara    nile         aksum       timbuktu    benin  the fort
 
 The ways through, room by room, are in each room's function. Buildings are
 under the grid, reached by doors. The art is the sprite tools'
@@ -35,7 +35,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 sys.path.insert(0, str(HERE.parent / "gate_network"))
 
-from district_kit import WALL, WORLDS, edge, ensure_world, entity, door, ledge, make_rooms, paint, prop, resident, room, run, sign, solid, start  # noqa: E402
+from district_kit import WALL, WORLDS, edge, ensure_world, entity, door, ledge, make_rooms, pad, paint, prop, resident, room, run, sign, solid, start  # noqa: E402
 
 import gates  # noqa: E402
 
@@ -85,6 +85,7 @@ GRID = {
     (5, 4): "history_viking_north",
     (5, 6): "history_timbuktu_coast",
     (6, 6): "history_benin_city",
+    (7, 6): "history_door_of_no_return",
     (6, 4): "history_age_of_sail",
     (7, 4): "history_industrial_age",
 }
@@ -208,6 +209,9 @@ SOUTH_ASIA = "history_south_asia_monsoon_road"
 EAST_ASIA = "history_east_asia_yellow_earth"
 AMERICAS = "history_americas_land_bridge"
 OCEANIA = "history_oceania_sahul"
+#: The fort of the Door of No Return has its own quiet cue: no region's
+#: music is right there.
+NO_RETURN = "history_atlantic_no_return"
 MUSIC = {
     "history_cradle": AFRICA,
     "history_southern_coast": AFRICA,
@@ -216,6 +220,7 @@ MUSIC = {
     "history_aksum_and_kush": AFRICA,
     "history_timbuktu_coast": AFRICA,
     "history_benin_city": AFRICA,
+    "history_door_of_no_return": NO_RETURN,
     "history_levant": CRESCENT,
     "history_fertile_crescent": CRESCENT,
     "history_uruk": CRESCENT,
@@ -260,6 +265,7 @@ BIOME = {
     "history_nile_valley": "history_nile", TOMB: "history_nile", "history_aksum_and_kush": "history_nile",
     "history_timbuktu_coast": "history_monsoon", LIBRARY: "history_monsoon",
     "history_benin_city": "history_benin",
+    "history_door_of_no_return": "history_gold_coast",
     "history_levant": "history_crescent", "history_fertile_crescent": "history_crescent", GRANARY: "history_crescent",
     "history_uruk": "history_crescent",
     "history_classical_shore": "history_classical", COLOSSEUM: "history_classical",
@@ -1606,10 +1612,13 @@ def haitian_revolution():
     works, where the enslaved rose in 1791; the mornes, where Leclerc's army
     was beaten in 1802-1803 (up and over them); the first flag (1803) and
     independence (1 January 1804). Toussaint Louverture and Catherine Flon
-    are real people; the cook is original."""
+    are real people; the cook is original. The Door of No Return, in the
+    fort on the Gold Coast, comes out on the plain (`haiti_landing`) and
+    does not go back; the ring at the east end (ANTILLES) does."""
     rid = "history_haitian_revolution"
     e = [
         start(rid, 160, FLOOR),
+        pad("haiti_landing", "off the ship", 420, FLOOR),
         prop_at("cane_1", "history_sugarcane", 340, FLOOR, 96, 128),
         prop_at("sugar_works", "history_sugar_works", 620, FLOOR, 256, 192),
         prop_at("cane_2", "history_sugarcane", 860, FLOOR, 96, 128),
@@ -1628,22 +1637,64 @@ def haitian_revolution():
         sign("haiti_sign_1802_a", 1500, FLOOR - 480, "1802: Napoleon sent an army to take the colony back. In Guadeloupe, slavery came back.", 780),
         sign("haiti_sign_1802_b", 1500, FLOOR - 452, "Here the army lost, to the war in the mountains and to yellow fever.", 620),
         sign("haiti_sign", 1400, 140, "HAITI: the revolution of the enslaved, 1791-1804", 460),
-        enemy(rid, 3, "napoleonic_grenadier", 1980, FLOOR),
-        npc("history_catherine_flon", 2140, FLOOR, 62),
-        prop_at("flag", "history_first_flag", 2250, FLOOR, 64, 160),
-        sign("haiti_sign_flag", 2160, FLOOR - 250, "18 MAY 1803: the white torn out of the French flag, the blue and the red sewn together", 780),
-        npc("history_soup_joumou_cook", 2470, FLOOR, 68),
-        prop_at("soup_pot", "history_soup_pot", 2600, FLOOR, 80, 64),
-        sign("haiti_sign_1804_a", 2400, FLOOR - 400, "1 JANUARY 1804: HAITI. The first nation founded by people who freed themselves,", 720),
-        sign("haiti_sign_1804_b", 2400, FLOOR - 372, "named with the Taino name of its island, Ayiti.", 440),
-        sign("haiti_sign_1825_a", 2420, FLOOR - 160, "1825: France made Haiti pay 150 million francs for its lost 'property':", 640),
-        sign("haiti_sign_1825_b", 2420, FLOOR - 132, "the people who had freed themselves. With the loans, Haiti paid until 1947.", 680),
+        enemy(rid, 3, "napoleonic_grenadier", 1940, FLOOR),
+        npc("history_catherine_flon", 2030, FLOOR, 62),
+        prop_at("flag", "history_first_flag", 2120, FLOOR, 64, 160),
+        sign("haiti_sign_flag", 2080, FLOOR - 250, "18 MAY 1803: the white torn out of the French flag, the blue and the red sewn together", 780),
+        npc("history_soup_joumou_cook", 2230, FLOOR, 68),
+        prop_at("soup_pot", "history_soup_pot", 2330, FLOOR, 80, 64),
+        sign("haiti_sign_1804_a", 2400, FLOOR - 460, "1 JANUARY 1804: HAITI. The first nation founded by people who freed themselves,", 720),
+        sign("haiti_sign_1804_b", 2400, FLOOR - 432, "named with the Taino name of its island, Ayiti.", 440),
+        sign("haiti_sign_1825_a", 2240, FLOOR - 370, "1825: France made Haiti pay 150 million francs for its lost 'property':", 640),
+        sign("haiti_sign_1825_b", 2240, FLOOR - 342, "the people who had freed themselves. With the loans, Haiti paid until 1947.", 680),
+        # The ring (ANTILLES, `data/gate_network.ron`): the way back from the
+        # far side of the Atlantic.
+        *gates.as_ron(gates.terminal("Ayiti Gate", "history_ayiti_terminal", 2396, FLOOR)),
+        *gates.as_ron(gates.ring("Ayiti Gate", "history_ayiti_gate", 2470, FLOOR, "the gate")),
     ]
     return grid_room(rid, "HAITI", e)
 
 
+def door_of_no_return():
+    """A castle of the European trading companies on the Gold Coast, 1700s
+    (a composite, not one real fort). The beach and the fishing town; the
+    courtyard, its cannon facing the sea; the low dungeon; and the narrow
+    door to the sea, which goes one way, to Saint-Domingue. A sober room:
+    no enemies and no joke. Ottobah Cugoano, who was taken from this coast,
+    is real; the guide is original."""
+    rid = "history_door_of_no_return"
+    dungeon = (1500, 2300)
+    e = [
+        start(rid, 160, FLOOR),
+        prop_at("canoe_1", "history_fante_canoe", 320, FLOOR, 192, 64),
+        prop_at("canoe_2", "history_fante_canoe", 560, FLOOR, 192, 64),
+        sign("fort_sign_coast", 400, FLOOR - 200, "THE GOLD COAST: forts built to trade for gold. Then for people.", 580),
+        # The castle gate: under its wall into the courtyard.
+        solid("castle_gate", 760, CEILING, 80, FLOOR - 160 - CEILING),
+        ledge("battlement_stair", 900, FLOOR - 100, 120),
+        ledge("battlement", 1000, FLOOR - 200, 400),
+        prop_at("cannon_1", "history_fort_cannon", 1120, FLOOR - 200, 80, 48),
+        prop_at("cannon_2", "history_fort_cannon", 1300, FLOOR - 200, 80, 48),
+        npc("history_ottobah_cugoano", 1360, FLOOR, 66),
+        sign("fort_sign", 1400, 140, "A FORT ON THE GOLD COAST: the Atlantic slave trade, 1501-1866", 580),
+        # The dungeon: a low, dark passage.
+        solid("dungeon_roof", dungeon[0], CEILING, dungeon[1] - dungeon[0], FLOOR - 120 - CEILING),
+        sign("fort_sign_dungeon_a", 1700, FLOOR - 104, "THE DUNGEON: hundreds of people at a time,", 380),
+        sign("fort_sign_dungeon_b", 2100, FLOOR - 104, "for weeks or months, waiting for a ship.", 360),
+        npc("history_castle_guide", 2400, FLOOR, 64),
+        sign("fort_sign_numbers_a", 2440, FLOOR - 360, "1501-1866: about 12.5 million people were forced onto ships to the Americas.", 680),
+        sign("fort_sign_numbers_b", 2440, FLOOR - 332, "About 10.7 million lived to land. About one voyage in ten saw a revolt.", 640),
+        # The door: one way only. Nothing brings you back through it; the
+        # ring in Haiti (ANTILLES) dials home.
+        door("fort_door_of_no_return", "the Door of No Return", 2650, FLOOR, "history_haitian_revolution", "haiti_landing",
+             bidirectional=False),
+        sign("fort_sign_door", 2674, FLOOR - 150, "THE DOOR OF NO RETURN", 220),
+    ]
+    return grid_room(rid, "THE DOOR OF NO RETURN", e)
+
+
 #: The rooms, by floor from the bottom (Africa) to the top.
-ROOMS = (cradle, southern_coast, green_sahara, nile, tomb, aksum, timbuktu, library, benin_city,
+ROOMS = (cradle, southern_coast, green_sahara, nile, tomb, aksum, timbuktu, library, benin_city, door_of_no_return,
          levant, crescent, granary, uruk, classical, colosseum,
          ice_age_europe, painted_cave, first_farmers_of_europe, megalith_builders, celtic_frontier, viking_north, sail,
          industrial, mill,

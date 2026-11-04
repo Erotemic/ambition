@@ -224,7 +224,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// Room transfers retain all selected bodies and their individual arrivals.
 /// Relative arrivals retain a live body reference until the commit frame.
 /// Party travel rules and exact exit agreements belong to session rollback state.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 422;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 423;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

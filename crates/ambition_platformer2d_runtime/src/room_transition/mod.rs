@@ -62,6 +62,14 @@ impl Plugin for RoomTransitionComposerPlugin {
         ambition_platformer2d_shared_tangle::lifecycle::require_on_session_root::<CapturedRoomPreparation>(app);
         app.add_systems(
             sim,
+            ambition_platformer2d_session::death::withdraw_crossings_on_actor_death
+                .in_set(Platformer2dSimulationPhase::Combat)
+                .after(ambition_platformer2d_shared_tangle::schedule::CombatSet::ContentFlavor)
+                .before(ambition_platformer2d_shared_tangle::schedule::CombatSet::Settle)
+                .run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::death_rules::ActorDiedMessage>),
+        );
+        app.add_systems(
+            sim,
             capture_room_preparation_inputs
                 .in_set(GameplaySimulationRoot)
                 .after(Platformer2dSimulationPhase::ResetProcessing)

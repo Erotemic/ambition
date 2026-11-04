@@ -20,7 +20,7 @@ fn app_with_the_death_beat() -> App {
     let mut app = App::new();
     app.add_message::<ActorDiedMessage>();
     app.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
-    app.add_systems(Update, open_death_interlude);
+    app.add_systems(Update, (withdraw_crossings_on_actor_death, open_death_interlude).chain());
     app
 }
 
@@ -230,4 +230,28 @@ fn a_participant_in_play_in_another_room_does_not_hold_back_the_level() {
         "[the primary falls with the other in the stage, with the other in the \
          hall, a second seat falls with the primary in the stage]"
     );
+}
+
+#[test]
+fn a_death_withdraws_its_crossing_on_the_current_rollback_frame() {
+    use crate::lifecycle_commit::{LifecycleIntent, RoomTransitionIntent, RoomBodyTransfer, RoomArrival, PendingLifecycleCommit};
+    use ambition_platformer2d_shared_tangle::lifecycle::{LiveBodyId, LiveRoomInstance, InRoomInstance};
+    for participant in [true, false] {
+        let mut app = app_with_the_death_beat();
+        let id = SimId::placement("dying-traveller");
+        let victim = app.world_mut().spawn((id.clone(), InRoomInstance(LiveRoomInstance::ACTIVATION))).id();
+        if participant { app.world_mut().entity_mut(victim).insert(PlayerEntity); }
+        assert!(app.world_mut().resource_mut::<PendingLifecycleCommit>().record(10,
+            LifecycleIntent::Transition(RoomTransitionIntent {
+                disposition: Default::default(), source_zone: None,
+                initiator: RoomBodyTransfer { subject: LiveBodyId::new(id, Some(LiveRoomInstance::ACTIVATION)),
+                    arrival: RoomArrival::At(ambition_platformer2d_core::Vec2::ZERO), participant: None },
+                companions: Vec::new(), target_room: "east".into(), edge_exit: false, zone_sfx: None,
+            })).admitted());
+        app.insert_resource(ambition_platformer2d_core::ConfirmedFrameBoundary { current: 14, confirmed: 11, session: 1 });
+        kill(&mut app, victim);
+        let pending = app.world().resource::<PendingLifecycleCommit>();
+        assert!(pending.peek().is_none(), "a dead actor retained its admission; participant={participant}");
+        assert_eq!(pending.withdrawn.as_ref().unwrap().withdrawn_on, 14);
+    }
 }

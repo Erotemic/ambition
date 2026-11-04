@@ -374,7 +374,13 @@ impl RoomTransitionApplication<'_, '_> {
             if !seen.insert(subject) {
                 return Err(RoomTransitionApplyError::SubjectCannotTransit { subject, missing: "unique transfer membership" });
             }
-            members.push(self.prepare_member(subject, transfer.participant)?);
+            let member = self.prepare_member(subject, transfer.participant)?;
+            // A rebuild can carry a dead body into its restore.
+            if restore.is_none() && !intent.rebuilds_source_room()
+                && !self.bodies.living.get(subject).is_ok_and(|(health, out_of_play)| health.alive() && out_of_play.is_none()) {
+                return Err(RoomTransitionApplyError::SubjectCannotTransit { subject, missing: "available living body" });
+            }
+            members.push(member);
         }
         let room_plan = ambition_platformer2d_session::rooms::room_transfer_plan(
             members.iter().map(|member| (Some(member.subject), member.participant,
@@ -707,6 +713,8 @@ pub struct TransitBodies<'w, 's> {
     /// TRANSIT (ADR 0024 authority) and must reconcile model-private attachment.
     motion_models: Query<'w, 's, &'static mut ambition_platformer2d_core::movement::MotionModel>,
     combat: Query<'w, 's, &'static mut ambition_characters::actor::BodyCombat>,
+    living: Query<'w, 's, (&'static ambition_characters::actor::BodyHealth,
+        Option<&'static ambition_combat::death_rules::OutOfPlay>)>,
     /// The transiting body's resolved gravity frame — read (before the mutable
     /// cluster borrow) so the landing diagnostic probes along the body's own
     /// gravity, not world-down.

@@ -140,6 +140,18 @@ fn peer_prepared_by(
     poison: Poison,
     prepare: fn(&mut Platformer2dSimHarness),
 ) -> (Platformer2dSimHarness, Vec<&'static str>) {
+    peer_with_prediction(room, local, remote, transport, poison, prepare, 8)
+}
+
+fn peer_with_prediction(
+    room: &str,
+    local: usize,
+    remote: (usize, std::net::SocketAddr),
+    transport: LoopbackTransport,
+    poison: Poison,
+    prepare: fn(&mut Platformer2dSimHarness),
+    max_prediction_window: usize,
+) -> (Platformer2dSimHarness, Vec<&'static str>) {
     let options = fixed_60hz_room_options(room)
         .with_sync_test_rollback_settings(4, 10)
         .with_rollback_players(2);
@@ -158,7 +170,7 @@ fn peer_prepared_by(
         players: 2,
         local: vec![local],
         remote: vec![remote],
-        max_prediction_window: 8,
+        max_prediction_window,
         input_delay: 0,
         desync_interval: 1,
         // An update of this App can take far longer than a network round
@@ -656,6 +668,269 @@ fn ordinary_peer_crossings_apply_on_shared_input_frames_without_holding_or_rebas
         assert!(outcome.applied[0].values().all(|(_, room)| *room == Some(destination)));
         assert_eq!(outcome.rooms, [vec![(destination, HUB.into())], vec![(destination, HUB.into())]]);
         assert_eq!(outcome.members, [(Some(destination), Some(Some(destination))); 2]);
+    }
+}
+
+const PEER_COMBAT_VICTIM: &str = "peer-room-combat-victim";
+
+fn prepare_alice_returning_to_bobs_fight(sim: &mut Platformer2dSimHarness) {
+    use ambition_platformer2d::{characters::actor::{BodyHealth, Health}, engine_core::AabbExt as _};
+    crate::common::doors_cross_at_once(sim);
+    let floor = {
+        let world = sim.world();
+        let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+            ambition_platformer2d::world::rooms::RoomSet>(world).unwrap();
+        let room = rooms.spec(rooms.definition_by_id(ROOM).unwrap());
+        room.world.blocks.iter().filter(|block|
+            ambition_platformer2d::engine_core::collision_semantics::is_full_collision_surface(block.kind)
+                && block.aabb.width() >= 256.0 && block.aabb.height() <= 64.0
+                && block.aabb.top() >= 96.0 && block.aabb.top() < room.world.size.y
+                && block.aabb.center().x >= 96.0 && block.aabb.center().x < room.world.size.x - 96.0)
+            .map(|block| block.aabb).find(|floor| {
+                [-48.0, 48.0].into_iter().all(|dx| room.embeds(ambition_platformer2d::engine_core::Aabb::new(
+                    ambition_platformer2d::engine_core::Vec2::new(floor.center().x + dx, floor.top() - 32.0),
+                    ambition_platformer2d::engine_core::Vec2::splat(24.0))).is_empty())
+            }).expect("the source room has clear ground for the combat fixture")
+    };
+    let at = ambition_platformer2d::engine_core::Vec2::new(floor.center().x + 48.0, floor.top() - 64.0);
+    sim.spawn_enemy_character_at(PEER_COMBAT_VICTIM, "Target", (at.x, at.y), (12.0, 16.0),
+        ambition_platformer2d::entity_catalog::placements::CharacterBrain::Passive, "npc_puppy_slug");
+    {
+        let world = sim.world_mut();
+        let source = *ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<LiveRoomInstance>(world).unwrap();
+        let victim = world.query::<(Entity, &ambition_platformer2d::combat::components::FeatureId)>().iter(world)
+            .find(|(_, id)| id.0 == PEER_COMBAT_VICTIM).unwrap().0;
+        world.entity_mut(victim).insert(ambition_platformer2d::platformer::lifecycle::InRoomInstance(source));
+        let mut bodies = world.query::<(&ambition_platformer2d::combat::components::FeatureId,
+            &ambition_platformer2d::platformer::sim_id::SimId, &mut BodyHealth)>();
+        let (id, mut health) = bodies.iter_mut(world).find(|(id, _, _)| id.0 == PEER_COMBAT_VICTIM)
+            .map(|(_, id, health)| (id.clone(), health)).unwrap();
+        *health = BodyHealth::new(Health::new(1));
+        world.insert_resource(ScriptedCombatTarget(id));
+    }
+    {
+        let world = sim.world_mut();
+        let mut bodies = world.query::<(&ambition_platformer2d::combat::components::FeatureId,
+            ambition_platformer2d::engine_core::BodyClusterQueryData,
+            &mut ambition_platformer2d::actor::MotionModel)>();
+        for (id, mut clusters, mut model) in bodies.iter_mut(world) {
+            let dx = if id.0 == "ow1_bob" { -48.0 } else if id.0 == PEER_COMBAT_VICTIM { 48.0 } else { continue };
+            let half = clusters.kinematics.size * 0.5;
+            let at = ambition_platformer2d::engine_core::Vec2::new(floor.center().x + dx, floor.top() - half.y);
+            ambition_platformer2d::engine_core::movement::transit_body(&mut model, &mut clusters.as_clusters_mut(), at,
+                ambition_platformer2d::engine_core::movement::TransitVelocity::Zero);
+        }
+    }
+    assert_eq!(crate::common::walk_through_the_door_to(sim, HUB), HUB);
+    let door = door_of(sim, HUB, ROOM).aabb.center();
+    sim.teleport_player((door.x, door.y));
+}
+
+#[derive(Resource)]
+struct ScriptedCombatTarget(ambition_platformer2d::platformer::sim_id::SimId);
+
+fn bob_strikes_during_room_preparation(
+    controls: Res<ambition_platformer2d::characters::control::SlotControls>,
+    pending: Res<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>,
+    target: Res<ScriptedCombatTarget>,
+    bodies: Query<(Entity, &ambition_platformer2d::platformer::sim_id::SimId,
+        Option<&ambition_platformer2d::characters::control::DrivingParticipant>,
+        &ambition_platformer2d::engine_core::BodyKinematics,
+        &ambition_platformer2d::platformer::lifecycle::InRoomInstance)>,
+    mut hits: MessageWriter<ambition_platformer2d::combat::events::HitEvent>,
+) {
+    use ambition_platformer2d::{characters::control::PlayerSlot, combat::events::{HitEvent, HitSource, HitTarget, HitMode}};
+    if !controls.get(PlayerSlot(1)).attack_pressed || pending.peek().is_none() { return; }
+    let (attacker, _, _, _, room) = bodies.iter().find(|(_, _, driver, _, _)|
+        driver.is_some_and(|driver| driver.0 == PlayerSlot(1))).unwrap();
+    let Some((victim, _, _, body, target_room)) = bodies.iter().find(|(_, id, _, _, _)|
+        **id == target.0) else { return };
+    if room != target_room { return; }
+    hits.write(HitEvent {
+        pieces: Vec::new(), volume: ambition_platformer2d::engine_core::Aabb::new(body.pos, body.size * 0.5).into(),
+        damage: 1, source: HitSource::Projectile, attacker: Some(attacker), room: Some(room.0),
+        target: HitTarget::Body(victim), mode: HitMode::Knockback, knockback: None,
+        ignored_targets: Vec::new(), strike_sfx: None, attacker_move_instance: None,
+    });
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct LiveCombatSample {
+    pending_from_another_room: bool,
+    bob_x: f32,
+    victim_health: Option<i32>,
+}
+
+#[derive(Resource, Default)]
+struct LiveCombatSamples(BTreeMap<i32, LiveCombatSample>);
+
+fn sample_bobs_room_while_alice_prepares(
+    frame: Res<RollbackFrameCount>,
+    pending: Res<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>,
+    bodies: Query<(&ambition_platformer2d::combat::components::FeatureId,
+        &ambition_platformer2d::engine_core::BodyKinematics,
+        &ambition_platformer2d::characters::actor::BodyHealth,
+        &ambition_platformer2d::platformer::lifecycle::InRoomInstance)>,
+    mut samples: ResMut<LiveCombatSamples>,
+) {
+    let (_, bob, _, room) = bodies.iter().find(|(id, _, _, _)| id.0 == "ow1_bob").unwrap();
+    let hp = bodies.iter().find(|(id, _, _, _)| id.0 == PEER_COMBAT_VICTIM).map(|(_, _, health, _)| health.health.current);
+    let another = pending.peek().and_then(|operation| operation.kind.subject())
+        .is_some_and(|subject| subject.room != Some(room.0));
+    samples.0.insert(frame.0, LiveCombatSample { pending_from_another_room: another, bob_x: bob.pos.x, victim_health: hp });
+}
+
+#[test]
+fn a_peer_keeps_moving_and_fighting_in_a_live_destination_while_another_peer_prepares() {
+    let (a, b) = ("127.0.0.1:7061".parse().unwrap(), "127.0.0.1:7062".parse().unwrap());
+    let (to_bob, to_alice) = loopback_transports(a, b, LATENCY);
+    let (mut alice, _) = peer_prepared_by(ROOM, 0, (1, b), to_bob, Poison::None, prepare_alice_returning_to_bobs_fight);
+    let (mut bob, _) = peer_prepared_by(ROOM, 1, (0, a), to_alice, Poison::None, prepare_alice_returning_to_bobs_fight);
+    for sim in [&mut alice, &mut bob] {
+        sim.app_mut().init_resource::<LiveCombatSamples>()
+            .add_systems(GgrsSchedule, bob_strikes_during_room_preparation
+                .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::Combat)
+                .before(ambition_platformer2d::platformer::schedule::CombatSet::Resolve))
+            .add_systems(SaveWorld, sample_bobs_room_while_alice_prepares);
+    }
+    bob.app_mut().add_systems(Update, bobs_machine_is_slower
+        .after(ambition_platformer2d::runtime::room_transition::authorize_ready_room_transition_system));
+    let source = where_they_are(&mut alice).1.unwrap().unwrap();
+    for update in 0..2000 {
+        if confirmed(&alice) >= 100 && confirmed(&bob) >= 100 { break; }
+        assert!(update < 1999, "the peers did not finish the crossing");
+        for (index, sim) in [&mut alice, &mut bob].into_iter().enumerate() {
+            let next = sim.world().resource::<RollbackFrameCount>().0 + 1;
+            sim.drive_seat(index as u8, if index == 0 {
+                ControlFrame { interact_pressed: next == RECORDED_ON,
+                    interact_held: (RECORDED_ON..RECORDED_ON + 3).contains(&next), ..Default::default() }
+            } else { ControlFrame { axis_x: if (30..45).contains(&next) { 1.0 } else { 0.0 },
+                attack_pressed: next == 34, jump_released: next % 2 == 0, ..Default::default() } });
+            sim.app_mut().update();
+            assert_eq!(generation(sim.world()), 0);
+        }
+        assert!(alice.rollback_health().is_ok() && bob.rollback_health().is_ok());
+    }
+    let (compared, differing) = compare(&alice, &bob);
+    assert!(compared.get(&0).is_some_and(|frames| *frames >= 90));
+    assert!(differing.is_empty(), "confirmed state differs: {differing:?}");
+    for sim in [&mut alice, &mut bob] {
+        let samples = &sim.world().resource::<LiveCombatSamples>().0;
+        let waiting: Vec<_> = samples.iter().filter(|(frame, sample)| **frame <= confirmed(sim) && sample.pending_from_another_room).collect();
+        assert!(waiting.iter().any(|(_, sample)| sample.bob_x != waiting[0].1.bob_x), "no movement during preparation: {waiting:?}");
+        assert!(waiting.iter().any(|(_, sample)| sample.victim_health.is_none_or(|hp| hp <= 0)), "no kill during preparation: {waiting:?}");
+        assert!(samples[&29].victim_health.is_some_and(|hp| hp > 0));
+        assert_eq!(live_rooms(sim), vec![(source, ROOM.into())]);
+        assert_eq!(where_they_are(sim), (Some(source), Some(Some(source))));
+    }
+}
+
+const LATE_HIT_FRAME: i32 = 58;
+const ALICE_READY_FRAME: i32 = 60;
+
+fn prepare_alice_waiting_for_a_late_hit(sim: &mut Platformer2dSimHarness) {
+    each_player_on_the_hub_door(sim);
+    let world = sim.world_mut();
+    let alice = world.query_filtered::<Entity, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+        .single(world).unwrap();
+    world.get_mut::<ambition_platformer2d::characters::actor::BodyHealth>(alice).unwrap().health.current = 1;
+    let target = world.get::<ambition_platformer2d::platformer::sim_id::SimId>(alice).unwrap().clone();
+    world.insert_resource(ScriptedCombatTarget(target));
+}
+
+fn hold_alices_plan_until_the_late_hit(frame: Res<RollbackFrameCount>, mut loads: ResMut<LoadState>) {
+    if frame.0 < ALICE_READY_FRAME {
+        if let Some(active) = loads.active.as_mut().filter(|active| active.phase == LoadPhase::CommitAuthorized) {
+            active.phase = LoadPhase::AwaitingReadiness;
+        }
+    }
+}
+
+/// Keep the later death restore waiting so the cancelled travel is observed alone.
+fn delay_followup_checkpoint_preparation(mut loads: ResMut<LoadState>) {
+    if let Some(active) = loads.active.as_mut().filter(|active|
+        active.checkpoint_operation.is_some() && active.phase == LoadPhase::CommitAuthorized) {
+        active.phase = LoadPhase::AwaitingReadiness;
+    }
+}
+
+#[derive(Resource, Default)]
+struct ObservedRoomArrivalResets(usize);
+
+fn observe_room_arrival_resets(
+    frame: Res<RollbackFrameCount>,
+    mut sounds: MessageReader<ambition_platformer2d::sfx::OwnedSfxMessage>,
+    mut observed: ResMut<ObservedRoomArrivalResets>,
+) {
+    for sound in sounds.read() {
+        if frame.0 >= RECORDED_ON && matches!(sound.request, ambition_platformer2d::sfx::SfxMessage::Reset { .. }) {
+            observed.0 += 1;
+        }
+    }
+}
+
+#[test]
+fn corrected_combat_removes_a_speculative_crossing_and_its_arrival_effect() {
+    use ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit;
+    for attack in [false, true] {
+        let (a, b) = ("127.0.0.1:7071".parse().unwrap(), "127.0.0.1:7072".parse().unwrap());
+        let (to_bob, to_alice) = loopback_transports(a, b, 6);
+        let (mut alice, _) = peer_with_prediction(ROOM, 0, (1, b), to_bob, Poison::None, prepare_alice_waiting_for_a_late_hit, 32);
+        let (mut bob, _) = peer_with_prediction(ROOM, 1, (0, a), to_alice, Poison::None, prepare_alice_waiting_for_a_late_hit, 32);
+        for sim in [&mut alice, &mut bob] {
+            sim.app_mut().init_resource::<ObservedRoomArrivalResets>()
+                .add_systems(GgrsSchedule, bob_strikes_during_room_preparation
+                    .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::Combat)
+                    .before(ambition_platformer2d::platformer::schedule::CombatSet::Resolve))
+                .add_systems(Update, observe_room_arrival_resets)
+                .add_systems(Update, delay_followup_checkpoint_preparation
+                    .after(ambition_platformer2d::runtime::room_transition::authorize_ready_room_transition_system));
+        }
+        alice.app_mut().add_systems(Update, hold_alices_plan_until_the_late_hit
+            .after(ambition_platformer2d::runtime::room_transition::authorize_ready_room_transition_system));
+        let mut speculative = [false; 2];
+        let mut first_ready = [None; 2];
+        for update in 0..2000 {
+            if confirmed(&alice) >= 75 && confirmed(&bob) >= 75 { break; }
+            assert!(update < 1999, "the corrected crossing did not settle");
+            for (index, sim) in [&mut alice, &mut bob].into_iter().enumerate() {
+                let next = sim.world().resource::<RollbackFrameCount>().0 + 1;
+                sim.drive_seat(index as u8, ControlFrame {
+                    interact_pressed: index == 0 && next == RECORDED_ON,
+                    interact_held: index == 0 && (RECORDED_ON..RECORDED_ON + 3).contains(&next),
+                    attack_pressed: attack && index == 1 && next == LATE_HIT_FRAME,
+                    jump_released: next % 2 == 0, ..Default::default()
+                });
+                sim.app_mut().update();
+                let verdict = sim.world().resource::<ambition_platformer2d::rollback::ThisPeersVerdict>().0;
+                if verdict.operation.recorded_on == RECORDED_ON
+                    && verdict.said == ambition_platformer2d::rollback::PreparationVerdict::Prepared && first_ready[index].is_none() {
+                    first_ready[index] = Some((sim.world().resource::<RollbackFrameCount>().0, confirmed(sim)));
+                }
+                assert_eq!(generation(sim.world()), 0);
+                if sim.world().resource::<PendingLifecycleCommit>().applied.as_ref()
+                    .is_some_and(|receipt| receipt.operation.frame == RECORDED_ON && receipt.applied_on > confirmed(sim)) {
+                    speculative[index] = true;
+                    let active = sim.world().resource::<LoadState>().active.as_ref().expect("an unconfirmed crossing must keep its loading receipt");
+                    assert_eq!(active.phase, LoadPhase::CommitAuthorized);
+                    assert!(active.arrived_in.is_none(), "a speculative crossing leaked its presentation receipt");
+                }
+            }
+            assert!(alice.rollback_health().is_ok() && bob.rollback_health().is_ok());
+        }
+        let (compared, differing) = compare(&alice, &bob);
+        assert!(compared.get(&0).is_some_and(|frames| *frames >= 70));
+        assert!(differing.is_empty(), "corrected state differs: {differing:?}");
+        assert!(speculative.into_iter().any(|applied| applied), "the run never applied speculatively; attack={attack}; first readiness={first_ready:?}");
+        for sim in [&mut alice, &mut bob] {
+            let applied = sim.world().resource::<PendingLifecycleCommit>().applied.as_ref()
+                .is_some_and(|receipt| receipt.operation.frame == RECORDED_ON);
+            assert_eq!(applied, !attack, "a corrected death must remove the original application");
+            assert_eq!(sim.world().resource::<ObservedRoomArrivalResets>().0, usize::from(!attack));
+            let expected_rooms = if attack { vec![(LiveRoomInstance::ACTIVATION, ROOM.into())] }
+                else { vec![(LiveRoomInstance::ACTIVATION, ROOM.into()), (LiveRoomInstance::ACTIVATION.next(), HUB.into())] };
+            assert_eq!(live_rooms(sim), expected_rooms);
+        }
     }
 }
 

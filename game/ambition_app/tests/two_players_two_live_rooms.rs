@@ -4328,3 +4328,22 @@ fn travel_keeps_the_shared_clock_scale_and_a_full_rebuild_resets_it() {
         assert_eq!(scales, if rebuild { (1.0, 1.0) } else { (0.37, 0.63) });
     }
 }
+
+#[test]
+fn ordinary_travel_refuses_dead_or_out_of_play_bodies_before_publication() {
+    use ambition_platformer2d::runtime::room_transition::RoomTransitionApplyError;
+    for depleted in [true, false] {
+        let (mut sim, plan, intent, body) = prepared_new_destination();
+        let rooms = live_rooms(&mut sim);
+        let stamp = *sim.world().get::<InRoomInstance>(body).unwrap();
+        if depleted {
+            sim.world_mut().get_mut::<ambition_platformer2d::characters::actor::BodyHealth>(body).unwrap().health.current = 0;
+        } else {
+            sim.world_mut().entity_mut(body).insert(ambition_platformer2d::combat::death_rules::OutOfPlay);
+        }
+        assert!(matches!(stage_room_transfer(sim.world_mut(), &plan, &intent),
+            Err(RoomTransitionApplyError::SubjectCannotTransit { missing: "available living body", .. })));
+        assert_eq!(live_rooms(&mut sim), rooms);
+        assert_eq!(*sim.world().get::<InRoomInstance>(body).unwrap(), stamp);
+    }
+}

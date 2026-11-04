@@ -1496,6 +1496,11 @@ fn every_gameplay_message_channel_is_rewound_on_rollback_or_named() {
     // A new gameplay channel lands here as a failure, and its author has to decide
     // rather than inherit silence.
     const NOT_REWOUND: &[(&str, &str)] = &[
+        (
+            "ambition_platformer2d_rollback_ggrs::lifecycle_commit::PeerRoomCommit",
+            "the confirmed room receipt is read only in PreUpdate; the simulation writes \
+             through the effect outbox, and its journal drops abandoned predictions on load",
+        ),
         // sixteen are answered STRUCTURALLY rather than one at a time. The
         // checker asks whether a stale reader cursor can change the simulation. A
         // sim crate that cannot NAME the message type cannot hold a cursor into

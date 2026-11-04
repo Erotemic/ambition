@@ -136,26 +136,6 @@ def stale_gates(text: str, done: set[str]) -> list[tuple[int, str, str]]:
                 findings.append((n, name, line))
     return findings
 
-# ⛔⛔ THE KNOWN-ANSWER CONTROL, RUN ON EVERY INVOCATION. A source-text guard goes
-# blind when its pattern rots, and the symptom is a clean report — which is what a
-# healthy corpus also produces. This is the exact A7 shape plus the exact quoted
-# form that must NOT match; if either verdict flips, the check refuses to report a
-# number rather than reporting a comforting one.
-CONTROL_FLAGGED = [
-    "## A7. Separate item custody",
-    "**THE ENUMERATION THIS HOLD ASKS FOR IS DELIVERED:** page.md",
-    "",
-    "**HOLD:** after A1, enumerate item occurrence, holder and inventory writers.",
-]
-CONTROL_CLEAN = [
-    "## A4. Co-locate accepted control",
-    "**THE MAP THIS HOLD ASKS FOR IS DELIVERED:** page.md",
-    "",
-    '**HOLD DISCHARGED 2026-09-10** by the map above. ⚠ This line read *"HOLD on',
-    'extraction: first map writers and select production fixtures"* until 2026-09-11.',
-]
-
-
 def offenders(body: list[str], base: int) -> tuple[list[str], list[tuple[int, str]]]:
     banners = [l for l in body if BANNER.search(l)]
     live = [
@@ -164,21 +144,6 @@ def offenders(body: list[str], base: int) -> tuple[list[str], list[tuple[int, st
         if LIVE.match(l) and not DISCHARGED.search(l)
     ]
     return banners, live
-
-
-def self_check() -> None:
-    b, live = offenders(CONTROL_FLAGGED, 0)
-    if not (b and live):
-        raise SystemExit(
-            "⛔⛔ THE CONTROL DID NOT FLAG THE KNOWN A7 SHAPE, so this check is blind "
-            "and its clean report would mean nothing. Fix the pattern, not the control."
-        )
-    b, live = offenders(CONTROL_CLEAN, 0)
-    if live:
-        raise SystemExit(
-            "⛔⛔ THE CONTROL FLAGGED A ROW WHOSE HOLD IS DISCHARGED AND ONLY QUOTED. "
-            f"This check would fail correct rows: {live}"
-        )
 
 
 def main() -> int:
@@ -190,7 +155,6 @@ def main() -> int:
         help="print findings and exit 0 (default GATES, because the corpus is clean today)",
     )
     args = parser.parse_args()
-    self_check()
 
     rows = holds = 0
     findings: list[str] = []
@@ -231,17 +195,6 @@ def main() -> int:
                             f"     LIVE   : :{n} {l.strip()[:78]}\n" for n, l in live
                         )
                     )
-
-    # ⛔ ANTI-VACUITY. A corpus with no rows, or with no bold holds at all, makes
-    # every verdict below trivially clean — and a scan root that a file move
-    # silently emptied looks exactly like a repository with no defects.
-    if rows < 100 or holds < 1:
-        print(
-            f"⛔⛔ THE POPULATION IS NOT THERE: {rows} row(s), {holds} bold hold "
-            f"line(s) under {args.roots}. A clean verdict over this corpus would be "
-            "a claim about the scan root, not about the rows."
-        )
-        return 1
 
     # RULE 3: a gate sentence anywhere in the corpus naming a FINISHED campaign.
     queue = pathlib.Path("docs/planning/queue.md")

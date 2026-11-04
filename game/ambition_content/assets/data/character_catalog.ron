@@ -634,6 +634,49 @@
             move_style: WalkHeavy,
             melee: Some(Lunge(windup_s: 0.85, active_s: 0.3, recover_s: 1.1, damage: 3, reach_px: 64.0, step_px: 0.0, rush_px: 140.0)),
         ),
+        // The Sulawesi warty pig drops its head (its windup row) and charges
+        // a short quick way, tusks first; the saltwater crocodile opens its
+        // jaws low (its windup row), lunges a short heavy way and needs a long
+        // moment after.
+        "sulawesi_warty_pig_charge": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.45, active_s: 0.2, recover_s: 0.55, damage: 1, reach_px: 34.0, step_px: 0.0, rush_px: 170.0)),
+        ),
+        "saltwater_crocodile_lunge": (
+            move_style: WalkHeavy,
+            melee: Some(Lunge(windup_s: 0.8, active_s: 0.25, recover_s: 1.1, damage: 2, reach_px: 60.0, step_px: 0.0, rush_px: 130.0)),
+        ),
+        // The king cobra rears up and spreads its hood (its windup row), then
+        // strikes forward from on high; the water monitor lifts its head and
+        // swings its tail (its windup row), then whips and bites.
+        "king_cobra_strike": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.55, active_s: 0.15, recover_s: 0.6, damage: 2, reach_px: 56.0, step_px: 0.0, rush_px: 90.0)),
+        ),
+        "water_monitor_whip": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.5, active_s: 0.2, recover_s: 0.6, damage: 1, reach_px: 48.0, step_px: 0.0, rush_px: 150.0)),
+        ),
+        // The moon bear rears on its hind legs (its windup row) and swipes;
+        // the snow monkey crouches (its windup row) and leaps to grab; the
+        // clouded leopard crouches low (its windup row) and pounces far.
+        "asian_black_bear_swipe": (
+            move_style: WalkHeavy,
+            melee: Some(Lunge(windup_s: 0.6, active_s: 0.25, recover_s: 0.8, damage: 2, reach_px: 56.0, step_px: 0.0, rush_px: 110.0)),
+        ),
+        "japanese_macaque_grab": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.35, active_s: 0.15, recover_s: 0.45, damage: 1, reach_px: 30.0, step_px: 0.0, rush_px: 160.0)),
+        ),
+        "clouded_leopard_pounce": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.55, active_s: 0.3, recover_s: 0.7, damage: 2, reach_px: 48.0, step_px: 0.0, rush_px: 210.0)),
+        ),
+        // The tanuki puffs itself up (its windup row) and bowls into you.
+        "tanuki_bowl": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.5, active_s: 0.25, recover_s: 0.6, damage: 1, reach_px: 36.0, step_px: 0.0, rush_px: 170.0)),
+        ),
         "sea_raider_cut": (
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.35, active_s: 0.15, recover_s: 0.45, damage: 2, reach_px: 36.0, step_px: 0.0, rush_px: 140.0)),
@@ -7678,6 +7721,256 @@
             hall: ["Everyone thinks we only steal. We hunt most of what we eat. We just laugh about it, and that gives us a reputation.", "The first humans came down out of the trees right here. We were waiting. We have been laughing about it ever since."],
         ),
         ),
+        // The Sulawesi warty pig: a small wild pig found only on Sulawesi and
+        // its near islands, with warts on the face and a tuft on the crown.
+        // People painted it on cave walls at least 45,500 years ago.
+        "sulawesi_warty_pig": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Sulawesi Warty Pig",
+            manifest: "sprites/sulawesi_warty_pig_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(40.0),
+            composition: None,
+            default_action_set: "sulawesi_warty_pig_charge",
+            locomotion: Some((run_speed: 230.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 480.0,
+                attack_range: 70.0,
+                patrol_effort: 0.5,
+                chase_effort: 0.9,
+                attack_cooldown_s: 0.8,
+                tactics: (notice_s: 0.4, footsies: Some((hold_px: 120.0, wait_s: 0.6)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "history", "sulawesi", "beast"],
+        barks: (
+            on_hit: ["SQUEEE!", "*an offended grunt*"],
+            provoked: ["*it lowers its warty head and paws the ground*"],
+            idle: ["*snuffle snuffle*", "*it roots for a fallen fruit*", "Oink. Locally."],
+            hall: ["I am the oldest model in the world. A painter put me on a cave wall over 45,000 years ago, and I have not changed my look since.", "People call it a hunting scene. I call it a portrait."],
+        ),
+        ),
+        // The saltwater crocodile: the largest living reptile, at home in the
+        // rivers, swamps and seas from India to Australia. It swims between
+        // islands, as the people of the islands did.
+        "saltwater_crocodile": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Saltwater Crocodile",
+            manifest: "sprites/saltwater_crocodile_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(32.0),
+            composition: None,
+            default_action_set: "saltwater_crocodile_lunge",
+            locomotion: Some((run_speed: 110.0, move_style: WalkHeavy)),
+            contact_damage: Some((strength: 0.8, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 420.0,
+                attack_range: 90.0,
+                patrol_effort: 0.2,
+                chase_effort: 0.7,
+                // It waits, then it lunges, then it waits a long time.
+                attack_cooldown_s: 1.4,
+                tactics: (notice_s: 0.9, footsies: Some((hold_px: 160.0, wait_s: 1.2))),
+            )),
+            max_health: Some(10),
+            mass: Some(7.0),
+            tags: ["enemy", "history", "austronesian_islands", "dong_son", "beast"],
+        barks: (
+            on_hit: ["*a hiss like a kettle*", "*it does not blink. It never blinks.*"],
+            provoked: ["*two eyes and a nose come up out of the water*"],
+            idle: ["*it lies still, like a log with plans*", "*a long, slow breath*"],
+            hall: ["My family has looked like this for a very long time. We watched the islanders paddle by in their canoes. We swim between islands too; we just do not bring pots.", "I can go months without a meal. I am in no hurry. You will come down to the water eventually."],
+        ),
+        ),
+        // The king cobra: the longest venomous snake in the world, of the
+        // forests of South and Southeast Asia. It lifts a third of its body
+        // off the ground to look you in the eye.
+        "king_cobra": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "King Cobra",
+            manifest: "sprites/king_cobra_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(48.0),
+            composition: None,
+            default_action_set: "king_cobra_strike",
+            locomotion: Some((run_speed: 140.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 420.0,
+                attack_range: 72.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.7,
+                // It warns first: the hood goes up, and it waits.
+                attack_cooldown_s: 1.1,
+                tactics: (notice_s: 0.8, footsies: Some((hold_px: 130.0, wait_s: 0.9))),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "history", "angkor", "beast"],
+        barks: (
+            on_hit: ["*HSSSS*", "*the hood flares wider*"],
+            provoked: ["*it rises, and rises, until its eyes are level with yours*"],
+            idle: ["*a long olive coil in the leaves*", "*its tongue tastes the air*"],
+            hall: ["I am the longest venomous snake in the world. I can stand a third of my length off the ground and look you in the eye.", "I eat other snakes. You are not a snake. Leave quietly and we will both have a good day."],
+        ),
+        ),
+        // The Asian water monitor: a big lizard of the rivers and coasts of
+        // Southeast Asia, a strong swimmer that eats what the harbour drops.
+        "water_monitor": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Water Monitor",
+            manifest: "sprites/water_monitor_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(24.0),
+            composition: None,
+            default_action_set: "water_monitor_whip",
+            locomotion: Some((run_speed: 190.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 460.0,
+                attack_range: 80.0,
+                patrol_effort: 0.6,
+                chase_effort: 0.8,
+                attack_cooldown_s: 0.9,
+                tactics: (notice_s: 0.5, footsies: Some((hold_px: 120.0, wait_s: 0.6)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(4),
+            tags: ["enemy", "history", "srivijaya", "beast"],
+        barks: (
+            on_hit: ["*an outraged hiss*", "*the tail lashes*"],
+            provoked: ["*it lifts its head and swings its tail, slowly*"],
+            idle: ["*flick, flick goes the forked tongue*", "*it suns itself on the warm planks*"],
+            hall: ["I swim, I climb, and I eat whatever the harbour drops. Palembang suits me fine.", "My cousins on Komodo get all the attention. I am just as long and much better company."],
+        ),
+        ),
+        // The Asian black bear, the moon bear: a white V on its black chest.
+        // It climbs for acorns and chestnuts in the forests of Japan.
+        "asian_black_bear": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Asian Black Bear",
+            manifest: "sprites/asian_black_bear_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(56.0),
+            composition: None,
+            default_action_set: "asian_black_bear_swipe",
+            locomotion: Some((run_speed: 150.0, move_style: WalkHeavy)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 480.0,
+                attack_range: 72.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.8,
+                attack_cooldown_s: 1.1,
+                tactics: (notice_s: 0.7, footsies: Some((hold_px: 140.0, wait_s: 0.8))),
+            )),
+            max_health: Some(6),
+            mass: Some(5.0),
+            tags: ["enemy", "history", "jomon", "silla", "beast"],
+        barks: (
+            on_hit: ["*a huff and a growl*", "*it stands taller*"],
+            provoked: ["*it rears up and shows the white moon on its chest*"],
+            idle: ["*it sniffs for chestnuts*", "*crunch*"],
+            hall: ["The white V on my chest is a moon. That is why they call me the moon bear.", "I climb trees for acorns and chestnuts. The Jōmon and I liked the same groves."],
+        ),
+        ),
+        // The Japanese macaque, the snow monkey: the most northern monkey in
+        // the world, with a red face and thick grey-brown fur.
+        "japanese_macaque": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Japanese Macaque",
+            manifest: "sprites/japanese_macaque_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(40.0),
+            composition: None,
+            default_action_set: "japanese_macaque_grab",
+            locomotion: Some((run_speed: 240.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 520.0,
+                attack_range: 80.0,
+                patrol_effort: 0.7,
+                chase_effort: 1.0,
+                retreat_after_swing_s: 0.4,
+                attack_cooldown_s: 0.6,
+                tactics: (notice_s: 0.3, waits_its_turn: true, footsies: Some((hold_px: 110.0, wait_s: 0.4)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "history", "jomon", "beast"],
+        barks: (
+            on_hit: ["*SKREE!*", "*it bares its teeth and backs off*"],
+            provoked: ["*it eyes your lunch*"],
+            idle: ["*it grooms a friend who is not there*", "*it washes a chestnut, carefully*"],
+            hall: ["We are the most northern monkeys in the world. In winter we sit in the hot springs. You should try it.", "On the island of Kōjima in 1953 a young monkey called Imo began to wash her sweet potatoes in the sea. Now we all do it. That is culture."],
+        ),
+        ),
+        // The Formosan clouded leopard: cloud-shaped blotches, a very long
+        // tail, and for its size the longest canine teeth of any cat.
+        // Not seen in Taiwan since the 1980s; declared extinct in 2013.
+        "clouded_leopard": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Formosan Clouded Leopard",
+            manifest: "sprites/clouded_leopard_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(40.0),
+            composition: None,
+            default_action_set: "clouded_leopard_pounce",
+            locomotion: Some((run_speed: 260.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 560.0,
+                attack_range: 90.0,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+                attack_cooldown_s: 0.9,
+                tactics: (notice_s: 0.5, footsies: Some((hold_px: 150.0, wait_s: 0.7)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "history", "taiwan", "beast"],
+        barks: (
+            on_hit: ["*a hiss through very long teeth*", "*its tail lashes*"],
+            provoked: ["*it flattens itself along the branch*"],
+            idle: ["*it is not there. Then it is.*", "*a long tail twitches in the grass*"],
+            hall: ["For my size, my canine teeth are the longest of any cat. I do not need to tell you why.", "In Taiwan nobody has seen one of us since the 1980s. In 2013 we were declared extinct. You are talking to a ghost."],
+        ),
+        ),
+        // The tanuki, the Japanese raccoon dog: a round wild dog with a dark
+        // mask, not a raccoon. In winter it can sleep through the cold.
+        "tanuki": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Tanuki",
+            manifest: "sprites/tanuki_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(32.0),
+            composition: None,
+            default_action_set: "tanuki_bowl",
+            locomotion: Some((run_speed: 190.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 460.0,
+                attack_range: 80.0,
+                patrol_effort: 0.5,
+                chase_effort: 0.8,
+                attack_cooldown_s: 1.0,
+                tactics: (notice_s: 0.6, footsies: Some((hold_px: 120.0, wait_s: 0.6)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "history", "heian", "beast"],
+        barks: (
+            on_hit: ["*it plays dead. Then it does not.*", "*a huffy little yip*"],
+            provoked: ["*it puffs up to twice its size*"],
+            idle: ["*it waddles off to look for persimmons*", "*sniff sniff*"],
+            hall: ["I am not a raccoon. I am a dog. A round dog.", "In the old stories I change shape: into a teakettle, once, and then I could not get my tail back in."],
+        ),
+        ),
         // The cave lion: the maneless lion of the Ice Age that the painters of
         // the caves drew. It crouches with its hips wiggling (its windup row),
         // pounces a long way with its claws out, and lands.
@@ -11716,6 +12009,393 @@
             barks: (
                 idle: ["Supe. Like soup. Mostly anchovy.", "*her fingers tie a knot without her looking*", "Cotton up, anchovies down. That is the whole economy."],
                 hall: ["The valley grows the cotton; we make the nets; the sea gives the anchovies. Everybody wins except the anchovies.", "Pots? Nobody here makes pots yet. A gourd is a pot that grows on a vine."],
+            ),
+        ),
+        // Southeast Asia (wave C). The pig painter, the word keeper and the
+        // drum caster are original people; Trưng Trắc and Trưng Nhị are the
+        // sisters who led the rising of 40 CE against Han rule.
+        "npc_history_pig_painter": (
+            display_name: "The Pig Painter",
+            // An original painter of Sulawesi, about 51,000 years ago, with red ochre on her hands and a bone tube to blow paint.
+            manifest: "sprites/history_pig_painter_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 152 cm.
+            standing_height: Some(58.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "sulawesi", "peaceful"],
+            barks: (
+                idle: ["*she spits red ochre round her hand, and lifts it: the hand stays on the rock*", "A pig. Three people. You decide what happens next.", "Mind the wall. It is still drying. For about fifty thousand years."],
+                hall: ["At Leang Karampuang a pig and three figures like people are painted on the wall. It is at least 51,200 years old: the oldest known painted story.", "Nobody walked to this island. It was never joined to the land. Everyone here came by sea, on rafts, long before anyone sailed anywhere else."],
+            ),
+        ),
+        "npc_history_word_keeper": (
+            display_name: "The Word Keeper",
+            // An original Austronesian woman, about 2000 BCE, in bark cloth with shell beads and a red-slipped pot.
+            manifest: "sprites/history_word_keeper_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 158 cm.
+            standing_height: Some(61.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "austronesian_islands", "peaceful"],
+            barks: (
+                idle: ["Mata. Eye. Say it. Good.", "*she turns the red pot in her hands, and hums a word list*", "Lima: five, and the hand. Count on it."],
+                hall: ["From Taiwan, by outrigger canoe, our words went to Madagascar and to Rapa Nui: half the globe. More languages come from ours than from almost any other family.", "You say tattoo and taboo. Those are ours: tatau and tapu. They went the long way round, through the far islands, to reach you."],
+            ),
+        ),
+        "npc_history_trung_trac": (
+            display_name: "Trưng Trắc",
+            // Trưng Trắc, who led the rising of 40 CE against Han rule with her sister and ruled from Mê Linh until 43 CE.
+            manifest: "sprites/history_trung_trac_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(62.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "dong_son", "peaceful"],
+            barks: (
+                idle: ["Sixty-five citadels. Count them if you doubt me.", "*she sets the sword point-down, and waits*", "Mê Linh is ours."],
+                hall: ["In 40 CE my sister and I raised the Lạc lords against Han rule, and for three years we ruled. In 43 CE the Han general Ma Yuan defeated us.", "Every town in Vietnam has a street for the Two Ladies Trưng. That is a long memory for three years."],
+            ),
+        ),
+        "npc_history_trung_nhi": (
+            display_name: "Trưng Nhị",
+            // Trưng Nhị, the younger of the Trưng sisters, with a war banner, in 40 CE.
+            manifest: "sprites/history_trung_nhi_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 156 cm.
+            standing_height: Some(60.5),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "dong_son", "peaceful"],
+            barks: (
+                idle: ["*the banner snaps in the wind*", "The stories say we rode elephants. The stories are right.", "My sister talks. I ride."],
+                hall: ["Many of our captains were women. Here a daughter could inherit, and a woman could lead. The Han did not like it at all.", "When the bronze drums sound, the Lạc lords come. They came for us."],
+            ),
+        ),
+        "npc_history_drum_caster": (
+            display_name: "The Drum Caster",
+            // An original bronze-smith of the Dong Son culture, about 100 BCE, with a bronze drum and tongs.
+            manifest: "sprites/history_drum_caster_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 164 cm.
+            standing_height: Some(63.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "dong_son", "peaceful"],
+            barks: (
+                idle: ["Wax, clay, fire, bronze. And a little luck.", "*he taps the drum: the frogs on its rim seem to jump*", "A star in the middle, for the sun. Always."],
+                hall: ["Our drums are cast by the lost wax: carve the pictures in wax, cover it in clay, pour out the wax and pour in the bronze. They have been dug up from southern China to the far islands of Indonesia.", "The frogs on the rim are for the rain. Frogs sing when it comes. A drum with frogs asks for rain, very loudly."],
+            ),
+        ),
+        // Southeast Asia (wave C2). The harbour master, the relief carver and
+        // the baray engineer are original people; Yijing is the Tang monk who
+        // studied in Srivijaya; Zhou Da-Guide is a parody of Zhou Daguan, the
+        // Yuan envoy who wrote the only eyewitness account of Angkor.
+        "npc_history_harbour_master": (
+            display_name: "Harbour Master of Palembang",
+            // An original harbour master of Srivijaya, about 680 CE, with a balance scale for gold and a palm-leaf tally.
+            manifest: "sprites/history_harbour_master_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm.
+            standing_height: Some(64.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "srivijaya", "peaceful"],
+            barks: (
+                idle: ["Ship's name, cargo, port. And the toll.", "*the little scale tips, and he smiles*", "Everything stops here. Everything pays a little."],
+                hall: ["Every ship between India and China came through our strait. We kept the pirates off the sea road, and the ships paid us for it.", "About 1400 a prince of Palembang, Parameswara, founded Malacca on the same strait. Whoever holds it, the ships still pay."],
+            ),
+        ),
+        "npc_history_yijing": (
+            display_name: "Yijing",
+            // Yijing (635-713), the Tang Chinese monk who studied Sanskrit in Srivijaya on his way to and from India.
+            manifest: "sprites/history_yijing_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "srivijaya", "peaceful"],
+            barks: (
+                idle: ["*he copies a line, and checks it twice*", "A year or two here first, then India.", "Keep your ink dry."],
+                hall: ["In Srivijaya there were more than a thousand monks, and they studied as they did in India. I told every monk from China to stop here first.", "Once I went aboard a ship here to send a letter home for ink and paper, and it sailed with me on it. I went to China by accident, and came back."],
+            ),
+        ),
+        "npc_history_relief_carver": (
+            display_name: "Relief Carver of Borobudur",
+            // An original stone carver of Borobudur in Java, about 800 CE, with a chisel and a wooden mallet.
+            manifest: "sprites/history_relief_carver_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 162 cm.
+            standing_height: Some(62.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "borobudur", "peaceful"],
+            barks: (
+                idle: ["*tap, tap, tap: a sail appears*", "Two thousand six hundred and seventy-two panels. I am counting.", "Walk every gallery before you go up."],
+                hall: ["Among the stories on the walls we carved the life around them: houses, markets, musicians, and ships with outriggers like the ones that sailed to Madagascar.", "In 2003 people built a ship from one of our pictures and sailed it to Africa. Every block of this hill was cut by hand and holds the next one without mortar."],
+            ),
+        ),
+        "npc_history_baray_engineer": (
+            display_name: "Baray Engineer",
+            // An original Khmer engineer of Angkor, about 1150 CE, who plans the reservoirs, with a measuring rod and a palm-leaf plan.
+            manifest: "sprites/history_baray_engineer_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 158 cm.
+            standing_height: Some(61.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "angkor", "peaceful"],
+            barks: (
+                idle: ["It is not a lake. It is a reservoir.", "*she sights along the rod, and frowns at the dike*", "Eight kilometres, give or take a canal."],
+                hall: ["The West Baray is eight kilometres by two, dug by hand. Water for the rice, or a sea around the mountain of the gods? Both, and a great deal of digging.", "In the 1300s and 1400s floods and droughts broke the canals; in 1431 Ayutthaya took the city. But monks have kept Angkor Wat to this day."],
+            ),
+        ),
+        "npc_history_zhou_da_guide": (
+            display_name: "Zhou Da-Guide",
+            // A parody of Zhou Daguan, the Yuan Chinese envoy of 1296-97, as a tour guide with a pennant and a notebook.
+            manifest: "sprites/history_zhou_da_guide_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "angkor", "peaceful"],
+            barks: (
+                idle: ["Tour group, this way! Keep up!", "*he holds the little flag higher*", "A guide never exaggerates. A guide enhances."],
+                hall: ["In 1296 I stayed a year at Angkor and wrote down the markets, the bathing, the king's procession and the slaves. Without me nobody would know what was for lunch.", "The markets here are run by women. Any business, ask the wife. I wrote that down; the Khmer had palm leaves, and the damp ate them."],
+            ),
+        ),
+        // East Asia's coasts (wave D1). The flame potter, the chestnut keeper,
+        // the jade carver, the farmer of Nankuanli and the star watcher are
+        // original people; Queen Seondeok ruled Silla from 632 to 647.
+        "npc_history_flame_potter": (
+            display_name: "Flame Potter of Sannai-Maruyama",
+            // An original Jōmon potter of Sannai-Maruyama, about 3000 BCE, with a flame-style pot and a red lacquered comb.
+            manifest: "sprites/history_flame_potter_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 152 cm.
+            standing_height: Some(58.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "jomon", "peaceful"],
+            barks: (
+                idle: ["The clay is easy. The fire is the hard part.", "*she pinches up one more crest of the rim*", "Beautiful, and it still makes soup."],
+                hall: ["We made pottery for ten thousand years before your history books begin, and we never farmed. We stayed in this town for fifteen hundred years.", "Everyone in Japan carries a little of us. The Ainu of the north and the Ryukyuans of the south carry the most."],
+            ),
+        ),
+        "npc_history_chestnut_keeper": (
+            display_name: "Chestnut Keeper",
+            // An original Jōmon forager of Sannai-Maruyama, about 3000 BCE, with a basket of chestnuts and a digging stick.
+            manifest: "sprites/history_chestnut_keeper_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(62.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "jomon", "peaceful"],
+            barks: (
+                idle: ["Chestnut? Roasted this morning.", "*he cracks a burr open with his heel*", "Is it farming? We were too busy eating."],
+                hall: ["We cleared the other trees and kept the best chestnuts near the town, until the woods were almost all chestnut. Call it what you like.", "Six posts, each a metre thick. A tower? A stage? Nobody knows what it held, and we are not telling."],
+            ),
+        ),
+        "npc_history_jade_carver": (
+            display_name: "Jade Carver of Fengtian",
+            // An original jade carver of Taiwan, about 2500 BCE, with a green jade adze and a cord saw.
+            manifest: "sprites/history_jade_carver_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 155 cm.
+            standing_height: Some(60.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "taiwan", "peaceful"],
+            barks: (
+                idle: ["Green as a river.", "*sand, water, the cord: back and forth*", "Patience is harder than jade."],
+                hall: ["Fengtian jade from Taiwan travelled by boat to the Philippines, Vietnam, Thailand and Borneo: one of the longest sea roads of any stone in the ancient world.", "Of the ten oldest branches of the Austronesian languages, nine grow only on Taiwan. The grandchildren left in canoes. The grandmothers stayed."],
+            ),
+        ),
+        "npc_history_nankuanli_farmer": (
+            display_name: "Farmer of Nankuanli",
+            // An original farmer of Nankuanli in southern Taiwan, about 2500 BCE, with a sheaf of millet and a stone knife.
+            manifest: "sprites/history_nankuanli_farmer_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 164 cm.
+            standing_height: Some(63.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "taiwan", "peaceful"],
+            barks: (
+                idle: ["Mind the dog. She minds you.", "*he tests a millet head between his teeth*", "Millet on the slope, rice in the wet."],
+                hall: ["At Nankuanli we buried our dogs with care, as we buried people. Your diggers found them nearly five thousand years later.", "Every generation a few of us sailed south over the channel to the Batanes and Luzon. Their grandchildren reached half the world."],
+            ),
+        ),
+        "npc_history_queen_seondeok": (
+            display_name: "Queen Seondeok",
+            // Queen Seondeok, who ruled Silla from 632 to 647, the first of its three queens, in a gold crown of Silla.
+            manifest: "sprites/history_queen_seondeok_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 158 cm.
+            standing_height: Some(61.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "silla", "peaceful"],
+            barks: (
+                idle: ["Yes, the queen.", "*she closes her fan with a snap*", "A kingdom must know when to plant, and when to worry."],
+                hall: ["I ruled Silla in my own name from 632 to 647, the first of three queens. In my reign Cheomseongdae was built to watch the sky.", "The story goes that the Tang emperor sent me peonies with no bees, to say a queen without a husband has no scent. I said the peonies had none. I planted them. I was right."],
+            ),
+        ),
+        "npc_history_star_watcher": (
+            display_name: "Star Watcher of Cheomseongdae",
+            // An original astronomer of Silla, about 640 CE, with a bamboo sighting tube and a star chart.
+            manifest: "sprites/history_star_watcher_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "silla", "peaceful"],
+            barks: (
+                idle: ["Quiet, please. The stars are speaking.", "*he squints along the bamboo tube*", "Clear skies."],
+                hall: ["Cheomseongdae, built in Queen Seondeok's reign, still stands: the oldest standing observatory in East Asia.", "People count 362 stones and 27 courses in the tower and argue about what the numbers mean. I just climbed it."],
+            ),
+        ),
+        // Song China, Joseon and Heian Japan (wave D2). Li Qingzhao, King
+        // Sejong, Jang Yeong-sil, Murasaki Shikibu and Sei Shonagon are real;
+        // the money printer of Hangzhou is original.
+        "npc_history_li_qingzhao": (
+            display_name: "Li Qingzhao",
+            // Li Qingzhao (1084-about 1155), the great poet of the Song, with a folding fan and a scroll of her poems.
+            manifest: "sprites/history_li_qingzhao_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(62.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "song", "peaceful"],
+            barks: (
+                idle: ["Searching, seeking. Cold, clear.", "*she taps her closed fan against the scroll*", "A good line costs a sleepless night."],
+                hall: ["My husband and I collected old bronzes and inscriptions on stone. When the Jurchen took the north we fled south with fifteen carts of books. Most were lost on the road.", "After dinner we made tea and quizzed each other: which book, which chapter, which page holds this line? The winner drank first. Once I laughed so hard I spilled the tea down my front."],
+            ),
+        ),
+        "npc_history_money_printer": (
+            display_name: "Money Printer of Hangzhou",
+            // An original printer of the Song state's paper money in Hangzhou, about 1200 CE, with a bronze plate and a fresh note.
+            manifest: "sprites/history_money_printer_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm.
+            standing_height: Some(64.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "song", "peaceful"],
+            barks: (
+                idle: ["Fresh money! Do not lick it, the ink is wet.", "*he presses the plate, peels the sheet, admires it*", "Copper is heavy. Paper is the future."],
+                hall: ["The merchants of Sichuan printed notes first; in 1023 the state took them over. Our huizi came in 1160. The plate is the government's, not mine. I checked.", "Print too many and each note buys less. By the end of the dynasty we had learned that more than once."],
+            ),
+        ),
+        "npc_history_murasaki_shikibu": (
+            display_name: "Murasaki Shikibu",
+            // Murasaki Shikibu (about 973-about 1014), lady of the Heian court and author of The Tale of Genji, with a brush and a sheet of paper.
+            manifest: "sprites/history_murasaki_shikibu_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 155 cm.
+            standing_height: Some(60.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "heian", "peaceful"],
+            barks: (
+                idle: ["*she writes a line, and crosses it out*", "Shining Genji is a character. Do not fall in love with him.", "I see more than I say."],
+                hall: ["When my brother studied the Chinese classics, I learned them faster just by listening. My father sighed: if only she had been born a boy.", "Murasaki is not my name. It is a nickname, perhaps after a lady in my book. My real name? Nobody wrote it down."],
+            ),
+        ),
+        "npc_history_sei_shonagon": (
+            display_name: "Sei Shōnagon",
+            // Sei Shōnagon (about 966-after 1017), lady-in-waiting to Empress Teishi and author of The Pillow Book, with an open fan.
+            manifest: "sprites/history_sei_shonagon_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 153 cm.
+            standing_height: Some(59.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "heian", "peaceful"],
+            barks: (
+                idle: ["In spring, the dawn.", "*she hides a smile behind her fan*", "That is going on a list."],
+                hall: ["Hateful things: a visitor who talks on and on when you are in a hurry. A mosquito's thin little voice when you are falling asleep. I wrote them all down.", "Murasaki called me dreadfully conceited in her diary. I never answered her in my book. That is how you win."],
+            ),
+        ),
+        "npc_history_king_sejong": (
+            display_name: "King Sejong",
+            // King Sejong the Great (1397-1450), fourth king of Joseon, who made the Korean alphabet, with a bound book.
+            manifest: "sprites/history_king_sejong_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.7),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "joseon", "peaceful"],
+            barks: (
+                idle: ["A king's work is to let his people speak.", "*he turns a page, and nods*", "Twenty-eight letters. Learn them by lunch."],
+                hall: ["Our speech is not Chinese, so Chinese letters do not fit it, and many of my people had something to say and could not write it. So I made twenty-eight letters, easy to learn, for every day.", "Each consonant is a picture of the mouth that says it: the tongue, the lips, the teeth, the throat. Korea keeps a day for the letters: 9 October in the South, 15 January in the North."],
+            ),
+        ),
+        "npc_history_jang_yeongsil": (
+            display_name: "Jang Yeong-sil",
+            // Jang Yeong-sil (about 1390-after 1442), engineer of King Sejong's court, born a government slave, with a rain gauge and a ruler.
+            manifest: "sprites/history_jang_yeongsil_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "joseon", "peaceful"],
+            barks: (
+                idle: ["Measure twice.", "*he reads the water in the gauge, and writes it down*", "The same rain gauge in every province. Now we can compare."],
+                hall: ["I was born a government slave. King Sejong made me an official, and I made him clocks that ring the hours by themselves, and sundials for the streets.", "People say I made the rain gauge. The records say the crown prince did, in 1441. I will settle for the water clock."],
             ),
         ),
         "npc_primeval_twitchell": (

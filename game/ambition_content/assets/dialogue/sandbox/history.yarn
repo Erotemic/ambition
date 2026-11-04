@@ -23,15 +23,15 @@ Clio: Oh good, a visitor. Welcome to the beginning. Well, a beginning. Historian
 -> Who are you?
     Clio: Clio. The Muse of History. I keep the record. It is very long and nobody reads the footnotes.
 -> Where am I?
-    Clio: The Great Rift Valley, in Africa, about three hundred thousand years ago. Everyone you will meet in this dimension has ancestors who stood about where you are standing.
+    Clio: The Great Rift Valley, in Africa, about three hundred thousand years ago. Everyone you will meet in this dimension has ancestors in Africa. Not in one valley: the oldest bones of our kind are from Morocco, Ethiopia and South Africa. Africa is the cradle, all of it.
     -> Everyone?
         Clio: Everyone. People walked out of Africa and kept walking, to every land there is. That is the first story, and it is the same story for all of them.
     -> Go on.
-        Clio: Fire first. Then the long walk. Then, in many places at once, farming. Then cities, and then the trouble starts. Writing comes in around the trouble. Then me.
+        Clio: Fire, which people had tended for hundreds of thousands of years already. Then the long walk. Then, in many places at once, farming. Then cities, and then the trouble starts. Writing comes in around the trouble. Then me.
 -> How does this place work?
-    Clio: East is later. Every floor is a different part of the world, and the rooms one above the other happened at the same time. Ladders join them where people met. History is not a line. It is a lot of lines that keep running into each other.
+    Clio: East is later. Every floor is a different part of the world, and the rooms one above the other happened at the same time. A way up or down joins them where people met, and where the atlas has folded the map to make a road, a sign says so. History is not a line. It is a lot of lines that keep running into each other.
 -> Goodbye.
-    Clio: Light the fire before the hyenas come. And remember: the past is not over. It is just upstream.
+    Clio: Keep the fire lit before the hyenas come. And remember: the past is not over. It is just upstream.
 ===
 
 title: history_hammurabbi
@@ -334,6 +334,8 @@ Lucy: (She looks up at you, then at your feet. She stands up very straight, to s
     Lucy: (She tilts her head. She has seen a lot of visitors. Three point two million years of them, counting the scientists.)
 -> Are you the first person?
     Mary Leaky: She is not a person like us. She is an Australopithecus. But she walked on two legs, like us, more than three million years ago. She is family. A very old cousin.
+-> What is she doing here?
+    Mary Leaky: Visiting. She lived three million years before anyone in this valley. Clio lets the old ones come to the atlas as guests, so you can meet them. Do not tell her she is early.
 -> Why "Lucy"?
     Mary Leaky: The team that found her bones played a song all night in the camp. The song had a Lucy in it. In Ethiopia she has another name: Dinkinesh. It means "you are marvellous".
 -> Goodbye.
@@ -914,4 +916,318 @@ Net Maker of Aspero: From the coast, are you? No? You smell of mountains.
     Net Maker of Aspero: Some archaeologists say the sea fed the first cities of the Andes, before the farms could. I say: obviously. Others say the farms. They have not tasted my anchovies.
 -> Goodbye.
     Net Maker of Aspero: Take a net. You will catch something. Possibly a fish.
+===
+
+title: history_pig_painter
+---
+Pig Painter: Stand back from the wall. Not that far. There. Now you can see the pig.
+-> What is it doing?
+    Pig Painter: Standing. The three beside it are people, or something like people, holding things out to it. A rope, a spear. Maybe it is a hunt. Maybe it is a story about a hunt. You will have to guess. That is what a story is for.
+-> How do you paint in the dark?
+    Pig Painter: With a fire, and red earth ground in water. For the hands, put yours on the rock, fill your mouth with paint and blow. Afterwards the hand is gone and the rock remembers it.
+-> Is that a real pig?
+    Pig Painter: A warty pig. They live in the forest here, and only on these islands. Your children's children will still see them. Mind the tusks.
+-> How did you get here?
+    Pig Painter: By sea. Everyone did. These islands never touched the lands to the west or the lands to the south, not even when the sea was low. Our grandmothers built rafts and went where they could see smoke, or birds, or nothing at all.
+-> Goodbye.
+    Pig Painter: Leave your hand on the wall if you like. Fifty thousand years is a long time to be remembered.
+===
+
+title: history_word_keeper
+---
+Word Keeper: Sit, sit. Mind the pot. Do you know what this is? Mata. Eye. Point at your eye. Mata.
+-> Why do you keep words?
+    Word Keeper: Because our words travel further than we do. My grandmother's grandmother came south from the big island you call Taiwan. Her words came with her. They go on ahead now, from island to island, in the canoes.
+-> How far?
+    Word Keeper: Further than anyone will believe. One day mata will mean eye in Malay, in Tagalog, in Fiji and in Aotearoa. On Madagascar, by Africa, it will be maso; in Hawaii, in the middle of the great sea, maka. The same word, worn smooth by the road. Lima, five, the fingers of one hand: Malay, Tagalog, Fijian. In Hawaii lima is five and the hand itself. Half the world, by canoe.
+-> You speak my language?
+    Word Keeper: You speak a little of ours. Tattoo, from tatau. Taboo, from tapu. Those came the long way round, through the far islands. Keep them; they suit you.
+-> What do you bring in the canoes?
+    Word Keeper: Rice and millet, pigs and dogs, red-slipped pots like this one, and the outrigger, which keeps a canoe the right way up. On the new islands we find bananas, taro and sugarcane, and we take those too.
+-> Goodbye.
+    Word Keeper: Selamat jalan, they will say in Malay: go safely. Paalam, in Tagalog. And from me: mind the pot.
+===
+
+title: history_trung_trac
+---
+Trưng Trắc: Stranger, you stand in Mê Linh. My sister and I hold it, and sixty-five citadels besides. The Han governor has run home.
+-> Who are you?
+    Trưng Trắc: Trưng Trắc, daughter of the Lạc lord of Mê Linh. That is my sister, Trưng Nhị. In the year you call 40 CE we raised the Lạc lords against Han rule, and the people rose with us.
+-> Why did you rise?
+    Trưng Trắc: The governor, Tô Định, took our land for his taxes and put our ways under his law. The stories say he killed my husband, Thi Sách; others say not. Either way, I did not need a husband's death to want my country back.
+-> What happens next?
+    Trưng Trắc: Three years we rule. Then the Han send their best general, Ma Yuan, with a great army, and in 43 CE we lose. The Han chronicles say they took our heads. Our people say we went into the river rather than be taken. Choose which story you believe. Both say we did not kneel.
+-> Are you remembered?
+    Trưng Trắc: Ask anyone in Vietnam. There are temples to the Two Ladies Trưng, a street named for us in every town, and a day of the year that is ours.
+-> Goodbye.
+    Trưng Trắc: Go. If anyone asks who rules here, say: we do.
+===
+
+title: history_trung_nhi
+---
+Trưng Nhị: Do not mind the banner. It is heavier than it looks, and so am I.
+-> You are the younger sister?
+    Trưng Nhị: Trưng Nhị. Younger, and better with a bow. My sister speaks for us. I ride beside her. The stories say we rode elephants into battle. Have you tried to steer an elephant? We did.
+-> Who fights for you?
+    Trưng Nhị: Everyone. Many of our captains are women: Phùng Thị Chính, the stories say, fought with her baby on her back. Lê Chân raised an army on the coast. Here, a daughter can inherit, and a woman can lead. The Han find this very upsetting.
+-> What is the drum for?
+    Trưng Nhị: Listen to it and you will know. The bronze drums are older than us, older than the Han. When they sound, the Lạc lords come.
+-> Goodbye.
+    Trưng Nhị: Ride well. And if you meet an elephant, let it steer.
+===
+
+title: history_drum_caster
+---
+Drum Caster: Careful. It is still warm. Well, no. But it was, once, and I like to say that.
+-> How do you make one?
+    Drum Caster: Shape the drum in wax over a core of clay. Carve every picture into the wax. Cover it all in more clay, heat it, pour the wax out and the bronze in. Break the mould. If you did it right, the pictures come out in bronze. If not, you start again. I have started again a lot.
+-> What are the pictures?
+    Drum Caster: A star in the middle, for the sun. Around it, birds, and people in feathers dancing, and boats full of warriors. And on some, frogs on the rim. Frogs sing when the rain comes. A drum with frogs asks for rain, politely, and very loudly.
+-> Who buys them?
+    Drum Caster: Lords, for their feasts and their funerals. And far away: our drums go down the rivers and across the sea. People will dig them up in Thailand, in Malaysia, on islands deep in Indonesia. Loud diplomacy.
+-> Why "Dong Son"?
+    Drum Caster: That is your name for us, after the village by the river Mã where a fisherman found our things in 1924, and your scholars came to dig. We call it home.
+-> Goodbye.
+    Drum Caster: Hit it if you like. Not too hard. The frogs are sensitive.
+===
+
+title: history_harbour_master
+---
+Harbour Master of Palembang: Welcome to Srivijaya. Ship's name, cargo, port you sailed from. And the toll.
+-> Why a toll?
+    Harbour Master of Palembang: Every ship between India and China comes through our strait, or through the Sunda strait, which is also ours. We keep the pirates off the sea road, and the ships pay us for it. It is cheaper than being robbed. Usually.
+-> What do you trade?
+    Harbour Master of Palembang: Camphor and resins from our forests, gold from our rivers, cloves from the Spice Islands in the east, cloth from India, silk and jars from China. Everything stops here, everything is weighed here, and everything pays a little.
+-> Is it true about the gold?
+    Harbour Master of Palembang: The Arab sailors tell that every morning our king throws a brick of gold into the estuary. I tell them yes. Then I charge them more.
+-> What happens next?
+    Harbour Master of Palembang: In 1025 the Chola king Rajendra sends a fleet from south India and sacks our ports. We do not recover all of it. But about 1400 a prince of Palembang, Parameswara, will found Malacca on the same strait. Whoever holds it, the ships still pay.
+-> Goodbye.
+    Harbour Master of Palembang: Sail well. Pay on the way back too.
+===
+
+title: history_yijing
+---
+Yijing: Peace to you. I am Yijing, a monk from Tang China. I came here from Guangzhou on a Persian ship, in the year you call 671.
+-> Why come here?
+    Yijing: To go to India, to the great monastery of Nalanda, a monk must read Sanskrit. Srivijaya has more than a thousand monks, and they study as they do in India. I tell every monk from China: stop here first, a year or two. I wrote it down, so now it is advice.
+-> Where next?
+    Yijing: Nalanda. Ten years of study there. Then back here, to copy and translate. Once I went aboard a ship in this harbour to send a letter home for more ink and paper, and the ship sailed with me on it. I went to China by accident and came back.
+-> What do you write?
+    Yijing: How monks live in India and in the islands of the South Sea. And the lives of the monks who went west before me to look for the teachings. Many of them did not come home. Someone should remember them.
+-> Goodbye.
+    Yijing: Go in peace. If you sail, keep your ink dry.
+===
+
+title: history_relief_carver
+---
+Relief Carver of Borobudur: Mind the dust. Every panel on this hill goes under a chisel like mine. Two thousand six hundred and seventy-two of them, but who is counting? Me. I am counting.
+-> What do they show?
+    Relief Carver of Borobudur: Stories that teach, as you climb. And around the stories, life: houses, markets, musicians, farmers, and ships. I like carving the ships.
+-> The ships?
+    Relief Carver of Borobudur: Outriggers with sails of matting, like the ones in the harbours. Ships like these sail as far as Madagascar. One day someone will build one from my picture and sail it all the way to Africa. I would like to see that.
+-> What is down at the foot?
+    Relief Carver of Borobudur: The first panels, of people and what their deeds bring them. Before they are even finished, the builders will cover them with a great wall of stone, perhaps to hold the hill up. Your people find them again in 1885.
+-> How long does it take?
+    Relief Carver of Borobudur: Two generations, people say, maybe more. The stone comes out of the rivers, block by block. No mortar: each block holds the next. My grandfather started this gallery.
+-> Goodbye.
+    Relief Carver of Borobudur: Walk every gallery before you go up. That is the way. It is also good for the legs.
+===
+
+title: history_baray_engineer
+---
+Baray Engineer: Careful. That is not a lake. It is a reservoir. I made it. Well, many thousands of us made it. I made the plan.
+-> What is it for?
+    Baray Engineer: Water for the rice in the dry months, say some of your scholars. A sea around the mountain of the gods, say others. I say: both, and either way it took a great deal of digging. Eight kilometres of it.
+-> Who does the digging?
+    Baray Engineer: Every village owes work to the king and to the temples, so every village sends its people. The temple stones list them: dancers, cooks, potters, diggers, by the thousand.
+-> And the stone?
+    Baray Engineer: Sandstone from the Kulen hills, a long way off. It comes down the canals on rafts. Every block has holes for the pegs that lift it. Look for the holes: that is how you know someone worked very hard.
+-> What happens to Angkor?
+    Baray Engineer: Too much water, then too little. In the 1300s and 1400s great floods and long droughts break the canals. In 1431 the army of Ayutthaya takes the city, and the court moves south, near Phnom Penh. But Angkor Wat is never empty. Monks keep it to this day.
+-> Goodbye.
+    Baray Engineer: Do not swim in the moat. The crocodiles have not read the plan.
+===
+
+title: history_zhou_da_guide
+---
+Zhou Da-Guide: Welcome, welcome! Tour group, this way, keep up! I am Zhou Da-Guide, envoy of the Great Yuan, and the only visitor who wrote any of this down.
+-> The only one?
+    Zhou Da-Guide: The Khmer carved their kings and their temples on stone. Everything else they wrote on palm leaves and hides, and the damp ate it. So for the markets, the houses, the bathing and the lunch, there is only me. In 1296 I stayed a year. You are welcome.
+-> What did you see?
+    Zhou Da-Guide: The markets are run by women: any business, ask the wife. Everybody bathes in the river, many times a day, all together. The king rides out with a thousand followers and a golden sword. And there are slaves, taken from the hill peoples. I wrote that down too. A guide tells you everything.
+-> Why the flag?
+    Zhou Da-Guide: So you can find me in the crowd. One of the greatest cities in the world! Very crowded. Also I like flags.
+-> Do you exaggerate?
+    Zhou Da-Guide: A guide never exaggerates. A guide enhances. The towers were gold. Some of them. On top.
+-> Goodbye.
+    Zhou Da-Guide: The gift shop is on the left. It is a stall of lotus seeds. Highly recommended.
+===
+
+title: history_flame_potter
+---
+Flame Potter of Sannai-Maruyama: Mind the pot. The clay is easy. The fire is the hard part.
+-> Why the crests?
+    Flame Potter of Sannai-Maruyama: Your people call them flame pots. Flames, waves, I will not say. But look inside: soot on the outside, burnt soup at the bottom. We cook in them. A pot can be beautiful and still make dinner.
+-> Do you farm?
+    Flame Potter of Sannai-Maruyama: No. We tend the chestnuts, gather nuts and shellfish, fish the bay, hunt deer and boar. And we stay: this town is lived in for fifteen hundred years. Your scholars once said people could not live in one place without farms. We did not hear them.
+-> How old are pots like these?
+    Flame Potter of Sannai-Maruyama: Mine are new. But my people have made pots for ten thousand years already, since about 14,500 BCE. Among the oldest anywhere. People in what you call China made them earlier still; we do not mind sharing.
+-> What happens to your people?
+    Flame Potter of Sannai-Maruyama: Rice farmers come from the continent long after me, and our children marry theirs. Everyone in Japan carries a little of us. The Ainu of the north and the Ryukyuans of the south carry the most.
+-> Goodbye.
+    Flame Potter of Sannai-Maruyama: Take the comb if you find it, the red one. That red is lacquer, from the urushi tree. We have used it for thousands of years.
+===
+
+title: history_chestnut_keeper
+---
+Chestnut Keeper: Chestnut? Roasted this morning. Mind, they are hot.
+-> Did you plant them?
+    Chestnut Keeper: We clear the other trees, and we keep the best chestnuts near the town. Now the woods around us are almost all chestnut. Is that farming? You decide. We were too busy eating.
+-> What is the big structure?
+    Chestnut Keeper: Six posts of chestnut, each a metre thick, sunk two metres into the ground. A tower to watch the bay? A stage for the dances? Your people built it again with three floors, but nobody knows what it held. Climb it and have a guess.
+-> How many live here?
+    Chestnut Keeper: Hundreds, in the busiest times, your diggers say. Pit houses, long houses, store houses, a road, a burial ground. A town, without a single field.
+-> Goodbye.
+    Chestnut Keeper: Watch out for the bear. She likes the chestnuts too.
+===
+
+title: history_jade_carver
+---
+Jade Carver of Fengtian: Hold it up to the light. Green as a river.
+-> How do you cut jade?
+    Jade Carver of Fengtian: You do not cut it. You wear it away: a cord, wet sand, back and forth, for days. It is harder than your knife. Patience is harder than jade.
+-> Where does it go?
+    Jade Carver of Fengtian: Later, Fengtian jade from here goes by boat to the Philippines, to Vietnam, to Thailand, to Borneo: rings with a slit, earrings with three points. One of the longest sea roads of any stone in the ancient world.
+-> Who are your people?
+    Jade Carver of Fengtian: Our language is the grandmother of languages from Madagascar to Hawaii. Your scholars sorted them into branches: of the ten oldest, nine grow only here. The grandchildren leave in canoes. The grandmothers stay.
+-> Goodbye.
+    Jade Carver of Fengtian: Mind the sand. It gets everywhere. That is how jade is made.
+===
+
+title: history_nankuanli_farmer
+---
+Farmer of Nankuanli: Mind the dog. She minds you.
+-> What do you grow?
+    Farmer of Nankuanli: Millet on the slope, rice in the wet ground. Both came over the strait from the mainland with our ancestors, long ago. We brought the dogs too.
+-> The dog?
+    Farmer of Nankuanli: At Nankuanli we bury our dogs with care, as we bury people. Your diggers will find them, four thousand eight hundred years from now. She is a good dog. She will be a famous one.
+-> Do you sail?
+    Farmer of Nankuanli: Some of us. My cousin's children went south over the channel to the islands you call the Batanes and Luzon. Every generation, a few more islands. Their grandchildren will reach places we have no names for.
+-> Goodbye.
+    Farmer of Nankuanli: Take some millet for the boat. The dog will see you to the edge of the field.
+===
+
+title: history_queen_seondeok
+---
+Queen Seondeok: You stand in Seorabeol, the capital of Silla. I am Seondeok. Yes, the queen.
+-> The first queen?
+    Queen Seondeok: The first to rule Silla in her own name, from 632 to 647. Two more queens will follow me. The story goes that the Tang emperor sent me a painting of peonies with no bees and no butterflies, to say that a queen without a husband is a flower without scent. I said: then these peonies have no scent. I planted the seeds. I was right.
+-> The tower?
+    Queen Seondeok: Cheomseongdae. Built in my reign to watch the sky. The calendar, the seasons, the eclipses: a kingdom must know when to plant, and when to worry.
+-> Your crown?
+    Queen Seondeok: Gold, cut like trees and antlers, hung with jade. Silla is the golden kingdom. The story goes that Arab geographers will write that gold is so common here even the dogs wear it. They exaggerate. A little.
+-> What comes next?
+    Queen Seondeok: Within thirty years Silla unites most of the peninsula, with Tang help and then against it, by 676. Silla lasts until 935. Not bad for a kingdom some said should not have a queen.
+-> Goodbye.
+    Queen Seondeok: Go well. Smell the peonies on your way out. Or do not. You know the story now.
+===
+
+title: history_star_watcher
+---
+Star Watcher of Cheomseongdae: Quiet, please. The stars are speaking. Slowly.
+-> What do you watch?
+    Star Watcher of Cheomseongdae: The sun's shadow for the seasons, the moon for the calendar, and comets and eclipses for the queen's worries. I write it all down. The court reads it when something goes wrong.
+-> How old is this tower?
+    Star Watcher of Cheomseongdae: New, in my time. Still standing in yours: the oldest standing observatory in East Asia. People count three hundred and sixty-two stones and twenty-seven courses, and argue about what the numbers mean. I just climb it.
+-> How do you get in?
+    Star Watcher of Cheomseongdae: A ladder to the window halfway up, then inside, then another ladder to the top. Very cosy. Bring a coat.
+-> Goodbye.
+    Star Watcher of Cheomseongdae: Clear skies to you.
+===
+
+title: history_li_qingzhao
+---
+Li Qingzhao: Searching, seeking. Cold, clear. Forgive me, I am working on a line.
+-> Who are you?
+    Li Qingzhao: A poet. I write ci: songs to old tunes, with new words. The scholars of my day said a woman's poems were a pastime. They read mine anyway, and so do you, nine hundred years later.
+-> Why did you come south?
+    Li Qingzhao: In 1127 the Jurchen took Kaifeng, the capital, and two emperors with it. The court fled south and made Hangzhou its home. My husband and I fled with fifteen carts of books, bronzes and rubbings of old stones. Most were lost on the road. He died two years later.
+-> What did you collect?
+    Li Qingzhao: Inscriptions on bronze and stone, the oldest writing we could find. After dinner we made tea and tested each other: which book, which chapter, which page holds this line? The winner drank first. Once I laughed so hard I spilled the tea down my front.
+-> Goodbye.
+    Li Qingzhao: Go slowly round the lake. It is better than any poem about it.
+===
+
+title: history_money_printer
+---
+Money Printer of Hangzhou: Fresh money! Do not touch it, the ink is wet.
+-> Paper is money?
+    Money Printer of Hangzhou: Copper coins are heavy. Strings of a thousand, carts of them. In Sichuan the merchants began to write notes for their iron coins; in 1023 the state took the printing over. Here in Hangzhou we have printed the huizi since 1160. Paper money printed by a government: we were the first.
+-> How do you stop forgers?
+    Money Printer of Hangzhou: A bronze plate, cut with care. Paper made from mulberry bark. A border of pictures, the text, and red seals in more than one colour. And a sentence printed on the note itself: forgers will be beheaded. That helps.
+-> Any problems?
+    Money Printer of Hangzhou: Wars cost money. When the court needs money, it asks me for more notes. More notes, and each one buys less. By the end of the dynasty we have learned that lesson more than once. So will you.
+-> Goodbye.
+    Money Printer of Hangzhou: Spend it soon. It is worth more today than tomorrow.
+===
+
+title: history_murasaki_shikibu
+---
+Murasaki Shikibu: I see more than I say. It is better for a writer.
+-> What are you writing?
+    Murasaki Shikibu: A long tale of Prince Genji, the Shining One, and the women in his life. Fifty-four chapters, some four hundred people. The court ladies pass the chapters round as I finish them. Some people call it the first novel. I call it unfinished.
+-> Why do you write in kana?
+    Murasaki Shikibu: Men write the official things in Chinese. Kana are our own letters for our own sounds, and in kana a woman may write whatever she sees. I can read Chinese too. When my brother studied the classics I learned them faster, just by listening. My father sighed: if only she had been born a boy.
+-> Is Murasaki your name?
+    Murasaki Shikibu: It is a nickname, perhaps after a lady in my book; Shikibu is from my father's office. My real name? Nobody wrote it down. You will find that a great deal of history is like that.
+-> Do you know Sei Shōnagon?
+    Murasaki Shikibu: I know her book. She served the other empress, Teishi; I serve Empress Shōshi. In my diary I wrote that she is dreadfully conceited, and scatters her Chinese about. I stand by it. Read her anyway. She is good.
+-> Goodbye.
+    Murasaki Shikibu: Mind the pond. The carp are watching.
+===
+
+title: history_sei_shonagon
+---
+Sei Shōnagon: In spring, the dawn. In summer, the night. Do you agree? You should.
+-> What is The Pillow Book?
+    Sei Shōnagon: Notes, kept by my pillow. Lists of things: splendid things, hateful things, things that make the heart beat faster. Little stories of the court. I wrote what I liked. People still read it a thousand years later, so I was right to.
+-> What are hateful things?
+    Sei Shōnagon: A visitor who talks on and on when you are in a hurry. A mosquito's thin little voice when you are falling asleep. A carriage with squeaky wheels. That is going on the list: you, standing there.
+-> And splendid things?
+    Sei Shōnagon: Snow on the roof. A letter that comes just when you wanted it. A clever answer at exactly the right moment. I am known for those.
+-> What about Murasaki?
+    Sei Shōnagon: She called me dreadfully conceited, in her diary. I never mentioned her in my book. That is how you win.
+-> Goodbye.
+    Sei Shōnagon: Go well. Do not be hateful on the way.
+===
+
+title: history_king_sejong
+---
+King Sejong: Welcome to Hanyang. Can you read? Good. Soon everyone here will.
+-> What are the letters?
+    King Sejong: Our speech is not Chinese, so Chinese letters do not fit it, and only a few scholars can spend the years to learn them. Many of my people have something to say and cannot write it. I have made twenty-eight letters, easy to learn, for every day. This year, 1446, I give them to the people: the Hunminjeongeum, the correct sounds to teach the people.
+-> How do they work?
+    King Sejong: Each consonant is a picture of the mouth that says it: the back of the tongue against the throat, the tip of the tongue, the lips, the teeth, the throat itself. The vowels are made of heaven, earth and humankind: a dot, a flat line, a standing line. The letters of a syllable sit together in a block.
+-> Did everyone like them?
+    King Sejong: No. Some scholars wrote to me that only barbarians make their own letters. I disagreed. Today Korea keeps a day for the letters: 9 October in the South, 15 January in the North. Call them Hangul or Chosŏn'gŭl; they are the same letters.
+-> What else have you done?
+    King Sejong: My court has charted the skies, measured the rain in every province, made clocks that ring themselves, and printed books with metal type. I gather clever people and let them work. Jang Yeong-sil, by the water clock, is one of the best.
+-> Goodbye.
+    King Sejong: Learn them by lunch. The wise ones do.
+===
+
+title: history_jang_yeongsil
+---
+Jang Yeong-sil: Measure twice. Then measure again.
+-> Who are you?
+    Jang Yeong-sil: An engineer of the king. I was born a government slave; my mother was of that rank. King Taejong noticed my skill and King Sejong made me an official. Few men of my birth have ever stood in this palace.
+-> What is the water clock?
+    Jang Yeong-sil: Water flows from the high vessels into the tall one at a steady rate. A float rises, and as it rises it drops bronze balls that set wooden figures moving. They strike a bell for the hours, and a drum and a gong for the watches of the night. Nobody has to stay awake to strike them.
+-> And the rain gauge?
+    Jang Yeong-sil: A bronze cylinder on a stone stand, the same size in every province, and a ruler to read the rain. People say I made it. The court record says the crown prince did, in 1441. Either way, every province now measures rain the same way, and sends the numbers to the capital. Some two centuries before Europe does the same.
+-> What happens to you?
+    Jang Yeong-sil: In 1442 a royal sedan chair I built breaks on the road. I am dismissed. After that the records say nothing more about me. Remember the clocks, if you would.
+-> Goodbye.
+    Jang Yeong-sil: Mind the bear on the terrace. It does not care how clever you are.
 ===

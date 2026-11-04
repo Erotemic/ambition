@@ -32,7 +32,7 @@ The source archive at commit `290f93f` contains:
 **Current source owners** (relative to the repository root):
 
 - `docs/planning/game/history-dimension.md`: built content and current ideas.
-- `tools/ambition_ldtk_tools/specs/history_dimension/make_specs.py`: region
+- `game/ambition_map_assets/ambition_content/generators/history/make_specs.py`: region
   positions, room specs, routes, and music assignments.
 - `game/ambition_content/assets/worlds/history.ldtk`: the published world.
 - `game/ambition_content/assets/data/gate_network.ron`: the dimension gate.

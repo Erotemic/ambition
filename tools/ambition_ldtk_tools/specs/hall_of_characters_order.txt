@@ -294,6 +294,28 @@ npc_history_potato_farmer
 npc_history_antoine_parmen_tater
 npc_history_caral_flautist
 npc_history_net_maker
+npc_history_pig_painter
+npc_history_word_keeper
+npc_history_trung_trac
+npc_history_trung_nhi
+npc_history_drum_caster
+npc_history_harbour_master
+npc_history_yijing
+npc_history_relief_carver
+npc_history_baray_engineer
+npc_history_zhou_da_guide
+npc_history_flame_potter
+npc_history_chestnut_keeper
+npc_history_jade_carver
+npc_history_nankuanli_farmer
+npc_history_queen_seondeok
+npc_history_star_watcher
+npc_history_li_qingzhao
+npc_history_money_printer
+npc_history_murasaki_shikibu
+npc_history_sei_shonagon
+npc_history_king_sejong
+npc_history_jang_yeongsil
 
 [Guests from history and the studio]
 npc_genghis_can
@@ -465,6 +487,14 @@ pacific_rat
 driver_ants
 napoleonic_grenadier
 andean_condor
+sulawesi_warty_pig
+saltwater_crocodile
+king_cobra
+water_monitor
+asian_black_bear
+japanese_macaque
+clouded_leopard
+tanuki
 
 [Mary-O's world]
 mary_o

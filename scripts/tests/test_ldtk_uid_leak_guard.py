@@ -139,3 +139,19 @@ def test_the_editor_formatter_fallback_announces_itself(capsys, monkeypatch):
             "the fallback path took itself silently — which is the defect, not "
             "the fallback"
         )
+
+
+def test_digits_inside_a_hash_do_not_hold_a_uid(tmp_path, monkeypatch):
+    """A uid is held by a whole number, not by the same digits inside a hash.
+
+    A package URL in a uv.lock contains `...3a3127368fb5...`; before `-w` that
+    blocked the reclaim of uid 127368 in the hall of characters.
+    """
+    import subprocess
+
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    (tmp_path / "uv.lock").write_text('url = "https://example.invalid/3a3127368fb545/pkg.whl"\n')
+    (tmp_path / "world.ldtk").write_text('{"uid": 127369}\n')
+    subprocess.run(["git", "-C", str(tmp_path), "add", "uv.lock", "world.ldtk"], check=True)
+    monkeypatch.chdir(tmp_path)
+    assert guard.unreferenced(range(127368, 127371)) == [127368, 127370]

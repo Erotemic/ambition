@@ -51,14 +51,23 @@ class ReplaceExistingLevelOp:
 
 @dataclass(frozen=True)
 class AppendGeneratedLevelOp:
-    """Append a fully-built LDtk level dictionary."""
+    """Add a fully-built LDtk level dictionary: at `index` when it replaces a
+    level there, else at the end. A replaced level keeps its place in the
+    file's list, so that building a world again from unchanged specs writes
+    the file it read. A replace that moved its level to the end reordered
+    the file and rewrote most of its lines."""
 
     level: dict[str, Any]
     area_id: str
     label: str = "append generated level"
+    index: int | None = None
 
     def apply(self, project: dict[str, Any]) -> list[str]:
-        project.setdefault("levels", []).append(self.level)
+        levels = project.setdefault("levels", [])
+        if self.index is None or self.index > len(levels):
+            levels.append(self.level)
+        else:
+            levels.insert(self.index, self.level)
         project.setdefault("toc", [])
         return [
             f"add level '{self.level['identifier']}' (area '{self.area_id}', "

@@ -38,7 +38,7 @@ HERE = Path(__file__).resolve().parent
 DATA = HERE / "data" / "history_atlas"
 REPO = HERE.parents[2]
 WORLD = REPO / "game" / "ambition_map_assets" / "ambition_content" / "worlds" / "history.ldtk"
-SPECS = REPO / "tools" / "ambition_ldtk_tools" / "specs" / "history_dimension"
+SPECS = REPO / "game" / "ambition_map_assets" / "ambition_content" / "generators" / "history"
 
 STATUSES = ("built", "planned", "candidate")
 MODES = ("grounded", "parody", "sober", "archive")

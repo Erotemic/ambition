@@ -305,6 +305,44 @@
     "history_quipu": (),
     "history_shicra_bags": (),
     "history_cotton_nets": (),
+    // Southeast Asia (wave C, `targets/props/history_southeast_asia_props.py`):
+    // the pig painting and the hand stencils of Sulawesi; the stilt house, the
+    // red-slipped pots of the islands; the bronze drum and the rice of Dong Son.
+    "history_pig_painting": (),
+    "history_sulawesi_hand_stencils": (),
+    "history_bamboo_stilt_house": (),
+    "history_bronze_drum": (),
+    "history_rice_sheaves": (),
+    "history_red_slip_pots": (),
+    // Southeast Asia (wave C2): the jong of Srivijaya and its trade goods; the
+    // ship relief and the bell stupas of Borobudur; the sandstone and the ox
+    // cart of Angkor.
+    "history_jong": (),
+    "history_ship_relief": (),
+    "history_bell_stupa": (),
+    "history_sandstone_blocks": (),
+    "history_ox_cart": (),
+    "history_trade_goods": (),
+    // East Asia's coasts (wave D1, `targets/props/history_east_asia_coast_props.py`):
+    // the pit houses, flame pots and six posts of Sannai-Maruyama; Fengtian
+    // jade; Cheomseongdae, a royal tomb mound and a gold crown of Silla.
+    "history_pit_dwelling": (),
+    "history_flame_pot": (),
+    "history_six_pillars": (),
+    "history_jade_workshop": (),
+    "history_cheomseongdae": (),
+    "history_royal_tumulus": (),
+    "history_gold_crown": (),
+    // Song China, Joseon and Heian Japan (wave D2, the same module): a West
+    // Lake boat, the paper-money press, the south-pointing fish, a folding
+    // screen, an ox carriage, the rain gauge and the self-striking water clock.
+    "history_lake_boat": (),
+    "history_money_press": (),
+    "history_compass_bowl": (),
+    "history_byobu_screen": (),
+    "history_ox_carriage": (),
+    "history_rain_gauge": (),
+    "history_water_clock": (),
     // The Story Stacks of the Art dimension (`targets/props/art_stacks_props.py`).
     // The doors of the Library of Endings are two covers of a book: the happy
     // ending in gold with a sun, the sad ending in deep blue with a moon and

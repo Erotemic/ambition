@@ -1,8 +1,8 @@
 //! The History dimension: its gate is DYNASTIC.
 //!
-//! Forty-seven rooms (`tools/ambition_ldtk_tools/specs/history_dimension/`):
-//! a grid of forty outdoor rooms, where east is later and each floor is
-//! a region of the world, and seven buildings by doors. The gate is in the
+//! Fifty-nine rooms (`game/ambition_map_assets/ambition_content/generators/history/`):
+//! a grid of fifty-one outdoor rooms, where east is later and each floor is
+//! a region of the world, and eight buildings by doors. The gate is in the
 //! Cradle, in Africa, at the bottom left. This asks the game what the
 //! generator takes as given: that the rooms of a floor join in order, that the
 //! ways up and down join the floors where the regions met, that each building opens off
@@ -102,7 +102,8 @@ const WAYS: &[(&str, &str)] = &[
     ("history_mammoth_steppe", "history_yellow_river"),
     ("history_yellow_river", "history_shang_court"),
     ("history_shang_court", "history_silk_road"),
-    ("history_silk_road", "history_mongol_steppe"),
+    ("history_silk_road", "history_song"),
+    ("history_song", "history_mongol_steppe"),
     // Oceania.
     ("history_sahul", "history_new_guinea_highlands"),
     ("history_new_guinea_highlands", "history_lapita_voyagers"),
@@ -134,13 +135,30 @@ const WAYS: &[(&str, &str)] = &[
     ("history_southern_coast", "history_levant"),
     ("history_levant", "history_ice_age_europe"),
     ("history_ice_age_europe", "history_southern_route"),
-    ("history_southern_route", "history_sahul"),
+    ("history_southern_route", "history_sulawesi"),
+    ("history_sulawesi", "history_sahul"),
+    // Southeast Asia, the row under Oceania.
+    ("history_sulawesi", "history_austronesian_islands"),
+    ("history_austronesian_islands", "history_dong_son"),
+    ("history_dong_son", "history_srivijaya"),
+    ("history_srivijaya", "history_angkor"),
+    ("history_austronesian_islands", "history_new_guinea_highlands"),
     ("history_sahul", "history_mammoth_steppe"),
     ("history_mammoth_steppe", "history_beringia"),
     // Maize goes south to the Andes.
     ("history_first_maize", "history_andean_highlands"),
     // The Austronesians sail from Taiwan into the Pacific.
-    ("history_shang_court", "history_lapita_voyagers"),
+    ("history_taiwan", "history_lapita_voyagers"),
+    ("history_silk_road", "history_silla"),
+    // East Asia's coasts, the row under East Asia. The mammoth steppe's foot
+    // is the peninsula to Hokkaido.
+    ("history_mammoth_steppe", "history_jomon"),
+    ("history_jomon", "history_taiwan"),
+    ("history_taiwan", "history_silla"),
+    ("history_silla", "history_joseon"),
+    ("history_joseon", "history_heian"),
+    // Printing goes from Song China to Korea.
+    ("history_song", "history_joseon"),
     // Farming spreads from the crescent; the first cities trade; Rome.
     ("history_green_sahara", "history_fertile_crescent"),
     ("history_fertile_crescent", "history_first_farmers_of_europe"),
@@ -150,6 +168,7 @@ const WAYS: &[(&str, &str)] = &[
     ("history_classical_shore", "history_celtic_frontier"),
     // The buildings.
     ("history_ice_age_europe", "history_painted_cave"),
+    ("history_srivijaya", "history_borobudur"),
     ("history_fertile_crescent", "history_temple_granary"),
     ("history_nile_valley", "history_pyramid_tomb"),
     ("history_classical_shore", "history_colosseum"),
@@ -173,9 +192,9 @@ fn the_rooms_of_the_history_grid_join_where_history_did() {
     // way on is the southern coast.
     let cradle = index("history_cradle");
     assert_eq!(rooms.neighboring_room_indices_of(cradle).len(), 1, "the Cradle joins only the southern coast");
-    // The ways name all forty-seven rooms, and the gate reaches every one.
+    // The ways name all fifty-six rooms, and the gate reaches every one.
     let named: BTreeSet<&str> = WAYS.iter().flat_map(|&(a, b)| [a, b]).collect();
-    assert_eq!(named.len(), 47, "the ways name every room of the dimension: {named:?}");
+    assert_eq!(named.len(), 59, "the ways name every room of the dimension: {named:?}");
     let mut reached = BTreeSet::from(["history_cradle"]);
     while let Some(&(a, b)) = WAYS.iter().find(|&&(a, b)| reached.contains(a) != reached.contains(b)) {
         reached.extend([a, b]);
@@ -276,6 +295,35 @@ const CAST: &[(&str, &[(&str, usize)])] = &[
     ("history_southern_route", &[("npc_history_coast_walker", 1), ("coral_crab", 2), ("tiger", 1)]),
     ("history_mehrgarh", &[("npc_history_dentist_of_mehrgarh", 1), ("locust_swarm", 1), ("tiger", 2)]),
     ("history_indus_cities", &[("npc_history_priest_king_probably", 1), ("indus_unicorn", 2), ("tiger", 1)]),
+    // Southeast Asia.
+    ("history_sulawesi", &[("npc_history_pig_painter", 1), ("sulawesi_warty_pig", 2)]),
+    ("history_austronesian_islands", &[("npc_history_word_keeper", 1), ("saltwater_crocodile", 1), ("coral_crab", 1)]),
+    (
+        "history_dong_son",
+        &[("npc_history_drum_caster", 1), ("npc_history_trung_trac", 1), ("npc_history_trung_nhi", 1), ("saltwater_crocodile", 1), ("tiger", 2)],
+    ),
+    ("history_srivijaya", &[("npc_history_yijing", 1), ("npc_history_harbour_master", 1), ("water_monitor", 2)]),
+    ("history_borobudur", &[("npc_history_relief_carver", 1)]),
+    (
+        "history_angkor",
+        &[("npc_history_baray_engineer", 1), ("npc_history_zhou_da_guide", 1), ("king_cobra", 3), ("saltwater_crocodile", 1)],
+    ),
+    // East Asia's coasts.
+    ("history_jomon", &[("npc_history_flame_potter", 1), ("npc_history_chestnut_keeper", 1), ("japanese_macaque", 2), ("asian_black_bear", 1)]),
+    ("history_taiwan", &[("npc_history_jade_carver", 1), ("npc_history_nankuanli_farmer", 1), ("clouded_leopard", 2), ("coral_crab", 1)]),
+    (
+        "history_silla",
+        &[("npc_history_queen_seondeok", 1), ("npc_history_star_watcher", 1), ("tiger", 1), ("asian_black_bear", 1)],
+    ),
+    ("history_song", &[("npc_history_li_qingzhao", 1), ("npc_history_money_printer", 1), ("silk_moth", 2), ("tiger", 1)]),
+    (
+        "history_joseon",
+        &[("npc_history_king_sejong", 1), ("npc_history_jang_yeongsil", 1), ("tiger", 2), ("asian_black_bear", 1)],
+    ),
+    (
+        "history_heian",
+        &[("npc_history_murasaki_shikibu", 1), ("npc_history_sei_shonagon", 1), ("tanuki", 2), ("japanese_macaque", 1)],
+    ),
     // Oceania.
     ("history_sahul", &[("npc_history_raft_builder", 1), ("diprotodon", 1), ("megalania", 1)]),
     ("history_new_guinea_highlands", &[("npc_history_kuk_gardener", 1), ("cassowary_history", 3)]),
@@ -283,7 +331,7 @@ const CAST: &[(&str, &[(&str, usize)])] = &[
     ("history_wayfinders", &[("npc_history_wayfinder", 1), ("frigatebird", 3), ("coconut_crab", 1)]),
     ("history_rapa_nui", &[("npc_history_moai_carver", 1), ("npc_history_thor_hey_im_right_dahl", 1), ("pacific_rat", 3)]),
     // East Asia and the steppe.
-    ("history_mammoth_steppe", &[("npc_history_denny_denisovan", 1), ("woolly_mammoth", 1), ("cave_bear", 1), ("steppe_wolf", 1)]),
+    ("history_mammoth_steppe", &[("npc_history_denny_denisovan", 1), ("woolly_mammoth", 2), ("cave_bear", 1), ("steppe_wolf", 2)]),
     ("history_yellow_river", &[("npc_history_leizu", 1), ("silk_moth", 2), ("coral_crab", 2)]),
     ("history_shang_court", &[("npc_history_fu_hao", 1), ("taotie_spirit", 2), ("steppe_wolf", 1)]),
     (

@@ -248,6 +248,8 @@ def cmd_level(args, rest):
         return _delegate("ambition_ldtk_tools.edit.level_add_field_def", rest)
     if args.level_action == "clone":
         return _delegate("ambition_ldtk_tools.edit.level_clone", rest)
+    if args.level_action == "ownership":
+        return _delegate("ambition_ldtk_tools.generated_record", rest)
     return _todo(f"level {args.level_action}")
 
 
@@ -625,6 +627,15 @@ def build_parser() -> argparse.ArgumentParser:
             "in-level EntityRefs re-pointed, its activeArea its own). Usage: "
             "level clone <level_id> <new_id> --world-x X --world-y Y [--ldtk PATH] "
             "(--in-place | --output PATH). For a second, independent instance of a room."
+        ),
+    )
+    level_sub.add_parser(
+        "ownership",
+        help=(
+            "Who owns each level: its generator or the LDtk file. Usage: level "
+            "ownership status|adopt|release [<level>...] --ldtk PATH. `status` lists "
+            "levels edited in LDtk since their generator wrote them (exit 1 if any); "
+            "`adopt` makes levels LDtk-owned, so their generator skips them."
         ),
     )
     level_sub.add_parser(

@@ -1654,7 +1654,7 @@ def compile_area_create_plan(
     if existing_index is not None:
         carry_identities(project, project["levels"][existing_index], level, next_uid_before)
         plan.add_op(ReplaceExistingLevelOp(existing_index))
-    plan.add_op(AppendGeneratedLevelOp(level=level, area_id=str(spec["id"])))
+    plan.add_op(AppendGeneratedLevelOp(level=level, area_id=str(spec["id"]), index=existing_index))
     if spec.get("connect_to"):
         plan.add_op(
             AddReciprocalLoadingZonesOp(
@@ -1719,6 +1719,15 @@ def main(argv=None) -> int:
         help=(
             "Replace an existing level with the same identifier instead of "
             "failing. Intended for regenerating a spec-owned area."
+        ),
+    )
+    parser.add_argument(
+        "--overwrite-hand-edits",
+        action="store_true",
+        help=(
+            "With --replace-existing: replace a level even when it changed since "
+            "its generator recorded it (`<world>.generated.json`), or when it is "
+            "LDtk-owned. The edit made in LDtk is lost."
         ),
     )
     parser.add_argument(
@@ -1917,6 +1926,12 @@ def main(argv=None) -> int:
         output=args.output,
         backup=args.backup,
     )
+    existing = next((lv for lv in tx.project.get("levels", []) if lv.get("identifier") == str(spec["level_id"])), None)
+    if existing is not None and args.replace_existing and not args.overwrite_hand_edits:
+        from ambition_ldtk_tools import generated_record
+
+        if reason := generated_record.check(args.ldtk, existing):
+            return _fail(reason)
     try:
         plan, level, _reciprocal_summaries = compile_area_create_plan(
             tx.project,

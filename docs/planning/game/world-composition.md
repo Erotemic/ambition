@@ -24,6 +24,17 @@ Jon, 2026-10-30:
 - Generators that follow this keep positions by default and take `--relayout` to put every room back where the generator says. So far that is `castle_godwin/make_specs.py` and `castle_kitchens/make_specs.py`; `district_kit.make_rooms(..., keep_position=True)` gives the same to any district generator.
 - After moving rooms in the editor, `python specs/check_flat_map.py <world>.ldtk` lists every edge exit whose two sides no longer meet: the edges don't touch, the walk lines differ, or a vertical join doesn't overlap.
 
+## Contents: one owner per room
+
+Jon, 2026-11-04: "we need to make sure we know what data is the truth... What happens if I edit ldtk and then the spec clobbers the ldtk?"
+
+- A generated room's truth is its generator, until someone edits the room in LDtk. `area create --replace-existing` builds the whole level again, so an edit inside a room would be lost.
+- The record `<world>.generated.json`, beside the world in the map submodule, holds a fingerprint of each room as its generator last wrote it (`ambition_ldtk_tools/generated_record.py`). The fingerprint leaves out placement, uids and iids.
+- `area create --replace-existing` refuses to replace a room that changed since then. `district_kit.make_rooms` checks every room before it writes any of them, and records them after the last one (and again after the generator's own later paint and entity steps).
+- `python -m ambition_ldtk_tools level ownership status --ldtk <world>` lists each room: `generated`, `HAND-EDITED`, `ldtk-owned` or `unrecorded`.
+- To keep an edit: `level ownership adopt <room>`. The room is then LDtk-owned and its generator skips it; the LDtk file is its truth from then on. To discard the edit: run the generator with `--overwrite-hand-edits`.
+- Generators are for the first pass and fast worldbuilding. A room that is polished by hand graduates to LDtk by `adopt`.
+
 ## Castle Godwin (the first composed region)
 
 ```

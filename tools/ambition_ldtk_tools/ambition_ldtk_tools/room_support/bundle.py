@@ -28,6 +28,13 @@ def _matching_specs(level_id: str, repo_root: Path) -> list[Path]:
             continue
         if any(n in text for n in needles) or level_id in path.stem:
             matches.append(path)
+    # A world laid out by a script keeps the script in the map submodule; the
+    # area specs it writes are not kept, so the script is the room's source.
+    generators = repo_root / "game" / "ambition_map_assets" / "ambition_content" / "generators"
+    if generators.exists():
+        for path in generators.rglob("*.py"):
+            if f'"{level_id}"' in path.read_text(errors="ignore"):
+                matches.append(path)
     return sorted(matches)
 
 

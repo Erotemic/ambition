@@ -539,51 +539,12 @@ fn install_misc_visual_sync_systems(app: &mut App) {
             .after(sync_visuals)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     )
-    // Portal presentation: read GatePortalRegistry.phase + apply
-    // visibility / animation row / ring-spin to the matching
-    // PropVisual-named sprites + hide the redundant debug
-    // door-zone visual for portal-mode LoadingZones. Render-side
-    // systems (E4 slices 10+20): they consume the sim's phase
-    // registry and never live in the sim crate. Room visuals must exist before
-    // these passes select their visibility and animation for the first draw.
-    .add_systems(
-        Update,
-        (
-            ambition_platformer2d::render::rendering::gate_portal_visuals::sync_portal_sprite_visibility,
-            ambition_platformer2d::render::rendering::gate_portal_visuals::sync_portal_sprite_animation,
-            ambition_platformer2d::render::rendering::gate_portal_visuals::sync_portal_ring_animation,
-            // The dialed glyphs light on the ring, over its frame.
-            ambition_platformer2d::render::rendering::gate_portal_visuals::sync_ring_lit_glyphs
-                .after(ambition_platformer2d::render::rendering::gate_portal_visuals::sync_portal_ring_animation),
-            ambition_platformer2d::render::rendering::gate_portal_visuals::hide_portal_loading_zone_visuals,
-            // Each open wormhole in its destination's colour.
-            ambition_platformer2d::render::rendering::gate_portal_visuals::sync_wormhole_destination_hue,
-        )
-            .after(ambition_platformer2d::render::rendering::present_live_room_visuals)
-            .after(sync_visuals)
-            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
-    )
     // A wormhole is heard opening, humming while open, and taking a body in and
     // giving one out: from the same phases and passages the visuals draw.
     .add_systems(
         Update,
         ambition_platformer2d::render::rendering::gate_portal_audio::sync_gate_portal_audio
             .after(sync_visuals)
-            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
-    )
-    .add_systems(
-        Update,
-        (
-            ambition_platformer2d::render::rendering::sync_lock_wall_visuals,
-            // A wall that opens or shuts is seen to: its picture slides.
-            ambition_platformer2d::render::rendering::slide_lock_wall_visuals
-                .run_if(any_with_component::<ambition_platformer2d::render::rendering::LockWallSlide>),
-            // A wall whose look has a `break` row crumbles.
-            ambition_platformer2d::render::rendering::crumble_lock_wall_visuals
-                .run_if(any_with_component::<ambition_platformer2d::render::rendering::LockWallCrumble>),
-        )
-            .chain()
-            .after(ambition_platformer2d::encounter_features::WaveEncounterDriven)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     )
     // Dev "hide sprites" / "placeholder sprites" overrides — must run

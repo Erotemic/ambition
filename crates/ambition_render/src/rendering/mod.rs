@@ -285,7 +285,7 @@ pub struct BossOverlaySet;
 /// `simulation_authorized` asks for exactly one `SessionRoot` naming the
 /// active scope. A stricter gate here would refuse to draw a session that the
 /// engine simulates.
-fn session_presentation_is_ready(
+pub(crate) fn session_presentation_is_ready(
     gate: Option<
         bevy::prelude::Res<ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation>,
     >,

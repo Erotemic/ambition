@@ -99,14 +99,6 @@ WAIVERS: dict[str, str] = {
         "generic code, but floating health bars over every body are a GAME's "
         "choice. Installing them engine-side would decide a demo's HUD for it."
     ),
-    "sync_lock_wall_visuals": (
-        "encounter lock walls: same reasoning. A game without encounters would "
-        "pay for a system that reconciles an empty set."
-    ),
-    "slide_lock_wall_visuals": (
-        "the slide of a lock wall's picture as it opens or shuts. It runs "
-        "chained after `sync_lock_wall_visuals` and goes where that system goes."
-    ),
     "sync_boss_health_bar_overlay": (
         "a boss HUD is Ambition's, and no other composition ships a boss."
     ),
@@ -129,10 +121,6 @@ WAIVERS: dict[str, str] = {
         "portal is Ambition's feature and is feature-gated behind "
         "`portal_render`; nothing else composes a portal rig."
     ),
-    "sync_portal_sprite_visibility": ("portal, as above."),
-    "sync_portal_sprite_animation": ("portal, as above."),
-    "sync_portal_ring_animation": ("portal, as above."),
-    "hide_portal_loading_zone_visuals": ("portal, as above."),
     # The system took `Res<ResolvedVisualQuality>`, which `VisualQualityPlugin` owns and no other
     # composition installed, so it PANICKED everywhere but the shipped app. A waiver answers this
     # checker's question; this checker's question was never the dangerous one.

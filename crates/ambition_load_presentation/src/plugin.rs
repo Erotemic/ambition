@@ -28,8 +28,7 @@ impl Plugin for AmbitionLoadPresentationPlugin {
             .add_message::<LoadActivitySignal>()
             .add_systems(Update, declare_loading_context
                 .in_set(ambition_input::InputSet::ResolveContext)
-                .after(LoadPresentationSet::Drive)
-                .before(ambition_input::resolve_active_input_context))
+                .after(LoadPresentationSet::Drive))
             .configure_sets(
                 Update,
                 (
@@ -59,6 +58,7 @@ impl Plugin for AmbitionLoadPresentationPlugin {
                 Update,
                 process_presentation_actions.in_set(LoadPresentationSet::Actions),
             )
+            // Retirement from an action must reach cleanup and rendering in this frame.
             .add_systems(
                 Update,
                 apply_presentation_commands.in_set(LoadPresentationSet::Finalize),

@@ -164,6 +164,11 @@ fn no_system_is_registered_twice_in_one_schedule() {
     // a stale exemption silently re-opens the hole the day somebody duplicates
     // that system for real. A reason expires exactly like a measurement.
     let deliberate: &[(&str, &str, &str)] = &[
+        (
+            "Update",
+            "ambition_load_presentation::plugin::apply_presentation_commands",
+            "observe host commands before drive; apply action results before cleanup and render",
+        ),
         // `ambition_platformer2d_runtime/src/lib.rs` — the identity trio runs at
         // the HEAD of the frame and again at the TAIL, after the last in-tick
         // spawner, so a GGRS save at a transition boundary cannot capture a

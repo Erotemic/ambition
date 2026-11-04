@@ -47,6 +47,37 @@ impl Plugin for SessionRoomVisualsPlugin {
             Update,
             crate::rendering::present_live_room_visuals.in_set(SessionScopeSet::Presentation),
         );
+        // Phase projection follows the room sprites and the current body poses.
+        app.add_systems(
+            Update,
+            (
+                crate::rendering::gate_portal_visuals::sync_portal_sprite_visibility,
+                crate::rendering::gate_portal_visuals::sync_portal_sprite_animation,
+                crate::rendering::gate_portal_visuals::sync_portal_ring_animation,
+                crate::rendering::gate_portal_visuals::sync_ring_lit_glyphs
+                    .after(crate::rendering::gate_portal_visuals::sync_portal_ring_animation),
+                crate::rendering::gate_portal_visuals::hide_portal_loading_zone_visuals,
+                crate::rendering::gate_portal_visuals::sync_wormhole_destination_hue,
+            )
+                .after(crate::rendering::present_live_room_visuals)
+                .after(crate::rendering::sync_visuals)
+                .run_if(crate::rendering::session_presentation_is_ready)
+                .run_if(resource_exists::<ambition_platformer2d_world::rooms::GatePortalRegistry>)
+                .run_if(resource_exists::<ambition_platformer2d_world::rooms::GatePortalPhases>),
+        );
+        app.add_systems(
+            Update,
+            (
+                crate::rendering::sync_lock_wall_visuals,
+                crate::rendering::slide_lock_wall_visuals
+                    .run_if(any_with_component::<crate::rendering::LockWallSlide>),
+                crate::rendering::crumble_lock_wall_visuals
+                    .run_if(any_with_component::<crate::rendering::LockWallCrumble>),
+            )
+                .chain()
+                .after(crate::rendering::present_live_room_visuals)
+                .run_if(crate::rendering::session_presentation_is_ready),
+        );
         // The composition that spawns blocks also applies authored per-block art overrides.
         app.add_systems(Update, crate::rendering::apply_entity_art);
         // After it, so a tile a game names is sized in the frame it is bound.

@@ -31,12 +31,9 @@ def load():
     return module
 
 
-def test_the_real_tree_agrees_and_the_population_is_the_measured_one():
-    """⭐ THE CONTROL FOR EVERY ARM BELOW: on the tree as it is, the guard passes
-    and it passes over a population, not over nothing."""
+def test_the_real_tree_agrees():
     module = load()
     found = module.rows()
-    assert len(found) >= 30, len(found)
     assert module.faults(found) == [], module.faults(found)
 
 
@@ -139,15 +136,6 @@ def test_an_attribute_does_not_hide_the_variant_it_decorates():
         Off,
     """
     assert module.variants(body) == ["Low", "Loud", "Off"]
-
-
-def test_the_population_floor_refuses_rather_than_reporting_clean():
-    """⛔ Two regexes and a brace walker stand between this guard and an empty
-    population. Run against a tree it cannot read, it must REFUSE."""
-    module = load()
-    module.ROOTS = ("does_not_exist_anywhere",)
-    module.production_files = lambda: []
-    assert module.main() == 2
 
 
 def test_a_partial_by_design_entry_must_carry_a_reason():

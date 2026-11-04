@@ -56,7 +56,7 @@ def _families(text):
     assert unclosed == [], f"scanner could not close: {unclosed}"
     found = []
     for _number, line in lines:
-        for verb, family in _mod.CALL.findall(_mod._code(line)):
+        for verb, family in _mod.CALL.findall(_mod.code_only(line)):
             found.append((verb, family))
     return found, "\n".join(line for _n, line in lines)
 
@@ -106,7 +106,7 @@ def test_the_shipped_corpus_really_contains_the_shape():
     text = path.read_text(encoding="utf-8")
     lines, unclosed = _mod.production_lines(text)
     assert unclosed == []
-    numbers = [n for n, line in lines if "set_switch" in _mod._code(line)]
+    numbers = [n for n, line in lines if "set_switch" in _mod.code_only(line)]
     first_test = next(
         n for n, line in enumerate(text.splitlines(), 1) if "#[cfg(test)]" in line
     )

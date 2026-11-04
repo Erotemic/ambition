@@ -41,6 +41,9 @@ from collections import defaultdict
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(REPO / "scripts" / "lib"))
+
+from rust_source import code_only
 # ⛔⛔ THE RECEIVER IS NOT ALWAYS `data_mut()`. The first version of this pattern
 # required `data_mut().set_x(` and therefore MISSED the one writer this census
 # was written to find: `cut_rope/mod.rs:214` binds `let data = save.data_mut();`
@@ -51,18 +54,6 @@ REPO = Path(__file__).resolve().parent.parent.parent
 FAMILIES = "boss|flag|switch|encounter|quest|item|occurrence|custody|checkpoint"
 CALL = re.compile(rf"\.\s*(set|clear|remove)_({FAMILIES})\s*\(")
 TEST_ATTR = re.compile(r"^\s*#\[cfg\(test\)\]")
-# ⛔ BRACES INSIDE STRING LITERALS ARE NOT CODE. `collision.rs:365` asserts on
-# `"not ron at all {{{"` — three unmatched `{` in a test string, which left the
-# brace counter permanently open and made the whole file report as unclosed.
-# Strip string and char literals before counting. A raw string with an embedded
-# quote would defeat this; there is none in the corpus, and the ambiguity check
-# below FAILS rather than guessing if one ever appears.
-_LITERAL = re.compile(r'"(?:\\.|[^"\\])*"' + r"|'(?:\\.|[^'\\])'")
-
-
-def _code(line: str) -> str:
-    """The part of a line that is Rust code: no line comment, no literals."""
-    return _LITERAL.sub("", line.split("//", 1)[0])
 
 
 def production_lines(text: str) -> tuple[list[tuple[int, str]], list[int]]:
@@ -89,11 +80,12 @@ def production_lines(text: str) -> tuple[list[tuple[int, str]], list[int]]:
     braces are counted, so the scan cannot stop at the first inner `}`.
     """
     lines = text.splitlines()
+    code_lines = code_only(text).splitlines()
     out: list[tuple[int, str]] = []
     unclosed: list[int] = []
     i = 0
     while i < len(lines):
-        if not TEST_ATTR.match(_code(lines[i])):
+        if not TEST_ATTR.match(code_lines[i]):
             out.append((i + 1, lines[i]))
             i += 1
             continue
@@ -104,7 +96,7 @@ def production_lines(text: str) -> tuple[list[tuple[int, str]], list[int]]:
         opened = False
         closed = False
         while i < len(lines):
-            code = _code(lines[i])
+            code = code_lines[i]
             if not opened and "{" not in code and ";" in code:
                 # A bodyless item: `use …;` or `mod tests;`. It ends here.
                 i += 1
@@ -141,17 +133,11 @@ def main() -> int:
         lines, unclosed = production_lines(text)
         if unclosed:
             ambiguous.append(rel)
-        total_hits = sum(
-            len(CALL.findall(l.split("//", 1)[0])) for l in text.splitlines()
-        )
+        code_lines = code_only(text).splitlines()
+        total_hits = sum(len(CALL.findall(line)) for line in code_lines)
         prod_hits = 0
-        for number, line in lines:
-            # ⛔ A COMMENT IS NOT A WRITER. `yarn_vocabulary.rs:133` is a doc line
-            # describing `world.set_flag(flag, on)` and the first version counted
-            # it — the same class as the Yarn census counting a character SAYING
-            # a call. Strip `//` before matching; a `//` inside a string literal
-            # would over-strip, and no writer in this tree is written that way.
-            code = line.split("//", 1)[0]
+        for number, _line in lines:
+            code = code_lines[number - 1]
             for verb, family in CALL.findall(code):
                 writers[family].append(f"{rel}:{number} ({verb})")
                 prod_hits += 1

@@ -1,4 +1,4 @@
-"""`rust_source.code_only`: comments and string literals blanked, code kept."""
+"""`rust_source.code_only`: comments and literals blanked, code kept."""
 
 from __future__ import annotations
 
@@ -46,3 +46,20 @@ def test_a_real_call_still_reads_as_one():
     """The positive control: the strip must not be a way to fail everything."""
     assert CALL.search(code_only("fn arm() { assert!(sim.rollback_health().is_ok()); }"))
     assert CALL.search(code_only("fn arm() { let h = session_health(world); }"))
+
+
+def test_quote_characters_keep_later_code_and_lifetimes_visible():
+    """A quote character must not hide later Rust code."""
+    source = r"""fn split<'a>(piece: &'a str) {
+        let quote = '\"';
+        let brace = '{';
+        let escaped = '\u{7d}';
+        session_health(world);
+    }
+    """
+    stripped = code_only(source)
+    assert CALL.search(stripped)
+    assert "split<'a>(piece: &'a str)" in stripped
+    assert stripped.count("{") == stripped.count("}") == 1
+    assert len(stripped) == len(source)
+    assert stripped.count("\n") == source.count("\n")

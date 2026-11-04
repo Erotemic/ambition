@@ -65,7 +65,7 @@ def strip_comments(source: str) -> str:
 
 
 def code_only(text: str) -> str:
-    """`text` with comments and string literals blanked out, newlines preserved.
+    """`text` with comments and literals blanked out, newlines preserved.
 
     ⛔⛤ **THE FROZEN-WORLD CENSUS RAN ITS PATTERNS AGAINST RAW SOURCE, A
     FALSE-GREEN HOLE IN THE UNSAFE DIRECTION — NAMED BY THE GPT ARCHITECTURE
@@ -99,8 +99,8 @@ def code_only(text: str) -> str:
     anyway, because a population found by prose is not the population, and `main`
     floors the count so a scanner that ate the file cannot read as "no arms".
 
-    ⚠ Character literals are deliberately NOT handled: no health call fits in
-    one, and `'` is also a lifetime, so recognising them costs more than it buys.
+    Character literals are blanked before a quote can start a string.
+    Names for Rust lifetimes remain.
     """
     out = []
     i = 0
@@ -134,8 +134,14 @@ def code_only(text: str) -> str:
             out.append(blank(text[i:j]))
             i = j
             continue
+        if ch == "'":
+            literal = _CHAR_LITERAL.match(text, i)
+            if literal:
+                out.append(blank(literal.group()))
+                i = literal.end()
+                continue
         # A raw string: an optional `b`, then `r`, then any number of `#`, then `"`.
-        m = _RAW_OPEN.match(text, i)
+        m = _RAW_OPEN.match(text, i) if ch in "br" else None
         if m:
             hashes = m.group("hashes")
             close = '"' + hashes
@@ -167,3 +173,6 @@ def code_only(text: str) -> str:
 #: to be captured because the CLOSER must match its length — that is the whole
 #: reason a regex over the literal cannot do this job.
 _RAW_OPEN = re.compile(r'b?r(?P<hashes>#*)"')
+
+
+_CHAR_LITERAL = re.compile(r"'(?:\\(?:u\{[0-9a-fA-F_]+\}|x[0-9a-fA-F]{2}|[^\n])|[^'\\\n])'")

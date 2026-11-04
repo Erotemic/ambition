@@ -645,7 +645,7 @@ destination. A held publication checks the batch again before release.
 `a_held_batch_rechecks_every_member_before_it_publishes` guard this boundary.
 
 Native admission now retains an initiating transfer and companions. Each body,
-arrival, and participant is part of the rollback checksum (schema 417). Both
+arrival, and participant is part of the rollback checksum (schema 418). Both
 hosts use the same application and finalization for the full roster.
 `one_native_admission_carries_two_bodies_from_separate_rooms` covers the app path.
 Preparation and publication share `room_transfer_plan`. A room rebuild has an
@@ -657,13 +657,22 @@ use their destination position. A missing reference, a cycle, or no clear space
 refuses the whole operation. `a_relative_arrival_resolves_a_later_members_destination`
 and the `a_relative_arrival_*` app tests cover this path.
 
-**Next action:** select the group through explicit travel rules at zone
-admission. Add the optional leader view, a Select return action, and settings.
-Support independent, leader, any-member, and all-member travel. In all-member
-mode, moving away cancels agreement. A forbidden follower edge acts as a wall.
-Use one room constructor and one body transfer path. Keep the independent
-adaptive preset as the default. Verify ownership, cancellation, arrival safety,
-replay, and participant-scoped prompts before declaring the feature complete.
+Zone admission supports independent, leader, any-member, and all-member
+travel through session rules. Agreement names the current body and exact exit
+route. Departure, possession, and route changes cancel it. Entry waits for the
+group. A lost participant cancels an entry before or after its pending record.
+Forbidden follower exits lower into body-specific walls. Arrival clearance uses
+the same walls. `rooms::party_tests`,
+`party_all_members_cross_once_after_agreeing_under_rollback`, and
+`party_follower_hits_an_exit_wall_and_can_cross_after_the_policy_changes` cover
+these rules. The default remains independent. Commit: `23bf6a680`.
+
+**Next action:** add the optional leader view, a Select return action, settings,
+and participant-scoped prompts. Keep view choice and mechanical rules separate.
+Return must use the native transfer path, preserve body and item ownership, and
+join the current live room when the leader is already there. Keep the independent
+adaptive preset as the default. Verify peer agreement for policy changes before
+declaring the feature complete.
 
 ### MULTIPLAYER-SEAMS — make local multiplayer safe for netplay
 

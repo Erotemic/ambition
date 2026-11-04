@@ -285,6 +285,9 @@ npc_history_thor_hey_im_right_dahl
 npc_history_brass_caster
 npc_history_iyoba_idia
 npc_history_lord_finders_keepers
+npc_history_toussaint_louverture
+npc_history_catherine_flon
+npc_history_soup_joumou_cook
 
 [Guests from history and the studio]
 npc_genghis_can
@@ -454,6 +457,7 @@ coconut_crab
 frigatebird
 pacific_rat
 driver_ants
+napoleonic_grenadier
 
 [Mary-O's world]
 mary_o

@@ -751,6 +751,12 @@
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.5, active_s: 0.2, recover_s: 0.5, damage: 1, reach_px: 36.0, step_px: 0.0, rush_px: 80.0)),
         ),
+        // The grenadier's bayonet thrust: he draws the musket back (its
+        // windup row) and lunges.
+        "napoleonic_grenadier_thrust": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.45, active_s: 0.15, recover_s: 0.5, damage: 1, reach_px: 40.0, step_px: 0.0, rush_px: 90.0)),
+        ),
 
         // The Bad Apple's chomp: it rears back with its maw wide (its windup
         // row), then rolls at you jaws first, and sits a beat after, dizzy. Its
@@ -8398,6 +8404,40 @@
             hall: ["We are one column of millions, and we do not stop for a city, a wall or an Oba. People step aside. Then they come back, and the house has no cockroaches.", "Our soldiers' jaws hold so hard that healers close a wound with them: let one bite across the cut, then pinch off the body. We are stitches with legs."],
         ),
         ),
+        // A soldier of Leclerc's expedition (1802), which Napoleon sent to
+        // take Saint-Domingue back. A soldier, not a caricature: a bicorne, a
+        // blue coat, a musket with a bayonet.
+        "napoleonic_grenadier": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Grenadier of Leclerc's Army",
+            manifest: "sprites/napoleonic_grenadier_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(64.0),
+            composition: None,
+            default_action_set: "napoleonic_grenadier_thrust",
+            locomotion: Some((run_speed: 140.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 460.0,
+                attack_range: 52.0,
+                patrol_effort: 0.5,
+                chase_effort: 0.8,
+                // A drilled thrust, and a step back to guard.
+                retreat_after_swing_s: 0.4,
+                attack_cooldown_s: 0.9,
+                tactics: (notice_s: 0.4, waits_its_turn: true, footsies: Some((hold_px: 90.0, wait_s: 0.5)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(4),
+            mass: Some(3.0),
+            tags: ["enemy", "history", "haitian_revolution", "soldier"],
+        barks: (
+            on_hit: ["Aagh!", "*he stumbles back and comes to guard again*"],
+            provoked: ["En garde!"],
+            idle: ["*he wipes his face; the heat never stops*", "These mountains go on for ever.", "*he looks up at the ridge, where something moved*"],
+            hall: ["They told us it would be a short campaign. Of the tens of thousands they sent, most never went home: the war took many, and yellow fever took more.", "We came to take an island back. The island had other plans."],
+        ),
+        ),
 
         // ===== THE EVIL DIMENSION (Jon, 2026-10-15). Wolfenstein, the boss of
         // Castle Godwin: Frankenstein's monster with the head of Insanity Wolf,
@@ -11478,6 +11518,60 @@
                 on_hit: ["I say! That is assault. Unlike 1897, which was an expedition.", "Ow! Mind the plaque!"],
                 idle: ["Do not touch the glass. Do not touch anything. Except when I do it.", "ON LOAN. Indefinitely. Which is a kind of loan.", "*he polishes his monocle, and does not look at the card*"],
                 hall: ["In 1897 we burned Benin City and took its brass and ivory home. Thousands of pieces. We call it a collection.", "Some museums have begun to give them back. I am against it in principle, and in practice, and in the gift shop."],
+            ),
+        ),
+        // Haiti (wave A, the Atlantic world). Toussaint Louverture and
+        // Catherine Flon are real people, told with respect; the cook is an
+        // original resident. Nothing in this room is a joke.
+        "npc_history_toussaint_louverture": (
+            display_name: "Toussaint Louverture",
+            // The leader of the Haitian Revolution (about 1743-1803), born enslaved: a bicorne over a madras scarf, a general's coat, a book.
+            manifest: "sprites/history_toussaint_louverture_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 165 cm.
+            standing_height: Some(63.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "haitian_revolution", "peaceful"],
+            barks: (
+                idle: ["*he dictates a letter, then another, then another*", "*he reads, one finger on the line, and looks up when you come near*", "The mountains are on our side. They always were."],
+                hall: ["I was born enslaved, tended horses and taught myself to read. In 1791 I joined the rising, and by 1801 I governed the island.", "They took me to France in chains in 1802, and I died there the next spring. The tree of liberty grew back from its roots. I told them it would."],
+            ),
+        ),
+        "npc_history_catherine_flon": (
+            display_name: "Catherine Flon",
+            // The seamstress of Arcahaie who, as Haiti tells it, sewed the first flag in May 1803: blue and red, the white torn out.
+            manifest: "sprites/history_catherine_flon_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(62.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "haitian_revolution", "peaceful"],
+            barks: (
+                idle: ["Blue, then red. Small stitches. It has to hold in a war.", "*she checks the seam once more, though it is perfect*", "Liberty or death."],
+                hall: ["At Arcahaie in May 1803, Dessalines tore the white out of the French flag, and I sewed the blue and the red together.", "Every eighteenth of May, Haiti keeps Flag Day. That is my seam they are waving."],
+            ),
+        ),
+        "npc_history_soup_joumou_cook": (
+            display_name: "Soup Joumou Cook",
+            // An original cook on 1 January 1804 with a ladle and a squash: the soup the enslaved were not allowed to eat, eaten by everyone on independence day.
+            manifest: "sprites/history_soup_joumou_cook_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 175 cm.
+            standing_height: Some(67.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "haitian_revolution", "peaceful"],
+            barks: (
+                idle: ["Sit. Eat. It is the first day.", "*he stirs the pot and tastes, and adds one more pepper*", "Squash, beef, cabbage, time."],
+                hall: ["We cooked soup joumou for the masters and were not allowed to taste it. On the first of January 1804, all of Haiti ate it.", "Every first of January since, in every Haitian home in the world. UNESCO wrote it down in 2021. We never forgot."],
             ),
         ),
         "npc_primeval_twitchell": (

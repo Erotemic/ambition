@@ -778,3 +778,46 @@ Lord Finders-Keepers: Ah! A visitor! Don't touch the glass. These are being kept
 -> Goodbye.
     Lord Finders-Keepers: Finders keepers! That is the law. Well, it is a saying. Well, it is a thing children say.
 ===
+
+title: history_toussaint_louverture
+---
+Toussaint Louverture: Welcome to Saint-Domingue. Soon it will have its own name again.
+-> Who are you?
+    Toussaint Louverture: I was born enslaved on the Breda plantation, near Cap-Francais. I tended horses, I learned to read, and I was free before the rising. In 1791 I joined it. I learned war the way I learned to read: one page at a time.
+-> How did you win?
+    Toussaint Louverture: Spain, Britain and France all wanted this island. I fought for whichever side would end slavery, and in 1794 France did. Then we drove out the British. By 1801 I governed the whole island.
+-> What happens to you?
+    Toussaint Louverture: In 1802 Napoleon's general asks me to a meeting, and arrests me there. I will die in a cold fort in the mountains of France, in April 1803. As they take me on board the ship, I will tell them: in overthrowing me, you have cut down only the trunk of the tree of liberty. It will grow again from the roots, for they are many and deep.
+-> Were you right?
+    Toussaint Louverture: Walk east and see. Mind the soldiers in the mountains. They are not used to them. We are.
+-> Goodbye.
+    Toussaint Louverture: Go well, and read everything you can.
+===
+
+title: history_catherine_flon
+---
+Catherine Flon: Careful, the seam is still fresh. This is the flag.
+-> What happened?
+    Catherine Flon: At Arcahaie, in May 1803, the generals met to make one army of all of us. General Dessalines took the French flag and tore the white out of it. The blue and the red were left. He gave them to me, and I sewed them together.
+-> Why the white?
+    Catherine Flon: You can read it the way you like. The French flag, without France in it. The blue and red of the people who were left to fight. Our cry was: Liberty or Death.
+-> Is that what really happened?
+    Catherine Flon: That is the story Haiti tells, and I am in it. Every eighteenth of May, Haiti keeps Flag Day, and the schoolchildren learn my name.
+-> Goodbye.
+    Catherine Flon: Go on east. On the first day of the year, there will be soup.
+===
+
+title: history_soup_joumou_cook
+---
+Soup Joumou Cook: Sit, sit. First day of the year, first day of Haiti. Everybody eats.
+-> What is it?
+    Soup Joumou Cook: Soup joumou. Squash, beef, cabbage, carrots, a little hot pepper, all day in the pot. Before, we cooked it for the masters, and we were not allowed to eat it. Today, the first of January 1804, we all eat it.
+-> What happened today?
+    Soup Joumou Cook: At Gonaives, General Dessalines proclaimed the Act of Independence. Saint-Domingue is gone. This island is Haiti again, the name the Taino gave it: Ayiti, land of mountains. The first country made by people who freed themselves.
+-> And after?
+    Soup Joumou Cook: In 1825, French warships will come and demand money: 150 million francs, for the "property" France lost. That property was us. Haiti will pay it, and the loans for it, until 1947. The United States will not even recognise us until 1862.
+-> Do you still eat it?
+    Soup Joumou Cook: Every first of January, in every Haitian home in the world. In 2021 UNESCO put it on its list of the heritage of humanity. Have another bowl.
+-> Goodbye.
+    Soup Joumou Cook: Take some for the road. It is better the second day.
+===

@@ -1235,6 +1235,7 @@ pub fn finalize_committed_room_transition(world: &mut bevy::prelude::World) {
                 {
                     current.phase = super::loading::RoomTransitionLoadPhase::Committed;
                 }
+                transition_state.begin_settling();
             } else {
                 loads.retire(&active.barrier.load_id);
                 transition_state.active = None;

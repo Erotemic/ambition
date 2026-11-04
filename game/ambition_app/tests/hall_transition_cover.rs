@@ -212,7 +212,7 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
         let state = app.world().resource::<
             ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState,
         >();
-        if state.active.as_ref().is_some_and(|active| active.asset_manifest_duration.is_some()) {
+        if state.presentations().next().is_some_and(|active| active.asset_manifest_duration.is_some()) {
             contributed = true;
             break;
         }
@@ -246,7 +246,7 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
             .world()
             .resource::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>(
         );
-        match state.active.as_ref() {
+        match state.presentations().next() {
             Some(active) => {
                 cover_required |= active.cover_required;
                 if active.asset_readiness_complete && released_at.is_none() {
@@ -379,7 +379,7 @@ fn the_reveal_waits_for_every_placed_character_not_just_the_realized_ones() {
             .world()
             .resource::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>(
         );
-        let Some(active) = state.active.as_ref() else {
+        let Some(active) = state.presentations().next() else {
             // The transition finished. Legal only with nothing left declared.
             assert_eq!(
                 declared,
@@ -932,7 +932,7 @@ fn transit_through(app: &mut App, zone_id: &str, max: usize) -> usize {
             .world()
             .resource::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>(
         );
-        if active.as_deref() == Some(target_room.as_str()) && state.active.is_none() {
+        if active.as_deref() == Some(target_room.as_str()) && state.presentations().next().is_none() {
             return frame;
         }
     }

@@ -77,7 +77,7 @@ impl Plugin for RoomTransitionComposerPlugin {
         );
         // READINESS IS HOST-SIDE; THE ROOM CHANGE IS SIMULATION.
         //
-        // These four ask a question — is the destination prepared, are its assets
+        // These systems ask a question — is the destination prepared, are its assets
         // accounted for, is the cover up, may this commit — and answering it
         // mutates no sim state. None of them is rollback-registered, and running
         // them inside a rewound schedule is what kept the whole transaction off
@@ -92,6 +92,7 @@ impl Plugin for RoomTransitionComposerPlugin {
         app.add_systems(
             Update,
             (
+                loading::retire_departed_room_presentations_system,
                 begin_room_transition_load_system,
                 authorize_ready_room_transition_system
                     .run_if(loading::a_transition_is_in(loading::RoomTransitionLoadPhase::AwaitingReadiness)),

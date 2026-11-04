@@ -53,17 +53,13 @@ pub(super) fn place_transition_surfaces(
         Option<&FrontendOwnedEntity>, Option<&mut TransitionSurface>),
         Or<(With<RoomTransitionCover>, With<FrontendOwnedEntity>)>>,
 ) {
-    let active = transitions.active.as_ref();
-    let active_target = active.map(|active| targets.target(active));
     for (entity, mut node, cover, frontend, mut stored) in &mut roots {
-        let current = if cover.is_some_and(|cover| active.is_some_and(|active| active.sequence == cover.sequence) && !cover.is_lifting()) {
-            active_target
-        } else if frontend.is_some_and(|frontend| matches!(frontend.kind, FrontendPresentationKind::LoadingRoot | FrontendPresentationKind::LoadingActivity)
-            && active.is_some_and(|active| matches!(&frontend.owner, FrontendEntityOwner::Load(load) if load == &active.barrier.load_id))) {
-            active_target
-        } else {
-            stored.as_deref().copied()
-        };
+        let transaction = cover.filter(|cover| !cover.is_lifting()).and_then(|cover| transitions.presentation(cover.sequence))
+            .or_else(|| frontend.filter(|frontend| matches!(frontend.kind,
+                FrontendPresentationKind::LoadingRoot | FrontendPresentationKind::LoadingActivity)).and_then(|frontend|
+                transitions.presentations().find(|active| matches!(&frontend.owner,
+                    FrontendEntityOwner::Load(load) if load == &active.barrier.load_id))));
+        let current = transaction.map(|active| targets.target(active)).or_else(|| stored.as_deref().copied());
         let Some(target) = current else { continue; };
         if let Some(stored) = stored.as_deref_mut() {
             if *stored != target { *stored = target; }

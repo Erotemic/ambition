@@ -28,7 +28,7 @@ use ambition_platformer2d::game_shell::{
 };
 use ambition_platformer2d::load::LoadCoordinator;
 use ambition_platformer2d::load_presentation::{
-    BasicLoadRoot, LoadActivityState, LoadForegroundState,
+    BasicLoadRoot, LoadPresentations,
 };
 use ambition_platformer2d::platformer::lifecycle::{
     ActiveSessionScope, RoomVisual, SessionScopedEntity,
@@ -268,14 +268,8 @@ fn assert_title_ownership(app: &mut App, context: &str) {
     );
     assert!(
         app.world()
-            .resource::<LoadForegroundState>()
-            .active
-            .is_none(),
+            .resource::<LoadPresentations>().is_empty(),
         "{context}: no loading foreground survives",
-    );
-    assert!(
-        app.world().resource::<LoadActivityState>().active.is_none(),
-        "{context}: no loading activity survives",
     );
     let policy = app.world().resource::<PresentationOwnershipPolicy>();
     assert_eq!(

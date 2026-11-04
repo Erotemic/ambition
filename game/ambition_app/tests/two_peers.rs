@@ -596,6 +596,8 @@ struct TimelineDoorOutcome {
     first: LiveRoomInstance,
     retired_receipts: [usize; 2],
     replayed_commits: [bool; 2],
+    settling: [Vec<i32>; 2],
+    arrival_resets: [usize; 2],
 }
 
 fn crossings_on_one_timeline(count: u8, order: [usize; 2], configure: fn(&mut App)) -> TimelineDoorOutcome {
@@ -646,6 +648,9 @@ fn crossings_on_one_timeline(count: u8, order: [usize; 2], configure: fn(&mut Ap
         rooms: [live_rooms(&mut alice), live_rooms(&mut bob)],
         members: [where_they_are(&mut alice), where_they_are(&mut bob)], first,
         retired_receipts: [&alice, &bob].map(|sim| sim.world().get_resource::<RetiredPromiseReceipts>().map_or(0, |count| count.0)),
+        arrival_resets: [&alice, &bob].map(|sim| sim.world().get_resource::<ObservedRoomArrivalResets>().map_or(0, |observed| observed.0)),
+        settling: [&alice, &bob].map(|sim| sim.world().resource::<LoadState>().presentations()
+            .filter(|active| active.phase == LoadPhase::Committed).map(|active| active.recorded_on).collect()),
         replayed_commits: [&alice, &bob].map(|sim| sim.world().resource::<SavedAgain>().0.iter().any(|(generation, frame, highest)|
             *generation == 0 && sim.world().resource::<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>()
                 .applied.as_ref().is_some_and(|receipt| *frame <= receipt.applied_on && *highest >= receipt.applied_on))),
@@ -668,6 +673,32 @@ fn ordinary_peer_crossings_apply_on_shared_input_frames_without_holding_or_rebas
         assert!(outcome.applied[0].values().all(|(_, room)| *room == Some(destination)));
         assert_eq!(outcome.rooms, [vec![(destination, HUB.into())], vec![(destination, HUB.into())]]);
         assert_eq!(outcome.members, [(Some(destination), Some(Some(destination))); 2]);
+    }
+}
+
+/// The fixture acknowledges its cover but retains every committed presentation.
+fn retain_room_covers(app: &mut App) {
+    app.init_resource::<ambition_platformer2d::runtime::room_transition::RoomTransitionPresentationAvailable>()
+        .init_resource::<ObservedRoomArrivalResets>()
+        .add_systems(Update, observe_room_arrival_resets);
+    app.add_systems(Update, (|mut state: ResMut<LoadState>| {
+        if let Some(active) = state.active.as_mut() { active.cover_presented = true; }
+    }).after(ambition_platformer2d::runtime::room_transition::begin_room_transition_load_system)
+      .before(ambition_platformer2d::runtime::room_transition::authorize_ready_room_transition_system));
+}
+
+#[test]
+fn an_old_cover_does_not_block_the_next_peers_preparation_or_commit() {
+    for order in [[0, 1], [1, 0]] {
+        let outcome = crossings_on_one_timeline(2, order, retain_room_covers);
+        assert_eq!(outcome.healths, [Ok(()), Ok(())]);
+        assert!(outcome.differing.is_empty(), "confirmed rows differ: {:?}", outcome.differing);
+        assert_eq!(outcome.progressed_while_pending, [true; 2]);
+        assert_eq!(outcome.applied[0], outcome.applied[1]);
+        assert_eq!(outcome.applied[0].keys().copied().collect::<Vec<_>>(), [RECORDED_ON, 150]);
+        assert_eq!(outcome.arrival_resets, [2; 2], "each confirmed crossing releases one arrival reset");
+        assert_eq!(outcome.settling, [vec![RECORDED_ON, 150], vec![RECORDED_ON, 150]],
+            "both confirmed crossings must keep their presentation receipts");
     }
 }
 

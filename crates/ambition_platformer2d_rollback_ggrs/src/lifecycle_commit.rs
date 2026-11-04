@@ -644,6 +644,7 @@ fn retire_committed_room_transition(world: &mut World, commit_duration: std::tim
                 active.committed_at = now;
                 active.phase = ambition_platformer2d_runtime::room_transition::RoomTransitionLoadPhase::Committed;
             }
+            state.begin_settling();
         }
         // Rollback hosts never enter `GameMode::RoomTransition`; presentation restores its own
         // mode when it retires the cover.
@@ -1134,10 +1135,10 @@ mod tests {
 
         retire_committed_room_transition(&mut covered, std::time::Duration::from_millis(7));
 
+        assert!(covered.resource::<RoomTransitionLoadState>().active.is_none());
         let handed_over = covered
             .resource::<RoomTransitionLoadState>()
-            .active
-            .as_ref()
+            .presentations().next()
             .expect(
                 "the covered confirmed commit dropped its own transaction, so the \
                  presentation adapter never sees a Committed phase: the cover retires \

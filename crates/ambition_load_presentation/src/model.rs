@@ -78,33 +78,43 @@ impl ActiveLoadForeground {
     }
 }
 
+/// Each load owner has its own foreground, model, and activity lifetime.
 #[derive(Resource, Default)]
-pub struct LoadForegroundState {
-    pub active: Option<ActiveLoadForeground>,
-    next_activity_activation: u64,
+pub struct LoadPresentations {
+    pub(crate) entries: BTreeMap<LoadPresentationOwnerId, LoadPresentation>,
+    pub(crate) next_activity_activation: u64,
 }
 
-impl LoadForegroundState {
-    pub(crate) fn next_activity_activation(&mut self) -> u64 {
-        self.next_activity_activation = self.next_activity_activation.saturating_add(1);
-        self.next_activity_activation
+pub struct LoadPresentation {
+    pub foreground: ActiveLoadForeground,
+    pub model: LoadPresentationModel,
+    pub activity: Option<ActiveLoadActivity>,
+    pub last_outcome: Option<LoadActivityOutcome>,
+}
+
+impl LoadPresentations {
+    pub fn get(&self, owner: &LoadPresentationOwnerId) -> Option<&LoadPresentation> {
+        self.entries.get(owner)
     }
 
-    pub(crate) fn clear_owner(&mut self, owner: &LoadPresentationOwnerId) -> bool {
-        if self
-            .active
-            .as_ref()
-            .is_some_and(|active| &active.owner == owner)
-        {
-            self.active = None;
-            true
-        } else {
-            false
-        }
+    pub fn iter(&self) -> impl Iterator<Item = &LoadPresentation> {
+        self.entries.values()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    pub(crate) fn begin(&mut self, foreground: ActiveLoadForeground) -> &mut LoadPresentation {
+        let owner = foreground.owner.clone();
+        self.entries.insert(owner.clone(), LoadPresentation {
+            foreground, model: LoadPresentationModel::default(), activity: None, last_outcome: None,
+        });
+        self.entries.get_mut(&owner).unwrap()
     }
 }
 
-#[derive(Resource, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct LoadPresentationModel {
     pub visible: bool,
     pub ready_hold: bool,
@@ -197,12 +207,6 @@ pub struct ActiveLoadActivity {
     pub activity_id: LoadActivityId,
     pub owner: LoadPresentationOwnerId,
     pub barrier: LoadBarrierRef,
-}
-
-#[derive(Resource, Default)]
-pub struct LoadActivityState {
-    pub active: Option<ActiveLoadActivity>,
-    pub last_outcome: Option<LoadActivityOutcome>,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

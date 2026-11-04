@@ -290,7 +290,7 @@ fn transaction_report(app: &mut App) -> String {
     let state = app
         .world()
         .get_resource::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>();
-    match state.and_then(|state| state.active.as_ref()) {
+    match state.and_then(|state| state.presentations().next()) {
         Some(active) => format!(
             "seq={} {} -> {} phase={:?} failure={:?} cover_required={} cover_presented={} \
              assets_complete={} asset_progress={:?} plan={} committed_at={:?}",

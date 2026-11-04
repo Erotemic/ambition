@@ -499,7 +499,7 @@ fn a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact() {
             .get_resource::<
                 ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState,
             >()
-            .and_then(|state| state.active.as_ref().map(|active| active.phase))
+            .and_then(|state| state.presentations().next().map(|active| active.phase))
             .is_none_or(|phase| {
                 phase
                     != ambition_platformer2d::runtime::room_transition::RoomTransitionLoadPhase::Committed

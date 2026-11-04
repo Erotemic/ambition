@@ -11,14 +11,14 @@
 //! - the cover remains for one complete target frame after commit, then the
 //!   transaction is retired and gameplay resumes.
 
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::time::Duration;
 
 use bevy::prelude::*;
 
 use crate::load::{LoadCommand, LoadCoordinator, LoadEvent};
 use crate::load_presentation::{
-    LoadExperienceSpec, LoadPresentationCommand, LoadPresentationEvent, LoadPresentationModel,
+    LoadExperienceSpec, LoadPresentationCommand, LoadPresentationEvent, LoadPresentations,
     LoadPresentationOwnerId, LoadPresentationSet, ReadyTransitionPolicy,
 };
 use crate::platformer::schedule::GameMode;
@@ -184,37 +184,26 @@ impl RoomTransitionTelemetry {
 
 #[derive(Resource, Default, Debug)]
 struct RoomTransitionPresentationState {
-    sequence: Option<u64>,
-    owner: Option<LoadPresentationOwnerId>,
     update_serial: u64,
-    /// The update its cover was first seen whole: the room changes under a
-    /// cover that has been whole across a rendered frame.
+    entries: BTreeMap<u64, TransitionPresentation>,
+}
+
+#[derive(Default, Debug)]
+struct TransitionPresentation {
     cover_opaque_at: Option<u64>,
     commit_observed_at: Option<u64>,
     visible_before_commit: bool,
     foreground_finished: bool,
     visible_elapsed: Duration,
-    /// Whether this transition's loading screen has said why it appeared.
     reveal_reported: bool,
 }
 
-/// Run condition of [`drive_room_transition_presentation`]: a transition is
-/// active, or the last one left a cover or presentation state for the idle
-/// branch to clear. Once cleared, the idle branch does nothing; its frame
-/// count is compared only within one transition.
 fn a_cover_is_owed(
     transitions: Res<RoomTransitionLoadState>,
     runtime: Res<RoomTransitionPresentationState>,
     covers: Query<&RoomTransitionCover>,
 ) -> bool {
-    transitions.active.is_some()
-        || runtime.sequence.is_some()
-        || runtime.owner.is_some()
-        || runtime.commit_observed_at.is_some()
-        || runtime.visible_before_commit
-        || runtime.foreground_finished
-        || runtime.visible_elapsed != Duration::ZERO
-        || runtime.reveal_reported
+    transitions.presentations().next().is_some() || !runtime.entries.is_empty()
         || covers.iter().any(|cover| !cover.is_lifting())
 }
 
@@ -350,8 +339,7 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
         );
 }
 
-/// Synchronize one opaque cover + generic loading foreground with the current
-/// room transaction.
+/// Synchronize each transaction's cover and loading foreground.
 ///
 /// A newly spawned cover is never acknowledged in the same update. Seeing the
 /// exact root on a later update proves it survived one presentation frame,
@@ -361,7 +349,7 @@ fn drive_room_transition_presentation(
     mut commands: Commands,
     time: Res<Time<Real>>,
     config: Res<RoomTransitionPresentationConfig>,
-    model: Res<LoadPresentationModel>,
+    presentations: Res<LoadPresentations>,
     mut runtime: ResMut<RoomTransitionPresentationState>,
     mut transitions: ResMut<RoomTransitionLoadState>,
     // This adapter's covers. One that is lifting belongs to no transaction:
@@ -398,258 +386,165 @@ fn drive_room_transition_presentation(
 ) {
     runtime.update_serial = runtime.update_serial.saturating_add(1);
     let update_serial = runtime.update_serial;
-
-    let Some(active_snapshot) = transitions.active.as_ref().cloned() else {
-        if let Some(owner) = runtime.owner.take() {
-            presentation.write(LoadPresentationCommand::Cancel { owner });
-        }
-        // Abandoned: the old room comes back as a new one would.
-        for (_, mut cover, _) in &mut covers {
-            cover.lift();
-        }
-        runtime.sequence = None;
-        runtime.commit_observed_at = None;
-        runtime.visible_before_commit = false;
-        runtime.foreground_finished = false;
-        runtime.visible_elapsed = Duration::ZERO;
-        runtime.reveal_reported = false;
-        return;
-    };
-
-    if runtime.sequence != Some(active_snapshot.sequence) {
-        if let Some(owner) = runtime.owner.take() {
-            presentation.write(LoadPresentationCommand::Cancel { owner });
-        }
-        // A cover still on screen (the last room change's, going out) is
-        // replaced by this one from as much of the frame as it hides, so the
-        // screen does not pop.
-        let target = surfaces.target(&active_snapshot);
-        let mut from_coverage = 0.0f32;
-        for (entity, mut cover, previous_target) in &mut covers {
-            if previous_target.copied().unwrap_or(TransitionSurface::Display) == target {
-                from_coverage = from_coverage.max(cover.coverage());
-                commands.entity(entity).despawn();
-            } else {
-                cover.lift();
-            }
-        }
-
-        let owner = owner_for(active_snapshot.sequence);
-        presentation.write(LoadPresentationCommand::Begin {
-            owner: owner.clone(),
-            barrier: active_snapshot.barrier.clone(),
-            spec: {
-                let mut spec = experience(&config);
-                spec.input_owner = if active_snapshot.intent.subject().is_none() {
-                    Some(crate::input::InputOwner::AllParticipants)
-                } else {
-                    active_snapshot.intent.participant().map(|participant|
-                        crate::input::InputOwner::Participant(crate::input::ParticipantId(participant.0)))
-                };
-                spec
-            },
-        });
-        let style = styles.resolve(&active_snapshot.source_room_id, active_snapshot.target_room_id());
-        let cover = spawn_room_transition_cover(&mut commands, active_snapshot.sequence, style, from_coverage);
-        commands.entity(cover).insert(target);
-        let spawned_whole = style.cover == CoverStroke::Cut || from_coverage >= 1.0;
-
-        runtime.sequence = Some(active_snapshot.sequence);
-        runtime.owner = Some(owner);
-        // A cover spawned whole is whole from this update's frame on.
-        runtime.cover_opaque_at = spawned_whole.then_some(update_serial);
-        runtime.commit_observed_at = None;
-        runtime.visible_before_commit = false;
-        runtime.foreground_finished = false;
-        runtime.visible_elapsed = Duration::ZERO;
-        runtime.reveal_reported = false;
-        return;
+    runtime.entries.retain(|sequence, _| {
+        if transitions.presentation(*sequence).is_some() { return true; }
+        presentation.write(LoadPresentationCommand::Cancel { owner: owner_for(*sequence) });
+        false
+    });
+    for (_, mut cover, _) in &mut covers {
+        if transitions.presentation(cover.sequence).is_none() { cover.lift(); }
     }
-
-    let owner_matches = runtime
-        .owner
-        .as_ref()
-        .is_some_and(|owner| model.owner.as_ref() == Some(owner));
-    if owner_matches && model.visible {
-        runtime.visible_elapsed = runtime
-            .visible_elapsed
-            .saturating_add(Duration::from_secs_f32(time.delta_secs()));
-        // A LOADING SCREEN SAYS WHAT IT IS WAITING FOR, once, when it appears:
-        // the same facts the readiness gate holds. One with nothing named is a
-        // defect report (readiness plan, "Diagnostics").
-        if !runtime.reveal_reported {
-            runtime.reveal_reported = true;
-            bevy::log::info!(
-                target: "crate::room_transition::performance",
-                "{}",
-                loading_screen_reason(
-                    active_snapshot.sequence,
-                    active_snapshot.target_room_id(),
-                    active_snapshot.phase,
-                    contributed.pending(),
-                )
-            );
-        }
-    }
-
-    // The exact cover, whole: a fade or a wipe has finished coming in.
-    let exact_cover_opaque = covers
-        .iter()
-        .any(|(_, cover, _)| cover.sequence == active_snapshot.sequence && cover.is_opaque());
-    if exact_cover_opaque && runtime.cover_opaque_at.is_none() {
-        runtime.cover_opaque_at = Some(update_serial);
-    }
-    if active_snapshot.cover_required
-        && !active_snapshot.cover_presented
-        && exact_cover_opaque
-        && runtime.cover_opaque_at.is_some_and(|opaque_at| update_serial > opaque_at)
-    {
-        if let Some(active) = transitions
-            .active
-            .as_mut()
-            .filter(|active| active.sequence == active_snapshot.sequence)
-        {
-            active.cover_presented = true;
-            active.cover_presented_at = Some(time.elapsed());
-        }
-    }
-
-    if active_snapshot.phase != RoomTransitionLoadPhase::Committed {
-        runtime.commit_observed_at = None;
-        return;
-    }
-
-    let commit_observed_at = match runtime.commit_observed_at {
-        Some(observed_at) => observed_at,
-        None => {
-            runtime.commit_observed_at = Some(update_serial);
-            runtime.visible_before_commit = owner_matches && model.visible;
-            if !runtime.visible_before_commit {
-                if let Some(owner) = runtime.owner.as_ref() {
-                    presentation.write(LoadPresentationCommand::Finish {
-                        owner: owner.clone(),
-                    });
-                    runtime.foreground_finished = true;
+    let snapshots: Vec<_> = transitions.presentations().cloned().collect();
+    for active_snapshot in snapshots {
+        let sequence = active_snapshot.sequence;
+        let owner = owner_for(sequence);
+        if !runtime.entries.contains_key(&sequence) {
+            let target = surfaces.target(&active_snapshot);
+            let mut from_coverage = 0.0f32;
+            for (entity, cover, previous_target) in &mut covers {
+                if previous_target.copied().unwrap_or(TransitionSurface::Display) == target {
+                    from_coverage = from_coverage.max(cover.coverage());
+                    commands.entity(entity).despawn();
+                    if let Some(previous) = transitions.retire_presentation(cover.sequence) {
+                        loads.retire(&previous.barrier.load_id);
+                    }
+                    runtime.entries.remove(&cover.sequence);
+                    presentation.write(LoadPresentationCommand::Cancel { owner: owner_for(cover.sequence) });
                 }
             }
-            update_serial
+            let mut spec = experience(&config);
+            spec.input_owner = if active_snapshot.intent.subject().is_none() {
+                Some(crate::input::InputOwner::AllParticipants)
+            } else {
+                active_snapshot.intent.participant().map(|participant|
+                    crate::input::InputOwner::Participant(crate::input::ParticipantId(participant.0)))
+            };
+            presentation.write(LoadPresentationCommand::Begin { owner: owner.clone(), barrier: active_snapshot.barrier.clone(), spec });
+            let style = styles.resolve(&active_snapshot.source_room_id, active_snapshot.target_room_id());
+            let cover = spawn_room_transition_cover(&mut commands, sequence, style, from_coverage);
+            commands.entity(cover).insert(target);
+            let spawned_whole = style.cover == CoverStroke::Cut || from_coverage >= 1.0;
+            runtime.entries.insert(sequence, TransitionPresentation {
+                cover_opaque_at: spawned_whole.then_some(update_serial), ..default()
+            });
+            continue;
         }
-    };
-    // ⭐ NO MINIMUM DISPLAY TIME. The cover lifts when the target is committed,
-    // rendered and presentable, and nothing else: a 300 ms floor kept a loading
-    // screen up after its work was done (readiness plan, rule 4).
-    let target_rendered_under_cover = update_serial > commit_observed_at;
-    if !target_rendered_under_cover {
-        return;
-    }
-
-    // PRESENTABLE, not merely committed.
-    //
-    // It is not a general condition: render families spawn through `Commands`, and a room with
-    // many actors takes several flushes to draw. `draw_unclaimed_feature_views` fills the gap
-    // with a deliberately-ugly magenta box — a DIAGNOSIS, per its own docs — so retiring the
-    // cover here showed the player that diagnosis as a stage of loading.
-    //
-    // placeholder sprite, and then it flashes to the characters. It looks
-    // disorienting. its not smooth. It doesn't work. It would just be better to
-    // have a loading screen if the load is going to take a hot second."* And on
-    // the way out too, because leaving is another transition.
-    //
-    // it counts UNDRAWN VIEWS, not magenta boxes, and that distinction is
-    // the fix. Counting boxes meant the cover could not tell "the
-    // art has not arrived yet" from "the art will never arrive", because the box
-    // is a diagnosis of the second and was being read as evidence of the first.
-    // give-ups — the two facts were both true because the thing it waited on was
-    // never the thing it needed to know.
-    // ⛔ THE TARGET ROOM'S, NOT THE APP'S. Another live room's art still
-    // coming in kept this cover up until the deadline. A thing of the whole
-    // App (a pipeline compiling) still holds it.
-    let targets = cover_rooms(
-        active_snapshot.arrived_in,
-        active_snapshot.target_room,
-        live_rooms.iter().map(|(instance, definition)| (*instance, *definition)),
-    );
-    let waiting = settling.pending_for(&targets);
-    let unsettled = waiting.len();
-    let since_commit = active_snapshot
-        .committed_at
-        .map(|committed| time.elapsed().saturating_sub(committed))
-        .unwrap_or_default();
-    if unsettled > 0 {
-        // never a hang.
-        if since_commit < config.presentation_settle_deadline {
-            return;
+        let entry = runtime.entries.get_mut(&sequence).unwrap();
+        let visible = presentations.get(&owner).is_some_and(|entry| entry.model.visible);
+        if visible {
+            entry.visible_elapsed = entry.visible_elapsed.saturating_add(Duration::from_secs_f32(time.delta_secs()));
+            if !entry.reveal_reported {
+                entry.reveal_reported = true;
+                bevy::log::info!(target: "crate::room_transition::performance", "{}",
+                    loading_screen_reason(sequence, active_snapshot.target_room_id(), active_snapshot.phase,
+                        if active_snapshot.phase == RoomTransitionLoadPhase::Committed { &[] } else { contributed.pending() }));
+            }
         }
-        bevy::log::warn!(
-            target: "crate::room_transition::performance",
-            "room transition {} {} -> {} revealed with {unsettled} thing(s) \
-             still undrawn after {:.0} ms — the cover gave up waiting. A feature \
-             view here is one the sim published and no render family claimed, so \
-             either a spawn path is missing its family marker or this room draws \
-             more slowly than the deadline allows. Undrawn: {:?}",
-            active_snapshot.sequence,
-            active_snapshot.source_room_id,
-            active_snapshot.target_room_id(),
-            since_commit.as_secs_f64() * 1000.0,
-            waiting,
+        let opaque = covers.iter().any(|(_, cover, _)| cover.sequence == sequence && cover.is_opaque());
+        if opaque && entry.cover_opaque_at.is_none() { entry.cover_opaque_at = Some(update_serial); }
+        if active_snapshot.cover_required && !active_snapshot.cover_presented && opaque
+            && entry.cover_opaque_at.is_some_and(|opaque_at| update_serial > opaque_at) {
+            if let Some(active) = transitions.presentation_mut(sequence) {
+                active.cover_presented = true;
+                active.cover_presented_at = Some(time.elapsed());
+            }
+        }
+        if active_snapshot.phase != RoomTransitionLoadPhase::Committed {
+            entry.commit_observed_at = None;
+            continue;
+        }
+        let observed = match entry.commit_observed_at {
+            Some(observed) => observed,
+            None => {
+                entry.commit_observed_at = Some(update_serial);
+                entry.visible_before_commit = visible;
+                if !visible {
+                    presentation.write(LoadPresentationCommand::Finish { owner: owner.clone() });
+                    entry.foreground_finished = true;
+                }
+                update_serial
+            }
+        };
+        // The destination must have one complete presentation frame under its cover.
+        if update_serial <= observed { continue; }
+        let targets = cover_rooms(
+            active_snapshot.arrived_in,
+            active_snapshot.target_room,
+            live_rooms.iter().map(|(instance, definition)| (*instance, *definition)),
         );
-    }
+        let waiting = settling.pending_for(&targets);
+        let unsettled = waiting.len();
+        let since_commit = active_snapshot
+            .committed_at
+            .map(|committed| time.elapsed().saturating_sub(committed))
+            .unwrap_or_default();
+        if unsettled > 0 {
+            // never a hang.
+            if since_commit < config.presentation_settle_deadline {
+                continue;
+            }
+            bevy::log::warn!(
+                target: "crate::room_transition::performance",
+                "room transition {} {} -> {} revealed with {unsettled} thing(s) \
+                 still undrawn after {:.0} ms — the cover gave up waiting. A feature \
+                 view here is one the sim published and no render family claimed, so \
+                 either a spawn path is missing its family marker or this room draws \
+                 more slowly than the deadline allows. Undrawn: {:?}",
+                active_snapshot.sequence,
+                active_snapshot.source_room_id,
+                active_snapshot.target_room_id(),
+                since_commit.as_secs_f64() * 1000.0,
+                waiting,
+            );
+        }
 
-    let Some(owner) = runtime.owner.take() else {
-        return;
-    };
-    if !runtime.foreground_finished {
-        presentation.write(LoadPresentationCommand::Finish { owner });
-    }
-    // The cover goes out in the transition's look; gameplay resumes under it.
-    for (_, mut cover, _) in &mut covers {
-        if cover.sequence == active_snapshot.sequence {
-            cover.lift();
+
+        if !entry.foreground_finished {
+            presentation.write(LoadPresentationCommand::Finish { owner });
+        }
+        for (_, mut cover, _) in &mut covers {
+            if cover.sequence == sequence { cover.lift(); }
+        }
+        let now = time.elapsed();
+        telemetry.record(
+            RoomTransitionTimingSample {
+                sequence: active_snapshot.sequence,
+                source_room: active_snapshot.source_room_id.clone(),
+                target_room: active_snapshot.target_room_id().to_string(),
+                construction_preflight: active_snapshot.construction_preflight_duration,
+                asset_manifest_build: active_snapshot.asset_manifest_duration,
+                asset_wait: active_snapshot
+                    .requested_at
+                    .zip(active_snapshot.asset_ready_at)
+                    .map(|(start, ready)| ready.saturating_sub(start)),
+                request_to_ready: active_snapshot
+                    .requested_at
+                    .zip(active_snapshot.ready_at)
+                    .map(|(start, ready)| ready.saturating_sub(start)),
+                cover_request_to_presented: active_snapshot
+                    .requested_at
+                    .zip(active_snapshot.cover_presented_at)
+                    .map(|(requested, covered)| covered.saturating_sub(requested)),
+                commit_enqueue: active_snapshot.commit_duration,
+                commit_to_first_target_frame: active_snapshot
+                    .committed_at
+                    .map(|committed| now.saturating_sub(committed)),
+                covered: active_snapshot.cover_required,
+                prefetch_hit: active_snapshot.prefetch_hit,
+                loading_foreground_visible: entry.visible_before_commit,
+                loading_foreground_visible_duration: entry.visible_elapsed,
+            },
+            &config,
+        );
+
+        loads.retire(&active_snapshot.barrier.load_id);
+        transitions.retire_presentation(sequence);
+        runtime.entries.remove(&sequence);
+        if transitions.active.is_none() {
+            crate::platformer::world_log::note_game_mode_request(GameMode::Playing, "room_transition_retire");
+            next_mode.set(GameMode::Playing);
         }
     }
-    let now = time.elapsed();
-    telemetry.record(
-        RoomTransitionTimingSample {
-            sequence: active_snapshot.sequence,
-            source_room: active_snapshot.source_room_id.clone(),
-            target_room: active_snapshot.target_room_id().to_string(),
-            construction_preflight: active_snapshot.construction_preflight_duration,
-            asset_manifest_build: active_snapshot.asset_manifest_duration,
-            asset_wait: active_snapshot
-                .requested_at
-                .zip(active_snapshot.asset_ready_at)
-                .map(|(start, ready)| ready.saturating_sub(start)),
-            request_to_ready: active_snapshot
-                .requested_at
-                .zip(active_snapshot.ready_at)
-                .map(|(start, ready)| ready.saturating_sub(start)),
-            cover_request_to_presented: active_snapshot
-                .requested_at
-                .zip(active_snapshot.cover_presented_at)
-                .map(|(requested, covered)| covered.saturating_sub(requested)),
-            commit_enqueue: active_snapshot.commit_duration,
-            commit_to_first_target_frame: active_snapshot
-                .committed_at
-                .map(|committed| now.saturating_sub(committed)),
-            covered: active_snapshot.cover_required,
-            prefetch_hit: active_snapshot.prefetch_hit,
-            loading_foreground_visible: runtime.visible_before_commit,
-            loading_foreground_visible_duration: runtime.visible_elapsed,
-        },
-        &config,
-    );
-    loads.retire(&active_snapshot.barrier.load_id);
-    transitions.active = None;
-    crate::platformer::world_log::note_game_mode_request(
-        GameMode::Playing,
-        "room_transition_retire",
-    );
-    next_mode.set(GameMode::Playing);
-    runtime.sequence = None;
-    runtime.commit_observed_at = None;
-    runtime.visible_before_commit = false;
-    runtime.foreground_finished = false;
-    runtime.visible_elapsed = Duration::ZERO;
 }
 
 fn apply_load_command(
@@ -676,19 +571,14 @@ fn handle_room_transition_presentation_events(
     mut next_mode: ResMut<NextState<GameMode>>,
 ) {
     for event in events.read() {
-        let Some(active) = transitions.active.as_ref() else {
-            continue;
-        };
-        let expected_owner = owner_for(active.sequence);
         let event_owner = match event {
             LoadPresentationEvent::ContinueRequested { owner }
             | LoadPresentationEvent::RetryRequested { owner, .. }
             | LoadPresentationEvent::CancelRequested { owner }
             | LoadPresentationEvent::QuitRequested { owner } => owner,
         };
-        if event_owner != &expected_owner {
-            continue;
-        }
+        let Some(active) = transitions.presentations().find(|active| owner_for(active.sequence) == *event_owner).cloned() else { continue };
+        let expected_owner = owner_for(active.sequence);
 
         match event {
             LoadPresentationEvent::ContinueRequested { .. } => {
@@ -716,7 +606,7 @@ fn handle_room_transition_presentation_events(
                     },
                 );
                 loads.retire(&load_id);
-                transitions.active = None;
+                transitions.retire_presentation(active.sequence);
                 presentation.write(LoadPresentationCommand::Cancel {
                     owner: expected_owner,
                 });
@@ -754,15 +644,14 @@ fn handle_room_transition_presentation_events(
                     },
                 );
                 loads.retire(&load_id);
-                transitions.active = None;
+                transitions.retire_presentation(active.sequence);
                 presentation.write(LoadPresentationCommand::Cancel {
                     owner: expected_owner,
                 });
-                crate::platformer::world_log::note_game_mode_request(
-                    GameMode::Playing,
-                    "room_transition_cancelled",
-                );
-                next_mode.set(GameMode::Playing);
+                if transitions.active.is_none() {
+                    crate::platformer::world_log::note_game_mode_request(GameMode::Playing, "room_transition_cancelled");
+                    next_mode.set(GameMode::Playing);
+                }
             }
         }
     }

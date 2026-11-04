@@ -366,21 +366,14 @@ mod two_live_rooms_tests {
         {
             if std::time::Instant::now() >= deadline {
                 use ambition_platformer2d::{
-                    load::LoadCoordinator, load_presentation::LoadForegroundState,
+                    load::LoadCoordinator, load_presentation::LoadPresentations,
                 };
-                let foreground = app
-                    .world()
-                    .get_resource::<LoadForegroundState>()
-                    .and_then(|state| state.active.as_ref());
-                let snapshot = foreground.and_then(|active| {
-                    app.world()
-                        .get_resource::<LoadCoordinator>()
-                        .and_then(|coordinator| {
-                            coordinator
-                                .snapshot(&active.barrier.load_id, &active.barrier.barrier_id)
-                        })
-                });
-                panic!("the session did not publish its HUD: {snapshot:#?}");
+                let snapshots: Vec<_> = app.world().get_resource::<LoadPresentations>().into_iter()
+                    .flat_map(|state| state.iter()).filter_map(|entry| {
+                        app.world().get_resource::<LoadCoordinator>().and_then(|coordinator|
+                            coordinator.snapshot(&entry.foreground.barrier.load_id, &entry.foreground.barrier.barrier_id))
+                    }).collect();
+                panic!("the session did not publish its HUD: {snapshots:#?}");
             }
             app.update();
             std::thread::yield_now();

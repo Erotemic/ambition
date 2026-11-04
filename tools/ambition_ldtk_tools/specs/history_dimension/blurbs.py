@@ -80,6 +80,16 @@ BLURB = {
     "history_indus_cities": (
         "WHERE: the Indus valley (Pakistan, north-west India): Harappa, Mohenjo-daro. WHEN: about 2600-1900 BCE.",
         "FACT: the cities had planned streets and covered drains, and their script is still not read."),
+    # ---- Southeast Asia ----
+    "history_sulawesi": (
+        "WHERE: Maros-Pangkep, Sulawesi (Indonesia), in Wallacea. WHEN: about 51,000-40,000 years ago.",
+        "FACT: at Leang Karampuang a pig and three human figures are painted, dated to at least 51,200 years ago."),
+    "history_austronesian_islands": (
+        "WHERE: the Philippines and the islands of Indonesia. WHEN: about 2200-1500 BCE.",
+        "FACT: Austronesian languages, from Taiwan, came to be spoken from Madagascar to Rapa Nui, more than half the globe."),
+    "history_dong_son": (
+        "WHERE: the Red River valley, northern Vietnam. WHEN: about 600 BCE-43 CE.",
+        "FACT: in 40 CE the Trưng sisters led a rising against Han China and ruled until 43 CE."),
     # ---- Oceania ----
     "history_sahul": (
         "WHERE: Sahul: Australia, New Guinea and Tasmania, one land when the sea was low. WHEN: 65,000-45,000 years ago.",

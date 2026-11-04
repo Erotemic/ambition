@@ -305,6 +305,15 @@
     "history_quipu": (),
     "history_shicra_bags": (),
     "history_cotton_nets": (),
+    // Southeast Asia (wave C, `targets/props/history_southeast_asia_props.py`):
+    // the pig painting and the hand stencils of Sulawesi; the stilt house, the
+    // red-slipped pots of the islands; the bronze drum and the rice of Dong Son.
+    "history_pig_painting": (),
+    "history_sulawesi_hand_stencils": (),
+    "history_bamboo_stilt_house": (),
+    "history_bronze_drum": (),
+    "history_rice_sheaves": (),
+    "history_red_slip_pots": (),
     // The Story Stacks of the Art dimension (`targets/props/art_stacks_props.py`).
     // The doors of the Library of Endings are two covers of a book: the happy
     // ending in gold with a sun, the sad ending in deep blue with a moon and

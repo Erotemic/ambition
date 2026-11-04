@@ -443,6 +443,14 @@ collections:
   - history_quipu
   - history_shicra_bags
   - history_cotton_nets
+  - sulawesi_warty_pig
+  - saltwater_crocodile
+  - history_pig_painting
+  - history_sulawesi_hand_stencils
+  - history_bamboo_stilt_house
+  - history_bronze_drum
+  - history_rice_sheaves
+  - history_red_slip_pots
   - eigenghost
   - decomposing_specter
   - spectral_perturbation
@@ -771,6 +779,11 @@ collections:
   - history_antoine_parmen_tater
   - history_caral_flautist
   - history_net_maker
+  - history_pig_painter
+  - history_word_keeper
+  - history_trung_trac
+  - history_trung_nhi
+  - history_drum_caster
   - station_dobbs
   - station_pippin
   - magical_celeste

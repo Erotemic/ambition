@@ -50,7 +50,11 @@ built:
   - [southern_coast, levant, contact, "out of Africa"]
   - [levant, ice_age_europe, contact, "into Europe"]
   - [ice_age_europe, southern_route, atlas_shortcut]
-  - [southern_route, sahul, contact, "along the coasts and over the sea"]
+  - [southern_route, sulawesi_art, contact, "along the coasts and over the sea"]
+  - [sulawesi_art, sahul, contact, "by sea, island to island"]
+  - [sulawesi_art, austronesian_islands, succession]
+  - [austronesian_islands, dong_son, contact, "the drums went to the islands"]
+  - [austronesian_islands, new_guinea_highlands, contact, "the newcomers met the farmers of New Guinea"]
   - [sahul, mammoth_steppe, atlas_shortcut, "Papuans carry Denisovan DNA: a meeting, but not here"]
   - [mammoth_steppe, beringia, contact]
   - [first_farmers_of_europe, fertile_crescent, contact, "farmers came from Anatolia"]
@@ -373,8 +377,6 @@ links:
   - [shenzhen_now, internet_now, contact]
 
   # ---- Southeast Asia ----
-  - [southern_route, sulawesi_art, contact]
-  - [sulawesi_art, sahul, contact]
   - [flores_luzon, sulawesi_art, comparison]
   - [niah_cave, sulawesi_art, comparison]
   - [ban_chiang, dong_son, succession]

@@ -294,6 +294,11 @@ npc_history_potato_farmer
 npc_history_antoine_parmen_tater
 npc_history_caral_flautist
 npc_history_net_maker
+npc_history_pig_painter
+npc_history_word_keeper
+npc_history_trung_trac
+npc_history_trung_nhi
+npc_history_drum_caster
 
 [Guests from history and the studio]
 npc_genghis_can
@@ -465,6 +470,8 @@ pacific_rat
 driver_ants
 napoleonic_grenadier
 andean_condor
+sulawesi_warty_pig
+saltwater_crocodile
 
 [Mary-O's world]
 mary_o

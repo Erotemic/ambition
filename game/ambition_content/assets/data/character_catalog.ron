@@ -634,6 +634,18 @@
             move_style: WalkHeavy,
             melee: Some(Lunge(windup_s: 0.85, active_s: 0.3, recover_s: 1.1, damage: 3, reach_px: 64.0, step_px: 0.0, rush_px: 140.0)),
         ),
+        // The Sulawesi warty pig drops its head (its windup row) and charges
+        // a short quick way, tusks first; the saltwater crocodile opens its
+        // jaws low (its windup row), lunges a short heavy way and needs a long
+        // moment after.
+        "sulawesi_warty_pig_charge": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.45, active_s: 0.2, recover_s: 0.55, damage: 1, reach_px: 34.0, step_px: 0.0, rush_px: 170.0)),
+        ),
+        "saltwater_crocodile_lunge": (
+            move_style: WalkHeavy,
+            melee: Some(Lunge(windup_s: 0.8, active_s: 0.25, recover_s: 1.1, damage: 2, reach_px: 60.0, step_px: 0.0, rush_px: 130.0)),
+        ),
         "sea_raider_cut": (
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.35, active_s: 0.15, recover_s: 0.45, damage: 2, reach_px: 36.0, step_px: 0.0, rush_px: 140.0)),
@@ -7678,6 +7690,71 @@
             hall: ["Everyone thinks we only steal. We hunt most of what we eat. We just laugh about it, and that gives us a reputation.", "The first humans came down out of the trees right here. We were waiting. We have been laughing about it ever since."],
         ),
         ),
+        // The Sulawesi warty pig: a small wild pig found only on Sulawesi and
+        // its near islands, with warts on the face and a tuft on the crown.
+        // People painted it on cave walls at least 45,500 years ago.
+        "sulawesi_warty_pig": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Sulawesi Warty Pig",
+            manifest: "sprites/sulawesi_warty_pig_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(40.0),
+            composition: None,
+            default_action_set: "sulawesi_warty_pig_charge",
+            locomotion: Some((run_speed: 230.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 480.0,
+                attack_range: 70.0,
+                patrol_effort: 0.5,
+                chase_effort: 0.9,
+                attack_cooldown_s: 0.8,
+                tactics: (notice_s: 0.4, footsies: Some((hold_px: 120.0, wait_s: 0.6)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "history", "sulawesi", "beast"],
+        barks: (
+            on_hit: ["SQUEEE!", "*an offended grunt*"],
+            provoked: ["*it lowers its warty head and paws the ground*"],
+            idle: ["*snuffle snuffle*", "*it roots for a fallen fruit*", "Oink. Locally."],
+            hall: ["I am the oldest model in the world. A painter put me on a cave wall over 45,000 years ago, and I have not changed my look since.", "People call it a hunting scene. I call it a portrait."],
+        ),
+        ),
+        // The saltwater crocodile: the largest living reptile, at home in the
+        // rivers, swamps and seas from India to Australia. It swims between
+        // islands, as the people of the islands did.
+        "saltwater_crocodile": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Saltwater Crocodile",
+            manifest: "sprites/saltwater_crocodile_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(32.0),
+            composition: None,
+            default_action_set: "saltwater_crocodile_lunge",
+            locomotion: Some((run_speed: 110.0, move_style: WalkHeavy)),
+            contact_damage: Some((strength: 0.8, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 420.0,
+                attack_range: 90.0,
+                patrol_effort: 0.2,
+                chase_effort: 0.7,
+                // It waits, then it lunges, then it waits a long time.
+                attack_cooldown_s: 1.4,
+                tactics: (notice_s: 0.9, footsies: Some((hold_px: 160.0, wait_s: 1.2))),
+            )),
+            max_health: Some(10),
+            mass: Some(7.0),
+            tags: ["enemy", "history", "austronesian_islands", "dong_son", "beast"],
+        barks: (
+            on_hit: ["*a hiss like a kettle*", "*it does not blink. It never blinks.*"],
+            provoked: ["*two eyes and a nose come up out of the water*"],
+            idle: ["*it lies still, like a log with plans*", "*a long, slow breath*"],
+            hall: ["My family has looked like this for a very long time. We watched the islanders paddle by in their canoes. We swim between islands too; we just do not bring pots.", "I can go months without a meal. I am in no hurry. You will come down to the water eventually."],
+        ),
+        ),
         // The cave lion: the maneless lion of the Ice Age that the painters of
         // the caves drew. It crouches with its hips wiggling (its windup row),
         // pounces a long way with its claws out, and lands.
@@ -11716,6 +11793,94 @@
             barks: (
                 idle: ["Supe. Like soup. Mostly anchovy.", "*her fingers tie a knot without her looking*", "Cotton up, anchovies down. That is the whole economy."],
                 hall: ["The valley grows the cotton; we make the nets; the sea gives the anchovies. Everybody wins except the anchovies.", "Pots? Nobody here makes pots yet. A gourd is a pot that grows on a vine."],
+            ),
+        ),
+        // Southeast Asia (wave C). The pig painter, the word keeper and the
+        // drum caster are original people; Trưng Trắc and Trưng Nhị are the
+        // sisters who led the rising of 40 CE against Han rule.
+        "npc_history_pig_painter": (
+            display_name: "The Pig Painter",
+            // An original painter of Sulawesi, about 51,000 years ago, with red ochre on her hands and a bone tube to blow paint.
+            manifest: "sprites/history_pig_painter_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 152 cm.
+            standing_height: Some(58.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "sulawesi", "peaceful"],
+            barks: (
+                idle: ["*she spits red ochre round her hand, and lifts it: the hand stays on the rock*", "A pig. Three people. You decide what happens next.", "Mind the wall. It is still drying. For about fifty thousand years."],
+                hall: ["At Leang Karampuang a pig and three figures like people are painted on the wall. It is at least 51,200 years old: the oldest known painted story.", "Nobody walked to this island. It was never joined to the land. Everyone here came by sea, on rafts, long before anyone sailed anywhere else."],
+            ),
+        ),
+        "npc_history_word_keeper": (
+            display_name: "The Word Keeper",
+            // An original Austronesian woman, about 2000 BCE, in bark cloth with shell beads and a red-slipped pot.
+            manifest: "sprites/history_word_keeper_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 158 cm.
+            standing_height: Some(61.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "austronesian_islands", "peaceful"],
+            barks: (
+                idle: ["Mata. Eye. Say it. Good.", "*she turns the red pot in her hands, and hums a word list*", "Lima: five, and the hand. Count on it."],
+                hall: ["From Taiwan, by outrigger canoe, our words went to Madagascar and to Rapa Nui: half the globe. More languages come from ours than from almost any other family.", "You say tattoo and taboo. Those are ours: tatau and tapu. They went the long way round, through the far islands, to reach you."],
+            ),
+        ),
+        "npc_history_trung_trac": (
+            display_name: "Trưng Trắc",
+            // Trưng Trắc, who led the rising of 40 CE against Han rule with her sister and ruled from Mê Linh until 43 CE.
+            manifest: "sprites/history_trung_trac_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(62.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "dong_son", "peaceful"],
+            barks: (
+                idle: ["Sixty-five citadels. Count them if you doubt me.", "*she sets the sword point-down, and waits*", "Mê Linh is ours."],
+                hall: ["In 40 CE my sister and I raised the Lạc lords against Han rule, and for three years we ruled. In 43 CE the Han general Ma Yuan defeated us.", "Every town in Vietnam has a street for the Two Ladies Trưng. That is a long memory for three years."],
+            ),
+        ),
+        "npc_history_trung_nhi": (
+            display_name: "Trưng Nhị",
+            // Trưng Nhị, the younger of the Trưng sisters, with a war banner, in 40 CE.
+            manifest: "sprites/history_trung_nhi_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 156 cm.
+            standing_height: Some(60.5),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "dong_son", "peaceful"],
+            barks: (
+                idle: ["*the banner snaps in the wind*", "The stories say we rode elephants. The stories are right.", "My sister talks. I ride."],
+                hall: ["Many of our captains were women. Here a daughter could inherit, and a woman could lead. The Han did not like it at all.", "When the bronze drums sound, the Lạc lords come. They came for us."],
+            ),
+        ),
+        "npc_history_drum_caster": (
+            display_name: "The Drum Caster",
+            // An original bronze-smith of the Dong Son culture, about 100 BCE, with a bronze drum and tongs.
+            manifest: "sprites/history_drum_caster_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 164 cm.
+            standing_height: Some(63.6),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "dong_son", "peaceful"],
+            barks: (
+                idle: ["Wax, clay, fire, bronze. And a little luck.", "*he taps the drum: the frogs on its rim seem to jump*", "A star in the middle, for the sun. Always."],
+                hall: ["Our drums are cast by the lost wax: carve the pictures in wax, cover it in clay, pour out the wax and pour in the bronze. They have been dug up from southern China to the far islands of Indonesia.", "The frogs on the rim are for the rain. Frogs sing when it comes. A drum with frogs asks for rain, very loudly."],
             ),
         ),
         "npc_primeval_twitchell": (

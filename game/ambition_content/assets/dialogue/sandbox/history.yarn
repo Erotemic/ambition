@@ -23,15 +23,15 @@ Clio: Oh good, a visitor. Welcome to the beginning. Well, a beginning. Historian
 -> Who are you?
     Clio: Clio. The Muse of History. I keep the record. It is very long and nobody reads the footnotes.
 -> Where am I?
-    Clio: The Great Rift Valley, in Africa, about three hundred thousand years ago. Everyone you will meet in this dimension has ancestors who stood about where you are standing.
+    Clio: The Great Rift Valley, in Africa, about three hundred thousand years ago. Everyone you will meet in this dimension has ancestors in Africa. Not in one valley: the oldest bones of our kind are from Morocco, Ethiopia and South Africa. Africa is the cradle, all of it.
     -> Everyone?
         Clio: Everyone. People walked out of Africa and kept walking, to every land there is. That is the first story, and it is the same story for all of them.
     -> Go on.
-        Clio: Fire first. Then the long walk. Then, in many places at once, farming. Then cities, and then the trouble starts. Writing comes in around the trouble. Then me.
+        Clio: Fire, which people had tended for hundreds of thousands of years already. Then the long walk. Then, in many places at once, farming. Then cities, and then the trouble starts. Writing comes in around the trouble. Then me.
 -> How does this place work?
-    Clio: East is later. Every floor is a different part of the world, and the rooms one above the other happened at the same time. Ladders join them where people met. History is not a line. It is a lot of lines that keep running into each other.
+    Clio: East is later. Every floor is a different part of the world, and the rooms one above the other happened at the same time. A way up or down joins them where people met, and where the atlas has folded the map to make a road, a sign says so. History is not a line. It is a lot of lines that keep running into each other.
 -> Goodbye.
-    Clio: Light the fire before the hyenas come. And remember: the past is not over. It is just upstream.
+    Clio: Keep the fire lit before the hyenas come. And remember: the past is not over. It is just upstream.
 ===
 
 title: history_hammurabbi
@@ -334,6 +334,8 @@ Lucy: (She looks up at you, then at your feet. She stands up very straight, to s
     Lucy: (She tilts her head. She has seen a lot of visitors. Three point two million years of them, counting the scientists.)
 -> Are you the first person?
     Mary Leaky: She is not a person like us. She is an Australopithecus. But she walked on two legs, like us, more than three million years ago. She is family. A very old cousin.
+-> What is she doing here?
+    Mary Leaky: Visiting. She lived three million years before anyone in this valley. Clio lets the old ones come to the atlas as guests, so you can meet them. Do not tell her she is early.
 -> Why "Lucy"?
     Mary Leaky: The team that found her bones played a song all night in the camp. The song had a Lucy in it. In Ethiopia she has another name: Dinkinesh. It means "you are marvellous".
 -> Goodbye.
@@ -914,4 +916,77 @@ Net Maker of Aspero: From the coast, are you? No? You smell of mountains.
     Net Maker of Aspero: Some archaeologists say the sea fed the first cities of the Andes, before the farms could. I say: obviously. Others say the farms. They have not tasted my anchovies.
 -> Goodbye.
     Net Maker of Aspero: Take a net. You will catch something. Possibly a fish.
+===
+
+title: history_pig_painter
+---
+Pig Painter: Stand back from the wall. Not that far. There. Now you can see the pig.
+-> What is it doing?
+    Pig Painter: Standing. The three beside it are people, or something like people, holding things out to it. A rope, a spear. Maybe it is a hunt. Maybe it is a story about a hunt. You will have to guess. That is what a story is for.
+-> How do you paint in the dark?
+    Pig Painter: With a fire, and red earth ground in water. For the hands, put yours on the rock, fill your mouth with paint and blow. Afterwards the hand is gone and the rock remembers it.
+-> Is that a real pig?
+    Pig Painter: A warty pig. They live in the forest here, and only on these islands. Your children's children will still see them. Mind the tusks.
+-> How did you get here?
+    Pig Painter: By sea. Everyone did. These islands never touched the lands to the west or the lands to the south, not even when the sea was low. Our grandmothers built rafts and went where they could see smoke, or birds, or nothing at all.
+-> Goodbye.
+    Pig Painter: Leave your hand on the wall if you like. Fifty thousand years is a long time to be remembered.
+===
+
+title: history_word_keeper
+---
+Word Keeper: Sit, sit. Mind the pot. Do you know what this is? Mata. Eye. Point at your eye. Mata.
+-> Why do you keep words?
+    Word Keeper: Because our words travel further than we do. My grandmother's grandmother came south from the big island you call Taiwan. Her words came with her. They go on ahead now, from island to island, in the canoes.
+-> How far?
+    Word Keeper: Further than anyone will believe. One day mata will mean eye in Malay, in Tagalog, in Fiji and in Aotearoa. On Madagascar, by Africa, it will be maso; in Hawaii, in the middle of the great sea, maka. The same word, worn smooth by the road. Lima, five, the fingers of one hand: Malay, Tagalog, Fijian. In Hawaii lima is five and the hand itself. Half the world, by canoe.
+-> You speak my language?
+    Word Keeper: You speak a little of ours. Tattoo, from tatau. Taboo, from tapu. Those came the long way round, through the far islands. Keep them; they suit you.
+-> What do you bring in the canoes?
+    Word Keeper: Rice and millet, pigs and dogs, red-slipped pots like this one, and the outrigger, which keeps a canoe the right way up. On the new islands we find bananas, taro and sugarcane, and we take those too.
+-> Goodbye.
+    Word Keeper: Selamat jalan, they will say in Malay: go safely. Paalam, in Tagalog. And from me: mind the pot.
+===
+
+title: history_trung_trac
+---
+Trưng Trắc: Stranger, you stand in Mê Linh. My sister and I hold it, and sixty-five citadels besides. The Han governor has run home.
+-> Who are you?
+    Trưng Trắc: Trưng Trắc, daughter of the Lạc lord of Mê Linh. That is my sister, Trưng Nhị. In the year you call 40 CE we raised the Lạc lords against Han rule, and the people rose with us.
+-> Why did you rise?
+    Trưng Trắc: The governor, Tô Định, took our land for his taxes and put our ways under his law. The stories say he killed my husband, Thi Sách; others say not. Either way, I did not need a husband's death to want my country back.
+-> What happens next?
+    Trưng Trắc: Three years we rule. Then the Han send their best general, Ma Yuan, with a great army, and in 43 CE we lose. The Han chronicles say they took our heads. Our people say we went into the river rather than be taken. Choose which story you believe. Both say we did not kneel.
+-> Are you remembered?
+    Trưng Trắc: Ask anyone in Vietnam. There are temples to the Two Ladies Trưng, a street named for us in every town, and a day of the year that is ours.
+-> Goodbye.
+    Trưng Trắc: Go. If anyone asks who rules here, say: we do.
+===
+
+title: history_trung_nhi
+---
+Trưng Nhị: Do not mind the banner. It is heavier than it looks, and so am I.
+-> You are the younger sister?
+    Trưng Nhị: Trưng Nhị. Younger, and better with a bow. My sister speaks for us. I ride beside her. The stories say we rode elephants into battle. Have you tried to steer an elephant? We did.
+-> Who fights for you?
+    Trưng Nhị: Everyone. Many of our captains are women: Phùng Thị Chính, the stories say, fought with her baby on her back. Lê Chân raised an army on the coast. Here, a daughter can inherit, and a woman can lead. The Han find this very upsetting.
+-> What is the drum for?
+    Trưng Nhị: Listen to it and you will know. The bronze drums are older than us, older than the Han. When they sound, the Lạc lords come.
+-> Goodbye.
+    Trưng Nhị: Ride well. And if you meet an elephant, let it steer.
+===
+
+title: history_drum_caster
+---
+Drum Caster: Careful. It is still warm. Well, no. But it was, once, and I like to say that.
+-> How do you make one?
+    Drum Caster: Shape the drum in wax over a core of clay. Carve every picture into the wax. Cover it all in more clay, heat it, pour the wax out and the bronze in. Break the mould. If you did it right, the pictures come out in bronze. If not, you start again. I have started again a lot.
+-> What are the pictures?
+    Drum Caster: A star in the middle, for the sun. Around it, birds, and people in feathers dancing, and boats full of warriors. And on some, frogs on the rim. Frogs sing when the rain comes. A drum with frogs asks for rain, politely, and very loudly.
+-> Who buys them?
+    Drum Caster: Lords, for their feasts and their funerals. And far away: our drums go down the rivers and across the sea. People will dig them up in Thailand, in Malaysia, on islands deep in Indonesia. Loud diplomacy.
+-> Why "Dong Son"?
+    Drum Caster: That is your name for us, after the village by the river Mã where a fisherman found our things in 1924, and your scholars came to dig. We call it home.
+-> Goodbye.
+    Drum Caster: Hit it if you like. Not too hard. The frogs are sensitive.
 ===

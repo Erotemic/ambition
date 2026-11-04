@@ -531,7 +531,7 @@ nodes:
   # =========================================================================
   # SOUTHEAST ASIA
   # =========================================================================
-  - {id: sulawesi_art, title: "Sulawesi, the oldest painted story", region: island_southeast_asia, years: [-52000, -40000], status: planned,
+  - {id: sulawesi_art, title: "Sulawesi, the oldest painted story", region: island_southeast_asia, years: [-52000, -40000], status: built, room: history_sulawesi,
      countries: [IDN], topics: [first_art, other_humans], note: "a hunting scene at least 51,200 years old"}
   - {id: flores_luzon, title: "The small humans of Flores and Luzon", region: island_southeast_asia, years: [-100000, -50000], status: candidate, shape: pocket,
      countries: [IDN, PHL], topics: [other_humans]}
@@ -539,7 +539,7 @@ nodes:
      countries: [MYS, BRN], topics: [dispersal]}
   - {id: ban_chiang, title: "Ban Chiang", region: mainland_southeast_asia, years: [-2000, 200], status: candidate,
      countries: [THA, LAO], topics: [bronze_and_iron, farming_origins]}
-  - {id: dong_son, title: "Dong Son and the drums", region: mainland_southeast_asia, years: [-1000, 43], status: planned,
+  - {id: dong_son, title: "Dong Son and the drums", region: mainland_southeast_asia, years: [-1000, 43], status: built, room: history_dong_son,
      countries: [VNM, LAO, THA, IDN, MYS], topics: [bronze_and_iron, women_rulers], note: "the Trưng sisters' rising, 40 CE"}
   - {id: funan_oc_eo, title: "Funan and Óc Eo", region: mainland_southeast_asia, years: [100, 550], status: candidate,
      countries: [KHM, VNM], topics: [indian_ocean_trade]}
@@ -583,7 +583,7 @@ nodes:
   - {id: rohingya_myanmar, title: "Myanmar and the Rohingya", region: mainland_southeast_asia, years: [1948, 2017], status: planned, mode: sober,
      countries: [MMR, BGD], peoples: [rohingya], topics: [genocide, migration]}
 
-  - {id: austronesian_islands, title: "The Austronesians come to the islands", region: island_southeast_asia, years: [-2500, -500], status: planned,
+  - {id: austronesian_islands, title: "The Austronesians come to the islands", region: island_southeast_asia, years: [-2500, -500], status: built, room: history_austronesian_islands,
      countries: [PHL, IDN, MYS, BRN, TLS], topics: [peopling_of_pacific, seafaring, farming_origins]}
 
   # =========================================================================

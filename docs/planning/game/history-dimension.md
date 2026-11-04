@@ -80,6 +80,7 @@ the record and sighs about the footnotes.
     R½ S. America                   andes           caral
     R1 East Asia      mammoth st.   yellow river    shang        silk road   steppe
     R2 Oceania        sahul         highlands       lapita       wayfinders  rapa nui
+    R2½ SE Asia       sulawesi      austronesians   dong son
     R3 South Asia     south. route  mehrgarh        indus
     R4 Europe         ice age       first farmers   megaliths    celts       vikings     sail   industrial
     R5 Med./SW Asia   levant        crescent        uruk         classical
@@ -95,7 +96,8 @@ floor, over a tower of ledges in the lower room):
 
 | column | floors | why |
 | --- | --- | --- |
-| C1 | Africa and the Levant, the Levant and Europe, Europe and South Asia, South Asia and Sahul, Sahul and the mammoth steppe, the mammoth steppe and Beringia | the great dispersal: one road out of Africa to every land mass |
+| C1 | Africa and the Levant, the Levant and Europe, Europe and South Asia, South Asia and Sulawesi, Sulawesi and Sahul, Sahul and the mammoth steppe, the mammoth steppe and Beringia | the great dispersal: one road out of Africa to every land mass; every island of Wallacea was reached by sea |
+| C2 | the Austronesian islands and the New Guinea highlands | the newcomers from Taiwan meet the first farmers of New Guinea |
 | C2 | the Green Sahara and the Crescent, the Crescent and Europe | cattle and wheat go both ways; farming walks into Europe |
 | C3 | the Shang court and the Lapita voyagers | the Austronesians sail from Taiwan into the Pacific |
 | C3 | the Nile and Uruk, Uruk and the megalith builders | Egypt and Sumer trade; tin comes south from the north |
@@ -124,7 +126,10 @@ The rooms:
 | `history_viking_north` | `history_northwoods` | Leif Errandson | viking raider | a longship carries you over the fjord |
 | `history_age_of_sail` | `history_sail` | Vasco da Gamer, Christopher Columbust, Captain Cookbook | privateer, scurvy ghost, kraken arm | ships' booms rock over the harbour |
 | `history_industrial_age` | `history_industrial` | Adam Smithy, Karl Marks, General Ludd | steam automaton, soot sprite, robber baron | the boiler in the mill (`history_boiler`) opens the factory gate; a rail wagon carries you over the cutting |
-| `history_southern_route` | `history_indus` | the coast walker | coral crab, tiger | the ways: up to Sahul, down to Europe |
+| `history_southern_route` | `history_indus` | the coast walker | coral crab, tiger | the ways: up to Sulawesi, down to Europe |
+| `history_sulawesi` | `history_wallacea` | the pig painter | Sulawesi warty pig | up the karst to the painted cave: a pig and three hunters, 51,200 years old, and hand stencils; the ways: up to Sahul, down to the southern route |
+| `history_austronesian_islands` | `history_austronesia` | the word keeper | saltwater crocodile, coral crab | an outrigger canoe crosses the lagoon; the stilt houses; MATA, one word across half the globe; the way up to New Guinea |
+| `history_dong_son` | `history_red_river` | Trưng Trắc, Trưng Nhị, the drum caster | saltwater crocodile, tiger | the paddies (mud and water); the bronze drum; the Trưng sisters' rising of 40 CE |
 | `history_mehrgarh` | `history_indus` | the dentist of Mehrgarh | locust swarm, tiger | the terraces |
 | `history_indus_cities` | `history_indus` | the Priest-King (Probably) | indus unicorn, tiger | the unicorn seal on the granary roof (`history_unicorn_seal`, a pickup) opens the citadel gate |
 | `history_sahul` | `history_sahul` | the raft builder | diprotodon, megalania | a bamboo raft carries you over the strait |
@@ -191,6 +196,7 @@ instruments are real samples, most of them from the Versilian VCSL library.
 | Europe | `history_europe_solstice_stones` | Solstice Stones | E Dorian in 6/8; recorder as the bone flute, plucked tagelharpa, frame drum; a sunrise to E major among the stones |
 | South Asia | `history_south_asia_monsoon_road` | The Monsoon Road | D Lydian in 7/4 (3+2+2) over a drone; bowed psaltery and flute; a "grid" section for the Indus streets |
 | East Asia | `history_east_asia_yellow_earth` | Yellow Earth, Long Sky | G# minor pentatonic; đàn tranh zither, ocarina as the xun, bronze bells for the Shang court, a gallop for the steppe |
+| Southeast Asia | `history_southeast_asia_bronze_and_rain` | Bronze and Rain | the idea of a gamelan: a gong closes each 16-beat cycle; marimba core melody, two glockenspiel parts that interlock, recorder as the bamboo flute; a pélog-like E F G B C |
 | Oceania | `history_oceania_sahul` | Sahul | C# minor (the key of the didgeridoo samples), clapsticks, slit drum; E major marimba for the highlands |
 | Americas | `history_americas_land_bridge` | Over the Land Bridge | A minor to A major; ocarina, slit drum, wine-glass ice for Beringia |
 
@@ -367,7 +373,7 @@ built room, then the links that make the world one. Each wave starts with
 | wave | rooms | why now |
 | --- | --- | --- |
 | A, B | the Atlantic world; the Andes and Caral | BUILT |
-| C | **Southeast Asia**, the first cluster off the grid: Sulawesi's painted story (51,200 years), the Austronesians come to the islands, Dong Son and its drums (the Trưng sisters), the strait of Srivijaya (a corridor), Angkor (a hub), Borobudur (tall) | 680 million players with no room; it also replaces the Shang-to-Lapita shortcut with Taiwan, the true homeland |
+| C | **Southeast Asia** (C1 BUILT: Sulawesi, the Austronesian islands, Dong Son), the first cluster off the grid: Sulawesi's painted story (51,200 years), the Austronesians come to the islands, Dong Son and its drums (the Trưng sisters), the strait of Srivijaya (a corridor), Angkor (a hub), Borobudur (tall) | 680 million players with no room; it also replaces the Shang-to-Lapita shortcut with Taiwan, the true homeland |
 | D | **East Asia's other half**: Taiwan, the Austronesian homeland; Jōmon, the first pots; Silla and Queen Seondeok's star tower; Heian-kyō; Kaifeng and Hangzhou (printing, paper money, the compass); King Sejong's letters | Japan and the two Koreas have no room; printing is an obvious topic |
 | E | **Bengal and the cotton**: Dhaka muslin (the other end of the cotton mill), the Company and 1857, the language movement and 1971 | Bangladesh (174 million); colonialism in South Asia |
 | F | **Brazil and Amazonia**: the garden cities of the Amazon, Palmares (Zumbi and Dandara), Rio 1888 | Brazil (212 million); Afro-Brazilian and Amazonian peoples |

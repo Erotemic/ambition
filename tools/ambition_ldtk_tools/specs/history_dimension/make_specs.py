@@ -19,6 +19,7 @@ everyone starts in Africa (`specs/check_flat_map.py history.ldtk`).
     R½ S. America     beringia ┘    andes           caral
     R1 East Asia      mammoth st.   yellow river    shang        silk road   steppe
     R2 Oceania        sahul         highlands       lapita       wayfinders  rapa nui
+    R2½ SE Asia       sulawesi      austronesians   dong son
     R3 South Asia     south. route  mehrgarh        indus
     R4 Europe         ice age       first farmers   megaliths    celts       vikings     sail   industrial
     R5 Med./SW Asia   levant        crescent        uruk         classical
@@ -39,7 +40,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 sys.path.insert(0, str(HERE.parent / "gate_network"))
 
-from district_kit import WALL, WORLDS, edge, ensure_world, entity, door, ledge, make_rooms, pad, prop, resident, room, run, sign, solid, start  # noqa: E402
+from district_kit import WALL, WORLDS, edge, ensure_world, entity, door, ledge, make_rooms, pad, prop, resident, room, run, sign, solid, start, water  # noqa: E402
 
 import gates  # noqa: E402
 from blurbs import BLURB  # noqa: E402
@@ -64,6 +65,11 @@ GRID = {
     (1, 0.5): "history_beringia",
     (1, 1): "history_mammoth_steppe",
     (1, 2): "history_sahul",
+    # Southeast Asia, a floor between Oceania and South Asia: the dispersal
+    # crossed Wallacea by sea, and the Austronesians sailed through it.
+    (1, 2.5): "history_sulawesi",
+    (2, 2.5): "history_austronesian_islands",
+    (3, 2.5): "history_dong_son",
     (1, 3): "history_southern_route",
     (1, 4): "history_ice_age_europe",
     (1, 5): "history_levant",
@@ -144,11 +150,15 @@ LINKS = {
     # land mass.
     (1, 0): 600,   # Beringia and the mammoth steppe: across the land bridge
     (1, 1): 2100,  # the mammoth steppe and Sahul: down the east of Asia
-    (1, 2): 600,   # Sahul and the southern route: along the coast, by sea
+    (1, 2): 600,   # Sahul and Sulawesi: by sea, island to island
+    (1, 2.5): 2400,  # Sulawesi and the southern route: along the coasts
     (1, 3): 2100,  # the southern route and Ice Age Europe: north and west
     (1, 4): 600,   # Ice Age Europe and the Levant
     (1, 5): 2100,  # the Levant and the southern coast: out of Africa
     # The first farmers: farming goes from the Crescent to Europe and Africa.
+    # The Austronesians reach New Guinea's coasts; with the people there they
+    # become the Lapita.
+    (2, 2): 2000,
     (2, 4): 400,
     (2, 5): 200,
     # Maize goes south from Mexico to the Andes, where the potato was first
@@ -236,6 +246,7 @@ OCEANIA = "history_oceania_sahul"
 #: The fort of the Door of No Return has its own quiet cue: no region's
 #: music is right there.
 NO_RETURN = "history_atlantic_no_return"
+SE_ASIA = "history_southeast_asia_bronze_and_rain"
 MUSIC = {
     "history_cradle": AFRICA,
     "history_southern_coast": AFRICA,
@@ -260,6 +271,9 @@ MUSIC = {
     "history_mehrgarh": SOUTH_ASIA,
     "history_indus_cities": SOUTH_ASIA,
     "history_sahul": OCEANIA,
+    "history_sulawesi": SE_ASIA,
+    "history_austronesian_islands": SE_ASIA,
+    "history_dong_son": SE_ASIA,
     "history_new_guinea_highlands": OCEANIA,
     "history_mammoth_steppe": EAST_ASIA,
     "history_yellow_river": EAST_ASIA,
@@ -303,6 +317,8 @@ BIOME = {
     "history_industrial_age": "history_industrial", MILL: "history_industrial",
     "history_southern_route": "history_indus", "history_mehrgarh": "history_indus", "history_indus_cities": "history_indus",
     "history_sahul": "history_sahul",
+    "history_sulawesi": "history_wallacea", "history_austronesian_islands": "history_austronesia",
+    "history_dong_son": "history_red_river",
     "history_new_guinea_highlands": "history_highlands",
     "history_yellow_river": "history_yellow_river", "history_shang_court": "history_yellow_river",
     "history_silk_road": "history_silk",
@@ -340,6 +356,8 @@ BOX = {
     "driver_ants": (72, 24), "napoleonic_grenadier": (34, 64),
     # Wave B: South America.
     "andean_condor": (80, 40),
+    # Wave C: Southeast Asia.
+    "sulawesi_warty_pig": (64, 40), "saltwater_crocodile": (120, 32),
 }
 
 DOOR_W, DOOR_H = 48, 192
@@ -600,7 +618,7 @@ def cradle():
         sign("cradle_sign_footprints", 1080, FLOOR - 120, "LAETOLI: two people walked here, 3.6 million years ago", 480),
         prop_at("campfire", "history_campfire", 1400, FLOOR, 64, 64),
         lever(FIRST_FIRE, "the fire drill", "Make fire", 1460, FLOOR),
-        sign("cradle_sign_fire", 1420, FLOOR - 160, "FIRE: warm food, warm nights, fewer hyenas", 420),
+        sign("cradle_sign_fire", 1420, FLOOR - 160, "FIRE: people tended it long before this. Warm food, fewer hyenas.", 609),
         *gate("history_thorn_boma", "the thorn boma", 1640, f"world.switch_on {FIRST_FIRE}", "history_thorn_boma"),
         sign("cradle_sign", 1400, 140, "THE CRADLE: the Great Rift Valley, 300,000 years ago", 500),
         enemy(rid, 1, "hyena", 1900, FLOOR),
@@ -650,6 +668,7 @@ def green_sahara():
         prop_at("rock_art", "history_rock_art", 820, FLOOR, 128, 96),
         enemy(rid, 1, "hippo", 960, FLOOR),
         sign("sahara_sign_lake", 1450, FLOOR - 240, "LAKE MEGACHAD: bigger than the Caspian Sea, 7,000 BCE", 520),
+        sign("sahara_sign_herding", 640, FLOOR - 220, "CATTLE FIRST: Africa's own grains, sorghum and millet, were farmed later, to the south.", 807),
         sign("sahara_sign", 1400, 140, "THE GREEN SAHARA: before the desert, there were lakes", 480),
         enemy(rid, 2, "hippo", 1960, FLOOR),
         ledge("rock_a", 2120, FLOOR - 80, 160),
@@ -725,6 +744,7 @@ def aksum():
         prop_at("stele_2", "history_aksum_stele", 2300, FLOOR, 48, 224),
         enemy(rid, 2, "asp", 2480, FLOOR),
         prop_at("stele_3", "history_aksum_stele", 2620, FLOOR, 48, 224),
+        sign("aksum_sign_east", 2480, FLOOR - 340, "FORWARD: Mali, by the atlas's road; Aksum and Mali never met.", 573),
     ]
     return grid_room(rid, "AKSUM AND KUSH", e)
 
@@ -749,6 +769,7 @@ def timbuktu():
         sign("timbuktu_sign", 1400, 140, "TIMBUKTU TO THE MONSOON COAST: salt north, gold south, books everywhere", 640),
         enemy(rid, 1, "coral_crab", 1400, FLOOR),
         sign("timbuktu_sign_sea", 1900, FLOOR - 240, "THE MONSOON: east in summer, west in winter. Plan ahead.", 520),
+        sign("timbuktu_sign_fold", 1900, FLOOR - 360, "THE SWAHILI COAST: 5,000 km east of Timbuktu. The atlas folds the map.", 654),
         enemy(rid, 1, "monsoon_squall", 1900, FLOOR - 320),
         enemy(rid, 2, "monsoon_squall", 2200, FLOOR - 420),
         enemy(rid, 2, "coral_crab", 2420, FLOOR),
@@ -912,12 +933,13 @@ def uruk():
         ledge("ziggurat_step_b", 940, FLOOR - 176, 120),
         enemy(rid, 1, "scorpion_man", 1300, FLOOR),
         sign("uruk_sign", 1400, 140, "URUK: the first city (population: too many)", 440),
-        sign("uruk_sign_collapse", 1700, FLOOR - 300, "1177 BCE: everything collapsed at once. Nobody agrees why.", 560),
+        sign("uruk_sign_collapse", 1700, FLOOR - 300, "A LATER LAYER, 1177 BCE: the Bronze Age collapsed. Nobody agrees why.", 645),
         enemy(rid, 1, "sea_raider", 1600, FLOOR),
         enemy(rid, 2, "sea_raider", 1760, FLOOR),
         sign("uruk_sign_up", up + HOLE // 2, FLOOR - 260, "UP: the tin road north", 280),
         enemy(rid, 3, "sea_raider", 2400, FLOOR),
         prop_at("palm", "history_date_palm", 2600, FLOOR, 96, 192),
+        sign("uruk_sign_east", 2440, FLOOR - 360, "FORWARD: the classical shore, 2,500 years on, by the atlas's road", 609),
     ]
     return grid_room(rid, "URUK AND THE BRONZE AGE", e)
 
@@ -953,6 +975,7 @@ def classical():
         enemy(rid, 2, "hoplite", 2420, FLOOR),
         door("classical_colosseum_door", "into the colosseum", 2540, FLOOR, COLOSSEUM, f"{COLOSSEUM}_door"),
         sign("classical_sign_fall", 2320, FLOOR - 260, "ROME: did not fall in a day either", 340),
+        sign("classical_sign_guests", 900, FLOOR - 380, "CLIO'S GUESTS: the famous here lived centuries apart. They meet only in the atlas.", 762),
         sign("classical_sign_up", 2680, FLOOR - 340, "UP: the frontier", 200),
     ]
     return grid_room(rid, "THE CLASSICAL SHORE", e)
@@ -992,7 +1015,7 @@ def ice_age_europe():
         ledge("ice_b", 1640, FLOOR - 160, 192),
         enemy(rid, 1, "woolly_mammoth", 1700, FLOOR),
         sign("ice_sign", 1400, 140, "THE ICE AGE: mammoths, caves and the first paintings, 40,000 years ago", 640),
-        sign("ice_sign_up", up + HOLE // 2, FLOOR - 260, "UP: the long road east, to India", 360),
+        sign("ice_sign_up", up + HOLE // 2, FLOOR - 260, "UP: India, by the atlas's road (the real one went by the Levant)", 600),
         enemy(rid, 1, "cave_lion", 2400, FLOOR),
         prop_at("hut_2", "history_mammoth_bone_hut", 2600, FLOOR, 160, 128),
     ]
@@ -1186,27 +1209,130 @@ def mill():
     return building(MILL, "history_industrial_age", "industrial_mill_door", "THE COTTON MILL", extra)
 
 
+# ---- R2½: Southeast Asia --------------------------------------------------------
+
+
+def sulawesi():
+    """Sulawesi, about 51,000 years ago: the limestone karst of Maros-Pangkep,
+    where the oldest known painted story is (a pig and three hunters, at
+    least 51,200 years old). Wallacea was never joined to Asia or to Sahul,
+    so everyone here came by sea. The way up from the southern route comes
+    in at the east; the way on to Sahul is up a tower at the west."""
+    rid = "history_sulawesi"
+    up, down = LINKS[(1, 2)], LINKS[(1, 2.5)]
+    e = [
+        start(rid, 2600, FLOOR),
+        sign("sulawesi_sign_down", down + HOLE // 2, FLOOR - 260, "DOWN: the southern route", 240),
+        sign("sulawesi_sign_up", up + HOLE // 2, FLOOR - 300, "UP: Sahul, across more sea", 258),
+        enemy(rid, 1, "sulawesi_warty_pig", 2000, FLOOR),
+        # The karst: a tower of limestone, climbed by its shelves.
+        ledge("karst_shelf_a", 1400, FLOOR - 72, 140),
+        ledge("karst_shelf_b", 1470, FLOOR - 144, 120),
+        solid("karst", 1580, FLOOR - 216, 260, 216),
+        chest("a lump of red ochre", 1710, FLOOR - 216, "currency:60"),
+        sign("sulawesi_sign_wallacea", 1710, FLOOR - 400, "WALLACEA: never joined to Asia or to Sahul. Everyone came by sea.", 609),
+        # The cave: its roof hangs over the painted wall.
+        solid("cave_roof", 820, CEILING, 520, FLOOR - 200 - CEILING),
+        prop_at("pig_painting", "history_pig_painting", 1080, FLOOR - 40, 128, 64),
+        prop_at("hand_stencils", "history_sulawesi_hand_stencils", 1260, FLOOR - 48, 64, 48),
+        npc("history_pig_painter", 940, FLOOR, 61),
+        sign("sulawesi_sign_painting", 1080, FLOOR - 160, "A PIG AND THREE HUNTERS: the oldest story in paint, 51,200 years old. No ending yet.", 780),
+        enemy(rid, 2, "sulawesi_warty_pig", 420, FLOOR),
+        sign("sulawesi_sign", 1400, 140, "SULAWESI: the oldest painted story, 51,200 years ago", 500),
+    ]
+    return grid_room(rid, "SULAWESI", e)
+
+
+def austronesian_islands():
+    """The Austronesian islands, about 2000 BCE: the people who sailed out of
+    Taiwan by outrigger canoe reach the Philippines and Indonesia. Their
+    languages now run from Madagascar to Rapa Nui. An outrigger canoe
+    crosses the lagoon; the way up is New Guinea's coast, where their
+    grandchildren will be the Lapita."""
+    rid = "history_austronesian_islands"
+    stuff, gap = crossing(rid, "the lagoon (crocodiles)", (900, 1500), "history_outrigger_canoe", w=176)
+    e = [
+        *stuff,
+        start(rid, 160, FLOOR),
+        prop_at("stilt_house_1", "history_bamboo_stilt_house", 300, FLOOR, 96, 112),
+        npc("history_word_keeper", 520, FLOOR, 63),
+        prop_at("pots", "history_red_slip_pots", 640, FLOOR, 48, 32),
+        sign("austronesia_sign_mata", 500, FLOOR - 220, "MATA: 'eye' in Malay, Tagalog, Fijian and Maori; maso in Malagasy, maka in Hawaiian. One word.", 864),
+        sign("austronesia_sign_lagoon", 1200, FLOOR - 240, "OUT OF TAIWAN: island to island, by outrigger canoe", 483),
+        enemy(rid, 1, "saltwater_crocodile", 1620, FLOOR),
+        prop_at("stilt_house_2", "history_bamboo_stilt_house", 1820, FLOOR, 96, 112),
+        ledge("house_floor", 1772, FLOOR - 64, 96),
+        sign("austronesia_sign_up", LINKS[(2, 2)] + HOLE // 2, FLOOR - 300, "UP: New Guinea. Their grandchildren will be the Lapita.", 519),
+        enemy(rid, 1, "coral_crab", 2300, FLOOR),
+        prop_at("pots_2", "history_red_slip_pots", 2560, FLOOR, 48, 32),
+        sign("austronesia_sign", 1400, 140, "THE AUSTRONESIANS: out of Taiwan, to half the world, 2000 BCE", 600),
+    ]
+    return grid_room(rid, "THE AUSTRONESIAN ISLANDS", e, gaps=[gap])
+
+
+def paddy(rid, n, x0, x1):
+    """A flooded rice paddy: a cut in the ground with a bed of mud under
+    shallow water, to wade. Returns the entities and the gap."""
+    return [
+        solid(f"paddy_bed_{n}", x0, FLOOR + 40, x1 - x0, H - FLOOR - 40),
+        water(f"{rid}_paddy_{n}", x0, FLOOR - 8, x1 - x0, 48),
+    ], (x0, x1)
+
+
+def dong_son():
+    """Dong Son, about 600 BCE to 43 CE: the Red River delta of northern
+    Vietnam: flooded paddies and dikes, stilt houses and the great bronze
+    drums, found from China to Indonesia. In 40 CE the Trung sisters led a
+    rising against Han rule and held the land for three years."""
+    rid = "history_dong_son"
+    p1, g1 = paddy(rid, 1, 700, 1100)
+    p2, g2 = paddy(rid, 2, 1300, 1720)
+    e = [
+        *p1, *p2,
+        start(rid, 160, FLOOR),
+        npc("history_drum_caster", 400, FLOOR, 66),
+        prop_at("drum", "history_bronze_drum", 520, FLOOR, 48, 40),
+        sign("dongson_sign_drum", 460, FLOOR - 200, "THE DRUMS: cast in bronze, found from China to Indonesia. Loud diplomacy.", 681),
+        prop_at("stilt_house", "history_bamboo_stilt_house", 1200, FLOOR, 96, 112),
+        ledge("stilt_floor", 1152, FLOOR - 64, 96),
+        enemy(rid, 1, "saltwater_crocodile", 1460, FLOOR + 40),
+        sign("dongson_sign_rice", 1200, FLOOR - 260, "THE PADDIES: two harvests a year, if the river agrees", 501),
+        prop_at("sheaves", "history_rice_sheaves", 1880, FLOOR, 64, 32),
+        enemy(rid, 1, "tiger", 1960, FLOOR),
+        npc("history_trung_trac", 2200, FLOOR, 64),
+        npc("history_trung_nhi", 2320, FLOOR, 62),
+        sign("dongson_sign_trung_a", 2260, FLOOR - 300, "40 CE: the Trưng sisters raised an army against Han rule and held the land three years.", 807),
+        sign("dongson_sign_trung_b", 2260, FLOOR - 272, "The legend says they rode elephants. The temples to them still stand.", 645),
+        ledge("hill_a", 2440, FLOOR - 80, 160),
+        ledge("hill_b", 2600, FLOOR - 160, 140),
+        chest("a drum's bronze star", 2670, FLOOR - 160, "currency:100"),
+        enemy(rid, 2, "tiger", 2560, FLOOR),
+        sign("dongson_sign", 1400, 140, "DONG SON: rice, rivers and bronze drums, 600 BCE to 43 CE", 560),
+    ]
+    return grid_room(rid, "DONG SON", e, gaps=[g1, g2])
+
+
 # ---- R3: South Asia ----------------------------------------------------------
 
 
 def southern_route():
     """The southern route, 65,000 years ago: along the coast of India, the
-    fastest migration in prehistory. Ways up to Sahul (by sea) and down
-    to Europe (the long way round)."""
+    fastest migration in prehistory. Ways up to Sulawesi (by the coasts and
+    the sea) and down to Europe (the atlas's road)."""
     rid = "history_southern_route"
-    up, down = LINKS[(1, 2)], LINKS[(1, 3)]
+    up, down = LINKS[(1, 2.5)], LINKS[(1, 3)]
     e = [
         start(rid, 200, FLOOR),
-        sign("route_sign_up", up + HOLE // 2, FLOOR - 260, "UP: Sahul, across the sea", 300),
+        sign("route_sign_up", up + 160, FLOOR - 260, "UP: Sulawesi and the islands of Wallacea", 384),
         npc("history_coast_walker", 900, FLOOR, 64),
         enemy(rid, 1, "coral_crab", 1100, FLOOR),
         ledge("rocks_a", 1240, FLOOR - 80, 192),
         ledge("rocks_b", 1460, FLOOR - 160, 192),
         enemy(rid, 1, "tiger", 1600, FLOOR),
         sign("route_sign", 1400, 140, "THE SOUTHERN ROUTE: along the coast, one beach at a time", 520),
-        sign("route_sign_down", down + HOLE // 2, FLOOR - 260, "DOWN: Europe, the long way round", 360),
-        enemy(rid, 2, "coral_crab", 2400, FLOOR),
-        prop_at("hut", "history_mud_hut", 2600, FLOOR, 128, 96),
+        sign("route_sign_down", down + HOLE // 2, FLOOR - 260, "DOWN: Europe, by the atlas's road", 321),
+        enemy(rid, 2, "coral_crab", 2160, FLOOR),
+        prop_at("hut", "history_mud_hut", 2690, FLOOR, 128, 96),
     ]
     return grid_room(rid, "THE SOUTHERN ROUTE", e)
 
@@ -1272,13 +1398,13 @@ def sahul():
     e = [
         *stuff,
         start(rid, 200, FLOOR),
-        sign("sahul_sign_down", down + HOLE // 2, FLOOR - 260, "DOWN: the southern route", 300),
+        sign("sahul_sign_down", down + HOLE // 2, FLOOR - 260, "DOWN: Sulawesi, the island before this one", 402),
         npc("history_raft_builder", 860, FLOOR, 66),
         sign("sahul_sign_strait", 1350, FLOOR - 240, "THE STRAIT: out of sight of land, 65,000 years ago", 500),
         sign("sahul_sign", 1400, 140, "SAHUL: the first great sea crossing", 400),
         prop_at("boab", "history_boab_tree", 1860, FLOOR, 160, 192),
         enemy(rid, 1, "diprotodon", 1960, FLOOR),
-        sign("sahul_sign_up", up + HOLE // 2, FLOOR - 260, "UP: the mammoth steppe", 300),
+        sign("sahul_sign_up", up + HOLE // 2, FLOOR - 260, "UP: the mammoth steppe, by the atlas's road", 411),
         prop_at("shelter", "history_rock_shelter", 2400, FLOOR, 160, 128),
         enemy(rid, 1, "megalania", 2300, FLOOR),
         prop_at("boab_2", "history_boab_tree", 2640, FLOOR, 160, 192),
@@ -1304,6 +1430,7 @@ def new_guinea_highlands():
         sign("guinea_sign_kuk", 560, FLOOR - 200, "KUK SWAMP: drained by hand, gardened ever since", 440),
         prop_at("fern_3", "history_tree_fern", 2300, FLOOR, 96, 192),
         enemy(rid, 3, "cassowary_history", 2500, FLOOR),
+        sign("guinea_sign_down", LINKS[(2, 2)] + HOLE // 2, FLOOR - 260, "DOWN: the Austronesians, who came by sea from Taiwan", 492),
     ]
     return grid_room(rid, "THE NEW GUINEA HIGHLANDS", e)
 
@@ -1325,7 +1452,7 @@ def lapita_voyagers():
         sign("lapita_sign_pot", 700, FLOOR - 200, "LAPITA POTS: stamped with a toothed comb. Find one, and you know who came by.", 700),
         prop_at("palm_1", "history_coconut_palm", 880, FLOOR, 96, 192),
         sign("lapita_sign_lagoon", 1300, FLOOR - 260, "THE LAGOON: houses on stilts, canoes to the reef", 440),
-        sign("lapita_sign_up", up + HOLE // 2, FLOOR - 300, "UP: East Asia (their ancestors sailed from Taiwan)", 480),
+        sign("lapita_sign_up", up + HOLE // 2, FLOOR - 300, "UP: the Shang court, by the atlas's road (the ancestors came from Taiwan)", 681),
         sign("lapita_sign", 1400, 140, "THE LAPITA VOYAGERS: out of sight of land, into the open Pacific, 1,500 BCE", 720),
         enemy(rid, 1, "coconut_crab", 2050, FLOOR),
         prop_at("palm_2", "history_coconut_palm", 2200, FLOOR, 96, 192),
@@ -1413,7 +1540,7 @@ def mammoth_steppe():
         ledge("drift_b", 1780, FLOOR - 160, 192),
         enemy(rid, 1, "cave_bear", 1800, FLOOR),
         sign("mammoth_sign", 1400, 140, "THE MAMMOTH STEPPE: grass and ice from Spain to Alaska", 540),
-        sign("mammoth_sign_down", down + HOLE // 2, FLOOR - 260, "DOWN: Sahul, the islands", 300),
+        sign("mammoth_sign_down", down + HOLE // 2, FLOOR - 260, "DOWN: Sahul, by the atlas's road", 312),
         enemy(rid, 1, "steppe_wolf", 2400, FLOOR),
     ]
     return grid_room(rid, "THE MAMMOTH STEPPE", e)
@@ -1457,7 +1584,7 @@ def shang_court():
         sign("shang_sign_oracle", 1300, FLOOR - 200, "ASK THE ANCESTORS: will the gate open? (crack and see)", 520),
         *gate("history_bronze_gate", "the bronze gate", gate_x, f"world.switch_on {ORACLE}", "history_bronze_gate"),
         sign("shang_sign", 1400, 140, "THE SHANG COURT: bronze, bones and the first Chinese writing", 560),
-        sign("shang_sign_down", LINKS[(3, 1)] + HOLE // 2, FLOOR - 260, "DOWN: the Lapita voyagers, from Taiwan to the Pacific", 520),
+        sign("shang_sign_down", LINKS[(3, 1)] + HOLE // 2, FLOOR - 260, "DOWN: the Lapita, by the atlas's road. Their ancestors sailed from Taiwan.", 690),
         enemy(rid, 2, "taotie_spirit", 1900, FLOOR - 300),
         ledge("hall_a", 2000, FLOOR - 80, 192),
         ledge("hall_b", 2220, FLOOR - 160, 192),
@@ -1482,6 +1609,7 @@ def silk():
         enemy(rid, 1, "silk_moth", 980, FLOOR - 260),
         sign("silk_sign_sand", 1500, FLOOR - 260, "QUICKSAND: ride the camels (they know the way)", 460),
         sign("silk_sign", 1400, 140, "THE SILK ROAD: 4,000 miles of middlemen", 420),
+        sign("silk_sign_guests", 700, FLOOR - 380, "CLIO'S GUESTS: Confucius and Marco Polo lived 1,700 years apart.", 600),
         enemy(rid, 2, "silk_moth", 1500, FLOOR - 380),
         enemy(rid, 1, "terracotta_warrior", 2040, FLOOR),
         prop_at("pagoda", "history_pagoda", 2240, FLOOR, 128, 256),
@@ -1870,7 +1998,7 @@ def door_of_no_return():
 
 
 #: The rooms, by floor from the bottom (Africa) to the top.
-ROOMS = (cradle, southern_coast, green_sahara, nile, tomb, aksum, timbuktu, library, benin_city, door_of_no_return,
+ROOMS = (sulawesi, austronesian_islands, dong_son, cradle, southern_coast, green_sahara, nile, tomb, aksum, timbuktu, library, benin_city, door_of_no_return,
          levant, crescent, granary, uruk, classical, colosseum,
          ice_age_europe, painted_cave, first_farmers_of_europe, megalith_builders, celtic_frontier, viking_north, sail,
          industrial, mill,
@@ -1903,14 +2031,18 @@ def main(argv):
     if "--relayout" in argv:
         # A room may not land on one that has not moved yet. The rooms that
         # go up move first, the top one first; then the rooms that go down,
-        # the bottom one first.
+        # the bottom one first; then the new rooms, into the space the others
+        # left.
         was = {level["identifier"]: level["worldY"] for level in json.loads(WORLD.read_text())["levels"]}
 
         def order(path):
             y = ROOMS_AT[path.stem][0][1]
-            return (0, y) if y <= was.get(path.stem, y) else (1, -y)
+            if path.stem not in was:
+                return (2, y)
+            return (0, y) if y <= was[path.stem] else (1, -y)
         paths.sort(key=order)
-    if code := make_rooms(WORLD, paths, keep_position="--relayout" not in argv):
+    if code := make_rooms(WORLD, paths, keep_position="--relayout" not in argv,
+                           overwrite_hand_edits="--overwrite-hand-edits" in argv):
         return code
     code, _ = run("validate", str(WORLD))
     return code

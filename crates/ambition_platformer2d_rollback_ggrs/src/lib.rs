@@ -46,7 +46,7 @@ mod session_ownership_tests;
 
 pub use codec::*;
 pub use first_run_witness::FirstRunWitness;
-pub use peer_input::{PeerInput, PeerOperation, PeerVerdict, PeerVerdicts, PreparationVerdict, ThisPeersVerdict};
+pub use peer_input::{PeerInput, PeerOperation, PeerPlanIdentity, PeerVerdict, PeerVerdicts, PreparationVerdict, ThisPeersVerdict};
 pub use probes::*;
 pub use registrar::GgrsRollbackRegistrar;
 pub use registration::AmbitionRollbackApp;

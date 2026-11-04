@@ -1060,17 +1060,20 @@ struct CrossingOutcome {
 ///   is the run where each machine prepares and each peer commits.
 #[test]
 fn a_peer_does_not_commit_a_crossing_the_other_peer_could_not_prepare() {
+    refused_peer_crossing(|app| {
+        app.add_systems(Update, bobs_machine_cannot_prepare
+            .after(ambition_platformer2d::runtime::room_transition::authorize_ready_room_transition_system)
+            .before(ambition_platformer2d::runtime::room_transition::finalize_unpresented_room_transition_failure_system));
+    });
+}
+
+fn refused_peer_crossing(configure_bob: impl FnOnce(&mut App)) -> Platformer2dSimHarness {
 
     let (a, b) = ("127.0.0.1:7021".parse().unwrap(), "127.0.0.1:7022".parse().unwrap());
     let (to_bob, to_alice) = loopback_transports(a, b, LATENCY);
     let (mut alice, _) = peer_prepared_by(ROOM, 0, (1, b), to_bob, Poison::None, each_player_on_the_hub_door);
     let (mut bob, _) = peer_prepared_by(ROOM, 1, (0, a), to_alice, Poison::None, each_player_on_the_hub_door);
-    bob.app_mut().add_systems(
-        Update,
-        bobs_machine_cannot_prepare
-            .after(ambition_platformer2d::runtime::room_transition::authorize_ready_room_transition_system)
-            .before(ambition_platformer2d::runtime::room_transition::finalize_unpresented_room_transition_failure_system),
-    );
+    configure_bob(bob.app_mut());
     // Far past the commit of the run where each machine prepares: that run
     // commits 1 to 14 updates after the freeze.
     for _ in 0..240 {
@@ -1120,6 +1123,57 @@ fn a_peer_does_not_commit_a_crossing_the_other_peer_could_not_prepare() {
         "neither peer commits, and the crossing ends on each peer, which then \
          simulates again"
     );
+    bob
+}
+
+#[derive(Resource, Default)]
+struct DifferentRoomPlans(usize);
+
+fn bob_prepares_different_room_data(world: &mut World) {
+    use ambition_platformer2d::construction::mechanics::{GenerationMechanics, SessionMechanics};
+    use ambition_platformer2d::publication::{RoomConstructionPlan, ActiveContentBinding};
+    use ambition_platformer2d::runtime::room_transition::{RoomTransitionLoadState, RoomTransitionLoadPhase};
+    let Some(original) = world.get_resource::<RoomTransitionLoadState>()
+        .and_then(|state| state.active.as_ref())
+        .filter(|active| active.phase == RoomTransitionLoadPhase::CommitAuthorized)
+        .and_then(|active| active.construction_plan.clone()) else { return };
+    if original.spec().world.name.ends_with(" [different-plan]") {
+        return;
+    }
+    let binding = world.query::<&ActiveContentBinding>().single(world).unwrap().0;
+    let mechanics = GenerationMechanics::of(
+        world.resource::<SessionMechanics>(),
+        world.resource::<ambition_platformer2d::characters::prepared::ActiveSessionCast>(),
+    );
+    let mut spec = original.spec().clone();
+    spec.world.name.push_str(" [different-plan]");
+    let plan = RoomConstructionPlan::prepare_spec(
+        original.target_index(), spec,
+        world.resource::<ambition_platformer2d::construction::placements::PlacementLoweringRegistry>(),
+        world.resource::<ambition_platformer2d::publication::construction::RoomContentStagingRegistry>(),
+        mechanics.bosses(), original.session_scope(),
+        ambition_platformer2d::publication::construction::ActorConstructionContext::for_live_room_construction(
+            world.resource::<ambition_platformer2d::construction::ActorConstructionRegistry>(),
+            world.resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>(),
+            &mechanics, binding,
+            world.get_resource::<ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry>(),
+            None,
+        ),
+    ).expect("the alternate room plan prepares");
+    assert_eq!(original.peer_identity().unwrap().incoming_content(), plan.peer_identity().unwrap().incoming_content());
+    assert_ne!(original.peer_identity(), plan.peer_identity());
+    world.resource_mut::<RoomTransitionLoadState>().active.as_mut().unwrap().construction_plan = Some(std::sync::Arc::new(plan));
+    world.resource_mut::<DifferentRoomPlans>().0 += 1;
+}
+
+#[test]
+fn peers_refuse_different_room_plans_under_the_same_content_identity() {
+    let bob = refused_peer_crossing(|app| {
+        app.init_resource::<DifferentRoomPlans>();
+        app.add_systems(Update, bob_prepares_different_room_data
+            .after(ambition_platformer2d::runtime::room_transition::authorize_ready_room_transition_system));
+    });
+    assert!(bob.world().resource::<DifferentRoomPlans>().0 > 0, "Bob never offered the different plan");
 }
 
 fn sim_tick(sim: &Platformer2dSimHarness) -> u64 {

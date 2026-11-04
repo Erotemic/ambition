@@ -163,7 +163,7 @@ fn each_peer_prepared(world: &World, intent: &PendingIntent) -> bool {
             intent.frame
         );
     }
-    verdicts.each_prepared(operation)
+    verdicts.prepared_plan(operation).is_some()
 }
 
 /// A PEER THAT COULD NOT PREPARE THE OPERATION ENDS IT ON EACH PEER.
@@ -235,17 +235,29 @@ pub fn decide_this_peers_verdict(world: &mut World) {
     let verdict = match pending.filter(|_| peer) {
         None => PeerVerdict::default(),
         Some(intent) => {
-            let said = if matches!(authorized_plan(world, &intent), AuthorizedPlan::Ready(..)) {
-                PreparationVerdict::Prepared
-            } else if world
-                .get_resource::<ambition_platformer2d_runtime::room_transition::RoomTransitionLoadState>()
-                .is_some_and(|state| state.failed_to_prepare(&intent))
-            {
-                PreparationVerdict::Failed
-            } else {
-                PreparationVerdict::NotYet
+            let operation = crate::PeerOperation::from(&intent);
+            let (plan, said) = match authorized_plan(world, &intent) {
+                AuthorizedPlan::Ready(plan, _) => match plan.peer_identity().map(crate::PeerPlanIdentity::from) {
+                    Some(plan) => {
+                        let mismatches = world.get_resource::<crate::PeerVerdicts>()
+                            .map(|verdicts| verdicts.mismatched_plans(operation, plan)).unwrap_or_default();
+                        if !mismatches.is_empty() {
+                            bevy::log::error_once!("peer room preparation differs for {operation:?}: handles {mismatches:?}, expected {plan:?}");
+                        }
+                        (plan, if mismatches.is_empty() { PreparationVerdict::Prepared } else { PreparationVerdict::Failed })
+                    }
+                    None => {
+                        bevy::log::error_once!("a peer room plan has no stated content identity; refusing preparation");
+                        (Default::default(), PreparationVerdict::Failed)
+                    }
+                },
+                AuthorizedPlan::Wait => {
+                    let failed = world.get_resource::<ambition_platformer2d_runtime::room_transition::RoomTransitionLoadState>()
+                        .is_some_and(|state| state.failed_to_prepare(&intent));
+                    (Default::default(), if failed { PreparationVerdict::Failed } else { PreparationVerdict::NotYet })
+                }
             };
-            PeerVerdict { operation: crate::PeerOperation::from(&intent), said }
+            PeerVerdict { operation, plan, said }
         }
     };
     world.insert_resource(crate::ThisPeersVerdict(verdict));
@@ -323,7 +335,18 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     // build against a different content epoch than the transaction checked. A
     // rebuild with nobody in it is not a cheaper operation, only a bodyless one.
     let authorized = match authorized_plan(world, &operation) {
-        AuthorizedPlan::Ready(plan, checkpoint_operation) => Some((plan, checkpoint_operation)),
+        AuthorizedPlan::Ready(plan, checkpoint_operation) => {
+            if matches!(committer, Committer::BehindThePeerBarrier) {
+                let Some(agreed) = world.get_resource::<crate::PeerVerdicts>()
+                    .and_then(|verdicts| verdicts.prepared_plan(crate::PeerOperation::from(&operation))) else {
+                    return;
+                };
+                if plan.peer_identity().map(crate::PeerPlanIdentity::from) != Some(agreed) {
+                    return;
+                }
+            }
+            Some((plan, checkpoint_operation))
+        },
         // Not yet, or no longer valid. Returning is not DROPPING: the intent
         // stays pending and this runs again next frame while the transaction
         // progresses (or is superseded) in `Update`.
@@ -877,6 +900,10 @@ fn commit_transition(
 
 #[cfg(test)]
 mod tests {
+    fn test_plan_identity() -> crate::PeerPlanIdentity {
+        crate::PeerPlanIdentity { incoming_content: [1; 32], expected_content: [2; 32], data_digest: 7 }
+    }
+
     use super::*;
     use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
     use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveBodyId, LiveRoomInstance};
@@ -972,7 +999,7 @@ mod tests {
             let mut verdicts = crate::PeerVerdicts::for_handles(2);
             let operation = crate::PeerOperation::from(world.resource::<PendingLifecycleCommit>().peek().unwrap());
             for (handle, said) in said.into_iter().enumerate() {
-                verdicts.record(handle, confirmed, PeerVerdict { operation, said });
+                verdicts.record(handle, confirmed, PeerVerdict { operation, plan: test_plan_identity(), said });
             }
             world.insert_resource(verdicts);
             let boundary = ConfirmedFrameBoundary {
@@ -1001,7 +1028,7 @@ mod tests {
         let mut verdicts = crate::PeerVerdicts::for_handles(2);
         for handle in 0..2 {
             verdicts.record(handle, 40, PeerVerdict {
-                operation: PeerOperation::from(&old), said: PreparationVerdict::Prepared,
+                operation: PeerOperation::from(&old), plan: test_plan_identity(), said: PreparationVerdict::Prepared,
             });
         }
         world.insert_resource(verdicts);
@@ -1009,7 +1036,7 @@ mod tests {
         assert!(operation_to_commit(&world, Committer::BehindThePeerBarrier, boundary).is_none());
         for handle in 0..2 {
             world.resource_mut::<crate::PeerVerdicts>().record(handle, 41, PeerVerdict {
-                operation: replacement, said: PreparationVerdict::Prepared,
+                operation: replacement, plan: test_plan_identity(), said: PreparationVerdict::Prepared,
             });
         }
         world.insert_resource(crate::RollbackFrameCount(41));

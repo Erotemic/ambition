@@ -47,9 +47,15 @@ can survive a rollback across a crossing. Prove that behavior first.
 `PeerVerdict` identifies an operation by its recording frame and the admitted
 intent checksum, which includes its checkpoint key. Replies for a replaced intent cannot prepare or
 fail its replacement, even when both use the same frame. The wire identity is
-5. Guards: `verdicts_for_a_replaced_intent_do_not_prepare_or_fail_its_replacement`
+6. Guards: `verdicts_for_a_replaced_intent_do_not_prepare_or_fail_its_replacement`
 and `a_peer_waits_for_the_replacement_intent_even_when_its_frame_is_unchanged`.
-Content identity and preparation inputs remain open. The host keeps one current
+Replies also carry both content identities and the frozen plan digest. Agreement
+requires stated content and equal plan data on every handle. The commit checks
+its local plan against that agreement. A mismatch publishes `Failed` through
+the input stream. Wire identity 6 carries 158 bytes. Guards:
+`preparation_requires_the_same_content_and_frozen_plan` and
+`peers_refuse_different_room_plans_under_the_same_content_identity`.
+Retained promises and commit dependency checks remain open. The host keeps one current
 preparation transaction. Its presentation tail can
 remain after the commit. Neither a render deadline nor that tail can select
 the simulation frame of the next peer commit.
@@ -93,8 +99,8 @@ Guards: `peer_plan_identity_binds_retained_services_without_local_history`,
 
 `RoomConstructionPlan::peer_identity` requires both stated content identities
 and excludes local activation counters. Local plan IDs add those counters for
-cache use. Peer replies do not yet carry this identity. Commit dependency
-checks and retained promises remain open. Do not send the local plan ID as
+cache use. Peer replies carry this identity. Commit dependency checks and
+retained promises remain open. Do not send the local plan ID as
 proof of peer preparation.
 
 ## Operation identity and preparation

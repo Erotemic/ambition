@@ -51,12 +51,38 @@ impl From<&ambition_platformer2d_session::lifecycle_commit::PendingIntent> for P
     }
 }
 
+/// Fixed-width wire projection of a frozen construction plan.
+/// Zero content bytes mean that no plan was stated.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct PeerPlanIdentity {
+    pub incoming_content: [u8; 32],
+    pub expected_content: [u8; 32],
+    pub data_digest: u64,
+}
+
+impl From<ambition_platformer2d_publication::PeerRoomConstructionIdentity> for PeerPlanIdentity {
+    fn from(plan: ambition_platformer2d_publication::PeerRoomConstructionIdentity) -> Self {
+        Self {
+            incoming_content: *plan.incoming_content().as_bytes(),
+            expected_content: *plan.expected_content().as_bytes(),
+            data_digest: plan.data_digest(),
+        }
+    }
+}
+
+impl PeerPlanIdentity {
+    pub fn is_stated(self) -> bool {
+        self.incoming_content != [0; 32] && self.expected_content != [0; 32]
+    }
+}
+
 /// One peer's verdict on one operation.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PeerVerdict {
     /// The frame and intent must match. A rollback can replace an intent
     /// without changing its recording frame.
     pub operation: PeerOperation,
+    pub plan: PeerPlanIdentity,
     pub said: PreparationVerdict,
 }
 
@@ -117,11 +143,25 @@ impl PeerVerdicts {
         }
     }
 
-    /// Each handle of the session said `Prepared` for `operation`. False with
-    /// no handles: a session that is not a peer session has no peer to say it.
-    pub fn each_prepared(&self, operation: PeerOperation) -> bool {
-        self.handles > 0
-            && (0..self.handles).all(|handle| self.said(handle, operation) == PreparationVerdict::Prepared)
+    /// The plan every handle prepared for this operation.
+    pub fn prepared_plan(&self, operation: PeerOperation) -> Option<PeerPlanIdentity> {
+        if self.handles == 0 {
+            return None;
+        }
+        let first = self.said.first().copied().flatten()?.1;
+        if first.operation != operation || first.said != PreparationVerdict::Prepared || !first.plan.is_stated() {
+            return None;
+        }
+        (0..self.handles).all(|handle| self.said.get(handle).copied().flatten().is_some_and(|(_, verdict)| {
+            verdict.operation == operation && verdict.said == PreparationVerdict::Prepared && verdict.plan == first.plan
+        })).then_some(first.plan)
+    }
+
+    /// Prepared replies that disagree with this host's frozen plan.
+    pub fn mismatched_plans(&self, operation: PeerOperation, expected: PeerPlanIdentity) -> Vec<usize> {
+        (0..self.handles).filter(|handle| self.said.get(*handle).copied().flatten().is_some_and(|(_, verdict)| {
+            verdict.operation == operation && verdict.said == PreparationVerdict::Prepared && verdict.plan != expected
+        })).collect()
     }
 
     /// The handles whose preparation of `operation` failed.
@@ -141,6 +181,10 @@ mod the_bytes_two_peers_exchange {
 
     use super::*;
 
+    fn plan() -> PeerPlanIdentity {
+        PeerPlanIdentity { incoming_content: [1; 32], expected_content: [2; 32], data_digest: 7 }
+    }
+
     /// A non-default verdict, so the order and the variant index are visible.
     fn an_input() -> PeerInput {
         PeerInput {
@@ -154,16 +198,18 @@ mod the_bytes_two_peers_exchange {
                     recorded_on: 0x0102_0304,
                     intent_checksum: 0x0102_0304_0506_0708,
                 },
+                plan: plan(),
                 said: PreparationVerdict::Failed,
             },
         }
     }
 
     /// The control part (70 bytes), then `operation` as a little-endian
-    /// `i32`, the intent checksum as a `u64`, and `Failed` as a `u32` variant index.
-    const RECORDED: &str = "000040bf00000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004030201080706050403020102000000";
+    /// `i32`, the intent checksum, both content identities, the plan digest,
+    /// and `Failed` as a `u32` variant index.
+    const RECORDED: &str = "000040bf00000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004030201080706050403020101010101010101010101010101010101010101010101010101010101010101010202020202020202020202020202020202020202020202020202020202020202070000000000000002000000";
 
-    const RECORDED_WIRE_BYTES: u64 = 86;
+    const RECORDED_WIRE_BYTES: u64 = 158;
 
     fn hex(bytes: &[u8]) -> String {
         bytes.iter().map(|byte| format!("{byte:02x}")).collect()
@@ -188,34 +234,38 @@ mod the_bytes_two_peers_exchange {
     /// and the receiver divides the total by the handle count.
     #[test]
     fn each_input_has_the_same_width() {
-        for input in [PeerInput::default(), an_input()] {
-            assert_eq!(
-                bincode::serialized_size(&input).expect("serialized size"),
-                RECORDED_WIRE_BYTES,
-                "{input:?} does not encode to the recorded width"
-            );
+        for said in [PreparationVerdict::NotYet, PreparationVerdict::Prepared, PreparationVerdict::Failed] {
+            for plan in [PeerPlanIdentity::default(), plan()] {
+                let mut input = an_input();
+                input.verdict.said = said;
+                input.verdict.plan = plan;
+                assert_eq!(bincode::serialized_size(&input).expect("serialized size"), RECORDED_WIRE_BYTES);
+                let bytes = bincode::serialize(&input).unwrap();
+                assert_eq!(bincode::deserialize::<PeerInput>(&bytes).unwrap(), input);
+            }
         }
+        assert_eq!(bincode::serialized_size(&PeerInput::default()).unwrap(), RECORDED_WIRE_BYTES);
     }
 
     #[test]
     fn a_verdict_is_of_one_operation_and_the_newest_confirmed_frame_wins() {
         let key = |recorded_on| PeerOperation { recorded_on, intent_checksum: 7 };
-        let prepared = |frame| PeerVerdict { operation: key(frame), said: PreparationVerdict::Prepared };
-        let failed = |frame| PeerVerdict { operation: key(frame), said: PreparationVerdict::Failed };
+        let prepared = |frame| PeerVerdict { operation: key(frame), plan: plan(), said: PreparationVerdict::Prepared };
+        let failed = |frame| PeerVerdict { operation: key(frame), plan: plan(), said: PreparationVerdict::Failed };
         let mut not_a_peer_session = PeerVerdicts::default();
         not_a_peer_session.record(0, 40, prepared(30));
-        assert!(!not_a_peer_session.each_prepared(key(30)), "a session with no handles");
+        assert!(not_a_peer_session.prepared_plan(key(30)).is_none(), "a session with no handles");
         let mut verdicts = PeerVerdicts::for_handles(2);
         verdicts.record(0, 40, prepared(30));
-        assert!(!verdicts.each_prepared(key(30)), "handle 1 said nothing yet");
+        assert!(verdicts.prepared_plan(key(30)).is_none(), "handle 1 said nothing yet");
         verdicts.record(1, 38, failed(30));
         assert_eq!(verdicts.failed(key(30)), vec![1]);
         verdicts.record(1, 41, prepared(30));
-        assert!(verdicts.each_prepared(key(30)));
-        assert!(!verdicts.each_prepared(key(31)), "a verdict names its operation");
+        assert!(verdicts.prepared_plan(key(30)).is_some());
+        assert!(verdicts.prepared_plan(key(31)).is_none(), "a verdict names its operation");
         // A rollback runs an older confirmed frame again after a newer one.
         verdicts.record(1, 39, failed(30));
-        assert!(verdicts.each_prepared(key(30)), "an older frame does not replace a newer one");
+        assert!(verdicts.prepared_plan(key(30)).is_some(), "an older frame does not replace a newer one");
     }
 
     #[test]
@@ -232,12 +282,39 @@ mod the_bytes_two_peers_exchange {
         let old = PeerOperation::from(&intent("old"));
         let replacement = PeerOperation::from(&intent("replacement"));
         let mut verdicts = PeerVerdicts::for_handles(2);
-        verdicts.record(0, 40, PeerVerdict { operation: old, said: PreparationVerdict::Prepared });
-        verdicts.record(1, 40, PeerVerdict { operation: old, said: PreparationVerdict::Failed });
-        assert!(!verdicts.each_prepared(replacement));
+        verdicts.record(0, 40, PeerVerdict { operation: old, plan: plan(), said: PreparationVerdict::Prepared });
+        verdicts.record(1, 40, PeerVerdict { operation: old, plan: plan(), said: PreparationVerdict::Failed });
+        assert!(verdicts.prepared_plan(replacement).is_none());
         assert!(verdicts.failed(replacement).is_empty());
-        verdicts.record(1, 41, PeerVerdict { operation: old, said: PreparationVerdict::Prepared });
-        assert!(verdicts.each_prepared(old));
-        assert!(!verdicts.each_prepared(replacement));
+        verdicts.record(1, 41, PeerVerdict { operation: old, plan: plan(), said: PreparationVerdict::Prepared });
+        assert!(verdicts.prepared_plan(old).is_some());
+        assert!(verdicts.prepared_plan(replacement).is_none());
     }
+
+    #[test]
+    fn preparation_requires_the_same_content_and_frozen_plan() {
+        let operation = PeerOperation { recorded_on: 30, intent_checksum: 7 };
+        let expected = plan();
+        let mut changed_incoming = expected;
+        changed_incoming.incoming_content[0] ^= 1;
+        let mut changed_live = expected;
+        changed_live.expected_content[0] ^= 1;
+        let mut changed_data = expected;
+        changed_data.data_digest ^= 1;
+        for other in [changed_incoming, changed_live, changed_data, PeerPlanIdentity::default()] {
+            let mut verdicts = PeerVerdicts::for_handles(2);
+            verdicts.record(0, 40, PeerVerdict { operation, plan: expected, said: PreparationVerdict::Prepared });
+            verdicts.record(1, 40, PeerVerdict { operation, plan: other, said: PreparationVerdict::Prepared });
+            assert_eq!(verdicts.prepared_plan(operation), None);
+            assert_eq!(verdicts.mismatched_plans(operation, expected), vec![1]);
+            verdicts.record(1, 41, PeerVerdict { operation, plan: expected, said: PreparationVerdict::Prepared });
+            assert_eq!(verdicts.prepared_plan(operation), Some(expected));
+        }
+        let mut unstated = PeerVerdicts::for_handles(2);
+        for handle in 0..2 {
+            unstated.record(handle, 40, PeerVerdict { operation, plan: Default::default(), said: PreparationVerdict::Prepared });
+        }
+        assert_eq!(unstated.prepared_plan(operation), None);
+    }
+
 }

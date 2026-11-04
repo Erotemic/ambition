@@ -145,8 +145,12 @@ and combat also pass (`b2e6ad940`). Corrected combat removes an observed
 speculative crossing and suppresses its arrival reset. Guards:
 `a_peer_keeps_moving_and_fighting_in_a_live_destination_while_another_peer_prepares`
 and `corrected_combat_removes_a_speculative_crossing_and_its_arrival_effect`.
-Preparation blocked by a prior presentation tail, broader checks, and rendered
-view isolation remain open. See [the peer room protocol](peer-room-commit-protocol.md).
+Preparation also proceeds while prior covers settle (`dbc8f0cf2`). Both
+crossings commit, confirmed state agrees, and each arrival reset is delivered
+once. The loading UI holds independent owner entries, and per-view GPU captures
+pass. Guard: `an_old_cover_does_not_block_the_next_peers_preparation_or_commit`.
+The rendered simultaneous-combat witness, separate latency/cost measurements,
+and broader checks remain open. See [the peer room protocol](peer-room-commit-protocol.md).
 
 Q156 requires atomic publication, no divergent worlds, and recovery or an
 explicit failure path for a refused crossing or respawn. Presentation-only

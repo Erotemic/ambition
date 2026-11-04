@@ -43,9 +43,23 @@ Ordinary application rejects dead or out-of-play members before publication;
 explicit restores can still recover them. Schema 423 records this change.
 Guards: `a_death_withdraws_its_crossing_on_the_current_rollback_frame` and
 `ordinary_travel_refuses_dead_or_out_of_play_bodies_before_publication`.
-The old presentation tail and gate 5 remain open. The broader rollback run
-still fails the tracked provoked-source witness. The tooling sweep is incomplete;
-the union-feature gate has not run for this change.
+Preparation no longer waits for a committed cover (`dbc8f0cf2`). Both hosts
+move the committed payload out of the preparation slot. `LoadPresentations`
+holds each owner's foreground, activity, result, and input scope. Each cover
+has its own clock and view. Session retirement clears its derived loads.
+Delayed peers commit both crossings while both receipts remain held, with
+one arrival reset per crossing. Guard:
+`an_old_cover_does_not_block_the_next_peers_preparation_or_commit`.
+The visible host also prepares and commits another participant's crossing
+while the first destination remains covered. Guard:
+`a_second_crossing_prepares_while_the_first_destinations_frame_is_not_presentable`.
+GPU captures pass for both participants and separate rooms. Guard:
+`another_participants_load_draws_beside_a_cover_that_is_still_settling`.
+
+Gate 5 still needs a rendered simultaneous-combat witness and separate input
+latency, commit-cost, preparation, and settling measurements. Broader feature
+and tooling checks remain open. The earlier broad rollback run still fails
+the tracked provoked-source witness.
 
 ## Source findings
 

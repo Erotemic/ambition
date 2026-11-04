@@ -108,7 +108,7 @@ The retained-plan slice is committed in `48cb138c9`. Party travel is complete
 in `4cb723b8c` and `5ed9bb73a`. Gate connections work both ways and share an
 idle timer. Independent adaptive play remains the default. Ordinary online
 travel now runs without a session-wide hold. The next slice must complete
-presentation isolation and the broader peer-room checks.
+rendered play witnesses, timing measurements, and the broader peer-room checks.
 
 ## Work order from the additional maintainer rulings of 2026-10-19
 
@@ -917,9 +917,12 @@ with the single-player and two-pad GPU captures.
 
 Room loading now scopes covers, foregrounds, activities and input to their owner
 (`e36b067fd`). Guards: `a_room_transition_keeps_the_other_participants_input_and_view`
-and both GPU captures. Stable body identity orders simultaneous passages. The next
-crossing waits for the first presentable destination frame; guard:
-`a_second_crossing_waits_until_the_first_destinations_frame_is_presentable`.
+and both GPU captures. Stable body identity orders simultaneous passages.
+A committed cover now settles outside preparation (`dbc8f0cf2`). Another
+participant can prepare and commit its crossing while that cover remains.
+The generic loading UI holds one entry per owner. Guards:
+`a_second_crossing_prepares_while_the_first_destinations_frame_is_not_presentable`
+and `another_participants_load_draws_beside_a_cover_that_is_still_settling`.
 
 Slice 5 is complete (`c89f0b828`, `0e0099f0e`). Both crossing orders and
 separate-room loading pass. F1 uses native room/view scopes and read-only body
@@ -931,7 +934,7 @@ Do not restore primary-room geometry or global room covers.
 
 6. **Online no-global-hold lifecycle:** prove a routine peer door crossing
    commits on the shared input timeline without a whole-session hold or
-   rebase. Finish independent preparation and the remaining presentation gates.
+   rebase. Finish the rendered combat witness and timing measurements.
    Track content identity, deterministic operation order, and peer readiness
    explicitly. Full-party reloads retain their global barrier.
 
@@ -994,8 +997,13 @@ arrival reset; the control releases one. Guards:
 and `corrected_combat_removes_a_speculative_crossing_and_its_arrival_effect`.
 Death withdrawal is one actor rule on the simulation timeline.
 
-**Next step:** remove preparation waits caused by an old presentation tail.
-Verify rendered per-view isolation and exactly-once arrival effects. Complete
+Delayed peers now commit both crossings while both presentation receipts stay
+held (`dbc8f0cf2`). Each peer receives one arrival reset per crossing. Guard:
+`an_old_cover_does_not_block_the_next_peers_preparation_or_commit`.
+GPU captures also show concurrent loading UI in the two separate views.
+
+**Next step:** complete the rendered simultaneous-combat witness. Report input
+latency and commit cost apart from preparation and presentation time. Complete
 the broader feature and tooling checks before marking this slice complete.
 The broad rollback run still fails `PROVOKED-SOURCE-WITNESS`.
 The `LOCAL-PLAY-MODES` leave slice and `COOP-RECOVERY` remain separate work

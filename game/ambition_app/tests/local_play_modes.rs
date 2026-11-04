@@ -380,10 +380,14 @@ fn gpu_session(name: &str) -> (App, Vec<Entity>) {
 }
 
 fn capture_frame(app: &mut App) {
+    for _ in 0..30 { app.update(); }
+    capture_current_frame(app);
+}
+
+fn capture_current_frame(app: &mut App) {
     use ambition_platformer2d::render::capture::{
         CaptureCameraSet, CaptureProgress, CaptureSettings, CaptureTarget, request_capture,
     };
-    for _ in 0..30 { app.update(); }
     app.add_systems(Update, (|mut commands: Commands, target: Res<CaptureTarget>, mut progress: ResMut<CaptureProgress>| {
         request_capture(&mut commands, &target, &mut progress);
     }).after(CaptureCameraSet));
@@ -1266,6 +1270,184 @@ fn separate_rooms_keep_the_other_participants_view_and_controls_while_loading() 
                 "waiting for the next room changed the residency of a participant");
         }
     }
+}
+
+#[test]
+fn another_rooms_loading_does_not_block_gamepad_combat() {
+    for slot in [0, 1] { loading_combat_witness(rendered_app(), slot, false); }
+}
+
+#[test]
+#[ignore = "needs a wgpu adapter; captures combat beside another room's loading view"]
+fn another_rooms_loading_keeps_combat_visible() {
+    for slot in [0, 1] {
+        loading_combat_witness(gpu_app(&format!("ambition-loading-combat-p{slot}.png")), slot, true);
+    }
+}
+
+/// Place two existing actors on clear ground through the shared transit operation.
+fn place_loading_combat_pair(app: &mut App, fighter: Entity) -> Entity {
+    use ambition_platformer2d::actor::{BodyHealth, Health};
+    use ambition_platformer2d::characters::actor::WornCharacter;
+    use ambition_platformer2d::engine_core::{Aabb, AabbExt as _};
+    use crate::the_note_travels_from_alice_to_bob::put_body_at;
+    let world = app.world_mut();
+    let room = *world.get::<InRoomInstance>(fighter).unwrap();
+    let victim = world.query::<(Entity, &InRoomInstance, Option<&DrivingParticipant>, &BodyKinematics,
+        &WornCharacter, &BodyHealth)>().iter(world)
+        .filter(|(_, stamp, driver, body, _, health)| **stamp == room && driver.is_none()
+            && body.size.x <= 32.0 && health.alive())
+        .min_by_key(|(entity, ..)| entity.to_bits()).map(|(entity, ..)| entity)
+        .expect("the free participant's room has a living actor for combat");
+    // An active fight permits health damage to a protected town actor.
+    world.entity_mut(victim).insert(ambition_platformer2d::combat::components::ActiveCombatant);
+    let halves = [fighter, victim].map(|body| world.get::<BodyKinematics>(body).unwrap().size * 0.5);
+    let room = ambition_platformer2d::world::rooms::live_room_spec_of(world, fighter).unwrap();
+    let floor = room.world.blocks.iter().filter(|block|
+        ambition_platformer2d::engine_core::collision_semantics::is_full_collision_surface(block.kind)
+            && block.aabb.width() >= 256.0 && block.aabb.height() <= 64.0
+            && block.aabb.top() >= 96.0 && block.aabb.top() < room.world.size.y)
+        .map(|block| block.aabb).find(|floor| halves.iter().zip([-20.0, 20.0]).all(|(half, dx)|
+            room.embeds(Aabb::new(ambition_platformer2d::engine_core::Vec2::new(
+                floor.center().x + dx, floor.top() - half.y - 2.0), *half)).is_empty()))
+        .expect("the combat pair has clear ground in its room");
+    for ((body, half), dx) in [fighter, victim].into_iter().zip(halves).zip([-20.0, 20.0]) {
+        app.world_mut().entity_mut(body).insert(BodyHealth::new(Health::new(100)));
+        put_body_at(app, body, ambition_platformer2d::engine_core::Vec2::new(
+            floor.center().x + dx, floor.top() - half.y));
+    }
+    app.world_mut().get_mut::<BodyKinematics>(fighter).unwrap().facing = 1.0;
+    for _ in 0..6 { app.update(); }
+    victim
+}
+
+fn loading_combat_witness(host: App, loading_slot: u8, capture: bool) {
+    use ambition_platformer2d::actor::BodyHealth;
+    use ambition_platformer2d::combat::{events::{HitEvent, HitTarget}, strike::Hitbox};
+    use ambition_platformer2d::load::{LoadCommand, LoadCoordinator, LoadWorkState};
+    use ambition_platformer2d::runtime::room_transition::{RoomTransitionLoadPhase, RoomTransitionLoadState};
+    use ambition_platformer2d::time::SimTick;
+    let (mut app, pads) = split_session(host);
+    let bodies = [the_primary(&mut app), seat_one_bodies(&mut app)[0]];
+    let fighting_slot = 1 - loading_slot;
+    let fighter = bodies[usize::from(fighting_slot)];
+    crate::neighbor_prefetch_prepares_rooms::cross(&mut app, bodies[usize::from(loading_slot)], PlayerSlot(loading_slot), "switch_lab");
+    crate::neighbor_prefetch_prepares_rooms::cross(&mut app, fighter, PlayerSlot(fighting_slot), "alice_relay");
+    for _ in 0..1200 {
+        if app.world().resource::<RoomTransitionLoadState>().presentations().next().is_none() { break; }
+        app.update();
+    }
+    assert!(app.world().resource::<RoomTransitionLoadState>().presentations().next().is_none());
+    let rooms = bodies.map(|body| *app.world().get::<InRoomInstance>(body).unwrap());
+    assert_ne!(rooms[0], rooms[1], "combat and loading must use separate live rooms");
+    let victim = place_loading_combat_pair(&mut app, fighter);
+    let (mut app, pads, barrier) = hold_crossing(app, pads, loading_slot, "portal_lab");
+    // The existing movement witness changes the distance to the target.
+    let victim = {
+        let world = app.world_mut();
+        let fighter_pos = world.get::<BodyKinematics>(fighter).unwrap().pos;
+        let target_half = world.get::<BodyKinematics>(victim).unwrap().size * 0.5;
+        let feet = fighter_pos.y + world.get::<BodyKinematics>(fighter).unwrap().size.y * 0.5;
+        crate::the_note_travels_from_alice_to_bob::put_body_at(&mut app, victim,
+            ambition_platformer2d::engine_core::Vec2::new(fighter_pos.x + 40.0, feet - target_half.y));
+        victim
+    };
+    let sequence = app.world().resource::<RoomTransitionLoadState>().active.as_ref().unwrap().sequence;
+    let frame = |app: &App| app.world().resource::<SimTick>().get();
+    let start_x = app.world().get::<BodyKinematics>(fighter).unwrap().pos.x;
+    let input_frame = frame(&app);
+    let started = std::time::Instant::now();
+    pad_left_stick_x(&mut app, pads[usize::from(fighting_slot)], 1.0);
+    let mut motion_updates = 0;
+    while app.world().get::<BodyKinematics>(fighter).unwrap().pos.x <= start_x {
+        assert!(motion_updates < 60, "the loading view blocked the other pad's movement");
+        app.update();
+        motion_updates += 1;
+    }
+    let motion = serde_json::json!({"updates": motion_updates, "simulation_steps": frame(&app) - input_frame,
+        "wall_ms": started.elapsed().as_secs_f64() * 1000.0});
+    pad_left_stick_x(&mut app, pads[usize::from(fighting_slot)], 0.0);
+    let mut hits = app.world().resource::<Messages<HitEvent>>().get_cursor_current();
+    let attack_frame = frame(&app);
+    let attack_started = std::time::Instant::now();
+    pad_button(&mut app, pads[usize::from(fighting_slot)], GamepadButton::West, 1.0);
+    let mut emitted = false;
+    let mut contact = false;
+    let mut attack_updates = 0;
+    while !contact || app.world().get::<BodyHealth>(victim).unwrap().damage_taken() == 0 {
+        assert!(attack_updates < 60, "the other pad did not damage its target while loading; emitted={emitted}, contact={contact}");
+        if attack_updates == 2 { pad_button(&mut app, pads[usize::from(fighting_slot)], GamepadButton::West, 0.0); }
+        app.update();
+        attack_updates += 1;
+        let world = app.world_mut();
+        emitted |= world.query::<&Hitbox>().iter(world).any(|hitbox| hitbox.owner == fighter);
+        contact |= hits.read(world.resource::<Messages<HitEvent>>())
+            .any(|hit| hit.attacker == Some(fighter) && hit.target == HitTarget::Body(victim));
+        assert_eq!(world.resource::<RoomTransitionLoadState>().active.as_ref().unwrap().sequence, sequence);
+    }
+    assert!(emitted, "the pad's melee hitbox was not observed");
+    let attack = serde_json::json!({"updates": attack_updates, "simulation_steps": frame(&app) - attack_frame,
+        "wall_ms": attack_started.elapsed().as_secs_f64() * 1000.0});
+    pad_button(&mut app, pads[usize::from(fighting_slot)], GamepadButton::West, 0.0);
+    if capture { capture_current_frame(&mut app); }
+    assert_transition_regions(&mut app, loading_slot);
+    for (body, room) in bodies.into_iter().zip(rooms) {
+        assert_eq!(app.world().get::<InRoomInstance>(body), Some(&room));
+    }
+    let mut arrivals = app.world().resource::<Messages<ambition_platformer2d::sfx::OwnedSfxMessage>>().get_cursor_current();
+    let mut arrival_resets = 0;
+    let release_at = app.world().resource::<Time<Real>>().elapsed();
+    let _ = app.world_mut().resource_mut::<LoadCoordinator>().apply(LoadCommand::SetWorkState {
+        load_id: barrier.load_id, work_id: "fixture.delayed-room-art".into(), state: LoadWorkState::Complete,
+    });
+    let mut committed = None;
+    for _ in 0..1200 {
+        app.update();
+        arrival_resets += arrivals.read(app.world().resource::<Messages<ambition_platformer2d::sfx::OwnedSfxMessage>>())
+            .filter(|sound| matches!(sound.request, ambition_platformer2d::sfx::SfxMessage::Reset { .. })).count();
+        let state = app.world().resource::<RoomTransitionLoadState>();
+        if let Some(active) = state.presentation(sequence) {
+            assert!(active.failure.is_none(), "the crossing failed: {:?}", active.failure);
+            if active.phase == RoomTransitionLoadPhase::Committed { committed = Some(active.clone()); break; }
+        }
+    }
+    let committed = committed.expect("the delayed crossing did not commit after release");
+    let commit_observed = std::time::Instant::now();
+    let mut revealed = false;
+    for _ in 0..1200 {
+        app.update();
+        arrival_resets += arrivals.read(app.world().resource::<Messages<ambition_platformer2d::sfx::OwnedSfxMessage>>())
+            .filter(|sound| matches!(sound.request, ambition_platformer2d::sfx::SfxMessage::Reset { .. })).count();
+        if app.world().resource::<RoomTransitionLoadState>().presentation(sequence).is_none() { revealed = true; break; }
+    }
+    assert!(revealed, "the cover did not retire");
+    assert_eq!(arrival_resets, 1, "the crossing must release one arrival reset");
+    let ms = |duration: Option<std::time::Duration>| duration.map(|value| value.as_secs_f64() * 1000.0);
+    let span = |end: Option<std::time::Duration>, start: Option<std::time::Duration>|
+        end.zip(start).map(|(end, start)| end.saturating_sub(start));
+    let report = serde_json::json!({
+        "schema_version": 1, "loading_slot": loading_slot, "fighting_slot": fighting_slot,
+        "renderer": if capture { "offscreen-wgpu" } else { "no-window" }, "cargo_profile": "test-debug",
+        "host_clock": "manual-60hz", "raw_event_to_motion": motion, "raw_event_to_contact": attack,
+        "arrival_resets": arrival_resets,
+        "preflight_wall_ms": ms(committed.construction_preflight_duration),
+        "manifest_wall_ms": ms(committed.asset_manifest_duration),
+        "commit_call_wall_ms": ms(committed.commit_duration),
+        "injected_hold_host_ms": ms(span(Some(release_at), committed.requested_at)),
+        "asset_wait_host_ms": ms(span(committed.asset_ready_at, committed.requested_at)),
+        "request_to_ready_host_ms": ms(span(committed.ready_at, committed.requested_at)),
+        "ready_to_commit_host_ms": ms(span(committed.committed_at, committed.ready_at)),
+        "commit_to_retirement_host_ms": ms(span(Some(app.world().resource::<Time<Real>>().elapsed()), committed.committed_at)),
+        "observed_commit_to_retirement_wall_ms": commit_observed.elapsed().as_secs_f64() * 1000.0,
+        "source_room": committed.source_room_id, "destination_room": committed.intent.target_room(),
+        "combat_room": ambition_platformer2d::world::rooms::live_room_spec_of(app.world(), fighter).unwrap().id,
+        "adapter": app.world().get_resource::<bevy::render::renderer::RenderAdapterInfo>().map(|info| info.name.clone()),
+        "target_damage": app.world().get::<BodyHealth>(victim).unwrap().damage_taken(),
+    });
+    let suffix = if capture { "gpu" } else { "no-window" };
+    let output = std::env::temp_dir().join(format!("ambition-loading-combat-p{loading_slot}-{suffix}.json"));
+    std::fs::write(output, serde_json::to_vec_pretty(&report).unwrap()).unwrap();
+    eprintln!("loading-combat: {report}");
 }
 
 fn separate_participant(app: &mut App, first: u8) -> ([Entity; 2], [ambition_platformer2d::platformer::lifecycle::InRoomInstance; 2]) {

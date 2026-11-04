@@ -86,9 +86,7 @@ pub struct PlayerGlowGrant;
 
 /// The sprite that draws one body's glow.
 #[derive(Component, Clone, Copy, Debug)]
-pub struct ActorGlowVisual {
-    pub body: Entity,
-}
+pub struct ActorGlowVisual;
 
 /// Run condition: a glow is asked for, or one is drawn and may go.
 pub fn glows_are_wanted_or_drawn(
@@ -218,21 +216,21 @@ pub fn sync_actor_glows(
         ),
         Without<ActorGlowVisual>,
     >,
-    mut glows: Query<(Entity, &ActorGlowVisual, &mut Transform, &mut Sprite, &mut Visibility), Without<ActorGlow>>,
+    mut glows: Query<(Entity, &PresentationOf, &mut Transform, &mut Sprite, &mut Visibility), (With<ActorGlowVisual>, Without<ActorGlow>)>,
 ) {
     let tick = tick.map_or(0, |tick| tick.0);
     let mut drawn: Vec<Entity> = Vec::new();
     for (entity, visual, mut transform, mut sprite, mut visibility) in &mut glows {
-        let Ok((_, glow, body, body_sprite, anchor, body_visibility, _, portal_hid_it, animator, passage, feature)) = bodies.get(visual.body) else {
+        let Ok((_, glow, body, body_sprite, anchor, body_visibility, _, portal_hid_it, animator, passage, feature)) = bodies.get(visual.0) else {
             commands.entity(entity).try_despawn();
             continue;
         };
-        if drawn.contains(&visual.body) {
+        if drawn.contains(&visual.0) {
             // A second glow of one body (a spawn that raced a despawn).
             commands.entity(entity).try_despawn();
             continue;
         }
-        drawn.push(visual.body);
+        drawn.push(visual.0);
         let Some((at, diameter)) = glow_placement(glow, body, body_sprite, anchor, animator) else {
             continue;
         };
@@ -270,7 +268,7 @@ pub fn sync_actor_glows(
                 glow_visibility(body_visibility.is_some_and(|shown| {
                     matches!(*shown, Visibility::Hidden) && !super::hit_flash::portal_alone_hides(portal_hid_it, &shown)
                 })),
-                ActorGlowVisual { body },
+                ActorGlowVisual,
                 // Which body this draws, in the shared spelling that portal
                 // composition and view isolation read.
                 PresentationOf(body),
@@ -341,9 +339,9 @@ mod tests {
 
     fn glows(app: &mut App) -> Vec<(Entity, Vec3, f32)> {
         app.world_mut()
-            .query::<(&ActorGlowVisual, &Transform, &Sprite)>()
+            .query_filtered::<(&PresentationOf, &Transform, &Sprite), With<ActorGlowVisual>>()
             .iter(app.world())
-            .map(|(glow, transform, sprite)| (glow.body, transform.translation, sprite.custom_size.unwrap().x))
+            .map(|(glow, transform, sprite)| (glow.0, transform.translation, sprite.custom_size.unwrap().x))
             .collect()
     }
 

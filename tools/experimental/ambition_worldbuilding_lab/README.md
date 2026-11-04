@@ -83,6 +83,27 @@ The `analyze` command writes these files to the given output directory:
 The tool writes only to `--out-dir` during analysis. It does not edit the
 source catalog when it runs.
 
+## The History atlas
+
+`history_atlas.py` is a second, separate tool: an ideal graph of world
+history (networkx), to see what the History dimension is missing. Its data
+is `data/history_atlas/`; its plan is `docs/planning/game/history-dimension.md`
+("The road ahead"). It reads the game's History generator and world file to
+check that its built part is the game, and it changes no game file.
+
+```sh
+uv run --project tools/experimental/ambition_worldbuilding_lab \
+  python tools/experimental/ambition_worldbuilding_lab/history_atlas.py check
+# The coverage report (where's my history? topics, clusters x horizons, the map):
+...history_atlas.py report --out docs/planning/game/history-atlas-report.md
+...history_atlas.py plot --out /tmp/history-atlas.png
+...history_atlas.py where "Bangladesh"
+```
+
+Its tests (`tests/test_history_atlas.py`) hold the plan's promises: every
+country and people has at least a planned place, every topic is planned,
+the planned world is connected, and the built part agrees with the game.
+
 ## Input data
 
 - `data/catalog.json` defines 15 features and 144 initial ideas.

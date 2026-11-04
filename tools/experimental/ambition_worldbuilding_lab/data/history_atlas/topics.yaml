@@ -1,0 +1,122 @@
+# The topics of world history the atlas must answer for. A node names the
+# topics it shows in its `topics` list; the report lists each topic's nodes.
+#
+# kind:
+#   obvious   - a topic every world-history course has. Leaving one out is
+#               the "obvious non-neglected topic we are neglecting" failure.
+#   neglected - a topic courses and games often skip, and that a player
+#               from that place would look for.
+#   thread    - a process to follow through several places and times (a
+#               crop, money, a script), so that rooms talk to each other.
+#   sober     - an atrocity or catastrophe; its rooms follow the sober rules
+#               (roadmap section 10): no joke, no enemy made of victims.
+
+topics:
+  # ---- Deep time ----
+  - [human_origins, "Human origins in Africa", obvious]
+  - [other_humans, "The other humans (Neanderthals, Denisovans, Homo floresiensis)", neglected]
+  - [dispersal, "The dispersals out of Africa", obvious]
+  - [first_art, "The first art", thread]
+  - [ice_age, "The Ice Age", obvious]
+  - [seafaring, "The first sea crossings", neglected]
+  - [peopling_of_americas, "The peopling of the Americas", obvious]
+  - [peopling_of_pacific, "The peopling of the Pacific", neglected]
+  # ---- Food ----
+  - [farming_origins, "Farming invented many times", obvious]
+  - [herding, "Herding and pastoralism", thread]
+  - [aquaculture, "Fish traps and aquaculture", neglected]
+  - [columbian_exchange, "The Columbian exchange", obvious]
+  - [famine, "Famine and its causes", sober]
+  - [green_revolution, "The Green Revolution", obvious]
+  - [crops, "Crops that travelled (maize, potato, rice, sugar, coffee, tea, spices, cacao)", thread]
+  # ---- Cities, states, writing ----
+  - [first_cities, "The first cities", obvious]
+  - [writing, "Writing, invented several times", obvious]
+  - [alphabet, "The alphabet", obvious]
+  - [scripts, "Scripts made on purpose (Hangul, Cyrillic, Cherokee)", neglected]
+  - [bronze_and_iron, "Bronze and iron", obvious]
+  - [law, "Law codes and courts", thread]
+  - [money, "Money (coins, cowries, paper, stones, credit)", thread]
+  - [monumental_building, "Monuments and who built them", thread]
+  - [bronze_age_collapse, "The Bronze Age collapse", obvious]
+  # ---- Empires and faiths (as history of states and people; no founder is a character) ----
+  - [egypt, "Ancient Egypt", obvious]
+  - [mesopotamia, "Mesopotamia", obvious]
+  - [persia, "Persia", obvious]
+  - [greece, "Ancient Greece and democracy", obvious]
+  - [rome, "Rome", obvious]
+  - [china_dynasties, "The empires of China", obvious]
+  - [india_empires, "The empires of South Asia", obvious]
+  - [african_kingdoms, "African kingdoms and empires", neglected]
+  - [american_civilizations, "The cities and states of the Americas", neglected]
+  - [steppe_empires, "The empires of the steppe", obvious]
+  - [mongols, "The Mongols", obvious]
+  - [byzantium, "Byzantium", obvious]
+  - [islamic_golden_age, "The Islamic Golden Age", obvious]
+  - [spread_of_religions, "How faiths spread (Buddhism, Christianity, Islam)", obvious]
+  - [jewish_history, "Jewish history and diaspora", obvious]
+  - [crusades, "The Crusades, seen from both sides", obvious]
+  - [feudalism, "Lords, peasants and land", obvious]
+  - [ottomans, "The Ottoman Empire", obvious]
+  - [mughals, "The Mughal Empire", obvious]
+  - [women_rulers, "Women who ruled and led", neglected]
+  # ---- Networks ----
+  - [silk_roads, "The Silk Roads", obvious]
+  - [indian_ocean_trade, "The Indian Ocean trade", neglected]
+  - [trans_saharan_trade, "The trans-Saharan trade", neglected]
+  - [pacific_navigation, "Pacific navigation", neglected]
+  - [maritime_southeast_asia, "The trading states of maritime Southeast Asia", neglected]
+  - [manila_galleons, "The Manila galleons, the first trade route round the world", neglected]
+  - [age_of_sail, "The age of European exploration and empire", obvious]
+  # ---- Knowledge ----
+  - [mathematics, "Mathematics (zero, algebra)", thread]
+  - [astronomy, "Astronomy and calendars", thread]
+  - [medicine, "Medicine and public health", thread]
+  - [printing, "Paper and printing", obvious]
+  - [universities, "Libraries and universities", thread]
+  - [renaissance, "The Renaissance", obvious]
+  - [reformation, "The Reformation", obvious]
+  - [scientific_revolution, "The Scientific Revolution", obvious]
+  - [enlightenment, "The Enlightenment", obvious]
+  - [space_race, "Space flight", obvious]
+  - [internet, "Computers and the internet", obvious]
+  # ---- Disease and environment ----
+  - [black_death, "The Black Death", obvious]
+  - [epidemics_in_americas, "The epidemics in the Americas after 1492", sober]
+  - [smallpox_eradication, "The end of smallpox", neglected]
+  - [climate_and_collapse, "Climate, collapse and resilience", thread]
+  - [climate_change, "Climate change", obvious]
+  # ---- Coercion and freedom ----
+  - [atlantic_slave_trade, "The Atlantic slave trade", sober]
+  - [slavery_and_resistance, "Slavery and resistance", thread]
+  - [abolition, "Abolition", obvious]
+  - [colonialism, "Colonialism", obvious]
+  - [scramble_for_africa, "The Scramble for Africa", obvious]
+  - [indigenous_resistance, "Indigenous resistance and survival", neglected]
+  - [indentured_labour, "Indentured labour", neglected]
+  - [genocide, "Genocide", sober]
+  - [nonviolence, "Non-violent struggle", neglected]
+  # ---- Revolutions and the modern world ----
+  - [american_revolution, "The American Revolution", obvious]
+  - [french_revolution, "The French Revolution", obvious]
+  - [haitian_revolution, "The Haitian Revolution", obvious]
+  - [latin_american_independence, "Latin American independence", obvious]
+  - [industrial_revolution, "The Industrial Revolution", obvious]
+  - [labour_movements, "Workers and their movements", thread]
+  - [nationalism, "Nationalism and new nations", obvious]
+  - [opium_wars, "The Opium Wars", obvious]
+  - [meiji, "The Meiji Restoration", obvious]
+  - [womens_suffrage, "Votes for women", obvious]
+  - [world_war_one, "The First World War", obvious]
+  - [russian_revolution, "The Russian Revolution", obvious]
+  - [great_depression, "The Great Depression", obvious]
+  - [world_war_two, "The Second World War", obvious]
+  - [holocaust, "The Holocaust", sober]
+  - [nuclear_age, "The nuclear age", obvious]
+  - [decolonization, "Decolonization", obvious]
+  - [partition, "Partition", sober]
+  - [cold_war, "The Cold War", obvious]
+  - [civil_rights, "Civil rights movements", obvious]
+  - [migration, "Migration and refugees", thread]
+  - [globalization, "Globalization", obvious]
+  - [sport_and_play, "Sport and play", thread]

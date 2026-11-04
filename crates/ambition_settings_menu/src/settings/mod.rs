@@ -140,6 +140,9 @@ pub enum SettingsOptionId {
     AcceptLocalJoins,
     /// Damage between controlled allies in the next Ambition session.
     CoopFriendlyFire,
+    PartyTravel,
+    PartyReturn,
+    CoopPreset,
     /// How raw LOCOMOTION input maps onto the controlled body's local frame
     /// (`Hybrid` body-relative assist vs `Screen` screen-directed). Flows into
     /// `MovementTuning::movement_frame_mode`.
@@ -167,9 +170,12 @@ impl SettingsOptionId {
     /// This array is hand-kept. `scripts/checks/check_enum_all_constants_are_complete.py`
     /// checks it against the enum.
     /// alone would go stale silently.
-    pub const ALL: [Self; 65] = [
+    pub const ALL: [Self; 68] = [
         Self::AcceptLocalJoins,
         Self::CoopFriendlyFire,
+        Self::PartyTravel,
+        Self::PartyReturn,
+        Self::CoopPreset,
         Self::AimFrameMode,
         Self::Assist,
         Self::BurstInputMode,

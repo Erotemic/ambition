@@ -447,6 +447,25 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                 g.portal_reverses_facing,
                 "Reverse facing when a portal turns the controlled body back along the same wall.",
             ),
+            {
+                use ambition_persistence::settings::gameplay::PartyTravelMode;
+                let independent = g.party_travel == PartyTravelMode::Independent && !g.party_return
+                    && settings.video.local_view_layout == LocalViewLayout::Adaptive;
+                let favored = g.party_travel == PartyTravelMode::Leader && g.party_return
+                    && settings.video.local_view_layout == LocalViewLayout::FollowLeader;
+                cycle(SettingsOptionId::CoopPreset, "Co-op Preset",
+                    if independent { "Independent" } else if favored { "Follow leader" } else { "Custom" },
+                    if favored { 1 } else { 0 }, 2,
+                    "Choose independent views or a shared leader view with party travel and Select return. Games must enable party preferences.")
+            },
+            {
+                use ambition_persistence::settings::gameplay::PartyTravelMode;
+                let (i, n) = enum_index(&PartyTravelMode::ALL, g.party_travel);
+                cycle(SettingsOptionId::PartyTravel, "Party Travel", g.party_travel.label(), i, n,
+                    "Choose who starts a group crossing. The session leader supplies this preference in games that enable it.")
+            },
+            toggle(SettingsOptionId::PartyReturn, "Return to Leader", g.party_return,
+                "Use the Select / Reset binding to return a follower to the leader. The session leader supplies this preference."),
             toggle(
                 SettingsOptionId::CoopFriendlyFire,
                 "Co-op Friendly Fire",

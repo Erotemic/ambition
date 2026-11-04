@@ -1407,6 +1407,8 @@ pub fn resolve_camera_observation(
             // `None` — every single-view composition — frames the session's, resolved once
             // above the loop.
             &crate::local_view::ResolvedViewSubject,
+            Option<&crate::local_view::ViewParticipant>,
+            Option<&crate::local_view::ViewSubject>,
             &mut ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState,
             &mut ResolvedCameraSnapshot,
         ),
@@ -1786,10 +1788,18 @@ pub fn resolve_camera_observation(
         presentation,
         reference_frame,
         view_subject,
+        declared_participant,
+        declared_body,
         mut camera_state,
         mut resolved,
     ) in &mut views
     {
+        if view_subject.0.is_none() && (declared_participant.is_some() || declared_body.is_some()) {
+            *resolved = ResolvedCameraSnapshot(None);
+            camera_state.target_initialized = false;
+            camera_state.live_observer_roll = None;
+            continue;
+        }
         //  A VIEW MAY NAME ITS OWN SUBJECT, and everything that follows
         // from whose body it is moves with it: the framing focus, the down axis
         // orientation resolves against, and the follow point the snapshot
@@ -2107,6 +2117,7 @@ pub struct CameraObservationPlugin;
 
 impl bevy::prelude::Plugin for CameraObservationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
+        app.init_resource::<crate::facts::PartyReturnPrompts>();
         use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
         use bevy::prelude::IntoScheduleConfigs as _;
         //  THE VIEW IS SPAWNED HERE, at plugin BUILD time, and that is not
@@ -2150,6 +2161,7 @@ impl bevy::prelude::Plugin for CameraObservationPlugin {
                 // Each view's HUD meters follow the subject just resolved.
                 crate::facts::rebuild_view_hud_facts,
                 resolve_camera_observation,
+                crate::facts::rebuild_party_return_prompts,
             )
                 .chain()
                 .in_set(CameraObservationSet),

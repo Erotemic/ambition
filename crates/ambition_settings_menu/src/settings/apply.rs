@@ -209,6 +209,20 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
         }
         SettingsOptionId::AcceptLocalJoins => tog!(settings.gameplay.accept_local_joins),
         SettingsOptionId::CoopFriendlyFire => tog!(settings.gameplay.coop_friendly_fire),
+        SettingsOptionId::PartyTravel => {
+            use ambition_persistence::settings::gameplay::PartyTravelMode;
+            cyc!(settings.gameplay.party_travel, PartyTravelMode)
+        }
+        SettingsOptionId::PartyReturn => tog!(settings.gameplay.party_return),
+        SettingsOptionId::CoopPreset => {
+            use ambition_persistence::settings::gameplay::PartyTravelMode;
+            use ambition_persistence::settings::video::LocalViewLayout;
+            let favored = settings.video.local_view_layout == LocalViewLayout::FollowLeader
+                && settings.gameplay.party_travel == PartyTravelMode::Leader && settings.gameplay.party_return;
+            settings.video.local_view_layout = if favored { LocalViewLayout::Adaptive } else { LocalViewLayout::FollowLeader };
+            settings.gameplay.party_travel = if favored { PartyTravelMode::Independent } else { PartyTravelMode::Leader };
+            settings.gameplay.party_return = !favored;
+        }
         SettingsOptionId::MovementFrameMode => settings.gameplay.cycle_movement_frame_mode(dir),
         SettingsOptionId::AimFrameMode => settings.gameplay.cycle_aim_frame_mode(dir),
         SettingsOptionId::CameraReferenceFrame => {

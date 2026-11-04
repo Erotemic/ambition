@@ -314,6 +314,15 @@
     "history_bronze_drum": (),
     "history_rice_sheaves": (),
     "history_red_slip_pots": (),
+    // Southeast Asia (wave C2): the jong of Srivijaya and its trade goods; the
+    // ship relief and the bell stupas of Borobudur; the sandstone and the ox
+    // cart of Angkor.
+    "history_jong": (),
+    "history_ship_relief": (),
+    "history_bell_stupa": (),
+    "history_sandstone_blocks": (),
+    "history_ox_cart": (),
+    "history_trade_goods": (),
     // The Story Stacks of the Art dimension (`targets/props/art_stacks_props.py`).
     // The doors of the Library of Endings are two covers of a book: the happy
     // ending in gold with a sun, the sad ending in deep blue with a moon and

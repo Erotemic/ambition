@@ -299,6 +299,11 @@ npc_history_word_keeper
 npc_history_trung_trac
 npc_history_trung_nhi
 npc_history_drum_caster
+npc_history_harbour_master
+npc_history_yijing
+npc_history_relief_carver
+npc_history_baray_engineer
+npc_history_zhou_da_guide
 
 [Guests from history and the studio]
 npc_genghis_can
@@ -472,6 +477,8 @@ napoleonic_grenadier
 andean_condor
 sulawesi_warty_pig
 saltwater_crocodile
+king_cobra
+water_monitor
 
 [Mary-O's world]
 mary_o

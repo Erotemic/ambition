@@ -990,3 +990,76 @@ Drum Caster: Careful. It is still warm. Well, no. But it was, once, and I like t
 -> Goodbye.
     Drum Caster: Hit it if you like. Not too hard. The frogs are sensitive.
 ===
+
+title: history_harbour_master
+---
+Harbour Master of Palembang: Welcome to Srivijaya. Ship's name, cargo, port you sailed from. And the toll.
+-> Why a toll?
+    Harbour Master of Palembang: Every ship between India and China comes through our strait, or through the Sunda strait, which is also ours. We keep the pirates off the sea road, and the ships pay us for it. It is cheaper than being robbed. Usually.
+-> What do you trade?
+    Harbour Master of Palembang: Camphor and resins from our forests, gold from our rivers, cloves from the Spice Islands in the east, cloth from India, silk and jars from China. Everything stops here, everything is weighed here, and everything pays a little.
+-> Is it true about the gold?
+    Harbour Master of Palembang: The Arab sailors tell that every morning our king throws a brick of gold into the estuary. I tell them yes. Then I charge them more.
+-> What happens next?
+    Harbour Master of Palembang: In 1025 the Chola king Rajendra sends a fleet from south India and sacks our ports. We do not recover all of it. But about 1400 a prince of Palembang, Parameswara, will found Malacca on the same strait. Whoever holds it, the ships still pay.
+-> Goodbye.
+    Harbour Master of Palembang: Sail well. Pay on the way back too.
+===
+
+title: history_yijing
+---
+Yijing: Peace to you. I am Yijing, a monk from Tang China. I came here from Guangzhou on a Persian ship, in the year you call 671.
+-> Why come here?
+    Yijing: To go to India, to the great monastery of Nalanda, a monk must read Sanskrit. Srivijaya has more than a thousand monks, and they study as they do in India. I tell every monk from China: stop here first, a year or two. I wrote it down, so now it is advice.
+-> Where next?
+    Yijing: Nalanda. Ten years of study there. Then back here, to copy and translate. Once I went aboard a ship in this harbour to send a letter home for more ink and paper, and the ship sailed with me on it. I went to China by accident and came back.
+-> What do you write?
+    Yijing: How monks live in India and in the islands of the South Sea. And the lives of the monks who went west before me to look for the teachings. Many of them did not come home. Someone should remember them.
+-> Goodbye.
+    Yijing: Go in peace. If you sail, keep your ink dry.
+===
+
+title: history_relief_carver
+---
+Relief Carver of Borobudur: Mind the dust. Every panel on this hill goes under a chisel like mine. Two thousand six hundred and seventy-two of them, but who is counting? Me. I am counting.
+-> What do they show?
+    Relief Carver of Borobudur: Stories that teach, as you climb. And around the stories, life: houses, markets, musicians, farmers, and ships. I like carving the ships.
+-> The ships?
+    Relief Carver of Borobudur: Outriggers with sails of matting, like the ones in the harbours. Ships like these sail as far as Madagascar. One day someone will build one from my picture and sail it all the way to Africa. I would like to see that.
+-> What is down at the foot?
+    Relief Carver of Borobudur: The first panels, of people and what their deeds bring them. Before they are even finished, the builders will cover them with a great wall of stone, perhaps to hold the hill up. Your people find them again in 1885.
+-> How long does it take?
+    Relief Carver of Borobudur: Two generations, people say, maybe more. The stone comes out of the rivers, block by block. No mortar: each block holds the next. My grandfather started this gallery.
+-> Goodbye.
+    Relief Carver of Borobudur: Walk every gallery before you go up. That is the way. It is also good for the legs.
+===
+
+title: history_baray_engineer
+---
+Baray Engineer: Careful. That is not a lake. It is a reservoir. I made it. Well, many thousands of us made it. I made the plan.
+-> What is it for?
+    Baray Engineer: Water for the rice in the dry months, say some of your scholars. A sea around the mountain of the gods, say others. I say: both, and either way it took a great deal of digging. Eight kilometres of it.
+-> Who does the digging?
+    Baray Engineer: Every village owes work to the king and to the temples, so every village sends its people. The temple stones list them: dancers, cooks, potters, diggers, by the thousand.
+-> And the stone?
+    Baray Engineer: Sandstone from the Kulen hills, a long way off. It comes down the canals on rafts. Every block has holes for the pegs that lift it. Look for the holes: that is how you know someone worked very hard.
+-> What happens to Angkor?
+    Baray Engineer: Too much water, then too little. In the 1300s and 1400s great floods and long droughts break the canals. In 1431 the army of Ayutthaya takes the city, and the court moves south, near Phnom Penh. But Angkor Wat is never empty. Monks keep it to this day.
+-> Goodbye.
+    Baray Engineer: Do not swim in the moat. The crocodiles have not read the plan.
+===
+
+title: history_zhou_da_guide
+---
+Zhou Da-Guide: Welcome, welcome! Tour group, this way, keep up! I am Zhou Da-Guide, envoy of the Great Yuan, and the only visitor who wrote any of this down.
+-> The only one?
+    Zhou Da-Guide: The Khmer carved their kings and their temples on stone. Everything else they wrote on palm leaves and hides, and the damp ate it. So for the markets, the houses, the bathing and the lunch, there is only me. In 1296 I stayed a year. You are welcome.
+-> What did you see?
+    Zhou Da-Guide: The markets are run by women: any business, ask the wife. Everybody bathes in the river, many times a day, all together. The king rides out with a thousand followers and a golden sword. And there are slaves, taken from the hill peoples. I wrote that down too. A guide tells you everything.
+-> Why the flag?
+    Zhou Da-Guide: So you can find me in the crowd. One of the greatest cities in the world! Very crowded. Also I like flags.
+-> Do you exaggerate?
+    Zhou Da-Guide: A guide never exaggerates. A guide enhances. The towers were gold. Some of them. On top.
+-> Goodbye.
+    Zhou Da-Guide: The gift shop is on the left. It is a stall of lotus seeds. Highly recommended.
+===

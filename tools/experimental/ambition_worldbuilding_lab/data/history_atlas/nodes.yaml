@@ -543,11 +543,11 @@ nodes:
      countries: [VNM, LAO, THA, IDN, MYS], topics: [bronze_and_iron, women_rulers], note: "the Trưng sisters' rising, 40 CE"}
   - {id: funan_oc_eo, title: "Funan and Óc Eo", region: mainland_southeast_asia, years: [100, 550], status: candidate,
      countries: [KHM, VNM], topics: [indian_ocean_trade]}
-  - {id: srivijaya, title: "Srivijaya and the strait", region: island_southeast_asia, years: [650, 1290], status: planned, shape: corridor,
+  - {id: srivijaya, title: "Srivijaya and the strait", region: island_southeast_asia, years: [650, 1290], status: built, room: history_srivijaya, shape: corridor,
      countries: [IDN, MYS, SGP, THA, BRN], topics: [maritime_southeast_asia, indian_ocean_trade, spread_of_religions]}
-  - {id: borobudur, title: "Borobudur", region: island_southeast_asia, years: [780, 850], status: planned, shape: tall,
+  - {id: borobudur, title: "Borobudur", region: island_southeast_asia, years: [780, 850], status: built, room: history_borobudur, shape: tall,
      countries: [IDN], topics: [monumental_building, spread_of_religions]}
-  - {id: angkor, title: "Angkor", region: mainland_southeast_asia, years: [802, 1431], status: planned, shape: hub,
+  - {id: angkor, title: "Angkor", region: mainland_southeast_asia, years: [802, 1431], status: built, room: history_angkor, shape: hub,
      countries: [KHM, THA, LAO, VNM], topics: [monumental_building, climate_and_collapse, farming_origins], note: "a city of water: the barays"}
   - {id: bagan, title: "Bagan", region: mainland_southeast_asia, years: [849, 1297], status: candidate,
      countries: [MMR], topics: [monumental_building, spread_of_religions]}

@@ -843,6 +843,57 @@
       "twinkle_rate": 0.5,
       "front": 0.4
     },
+    "history_strait": {
+      "count": 12,
+      "velocity": [
+        6.0,
+        -1.0
+      ],
+      "wander": 12.0,
+      "wander_rate": 0.4,
+      "size": [
+        0.8,
+        1.8
+      ],
+      "alpha": 0.45,
+      "twinkle": 0.6,
+      "twinkle_rate": 1.2,
+      "front": 0.3
+    },
+    "history_borobudur": {
+      "count": 10,
+      "velocity": [
+        4.0,
+        -0.5
+      ],
+      "wander": 14.0,
+      "wander_rate": 0.15,
+      "size": [
+        2.0,
+        4.0
+      ],
+      "alpha": 0.25,
+      "twinkle": 0.1,
+      "twinkle_rate": 0.3,
+      "front": 0.3
+    },
+    "history_angkor": {
+      "count": 12,
+      "velocity": [
+        5.0,
+        -2.0
+      ],
+      "wander": 16.0,
+      "wander_rate": 0.5,
+      "size": [
+        1.0,
+        2.0
+      ],
+      "alpha": 0.5,
+      "twinkle": 0.5,
+      "twinkle_rate": 0.9,
+      "front": 0.3
+    },
     "history_lapita": {
       "count": 10,
       "velocity": [

@@ -63,6 +63,10 @@
     // `OUTRIGGER_*`, `VOYAGING_*`).
     "history_outrigger_canoe": (row: "idle", frame_px: (384.0, 192.0), span_px: (16.0, 368.0), top_px: 140.0),
     "history_voyaging_canoe": (row: "idle", frame_px: (448.0, 256.0), span_px: (16.0, 432.0), top_px: 196.0),
+    // The jong of Srivijaya (wave C2): the top of its plank deck IS the
+    // platform; the matting sails and the thatched deckhouse rise over it
+    // (`targets/props/history_southeast_asia_props.py`: `JONG_SPAN`, `JONG_TOP`).
+    "history_jong": (row: "idle", frame_px: (448.0, 224.0), span_px: (24.0, 424.0), top_px: 132.0),
     // The walking moai: the top of its red pukao is the platform
     // (`WALKING_*`). Its `idle` row rocks the moai from side to side on its
     // ropes; the pukao stays level.

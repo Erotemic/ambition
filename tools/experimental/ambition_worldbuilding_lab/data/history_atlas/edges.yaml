@@ -55,6 +55,9 @@ built:
   - [sulawesi_art, austronesian_islands, succession]
   - [austronesian_islands, dong_son, contact, "the drums went to the islands"]
   - [austronesian_islands, new_guinea_highlands, contact, "the newcomers met the farmers of New Guinea"]
+  - [dong_son, srivijaya, diffusion, "Dong Son drums reached south Sumatra"]
+  - [srivijaya, borobudur, contact, "the Sailendra kings ruled both"]
+  - [srivijaya, angkor, contact, "Jayavarman II came from 'Java' (which Java is argued) and declared independence of it, 802"]
   - [sahul, mammoth_steppe, atlas_shortcut, "Papuans carry Denisovan DNA: a meeting, but not here"]
   - [mammoth_steppe, beringia, contact]
   - [first_farmers_of_europe, fertile_crescent, contact, "farmers came from Anatolia"]
@@ -383,7 +386,6 @@ links:
   - [dong_son, champa_dai_viet, succession]
   - [funan_oc_eo, angkor, succession]
   - [funan_oc_eo, monsoon_sea, contact]
-  - [srivijaya, borobudur, contact]
   - [srivijaya, majapahit, succession]
   - [majapahit, malacca, succession]
   - [angkor, ayutthaya_lan_xang, succession]
@@ -530,7 +532,6 @@ links:
 
   # ---- Joining the parts the first report found apart ----
   - [heian, tang_changan, contact, "envoys to the Tang until 894"]
-  - [angkor, srivijaya, contact]
   - [angkor, chola_sea, contact]
   - [vietnam_war, pacific_war, succession, "the August Revolution, 1945"]
   - [ethiopia_1935, adwa, succession]

@@ -80,7 +80,7 @@ the record and sighs about the footnotes.
     R½ S. America                   andes           caral
     R1 East Asia      mammoth st.   yellow river    shang        silk road   steppe
     R2 Oceania        sahul         highlands       lapita       wayfinders  rapa nui
-    R2½ SE Asia       sulawesi      austronesians   dong son
+    R2½ SE Asia       sulawesi      austronesians   dong son     srivijaya   angkor
     R3 South Asia     south. route  mehrgarh        indus
     R4 Europe         ice age       first farmers   megaliths    celts       vikings     sail   industrial
     R5 Med./SW Asia   levant        crescent        uruk         classical
@@ -130,6 +130,8 @@ The rooms:
 | `history_sulawesi` | `history_wallacea` | the pig painter | Sulawesi warty pig | up the karst to the painted cave: a pig and three hunters, 51,200 years old, and hand stencils; the ways: up to Sahul, down to the southern route |
 | `history_austronesian_islands` | `history_austronesia` | the word keeper | saltwater crocodile, coral crab | an outrigger canoe crosses the lagoon; the stilt houses; MATA, one word across half the globe; the way up to New Guinea |
 | `history_dong_son` | `history_red_river` | Trưng Trắc, Trưng Nhị, the drum caster | saltwater crocodile, tiger | the paddies (mud and water); the bronze drum; the Trưng sisters' rising of 40 CE |
+| `history_srivijaya` | `history_strait` | Yijing, the harbour master of Palembang | water monitor | a jong carries you over the Musi; then the low covered wharf of the warehouses, with a way over their roofs (the Kedukan Bukit stone, 682 CE); the door to Java |
+| `history_angkor` | `history_angkor` | the baray engineer, Zhou Da-Guide | king cobra, saltwater crocodile | the West Baray's dike, the sandstone with its peg holes, the causeway over the moat, and Angkor Wat's three tiers |
 | `history_mehrgarh` | `history_indus` | the dentist of Mehrgarh | locust swarm, tiger | the terraces |
 | `history_indus_cities` | `history_indus` | the Priest-King (Probably) | indus unicorn, tiger | the unicorn seal on the granary roof (`history_unicorn_seal`, a pickup) opens the citadel gate |
 | `history_sahul` | `history_sahul` | the raft builder | diprotodon, megalania | a bamboo raft carries you over the strait |
@@ -162,6 +164,7 @@ The buildings, in a row under the grid:
 | `history_great_ger` | the steppe | Kublai Khan't-Wait; the Yam relay; chest "a paiza" |
 | `history_timbuktu_library` | Timbuktu | Ibn Batootah; manuscripts worth more than gold |
 | `history_cotton_mill` | the Industrial Age | the beam engine and the boiler lever |
+| `history_borobudur` | Srivijaya (the Sailendra kings ruled both) | two rows high: six galleries of relief panels, joined by stairs at alternate ends, then the round terraces of bell stupas; the relief carver; the hidden foot (found 1885) and the ship (sailed to Ghana, 2003). No images of the Buddha: the stupas are closed |
 
 ### The two roads through the Great Wall
 
@@ -373,7 +376,7 @@ built room, then the links that make the world one. Each wave starts with
 | wave | rooms | why now |
 | --- | --- | --- |
 | A, B | the Atlantic world; the Andes and Caral | BUILT |
-| C | **Southeast Asia** (C1 BUILT: Sulawesi, the Austronesian islands, Dong Son), the first cluster off the grid: Sulawesi's painted story (51,200 years), the Austronesians come to the islands, Dong Son and its drums (the Trưng sisters), the strait of Srivijaya (a corridor), Angkor (a hub), Borobudur (tall) | 680 million players with no room; it also replaces the Shang-to-Lapita shortcut with Taiwan, the true homeland |
+| C | **Southeast Asia** (C1 BUILT: Sulawesi, the Austronesian islands, Dong Son; C2 BUILT: Srivijaya, Borobudur, Angkor), the first cluster off the grid: Sulawesi's painted story (51,200 years), the Austronesians come to the islands, Dong Son and its drums (the Trưng sisters), the strait of Srivijaya (a corridor), Angkor (a hub), Borobudur (tall) | 680 million players with no room; it also replaces the Shang-to-Lapita shortcut with Taiwan, the true homeland |
 | D | **East Asia's other half**: Taiwan, the Austronesian homeland; Jōmon, the first pots; Silla and Queen Seondeok's star tower; Heian-kyō; Kaifeng and Hangzhou (printing, paper money, the compass); King Sejong's letters | Japan and the two Koreas have no room; printing is an obvious topic |
 | E | **Bengal and the cotton**: Dhaka muslin (the other end of the cotton mill), the Company and 1857, the language movement and 1971 | Bangladesh (174 million); colonialism in South Asia |
 | F | **Brazil and Amazonia**: the garden cities of the Amazon, Palmares (Zumbi and Dandara), Rio 1888 | Brazil (212 million); Afro-Brazilian and Amazonian peoples |

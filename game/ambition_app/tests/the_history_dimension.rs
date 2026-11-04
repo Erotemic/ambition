@@ -1,8 +1,8 @@
 //! The History dimension: its gate is DYNASTIC.
 //!
-//! Fifty rooms (`game/ambition_map_assets/ambition_content/generators/history/`):
-//! a grid of forty-three outdoor rooms, where east is later and each floor is
-//! a region of the world, and seven buildings by doors. The gate is in the
+//! Fifty-three rooms (`game/ambition_map_assets/ambition_content/generators/history/`):
+//! a grid of forty-five outdoor rooms, where east is later and each floor is
+//! a region of the world, and eight buildings by doors. The gate is in the
 //! Cradle, in Africa, at the bottom left. This asks the game what the
 //! generator takes as given: that the rooms of a floor join in order, that the
 //! ways up and down join the floors where the regions met, that each building opens off
@@ -139,6 +139,8 @@ const WAYS: &[(&str, &str)] = &[
     // Southeast Asia, the row under Oceania.
     ("history_sulawesi", "history_austronesian_islands"),
     ("history_austronesian_islands", "history_dong_son"),
+    ("history_dong_son", "history_srivijaya"),
+    ("history_srivijaya", "history_angkor"),
     ("history_austronesian_islands", "history_new_guinea_highlands"),
     ("history_sahul", "history_mammoth_steppe"),
     ("history_mammoth_steppe", "history_beringia"),
@@ -155,6 +157,7 @@ const WAYS: &[(&str, &str)] = &[
     ("history_classical_shore", "history_celtic_frontier"),
     // The buildings.
     ("history_ice_age_europe", "history_painted_cave"),
+    ("history_srivijaya", "history_borobudur"),
     ("history_fertile_crescent", "history_temple_granary"),
     ("history_nile_valley", "history_pyramid_tomb"),
     ("history_classical_shore", "history_colosseum"),
@@ -178,9 +181,9 @@ fn the_rooms_of_the_history_grid_join_where_history_did() {
     // way on is the southern coast.
     let cradle = index("history_cradle");
     assert_eq!(rooms.neighboring_room_indices_of(cradle).len(), 1, "the Cradle joins only the southern coast");
-    // The ways name all fifty rooms, and the gate reaches every one.
+    // The ways name all fifty-three rooms, and the gate reaches every one.
     let named: BTreeSet<&str> = WAYS.iter().flat_map(|&(a, b)| [a, b]).collect();
-    assert_eq!(named.len(), 50, "the ways name every room of the dimension: {named:?}");
+    assert_eq!(named.len(), 53, "the ways name every room of the dimension: {named:?}");
     let mut reached = BTreeSet::from(["history_cradle"]);
     while let Some(&(a, b)) = WAYS.iter().find(|&&(a, b)| reached.contains(a) != reached.contains(b)) {
         reached.extend([a, b]);
@@ -287,6 +290,12 @@ const CAST: &[(&str, &[(&str, usize)])] = &[
     (
         "history_dong_son",
         &[("npc_history_drum_caster", 1), ("npc_history_trung_trac", 1), ("npc_history_trung_nhi", 1), ("saltwater_crocodile", 1), ("tiger", 2)],
+    ),
+    ("history_srivijaya", &[("npc_history_yijing", 1), ("npc_history_harbour_master", 1), ("water_monitor", 2)]),
+    ("history_borobudur", &[("npc_history_relief_carver", 1)]),
+    (
+        "history_angkor",
+        &[("npc_history_baray_engineer", 1), ("npc_history_zhou_da_guide", 1), ("king_cobra", 3), ("saltwater_crocodile", 1)],
     ),
     // Oceania.
     ("history_sahul", &[("npc_history_raft_builder", 1), ("diprotodon", 1), ("megalania", 1)]),

@@ -646,6 +646,17 @@
             move_style: WalkHeavy,
             melee: Some(Lunge(windup_s: 0.8, active_s: 0.25, recover_s: 1.1, damage: 2, reach_px: 60.0, step_px: 0.0, rush_px: 130.0)),
         ),
+        // The king cobra rears up and spreads its hood (its windup row), then
+        // strikes forward from on high; the water monitor lifts its head and
+        // swings its tail (its windup row), then whips and bites.
+        "king_cobra_strike": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.55, active_s: 0.15, recover_s: 0.6, damage: 2, reach_px: 56.0, step_px: 0.0, rush_px: 90.0)),
+        ),
+        "water_monitor_whip": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.5, active_s: 0.2, recover_s: 0.6, damage: 1, reach_px: 48.0, step_px: 0.0, rush_px: 150.0)),
+        ),
         "sea_raider_cut": (
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.35, active_s: 0.15, recover_s: 0.45, damage: 2, reach_px: 36.0, step_px: 0.0, rush_px: 140.0)),
@@ -7755,6 +7766,68 @@
             hall: ["My family has looked like this for a very long time. We watched the islanders paddle by in their canoes. We swim between islands too; we just do not bring pots.", "I can go months without a meal. I am in no hurry. You will come down to the water eventually."],
         ),
         ),
+        // The king cobra: the longest venomous snake in the world, of the
+        // forests of South and Southeast Asia. It lifts a third of its body
+        // off the ground to look you in the eye.
+        "king_cobra": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "King Cobra",
+            manifest: "sprites/king_cobra_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(48.0),
+            composition: None,
+            default_action_set: "king_cobra_strike",
+            locomotion: Some((run_speed: 140.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 420.0,
+                attack_range: 72.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.7,
+                // It warns first: the hood goes up, and it waits.
+                attack_cooldown_s: 1.1,
+                tactics: (notice_s: 0.8, footsies: Some((hold_px: 130.0, wait_s: 0.9))),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "history", "angkor", "beast"],
+        barks: (
+            on_hit: ["*HSSSS*", "*the hood flares wider*"],
+            provoked: ["*it rises, and rises, until its eyes are level with yours*"],
+            idle: ["*a long olive coil in the leaves*", "*its tongue tastes the air*"],
+            hall: ["I am the longest venomous snake in the world. I can stand a third of my length off the ground and look you in the eye.", "I eat other snakes. You are not a snake. Leave quietly and we will both have a good day."],
+        ),
+        ),
+        // The Asian water monitor: a big lizard of the rivers and coasts of
+        // Southeast Asia, a strong swimmer that eats what the harbour drops.
+        "water_monitor": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Water Monitor",
+            manifest: "sprites/water_monitor_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(24.0),
+            composition: None,
+            default_action_set: "water_monitor_whip",
+            locomotion: Some((run_speed: 190.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 460.0,
+                attack_range: 80.0,
+                patrol_effort: 0.6,
+                chase_effort: 0.8,
+                attack_cooldown_s: 0.9,
+                tactics: (notice_s: 0.5, footsies: Some((hold_px: 120.0, wait_s: 0.6)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(4),
+            tags: ["enemy", "history", "srivijaya", "beast"],
+        barks: (
+            on_hit: ["*an outraged hiss*", "*the tail lashes*"],
+            provoked: ["*it lifts its head and swings its tail, slowly*"],
+            idle: ["*flick, flick goes the forked tongue*", "*it suns itself on the warm planks*"],
+            hall: ["I swim, I climb, and I eat whatever the harbour drops. Palembang suits me fine.", "My cousins on Komodo get all the attention. I am just as long and much better company."],
+        ),
+        ),
         // The cave lion: the maneless lion of the Ice Age that the painters of
         // the caves drew. It crouches with its hips wiggling (its windup row),
         // pounces a long way with its claws out, and lands.
@@ -11881,6 +11954,95 @@
             barks: (
                 idle: ["Wax, clay, fire, bronze. And a little luck.", "*he taps the drum: the frogs on its rim seem to jump*", "A star in the middle, for the sun. Always."],
                 hall: ["Our drums are cast by the lost wax: carve the pictures in wax, cover it in clay, pour out the wax and pour in the bronze. They have been dug up from southern China to the far islands of Indonesia.", "The frogs on the rim are for the rain. Frogs sing when it comes. A drum with frogs asks for rain, very loudly."],
+            ),
+        ),
+        // Southeast Asia (wave C2). The harbour master, the relief carver and
+        // the baray engineer are original people; Yijing is the Tang monk who
+        // studied in Srivijaya; Zhou Da-Guide is a parody of Zhou Daguan, the
+        // Yuan envoy who wrote the only eyewitness account of Angkor.
+        "npc_history_harbour_master": (
+            display_name: "Harbour Master of Palembang",
+            // An original harbour master of Srivijaya, about 680 CE, with a balance scale for gold and a palm-leaf tally.
+            manifest: "sprites/history_harbour_master_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm.
+            standing_height: Some(64.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "srivijaya", "peaceful"],
+            barks: (
+                idle: ["Ship's name, cargo, port. And the toll.", "*the little scale tips, and he smiles*", "Everything stops here. Everything pays a little."],
+                hall: ["Every ship between India and China came through our strait. We kept the pirates off the sea road, and the ships paid us for it.", "About 1400 a prince of Palembang, Parameswara, founded Malacca on the same strait. Whoever holds it, the ships still pay."],
+            ),
+        ),
+        "npc_history_yijing": (
+            display_name: "Yijing",
+            // Yijing (635-713), the Tang Chinese monk who studied Sanskrit in Srivijaya on his way to and from India.
+            manifest: "sprites/history_yijing_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "srivijaya", "peaceful"],
+            barks: (
+                idle: ["*he copies a line, and checks it twice*", "A year or two here first, then India.", "Keep your ink dry."],
+                hall: ["In Srivijaya there were more than a thousand monks, and they studied as they did in India. I told every monk from China to stop here first.", "Once I went aboard a ship here to send a letter home for ink and paper, and it sailed with me on it. I went to China by accident, and came back."],
+            ),
+        ),
+        "npc_history_relief_carver": (
+            display_name: "Relief Carver of Borobudur",
+            // An original stone carver of Borobudur in Java, about 800 CE, with a chisel and a wooden mallet.
+            manifest: "sprites/history_relief_carver_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 162 cm.
+            standing_height: Some(62.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "borobudur", "peaceful"],
+            barks: (
+                idle: ["*tap, tap, tap: a sail appears*", "Two thousand six hundred and seventy-two panels. I am counting.", "Walk every gallery before you go up."],
+                hall: ["Among the stories on the walls we carved the life around them: houses, markets, musicians, and ships with outriggers like the ones that sailed to Madagascar.", "In 2003 people built a ship from one of our pictures and sailed it to Africa. Every block of this hill was cut by hand and holds the next one without mortar."],
+            ),
+        ),
+        "npc_history_baray_engineer": (
+            display_name: "Baray Engineer",
+            // An original Khmer engineer of Angkor, about 1150 CE, who plans the reservoirs, with a measuring rod and a palm-leaf plan.
+            manifest: "sprites/history_baray_engineer_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 158 cm.
+            standing_height: Some(61.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "angkor", "peaceful"],
+            barks: (
+                idle: ["It is not a lake. It is a reservoir.", "*she sights along the rod, and frowns at the dike*", "Eight kilometres, give or take a canal."],
+                hall: ["The West Baray is eight kilometres by two, dug by hand. Water for the rice, or a sea around the mountain of the gods? Both, and a great deal of digging.", "In the 1300s and 1400s floods and droughts broke the canals; in 1431 Ayutthaya took the city. But monks have kept Angkor Wat to this day."],
+            ),
+        ),
+        "npc_history_zhou_da_guide": (
+            display_name: "Zhou Da-Guide",
+            // A parody of Zhou Daguan, the Yuan Chinese envoy of 1296-97, as a tour guide with a pennant and a notebook.
+            manifest: "sprites/history_zhou_da_guide_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "angkor", "peaceful"],
+            barks: (
+                idle: ["Tour group, this way! Keep up!", "*he holds the little flag higher*", "A guide never exaggerates. A guide enhances."],
+                hall: ["In 1296 I stayed a year at Angkor and wrote down the markets, the bathing, the king's procession and the slaves. Without me nobody would know what was for lunch.", "The markets here are run by women. Any business, ask the wife. I wrote that down; the Khmer had palm leaves, and the damp ate them."],
             ),
         ),
         "npc_primeval_twitchell": (

@@ -5,8 +5,8 @@ edit `data/history_atlas/*.yaml` and generate it again. The atlas is a plan, not
 
 ## Summary
 
-- Nodes: 362 (50 built, 185 planned, 127 candidate).
-- Links: 537 (260 succession, 211 contact, 23 diffusion, 38 comparison, 5 atlas_shortcut).
+- Nodes: 362 (53 built, 182 planned, 127 candidate).
+- Links: 538 (260 succession, 211 contact, 24 diffusion, 38 comparison, 5 atlas_shortcut).
 - Countries and territories: 210; peoples: 53; topics: 99.
 
 ## Where's my history?
@@ -14,7 +14,7 @@ edit `data/history_atlas/*.yaml` and generate it again. The atlas is a plan, not
 For a player from each country: the places of the atlas that are their history. The population is a rounded
 2024 estimate, used only to weigh how many players ask (`countries.yaml`).
 
-- A built room: 101 countries, 80% of the world's people.
+- A built room: 103 countries, 80% of the world's people.
 - At least a planned room: 210 countries, 100%.
 - At least a candidate: 210 countries, 100%.
 - No answer at all: 0 countries.
@@ -24,7 +24,7 @@ For a player from each country: the places of the atlas that are their history. 
 | India | 1450 | BUILT | The cotton mill; The Indus cities; The southern route | Ashoka's pillars; The language movement and 1971; Dhaka muslin; The Chola fleets; and 19 more | 8 |
 | China | 1419 | BUILT | The Mongol steppe; The Shang court; The Silk Road; The Yellow River | The warming world; The market of the Columbian exchange; The network; The Korean War; and 10 more | 10 |
 | United States | 345 | BUILT | Beringia; The cotton mill; The wayfinders | Philadelphia, 1776; The Moon and the chip; Baikonur, 1961; Bikini and Moruroa; and 28 more | 11 |
-| Indonesia | 283 | BUILT | The Austronesians come to the islands; Dong Son and the drums; Sulawesi, the oldest painted story | Amsterdam and the VOC; Borobudur; The Chola fleets; Melaka; and 8 more | 3 |
+| Indonesia | 283 | BUILT | The Austronesians come to the islands; Borobudur; Dong Son and the drums; Srivijaya and the strait; and 1 more | Amsterdam and the VOC; The Chola fleets; Melaka; The treasure fleets; and 6 more | 3 |
 | Pakistan | 251 | BUILT | The Indus cities; Mehrgarh; The southern route | Ashoka's pillars; The language movement and 1971; The Company and 1857; The Great Game; and 5 more | 3 |
 | Nigeria | 232 | BUILT | Benin City; The fort of the Door of No Return | The tirailleurs, the askari and Thiaroye; The Bantu expansion; The market of the Columbian exchange; Ife and Igbo-Ukwu; and 5 more | 5 |
 | Brazil | 212 | planned |  | The garden cities of the Amazon; Rio, 1888; The warming world; The Mothers of the Plaza de Mayo; and 5 more | 5 |
@@ -36,11 +36,11 @@ For a player from each country: the places of the atlas that are their history. 
 | Egypt | 116 | BUILT | The Green Sahara; The Nile; The pyramid tomb | Persepolis and the Royal Road; 1348; The Crusades from both sides; Istanbul and the coffee house; and 4 more | 5 |
 | Philippines | 116 | BUILT | The Austronesians come to the islands | The Green Revolution; The Manila galleons; The war in Asia and the Pacific; Manila, 1896; and 1 more | 3 |
 | DR Congo | 109 | planned |  | The Bantu expansion; The Congo Free State; Ishango and the counting bone; The kingdom of Kongo; and 2 more | 1 |
-| Vietnam | 101 | BUILT | Dong Son and the drums | Angkor; The war in Asia and the Pacific; The first emperor and the Han; The Vietnam War; and 1 more | 2 |
+| Vietnam | 101 | BUILT | Angkor; Dong Son and the drums | The war in Asia and the Pacific; The first emperor and the Han; The Vietnam War; The Yangtze rice fields | 2 |
 | Iran | 91.6 | BUILT | The Fertile Crescent; The Silk Road | Persepolis and the Royal Road; Armenia and its alphabet; Baghdad and the House of Wisdom; Jeitun, the first farmers of Central Asia; and 2 more | 4 |
 | Türkiye | 87.5 | BUILT | The classical shore; The Fertile Crescent | Persepolis and the Royal Road; Armenia and its alphabet; 1915; Constantinople; and 6 more | 6 |
 | Germany | 84.6 | BUILT | The Celtic frontier; The first farmers of Europe; Ice Age Europe; The Industrial Age | The Wall; 1348; The Crusades from both sides; Paris, 1789; and 8 more | 4 |
-| Thailand | 71.7 | BUILT | Dong Son and the drums | Angkor; Melaka; Srivijaya and the strait | 3 |
+| Thailand | 71.7 | BUILT | Angkor; Dong Son and the drums; Srivijaya and the strait | Melaka | 3 |
 | United Kingdom | 69 | BUILT | The age of sail; The Celtic frontier; The cotton mill; The Industrial Age; and 2 more | Philadelphia, 1776; Sydney Cove, 1788, and the frontier; Barbados and sugar; Dhaka muslin; and 18 more | 2 |
 | Tanzania | 68.6 | BUILT | The Cradle (the Great Rift Valley); Timbuktu and the monsoon coast | The tirailleurs, the askari and Thiaroye; The Bantu expansion; Buganda, Rwanda and the kingdoms of the lakes; Kilwa and the Swahili coast; and 3 more | 2 |
 | France | 66.5 | BUILT | The age of sail; The Celtic frontier; The Haitian Revolution; Ice Age Europe; and 2 more | Philadelphia, 1776; The Basque whalers of Red Bay; Bikini and Moruroa; 1348; and 8 more | 6 |
@@ -64,7 +64,7 @@ For a player from each country: the places of the atlas that are their history. 
 | Ukraine | 37.9 | BUILT | The mammoth steppe; The Viking north | 1348; Preslav and the Cyrillic script; The Holocaust; Kyiv and Novgorod's birch-bark letters; and 4 more | 6 |
 | Angola | 37 | planned |  | The Bantu expansion; Virginia, 1619; The kingdom of Kongo; Ndongo and Matamba, Queen Nzinga's war; and 1 more | 2 |
 | Uzbekistan | 36.4 | BUILT | The Silk Road | Bukhara and Khiva; The new Silk Roads; The Great Game; Baghdad and the House of Wisdom; and 6 more | 2 |
-| Malaysia | 35.6 | BUILT | The Austronesians come to the islands; Dong Son and the drums | The Chola fleets; Melaka; The treasure fleets; The war in Asia and the Pacific; and 1 more | 4 |
+| Malaysia | 35.6 | BUILT | The Austronesians come to the islands; Dong Son and the drums; Srivijaya and the strait | The Chola fleets; Melaka; The treasure fleets; The war in Asia and the Pacific | 4 |
 | Mozambique | 34.6 | planned |  | The Bantu expansion; Great Zimbabwe; Kilwa and the Swahili coast | 2 |
 | Peru | 34.2 | BUILT | The Andean highlands; Caral | The garden cities of the Amazon; The liberators; The market of the Columbian exchange; The Manila galleons; and 4 more | 5 |
 | Ghana | 34 | BUILT | The fort of the Door of No Return | The tirailleurs, the askari and Thiaroye; Asante and Dahomey; Wagadu (old Ghana) and Koumbi Saleh; Lagos and Nairobi now; and 1 more | 3 |
@@ -93,7 +93,7 @@ For a player from each country: the places of the atlas that are their history. 
 | Guatemala | 18.4 | BUILT | The Maya city | The wars of Central America; The Kalinago and the Garifuna; Paso de la Amada, the first ballcourt; Teotihuacan; and 1 more | 0 |
 | Netherlands | 18.2 | BUILT | The age of sail | Amsterdam and the VOC; The warming world; Willemstad and Tula's revolt; Florence and Mainz; and 6 more | 2 |
 | Ecuador | 18.1 | BUILT | The Andean highlands | The garden cities of the Amazon; The liberators; The Qhapaq Ñan | 3 |
-| Cambodia | 17.6 | planned |  | Angkor; The Vietnam War | 5 |
+| Cambodia | 17.6 | BUILT | Angkor | The Vietnam War | 5 |
 | Zimbabwe | 16.6 | planned |  | Great Zimbabwe | 2 |
 | Guinea | 14.5 | planned |  | The tirailleurs, the askari and Thiaroye; Freetown and Monrovia; The year of Africa | 1 |
 | Benin | 14 | BUILT | Benin City; The fort of the Door of No Return | Asante and Dahomey; The year of Africa | 2 |
@@ -123,7 +123,7 @@ For a player from each country: the places of the atlas that are their history. 
 | Belarus | 9.1 | planned |  | Preslav and the Cyrillic script; The Holocaust; Kyiv and Novgorod's birch-bark letters; Petrograd, 1917; and 1 more | 4 |
 | Switzerland | 8.9 | BUILT | The Celtic frontier | The Alpine passes and the Swiss oath; Paris, 1789; A medieval village and its lord; Print and the Reformation | 0 |
 | Sierra Leone | 8.6 | planned |  | Freetown and Monrovia; The year of Africa | 0 |
-| Laos | 7.8 | BUILT | Dong Son and the drums | Angkor; The Vietnam War | 3 |
+| Laos | 7.8 | BUILT | Angkor; Dong Son and the drums | The Vietnam War | 3 |
 | Turkmenistan | 7.5 | BUILT | The Silk Road | Bukhara and Khiva; The new Silk Roads; The Great Game; Jeitun, the first farmers of Central Asia; and 2 more | 1 |
 | Libya | 7.4 | BUILT | The Green Sahara | The oil age | 2 |
 | Hong Kong | 7.4 | planned |  | Canton, tea and opium; Shenzhen now | 0 |
@@ -135,7 +135,7 @@ For a player from each country: the places of the atlas that are their history. 
 | Republic of the Congo | 6.3 | planned |  | The Bantu expansion; The kingdom of Kongo; The year of Africa | 1 |
 | El Salvador | 6.3 | BUILT | The Maya city | The wars of Central America; Copán and the isthmus | 0 |
 | Denmark | 6 | BUILT | The megalith builders; The Viking north | Print and the Reformation; The telescope and the apple; The Thule and the Inuit; The Second World War in Europe | 1 |
-| Singapore | 5.9 | planned |  | Melaka; The war in Asia and the Pacific; Srivijaya and the strait | 2 |
+| Singapore | 5.9 | BUILT | Srivijaya and the strait | Melaka; The war in Asia and the Pacific | 2 |
 | Lebanon | 5.8 | BUILT | The Levant | 1915; Beirut, the diaspora at home; Carthage; The Crusades from both sides; and 2 more | 1 |
 | Liberia | 5.6 | planned |  | Freetown and Monrovia | 0 |
 | Finland | 5.6 | planned |  | Petrograd, 1917; Sápmi; Votes for women; The Second World War in Europe | 2 |
@@ -195,7 +195,7 @@ For a player from each country: the places of the atlas that are their history. 
 | Malta | 0.54 | planned |  | The temples of Malta | 1 |
 | Maldives | 0.53 | planned |  | Anuradhapura and the tanks; The Chola fleets; The monsoon sea; The rising sea | 1 |
 | Cabo Verde | 0.5 | planned |  | São Tomé and Cabo Verde, the first plantation islands | 1 |
-| Brunei | 0.46 | BUILT | The Austronesians come to the islands | Melaka; Srivijaya and the strait | 3 |
+| Brunei | 0.46 | BUILT | The Austronesians come to the islands; Srivijaya and the strait | Melaka | 3 |
 | Belize | 0.42 | BUILT | The Maya city | The islands go free; The Kalinago and the Garifuna | 0 |
 | Iceland | 0.4 | BUILT | The Viking north |  | 1 |
 | Bahamas | 0.4 | BUILT | The Taíno islands | The islands go free | 0 |
@@ -298,7 +298,6 @@ An obvious topic with nothing planned is the failure Jon named: "obvious non-neg
 | --- | --- | --- | --- | --- | ---: |
 | Fish traps and aquaculture | neglected | planned |  | Budj Bim and the eel traps; Jōmon, the first pots; The cedar coast | 0 |
 | Scripts made on purpose (Hangul, Cyrillic, Cherokee) | neglected | planned |  | Armenia and its alphabet; The language movement and 1971; The code talkers; and 3 more | 2 |
-| The trading states of maritime Southeast Asia | neglected | planned |  | Melaka; Srivijaya and the strait | 2 |
 | The Manila galleons, the first trade route round the world | neglected | planned |  | The Manila galleons | 0 |
 | The end of smallpox | neglected | planned |  | The last case of smallpox | 0 |
 | Indentured labour | neglected | planned |  | The indenture ships; Mauritius, the dodo and the indenture; Port of Spain, carnival and steelpan | 1 |
@@ -348,15 +347,16 @@ An obvious topic with nothing planned is the failure Jon named: "obvious non-neg
 | African kingdoms and empires | neglected | BUILT | Aksum and Kush; Benin City; Timbuktu and the monsoon coast | Asante and Dahomey; Wagadu (old Ghana) and Koumbi Saleh; Buganda, Rwanda and the kingdoms of the lakes; and 8 more | 8 |
 | The cities and states of the Americas | neglected | BUILT | Caral; The Olmec heartland | The garden cities of the Amazon; Cahokia; Chaco and Mesa Verde; and 8 more | 5 |
 | Women who ruled and led | neglected | BUILT | Benin City; The Celtic frontier; Dong Son and the drums; and 2 more | Adwa, 1896; Asante and Dahomey; The Company and 1857; and 13 more | 5 |
-| The Indian Ocean trade | neglected | BUILT | The Indus cities; Timbuktu and the monsoon coast | The Chola fleets; Dilmun and Magan; Great Zimbabwe; and 8 more | 9 |
+| The Indian Ocean trade | neglected | BUILT | The Indus cities; Srivijaya and the strait; Timbuktu and the monsoon coast | The Chola fleets; Dilmun and Magan; Great Zimbabwe; and 7 more | 9 |
 | The trans-Saharan trade | neglected | BUILT | Timbuktu and the monsoon coast | Wagadu (old Ghana) and Koumbi Saleh | 3 |
 | Pacific navigation | neglected | BUILT | Rapa Nui; The wayfinders | Aotearoa; Nan Madol and the stone money of Yap; The Tuʻi Tonga and Samoa | 2 |
+| The trading states of maritime Southeast Asia | neglected | BUILT | Srivijaya and the strait | Melaka | 2 |
 | Indigenous resistance and survival | neglected | BUILT | The Taíno islands | Adwa, 1896; Sydney Cove, 1788, and the frontier; Budj Bim and the eel traps; and 13 more | 11 |
 | Human origins in Africa | obvious | BUILT | The Cradle (the Great Rift Valley) | Many cradles (Jebel Irhoud, Omo, Florisbad) | 0 |
 | The dispersals out of Africa | obvious | BUILT | The Levant; Sahul; The southern coast (Blombos); and 1 more | The Bantu expansion | 1 |
 | The Ice Age | obvious | BUILT | Beringia; Ice Age Europe; The mammoth steppe | Lake Mungo | 0 |
 | The peopling of the Americas | obvious | BUILT | Beringia | Hoyo Negro: Naia; Monte Verde; The Thule and the Inuit | 1 |
-| Farming invented many times | obvious | BUILT | The Andean highlands; The Austronesians come to the islands; The Fertile Crescent; and 5 more | The garden cities of the Amazon; Angkor; Anuradhapura and the tanks; and 6 more | 2 |
+| Farming invented many times | obvious | BUILT | The Andean highlands; Angkor; The Austronesians come to the islands; and 6 more | The garden cities of the Amazon; Anuradhapura and the tanks; The Bantu expansion; and 5 more | 2 |
 | The first cities | obvious | BUILT | Caral; The Indus cities; The Nile; and 1 more | Cahokia; The Oxus civilization; Tenochtitlan; and 1 more | 2 |
 | Writing, invented several times | obvious | BUILT | Caral; The Indus cities; The Maya city; and 4 more | Heian-kyō; Kyiv and Novgorod's birch-bark letters; Knossos and Mycenae; and 1 more | 2 |
 | Bronze and iron | obvious | BUILT | The Celtic frontier; Dong Son and the drums; The Shang court | The Bantu expansion; Dilmun and Magan; Hattusa and Ugarit; and 5 more | 3 |
@@ -370,7 +370,7 @@ An obvious topic with nothing planned is the failure Jon named: "obvious non-neg
 | The empires of the steppe | obvious | BUILT | The Mongol steppe; The Viking north | The Great Game; The Scythians and the Saka; The Yamnaya and the horse | 2 |
 | The Mongols | obvious | BUILT | The great ger; The Mongol steppe | Goryeo and the metal type; Kyiv and Novgorod's birch-bark letters | 2 |
 | The Islamic Golden Age | obvious | BUILT | The libraries of Timbuktu | Córdoba and al-Andalus; Fez and al-Qarawiyyin; Baghdad and the House of Wisdom | 0 |
-| How faiths spread (Buddhism, Christianity, Islam) | obvious | BUILT | Aksum and Kush | Anuradhapura and the tanks; Armenia and its alphabet; Ashoka's pillars; and 10 more | 8 |
+| How faiths spread (Buddhism, Christianity, Islam) | obvious | BUILT | Aksum and Kush; Borobudur; Srivijaya and the strait | Anuradhapura and the tanks; Armenia and its alphabet; Ashoka's pillars; and 8 more | 8 |
 | The Silk Roads | obvious | BUILT | The Silk Road | Bukhara and Khiva; Samarkand, the Sogdian merchants; Chang'an | 2 |
 | The age of European exploration and empire | obvious | BUILT | The age of sail; The Viking north | The Basque whalers of Red Bay; Carthage; The treasure fleets; and 1 more | 3 |
 | Abolition | obvious | BUILT | The Haitian Revolution | Rio, 1888; The Civil War and Reconstruction; Freetown and Monrovia; and 1 more | 1 |
@@ -385,12 +385,12 @@ An obvious topic with nothing planned is the failure Jon named: "obvious non-neg
 | Crops that travelled (maize, potato, rice, sugar, coffee, tea, spices, cacao) | thread | BUILT | The Andean highlands; The first maize; The New Guinea highlands; and 2 more | Barbados and sugar; Dhaka muslin; The market of the Columbian exchange; and 8 more | 4 |
 | Law codes and courts | thread | BUILT | The classical shore; The Fertile Crescent; The great ger | Persepolis and the Royal Road; The Alpine passes and the Swiss oath; Ashoka's pillars; and 8 more | 5 |
 | Money (coins, cowries, paper, stones, credit) | thread | BUILT | Aksum and Kush; The temple granary; Timbuktu and the monsoon coast | Persepolis and the Royal Road; Amsterdam and the VOC; Florence and Mainz; and 8 more | 5 |
-| Monuments and who built them | thread | BUILT | The Colosseum; The megalith builders; The Nile; and 2 more | Angkor; Borobudur; Cahokia; and 15 more | 6 |
+| Monuments and who built them | thread | BUILT | Angkor; Borobudur; The Colosseum; and 4 more | Cahokia; The Chola fleets; Göbekli Tepe; and 13 more | 6 |
 | Mathematics (zero, algebra) | thread | BUILT | The Maya city | Córdoba and al-Andalus; Ujjain, chess and zero; Baghdad and the House of Wisdom; and 2 more | 0 |
 | Astronomy and calendars | thread | BUILT | The Maya city; The megalith builders | Chaco and Mesa Verde; Silla and Gyeongju; Ujjain, chess and zero; and 4 more | 1 |
 | Medicine and public health | thread | BUILT | Mehrgarh | 1348; Baghdad and the House of Wisdom; The last case of smallpox | 0 |
 | Libraries and universities | thread | BUILT | The libraries of Timbuktu | Córdoba and al-Andalus; Anuradhapura and the tanks; Fez and al-Qarawiyyin; and 2 more | 2 |
-| Climate, collapse and resilience | thread | BUILT | The Green Sahara; The Indus cities; The Maya city; and 1 more | The garden cities of the Amazon; Angkor; Aotearoa; and 6 more | 3 |
+| Climate, collapse and resilience | thread | BUILT | Angkor; The Green Sahara; The Indus cities; and 2 more | The garden cities of the Amazon; Aotearoa; 1348; and 5 more | 3 |
 | Slavery and resistance | thread | BUILT | The cotton mill; The Haitian Revolution; Rapa Nui | Barbados and sugar; Bukhara and Khiva; Willemstad and Tula's revolt; and 6 more | 3 |
 | Workers and their movements | thread | BUILT | The cotton mill; The Industrial Age | A medieval village and its lord; Dolores, 1810, and the revolution of 1910; Petrograd, 1917; and 1 more | 5 |
 | Migration and refugees | thread | BUILT | The first farmers of Europe; The Viking north | Beirut, the diaspora at home; Rio, 1888; Freetown and Monrovia; and 11 more | 3 |
@@ -409,7 +409,7 @@ claim that nobody lived there.
 | Central Asia and the steppe |  | 1/0/0 | 0/1/0 | 0/1/0 | 0/1/2 | 2/1/1 | 0/1/1 | 0/1/0 | 0/0/1 | 0/1/1 | 0/1/0 |
 | South Asia |  | 1/0/0 | 1/0/0 | 1/0/0 | 0/3/1 | 0/2/4 | 0/3/0 | 0/1/0 | 0/1/0 | 0/3/1 | 0/0/2 |
 | East Asia |  |  | 1/2/0 | 0/1/0 | 1/2/1 | 0/4/2 | 0/1/3 | 0/2/1 | 0/1/1 | 0/2/2 | 0/1/1 |
-| Southeast Asia | 0/0/1 | 1/0/1 |  | 1/0/0 | 1/0/2 | 0/3/2 | 0/2/3 | 0/1/1 |  | 0/3/2 | 0/0/1 |
+| Southeast Asia | 0/0/1 | 1/0/1 |  | 1/0/0 | 1/0/2 | 3/0/2 | 0/2/3 | 0/1/1 |  | 0/3/2 | 0/0/1 |
 | Oceania |  | 1/1/1 | 1/0/0 | 0/1/0 | 1/0/0 | 1/0/0 | 1/3/1 | 0/3/2 | 0/0/2 | 0/3/1 | 0/1/0 |
 | North America |  | 1/0/1 |  | 0/1/0 | 0/0/1 | 0/4/0 | 0/3/1 | 0/5/2 | 0/1/2 | 0/2/0 | 0/0/1 |
 | Mesoamerica and the Caribbean |  | 0/1/0 | 1/0/0 | 0/1/0 | 1/1/1 | 2/1/0 | 0/5/0 | 1/2/1 | 0/1/0 | 0/2/2 | 0/1/0 |
@@ -420,7 +420,7 @@ Horizons: H0 Human origins; H1 Dispersals and foragers; H2 Many food revolutions
 
 ## The ways the game has
 
-59 ways join the built rooms; 5 of them are the atlas's fiction, not history. Each must say so
+62 ways join the built rooms; 5 of them are the atlas's fiction, not history. Each must say so
 in its room (a sign, Clio), or be moved when the place it should lead to is built:
 
 - Aksum and Kush and Timbuktu and the monsoon coast
@@ -440,6 +440,7 @@ What the built rooms must get right (each node's `note`):
 - The Silk Road (`history_silk_road`): Marco Polo and Confucius are centuries apart: Clio's guests
 - Sulawesi, the oldest painted story (`history_sulawesi`): a hunting scene at least 51,200 years old
 - Dong Son and the drums (`history_dong_son`): the Trưng sisters' rising, 40 CE
+- Angkor (`history_angkor`): a city of water: the barays
 
 ## Can it be one map?
 

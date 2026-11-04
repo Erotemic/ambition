@@ -451,6 +451,14 @@ collections:
   - history_bronze_drum
   - history_rice_sheaves
   - history_red_slip_pots
+  - king_cobra
+  - water_monitor
+  - history_jong
+  - history_ship_relief
+  - history_bell_stupa
+  - history_sandstone_blocks
+  - history_ox_cart
+  - history_trade_goods
   - eigenghost
   - decomposing_specter
   - spectral_perturbation
@@ -784,6 +792,11 @@ collections:
   - history_trung_trac
   - history_trung_nhi
   - history_drum_caster
+  - history_harbour_master
+  - history_yijing
+  - history_relief_carver
+  - history_baray_engineer
+  - history_zhou_da_guide
   - station_dobbs
   - station_pippin
   - magical_celeste

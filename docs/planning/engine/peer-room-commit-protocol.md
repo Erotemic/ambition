@@ -47,7 +47,7 @@ can survive a rollback across a crossing. Prove that behavior first.
 `PeerVerdict` identifies an operation by its recording frame, admitted intent
 checksum, and captured preparation checksum. The intent includes its checkpoint key. Replies for a replaced intent cannot prepare or
 fail its replacement, even when both use the same frame. The wire identity is
-7. Guards: `verdicts_for_a_replaced_intent_do_not_prepare_or_fail_its_replacement`
+8. Guards: `verdicts_for_a_replaced_intent_do_not_prepare_or_fail_its_replacement`
 and `a_peer_waits_for_the_replacement_intent_even_when_its_frame_is_unchanged`.
 An older capture cannot prepare or fail its replacement. Guards:
 `verdicts_for_an_older_capture_do_not_prepare_or_fail_the_current_capture` and
@@ -55,12 +55,13 @@ An older capture cannot prepare or fail its replacement. Guards:
 Replies also carry both content identities and the frozen plan digest. Agreement
 requires stated content and equal plan data on every handle. The commit checks
 its local plan against that agreement. A mismatch publishes `Failed` through
-the input stream. Wire identity 7 carries 166 bytes, including the captured preparation checksum. Guards:
+the input stream. Wire identity 8 carries 168 bytes, including the captured preparation checksum. Guards:
 `preparation_requires_the_same_content_and_frozen_plan` and
 `peers_refuse_different_room_plans_under_the_same_content_identity`.
 The host retains each offered plan and its exact captured preparation outside
 that transaction. Commit checks the current content binding, session, source
-room, and captured preparation. Target occurrence dependency checks remain open.
+room, and captured preparation. Publication also checks the consumed occurrence
+and mint inputs before it builds a destination.
 The loading transaction's presentation tail can remain after the commit.
 Neither a render deadline nor that tail can select
 the simulation frame of the next peer commit.
@@ -73,10 +74,19 @@ A missing pinned restore records an error. Schema 413 includes this state.
 Guards: `room_preparation::tests` and
 `lifecycle_snapshot_tests::room_preparation_inputs_survive_the_registered_snapshot_path`.
 
-This capture does not authorize a stale construction plan. Target dependency
-checks remain open. An
-existing live destination uses its live state; moving actors there must not
-force a new room-construction promise each tick.
+Publication and prefetch reuse now check the same consumed continuity inputs
+(`69929efb2`). The plan records queried authored identities, including suppressed
+records, all destination reinstatements, and the mint recipes it used. Plan
+identity and reuse use the same canonical encoding. A relevant change refuses
+publication before room retirement. Unrelated occurrences permit reuse.
+An existing live destination uses its live state and does not validate an unused
+construction plan. Schema 420 records the change. Guards:
+`continuity_rechecks_authored_and_suppressed_records_without_other_room_dependencies`,
+`continuity_rechecks_foreign_arrivals_and_their_positions`,
+`continuity_rechecks_the_recipe_of_a_reinstated_runtime_mint`,
+`a_changed_destination_continuity_refuses_before_retiring_any_live_room`, and
+`a_live_destination_uses_live_occurrences_instead_of_the_unused_construction_plan`.
+A two-peer witness for an occurrence change during preparation remains open.
 
 Checkpoint restores now carry their key in the pending and withdrawn intents
 (`ce283f8f0`).
@@ -96,7 +106,7 @@ A checkpoint restore still uses the current peer barrier.
 
 Construction-plan identities bind the complete resolved rows and relations,
 constructor and placement schemas, retained character and catalog services,
-occurrence outlook, and resolved moving-platform starts. Character publications
+consumed continuity inputs, and resolved moving-platform starts. Character publications
 share immutable data versions; a later edit cannot change a retained plan.
 Guards: `peer_plan_identity_binds_retained_services_without_local_history`,
 `a_retained_cast_keeps_its_definitions_after_a_new_publication`, and
@@ -105,7 +115,7 @@ Guards: `peer_plan_identity_binds_retained_services_without_local_history`,
 `RoomConstructionPlan::peer_identity` requires both stated content identities
 and excludes local activation counters. Local plan IDs add those counters for
 cache use. Peer replies carry this identity and the captured preparation
-checksum. Target dependency checks remain open. Do not send the local plan ID as
+checksum. Do not send the local plan ID as
 proof of peer preparation.
 
 ## Retained plan lifetime

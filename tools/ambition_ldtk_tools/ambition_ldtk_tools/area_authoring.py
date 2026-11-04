@@ -1654,7 +1654,7 @@ def compile_area_create_plan(
     if existing_index is not None:
         carry_identities(project, project["levels"][existing_index], level, next_uid_before)
         plan.add_op(ReplaceExistingLevelOp(existing_index))
-    plan.add_op(AppendGeneratedLevelOp(level=level, area_id=str(spec["id"])))
+    plan.add_op(AppendGeneratedLevelOp(level=level, area_id=str(spec["id"]), index=existing_index))
     if spec.get("connect_to"):
         plan.add_op(
             AddReciprocalLoadingZonesOp(

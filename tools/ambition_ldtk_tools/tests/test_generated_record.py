@@ -77,8 +77,15 @@ class GeneratedRecordTests(unittest.TestCase):
 
     def test_a_level_as_its_generator_left_it_is_replaced(self):
         self.assertIsNone(generated_record.check(self.world, level_of(self.world)))
+        # Put the level first, so that a replace that moves it to the end shows.
+        project = json.loads(self.world.read_text())
+        project["levels"].sort(key=lambda lv: lv["identifier"] != LEVEL)
+        self.world.write_text(json.dumps(project))
+        order = [lv["identifier"] for lv in project["levels"]]
         again = area_create(self.world, self.spec, "--replace-existing")
         self.assertEqual(again.returncode, 0, again.stdout + again.stderr)
+        # It keeps its place in the file: an unchanged world is written unchanged.
+        self.assertEqual([lv["identifier"] for lv in json.loads(self.world.read_text())["levels"]], order)
 
     def test_a_level_edited_in_ldtk_is_not_replaced(self):
         edit_in_ldtk(self.world)

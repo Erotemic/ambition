@@ -24,6 +24,7 @@ use ambition_platformer2d::character::AutonomousSource;
 use ambition_platformer2d::character::BrainBinding;
 use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg, WandererCfg};
+use ambition_platformer2d::combat::components::{ActorAggression, ActorDisposition, AggressionMode};
 use bevy::prelude::{Entity, World};
 
 fn hall_sim() -> Platformer2dSimHarness {
@@ -94,6 +95,10 @@ fn a_bound_body(world: &mut World) -> Entity {
 fn stage_provoked_and_wounded(sim: &mut Platformer2dSimHarness) -> (Entity, i32) {
     let world = sim.world_mut();
     let body = a_bound_body(world);
+    world.get_mut::<ActorAggression>(body).expect("the body has aggression").mode =
+        AggressionMode::Hostile;
+    *world.get_mut::<ActorDisposition>(body).expect("the body has a disposition") =
+        ActorDisposition::Hostile;
 
     world
         .get_mut::<BrainBinding>(body)
@@ -158,10 +163,10 @@ fn a_provoked_wounded_body_survives_the_real_rollback_window() {
                 "ambition::provoked_combatant"
             ),
         }),
-        "the provoked SOURCE did not survive the rollback window — the binding \
-         codec is canonical rollback state, so if this fails the codec is the \
-         thing to look at, not a missing reconciler"
+        "the provoked source changed during the rollback window"
     );
+    assert_eq!(world.get::<ActorAggression>(body).map(|aggression| aggression.mode),
+        Some(AggressionMode::Hostile));
     assert_eq!(
         world.get::<Brain>(body).map(|brain| brain.label()),
         Some("stand_still"),

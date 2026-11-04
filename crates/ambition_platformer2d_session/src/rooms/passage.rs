@@ -486,6 +486,8 @@ pub fn run_zone_passages(
     mut pending_lifecycle: ResMut<PendingLifecycleCommit>,
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     mut sfx: ambition_sfx::SfxWriter,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
+    out_of_play: Query<(), With<ambition_combat::death_rules::OutOfPlay>>,
     mut bodies: Query<(
         Entity,
         ae::BodyClusterQueryData,
@@ -499,6 +501,10 @@ pub fn run_zone_passages(
 ) {
     let dt = world_time.sim_dt();
     let now = boundary.as_ref().map_or(0, |boundary| boundary.current);
+    // An entry cannot record a participant who left play during its animation.
+    let available = |crossing: &RoomTransitionIntent| crossing.transfers().all(|transfer|
+        transfer.participant.is_none() || live.entity_of(&transfer.subject)
+            .is_some_and(|body| !out_of_play.contains(body)));
     // The admitted operation keeps the slot. Ready passages use stable body
     // identity to choose the next operation, independent of ECS traversal.
     let next_crossing = pending_lifecycle.peek().is_none().then(|| {
@@ -510,6 +516,7 @@ pub fn run_zone_passages(
                 && passage.elapsed + dt >= ZonePassage::entering_s(passage.kind))
                 .then_some(())
                 .and_then(|()| passage.crossing.as_ref())
+                .filter(|crossing| available(crossing))
                 .map(|crossing| (entity, &crossing.initiator.subject))
         }).min_by(|(_, left), (_, right)| left.cmp(right)).map(|(entity, _)| entity)
     }).flatten();
@@ -524,6 +531,15 @@ pub fn run_zone_passages(
             // Moved to another room by something else: the crossing's own
             // arrival is the commit's (`ZonePassage::arrived`), which starts
             // the half anew in its room.
+            end_passage(&mut commands, entity, control_holds.as_deref_mut());
+            continue;
+        }
+        if passage.stage == PassageStage::Entering
+            && passage.crossing.as_ref().is_some_and(|crossing| !available(crossing))
+        {
+            if let Some(crossing) = passage.crossing.clone() {
+                let _ = pending_lifecycle.retract(&LifecycleIntent::Transition(crossing), now);
+            }
             end_passage(&mut commands, entity, control_holds.as_deref_mut());
             continue;
         }
@@ -747,6 +763,30 @@ mod tests {
                     }
                 }
             }
+        }
+    }
+
+    #[test]
+    fn losing_a_selected_participant_cancels_the_entry_and_its_pending_crossing() {
+        use ambition_platformer2d_shared_tangle::{lifecycle::LiveBodyId, sim_id::SimId};
+        for before_recording in [false, true] {
+            let (mut app, body, _) = passage_app();
+            let companion = app.world_mut().spawn(SimId::placement("companion")).id();
+            let id = LiveBodyId::of_entity(app.world(), companion).unwrap();
+            let mut passage = app.world_mut().get_mut::<ZonePassage>(body).unwrap();
+            passage.crossing.as_mut().unwrap().companions.push(crate::lifecycle_commit::RoomBodyTransfer {
+                subject: id, arrival: crate::lifecycle_commit::RoomArrival::At(ae::Vec2::ZERO),
+                participant: Some(ambition_characters::control::PlayerSlot(1)),
+            });
+            passage.elapsed = ZonePassage::entering_s(PassageKind::Door);
+            if !before_recording {
+                app.update();
+                assert!(app.world().resource::<PendingLifecycleCommit>().peek().is_some());
+            }
+            app.world_mut().entity_mut(companion).insert(ambition_combat::death_rules::OutOfPlay);
+            app.update();
+            assert!(app.world().get::<ZonePassage>(body).is_none());
+            assert!(app.world().resource::<PendingLifecycleCommit>().peek().is_none());
         }
     }
 

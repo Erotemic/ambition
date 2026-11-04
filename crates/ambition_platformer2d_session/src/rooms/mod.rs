@@ -19,6 +19,8 @@ mod systems;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod party_tests;
 
 // ⛔ NO GLOB FORWARD OF `ambition_platformer2d_world::rooms`. Callers name that
 // crate: a forward here would let this crate's own coupling census count the
@@ -27,7 +29,7 @@ mod tests;
 pub use reconstitution::retire_the_previous_attempt;
 pub use residency::{room_transfer_plan, RoomTransferPlan, rooms_released_by_transfer, claims_on, live_room_claims, live_room_claims_in, RoomClaim};
 pub use systems::{
-    detect_room_transition_system, tick_portal_phases_system,
+    contribute_party_exit_barriers, party_exit_walls, detect_room_transition_system, tick_portal_phases_system,
 };
 
 #[cfg(test)]

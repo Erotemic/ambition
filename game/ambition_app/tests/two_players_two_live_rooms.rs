@@ -3840,7 +3840,7 @@ fn one_native_admission_carries_two_bodies_from_separate_rooms() {
 fn a_relative_arrival_resolves_a_later_members_destination() {
     native_roster_arrival(true);
 }
-fn prepared_relative_return() -> (
+fn prepared_relative_return(with_denied_exit: bool) -> (
     Platformer2dSimHarness,
     std::sync::Arc<ambition_platformer2d::publication::RoomConstructionPlan>,
     ambition_platformer2d::session::lifecycle_commit::LifecycleIntent,
@@ -3861,6 +3861,24 @@ fn prepared_relative_return() -> (
             .iter(world).map(|(entity, driver)| (driver.0, entity)).collect();
         let alice = bodies.iter().find(|(slot, _)| slot.0 == 0).unwrap().1;
         let bob = bodies.iter().find(|(slot, _)| slot.0 == 1).unwrap().1;
+        if with_denied_exit {
+            use ambition_platformer2d::session::party_travel::{PartyTravel, PartyTravelMode, PartyTravelRules};
+            ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<
+                ambition_platformer2d::session::participants::SessionParticipants>(world).unwrap().admit(PlayerSlot(1));
+            ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<PartyTravel>(world).unwrap()
+                .configure(PartyTravelRules { mode: PartyTravelMode::Leader, leader: PlayerSlot(1), ..Default::default() }).unwrap();
+            let at = world.get::<ambition_platformer2d::engine_core::BodyKinematics>(bob).unwrap().pos;
+            let mut rooms = ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<
+                ambition_platformer2d::world::rooms::RoomSet>(world).unwrap();
+            let definition = rooms.definition_by_id(ROOM).unwrap();
+            let route = rooms.spec(definition).loading_zones.iter()
+                .filter_map(|zone| rooms.transition_through(definition, &zone.id))
+                .find(|route| rooms.spec_at(route.target_room).unwrap().id == HUB).unwrap();
+            let index = rooms.room_index_by_id(ROOM).unwrap();
+            let exit = rooms.rooms[index].loading_zones.iter_mut().find(|zone| zone.id == route.zone.id).unwrap();
+            exit.activation = ambition_platformer2d::world::rooms::LoadingZoneActivation::Walk;
+            exit.aabb = ambition_platformer2d::engine_core::Aabb::new(at, ambition_platformer2d::engine_core::Vec2::splat(50.0));
+        }
         let intent = LifecycleIntent::Transition(RoomTransitionIntent {
             disposition: Default::default(), source_zone: None,
             initiator: RoomBodyTransfer {
@@ -3901,7 +3919,7 @@ fn stage_relative_return(
 fn a_relative_arrival_uses_the_reference_position_and_body_size_at_commit() {
     use ambition_platformer2d::engine_core as ae;
     use ae::AabbExt as _;
-    let (mut sim, plan, intent, alice, bob) = prepared_relative_return();
+    let (mut sim, plan, intent, alice, bob) = prepared_relative_return(false);
     let before = where_they_are(&mut sim);
     let world = sim.world_mut();
     let old_bob = world.get::<ae::BodyKinematics>(bob).unwrap().pos;
@@ -3931,7 +3949,7 @@ fn a_relative_arrival_uses_the_reference_position_and_body_size_at_commit() {
 
 #[test]
 fn a_relative_arrival_with_a_missing_reference_leaves_the_transfer_unpublished() {
-    let (mut sim, plan, intent, alice, bob) = prepared_relative_return();
+    let (mut sim, plan, intent, alice, bob) = prepared_relative_return(false);
     let rooms = live_rooms(&mut sim);
     let world = sim.world_mut();
     let before = world.get::<InRoomInstance>(alice).unwrap().0;
@@ -3943,7 +3961,7 @@ fn a_relative_arrival_with_a_missing_reference_leaves_the_transfer_unpublished()
 
 #[test]
 fn a_relative_arrival_rejects_a_reference_that_moved_to_another_room() {
-    let (mut sim, plan, intent, alice, bob) = prepared_relative_return();
+    let (mut sim, plan, intent, alice, bob) = prepared_relative_return(false);
     let rooms = live_rooms(&mut sim);
     let world = sim.world_mut();
     let before = world.get::<InRoomInstance>(alice).unwrap().0;
@@ -3957,7 +3975,7 @@ fn a_relative_arrival_rejects_a_reference_that_moved_to_another_room() {
 fn a_relative_arrival_respects_live_destination_walls_and_refuses_a_blocked_landing() {
     use ambition_platformer2d::engine_core as ae;
     use ambition_platformer2d::platformer::feature_overlay::FeatureEcsWorldOverlay;
-    let (mut sim, plan, intent, alice, bob) = prepared_relative_return();
+    let (mut sim, plan, intent, alice, bob) = prepared_relative_return(false);
     let rooms = live_rooms(&mut sim);
     let world = sim.world_mut();
     let before = world.get::<InRoomInstance>(alice).unwrap().0;
@@ -3977,7 +3995,7 @@ fn a_relative_arrival_respects_live_destination_walls_and_refuses_a_blocked_land
 fn a_cycle_of_relative_arrivals_moves_no_member() {
     use ambition_platformer2d::platformer::lifecycle::LiveBodyId;
     use ambition_platformer2d::session::lifecycle_commit::{LifecycleIntent, RoomArrival, RoomBodyTransfer};
-    let (mut sim, plan, mut intent, alice, bob) = prepared_relative_return();
+    let (mut sim, plan, mut intent, alice, bob) = prepared_relative_return(false);
     let rooms = live_rooms(&mut sim);
     let before = where_they_are(&mut sim);
     let world = sim.world_mut();
@@ -3990,4 +4008,135 @@ fn a_cycle_of_relative_arrivals_moves_no_member() {
     assert!(stage_relative_return(world, &plan, &intent).is_err());
     assert_eq!(where_they_are(&mut sim), before);
     assert_eq!(live_rooms(&mut sim), rooms);
+}
+
+fn configure_party(sim: &mut Platformer2dSimHarness, mode: ambition_platformer2d::session::party_travel::PartyTravelMode, leader: u8) {
+    use ambition_platformer2d::characters::control::PlayerSlot;
+    use ambition_platformer2d::session::party_travel::{PartyTravel, PartyTravelRules};
+    let world = sim.world_mut();
+    ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<
+        ambition_platformer2d::session::participants::SessionParticipants>(world).unwrap().admit(PlayerSlot(1));
+    ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<PartyTravel>(world).unwrap()
+        .configure(PartyTravelRules { mode, leader: PlayerSlot(leader), ..Default::default() }).unwrap();
+    sim.rebase_rollback_history().unwrap();
+}
+
+fn policy_crossing(mode: ambition_platformer2d::session::party_travel::PartyTravelMode, initiator: u8) {
+    use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
+    use ambition_platformer2d::session::party_travel::PartyTravelMode;
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        fixed_60hz_room_options(ROOM).with_sync_test_rollback_settings(4, 10).with_rollback_players(2)).unwrap();
+    let first = bob_beside_alice(&mut sim, ROOM, Some(PlayerSlot(1)));
+    configure_party(&mut sim, mode, 1);
+    let identities = {
+        let world = sim.world_mut();
+        let mut ids: Vec<_> = world.query::<(&DrivingParticipant, &ambition_platformer2d::platformer::sim_id::SimId)>()
+            .iter(world).map(|(driver, id)| (driver.0, id.clone())).collect();
+        ids.sort_by_key(|(slot, _)| slot.0); ids
+    };
+    let arrives = first.next();
+    if mode == PartyTravelMode::AllMembers {
+        use ambition_platformer2d::engine_core::AabbExt as _;
+        let door = door_of(&mut sim, ROOM, HUB).aabb.center();
+        sim.teleport_player((door.x, door.y));
+        put_bob_at(&mut sim, door);
+        sim.rebase_rollback_history().unwrap();
+        for _ in 0..240 {
+            sim.drive_seat(1, ambition_platformer2d::engine_core::ControlFrame {
+                interact_pressed: true, interact_held: true, ..Default::default()
+            });
+            sim.step(ambition_app::AgentAction { interact: true, interact_held: true, ..base() });
+            if where_they_are(&mut sim) == (Some(arrives), Some(Some(arrives))) { break; }
+        }
+        sim.drive_seat(1, Default::default());
+        sim.step_n(base(), 30);
+    } else if initiator == 0 {
+        walk_through_the_door_to(&mut sim, HUB);
+    } else {
+        bob_goes_from(&mut sim, ROOM, HUB, arrives);
+    }
+    assert_eq!(where_they_are(&mut sim), (Some(arrives), Some(Some(arrives))));
+    assert_eq!(live_rooms(&mut sim), vec![(arrives, HUB.into())]);
+    let world = sim.world_mut();
+    let mut arrived: Vec<_> = world.query::<(&DrivingParticipant, &ambition_platformer2d::platformer::sim_id::SimId)>()
+        .iter(world).map(|(driver, id)| (driver.0, id.clone())).collect();
+    arrived.sort_by_key(|(slot, _)| slot.0);
+    assert_eq!(arrived, identities);
+    assert!(sim.world().resource::<ambition_platformer2d::rollback::RollbackExecutionStats>().lifetime_load_runs > 0);
+    assert!(sim.rollback_health().is_ok());
+}
+
+#[test]
+fn party_any_member_crosses_once_with_the_group_under_rollback() {
+    policy_crossing(ambition_platformer2d::session::party_travel::PartyTravelMode::AnyMember, 0);
+}
+#[test]
+fn party_designated_leader_crosses_once_with_the_group_under_rollback() {
+    policy_crossing(ambition_platformer2d::session::party_travel::PartyTravelMode::Leader, 1);
+}
+#[test]
+fn party_all_members_cross_once_after_agreeing_under_rollback() {
+    policy_crossing(ambition_platformer2d::session::party_travel::PartyTravelMode::AllMembers, 1);
+}
+
+#[test]
+fn party_follower_hits_an_exit_wall_and_can_cross_after_the_policy_changes() {
+    use ambition_platformer2d::engine_core as ae;
+    use ambition_platformer2d::session::party_travel::PartyTravelMode;
+    let (mut sim, first) = alice_beside_bob();
+    configure_party(&mut sim, PartyTravelMode::Leader, 0);
+    let bob = {
+        let world = sim.world_mut();
+        world.query::<(bevy::prelude::Entity, &ambition_platformer2d::combat::components::FeatureId)>()
+            .iter(world).find(|(_, feature)| feature.0 == BOB).unwrap().0
+    };
+    let at = sim.world().get::<ae::BodyKinematics>(bob).unwrap().pos;
+    let exit_id = door_of(&mut sim, ROOM, HUB).id;
+    let wall_x = at.x + 64.0;
+    {
+        let world = sim.world_mut();
+        let mut rooms = ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<
+            ambition_platformer2d::world::rooms::RoomSet>(world).unwrap();
+        let index = rooms.room_index_by_id(ROOM).unwrap();
+        let height = rooms.rooms[index].world.size.y;
+        let zone = rooms.rooms[index].loading_zones.iter_mut().find(|zone| zone.id == exit_id).unwrap();
+        zone.activation = ambition_platformer2d::world::rooms::LoadingZoneActivation::Walk;
+        zone.aabb = ae::Aabb::new(ae::Vec2::new(wall_x, height * 0.5), ae::Vec2::new(8.0, height * 0.5));
+    }
+    sim.rebase_rollback_history().unwrap();
+    for _ in 0..90 {
+        sim.drive_seat(1, ae::ControlFrame { axis_x: 1.0, ..Default::default() });
+        sim.step(base());
+    }
+    assert_eq!(where_they_are(&mut sim).1, Some(Some(first)));
+    let body = sim.world().get::<ae::BodyKinematics>(bob).unwrap();
+    let contact_box = body.collision_box(sim.world().get::<ae::SweepSample>(bob));
+    assert!(contact_box.max.x <= wall_x - 8.0 + 0.1, "the follower crossed its exit wall: {body:?}, {contact_box:?}");
+    configure_party(&mut sim, PartyTravelMode::Independent, 0);
+    for _ in 0..180 {
+        sim.drive_seat(1, ae::ControlFrame { axis_x: 1.0, ..Default::default() });
+        sim.step(base());
+        if where_they_are(&mut sim).1 == Some(Some(first.next())) { break; }
+    }
+    assert_eq!(where_they_are(&mut sim), (Some(first), Some(Some(first.next()))));
+    assert!(sim.rollback_health().is_ok());
+}
+
+#[test]
+fn party_arrival_checks_the_incoming_followers_walls_in_a_live_room() {
+    use ambition_platformer2d::engine_core as ae;
+    use ae::AabbExt as _;
+    let (mut sim, plan, intent, alice, _) = prepared_relative_return(true);
+    let world = sim.world_mut();
+    let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        ambition_platformer2d::world::rooms::RoomSet>(world).unwrap();
+    let blocked = rooms.spec(rooms.definition_by_id(ROOM).unwrap()).loading_zones.iter()
+        .find(|zone| zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Walk).unwrap().aabb;
+    let staged = stage_relative_return(world, &plan, &intent).expect("space exists beyond the exit zone");
+    let member = &staged.members[0];
+    let shape = world.get::<ae::MotionModel>(alice).unwrap().spec().spawn_shape(member.size, member.gravity_dir);
+    assert!(!ae::Aabb::new(member.arrival_pos, shape.body_half).strict_intersects(blocked));
+    assert!(ambition_platformer2d::runtime::room_transition::finalize_room_transition(world, &staged));
+    let (leader, follower) = where_they_are(&mut sim);
+    assert_eq!(leader, follower.flatten());
 }

@@ -223,7 +223,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// Gate connections route both ways; travel intents retain their source zone.
 /// Room transfers retain all selected bodies and their individual arrivals.
 /// Relative arrivals retain a live body reference until the commit frame.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 417;
+/// Party travel rules and exact exit agreements belong to session rollback state.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 418;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

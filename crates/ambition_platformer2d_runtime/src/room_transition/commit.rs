@@ -170,6 +170,11 @@ pub struct RoomTransitionApplication<'w, 's> {
         &'static world_rooms::RoomSet,
         With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
     >,
+    parties: Query<'w, 's, (
+        &'static ambition_platformer2d_session::party_travel::PartyTravel,
+        &'static ambition_platformer2d_session::participants::SessionParticipants,
+    ), With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>>,
+    network: Res<'w, world_rooms::GateNetworkState>,
     subject_room: Query<'w, 's, (Entity, &'static ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance)>,
     collision: ambition_platformer2d_world::collision::CollisionWorld<'w, 's>,
     /// The bodies players drive, and the live room each is in: a room a
@@ -313,6 +318,29 @@ impl RoomTransitionApplication<'_, '_> {
         Ok(StagedRoomMember { subject, participant, arrival_pos, size, gravity_dir })
     }
 
+    fn arrival_world<'a>(
+        &'a self,
+        plan: &'a publication::RoomConstructionPlan,
+        live: Option<world_rooms::LiveRoomInstance>,
+        subject: Entity,
+    ) -> std::borrow::Cow<'a, ae::World> {
+        let stamp = live.map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
+        let base = stamp.as_ref().and_then(|stamp| self.collision.room(Some(stamp)))
+            .and_then(|room| room.solids_for(subject))
+            .unwrap_or(std::borrow::Cow::Borrowed(&plan.spec().world));
+        let rooms = self.room_set().expect("staging checked the session room set");
+        let (Ok((party, admitted)), Ok((_, driver, _)), Some(definition)) = (
+            self.parties.single(), self.drivers.get(subject), rooms.definition(plan.target_index()),
+        ) else { return base; };
+        // Incoming bodies may have no wall contribution in an already-live room.
+        let mut walls = ambition_platformer2d_session::rooms::party_exit_walls(party, admitted, driver.0, rooms, definition, &self.network);
+        walls.retain(|block| !base.blocks.iter().any(|existing| existing.id == block.id));
+        if walls.is_empty() { return base; }
+        let mut result = base.into_owned();
+        result.blocks.add_all(walls);
+        std::borrow::Cow::Owned(result)
+    }
+
     fn member_box(&self, member: &StagedRoomMember) -> ae::Aabb {
         let shape = self.bodies.motion_models.get(member.subject).expect("the movement model was checked")
             .spec().spawn_shape(member.size, member.gravity_dir);
@@ -351,10 +379,6 @@ impl RoomTransitionApplication<'_, '_> {
             self.definitions.iter().map(|(live, definition)| (*live, Some(*definition))),
             target, intent.rebuilds_source_room(), restart,
         );
-        let target_stamp = room_plan.joins.map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
-        let walls = target_stamp.as_ref().and_then(|stamp| self.collision.room(Some(stamp)))
-            .and_then(|room| room.solids());
-        let target_world = walls.as_deref().unwrap_or(&plan.spec().world);
         let transfers: Vec<_> = intent.transfers().collect();
         let mut resolved = vec![false; members.len()];
         for (index, transfer) in transfers.iter().enumerate() {
@@ -364,7 +388,8 @@ impl RoomTransitionApplication<'_, '_> {
                         subject: members[index].subject, missing: "finite arrival point",
                     });
                 }
-                members[index].arrival_pos = world_rooms::validated_spawn(target_world, at, members[index].size);
+                let walls = self.arrival_world(plan, room_plan.joins, members[index].subject);
+                members[index].arrival_pos = world_rooms::validated_spawn(&walls, at, members[index].size);
                 resolved[index] = true;
             }
         }
@@ -398,7 +423,8 @@ impl RoomTransitionApplication<'_, '_> {
                 let frame = ae::AccelerationFrame::new(member.gravity_dir);
                 let shape = self.bodies.motion_models.get(member.subject).expect("the movement model was checked")
                     .spec().spawn_shape(member.size, member.gravity_dir);
-                member.arrival_pos = world_rooms::spawn_near_body(target_world, reference, frame, shape, &occupied)
+                let walls = self.arrival_world(plan, room_plan.joins, member.subject);
+                member.arrival_pos = world_rooms::spawn_near_body(&walls, reference, frame, shape, &occupied)
                     .ok_or(RoomTransitionApplyError::SubjectCannotTransit {
                         subject: member.subject, missing: "clear arrival space",
                     })?;
@@ -422,7 +448,8 @@ impl RoomTransitionApplication<'_, '_> {
             for (_, subject, participant) in survivors {
                 seen.insert(subject);
                 let mut member = self.prepare_member(subject, Some(participant))?;
-                member.arrival_pos = world_rooms::validated_spawn(target_world, member.arrival_pos, member.size);
+                let walls = self.arrival_world(plan, room_plan.joins, member.subject);
+                member.arrival_pos = world_rooms::validated_spawn(&walls, member.arrival_pos, member.size);
                 members.push(member);
             }
         }

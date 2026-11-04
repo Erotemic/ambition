@@ -57,6 +57,13 @@ pub struct PortalGluePass {
     pub bodies: Vec<bevy::prelude::Entity>,
 }
 
+/// A wall that only the named bodies meet. Other bodies and shared graphs stay open.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BodyBarrier {
+    pub block: ae::Block,
+    pub bodies: Vec<bevy::prelude::Entity>,
+}
+
 #[derive(Component, Default, Clone, Debug)]
 pub struct FeatureEcsWorldOverlay {
     pub blocks: Vec<ae::Block>,
@@ -64,6 +71,7 @@ pub struct FeatureEcsWorldOverlay {
     /// that move, composed after the room's own chains.
     pub chains: Vec<ae::SurfaceChain>,
     pub gate_solids: Vec<ae::Block>,
+    pub body_barriers: Vec<BodyBarrier>,
     /// Per-actor openings of `gate_solids`; see [`GatePass`].
     pub gate_passes: Vec<GatePass>,
     /// Portal holes open this tick, each for its bodies; see
@@ -105,6 +113,7 @@ impl FeatureEcsWorldOverlay {
             chains: Vec::new(),
             gate_solids: self.gate_solids.iter().filter(still).cloned().collect(),
             gate_passes: Vec::new(),
+            body_barriers: Vec::new(),
             portal_holes: Vec::new(),
             portal_glues: Vec::new(),
             removed_block_names: self.removed_block_names.clone(),
@@ -138,6 +147,7 @@ impl FeatureEcsWorldOverlay {
             chains,
             gate_solids,
             gate_passes,
+            body_barriers,
             portal_holes,
             portal_glues,
             removed_block_names,
@@ -148,6 +158,7 @@ impl FeatureEcsWorldOverlay {
         chains.clear();
         gate_solids.clear();
         gate_passes.clear();
+        body_barriers.clear();
         removed_block_names.clear();
         climbable_carves.clear();
         water_regions.clear();
@@ -180,6 +191,7 @@ impl FeatureEcsWorldOverlay {
             chains,
             gate_solids,
             gate_passes,
+            body_barriers,
             portal_holes,
             portal_glues,
             removed_block_names,
@@ -190,6 +202,7 @@ impl FeatureEcsWorldOverlay {
         chains.clear();
         gate_solids.clear();
         gate_passes.clear();
+        body_barriers.clear();
         // The portal bridge refills these from `PortalCarves` on its next run,
         // as it does every frame.
         portal_holes.clear();

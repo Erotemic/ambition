@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v417
+ggrs-rollback-schema-v418
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -539,6 +539,7 @@ scope.room_instance	component-canonical	InRoomInstance	bevy_ggrs canonical codec
 scope.session	component-clone	SessionScopedEntity	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 session.mode_visit	component-clone	ModeVisit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 session.participants	component-canonical	SessionParticipants	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+session.party_travel	component-clone-custom-checksum	PartyTravel	bevy_ggrs clone snapshot + party travel rules and pending zone agreements
 session.room_departure	component-clone	Departure	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 session.room_preparation	component-clone-custom-checksum	CapturedRoomPreparation	bevy_ggrs clone snapshot + the admitted room operation and its immutable continuity inputs
 smash.hold_state	component-canonical	SmashHoldState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

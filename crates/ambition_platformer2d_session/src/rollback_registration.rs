@@ -11,6 +11,10 @@ pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {
         "the admitted room operation and its immutable continuity inputs",
         crate::room_preparation::CapturedRoomPreparation::checksum,
     );
+    registrar.rollback_component_clone_checksum::<crate::party_travel::PartyTravel>(
+        OWNER, "session.party_travel", "party travel rules and pending zone agreements",
+        crate::party_travel::PartyTravel::checksum,
+    );
     registrar.rollback_component_canonical::<crate::participants::SessionParticipants>(
         OWNER,
         "session.participants",

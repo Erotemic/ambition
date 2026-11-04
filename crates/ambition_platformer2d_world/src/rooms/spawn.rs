@@ -74,7 +74,7 @@ fn door_arrival(zone: ae::Aabb) -> ae::Vec2 {
 
 /// Find clear space near a body in its reference frame.
 /// The collision world and occupied boxes must describe the same room.
-/// No position is returned when the adjacent positions are blocked.
+/// Search adjacent positions first, then nearby rings. Refuse when no point fits.
 pub fn spawn_near_body(
     world: &ae::World,
     reference: ae::Aabb,
@@ -88,9 +88,10 @@ pub fn spawn_near_body(
     );
     let reference_half = project(reference.half_size());
     let body_half = project(shape.body_half);
-    let apart = reference_half + body_half + ae::Vec2::splat(SPAWN_MARGIN);
     let align = reference_half - body_half;
-    let candidates = [
+    let candidates = [0.0, 32.0, 64.0, 128.0].into_iter().flat_map(|clearance| {
+        let apart = reference_half + body_half + ae::Vec2::splat(SPAWN_MARGIN + clearance);
+        [
         ae::Vec2::new(apart.x, align.y),
         ae::Vec2::new(-apart.x, align.y),
         ae::Vec2::new(apart.x, 0.0),
@@ -107,9 +108,9 @@ pub fn spawn_near_body(
         ae::Vec2::new(-apart.x, -apart.y),
         ae::Vec2::new(apart.x, apart.y),
         ae::Vec2::new(-apart.x, apart.y),
-    ];
-    candidates.into_iter()
-        .map(|offset| reference.center() + frame.to_world(offset))
+        ]
+    });
+    candidates.map(|offset| reference.center() + frame.to_world(offset))
         .find(|at| {
             let body = ae::Aabb::new(*at, shape.body_half);
             !reference.strict_intersects(body)
@@ -292,6 +293,17 @@ mod spawn_tests {
             assert!(at.x < reference.center().x);
             assert!(!ae::Aabb::new(at, shape.terrain_half).strict_intersects(obstacle));
         }
+    }
+
+    #[test]
+    fn a_nearby_spawn_can_clear_a_region_around_its_reference() {
+        let denied = ae::Block::solid("denied-exit", ae::Vec2::splat(150.0), ae::Vec2::splat(100.0));
+        let world = world_with(vec![denied.clone()]);
+        let reference = ae::Aabb::new(ae::Vec2::splat(200.0), ae::Vec2::new(14.0, 23.0));
+        let shape = shape(ae::Vec2::new(28.0, 46.0));
+        let at = spawn_near_body(&world, reference, ae::AccelerationFrame::new(ae::Vec2::Y), shape, &[])
+            .expect("space is clear beyond the denied region");
+        assert!(!ae::Aabb::new(at, shape.body_half).strict_intersects(denied.aabb));
     }
 
     #[test]

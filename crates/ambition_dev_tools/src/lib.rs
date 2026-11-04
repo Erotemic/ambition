@@ -63,12 +63,26 @@ pub fn propose_editable_abilities(
     editable: Res<EditableAbilitySet>,
     active: Res<dev_tools::ActiveEditableAbilityMask>,
     mut pending: ResMut<ambition_platformer2d_core::PendingMechanicalEdits>,
+    mut developer: Option<ResMut<dev_tools::DeveloperTools>>,
+    owner: Option<Res<ambition_persistence::save::SaveOwner>>,
 ) {
     // Exclude `is_added`: Bevy counts insertion as a change, and the mirror is
     // inserted before content seeds. Proposing that would stop the new session on
     // frame one.
     if !editable.is_changed() || editable.is_added() {
         return;
+    }
+    if let (Some(developer), Some(owner)) = (developer.as_mut(), owner.as_deref()) {
+        let selected = developer.god_blink_experiences.contains(owner.current());
+        if selected != editable.unrestricted_blink {
+            if editable.unrestricted_blink {
+                developer
+                    .god_blink_experiences
+                    .insert(owner.current().to_owned());
+            } else {
+                developer.god_blink_experiences.remove(owner.current());
+            }
+        }
     }
     if active.0 == Some(editable.as_engine()) {
         pending.take(ability_set_domain());
@@ -77,19 +91,33 @@ pub fn propose_editable_abilities(
     pending.propose(ability_set_domain());
 }
 
-/// A new session starts with its authored abilities and no developer grants.
+/// Restore this experience's preference through the mechanical edit admission.
 pub fn reset_editable_abilities_on_activation(
     mut activated: MessageReader<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>,
     mut editable: ResMut<EditableAbilitySet>,
     mut active: ResMut<dev_tools::ActiveEditableAbilityMask>,
     mut pending: ResMut<ambition_platformer2d_core::PendingMechanicalEdits>,
+    developer: Option<Res<dev_tools::DeveloperTools>>,
+    owner: Option<Res<ambition_persistence::save::SaveOwner>>,
 ) {
     if activated.read().count() == 0 {
         return;
     }
-    *editable = EditableAbilitySet::default();
-    active.0 = Some(editable.as_engine());
+    let defaults = EditableAbilitySet::default();
+    let god_blink = developer
+        .as_deref()
+        .zip(owner.as_deref())
+        .is_some_and(|(developer, owner)| developer.god_blink_experiences.contains(owner.current()));
+    *editable = EditableAbilitySet {
+        unrestricted_blink: god_blink,
+        ..defaults
+    };
+    active.0 = Some(defaults.as_engine());
     pending.take(ability_set_domain());
+    // A stored preference cannot bypass a peer host's mechanical edit policy.
+    if god_blink {
+        pending.propose(ability_set_domain());
+    }
 }
 
 /// Admit a developer ability selection. It touches no body.

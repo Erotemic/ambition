@@ -10,6 +10,8 @@ use serde::{Deserialize, Serialize};
 #[reflect(Resource)]
 #[serde(default)]
 pub struct DeveloperTools {
+    /// Experiences that keep God Blink enabled between sessions.
+    pub god_blink_experiences: std::collections::BTreeSet<String>,
     /// Show the reflected resource inspector windows.
     pub inspector_visible: bool,
     /// Show the heavier full-world entity/resource inspector.
@@ -86,6 +88,7 @@ impl Default for DeveloperTools {
             debug_view_mode.recommended_art_mode()
         };
         let mut tools = Self {
+            god_blink_experiences: Default::default(),
             inspector_visible: false,
             world_inspector_visible: false,
             // Desktop keeps the detailed layers ready behind the shared

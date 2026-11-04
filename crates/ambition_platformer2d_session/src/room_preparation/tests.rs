@@ -206,13 +206,17 @@ fn capture_releases_retiring_custody_but_keeps_it_when_another_participant_stays
             .as_mut()
             .unwrap()
             .kind = LifecycleIntent::Transition(RoomTransitionIntent {
+            disposition: Default::default(),
             source_zone: None,
-            subject: LiveBodyId::new(traveller, Some(room)),
+                initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    subject: LiveBodyId::new(traveller, Some(room)),
+                    arrival: Vec2::ZERO,
+                    participant: Some(PlayerSlot(0)),
+                },
+                companions: Vec::new(),
             target_room: "east".into(),
-            arrival: Vec2::ZERO,
             edge_exit: false,
             zone_sfx: None,
-            participant: Some(PlayerSlot(0)),
         });
         let selected = capture(&mut world);
         assert_eq!(

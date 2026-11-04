@@ -71,10 +71,15 @@ fn cross_inside_the_rollback_schedule(world: &mut bevy::prelude::World) {
     let mut state = bevy::ecs::system::SystemState::<RoomTransitionApplication>::new(world);
     let staged = {
         let mut application = state.get_mut(world).expect("the room application is installed");
-        let body = application.subject_entity(&subject).expect("the source body is restored");
-        application.stage(
-            &plan, Some(body), Some(ambition_platformer2d::characters::control::PlayerSlot(0)),
-            plan.target_index(), Some(plan.spec().world.spawn), false, None, false, None,
+        use ambition_platformer2d::session::lifecycle_commit::{LifecycleIntent, RoomTransitionIntent, RoomBodyTransfer};
+        let intent = LifecycleIntent::Transition(RoomTransitionIntent {
+            disposition: Default::default(),
+            source_zone: None,
+            initiator: RoomBodyTransfer { subject, arrival: plan.spec().world.spawn,
+                participant: Some(ambition_platformer2d::characters::control::PlayerSlot(0)) },
+            companions: Vec::new(), target_room: plan.spec().id.clone(), edge_exit: false, zone_sfx: None,
+        });
+        application.stage(&plan, &intent, plan.target_index(), false, None,
         ).expect("the room crossing stages")
     };
     state.apply(world);
@@ -119,10 +124,14 @@ fn replay_room_crossing(
     // Prepare in a setup frame. Apply the plan on the replayed timeline.
     assert!(world.resource_mut::<PendingLifecycleCommit>().record(0,
         LifecycleIntent::Transition(RoomTransitionIntent {
+            disposition: Default::default(),
             source_zone: None,
-            subject: subject.clone(), target_room: destination.into(),
-            arrival: target.world.spawn, edge_exit: false, zone_sfx: None,
-            participant: Some(ambition_platformer2d::characters::control::PlayerSlot(0)),
+                initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
+                    subject: subject.clone(),
+                    arrival: target.world.spawn,
+                    participant: Some(ambition_platformer2d::characters::control::PlayerSlot(0)),
+                },
+                companions: Vec::new(), target_room: destination.into(), edge_exit: false, zone_sfx: None,
         })).admitted());
     sim.run_rollback_setup_frame().expect("the simulation captures preparation inputs");
     let world = sim.world_mut();

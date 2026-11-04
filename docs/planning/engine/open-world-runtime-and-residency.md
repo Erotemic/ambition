@@ -59,14 +59,17 @@ A crossing publication carries a `LiveRoomSuccession`, chosen by
 `for_crossing`:
 
 - `Replace { replaces, mints }`: nobody else holds the room it leaves.
-- `Open { leaves, mints }`: another seat's driven body stays in the room it
-  leaves (`another_player_stays`). A new live room root is built.
-- `Join { leaves, joins, retires }`: a live room of the target room holds
-  another seat's body. Nothing is built or minted. The body and its custody
-  closure (`InCustodyOf`) move into the joined room.
+- `Open { leaves, mints }`: an unselected participant keeps the source room.
+  A new live room root is built.
+- `Join { leaves, joins, retires }`: the destination is already live.
+  Nothing is built or minted. Every selected body and its custody closure
+  (`InCustodyOf`) move into the joined room.
 
-`RoomTransitionIntent` records the subject (`LiveBodyId`) and the driving
-participant when the crossing is accepted, not at commit. The verifier refuses
+`RoomTransitionIntent` records the initiating transfer and its companions at
+admission. Each transfer retains its body identity, arrival, and participant.
+`rooms_released_by_transfer` derives source-room retirement from the full
+roster and the remaining claims. Additional released source rooms retire in
+the same publication. The verifier refuses
 a stale publication before anything is torn down (`StaleRoomInstance`,
 `StaleMint`, `StaleJoinedRoom`). A room transaction's world is the pair of live
 rooms it touches (`TransactionRooms`), so another live room's occupants are

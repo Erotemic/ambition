@@ -25,7 +25,7 @@ mod tests;
 // world crate as monolith coupling, which is what it did until 2026-08-26.
 // What this module re-exports below is what it OWNS.
 pub use reconstitution::retire_the_previous_attempt;
-pub use residency::{another_player_stays, claims_on, live_room_claims, live_room_claims_in, RoomClaim};
+pub use residency::{room_transfer_plan, RoomTransferPlan, rooms_released_by_transfer, claims_on, live_room_claims, live_room_claims_in, RoomClaim};
 pub use systems::{
     detect_room_transition_system, tick_portal_phases_system,
 };

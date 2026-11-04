@@ -276,15 +276,19 @@ pub fn restore_checkpoint_on_session_start(
         let frame = boundary.map_or(0, |boundary| boundary.current);
         let intent = crate::lifecycle_commit::LifecycleIntent::Transition(
             crate::lifecycle_commit::RoomTransitionIntent {
+                disposition: crate::lifecycle_commit::RoomTransitionDisposition::RebuildSource,
                 source_zone: None,
-                subject,
+                initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    subject: subject,
+                    arrival: ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32),
+                    participant: None,
+                },
+                companions: Vec::new(),
                 target_room: checkpoint.room_id.clone(),
-                arrival: ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32),
                 // A resume is not a walk off the side of a room.
                 edge_exit: false,
                 // silent on purpose: nobody opened a door.
                 zone_sfx: None,
-                participant: None,
             },
         );
         let Some(key) = pending.record_restore(frame, intent.clone(), &mut operations, scope_id) else {
@@ -596,15 +600,19 @@ pub fn resume_at_checkpoint_on_reset(
     // a later preparation can tell this reconstruction from an ordinary door.
     let intent = crate::lifecycle_commit::LifecycleIntent::Transition(
         crate::lifecycle_commit::RoomTransitionIntent {
+            disposition: crate::lifecycle_commit::RoomTransitionDisposition::RebuildSource,
             source_zone: None,
-            subject: subject.clone(),
+                initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    subject: subject.clone(),
+                    arrival: arrival,
+                    participant: None,
+                },
+                companions: Vec::new(),
             target_room,
-            arrival,
             // A death is not a walk off the side of a room.
             edge_exit: false,
             // silent on purpose: nobody opened a door.
             zone_sfx: None,
-            participant: None,
         },
     );
     let Some(key) = pending.record_restore(

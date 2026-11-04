@@ -316,13 +316,17 @@ pub fn detect_room_transition_system(
                 continue;
             };
             let crossing = crate::lifecycle_commit::RoomTransitionIntent {
+                disposition: Default::default(),
                 source_zone: Some(zone.zone.id.clone()),
-                subject: subject.clone(),
+                initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    subject: subject.clone(),
+                    arrival: zone.arrival,
+                    participant: driver.map(|driver| driver.0),
+                },
+                companions: Vec::new(),
                 target_room: target_spec.id.clone(),
-                arrival: zone.arrival,
                 edge_exit: false,
                 zone_sfx: None,
-                participant: driver.map(|driver| driver.0),
             };
             let arrival = super::passage::PassageArrival {
                 kind: if portals.is_portal(&far.id) {
@@ -382,16 +386,19 @@ pub fn detect_room_transition_system(
             boundary.map_or(0, |boundary| boundary.current),
             crate::lifecycle_commit::LifecycleIntent::Transition(
                 crate::lifecycle_commit::RoomTransitionIntent {
+                    disposition: Default::default(),
                     source_zone: Some(zone.zone.id.clone()),
+                initiator: crate::lifecycle_commit::RoomBodyTransfer {
                     subject: subject.clone(),
-                    target_room: target_spec.id.clone(),
                     arrival: zone.arrival,
+                    participant: driver.map(|driver| driver.0),
+                },
+                companions: Vec::new(),
+                    target_room: target_spec.id.clone(),
                     edge_exit: matches!(zone.zone.activation, LoadingZoneActivation::EdgeExit),
                     // Carried because the commit happens far from the zone that
                     // named it.
                     zone_sfx: zone_sfx.as_ref().map(|id| id.as_str().to_string()),
-                    // Whose crossing it is, recorded now: see the field.
-                    participant: driver.map(|driver| driver.0),
                 },
             ),
         );

@@ -510,7 +510,7 @@ pub fn run_zone_passages(
                 && passage.elapsed + dt >= ZonePassage::entering_s(passage.kind))
                 .then_some(())
                 .and_then(|()| passage.crossing.as_ref())
-                .map(|crossing| (entity, &crossing.subject))
+                .map(|crossing| (entity, &crossing.initiator.subject))
         }).min_by(|(_, left), (_, right)| left.cmp(right)).map(|(entity, _)| entity)
     }).flatten();
     for (entity, clusters, mut model, mut passage, mut control_holds, pose_holds, frame, stamp) in &mut bodies {
@@ -650,16 +650,20 @@ mod tests {
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_systems(Update, run_zone_passages);
         let crossing = RoomTransitionIntent {
+            disposition: Default::default(),
             source_zone: None,
-            subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
+                initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
                 ambition_platformer2d_shared_tangle::sim_id::SimId::placement("hero"),
                 None,
             ),
+                    arrival: ae::Vec2::new(1.0, 2.0),
+                    participant: None,
+                },
+                companions: Vec::new(),
             target_room: "elsewhere".into(),
-            arrival: ae::Vec2::new(1.0, 2.0),
             edge_exit: false,
             zone_sfx: None,
-            participant: None,
         };
         let body = spawn_passage_body(&mut app, &crossing);
         (app, body, crossing)
@@ -710,21 +714,25 @@ mod tests {
                     [LiveBodyId::new(SimId::placement("alpha"), None),
                      LiveBodyId::new(SimId::placement("zeta"), None)]
                 };
-                let crossings = subjects.map(|subject| RoomTransitionIntent { subject, ..template.clone() });
+                let crossings = subjects.map(|subject| {
+                    let mut crossing = template.clone();
+                    crossing.initiator.subject = subject;
+                    crossing
+                });
                 let second = spawn_passage_body(&mut app, &crossings[usize::from(!reversed)]);
                 let bodies = if reversed { [second, first] } else { [first, second] };
                 for (body, crossing) in bodies.into_iter().zip(&crossings) {
                     let mut passage = app.world_mut().get_mut::<ZonePassage>(body).unwrap();
                     passage.crossing = Some(crossing.clone());
                     passage.elapsed = ZonePassage::entering_s(PassageKind::Door);
-                    if let Some(room) = crossing.subject.room {
+                    if let Some(room) = crossing.initiator.subject.room {
                         app.world_mut().entity_mut(body).insert(InRoomInstance(room));
                     }
                 }
                 app.world_mut().entity_mut(bodies[0]).insert(MovedArchetype);
-                let incumbent = LifecycleIntent::Transition(RoomTransitionIntent {
-                    subject: LiveBodyId::new(SimId::placement("incumbent"), None), ..template
-                });
+                let mut incumbent = template;
+                incumbent.initiator.subject = LiveBodyId::new(SimId::placement("incumbent"), None);
+                let incumbent = LifecycleIntent::Transition(incumbent);
                 assert!(app.world_mut().resource_mut::<PendingLifecycleCommit>().record(0, incumbent.clone()).admitted());
                 app.update();
                 assert_eq!(app.world_mut().resource_mut::<PendingLifecycleCommit>().take().unwrap().kind, incumbent);
@@ -818,14 +826,11 @@ mod tests {
         let (mut app, body, crossing) = passage_app();
         let frames = |seconds: f32| (seconds * 60.0).ceil() as usize + 1;
         // A second body's crossing, admitted first.
-        let other = LifecycleIntent::Transition(RoomTransitionIntent {
-            subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
-                ambition_platformer2d_shared_tangle::sim_id::SimId::placement("partner"),
-                None,
-            ),
-            target_room: "another room".into(),
-            ..crossing.clone()
-        });
+        let mut other = crossing.clone();
+        other.initiator.subject = ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
+            ambition_platformer2d_shared_tangle::sim_id::SimId::placement("partner"), None);
+        other.target_room = "another room".into();
+        let other = LifecycleIntent::Transition(other);
         let _ = app.world_mut().resource_mut::<PendingLifecycleCommit>().record(1, other.clone());
         for _ in 0..frames(ZonePassage::entering_s(PassageKind::Door) + CROSSING_GIVE_UP_S + 1.0) {
             app.update();
@@ -873,16 +878,20 @@ mod tests {
     fn each_field_of_a_passage_moves_its_checksum() {
         let base = ZonePassage {
             crossing: Some(RoomTransitionIntent {
+                disposition: Default::default(),
                 source_zone: None,
-                subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
+                initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
                     ambition_platformer2d_shared_tangle::sim_id::SimId::placement("hero"),
                     None,
                 ),
+                    arrival: ae::Vec2::new(1.0, 2.0),
+                    participant: None,
+                },
+                companions: Vec::new(),
                 target_room: "elsewhere".into(),
-                arrival: ae::Vec2::new(1.0, 2.0),
                 edge_exit: false,
                 zone_sfx: None,
-                participant: None,
             }),
             arrival: Some(PassageArrival {
                 kind: Some(PassageKind::Door),

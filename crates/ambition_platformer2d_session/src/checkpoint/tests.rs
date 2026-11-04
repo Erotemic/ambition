@@ -322,13 +322,13 @@ fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
     };
     assert_eq!(transition.target_room, "rest_room");
     assert_eq!(
-        transition.subject,
+        transition.initiator.subject,
         ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0), None),
         "the resume asked for a room without saying whose resume it is, so the \
          commit would transit whoever happens to be controlled several frames later"
     );
     assert_eq!(
-        (transition.arrival.x, transition.arrival.y),
+        (transition.initiator.arrival.x, transition.initiator.arrival.y),
         (512.0, 300.0),
         "the transition must arrive AT the checkpoint, not at the room's own spawn"
     );
@@ -407,13 +407,17 @@ fn a_refused_slot_leaves_the_checkpoint_resume_retryable() {
     // SOMEBODY ELSE ALREADY OWNS THE SLOT. A door crossing recorded on an
     // earlier frame is the ordinary shape of this: the slot is earliest-sticky.
     let incumbent = LifecycleIntent::Transition(RoomTransitionIntent {
+        disposition: Default::default(),
         source_zone: None,
-        subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::placement("someone_else"), None),
+                initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::placement("someone_else"), None),
+                    arrival: Vec2::new(1.0, 2.0),
+                    participant: None,
+                },
+                companions: Vec::new(),
         target_room: "entry".into(),
-        arrival: Vec2::new(1.0, 2.0),
         edge_exit: true,
         zone_sfx: None,
-        participant: None,
     });
     assert!(app
         .world_mut()
@@ -461,7 +465,7 @@ fn a_refused_slot_leaves_the_checkpoint_resume_retryable() {
     };
     assert_eq!(transition.target_room, "rest_room");
     assert_eq!(
-        (transition.arrival.x, transition.arrival.y),
+        (transition.initiator.arrival.x, transition.initiator.arrival.y),
         (512.0, 300.0)
     );
 
@@ -869,13 +873,17 @@ fn the_commit_applies_the_operation_it_was_opened_for_and_always_removes_its_inp
 
     let crossing = |room: &str| {
         LifecycleIntent::Transition(RoomTransitionIntent {
+            disposition: Default::default(),
             source_zone: None,
-            subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0), None),
+                initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0), None),
+                    arrival: Vec2::new(1.0, 2.0),
+                    participant: None,
+                },
+                companions: Vec::new(),
             target_room: room.into(),
-            arrival: Vec2::new(1.0, 2.0),
             edge_exit: false,
             zone_sfx: None,
-            participant: None,
         })
     };
     let mut operations = super::SessionCheckpointOperations::default();
@@ -1214,13 +1222,18 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
 
     fn crossing() -> RoomTransitionIntent {
         RoomTransitionIntent {
+
+            disposition: Default::default(),
             source_zone: None,
-            subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::player_slot(0), None),
+                initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::player_slot(0), None),
+                    arrival: Vec2::new(1.0, 2.0),
+                    participant: None,
+                },
+                companions: Vec::new(),
             target_room: "east".into(),
-            arrival: Vec2::new(1.0, 2.0),
             edge_exit: false,
             zone_sfx: None,
-            participant: None,
         }
     }
     fn accepted(restore: AcceptedRestore) -> u64 {
@@ -1290,7 +1303,10 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
             "the restore SUBJECT — the body the operation is about",
             AcceptedRestore {
                 intent: LifecycleIntent::Transition(RoomTransitionIntent {
-                    subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::player_slot(1), None),
+                    initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                        subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::player_slot(1), None),
+                        ..crossing().initiator
+                    },
                     ..crossing()
                 }),
                 ..base()
@@ -1310,7 +1326,9 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
             "the arrival position",
             AcceptedRestore {
                 intent: LifecycleIntent::Transition(RoomTransitionIntent {
-                    arrival: Vec2::new(9.0, 9.0),
+                    initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                        arrival: Vec2::new(9.0, 9.0), ..crossing().initiator
+                    },
                     ..crossing()
                 }),
                 ..base()
@@ -1331,7 +1349,7 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
             AcceptedRestore {
                 intent: LifecycleIntent::Transition(RoomTransitionIntent {
                     zone_sfx: Some("world.portal.enter".into()),
-                    participant: None,
+                    initiator: crate::lifecycle_commit::RoomBodyTransfer { participant: None, ..crossing().initiator },
                     ..crossing()
                 }),
                 ..base()
@@ -2399,13 +2417,17 @@ fn an_operation_at(
         frame,
         intent: crate::lifecycle_commit::LifecycleIntent::Transition(
             crate::lifecycle_commit::RoomTransitionIntent {
+                disposition: Default::default(),
                 source_zone: None,
-                subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::placement("hero"), None),
+                initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::placement("hero"), None),
+                    arrival: Vec2::ZERO,
+                    participant: None,
+                },
+                companions: Vec::new(),
                 target_room: target_room.into(),
-                arrival: Vec2::ZERO,
                 edge_exit: false,
                 zone_sfx: None,
-                participant: None,
             },
         ),
         lifecycle: Some(ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs {

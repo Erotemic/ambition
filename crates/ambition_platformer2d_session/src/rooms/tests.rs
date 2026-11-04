@@ -1229,13 +1229,17 @@ fn a_door_refused_the_lifecycle_slot_keeps_the_press_it_could_not_spend() {
     // that was honoured.
     let incumbent = crate::lifecycle_commit::LifecycleIntent::Transition(
         crate::lifecycle_commit::RoomTransitionIntent {
+            disposition: Default::default(),
             source_zone: None,
-            subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("somebody_else"), None),
+                initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("somebody_else"), None),
+                    arrival: ae::Vec2::new(7.0, 9.0),
+                    participant: None,
+                },
+                companions: Vec::new(),
             target_room: "b".into(),
-            arrival: ae::Vec2::new(7.0, 9.0),
             edge_exit: false,
             zone_sfx: None,
-            participant: None,
         },
     );
     let mut app = app_with_a_door(true, Some(incumbent.clone()));

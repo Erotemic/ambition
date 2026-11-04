@@ -203,15 +203,19 @@ pub fn admit_room_replay(
         Some(subject) => pending.record(
             boundary.map_or(0, |boundary| boundary.current),
             LifecycleIntent::Transition(RoomTransitionIntent {
+                disposition: ambition_platformer2d_session::lifecycle_commit::RoomTransitionDisposition::RebuildSource,
                 source_zone: None,
-                subject,
+                initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
+                    subject: subject,
+                    arrival: active.world.spawn,
+                    participant: None,
+                },
+                companions: Vec::new(),
                 target_room: active.id.clone(),
-                arrival: active.world.spawn,
                 // A replay is not a walk off the side of a room.
                 edge_exit: false,
                 // Silent on purpose: nobody opened a door.
                 zone_sfx: None,
-                participant: None,
             }),
         ),
         // ✔ NO BODY, NO CROSSING — SO IT RECORDS THE OTHER SHAPE (v146,
@@ -468,16 +472,20 @@ pub fn bring_a_fallen_seat_back_beside_the_primary(
                         boundary.as_deref().map_or(0, |boundary| boundary.current),
                         ambition_platformer2d_session::lifecycle_commit::LifecycleIntent::Transition(
                             ambition_platformer2d_session::lifecycle_commit::RoomTransitionIntent {
+                                disposition: Default::default(),
                                 source_zone: None,
-                                subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
+                initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
+                    subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
                                     sim_id.clone(),
                                     Some(room.0),
                                 ),
+                    arrival: at,
+                    participant: Some(driver.0),
+                },
+                companions: Vec::new(),
                                 target_room,
-                                arrival: at,
                                 edge_exit: false,
                                 zone_sfx: None,
-                                participant: Some(driver.0),
                             },
                         ),
                     );

@@ -1421,16 +1421,20 @@ fn a_replay_refused_by_the_lifecycle_slot_changes_nothing() {
         ambition_platformer2d::session::lifecycle_commit::PendingIntent {
             frame: 0, checkpoint_operation: None,
             kind: LifecycleIntent::Transition(RoomTransitionIntent {
+                disposition: Default::default(),
                 source_zone: None,
-                subject: ambition_platformer2d::platformer::lifecycle::LiveBodyId::new(ambition_platformer2d::platformer::sim_id::SimId::placement(
+                initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
+                    subject: ambition_platformer2d::platformer::lifecycle::LiveBodyId::new(ambition_platformer2d::platformer::sim_id::SimId::placement(
                     "somebody-elses-crossing",
                 ), None,
                 ),
+                    arrival: Vec2::ZERO,
+                    participant: None,
+                },
+                companions: Vec::new(),
                 target_room: ROOM.to_string(),
-                arrival: Vec2::ZERO,
                 edge_exit: false,
                 zone_sfx: None,
-                participant: None,
             }),
         },
     );

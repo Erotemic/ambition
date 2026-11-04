@@ -248,13 +248,17 @@ fn cross_observing_with(
             0,
             ambition_platformer2d::session::lifecycle_commit::LifecycleIntent::Transition(
                 ambition_platformer2d::session::lifecycle_commit::RoomTransitionIntent {
+                    disposition: Default::default(),
                     source_zone: None,
+                initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
                     subject: subject.clone(),
+                    arrival: arrival,
+                    participant: None,
+                },
+                companions: Vec::new(),
                     target_room,
-                    arrival,
                     edge_exit: false,
                     zone_sfx: None,
-                    participant: None,
                 },
             ),
         );

@@ -74,24 +74,23 @@ impl LifecycleIntent {
         };
         let mut bytes = Vec::new();
         match self {
-            Self::Transition(RoomTransitionIntent {
-                subject,
-                target_room,
-                arrival,
-                edge_exit,
-                zone_sfx,
-                source_zone,
-                participant,
-            }) => {
+            Self::Transition(intent) => {
                 put_u8(&mut bytes, 0);
-                subject.write_peer_stable_into(&mut bytes);
-                put_str(&mut bytes, target_room);
-                put_vec2(&mut bytes, *arrival);
-                put_bool(&mut bytes, *edge_exit);
-                put_opt_str(&mut bytes, zone_sfx.as_deref());
-                put_opt_str(&mut bytes, source_zone.as_deref());
-                put_bool(&mut bytes, participant.is_some());
-                put_u8(&mut bytes, participant.map_or(0, |slot| slot.0));
+                put_u8(&mut bytes, match intent.disposition {
+                    RoomTransitionDisposition::Travel => 0,
+                    RoomTransitionDisposition::RebuildSource => 1,
+                });
+                put_str(&mut bytes, &intent.target_room);
+                put_bool(&mut bytes, intent.edge_exit);
+                put_opt_str(&mut bytes, intent.zone_sfx.as_deref());
+                put_opt_str(&mut bytes, intent.source_zone.as_deref());
+                ambition_platformer2d_core::snapshot::put_u64(&mut bytes, (1 + intent.companions.len()) as u64);
+                for transfer in intent.transfers() {
+                    transfer.subject.write_peer_stable_into(&mut bytes);
+                    put_vec2(&mut bytes, transfer.arrival);
+                    put_bool(&mut bytes, transfer.participant.is_some());
+                    put_u8(&mut bytes, transfer.participant.map_or(0, |slot| slot.0));
+                }
             }
             Self::ReconstituteRoom(RoomReconstitutionIntent { target_room }) => {
                 put_u8(&mut bytes, 1);
@@ -109,11 +108,22 @@ impl LifecycleIntent {
         }
     }
 
-    /// The body that takes part, if one does. `None` is a rebuild with nobody
-    /// in it — not a missing subject.
+    pub fn rebuilds_source_room(&self) -> bool {
+        match self {
+            Self::Transition(intent) => intent.disposition == RoomTransitionDisposition::RebuildSource,
+            Self::ReconstituteRoom(_) => true,
+        }
+    }
+
+    pub fn transfers(&self) -> impl Iterator<Item = &RoomBodyTransfer> {
+        match self { Self::Transition(intent) => Some(intent), Self::ReconstituteRoom(_) => None }
+            .into_iter().flat_map(RoomTransitionIntent::transfers)
+    }
+
+    /// The body that initiated the operation. A bodyless rebuild has none.
     pub fn subject(&self) -> Option<&LiveBodyId> {
         match self {
-            Self::Transition(intent) => Some(&intent.subject),
+            Self::Transition(intent) => Some(&intent.initiator.subject),
             Self::ReconstituteRoom(_) => None,
         }
     }
@@ -123,7 +133,7 @@ impl LifecycleIntent {
     /// arrival, and `Vec2::ZERO` would be a position somebody could validate.
     pub fn arrival(&self) -> Option<Vec2> {
         match self {
-            Self::Transition(intent) => Some(intent.arrival),
+            Self::Transition(intent) => Some(intent.initiator.arrival),
             Self::ReconstituteRoom(_) => None,
         }
     }
@@ -132,7 +142,7 @@ impl LifecycleIntent {
     /// accepted. A rebuild has none.
     pub fn participant(&self) -> Option<ambition_characters::control::PlayerSlot> {
         match self {
-            Self::Transition(intent) => intent.participant,
+            Self::Transition(intent) => intent.initiator.participant,
             Self::ReconstituteRoom(_) => None,
         }
     }
@@ -167,38 +177,38 @@ impl LifecycleIntent {
 /// room ids and [`LiveBodyId`] rather than transient entities or query positions.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RoomTransitionIntent {
-    /// The source zone, when a loading zone admitted this operation.
+    pub disposition: RoomTransitionDisposition,
+    /// The zone that admitted the operation.
     pub source_zone: Option<String>,
-    /// The body that CROSSED. Never re-resolved from live control at commit
-    /// time: possession may have changed, ended, or the body may have died during
-    /// the wait. A body without stable identity cannot produce a transition.
-    ///
-    /// Its live identity: the stable id in the live room it crosses from. Two
-    /// instances of one room hold the same stable ids, so the commit must find
-    /// the body that crossed and not the first body with its id.
-    pub subject: LiveBodyId,
-    /// The destination's authored room id.
+    /// The body that activated the crossing.
+    pub initiator: RoomBodyTransfer,
+    /// Other bodies selected when this operation was admitted.
+    pub companions: Vec<RoomBodyTransfer>,
     pub target_room: String,
-    /// Where in it the subject comes out.
-    pub arrival: Vec2,
-    /// Selects the transition cooldown/feel, mirroring
-    /// `RoomTransitionApplication::apply`. An `EdgeExit` crossing feels different
-    /// from a door, and the zone that knew which is long out of reach by commit.
     pub edge_exit: bool,
-    /// Door/portal cue resolved when the crossing is detected, before the
-    /// originating zone is no longer available at commit time.
     pub zone_sfx: Option<String>,
-    /// The participant whose crossing this is: the slot that drove the
-    /// subject when the crossing was accepted. `None`: a body no slot drove.
-    ///
-    /// ⛔ RECORDED, NEVER RE-DERIVED AT COMMIT. The commit decides whether the
-    /// room left stays live for another participant and whether the target is
-    /// a room another participant holds, and "another" is relative to this
-    /// one. Between detection and commit, possession, death or a handoff can
-    /// move the slot off the subject; asking the subject's current
-    /// `DrivingParticipant` then reads the crossing as nobody's, and the
-    /// room another participant holds is retired.
+}
+
+/// The source room's fate is independent of the body's controller.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum RoomTransitionDisposition {
+    #[default]
+    Travel,
+    RebuildSource,
+}
+
+/// One body selected for a room transfer. Control changes do not replace it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RoomBodyTransfer {
+    pub subject: LiveBodyId,
+    pub arrival: Vec2,
     pub participant: Option<ambition_characters::control::PlayerSlot>,
+}
+
+impl RoomTransitionIntent {
+    pub fn transfers(&self) -> impl Iterator<Item = &RoomBodyTransfer> {
+        std::slice::from_ref(&self.initiator).iter().chain(self.companions.iter())
+    }
 }
 
 /// Whether a lifecycle operation got the one pending slot.
@@ -377,7 +387,7 @@ impl PendingLifecycleCommit {
         self.withdraw_if(now, |pending| {
             matches!(
                 &pending.kind,
-                LifecycleIntent::Transition(transition) if &transition.subject == subject
+                LifecycleIntent::Transition(transition) if transition.transfers().any(|transfer| &transfer.subject == subject)
             )
         })
     }
@@ -433,13 +443,17 @@ mod tests {
 
     fn crossing_to(room: &str) -> LifecycleIntent {
         LifecycleIntent::Transition(RoomTransitionIntent {
+            disposition: Default::default(),
             source_zone: None,
-            subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("hero"), None),
+                initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("hero"), None),
+                    arrival: Vec2::new(1.0, 2.0),
+                    participant: None,
+                },
+                companions: Vec::new(),
             target_room: room.into(),
-            arrival: Vec2::new(1.0, 2.0),
             edge_exit: false,
             zone_sfx: None,
-            participant: None,
         })
     }
 
@@ -462,6 +476,31 @@ mod tests {
         let mut exhausted = SessionCheckpointOperations::exhausted_for_test();
         assert_eq!(slot.record_restore(14, crossing_to("north"), &mut exhausted, None), None);
         assert_eq!(slot, before);
+    }
+
+    #[test]
+    fn every_transfer_is_part_of_the_admission_checksum_and_cancellation() {
+        let LifecycleIntent::Transition(mut crossing) = crossing_to("east") else { unreachable!() };
+        let companion = RoomBodyTransfer {
+            subject: LiveBodyId::new(SimId::placement("companion"), None),
+            arrival: Vec2::new(20.0, 40.0), participant: Some(ambition_characters::control::PlayerSlot(1)),
+        };
+        let single = LifecycleIntent::Transition(crossing.clone()).checksum();
+        crossing.disposition = RoomTransitionDisposition::RebuildSource;
+        assert_ne!(single, LifecycleIntent::Transition(crossing.clone()).checksum());
+        crossing.disposition = RoomTransitionDisposition::Travel;
+        crossing.companions.push(companion.clone());
+        let checksum = LifecycleIntent::Transition(crossing.clone()).checksum();
+        assert_ne!(single, checksum);
+        crossing.companions[0].arrival.x += 1.0;
+        assert_ne!(checksum, LifecycleIntent::Transition(crossing.clone()).checksum());
+        crossing.companions[0] = companion.clone();
+        crossing.companions[0].participant = None;
+        assert_ne!(checksum, LifecycleIntent::Transition(crossing.clone()).checksum());
+        let mut pending = PendingLifecycleCommit::default();
+        assert!(pending.record(10, LifecycleIntent::Transition(crossing)).admitted());
+        assert!(pending.retract_transition_for_subject(&companion.subject, 11));
+        assert!(pending.peek().is_none());
     }
 
     #[test]
@@ -529,13 +568,17 @@ mod tests {
         let _ = slot.record(
             10,
             LifecycleIntent::Transition(RoomTransitionIntent {
+                disposition: Default::default(),
                 source_zone: None,
-                subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("hero"), None),
+                initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("hero"), None),
+                    arrival: Vec2::new(1.0, 2.0),
+                    participant: None,
+                },
+                companions: Vec::new(),
                 target_room: "east".into(),
-                arrival: Vec2::new(1.0, 2.0),
                 edge_exit: true,
                 zone_sfx: Some("world.portal.enter".into()),
-                participant: None,
             }),
         );
         assert!(
@@ -553,8 +596,9 @@ mod tests {
     fn the_participant_of_a_crossing_is_checksummed() {
         use ambition_characters::control::PlayerSlot;
         let by = |participant| match crossing_to("east") {
-            LifecycleIntent::Transition(intent) => {
-                LifecycleIntent::Transition(RoomTransitionIntent { participant, ..intent })
+            LifecycleIntent::Transition(mut intent) => {
+                intent.initiator.participant = participant;
+                LifecycleIntent::Transition(intent)
             }
             other => other,
         };
@@ -584,13 +628,17 @@ mod tests {
         let hero = LiveBodyId::new(SimId::placement("hero"), Some(LiveRoomInstance::ACTIVATION.next()));
         let other = LiveBodyId::new(SimId::placement("hero"), Some(LiveRoomInstance::ACTIVATION));
         let transition = LifecycleIntent::Transition(RoomTransitionIntent {
+            disposition: Default::default(),
             source_zone: None,
-            subject: hero.clone(),
+                initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    subject: hero.clone(),
+                    arrival: Vec2::new(1.0, 2.0),
+                    participant: None,
+                },
+                companions: Vec::new(),
             target_room: "east".into(),
-            arrival: Vec2::new(1.0, 2.0),
             edge_exit: false,
             zone_sfx: None,
-            participant: None,
         });
 
         let mut slot = PendingLifecycleCommit::default();
@@ -605,13 +653,17 @@ mod tests {
         let _ = slot.record(
             9,
             LifecycleIntent::Transition(RoomTransitionIntent {
+                disposition: Default::default(),
                 source_zone: None,
-                subject: other.clone(),
+                initiator: crate::lifecycle_commit::RoomBodyTransfer {
+                    subject: other.clone(),
+                    arrival: Vec2::ZERO,
+                    participant: None,
+                },
+                companions: Vec::new(),
                 target_room: "west".into(),
-                arrival: Vec2::ZERO,
                 edge_exit: false,
                 zone_sfx: None,
-                participant: None,
             }),
         );
         assert!(!slot.retract_transition_for_subject(&hero, 9));

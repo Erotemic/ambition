@@ -74,9 +74,7 @@ impl RoomTransitionCombatReset<'_, '_> {
     pub fn clear_carryover(&mut self, scope: &CrossingScope) {
         for (entity, stamp) in &self.live_projectiles {
             let left_behind = !scope.other_rooms_stay
-                || (scope.departing_retires
-                    && scope.departing.is_some()
-                    && stamp.map(|stamp| stamp.0) == scope.departing);
+                || stamp.is_some_and(|stamp| scope.retiring.contains(&stamp.0));
             if left_behind {
                 self.commands.entity(entity).despawn();
             }
@@ -86,19 +84,17 @@ impl RoomTransitionCombatReset<'_, '_> {
         // frame and has exactly one writer (`resolve_active_gravity`).
         if !scope.other_rooms_stay {
             *self.base_gravity = ambition_platformer2d_shared_tangle::gravity::BaseGravity::default();
-        } else if scope.departing_retires && scope.departing.is_some() {
-            self.base_gravity.forget(scope.departing);
+        } else {
+            for room in &scope.retiring { self.base_gravity.forget(Some(*room)); }
         }
     }
 }
 
 /// What a crossing leaves standing, decided when it is staged (OW1).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct CrossingScope {
-    /// The live room the crossing leaves; `None` when it cannot be told.
-    pub departing: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
-    /// Whether the room left retires: no other player's body stays in it.
-    pub departing_retires: bool,
+    /// The source rooms that have no remaining claim after this transfer.
+    pub retiring: Vec<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     /// Whether a live room stays standing through the crossing: the room
     /// left (another player stays in it), or another live room. Then the
     /// crossing does not replace the world: the world's shared sim clock is
@@ -173,14 +169,6 @@ pub struct RoomTransitionApplication<'w, 's> {
         's,
         &'static mut world_rooms::RoomSet,
         With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
-    >,
-    /// The live rooms, each on its own root. The one the subject stands in is
-    /// the one being left; with nobody crossing, it is the sole live room.
-    live_room: Query<
-        'w,
-        's,
-        &'static world_rooms::LiveRoomInstance,
-        With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
     >,
     subject_room: Query<'w, 's, &'static ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     /// The bodies players drive, and the live room each is in: a room a
@@ -304,305 +292,102 @@ impl RoomTransitionApplication<'_, '_> {
         self.bodies.subject_entity(subject)
     }
 
-    /// STAGE a prepared transition: everything that can fail, and nothing whose
-    /// meaning is *"the crossing happened"*.
-    ///
-    /// ⛔⛤ **THIS USED TO BE `apply`, AND `apply` PERFORMED THE WHOLE CROSSING
-    /// BEFORE ANYONE HAD ASKED THE ROOM'S VERDICT — SPLIT 2026-09-14 ON
-    /// REVIEW.** It called `replace_live_world`, DROPPED the returned
-    /// `PublicationHandle`, and then cleared carryover, played the door cue, reset
-    /// the sim clock and the transition cooldown, flashed the developer overlay,
-    /// reset combat and the blink camera, closed the dialogue AND the
-    /// conversation, recorded the Class-B transit, asked for the room visuals and
-    /// emitted the arrival VFX/SFX and the landing diagnostic. A room the
-    /// transaction then REFUSED left every one of those applied to a world the
-    /// player had not left — the same defect A10.3 had just closed for the dev
-    /// hot reload, in the road every player uses.
-    ///
-    /// ⇒ Staging may read and gather anything; it may make failure impossible;
-    /// it may build the candidate. It may not say the crossing happened. The
-    /// returned [`StagedRoomTransition`] carries what finalization needs, keyed
-    /// to the exact publication `replace_live_world` began.
-    ///
-    /// The preflight order is still load-bearing: resolve everything that can
-    /// fail, then act. `subject` is `None` for a room rebuild with NOBODY IN IT
-    /// (`LifecycleIntent::ReconstituteRoom`) — a replay in a composition with no
-    /// controlled body. That is not a missing subject: every body-shaped step is
-    /// skipped because there is no body, not because one could not be found. A
-    /// crossing whose recorded body is gone never reaches here; its caller
-    /// cancels the intent instead.
+    fn prepare_member(
+        &self,
+        subject: Entity,
+        arrival: Option<ae::Vec2>,
+        participant: Option<ambition_characters::control::PlayerSlot>,
+        world: &ae::World,
+    ) -> Result<StagedRoomMember, RoomTransitionApplyError> {
+        for (missing, present) in [
+            ("MotionModel", self.bodies.motion_models.contains(subject)),
+            ("complete actor cluster", self.bodies.clusters.contains(subject)),
+            ("BodyCombat", self.bodies.combat.contains(subject)),
+        ] {
+            if !present { return Err(RoomTransitionApplyError::SubjectCannotTransit { subject, missing }); }
+        }
+        let body = self.bodies.clusters.get(subject).expect("the complete body was checked");
+        let size = body.kinematics.size;
+        let arrival_pos = world_rooms::validated_spawn(world, arrival.unwrap_or(body.kinematics.pos), size);
+        let gravity_dir = self.bodies.motion_frames.get(subject).map(|frame| frame.down())
+            .unwrap_or(ae::Vec2::new(0.0, 1.0));
+        Ok(StagedRoomMember { subject, participant, arrival_pos, size, gravity_dir })
+    }
+
+    /// Stage every selected body through one destination publication.
     pub fn stage(
         &mut self,
         plan: &publication::RoomConstructionPlan,
-        subject: Option<Entity>,
-        // Whose crossing this is, as the intent recorded it.
-        participant: Option<ambition_characters::control::PlayerSlot>,
+        intent: &ambition_platformer2d_session::lifecycle_commit::LifecycleIntent,
         target_room: usize,
-        arrival_at: Option<ae::Vec2>,
-        edge_exit: bool,
-        zone_sfx: Option<&str>,
-        // A whole-session restart (a New Game, Q151): every other live room
-        // retires with the one this rebuilds, and no other player's body
-        // keeps a room live.
         restart: bool,
-        // The checkpoint restore this crossing is, if it is one: its room is
-        // built from the facts its consequences will leave, and those run when
-        // the publication is accepted.
         restore: Option<ambition_platformer2d_session::checkpoint::CheckpointOperationKey>,
     ) -> Result<StagedRoomTransition, RoomTransitionApplyError> {
-        // ── PREFLIGHT ────────────────────────────────────────────────────────
-        if self.session.iter().next().is_none() {
-            return Err(RoomTransitionApplyError::NoSessionWorld);
-        }
-        // Only a body can fail the transit contract. A rebuild with nobody in it
-        // has nothing to check, and checking anyway would need an entity to name
-        // in the error.
-        if let Some(subject) = subject {
-            for (missing, present) in [
-                ("MotionModel", self.bodies.motion_models.contains(subject)),
-                (
-                    "complete actor cluster",
-                    self.bodies.clusters.contains(subject),
-                ),
-                ("BodyCombat", self.bodies.combat.contains(subject)),
-            ] {
-                if !present {
-                    return Err(RoomTransitionApplyError::SubjectCannotTransit {
-                        subject,
-                        missing,
-                    });
-                }
-            }
-        }
-
-        // Read-only facts gathered before the mutable borrows below.
-        let subject_gravity_dir = subject
-            .and_then(|subject| self.bodies.motion_frames.get(subject).ok())
-            .map(|frame| frame.down())
-            .unwrap_or(ae::Vec2::new(0.0, 1.0));
-        let tuning = self.tuning.0;
-        // THE BODY GOING THROUGH THE DOOR IS NOT RETIRED WITH THE ROOM IT IS
-        // LEAVING. Stated about the SUBJECT, which is the only thing that
-        // matters here, rather than about what kind of body it is.
-        //
-        // The proxy bought nothing and could only ever lose: when it answered correctly the
-        // exemption was a no-op, and the one way it could answer WRONG is by calling a room-scoped
-        // body a home body, which despawns the thing mid-transition.  an unconditional exemption
-        // is strictly safer, because the sweep skips an entity that is not in its roster
-        // and exempting an absent entity is already a no-op.
-        //
-        // and it removes a player-centrism: the transition no longer has an
-        // opinion about which body is the protagonist.
-        // `None` on a rebuild with nobody in it: nothing is carried through,
-        // so the outgoing room retires whole.
-        let carry_body = subject;
-
-        // ⚠ `_room_set` IS THE GUARD, NOT A WRITE TARGET. A transition in a
-        // world whose session root carries no room authority is refused, and
-        // this destructure is what refuses it.
-        let Ok(_room_set) = self.session.single_mut() else {
-            // Unreachable: the preflight above proved exactly one match.
+        use std::collections::BTreeSet;
+        let Some(room_set) = self.session.iter().next() else {
             return Err(RoomTransitionApplyError::NoSessionWorld);
         };
-        // ⛔ TWO DIFFERENT `None`s, and conflating them is the whole hazard here.
-        // `subject` being `None` means NOBODY IS CROSSING — legitimate, and the
-        // body steps below simply do not apply. A `get_mut` MISS on a subject
-        // that IS named is a body that cannot transit, and stays an error.
-        // ⛔ A PRECONDITION, NOT A WRITE TARGET ANY MORE. The arrival is
-        // performed by the room's publication (`StagedArrival`), which does its
-        // own lookup and would SILENTLY SKIP a body that cannot be placed. This
-        // is what turns that silence into `SubjectCannotTransit` before a single
-        // root is built.
-        let _motion_model = match subject {
-            Some(subject) => match self.bodies.motion_models.get_mut(subject) {
-                Ok(model) => Some(model),
-                Err(_) => {
-                    return Err(RoomTransitionApplyError::SubjectCannotTransit {
-                        subject,
-                        missing: "MotionModel",
-                    })
-                }
-            },
-            None => None,
-        };
-        let mut cluster_item = match subject {
-            Some(subject) => match self.bodies.clusters.get_mut(subject) {
-                Ok(item) => Some(item),
-                Err(_) => {
-                    return Err(RoomTransitionApplyError::SubjectCannotTransit {
-                        subject,
-                        missing: "complete actor cluster",
-                    })
-                }
-            },
-            None => None,
-        };
-        let clusters = cluster_item.as_mut().map(|item| item.as_clusters_mut());
-
-        // The door makes a sound at the body's position BEFORE the transit, so
-        // the position is READ here and the cue is PLAYED at finalization — a
-        // door that never opened makes no sound. A rebuild nobody walks into has
-        // no position to make it at, which is consistent with `zone_sfx` being
-        // `None` for a reconstitution anyway.
-        let door_sfx = match (zone_sfx, clusters.as_ref()) {
-            (Some(cue), Some(clusters)) => Some((cue.to_owned(), clusters.kinematics.pos)),
-            _ => None,
-        };
-
         debug_assert_eq!(plan.target_index(), target_room);
-        let player_size = clusters.as_ref().map(|c| c.kinematics.size);
-        // ⚠ ONE CALL, because the retire/commit ORDER is not this site's fact to
-        // keep — see `replace_live_world`, which also names the destructive
-        // window the `Nothing below may fail` discipline above is protecting.
-        // The authored arrival, validated against the TARGET room's geometry
-        // using the body's own size, so the body is never placed inside a solid
-        // or out of bounds.
-        //
-        // ⭐ ALL THREE OR NONE. A rebuild with nobody in it has no arrival to
-        // validate, no size to validate it against and nothing to place, and
-        // `validated_spawn` needs a size — so the placement is one statement that
-        // either has its body or does not run. It is NOT defaulted: a
-        // `Vec2::ZERO` arrival is a position, and something downstream would
-        // treat it as one.
-        //
-        // ⛔ THE PLAN'S GEOMETRY, NOT THE LIVE COMPONENT. As of A10's staged
-        // replacement, `RoomGeometry` is not written until the room's verdict, so
-        // reading it here would validate the arrival against the room being LEFT
-        // — exactly the confusion this function's own "NOW-target geometry"
-        // comment used to warn about. The plan is the target room, named at its
-        // source.
-        //
-        // ⛔⛤ **AND IT IS COMPUTED HERE AND PERFORMED BY THE PUBLICATION.** This
-        // block used to call `arrive_body_in_room` itself, before anything had
-        // verified the room it was arriving into — so a REFUSED transition left
-        // the player at the refused room's coordinates inside the geometry of the
-        // room they never left. Measured by
-        // `a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact`.
-        // The transition still decides WHERE (it is the only thing that knows the
-        // authored door and the body's size); the verdict decides WHETHER.
-        let mut staged_arrival = None;
-        let arrival_pos = match (subject, arrival_at, player_size) {
-            (Some(subject), Some(arrival_at), Some(player_size)) => {
-                let arrival = ambition_platformer2d_world::rooms::validated_spawn(
-                    &plan.spec().world,
-                    arrival_at,
-                    player_size,
-                );
-                staged_arrival = Some(
-                    ambition_platformer2d_publication::StagedArrival {
-                        subject,
-                        arrival,
-                        air_jumps: tuning.air_jumps,
-                        momentum: if edge_exit {
-                            ae::ArrivalMomentum::Preserve
-                        } else {
-                            ae::ArrivalMomentum::Reset
-                        },
-                    },
-                );
-                Some(arrival)
+        let target = room_set.definition(target_room);
+        let mints = room_set.next_live_room();
+        let mut members = Vec::new();
+        let mut seen = BTreeSet::new();
+        for transfer in intent.transfers() {
+            let subject = self.subject_entity(&transfer.subject).ok_or(RoomTransitionApplyError::SubjectGone)?;
+            if !seen.insert(subject) {
+                return Err(RoomTransitionApplyError::SubjectCannotTransit { subject, missing: "unique transfer membership" });
             }
-            _ => None,
-        };
-
-        // A transition walks within the room set it already has, so no swap.
-        // ⛔ THE HANDLE IS KEPT. It is the whole point of the split: finalization
-        // asks THIS publication whether the crossing happened.
-        // The residents of the live room being left, and no other live room's.
-        // The subject's own room when it has one: with two live rooms, "the"
-        // live room is not a fact. With nobody crossing, the sole live room.
-        let departing = subject
-            .and_then(|subject| self.subject_room.get(subject).ok())
-            .map(|room| room.0)
-            .or_else(|| self.live_room.single().ok().copied());
-        // The room this publication mints is the session's next, pinned now;
-        // the verifier refuses it if another publication mints it first.
-        let mints = self.session.iter().next().map(|rooms| rooms.next_live_room());
-        // Whether another player's body stays in the room being left: then
-        // the crossing opens a live room and the room it leaves stays whole.
-        let another_player_stays = !restart && departing.is_some_and(|departing| {
-            another_player_stays(
-                subject,
-                participant,
-                departing,
-                self.drivers
-                    .iter()
-                    .map(|(entity, driver, room)| (entity, driver.0, room.map(|room| room.0))),
-            )
+            members.push(self.prepare_member(subject, Some(transfer.arrival), transfer.participant, &plan.spec().world)?);
+        }
+        let room_plan = ambition_platformer2d_session::rooms::room_transfer_plan(
+            members.iter().map(|member| (Some(member.subject), member.participant,
+                self.subject_room.get(member.subject).ok().map(|room| room.0))),
+            self.drivers.iter().map(|(entity, driver, room)| (entity, driver.0, room.map(|room| room.0))),
+            self.definitions.iter().map(|(live, definition)| (*live, Some(*definition))),
+            target, intent.rebuilds_source_room(), restart,
+        );
+        let departing = room_plan.departing;
+        if intent.rebuilds_source_room() && !restart {
+            let mut survivors: Vec<_> = self.drivers.iter()
+                .filter(|(entity, _, room)| !seen.contains(entity) && room.map(|room| room.0) == departing)
+                .filter_map(|(entity, driver, _)| self.bodies.live_bodies.id_of(entity)
+                    .map(|id| (id, entity, driver.0))).collect();
+            survivors.sort_by(|(a, ..), (b, ..)| a.sim_id.as_str().cmp(b.sim_id.as_str()));
+            for (_, subject, participant) in survivors {
+                seen.insert(subject);
+                members.push(self.prepare_member(subject, None, Some(participant), &plan.spec().world)?);
+            }
+        }
+        let retiring = room_plan.retiring;
+        let keeps_left = departing.is_some_and(|room| !retiring.contains(&room));
+        let succession = departing.map(|leaves| publication::LiveRoomSuccession::for_crossing(
+            leaves, mints, keeps_left, room_plan.joins,
+        ));
+        let retires_beside: Vec<_> = retiring.iter().copied().filter(|live| Some(*live) != departing).collect();
+        let other_rooms_stay = room_plan.other_rooms_stay;
+        let door_sfx = intent.zone_sfx().zip(members.first()).and_then(|(cue, member)| {
+            self.bodies.clusters.get(member.subject).ok().map(|body| (cue.to_string(), body.kinematics.pos))
         });
-        // The live room of the target room that another player holds, which
-        // the crossing joins rather than build a second one.
-        let target = self.session.iter().next().and_then(|rooms| rooms.definition(target_room));
-        let joins = departing.zip(target).filter(|_| !restart).and_then(|(departing, target)| {
-            joined_room(
-                participant,
-                departing,
-                target,
-                self.definitions.iter().map(|(live, definition)| (*live, *definition)),
-                self.drivers
-                    .iter()
-                    .map(|(entity, driver, room)| (entity, driver.0, room.map(|room| room.0))),
-            )
-        });
-        let succession = departing.zip(mints).map(|(leaves, mints)| {
-            ambition_platformer2d_publication::LiveRoomSuccession::for_crossing(
-                leaves,
-                mints,
-                another_player_stays,
-                joins,
-            )
-        });
-        // A restart retires every other live room, root and residents.
-        let retires_beside: Vec<_> = self
-            .definitions
-            .iter()
-            .map(|(live, _)| *live)
-            .filter(|live| restart && Some(*live) != departing)
-            .collect();
         let publication = plan.replace_live_world_restoring(
             &mut self.commands,
-            // A room that stays live retires nothing.
-            self.room_visuals
-                .iter()
-                .filter(|_| !another_player_stays)
-                .filter(|(_, _, room)| {
-                    restart
-                        || ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance::leaves_with(
-                            *room, departing,
-                        )
-                })
-                .map(|(entity, physics, _)| (entity, physics.is_some())),
-            carry_body,
+            self.room_visuals.iter().filter(|(_, _, room)| {
+                room.map_or(!other_rooms_stay, |room| retiring.contains(&room.0))
+            }).map(|(entity, physics, _)| (entity, physics.is_some())),
+            members.iter().map(|member| member.subject),
             None,
-            staged_arrival,
-            succession,
-            retires_beside,
-            restore,
+            members.iter().map(|member| publication::StagedArrival {
+                subject: member.subject, arrival: member.arrival_pos, air_jumps: self.tuning.0.air_jumps,
+                momentum: if intent.edge_exit() { ae::ArrivalMomentum::Preserve } else { ae::ArrivalMomentum::Reset },
+            }),
+            succession, retires_beside, restore,
         );
-
-        // Every live room but the one left stays standing; the one left stays
-        // too when another player is in it.
-        let other_rooms_stay = !restart
-            && (another_player_stays
-                || self.definitions.iter().any(|(live, _)| Some(*live) != departing));
         Ok(StagedRoomTransition {
-            publication,
-            scope: CrossingScope {
-                departing,
-                departing_retires: !another_player_stays,
-                other_rooms_stay,
-            },
-            subject,
-            participant,
-            arrival_pos,
-            target_room,
-            edge_exit,
-            door_sfx,
-            player_size,
-            subject_gravity_dir,
+            publication, scope: CrossingScope { retiring: retiring.into_iter().collect(), other_rooms_stay },
+            members, target_room, edge_exit: intent.edge_exit(), door_sfx,
             target_world: plan.spec().world.clone(),
         })
     }
+
 }
 
 /// A crossing that has been prepared and whose candidate room is built but
@@ -618,19 +403,22 @@ pub struct StagedRoomTransition {
     pub publication: publication::PublicationHandle,
     /// What the crossing leaves standing.
     pub scope: CrossingScope,
-    pub subject: Option<Entity>,
-    /// Whose crossing this is, as the intent recorded it: the seat that waits
-    /// out the cooldown. `None` for a rebuild with nobody crossing.
-    pub participant: Option<ambition_characters::control::PlayerSlot>,
-    pub arrival_pos: Option<ae::Vec2>,
+    pub members: Vec<StagedRoomMember>,
     pub target_room: usize,
     pub edge_exit: bool,
     /// The zone cue and the position to play it at: where the body stood BEFORE
     /// the transit.
     pub door_sfx: Option<(String, ae::Vec2)>,
-    pub player_size: Option<ae::Vec2>,
-    pub subject_gravity_dir: ae::Vec2,
     pub target_world: ae::World,
+}
+
+/// Per-body facts frozen before the destination publishes.
+pub struct StagedRoomMember {
+    pub subject: Entity,
+    pub participant: Option<ambition_characters::control::PlayerSlot>,
+    pub arrival_pos: ae::Vec2,
+    pub size: ae::Vec2,
+    pub gravity_dir: ae::Vec2,
 }
 
 /// Everything a crossing does that MEANS the crossing happened.
@@ -675,171 +463,72 @@ impl RoomTransitionFinalize<'_, '_> {
         staged: &StagedRoomTransition,
     ) -> Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> {
         let feel = *self.feel;
-        let StagedRoomTransition {
-            scope,
-            subject,
-            participant,
-            arrival_pos,
-            target_room,
-            edge_exit,
-            door_sfx,
-            player_size,
-            subject_gravity_dir,
-            target_world,
-            ..
-        } = staged;
-        let (subject, arrival_pos, target_room, edge_exit) =
-            (*subject, *arrival_pos, *target_room, *edge_exit);
-
-        // A fresh room inherits neither hostile shots nor the gravity frame of
-        // the one just left.
-        self.carryover.clear_carryover(scope);
-
-        if let Some((cue, pos)) = door_sfx {
+        self.carryover.clear_carryover(&staged.scope);
+        if let Some((cue, pos)) = &staged.door_sfx {
             self.effects.sfx.write(SfxMessage::Play {
-                id: ambition_sfx::SfxId::new(cue),
-                emitter: (*pos).into(),
+                id: ambition_sfx::SfxId::new(cue), emitter: (*pos).into(),
             });
         }
-
-        // ⭐ THE SIM CLOCK IS ONE CLOCK FOR THE WHOLE WORLD (OW1): every live
-        // room steps on it. A crossing that replaces the world snaps it back to
-        // real time. While another live room stays, its bullet time or hitstop
-        // is not this crossing's to cancel.
-        if !scope.other_rooms_stay {
+        if !staged.scope.other_rooms_stay {
             self.clock.clock_resets.write(ClockResetRequest::sim_clock(
-                ambition_time::time_control::ClockRequester::Engine,
-                "room_transition",
+                ambition_time::time_control::ClockRequester::Engine, "room_transition",
             ));
         }
-        // The seat that crossed waits before it crosses again. Another
-        // seat's door stays open to it (OW1, customer 2). A rebuild with
-        // nobody crossing holds the primary seat, as the one cooldown did.
-        let seat = participant.unwrap_or(ambition_characters::control::PlayerSlot::PRIMARY);
-        self.clock.sim_state.hold(
-            usize::from(seat.0),
-            if edge_exit {
-                feel.edge_transition_cooldown
-            } else {
-                feel.door_transition_cooldown
-            },
-        );
         self.dev_state.preset_flash = 1.0;
-
-        // ── CROSS-DOMAIN PER-TRANSITION RESETS ───────────────────────────────
-        // Four different domains' state, so no single domain owns this and the
-        // operation that composes them does (anti-god rule 6). Optional
-        // components are absent for a possessed non-home body, which is allowed.
-        // A body that crossed by a passage comes out of its door or gate.
-        let through_a_passage = match subject.and_then(|subject| self.passages.get_mut(subject).ok()) {
-            Some(mut passage) => {
-                let facing = subject
-                    .and_then(|subject| self.bodies.clusters.get(subject).ok().map(|body| body.kinematics.facing))
-                    .unwrap_or(1.0);
-                passage.arrived(facing, arrival_pos);
-                true
+        for member in &staged.members {
+            let subject = member.subject;
+            let arrival_pos = member.arrival_pos;
+            if let Some(seat) = member.participant {
+                self.clock.sim_state.hold(usize::from(seat.0), if staged.edge_exit {
+                    feel.edge_transition_cooldown
+                } else { feel.door_transition_cooldown });
             }
-            None => false,
-        };
-        if let Some(mut combat) = subject.and_then(|s| self.bodies.combat.get_mut(s).ok()) {
-            // The arrival flash is the one thing a transition adds; a body
-            // that comes out of its door or gate is seen coming out instead.
-            combat.reset();
-            combat.hit_flash = if through_a_passage {
-                0.0
-            } else if edge_exit {
-                feel.edge_transition_flash
-            } else {
-                feel.door_transition_flash
+            let through_a_passage = match self.passages.get_mut(subject) {
+                Ok(mut passage) => {
+                    let facing = self.bodies.clusters.get(subject).map(|body| body.kinematics.facing).unwrap_or(1.0);
+                    passage.arrived(facing, Some(arrival_pos));
+                    true
+                }
+                Err(_) => false,
             };
-        }
-        if let (Some((mut blink_cam, mut safety)), Some(arrival_pos)) = (
-            subject.and_then(|s| self.bodies.presentation.get_mut(s).ok()),
-            arrival_pos,
-        ) {
-            blink_cam.blink_in_timer = 0.0;
-            blink_cam.blink_camera_from = arrival_pos;
-            blink_cam.camera_snap_timer = if edge_exit {
-                0.0
-            } else {
-                crate::ROOM_DOOR_CAMERA_SNAP_TIME
-            };
-            safety.last_safe_pos = arrival_pos;
-        }
-        if let Some(dialogue) = self.dialogue.as_deref_mut() {
-            dialogue.close();
-        }
-        // the AUTHORITY too, and it is not the same close. `DialogState` going quiet only
-        // takes the text box away; the simulation's conversation names two BODIES, and this
-        // transition just despawned the room they were standing in.
-        if let Some(conversation) = self.conversation.as_deref_mut() {
-            conversation.close();
-        }
-        if let (Some(log), Some(subject)) = (self.bodies.class_b.as_mut(), subject) {
-            log.record(
-                subject,
-                ambition_platformer2d_shared_tangle::class_b::ClassBRemap::RoomTransition,
-            );
-        }
-
-        // ── PRESENTATION: NOTHING TO ASK ─────────────────────────────────────
-        // This crossing's room is a live room, so presentation gives it its
-        // static visuals, parallax and LDtk levels by itself
-        // (`present_live_room_visuals`, `present_live_room_parallax`,
-        // `present_ldtk_levels_per_live_room`). The commit names no render
-        // system and asks for nothing.
-        // ⭐ EVERY EFFECT BELOW IS ABOUT A BODY ARRIVING SOMEWHERE, so a rebuild
-        // with nobody in it emits none of them. Skipping is not a degradation:
-        // there is no position to place a puff at and no landing to log, and the
-        // room's own visuals were already asked for above, unconditionally.
-        if let (Some(arrival_pos), Some(player_size)) = (arrival_pos, *player_size) {
-            let arrival_room = subject.and_then(|subject| self.rooms.of(subject));
-            if edge_exit {
-                // Edge exits should feel like contiguous room scrolling, not a
-                // death-like teleport. Only an arrival puff in the new room, because
-                // `from` would be expressed in the previous room's coordinate space.
+            if let Ok(mut combat) = self.bodies.combat.get_mut(subject) {
+                combat.reset();
+                combat.hit_flash = if through_a_passage { 0.0 }
+                    else if staged.edge_exit { feel.edge_transition_flash }
+                    else { feel.door_transition_flash };
+            }
+            if let Ok((mut blink_cam, mut safety)) = self.bodies.presentation.get_mut(subject) {
+                blink_cam.blink_in_timer = 0.0;
+                blink_cam.blink_camera_from = arrival_pos;
+                blink_cam.camera_snap_timer = if staged.edge_exit { 0.0 } else { crate::ROOM_DOOR_CAMERA_SNAP_TIME };
+                safety.last_safe_pos = arrival_pos;
+            }
+            if let Some(log) = self.bodies.class_b.as_mut() {
+                log.record(subject, ambition_platformer2d_shared_tangle::class_b::ClassBRemap::RoomTransition);
+            }
+            let arrival_room = self.rooms.of(subject);
+            if staged.edge_exit {
                 self.effects.vfx.for_room(arrival_room).write(VfxMessage::Burst {
-                    pos: arrival_pos,
-                    count: 18,
-                    speed: 260.0,
-                    color: [0.35, 0.95, 1.0, 0.75],
-                    kind: ParticleKind::Dust,
+                    pos: arrival_pos, count: 18, speed: 260.0,
+                    color: [0.35, 0.95, 1.0, 0.75], kind: ParticleKind::Dust,
                 });
-            } else if through_a_passage {
-                // It comes out of its door or gate (`rooms::passage`).
-            } else {
-                // Door transitions are discrete interactions, so a teleport-like
-                // effect is acceptable; use the destination for both endpoints to
-                // avoid mixing coordinate systems from two rooms.
-                self.effects.vfx.for_room(arrival_room).write(VfxMessage::ResetEffects {
-                    from: arrival_pos,
-                    to: arrival_pos,
-                });
+            } else if !through_a_passage {
+                self.effects.vfx.for_room(arrival_room).write(VfxMessage::ResetEffects { from: arrival_pos, to: arrival_pos });
             }
-            self.effects
-                .sfx
-                .write(SfxMessage::Reset { pos: arrival_pos });
-
+            self.effects.sfx.write(SfxMessage::Reset { pos: arrival_pos });
             if let Some(room_set) = self.session.iter().next() {
-                log_room_transition_landing(
-                    target_room,
-                    room_set,
-                    arrival_pos,
-                    player_size,
-                    *subject_gravity_dir,
-                    // ⛔ THE TARGET ROOM'S GEOMETRY, captured at staging: the
-                    // live component IS this room's now, but the staged copy is
-                    // the one the arrival was validated against, so the report
-                    // and the placement cannot disagree.
-                    target_world,
-                );
+                log_room_transition_landing(staged.target_room, room_set, arrival_pos,
+                    member.size, member.gravity_dir, &staged.target_world);
             }
         }
-        match subject {
-            Some(subject) => self.rooms.of(subject),
+        if let Some(dialogue) = self.dialogue.as_deref_mut() { dialogue.close(); }
+        if let Some(conversation) = self.conversation.as_deref_mut() { conversation.close(); }
+        match staged.members.first() {
+            Some(member) => self.rooms.of(member.subject),
             None => self.rooms.sole(),
         }
     }
+
 }
 
 /// Ask the exact publication whether the crossing happened, and finish it if it
@@ -951,46 +640,6 @@ impl TransitBodies<'_, '_> {
     ) -> Option<Entity> {
         self.live_bodies.entity_of(subject)
     }
-}
-
-// The rule lives beside the claims it reads; the commit and the away
-// population (`body_whereabouts`) ask the same question.
-pub use ambition_platformer2d_session::rooms::another_player_stays;
-
-/// The live room a crossing by participant `participant` into room `target`
-/// joins (OW1 cut 6e): a live room of `target`, other than `departing`, that
-/// a body of another slot is in now. `None` when no other participant holds
-/// one, and then the crossing makes the room live itself.
-///
-/// ⛔ ONE LIVE ROOM OF A ROOM PER PLAYER GROUP. Two players who stand in "the
-/// hub" stand in one live room, so what one does there, the other sees. Only
-/// a participant's crossing joins, as only one opens a room, and
-/// `participant` is the one the intent recorded (see
-/// [`another_player_stays`]).
-pub fn joined_room(
-    participant: Option<ambition_characters::control::PlayerSlot>,
-    departing: world_rooms::LiveRoomInstance,
-    target: world_rooms::LiveRoomDefinition,
-    rooms: impl IntoIterator<Item = (world_rooms::LiveRoomInstance, world_rooms::LiveRoomDefinition)>,
-    drivers: impl IntoIterator<
-        Item = (
-            Entity,
-            ambition_characters::control::PlayerSlot,
-            Option<world_rooms::LiveRoomInstance>,
-        ),
-    >,
-) -> Option<world_rooms::LiveRoomInstance> {
-    let participant = participant?;
-    let drivers: Vec<_> = drivers.into_iter().collect();
-    rooms
-        .into_iter()
-        .filter(|(room, definition)| *room != departing && *definition == target)
-        .map(|(room, _)| room)
-        .find(|room| {
-            drivers
-                .iter()
-                .any(|(_, slot, at)| *slot != participant && *at == Some(*room))
-        })
 }
 
 /// Retire one eager-host transaction while leaving the still-authoritative
@@ -1245,31 +894,6 @@ pub fn commit_ready_room_transition_system(
     // subject the intent DID name is a body that is gone, which is terminal.
     // Collapsing them would turn every dead-body crossing into a silent bodyless
     // rebuild of the destination room.
-    let subject = match intent.subject() {
-        None => None,
-        Some(recorded) => {
-            let Some(entity) = application.subject_entity(recorded) else {
-                pending_lifecycle.take();
-                cancel_eager_room_transition_transaction(
-                    &mut transition_state,
-                    &mut loads,
-                    &mut load_events,
-                    &mut next_mode,
-                    &active,
-                    "room_commit_subject_unavailable",
-                );
-                bevy::log::warn!(
-                    target: "ambition_platformer2d::room_transition",
-                    "the body that triggered room transition {} ({:?}) is gone; cancelling the crossing",
-                    active.sequence,
-                    recorded,
-                );
-                return;
-            };
-            Some(entity)
-        }
-    };
-
     let target_room = active.target_room;
     // AMBITION_REVIEW(determinism): wall clock, and deliberately so — this
     // measures how long the commit TOOK for `commit_duration`, a write-only
@@ -1299,12 +923,8 @@ pub fn commit_ready_room_transition_system(
         .is_some_and(|accepted| accepted.fresh);
     let staged = match application.stage(
         construction_plan,
-        subject,
-        intent.participant(),
+        &intent,
         target_room,
-        intent.arrival(),
-        intent.edge_exit(),
-        intent.zone_sfx(),
         restart,
         active.checkpoint_operation,
     ) {
@@ -1624,19 +1244,15 @@ fn log_room_transition_landing(
 #[cfg(test)]
 mod another_player_tests {
     use super::*;
+    use ambition_platformer2d_session::rooms::rooms_released_by_transfer;
     use ambition_characters::control::PlayerSlot;
 
     fn entity(index: u32) -> Entity {
         Entity::from_raw_u32(index).expect("a test entity index")
     }
 
-    /// OW1 cut 6c: a room a crossing leaves stays live only for ANOTHER
-    /// participant. Alice (slot 0) crosses out of #0. A second body slot 0
-    /// drives stays in #0 and does not keep it live: that is the one-room
-    /// profile. Bob (slot 1) in #0 keeps it live; Bob in #1 does not. A
-    /// crossing no slot drove does not keep #0 live: the session follows it.
-    /// And the recorded participant decides, not the subject's slot now: with
-    /// Alice driven by nobody at commit, her crossing is still slot 0's.
+    /// Unselected participants keep their source room. A selected participant's
+    /// other controlled bodies do not create another claim for that participant.
     #[test]
     fn a_room_stays_live_for_another_player_and_not_for_the_subjects_own_bodies() {
         let first = world_rooms::LiveRoomInstance::ACTIVATION;
@@ -1645,54 +1261,22 @@ mod another_player_tests {
         let alone = [(alice, PlayerSlot(0), Some(first)), (home, PlayerSlot(0), Some(first))];
         let slot0 = Some(PlayerSlot(0));
         assert!(
-            !another_player_stays(Some(alice), slot0, first, alone),
+            rooms_released_by_transfer([first], [(Some(alice), slot0)], alone).contains(&first),
             "control: the subject's own slot kept the room it leaves live"
         );
         let with_bob = |room| {
-            another_player_stays(Some(alice), slot0, first, alone.into_iter().chain([(bob, PlayerSlot(1), Some(room))]))
+            !rooms_released_by_transfer([first], [(Some(alice), slot0)], alone.into_iter().chain([(bob, PlayerSlot(1), Some(room))])).contains(&first)
         };
         assert!(with_bob(first), "another player's body in the room did not keep it live");
         assert!(!with_bob(second), "another player's body in ANOTHER room kept this one live");
         let bob_stays = [(bob, PlayerSlot(1), Some(first))];
         assert!(
-            !another_player_stays(Some(entity(4)), None, first, bob_stays),
-            "a crossing no slot drove opened a live room"
+            !rooms_released_by_transfer([first], [(Some(entity(4)), None)], bob_stays).contains(&first),
+            "a crossing with no participant retired another body's room"
         );
         assert!(
-            another_player_stays(Some(alice), slot0, first, bob_stays),
+            !rooms_released_by_transfer([first], [(Some(alice), slot0)], bob_stays).contains(&first),
             "the recorded participant did not decide once the subject lost its slot"
         );
-    }
-}
-
-#[cfg(test)]
-mod joined_room_tests {
-    use super::*;
-    use ambition_characters::control::PlayerSlot;
-
-    fn entity(index: u32) -> Entity {
-        Entity::from_raw_u32(index).expect("a test entity index")
-    }
-
-    /// OW1 cut 6e: Bob (slot 1) crosses from #0 into the hub. Alice (slot 0)
-    /// is in #1, a live room of the hub: he joins #1. The controls: Alice in
-    /// #2, a live room of another room, is joined by no crossing into the
-    /// hub; Bob's own slot on a body in #1 is not another participant; and a
-    /// crossing no slot drove joins nothing.
-    #[test]
-    fn a_crossing_joins_the_live_room_of_its_target_that_another_player_holds() {
-        let first = world_rooms::LiveRoomInstance::ACTIVATION;
-        let (second, third) = (first.next(), first.next().next());
-        let (hub, lab) = (world_rooms::LiveRoomDefinition::from_index(1), world_rooms::LiveRoomDefinition::from_index(2));
-        let rooms = [(first, lab), (second, hub), (third, lab)];
-        let alice = entity(2);
-        let joins = |participant, alice_room, alice_slot| {
-            joined_room(participant, first, hub, rooms, [(alice, alice_slot, Some(alice_room))])
-        };
-        let bob = Some(PlayerSlot(1));
-        assert_eq!(joins(bob, second, PlayerSlot(0)), Some(second), "Bob did not join Alice's hub");
-        assert_eq!(joins(bob, third, PlayerSlot(0)), None, "control: Bob joined a live room of another room");
-        assert_eq!(joins(bob, second, PlayerSlot(1)), None, "control: Bob's own slot counted as another player");
-        assert_eq!(joins(None, second, PlayerSlot(0)), None, "control: a crossing no slot drove joined a room");
     }
 }

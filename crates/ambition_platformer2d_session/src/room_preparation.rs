@@ -149,14 +149,14 @@ fn select_continuity(
         .and_then(|accepted| accepted.lifecycle.as_ref())
         .map(|lifecycle| lifecycle.occurrences.remembered());
     let occurrences = if let Some(restored) = restored {
-        let survivors = custody.surviving(&operation.kind);
+        let survivors = custody.surviving(&operation.kind, restore.is_some_and(|accepted| accepted.fresh));
         Some(if survivors.is_empty() {
             restored.clone()
         } else {
             restored.with_custody_held(&survivors)
         })
     } else {
-        let released = custody.released_by(&operation.kind);
+        let released = custody.released_by(&operation.kind, false);
         live.map(|ledger| {
             if released.is_empty() {
                 ledger.clone()

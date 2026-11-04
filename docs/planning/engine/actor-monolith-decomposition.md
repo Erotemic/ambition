@@ -171,7 +171,7 @@ is the plan it executed.
 
 The adapter depended on
 `session::lifecycle_commit::LifecycleIntent` and
-`rooms::another_player_stays`; the runtime transition loader is its
+`rooms::rooms_released_by_transfer`; the runtime transition loader is its
 production consumer (`room_transition/loading.rs`). Move the adapter and
 its tests near the room-transition integration path. Keep durable
 whereabouts state and its ordinary readers in the domain. Do not make the

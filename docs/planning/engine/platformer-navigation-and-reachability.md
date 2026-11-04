@@ -432,14 +432,12 @@ room, decides whether it can reach it, goes there with its real movement, and
 does a typed action. What the tree has, measured 2026-10-09:
 
 - A route over rooms: `RoomSet::route` (fewest rooms, by authored zones).
-- A body moves from one live room to another only as a crossing's subject (a
-  driven body) or in its custody. The player road
-  (`RoomTransitionIntent` and the room transaction) is not for a body that no
-  slot drives: with no participant, `another_player_stays` is false and the
-  crossing would retire the room the body leaves, and the road runs the room
-  load. The second-seat return (`sandbox_reset.rs`) moves a body between two
-  live rooms directly: it stamps the body's custody closure with the
-  destination's `InRoomInstance` and calls `transit_body`.
+- Native room admissions accept a body roster, including bodies that no
+  participant drives. The shared room application retains rooms with
+  unselected claims and moves selected bodies and their custody together.
+  A character driver can use this admission seam. The old second-seat return
+  still uses direct transit; PARTY-TRAVEL-POLICIES will route that return through
+  native room admission.
 - A body left in a room that is not live is rebuilt there from its `Placed`
   whereabouts row (`a_character_left_elsewhere_stays_there`).
 - A held item is taken only by a driven body, on an Attack press

@@ -25,13 +25,17 @@ fn pending_and_withdrawn_restore_keys_survive_the_registered_snapshot_path() {
         let key = pending.record_restore(
             4,
             LifecycleIntent::Transition(RoomTransitionIntent {
+                disposition: Default::default(),
                 source_zone: None,
-                subject: LiveBodyId::new(SimId::placement("traveller"), None),
+                initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
+                    subject: LiveBodyId::new(SimId::placement("traveller"), None),
+                    arrival: Vec2::new(20.0, 30.0),
+                    participant: Some(PlayerSlot(2)),
+                },
+                companions: Vec::new(),
                 target_room: "east".into(),
-                arrival: Vec2::new(20.0, 30.0),
                 edge_exit: false,
                 zone_sfx: None,
-                participant: Some(PlayerSlot(2)),
             }),
             &mut SessionCheckpointOperations::default(),
             Some(SessionScopeId(123)),
@@ -103,10 +107,16 @@ fn room_preparation_inputs_survive_the_registered_snapshot_path() {
     ));
     let mut pending = PendingLifecycleCommit::default();
     assert!(pending.record(4, LifecycleIntent::Transition(RoomTransitionIntent {
+        disposition: Default::default(),
         source_zone: None,
-        subject: LiveBodyId::new(SimId::placement("traveller"), None),
-        target_room: "east".into(), arrival: Vec2::new(20.0, 30.0),
-        edge_exit: false, zone_sfx: None, participant: Some(PlayerSlot(0)),
+                initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
+                    subject: LiveBodyId::new(SimId::placement("traveller"), None),
+                    arrival: Vec2::new(20.0, 30.0),
+                    participant: Some(PlayerSlot(0)),
+                },
+                companions: Vec::new(),
+        target_room: "east".into(),
+        edge_exit: false, zone_sfx: None,
     })).admitted());
     app.insert_resource(pending.clone());
     let mut ledger = AuthoredOccurrences::default();

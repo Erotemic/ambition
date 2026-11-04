@@ -1,18 +1,8 @@
-//! Who holds a live room live (OW4, first slice).
+//! Live room claims and retention for an admitted body roster.
 //!
-//! A live room stays live while a participant's driven body is in it. That is
-//! the rule a crossing uses to choose whether the room it leaves stays whole
-//! ([`another_player_stays`], which the room transition commit asks) or is
-//! retired. This
-//! module holds that rule once, as [`claims_on`], and derives from it the
-//! read-only answer "which owners hold each live room" ([`live_room_claims`]),
-//! which the `[census] rooms` instrument prints.
-//!
-//! ⛔ DERIVED AND READ-ONLY. A claim is not stored: it is read from the driven
-//! bodies and their `InRoomInstance` stamps every time it is asked. So a
-//! claim is released when its body leaves the room or stops being driven,
-//! even when the producer that put it there no longer ticks, and a refused
-//! crossing, which moves no body, releases nothing.
+//! A participant's driven body holds its room. A transfer releases source
+//! rooms only when no unselected body or participant keeps a claim there.
+//! Claims are derived from bodies and room stamps, not stored separately.
 
 use bevy::prelude::Entity;
 
@@ -41,43 +31,6 @@ pub fn claims_on(
         .into_iter()
         .filter(move |(_, _, stamped)| *stamped == Some(room))
         .map(|(body, slot, _)| RoomClaim { slot, body })
-}
-
-/// Whether a crossing by `subject`, participant `participant`'s, out of
-/// live room `departing` leaves another participant's body behind in it (OW1
-/// cut 6c). `drivers` are the driven bodies now: each entity, the slot that
-/// drives it and the live room it is in.
-///
-/// ⛔ `participant` IS THE ONE RECORDED ON THE INTENT, never the subject's
-/// current slot: control can move off the subject between detection and
-/// commit (see `RoomTransitionIntent::participant`). The other participants'
-/// rooms are read now.
-///
-/// ⛔ ANOTHER PARTICIPANT IS ANOTHER SLOT. The crossing participant's own slot
-/// may be on other bodies, and those do not keep a room live, so with one
-/// player the crossing always replaces the room it leaves, and the one-room
-/// profile never opens a second room.
-///
-/// ⛔ ONLY A PARTICIPANT'S CROSSING OPENS A ROOM. A crossing no slot drove (a
-/// body the session sends across) is not a player leaving another player:
-/// the session follows it and replaces the room.
-pub fn another_player_stays(
-    subject: Option<Entity>,
-    participant: Option<PlayerSlot>,
-    departing: LiveRoomInstance,
-    drivers: impl IntoIterator<
-        Item = (
-            Entity,
-            PlayerSlot,
-            Option<LiveRoomInstance>,
-        ),
-    >,
-) -> bool {
-    let Some(participant) = participant else {
-        return false;
-    };
-    claims_on(departing, drivers)
-        .any(|claim| Some(claim.body) != subject && claim.slot != participant)
 }
 
 /// Each live room in `rooms` and the claims on it, in room order, each list
@@ -116,4 +69,94 @@ pub fn live_room_claims_in(world: &mut bevy::prelude::World) -> Vec<(LiveRoomIns
         .map(|(body, driver, room)| (body, driver.0, room.map(|room| room.0)))
         .collect();
     live_room_claims(rooms, drivers)
+}
+
+/// Source rooms with no claim outside the selected bodies and participants.
+pub fn rooms_released_by_transfer(
+    sources: impl IntoIterator<Item = LiveRoomInstance>,
+    members: impl IntoIterator<Item = (Option<Entity>, Option<PlayerSlot>)>,
+    drivers: impl IntoIterator<Item = (Entity, PlayerSlot, Option<LiveRoomInstance>)>,
+) -> std::collections::BTreeSet<LiveRoomInstance> {
+    let members: Vec<_> = members.into_iter().collect();
+    let mut released: std::collections::BTreeSet<_> = sources.into_iter().collect();
+    for (body, slot, room) in drivers {
+        if !members.iter().any(|(selected, participant)| *selected == Some(body) || *participant == Some(slot)) {
+            if let Some(room) = room { released.remove(&room); }
+        }
+    }
+    released
+}
+
+/// Room fate shared by preparation and publication for one admitted roster.
+pub struct RoomTransferPlan {
+    pub departing: Option<LiveRoomInstance>,
+    pub joins: Option<LiveRoomInstance>,
+    pub retiring: std::collections::BTreeSet<LiveRoomInstance>,
+    pub other_rooms_stay: bool,
+}
+
+pub fn room_transfer_plan(
+    members: impl IntoIterator<Item = (Option<Entity>, Option<PlayerSlot>, Option<LiveRoomInstance>)>,
+    drivers: impl IntoIterator<Item = (Entity, PlayerSlot, Option<LiveRoomInstance>)>,
+    rooms: impl IntoIterator<Item = (LiveRoomInstance, Option<ambition_platformer2d_world::rooms::LiveRoomDefinition>)>,
+    target: Option<ambition_platformer2d_world::rooms::LiveRoomDefinition>,
+    rebuild_source: bool,
+    restart: bool,
+) -> RoomTransferPlan {
+    let members: Vec<_> = members.into_iter().collect();
+    let mut rooms: Vec<_> = rooms.into_iter().collect();
+    rooms.sort_by_key(|(room, _)| *room);
+    let departing = members.first().and_then(|(_, _, room)| *room)
+        .or_else(|| members.is_empty().then(|| rooms.iter()
+            .find(|(_, definition)| target.is_some() && *definition == target).map(|(room, _)| *room)).flatten())
+        .or_else(|| (rooms.len() == 1).then(|| rooms[0].0));
+    let sources = members.iter().filter_map(|(_, _, room)| *room).chain(departing);
+    let mut retiring = rooms_released_by_transfer(sources,
+        members.iter().map(|(body, slot, _)| (*body, *slot)), drivers);
+    if rebuild_source { retiring.extend(departing); }
+    let joins = (!restart && !members.is_empty()).then(|| rooms.iter()
+        .find(|(room, definition)| Some(*room) != departing && target.is_some() && *definition == target)
+        .map(|(room, _)| *room)).flatten();
+    if let Some(joins) = joins { retiring.remove(&joins); }
+    if restart { retiring.extend(rooms.iter().map(|(room, _)| *room)); }
+    let other_rooms_stay = rooms.iter().any(|(room, _)| !retiring.contains(room));
+    RoomTransferPlan { departing, joins, retiring, other_rooms_stay }
+}
+
+#[cfg(test)]
+mod transfer_tests {
+    use super::*;
+    use ambition_platformer2d_world::rooms::LiveRoomDefinition;
+
+    #[test]
+    fn a_roster_releases_only_sources_without_an_unselected_claim() {
+        let first = LiveRoomInstance::ACTIVATION;
+        let (second, target) = (first.next(), first.next().next());
+        let body = |index| Entity::from_raw_u32(index).unwrap();
+        let (a, b, c) = (body(1), body(2), body(3));
+        let definition = |index| LiveRoomDefinition::from_index(index);
+        let plan = room_transfer_plan(
+            [(Some(a), Some(PlayerSlot(0)), Some(first)), (Some(b), Some(PlayerSlot(1)), Some(second))],
+            [(a, PlayerSlot(0), Some(first)), (b, PlayerSlot(1), Some(second)), (c, PlayerSlot(2), Some(second))],
+            [(first, Some(definition(0))), (second, Some(definition(1))), (target, Some(definition(2)))],
+            Some(definition(2)), false, false,
+        );
+        assert_eq!(plan.departing, Some(first));
+        assert_eq!(plan.joins, Some(target));
+        assert_eq!(plan.retiring, [first].into_iter().collect());
+        assert!(plan.other_rooms_stay);
+    }
+
+    #[test]
+    fn a_named_bodyless_rebuild_selects_its_room_among_several_live_rooms() {
+        let first = LiveRoomInstance::ACTIVATION;
+        let second = first.next();
+        let plan = room_transfer_plan([], [],
+            [(first, Some(LiveRoomDefinition::from_index(0))), (second, Some(LiveRoomDefinition::from_index(1)))],
+            Some(LiveRoomDefinition::from_index(1)), true, false);
+        assert_eq!(plan.departing, Some(second));
+        assert_eq!(plan.retiring, [second].into_iter().collect());
+        assert_eq!(plan.joins, None);
+        assert!(plan.other_rooms_stay);
+    }
 }

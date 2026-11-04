@@ -1140,7 +1140,7 @@ pub fn begin_room_transition_load_system(
         // not the same as an arrival that failed validation — `is_finite` on a
         // substituted zero would PASS and place a body at the origin. `None`
         // skips the check because there is nothing being placed.
-        if intent.arrival().is_some_and(|arrival| !arrival.is_finite()) {
+        if intent.transfers().any(|transfer| !transfer.arrival.is_finite()) {
             let detail = format!(
                 "transition into '{}' has non-finite arrival {:?}",
                 target_spec.id,
@@ -1585,13 +1585,17 @@ mod tests {
 
     fn request_by(target_room: &str, arrival: ae::Vec2, subject: SimId) -> LifecycleIntent {
         LifecycleIntent::Transition(RoomTransitionIntent {
+            disposition: Default::default(),
             source_zone: None,
-            subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(subject, None),
+                initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
+                    subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(subject, None),
+                    arrival: arrival,
+                    participant: None,
+                },
+                companions: Vec::new(),
             target_room: target_room.to_string(),
-            arrival,
             edge_exit: false,
             zone_sfx: None,
-            participant: None,
         })
     }
 
@@ -1922,13 +1926,17 @@ mod checkpoint_failure_tests {
 
     fn crossing() -> LifecycleIntent {
         LifecycleIntent::Transition(RoomTransitionIntent {
+            disposition: Default::default(),
             source_zone: None,
-            subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("hero"), None),
+                initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
+                    subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("hero"), None),
+                    arrival: ambition_platformer2d_core::Vec2::ZERO,
+                    participant: None,
+                },
+                companions: Vec::new(),
             target_room: "a_room_that_cannot_be_prepared".into(),
-            arrival: ambition_platformer2d_core::Vec2::ZERO,
             edge_exit: false,
             zone_sfx: None,
-            participant: None,
         })
     }
 

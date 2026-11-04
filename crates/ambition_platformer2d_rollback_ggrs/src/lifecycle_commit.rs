@@ -43,6 +43,7 @@ use ambition_platformer2d_session::lifecycle_commit::{
     LifecycleIntent, PendingIntent, PendingLifecycleCommit,
 };
 use ambition_platformer2d_publication::RoomConstructionPlan;
+#[cfg(test)]
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::ConfirmedFrameBoundary;
 
@@ -721,12 +722,7 @@ fn execute_lifecycle_commit(
             world,
             &plan,
             checkpoint_operation,
-            kind.subject(),
-            kind.participant(),
-            kind.target_room(),
-            kind.arrival(),
-            kind.edge_exit(),
-            kind.zone_sfx(),
+            &kind,
         ),
         // An intent with no authorized plan cannot reach here: the caller
         // returns before building a session. Treated as transient rather than
@@ -753,15 +749,9 @@ fn commit_transition(
     checkpoint_operation: Option<
         ambition_platformer2d_session::checkpoint::CheckpointOperationKey,
     >,
-    // `None` is a rebuild with NOBODY IN IT, not a body that could not be found
-    // — see the resolution below, which keeps those two apart.
-    subject: Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId>,
-    participant: Option<ambition_characters::control::PlayerSlot>,
-    target_room: &str,
-    arrival: Option<ae::Vec2>,
-    edge_exit: bool,
-    zone_sfx: Option<&str>,
+    intent: &LifecycleIntent,
 ) -> CommitOutcome {
+    let target_room = intent.target_room();
     let Some(target_index) = ({
         let mut rooms = world.query::<&ambition_platformer2d_world::rooms::RoomSet>();
         rooms
@@ -806,38 +796,7 @@ fn commit_transition(
         let mut application = state
             .get_mut(world)
             .expect("RoomTransitionApplication params are the ones RoomTransitionPlugin installs");
-        // ⛔ THE TWO `None`s AGAIN. An intent that names NO subject is a bodyless
-        // rebuild and applies with `None`. An intent that names one whose body is
-        // gone is `SubjectGone` — a void crossing the caller drops. Collapsing
-        // them would silently rebuild the destination room for a dead body's
-        // crossing instead of cancelling it.
-        match subject {
-            None => application.stage(
-                plan,
-                None,
-                None,
-                target_index,
-                arrival,
-                edge_exit,
-                zone_sfx,
-                restart,
-                checkpoint_operation,
-            ),
-            Some(recorded) => match application.subject_entity(recorded) {
-                None => Err(ambition_platformer2d_runtime::room_transition::RoomTransitionApplyError::SubjectGone),
-                Some(entity) => application.stage(
-                    plan,
-                    Some(entity),
-                    participant,
-                    target_index,
-                    arrival,
-                    edge_exit,
-                    zone_sfx,
-                    restart,
-                    checkpoint_operation,
-                ),
-            },
-        }
+        application.stage(plan, intent, target_index, restart, checkpoint_operation)
     };
     //  unconditionally, before any early return. `SystemState` holds the
     // command queue the application wrote into; dropping it without applying
@@ -934,13 +893,17 @@ mod tests {
 
     fn intent_to(target_room: &str, subject: SimId) -> LifecycleIntent {
         LifecycleIntent::Transition(RoomTransitionIntent {
+            disposition: Default::default(),
             source_zone: None,
-            subject: LiveBodyId::new(subject, None),
+                initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
+                    subject: LiveBodyId::new(subject, None),
+                    arrival: ae::Vec2::ZERO,
+                    participant: None,
+                },
+                companions: Vec::new(),
             target_room: target_room.to_string(),
-            arrival: ae::Vec2::ZERO,
             edge_exit: true,
             zone_sfx: None,
-            participant: None,
         })
     }
 

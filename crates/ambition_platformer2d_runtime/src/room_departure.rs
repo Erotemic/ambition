@@ -181,14 +181,18 @@ pub fn drive_departures(
         let _ = pending.record(
             boundary.as_deref().map_or(0, |boundary| boundary.current),
             LifecycleIntent::Transition(RoomTransitionIntent {
+                disposition: Default::default(),
                 source_zone: None,
-                subject,
+                initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
+                    subject: subject,
+                    arrival: arrival,
+                    participant: driver.map(|driver| driver.0),
+                },
+                companions: Vec::new(),
                 target_room: target,
-                arrival,
                 // Finishing a level is not walking off the side of a room.
                 edge_exit: false,
                 zone_sfx: None,
-                participant: driver.map(|driver| driver.0),
             }),
         );
     }
@@ -309,13 +313,17 @@ mod tests {
         );
         // Another lifecycle operation owns the earliest-sticky slot.
         let competing = LifecycleIntent::Transition(RoomTransitionIntent {
+            disposition: Default::default(),
             source_zone: None,
-            subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::player_slot(0), None),
+                initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
+                    subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::player_slot(0), None),
+                    arrival: ae::Vec2::ZERO,
+                    participant: None,
+                },
+                companions: Vec::new(),
             target_room: "second".into(),
-            arrival: ae::Vec2::ZERO,
             edge_exit: false,
             zone_sfx: None,
-            participant: None,
         });
         let _ = app.world_mut().resource_mut::<PendingLifecycleCommit>().record(0, competing);
 

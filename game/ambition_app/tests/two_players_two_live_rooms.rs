@@ -3766,3 +3766,54 @@ fn two_live_rooms_hold_under_a_sync_test() {
     assert_eq!(two_rooms_under_a_sync_test(false), (true, Ok(())));
 }
 
+
+#[test]
+fn one_native_admission_carries_two_bodies_from_separate_rooms() {
+    use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
+    use ambition_platformer2d::platformer::lifecycle::LiveBodyId;
+    use ambition_platformer2d::session::lifecycle_commit::{
+        LifecycleIntent, PendingLifecycleCommit, RoomBodyTransfer, RoomTransitionIntent,
+    };
+    let (mut sim, first) = alice_leaves_bob(Some(PlayerSlot(1)));
+    let source_rooms = live_rooms(&mut sim);
+    assert_eq!(source_rooms.len(), 2);
+    let target = "math_gate_hall";
+    let (transfers, before_next) = {
+        let world = sim.world_mut();
+        let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+            ambition_platformer2d::world::rooms::RoomSet>(world).unwrap();
+        let spawn = rooms.spec(rooms.definition_by_id(target).unwrap()).world.spawn;
+        let next = rooms.next_live_room();
+        let mut bodies: Vec<_> = world.query::<(bevy::prelude::Entity, &DrivingParticipant)>()
+            .iter(world).map(|(entity, driver)| (driver.0, entity)).collect();
+        bodies.sort_by_key(|(slot, _)| slot.0);
+        let transfers: Vec<_> = bodies.into_iter().map(|(slot, entity)| RoomBodyTransfer {
+            subject: LiveBodyId::of_entity(world, entity).unwrap(), participant: Some(slot),
+            arrival: spawn + ambition_platformer2d::engine_core::Vec2::new(slot.0 as f32 * 40.0, 0.0),
+        }).collect();
+        (transfers, next)
+    };
+    assert_eq!(transfers.len(), 2);
+    let identities: Vec<_> = transfers.iter().map(|transfer| transfer.subject.sim_id.clone()).collect();
+    let intent = RoomTransitionIntent {
+        disposition: Default::default(),
+        source_zone: None, initiator: transfers[0].clone(), companions: transfers[1..].to_vec(),
+        target_room: target.into(), edge_exit: false, zone_sfx: None,
+    };
+    assert!(sim.world_mut().resource_mut::<PendingLifecycleCommit>()
+        .record(0, LifecycleIntent::Transition(intent)).admitted());
+    sim.rebase_rollback_history().unwrap();
+    for _ in 0..360 {
+        sim.step(base());
+        if live_rooms(&mut sim) == vec![(before_next, target.into())] { break; }
+    }
+    assert_eq!(live_rooms(&mut sim), vec![(before_next, target.into())]);
+    let world = sim.world_mut();
+    let mut arrived: Vec<_> = world.query::<(
+        &DrivingParticipant, &ambition_platformer2d::platformer::sim_id::SimId, &InRoomInstance,
+    )>().iter(world).map(|(driver, id, room)| (driver.0.0, id.clone(), room.0)).collect();
+    arrived.sort_by_key(|row| row.0);
+    assert_eq!(arrived, vec![(0, identities[0].clone(), before_next), (1, identities[1].clone(), before_next)]);
+    assert_ne!(before_next, first);
+    assert!(sim.rollback_health().is_ok());
+}

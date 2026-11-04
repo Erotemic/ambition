@@ -314,13 +314,17 @@ fn cross_into_a_cached_neighbour(as_checkpoint_restore: bool) -> bool {
         ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(world, entity).expect("the subject has a SimId")
     };
     let intent = RoomTransitionIntent {
+        disposition: Default::default(),
         source_zone: None,
-        subject: subject.clone(),
+                initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
+                    subject: subject.clone(),
+                    arrival: ambition_platformer2d::engine_core::Vec2::ZERO,
+                    participant: None,
+                },
+                companions: Vec::new(),
         target_room: neighbour.clone(),
-        arrival: ambition_platformer2d::engine_core::Vec2::ZERO,
         edge_exit: false,
         zone_sfx: None,
-        participant: None,
     };
 
     if as_checkpoint_restore {
@@ -479,13 +483,17 @@ fn rebuilt_room_holds_its_ground_item(relocated: bool) -> bool {
         ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(world, entity).expect("the subject has a SimId")
     };
     let intent = LifecycleIntent::Transition(RoomTransitionIntent {
+        disposition: Default::default(),
         source_zone: None,
-        subject: subject.clone(),
+                initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
+                    subject: subject.clone(),
+                    arrival: ambition_platformer2d::engine_core::Vec2::ZERO,
+                    participant: None,
+                },
+                companions: Vec::new(),
         target_room: target.clone(),
-        arrival: ambition_platformer2d::engine_core::Vec2::ZERO,
         edge_exit: false,
         zone_sfx: None,
-        participant: None,
     });
     {
         let world = app.world_mut();
@@ -621,13 +629,17 @@ pub(crate) fn cross(
 
     let subject = LiveBodyId::of_entity(app.world(), body).expect("the body has a SimId");
     let intent = LifecycleIntent::Transition(RoomTransitionIntent {
+        disposition: Default::default(),
         source_zone: None,
-        subject,
+                initiator: ambition_platformer2d::session::lifecycle_commit::RoomBodyTransfer {
+                    subject: subject,
+                    arrival: ambition_platformer2d::engine_core::Vec2::new(200.0, 200.0),
+                    participant: Some(slot),
+                },
+                companions: Vec::new(),
         target_room: target.to_owned(),
-        arrival: ambition_platformer2d::engine_core::Vec2::new(200.0, 200.0),
         edge_exit: false,
         zone_sfx: None,
-        participant: Some(slot),
     });
     assert!(
         app.world_mut()

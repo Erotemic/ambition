@@ -644,9 +644,15 @@ destination. A held publication checks the batch again before release.
 `bodies_from_two_rooms_arrive_together_with_their_custody` and
 `a_held_batch_rechecks_every_member_before_it_publishes` guard this boundary.
 
-**Next action:** capture the selected group in the native room admission and
-apply it through the shared room transfer. Add explicit group travel rules,
-the optional leader view, a Select return action, and settings.
+Native admission now retains an initiating transfer and companions. Each body,
+arrival, and participant is part of the rollback checksum (schema 416). Both
+hosts use the same application and finalization for the full roster.
+`one_native_admission_carries_two_bodies_from_separate_rooms` covers the app path.
+Preparation and publication share `room_transfer_plan`. A room rebuild has an
+explicit disposition; an absent participant no longer selects room fate.
+
+**Next action:** select the group through explicit travel rules at zone
+admission. Add the optional leader view, a Select return action, and settings.
 Support independent, leader, any-member, and all-member travel. In all-member
 mode, moving away cancels agreement. A forbidden follower edge acts as a wall.
 Use one room constructor and one body transfer path. Keep the independent

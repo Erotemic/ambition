@@ -14,7 +14,7 @@ pub(crate) mod transaction;
 
 pub use first_room::{publish_first_room, FirstRoom};
 pub use stage::{
-    LastRoomConstructionCommit, RoomConstructionError, RoomConstructionPlan, RoomConstructionPlanId,
+    LastRoomConstructionCommit, PeerRoomConstructionIdentity, RoomConstructionError, RoomConstructionPlan, RoomConstructionPlanId,
 };
 pub use transaction::{
     commit_held_publication, finalize_room_publication, outstanding_publications,

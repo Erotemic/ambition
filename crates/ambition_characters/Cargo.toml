@@ -36,7 +36,7 @@ ambition_binding = { path = "../ambition_binding" }
 ambition_content_pack = { path = "../ambition_content_pack", optional = true }
 bevy = { version = "0.19.1", default-features = false, features = ["bevy_log"] }
 ron = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, features = ["rc"] }
 
 [features]
 # TEST FIXTURES ONLY, and it must never be enabled by a production

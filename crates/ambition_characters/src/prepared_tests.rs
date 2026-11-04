@@ -3156,3 +3156,23 @@ mod catalog_revision {
         );
     }
 }
+
+#[test]
+fn a_retained_cast_keeps_its_definitions_after_a_new_publication() {
+    let definition = CharacterDefinition::new("retained", "Retained", "test");
+    let mut first = prepare_and_finalize_for_test(definition, &CharacterBindings::default()).prepared;
+    first.vitals.max_health = Some(4);
+    let mut cast = PreparedCharacterRegistry::default();
+    cast.insert_prepared(first.clone());
+    let retained = cast.clone();
+    let digest = retained.mechanics_digest().unwrap();
+    cast.insert_prepared(first.clone());
+    assert_ne!(cast.generation(), retained.generation());
+    assert_eq!(cast.mechanics_digest().unwrap(), digest);
+    first.vitals.max_health = Some(80);
+    cast.insert_prepared(first);
+    assert_ne!(cast.mechanics_digest().unwrap(), digest);
+    assert_eq!(retained.mechanics_digest().unwrap(), digest);
+    assert_eq!(retained.get("retained").unwrap().vitals.max_health, Some(4));
+    assert_eq!(cast.get("retained").unwrap().vitals.max_health, Some(80));
+}

@@ -55,7 +55,7 @@ pub use registry::{
 
 /// Bevy resource holding the assembled catalog: every registered fragment,
 /// published by [`CharacterCatalogRegistry`] assembly.
-#[derive(Resource, Clone, Debug, PartialEq)]
+#[derive(Resource, Clone, Debug, PartialEq, serde::Serialize)]
 pub struct CharacterCatalog(CharacterCatalogData);
 
 #[allow(

@@ -47,7 +47,7 @@ pub struct RangedVolley {
 /// ⛔ IT CHANGES THE ROOM, AND THAT IS THE POINT — see
 /// `ambition_dev_tools::brain_override`, which still owns the environment names
 /// and the reason the knob exists. This type owns only the VALUE.
-#[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq, Eq, serde::Serialize)]
 pub struct AuthoredBrainOverride {
     /// Force every authored actor's brain PRESET. `None` = the placement decides.
     pub preset: Option<String>,

@@ -83,16 +83,19 @@ its peer-stable projection. Schema 411 records this change. Guard:
 There is no second canonical codec for this local state.
 A checkpoint restore still uses the current peer barrier.
 
-Local construction-plan IDs bind the authored room and complete resolved
-parameters and relations from the actor, gravity, and optional portal lanes.
-They also include local content bindings, so they remain local cache keys.
-The raw data projection excludes activation counters; inspection summaries
-are not fingerprint input. Guards include staged position/health, limb relations,
-portal-pair selection, map order, and equal data under different local histories.
+Construction-plan identities bind the complete resolved rows and relations,
+constructor and placement schemas, retained character and catalog services,
+occurrence outlook, and resolved moving-platform starts. Character publications
+share immutable data versions; a later edit cannot change a retained plan.
+Guards: `peer_plan_identity_binds_retained_services_without_local_history`,
+`a_retained_cast_keeps_its_definitions_after_a_new_publication`, and
+`payload_identity_binds_constructor_schemas_with_equal_rows`.
 
-A peer promise must bind this data to the exact frozen services and constructor
-schemas. That agreement, commit dependency checks, and retained promises remain
-open. Do not send the local plan ID as proof of peer preparation.
+`RoomConstructionPlan::peer_identity` requires both stated content identities
+and excludes local activation counters. Local plan IDs add those counters for
+cache use. Peer replies do not yet carry this identity. Commit dependency
+checks and retained promises remain open. Do not send the local plan ID as
+proof of peer preparation.
 
 ## Operation identity and preparation
 

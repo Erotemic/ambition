@@ -4168,3 +4168,16 @@ fn payload_identity_has_no_local_activation_history() {
     assert_eq!(a.payload_bytes().unwrap(), b.payload_bytes().unwrap());
     assert_ne!(a.payload_bytes().unwrap(), a.emptied().payload_bytes().unwrap());
 }
+
+#[test]
+fn payload_identity_binds_constructor_schemas_with_equal_rows() {
+    let prepare = |schema| {
+        let mut registry = ConstructionRegistry::<Toy>::default();
+        registry.try_register_recipe(recipe(), "toy", "tests", schema).unwrap();
+        ConstructionPlan::prepare(scope(), vec![request("a")], &nothing_live(), &registry).unwrap()
+    };
+    let a = prepare("v1");
+    let b = prepare("v2");
+    assert_eq!(a.deterministic_dump(), b.deterministic_dump());
+    assert_ne!(a.payload_bytes().unwrap(), b.payload_bytes().unwrap());
+}

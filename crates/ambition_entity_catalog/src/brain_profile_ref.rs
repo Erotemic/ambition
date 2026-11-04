@@ -56,7 +56,7 @@ impl std::fmt::Display for BrainProfileRef {
 /// A distinct type from `BrainProfileRef` on purpose. Both are strings with
 /// different meanings: a raw authored spelling passed to a lookup that wants a
 /// resolved one returns `None` silently.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize)]
 pub struct BrainProfileId(String);
 
 impl BrainProfileId {

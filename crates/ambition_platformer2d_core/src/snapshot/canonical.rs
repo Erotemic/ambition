@@ -2,8 +2,11 @@
 
 use serde::ser::{self, Serialize};
 
+mod value;
+pub use value::PreparedValue;
+
 /// An immutable prepared value could not be serialized.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Error(String);
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

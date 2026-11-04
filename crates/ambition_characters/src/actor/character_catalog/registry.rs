@@ -503,7 +503,7 @@ pub struct AssembledCharacterCatalog {
 /// One flat registry, assembled where the catalog is assembled, published beside
 /// it: a provider registers both, and the reader that wants a policy asks the
 /// policy authority.
-#[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq)]
+#[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq, serde::Serialize)]
 pub struct BrainProfileRegistry {
     profiles: BTreeMap<String, crate::brain::BrainProfile>,
 }

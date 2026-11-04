@@ -194,51 +194,80 @@ them per note with `tuning_correction`): the Horse Pulse tagelharpa is up to
 and balafon are 20 to 45 cents out in places; VCSL Frame Drum key 60 is
 almost silent. `cue tuning-audit <cue>` measures them.
 
-## Next passes
+## The road ahead
 
-The rest of Jon's list (Crash Course World History, both seasons), grouped by
-where it goes in the grid. Each group is a room, or a building, or a mechanic.
+Jon, 2026-11-03: "Let's make this dimension stupidly comprehensive. Let's
+make sure we prioritize representation and impact. We don't have to have
+this be a perfect grid either, in fact, we should bias away from that. But I
+figure it's easy to start there." And: "let's do this slowly."
 
-Empty cells of the grid (each is a room to add; the generator's `GRID`
-and `LINKS` take a new room and its ladders):
-- The Americas: the Aztecs and the Inca (both C5, where the Taino are; a
-  second Americas floor, or buildings), Cahokia and the Mississippians, the
-  Ancestral Puebloans.
-- Oceania: Aotearoa and the Maori, Hawaii.
-- South Asia after the Indus: the Mauryas, Ashoka, the Guptas, the Mughals.
-- Africa and Europe in C6 and C7, the Americas in C6 (the Columbian Exchange
-  from the other side), East Asia in C6 and C7.
+### How a room earns its place (in order)
 
-Between the eras that exist:
-- Buddha and Ashoka (Ashoka's pillars and his turn to non-violence after
-  Kalinga; no founder as a character).
-- Alexander (a room between the Classical Shore and the Silk Road: the
-  empire that ran east; "Alexander the Late").
-- Christianity and Islam, Islam and Politics (as history of states and
-  scholarship: the House of Wisdom, the libraries; no founders).
-- The Dark Ages, the Crusades, Venice and the Ottomans, Russia, the
-  Heian aristocracy, the Mughals.
-- The Bronze Age Collapse as a mechanic in Uruk (the Sea Peoples are
-  there; a collapse you can feel as falling platforms is not).
-- The Little Ice Age, Drought & Famine, Disease (mechanics more than rooms:
-  a frozen canal, a failed harvest).
+1. Representation: a people or a region the dimension does not show yet,
+   or shows only through someone else's eyes. Southeast Asia, South America,
+   North America, southern and eastern Africa, Persia, Korea and Japan have
+   no room yet; the Islamic world has one building's worth of scholars.
+2. Impact: what still shapes the world now. Zero and algebra, paper and
+   printing, the plough and the potato, the Atlantic slave trade and its
+   abolition, empires and their ends, revolutions, the world wars.
+3. Told from inside: the people it happened to tell it. The Taino room's
+   plain sign for 1492 is the model. A catastrophe gets a sober room with
+   people and choices, and no joke.
 
-After the Industrial Age (the road goes on east):
-- Nationalism, Imperialism, Asian Responses to Imperialism, Congo, the
-  V.O.C. (the first corporation as a boss: the robber baron's ancestor).
-- The American, French, Haitian and Latin American Revolutions, Nation
-  Building in Latin America (a revolutions room with many flags and doors).
-- The Seven Years War, Charles V, the Protestant Reformation, the Spanish
-  Empire.
-- World War I (How it began, Who started it), World War II (as a war for
-  resources), the Cold War, Decolonization, Israel and Palestine, Iran's
-  Revolutions, China's Revolutions, China and Democracy, Non-Violence.
-  These need care: a sober room, people and choices, few jokes.
-- Globalization I and II, Population and Malthus, Energy, Railroads (more),
-  Water, Debt and Money (more), War.
-- The West and Historical Methodology, Rethinking Civilization: Clio's own
-  quest. Each era's people disagree about what happened; the player
-  collects the accounts and Clio reads them side by side.
+### Not a perfect grid
+
+The generator (`make_specs.py`) reads the grid as a start, not a rule:
+- A wide room takes several cells of one row: an age that lasted, or a
+  long road (the maize road north, the Qhapaq Nan).
+- A row can go in between two others (its key sorts there): Southeast Asia
+  between Oceania and South Asia.
+- `EXTRA_LADDERS` joins rooms that are not one above the other.
+Still to build: tall rooms (a climb up the Andes, the hill of Great
+Zimbabwe), pockets that hang off one room, narrow rooms and rooms of other
+heights, and doors that join far places (the Door of No Return opens on
+Saint-Domingue).
+
+### The waves (slowly: a few rooms at a time, each one finished)
+
+- A. The Atlantic world: Benin City and its bronzes (C6, Africa); the Door
+  of No Return, a sober room of the Atlantic slave trade (C6 to C7); the
+  Haitian Revolution (C7, the Americas): the people who freed themselves.
+- B. South America, up the Andes (a tall room from the first maize):
+  Caral, the oldest city of the Americas (C3); Nazca and the Moche (C4);
+  Tiwanaku and the Wari (C5); the Inca and the Qhapaq Nan (C6). The Aztecs
+  and Tenochtitlan (C6, the Americas).
+- C. The Islamic Golden Age and Persia: the House of Wisdom in Baghdad
+  (C5: al-Khwarizmi's algebra, the translators; no founders); the
+  Achaemenids and the Royal Road (C4); the Ottomans and the coffee house
+  (C6).
+- D. South and Southeast Asia: Ashoka and his pillars (C4; no founder as a
+  character); Nalanda (C5); the Cholas at sea (C5); the Mughals (C6). A new
+  row: Dong Son and its drums (C4), Srivijaya (C5), Angkor (C5).
+- E. East Asia: the Tang and the Song (printing, gunpowder, the compass);
+  Heian Japan (Murasaki Shikibu, the first novel); Sejong and Hangul; the
+  Meiji.
+- F. Africa south and east, and North America: Great Zimbabwe and Kilwa
+  (C5 and C6); Lalibela; Kongo. Cahokia, the Haudenosaunee and the Great Law
+  of Peace, the Ancestral Puebloans (a new row).
+- G. Oceania: Aotearoa and the Maori, Hawaii, Tonga.
+- H. Europe and the revolutions: printing and the Renaissance, the
+  Reformation as history of states and print (no founders), the
+  Enlightenment, the American, French and Latin American revolutions,
+  abolition.
+- I. A new column, the twentieth century: the world wars, decolonization
+  (the year of Africa, 1960), partition, the Cold War, civil rights. These
+  need the most care: sober rooms, people and choices, few or no jokes.
+
+The rest of Jon's list (Crash Course World History, both seasons) is the
+pool these waves take from: the Bronze Age collapse as a mechanic in Uruk;
+the Little Ice Age, drought, famine and disease as mechanics (a frozen
+canal, a failed harvest); Alexander ("Alexander the Late", the empire that
+ran east); Venice; Russia; Charles V and the Spanish Empire; the V.O.C. (the
+first corporation as a boss: the robber baron's ancestor); nationalism and
+imperialism; the Congo; Iran's and China's revolutions; Israel and
+Palestine; non-violence; globalization, population, energy, water, debt;
+the West and historical method, and Clio's own quest (each era's people
+disagree about what happened; Clio reads the accounts side by side).
 
 Ideas for mechanics:
 - A second ring at the east end, so the grid need not be walked back.

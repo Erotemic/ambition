@@ -160,12 +160,7 @@ def _gates_by_file() -> dict[Path, frozenset[str]]:
 # 1547 files, 192 optional-read types).
 
 
-#: ⭐ MOVED to `scripts/lib/test_paths.py` 2026-09-16 and re-exported here. This
-#: was one of FIVE copies that had drifted into five different answers; this one
-#: was the narrowest, missing `test.rs` and `*_tests.rs`, and like all five it
-#: missed a file whose inner `#![cfg(test)]` compiles it out entirely.
-#: ⚠ The union sees MORE test files, so this check sees FEWER production ones —
-#: the green direction. `POPULATION_FLOOR` above is what makes that reviewable.
+# Use the shared test-path classification for shipping-source scans.
 from test_paths import is_test_path  # noqa: E402
 
 
@@ -173,71 +168,10 @@ def _is_test(path: Path) -> bool:
     return is_test_path(path)
 
 
-#: What this scan must still be able to SEE. ⛔ THE FAILURE MODE OF A
-#: SOURCE-READING GUARD IS A CLEAN REPORT. Every finding here needs BOTH an
-#: `Option<Res<T>>` reader and a writer to be found; lose either pattern and the
-#: intersection empties silently, which is indistinguishable from "every
-#: capability ships".
-#:
-#: ⚠ THIS SCRIPT IS A KNOWN DIVERGENCE POINT. Its `_is_test` matches
-#: `test_support.rs` but NOT `test.rs` or `*_tests.rs` — the narrowest of the
-#: five copies of that rule in `scripts/` (see `GUARD-CORPUS` in
-#: `docs/planning/queue.md`). Widening it toward the others REMOVES files from
-#: `production files`, which is the green direction, so the floor exists to make
-#: that change reviewable rather than invisible.
-POPULATION_FLOOR = {
-    "files scanned": 1450,
-    "production files": 1250,
-    "optional read types": 175,
-    "writer types": 380,
-}
-
-
-def population_sizes() -> dict[str, int]:
-    gates = _gates_by_file()
-    production = [path for path in gates if not _is_test(path)]
-    optional: set[str] = set()
-    writers: set[str] = set()
-    for path in production:
-        source = _without_comments(_source(path))
-        optional.update(match["ty"] for match in OPTIONAL_READ.finditer(source))
-        writers.update(match["ty"] for match in INIT_RESOURCE.finditer(source))
-    return {
-        "files scanned": len(gates),
-        "production files": len(production),
-        "optional read types": len(optional),
-        "writer types": len(writers),
-    }
-
-
-def population_shortfalls() -> list[str]:
-    sizes = population_sizes()
-    return [
-        f"{label}: {sizes[label]} visible, floor is {floor}"
-        for label, floor in POPULATION_FLOOR.items()
-        if sizes[label] < floor
-    ]
-
-
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
-
-    # ⛔ BEFORE ANY FINDING. A finding here is an INTERSECTION of two patterns,
-    # so losing either one empties the report and reads as "every capability
-    # ships" — the exact answer this guard exists to doubt.
-    shortfalls = population_shortfalls()
-    if shortfalls:
-        print(
-            "the scan lost reach — it can no longer see part of its own "
-            "population:\n\n  " + "\n  ".join(shortfalls) + "\n\n"
-            "Find the pattern or path rule that stopped matching before "
-            "trusting any verdict here. If the drop is legitimate, lower "
-            "POPULATION_FLOOR in the same commit that causes it.",
-            file=sys.stderr,
-        )
-        return 1
 
     gates = _gates_by_file()
     optional_reads: dict[str, set[Path]] = {}

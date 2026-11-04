@@ -1576,20 +1576,6 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/checks/check_session_root_construction_is_declared.py",
             ],
         ),
-        # ⛔⛤ TWO CORRECT NUMBERS THAT READ AS A CONTRADICTION. The census row
-        # declaring itself the alias population's one owner said 183 while
-        # `session.rs` said 193; both were right and the difference was the
-        # METHOD (parameter form versus bare name, which an import matches).
-        # A count in prose also has no way to notice the tree moving: three of
-        # the plan's four per-spelling rows had drifted in three days. Both
-        # documents now publish a marker and this pins them to one measurement.
-        Job(
-            "the SessionWorldRef/Mut census still matches the tree",
-            [
-                sys.executable,
-                "scripts/checks/check_alias_census_agrees_with_source.py",
-            ],
-        ),
         # ⛔⛤ THE BLOCKING SET A MAINTAINER READS WAS WRONG TWICE IN ONE DAY,
         # and the second time because both derivations scanned row PROSE while
         # `queue.md` states the answer in a `**Blocked by:**` field. Five open

@@ -2304,29 +2304,25 @@ setup while retaining distinct behavior and phase boundaries. Retire only
 obsolete diagnostics. Apply the current AGENTS.md rule against new meta-test
 machinery; do not turn source counts or test counts into acceptance gates.
 
-**Correctness repair (2026-11-01):** `4cea7026d` settles hit memory in the damage tick and declares four derived inputs at their owners.
-`dfe0d768b` makes camera fixtures supply complete samples; no policy waiver was added.
-Guards: `app_it -- rollback_` passes 79 tests (6 ignored); the component localizer passes 595 restore comparisons.
-Policy: 35 passed; camera: 3 passed; Smash: 18 unit and 53 integration passed (6 ignored); app check and 53 absence contracts passed.
-Full verification remains open. On `3fd235b7d`, the broad Rust checks pass:
-79 rollback tests (6 ignored), 18 Smash unit tests and 53 integration tests
-(6 ignored), 10 Mary-O power-loop tests, 108 Sanic tests, and 35 policy tests.
-The Grid-only, no-audio app check also passes on the native host.
-The latest Python sweep reported 1895 passed, 71 failed and 30 skipped.
-Two additional failures came from stale module-map and menu-router references;
-`1ec2aea38` repairs them, and both focused checks pass. The other 69 failures
-also occurred in the prior sweep. These focused repairs do not prove a green matrix.
-The latest feature-union build stopped at the 6 GiB free-space floor before
-tests ran. That gate is unverified. Earlier content failures remain open.
-The minimal headless app without portals also fails: shell UI/Winit feature
-imports and a feature-dependent held-item helper signature need repair.
-The focused content suite still reports four failures also present in the
-earlier feature-union run: Void fighter damage, Performer contact windows,
-Pugnacious uppercut gravity, and the boot-pack scan of a world-flow fixture.
-These remain open at their owners.
-Module maps are current for all 105 crates; their focused check passes.
-Documentation checks also remain open: five broken local links and 55 unresolved
-planning citations were reported on 2026-11-01. Planning anchors resolve.
+**Built:** `4cea7026d` settles hit memory in the damage tick and declares derived
+inputs at their owners. `dfe0d768b` supplies complete camera samples. The glow
+now follows its shared presentation owner (`15ade26ea`); its unit tests,
+two-view GPU witness, assembled app check, and workspace policy checks pass.
+No policy waiver was added.
+
+**Verification frontier (2026-11-04):** the focused Python repairs pass. The
+broader diagnostic stops on five failures: two ledger/workspace-copy checks,
+the demand-road documentation list, the zero-hold population check, and broken
+documentation links. Finish that suite before claiming a green tooling lane.
+Source-count and test-count floors are not acceptance criteria.
+
+The full feature job needs its 40 GB disk preflight and remains unverified.
+Recheck the earlier minimal-headless failures in shell UI/Winit imports and
+the feature-dependent held-item helper before clearing them. The earlier
+content failures also need fresh checks: Void fighter damage, Performer
+contact windows, Pugnacious uppercut gravity, and the boot-pack world-flow
+fixture scan. Documentation citations and links still need repair; planning
+anchors resolve. Earlier broad test totals do not prove the current matrix.
 
 **Owner:** test runner / app integration lane. Operational rules and what a
 green lane does not clear:

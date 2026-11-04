@@ -220,24 +220,20 @@ with its ingress question (Q136 ruling: choose ingress by semantic ownership).
 
 ### The session-root aliases
 
-<!-- alias-split: SessionWorldRef=46/29 SessionWorldMut=49/29 live_session_world_root=3/1 session_root_for_scope=3/3 SoleLiveRoom=7/7 SoleLiveRoomSpec=4/4 -->
-| spelling | what it is | production uses / files |
-| --- | --- | ---: |
-| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 46 / 29 |
-| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 49 / 29 |
-| `live_session_world_root` | the root whose scope is the active scope | 3 / 1 |
-| `session_root_for_scope` | a named scope's root, through the disabling marker | 3 / 3 |
-| `SoleLiveRoom<T>` | `Single<Ref<T>, With<RoomInstanceRoot>>`; one-live-room debt, not a session alias | 7 / 7 |
-| `SoleLiveRoomSpec` | the authored spec of the one live room; same debt | 4 / 4 |
+| spelling | what it is |
+| --- | --- |
+| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` |
+| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` |
+| `live_session_world_root` | the root whose scope is the active scope |
+| `session_root_for_scope` | a named scope's root, through the disabling marker |
+| `SoleLiveRoom<T>` | `Single<Ref<T>, With<RoomInstanceRoot>>`; one-live-room debt, not a session alias |
+| `SoleLiveRoomSpec` | the authored spec of the one live room; same debt |
 
 `SoleLiveRoomMut<T>` is deleted: its last user, Smash's respawn platforms, writes each protected body's own live room.
 
-Method: parameter form (`Name<` for aliases, `name(` for functions) over
-`crates/` and `game/`, test files dropped, `#[cfg(test)]` modules and comments
-stripped. `scripts/checks/check_alias_census_agrees_with_source.py` compares the marker
-with a live count. The census row `BEVY-SESSION-ROOT` owns the session-alias
-total. The `SoleLiveRoom*` readers belong to
-[open-world runtime and residency](../engine/open-world-runtime-and-residency.md).
+The table states alias semantics. Query source for current callers. The census
+row `BEVY-SESSION-ROOT` owns their classification. The `SoleLiveRoom*` readers
+belong to [open-world runtime and residency](../engine/open-world-runtime-and-residency.md).
 
 The `Single` semantics is the engine's meaning (Q132). The scope-aware helpers are
 for lifecycle code that sees both sides of a handoff. Guards:

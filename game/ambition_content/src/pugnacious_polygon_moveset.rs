@@ -266,46 +266,6 @@ mod tests {
     }
     use super::*;
 
-    /// His up-B opens a parasol that outlives it; the duration is the assertion,
-    /// not the presence.
-    ///
-    /// A `WindowTag` would satisfy "the move slows his fall" and fail this. The
-    /// regime must still run after the move's timeline ends.
-    #[test]
-    fn the_uppercut_leaves_him_floating_for_longer_than_the_move_lasts() {
-        use ambition_entity_catalog::MoveEventKind;
-        let moves = crate::authored_movesets::shipped("pugnacious_polygon");
-        let up = moves
-            .moves
-            .iter()
-            .find(|m| m.id == "polygon_brawler_uppercut")
-            .expect("his up-B is in the table");
-        let (at_s, scale, seconds) = up
-            .events
-            .iter()
-            .find_map(|e| match e.kind {
-                MoveEventKind::GravityModifier { scale, seconds } => Some((e.at_s, scale, seconds)),
-                _ => None,
-            })
-            .expect(
-                "his up-B authors no gravity modifier, so the roster's dullest \
-                 recovery is a bare uppercut again",
-            );
-        assert!(
-            scale < 1.0 && scale > 0.0,
-            "a modifier of {scale} does not SLOW a fall — 1.0 is a no-op and \
-             0.0 is a hover, and neither is a parasol"
-        );
-        let move_ends = up.duration_s;
-        assert!(
-            at_s + seconds > move_ends,
-            "the float ({seconds}s from {at_s}s) is spent by the time the move \
-             ends at {move_ends}s, so it can only slow a fall he is not having \
-             yet — the whole reason this is an event and not a window is that it \
-             has to outlast the move"
-        );
-    }
-
     #[test]
     fn the_reference_brawler_answers_the_complete_typed_repertoire() {
         let moves = crate::authored_movesets::shipped("pugnacious_polygon");

@@ -2351,12 +2351,35 @@ with the same workspace target and feature selection. The spawn owner passes
 14 tests, including the room-edge repair. These focused results do not clear
 the full matrix.
 
-Open findings include the shark ride, temple and tar-pit navigation, crossing
-clock reset, and zero-time capture pump. Each also fails in the cached build
-from before the presentation and spawn repairs. Content, sprite-hitbox, and
-Sanic visible fixtures remain red in the full feature run. Python ownership
-audits, source scans, and stale reports also remain red. Do not replace those
-findings with source-count or test-count floors.
+Re-measured on a VM with no published shared art and no rendered music
+(2026-11-04, later). Repaired:
+
+- Boot-pack scan: `ambition_app` test files are skipped like the crate's own.
+- Void polygons and Performer: the polygons' new `jab2` reached the tables
+  that borrow them. The void tables state its damage; the Performer's
+  contact-window test names her normals by move id.
+- Pugnacious uppercut: the float was removed on purpose (`4a00f3166`); its
+  test is deleted.
+- Boss seeds and BD5: the Gram Reaper's column and GNU-ton's kick each have
+  their own tell; `inu_storm` is a `projectile_rain` instance; the bands are
+  the measured envelope. BD5 is back at 3 errors and 5 warnings.
+- Crossing clock: ordinary travel resets no clock (`199313527`); the
+  one-room control now expects that.
+- Noodly temple: a walk ends when the crossing settles, so a graph sees the
+  arriving room's breakables; the test breaks the belfry's cracked wall.
+- Tar pits passes.
+
+Environment, not code, on that VM: the first room of Smash and Sanic waits
+for its entry music, and no music is rendered there
+(`super_smash_siblings_theme`, `you_are_too_slow`), so a match never starts.
+That stops the shark ride, the zero-time pump, all of Sanic's
+`ov1_draws_the_world` and most Smash and shell-host app cases. The content
+and sprite-hitbox fixtures that read published sheets, FX rows or the music
+registry fail there for the same reason. Recheck them on a machine with
+`scripts/setup/generated_content.sh` complete before reading them as
+defects. Python ownership audits, source scans, and stale reports were not
+rechecked. Do not replace those findings with source-count or test-count
+floors.
 
 **Owner:** test runner / app integration lane. Operational rules and what a
 green lane does not clear:

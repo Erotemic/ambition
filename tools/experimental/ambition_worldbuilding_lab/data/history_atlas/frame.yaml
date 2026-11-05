@@ -1,9 +1,9 @@
 # The frame of the History atlas: its clusters, regions and time horizons.
 #
-# A CLUSTER is a part of the world that can be one connected part of the
-# map: its rooms touch each other. A REGION is a place inside a cluster; a
-# node (a place in a time) has one region. Countries name a region too
-# (`countries.yaml`).
+# CLUSTERS and REGIONS group a finite representative set of historical
+# subjects for audit, not rooms that the game must build or connect.
+# A node has one region; modern countries use coarse regions too
+# (`countries.yaml`). Candidate links do not imply physical traversal.
 #
 # The horizons are the roadmap's time bands
 # (`docs/planning/game/history-dimension-long-range-roadmap.md`, section 4).
@@ -15,13 +15,13 @@ clusters:
   swasia: {name: Southwest Asia, regions: [levant, mesopotamia, anatolia, iran, arabia, caucasus]}
   europe: {name: Europe, regions: [aegean, italy, iberia, western_europe, british_isles, central_europe, nordic, baltic, eastern_europe, balkans]}
   steppe: {name: Central Asia and the steppe, regions: [central_asia, mongolia, siberia]}
-  south_asia: {name: South Asia, regions: [indus, north_india, south_india, himalaya]}
+  south_asia: {name: South Asia, regions: [indus, north_india, south_india, himalaya, punjab]}
   east_asia: {name: East Asia, regions: [china, korea, japan, taiwan]}
   southeast_asia: {name: Southeast Asia, regions: [mainland_southeast_asia, island_southeast_asia]}
   oceania: {name: Oceania, regions: [australia, melanesia, micronesia, polynesia, aotearoa]}
-  north_america: {name: North America, regions: [beringia, arctic, north_america_east, plains, southwest, pacific_northwest]}
+  north_america: {name: North America, regions: [beringia, arctic, north_america_east, plains, southwest, pacific_northwest, california]}
   mesoamerica: {name: Mesoamerica and the Caribbean, regions: [mesoamerica, central_america, caribbean]}
-  south_america: {name: South America, regions: [andes, amazonia, southern_cone]}
+  south_america: {name: South America, regions: [andes, amazonia, southern_cone, brazil_atlantic]}
   # Not a place: the oceans and the networks that join the clusters. A node
   # here is a crossing (a corridor or a ship), not a homeland.
   seas: {name: The seas and the networks, regions: [atlantic, indian_ocean, pacific, silk_roads, world]}

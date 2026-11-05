@@ -1,4 +1,5 @@
 # The places of the History atlas: each node is a place in a time.
+# This is a finite representative superset, not a list of mandatory rooms.
 #
 # id        - unique; a built node's room id is in `room`.
 # title     - the place, as a sign would say it.
@@ -27,7 +28,7 @@ nodes:
   - {id: southern_coast, title: "The southern coast (Blombos)", region: southern_africa, years: [-100000, -70000], status: built, room: history_southern_coast,
      countries: [ZAF], topics: [first_art, dispersal]}
   - {id: kalahari_san, title: "The San of the Kalahari and Tsodilo", region: southern_africa, years: [-40000, 1900], status: planned,
-     countries: [BWA, NAM, ZAF], peoples: [san], topics: [first_art, indigenous_resistance], note: "the oldest continuous way of life in the atlas; their own rock art, not sacred designs"}
+     countries: [BWA, NAM, ZAF], peoples: [san], topics: [first_art, indigenous_resistance, forager_foodways], note: "the oldest continuous way of life in the atlas; their own rock art, not sacred designs"}
   - {id: ishango, title: "Ishango and the counting bone", region: central_africa, years: [-25000, -18000], status: built, room: history_ishango,
      countries: [COD, UGA], topics: [mathematics, first_art]}
   - {id: green_sahara, title: "The Green Sahara", region: sahel, years: [-9000, -3500], status: built, room: history_green_sahara,
@@ -133,7 +134,7 @@ nodes:
      countries: [TZA], topics: [indigenous_resistance, colonialism]}
   - {id: year_of_africa, title: "The year of Africa", region: west_africa_coast, years: [1957, 1965], status: planned, shape: hub,
      countries: [GHA, NGA, SEN, CIV, CMR, TGO, BEN, NER, BFA, MLI, MRT, TCD, CAF, COG, GAB, COD, MDG, SOM, GIN, SLE, TZA, UGA, KEN, ZMB, MWI, BDI, RWA, DZA, TUN, MAR, SDN, GMB, BWA, LSO],
-     topics: [decolonization, nationalism]}
+     topics: [decolonization, nationalism, decolonial_cooperation]}
   - {id: liberation_wars, title: "The liberation wars of Guinea-Bissau, Angola and Mozambique", region: atlantic_islands, years: [1961, 1975], status: candidate,
      countries: [GNB, CPV, AGO, MOZ, STP], topics: [decolonization], note: "Amílcar Cabral"}
   - {id: algiers, title: "The Battle of Algiers", region: maghreb, years: [1954, 1962], status: candidate,
@@ -279,7 +280,7 @@ nodes:
   - {id: kyivan_rus_novgorod, title: "Kyiv and Novgorod's birch-bark letters", region: eastern_europe, years: [882, 1240], status: planned,
      countries: [UKR, RUS, BLR], topics: [writing, spread_of_religions, mongols], note: "ordinary people's letters, a boy's homework"}
   - {id: medieval_village, title: "A medieval village and its lord", region: western_europe, years: [1000, 1350], status: planned,
-     countries: [FRA, DEU, GBR, BEL, NLD, LUX, CHE, AUT, CZE, POL], topics: [feudalism, labour_movements]}
+     countries: [FRA, DEU, GBR, BEL, NLD, LUX, CHE, AUT, CZE, POL], topics: [feudalism, labour_movements, everyday_life]}
   - {id: alpine_passes, title: "The Alpine passes and the Swiss oath", region: central_europe, years: [1291, 1499], status: planned, shape: corridor,
      countries: [CHE, LIE, AUT, ITA], topics: [law]}
   - {id: monaco_andorra_sanmarino, title: "The small states that lasted", region: italy, years: [301, 1419], status: planned, shape: corridor, mode: parody,
@@ -290,7 +291,7 @@ nodes:
   - {id: grand_duchy_lithuania, title: "Vilnius and the Grand Duchy", region: baltic, years: [1236, 1795], status: candidate,
      countries: [LTU, POL, BLR, UKR, LVA], peoples: [jewish_people], topics: [law, jewish_history], note: "the last pagan state of Europe; the 1791 constitution"}
   - {id: black_death, title: "1348", region: italy, years: [1346, 1353], status: planned, mode: sober,
-     countries: [ITA, FRA, GBR, ESP, DEU, EGY, SYR, UKR, NOR], peoples: [jewish_people], topics: [black_death, medicine, climate_and_collapse],
+     countries: [ITA, FRA, GBR, ESP, DEU, EGY, SYR, UKR, NOR], peoples: [jewish_people], topics: [black_death, medicine, climate_and_collapse, global_epidemics],
      note: "from Caffa in Crimea; the massacres of Jews blamed for it; who was left got better pay"}
   - {id: venice, title: "Venice", region: italy, years: [1100, 1500], status: candidate, shape: hub,
      countries: [ITA, HRV, GRC, CYP], topics: [money, age_of_sail, renaissance]}
@@ -322,7 +323,7 @@ nodes:
   - {id: industrial_age, title: "The Industrial Age", region: british_isles, years: [1760, 1900], status: built, room: history_industrial_age,
      countries: [GBR, BEL, DEU], topics: [industrial_revolution, labour_movements], mode: parody}
   - {id: cotton_mill, title: "The cotton mill", region: british_isles, years: [1800, 1850], status: built, room: history_cotton_mill, shape: pocket,
-     countries: [GBR, IND, USA], topics: [industrial_revolution, labour_movements, slavery_and_resistance]}
+     countries: [GBR, IND, USA], topics: [industrial_revolution, labour_movements, slavery_and_resistance, cotton_textiles, everyday_life]}
   - {id: irish_famine, title: "The Great Hunger", region: british_isles, years: [1845, 1852], status: planned, mode: sober,
      countries: [IRL, GBR, USA, CAN, AUS], peoples: [irish_diaspora], topics: [famine, migration, colonialism]}
   - {id: russian_serfs_1861, title: "Serfdom and its end", region: eastern_europe, years: [1649, 1861], status: candidate,
@@ -342,7 +343,7 @@ nodes:
      countries: [DEU, POL, AUT, CZE, HUN, NLD, FRA, LTU, LVA, UKR, BLR, GRC, ITA, ROU, HRV, SRB], peoples: [jewish_people, roma],
      topics: [holocaust, genocide, world_war_two], note: "its own memorial room; the resisters and rescuers; the Porajmos of the Roma"}
   - {id: world_war_two_europe, title: "The Second World War in Europe", region: eastern_europe, years: [1939, 1945], status: planned, mode: sober, shape: corridor,
-     countries: [POL, DEU, RUS, UKR, BLR, GBR, FRA, ITA, NOR, DNK, NLD, BEL, GRC, SRB, FIN, USA, CAN], topics: [world_war_two]}
+     countries: [POL, DEU, RUS, UKR, BLR, GBR, FRA, ITA, NOR, DNK, NLD, BEL, GRC, SRB, FIN, USA, CAN], topics: [world_war_two, war_civilians]}
   - {id: berlin_wall, title: "The Wall", region: central_europe, years: [1961, 1989], status: planned,
      countries: [DEU, POL, CZE, HUN, ROU, BGR, SVK, EST, LVA, LTU], topics: [cold_war, nonviolence],
      note: "Solidarity, the Baltic Way, the Velvet Revolution"}
@@ -441,7 +442,7 @@ nodes:
   - {id: mughal_agra, title: "Agra and the Mughals", region: north_india, years: [1526, 1707], status: planned, shape: hub,
      countries: [IND, PAK, BGD, AFG], peoples: [punjabis, bengalis], topics: [mughals, monumental_building, crops]}
   - {id: bengal_muslin, title: "Dhaka muslin", region: north_india, years: [1600, 1850], status: built, room: history_dhaka_muslin,
-     countries: [BGD, IND, GBR], peoples: [bengalis], topics: [industrial_revolution, colonialism, crops],
+     countries: [BGD, IND, GBR], peoples: [bengalis], topics: [industrial_revolution, colonialism, crops, cotton_textiles, everyday_life],
      note: "the cloth Britain copied and then undercut: the other end of the cotton mill"}
   - {id: company_raj_1857, title: "The Company and 1857", region: north_india, years: [1757, 1858], status: built, room: history_company_raj, mode: archive,
      countries: [IND, PAK, BGD, GBR], topics: [colonialism, indigenous_resistance, women_rulers], note: "Rani Lakshmibai; 'mutiny' or 'first war of independence'"}
@@ -450,7 +451,7 @@ nodes:
   - {id: salt_march, title: "The salt march", region: north_india, years: [1915, 1947], status: planned, shape: corridor,
      countries: [IND, PAK, BGD, ZAF], topics: [nonviolence, decolonization]}
   - {id: partition_1947, title: "1947", region: north_india, years: [1947, 1948], status: planned, mode: sober,
-     countries: [IND, PAK, BGD], peoples: [punjabis, bengalis], topics: [partition, migration]}
+     countries: [IND, PAK, BGD], peoples: [punjabis, bengalis, sikhs], topics: [partition, migration, sikh_history]}
   - {id: bangladesh_language, title: "The language movement and 1971", region: north_india, years: [1952, 1971], status: built, room: history_ekushey,
      countries: [BGD, PAK, IND], peoples: [bengalis], topics: [nationalism, scripts, genocide], note: "21 February, Mother Language Day"}
   - {id: everest_1953, title: "Everest, 1953", region: himalaya, years: [1953, 1953], status: candidate,
@@ -458,7 +459,7 @@ nodes:
   - {id: bangalore_now, title: "Bengaluru now", region: south_india, years: [1991, 2025], status: candidate,
      countries: [IND], topics: [internet, globalization, space_race], note: "Chandrayaan-3 (2023)"}
   - {id: green_revolution_punjab, title: "The Green Revolution", region: indus, years: [1960, 1990], status: planned,
-     countries: [IND, PAK, MEX, PHL], peoples: [punjabis], topics: [green_revolution, famine]}
+     countries: [IND, PAK, MEX, PHL], peoples: [punjabis, sikhs], topics: [green_revolution, famine, sikh_history]}
   - {id: sri_lanka_war, title: "Sri Lanka's war", region: south_india, years: [1983, 2009], status: candidate, mode: sober,
      countries: [LKA], peoples: [tamils], topics: [nationalism]}
 
@@ -505,7 +506,7 @@ nodes:
   - {id: edo, title: "Edo", region: japan, years: [1603, 1868], status: built, room: history_edo, shape: hub,
      countries: [JPN], topics: [feudalism, first_art]}
   - {id: qing_canton, title: "Canton, tea and opium", region: china, years: [1757, 1860], status: planned, mode: archive,
-     countries: [CHN, GBR, IND, HKG, MAC], topics: [opium_wars, crops, colonialism]}
+     countries: [CHN, GBR, IND, HKG, MAC], topics: [opium_wars, crops, colonialism, silver_circuits]}
   - {id: taiping, title: "The Taiping war", region: china, years: [1850, 1864], status: candidate, mode: sober,
      countries: [CHN], topics: [famine]}
   - {id: meiji, title: "Meiji", region: japan, years: [1868, 1912], status: built, room: history_meiji,
@@ -513,7 +514,7 @@ nodes:
   - {id: xinhai_1911, title: "1911 and 1919", region: china, years: [1911, 1937], status: candidate,
      countries: [CHN, TWN], topics: [nationalism]}
   - {id: pacific_war, title: "The war in Asia and the Pacific", region: china, years: [1931, 1945], status: planned, mode: sober, shape: corridor,
-     countries: [CHN, JPN, KOR, PHL, IDN, MYS, SGP, MMR, VNM, PNG, SLB, AUS, USA, IND], topics: [world_war_two],
+     countries: [CHN, JPN, KOR, PHL, IDN, MYS, SGP, MMR, VNM, PNG, SLB, AUS, USA, IND], topics: [world_war_two, war_civilians],
      note: "Nanjing; the forced labour and the 'comfort women'; the Burma railway"}
   - {id: hiroshima, title: "Hiroshima and Nagasaki", region: japan, years: [1945, 1945], status: planned, mode: sober, shape: pocket,
      countries: [JPN, KOR, USA], topics: [nuclear_age, world_war_two], note: "Korean workers died there too"}
@@ -562,7 +563,7 @@ nodes:
   - {id: spice_islands, title: "The Banda islands and the nutmeg", region: island_southeast_asia, years: [1512, 1667], status: planned, mode: sober,
      countries: [IDN, NLD, PRT, GBR], topics: [crops, colonialism, genocide], note: "the VOC's massacre of 1621; Run traded for Manhattan"}
   - {id: manila_galleons, title: "The Manila galleons", region: pacific, years: [1565, 1815], status: planned, shape: corridor,
-     countries: [PHL, MEX, CHN, PER, BOL], peoples: [chinese_diaspora, filipino_diaspora], topics: [manila_galleons, money, globalization],
+     countries: [PHL, MEX, CHN, PER, BOL], peoples: [chinese_diaspora, filipino_diaspora], topics: [manila_galleons, money, globalization, silver_circuits],
      note: "Potosí silver to China: the first trade round the world"}
   - {id: brunei_sulu, title: "Brunei and Sulu", region: island_southeast_asia, years: [1400, 1900], status: candidate,
      countries: [BRN, PHL, MYS], topics: [maritime_southeast_asia]}
@@ -590,16 +591,16 @@ nodes:
   # OCEANIA
   # =========================================================================
   - {id: sahul, title: "Sahul", region: australia, years: [-65000, -45000], status: built, room: history_sahul,
-     countries: [AUS, PNG], peoples: [aboriginal_australians, torres_strait_islanders], topics: [seafaring, dispersal]}
+     countries: [AUS, PNG], peoples: [aboriginal_australians, torres_strait_islanders], topics: [seafaring, dispersal, forager_foodways]}
   - {id: lake_mungo, title: "Lake Mungo", region: australia, years: [-42000, -20000], status: built, room: history_lake_mungo,
      countries: [AUS], peoples: [aboriginal_australians], topics: [ice_age, first_art], note: "Mungo Lady, one of the oldest known cremations, came home in 1992; Mungo Man, in 2017"}
   - {id: murujuga, title: "Murujuga", region: australia, years: [-40000, 1800], status: candidate,
      countries: [AUS], peoples: [aboriginal_australians], topics: [first_art], note: "a million petroglyphs; show skill and age, no sacred designs"}
   - {id: budj_bim, title: "Budj Bim and the eel traps", region: australia, years: [-4600, 1840], status: built, room: history_budj_bim, shape: tall,
-     countries: [AUS], peoples: [aboriginal_australians], topics: [aquaculture, farming_origins, indigenous_resistance],
+     countries: [AUS], peoples: [aboriginal_australians], topics: [aquaculture, farming_origins, indigenous_resistance, indigenous_agriculture],
      note: "Gunditjmara channels, at least 6,600 years old; stone houses"}
   - {id: new_guinea_highlands, title: "The New Guinea highlands", region: melanesia, years: [-7000, -4000], status: built, room: history_new_guinea_highlands,
-     countries: [PNG], topics: [farming_origins, crops]}
+     countries: [PNG], topics: [farming_origins, crops, indigenous_agriculture]}
   - {id: lapita_voyagers, title: "The Lapita voyagers", region: melanesia, years: [-1500, -500], status: built, room: history_lapita_voyagers,
      countries: [PNG, SLB, VUT, NCL, FJI, TON, WSM], peoples: [pasifika], topics: [peopling_of_pacific, seafaring]}
   - {id: wayfinders, title: "The wayfinders", region: polynesia, years: [1000, 1300], status: built, room: history_wayfinders,
@@ -607,7 +608,7 @@ nodes:
   - {id: rapa_nui, title: "Rapa Nui", region: polynesia, years: [1200, 1862], status: built, room: history_rapa_nui,
      countries: [CHL], peoples: [pasifika], topics: [pacific_navigation, monumental_building, climate_and_collapse, slavery_and_resistance]}
   - {id: tonga_samoa, title: "The Tuʻi Tonga and Samoa", region: polynesia, years: [950, 1865], status: built, room: history_tonga_samoa, shape: hub,
-     countries: [TON, WSM, FJI, COK, TUV], peoples: [pasifika], topics: [pacific_navigation, monumental_building],
+     countries: [TON, WSM, FJI, COK, TUV, ASM], peoples: [pasifika], topics: [pacific_navigation, monumental_building, everyday_life],
      note: "a sea empire of chiefly marriages; Tonga was never a colony (a British protectorate only)"}
   - {id: nan_madol_yap, title: "Nan Madol and the stone money of Yap", region: micronesia, years: [1180, 1628], status: planned,
      countries: [FSM, PLW, GUM, MHL, KIR], peoples: [chamorro], topics: [monumental_building, money, pacific_navigation]}
@@ -630,7 +631,7 @@ nodes:
   - {id: nauru_phosphate, title: "Nauru and the phosphate", region: micronesia, years: [1906, 1999], status: planned,
      countries: [NRU, AUS, NZL, GBR], topics: [colonialism, climate_and_collapse]}
   - {id: bikini_moruroa, title: "Bikini and Moruroa", region: micronesia, years: [1946, 1996], status: planned, mode: sober,
-     countries: [MHL, PYF, KIR, USA, FRA, GBR, AUS], topics: [nuclear_age, colonialism]}
+     countries: [MHL, PYF, KIR, USA, FRA, GBR, AUS], topics: [nuclear_age, colonialism], peoples: [marshallese]}
   - {id: kanaky, title: "Kanaky and New Caledonia", region: melanesia, years: [1853, 2021], status: candidate, mode: archive,
      countries: [NCL, FRA], topics: [decolonization, indigenous_resistance]}
   - {id: mabo_1992, title: "Mabo, 1992", region: australia, years: [1967, 1992], status: planned,
@@ -759,7 +760,7 @@ nodes:
   - {id: monte_verde, title: "Monte Verde", region: southern_cone, years: [-14500, -14000], status: planned,
      countries: [CHL], peoples: [mapuche], topics: [peopling_of_americas]}
   - {id: andean_highlands, title: "The Andean highlands", region: andes, years: [-8000, -5000], status: built, room: history_andean_highlands,
-     countries: [PER, BOL, ECU], peoples: [quechua_aymara], topics: [farming_origins, crops, herding, famine]}
+     countries: [PER, BOL, ECU], peoples: [quechua_aymara], topics: [farming_origins, crops, herding, famine, indigenous_agriculture]}
   - {id: valdivia, title: "Valdivia, the first pots of the Americas", region: andes, years: [-3800, -1500], status: candidate,
      countries: [ECU], topics: [first_art]}
   - {id: caral, title: "Caral", region: andes, years: [-3000, -1800], status: built, room: history_caral,
@@ -770,7 +771,7 @@ nodes:
      countries: [PER], topics: [american_civilizations, first_art, women_rulers], note: "the Lady of Cao"}
   - {id: amazonian_earthworks, title: "The garden cities of the Amazon", region: amazonia, years: [-500, 1500], status: built, room: history_amazonia, shape: tall,
      countries: [BRA, BOL, ECU, PER, COL, GUY, SUR, GUF, VEN], peoples: [amazonian_peoples],
-     topics: [american_civilizations, farming_origins, climate_and_collapse], note: "terra preta, the geoglyphs, the Casarabe towns: the forest was a garden"}
+     topics: [american_civilizations, farming_origins, climate_and_collapse, indigenous_agriculture], note: "terra preta, the geoglyphs, the Casarabe towns: the forest was a garden"}
   - {id: tiwanaku_wari, title: "Tiwanaku and Wari", region: andes, years: [500, 1000], status: planned, shape: tall,
      countries: [BOL, PER, CHL], peoples: [quechua_aymara], topics: [american_civilizations, farming_origins]}
   - {id: muisca, title: "The Muisca and the legend of El Dorado", region: andes, years: [800, 1537], status: candidate, mode: parody,
@@ -785,7 +786,7 @@ nodes:
   - {id: guarani_missions, title: "The Guaraní missions", region: southern_cone, years: [1609, 1768], status: planned,
      countries: [PRY, ARG, BRA, URY], peoples: [guarani], topics: [colonialism, spread_of_religions]}
   - {id: potosi, title: "Potosí, the mountain of silver", region: andes, years: [1545, 1825], status: planned, mode: sober, shape: tall,
-     countries: [BOL, PER, ESP], peoples: [quechua_aymara], topics: [money, colonialism, labour_movements], note: "the mita"}
+     countries: [BOL, PER, ESP], peoples: [quechua_aymara], topics: [money, colonialism, labour_movements, silver_circuits], note: "the mita"}
   - {id: palmares, title: "Palmares", region: amazonia, years: [1605, 1694], status: built, room: history_palmares,
      countries: [BRA, AGO], peoples: [afro_latin_americans, maroons], topics: [slavery_and_resistance], note: "Zumbi and Dandara"}
   - {id: tupac_amaru, title: "The rising of Túpac Amaru II and Micaela Bastidas", region: andes, years: [1780, 1783], status: candidate,
@@ -796,7 +797,7 @@ nodes:
      countries: [ECU], topics: [scientific_revolution]}
   - {id: triple_alliance, title: "The War of the Triple Alliance", region: southern_cone, years: [1864, 1870], status: candidate, mode: sober,
      countries: [PRY, BRA, ARG, URY], peoples: [guarani], topics: [nationalism]}
-  - {id: brazil_1888, title: "Rio, 1888", region: amazonia, years: [1850, 1888], status: built, room: history_rio_1888,
+  - {id: brazil_1888, title: "Rio, 1888", region: brazil_atlantic, years: [1850, 1888], status: built, room: history_rio_1888,
      countries: [BRA], peoples: [afro_latin_americans], topics: [abolition, migration], note: "the last abolition in the Americas"}
   - {id: rubber_boom, title: "Manaus and the rubber", region: amazonia, years: [1879, 1912], status: candidate, mode: sober,
      countries: [BRA, PER, COL, BOL], peoples: [amazonian_peoples], topics: [colonialism, globalization]}
@@ -828,7 +829,7 @@ nodes:
   - {id: monsoon_sea, title: "The monsoon sea", region: indian_ocean, years: [-100, 1500], status: planned, shape: corridor,
      countries: [KEN, TZA, SOM, OMN, YEM, IND, LKA, IDN, MDV], topics: [indian_ocean_trade, seafaring], note: "the dhow sails east in summer and west in winter"}
   - {id: smallpox_1980, title: "The last case of smallpox", region: world, years: [1967, 1980], status: planned, shape: pocket,
-     countries: [SOM, BGD, IND, ETH, USA, RUS], topics: [smallpox_eradication, medicine], note: "Ali Maow Maalin, Merca, 1977; eradicated 1980"}
+     countries: [SOM, BGD, IND, ETH, USA, RUS], topics: [smallpox_eradication, medicine, global_epidemics], note: "Ali Maow Maalin, Merca, 1977; eradicated 1980"}
   - {id: united_nations_1945, title: "San Francisco, 1945", region: world, years: [1945, 1948], status: candidate, mode: archive,
      countries: [USA, GBR, CHN, RUS, FRA, IND, BRA, MEX, EGY], topics: [decolonization, law], note: "the Universal Declaration (1948)"}
   - {id: great_depression_world, title: "1929", region: world, years: [1929, 1939], status: planned, mode: archive,
@@ -837,3 +838,152 @@ nodes:
      countries: [USA, CHN, IND, KOR, KEN, BRA, NGA, EST], topics: [internet, globalization], note: "every region's present meets here"}
   - {id: climate_now, title: "The warming world", region: world, years: [1958, 2025], status: planned, mode: archive,
      countries: [USA, CHN, IND, TUV, KIR, BGD, NLD, BRA], topics: [climate_change], note: "the Keeling curve and who pays first"}
+
+  # BEGIN history-atlas-representative-superset-20261105
+  # =========================================================================
+  # REPRESENTATIVE SUPERSET ADDITIONS (2026-11-05)
+  # These are editorial atlas subjects, not additional required game rooms.
+  # Only chamorro_latte_village is planned, for direct Marianas coverage;
+  # the rest are candidates for future selection.
+  # Discovery source: WhenAtlas entities CSV, CC BY 4.0,
+  # https://whenatlas.com/dataset (record references noted below).
+  # Crosswalk, datasets and license: docs/related-work/history-atlas-sources-and-provenance.md
+  # This is original Ambition node description, not imported dataset prose.
+  # =========================================================================
+
+  # ---- African states and regional networks ----
+  # WhenAtlas: polity.q184536 (Mali Empire).
+  - {id: mali_empire_mansa_musa, title: "Mali, Mansa Musa and the Niger bend", region: sahel, years: [1235, 1600], status: candidate,
+     countries: [MLI, GIN, SEN, MRT, GMB], topics: [african_kingdoms, trans_saharan_trade, money, universities],
+     note: "Distinguish the Mali polity from the Timbuktu city room; Sundiata, gold routes and the 1324 pilgrimage, not a single timeless West Africa."}
+  # WhenAtlas: polity.q849623 (Oyo Empire), whose wider dates differ from this peak-era snapshot.
+  - {id: oyo_empire, title: "Oyo and the Yoruba cavalry states", region: west_africa_coast, years: [1600, 1836], status: candidate,
+     countries: [NGA, BEN, TGO], topics: [african_kingdoms, atlantic_slave_trade, slavery_and_resistance],
+     note: "Oyo's political economy and regional power; do not confuse it with Benin City or treat all Yoruba societies as one kingdom."}
+  - {id: luba_lunda, title: "Luba and Lunda in the central savannas", region: central_africa, years: [1500, 1900], status: candidate,
+     countries: [COD, AGO, ZMB], topics: [african_kingdoms, money, colonialism],
+     note: "Two distinct Central African political traditions; compare tribute, exchange and later encounters without merging them into one empire."}
+  # WhenAtlas: polity.q282428 (Mamluk Sultanate of Egypt).
+  - {id: mamluk_cairo, title: "Cairo under the Mamluks", region: nile, years: [1250, 1517], status: candidate,
+     countries: [EGY, SYR, PSE], topics: [crusades, money, trans_saharan_trade, indian_ocean_trade],
+     note: "Mamluk rule, Cairo's scholarship and Red Sea trade, and the changing routes after the Mongol invasion."}
+
+  # ---- Southwest Asian and Mediterranean transformations ----
+  - {id: medina_first_community, title: "Medina and the first Islamic community", region: arabia, years: [622, 661], status: candidate, mode: archive,
+     countries: [SAU], topics: [spread_of_religions, law],
+     note: "The early community, institutions and succession debates; historical narration without depicting a religious founder as an NPC."}
+  # WhenAtlas: polity.q8575586 (Umayyad Caliphate).
+  - {id: umayyad_damascus, title: "Damascus and the Umayyad caliphate", region: levant, years: [661, 750], status: candidate,
+     countries: [SYR, JOR, LBN], topics: [spread_of_religions, law, money],
+     note: "Damascus as capital; expansion and administrative change; do not make the later Abbasid scholarly world synonymous with the early caliphates."}
+  - {id: jerusalem_second_temple, title: "Jerusalem in the Second Temple period", region: levant, years: [-516, 70], status: candidate, mode: archive,
+     countries: [ISR, PSE], peoples: [jewish_people], topics: [jewish_history, law, spread_of_religions],
+     note: "Jewish religious and civic life under successive rulers; distinguish archaeological evidence, textual traditions and later interpretations."}
+  - {id: antioch_early_christians, title: "Antioch and the early Christian communities", region: levant, years: [50, 350], status: candidate, mode: archive,
+     countries: [TUR, SYR], topics: [spread_of_religions, jewish_history],
+     note: "Networks of early Christianity in a diverse Roman city; avoid presenting one uniform church or an invented founder character."}
+  # WhenAtlas: polity.q1986139 (Parthian Empire).
+  - {id: parthian_caravans, title: "Parthia and the caravan cities", region: iran, years: [-247, 224], status: candidate,
+     countries: [IRN, IRQ, ARM], topics: [persia, silk_roads, rome, money],
+     note: "Parthian and Roman contact across the Euphrates; trade and political power between Achaemenid and Sasanian settings."}
+
+  # ---- Classical and medieval Europe ----
+  # WhenAtlas: polity.q17167 (ancient Roman Republic); do not confuse q175881 (1798 republic).
+  - {id: roman_republic, title: "The Roman Forum before the emperors", region: italy, years: [-509, -27], status: candidate,
+     countries: [ITA], topics: [rome, law],
+     note: "Senate, citizenship, offices, enslavement and civil wars; political participation was restricted, not modern democracy."}
+  # WhenAtlas: conflict.q8409 (Alexander's conquests).
+  - {id: hellenistic_alexandria, title: "Alexandria and the Hellenistic kingdoms", region: nile, years: [-323, -30], status: candidate,
+     countries: [EGY, GRC, TUR], topics: [greece, persia, astronomy, universities],
+     note: "Alexander's conquests preceded competing successor kingdoms; Mediterranean and West Asian peoples retained diverse traditions."}
+  # WhenAtlas: polity.q31929 (Carolingian Empire; broader dates than this Aachen scene).
+  - {id: aachen_carolingian, title: "Aachen and the Carolingian court", region: central_europe, years: [768, 814], status: candidate,
+     countries: [DEU, FRA, BEL], topics: [law, feudalism, spread_of_religions, writing],
+     note: "Royal courts, schooling and manuscript production; not an undifferentiated dark age."}
+  # WhenAtlas: conflict.q2487 (Thirty Years' War).
+  - {id: thirty_years_war, title: "Prague and the Thirty Years' War", region: central_europe, years: [1618, 1648], status: candidate, mode: sober,
+     countries: [CZE, DEU, AUT, SWE, FRA], topics: [reformation, law, nationalism, war_civilians],
+     note: "Confessional and dynastic politics, civilian devastation, and the 1648 treaties; avoid simplifying Westphalia into the invention of sovereignty."}
+  - {id: irish_independence, title: "Dublin, 1916, and Irish independence", region: british_isles, years: [1916, 1922], status: candidate,
+     countries: [IRL, GBR], topics: [nationalism, colonialism, law],
+     note: "Rising, war, partition and treaty; keep Northern Ireland's separate history visible."}
+  - {id: versailles_1919, title: "Paris and the peace settlement of 1919", region: western_europe, years: [1919, 1923], status: candidate, mode: archive,
+     countries: [FRA, DEU, GBR, USA], topics: [world_war_one, nationalism, colonialism, law],
+     note: "Several treaties and mandated territories, not just one document; show exclusion and self-determination arguments."}
+
+  # ---- Central and South Asian states ----
+  # WhenAtlas: polity.q79965 (Golden Horde), polity.q7313 (Yuan dynasty).
+  - {id: golden_horde_sarai, title: "Sarai and the Golden Horde", region: central_asia, years: [1243, 1502], status: candidate,
+     countries: [RUS, KAZ, UKR], topics: [mongols, steppe_empires, money, law],
+     note: "Lower Volga capital, tributary networks and multiethnic rule; a successor state, not a duplicate Mongol tent."}
+  - {id: yuan_dadu, title: "Dadu, the Yuan capital", region: china, years: [1271, 1368], status: candidate,
+     countries: [CHN, MNG], topics: [china_dynasties, mongols, silk_roads],
+     note: "A Chinese capital under Yuan rule; contrast court institutions with the southern Song and steppe networks."}
+  # WhenAtlas: polity.q83618 (Maratha Empire), polity.q83572 (Sikh Empire).
+  - {id: maratha_deccan, title: "The Marathas and the Deccan forts", region: south_india, years: [1674, 1818], status: candidate,
+     countries: [IND], topics: [india_empires, mughals, colonialism],
+     note: "Maratha states and confederate politics after Mughal expansion; do not equate the empire with a single ethnicity."}
+  - {id: sikh_empire_punjab, title: "Lahore, Amritsar and the Sikh Empire", region: punjab, years: [1799, 1849], status: candidate,
+     countries: [PAK, IND], peoples: [sikhs, punjabis], topics: [india_empires, sikh_history, law, colonialism],
+     note: "Ranjit Singh, the Lahore court and its diverse administration; annexation after the Anglo-Sikh wars."}
+
+  # ---- Networks and the remaking of Asia ----
+  - {id: hoabinhian_foragers, title: "Hoabinhian rockshelters and foraging", region: mainland_southeast_asia, years: [-12000, -4000], status: candidate, mode: archive,
+     countries: [VNM, LAO, THA], topics: [forager_foodways, climate_and_collapse],
+     note: "An archaeological stone-tool tradition, not one homogeneous people; do not claim these sites invented farming."}
+  - {id: korea_colonial_1910, title: "Seoul under Japanese colonial rule", region: korea, years: [1910, 1945], status: candidate, mode: sober,
+     countries: [KOR, PRK, JPN], topics: [colonialism, nationalism, labour_movements, war_civilians],
+     note: "Colonial rule, daily life and resistance; center Korean historical perspectives rather than reducing the era to a prelude to war."}
+  - {id: beijing_1949, title: "Beijing, 1949", region: china, years: [1945, 1949], status: candidate, mode: archive,
+     countries: [CHN], topics: [nationalism, cold_war, migration],
+     note: "Civil war, founding of the People's Republic and consequences for the mainland and Taiwan; distinguish from 1911 and the Great Leap."}
+  - {id: singapore_occupation, title: "Singapore under wartime occupation", region: island_southeast_asia, years: [1942, 1945], status: candidate, mode: sober,
+     countries: [SGP, MYS], topics: [world_war_two, colonialism, war_civilians],
+     note: "Occupation, forced labour, civilian experiences and resistance; situated Southeast Asian history, not merely a Pacific War label."}
+  - {id: bandung_1955, title: "Bandung, 1955: the Asian-African Conference", region: island_southeast_asia, years: [1955, 1955], status: candidate,
+     countries: [IDN, IND, PAK, MMR, LKA, CHN, EGY, ETH], topics: [decolonization, decolonial_cooperation, cold_war],
+     note: "Twenty-nine participating governments in April 1955; distinguish solidarity, disagreements and later Non-Aligned Movement institutions."}
+
+  # ---- Indigenous lifeways and colonial encounters ----
+  - {id: eastern_agricultural_complex, title: "The Eastern Woodlands seed gardens", region: north_america_east, years: [-3000, -800], status: candidate,
+     countries: [USA], peoples: [native_americans], topics: [farming_origins, indigenous_agriculture, everyday_life],
+     note: "Eastern North American domestication of native seed crops predates maize-based farming; no claim of a single ancestral nation."}
+  - {id: chamorro_latte_village, title: "A CHamoru latte village in the Marianas", region: micronesia, years: [1000, 1690], status: planned,
+     countries: [GUM, MNP], peoples: [chamorro], topics: [monumental_building, pacific_navigation, seafaring, everyday_life],
+     note: "Latte architecture and everyday island life in Guam and the Northern Marianas; not a proxy for Pohnpei or Yap."}
+  - {id: ohlone_bay_communities, title: "Villages around San Francisco Bay before the missions", region: california, years: [1200, 1769], status: candidate,
+     countries: [USA], peoples: [native_americans], topics: [forager_foodways, money, everyday_life],
+     note: "Diverse Ohlone-speaking communities with local identities, trade and foodways; avoid one generic California tribe."}
+  - {id: california_mission_frontier, title: "California's mission frontier", region: california, years: [1769, 1834], status: candidate, mode: sober,
+     countries: [USA], peoples: [native_americans], topics: [colonialism, indigenous_resistance, migration],
+     note: "Ohlone and other California Indigenous experiences of missions, coercion and survival; not a civilizing-mission narrative."}
+  - {id: sakha_siberian_frontier, title: "Sakha communities and the Siberian fur frontier", region: siberia, years: [1600, 1900], status: candidate,
+     countries: [RUS], peoples: [siberian_peoples], topics: [colonialism, indigenous_resistance, migration],
+     note: "Sakha political, pastoral and cultural histories amid Russian expansion; not a stand-in for all Indigenous Siberians."}
+  - {id: guadalcanal_solomons, title: "Guadalcanal and the Solomon Islanders", region: melanesia, years: [1942, 1943], status: candidate, mode: sober,
+     countries: [SLB], topics: [world_war_two, war_civilians],
+     note: "Solomon Islander scouts, carriers and civilians as active participants; not simply an island battlefield for foreign armies."}
+  - {id: cusco_tawantinsuyu, title: "Cusco and Tawantinsuyu", region: andes, years: [1438, 1533], status: candidate,
+     countries: [PER, BOL, ECU], peoples: [quechua_aymara], topics: [american_civilizations, monumental_building, law, everyday_life],
+     note: "Inca statecraft, labor obligations and households; complements the existing Qhapaq Nan route rather than duplicating it."}
+
+  # ---- Political economy and public health in the modern world ----
+  - {id: brazil_vargas, title: "Rio and Brazil under Vargas", region: brazil_atlantic, years: [1930, 1945], status: candidate,
+     countries: [BRA], topics: [great_depression, nationalism, labour_movements, world_war_two],
+     note: "State-building, industrial policy, labour law and dictatorship, including Brazil's wartime involvement."}
+  - {id: germ_theory_sanitation, title: "Cities, microbes and modern sanitation", region: western_europe, years: [1850, 1900], status: candidate,
+     countries: [GBR, FRA, DEU], topics: [medicine, everyday_life],
+     note: "Urban water and sewage infrastructure, bacteriology and public health; no single heroic discoverer or instant consensus."}
+  - {id: bombay_influenza_1918, title: "Bombay during the 1918 influenza pandemic", region: south_india, years: [1918, 1919], status: candidate, mode: sober,
+     countries: [IND], topics: [medicine, global_epidemics, colonialism, war_civilians],
+     note: "India suffered enormous mortality under colonial administration; this city is a situated account of a global pandemic."}
+  - {id: nyc_aids_activism, title: "New York and the AIDS activism movement", region: north_america_east, years: [1981, 1996], status: candidate, mode: sober,
+     countries: [USA], topics: [medicine, global_epidemics, civil_rights],
+     note: "People living with HIV, treatment research and advocacy; this is one local strand, not the global origin story."}
+  - {id: durban_hiv_response, title: "Durban and the struggle for HIV treatment", region: southern_africa, years: [1990, 2010], status: candidate, mode: sober,
+     countries: [ZAF], topics: [medicine, global_epidemics, civil_rights],
+     note: "The 2000 Durban AIDS conference and South African treatment-access movements; respect people living with HIV."}
+  - {id: wuhan_covid_2020, title: "Wuhan and the COVID-19 pandemic", region: china, years: [2019, 2022], status: candidate, mode: sober,
+     countries: [CHN], topics: [medicine, global_epidemics, globalization],
+     note: "An early recognized outbreak and city-level experience in a worldwide pandemic; no blame assigned to a people or place."}
+  # END history-atlas-representative-superset-20261105

@@ -2,6 +2,8 @@
 # observer states, and the territories with their own large histories.
 #
 # Each row: [code, name, atlas region, population in millions].
+# Modern borders and these coarse region tags are discovery aids, not
+# claims that a present-day country or all of its peoples existed in an era.
 # The code is ISO 3166-1 alpha-3 (XKX for Kosovo, which has none).
 # The population is a rounded estimate for about 2024 (UN World Population
 # Prospects order of magnitude), only to weight "where's my history?" by how
@@ -192,6 +194,10 @@ oceania:
   - [PYF, French Polynesia, polynesia, 0.28, {member: false}]
   - [GUM, Guam, micronesia, 0.17, {member: false}]
   - [COK, Cook Islands, polynesia, 0.015, {member: false}]
+  # BEGIN history-atlas-representative-superset-20261105
+  - [MNP, Northern Mariana Islands, micronesia, 0.05, {member: false}]
+  - [ASM, American Samoa, polynesia, 0.045, {member: false}]
+  # END history-atlas-representative-superset-20261105
 
 americas:
   - [ATG, Antigua and Barbuda, caribbean, 0.09]

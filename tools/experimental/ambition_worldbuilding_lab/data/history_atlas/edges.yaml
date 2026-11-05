@@ -1,4 +1,7 @@
 # The links of the History atlas. Each row: [a, b, kind, note].
+# Only `built:` is a statement about current physical game connections.
+# `links:` are historical/editorial relationships in a candidate
+# inventory; they neither force room creation nor prescribe traversal.
 #
 # kind (roadmap section 3):
 #   succession     - a later setting in the same broad place
@@ -601,3 +604,111 @@ links:
   - [paso_de_la_amada, maya_city, diffusion, "the ballgame"]
   - [mexico_oil_1938, mexico_1810_1910, succession]
   - [mexico_oil_1938, oil_age, comparison]
+
+  # BEGIN history-atlas-representative-superset-20261105
+  # =========================================================================
+  # RELATIONSHIP LINKS FOR THE 2026-11-05 REPRESENTATIVE SUPERSET ADDITIONS
+  # These are historical or editorial relations, NOT mandated level paths.
+  # Comparison links explicitly do not imply contact or descent.
+  # =========================================================================
+  # Africa
+  - [ghana_wagadu, mali_empire_mansa_musa, succession, "Sahelian states in overlapping but changing political networks"]
+  - [mali_empire_mansa_musa, timbuktu_coast, contact, "Timbuktu formed part of Mali's trading and scholarly world"]
+  - [mali_empire_mansa_musa, songhai_gao, succession, "Songhai emerged as Mali's regional power declined"]
+  - [oyo_empire, benin_city, contact, "neighboring West African states and trade networks"]
+  - [oyo_empire, asante_dahomey, contact, "regional politics, trade and competing powers"]
+  - [luba_lunda, kongo, comparison, "distinct traditions of Central African state formation"]
+  - [luba_lunda, mutapa_maravi, comparison, "distinct inland kingdoms with exchange networks"]
+  - [mamluk_cairo, crusades, contact, "Mamluk campaigns and the end of the Crusader states"]
+  - [mamluk_cairo, black_death, contact, "the plague reached Cairo and Egypt under Mamluk rule"]
+  - [mamluk_cairo, house_of_wisdom, contact, "the Mamluk sultanate later hosted an Abbasid caliphal line; not the same capital"]
+
+  # Southwest Asia, Mediterranean and the Roman world
+  - [saba, medina_first_community, comparison, "different Arabian polities and periods, not a direct succession"]
+  - [medina_first_community, umayyad_damascus, succession, "the early caliphate's political center later moved to Damascus"]
+  - [umayyad_damascus, house_of_wisdom, succession, "Abbasid Baghdad followed Umayyad rule"]
+  - [umayyad_damascus, al_andalus, contact, "the Umayyad line continued in Cordoba after 750"]
+  - [israel_judah, jerusalem_second_temple, succession, "the Second Temple era followed exile and imperial change"]
+  - [jerusalem_second_temple, antioch_early_christians, diffusion, "early Christianity spread from Judea through eastern Roman cities"]
+  - [jerusalem_second_temple, roman_republic, contact, "Roman rule reached Judea before the Republic ended"]
+  - [antioch_early_christians, constantinople, contact, "early Christianity in cities of the eastern Roman world"]
+  - [carthage, roman_republic, contact, "the Punic Wars and western Mediterranean competition"]
+  - [roman_republic, classical_shore, contact, "the Roman and Greek Mediterranean overlapped"]
+  - [roman_republic, colosseum, succession, "imperial Rome followed the Republic"]
+  - [achaemenids, hellenistic_alexandria, contact, "Alexander's campaigns overthrew Achaemenid rule; later kingdoms diverged"]
+  - [classical_shore, hellenistic_alexandria, succession, "Hellenistic courts followed the classical Greek city-state era"]
+  - [hellenistic_alexandria, bactria_gandhara, comparison, "separate Hellenistic successor regions; no direct single route is claimed"]
+  - [achaemenids, parthian_caravans, succession, "Seleucid rule intervened between Achaemenids and Parthians"]
+  - [parthian_caravans, sasanian, succession, "the Sasanians succeeded the Arsacid Parthians"]
+  - [parthian_caravans, roman_republic, contact, "Roman-Parthian diplomacy and conflict in the late Republic"]
+
+  # Medieval and modern Europe
+  - [aachen_carolingian, medieval_village, succession, "Frankish institutions and changing medieval local life"]
+  - [aachen_carolingian, viking_north, contact, "Franks and Vikings met through raids, diplomacy and trade"]
+  - [thirty_years_war, reformation_print, succession, "confessional conflicts and their later political consequences"]
+  - [thirty_years_war, habsburg_vienna, contact, "Habsburg politics across central Europe"]
+  - [irish_famine, irish_independence, succession, "different stages of modern Irish history"]
+  - [irish_independence, western_front, comparison, "Irish independence politics and Irish participation in World War I overlapped"]
+  - [western_front, versailles_1919, succession, "armistice and postwar negotiations followed the fighting"]
+  - [versailles_1919, ottoman_balkans, contact, "the Ottoman settlement involved separate postwar treaties, not Versailles alone"]
+
+  # Eurasian steppe and South Asia
+  - [mongol_steppe, golden_horde_sarai, succession, "a western successor polity after Mongol expansion"]
+  - [golden_horde_sarai, kyivan_rus_novgorod, contact, "conquest, tribute and changing Rus principalities"]
+  - [mongol_steppe, yuan_dadu, succession, "the Yuan state under Mongol rulers"]
+  - [yuan_dadu, song_kaifeng, succession, "the Yuan conquered the Song; not a peaceful transfer"]
+  - [mughal_agra, maratha_deccan, contact, "Mughal-Maratha competition and accommodation"]
+  - [maratha_deccan, company_raj_1857, contact, "Maratha states and the Company's expanding rule"]
+  - [mughal_agra, sikh_empire_punjab, contact, "changing authority in Punjab after Mughal decline"]
+  - [sikh_empire_punjab, company_raj_1857, contact, "the Anglo-Sikh wars and annexation in 1849"]
+  - [sikh_empire_punjab, partition_1947, succession, "Punjab across distinct eras; not a single unchanged political society"]
+  - [sikh_empire_punjab, green_revolution_punjab, succession, "long-run transformations of Punjab society and farming"]
+
+  # Southeast Asian livelihoods, occupation and internationalism
+  - [niah_cave, hoabinhian_foragers, comparison, "different foraging records across Southeast Asia"]
+  - [hoabinhian_foragers, ban_chiang, comparison, "different archaeological periods; no assumed direct ancestry"]
+  - [joseon_hangul, korea_colonial_1910, succession, "Korean life before and under colonial rule"]
+  - [meiji, korea_colonial_1910, contact, "Japanese empire and colonial rule in Korea"]
+  - [korea_colonial_1910, korean_war, succession, "liberation, division and subsequent war were distinct events"]
+  - [xinhai_1911, beijing_1949, succession, "the Chinese Republic and later civil war"]
+  - [beijing_1949, great_leap, succession, "distinct political and economic episodes after 1949"]
+  - [beijing_1949, korean_war, contact, "the PRC entered the Korean War in 1950"]
+  - [pacific_war, singapore_occupation, contact, "Japanese occupation and Southeast Asian civilian history"]
+  - [singapore_occupation, singapore_now, succession, "wartime and post-independence Singapore"]
+  - [indonesia_1945, bandung_1955, succession, "Indonesia hosted the 1955 Asian-African Conference"]
+  - [bandung_1955, year_of_africa, contact, "Asian-African anticolonial diplomatic networks"]
+  - [bandung_1955, united_nations_1945, comparison, "different international forums with overlapping participants"]
+
+  # Americas and Oceania: independent traditions and situated experience
+  - [eastern_agricultural_complex, poverty_point, comparison, "Eastern Woodlands domestication and a separate Lower Mississippi center"]
+  - [eastern_agricultural_complex, first_maize, comparison, "independent plant domestication; later maize spread must not erase local crops"]
+  - [chamorro_latte_village, nan_madol_yap, comparison, "distinct CHamoru, Pohnpeian and Yapese histories"]
+  - [chamorro_latte_village, austronesian_islands, comparison, "related broad language histories, no direct migration route implied"]
+  - [ohlone_bay_communities, pacific_northwest, comparison, "different Indigenous Pacific coast societies"]
+  - [ohlone_bay_communities, california_mission_frontier, succession, "communities before and during the colonial mission system"]
+  - [california_mission_frontier, mexico_1810_1910, contact, "independent Mexico later secularized California missions"]
+  - [sakha_siberian_frontier, siberia_conquest, contact, "Russian fur taxation and local Indigenous histories"]
+  - [sakha_siberian_frontier, sami, comparison, "distinct Indigenous histories of northern Eurasia"]
+  - [pacific_war, guadalcanal_solomons, contact, "the Solomon Islands campaign and local civilian participation"]
+  - [guadalcanal_solomons, lapita_voyagers, comparison, "Melanesian communities across different eras, not a direct descent claim"]
+  - [qhapaq_nan, cusco_tawantinsuyu, contact, "state roads and the administrative center at Cusco"]
+  - [cusco_tawantinsuyu, potosi, succession, "Spanish extraction followed conquest; different political orders"]
+
+  # Modern economy, medicine and global public health
+  - [brazil_1888, brazil_vargas, succession, "Rio from abolition to 20th-century state transformation"]
+  - [brazil_vargas, great_depression_world, contact, "the Depression and Brazil's political-economic response"]
+  - [brazil_vargas, world_war_two_europe, contact, "Brazilian troops fought in Italy during World War II"]
+  - [industrial_age, germ_theory_sanitation, contact, "urbanization, sanitation problems and public health reform"]
+  - [germ_theory_sanitation, bombay_influenza_1918, contact, "global medical and sanitary institutions faced the 1918 pandemic"]
+  - [western_front, bombay_influenza_1918, contact, "wartime movements contributed to the pandemic's global spread"]
+  - [bombay_influenza_1918, black_death, comparison, "different pandemic eras and public health conditions"]
+  - [nyc_aids_activism, durban_hiv_response, contact, "transnational treatment access and HIV activism networks"]
+  - [nyc_aids_activism, civil_rights_usa, contact, "overlapping American organizing and rights traditions, not identical movements"]
+  - [durban_hiv_response, apartheid, succession, "HIV policy and activism across post-apartheid South Africa"]
+  - [wuhan_covid_2020, internet_now, contact, "digital networks and communication during a global pandemic"]
+  - [wuhan_covid_2020, smallpox_1980, comparison, "different diseases, institutions and public health outcomes"]
+
+  # Missing historical connections between already authored nodes
+  - [jamaica_maroons, freetown_liberia, contact, "Jamaican Maroons were resettled in Sierra Leone in 1800"]
+  - [manila_galleons, qing_canton, contact, "silver and merchants connected Manila with Chinese ports"]
+  # END history-atlas-representative-superset-20261105

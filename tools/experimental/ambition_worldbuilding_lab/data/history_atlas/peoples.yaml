@@ -11,7 +11,7 @@ peoples:
   - [maori, "Māori", [NZL, AUS]]
   - [native_hawaiians, "Native Hawaiians (Kānaka Maoli)", [USA]]
   - [pasifika, "Pacific Islanders", [WSM, TON, FJI, NZL, AUS, USA]]
-  - [chamorro, "Chamorro", [GUM]]
+  - [chamorro, "CHamoru (Chamorro)", [GUM, MNP]]
   - [inuit, "Inuit", [CAN, GRL, USA]]
   - [first_nations, "First Nations and Métis", [CAN]]
   - [native_americans, "Native American nations", [USA]]
@@ -59,3 +59,9 @@ peoples:
   - [cherokee, "Cherokee", [USA]]
   - [haudenosaunee, "Haudenosaunee", [USA, CAN]]
   - [lakota, "Lakota and the peoples of the Plains", [USA]]
+
+  # BEGIN history-atlas-representative-superset-20261105
+  # New identities with a built or planned contextual anchor in the atlas.
+  - [sikhs, "Sikh communities", [IND, PAK, GBR, CAN, USA]]
+  - [marshallese, "Marshallese", [MHL, USA]]
+  # END history-atlas-representative-superset-20261105

@@ -120,3 +120,16 @@ topics:
   - [migration, "Migration and refugees", thread]
   - [globalization, "Globalization", obvious]
   - [sport_and_play, "Sport and play", thread]
+
+  # BEGIN history-atlas-representative-superset-20261105
+  # Cross-cutting coverage threads identified in the related-work comparison.
+  - [forager_foodways, "Foraging, gathering and local food systems", neglected]
+  - [indigenous_agriculture, "Independent Indigenous agriculture and cultivation", neglected]
+  - [everyday_life, "Everyday life: households, crafts and communities", thread]
+  - [cotton_textiles, "Cotton, textiles and global labor", thread]
+  - [silver_circuits, "Silver and the early global economy", thread]
+  - [sikh_history, "Sikh communities and the Punjab", neglected]
+  - [decolonial_cooperation, "Asian-African solidarity and postcolonial diplomacy", thread]
+  - [war_civilians, "Civilian experiences of war and occupation", sober]
+  - [global_epidemics, "Epidemics, pandemics and public-health responses", sober]
+  # END history-atlas-representative-superset-20261105

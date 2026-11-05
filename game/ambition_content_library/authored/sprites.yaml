@@ -477,6 +477,16 @@ collections:
   - history_ox_carriage
   - history_rain_gauge
   - history_water_clock
+  - gharial
+  - rhesus_macaque
+  - history_country_boat
+  - history_air_car
+  - history_pit_loom
+  - history_muslin_bolts
+  - history_company_bales
+  - history_serampore_press
+  - history_shaheed_minar
+  - history_radio_1971
   - eigenghost
   - decomposing_specter
   - spectral_perturbation
@@ -827,6 +837,14 @@ collections:
   - history_sei_shonagon
   - history_king_sejong
   - history_jang_yeongsil
+  - history_muslin_weaver
+  - history_cotton_spinner
+  - history_ram_mohan_roy
+  - history_rani_lakshmibai
+  - history_rabindranath_tagore
+  - history_begum_rokeya
+  - history_language_student
+  - history_freedom_fighter_poet
   - station_dobbs
   - station_pippin
   - magical_celeste

@@ -316,6 +316,14 @@ npc_history_murasaki_shikibu
 npc_history_sei_shonagon
 npc_history_king_sejong
 npc_history_jang_yeongsil
+npc_history_muslin_weaver
+npc_history_cotton_spinner
+npc_history_ram_mohan_roy
+npc_history_rani_lakshmibai
+npc_history_rabindranath_tagore
+npc_history_begum_rokeya
+npc_history_language_student
+npc_history_freedom_fighter_poet
 
 [Guests from history and the studio]
 npc_genghis_can
@@ -495,6 +503,8 @@ asian_black_bear
 japanese_macaque
 clouded_leopard
 tanuki
+gharial
+rhesus_macaque
 
 [Mary-O's world]
 mary_o

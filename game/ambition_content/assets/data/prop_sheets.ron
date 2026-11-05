@@ -343,6 +343,17 @@
     "history_ox_carriage": (),
     "history_rain_gauge": (),
     "history_water_clock": (),
+    // Bengal (wave E, `targets/props/history_bengal_props.py`): a country boat,
+    // the air-car of Sultana's Dream, a pit loom and muslin, the Company's
+    // bales, a Serampore press, the Shaheed Minar and a radio of 1971.
+    "history_country_boat": (),
+    "history_air_car": (),
+    "history_pit_loom": (),
+    "history_muslin_bolts": (),
+    "history_company_bales": (),
+    "history_serampore_press": (),
+    "history_shaheed_minar": (),
+    "history_radio_1971": (),
     // The Story Stacks of the Art dimension (`targets/props/art_stacks_props.py`).
     // The doors of the Library of Endings are two covers of a book: the happy
     // ending in gold with a sun, the sad ending in deep blue with a moon and

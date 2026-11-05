@@ -440,10 +440,10 @@ nodes:
      countries: [IND], peoples: [tamils], topics: [india_empires, monumental_building]}
   - {id: mughal_agra, title: "Agra and the Mughals", region: north_india, years: [1526, 1707], status: planned, shape: hub,
      countries: [IND, PAK, BGD, AFG], peoples: [punjabis, bengalis], topics: [mughals, monumental_building, crops]}
-  - {id: bengal_muslin, title: "Dhaka muslin", region: north_india, years: [1600, 1850], status: planned,
+  - {id: bengal_muslin, title: "Dhaka muslin", region: north_india, years: [1600, 1850], status: built, room: history_dhaka_muslin,
      countries: [BGD, IND, GBR], peoples: [bengalis], topics: [industrial_revolution, colonialism, crops],
      note: "the cloth Britain copied and then undercut: the other end of the cotton mill"}
-  - {id: company_raj_1857, title: "The Company and 1857", region: north_india, years: [1757, 1858], status: planned, mode: archive,
+  - {id: company_raj_1857, title: "The Company and 1857", region: north_india, years: [1757, 1858], status: built, room: history_company_raj, mode: archive,
      countries: [IND, PAK, BGD, GBR], topics: [colonialism, indigenous_resistance, women_rulers], note: "Rani Lakshmibai; 'mutiny' or 'first war of independence'"}
   - {id: indenture_ships, title: "The indenture ships", region: indian_ocean, years: [1834, 1920], status: planned, shape: corridor,
      countries: [IND, MUS, TTO, GUY, SUR, FJI, ZAF, JAM], peoples: [indian_diaspora], topics: [indentured_labour, migration]}
@@ -451,7 +451,7 @@ nodes:
      countries: [IND, PAK, BGD, ZAF], topics: [nonviolence, decolonization]}
   - {id: partition_1947, title: "1947", region: north_india, years: [1947, 1948], status: planned, mode: sober,
      countries: [IND, PAK, BGD], peoples: [punjabis, bengalis], topics: [partition, migration]}
-  - {id: bangladesh_language, title: "The language movement and 1971", region: north_india, years: [1952, 1971], status: planned,
+  - {id: bangladesh_language, title: "The language movement and 1971", region: north_india, years: [1952, 1971], status: built, room: history_ekushey,
      countries: [BGD, PAK, IND], peoples: [bengalis], topics: [nationalism, scripts, genocide], note: "21 February, Mother Language Day"}
   - {id: everest_1953, title: "Everest, 1953", region: himalaya, years: [1953, 1953], status: candidate,
      countries: [NPL, NZL, IND, CHN], topics: [sport_and_play], note: "Tenzing Norgay and Edmund Hillary"}

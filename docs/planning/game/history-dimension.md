@@ -75,14 +75,14 @@ the record and sighs about the footnotes.
 
 ## The grid
 
-             C0       C1            C2              C3           C4          C5          C6     C7
+             C0       C1            C2              C3           C4          C5          C6     C7          C8
     R0 Americas       beringia      maize           olmecs       maya        taino       haiti
     R½ S. America                   andes           caral
     R1 East Asia      mammoth st.┐  yellow river    shang        silk road   song        steppe
     R1½ E. coasts     mammoth st.┘  jomon           taiwan       silla       joseon      heian
     R2 Oceania        sahul         highlands       lapita       wayfinders  rapa nui
     R2½ SE Asia       sulawesi      austronesians   dong son     srivijaya   angkor
-    R3 South Asia     south. route  mehrgarh        indus
+    R3 South Asia     south. route  mehrgarh        indus                                muslin company     ekushey
     R4 Europe         ice age       first farmers   megaliths    celts       vikings     sail   industrial
     R5 Med./SW Asia   levant        crescent        uruk         classical
     R6 Africa cradle  south. coast  green sahara    nile         aksum       timbuktu    benin  the fort
@@ -103,6 +103,8 @@ floor, over a tower of ledges in the lower room):
 | C3 | Taiwan and the Lapita voyagers | the Austronesians sail from Taiwan into the Pacific (this way was the atlas's road from the Shang court until Taiwan was built) |
 | C4 | the Silk Road and Silla | glass from Rome and Persia in Silla's tombs |
 | C5 | Song China and Joseon | printing: Song's movable type, then Korea's metal type |
+| C6 | Dhaka and the Age of Sail | the Company's ships carried the muslin to Europe |
+| C7 | the Company and the Industrial Age | Lancashire's machine cloth undercut Bengal's weavers |
 | C3 | the Nile and Uruk, Uruk and the megalith builders | Egypt and Sumer trade; tin comes south from the north |
 | C4 | Aksum and Rome, Rome and the Celts | the Red Sea trade; the frontier |
 
@@ -137,6 +139,9 @@ The rooms:
 | `history_angkor` | `history_angkor` | the baray engineer, Zhou Da-Guide | king cobra, saltwater crocodile | the West Baray's dike, the sandstone with its peg holes, the causeway over the moat, and Angkor Wat's three tiers |
 | `history_mehrgarh` | `history_indus` | the dentist of Mehrgarh | locust swarm, tiger | the terraces |
 | `history_indus_cities` | `history_indus` | the Priest-King (Probably) | indus unicorn, tiger | the unicorn seal on the granary roof (`history_unicorn_seal`, a pickup) opens the citadel gate |
+| `history_dhaka_muslin` | `history_dhaka_river` | the spinner, the muslin weaver | gharial, rhesus macaque | a country boat over the Buriganga; the loom; up the unfinished walls of Lalbagh fort; the way down to the Age of Sail (the Company's ships) |
+| `history_company_raj` | `history_calcutta` | Ram Mohan Roy, Rani Lakshmibai | gharial, rhesus macaque | sober signs: Plassey, the famine of 1770, 1857 and its two names; the ghat and Fort William's rampart; the way down to the Industrial Age (Lancashire's cloth) |
+| `history_ekushey` | `history_dhaka_spring` | Tagore, Begum Rokeya, a student of 1952, a poet of 1971 | rhesus macaque (the first half only) | Curzon Hall's arches; the air-car of Sultana's Dream over a dream's long drop; the Shaheed Minar and 21 February; 1971. No creatures near the memorial |
 | `history_jomon` | `history_jomon` | the flame potter, the chestnut keeper | Japanese macaque, Asian black bear | up the six chestnut posts of Sannai-Maruyama (a tower? a stage?) and over the shell mound; foragers who never farmed |
 | `history_taiwan` | `history_taiwan` | the jade carver of Fengtian, the farmer of Nankuanli | clouded leopard, coral crab | up the millet terraces; Fengtian jade; nine of the ten first branches of Austronesian; the way down to the Lapita |
 | `history_silla` | `history_gyeongju` | Queen Seondeok, the star watcher | tiger, Asian black bear | over the royal tomb mounds and up Cheomseongdae; the gold crowns; the way up to the Silk Road |
@@ -389,7 +394,7 @@ built room, then the links that make the world one. Each wave starts with
 | A, B | the Atlantic world; the Andes and Caral | BUILT |
 | C | **Southeast Asia** (C1 BUILT: Sulawesi, the Austronesian islands, Dong Son; C2 BUILT: Srivijaya, Borobudur, Angkor), the first cluster off the grid: Sulawesi's painted story (51,200 years), the Austronesians come to the islands, Dong Son and its drums (the Trưng sisters), the strait of Srivijaya (a corridor), Angkor (a hub), Borobudur (tall) | 680 million players with no room; it also replaces the Shang-to-Lapita shortcut with Taiwan, the true homeland |
 | D | **East Asia's other half** (D1 BUILT: Jōmon, Taiwan, Silla; a new floor, East Asia's coasts; D2 BUILT: Song Hangzhou, Joseon, Heian-kyō, with the cue "Ink and Silk"): Taiwan, the Austronesian homeland; Jōmon, among the first pots; Silla and Queen Seondeok's star tower; Heian-kyō; Kaifeng and Hangzhou (printing, paper money, the compass); King Sejong's letters | Japan and the two Koreas have no room; printing is an obvious topic |
-| E | **Bengal and the cotton**: Dhaka muslin (the other end of the cotton mill), the Company and 1857, the language movement and 1971 | Bangladesh (174 million); colonialism in South Asia |
+| E | **Bengal and the cotton** (E BUILT: a row on South Asia's floor, C6-C8): Dhaka muslin (the other end of the cotton mill), the Company and 1857, the language movement and 1971 | Bangladesh (174 million); colonialism in South Asia |
 | F | **Brazil and Amazonia**: the garden cities of the Amazon, Palmares (Zumbi and Dandara), Rio 1888 | Brazil (212 million); Afro-Brazilian and Amazonian peoples |
 | G | **Central Africa**: Ishango's counting bone, the kingdom of Kongo, Queen Nzinga, the Congo Free State (sober) | DR Congo (109 million), Angola; the Scramble |
 | H | **The revolutions** (a new column, H7): Philadelphia 1776, Paris 1789, the liberators (a corridor), Mexico 1810, Manila 1896, the Underground Railroad | four obvious topics at once, on four continents |

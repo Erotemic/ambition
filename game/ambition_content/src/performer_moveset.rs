@@ -83,9 +83,26 @@ const WIRE_RELEASES_S: f32 = WIRE_AT_S + LIFT_S;
 
 #[cfg(test)]
 mod tests {
+    /// Each normal she authors is timed to her stage-light art. A move she
+    /// borrows from the Pointed Polygon (the jab and its on-hit `jab2`) keeps
+    /// the archetype's timing even when it plays one of these clips, so the
+    /// normals are named by move id, not found by clip.
     #[test]
     fn normal_contact_windows_match_the_authored_light_and_pose_clock() {
         use ambition_entity_catalog::WindowTag;
+        const NORMALS: [(&str, &str); 11] = [
+            ("performer_tilt_forward", "attack_side"),
+            ("performer_tilt_up", "attack_up"),
+            ("performer_tilt_down", "attack_down"),
+            ("performer_smash_forward", "smash_forward"),
+            ("performer_smash_up", "smash_up"),
+            ("performer_smash_down", "smash_down"),
+            ("performer_air_neutral", "air_neutral"),
+            ("performer_air_forward", "air_forward"),
+            ("performer_air_back", "air_back"),
+            ("performer_air_up", "air_up"),
+            ("performer_air_down", "air_down"),
+        ];
         let library = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
             "../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/motion/humanoid/performer_stage_v1",
         );
@@ -93,24 +110,13 @@ mod tests {
             let path = library.join(folder).join(format!("{clip}.{kind}.json"));
             serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
         };
-        for mv in crate::authored_movesets::shipped("performer").moves {
-            let clip = mv.clip.clip.as_str();
-            if !matches!(
-                clip,
-                "attack_side"
-                    | "attack_up"
-                    | "attack_down"
-                    | "smash_forward"
-                    | "smash_up"
-                    | "smash_down"
-                    | "air_neutral"
-                    | "air_forward"
-                    | "air_back"
-                    | "air_up"
-                    | "air_down"
-            ) {
-                continue;
-            }
+        let moves = crate::authored_movesets::shipped("performer").moves;
+        for (id, clip) in NORMALS {
+            let mv = moves
+                .iter()
+                .find(|mv| mv.id == id)
+                .unwrap_or_else(|| panic!("her table has no `{id}`"));
+            assert_eq!(mv.clip.clip.as_str(), clip, "`{id}` plays its own clip");
             let animation = read("clips", clip, "clip");
             let effect = read("specs", clip, "spec");
             let frame_s = animation["sampling"]["frame_duration_ms"].as_f64().unwrap() / 1000.0;

@@ -24,6 +24,7 @@
                     ],
                     damage: {
                         "void_pointed_polygon_jab": [1],
+                        "void_pointed_polygon_jab2": [1],
                         "void_pointed_polygon_tilt_forward": [1],
                         "void_pointed_polygon_tilt_up": [1],
                         "void_pointed_polygon_tilt_down": [1],

@@ -425,7 +425,7 @@
                 // Then the leg: a kick, along the floor or down from over the
                 // player.
                 Telegraph(profile: Special("portal_kick"), duration: 0.9,
-                    telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.snort")))),
+                    telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.stomp")))),
                 Strike(profile: Special("portal_kick"), duration: 1.1),
                 Rest(duration: 0.6),
                 Select(table: [
@@ -439,7 +439,7 @@
                     // Near the giant: the leg.
                     (weight: 0.8, when: Some(PlayerNear), steps: [
                         Telegraph(profile: Special("portal_kick"), duration: 0.85,
-                            telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.snort")))),
+                            telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.stomp")))),
                         Strike(profile: Special("portal_kick"), duration: 1.1),
                         Rest(duration: 0.55),
                     ]),
@@ -465,7 +465,7 @@
                     // Hurt and near: the leg, then an arm.
                     (weight: 1.2, when: Some(HpBelow(0.86)), steps: [
                         Telegraph(profile: Special("portal_kick"), duration: 0.7,
-                            telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.snort")))),
+                            telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.stomp")))),
                         Strike(profile: Special("portal_kick"), duration: 1.0),
                         Rest(duration: 0.45),
                         Telegraph(profile: Special("portal_punch"), duration: 0.65,
@@ -555,13 +555,13 @@
                     // pair is the way up to its back again.
                     (weight: 0.9, when: Some(PlayerFar), steps: [
                         Telegraph(profile: Special("portal_kick"), duration: 0.85,
-                            telegraph: Some((pose: Some("side_sweep"), cue: Some("boss.gnu_ton.snort")))),
+                            telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.stomp")))),
                         Strike(profile: Special("portal_kick"), duration: 1.1),
                         Rest(duration: 0.7),
                     ]),
                     (weight: 0.7, when: Some(PlayerAbove), steps: [
                         Telegraph(profile: Special("portal_kick"), duration: 0.85,
-                            telegraph: Some((pose: Some("side_sweep"), cue: Some("boss.gnu_ton.snort")))),
+                            telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.stomp")))),
                         Strike(profile: Special("portal_kick"), duration: 1.1),
                         Rest(duration: 0.7),
                     ]),
@@ -1297,8 +1297,11 @@
     // engine's geometry strikes (their hitboxes are the engine's), each with a
     // clear telegraph, a committed strike and a punishable rest:
     // - the GRAPH-CUT SLASH: a huge sweep in front (`side_sweep`);
-    // - the ORTHOGONAL DOUBLE-SLASH (Gram-Schmidt): a level sweep, then at
-    //   once the cut square to it, a column (`side_sweep`, `hazard_column`);
+    // - the ORTHOGONAL DOUBLE-SLASH (Gram-Schmidt): a level sweep, then the
+    //   cut square to it, a column (`side_sweep`, `hazard_column`). The column
+    //   keeps its own tell (the edge-volley pose) after a short rest: a strike
+    //   takes its windup only from the telegraph of the same move just before
+    //   it, so without one the column would strike with no windup;
     // - the EDGE VOLLEY: its wing fires edges, columns of light
     //   (`hazard_column`);
     // - ENRAGE: a burst out of its whole body (`full_body_pulse`).
@@ -1367,6 +1370,9 @@
                 Telegraph(profile: Strike("side_sweep"), duration: 0.8,
                     telegraph: Some((pose: Some("ortho_slash"), cue: Some("enemy.gram_reaper.tell")))),
                 Strike(profile: Strike("side_sweep"), duration: 0.3),
+                Rest(duration: 0.3),
+                Telegraph(profile: Strike("hazard_column"), duration: 0.7,
+                    telegraph: Some((pose: Some("edge_volley"), cue: Some("enemy.gram_reaper.tell")))),
                 Strike(profile: Strike("hazard_column"), duration: 0.5),
                 Rest(duration: 1.5),
                 Telegraph(profile: Strike("side_sweep"), duration: 0.75,
@@ -1387,6 +1393,9 @@
                 Telegraph(profile: Strike("side_sweep"), duration: 0.6,
                     telegraph: Some((pose: Some("ortho_slash"), cue: Some("enemy.gram_reaper.tell")))),
                 Strike(profile: Strike("side_sweep"), duration: 0.3),
+                Rest(duration: 0.3),
+                Telegraph(profile: Strike("hazard_column"), duration: 0.7,
+                    telegraph: Some((pose: Some("edge_volley"), cue: Some("enemy.gram_reaper.tell")))),
                 Strike(profile: Strike("hazard_column"), duration: 0.5),
                 Rest(duration: 1.2),
             ]),

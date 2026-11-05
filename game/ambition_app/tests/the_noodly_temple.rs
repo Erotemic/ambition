@@ -393,6 +393,8 @@ fn a_player_walks_in_takes_the_four_keys_and_beats_the_monster() {
         let mut pad = Pad::new(&mut sim);
         walk_through(&mut pad, "noodly_nave").unwrap_or_else(|e| panic!("from the cistern to the nave: {e}"));
         walk_through(&mut pad, "noodly_belfry").unwrap_or_else(|e| panic!("from the nave to the belfry: {e}"));
+        // The low bell is behind the cracked wall.
+        break_the_cracked_wall(&mut pad);
         for bell in ["noodly_bell_1", "noodly_bell_2", "noodly_bell_3"] {
             turn(&mut pad, bell);
         }
@@ -471,6 +473,39 @@ fn a_player_walks_in_takes_the_four_keys_and_beats_the_monster() {
         eprintln!("[temple] the monster was beaten in {frames} frames");
     }
     assert!(beaten(sim.world()), "the save has the monster beaten");
+}
+
+/// Whether the belfry's cracked wall is broken.
+fn the_cracked_wall_is_broken(world: &mut bevy::prelude::World) -> bool {
+    world
+        .query::<(&ambition_platformer2d::combat::components::FeatureName, &ambition_platformer2d::breakables::BreakableFeature)>()
+        .iter(world)
+        .find(|(name, _)| name.0.as_str() == "a cracked wall")
+        .map(|(_, wall)| wall.broken())
+        .expect("the belfry has its cracked wall")
+}
+
+/// Break the belfry's cracked wall with the player's own inputs. Its foot is
+/// level with the head of a body on the ledge east of it, so the body stands
+/// there, jumps, and swings west at the top of the jump.
+fn break_the_cracked_wall(pad: &mut crate::common::walk::Pad<'_>) {
+    use crate::common::walk::{Press, Walker as _, walk_to};
+    // On the ledge (y 1264), beside the wall's east face (x 432).
+    walk_to(pad, ambition_platformer2d::engine_core::Vec2::new(452.0, 1264.0))
+        .unwrap_or_else(|e| panic!("to the cracked wall: {e}"));
+    let mut swings = 0;
+    while !the_cracked_wall_is_broken(pad.world_mut()) {
+        assert!(swings < 12, "the cracked wall did not break after {swings} swings");
+        pad.step(Press { jump_pressed: true, jump_held: true, axis: -1.0, ..Press::default() });
+        for _ in 0..10 {
+            pad.step(Press { jump_held: true, axis: -1.0, ..Press::default() });
+        }
+        pad.step(Press { jump_held: true, axis: -1.0, attack: true, ..Press::default() });
+        for _ in 0..40 {
+            pad.step(Press::default());
+        }
+        swings += 1;
+    }
 }
 
 /// Where the key that sets `flag` lies in the live room.

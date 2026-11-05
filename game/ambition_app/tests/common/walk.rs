@@ -352,7 +352,18 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
     let mut into_the_exit = false;
     for step in 0..FRAMES_FOR_A_ROOM {
         if exit.as_ref().is_some_and(|exit| the_players_room_id(walker.world(), player) == exit.target) {
-            return Ok(step);
+            // The walk ends when the crossing has settled. Until then the
+            // arriving room has not published its feature solids (breakables,
+            // gates), and a graph built over it would walk through them.
+            let mut settle = 0;
+            while settle < FRAMES_FOR_A_ROOM
+                && *walker.world().resource::<bevy::prelude::State<ambition_platformer2d::platformer::schedule::GameMode>>().get()
+                    == ambition_platformer2d::platformer::schedule::GameMode::RoomTransition
+            {
+                walker.step(Press::default());
+                settle += 1;
+            }
+            return Ok(step + settle);
         }
         let world = walker.world();
         // A cutscene holds the seat's input, and a dialogue beat waits for a

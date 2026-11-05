@@ -425,6 +425,7 @@ built room, then the links that make the world one. Each wave starts with
 | A, B | the Atlantic world; the Andes and Caral | BUILT |
 | C | **Southeast Asia** (C1 BUILT: Sulawesi, the Austronesian islands, Dong Son; C2 BUILT: Srivijaya, Borobudur, Angkor), the first cluster off the grid: Sulawesi's painted story (51,200 years), the Austronesians come to the islands, Dong Son and its drums (the Trưng sisters), the strait of Srivijaya (a corridor), Angkor (a hub), Borobudur (tall) | 680 million players with no room; it also replaces the Shang-to-Lapita shortcut with Taiwan, the true homeland |
 | D | **East Asia's other half** (D1 BUILT: Jōmon, Taiwan, Silla; a new floor, East Asia's coasts; D2 BUILT: Song Hangzhou, Joseon, Heian-kyō, with the cue "Ink and Silk"): Taiwan, the Austronesian homeland; Jōmon, among the first pots; Silla and Queen Seondeok's star tower; Heian-kyō; Kaifeng and Hangzhou (printing, paper money, the compass); King Sejong's letters | Japan and the two Koreas have no room; printing is an obvious topic |
+| D3 | **Japan, after Heian** (next): Kamakura and the Mongol fleets of 1274 and 1281 (east of the steppe; Takezaki Suenaga's scroll), Edo (Hokusai, Bashō, the river of shops at Nihonbashi; dressed with the ninja village's houses, tea house and bridge, and one ninja who admits the black suit came from the theatre), Meiji (Tsuda Umeko; the railway of 1872); later: Nara, the Ryukyu kingdom, Ainu Mosir, and Hiroshima in wave I | Japan (124 million) has only Jōmon and Heian; a Japanese player should find their history, not only ninjas |
 | E | **Bengal and the cotton** (E BUILT: a row on South Asia's floor, C6-C8): Dhaka muslin (the other end of the cotton mill), the Company and 1857, the language movement and 1971 | Bangladesh (174 million); colonialism in South Asia |
 | F | **Brazil and Amazonia**: the garden cities of the Amazon, Palmares (Zumbi and Dandara), Rio 1888 | Brazil (212 million); Afro-Brazilian and Amazonian peoples |
 | G | **Central Africa**: Ishango's counting bone, the kingdom of Kongo, Queen Nzinga, the Congo Free State (sober) | DR Congo (109 million), Angola; the Scramble |
@@ -469,6 +470,19 @@ a hole; its report says how big.
 7. Names a player knows. A native name gets the familiar one beside it the
    first time it appears (Boriken, Puerto Rico; Ayiti, Haiti and the
    Dominican Republic). Each room has its blurb: where, when, one fact.
+
+8. Reuse before you draw (Jon, 2026-11-04: "we can reuse assets, I saw we
+   made a new cassowary rather than reuse the existing one, it would have
+   been fine to do that if the asset fits well. I.e. we can reuse lots of
+   ninja dimension stuff for japan, but make sure its not all ninjas - we
+   do have respect for history."). Before an art brief names a new
+   creature, prop or biome, search the renderer's targets and the
+   character catalog for one that fits (`cassowary` existed when
+   `cassowary_history` was drawn). Reuse it when it fits the place and the
+   time; draw a new one only when nothing fits. Another dimension's art may
+   dress a History room (the ninja village's houses, tea house, storehouse,
+   bridge and kiln for Edo), but the room is still history: its people and
+   its signs are real, and a borrowed joke enemy is at most one of many.
 
 ### Ideas for mechanics
 
